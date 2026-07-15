@@ -205,8 +205,8 @@ describe('comment API', () => {
     const payload = encodeAnonymousCredentialIssueRequest({
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 3,
-      circuitId: 'zk-comment-v2',
+      publicInputLayoutVersion: 4,
+      circuitId: 'fsus.anonymous.comment.v3',
       credentialLevel: 'strong_anonymous',
       credentialRequest: new Uint8Array([1, 2, 3]),
       clientNonce: new Uint8Array([4, 5])
@@ -215,9 +215,9 @@ describe('comment API', () => {
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
     expect(view.getBigInt64(0, true)).toBe(20260618n)
     expect(view.getUint32(8, true)).toBe(7)
-    expect(view.getUint16(12, true)).toBe(3)
+    expect(view.getUint16(12, true)).toBe(4)
     const blob = payload.subarray(52)
-    expect(readSliceText(payload, blob, 16)).toBe('zk-comment-v2')
+    expect(readSliceText(payload, blob, 16)).toBe('fsus.anonymous.comment.v3')
     expect(readSliceText(payload, blob, 24)).toBe('strong_anonymous')
     expect([...readSliceBytes(payload, blob, 32)]).toEqual([1, 2, 3])
     expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5])
@@ -227,8 +227,8 @@ describe('comment API', () => {
     const payload = encodeAnonymousCredentialRevocationWitnessRequest({
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 3,
-      circuitId: 'zk-comment-v2',
+      publicInputLayoutVersion: 4,
+      circuitId: 'fsus.anonymous.comment.v3',
       issuerPublicKeyHash: 'issuer-hash',
       revocationRoot: new Uint8Array([1, 2, 3]),
       revocationHandleHash: new Uint8Array([4, 5, 6])
@@ -237,9 +237,9 @@ describe('comment API', () => {
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
     expect(view.getBigInt64(0, true)).toBe(20260618n)
     expect(view.getUint32(8, true)).toBe(7)
-    expect(view.getUint16(12, true)).toBe(3)
+    expect(view.getUint16(12, true)).toBe(4)
     const blob = payload.subarray(52)
-    expect(readSliceText(payload, blob, 16)).toBe('zk-comment-v2')
+    expect(readSliceText(payload, blob, 16)).toBe('fsus.anonymous.comment.v3')
     expect(readSliceText(payload, blob, 24)).toBe('issuer-hash')
     expect([...readSliceBytes(payload, blob, 32)]).toEqual([1, 2, 3])
     expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5, 6])
@@ -253,13 +253,12 @@ describe('comment API', () => {
       replyToCommentId: '80',
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 3,
+      publicInputLayoutVersion: 4,
       anonymousScope: 'article:42',
-      circuitId: 'zk-comment-v2',
+      circuitId: 'fsus.anonymous.comment.v3',
       actionContext: 'comment.create',
       verifyingKeyHash: 'a'.repeat(64),
       nullifierHash: new Uint8Array([9, 10]),
-      credentialCommitment: new Uint8Array([21, 22]),
       credentialRoot: new Uint8Array([23, 24]),
       revocationRoot: new Uint8Array([25, 26]),
       credentialLevel: 'strong_anonymous',
@@ -278,20 +277,19 @@ describe('comment API', () => {
     expect(view.getBigInt64(24, true)).toBe(80n)
     expect(view.getBigInt64(32, true)).toBe(20260618n)
     expect(view.getUint32(40, true)).toBe(7)
-    expect(view.getUint16(44, true)).toBe(3)
-    const blob = payload.subarray(148)
+    expect(view.getUint16(44, true)).toBe(4)
+    const blob = payload.subarray(140)
     expect(readSliceText(payload, blob, 48)).toBe('comment.create')
     expect(readSliceText(payload, blob, 56)).toBe('article:42')
-    expect(readSliceText(payload, blob, 64)).toBe('zk-comment-v2')
+    expect(readSliceText(payload, blob, 64)).toBe('fsus.anonymous.comment.v3')
     expect(readSliceText(payload, blob, 72)).toBe('a'.repeat(64))
     expect([...readSliceBytes(payload, blob, 80)]).toEqual([9, 10])
-    expect([...readSliceBytes(payload, blob, 88)]).toEqual([21, 22])
-    expect([...readSliceBytes(payload, blob, 96)]).toEqual([23, 24])
-    expect([...readSliceBytes(payload, blob, 104)]).toEqual([25, 26])
-    expect(readSliceText(payload, blob, 112)).toBe('strong_anonymous')
-    expect(readSliceText(payload, blob, 120)).toBe('rep:low')
-    expect([...readSliceBytes(payload, blob, 128)]).toEqual([11, 12])
-    expect([...readSliceBytes(payload, blob, 136)]).toEqual([13, 14])
+    expect([...readSliceBytes(payload, blob, 88)]).toEqual([23, 24])
+    expect([...readSliceBytes(payload, blob, 96)]).toEqual([25, 26])
+    expect(readSliceText(payload, blob, 104)).toBe('strong_anonymous')
+    expect(readSliceText(payload, blob, 112)).toBe('rep:low')
+    expect([...readSliceBytes(payload, blob, 120)]).toEqual([11, 12])
+    expect([...readSliceBytes(payload, blob, 128)]).toEqual([13, 14])
     expect(new TextDecoder().decode(payload)).not.toContain('alice')
   })
 
@@ -401,13 +399,12 @@ describe('comment API', () => {
       replyToCommentId: '80',
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 3,
+      publicInputLayoutVersion: 4,
       anonymousScope: 'article:42',
-      circuitId: 'comment.v2',
+      circuitId: 'fsus.anonymous.comment.v3',
       actionContext: 'comment.create',
       verifyingKeyHash: 'a'.repeat(64),
       nullifierHash: new Uint8Array([9, 10]),
-      credentialCommitment: new Uint8Array([21, 22]),
       credentialRoot: new Uint8Array([23, 24]),
       revocationRoot: new Uint8Array([25, 26]),
       credentialLevel: 'strong_anonymous',
@@ -438,8 +435,8 @@ describe('comment API', () => {
     await getAnonymousCredentialRevocationWitness({
       credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 3,
-      circuitId: 'comment.v2',
+      publicInputLayoutVersion: 4,
+      circuitId: 'fsus.anonymous.comment.v3',
       issuerPublicKeyHash: 'issuer-hash',
       revocationRoot: new Uint8Array([1, 2]),
       revocationHandleHash: new Uint8Array([3, 4])

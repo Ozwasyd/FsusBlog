@@ -1,6 +1,6 @@
-# anonymous comment v2 circuit source
+# anonymous comment v3 circuit source
 
-This directory contains the self-authored `fsus.anonymous.comment.v2` circuit
+This historically named directory contains the self-authored `fsus.anonymous.comment.v3` circuit
 source used to generate the repository R1CS IR artifact.
 
 The source intentionally uses no GPL circuit code and no external JS packages.
@@ -15,6 +15,7 @@ The generated artifact is deterministic and hash-bound in
 `security/zk/comment-v2-circuit.manifest.json` and
 `security/zk/comment-v2-trusted-setup.manifest.json`.
 
-This is not a trusted setup result. Production remains fail-closed until #552
-generates and verifies the real Groth16 proving/verifying keys and transcripts
-from the generated R1CS boundary.
+This is not a trusted setup result. Removing the public credential commitment
+invalidated every v2/layout 3 phase-2 artifact; production remains fail-closed
+until a fresh v3/layout 4 Groth16 ceremony generates and verifies new
+proving/verifying keys and transcripts from the generated R1CS boundary.

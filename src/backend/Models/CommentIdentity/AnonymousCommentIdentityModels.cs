@@ -70,7 +70,6 @@ public sealed record ZkProofVerificationRequest(
     ushort PublicInputLayoutVersion,
     long CredentialEpoch,
     string NullifierHash,
-    string CredentialCommitment,
     string CredentialRoot,
     string CredentialLevel,
     string ReputationBucket,
@@ -87,7 +86,6 @@ public sealed record ZkProofVerificationRequest(
         PublicInputLayoutVersion > 0 &&
         CredentialEpoch > 0 &&
         !string.IsNullOrWhiteSpace(NullifierHash) &&
-        !string.IsNullOrWhiteSpace(CredentialCommitment) &&
         !string.IsNullOrWhiteSpace(CredentialRoot) &&
         !string.IsNullOrWhiteSpace(CredentialLevel) &&
         !string.IsNullOrWhiteSpace(ReputationBucket) &&
@@ -152,7 +150,6 @@ public sealed record CommentActorResolveRequest(
     byte[]? ZkProof,
     string? SubmitRegion,
     string? NullifierHash = null,
-    string? CredentialCommitment = null,
     string? CredentialRoot = null,
     long CredentialEpoch = 0,
     string? CircuitId = null,

@@ -28,7 +28,6 @@ public sealed class AnonymousCommentTicketServiceTests
 {
     private static readonly byte[] Nullifier = Enumerable.Repeat((byte)0xA1, 32).ToArray();
     private static readonly byte[] Proof = Enumerable.Repeat((byte)0xB2, 64).ToArray();
-    private static readonly byte[] CredentialCommitment = Enumerable.Repeat((byte)0xB3, 32).ToArray();
     private static readonly byte[] CredentialRoot = Enumerable.Repeat((byte)0xC3, 32).ToArray();
     private static readonly byte[] RevocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
     private static readonly string VerifyingKeyHash = new('e', 64);
@@ -56,7 +55,6 @@ public sealed class AnonymousCommentTicketServiceTests
         PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
         CredentialEpoch: 20260619,
         NullifierHash: Convert.ToHexStringLower(Nullifier),
-        CredentialCommitment: Convert.ToHexStringLower(CredentialCommitment),
         CredentialRoot: Convert.ToHexStringLower(CredentialRoot),
         CredentialLevel: "strong_anonymous",
         ReputationBucket: "rep:low",
@@ -368,7 +366,6 @@ public sealed class AnonymousCommentTicketServiceTests
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: VerifyingKeyHash,
             NullifierHash: Nullifier,
-            CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             RevocationRoot: RevocationRoot,
             CredentialLevel: "strong_anonymous",
@@ -385,7 +382,6 @@ public sealed class AnonymousCommentTicketServiceTests
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             CredentialEpoch: 20260619,
             NullifierHash: Convert.ToHexStringLower(Nullifier),
-            CredentialCommitment: Convert.ToHexStringLower(CredentialCommitment),
             CredentialRoot: Convert.ToHexStringLower(CredentialRoot),
             CredentialLevel: "strong_anonymous",
             ReputationBucket: "rep:low",

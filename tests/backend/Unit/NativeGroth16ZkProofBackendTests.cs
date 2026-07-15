@@ -23,14 +23,13 @@ public sealed class MclGroth16TestCollection
 [Collection(MclGroth16TestCollection.Name)]
 public sealed class NativeGroth16ZkProofBackendTests
 {
-    private const string CircuitId = "fsus.anonymous.comment.v2";
+    private const string CircuitId = "fsus.anonymous.comment.v3";
     private static readonly string CredentialRoot = new('e', 64);
     private static readonly string RevocationRoot = new('8', 64);
     private static readonly string IssuerPublicKeyHash = new('f', 64);
     private const long CredentialEpoch = 7;
-    private const ushort PublicInputLayoutVersion = 3;
+    private const ushort PublicInputLayoutVersion = 4;
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    private const string CredentialCommitment = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private static readonly string PolicyHash = new('9', 64);
 
     [Fact]
@@ -491,7 +490,6 @@ public sealed class NativeGroth16ZkProofBackendTests
             PublicInputLayoutVersion: PublicInputLayoutVersion,
             CredentialEpoch: CredentialEpoch,
             NullifierHash: NullifierHash,
-            CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             CredentialLevel: "trusted",
             ReputationBucket: "trusted",
@@ -509,7 +507,6 @@ public sealed class NativeGroth16ZkProofBackendTests
             PublicInputLayoutVersion: PublicInputLayoutVersion,
             CredentialEpoch: CredentialEpoch,
             NullifierHash: NullifierHash,
-            CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             CredentialLevel: "trusted",
             ReputationBucket: "trusted",

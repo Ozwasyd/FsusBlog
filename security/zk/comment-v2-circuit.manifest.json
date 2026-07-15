@@ -1,7 +1,7 @@
 {
   "schema": "fsusblog.zk.circuit-manifest.v1",
-  "circuit_id": "fsus.anonymous.comment.v2",
-  "public_input_layout_version": 3,
+  "circuit_id": "fsus.anonymous.comment.v3",
+  "public_input_layout_version": 4,
   "proof_system": "Groth16",
   "curve": "bn254",
   "credential_scheme": "circuit-native-credential-v2",
@@ -9,20 +9,20 @@
   "production_usable": false,
   "action_context": "comment.create",
   "domain_separators": {
-    "nullifier_prf": "fsus.anonymous.comment.v2:nullifier:v1",
-    "scope_binding": "fsus.anonymous.comment.v2:scope:v1",
-    "policy_binding": "fsus.anonymous.comment.v2:policy:v1"
+    "nullifier_prf": "fsus.anonymous.comment.v3:nullifier:v1",
+    "scope_binding": "fsus.anonymous.comment.v3:scope:v1",
+    "policy_binding": "fsus.anonymous.comment.v3:policy:v1"
   },
   "public_inputs": [
     {
       "name": "public_input_layout_version",
       "type": "u16",
-      "constraint": "equals 3"
+      "constraint": "equals 4"
     },
     {
       "name": "circuit_id",
       "type": "domain-separated-field",
-      "constraint": "equals fsus.anonymous.comment.v2"
+      "constraint": "equals fsus.anonymous.comment.v3"
     },
     {
       "name": "action_context",
@@ -38,11 +38,6 @@
       "name": "nullifier_hash",
       "type": "field",
       "constraint": "Poseidon credential_secret/action_context/scope output"
-    },
-    {
-      "name": "credential_commitment",
-      "type": "field",
-      "constraint": "public commitment opened by credential witness"
     },
     {
       "name": "credential_root",
@@ -171,8 +166,27 @@
     {
       "id": "identity_non_disclosure",
       "statement": "account identity fields are absent from public inputs and private witness"
+    },
+    {
+      "id": "presentation_unlinkability",
+      "statement": "public inputs contain no credential-specific stable identifier other than the scope-bound nullifier"
     }
   ],
+  "forbidden_public_presentation_fields": [
+    "credential_commitment",
+    "revocation_handle",
+    "issuer_audit_id",
+    "credential_leaf_index",
+    "stable_witness_hash",
+    "stable_presentation_key"
+  ],
+  "transcript_unlinkability": {
+    "sample_scope_count": 100,
+    "same_scope_nullifier_stable": true,
+    "different_scope_nullifier_unique": true,
+    "complete_wire_transcript_checked": true,
+    "credential_specific_stable_fields_allowed": []
+  },
   "forbidden_identity_fields": [
     "userId",
     "user_id",
@@ -192,20 +206,20 @@
   },
   "r1cs_source": {
     "path": "circuits/anonymous-comment-v2/comment_v2.circuit.json",
-    "sha256": "4cb33f7cfbf69e82b753bce8ed209c68fc2722188fcbb0cda54c1336bbed3328",
+    "sha256": "5b4ef7c9f7e21290ea5e7a9095a9e80be6f9e6b7ef082900eba34b82dae103f6",
     "builder": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
     "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check"
   },
   "constraint_metrics": {
     "estimated_constraints": 125920,
     "estimated_witness_signals": 53320,
-    "estimated_public_inputs": 14,
+    "estimated_public_inputs": 13,
     "estimated_proving_key_bytes": 192000000,
     "estimated_wasm_prover_p95_ms": 2400
   },
   "artifact_hashes": {
-    "r1cs_sha256": "0791cb18906c83168f619b35c1a170e8630073ffe72b73f1ca7f0a785a1eea54",
-    "groth16_r1cs_sha256": "89e31970f35a67d6bf6b7655ccba7439d0af4f0acf7e5a40205a83d808ce41aa"
+    "r1cs_sha256": "5b8e9c4183771add8ceac671b62861d84d9c687852742ddfd4a5da703b86d175",
+    "groth16_r1cs_sha256": "79ae10c3f824872d4bf7db78c587b42b890b52f7aabaeec349ab102168781a5a"
   },
   "artifact_paths": {
     "r1cs": "artifacts/zk/comment-v2/comment_v2.r1cs",

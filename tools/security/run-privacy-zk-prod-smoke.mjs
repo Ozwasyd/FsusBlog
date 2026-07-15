@@ -30,7 +30,8 @@ const REQUIRED_EVIDENCE_ARTIFACTS = [
   ['wasmProver', 'wasmProverSha256'],
   ['proofFixture', null],
   ['publicInputs', null],
-  ['tamperCases', null]
+  ['tamperCases', null],
+  ['unlinkabilityTranscripts', null]
 ]
 const WASM_PROVER_P95_MS_MAX = 3000
 const NATIVE_VERIFIER_P99_MS_MAX = 50
@@ -207,11 +208,11 @@ function validateRealGroth16Evidence(evidence) {
   if (normalizeString(evidence.evidenceKind) !== REAL_EVIDENCE_KIND) {
     errors.push(`real smoke evidence must declare evidenceKind=${REAL_EVIDENCE_KIND}.`)
   }
-  if (normalizeString(evidence.circuitId) !== 'fsus.anonymous.comment.v2') {
-    errors.push('real smoke evidence circuitId must be fsus.anonymous.comment.v2.')
+  if (normalizeString(evidence.circuitId) !== 'fsus.anonymous.comment.v3') {
+    errors.push('real smoke evidence circuitId must be fsus.anonymous.comment.v3.')
   }
-  if (Number(evidence.publicInputLayoutVersion) !== 3) {
-    errors.push('real smoke evidence publicInputLayoutVersion must be 3.')
+  if (Number(evidence.publicInputLayoutVersion) !== 4) {
+    errors.push('real smoke evidence publicInputLayoutVersion must be 4.')
   }
   if (normalizeString(evidence.proofSystem) !== 'Groth16') {
     errors.push('real smoke evidence proofSystem must be Groth16.')
@@ -241,7 +242,11 @@ function validateRealGroth16Evidence(evidence) {
     'frontendProofGenerated',
     'backendProofVerified',
     'publicInputsMatch',
-    'tamperCasesRejected'
+    'tamperCasesRejected',
+    'completeTranscriptUnlinkableAcrossScopes',
+    'sameScopeNullifierStable',
+    'differentScopeNullifiersUnique',
+    'legacyLayoutRejected'
   ]) {
     if (crossStack[key] !== true) {
       errors.push(`real smoke evidence crossStack.${key}=true is required.`)
@@ -249,6 +254,9 @@ function validateRealGroth16Evidence(evidence) {
   }
   if (evidence.hashingFixtureUsed === true || crossStack.hashingFixtureUsed === true) {
     errors.push('real smoke evidence must not use hashingFixtureUsed=true.')
+  }
+  if (!Number.isSafeInteger(Number(crossStack.sampledScopes)) || Number(crossStack.sampledScopes) < 100) {
+    errors.push('real smoke evidence crossStack.sampledScopes must be at least 100.')
   }
 
   const performance = isObject(evidence.performance) ? evidence.performance : {}

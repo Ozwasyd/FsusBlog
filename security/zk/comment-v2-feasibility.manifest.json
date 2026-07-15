@@ -1,7 +1,7 @@
 {
   "schema": "fsusblog.zk.comment-v2-feasibility.v1",
-  "circuit_id": "fsus.anonymous.comment.v2",
-  "public_input_layout_version": 3,
+  "circuit_id": "fsus.anonymous.comment.v3",
+  "public_input_layout_version": 4,
   "status": "resolved",
   "selected_candidate": "circuit-native-credential-v2",
   "reason": "comment.v2 removes the BBS compatibility layer and uses a circuit-native credential signature so browser proving stays inside the committed Groth16 performance budget",
@@ -132,8 +132,8 @@
         "source": "Poseidon hash and circuit-native Schnorr signature budget model"
       },
       "required_changes": [
-        "new circuit id fsus.anonymous.comment.v2",
-        "public input layout version 3",
+        "new circuit id fsus.anonymous.comment.v3",
+        "public input layout version 4",
         "replace BBS issuer and frontend blind-signing provider",
         "run a fresh trusted setup for comment.v2"
       ]

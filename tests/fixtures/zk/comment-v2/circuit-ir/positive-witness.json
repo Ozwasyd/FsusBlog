@@ -1,5 +1,5 @@
 {
-  "circuit_id": "fsus.anonymous.comment.v2",
+  "circuit_id": "fsus.anonymous.comment.v3",
   "deterministic_test_vector": true,
   "no_real_user_data": true,
   "private_witness": {
@@ -13,18 +13,17 @@
     "signed_credential_level": "2fbb3b8d55f8db94b5922d53129b8a6daf0609df285b7e41c29e7f17982777a3",
     "signed_reputation_bucket": "33b17e4d8286dc3f74e94ebef7cd75e1d6ef6cbc6ef8b70f1a50e24ef63ed323"
   },
-  "public_input_layout_version": 3,
+  "public_input_layout_version": 4,
   "public_inputs": {
     "action_context": "comment.create",
-    "circuit_id": "fsus.anonymous.comment.v2",
-    "credential_commitment": "9a16803fdf3296eafaa6e090a150e652345a21e3ad69da4305e52b0d1b4b354a",
+    "circuit_id": "fsus.anonymous.comment.v3",
     "credential_epoch": 7,
     "credential_level": "trusted",
     "credential_root": "bb0e78ccd8860548f47e780468f21be8a2ec0b711a1dc2c6613e3594aa041437",
     "issuer_public_key_hash": "fd96f81f56453a6df7be1424c05c55ffa02c4185a0cfd9dec8a811db874dfa6d",
     "nullifier_hash": "09f1df5e4af3681ab96888ea72f88901b583be67a64d3b0e447d2c60cb184414",
     "policy_hash": "1b9d0e9043f85b5ad40cc1f6a436819a934fefa19f02600af0a1d6de407e1541",
-    "public_input_layout_version": 3,
+    "public_input_layout_version": 4,
     "reputation_bucket": "trusted",
     "revocation_root": "17962b9ecb89530a40a27f6d22014d7fb8718aa014323ca082ff332f648e6b68",
     "scope": "article:42",

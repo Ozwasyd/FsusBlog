@@ -3,8 +3,8 @@ cryptoDecision:
   adr: docs/architecture/decisions/ADR-ZK-CircuitNative-Groth16.md
   credentialScheme: circuit-native-credential-v2
   proofSystem: Groth16 anonymous comment proof
-  circuit_id: fsus.anonymous.comment.v2
-  public_input_layout_version: 3
+  circuit_id: fsus.anonymous.comment.v3
+  public_input_layout_version: 4
   verifying_key_hash: trusted setup vk hash binding
   nullifier: nullifier = PRF(credential_secret, action_context, scope)
   credentialRoot: credential root membership for active or grace epoch
@@ -15,7 +15,7 @@ scenarios:
     scenario: comment.v2 Groth16 circuit contract fixes public inputs, private witness, soundness cases and identity non-disclosure
     owner: ServerContractAgent
     status: automated
-    requiredCases: [circuit-native-credential-possession, credential-root-membership, revocation-non-membership-witness, nullifier-secret-action-scope-binding, policy-bucket-legality, no-userId-username-inputs, tamper-nullifier-scope-root-revocation-reject]
+    requiredCases: [circuit-native-credential-possession, credential-root-membership, revocation-non-membership-witness, nullifier-secret-action-scope-binding, policy-bucket-legality, no-userId-username-inputs, no-stable-credential-public-input, complete-wire-transcript-unlinkability-100-scopes, legacy-layout-fail-closed, tamper-nullifier-scope-root-revocation-reject]
     localCommands: [check:privacy-zk-contract]
     code:
       - docs/zk/anonymous-comment-v2-circuit.md
@@ -23,11 +23,14 @@ scenarios:
       - security/zk/comment-v2-tamper-cases.manifest.json
       - security/zk/comment-v2-feasibility.manifest.json
       - tools/crypto/check-zk-comment-v2-manifests.mjs
+      - tools/security/check-zk-comment-v2-unlinkability.mjs
     tests:
       - tests/security/zk-comment-v2-manifest.test.mjs
+      - tests/security/zk-comment-v2-unlinkability.test.mjs
       - tools/crypto/check-zk-comment-v2-manifests.mjs
     evidence:
       - .tmp/security/zk-comment-v2-manifest.json
+      - .tmp/security/comment-v3-unlinkability.json
 
   - id: PRIVACY-ZK-TRUSTED-SETUP
     scenario: comment.v2 trusted setup and verifying key manifests are fail-closed until real pk/vk/transcripts are supplied
@@ -153,7 +156,7 @@ scenarios:
     scenario: production ZK smoke validates native verifier, browser prover evidence, ticket issue, anonymous submit and pending DB state without identity headers or sensitive payload logs
     owner: ServerContractAgent
     status: optional-gate
-    requiredCases: [happy-path-smoke, cookie-contamination-negative-smoke, ticket-replay-negative-smoke, tampered-proof-negative-smoke, feature-flag-off-expected-unavailable, cross-scope-nullifier-independence-smoke, real-native-verifier-wasm-prover-evidence, proof-ticket-credential-redacted]
+    requiredCases: [happy-path-smoke, cookie-contamination-negative-smoke, ticket-replay-negative-smoke, tampered-proof-negative-smoke, feature-flag-off-expected-unavailable, cross-scope-nullifier-independence-smoke, complete-transcript-unlinkability-100-scopes, legacy-layout-rejected, real-native-verifier-wasm-prover-evidence, proof-ticket-credential-redacted]
     localCommands: [check:privacy-zk-prod-smoke, check:privacy-zk-prod-release]
     code:
       - tools/security/run-privacy-zk-prod-smoke.mjs

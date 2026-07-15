@@ -49,7 +49,6 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
         "public_input_layout_version",
         "credential_epoch",
         "nullifier_hash",
-        "credential_commitment",
         "credential_root",
         "revocation_root",
         "issuer_public_key_hash",

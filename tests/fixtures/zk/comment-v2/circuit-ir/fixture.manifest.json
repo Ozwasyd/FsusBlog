@@ -2,22 +2,22 @@
   "artifacts": {
     "positive_witness": {
       "path": "tests/fixtures/zk/comment-v2/circuit-ir/positive-witness.json",
-      "sha256": "8a19a9575d502ac185bb4e07261903828698f027bf97e3f2a92b409881a37366"
+      "sha256": "23527739acd522106f681aefa0f0f20b6913f745885b2f85f4ca69f107c618d5"
     },
     "proof_fixture": {
       "path": "tests/fixtures/zk/comment-v2/circuit-ir/proof-fixture.json",
-      "sha256": "2749515cac9c7a972c6ca6b37e84ca9119509a4e6135a6bfc809be2426850e22"
+      "sha256": "cfd7249bdf5a52340f874b519f3dc8e9cd006405e45e8b4f2c0244b92f067f5d"
     },
     "tamper_results": {
       "path": "tests/fixtures/zk/comment-v2/circuit-ir/tamper-results.json",
-      "sha256": "e081216b52965b4e3b4178b76c598a8c8ee747d3295a8a03e92cebcdf32923e8"
+      "sha256": "9d3f9d4fd4a7245146c6c08fc26fbea84212a53782263885308f7e7e9cac2adb"
     }
   },
-  "circuit_id": "fsus.anonymous.comment.v2",
+  "circuit_id": "fsus.anonymous.comment.v3",
   "evidence_kind": "deterministic-circuit-ir-witness-v1",
   "groth16_ceremony_input": false,
   "groth16_proof": false,
   "production_usable": false,
-  "public_input_layout_version": 3,
+  "public_input_layout_version": 4,
   "schema": "fsusblog.zk.comment-v2-circuit-ir-fixture.v1"
 }

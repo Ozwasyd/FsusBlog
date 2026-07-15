@@ -8,8 +8,8 @@
     "backendGolden": "tests/backend/Fixtures/aeds-golden-catalog.json"
   },
   "anonymousPrivacyContract": {
-    "circuitId": "fsus.anonymous.comment.v2",
-    "publicInputLayoutVersion": 3,
+    "circuitId": "fsus.anonymous.comment.v3",
+    "publicInputLayoutVersion": 4,
     "maxCircuitNativeIssuerSignatureBytes": 256,
     "maxCircuitNativeCredentialRequestBytes": 256,
     "maxGroth16ProofBytes": 4096,

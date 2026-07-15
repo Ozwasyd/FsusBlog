@@ -83,7 +83,6 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
           circuitId: metadata.circuitId,
           verifyingKeyHash: metadata.verifyingKeyHash,
           nullifierHash: proof.nullifierHash,
-          credentialCommitment: metadata.credentialCommitment,
           credentialRoot: metadata.credentialRoot,
           revocationRoot: metadata.revocationRoot,
           credentialLevel: metadata.credentialLevel,
@@ -162,7 +161,6 @@ function hasTicketMetadata(metadata: CommentPrivacyMetadata): metadata is Commen
   circuitId: string
   verifyingKeyHash: string
   policyHash: string
-  credentialCommitment: Uint8Array
   credentialRoot: Uint8Array
   revocationRoot: Uint8Array
   credentialLevel: string
@@ -174,8 +172,6 @@ function hasTicketMetadata(metadata: CommentPrivacyMetadata): metadata is Commen
     Boolean(metadata.circuitId) &&
     Boolean(metadata.verifyingKeyHash) &&
     Boolean(metadata.policyHash) &&
-    metadata.credentialCommitment instanceof Uint8Array &&
-    metadata.credentialCommitment.byteLength > 0 &&
     metadata.credentialRoot instanceof Uint8Array &&
     metadata.credentialRoot.byteLength > 0 &&
     metadata.revocationRoot instanceof Uint8Array &&

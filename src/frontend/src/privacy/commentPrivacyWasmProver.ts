@@ -39,7 +39,7 @@ const DEFAULT_MANIFEST_URL = '/wasm/comment-privacy-prover.manifest.json'
 const ARTIFACT_UNAVAILABLE = 'comment_privacy_prover_artifact_unavailable'
 const ARTIFACT_INVALID = 'comment_privacy_prover_artifact_invalid'
 const PROOF_FAILED = 'comment_privacy_prover_failed'
-const PUBLIC_INPUT_TRANSCRIPT_DOMAIN = 'fsus.anonymous.comment.v2.public-inputs'
+const PUBLIC_INPUT_TRANSCRIPT_DOMAIN = 'fsus.anonymous.comment.v3.public-inputs'
 const COMMENT_ACTION_CONTEXT = 'comment.create'
 const BROWSER_PROVER_MODULE_GLOBAL = '__fsusCommentPrivacyProverModule'
 const browserProverScriptLoads = new Map<string, Promise<unknown>>()
@@ -458,7 +458,6 @@ function encodeNativeGroth16PublicInputs(
   writeUInt16(chunks, request.publicInputLayoutVersion ?? 0)
   writeInt64(chunks, request.credentialEpoch ?? 0)
   writeString(chunks, bytesToHex(nullifierHash))
-  writeString(chunks, bytesToHex(toRequiredBytes(request.credentialCommitment, 'credentialCommitment')))
   writeString(chunks, bytesToHex(toRequiredBytes(request.credentialRoot, 'credentialRoot')))
   writeString(chunks, bytesToHex(toRequiredBytes(request.revocationRoot, 'revocationRoot')))
   writeString(chunks, request.issuerPublicKeyHash ?? '')

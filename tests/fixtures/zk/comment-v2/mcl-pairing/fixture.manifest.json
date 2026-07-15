@@ -1,7 +1,7 @@
 {
   "schema": "fsusblog.zk.comment-v2-cross-stack-fixture.v1",
-  "circuit_id": "fsus.anonymous.comment.v2",
-  "public_input_layout_version": 3,
+  "circuit_id": "fsus.anonymous.comment.v3",
+  "public_input_layout_version": 4,
   "evidence_kind": "mcl-groth16-pairing-equation",
   "backend_verifier": "managed:mcl",
   "hashing_fixture_used": false,
@@ -16,15 +16,15 @@
     },
     "proof": {
       "path": "tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.proof",
-      "sha256": "8d6ed3bc3ff7b2051e89d57ec4c5a1a4c7471841c759ea975afe18f0ef54d0f3"
+      "sha256": "93e2ba5a7dfc9fc3a00281ebdcc8bc1e5dfdb4b63be81b028e553f3588a3eb18"
     },
     "public_inputs": {
       "path": "tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.public_inputs",
-      "sha256": "5c6a11257f797f8a97cc423afa8acf9ca8957755cb72e52b1043516d227b54f0"
+      "sha256": "24a7a2326e1caf91ea1ebf327fdf0ab1fb9e33a63cc8b1fddb922fb8a2205d2e"
     },
     "tamper_cases": {
       "path": "tests/fixtures/zk/comment-v2/mcl-pairing/tamper-cases.json",
-      "sha256": "a14ab2744dc83d6e3d2b2db4eaada5e1caddacb6b01cf8fa59ea7e4de4ce4ec3"
+      "sha256": "23759cfe06ed20519506953611efbb2602361737a920dcc314f3cb3e374a1add"
     }
   }
 }

@@ -560,7 +560,6 @@ public static partial class PodBinaryCodec
     {
         var payload = new ArrayBufferWriter<byte>(
             1024 +
-            (request.CredentialCommitment?.Length ?? 0) +
             (request.CredentialRoot?.Length ?? 0) +
             (request.RevocationRoot?.Length ?? 0) +
             (request.Groth16Proof?.Length ?? 0) +
@@ -587,7 +586,6 @@ public static partial class PodBinaryCodec
             CircuitId = PodUtf8Codec.AppendSlice(request.CircuitId, payload),
             VerifyingKeyHash = PodUtf8Codec.AppendSlice(request.VerifyingKeyHash, payload),
             NullifierHash = AppendBytes(request.NullifierHash ?? [], payload),
-            CredentialCommitment = AppendBytes(request.CredentialCommitment ?? [], payload),
             CredentialRoot = AppendBytes(request.CredentialRoot ?? [], payload),
             RevocationRoot = AppendBytes(request.RevocationRoot ?? [], payload),
             CredentialLevel = PodUtf8Codec.AppendSlice(request.CredentialLevel, payload),
@@ -626,7 +624,6 @@ public static partial class PodBinaryCodec
             pod.CircuitId,
             pod.VerifyingKeyHash,
             pod.NullifierHash,
-            pod.CredentialCommitment,
             pod.CredentialRoot,
             pod.RevocationRoot,
             pod.CredentialLevel,
@@ -641,7 +638,6 @@ public static partial class PodBinaryCodec
             !SliceLengthAtMost(pod.Scope, AnonymousPrivacyContract.MaxScopeBytes) ||
             !SliceLengthAtMost(pod.VerifyingKeyHash, AnonymousPrivacyContract.MaxVerifyingKeyHashBytes) ||
             !SliceLengthAtMost(pod.NullifierHash, AnonymousPrivacyContract.MaxNullifierHashBytes) ||
-            !SliceLengthAtMost(pod.CredentialCommitment, AnonymousPrivacyContract.MaxCredentialCommitmentBytes) ||
             !SliceLengthAtMost(pod.CredentialRoot, AnonymousPrivacyContract.MaxCredentialRootBytes) ||
             !SliceLengthAtMost(pod.RevocationRoot, AnonymousPrivacyContract.MaxRevocationRootBytes) ||
             !SliceLengthAtMost(pod.CredentialLevel, AnonymousPrivacyContract.MaxCredentialLevelBytes) ||
@@ -666,7 +662,6 @@ public static partial class PodBinaryCodec
             PodProjector.ReadSlice(pod.CircuitId, payload),
             PodProjector.ReadSlice(pod.VerifyingKeyHash, payload),
             ReadBytes(pod.NullifierHash, payload),
-            ReadBytes(pod.CredentialCommitment, payload),
             ReadBytes(pod.CredentialRoot, payload),
             ReadBytes(pod.RevocationRoot, payload),
             PodProjector.ReadSlice(pod.CredentialLevel, payload),
@@ -1661,7 +1656,6 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CircuitId;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef VerifyingKeyHash;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef NullifierHash;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialCommitment;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialRoot;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RevocationRoot;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialLevel;

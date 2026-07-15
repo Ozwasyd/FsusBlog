@@ -21,8 +21,8 @@ test('comment v2 MCL pairing fixture materializes verifier, proof, public inputs
   const manifest = JSON.parse(readFileSync(fixtureManifestPath, 'utf8'))
 
   assert.equal(manifest.schema, 'fsusblog.zk.comment-v2-cross-stack-fixture.v1')
-  assert.equal(manifest.circuit_id, 'fsus.anonymous.comment.v2')
-  assert.equal(manifest.public_input_layout_version, 3)
+  assert.equal(manifest.circuit_id, 'fsus.anonymous.comment.v3')
+  assert.equal(manifest.public_input_layout_version, 4)
   assert.equal(manifest.evidence_kind, 'mcl-groth16-pairing-equation')
   assert.equal(manifest.backend_verifier, 'managed:mcl')
   assert.equal(manifest.hashing_fixture_used, false)
@@ -122,10 +122,20 @@ test('comment v2 MCL tool writes self-written trusted setup artifacts and manife
   }
 })
 
-test('comment v2 browser wasm prover bundle emits proof accepted by the MCL backend binding', async () => {
+test('comment v3 browser wasm prover bundle requires a fresh setup before cross-stack verification', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'fsus-zk-comment-v2-wasm-proof-'))
   const previousFetch = globalThis.fetch
   try {
+    const vkConfig = JSON.parse(readFileSync(path.join(repoRoot, 'config/zk/anonymous-comment-v2-verifying-key.manifest.json'), 'utf8'))
+    assert.equal(vkConfig.circuit_id, 'fsus.anonymous.comment.v3')
+    assert.equal(vkConfig.public_input_layout_version, 4)
+    if (vkConfig.production_usable !== true) {
+      assert.equal(vkConfig.artifact_status, 'setup-required')
+      assert.equal(vkConfig.verifying_key_hash, '')
+      assert.equal(existsSync(path.join(repoRoot, vkConfig.verifying_key_path)), false)
+      return
+    }
+
     const manifestPath = path.join(publicWasmRoot, 'comment-privacy-prover.manifest.json')
     const modulePath = path.join(publicWasmRoot, 'comment-privacy-prover.js')
     const wasmPath = path.join(publicWasmRoot, 'comment_privacy_runtime.wasm')
@@ -135,7 +145,6 @@ test('comment v2 browser wasm prover bundle emits proof accepted by the MCL back
     }
 
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-    const vkConfig = JSON.parse(readFileSync(path.join(repoRoot, 'config/zk/anonymous-comment-v2-verifying-key.manifest.json'), 'utf8'))
     globalThis.fetch = async (url) => {
       const normalized = String(url)
       if (normalized === '/wasm/comment-privacy-prover.zkey') {
@@ -160,12 +169,11 @@ test('comment v2 browser wasm prover bundle emits proof accepted by the MCL back
       metadataBytes: new Uint8Array([1, 2, 3]),
       credentialEpoch: 7,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 3,
-      circuitId: 'fsus.anonymous.comment.v2',
+      publicInputLayoutVersion: 4,
+      circuitId: 'fsus.anonymous.comment.v3',
       verifyingKeyHash: vkConfig.verifying_key_hash,
       issuerPublicKeyHash: 'f'.repeat(64),
       policyHash: '9'.repeat(64),
-      credentialCommitment: new Uint8Array(32).fill(0xbb),
       credentialRoot: encoder.encode('credential-root-active'),
       revocationRoot: encoder.encode('revocation-root-active'),
       circuitMetadata: encoder.encode('comment-v2-cross-stack'),

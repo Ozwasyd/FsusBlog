@@ -27,8 +27,8 @@ proof.
   response enforcement; verifier implementations must reject high-S responses,
   non-curve points, and non-prime-order subgroup points.
 - Proof system: Groth16.
-- Comment circuit id: `fsus.anonymous.comment.v2`.
-- Public input layout: `public_input_layout_version = 3`.
+- Comment circuit id: `fsus.anonymous.comment.v3`.
+- Public input layout: `public_input_layout_version = 4`.
 - Verifying key binding: `verifying_key_hash` is the trusted setup vk hash and
   must be bound to circuit id, layout version, credential root metadata, and
   runtime verifier configuration.
@@ -97,7 +97,7 @@ state.
 
 ## Circuit And Trusted Setup
 
-`fsus.anonymous.comment.v2` covers the anonymous comment ticket proof only. It
+`fsus.anonymous.comment.v3` covers the anonymous comment ticket proof only. It
 does not authenticate users, issue credentials, moderate comments, or grant
 admin permissions.
 
@@ -154,6 +154,10 @@ The Groth16 proof and verifier establish only these seven assertions:
    moderation metadata, and provider payloads do not expose user id, username,
    public handle, credential secret, witness, or a reversible
    credential-to-account mapping.
+8. presentation unlinkability: credential possession and membership remain
+   private witness constraints; no credential commitment, serial, issuer record
+   id, or equivalent stable equality tag appears in public inputs or ticket wire
+   data. Only the scope-bound nullifier is stable within the same scope.
 
 The proof does not assert comment quality, legal acceptability, human
 authorship, absence of spam, geographic visibility, or admin approval.
@@ -165,8 +169,8 @@ this ADR:
 
 - `AnonymousIdentity:ZkAnonymousCommentsEnabled=true`.
 - Production verifier enabled and configured with
-  `circuit_id = "fsus.anonymous.comment.v2"`.
-- `public_input_layout_version = 3`.
+  `circuit_id = "fsus.anonymous.comment.v3"`.
+- `public_input_layout_version = 4`.
 - Final trusted setup `verifying_key_hash` present and matching active root
   metadata.
 - Active or grace credential root and revocation root present.
@@ -200,7 +204,10 @@ moderation correlation data to an external operator.
 
 ## Consequences
 
-- Downstream contract work uses `fsus.anonymous.comment.v2` and layout version 3.
+- Downstream contract work uses `fsus.anonymous.comment.v3` and layout version 4.
+- The v2/layout 3 phase-2 key and transcripts are incompatible and must never
+  be selected by runtime configuration. Production remains fail-closed until a
+  fresh v3 ceremony and credential-root rotation complete.
 - BBS-specific production issuer/provider paths are retired rather than kept as
   compatibility code.
 - Root rotation, revocation, moderation, anti-spam, and audit paths may use

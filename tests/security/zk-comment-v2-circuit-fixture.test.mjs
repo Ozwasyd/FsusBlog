@@ -14,8 +14,8 @@ test('comment v2 circuit IR fixture materializes positive witness and rejects ev
   const tamperManifest = readJson(tamperManifestPath)
 
   assert.equal(manifest.schema, 'fsusblog.zk.comment-v2-circuit-ir-fixture.v1')
-  assert.equal(manifest.circuit_id, 'fsus.anonymous.comment.v2')
-  assert.equal(manifest.public_input_layout_version, 3)
+  assert.equal(manifest.circuit_id, 'fsus.anonymous.comment.v3')
+  assert.equal(manifest.public_input_layout_version, 4)
   assert.equal(manifest.evidence_kind, 'deterministic-circuit-ir-witness-v1')
   assert.equal(manifest.production_usable, false)
   assert.equal(manifest.groth16_ceremony_input, false)
@@ -40,7 +40,6 @@ test('comment v2 circuit IR fixture materializes positive witness and rejects ev
     'action_context',
     'scope',
     'nullifier_hash',
-    'credential_commitment',
     'credential_root',
     'revocation_root',
     'credential_epoch',

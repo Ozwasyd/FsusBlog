@@ -271,7 +271,7 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
           verifyingKeyHash: ticketMetadata.verifyingKeyHash,
           issuerPublicKeyHash: ticketMetadata.issuerPublicKeyHash,
           policyHash: ticketMetadata.policyHash,
-          credentialCommitment: ticketMetadata.credentialCommitment,
+          credentialCommitment: credentialMaterial?.credentialCommitment,
           credentialRoot: ticketMetadata.credentialRoot,
           revocationRoot: ticketMetadata.revocationRoot,
           circuitMetadata: ticketMetadata.circuitMetadata,
@@ -379,7 +379,6 @@ function attachCredentialMaterial(
 
   return {
     ...metadata,
-    credentialCommitment: new Uint8Array(credential.credentialCommitment),
     credentialLevel: credential.credentialLevel || metadata.credentialLevel,
     reputationBucket: credential.reputationBucket || metadata.reputationBucket
   }

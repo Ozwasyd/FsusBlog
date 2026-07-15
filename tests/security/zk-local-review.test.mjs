@@ -125,8 +125,8 @@ function withReviewFixture(mutate, run) {
     const testPath = writeFile(dir, 'tests/local-review-fixture.test', 'local deterministic fixture\n')
     const manifest = {
       schema: 'fsusblog.zk.local-cryptographic-review.v1',
-      circuit_id: 'fsus.anonymous.comment.v2',
-      public_input_layout_version: 3,
+      circuit_id: 'fsus.anonymous.comment.v3',
+      public_input_layout_version: 4,
       status: 'complete',
       review_complete: true,
       assurance_model: 'repository-local-reproducible-review',

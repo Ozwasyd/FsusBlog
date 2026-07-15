@@ -102,7 +102,7 @@ test('comment v2 feasibility manifest records the selected circuit-native creden
   const feasibility = readJson(feasibilityPath)
 
   assert.equal(feasibility.schema, 'fsusblog.zk.comment-v2-feasibility.v1')
-  assert.equal(feasibility.circuit_id, 'fsus.anonymous.comment.v2')
+  assert.equal(feasibility.circuit_id, 'fsus.anonymous.comment.v3')
   assert.equal(feasibility.status, 'resolved')
   assert.equal(feasibility.selected_candidate, 'circuit-native-credential-v2')
   assert.equal(feasibility.current_boundary.credential_scheme, 'circuit-native-credential-v2')
@@ -189,7 +189,6 @@ test('comment v2 circuit contract has required public inputs, witness and no ide
     'action_context',
     'scope',
     'nullifier_hash',
-    'credential_commitment',
     'credential_root',
     'revocation_root',
     'credential_epoch',
@@ -204,6 +203,9 @@ test('comment v2 circuit contract has required public inputs, witness and no ide
   assert.ok(privateWitness.includes('issuer_signature_public_key'))
   assert.ok(privateWitness.includes('credential_membership_proof'))
   assert.ok(privateWitness.includes('revocation_non_membership_witness'))
+  assert.ok(circuit.security_assertions.some((entry) => entry.id === 'presentation_unlinkability'))
+  assert.equal(circuit.transcript_unlinkability.sample_scope_count, 100)
+  assert.deepEqual(circuit.transcript_unlinkability.credential_specific_stable_fields_allowed, [])
 
   const combinedNames = [...publicInputs, ...privateWitness].join('\n')
   assert.doesNotMatch(combinedNames, /userId|user_id|username|public_handle|account_id|session_id/)
@@ -241,8 +243,8 @@ test('comment v2 circuit source and generated R1CS artifact are hash-bound', () 
 
   const sourceDocument = readJson(source.path)
   assert.equal(sourceDocument.schema, 'fsusblog.zk.comment-v2-circuit-source.v1')
-  assert.equal(sourceDocument.circuit_id, 'fsus.anonymous.comment.v2')
-  assert.equal(sourceDocument.public_input_layout_version, 3)
+  assert.equal(sourceDocument.circuit_id, 'fsus.anonymous.comment.v3')
+  assert.equal(sourceDocument.public_input_layout_version, 4)
   assert.equal(sourceDocument.proof_system, 'Groth16')
   assert.equal(sourceDocument.curve, 'bn254')
 

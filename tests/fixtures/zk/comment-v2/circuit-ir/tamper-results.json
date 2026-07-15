@@ -30,9 +30,8 @@
         "valid_circuit_native_credential",
         "current_credential_root"
       ],
-      "id": "tamper-credential-commitment",
+      "id": "tamper-credential-opening",
       "mutates": [
-        "credential_commitment",
         "credential_opening"
       ],
       "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
@@ -155,6 +154,18 @@
     },
     {
       "covers": [
+        "presentation_unlinkability"
+      ],
+      "id": "inject-credential-commitment-public-input",
+      "mutates": [
+        "public_inputs.credential_commitment"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "presentation_unlinkability",
+      "status": "rejected"
+    },
+    {
+      "covers": [
         "valid_circuit_native_credential",
         "current_credential_root"
       ],
@@ -191,8 +202,8 @@
       "status": "rejected"
     }
   ],
-  "circuit_id": "fsus.anonymous.comment.v2",
-  "public_input_layout_version": 3,
+  "circuit_id": "fsus.anonymous.comment.v3",
+  "public_input_layout_version": 4,
   "schema": "fsusblog.zk.comment-v2-circuit-ir-tamper-results.v1",
   "valid_case": {
     "covers": [
@@ -202,7 +213,8 @@
       "qualification_policy",
       "nullifier_prf_binding",
       "credential_bucket_legality",
-      "identity_non_disclosure"
+      "identity_non_disclosure",
+      "presentation_unlinkability"
     ],
     "id": "valid-comment-v2-witness",
     "status": "accepted"

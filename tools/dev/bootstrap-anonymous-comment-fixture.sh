@@ -39,8 +39,8 @@ BOOTSTRAP_EVIDENCE="$FIXTURE_DIR/anonymous-root-evidence.json"
 cat > "$TRUSTED_SETUP_MANIFEST" <<JSON
 {
   "schema": "fsusblog.zk.trusted-setup-manifest.v1",
-  "circuit_id": "fsus.anonymous.comment.v2",
-  "public_input_layout_version": 3,
+  "circuit_id": "fsus.anonymous.comment.v3",
+  "public_input_layout_version": 4,
   "production_usable": true,
   "ceremony_status": "verified",
   "verifying_key_hash": "$DEV_VERIFYING_KEY_HASH"
@@ -50,8 +50,8 @@ JSON
 cat > "$VERIFYING_KEY_MANIFEST" <<JSON
 {
   "schema": "fsusblog.zk.verifying-key-config.v1",
-  "circuit_id": "fsus.anonymous.comment.v2",
-  "public_input_layout_version": 3,
+  "circuit_id": "fsus.anonymous.comment.v3",
+  "public_input_layout_version": 4,
   "production_usable": true,
   "verifying_key_hash": "$DEV_VERIFYING_KEY_HASH"
 }
@@ -64,9 +64,9 @@ cat > "$BOOTSTRAP_INPUT" <<JSON
   "credentialRootHash": "$DEV_CREDENTIAL_ROOT_HASH",
   "revocationRootHash": "$DEV_REVOCATION_ROOT_HASH",
   "issuerPublicKeyHash": "$DEV_ISSUER_PUBLIC_KEY_HASH",
-  "circuitId": "fsus.anonymous.comment.v2",
+  "circuitId": "fsus.anonymous.comment.v3",
   "circuitNumericId": 1,
-  "publicInputLayoutVersion": 3,
+  "publicInputLayoutVersion": 4,
   "verifyingKeyHash": "$DEV_VERIFYING_KEY_HASH",
   "expiresAt": "2036-07-08T00:00:00Z",
   "graceExpiresAt": "2036-08-08T00:00:00Z",

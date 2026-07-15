@@ -1,13 +1,11 @@
-# fsus.anonymous.comment.v2 circuit contract
+# fsus.anonymous.comment.v3 circuit contract
 
-Status: circuit source, deterministic R1CS IR, binary Groth16 R1CS handoff
-artifact, self-written verified setup artifacts, canonical verifying key, final
-proving key, and browser WASM prover bundle are present and hash-bound. The
-committed `comment_v2.r1cs` file is still a repository IR artifact, not a binary
-Groth16 ceremony input; phase-2 verification uses
-`comment_v2_groth16.r1cs`. ZK-Prod remains disabled by default and can only be
-enabled through the production smoke/release gates, issuer readiness, root
-bootstrap evidence, and runtime configuration.
+Status: the v3/layout 4 circuit source, deterministic R1CS IR and binary
+Groth16 R1CS handoff are present and hash-bound. Removing the stable public
+credential commitment changed the statement, so every v2/layout 3 proving key,
+verifying key and transcript is invalid for this contract. The v3 setup
+manifest is deliberately `not-run` and ZK-Prod remains fail-closed until a new
+ceremony, browser prover, root rotation and release evidence all pass.
 
 ## Issue #551 production circuit status
 
@@ -61,8 +59,8 @@ The manifest checker enforces that boundary:
 | Static checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |
 | MCL platform asset checker | `tools/security/check-mcl-platform-assets.mjs` |
 
-The circuit id is `fsus.anonymous.comment.v2`. The public input layout version
-is `3`. Any change to public input order, meaning, encoding, or count requires a
+The circuit id is `fsus.anonymous.comment.v3`. The public input layout version
+is `4`. Any change to public input order, meaning, encoding, or count requires a
 new layout version and a new circuit-specific ceremony.
 
 ## Public Inputs
@@ -71,12 +69,11 @@ The public input list is intentionally coarse and identity-free:
 
 | Name | Meaning |
 | --- | --- |
-| `public_input_layout_version` | Constant layout discriminator, currently `3`. |
-| `circuit_id` | `fsus.anonymous.comment.v2`. |
+| `public_input_layout_version` | Constant layout discriminator, currently `4`. |
+| `circuit_id` | `fsus.anonymous.comment.v3`. |
 | `action_context` | Must equal `comment.create`. |
 | `scope` | Comment replay scope, for example `article:42`. |
 | `nullifier_hash` | Public nullifier constrained by the private credential secret and scope. |
-| `credential_commitment` | Public commitment to the held anonymous credential. |
 | `credential_root` | Active or grace credential membership root for the epoch. |
 | `revocation_root` | Revocation accumulator root for non-membership. |
 | `credential_epoch` | Epoch bound to the root snapshot and credential. |
@@ -87,14 +84,16 @@ The public input list is intentionally coarse and identity-free:
 | `verifying_key_hash` | SHA-256 binding for the final canonical verifying key bytes. |
 
 `userId`, `user_id`, `username`, public handle, account id, session id, IP
-address, device fingerprint, and cookies are not public inputs.
+address, device fingerprint, cookies, credential commitment, credential serial,
+issuer record id, and any other cross-scope stable credential value are not
+public inputs.
 
 The runtime native verifier transcript is the byte output of
 `NativeGroth16PublicInputCodec`: domain
-`fsus.anonymous.comment.v2.public-inputs`, then length-prefixed UTF-8 /
+`fsus.anonymous.comment.v3.public-inputs`, then length-prefixed UTF-8 /
 little-endian scalar fields for `action_context`, `scope`, `circuit_id`,
 `verifying_key_hash`, `public_input_layout_version`, `credential_epoch`,
-`nullifier_hash`, `credential_commitment`, `credential_root`,
+`nullifier_hash`, `credential_root`,
 `revocation_root`, `issuer_public_key_hash`, `policy_hash`,
 `credential_level`, and `reputation_bucket`. The browser wasm prover must
 return exactly those bytes as `publicInputs`; the ticket service rebuilds the
@@ -106,6 +105,7 @@ policy snapshot hash, then rejects mismatches before native verification.
 The witness contract is:
 
 - `credential_secret`
+- credential commitment/opening material used only inside the private witness
 - circuit-native issuer signature over the credential attributes
 - issuer signature public key used inside the circuit
 - credential opening material
@@ -168,7 +168,7 @@ acceptability, admin authorization, account login status, or rate-limit state.
 
 ```text
 nullifier_hash = Poseidon(
-  domain = "fsus.anonymous.comment.v2:nullifier:v1",
+  domain = "fsus.anonymous.comment.v3:nullifier:v1",
   credential_secret,
   action_context,
   scope
@@ -177,8 +177,16 @@ nullifier_hash = Poseidon(
 
 The same credential secret and same scope must produce a stable nullifier so the
 server can reject replay inside the scope. Different scopes must produce
-unlinkable nullifiers. The server must never derive a nullifier from user id,
-session, proof token, issuer audit rows, IP address, or device state.
+different nullifiers. The canonical transcript must not contain a stable
+credential equality tag, so two presentations cannot be linked by comparing a
+credential commitment field. The server must never derive a nullifier from user
+id, session, proof token, issuer audit rows, IP address, or device state.
+
+`tools/security/check-zk-comment-v2-unlinkability.mjs` deterministically samples
+100 scopes, verifies same-scope stability and cross-scope nullifier uniqueness,
+and scans the ticket/public-input codecs for forbidden stable credential fields.
+This is repository-local reproducible contract evidence, not a production
+ceremony, independent audit, or live deployment claim.
 
 ## Soundness Matrix
 
@@ -209,21 +217,23 @@ trusted setup artifacts, browser prover bundle, or release evidence.
 Production smoke evidence must not use the native hashing fixture as readiness
 proof. `tools/security/run-privacy-zk-prod-smoke.mjs --real-evidence
 --require-real` and `tools/security/check-privacy-zk-prod-release.mjs` require
-`evidenceKind=real-groth16-cross-stack`, `circuitId=fsus.anonymous.comment.v2`,
-layout version `3`, `proofSystem=Groth16`, a 64-char `verifyingKeyHash`, and
+`evidenceKind=real-groth16-cross-stack`, `circuitId=fsus.anonymous.comment.v3`,
+layout version `4`, `proofSystem=Groth16`, a 64-char `verifyingKeyHash`, and
 SHA-256 bindings for the R1CS, proving key, canonical verifying key bytes,
 native verifier, and wasm prover artifact.
 
 Those bindings are not accepted as paper-only hashes. The evidence must also
 include local `artifacts.*.path` plus `artifacts.*.sha256` entries for `r1cs`,
 `provingKey`, `verifyingKey`, `nativeVerifier`, `wasmProver`, `proofFixture`,
-`publicInputs`, and `tamperCases`. The smoke and release gates recalculate
+`publicInputs`, `tamperCases`, and `unlinkabilityTranscripts`. The smoke and release gates recalculate
 SHA-256 from those files; the first five artifact entries must match the
 corresponding `artifactHashes` fields.
 
 The same evidence must state that the frontend wasm prover generated the proof,
 the backend native verifier accepted it, public inputs matched byte-for-byte,
 all tamper cases rejected, `hashingFixtureUsed=false`,
+at least 100 sampled scopes, stable same-scope nullifiers, distinct cross-scope
+nullifiers, complete transcript unlinkability, and legacy layout rejection,
 `performance.wasmProverP95Ms<=3000`, and
 `performance.nativeVerifierP99Ms<=50`. Release checks bind the evidence
 `verifyingKeyHash` to production config, trusted setup manifest, and the

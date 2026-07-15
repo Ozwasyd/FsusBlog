@@ -37,7 +37,6 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
     private const uint CircuitNumericId = 7;
     private static readonly byte[] CredentialRoot = Enumerable.Repeat((byte)0xC3, 32).ToArray();
     private static readonly byte[] RevocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
-    private static readonly byte[] CredentialCommitment = SHA256.HashData("fixture-circuit-native-credential-commitment"u8.ToArray());
     private static readonly string IssuerPublicKeyHash = new('f', 64);
     private static readonly string PolicyHash = AnonymousCommentPolicySnapshotHash.Compute(AnonymousCommentPolicySnapshot.Default with
     {
@@ -287,7 +286,6 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: temp.VerifyingKeySha256,
             NullifierHash: nullifier,
-            CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             RevocationRoot: RevocationRoot,
             CredentialLevel: "strong_anonymous",
@@ -316,7 +314,6 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             CredentialEpoch: CredentialEpoch,
             NullifierHash: Hex(nullifier),
-            CredentialCommitment: Hex(CredentialCommitment),
             CredentialRoot: Hex(CredentialRoot),
             CredentialLevel: "strong_anonymous",
             ReputationBucket: "rep-low",
@@ -335,7 +332,6 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             CredentialEpoch: CredentialEpoch,
             NullifierHash: Hex(nullifier),
-            CredentialCommitment: Hex(CredentialCommitment),
             CredentialRoot: Hex(CredentialRoot),
             CredentialLevel: "strong_anonymous",
             ReputationBucket: "rep-low",

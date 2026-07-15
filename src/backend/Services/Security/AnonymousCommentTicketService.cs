@@ -102,7 +102,6 @@ public sealed class AnonymousCommentTicketService(
 
         AnonymousCredentialRootSnapshotCoreModel root = rootResult.Value;
         string nullifierHash = Convert.ToHexStringLower(request.NullifierHash);
-        string credentialCommitment = Convert.ToHexStringLower(request.CredentialCommitment);
         string credentialRoot = Convert.ToHexStringLower(request.CredentialRoot);
         string revocationRoot = Convert.ToHexStringLower(request.RevocationRoot);
         string issuerPublicKeyHash = root.IssuerPublicKeyHash;
@@ -110,8 +109,7 @@ public sealed class AnonymousCommentTicketService(
         string reputationBucket = NormalizeRequiredToken(request.ReputationBucket, DefaultReputationBucket, 64);
         AnonymousCommentPolicySnapshot policy = await policyService.GetCurrentAsync(cancellationToken);
         string policyHash = AnonymousCommentPolicySnapshotHash.Resolve(policy);
-        if (!IsHexHash(credentialCommitment, minLength: 32, maxLength: 128) ||
-            !IsHexHash(issuerPublicKeyHash, minLength: 32, maxLength: 128) ||
+        if (!IsHexHash(issuerPublicKeyHash, minLength: 32, maxLength: 128) ||
             !IsHexHash(policyHash, minLength: 64, maxLength: 64) ||
             !SecurityStringComparisons.FixedTimeEqualsHex(issuerPublicKeyHash, root.IssuerPublicKeyHash))
         {
@@ -126,7 +124,6 @@ public sealed class AnonymousCommentTicketService(
             request.PublicInputLayoutVersion,
             request.CredentialEpoch,
             nullifierHash,
-            credentialCommitment,
             credentialRoot,
             credentialLevel,
             reputationBucket,
@@ -242,8 +239,6 @@ public sealed class AnonymousCommentTicketService(
             request.PublicInputs.Length is 0 or > MaxPublicInputsBytes ||
             request.NullifierHash is null ||
             request.NullifierHash.Length is < MinHashBytes or > MaxHashBytes ||
-            request.CredentialCommitment is null ||
-            request.CredentialCommitment.Length is < MinHashBytes or > MaxHashBytes ||
             request.CredentialRoot is null ||
             request.CredentialRoot.Length is < MinHashBytes or > MaxHashBytes ||
             request.RevocationRoot is null ||
@@ -288,7 +283,6 @@ public sealed class AnonymousCommentTicketService(
             proofRequest.PublicInputLayoutVersion,
             proofRequest.CredentialEpoch,
             proofRequest.NullifierHash,
-            proofRequest.CredentialCommitment,
             proofRequest.CredentialRoot,
             proofRequest.CredentialLevel,
             proofRequest.ReputationBucket,

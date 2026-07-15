@@ -17,7 +17,6 @@ const requiredPublicInputs = [
   'action_context',
   'scope',
   'nullifier_hash',
-  'credential_commitment',
   'credential_root',
   'revocation_root',
   'credential_epoch',
@@ -47,7 +46,8 @@ const requiredAssertions = [
   'qualification_policy',
   'nullifier_prf_binding',
   'credential_bucket_legality',
-  'identity_non_disclosure'
+  'identity_non_disclosure',
+  'presentation_unlinkability'
 ]
 
 const forbiddenIdentityPattern = /(?:userId|user_id|username|public_handle|account_id|session_id|client_ip|device_fingerprint|cookie|authorization)/iu
@@ -125,8 +125,8 @@ function normalizeGroups(groups) {
 
 function validateSource(source) {
   assert(source.schema === 'fsusblog.zk.comment-v2-circuit-source.v1', 'source schema mismatch')
-  assert(source.circuit_id === 'fsus.anonymous.comment.v2', 'source circuit_id mismatch')
-  assert(source.public_input_layout_version === 3, 'source public_input_layout_version mismatch')
+  assert(source.circuit_id === 'fsus.anonymous.comment.v3', 'source circuit_id mismatch')
+  assert(source.public_input_layout_version === 4, 'source public_input_layout_version mismatch')
   assert(source.proof_system === 'Groth16', 'source proof_system must be Groth16')
   assert(source.curve === 'bn254', 'source curve must be bn254')
   assert(source.credential_scheme === 'circuit-native-credential-v2', 'source credential_scheme mismatch')

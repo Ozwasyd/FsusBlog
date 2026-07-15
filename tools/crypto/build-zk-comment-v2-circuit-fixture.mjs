@@ -96,8 +96,8 @@ function buildPositiveWitness(circuit, source) {
 }
 
 function fixtureValue(name) {
-  if (name === 'public_input_layout_version') return 3
-  if (name === 'circuit_id') return 'fsus.anonymous.comment.v2'
+  if (name === 'public_input_layout_version') return 4
+  if (name === 'circuit_id') return 'fsus.anonymous.comment.v3'
   if (name === 'action_context') return 'comment.create'
   if (name === 'scope') return 'article:42'
   if (name === 'credential_epoch') return 7
@@ -165,8 +165,8 @@ function main() {
   const source = readJson(sourcePath)
   const tamper = readJson(tamperPath)
 
-  assert(circuit.circuit_id === 'fsus.anonymous.comment.v2', 'circuit id mismatch')
-  assert(circuit.public_input_layout_version === 3, 'layout mismatch')
+  assert(circuit.circuit_id === 'fsus.anonymous.comment.v3', 'circuit id mismatch')
+  assert(circuit.public_input_layout_version === 4, 'layout mismatch')
   assert(source.schema === 'fsusblog.zk.comment-v2-circuit-source.v1', 'source schema mismatch')
   assert(tamper.schema === 'fsusblog.zk.tamper-cases.v1', 'tamper schema mismatch')
 

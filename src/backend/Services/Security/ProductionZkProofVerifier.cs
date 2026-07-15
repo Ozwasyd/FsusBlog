@@ -23,7 +23,6 @@ public readonly record struct ProductionZkProofBackendRequest(
     ushort PublicInputLayoutVersion,
     long CredentialEpoch,
     string NullifierHash,
-    string CredentialCommitment,
     string CredentialRoot,
     string CredentialLevel,
     string ReputationBucket,
@@ -157,7 +156,6 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
                         request.PublicInputLayoutVersion,
                         request.CredentialEpoch,
                         request.NullifierHash.Trim(),
-                        request.CredentialCommitment.Trim(),
                         request.CredentialRoot.Trim(),
                         NormalizeToken(request.CredentialLevel, 32),
                         NormalizeToken(request.ReputationBucket, 64),
@@ -233,7 +231,6 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
 
         return IsScope(request.Scope) &&
             IsHexHash(request.NullifierHash, minLength: 64, maxLength: 64) &&
-            IsHexHash(request.CredentialCommitment, minLength: 64, maxLength: 64) &&
             IsHexHash(request.CredentialRoot, minLength: 64, maxLength: 64) &&
             IsHexHash(request.RevocationRoot, minLength: 64, maxLength: 64) &&
             IsHexHash(request.IssuerPublicKeyHash, minLength: 64, maxLength: 64) &&

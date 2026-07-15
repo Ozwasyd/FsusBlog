@@ -1,7 +1,7 @@
 {
   "schema": "fsusblog.zk.tamper-cases.v1",
-  "circuit_id": "fsus.anonymous.comment.v2",
-  "public_input_layout_version": 3,
+  "circuit_id": "fsus.anonymous.comment.v3",
+  "public_input_layout_version": 4,
   "valid_case": {
     "id": "valid-comment-v2-witness",
     "expected": "accept",
@@ -12,7 +12,8 @@
       "qualification_policy",
       "nullifier_prf_binding",
       "credential_bucket_legality",
-      "identity_non_disclosure"
+      "identity_non_disclosure",
+      "presentation_unlinkability"
     ]
   },
   "negative_invariants": [
@@ -49,10 +50,9 @@
       ]
     },
     {
-      "id": "tamper-credential-commitment",
+      "id": "tamper-credential-opening",
       "expected": "reject",
       "mutates": [
-        "credential_commitment",
         "credential_opening"
       ],
       "covers": [
@@ -154,6 +154,16 @@
       ],
       "covers": [
         "identity_non_disclosure"
+      ]
+    },
+    {
+      "id": "inject-credential-commitment-public-input",
+      "expected": "reject",
+      "mutates": [
+        "public_inputs.credential_commitment"
+      ],
+      "covers": [
+        "presentation_unlinkability"
       ]
     },
     {

@@ -36,8 +36,8 @@ const manifest = {
   wasmUrl: `/wasm/${files.wasm}`,
   provingKeyUrl: `/wasm/${files.provingKey}`,
   integrity: `sha256-${base64(moduleDigest)}`,
-  circuitId: 'fsus.anonymous.comment.v2',
-  publicInputLayoutVersion: 3,
+  circuitId: 'fsus.anonymous.comment.v3',
+  publicInputLayoutVersion: 4,
   provingKeySha256: hex(provingKeyDigest),
   wasmSha256: hex(wasmDigest)
 }

@@ -39,8 +39,8 @@ public sealed class AnonymousCredentialRevocationWitnessServiceTests(PostgresSch
             var request = new AnonymousCredentialRevocationWitnessRequestCoreModel(
                 CredentialEpoch: Epoch,
                 CircuitNumericId: 7,
-                PublicInputLayoutVersion: 3,
-                CircuitId: "fsus.anonymous.comment.v2",
+                PublicInputLayoutVersion: 4,
+                CircuitId: "fsus.anonymous.comment.v3",
                 IssuerPublicKeyHash: IssuerPublicKeyHash,
                 RevocationRoot: Convert.FromHexString(revocationRoot),
                 RevocationHandleHash: Convert.FromHexString(CandidateHandleHash));
@@ -84,10 +84,10 @@ public sealed class AnonymousCredentialRevocationWitnessServiceTests(PostgresSch
             RootExpiresAtUnixMs: DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeMilliseconds(),
             RootGraceExpiresAtUnixMs: DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeMilliseconds(),
             CircuitNumericId: 7,
-            PublicInputLayoutVersion: 3,
+            PublicInputLayoutVersion: 4,
             ZkAnonymousEnabled: true,
             VerifierConfigured: true,
-            CircuitId: "fsus.anonymous.comment.v2",
+            CircuitId: "fsus.anonymous.comment.v3",
             VerifyingKeyHash: "vk-sha256",
             IssuerPublicKeyHash: IssuerPublicKeyHash,
             CredentialRoot: Convert.FromHexString(new string('c', 64)),

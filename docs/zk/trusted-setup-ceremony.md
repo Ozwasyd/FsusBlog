@@ -1,11 +1,10 @@
-# comment.v2 trusted setup ceremony contract
+# comment.v3 trusted setup ceremony contract
 
-Status: verified self-written trusted setup artifact contract for #552. The
-repository contains the deterministic R1CS IR, the binary Groth16 R1CS phase-2
-input, self-written phase transcripts, final proving key, canonical verifying
-key, browser prover bundle, and hash-bound runtime verifying-key config. Runtime
-ZK-Prod remains disabled by default until the production release gates, issuer,
-credential root bootstrap, and rollout configuration all pass.
+Status: setup required. The v3/layout 4 statement removes the stable public
+credential commitment, so the v2/layout 3 phase transcripts and keys cannot be
+reused. The repository contains the new deterministic R1CS IR and binary
+Groth16 R1CS handoff, while runtime ZK-Prod stays fail-closed until a fresh
+ceremony, prover bundle, root rotation and release evidence all pass.
 
 ## Canonical Paths
 
@@ -33,15 +32,15 @@ The checked-in self-written setup provides:
 
 1. A verified Powers of Tau phase-1 transcript for the selected curve.
 2. A circuit-specific Groth16 phase-2 transcript for
-   `fsus.anonymous.comment.v2`.
+   `fsus.anonymous.comment.v3`.
 3. A binary Groth16 R1CS file generated from the committed circuit source and
    distinct from the deterministic repository IR.
 4. A proving key for the browser prover asset pipeline.
 5. Canonical verifying key bytes for the native verifier.
 6. Transcript manifests with contribution hashes and verification commands.
 7. A `verifying_key_hash = SHA256(canonical_verifying_key_bytes)` value bound to
-   `circuit_id = fsus.anonymous.comment.v2` and
-   `public_input_layout_version = 3` by the setup and config manifests.
+   `circuit_id = fsus.anonymous.comment.v3` and
+   `public_input_layout_version = 4` by the setup and config manifests.
 
 The verifier must reject a proof if the public input layout version, circuit id,
 or verifying key hash differs from the active root/config snapshot.
@@ -50,12 +49,11 @@ or verifying key hash differs from the active root/config snapshot.
 
 The committed manifests now deliberately use:
 
-- `ceremony_status: "placeholder_not_trusted_setup"`
+- `ceremony_status: "not-run"`
 - `production_usable: false`
-- `verifying_key_hash =
-  27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c`
+- an empty active `verifying_key_hash`
 - a non-empty `fail_closed_reason`
-- hash-bound placeholder pk, vk, phase transcript, and browser prover bundle
+- required-but-missing v3 pk, vk, phase transcript, and browser prover bundle
   artifacts
 
 That state is valid only for repository artifact consistency checks. It is not a
@@ -76,7 +74,7 @@ or hash domain requires:
 4. publishing a new verifying key hash,
 5. rotating credential root metadata to the new layout.
 
-Reusing the `comment.v2` verifying key for a changed public layout is forbidden.
+Reusing the v2/layout 3 verifying key for this changed public layout is forbidden.
 
 ## Verification Commands
 

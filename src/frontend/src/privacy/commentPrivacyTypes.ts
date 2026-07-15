@@ -11,7 +11,6 @@ export interface CommentPrivacyMetadata {
   verifyingKeyHash?: string
   issuerPublicKeyHash?: string
   policyHash?: string
-  credentialCommitment?: Uint8Array
   credentialRoot?: Uint8Array
   revocationRoot?: Uint8Array
   circuitMetadata?: Uint8Array

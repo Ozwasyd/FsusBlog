@@ -11,14 +11,13 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(MclGroth16TestCollection.Name)]
 public sealed class ZkCommentV2CrossStackFixtureTests
 {
-    private const string CircuitId = "fsus.anonymous.comment.v2";
+    private const string CircuitId = "fsus.anonymous.comment.v3";
     private const string CredentialRoot = "credential-root-active";
     private const string RevocationRoot = "revocation-root-active";
     private static readonly string IssuerPublicKeyHash = new('f', 64);
     private const long CredentialEpoch = 7;
-    private const ushort PublicInputLayoutVersion = 3;
+    private const ushort PublicInputLayoutVersion = 4;
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    private const string CredentialCommitment = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private static readonly string PolicyHash = new('9', 64);
 
     [Fact]
@@ -114,8 +113,8 @@ public sealed class ZkCommentV2CrossStackFixtureTests
             verifyingKey["artifact_status"]!.GetValue<string>());
 
         AssertPlaceholderArtifactFailsClosed(trustedSetup, "groth16_r1cs", minimumProductionBytes: 1_000_000);
-        AssertPlaceholderArtifactFailsClosed(trustedSetup, "proving_key", minimumProductionBytes: 1_000_000);
-        AssertPlaceholderArtifactFailsClosed(trustedSetup, "verifying_key", minimumProductionBytes: 1_024);
+        AssertNewSetupArtifactIsRequired(trustedSetup, "proving_key");
+        AssertNewSetupArtifactIsRequired(trustedSetup, "verifying_key");
     }
 
     private static FixtureManifest LoadManifest()
@@ -159,6 +158,17 @@ public sealed class ZkCommentV2CrossStackFixtureTests
         Assert.False(manifest["production_usable"]!.GetValue<bool>());
     }
 
+    private static void AssertNewSetupArtifactIsRequired(JsonObject manifest, string artifactKey)
+    {
+        JsonObject artifact = manifest["artifacts"]![artifactKey]!.AsObject();
+        string path = BackendTestPaths.FromRoot(artifact["path"]!.GetValue<string>());
+
+        Assert.Equal("required", artifact["status"]!.GetValue<string>());
+        Assert.True(string.IsNullOrWhiteSpace(artifact["sha256"]!.GetValue<string>()));
+        Assert.False(File.Exists(path));
+        Assert.False(manifest["production_usable"]!.GetValue<bool>());
+    }
+
     private static ProductionZkProofBackendRequest ValidRequest(byte[] proof, string verifyingKeyHash)
         => new(
             ActionContext: "comment.create",
@@ -168,7 +178,6 @@ public sealed class ZkCommentV2CrossStackFixtureTests
             PublicInputLayoutVersion: PublicInputLayoutVersion,
             CredentialEpoch: CredentialEpoch,
             NullifierHash: NullifierHash,
-            CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             CredentialLevel: "trusted",
             ReputationBucket: "trusted",

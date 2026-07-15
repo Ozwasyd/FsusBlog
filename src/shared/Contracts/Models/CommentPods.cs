@@ -184,7 +184,6 @@ public readonly struct AnonymousCommentTicketRequestPod
     public readonly Utf8SliceRef CircuitId;
     public readonly Utf8SliceRef VerifyingKeyHash;
     public readonly Utf8SliceRef NullifierHash;
-    public readonly Utf8SliceRef CredentialCommitment;
     public readonly Utf8SliceRef CredentialRoot;
     public readonly Utf8SliceRef RevocationRoot;
     public readonly Utf8SliceRef CredentialLevel;

@@ -146,7 +146,6 @@ export interface AnonymousCommentTicketRequestDto {
   circuitId: string
   verifyingKeyHash: string
   nullifierHash: Uint8Array | number[]
-  credentialCommitment: Uint8Array | number[]
   credentialRoot: Uint8Array | number[]
   revocationRoot: Uint8Array | number[]
   credentialLevel: string
@@ -586,7 +585,6 @@ export function encodeAnonymousCommentTicketRequest(data: AnonymousCommentTicket
   const circuitId = encodeText(data.circuitId ?? '')
   const verifyingKeyHash = encodeText(data.verifyingKeyHash ?? '')
   const nullifierHash = bytesFrom(data.nullifierHash)
-  const credentialCommitment = bytesFrom(data.credentialCommitment)
   const credentialRoot = bytesFrom(data.credentialRoot)
   const revocationRoot = bytesFrom(data.revocationRoot)
   const credentialLevel = encodeText(data.credentialLevel ?? '')
@@ -598,7 +596,6 @@ export function encodeAnonymousCommentTicketRequest(data: AnonymousCommentTicket
     circuitId.byteLength +
     verifyingKeyHash.byteLength +
     nullifierHash.byteLength +
-    credentialCommitment.byteLength +
     credentialRoot.byteLength +
     revocationRoot.byteLength +
     credentialLevel.byteLength +
@@ -630,13 +627,12 @@ export function encodeAnonymousCommentTicketRequest(data: AnonymousCommentTicket
   offset = writeBlobPart(bytes, view, 64, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, circuitId)
   offset = writeBlobPart(bytes, view, 72, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, verifyingKeyHash)
   offset = writeBlobPart(bytes, view, 80, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, nullifierHash)
-  offset = writeBlobPart(bytes, view, 88, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, credentialCommitment)
-  offset = writeBlobPart(bytes, view, 96, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, credentialRoot)
-  offset = writeBlobPart(bytes, view, 104, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, revocationRoot)
-  offset = writeBlobPart(bytes, view, 112, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, credentialLevel)
-  offset = writeBlobPart(bytes, view, 120, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, reputationBucket)
-  offset = writeBlobPart(bytes, view, 128, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, zkProof)
-  writeBlobPart(bytes, view, 136, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, publicInputs)
+  offset = writeBlobPart(bytes, view, 88, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, credentialRoot)
+  offset = writeBlobPart(bytes, view, 96, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, revocationRoot)
+  offset = writeBlobPart(bytes, view, 104, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, credentialLevel)
+  offset = writeBlobPart(bytes, view, 112, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, reputationBucket)
+  offset = writeBlobPart(bytes, view, 120, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, zkProof)
+  writeBlobPart(bytes, view, 128, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, publicInputs)
   view.setInt32(ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE, blobLength, true)
   return bytes
 }
@@ -731,7 +727,7 @@ const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE = 48
 const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START = ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4
 const ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_POD_SIZE = 48
 const ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_BLOB_START = ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_POD_SIZE + 4
-const ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE = 144
+const ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE = 136
 const ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START = ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE + 4
 const ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE = 72
 const ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START = ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE + 4

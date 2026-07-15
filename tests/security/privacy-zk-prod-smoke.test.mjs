@@ -100,8 +100,8 @@ test('privacy ZK production smoke accepts sanitized real full-chain evidence', (
     assert.equal(parsed.identityHeadersOmitted, true)
     assert.equal(parsed.sensitivePayloadRedacted, true)
     assert.equal(parsed.realEvidenceKind, 'real-groth16-cross-stack')
-    assert.equal(parsed.circuitId, 'fsus.anonymous.comment.v2')
-    assert.equal(parsed.publicInputLayoutVersion, 3)
+    assert.equal(parsed.circuitId, 'fsus.anonymous.comment.v3')
+    assert.equal(parsed.publicInputLayoutVersion, 4)
     assert.equal(parsed.proofSystem, 'Groth16')
     assert.equal(parsed.artifactHashes.wasmProverSha256, evidence.artifactHashes.wasmProverSha256)
     assert.equal(parsed.evidenceArtifacts.wasmProver.sha256, evidence.artifacts.wasmProver.sha256)
@@ -246,8 +246,8 @@ function completeRealEvidence(dir, overrides = {}) {
   return {
     status: 'ok',
     evidenceKind: 'real-groth16-cross-stack',
-    circuitId: 'fsus.anonymous.comment.v2',
-    publicInputLayoutVersion: 3,
+    circuitId: 'fsus.anonymous.comment.v3',
+    publicInputLayoutVersion: 4,
     proofSystem: 'Groth16',
     verifyingKeyHash: artifactHashes.verifyingKeySha256,
     nativeVerifier: true,
@@ -265,6 +265,11 @@ function completeRealEvidence(dir, overrides = {}) {
       backendProofVerified: true,
       publicInputsMatch: true,
       tamperCasesRejected: true,
+      completeTranscriptUnlinkableAcrossScopes: true,
+      sameScopeNullifierStable: true,
+      differentScopeNullifiersUnique: true,
+      legacyLayoutRejected: true,
+      sampledScopes: 100,
       hashingFixtureUsed: false
     },
     performance: {
@@ -285,7 +290,8 @@ function writeEvidenceArtifacts(dir) {
     wasmProver: writeArtifact(dir, 'comment-privacy-prover.wasm', 'wasm prover artifact'),
     proofFixture: writeArtifact(dir, 'comment-v2-proof-fixture.json', '{"proof":"redacted"}'),
     publicInputs: writeArtifact(dir, 'comment-v2-public-inputs.json', '{"inputs":["redacted"]}'),
-    tamperCases: writeArtifact(dir, 'comment-v2-tamper-cases.json', '{"tamperCases":["redacted"]}')
+    tamperCases: writeArtifact(dir, 'comment-v2-tamper-cases.json', '{"tamperCases":["redacted"]}'),
+    unlinkabilityTranscripts: writeArtifact(dir, 'comment-v3-unlinkability.json', '{"sampledScopes":100,"stableCredentialFields":[]}')
   }
 }
 

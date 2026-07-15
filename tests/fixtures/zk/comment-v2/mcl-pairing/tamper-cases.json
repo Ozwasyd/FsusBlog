@@ -1,6 +1,6 @@
 {
   "schema": "fsusblog.zk.comment-v2-cross-stack-tamper-cases.v1",
-  "circuit_id": "fsus.anonymous.comment.v2",
+  "circuit_id": "fsus.anonymous.comment.v3",
   "cases": [
     {
       "id": "tamper-proof-byte",

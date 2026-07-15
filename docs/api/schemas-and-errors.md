@@ -307,7 +307,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/issue` 请求体；包含 circuit-native credential request、client nonce 与 layout version |
 | 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 匿名凭证签发响应契约；circuit-native issuer signature、issuer public key id、expires_at，不返回 SHA256 commitment 或可逆身份 |
 | 179 | `AnonymousCredentialRootSnapshot` | `AnonymousCredentialRootSnapshotPod` | 匿名凭证 root/verifying-key snapshot；包含 issuer public key hash、credential/revocation root；`GET /api/binary/anonymous-credential/root` 与 `/circuit` 响应 |
-| 180 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | `POST /api/binary/comment/anonymous-ticket` 请求体；action/scope/verifying key/nullifier/credential commitment/root metadata、Groth16 proof 与 canonical public inputs 使用 blob slice |
+| 180 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | `POST /api/binary/comment/anonymous-ticket` 请求体；action/scope/verifying key/nullifier/root metadata、Groth16 proof 与 canonical public inputs 使用 blob slice；不携带 credential commitment |
 | 181 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | 匿名评论 ticket 响应；one-time opaque ticket、expires_at、credential level 与 moderation subject hash，不返回用户身份或 nullifier 原文 |
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
@@ -388,7 +388,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | `AnonymousCredentialRootSnapshotPod` | 80 |
 | `AnonymousCredentialRevocationWitnessRequestPod` | 48 |
 | `AnonymousCredentialRevocationWitnessResponsePod` | 72 |
-| `AnonymousCommentTicketRequestPod` | 144 |
+| `AnonymousCommentTicketRequestPod` | 136 |
 | `AnonymousCommentTicketResponsePod` | 48 |
 | `AnonymousCommentCreateRequestPod` | 72 |
 | `AnonymousPrivacyStateSnapshotPod` | 66 |

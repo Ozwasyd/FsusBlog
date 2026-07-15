@@ -3,8 +3,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 export const LOCAL_REVIEW_SCHEMA = 'fsusblog.zk.local-cryptographic-review.v1'
-export const LOCAL_REVIEW_CIRCUIT_ID = 'fsus.anonymous.comment.v2'
-export const LOCAL_REVIEW_LAYOUT_VERSION = 3
+export const LOCAL_REVIEW_CIRCUIT_ID = 'fsus.anonymous.comment.v3'
+export const LOCAL_REVIEW_LAYOUT_VERSION = 4
 export const REQUIRED_LOCAL_REVIEW_SCOPE = Object.freeze([
   'constraint_completeness',
   'trusted_setup_provenance',
@@ -15,6 +15,7 @@ export const REQUIRED_LOCAL_REVIEW_SCOPE = Object.freeze([
   'canonical_serialization',
   'domain_separation',
   'root_epoch_binding',
+  'presentation_unlinkability',
   'independent_implementation_fixture',
   'malformed_proof_fuzz',
   'non_canonical_field_fuzz',

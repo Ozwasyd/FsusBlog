@@ -91,8 +91,8 @@ public sealed class BackendGoldenCatalogTests
     {
         string matrix = BackendTestPaths.ReadAllTextFromRoot("tests/frontend/fixtures/cross-stack-contract-matrix.json");
 
-        Assert.Contains("\"circuitId\": \"fsus.anonymous.comment.v2\"", matrix, StringComparison.Ordinal);
-        Assert.Contains("\"publicInputLayoutVersion\": 3", matrix, StringComparison.Ordinal);
+        Assert.Contains("\"circuitId\": \"fsus.anonymous.comment.v3\"", matrix, StringComparison.Ordinal);
+        Assert.Contains("\"publicInputLayoutVersion\": 4", matrix, StringComparison.Ordinal);
         Assert.Contains("\"maxCircuitNativeIssuerSignatureBytes\": 256", matrix, StringComparison.Ordinal);
         Assert.Contains("\"maxCircuitNativeCredentialRequestBytes\": 256", matrix, StringComparison.Ordinal);
         Assert.Contains("\"maxGroth16ProofBytes\": 4096", matrix, StringComparison.Ordinal);
@@ -100,6 +100,7 @@ public sealed class BackendGoldenCatalogTests
         Assert.Contains("\"credential_root\"", matrix, StringComparison.Ordinal);
         Assert.Contains("\"revocation_root\"", matrix, StringComparison.Ordinal);
         Assert.Contains("\"nullifier_hash\"", matrix, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"credential_commitment\"", matrix, StringComparison.Ordinal);
     }
 
     private static JsonObject ReadGoldenCatalog()

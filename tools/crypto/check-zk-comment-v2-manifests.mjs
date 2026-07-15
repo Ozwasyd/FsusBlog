@@ -41,8 +41,8 @@ const outputPath = resolveOutputPath(
 )
 
 const expected = {
-  circuitId: 'fsus.anonymous.comment.v2',
-  layoutVersion: 3,
+  circuitId: 'fsus.anonymous.comment.v3',
+  layoutVersion: 4,
   actionContext: 'comment.create',
   proofSystem: 'Groth16',
   credentialScheme: 'circuit-native-credential-v2',
@@ -52,7 +52,6 @@ const expected = {
     'action_context',
     'scope',
     'nullifier_hash',
-    'credential_commitment',
     'credential_root',
     'revocation_root',
     'credential_epoch',
@@ -80,12 +79,13 @@ const expected = {
     'qualification_policy',
     'nullifier_prf_binding',
     'credential_bucket_legality',
-    'identity_non_disclosure'
+    'identity_non_disclosure',
+    'presentation_unlinkability'
   ],
   requiredTamperCases: [
     'tamper-issuer-signature',
     'tamper-credential-root',
-    'tamper-credential-commitment',
+    'tamper-credential-opening',
     'tamper-revocation-root',
     'tamper-policy-hash',
     'tamper-nullifier-hash',
@@ -356,10 +356,44 @@ function checkCircuit(circuit, setup) {
     .filter(Boolean)
 
   hasAll('circuit.public_inputs', publicInputs, expected.requiredPublicInputs)
+  if (publicInputs.length !== expected.requiredPublicInputs.length) {
+    fail('circuit.public_inputs must contain the exact v4 unlinkable public-input set')
+  }
   hasAll('circuit.private_witness', privateWitness, expected.requiredPrivateWitness)
   hasAll('circuit.security_assertions', assertionIds, expected.requiredAssertions)
   hasNoForbiddenIdentity('circuit.public_inputs', publicInputs)
   hasNoForbiddenIdentity('circuit.private_witness', privateWitness)
+
+  const forbiddenPresentationFields = asArray(circuit.forbidden_public_presentation_fields)
+    .map((item) => String(item).trim())
+    .filter(Boolean)
+  hasAll('circuit.forbidden_public_presentation_fields', forbiddenPresentationFields, [
+    'credential_commitment',
+    'revocation_handle',
+    'issuer_audit_id',
+    'credential_leaf_index',
+    'stable_witness_hash',
+    'stable_presentation_key'
+  ])
+  for (const field of forbiddenPresentationFields) {
+    if (publicInputs.includes(field)) {
+      fail(`circuit.public_inputs exposes stable presentation field ${field}`)
+    }
+  }
+
+  const unlinkability = circuit.transcript_unlinkability ?? {}
+  if (Number(unlinkability.sample_scope_count) < 100) {
+    fail('circuit.transcript_unlinkability.sample_scope_count must be at least 100')
+  }
+  for (const key of ['same_scope_nullifier_stable', 'different_scope_nullifier_unique', 'complete_wire_transcript_checked']) {
+    if (unlinkability[key] !== true) {
+      fail(`circuit.transcript_unlinkability.${key} must be true`)
+    }
+  }
+  if (!Array.isArray(unlinkability.credential_specific_stable_fields_allowed) ||
+      unlinkability.credential_specific_stable_fields_allowed.length !== 0) {
+    fail('circuit.transcript_unlinkability must allow no credential-specific stable fields')
+  }
 
   const forbidden = asArray(circuit.forbidden_identity_fields).map((item) => String(item).trim())
   hasAll('circuit.forbidden_identity_fields', forbidden, [
@@ -398,6 +432,13 @@ function checkCircuit(circuit, setup) {
 }
 
 function checkCircuitSource(source) {
+  equals('source.circuit_id', source.circuit_id, expected.circuitId)
+  equals('source.public_input_layout_version', source.public_input_layout_version, expected.layoutVersion)
+  const sourcePublicInputs = asArray(source.public_inputs).map((item) => String(item).trim()).filter(Boolean)
+  hasAll('source.public_inputs', sourcePublicInputs, expected.requiredPublicInputs)
+  if (sourcePublicInputs.length !== expected.requiredPublicInputs.length || sourcePublicInputs.includes('credential_commitment')) {
+    fail('source.public_inputs must use the exact v4 unlinkable public-input set')
+  }
   const revocation = source.primitives?.revocation_non_membership ?? {}
   const shape = revocation.witness_shape ?? {}
   if (Number(shape.path_depth) !== 128) {

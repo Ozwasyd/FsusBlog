@@ -707,7 +707,6 @@ public class PodBinaryCodecTests
         byte[] groth16Proof = Enumerable.Range(0, 192)
             .Select(static value => (byte)((value + 13) % 251))
             .ToArray();
-        byte[] credentialCommitment = Enumerable.Repeat((byte)0x44, 32).ToArray();
         byte[] publicInputs = NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
             ActionContext: "comment.create",
             Scope: "article:42",
@@ -716,7 +715,6 @@ public class PodBinaryCodecTests
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             CredentialEpoch: 20260618,
             NullifierHash: Convert.ToHexStringLower(Enumerable.Repeat((byte)0x33, 32).ToArray()),
-            CredentialCommitment: Convert.ToHexStringLower(credentialCommitment),
             CredentialRoot: Convert.ToHexStringLower(Enumerable.Repeat((byte)0x11, 32).ToArray()),
             CredentialLevel: "strong_anonymous",
             ReputationBucket: "rep:low",
@@ -794,7 +792,6 @@ public class PodBinaryCodecTests
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: new string('a', 64),
             NullifierHash: Enumerable.Repeat((byte)0x33, 32).ToArray(),
-            CredentialCommitment: credentialCommitment,
             CredentialRoot: Enumerable.Repeat((byte)0x11, 32).ToArray(),
             RevocationRoot: Enumerable.Repeat((byte)0x22, 32).ToArray(),
             CredentialLevel: "strong_anonymous",
@@ -806,7 +803,6 @@ public class PodBinaryCodecTests
         Assert.Equal("comment.create", ticketDecoded.ActionContext);
         Assert.Equal("article:42", ticketDecoded.Scope);
         Assert.Equal(new string('a', 64), ticketDecoded.VerifyingKeyHash);
-        Assert.Equal(credentialCommitment, ticketDecoded.CredentialCommitment);
         Assert.Equal("strong_anonymous", ticketDecoded.CredentialLevel);
         Assert.Equal("rep:low", ticketDecoded.ReputationBucket);
         Assert.Equal(groth16Proof, ticketDecoded.Groth16Proof);
@@ -937,7 +933,6 @@ public class PodBinaryCodecTests
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: new string('a', 64),
             NullifierHash: Enumerable.Repeat((byte)0x33, 32).ToArray(),
-            CredentialCommitment: Enumerable.Repeat((byte)0x44, 32).ToArray(),
             CredentialRoot: Enumerable.Repeat((byte)0x11, 32).ToArray(),
             RevocationRoot: Enumerable.Repeat((byte)0x22, 32).ToArray(),
             CredentialLevel: "strong_anonymous",
@@ -970,8 +965,8 @@ public class PodBinaryCodecTests
     [Fact]
     public void AnonymousCredentialIssueResponseContract_UsesIssuerSignatureAndNoShaCommitment()
     {
-        Assert.Equal("fsus.anonymous.comment.v2", AnonymousPrivacyContract.CircuitId);
-        Assert.Equal(3, AnonymousPrivacyContract.PublicInputLayoutVersion);
+        Assert.Equal("fsus.anonymous.comment.v3", AnonymousPrivacyContract.CircuitId);
+        Assert.Equal(4, AnonymousPrivacyContract.PublicInputLayoutVersion);
         Assert.Equal(256, AnonymousPrivacyContract.MaxCircuitNativeIssuerSignatureBytes);
         Assert.Equal(256, AnonymousPrivacyContract.MaxCircuitNativeCredentialRequestBytes);
         Assert.Equal(4096, AnonymousPrivacyContract.MaxGroth16ProofBytes);
@@ -990,6 +985,12 @@ public class PodBinaryCodecTests
         Assert.Contains("IssuerPublicKeyId", podFields);
         Assert.DoesNotContain("CredentialCommitment", podFields);
         Assert.DoesNotContain("IssuerResponse", podFields);
+
+        string[] ticketFields = typeof(AnonymousCommentTicketRequestPod)
+            .GetFields()
+            .Select(static field => field.Name)
+            .ToArray();
+        Assert.DoesNotContain("CredentialCommitment", ticketFields);
     }
 
     [Fact]

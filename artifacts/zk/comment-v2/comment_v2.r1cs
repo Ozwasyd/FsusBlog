@@ -14,6 +14,9 @@
     "nullifier_prf_binding": [
       "nullifier-prf-binding"
     ],
+    "presentation_unlinkability": [
+      "identity-field-absence"
+    ],
     "qualification_policy": [
       "policy-bucket-legality"
     ],
@@ -24,13 +27,13 @@
       "issuer-signature-verification"
     ]
   },
-  "circuit_id": "fsus.anonymous.comment.v2",
+  "circuit_id": "fsus.anonymous.comment.v3",
   "constraint_count": 125920,
   "constraint_groups": [
     {
       "checks": [
-        "public_input_layout_version == 3",
-        "circuit_id == hash_to_field(fsus.anonymous.comment.v2)",
+        "public_input_layout_version == 4",
+        "circuit_id == hash_to_field(fsus.anonymous.comment.v3)",
         "action_context == hash_to_field(comment.create)"
       ],
       "constraint_count": 12,
@@ -55,7 +58,7 @@
     },
     {
       "checks": [
-        "credential opening reconstructs credential_commitment",
+        "credential opening derives the private credential leaf without exposing a credential identifier",
         "credential leaf is derived from signed credential attributes",
         "credential_membership_proof reconstructs credential_root"
       ],
@@ -108,11 +111,13 @@
     },
     {
       "checks": [
-        "no user id, username, session, IP, device fingerprint, cookie or authorization signal is declared"
+        "no user id, username, session, IP, device fingerprint, cookie or authorization signal is declared",
+        "no credential commitment, revocation handle, leaf index, witness hash or presentation key is public"
       ],
       "constraint_count": 0,
       "covers": [
-        "identity_non_disclosure"
+        "identity_non_disclosure",
+        "presentation_unlinkability"
       ],
       "id": "identity-field-absence",
       "rank1_template": "static signal-set check"
@@ -121,12 +126,12 @@
   "credential_scheme": "circuit-native-credential-v2",
   "curve": "bn254",
   "domain_separators": {
-    "credential_leaf": "fsus.anonymous.comment.v2:credential-leaf:v1",
-    "issuer_signature": "fsus.anonymous.comment.v2:credential-signature:v1",
-    "nullifier_prf": "fsus.anonymous.comment.v2:nullifier:v1",
-    "policy_binding": "fsus.anonymous.comment.v2:policy:v1",
-    "revocation_leaf": "fsus.anonymous.comment.v2:revocation-leaf:v1",
-    "scope_binding": "fsus.anonymous.comment.v2:scope:v1"
+    "credential_leaf": "fsus.anonymous.comment.v3:credential-leaf:v1",
+    "issuer_signature": "fsus.anonymous.comment.v3:credential-signature:v1",
+    "nullifier_prf": "fsus.anonymous.comment.v3:nullifier:v1",
+    "policy_binding": "fsus.anonymous.comment.v3:policy:v1",
+    "revocation_leaf": "fsus.anonymous.comment.v3:revocation-leaf:v1",
+    "scope_binding": "fsus.anonymous.comment.v3:scope:v1"
   },
   "estimated_constraints": 125920,
   "field_modulus": "21888242871839275222246405745257275088548364400416034343698204186575808495617",
@@ -202,14 +207,13 @@
   ],
   "production_usable": false,
   "proof_system": "Groth16",
-  "public_input_layout_version": 3,
+  "public_input_layout_version": 4,
   "public_inputs": [
     "public_input_layout_version",
     "circuit_id",
     "action_context",
     "scope",
     "nullifier_hash",
-    "credential_commitment",
     "credential_root",
     "revocation_root",
     "credential_epoch",
@@ -221,7 +225,7 @@
   ],
   "schema": "fsusblog.zk.r1cs-ir.v1",
   "source_path": "circuits/anonymous-comment-v2/comment_v2.circuit.json",
-  "source_sha256": "4cb33f7cfbf69e82b753bce8ed209c68fc2722188fcbb0cda54c1336bbed3328",
+  "source_sha256": "5b4ef7c9f7e21290ea5e7a9095a9e80be6f9e6b7ef082900eba34b82dae103f6",
   "tamper_case_bindings": {
     "inject-user-id-public-input": "identity-field-absence",
     "inject-username-private-witness": "identity-field-absence",

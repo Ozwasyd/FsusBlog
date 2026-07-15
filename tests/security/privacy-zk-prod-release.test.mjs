@@ -363,8 +363,8 @@ function completeSmokeEvidence(dir, overrides = {}) {
 
   const evidence = {
     evidenceKind: 'real-groth16-cross-stack',
-    circuitId: 'fsus.anonymous.comment.v2',
-    publicInputLayoutVersion: 3,
+    circuitId: 'fsus.anonymous.comment.v3',
+    publicInputLayoutVersion: 4,
     proofSystem: 'Groth16',
     verifyingKeyHash: artifactHashes.verifyingKeySha256,
     status: 'ok',
@@ -389,6 +389,11 @@ function completeSmokeEvidence(dir, overrides = {}) {
       backendProofVerified: true,
       publicInputsMatch: true,
       tamperCasesRejected: true,
+      completeTranscriptUnlinkableAcrossScopes: true,
+      sameScopeNullifierStable: true,
+      differentScopeNullifiersUnique: true,
+      legacyLayoutRejected: true,
+      sampledScopes: 100,
       hashingFixtureUsed: false,
       ...(overrides.crossStack ?? {})
     }
@@ -432,8 +437,8 @@ function enabledConfig({ nativeLibrary, issuerPrivateKey, issuerPublicKey, verif
 function setupManifest(verifyingKeyHash, smokeEvidence = null, localReviewSources = null) {
   return {
     schema: 'fsusblog.zk.trusted-setup-manifest.v1',
-    circuit_id: 'fsus.anonymous.comment.v2',
-    public_input_layout_version: 3,
+    circuit_id: 'fsus.anonymous.comment.v3',
+    public_input_layout_version: 4,
     production_usable: true,
     ceremony_status: 'verified',
     verifying_key_hash: verifyingKeyHash,
@@ -471,8 +476,8 @@ function writeLocalReviewFixture(dir, setupPath, setup, smokeEvidence, sources) 
     Object.entries(artifactPaths).map(([id, file]) => [id, { path: file, sha256: sha256File(file) }]))
   const manifestPath = writeJson(dir, 'local-cryptographic-review.json', {
     schema: 'fsusblog.zk.local-cryptographic-review.v1',
-    circuit_id: 'fsus.anonymous.comment.v2',
-    public_input_layout_version: 3,
+    circuit_id: 'fsus.anonymous.comment.v3',
+    public_input_layout_version: 4,
     status: 'complete',
     review_complete: true,
     assurance_model: 'repository-local-reproducible-review',
@@ -511,9 +516,9 @@ function rootBootstrapEvidence(verifyingKeyHash, overrides = {}) {
       credentialRootHash: hex('1'),
       revocationRootHash: hex('2'),
       issuerPublicKeyHash: hex('3'),
-      circuitId: 'fsus.anonymous.comment.v2',
+      circuitId: 'fsus.anonymous.comment.v3',
       circuitNumericId: 7,
-      publicInputLayoutVersion: 3,
+      publicInputLayoutVersion: 4,
       verifyingKeyHash,
       expiresAtUtc: '2099-07-20T00:00:00Z',
       graceExpiresAtUtc: '2099-07-27T00:00:00Z'
@@ -567,7 +572,8 @@ function writeEvidenceArtifacts(dir) {
     wasmProver: writeArtifact(dir, 'comment-privacy-prover.wasm', 'wasm prover artifact'),
     proofFixture: writeArtifact(dir, 'comment-v2-proof-fixture.json', '{"proof":"redacted"}'),
     publicInputs: writeArtifact(dir, 'comment-v2-public-inputs.json', '{"inputs":["redacted"]}'),
-    tamperCases: writeArtifact(dir, 'comment-v2-tamper-cases.json', '{"tamperCases":["redacted"]}')
+    tamperCases: writeArtifact(dir, 'comment-v2-tamper-cases.json', '{"tamperCases":["redacted"]}'),
+    unlinkabilityTranscripts: writeArtifact(dir, 'comment-v3-unlinkability.json', '{"sampledScopes":100,"stableCredentialFields":[]}')
   }
 }
 

@@ -14,9 +14,9 @@ internal static unsafe class Program
 {
     private const int MclBnSnark1 = 4;
     private const int MclCompiledTimeVar = 46;
-    private const string CircuitId = "fsus.anonymous.comment.v2";
-    private const ushort PublicInputLayoutVersion = 3;
-    private const string TranscriptDomain = "fsus.anonymous.comment.v2.public-inputs";
+    private const string CircuitId = "fsus.anonymous.comment.v3";
+    private const ushort PublicInputLayoutVersion = 4;
+    private const string TranscriptDomain = "fsus.anonymous.comment.v3.public-inputs";
     private const string FixtureSchema = "fsusblog.zk.comment-v2-cross-stack-fixture.v1";
     private const string TamperSchema = "fsusblog.zk.comment-v2-cross-stack-tamper-cases.v1";
     private static readonly byte[] VerifyingKeyMagic = "FSG16VK1"u8.ToArray();
@@ -500,7 +500,6 @@ internal static unsafe class Program
         WriteUInt16(writer, PublicInputLayoutVersion);
         WriteInt64(writer, 7);
         WriteString(writer, new string('a', 64));
-        WriteString(writer, new string('b', 64));
         WriteString(writer, "credential-root-active");
         WriteString(writer, "revocation-root-active");
         WriteString(writer, new string('f', 64));

@@ -11,15 +11,14 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ZkProofVerifierTests
 {
-    private const string CircuitId = "fsus.anonymous.comment.v2";
+    private const string CircuitId = "fsus.anonymous.comment.v3";
     private static readonly string VerifyingKeyHash = new('d', 64);
-    private const ushort PublicInputLayoutVersion = 3;
+    private const ushort PublicInputLayoutVersion = 4;
     private const long CredentialEpoch = 7;
     private static readonly string CredentialRoot = new('e', 64);
     private static readonly string RevocationRoot = new('8', 64);
     private static readonly string IssuerPublicKeyHash = new('f', 64);
     private const string PublicInputNullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    private const string CredentialCommitment = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
     private static readonly string PolicyHash = new('9', 64);
 
@@ -313,8 +312,7 @@ public sealed class ZkProofVerifierTests
 
         ZkProofVerificationResult result = await verifier.VerifyAsync(ValidRequest() with
         {
-            NullifierHash = "not-a-hex-nullifier",
-            CredentialCommitment = new string('z', 64)
+            NullifierHash = "not-a-hex-nullifier"
         });
 
         Assert.False(result.Verified);
@@ -324,7 +322,6 @@ public sealed class ZkProofVerifierTests
 
     [Theory]
     [InlineData("nullifier")]
-    [InlineData("credentialCommitment")]
     [InlineData("credentialRoot")]
     [InlineData("revocationRoot")]
     [InlineData("issuerPublicKeyHash")]
@@ -336,7 +333,6 @@ public sealed class ZkProofVerifierTests
         ZkProofVerificationRequest request = field switch
         {
             "nullifier" => ValidRequest() with { NullifierHash = oversizedHex },
-            "credentialCommitment" => ValidRequest() with { CredentialCommitment = oversizedHex },
             "credentialRoot" => ValidRequest() with { CredentialRoot = oversizedHex },
             "revocationRoot" => ValidRequest() with { RevocationRoot = oversizedHex },
             "issuerPublicKeyHash" => ValidRequest() with { IssuerPublicKeyHash = oversizedHex },
@@ -400,8 +396,7 @@ public sealed class ZkProofVerifierTests
 
         _ = await verifier.VerifyAsync(ValidRequest() with
         {
-            Proof = "proof-raw-value"u8.ToArray(),
-            CredentialCommitment = new string('c', 64)
+            Proof = "proof-raw-value"u8.ToArray()
         });
 
         string logs = string.Join('\n', logger.Messages);
@@ -472,7 +467,6 @@ public sealed class ZkProofVerifierTests
             PublicInputLayoutVersion: PublicInputLayoutVersion,
             CredentialEpoch: CredentialEpoch,
             NullifierHash: PublicInputNullifierHash,
-            CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             CredentialLevel: AnonymousCredentialLevels.StrongAnonymous,
             ReputationBucket: "trusted",
@@ -493,7 +487,6 @@ public sealed class ZkProofVerifierTests
             ZkProof: [1, 2, 3],
             SubmitRegion: "SG",
             NullifierHash: PublicInputNullifierHash,
-            CredentialCommitment: CredentialCommitment,
             CredentialRoot: CredentialRoot,
             CredentialEpoch: CredentialEpoch,
             CircuitId: CircuitId,

@@ -10,8 +10,8 @@ const manifest: CommentPrivacyProverManifest = {
   wasmUrl: '/wasm/comment-privacy-prover.wasm',
   provingKeyUrl: '/wasm/comment-privacy-prover.zkey',
   integrity: 'sha256-VudRNfCt5IqiLg8Sobjb2s8erK3IL1r3wbRnV9xN1pc=',
-  circuitId: 'fsus.anonymous.comment.v2',
-  publicInputLayoutVersion: 3,
+  circuitId: 'fsus.anonymous.comment.v3',
+  publicInputLayoutVersion: 4,
   wasmSha256: '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81',
   provingKeySha256: '787c798e39a5bc1910355bae6d0cd87a36b2e10fd0202a83e3bb6b005da83472'
 }
@@ -26,8 +26,8 @@ const proofRequest = {
   metadataBytes: new Uint8Array([1, 2, 3]),
   credentialEpoch: 20260618,
   circuitNumericId: 7,
-  publicInputLayoutVersion: 3,
-  circuitId: 'fsus.anonymous.comment.v2',
+  publicInputLayoutVersion: 4,
+  circuitId: 'fsus.anonymous.comment.v3',
   verifyingKeyHash,
   issuerPublicKeyHash,
   policyHash,
@@ -331,7 +331,7 @@ function encodeExpectedPublicInputs(
     chunks.push(bytes)
   }
 
-  writeString('fsus.anonymous.comment.v2.public-inputs')
+  writeString('fsus.anonymous.comment.v3.public-inputs')
   writeString('comment.create')
   writeString(request.scope)
   writeString(request.circuitId)
@@ -339,7 +339,6 @@ function encodeExpectedPublicInputs(
   writeUInt16(request.publicInputLayoutVersion)
   writeInt64(request.credentialEpoch)
   writeString(bytesToHex(nullifierHash))
-  writeString(bytesToHex(request.credentialCommitment))
   writeString(bytesToHex(request.credentialRoot))
   writeString(bytesToHex(request.revocationRoot))
   writeString(request.issuerPublicKeyHash)

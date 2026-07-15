@@ -13,7 +13,7 @@ internal static class ManagedCircuitNativeCredentialSigner
     public const int PublicKeyBytes = 64;
     public const int SignatureBytes = 96;
 
-    private const string TranscriptDomain = "fsus.anonymous.comment.v2:credential-signature:v1";
+    private const string TranscriptDomain = "fsus.anonymous.comment.v3:credential-signature:v1";
     private const int MaxSigningAttempts = 1024;
 
     private static readonly BigInteger FieldPrime = BigInteger.Parse(

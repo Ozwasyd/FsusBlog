@@ -2,8 +2,8 @@ namespace FsusBlog.Shared.Contracts.Validation;
 
 public static class AnonymousPrivacyContract
 {
-    public const string CircuitId = "fsus.anonymous.comment.v2";
-    public const ushort PublicInputLayoutVersion = 3;
+    public const string CircuitId = "fsus.anonymous.comment.v3";
+    public const ushort PublicInputLayoutVersion = 4;
 
     public const int MaxCircuitNativeCredentialRequestBytes = 256;
     public const int MaxCircuitNativeIssuerSignatureBytes = 256;

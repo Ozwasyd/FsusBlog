@@ -647,7 +647,7 @@ internal sealed class UnavailableNativeGroth16VerifierLibrary : INativeGroth16Ve
 
 internal static class NativeGroth16PublicInputCodec
 {
-    private const string TranscriptDomain = "fsus.anonymous.comment.v2.public-inputs";
+    private const string TranscriptDomain = "fsus.anonymous.comment.v3.public-inputs";
 
     public static ReadOnlyMemory<byte> Encode(ProductionZkProofBackendRequest request)
     {
@@ -660,7 +660,6 @@ internal static class NativeGroth16PublicInputCodec
             + sizeof(ushort)
             + sizeof(long)
             + EncodedStringSize(request.NullifierHash)
-            + EncodedStringSize(request.CredentialCommitment)
             + EncodedStringSize(request.CredentialRoot)
             + EncodedStringSize(request.RevocationRoot)
             + EncodedStringSize(request.IssuerPublicKeyHash)
@@ -678,7 +677,6 @@ internal static class NativeGroth16PublicInputCodec
         WriteUInt16(destination, ref offset, request.PublicInputLayoutVersion);
         WriteInt64(destination, ref offset, request.CredentialEpoch);
         WriteString(destination, ref offset, request.NullifierHash);
-        WriteString(destination, ref offset, request.CredentialCommitment);
         WriteString(destination, ref offset, request.CredentialRoot);
         WriteString(destination, ref offset, request.RevocationRoot);
         WriteString(destination, ref offset, request.IssuerPublicKeyHash);

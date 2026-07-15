@@ -4,7 +4,7 @@
 
 This is a **Repository-local cryptographic review**, not an independent or third-party audit. It is intentionally reproducible using only checked-in source, fixtures and local test tooling. No external auditor identity, signature, report URL, deployment transcript or hosted service is required or claimed.
 
-The review covers the `fsus.anonymous.comment.v2` layout v3 circuit contract, deterministic R1CS fixtures, Groth16 artifact codecs, native MCL verification boundary, browser prover fixture, nullifier/root/epoch bindings and fail-closed production gates. The checked-in ceremony and key artifacts remain deterministic placeholders and do not authorize production ZK mode.
+The review covers the `fsus.anonymous.comment.v3` layout v4 circuit contract, deterministic R1CS fixtures, Groth16 artifact codecs, native MCL verification boundary, browser prover fixture, nullifier/root/epoch bindings, 100-scope transcript unlinkability and fail-closed production gates. The prior v2/layout 3 ceremony and key artifacts are historical deterministic fixtures only; the new setup is not run and this repository-local review does not authorize production ZK mode.
 
 ## Local conclusions
 
@@ -19,7 +19,7 @@ The review covers the `fsus.anonymous.comment.v2` layout v3 circuit contract, de
 
 No unresolved repository-local Critical or High finding remains within the reviewed code and fixture boundary. This conclusion does not cover an independent protocol review, a production ceremony, external key custody, deployed side-channel measurement or a live production transcript.
 
-The committed trusted-setup manifest is `placeholder_not_trusted_setup` and `production_usable=false`. The local review must never change that state, substitute for a real ceremony, or set a production authorization flag.
+The committed v3 trusted-setup manifest is `not-run` and `production_usable=false`. The local review must never change that state, substitute for a real ceremony, or set a production authorization flag.
 
 ## Reproduction
 
@@ -28,7 +28,8 @@ Run the focused checks from the repository root:
 ```bash
 node tools/security/check-zk-local-review.mjs
 node tools/crypto/check-zk-comment-v2-manifests.mjs
-node --test tests/security/zk-local-review.test.mjs tests/security/zk-comment-v2-circuit-fixture.test.mjs tests/security/zk-comment-v2-cross-stack-fixture.test.mjs
+node tools/security/check-zk-comment-v2-unlinkability.mjs
+node --test tests/security/zk-local-review.test.mjs tests/security/zk-comment-v2-unlinkability.test.mjs tests/security/zk-comment-v2-circuit-fixture.test.mjs tests/security/zk-comment-v2-cross-stack-fixture.test.mjs
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj --filter 'FullyQualifiedName~ZkProofVerifierTests|FullyQualifiedName~NativeGroth16ZkProofBackendTests|FullyQualifiedName~AnonymousPrivacyConcurrencyTests|FullyQualifiedName~ZkCommentV2CrossStackFixtureTests' -p:TreatWarningsAsErrors=true
 ```
 
