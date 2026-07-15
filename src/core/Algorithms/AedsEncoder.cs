@@ -6,7 +6,7 @@ namespace FsusBlog.Core.Algorithms;
 
 public sealed class AedsEncoder : IAedsEncoder
 {
-    public const uint Magic = 0x53444541; // "AEDS" in little-endian bytes
+    public const uint Magic = AedsFrameHeader.Magic;
 
     public byte[] Encode(AedsFrameType frameType, ReadOnlySpan<byte> payload, ushort version = AedsFrameHeader.CurrentVersion, uint flags = 0)
     {

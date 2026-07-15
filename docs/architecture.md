@@ -315,6 +315,7 @@ FsusBlog 运行时 API 只维护 AEDS binary 链：
 **失败逻辑**：Wasm Worker 解码失败时，客户端可切到 TypeScript binary decoder 或展示协议错误；不得重发文本 API 请求。
 
 **v2 写出与缓存路径**：
+- `src/shared/Contracts/Validation/aeds-protocol.json` 是 v2 header 与活动 frame type 的唯一机器可读源；生成器同步产出 Core/Shared C#、TypeScript 与 C++ `aeds_frame.hpp`。Core、Server 和测试统一引用 Shared packed header，不再维护 Core 手写副本。`check:aeds-protocol` fail closed 检查全部生成文件，cross-stack frame-schema check 还会编译真实 C++ decoder、遍历所有活动 frame type，并用 C# golden frame 验证 C++ 解码，因此跨语言名称、数值或 16-byte layout 漂移会在 CI 中阻断。
 - 帧头固定 16 字节，动态响应通过 `AedsFrameBufferWriter` 预留 header 并在同一 pooled buffer 中写 payload，`Seal()` 后回填 header/CRC，避免先构造 payload 再复制到完整 frame。
 - `BinaryFrameResult`、`BinaryFramePayloadResult` 与 `BinaryPreencodedFrameResult` 每个响应只提交一次 `PipeWriter`：`WriteAsync` 本身完成 flush 时不得再无条件 `FlushAsync`；直接 `GetSpan/Advance` 的 payload 路径只显式 flush 一次。request cancellation、aborted response 和 pipe backpressure 原样传播。
 - `AedsFrameBufferWriter` 对未知、auth/session/MFA/Passkey、匿名凭证、admin/private 和 `ApiError` frame 默认清零后归还 `ArrayPool`；只有 `AedsFrameSensitivity` 明确列出的公开 immutable response frame 可跳过最终 buffer clear。扩容发生在 `Seal` 前，旧 buffer 始终按敏感数据清零。

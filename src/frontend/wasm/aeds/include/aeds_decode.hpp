@@ -13,7 +13,8 @@ enum class ErrorCode : std::uint8_t {
   VersionMismatch = 4,
   HeaderLengthMismatch = 5,
   PayloadCrcMismatch = 6,
-  ArticlePayloadInvalid = 7
+  ArticlePayloadInvalid = 7,
+  FrameTypeUnsupported = 8
 };
 
 struct DecodeResult {

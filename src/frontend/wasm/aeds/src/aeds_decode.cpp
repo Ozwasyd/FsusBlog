@@ -51,6 +51,8 @@ const char* to_error_string(ErrorCode error_code) {
       return "payload_crc_mismatch";
     case ErrorCode::ArticlePayloadInvalid:
       return "article_payload_invalid";
+    case ErrorCode::FrameTypeUnsupported:
+      return "frame_type_unsupported";
     default:
       return "decode_failed";
   }
@@ -82,6 +84,10 @@ DecodeResult decode_frame(const std::uint8_t* frame, std::size_t frame_len) {
 
   if (frame_len != static_cast<std::size_t>(payload_length) + kHeaderSize) {
     return make_error(ErrorCode::PayloadLengthMismatch);
+  }
+
+  if (!is_known_frame_type(frame_type)) {
+    return make_error(ErrorCode::FrameTypeUnsupported);
   }
 
   const std::uint8_t* payload = frame + kHeaderSize;

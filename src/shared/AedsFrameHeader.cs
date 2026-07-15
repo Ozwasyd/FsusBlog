@@ -11,6 +11,26 @@ public readonly struct AedsFrameHeader
     public const int Size = 16;
     public const uint Magic = 0x53444541; // "AEDS" little-endian
     public const byte VersionValue = 2;
+    public const byte CurrentVersion = VersionValue;
+    public const byte CurrentHeaderLength = Size;
+
+    public AedsFrameHeader(
+        uint magic,
+        byte version,
+        byte headerLength,
+        ushort flags,
+        ushort frameType,
+        uint payloadLength,
+        ushort payloadCrc16)
+    {
+        MagicValue = magic;
+        Version = version;
+        HeaderLength = headerLength;
+        Flags = flags;
+        FrameType = frameType;
+        PayloadLength = payloadLength;
+        PayloadCrc16 = payloadCrc16;
+    }
 
     public readonly uint MagicValue;
     public readonly byte Version;

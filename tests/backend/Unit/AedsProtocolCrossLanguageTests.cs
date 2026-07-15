@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using FsusBlog.Core.Cache;
@@ -20,6 +21,60 @@ namespace FsusBlog.Server.Tests;
 public sealed class AedsProtocolCrossLanguageTests
 {
     private static readonly Lazy<string> FrontendProtocolRuntimeJson = new(ExecuteFrontendProtocolModule);
+
+    [Fact]
+    public void GeneratedContracts_CoverEveryFrameTypeAndTheExactV2HeaderLayout()
+    {
+        Dictionary<string, ushort> coreFrameTypes = Enum.GetValues<CoreFrameType>()
+            .ToDictionary(static value => value.ToString(), static value => (ushort)value, StringComparer.Ordinal);
+        Dictionary<string, ushort> sharedFrameTypes = Enum.GetValues<FsusBlog.Shared.AedsFrameType>()
+            .ToDictionary(static value => value.ToString(), static value => (ushort)value, StringComparer.Ordinal);
+        string cppHeader = File.ReadAllText(BackendTestPaths.FromRoot("src/frontend/wasm/aeds/include/aeds_frame.hpp"));
+        Dictionary<string, ushort> cppFrameTypes = Regex.Matches(
+                cppHeader,
+                @"^\s{2}(?<name>[A-Z][A-Za-z0-9]*) = (?<value>\d+),$",
+                RegexOptions.Multiline | RegexOptions.CultureInvariant)
+            .ToDictionary(
+                static match => match.Groups["name"].Value,
+                static match => ushort.Parse(match.Groups["value"].Value, System.Globalization.CultureInfo.InvariantCulture),
+                StringComparer.Ordinal);
+
+        Assert.Equal(AedsProtocolMetadata.FrameTypes.Count, coreFrameTypes.Count);
+        Assert.Equal(coreFrameTypes.Count, sharedFrameTypes.Count);
+        Assert.Equal(coreFrameTypes.Count, cppFrameTypes.Count);
+        foreach ((string name, ushort value) in AedsProtocolMetadata.FrameTypes)
+        {
+            Assert.Equal(value, coreFrameTypes[name]);
+            Assert.Equal(value, sharedFrameTypes[name]);
+            Assert.Equal(value, cppFrameTypes[name]);
+        }
+        Assert.False(File.Exists(BackendTestPaths.FromRoot("src/core/Algorithms/AedsFrameHeader.cs")));
+
+        Assert.Equal(16, Marshal.SizeOf<AedsFrameHeader>());
+        Assert.Equal(0, Marshal.OffsetOf<AedsFrameHeader>(nameof(AedsFrameHeader.MagicValue)).ToInt32());
+        Assert.Equal(4, Marshal.OffsetOf<AedsFrameHeader>(nameof(AedsFrameHeader.Version)).ToInt32());
+        Assert.Equal(5, Marshal.OffsetOf<AedsFrameHeader>(nameof(AedsFrameHeader.HeaderLength)).ToInt32());
+        Assert.Equal(6, Marshal.OffsetOf<AedsFrameHeader>(nameof(AedsFrameHeader.Flags)).ToInt32());
+        Assert.Equal(8, Marshal.OffsetOf<AedsFrameHeader>(nameof(AedsFrameHeader.FrameType)).ToInt32());
+        Assert.Equal(10, Marshal.OffsetOf<AedsFrameHeader>(nameof(AedsFrameHeader.PayloadLength)).ToInt32());
+        Assert.Equal(14, Marshal.OffsetOf<AedsFrameHeader>(nameof(AedsFrameHeader.PayloadCrc16)).ToInt32());
+    }
+
+    [Fact]
+    public void BackendRoundTrip_AcceptsEveryGeneratedFrameType()
+    {
+        var encoder = new CoreAedsEncoder();
+        foreach (CoreFrameType frameType in Enum.GetValues<CoreFrameType>())
+        {
+            byte[] payload = [(byte)((ushort)frameType & 0xff), (byte)((ushort)frameType >> 8)];
+            byte[] frame = encoder.Encode(frameType, payload);
+            Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decoded = encoder.TryDecode(frame);
+
+            Assert.True(decoded.IsSuccess, $"{frameType}: {decoded.Error.Message}");
+            Assert.Equal(frameType, decoded.Value.FrameType);
+            Assert.Equal(payload, decoded.Value.Payload.ToArray());
+        }
+    }
 
     [Fact]
     public void FrontendFrameTypeEnum_MatchesSharedProtocolMetadata()
@@ -52,10 +107,10 @@ public sealed class AedsProtocolCrossLanguageTests
         using JsonDocument frontend = ReadFrontendProtocolRuntime();
         Assert.False(frontend.RootElement.GetProperty("frameTypes").TryGetProperty(retiredName, out _));
 
-        Span<byte> frame = stackalloc byte[FsusBlog.Core.Algorithms.AedsFrameHeader.Size];
+        Span<byte> frame = stackalloc byte[AedsFrameHeader.Size];
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(frame[0..4], CoreAedsEncoder.Magic);
-        frame[4] = FsusBlog.Core.Algorithms.AedsFrameHeader.CurrentVersion;
-        frame[5] = FsusBlog.Core.Algorithms.AedsFrameHeader.CurrentHeaderLength;
+        frame[4] = AedsFrameHeader.CurrentVersion;
+        frame[5] = AedsFrameHeader.CurrentHeaderLength;
         System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame[8..10], 40);
         System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame[14..16], FsusBlog.Core.Algorithms.AedsCrc16.Compute([]));
         Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decoded = new CoreAedsEncoder().TryDecode(frame.ToArray());
@@ -108,10 +163,10 @@ public sealed class AedsProtocolCrossLanguageTests
     [Fact]
     public void Decoder_RejectsLegacyAdminPasswordResetFrameAsRetired()
     {
-        Span<byte> frame = stackalloc byte[FsusBlog.Core.Algorithms.AedsFrameHeader.Size];
+        Span<byte> frame = stackalloc byte[AedsFrameHeader.Size];
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(frame[0..4], CoreAedsEncoder.Magic);
-        frame[4] = FsusBlog.Core.Algorithms.AedsFrameHeader.CurrentVersion;
-        frame[5] = FsusBlog.Core.Algorithms.AedsFrameHeader.CurrentHeaderLength;
+        frame[4] = AedsFrameHeader.CurrentVersion;
+        frame[5] = AedsFrameHeader.CurrentHeaderLength;
         System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame[8..10], 40);
         System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame[14..16], FsusBlog.Core.Algorithms.AedsCrc16.Compute([]));
 
