@@ -34,13 +34,19 @@ public interface IOnlineSchemaMigrationDescriptorExecutor
 
 public sealed class PostgresOnlineSchemaMigrationDescriptorExecutor(
     ISqlSugarClient db,
-    IOnlineSchemaMigrationStateStore stateStore) : IOnlineSchemaMigrationDescriptorExecutor
+    IOnlineSchemaMigrationStateStore stateStore,
+    TimeProvider timeProvider) : IOnlineSchemaMigrationDescriptorExecutor
 {
     public async Task ExecuteAsync(
         ISchemaMigrationDescriptor descriptor,
         string releaseId,
         CancellationToken cancellationToken)
     {
+        DestructiveMigrationProofs.ValidateDescriptor(
+            descriptor,
+            timeProvider.GetUtcNow(),
+            freshBootstrap: false);
+
         async Task ExecuteCoreAsync()
         {
             foreach (SchemaMigrationStep step in descriptor.Steps)

@@ -555,6 +555,9 @@ tiers:
       - tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs
       - tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs
       - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
+      - tests/backend/Unit/DestructiveMigrationProofTests.cs
+      - src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs
+      - docs/schema-migrations/destructive-rollback-window-proofs.json
       - tests/backend/Unit/ProductionHealthTests.cs
       - src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs
       - src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs
@@ -871,6 +874,9 @@ tiers:
       - docs/issue-1029-storage-lifecycle-handoff.md
       - tests/tools/online-schema-migration-wrapper.test.mjs
       - tests/backend/issue-1028-online-migration-evidence.json
+      - tests/tools/destructive-migration-proof.test.mjs
+      - docs/schema-migrations/destructive-rollback-window-proofs.json
+      - docs/schema-migrations/destructive-rollback-window.md
       - docs/schema-migrations/typed-ddl-primitives.json
       - tests/tools/release-storage-lifecycle.test.mjs
       - tools/check-background-service-classification.mjs

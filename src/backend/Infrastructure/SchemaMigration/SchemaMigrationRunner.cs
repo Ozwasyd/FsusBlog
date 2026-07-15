@@ -22,6 +22,7 @@ public sealed class SchemaMigrationRunner(
     ISchemaMigrationRegistry registry,
     ISchemaModelInspector inspector,
     ISchemaMigrationLock migrationLock,
+    TimeProvider timeProvider,
     ILogger<SchemaMigrationRunner> logger,
     IArticleDetailAedsArtifactMaintenanceService? articleDetailAedsMaintenance = null) : ISchemaMigrationRunner
 {
@@ -31,12 +32,14 @@ public sealed class SchemaMigrationRunner(
     private readonly ISchemaMigrationRegistry _registry = registry;
     private readonly ISchemaModelInspector _inspector = inspector;
     private readonly ISchemaMigrationLock _migrationLock = migrationLock;
+    private readonly TimeProvider _timeProvider = timeProvider;
     private readonly ILogger<SchemaMigrationRunner> _logger = logger;
     private readonly IArticleDetailAedsArtifactMaintenanceService? _articleDetailAedsMaintenance = articleDetailAedsMaintenance;
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         _db.DbMaintenance.CreateDatabase();
+        bool freshBootstrap = _db.DbMaintenance.GetTableInfoList(false).Count == 0;
         await EnsureHistoryTableAsync(cancellationToken).ConfigureAwait(false);
 
         await using IAsyncDisposable schemaLock = await _migrationLock.AcquireAsync(cancellationToken).ConfigureAwait(false);
@@ -50,11 +53,11 @@ public sealed class SchemaMigrationRunner(
 
         IReadOnlyList<Type> entityTypes = _inspector.GetManagedEntityTypes();
 
-        await ExecutePhaseAsync(SchemaMigrationPhase.PreCodeFirst, descriptors, appliedHistory, executedDescriptors, cancellationToken).ConfigureAwait(false);
+        await ExecutePhaseAsync(SchemaMigrationPhase.PreCodeFirst, descriptors, appliedHistory, executedDescriptors, freshBootstrap, cancellationToken).ConfigureAwait(false);
 
         _db.CodeFirst.InitTables([.. entityTypes]);
 
-        await ExecutePhaseAsync(SchemaMigrationPhase.PostCodeFirst, descriptors, appliedHistory, executedDescriptors, cancellationToken).ConfigureAwait(false);
+        await ExecutePhaseAsync(SchemaMigrationPhase.PostCodeFirst, descriptors, appliedHistory, executedDescriptors, freshBootstrap, cancellationToken).ConfigureAwait(false);
 
         await _inspector.ValidateAsync(
             _db,
@@ -89,6 +92,7 @@ public sealed class SchemaMigrationRunner(
         IReadOnlyList<ISchemaMigrationDescriptor> descriptors,
         IReadOnlyDictionary<string, SchemaMigrationHistoryEntry> appliedHistory,
         List<ISchemaMigrationDescriptor> executedDescriptors,
+        bool freshBootstrap,
         CancellationToken cancellationToken)
     {
         foreach (ISchemaMigrationDescriptor descriptor in descriptors)
@@ -97,6 +101,11 @@ public sealed class SchemaMigrationRunner(
             {
                 continue;
             }
+
+            DestructiveMigrationProofs.ValidateDescriptor(
+                descriptor,
+                _timeProvider.GetUtcNow(),
+                freshBootstrap);
 
             _logger.LogInformation(
                 "Applying schema migration {MigrationId} ({Phase}) with {StepCount} step(s).",

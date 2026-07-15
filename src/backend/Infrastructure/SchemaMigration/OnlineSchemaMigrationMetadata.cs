@@ -256,6 +256,51 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            "20260715-pre-read-event-retirement-compat",
+            new OnlineSchemaMigrationMetadata(
+                "20260715-pre-read-event-retirement-compat",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260715-read-event-retirement",
+                ContractAfterRelease: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "empty_compatibility_table"
+                ]));
+
+        result.Add(
+            "20260715-post-read-event-retirement",
+            new OnlineSchemaMigrationMetadata(
+                "20260715-post-read-event-retirement",
+                OnlineSchemaMigrationPhase.Contract,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: true,
+                Destructive: true,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.BackupRestore,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.High,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260715-read-event-retirement",
+                ContractAfterRelease: "20260715-read-event-retirement-expand",
+                MinimumRetentionWindow: TimeSpan.FromDays(DestructiveMigrationProofs.MinimumRollbackWindowDays),
+                Validators:
+                [
+                    "destructive_rollback_window_proof",
+                    "n_minus_one_read_write",
+                    "fresh_backup_restore",
+                    "aggregate_only_persistence"
+                ]));
+
+        result.Add(
             AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId,
             new OnlineSchemaMigrationMetadata(
                 AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId,

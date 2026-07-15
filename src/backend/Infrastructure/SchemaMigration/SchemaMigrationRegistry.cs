@@ -149,8 +149,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     DELETE FROM author_route_stats;
                     DELETE FROM author_daily_read_stats;
                     """),
-                new DropTableStep("article_view_projection_watermark"),
-                new DropTableStep("sys_visit_log")
+                new DropTableStep("article_view_projection_watermark", DestructiveMigrationProofs.For("20260715-post-read-event-retirement")),
+                new DropTableStep("sys_visit_log", DestructiveMigrationProofs.For("20260715-post-read-event-retirement"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildPublicArticleProjectionMigration()
@@ -623,7 +623,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         END IF;
                     END $$;
                     """),
-                new DropColumnStep("article", "content")
+                new DropColumnStep("article", "content", DestructiveMigrationProofs.For("20260418-post-content-cleanup"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildMessagingSplitMigration()
@@ -726,8 +726,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         END IF;
                     END $$;
                     """),
-                new DropTableStep("sys_user_message"),
-                new DropTableStep("sys_message")
+                new DropTableStep("sys_user_message", DestructiveMigrationProofs.For("20260418-post-messaging-split")),
+                new DropTableStep("sys_message", DestructiveMigrationProofs.For("20260418-post-messaging-split"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildMessageAccountPrincipalMigration()
@@ -984,9 +984,9 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     DROP FUNCTION IF EXISTS public.fsusblog_msg_message_identity_sync();
                     DROP FUNCTION IF EXISTS public.fsusblog_msg_participant_identity_sync();
                     """),
-                new DropColumnStep("msg_conversation", "initiatoruserid"),
-                new DropColumnStep("msg_message", "senderid"),
-                new DropColumnStep("msg_participant_state", "userid")
+                new DropColumnStep("msg_conversation", "initiatoruserid", DestructiveMigrationProofs.For("20260621-post-message-legacy-identity-columns-finalize")),
+                new DropColumnStep("msg_message", "senderid", DestructiveMigrationProofs.For("20260621-post-message-legacy-identity-columns-finalize")),
+                new DropColumnStep("msg_participant_state", "userid", DestructiveMigrationProofs.For("20260621-post-message-legacy-identity-columns-finalize"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildUserSoftDeleteMigration()
@@ -1044,8 +1044,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     ALTER TABLE sys_user_session ALTER COLUMN rememberme SET DEFAULT false;
                     ALTER TABLE sys_user_session ALTER COLUMN rememberme SET NOT NULL;
                     """),
-                new DropColumnStep("sys_user_session", "expires_at"),
-                new DropColumnStep("sys_user_session", "expiresat")
+                new DropColumnStep("sys_user_session", "expires_at", DestructiveMigrationProofs.For("20260418-post-user-session-finalize")),
+                new DropColumnStep("sys_user_session", "expiresat", DestructiveMigrationProofs.For("20260418-post-user-session-finalize"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildUserSessionActiveUniqueMigration()
@@ -1109,10 +1109,10 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         END IF;
                     END $$;
                     """),
-                new DropColumnStep("sys_user", "refreshtoken"),
-                new DropColumnStep("sys_user", "refreshtokenexpirytime"),
-                new DropColumnStep("sys_user", "refresh_token"),
-                new DropColumnStep("sys_user", "refresh_token_expiry_time")
+                new DropColumnStep("sys_user", "refreshtoken", DestructiveMigrationProofs.For("20260602-post-user-auth-security-hardening")),
+                new DropColumnStep("sys_user", "refreshtokenexpirytime", DestructiveMigrationProofs.For("20260602-post-user-auth-security-hardening")),
+                new DropColumnStep("sys_user", "refresh_token", DestructiveMigrationProofs.For("20260602-post-user-auth-security-hardening")),
+                new DropColumnStep("sys_user", "refresh_token_expiry_time", DestructiveMigrationProofs.For("20260602-post-user-auth-security-hardening"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildSysUserSecurityProfileSplitMigration()
@@ -1238,13 +1238,13 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         END IF;
                     END $$;
                     """),
-                new DropColumnStep("sys_user", "lastloginip"),
-                new DropColumnStep("sys_user", "lastlogintime"),
-                new DropColumnStep("sys_user", "mfasecretencrypted"),
-                new DropColumnStep("sys_user", "mfapendingsecretencrypted"),
-                new DropColumnStep("sys_user", "mfapendingcreatedat"),
-                new DropColumnStep("sys_user", "mfaverifiedat"),
-                new DropColumnStep("sys_user", "mfarecoverycodeshash")
+                new DropColumnStep("sys_user", "lastloginip", DestructiveMigrationProofs.For("20260621-pre-sys-user-security-profile-split")),
+                new DropColumnStep("sys_user", "lastlogintime", DestructiveMigrationProofs.For("20260621-pre-sys-user-security-profile-split")),
+                new DropColumnStep("sys_user", "mfasecretencrypted", DestructiveMigrationProofs.For("20260621-pre-sys-user-security-profile-split")),
+                new DropColumnStep("sys_user", "mfapendingsecretencrypted", DestructiveMigrationProofs.For("20260621-pre-sys-user-security-profile-split")),
+                new DropColumnStep("sys_user", "mfapendingcreatedat", DestructiveMigrationProofs.For("20260621-pre-sys-user-security-profile-split")),
+                new DropColumnStep("sys_user", "mfaverifiedat", DestructiveMigrationProofs.For("20260621-pre-sys-user-security-profile-split")),
+                new DropColumnStep("sys_user", "mfarecoverycodeshash", DestructiveMigrationProofs.For("20260621-pre-sys-user-security-profile-split"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildSysUserSecurityProfileSplitFinalizeMigration()
@@ -1255,13 +1255,13 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
             Transactional: true,
             Steps:
             [
-                new DropColumnStep("sys_user", "lastloginip"),
-                new DropColumnStep("sys_user", "lastlogintime"),
-                new DropColumnStep("sys_user", "mfasecretencrypted"),
-                new DropColumnStep("sys_user", "mfapendingsecretencrypted"),
-                new DropColumnStep("sys_user", "mfapendingcreatedat"),
-                new DropColumnStep("sys_user", "mfaverifiedat"),
-                new DropColumnStep("sys_user", "mfarecoverycodeshash")
+                new DropColumnStep("sys_user", "lastloginip", DestructiveMigrationProofs.For("20260621-post-sys-user-security-profile-split-finalize")),
+                new DropColumnStep("sys_user", "lastlogintime", DestructiveMigrationProofs.For("20260621-post-sys-user-security-profile-split-finalize")),
+                new DropColumnStep("sys_user", "mfasecretencrypted", DestructiveMigrationProofs.For("20260621-post-sys-user-security-profile-split-finalize")),
+                new DropColumnStep("sys_user", "mfapendingsecretencrypted", DestructiveMigrationProofs.For("20260621-post-sys-user-security-profile-split-finalize")),
+                new DropColumnStep("sys_user", "mfapendingcreatedat", DestructiveMigrationProofs.For("20260621-post-sys-user-security-profile-split-finalize")),
+                new DropColumnStep("sys_user", "mfaverifiedat", DestructiveMigrationProofs.For("20260621-post-sys-user-security-profile-split-finalize")),
+                new DropColumnStep("sys_user", "mfarecoverycodeshash", DestructiveMigrationProofs.For("20260621-post-sys-user-security-profile-split-finalize"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildAdminPrincipalPlaneMigration()
@@ -1584,10 +1584,10 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
             Steps:
             [
                 new DropIndexStep("unique_idx_username"),
-                new DropColumnStep("sys_user", "password"),
-                new DropColumnStep("sys_user", "role"),
-                new DropColumnStep("sys_user", "lastusernameupdatetime"),
-                new DropColumnStep("sys_user", "last_username_update_time")
+                new DropColumnStep("sys_user", "password", DestructiveMigrationProofs.For("20260621-post-user-legacy-identity-columns-finalize")),
+                new DropColumnStep("sys_user", "role", DestructiveMigrationProofs.For("20260621-post-user-legacy-identity-columns-finalize")),
+                new DropColumnStep("sys_user", "lastusernameupdatetime", DestructiveMigrationProofs.For("20260621-post-user-legacy-identity-columns-finalize")),
+                new DropColumnStep("sys_user", "last_username_update_time", DestructiveMigrationProofs.For("20260621-post-user-legacy-identity-columns-finalize"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildSysUserUsernameFinalizeMigration()
@@ -1598,7 +1598,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
             Transactional: true,
             Steps:
             [
-                new DropColumnStep("sys_user", "username")
+                new DropColumnStep("sys_user", "username", DestructiveMigrationProofs.For("20260621-post-sys-user-username-finalize"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildAccountRecoveryKeyMigration()
@@ -1658,8 +1658,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new DropIndexStep("idx_account_recovery_key_active_unique"),
                 new RenameColumnStep("account_recovery_key", "user_id", "account_id"),
                 new CopyColumnToColumnStep("account_recovery_key", "user_id", "account_id"),
-                new DropColumnStep("passkey_credential", "user_id"),
-                new DropColumnStep("account_recovery_key", "user_id"),
+                new DropColumnStep("passkey_credential", "user_id", DestructiveMigrationProofs.For("20260621-post-passkey-recovery-key-account-id-finalize")),
+                new DropColumnStep("account_recovery_key", "user_id", DestructiveMigrationProofs.For("20260621-post-passkey-recovery-key-account-id-finalize")),
                 new CreateIndexStep(
                     "idx_passkey_account_id",
                     "CREATE INDEX IF NOT EXISTS idx_passkey_account_id ON passkey_credential(account_id);"),
@@ -1846,8 +1846,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     """),
                 new DropIndexStep("idx_anonymous_credential_user"),
                 new DropIndexStep("unique_idx_anonymous_credential_commitment"),
-                new DropColumnStep("anonymous_credential", "user_id"),
-                new DropColumnStep("anonymous_credential", "commitment_hash"),
+                new DropColumnStep("anonymous_credential", "user_id", DestructiveMigrationProofs.For("20260621-post-anonymous-credential-account-binding-finalize")),
+                new DropColumnStep("anonymous_credential", "commitment_hash", DestructiveMigrationProofs.For("20260621-post-anonymous-credential-account-binding-finalize")),
                 new CreateIndexStep(
                     "idx_anonymous_credential_account",
                     "CREATE INDEX IF NOT EXISTS idx_anonymous_credential_account ON anonymous_credential(account_id);"),
@@ -1905,8 +1905,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         END IF;
                     END $$;
                     """),
-                new DropColumnStep("anonymous_credential_issuance_audit", "request_hash"),
-                new DropColumnStep("anonymous_credential_issuance_audit", "user_id")
+                new DropColumnStep("anonymous_credential_issuance_audit", "request_hash", DestructiveMigrationProofs.For("20260618-post-anonymous-credential-issuance-audit")),
+                new DropColumnStep("anonymous_credential_issuance_audit", "user_id", DestructiveMigrationProofs.For("20260618-post-anonymous-credential-issuance-audit"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildSecurityRiskEventPersistenceMigration()
@@ -2340,7 +2340,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     );
                     """),
                 new EnsureColumnStep("sys_audit_log", "context_payload", "bytea"),
-                new DropColumnStep("sys_audit_log", "context_json"),
+                new DropColumnStep("sys_audit_log", "context_json", DestructiveMigrationProofs.For("20260418-post-audit-log")),
                 new CreateIndexStep(
                     "idx_audit_occurred_at_desc",
                     "CREATE INDEX IF NOT EXISTS idx_audit_occurred_at_desc ON sys_audit_log(occurred_at_utc DESC);"),
@@ -2936,8 +2936,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
             Transactional: true,
             Steps:
             [
-                new DropColumnStep("sys_visit_log", "userid"),
-                new DropColumnStep("sys_visit_log", "user_id")
+                new DropColumnStep("sys_visit_log", "userid", DestructiveMigrationProofs.For("20260621-post-visit-log-anonymous-attribution-finalize")),
+                new DropColumnStep("sys_visit_log", "user_id", DestructiveMigrationProofs.For("20260621-post-visit-log-anonymous-attribution-finalize"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildVisitLogIpAnonymizationMigration()
@@ -2949,7 +2949,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
             Steps:
             [
                 new EnsureColumnStep("sys_visit_log", "ip_hash", "VARCHAR(64) NOT NULL DEFAULT ''"),
-                new DropColumnStep("sys_visit_log", "ip")
+                new DropColumnStep("sys_visit_log", "ip", DestructiveMigrationProofs.For("20260621-post-visit-log-ip-anonymization"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildVisitLogIpPseudonymEpochCompatMigration()
@@ -3009,8 +3009,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     "created_by_admin_principal_id",
                     TargetSqlExpression: null,
                     PredicateSql: "created_by_admin_principal_id = 0"),
-                new DropColumnStep("article_draft", "owner_user_id"),
-                new DropColumnStep("article_revision", "created_by_user_id"),
+                new DropColumnStep("article_draft", "owner_user_id", DestructiveMigrationProofs.For("20260621-pre-authoring-admin-principal-attribution")),
+                new DropColumnStep("article_revision", "created_by_user_id", DestructiveMigrationProofs.For("20260621-pre-authoring-admin-principal-attribution")),
                 new CreateIndexStep(
                     "idx_article_draft_admin_principal_key",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_article_draft_admin_principal_key ON article_draft(owner_admin_principal_id, draft_key);")
@@ -3426,7 +3426,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     "moderated_by_admin_principal_id",
                     TargetSqlExpression: null,
                     PredicateSql: "moderated_by_admin_principal_id IS NULL"),
-                new DropColumnStep("comment", "moderated_by_user_id")
+                new DropColumnStep("comment", "moderated_by_user_id", DestructiveMigrationProofs.For("20260621-pre-comment-moderation-admin-principal-attribution"))
             ]);
 
     private static ISchemaMigrationDescriptor BuildArticleRevisionAtomicRevisionNoMigration()

@@ -66,7 +66,7 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
     {
         ISchemaMigrationDescriptor descriptor = Descriptor(
             "20260712-post-drop-legacy-column",
-            [new DropColumnStep("article", "legacy_column")]);
+            [new DropColumnStep("article", "legacy_column", DestructiveMigrationProofs.For("20260418-post-content-cleanup"))]);
         OnlineSchemaMigrationMetadata metadata = Metadata(
             descriptor.MigrationId,
             OnlineSchemaMigrationPhase.Contract) with
@@ -119,7 +119,7 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
     {
         ISchemaMigrationDescriptor descriptor = Descriptor(
             "20260712-post-drop-obsolete-column",
-            [new DropColumnStep("article", "obsolete_column")]);
+            [new DropColumnStep("article", "obsolete_column", DestructiveMigrationProofs.For("20260418-post-content-cleanup"))]);
         OnlineSchemaMigrationMetadata metadata = Metadata(
             descriptor.MigrationId,
             OnlineSchemaMigrationPhase.Contract) with

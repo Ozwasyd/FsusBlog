@@ -26,6 +26,10 @@ public sealed class OnlineSchemaMigrationPolicyTests
             metadata["20260715-post-active-release-fence-durable-witness"];
         OnlineSchemaMigrationMetadata activeReleaseFencedCommitExpand =
             metadata["20260715-post-active-release-fenced-commit-ledger"];
+        OnlineSchemaMigrationMetadata readEventRetirementCompat =
+            metadata["20260715-pre-read-event-retirement-compat"];
+        OnlineSchemaMigrationMetadata readEventRetirementContract =
+            metadata["20260715-post-read-event-retirement"];
         OnlineSchemaMigrationMetadata subjectExpand =
             metadata[AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId];
         OnlineSchemaMigrationMetadata subjectBackfill =
@@ -35,12 +39,17 @@ public sealed class OnlineSchemaMigrationPolicyTests
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleOutboxClaimLeaseExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, activeReleaseFenceWitnessExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, activeReleaseFencedCommitExpand.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, readEventRetirementCompat.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Contract, readEventRetirementContract.Phase);
+        Assert.True(readEventRetirementContract.Destructive);
+        Assert.False(readEventRetirementContract.LegacyBootstrapOnly);
+        Assert.Equal(TimeSpan.FromDays(30), readEventRetirementContract.MinimumRetentionWindow);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, subjectExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Backfill, subjectBackfill.Phase);
         Assert.Equal(AccountSubjectHashBackfillStep.BatchSize, subjectBackfill.BatchSize);
         Assert.Equal("last_account_id", subjectBackfill.ResumeTokenName);
         Assert.Equal(OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint, subjectBackfill.RollbackMode);
-        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, subjectExpand, subjectBackfill }, classification =>
+        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, subjectExpand, subjectBackfill }, classification =>
         {
             Assert.False(classification.LegacyBootstrapOnly);
             Assert.False(classification.Destructive);
@@ -53,6 +62,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             articleOutboxClaimLeaseExpand.MigrationId,
             activeReleaseFenceWitnessExpand.MigrationId,
             activeReleaseFencedCommitExpand.MigrationId,
+            readEventRetirementCompat.MigrationId,
+            readEventRetirementContract.MigrationId,
             subjectExpand.MigrationId,
             subjectBackfill.MigrationId
         };
@@ -80,7 +91,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             Steps:
             [
                 new RawSqlStep("ALTER TABLE article ALTER COLUMN title TYPE varchar(64);"),
-                new DropColumnStep("article", "legacy_title")
+                new DropColumnStep("article", "legacy_title", DestructiveMigrationProofs.For("20260418-post-content-cleanup"))
             ]);
         OnlineSchemaMigrationMetadata metadata = CreateMetadata(
             descriptor.MigrationId,

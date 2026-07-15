@@ -551,6 +551,8 @@ Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoin
 
 备份/恢复闭环由 `tools/operations/backup-site.sh`、`tools/operations/restore-site.sh` 和 `tools/operations/backup-restore-drill.sh` 承载。站点包包含 PostgreSQL dump、uploads、DataProtection keyring、脱敏配置、AOT cache 和 search artifacts；Redis 仍视为缓存/控制面依赖，restore drill 使用空 Redis 数据目录即可验证恢复后的运行时。生产 `serve` 的启动 lifecycle 只运行只读 schema compatibility，不获取 migration advisory lock，也不执行 descriptor。`release-rollout.sh` 的第 4 阶段显式执行 online Expand；Backfill 从 durable token 独立恢复，Contract 在 15 阶段之外并要求单独 destructive evidence/confirmation。Expand/Backfill 失败时保留 N/N-1 bridge 或暂停 token 即可，无需重启；Contract 执行后不能靠 image rollback 重建被移除的数据，只能隔离写路径并恢复经验证的迁移前站点包或数据库 dump。
 
+`DropColumnStep` / `DropTableStep` 还必须携带 descriptor-matched rollback-window proof；冷启动 runner 与 online executor 都在事务前校验真实 source commit、引入时间、至少 30 天窗口和本地 proof anchor。issue #1127 报告的 44 个步骤在 read-event retirement 合入后已变为 46 个，动态库存与证明规则见 [destructive schema rollback-window proof](schema-migrations/destructive-rollback-window.md)。仅数据库完全无表时允许 fresh bootstrap；已有任意表时窗口未结束即 fail closed。
+
 ## 生产启动保护
 
 服务器通过 HostedService 在启动后执行以下生产校验，失败时进入可观测降级状态而不是直接终止进程：

@@ -205,7 +205,10 @@ public sealed record CopyColumnToTableStep(
         => new(Sql, IsDdl: false);
 }
 
-public sealed record DropColumnStep(string TableName, string ColumnName) : SchemaMigrationStep
+public sealed record DropColumnStep(
+    string TableName,
+    string ColumnName,
+    DestructiveMigrationProof Proof) : SchemaMigrationStep, IDestructiveSchemaMigrationStep
 {
     internal override string Kind => "DropColumn";
     internal override string Fingerprint => $"{TableName}.{ColumnName}";
@@ -216,7 +219,9 @@ public sealed record DropColumnStep(string TableName, string ColumnName) : Schem
             SchemaIdentifier.Parse(ColumnName, nameof(ColumnName))), IsDdl: true);
 }
 
-public sealed record DropTableStep(string TableName) : SchemaMigrationStep
+public sealed record DropTableStep(
+    string TableName,
+    DestructiveMigrationProof Proof) : SchemaMigrationStep, IDestructiveSchemaMigrationStep
 {
     internal override string Kind => "DropTable";
     internal override string Fingerprint => TableName;

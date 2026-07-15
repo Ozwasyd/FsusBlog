@@ -72,7 +72,7 @@ public sealed class SchemaMigrationDdlPrimitivesTests
             Transactional: true,
             [
                 new EnsureColumnStep("article", "headline", "text NULL"),
-                new DropColumnStep("article", "legacy_title")
+                new DropColumnStep("article", "legacy_title", DestructiveMigrationProofs.For("20260418-post-content-cleanup"))
             ]);
 
         SchemaMigrationPreviewResult preview = await SchemaMigrationPreviewer.PreviewAsync(
@@ -99,7 +99,7 @@ public sealed class SchemaMigrationDdlPrimitivesTests
             "typed ddl preview without transaction",
             SchemaMigrationPhase.PostCodeFirst,
             Transactional: false,
-            [new DropColumnStep("article", "legacy_title")]);
+            [new DropColumnStep("article", "legacy_title", DestructiveMigrationProofs.For("20260418-post-content-cleanup"))]);
 
         SchemaMigrationPreviewResult preview = await SchemaMigrationPreviewer.PreviewAsync(
             descriptor,
@@ -133,7 +133,7 @@ public sealed class SchemaMigrationDdlPrimitivesTests
     [InlineData("文章")]
     public void IdentifierValidation_RejectsUntrustedShapes(string identifier)
     {
-        var step = new DropColumnStep(identifier, "title");
+        var step = new DropColumnStep(identifier, "title", DestructiveMigrationProofs.For("20260418-post-content-cleanup"));
 
         Assert.Throws<ArgumentException>(() => step.BuildCommand(PostgresSchemaDdlProvider.Instance));
     }
@@ -215,8 +215,8 @@ public sealed class SchemaMigrationDdlPrimitivesTests
             new EnsureColumnStep("article", "title", "varchar(64) NULL"),
             new RenameTableStep("article", "article_archive"),
             new RenameColumnStep("article", "title", "headline"),
-            new DropColumnStep("article", "legacy_title"),
-            new DropTableStep("article_archive"),
+            new DropColumnStep("article", "legacy_title", DestructiveMigrationProofs.For("20260418-post-content-cleanup")),
+            new DropTableStep("article_archive", DestructiveMigrationProofs.For("20260418-post-content-cleanup")),
             new DropIndexStep("idx_article_title"),
             new CreateIndexStep(
                 "idx_article_title",
