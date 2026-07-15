@@ -126,6 +126,20 @@ public sealed class PublicResponseCompressionPolicyTests
         Assert.Empty(response.Content.Headers.ContentEncoding);
     }
 
+    [Fact]
+    public async Task TestServer_InvalidAuthenticationPostWithCookieAndReflectedInputNeverCompresses()
+    {
+        await using CompressionTestSite site = await CompressionTestSite.CreateAsync();
+
+        using HttpResponseMessage response = await site.SendAsync(
+            "/auth/login-failure?value=attacker-controlled",
+            request => request.Headers.TryAddWithoutValidation("Cookie", "fsus-antiforgery=secret"),
+            method: HttpMethod.Post);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(response.Content.Headers.ContentEncoding);
+    }
+
     [Theory]
     [InlineData("/set-cookie")]
     [InlineData("/private-cache")]
@@ -206,6 +220,14 @@ public sealed class PublicResponseCompressionPolicyTests
             app.MapGet("/unmarked", WritePublicResponse).AllowAnonymous();
             MapPublic(app, "/account/profile");
             MapPublic(app, "/auth/login");
+            app.MapPost("/auth/login-failure", (HttpContext context, string? value) =>
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                context.Response.Headers.CacheControl = "no-store";
+                return Results.Text($"invalid-auth:{value}:{Payload}", "application/json");
+            })
+                .AllowAnonymous()
+                .AllowPublicResponseCompression();
             MapPublic(app, "/admin/panel");
             MapPublic(app, "/notification", "application/json")
                 .WithMetadata(new FsusRouteKindMetadata("notification-stream"));
@@ -267,10 +289,11 @@ public sealed class PublicResponseCompressionPolicyTests
             string path,
             Action<HttpRequestMessage>? configure,
             bool useHttps = true,
-            string acceptedEncoding = "br")
+            string acceptedEncoding = "br",
+            HttpMethod? method = null)
         {
             using var request = new HttpRequestMessage(
-                HttpMethod.Get,
+                method ?? HttpMethod.Get,
                 new Uri($"{(useHttps ? "https" : "http")}://localhost{path}"));
             request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue(acceptedEncoding));
             configure?.Invoke(request);
