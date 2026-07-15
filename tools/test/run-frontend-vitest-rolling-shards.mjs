@@ -264,7 +264,9 @@ export async function runRollingVitestCoordinator({
   launchHost,
   pollIntervalMs = Math.max(25, Math.round(200 / Math.sqrt(Math.max(1, topology.machineCpu)))),
   deadlineAtMs = null,
-  signal = null
+  signal = null,
+  cancelActive = null,
+  cancellationGraceMs = 2000
 }) {
   const pending = [...partitions]
   const active = new Map()
@@ -278,51 +280,72 @@ export async function runRollingVitestCoordinator({
     else signal.addEventListener('abort', () => resolve({ aborted: true }), { once: true })
   }) : null
 
-  while (pending.length > 0 || active.size > 0) {
-    if (signal?.aborted) throw Object.assign(new Error('rolling Vitest coordinator cancelled'), { code: 'ABORT_ERR' })
-    if (deadlineAtMs !== null && Date.now() >= deadlineAtMs) throw new Error('rolling Vitest coordinator exceeded its step deadline')
-    const grant = compactGrant(await readGrant())
-    const previousGrant = grantHistory.at(-1)
-    if (!previousGrant || previousGrant.cpuUnits !== grant.cpuUnits || previousGrant.memoryGiB !== grant.memoryGiB) {
-      grantHistory.push({ ...grant, observedAtMs: Date.now(), activeHosts: active.size, pendingPartitions: pending.length })
+  const drainActiveHosts = async () => {
+    if (active.size === 0) return
+    cancelActive?.('SIGTERM')
+    const settlement = Promise.allSettled([...active.values()].map((entry) => entry.promise))
+    let settled = false
+    const observedSettlement = settlement.then(() => { settled = true })
+    await Promise.race([
+      observedSettlement,
+      delay(Math.max(1, cancellationGraceMs), undefined, { ref: false })
+    ])
+    if (!settled) {
+      cancelActive?.('SIGKILL')
+      await settlement
     }
-    let admitted = 0
-    while (pending.length > 0) {
-      const shape = nextHostShape(grant, topology, active)
-      if (!shape) break
-      const partition = pending.shift()
-      const hostId = `host-${String(++hostSequence).padStart(2, '0')}`
-      const entry = {
-        hostId,
-        partition,
-        ...shape,
-        promise: Promise.resolve().then(() => launchHost({ hostId, partition, ...shape }))
-          .then((result) => ({ hostId, result }), (error) => ({ hostId, result: { code: 1, error } }))
+  }
+
+  try {
+    while (pending.length > 0 || active.size > 0) {
+      if (signal?.aborted) throw Object.assign(new Error('rolling Vitest coordinator cancelled'), { code: 'ABORT_ERR' })
+      if (deadlineAtMs !== null && Date.now() >= deadlineAtMs) throw new Error('rolling Vitest coordinator exceeded its step deadline')
+      const grant = compactGrant(await readGrant())
+      const previousGrant = grantHistory.at(-1)
+      if (!previousGrant || previousGrant.cpuUnits !== grant.cpuUnits || previousGrant.memoryGiB !== grant.memoryGiB) {
+        grantHistory.push({ ...grant, observedAtMs: Date.now(), activeHosts: active.size, pendingPartitions: pending.length })
       }
-      active.set(hostId, entry)
-      admitted += 1
-      peakHostCount = Math.max(peakHostCount, active.size)
+      let admitted = 0
+      while (pending.length > 0) {
+        const shape = nextHostShape(grant, topology, active)
+        if (!shape) break
+        const partition = pending.shift()
+        const hostId = `host-${String(++hostSequence).padStart(2, '0')}`
+        const entry = {
+          hostId,
+          partition,
+          ...shape,
+          promise: Promise.resolve().then(() => launchHost({ hostId, partition, ...shape }))
+            .then((result) => ({ hostId, result }), (error) => ({ hostId, result: { code: 1, error } }))
+        }
+        active.set(hostId, entry)
+        admitted += 1
+        peakHostCount = Math.max(peakHostCount, active.size)
+      }
+      if (initialHostCount === null) initialHostCount = active.size
+      if (pending.length > 0 && active.size === 0 && admitted === 0) {
+        throw new Error(`rolling Vitest grant cannot admit one host: cpu=${grant.cpuUnits} memoryGiB=${grant.memoryGiB}`)
+      }
+      if (active.size === 0) continue
+      const races = [...active.values()].map((entry) => entry.promise)
+      races.push(delay(pollIntervalMs).then(() => ({ poll: true })))
+      if (abortPromise) races.push(abortPromise)
+      const outcome = await Promise.race(races)
+      if (outcome.aborted) throw Object.assign(new Error('rolling Vitest coordinator cancelled'), { code: 'ABORT_ERR' })
+      if (outcome.poll) continue
+      const entry = active.get(outcome.hostId)
+      active.delete(outcome.hostId)
+      results.push({
+        hostId: outcome.hostId,
+        partitionId: entry.partition.id,
+        workers: entry.workers,
+        memoryGiB: entry.memoryGiB,
+        ...outcome.result
+      })
     }
-    if (initialHostCount === null) initialHostCount = active.size
-    if (pending.length > 0 && active.size === 0 && admitted === 0) {
-      throw new Error(`rolling Vitest grant cannot admit one host: cpu=${grant.cpuUnits} memoryGiB=${grant.memoryGiB}`)
-    }
-    if (active.size === 0) continue
-    const races = [...active.values()].map((entry) => entry.promise)
-    races.push(delay(pollIntervalMs).then(() => ({ poll: true })))
-    if (abortPromise) races.push(abortPromise)
-    const outcome = await Promise.race(races)
-    if (outcome.aborted) throw Object.assign(new Error('rolling Vitest coordinator cancelled'), { code: 'ABORT_ERR' })
-    if (outcome.poll) continue
-    const entry = active.get(outcome.hostId)
-    active.delete(outcome.hostId)
-    results.push({
-      hostId: outcome.hostId,
-      partitionId: entry.partition.id,
-      workers: entry.workers,
-      memoryGiB: entry.memoryGiB,
-      ...outcome.result
-    })
+  } catch (error) {
+    await drainActiveHosts()
+    throw error
   }
   return { results, grantHistory, initialHostCount: initialHostCount ?? 0, peakHostCount }
 }
@@ -670,7 +693,8 @@ async function main() {
       readGrant: () => readLiveVitestGrant(),
       launchHost: (request) => runPartitionHost({ ...request, cacheEnv, cache }),
       deadlineAtMs: stepDeadlineMs ? mainStartedAtMs + stepDeadlineMs : null,
-      signal: abortController.signal
+      signal: abortController.signal,
+      cancelActive: terminateAllChildren
     })
     const hostResults = coordinator.results
     const failures = hostResults.filter((result) => result.status !== 'success' || result.code !== 0 || result.signal)

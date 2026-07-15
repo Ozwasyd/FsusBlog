@@ -34,7 +34,9 @@ stable path order after execution. Byte-identical entries are reused; equivalent
 Host failures are collected rather than fail-fast: independent partitions finish, then duplicate, missing, unexpected,
 empty, and non-passing files/test IDs are checked against the authoritative catalog and the aggregate fails closed.
 SIGINT, SIGTERM, and the inherited step deadline terminate all active Vitest process groups, including Vite/esbuild
-descendants.
+descendants. The coordinator drains every active host promise before cache/output invalidation; after a bounded grace
+period it escalates unresponsive process groups from `SIGTERM` to `SIGKILL`, so cancellation cannot leave a writer
+mutating the current run after the coordinator has returned.
 
 ## Coverage and stable artifacts
 

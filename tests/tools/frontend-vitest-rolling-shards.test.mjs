@@ -168,6 +168,9 @@ test('one host failure does not prevent independent partitions from being collec
 
 test('cancellation stops coordinator admission while the runner owns process-group termination', async () => {
   const controller = new AbortController()
+  const cancellationSignals = []
+  const settleHosts = []
+  let settledHostCount = 0
   const execution = runRollingVitestCoordinator({
     partitions: partitions(3),
     topology: {
@@ -179,11 +182,44 @@ test('cancellation stops coordinator admission while the runner owns process-gro
     },
     pollIntervalMs: 2,
     readGrant: () => ({ cpuUnits: 2, memoryGiB: 2 }),
-    launchHost: () => new Promise((resolve) => setTimeout(() => resolve({ code: 0 }), 100)),
-    signal: controller.signal
+    launchHost: () => new Promise((resolve) => { settleHosts.push(resolve) }).finally(() => { settledHostCount += 1 }),
+    signal: controller.signal,
+    cancelActive: (signal) => {
+      cancellationSignals.push(signal)
+      for (const settleHost of settleHosts) settleHost({ code: 143, signal })
+    }
   })
   setTimeout(() => controller.abort(), 10)
   await assert.rejects(execution, /cancelled/u)
+  assert.deepEqual(cancellationSignals, ['SIGTERM'])
+  assert.equal(settledHostCount, 2)
+})
+
+test('deadline escalates to SIGKILL and drains an unresponsive active host before rejecting', async () => {
+  const cancellationSignals = []
+  let settleHost
+  let settledHostCount = 0
+  await assert.rejects(runRollingVitestCoordinator({
+    partitions: partitions(1),
+    topology: {
+      machineCpu: 1,
+      preferredWorkersPerHost: 1,
+      hostLimit: 1,
+      baseMemoryGiB: 0.25,
+      memoryPerWorkerGiB: 0.125
+    },
+    pollIntervalMs: 2,
+    deadlineAtMs: Date.now() + 10,
+    cancellationGraceMs: 5,
+    readGrant: () => ({ cpuUnits: 1, memoryGiB: 1 }),
+    launchHost: () => new Promise((resolve) => { settleHost = resolve }).finally(() => { settledHostCount += 1 }),
+    cancelActive: (signal) => {
+      cancellationSignals.push(signal)
+      if (signal === 'SIGKILL') settleHost?.({ code: 137, signal })
+    }
+  }), /exceeded its step deadline/u)
+  assert.deepEqual(cancellationSignals, ['SIGTERM', 'SIGKILL'])
+  assert.equal(settledHostCount, 1)
 })
 
 test('live grant is atomic, run-bound and fails closed on stale identity', () => {
