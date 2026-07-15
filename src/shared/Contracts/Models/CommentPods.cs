@@ -118,6 +118,51 @@ public readonly struct AnonymousCredentialIssueResponsePod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct BlindCredentialIssuerMetadataPod
+{
+    public readonly long CredentialEpoch;
+    public readonly long ExpiresAtUnixMs;
+    public readonly uint CircuitNumericId;
+    public readonly ushort PublicInputLayoutVersion;
+    public readonly ushort ModulusBytes;
+    public readonly Utf8SliceRef CircuitId;
+    public readonly Utf8SliceRef CredentialLevel;
+    public readonly Utf8SliceRef SchemeId;
+    public readonly Utf8SliceRef IssuerPublicKeyId;
+    public readonly Utf8SliceRef IssuerPublicKeyHash;
+    public readonly Utf8SliceRef SubjectPublicKeyInfo;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct BlindCredentialIssueRequestPod
+{
+    public readonly long CredentialEpoch;
+    public readonly uint CircuitNumericId;
+    public readonly ushort PublicInputLayoutVersion;
+    public readonly ushort Reserved0;
+    public readonly Utf8SliceRef CircuitId;
+    public readonly Utf8SliceRef CredentialLevel;
+    public readonly Utf8SliceRef SchemeId;
+    public readonly Utf8SliceRef IssuerPublicKeyId;
+    public readonly Utf8SliceRef BlindedMessage;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct BlindCredentialIssueResponsePod
+{
+    public readonly long CredentialEpoch;
+    public readonly long ExpiresAtUnixMs;
+    public readonly uint CircuitNumericId;
+    public readonly ushort PublicInputLayoutVersion;
+    public readonly ushort Reserved0;
+    public readonly Utf8SliceRef CircuitId;
+    public readonly Utf8SliceRef CredentialLevel;
+    public readonly Utf8SliceRef SchemeId;
+    public readonly Utf8SliceRef IssuerPublicKeyId;
+    public readonly Utf8SliceRef BlindSignature;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AnonymousCredentialRootSnapshotPod
 {
     public readonly long CredentialEpoch;

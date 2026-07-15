@@ -3,6 +3,8 @@ import type {
   AnonymousCredentialIssueResponse,
   AnonymousCredentialRevocationWitnessResponse,
   AnonymousCredentialRootSnapshot,
+  BlindCredentialIssuerMetadata,
+  BlindCredentialIssueResponse,
   AnonymousPrivacyStateSnapshot,
   CommentReplyItem,
   CommentThreadItem,
@@ -19,6 +21,8 @@ import {
   ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE,
+  BLIND_CREDENTIAL_ISSUER_METADATA_POD_SIZE,
+  BLIND_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
   ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE,
   COMMENT_POLICY_SNAPSHOT_POD_SIZE,
   COMMENT_REPLY_ITEM_POD_SIZE,
@@ -154,6 +158,44 @@ export function mapAnonymousCredentialIssueResponseFromPayload(payload: Uint8Arr
     credentialLevel: readAnonymousSliceText(blob, readSliceRef(pod, 32), 'anonymous_credential_issue_response_level_invalid'),
     issuerPublicKeyId: readAnonymousSliceText(blob, readSliceRef(pod, 40), 'anonymous_credential_issue_response_issuer_invalid'),
     issuerSignature: readAnonymousSliceBytes(blob, readSliceRef(pod, 48), 'anonymous_credential_issue_response_signature_invalid')
+  };
+}
+
+export function mapBlindCredentialIssuerMetadataFromPayload(payload: Uint8Array): BlindCredentialIssuerMetadata {
+  const { pod, blob } = readAnonymousPrivacyPayload(
+    payload,
+    BLIND_CREDENTIAL_ISSUER_METADATA_POD_SIZE,
+    'blind_credential_issuer_metadata');
+  return {
+    credentialEpoch: readInt64Number(pod, 0),
+    expiresAtUnixMs: readInt64Number(pod, 8),
+    circuitNumericId: readUint32(pod, 16),
+    publicInputLayoutVersion: readUint16(pod, 20),
+    modulusBytes: readUint16(pod, 22),
+    circuitId: readAnonymousSliceText(blob, readSliceRef(pod, 24), 'blind_credential_metadata_circuit_invalid'),
+    credentialLevel: readAnonymousSliceText(blob, readSliceRef(pod, 32), 'blind_credential_metadata_level_invalid'),
+    schemeId: readAnonymousSliceText(blob, readSliceRef(pod, 40), 'blind_credential_metadata_scheme_invalid'),
+    issuerPublicKeyId: readAnonymousSliceText(blob, readSliceRef(pod, 48), 'blind_credential_metadata_key_id_invalid'),
+    issuerPublicKeyHash: readAnonymousSliceText(blob, readSliceRef(pod, 56), 'blind_credential_metadata_key_hash_invalid'),
+    subjectPublicKeyInfo: readAnonymousSliceBytes(blob, readSliceRef(pod, 64), 'blind_credential_metadata_spki_invalid')
+  };
+}
+
+export function mapBlindCredentialIssueResponseFromPayload(payload: Uint8Array): BlindCredentialIssueResponse {
+  const { pod, blob } = readAnonymousPrivacyPayload(
+    payload,
+    BLIND_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
+    'blind_credential_issue_response');
+  return {
+    credentialEpoch: readInt64Number(pod, 0),
+    expiresAtUnixMs: readInt64Number(pod, 8),
+    circuitNumericId: readUint32(pod, 16),
+    publicInputLayoutVersion: readUint16(pod, 20),
+    circuitId: readAnonymousSliceText(blob, readSliceRef(pod, 24), 'blind_credential_response_circuit_invalid'),
+    credentialLevel: readAnonymousSliceText(blob, readSliceRef(pod, 32), 'blind_credential_response_level_invalid'),
+    schemeId: readAnonymousSliceText(blob, readSliceRef(pod, 40), 'blind_credential_response_scheme_invalid'),
+    issuerPublicKeyId: readAnonymousSliceText(blob, readSliceRef(pod, 48), 'blind_credential_response_key_id_invalid'),
+    blindSignature: readAnonymousSliceBytes(blob, readSliceRef(pod, 56), 'blind_credential_response_signature_invalid')
   };
 }
 

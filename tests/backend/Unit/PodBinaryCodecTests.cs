@@ -965,8 +965,8 @@ public class PodBinaryCodecTests
     [Fact]
     public void AnonymousCredentialIssueResponseContract_UsesIssuerSignatureAndNoShaCommitment()
     {
-        Assert.Equal("fsus.anonymous.comment.v3", AnonymousPrivacyContract.CircuitId);
-        Assert.Equal(4, AnonymousPrivacyContract.PublicInputLayoutVersion);
+        Assert.Equal("fsus.anonymous.comment.v4", AnonymousPrivacyContract.CircuitId);
+        Assert.Equal(5, AnonymousPrivacyContract.PublicInputLayoutVersion);
         Assert.Equal(256, AnonymousPrivacyContract.MaxCircuitNativeIssuerSignatureBytes);
         Assert.Equal(256, AnonymousPrivacyContract.MaxCircuitNativeCredentialRequestBytes);
         Assert.Equal(4096, AnonymousPrivacyContract.MaxGroth16ProofBytes);

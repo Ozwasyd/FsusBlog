@@ -1099,12 +1099,12 @@ public static class ProductionStartupValidator
 
         if (options.RequireCredential && !options.CredentialReady)
         {
-            errors.Add("AnonymousIdentity:ZkProd:Enabled requires circuit-native credential readiness in production.");
+            errors.Add("AnonymousIdentity:ZkProd:Enabled requires blind credential readiness in production.");
         }
 
         if (options.RequireCredential && options.CredentialReady && !readiness.CredentialIssuerConfigured)
         {
-            errors.Add("AnonymousIdentity:ZkProd:CredentialReady requires a configured circuit-native issuer backend in production.");
+            errors.Add("AnonymousIdentity:ZkProd:CredentialReady requires a configured RFC 9474 blind issuer in production.");
         }
 
         if (!readiness.CredentialRootReady)
@@ -1174,7 +1174,8 @@ internal sealed class ProductionStartupValidationHostedService(
     IWebHostEnvironment environment,
     IZkProofVerifier zkProofVerifier,
     IAnonymousCredentialRootReader rootReader,
-    ICircuitNativeCredentialIssuer credentialIssuer,
+    IRfc9474BlindCredentialSigner credentialIssuer,
+    IBlindCredentialRuntimeGate blindCredentialRuntimeGate,
     StartupRuntimeState runtimeState,
     ILogger<ProductionStartupValidationHostedService> logger) : IHostedService
 {
@@ -1195,7 +1196,7 @@ internal sealed class ProductionStartupValidationHostedService(
             new ZkProdRuntimeReadiness(
                 zkProofVerifier.IsConfigured,
                 HasReadyCredentialRoot(rootReader),
-                credentialIssuer.IsConfigured));
+                credentialIssuer.IsConfigured && blindCredentialRuntimeGate.IsEnabled));
         if (report.Errors.Count == 0)
         {
             runtimeState.ReportStartupTask(TaskName, "completed", "生产启动校验通过");

@@ -2,8 +2,8 @@ namespace FsusBlog.Shared.Contracts.Validation;
 
 public static class AnonymousPrivacyContract
 {
-    public const string CircuitId = "fsus.anonymous.comment.v3";
-    public const ushort PublicInputLayoutVersion = 4;
+    public const string CircuitId = "fsus.anonymous.comment.v4";
+    public const ushort PublicInputLayoutVersion = 5;
 
     public const int MaxCircuitNativeCredentialRequestBytes = 256;
     public const int MaxCircuitNativeIssuerSignatureBytes = 256;
@@ -32,4 +32,19 @@ public static class AnonymousPrivacyContract
     public const int MaxModerationSubjectHashBytes = 64;
 
     public const string CommentCreateActionContext = "comment.create";
+}
+
+public static class Rfc9474BlindCredentialProfile
+{
+    public const string SchemeId = "rfc9474-rsabssa-sha384-pss-randomized-3072";
+    public const string MessageDomain = "fsus.anonymous.credential.v4";
+    public const int ModulusBits = 3072;
+    public const int ModulusBytes = ModulusBits / 8;
+    public const int HashBytes = 48;
+    public const int SaltBytes = 48;
+    public const int MessageRandomizerBytes = 32;
+    public const int CredentialSecretBytes = 32;
+    public const int CredentialNonceBytes = 32;
+    public const int MaxKeyIdBytes = 128;
+    public const int MaxSubjectPublicKeyInfoBytes = 512;
 }

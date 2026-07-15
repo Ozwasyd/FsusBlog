@@ -1,4 +1,9 @@
-# fsus.anonymous.comment.v3 circuit contract
+# Historical fsus.anonymous.comment.v3 circuit contract
+
+> Superseded for new issuance by RFC 9474 blind credentials and target
+> `fsus.anonymous.comment.v4` / layout 5. The v3 source and artifacts below are
+> retained only for provenance; they cannot verify the new credential and must
+> remain `production_usable=false`. No v4 ceremony has run.
 
 Status: the v3/layout 4 circuit source, deterministic R1CS IR and binary
 Groth16 R1CS handoff are present and hash-bound. Removing the stable public

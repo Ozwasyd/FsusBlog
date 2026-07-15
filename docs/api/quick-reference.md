@@ -222,7 +222,9 @@
 | GET `/api/binary/anonymous-credential/root` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 公开 credential root / epoch / expiry / circuit metadata；`public_read` 限流 |
 | GET `/api/binary/anonymous-credential/circuit` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 同 root snapshot，用于 prover 预热读取 circuit/verifying key metadata |
 | POST `/api/binary/anonymous-credential/revocation-witness` | 🔓 🚦 📦 | `AnonymousCredentialRevocationWitnessRequest`(186) → `AnonymousCredentialRevocationWitnessResponse`(187) | 强匿名 revocation non-membership witness；`public_read` 限流、`no-store`、拒绝携带登录态 |
-| POST `/api/binary/anonymous-credential/issue` | 🔑 🚦 📦 | `AnonymousCredentialIssueRequest`(177) → `AnonymousCredentialIssueResponse`(178) | 登录态只用于领取强匿名凭证；响应 `no-store`，签发审计不保存 credential commitment |
+| GET `/api/binary/anonymous-credential/blind-issuer` | 🔓 🚦 📦 | `BlindCredentialIssuerMetadata`(193) | RFC 9474 profile、root 绑定、issuer SPKI/hash；`public_read`、`no-store`，runtime disable 时 503 |
+| POST `/api/binary/anonymous-credential/blind-issue` | 🔑 🚦 📦 | `BlindCredentialIssueRequest`(194) → `BlindCredentialIssueResponse`(195) | RFC 9474 blind issuance；只接收 384B blinded representative，统一拒绝与延迟桶，`no-store` |
+| POST `/api/binary/anonymous-credential/issue` | 🔑 🚦 📦 | `ApiError`(251) | 已撤销的 circuit-native issuance；固定 `410 Gone`，不得重新挂载旧 handler |
 | POST `/api/binary/telemetry/rum` | 🔓 🚦 📦 | `RumMetricBatchRequest`(75) → `RumMetricIngestResponse`(76) | 匿名 RUM 批量 ingestion；`credentials: omit` |
 
 ### 管理端 Binary

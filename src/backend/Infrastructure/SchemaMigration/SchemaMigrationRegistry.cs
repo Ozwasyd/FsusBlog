@@ -43,6 +43,7 @@ public sealed partial class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAnonymousCommentGovernanceMigration(),
         BuildAnonymousCredentialAccountBindingFinalizeMigration(),
         BuildAnonymousCredentialIssuanceAuditMigration(),
+        BuildBlindCredentialIssuancePrivacyMigration(),
         BuildAnonymousCredentialRootMetadataMigration(),
         BuildAnonymousCredentialRootLifecycleMigration(),
         BuildAccountSubjectHashBackfillMigration(),

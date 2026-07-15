@@ -1,8 +1,13 @@
 # ADR: ZK anonymous comments use circuit-native credentials and Groth16 proofs
 
-Status: Accepted
+Status: Superseded for credential issuance by `ADR-Anonymous-Credential-Blind-Issuance.md`
 Date: 2026-06-20
 Scope: ZK-prod anonymous comment cryptography decision
+
+> Historical note: the v3/layout 4 circuit-native credential decision remains
+> documented for artifact provenance only. New issuance uses RFC 9474 blind RSA
+> and requires a fresh v4/layout 5 circuit and ceremony; none of the v3 keys or
+> readiness claims apply to the new credential.
 
 ## Context
 

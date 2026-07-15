@@ -199,6 +199,9 @@
     { "name": "AuthUpdatePublicHandleRequest", "value": 190, "family": "auth-request" },
     { "name": "ArticleResponsibilityRequest", "value": 191, "family": "authoring-request" },
     { "name": "ArticleResponsibilityResponse", "value": 192, "family": "authoring-response" },
+    { "name": "BlindCredentialIssuerMetadata", "value": 193, "family": "anonymous-privacy-response" },
+    { "name": "BlindCredentialIssueRequest", "value": 194, "family": "anonymous-privacy-request" },
+    { "name": "BlindCredentialIssueResponse", "value": 195, "family": "anonymous-privacy-response" },
     { "name": "EmptySuccess", "value": 240, "family": "common-response" },
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "ApiError", "value": 251, "family": "error-response" }

@@ -647,7 +647,7 @@ internal sealed class UnavailableNativeGroth16VerifierLibrary : INativeGroth16Ve
 
 internal static class NativeGroth16PublicInputCodec
 {
-    private const string TranscriptDomain = "fsus.anonymous.comment.v3.public-inputs";
+    private const string TranscriptDomain = "fsus.anonymous.comment.v4.public-inputs";
 
     public static ReadOnlyMemory<byte> Encode(ProductionZkProofBackendRequest request)
     {

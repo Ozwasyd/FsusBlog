@@ -248,6 +248,40 @@ public sealed record class AnonymousCredentialIssueResponse(
     string IssuerPublicKeyId,
     byte[] IssuerSignature);
 
+public sealed record class BlindCredentialIssuerMetadata(
+    long CredentialEpoch,
+    long ExpiresAtUnixMs,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string CredentialLevel,
+    string SchemeId,
+    string IssuerPublicKeyId,
+    string IssuerPublicKeyHash,
+    ushort ModulusBytes,
+    byte[] SubjectPublicKeyInfo);
+
+public sealed record class BlindCredentialIssueRequest(
+    long CredentialEpoch,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string CredentialLevel,
+    string SchemeId,
+    string IssuerPublicKeyId,
+    byte[] BlindedMessage);
+
+public sealed record class BlindCredentialIssueResponse(
+    long CredentialEpoch,
+    long ExpiresAtUnixMs,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string CredentialLevel,
+    string SchemeId,
+    string IssuerPublicKeyId,
+    byte[] BlindSignature);
+
 public sealed record class AnonymousCredentialRootSnapshot(
     long CredentialEpoch,
     long RootExpiresAtUnixMs,

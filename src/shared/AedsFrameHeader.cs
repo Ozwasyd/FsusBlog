@@ -229,6 +229,9 @@ public enum AedsFrameType : ushort
     AuthUpdatePublicHandleRequest = 190,
     ArticleResponsibilityRequest = 191,
     ArticleResponsibilityResponse = 192,
+    BlindCredentialIssuerMetadata = 193,
+    BlindCredentialIssueRequest = 194,
+    BlindCredentialIssueResponse = 195,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

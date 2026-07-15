@@ -173,6 +173,40 @@ public readonly record struct AnonymousCredentialIssueResponseCoreModel(
     string IssuerPublicKeyId,
     byte[] IssuerSignature);
 
+public readonly record struct BlindCredentialIssuerMetadataCoreModel(
+    long CredentialEpoch,
+    long ExpiresAtUnixMs,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string CredentialLevel,
+    string SchemeId,
+    string IssuerPublicKeyId,
+    string IssuerPublicKeyHash,
+    ushort ModulusBytes,
+    byte[] SubjectPublicKeyInfo);
+
+public readonly record struct BlindCredentialIssueRequestCoreModel(
+    long CredentialEpoch,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string CredentialLevel,
+    string SchemeId,
+    string IssuerPublicKeyId,
+    byte[] BlindedMessage);
+
+public readonly record struct BlindCredentialIssueResponseCoreModel(
+    long CredentialEpoch,
+    long ExpiresAtUnixMs,
+    uint CircuitNumericId,
+    ushort PublicInputLayoutVersion,
+    string CircuitId,
+    string CredentialLevel,
+    string SchemeId,
+    string IssuerPublicKeyId,
+    byte[] BlindSignature);
+
 public readonly record struct AnonymousCredentialRootSnapshotCoreModel(
     long CredentialEpoch,
     long RootExpiresAtUnixMs,

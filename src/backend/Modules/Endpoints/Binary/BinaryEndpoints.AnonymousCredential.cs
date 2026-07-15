@@ -12,8 +12,10 @@ using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.Validation;
 using System.Globalization;
 using System.Security.Claims;
+using System.Diagnostics;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
@@ -53,11 +55,41 @@ public static partial class BinaryEndpoints
         group.MapPost("/anonymous-credential/issue", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IAedsEncoder aeds,
-            IAnonymousCredentialIssuerService issuer,
-            IUserAccountReader users,
-            IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
-            await HandleAnonymousCredentialIssueAsync(httpContext, aeds, issuer, users, auditEvents, cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.Validation, "anonymous_credential_legacy_issuance_rejected"),
+                aeds,
+                StatusCodes.Status410Gone);
+        })
+        .RequireAnonymousAccountPrincipal()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapGet("/anonymous-credential/blind-issuer", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAedsEncoder aeds,
+            IAnonymousCredentialRootService roots,
+            IRfc9474BlindCredentialSigner signer,
+            IBlindCredentialRuntimeGate runtimeGate,
+            IConfiguration configuration,
+            CancellationToken cancellationToken) =>
+            await HandleBlindCredentialIssuerMetadataAsync(
+                httpContext, aeds, roots, signer, runtimeGate, configuration, cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .RequireNoStoreResponse();
+
+        group.MapPost("/anonymous-credential/blind-issue", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IAedsEncoder aeds,
+            IBlindCredentialIssuanceService issuer,
+            IUserAccountReader users,
+            IBlindCredentialRuntimeGate runtimeGate,
+            CancellationToken cancellationToken) =>
+            await HandleBlindCredentialIssueAsync(
+                httpContext, aeds, issuer, users, runtimeGate, cancellationToken))
         .RequireAnonymousAccountPrincipal()
         .RequireRateLimiting("fixed_ip")
         .RequireNoStoreResponse();
@@ -88,6 +120,172 @@ public static partial class BinaryEndpoints
             aeds,
             AedsFrameType.AnonymousCredentialRootSnapshot,
             writer => PodBinaryCodec.WriteAnonymousCredentialRootSnapshot(snapshot, writer));
+    }
+
+    internal static async Task<BinaryFrameResult> HandleBlindCredentialIssuerMetadataAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        IAnonymousCredentialRootService roots,
+        IRfc9474BlindCredentialSigner signer,
+        IBlindCredentialRuntimeGate runtimeGate,
+        IConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        if (!AcceptsBinaryResponse(httpContext.Request) ||
+            !runtimeGate.IsEnabled ||
+            !signer.IsConfigured)
+        {
+            return BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.InfraFailure, "anonymous_credential_blind_issuer_unavailable"),
+                aeds,
+                StatusCodes.Status503ServiceUnavailable);
+        }
+
+        Result<AnonymousCredentialRootSnapshotCoreModel> root =
+            await roots.GetCurrentSnapshotAsync(cancellationToken);
+        if (!root.IsSuccess ||
+            !root.Value.ZkAnonymousEnabled ||
+            !root.Value.VerifierConfigured ||
+            root.Value.PublicInputLayoutVersion != AnonymousPrivacyContract.PublicInputLayoutVersion ||
+            !string.Equals(root.Value.CircuitId, AnonymousPrivacyContract.CircuitId, StringComparison.Ordinal) ||
+            !string.Equals(root.Value.IssuerPublicKeyHash, signer.PublicKeyHash, StringComparison.OrdinalIgnoreCase))
+        {
+            return BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.InfraFailure, "anonymous_credential_blind_issuer_unavailable"),
+                aeds,
+                StatusCodes.Status503ServiceUnavailable);
+        }
+
+        var metadata = new BlindCredentialIssuerMetadataCoreModel(
+            root.Value.CredentialEpoch,
+            root.Value.RootExpiresAtUnixMs,
+            root.Value.CircuitNumericId,
+            root.Value.PublicInputLayoutVersion,
+            root.Value.CircuitId,
+            BlindCredentialIssuanceService.ResolveCredentialLevel(configuration),
+            Rfc9474BlindCredentialProfile.SchemeId,
+            signer.KeyId,
+            signer.PublicKeyHash,
+            checked((ushort)signer.ModulusBytes),
+            signer.SubjectPublicKeyInfo);
+        return BinaryResults.Frame(
+            aeds,
+            AedsFrameType.BlindCredentialIssuerMetadata,
+            writer => PodBinaryCodec.WriteBlindCredentialIssuerMetadata(metadata, writer));
+    }
+
+    internal static async Task<BinaryFrameResult> HandleBlindCredentialIssueAsync(
+        HttpContext httpContext,
+        IAedsEncoder aeds,
+        IBlindCredentialIssuanceService issuer,
+        IUserAccountReader users,
+        IBlindCredentialRuntimeGate runtimeGate,
+        CancellationToken cancellationToken)
+    {
+        long started = Stopwatch.GetTimestamp();
+        BinaryFrameResult result;
+        if (!AcceptsBinaryResponse(httpContext.Request))
+        {
+            result = BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.Forbidden, "anonymous_credential_blind_issue_denied"),
+                aeds,
+                StatusCodes.Status403Forbidden);
+            await DelayBlindIssuanceEnvelopeAsync(started, runtimeGate, cancellationToken);
+            return result;
+        }
+
+        Result<int> accountId = await ResolveBlindCredentialIssueAccountAsync(
+            httpContext, users);
+        if (!accountId.IsSuccess)
+        {
+            result = BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.Forbidden, "anonymous_credential_blind_issue_denied"),
+                aeds,
+                StatusCodes.Status403Forbidden);
+            await DelayBlindIssuanceEnvelopeAsync(started, runtimeGate, cancellationToken);
+            return result;
+        }
+
+        BinaryRequestPayload payload = await ReadBinaryRequestPayloadAsync(
+            httpContext,
+            aeds,
+            AedsFrameType.BlindCredentialIssueRequest,
+            cancellationToken,
+            4 * 1024);
+        if (!payload.IsSuccess ||
+            !PodBinaryCodec.TryDecodeBlindCredentialIssueRequest(
+                payload.Payload,
+                out BlindCredentialIssueRequestCoreModel request))
+        {
+            result = BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.Forbidden, "anonymous_credential_blind_issue_denied"),
+                aeds,
+                StatusCodes.Status403Forbidden);
+            await DelayBlindIssuanceEnvelopeAsync(started, runtimeGate, cancellationToken);
+            return result;
+        }
+
+        Result<BlindCredentialIssueResponseCoreModel> issued =
+            await issuer.IssueAsync(accountId.Value, request, cancellationToken);
+        result = issued.IsSuccess
+            ? BinaryResults.Frame(
+                aeds,
+                AedsFrameType.BlindCredentialIssueResponse,
+                writer => PodBinaryCodec.WriteBlindCredentialIssueResponse(issued.Value, writer))
+            : BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.Forbidden, "anonymous_credential_blind_issue_denied"),
+                aeds,
+                StatusCodes.Status403Forbidden);
+        await DelayBlindIssuanceEnvelopeAsync(started, runtimeGate, cancellationToken);
+        return result;
+    }
+
+    private static async Task DelayBlindIssuanceEnvelopeAsync(
+        long started,
+        IBlindCredentialRuntimeGate runtimeGate,
+        CancellationToken cancellationToken)
+    {
+        TimeSpan remaining = runtimeGate.GetEnvelopeDelay(Stopwatch.GetElapsedTime(started));
+        if (remaining > TimeSpan.Zero)
+        {
+            await Task.Delay(remaining, cancellationToken);
+        }
+    }
+
+    private static async Task<Result<int>> ResolveBlindCredentialIssueAccountAsync(
+        HttpContext httpContext,
+        IUserAccountReader users)
+    {
+        if (httpContext.User.Identity?.IsAuthenticated != true ||
+            !TryReadUserId(httpContext.User, out int accountId) ||
+            !string.Equals(
+                httpContext.User.FindFirst("identity_kind")?.Value,
+                AnonymousIdentityRuntime.AnonymousAccountKind,
+                StringComparison.Ordinal))
+        {
+            return Result<int>.Failure(ErrorCode.Forbidden, "anonymous_credential_blind_issue_denied");
+        }
+
+        UserAccountSnapshot? account = await users.GetAccountByIdAsync(accountId);
+        if (account is null ||
+            account.Value.DeletedAt.HasValue ||
+            account.Value.Status == 2 ||
+            !string.Equals(
+                account.Value.IdentityKind,
+                AnonymousIdentityRuntime.AnonymousAccountKind,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                NormalizeAnonymousCredentialStatus(account.Value.AnonymousCredentialStatus),
+                AnonymousCredentialStatuses.Active,
+                StringComparison.Ordinal))
+        {
+            return Result<int>.Failure(ErrorCode.Forbidden, "anonymous_credential_blind_issue_denied");
+        }
+
+        // Deliberately no high-value audit here: raw account, trace and request
+        // path correlation would defeat blind issuance. The quota store persists
+        // only an epoch-scoped HMAC subject and an hour bucket.
+        return Result<int>.Success(accountId);
     }
 
     internal static async Task<BinaryFrameResult> HandleAnonymousCredentialRevocationWitnessAsync(

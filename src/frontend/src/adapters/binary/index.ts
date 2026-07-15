@@ -2,7 +2,7 @@ import { FrameType } from '@wasm/protocol/frame';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { mapEmptySuccessFromPayload, mapMutationIdFromPayload } from './commonAdapter';
 import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload, mapTrashClearResponseFromPodPayload } from './articleAdapter';
-import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialIssueResponseFromPayload, mapAnonymousCredentialRevocationWitnessResponseFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapCommentCursorFromPodPayload, mapCommentPolicySnapshotFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
+import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialIssueResponseFromPayload, mapAnonymousCredentialRevocationWitnessResponseFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentCursorFromPodPayload, mapCommentPolicySnapshotFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
 import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStatsFromPodPayload } from './statsAdapter';
 import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceConfigFromPayload } from './systemAdapter';
 import { mapCategoryListFromPayload, mapTagListFromPayload } from './taxonomyAdapter';
@@ -53,6 +53,8 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.AnonymousCredentialRevocationWitnessResponse]: mapAnonymousCredentialRevocationWitnessResponseFromPayload,
   [FrameType.AnonymousCommentTicketResponse]: mapAnonymousCommentTicketResponseFromPayload,
   [FrameType.AnonymousPrivacyStateSnapshot]: mapAnonymousPrivacyStateSnapshotFromPayload,
+  [FrameType.BlindCredentialIssuerMetadata]: mapBlindCredentialIssuerMetadataFromPayload,
+  [FrameType.BlindCredentialIssueResponse]: mapBlindCredentialIssueResponseFromPayload,
   [FrameType.AdminStats]: mapSiteStatsFromPodPayload,
   [FrameType.CategoryList]: mapCategoryListFromPayload,
   [FrameType.TagList]: mapTagListFromPayload,

@@ -3,8 +3,8 @@ import createCommentPrivacyRuntime from './comment_privacy_runtime.js'
 const ARTIFACT_UNAVAILABLE = 'comment_privacy_prover_artifact_unavailable'
 const ARTIFACT_INVALID = 'comment_privacy_prover_artifact_invalid'
 const PROOF_FAILED = 'comment_privacy_prover_failed'
-const NULLIFIER_DOMAIN = 'fsus.anonymous.comment.v3:nullifier:v1'
-const PUBLIC_INPUT_TRANSCRIPT_DOMAIN = 'fsus.anonymous.comment.v3.public-inputs'
+const NULLIFIER_DOMAIN = 'fsus.anonymous.comment.v4:nullifier:v1'
+const PUBLIC_INPUT_TRANSCRIPT_DOMAIN = 'fsus.anonymous.comment.v4.public-inputs'
 const COMMENT_ACTION_CONTEXT = 'comment.create'
 
 export function createCommentPrivacyProver() {

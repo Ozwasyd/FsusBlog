@@ -870,10 +870,10 @@
         "tags": [
           "Binary"
         ],
-        "summary": "anonymous-credential-issue",
+        "summary": "anonymous-credential-legacy-issue-gone",
         "responses": {
-          "200": {
-            "description": "AnonymousCredentialIssueResponse AEDS frame",
+          "410": {
+            "description": "ApiError AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -897,8 +897,104 @@
         },
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
-        "x-fsus-request-frame": "AnonymousCredentialIssueRequest",
-        "x-fsus-response-frame": "AnonymousCredentialIssueResponse",
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "ApiError",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "user",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 410,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "anonymous-credential-legacy-issue-gone",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/comment.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"
+      }
+    },
+    "/api/binary/anonymous-credential/blind-issuer": {
+      "get": {
+        "operationId": "binary_get_anonymous_credential_blind_issuer",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "anonymous-credential-blind-issuer",
+        "responses": {
+          "200": {
+            "description": "BlindCredentialIssuerMetadata AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "BlindCredentialIssuerMetadata",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "public_read",
+        "x-fsus-test-surface": "anonymous-credential-blind-issuer",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/comment.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"
+      }
+    },
+    "/api/binary/anonymous-credential/blind-issue": {
+      "post": {
+        "operationId": "binary_post_anonymous_credential_blind_issue",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "anonymous-credential-blind-issue",
+        "responses": {
+          "200": {
+            "description": "BlindCredentialIssueResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "BlindCredentialIssueRequest",
+        "x-fsus-response-frame": "BlindCredentialIssueResponse",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "user",
         "x-fsus-pow": false,
@@ -906,7 +1002,7 @@
         "x-fsus-success-status": 200,
         "x-fsus-cache": "no-store",
         "x-fsus-rate-limit": "fixed_ip",
-        "x-fsus-test-surface": "anonymous-credential-issue",
+        "x-fsus-test-surface": "anonymous-credential-blind-issue",
         "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
         "x-fsus-frontend-wrapper": "src/frontend/src/api/comment.ts",
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"

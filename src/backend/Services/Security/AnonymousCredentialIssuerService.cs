@@ -32,8 +32,7 @@ public readonly record struct AnonymousCredentialIssuanceAuditWrite(
     string SubjectHash,
     long Epoch,
     string Status,
-    DateTime CreatedAtUtc,
-    string? TraceId);
+    DateTime CreatedAtUtc);
 
 public interface ICircuitNativeCredentialIssuer
 {
@@ -376,18 +375,20 @@ public sealed class AnonymousCredentialIssuanceAuditStore(ISqlSugarClient db) : 
         int affected = await db.Ado.ExecuteCommandAsync(
             """
             INSERT INTO anonymous_credential_issuance_audit
-                (subject_hash, epoch, status, created_at_utc, trace_id)
+                (subject_hash, epoch, status, created_at_utc)
             VALUES
-                (@SubjectHash, @Epoch, @Status, @CreatedAtUtc, @TraceId)
+                (@SubjectHash, @Epoch, @Status, @CreatedAtUtc)
             ON CONFLICT(subject_hash, epoch) DO NOTHING;
             """,
             new SugarParameter("@SubjectHash", write.SubjectHash),
             new SugarParameter("@Epoch", write.Epoch),
             new SugarParameter("@Status", write.Status),
-            new SugarParameter("@CreatedAtUtc", write.CreatedAtUtc),
-            new SugarParameter("@TraceId", write.TraceId));
+            new SugarParameter("@CreatedAtUtc", TruncateToHour(write.CreatedAtUtc)));
         return affected > 0;
     }
+
+    private static DateTime TruncateToHour(DateTime value) =>
+        new(value.Year, value.Month, value.Day, value.Hour, 0, 0, DateTimeKind.Utc);
 }
 
 public sealed class AnonymousCredentialIssuerService(
@@ -527,8 +528,7 @@ public sealed class AnonymousCredentialIssuerService(
                 subjectHash,
                 epoch,
                 AnonymousCredentialIssuanceStatuses.Issued,
-                now.UtcDateTime,
-                NormalizeTraceId(traceId)),
+                now.UtcDateTime),
             cancellationToken);
         if (!recorded)
         {
@@ -558,7 +558,6 @@ public sealed class AnonymousCredentialIssuerService(
     {
         string normalizedStatus = NormalizeToken(status, 32);
         string shortSubjectHash = ShortSubjectHash(subjectHash);
-        string? normalizedTraceId = NormalizeTraceId(traceId);
         return auditEvents.RecordHighValueAsync(new AuditEvent(
             AuditSourceCatalog.Security,
             AuditTypeCatalog.Security,
@@ -579,8 +578,7 @@ public sealed class AnonymousCredentialIssuerService(
             {
                 ["epoch"] = epoch,
                 ["status"] = normalizedStatus,
-                ["subjectHash"] = shortSubjectHash,
-                ["traceId"] = normalizedTraceId
+                ["subjectHash"] = shortSubjectHash
             }),
             cancellationToken);
     }
@@ -675,17 +673,6 @@ public sealed class AnonymousCredentialIssuerService(
         }
 
         return normalized[..maxLength];
-    }
-
-    private static string? NormalizeTraceId(string? traceId)
-    {
-        string normalized = (traceId ?? string.Empty).Trim();
-        if (normalized.Length == 0)
-        {
-            return null;
-        }
-
-        return normalized.Length <= 64 ? normalized : normalized[..64];
     }
 
     private sealed record AnonymousCredentialIssuerOptions(

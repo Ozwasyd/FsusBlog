@@ -647,16 +647,14 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
                 SubjectHash = HashSubject("expired-subject"),
                 Epoch = 1001,
                 Status = AnonymousCredentialIssuanceStatuses.Issued,
-                CreatedAtUtc = new DateTime(2026, 3, 25, 23, 59, 59, DateTimeKind.Utc),
-                TraceId = "expired"
+                CreatedAtUtc = new DateTime(2026, 3, 25, 23, 0, 0, DateTimeKind.Utc)
             },
             new AnonymousCredentialIssuanceAudit
             {
                 SubjectHash = HashSubject("retained-subject"),
                 Epoch = 1002,
                 Status = AnonymousCredentialIssuanceStatuses.Issued,
-                CreatedAtUtc = new DateTime(2026, 3, 26, 0, 0, 0, DateTimeKind.Utc),
-                TraceId = "retained"
+                CreatedAtUtc = new DateTime(2026, 3, 26, 0, 0, 0, DateTimeKind.Utc)
             }
         }).ExecuteCommandAsync();
 
@@ -671,7 +669,7 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             .ToListAsync();
         AnonymousCredentialIssuanceAudit retained = Assert.Single(rows);
         Assert.Equal(1002, retained.Epoch);
-        Assert.Equal("retained", retained.TraceId);
+        Assert.Equal(new DateTime(2026, 3, 26, 0, 0, 0, DateTimeKind.Utc), retained.CreatedAtUtc);
     }
 
     [Fact]
@@ -901,7 +899,7 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
-    public async Task AnonymousCredentialIssueEndpoint_RequiresAuthRateLimitAndNoStore()
+    public async Task LegacyAnonymousCredentialIssueEndpoint_IsGoneAndCannotReattachOldHandler()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint endpoint = EndpointContractApplication.Find(
@@ -920,23 +918,15 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             Assert.IsType<EnableRateLimitingAttribute>(
                 endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
         Assert.NotNull(endpoint.Metadata.GetMetadata<NoStoreResponseMetadata>());
-        Assert.Equal(16 * 1024, AnonymousCredentialIssuerLimits.MaxIssueRequestFrameBytes);
-
-        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(BinaryEndpoints),
-            nameof(BinaryEndpoints.HandleAnonymousCredentialIssueAsync));
-        Assert.Contains("TryDecodeAnonymousCredentialIssueRequest", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("WriteAnonymousCredentialIssueResponse", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("IUserAccountReader", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetUserId", runtimeShape, StringComparison.Ordinal);
-
-        MethodInfo[] handlers = typeof(BinaryEndpoints)
-            .GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
-            .Where(static method => method.Name == nameof(BinaryEndpoints.HandleAnonymousCredentialIssueAsync))
-            .ToArray();
-        Assert.NotEmpty(handlers);
-        Assert.All(handlers, handler =>
-            Assert.Contains(handler.GetParameters(), static parameter => parameter.ParameterType == typeof(IUserAccountReader)));
+        string source = BackendTestPaths.ReadAllTextFromRoot(
+            "src", "backend", "Modules", "Endpoints", "Binary",
+            "BinaryEndpoints.AnonymousCredential.cs");
+        Assert.Contains("anonymous_credential_legacy_issuance_rejected", source, StringComparison.Ordinal);
+        Assert.Contains("StatusCodes.Status410Gone", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "group.MapPost(\"/anonymous-credential/issue\", HandleAnonymousCredentialIssueAsync",
+            source,
+            StringComparison.Ordinal);
     }
 
     private static AnonymousCredentialIssuerService CreateService(

@@ -304,8 +304,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
 | 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；仅用于 public/普通匿名兼容字段，`authorMode=zk_anonymous` 必须拒绝为 `anonymous_ticket_required`；强匿名 proof 只能走 `AnonymousCommentTicketRequest`，旧 replyToUserId 兼容槽固定为 0/0，不得从 userId/ProofToken 派生 ZK nullifier |
 | 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；评论 cursor 必须显式携带，客户端不得从 legacy identity string 伪造匿名/公开显示名 |
-| 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/issue` 请求体；包含 circuit-native credential request、client nonce 与 layout version |
-| 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 匿名凭证签发响应契约；circuit-native issuer signature、issuer public key id、expires_at，不返回 SHA256 commitment 或可逆身份 |
+| 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | 已撤销的 circuit-native 请求 frame；旧 endpoint 固定 410 |
+| 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 已撤销的 circuit-native 响应 frame；运行时不得返回 |
 | 179 | `AnonymousCredentialRootSnapshot` | `AnonymousCredentialRootSnapshotPod` | 匿名凭证 root/verifying-key snapshot；包含 issuer public key hash、credential/revocation root；`GET /api/binary/anonymous-credential/root` 与 `/circuit` 响应 |
 | 180 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | `POST /api/binary/comment/anonymous-ticket` 请求体；action/scope/verifying key/nullifier/root metadata、Groth16 proof 与 canonical public inputs 使用 blob slice；不携带 credential commitment |
 | 181 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | 匿名评论 ticket 响应；one-time opaque ticket、expires_at、credential level 与 moderation subject hash，不返回用户身份或 nullifier 原文 |
@@ -315,6 +315,9 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 185 | `PerceptionSealedResultV2` | `PerceptionSealedResultV2Pod` | `fsu.challenge/perception-sealed@v2` verify payload；支持 character、coordinates、steps response payload |
 | 186 | `AnonymousCredentialRevocationWitnessRequest` | `AnonymousCredentialRevocationWitnessRequestPod` | `POST /api/binary/anonymous-credential/revocation-witness` 请求体；公开 root/issuer/handle hash metadata |
 | 187 | `AnonymousCredentialRevocationWitnessResponse` | `AnonymousCredentialRevocationWitnessResponsePod` | circuit-friendly sparse Merkle non-membership witness；128 个 sibling hash |
+| 193 | `BlindCredentialIssuerMetadata` | `BlindCredentialIssuerMetadataPod` | `GET /api/binary/anonymous-credential/blind-issuer`；RFC 9474 profile 与 3072-bit RSA DER SPKI |
+| 194 | `BlindCredentialIssueRequest` | `BlindCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/blind-issue`；384B blinded representative |
+| 195 | `BlindCredentialIssueResponse` | `BlindCredentialIssueResponsePod` | 384B blind signature；浏览器本地 unblind/verify |
 | 189 | `AuthAnonymousBootstrapRequest` | `AuthAnonymousBootstrapRequestPod` | `POST /api/binary/auth/anonymous/bootstrap` 请求体；只含规范确认和可选 public handle，不含旧注册密码字段 |
 | 190 | `AuthUpdatePublicHandleRequest` | `StringMutationRequestPod` | `PUT /api/binary/auth/public-handle` 请求体；保存或清空当前账号 public handle |
 | 240 | `EmptySuccess` | `EmptySuccessPod` | 通用空成功响应 |
@@ -385,6 +388,9 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | `CommentAuthorViewPod` | 36 |
 | `AnonymousCredentialIssueRequestPod` | 48 |
 | `AnonymousCredentialIssueResponsePod` | 56 |
+| `BlindCredentialIssuerMetadataPod` | 72 |
+| `BlindCredentialIssueRequestPod` | 56 |
+| `BlindCredentialIssueResponsePod` | 64 |
 | `AnonymousCredentialRootSnapshotPod` | 80 |
 | `AnonymousCredentialRevocationWitnessRequestPod` | 48 |
 | `AnonymousCredentialRevocationWitnessResponsePod` | 72 |

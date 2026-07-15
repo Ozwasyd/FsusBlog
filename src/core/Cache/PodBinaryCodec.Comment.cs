@@ -321,6 +321,193 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    public static void WriteBlindCredentialIssuerMetadata(
+        BlindCredentialIssuerMetadataCoreModel metadata,
+        IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(1024);
+        var mutable = new MutableBlindCredentialIssuerMetadataPod
+        {
+            CredentialEpoch = metadata.CredentialEpoch,
+            ExpiresAtUnixMs = metadata.ExpiresAtUnixMs,
+            CircuitNumericId = metadata.CircuitNumericId,
+            PublicInputLayoutVersion = metadata.PublicInputLayoutVersion,
+            ModulusBytes = metadata.ModulusBytes,
+            CircuitId = PodUtf8Codec.AppendSlice(metadata.CircuitId, payload),
+            CredentialLevel = PodUtf8Codec.AppendSlice(metadata.CredentialLevel, payload),
+            SchemeId = PodUtf8Codec.AppendSlice(metadata.SchemeId, payload),
+            IssuerPublicKeyId = PodUtf8Codec.AppendSlice(metadata.IssuerPublicKeyId, payload),
+            IssuerPublicKeyHash = PodUtf8Codec.AppendSlice(metadata.IssuerPublicKeyHash, payload),
+            SubjectPublicKeyInfo = AppendBytes(metadata.SubjectPublicKeyInfo ?? [], payload)
+        };
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableBlindCredentialIssuerMetadataPod, BlindCredentialIssuerMetadataPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    public static bool TryDecodeBlindCredentialIssuerMetadata(
+        ReadOnlyMemory<byte> bytes,
+        out BlindCredentialIssuerMetadataCoreModel metadata)
+    {
+        var reader = new BinaryPodReader(bytes.Span);
+        if (!reader.TryReadPod(out BlindCredentialIssuerMetadataPod pod) ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            metadata = default;
+            return false;
+        }
+        ReadOnlySpan<FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef> slices = stackalloc[]
+        {
+            pod.CircuitId, pod.CredentialLevel, pod.SchemeId, pod.IssuerPublicKeyId,
+            pod.IssuerPublicKeyHash, pod.SubjectPublicKeyInfo
+        };
+        if (!ValidateAnonymousPayload(payload, slices) ||
+            !IsProductionAnonymousLayout(pod.CircuitId, pod.PublicInputLayoutVersion, payload) ||
+            pod.ModulusBytes != Rfc9474BlindCredentialProfile.ModulusBytes ||
+            !SliceLengthAtMost(pod.CredentialLevel, AnonymousPrivacyContract.MaxCredentialLevelBytes) ||
+            !SliceLengthAtMost(pod.SchemeId, 96) ||
+            !SliceLengthAtMost(pod.IssuerPublicKeyId, Rfc9474BlindCredentialProfile.MaxKeyIdBytes) ||
+            !SliceLengthAtMost(pod.IssuerPublicKeyHash, 64) ||
+            !SliceLengthAtMost(pod.SubjectPublicKeyInfo, Rfc9474BlindCredentialProfile.MaxSubjectPublicKeyInfoBytes))
+        {
+            metadata = default;
+            return false;
+        }
+        metadata = new BlindCredentialIssuerMetadataCoreModel(
+            pod.CredentialEpoch,
+            pod.ExpiresAtUnixMs,
+            pod.CircuitNumericId,
+            pod.PublicInputLayoutVersion,
+            PodProjector.ReadSlice(pod.CircuitId, payload),
+            PodProjector.ReadSlice(pod.CredentialLevel, payload),
+            PodProjector.ReadSlice(pod.SchemeId, payload),
+            PodProjector.ReadSlice(pod.IssuerPublicKeyId, payload),
+            PodProjector.ReadSlice(pod.IssuerPublicKeyHash, payload),
+            pod.ModulusBytes,
+            ReadBytes(pod.SubjectPublicKeyInfo, payload));
+        return reader.IsConsumed;
+    }
+
+    public static void WriteBlindCredentialIssueRequest(
+        BlindCredentialIssueRequestCoreModel request,
+        IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(1024);
+        var mutable = new MutableBlindCredentialIssueRequestPod
+        {
+            CredentialEpoch = request.CredentialEpoch,
+            CircuitNumericId = request.CircuitNumericId,
+            PublicInputLayoutVersion = request.PublicInputLayoutVersion,
+            Reserved0 = 0,
+            CircuitId = PodUtf8Codec.AppendSlice(request.CircuitId, payload),
+            CredentialLevel = PodUtf8Codec.AppendSlice(request.CredentialLevel, payload),
+            SchemeId = PodUtf8Codec.AppendSlice(request.SchemeId, payload),
+            IssuerPublicKeyId = PodUtf8Codec.AppendSlice(request.IssuerPublicKeyId, payload),
+            BlindedMessage = AppendBytes(request.BlindedMessage ?? [], payload)
+        };
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableBlindCredentialIssueRequestPod, BlindCredentialIssueRequestPod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    public static bool TryDecodeBlindCredentialIssueRequest(
+        ReadOnlyMemory<byte> bytes,
+        out BlindCredentialIssueRequestCoreModel request)
+    {
+        var reader = new BinaryPodReader(bytes.Span);
+        if (!reader.TryReadPod(out BlindCredentialIssueRequestPod pod) ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            request = default;
+            return false;
+        }
+        ReadOnlySpan<FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef> slices = stackalloc[]
+        {
+            pod.CircuitId, pod.CredentialLevel, pod.SchemeId, pod.IssuerPublicKeyId, pod.BlindedMessage
+        };
+        if (!ValidateAnonymousPayload(payload, slices) ||
+            !IsProductionAnonymousLayout(pod.CircuitId, pod.PublicInputLayoutVersion, payload) ||
+            !SliceLengthAtMost(pod.CredentialLevel, AnonymousPrivacyContract.MaxCredentialLevelBytes) ||
+            !SliceLengthAtMost(pod.SchemeId, 96) ||
+            !SliceLengthAtMost(pod.IssuerPublicKeyId, Rfc9474BlindCredentialProfile.MaxKeyIdBytes) ||
+            pod.BlindedMessage.Length != Rfc9474BlindCredentialProfile.ModulusBytes)
+        {
+            request = default;
+            return false;
+        }
+        request = new BlindCredentialIssueRequestCoreModel(
+            pod.CredentialEpoch,
+            pod.CircuitNumericId,
+            pod.PublicInputLayoutVersion,
+            PodProjector.ReadSlice(pod.CircuitId, payload),
+            PodProjector.ReadSlice(pod.CredentialLevel, payload),
+            PodProjector.ReadSlice(pod.SchemeId, payload),
+            PodProjector.ReadSlice(pod.IssuerPublicKeyId, payload),
+            ReadBytes(pod.BlindedMessage, payload));
+        return reader.IsConsumed;
+    }
+
+    public static void WriteBlindCredentialIssueResponse(
+        BlindCredentialIssueResponseCoreModel response,
+        IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(1024);
+        var mutable = new MutableBlindCredentialIssueResponsePod
+        {
+            CredentialEpoch = response.CredentialEpoch,
+            ExpiresAtUnixMs = response.ExpiresAtUnixMs,
+            CircuitNumericId = response.CircuitNumericId,
+            PublicInputLayoutVersion = response.PublicInputLayoutVersion,
+            Reserved0 = 0,
+            CircuitId = PodUtf8Codec.AppendSlice(response.CircuitId, payload),
+            CredentialLevel = PodUtf8Codec.AppendSlice(response.CredentialLevel, payload),
+            SchemeId = PodUtf8Codec.AppendSlice(response.SchemeId, payload),
+            IssuerPublicKeyId = PodUtf8Codec.AppendSlice(response.IssuerPublicKeyId, payload),
+            BlindSignature = AppendBytes(response.BlindSignature ?? [], payload)
+        };
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastUserPod<MutableBlindCredentialIssueResponsePod, BlindCredentialIssueResponsePod>(mutable));
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    public static bool TryDecodeBlindCredentialIssueResponse(
+        ReadOnlyMemory<byte> bytes,
+        out BlindCredentialIssueResponseCoreModel response)
+    {
+        var reader = new BinaryPodReader(bytes.Span);
+        if (!reader.TryReadPod(out BlindCredentialIssueResponsePod pod) ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            response = default;
+            return false;
+        }
+        ReadOnlySpan<FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef> slices = stackalloc[]
+        {
+            pod.CircuitId, pod.CredentialLevel, pod.SchemeId, pod.IssuerPublicKeyId, pod.BlindSignature
+        };
+        if (!ValidateAnonymousPayload(payload, slices) ||
+            !IsProductionAnonymousLayout(pod.CircuitId, pod.PublicInputLayoutVersion, payload) ||
+            !SliceLengthAtMost(pod.CredentialLevel, AnonymousPrivacyContract.MaxCredentialLevelBytes) ||
+            !SliceLengthAtMost(pod.SchemeId, 96) ||
+            !SliceLengthAtMost(pod.IssuerPublicKeyId, Rfc9474BlindCredentialProfile.MaxKeyIdBytes) ||
+            pod.BlindSignature.Length != Rfc9474BlindCredentialProfile.ModulusBytes)
+        {
+            response = default;
+            return false;
+        }
+        response = new BlindCredentialIssueResponseCoreModel(
+            pod.CredentialEpoch,
+            pod.ExpiresAtUnixMs,
+            pod.CircuitNumericId,
+            pod.PublicInputLayoutVersion,
+            PodProjector.ReadSlice(pod.CircuitId, payload),
+            PodProjector.ReadSlice(pod.CredentialLevel, payload),
+            PodProjector.ReadSlice(pod.SchemeId, payload),
+            PodProjector.ReadSlice(pod.IssuerPublicKeyId, payload),
+            ReadBytes(pod.BlindSignature, payload));
+        return reader.IsConsumed;
+    }
+
     public static void WriteAnonymousCredentialRootSnapshot(AnonymousCredentialRootSnapshotCoreModel snapshot, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(1024 + (snapshot.CircuitMetadata?.Length ?? 0));
@@ -1587,6 +1774,51 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialLevel;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IssuerPublicKeyId;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IssuerSignature;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableBlindCredentialIssuerMetadataPod
+    {
+        public long CredentialEpoch;
+        public long ExpiresAtUnixMs;
+        public uint CircuitNumericId;
+        public ushort PublicInputLayoutVersion;
+        public ushort ModulusBytes;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CircuitId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialLevel;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SchemeId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IssuerPublicKeyId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IssuerPublicKeyHash;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SubjectPublicKeyInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableBlindCredentialIssueRequestPod
+    {
+        public long CredentialEpoch;
+        public uint CircuitNumericId;
+        public ushort PublicInputLayoutVersion;
+        public ushort Reserved0;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CircuitId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialLevel;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SchemeId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IssuerPublicKeyId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef BlindedMessage;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableBlindCredentialIssueResponsePod
+    {
+        public long CredentialEpoch;
+        public long ExpiresAtUnixMs;
+        public uint CircuitNumericId;
+        public ushort PublicInputLayoutVersion;
+        public ushort Reserved0;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CircuitId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialLevel;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SchemeId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IssuerPublicKeyId;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef BlindSignature;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

@@ -416,7 +416,8 @@ public sealed class ProductionStartupValidatorTests
             new TestWebHostEnvironment(Environments.Production),
             new StaticZkProofVerifier(configured: false),
             new StaticRootReader(rootReady: false),
-            new UnavailableCircuitNativeCredentialIssuer(configuration),
+            new UnavailableRfc9474BlindCredentialSigner(configuration),
+            new StaticBlindCredentialRuntimeGate(false),
             runtimeState,
             NullLogger<ProductionStartupValidationHostedService>.Instance);
 
@@ -443,7 +444,8 @@ public sealed class ProductionStartupValidatorTests
             new TestWebHostEnvironment(Environments.Production),
             new StaticZkProofVerifier(configured: false),
             new StaticRootReader(rootReady: false),
-            new UnavailableCircuitNativeCredentialIssuer(configuration),
+            new UnavailableRfc9474BlindCredentialSigner(configuration),
+            new StaticBlindCredentialRuntimeGate(false),
             runtimeState,
             NullLogger<ProductionStartupValidationHostedService>.Instance);
 
@@ -904,7 +906,7 @@ public sealed class ProductionStartupValidatorTests
                 NativeVerifierConfigured: true,
                 CredentialRootReady: true));
 
-        Assert.Contains(errors, static error => error.Contains("circuit-native credential", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(errors, static error => error.Contains("blind credential", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -922,7 +924,7 @@ public sealed class ProductionStartupValidatorTests
                 NativeVerifierConfigured: true,
                 CredentialRootReady: true));
 
-        Assert.Contains(errors, static error => error.Contains("circuit-native issuer", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(errors, static error => error.Contains("blind issuer", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -1068,6 +1070,12 @@ public sealed class ProductionStartupValidatorTests
 
         public bool IsRootAccepted(string rootHash, string revocationRootHash, string issuerPublicKeyHash, long epoch)
             => CurrentSnapshot.AcceptedRoots.Count > 0;
+    }
+
+    private sealed class StaticBlindCredentialRuntimeGate(bool enabled) : IBlindCredentialRuntimeGate
+    {
+        public bool IsEnabled { get; } = enabled;
+        public TimeSpan GetEnvelopeDelay(TimeSpan elapsed) => TimeSpan.Zero;
     }
 
     private sealed class TestWebHostEnvironment(string environmentName) : IWebHostEnvironment

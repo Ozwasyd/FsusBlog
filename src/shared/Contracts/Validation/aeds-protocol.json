@@ -13,8 +13,10 @@
     { "value": 46, "reason": "legacy-password-mutation" }
   ],
   "anonymousPrivacyContract": {
-    "circuitId": "fsus.anonymous.comment.v3",
-    "publicInputLayoutVersion": 3,
+    "circuitId": "fsus.anonymous.comment.v4",
+    "publicInputLayoutVersion": 5,
+    "blindCredentialScheme": "rfc9474-rsabssa-sha384-pss-randomized-3072",
+    "blindRsaModulusBytes": 384,
     "maxCircuitNativeIssuerSignatureBytes": 256,
     "maxCircuitNativeCredentialRequestBytes": 256,
     "maxGroth16ProofBytes": 4096,
@@ -216,6 +218,9 @@
     { "name": "AuthUpdatePublicHandleRequest", "value": 190 },
     { "name": "ArticleResponsibilityRequest", "value": 191 },
     { "name": "ArticleResponsibilityResponse", "value": 192 },
+    { "name": "BlindCredentialIssuerMetadata", "value": 193 },
+    { "name": "BlindCredentialIssueRequest", "value": 194 },
+    { "name": "BlindCredentialIssueResponse", "value": 195 },
     { "name": "EmptySuccess", "value": 240 },
     { "name": "MutationId", "value": 241 },
     { "name": "ApiError", "value": 251 }

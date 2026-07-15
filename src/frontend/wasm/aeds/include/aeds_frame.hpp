@@ -221,6 +221,9 @@ enum class FrameType : std::uint16_t {
   AuthUpdatePublicHandleRequest = 190,
   ArticleResponsibilityRequest = 191,
   ArticleResponsibilityResponse = 192,
+  BlindCredentialIssuerMetadata = 193,
+  BlindCredentialIssueRequest = 194,
+  BlindCredentialIssueResponse = 195,
   EmptySuccess = 240,
   MutationId = 241,
   ApiError = 251,
@@ -414,6 +417,9 @@ enum class FrameType : std::uint16_t {
     case FrameType::AuthUpdatePublicHandleRequest:
     case FrameType::ArticleResponsibilityRequest:
     case FrameType::ArticleResponsibilityResponse:
+    case FrameType::BlindCredentialIssuerMetadata:
+    case FrameType::BlindCredentialIssueRequest:
+    case FrameType::BlindCredentialIssueResponse:
     case FrameType::EmptySuccess:
     case FrameType::MutationId:
     case FrameType::ApiError:

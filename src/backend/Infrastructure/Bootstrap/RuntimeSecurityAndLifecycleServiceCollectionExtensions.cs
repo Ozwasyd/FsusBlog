@@ -67,6 +67,18 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
 
         services.AddScoped<IAnonymousCredentialIssuanceAuditStore, AnonymousCredentialIssuanceAuditStore>();
         services.AddScoped<IAnonymousCredentialIssuerService, AnonymousCredentialIssuerService>();
+        services.Configure<BlindCredentialRuntimeOptions>(
+            configuration.GetSection(BlindCredentialRuntimeOptions.SectionName));
+        services.TryAddSingleton<IBlindCredentialRuntimeGate, BlindCredentialRuntimeGate>();
+        if (configuration.GetValue("AnonymousCredentialIssuer:BlindRsa:Enabled", false))
+        {
+            services.TryAddSingleton<IRfc9474BlindCredentialSigner, ProductionRfc9474BlindCredentialSigner>();
+        }
+        else
+        {
+            services.TryAddSingleton<IRfc9474BlindCredentialSigner, UnavailableRfc9474BlindCredentialSigner>();
+        }
+        services.AddScoped<IBlindCredentialIssuanceService, BlindCredentialIssuanceService>();
         services.AddScoped<IAnonymousCredentialRootStore, AnonymousCredentialRootStore>();
         services.AddSingleton<IAnonymousCredentialRootService, AnonymousCredentialRootService>();
         services.AddScoped<IAnonymousCredentialRevocationWitnessService, AnonymousCredentialRevocationWitnessService>();

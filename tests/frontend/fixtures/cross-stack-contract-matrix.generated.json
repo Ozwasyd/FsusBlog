@@ -8,8 +8,10 @@
     "backendGolden": "tests/backend/Fixtures/aeds-golden-catalog.json"
   },
   "anonymousPrivacyContract": {
-    "circuitId": "fsus.anonymous.comment.v3",
-    "publicInputLayoutVersion": 4,
+    "circuitId": "fsus.anonymous.comment.v4",
+    "publicInputLayoutVersion": 5,
+    "blindCredentialScheme": "rfc9474-rsabssa-sha384-pss-randomized-3072",
+    "blindRsaModulusBytes": 384,
     "maxCircuitNativeIssuerSignatureBytes": 256,
     "maxCircuitNativeCredentialRequestBytes": 256,
     "maxGroth16ProofBytes": 4096,
@@ -594,9 +596,28 @@
           "auth": "user",
           "cache": "no-store",
           "rateLimit": "fixed_ip",
-          "requestFrame": "AnonymousCredentialIssueRequest",
-          "responseFrame": "AnonymousCredentialIssueResponse",
-          "surface": "anonymous-credential-issue"
+          "responseFrame": "ApiError",
+          "successStatus": 410,
+          "surface": "anonymous-credential-legacy-issue-gone"
+        },
+        {
+          "method": "GET",
+          "path": "/anonymous-credential/blind-issuer",
+          "auth": "anonymous",
+          "cache": "no-store",
+          "rateLimit": "public_read",
+          "responseFrame": "BlindCredentialIssuerMetadata",
+          "surface": "anonymous-credential-blind-issuer"
+        },
+        {
+          "method": "POST",
+          "path": "/anonymous-credential/blind-issue",
+          "auth": "user",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip",
+          "requestFrame": "BlindCredentialIssueRequest",
+          "responseFrame": "BlindCredentialIssueResponse",
+          "surface": "anonymous-credential-blind-issue"
         }
       ]
     },
@@ -2165,5 +2186,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 209
+  "openapiOperationCount": 211
 }

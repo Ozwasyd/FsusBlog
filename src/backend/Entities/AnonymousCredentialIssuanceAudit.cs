@@ -23,8 +23,6 @@ public sealed class AnonymousCredentialIssuanceAudit
     [SugarColumn(ColumnName = "created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
-    [SugarColumn(ColumnName = "trace_id", Length = 64, IsNullable = true)]
-    public string? TraceId { get; set; }
 }
 
 public static class AnonymousCredentialIssuanceStatuses

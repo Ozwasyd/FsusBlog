@@ -95,6 +95,43 @@ export interface AnonymousCredentialIssueResponse {
   issuerSignature: Uint8Array
 }
 
+export interface BlindCredentialIssuerMetadata {
+  credentialEpoch: number
+  expiresAtUnixMs: number
+  circuitNumericId: number
+  publicInputLayoutVersion: number
+  circuitId: string
+  credentialLevel: string
+  schemeId: string
+  issuerPublicKeyId: string
+  issuerPublicKeyHash: string
+  modulusBytes: number
+  subjectPublicKeyInfo: Uint8Array
+}
+
+export interface BlindCredentialIssueRequestDto {
+  credentialEpoch: number
+  circuitNumericId: number
+  publicInputLayoutVersion: number
+  circuitId: string
+  credentialLevel: string
+  schemeId: string
+  issuerPublicKeyId: string
+  blindedMessage: Uint8Array
+}
+
+export interface BlindCredentialIssueResponse {
+  credentialEpoch: number
+  expiresAtUnixMs: number
+  circuitNumericId: number
+  publicInputLayoutVersion: number
+  circuitId: string
+  credentialLevel: string
+  schemeId: string
+  issuerPublicKeyId: string
+  blindSignature: Uint8Array
+}
+
 export interface AnonymousCredentialRootSnapshot {
   credentialEpoch: number
   rootExpiresAtUnixMs: number
@@ -353,6 +390,16 @@ export const getAnonymousCredentialCircuitSnapshot = (config?: ApiRequestConfig)
     }
   })
 
+export const getBlindCredentialIssuerMetadata = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<BlindCredentialIssuerMetadata>({
+    binaryUrl: '/api/binary/anonymous-credential/blind-issuer',
+    frameType: FrameType.BlindCredentialIssuerMetadata,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      credentials: 'omit'
+    }
+  })
+
 export const getAnonymousCredentialRevocationWitness = (
   data: AnonymousCredentialRevocationWitnessRequestDto,
   config?: ApiRequestConfig
@@ -556,6 +603,30 @@ export function encodeAnonymousCredentialIssueRequest(data: AnonymousCredentialI
   return bytes
 }
 
+export function encodeBlindCredentialIssueRequest(data: BlindCredentialIssueRequestDto): Uint8Array {
+  const circuitId = encodeText(data.circuitId ?? '')
+  const credentialLevel = encodeText(data.credentialLevel ?? '')
+  const schemeId = encodeText(data.schemeId ?? '')
+  const issuerPublicKeyId = encodeText(data.issuerPublicKeyId ?? '')
+  const blindedMessage = bytesFrom(data.blindedMessage)
+  const blobLength = circuitId.byteLength + credentialLevel.byteLength + schemeId.byteLength +
+    issuerPublicKeyId.byteLength + blindedMessage.byteLength
+  const bytes = new Uint8Array(BLIND_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4 + blobLength)
+  const view = new DataView(bytes.buffer)
+  view.setBigInt64(0, BigInt(data.credentialEpoch ?? 0), true)
+  view.setUint32(8, data.circuitNumericId ?? 0, true)
+  view.setUint16(12, data.publicInputLayoutVersion ?? 0, true)
+  view.setUint16(14, 0, true)
+  let offset = 0
+  offset = writeBlobPart(bytes, view, 16, BLIND_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, circuitId)
+  offset = writeBlobPart(bytes, view, 24, BLIND_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, credentialLevel)
+  offset = writeBlobPart(bytes, view, 32, BLIND_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, schemeId)
+  offset = writeBlobPart(bytes, view, 40, BLIND_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, issuerPublicKeyId)
+  writeBlobPart(bytes, view, 48, BLIND_CREDENTIAL_ISSUE_REQUEST_BLOB_START, offset, blindedMessage)
+  view.setInt32(BLIND_CREDENTIAL_ISSUE_REQUEST_POD_SIZE, blobLength, true)
+  return bytes
+}
+
 export function encodeAnonymousCredentialRevocationWitnessRequest(data: AnonymousCredentialRevocationWitnessRequestDto): Uint8Array {
   const circuitId = encodeText(data.circuitId ?? '')
   const issuerPublicKeyHash = encodeText(data.issuerPublicKeyHash ?? '')
@@ -725,6 +796,8 @@ function parseOptionalId(value?: string | null): bigint | null {
 
 const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE = 48
 const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START = ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4
+const BLIND_CREDENTIAL_ISSUE_REQUEST_POD_SIZE = 56
+const BLIND_CREDENTIAL_ISSUE_REQUEST_BLOB_START = BLIND_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4
 const ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_POD_SIZE = 48
 const ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_BLOB_START = ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_POD_SIZE + 4
 const ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE = 136
