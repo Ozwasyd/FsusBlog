@@ -1,17 +1,22 @@
 import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { pathToFileURL } from 'node:url'
 
 import {
   bindResidentLeaseEnforcement,
   consumeResidentLeaseHandoff,
+  consumeResidentLeaseHandoffFile,
   createResidentLeaseHandoff,
   createResidentLeaseInventory,
   finalizeResidentLeaseCleanup,
+  productionResidentServiceIds,
   reconcileResidentLeaseInventory,
   readResidentLeaseDocument,
+  residentLeaseDigest,
   validateResidentLeaseInventory,
   writeResidentLeaseDocument
 } from '../../tools/test-matrix/resident-resource-leases.mjs'
@@ -36,6 +41,18 @@ function inventory() {
     sourceState: { commit: 'abc123', worktreeFingerprint: 'tree-1' },
     resourceGrant: { cpuUnits: 2, memoryGiB: 4 }, services: services(), generatedAt: '2026-07-14T00:00:01.000Z'
   })
+}
+
+function readiness(value, checkedAt = '2026-07-14T00:00:02.000Z') {
+  return {
+    status: 'ready',
+    checkedAt,
+    services: value.services.map((service) => ({
+      id: service.id,
+      generation: service.generation,
+      status: 'live'
+    }))
+  }
 }
 
 test('resident inventory gives every live service a nonzero measured lease while retaining executable capacity', () => {
@@ -84,6 +101,33 @@ test('resident inventory rejects foreign identity, digest drift, and zero reserv
   const zero = structuredClone(value)
   zero.services[0].reservation.cpuUnits = 0
   assert.throws(() => validateResidentLeaseInventory(zero), /digest mismatch|no resource reservation/u)
+
+  const resignedUnderReservation = structuredClone(value)
+  resignedUnderReservation.services[0].reservation = { cpuUnits: 0.001, memoryGiB: 0.001 }
+  resignedUnderReservation.reservation = resignedUnderReservation.services.reduce((total, service) => ({
+    cpuUnits: total.cpuUnits + service.reservation.cpuUnits,
+    memoryGiB: total.memoryGiB + service.reservation.memoryGiB
+  }), { cpuUnits: 0, memoryGiB: 0 })
+  const { digest: _discardedDigest, ...unsignedUnderReservation } = resignedUnderReservation
+  resignedUnderReservation.digest = residentLeaseDigest(unsignedUnderReservation)
+  assert.throws(() => validateResidentLeaseInventory(resignedUnderReservation), /not derived from its resource grant/u)
+
+  const foreignGrant = createResidentLeaseInventory({
+    runId: 'run-1', namespace: 'production-fresh', ownerBundleId: 'runtime-browser',
+    sourceState: value.sourceState,
+    resourceGrant: { cpuUnits: 1, memoryGiB: 1 }, services: services()
+  })
+  assert.throws(() => validateResidentLeaseInventory(foreignGrant, {
+    resourceGrant: { cpuUnits: 2, memoryGiB: 4 }
+  }), /another resource grant/u)
+  assert.throws(() => validateResidentLeaseInventory(value, {
+    requiredServiceIds: productionResidentServiceIds
+  }), /service roster mismatch/u)
+  assert.throws(() => createResidentLeaseInventory({
+    runId: 'run-1', namespace: 'production-fresh', ownerBundleId: 'runtime-browser',
+    resourceGrant: { cpuUnits: 2, memoryGiB: 4 },
+    services: [{ ...services()[0], identity: { pid: 42, startTimeTicks: 'not-proc-stat' } }]
+  }), /startTimeTicks must be numeric/u)
 })
 
 test('enforcement binding reconciles process cgroup and per-container OCI hard limits with leases', () => {
@@ -121,6 +165,12 @@ test('enforcement binding reconciles process cgroup and per-container OCI hard l
     containers: {},
     boundAt: '2026-07-14T00:00:01.000Z'
   }), /process cgroup reservation/u)
+
+  const resignedDrift = structuredClone(bound)
+  resignedDrift.enforcement.containers.postgres.observed.memoryHighBytes -= 1
+  const { digest: _discardedDigest, ...unsignedDrift } = resignedDrift
+  resignedDrift.digest = residentLeaseDigest(unsignedDrift)
+  assert.throws(() => validateResidentLeaseInventory(resignedDrift), /OCI hard limit does not match/u)
 })
 
 test('bootstrap publisher inventories all five services without mutating process environment and binds OCI evidence', (t) => {
@@ -193,7 +243,7 @@ test('handoff binds run namespace generation readiness owners and rejects stale 
   const receipt = createResidentLeaseHandoff({
     inventory: value,
     toOwnerBundleId: 'performance-evidence',
-    readiness: { status: 'ready', checkedAt: '2026-07-14T00:00:02.000Z' },
+    readiness: readiness(value),
     generatedAt: '2026-07-14T00:00:03.000Z'
   })
   const consumed = consumeResidentLeaseHandoff(receipt, {
@@ -207,6 +257,13 @@ test('handoff binds run namespace generation readiness owners and rejects stale 
   assert.throws(() => consumeResidentLeaseHandoff(receipt, {
     inventory: value, consumerBundleId: 'foreign'
   }), /another consumer/u)
+  const resignedStaleReadiness = structuredClone(receipt)
+  resignedStaleReadiness.readiness.services[0].generation = 'foreign-generation'
+  const { digest: _discardedReadinessDigest, ...unsignedStaleReadiness } = resignedStaleReadiness
+  resignedStaleReadiness.digest = residentLeaseDigest(unsignedStaleReadiness)
+  assert.throws(() => consumeResidentLeaseHandoff(resignedStaleReadiness, {
+    inventory: value, consumerBundleId: 'performance-evidence'
+  }), /readiness is stale/u)
   const restarted = createResidentLeaseInventory({
     runId: 'run-1', namespace: 'production-fresh', ownerBundleId: 'runtime-browser',
     sourceState: value.sourceState,
@@ -220,12 +277,73 @@ test('handoff binds run namespace generation readiness owners and rejects stale 
   }), /stale/u)
 })
 
+test('handoff file consumption is atomic across competing consumer processes', async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-resident-handoff-'))
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+  const inventoryFile = path.join(directory, 'inventory.json')
+  const handoffFile = path.join(directory, 'handoff.json')
+  const childFile = path.join(directory, 'consume.mjs')
+  const value = inventory()
+  writeResidentLeaseDocument(inventoryFile, value)
+  writeResidentLeaseDocument(handoffFile, createResidentLeaseHandoff({
+    inventory: value,
+    toOwnerBundleId: 'performance-evidence',
+    readiness: readiness(value)
+  }))
+  const moduleUrl = pathToFileURL(path.resolve('tools/test-matrix/resident-resource-leases.mjs')).href
+  fs.writeFileSync(childFile, [
+    `import { consumeResidentLeaseHandoffFile, readResidentLeaseDocument } from ${JSON.stringify(moduleUrl)}`,
+    'try {',
+    '  const inventory = readResidentLeaseDocument(process.argv[2])',
+    "  consumeResidentLeaseHandoffFile(process.argv[3], { inventory, consumerBundleId: 'performance-evidence' })",
+    "  process.stdout.write('consumed')",
+    '} catch (error) {',
+    '  process.stderr.write(error.message)',
+    '  process.exitCode = 2',
+    '}'
+  ].join('\n'))
+  const runConsumer = () => new Promise((resolve) => {
+    const child = spawn(process.execPath, [childFile, inventoryFile, handoffFile], { stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (chunk) => { stdout += chunk })
+    child.stderr.on('data', (chunk) => { stderr += chunk })
+    child.on('close', (status) => resolve({ status, stdout, stderr }))
+  })
+  const results = await Promise.all([runConsumer(), runConsumer()])
+  assert.deepEqual(results.map((result) => result.status).sort(), [0, 2])
+  assert.equal(results.filter((result) => result.stdout === 'consumed').length, 1)
+  assert.match(results.find((result) => result.status === 2).stderr, /already consumed/u)
+  assert.equal(readResidentLeaseDocument(handoffFile).consumedBy, 'performance-evidence')
+  assert.equal(fs.existsSync(`${handoffFile}.consume.lock`), false)
+
+  writeResidentLeaseDocument(handoffFile, createResidentLeaseHandoff({
+    inventory: value,
+    toOwnerBundleId: 'performance-evidence',
+    readiness: readiness(value, '2026-07-14T00:00:03.000Z')
+  }))
+  fs.writeFileSync(`${handoffFile}.consume.lock`, `${JSON.stringify({
+    pid: 999_999_999,
+    startTimeTicks: '1',
+    token: 'dead-owner'
+  })}\n`)
+  const staleAt = new Date(Date.now() - 60_000)
+  fs.utimesSync(`${handoffFile}.consume.lock`, staleAt, staleAt)
+  const recovered = consumeResidentLeaseHandoffFile(handoffFile, {
+    inventory: value,
+    consumerBundleId: 'performance-evidence',
+    staleLockMs: 1
+  })
+  assert.equal(recovered.consumedBy, 'performance-evidence')
+  assert.equal(fs.existsSync(`${handoffFile}.consume.lock`), false)
+})
+
 test('resident documents publish atomically and unreadable input fails closed', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-resident-leases-'))
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const file = path.join(directory, 'leases.json')
   writeResidentLeaseDocument(file, inventory())
-  assert.equal(readResidentLeaseDocument(file).schema, 'fsusblog.test-matrix.resident-resource-leases.v1')
+  assert.equal(readResidentLeaseDocument(file).schema, 'fsusblog.test-matrix.resident-resource-leases.v2')
   assert.deepEqual(fs.readdirSync(directory), ['leases.json'])
   fs.writeFileSync(file, '{broken')
   assert.throws(() => readResidentLeaseDocument(file), /unreadable/u)

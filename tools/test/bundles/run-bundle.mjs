@@ -50,10 +50,10 @@ import {
   waitForRunBoundMarker
 } from '../../test-matrix/run-bound-marker.mjs'
 import {
-  consumeResidentLeaseHandoff,
+  consumeResidentLeaseHandoffFile,
+  productionResidentServiceIds,
   readResidentLeaseDocument,
-  validateResidentLeaseInventory,
-  writeResidentLeaseDocument
+  validateResidentLeaseInventory
 } from '../../test-matrix/resident-resource-leases.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
@@ -1720,14 +1720,13 @@ async function waitForResidentHandoff() {
       validateResidentLeaseInventory(inventory, {
         runId: schedulerRunId(),
         ownerBundleId: 'runtime-browser',
+        requiredServiceIds: productionResidentServiceIds,
         sourceState: currentSourceState()
       })
-      const receipt = readResidentLeaseDocument(handoffFile)
-      const consumed = consumeResidentLeaseHandoff(receipt, {
+      const consumed = consumeResidentLeaseHandoffFile(handoffFile, {
         inventory,
         consumerBundleId: 'performance-evidence'
       })
-      writeResidentLeaseDocument(handoffFile, consumed)
       const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim()
       runtimeChildEnvironment = readRuntimeEnvironment(root, namespace)
       Object.assign(runtimeChildEnvironment, {

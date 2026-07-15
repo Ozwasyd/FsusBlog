@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { createArtifactDigestTable } from './artifact-digest-table.mjs'
+import { productionResidentServiceIds } from './resident-resource-leases.mjs'
 
 function profileEntries(localProfiles) {
   return Object.entries(localProfiles ?? {})
@@ -527,6 +528,7 @@ export function createLocalBundleTiers(profileId, profile, { maxParallel = null 
       physicalBundleId: bundle.id,
       residentLeaseProducer: bundle.id === 'runtime-browser',
       residentLeaseTarget: bundle.id === 'runtime-browser' ? 'performance-evidence' : null,
+      residentLeaseServiceIds: bundle.id === 'runtime-browser' ? [...productionResidentServiceIds] : null,
       residentLeaseConsumer: bundle.id === 'performance-evidence',
       logicalMembers: [...(bundle.members ?? [])],
       command: bundle.command,

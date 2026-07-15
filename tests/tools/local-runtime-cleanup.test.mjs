@@ -9,6 +9,10 @@ import {
   isOrphanProductionViteProcess,
   isStaleSchemaContainer
 } from '../../tools/test-matrix/local-runtime-cleanup.mjs'
+import {
+  createResidentLeaseInventory,
+  writeResidentLeaseDocument
+} from '../../tools/test-matrix/resident-resource-leases.mjs'
 
 function schemaContainer(name, {
   created = '2026-07-12T00:00:00.000Z',
@@ -266,4 +270,81 @@ test('cleanupLocalRuntime refuses container names not derived from the current n
 
   assert.deepEqual(removedContainers, [])
   assert.deepEqual(result.skippedContainers, ['fsusblog-dev-postgres', 'fsusblog-test-redis-other-run'])
+})
+
+test('cleanupLocalRuntime retains recovery handles until resident identities are confirmed exited', (t) => {
+  const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'fsusblog-local-runtime-resident-'))
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const namespace = 'production-resident-retry'
+  const runId = 'resident-cleanup-run'
+  const envFile = path.join(root, '.tmp/env', `${namespace}.env`)
+  const runtimeDir = path.join(root, '.tmp/acceptance', namespace)
+  const fixtureDir = path.join(root, '.tmp/fixtures', namespace)
+  const dataDir = path.join(root, '.tmp/data', namespace)
+  const runDir = path.join(root, '.tmp/test-runs', runId)
+  for (const directory of [path.dirname(envFile), runtimeDir, fixtureDir, dataDir, runDir]) {
+    fs.mkdirSync(directory, { recursive: true })
+  }
+  fs.writeFileSync(envFile, `FSUSBLOG_TEST_RUN_ID=${runId}\n`)
+  fs.writeFileSync(path.join(runtimeDir, 'backend.pid'), '4242\n')
+  fs.writeFileSync(path.join(fixtureDir, 'fixture'), 'fixture')
+  fs.writeFileSync(path.join(dataDir, 'state'), 'state')
+  const inventory = createResidentLeaseInventory({
+    runId,
+    namespace,
+    ownerBundleId: 'runtime-browser',
+    resourceGrant: { cpuUnits: 2, memoryGiB: 4 },
+    services: [{
+      id: 'debug-backend',
+      kind: 'process',
+      identity: { pid: 4242, startTimeTicks: '100' },
+      port: 24001,
+      generation: 'backend-1',
+      health: { status: 'ready', checkedAt: '2026-07-14T00:00:00.000Z' },
+      observedRssBytes: 1024
+    }]
+  })
+  const inventoryFile = path.join(runDir, 'resident-resource-leases.json')
+  const checkpointFile = path.join(runDir, 'checkpoint.json')
+  writeResidentLeaseDocument(inventoryFile, inventory)
+  writeResidentLeaseDocument(checkpointFile, {
+    schema: 'fsusblog.test-matrix.checkpoint.v1',
+    residentResourceLeases: {
+      status: 'handed-off',
+      inventoryFile: `.tmp/test-runs/${runId}/resident-resource-leases.json`,
+      reservation: inventory.reservation,
+      services: {},
+      events: []
+    }
+  })
+
+  const retained = cleanupLocalRuntime({
+    root,
+    namespace,
+    removeContainer: () => {},
+    killProcess: () => true,
+    observeResidentService: () => ({ status: 'unknown', reason: 'termination-pending' }),
+    residentCleanupTimeoutMs: 0
+  })
+  assert.equal(retained.residentResourceLeases.status, 'cleanup-pending-live-services')
+  assert.equal(retained.retainedRuntimeState, true)
+  assert.equal(fs.existsSync(envFile), true)
+  assert.equal(fs.existsSync(runtimeDir), true)
+  assert.equal(fs.existsSync(fixtureDir), true)
+  assert.equal(fs.existsSync(dataDir), true)
+
+  const released = cleanupLocalRuntime({
+    root,
+    namespace,
+    removeContainer: () => {},
+    killProcess: () => true,
+    observeResidentService: () => ({ status: 'exited' }),
+    residentCleanupTimeoutMs: 0
+  })
+  assert.equal(released.residentResourceLeases.status, 'released')
+  assert.equal(released.retainedRuntimeState, false)
+  assert.equal(fs.existsSync(envFile), false)
+  assert.equal(fs.existsSync(runtimeDir), false)
+  assert.equal(fs.existsSync(fixtureDir), false)
+  assert.equal(fs.existsSync(dataDir), false)
 })

@@ -1553,6 +1553,7 @@ async function runDagUnlocked(options) {
       ownerBundleId: null,
       generation: null,
       digest: null,
+      resourceGrant: null,
       reservation: { cpuUnits: 0, memoryGiB: 0 },
       services: {},
       events: [],
@@ -1635,6 +1636,8 @@ async function runDagUnlocked(options) {
       }
       if (evidence.generation !== service.generation) {
         evidence.generation = service.generation
+        evidence.reservation = residentState.inventory.services
+          .find((item) => item.id === service.id)?.reservation ?? null
         evidence.restartCount += 1
       }
       evidence.history.push(service)
@@ -1642,25 +1645,52 @@ async function runDagUnlocked(options) {
       if (service.status === 'exited' && evidence.releasedAt === null) evidence.releasedAt = service.observedAt
     }
   }
+  const reconcileResidentEnforcement = (inventory, state) => {
+    if (!inventory.enforcement) throw new Error('resident lease inventory has no cgroup/OCI enforcement binding')
+    const expectedProcessScope = resourceEnforcer.environment(state.enforcementBundleId)
+    if (inventory.enforcement.mode !== resourceEnforcer.mode
+      || (resourceEnforcer.mode === 'enforced'
+        && inventory.enforcement.processScope?.path !== expectedProcessScope.FSUSBLOG_CGROUP_BUNDLE_PATH)) {
+      throw new Error('resident lease enforcement scope does not match scheduler cgroup evidence')
+    }
+    const processReservation = inventory.services
+      .filter((service) => service.kind === 'process')
+      .reduce((total, service) => ({
+        cpuUnits: total.cpuUnits + service.reservation.cpuUnits,
+        memoryGiB: total.memoryGiB + service.reservation.memoryGiB
+      }), { cpuUnits: 0, memoryGiB: 0 })
+    if (processReservation.cpuUnits > 0 && processReservation.memoryGiB > 0) {
+      resourceEnforcer.update(state.enforcementBundleId, processReservation)
+    }
+    residentEvidence.enforcement = inventory.enforcement
+  }
   const reconcileResidentState = ({ force = false } = {}) => {
     if (!residentState) return null
     const now = Date.now()
     if (!force && now - lastResidentSampleAtMs < residentSampleIntervalMs) return residentState.reconciliation
     lastResidentSampleAtMs = now
+    let previousInventory = null
     if (fs.existsSync(residentLeaseFile)) {
       const current = readResidentLeaseDocument(residentLeaseFile)
       validateResidentLeaseInventory(current, {
         runId,
         namespace: residentState.inventory.namespace,
+        ownerBundleId: residentState.inventory.ownerBundleId,
+        resourceGrant: residentState.resourceGrant,
+        requiredServiceIds: residentState.requiredServiceIds,
         sourceState: sourceState.commit ? sourceState : undefined
       })
       if (current.digest !== residentState.inventory.digest) {
         const previousGeneration = residentState.inventory.generation
+        previousInventory = residentState.inventory
+        reconcileResidentEnforcement(current, residentState)
         residentState.inventory = current
         recordResidentEvent('generation-replaced', {
           previousGeneration,
           generation: current.generation,
-          ownerBundleId: current.ownerBundleId
+          ownerBundleId: current.ownerBundleId,
+          reservation: current.reservation,
+          enforcementMode: current.enforcement.mode
         })
       }
     }
@@ -1675,12 +1705,18 @@ async function runDagUnlocked(options) {
     if (fs.existsSync(residentHandoffFile)) {
       const handoff = readResidentLeaseDocument(residentHandoffFile)
       if (handoff.consumedBy === residentConsumerBundleId && residentEvidence.handoff?.status !== 'consumed') {
-        validateResidentLeaseHandoff(handoff, {
-          inventory: residentState.inventory,
+        const validateConsumed = (inventory) => validateResidentLeaseHandoff(handoff, {
+          inventory,
           consumerBundleId: residentConsumerBundleId,
           sourceState: sourceState.commit ? sourceState : undefined,
           requireConsumed: true
         })
+        try {
+          validateConsumed(residentState.inventory)
+        } catch (error) {
+          if (!previousInventory) throw error
+          validateConsumed(previousInventory)
+        }
         residentEvidence.status = 'handed-off'
         residentEvidence.ownerBundleId = handoff.consumedBy
         residentEvidence.handoff = {
@@ -1710,19 +1746,25 @@ async function runDagUnlocked(options) {
       throw new Error(`resident lease producer did not publish ${path.relative(root, residentLeaseFile)}`)
     }
     const inventory = readResidentLeaseDocument(residentLeaseFile)
+    const residentResourceGrant = tierResourceUnits(tier)
     validateResidentLeaseInventory(inventory, {
       runId,
       namespace: tierEnvironment.FSUSBLOG_TEST_NAMESPACE,
       ownerBundleId: tier.physicalBundleId ?? tier.id,
+      resourceGrant: residentResourceGrant,
+      ...(tier.residentLeaseServiceIds ? { requiredServiceIds: tier.residentLeaseServiceIds } : {}),
       sourceState: sourceState.commit ? sourceState : undefined
     })
     residentState = {
       inventory,
       reconciliation: null,
-      enforcementBundleId: tier.physicalBundleId ?? tier.id
+      enforcementBundleId: tier.physicalBundleId ?? tier.id,
+      resourceGrant: residentResourceGrant,
+      requiredServiceIds: tier.residentLeaseServiceIds
     }
     residentEvidence.status = 'acquired'
     residentEvidence.ownerBundleId = inventory.ownerBundleId
+    residentEvidence.resourceGrant = inventory.resourceGrant
     residentEvidence.acquiredAt = new Date().toISOString()
     residentEvidence.enforcement = inventory.enforcement ?? null
     recordResidentEvent('acquired', {
@@ -1734,22 +1776,7 @@ async function runDagUnlocked(options) {
     if (!reconciliation.healthy && publishHandoff) {
       throw new Error('resident lease producer published non-live or changed service identities')
     }
-    if (!inventory.enforcement) throw new Error('resident lease inventory has no cgroup/OCI enforcement binding')
-    const expectedProcessScope = resourceEnforcer.environment(residentState.enforcementBundleId)
-    if (inventory.enforcement.mode !== resourceEnforcer.mode
-      || (resourceEnforcer.mode === 'enforced'
-        && inventory.enforcement.processScope?.path !== expectedProcessScope.FSUSBLOG_CGROUP_BUNDLE_PATH)) {
-      throw new Error('resident lease enforcement scope does not match scheduler cgroup evidence')
-    }
-    const processReservation = inventory.services
-      .filter((service) => service.kind === 'process')
-      .reduce((total, service) => ({
-        cpuUnits: total.cpuUnits + service.reservation.cpuUnits,
-        memoryGiB: total.memoryGiB + service.reservation.memoryGiB
-      }), { cpuUnits: 0, memoryGiB: 0 })
-    if (processReservation.cpuUnits > 0 && processReservation.memoryGiB > 0) {
-      resourceEnforcer.update(residentState.enforcementBundleId, processReservation)
-    }
+    reconcileResidentEnforcement(inventory, residentState)
     if (!publishHandoff) {
       residentEvidence.status = 'partial'
       recordResidentEvent('partial-evidence-retained', {

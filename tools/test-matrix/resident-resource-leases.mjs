@@ -3,8 +3,15 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
-export const residentResourceLeaseSchema = 'fsusblog.test-matrix.resident-resource-leases.v1'
+export const residentResourceLeaseSchema = 'fsusblog.test-matrix.resident-resource-leases.v2'
 export const residentResourceHandoffSchema = 'fsusblog.test-matrix.resident-resource-handoff.v1'
+export const productionResidentServiceIds = Object.freeze([
+  'debug-backend',
+  'debug-frontend',
+  'release-preview',
+  'postgres',
+  'redis'
+])
 
 function requiredText(value, label) {
   const normalized = String(value ?? '').trim()
@@ -15,6 +22,19 @@ function requiredText(value, label) {
 function positiveNumber(value, label) {
   const normalized = Number(value)
   if (!Number.isFinite(normalized) || normalized <= 0) throw new Error(`${label} must be positive`)
+  return normalized
+}
+
+function normalizedResourceGrant(resourceGrant) {
+  return {
+    cpuUnits: positiveNumber(resourceGrant?.cpuUnits, 'resourceGrant.cpuUnits'),
+    memoryGiB: positiveNumber(resourceGrant?.memoryGiB, 'resourceGrant.memoryGiB')
+  }
+}
+
+function requiredTimestamp(value, label) {
+  const normalized = requiredText(value, label)
+  if (!Number.isFinite(Date.parse(normalized))) throw new Error(`${label} must be an ISO timestamp`)
   return normalized
 }
 
@@ -55,6 +75,13 @@ function normalizedService(service, index) {
         containerId: requiredText(service?.identity?.containerId, `${label}.identity.containerId`),
         createdAt: requiredText(service?.identity?.createdAt, `${label}.identity.createdAt`)
       }
+  if (kind === 'process' && !/^\d+$/u.test(identity.startTimeTicks)) {
+    throw new Error(`${label}.identity.startTimeTicks must be numeric`)
+  }
+  if (kind === 'container' && !/^[a-f0-9]{64}$/u.test(identity.containerId)) {
+    throw new Error(`${label}.identity.containerId must be a full OCI container ID`)
+  }
+  if (kind === 'container') requiredTimestamp(identity.createdAt, `${label}.identity.createdAt`)
   const port = Number(service?.port)
   if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error(`${label}.port must be a valid TCP port`)
   if (service?.health?.status !== 'ready') throw new Error(`${label}.health.status must be ready`)
@@ -66,7 +93,7 @@ function normalizedService(service, index) {
     generation: requiredText(service?.generation, `${label}.generation`),
     health: {
       status: 'ready',
-      checkedAt: requiredText(service?.health?.checkedAt, `${label}.health.checkedAt`)
+      checkedAt: requiredTimestamp(service?.health?.checkedAt, `${label}.health.checkedAt`)
     },
     observedRssBytes: Math.max(0, Number(service?.observedRssBytes) || 0)
   }
@@ -75,8 +102,7 @@ function normalizedService(service, index) {
 export function allocateResidentReservations({ resourceGrant, services }) {
   const normalized = services.map(normalizedService)
   if (normalized.length === 0) throw new Error('resident services must be non-empty')
-  const cpuEnvelope = positiveNumber(resourceGrant?.cpuUnits, 'resourceGrant.cpuUnits')
-  const memoryEnvelope = positiveNumber(resourceGrant?.memoryGiB, 'resourceGrant.memoryGiB')
+  const { cpuUnits: cpuEnvelope, memoryGiB: memoryEnvelope } = normalizedResourceGrant(resourceGrant)
   const rssWeights = normalized.map((service) => Math.max(1, service.observedRssBytes))
   const rssWeightTotal = rssWeights.reduce((sum, value) => sum + value, 0)
   // Resident services retain a measured, non-zero steady-state slice while at
@@ -215,7 +241,8 @@ export function createResidentLeaseInventory({
   services,
   generatedAt = new Date().toISOString()
 }) {
-  const allocated = allocateResidentReservations({ resourceGrant, services })
+  const normalizedGrant = normalizedResourceGrant(resourceGrant)
+  const allocated = allocateResidentReservations({ resourceGrant: normalizedGrant, services })
   const ids = allocated.map((service) => service.id)
   if (new Set(ids).size !== ids.length) throw new Error('resident service IDs must be unique')
   const inventory = {
@@ -233,18 +260,22 @@ export function createResidentLeaseInventory({
       identity: service.identity,
       generation: service.generation
     }))),
+    resourceGrant: normalizedGrant,
     services: allocated,
     reservation: {
       cpuUnits: allocated.reduce((sum, service) => sum + service.reservation.cpuUnits, 0),
       memoryGiB: allocated.reduce((sum, service) => sum + service.reservation.memoryGiB, 0)
     },
-    generatedAt: requiredText(generatedAt, 'generatedAt')
+    generatedAt: requiredTimestamp(generatedAt, 'generatedAt')
   }
   return { ...inventory, digest: residentLeaseDigest(inventory) }
 }
 
-export function bindResidentLeaseEnforcement(inventory, enforcement) {
-  validateResidentLeaseInventory(inventory)
+function validateResidentLeaseEnforcement(inventory, enforcement) {
+  if (!['advisory', 'enforced'].includes(enforcement?.mode)) {
+    throw new Error('resident enforcement mode must be advisory or enforced')
+  }
+  requiredTimestamp(enforcement?.boundAt, 'enforcement.boundAt')
   const processServices = inventory.services.filter((service) => service.kind === 'process')
   const containerServices = inventory.services.filter((service) => service.kind === 'container')
   const processReservation = summedReservation(processServices)
@@ -252,12 +283,31 @@ export function bindResidentLeaseEnforcement(inventory, enforcement) {
     && !sameReservation(enforcement?.processScope?.reservation, processReservation)) {
     throw new Error('resident process cgroup reservation does not match process leases')
   }
+  if (processServices.length === 0 && enforcement?.processScope !== null) {
+    throw new Error('resident process cgroup evidence exists without process leases')
+  }
+  if (processServices.length > 0 && enforcement?.mode === 'enforced'
+    && !String(enforcement?.processScope?.path ?? '').trim()) {
+    throw new Error('resident enforced process cgroup path is missing')
+  }
   const containerEvidence = enforcement?.containers ?? {}
+  const expectedContainerIds = new Set(containerServices.map((service) => service.id))
+  for (const evidenceId of Object.keys(containerEvidence)) {
+    if (!expectedContainerIds.has(evidenceId)) {
+      throw new Error(`resident OCI evidence has no matching lease: ${evidenceId}`)
+    }
+  }
   for (const service of containerServices) {
     const evidence = containerEvidence[service.id]
     if (!evidence || evidence.containerId !== service.identity.containerId
       || !sameReservation(evidence.reservation, service.reservation)) {
       throw new Error(`resident OCI reservation does not match lease: ${service.id}`)
+    }
+    if (!['advisory', 'enforced'].includes(evidence.status)) {
+      throw new Error(`resident OCI enforcement status is invalid: ${service.id}`)
+    }
+    if (enforcement.mode === 'enforced' && evidence.status !== 'enforced') {
+      throw new Error(`resident OCI hard limit was not enforced: ${service.id}`)
     }
     if (evidence.status === 'enforced') {
       const expectedHigh = Math.round(service.reservation.memoryGiB * (1024 ** 3))
@@ -268,6 +318,15 @@ export function bindResidentLeaseEnforcement(inventory, enforcement) {
       }
     }
   }
+  if (!sameReservation(enforcement?.reservation, inventory.reservation)) {
+    throw new Error('resident enforcement reservation total mismatch')
+  }
+}
+
+export function bindResidentLeaseEnforcement(inventory, enforcement) {
+  validateResidentLeaseInventory(inventory)
+  const processServices = inventory.services.filter((service) => service.kind === 'process')
+  const containerEvidence = enforcement?.containers ?? {}
   const unsigned = {
     ...inventory,
     enforcement: {
@@ -275,10 +334,11 @@ export function bindResidentLeaseEnforcement(inventory, enforcement) {
       processScope: processServices.length > 0 ? enforcement.processScope : null,
       containers: containerEvidence,
       reservation: inventory.reservation,
-      boundAt: requiredText(enforcement?.boundAt, 'enforcement.boundAt')
+      boundAt: requiredTimestamp(enforcement?.boundAt, 'enforcement.boundAt')
     }
   }
   delete unsigned.digest
+  validateResidentLeaseEnforcement(unsigned, unsigned.enforcement)
   return { ...unsigned, digest: residentLeaseDigest(unsigned) }
 }
 
@@ -287,6 +347,8 @@ export function validateResidentLeaseInventory(inventory, {
   namespace,
   ownerBundleId,
   sourceState,
+  resourceGrant,
+  requiredServiceIds,
   verifyProcess,
   verifyContainer
 } = {}) {
@@ -298,6 +360,19 @@ export function validateResidentLeaseInventory(inventory, {
     || inventory.sourceState?.worktreeFingerprint !== sourceState?.worktreeFingerprint)) {
     throw new Error('resident lease inventory belongs to another source state')
   }
+  const storedGrant = normalizedResourceGrant(inventory.resourceGrant)
+  if (resourceGrant !== undefined && !sameReservation(storedGrant, normalizedResourceGrant(resourceGrant))) {
+    throw new Error('resident lease inventory belongs to another resource grant')
+  }
+  if (requiredServiceIds !== undefined) {
+    const expectedIds = requiredServiceIds.map((value, index) => requiredText(value, `requiredServiceIds[${index}]`))
+    if (new Set(expectedIds).size !== expectedIds.length) throw new Error('required resident service IDs must be unique')
+    const actualIds = inventory.services.map((service) => service.id)
+    if (actualIds.length !== expectedIds.length
+      || [...actualIds].sort().some((value, index) => value !== [...expectedIds].sort()[index])) {
+      throw new Error('resident lease inventory service roster mismatch')
+    }
+  }
   const { digest, ...unsigned } = inventory
   if (digest !== residentLeaseDigest(unsigned)) throw new Error('resident lease inventory digest mismatch')
   const rebuilt = createResidentLeaseInventory({
@@ -305,14 +380,17 @@ export function validateResidentLeaseInventory(inventory, {
     namespace: inventory.namespace,
     ownerBundleId: inventory.ownerBundleId,
     sourceState: inventory.sourceState,
-    resourceGrant: inventory.reservation,
+    resourceGrant: storedGrant,
     services: inventory.services,
     generatedAt: inventory.generatedAt
   })
   if (rebuilt.generation !== inventory.generation) throw new Error('resident lease inventory generation mismatch')
-  for (const service of inventory.services) {
+  for (const [index, service] of inventory.services.entries()) {
     if (!(service.reservation?.cpuUnits > 0) || !(service.reservation?.memoryGiB > 0)) {
       throw new Error(`resident service ${service.id} has no resource reservation`)
+    }
+    if (!sameReservation(service.reservation, rebuilt.services[index]?.reservation)) {
+      throw new Error(`resident service ${service.id} reservation was not derived from its resource grant`)
     }
     const matches = service.kind === 'process'
       ? verifyProcess?.(service.identity, service)
@@ -328,10 +406,31 @@ export function validateResidentLeaseInventory(inventory, {
     || Math.abs(reservedMemoryGiB - inventory.reservation.memoryGiB) > 1e-9) {
     throw new Error('resident lease inventory reservation total mismatch')
   }
-  if (inventory.enforcement && !sameReservation(inventory.enforcement.reservation, inventory.reservation)) {
-    throw new Error('resident enforcement reservation total mismatch')
+  if (!sameReservation(inventory.reservation, rebuilt.reservation)) {
+    throw new Error('resident lease inventory reservation does not match its resource grant')
   }
+  if (inventory.enforcement) validateResidentLeaseEnforcement(inventory, inventory.enforcement)
   return inventory
+}
+
+function validateResidentLeaseReadiness(readiness, inventory) {
+  if (!readiness || readiness.status !== 'ready') {
+    throw new Error('resident lease handoff requires ready health evidence')
+  }
+  requiredTimestamp(readiness.checkedAt, 'readiness.checkedAt')
+  if (!Array.isArray(readiness.services) || readiness.services.length !== inventory.services.length) {
+    throw new Error('resident lease handoff readiness roster mismatch')
+  }
+  const readinessById = new Map(readiness.services.map((service) => [service?.id, service]))
+  if (readinessById.size !== inventory.services.length) {
+    throw new Error('resident lease handoff readiness roster mismatch')
+  }
+  for (const service of inventory.services) {
+    const evidence = readinessById.get(service.id)
+    if (evidence?.generation !== service.generation || evidence?.status !== 'live') {
+      throw new Error(`resident lease handoff readiness is stale: ${service.id}`)
+    }
+  }
 }
 
 export function createResidentLeaseHandoff({
@@ -341,7 +440,7 @@ export function createResidentLeaseHandoff({
   generatedAt = new Date().toISOString()
 }) {
   validateResidentLeaseInventory(inventory)
-  if (!readiness || readiness.status !== 'ready') throw new Error('resident lease handoff requires ready health evidence')
+  validateResidentLeaseReadiness(readiness, inventory)
   const receipt = {
     schema: residentResourceHandoffSchema,
     runId: inventory.runId,
@@ -374,6 +473,90 @@ export function consumeResidentLeaseHandoff(receipt, {
   return { ...consumed, digest: residentLeaseDigest(consumed) }
 }
 
+function processStartTimeTicks(pid) {
+  try {
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8')
+    const closingName = stat.lastIndexOf(')')
+    return closingName < 0 ? null : stat.slice(closingName + 2).trim().split(/\s+/u)[19] ?? null
+  } catch {
+    return null
+  }
+}
+
+function processExists(pid, startTimeTicks = null) {
+  try {
+    process.kill(pid, 0)
+    return startTimeTicks === null || processStartTimeTicks(pid) === startTimeTicks
+  } catch (error) {
+    return error?.code === 'EPERM'
+  }
+}
+
+function removeStaleHandoffLock(lockFile, staleLockMs) {
+  try {
+    const stat = fs.statSync(lockFile)
+    if (Date.now() - stat.mtimeMs < staleLockMs) return false
+    let owner = null
+    try {
+      owner = JSON.parse(fs.readFileSync(lockFile, 'utf8'))
+    } catch {}
+    if (Number.isInteger(owner?.pid) && processExists(owner.pid, owner.startTimeTicks ?? null)) return false
+    fs.rmSync(lockFile, { force: true })
+    return true
+  } catch (error) {
+    if (error?.code === 'ENOENT') return true
+    throw error
+  }
+}
+
+export function consumeResidentLeaseHandoffFile(file, {
+  inventory,
+  consumerBundleId,
+  consumedAt = new Date().toISOString(),
+  lockTimeoutMs = 5_000,
+  staleLockMs = 30_000
+}) {
+  const absolute = path.resolve(file)
+  const lockFile = `${absolute}.consume.lock`
+  const timeout = Math.max(0, Number(lockTimeoutMs) || 0)
+  const staleAfter = Math.max(1, Number(staleLockMs) || 1)
+  const deadline = Date.now() + timeout
+  const waitBuffer = new Int32Array(new SharedArrayBuffer(4))
+  const token = crypto.randomUUID()
+  const startTimeTicks = processStartTimeTicks(process.pid)
+  let lockDescriptor = null
+  while (lockDescriptor === null) {
+    try {
+      lockDescriptor = fs.openSync(lockFile, 'wx')
+      fs.writeFileSync(lockDescriptor, `${JSON.stringify({
+        pid: process.pid,
+        startTimeTicks,
+        token,
+        acquiredAt: new Date().toISOString()
+      })}\n`)
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error
+      removeStaleHandoffLock(lockFile, staleAfter)
+      if (Date.now() >= deadline) throw new Error('resident lease handoff consume lock timed out')
+      Atomics.wait(waitBuffer, 0, 0, Math.min(25, Math.max(1, deadline - Date.now())))
+    }
+  }
+  try {
+    const receipt = readResidentLeaseDocument(absolute)
+    const consumed = consumeResidentLeaseHandoff(receipt, { inventory, consumerBundleId, consumedAt })
+    writeResidentLeaseDocument(absolute, consumed)
+    return consumed
+  } finally {
+    fs.closeSync(lockDescriptor)
+    try {
+      const owner = JSON.parse(fs.readFileSync(lockFile, 'utf8'))
+      if (owner.token === token) fs.rmSync(lockFile, { force: true })
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error
+    }
+  }
+}
+
 export function validateResidentLeaseHandoff(receipt, {
   inventory,
   consumerBundleId,
@@ -396,6 +579,7 @@ export function validateResidentLeaseHandoff(receipt, {
   if (receipt.generation !== inventory.generation || receipt.leaseDigest !== inventory.digest) {
     throw new Error('resident lease handoff is stale')
   }
+  validateResidentLeaseReadiness(receipt.readiness, inventory)
   if (receipt.toOwnerBundleId !== consumerBundleId) throw new Error('resident lease handoff belongs to another consumer')
   const consumed = Boolean(receipt.consumedAt || receipt.consumedBy)
   if (consumed && (!receipt.consumedAt || receipt.consumedBy !== consumerBundleId)) {

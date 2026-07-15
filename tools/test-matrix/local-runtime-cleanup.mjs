@@ -286,7 +286,9 @@ export function cleanupLocalRuntime({
   root,
   namespace,
   removeContainer = defaultRemoveContainer,
-  killProcess = defaultKillProcess
+  killProcess = defaultKillProcess,
+  observeResidentService,
+  residentCleanupTimeoutMs = null
 }) {
   const resolvedRoot = path.resolve(root)
   const slug = namespaceSlug(namespace)
@@ -320,15 +322,6 @@ export function cleanupLocalRuntime({
     }
   }
 
-  for (const relative of [
-    runtimeRelative,
-    path.join('.tmp', 'fixtures', slug),
-    path.join('.tmp', 'data', slug),
-    envRelative
-  ]) {
-    removeWithinRoot(resolvedRoot, relative)
-  }
-
   const result = { namespace: slug, removedContainers, skippedContainers, terminatedPids }
   const schedulerRunId = String(environment.FSUSBLOG_TEST_RUN_ID ?? '').trim()
   const checkpointFile = schedulerRunId
@@ -338,12 +331,25 @@ export function cleanupLocalRuntime({
     const checkpoint = finalizeResidentLeaseCleanup({
       root: resolvedRoot,
       checkpointFile,
-      cleanup: result
+      cleanup: result,
+      ...(observeResidentService ? { observeService: observeResidentService } : {}),
+      ...(residentCleanupTimeoutMs === null ? {} : { timeoutMs: residentCleanupTimeoutMs })
     })
     result.residentResourceLeases = {
       status: checkpoint.residentResourceLeases?.status ?? 'not-acquired',
       releasedAt: checkpoint.residentResourceLeases?.releasedAt ?? null,
       reservation: checkpoint.residentResourceLeases?.reservation ?? { cpuUnits: 0, memoryGiB: 0 }
+    }
+  }
+  result.retainedRuntimeState = result.residentResourceLeases?.status === 'cleanup-pending-live-services'
+  if (!result.retainedRuntimeState) {
+    for (const relative of [
+      runtimeRelative,
+      path.join('.tmp', 'fixtures', slug),
+      path.join('.tmp', 'data', slug),
+      envRelative
+    ]) {
+      removeWithinRoot(resolvedRoot, relative)
     }
   }
   return result

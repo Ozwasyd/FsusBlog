@@ -2622,20 +2622,37 @@ test('resident leases stay in admission accounting, hand off once, and release c
           namespace,
           ownerBundleId: 'runtime-browser',
           resourceGrant: { cpuUnits: 2, memoryGiB: 2 },
-          services: [{
-            id: 'backend',
-            kind: 'process',
-            identity: { pid: 42, startTimeTicks: '100' },
-            port: 24001,
-            generation: 'backend-1',
-            health: { status: 'ready', checkedAt: '2026-07-14T00:00:00.000Z' },
-            observedRssBytes: 128
-          }]
+          services: [
+            {
+              id: 'backend',
+              kind: 'process',
+              identity: { pid: 42, startTimeTicks: '100' },
+              port: 24001,
+              generation: 'backend-1',
+              health: { status: 'ready', checkedAt: '2026-07-14T00:00:00.000Z' },
+              observedRssBytes: 128
+            },
+            {
+              id: 'postgres',
+              kind: 'container',
+              identity: { containerId: 'a'.repeat(64), createdAt: '2026-07-14T00:00:00.000Z' },
+              port: 24002,
+              generation: 'postgres-1',
+              health: { status: 'ready', checkedAt: '2026-07-14T00:00:00.000Z' },
+              observedRssBytes: 128
+            }
+          ]
         })
+        const backend = unboundInventory.services.find((service) => service.id === 'backend')
+        const postgres = unboundInventory.services.find((service) => service.id === 'postgres')
         const inventory = bindResidentLeaseEnforcement(unboundInventory, {
           mode: 'advisory',
-          processScope: { status: 'advisory', path: null, reservation: unboundInventory.reservation },
-          containers: {},
+          processScope: { status: 'advisory', path: null, reservation: backend.reservation },
+          containers: {
+            postgres: {
+              status: 'advisory', containerId: postgres.identity.containerId, reservation: postgres.reservation
+            }
+          },
           boundAt: '2026-07-14T00:00:01.000Z'
         })
         writeResidentLeaseDocument(path.join(context.runDirectory, 'resident-resource-leases.json'), inventory)
@@ -2651,6 +2668,40 @@ test('resident leases stay in admission accounting, hand off once, and release c
         })
         writeResidentLeaseDocument(context.env.FSUSBLOG_RESIDENT_LEASE_HANDOFF, consumed)
         consumerGrant = JSON.parse(fs.readFileSync(context.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE, 'utf8'))
+        const restartedUnbound = createResidentLeaseInventory({
+          runId,
+          namespace,
+          ownerBundleId: 'runtime-browser',
+          resourceGrant: { cpuUnits: 2, memoryGiB: 2 },
+          services: [
+            {
+              id: 'backend', kind: 'process', identity: { pid: 43, startTimeTicks: '101' }, port: 24001,
+              generation: 'backend-2', health: { status: 'ready', checkedAt: '2026-07-14T00:00:05.000Z' },
+              observedRssBytes: 512
+            },
+            {
+              id: 'postgres', kind: 'container',
+              identity: { containerId: 'a'.repeat(64), createdAt: '2026-07-14T00:00:00.000Z' }, port: 24002,
+              generation: 'postgres-1', health: { status: 'ready', checkedAt: '2026-07-14T00:00:05.000Z' },
+              observedRssBytes: 128
+            }
+          ]
+        })
+        const restartedBackend = restartedUnbound.services.find((service) => service.id === 'backend')
+        const restartedPostgres = restartedUnbound.services.find((service) => service.id === 'postgres')
+        const restarted = bindResidentLeaseEnforcement(restartedUnbound, {
+          mode: 'advisory',
+          processScope: { status: 'advisory', path: null, reservation: restartedBackend.reservation },
+          containers: {
+            postgres: {
+              status: 'advisory',
+              containerId: restartedPostgres.identity.containerId,
+              reservation: restartedPostgres.reservation
+            }
+          },
+          boundAt: '2026-07-14T00:00:06.000Z'
+        })
+        writeResidentLeaseDocument(context.env.FSUSBLOG_RESIDENT_LEASE_INVENTORY, restarted)
         residentLive = false
       }
       return { code: 0, signal: null }
@@ -2670,11 +2721,15 @@ test('resident leases stay in admission accounting, hand off once, and release c
   assert.equal(consumerGrant.grants.performance.cpuUnits, 3)
   assert.ok(consumerEnvironment.FSUSBLOG_RESIDENT_LEASE_INVENTORY)
   assert.equal(result.checkpoint.residentResourceLeases.handoff.status, 'consumed')
+  assert.deepEqual(result.checkpoint.residentResourceLeases.resourceGrant, { cpuUnits: 2, memoryGiB: 2 })
   assert.equal(result.checkpoint.residentResourceLeases.status, 'released')
   assert.ok(result.checkpoint.residentResourceLeases.services.backend.history.some((entry) => entry.status === 'live'))
   assert.ok(result.checkpoint.residentResourceLeases.services.backend.history.some((entry) => entry.status === 'exited'))
+  assert.equal(result.checkpoint.residentResourceLeases.services.backend.restartCount, 1)
+  assert.ok(result.checkpoint.residentResourceLeases.events.some((event) => event.type === 'generation-replaced'))
   const enforcement = result.checkpoint.resourceEnforcement.bundles['runtime-browser']
-  assert.equal(enforcement.grants.at(-1).cpuUnits, 1)
+  assert.equal(enforcement.grants.at(-1).cpuUnits, 0.5)
+  assert.ok(enforcement.grants.length >= 3)
 })
 
 test('failed resident producer retains partial live-service evidence without publishing a handoff', async () => {
