@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKUP_PACKAGE=""
@@ -12,9 +13,20 @@ WEB_ROOT="${FSUSBLOG_WEB_ROOT:-${ROOT_DIR}/src/backend/wwwroot}"
 UPLOADS_DIR="${FSUSBLOG_UPLOADS_DIR:-${WEB_ROOT}/uploads}"
 KEYRING_DIR="${FSUSBLOG_DATA_PROTECTION_KEY_RING:-${DATA_ROOT}/data-protection-keys}"
 REPORT_PATH="${FSUSBLOG_RESTORE_REPORT:-${RESTORE_ROOT}/restore-site.json}"
+IDENTITY_FILE="${FSUSBLOG_BACKUP_IDENTITY_FILE:-}"
+IDENTITY_PASSPHRASE_FILE="${FSUSBLOG_BACKUP_IDENTITY_PASSPHRASE_FILE:-}"
+ENVELOPE_TOOL="$ROOT_DIR/tools/operations/backup-envelope.mjs"
+DECRYPTED_PACKAGE="$RESTORE_ROOT/.site-package.plaintext.tar.gz"
+RECIPIENT_KEY_ID=""
 checks=()
 blockers=()
 status="ok"
+
+cleanup() {
+  rm -f "$DECRYPTED_PACKAGE"
+}
+
+trap cleanup EXIT
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -70,10 +82,21 @@ write_report() {
     --arg runId "$RUN_ID" \
     --arg packagePath "$BACKUP_PACKAGE" \
     --arg restoreRoot "$RESTORE_ROOT" \
+    --arg envelopeFormat "fsusblog-site-backup-envelope-v1" \
+    --arg recipientKeyId "$RECIPIENT_KEY_ID" \
     --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --argjson checks "$checks_json" \
     --argjson blockers "$blockers_json" \
-    '{status:$status, runId:$runId, generatedAt:$generatedAt, packagePath:$packagePath, restoreRoot:$restoreRoot, checks:$checks, blockers:$blockers}' \
+    '{
+      status:$status,
+      runId:$runId,
+      generatedAt:$generatedAt,
+      packagePath:$packagePath,
+      restoreRoot:$restoreRoot,
+      packageEncryption:{format:$envelopeFormat, recipientKeyId:(if $recipientKeyId == "" then null else $recipientKeyId end)},
+      checks:$checks,
+      blockers:$blockers
+    }' \
     > "$REPORT_PATH"
   log "wrote $REPORT_PATH"
 }
@@ -226,17 +249,139 @@ restore_tree() {
   add_check "$label" "restored"
 }
 
+decrypt_package() {
+  if [[ -z "$IDENTITY_FILE" || ! -r "$IDENTITY_FILE" ]]; then
+    add_blocker "backup-envelope-identity-missing"
+    return
+  fi
+
+  local decrypt_args=(
+    decrypt
+    --input "$BACKUP_PACKAGE"
+    --output "$DECRYPTED_PACKAGE"
+    --identity "$IDENTITY_FILE"
+  )
+  if [[ -n "$IDENTITY_PASSPHRASE_FILE" ]]; then
+    if [[ ! -r "$IDENTITY_PASSPHRASE_FILE" ]]; then
+      add_blocker "backup-envelope-identity-passphrase-missing"
+      return
+    fi
+    decrypt_args+=(--passphrase-file "$IDENTITY_PASSPHRASE_FILE")
+  fi
+
+  local envelope_info
+  if ! envelope_info="$(node "$ENVELOPE_TOOL" "${decrypt_args[@]}")"; then
+    add_blocker "backup-envelope-authentication-or-decryption-failed"
+    rm -f "$DECRYPTED_PACKAGE"
+    return
+  fi
+  RECIPIENT_KEY_ID="$(jq -r '.recipientKeyId // empty' <<< "$envelope_info")"
+  if [[ -z "$RECIPIENT_KEY_ID" ]]; then
+    add_blocker "backup-envelope-metadata-invalid"
+    rm -f "$DECRYPTED_PACKAGE"
+    return
+  fi
+  add_check "site-package-envelope" "authenticated"
+}
+
+archive_is_safe() {
+  local archive="$1"
+  local entry
+  tar -tzf "$archive" >/dev/null 2>&1 || return 1
+  while IFS= read -r entry; do
+    case "$entry" in
+      /*|../*|*/../*|*/..)
+        return 1
+        ;;
+    esac
+  done < <(tar -tzf "$archive")
+
+  if tar -tzvf "$archive" | awk 'substr($1,1,1) != "-" && substr($1,1,1) != "d" { found=1 } END { exit(found ? 0 : 1) }'; then
+    return 1
+  fi
+  return 0
+}
+
+verify_package_manifest() {
+  local manifest="$RESTORE_ROOT/package/manifest.json"
+  if ! jq -e \
+    --arg recipientKeyId "$RECIPIENT_KEY_ID" \
+    '.kind == "fsusblog-site-backup"
+      and .version == 2
+      and .envelope.format == "fsusblog-site-backup-envelope-v1"
+      and .envelope.contentEncryption == "AES-256-GCM"
+      and .envelope.keyWrap == "RSA-OAEP-SHA256"
+      and .envelope.recipientKeyId == $recipientKeyId
+      and .dataProtection.encryptedAtRest == true
+      and .dataProtection.plaintextMasterKeyPresent == false
+      and (.dataProtection.encryptedKeyCount | type) == "number"
+      and .dataProtection.encryptedKeyCount > 0' "$manifest" >/dev/null; then
+    add_blocker "backup-manifest-invalid"
+    return
+  fi
+
+  local label artifact digest actual
+  for label in database uploads dataProtectionKeyRing configRedacted aotCache searchIndex; do
+    artifact="$(jq -r --arg label "$label" '.artifacts[$label] // empty' "$manifest")"
+    digest="$(jq -r --arg label "$label" '.artifactDigests[$label] // empty' "$manifest")"
+    if [[ -z "$artifact" || "$artifact" == */* || ! "$digest" =~ ^[0-9a-f]{64}$ || ! -f "$RESTORE_ROOT/package/$artifact" ]]; then
+      add_blocker "backup-manifest-artifact-invalid:$label"
+      return
+    fi
+    actual="$(sha256sum "$RESTORE_ROOT/package/$artifact" | awk '{print $1}')"
+    if [[ "$actual" != "$digest" ]]; then
+      add_blocker "backup-manifest-digest-mismatch:$label"
+      return
+    fi
+  done
+
+  local keyring_verify="$RESTORE_ROOT/keyring-verify"
+  mkdir -p "$keyring_verify"
+  if ! archive_is_safe "$RESTORE_ROOT/package/data-protection-keyring.tar.gz"; then
+    add_blocker "data-protection-keyring-archive-unsafe"
+    return
+  fi
+  tar -xzf "$RESTORE_ROOT/package/data-protection-keyring.tar.gz" -C "$keyring_verify"
+  local key_file key_count=0
+  while IFS= read -r -d '' key_file; do
+    key_count=$((key_count + 1))
+    if ! grep -q 'encryptedSecret' "$key_file" || grep -Eq '<masterKey([[:space:]>])' "$key_file"; then
+      add_blocker "data-protection-keyring-plaintext-or-invalid"
+      return
+    fi
+  done < <(find "$keyring_verify" -maxdepth 1 -type f -name 'key-*.xml' -print0)
+  if [[ "$key_count" != "$(jq -r '.dataProtection.encryptedKeyCount' "$manifest")" ]]; then
+    add_blocker "data-protection-keyring-generation-count-mismatch"
+    return
+  fi
+  rm -rf "$keyring_verify"
+  add_check "backup-manifest" "verified"
+  add_check "data-protection-key-generations" "$key_count"
+}
+
 main() {
   mkdir -p "$RESTORE_ROOT/package"
   require_command jq
   require_command tar
   require_command pg_restore
+  require_command node
+  require_command sha256sum
 
   if [[ -z "$BACKUP_PACKAGE" || ! -r "$BACKUP_PACKAGE" ]]; then
     add_blocker "backup-package-missing"
-  else
-    tar -xzf "$BACKUP_PACKAGE" -C "$RESTORE_ROOT/package"
-    add_check "site-package" "extracted"
+  elif (( "${#blockers[@]}" == 0 )); then
+    decrypt_package
+  fi
+
+  if (( "${#blockers[@]}" == 0 )); then
+    if ! archive_is_safe "$DECRYPTED_PACKAGE"; then
+      add_blocker "backup-package-archive-unsafe"
+    else
+      tar --no-same-owner --no-same-permissions -xzf "$DECRYPTED_PACKAGE" -C "$RESTORE_ROOT/package"
+      rm -f "$DECRYPTED_PACKAGE"
+      add_check "site-package" "authenticated-extracted"
+      verify_package_manifest
+    fi
   fi
 
   if [[ "$DRY_RUN" == "1" ]]; then
@@ -244,7 +389,8 @@ main() {
     add_check "uploads" "planned"
     add_check "data-protection-keyring" "planned"
     write_report
-    return 0
+    [[ "$status" == "ok" ]]
+    return
   fi
 
   if [[ "$CONFIRM" != "1" ]]; then

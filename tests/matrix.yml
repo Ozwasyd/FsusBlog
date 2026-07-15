@@ -800,6 +800,7 @@ tiers:
       - test-suite-convergence
       - test-tool-artifact-behavior
       - frontend-source-locking-convergence
+      - backend-operations-readiness-behavior
     artifacts: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, .tmp/release-evidence/flaky/registry.json, .tmp/docs/integrity-proof-docs.json]
     evidence:
       - .tmp/gate-logs
@@ -842,6 +843,11 @@ tiers:
       - tools/build-final-image.sh
       - docs/production.md
       - docs/operations.md
+      - docs/security/site-backup-envelope.md
+      - tools/operations/backup-envelope.mjs
+      - tools/operations/backup-config-sanitize.mjs
+      - tools/operations/test-backup-envelope-fixture.sh
+      - tests/tools/backup-envelope-contract.test.mjs
       - tests/backend/Unit/ReleaseIdentityTests.cs
       - tools/operations/test-release-evidence-fixture.sh
       - docs/issue-1025-blue-green-slots-handoff.md

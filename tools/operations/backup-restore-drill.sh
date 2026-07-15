@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="${FSUSBLOG_DRILL_OUTPUT_DIR:-$ROOT_DIR/.tmp/operations}"
@@ -20,6 +21,10 @@ UPLOADS_BACKUP="${FSUSBLOG_UPLOADS_BACKUP:-}"
 AOT_BACKUP="${FSUSBLOG_AOT_BACKUP:-}"
 SEARCH_BACKUP="${FSUSBLOG_SEARCH_BACKUP:-}"
 SITE_BACKUP_PACKAGE="${FSUSBLOG_SITE_BACKUP_PACKAGE:-}"
+BACKUP_IDENTITY_FILE="${FSUSBLOG_BACKUP_IDENTITY_FILE:-}"
+BACKUP_IDENTITY_PASSPHRASE_FILE="${FSUSBLOG_BACKUP_IDENTITY_PASSPHRASE_FILE:-}"
+BACKUP_ENVELOPE_TOOL="$ROOT_DIR/tools/operations/backup-envelope.mjs"
+DATA_PROTECTION_KEYRING_BACKUP=""
 
 status="ok"
 blockers=()
@@ -46,6 +51,7 @@ add_blocker() {
 }
 
 cleanup() {
+  rm -f "$WORK_DIR/site-package.plaintext.tar.gz"
   if [[ -n "$backend_pid" ]] && kill -0 "$backend_pid" >/dev/null 2>&1; then
     kill "$backend_pid" >/dev/null 2>&1 || true
     wait "$backend_pid" >/dev/null 2>&1 || true
@@ -55,6 +61,24 @@ cleanup() {
     docker rm -f "$postgres_container" "$redis_container" >/dev/null 2>&1 || true
     rm -rf "$WORK_DIR"
   fi
+}
+
+archive_is_safe() {
+  local archive="$1"
+  local entry
+  tar -tzf "$archive" >/dev/null 2>&1 || return 1
+  while IFS= read -r entry; do
+    case "$entry" in
+      /*|../*|*/../*|*/..)
+        return 1
+        ;;
+    esac
+  done < <(tar -tzf "$archive")
+
+  if tar -tzvf "$archive" | awk 'substr($1,1,1) != "-" && substr($1,1,1) != "d" { found=1 } END { exit(found ? 0 : 1) }'; then
+    return 1
+  fi
+  return 0
 }
 
 trap cleanup EXIT
@@ -480,8 +504,83 @@ prepare_site_backup_package() {
   fi
 
   local package_dir="$WORK_DIR/site-package"
+  local decrypted_package="$WORK_DIR/site-package.plaintext.tar.gz"
   mkdir -p "$package_dir"
-  tar -xzf "$SITE_BACKUP_PACKAGE" -C "$package_dir"
+  if [[ -z "$BACKUP_IDENTITY_FILE" || ! -r "$BACKUP_IDENTITY_FILE" ]]; then
+    add_blocker "site-backup-identity-missing"
+    return
+  fi
+  local decrypt_args=(
+    decrypt
+    --input "$SITE_BACKUP_PACKAGE"
+    --output "$decrypted_package"
+    --identity "$BACKUP_IDENTITY_FILE"
+  )
+  if [[ -n "$BACKUP_IDENTITY_PASSPHRASE_FILE" ]]; then
+    decrypt_args+=(--passphrase-file "$BACKUP_IDENTITY_PASSPHRASE_FILE")
+  fi
+  local envelope_info recipient_key_id
+  if ! envelope_info="$(node "$BACKUP_ENVELOPE_TOOL" "${decrypt_args[@]}")"; then
+    add_blocker "site-backup-envelope-invalid"
+    return
+  fi
+  recipient_key_id="$(jq -r '.recipientKeyId // empty' <<< "$envelope_info")"
+  if ! archive_is_safe "$decrypted_package"; then
+    add_blocker "site-backup-archive-unsafe"
+    rm -f "$decrypted_package"
+    return
+  fi
+  tar --no-same-owner --no-same-permissions -xzf "$decrypted_package" -C "$package_dir"
+  rm -f "$decrypted_package"
+
+  if ! jq -e --arg recipientKeyId "$recipient_key_id" \
+    '.kind == "fsusblog-site-backup"
+      and .version == 2
+      and .envelope.recipientKeyId == $recipientKeyId
+      and .dataProtection.encryptedAtRest == true
+      and .dataProtection.plaintextMasterKeyPresent == false
+      and .dataProtection.encryptedKeyCount >= 2' \
+    "$package_dir/manifest.json" >/dev/null; then
+    add_blocker "site-backup-key-generation-manifest-invalid"
+    return
+  fi
+
+  local label artifact expected_digest actual_digest
+  for label in database uploads dataProtectionKeyRing configRedacted aotCache searchIndex; do
+    artifact="$(jq -r --arg label "$label" '.artifacts[$label] // empty' "$package_dir/manifest.json")"
+    expected_digest="$(jq -r --arg label "$label" '.artifactDigests[$label] // empty' "$package_dir/manifest.json")"
+    if [[ -z "$artifact" || "$artifact" == */* || ! "$expected_digest" =~ ^[0-9a-f]{64}$ || ! -f "$package_dir/$artifact" ]]; then
+      add_blocker "site-backup-artifact-invalid:$label"
+      return
+    fi
+    actual_digest="$(sha256sum "$package_dir/$artifact" | awk '{print $1}')"
+    if [[ "$actual_digest" != "$expected_digest" ]]; then
+      add_blocker "site-backup-artifact-digest-mismatch:$label"
+      return
+    fi
+  done
+
+  local keyring_dir="$WORK_DIR/data-protection-keyring"
+  mkdir -p "$keyring_dir"
+  if ! archive_is_safe "$package_dir/data-protection-keyring.tar.gz"; then
+    add_blocker "site-backup-keyring-archive-unsafe"
+    return
+  fi
+  tar -xzf "$package_dir/data-protection-keyring.tar.gz" -C "$keyring_dir"
+  local key_file generation_count=0
+  while IFS= read -r -d '' key_file; do
+    generation_count=$((generation_count + 1))
+    if ! grep -q 'encryptedSecret' "$key_file" || grep -Eq '<masterKey([[:space:]>])' "$key_file"; then
+      add_blocker "site-backup-key-generation-plaintext-or-invalid"
+      return
+    fi
+  done < <(find "$keyring_dir" -maxdepth 1 -type f -name 'key-*.xml' -print0)
+  if [[ "$generation_count" != "$(jq -r '.dataProtection.encryptedKeyCount' "$package_dir/manifest.json")" ]]; then
+    add_blocker "site-backup-key-generation-count-mismatch"
+    return
+  fi
+
+  DATA_PROTECTION_KEYRING_BACKUP="$package_dir/data-protection-keyring.tar.gz"
   POSTGRES_BACKUP="${POSTGRES_BACKUP:-$package_dir/database.dump}"
   if [[ -z "$REDIS_BACKUP" ]]; then
     mkdir -p "$package_dir/redis-empty"
@@ -490,7 +589,8 @@ prepare_site_backup_package() {
   UPLOADS_BACKUP="${UPLOADS_BACKUP:-$package_dir/uploads.tar.gz}"
   AOT_BACKUP="${AOT_BACKUP:-$package_dir/aot-cache.tar.gz}"
   SEARCH_BACKUP="${SEARCH_BACKUP:-$package_dir/search.tar.gz}"
-  add_check "site-backup-package" "unpacked"
+  add_check "site-backup-package" "authenticated-unpacked"
+  add_check "data-protection-current-previous-generations" "$generation_count"
 }
 
 wait_for_url() {
@@ -595,6 +695,8 @@ run_real() {
   require_command curl
   require_command jq
   require_command npm
+  require_command node
+  require_command sha256sum
   prepare_site_backup_package
   require_backup "$POSTGRES_BACKUP" "postgres"
   require_backup "$REDIS_BACKUP" "redis"

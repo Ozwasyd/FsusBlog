@@ -3225,19 +3225,23 @@
     },
     {
       "id": "backend-operations-readiness-behavior",
-      "description": "Production readiness, backup and restore scripts, and dangerous admin operations report every failed probe, block unsafe inputs and require diff plus step-up for changes.",
+      "description": "Production readiness, authenticated backup envelopes, restore scripts, and dangerous admin operations report every failed probe, block unsafe inputs and require diff plus step-up for changes.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
         "tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs",
         "tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs",
-        "tests/backend/Unit/AdminOperationsBehaviorTests.cs"
+        "tests/backend/Unit/AdminOperationsBehaviorTests.cs",
+        "tests/tools/backup-envelope-contract.test.mjs",
+        "tools/operations/test-backup-envelope-fixture.sh",
+        "docs/security/site-backup-envelope.md"
       ],
       "assertionType": "unit",
-      "failClosedRule": "Reject hidden readiness failures, backup or restore invocation after invalid input, dangerous operations without confirmation or evidence that drops a blocked path.",
-      "minimumRequirement": "Executable owners must cover aggregated readiness, scheduled and blocked backup or restore paths, and guarded integrity operations.",
+      "failClosedRule": "Reject hidden readiness failures, plaintext or unauthenticated backup packages, restore invocation after invalid identity/digest/key-generation input, dangerous operations without confirmation, or evidence that drops a blocked path.",
+      "minimumRequirement": "Executable owners must cover aggregated readiness, authenticated encryption/tamper rejection, current and previous encrypted key generations, scheduled and blocked restore paths, and guarded integrity operations.",
       "tierIds": [
         "backend-unit",
+        "static-governance",
         "integration",
         "production"
       ]

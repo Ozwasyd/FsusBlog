@@ -27,6 +27,7 @@ STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/dead-code-audit-index.test.mjs"
   "$ROOT_DIR/tests/tools/online-schema-migration-wrapper.test.mjs"
   "$ROOT_DIR/tests/tools/release-storage-lifecycle.test.mjs"
+  "$ROOT_DIR/tests/tools/backup-envelope-contract.test.mjs"
   "$ROOT_DIR/tests/tools/security-source-analyzer.test.mjs"
   "$ROOT_DIR/tests/tools/test-suite-convergence.test.mjs"
   "$ROOT_DIR/tests/tools/release-rollout-state.test.mjs"
