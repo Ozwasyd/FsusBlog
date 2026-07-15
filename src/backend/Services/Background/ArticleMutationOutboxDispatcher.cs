@@ -51,7 +51,9 @@ public sealed class ArticleMutationOutboxDispatcher(
 
         try
         {
-            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+            await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+                scopeFactory,
+                "article_outbox_dispatch");
             ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
             IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
             ICacheInvalidationDispatcher cacheInvalidation = scope.ServiceProvider.GetRequiredService<ICacheInvalidationDispatcher>();
@@ -472,7 +474,9 @@ public sealed class ArticleMutationOutboxDispatcher(
                 await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
                 DateTime heartbeatAt = timeProvider.GetUtcNow().UtcDateTime;
                 DateTime claimExpiresAt = heartbeatAt.Add(GetClaimLeaseDuration());
-                await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+                await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+                    scopeFactory,
+                    "article_outbox_reconcile");
                 ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
                 IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
                 int updatedRows = await dbGate.ExecuteAsync(

@@ -2,6 +2,7 @@
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
 using SqlSugar;
 
@@ -205,7 +206,9 @@ public class LogCleanupService(
         Func<ISqlSugarClient, CancellationToken, Task<int>> cleanup,
         CancellationToken token)
     {
-        await using var scope = _serviceProvider.CreateAsyncScope();
+        await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+            _serviceProvider,
+            "log_retention_cleanup");
         var db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
         return await cleanup(db, token);
     }

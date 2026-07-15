@@ -273,6 +273,8 @@ Rollback is image and database-backup based. Do not roll back by re-enabling ret
 
 OpenTelemetry is enabled in-process by default and uses `FsusBlog.Server` as the custom `ActivitySource` / `Meter`. ASP.NET Core, outgoing HTTP, runtime, Npgsql, WebSocket notification metrics, cache operations, PublicAOT render source, search rebuild/query and scheduled-publish worker timings are recorded with bounded `fsus.*` tags only.
 
+DI graph health is part of the same telemetry boundary. `/api/binary/author/ops/health` exposes the admin-only `dependency-graph` row, while `fsus.di.graph.registration_count`, `fsus.di.graph.captive_dependency_count` and `fsus.di.graph.opaque_factory_count` expose graph size and validation coverage. A non-zero captive count prevents a new candidate from building; do not bypass it. `di.scope` activities prove the begin/end boundary for instrumented hosted-service DbContext scopes. The safe rollback is to leave the current active slot serving traffic, fix the offending registration or scope ownership, and rebuild the candidate; changing a scoped service to singleton or disabling `ValidateScopes` is not an accepted recovery.
+
 OTLP export is off by default. Enable it by setting either `Observability:ExporterEnabled=true` with `Observability:OtlpEndpoint=http://collector:4317`, or the standard `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable. Requests return `X-Fsus-Trace-Id`, and Serilog/audit request context uses the same trace identifier for log correlation. Do not add raw route parameters, request/response bodies, cookies, tokens, IP addresses, usernames or email addresses as OpenTelemetry attributes.
 
 ## SLO Alerts

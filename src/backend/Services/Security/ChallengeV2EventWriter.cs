@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Threading.Channels;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Services.Security;
@@ -328,7 +329,9 @@ public sealed class ChallengeV2AuditEventWriterWorker(
     {
         try
         {
-            await using AsyncServiceScope scope = _scopeFactory.CreateAsyncScope();
+            await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+                _scopeFactory,
+                "challenge_v2_audit_flush");
             ISecurityChallengePersistenceService persistence = scope.ServiceProvider.GetRequiredService<ISecurityChallengePersistenceService>();
             foreach (ChallengeV2AuditEvent item in batch)
             {

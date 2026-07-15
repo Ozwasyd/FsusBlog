@@ -32,6 +32,7 @@ public sealed class AdminOperationsService(
     CacheInvalidationRuntimeState cacheInvalidationRuntime,
     IHotStatsInvalidationCoalescer hotStatsInvalidation,
     AuditLogRuntimeState auditLogRuntime,
+    DependencyGraphRuntimeState dependencyGraphRuntime,
     StartupRuntimeState startupRuntime,
     ScheduledPublishRuntimeState scheduledPublishRuntime,
     CrawlerDetectorService crawlerDetector,
@@ -58,6 +59,7 @@ public sealed class AdminOperationsService(
         ProductionHealthReport readiness = await readinessProbe.CheckAsync(cancellationToken);
         BackupStatusResponse backup = GetBackupStatus();
         AuditLogRuntimeSnapshot audit = auditLogRuntime.Snapshot();
+        DependencyGraphRuntimeSnapshot dependencyGraph = dependencyGraphRuntime.Snapshot;
         StartupRuntimeSnapshot startup = startupRuntime.CreateSnapshot();
         ScheduledPublishRuntimeSnapshot scheduled = scheduledPublishRuntime.CreateSnapshot();
         PublicHotReadRuntimeSnapshot publicHot = publicHotReadStore.CreateRuntimeSnapshot();
@@ -72,6 +74,22 @@ public sealed class AdminOperationsService(
             BuildStatus("audit", "审计写入", audit.WriteFailureCount > 0 || audit.DroppedCount > 0 ? "degraded" : "ok", $"queued={audit.QueuedCount}, dropped={audit.DroppedCount}, failed={audit.WriteFailureCount}", ToOffset(audit.LastWriteSuccessUtc), Metrics(("fallback", audit.FallbackWriteCount))),
             BuildStatus("crawler-cidr", "Crawler CIDR", crawler.LastError is null ? "ok" : "degraded", crawler.LastError ?? crawler.Source, crawler.LastSuccessAt, Metrics(("google", crawler.GoogleRanges), ("bing", crawler.BingRanges))),
             BuildStatus("backup", "最近备份", backup.Status, backup.BackupRoot, backup.CheckedAt, Metrics(("artifactCount", backup.Artifacts.Count))),
+            BuildStatus(
+                "dependency-graph",
+                "DI 依赖图",
+                dependencyGraph.CaptiveDependencies.Count == 0 ? "ok" : "degraded",
+                dependencyGraph.CaptiveDependencies.Count == 0
+                    ? "ValidateOnBuild + ValidateScopes + static graph validation"
+                    : $"static graph validation blocked {dependencyGraph.CaptiveDependencies.Count} captive dependencies",
+                readiness.CheckedAt,
+                Metrics(
+                    ("registrations", dependencyGraph.RegistrationCount),
+                    ("singletons", dependencyGraph.SingletonCount),
+                    ("scoped", dependencyGraph.ScopedCount),
+                    ("transient", dependencyGraph.TransientCount),
+                    ("hostedServices", dependencyGraph.HostedServiceCount),
+                    ("opaqueFactories", dependencyGraph.OpaqueFactoryCount),
+                    ("captiveDependencies", dependencyGraph.CaptiveDependencies.Count))),
             BuildStatus(
                 "public-hot-read",
                 "PublicHotRead",

@@ -106,7 +106,9 @@ public class VisitLogProcessorService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await using AsyncServiceScope scope = _serviceProvider.CreateAsyncScope();
+        await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+            _serviceProvider,
+            "visit_log_flush");
         ReadAggregateFlushServices flushServices = ResolveFlushServices(scope.ServiceProvider);
         var batch = new List<VisitLogMessage>(BatchSize);
         try

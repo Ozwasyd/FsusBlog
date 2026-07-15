@@ -169,7 +169,9 @@ public sealed class SecurityRiskEventWriterWorker(
         int fallbackSingleInserts = 0;
         try
         {
-            await using AsyncServiceScope scope = _scopeFactory.CreateAsyncScope();
+            await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+                _scopeFactory,
+                "security_risk_event_flush");
             ISecurityRiskEventStore store = scope.ServiceProvider.GetRequiredService<ISecurityRiskEventStore>();
             try
             {

@@ -450,7 +450,9 @@ public sealed class RumTelemetryFlushWorker(
                 return;
             }
 
-            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+            await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+                scopeFactory,
+                "rum_telemetry_flush");
             ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
             await db.Insertable(build.Entities).ExecuteCommandAsync(cancellationToken);
         }

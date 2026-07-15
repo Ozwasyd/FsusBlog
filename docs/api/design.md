@@ -488,6 +488,8 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AdminOperationsService.cs`](../../src/backend/Infrastructure/Operations/AdminOperationsService.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
 
+DI lifetime graph 不属于公开读取面。组合根在 `builder.Build()` 前 fail closed 校验 captive dependency；仅既有 admin-only `/api/binary/author/ops/health` 在 `services` 中追加 `dependency-graph` 汇总计数，不新增公开端点、frame 或字段布局，也不向匿名/登录账号/notification stream 暴露类型名和依赖路径。候选版本若因新规则拒绝启动，保持当前 active slot 服务即可回退；不得热关闭 `ValidateScopes`，PublicHotRead、binary 与 notification stream 的运行契约不受影响。
+
 单作者运维能力也归入 `/api/binary/author/**`，不得新增多作者协作或复杂 RBAC。`/api/binary/author/ops/**` 只返回运行时健康、备份 artifact 状态、结构化最近错误和危险操作策略；最近错误必须在审计行物化后做摘要、清理和分组，不得在 ORM projection 内拼接格式化字符串或向前端泄露 SQL 表达式片段。`/api/binary/author/cache/**` 暴露 AOT/PublicHotRead/search/sitemap/feed/comment cache 诊断、VisitLog 驱动 HotArticles/Stats 失效合并状态与手动重建入口；`/api/binary/author/integrity/**` 暴露数据一致性巡检、diff 预览和带 admin step-up 的 safe-fix 应用。所有写入型维护动作必须写高价值审计；不可逆或跨表修复必须先返回 diff，并通过统一危险操作策略要求强确认或 admin step-up proof。
 
 ### SEO 预览

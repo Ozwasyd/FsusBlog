@@ -51,7 +51,9 @@ public sealed class ScheduledPublishWorker(
             return await BoundaryExecutor.ExecuteValueAsync(
                 async () =>
                 {
-                    await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+                    await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+                        scopeFactory,
+                        "scheduled_publish");
                     ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
                     IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
                     IArticleMutationSideEffectCoordinator mutationSideEffects =

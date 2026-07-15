@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Threading.Channels;
 
+using FsusBlog.Server.Infrastructure.Observability;
+
 namespace FsusBlog.Server.Infrastructure.Audit;
 
 public sealed class AuditLogWriterWorker(
@@ -61,7 +63,9 @@ public sealed class AuditLogWriterWorker(
             return;
         }
 
-        await using AsyncServiceScope scope = _scopeFactory.CreateAsyncScope();
+        await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+            _scopeFactory,
+            "audit_flush");
         IAuditLogStore store = scope.ServiceProvider.GetRequiredService<IAuditLogStore>();
         await store.WriteBatchAsync(batch, cancellationToken);
         _runtimeState.RecordWriteSuccess(batch.Count);

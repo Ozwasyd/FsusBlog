@@ -1,5 +1,6 @@
 ﻿using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
@@ -163,7 +164,9 @@ public class CrawlerUpdateWorker(
     {
         _logger.LogInformation("开始同步搜索引擎 IP 白名单...");
 
-        await using var scope = _serviceProvider.CreateAsyncScope();
+        await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+            _serviceProvider,
+            "crawler_range_snapshot");
         var detector = scope.ServiceProvider.GetRequiredService<CrawlerDetectorService>();
         token.ThrowIfCancellationRequested();
 

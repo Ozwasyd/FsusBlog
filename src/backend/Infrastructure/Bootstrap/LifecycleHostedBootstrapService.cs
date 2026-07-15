@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Storage;
@@ -34,7 +35,9 @@ public sealed class LifecycleHostedBootstrapService(
 
         try
         {
-            await using var scope = serviceProvider.CreateAsyncScope();
+            await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+                serviceProvider,
+                "lifecycle_bootstrap");
             foreach (StartupTaskStep step in CreateStartupTaskPlan(scope.ServiceProvider))
             {
                 StartupTaskOutcome outcome = await RunStartupTaskAsync(step, cancellationToken);

@@ -206,7 +206,9 @@ public sealed class UploadSessionCleanupWorker : BackgroundService
         IActiveReleaseCommitGuard activeReleaseCommitGuard,
         CancellationToken cancellationToken)
     {
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+            scopeFactory,
+            "upload_session_cleanup");
         var fileService = scope.ServiceProvider.GetRequiredService<FileService>();
         await fileService.CleanupExpiredSessionsAsync(
             cancellationToken,

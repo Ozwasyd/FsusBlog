@@ -48,6 +48,7 @@ if (command.Kind == OnlineSchemaMigrationCommandKind.Serve && builder.Environmen
     // serve performs a read-only N/N-1 compatibility check, never migration.
     builder.Services.AddScoped<ISchemaMigrationRunner, ServeSchemaCompatibilityRunner>();
 }
+builder.Services.ValidateAndPublishFsusDependencyGraph();
 
 await using var app = builder.Build();
 

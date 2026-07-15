@@ -156,6 +156,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddFsusRuntimeServices(this IServiceCollection services, IConfiguration configuration)
     {
         return services
+            .AddFsusDependencyGraphValidation()
             .AddFsusRuntimeSecurityAndLifecycleServices(configuration)
             .AddFsusRuntimeInfrastructureServices(configuration)
             .AddFsusRuntimePublicAotServices()

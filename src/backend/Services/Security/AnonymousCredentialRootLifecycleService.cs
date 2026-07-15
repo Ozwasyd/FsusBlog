@@ -2,6 +2,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -138,7 +139,9 @@ public sealed class AnonymousCredentialRootLifecycleService(
     public async Task RefreshAsync(CancellationToken cancellationToken = default)
     {
         DateTimeOffset now = timeProvider.GetUtcNow();
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+            scopeFactory,
+            "anonymous_credential_root_bootstrap");
         ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
         List<AnonymousCredentialRoot> roots = await db.Queryable<AnonymousCredentialRoot>()
             .Where(item =>
@@ -239,7 +242,9 @@ public sealed class AnonymousCredentialRootLifecycleService(
         DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
         AnonymousCredentialRoot? inserted = null;
 
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+            scopeFactory,
+            "anonymous_credential_root_refresh");
         ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
@@ -314,7 +319,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
         InvalidateSnapshots();
         await RefreshAsync(cancellationToken);
         await RecordAuditAsync(
-            scope,
+            scope.ServiceProvider,
             AuditActionCatalog.AnonymousCredentialRootRotated,
             AuditOutcomeCatalog.Success,
             AuditSeverityCatalog.Info,
@@ -347,7 +352,9 @@ public sealed class AnonymousCredentialRootLifecycleService(
         NormalizedRevocation revocation = normalizedResult.Value;
         DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
 
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+            scopeFactory,
+            "anonymous_credential_root_revoke");
         ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
         AnonymousCredentialRoot? root = await db.Queryable<AnonymousCredentialRoot>()
             .Where(item => item.Epoch == revocation.Epoch)
@@ -431,7 +438,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
         InvalidateSnapshots();
         await RefreshAsync(cancellationToken);
         await RecordAuditAsync(
-            scope,
+            scope.ServiceProvider,
             AuditActionCatalog.AnonymousCredentialRevoked,
             AuditOutcomeCatalog.Success,
             AuditSeverityCatalog.Warning,
@@ -458,7 +465,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
     }
 
     private static async Task RecordAuditAsync(
-        AsyncServiceScope scope,
+        IServiceProvider serviceProvider,
         string action,
         string outcome,
         string severity,
@@ -470,7 +477,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
         IReadOnlyDictionary<string, object?> context,
         CancellationToken cancellationToken)
     {
-        IAuditEventService? audit = scope.ServiceProvider.GetService<IAuditEventService>();
+        IAuditEventService? audit = serviceProvider.GetService<IAuditEventService>();
         if (audit is null)
         {
             return;

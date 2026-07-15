@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Models.Dtos;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -50,6 +51,7 @@ public sealed class AdminOperationsBehaviorTests
             cacheInvalidationRuntime: null!,
             hotStatsInvalidation: null!,
             auditLogRuntime: null!,
+            dependencyGraphRuntime: new DependencyGraphRuntimeState(),
             startupRuntime: null!,
             scheduledPublishRuntime: null!,
             crawlerDetector: null!,

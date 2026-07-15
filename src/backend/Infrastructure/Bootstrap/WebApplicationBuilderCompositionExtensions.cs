@@ -32,6 +32,9 @@ public static class WebApplicationBuilderCompositionExtensions
 
     public static WebApplicationBuilder ConfigureFsusApplication(this WebApplicationBuilder builder)
     {
+        builder.Host.UseDefaultServiceProvider(static (_, options) =>
+            FsusServiceProviderValidation.Configure(options));
+
         FsusHostRuntimeTuningReport runtimeTuningReport = FsusHostRuntimeTuning.Apply(builder.Configuration);
         builder.Services.AddSingleton(runtimeTuningReport);
         if (!OpenApiExportMode.IsEnabled(builder.Configuration))
@@ -60,7 +63,8 @@ public static class WebApplicationBuilderCompositionExtensions
             .AddFsusApiFoundation(builder.Configuration)
             .AddFsusRuntimeServices(builder.Configuration)
             .AddFsusObservability(builder.Configuration, builder.Environment)
-            .AddFsusRateLimiting();
+            .AddFsusRateLimiting()
+            .ValidateAndPublishFsusDependencyGraph();
 
         return builder;
     }

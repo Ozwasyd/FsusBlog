@@ -1,5 +1,7 @@
 using FsusBlog.Server.Entities;
 
+using FsusBlog.Server.Infrastructure.Observability;
+
 namespace FsusBlog.Server.Infrastructure.Audit;
 
 public sealed class AdminAuditLogWriterWorker(
@@ -55,7 +57,9 @@ public sealed class AdminAuditLogWriterWorker(
 
         try
         {
-            await using AsyncServiceScope scope = _scopeFactory.CreateAsyncScope();
+            await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+                _scopeFactory,
+                "admin_audit_flush");
             IAdminAuditLogStore store = scope.ServiceProvider.GetRequiredService<IAdminAuditLogStore>();
             await store.WriteBatchAsync(batch, cancellationToken);
         }
