@@ -44,7 +44,10 @@ export async function runMigrationQualification(options, dependencies = {}) {
   if (fs.existsSync(options.out)) throw new QualificationError([`output already exists: ${options.out}`])
   if (fs.existsSync(options.workDir)) throw new QualificationError([`work directory already exists: ${options.workDir}`])
   const rollout = readRolloutState(options.rolloutState)
-  const manifest = readReleaseManifest(options.releaseManifest, { requireRegistryDigest: true })
+  const manifest = readReleaseManifest(options.releaseManifest, {
+    requireRegistryDigest: true,
+    requireConcreteRuntimeProfile: true
+  })
   const immutableInputs = {
     rolloutState: fileBinding(options.rolloutState, 'rollout state'),
     releaseManifest: fileBinding(options.releaseManifest, 'release manifest'),

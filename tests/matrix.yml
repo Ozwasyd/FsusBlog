@@ -841,14 +841,22 @@ tiers:
       - tests/tools/final-image-toolchain-pin.test.mjs
       - tools/runtime-profiles/runtime-publish-profiles.json
       - tools/runtime-profiles/runtime-publish-profile.mjs
+      - tools/runtime-profiles/runtime-publish-isolation.mjs
       - tools/runtime-profiles/runtime-publish-evidence.mjs
+      - tools/runtime-profiles/release-runtime-matrix.mjs
       - tools/runtime-profiles/run-runtime-publish-matrix.mjs
       - tools/runtime-profiles/execute-runtime-publish-profile.mjs
+      - tools/runtime-profiles/runtime-profile-stage.mjs
       - tools/runtime-profiles/runtime-publish-executor-plan.example.json
+      - tools/runtime-profiles/runtime-publish-site-plan.example.json
       - tools/runtime-profiles/check-runtime-publish-evidence.mjs
+      - tools/operations/check-release-evidence-manifest.mjs
+      - tools/release/check-release-final.mjs
+      - tests/tools/fixtures/release-runtime-matrix.mjs
       - tools/runtime-profiles/runtime-publish-selection-policy.example.json
       - tools/operations/collect-release-evidence.sh
       - tools/frontend/ensure-wasm.mjs
+      - tools/build-native.sh
       - tools/build-final-image.sh
       - docs/production.md
       - docs/operations.md

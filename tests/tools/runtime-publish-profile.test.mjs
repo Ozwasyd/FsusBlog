@@ -17,17 +17,26 @@ import {
   RUNTIME_PROFILE_RESULT_SCHEMA,
   captureHardwareIdentity,
   createBalancedSchedule,
+  createRuntimeMeasurementClaimDigest,
   evaluateRuntimeProfileSelection,
+  resolveContainerVisibleCpuCount,
+  resolveContainerVisibleMemoryBytes,
   sealRuntimeProfileSelection,
   summarizeRuntimeRuns,
   validateRuntimeMatrixEvidence,
   validateRuntimeProfileResult
 } from '../../tools/runtime-profiles/runtime-publish-evidence.mjs'
+import { resolveAutoBalancedCpuSets } from '../../tools/runtime-profiles/runtime-publish-isolation.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const commitSha = '0123456789abcdef0123456789abcdef01234567'
 const fixtureId = 'production-fixture-v1'
 const testHardware = {
+  logicalCpuCount: 4,
+  totalMemoryBytes: 4294967296,
+  cpuset: '0-3',
+  cpuMax: '400000 100000',
+  memoryMax: '4294967296',
   topology: {
     status: 'ok',
     reason: null,
@@ -56,6 +65,7 @@ const selectionPolicy = {
 }
 
 function createRuntimeDockerShim(directory, profileManifestDigest) {
+  const profiles = Object.fromEntries(readRuntimeProfileManifest().manifest.profiles.map((profile) => [profile.id, profile]))
   const bin = path.join(directory, 'bin')
   fs.mkdirSync(bin)
   fs.writeFileSync(path.join(bin, 'docker'), `#!/usr/bin/env node
@@ -66,7 +76,9 @@ if (args[0] === 'image' && args[1] === 'inspect' && args[2] === '--format' && ar
   if (!match) process.exit(41)
   const profileId = match[1]
   const imageDigest = match[2]
-  const glibc = profileId.endsWith('-glibc')
+  const profile = ${JSON.stringify(profiles)}[profileId]
+  if (!profile) process.exit(43)
+  const glibc = profile.baseImageFamily === 'glibc'
   const labels = {
     'org.opencontainers.image.revision': ${JSON.stringify(commitSha)},
     'io.fsusblog.runtime.profile-id': process.env.FSUSBLOG_RUNTIME_FAKE_DOCKER_BAD_PROFILE_LABEL === '1' ? 'wrong-profile' : profileId,
@@ -74,6 +86,18 @@ if (args[0] === 'image' && args[1] === 'inspect' && args[2] === '--format' && ar
     'io.fsusblog.runtime.profile-manifest-digest': ${JSON.stringify(profileManifestDigest)},
     'io.fsusblog.runtime.base-family': glibc ? 'glibc' : 'musl',
     'io.fsusblog.runtime.target-runtime': glibc ? 'linux-x64' : 'linux-musl-x64',
+    'io.fsusblog.runtime.publish-single-file': String(profile.publish.singleFile),
+    'io.fsusblog.runtime.publish-ready-to-run': String(profile.publish.readyToRun),
+    'io.fsusblog.runtime.tiered-pgo': String(profile.publish.tieredPgo),
+    'io.fsusblog.runtime.quick-jit-for-loops': String(profile.publish.quickJitForLoops),
+    'io.fsusblog.runtime.server-gc': String(profile.gc.server),
+    'io.fsusblog.runtime.native-aot': String(profile.publish.nativeAot),
+    'io.fsusblog.runtime.gc-heap-count-mode': profile.gc.heapCountMode,
+    'io.fsusblog.runtime.gc-heap-hard-limit-mode': profile.gc.heapHardLimitMode,
+    'io.fsusblog.runtime.gc-heap-hard-limit-percent': String(profile.gc.heapHardLimitPercent),
+    'io.fsusblog.runtime.thread-pool-mode': profile.threadPool.mode,
+    'io.fsusblog.runtime.thread-pool-min-threads-per-cpu': String(profile.threadPool.minThreadsPerCpu),
+    'io.fsusblog.runtime.topology-mode': profile.topology.mode,
     'io.fsusblog.runtime.dotnet-version': '10.0.10',
     'io.fsusblog.runtime.base-image-digest': 'sha256:' + (glibc ? 'e' : 'd').repeat(64),
     'io.fsusblog.build.dotnet-sdk-version': '10.0.302',
@@ -108,8 +132,12 @@ test('runtime profile catalog covers every required controlled axis', () => {
     tieredPgo: 'true',
     quickJitForLoops: 'true',
     nativeAot: 'false',
+    gcHeapCountMode: 'container-default',
+    gcHeapHardLimitMode: 'container-limit',
+    gcHeapHardLimitPercent: '0',
     serverGc: 'true',
     threadPoolMode: 'runtime-default',
+    threadPoolMinThreadsPerCpu: '0',
     topologyMode: 'smt-visible'
   })
 })
@@ -117,7 +145,7 @@ test('runtime profile catalog covers every required controlled axis', () => {
 test('runtime profile catalog fails closed on drift, unsafe thread tuning and missing axis coverage', () => {
   const manifest = structuredClone(readRuntimeProfileManifest().manifest)
   manifest.profiles[0].unexpected = true
-  manifest.profiles[6].threadPool.minThreadsPerCpu = 12
+  manifest.profiles.find((profile) => profile.id === 'threadpool-evidence-derived').threadPool.minThreadsPerCpu = 12
   manifest.profiles = manifest.profiles.filter((profile) => profile.baseImageFamily !== 'glibc')
   const errors = validateRuntimeProfileManifest(manifest)
   assert.ok(errors.some((error) => error.includes('unexpected is not allowed')))
@@ -143,8 +171,10 @@ test('every controlled runtime and publish profile remains a one-factor comparis
   const threadPool = profiles.find((profile) => profile.id === 'threadpool-evidence-derived')
   const negativeControl = profiles.find((profile) => profile.id === 'threadpool-overprovisioned-negative-control')
   const quickJit = profiles.find((profile) => profile.id === 'throughput-musl-quickjit-off')
-  const gc = profiles.find((profile) => profile.id === 'gc-cpuset-hard-limit')
+  const gc = profiles.find((profile) => profile.id === 'gc-cpuset')
+  const hardLimit = profiles.find((profile) => profile.id === 'gc-explicit-hard-limit')
   const topology = profiles.find((profile) => profile.id === 'physical-core-only')
+  const numa = profiles.find((profile) => profile.id === 'numa-local')
   assert.equal(glibc.baseImageFamily, 'glibc')
   assert.equal(glibc.targetRuntime, 'linux-x64')
   assert.deepEqual(glibc.publish, baseline.publish)
@@ -161,7 +191,10 @@ test('every controlled runtime and publish profile remains a one-factor comparis
   assert.equal(quickJit.publish.quickJitForLoops, false)
   assert.equal(quickJit.publish.tieredPgo, baseline.publish.tieredPgo)
   assert.equal(gc.topology.mode, baseline.topology.mode)
+  assert.equal(gc.gc.heapHardLimitMode, baseline.gc.heapHardLimitMode)
+  assert.equal(hardLimit.gc.heapCountMode, baseline.gc.heapCountMode)
   assert.deepEqual(topology.gc, baseline.gc)
+  assert.deepEqual(numa.gc, baseline.gc)
 })
 
 test('one-factor controls reject hidden secondary variable drift', () => {
@@ -169,8 +202,11 @@ test('one-factor controls reject hidden secondary variable drift', () => {
     ['throughput-glibc', (profile) => { profile.publish.readyToRun = true }],
     ['startup-musl-r2r', (profile) => { profile.publish.singleFile = false }],
     ['throughput-musl-multifile', (profile) => { profile.publish.tieredPgo = false }],
+    ['gc-cpuset', (profile) => { profile.gc.heapHardLimitMode = 'explicit-container-percent' }],
+    ['gc-explicit-hard-limit', (profile) => { profile.gc.heapCountMode = 'cpuset' }],
     ['threadpool-evidence-derived', (profile) => { profile.topology.mode = 'physical-core-only' }],
-    ['threadpool-overprovisioned-negative-control', (profile) => { profile.gc.heapCountMode = 'cpuset' }]
+    ['threadpool-overprovisioned-negative-control', (profile) => { profile.gc.heapCountMode = 'cpuset' }],
+    ['numa-local', (profile) => { profile.publish.readyToRun = true }]
   ]
   for (const [profileId, mutate] of cases) {
     const manifest = structuredClone(readRuntimeProfileManifest().manifest)
@@ -186,6 +222,8 @@ test('one-factor controls reject hidden secondary variable drift', () => {
 test('hardware topology records physical cores, SMT siblings and honest NUMA availability', () => {
   const { identity, digest } = captureHardwareIdentity()
   assert.match(digest, /^sha256:[0-9a-f]{64}$/u)
+  assert.ok(identity.logicalCpuCount >= 1)
+  assert.ok(identity.totalMemoryBytes >= 1)
   assert.ok(['ok', 'unavailable'].includes(identity.topology.status))
   assert.ok(['ok', 'not-applicable', 'unavailable'].includes(identity.topology.numa.status))
   if (identity.topology.status === 'ok') {
@@ -196,6 +234,33 @@ test('hardware topology records physical cores, SMT siblings and honest NUMA ava
     assert.ok(identity.topology.reason.length >= 3)
   }
   if (identity.topology.numa.status !== 'ok') assert.ok(identity.topology.numa.reason.length >= 3)
+})
+
+test('container-visible CPU and memory identity never expands to host-only capacity', () => {
+  assert.equal(resolveContainerVisibleCpuCount(64, '8-15', '250000 100000'), 3)
+  assert.equal(resolveContainerVisibleCpuCount(64, '8-15', 'max 100000'), 8)
+  assert.equal(resolveContainerVisibleMemoryBytes(64 * 1024 ** 3, String(6 * 1024 ** 3)), 6 * 1024 ** 3)
+  assert.equal(resolveContainerVisibleMemoryBytes(64 * 1024 ** 3, 'max'), 64 * 1024 ** 3)
+})
+
+test('auto-balanced isolation honors SMT, physical-core-only and NUMA-local profiles', () => {
+  const common = {
+    visibleCpus: [0, 1, 2, 3, 4, 5, 6, 7],
+    physicalCoreGroups: [[0, 4], [1, 5], [2, 6], [3, 7]],
+    numaNodes: [[0, 1, 4, 5], [2, 3, 6, 7]]
+  }
+  assert.deepEqual(resolveAutoBalancedCpuSets({ ...common, topologyMode: 'smt-visible' }), {
+    targetCpus: [0, 4, 1, 5],
+    loadGeneratorCpus: [2, 6, 3, 7]
+  })
+  assert.deepEqual(resolveAutoBalancedCpuSets({ ...common, topologyMode: 'physical-core-only' }), {
+    targetCpus: [0, 1],
+    loadGeneratorCpus: [2, 3]
+  })
+  assert.deepEqual(resolveAutoBalancedCpuSets({ ...common, topologyMode: 'numa-local' }), {
+    targetCpus: [0, 1, 4, 5],
+    loadGeneratorCpus: [2, 3, 6, 7]
+  })
 })
 
 test('balanced schedule runs every profile exact-once per round without a fixed repeated order', () => {
@@ -253,15 +318,24 @@ test('complete matrix evidence requires three rounds and emits pairwise plus Par
   assert.deepEqual(validateRuntimeMatrixEvidence(evidence), [])
   assert.equal(evidence.selection.selectedProfileId, 'throughput-musl')
   assert.deepEqual(validateRuntimeMatrixEvidence(evidence, {
+    expectedCommitSha: commitSha,
     expectedSelectedProfileId: 'throughput-musl',
     expectedProfileManifestDigest: loaded.digest,
     expectedProfileDigest: sha256Value(loaded.manifest.profiles.find((profile) => profile.id === 'throughput-musl'))
   }), [])
+  assert.ok(validateRuntimeMatrixEvidence(evidence, {
+    expectedCommitSha: 'f'.repeat(40)
+  }).some((error) => error.includes('release commit')))
   const tamperedSelection = structuredClone(evidence)
   tamperedSelection.selection.selectedProfileId = 'throughput-glibc'
   assert.ok(validateRuntimeMatrixEvidence(tamperedSelection).some((error) => error.includes('selection.selectedProfileId')))
+  const tamperedComparison = structuredClone(evidence)
+  tamperedComparison.comparison.conclusions.steadyState.highestSafeRpsProfileId = 'throughput-glibc'
+  assert.ok(validateRuntimeMatrixEvidence(tamperedComparison).some((error) => error.includes('derived exactly from the successful run evidence')))
   assert.equal(comparison.profiles['throughput-musl'].samples, 3)
   assert.ok(comparison.paretoProfileIds.length > 0)
+  assert.ok(comparison.conclusions.startup.lowestColdStartProfileId)
+  assert.ok(comparison.conclusions.steadyState.highestSafeRpsProfileId)
   assert.equal(typeof comparison.pairwise['threadpool-overprovisioned-negative-control'].contextSwitchesDeltaPercent, 'number')
   assert.equal(typeof comparison.pairwise['threadpool-overprovisioned-negative-control'].rssDeltaPercent, 'number')
   assert.equal(typeof comparison.pairwise['threadpool-overprovisioned-negative-control'].p999DeltaPercent, 'number')
@@ -380,6 +454,34 @@ test('selection policy rejects noisy or single-run profile claims', () => {
   assert.ok(result.errors.some((error) => error.includes('at least 3 samples')))
 })
 
+test('startup-only gains remain a named startup conclusion and cannot replace throughput default', () => {
+  const runs = []
+  for (let round = 1; round <= 3; round += 1) {
+    const baseline = createResult('throughput-musl', round)
+    const startup = createResult('startup-musl-r2r', round)
+    startup.measurements.coldStartMs = 60
+    startup.measurements.readyMs = 90
+    startup.measurements.warmupMs = 500
+    for (const route of Object.values(startup.measurements.routes)) {
+      route.safeRps = baseline.measurements.routes.l0.safeRps
+      route.p999Ms = baseline.measurements.routes.l0.p999Ms
+    }
+    startup.measurements.rssPeakBytes = baseline.measurements.rssPeakBytes
+    runs.push(baseline, startup)
+  }
+  const comparison = summarizeRuntimeRuns(runs, 'throughput-musl')
+  assert.equal(comparison.conclusions.startup.lowestColdStartProfileId, 'startup-musl-r2r')
+  const result = evaluateRuntimeProfileSelection(comparison, 'startup-musl-r2r', {
+    maximumGcPauseP99Ms: 10,
+    maximumReadyMs: 1000,
+    maximumRolloutMs: 10000,
+    maximumRecoveryMs: 10000,
+    maximumBlueGreenOverlapBytes: 1000000000
+  })
+  assert.equal(result.eligible, false)
+  assert.ok(result.errors.some((error) => error.includes('startup-only improvement')))
+})
+
 test('selection rejects a single-route regression and enforces absolute lifecycle budgets', () => {
   const runs = []
   for (let round = 1; round <= 3; round += 1) {
@@ -408,10 +510,14 @@ test('measurement contract rejects invented unavailable power, invalid IPC and u
   result.measurements.routes.l0.ipc = 9
   result.measurements.power.startupJoules = 1
   delete result.threadPoolEvidence
+  result.measurements.resourceStress.blueGreen.publicSnapshotBytes = 0
+  result.measurements.resourceStress.oomRecoveryMs = 10
   const errors = validateRuntimeProfileResult(result, result.identity)
   assert.ok(errors.some((error) => error.includes('ipc does not match')))
   assert.ok(errors.some((error) => error.includes('cannot invent numeric values')))
   assert.ok(errors.some((error) => error.includes('requires starvation evidence')))
+  assert.ok(errors.some((error) => error.includes('slot/snapshot/SSR breakdown')))
+  assert.ok(errors.some((error) => error.includes('must be null when no OOM probe applies')))
 })
 
 test('successful profile results require concrete runtime, image, SDK, Node and memory identity', () => {
@@ -469,8 +575,10 @@ test('publish scripts and Dockerfile consume the named profile instead of restor
   assert.match(collector, /check-runtime-publish-evidence\.mjs/u)
   assert.match(collector, /FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST/u)
   assert.match(collector, /--expected-profile-id/u)
+  assert.match(collector, /--expected-commit-sha/u)
   assert.match(collector, /--expected-profile-manifest-digest/u)
   assert.match(collector, /--expected-profile-digest/u)
+  assert.match(collector, /runtime matrix profile identity does not match the release manifest/u)
   assert.match(ensureWasm, /ignoredWasmDirectories[\s\S]*'stage'/u)
   assert.doesNotMatch(nativeBuild, /\/p:PublishReadyToRun=true/u)
 })
@@ -515,6 +623,56 @@ test('NativeAOT prototype executor rejects a plan without feature and security p
   ], { cwd: root, encoding: 'utf8', env: { ...process.env, FSUSBLOG_RUNTIME_MATRIX_EXECUTOR: '1' } })
   assert.notEqual(result.status, 0)
   assert.match(result.stderr, /featureParity/u)
+})
+
+test('stage adapter derives gate and measurement provenance from fresh confined artifacts', (t) => {
+  const gate = runStageAdapterFixture(t, { stage: 'correctness' })
+  assert.equal(gate.result.status, 0, gate.result.stderr)
+  const gateReceipt = JSON.parse(fs.readFileSync(gate.receiptFile, 'utf8'))
+  assert.equal(gateReceipt.evidence.gate, 'correctness')
+  assert.match(gateReceipt.evidence.evidenceDigest, /^sha256:[0-9a-f]{64}$/u)
+
+  const measurement = runStageAdapterFixture(t, { stage: 'measure' })
+  assert.equal(measurement.result.status, 0, measurement.result.stderr)
+  const measurementReceipt = JSON.parse(fs.readFileSync(measurement.receiptFile, 'utf8'))
+  for (const field of ['payloadDigest', 'faultPlanDigest', 'loadFixtureDigest']) assert.match(measurementReceipt.evidence[field], /^sha256:[0-9a-f]{64}$/u)
+
+  const parity = runStageAdapterFixture(t, { stage: 'featureParity', profileId: 'nativeaot-public-prototype' })
+  assert.equal(parity.result.status, 0, parity.result.stderr)
+  const parityReceipt = JSON.parse(fs.readFileSync(parity.receiptFile, 'utf8'))
+  assert.equal(parityReceipt.evidence.scope, 'public-artifact-only')
+  assert.match(parityReceipt.evidence.featureSetDigest, /^sha256:[0-9a-f]{64}$/u)
+})
+
+test('stage adapter rejects missing, stale, tampered, escaping and symlink artifacts', (t) => {
+  const cases = [
+    ['missing', 'correctness', /unable to read|ENOENT/u],
+    ['stale-identity', 'correctness', /identity is stale/u],
+    ['tampered-status', 'correctness', /schema\/status\/stage is invalid/u],
+    ['escape', 'correctness', /artifactPath is invalid|artifact path is invalid|escapes the stage artifact root/u],
+    ['symlink', 'correctness', /symlink/u],
+    ['root-symlink', 'correctness', /artifact root/u],
+    ['missing', 'measure', /unable to read|ENOENT/u]
+  ]
+  for (const [mode, stage, message] of cases) {
+    const invocation = runStageAdapterFixture(t, { stage, mode })
+    assert.notEqual(invocation.result.status, 0, `${mode}:${stage} unexpectedly passed`)
+    assert.match(invocation.result.stderr, message)
+    assert.equal(fs.existsSync(invocation.receiptFile), false)
+  }
+})
+
+test('NativeAOT parity receipts bind the actual built feature-set digest', () => {
+  const result = createResult('nativeaot-public-prototype', 1)
+  assert.deepEqual(validateRuntimeProfileResult(result), [])
+  result.execution.commandReceipts.find((receipt) => receipt.stage === 'securityParity').evidence.featureSetDigest = sha256Value({ tampered: true })
+  assert.ok(validateRuntimeProfileResult(result).some((error) => error.includes('featureSetDigest must match the built prototype')))
+})
+
+test('measurement claim digest rejects post-receipt metric tampering', () => {
+  const result = createResult('throughput-musl', 1)
+  result.measurements.routes.l0.p999Ms += 1
+  assert.ok(validateRuntimeProfileResult(result).some((error) => error.includes('measurementClaimDigest')))
 })
 
 test('matrix runner seals partial checkpoint evidence through the executor protocol', (t) => {
@@ -624,7 +782,10 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
   const manifestDriftFile = path.join(directory, 'manifest-drift.json')
   const manifestDrift = structuredClone(evidence)
   manifestDrift.identity.profileManifestDigest = `sha256:${'d'.repeat(64)}`
-  for (const run of manifestDrift.runs) run.identity.profileManifestDigest = manifestDrift.identity.profileManifestDigest
+  for (const run of manifestDrift.runs) {
+    run.identity.profileManifestDigest = manifestDrift.identity.profileManifestDigest
+    for (const receipt of run.execution?.commandReceipts ?? []) receipt.identity.profileManifestDigest = manifestDrift.identity.profileManifestDigest
+  }
   fs.writeFileSync(manifestDriftFile, `${JSON.stringify(manifestDrift, null, 2)}\n`)
   const wrongManifest = spawnSync(process.execPath, [
     path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
@@ -638,7 +799,10 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
   const hardwareDrift = structuredClone(evidence)
   hardwareDrift.hardware.resumeTestMarker = 'different-machine'
   hardwareDrift.identity.hardwareDigest = sha256Value(hardwareDrift.hardware)
-  for (const run of hardwareDrift.runs) run.identity.hardwareDigest = hardwareDrift.identity.hardwareDigest
+  for (const run of hardwareDrift.runs) {
+    run.identity.hardwareDigest = hardwareDrift.identity.hardwareDigest
+    for (const receipt of run.execution?.commandReceipts ?? []) receipt.identity.hardwareDigest = hardwareDrift.identity.hardwareDigest
+  }
   fs.writeFileSync(hardwareDriftFile, `${JSON.stringify(hardwareDrift, null, 2)}\n`)
   const wrongHardware = spawnSync(process.execPath, [
     path.join(root, 'tools/runtime-profiles/run-runtime-publish-matrix.mjs'),
@@ -657,6 +821,7 @@ test('matrix runner resumes only failed schedule keys and retains every attempt'
   for (const run of scheduleDrift.runs) {
     const entry = scheduleDrift.schedule.find((candidate) => candidate.round === run.identity.round && candidate.profileId === run.identity.profileId)
     run.identity.position = entry.position
+    for (const receipt of run.execution?.commandReceipts ?? []) receipt.identity.position = entry.position
   }
   fs.writeFileSync(scheduleDriftFile, `${JSON.stringify(scheduleDrift, null, 2)}\n`)
   const wrongSchedule = spawnSync(process.execPath, [
@@ -680,7 +845,17 @@ test('plan-driven executor runs cleanup, gates and measurement with isolated tar
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const output = path.join(directory, 'evidence.json')
   const fixtureCommand = path.join(root, 'tests/tools/fixtures/runtime-profile-plan-command.mjs')
-  const command = { file: process.execPath, args: [fixtureCommand], timeoutMs: 10000 }
+  const sitePlanFile = path.join(directory, 'site-plan.json')
+  const siteCommand = { file: process.execPath, args: [fixtureCommand], timeoutMs: 10000 }
+  fs.writeFileSync(sitePlanFile, `${JSON.stringify({
+    schema: 'fsusblog.runtime-publish-stage-site-plan.v1',
+    commands: Object.fromEntries(['cleanupBefore', 'build', 'correctness', 'security', 'release', 'measure', 'cleanupAfter'].map((name) => [name, siteCommand]))
+  })}\n`)
+  const command = {
+    file: process.execPath,
+    args: [path.join(root, 'tools/runtime-profiles/runtime-profile-stage.mjs'), '--site-plan', sitePlanFile],
+    timeoutMs: 10000
+  }
   const plan = {
     schema: 'fsusblog.runtime-publish-executor-plan.v1',
     isolation: { strategy: 'auto-balanced', cgroupPrefix: '/fsus/auto' },
@@ -712,6 +887,7 @@ test('plan-driven executor runs cleanup, gates and measurement with isolated tar
   assert.equal(result.status, 0, result.stderr)
   const evidence = JSON.parse(fs.readFileSync(output, 'utf8'))
   assert.equal(evidence.runs.length, 2)
+  assert.ok(evidence.runs.every((run) => run.status === 'ok'), evidence.runs.map((run) => run.error ?? run.status).join('\n'))
   for (const run of evidence.runs) {
     assert.equal(run.execution.cleanupBefore, 'pass')
     assert.equal(run.execution.cleanupAfter, 'pass')
@@ -812,6 +988,15 @@ function createResult(profileId, round, overrides = {}) {
   const threadPoolMode = declaredProfile?.threadPool.mode ?? 'runtime-default'
   const selectedMinThreadsPerCpu = threadPoolMode === 'evidence-derived' ? 10 : (declaredProfile?.threadPool.minThreadsPerCpu ?? 0)
   const baseImageFamily = declaredProfile?.baseImageFamily ?? 'musl'
+  const targetCpuset = overrides.targetCpuset ?? '0'
+  const targetCpuCount = targetCpuset.split(',').flatMap((part) => {
+    const [start, end = start] = part.split('-').map(Number)
+    return Array.from({ length: end - start + 1 })
+  }).length
+  const gcHeapCountMode = declaredProfile?.gc.heapCountMode ?? 'container-default'
+  const gcHeapHardLimitMode = declaredProfile?.gc.heapHardLimitMode ?? 'container-limit'
+  const gcHeapHardLimitPercent = declaredProfile?.gc.heapHardLimitPercent ?? 0
+  const targetMemoryBytes = overrides.targetMemoryBytes ?? 4294967296
   const route = {
     safeRps: 1000 + profileOffset,
     saturationKneeRps: 1100 + profileOffset,
@@ -824,7 +1009,7 @@ function createResult(profileId, round, overrides = {}) {
     ipc: 2,
     allocationsBytesPerRequest: 32
   }
-  return {
+  const result = {
     schema: RUNTIME_PROFILE_RESULT_SCHEMA,
     status: 'ok',
     identity: {
@@ -846,10 +1031,20 @@ function createResult(profileId, round, overrides = {}) {
       sdkBaseImageDigest: overrides.sdkBaseImageDigest ?? sha256Value({ kind: 'sdk-base', baseImageFamily }),
       nodeVersion: overrides.nodeVersion ?? 'v24.16.0',
       profilePurpose: declaredProfile?.purpose ?? 'experiment',
+      singleFile: declaredProfile?.publish.singleFile ?? true,
+      readyToRun: declaredProfile?.publish.readyToRun ?? false,
+      tieredPgo: declaredProfile?.publish.tieredPgo ?? true,
+      quickJitForLoops: declaredProfile?.publish.quickJitForLoops ?? true,
       threadPoolMode,
+      threadPoolMinThreadsPerCpuDeclared: declaredProfile?.threadPool.minThreadsPerCpu ?? 0,
       threadPoolMinThreadsPerCpu: selectedMinThreadsPerCpu,
       serverGc: declaredProfile?.gc.server ?? true,
       nativeAot: declaredProfile?.publish.nativeAot ?? false,
+      gcHeapCountMode,
+      gcHeapHardLimitMode,
+      gcHeapHardLimitPercentConfigured: gcHeapHardLimitPercent,
+      gcHeapCountConfigured: gcHeapCountMode === 'cpuset' ? targetCpuCount : 0,
+      gcHeapHardLimitBytesConfigured: gcHeapHardLimitMode === 'explicit-container-percent' ? Math.floor(targetMemoryBytes * gcHeapHardLimitPercent / 100) : 0,
       baseImageFamily,
       targetRuntime: declaredProfile?.targetRuntime ?? 'linux-musl-x64',
       topologyMode: declaredProfile?.topology.mode ?? 'smt-visible'
@@ -864,12 +1059,12 @@ function createResult(profileId, round, overrides = {}) {
       cleanupAfter: 'pass',
       measurementWindowQuiet: true,
       loadGeneratorIsolated: true,
-      targetCpuset: '0',
-      observedTargetCpuset: '0',
+      targetCpuset,
+      observedTargetCpuset: targetCpuset,
       loadGeneratorCpuset: '1',
       targetCgroup: '/fsus/target',
       loadGeneratorCgroup: '/fsus/loadgen',
-      targetMemoryBytes: overrides.targetMemoryBytes ?? 4294967296
+      targetMemoryBytes
     },
     measurements: {
       imageSizeBytes: 1000000,
@@ -894,10 +1089,130 @@ function createResult(profileId, round, overrides = {}) {
       rolloutMs: 5000,
       recoveryMs: 4000,
       blueGreenOverlapPeakBytes: 400000000,
+      resourceStress: {
+        targetMemoryBytes,
+        allocationBurstPeakBytes: 64000000,
+        gcPressurePeakPercent: 72,
+        oomOutcome: gcHeapHardLimitMode === 'explicit-container-percent' ? 'bounded-rejection' : 'not-applicable',
+        oomRecoveryMs: gcHeapHardLimitMode === 'explicit-container-percent' ? 250 : null,
+        blueGreen: {
+          activeSlotRssBytes: 180000000,
+          candidateSlotRssBytes: 180000000,
+          publicSnapshotBytes: 10000000,
+          ssrWorkerBytes: 20000000,
+          otherBytes: 10000000,
+          totalBytes: 400000000
+        }
+      },
       power: { status: 'unavailable', startupJoules: null, steadyStateWatts: null, reason: 'test fixture has no power counter', source: 'synthetic-test-fixture' },
       routes: Object.fromEntries(['l0', 'l1', 'l2', 'db-miss', 'notification', 'aot-ssr'].map((name) => [name, { ...route }]))
     }
   }
+  result.execution.commandReceipts = createStageReceipts(result)
+  result.execution.measurementClaimDigest = createRuntimeMeasurementClaimDigest(result)
+  return result
+}
+
+function runStageAdapterFixture(t, { stage, mode = 'valid', profileId = 'throughput-musl' }) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), `fsusblog-runtime-stage-${stage}-`))
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+  const loaded = readRuntimeProfileManifest()
+  const profile = loaded.manifest.profiles.find((candidate) => candidate.id === profileId)
+  const request = {
+    schema: 'fsusblog.runtime-publish-profile-request.v1',
+    identity: {
+      commitSha,
+      fixtureId,
+      hardwareDigest,
+      profileManifestDigest: loaded.digest,
+      profileDigest: sha256Value(profile),
+      profileId,
+      round: 1,
+      position: 1
+    },
+    profile,
+    cooldownMs: 0,
+    cooldownObservedMs: 0
+  }
+  const fixtureCommand = path.join(root, 'tests/tools/fixtures/runtime-profile-plan-command.mjs')
+  const command = { file: process.execPath, args: [fixtureCommand], timeoutMs: 10000 }
+  const commands = Object.fromEntries(['cleanupBefore', 'build', 'correctness', 'security', 'release', 'featureParity', 'securityParity', 'measure', 'cleanupAfter'].map((name) => [name, command]))
+  const sitePlanFile = path.join(directory, 'site-plan.json')
+  const receiptFile = path.join(directory, 'receipt.json')
+  fs.writeFileSync(sitePlanFile, `${JSON.stringify({ schema: 'fsusblog.runtime-publish-stage-site-plan.v1', commands })}\n`)
+  const result = spawnSync(process.execPath, [
+    path.join(root, 'tools/runtime-profiles/runtime-profile-stage.mjs'),
+    '--site-plan', sitePlanFile
+  ], {
+    cwd: root,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      FSUSBLOG_RUNTIME_EXECUTOR_STAGE: stage,
+      FSUSBLOG_RUNTIME_PROFILE_REQUEST: JSON.stringify(request),
+      FSUSBLOG_RUNTIME_STAGE_RECEIPT_OUTPUT: receiptFile,
+      FSUSBLOG_RUNTIME_MEASUREMENTS_OUTPUT: path.join(directory, 'measurements.json'),
+      FSUSBLOG_RUNTIME_TARGET_CPUSET: '0',
+      FSUSBLOG_RUNTIME_LOADGEN_CPUSET: '1',
+      FSUSBLOG_RUNTIME_TARGET_CGROUP: '/fsus/target',
+      FSUSBLOG_RUNTIME_LOADGEN_CGROUP: '/fsus/loadgen',
+      FSUSBLOG_RUNTIME_TARGET_CPU_COUNT: '1',
+      FSUSBLOG_RUNTIME_FIXTURE_ARTIFACT_MODE: mode,
+      FSUSBLOG_RUNTIME_FIXTURE_ARTIFACT_STAGE: stage
+    }
+  })
+  return { result, receiptFile }
+}
+
+function createStageReceipts(result) {
+  const stages = ['cleanupBefore', 'build', 'correctness', 'security', 'release']
+  if (result.effectiveRuntime.nativeAot) stages.push('featureParity', 'securityParity')
+  stages.push('measure', 'cleanupAfter')
+  const featureSetDigest = sha256Value({ fixture: 'feature-set', profileId: result.identity.profileId })
+  return stages.map((stage) => {
+    let evidence
+    if (stage.startsWith('cleanup')) evidence = { kind: 'cleanup', cleanupTargetsDigest: sha256Value({ stage, identity: result.identity }) }
+    else if (stage === 'build') evidence = {
+      kind: 'build',
+      imageRef: `fixture/${result.identity.profileId}@${result.effectiveRuntime.imageDigest}`,
+      imageDigest: result.effectiveRuntime.imageDigest,
+      artifactManifestDigest: sha256Value({ fixture: 'artifacts', profileId: result.identity.profileId }),
+      featureSetDigest
+    }
+    else if (['correctness', 'security', 'release'].includes(stage)) evidence = {
+      kind: 'gate', gate: stage, gateStatus: 'pass', evidenceDigest: sha256Value({ fixture: 'gate', stage, identity: result.identity })
+    }
+    else if (stage.endsWith('Parity')) evidence = {
+      kind: 'parity',
+      parity: stage === 'featureParity' ? 'feature' : 'security',
+      scope: 'public-artifact-only',
+      parityStatus: 'pass',
+      evidenceDigest: sha256Value({ fixture: 'parity', stage, identity: result.identity }),
+      featureSetDigest
+    }
+    else evidence = {
+      kind: 'measurement',
+      payloadDigest: sha256Value(result.measurements),
+      faultPlanDigest: sha256Value({ fixture: 'fault-plan', profileId: result.identity.profileId }),
+      loadFixtureDigest: sha256Value({ fixture: 'load', fixtureId: result.identity.fixtureId })
+    }
+    return {
+      schema: 'fsusblog.runtime-publish-stage-receipt.v1',
+      status: 'pass',
+      stage,
+      identity: structuredClone(result.identity),
+      startedAtUtc: '2026-07-15T00:00:00.000Z',
+      completedAtUtc: '2026-07-15T00:00:01.000Z',
+      command: {
+        executableDigest: sha256Value({ fixture: 'executable', stage }),
+        argsDigest: sha256Value([]),
+        durationMs: 1,
+        exitCode: 0
+      },
+      resultDigest: sha256Value({ fixture: 'stage-result', stage, identity: result.identity }),
+      evidence
+    }
+  })
 }
 
 function createCompleteMatrixEvidence() {

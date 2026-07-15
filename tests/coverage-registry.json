@@ -70,15 +70,25 @@
       "evidencePaths": [
         "tests/tools/runtime-publish-profile.test.mjs",
         "tests/tools/final-image-toolchain-pin.test.mjs",
+        "tests/backend/Unit/FsusHostRuntimeTuningTests.cs",
         "tools/runtime-profiles/runtime-publish-profiles.json",
         "tools/runtime-profiles/runtime-publish-profile.mjs",
+        "tools/runtime-profiles/runtime-publish-isolation.mjs",
         "tools/runtime-profiles/runtime-publish-evidence.mjs",
+        "tools/runtime-profiles/release-runtime-matrix.mjs",
         "tools/runtime-profiles/run-runtime-publish-matrix.mjs",
         "tools/runtime-profiles/execute-runtime-publish-profile.mjs",
+        "tools/runtime-profiles/runtime-profile-stage.mjs",
         "tools/runtime-profiles/runtime-publish-executor-plan.example.json",
+        "tools/runtime-profiles/runtime-publish-site-plan.example.json",
         "tools/runtime-profiles/check-runtime-publish-evidence.mjs",
+        "tools/operations/check-release-evidence-manifest.mjs",
+        "tools/release/check-release-final.mjs",
+        "tests/tools/fixtures/release-runtime-matrix.mjs",
         "tools/runtime-profiles/runtime-publish-selection-policy.example.json",
         "tools/operations/collect-release-evidence.sh",
+        "tools/deployment/image-runtime-contract.sh",
+        "tools/build-native.sh",
         "tools/frontend/ensure-wasm.mjs",
         "ops/docker/FsusBlog.Server.Dockerfile",
         "tools/build-final-image.sh",
@@ -86,8 +96,8 @@
         "docs/operations.md"
       ],
       "assertionType": "integration",
-      "failClosedRule": "The static-governance lane must reject mixed-factor controls, missing profile/OCI identity, cross-SHA or cross-hardware evidence, incomplete routes or rounds, unisolated load generation, invented unavailable counters, unsealed or release-mismatched selection, per-route regressions, unproven ThreadPool tuning and NativeAOT without feature/security parity.",
-      "minimumRequirement": "Evidence must cover musl/glibc, PGO, QuickJIT, R2R, single-file, GC, ThreadPool and topology controls; three balanced same-SHA rounds; six route classes; startup, steady-state, failure, recovery, GC/JIT/LOH/IPC/resource metrics; absolute and relative selection guardrails; and immutable rollback instructions.",
+      "failClosedRule": "The static-governance lane must reject mixed-factor controls, missing profile/OCI/effective-runtime identity, host-only capacity claims, topology placement drift, cross-SHA or cross-hardware evidence, incomplete routes or rounds, unisolated load generation, unreconciled slot/snapshot/SSR memory, invented unavailable counters, startup-only throughput selection, unproven ThreadPool tuning and NativeAOT without feature/security parity.",
+      "minimumRequirement": "Evidence must cover musl/glibc, PGO, QuickJIT, R2R, single-file, independent GC count/hard-limit controls, ThreadPool and SMT/physical-core/NUMA controls; three balanced same-SHA rounds; six route classes; separate startup/steady conclusions; failure/recovery, allocation burst, OOM, blue-green breakdown and GC/JIT/LOH/IPC metrics; absolute/relative selection guardrails; and immutable rollback instructions.",
       "tierIds": [
         "static-governance"
       ]

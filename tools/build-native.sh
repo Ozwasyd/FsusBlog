@@ -38,7 +38,7 @@ mapfile -t runtime_profile_fields < <(node "${ROOT_DIR}/tools/runtime-profiles/r
   --manifest "${RUNTIME_PROFILE_MANIFEST}" \
   --profile "${RUNTIME_PROFILE_ID}" \
   --format lines)
-[[ "${#runtime_profile_fields[@]}" -eq 13 ]] || { printf '[build-native] fatal: runtime profile resolver returned incomplete fields\n' >&2; exit 1; }
+[[ "${#runtime_profile_fields[@]}" -eq 17 ]] || { printf '[build-native] fatal: runtime profile resolver returned incomplete fields\n' >&2; exit 1; }
 RUNTIME_PROFILE_ID="${runtime_profile_fields[0]}"
 TARGET_RUNTIME="${runtime_profile_fields[4]}"
 PUBLISH_SINGLE_FILE="${runtime_profile_fields[5]}"

@@ -12,6 +12,7 @@ try {
   const allowPartial = process.argv.includes('--allow-partial')
   const errors = validateRuntimeMatrixEvidence(evidence, {
     requireComplete: !allowPartial,
+    expectedCommitSha: optionValue('--expected-commit-sha'),
     expectedSelectedProfileId: optionValue('--expected-profile-id'),
     expectedProfileManifestDigest: optionValue('--expected-profile-manifest-digest'),
     expectedProfileDigest: optionValue('--expected-profile-digest')

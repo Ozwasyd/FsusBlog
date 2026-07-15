@@ -520,7 +520,11 @@ if [[ "\${1:-}" == "image" && "\${2:-}" == "inspect" ]]; then
     *io.fsusblog.runtime.quick-jit-for-loops*) printf 'true\\n' ;;
     *io.fsusblog.runtime.server-gc*) printf 'true\\n' ;;
     *io.fsusblog.runtime.native-aot*) printf 'false\\n' ;;
+    *io.fsusblog.runtime.gc-heap-count-mode*) printf 'container-default\\n' ;;
+    *io.fsusblog.runtime.gc-heap-hard-limit-mode*) printf 'container-limit\\n' ;;
+    *io.fsusblog.runtime.gc-heap-hard-limit-percent*) printf '0\\n' ;;
     *io.fsusblog.runtime.thread-pool-mode*) printf 'runtime-default\\n' ;;
+    *io.fsusblog.runtime.thread-pool-min-threads-per-cpu*) printf '0\\n' ;;
     *io.fsusblog.runtime.topology-mode*) printf 'smt-visible\\n' ;;
     *RepoDigests*) printf '%s\\n' "\${FSUSBLOG_IMAGE_REF:-}" ;;
     *image.version*) printf '%s\\n' "\${FSUSBLOG_RELEASE_ID:-}" ;;

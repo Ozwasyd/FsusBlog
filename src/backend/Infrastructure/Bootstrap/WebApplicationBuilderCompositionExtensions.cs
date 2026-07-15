@@ -94,6 +94,14 @@ internal static class FsusHostRuntimeTuning
             GCSettings.IsServerGC,
             Environment.ProcessorCount,
             GC.GetGCMemoryInfo().TotalAvailableMemoryBytes,
+            Environment.GetEnvironmentVariable("FSUSBLOG_RUNTIME_GC_HEAP_COUNT_MODE") ?? "unbound",
+            Environment.GetEnvironmentVariable("FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_MODE") ?? "unbound",
+            Environment.GetEnvironmentVariable("FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_PERCENT") ?? "unbound",
+            ReadFirstEnvironmentValue("DOTNET_GCHeapCount", "COMPlus_GCHeapCount"),
+            ReadFirstEnvironmentValue("DOTNET_GCHeapHardLimit", "COMPlus_GCHeapHardLimit", "DOTNET_GCHeapHardLimitPercent", "COMPlus_GCHeapHardLimitPercent"),
+            Environment.GetEnvironmentVariable("FSUSBLOG_RUNTIME_THREAD_POOL_MODE") ?? "unbound",
+            Environment.GetEnvironmentVariable("FSUSBLOG_RUNTIME_THREAD_POOL_MIN_THREADS_PER_CPU") ?? "unbound",
+            Environment.GetEnvironmentVariable("FSUSBLOG_RUNTIME_TOPOLOGY_MODE") ?? "unbound",
             readyToRun,
             quickJitForLoops,
             tieredPgo,
@@ -105,6 +113,17 @@ internal static class FsusHostRuntimeTuning
             beforeCompletionPortThreads,
             afterWorkerThreads,
             afterCompletionPortThreads);
+    }
+
+    private static string? ReadFirstEnvironmentValue(params string[] names)
+    {
+        foreach (string name in names)
+        {
+            string? value = Environment.GetEnvironmentVariable(name);
+            if (!string.IsNullOrWhiteSpace(value)) return value;
+        }
+
+        return null;
     }
 
     private static string? ResolveStartupValue(
@@ -164,6 +183,14 @@ internal sealed record FsusHostRuntimeTuningReport(
     bool ServerGc,
     int ProcessorCount,
     long TotalAvailableMemoryBytes,
+    string GcHeapCountMode,
+    string GcHeapHardLimitMode,
+    string GcHeapHardLimitPercent,
+    string? GcHeapCountConfigured,
+    string? GcHeapHardLimitConfigured,
+    string ThreadPoolMode,
+    string ThreadPoolMinThreadsPerCpuDeclared,
+    string TopologyMode,
     string? ReadyToRun,
     string? QuickJitForLoops,
     string? TieredPgo,
@@ -183,7 +210,7 @@ internal sealed class FsusHostRuntimeTuningLogService(
     public Task StartAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "Runtime tuning effective values | Profile={RuntimeProfileId} ProfileManifestDigest={RuntimeProfileManifestDigest} ProfileDigest={RuntimeProfileDigest} | Runtime={RuntimeIdentifier} Framework={FrameworkDescription} ServerGC={ServerGc} ProcessorCount={ProcessorCount} TotalAvailableMemoryBytes={TotalAvailableMemoryBytes} | ReadyToRunObserved={ReadyToRun} ReadyToRunInProcessApplied={ReadyToRunApplied} | QuickJitForLoopsObserved={QuickJitForLoops} QuickJitForLoopsInProcessApplied={QuickJitForLoopsApplied} | TieredPGOObserved={TieredPgo} TieredPGOInProcessApplied={TieredPgoApplied} | ThreadPoolApplied={ThreadPoolApplied} | WorkerThreads={BeforeWorkerThreads}->{AfterWorkerThreads} | CompletionPortThreads={BeforeCompletionPortThreads}->{AfterCompletionPortThreads}",
+            "Runtime tuning effective values | Profile={RuntimeProfileId} ProfileManifestDigest={RuntimeProfileManifestDigest} ProfileDigest={RuntimeProfileDigest} | Runtime={RuntimeIdentifier} Framework={FrameworkDescription} ServerGC={ServerGc} ProcessorCount={ProcessorCount} TotalAvailableMemoryBytes={TotalAvailableMemoryBytes} | GCHeapCountMode={GcHeapCountMode} GCHeapCountConfigured={GcHeapCountConfigured} GCHeapHardLimitMode={GcHeapHardLimitMode} GCHeapHardLimitPercent={GcHeapHardLimitPercent} GCHeapHardLimitConfigured={GcHeapHardLimitConfigured} | ReadyToRunObserved={ReadyToRun} ReadyToRunInProcessApplied={ReadyToRunApplied} | QuickJitForLoopsObserved={QuickJitForLoops} QuickJitForLoopsInProcessApplied={QuickJitForLoopsApplied} | TieredPGOObserved={TieredPgo} TieredPGOInProcessApplied={TieredPgoApplied} | ThreadPoolMode={ThreadPoolMode} ThreadPoolMinThreadsPerCpuDeclared={ThreadPoolMinThreadsPerCpuDeclared} ThreadPoolApplied={ThreadPoolApplied} TopologyMode={TopologyMode} | WorkerThreads={BeforeWorkerThreads}->{AfterWorkerThreads} | CompletionPortThreads={BeforeCompletionPortThreads}->{AfterCompletionPortThreads}",
             report.RuntimeProfileId,
             report.RuntimeProfileManifestDigest,
             report.RuntimeProfileDigest,
@@ -192,13 +219,21 @@ internal sealed class FsusHostRuntimeTuningLogService(
             report.ServerGc,
             report.ProcessorCount,
             report.TotalAvailableMemoryBytes,
+            report.GcHeapCountMode,
+            report.GcHeapCountConfigured ?? "(runtime-default)",
+            report.GcHeapHardLimitMode,
+            report.GcHeapHardLimitPercent,
+            report.GcHeapHardLimitConfigured ?? "(container-limit)",
             report.ReadyToRun ?? "(unchanged)",
             report.ReadyToRunApplied,
             report.QuickJitForLoops ?? "(unchanged)",
             report.QuickJitForLoopsApplied,
             report.TieredPgo ?? "(unchanged)",
             report.TieredPgoApplied,
+            report.ThreadPoolMode,
+            report.ThreadPoolMinThreadsPerCpuDeclared,
             report.ThreadPoolApplied,
+            report.TopologyMode,
             report.BeforeWorkerThreads,
             report.AfterWorkerThreads,
             report.BeforeCompletionPortThreads,

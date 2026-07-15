@@ -104,7 +104,7 @@ mapfile -t runtime_profile_fields < <(node "$ROOT_DIR/tools/runtime-profiles/res
   --manifest "$RUNTIME_PROFILE_MANIFEST" \
   --profile "$RUNTIME_PROFILE_ID" \
   --format lines) || fail "unable to resolve runtime publish profile"
-[[ "${#runtime_profile_fields[@]}" -eq 13 ]] || fail "runtime profile resolver returned incomplete fields"
+[[ "${#runtime_profile_fields[@]}" -eq 17 ]] || fail "runtime profile resolver returned incomplete fields"
 RUNTIME_PROFILE_ID="${runtime_profile_fields[0]}"
 RUNTIME_PROFILE_MANIFEST_DIGEST="${runtime_profile_fields[1]}"
 RUNTIME_PROFILE_DIGEST="${runtime_profile_fields[2]}"
@@ -116,8 +116,12 @@ TIERED_PGO="${runtime_profile_fields[7]}"
 QUICK_JIT_FOR_LOOPS="${runtime_profile_fields[8]}"
 SERVER_GC="${runtime_profile_fields[9]}"
 NATIVE_AOT="${runtime_profile_fields[10]}"
-THREAD_POOL_MODE="${runtime_profile_fields[11]}"
-TOPOLOGY_MODE="${runtime_profile_fields[12]}"
+GC_HEAP_COUNT_MODE="${runtime_profile_fields[11]}"
+GC_HEAP_HARD_LIMIT_MODE="${runtime_profile_fields[12]}"
+GC_HEAP_HARD_LIMIT_PERCENT="${runtime_profile_fields[13]}"
+THREAD_POOL_MODE="${runtime_profile_fields[14]}"
+THREAD_POOL_MIN_THREADS_PER_CPU="${runtime_profile_fields[15]}"
+TOPOLOGY_MODE="${runtime_profile_fields[16]}"
 [[ "$NATIVE_AOT" == "false" ]] || fail "NativeAOT is a conditional narrow prototype; the full final-image path rejects it until feature and security parity evidence passes"
 log "selected runtime profile $RUNTIME_PROFILE_ID ($RUNTIME_PROFILE_DIGEST)"
 
@@ -220,7 +224,11 @@ DOCKER_BUILDKIT=1 docker build \
   --build-arg "QUICK_JIT_FOR_LOOPS=$QUICK_JIT_FOR_LOOPS" \
   --build-arg "SERVER_GC=$SERVER_GC" \
   --build-arg "NATIVE_AOT=$NATIVE_AOT" \
+  --build-arg "GC_HEAP_COUNT_MODE=$GC_HEAP_COUNT_MODE" \
+  --build-arg "GC_HEAP_HARD_LIMIT_MODE=$GC_HEAP_HARD_LIMIT_MODE" \
+  --build-arg "GC_HEAP_HARD_LIMIT_PERCENT=$GC_HEAP_HARD_LIMIT_PERCENT" \
   --build-arg "THREAD_POOL_MODE=$THREAD_POOL_MODE" \
+  --build-arg "THREAD_POOL_MIN_THREADS_PER_CPU=$THREAD_POOL_MIN_THREADS_PER_CPU" \
   --build-arg "TOPOLOGY_MODE=$TOPOLOGY_MODE" \
   --label "org.opencontainers.image.revision=$COMMIT_SHA" \
   --label "org.opencontainers.image.version=$RELEASE_ID" \
@@ -242,6 +250,21 @@ image_id="$({ \
   FSUSBLOG_EXPECTED_NODE_IMAGE_DIGEST="$EXPECTED_NODE_IMAGE_DIGEST" \
   FSUSBLOG_EXPECTED_RUNTIME_BASE_FLAVOR="$RUNTIME_BASE_FLAVOR" \
   FSUSBLOG_EXPECTED_TARGET_RUNTIME="$TARGET_RUNTIME" \
+  FSUSBLOG_EXPECTED_RUNTIME_PROFILE_ID="$RUNTIME_PROFILE_ID" \
+  FSUSBLOG_EXPECTED_RUNTIME_PROFILE_MANIFEST_DIGEST="$RUNTIME_PROFILE_MANIFEST_DIGEST" \
+  FSUSBLOG_EXPECTED_RUNTIME_PROFILE_DIGEST="$RUNTIME_PROFILE_DIGEST" \
+  FSUSBLOG_EXPECTED_PUBLISH_SINGLE_FILE="$PUBLISH_SINGLE_FILE" \
+  FSUSBLOG_EXPECTED_PUBLISH_READY_TO_RUN="$PUBLISH_READY_TO_RUN" \
+  FSUSBLOG_EXPECTED_TIERED_PGO="$TIERED_PGO" \
+  FSUSBLOG_EXPECTED_QUICK_JIT_FOR_LOOPS="$QUICK_JIT_FOR_LOOPS" \
+  FSUSBLOG_EXPECTED_SERVER_GC="$SERVER_GC" \
+  FSUSBLOG_EXPECTED_NATIVE_AOT="$NATIVE_AOT" \
+  FSUSBLOG_EXPECTED_GC_HEAP_COUNT_MODE="$GC_HEAP_COUNT_MODE" \
+  FSUSBLOG_EXPECTED_GC_HEAP_HARD_LIMIT_MODE="$GC_HEAP_HARD_LIMIT_MODE" \
+  FSUSBLOG_EXPECTED_GC_HEAP_HARD_LIMIT_PERCENT="$GC_HEAP_HARD_LIMIT_PERCENT" \
+  FSUSBLOG_EXPECTED_THREAD_POOL_MODE="$THREAD_POOL_MODE" \
+  FSUSBLOG_EXPECTED_THREAD_POOL_MIN_THREADS_PER_CPU="$THREAD_POOL_MIN_THREADS_PER_CPU" \
+  FSUSBLOG_EXPECTED_TOPOLOGY_MODE="$TOPOLOGY_MODE" \
   node -e '
     const fs = require("node:fs");
     const inspected = JSON.parse(fs.readFileSync(0, "utf8"));
@@ -259,7 +282,22 @@ image_id="$({ \
       "io.fsusblog.runtime.node-image": process.env.FSUSBLOG_EXPECTED_NODE_IMAGE,
       "io.fsusblog.runtime.node-image-digest": process.env.FSUSBLOG_EXPECTED_NODE_IMAGE_DIGEST,
       "io.fsusblog.runtime.base-family": process.env.FSUSBLOG_EXPECTED_RUNTIME_BASE_FLAVOR,
-      "io.fsusblog.runtime.target-runtime": process.env.FSUSBLOG_EXPECTED_TARGET_RUNTIME
+      "io.fsusblog.runtime.target-runtime": process.env.FSUSBLOG_EXPECTED_TARGET_RUNTIME,
+      "io.fsusblog.runtime.profile-id": process.env.FSUSBLOG_EXPECTED_RUNTIME_PROFILE_ID,
+      "io.fsusblog.runtime.profile-manifest-digest": process.env.FSUSBLOG_EXPECTED_RUNTIME_PROFILE_MANIFEST_DIGEST,
+      "io.fsusblog.runtime.profile-digest": process.env.FSUSBLOG_EXPECTED_RUNTIME_PROFILE_DIGEST,
+      "io.fsusblog.runtime.publish-single-file": process.env.FSUSBLOG_EXPECTED_PUBLISH_SINGLE_FILE,
+      "io.fsusblog.runtime.publish-ready-to-run": process.env.FSUSBLOG_EXPECTED_PUBLISH_READY_TO_RUN,
+      "io.fsusblog.runtime.tiered-pgo": process.env.FSUSBLOG_EXPECTED_TIERED_PGO,
+      "io.fsusblog.runtime.quick-jit-for-loops": process.env.FSUSBLOG_EXPECTED_QUICK_JIT_FOR_LOOPS,
+      "io.fsusblog.runtime.server-gc": process.env.FSUSBLOG_EXPECTED_SERVER_GC,
+      "io.fsusblog.runtime.native-aot": process.env.FSUSBLOG_EXPECTED_NATIVE_AOT,
+      "io.fsusblog.runtime.gc-heap-count-mode": process.env.FSUSBLOG_EXPECTED_GC_HEAP_COUNT_MODE,
+      "io.fsusblog.runtime.gc-heap-hard-limit-mode": process.env.FSUSBLOG_EXPECTED_GC_HEAP_HARD_LIMIT_MODE,
+      "io.fsusblog.runtime.gc-heap-hard-limit-percent": process.env.FSUSBLOG_EXPECTED_GC_HEAP_HARD_LIMIT_PERCENT,
+      "io.fsusblog.runtime.thread-pool-mode": process.env.FSUSBLOG_EXPECTED_THREAD_POOL_MODE,
+      "io.fsusblog.runtime.thread-pool-min-threads-per-cpu": process.env.FSUSBLOG_EXPECTED_THREAD_POOL_MIN_THREADS_PER_CPU,
+      "io.fsusblog.runtime.topology-mode": process.env.FSUSBLOG_EXPECTED_TOPOLOGY_MODE
     };
     const mismatches = Object.entries(expected).filter(([name, value]) => labels[name] !== value);
     if (mismatches.length > 0) {

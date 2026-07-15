@@ -307,13 +307,23 @@ ARG TIERED_PGO=true
 ARG QUICK_JIT_FOR_LOOPS=true
 ARG SERVER_GC=true
 ARG NATIVE_AOT=false
+ARG GC_HEAP_COUNT_MODE=container-default
+ARG GC_HEAP_HARD_LIMIT_MODE=container-limit
+ARG GC_HEAP_HARD_LIMIT_PERCENT=0
 ARG THREAD_POOL_MODE=runtime-default
+ARG THREAD_POOL_MIN_THREADS_PER_CPU=0
 ARG TOPOLOGY_MODE=smt-visible
 WORKDIR /app
 ENV FSUSBLOG_ZK_GROTH16_NATIVE_LIBRARY=/app/native/zk/libfsus_zk_groth16.so
 ENV FSUSBLOG_RUNTIME_PROFILE_ID=${RUNTIME_PROFILE_ID} \
     FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST=${RUNTIME_PROFILE_MANIFEST_DIGEST} \
     FSUSBLOG_RUNTIME_PROFILE_DIGEST=${RUNTIME_PROFILE_DIGEST} \
+    FSUSBLOG_RUNTIME_GC_HEAP_COUNT_MODE=${GC_HEAP_COUNT_MODE} \
+    FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_MODE=${GC_HEAP_HARD_LIMIT_MODE} \
+    FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_PERCENT=${GC_HEAP_HARD_LIMIT_PERCENT} \
+    FSUSBLOG_RUNTIME_THREAD_POOL_MODE=${THREAD_POOL_MODE} \
+    FSUSBLOG_RUNTIME_THREAD_POOL_MIN_THREADS_PER_CPU=${THREAD_POOL_MIN_THREADS_PER_CPU} \
+    FSUSBLOG_RUNTIME_TOPOLOGY_MODE=${TOPOLOGY_MODE} \
     DOTNET_ReadyToRun=${PUBLISH_READY_TO_RUN} \
     DOTNET_TieredPGO=${TIERED_PGO} \
     DOTNET_TC_QuickJitForLoops=${QUICK_JIT_FOR_LOOPS} \
@@ -337,7 +347,11 @@ LABEL org.opencontainers.image.version="${FSUSBLOG_RELEASE_ID}" \
       io.fsusblog.runtime.quick-jit-for-loops="${QUICK_JIT_FOR_LOOPS}" \
       io.fsusblog.runtime.server-gc="${SERVER_GC}" \
       io.fsusblog.runtime.native-aot="${NATIVE_AOT}" \
+      io.fsusblog.runtime.gc-heap-count-mode="${GC_HEAP_COUNT_MODE}" \
+      io.fsusblog.runtime.gc-heap-hard-limit-mode="${GC_HEAP_HARD_LIMIT_MODE}" \
+      io.fsusblog.runtime.gc-heap-hard-limit-percent="${GC_HEAP_HARD_LIMIT_PERCENT}" \
       io.fsusblog.runtime.thread-pool-mode="${THREAD_POOL_MODE}" \
+      io.fsusblog.runtime.thread-pool-min-threads-per-cpu="${THREAD_POOL_MIN_THREADS_PER_CPU}" \
       io.fsusblog.runtime.topology-mode="${TOPOLOGY_MODE}"
 
 COPY --from=publish --chown=$APP_UID:$APP_UID /app/publish .

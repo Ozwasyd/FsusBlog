@@ -229,6 +229,21 @@ test('host CLIs emit stable machine JSON and retained asset gate fails closed', 
     nodeVersion: 'v20.19.0',
     dockerVersion: '28.0.0',
     dockerfileDigest: `sha256:${'d'.repeat(64)}`,
+    runtimeProfile: {
+      id: 'throughput-musl',
+      manifestDigest: `sha256:${'f'.repeat(64)}`,
+      profileDigest: `sha256:${'1'.repeat(64)}`,
+      baseImageFamily: 'musl',
+      targetRuntime: 'linux-musl-x64',
+      singleFile: true,
+      readyToRun: false,
+      tieredPgo: true,
+      quickJitForLoops: true,
+      serverGc: true,
+      nativeAot: false,
+      threadPoolMode: 'runtime-default',
+      topologyMode: 'smt-visible'
+    },
     target: 'final'
   }))
 

@@ -3,13 +3,16 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
-import { validateRuntimeProfileResult } from './runtime-publish-evidence.mjs'
+import { createRuntimeMeasurementClaimDigest, validateRuntimeProfileResult } from './runtime-publish-evidence.mjs'
+import { resolveAutoBalancedCpuSets } from './runtime-publish-isolation.mjs'
+import { canonicalJson, sha256Value } from './runtime-publish-profile.mjs'
 
 const PLAN_SCHEMA = 'fsusblog.runtime-publish-executor-plan.v1'
 const COMMAND_NAMES = ['cleanupBefore', 'build', 'correctness', 'security', 'release', 'measure', 'cleanupAfter']
 const SHA256 = /^sha256:[0-9a-f]{64}$/u
 const VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/u
 const NODE_VERSION = /^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/u
+const STAGE_RECEIPT_SCHEMA = 'fsusblog.runtime-publish-stage-receipt.v1'
 
 try {
   const options = parseArgs(process.argv.slice(2))
@@ -19,7 +22,7 @@ try {
   if (!planFile || !fs.statSync(planFile).isFile()) throw new Error('a regular --plan or FSUSBLOG_RUNTIME_MATRIX_PLAN file is required')
   const request = readJson(path.resolve(options.request), 'request')
   const plan = readJson(planFile, 'executor plan')
-  const isolation = resolveIsolation(plan.isolation)
+  const isolation = resolveIsolation(plan.isolation, request.profile.topology.mode)
   validatePlan(plan, request.profile, isolation)
   const output = path.resolve(options.output)
   const workRoot = fs.mkdtempSync(path.join(path.dirname(output), '.runtime-profile-executor-'))
@@ -71,6 +74,7 @@ try {
     receipts.push(runPlanCommand(plan.commands.cleanupAfter, 'cleanupAfter', planFile, request, measurementsFile, isolation))
     cleanupAfter = 'pass'
     result.execution.cleanupAfter = cleanupAfter
+    result.execution.measurementClaimDigest = createRuntimeMeasurementClaimDigest(result)
     const errors = validateRuntimeProfileResult(result, { ...request.identity, cooldownMs: request.cooldownMs, expectedProfile: request.profile, expectedHardware: request.hardware })
     if (errors.length > 0) throw new Error(`measurement output failed validation: ${errors.join('; ')}`)
     writeExclusive(output, result)
@@ -123,28 +127,35 @@ function validateIsolationDeclaration(value) {
   }
 }
 
-function resolveIsolation(value) {
+function resolveIsolation(value, topologyMode) {
   if (!plainObject(value) || value.strategy !== 'auto-balanced') return value
   const visibleCpus = parseCpuList(process.env.FSUSBLOG_RUNTIME_AVAILABLE_CPUSET ?? readAllowedCpuList())
-  if (visibleCpus.length < 2) throw new Error('auto-balanced isolation requires at least two visible CPUs')
   const coreGroups = groupByPhysicalCore(visibleCpus)
-  let targetCpus
-  let loadGeneratorCpus
-  if (coreGroups.length >= 2) {
-    const targetGroupCount = Math.max(1, Math.floor(coreGroups.length / 2))
-    targetCpus = coreGroups.slice(0, targetGroupCount).flat()
-    loadGeneratorCpus = coreGroups.slice(targetGroupCount).flat()
-  } else {
-    const targetCount = Math.max(1, Math.floor(visibleCpus.length / 2))
-    targetCpus = visibleCpus.slice(0, targetCount)
-    loadGeneratorCpus = visibleCpus.slice(targetCount)
-  }
-  if (targetCpus.length === 0 || loadGeneratorCpus.length === 0) throw new Error('auto-balanced isolation could not produce disjoint target and load-generator CPUs')
+  const numaNodes = readVisibleNumaNodes(visibleCpus)
+  const { targetCpus, loadGeneratorCpus } = resolveAutoBalancedCpuSets({
+    visibleCpus,
+    physicalCoreGroups: coreGroups,
+    numaNodes,
+    topologyMode
+  })
   return {
     targetCpuset: formatCpuList(targetCpus),
     loadGeneratorCpuset: formatCpuList(loadGeneratorCpus),
     targetCgroup: `${value.cgroupPrefix}/target`,
     loadGeneratorCgroup: `${value.cgroupPrefix}/loadgen`
+  }
+}
+
+function readVisibleNumaNodes(visibleCpus) {
+  const visible = new Set(visibleCpus)
+  try {
+    return fs.readdirSync('/sys/devices/system/node')
+      .filter((name) => /^node\d+$/u.test(name))
+      .sort((left, right) => Number(left.slice(4)) - Number(right.slice(4)))
+      .map((name) => parseCpuList(fs.readFileSync(`/sys/devices/system/node/${name}/cpulist`, 'utf8').trim()).filter((cpu) => visible.has(cpu)))
+      .filter((cpus) => cpus.length > 0)
+  } catch {
+    return []
   }
 }
 
@@ -215,6 +226,7 @@ function runPlanCommand(command, stage, planFile, request, measurementsFile, iso
   const executable = path.resolve(planRoot, command.file)
   const stat = fs.statSync(executable)
   if (!stat.isFile()) throw new Error(`${stage} executable is not a regular file`)
+  const receiptFile = path.join(path.dirname(measurementsFile), `${stage}.receipt.json`)
   const startedAt = new Date().toISOString()
   const start = process.hrtime.bigint()
   const child = spawnSync(executable, command.args, {
@@ -230,15 +242,77 @@ function runPlanCommand(command, stage, planFile, request, measurementsFile, iso
       FSUSBLOG_RUNTIME_PROFILE_DIGEST: request.identity.profileDigest,
       FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST: request.identity.profileManifestDigest,
       FSUSBLOG_RUNTIME_MEASUREMENTS_OUTPUT: measurementsFile,
+      FSUSBLOG_RUNTIME_STAGE_RECEIPT_OUTPUT: receiptFile,
       FSUSBLOG_RUNTIME_TARGET_CPUSET: isolation.targetCpuset,
       FSUSBLOG_RUNTIME_LOADGEN_CPUSET: isolation.loadGeneratorCpuset,
       FSUSBLOG_RUNTIME_TARGET_CGROUP: isolation.targetCgroup,
-      FSUSBLOG_RUNTIME_LOADGEN_CGROUP: isolation.loadGeneratorCgroup
+      FSUSBLOG_RUNTIME_LOADGEN_CGROUP: isolation.loadGeneratorCgroup,
+      FSUSBLOG_RUNTIME_TARGET_CPU_COUNT: String(parseCpuList(isolation.targetCpuset).length),
+      FSUSBLOG_RUNTIME_GC_HEAP_COUNT_MODE: request.profile.gc.heapCountMode,
+      FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_MODE: request.profile.gc.heapHardLimitMode,
+      FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_PERCENT: String(request.profile.gc.heapHardLimitPercent),
+      FSUSBLOG_RUNTIME_THREAD_POOL_MODE: request.profile.threadPool.mode,
+      FSUSBLOG_RUNTIME_THREAD_POOL_MIN_THREADS_PER_CPU: String(request.profile.threadPool.minThreadsPerCpu),
+      FSUSBLOG_RUNTIME_TOPOLOGY_MODE: request.profile.topology.mode
     }
   })
   const durationMs = Number(process.hrtime.bigint() - start) / 1_000_000
   if (child.status !== 0) throw new Error(`${stage} failed with exit ${child.status ?? 'none'}: ${bounded(child.error?.message || child.stderr || child.stdout)}`)
-  return { stage, startedAtUtc: startedAt, durationMs: Number(durationMs.toFixed(3)), exitCode: 0 }
+  const receipt = readJson(receiptFile, `${stage} provenance receipt`)
+  validateStageReceipt(receipt, stage, request, measurementsFile)
+  return {
+    ...receipt,
+    executorStartedAtUtc: startedAt,
+    executorDurationMs: Number(durationMs.toFixed(3)),
+    executorExitCode: 0
+  }
+}
+
+function validateStageReceipt(receipt, stage, request, measurementsFile) {
+  if (!plainObject(receipt) || receipt.schema !== STAGE_RECEIPT_SCHEMA) throw new Error(`${stage} receipt schema is invalid`)
+  const allowed = new Set(['schema', 'status', 'stage', 'identity', 'startedAtUtc', 'completedAtUtc', 'command', 'resultDigest', 'evidence'])
+  for (const key of Object.keys(receipt)) if (!allowed.has(key)) throw new Error(`${stage} receipt.${key} is not allowed`)
+  if (receipt.status !== 'pass' || receipt.stage !== stage) throw new Error(`${stage} receipt status/stage is invalid`)
+  if (canonicalJson(receipt.identity) !== canonicalJson(request.identity)) throw new Error(`${stage} receipt identity does not match the run request`)
+  for (const field of ['startedAtUtc', 'completedAtUtc']) if (!Number.isFinite(Date.parse(receipt[field]))) throw new Error(`${stage} receipt ${field} is invalid`)
+  if (!plainObject(receipt.command) || receipt.command.exitCode !== 0 || !finiteNonNegative(receipt.command.durationMs)) throw new Error(`${stage} receipt command outcome is invalid`)
+  for (const field of ['executableDigest', 'argsDigest']) if (!SHA256.test(String(receipt.command?.[field] ?? ''))) throw new Error(`${stage} receipt command.${field} is invalid`)
+  if (!SHA256.test(String(receipt.resultDigest ?? ''))) throw new Error(`${stage} receipt resultDigest is invalid`)
+  if (!plainObject(receipt.evidence) || receipt.evidence.kind !== expectedStageEvidenceKind(stage)) throw new Error(`${stage} receipt evidence kind is invalid`)
+  for (const field of stageEvidenceDigests(stage)) if (!SHA256.test(String(receipt.evidence[field] ?? ''))) throw new Error(`${stage} receipt evidence.${field} is invalid`)
+  if (stage === 'measure') {
+    const payload = readJson(measurementsFile, 'measurement output')
+    if (receipt.evidence.payloadDigest !== sha256Value(payload)) throw new Error('measure receipt does not bind the emitted measurement payload')
+  }
+  if (stage === 'build') {
+    if (typeof receipt.evidence.imageRef !== 'string' || !receipt.evidence.imageRef.endsWith(`@${receipt.evidence.imageDigest}`)) throw new Error('build receipt image identity is invalid')
+  }
+  if (['correctness', 'security', 'release'].includes(stage) && (receipt.evidence.gate !== stage || receipt.evidence.gateStatus !== 'pass')) {
+    throw new Error(`${stage} receipt does not prove the named gate`)
+  }
+  if (stage.endsWith('Parity') && (receipt.evidence.scope !== 'public-artifact-only' || receipt.evidence.parityStatus !== 'pass')) {
+    throw new Error(`${stage} receipt does not prove narrow parity`)
+  }
+}
+
+function expectedStageEvidenceKind(stage) {
+  if (stage.startsWith('cleanup')) return 'cleanup'
+  if (stage === 'build') return 'build'
+  if (['correctness', 'security', 'release'].includes(stage)) return 'gate'
+  if (stage.endsWith('Parity')) return 'parity'
+  return 'measurement'
+}
+
+function stageEvidenceDigests(stage) {
+  if (stage.startsWith('cleanup')) return ['cleanupTargetsDigest']
+  if (stage === 'build') return ['imageDigest', 'artifactManifestDigest', 'featureSetDigest']
+  if (['correctness', 'security', 'release'].includes(stage)) return ['evidenceDigest']
+  if (stage.endsWith('Parity')) return ['evidenceDigest', 'featureSetDigest']
+  return ['payloadDigest', 'faultPlanDigest', 'loadFixtureDigest']
+}
+
+function finiteNonNegative(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
 function validateIsolationReceipt(receipt, expected) {
@@ -268,7 +342,19 @@ function inspectRuntimeImage(receipt, request, reportedRuntime) {
     'io.fsusblog.runtime.profile-digest': request.identity.profileDigest,
     'io.fsusblog.runtime.profile-manifest-digest': request.identity.profileManifestDigest,
     'io.fsusblog.runtime.base-family': request.profile.baseImageFamily,
-    'io.fsusblog.runtime.target-runtime': request.profile.targetRuntime
+    'io.fsusblog.runtime.target-runtime': request.profile.targetRuntime,
+    'io.fsusblog.runtime.publish-single-file': String(request.profile.publish.singleFile),
+    'io.fsusblog.runtime.publish-ready-to-run': String(request.profile.publish.readyToRun),
+    'io.fsusblog.runtime.tiered-pgo': String(request.profile.publish.tieredPgo),
+    'io.fsusblog.runtime.quick-jit-for-loops': String(request.profile.publish.quickJitForLoops),
+    'io.fsusblog.runtime.server-gc': String(request.profile.gc.server),
+    'io.fsusblog.runtime.native-aot': String(request.profile.publish.nativeAot),
+    'io.fsusblog.runtime.gc-heap-count-mode': request.profile.gc.heapCountMode,
+    'io.fsusblog.runtime.gc-heap-hard-limit-mode': request.profile.gc.heapHardLimitMode,
+    'io.fsusblog.runtime.gc-heap-hard-limit-percent': String(request.profile.gc.heapHardLimitPercent),
+    'io.fsusblog.runtime.thread-pool-mode': request.profile.threadPool.mode,
+    'io.fsusblog.runtime.thread-pool-min-threads-per-cpu': String(request.profile.threadPool.minThreadsPerCpu),
+    'io.fsusblog.runtime.topology-mode': request.profile.topology.mode
   }
   for (const [name, expected] of Object.entries(expectedLabels)) {
     if (labels[name] !== expected) throw new Error(`inspected image label ${name} does not match the run request`)
@@ -292,7 +378,22 @@ function inspectRuntimeImage(receipt, request, reportedRuntime) {
     sdkVersion,
     runtimeBaseImageDigest,
     sdkBaseImageDigest,
-    nodeVersion
+    nodeVersion,
+    profilePurpose: request.profile.purpose,
+    singleFile: request.profile.publish.singleFile,
+    readyToRun: request.profile.publish.readyToRun,
+    tieredPgo: request.profile.publish.tieredPgo,
+    quickJitForLoops: request.profile.publish.quickJitForLoops,
+    serverGc: request.profile.gc.server,
+    nativeAot: request.profile.publish.nativeAot,
+    gcHeapCountMode: request.profile.gc.heapCountMode,
+    gcHeapHardLimitMode: request.profile.gc.heapHardLimitMode,
+    gcHeapHardLimitPercentConfigured: request.profile.gc.heapHardLimitPercent,
+    threadPoolMode: request.profile.threadPool.mode,
+    threadPoolMinThreadsPerCpuDeclared: request.profile.threadPool.minThreadsPerCpu,
+    baseImageFamily: request.profile.baseImageFamily,
+    targetRuntime: request.profile.targetRuntime,
+    topologyMode: request.profile.topology.mode
   }
   if (plainObject(reportedRuntime)) {
     for (const [field, value] of Object.entries(identity)) {

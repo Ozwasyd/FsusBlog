@@ -10,7 +10,7 @@ try {
     for (const key of [
       'runtimeProfileId', 'runtimeProfileManifestDigest', 'runtimeProfileDigest', 'runtimeBaseFlavor',
       'targetRuntime', 'publishSingleFile', 'publishReadyToRun', 'tieredPgo', 'quickJitForLoops',
-      'serverGc', 'nativeAot', 'threadPoolMode', 'topologyMode'
+      'serverGc', 'nativeAot', 'gcHeapCountMode', 'gcHeapHardLimitMode', 'gcHeapHardLimitPercent', 'threadPoolMode', 'threadPoolMinThreadsPerCpu', 'topologyMode'
     ]) console.log(output[key])
   } else {
     console.log(JSON.stringify(output))

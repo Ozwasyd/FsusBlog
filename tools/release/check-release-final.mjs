@@ -1,9 +1,12 @@
 #!/usr/bin/env node
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { validateReleaseManifest } from './release-manifest.mjs'
+import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 
@@ -114,6 +117,21 @@ function validateManifest(manifest, manifestFile) {
   if (manifest.evidenceSummary?.externalExposure?.firewallPolicy !== 'present') errors.push('firewall policy evidence is required')
   if (manifest.evidenceSummary?.coverage?.status !== 'ok') errors.push('coverage evidence must be ok')
 
+  const identity = manifest.releaseIdentity
+  if (!identity || typeof identity !== 'object' || Array.isArray(identity)) {
+    errors.push('releaseIdentity is required')
+  } else {
+    const { releaseSlot, ...releaseManifest } = identity
+    if (!/^[a-z][a-z0-9-]{0,31}$/u.test(String(releaseSlot ?? ''))) errors.push('releaseIdentity.releaseSlot is invalid')
+    errors.push(...validateReleaseManifest(releaseManifest, {
+      requireRegistryDigest: true,
+      requireConcreteRuntimeProfile: true,
+      expectedCommitSha: manifest.commitSha,
+      expectedImageDigest: manifest.imageDigest
+    }).map((error) => `releaseIdentity: ${error}`))
+  }
+  errors.push(...validateReleaseRuntimeMatrix(manifest, manifestFile))
+
   for (const [key, digest] of Object.entries(manifest.artifactDigests ?? {})) {
     if (!digest || digest.algorithm !== 'sha256' || !/^[0-9a-f]{64}$/i.test(String(digest.value ?? ''))) {
       errors.push(`artifactDigests.${key} must include a sha256 digest`)
@@ -146,11 +164,15 @@ function validateManifest(manifest, manifestFile) {
   return errors
 }
 
-function runSelfTest() {
+async function runSelfTest() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-release-final-'))
   const jobs = path.join(tmp, 'job-summaries')
   fs.mkdirSync(jobs, { recursive: true })
   const commit = '0123456789abcdef0123456789abcdef01234567'
+  const releaseId = '20260715010101-0123456789ab'
+  const imageDigest = `sha256:${'a'.repeat(64)}`
+  const profileManifestDigest = `sha256:${'6'.repeat(64)}`
+  const profileDigest = `sha256:${'7'.repeat(64)}`
   fs.writeFileSync(path.join(jobs, 'fast.json'), JSON.stringify({
     schema: 'fsusblog.ci.job-result.v1',
     jobId: 'fast',
@@ -184,26 +206,118 @@ function runSelfTest() {
     }]
   }))
   const manifestFile = path.join(tmp, 'manifest.json')
+  const { createReleaseRuntimeMatrixFixture } = await import('../../tests/tools/fixtures/release-runtime-matrix.mjs')
+  const matrixEvidence = createReleaseRuntimeMatrixFixture({ commitSha: commit, profileManifestDigest, profileDigest })
+  const matrixFile = path.join(tmp, 'runtime-publish-matrix.json')
+  fs.writeFileSync(matrixFile, `${JSON.stringify(matrixEvidence)}\n`)
   const manifest = {
     status: 'collected-ok',
     commitSha: commit,
-    imageDigest: 'sha256:abc',
+    imageDigest,
+    releaseIdentity: {
+      schema: 'fsusblog.release-manifest.v1',
+      releaseId,
+      commitSha: commit,
+      imageRepository: 'ghcr.io/fsusblog/app',
+      imageTag: `ghcr.io/fsusblog/app:${releaseId}`,
+      imageDigest,
+      imageRef: `ghcr.io/fsusblog/app@${imageDigest}`,
+      registryDigestVerified: true,
+      createdAtUtc: '2026-07-15T01:01:01.000Z',
+      frontendManifestHash: `sha256:${'b'.repeat(64)}`,
+      wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
+      zkLocalReviewHash: `sha256:${'e'.repeat(64)}`,
+      schemaCompatibility: { minRelease: releaseId, maxRelease: releaseId },
+      toolchain: {
+        dotnetVersion: '10.0.100',
+        nodeVersion: 'v24.16.0',
+        dockerVersion: '28.0.0',
+        dockerfileDigest: `sha256:${'d'.repeat(64)}`
+      },
+      runtimeProfile: {
+        id: 'throughput-musl',
+        manifestDigest: profileManifestDigest,
+        profileDigest,
+        baseImageFamily: 'musl',
+        targetRuntime: 'linux-musl-x64',
+        singleFile: true,
+        readyToRun: false,
+        tieredPgo: true,
+        quickJitForLoops: true,
+        serverGc: true,
+        nativeAot: false,
+        threadPoolMode: 'runtime-default',
+        topologyMode: 'smt-visible'
+      },
+      build: { dockerfile: 'ops/docker/FsusBlog.Server.Dockerfile', target: 'final' },
+      releaseSlot: 'green'
+    },
     artifacts: {
       jobSummaries: 'job-summaries',
       memoryLeakSummary: 'memory-leak-summary.json',
       openHandleSummary: 'open-handle-summary.json',
+      runtimePublishMatrix: 'runtime-publish-matrix.json',
       visualGateSkip: null
     },
-    artifactDigests: { productionExposureLive: { algorithm: 'sha256', value: 'a'.repeat(64) } },
+    artifactDigests: {
+      productionExposureLive: { algorithm: 'sha256', value: 'a'.repeat(64) },
+      runtimePublishMatrix: { algorithm: 'sha256', value: sha256Hex(matrixFile) }
+    },
     evidenceSummary: {
       coverage: { status: 'ok' },
       gates: { visualGateSkip: null },
-      externalExposure: { status: 'ok', firewallPolicy: 'present', liveExposure: 'ok' }
+      externalExposure: { status: 'ok', firewallPolicy: 'present', liveExposure: 'ok' },
+      operations: {
+        runtimeTuning: {
+          profile: { id: 'throughput-musl', manifestDigest: profileManifestDigest, profileDigest },
+          runtimeMatrixEvidence: 'runtime-publish-matrix.json',
+          runtimeMatrixStatus: 'ok'
+        }
+      }
     }
   }
   const errors = validateManifest(manifest, manifestFile)
-  fs.rmSync(tmp, { recursive: true, force: true })
   if (errors.length > 0) fail([`self-test expected pass: ${errors.join('; ')}`])
+
+  const missingMatrix = structuredClone(manifest)
+  missingMatrix.artifacts.runtimePublishMatrix = null
+  if (!validateManifest(missingMatrix, manifestFile).some((error) => error.includes('runtimePublishMatrix'))) {
+    fail(['self-test expected release-final to reject a missing runtime matrix'])
+  }
+  const unselected = structuredClone(matrixEvidence)
+  unselected.selection = null
+  fs.writeFileSync(matrixFile, `${JSON.stringify(unselected)}\n`)
+  const unselectedManifest = structuredClone(manifest)
+  unselectedManifest.artifactDigests.runtimePublishMatrix.value = sha256Hex(matrixFile)
+  if (!validateManifest(unselectedManifest, manifestFile).some((error) => error.includes('sealed production selection'))) {
+    fail(['self-test expected release-final to reject an unselected runtime matrix'])
+  }
+
+  const wrongCommit = structuredClone(matrixEvidence)
+  wrongCommit.identity.commitSha = 'f'.repeat(40)
+  fs.writeFileSync(matrixFile, `${JSON.stringify(wrongCommit)}\n`)
+  const wrongCommitManifest = structuredClone(manifest)
+  wrongCommitManifest.artifactDigests.runtimePublishMatrix.value = sha256Hex(matrixFile)
+  if (!validateManifest(wrongCommitManifest, manifestFile).some((error) => error.includes('release commit'))) {
+    fail(['self-test expected release-final to reject a runtime matrix from the wrong commit'])
+  }
+  fs.writeFileSync(matrixFile, `${JSON.stringify(matrixEvidence)}\n`)
+
+  const wrongProfileDigest = structuredClone(manifest)
+  wrongProfileDigest.releaseIdentity.runtimeProfile.profileDigest = `sha256:${'8'.repeat(64)}`
+  wrongProfileDigest.evidenceSummary.operations.runtimeTuning.profile.profileDigest = wrongProfileDigest.releaseIdentity.runtimeProfile.profileDigest
+  if (!validateManifest(wrongProfileDigest, manifestFile).some((error) => error.includes('release profile'))) {
+    fail(['self-test expected release-final to reject a runtime matrix selected for another profile digest'])
+  }
+
+  const zeroDigest = structuredClone(manifest)
+  zeroDigest.releaseIdentity.runtimeProfile.profileDigest = `sha256:${'0'.repeat(64)}`
+  zeroDigest.evidenceSummary.operations.runtimeTuning.profile.profileDigest = zeroDigest.releaseIdentity.runtimeProfile.profileDigest
+  if (!validateManifest(zeroDigest, manifestFile).some((error) => error.includes('zero digest'))) {
+    fail(['self-test expected release-final to reject a zero runtime profile digest'])
+  }
+
+  fs.rmSync(tmp, { recursive: true, force: true })
 
   const resourceTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-release-resource-final-'))
   const resourceJobs = path.join(resourceTmp, 'job-summaries')
@@ -220,8 +334,14 @@ function runSelfTest() {
     metrics: []
   }))
   const resourceManifestFile = path.join(resourceTmp, 'manifest.json')
+  const resourceMatrixFile = path.join(resourceTmp, 'runtime-publish-matrix.json')
+  fs.writeFileSync(resourceMatrixFile, `${JSON.stringify(matrixEvidence)}\n`)
   const emptyResourceManifest = {
     ...manifest,
+    artifactDigests: {
+      ...manifest.artifactDigests,
+      runtimePublishMatrix: { algorithm: 'sha256', value: sha256Hex(resourceMatrixFile) }
+    },
     artifacts: {
       ...manifest.artifacts,
       jobSummaries: 'job-summaries',
@@ -236,9 +356,13 @@ function runSelfTest() {
   console.log('[release-final] self-test ok')
 }
 
+function sha256Hex(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
+}
+
 const args = process.argv.slice(2)
 if (args.includes('--self-test')) {
-  runSelfTest()
+  await runSelfTest()
   process.exit(0)
 }
 

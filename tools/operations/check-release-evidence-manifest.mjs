@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { validateReleaseManifest } from '../release/release-manifest.mjs'
+import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs'
 
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..')
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
@@ -39,6 +40,7 @@ const requiredRolloutAuxiliary = [
 const requiredStatusChecks = [
   ['image digest', (manifest) => manifest.evidenceSummary?.image?.status === 'present'],
   ['release identity', (manifest) => releaseIdentityOk(manifest)],
+  ['sealed runtime publish matrix', (manifest, context) => Boolean(context.manifestPath) && validateReleaseRuntimeMatrix(manifest, context.manifestPath).length === 0],
   ['coverage', (manifest) => manifest.evidenceSummary?.coverage?.status === 'ok'],
   ['ZAP DAST', (manifest) => manifest.evidenceSummary?.security?.dastZap === 'ok'],
   ['authenticated DAST', (manifest, context) => manifest.evidenceSummary?.security?.authenticatedDast === 'ok' && authenticatedDastOk(manifest, context)],
@@ -87,6 +89,7 @@ const requiredArtifacts = [
   'releaseRolloutBundle',
   'backupRestoreDrill',
   'coverage',
+  'runtimePublishMatrix',
   'jobSummaries',
   'uxViewportSummary',
   'frontendRenderPressureSummary',
@@ -252,6 +255,7 @@ function releaseIdentityOk(manifest) {
   if (manifest.commitSha !== releaseManifest.commitSha) return false
   return validateReleaseManifest(releaseManifest, {
     requireRegistryDigest: true,
+    requireConcreteRuntimeProfile: true,
     expectedReleaseId: releaseManifest.releaseId,
     expectedImageRef: releaseManifest.imageRef,
     expectedImageDigest: manifest.imageDigest,
@@ -1147,6 +1151,12 @@ function validateManifest(manifest, options = {}) {
     errors.push('workflowRun object is required')
   }
 
+  if (context.manifestPath) {
+    errors.push(...validateReleaseRuntimeMatrix(manifest, context.manifestPath))
+  } else {
+    errors.push('runtime matrix validation requires the manifest path')
+  }
+
   for (const key of requiredArtifacts) {
     if (!Object.hasOwn(manifest.artifacts ?? {}, key)) {
       errors.push(`artifacts.${key} is missing`)
@@ -1450,10 +1460,12 @@ function writeReleaseRolloutFixture(tmpDir, manifest, releaseId, imageDigest) {
   }
 }
 
-function runSelfTest() {
+async function runSelfTest() {
   const releaseId = '20260711010101-0123456789ab'
   const commitSha = '0123456789abcdef0123456789abcdef01234567'
   const imageDigest = `sha256:${'a'.repeat(64)}`
+  const profileManifestDigest = `sha256:${'6'.repeat(64)}`
+  const profileDigest = `sha256:${'7'.repeat(64)}`
   const base = {
     status: 'collected-ok',
     commitSha,
@@ -1479,6 +1491,21 @@ function runSelfTest() {
         dockerVersion: '28.0.0',
         dockerfileDigest: `sha256:${'d'.repeat(64)}`
       },
+      runtimeProfile: {
+        id: 'throughput-musl',
+        manifestDigest: profileManifestDigest,
+        profileDigest,
+        baseImageFamily: 'musl',
+        targetRuntime: 'linux-musl-x64',
+        singleFile: true,
+        readyToRun: false,
+        tieredPgo: true,
+        quickJitForLoops: true,
+        serverGc: true,
+        nativeAot: false,
+        threadPoolMode: 'runtime-default',
+        topologyMode: 'smt-visible'
+      },
       build: { dockerfile: 'ops/docker/FsusBlog.Server.Dockerfile', target: 'final' },
       releaseSlot: 'green'
     },
@@ -1492,7 +1519,12 @@ function runSelfTest() {
         releaseRollout: 'ok',
         backupRestoreDrill: 'ok',
         sloAlerts: 'ok',
-        sloCriticalFiring: 0
+        sloCriticalFiring: 0,
+        runtimeTuning: {
+          profile: { id: 'throughput-musl', manifestDigest: profileManifestDigest, profileDigest },
+          runtimeMatrixEvidence: 'runtimePublishMatrix.json',
+          runtimeMatrixStatus: 'ok'
+        }
       },
       security: {
         dastZap: 'ok',
@@ -1542,6 +1574,13 @@ function runSelfTest() {
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-release-manifest-'))
   const manifestFile = path.join(tmpDir, 'manifest.json')
+  const { createReleaseRuntimeMatrixFixture } = await import('../../tests/tools/fixtures/release-runtime-matrix.mjs')
+  const runtimeMatrixFile = path.join(tmpDir, 'runtimePublishMatrix.json')
+  fs.writeFileSync(runtimeMatrixFile, `${JSON.stringify(createReleaseRuntimeMatrixFixture({ commitSha, profileManifestDigest, profileDigest }))}\n`)
+  base.artifacts.runtimePublishMatrix = 'runtimePublishMatrix.json'
+  base.artifactDigests = {
+    runtimePublishMatrix: { algorithm: 'sha256', value: sha256Hex(runtimeMatrixFile) }
+  }
   fs.writeFileSync(path.join(tmpDir, 'backupRestoreDrill.json'), JSON.stringify({
     status: 'ok',
     mode: 'real',
@@ -2098,6 +2137,53 @@ function runSelfTest() {
     fail(`self-test expected mismatched release identity to stay blocked: ${mismatchedIdentityResult.errors.join('; ')}`)
   }
 
+  const missingRuntimeMatrix = structuredClone(base)
+  missingRuntimeMatrix.artifacts.runtimePublishMatrix = null
+  const missingRuntimeMatrixResult = validateManifest(missingRuntimeMatrix, { manifestPath: manifestFile })
+  if (missingRuntimeMatrixResult.ok || !missingRuntimeMatrixResult.errors.some((error) => error.includes('runtimePublishMatrix'))) {
+    fail('self-test expected a missing runtime matrix to be rejected')
+  }
+
+  const validRuntimeMatrix = readJson(runtimeMatrixFile)
+  const writeRuntimeMatrix = (value) => {
+    fs.writeFileSync(runtimeMatrixFile, `${JSON.stringify(value)}\n`)
+    return { algorithm: 'sha256', value: sha256Hex(runtimeMatrixFile) }
+  }
+  const wrongCommit = structuredClone(validRuntimeMatrix)
+  wrongCommit.identity.commitSha = 'f'.repeat(40)
+  const wrongCommitManifest = structuredClone(base)
+  wrongCommitManifest.artifactDigests.runtimePublishMatrix = writeRuntimeMatrix(wrongCommit)
+  const wrongCommitResult = validateManifest(wrongCommitManifest, { manifestPath: manifestFile })
+  if (wrongCommitResult.ok || !wrongCommitResult.errors.some((error) => error.includes('release commit'))) {
+    fail('self-test expected a wrong runtime matrix commit SHA to be rejected')
+  }
+
+  const unselected = structuredClone(validRuntimeMatrix)
+  unselected.selection = null
+  const unselectedManifest = structuredClone(base)
+  unselectedManifest.artifactDigests.runtimePublishMatrix = writeRuntimeMatrix(unselected)
+  const unselectedResult = validateManifest(unselectedManifest, { manifestPath: manifestFile })
+  if (unselectedResult.ok || !unselectedResult.errors.some((error) => error.includes('sealed production selection'))) {
+    fail('self-test expected an unselected runtime matrix to be rejected')
+  }
+
+  writeRuntimeMatrix(validRuntimeMatrix)
+  const zeroDigest = structuredClone(base)
+  zeroDigest.releaseIdentity.runtimeProfile.profileDigest = `sha256:${'0'.repeat(64)}`
+  zeroDigest.evidenceSummary.operations.runtimeTuning.profile.profileDigest = zeroDigest.releaseIdentity.runtimeProfile.profileDigest
+  const zeroDigestResult = validateManifest(zeroDigest, { manifestPath: manifestFile })
+  if (zeroDigestResult.ok || !zeroDigestResult.errors.some((error) => error.includes('zero digest'))) {
+    fail('self-test expected a zero release profile digest to be rejected')
+  }
+
+  const wrongProfileDigest = structuredClone(base)
+  wrongProfileDigest.releaseIdentity.runtimeProfile.profileDigest = `sha256:${'8'.repeat(64)}`
+  wrongProfileDigest.evidenceSummary.operations.runtimeTuning.profile.profileDigest = wrongProfileDigest.releaseIdentity.runtimeProfile.profileDigest
+  const wrongProfileDigestResult = validateManifest(wrongProfileDigest, { manifestPath: manifestFile })
+  if (wrongProfileDigestResult.ok || !wrongProfileDigestResult.errors.some((error) => error.includes('release profile'))) {
+    fail('self-test expected a wrong selected runtime profile digest to be rejected')
+  }
+
   fs.rmSync(tmpDir, { recursive: true, force: true })
   console.log('[release-manifest-check] self-test ok')
 }
@@ -2105,7 +2191,7 @@ function runSelfTest() {
 const args = process.argv.slice(2)
 const requireOk = args.includes('--require-ok')
 if (args.includes('--self-test')) {
-  runSelfTest()
+  await runSelfTest()
   process.exit(0)
 }
 

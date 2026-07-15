@@ -9,7 +9,7 @@
       "baseImageFamily": "musl",
       "targetRuntime": "linux-musl-x64",
       "publish": { "singleFile": true, "readyToRun": false, "tieredPgo": true, "quickJitForLoops": true, "nativeAot": false },
-      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit" },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
       "threadPool": { "mode": "runtime-default", "minThreadsPerCpu": 0 },
       "topology": { "mode": "smt-visible" }
     },
@@ -19,7 +19,7 @@
       "baseImageFamily": "glibc",
       "targetRuntime": "linux-x64",
       "publish": { "singleFile": true, "readyToRun": false, "tieredPgo": true, "quickJitForLoops": true, "nativeAot": false },
-      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit" },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
       "threadPool": { "mode": "runtime-default", "minThreadsPerCpu": 0 },
       "topology": { "mode": "smt-visible" }
     },
@@ -29,7 +29,7 @@
       "baseImageFamily": "musl",
       "targetRuntime": "linux-musl-x64",
       "publish": { "singleFile": true, "readyToRun": true, "tieredPgo": true, "quickJitForLoops": true, "nativeAot": false },
-      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit" },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
       "threadPool": { "mode": "runtime-default", "minThreadsPerCpu": 0 },
       "topology": { "mode": "smt-visible" }
     },
@@ -39,7 +39,7 @@
       "baseImageFamily": "musl",
       "targetRuntime": "linux-musl-x64",
       "publish": { "singleFile": true, "readyToRun": false, "tieredPgo": false, "quickJitForLoops": true, "nativeAot": false },
-      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit" },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
       "threadPool": { "mode": "runtime-default", "minThreadsPerCpu": 0 },
       "topology": { "mode": "smt-visible" }
     },
@@ -49,17 +49,27 @@
       "baseImageFamily": "musl",
       "targetRuntime": "linux-musl-x64",
       "publish": { "singleFile": false, "readyToRun": false, "tieredPgo": true, "quickJitForLoops": true, "nativeAot": false },
-      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit" },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
       "threadPool": { "mode": "runtime-default", "minThreadsPerCpu": 0 },
       "topology": { "mode": "smt-visible" }
     },
     {
-      "id": "gc-cpuset-hard-limit",
+      "id": "gc-cpuset",
       "purpose": "experiment",
       "baseImageFamily": "musl",
       "targetRuntime": "linux-musl-x64",
       "publish": { "singleFile": true, "readyToRun": false, "tieredPgo": true, "quickJitForLoops": true, "nativeAot": false },
-      "gc": { "server": true, "heapCountMode": "cpuset", "heapHardLimitMode": "explicit-container-percent" },
+      "gc": { "server": true, "heapCountMode": "cpuset", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
+      "threadPool": { "mode": "runtime-default", "minThreadsPerCpu": 0 },
+      "topology": { "mode": "smt-visible" }
+    },
+    {
+      "id": "gc-explicit-hard-limit",
+      "purpose": "experiment",
+      "baseImageFamily": "musl",
+      "targetRuntime": "linux-musl-x64",
+      "publish": { "singleFile": true, "readyToRun": false, "tieredPgo": true, "quickJitForLoops": true, "nativeAot": false },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "explicit-container-percent", "heapHardLimitPercent": 75 },
       "threadPool": { "mode": "runtime-default", "minThreadsPerCpu": 0 },
       "topology": { "mode": "smt-visible" }
     },
@@ -69,7 +79,7 @@
       "baseImageFamily": "musl",
       "targetRuntime": "linux-musl-x64",
       "publish": { "singleFile": true, "readyToRun": false, "tieredPgo": true, "quickJitForLoops": true, "nativeAot": false },
-      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit" },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
       "threadPool": { "mode": "evidence-derived", "minThreadsPerCpu": 0 },
       "topology": { "mode": "smt-visible" }
     },
@@ -79,7 +89,7 @@
       "baseImageFamily": "musl",
       "targetRuntime": "linux-musl-x64",
       "publish": { "singleFile": true, "readyToRun": false, "tieredPgo": true, "quickJitForLoops": true, "nativeAot": false },
-      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit" },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
       "threadPool": { "mode": "overprovisioned-negative-control", "minThreadsPerCpu": 100 },
       "topology": { "mode": "smt-visible" }
     },
@@ -89,7 +99,7 @@
       "baseImageFamily": "musl",
       "targetRuntime": "linux-musl-x64",
       "publish": { "singleFile": true, "readyToRun": false, "tieredPgo": true, "quickJitForLoops": false, "nativeAot": false },
-      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit" },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
       "threadPool": { "mode": "runtime-default", "minThreadsPerCpu": 0 },
       "topology": { "mode": "smt-visible" }
     },
@@ -99,9 +109,19 @@
       "baseImageFamily": "musl",
       "targetRuntime": "linux-musl-x64",
       "publish": { "singleFile": true, "readyToRun": false, "tieredPgo": true, "quickJitForLoops": true, "nativeAot": false },
-      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit" },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
       "threadPool": { "mode": "runtime-default", "minThreadsPerCpu": 0 },
       "topology": { "mode": "physical-core-only" }
+    },
+    {
+      "id": "numa-local",
+      "purpose": "experiment",
+      "baseImageFamily": "musl",
+      "targetRuntime": "linux-musl-x64",
+      "publish": { "singleFile": true, "readyToRun": false, "tieredPgo": true, "quickJitForLoops": true, "nativeAot": false },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
+      "threadPool": { "mode": "runtime-default", "minThreadsPerCpu": 0 },
+      "topology": { "mode": "numa-local" }
     },
     {
       "id": "nativeaot-public-prototype",
@@ -109,7 +129,7 @@
       "baseImageFamily": "glibc",
       "targetRuntime": "linux-x64",
       "publish": { "singleFile": true, "readyToRun": false, "tieredPgo": false, "quickJitForLoops": false, "nativeAot": true },
-      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit" },
+      "gc": { "server": true, "heapCountMode": "container-default", "heapHardLimitMode": "container-limit", "heapHardLimitPercent": 0 },
       "threadPool": { "mode": "runtime-default", "minThreadsPerCpu": 0 },
       "topology": { "mode": "smt-visible" },
       "conditionalAdmission": {

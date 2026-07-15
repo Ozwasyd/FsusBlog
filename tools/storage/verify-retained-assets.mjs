@@ -11,7 +11,10 @@ let options = {}
 try {
   options = parseArgs(process.argv.slice(2))
   const releaseManifestFile = requiredPath(options, 'release-manifest')
-  const releaseManifest = readReleaseManifest(releaseManifestFile, { requireRegistryDigest: true })
+  const releaseManifest = readReleaseManifest(releaseManifestFile, {
+    requireRegistryDigest: true,
+    requireConcreteRuntimeProfile: true
+  })
   const slot = normalizeSlot(options.slot)
   const storeDirectory = path.resolve(options.store ?? process.env.FSUSBLOG_RELEASE_ASSET_STORE ?? '/var/lib/fsusblog/release-assets')
   const stateFile = path.resolve(options.state ?? process.env.FSUSBLOG_RELEASE_RETENTION_STATE ?? path.join(storeDirectory, 'retention-state.json'))

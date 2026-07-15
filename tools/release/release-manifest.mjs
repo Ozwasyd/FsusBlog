@@ -4,6 +4,7 @@ import path from 'node:path'
 
 export const RELEASE_MANIFEST_SCHEMA = 'fsusblog.release-manifest.v1'
 const SHA256 = /^sha256:[0-9a-f]{64}$/u
+const ZERO_SHA256 = `sha256:${'0'.repeat(64)}`
 const COMMIT_SHA = /^[0-9a-f]{40}$/u
 const RELEASE_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u
 const IMAGE_REPOSITORY = /^[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[0-9]+(?:\/[a-z0-9]+(?:[._/-][a-z0-9]+)*)?)?$/u
@@ -84,7 +85,10 @@ export function createReleaseManifest(input) {
       target: input.target ?? 'final'
     }
   }
-  const errors = validateReleaseManifest(manifest, { requireRegistryDigest: true })
+  const errors = validateReleaseManifest(manifest, {
+    requireRegistryDigest: true,
+    requireConcreteRuntimeProfile: true
+  })
   if (errors.length > 0) throw new Error(errors.join('\n'))
   return manifest
 }
@@ -132,7 +136,8 @@ export function validateReleaseManifest(manifest, options = {}) {
   }
   if (manifest.build?.dockerfile !== 'ops/docker/FsusBlog.Server.Dockerfile') errors.push('build.dockerfile is invalid')
   if (manifest.build?.target !== 'final') errors.push('build.target must be final')
-  if (manifest.runtimeProfile !== undefined) validateRuntimeProfile(manifest.runtimeProfile, errors)
+  if (manifest.runtimeProfile !== undefined) validateRuntimeProfile(manifest.runtimeProfile, errors, options)
+  else if (options.requireConcreteRuntimeProfile === true) errors.push('runtimeProfile is required for a final release manifest')
   if (options.expectedReleaseId && manifest.releaseId !== options.expectedReleaseId) errors.push('releaseId does not match requested release')
   if (options.expectedImageRef && manifest.imageRef !== options.expectedImageRef) errors.push('imageRef does not match requested image')
   if (options.expectedImageDigest && manifest.imageDigest !== options.expectedImageDigest) errors.push('imageDigest does not match requested digest')
@@ -141,7 +146,7 @@ export function validateReleaseManifest(manifest, options = {}) {
   return errors
 }
 
-function validateRuntimeProfile(value, errors) {
+function validateRuntimeProfile(value, errors, options = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     errors.push('runtimeProfile must be an object')
     return
@@ -150,6 +155,7 @@ function validateRuntimeProfile(value, errors) {
   if (!/^[a-z][a-z0-9-]{2,63}$/u.test(String(value.id ?? ''))) errors.push('runtimeProfile.id is invalid')
   for (const field of ['manifestDigest', 'profileDigest']) {
     if (!SHA256.test(String(value[field] ?? ''))) errors.push(`runtimeProfile.${field} must be sha256:<64 lowercase hex>`)
+    else if (options.requireConcreteRuntimeProfile === true && value[field] === ZERO_SHA256) errors.push(`runtimeProfile.${field} must not be the zero digest`)
   }
   if (!['musl', 'glibc'].includes(value.baseImageFamily)) errors.push('runtimeProfile.baseImageFamily is invalid')
   if (!['linux-musl-x64', 'linux-x64'].includes(value.targetRuntime)) errors.push('runtimeProfile.targetRuntime is invalid')

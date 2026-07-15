@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import { execFileSync } from 'node:child_process'
-import { sha256Value } from './runtime-publish-profile.mjs'
+import { canonicalJson, sha256Value } from './runtime-publish-profile.mjs'
 
 export const RUNTIME_MATRIX_EVIDENCE_SCHEMA = 'fsusblog.runtime-publish-matrix-evidence.v1'
 export const RUNTIME_PROFILE_RESULT_SCHEMA = 'fsusblog.runtime-publish-profile-result.v1'
@@ -14,6 +14,7 @@ const SHA256 = /^sha256:[0-9a-f]{64}$/u
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$/u
 const RUNTIME_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/u
 const NODE_VERSION = /^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/u
+const STAGE_RECEIPT_SCHEMA = 'fsusblog.runtime-publish-stage-receipt.v1'
 
 export function createBalancedSchedule(profileIds, rounds, seed) {
   if (!Array.isArray(profileIds) || profileIds.length < 2 || new Set(profileIds).size !== profileIds.length) {
@@ -38,17 +39,22 @@ export function createBalancedSchedule(profileIds, rounds, seed) {
 export function captureHardwareIdentity() {
   const cpu = os.cpus()[0]
   const cpuset = readFirst(['/sys/fs/cgroup/cpuset.cpus.effective', '/sys/fs/cgroup/cpuset/cpuset.cpus'])
-  const cpuMax = readFirst(['/sys/fs/cgroup/cpu.max', '/sys/fs/cgroup/cpu/cpu.cfs_quota_us'])
+  const cpuMaxV2 = readFirst(['/sys/fs/cgroup/cpu.max'])
+  const cpuQuotaV1 = readFirst(['/sys/fs/cgroup/cpu/cpu.cfs_quota_us'])
+  const cpuPeriodV1 = readFirst(['/sys/fs/cgroup/cpu/cpu.cfs_period_us'])
+  const cpuMax = cpuMaxV2 ?? (cpuQuotaV1 && cpuPeriodV1 ? `${cpuQuotaV1} ${cpuPeriodV1}` : null)
   const memoryMax = readFirst(['/sys/fs/cgroup/memory.max', '/sys/fs/cgroup/memory/memory.limit_in_bytes'])
   const microcode = readFirst(['/sys/devices/system/cpu/cpu0/microcode/version'])
+  const hostLogicalCpuCount = Math.max(1, os.cpus().length)
+  const hostMemoryBytes = os.totalmem()
   const identity = {
     platform: process.platform,
     architecture: process.arch,
     kernel: os.release(),
     cpuModel: cpu?.model?.trim() || 'unknown',
-    logicalCpuCount: os.cpus().length,
-    topology: captureCpuTopology(cpuset, os.cpus().length),
-    totalMemoryBytes: os.totalmem(),
+    logicalCpuCount: resolveContainerVisibleCpuCount(hostLogicalCpuCount, cpuset, cpuMax),
+    topology: captureCpuTopology(cpuset, hostLogicalCpuCount),
+    totalMemoryBytes: resolveContainerVisibleMemoryBytes(hostMemoryBytes, memoryMax),
     cpuset: cpuset || 'unavailable',
     cpuMax: cpuMax || 'unavailable',
     memoryMax: memoryMax || 'unavailable',
@@ -58,6 +64,28 @@ export function captureHardwareIdentity() {
     nodeVersion: process.version
   }
   return { identity, digest: sha256Value(identity) }
+}
+
+export function resolveContainerVisibleCpuCount(hostLogicalCpuCount, cpuset, cpuMax) {
+  const candidates = [positiveInteger(hostLogicalCpuCount) ?? 1]
+  const cpus = parseCpuSet(cpuset)
+  if (cpus?.size) candidates.push(cpus.size)
+  const match = String(cpuMax ?? '').trim().match(/^(max|\d+)\s+(\d+)$/u)
+  if (match && match[1] !== 'max') {
+    const quota = Number(match[1])
+    const period = Number(match[2])
+    if (quota > 0 && period > 0) candidates.push(Math.max(1, Math.ceil(quota / period)))
+  }
+  return Math.min(...candidates)
+}
+
+export function resolveContainerVisibleMemoryBytes(hostMemoryBytes, memoryMax) {
+  const host = positiveSafeInteger(hostMemoryBytes) ?? 1
+  const text = String(memoryMax ?? '').trim()
+  if (!/^\d+$/u.test(text)) return host
+  const limit = Number(text)
+  if (!Number.isSafeInteger(limit) || limit <= 0) return host
+  return Math.min(host, limit)
 }
 
 export function validateRuntimeProfileResult(result, expected = {}) {
@@ -87,8 +115,32 @@ export function validateRuntimeProfileResult(result, expected = {}) {
   validateEffectiveRuntime(result.effectiveRuntime, result, errors)
   if (expected.expectedProfile) validateEffectiveProfileBinding(result.effectiveRuntime, expected.expectedProfile, errors)
   validateExecution(result.execution, expected.cooldownMs, result.effectiveRuntime?.topologyMode, expected.expectedHardware, errors)
-  validateMeasurements(result.measurements, errors)
+  validateStageReceipts(result.execution?.commandReceipts, result, errors)
+  if (result.execution?.measurementClaimDigest !== createRuntimeMeasurementClaimDigest(result)) errors.push('execution.measurementClaimDigest does not bind the effective runtime and measurements')
+  validateMeasurements(result.measurements, result, errors)
   return errors
+}
+
+export function createRuntimeMeasurementClaimDigest(result) {
+  const execution = result?.execution ?? {}
+  return sha256Value({
+    effectiveRuntime: result?.effectiveRuntime ?? null,
+    threadPoolEvidence: result?.threadPoolEvidence ?? null,
+    isolation: {
+      measurementWindowQuiet: execution.measurementWindowQuiet,
+      loadGeneratorIsolated: execution.loadGeneratorIsolated,
+      targetCpuset: execution.targetCpuset,
+      observedTargetCpuset: execution.observedTargetCpuset,
+      loadGeneratorCpuset: execution.loadGeneratorCpuset,
+      targetCgroup: execution.targetCgroup,
+      loadGeneratorCgroup: execution.loadGeneratorCgroup,
+      targetMemoryBytes: execution.targetMemoryBytes
+    },
+    stageReceipts: Array.isArray(execution.commandReceipts)
+      ? execution.commandReceipts.map((receipt) => ({ stage: receipt?.stage, resultDigest: receipt?.resultDigest, evidence: receipt?.evidence }))
+      : null,
+    measurements: result?.measurements ?? null
+  })
 }
 
 function validateEffectiveProfileBinding(value, profile, errors) {
@@ -96,13 +148,24 @@ function validateEffectiveProfileBinding(value, profile, errors) {
   const expected = {
     profilePurpose: profile.purpose,
     threadPoolMode: profile.threadPool.mode,
+    threadPoolMinThreadsPerCpuDeclared: profile.threadPool.minThreadsPerCpu,
+    singleFile: profile.publish.singleFile,
+    readyToRun: profile.publish.readyToRun,
+    tieredPgo: profile.publish.tieredPgo,
+    quickJitForLoops: profile.publish.quickJitForLoops,
     serverGc: profile.gc.server,
     nativeAot: profile.publish.nativeAot,
+    gcHeapCountMode: profile.gc.heapCountMode,
+    gcHeapHardLimitMode: profile.gc.heapHardLimitMode,
+    gcHeapHardLimitPercentConfigured: profile.gc.heapHardLimitPercent,
     baseImageFamily: profile.baseImageFamily,
     targetRuntime: profile.targetRuntime,
     topologyMode: profile.topology.mode
   }
   for (const [field, expectedValue] of Object.entries(expected)) if (value[field] !== expectedValue) errors.push(`effectiveRuntime.${field} does not match the named profile`)
+  if (profile.threadPool.mode !== 'evidence-derived' && value.threadPoolMinThreadsPerCpu !== profile.threadPool.minThreadsPerCpu) {
+    errors.push('effectiveRuntime.threadPoolMinThreadsPerCpu does not match the named profile')
+  }
 }
 
 function validateEffectiveRuntime(value, result, errors) {
@@ -115,10 +178,18 @@ function validateEffectiveRuntime(value, result, errors) {
   }
   if (!NODE_VERSION.test(String(value.nodeVersion ?? ''))) errors.push('effectiveRuntime.nodeVersion must be a concrete semantic version')
   if (!['throughput', 'startup', 'experiment', 'negative-control', 'prototype'].includes(value.profilePurpose)) errors.push('effectiveRuntime.profilePurpose is invalid')
+  for (const field of ['singleFile', 'readyToRun', 'tieredPgo', 'quickJitForLoops', 'serverGc', 'nativeAot']) {
+    if (typeof value[field] !== 'boolean') errors.push(`effectiveRuntime.${field} must be boolean`)
+  }
   if (!['runtime-default', 'evidence-derived', 'overprovisioned-negative-control'].includes(value.threadPoolMode)) errors.push('effectiveRuntime.threadPoolMode is invalid')
   if (!Number.isInteger(value.threadPoolMinThreadsPerCpu) || value.threadPoolMinThreadsPerCpu < 0 || value.threadPoolMinThreadsPerCpu > 256) errors.push('effectiveRuntime.threadPoolMinThreadsPerCpu is invalid')
+  if (!Number.isInteger(value.threadPoolMinThreadsPerCpuDeclared) || value.threadPoolMinThreadsPerCpuDeclared < 0 || value.threadPoolMinThreadsPerCpuDeclared > 256) errors.push('effectiveRuntime.threadPoolMinThreadsPerCpuDeclared is invalid')
   if (value.serverGc !== true) errors.push('effectiveRuntime.serverGc must be true')
-  if (typeof value.nativeAot !== 'boolean') errors.push('effectiveRuntime.nativeAot must be boolean')
+  if (!['container-default', 'cpuset'].includes(value.gcHeapCountMode)) errors.push('effectiveRuntime.gcHeapCountMode is invalid')
+  if (!['container-limit', 'explicit-container-percent'].includes(value.gcHeapHardLimitMode)) errors.push('effectiveRuntime.gcHeapHardLimitMode is invalid')
+  if (!Number.isInteger(value.gcHeapCountConfigured) || value.gcHeapCountConfigured < 0 || value.gcHeapCountConfigured > 4096) errors.push('effectiveRuntime.gcHeapCountConfigured is invalid')
+  if (!Number.isSafeInteger(value.gcHeapHardLimitBytesConfigured) || value.gcHeapHardLimitBytesConfigured < 0) errors.push('effectiveRuntime.gcHeapHardLimitBytesConfigured is invalid')
+  if (!Number.isInteger(value.gcHeapHardLimitPercentConfigured) || value.gcHeapHardLimitPercentConfigured < 0 || value.gcHeapHardLimitPercentConfigured > 95) errors.push('effectiveRuntime.gcHeapHardLimitPercentConfigured is invalid')
   if (!['musl', 'glibc'].includes(value.baseImageFamily)) errors.push('effectiveRuntime.baseImageFamily is invalid')
   if (!['linux-musl-x64', 'linux-x64'].includes(value.targetRuntime)) errors.push('effectiveRuntime.targetRuntime is invalid')
   if (!['smt-visible', 'physical-core-only', 'numa-local'].includes(value.topologyMode)) errors.push('effectiveRuntime.topologyMode is invalid')
@@ -133,6 +204,15 @@ function validateEffectiveRuntime(value, result, errors) {
     }
   }
   if (value.threadPoolMode === 'overprovisioned-negative-control' && value.profilePurpose !== 'negative-control') errors.push('overprovisioned ThreadPool mode must remain a negative control')
+  const targetCpus = parseCpuSet(result.execution?.targetCpuset)
+  if (value.gcHeapCountMode === 'container-default' && value.gcHeapCountConfigured !== 0) errors.push('container-default GC heap count cannot force a configured value')
+  if (value.gcHeapCountMode === 'cpuset' && (!targetCpus || value.gcHeapCountConfigured !== targetCpus.size)) errors.push('cpuset GC heap count must equal the isolated target CPU count')
+  const targetMemoryBytes = result.execution?.targetMemoryBytes
+  if (value.gcHeapHardLimitMode === 'container-limit' && (value.gcHeapHardLimitBytesConfigured !== 0 || value.gcHeapHardLimitPercentConfigured !== 0)) errors.push('container-limit GC mode cannot force a heap hard limit')
+  const expectedHardLimitBytes = Number.isSafeInteger(targetMemoryBytes) ? Math.floor(targetMemoryBytes * value.gcHeapHardLimitPercentConfigured / 100) : -1
+  if (value.gcHeapHardLimitMode === 'explicit-container-percent' && (value.gcHeapHardLimitPercentConfigured < 1 || value.gcHeapHardLimitBytesConfigured !== expectedHardLimitBytes)) {
+    errors.push('explicit GC heap hard limit must exactly match the named profile percentage of process-visible memory')
+  }
 }
 
 function validateExecution(value, expectedCooldownMs, topologyMode, hardware, errors) {
@@ -157,6 +237,62 @@ function validateExecution(value, expectedCooldownMs, topologyMode, hardware, er
   validateTopologyPlacement(observedTargetCpus, topologyMode, hardware, errors)
 }
 
+function validateStageReceipts(receipts, result, errors) {
+  if (!Array.isArray(receipts)) return errors.push('execution.commandReceipts must contain provenance for every stage')
+  const expectedStages = ['cleanupBefore', 'build', 'correctness', 'security', 'release']
+  if (result.effectiveRuntime?.nativeAot === true) expectedStages.push('featureParity', 'securityParity')
+  expectedStages.push('measure', 'cleanupAfter')
+  if (canonicalJson(receipts.map((receipt) => receipt?.stage)) !== canonicalJson(expectedStages)) errors.push('execution.commandReceipts stage order is incomplete or invalid')
+  const byStage = new Map()
+  for (const receipt of receipts) {
+    const stage = receipt?.stage ?? 'unknown'
+    if (byStage.has(stage)) errors.push(`execution.commandReceipts duplicates ${stage}`)
+    byStage.set(stage, receipt)
+    if (!plainObject(receipt) || receipt.schema !== STAGE_RECEIPT_SCHEMA || receipt.status !== 'pass') {
+      errors.push(`execution.commandReceipts ${stage} schema/status is invalid`)
+      continue
+    }
+    if (canonicalJson(receipt.identity) !== canonicalJson(result.identity)) errors.push(`execution.commandReceipts ${stage} identity does not match the run`)
+    for (const field of ['resultDigest']) if (!SHA256.test(String(receipt[field] ?? ''))) errors.push(`execution.commandReceipts ${stage}.${field} is invalid`)
+    if (!plainObject(receipt.command) || receipt.command.exitCode !== 0 || !finiteNonNegative(receipt.command.durationMs)) errors.push(`execution.commandReceipts ${stage}.command is invalid`)
+    for (const field of ['executableDigest', 'argsDigest']) if (!SHA256.test(String(receipt.command?.[field] ?? ''))) errors.push(`execution.commandReceipts ${stage}.command.${field} is invalid`)
+    const expectedKind = expectedStageEvidenceKind(stage)
+    if (!plainObject(receipt.evidence) || receipt.evidence.kind !== expectedKind) errors.push(`execution.commandReceipts ${stage}.evidence kind is invalid`)
+    for (const field of stageEvidenceDigestFields(stage)) if (!SHA256.test(String(receipt.evidence?.[field] ?? ''))) errors.push(`execution.commandReceipts ${stage}.evidence.${field} is invalid`)
+  }
+  const build = byStage.get('build')?.evidence
+  if (build?.imageDigest !== result.effectiveRuntime?.imageDigest || !String(build?.imageRef ?? '').endsWith(`@${build?.imageDigest ?? '<missing>'}`)) {
+    errors.push('build receipt image identity must match the inspected effective image')
+  }
+  for (const stage of ['correctness', 'security', 'release']) {
+    const evidence = byStage.get(stage)?.evidence
+    if (evidence?.gate !== stage || evidence?.gateStatus !== 'pass') errors.push(`${stage} stage receipt must prove the named gate`)
+  }
+  if (result.effectiveRuntime?.nativeAot === true) {
+    for (const [stage, parity] of [['featureParity', 'feature'], ['securityParity', 'security']]) {
+      const evidence = byStage.get(stage)?.evidence
+      if (evidence?.parity !== parity || evidence?.scope !== 'public-artifact-only' || evidence?.parityStatus !== 'pass') errors.push(`${stage} receipt must prove narrow ${parity} parity`)
+      if (evidence?.featureSetDigest !== build?.featureSetDigest) errors.push(`${stage} featureSetDigest must match the built prototype`)
+    }
+  }
+}
+
+function expectedStageEvidenceKind(stage) {
+  if (stage.startsWith('cleanup')) return 'cleanup'
+  if (stage === 'build') return 'build'
+  if (['correctness', 'security', 'release'].includes(stage)) return 'gate'
+  if (stage.endsWith('Parity')) return 'parity'
+  return 'measurement'
+}
+
+function stageEvidenceDigestFields(stage) {
+  if (stage.startsWith('cleanup')) return ['cleanupTargetsDigest']
+  if (stage === 'build') return ['imageDigest', 'artifactManifestDigest', 'featureSetDigest']
+  if (['correctness', 'security', 'release'].includes(stage)) return ['evidenceDigest']
+  if (stage.endsWith('Parity')) return ['evidenceDigest', 'featureSetDigest']
+  return ['payloadDigest', 'faultPlanDigest', 'loadFixtureDigest']
+}
+
 export function validateRuntimeMatrixEvidence(evidence, options = {}) {
   const errors = []
   if (!plainObject(evidence)) return ['evidence must be an object']
@@ -166,6 +302,7 @@ export function validateRuntimeMatrixEvidence(evidence, options = {}) {
   if (options.requireComplete !== false && evidence.status !== 'complete') errors.push('evidence must be complete')
   const identity = evidence.identity ?? {}
   if (!COMMIT_SHA.test(String(identity.commitSha ?? ''))) errors.push('identity.commitSha is invalid')
+  if (options.expectedCommitSha !== undefined && identity.commitSha !== options.expectedCommitSha) errors.push('identity.commitSha does not match the release commit')
   if (!SAFE_ID.test(String(identity.fixtureId ?? ''))) errors.push('identity.fixtureId is invalid')
   if (!SHA256.test(String(identity.profileManifestDigest ?? ''))) errors.push('identity.profileManifestDigest is invalid')
   if (!SHA256.test(String(identity.hardwareDigest ?? ''))) errors.push('identity.hardwareDigest is invalid')
@@ -231,7 +368,14 @@ export function validateRuntimeMatrixEvidence(evidence, options = {}) {
     validateMatrixRuntimeIdentity(evidence.runs.filter((run) => run.status === 'ok'), errors)
   }
   if (validatesCompleteEvidence && !plainObject(evidence.comparison)) errors.push('complete evidence requires pairwise and Pareto comparison')
-  else if (validatesCompleteEvidence) validateComparison(evidence.comparison, evidence.profileIds, evidence.rounds, errors)
+  else if (validatesCompleteEvidence) {
+    validateComparison(evidence.comparison, evidence.profileIds, evidence.rounds, errors)
+    const expectedComparison = summarizeRuntimeRuns(
+      evidence.runs.filter((run) => run.status === 'ok'),
+      evidence.comparison.baselineProfileId
+    )
+    if (sha256Value(evidence.comparison) !== sha256Value(expectedComparison)) errors.push('comparison must be derived exactly from the successful run evidence')
+  }
   if (validatesCompleteEvidence) validateSelection(evidence, options, errors)
   else if (evidence.selection !== null && evidence.selection !== undefined) errors.push('partial evidence cannot contain a production selection')
   return errors
@@ -353,10 +497,11 @@ function validateSelection(evidence, options, errors) {
 }
 
 function validateComparison(comparison, profileIds, rounds, errors) {
-  if (!plainObject(comparison.profiles) || !plainObject(comparison.pairwise) || !Array.isArray(comparison.paretoProfileIds)) {
-    errors.push('comparison profiles, pairwise and Pareto fields are required')
+  if (!plainObject(comparison.profiles) || !plainObject(comparison.pairwise) || !Array.isArray(comparison.paretoProfileIds) || !plainObject(comparison.conclusions)) {
+    errors.push('comparison profiles, pairwise, Pareto and startup/steady conclusions are required')
     return
   }
+  for (const field of ['startup', 'steadyState']) if (!plainObject(comparison.conclusions[field])) errors.push(`comparison conclusions.${field} is required`)
   for (const profileId of profileIds) {
     const profile = comparison.profiles[profileId]
     const pairwise = comparison.pairwise[profileId]
@@ -407,6 +552,7 @@ export function summarizeRuntimeRuns(runs, baselineProfileId) {
       rssPeakMedianBytes: median(values.map((run) => run.measurements.rssPeakBytes)),
       coldStartMedianMs: median(values.map((run) => run.measurements.coldStartMs)),
       readyMedianMs: median(values.map((run) => run.measurements.readyMs)),
+      warmupMedianMs: median(values.map((run) => run.measurements.warmupMs)),
       rolloutMedianMs: median(values.map((run) => run.measurements.rolloutMs)),
       recoveryMedianMs: median(values.map((run) => run.measurements.recoveryMs)),
       gcPauseP99MedianMs: median(values.map((run) => run.measurements.gcPauseP99Ms)),
@@ -438,7 +584,22 @@ export function summarizeRuntimeRuns(runs, baselineProfileId) {
     }]))
   }])) : {}
   const pareto = Object.keys(profiles).filter((candidate) => !Object.keys(profiles).some((other) => other !== candidate && dominates(profiles[other], profiles[candidate])))
-  return { baselineProfileId, profiles, pairwise, paretoProfileIds: pareto }
+  const lowest = (selector) => profileIds.reduce((best, id) => best === null || selector(profiles[id]) < selector(profiles[best]) ? id : best, null)
+  const highest = (selector) => profileIds.reduce((best, id) => best === null || selector(profiles[id]) > selector(profiles[best]) ? id : best, null)
+  const conclusions = {
+    startup: {
+      lowestColdStartProfileId: lowest((profile) => profile.coldStartMedianMs),
+      lowestReadyProfileId: lowest((profile) => profile.readyMedianMs),
+      lowestWarmupProfileId: lowest((profile) => profile.warmupMedianMs)
+    },
+    steadyState: {
+      highestSafeRpsProfileId: highest((profile) => profile.safeRpsFloorMedian),
+      lowestP999ProfileId: lowest((profile) => profile.p999CeilingMedianMs),
+      lowestRssProfileId: lowest((profile) => profile.rssPeakMedianBytes),
+      paretoProfileIds: pareto
+    }
+  }
+  return { baselineProfileId, profiles, pairwise, paretoProfileIds: pareto, conclusions }
 }
 
 export function evaluateRuntimeProfileSelection(comparison, candidateProfileId, options = {}) {
@@ -481,8 +642,10 @@ export function evaluateRuntimeProfileSelection(comparison, candidateProfileId, 
       if (delta.routes[routeName].p999DeltaPercent > (options.maximumP999DeltaPercent ?? 5)) errors.push(`candidate ${routeName} p99.9 regresses beyond policy`)
     }
     const noiseFloor = options.minimumMaterialDeltaPercent ?? 2
-    const material = delta.safeRpsDeltaPercent >= noiseFloor || delta.p999DeltaPercent <= -noiseFloor || delta.rssDeltaPercent <= -noiseFloor || delta.coldStartDeltaPercent <= -noiseFloor
+    const steadyStateMaterial = delta.safeRpsDeltaPercent >= noiseFloor || delta.p999DeltaPercent <= -noiseFloor || delta.rssDeltaPercent <= -noiseFloor
+    const material = steadyStateMaterial || delta.coldStartDeltaPercent <= -noiseFloor
     if (!material) errors.push(`candidate does not exceed the ${noiseFloor}% materiality floor`)
+    if (candidate.profilePurpose === 'startup' && !steadyStateMaterial) errors.push('startup-only improvement cannot replace the throughput production default')
   }
   for (const [optionName, label, actual] of [
     ['maximumGcPauseP99Ms', 'GC pause', candidate.gcPauseP99MedianMs],
@@ -498,7 +661,7 @@ export function evaluateRuntimeProfileSelection(comparison, candidateProfileId, 
   return { eligible: errors.length === 0, baselineProfileId: baselineId, candidateProfileId, errors }
 }
 
-function validateMeasurements(value, errors) {
+function validateMeasurements(value, result, errors) {
   if (!plainObject(value)) return errors.push('measurements are required')
   for (const field of ['imageSizeBytes', 'coldStartMs', 'readyMs', 'warmupMs', 'rssPeakBytes', 'managedHeapPeakBytes', 'lohPeakBytes', 'gcPauseP99Ms', 'gcCpuPercent', 'jitTimeMs', 'jitCodeSizeBytes', 'tierTransitions', 'threadPoolQueueP99', 'threadPoolStarvationCount', 'contextSwitches', 'cpuMigrations', 'cpuThrottledSeconds', 'startupCpuSeconds', 'steadyStateCpuSeconds', 'rolloutMs', 'recoveryMs', 'blueGreenOverlapPeakBytes']) {
     if (!finiteNonNegative(value[field])) errors.push(`measurements.${field} must be a finite non-negative number`)
@@ -517,6 +680,32 @@ function validateMeasurements(value, errors) {
     if (route.cyclesPerRequest > 0 && Math.abs(route.ipc - (route.instructionsPerRequest / route.cyclesPerRequest)) > 0.001) errors.push(`measurements.routes.${routeName}.ipc does not match instructions/cycles`)
   }
   validatePower(value.power, errors)
+  validateResourceStress(value.resourceStress, value.blueGreenOverlapPeakBytes, result, errors)
+}
+
+function validateResourceStress(value, blueGreenOverlapPeakBytes, result, errors) {
+  if (!plainObject(value)) return errors.push('measurements.resourceStress is required')
+  if (!Number.isSafeInteger(value.targetMemoryBytes) || value.targetMemoryBytes <= 0 || value.targetMemoryBytes !== result.execution?.targetMemoryBytes) {
+    errors.push('measurements.resourceStress.targetMemoryBytes must match execution target memory')
+  }
+  if (!Number.isSafeInteger(value.allocationBurstPeakBytes) || value.allocationBurstPeakBytes <= 0) errors.push('measurements.resourceStress.allocationBurstPeakBytes must be a positive safe integer')
+  if (!finiteNonNegative(value.gcPressurePeakPercent) || value.gcPressurePeakPercent > 100) errors.push('measurements.resourceStress.gcPressurePeakPercent must be between 0 and 100')
+  const requiresOomProbe = result.effectiveRuntime?.gcHeapHardLimitMode === 'explicit-container-percent'
+  const allowedOutcomes = requiresOomProbe ? ['bounded-rejection', 'recovered'] : ['not-applicable', 'bounded-rejection', 'recovered']
+  if (!allowedOutcomes.includes(value.oomOutcome)) errors.push('measurements.resourceStress.oomOutcome does not prove the configured hard-limit behavior')
+  if (value.oomOutcome === 'not-applicable') {
+    if (value.oomRecoveryMs !== null) errors.push('measurements.resourceStress.oomRecoveryMs must be null when no OOM probe applies')
+  } else if (!finiteNonNegative(value.oomRecoveryMs)) errors.push('measurements.resourceStress.oomRecoveryMs must record bounded recovery')
+
+  const overlap = value.blueGreen
+  if (!plainObject(overlap)) return errors.push('measurements.resourceStress.blueGreen is required')
+  const fields = ['activeSlotRssBytes', 'candidateSlotRssBytes', 'publicSnapshotBytes', 'ssrWorkerBytes', 'otherBytes', 'totalBytes']
+  for (const field of fields) if (!Number.isSafeInteger(overlap[field]) || overlap[field] < 0) errors.push(`measurements.resourceStress.blueGreen.${field} must be a non-negative safe integer`)
+  const parts = ['activeSlotRssBytes', 'candidateSlotRssBytes', 'publicSnapshotBytes', 'ssrWorkerBytes', 'otherBytes']
+  const total = parts.reduce((sum, field) => sum + (Number.isSafeInteger(overlap[field]) ? overlap[field] : 0), 0)
+  if (overlap.totalBytes !== total) errors.push('measurements.resourceStress.blueGreen.totalBytes must equal the slot/snapshot/SSR breakdown')
+  if (overlap.totalBytes !== blueGreenOverlapPeakBytes) errors.push('measurements.resourceStress.blueGreen.totalBytes must match blueGreenOverlapPeakBytes')
+  if (Number.isSafeInteger(value.targetMemoryBytes) && overlap.totalBytes > value.targetMemoryBytes) errors.push('blue-green overlap exceeds the target memory budget')
 }
 
 function validatePower(value, errors) {
@@ -584,6 +773,10 @@ function captureNumaTopology(visibleCpus) {
 }
 
 function validateHardwareTopology(hardware, errors) {
+  if (!Number.isInteger(hardware?.logicalCpuCount) || hardware.logicalCpuCount < 1) errors.push('hardware.logicalCpuCount must be container-visible and positive')
+  if (!Number.isSafeInteger(hardware?.totalMemoryBytes) || hardware.totalMemoryBytes < 1) errors.push('hardware.totalMemoryBytes must be container-visible and positive')
+  const visibleCpus = parseCpuSet(hardware?.cpuset)
+  if (visibleCpus && hardware.logicalCpuCount > visibleCpus.size) errors.push('hardware.logicalCpuCount cannot exceed the visible cpuset')
   const topology = hardware?.topology
   if (!plainObject(topology) || !['ok', 'unavailable'].includes(topology.status)) {
     errors.push('hardware.topology must declare ok or unavailable')
@@ -681,6 +874,14 @@ function dominates(a, b) {
 
 function finiteNonNegative(value) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
+}
+
+function positiveInteger(value) {
+  return Number.isInteger(value) && value > 0 ? value : null
+}
+
+function positiveSafeInteger(value) {
+  return Number.isSafeInteger(value) && value > 0 ? value : null
 }
 
 function parseCpuSet(value) {

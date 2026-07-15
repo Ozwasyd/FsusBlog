@@ -20,6 +20,7 @@ try {
   const manifestFile = path.resolve(options.manifest)
   const manifest = readReleaseManifest(manifestFile, {
     requireRegistryDigest: true,
+    requireConcreteRuntimeProfile: true,
     expectedReleaseId: options['release-id'],
     expectedImageRef: options['image-ref'],
     expectedImageDigest: options['image-digest'],

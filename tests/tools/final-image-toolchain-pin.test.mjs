@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { resolveRuntimeProfile } from '../../tools/runtime-profiles/runtime-publish-profile.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const dockerfile = fs.readFileSync(path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8')
@@ -69,7 +70,11 @@ test('final Dockerfile pins musl and glibc .NET and Node images to one patch set
     'io.fsusblog.build.sdk-image-digest',
     'io.fsusblog.runtime.node-version',
     'io.fsusblog.runtime.node-image',
-    'io.fsusblog.runtime.node-image-digest'
+    'io.fsusblog.runtime.node-image-digest',
+    'io.fsusblog.runtime.gc-heap-count-mode',
+    'io.fsusblog.runtime.gc-heap-hard-limit-mode',
+    'io.fsusblog.runtime.gc-heap-hard-limit-percent',
+    'io.fsusblog.runtime.thread-pool-min-threads-per-cpu'
   ]) assert.ok(dockerfile.includes(label), `missing ${label}`)
 })
 
@@ -114,6 +119,7 @@ exit 91
 }
 
 test('build-final passes the complete pin set and accepts matching inherited labels', (t) => {
+  const runtimeProfile = resolveRuntimeProfile('throughput-musl')
   const runtimeImage = `mcr.microsoft.com/dotnet/aspnet:${pins.runtimeVersion}-alpine3.23@${pins.aspnetMusl}`
   const sdkImage = `mcr.microsoft.com/dotnet/sdk:${pins.sdkVersion}-alpine3.23@${pins.sdkMusl}`
   const nodeImage = `node:${pins.nodeVersion}-alpine3.23@${pins.nodeMusl}`
@@ -128,7 +134,22 @@ test('build-final passes the complete pin set and accepts matching inherited lab
     'io.fsusblog.runtime.node-image': nodeImage,
     'io.fsusblog.runtime.node-image-digest': pins.nodeMusl,
     'io.fsusblog.runtime.base-family': 'musl',
-    'io.fsusblog.runtime.target-runtime': 'linux-musl-x64'
+    'io.fsusblog.runtime.target-runtime': 'linux-musl-x64',
+    'io.fsusblog.runtime.profile-id': runtimeProfile.profile.id,
+    'io.fsusblog.runtime.profile-manifest-digest': runtimeProfile.digest,
+    'io.fsusblog.runtime.profile-digest': runtimeProfile.profileDigest,
+    'io.fsusblog.runtime.publish-single-file': 'true',
+    'io.fsusblog.runtime.publish-ready-to-run': 'false',
+    'io.fsusblog.runtime.tiered-pgo': 'true',
+    'io.fsusblog.runtime.quick-jit-for-loops': 'true',
+    'io.fsusblog.runtime.server-gc': 'true',
+    'io.fsusblog.runtime.native-aot': 'false',
+    'io.fsusblog.runtime.gc-heap-count-mode': 'container-default',
+    'io.fsusblog.runtime.gc-heap-hard-limit-mode': 'container-limit',
+    'io.fsusblog.runtime.gc-heap-hard-limit-percent': '0',
+    'io.fsusblog.runtime.thread-pool-mode': 'runtime-default',
+    'io.fsusblog.runtime.thread-pool-min-threads-per-cpu': '0',
+    'io.fsusblog.runtime.topology-mode': 'smt-visible'
   })
 
   assert.equal(result.status, 0, result.stderr)

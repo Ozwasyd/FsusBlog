@@ -191,6 +191,28 @@ test('manifest rejects mutable tags digest mismatches corruption and sensitive f
   }
 })
 
+test('final release paths reject missing and zero runtime profile digests', () => {
+  const valid = createReleaseManifest(createInput())
+  const zeroProfile = {
+    ...valid,
+    runtimeProfile: {
+      ...valid.runtimeProfile,
+      manifestDigest: `sha256:${'0'.repeat(64)}`,
+      profileDigest: `sha256:${'0'.repeat(64)}`
+    }
+  }
+  const errors = validateReleaseManifest(zeroProfile, {
+    requireRegistryDigest: true,
+    requireConcreteRuntimeProfile: true
+  })
+  assert.ok(errors.some((error) => error.includes('manifestDigest must not be the zero digest')))
+  assert.ok(errors.some((error) => error.includes('profileDigest must not be the zero digest')))
+  assert.throws(
+    () => createReleaseManifest(createInput({ runtimeProfile: undefined })),
+    /must not be the zero digest/u
+  )
+})
+
 test('manifest creator CLI writes the same digest-bound schema consumed by deploy', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-cli-'))
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))

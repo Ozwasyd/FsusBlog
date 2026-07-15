@@ -633,7 +633,11 @@ runtime_tuning_json() {
     --arg cacheL1CounterMode "$cache_l1_counter_mode" \
     --arg publicHotReadCounterMode "$public_hot_read_counter_mode" \
     --arg benchmarkEvidence "$PERF_ARTIFACT" \
-    --arg runtimeMatrixEvidence "${RUNTIME_MATRIX_ARTIFACT:-null}" '
+    --arg runtimeMatrixEvidence "${RUNTIME_MATRIX_ARTIFACT:-null}" \
+    --arg runtimeMatrixStatus "${RUNTIME_MATRIX_STATUS_VALUE:-missing}" \
+    --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
+    --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
+    --arg profileDigest "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" '
     {
       profile: {
         id: (if $profileId == "" then null else $profileId end),
@@ -653,6 +657,7 @@ runtime_tuning_json() {
       },
       benchmarkEvidence: (if $benchmarkEvidence == "null" then null else $benchmarkEvidence end),
       runtimeMatrixEvidence: (if $runtimeMatrixEvidence == "null" then null else $runtimeMatrixEvidence end),
+      runtimeMatrixStatus: $runtimeMatrixStatus,
       nonDefaultPresetsRequireBenchmarkEvidence: true,
       rollback: "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
     }'
@@ -691,17 +696,37 @@ COVERAGE_ARTIFACT="$(copy_if_present "$COVERAGE_DIR" coverage)"
 PERF_ARTIFACT="$(copy_if_present "$PERF_DIR" perf)"
 RUNTIME_MATRIX_SOURCE="${FSUSBLOG_RUNTIME_MATRIX_EVIDENCE:-}"
 RUNTIME_MATRIX_ARTIFACT="null"
+RUNTIME_MATRIX_STATUS_VALUE="missing"
 if [[ -n "$RUNTIME_MATRIX_SOURCE" ]]; then
   if [[ -z "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" || -z "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" || -z "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" ]]; then
     echo "runtime matrix evidence requires FSUSBLOG_RUNTIME_PROFILE_ID and both profile digests" >&2
     exit 1
   fi
+  if [[ "$FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST" == "sha256:$(printf '0%.0s' {1..64})" \
+    || "$FSUSBLOG_RUNTIME_PROFILE_DIGEST" == "sha256:$(printf '0%.0s' {1..64})" ]]; then
+    echo "runtime matrix evidence cannot use zero release profile digests" >&2
+    exit 1
+  fi
+  if [[ -n "${FSUSBLOG_RELEASE_MANIFEST:-}" && -f "$FSUSBLOG_RELEASE_MANIFEST" ]]; then
+    RELEASE_PROFILE_ID="$(jq -r '.runtimeProfile.id // empty' "$FSUSBLOG_RELEASE_MANIFEST")"
+    RELEASE_PROFILE_MANIFEST_DIGEST="$(jq -r '.runtimeProfile.manifestDigest // empty' "$FSUSBLOG_RELEASE_MANIFEST")"
+    RELEASE_PROFILE_DIGEST="$(jq -r '.runtimeProfile.profileDigest // empty' "$FSUSBLOG_RELEASE_MANIFEST")"
+    if [[ "$FSUSBLOG_RUNTIME_PROFILE_ID" != "$RELEASE_PROFILE_ID" \
+      || "$FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST" != "$RELEASE_PROFILE_MANIFEST_DIGEST" \
+      || "$FSUSBLOG_RUNTIME_PROFILE_DIGEST" != "$RELEASE_PROFILE_DIGEST" ]]; then
+      echo "runtime matrix profile identity does not match the release manifest" >&2
+      exit 1
+    fi
+  fi
+  RUNTIME_MATRIX_COMMIT_SHA="$(git -C "$ROOT_DIR" rev-parse HEAD)"
   node "$ROOT_DIR/tools/runtime-profiles/check-runtime-publish-evidence.mjs" \
     --evidence "$RUNTIME_MATRIX_SOURCE" \
+    --expected-commit-sha "$RUNTIME_MATRIX_COMMIT_SHA" \
     --expected-profile-id "$FSUSBLOG_RUNTIME_PROFILE_ID" \
     --expected-profile-manifest-digest "$FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST" \
     --expected-profile-digest "$FSUSBLOG_RUNTIME_PROFILE_DIGEST" >/dev/null
   RUNTIME_MATRIX_ARTIFACT="$(copy_if_present "$RUNTIME_MATRIX_SOURCE" runtime-publish-matrix.json)"
+  RUNTIME_MATRIX_STATUS_VALUE="ok"
 fi
 TEST_PLAN_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/test-plan.json" test-plan.json)"
 JOB_SUMMARIES="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/jobs" job-summaries)"
@@ -754,6 +779,7 @@ FIREWALL_POLICY_DIGEST="$(artifact_digest_json "$FIREWALL_POLICY")"
 DNS_READY_DIGEST="$(artifact_digest_json "$DNS_READY")"
 DNS_DELEGATION_DIGEST="$(artifact_digest_json "$DNS_DELEGATION")"
 RELEASE_ROLLOUT_DIGEST="$(artifact_digest_json "$RELEASE_ROLLOUT")"
+RUNTIME_MATRIX_DIGEST="$(artifact_digest_json "$RUNTIME_MATRIX_ARTIFACT")"
 
 PRODUCTION_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/production-exposure-status.json")"
 LIVE_STATUS_VALUE="$(result_status_or_missing "$SECURITY_DIR/production-exposure-live.json")"
@@ -865,6 +891,7 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$AEDS_DECODE_BUDGET_STATUS_VALUE" != "ok" \
   || "$AEDS_WASM_BROWSER_STATUS_VALUE" != "ok" \
   || "$DOC_SYNC_STATUS_VALUE" != "ok" \
+  || "$RUNTIME_MATRIX_STATUS_VALUE" != "ok" \
   || "$RELEASE_IDENTITY_STATUS" != "ok" \
   || "$IMAGE_DIGEST_STATUS" != "present" ]]; then
   MANIFEST_STATUS="collected-blocked"
@@ -907,6 +934,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "retentionCleanup": $RETENTION_CLEANUP,
     "coverage": $COVERAGE_ARTIFACT,
     "perf": $PERF_ARTIFACT,
+    "runtimePublishMatrix": $RUNTIME_MATRIX_ARTIFACT,
     "testPlan": $TEST_PLAN_ARTIFACT,
     "jobSummaries": $JOB_SUMMARIES,
     "endpointDepthSummary": $ENDPOINT_DEPTH_SUMMARY,
@@ -959,7 +987,8 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "firewallPolicy": $FIREWALL_POLICY_DIGEST,
     "dnsReadiness": $DNS_READY_DIGEST,
     "dnsDelegation": $DNS_DELEGATION_DIGEST,
-    "releaseRollout": $RELEASE_ROLLOUT_DIGEST
+    "releaseRollout": $RELEASE_ROLLOUT_DIGEST,
+    "runtimePublishMatrix": $RUNTIME_MATRIX_DIGEST
   },
   "evidenceSummary": {
     "image": {

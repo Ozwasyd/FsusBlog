@@ -18,7 +18,10 @@ try {
   options = parseArgs(process.argv.slice(2))
   const manifestFile = requiredPath(options, 'release-manifest')
   const slot = normalizeSlot(options.slot)
-  const releaseManifest = readReleaseManifest(manifestFile, { requireRegistryDigest: true })
+  const releaseManifest = readReleaseManifest(manifestFile, {
+    requireRegistryDigest: true,
+    requireConcreteRuntimeProfile: true
+  })
   const storeDirectory = path.resolve(options.store ?? process.env.FSUSBLOG_RELEASE_ASSET_STORE ?? '/var/lib/fsusblog/release-assets')
   const dryRun = options['dry-run'] === true
   const compatibility = createReleaseCompatibilityMetadata({

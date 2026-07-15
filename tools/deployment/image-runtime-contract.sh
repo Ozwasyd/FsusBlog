@@ -36,7 +36,11 @@ tiered_pgo="$(image_label io.fsusblog.runtime.tiered-pgo)"
 quick_jit="$(image_label io.fsusblog.runtime.quick-jit-for-loops)"
 server_gc="$(image_label io.fsusblog.runtime.server-gc)"
 native_aot="$(image_label io.fsusblog.runtime.native-aot)"
+gc_heap_count_mode="$(image_label io.fsusblog.runtime.gc-heap-count-mode)"
+gc_heap_hard_limit_mode="$(image_label io.fsusblog.runtime.gc-heap-hard-limit-mode)"
+gc_heap_hard_limit_percent="$(image_label io.fsusblog.runtime.gc-heap-hard-limit-percent)"
 thread_pool_mode="$(image_label io.fsusblog.runtime.thread-pool-mode)"
+thread_pool_min_threads_per_cpu="$(image_label io.fsusblog.runtime.thread-pool-min-threads-per-cpu)"
 topology_mode="$(image_label io.fsusblog.runtime.topology-mode)"
 
 [[ "$vcpkg_commit" =~ ^[0-9a-f]{40}$ ]] \
@@ -56,7 +60,13 @@ for value in "$single_file" "$ready_to_run" "$tiered_pgo" "$quick_jit" "$server_
 done
 [[ "$server_gc" == "true" ]] || fail "target image server GC label must remain true"
 [[ "$native_aot" == "false" ]] || fail "target full image cannot claim NativeAOT without narrow prototype parity promotion"
+[[ "$gc_heap_count_mode" == "container-default" || "$gc_heap_count_mode" == "cpuset" ]] || fail "target image GC heap count mode label is invalid"
+[[ "$gc_heap_hard_limit_mode" == "container-limit" || "$gc_heap_hard_limit_mode" == "explicit-container-percent" ]] || fail "target image GC heap hard limit mode label is invalid"
+[[ "$gc_heap_hard_limit_percent" =~ ^[0-9]+$ ]] && ((gc_heap_hard_limit_percent >= 0 && gc_heap_hard_limit_percent <= 95)) || fail "target image GC heap hard limit percent label is invalid"
+[[ "$gc_heap_hard_limit_mode" == "explicit-container-percent" && "$gc_heap_hard_limit_percent" -gt 0 || "$gc_heap_hard_limit_mode" == "container-limit" && "$gc_heap_hard_limit_percent" -eq 0 ]] || fail "target image GC heap hard limit mode/percent labels are inconsistent"
 [[ "$thread_pool_mode" == "runtime-default" || "$thread_pool_mode" == "evidence-derived" || "$thread_pool_mode" == "overprovisioned-negative-control" ]] || fail "target image thread pool mode label is invalid"
+[[ "$thread_pool_min_threads_per_cpu" =~ ^[0-9]+$ ]] && ((thread_pool_min_threads_per_cpu >= 0 && thread_pool_min_threads_per_cpu <= 256)) || fail "target image ThreadPool minimum label is invalid"
+[[ "$thread_pool_mode" == "overprovisioned-negative-control" && "$thread_pool_min_threads_per_cpu" -ge 64 || "$thread_pool_mode" != "overprovisioned-negative-control" && "$thread_pool_min_threads_per_cpu" -eq 0 ]] || fail "target image ThreadPool mode/minimum labels are inconsistent"
 [[ "$topology_mode" == "smt-visible" || "$topology_mode" == "physical-core-only" || "$topology_mode" == "numa-local" ]] || fail "target image topology mode label is invalid"
 
 docker run --rm --entrypoint /bin/sh "$image_ref" -c 'command -v node >/dev/null 2>&1' >/dev/null 2>&1 \
@@ -80,7 +90,11 @@ jq -cn \
   --arg quickJitForLoops "$quick_jit" \
   --arg serverGc "$server_gc" \
   --arg nativeAot "$native_aot" \
+  --arg gcHeapCountMode "$gc_heap_count_mode" \
+  --arg gcHeapHardLimitMode "$gc_heap_hard_limit_mode" \
+  --argjson gcHeapHardLimitPercent "$gc_heap_hard_limit_percent" \
   --arg threadPoolMode "$thread_pool_mode" \
+  --argjson threadPoolMinThreadsPerCpu "$thread_pool_min_threads_per_cpu" \
   --arg topologyMode "$topology_mode" '
   {
     schema: "fsusblog.image-runtime-contract.v1",
@@ -101,7 +115,11 @@ jq -cn \
       quickJitForLoops: $quickJitForLoops,
       serverGc: $serverGc,
       nativeAot: $nativeAot,
+      gcHeapCountMode: $gcHeapCountMode,
+      gcHeapHardLimitMode: $gcHeapHardLimitMode,
+      gcHeapHardLimitPercent: $gcHeapHardLimitPercent,
       threadPoolMode: $threadPoolMode,
+      threadPoolMinThreadsPerCpu: $threadPoolMinThreadsPerCpu,
       topologyMode: $topologyMode
     }
   }'

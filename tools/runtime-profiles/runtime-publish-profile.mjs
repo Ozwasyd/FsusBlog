@@ -103,7 +103,11 @@ export function runtimeProfileBuildArgs(resolved) {
     quickJitForLoops: booleanText(profile.publish.quickJitForLoops),
     nativeAot: booleanText(profile.publish.nativeAot),
     serverGc: booleanText(profile.gc.server),
+    gcHeapCountMode: profile.gc.heapCountMode,
+    gcHeapHardLimitMode: profile.gc.heapHardLimitMode,
+    gcHeapHardLimitPercent: String(profile.gc.heapHardLimitPercent),
     threadPoolMode: profile.threadPool.mode,
+    threadPoolMinThreadsPerCpu: String(profile.threadPool.minThreadsPerCpu),
     topologyMode: profile.topology.mode
   }
 }
@@ -141,10 +145,13 @@ function validateConditionalAdmission(profile, label, errors) {
 
 function validateGc(value, label, errors) {
   if (!plainObject(value)) return errors.push(`${label} must be an object`)
-  rejectUnknown(value, new Set(['server', 'heapCountMode', 'heapHardLimitMode']), label, errors)
+  rejectUnknown(value, new Set(['server', 'heapCountMode', 'heapHardLimitMode', 'heapHardLimitPercent']), label, errors)
   if (value.server !== true) errors.push(`${label}.server must remain true for the supported matrix`)
   if (!HEAP_COUNT_MODES.has(value.heapCountMode)) errors.push(`${label}.heapCountMode is invalid`)
   if (!HEAP_LIMIT_MODES.has(value.heapHardLimitMode)) errors.push(`${label}.heapHardLimitMode is invalid`)
+  if (!Number.isInteger(value.heapHardLimitPercent) || value.heapHardLimitPercent < 0 || value.heapHardLimitPercent > 95) errors.push(`${label}.heapHardLimitPercent is invalid`)
+  if (value.heapHardLimitMode === 'container-limit' && value.heapHardLimitPercent !== 0) errors.push(`${label} container-limit cannot force a heap percentage`)
+  if (value.heapHardLimitMode === 'explicit-container-percent' && value.heapHardLimitPercent < 1) errors.push(`${label} explicit-container-percent requires a positive heap percentage`)
 }
 
 function validateThreadPool(value, label, errors) {
@@ -171,7 +178,7 @@ function validateAxisCoverage(profiles, errors) {
   }
   for (const mode of ['container-default', 'cpuset']) if (!includes((p) => p.gc?.heapCountMode, mode)) errors.push(`matrix must cover gc.heapCountMode=${mode}`)
   for (const mode of THREAD_POOL_MODES) if (!includes((p) => p.threadPool?.mode, mode)) errors.push(`matrix must cover threadPool.mode=${mode}`)
-  for (const mode of ['smt-visible', 'physical-core-only']) if (!includes((p) => p.topology?.mode, mode)) errors.push(`matrix must cover topology.mode=${mode}`)
+  for (const mode of TOPOLOGY_MODES) if (!includes((p) => p.topology?.mode, mode)) errors.push(`matrix must cover topology.mode=${mode}`)
 }
 
 function validateOneFactorControls(profiles, errors) {
@@ -185,7 +192,9 @@ function validateOneFactorControls(profiles, errors) {
   assertOneFactor(profiles, baseline, 'threadpool-overprovisioned-negative-control', ['threadPool.mode', 'threadPool.minThreadsPerCpu'], errors)
   assertOneFactor(profiles, baseline, 'throughput-musl-quickjit-off', ['publish.quickJitForLoops'], errors)
   assertOneFactor(profiles, baseline, 'physical-core-only', ['topology.mode'], errors)
-  assertOneFactor(profiles, baseline, 'gc-cpuset-hard-limit', ['gc.heapCountMode', 'gc.heapHardLimitMode'], errors)
+  assertOneFactor(profiles, baseline, 'numa-local', ['topology.mode'], errors)
+  assertOneFactor(profiles, baseline, 'gc-cpuset', ['gc.heapCountMode'], errors)
+  assertOneFactor(profiles, baseline, 'gc-explicit-hard-limit', ['gc.heapHardLimitMode', 'gc.heapHardLimitPercent'], errors)
 }
 
 function assertOneFactor(profiles, baseline, profileId, allowedPaths, errors) {

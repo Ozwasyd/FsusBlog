@@ -77,7 +77,15 @@ public sealed class FsusHostRuntimeTuningTests
             "DOTNET_TieredPGO",
             "FSUSBLOG_RUNTIME_PROFILE_ID",
             "FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST",
-            "FSUSBLOG_RUNTIME_PROFILE_DIGEST"
+            "FSUSBLOG_RUNTIME_PROFILE_DIGEST",
+            "FSUSBLOG_RUNTIME_GC_HEAP_COUNT_MODE",
+            "FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_MODE",
+            "FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_PERCENT",
+            "FSUSBLOG_RUNTIME_THREAD_POOL_MODE",
+            "FSUSBLOG_RUNTIME_THREAD_POOL_MIN_THREADS_PER_CPU",
+            "FSUSBLOG_RUNTIME_TOPOLOGY_MODE",
+            "DOTNET_GCHeapCount",
+            "DOTNET_GCHeapHardLimit"
         ];
         Dictionary<string, string?> original = names.ToDictionary(
             static name => name,
@@ -91,6 +99,14 @@ public sealed class FsusHostRuntimeTuningTests
             Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_ID", "throughput-musl");
             Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST", "sha256:" + new string('a', 64));
             Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_DIGEST", "sha256:" + new string('b', 64));
+            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_GC_HEAP_COUNT_MODE", "cpuset");
+            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_MODE", "explicit-container-percent");
+            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_GC_HEAP_HARD_LIMIT_PERCENT", "75");
+            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_THREAD_POOL_MODE", "evidence-derived");
+            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_THREAD_POOL_MIN_THREADS_PER_CPU", "0");
+            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_TOPOLOGY_MODE", "physical-core-only");
+            Environment.SetEnvironmentVariable("DOTNET_GCHeapCount", "4");
+            Environment.SetEnvironmentVariable("DOTNET_GCHeapHardLimit", "c0000000");
             IConfiguration configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
@@ -112,6 +128,14 @@ public sealed class FsusHostRuntimeTuningTests
             Assert.NotEmpty(report.FrameworkDescription);
             Assert.True(report.ProcessorCount > 0);
             Assert.True(report.TotalAvailableMemoryBytes > 0);
+            Assert.Equal("cpuset", report.GcHeapCountMode);
+            Assert.Equal("explicit-container-percent", report.GcHeapHardLimitMode);
+            Assert.Equal("75", report.GcHeapHardLimitPercent);
+            Assert.Equal("4", report.GcHeapCountConfigured);
+            Assert.Equal("c0000000", report.GcHeapHardLimitConfigured);
+            Assert.Equal("evidence-derived", report.ThreadPoolMode);
+            Assert.Equal("0", report.ThreadPoolMinThreadsPerCpuDeclared);
+            Assert.Equal("physical-core-only", report.TopologyMode);
         }
         finally
         {
@@ -138,6 +162,10 @@ public sealed class FsusHostRuntimeTuningTests
         Assert.Contains("ServerGC={ServerGc}", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("ProcessorCount={ProcessorCount}", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("TotalAvailableMemoryBytes={TotalAvailableMemoryBytes}", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("GCHeapCountMode={GcHeapCountMode}", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("GCHeapHardLimitMode={GcHeapHardLimitMode}", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ThreadPoolMode={ThreadPoolMode}", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TopologyMode={TopologyMode}", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("StartupEnvMutated", runtimeShape, StringComparison.Ordinal);
     }
 
@@ -179,6 +207,10 @@ public sealed class FsusHostRuntimeTuningTests
             Assert.Equal("throughput-musl", contract.GetProperty("runtime").GetProperty("profileId").GetString());
             Assert.Matches("^sha256:[0-9a-f]{64}$", contract.GetProperty("runtime").GetProperty("profileDigest").GetString());
             Assert.Equal("false", contract.GetProperty("runtime").GetProperty("publishReadyToRun").GetString());
+            Assert.Equal("container-default", contract.GetProperty("runtime").GetProperty("gcHeapCountMode").GetString());
+            Assert.Equal("container-limit", contract.GetProperty("runtime").GetProperty("gcHeapHardLimitMode").GetString());
+            Assert.Equal(0, contract.GetProperty("runtime").GetProperty("gcHeapHardLimitPercent").GetInt32());
+            Assert.Equal(0, contract.GetProperty("runtime").GetProperty("threadPoolMinThreadsPerCpu").GetInt32());
             string calls = await File.ReadAllTextAsync(dockerLog);
             Assert.Contains("pull ghcr.io/fsusblog/app@sha256:", calls, StringComparison.Ordinal);
             Assert.Contains("image inspect", calls, StringComparison.Ordinal);
@@ -195,6 +227,10 @@ public sealed class FsusHostRuntimeTuningTests
             ProcessResult unpinned = await RunImageContractAsync(root, dockerLog, mode: "vcpkg-unpinned");
             Assert.NotEqual(0, unpinned.ExitCode);
             Assert.Contains("vcpkg commit label", unpinned.StandardError, StringComparison.Ordinal);
+
+            ProcessResult invalidGcMode = await RunImageContractAsync(root, dockerLog, mode: "gc-mode-invalid");
+            Assert.NotEqual(0, invalidGcMode.ExitCode);
+            Assert.Contains("GC heap count mode label", invalidGcMode.StandardError, StringComparison.Ordinal);
         }
         finally
         {
@@ -254,7 +290,11 @@ public sealed class FsusHostRuntimeTuningTests
             *io.fsusblog.runtime.quick-jit-for-loops*) printf '%s\n' true ;;
             *io.fsusblog.runtime.server-gc*) printf '%s\n' true ;;
             *io.fsusblog.runtime.native-aot*) printf '%s\n' false ;;
+            *io.fsusblog.runtime.gc-heap-count-mode*) [[ "$mode" == "gc-mode-invalid" ]] && printf '%s\n' host-total || printf '%s\n' container-default ;;
+            *io.fsusblog.runtime.gc-heap-hard-limit-mode*) printf '%s\n' container-limit ;;
+            *io.fsusblog.runtime.gc-heap-hard-limit-percent*) printf '%s\n' 0 ;;
             *io.fsusblog.runtime.thread-pool-mode*) printf '%s\n' runtime-default ;;
+            *io.fsusblog.runtime.thread-pool-min-threads-per-cpu*) printf '%s\n' 0 ;;
             *io.fsusblog.runtime.topology-mode*) printf '%s\n' smt-visible ;;
             *) exit 2 ;;
           esac
