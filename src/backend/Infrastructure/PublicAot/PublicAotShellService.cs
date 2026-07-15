@@ -5,6 +5,8 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.Hosting;
+using System.Net;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
@@ -91,7 +93,9 @@ public sealed class PublicAotShellService(
             return canonicalOutcome;
         }
 
-        if (classifyColdMiss && match.RequiresPaginationRedirect)
+        if (classifyColdMiss
+            && match.RequiresPaginationRedirect
+            && !ShouldPreserveLocalFixtureQuery(context, match))
         {
             PublicAotRenderOutcome canonicalOutcome = PublicAotRenderOutcome.PermanentRedirect(match.CanonicalPathAndQuery);
             SetClassifiedFailureContext(context, canonicalOutcome.Status, assetMode);
@@ -201,6 +205,34 @@ public sealed class PublicAotShellService(
                 ErrorCode.InfraFailure,
                 queued ? "public_aot_cold_miss_backfill_queued" : "public_aot_cold_miss_backfill_dropped"))
             : PublicAotRenderOutcome.Success(null);
+    }
+
+    internal static bool ShouldPreserveLocalFixtureQuery(HttpContext context, PublicAotRouteMatch match)
+    {
+        IServiceProvider? services = context.RequestServices;
+        if (!match.RequiresPaginationRedirect
+            || services?.GetService<IWebHostEnvironment>()?.IsDevelopment() != true
+            || context.Connection.RemoteIpAddress is not IPAddress remoteAddress
+            || !IPAddress.IsLoopback(remoteAddress))
+        {
+            return false;
+        }
+
+        IQueryCollection query = context.Request.Query;
+        Microsoft.Extensions.Primitives.StringValues login = query["fsusLocalFixtureLogin"];
+        Microsoft.Extensions.Primitives.StringValues admin = query["fsusLocalFixtureAdmin"];
+        if (login.Count != 1 || login[0] != "1"
+            || admin.Count > 0 && (admin.Count != 1 || admin[0] != "1")
+            || query.Keys.Any(static key => key is not ("page" or "fsusLocalFixtureLogin" or "fsusLocalFixtureAdmin")))
+        {
+            return false;
+        }
+
+        Microsoft.Extensions.Primitives.StringValues page = query["page"];
+        return match.QueryString.Length == 0
+            ? page.Count == 0
+            : page.Count == 1
+                && string.Equals(match.QueryString, $"?page={page[0]}", StringComparison.Ordinal);
     }
 
     private async Task<PublicAotRenderOutcome> ClassifyRouteAsync(

@@ -6,10 +6,14 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using System.Net;
 
 namespace FsusBlog.Server.Tests;
 
@@ -560,6 +564,45 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal("/", result.RedirectPath);
         Assert.Empty(cache.RequestedKeys);
         Assert.Empty(scheduler.Requests);
+    }
+
+    [Fact]
+    public async Task RenderClassifiedAsync_DevelopmentLoopbackFixtureQuery_PreservesClientFixtureActivation()
+    {
+        var match = HomeMatch() with { RequiresPaginationRedirect = true };
+        string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
+        var cache = new RecordingAotCache
+        {
+            Entry = new PublicAotCacheEntry
+            {
+                CacheKey = cacheKey,
+                RouteKey = match.RouteKey,
+                PageId = match.PageId,
+                Source = PublicAotWriteSource.ServerSsrBackfill,
+                RendererVersion = PublicAotShellService.PublicRendererVersion,
+                FrontendAssetVersion = "frontend-v1",
+                ExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5),
+                Value = "<!doctype html><html><body>aot</body></html>"
+            }
+        };
+        PublicAotShellService sut = CreateService(match, cache, new RecordingBackfillScheduler());
+        IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
+        environment.EnvironmentName.Returns(Environments.Development);
+        using ServiceProvider services = new ServiceCollection()
+            .AddSingleton(environment)
+            .BuildServiceProvider();
+        var context = new DefaultHttpContext
+        {
+            RequestServices = services
+        };
+        context.Connection.RemoteIpAddress = IPAddress.Loopback;
+        context.Request.QueryString = new QueryString("?fsusLocalFixtureLogin=1&fsusLocalFixtureAdmin=1");
+
+        PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
+
+        Assert.Equal(PublicAotRenderStatus.Success, result.Status);
+        Assert.NotNull(result.Entry);
+        Assert.Single(cache.RequestedKeys);
     }
 
     [Fact]
