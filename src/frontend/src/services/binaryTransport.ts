@@ -1,5 +1,5 @@
 import { BinaryRequestError, binaryRequest, type BinaryRequestOptions } from '@/api/binaryApiClient';
-import { decode, type AedsRuntimeDiagnostics } from '@wasm/aeds';
+import { decode, resolveAedsWorkerRuntimeModel, type AedsRuntimeDiagnostics } from '@wasm/aeds';
 import { mapFramePayloadToViewModel } from '@/adapters/binary';
 import { readFixedUtf8, readInt32 } from '@/adapters/binary/reader';
 import { AppError, AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
@@ -162,8 +162,8 @@ type PendingDecodeRequest = {
 const pendingRequests = new Map<number, PendingDecodeRequest>();
 const MAIN_THREAD_DECODE_MAX_BYTES = 4096;
 const ABORT_RACE_SETTLE_MS = 50;
-const DECODE_WORKER_ACTIVE_LIMIT = 2;
-const DECODE_WORKER_QUEUE_LIMIT = 32;
+const DECODE_WORKER_ACTIVE_LIMIT = resolveAedsWorkerRuntimeModel().activeRequests;
+const DECODE_WORKER_QUEUE_LIMIT = Math.max(16, DECODE_WORKER_ACTIVE_LIMIT * 16);
 
 type QueuedDecodeRequest = {
   requestId: number;

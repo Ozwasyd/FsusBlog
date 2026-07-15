@@ -4,6 +4,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { performance } from 'node:perf_hooks'
+import { availableParallelism } from 'node:os'
+import { execFileSync } from 'node:child_process'
 import { brotliCompressSync, gzipSync } from 'node:zlib'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -13,6 +15,7 @@ const wasmRoot = path.resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT
 const manifestFile = path.join(wasmRoot, 'aeds-runtime-manifest.json')
 const outFile = path.join(root, '.tmp/frontend/aeds-decode-budget/summary.json')
 const releaseSummaryFile = path.join(root, '.tmp/release-evidence/aeds-decode-budget-summary.json')
+const commitSha = resolveCommitSha()
 const sourceFiles = {
   cmake: path.join(root, 'src/frontend/wasm/aeds/CMakeLists.txt'),
   exports: path.join(root, 'src/frontend/wasm/aeds/src/exports.cpp'),
@@ -37,11 +40,14 @@ const requirements = {
   sensitiveClear: /clear_io_buffer/u.test(sources.exports) && /if \(sensitive\) exportsRef\.clear_io_buffer/u.test(sources.bridge),
   transferableNetworkBuffer: /postMessage\(request, \[queued\.buffer\]\)/u.test(sources.transport),
   compiledModuleCache: /compiledModuleCache/u.test(sources.loader) && /compiledModuleCacheKey/u.test(sources.bridge),
-  hashVerification: /expectedWasmSha256/u.test(sources.loader) && /wasm_hash_mismatch/u.test(sources.loader),
+  hashVerification: /expectedModuleSha256/u.test(sources.loader) && /module_hash_mismatch/u.test(sources.loader)
+    && /expectedWasmSha256/u.test(sources.loader) && /wasm_hash_mismatch/u.test(sources.loader),
   reliableSimdDetection: /WebAssembly\.validate/u.test(sources.bridge) && !/userAgent/u.test(sources.bridge),
   sequentialFallback: /resolveAedsTierCandidates/u.test(sources.bridge) && /initializeAedsTierSequentially/u.test(sources.bridge),
   noDoubleDecode: !/decodeAedsEnvelopeNoCopy\(input\)[\s\S]{0,300}decode_io_buffer/u.test(sources.bridge),
   workerDiagnostics: /getAedsRuntimeDiagnostics/u.test(sources.worker) && /workerTransferMs/u.test(sources.worker),
+  dynamicWorkerBudget: /resolveAedsWorkerRuntimeModel/u.test(sources.bridge)
+    && /resolveAedsWorkerRuntimeModel\(\)\.activeRequests/u.test(sources.transport),
   noMainRealmPrecompile: !/import\('@wasm\/aeds'\)[\s\S]{0,160}initWasm/u.test(sources.appRuntime)
 }
 const budgets = {
@@ -49,6 +55,72 @@ const budgets = {
   speed: { rawBytes: 96 * 1024, gzipBytes: 48 * 1024, brotliBytes: 40 * 1024, compileP95Ms: 75, memoryPages: 1024 },
   minimumMedianSpeedup: 1.05,
   minimumImprovedBuckets: 2
+}
+
+function resolveCommitSha() {
+  const configured = process.env.FSUSBLOG_EVIDENCE_COMMIT_SHA || process.env.GITHUB_SHA || ''
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8'
+  }).trim()
+  if (!/^[0-9a-f]{40}$/u.test(head) || (configured && configured !== head)) throw new Error('evidence_commit_sha_invalid')
+  const dirty = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
+    cwd: root,
+    encoding: 'utf8'
+  }).trim()
+  if (dirty) throw new Error('evidence_worktree_dirty')
+  return head
+}
+
+function validateManifestIdentity(manifest) {
+  const failures = []
+  const worker = manifest?.workerModel
+  const active = worker?.activeRequests
+  if (manifest?.schema !== 'fsusblog.aeds-runtime.v1'
+    || manifest.abi !== 'fsusblog.aeds.v4'
+    || manifest.maxFrameBytes !== 8 * 1024 * 1024
+    || worker?.instancesPerPage !== 1
+    || active?.source !== 'runtime-logical-processors'
+    || !Number.isSafeInteger(active.minimum) || active.minimum < 1
+    || !Number.isSafeInteger(active.maximum) || active.maximum < active.minimum || active.maximum > 32
+    || !Number.isSafeInteger(active.logicalProcessorsPerRequest) || active.logicalProcessorsPerRequest < 1
+    || active.minimum !== 1 || active.maximum !== 8 || active.logicalProcessorsPerRequest !== 2) failures.push('runtimeManifestContract')
+  const toolchain = manifest?.toolchain
+  if (!toolchain
+    || !/^\d+\.\d+\.\d+$/u.test(String(toolchain.emscriptenVersion ?? ''))
+    || toolchain.binaryenVersion !== '123'
+    || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/u.test(String(toolchain.cmakeVersion ?? ''))
+    || !/^[0-9a-f]{40}$/u.test(String(toolchain.vcpkgCommit ?? ''))
+    || !/^emscripten\/emsdk:\d+\.\d+\.\d+@sha256:[0-9a-f]{64}$/u.test(String(toolchain.emsdkImage ?? ''))) failures.push('runtimeManifestToolchain')
+  for (const tier of ['basic', 'speed']) {
+    const entry = manifest?.tiers?.[tier]
+    if (!entry || !/^[0-9a-f]{64}$/u.test(String(entry.moduleSha256 ?? ''))
+      || !/^[0-9a-f]{64}$/u.test(String(entry.wasmSha256 ?? ''))) failures.push(`${tier}ArtifactHashIdentity`)
+  }
+  const basic = manifest?.tiers?.basic
+  if (!basic || basic.simd !== false || basic.lto !== false || basic.wasmOptValidated !== false
+    || basic.initialMemoryBytes !== 16 * 1024 * 1024
+    || basic.maximumMemoryBytes !== 256 * 1024 * 1024
+    || basic.memoryGrowth !== 'bounded') failures.push('basicIdentity')
+  const speed = manifest?.tiers?.speed
+  if (!speed || speed.simd !== true || speed.lto !== true || speed.wasmOptValidated !== true
+    || speed.initialMemoryBytes !== 64 * 1024 * 1024
+    || speed.maximumMemoryBytes !== 64 * 1024 * 1024
+    || speed.memoryGrowth !== 'disabled') failures.push('speedIdentity')
+  return failures
+}
+
+function resolveWorkerModel(policy) {
+  const logicalProcessors = Math.max(1, availableParallelism())
+  const requested = Math.ceil(logicalProcessors / policy.activeRequests.logicalProcessorsPerRequest)
+  return {
+    resourceSource: 'os.availableParallelism',
+    logicalProcessors,
+    instancesPerPage: policy.instancesPerPage,
+    activeRequests: Math.max(policy.activeRequests.minimum, Math.min(policy.activeRequests.maximum, requested)),
+    minimumActiveRequests: policy.activeRequests.minimum,
+    maximumActiveRequests: policy.activeRequests.maximum
+  }
 }
 
 function crc16(bytes) {
@@ -92,7 +164,9 @@ function memoryOffset(value, label) {
 async function loadTier(tier, entry) {
   const moduleFile = path.join(wasmRoot, entry.module)
   const wasmFile = path.join(wasmRoot, entry.wasm)
+  const moduleBytes = fs.readFileSync(moduleFile)
   const wasmBinary = fs.readFileSync(wasmFile)
+  if (sha256(moduleBytes) !== entry.moduleSha256) throw new Error(`${tier}_module_hash_mismatch`)
   if (sha256(wasmBinary) !== entry.wasmSha256) throw new Error(`${tier}_wasm_hash_mismatch`)
   const loadStarted = performance.now()
   const { default: factory } = await import(`${pathToFileURL(moduleFile).href}?sha=${entry.moduleSha256}`)
@@ -101,6 +175,7 @@ async function loadTier(tier, entry) {
 }
 
 function runDecode(instance, input) {
+  const crossStackStarted = performance.now()
   const token = handleToken(instance._reserve_io_buffer(input.byteLength), 'arena_handle')
   const pointer = memoryOffset(instance._get_io_buffer_ptr(token), 'arena_pointer')
   instance.HEAPU8.set(input, pointer)
@@ -109,12 +184,36 @@ function runDecode(instance, input) {
   const elapsed = performance.now() - started
   if (ok !== 1) throw new Error(`decode_failed:${instance._get_last_error_code()}`)
   const payloadToken = handleToken(instance._get_last_payload_token(), 'payload_handle')
+  const payloadPointer = memoryOffset(instance._get_last_payload_ptr(payloadToken), 'payload_pointer')
   const payloadLength = instance._get_last_payload_len(payloadToken)
-  return { elapsed, payloadLength }
+  const ownedPayload = new Uint8Array(new Uint8Array(instance.HEAPU8.buffer, payloadPointer, payloadLength))
+  if (ownedPayload.byteLength !== payloadLength) throw new Error('payload_copy_length_mismatch')
+  return {
+    elapsed,
+    crossStackElapsed: performance.now() - crossStackStarted,
+    payloadLength,
+    jsToWasmCopiedBytes: input.byteLength,
+    wasmToJsCopiedBytes: payloadLength
+  }
 }
 
 async function benchmarkTier(tier, entry) {
   const loaded = await loadTier(tier, entry)
+  const initialMemoryPages = Math.ceil(loaded.instance.HEAPU8.buffer.byteLength / 65536)
+  let peakMemoryPages = initialMemoryPages
+  let lastObservedMemoryPages = initialMemoryPages
+  let growCount = 0
+  let measuredDecodeCount = 0
+  let jsToWasmCopiedBytes = 0
+  let wasmToJsCopiedBytes = 0
+  let expectedJsToWasmCopiedBytes = 0
+  let expectedWasmToJsCopiedBytes = 0
+  const observeMemory = () => {
+    const pages = Math.ceil(loaded.instance.HEAPU8.buffer.byteLength / 65536)
+    if (pages > lastObservedMemoryPages) growCount += 1
+    lastObservedMemoryPages = pages
+    peakMemoryPages = Math.max(peakMemoryPages, pages)
+  }
   const compileSamples = []
   for (let index = 0; index < 5; index += 1) {
     const started = performance.now()
@@ -125,8 +224,22 @@ async function benchmarkTier(tier, entry) {
   for (const payloadBytes of [4096, 65536, 1048576]) {
     const input = frame(payloadBytes)
     const samples = []
-    for (let warmup = 0; warmup < 10; warmup += 1) runDecode(loaded.instance, input)
-    for (let iteration = 0; iteration < 40; iteration += 1) samples.push(runDecode(loaded.instance, input).elapsed)
+    const crossStackSamples = []
+    for (let warmup = 0; warmup < 10; warmup += 1) {
+      runDecode(loaded.instance, input)
+      observeMemory()
+    }
+    for (let iteration = 0; iteration < 40; iteration += 1) {
+      const sample = runDecode(loaded.instance, input)
+      samples.push(sample.elapsed)
+      crossStackSamples.push(sample.crossStackElapsed)
+      measuredDecodeCount += 1
+      jsToWasmCopiedBytes += sample.jsToWasmCopiedBytes
+      wasmToJsCopiedBytes += sample.wasmToJsCopiedBytes
+      expectedJsToWasmCopiedBytes += input.byteLength
+      expectedWasmToJsCopiedBytes += payloadBytes
+      observeMemory()
+    }
     const p50 = percentile(samples, 0.5)
     const p95 = percentile(samples, 0.95)
     const p99 = percentile(samples, 0.99)
@@ -135,6 +248,8 @@ async function benchmarkTier(tier, entry) {
       p50Ms: p50,
       p95Ms: p95,
       p99Ms: p99,
+      crossStackP50Ms: percentile(crossStackSamples, 0.5),
+      crossStackP95Ms: percentile(crossStackSamples, 0.95),
       megabytesPerSecondP50: (input.byteLength / (1024 * 1024)) / (p50 / 1000),
       nanosecondsPerByteP50: (p50 * 1e6) / input.byteLength
     })
@@ -144,12 +259,15 @@ async function benchmarkTier(tier, entry) {
   const sensitivePointer = memoryOffset(loaded.instance._get_io_buffer_ptr(sensitiveToken), 'sensitive_pointer')
   loaded.instance.HEAPU8.set(sensitive, sensitivePointer)
   loaded.instance._decode_io_buffer(sensitiveToken, sensitive.byteLength)
+  observeMemory()
   loaded.instance._clear_io_buffer(0)
   let sensitiveBytesCleared = true
   for (let offset = 0; offset < sensitive.byteLength; offset += 4096) {
     if (loaded.instance.HEAPU8[sensitivePointer + offset] !== 0) sensitiveBytesCleared = false
   }
   const raw = loaded.wasmBinary.byteLength
+  const finalMemoryPages = Math.ceil(loaded.instance.HEAPU8.buffer.byteLength / 65536)
+  observeMemory()
   return {
     tier,
     artifact: {
@@ -160,12 +278,23 @@ async function benchmarkTier(tier, entry) {
     loadMs: loaded.loadMs,
     compileP50Ms: percentile(compileSamples, 0.5),
     compileP95Ms: percentile(compileSamples, 0.95),
-    memoryPages: Math.ceil(loaded.instance.HEAPU8.buffer.byteLength / 65536),
+    initialMemoryPages,
+    memoryPages: finalMemoryPages,
+    peakMemoryPages: Math.max(peakMemoryPages, finalMemoryPages),
+    growCount,
     arenaCapacityBytes: loaded.instance._get_io_buffer_capacity(),
     arenaReallocationCount: loaded.instance._get_arena_reallocation_count(),
     arenaClearCount: loaded.instance._get_arena_clear_count(),
     sensitiveBytesCleared,
-    copyModel: { jsToWasmCopiesPerFrame: 1, wasmToJsCopiesPerFrame: 1 },
+    copyBudget: {
+      measurementSource: 'executed-arena-and-owned-payload-copy',
+      measuredDecodeCount,
+      jsToWasmCopiedBytes,
+      expectedJsToWasmCopiedBytes,
+      wasmToJsCopiedBytes,
+      expectedWasmToJsCopiedBytes,
+      structuredCloneFullBufferCopies: 0
+    },
     buckets
   }
 }
@@ -177,8 +306,7 @@ async function main() {
   let tiers = []
   if (failures.length === 0) {
     manifest = JSON.parse(read(manifestFile))
-    if (manifest.schema !== 'fsusblog.aeds-runtime.v1' || manifest.abi !== 'fsusblog.aeds.v4') failures.push('runtimeManifestContract')
-    if (!manifest.tiers?.speed?.wasmOptValidated || !manifest.tiers?.speed?.simd || !manifest.tiers?.speed?.lto) failures.push('speedIdentity')
+    failures.push(...validateManifestIdentity(manifest))
     if (failures.length === 0) {
       for (const tier of ['basic', 'speed']) tiers.push(await benchmarkTier(tier, manifest.tiers[tier]))
     }
@@ -200,7 +328,13 @@ async function main() {
     if (tier.artifact.brotliBytes > budget.brotliBytes) failures.push(`${tier.tier}BrotliArtifactBudget`)
     if (tier.compileP95Ms > budget.compileP95Ms) failures.push(`${tier.tier}CompileP95Budget`)
     if (tier.memoryPages > budget.memoryPages) failures.push(`${tier.tier}MemoryPagesBudget`)
-    if (tier.copyModel.jsToWasmCopiesPerFrame !== 1 || tier.copyModel.wasmToJsCopiesPerFrame !== 1) failures.push(`${tier.tier}CopyBudget`)
+    if (tier.copyBudget.measurementSource !== 'executed-arena-and-owned-payload-copy'
+      || tier.copyBudget.measuredDecodeCount < 1
+      || tier.copyBudget.jsToWasmCopiedBytes !== tier.copyBudget.expectedJsToWasmCopiedBytes
+      || tier.copyBudget.wasmToJsCopiedBytes !== tier.copyBudget.expectedWasmToJsCopiedBytes
+      || tier.copyBudget.structuredCloneFullBufferCopies !== 0) failures.push(`${tier.tier}CopyBudget`)
+    if (tier.arenaReallocationCount >= tier.copyBudget.measuredDecodeCount) failures.push(`${tier.tier}ArenaReuse`)
+    if (tier.tier === 'speed' && (tier.growCount !== 0 || tier.initialMemoryPages !== 1024 || tier.peakMemoryPages !== 1024)) failures.push('speedMemoryGrowthBudget')
   }
   const sortedSpeedups = throughput.map(item => item.speedup).sort((left, right) => left - right)
   const medianSpeedup = percentile(sortedSpeedups, 0.5)
@@ -209,9 +343,11 @@ async function main() {
     || medianSpeedup < budgets.minimumMedianSpeedup) failures.push('speedThroughputBenefit')
   const summary = {
     status: failures.length === 0 ? 'ok' : 'failed',
+    commitSha,
     generatedAt: new Date().toISOString(),
     measurementSource: 'real-basic-speed-wasm-runtime',
     manifest: manifest ? { schema: manifest.schema, abi: manifest.abi, toolchain: manifest.toolchain } : null,
+    workerModel: manifest ? resolveWorkerModel(manifest.workerModel) : null,
     requirements,
     budgets: { ...budgets, measuredMedianSpeedup: medianSpeedup },
     tiers,
@@ -228,12 +364,26 @@ async function main() {
   fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`)
   fs.writeFileSync(releaseSummaryFile, `${JSON.stringify({
     status: summary.status,
+    commitSha,
     generatedAt: summary.generatedAt,
     artifact: path.relative(root, outFile).replaceAll(path.sep, '/'),
     measurementSource: summary.measurementSource,
+    workerModel: summary.workerModel,
     budgets: summary.budgets,
     throughput,
-    tiers: tiers.map(item => ({ tier: item.tier, artifact: item.artifact, compileP95Ms: item.compileP95Ms, memoryPages: item.memoryPages }))
+    tiers: tiers.map(item => ({
+      tier: item.tier,
+      artifact: item.artifact,
+      compileP95Ms: item.compileP95Ms,
+      initialMemoryPages: item.initialMemoryPages,
+      memoryPages: item.memoryPages,
+      peakMemoryPages: item.peakMemoryPages,
+      growCount: item.growCount,
+      arenaReallocationCount: item.arenaReallocationCount,
+      arenaClearCount: item.arenaClearCount,
+      sensitiveBytesCleared: item.sensitiveBytesCleared,
+      copyBudget: item.copyBudget
+    }))
   }, null, 2)}\n`)
   if (failures.length > 0) {
     for (const failure of failures) console.error(`[aeds-decode-budget] ${failure}`)

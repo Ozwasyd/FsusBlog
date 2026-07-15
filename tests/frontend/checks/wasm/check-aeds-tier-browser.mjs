@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 import process from 'node:process'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
@@ -12,6 +12,7 @@ const playwright = await import(pathToFileURL(path.join(frontendRoot, 'node_modu
 const requested = (process.env.FSUSBLOG_AEDS_BROWSERS || 'chromium,firefox,webkit').split(',').map(value => value.trim()).filter(Boolean)
 const outFile = path.join(root, '.tmp/frontend/aeds-wasm-browser/summary.json')
 const releaseFile = path.join(root, '.tmp/release-evidence/aeds-wasm-browser-summary.json')
+const commitSha = resolveCommitSha()
 const port = await freePort()
 const origin = `http://127.0.0.1:${port}`
 const vite = spawn(path.join(frontendRoot, 'node_modules/.bin/vite'), ['--host', '127.0.0.1', '--port', String(port), '--strictPort'], {
@@ -32,6 +33,7 @@ try {
   if (supported.length === 0) failures.push({ browser: 'none', error: 'no_supported_browser' })
   const summary = {
     status: failures.length === 0 ? 'ok' : 'failed',
+    commitSha,
     generatedAt: new Date().toISOString(),
     origin,
     results,
@@ -42,6 +44,7 @@ try {
   fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`)
   fs.writeFileSync(releaseFile, `${JSON.stringify({
     status: summary.status,
+    commitSha,
     generatedAt: summary.generatedAt,
     artifact: path.relative(root, outFile).replaceAll(path.sep, '/'),
     hydrationTakeoverEvidence: '.tmp/release-evidence/public-hydration-sidecar-summary.json',
@@ -59,10 +62,16 @@ try {
         elapsedMs: result.normal.elapsedMs,
         megabytesPerSecond: result.normal.megabytesPerSecond,
         frameBuckets: result.normal.diagnostics?.frameBuckets ?? {},
+        decodeCount: result.normal.diagnostics?.decodeCount ?? 0,
+        decodedBytes: result.normal.diagnostics?.decodedBytes ?? 0,
         jsToWasmCopiedBytes: result.normal.diagnostics?.jsToWasmCopiedBytes ?? 0,
         wasmToJsCopiedBytes: result.normal.diagnostics?.wasmToJsCopiedBytes ?? 0,
+        initialPages: result.normal.diagnostics?.initialPages ?? 0,
         peakPages: result.normal.diagnostics?.peakPages ?? 0,
         growCount: result.normal.diagnostics?.growCount ?? 0,
+        workerModel: result.normal.diagnostics?.workerModel ?? null,
+        arenaReallocationCount: result.normal.diagnostics?.arenaReallocationCount ?? 0,
+        arenaClearCount: result.normal.diagnostics?.arenaClearCount ?? 0,
         longTaskCount: result.normal.longTaskCount,
         longTaskDurationMs: result.normal.longTaskDurationMs
       } : null,
@@ -100,13 +109,33 @@ async function runBrowser(browserName) {
     if (normal.diagnostics.selectedTier !== 'speed') errors.push(`normal_tier_${normal.diagnostics.selectedTier}`)
     if (normal.requests.some(url => url.includes('aeds_decoder_basic'))) errors.push('normal_downloaded_basic')
     if (normal.decodeFailures !== 0 || normal.diagnostics.decodeCount !== 40) errors.push('normal_decode_count')
-    if (normal.diagnostics.growCount !== 0) errors.push('speed_memory_grew')
+    const normalPayloadBytes = 256 * 1024
+    const normalFrameBytes = normalPayloadBytes + 16
+    if (normal.diagnostics.decodedBytes !== normalFrameBytes * 40
+      || normal.diagnostics.jsToWasmCopiedBytes !== normalFrameBytes * 40
+      || normal.diagnostics.wasmToJsCopiedBytes !== normalPayloadBytes * 40) errors.push('normal_copy_budget')
+    if (normal.diagnostics.growCount !== 0
+      || normal.diagnostics.initialPages !== 1024
+      || normal.diagnostics.peakPages !== 1024) errors.push('speed_memory_grew')
+    const workerModel = normal.diagnostics.workerModel
+    if (workerModel?.resourceSource !== 'navigator.hardwareConcurrency'
+      || !Number.isSafeInteger(workerModel.logicalProcessors) || workerModel.logicalProcessors < 1
+      || workerModel.instancesPerPage !== 1
+      || !Number.isSafeInteger(workerModel.activeRequests)
+      || workerModel.activeRequests < workerModel.minimumActiveRequests
+      || workerModel.activeRequests > workerModel.maximumActiveRequests) errors.push('worker_budget_not_runtime_resolved')
+    if (normal.diagnostics.arenaReallocationCount >= normal.diagnostics.decodeCount) errors.push('normal_arena_not_reused')
     if (fallback.diagnostics.selectedTier !== 'basic' || fallback.diagnostics.fallbackCount !== 1) errors.push('fallback_not_basic')
     const speedRequestIndex = fallback.requests.findIndex(url => url.includes('aeds_decoder_speed.wasm'))
     const basicRequestIndex = fallback.requests.findIndex(url => url.includes('aeds_decoder_basic.wasm'))
     if (speedRequestIndex < 0 || basicRequestIndex <= speedRequestIndex) errors.push('fallback_request_order')
     if (fallback.decodeFailures !== 0 || fallback.diagnostics.decodeCount !== 1) errors.push('fallback_double_decode')
+    if (fallback.diagnostics.jsToWasmCopiedBytes !== normalFrameBytes
+      || fallback.diagnostics.wasmToJsCopiedBytes !== normalPayloadBytes) errors.push('fallback_copy_budget')
     if (!worker.detached || !worker.response?.ok || worker.response?.diagnostics?.selectedTier !== 'speed') errors.push('worker_transfer_decode')
+    if (worker.response?.diagnostics?.decodedBytes !== 24
+      || worker.response?.diagnostics?.jsToWasmCopiedBytes !== 24
+      || worker.response?.diagnostics?.wasmToJsCopiedBytes !== 8) errors.push('worker_copy_budget')
     if (worker.requests.filter(url => url.includes('aeds_decoder_speed.wasm')).length !== 1
       || worker.requests.some(url => url.includes('aeds_decoder_basic'))) errors.push('worker_repeated_compile_or_basic_download')
     return { browser: browserName, supported: true, status: errors.length === 0 ? 'ok' : 'failed', errors, normal, fallback, worker }
@@ -125,7 +154,7 @@ async function runScenario(browser, blockSpeed) {
   if (blockSpeed) {
     await page.route('**/wasm/aeds_decoder_speed.wasm', route => route.abort('failed'))
   }
-  await page.goto(origin, { waitUntil: 'domcontentloaded' })
+  await openHarness(page)
   const result = await page.evaluate(async ({ blockSpeed }) => {
     let longTaskCount = 0
     let longTaskDurationMs = 0
@@ -182,7 +211,7 @@ async function runWorkerScenario(browser) {
   page.on('request', request => {
     if (request.url().includes('/wasm/aeds')) requests.push(request.url())
   })
-  await page.goto(origin, { waitUntil: 'domcontentloaded' })
+  await openHarness(page)
   const result = await page.evaluate(async () => {
     const worker = new Worker('/src/workers/wasmDecode.worker.ts', { type: 'module' })
     const payload = new Uint8Array(8)
@@ -217,6 +246,15 @@ async function runWorkerScenario(browser) {
   return { ...result, requests }
 }
 
+async function openHarness(page) {
+  await page.route('**/__aeds-wasm-harness', route => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>'
+  }))
+  await page.goto(`${origin}/__aeds-wasm-harness`, { waitUntil: 'domcontentloaded' })
+}
+
 async function freePort() {
   return await new Promise((resolve, reject) => {
     const server = net.createServer()
@@ -240,4 +278,19 @@ async function waitForServer(url) {
     await new Promise(resolve => setTimeout(resolve, 100))
   }
   throw new Error(`vite_start_timeout\n${viteLog}`)
+}
+
+function resolveCommitSha() {
+  const configured = process.env.FSUSBLOG_EVIDENCE_COMMIT_SHA || process.env.GITHUB_SHA || ''
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8'
+  }).trim()
+  if (!/^[0-9a-f]{40}$/u.test(head) || (configured && configured !== head)) throw new Error('evidence_commit_sha_invalid')
+  const dirty = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
+    cwd: root,
+    encoding: 'utf8'
+  }).trim()
+  if (dirty) throw new Error('evidence_worktree_dirty')
+  return head
 }

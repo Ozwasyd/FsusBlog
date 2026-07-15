@@ -138,18 +138,62 @@ function readArtifactJson(manifest, context, key, relative = null) {
   }
 }
 
+function aedsWorkerModelOk(model, resourceSource) {
+  return model?.resourceSource === resourceSource
+    && Number.isSafeInteger(model.logicalProcessors) && model.logicalProcessors >= 1
+    && model.instancesPerPage === 1
+    && Number.isSafeInteger(model.minimumActiveRequests) && model.minimumActiveRequests >= 1
+    && Number.isSafeInteger(model.maximumActiveRequests) && model.maximumActiveRequests >= model.minimumActiveRequests
+    && model.maximumActiveRequests <= 32
+    && Number.isSafeInteger(model.activeRequests)
+    && model.activeRequests >= model.minimumActiveRequests
+    && model.activeRequests <= model.maximumActiveRequests
+}
+
 function aedsDecodeBudgetOk(manifest, context) {
   const report = readArtifactJson(manifest, context, 'aedsDecodeBudgetSummary')
-  if (!report || report.status !== 'ok' || report.measurementSource !== 'real-basic-speed-wasm-runtime') return false
+  if (!report || report.status !== 'ok'
+    || report.commitSha !== manifest.commitSha
+    || !/^[0-9a-f]{40}$/u.test(String(report.commitSha ?? ''))
+    || report.measurementSource !== 'real-basic-speed-wasm-runtime'
+    || !aedsWorkerModelOk(report.workerModel, 'os.availableParallelism')) return false
   const tiers = new Map((Array.isArray(report.tiers) ? report.tiers : []).map((tier) => [tier?.tier, tier]))
+  const tierBudgets = {
+    basic: { rawBytes: 64 * 1024, gzipBytes: 32 * 1024, brotliBytes: 24 * 1024, compileP95Ms: 50, memoryPages: 4096 },
+    speed: { rawBytes: 96 * 1024, gzipBytes: 48 * 1024, brotliBytes: 40 * 1024, compileP95Ms: 75, memoryPages: 1024 }
+  }
   for (const tierName of ['basic', 'speed']) {
     const tier = tiers.get(tierName)
+    const budget = tierBudgets[tierName]
     if (!tier || !Number.isFinite(tier.compileP95Ms) || tier.compileP95Ms < 0) return false
     if (!Number.isSafeInteger(tier.memoryPages) || tier.memoryPages < 1) return false
     if (!Number.isSafeInteger(tier.artifact?.rawBytes) || tier.artifact.rawBytes < 1) return false
     if (!Number.isSafeInteger(tier.artifact?.gzipBytes) || tier.artifact.gzipBytes < 1) return false
     if (!Number.isSafeInteger(tier.artifact?.brotliBytes) || tier.artifact.brotliBytes < 1) return false
+    if (tier.compileP95Ms > budget.compileP95Ms
+      || tier.memoryPages > budget.memoryPages
+      || tier.artifact.rawBytes > budget.rawBytes
+      || tier.artifact.gzipBytes > budget.gzipBytes
+      || tier.artifact.brotliBytes > budget.brotliBytes) return false
+    if (!Number.isSafeInteger(tier.initialMemoryPages) || tier.initialMemoryPages < 1
+      || !Number.isSafeInteger(tier.peakMemoryPages) || tier.peakMemoryPages < tier.initialMemoryPages
+      || !Number.isSafeInteger(tier.growCount) || tier.growCount < 0
+      || !Number.isSafeInteger(tier.arenaReallocationCount) || tier.arenaReallocationCount < 1
+      || !Number.isSafeInteger(tier.arenaClearCount) || tier.arenaClearCount < 1
+      || tier.sensitiveBytesCleared !== true) return false
+    const copy = tier.copyBudget
+    if (copy?.measurementSource !== 'executed-arena-and-owned-payload-copy'
+      || !Number.isSafeInteger(copy.measuredDecodeCount) || copy.measuredDecodeCount < 1
+      || !Number.isSafeInteger(copy.jsToWasmCopiedBytes) || copy.jsToWasmCopiedBytes < 1
+      || copy.jsToWasmCopiedBytes !== copy.expectedJsToWasmCopiedBytes
+      || !Number.isSafeInteger(copy.wasmToJsCopiedBytes) || copy.wasmToJsCopiedBytes < 1
+      || copy.wasmToJsCopiedBytes !== copy.expectedWasmToJsCopiedBytes
+      || copy.structuredCloneFullBufferCopies !== 0
+      || tier.arenaReallocationCount >= copy.measuredDecodeCount) return false
   }
+  const speed = tiers.get('speed')
+  if (speed.initialMemoryPages !== 1024 || speed.memoryPages !== 1024
+    || speed.peakMemoryPages !== 1024 || speed.growCount !== 0) return false
   const throughput = Array.isArray(report.throughput) ? report.throughput : []
   return throughput.length >= 3
     && throughput.every((sample) => Number.isSafeInteger(sample?.frameBytes) && sample.frameBytes > 0
@@ -163,7 +207,10 @@ function aedsDecodeBudgetOk(manifest, context) {
 
 function aedsWasmBrowserOk(manifest, context) {
   const report = readArtifactJson(manifest, context, 'aedsWasmBrowserSummary')
-  if (!report || report.status !== 'ok' || !Array.isArray(report.browsers)) return false
+  if (!report || report.status !== 'ok'
+    || report.commitSha !== manifest.commitSha
+    || !/^[0-9a-f]{40}$/u.test(String(report.commitSha ?? ''))
+    || !Array.isArray(report.browsers)) return false
   if (report.hydrationTakeoverEvidence !== '.tmp/release-evidence/public-hydration-sidecar-summary.json') return false
   if (report.selectionRate !== 1 || report.fallbackRate !== 1) return false
   const supported = report.browsers.filter((browser) => browser?.supported === true)
@@ -175,8 +222,17 @@ function aedsWasmBrowserOk(manifest, context) {
     && Number.isFinite(browser.load?.compileMs) && browser.load.compileMs >= 0
     && Number.isFinite(browser.load?.instantiateMs) && browser.load.instantiateMs >= 0
     && Number.isFinite(browser.decode?.megabytesPerSecond) && browser.decode.megabytesPerSecond > 0
-    && Number.isSafeInteger(browser.decode?.peakPages) && browser.decode.peakPages > 0
+    && Number.isSafeInteger(browser.decode?.decodeCount) && browser.decode.decodeCount > 1
+    && Number.isSafeInteger(browser.decode?.decodedBytes) && browser.decode.decodedBytes > 0
+    && browser.decode.jsToWasmCopiedBytes === browser.decode.decodedBytes
+    && browser.decode.wasmToJsCopiedBytes === browser.decode.decodedBytes - (16 * browser.decode.decodeCount)
+    && browser.decode.initialPages === 1024
+    && browser.decode.peakPages === 1024
     && browser.decode?.growCount === 0
+    && aedsWorkerModelOk(browser.decode?.workerModel, 'navigator.hardwareConcurrency')
+    && Number.isSafeInteger(browser.decode?.arenaReallocationCount) && browser.decode.arenaReallocationCount >= 1
+    && browser.decode.arenaReallocationCount < browser.decode.decodeCount
+    && Number.isSafeInteger(browser.decode?.arenaClearCount) && browser.decode.arenaClearCount >= 1
     && Number.isFinite(browser.decode?.longTaskDurationMs) && browser.decode.longTaskDurationMs >= 0
     && Number.isFinite(browser.workerTransferMs) && browser.workerTransferMs >= 0)
 }
@@ -1415,6 +1471,7 @@ function runSelfTest() {
       createdAtUtc: '2026-07-11T01:01:01.000Z',
       frontendManifestHash: `sha256:${'b'.repeat(64)}`,
       wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
+      zkLocalReviewHash: `sha256:${'e'.repeat(64)}`,
       schemaCompatibility: { minRelease: releaseId, maxRelease: releaseId },
       toolchain: {
         dotnetVersion: '10.0.100',
@@ -1593,12 +1650,36 @@ function runSelfTest() {
   }))
   fs.writeFileSync(path.join(tmpDir, 'aedsDecodeBudgetSummary.json'), JSON.stringify({
     status: 'ok',
+    commitSha,
     measurementSource: 'real-basic-speed-wasm-runtime',
+    workerModel: {
+      resourceSource: 'os.availableParallelism',
+      logicalProcessors: 8,
+      instancesPerPage: 1,
+      activeRequests: 4,
+      minimumActiveRequests: 1,
+      maximumActiveRequests: 8
+    },
     tiers: ['basic', 'speed'].map((tier) => ({
       tier,
       artifact: { rawBytes: 1024, gzipBytes: 512, brotliBytes: 480 },
       compileP95Ms: 1,
-      memoryPages: tier === 'speed' ? 1024 : 256
+      initialMemoryPages: tier === 'speed' ? 1024 : 256,
+      memoryPages: tier === 'speed' ? 1024 : 256,
+      peakMemoryPages: tier === 'speed' ? 1024 : 256,
+      growCount: 0,
+      arenaReallocationCount: 3,
+      arenaClearCount: 150,
+      sensitiveBytesCleared: true,
+      copyBudget: {
+        measurementSource: 'executed-arena-and-owned-payload-copy',
+        measuredDecodeCount: 120,
+        jsToWasmCopiedBytes: 1024,
+        expectedJsToWasmCopiedBytes: 1024,
+        wasmToJsCopiedBytes: 512,
+        expectedWasmToJsCopiedBytes: 512,
+        structuredCloneFullBufferCopies: 0
+      }
     })),
     throughput: [4096, 65536, 1048576].map((frameBytes, index) => ({
       frameBytes,
@@ -1610,6 +1691,7 @@ function runSelfTest() {
   }))
   fs.writeFileSync(path.join(tmpDir, 'aedsWasmBrowserSummary.json'), JSON.stringify({
     status: 'ok',
+    commitSha,
     hydrationTakeoverEvidence: '.tmp/release-evidence/public-hydration-sidecar-summary.json',
     selectionRate: 1,
     fallbackRate: 1,
@@ -1621,7 +1703,27 @@ function runSelfTest() {
       fallbackTier: 'basic',
       fallbackCount: 1,
       load: { downloadMs: 1, compileMs: 1, instantiateMs: 1 },
-      decode: { megabytesPerSecond: 250, peakPages: 1024, growCount: 0, longTaskDurationMs: 0 },
+      decode: {
+        megabytesPerSecond: 250,
+        decodeCount: 40,
+        decodedBytes: 10486400,
+        jsToWasmCopiedBytes: 10486400,
+        wasmToJsCopiedBytes: 10485760,
+        initialPages: 1024,
+        peakPages: 1024,
+        growCount: 0,
+        workerModel: {
+          resourceSource: 'navigator.hardwareConcurrency',
+          logicalProcessors: 8,
+          instancesPerPage: 1,
+          activeRequests: 4,
+          minimumActiveRequests: 1,
+          maximumActiveRequests: 8
+        },
+        arenaReallocationCount: 1,
+        arenaClearCount: 39,
+        longTaskDurationMs: 0
+      },
       workerTransferMs: 0
     }))
   }))
@@ -1855,6 +1957,19 @@ function runSelfTest() {
   if (!regressedAedsBudgetResult.ok || !regressedAedsBudgetResult.missingRequired.includes('AEDS Wasm decode budget')) {
     fail('self-test expected regressed AEDS speed budget to block release closeout')
   }
+  fs.writeFileSync(path.join(tmpDir, 'aedsDecodeBudgetSummary.json'), JSON.stringify({
+    ...validAedsDecodeBudget,
+    tiers: validAedsDecodeBudget.tiers.map((tier, index) => index === 0 ? {
+      ...tier,
+      copyBudget: { ...tier.copyBudget, expectedJsToWasmCopiedBytes: tier.copyBudget.jsToWasmCopiedBytes + 1 }
+    } : tier)
+  }))
+  const falseCopyAedsBudget = structuredClone(base)
+  falseCopyAedsBudget.status = 'collected-blocked'
+  const falseCopyAedsBudgetResult = validateManifest(falseCopyAedsBudget, { manifestPath: manifestFile })
+  if (!falseCopyAedsBudgetResult.ok || !falseCopyAedsBudgetResult.missingRequired.includes('AEDS Wasm decode budget')) {
+    fail('self-test expected unmeasured AEDS copy budget to block release closeout')
+  }
   fs.writeFileSync(path.join(tmpDir, 'aedsDecodeBudgetSummary.json'), JSON.stringify(validAedsDecodeBudget))
 
   const validAedsBrowser = readJson(path.join(tmpDir, 'aedsWasmBrowserSummary.json'))
@@ -1867,6 +1982,16 @@ function runSelfTest() {
   const regressedAedsBrowserResult = validateManifest(regressedAedsBrowser, { manifestPath: manifestFile })
   if (!regressedAedsBrowserResult.ok || !regressedAedsBrowserResult.missingRequired.includes('AEDS Wasm browser tiers')) {
     fail('self-test expected regressed AEDS browser selection to block release closeout')
+  }
+  fs.writeFileSync(path.join(tmpDir, 'aedsWasmBrowserSummary.json'), JSON.stringify({
+    ...validAedsBrowser,
+    commitSha: 'f'.repeat(40)
+  }))
+  const staleAedsBrowser = structuredClone(base)
+  staleAedsBrowser.status = 'collected-blocked'
+  const staleAedsBrowserResult = validateManifest(staleAedsBrowser, { manifestPath: manifestFile })
+  if (!staleAedsBrowserResult.ok || !staleAedsBrowserResult.missingRequired.includes('AEDS Wasm browser tiers')) {
+    fail('self-test expected stale-SHA AEDS browser evidence to block release closeout')
   }
   fs.writeFileSync(path.join(tmpDir, 'aedsWasmBrowserSummary.json'), JSON.stringify(validAedsBrowser))
 

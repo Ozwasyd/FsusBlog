@@ -47,7 +47,7 @@ type AedsModuleInstance = {
   _get_last_error_len: () => number;
 };
 
-type AedsTierManifest = {
+export type AedsTierManifest = {
   module: string;
   wasm: string;
   moduleSha256: string;
@@ -60,12 +60,49 @@ type AedsTierManifest = {
   memoryGrowth: 'bounded' | 'disabled';
 };
 
-type AedsRuntimeManifest = {
+export type AedsToolchainManifest = {
+  emscriptenVersion: string;
+  binaryenVersion: string;
+  cmakeVersion: string;
+  vcpkgCommit: string;
+  emsdkImage: string;
+};
+
+export type AedsRuntimeManifest = {
   schema: 'fsusblog.aeds-runtime.v1';
   abi: string;
   maxFrameBytes: number;
+  workerModel: {
+    instancesPerPage: 1;
+    activeRequests: {
+      source: 'runtime-logical-processors';
+      minimum: number;
+      maximum: number;
+      logicalProcessorsPerRequest: number;
+    };
+  };
+  toolchain: AedsToolchainManifest;
   tiers: Record<AedsAssetKind, AedsTierManifest>;
 };
+
+export type AedsResolvedWorkerModel = {
+  resourceSource: 'navigator.hardwareConcurrency' | 'fallback';
+  logicalProcessors: number;
+  instancesPerPage: 1;
+  activeRequests: number;
+  minimumActiveRequests: number;
+  maximumActiveRequests: number;
+};
+
+export const AEDS_WORKER_MODEL = {
+  instancesPerPage: 1,
+  activeRequests: {
+    source: 'runtime-logical-processors',
+    minimum: 1,
+    maximum: 8,
+    logicalProcessorsPerRequest: 2
+  }
+} as const;
 
 export type AedsRuntimeDiagnostics = {
   abi: string;
@@ -75,6 +112,7 @@ export type AedsRuntimeDiagnostics = {
   selectionCount: Record<AedsAssetKind, number>;
   fallbackCount: number;
   load: EmscriptenLoadMetrics | null;
+  workerModel: AedsResolvedWorkerModel;
   decodeCount: number;
   decodedBytes: number;
   jsToWasmCopiedBytes: number;
@@ -127,6 +165,7 @@ const diagnostics: AedsRuntimeDiagnostics = {
   selectionCount: { basic: 0, speed: 0 },
   fallbackCount: 0,
   load: null,
+  workerModel: resolveAedsWorkerRuntimeModel(),
   decodeCount: 0,
   decodedBytes: 0,
   jsToWasmCopiedBytes: 0,
@@ -263,7 +302,7 @@ async function loadRuntimeManifest(): Promise<AedsRuntimeManifest> {
         });
       }
       const value = await response.json() as AedsRuntimeManifest;
-      validateRuntimeManifest(value);
+      validateAedsRuntimeManifest(value);
       return value;
     })();
     manifestPromise.catch(() => { manifestPromise = null; });
@@ -271,22 +310,74 @@ async function loadRuntimeManifest(): Promise<AedsRuntimeManifest> {
   return await manifestPromise;
 }
 
-function validateRuntimeManifest(value: AedsRuntimeManifest): void {
-  if (value?.schema !== 'fsusblog.aeds-runtime.v1' || value.abi !== AEDS_WASM_ABI || value.maxFrameBytes !== AEDS_MAX_FRAME_BYTES) {
+export function validateAedsRuntimeManifest(value: AedsRuntimeManifest): void {
+  const worker = value?.workerModel;
+  const active = worker?.activeRequests;
+  if (value?.schema !== 'fsusblog.aeds-runtime.v1'
+    || value.abi !== AEDS_WASM_ABI
+    || value.maxFrameBytes !== AEDS_MAX_FRAME_BYTES
+    || worker?.instancesPerPage !== 1
+    || active?.source !== 'runtime-logical-processors'
+    || !Number.isSafeInteger(active.minimum) || active.minimum < 1
+    || !Number.isSafeInteger(active.maximum) || active.maximum < active.minimum || active.maximum > 32
+    || !Number.isSafeInteger(active.logicalProcessorsPerRequest) || active.logicalProcessorsPerRequest < 1
+    || active.minimum !== AEDS_WORKER_MODEL.activeRequests.minimum
+    || active.maximum !== AEDS_WORKER_MODEL.activeRequests.maximum
+    || active.logicalProcessorsPerRequest !== AEDS_WORKER_MODEL.activeRequests.logicalProcessorsPerRequest) {
     throw createAppError(AppErrorCode.InvariantViolation, 'aeds_manifest_contract_invalid');
+  }
+  const toolchain = value.toolchain;
+  if (!toolchain
+    || !/^\d+\.\d+\.\d+$/u.test(toolchain.emscriptenVersion)
+    || toolchain.binaryenVersion !== '123'
+    || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/u.test(toolchain.cmakeVersion)
+    || !/^[0-9a-f]{40}$/u.test(toolchain.vcpkgCommit)
+    || !/^emscripten\/emsdk:\d+\.\d+\.\d+@sha256:[0-9a-f]{64}$/u.test(toolchain.emsdkImage)) {
+    throw createAppError(AppErrorCode.InvariantViolation, 'aeds_manifest_toolchain_invalid');
   }
   for (const tier of ['basic', 'speed'] as const) {
     const entry = value.tiers?.[tier];
     const expected = resolveAedsAsset(tier);
-    if (!entry || !/^[0-9a-f]{64}$/u.test(entry.wasmSha256)
+    if (!entry
+      || !/^[0-9a-f]{64}$/u.test(entry.moduleSha256)
+      || !/^[0-9a-f]{64}$/u.test(entry.wasmSha256)
       || !expected.moduleUrl.endsWith(`/${entry.module}`) || !expected.wasmUrl.endsWith(`/${entry.wasm}`)) {
       throw createAppError(AppErrorCode.InvariantViolation, `aeds_manifest_tier_invalid:${tier}`);
     }
   }
+  const basic = value.tiers.basic;
+  if (basic.simd || basic.lto || basic.wasmOptValidated
+    || basic.initialMemoryBytes !== 16 * 1024 * 1024
+    || basic.maximumMemoryBytes !== 256 * 1024 * 1024
+    || basic.memoryGrowth !== 'bounded') {
+    throw createAppError(AppErrorCode.InvariantViolation, 'aeds_manifest_basic_identity_invalid');
+  }
   const speed = value.tiers.speed;
-  if (!speed.simd || !speed.lto || !speed.wasmOptValidated || speed.memoryGrowth !== 'disabled') {
+  if (!speed.simd || !speed.lto || !speed.wasmOptValidated
+    || speed.initialMemoryBytes !== 64 * 1024 * 1024
+    || speed.maximumMemoryBytes !== 64 * 1024 * 1024
+    || speed.memoryGrowth !== 'disabled') {
     throw createAppError(AppErrorCode.InvariantViolation, 'aeds_manifest_speed_identity_invalid');
   }
+}
+
+export function resolveAedsWorkerRuntimeModel(
+  policy: AedsRuntimeManifest['workerModel'] = AEDS_WORKER_MODEL,
+  logicalProcessorHint?: number
+): AedsResolvedWorkerModel {
+  const reported = logicalProcessorHint ?? globalThis.navigator?.hardwareConcurrency;
+  const hasRuntimeValue = Number.isFinite(reported) && Number(reported) >= 1;
+  const logicalProcessors = hasRuntimeValue ? Math.max(1, Math.floor(Number(reported))) : 1;
+  const active = policy.activeRequests;
+  const requested = Math.ceil(logicalProcessors / active.logicalProcessorsPerRequest);
+  return {
+    resourceSource: hasRuntimeValue ? 'navigator.hardwareConcurrency' : 'fallback',
+    logicalProcessors,
+    instancesPerPage: policy.instancesPerPage,
+    activeRequests: Math.max(active.minimum, Math.min(active.maximum, requested)),
+    minimumActiveRequests: active.minimum,
+    maximumActiveRequests: active.maximum
+  };
 }
 
 async function loadTier(manifest: AedsRuntimeManifest, tier: AedsAssetKind): Promise<boolean> {
@@ -299,6 +390,7 @@ async function loadTier(manifest: AedsRuntimeManifest, tier: AedsAssetKind): Pro
     asset.wasmUrl,
     {
       compiledModuleCacheKey: `${asset.wasmUrl}|${manifest.abi}|${tierManifest.wasmSha256}`,
+      expectedModuleSha256: tierManifest.moduleSha256,
       expectedWasmSha256: tierManifest.wasmSha256,
       requireCompiledModule: true,
       onMetrics: (metrics) => { loadMetrics = metrics; }
@@ -337,6 +429,7 @@ export async function initWasm(): Promise<boolean> {
   initPromise = (async () => {
     try {
       const manifest = await loadRuntimeManifest();
+      diagnostics.workerModel = resolveAedsWorkerRuntimeModel(manifest.workerModel);
       const simdSupported = supportsAedsSimd();
       diagnostics.simdSupported = simdSupported;
       const candidates = resolveAedsTierCandidates(simdSupported);

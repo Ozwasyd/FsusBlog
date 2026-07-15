@@ -258,7 +258,15 @@ async function writeAedsRuntimeManifest(toolchain) {
     schema: 'fsusblog.aeds-runtime.v1',
     abi: aedsAbi,
     maxFrameBytes: 8 * 1024 * 1024,
-    workerModel: { instancesPerPage: 1, activeRequests: 2 },
+    workerModel: {
+      instancesPerPage: 1,
+      activeRequests: {
+        source: 'runtime-logical-processors',
+        minimum: 1,
+        maximum: 8,
+        logicalProcessorsPerRequest: 2
+      }
+    },
     toolchain,
     tiers: {
       basic: {

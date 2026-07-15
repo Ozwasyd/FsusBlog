@@ -13,6 +13,7 @@ export type EmscriptenLoadMetrics = {
   downloadMs: number;
   compileMs: number;
   instantiateMs: number;
+  moduleBytes: number;
   wasmBytes: number;
   compiledModuleCacheHit: boolean;
 };
@@ -42,6 +43,7 @@ export async function loadEmscriptenModule<TModule>(
     print?: (message: string) => void;
     printErr?: (message: string) => void;
     compiledModuleCacheKey?: string;
+    expectedModuleSha256?: string;
     expectedWasmSha256?: string;
     requireCompiledModule?: boolean;
     onMetrics?: (metrics: EmscriptenLoadMetrics) => void;
@@ -49,21 +51,33 @@ export async function loadEmscriptenModule<TModule>(
 ): Promise<TModule | null> {
   const resolvedModuleUrl = await resolveRuntimeUrl(moduleUrl);
   const resolvedWasmUrl = await resolveRuntimeUrl(wasmUrl);
-  const moduleRef = await import(/* @vite-ignore */ resolvedModuleUrl) as ModuleNamespace<TModule>;
+  const moduleImportUrl = withIntegrityIdentity(resolvedModuleUrl, options?.expectedModuleSha256);
+  const nodeDirname = resolveNodeDirname(moduleImportUrl);
+  const downloadStartedAt = now();
+  const [moduleBinary, wasmBinary] = await Promise.all([
+    options?.expectedModuleSha256
+      ? readNodeRuntimeBinary(moduleImportUrl) ?? readBrowserRuntimeBinary(moduleImportUrl)
+      : Promise.resolve(undefined),
+    readNodeRuntimeBinary(resolvedWasmUrl) ?? readBrowserRuntimeBinary(resolvedWasmUrl)
+  ]);
+  const downloadMs = now() - downloadStartedAt;
+  if (options?.expectedModuleSha256) {
+    if (!moduleBinary) throw new WasmRuntimeError('module_binary_unavailable_for_hash');
+    const actualHash = await sha256Hex(moduleBinary, 'module_hash_verifier_unavailable');
+    if (actualHash !== normalizeSha256(options.expectedModuleSha256)) {
+      throw new WasmRuntimeError('module_hash_mismatch');
+    }
+  }
+  if (wasmBinary && options?.expectedWasmSha256) {
+    const actualHash = await sha256Hex(wasmBinary, 'wasm_hash_verifier_unavailable');
+    if (actualHash !== normalizeSha256(options.expectedWasmSha256)) {
+      throw new WasmRuntimeError('wasm_hash_mismatch');
+    }
+  }
+  const moduleRef = await import(/* @vite-ignore */ moduleImportUrl) as ModuleNamespace<TModule>;
   const factory = (moduleRef.default ?? moduleRef[exportName]) as EmscriptenModuleFactory<TModule> | undefined;
   if (typeof factory !== 'function') {
     return null;
-  }
-
-  const nodeDirname = resolveNodeDirname(resolvedModuleUrl);
-  const downloadStartedAt = now();
-  const wasmBinary = readNodeWasmBinary(resolvedWasmUrl) ?? await readBrowserWasmBinary(resolvedWasmUrl);
-  const downloadMs = now() - downloadStartedAt;
-  if (wasmBinary && options?.expectedWasmSha256) {
-    const actualHash = await sha256Hex(wasmBinary);
-    if (actualHash !== options.expectedWasmSha256.replace(/^sha256:/u, '').toLowerCase()) {
-      throw new WasmRuntimeError('wasm_hash_mismatch');
-    }
   }
   const cacheKey = options?.compiledModuleCacheKey;
   const cacheHit = Boolean(cacheKey && compiledModuleCache.has(cacheKey));
@@ -103,6 +117,7 @@ export async function loadEmscriptenModule<TModule>(
       downloadMs,
       compileMs,
       instantiateMs,
+      moduleBytes: moduleBinary?.byteLength ?? 0,
       wasmBytes: wasmBinary?.byteLength ?? 0,
       compiledModuleCacheHit: cacheHit
     });
@@ -136,10 +151,10 @@ export function clearCompiledWasmModuleCacheForTests(): void {
   compiledModuleCache.clear();
 }
 
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
+async function sha256Hex(bytes: Uint8Array, unavailableCode: string): Promise<string> {
   const subtle = globalThis.crypto?.subtle;
   if (!subtle) {
-    throw new WasmRuntimeError('wasm_hash_verifier_unavailable');
+    throw new WasmRuntimeError(unavailableCode);
   }
   const digest = await subtle.digest('SHA-256', bytes as BufferSource);
   return Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
@@ -154,8 +169,8 @@ function resolveNodeDirname(moduleUrl: string): string | null {
   return decodeURIComponent(pathname);
 }
 
-function readNodeWasmBinary(wasmUrl: string): Uint8Array | undefined {
-  if (!wasmUrl.startsWith('file://')) {
+function readNodeRuntimeBinary(runtimeUrl: string): Uint8Array | undefined {
+  if (!runtimeUrl.startsWith('file://')) {
     return undefined;
   }
 
@@ -169,16 +184,16 @@ function readNodeWasmBinary(wasmUrl: string): Uint8Array | undefined {
     return undefined;
   }
 
-  return fs.readFileSync(fileUrlToPath(wasmUrl));
+  return fs.readFileSync(fileUrlToPath(runtimeUrl));
 }
 
-async function readBrowserWasmBinary(wasmUrl: string): Promise<Uint8Array | undefined> {
-  if (wasmUrl.startsWith('file://') || typeof fetch !== 'function') {
+async function readBrowserRuntimeBinary(runtimeUrl: string): Promise<Uint8Array | undefined> {
+  if (runtimeUrl.startsWith('file://') || typeof fetch !== 'function') {
     return undefined;
   }
 
   try {
-    const response = await fetch(wasmUrl, { credentials: 'same-origin' });
+    const response = await fetch(runtimeUrl, { credentials: 'same-origin' });
     if (!response.ok) {
       return undefined;
     }
@@ -187,6 +202,17 @@ async function readBrowserWasmBinary(wasmUrl: string): Promise<Uint8Array | unde
   } catch {
     return undefined;
   }
+}
+
+function normalizeSha256(value: string): string {
+  return value.replace(/^sha256:/u, '').toLowerCase();
+}
+
+function withIntegrityIdentity(moduleUrl: string, expectedSha256?: string): string {
+  if (!expectedSha256) return moduleUrl;
+  const url = new URL(moduleUrl);
+  url.searchParams.set('integrity', normalizeSha256(expectedSha256));
+  return url.href;
 }
 
 function fileUrlToPath(fileUrl: string): string {

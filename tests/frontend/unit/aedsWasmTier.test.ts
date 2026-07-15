@@ -1,8 +1,60 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+function runtimeManifest() {
+  const hash = 'a'.repeat(64)
+  return {
+    schema: 'fsusblog.aeds-runtime.v1' as const,
+    abi: 'fsusblog.aeds.v4',
+    maxFrameBytes: 8 * 1024 * 1024,
+    workerModel: {
+      instancesPerPage: 1 as const,
+      activeRequests: {
+        source: 'runtime-logical-processors' as const,
+        minimum: 1,
+        maximum: 8,
+        logicalProcessorsPerRequest: 2
+      }
+    },
+    toolchain: {
+      emscriptenVersion: '4.0.13',
+      binaryenVersion: '123',
+      cmakeVersion: '4.3.3',
+      vcpkgCommit: 'b'.repeat(40),
+      emsdkImage: `emscripten/emsdk:4.0.13@sha256:${'c'.repeat(64)}`
+    },
+    tiers: {
+      basic: {
+        module: 'aeds_decoder_basic.js',
+        wasm: 'aeds_decoder_basic.wasm',
+        moduleSha256: hash,
+        wasmSha256: hash,
+        simd: false,
+        lto: false,
+        wasmOptValidated: false,
+        initialMemoryBytes: 16 * 1024 * 1024,
+        maximumMemoryBytes: 256 * 1024 * 1024,
+        memoryGrowth: 'bounded' as const
+      },
+      speed: {
+        module: 'aeds_decoder_speed.js',
+        wasm: 'aeds_decoder_speed.wasm',
+        moduleSha256: hash,
+        wasmSha256: hash,
+        simd: true,
+        lto: true,
+        wasmOptValidated: true,
+        initialMemoryBytes: 64 * 1024 * 1024,
+        maximumMemoryBytes: 64 * 1024 * 1024,
+        memoryGrowth: 'disabled' as const
+      }
+    }
+  }
+}
+
 describe('AEDS Wasm tier selection', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
     vi.resetModules()
   })
 
@@ -59,5 +111,63 @@ describe('AEDS Wasm tier selection', () => {
     expect(error.name).toBe('WasmRuntimeError')
     expect(error.code).toBe('wasm_hash_mismatch')
     expect(error.message).toBe('wasm_hash_mismatch')
+  })
+
+  it('rejects tampered JavaScript module bytes before importing the module', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('export default () => null')))
+    const { loadEmscriptenModule } = await vi.importActual<
+      typeof import('@wasm/runtime/emscripten')
+    >('@wasm/runtime/emscripten')
+
+    await expect(loadEmscriptenModule(
+      'https://example.test/aeds.js',
+      'createAedsModule',
+      'https://example.test/aeds.wasm',
+      { expectedModuleSha256: '0'.repeat(64) }
+    )).rejects.toMatchObject({ code: 'module_hash_mismatch' })
+  })
+
+  it('derives the active request budget from bounded runtime resources', async () => {
+    const runtime = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const policy = runtimeManifest().workerModel
+
+    expect(runtime.resolveAedsWorkerRuntimeModel(policy, 1)).toMatchObject({
+      logicalProcessors: 1,
+      activeRequests: 1
+    })
+    expect(runtime.resolveAedsWorkerRuntimeModel(policy, 64)).toMatchObject({
+      logicalProcessors: 64,
+      activeRequests: 8
+    })
+  })
+
+  it('accepts only the complete v4 manifest identity', async () => {
+    const runtime = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+
+    expect(() => runtime.validateAedsRuntimeManifest(runtimeManifest())).not.toThrow()
+  })
+
+  it('rejects a missing JavaScript module hash before loading a tier', async () => {
+    const runtime = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const manifest = runtimeManifest()
+    manifest.tiers.speed.moduleSha256 = ''
+
+    expect(() => runtime.validateAedsRuntimeManifest(manifest)).toThrow('aeds_manifest_tier_invalid:speed')
+  })
+
+  it('rejects a basic tier that does not retain the bounded scalar memory profile', async () => {
+    const runtime = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const manifest = runtimeManifest()
+    manifest.tiers.basic.maximumMemoryBytes = 64 * 1024 * 1024
+
+    expect(() => runtime.validateAedsRuntimeManifest(manifest)).toThrow('aeds_manifest_basic_identity_invalid')
+  })
+
+  it('rejects an unpinned Binaryen toolchain identity', async () => {
+    const runtime = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const manifest = runtimeManifest()
+    manifest.toolchain.binaryenVersion = 'latest'
+
+    expect(() => runtime.validateAedsRuntimeManifest(manifest)).toThrow('aeds_manifest_toolchain_invalid')
   })
 })

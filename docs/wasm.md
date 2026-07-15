@@ -30,6 +30,8 @@ wasm/aeds_decoder_speed.wasm
 
 当前 ABI 为 `fsusblog.aeds.v4`。`aeds-runtime-manifest.json` 绑定 basic/speed 的 JS/Wasm SHA-256、内存模型、feature identity 和完整 Wasm toolchain。上层 `wasm-manifest.aeds` 再绑定 runtime manifest 与所有输出 hash，release manifest 的 `wasmArtifactHash` 最终绑定整包；任一层 hash 漂移都必须重建，不能把旧 artifact 重命名为新 tier。v4 把 arena/payload raw pointer export 收口为 `uint64` token + token-validated getter，旧 v3 module 因 ABI identity 不符不能被新 runtime 加载。
 
+runtime 在 import tier 前会先读取实际 JS module bytes 并校验 `moduleSha256`，再校验 Wasm bytes；两套 artifact 的 hash identity、basic/speed feature 与精确内存 profile、有界动态 Worker 策略，以及 Emscripten/Binaryen/CMake/vcpkg/emsdk digest 任一不符都会 fail closed。JS import URL 绑定 module hash，缺失或篡改 `moduleSha256`、把 basic 伪装成 fixed/SIMD、把 speed 伪装成未增长或使用非 pinned Binaryen identity 都不能进入执行路径。
+
 | tier | 编译/优化 | 内存 | 用途 |
 |---|---|---|---|
 | `basic` | `-Oz`、scalar | 16 MiB initial，256 MiB bounded growth | 无 SIMD 浏览器兼容路径 |
@@ -62,7 +64,7 @@ emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e2
 服务端 binary request 的总上限是 8 MiB；公开 hot-read artifact 当前上限更低。前端 AEDS runtime 因此固定：
 
 - `AEDS_MAX_FRAME_BYTES = 8 MiB`；超限 frame 在复制进 Wasm 前拒绝。
-- 每个页面只保留一个 decode Worker；最多两个 active request，其余进入有界队列。
+- 每个页面只保留一个 decode Worker；active request 上限按 `navigator.hardwareConcurrency` 动态解析，在 manifest 声明的 `1..8` 安全边界内每两个逻辑处理器分配一个，请求队列容量再随该上限缩放。
 - speed 预留 64 MiB，容纳 8 MiB frame、128 KiB CRC pair table、Emscripten heap/stack 和 decode/render 临时空间，不允许 decode 中途 grow。
 - basic 可以 bounded growth；运行时记录初始/峰值 pages 与 grow count。
 
@@ -88,7 +90,7 @@ SIMD unsupported: basic
 
 候选按顺序加载，不并发预取 basic+speed。speed 的 JS import、manifest/hash、compile 或 instantiate 失败时才开始 basic；同一个 frame 只交给成功初始化的一个 tier 解码，不先 speed decode 再 basic decode。若 manifest/ABI/hash 无法验证，Worker fail closed，不请求旧文本 API。
 
-`loadEmscriptenModule` 在 fetch 后校验 manifest SHA-256，并按以下 key 缓存 `Promise<WebAssembly.Module>`：
+`loadEmscriptenModule` 在任何 JS 执行前校验实际 module bytes 的 manifest SHA-256，以 hash query 隔离动态 import cache；Wasm bytes 同样在 compile 前校验，并按以下 key 缓存 `Promise<WebAssembly.Module>`：
 
 ```text
 immutable wasm URL | ABI | wasm SHA-256
@@ -111,11 +113,15 @@ worker.postMessage(request, [request.buffer])
 - Wasm arena payload → Worker JS owned payload：1 次，记录 `wasmToJsCopiedBytes`；
 - adapter → ViewModel：按 POD/slice 语义解析，不重新复制完整 frame。
 
-`getAedsRuntimeDiagnostics()` 暴露 selected tier、SIMD support、fallback reason/count、download/compile/instantiate timing、module-cache hit、decode count/bytes/time、frame bucket p50/p95/p99、copy bytes、memory pages/peak/grow、arena stats。Worker 额外记录 transferable 到达时间；`binaryTransport` 只在 tier/fallback signature 改变时发送一次 `aeds_wasm_tier` audit telemetry，避免失败风暴。持续 RUM 复用白名单 `wasm_decode_timing`。
+`getAedsRuntimeDiagnostics()` 暴露 selected tier、SIMD support、fallback reason/count、download/compile/instantiate timing、module-cache hit、decode count/bytes/time、frame bucket p50/p95/p99、copy bytes、memory pages/peak/grow、arena stats。Worker 额外记录 transferable 到达时间；`binaryTransport` 只在 tier/fallback signature 改变时发送一次 `aeds_wasm_tier` audit telemetry，避免失败风暴。持续 RUM 复用白名单 `wasm_decode_timing`。性能 lane 必须实际执行 arena input copy 与 owned payload copy，并让 measured/expected byte counters 完全相等；写死“每帧 1 次”但不执行 copy 不构成证据。
 
 `aeds-frame-cost` lane 串行执行服务端 frame cost、真实 basic/speed Wasm 预算和浏览器 tier 测试，避免并发 benchmark 噪声。浏览器 evidence 在 Chromium/Firefox/WebKit 的本机受支持集合中记录 download/compile/instantiate、Worker transfer、decode bucket、copy bytes、peak/grow pages、long task、selection rate 与 fallback rate；正常路径必须只取 speed，故障注入后必须只回退 basic。hydration takeover 使用同一个 release manifest 中的 `publicHydrationSidecarSummary` 真实页面证据，不能用 Node microbenchmark 或合成 DOM 代替。
 
 release budget 固定为：basic raw/gzip/br 不超过 64/32/24 KiB、compile p95 不超过 50 ms、memory 不超过 4096 pages；speed raw/gzip/br 不超过 96/48/40 KiB、compile p95 不超过 75 ms、固定 1024 pages 且 grow=0。三个真实 frame bucket 至少两个 speed 更快，median speedup 不低于 1.05。budget 与浏览器 summary 都进入 release evidence semantic checker，缺失或不满足时 manifest 保持 `collected-blocked`。
+
+两份 AEDS release summary 还必须携带当前 40-hex `commitSha`，并与 release manifest 完全一致。semantic checker 同时复核 artifact/compile 上限、真实 copy byte equality、arena reallocation 少于 decode count、敏感清零和 speed 1024 pages/grow=0；旧 SHA、缺字段或硬编码 copy 声明都不能完成 release closeout。
+
+evidence producer 会先确认 `FSUSBLOG_EVIDENCE_COMMIT_SHA` / `GITHUB_SHA`（若提供）与当前 `HEAD` 相同，并拒绝 tracked worktree dirty 状态。未提交源码上的开发测量不能写成当前 commit evidence；必须先提交、确认 clean，再运行 budget/browser lane。
 
 ## CRC 与 correctness 边界
 
