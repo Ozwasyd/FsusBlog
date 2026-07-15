@@ -131,6 +131,11 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<AdminAuditLogChannel>();
         services.AddSingleton<IAdminAuditLogChannel>(sp => sp.GetRequiredService<AdminAuditLogChannel>());
         services.AddScoped<IAuditEventService, AuditEventService>();
+        services.AddSingleton<IAuditRetentionEpochKeyStore, LocalAuditRetentionEpochKeyStore>();
+        services.AddSingleton<AuditRetentionPayloadProtector>();
+        services.AddSingleton<AuditLegalHoldRegistry>();
+        services.AddSingleton<AuditRetentionErasureService>();
+        services.AddSingleton<AuditFallbackRetentionPurger>();
         services.AddScoped<AuditQueryService>();
         services.AddScoped<IAuditLogStore, AuditLogStore>();
         services.AddScoped<IAdminAuditLogStore, AdminAuditLogStore>();

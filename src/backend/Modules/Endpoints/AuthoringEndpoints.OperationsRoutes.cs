@@ -153,10 +153,24 @@ public static partial class AuthoringEndpoints
             DateTime? toUtc,
             string? cursor,
             string? piiMode,
+            string? purpose,
             AuditQueryService auditQuery,
             IAuditEventService auditEvents,
+            IAdminPrincipalService adminPrincipals,
             CancellationToken cancellationToken) =>
         {
+            if (string.Equals(NormalizePiiMode(piiMode), "investigation", StringComparison.Ordinal))
+            {
+                if (!AuditInvestigationAccessPolicy.IsValidPurpose(purpose))
+                {
+                    return AedsJsonResults.BadRequest(aeds, "AUDIT_INVESTIGATION_PURPOSE_REQUIRED");
+                }
+                IResult? stepUpFailure = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
+                if (stepUpFailure is not null)
+                {
+                    return stepUpFailure;
+                }
+            }
             AuditDisclosureMode disclosureMode = ResolveAuditDisclosureMode(context, piiMode);
             AuditLogQueryRequest query = BuildAuditLogQuery(page, pageSize, source, type, actor, action, targetType, targetId, outcome, severity, fromUtc, toUtc, cursor);
             AuditLogListResponse response = await auditQuery.ListAsync(query, cancellationToken, disclosureMode);
@@ -168,7 +182,7 @@ public static partial class AuthoringEndpoints
                 AuditSeverityCatalog.Info,
                 "管理员查询审计日志列表",
                 TargetType: "audit_log",
-                Context: BuildAuditQueryContext(query, disclosureMode, piiMode, context)), disclosureMode, cancellationToken);
+                Context: BuildAuditQueryContext(query, disclosureMode, piiMode, context, purpose)), disclosureMode, cancellationToken);
             return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.AuditRead)
@@ -212,10 +226,24 @@ public static partial class AuthoringEndpoints
             HttpContext context,
             IAedsEncoder aeds,
             string? piiMode,
+            string? purpose,
             AuditQueryService auditQuery,
             IAuditEventService auditEvents,
+            IAdminPrincipalService adminPrincipals,
             CancellationToken cancellationToken) =>
         {
+            if (string.Equals(NormalizePiiMode(piiMode), "investigation", StringComparison.Ordinal))
+            {
+                if (!AuditInvestigationAccessPolicy.IsValidPurpose(purpose))
+                {
+                    return AedsJsonResults.BadRequest(aeds, "AUDIT_INVESTIGATION_PURPOSE_REQUIRED");
+                }
+                IResult? stepUpFailure = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
+                if (stepUpFailure is not null)
+                {
+                    return stepUpFailure;
+                }
+            }
             AuditDisclosureMode disclosureMode = ResolveAuditDisclosureMode(context, piiMode);
             AuditLogDetailResponse? response = await auditQuery.GetAsync(id, cancellationToken, disclosureMode);
             await RecordAuditQueryAsync(auditEvents, new AuditEvent(
@@ -227,7 +255,7 @@ public static partial class AuthoringEndpoints
                 "管理员查看审计日志详情",
                 TargetType: "audit_log",
                 TargetId: id.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                Context: BuildAuditDisclosureContext(disclosureMode, piiMode, context)), disclosureMode, cancellationToken);
+                Context: BuildAuditDisclosureContext(disclosureMode, piiMode, context, purpose)), disclosureMode, cancellationToken);
             return response is null
                 ? AedsJsonResults.NotFound(aeds, "audit_log_not_found")
                 : Ok(context, aeds, response);

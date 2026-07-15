@@ -22,13 +22,15 @@ public class LogCleanupService(
     IBackgroundWorkerLease workerLease,
     TimeProvider timeProvider,
     IActiveReleaseTransactionalCommitGuard transactionalCommitGuard,
-    IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
+    IActiveReleaseCommitGuard? activeReleaseCommitGuard = null,
+    AuditRetentionErasureService? retentionErasureService = null,
+    AuditLegalHoldRegistry? legalHoldRegistry = null,
+    AuditFallbackRetentionPurger? fallbackRetentionPurger = null) : BackgroundService
 {
     internal const string FencedCommitOperationScope = "fenced-commit-retention";
     private const int ChunkSize = 5000;
     private const int MaxChunksPerCycle = 200;
     private const int RumRetentionDays = 14;
-    private const int AuditLogRetentionDays = 365;
     private const int AnonymousCredentialIssuanceAuditRetentionDays = 90;
     private const int FencedCommitRetentionDays = 30;
     private static readonly TimeSpan DelayBetweenChunks = TimeSpan.FromMilliseconds(50);
@@ -49,8 +51,7 @@ public class LogCleanupService(
             SELECT id
             FROM sys_audit_log
             WHERE occurred_at_utc < @ExpireDate
-              AND is_high_value = false
-              AND severity <> @CriticalSeverity
+              AND action = @Action
             ORDER BY id
             LIMIT @ChunkSize
         )
@@ -96,7 +97,7 @@ public class LogCleanupService(
         """;
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("【系统】日志清理任务初始化完成。策略：RUM 保留 {RumDays} 天，普通审计保留 {AuditDays} 天。阅读数据仅保存聚合计数，不存在事件日志保留任务。", RumRetentionDays, AuditLogRetentionDays);
+        _logger.LogInformation("【系统】日志清理任务初始化完成。策略：RUM 保留 {RumDays} 天，审计按 AuditRetentionCatalog 的 action 上限清理；high-value/Critical 不构成永久保留。", RumRetentionDays);
         using var timer = new PeriodicTimer(TimeSpan.FromDays(1), timeProvider);
         await BackgroundTaskExecutor.RunLoopAsync(
             async token =>
@@ -131,7 +132,6 @@ public class LogCleanupService(
     {
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
         DateTime rumExpireDate = now.AddDays(-RumRetentionDays);
-        DateTime auditExpireDate = now.AddDays(-AuditLogRetentionDays);
         DateTime anonymousCredentialAuditExpireDate = now.AddDays(-AnonymousCredentialIssuanceAuditRetentionDays);
         DateTime fencedCommitExpireDate = now.AddDays(-FencedCommitRetentionDays);
 
@@ -142,13 +142,7 @@ public class LogCleanupService(
                 db, "rum-retention", CleanupRumMetricsSql, rumExpireDate, scopedToken),
             token);
         Task<int> auditTask = CleanupWithScopedDbAsync(
-            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
-                db,
-                "audit-log-retention",
-                CleanupAuditLogsSql,
-                auditExpireDate,
-                scopedToken,
-                new SugarParameter("@CriticalSeverity", AuditSeverityCatalog.Critical)),
+            (db, scopedToken) => CleanupAuditLogsByCatalogAsync(db, now, scopedToken),
             token);
         Task<int> anonymousCredentialAuditTask = CleanupWithScopedDbAsync(
             (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
@@ -180,6 +174,10 @@ public class LogCleanupService(
             anonymousCredentialAuditTask,
             legacySecurityRiskTask,
             fencedCommitTask);
+        int fallbackFilesDeleted = fallbackRetentionPurger is null
+            ? 0
+            : await fallbackRetentionPurger.PurgeExpiredAsync(new DateTimeOffset(now, TimeSpan.Zero), token)
+                .ConfigureAwait(false);
 
         int rumDeleted = await rumTask;
         int auditDeleted = await auditTask;
@@ -191,15 +189,17 @@ public class LogCleanupService(
             || auditDeleted > 0
             || anonymousCredentialAuditDeleted > 0
             || legacySecurityRiskDeleted > 0
-            || fencedCommitDeleted > 0)
+            || fencedCommitDeleted > 0
+            || fallbackFilesDeleted > 0)
         {
             _logger.LogInformation(
-                "日志自动清理成功 | rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount} legacySecurityRisk={LegacySecurityRiskCount} fencedCommit={FencedCommitCount}",
+                "日志自动清理成功 | rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount} legacySecurityRisk={LegacySecurityRiskCount} fencedCommit={FencedCommitCount} fallbackFiles={FallbackFileCount}",
                 rumDeleted,
                 auditDeleted,
                 anonymousCredentialAuditDeleted,
                 legacySecurityRiskDeleted,
-                fencedCommitDeleted);
+                fencedCommitDeleted,
+                fallbackFilesDeleted);
         }
     }
 
@@ -234,6 +234,90 @@ public class LogCleanupService(
             operationScope,
             token,
             extraParameters);
+    }
+
+    private async Task<int> CleanupAuditLogsByCatalogAsync(
+        ISqlSugarClient db,
+        DateTime now,
+        CancellationToken token)
+    {
+        int deleted = 0;
+        foreach (AuditRetentionPolicy policy in AuditRetentionCatalog.All)
+        {
+            if (legalHoldRegistry?.IsHeld(policy.Action, new DateTimeOffset(now, TimeSpan.Zero)) == true)
+            {
+                continue;
+            }
+
+            DateTime expireDate = now.Subtract(policy.MaxFullRecordAge);
+            if (retentionErasureService is null)
+            {
+                deleted += await CleanupWithActiveReleaseGuardAsync(
+                    db,
+                    "audit-log-retention",
+                    CleanupAuditLogsSql,
+                    expireDate,
+                    token,
+                    new SugarParameter("@Action", policy.Action));
+                continue;
+            }
+
+            for (int chunk = 0; chunk < MaxChunksPerCycle; chunk++)
+            {
+                List<AuditLog> rows = await db.Queryable<AuditLog>()
+                    .Where(row => row.Action == policy.Action && row.OccurredAtUtc < expireDate)
+                    .OrderBy(row => row.Id)
+                    .Take(ChunkSize)
+                    .ToListAsync(token)
+                    .ConfigureAwait(false);
+                if (rows.Count == 0)
+                {
+                    break;
+                }
+
+                AuditRetentionErasureResult prepared = await retentionErasureService
+                    .AnchorAndDestroyKeysAsync(rows, token)
+                    .ConfigureAwait(false);
+                deleted += await DeleteAnchoredAuditRowsAsync(
+                    db,
+                    rows.Select(static row => row.Id).ToArray(),
+                    prepared.Anchor.CheckpointDigest,
+                    token).ConfigureAwait(false);
+                if (DelayBetweenChunks > TimeSpan.Zero)
+                {
+                    await Task.Delay(DelayBetweenChunks, token).ConfigureAwait(false);
+                }
+            }
+        }
+
+        return deleted;
+    }
+
+    private async Task<int> DeleteAnchoredAuditRowsAsync(
+        ISqlSugarClient db,
+        long[] ids,
+        string checkpointDigest,
+        CancellationToken token)
+    {
+        const string sql = "DELETE FROM sys_audit_log WHERE id = ANY(@Ids);";
+        var parameters = new[] { new SugarParameter("@Ids", ids) };
+        if (transactionalCommitGuard is not null)
+        {
+            return await ActiveReleaseFencedTransaction.ExecuteAsync(
+                db,
+                transactionalCommitGuard,
+                "audit-log-retention",
+                $"audit-log-retention:{checkpointDigest}",
+                _ => db.Ado.ExecuteCommandAsync(sql, parameters),
+                token,
+                static deletedRows => deletedRows > 0).ConfigureAwait(false);
+        }
+
+        if (activeReleaseCommitGuard is not null)
+        {
+            await activeReleaseCommitGuard.EnsureCurrentAsync(token).ConfigureAwait(false);
+        }
+        return await db.Ado.ExecuteCommandAsync(sql, parameters).ConfigureAwait(false);
     }
 
     internal static Task<int> CleanupVisitLogsAsync(
@@ -280,13 +364,12 @@ public class LogCleanupService(
     internal static Task<int> CleanupAuditLogsAsync(ISqlSugarClient db, DateTime expireDate, CancellationToken token)
         => CleanupByServerSideLimitAsync(
             db,
-            CleanupAuditLogsSql,
+            CleanupAuditLogsSql.Replace("AND action = @Action", string.Empty, StringComparison.Ordinal),
             expireDate,
             ChunkSize,
             MaxChunksPerCycle,
             DelayBetweenChunks,
-            token,
-            new SugarParameter("@CriticalSeverity", AuditSeverityCatalog.Critical));
+            token);
 
     internal static Task<int> CleanupAuditLogsAsync(
         ISqlSugarClient db,
@@ -297,13 +380,12 @@ public class LogCleanupService(
         CancellationToken token)
         => CleanupByServerSideLimitAsync(
             db,
-            CleanupAuditLogsSql,
+            CleanupAuditLogsSql.Replace("AND action = @Action", string.Empty, StringComparison.Ordinal),
             expireDate,
             chunkSize,
             maxChunks,
             delayBetweenChunks,
-            token,
-            new SugarParameter("@CriticalSeverity", AuditSeverityCatalog.Critical));
+            token);
 
     internal static async Task<int> CleanupAnonymousCredentialIssuanceAuditAsync(
         ISqlSugarClient db,

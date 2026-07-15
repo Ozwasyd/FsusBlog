@@ -36,7 +36,7 @@ public class AuditLogStoreTests
             new DateTime(2026, 7, 11, 10, 0, 0, DateTimeKind.Utc),
             "admin changed a security policy",
             null,
-            Action: "admin.security.policy.updated",
+            Action: AuditActionCatalog.SecurityPolicyActivated,
             Outcome: AuditOutcomeCatalog.Success,
             Severity: AuditSeverityCatalog.Warning,
             ActorType: AuditActorTypeCatalog.Admin,
@@ -58,7 +58,7 @@ public class AuditLogStoreTests
         await store.WriteBatchAsync([record], CancellationToken.None);
 
         Assert.NotNull(capturedParameters);
-        Assert.Equal("admin.security.policy.updated", ReadStringParameter(capturedParameters!, "@action_0"));
+        Assert.Equal(AuditActionCatalog.SecurityPolicyActivated, ReadStringParameter(capturedParameters!, "@action_0"));
         Assert.Equal("7", ReadStringParameter(capturedParameters!, "@actor_id_0"));
         Assert.Equal("owner", ReadStringParameter(capturedParameters!, "@actor_role_0"));
         Assert.Equal("security-policy", ReadStringParameter(capturedParameters!, "@target_type_0"));
@@ -211,7 +211,7 @@ public class AuditLogStoreTests
             new DateTime(2026, 6, 14, 12, 0, 0, DateTimeKind.Utc),
             eventInfo,
             null,
-            Action: "auth.test",
+            Action: AuditActionCatalog.AuthSelfServicePrincipalRejected,
             Outcome: AuditOutcomeCatalog.Success,
             Severity: AuditSeverityCatalog.Info);
 

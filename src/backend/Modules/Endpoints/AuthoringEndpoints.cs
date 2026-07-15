@@ -377,7 +377,8 @@ public static partial class AuthoringEndpoints
         AuditLogQueryRequest query,
         AuditDisclosureMode disclosureMode = AuditDisclosureMode.PiiRedacted,
         string? requestedPiiMode = null,
-        HttpContext? context = null)
+        HttpContext? context = null,
+        string? investigationPurpose = null)
         => new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["page"] = query.Page,
@@ -397,18 +398,25 @@ public static partial class AuthoringEndpoints
             ["requestedPiiMode"] = NormalizePiiMode(requestedPiiMode),
             ["sensitiveFieldsRead"] = disclosureMode == AuditDisclosureMode.Investigation,
             ["hasAuditInvestigationPermission"] = context is not null && HasAuditInvestigationPermission(context)
+            , ["investigationPurpose"] = disclosureMode == AuditDisclosureMode.Investigation
+                ? investigationPurpose?.Trim()
+                : null
         };
 
     private static IReadOnlyDictionary<string, object?> BuildAuditDisclosureContext(
         AuditDisclosureMode disclosureMode,
         string? requestedPiiMode,
-        HttpContext context)
+        HttpContext context,
+        string? investigationPurpose = null)
         => new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["piiMode"] = FormatAuditDisclosureMode(disclosureMode),
             ["requestedPiiMode"] = NormalizePiiMode(requestedPiiMode),
             ["sensitiveFieldsRead"] = disclosureMode == AuditDisclosureMode.Investigation,
-            ["hasAuditInvestigationPermission"] = HasAuditInvestigationPermission(context)
+            ["hasAuditInvestigationPermission"] = HasAuditInvestigationPermission(context),
+            ["investigationPurpose"] = disclosureMode == AuditDisclosureMode.Investigation
+                ? investigationPurpose?.Trim()
+                : null
         };
 
     internal static AuditDisclosureMode ResolveAuditDisclosureMode(HttpContext context, string? piiMode)

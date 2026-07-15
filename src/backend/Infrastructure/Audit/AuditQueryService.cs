@@ -19,7 +19,8 @@ public enum AuditDisclosureMode
 public sealed class AuditQueryService(
     ISqlSugarClient db,
     AuditLogRuntimeState runtimeState,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    AuditRetentionPayloadProtector? retentionProtector = null)
 {
     private const int MaxAuditPage = 50_000;
     private static readonly TimeSpan SummaryCacheTtl = TimeSpan.FromSeconds(20);
@@ -35,7 +36,7 @@ public sealed class AuditQueryService(
         AuditDisclosureMode disclosureMode = AuditDisclosureMode.PiiRedacted)
     {
         int page = Math.Clamp(request.Page, 1, MaxAuditPage);
-        int pageSize = Math.Clamp(request.PageSize, 1, 200);
+        int pageSize = AuditInvestigationAccessPolicy.EnforceRowLimit(request.PageSize);
         long startedAt = Stopwatch.GetTimestamp();
         Task<int> totalTask = QueryWithNewClientAsync(queryDb =>
             ApplyFilters(queryDb.Queryable<AuditLog>(), request).CountAsync(cancellationToken));
@@ -62,6 +63,15 @@ public sealed class AuditQueryService(
             rows.RemoveAt(rows.Count - 1);
         }
 
+        if (disclosureMode == AuditDisclosureMode.Investigation && retentionProtector is not null)
+        {
+            for (int index = 0; index < rows.Count; index++)
+            {
+                rows[index] = await retentionProtector.TryUnprotectAsync(rows[index], cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
         string? nextCursor = hasMore && rows.Count > 0
             ? EncodeAuditCursor(rows[^1])
             : null;
@@ -85,9 +95,16 @@ public sealed class AuditQueryService(
             .Where(it => it.Id == id)
             .FirstAsync(cancellationToken);
 
-        return row is null
-            ? null
-            : new AuditLogDetailResponse(ToItemResponse(row, disclosureMode), row.ContextJson, await VerifyWithChainAsync(row, cancellationToken));
+        if (row is null)
+        {
+            return null;
+        }
+        bool valid = await VerifyWithChainAsync(row, cancellationToken);
+        if (disclosureMode == AuditDisclosureMode.Investigation && retentionProtector is not null)
+        {
+            row = await retentionProtector.TryUnprotectAsync(row, cancellationToken).ConfigureAwait(false);
+        }
+        return new AuditLogDetailResponse(ToItemResponse(row, disclosureMode), row.ContextJson, valid);
     }
 
     public async Task<AuditTamperVerifyResponse?> VerifyAsync(long id, CancellationToken cancellationToken)
@@ -231,8 +248,7 @@ public sealed class AuditQueryService(
 
     private static ISugarQueryable<AuditLog> SelectListProjection(ISugarQueryable<AuditLog> query, AuditDisclosureMode disclosureMode)
     {
-        _ = disclosureMode;
-        return query.Select(static it => new AuditLog
+        ISugarQueryable<AuditLog> projected = query.Select(static it => new AuditLog
         {
             Id = it.Id,
             Source = it.Source,
@@ -256,11 +272,13 @@ public sealed class AuditQueryService(
             DeviceFingerprintHash = it.DeviceFingerprintHash,
             ReasonCode = it.ReasonCode,
             EventInfo = it.EventInfo,
+            ContextPayload = it.ContextPayload,
             ChainId = it.ChainId,
             PrevHash = it.PrevHash,
             RecordHash = it.RecordHash,
             RecordMac = it.RecordMac
         });
+        return projected;
     }
 
     internal static AuditLogItemResponse ToItemResponse(AuditLog row, AuditDisclosureMode disclosureMode)

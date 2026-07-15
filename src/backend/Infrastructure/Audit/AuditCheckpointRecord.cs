@@ -65,7 +65,9 @@ public sealed record AuditCheckpointRecordSet(
 
 public static class AuditCheckpointRecordSetBuilder
 {
-    public static AuditCheckpointRecordSet Build(IEnumerable<AuditLog> logs)
+    public static AuditCheckpointRecordSet Build(
+        IEnumerable<AuditLog> logs,
+        bool verifyAdjacentChainLinks = true)
     {
         ArgumentNullException.ThrowIfNull(logs);
         AuditCheckpointRecord[] records = logs.Select(AuditCheckpointRecord.FromAuditLog).ToArray();
@@ -93,7 +95,8 @@ public static class AuditCheckpointRecordSetBuilder
                 throw new InvalidOperationException("audit_checkpoint_record_order_invalid");
             }
 
-            if (StringComparer.Ordinal.Equals(current.ChainId, previous.ChainId)
+            if (verifyAdjacentChainLinks
+                && StringComparer.Ordinal.Equals(current.ChainId, previous.ChainId)
                 && !AuditTamperEvidence.FixedTimeEqualsHexSha256(current.PrevHash, previous.RecordHash))
             {
                 throw new InvalidOperationException("audit_checkpoint_record_chain_invalid");

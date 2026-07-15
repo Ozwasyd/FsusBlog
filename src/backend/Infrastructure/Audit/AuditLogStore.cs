@@ -13,7 +13,10 @@ public interface IAuditLogStore
     Task WriteBatchAsync(IReadOnlyList<AuditRecord> records, CancellationToken cancellationToken);
 }
 
-public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configuration) : IAuditLogStore
+public sealed class AuditLogStore(
+    ISqlSugarClient db,
+    IConfiguration configuration,
+    AuditRetentionPayloadProtector? retentionProtector = null) : IAuditLogStore
 {
     private const int ColumnCount = 27;
     private static readonly ConcurrentDictionary<int, AuditLogInsertBatchShape> InsertBatchShapes = new();
@@ -66,7 +69,11 @@ public sealed class AuditLogStore(ISqlSugarClient db, IConfiguration configurati
         int parameterOffset = 0;
         for (int i = 0; i < records.Count; i++)
         {
-            AuditRecord record = EnsureContextJson(records[i]);
+            _ = AuditRetentionCatalog.GetRequired(records[i].Action);
+            AuditRecord protectedRecord = retentionProtector is null
+                ? records[i]
+                : await retentionProtector.ProtectAsync(records[i], cancellationToken).ConfigureAwait(false);
+            AuditRecord record = EnsureContextJson(protectedRecord);
             string chainId = ResolveChainId(record);
             if (!chainTails.TryGetValue(chainId, out string? prevHash))
             {

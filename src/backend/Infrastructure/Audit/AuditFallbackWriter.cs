@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
 
@@ -18,12 +19,18 @@ public sealed class AuditFallbackWriter : IAuditFallbackWriter
     private readonly string _fallbackPathPrefix;
     private readonly AuditLogRuntimeState _runtimeState;
 
-    public AuditFallbackWriter(IConfiguration configuration, AuditLogRuntimeState runtimeState)
+    private readonly AuditRetentionPayloadProtector? _retentionProtector;
+
+    public AuditFallbackWriter(
+        IConfiguration configuration,
+        AuditLogRuntimeState runtimeState,
+        AuditRetentionPayloadProtector? retentionProtector = null)
     {
         string fallbackRoot = ResolveFallbackRoot(configuration);
         Directory.CreateDirectory(fallbackRoot);
         _fallbackPathPrefix = Path.Combine(fallbackRoot, "critical-audit-");
         _runtimeState = runtimeState;
+        _retentionProtector = retentionProtector;
     }
 
     public async Task WriteAsync(AuditRecord record, Exception reason, CancellationToken cancellationToken)
@@ -40,8 +47,12 @@ public sealed class AuditFallbackWriter : IAuditFallbackWriter
         string path = $"{_fallbackPathPrefix}{fallbackAtUtc:yyyyMMdd}.jsonl";
         var buffer = new ArrayBufferWriter<byte>(Math.Min(records.Count * 1024, WriteBufferSize));
 
-        foreach (AuditRecord record in records)
+        foreach (AuditRecord sourceRecord in records)
         {
+            _ = AuditRetentionCatalog.GetRequired(sourceRecord.Action);
+            AuditRecord record = _retentionProtector is null
+                ? sourceRecord
+                : await _retentionProtector.ProtectAsync(sourceRecord, cancellationToken).ConfigureAwait(false);
             using (var writer = new Utf8JsonWriter(buffer))
             {
                 JsonSerializer.Serialize(writer, new
@@ -70,6 +81,9 @@ public sealed class AuditFallbackWriter : IAuditFallbackWriter
                     record.ReasonCode,
                     record.EventInfo,
                     ContextJson = record.ContextJson ?? AuditContextJsonSerializer.Serialize(record.ContextPayload),
+                    RetentionEnvelopeBase64Url = record.ContextPayload is { Length: > 0 }
+                        ? WebEncoders.Base64UrlEncode(record.ContextPayload)
+                        : null,
                     record.OccurredAtUtc
                 });
             }
