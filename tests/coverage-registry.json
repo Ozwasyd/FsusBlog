@@ -69,6 +69,7 @@
       "risk": "critical",
       "evidencePaths": [
         "tests/tools/runtime-publish-profile.test.mjs",
+        "tests/tools/final-image-toolchain-pin.test.mjs",
         "tools/runtime-profiles/runtime-publish-profiles.json",
         "tools/runtime-profiles/runtime-publish-profile.mjs",
         "tools/runtime-profiles/runtime-publish-evidence.mjs",

@@ -21,6 +21,7 @@ static_implementation_drift() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ch
 STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/release-manifest.test.mjs"
   "$ROOT_DIR/tests/tools/runtime-publish-profile.test.mjs"
+  "$ROOT_DIR/tests/tools/final-image-toolchain-pin.test.mjs"
   "$ROOT_DIR/tests/tools/deployment-slots.test.mjs"
   "$ROOT_DIR/tests/tools/gateway-switch.test.mjs"
   "$ROOT_DIR/tests/tools/dead-code-audit-index.test.mjs"

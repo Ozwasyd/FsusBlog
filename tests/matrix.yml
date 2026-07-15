@@ -828,6 +828,7 @@ tiers:
       - docs/issue-1024-release-identity-handoff.md
       - tests/tools/release-manifest.test.mjs
       - tests/tools/runtime-publish-profile.test.mjs
+      - tests/tools/final-image-toolchain-pin.test.mjs
       - tools/runtime-profiles/runtime-publish-profiles.json
       - tools/runtime-profiles/runtime-publish-profile.mjs
       - tools/runtime-profiles/runtime-publish-evidence.mjs
