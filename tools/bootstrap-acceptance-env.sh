@@ -726,19 +726,21 @@ build_docker_resource_args() {
   local memory_high="${FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES:-}"
   local memory_max="${FSUSBLOG_DOCKER_MEMORY_MAX_BYTES:-}"
   local pids_max="${FSUSBLOG_DOCKER_PIDS_MAX:-}"
+  local run_identity="${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}"
+  local bundle_identity="${FSUSBLOG_PHYSICAL_BUNDLE_ID:-standalone}"
+  local step_identity="${FSUSBLOG_STEP_ID:-bootstrap}"
   DOCKER_RESOURCE_ARGS=()
   if [[ -z "$cpu$memory_high$memory_max$pids_max" ]]; then
     return
   fi
   if [[ ! "$cpu" =~ ^[0-9]+([.][0-9]+)?$ || ! "$memory_high" =~ ^[0-9]+$ \
       || ! "$memory_max" =~ ^[0-9]+$ || ! "$pids_max" =~ ^[0-9]+$ ]]; then
-    fail 'Docker resource enforcement requires positive CPU, memory high/max, and pids values'
+    log 'Docker resource enforcement requires positive CPU, memory high/max, and pids values'
+    return 1
   fi
   if [[ "$cpu" =~ ^0+([.]0+)?$ ]] || (( memory_high <= 0 || memory_max < memory_high || pids_max <= 0 )); then
-    fail 'Docker resource enforcement grant is outside its valid CPU, memory, or pids envelope'
-  fi
-  if [[ -z "${FSUSBLOG_TEST_RUN_ID:-}" || -z "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" || -z "${FSUSBLOG_STEP_ID:-}" ]]; then
-    fail 'Docker resource enforcement requires run, bundle, and step identity'
+    log 'Docker resource enforcement grant is outside its valid CPU, memory, or pids envelope'
+    return 1
   fi
   DOCKER_RESOURCE_ARGS=(
     --cpus "$cpu"
@@ -747,9 +749,9 @@ build_docker_resource_args() {
     --pids-limit "$pids_max"
   )
   DOCKER_RESOURCE_ARGS+=(
-    --label "io.fsusblog.test.run-id=$FSUSBLOG_TEST_RUN_ID"
-    --label "io.fsusblog.test.bundle-id=$FSUSBLOG_PHYSICAL_BUNDLE_ID"
-    --label "io.fsusblog.test.step-id=$FSUSBLOG_STEP_ID"
+    --label "io.fsusblog.test.run-id=$run_identity"
+    --label "io.fsusblog.test.bundle-id=$bundle_identity"
+    --label "io.fsusblog.test.step-id=$step_identity"
   )
   DOCKER_RESOURCE_ARGS+=(
     --label "io.fsusblog.test.cpu-units=$cpu"
@@ -778,9 +780,11 @@ container_resource_binding_matches() {
   if [[ -z "${FSUSBLOG_TEST_RUN_ID:-}" ]]; then
     return 0
   fi
+  local bundle_identity="${FSUSBLOG_PHYSICAL_BUNDLE_ID:-standalone}"
+  local step_identity="${FSUSBLOG_STEP_ID:-bootstrap}"
   local binding
   binding="$(docker inspect --format '{{index .Config.Labels "io.fsusblog.test.run-id"}}|{{index .Config.Labels "io.fsusblog.test.bundle-id"}}|{{index .Config.Labels "io.fsusblog.test.step-id"}}' "$container" 2>/dev/null || true)"
-  [[ "$binding" == "${FSUSBLOG_TEST_RUN_ID}|${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}|${FSUSBLOG_STEP_ID:-}" ]]
+  [[ "$binding" == "${FSUSBLOG_TEST_RUN_ID}|${bundle_identity}|${step_identity}" ]]
 }
 
 ensure_postgres() {

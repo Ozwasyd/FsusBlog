@@ -232,6 +232,8 @@ test('production wiring attaches a stopped bundle before resume and propagates O
   assert.match(bundle, /FSUSBLOG_DOCKER_CPU_UNITS[\s\S]*?FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES[\s\S]*?FSUSBLOG_DOCKER_PIDS_MAX/u)
   assert.match(bundle, /docker', \['inspect'[\s\S]*?consistency/u)
   assert.match(bootstrap, /DOCKER_RESOURCE_ARGS=\([\s\S]*?--cpus[\s\S]*?--memory-reservation[\s\S]*?--pids-limit/u)
+  assert.match(bootstrap, /bundle_identity="\$\{FSUSBLOG_PHYSICAL_BUNDLE_ID:-standalone\}"/u)
+  assert.match(bootstrap, /step_identity="\$\{FSUSBLOG_STEP_ID:-bootstrap\}"/u)
   assert.match(bootstrap, /docker update[\s\S]*?docker run -d/u)
   assert.match(postgresFixture, /BuildDockerResourceArguments[\s\S]*?--cpus[\s\S]*?--memory-reservation[\s\S]*?io\.fsusblog\.test\.step-id/u)
   assert.match(backendShards, /backendPartitionEnvironment[\s\S]*?dockerLimitEnvironment\(processors, memoryGiB, env\)/u)
