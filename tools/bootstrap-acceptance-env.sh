@@ -1061,7 +1061,8 @@ ensure_release_preview() {
   if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
     run_bound_build="true"
     log 'using receipt-verified CI frontend dist; local production readiness marker is not required'
-  elif [[ -n "${FSUSBLOG_TEST_RUN_ID:-}" ]]; then
+  elif [[ -n "${FSUSBLOG_TEST_RUN_ID:-}" \
+      && -f "$ROOT_DIR/.tmp/test-runs/$FSUSBLOG_TEST_RUN_ID/frontend-build-ready.json" ]]; then
     FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
       FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
       "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ux/release-preview-readiness.mjs" validate-build

@@ -112,6 +112,7 @@ test('production runtime keeps hydration writes exact-once and gates all release
   assert.match(bootstrap, /PublicAot__BackfillConcurrency=\$PUBLIC_AOT_BACKFILL_CONCURRENCY/u)
   assert.match(bootstrap, /PublicAot__SsrWorkerCount=\$PUBLIC_AOT_SSR_WORKER_COUNT/u)
   assert.equal((bootstrap.match(/ActiveReleaseFence__AllowSyntheticLocalFence=true/gu) ?? []).length, 2)
+  assert.match(bootstrap, /-f "\$ROOT_DIR\/\.tmp\/test-runs\/\$FSUSBLOG_TEST_RUN_ID\/frontend-build-ready\.json"/u)
   assert.match(bootstrap, /server-public-ssr\.bundle\.mjs/u)
   assert.match(warmup, /workersPerCpu: 2/u)
   assert.match(warmup, /warm-public-aot-timing/u)
