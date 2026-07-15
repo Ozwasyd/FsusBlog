@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.CommentIdentity;
@@ -55,6 +56,10 @@ public sealed class ProductionStartupValidatorTests
             ["Security:RecoveryKeyPepper"] = TestSecrets.RecoveryKeyPepper,
             ["PublicAot:ManifestToken"] = "public-aot-manifest-token-with-enough-entropy",
             ["MfaChallenge:TicketSigningKey"] = TestSecrets.MfaTicketSigningKey,
+            ["HumanReadProof:SigningKey"] = TestSecrets.HumanReadProofSigningKey,
+            ["HumanReadProof:Dedup:CurrentKeyEpoch"] = "1",
+            ["HumanReadProof:Dedup:CurrentKey"] = TestSecrets.HumanReadProofDedupKey,
+            [ReadAnalyticsPrivacyPolicy.NoiseKeySetting] = TestSecrets.ReadAnalyticsNoiseKey,
             ["Audit:TamperEvidenceKey"] = TestSecrets.AuditTamperEvidenceKey,
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
             [VisitLogIpPseudonymizer.CurrentEpochKey] = "1",
@@ -616,7 +621,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(17, report.SchemaVersion);
+        Assert.Equal(18, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -634,6 +639,10 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("Security:RecoveryKeyPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("PublicAot:ManifestToken", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("MfaChallenge:TicketSigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("HumanReadProof:SigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("HumanReadProof:Dedup:CurrentKeyEpoch", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("HumanReadProof:Dedup:CurrentKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains(ReadAnalyticsPrivacyPolicy.NoiseKeySetting, ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Audit:TamperEvidenceKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains(VisitLogIpPseudonymizer.CurrentEpochKey, ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -653,6 +662,49 @@ public sealed class ProductionStartupValidatorTests
         Assert.DoesNotContain(
             ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets,
             static secret => secret.Contains("MUST_BE_OVERRIDDEN", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(VisitLogIpPseudonymizer.CurrentKeyKey)]
+    [InlineData(SecurityRiskPseudonymizer.CurrentKeyKey)]
+    public void ValidateCore_RejectsDedupKeyReuseAcrossPseudonymDomains(string reusedKeySetting)
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["HumanReadProof:Dedup:CurrentKey"] = TestSecrets.HumanReadProofDedupKey,
+            [reusedKeySetting] = TestSecrets.HumanReadProofDedupKey
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true);
+
+        Assert.Contains(errors, error =>
+            error.Contains("HumanReadProof:Dedup:CurrentKey", StringComparison.Ordinal)
+            && error.Contains(reusedKeySetting, StringComparison.Ordinal)
+            && error.Contains("independent key material", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("HumanReadProof:SigningKey", "YGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn8=")]
+    [InlineData("HumanReadProof:Dedup:CurrentKey", "gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp8=")]
+    [InlineData(ReadAnalyticsPrivacyPolicy.NoiseKeySetting, "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8=")]
+    public void ValidateCore_RejectsCommittedDevelopmentReadAnalyticsKeysInProduction(
+        string setting,
+        string developmentValue)
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [setting] = developmentValue
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true);
+
+        Assert.Contains(errors, error =>
+            error.Contains(setting, StringComparison.Ordinal)
+            && error.Contains("development/template/default", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -918,6 +970,10 @@ public sealed class ProductionStartupValidatorTests
             ["Security:RecoveryKeyPepper"] = TestSecrets.RecoveryKeyPepper,
             ["PublicAot:ManifestToken"] = "public-aot-manifest-token-with-enough-entropy",
             ["MfaChallenge:TicketSigningKey"] = TestSecrets.MfaTicketSigningKey,
+            ["HumanReadProof:SigningKey"] = TestSecrets.HumanReadProofSigningKey,
+            ["HumanReadProof:Dedup:CurrentKeyEpoch"] = "1",
+            ["HumanReadProof:Dedup:CurrentKey"] = TestSecrets.HumanReadProofDedupKey,
+            [ReadAnalyticsPrivacyPolicy.NoiseKeySetting] = TestSecrets.ReadAnalyticsNoiseKey,
             ["Audit:TamperEvidenceKey"] = TestSecrets.AuditTamperEvidenceKey,
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
             [VisitLogIpPseudonymizer.CurrentEpochKey] = "1",

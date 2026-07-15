@@ -2,17 +2,11 @@ using System.Diagnostics;
 using System.Reflection;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.VisitLog;
-using FsusBlog.Server.Entities;
-using IP2Location;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.ObjectPool;
 using NSubstitute;
 using SqlSugar;
-using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
 namespace FsusBlog.Server.Tests;
 
@@ -23,12 +17,9 @@ public sealed class VisitLogProcessorServiceTests
     {
         await using ServiceProvider provider = CreateServiceProvider();
         var channel = new VisitLogChannel();
-        var worker = new VisitLogProcessorService(
-            channel,
-            provider,
-            NullLogger<VisitLogProcessorService>.Instance);
-        var batch = new List<VisitLogEntity>();
-        Assert.True(channel.TryWrite(CreateMessage("127.0.0.1")));
+        var worker = new VisitLogProcessorService(channel, provider, NullLogger<VisitLogProcessorService>.Instance);
+        var batch = new List<VisitLogMessage>();
+        Assert.True(channel.TryWrite(CreateMessage()));
 
         var elapsed = Stopwatch.StartNew();
         await DrainBatchAsync(worker, batch, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
@@ -43,14 +34,11 @@ public sealed class VisitLogProcessorServiceTests
     {
         await using ServiceProvider provider = CreateServiceProvider();
         var channel = new VisitLogChannel();
-        var worker = new VisitLogProcessorService(
-            channel,
-            provider,
-            NullLogger<VisitLogProcessorService>.Instance);
-        var batch = new List<VisitLogEntity>();
+        var worker = new VisitLogProcessorService(channel, provider, NullLogger<VisitLogProcessorService>.Instance);
+        var batch = new List<VisitLogMessage>();
         for (int i = 0; i < 500; i++)
         {
-            Assert.True(channel.TryWrite(CreateMessage("127.0.0.1")));
+            Assert.True(channel.TryWrite(CreateMessage()));
         }
 
         var elapsed = Stopwatch.StartNew();
@@ -65,12 +53,8 @@ public sealed class VisitLogProcessorServiceTests
     public async Task DrainBatchWithFlushWindowAsync_DoesNotSwallowShutdownCancellation()
     {
         await using ServiceProvider provider = CreateServiceProvider();
-        var channel = new VisitLogChannel();
-        var worker = new VisitLogProcessorService(
-            channel,
-            provider,
-            NullLogger<VisitLogProcessorService>.Instance);
-        var batch = new List<VisitLogEntity>();
+        var worker = new VisitLogProcessorService(new VisitLogChannel(), provider, NullLogger<VisitLogProcessorService>.Instance);
+        var batch = new List<VisitLogMessage>();
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
@@ -79,185 +63,112 @@ public sealed class VisitLogProcessorServiceTests
     }
 
     [Fact]
-    public async Task DrainBatchWithFlushWindowAsync_AnonymizesIpBeforePersistence()
+    public void ContributionTransport_HasOnlyCoarseAggregateDimensions()
+    {
+        string[] properties = typeof(VisitLogMessage)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Select(static property => property.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(
+            new[] { "AggregateHourUtc", "ArticleId", "DwellBucket", "EventType" }.Order(StringComparer.Ordinal),
+            properties);
+        Assert.DoesNotContain(properties, static name =>
+            name.Contains("Ip", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Route", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Viewer", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Proof", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Device", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("UserAgent", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ContributionChannel_AcceptsConcurrentWritersBelowItsBoundedCapacity()
+    {
+        const int contributionCount = 20_000;
+        var channel = new VisitLogChannel();
+        int accepted = 0;
+
+        Parallel.For(0, contributionCount, _ =>
+        {
+            if (channel.TryWrite(CreateMessage()))
+            {
+                Interlocked.Increment(ref accepted);
+            }
+        });
+
+        Assert.Equal(contributionCount, accepted);
+        Assert.Equal(contributionCount, channel.QueuedCount);
+        Assert.Equal(0, channel.SaturatedWriteCount);
+    }
+
+    [Fact]
+    public async Task DrainBatchWithFlushWindowAsync_InvalidOrUnalignedContributionsAreDiscarded()
     {
         await using ServiceProvider provider = CreateServiceProvider();
         var channel = new VisitLogChannel();
-        var worker = new VisitLogProcessorService(
-            channel,
-            provider,
-            NullLogger<VisitLogProcessorService>.Instance);
-        var batch = new List<VisitLogEntity>();
-
-        Assert.True(channel.TryWrite(CreateMessage("127.0.0.1")));
+        var worker = new VisitLogProcessorService(channel, provider, NullLogger<VisitLogProcessorService>.Instance);
+        var batch = new List<VisitLogMessage>();
+        Assert.True(channel.TryWrite(new VisitLogMessage(
+            new DateTime(2026, 7, 15, 10, 12, 0, DateTimeKind.Utc),
+            HumanReadEventTypes.ArticleRead,
+            42,
+            ReadDwellBuckets.From10To30Seconds)));
 
         await DrainBatchAsync(worker, batch, CancellationToken.None);
 
-        var item = Assert.Single(batch);
-        Assert.Null(typeof(VisitLogEntity).GetProperty("IP"));
-        PropertyInfo? ipHashProperty = typeof(VisitLogEntity).GetProperty("IpHash");
-        Assert.NotNull(ipHashProperty);
-        string? ipHash = Assert.IsType<string>(ipHashProperty!.GetValue(item));
-        Assert.Equal(32, ipHash.Length);
-        Assert.NotEqual("127.0.0.1", ipHash);
-        Assert.Equal(3, item.IpHashKeyEpoch);
-        Assert.InRange(item.IpHashWindowUtc, 20200101, 20991231);
+        Assert.Empty(batch);
+    }
+
+    [Theory]
+    [InlineData(0, ReadDwellBuckets.Under10Seconds)]
+    [InlineData(9_999, ReadDwellBuckets.Under10Seconds)]
+    [InlineData(10_000, ReadDwellBuckets.From10To30Seconds)]
+    [InlineData(29_999, ReadDwellBuckets.From10To30Seconds)]
+    [InlineData(30_000, ReadDwellBuckets.From30To120Seconds)]
+    [InlineData(119_999, ReadDwellBuckets.From30To120Seconds)]
+    [InlineData(120_000, ReadDwellBuckets.Over120Seconds)]
+    public void Classify_UsesOnlyFourDocumentedDwellBuckets(int dwellMs, string expected)
+    {
+        Assert.Equal(expected, ReadDwellBuckets.Classify(dwellMs));
     }
 
     [Fact]
-    public async Task Source_DrainBatchUsesDeadlineWaitWithoutLinkedCancellationTokenSource()
+    public void Source_PersistenceWritesOnlyAggregateTables()
     {
-        await using ServiceProvider provider = CreateServiceProvider();
-        var channel = new VisitLogChannel();
-        var worker = new VisitLogProcessorService(
-            channel,
-            provider,
-            NullLogger<VisitLogProcessorService>.Instance);
-        var batch = new List<VisitLogEntity>();
-        Assert.True(channel.TryWrite(CreateMessage("127.0.0.1")));
+        string source = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
 
-        var elapsed = Stopwatch.StartNew();
-        Task drain = DrainBatchAsync(worker, batch, CancellationToken.None);
-
-        // DrainBatchWithFlushWindowAsync consumes the first item synchronously before it
-        // reaches WaitToReadAsync. Observe that state directly instead of racing two
-        // independent thread-pool timers on a saturated production test host.
-        Assert.Equal(0, channel.QueuedCount);
-        Assert.False(drain.IsCompleted);
-        Assert.True(channel.TryWrite(CreateMessage("127.0.0.2")));
-        await drain.WaitAsync(TimeSpan.FromSeconds(10));
-        elapsed.Stop();
-
-        Assert.Equal(2, batch.Count);
-        Assert.InRange(
-            elapsed.Elapsed,
-            VisitLogProcessorService.FlushWindow * 0.75,
-            VisitLogProcessorService.FlushWindow * 1.75);
+        Assert.Contains("article_read_hourly_aggregate", source, StringComparison.Ordinal);
+        Assert.Contains("read_dwell_daily_aggregate", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Insertable(batch)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("sys_visit_log", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("viewer_key_hash", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("proof_id", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("route_key", source, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
-    public async Task Source_FlushPathCachesScopedServicesAndUsesAccumulatedStats()
-    {
-        await using ServiceProvider provider = CreateServiceProvider();
-        using IServiceScope scope = provider.CreateScope();
-        var channel = new VisitLogChannel();
-        var worker = new VisitLogProcessorService(
-            channel,
-            provider,
-            NullLogger<VisitLogProcessorService>.Instance);
-        MethodInfo resolve = typeof(VisitLogProcessorService).GetMethod(
-            "ResolveFlushServices",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-
-        _ = resolve.Invoke(worker, [scope.ServiceProvider]);
-        object? firstProjection = typeof(VisitLogProcessorService)
-            .GetField("_articleViewProjectionService", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(worker);
-        object? firstCoalescer = typeof(VisitLogProcessorService)
-            .GetField("_hotStatsInvalidationCoalescer", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(worker);
-        _ = resolve.Invoke(worker, [scope.ServiceProvider]);
-
-        Assert.Same(firstProjection, typeof(VisitLogProcessorService)
-            .GetField("_articleViewProjectionService", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(worker));
-        Assert.Same(firstCoalescer, typeof(VisitLogProcessorService)
-            .GetField("_hotStatsInvalidationCoalescer", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(worker));
-
-        var batch = new List<VisitLogEntity>();
-        var articleRead = new VisitLogMessage(
-            "127.0.0.1",
-            DateTime.UtcNow,
-            HumanReadEventTypes.ArticleRead,
-            "article:42",
-            42,
-            "viewer",
-            "proof",
-            8000);
-        typeof(VisitLogProcessorService).GetMethod(
-            "ProcessSingleMessageCore",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(worker, [articleRead, batch]);
-        object stats = typeof(VisitLogProcessorService)
-            .GetField("_flushStats", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .GetValue(worker)!;
-        var coalescer = Assert.IsAssignableFrom<IHotStatsInvalidationCoalescer>(firstCoalescer);
-        MethodInfo markStats = typeof(VisitLogProcessorService).GetMethod(
-            "MarkStatsAfterFlushAsync",
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-        await (Task)markStats.Invoke(worker, [coalescer, stats, CancellationToken.None])!;
-
-        Assert.Single(batch);
-        await coalescer.Received(1).MarkStatsDirtyAsync("visit-log-flush", Arg.Any<CancellationToken>());
-        await coalescer.Received(1).MarkHotArticlesDirtyAsync("article-read-projection", Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_ContinuesProcessingAfterSingleMessageFailure()
-    {
-        await using ServiceProvider provider = CreateServiceProvider();
-        var channel = new VisitLogChannel();
-        var pool = new SequencedFaultPool();
-        var worker = new VisitLogProcessorService(
-            channel,
-            provider,
-            NullLogger<VisitLogProcessorService>.Instance,
-            pool);
-
-        await worker.StartAsync(CancellationToken.None);
-
-        try
-        {
-            Assert.True(channel.TryWrite(CreateMessage("8.8.8.8")));
-            Assert.True(channel.TryWrite(CreateMessage("8.8.4.4")));
-
-            await pool.SecondAttemptObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.True(Volatile.Read(ref pool.GetCalls) >= 2);
-        }
-        finally
-        {
-            await worker.StopAsync(CancellationToken.None);
-        }
-    }
-
-    [Fact]
-    public async Task StopAsync_DoesNotThrowWhenPendingMessagesAreFaulty()
-    {
-        await using ServiceProvider provider = CreateServiceProvider();
-        var channel = new VisitLogChannel();
-        var worker = new VisitLogProcessorService(
-            channel,
-            provider,
-            NullLogger<VisitLogProcessorService>.Instance,
-            new AlwaysFaultingPool());
-
-        await worker.StartAsync(CancellationToken.None);
-        Assert.True(channel.TryWrite(CreateMessage("8.8.8.8")));
-
-        var exception = await Record.ExceptionAsync(() => worker.StopAsync(CancellationToken.None));
-
-        Assert.Null(exception);
-    }
-
-    private static VisitLogMessage CreateMessage(string ip) =>
-        new(ip, DateTime.UtcNow, HumanReadEventTypes.SiteRead, "home", null, "viewer", "proof", 8000);
+    private static VisitLogMessage CreateMessage()
+        => new(
+            new DateTime(2026, 7, 15, 10, 0, 0, DateTimeKind.Utc),
+            HumanReadEventTypes.SiteRead,
+            null,
+            ReadDwellBuckets.Under10Seconds);
 
     private static ServiceProvider CreateServiceProvider()
         => new ServiceCollection()
-            .AddSingleton<IConfiguration>(new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    [VisitLogIpPseudonymizer.CurrentEpochKey] = "3",
-                    [VisitLogIpPseudonymizer.CurrentKeyKey] = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
-                })
-                .Build())
             .AddScoped(_ => Substitute.For<ISqlSugarClient>())
             .AddScoped(_ => Substitute.For<IDbConcurrencyGate>())
             .AddScoped(_ => Substitute.For<IArticleViewProjectionService>())
             .AddScoped(_ => Substitute.For<IHotStatsInvalidationCoalescer>())
             .BuildServiceProvider();
 
-    private static async Task DrainBatchAsync(VisitLogProcessorService worker, List<VisitLogEntity> batch, CancellationToken token)
+    private static async Task DrainBatchAsync(
+        VisitLogProcessorService worker,
+        List<VisitLogMessage> batch,
+        CancellationToken token)
     {
         MethodInfo method = typeof(VisitLogProcessorService)
             .GetMethod("DrainBatchWithFlushWindowAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -265,56 +176,14 @@ public sealed class VisitLogProcessorServiceTests
         await task.ConfigureAwait(false);
     }
 
-    [Theory]
-    [InlineData("127.0.0.1", "本地网络")]
-    [InlineData("::1", "本地网络")]
-    [InlineData("10.0.0.9", "内网")]
-    [InlineData("172.16.1.8", "内网")]
-    [InlineData("192.168.1.8", "内网")]
-    [InlineData("fc00::1", "内网")]
-    public void TryClassifyLocalNetwork_LocalOrPrivateIp_ReturnsStableRegion(string ip, string expectedRegion)
+    private static string FindRepositoryRoot()
     {
-        bool matched = VisitLogProcessorService.TryClassifyLocalNetwork(ip, out string region);
-
-        Assert.True(matched);
-        Assert.Equal(expectedRegion, region);
-    }
-
-    [Fact]
-    public void TryClassifyLocalNetwork_PublicIp_DoesNotMatch()
-    {
-        bool matched = VisitLogProcessorService.TryClassifyLocalNetwork("8.8.8.8", out string region);
-
-        Assert.False(matched);
-        Assert.Equal(string.Empty, region);
-    }
-    private sealed class SequencedFaultPool : ObjectPool<Component>
-    {
-        public int GetCalls;
-        public TaskCompletionSource<bool> SecondAttemptObserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public override Component Get()
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")))
         {
-            int call = Interlocked.Increment(ref GetCalls);
-            if (call >= 2)
-            {
-                SecondAttemptObserved.TrySetResult(true);
-            }
-
-            throw new InvalidOperationException("simulated ip lookup failure");
+            directory = directory.Parent;
         }
 
-        public override void Return(Component obj)
-        {
-        }
-    }
-
-    private sealed class AlwaysFaultingPool : ObjectPool<Component>
-    {
-        public override Component Get() => throw new InvalidOperationException("simulated ip lookup failure");
-
-        public override void Return(Component obj)
-        {
-        }
+        return directory?.FullName ?? throw new InvalidOperationException("Repository root not found.");
     }
 }

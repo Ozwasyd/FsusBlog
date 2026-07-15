@@ -22,12 +22,11 @@ public sealed class HumanReadProofService(
 {
     private const int DefaultMinDwellMs = 8000;
     private const int MaxRouteKeyLength = 200;
-    private const int MaxDeviceFingerprintLength = 128;
-    private const string HeaderDeviceFingerprint = "X-Fsus-Device-Fp";
     private static readonly TimeSpan ChallengeTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan ReplayTtl = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan ViewerDedupTtl = TimeSpan.FromHours(24);
-    private readonly byte[] _hmacKey = CreateHmacKey(configuration);
+    internal static readonly TimeSpan DedupEpochDuration = TimeSpan.FromMinutes(15);
+    internal static readonly TimeSpan DedupLeaseTtl = DedupEpochDuration + ChallengeTtl;
+    private readonly HumanReadProofKeyMaterial _keys = HumanReadProofKeyMaterial.Load(configuration);
     private readonly FrozenSet<string> _trustedOrigins = BuildTrustedOriginSnapshot(configuration, environment);
 
     public ValueTask<HumanReadChallengeResponse?> CreateChallengeAsync(
@@ -40,7 +39,7 @@ public sealed class HumanReadProofService(
             return ValueTask.FromResult(CreatePausedChallenge(request));
         }
 
-        if (!TryValidateRequestContext(context, out string? deviceFp, out _, out _)
+        if (!TryValidateRequestContext(context, out _, out _)
             || !TryNormalizeScope(request.Scope, out string scope)
             || !TryNormalizeRouteKey(request.RouteKey, out string routeKey)
             || !TryNormalizeArticle(scope, request.ArticleId, out int? articleId))
@@ -51,13 +50,14 @@ public sealed class HumanReadProofService(
         DateTimeOffset now = timeProvider.GetUtcNow();
         DateTimeOffset expiresAt = now.Add(ChallengeTtl);
         string nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        long dedupEpoch = ResolveDedupEpoch(now);
         var payload = new ChallengePayload(
             scope,
             routeKey,
             articleId,
-            HashValue(deviceFp),
-            HashValue(context.GetClientIp()),
-            HashValue(GetUserAgent(context)),
+            _keys.DedupKeyEpoch,
+            dedupEpoch,
+            BuildScopedDedupToken(scope, articleId, dedupEpoch, context),
             now.ToUnixTimeMilliseconds(),
             expiresAt.ToUnixTimeMilliseconds(),
             DefaultMinDwellMs,
@@ -77,7 +77,7 @@ public sealed class HumanReadProofService(
             return new HumanReadSubmitResponse(false, "paused");
         }
 
-        if (!TryValidateRequestContext(context, out string? deviceFp, out string? rejectReason, out bool browserContext))
+        if (!TryValidateRequestContext(context, out string? rejectReason, out bool browserContext))
         {
             LogRejected(rejectReason ?? "context_invalid", browserContext);
             return new HumanReadSubmitResponse(false, rejectReason ?? "context_invalid");
@@ -107,9 +107,10 @@ public sealed class HumanReadProofService(
             return new HumanReadSubmitResponse(false, "dwell_too_short");
         }
 
-        if (!FixedHashEquals(payload.DeviceFpHash, HashValue(deviceFp))
-            || !FixedHashEquals(payload.IpHash, HashValue(context.GetClientIp()))
-            || !FixedHashEquals(payload.UserAgentHash, HashValue(GetUserAgent(context))))
+        if (payload.DedupKeyEpoch != _keys.DedupKeyEpoch
+            || !FixedHashEquals(
+                payload.ScopedDedupToken,
+                BuildScopedDedupToken(payload.Scope, payload.ArticleId, payload.DedupEpoch, context)))
         {
             return new HumanReadSubmitResponse(false, "proof_binding_mismatch");
         }
@@ -120,31 +121,28 @@ public sealed class HumanReadProofService(
             return new HumanReadSubmitResponse(false, "proof_replayed");
         }
 
-        string viewerKeyHash = BuildViewerKeyHash(payload);
-        string lockIdentity = $"viewer:{payload.Scope}:{payload.ArticleId?.ToString() ?? "site"}:{viewerKeyHash}";
-        if (!await cache.TryAcquireLeaseAsync(CachePolicyId.HumanReadProof, lockIdentity, "1", ViewerDedupTtl, cancellationToken))
+        string aggregateScope = payload.ArticleId is int scopedArticleId
+            ? $"article:{scopedArticleId.ToString(CultureInfo.InvariantCulture)}"
+            : "site";
+        string lockIdentity = $"dedup:{aggregateScope}:epoch:{payload.DedupEpoch.ToString(CultureInfo.InvariantCulture)}:{payload.ScopedDedupToken}";
+        if (!await cache.TryAcquireLeaseAsync(CachePolicyId.HumanReadProof, lockIdentity, "1", DedupLeaseTtl, cancellationToken))
         {
             return new HumanReadSubmitResponse(false, "duplicate_viewer");
         }
 
         bool accepted = channel.TryWrite(new VisitLogMessage(
-            context.GetClientIp(),
-            now.UtcDateTime,
+            TruncateToHour(now.UtcDateTime),
             payload.Scope == "article" ? HumanReadEventTypes.ArticleRead : HumanReadEventTypes.SiteRead,
-            payload.RouteKey,
             payload.ArticleId,
-            viewerKeyHash,
-            proofId,
-            Math.Max(request.DwellMs, payload.MinDwellMs)), out bool saturated);
+            ReadDwellBuckets.Classify(Math.Max(request.DwellMs, payload.MinDwellMs))), out bool saturated);
 
         if (!accepted || saturated)
         {
             logger.LogWarning(
-                "真人阅读事件通道出现写入压力 | Accepted: {Accepted} | Saturated: {Saturated} | Scope: {Scope} | RouteKey: {RouteKey}",
+                "真人阅读聚合通道出现写入压力 | Accepted: {Accepted} | Saturated: {Saturated} | IsArticle: {IsArticle}",
                 accepted,
                 saturated,
-                SanitizeLogValue(payload.Scope),
-                SanitizeLogValue(payload.RouteKey));
+                payload.ArticleId.HasValue);
         }
 
         return new HumanReadSubmitResponse(accepted, accepted ? "counted" : "queue_rejected");
@@ -169,9 +167,8 @@ public sealed class HumanReadProofService(
         return !string.Equals(mode, "paused", StringComparison.OrdinalIgnoreCase);
     }
 
-    private bool TryValidateRequestContext(HttpContext context, out string deviceFp, out string? reason, out bool browserContext)
+    private bool TryValidateRequestContext(HttpContext context, out string? reason, out bool browserContext)
     {
-        deviceFp = string.Empty;
         reason = null;
         browserContext = false;
 
@@ -201,14 +198,6 @@ public sealed class HumanReadProofService(
             || normalizedUa.Contains("go-http-client", StringComparison.Ordinal))
         {
             reason = "ua_blocked";
-            return false;
-        }
-
-        if (!context.Request.Headers.TryGetValue(HeaderDeviceFingerprint, out var rawFp)
-            || rawFp.Count != 1
-            || !TryNormalizeDeviceFingerprint(rawFp.ToString(), out deviceFp))
-        {
-            reason = "fingerprint_missing";
             return false;
         }
 
@@ -345,38 +334,22 @@ public sealed class HumanReadProofService(
         return true;
     }
 
-    private static bool TryNormalizeDeviceFingerprint(string? raw, out string fingerprint)
-    {
-        fingerprint = (raw ?? string.Empty).Trim();
-        if (fingerprint.Length is < 8 or > MaxDeviceFingerprintLength)
-        {
-            return false;
-        }
-
-        if (!TextHelpers.HasOnlyAsciiTokenChars(fingerprint, "-_.:"))
-        {
-            return false;
-        }
-
-        return true;
-    }
-
     private string EncodeToken(ChallengePayload payload)
     {
         string payloadText = string.Join('|',
-            "v1",
+            "v2",
             Base64UrlEncode(Encoding.UTF8.GetBytes(payload.Scope)),
             Base64UrlEncode(Encoding.UTF8.GetBytes(payload.RouteKey)),
             payload.ArticleId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-            payload.DeviceFpHash,
-            payload.IpHash,
-            payload.UserAgentHash,
+            payload.DedupKeyEpoch.ToString(CultureInfo.InvariantCulture),
+            payload.DedupEpoch.ToString(CultureInfo.InvariantCulture),
+            payload.ScopedDedupToken,
             payload.IssuedAtMs.ToString(CultureInfo.InvariantCulture),
             payload.ExpiresAtMs.ToString(CultureInfo.InvariantCulture),
             payload.MinDwellMs.ToString(CultureInfo.InvariantCulture),
             payload.Nonce);
         byte[] payloadBytes = Encoding.UTF8.GetBytes(payloadText);
-        byte[] signature = HMACSHA256.HashData(_hmacKey, payloadBytes);
+        byte[] signature = HMACSHA256.HashData(_keys.SigningKey, payloadBytes);
         return $"{Base64UrlEncode(payloadBytes)}.{Base64UrlEncode(signature)}";
     }
 
@@ -393,7 +366,7 @@ public sealed class HumanReadProofService(
 
         byte[] actualPayloadBytes = payloadBytes ?? [];
         byte[] actualSignature = signature ?? [];
-        byte[] expected = HMACSHA256.HashData(_hmacKey, actualPayloadBytes);
+        byte[] expected = HMACSHA256.HashData(_keys.SigningKey, actualPayloadBytes);
         if (actualSignature.Length != expected.Length
             || !CryptographicOperations.FixedTimeEquals(actualSignature, expected))
         {
@@ -403,10 +376,12 @@ public sealed class HumanReadProofService(
         string payloadText = Encoding.UTF8.GetString(actualPayloadBytes);
         string[] fields = payloadText.Split('|');
         if (fields.Length != 11
-            || !string.Equals(fields[0], "v1", StringComparison.Ordinal)
+            || !string.Equals(fields[0], "v2", StringComparison.Ordinal)
             || !TryBase64UrlDecodeString(fields[1], out string scope)
             || !TryBase64UrlDecodeString(fields[2], out string routeKey)
             || !TryParseNullableInt(fields[3], out int? articleId)
+            || !int.TryParse(fields[4], NumberStyles.None, CultureInfo.InvariantCulture, out int dedupKeyEpoch)
+            || !long.TryParse(fields[5], NumberStyles.None, CultureInfo.InvariantCulture, out long dedupEpoch)
             || !long.TryParse(fields[7], NumberStyles.None, CultureInfo.InvariantCulture, out long issuedAtMs)
             || !long.TryParse(fields[8], NumberStyles.None, CultureInfo.InvariantCulture, out long expiresAtMs)
             || !int.TryParse(fields[9], NumberStyles.None, CultureInfo.InvariantCulture, out int minDwellMs)
@@ -415,8 +390,8 @@ public sealed class HumanReadProofService(
             return false;
         }
 
-        if (fields[4].Length != 64
-            || fields[5].Length != 64
+        if (dedupKeyEpoch <= 0
+            || dedupEpoch < 0
             || fields[6].Length != 64
             || fields[10].Length == 0)
         {
@@ -427,8 +402,8 @@ public sealed class HumanReadProofService(
             scope,
             routeKey,
             articleId,
-            fields[4],
-            fields[5],
+            dedupKeyEpoch,
+            dedupEpoch,
             fields[6],
             issuedAtMs,
             expiresAtMs,
@@ -437,14 +412,31 @@ public sealed class HumanReadProofService(
         return true;
     }
 
-    private static string BuildViewerKeyHash(ChallengePayload payload)
-        => HashValue(string.Join(':',
-            payload.Scope,
-            payload.RouteKey,
-            payload.ArticleId?.ToString() ?? "0",
-            payload.DeviceFpHash,
-            payload.IpHash,
-            payload.UserAgentHash));
+    private string BuildScopedDedupToken(
+        string scope,
+        int? articleId,
+        long dedupEpoch,
+        HttpContext context)
+    {
+        string domain = string.Join('|',
+            "fsus-human-read-dedup-v1",
+            _keys.DedupKeyEpoch.ToString(CultureInfo.InvariantCulture),
+            dedupEpoch.ToString(CultureInfo.InvariantCulture),
+            scope,
+            articleId?.ToString(CultureInfo.InvariantCulture) ?? "site",
+            context.GetClientIp(),
+            GetUserAgent(context));
+        return Convert.ToHexStringLower(HMACSHA256.HashData(_keys.DedupKey, Encoding.UTF8.GetBytes(domain)));
+    }
+
+    private static long ResolveDedupEpoch(DateTimeOffset now)
+        => now.ToUnixTimeSeconds() / checked((long)DedupEpochDuration.TotalSeconds);
+
+    private static DateTime TruncateToHour(DateTime utc)
+    {
+        DateTime normalized = utc.Kind == DateTimeKind.Utc ? utc : utc.ToUniversalTime();
+        return new DateTime(normalized.Year, normalized.Month, normalized.Day, normalized.Hour, 0, 0, DateTimeKind.Utc);
+    }
 
     private static string GetUserAgent(HttpContext context)
         => context.Request.Headers.UserAgent.ToString();
@@ -452,50 +444,12 @@ public sealed class HumanReadProofService(
     private static string HashValue(string value)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
-    private static string SanitizeLogValue(string value)
-    {
-        StringBuilder? builder = null;
-        for (int i = 0; i < value.Length; i++)
-        {
-            string? replacement = value[i] switch
-            {
-                '\r' => "\\r",
-                '\n' => "\\n",
-                '\t' => "\\t",
-                var ch when char.IsControl(ch) => $"\\u{(int)ch:X4}",
-                _ => null
-            };
-
-            if (replacement is null)
-            {
-                builder?.Append(value[i]);
-                continue;
-            }
-
-            builder ??= new StringBuilder(value.Length + 8).Append(value, 0, i);
-            builder.Append(replacement);
-        }
-
-        return builder?.ToString() ?? value;
-    }
-
     private static bool FixedHashEquals(string left, string right)
     {
         byte[] leftBytes = Encoding.ASCII.GetBytes(left);
         byte[] rightBytes = Encoding.ASCII.GetBytes(right);
         return leftBytes.Length == rightBytes.Length
             && CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
-    }
-
-    private static byte[] CreateHmacKey(IConfiguration configuration)
-    {
-        string secret = configuration["Jwt:SecretKey"] ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(secret))
-        {
-            secret = string.Concat("FsusBlog:HumanReadProof:Fallback:", Environment.MachineName, ":", AppContext.BaseDirectory);
-        }
-
-        return SHA256.HashData(Encoding.UTF8.GetBytes(secret));
     }
 
     private static string Base64UrlEncode(byte[] value)
@@ -557,11 +511,52 @@ public sealed class HumanReadProofService(
         string Scope,
         string RouteKey,
         int? ArticleId,
-        string DeviceFpHash,
-        string IpHash,
-        string UserAgentHash,
+        int DedupKeyEpoch,
+        long DedupEpoch,
+        string ScopedDedupToken,
         long IssuedAtMs,
         long ExpiresAtMs,
         int MinDwellMs,
         string Nonce);
+
+    private sealed record HumanReadProofKeyMaterial(
+        byte[] SigningKey,
+        int DedupKeyEpoch,
+        byte[] DedupKey)
+    {
+        internal static HumanReadProofKeyMaterial Load(IConfiguration configuration)
+        {
+            byte[] signingKey = ReadKey(configuration, "HumanReadProof:SigningKey");
+            byte[] dedupKey = ReadKey(configuration, "HumanReadProof:Dedup:CurrentKey");
+            if (!int.TryParse(
+                    configuration["HumanReadProof:Dedup:CurrentKeyEpoch"],
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out int epoch)
+                || epoch <= 0)
+            {
+                throw new InvalidOperationException("HumanReadProof:Dedup:CurrentKeyEpoch must be a positive integer.");
+            }
+
+            return new HumanReadProofKeyMaterial(signingKey, epoch, dedupKey);
+        }
+
+        private static byte[] ReadKey(IConfiguration configuration, string key)
+        {
+            string raw = configuration[key] ?? string.Empty;
+            try
+            {
+                byte[] decoded = Convert.FromBase64String(raw);
+                if (decoded.Length >= 32)
+                {
+                    return decoded;
+                }
+            }
+            catch (FormatException)
+            {
+            }
+
+            throw new InvalidOperationException($"{key} must be an independent base64 secret of at least 32 bytes.");
+        }
+    }
 }

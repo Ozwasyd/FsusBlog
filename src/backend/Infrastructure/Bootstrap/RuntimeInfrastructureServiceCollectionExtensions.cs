@@ -224,7 +224,6 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         if (!OpenApiExportMode.IsEnabled())
         {
             services.AddHostedService<VisitLogProcessorService>();
-            services.AddHostedService<ArticleViewProjectionRepairWorker>();
         }
         services.AddSingleton(TimeProvider.System);
         if (!OpenApiExportMode.IsEnabled())

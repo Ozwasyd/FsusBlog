@@ -45,8 +45,10 @@ internal sealed class HumanReadProofTestHarness : IAsyncDisposable
     {
         var settings = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Jwt:SecretKey"] = "0123456789abcdef0123456789abcdef",
-            ["HumanReadProof:Mode"] = "enforce"
+            ["HumanReadProof:Mode"] = "enforce",
+            ["HumanReadProof:SigningKey"] = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            ["HumanReadProof:Dedup:CurrentKeyEpoch"] = "7",
+            ["HumanReadProof:Dedup:CurrentKey"] = "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8="
         };
         if (overrides is not null)
         {

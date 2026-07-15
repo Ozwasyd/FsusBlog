@@ -87,7 +87,7 @@ public sealed class HotStatsInvalidationCoalescerTests
         Assert.Contains("GetRequiredService", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("IHotStatsInvalidationCoalescer", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("MarkStatsDirtyAsync", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("visit-log-flush", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("read-aggregate-flush", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("MarkHotArticlesDirtyAsync", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("article-read-projection", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("ICacheInvalidationDispatcher.InvalidateStatsAsync", runtimeShape, StringComparison.Ordinal);
@@ -106,7 +106,7 @@ public sealed class HotStatsInvalidationCoalescerTests
         Assert.Equal(typeof(Task), stats.ReturnType);
         Assert.Equal(typeof(Task), hotArticles.ReturnType);
         Assert.Contains("MarkStatsDirtyAsync", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("visit-log-flush", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("read-aggregate-flush", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("MarkHotArticlesDirtyAsync", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("article-read-projection", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("IHotStatsInvalidationCoalescer.MarkStatsDirty(", runtimeShape, StringComparison.Ordinal);

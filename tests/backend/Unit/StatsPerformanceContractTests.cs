@@ -1,9 +1,11 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
@@ -83,6 +85,14 @@ public sealed class StatsPerformanceContractTests(PostgresSchemaMigrationFixture
             Substitute.For<IUnifiedCache>(),
             Substitute.For<ICacheMissCoordinator>(),
             Substitute.For<IDbConcurrencyGate>(),
+            new ReadAnalyticsPrivacyPolicy(
+                new ConfigurationBuilder()
+                    .AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        [ReadAnalyticsPrivacyPolicy.NoiseKeySetting] = "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8="
+                    })
+                    .Build(),
+                TimeProvider.System),
             NullLogger<StatsService>.Instance);
 
         List<FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto> comments =
@@ -118,8 +128,7 @@ public sealed class StatsPerformanceContractTests(PostgresSchemaMigrationFixture
         executedSql.Clear();
         List<FsusBlog.Shared.Contracts.Outputs.RegionStatItemDto> regions =
             await service.LoadRegionStatsAsync(CancellationToken.None);
-        Assert.Single(regions);
-        Assert.Equal("中国-北京", regions[0].Region);
+        Assert.Empty(regions);
         Assert.Single(executedSql);
         Assert.Contains("region_read_stats", executedSql[0], StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("daily_read_stats", executedSql[0], StringComparison.OrdinalIgnoreCase);

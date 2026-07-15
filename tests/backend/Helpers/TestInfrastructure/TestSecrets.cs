@@ -12,6 +12,9 @@ public static class TestSecrets
     public const string AuditTamperEvidenceKey = "TEST_ONLY_DO_NOT_DEPLOY_AUDIT_TAMPER_SECRET_0001";
     public const string SubjectHashPepper = "TEST_ONLY_DO_NOT_DEPLOY_SUBJECT_HASH_PEPPER_0001";
     public const string VisitLogIpPseudonymKey = "HyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4=";
+    public const string HumanReadProofSigningKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
+    public const string HumanReadProofDedupKey = "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=";
+    public const string ReadAnalyticsNoiseKey = "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8=";
     public const string RegionIpHashKey = "TEST_ONLY_DO_NOT_DEPLOY_REGION_IP_HASH_SECRET_0001";
     public const string ModerationPepper = "TEST_ONLY_DO_NOT_DEPLOY_MODERATION_PEPPER_0001";
     public const string SubscriptionEmailHashPepper = "TEST_ONLY_DO_NOT_DEPLOY_SUBSCRIPTION_HASH_PEPPER_0001";

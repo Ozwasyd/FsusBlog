@@ -152,7 +152,7 @@ public static class FsusObservability
     private static readonly Counter<long> ArticleOutboxClaimLost = Meter.CreateCounter<long>("fsus.article_outbox.claim_lost.count");
     private static readonly Counter<long> ArticleOutboxHeartbeat = Meter.CreateCounter<long>("fsus.article_outbox.heartbeat.count");
     private static readonly Histogram<long> ArticleOutboxStuckClaims = Meter.CreateHistogram<long>("fsus.article_outbox.stuck_claims");
-    private static readonly Counter<long> VisitLogFlushCounter = Meter.CreateCounter<long>("fsus.visitlog.flush.count");
+    private static readonly Counter<long> ReadAggregateFlushCounter = Meter.CreateCounter<long>("fsus.read_aggregate.flush.count");
     private static readonly Counter<long> HotArticlesDirtyCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.dirty.count");
     private static readonly Counter<long> HotArticlesFlushCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.flush.count");
     private static readonly Counter<long> HotArticlesCoalescedCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.flush.coalesced_batches");
@@ -981,11 +981,11 @@ public static class FsusObservability
     public static void RecordArticleOutboxStuckClaims(long count)
         => TryRecord(() => ArticleOutboxStuckClaims.Record(Math.Max(0, count)));
 
-    public static void RecordVisitLogFlush(long count)
+    public static void RecordReadAggregateFlush(long count)
     {
         if (count > 0)
         {
-            VisitLogFlushCounter.Add(count);
+            ReadAggregateFlushCounter.Add(count);
         }
     }
 

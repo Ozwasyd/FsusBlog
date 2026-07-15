@@ -370,24 +370,26 @@ Client
 - 连接 pump 使用每连接一个 `PeriodicTimer` heartbeat loop；业务 frame 与 heartbeat 通过发送锁串行写 WebSocket，避免每轮 idle wait 创建 linked timeout CTS。
 - `CacheControl` 与 `SearchIndexUpdated` 的搜索索引版本字段以 `version / manifestUrl / generatedAt` 为唯一消费语义，Service Worker 不再从多个字段推导版本。
 
-## 真人阅读事件源
+## 真人阅读聚合计数
 
 ```text
 SPA hydration
   → /api/binary/read-proof/challenge.aeds
   → 主内容可见停留 ≥ 8s
   → /api/binary/read-proof/submit.aeds
-  → VisitLogChannel(HumanReadEvent)
-  → sys_visit_log + Article.Views 投影 + Redis hot articles + stats/cache invalidation
+  → VisitLogChannel(aggregate contribution: hour/article/dwell bucket)
+  → article_read_hourly_aggregate + read_dwell_daily_aggregate
+  → Article.Views 投影 + Redis hot articles + stats/cache invalidation
 ```
 
-- `sys_visit_log` 是文章浏览与站点访问统计的单一事件源，字段包含 `event_type`、`route_key`、`article_id`、`viewer_key_hash`、`proof_id`、`dwell_ms`；最终态不保留历史 `userid` / `user_id` 账号绑定列。
-- `article_view_seed` / `ArticleViewSeed` 只保存迁移时的历史 `article.views`，用于重建 `Article.Views = legacy_views + article_read events` 投影；运行时详情、热榜、搜索或公开读链不得把它当作实时浏览量来源。
+- 生产不写入 per-read row；`sys_visit_log` 与旧 projection watermark 由 `20260715-post-read-event-retirement` 物理删除。队列消息在请求边界就丢弃 IP、UA、设备指纹、route、proof id、viewer id、精确时间和精确 dwell。
+- 持久层只保留文章/UTC 小时计数、站点/日计数、四档 dwell/day histogram，以及 `Article.Views` 这种有界维度计数。四档固定为 `<10s`、`10–30s`、`30–120s`、`>120s`。
+- 去重只在 article + 15 分钟 epoch 内有效，使用独立轮换 HMAC key；Redis lease 最长 20 分钟，摘要不进入数据库、日志、指标或备份。read-proof 请求不发送稳定 `X-Fsus-Device-Fp`，同一 IP/UA 只在 HMAC 的 article/epoch domain 内短期关联。
 - 直接读取 `/api/binary/article/{id}.aeds`、AOT 首屏、无 JS、爬虫和预取请求不会增加计数。
 - `VisitLogMiddleware` 仅保留为管线兼容占位，不再从 GET 请求采样。
-- `VisitLogProcessorService` 只负责读取事件批次与落库，文章浏览量投影由 `IArticleViewProjectionService` 聚合后通过单条 `VALUES` 更新批量写入，Redis 热榜使用 batch/pipeline，PublicHot 只收到一个 `article-view-projection-batch` dirty event。公开详情读链不再因单次 view 增量删除 `ArticleDetail` / `ArticleDetailFrame` 内容缓存；`ArticleService.IncreaseViewCountAsync` 只把正向增量写入进程内 `IArticleViewWriteBuffer`，`ArticleViewFlushWorker` 每 5 秒或 graceful shutdown 时批量 flush 到 PostgreSQL 与 Redis `blog:top_articles`，flush 后再标记 stats/hot articles dirty 并触发 PublicHot 最终一致刷新。缓存命中的详情响应会用 Redis 热榜分数向上覆盖展示 views，避免为浏览量抖动破坏正文缓存命中率；若进程在 flush 前崩溃，已落库的 `sys_visit_log` 仍由 `ArticleViewProjectionRepairWorker` 重建 `Article.Views` 投影作为回退。
-- `ArticleViewProjectionRepairWorker` 周期性从 `sys_visit_log` 重新聚合 `article_read` 事件修复 `article.views`，保证访问日志已落库但投影失败时不会永久漂移。访问日志落库、投影修复、定时发布和 PublicHot rebuild 都走 `DbConcurrencyGate`，避免后台任务绕过 DB 并发预算。
-- 多实例部署下，带全局副作用的后台 worker 通过 `IBackgroundWorkerLease` 在 Redis L2 上执行 leader election。`ArticleMutationOutboxDispatcher`、`LogCleanupService`、`ScheduledPublishWorker`、`UploadSessionCleanupWorker`、`PublicAotBackfillWorker`、`CrawlerUpdateWorker`、`PowLoadResetWorker` 与 `ArticleViewProjectionRepairWorker` 每轮实际工作前先用 `CachePolicyId.BackgroundWorkerLease` 抢占 5 秒 lease，并在长任务内按 2 秒周期续租；standby 实例跳过本轮，leader 失联后 lease TTL 自动释放并由下一实例接任。该 lease 只保护 worker 运行权，不改变任务周期、数据库事务语义或 outbox/retry 语义。
+- `VisitLogProcessorService` 名称仅为部署兼容，实际用单条 CTE upsert 聚合计数，不创建事件行。`ArticleViewProjectionRepairWorker` 已退役且不注册；投影失败只影响 `Article.Views` 派生显示，不影响已经落库的小时聚合。
+- 地区统计过渡表不再写入；低样本 admin 读取先执行 `k=10` suppression，再按 UTC 日、固定 release scope 添加确定性 Laplace noise。DP 预算与精度边界见 [`privacy/read-analytics.md`](privacy/read-analytics.md)。
+- 多实例部署下，仍有全局副作用的后台 worker 通过 `IBackgroundWorkerLease` 在 Redis L2 上执行 leader election。`ArticleMutationOutboxDispatcher`、`LogCleanupService`、`ScheduledPublishWorker`、`UploadSessionCleanupWorker`、`PublicAotBackfillWorker`、`CrawlerUpdateWorker` 与 `PowLoadResetWorker` 每轮实际工作前抢占短 lease；已退役的阅读事件 repair worker 不再注册，也不得重建事件表。
 
 ## Service Worker 搜索
 

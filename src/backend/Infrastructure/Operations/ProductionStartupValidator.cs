@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Modules.Endpoints;
@@ -58,7 +59,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 17;
+    private const int SchemaVersion = 18;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
@@ -127,6 +128,21 @@ public static class ProductionStartupValidator
         "development-mfa-challenge-ticket-signing-key-change-before-shared-use"
     ];
 
+    private static readonly string[] DefaultHumanReadProofSigningKeys =
+    [
+        "YGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn8="
+    ];
+
+    private static readonly string[] DefaultHumanReadProofDedupKeys =
+    [
+        "gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp8="
+    ];
+
+    private static readonly string[] DefaultReadAnalyticsNoiseKeys =
+    [
+        "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8="
+    ];
+
     private static readonly RequiredSettingRule[] RequiredSettings =
     [
         ConnectionString("DefaultConnection"),
@@ -148,6 +164,10 @@ public static class ProductionStartupValidator
         Value("Security:RecoveryKeyPepper"),
         Value("PublicAot:ManifestToken"),
         Value("MfaChallenge:TicketSigningKey"),
+        Value("HumanReadProof:SigningKey"),
+        Value("HumanReadProof:Dedup:CurrentKeyEpoch"),
+        Value("HumanReadProof:Dedup:CurrentKey"),
+        Value(ReadAnalyticsPrivacyPolicy.NoiseKeySetting),
         Value("Audit:TamperEvidenceKey"),
         Value("AnonymousCredentialIssuer:SubjectHashPepper"),
         Value(VisitLogIpPseudonymizer.CurrentEpochKey),
@@ -258,6 +278,11 @@ public static class ProductionStartupValidator
         string? recoveryKeyPepper = values["Security:RecoveryKeyPepper"];
         string? publicAotManifestToken = values["PublicAot:ManifestToken"];
         string? mfaChallengeTicketSigningKey = values["MfaChallenge:TicketSigningKey"];
+        string? humanReadSigningKey = values["HumanReadProof:SigningKey"];
+        string? humanReadDedupKey = values["HumanReadProof:Dedup:CurrentKey"];
+        string? readAnalyticsNoiseKey = values[ReadAnalyticsPrivacyPolicy.NoiseKeySetting];
+        string? visitLogPseudonymKey = values[VisitLogIpPseudonymizer.CurrentKeyKey];
+        string? securityRiskPseudonymKey = values[SecurityRiskPseudonymizer.CurrentKeyKey];
         string? auditTamperEvidenceKey = values["Audit:TamperEvidenceKey"];
         string? subjectHashPepper = values["AnonymousCredentialIssuer:SubjectHashPepper"];
         string? regionIpHashKey = values["Moderation:RegionPolicy:IpHashKey"];
@@ -299,6 +324,37 @@ public static class ProductionStartupValidator
         ValidateIndependentSecuritySecret("Security:RecoveryKeyPepper", recoveryKeyPepper, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("PublicAot:ManifestToken", publicAotManifestToken, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("MfaChallenge:TicketSigningKey", mfaChallengeTicketSigningKey, jwtSecret, DefaultMfaChallengeTicketSigningKeys, errors);
+        ValidateIndependentSecuritySecret("HumanReadProof:SigningKey", humanReadSigningKey, jwtSecret, DefaultHumanReadProofSigningKeys, errors);
+        ValidateIndependentSecuritySecret("HumanReadProof:Dedup:CurrentKey", humanReadDedupKey, jwtSecret, DefaultHumanReadProofDedupKeys, errors);
+        ValidateIndependentSecuritySecret(ReadAnalyticsPrivacyPolicy.NoiseKeySetting, readAnalyticsNoiseKey, jwtSecret, DefaultReadAnalyticsNoiseKeys, errors);
+        ValidateBase64Key("HumanReadProof:SigningKey", humanReadSigningKey, errors);
+        ValidateBase64Key("HumanReadProof:Dedup:CurrentKey", humanReadDedupKey, errors);
+        ValidateBase64Key(ReadAnalyticsPrivacyPolicy.NoiseKeySetting, readAnalyticsNoiseKey, errors);
+        ValidateDistinctSecrets(
+            [
+                ("HumanReadProof:SigningKey", humanReadSigningKey),
+                ("HumanReadProof:Dedup:CurrentKey", humanReadDedupKey),
+                (ReadAnalyticsPrivacyPolicy.NoiseKeySetting, readAnalyticsNoiseKey),
+                (VisitLogIpPseudonymizer.CurrentKeyKey, visitLogPseudonymKey),
+                (SecurityRiskPseudonymizer.CurrentKeyKey, securityRiskPseudonymKey)
+            ],
+            errors);
+        if (!int.TryParse(values["HumanReadProof:Dedup:CurrentKeyEpoch"], out int humanReadDedupEpoch)
+            || humanReadDedupEpoch <= 0)
+        {
+            errors.Add("HumanReadProof:Dedup:CurrentKeyEpoch must be a positive integer.");
+        }
+        if (!string.IsNullOrWhiteSpace(readAnalyticsNoiseKey))
+        {
+            try
+            {
+                _ = new ReadAnalyticsPrivacyPolicy(configuration, TimeProvider.System);
+            }
+            catch (InvalidOperationException ex)
+            {
+                errors.Add(ex.Message);
+            }
+        }
         ValidateAuditTamperEvidenceKey(auditTamperEvidenceKey, jwtSecret, errors);
         ValidateIndependentSecuritySecret("AnonymousCredentialIssuer:SubjectHashPepper", subjectHashPepper, jwtSecret, DefaultSubjectHashPeppers, errors);
         ValidateIndependentSecuritySecret("Moderation:RegionPolicy:IpHashKey", regionIpHashKey, jwtSecret, [], errors);
@@ -457,6 +513,49 @@ public static class ProductionStartupValidator
             trimmed.Contains("replace-with", StringComparison.OrdinalIgnoreCase))
         {
             errors.Add($"{key} must not use a template placeholder.");
+        }
+    }
+
+    private static void ValidateBase64Key(string key, string? value, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        try
+        {
+            if (Convert.FromBase64String(value.Trim()).Length >= 32)
+            {
+                return;
+            }
+        }
+        catch (FormatException)
+        {
+        }
+
+        errors.Add($"{key} must be base64 key material of at least 32 bytes.");
+    }
+
+    private static void ValidateDistinctSecrets(
+        IReadOnlyList<(string Key, string? Value)> secrets,
+        List<string> errors)
+    {
+        for (int i = 0; i < secrets.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(secrets[i].Value))
+            {
+                continue;
+            }
+
+            for (int j = i + 1; j < secrets.Count; j++)
+            {
+                if (!string.IsNullOrWhiteSpace(secrets[j].Value)
+                    && string.Equals(secrets[i].Value!.Trim(), secrets[j].Value!.Trim(), StringComparison.Ordinal))
+                {
+                    errors.Add($"{secrets[i].Key} and {secrets[j].Key} must use independent key material.");
+                }
+            }
         }
     }
 

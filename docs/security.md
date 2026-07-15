@@ -175,11 +175,12 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 
 - Challenge：`POST /api/binary/read-proof/challenge.aeds`，请求体为 `HumanReadChallengeRequest` frame。
 - Submit：`POST /api/binary/read-proof/submit.aeds`，请求体为 `HumanReadSubmitRequest` frame。
-- 客户端要求：SPA hydration 后，主内容进入视口并累计可见停留至少 8 秒，再携带 `X-Fsus-Device-Fp` 提交 proof。
-- 服务端绑定：HMAC token 绑定 scope、routeKey、articleId、设备指纹哈希、IP 哈希、UA 哈希、签发时间、过期时间、最小停留时间和 nonce。
+- 客户端要求：SPA hydration 后，主内容进入视口并累计可见停留至少 8 秒；read-proof 请求不发送稳定设备指纹。
+- 服务端绑定：proof signing key 与短期去重 key 相互独立。challenge 绑定 scope、routeKey、articleId、15 分钟 epoch、article/epoch scoped HMAC 摘要、签发/过期时间、最小停留时间和 nonce；摘要由瞬时 IP/UA 输入派生，但离开 Redis lease 或 token 后不保存。
 - 拒绝条件：无 JS/AOT 未 hydration、直接 API 请求、缺失 Fetch Metadata、跨站 Origin/Referer、爬虫 UA、已验证 crawler、停留不足、过期 token、篡改 token、重放 proof。
 - 成功提交会以 `human-read-proof` 来源写入 `ReadProofAccepted` 负分风险信号，仅用于降低 `public.read` 风险；拒绝与超限继续写入 `ReadProofRejected` 正分风险，但不会阻断公开内容访问；HumanReadProof 只决定阅读事件是否计数，不能授权 comment/auth/admin 写操作。
-- 成功阅读事件写入 VisitLog 时只保存 `analytics` 用途的 128-bit `ip_hash`、`ip_hash_key_epoch`、`ip_hash_window_utc`、viewer key hash、proof id、route/article、event type、region 与时间，不保存登录账号 ID 或原始 IP；数据库最终态删除 `sys_visit_log.userid` / `sys_visit_log.user_id` 历史账号绑定列，并移除 `sys_visit_log.ip`。同一 IP 跨用途、UTC 日窗口或 KMS epoch 不可直接联接；后台统计只使用这些受限假名字段聚合，不得将假名暴露到 DTO/export。
+- 成功提交在入队前降精度为 UTC 小时、`articleId`/site 类型和四档 dwell bucket；不保存 IP/UA/设备指纹及其哈希、viewer key、proof id、route、精确请求时间或精确 dwell。`sys_visit_log` 由最终迁移整体 DROP，admin route/search/not-found rollup 清空且不再返回；`uniqueViewerKeyEstimate` 兼容字段固定为 `0`。
+- 同一 article/epoch 的 Redis 去重 lease 最长 20 分钟并随独立 key rotation 密码学失效；跨 article 或 epoch 的摘要不同。低样本 region/dwell release 使用 `k=10` 与固定 UTC 日 DP noise，预算为每 scope `ε=0.5`、两种 scope 合计每日 `ε=1.0`。
 - 降级开关：`HumanReadProof:Mode=paused` 暂停计数写入，但不影响内容读取。
 
 该机制提高浏览计数的真人口径，不用于身份认证，也不承诺识别所有未知自动化行为。

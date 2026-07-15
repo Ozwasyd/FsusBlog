@@ -361,6 +361,35 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_ReadEventRetirement_DropsTrajectoryTableAndClearsDerivedRoutes()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260715-post-read-event-retirement");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.Contains("sys_visit_log", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("article_view_projection_watermark", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("DELETE FROM author_route_stats", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("DELETE FROM author_daily_read_stats", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("unique_viewer_estimate = 0", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetDescriptors_ReadEventRetirementCompat_RepairsPartialLegacyTableBeforeOlderDescriptorsReplay()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260715-pre-read-event-retirement-compat");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, descriptor.Phase);
+        Assert.Contains("sys_visit_log.ip_hash", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS sys_visit_log", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GetDescriptors_ArticleViewProjectionWatermark_CreatesDurableRepairState()
     {
         var registry = new SchemaMigrationRegistry();

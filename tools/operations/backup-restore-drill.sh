@@ -243,22 +243,19 @@ WITH legacy_columns AS (
   WHERE table_schema = 'public'
     AND (
       (table_name = 'sys_user' AND column_name IN ('username','password','password_hash','email','lastloginip','role'))
-      OR (table_name = 'sys_visit_log' AND column_name = 'ip')
       OR (table_name = 'comment' AND column_name IN ('reply_to_user_id','moderated_by_user_id','user_name','reply_to_user_name'))
       OR (table_name = 'sys_user_session' AND column_name IN ('last_ip','user_name'))
       OR (table_name = 'message' AND column_name IN ('from_user_id','to_user_id'))
     )
 ),
-raw_ip_values AS (
-  SELECT 'sys_visit_log.ip raw values' AS sample
-  WHERE EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'sys_visit_log' AND column_name = 'ip'
-  )
+retired_read_event_tables AS (
+  SELECT 'sys_visit_log retired read-event table' AS sample
+  FROM information_schema.tables
+  WHERE table_schema = 'public' AND table_name = 'sys_visit_log'
 )
 SELECT sample FROM legacy_columns
 UNION ALL
-SELECT sample FROM raw_ip_values
+SELECT sample FROM retired_read_event_tables
 LIMIT 20;"
   result="$(docker exec "$postgres_container" psql -U fsusblog -d fsusblog -At -c "$sql" 2>/dev/null || true)"
   if [[ -z "$result" ]]; then
@@ -310,7 +307,7 @@ run_anonymous_residue_gate() {
     '{status:"ok", generatedAt:$generatedAt, runId:$runId, mode:$mode, checks:[], summary:{totalChecks:0, blockers:0, warnings:0}}' > "$report"
 
   if [[ "$MODE" == "dry-run" ]]; then
-    append_residue_result "$report" "postgres" "P0" "planned" 0 "sys_visit_log.ip/sys_user.lastloginip/legacy user fields"
+    append_residue_result "$report" "postgres" "P0" "planned" 0 "retired sys_visit_log/sys_user.lastloginip/legacy user fields"
     append_residue_result "$report" "redis" "P0" "planned" 0 "legacy user/session/cache key prefixes"
     append_residue_result "$report" "search" "P0" "planned" 0 "public search documents must not expose userId/username/email/ip"
     append_residue_result "$report" "aot-static" "P0" "planned" 0 "AOT/static artifacts must not expose legacy account fields"

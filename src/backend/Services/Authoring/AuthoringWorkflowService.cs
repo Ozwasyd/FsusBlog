@@ -20,7 +20,6 @@ using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
 using SqlSugar;
-using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
 namespace FsusBlog.Server.Services.Authoring;
 
@@ -734,9 +733,9 @@ public sealed class AuthoringWorkflowService(
             aotHitRate,
             readRollup.AverageDwellMs,
             readRollup.ReadingCompletionRate,
-            await LoadAuthorRouteRollupsAsync("search_keyword", cancellationToken).ConfigureAwait(false),
-            await LoadAuthorRouteRollupsAsync("source_route", cancellationToken).ConfigureAwait(false),
-            await LoadAuthorRouteRollupsAsync("not_found_path", cancellationToken).ConfigureAwait(false),
+            [],
+            [],
+            [],
             await LoadAuthorRumRollupsAsync(cancellationToken).ConfigureAwait(false),
             await LoadAuthorMetricRollupsAsync("author_rum_page_type_stats", "page_type", cancellationToken).ConfigureAwait(false),
             await LoadAuthorMetricRollupsAsync("author_rum_aot_source_stats", "aot_source", cancellationToken).ConfigureAwait(false));
@@ -773,11 +772,8 @@ public sealed class AuthoringWorkflowService(
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
             SELECT
                 COALESCE(SUM(total_reads), 0)::bigint AS total_reads,
-                COALESCE(SUM(article_reads), 0)::bigint AS article_reads,
-                COALESCE(SUM(completed_article_reads), 0)::bigint AS completed_article_reads,
-                COALESCE(SUM(dwell_ms_total), 0)::bigint AS dwell_ms_total,
                 MAX(updated_at_utc) AS updated_at_utc
-            FROM author_daily_read_stats;
+            FROM daily_read_stats;
             """);
         if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
@@ -785,14 +781,7 @@ public sealed class AuthoringWorkflowService(
         }
 
         long totalReads = reader.ReadInt64("total_reads");
-        long articleReads = reader.ReadInt64("article_reads");
-        long completedArticleReads = reader.ReadInt64("completed_article_reads");
-        long dwellMsTotal = reader.ReadInt64("dwell_ms_total");
-        int averageDwellMs = totalReads <= 0 ? 0 : RoundingHelper.RoundToInt(dwellMsTotal / (double)totalReads);
-        double readingCompletionRate = articleReads <= 0
-            ? 0d
-            : RoundingHelper.Round4(completedArticleReads / (double)articleReads);
-        return new AuthorReadRollup(totalReads, averageDwellMs, readingCompletionRate);
+        return new AuthorReadRollup(totalReads, 0, 0d);
     }
 
     private async Task<long> LoadAuthorAotRollupAsync(CancellationToken cancellationToken)
@@ -805,19 +794,6 @@ public sealed class AuthoringWorkflowService(
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
             ? reader.ReadInt64("miss_count")
             : 0;
-    }
-
-    private async Task<IReadOnlyList<AuthorAnalyticsMetricResponse>> LoadAuthorRouteRollupsAsync(string metricKind, CancellationToken cancellationToken)
-    {
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
-            SELECT label, event_count
-            FROM author_route_stats
-            WHERE metric_kind = @MetricKind
-              AND event_count > 0
-            ORDER BY event_count DESC, label ASC
-            LIMIT 6;
-            """, new SugarParameter("@MetricKind", metricKind));
-        return await ReadMetricRowsAsync(reader, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<IReadOnlyList<AuthorAnalyticsMetricResponse>> LoadAuthorMetricRollupsAsync(string tableName, string labelColumn, CancellationToken cancellationToken)

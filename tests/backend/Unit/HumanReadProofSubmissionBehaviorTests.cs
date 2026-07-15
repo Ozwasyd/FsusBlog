@@ -7,7 +7,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class HumanReadProofSubmissionBehaviorTests
 {
     [Fact]
-    public async Task SubmitAsync_ValidArticleProofWritesExactlyOneEventAndUsesBoundedLeases()
+    public async Task SubmitAsync_ValidArticleProofWritesOneAggregateContributionAndUsesBoundedLeases()
     {
         await using var harness = HumanReadProofTestHarness.Create();
         HumanReadChallengeResponse challenge = Assert.IsType<HumanReadChallengeResponse>(
@@ -25,19 +25,26 @@ public sealed class HumanReadProofSubmissionBehaviorTests
         Assert.True(harness.Channel.Reader.TryRead(out VisitLogMessage message));
         Assert.Equal(HumanReadEventTypes.ArticleRead, message.EventType);
         Assert.Equal(42, message.ArticleId);
-        Assert.Equal(64, Assert.IsType<string>(message.ViewerKeyHash).Length);
-        Assert.Equal(64, Assert.IsType<string>(message.ProofId).Length);
+        Assert.Equal(new DateTime(2026, 5, 13, 0, 0, 0, DateTimeKind.Utc), message.AggregateHourUtc);
+        Assert.Equal(ReadDwellBuckets.Under10Seconds, message.DwellBucket);
+        Assert.Null(typeof(VisitLogMessage).GetProperty("IP"));
+        Assert.Null(typeof(VisitLogMessage).GetProperty("RouteKey"));
+        Assert.Null(typeof(VisitLogMessage).GetProperty("ViewerKeyHash"));
+        Assert.Null(typeof(VisitLogMessage).GetProperty("ProofId"));
+        Assert.Null(typeof(VisitLogMessage).GetProperty("DwellMs"));
         Assert.False(harness.Channel.Reader.TryRead(out _));
         Assert.Contains(
             harness.Cache.Acquisitions,
             item => item.Acquired && item.Identity.StartsWith("proof:", StringComparison.Ordinal) && item.Ttl == TimeSpan.FromMinutes(10));
         Assert.Contains(
             harness.Cache.Acquisitions,
-            item => item.Acquired && item.Identity.StartsWith("viewer:", StringComparison.Ordinal) && item.Ttl == TimeSpan.FromHours(24));
+            item => item.Acquired
+                && item.Identity.StartsWith("dedup:article:42:epoch:", StringComparison.Ordinal)
+                && item.Ttl == HumanReadProofService.DedupLeaseTtl);
     }
 
     [Fact]
-    public async Task SubmitAsync_ReplayedProofDoesNotWriteSecondEvent()
+    public async Task SubmitAsync_ReplayedProofDoesNotWriteSecondAggregateContribution()
     {
         await using var harness = HumanReadProofTestHarness.Create();
         HumanReadChallengeResponse challenge = Assert.IsType<HumanReadChallengeResponse>(
@@ -58,7 +65,7 @@ public sealed class HumanReadProofSubmissionBehaviorTests
     }
 
     [Fact]
-    public async Task SubmitAsync_TamperedRouteDoesNotWriteEvent()
+    public async Task SubmitAsync_TamperedRouteDoesNotWriteAggregateContribution()
     {
         await using var harness = HumanReadProofTestHarness.Create();
         HumanReadChallengeResponse challenge = Assert.IsType<HumanReadChallengeResponse>(
@@ -141,5 +148,48 @@ public sealed class HumanReadProofSubmissionBehaviorTests
         Assert.Equal("duplicate_viewer", second.Status);
         Assert.True(harness.Channel.Reader.TryRead(out _));
         Assert.False(harness.Channel.Reader.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task DedupIdentity_IsUnlinkableAcrossArticleAndShortEpoch()
+    {
+        await using var harness = HumanReadProofTestHarness.Create();
+        await SubmitArticleAsync(harness, 42);
+        await SubmitArticleAsync(harness, 43);
+
+        string[] firstEpochKeys = harness.Cache.Acquisitions
+            .Where(static item => item.Acquired && item.Identity.StartsWith("dedup:article:", StringComparison.Ordinal))
+            .Select(static item => item.Identity)
+            .ToArray();
+        Assert.Equal(2, firstEpochKeys.Length);
+        Assert.NotEqual(firstEpochKeys[0].Split(':')[^1], firstEpochKeys[1].Split(':')[^1]);
+
+        harness.Time.Advance(HumanReadProofService.DedupEpochDuration);
+        await SubmitArticleAsync(harness, 42);
+        string[] article42Keys = harness.Cache.Acquisitions
+            .Where(static item => item.Acquired && item.Identity.StartsWith("dedup:article:42:", StringComparison.Ordinal))
+            .Select(static item => item.Identity)
+            .ToArray();
+
+        Assert.Equal(2, article42Keys.Length);
+        Assert.NotEqual(article42Keys[0], article42Keys[1]);
+        Assert.All(
+            harness.Cache.Acquisitions.Where(static item => item.Identity.StartsWith("dedup:", StringComparison.Ordinal)),
+            static item => Assert.Equal(HumanReadProofService.DedupLeaseTtl, item.Ttl));
+    }
+
+    private static async Task SubmitArticleAsync(HumanReadProofTestHarness harness, int articleId)
+    {
+        string route = $"article:{articleId}";
+        HumanReadChallengeResponse challenge = Assert.IsType<HumanReadChallengeResponse>(
+            await harness.Service.CreateChallengeAsync(
+                harness.CreateBrowserContext(),
+                new HumanReadChallengeRequest("article", route, articleId)));
+        harness.Time.Advance(TimeSpan.FromSeconds(9));
+        HumanReadSubmitResponse response = await harness.Service.SubmitAsync(
+            harness.CreateBrowserContext(),
+            new HumanReadSubmitRequest(challenge.Token, "article", route, articleId, 9000));
+        Assert.True(response.Counted);
+        Assert.True(harness.Channel.Reader.TryRead(out _));
     }
 }

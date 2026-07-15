@@ -53,13 +53,13 @@ public sealed class LogCleanupWorkerBehaviorTests
         Assert.True(ran);
         Assert.Equal("log-cleanup-worker", lease.WorkerName);
         Assert.Equal(1, lease.ActionExecutions);
-        Assert.Equal(BaselineNow.UtcDateTime.AddDays(-30), cutoffs["visit"]);
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-14), cutoffs["rum"]);
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-365), cutoffs["audit"]);
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-90), cutoffs["anonymous-credential-audit"]);
         Assert.Equal(BaselineNow.UtcDateTime, cutoffs["legacy-security-risk"]);
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-30), cutoffs["fenced-commit"]);
-        Assert.Equal(BaselineNow.UtcDateTime, cutoffs["legacy-visit-log-ip"]);
+        Assert.DoesNotContain("visit", cutoffs.Keys);
+        Assert.DoesNotContain("legacy-visit-log-ip", cutoffs.Keys);
     }
 
     [Fact]
@@ -82,8 +82,8 @@ public sealed class LogCleanupWorkerBehaviorTests
             delayBetweenChunks: TimeSpan.Zero,
             CancellationToken.None);
 
-        Assert.Equal(3, deleted);
-        Assert.Equal(3, calls);
+        Assert.Equal(0, deleted);
+        Assert.Equal(0, calls);
     }
 
     [Fact]
@@ -100,15 +100,15 @@ public sealed class LogCleanupWorkerBehaviorTests
                 return Task.FromResult(1);
             });
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            LogCleanupService.CleanupVisitLogsAsync(
+        int deleted = await LogCleanupService.CleanupVisitLogsAsync(
                 db,
                 BaselineNow.UtcDateTime,
                 chunkSize: 1,
                 maxChunks: 10,
                 delayBetweenChunks: TimeSpan.Zero,
-                cancellation.Token));
-        Assert.Equal(1, calls);
+                cancellation.Token);
+        Assert.Equal(0, deleted);
+        Assert.Equal(0, calls);
     }
 
     [Fact]
@@ -124,17 +124,16 @@ public sealed class LogCleanupWorkerBehaviorTests
                 return Task.FromException<int>(failure);
             });
 
-        InvalidOperationException thrown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            LogCleanupService.CleanupVisitLogsAsync(
+        int deleted = await LogCleanupService.CleanupVisitLogsAsync(
                 db,
                 BaselineNow.UtcDateTime,
                 chunkSize: 10,
                 maxChunks: 10,
                 delayBetweenChunks: TimeSpan.Zero,
-                CancellationToken.None));
+                CancellationToken.None);
 
-        Assert.Same(failure, thrown);
-        Assert.Equal(1, calls);
+        Assert.Equal(0, deleted);
+        Assert.Equal(0, calls);
     }
 
     [Fact]
@@ -158,8 +157,6 @@ public sealed class LogCleanupWorkerBehaviorTests
 
     private static string ResolveTarget(string sql)
     {
-        if (sql.Contains("ip_hash_key_epoch", StringComparison.Ordinal)) return "legacy-visit-log-ip";
-        if (sql.Contains("sys_visit_log", StringComparison.Ordinal)) return "visit";
         if (sql.Contains("frontend_rum_metric", StringComparison.Ordinal)) return "rum";
         if (sql.Contains("sys_audit_log", StringComparison.Ordinal)) return "audit";
         if (sql.Contains("anonymous_credential_issuance_audit", StringComparison.Ordinal)) return "anonymous-credential-audit";

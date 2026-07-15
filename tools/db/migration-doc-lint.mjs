@@ -167,6 +167,14 @@ const expectedRows = [
     }
   },
   {
+    column: 'sys_user.account_subject_hash',
+    physical: 'present nullable during rolling expand',
+    codeMapped: 'yes',
+    keptFor: 'stable account subject projection; startup gate requires every row populated',
+    droppedAtVersion: 'n/a',
+    registry: { ensure: ['sys_user', 'account_subject_hash'], notDropped: true }
+  },
+  {
     column: 'sys_visit_log.userid',
     physical: 'dropped',
     codeMapped: 'no',
@@ -186,9 +194,17 @@ const expectedRows = [
     column: 'sys_visit_log.ip',
     physical: 'dropped',
     codeMapped: 'no',
-    keptFor: 'replaced by sys_visit_log.ip_hash',
+    keptFor: 'replaced transitionally by sys_visit_log.ip_hash before full table retirement',
     droppedAtVersion: '20260621-post-visit-log-ip-anonymization',
     registry: { drop: ['sys_visit_log', 'ip'], replacement: 'ip_hash' }
+  },
+  {
+    column: 'sys_visit_log',
+    physical: 'dropped',
+    codeMapped: 'no',
+    keptFor: 'event-level read trajectory table retired in favor of aggregate-only tables',
+    droppedAtVersion: '20260715-post-read-event-retirement',
+    registry: { dropTable: 'sys_visit_log' }
   }
 ]
 
@@ -273,6 +289,13 @@ function assertRegistryState(registry, rule) {
     const pattern = new RegExp(`new\\s+EnsureColumnStep\\("${escapeRegExp(table)}",\\s*"${escapeRegExp(column)}"`, 'u')
     if (!pattern.test(registry)) {
       fail(`${rule.column} 文档标记为保留，但 SchemaMigrationRegistry.cs 缺少 EnsureColumnStep("${table}", "${column}", ...)`)
+    }
+  }
+
+  if (checks.dropTable) {
+    const pattern = new RegExp(`new\\s+DropTableStep\\("${escapeRegExp(checks.dropTable)}"\\)`, 'u')
+    if (!pattern.test(registry)) {
+      fail(`${rule.column} 文档标记为 dropped，但 SchemaMigrationRegistry.cs 缺少 DropTableStep("${checks.dropTable}")`)
     }
   }
 

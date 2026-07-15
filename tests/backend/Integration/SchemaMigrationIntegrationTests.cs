@@ -1715,12 +1715,8 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
         await RunMigrationsAsync(connectionString);
 
-        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "userid"));
-        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "user_id"));
-        Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "ip"));
-        Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "ip_hash"));
-        Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "viewer_key_hash"));
-        Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "proof_id"));
+        Assert.False(await fixture.TableExistsAsync(connectionString, "sys_visit_log"));
+        Assert.False(await fixture.TableExistsAsync(connectionString, "article_view_projection_watermark"));
     }
 
     [Fact]
@@ -1985,7 +1981,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             "SELECT COUNT(1) FROM msg_participant_state;");
         int siteReadRows = await fixture.QueryScalarAsync<int>(
             connectionString,
-            "SELECT COUNT(1) FROM sys_visit_log WHERE event_type = 'site_read';");
+            "SELECT COALESCE(SUM(read_count), 0)::integer FROM event_type_read_stats WHERE event_type = 'site_read';");
         int defaultCommentRows = await fixture.QueryScalarAsync<int>(
             connectionString,
             "SELECT COUNT(1) FROM comment WHERE depth = 0 AND is_deleted = false AND moderation_status = 1;");
@@ -2020,8 +2016,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "role"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "lastusernameupdatetime"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "sys_user", "last_username_update_time"));
-        Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "event_type"));
-        Assert.True(await fixture.ColumnExistsAsync(connectionString, "sys_visit_log", "viewer_key_hash"));
+        Assert.False(await fixture.TableExistsAsync(connectionString, "sys_visit_log"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_draft", "owner_user_id"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "article_revision", "created_by_user_id"));
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "comment", "moderated_by_user_id"));

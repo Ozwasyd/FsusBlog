@@ -1,5 +1,4 @@
 using System.Data;
-using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using SqlSugar;
@@ -41,7 +40,6 @@ public sealed class VisitLogIpPseudonymMigrationDatabaseTests(PostgresSchemaMigr
         Assert.Contains(columns.Rows.Cast<DataRow>(), row =>
             string.Equals(Convert.ToString(row["column_name"]), "ip_hash_window_utc", StringComparison.Ordinal));
 
-        PostgresSqlSugarTestClient.InitTables(db, typeof(VisitLog));
     }
 
     [Fact]
@@ -50,16 +48,11 @@ public sealed class VisitLogIpPseudonymMigrationDatabaseTests(PostgresSchemaMigr
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
 
         await ApplyMigrationAsync(db);
-        PostgresSqlSugarTestClient.InitTables(db, typeof(VisitLog));
-
-        DataTable column = await db.Ado.GetDataTableAsync("""
-            SELECT character_maximum_length
-            FROM information_schema.columns
-            WHERE table_schema = 'public'
-              AND table_name = 'sys_visit_log'
-              AND column_name = 'ip_hash';
-            """);
-        Assert.Equal(32, Convert.ToInt32(Assert.Single(column.Rows.Cast<DataRow>())["character_maximum_length"]));
+        Assert.Equal(0, await db.Ado.GetIntAsync("""
+            SELECT COUNT(1)
+            FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = 'sys_visit_log';
+            """));
     }
 
     private static async Task ApplyMigrationAsync(ISqlSugarClient db)

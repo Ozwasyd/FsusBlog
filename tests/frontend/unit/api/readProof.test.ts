@@ -5,12 +5,7 @@ vi.mock('@/services/binaryTransport', () => ({
   requestBinaryOnly: vi.fn()
 }))
 
-vi.mock('@/utils/fingerprint', () => ({
-  getBrowserFp: vi.fn(() => 'fp-test')
-}))
-
 import { requestBinaryOnly } from '@/services/binaryTransport'
-import { FSUS_HEADERS } from '@/api/contracts'
 import { requestHumanReadChallenge, submitHumanReadProof } from '@/api/readProof'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
@@ -21,7 +16,7 @@ describe('readProof API (binary)', () => {
     mockBinary.mockResolvedValue({} as never)
   })
 
-  it('requests challenge with an AEDS request frame and device fingerprint', async () => {
+  it('requests challenge without a stable cross-article fingerprint', async () => {
     const signal = new AbortController().signal
 
     await requestHumanReadChallenge({
@@ -40,13 +35,13 @@ describe('readProof API (binary)', () => {
     expect(call.requestOptions).toEqual(expect.objectContaining({
       method: 'POST',
       credentials: 'include',
-      headers: expect.objectContaining({ [FSUS_HEADERS.deviceFingerprint]: 'fp-test' }),
       body: expect.any(ArrayBuffer)
     }))
+    expect(call.requestOptions?.headers).toBeUndefined()
     expect(readFrameType(call.requestOptions?.body as ArrayBuffer)).toBe(FrameType.HumanReadChallengeRequest)
   })
 
-  it('submits proof with an AEDS request frame and device fingerprint', async () => {
+  it('submits proof without a stable cross-article fingerprint', async () => {
     await submitHumanReadProof({
       token: 'token-1',
       scope: 'site',
@@ -63,9 +58,9 @@ describe('readProof API (binary)', () => {
     expect(call.requestOptions).toEqual(expect.objectContaining({
       method: 'POST',
       credentials: 'include',
-      headers: expect.objectContaining({ [FSUS_HEADERS.deviceFingerprint]: 'fp-test' }),
       body: expect.any(ArrayBuffer)
     }))
+    expect(call.requestOptions?.headers).toBeUndefined()
     expect(readFrameType(call.requestOptions?.body as ArrayBuffer)).toBe(FrameType.HumanReadSubmitRequest)
   })
 

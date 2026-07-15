@@ -15,23 +15,7 @@ public sealed class LogCleanupDatabaseBehaviorTests(PostgresSchemaMigrationFixtu
     public async Task CleanupVisitLogsAsync_DeletesExpiredRowsInPagesAndKeepsCutoffBoundary()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(db, typeof(VisitLog));
         DateTime cutoff = new(2026, 6, 25, 0, 0, 0, DateTimeKind.Utc);
-        await db.Insertable(Enumerable.Range(1, 5)
-            .Select(index => new VisitLog
-            {
-                IpHash = $"expired-{index}",
-                Region = "test",
-                CreateTime = cutoff.AddDays(-2)
-            })
-            .Append(new VisitLog
-            {
-                IpHash = "cutoff-boundary",
-                Region = "test",
-                CreateTime = cutoff
-            })
-            .ToArray())
-            .ExecuteCommandAsync();
 
         int deleted = await LogCleanupService.CleanupVisitLogsAsync(
             db,
@@ -41,10 +25,12 @@ public sealed class LogCleanupDatabaseBehaviorTests(PostgresSchemaMigrationFixtu
             delayBetweenChunks: TimeSpan.Zero,
             CancellationToken.None);
 
-        Assert.Equal(5, deleted);
-        VisitLog retained = Assert.Single(await db.Queryable<VisitLog>().ToListAsync());
-        Assert.Equal("cutoff-boundary", retained.IpHash);
-        Assert.Equal(cutoff, retained.CreateTime);
+        Assert.Equal(0, deleted);
+        Assert.Equal(0, await db.Ado.GetIntAsync("""
+            SELECT COUNT(1)
+            FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = 'sys_visit_log';
+            """));
     }
 
     [Fact]
@@ -134,27 +120,6 @@ public sealed class LogCleanupDatabaseBehaviorTests(PostgresSchemaMigrationFixtu
     public async Task CleanupLegacyVisitLogIpPseudonymsAsync_DeletesOnlyRowsWithoutKeyAndWindowMetadata()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(db, typeof(VisitLog));
-        DateTime now = new(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc);
-        await db.Insertable(new[]
-        {
-            new VisitLog
-            {
-                IpHash = new string('a', 32),
-                IpHashKeyEpoch = 0,
-                IpHashWindowUtc = 0,
-                Region = "test",
-                CreateTime = now
-            },
-            new VisitLog
-            {
-                IpHash = new string('b', 32),
-                IpHashKeyEpoch = 2,
-                IpHashWindowUtc = 20260715,
-                Region = "test",
-                CreateTime = now
-            }
-        }).ExecuteCommandAsync();
 
         int deleted = await LogCleanupService.CleanupLegacyVisitLogIpPseudonymsAsync(
             db,
@@ -163,10 +128,12 @@ public sealed class LogCleanupDatabaseBehaviorTests(PostgresSchemaMigrationFixtu
             delayBetweenChunks: TimeSpan.Zero,
             CancellationToken.None);
 
-        Assert.Equal(1, deleted);
-        VisitLog retained = Assert.Single(await db.Queryable<VisitLog>().ToListAsync());
-        Assert.Equal(2, retained.IpHashKeyEpoch);
-        Assert.Equal(20260715, retained.IpHashWindowUtc);
+        Assert.Equal(0, deleted);
+        Assert.Equal(0, await db.Ado.GetIntAsync("""
+            SELECT COUNT(1)
+            FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = 'sys_visit_log';
+            """));
     }
 
     private static FrontendRumMetric CreateRum(string name, DateTime occurredAt)

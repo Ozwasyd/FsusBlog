@@ -80,7 +80,8 @@ The table below is the authoritative final-state inventory for legacy identity c
 | `comment.moderated_by_user_id` | dropped | no | renamed to comment.moderated_by_admin_principal_id | 20260621-pre-comment-moderation-admin-principal-attribution |
 | `sys_visit_log.userid` | dropped | no | legacy human-read account binding only | 20260621-post-visit-log-anonymous-attribution-finalize |
 | `sys_visit_log.user_id` | dropped | no | legacy human-read account binding only | 20260621-post-visit-log-anonymous-attribution-finalize |
-| `sys_visit_log.ip` | dropped | no | replaced by sys_visit_log.ip_hash | 20260621-post-visit-log-ip-anonymization |
+| `sys_visit_log.ip` | dropped | no | replaced transitionally by sys_visit_log.ip_hash before full table retirement | 20260621-post-visit-log-ip-anonymization |
+| `sys_visit_log` | dropped | no | event-level read trajectory table retired in favor of aggregate-only tables | 20260715-post-read-event-retirement |
 
 ## Legacy 20260517 Upgrade
 
@@ -116,8 +117,7 @@ The upgrade also moves legacy content and messaging structures:
 - `sys_message` and `sys_user_message` are copied to `msg_conversation`, `msg_message`, and `msg_participant_state`, then the old tables are dropped.
 - Message identity is finalized onto `initiatoraccountid`, `senderaccountid`, and `accountid`; `msg_conversation.initiatoruserid`, `msg_message.senderid`, `msg_participant_state.userid`, and the `*_identity_sync` trigger functions are dropped.
 - plaintext refresh token columns on `sys_user` are nulled and dropped.
-- `sys_visit_log` is extended into the human-read event source with `site_read` defaults.
-- `sys_visit_log.userid` and `sys_visit_log.user_id` are dropped after human-read attribution is finalized.
+- Legacy `sys_visit_log` rows are used only during the same migration transaction to seed aggregate counters, then the entire table and its projection watermark are dropped.
 
 Rollback for this legacy bootstrap path is backup based and its mutation descriptor remains `non_compensable`. Production serve startup now performs read-only schema compatibility checks; it does not execute this legacy mutation path. If an isolated legacy bootstrap or an explicitly approved destructive Contract step fails, keep serving through the compatible image/bridge while it remains valid, or restore the pre-migration site package and database dump according to the online migration runbook.
 
@@ -173,27 +173,24 @@ Rollback is backup based for dropped `sys_user` columns. A no-restart degradatio
 
 When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not treat legacy `username/password` or `role=admin` as identity, credential, or authority sources for these rows, and must read TOTP material only from `user_mfa_profile`. The legacy identity columns are absent after the finalize migration; rollback is backup based by restoring a pre-finalizer dump into an isolated database.
 
-## Visit Log Anonymous Attribution Finalization
+## Read Event Retirement
 
-`sys_visit_log` is the single event source for human-read article and site statistics. The final attribution shape is anonymous: `ip_hash`, `viewer_key_hash`, `proof_id`, `event_type`, `route_key`, `article_id`, `dwell_ms`, region, and timestamp. It must not retain account binding columns or raw client IP addresses.
+The older `20260621-*` and `20260715-pre-visit-log-ip-pseudonym-epoch` descriptors remain replayable so an installation can upgrade from any supported history checksum. They are transitional only; `sys_visit_log` is not part of the final schema.
 
-`20260621-post-visit-log-anonymous-attribution-finalize` drops both historical spellings:
-
-```sql
-ALTER TABLE sys_visit_log DROP COLUMN IF EXISTS userid;
-ALTER TABLE sys_visit_log DROP COLUMN IF EXISTS user_id;
-```
-
-`20260621-post-visit-log-ip-anonymization` adds the transitional IP hash column and removes the historical raw IP column:
+`20260715-pre-read-event-retirement-compat` creates an empty compatibility table when a fresh database has no legacy table, allowing older descriptors to replay deterministically. After all older backfills have run, `20260715-post-read-event-retirement` executes in one transaction:
 
 ```sql
-ALTER TABLE sys_visit_log ADD COLUMN IF NOT EXISTS ip_hash varchar(64) NOT NULL DEFAULT '';
-ALTER TABLE sys_visit_log DROP COLUMN IF EXISTS ip;
+UPDATE daily_read_stats SET unique_viewer_estimate = 0;
+DELETE FROM region_read_stats;
+DELETE FROM author_route_stats;
+DELETE FROM author_daily_read_stats;
+DROP TABLE IF EXISTS article_view_projection_watermark;
+DROP TABLE IF EXISTS sys_visit_log;
 ```
 
-`20260715-pre-visit-log-ip-pseudonym-epoch` completes the current contract before CodeFirst can narrow a populated legacy column. If `sys_visit_log` already exists, it adds `ip_hash_key_epoch` and `ip_hash_window_utc`, deletes legacy stable/malformed rows, narrows `ip_hash` to `varchar(32)`, and creates `(ip_hash_key_epoch, ip_hash_window_utc, ip_hash)` index support. On a fresh database the guarded pre-step skips the absent table and CodeFirst creates the final shape. The server derives the 128-bit value from an independent KMS root with purpose and UTC-day separation. Historical stable hashes cannot be transformed without raw IP, so deletion is intentional; neither migration SQL nor application fallback embeds the retired pepper.
+CodeFirst creates only `article_read_hourly_aggregate` and `read_dwell_daily_aggregate` for the new read path. The processor also increments the existing daily/event-type counters, but no table contains viewer/proof/device/IP/UA identity, route sequence, exact request timestamp, or exact dwell milliseconds.
 
-Rollback without restarting the application is limited to pausing `HumanReadProof:Mode` and routing traffic to a compatible slot whose secret-manager key ring is valid. Do not recreate account binding columns, raw `ip`, or the retired stable pepper in a live schema. Restoring deleted legacy hashes requires an isolated, verified pre-migration backup; image rollback alone is insufficient. Operational details are in [visit-log IP pseudonyms](security/visit-log-ip-pseudonyms.md).
+Rollback without restarting is `HumanReadProof:Mode=paused`: content remains readable while new counting stops. Do not shift traffic to a build that recreates `sys_visit_log`; a destructive rollback requires restoring a verified pre-migration backup into an isolated environment, never into the live schema. Cross-media deletion and backup/WAL verification continue under [historical raw-IP lifecycle](security/ip-anonymization-lifecycle.md), extended to reject event-level read trajectory fields.
 
 ## Message Account Principal Finalization
 

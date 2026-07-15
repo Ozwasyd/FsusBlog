@@ -1,8 +1,6 @@
-import { getBrowserFp } from '@/utils/fingerprint'
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import { encodeAedsFrame } from './binaryFrame'
-import { FSUS_HEADERS } from './contracts'
 
 export type HumanReadScope = 'site' | 'article'
 
@@ -38,7 +36,6 @@ export async function requestHumanReadChallenge(input: {
     requestOptions: {
       method: 'POST',
       credentials: 'include',
-      headers: browserHeaders(),
       body: encodeAedsFrame(FrameType.HumanReadChallengeRequest, encodeHumanReadChallengeRequest(input))
     }
   })
@@ -59,16 +56,9 @@ export async function submitHumanReadProof(input: {
     requestOptions: {
       method: 'POST',
       credentials: 'include',
-      headers: browserHeaders(),
       body: encodeAedsFrame(FrameType.HumanReadSubmitRequest, encodeHumanReadSubmitRequest(input))
     }
   })
-}
-
-function browserHeaders(): Record<string, string> {
-  return {
-    [FSUS_HEADERS.deviceFingerprint]: getBrowserFp()
-  }
 }
 
 function encodeHumanReadChallengeRequest(input: {

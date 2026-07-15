@@ -313,7 +313,7 @@ function inspectPostgres(context, mutate) {
   const postgres = postgresInvocation(connection)
   const legacyColumnCheck = command(psql, [
     '-X', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1', '-Atqc',
-    "SELECT count(*) FROM information_schema.columns WHERE table_schema NOT IN ('pg_catalog', 'information_schema') AND table_name = 'sys_visit_log' AND column_name IN ('ip', 'userid', 'user_id');"
+    "SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog', 'information_schema') AND table_name = 'sys_visit_log';"
   ], { env: postgres.env })
   const legacyColumns = Number.parseInt(legacyColumnCheck.stdout.trim(), 10)
   if (!Number.isInteger(legacyColumns)) throw new Error('PostgreSQL legacy-column probe returned a non-integer result')

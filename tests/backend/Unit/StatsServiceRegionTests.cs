@@ -2,9 +2,11 @@ using System.Reflection;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
@@ -59,9 +61,8 @@ public sealed class StatsServiceRegionTests(PostgresSchemaMigrationFixture fixtu
         Assert.Contains("region_read_stats", query, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("sys_visit_log", query, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(10, regions.Count);
-        Assert.Equal("region-00", regions[0].Region);
-        Assert.Equal(20, regions[0].Count);
-        Assert.Contains(regions, static item => item.Region == "未知地区" && item.Count == 15);
+        Assert.DoesNotContain(regions, static item => item.Region is "region-10" or "region-11");
+        Assert.Contains(regions, static item => item.Region == "未知地区");
         Assert.Equal(
             regions.OrderByDescending(static item => item.Count).ThenBy(static item => item.Region, StringComparer.Ordinal).ToArray(),
             regions.ToArray());
@@ -81,7 +82,7 @@ public sealed class StatsServiceRegionTests(PostgresSchemaMigrationFixture fixtu
 
         Assert.Equal(30, overview.Summary.TotalReads);
         Assert.Equal(20, overview.Summary.HumanVerifiedReads);
-        Assert.Equal(10, overview.Summary.UniqueViewerKeyEstimate);
+        Assert.Equal(0, overview.Summary.UniqueViewerKeyEstimate);
         Assert.Equal(22, overview.Summary.ArticleReads);
         Assert.Equal(8, overview.Summary.SiteReads);
         Assert.Contains(executedSql, static sql => sql.Contains("daily_read_stats", StringComparison.OrdinalIgnoreCase));
@@ -102,6 +103,7 @@ public sealed class StatsServiceRegionTests(PostgresSchemaMigrationFixture fixtu
             Substitute.For<IUnifiedCache>(),
             coordinator,
             Substitute.For<IDbConcurrencyGate>(),
+            CreatePrivacyPolicy(),
             NullLogger<StatsService>.Instance);
 
         AdminStatsOverviewDto overview = await service.GetAdminStatsOverviewAsync();
@@ -118,7 +120,21 @@ public sealed class StatsServiceRegionTests(PostgresSchemaMigrationFixture fixtu
             Substitute.For<IUnifiedCache>(),
             Substitute.For<ICacheMissCoordinator>(),
             Substitute.For<IDbConcurrencyGate>(),
+            CreatePrivacyPolicy(),
             NullLogger<StatsService>.Instance);
+
+    private static IReadAnalyticsPrivacyPolicy CreatePrivacyPolicy()
+        => new ReadAnalyticsPrivacyPolicy(
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    [ReadAnalyticsPrivacyPolicy.NoiseKeySetting] = "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8=",
+                    [ReadAnalyticsPrivacyPolicy.KThresholdSetting] = "10",
+                    [ReadAnalyticsPrivacyPolicy.EpsilonPerReleaseSetting] = "0.5",
+                    [ReadAnalyticsPrivacyPolicy.DailyEpsilonLimitSetting] = "1.0"
+                })
+                .Build(),
+            TimeProvider.System);
 
     private async Task<SqlSugarClient> CreateOverviewDatabaseAsync()
     {

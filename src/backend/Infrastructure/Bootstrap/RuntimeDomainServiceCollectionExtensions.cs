@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.CoreBridge.Caching;
 using FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
@@ -74,6 +75,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
     private static IServiceCollection AddGeneralDomainServices(this IServiceCollection services)
     {
         services.AddScoped<SystemService>();
+        services.AddSingleton<IReadAnalyticsPrivacyPolicy, ReadAnalyticsPrivacyPolicy>();
         services.AddScoped<StatsService>();
         services.AddScoped<AuthoringWorkflowService>();
         services.AddScoped<BlogDistributionService>();

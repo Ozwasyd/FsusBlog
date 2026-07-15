@@ -698,16 +698,16 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 | `articleId` | int? | 与 challenge 绑定的 article id |
 | `dwellMs` | int | 客户端累计可见停留毫秒数 |
 
-Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `ReadProofAccepted` 负分风险信号，仅用于降低后续 `public.read` 风险或避免重复 challenge；`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid`、`fingerprint_missing` 等拒绝状态会写入 crawler risk；`duplicate_viewer` 只表示 24 小时去重，不计入风险。一次性 proof 消费必须先失效进程内 L1 cache，再执行 Redis consume-once transaction；请求取消后不得继续执行 registry 清理或留下可从 L1 再读取的 proof。
+Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `ReadProofAccepted` 负分风险信号，仅用于降低后续 `public.read` 风险；`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid` 等拒绝状态会写入 crawler risk。`duplicate_viewer` 只表示同一 article/site + 15 分钟 epoch 内的短期去重，不计入风险；去重 lease 最长 20 分钟，并使用独立轮换 key。read-proof 请求不携带稳定设备指纹。
 
-被接受的阅读事件只记录 `viewerKeyHash`、`proofId`、`eventType`、`routeKey`、`articleId`、region 与时间；`sys_visit_log` 最终态不包含 `userid` / `user_id` 账号绑定列，后续去重与统计不得以账号身份作为维度。
+被接受的阅读只记录 article/UTC hour 计数和 `<10s`、`10–30s`、`30–120s`、`>120s` dwell/day histogram。生产最终态没有 per-read row，也不保存 viewer/proof/device/IP/UA、route、精确时间或精确 dwell；`sys_visit_log` 整表删除。
 
 响应 frame：`HumanReadSubmitResponse` (`29`)
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `counted` | bool | 是否写入真人阅读事件 |
-| `status` | string | `counted`、`paused`、`duplicate_viewer`、`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid`、`fingerprint_missing` 等状态 |
+| `status` | string | `counted`、`paused`、`duplicate_viewer`、`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid` 等状态 |
 
 旧 JSON 端点 `GET /api/read-proof/challenge` 与 `POST /api/read-proof/submit` 已移除；生产前端不得调用，也不得作为 AEDS 解码失败 fallback。
 
@@ -1232,13 +1232,13 @@ SiteStatsPod、共享 UTF-8 blob、popular article records、recent comment reco
 
 | 字段 | 说明 |
 |------|------|
-| `totalReads` | `sys_visit_log` 中的总阅读事件数 |
-| `humanVerifiedReads` | 带 `proof_id` 的真人 proof 事件数 |
-| `uniqueViewerKeyEstimate` | 按 `viewer_key_hash` 去重后的估算 viewer key 数 |
-| `articleReads` | `event_type=article_read` 的文章阅读事件数 |
-| `siteReads` | `event_type=site_read` 的站点阅读事件数 |
+| `totalReads` | `daily_read_stats` 中的聚合阅读计数 |
+| `humanVerifiedReads` | 通过 human-read proof 的聚合计数 |
+| `uniqueViewerKeyEstimate` | 兼容字段，固定为 `0`，不再收集 viewer identity |
+| `articleReads` | `event_type_read_stats` 中的文章聚合计数 |
+| `siteReads` | `event_type_read_stats` 中的站点聚合计数 |
 
-该摘要不暴露注册/匿名账号拆分，也不得恢复 `VisitLog.UserId` 或从历史 `sys_visit_log.userid` / `sys_visit_log.user_id` 派生身份统计。
+该摘要不暴露注册/匿名账号拆分。`Regions` 只返回达到 `k=10` 的 cell，并应用每天固定的 `ε=0.5` Laplace noise；物理迁移会清空旧地区数据，当前聚合写路径不再收集地区。
 
 ---
 

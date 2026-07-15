@@ -2,6 +2,7 @@
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
@@ -20,6 +21,7 @@ public partial class StatsService(
     IUnifiedCache _cache,
     ICacheMissCoordinator _cacheMissCoordinator,
     IDbConcurrencyGate _dbConcurrencyGate,
+    IReadAnalyticsPrivacyPolicy _readAnalyticsPrivacy,
     ILogger<StatsService> _logger) : IStatsService
 {
     public async Task<AdminStatsQueryDto> GetAdminStatsAsync()
@@ -153,7 +155,7 @@ public partial class StatsService(
                 SELECT
                     COALESCE((SELECT SUM(total_reads)::bigint FROM daily_read_stats), 0)::bigint AS "TotalReads",
                     COALESCE((SELECT SUM(human_verified_reads)::bigint FROM daily_read_stats), 0)::bigint AS "HumanVerifiedReads",
-                    COALESCE((SELECT SUM(unique_viewer_estimate)::bigint FROM daily_read_stats), 0)::bigint AS "UniqueViewerKeyEstimate",
+                    0::bigint AS "UniqueViewerKeyEstimate",
                     COALESCE((SELECT SUM(read_count)::bigint FROM event_type_read_stats WHERE event_type = 'article_read'), 0)::bigint AS "ArticleReads",
                     COALESCE((SELECT SUM(read_count)::bigint FROM event_type_read_stats WHERE event_type = 'site_read'), 0)::bigint AS "SiteReads";
                 """;
@@ -317,12 +319,15 @@ public partial class StatsService(
                 SUM(read_count)::bigint AS "Count"
             FROM normalized_regions
             GROUP BY "Region"
+            HAVING SUM(read_count) >= @KThreshold
             ORDER BY "Count" DESC, "Region" ASC
             LIMIT 10;
             """;
 
-        var regions = new List<RegionStatItemDto>(10);
-        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(regionSql);
+        var aggregateCells = new List<ReadAggregateCount>(10);
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            regionSql,
+            new SugarParameter("@KThreshold", _readAnalyticsPrivacy.Budget.KThreshold));
         int fRegion = reader.GetOrdinal("Region");
         int fCount = reader.GetOrdinal("Count");
 
@@ -330,10 +335,13 @@ public partial class StatsService(
         {
             string region = reader.IsDBNull(fRegion) ? "未知地区" : reader.GetString(fRegion);
             int count = (int)reader.GetInt64(fCount);
-            regions.Add(new RegionStatItemDto(region, count));
+            aggregateCells.Add(new ReadAggregateCount(region, count));
         }
 
-        return regions;
+        return _readAnalyticsPrivacy
+            .Protect(ReadAnalyticsPrivacyPolicy.AdminRegionScope, aggregateCells)
+            .Select(static cell => new RegionStatItemDto(cell.Label, checked((int)Math.Min(int.MaxValue, cell.Count))))
+            .ToList();
     }
 
     internal static string NormalizeRegionForStats(string? region)

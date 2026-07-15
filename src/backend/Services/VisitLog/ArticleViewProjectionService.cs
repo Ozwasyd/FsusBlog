@@ -1,14 +1,12 @@
-using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
-using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
 namespace FsusBlog.Server.Services.VisitLog;
 
 public interface IArticleViewProjectionService
 {
-    Task ApplyAsync(IReadOnlyList<VisitLogEntity> batch, CancellationToken cancellationToken);
+    Task ApplyAsync(IReadOnlyDictionary<int, int> articleCounts, CancellationToken cancellationToken);
 }
 
 public sealed class ArticleViewProjectionService(
@@ -20,12 +18,8 @@ public sealed class ArticleViewProjectionService(
 {
     internal const int MaxPerBatchViewInvalidations = 128;
 
-    public async Task ApplyAsync(IReadOnlyList<VisitLogEntity> batch, CancellationToken cancellationToken)
+    public async Task ApplyAsync(IReadOnlyDictionary<int, int> articleCounts, CancellationToken cancellationToken)
     {
-        Dictionary<int, int> articleCounts = batch
-            .Where(static item => item.EventType == HumanReadEventTypes.ArticleRead && item.ArticleId is > 0)
-            .GroupBy(static item => item.ArticleId!.Value)
-            .ToDictionary(static group => group.Key, static group => group.Count());
         if (articleCounts.Count == 0)
         {
             return;

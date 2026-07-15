@@ -1,29 +1,44 @@
-﻿using System.Diagnostics;
-using System.Net;
+using System.Diagnostics;
+using System.Text;
 using System.Threading.Channels;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
-using IP2Location;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.ObjectPool;
 using SqlSugar;
-using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
 
 namespace FsusBlog.Server.Services.VisitLog;
 
+/// <summary>
+/// A single contribution to bounded read aggregates. This transport deliberately
+/// has no IP, route, viewer/proof identifier, exact timestamp, or exact dwell time.
+/// </summary>
 public readonly record struct VisitLogMessage(
-    string IP,
-    DateTime CreateTime,
+    DateTime AggregateHourUtc,
     string EventType,
-    string? RouteKey,
     int? ArticleId,
-    string? ViewerKeyHash,
-    string? ProofId,
-    int DwellMs);
+    string DwellBucket);
+
+public static class ReadDwellBuckets
+{
+    public const string Under10Seconds = "lt_10s";
+    public const string From10To30Seconds = "10_30s";
+    public const string From30To120Seconds = "30_120s";
+    public const string Over120Seconds = "gt_120s";
+
+    public static string Classify(int dwellMs)
+        => dwellMs switch
+        {
+            < 10_000 => Under10Seconds,
+            < 30_000 => From10To30Seconds,
+            < 120_000 => From30To120Seconds,
+            _ => Over120Seconds
+        };
+
+    public static bool IsKnown(string? value)
+        => value is Under10Seconds or From10To30Seconds or From30To120Seconds or Over120Seconds;
+}
 
 public class VisitLogChannel
 {
@@ -34,9 +49,6 @@ public class VisitLogChannel
 
     public VisitLogChannel()
     {
-        // [审查确认] 性能最大化与防 OOM 背压设计：
-        // 限制最大队列数为 50000。采用 DropOldest 策略，当数据库宕机或消费端降级时，
-        // TryWrite 永远不会阻塞，而是静默丢弃最老的日志，确保 Kestrel 的核心内存绝对安全。
         var options = new BoundedChannelOptions(Capacity)
         {
             SingleReader = true,
@@ -66,120 +78,100 @@ public class VisitLogChannel
     public ChannelReader<VisitLogMessage> Reader => _channel.Reader;
 }
 
+/// <summary>
+/// Compacts accepted read contributions directly into article/hour and
+/// dwell/day counters. It never creates an event-level database row.
+/// </summary>
 public class VisitLogProcessorService : BackgroundService
 {
     private const int BatchSize = 500;
-    private const int MaxIpLength = 64;
-    private const string UnknownRegion = "Unknown";
     internal static readonly TimeSpan FlushWindow = TimeSpan.FromMilliseconds(200);
     private static readonly long FlushWindowStopwatchTicks = Math.Max(1, (long)(FlushWindow.TotalSeconds * Stopwatch.Frequency));
 
     private readonly VisitLogChannel _channel;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<VisitLogProcessorService> _logger;
-    private readonly IVisitLogIpPseudonymizer _ipPseudonymizer;
-    private ObjectPool<Component>? _ipPool;
     private IArticleViewProjectionService? _articleViewProjectionService;
     private IHotStatsInvalidationCoalescer? _hotStatsInvalidationCoalescer;
-    private VisitLogFlushStats _flushStats;
 
     public VisitLogProcessorService(
         VisitLogChannel channel,
         IServiceProvider serviceProvider,
-        ILogger<VisitLogProcessorService> logger,
-        ObjectPool<Component>? ipPool = null,
-        IVisitLogIpPseudonymizer? ipPseudonymizer = null)
+        ILogger<VisitLogProcessorService> logger)
     {
         _channel = channel;
         _serviceProvider = serviceProvider;
         _logger = logger;
-        _ipPseudonymizer = ipPseudonymizer
-            ?? serviceProvider.GetService<IVisitLogIpPseudonymizer>()
-            ?? new VisitLogIpPseudonymizer(
-                serviceProvider.GetRequiredService<IConfiguration>(),
-                enforceProductionRules: true,
-                serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System);
-        _ipPool = ipPool;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await using AsyncServiceScope scope = _serviceProvider.CreateAsyncScope();
-        VisitLogFlushServices flushServices = ResolveFlushServices(scope.ServiceProvider);
-        var batch = new List<VisitLogEntity>(BatchSize);
-        await BackgroundTaskExecutor.RunAsync(
-            async token =>
+        ReadAggregateFlushServices flushServices = ResolveFlushServices(scope.ServiceProvider);
+        var batch = new List<VisitLogMessage>(BatchSize);
+        try
+        {
+            while (!stoppingToken.IsCancellationRequested)
             {
-                while (!token.IsCancellationRequested)
+                if (!await _channel.Reader.WaitToReadAsync(stoppingToken).ConfigureAwait(false))
                 {
-                    if (await _channel.Reader.WaitToReadAsync(token))
-                    {
-                        await DrainBatchWithFlushWindowAsync(batch, token);
-
-                        if (batch.Count > 0)
-                        {
-                            await FlushBatchAsync(flushServices, batch, token);
-                        }
-                    }
-                }
-            },
-            _logger,
-            "visit-log-processor",
-            stoppingToken,
-            onCancelled: () =>
-            {
-                _logger.LogWarning("日志批量处理器收到停机信号，准备执行最后一次数据抢救落盘...");
-                return Task.CompletedTask;
-            },
-            onFinally: async () =>
-            {
-                int pendingCount = _channel.Reader.Count;
-                int processed = 0;
-
-                while (processed < pendingCount && _channel.Reader.TryRead(out var msg))
-                {
-                    TryProcessSingleMessage(msg, batch);
-                    processed++;
+                    break;
                 }
 
+                await DrainBatchWithFlushWindowAsync(batch, stoppingToken).ConfigureAwait(false);
                 if (batch.Count > 0)
                 {
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-                    int rescuedCount = batch.Count;
-                    try
-                    {
-                        await FlushBatchAsync(flushServices, batch, cts.Token);
-                        _logger.LogInformation("已抢救持久化系统停机前遗留的 {Count} 条访问记录。", rescuedCount);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "停机抢救访问日志时发生未预期异常，已降级忽略剩余批次。");
-                    }
+                    await FlushBatchAsync(flushServices, batch, stoppingToken).ConfigureAwait(false);
                 }
-            });
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            _logger.LogInformation("阅读聚合处理器收到停机信号，准备刷新剩余计数。");
+        }
+        finally
+        {
+            while (batch.Count < BatchSize && _channel.Reader.TryRead(out VisitLogMessage message))
+            {
+                TryProcessSingleMessage(message, batch);
+            }
+
+            if (batch.Count > 0)
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                try
+                {
+                    await FlushBatchAsync(flushServices, batch, cts.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "停机刷新阅读聚合计数失败，已丢弃剩余内存计数。");
+                }
+            }
+        }
     }
 
-    private VisitLogFlushServices ResolveFlushServices(IServiceProvider scopedServices)
+    private ReadAggregateFlushServices ResolveFlushServices(IServiceProvider scopedServices)
     {
         _articleViewProjectionService ??= scopedServices.GetRequiredService<IArticleViewProjectionService>();
         _hotStatsInvalidationCoalescer ??= scopedServices.GetRequiredService<IHotStatsInvalidationCoalescer>();
-        return new VisitLogFlushServices(
+        return new ReadAggregateFlushServices(
             scopedServices.GetRequiredService<ISqlSugarClient>(),
             scopedServices.GetRequiredService<IDbConcurrencyGate>(),
             _articleViewProjectionService,
             _hotStatsInvalidationCoalescer);
     }
 
-    private async Task DrainBatchWithFlushWindowAsync(List<VisitLogEntity> batch, CancellationToken token)
+    private async Task DrainBatchWithFlushWindowAsync(List<VisitLogMessage> batch, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         long flushDeadline = 0;
         while (batch.Count < BatchSize)
         {
-            while (batch.Count < BatchSize && _channel.Reader.TryRead(out var msg))
+            while (batch.Count < BatchSize && _channel.Reader.TryRead(out VisitLogMessage message))
             {
                 bool wasEmpty = batch.Count == 0;
-                TryProcessSingleMessage(msg, batch);
+                TryProcessSingleMessage(message, batch);
                 if (wasEmpty && batch.Count > 0)
                 {
                     flushDeadline = CreateFlushDeadline();
@@ -245,125 +237,73 @@ public class VisitLogProcessorService : BackgroundService
         return TimeSpan.FromTicks(remainingTimeSpanTicks);
     }
 
-    private void TryProcessSingleMessage(VisitLogMessage msg, List<VisitLogEntity> batch)
+    private void TryProcessSingleMessage(VisitLogMessage message, List<VisitLogMessage> batch)
     {
         try
         {
-            ProcessSingleMessageCore(msg, batch);
+            ProcessSingleMessageCore(message, batch);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "处理单条访问日志消息失败，已跳过该条消息。");
+            _logger.LogError(ex, "处理单条阅读聚合贡献失败，已跳过该条消息。");
         }
     }
 
-    private void ProcessSingleMessageCore(VisitLogMessage msg, List<VisitLogEntity> batch)
+    private static void ProcessSingleMessageCore(VisitLogMessage message, List<VisitLogMessage> batch)
     {
-        if (string.IsNullOrWhiteSpace(msg.IP))
+        DateTime hour = message.AggregateHourUtc;
+        bool alignedUtcHour = hour.Kind == DateTimeKind.Utc
+            && hour.Minute == 0
+            && hour.Second == 0
+            && hour.Millisecond == 0;
+        bool articleRead = string.Equals(message.EventType, HumanReadEventTypes.ArticleRead, StringComparison.Ordinal);
+        bool siteRead = string.Equals(message.EventType, HumanReadEventTypes.SiteRead, StringComparison.Ordinal);
+        if (!alignedUtcHour
+            || !ReadDwellBuckets.IsKnown(message.DwellBucket)
+            || !articleRead && !siteRead
+            || articleRead && message.ArticleId is not > 0
+            || siteRead && message.ArticleId is not null)
         {
             return;
         }
 
-        var ip = msg.IP.Trim();
-        ip = ip.Length > MaxIpLength ? ip[..MaxIpLength] : ip;
-        VisitLogIpPseudonym ipPseudonym = _ipPseudonymizer.PseudonymizeCurrent(
-            VisitLogIpPseudonymScope.Analytics,
-            ip,
-            new DateTimeOffset(DateTime.SpecifyKind(msg.CreateTime, DateTimeKind.Utc)));
-        string eventType = NormalizeEventType(msg.EventType);
-        if (TryClassifyLocalNetwork(ip, out var localRegion))
-        {
-            batch.Add(new VisitLogEntity
-            {
-                IpHash = ipPseudonym.Hash,
-                IpHashKeyEpoch = ipPseudonym.KeyEpoch,
-                IpHashWindowUtc = ipPseudonym.WindowUtc,
-                Region = localRegion,
-                CreateTime = msg.CreateTime,
-                EventType = eventType,
-                RouteKey = NormalizeOptional(msg.RouteKey, 200),
-                ArticleId = msg.ArticleId,
-                ViewerKeyHash = NormalizeOptional(msg.ViewerKeyHash, 64),
-                ProofId = NormalizeOptional(msg.ProofId, 64),
-                DwellMs = Math.Max(0, msg.DwellMs)
-            });
-            RecordFlushStats(eventType);
-            return;
-        }
-
-        Component? ipObj = null;
-        string region;
-        ObjectPool<Component>? ipPool = _ipPool ??= _serviceProvider.GetService<ObjectPool<Component>>();
-        if (ipPool is null)
-        {
-            region = UnknownRegion;
-        }
-        else
-        {
-            try
-            {
-                ipObj = ipPool.Get();
-                // 注：IP2Location 的 BIN 内存模式查询耗时在 1 纳秒级，属于纯 CPU 寻址，不会引起 I/O 消费雪崩
-                var res = ipObj.IPQuery(ip);
-                region = CreateRegionString(res);
-            }
-            finally
-            {
-                if (ipObj is not null)
-                {
-                    try
-                    {
-                        ipPool.Return(ipObj);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "归还 IP2Location 对象到对象池失败。");
-                    }
-                }
-            }
-        }
-
-        batch.Add(new VisitLogEntity
-        {
-            IpHash = ipPseudonym.Hash,
-            IpHashKeyEpoch = ipPseudonym.KeyEpoch,
-            IpHashWindowUtc = ipPseudonym.WindowUtc,
-            Region = region,
-            CreateTime = msg.CreateTime,
-            EventType = eventType,
-            RouteKey = NormalizeOptional(msg.RouteKey, 200),
-            ArticleId = msg.ArticleId,
-            ViewerKeyHash = NormalizeOptional(msg.ViewerKeyHash, 64),
-            ProofId = NormalizeOptional(msg.ProofId, 64),
-            DwellMs = Math.Max(0, msg.DwellMs)
-        });
-        RecordFlushStats(eventType);
+        batch.Add(message);
     }
 
-    private void RecordFlushStats(string eventType)
+    private async Task FlushBatchAsync(
+        ReadAggregateFlushServices services,
+        List<VisitLogMessage> batch,
+        CancellationToken token)
     {
-        if (eventType == HumanReadEventTypes.ArticleRead)
-        {
-            _flushStats.ArticleReadCount++;
-        }
-    }
+        Dictionary<int, int> articleCounts = batch
+            .Where(static item => item.EventType == HumanReadEventTypes.ArticleRead && item.ArticleId is > 0)
+            .GroupBy(static item => item.ArticleId!.Value)
+            .ToDictionary(static group => group.Key, static group => group.Count());
+        bool hasArticleRead = articleCounts.Count > 0;
 
-    private async Task FlushBatchAsync(VisitLogFlushServices services, List<VisitLogEntity> batch, CancellationToken token)
-    {
-        VisitLogFlushStats stats = _flushStats;
         try
         {
-            int inserted = await services.DbGate.ExecuteAsync(
-                "visit-log-flush",
-                gateCt => services.Db.Insertable(batch).ExecuteCommandAsync(gateCt),
+            int persisted = await services.DbGate.ExecuteClassifiedAsync(
+                DbWorkloadClass.BackgroundProjection,
+                "read-aggregate-flush",
+                async gateCt =>
+                {
+                    await PersistAggregatesAsync(services.Db, batch, gateCt).ConfigureAwait(false);
+                    return batch.Count;
+                },
                 _ => Task.FromResult(0),
-                token);
-            if (inserted > 0)
+                token).ConfigureAwait(false);
+            if (persisted <= 0)
             {
-                FsusObservability.RecordVisitLogFlush(inserted);
+                return;
+            }
+
+            FsusObservability.RecordReadAggregateFlush(persisted);
+            if (hasArticleRead)
+            {
                 try
                 {
-                    await ApplyArticleViewProjectionAsync(services.ArticleViewProjection, batch, token);
+                    await services.ArticleViewProjection.ApplyAsync(articleCounts, token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -371,173 +311,138 @@ public class VisitLogProcessorService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(
-                        ex,
-                        "访问日志已落库但阅读量投影失败，后台 reconciliation worker 将从 visit_log 修复 article.views。");
+                    _logger.LogError(ex, "阅读聚合已落库但 article.views 投影失败。");
                 }
-
-                await MarkStatsAfterFlushAsync(services.HotStatsInvalidation, stats, token).ConfigureAwait(false);
             }
+
+            await MarkStatsAfterFlushAsync(services.HotStatsInvalidation, hasArticleRead, token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            _logger.LogWarning("写入被取消或熔断：数据库连接池已离线或写入超时。");
+            _logger.LogWarning("阅读聚合写入被取消或数据库后台投影门已离线。");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "后台批量写入访问日志失败，已丢弃该批次。");
+            _logger.LogError(ex, "后台批量写入阅读聚合失败，已丢弃该批内存计数。");
         }
         finally
         {
-            _flushStats = default;
             batch.Clear();
         }
     }
 
-    private async Task ApplyArticleViewProjectionAsync(
-        IArticleViewProjectionService projectionService,
-        List<VisitLogEntity> batch,
-        CancellationToken token)
+    internal static async Task PersistAggregatesAsync(
+        ISqlSugarClient db,
+        IReadOnlyList<VisitLogMessage> batch,
+        CancellationToken cancellationToken)
     {
-        await projectionService.ApplyAsync(batch, token);
+        if (batch.Count == 0)
+        {
+            return;
+        }
+
+        var sql = new StringBuilder("""
+            WITH input(article_id, hour_utc, event_type, dwell_bucket, read_count) AS (
+                VALUES
+            """);
+        var parameters = new List<SugarParameter>(batch.Count * 4);
+        for (int i = 0; i < batch.Count; i++)
+        {
+            if (i > 0)
+            {
+                sql.Append(',');
+            }
+
+            sql.Append("(@ArticleId").Append(i)
+                .Append(", CAST(@HourUtc").Append(i)
+                .Append(" AS timestamp), @EventType").Append(i)
+                .Append(", @DwellBucket").Append(i)
+                .Append(", 1)");
+            VisitLogMessage item = batch[i];
+            parameters.Add(new SugarParameter($"@ArticleId{i}", item.ArticleId.HasValue ? item.ArticleId.Value : DBNull.Value));
+            parameters.Add(new SugarParameter($"@HourUtc{i}", item.AggregateHourUtc));
+            parameters.Add(new SugarParameter($"@EventType{i}", item.EventType));
+            parameters.Add(new SugarParameter($"@DwellBucket{i}", item.DwellBucket));
+        }
+
+        sql.Append("""
+            ),
+            daily_upsert AS (
+                INSERT INTO daily_read_stats(stat_date, total_reads, human_verified_reads, unique_viewer_estimate, updated_at_utc)
+                SELECT hour_utc::date, SUM(read_count), SUM(read_count), 0, now() AT TIME ZONE 'utc'
+                FROM input
+                GROUP BY hour_utc::date
+                ON CONFLICT (stat_date) DO UPDATE
+                SET total_reads = daily_read_stats.total_reads + EXCLUDED.total_reads,
+                    human_verified_reads = daily_read_stats.human_verified_reads + EXCLUDED.human_verified_reads,
+                    unique_viewer_estimate = 0,
+                    updated_at_utc = EXCLUDED.updated_at_utc
+                RETURNING 1
+            ),
+            event_upsert AS (
+                INSERT INTO event_type_read_stats(event_type, read_count, updated_at_utc)
+                SELECT event_type, SUM(read_count), now() AT TIME ZONE 'utc'
+                FROM input
+                GROUP BY event_type
+                ON CONFLICT (event_type) DO UPDATE
+                SET read_count = event_type_read_stats.read_count + EXCLUDED.read_count,
+                    updated_at_utc = EXCLUDED.updated_at_utc
+                RETURNING 1
+            ),
+            article_upsert AS (
+                INSERT INTO article_read_hourly_aggregate(article_id, hour_utc, read_count, updated_at_utc)
+                SELECT article_id, hour_utc, SUM(read_count), now() AT TIME ZONE 'utc'
+                FROM input
+                WHERE event_type = 'article_read' AND article_id IS NOT NULL
+                GROUP BY article_id, hour_utc
+                ON CONFLICT (article_id, hour_utc) DO UPDATE
+                SET read_count = article_read_hourly_aggregate.read_count + EXCLUDED.read_count,
+                    updated_at_utc = EXCLUDED.updated_at_utc
+                RETURNING 1
+            ),
+            dwell_upsert AS (
+                INSERT INTO read_dwell_daily_aggregate(stat_date, dwell_bucket, read_count, updated_at_utc)
+                SELECT hour_utc::date, dwell_bucket, SUM(read_count), now() AT TIME ZONE 'utc'
+                FROM input
+                GROUP BY hour_utc::date, dwell_bucket
+                ON CONFLICT (stat_date, dwell_bucket) DO UPDATE
+                SET read_count = read_dwell_daily_aggregate.read_count + EXCLUDED.read_count,
+                    updated_at_utc = EXCLUDED.updated_at_utc
+                RETURNING 1
+            )
+            SELECT
+                (SELECT COUNT(*) FROM daily_upsert)
+              + (SELECT COUNT(*) FROM event_upsert)
+              + (SELECT COUNT(*) FROM article_upsert)
+              + (SELECT COUNT(*) FROM dwell_upsert);
+            """);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(sql.ToString(), parameters.ToArray()).ConfigureAwait(false);
     }
 
-    private async Task MarkStatsAfterFlushAsync(IHotStatsInvalidationCoalescer coalescer, VisitLogFlushStats stats, CancellationToken token)
+    private async Task MarkStatsAfterFlushAsync(
+        IHotStatsInvalidationCoalescer coalescer,
+        bool hasArticleRead,
+        CancellationToken token)
     {
         try
         {
-            await coalescer.MarkStatsDirtyAsync("visit-log-flush", token).ConfigureAwait(false);
-            if (stats.HasArticleRead)
+            await coalescer.MarkStatsDirtyAsync("read-aggregate-flush", token).ConfigureAwait(false);
+            if (hasArticleRead)
             {
                 await coalescer.MarkHotArticlesDirtyAsync("article-read-projection", token).ConfigureAwait(false);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "访问日志批量写入后标记统计缓存失败，统计结果可能等待 TTL 后自然恢复。");
+            _logger.LogError(ex, "阅读聚合写入后标记统计缓存失败，结果将在 TTL 后自然刷新。");
         }
     }
 
-    private sealed record VisitLogFlushServices(
+    private sealed record ReadAggregateFlushServices(
         ISqlSugarClient Db,
         IDbConcurrencyGate DbGate,
         IArticleViewProjectionService ArticleViewProjection,
         IHotStatsInvalidationCoalescer HotStatsInvalidation);
-
-    private struct VisitLogFlushStats
-    {
-        public int ArticleReadCount;
-        public readonly bool HasArticleRead => ArticleReadCount > 0;
-    }
-
-    private static string NormalizeEventType(string? eventType)
-        => string.Equals(eventType, HumanReadEventTypes.ArticleRead, StringComparison.Ordinal)
-            ? HumanReadEventTypes.ArticleRead
-            : HumanReadEventTypes.SiteRead;
-
-    private static string? NormalizeOptional(string? value, int maxLength)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        string trimmed = value.Trim();
-        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
-    }
-
-    internal static bool TryClassifyLocalNetwork(string ip, out string region)
-    {
-        region = string.Empty;
-        if (!IPAddress.TryParse(ip, out var address))
-        {
-            return false;
-        }
-
-        if (IPAddress.IsLoopback(address))
-        {
-            region = "本地网络";
-            return true;
-        }
-
-        if (address.IsIPv4MappedToIPv6)
-        {
-            address = address.MapToIPv4();
-        }
-
-        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-        {
-            Span<byte> bytes = stackalloc byte[4];
-            if (!address.TryWriteBytes(bytes, out int bytesWritten) || bytesWritten != 4)
-            {
-                return false;
-            }
-
-            if (bytes[0] == 10 ||
-                bytes[0] == 127 ||
-                bytes[0] == 169 && bytes[1] == 254 ||
-                bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31 ||
-                bytes[0] == 192 && bytes[1] == 168)
-            {
-                region = bytes[0] == 127 ? "本地网络" : "内网";
-                return true;
-            }
-        }
-
-        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
-        {
-            Span<byte> bytes = stackalloc byte[16];
-            if (!address.TryWriteBytes(bytes, out int bytesWritten) || bytesWritten != 16)
-            {
-                return false;
-            }
-
-            if (address.IsIPv6LinkLocal ||
-                address.IsIPv6SiteLocal ||
-                (bytes[0] & 0xFE) == 0xFC)
-            {
-                region = "内网";
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static string CreateRegionString(IPResult? res)
-    {
-        if (res?.Status != "OK") return "未知地区";
-
-        bool hasCountry = !string.IsNullOrEmpty(res.CountryLong) && res.CountryLong != "-";
-        bool hasRegion = !string.IsNullOrEmpty(res.Region) && res.Region != "-";
-        bool hasCity = !string.IsNullOrEmpty(res.City) && res.City != "-";
-
-        int length = 0;
-        if (hasCountry) length += res.CountryLong!.Length;
-        if (hasRegion) length += (length > 0 ? 1 : 0) + res.Region!.Length;
-        if (hasCity) length += (length > 0 ? 1 : 0) + res.City!.Length;
-
-        if (length == 0) return "未知地区";
-
-        return string.Create(length, (res, hasCountry, hasRegion, hasCity), (span, state) =>
-        {
-            int currentPos = 0;
-            if (state.hasCountry)
-            {
-                state.res.CountryLong.AsSpan().CopyTo(span);
-                currentPos += state.res.CountryLong.Length;
-            }
-            if (state.hasRegion)
-            {
-                if (currentPos > 0) span[currentPos++] = '-';
-                state.res.Region.AsSpan().CopyTo(span[currentPos..]);
-                currentPos += state.res.Region.Length;
-            }
-            if (state.hasCity)
-            {
-                if (currentPos > 0) span[currentPos++] = '-';
-                state.res.City.AsSpan().CopyTo(span[currentPos..]);
-            }
-        });
-    }
 }

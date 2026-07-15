@@ -269,17 +269,11 @@ public class BackgroundWorkflowSourceTests
     public void ArticleViewProjectionRepairWorker_SourceUsesIncrementalWatermarkBeforeFullReconcile()
     {
         string repair = RuntimeMetadataInspection.DescribeType(typeof(ArticleViewProjectionRepairWorker));
-        string reconcile = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
-            typeof(ArticleViewProjectionRepairWorker),
-            "WHERE id > @LastVisitLogId",
-            "MAX(id)");
 
-        Assert.Contains("article_view_projection_watermark", repair, StringComparison.Ordinal);
-        Assert.Contains("WHERE id > @LastVisitLogId", reconcile, StringComparison.Ordinal);
-        Assert.Contains("MAX(id)", reconcile, StringComparison.Ordinal);
-        Assert.Contains("COALESCE(MAX(id), 0)", repair, StringComparison.Ordinal);
-        Assert.Contains("RunFullReconcileAsync", repair, StringComparison.Ordinal);
-        Assert.DoesNotContain("GROUP BY article_id", reconcile, StringComparison.Ordinal);
+        Assert.Contains("article-view-projection-repair-retired", repair, StringComparison.Ordinal);
+        Assert.Contains("aggregate-only", repair, StringComparison.Ordinal);
+        Assert.DoesNotContain("article_view_projection_watermark", repair, StringComparison.Ordinal);
+        Assert.DoesNotContain("sys_visit_log", repair, StringComparison.Ordinal);
     }
 
     [Fact]

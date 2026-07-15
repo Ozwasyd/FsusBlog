@@ -63,7 +63,7 @@ SH
 cat > "$TMP_ROOT/bin/psql" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ " $* " == *"information_schema.columns"* ]]; then
+if [[ " $* " == *"information_schema.tables"* ]]; then
   printf '0\n'
 elif [[ " $* " == *"SELECT pg_switch_wal();"* ]]; then
   printf '0/2000000\n'

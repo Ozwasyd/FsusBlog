@@ -16,10 +16,6 @@ public sealed class HumanReadProofRequestBindingTests
         missingUserAgent.Request.Headers.Remove("User-Agent");
         contexts.Add(missingUserAgent);
 
-        DefaultHttpContext missingFingerprint = harness.CreateBrowserContext();
-        missingFingerprint.Request.Headers.Remove("X-Fsus-Device-Fp");
-        contexts.Add(missingFingerprint);
-
         DefaultHttpContext missingFetchMetadata = harness.CreateBrowserContext();
         missingFetchMetadata.Request.Headers.Remove("Sec-Fetch-Dest");
         contexts.Add(missingFetchMetadata);
@@ -33,6 +29,12 @@ public sealed class HumanReadProofRequestBindingTests
                 new HumanReadChallengeRequest("site", "home", null));
             Assert.Null(challenge);
         }
+
+        DefaultHttpContext noStableFingerprint = harness.CreateBrowserContext();
+        noStableFingerprint.Request.Headers.Remove("X-Fsus-Device-Fp");
+        Assert.NotNull(await harness.Service.CreateChallengeAsync(
+            noStableFingerprint,
+            new HumanReadChallengeRequest("site", "home", null)));
     }
 
     [Theory]
@@ -68,7 +70,7 @@ public sealed class HumanReadProofRequestBindingTests
     }
 
     [Fact]
-    public async Task SubmitAsync_DeviceFingerprintChangeBreaksProofBinding()
+    public async Task SubmitAsync_DeviceFingerprintChangeDoesNotCreateCrossArticleIdentityBinding()
     {
         await using var harness = HumanReadProofTestHarness.Create();
         HumanReadChallengeResponse challenge = Assert.IsType<HumanReadChallengeResponse>(
@@ -81,9 +83,9 @@ public sealed class HumanReadProofRequestBindingTests
             harness.CreateBrowserContext(deviceFingerprint: "fedcba9876543210fedcba9876543210"),
             new HumanReadSubmitRequest(challenge.Token, "article", "article:42", 42, 9000));
 
-        Assert.False(submit.Counted);
-        Assert.Equal("proof_binding_mismatch", submit.Status);
-        Assert.False(harness.Channel.Reader.TryRead(out _));
+        Assert.True(submit.Counted);
+        Assert.Equal("counted", submit.Status);
+        Assert.True(harness.Channel.Reader.TryRead(out _));
     }
 
     [Theory]

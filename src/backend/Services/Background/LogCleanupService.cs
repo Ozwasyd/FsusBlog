@@ -25,24 +25,11 @@ public class LogCleanupService(
 {
     private const int ChunkSize = 5000;
     private const int MaxChunksPerCycle = 200;
-    private const int VisitLogRetentionDays = 30;
     private const int RumRetentionDays = 14;
     private const int AuditLogRetentionDays = 365;
     private const int AnonymousCredentialIssuanceAuditRetentionDays = 90;
     private const int FencedCommitRetentionDays = 30;
     private static readonly TimeSpan DelayBetweenChunks = TimeSpan.FromMilliseconds(50);
-    private const string CleanupVisitLogsSql = """
-        WITH expired AS (
-            SELECT id
-            FROM sys_visit_log
-            WHERE createtime < @ExpireDate
-            ORDER BY id
-            LIMIT @ChunkSize
-        )
-        DELETE FROM sys_visit_log target
-        USING expired
-        WHERE target.id = expired.id;
-        """;
     private const string CleanupRumMetricsSql = """
         WITH expired AS (
             SELECT id
@@ -105,24 +92,9 @@ public class LogCleanupService(
         USING expired
         WHERE target.commit_token = expired.commit_token;
         """;
-    private const string CleanupLegacyVisitLogIpPseudonymsSql = """
-        WITH expired AS (
-            SELECT id
-            FROM sys_visit_log
-            WHERE ip_hash_key_epoch <= 0
-               OR ip_hash_window_utc <= 0
-               OR char_length(ip_hash) <> 32
-            ORDER BY id
-            LIMIT @ChunkSize
-        )
-        DELETE FROM sys_visit_log target
-        USING expired
-        WHERE target.id = expired.id;
-        """;
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("【系统】日志清理任务初始化完成。策略：访问日志保留 {VisitDays} 天，RUM 保留 {RumDays} 天，普通审计保留 {AuditDays} 天。", VisitLogRetentionDays, RumRetentionDays, AuditLogRetentionDays);
+        _logger.LogInformation("【系统】日志清理任务初始化完成。策略：RUM 保留 {RumDays} 天，普通审计保留 {AuditDays} 天。阅读数据仅保存聚合计数，不存在事件日志保留任务。", RumRetentionDays, AuditLogRetentionDays);
         using var timer = new PeriodicTimer(TimeSpan.FromDays(1), timeProvider);
         await BackgroundTaskExecutor.RunLoopAsync(
             async token =>
@@ -156,7 +128,6 @@ public class LogCleanupService(
     internal async Task CleanupOnceAsync(CancellationToken token)
     {
         DateTime now = timeProvider.GetUtcNow().UtcDateTime;
-        DateTime visitExpireDate = now.AddDays(-VisitLogRetentionDays);
         DateTime rumExpireDate = now.AddDays(-RumRetentionDays);
         DateTime auditExpireDate = now.AddDays(-AuditLogRetentionDays);
         DateTime anonymousCredentialAuditExpireDate = now.AddDays(-AnonymousCredentialIssuanceAuditRetentionDays);
@@ -164,10 +135,6 @@ public class LogCleanupService(
 
         _logger.LogDebug("执行计划启动：寻找过期访问/RUM/普通审计日志...");
 
-        Task<int> visitTask = CleanupWithScopedDbAsync(
-            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
-                db, "visit-log-retention", CleanupVisitLogsSql, visitExpireDate, scopedToken),
-            token);
         Task<int> rumTask = CleanupWithScopedDbAsync(
             (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
                 db, "rum-retention", CleanupRumMetricsSql, rumExpireDate, scopedToken),
@@ -205,48 +172,32 @@ public class LogCleanupService(
                 fencedCommitExpireDate,
                 scopedToken),
             token);
-        Task<int> legacyVisitLogIpTask = CleanupWithScopedDbAsync(
-            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
-                db,
-                "legacy-visit-log-ip-retention",
-                CleanupLegacyVisitLogIpPseudonymsSql,
-                now,
-                scopedToken),
-            token);
         await Task.WhenAll(
-            visitTask,
             rumTask,
             auditTask,
             anonymousCredentialAuditTask,
             legacySecurityRiskTask,
-            fencedCommitTask,
-            legacyVisitLogIpTask);
+            fencedCommitTask);
 
-        int visitDeleted = await visitTask;
         int rumDeleted = await rumTask;
         int auditDeleted = await auditTask;
         int anonymousCredentialAuditDeleted = await anonymousCredentialAuditTask;
         int legacySecurityRiskDeleted = await legacySecurityRiskTask;
         int fencedCommitDeleted = await fencedCommitTask;
-        int legacyVisitLogIpDeleted = await legacyVisitLogIpTask;
 
-        if (visitDeleted > 0
-            || rumDeleted > 0
+        if (rumDeleted > 0
             || auditDeleted > 0
             || anonymousCredentialAuditDeleted > 0
             || legacySecurityRiskDeleted > 0
-            || fencedCommitDeleted > 0
-            || legacyVisitLogIpDeleted > 0)
+            || fencedCommitDeleted > 0)
         {
             _logger.LogInformation(
-                "日志自动清理成功 | visit={VisitCount} rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount} legacySecurityRisk={LegacySecurityRiskCount} fencedCommit={FencedCommitCount} legacyVisitLogIp={LegacyVisitLogIpCount}",
-                visitDeleted,
+                "日志自动清理成功 | rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount} legacySecurityRisk={LegacySecurityRiskCount} fencedCommit={FencedCommitCount}",
                 rumDeleted,
                 auditDeleted,
                 anonymousCredentialAuditDeleted,
                 legacySecurityRiskDeleted,
-                fencedCommitDeleted,
-                legacyVisitLogIpDeleted);
+                fencedCommitDeleted);
         }
     }
 
@@ -285,7 +236,7 @@ public class LogCleanupService(
         ISqlSugarClient db,
         DateTime expireDate,
         CancellationToken token)
-        => CleanupVisitLogsAsync(db, expireDate, ChunkSize, MaxChunksPerCycle, DelayBetweenChunks, token);
+        => Task.FromResult(0);
 
     internal static Task<int> CleanupVisitLogsAsync(
         ISqlSugarClient db,
@@ -294,14 +245,7 @@ public class LogCleanupService(
         int maxChunks,
         TimeSpan delayBetweenChunks,
         CancellationToken token)
-        => CleanupByServerSideLimitAsync(
-            db,
-            CleanupVisitLogsSql,
-            expireDate,
-            chunkSize,
-            maxChunks,
-            delayBetweenChunks,
-            token);
+        => Task.FromResult(0);
 
     internal static Task<int> CleanupRumMetricsAsync(ISqlSugarClient db, DateTime expireDate, CancellationToken token)
         => CleanupByServerSideLimitAsync(
@@ -409,14 +353,7 @@ public class LogCleanupService(
         int maxChunks,
         TimeSpan delayBetweenChunks,
         CancellationToken token)
-        => CleanupByServerSideLimitAsync(
-            db,
-            CleanupLegacyVisitLogIpPseudonymsSql,
-            DateTime.UnixEpoch,
-            chunkSize,
-            maxChunks,
-            delayBetweenChunks,
-            token);
+        => Task.FromResult(0);
 
     private static async Task<int> CleanupByServerSideLimitAsync(
         ISqlSugarClient db,
