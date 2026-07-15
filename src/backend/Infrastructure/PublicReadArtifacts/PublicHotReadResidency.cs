@@ -118,15 +118,14 @@ internal readonly record struct PublicHotReadRetiringLimits(
                 "Retiring snapshot deadline cannot be negative.");
         }
 
-        int maxSnapshots = options.MaxRetiringSnapshots > 0
-            ? options.MaxRetiringSnapshots
-            : Math.Clamp(Environment.ProcessorCount * 2, 4, 64);
+        int maxSnapshots = options.MaxRetiringSnapshots;
         long maxBytes = options.MaxRetiringBytes > 0
             ? options.MaxRetiringBytes
             : Math.Min(budgets.MaxSnapshotOverlapBytes, budgets.MaxResidentBytes);
+        int dynamicDeadlineScale = Math.Clamp(Environment.ProcessorCount * 2, 4, 64);
         TimeSpan deadline = options.RetiringSnapshotDeadline > TimeSpan.Zero
             ? options.RetiringSnapshotDeadline
-            : TimeSpan.FromSeconds(Math.Clamp(maxSnapshots * 30, 60, 1800));
+            : TimeSpan.FromSeconds(Math.Clamp(dynamicDeadlineScale * 30, 60, 1800));
         return new(maxSnapshots, Math.Max(1, maxBytes), deadline);
     }
 }

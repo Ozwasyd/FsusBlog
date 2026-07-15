@@ -818,10 +818,20 @@ assert.equal(manifestChildEnv.FSUSBLOG_NODE_TEST_CONCURRENCY, '2')
 const commandTempRoot = await mkdtemp(path.join(os.tmpdir(), 'fsusblog-command-manifest-'))
 try {
   const markerFile = path.join(commandTempRoot, 'markers.txt')
-  const commandManifestEnv = {
-    ...process.env,
-    FSUSBLOG_COMMAND_MANIFEST_WORKERS: '2'
+  const commandManifestEnv = { ...process.env }
+  for (const key of [
+    'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE',
+    'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID',
+    'FSUSBLOG_STEP_CPU_BUDGET',
+    'FSUSBLOG_STEP_MEMORY_GIB',
+    'FSUSBLOG_BUNDLE_CPU_UNITS',
+    'FSUSBLOG_BUNDLE_CPU_BUDGET',
+    'FSUSBLOG_BUNDLE_MEMORY_GIB',
+    'FSUSBLOG_LIVE_GRANT_EVIDENCE_FILE'
+  ]) {
+    delete commandManifestEnv[key]
   }
+  commandManifestEnv.FSUSBLOG_COMMAND_MANIFEST_WORKERS = '2'
   const commandManifestWorkers = commandManifest.resolveManifestWorkers({ env: commandManifestEnv })
   const overlapExpected = commandManifestWorkers > 1
   const markerScript = [

@@ -356,7 +356,7 @@ public sealed class ModerationDictionaryService(
         foreach (ModerationDictionaryDefinition dictionary in snapshot.Dictionaries.Values)
         {
             WriteAudit(
-                "dictionary_loaded",
+                AuditActionCatalog.ModerationDictionaryLoaded,
                 AuditOutcomeCatalog.Success,
                 AuditSeverityCatalog.Info,
                 "moderation_dictionary",

@@ -45,6 +45,13 @@ const scripts = packageJson.scripts ?? {}
 expectIncludes(
   viteConfigPath,
   viteConfig,
+  "publicDir: command === 'build' && process.env.FSUSBLOG_FRONTEND_DIST_ROOT ? false : 'public'",
+  'Vite serve must expose repository public assets even when the production scheduler exports a dist root',
+)
+
+expectIncludes(
+  viteConfigPath,
+  viteConfig,
   "const enablePublicShellProxy = env.VITE_PUBLIC_SHELL_PROXY?.trim() === '1'",
   'dev public shell SSR proxy must be opt-in via VITE_PUBLIC_SHELL_PROXY=1',
 )

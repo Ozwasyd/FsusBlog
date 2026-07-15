@@ -1,7 +1,9 @@
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
+using NSubstitute;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Integration;
@@ -73,7 +75,8 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
         var executionContext = new ActiveReleaseExecutionContextAccessor();
         var guard = new ActiveReleaseTransactionalCommitGuard(
             executionContext,
-            new ConfigurationBuilder().AddInMemoryCollection().Build());
+            new ConfigurationBuilder().AddInMemoryCollection().Build(),
+            HostEnvironment(Environments.Production));
         var mutationWritten = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var resumeAfterPause = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         ActiveReleaseExecutionTicket oldTicket = Ticket(Release41, "blue", 41, Digest41, "paused-worker-41");
@@ -273,7 +276,15 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
     private static ActiveReleaseTransactionalCommitGuard CreateGuard()
         => new(
             new ActiveReleaseExecutionContextAccessor(),
-            new ConfigurationBuilder().AddInMemoryCollection().Build());
+            new ConfigurationBuilder().AddInMemoryCollection().Build(),
+            HostEnvironment(Environments.Production));
+
+    private static IHostEnvironment HostEnvironment(string name)
+    {
+        IHostEnvironment environment = Substitute.For<IHostEnvironment>();
+        environment.EnvironmentName.Returns(name);
+        return environment;
+    }
 
     private static ActiveReleaseExecutionTicket Ticket(
         string releaseId,

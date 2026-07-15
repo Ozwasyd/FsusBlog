@@ -618,7 +618,8 @@ public sealed class PublicHotReadStore
             {
                 int predictedRetiringCount = checked(retiringState.SnapshotCount + 1);
                 long predictedRetiringBytes = checked(retiringBytes + current.ResidentBytes);
-                if (predictedRetiringCount > _retiringLimits.MaxSnapshots)
+                if (_retiringLimits.MaxSnapshots > 0
+                    && predictedRetiringCount > _retiringLimits.MaxSnapshots)
                 {
                     violations.Add($"retiring-count:{predictedRetiringCount}>{_retiringLimits.MaxSnapshots}");
                 }

@@ -13,11 +13,29 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
     private const string SequenceKey = "fsus:notification-stream:v2:sequence";
     private const string IdempotencyKeyPrefix = "fsus:notification-stream:v2:idempotency:";
     private const string RouteStreamPrefix = "fsus:notification-stream:v2:route:";
+    private const string PublishOrderLockKey = "fsus:notification-stream:v2:publish-order-lock";
     private const int StreamMaxLength = 4096;
     private const int MaxReplayEntries = 512;
     private static readonly TimeSpan IdempotencyRetention = TimeSpan.FromDays(7);
+    private static readonly TimeSpan PublishOrderLockExpiry = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan PublishOrderRetryDelay = TimeSpan.FromMilliseconds(10);
 
     private readonly IDatabase _database = redis.GetDatabase();
+
+    public async Task<RedisValue> AcquirePublishOrderLockAsync(CancellationToken cancellationToken = default)
+    {
+        RedisKey lockKey = keyScope.PrefixKey(PublishOrderLockKey);
+        RedisValue lockToken = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
+        while (!await _database.LockTakeAsync(lockKey, lockToken, PublishOrderLockExpiry).ConfigureAwait(false))
+        {
+            await Task.Delay(PublishOrderRetryDelay, cancellationToken).ConfigureAwait(false);
+        }
+
+        return lockToken;
+    }
+
+    public Task<bool> ReleasePublishOrderLockAsync(RedisValue lockToken)
+        => _database.LockReleaseAsync(keyScope.PrefixKey(PublishOrderLockKey), lockToken);
 
     public async Task<long> NextEventIdAsync(CancellationToken cancellationToken = default)
     {

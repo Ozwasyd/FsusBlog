@@ -355,8 +355,8 @@ public class VisitLogProcessorService : BackgroundService
                 sql.Append(',');
             }
 
-            sql.Append("(@ArticleId").Append(i)
-                .Append(", CAST(@HourUtc").Append(i)
+            sql.Append("(CAST(@ArticleId").Append(i)
+                .Append(" AS integer), CAST(@HourUtc").Append(i)
                 .Append(" AS timestamp), @EventType").Append(i)
                 .Append(", @DwellBucket").Append(i)
                 .Append(", 1)");

@@ -269,7 +269,7 @@ public sealed class PublicHotReadMetricFlushWorker(
         }
         if (sensitivePrefixBypass > 0)
         {
-            logger.LogWarning(
+            logger.LogInformation(
                 "public-hot-read-sensitive-prefix-bypass {Count}",
                 sensitivePrefixBypass);
         }

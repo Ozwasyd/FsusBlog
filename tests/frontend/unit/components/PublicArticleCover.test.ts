@@ -155,7 +155,7 @@ describe('public article cover', () => {
     expect(cover.classes()).toContain('border')
     expect(cover.classes()).toContain('shadow-none')
     expect(image.attributes('src')).toBe('/fixtures/demo-aeds-frame-inspection.svg')
-    expect(image.attributes('style')).toContain('object-position: 50% 50%')
+    expect(image.attributes('style')).toBeUndefined()
     expect(image.classes()).toContain('object-cover')
     expect(image.classes()).toContain('object-center')
     expect(wrapper.get('[data-test="article-header"]').text()).toBe('complete header')

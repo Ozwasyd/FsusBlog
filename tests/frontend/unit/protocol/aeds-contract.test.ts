@@ -545,7 +545,7 @@ describe('AEDS cross-stack contract fixture', () => {
 
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.RecentCommentStats)
-    expect(result.payloadView.byteLength).toBe(245)
+    expect(result.payloadView.byteLength).toBe(229)
 
     expect(mapRecentCommentsFromPodPayload(result.payloadView)).toEqual([
       {
@@ -553,7 +553,6 @@ describe('AEDS cross-stack contract fixture', () => {
         authorMode: 'public',
         authorBadge: null,
         authorScopeLabel: null,
-        credentialLevel: null,
         content: 'first admin comment',
         createTime: '2026-05-12T09:08:07.000Z'
       },
@@ -562,7 +561,6 @@ describe('AEDS cross-stack contract fixture', () => {
         authorMode: 'zk_anonymous',
         authorBadge: '已验证匿名凭证',
         authorScopeLabel: 'article:42',
-        credentialLevel: 'strong_anonymous',
         content: 'hidden user',
         createTime: '2026-05-12T10:00:00.000Z'
       }
@@ -632,7 +630,6 @@ describe('AEDS cross-stack contract fixture', () => {
           authorMode: 'public',
           authorBadge: null,
           authorScopeLabel: null,
-          credentialLevel: null,
           content: 'first admin comment',
           createTime: '2026-05-12T09:08:07.000Z'
         }
@@ -723,8 +720,7 @@ describe('AEDS cross-stack contract fixture', () => {
             displayName: 'alice',
             displayLanguage: 'zh-CN',
             badge: null,
-            scopeLabel: null,
-            credentialLevel: null
+            scopeLabel: null
           },
           rootId: '101',
           isDeleted: false,
@@ -740,16 +736,14 @@ describe('AEDS cross-stack contract fixture', () => {
                 displayName: 'bob',
                 displayLanguage: 'zh-CN',
                 badge: null,
-            scopeLabel: null,
-            credentialLevel: null
+                scopeLabel: null
               },
               replyToAuthor: {
                 mode: 'public',
                 displayName: 'alice',
                 displayLanguage: 'zh-CN',
                 badge: null,
-            scopeLabel: null,
-            credentialLevel: null
+                scopeLabel: null
               },
               isDeleted: false
             }

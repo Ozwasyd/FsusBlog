@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory } from 'vue-router'
 import type { Router } from 'vue-router'
+import { APP_ROUTE_RECORDS, createAppRouter } from '@/router'
 
 const ensureBootstrap = vi.fn<() => Promise<void>>()
 const ensurePublicShell = vi.fn<() => Promise<void>>()
@@ -67,39 +68,7 @@ vi.mock('@/views/admin/article/List.vue', () => ({ default: routeComponentStub }
 vi.mock('@/views/error/403.vue', () => ({ default: routeComponentStub }))
 vi.mock('@/views/error/404.vue', () => ({ default: routeComponentStub }))
 
-function ensureBrowserLocation(): void {
-  if (typeof globalThis.history === 'undefined' && typeof window !== 'undefined') {
-    Object.defineProperty(globalThis, 'history', {
-      value: window.history,
-      configurable: true
-    })
-  }
-
-  if (typeof globalThis.location === 'undefined') {
-    Object.defineProperty(globalThis, 'location', {
-      value: window.location,
-      configurable: true
-    })
-  }
-}
-
-async function loadRouterModule() {
-  ensureBrowserLocation()
-  const originalWindow = globalThis.window
-  Reflect.deleteProperty(globalThis, 'window')
-  try {
-    return await import('@/router')
-  } finally {
-    Object.defineProperty(globalThis, 'window', {
-      value: originalWindow,
-      configurable: true,
-      writable: true
-    })
-  }
-}
-
 async function createTestRouter(): Promise<Router> {
-  const { createAppRouter } = await loadRouterModule()
   return createAppRouter({
     history: createMemoryHistory(),
     ssr: false
@@ -123,7 +92,6 @@ describe('account router meta and guards', () => {
   })
 
   it('keeps /user authenticated without legacy role meta', async () => {
-    const { APP_ROUTE_RECORDS } = await loadRouterModule()
     const userRoute = APP_ROUTE_RECORDS.find((route) => route.path === '/user')
 
     expect(userRoute?.meta).toMatchObject({

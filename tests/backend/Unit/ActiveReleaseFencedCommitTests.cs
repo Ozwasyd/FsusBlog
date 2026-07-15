@@ -20,7 +20,8 @@ public sealed class ActiveReleaseFencedCommitTests
         IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
         var guard = new ActiveReleaseTransactionalCommitGuard(
             executionContext,
-            configuration);
+            configuration,
+            HostEnvironment(Environments.Production));
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         IAdo ado = Substitute.For<IAdo>();
         db.Ado.Returns(ado);
@@ -45,7 +46,8 @@ public sealed class ActiveReleaseFencedCommitTests
             .Build();
         var guard = new ActiveReleaseTransactionalCommitGuard(
             executionContext,
-            configuration);
+            configuration,
+            HostEnvironment(Environments.Production));
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
 
         ActiveReleaseFencedCommitPausedException error =
@@ -66,6 +68,46 @@ public sealed class ActiveReleaseFencedCommitTests
         Assert.Contains("clock_timestamp() AT TIME ZONE 'utc'", ActiveReleaseFencedCommitSql.Enlist, StringComparison.Ordinal);
         Assert.Contains("process_instance_id", ActiveReleaseFencedCommitSql.Enlist, StringComparison.Ordinal);
         Assert.Contains("FROM matching_fence", ActiveReleaseFencedCommitSql.Enlist, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Enlist_DevelopmentSyntheticLocalFence_DoesNotRequireDurableReleaseRow()
+    {
+        IActiveReleaseExecutionContextAccessor executionContext = Substitute.For<IActiveReleaseExecutionContextAccessor>();
+        var ticket = new ActiveReleaseExecutionTicket(
+            "local-unversioned",
+            "local",
+            1,
+            "local-unversioned",
+            "test-process");
+        executionContext.Current.Returns(ticket);
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey] = "true"
+            })
+            .Build();
+        var guard = new ActiveReleaseTransactionalCommitGuard(
+            executionContext,
+            configuration,
+            HostEnvironment(Environments.Development));
+        ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
+        IAdo ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.Transaction.Returns(Substitute.For<IDbTransaction>());
+
+        ActiveReleaseFencedCommitReceipt receipt = await guard.EnlistAsync(
+            db,
+            "article-outbox-complete",
+            "outbox-42");
+
+        Assert.Equal(ticket.Generation, receipt.Generation);
+        Assert.Equal("article-outbox-complete", receipt.OperationScope);
+        Assert.Equal("outbox-42", receipt.MutationKey);
+        await ado.DidNotReceive().ExecuteCommandAsync(Arg.Any<string>());
+        await ado.DidNotReceive().GetDataReaderAsync(
+            Arg.Any<string>(),
+            Arg.Any<SugarParameter[]>());
     }
 
     [Fact]
@@ -185,4 +227,11 @@ public sealed class ActiveReleaseFencedCommitTests
             42,
             $"sha256:{new string('a', 64)}",
             "test-process");
+
+    private static IHostEnvironment HostEnvironment(string name)
+    {
+        IHostEnvironment environment = Substitute.For<IHostEnvironment>();
+        environment.EnvironmentName.Returns(name);
+        return environment;
+    }
 }

@@ -201,7 +201,7 @@ describe('public route prewarm', () => {
 
   it('resolves only same-origin unmodified public route anchors', () => {
     const anchor = document.createElement('a')
-    anchor.href = 'http://127.0.0.1/archive'
+    anchor.href = `${window.location.origin}/archive`
 
     expect(resolvePublicRoutePrewarmTarget(anchor)).toBe('/archive')
     expect(resolvePublicRoutePrewarmTarget(anchor, {

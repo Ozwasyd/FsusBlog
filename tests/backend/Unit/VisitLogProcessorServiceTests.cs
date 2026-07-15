@@ -154,6 +154,7 @@ public sealed class VisitLogProcessorServiceTests
         Assert.NotNull(executedSql);
         Assert.Contains("article_read_hourly_aggregate", executedSql, StringComparison.Ordinal);
         Assert.Contains("read_dwell_daily_aggregate", executedSql, StringComparison.Ordinal);
+        Assert.Contains("CAST(@ArticleId0 AS integer)", executedSql, StringComparison.Ordinal);
         Assert.DoesNotContain("sys_visit_log", executedSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("viewer_key_hash", executedSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("proof_id", executedSql, StringComparison.OrdinalIgnoreCase);

@@ -5,6 +5,8 @@ import { FrameType } from '@wasm/protocol/frame'
 const unitWindow = new Window({ url: 'https://fsusblog.test/' })
 ;(globalThis as { window?: Window }).window = unitWindow
 ;(globalThis as { document?: Document }).document = unitWindow.document
+;(globalThis as { history?: History }).history = unitWindow.history
+;(globalThis as { location?: Location }).location = unitWindow.location
 ;(globalThis as { Node?: typeof Node }).Node = unitWindow.Node
 ;(globalThis as { Element?: typeof Element }).Element = unitWindow.Element
 ;(globalThis as { HTMLElement?: typeof HTMLElement }).HTMLElement = unitWindow.HTMLElement

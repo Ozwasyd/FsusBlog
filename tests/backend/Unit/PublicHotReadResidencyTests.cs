@@ -158,6 +158,29 @@ public sealed class PublicHotReadResidencyTests
     }
 
     [Fact]
+    public void Publish_DefaultRetiringCountDoesNotDependOnGcCollectingWeakTargets()
+    {
+        int publicationCount = Math.Clamp(Environment.ProcessorCount * 2, 4, 64) + 2;
+        PublicHotReadSnapshot[] snapshots = Enumerable.Range(1, publicationCount)
+            .Select(version => Snapshot(version, version, Artifact(128, 0, 0, version)))
+            .ToArray();
+        var store = new PublicHotReadStore(options: Options.Create(RetiringOptions(
+            maxSnapshots: 0,
+            maxBytes: 1_000_000,
+            deadline: TimeSpan.FromMinutes(10))));
+
+        foreach (PublicHotReadSnapshot snapshot in snapshots)
+        {
+            store.Publish(snapshot);
+        }
+
+        Assert.Same(snapshots[^1], store.Current);
+        Assert.Equal(0, store.RetiringSnapshotForTests().Limits.MaxSnapshots);
+        Assert.Equal(publicationCount - 1, store.RetiringSnapshotForTests().SnapshotCount);
+        GC.KeepAlive(snapshots);
+    }
+
+    [Fact]
     public void Publish_RejectsWhenCurrentSnapshotWouldExceedRetiringBytesLimit()
     {
         PublicHotReadSnapshot first = Snapshot(1, 1, Artifact(256, 0, 0, 1));

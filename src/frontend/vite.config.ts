@@ -455,7 +455,7 @@ function injectPublicSourceCssInDev() {
 }
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
     const env = loadEnv(mode, process.cwd())
     const apiBaseUrl = env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:7568'
     const enableVueHydrationMismatchDetails = process.env.FSUSBLOG_VUE_HYDRATION_DETAILS === '1'
@@ -551,7 +551,7 @@ export default defineConfig(({ mode }) => {
     }
 
     return {
-        publicDir: process.env.FSUSBLOG_FRONTEND_DIST_ROOT ? false : 'public',
+        publicDir: command === 'build' && process.env.FSUSBLOG_FRONTEND_DIST_ROOT ? false : 'public',
         cacheDir: process.env.FSUSBLOG_FRONTEND_CACHE_ROOT
             ? path.resolve(process.env.FSUSBLOG_FRONTEND_CACHE_ROOT, 'vite')
             : undefined,

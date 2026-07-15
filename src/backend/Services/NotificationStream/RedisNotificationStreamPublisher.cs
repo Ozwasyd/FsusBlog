@@ -3,6 +3,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
+using StackExchange.Redis;
 
 namespace FsusBlog.Server.Services.NotificationStream;
 
@@ -12,6 +13,8 @@ internal sealed class RedisNotificationStreamPublisher(
     INotificationFrameCodec frameCodec,
     ILogger<RedisNotificationStreamPublisher> logger) : INotificationStreamPublisher
 {
+    private readonly SemaphoreSlim _publishGate = new(1, 1);
+
     public async Task<Result<NotificationStreamCursor>> PublishAsync<TPayload>(
         NotificationStreamEventType eventType,
         TPayload payload,
@@ -21,27 +24,26 @@ internal sealed class RedisNotificationStreamPublisher(
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        long eventId;
+        var routeResult = NotificationStreamTargetRouteCodec.TryEncode(target);
+        if (routeResult.IsFailure || string.IsNullOrWhiteSpace(routeResult.Value))
+        {
+            return Result<NotificationStreamCursor>.Failure(
+                routeResult.IsFailure
+                    ? routeResult.Error
+                    : ErrorDetail.Create(ErrorCode.Validation, "Unsupported notification stream target."));
+        }
+
+        await _publishGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        RedisValue publishOrderLock = RedisValue.Null;
+        SharedNotificationStreamFrame? frame = null;
+        long eventId = 0;
         try
         {
+            publishOrderLock = await backlogStore.AcquirePublishOrderLockAsync(cancellationToken).ConfigureAwait(false);
             eventId = await backlogStore.GetOrCreateEventIdAsync(idempotencyKey, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to allocate notification stream event id. Type: {EventType}", eventType);
-            return Result<NotificationStreamCursor>.Failure(ErrorCode.InfraFailure, "Notification stream event id allocation failed");
-        }
-        SharedNotificationStreamFrame frame = frameCodec.EncodeEventFrame(eventId, eventType, payload);
+            frame = frameCodec.EncodeEventFrame(eventId, eventType, payload);
 
-        try
-        {
-            var routeResult = NotificationStreamTargetRouteCodec.TryEncode(target);
-            if (routeResult.IsFailure || string.IsNullOrWhiteSpace(routeResult.Value))
-            {
-                return Result<NotificationStreamCursor>.Failure(routeResult.IsFailure ? routeResult.Error : ErrorDetail.Create(ErrorCode.Validation, "Unsupported notification stream target."));
-            }
-
-            string route = routeResult.Value;
+            string route = routeResult.Value!;
             Result<NotificationStreamAppendResult> appendResult = await backlogStore.AppendAsync(
                     eventId,
                     route,
@@ -63,6 +65,10 @@ internal sealed class RedisNotificationStreamPublisher(
             }
             return Result<NotificationStreamCursor>.Success(new NotificationStreamCursor(eventId));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to publish notification stream event. Type: {EventType} | EventId: {EventId}", eventType, eventId);
@@ -70,7 +76,23 @@ internal sealed class RedisNotificationStreamPublisher(
         }
         finally
         {
-            frame.Release();
+            frame?.Release();
+            if (!publishOrderLock.IsNullOrEmpty)
+            {
+                try
+                {
+                    bool released = await backlogStore.ReleasePublishOrderLockAsync(publishOrderLock).ConfigureAwait(false);
+                    if (!released)
+                    {
+                        logger.LogWarning("notification-stream-publish-order-lock-release-missed {EventType} {EventId}", eventType, eventId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "notification-stream-publish-order-lock-release-failed {EventType} {EventId}", eventType, eventId);
+                }
+            }
+            _publishGate.Release();
         }
     }
 }

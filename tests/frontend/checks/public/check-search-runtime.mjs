@@ -173,7 +173,11 @@ async function main() {
     assert(!Array.from(requests).some((path) => path.includes('/search/index.body.')), 'search runtime should not load body shard in v3')
 
     if (Array.isArray(manifest.backgroundRoles) && manifest.backgroundRoles.includes('archive')) {
-      const loadedArchive = await waitForRequestPath(requests, (path) => path.includes('/search/index.archive.'))
+      const loadedArchive = await waitForRequestPath(
+        requests,
+        (path) => path.includes('/search/index.archive.'),
+        shellReadyTimeoutMs
+      )
       assert(loadedArchive, 'search runtime did not preload archive shard in background')
     }
 

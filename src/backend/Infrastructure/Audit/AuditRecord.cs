@@ -104,6 +104,7 @@ public static class AuditActionCatalog
     public const string PasskeyCounterRollback = "security.passkey.counter_rollback";
     public const string MfaChallengeFailed = "mfa_challenge_failed";
     public const string MfaChallengeLocked = "mfa_challenge_locked";
+    public const string ModerationDictionaryLoaded = "dictionary_loaded";
 }
 
 public static class AuditOutcomeCatalog

@@ -17,6 +17,10 @@ const optionalNotFoundPublicChecks = new Set([
   'binary_get_anonymous_credential_revocation_full',
   'binary_get_anonymous_credential_revocation_delta'
 ])
+const contentAddressConflictPublicChecks = new Set([
+  'binary_get_anonymous_credential_revocation_full',
+  'binary_get_anonymous_credential_revocation_delta'
+])
 
 function expectedSuccessStatuses(op, role) {
   const isAllowedRole = role === op.auth || op.auth === 'anonymous' || (op.auth === 'optional' && role === 'anonymous')
@@ -25,6 +29,7 @@ function expectedSuccessStatuses(op, role) {
   return [
     successStatus,
     ...(optionalNotFoundPublicChecks.has(op.operationId) ? [404] : []),
+    ...(contentAddressConflictPublicChecks.has(op.operationId) ? [409] : []),
     ...(expectedUnavailablePublicChecks.has(op.operationId) ? [503] : [])
   ]
 }

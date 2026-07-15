@@ -40,6 +40,9 @@ public sealed class AuditRetentionPolicyTests
         Assert.Equal(
             AuditActionCatalog.MfaChallengeLocked,
             AuditRetentionCatalog.GetRequired(AuditActionCatalog.MfaChallengeLocked).Action);
+        Assert.Equal(
+            AuditActionCatalog.ModerationDictionaryLoaded,
+            AuditRetentionCatalog.GetRequired(AuditActionCatalog.ModerationDictionaryLoaded).Action);
     }
 
     [Fact]

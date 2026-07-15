@@ -732,6 +732,46 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
+    public async Task BacklogPublishOrderLock_RetriesAndReleasesOwnedToken()
+    {
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        var database = Substitute.For<IDatabase>();
+        var keyScope = Substitute.For<IRuntimeKeyScope>();
+        redis.GetDatabase().Returns(database);
+        keyScope.PrefixKey(Arg.Any<string>()).Returns(call => $"test:{call.Arg<string>()}");
+        database.LockTakeAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<TimeSpan>(),
+                Arg.Any<CommandFlags>())
+            .Returns(false, true);
+        database.LockReleaseAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<CommandFlags>())
+            .Returns(true);
+        var store = new NotificationStreamBacklogStore(
+            redis,
+            keyScope,
+            NullLogger<NotificationStreamBacklogStore>.Instance);
+
+        RedisValue token = await store.AcquirePublishOrderLockAsync(CancellationToken.None);
+        bool released = await store.ReleasePublishOrderLockAsync(token);
+
+        Assert.False(token.IsNullOrEmpty);
+        Assert.True(released);
+        await database.Received(2).LockTakeAsync(
+            Arg.Is<RedisKey>(key => key.ToString().EndsWith("publish-order-lock", StringComparison.Ordinal)),
+            token,
+            Arg.Any<TimeSpan>(),
+            Arg.Any<CommandFlags>());
+        await database.Received(1).LockReleaseAsync(
+            Arg.Any<RedisKey>(),
+            token,
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
     public void SessionService_RuntimeClosesSocketUnderSendGate()
     {
         string pump = RuntimeMetadataInspection.DescribeMethods(typeof(NotificationStreamSessionService), "PumpConnectionAsync");
