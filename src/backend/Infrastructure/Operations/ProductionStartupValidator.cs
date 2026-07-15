@@ -58,7 +58,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 16;
+    private const int SchemaVersion = 17;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
@@ -165,7 +165,9 @@ public static class ProductionStartupValidator
         Value("AnonymousCredentialRoot:AttestationKey"),
         Value(DataProtectionKeyProtection.ModeKey),
         Value(DataProtectionKeyProtection.CurrentCertificatePathKey),
-        Value(AnonymousIdentityRuntime.ModeEnvironmentVariable)
+        Value(AnonymousIdentityRuntime.ModeEnvironmentVariable),
+        Value(ActiveReleaseFenceAvailabilityPolicy.RefreshIntervalKey),
+        Value(ActiveReleaseFenceAvailabilityPolicy.StaleThresholdKey)
     ];
 
     public static ProductionStartupValidationSchema CurrentSchema { get; } = new(
@@ -358,6 +360,46 @@ public static class ProductionStartupValidator
             && configuration.GetValue("ActiveReleaseFence:AllowSyntheticLocalFence", false))
         {
             errors.Add("ActiveReleaseFence:AllowSyntheticLocalFence must be false outside Development.");
+        }
+
+        if (!enforceProductionRules)
+        {
+            return;
+        }
+
+        bool refreshValid = int.TryParse(
+            configuration[ActiveReleaseFenceAvailabilityPolicy.RefreshIntervalKey],
+            out int refreshIntervalMs)
+            && refreshIntervalMs is >= ActiveReleaseFenceAvailabilityPolicy.MinimumRefreshIntervalMs
+                and <= ActiveReleaseFenceAvailabilityPolicy.MaximumRefreshIntervalMs;
+        if (!refreshValid)
+        {
+            errors.Add(
+                $"{ActiveReleaseFenceAvailabilityPolicy.RefreshIntervalKey} must be an integer between "
+                + $"{ActiveReleaseFenceAvailabilityPolicy.MinimumRefreshIntervalMs} and "
+                + $"{ActiveReleaseFenceAvailabilityPolicy.MaximumRefreshIntervalMs}.");
+        }
+
+        bool staleValid = int.TryParse(
+            configuration[ActiveReleaseFenceAvailabilityPolicy.StaleThresholdKey],
+            out int staleThresholdSeconds)
+            && staleThresholdSeconds is >= ActiveReleaseFenceAvailabilityPolicy.MinimumStaleThresholdSeconds
+                and <= ActiveReleaseFenceAvailabilityPolicy.MaximumStaleThresholdSeconds;
+        if (!staleValid)
+        {
+            errors.Add(
+                $"{ActiveReleaseFenceAvailabilityPolicy.StaleThresholdKey} must be an integer between "
+                + $"{ActiveReleaseFenceAvailabilityPolicy.MinimumStaleThresholdSeconds} and "
+                + $"{ActiveReleaseFenceAvailabilityPolicy.MaximumStaleThresholdSeconds}.");
+        }
+
+        if (refreshValid
+            && staleValid
+            && TimeSpan.FromSeconds(staleThresholdSeconds) < TimeSpan.FromMilliseconds(refreshIntervalMs))
+        {
+            errors.Add(
+                $"{ActiveReleaseFenceAvailabilityPolicy.StaleThresholdKey} must not be shorter than "
+                + $"{ActiveReleaseFenceAvailabilityPolicy.RefreshIntervalKey}.");
         }
     }
 
@@ -992,7 +1034,8 @@ public static class ProductionStartupValidator
             || error.Contains("CORS_ALLOWED_HOSTS origin must use HTTPS", StringComparison.Ordinal)
             || error.Contains("Seo:BaseUrl must use HTTPS", StringComparison.Ordinal)
             || error.Contains("Fido2:Origins origin must use HTTPS", StringComparison.Ordinal)
-            || error.Contains("AnonymousIdentity:ZkProd:", StringComparison.Ordinal);
+            || error.Contains("AnonymousIdentity:ZkProd:", StringComparison.Ordinal)
+            || error.Contains("ActiveReleaseFence:", StringComparison.Ordinal);
 
     private static string ComputeSecretHash(string value)
         => "sha256:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));

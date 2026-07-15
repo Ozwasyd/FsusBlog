@@ -100,6 +100,24 @@ node tools/deployment/active-release-fence.mjs acquire \
 
 Acquire/revoke 总是 SQL 事务先提交、Redis 镜像后更新。若 SQL 已提交而 Redis 更新失败，本次控制请求不会伪报成功；相同请求重试会从 SQL 的幂等状态恢复 Redis。PostgreSQL 在这里就是 Redis 之外的 durable external witness，不要求部署额外的 etcd/Consul 服务。
 
+## Stale snapshot policy
+
+production 必须显式配置 `ActiveReleaseFence:RefreshIntervalMs`（100–30000ms）与 `ActiveReleaseFence:StaleThresholdSeconds`（5–600s），且 hard-stale 阈值不得短于 refresh interval。部署模板使用 5000ms / 30s，对应连续 6 次失败。两项每轮动态读取，调整后无需把 failure count 写死进代码。
+
+启动顺序在 schema compatibility/migration 后、周期 refresh worker 前执行一次 `RefreshAsync(forceStoreRead: true)`：
+
+- PostgreSQL durable witness 可读时启动通过。Redis 镜像暂时不可用只记录 degraded reconcile，并继续以 SQL 作为权威来源；
+- PostgreSQL durable witness 不可读、snapshot 分歧或 store 返回 unavailable 时，production 抛出 `ActiveReleaseFenceStartupException`，在监听业务流量前拒绝启动；
+- Development/Test 记录 degraded startup task，不为本地缺失基础设施伪造 active owner。
+
+运行期不采用“失败一次继续用旧 owner”的 soft-stale 授权。第一次 refresh 失败就把 runtime snapshot 发布为 unavailable，readiness、ticket capture、lease renew 和 commit guard 立即 fail closed；所谓 soft/hard 只描述进程保留窗口：
+
+- 第 1 次失败：Warning/P3，增加 refresh failure counter；
+- 达到动态 failure limit 的一半：Error/P2，进程仍保留以等待基础设施恢复，但不能产生 singleton 副作用；
+- 达到 `ceil(staleThreshold / refreshInterval)` 次连续失败或实际 stale 时间达到 threshold：Critical/P1，并在 production 调用 `IHostApplicationLifetime.StopApplication()`；Compose `restart: always` 随后以 fresh startup probe 重启容器。
+
+任一次成功的强制读取会清零连续失败并记录 recovery 日志。恢复顺序是先确认 PostgreSQL durable witness 可读且 generation/identity 未分歧，再让 pod 通过 fresh startup probe；单独 Redis 故障不需要重启或切换 owner。禁止用进程年龄、流量、容器健康或内存中的旧 snapshot 猜测 owner。
+
 ## 统一 drain 与 notification stream
 
 `ReleaseDrainParticipantRegistry` 并行启动所有 participant，每项有独立 `MaxDrain`，同时受全局 deadline 约束。当前显式 adapter 包含 article-view、hot-stats invalidation 和 notification stream；其余 channel/queue 的接线要求记录在 issue handoff。排空不是无界等待：每个 participant 必须声明 pending count、状态、最大时长和 replay 来源。
@@ -123,12 +141,17 @@ notification drain 调用 `NotificationStreamRestartCoordinator`，取消所有 
 - `fsus.active_release_fence.eligibility{result,reason}`
 - `fsus.active_release_fence.witness_reconcile{result,reason}`
 - `fsus.active_release_fence.witness_generation_gap{result}`
+- `fsus.active_release_fence.refresh_failures{reason,severity}`
+- `fsus.active_release_fence.refresh_consecutive_failures{reason,severity}`
+- `fsus.active_release_fence.refresh_stale_seconds{reason,severity}`
+- `fsus.active_release_fence.refresh_shutdowns{reason}`
 
 发布证据必须至少包含 target acquire/CAS、source revoke、target status verify、notification restart status、drain participant terminal snapshot。运行时生成文件不提交；静态实现映射位于 `tests/backend/issue-1030-implementation-evidence.json`。
 
 ## 失败与回退
 
 - SQL durable witness 不可用或同 generation 身份分歧：停止新 claim，取消正在 renew 的全局任务，readiness 失败。
+- production 启动 probe 发现 durable witness 不可用：直接拒绝启动；运行期持续 hard-stale：请求 graceful shutdown，由编排器重启并重新 probe。
 - Redis 整库丢失：下一次读取用 SQL snapshot 重建；Redis 连接暂不可用时仍以 SQL 阻断旧 generation，并记录 degraded reconcile 指标。
 - target acquire CAS 失败：不切流，保留 source fence。
 - target 已 acquire 但后置验证失败：用更高 generation 把 source release 重新 acquire 为 active；禁止把 generation 回退到旧值。

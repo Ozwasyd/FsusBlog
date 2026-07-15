@@ -546,6 +546,8 @@ dotnet run -c Release
 
 `ActiveReleaseFenceContractTests`、`notificationStreamRestartPolicy.test.ts` 与 `check-background-service-classification.mjs` 共同拥有 release fence：Redis CAS/read-back、active-singleton ticket、最后提交前 guard、1012 cursor/replay-miss 语义，以及全部 BackgroundService 的 singleton/idempotency/drain/replay 分类。分类器与 analyzer 一次输出全部错误，不设置最大错误数；xUnit 继续固定 `stopOnFail=false`。
 
+`ActiveReleaseFenceAvailabilityTests` 覆盖 production startup 强制 durable-witness probe、Redis replica degraded 但 SQL 可读时允许启动、动态 5000ms/30s 窗口的第 6 次连续失败触发 `StopApplication()`、availability 配置范围与 hosted-service 启动顺序。该集合使用 fake clock，不以 30 秒真实 sleep 伪装时序验证。
+
 #1031 的工具测试按独立临时目录和 loopback ephemeral ports 并行运行：
 
 - `release-rollout-state.test.mjs`：15-stage 顺序、rollout identity、failed-stage recovery 与 resume。

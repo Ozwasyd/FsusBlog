@@ -79,6 +79,7 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
         services.Replace(ServiceDescriptor.Singleton<IBackgroundWorkerLease, ActiveReleaseFencedBackgroundWorkerLease>());
         if (!OpenApiExportMode.IsEnabled())
         {
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, ActiveReleaseFenceStartupValidationHostedService>());
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, ActiveReleaseFenceRefreshWorker>());
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, ActiveReleaseFencedCommitAuditWorker>());
         }

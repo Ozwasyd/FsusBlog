@@ -708,10 +708,7 @@ public sealed class ActiveReleaseFence(
             && string.Equals(_local.ReleaseSlot, "local", StringComparison.Ordinal);
 
     private TimeSpan RefreshInterval()
-        => TimeSpan.FromMilliseconds(Math.Clamp(
-            configuration.GetValue("ActiveReleaseFence:RefreshIntervalMs", 1000),
-            100,
-            30_000));
+        => ActiveReleaseFenceAvailabilityPolicy.RefreshInterval(configuration);
 
     private static string StoreErrorCode(Exception exception)
         => exception is ActiveReleaseFenceStoreException storeException
@@ -734,31 +731,111 @@ public sealed class ActiveReleaseFenceRefreshWorker(
     IActiveReleaseFence fence,
     IConfiguration configuration,
     TimeProvider timeProvider,
+    IWebHostEnvironment environment,
+    IHostApplicationLifetime applicationLifetime,
     ILogger<ActiveReleaseFenceRefreshWorker> logger) : BackgroundService
 {
+    private int _consecutiveFailures;
+    private DateTimeOffset _lastSuccessfulRefreshAtUtc = fence.Current.StoreReachable
+        ? fence.Current.RefreshedAtUtc
+        : timeProvider.GetUtcNow();
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            try
-            {
-                await fence.RefreshAsync(true, stoppingToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            if (!await RefreshOnceAsync(stoppingToken).ConfigureAwait(false))
             {
                 return;
             }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "active-release-fence-refresh-loop-failed");
-            }
 
-            TimeSpan interval = TimeSpan.FromMilliseconds(Math.Clamp(
-                configuration.GetValue("ActiveReleaseFence:RefreshIntervalMs", 1000),
-                100,
-                30_000));
+            TimeSpan interval = ActiveReleaseFenceAvailabilityPolicy.RefreshInterval(configuration);
             await Task.Delay(interval, timeProvider, stoppingToken).ConfigureAwait(false);
         }
+    }
+
+    internal async Task<bool> RefreshOnceAsync(CancellationToken cancellationToken)
+    {
+        ActiveReleaseFenceRuntimeSnapshot snapshot;
+        Exception? failure = null;
+        try
+        {
+            snapshot = await fence.RefreshAsync(
+                forceStoreRead: true,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+            snapshot = fence.Current;
+        }
+
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        if (snapshot.StoreReachable)
+        {
+            if (_consecutiveFailures > 0)
+            {
+                logger.LogInformation(
+                    "active-release-fence-refresh-recovered consecutiveFailures={ConsecutiveFailures} staleSeconds={StaleSeconds}",
+                    _consecutiveFailures,
+                    Math.Max(0, (now - _lastSuccessfulRefreshAtUtc).TotalSeconds));
+            }
+            _consecutiveFailures = 0;
+            _lastSuccessfulRefreshAtUtc = snapshot.RefreshedAtUtc;
+            return true;
+        }
+
+        _consecutiveFailures++;
+        TimeSpan staleFor = now > _lastSuccessfulRefreshAtUtc
+            ? now - _lastSuccessfulRefreshAtUtc
+            : TimeSpan.Zero;
+        int failureLimit = ActiveReleaseFenceAvailabilityPolicy.FailuresBeforeShutdown(configuration);
+        int escalationFailure = Math.Max(2, (int)Math.Ceiling(failureLimit / 2d));
+        bool hardStale = _consecutiveFailures >= failureLimit
+            || staleFor >= ActiveReleaseFenceAvailabilityPolicy.StaleThreshold(configuration);
+        string errorCode = snapshot.ErrorCode ?? "active_release_fence_store_unavailable";
+        ActiveReleaseFenceMetrics.RecordRefreshFailure(
+            errorCode,
+            _consecutiveFailures,
+            staleFor,
+            hardStale ? "hard" : "soft");
+
+        if (_consecutiveFailures == 1)
+        {
+            logger.LogWarning(
+                failure,
+                "active-release-fence-refresh-failed errorCode={ErrorCode} consecutiveFailures={ConsecutiveFailures}",
+                errorCode,
+                _consecutiveFailures);
+        }
+        else if (!hardStale && _consecutiveFailures == escalationFailure)
+        {
+            logger.LogError(
+                failure,
+                "active-release-fence-refresh-stale-warning errorCode={ErrorCode} consecutiveFailures={ConsecutiveFailures} staleSeconds={StaleSeconds}",
+                errorCode,
+                _consecutiveFailures,
+                staleFor.TotalSeconds);
+        }
+
+        if (!hardStale || !environment.IsProduction())
+        {
+            return true;
+        }
+
+        logger.LogCritical(
+            failure,
+            "active-release-fence-refresh-hard-stale errorCode={ErrorCode} consecutiveFailures={ConsecutiveFailures} staleSeconds={StaleSeconds}; requesting graceful shutdown",
+            errorCode,
+            _consecutiveFailures,
+            staleFor.TotalSeconds);
+        ActiveReleaseFenceMetrics.RecordRefreshShutdown(errorCode);
+        applicationLifetime.StopApplication();
+        return false;
     }
 }
 
@@ -769,6 +846,10 @@ public static class ActiveReleaseFenceMetrics
     private static readonly Counter<long> Eligibility = Meter.CreateCounter<long>("fsus.active_release_fence.eligibility");
     private static readonly Counter<long> WitnessReconcile = Meter.CreateCounter<long>("fsus.active_release_fence.witness_reconcile");
     private static readonly Histogram<long> WitnessGenerationGap = Meter.CreateHistogram<long>("fsus.active_release_fence.witness_generation_gap");
+    private static readonly Counter<long> RefreshFailures = Meter.CreateCounter<long>("fsus.active_release_fence.refresh_failures");
+    private static readonly Histogram<long> ConsecutiveRefreshFailures = Meter.CreateHistogram<long>("fsus.active_release_fence.refresh_consecutive_failures");
+    private static readonly Histogram<double> RefreshStaleSeconds = Meter.CreateHistogram<double>("fsus.active_release_fence.refresh_stale_seconds");
+    private static readonly Counter<long> RefreshShutdowns = Meter.CreateCounter<long>("fsus.active_release_fence.refresh_shutdowns");
 
     public static void RecordOperation(string operation, string result, string reason)
         => Operations.Add(1, new("operation", operation), new("result", result), new("reason", NormalizeReason(reason)));
@@ -786,6 +867,30 @@ public static class ActiveReleaseFenceMetrics
                 new("result", result)
             });
     }
+
+    public static void RecordRefreshFailure(
+        string reason,
+        int consecutiveFailures,
+        TimeSpan staleFor,
+        string severity)
+    {
+        var tags = new KeyValuePair<string, object?>[]
+        {
+            new("reason", NormalizeReason(reason)),
+            new("severity", severity)
+        };
+        RefreshFailures.Add(1, tags);
+        ConsecutiveRefreshFailures.Record(consecutiveFailures, tags);
+        RefreshStaleSeconds.Record(Math.Max(0, staleFor.TotalSeconds), tags);
+    }
+
+    public static void RecordRefreshShutdown(string reason)
+        => RefreshShutdowns.Add(
+            1,
+            new KeyValuePair<string, object?>[]
+            {
+                new("reason", NormalizeReason(reason))
+            });
 
     private static string NormalizeReason(string? reason)
         => string.IsNullOrWhiteSpace(reason) ? "unspecified" : reason.Trim().ToLowerInvariant();

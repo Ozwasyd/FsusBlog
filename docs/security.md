@@ -501,6 +501,8 @@ Secret 轮换、站点备份导出、数据巡检修复、批量封禁、匿名�
 
 `IBackgroundWorkerLease` 的 active-release ticket 与 `IActiveReleaseCommitGuard` 共同限制后台副作用：worker 获取 lease 后，仍要在最靠近不可逆 transaction/file delete/atomic publish 的位置重新验证 release/slot/generation/digest。旧 source 失去 fence 后，即使进程和旧 lease 尚存，也不能提交 scheduled publish、outbox effect、crawler snapshot、cleanup chunk、projection checkpoint、PublicAOT finalize 或 upload delete。无需重启的降级是动态设置 `ActiveReleaseFence:MutationEnabled=false`，停止 acquire/revoke，保留 durable witness 读取、commit guard 与 pending work，并让 current target 或后续 fresh generation replay；不得临时关闭 commit guard，也不得在 production 启用 synthetic local fence。
 
+production 不允许以 stale in-memory fence 维持授权。强制 startup probe 必须读到 PostgreSQL durable witness；运行期第一次读取失败就使 readiness、claim 与 renew fail closed。连续失败窗口由 `ActiveReleaseFence:RefreshIntervalMs` 和 `ActiveReleaseFence:StaleThresholdSeconds` 动态计算，达到 hard-stale 后只允许 `StopApplication()` graceful shutdown 与 fresh startup probe，不能通过忽略错误、延长本地 ticket 或猜测 active owner 恢复写入。
+
 Destructive worker qualification 只能运行在隔离的 `ASPNETCORE_ENVIRONMENT=Test` topology，使用受限 process-group/PID identity 和显式 file handshake。它必须与 production normal rollout 使用不同 rollout ID，且不能强杀 production source、复用真实 admin secret 或把 nine-kind qualification ledger 写成 normal evidence。最终 evidence bundle 只收集 hash-bound allowlist，不复制 env、header、storage state、完整请求或任意未引用文件。
 
 - [ ] JWT 密钥来自部署 secret，不在共享配置中保存默认值，且不为默认/占位/短密钥

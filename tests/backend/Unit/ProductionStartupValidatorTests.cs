@@ -73,6 +73,8 @@ public sealed class ProductionStartupValidatorTests
             ["FSUSBLOG_COMMIT_SHA"] = "0123456789abcdef0123456789abcdef01234567",
             ["FSUSBLOG_IMAGE_DIGEST"] = $"sha256:{new string('a', 64)}",
             ["FSUSBLOG_IMAGE_REF"] = $"ghcr.io/fsusblog/app@sha256:{new string('a', 64)}",
+            [ActiveReleaseFenceAvailabilityPolicy.RefreshIntervalKey] = "5000",
+            [ActiveReleaseFenceAvailabilityPolicy.StaleThresholdKey] = "30",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         });
 
@@ -612,7 +614,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(16, report.SchemaVersion);
+        Assert.Equal(17, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -640,6 +642,8 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("AnonymousCredentialRoot:AttestationKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("DataProtection:KeyProtection:Mode", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("DataProtection:KeyProtection:CurrentCertificate:Path", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains(ActiveReleaseFenceAvailabilityPolicy.RefreshIntervalKey, ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains(ActiveReleaseFenceAvailabilityPolicy.StaleThresholdKey, ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.All(
             ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets,
             static secret => Assert.StartsWith("sha256:", secret, StringComparison.Ordinal));
@@ -929,6 +933,8 @@ public sealed class ProductionStartupValidatorTests
             ["FSUSBLOG_COMMIT_SHA"] = "0123456789abcdef0123456789abcdef01234567",
             ["FSUSBLOG_IMAGE_DIGEST"] = $"sha256:{new string('a', 64)}",
             ["FSUSBLOG_IMAGE_REF"] = $"ghcr.io/fsusblog/app@sha256:{new string('a', 64)}",
+            [ActiveReleaseFenceAvailabilityPolicy.RefreshIntervalKey] = "5000",
+            [ActiveReleaseFenceAvailabilityPolicy.StaleThresholdKey] = "30",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         };
 

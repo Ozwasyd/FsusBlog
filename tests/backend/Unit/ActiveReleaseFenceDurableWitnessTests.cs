@@ -27,6 +27,21 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
     }
 
     [Fact]
+    public async Task Read_RedisUnavailable_UsesDurableWitnessWithoutStaleReplica()
+    {
+        ActiveReleaseFenceSnapshot durable = Snapshot(42);
+        var store = new DurableActiveReleaseFenceStore(
+            new UnavailableReplica(),
+            new RecordingWitness(durable, []),
+            new ConfigurationBuilder().AddInMemoryCollection().Build(),
+            NullLogger<DurableActiveReleaseFenceStore>.Instance);
+
+        ActiveReleaseFenceSnapshot actual = await store.ReadAsync();
+
+        Assert.Equal(durable, actual);
+    }
+
+    [Fact]
     public async Task Read_BootstrapsDurableWitness_FromLegacyRedisFence()
     {
         ActiveReleaseFenceSnapshot legacy = Snapshot(41);
@@ -252,6 +267,31 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
             events.Add($"redis:reconcile:{next.Generation}");
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class UnavailableReplica : IActiveReleaseFenceReplicaStore
+    {
+        public Task<ActiveReleaseFenceSnapshot> ReadAsync(CancellationToken cancellationToken = default)
+            => Task.FromException<ActiveReleaseFenceSnapshot>(
+                new InvalidOperationException("redis partition"));
+
+        public Task<ActiveReleaseFenceOperationResult> AcquireAsync(
+            ActiveReleaseFenceAcquireRequest request,
+            DateTimeOffset now,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<ActiveReleaseFenceOperationResult> RevokeAsync(
+            ActiveReleaseFenceRevokeRequest request,
+            DateTimeOffset now,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task ReconcileAsync(
+            ActiveReleaseFenceSnapshot snapshot,
+            DateTimeOffset now,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 
     private sealed class RecordingWitness(ActiveReleaseFenceSnapshot snapshot, List<string> events)

@@ -31,6 +31,8 @@ services:
       - FSUSBLOG_DEPLOYMENT_MODE=${FSUSBLOG_DEPLOYMENT_MODE:-candidate}
       - FSUSBLOG_DEPLOYMENT_GENERATION=${FSUSBLOG_DEPLOYMENT_GENERATION:?Set immutable candidate runtime generation}
       - FSUSBLOG_DRAIN_TIMEOUT_SECONDS=${FSUSBLOG_DRAIN_TIMEOUT_SECONDS:-45}
+      - ActiveReleaseFence__RefreshIntervalMs=${ACTIVE_RELEASE_FENCE_REFRESH_INTERVAL_MS:?Set active release fence refresh interval in milliseconds}
+      - ActiveReleaseFence__StaleThresholdSeconds=${ACTIVE_RELEASE_FENCE_STALE_THRESHOLD_SECONDS:?Set active release fence hard-stale threshold in seconds}
       - FSUSBLOG_RELEASE_ASSET_ROOT=/app/release-assets
       - FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived
       - Deployment__NotificationStreamDrillEnabled=${FSUSBLOG_DEPLOYMENT_NOTIFICATION_DRILL_ENABLED:-false}
