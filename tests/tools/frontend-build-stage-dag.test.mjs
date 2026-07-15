@@ -98,6 +98,10 @@ test('release build declares independent prebuild stages and explicit postbuild 
     'sync-stable-spa-entry',
     'sync-fsusui-markdown-runtime-assets'
   ])
+  assert.match(
+    byId.get('sync-fsusui-markdown-runtime-assets').consumedInputs[0],
+    /(?:FsusUI\/vue\/packages\/wasm\/dist|node_modules\/@ozwasyd\/element-plus\/es\/wasm\/dist)$/u
+  )
 })
 
 test('live grant growth admits additional ready frontend stages without restarting the DAG', async (t) => {

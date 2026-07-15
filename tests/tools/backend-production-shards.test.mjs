@@ -1646,7 +1646,7 @@ test('backend bundle delegates shard sizing to the runtime CPU budget without fa
   const source = fs.readFileSync(path.join(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8')
   assert.match(source, /FSUSBLOG_BACKEND_CPU_BUDGET="\$FSUSBLOG_STEP_CPU_BUDGET" node tools\/test\/run-backend-production-shards\.mjs/u)
   assert.match(source, /FSUSBLOG_BUNDLE_MEMORY_GIB: String\(stepCapacity\.memoryGiB\)/u)
-  assert.match(source, /const testStep = commandStep\('dotnet-production-union',[\s\S]*?resources: \{ cpuWeight: 2, memoryWeight: 3, minCpuUnits: 2 \}/u)
+  assert.match(source, /const testStep = commandStep\('dotnet-production-union',[\s\S]*?minCpuUnits: 2,[\s\S]*?minMemoryGiB: backendTopologyDefaults\.memoryGiBPerTesthost \* 2/u)
   assert.doesNotMatch(source, /dotnet-production-union'[\s\S]{0,240}?dependsOn:/u)
   assert.doesNotMatch(source, /FSUSBLOG_BACKEND_PRODUCTION_SHARDS=2|FSUSBLOG_BACKEND_SHARD_PROCESSORS=2/u)
   assert.doesNotMatch(source, /(?:fail-fast|maxFailures|--blame-hang)/u)

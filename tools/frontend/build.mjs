@@ -37,6 +37,25 @@ const fsusUiMarkdownRuntimeAssets = [
   'markdown_basic.wasm'
 ];
 
+function resolveLocalFsusUiRoot() {
+  const disabled = process.env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
+    || process.env.FSUSBLOG_USE_LOCAL_FSUSUI?.toLowerCase() === 'false';
+  if (disabled) return null;
+  const candidate = resolve(
+    process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT || join(repositoryRoot, '..', 'FsusUI')
+  );
+  return fs.existsSync(join(candidate, 'vue', 'packages', 'element-plus', 'index.ts'))
+    ? candidate
+    : null;
+}
+
+function fsusUiMarkdownRuntimeSourceDir() {
+  const localRoot = resolveLocalFsusUiRoot();
+  return localRoot
+    ? join(localRoot, 'vue', 'packages', 'wasm', 'dist')
+    : join(clientRoot, 'node_modules', '@ozwasyd', 'element-plus', 'es', 'wasm', 'dist');
+}
+
 const inheritedDeadlineMs = positiveNumber(
   process.env.FSUSBLOG_STEP_DEADLINE_MS
     ?? process.env.FSUSBLOG_BUNDLE_DEADLINE_MS);
@@ -275,7 +294,7 @@ async function syncStableSpaEntryAlias() {
 }
 
 async function syncFsusUiMarkdownRuntimeAssets() {
-  const sourceDir = join(clientRoot, 'node_modules', '@ozwasyd', 'element-plus', 'es', 'wasm', 'dist');
+  const sourceDir = fsusUiMarkdownRuntimeSourceDir();
   const targetDir = join(distRoot, 'dist');
 
   await mkdir(targetDir, { recursive: true });
@@ -439,7 +458,7 @@ export function createFrontendBuildStages(generatedArgs, generatedAction) {
       id: 'sync-fsusui-markdown-runtime-assets',
       command: ['internal', 'sync-fsusui-markdown-runtime-assets'],
       dependsOn: ['sync-run-bound-public-assets'],
-      consumedInputs: ['node_modules/@ozwasyd/element-plus/es/wasm/dist'],
+      consumedInputs: [fsusUiMarkdownRuntimeSourceDir()],
       ownedOutputs: [join(distRoot, 'dist')],
       resources: buildStageResources(1, 1, 0.25, ['frontend-dist-markdown']),
       estimatedDurationMs: 2_000,

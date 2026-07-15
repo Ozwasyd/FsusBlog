@@ -1339,6 +1339,7 @@ jobs:
     needs:
       - plan-pr-risk
       - validate-matrix
+      - production-build-artifacts
       - coverage-merge-threshold
       - fast-backend
       - frontend-build

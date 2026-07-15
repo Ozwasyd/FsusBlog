@@ -738,7 +738,7 @@ test('backend bundle publishes server readiness before independent tests and ben
   assert.match(localBundleRunner, /if \(typeof step\.afterSuccess === 'function'\) await step\.afterSuccess\(result\)[\s\S]*?stepExecutionResults\.set\(step\.id/u)
   assert.match(backendBundleRunner, /step\.id === 'backend-benchmark-build'\) publishBenchmarkBuildReady\(\)/u)
   assert.match(backendBundleRunner, /FSUSBLOG_BACKEND_CPU_BUDGET="\$FSUSBLOG_STEP_CPU_BUDGET" node tools\/test\/run-backend-production-shards\.mjs/u)
-  assert.match(backendBundleRunner, /const testStep = commandStep\('dotnet-production-union',[\s\S]*?resources: \{ cpuWeight: 2, memoryWeight: 3, minCpuUnits: 2 \}/u)
+  assert.match(backendBundleRunner, /const testStep = commandStep\('dotnet-production-union',[\s\S]*?minCpuUnits: 2,[\s\S]*?minMemoryGiB: backendTopologyDefaults\.memoryGiBPerTesthost \* 2/u)
   assert.doesNotMatch(backendBundleRunner, /FSUSBLOG_BACKEND_PRODUCTION_SHARDS=\d|FSUSBLOG_BACKEND_SHARD_PROCESSORS=\d/u)
   assert.match(backendShardRunner, /Category!=Integration&Category!=Performance/u)
   assert.match(backendShardRunner, /'--ListTests'/u)
@@ -818,7 +818,8 @@ test('cold frontend static phases move to frontend-tests while build-static rema
   assert.match(frontendBundleRunner, /executeWeightedStepDag\(\[[\s\S]*?staticStageStep\('concurrent'/u)
   assert.match(frontendBundleRunner, /staticStageStep\('postbuild',[\s\S]*?dependsOn: \['frontend-build-ready'\]/u)
   assert.match(frontendBundleRunner, /staticStageStep\('isolated',[\s\S]*?dependsOn: \['vitest-settled'\]/u)
-  assert.match(frontendBundleRunner, /staticStageStep\('final',[\s\S]*?runAfterSettled: true/u)
+  assert.match(frontendBundleRunner, /commandStep\('frontend-static-final-ready',[\s\S]*?runAfterSettled: true,[\s\S]*?coordinationOnly: true/u)
+  assert.match(frontendBundleRunner, /staticStageStep\('final',[\s\S]*?dependsOn: \['frontend-static-final-ready'\]/u)
   assert.match(localBundleRunner, /frontend-build-ready\.v1[\s\S]*?schedulerRunId: runId[\s\S]*?privacyWasmArtifacts[\s\S]*?artifactRef/u)
   assert.match(localBundleRunner, /if \(step\.id === 'sync-static-assets'\) publishFrontendBuildReady\(\)/u)
   assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u)
@@ -832,7 +833,12 @@ test('cold frontend static phases move to frontend-tests while build-static rema
 test('runtime early start is guarded by run-bound atomic backend and frontend build markers', () => {
   assert.match(localBundleRunner, /backendBuildReadyFile[\s\S]*?\.tmp\/test-runs[\s\S]*?backend-build-ready\.json/u)
   assert.match(localBundleRunner, /publishBackendBuildReady[\s\S]*?schedulerRunId: runId[\s\S]*?serverDll:[\s\S]*?exists: true[\s\S]*?digest: artifact\.digests[\s\S]*?artifactRef/u)
-  assert.match(localBundleRunner, /publishBackendTestsReady[\s\S]*?backend-tests-ready\.v1[\s\S]*?testDll/u)
+  const backendTestsMarker = localBundleRunner.slice(
+    localBundleRunner.indexOf('function publishBackendTestsReady()'),
+    localBundleRunner.indexOf('\nfunction publishBenchmarkBuildReady')
+  )
+  assert.match(backendTestsMarker, /backend-tests-ready\.v1[\s\S]*?testDll:[\s\S]*?digest: artifact\.digests\[artifactPath\]/u)
+  assert.doesNotMatch(backendTestsMarker, /declaredDigest/u)
   assert.match(localBundleRunner, /writeFileSync\(temporary[\s\S]*?renameSync\(temporary, markerFile\)/u)
   assert.match(localBundleRunner, /async function waitForBackendBuildReady[\s\S]*?marker\.schema !== 'fsusblog\.local-production\.backend-build-ready\.v1'[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u)
   assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schema !== 'fsusblog\.local-production\.frontend-build-ready\.v1'[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u)

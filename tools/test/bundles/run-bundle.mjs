@@ -28,6 +28,7 @@ import {
 import { readRuntimeEnvironment } from './runtime-environment.mjs'
 import { createBrowserLaneProxySet } from './browser-lane-proxy.mjs'
 import { validateShardSummaryArtifacts } from '../run-backend-production-shards.mjs'
+import { backendTopologyDefaults } from '../backend-production-topology.mjs'
 import { buildLocalStaticManifest, planLocalStaticCommands } from '../local-static-governance.mjs'
 import {
   productionBuildEnvironment,
@@ -460,8 +461,7 @@ function publishBackendTestsReady() {
     testDll: {
       path: artifactPath,
       exists: true,
-      digest: fileContentDigest(backendTestDll),
-      declaredDigest: artifact.digests[artifactPath],
+      digest: artifact.digests[artifactPath],
       artifactRef: artifact.refs[artifactPath]
     },
     generatedAt: new Date().toISOString()
@@ -1295,7 +1295,12 @@ async function runBackendTests() {
     })
   const testStep = commandStep('dotnet-production-union',
     'FSUSBLOG_BACKEND_CPU_BUDGET="$FSUSBLOG_STEP_CPU_BUDGET" node tools/test/run-backend-production-shards.mjs', [], {
-      resources: { cpuWeight: 2, memoryWeight: 3, minCpuUnits: 2 },
+      resources: {
+        cpuWeight: 2,
+        memoryWeight: 3,
+        minCpuUnits: 2,
+        minMemoryGiB: backendTopologyDefaults.memoryGiBPerTesthost * 2
+      },
       afterSuccess: publishBackendTestsReady
     })
   const backendDagResults = new Map()
@@ -2132,9 +2137,13 @@ async function runFrontendTests() {
         exclusiveResources: ['frontend-static-output', 'frontend-render-pressure']
       }
     }),
-    staticStageStep('final', {
+    commandStep('frontend-static-final-ready', null, [], {
       dependsOn: ['frontend-static-concurrent', 'frontend-static-postbuild', 'frontend-static-isolated'],
       runAfterSettled: true,
+      resources: { coordinationOnly: true }
+    }),
+    staticStageStep('final', {
+      dependsOn: ['frontend-static-final-ready'],
       resources: {
         cpuWeight: 0.5,
         memoryWeight: 0.25,
