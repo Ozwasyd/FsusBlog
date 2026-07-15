@@ -733,15 +733,23 @@ build_docker_resource_args() {
       || ! "$memory_max" =~ ^[0-9]+$ || ! "$pids_max" =~ ^[0-9]+$ ]]; then
     fail 'Docker resource enforcement requires positive CPU, memory high/max, and pids values'
   fi
+  if [[ "$cpu" =~ ^0+([.]0+)?$ ]] || (( memory_high <= 0 || memory_max < memory_high || pids_max <= 0 )); then
+    fail 'Docker resource enforcement grant is outside its valid CPU, memory, or pids envelope'
+  fi
+  if [[ -z "${FSUSBLOG_TEST_RUN_ID:-}" || -z "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" || -z "${FSUSBLOG_STEP_ID:-}" ]]; then
+    fail 'Docker resource enforcement requires run, bundle, and step identity'
+  fi
   DOCKER_RESOURCE_ARGS=(
     --cpus "$cpu"
     --memory-reservation "$memory_high"
     --memory "$memory_max"
     --pids-limit "$pids_max"
   )
-  [[ -n "${FSUSBLOG_TEST_RUN_ID:-}" ]] && DOCKER_RESOURCE_ARGS+=(--label "io.fsusblog.test.run-id=$FSUSBLOG_TEST_RUN_ID")
-  [[ -n "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" ]] && DOCKER_RESOURCE_ARGS+=(--label "io.fsusblog.test.bundle-id=$FSUSBLOG_PHYSICAL_BUNDLE_ID")
-  [[ -n "${FSUSBLOG_STEP_ID:-}" ]] && DOCKER_RESOURCE_ARGS+=(--label "io.fsusblog.test.step-id=$FSUSBLOG_STEP_ID")
+  DOCKER_RESOURCE_ARGS+=(
+    --label "io.fsusblog.test.run-id=$FSUSBLOG_TEST_RUN_ID"
+    --label "io.fsusblog.test.bundle-id=$FSUSBLOG_PHYSICAL_BUNDLE_ID"
+    --label "io.fsusblog.test.step-id=$FSUSBLOG_STEP_ID"
+  )
   DOCKER_RESOURCE_ARGS+=(
     --label "io.fsusblog.test.cpu-units=$cpu"
     --label "io.fsusblog.test.memory-high-bytes=$memory_high"

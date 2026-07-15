@@ -99,6 +99,14 @@ test('hard CPU ceiling prevents a sibling from consuming more CPUs than its gran
   assert.ok(one.cpuWeight < four.cpuWeight)
   assert.ok(one.memoryMaxBytes > one.memoryHighBytes)
   assert.equal(one.cpuset, null)
+  assert.throws(
+    () => resolveCgroupLimits({ cpuUnits: 9, memoryGiB: 1 }, { cpuUnits: 8, memoryGiB: 16 }),
+    /CPU grant 9 exceeds machine envelope 8/u
+  )
+  assert.throws(
+    () => resolveCgroupLimits({ cpuUnits: 1, memoryGiB: 17 }, { cpuUnits: 8, memoryGiB: 16 }),
+    /memory grant 17 GiB exceeds machine envelope 16 GiB/u
+  )
 })
 
 test('active cgroups are retained while cancellation cleanup removes empty owned groups', () => {
@@ -192,6 +200,24 @@ test('Docker OCI arguments bind the current run, bundle and step to equivalent l
   assert.ok(args.includes('io.fsusblog.test.cpu-units=2.5'))
   assert.ok(args.includes('io.fsusblog.test.memory-max-bytes=1200'))
   assert.deepEqual(dockerResourceArguments({}), [])
+  assert.throws(() => dockerResourceArguments({
+    FSUSBLOG_DOCKER_CPU_UNITS: '1'
+  }), /requires a complete/u)
+  assert.throws(() => dockerResourceArguments({
+    FSUSBLOG_DOCKER_CPU_UNITS: '1',
+    FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES: '1200',
+    FSUSBLOG_DOCKER_MEMORY_MAX_BYTES: '1000',
+    FSUSBLOG_DOCKER_PIDS_MAX: '64',
+    FSUSBLOG_TEST_RUN_ID: 'run',
+    FSUSBLOG_PHYSICAL_BUNDLE_ID: 'bundle',
+    FSUSBLOG_STEP_ID: 'step'
+  }), /grant is invalid/u)
+  assert.throws(() => dockerResourceArguments({
+    FSUSBLOG_DOCKER_CPU_UNITS: '1',
+    FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES: '1000',
+    FSUSBLOG_DOCKER_MEMORY_MAX_BYTES: '1200',
+    FSUSBLOG_DOCKER_PIDS_MAX: '64'
+  }), /requires run, bundle, and step identity/u)
 })
 
 test('production wiring attaches a stopped bundle before resume and propagates OCI limits', () => {

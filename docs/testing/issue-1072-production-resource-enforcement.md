@@ -40,6 +40,8 @@ not yet proven. A wrong cpuset can make throughput and benchmark variance worse 
 inside physical memory; `pids.max` is derived from both granted CPU and memory. Expansion or contraction rewrites all
 effective controls without restarting the bundle. The scheduler evidence compares every declared grant with the
 values read back from `cpu.max`, `cpu.weight`, `memory.high`, `memory.max`, and `pids.max`.
+Any CPU or memory grant above the admitted machine envelope fails before control files are written, so enforcement
+cannot silently clamp an oversold grant or emit an invalid `memory.high > memory.max` pair.
 
 ## Process and container attribution
 
@@ -53,6 +55,8 @@ Production container helpers translate the admitted step grant to `--cpus`, `--m
 containers are updated before restart. Bundle evidence reads Docker's effective `HostConfig` back and compares it to
 the labeled step limits; unavailable Docker or a missing binding is never reported as zero or success. Rootless Docker
 is supported only when its daemon accepts the same flags, otherwise the real Docker error remains visible.
+Once any OCI limit is present, the entire CPU/memory/pids tuple and all three identity fields are mandatory; partial,
+zero, inverted memory, or anonymous configurations fail closed instead of starting an unconstrained container.
 
 ## Evidence and cleanup
 

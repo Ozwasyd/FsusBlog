@@ -79,9 +79,16 @@ export function resolveCgroupLimits(grant, machine) {
   const cpuUnits = Number(grant.cpuUnits)
   const memoryGiB = Number(grant.memoryGiB)
   const machineCpu = Math.max(1, Number(machine.cpuUnits ?? machine.cpuCount) || os.availableParallelism?.() || 1)
-  const machineMemoryBytes = Math.max(1, Number(machine.memoryGiB) * 1024 ** 3 || os.totalmem())
+  const machineMemoryGiB = Math.max(Number.EPSILON, Number(machine.memoryGiB) || os.totalmem() / (1024 ** 3))
+  const machineMemoryBytes = Math.max(1, machineMemoryGiB * 1024 ** 3)
   if (!Number.isFinite(cpuUnits) || cpuUnits <= 0 || !Number.isFinite(memoryGiB) || memoryGiB <= 0) {
     throw new Error('cgroup limits require positive CPU and memory grants')
+  }
+  if (cpuUnits > machineCpu + Number.EPSILON) {
+    throw new Error(`cgroup CPU grant ${cpuUnits} exceeds machine envelope ${machineCpu}`)
+  }
+  if (memoryGiB > machineMemoryGiB + Number.EPSILON) {
+    throw new Error(`cgroup memory grant ${memoryGiB} GiB exceeds machine envelope ${machineMemoryGiB} GiB`)
   }
   const periodUs = Math.max(10_000, Math.min(1_000_000, Math.round(100_000 * Math.sqrt(machineCpu) / Math.sqrt(cpuUnits))))
   const quotaUs = Math.max(1_000, Math.round(periodUs * cpuUnits))
@@ -382,11 +389,31 @@ export function createProductionResourceEnforcer(options) {
 }
 
 export function dockerResourceArguments(environment = process.env) {
-  const cpuUnits = Number(environment.FSUSBLOG_DOCKER_CPU_UNITS)
-  const memoryBytes = Number(environment.FSUSBLOG_DOCKER_MEMORY_MAX_BYTES)
-  const memoryHighBytes = Number(environment.FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES)
-  const pidsMax = Number(environment.FSUSBLOG_DOCKER_PIDS_MAX)
-  if (![cpuUnits, memoryBytes, memoryHighBytes, pidsMax].every((value) => Number.isFinite(value) && value > 0)) return []
+  const rawLimits = [
+    environment.FSUSBLOG_DOCKER_CPU_UNITS,
+    environment.FSUSBLOG_DOCKER_MEMORY_MAX_BYTES,
+    environment.FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES,
+    environment.FSUSBLOG_DOCKER_PIDS_MAX
+  ]
+  if (rawLimits.every((value) => String(value ?? '').trim() === '')) return []
+  if (rawLimits.some((value) => String(value ?? '').trim() === '')) {
+    throw new Error('Docker resource enforcement requires a complete CPU, memory high/max, and pids grant')
+  }
+  const [cpuUnits, memoryBytes, memoryHighBytes, pidsMax] = rawLimits.map(Number)
+  if (!Number.isFinite(cpuUnits) || cpuUnits <= 0
+    || !Number.isInteger(memoryBytes) || memoryBytes <= 0
+    || !Number.isInteger(memoryHighBytes) || memoryHighBytes <= 0 || memoryHighBytes > memoryBytes
+    || !Number.isInteger(pidsMax) || pidsMax <= 0) {
+    throw new Error('Docker resource enforcement grant is invalid')
+  }
+  const identities = [
+    environment.FSUSBLOG_TEST_RUN_ID,
+    environment.FSUSBLOG_PHYSICAL_BUNDLE_ID,
+    environment.FSUSBLOG_STEP_ID
+  ]
+  if (identities.some((value) => String(value ?? '').trim() === '')) {
+    throw new Error('Docker resource enforcement requires run, bundle, and step identity')
+  }
   const labels = [
     ['io.fsusblog.test.run-id', environment.FSUSBLOG_TEST_RUN_ID],
     ['io.fsusblog.test.bundle-id', environment.FSUSBLOG_PHYSICAL_BUNDLE_ID],
