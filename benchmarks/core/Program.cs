@@ -609,7 +609,7 @@ internal static class ContractVerifier
 
     private static bool VerifyComment()
     {
-        var author = new CommentAuthorViewDto("anonymous", "Benchmark Author", "zh-CN", null, null, null);
+        var author = new CommentAuthorViewDto("anonymous", "Benchmark Author", "zh-CN", null, null);
         var pod = PodProjector.ProjectCommentItem(101, DateTime.UnixEpoch.AddMinutes(9), author.Mode, author.DisplayName, "hello", out _);
         var source = new CoreCursorResult<CommentQueryCoreModel>(
             [new CommentQueryCoreModel(pod, 101, "hello", DateTime.UnixEpoch.AddMinutes(9), author)],
@@ -626,12 +626,11 @@ internal static class ContractVerifier
         var sitePod = PodProjector.ProjectSiteStats(3, 4, 1, 100, 60, 40, 60, 40, 1, 1, 1);
         var popular = new PopularArticleCoreModel(PodProjector.ProjectPopularArticle(3, "hot", 77), 3, "hot", 77);
         var recent = new RecentCommentCoreModel(
-            PodProjector.ProjectRecentComment(DateTime.UnixEpoch.AddDays(1), "Benchmark Author", "anonymous", null, null, "anonymous", "c4", out _),
+            PodProjector.ProjectRecentComment(DateTime.UnixEpoch.AddDays(1), "Benchmark Author", "anonymous", null, null, "c4", out _),
             "Benchmark Author",
             "anonymous",
             null,
             null,
-            "anonymous",
             "c4",
             DateTime.UnixEpoch.AddDays(1));
         var region = new RegionDistributionCoreModel(PodProjector.ProjectRegionDistribution("CN-SH", 9), "CN-SH", 9);

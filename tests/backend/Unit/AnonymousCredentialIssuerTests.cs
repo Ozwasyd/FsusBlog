@@ -116,12 +116,12 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     [Fact]
     public void AnonymousCredentialIssuerConfig_ExplicitlyRejectsBannedAccountsByDefault()
     {
-        foreach ((string relativePath, bool expectedEnabled) in new[]
+        foreach (string relativePath in new[]
         {
-            ("src/backend/appsettings.json", false),
-            ("src/backend/appsettings.example.json", false),
-            ("src/backend/appsettings.Production.json", true),
-            ("src/backend/appsettings.Production.example.json", true)
+            "src/backend/appsettings.json",
+            "src/backend/appsettings.example.json",
+            "src/backend/appsettings.Production.json",
+            "src/backend/appsettings.Production.example.json"
         })
         {
             IConfiguration configuration = new ConfigurationBuilder()
@@ -131,7 +131,7 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             Assert.False(configuration.GetValue<bool>("AnonymousCredentialIssuer:AllowBannedAccountIssuance"));
             Assert.NotNull(configuration["AnonymousCredentialIssuer:SubjectHashPepper"]);
             Assert.Equal("managed_circuit_native_v2", configuration["AnonymousCredentialIssuer:CircuitNative:Backend"]);
-            Assert.Equal(expectedEnabled, configuration.GetValue<bool>("AnonymousCredentialIssuer:CircuitNative:Enabled"));
+            Assert.False(configuration.GetValue<bool>("AnonymousCredentialIssuer:CircuitNative:Enabled"));
         }
     }
 

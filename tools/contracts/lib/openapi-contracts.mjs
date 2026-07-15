@@ -107,7 +107,7 @@ export function buildOpenApiFromMatrix(matrix = loadMatrix(), protocol = loadPro
     pathItem[String(route.method).toLowerCase()] = {
       operationId: route.operationId,
       tags: ['Binary'],
-      summary: route.testSurface,
+      summary: route.summary || route.testSurface,
       responses: {
         [successStatus]: {
           description: `${route.responseFrame || 'NoBody'} AEDS frame`,

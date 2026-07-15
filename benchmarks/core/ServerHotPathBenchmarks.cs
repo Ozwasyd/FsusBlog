@@ -509,7 +509,6 @@ public class StatsProjectionHotPathBenchmarks
             null,
             "Benchmark User",
             "site",
-            "verified",
             "benchmark comment",
             CreatedAt);
         return item.Content.Length + item.AuthorDisplayName.Length;

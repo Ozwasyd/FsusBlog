@@ -69,6 +69,7 @@ internal static class PublicHotReadResidencyProfiler
             default,
             default,
             FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow),
             articleCount,
             admissionLimit);
         var store = new PublicHotReadStore(options: Options.Create(options));

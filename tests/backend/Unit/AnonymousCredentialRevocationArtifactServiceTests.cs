@@ -52,11 +52,22 @@ public sealed class AnonymousCredentialRevocationArtifactServiceTests(PostgresSc
         Assert.Equal(32, delta.Value.EntryHashes.Length);
         Assert.Equal(32, full.Value.ContentHash.Length);
         Assert.Equal(32, full.Value.Signature.Length);
-        Assert.NotEqual(full.Value.ContentHash, delta.Value.ContentHash);
+        Assert.False(full.Value.ContentHash.AsSpan().SequenceEqual(delta.Value.ContentHash));
         Assert.Equal(rootHash, Convert.ToHexStringLower(full.Value.RevocationRoot));
         byte[] encoded = PodBinaryCodec.EncodeAnonymousCredentialRevocationArtifact(full.Value);
         Assert.True(PodBinaryCodec.TryDecodeAnonymousCredentialRevocationArtifact(encoded, out var decoded));
-        Assert.Equal(full.Value, decoded);
+        Assert.Equal(full.Value.CredentialEpoch, decoded.CredentialEpoch);
+        Assert.Equal(full.Value.Version, decoded.Version);
+        Assert.Equal(full.Value.BaseVersion, decoded.BaseVersion);
+        Assert.Equal(full.Value.ExpiresAtUnixMs, decoded.ExpiresAtUnixMs);
+        Assert.Equal(full.Value.Kind, decoded.Kind);
+        Assert.Equal(full.Value.PathDepth, decoded.PathDepth);
+        Assert.Equal(full.Value.AlgorithmId, decoded.AlgorithmId);
+        Assert.Equal(full.Value.IssuerPublicKeyHash, decoded.IssuerPublicKeyHash);
+        Assert.True(full.Value.RevocationRoot.AsSpan().SequenceEqual(decoded.RevocationRoot));
+        Assert.True(full.Value.ContentHash.AsSpan().SequenceEqual(decoded.ContentHash));
+        Assert.True(full.Value.Signature.AsSpan().SequenceEqual(decoded.Signature));
+        Assert.True(full.Value.EntryHashes.AsSpan().SequenceEqual(decoded.EntryHashes));
     }
 
     private static AnonymousCredentialRoot CreateRoot(string revocationRoot) => new()

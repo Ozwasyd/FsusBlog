@@ -38,9 +38,8 @@ public sealed class AnonymousCommentModerationPipelineTests
             "ModerationSubjectHash",
             "AnonymousNullifierHash",
             "AnonymousScope",
-            "CredentialLevel",
-            "ReputationBucket",
-            "AccountAgeBucket",
+            "RateClass",
+            "RequiresModeration",
             "AnonymousCommentsEnabled",
             "ZkAnonymousEnabled"
         })
@@ -56,9 +55,8 @@ public sealed class AnonymousCommentModerationPipelineTests
             "moderation_subject_hash",
             "anonymous_nullifier_hash",
             "anonymous_scope",
-            "credential_level",
-            "reputation_bucket",
-            "account_age_bucket",
+            "rate_class",
+            "requires_moderation",
             "anonymous_comments_enabled",
             "zk_anonymous_enabled"
         })
@@ -72,6 +70,9 @@ public sealed class AnonymousCommentModerationPipelineTests
             .ToArray();
         Assert.DoesNotContain("IpHash", requestProperties);
         Assert.DoesNotContain("UserId", requestProperties);
+        Assert.DoesNotContain("CredentialLevel", contextProperties);
+        Assert.DoesNotContain("ReputationBucket", contextProperties);
+        Assert.DoesNotContain("AccountAgeBucket", contextProperties);
         Assert.Contains("anonymous_nullifier_hash", runtimeShape, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("user_name", runtimeShape, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("public_handle", runtimeShape, StringComparison.OrdinalIgnoreCase);
@@ -101,7 +102,7 @@ public sealed class AnonymousCommentModerationPipelineTests
         foreach (string allowed in new[]
         {
             "moderation_subject_hash", "anonymous_nullifier_hash", "anonymous_scope",
-            "credential_level", "reputation_bucket", "account_age_bucket"
+            "rate_class", "requires_moderation"
         })
         {
             Assert.Contains(allowed, runtimeShape, StringComparison.Ordinal);
@@ -126,7 +127,8 @@ public sealed class AnonymousCommentModerationPipelineTests
             "get_ModerationSubjectHash",
             "get_AnonymousNullifierHash",
             "get_AnonymousScope",
-            "get_CredentialLevel",
+            "get_RateClass",
+            "get_RequiresModeration",
             "get_AnonymousCommentsEnabled",
             "get_ZkAnonymousEnabled"
         })
@@ -281,15 +283,17 @@ public sealed class AnonymousCommentModerationPipelineTests
             "NullifierHash",
             "NullifierStatusLabel",
             "AnonymousScope",
-            "CredentialLevel",
-            "ReputationBucket",
-            "AccountAgeBucket",
+            "RateClass",
+            "RequiresModeration",
             "CanBlockAnonymousNullifier",
             "CanRevokeAnonymousCredential"
         })
         {
             Assert.Contains(responseField, responseProperties);
         }
+        Assert.DoesNotContain("CredentialLevel", responseProperties);
+        Assert.DoesNotContain("ReputationBucket", responseProperties);
+        Assert.DoesNotContain("AccountAgeBucket", responseProperties);
     }
 
     [Fact]

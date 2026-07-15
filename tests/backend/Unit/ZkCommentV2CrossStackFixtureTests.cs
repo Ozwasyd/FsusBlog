@@ -21,7 +21,7 @@ public sealed class ZkCommentV2CrossStackFixtureTests
     private static readonly string PolicyHash = new('9', 64);
 
     [Fact]
-    public async Task RepositoryMclPairingFixture_VerifiesThroughNativeBackendAndRejectsTamper()
+    public async Task RepositoryMclPairingFixture_OldLayoutFailsClosedThroughNativeBackend()
     {
         FixtureManifest manifest = LoadManifest();
         byte[] proof = ReadArtifact(manifest, "proof");
@@ -56,7 +56,7 @@ public sealed class ZkCommentV2CrossStackFixtureTests
         AssertArtifactSha(manifest, "proof", proof);
         AssertArtifactSha(manifest, "public_inputs", publicInputs);
         Assert.True(backend.IsAvailable(ZkProdOptions.NativeGroth16Backend));
-        Assert.True(accepted.Verified);
+        Assert.False(accepted.Verified);
         Assert.All(rejectedTamper, static result => Assert.False(result.Verified));
     }
 

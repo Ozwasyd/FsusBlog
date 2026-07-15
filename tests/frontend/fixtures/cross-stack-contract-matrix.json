@@ -594,6 +594,8 @@
           "rateLimit": "public_read",
           "responseFrame": "ApiError",
           "successStatus": 410,
+          "operationId": "binary_post_anonymous_credential_revocation_retired",
+          "summary": "credential-specific revocation witness permanently retired",
           "surface": "anonymous-credential-revocation-retired"
         },
         {
@@ -603,6 +605,8 @@
           "cache": "public-read",
           "rateLimit": "public_read",
           "responseFrame": "AnonymousCredentialRevocationSnapshot",
+          "operationId": "binary_get_anonymous_credential_revocation_full",
+          "summary": "public immutable revocation full snapshot",
           "surface": "anonymous-credential-public-revocation"
         },
         {
@@ -612,6 +616,8 @@
           "cache": "public-read",
           "rateLimit": "public_read",
           "responseFrame": "AnonymousCredentialRevocationDelta",
+          "operationId": "binary_get_anonymous_credential_revocation_delta",
+          "summary": "public immutable revocation delta",
           "surface": "anonymous-credential-public-revocation"
         },
         {

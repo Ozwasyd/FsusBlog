@@ -867,11 +867,33 @@
     "/api/binary/anonymous-credential/revocation/{epoch:long}/{version:long}/{revocationRoot}/full.aeds": {
       "get": {
         "operationId": "binary_get_anonymous_credential_revocation_full",
-        "tags": ["Binary"],
+        "tags": [
+          "Binary"
+        ],
         "summary": "public immutable revocation full snapshot",
         "responses": {
-          "200": { "description": "AnonymousCredentialRevocationSnapshot AEDS frame", "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } },
-          "default": { "description": "ApiError AEDS frame", "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } }
+          "200": {
+            "description": "AnonymousCredentialRevocationSnapshot AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
         },
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
@@ -893,11 +915,33 @@
     "/api/binary/anonymous-credential/revocation/{epoch:long}/{version:long}/{revocationRoot}/delta/{baseVersion:long}.aeds": {
       "get": {
         "operationId": "binary_get_anonymous_credential_revocation_delta",
-        "tags": ["Binary"],
+        "tags": [
+          "Binary"
+        ],
         "summary": "public immutable revocation delta",
         "responses": {
-          "200": { "description": "AnonymousCredentialRevocationDelta AEDS frame", "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } },
-          "default": { "description": "ApiError AEDS frame", "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } }
+          "200": {
+            "description": "AnonymousCredentialRevocationDelta AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
         },
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,

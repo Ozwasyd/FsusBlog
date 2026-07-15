@@ -49,7 +49,9 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .RequireNoStoreResponse()
-        .RequireStrongAnonymousRequest();
+        .RequireStrongAnonymousRequest()
+        .WithName("binary_post_anonymous_credential_revocation_retired")
+        .WithSummary("credential-specific revocation witness permanently retired");
 
         group.MapGet(
             "/anonymous-credential/revocation/{epoch:long}/{version:long}/{revocationRoot}/full.aeds",
@@ -72,7 +74,9 @@ public static partial class BinaryEndpoints
                     artifacts,
                     cancellationToken))
         .AllowAnonymous()
-        .RequireRateLimiting("public_read");
+        .RequireRateLimiting("public_read")
+        .WithName("binary_get_anonymous_credential_revocation_full")
+        .WithSummary("public immutable revocation full snapshot");
 
         group.MapGet(
             "/anonymous-credential/revocation/{epoch:long}/{version:long}/{revocationRoot}/delta/{baseVersion:long}.aeds",
@@ -96,7 +100,9 @@ public static partial class BinaryEndpoints
                     artifacts,
                     cancellationToken))
         .AllowAnonymous()
-        .RequireRateLimiting("public_read");
+        .RequireRateLimiting("public_read")
+        .WithName("binary_get_anonymous_credential_revocation_delta")
+        .WithSummary("public immutable revocation delta");
 
         group.MapPost("/anonymous-credential/issue", static async Task<BinaryFrameResult> (
             HttpContext httpContext,

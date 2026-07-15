@@ -57,7 +57,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             ValidTicketRequest(temp, ArticleId, nullifier, proof),
             CancellationToken.None);
 
-        Assert.True(ticket.Issued);
+        Assert.True(ticket.Issued, ticket.Status);
         Assert.Equal(1, nativeLibrary.CallCount);
         Assert.Equal(AnonymousPrivacyContract.CommonRateClass, ticket.Response.RateClass);
 
@@ -65,7 +65,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         CreateTables(db);
         SeedArticle(db, ArticleId);
         var dispatcher = new RecordingCacheInvalidationDispatcher();
-        CommentService commentService = CreateCommentService(db, ticketService, nullifiers, dispatcher);
+        CommentService commentService = CreateCommentService(temp, nativeLibrary, db, ticketService, nullifiers, dispatcher);
 
         bool created = await commentService.CreateStrongAnonymousCommentAsync(
             CreateSubmitRequest(ticket.Response.Ticket),
@@ -78,8 +78,11 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         Assert.Equal(CommentAuthorModes.ZkAnonymous, comment.AuthorMode);
         Assert.Equal(Hex(nullifier), comment.AnonymousNullifierHash);
         Assert.Equal("article:42", comment.AnonymousScope);
-        Assert.Equal("strong_anonymous", comment.CredentialLevel);
-        Assert.Equal("rep-low", comment.ReputationBucket);
+        Assert.Null(comment.CredentialLevel);
+        Assert.Null(comment.ReputationBucket);
+        Assert.Null(comment.AccountAgeBucket);
+        Assert.Equal(AnonymousPrivacyContract.CommonRateClass, comment.AnonymousRateClass);
+        Assert.False(comment.AnonymousRequiresModeration);
         Assert.Equal(CommentModerationStatus.Approved, comment.ModerationStatus);
 
         CommentRegionCompliance compliance = Assert.Single(db.Queryable<CommentRegionCompliance>().ToList());
@@ -137,12 +140,12 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         AnonymousCommentTicketIssueResult ticket = await ticketService.IssueAsync(
             ValidTicketRequest(temp, ArticleId, nullifier, proof),
             CancellationToken.None);
-        Assert.True(ticket.Issued);
+        Assert.True(ticket.Issued, ticket.Status);
 
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         SeedArticle(db, ArticleId);
-        CommentService commentService = CreateCommentService(db, ticketService, nullifiers);
+        CommentService commentService = CreateCommentService(temp, nativeLibrary, db, ticketService, nullifiers);
         AnonymousCommentCreateRequestCoreModel request = CreateSubmitRequest(ticket.Response.Ticket);
 
         bool firstCreated = await commentService.CreateStrongAnonymousCommentAsync(request, RegionDecision(), CancellationToken.None);
@@ -172,7 +175,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         Assert.True(first.Issued);
         Assert.True(second.Issued);
         Assert.NotEqual(Hex(firstNullifier), Hex(secondNullifier));
-        Assert.NotEqual(first.Response.ModerationSubjectHash, second.Response.ModerationSubjectHash);
+        Assert.False(first.Response.ModerationSubjectHash.AsSpan().SequenceEqual(second.Response.ModerationSubjectHash));
         Assert.Equal(2, nativeLibrary.CallCount);
     }
 
@@ -242,10 +245,13 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             configuration,
             verifier,
             new StaticOptionsMonitor<ZkProdOptions>(ZkProdOptions.FromConfiguration(configuration)),
-            rootReader);
+            rootReader,
+            new ConfiguredCredentialIssuer());
     }
 
     private static CommentService CreateCommentService(
+        TempNativeZkFixture temp,
+        HashingNativeGroth16FixtureLibrary nativeLibrary,
         SqlSugarClient db,
         IAnonymousCommentTicketService ticketService,
         RecordingNullifierService nullifierService,
@@ -257,16 +263,12 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             Substitute.For<IMessageCommandService>(),
             dispatcher ?? new RecordingCacheInvalidationDispatcher(),
             new RegionLegalModerationService(),
+            anonymousCommentPolicyService: CreatePolicyService(),
             anonymousNullifierService: nullifierService,
             anonymousCommentTicketService: ticketService,
             anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator(),
-            configuration: new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["Moderation:Pepper"] = "unit-test-moderation-pepper-with-at-least-thirty-two-chars",
-                    ["AnonymousIdentity:NullifierPepper"] = "unit-test-anonymous-nullifier-pepper-32-bytes-minimum"
-                })
-                .Build());
+            configuration: BuildConfiguration(temp.VerifyingKeySha256),
+            zkAnonymousProofService: CreateProofService(temp, nativeLibrary));
 
     private static AnonymousCommentTicketRequestCoreModel ValidTicketRequest(
         TempNativeZkFixture temp,
@@ -388,6 +390,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
                 ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "1000",
                 ["AnonymousIdentity:ZkVerifier:MaxConcurrentVerifications"] = "2",
                 ["AnonymousIdentity:ZkProd:Enabled"] = zkProdEnabled.ToString(),
+                ["AnonymousIdentity:ZkProd:RequireTrustedSetupVerified"] = "true",
+                ["AnonymousIdentity:ZkProd:RequireCredential"] = "true",
                 ["AnonymousIdentity:ZkProd:VerifierBackend"] = ZkProdOptions.NativeGroth16Backend,
                 ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = verifyingKeyHash,
                 ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
@@ -492,6 +496,23 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
 
         public Task<bool> BlockAsync(string nullifierHash, string scope, string reason, CancellationToken cancellationToken = default)
             => Task.FromResult(true);
+    }
+
+    private sealed class ConfiguredCredentialIssuer : ICircuitNativeCredentialIssuer
+    {
+        public bool IsConfigured => true;
+
+        public string IssuerPublicKeyId => "unit-test-circuit-native-issuer";
+
+        public string IssuerPublicKeyHash => AnonymousZkProdWrapperFixtureTests.IssuerPublicKeyHash;
+
+        public ValueTask<Result<CircuitNativeCredentialIssueResult>> SignAsync(
+            CircuitNativeCredentialIssueMaterial material,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public bool VerifyIssuerSignature(CircuitNativeCredentialIssueMaterial material, ReadOnlySpan<byte> signature)
+            => false;
     }
 
     private sealed record CacheWrite(CachePolicyId PolicyId, string Identity, byte[] Value, TimeSpan? Ttl);
