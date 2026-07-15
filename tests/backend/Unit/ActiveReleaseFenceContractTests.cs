@@ -9,7 +9,6 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Services.Background;
-using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
@@ -100,7 +99,6 @@ public sealed class ActiveReleaseFenceContractTests
             typeof(ScheduledPublishWorker),
             typeof(ArticleMutationOutboxDispatcher),
             typeof(PowLoadResetWorker),
-            typeof(ArticleViewProjectionRepairWorker),
             typeof(CrawlerUpdateWorker),
             typeof(LogCleanupService),
             typeof(PublicAotBackfillWorker),

@@ -2,7 +2,6 @@ using System.Data;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Services.Background;
-using FsusBlog.Server.Services.VisitLog;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -131,10 +130,6 @@ public sealed class ActiveReleaseFencedCommitTests
             typeof(ArticleMutationOutboxDispatcher),
             "src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs",
             "article-outbox-complete");
-        AssertTransactionalGuard(
-            typeof(ArticleViewProjectionRepairWorker),
-            "src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs",
-            "article-view-projection");
         AssertTransactionalGuard(
             typeof(LogCleanupService),
             "src/backend/Services/Background/LogCleanupService.cs",
