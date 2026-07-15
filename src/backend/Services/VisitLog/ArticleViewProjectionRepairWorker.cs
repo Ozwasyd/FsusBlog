@@ -14,9 +14,9 @@ public sealed class ArticleViewProjectionRepairWorker(
     TimeProvider timeProvider,
     IBackgroundWorkerLease workerLease,
     IActiveReleaseTransactionalCommitGuard transactionalCommitGuard,
-    IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
+    IActiveReleaseCommitGuard? activeReleaseCommitGuard = null)
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    internal async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _ = scopeFactory;
         _ = timeProvider;

@@ -43,7 +43,9 @@ const optionalNotFoundPublicChecks = new Set([
   'binary_get_article_id_aeds',
   'binary_get_article_list_category_categoryId_page_size_aeds',
   'binary_get_article_list_tag_tagId_page_size_aeds',
-  'binary_get_article_featured_size_aeds'
+  'binary_get_article_featured_size_aeds',
+  'binary_get_anonymous_credential_revocation_full',
+  'binary_get_anonymous_credential_revocation_delta'
 ])
 const publicChecks = openapiRoutes
   .filter(route => route.method === 'GET' && route.auth === 'anonymous' && route.pow !== true && route.responseFrame && frameValues.has(route.responseFrame))

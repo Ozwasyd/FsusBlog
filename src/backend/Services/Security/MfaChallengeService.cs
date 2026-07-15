@@ -97,7 +97,9 @@ public sealed class MfaChallengeService(
         using var _ = AuditLogScope.Push(
             AuditSourceCatalog.Auth,
             AuditTypeCatalog.Security,
-            new KeyValuePair<string, object?>("AuditAction", locked ? "mfa_challenge_locked" : "mfa_challenge_failed"),
+            new KeyValuePair<string, object?>(
+                "AuditAction",
+                locked ? AuditActionCatalog.MfaChallengeLocked : AuditActionCatalog.MfaChallengeFailed),
             new KeyValuePair<string, object?>("AccountId", ticket.AccountId),
             new KeyValuePair<string, object?>("AccountSubjectHash", accountSubjectHash),
             new KeyValuePair<string, object?>("TicketHash", ticketHash),

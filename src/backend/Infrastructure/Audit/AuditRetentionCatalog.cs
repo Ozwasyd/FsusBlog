@@ -40,6 +40,8 @@ public static class AuditRetentionCatalog
         AuditActionCatalog.AuditQueried,
         AuditActionCatalog.AuthSelfServicePrincipalRejected,
         AuditActionCatalog.PasskeyCounterRollback,
+        AuditActionCatalog.MfaChallengeFailed,
+        AuditActionCatalog.MfaChallengeLocked,
         "account.delete",
         "admin.bootstrap.completed",
         "admin.bootstrap.passkey_failed",

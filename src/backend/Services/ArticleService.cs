@@ -62,6 +62,7 @@ public partial class ArticleService(
 
     private const int MaxPageSize = 100;
     private const string ArticleListCursorWhereClause = " AND (a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId))";
+    private const string ArticleListTotalCountColumn = "__TotalCount";
     private const int MaxSearchKeywordLength = 128;
     private const int MinCacheableSearchKeywordLength = 2;
     private const int MaxCacheableSearchKeywordLength = 64;

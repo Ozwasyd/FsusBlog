@@ -87,7 +87,9 @@ describe('home editorial components', () => {
       expect.arrayContaining(['aspect-video', 'md:aspect-[4/3]'])
     )
     expect(wrapper.get('img').attributes('src')).toBe('/uploads/lead.webp')
-    expect(wrapper.get('img').attributes('style')).toContain('object-position: 50% 50%')
+    expect(wrapper.get('img').classes()).toEqual(
+      expect.arrayContaining(['object-cover', 'object-center'])
+    )
     expect(wrapper.get('h1').text()).toBe('内容先于站点口号')
     expect(wrapper.text()).not.toContain('阅读全文')
 
@@ -197,7 +199,7 @@ describe('home editorial components', () => {
     expect(wrapper.text()).not.toContain('阅读')
     expect(wrapper.get('nav').text()).toContain('1 / 2')
 
-    await wrapper.get('button:not([disabled])').trigger('click')
+    await wrapper.get('[data-aot-action="page-next"]').trigger('click')
     expect(wrapper.emitted('page-next')).toHaveLength(1)
     wrapper.unmount()
   })

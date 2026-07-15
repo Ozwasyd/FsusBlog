@@ -508,6 +508,9 @@ public class ArticleServiceValidationTests
         string cursorClause = (string)typeof(ArticleService)
             .GetField("ArticleListCursorWhereClause", BindingFlags.Static | BindingFlags.NonPublic)!
             .GetRawConstantValue()!;
+        string totalCountColumn = (string)typeof(ArticleService)
+            .GetField("ArticleListTotalCountColumn", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetRawConstantValue()!;
 
         Assert.Contains("ShouldUsePublicKeysetPagination", methodBlock, StringComparison.Ordinal);
         Assert.Contains("LoadPublicArticleListPageByKeysetAsync", methodBlock, StringComparison.Ordinal);
@@ -515,6 +518,8 @@ public class ArticleServiceValidationTests
         Assert.Contains("a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId)", cursorClause, StringComparison.Ordinal);
         Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", methodBlock, StringComparison.Ordinal);
         Assert.Contains("@Offset", methodBlock, StringComparison.Ordinal);
+        Assert.Equal("__TotalCount", totalCountColumn);
+        Assert.Contains("__TotalCount", methodBlock, StringComparison.Ordinal);
     }
 
     [Fact]

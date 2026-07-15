@@ -34,6 +34,12 @@ public sealed class AuditRetentionPolicyTests
         Assert.True(issuance.MaxFullRecordAge <= TimeSpan.FromDays(30));
         Assert.True(issuance.MaxPseudonymAge <= TimeSpan.FromDays(30));
         Assert.False(issuance.LegalHoldAllowed);
+        Assert.Equal(
+            AuditActionCatalog.MfaChallengeFailed,
+            AuditRetentionCatalog.GetRequired(AuditActionCatalog.MfaChallengeFailed).Action);
+        Assert.Equal(
+            AuditActionCatalog.MfaChallengeLocked,
+            AuditRetentionCatalog.GetRequired(AuditActionCatalog.MfaChallengeLocked).Action);
     }
 
     [Fact]

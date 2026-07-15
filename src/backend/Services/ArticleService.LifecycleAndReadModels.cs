@@ -547,7 +547,7 @@ public partial class ArticleService
 
         parameters.Add(new SugarParameter("@Offset", (page - 1) * size));
         string combinedSql = $$"""
-            SELECT COUNT(1) AS "__TotalCount"
+            SELECT COUNT(1) AS "{{ArticleListTotalCountColumn}}"
             FROM article a
             WHERE {{whereSql}};
 
@@ -578,7 +578,9 @@ public partial class ArticleService
         {
             if (await reader.ReadAsync(cancellationToken))
             {
-                totalCount = reader.IsNull("count") ? 0 : Convert.ToInt32(reader.ReadValue("count"));
+                totalCount = reader.IsNull(ArticleListTotalCountColumn)
+                    ? 0
+                    : Convert.ToInt32(reader.ReadValue(ArticleListTotalCountColumn));
             }
 
             if (!await reader.NextResultAsync(cancellationToken))

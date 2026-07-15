@@ -28,6 +28,16 @@
       "replaySource": "audit log channel"
     },
     {
+      "type": "AuditDetachedCheckpointHostedService",
+      "source": "src/backend/Infrastructure/Audit/AuditDetachedCheckpointRuntime.cs",
+      "classification": "instance-local",
+      "idempotency": "existing detached checkpoint chain is verified before atomic create-next publication",
+      "drain": "cancel",
+      "maxDrainSeconds": 5,
+      "fence": "not-required",
+      "replaySource": "audit record log and detached checkpoint chain"
+    },
+    {
       "type": "HotStatsInvalidationCoalescer",
       "source": "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs",
       "classification": "instance-local",
@@ -129,13 +139,23 @@
     },
     {
       "type": "PublicHotReadMetricFlushWorker",
-      "source": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+      "source": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs",
       "classification": "instance-local",
       "idempotency": "striped process-local counters are collected once and exported as deltas",
       "drain": "explicit-flush",
       "maxDrainSeconds": 2,
       "fence": "not-required",
       "replaySource": "process-local metric counters"
+    },
+    {
+      "type": "PublicMutationFenceRecoveryWorker",
+      "source": "src/backend/Infrastructure/PublicReadArtifacts/PublicMutationFenceLease.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "per-article PostgreSQL advisory lock and generation-aware promotion make repeated recovery safe",
+      "drain": "cancel",
+      "maxDrainSeconds": 5,
+      "fence": "not-required",
+      "replaySource": "durable public artifact transition-pending tombstones"
     },
     {
       "type": "SecurityRiskEventWriterWorker",
@@ -246,16 +266,6 @@
       "maxDrainSeconds": 5,
       "fence": "not-required",
       "replaySource": "RUM telemetry channel"
-    },
-    {
-      "type": "ArticleViewProjectionRepairWorker",
-      "source": "src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs",
-      "classification": "active-singleton",
-      "idempotency": "repair checkpoint and projection version reject older writes",
-      "drain": "finish-current",
-      "maxDrainSeconds": 15,
-      "fence": "active-release+worker-lease+pre-commit",
-      "replaySource": "visit log projection checkpoint"
     },
     {
       "type": "VisitLogProcessorService",

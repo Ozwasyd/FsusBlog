@@ -918,15 +918,17 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             Assert.IsType<EnableRateLimitingAttribute>(
                 endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
         Assert.NotNull(endpoint.Metadata.GetMetadata<NoStoreResponseMetadata>());
-        string source = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Modules", "Endpoints", "Binary",
-            "BinaryEndpoints.AnonymousCredential.cs");
-        Assert.Contains("anonymous_credential_legacy_issuance_rejected", source, StringComparison.Ordinal);
-        Assert.Contains("StatusCodes.Status410Gone", source, StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "group.MapPost(\"/anonymous-credential/issue\", HandleAnonymousCredentialIssueAsync",
-            source,
-            StringComparison.Ordinal);
+
+        using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
+        using HttpClient client = server.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/binary/anonymous-credential/issue");
+        request.Headers.Accept.ParseAdd("application/octet-stream");
+        EndpointSecurityTestServer.AddAnonymousAccount(request);
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
+        var error = await EndpointSecurityTestServer.ReadErrorAsync(response);
+        Assert.Equal("anonymous_credential_legacy_issuance_rejected", error.Message);
     }
 
     private static AnonymousCredentialIssuerService CreateService(

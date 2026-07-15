@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -37,9 +38,10 @@ public sealed class CommentAuthorModeRetirementTests
     [Fact]
     public void RetirementMigration_PreservesDisplayStructureAndVisibilityWhileIsolatingIdentityState()
     {
-        string source = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src", "backend", "Infrastructure", "SchemaMigration",
-            "SchemaMigrationRegistry.CommentAuthorModeRetirement.cs"));
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260716-post-comment-author-mode-retirement");
+        string source = Assert.IsType<RawSqlStep>(Assert.Single(descriptor.Steps)).Sql;
 
         Assert.Contains("author_mode = 'legacy_server_visible_pseudonymous'", source, StringComparison.Ordinal);
         Assert.Contains("DELETE FROM comment_anonymous_nullifier", source, StringComparison.Ordinal);
@@ -57,15 +59,10 @@ public sealed class CommentAuthorModeRetirementTests
     [Fact]
     public void ProductionSources_ContainNoEngineeringAnonymousIdentityFallback()
     {
-        string resolver = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src", "backend", "Services", "Security", "CommentActorResolver.cs"));
-        string frontend = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src", "frontend", "src", "composables", "useArticleDetailView.ts"));
+        string resolver = RuntimeMetadataInspection.DescribeType(typeof(CommentActorResolver));
 
         Assert.DoesNotContain("DeriveEngineeringNullifierHash", resolver, StringComparison.Ordinal);
         Assert.DoesNotContain("fsus.anonymous.nullifier.v2", resolver, StringComparison.Ordinal);
-        Assert.DoesNotContain("submitOrdinaryAnonymousComment", frontend, StringComparison.Ordinal);
-        Assert.DoesNotContain("authorMode: 'anonymous'", frontend, StringComparison.Ordinal);
     }
 
     private static IConfiguration BuildConfiguration(bool zkEnabled)

@@ -90,6 +90,15 @@
       "patterns": ["Results.Json(new", "Results.Json("],
       "routes": ["/api/release-evidence/schema-bridge/write", "/api/release-evidence/schema-qualification/readiness"],
       "reason": "Test-only release rehearsal probes, absent unless the Test environment and qualification switch are both enabled; production runtime application APIs remain AEDS/binary."
+    },
+    {
+      "id": "csp-browser-report-ingress-json",
+      "classification": "allowed-exemption",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/CspReportEndpoints.cs",
+      "patterns": ["mediaType.Equals(\"application/json\""],
+      "routes": ["/csp-report"],
+      "reason": "CSP violation reports are browser/platform ingress documents, not an internal application API or JSON response fallback."
     }
   ]
 }
