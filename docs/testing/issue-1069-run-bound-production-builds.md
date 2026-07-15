@@ -6,7 +6,7 @@ Production、release-final 与对应 CI scheduler 运行把本轮编译输出集
 
 - `.NET` 使用 `dotnet/<MSBuildProjectName>/bin`、`dotnet/<MSBuildProjectName>/obj`，`BaseOutputPath`、`BaseIntermediateOutputPath` 和 `MSBuildProjectExtensionsPath` 均从同一 run root 派生。不同项目的 NuGet assets、generated editorconfig、Razor/static-web-assets 不共享 project extensions。
 - frontend 使用 `frontend/dist`、`frontend/cache`、`frontend/wasm` 与 `frontend/wwwroot`；CMake/Emscripten 中间产物使用 `wasm`，生成证据使用 `generated`。构建束是单写者，其他束只读取 readiness marker 中列出的文件与 SHA-256。
-- `layout.json` 同时绑定 scheduler run ID、Git commit 和 worktree fingerprint。backend server、backend tests、benchmark 与 frontend readiness marker 均绑定该 manifest digest，旧 run 文件即使仍在磁盘上也不能通过验证。
+- `layout.json` 同时绑定 scheduler run ID、Git commit 和 worktree fingerprint；source identity 首次绑定后不可改写，同值重入保持幂等。backend server、backend tests、benchmark 与 frontend readiness marker 均绑定该 manifest digest，旧 run 文件即使仍在磁盘上也不能通过验证。
 - 矩阵仍保留 `src/frontend/dist`、`src/frontend/public/wasm`、`src/backend/wwwroot` 等逻辑声明；digest 层只在当前 scheduler 环境内把它们解析到本轮物理根，使 logical tier projection 与 release evidence 不依赖历史目录。
 
 ## Fresh、清理与中断

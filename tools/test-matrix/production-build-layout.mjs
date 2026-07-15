@@ -263,6 +263,12 @@ export function bindProductionBuildLayoutSource(layout, sourceState) {
   const commit = String(sourceState?.commit ?? '').trim()
   const worktreeFingerprint = String(sourceState?.worktreeFingerprint ?? '').trim()
   if (!commit || !worktreeFingerprint) throw new Error('production build layout requires complete source identity')
+  const existingCommit = String(manifest.sourceState?.commit ?? '').trim()
+  const existingWorktreeFingerprint = String(manifest.sourceState?.worktreeFingerprint ?? '').trim()
+  if ((existingCommit && existingCommit !== commit)
+    || (existingWorktreeFingerprint && existingWorktreeFingerprint !== worktreeFingerprint)) {
+    throw new Error('production build layout source identity is immutable after binding')
+  }
   const bound = {
     ...manifest,
     sourceState: { commit, worktreeFingerprint }
