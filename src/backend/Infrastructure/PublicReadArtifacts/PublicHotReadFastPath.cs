@@ -757,6 +757,23 @@ public static class PublicHotReadFastPath
     private const string HtmlContentType = "text/html; charset=utf-8";
     private const string ServerSsrAotSource = "server-ssr";
     private static readonly Task Completed = Task.CompletedTask;
+    private static readonly string[] SensitiveApiPrefixes =
+    [
+        "/api/binary/auth",
+        "/api/binary/admin",
+        "/api/binary/author",
+        "/api/binary/manage",
+        "/api/binary/internal",
+        "/api/binary/billing",
+        "/api/binary/audit",
+        "/api/auth",
+        "/api/admin",
+        "/api/author",
+        "/api/manage",
+        "/api/internal",
+        "/api/billing",
+        "/api/audit"
+    ];
 
     public static Task TryServeAsync(
         HttpContext ctx,
@@ -782,16 +799,29 @@ public static class PublicHotReadFastPath
     internal static bool TryCreateRequestFeature(
         HttpContext ctx,
         out PublicHotReadRequestFeature? feature)
+        => TryCreateRequestFeatureWithBypass(ctx, out feature, out _);
+
+    internal static bool TryCreateRequestFeatureWithBypass(
+        HttpContext ctx,
+        out PublicHotReadRequestFeature? feature,
+        out bool sensitivePrefixBypass)
     {
         feature = null;
+        sensitivePrefixBypass = false;
         string? path = ctx.Request.Path.Value;
         if (path is null)
         {
             return false;
         }
 
+        if (IsSensitiveApiPath(path))
+        {
+            sensitivePrefixBypass = true;
+            return false;
+        }
+
         ReadOnlySpan<char> span = path.AsSpan();
-        bool binaryPrefixCandidate = IsCategoryPath(path)
+        bool allowlistedBinaryCandidate = IsCategoryPath(path)
             || IsTagPath(path)
             || string.Equals(path, ArticlePrefix, StringComparison.Ordinal)
             || path.StartsWith(ArticlePrefix + "/", StringComparison.Ordinal);
@@ -800,7 +830,7 @@ public static class PublicHotReadFastPath
         bool isPublicHtmlRoute = route.Kind == PublicHotReadRouteKind.PublicHtml;
 
         if (IsDynamicRelatedReadingPath(span)
-            || (!classified && !binaryPrefixCandidate))
+            || (!classified && !allowlistedBinaryCandidate))
         {
             return false;
         }
@@ -830,6 +860,15 @@ public static class PublicHotReadFastPath
         HttpContext ctx,
         out PublicHotReadRequestFeature? feature)
         => TryCreateRequestFeature(ctx, out feature);
+
+    internal static bool TryCreateRequestFeatureForTests(
+        HttpContext ctx,
+        out PublicHotReadRequestFeature? feature,
+        out bool sensitivePrefixBypass)
+        => TryCreateRequestFeatureWithBypass(ctx, out feature, out sensitivePrefixBypass);
+
+    internal static bool IsSensitiveApiPathForTests(string path)
+        => IsSensitiveApiPath(path);
 
     internal static Task TryServeClassifiedAsync(
         HttpContext ctx,
@@ -1692,6 +1731,22 @@ public static class PublicHotReadFastPath
             _ => "list"
         };
 
+    private static bool IsSensitiveApiPath(string path)
+    {
+        foreach (string prefix in SensitiveApiPrefixes)
+        {
+            if (string.Equals(path, prefix, StringComparison.OrdinalIgnoreCase)
+                || (path.Length > prefix.Length
+                    && path[prefix.Length] == '/'
+                    && path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void WriteLegacyRouteHint(HttpContext ctx, string path)
     {
         if (string.Equals(path, ArticlePrefix, StringComparison.Ordinal))
@@ -2299,6 +2354,7 @@ public sealed class PublicHotReadCounters
 
 public sealed class PublicHotReadMetricFlushWorker(
     PublicHotReadCounters counters,
+    PublicHotReadClassifierCounters classifierCounters,
     ILogger<PublicHotReadMetricFlushWorker> logger) : BackgroundService
 {
     private static readonly Meter Meter = new("FsusBlog.PublicHotRead", "1.0.0");
@@ -2312,6 +2368,8 @@ public sealed class PublicHotReadMetricFlushWorker(
     private static readonly Counter<long> IdentityVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.identity");
     private static readonly Counter<long> BrotliVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.br");
     private static readonly Counter<long> GzipVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.gzip");
+    private static readonly Counter<long> SensitivePrefixBypassCounter =
+        Meter.CreateCounter<long>("fsus.hotread.classifier.sensitive_bypass");
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -2332,6 +2390,7 @@ public sealed class PublicHotReadMetricFlushWorker(
     private void Flush()
     {
         PublicHotReadCounterSnapshot snapshot = counters.CollectAndReset();
+        long sensitivePrefixBypass = classifierCounters.CollectSensitivePrefixBypassAndReset();
         AddIfPositive(ArticleHitCounter, snapshot.ArticleHit);
         AddIfPositive(ArticleMissCounter, snapshot.ArticleMiss);
         AddIfPositive(ListHitCounter, snapshot.ListHit);
@@ -2342,9 +2401,16 @@ public sealed class PublicHotReadMetricFlushWorker(
         AddIfPositive(IdentityVariantCounter, snapshot.IdentityVariant);
         AddIfPositive(BrotliVariantCounter, snapshot.BrotliVariant);
         AddIfPositive(GzipVariantCounter, snapshot.GzipVariant);
+        AddIfPositive(SensitivePrefixBypassCounter, sensitivePrefixBypass);
         if (snapshot.Rejected > 0)
         {
             logger.LogDebug("public-hot-read-rejected {Count}", snapshot.Rejected);
+        }
+        if (sensitivePrefixBypass > 0)
+        {
+            logger.LogWarning(
+                "public-hot-read-sensitive-prefix-bypass {Count}",
+                sensitivePrefixBypass);
         }
     }
 

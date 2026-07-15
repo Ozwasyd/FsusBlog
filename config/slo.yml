@@ -61,3 +61,10 @@ slos:
     window: 5m
     source: fsus.cache.operation.count{operation=remove_prefix,result=~registry_missing_scan_.*}
     alert: cache_registry_missing_scan
+
+  - id: public-hot-read-sensitive-bypass
+    objective: 0
+    unit: events
+    window: 5m
+    source: fsus.hotread.classifier.sensitive_bypass
+    alert: public_hot_read_sensitive_bypass

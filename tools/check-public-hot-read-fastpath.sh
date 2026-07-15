@@ -8,6 +8,7 @@ PROJECTOR_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicH
 EARLY_DATA_PLANE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs"
 SECURITY_GATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs"
 COMPOSITION_FILE="$ROOT_DIR/src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs"
+GATEWAY_FILE="$ROOT_DIR/deploy/production-openresty.conf"
 NONCE_TEMPLATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicAot/CspNonceUtf8Template.cs"
 ARTICLE_ENDPOINTS_FILE="$ROOT_DIR/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs"
 ARTICLE_API_FILE="$ROOT_DIR/src/frontend/src/api/article.ts"
@@ -149,6 +150,7 @@ const earlyDataPlane = fs.readFileSync(earlyDataPlaneFile, 'utf8');
 const securityGate = fs.readFileSync(securityGateFile, 'utf8');
 for (const token of [
   'PublicHotReadRequestFeature',
+  'PublicHotReadClassifierCounters',
   'ClassificationCount',
   'RouteKind',
   'ArticleId',
@@ -162,6 +164,28 @@ for (const token of [
     process.exit(1);
   }
 }
+for (const token of [
+  '/api/binary/auth',
+  '/api/binary/admin',
+  '/api/binary/author',
+  '/api/binary/manage',
+  '/api/binary/internal',
+  '/api/binary/billing',
+  '/api/binary/audit',
+  '/api/auth',
+  '/api/admin',
+  '/api/author',
+  '/api/manage',
+  '/api/internal',
+  '/api/billing',
+  '/api/audit',
+  'sensitivePrefixBypass'
+]) {
+  if (!fastPath.includes(token)) {
+    console.error(`[public-hot-read] explicit sensitive-prefix denylist is incomplete: ${token}`);
+    process.exit(1);
+  }
+}
 if (!fastPath.includes('ctx.Features.Get<PublicHotReadRequestFeature>()')) {
   console.error('[public-hot-read] writer does not consume the classified request feature');
   process.exit(1);
@@ -169,6 +193,48 @@ if (!fastPath.includes('ctx.Features.Get<PublicHotReadRequestFeature>()')) {
 for (const token of ['TryClassifyRoute', 'RequiresSecurityGateForRequest']) {
   if (securityGate.includes(token)) {
     console.error(`[public-hot-read] security gate reclassifies request path: ${token}`);
+    process.exit(1);
+  }
+}
+NODE
+
+echo "[public-hot-read] checking sensitive-prefix bypass observability"
+node - "$FASTPATH_FILE" "$EARLY_DATA_PLANE_FILE" "$GATEWAY_FILE" <<'NODE'
+const fs = require('node:fs');
+const [fastPathFile, earlyDataPlaneFile, gatewayFile] = process.argv.slice(2);
+const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const earlyDataPlane = fs.readFileSync(earlyDataPlaneFile, 'utf8');
+const gateway = fs.readFileSync(gatewayFile, 'utf8');
+for (const token of [
+  'fsus.hotread.classifier.sensitive_bypass',
+  'public-hot-read-sensitive-prefix-bypass',
+  'logger.LogWarning',
+  'CollectSensitivePrefixBypassAndReset'
+]) {
+  if (!fastPath.includes(token)) {
+    console.error(`[public-hot-read] missing sensitive-prefix bypass metric/alert token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'PublicHotReadClassifierCounters',
+  'SensitivePrefixBypass',
+  'sensitivePrefixBypass'
+]) {
+  if (!earlyDataPlane.includes(token)) {
+    console.error(`[public-hot-read] classifier does not record dedicated bypass state: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'location ~ ^/api/auth(/|$)',
+  'location ~ ^/api/(admin|author|manage|internal|billing|audit)(/|$)',
+  'location ~ ^/api/binary/(manage|internal|billing|audit)(/|$)',
+  'limit_req zone=fsus_auth_limit',
+  'limit_req zone=fsus_admin_limit'
+]) {
+  if (!gateway.includes(token)) {
+    console.error(`[public-hot-read] gateway sensitive-prefix normal lane is incomplete: ${token}`);
     process.exit(1);
   }
 }

@@ -42,7 +42,8 @@ if (!fs.existsSync(sloFile)) {
     'aot-hit-rate',
     'search-rebuild-success-rate',
     'scheduled-publish-delay',
-    'redis-prefix-registry-fallback'
+    'redis-prefix-registry-fallback',
+    'public-hot-read-sensitive-bypass'
   ]
   const ids = new Set(entries.map((entry) => entry.id))
   for (const id of required) {

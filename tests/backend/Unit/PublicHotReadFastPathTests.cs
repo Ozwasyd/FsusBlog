@@ -20,6 +20,26 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicHotReadFastPathTests
 {
+    public static TheoryData<string> SensitiveApiPaths => new()
+    {
+        "/api/binary/auth",
+        "/api/binary/auth/login",
+        "/api/binary/admin/users",
+        "/api/binary/author/drafts",
+        "/api/binary/manage/cache",
+        "/api/binary/internal/health",
+        "/api/binary/billing/invoices",
+        "/api/binary/audit/events",
+        "/api/auth/login",
+        "/api/admin/users",
+        "/api/author/drafts",
+        "/api/manage/cache",
+        "/api/internal/health",
+        "/api/billing/invoices",
+        "/api/audit/events",
+        "/API/BINARY/ADMIN/USERS"
+    };
+
     [Fact]
     public async Task TryServeAsync_DetailHit_WritesPreencodedFrameWithoutNext()
     {
@@ -678,6 +698,108 @@ public sealed class PublicHotReadFastPathTests
         Assert.True(nextCalled);
     }
 
+    [Theory]
+    [MemberData(nameof(SensitiveApiPaths))]
+    public void EarlyClassifier_ExplicitlyBypassesEverySensitiveApiPrefix(string path)
+    {
+        DefaultHttpContext context = CreateContext(path);
+
+        bool classified = PublicHotReadFastPath.TryCreateRequestFeatureForTests(
+            context,
+            out PublicHotReadRequestFeature? feature,
+            out bool sensitivePrefixBypass);
+
+        Assert.False(classified);
+        Assert.Null(feature);
+        Assert.True(sensitivePrefixBypass);
+        Assert.True(PublicHotReadFastPath.IsSensitiveApiPathForTests(path));
+    }
+
+    [Theory]
+    [InlineData("/api/binary/article/42.aeds")]
+    [InlineData("/api/binary/article/list/home/1/10.aeds")]
+    [InlineData("/api/binary/article/hot/10.aeds")]
+    [InlineData("/api/binary/article/featured/4.aeds")]
+    [InlineData("/api/binary/category.aeds")]
+    [InlineData("/api/binary/tag.aeds")]
+    [InlineData("/api/binary/article/html/home.html")]
+    [InlineData("/")]
+    [InlineData("/article/42")]
+    [InlineData("/category/7")]
+    [InlineData("/tag/9")]
+    public void EarlyClassifier_AllowsOnlyRegisteredPublicArtifactRoutes(string path)
+    {
+        DefaultHttpContext context = CreateContext(path);
+
+        bool classified = PublicHotReadFastPath.TryCreateRequestFeatureForTests(
+            context,
+            out PublicHotReadRequestFeature? feature,
+            out bool sensitivePrefixBypass);
+
+        Assert.True(classified);
+        Assert.NotNull(feature);
+        Assert.False(sensitivePrefixBypass);
+    }
+
+    [Theory]
+    [InlineData("/api/binary/administer/users")]
+    [InlineData("/api/authentication/login")]
+    [InlineData("/api/billing-history")]
+    public void SensitivePrefixClassifier_RequiresAnExactPathSegmentBoundary(string path)
+    {
+        Assert.False(PublicHotReadFastPath.IsSensitiveApiPathForTests(path));
+    }
+
+    [Theory]
+    [InlineData("/api/notifications/stream")]
+    [InlineData("/api/binary/article/42/related.aeds")]
+    [InlineData("/api/binary/comments/article/42")]
+    public void EarlyClassifier_NonArtifactRoutesRemainNormalPipelineWithoutSecurityBypassMetric(string path)
+    {
+        DefaultHttpContext context = CreateContext(path);
+
+        bool classified = PublicHotReadFastPath.TryCreateRequestFeatureForTests(
+            context,
+            out PublicHotReadRequestFeature? feature,
+            out bool sensitivePrefixBypass);
+
+        Assert.False(classified);
+        Assert.Null(feature);
+        Assert.False(sensitivePrefixBypass);
+    }
+
+    [Fact]
+    public async Task EarlyClassifier_SensitiveRequestOnlyIncrementsDedicatedBypassCounter()
+    {
+        using ServiceProvider services = CreateFastPathServices(new PublicHotReadStore());
+        var app = new ApplicationBuilder(services);
+        bool nextCalled = false;
+        app.UseFsusPublicHotReadClassifier();
+        app.Run(context =>
+        {
+            nextCalled = true;
+            Assert.Null(context.Features.Get<PublicHotReadRequestFeature>());
+            return Task.CompletedTask;
+        });
+        DefaultHttpContext context = CreateContext("/api/binary/admin/users");
+
+        await app.Build()(context);
+
+        Assert.True(nextCalled);
+        Assert.Equal(
+            1,
+            services.GetRequiredService<PublicHotReadClassifierCounters>().SensitivePrefixBypassSnapshot());
+        PublicHotReadCounterSnapshot fastPath = services.GetRequiredService<PublicHotReadCounters>().Snapshot();
+        Assert.Equal(0, fastPath.ArticleHit);
+        Assert.Equal(0, fastPath.ArticleMiss);
+        Assert.Equal(0, fastPath.ListHit);
+        Assert.Equal(0, fastPath.ListMiss);
+        Assert.Equal(0, fastPath.HtmlHit);
+        Assert.Equal(0, fastPath.HtmlMiss);
+        Assert.Equal(0, fastPath.Rejected);
+        Assert.Equal(0, fastPath.Bytes);
+    }
+
     [Fact]
     public async Task TryServeAsync_RelatedReadingRoute_PassesThroughToDynamicEndpoint()
     {
@@ -1248,7 +1370,7 @@ public sealed class PublicHotReadFastPathTests
     public void FastPathRuntime_UsesRouteClassifierInsteadOfMatcherChain()
     {
         MethodInfo featureFactory = typeof(PublicHotReadFastPath).GetMethod(
-            "TryCreateRequestFeature",
+            "TryCreateRequestFeatureWithBypass",
             BindingFlags.Static | BindingFlags.NonPublic)!;
         MethodBase[] calls = ReadCalledMethods(featureFactory).ToArray();
 
@@ -1550,6 +1672,7 @@ public sealed class PublicHotReadFastPathTests
         services
             .AddSingleton(store)
             .AddSingleton(new PublicHotReadCounters())
+            .AddSingleton(new PublicHotReadClassifierCounters())
             .AddSingleton<IOptions<PublicHotReadOptions>>(Options.Create(options))
             .AddSingleton(optionsMonitor)
             .AddSingleton<PublicHotReadEarlyDataPlaneRuntimeState>()

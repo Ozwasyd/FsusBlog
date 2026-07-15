@@ -24,6 +24,20 @@ public sealed class PublicHotReadEarlyDataPlaneRuntimeState : IDisposable
         => Volatile.Write(ref _enabled, options.Enabled ? 1 : 0);
 }
 
+public sealed class PublicHotReadClassifierCounters
+{
+    private long _sensitivePrefixBypass;
+
+    internal void SensitivePrefixBypass()
+        => Interlocked.Increment(ref _sensitivePrefixBypass);
+
+    internal long SensitivePrefixBypassSnapshot()
+        => Volatile.Read(ref _sensitivePrefixBypass);
+
+    internal long CollectSensitivePrefixBypassAndReset()
+        => Interlocked.Exchange(ref _sensitivePrefixBypass, 0);
+}
+
 internal enum PublicHotReadArtifactMediaKind : byte
 {
     Binary = 0,
@@ -125,11 +139,25 @@ public static class PublicHotReadEarlyDataPlaneExtensions
     {
         PublicHotReadEarlyDataPlaneRuntimeState runtimeState =
             app.ApplicationServices.GetRequiredService<PublicHotReadEarlyDataPlaneRuntimeState>();
+        PublicHotReadClassifierCounters classifierCounters =
+            app.ApplicationServices.GetRequiredService<PublicHotReadClassifierCounters>();
         return app.Use((context, next) =>
         {
-            if (!runtimeState.Enabled
-                || !PublicHotReadFastPath.TryCreateRequestFeature(context, out PublicHotReadRequestFeature? feature))
+            if (!runtimeState.Enabled)
             {
+                return next(context);
+            }
+
+            if (!PublicHotReadFastPath.TryCreateRequestFeatureWithBypass(
+                    context,
+                    out PublicHotReadRequestFeature? feature,
+                    out bool sensitivePrefixBypass))
+            {
+                if (sensitivePrefixBypass)
+                {
+                    classifierCounters.SensitivePrefixBypass();
+                }
+
                 return next(context);
             }
 

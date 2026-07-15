@@ -375,6 +375,8 @@ Feed 与 sitemap 是两条独立投影：Feed 只读取按实际发布时间排�
 
 公开 GET 不默认要求 PoW，以免伤害 SEO、RSS、分享卡片和无 JS 阅读；但公开评论读取、公开 taxonomy、related-reading 等动态 API 会进入 `public_read` 限流和 `RiskAwarePublicReadFilter`。风险分由 Shield、RateLimiter、PoW 与 ReadProof 拒绝事件写入；达到阈值时动态 API 要求 `X-Fsus-Pow-Proof`，持续高风险返回 429。PublicHotRead artifact 命中保持零 DB/零 Redis/零 filter 快路径。
 
+L0 classifier 是 deny-first + allowlist：`/api` 与 `/api/binary` 下 `auth`、`admin`、`author`、`manage`、`internal`、`billing`、`audit` 完整 namespace 一律不创建 fast-path feature；只有本文登记的 article/category/tag artifact 与 Public AOT HTML route 可进入 L0。敏感 namespace 继续走常规 authentication/authorization/audit 管线，并且不计入 L0 hit/miss/bytes/rejected 指标；独立 `fsus.hotread.classifier.sensitive_bypass` 仅作为 gateway/分类回归告警，不携带路径或身份 tag。
+
 ### L0 artifact HTTP 语义
 
 L0 artifact 只接受 `GET`/`HEAD`；`OPTIONS` 在同源场景下返回 `405`，不在 fast path 上注入 CORS。Binary artifact 接受空 `Accept`、`*/*` 或 `application/octet-stream`；HTML artifact 只接受空 `Accept`、`*/*` 或 `text/html`；不匹配时返回 `406`。快照未进入 `Ready` 状态时返回 `503` + `Retry-After: 1`，除非显式启用 `PublicHotRead:FailOpenWhenNotReady` 降级到常规管线。`400`/`404`/`405`/`406`/`416`/`503` 等 L0 负响应固定 `Cache-Control: no-store`，`Range` 请求返回 `416`。`.aeds` 命中声明 `Accept-Ranges: none`，并可按 artifact 预生成 raw/br/gzip variant 返回 `Content-Encoding`、`Vary: Accept-Encoding` 和 variant-aware `ETag`；`If-None-Match` 命中当前 variant 时返回 `304`。HTML artifact 在发布期编译 CSP nonce UTF-8 template；请求只写预计算 segment/slot，不保留原始 placeholder，也不重新扫描整页。

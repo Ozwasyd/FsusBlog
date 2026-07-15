@@ -46,6 +46,9 @@ const defaultFixture = {
     registryMissingScanEmptyLast5m: 1,
     registryMissingScanFailedLast5m: 0
   },
+  publicHotRead: {
+    sensitivePrefixBypassLast5m: 1
+  },
   security: {
     status: 'blocked',
     authRefreshFamilyRevokeWindowsLast5m: 1,
@@ -67,6 +70,7 @@ const defaultFixture = {
     'cache_registry_missing_scan',
     'auth_refresh_family_revoke',
     'auth_refresh_cookie_write_failed',
+    'public_hot_read_sensitive_bypass',
     'security_blocker'
   ]
 };
@@ -125,6 +129,12 @@ const alertCatalog = {
     impact: 'Refresh rotation committed but the corresponding cookies could not be verified or staged, so affected clients must re-authenticate.',
     investigate: 'fsus.auth.refresh.cookie_write_failed_count, process restarts, response aborts, database connectivity and client one-retry outcomes; never export cookie, token or session values.',
     rollbackOrDegrade: 'Stop rollout promotion, keep replay-family revocation enabled, drain the unhealthy instance and retain public reads plus independent admin access while ordinary sessions recover.'
+  },
+  public_hot_read_sensitive_bypass: {
+    severity: 'critical',
+    impact: 'A sensitive API request reached the PublicHotRead early classifier boundary and had to be explicitly bypassed.',
+    investigate: 'fsus.hotread.classifier.sensitive_bypass, public-hot-read-sensitive-prefix-bypass logs, gateway sensitive-prefix routing and the request origin class.',
+    rollbackOrDegrade: 'Set PublicHotRead:Enabled=false through the reload-capable configuration source, keep normal authentication and authorization active, then inspect gateway routing before re-enabling.'
   },
   security_blocker: {
     severity: 'critical',
@@ -217,6 +227,7 @@ function evaluateAlerts(fixture) {
   const cacheFallbackRecovered = numberAt(fixture?.cache?.registryMissingScanRecoveredLast5m, 0);
   const cacheFallbackEmpty = numberAt(fixture?.cache?.registryMissingScanEmptyLast5m, 0);
   const cacheFallbackFailed = numberAt(fixture?.cache?.registryMissingScanFailedLast5m, 0);
+  const publicHotReadSensitiveBypass = numberAt(fixture?.publicHotRead?.sensitivePrefixBypassLast5m, 0);
 
   if (statusOf(readiness) !== 'ready'
     || Object.values(readinessChecks).some(isUnhealthy)
@@ -287,6 +298,12 @@ function evaluateAlerts(fixture) {
       failuresLastMinute: authRefreshCookieWriteFailed,
       threshold: thresholds.authRefreshCookieWriteFailedLastMinute
     }, ['fsus.auth.refresh.cookie_write_failed_count']);
+  }
+
+  if (publicHotReadSensitiveBypass > 0) {
+    addAlert(alerts, 'public_hot_read_sensitive_bypass', {
+      sensitivePrefixBypassLast5m: publicHotReadSensitiveBypass
+    }, ['fsus.hotread.classifier.sensitive_bypass', 'public-hot-read-sensitive-prefix-bypass logs']);
   }
 
   if (isUnhealthy(security) || securityBlockerCount > 0) {
