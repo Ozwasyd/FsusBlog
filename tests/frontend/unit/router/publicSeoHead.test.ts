@@ -86,6 +86,14 @@ describe('public SEO head takeover', () => {
     expect(commitPreparedPublicSeoHead('/archive')).toBe(false)
   })
 
+  it('treats the canonical page query as part of the public identity', async () => {
+    const model = await head('/?page=2', 'Home page 2')
+
+    expect(await validateAndPreparePublicSeoHead(model, '/?page=2', '/?page=2')).toBe(true)
+    resetPublicSeoHeadForTests()
+    expect(await validateAndPreparePublicSeoHead(model, '/?page=2', '/')).toBe(false)
+  })
+
   it('removes article canonical and structured data before a non-public route takes over', async () => {
     const model = await head('/article/1', 'Article A', 'article')
     await validateAndPreparePublicSeoHead(model, '/article/1', '/article/1')

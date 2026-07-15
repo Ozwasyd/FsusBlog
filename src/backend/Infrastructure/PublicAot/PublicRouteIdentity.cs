@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using FsusBlog.Shared.Contracts.Outputs;
+using System.Globalization;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
@@ -12,6 +13,7 @@ internal static class PublicRouteIdentity
     private static readonly string CategoryRoutePrefix = string.Concat(PublicRouteIdentityRegistry.CategoryBucket, ":");
     private static readonly string TagRoutePrefix = string.Concat(PublicRouteIdentityRegistry.TagBucket, ":");
     private static readonly string TagNameRoutePrefix = string.Concat(PublicRouteIdentityRegistry.TagNameBucket, ":");
+    private const string PageRouteMarker = ":page:";
 
     internal static bool TryResolveKind(PathString path, out PublicPageKind kind)
     {
@@ -80,8 +82,13 @@ internal static class PublicRouteIdentity
         }
 
         PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(pageId);
-        return string.IsNullOrWhiteSpace(descriptor.FixedRouteKey)
-            ? resolved
+        if (string.IsNullOrWhiteSpace(descriptor.FixedRouteKey))
+        {
+            return resolved;
+        }
+
+        return SupportsPagination(pageId)
+            ? BuildPaginatedRouteKey(descriptor.FixedRouteKey, ParsePageRouteKey(resolved))
             : descriptor.FixedRouteKey;
     }
 
@@ -100,6 +107,52 @@ internal static class PublicRouteIdentity
             _ => "/"
         };
     }
+
+    internal static bool SupportsPagination(PublicPageId pageId)
+        => pageId is PublicPageId.Home or PublicPageId.Filter;
+
+    internal static string BuildPaginatedRouteKey(string routeKey, int page)
+    {
+        string baseRouteKey = StripPagination(routeKey);
+        return page <= 1
+            ? baseRouteKey
+            : string.Concat(baseRouteKey, PageRouteMarker, page.ToString(CultureInfo.InvariantCulture));
+    }
+
+    internal static int ParsePageRouteKey(string routeKey)
+    {
+        string normalized = (routeKey ?? string.Empty).Trim();
+        int markerIndex = normalized.LastIndexOf(PageRouteMarker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex <= 0)
+        {
+            return 1;
+        }
+
+        return int.TryParse(normalized.AsSpan(markerIndex + PageRouteMarker.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int page)
+            && page > 1
+                ? page
+                : 1;
+    }
+
+    internal static string StripPagination(string routeKey)
+    {
+        string normalized = (routeKey ?? string.Empty).Trim();
+        int markerIndex = normalized.LastIndexOf(PageRouteMarker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex <= 0)
+        {
+            return normalized;
+        }
+
+        return int.TryParse(normalized.AsSpan(markerIndex + PageRouteMarker.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int page)
+            && page > 1
+                ? normalized[..markerIndex]
+                : normalized;
+    }
+
+    internal static string BuildPaginationQueryString(int page)
+        => page <= 1
+            ? string.Empty
+            : string.Concat("?page=", page.ToString(CultureInfo.InvariantCulture));
 
     internal static string? ResolveRouteBucket(PublicPageId pageId, string routeKey)
     {
@@ -151,7 +204,7 @@ internal static class PublicRouteIdentity
 
     internal static ParsedFilterRouteIdentity ParseFilterRouteKey(string routeKey)
     {
-        string normalizedRouteKey = (routeKey ?? string.Empty).Trim();
+        string normalizedRouteKey = StripPagination(routeKey);
 
         if (normalizedRouteKey.StartsWith(CategoryRoutePrefix, StringComparison.OrdinalIgnoreCase))
         {
@@ -234,6 +287,7 @@ internal static class PublicRouteIdentity
 
     private static string BuildCanonicalFilterPath(string routeKey)
     {
+        routeKey = StripPagination(routeKey);
         if (routeKey.StartsWith(CategoryRoutePrefix, StringComparison.OrdinalIgnoreCase))
         {
             return string.Concat(CategoryPathPrefix, routeKey[CategoryRoutePrefix.Length..]);

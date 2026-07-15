@@ -670,8 +670,7 @@ public static class WebApplicationCompositionExtensions
             {
                 string redirectTarget = string.Concat(
                     ctx.Request.PathBase.Value,
-                    outcome.RedirectPath,
-                    ctx.Request.QueryString.Value);
+                    outcome.RedirectPath);
                 return TypedResults.Redirect(redirectTarget, permanent: true);
             }
 

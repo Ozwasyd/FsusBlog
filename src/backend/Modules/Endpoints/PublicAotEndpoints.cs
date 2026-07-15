@@ -175,9 +175,15 @@ public static class PublicAotEndpoints
 
         target.Request.Path = path;
         target.Request.QueryString = string.IsNullOrWhiteSpace(query) ? QueryString.Empty : new QueryString(query);
-        if (!new PublicAotRouteRegistry().TryResolve(target, out _))
+        if (!new PublicAotRouteRegistry().TryResolve(target, out PublicAotRouteMatch match))
         {
             error = "public_navigation_snapshot_path_unsupported";
+            return false;
+        }
+
+        if (match.RequiresPaginationRedirect)
+        {
+            error = "public_navigation_snapshot_path_invalid";
             return false;
         }
 

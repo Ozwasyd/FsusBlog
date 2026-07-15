@@ -695,8 +695,18 @@ async function assertBundleWorkerSmoke(bundle) {
     title: 'Hot Article',
     views: 18
   }
+  const listArticle = {
+    id: 20,
+    title: 'Page two article',
+    summary: 'Rendered in the first HTML response.',
+    views: 3,
+    createTime: '2026-06-15T19:32:24.1570000Z',
+    category: { id: 7, name: 'Category' },
+    tags: [{ id: 9, name: 'Tag' }]
+  }
   const cases = [
     { kind: 'Home', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', pageIndex: 1, pageSize: 10, total: 1, articles: [], featuredArticles: [featuredArticle], hotArticles: [hotArticle] } },
+    { kind: 'Home', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', routeKey: 'home:page:2', pageIndex: 2, pageSize: 10, total: 30, articles: [listArticle], featuredArticles: [], hotArticles: [] } },
     { kind: 'About', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', content: 'About content' } },
     { kind: 'Archive', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', total: 0, articles: [] } },
     {
@@ -731,7 +741,8 @@ async function assertBundleWorkerSmoke(bundle) {
         }
       }
     },
-    { kind: 'Filter', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', routeKey: 'search', title: 'Search', filter: { filterType: 'search', filterKey: 'search', filterId: 0, filterName: '', isInvalidTarget: false, pageIndex: 1, pageSize: 10, total: 0, articles: [] } } }
+    { kind: 'Filter', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', routeKey: 'search', title: 'Search', filter: { filterType: 'search', filterKey: 'search', filterId: 0, filterName: '', isInvalidTarget: false, pageIndex: 1, pageSize: 10, total: 0, articles: [] } } },
+    { kind: 'Filter', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', routeKey: 'category:7:page:2', title: 'Category', filter: { filterType: 'category', filterKey: 'category:7', filterId: 7, filterName: 'Category', isInvalidTarget: false, pageIndex: 2, pageSize: 10, total: 30, articles: [listArticle] } } }
   ]
 
   for (const { kind, options } of cases) {
@@ -741,6 +752,18 @@ async function assertBundleWorkerSmoke(bundle) {
     }
     if (!entry.html.includes('fsus-aot-shell')) {
       fail(`bundle worker HTML missing public shell root for ${kind}`)
+    }
+    if (String(options.routeKey ?? '').endsWith(':page:2')) {
+      if (entry.routeKey !== options.routeKey) {
+        fail(`bundle worker dropped pagination route identity for ${kind}`)
+      }
+      if (!entry.html.includes('data-article-id="20"')) {
+        fail(`bundle worker page 2 first HTML missing target article for ${kind}`)
+      }
+      if (!/<a\b[^>]*href="[^"]+"[^>]*data-aot-action="page-prev"/i.test(entry.html)
+          || !/<a\b[^>]*href="[^"]+"[^>]*data-aot-action="page-next"/i.test(entry.html)) {
+        fail(`bundle worker page 2 pagination links are not crawlable anchors for ${kind}`)
+      }
     }
   }
 }

@@ -88,7 +88,19 @@ describe('createArticleListViewContract', () => {
     expect(vc.pagination.indicator).toBe('2 / 3')
     expect(vc.pagination.previous.disabled).toBe(false)
     expect(vc.pagination.next.disabled).toBe(false)
+    expect(vc.pagination.previous.href).toBe('/')
+    expect(vc.pagination.next.href).toBe('/?page=3')
     expect(vc.showPagination).toBe(true)
+  })
+
+  it('uses the caller canonical route for pagination hrefs', () => {
+    const vc = createArticleListViewContract(response as never, {
+      currentPage: 2,
+      pageSize: 10,
+      pageHref: (page) => page === 1 ? '/category/7' : `/category/7?page=${page}`
+    })
+    expect(vc.pagination.previous.href).toBe('/category/7')
+    expect(vc.pagination.next.href).toBe('/category/7?page=3')
   })
 
   it('disables previous on first page', () => {

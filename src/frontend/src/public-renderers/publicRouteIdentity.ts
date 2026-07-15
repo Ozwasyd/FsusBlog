@@ -29,6 +29,7 @@ const ARTICLE_PATH_PREFIX = PUBLIC_ROUTE_IDENTITY_TOKENS.articlePathPrefix
 const CATEGORY_PATH_PREFIX = PUBLIC_ROUTE_IDENTITY_TOKENS.categoryPathPrefix
 const TAG_PATH_PREFIX = PUBLIC_ROUTE_IDENTITY_TOKENS.tagPathPrefix
 const SEARCH_PATH = PUBLIC_ROUTE_IDENTITY_TOKENS.searchPath
+const PAGE_ROUTE_MARKER = ':page:'
 
 function normalizeText(value: unknown): string {
   if (typeof value === 'string') {
@@ -52,6 +53,40 @@ export function parsePositiveInt(value: unknown): number {
 
 export function buildPublicHomeRouteKey(): string {
   return PUBLIC_FIXED_ROUTE_KEYS.home
+}
+
+export function parsePublicRoutePage(routeKey: string): number {
+  const normalized = normalizeText(routeKey)
+  const markerIndex = normalized.lastIndexOf(PAGE_ROUTE_MARKER)
+  if (markerIndex <= 0) {
+    return 1
+  }
+
+  const page = Number(normalized.slice(markerIndex + PAGE_ROUTE_MARKER.length))
+  return Number.isSafeInteger(page) && page > 1 ? page : 1
+}
+
+export function stripPublicPaginationRouteKey(routeKey: string): string {
+  const normalized = normalizeText(routeKey)
+  const page = parsePublicRoutePage(normalized)
+  return page > 1 ? normalized.slice(0, normalized.lastIndexOf(PAGE_ROUTE_MARKER)) : normalized
+}
+
+export function buildPublicPaginatedRouteKey(routeKey: string, page: number): string {
+  const baseRouteKey = stripPublicPaginationRouteKey(routeKey)
+  const requestedPage = Math.trunc(page)
+  const normalizedPage = Number.isSafeInteger(requestedPage) && requestedPage > 1 ? requestedPage : 1
+  return normalizedPage > 1 ? `${baseRouteKey}${PAGE_ROUTE_MARKER}${normalizedPage}` : baseRouteKey
+}
+
+export function buildPublicPaginationHref(path: string, page: number): string {
+  const requestedPage = Math.trunc(page)
+  const normalizedPage = Number.isSafeInteger(requestedPage) && requestedPage > 1 ? requestedPage : 1
+  return normalizedPage > 1 ? `${path}?page=${normalizedPage}` : path
+}
+
+export function buildPublicHomePaginationHref(page: number): string {
+  return buildPublicPaginationHref(PUBLIC_FIXED_PATHS.home, page)
 }
 
 export function buildPublicAboutRouteKey(): string {
@@ -152,7 +187,7 @@ export function buildPublicTagHref(tagId: number | string): string {
 }
 
 function toCanonicalPublicPath(routeKey: string): string {
-  const normalizedRouteKey = normalizeText(routeKey)
+  const normalizedRouteKey = stripPublicPaginationRouteKey(routeKey)
   if (!normalizedRouteKey) {
     return '/'
   }
@@ -191,14 +226,19 @@ function toCanonicalPublicPath(routeKey: string): string {
   return '/'
 }
 
+export function buildPublicRoutePaginationHref(routeKey: string, page: number): string {
+  return buildPublicPaginationHref(toCanonicalPublicPath(routeKey), page)
+}
+
 export function parsePublicFilterRouteKey(routeKey: string): PublicFilterIdentity {
-  const normalizedRouteKey = normalizeText(routeKey) || UNKNOWN_FILTER_ROUTE_KEY
+  const fullRouteKey = normalizeText(routeKey) || UNKNOWN_FILTER_ROUTE_KEY
+  const normalizedRouteKey = stripPublicPaginationRouteKey(fullRouteKey)
   if (normalizedRouteKey.startsWith(CATEGORY_ROUTE_PREFIX)) {
     const filterId = parsePositiveInt(normalizedRouteKey.slice(CATEGORY_ROUTE_PREFIX.length))
     return {
       filterType: PUBLIC_FILTER_TYPE.category,
       filterKey: filterId > 0 ? buildPublicCategoryRouteKey(filterId) : normalizedRouteKey,
-      routeKey: normalizedRouteKey,
+      routeKey: fullRouteKey,
       filterId,
       filterName: null,
       canonicalPath: toCanonicalPublicPath(normalizedRouteKey)
@@ -210,7 +250,7 @@ export function parsePublicFilterRouteKey(routeKey: string): PublicFilterIdentit
     return {
       filterType: PUBLIC_FILTER_TYPE.tag,
       filterKey: filterName ? buildPublicTagNameRouteKey(filterName) : normalizedRouteKey,
-      routeKey: normalizedRouteKey,
+      routeKey: fullRouteKey,
       filterId: 0,
       filterName: filterName || null,
       canonicalPath: toCanonicalPublicPath(normalizedRouteKey)
@@ -222,7 +262,7 @@ export function parsePublicFilterRouteKey(routeKey: string): PublicFilterIdentit
     return {
       filterType: PUBLIC_FILTER_TYPE.tag,
       filterKey: filterId > 0 ? buildPublicTagIdRouteKey(filterId) : normalizedRouteKey,
-      routeKey: normalizedRouteKey,
+      routeKey: fullRouteKey,
       filterId,
       filterName: null,
       canonicalPath: toCanonicalPublicPath(normalizedRouteKey)
@@ -232,7 +272,7 @@ export function parsePublicFilterRouteKey(routeKey: string): PublicFilterIdentit
   return {
     filterType: PUBLIC_FILTER_TYPE.search,
     filterKey: normalizedRouteKey,
-    routeKey: normalizedRouteKey,
+    routeKey: fullRouteKey,
     filterId: 0,
     filterName: null,
     canonicalPath: '/'

@@ -55,7 +55,7 @@ public sealed record PublicAotNavigationSnapshot
             RouteKey = entry.RouteKey ?? match.RouteKey,
             Path = match.Path,
             QueryString = match.QueryString,
-            CanonicalPath = match.CanonicalPath,
+            CanonicalPath = match.CanonicalPathAndQuery,
             RendererVersion = rendererVersion,
             FrontendAssetVersion = frontendAssetVersion,
             BootstrapPayload = bootstrapPayload,

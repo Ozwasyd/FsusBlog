@@ -253,6 +253,55 @@ describe('publicEntryRegistry shared coverage', () => {
     expect(hydration?.view?.items).toHaveLength(1)
   })
 
+  it('preserves page-specific route seeds and canonical pagination links in SSR assemblies', async () => {
+    const renderShellMock = vi.mocked(renderShell)
+    renderShellMock.mockClear()
+
+    const home = await buildPublicEntry('Home', {
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      routeKey: 'home:page:2',
+      pageIndex: 2,
+      pageSize: 10,
+      total: 30,
+      articles: [],
+      featuredArticles: [],
+      hotArticles: []
+    })
+    const homeAssembly = renderShellMock.mock.calls.at(-1)?.[2] as {
+      props?: { view?: { pagination?: { previous?: { href?: string }; next?: { href?: string } } } }
+    }
+    const homeHydration = decodePublicAotPayload<{ routeKey?: string }>(home.entry.hydrationPropsPayload)
+
+    expect(home.entry.routeKey).toBe('home:page:2')
+    expect(homeHydration?.routeKey).toBe('home:page:2')
+    expect(homeAssembly.props?.view?.pagination?.previous?.href).toBe('/')
+    expect(homeAssembly.props?.view?.pagination?.next?.href).toBe('/?page=3')
+
+    await buildPublicEntry('Filter', {
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      routeKey: 'category:7:page:2',
+      title: 'Category',
+      filter: {
+        filterType: 'category',
+        filterKey: 'category:7',
+        filterId: 7,
+        filterName: 'Category',
+        isInvalidTarget: false,
+        pageIndex: 2,
+        pageSize: 10,
+        total: 30,
+        articles: []
+      }
+    })
+    const filterAssembly = renderShellMock.mock.calls.at(-1)?.[2] as {
+      props?: { view?: { pagination?: { previousHref?: string; nextHref?: string } } }
+    }
+    expect(filterAssembly.props?.view?.pagination?.previousHref).toBe('/category/7')
+    expect(filterAssembly.props?.view?.pagination?.nextHref).toBe('/category/7?page=3')
+  })
+
   it('emits one render clock for public article detail and related-reading display times', async () => {
     const result = await buildPublicEntry('ArticleDetail', {
       id: 1,

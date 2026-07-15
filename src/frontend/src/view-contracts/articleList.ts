@@ -1,6 +1,6 @@
 import type { ArticleListItemResponse, PageResponse } from '@/api/article';
 import { createPublicArticleDetailNavigationTarget } from '@/public-renderers/publicNavigationTargets'
-import { buildPublicCategoryHref, buildPublicTagHref } from '@/public-renderers/publicRouteIdentity'
+import { buildPublicCategoryHref, buildPublicHomePaginationHref, buildPublicTagHref } from '@/public-renderers/publicRouteIdentity'
 import type { CardContract, PaginationContract } from '@/ui-contracts/primitives';
 import { TimeUtils, type TimeRenderOptions } from '@/utils/time';
 
@@ -78,23 +78,32 @@ export function createArticleListCardViewContract(
 
 export function createArticleListViewContract(
   response: PageResponse<ArticleListItemResponse>,
-  options: { currentPage: number; pageSize: number; searchKeyword?: string; time?: TimeRenderOptions }
+  options: {
+    currentPage: number;
+    pageSize: number;
+    searchKeyword?: string;
+    time?: TimeRenderOptions;
+    pageHref?: (page: number) => string;
+  }
 ): ArticleListViewContract {
   const total = Number(response.total) || 0;
   const currentPage = Math.max(1, options.currentPage);
   const pageSize = Math.max(1, options.pageSize);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const pageHref = options.pageHref ?? buildPublicHomePaginationHref;
 
   return {
     items: response.items.map((article, index) => createArticleListCardViewContract(article, index, options.time)),
     pagination: {
       previous: {
         label: '上一页',
+        href: pageHref(Math.max(1, currentPage - 1)),
         disabled: currentPage <= 1,
         action: { action: 'page-prev' }
       },
       next: {
         label: '下一页',
+        href: pageHref(Math.min(totalPages, currentPage + 1)),
         disabled: currentPage >= totalPages,
         action: { action: 'page-next' }
       },

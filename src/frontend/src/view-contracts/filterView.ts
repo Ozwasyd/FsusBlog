@@ -37,6 +37,8 @@ export type FilterPageViewContract = Readonly<{
     pageIndicatorText: string;
     canGoPrev: boolean;
     canGoNext: boolean;
+    previousHref?: string;
+    nextHref?: string;
   }>;
 }>;
 
@@ -55,6 +57,8 @@ export function createFilterPageViewContract(view: {
   pageIndicatorText: string;
   canGoPrev: boolean;
   canGoNext: boolean;
+  previousHref?: string;
+  nextHref?: string;
 }): FilterPageViewContract {
   return {
     filterType: view.filterType,
@@ -79,7 +83,9 @@ export function createFilterPageViewContract(view: {
       totalPages: view.totalPages,
       pageIndicatorText: view.pageIndicatorText,
       canGoPrev: view.canGoPrev,
-      canGoNext: view.canGoNext
+      canGoNext: view.canGoNext,
+      previousHref: view.previousHref,
+      nextHref: view.nextHref
     }
   };
 }

@@ -144,11 +144,12 @@ function hasConsistentOriginAndIdentity(model: PublicSeoHeadModel, canonicalPath
   try {
     const canonical = new URL(model.canonicalUrl)
     const entity = new URL(model.pageEntityId, canonical)
-    const expectedPath = normalizeFullPath(canonicalPath).split(/[?#]/u, 1)[0]
+    const expectedPath = normalizeFullPath(canonicalPath).split('#', 1)[0]
+    const canonicalFullPath = normalizeFullPath(`${canonical.pathname}${canonical.search}`).split('#', 1)[0]
     return canonical.origin === model.publicOrigin &&
       entity.origin === canonical.origin &&
       entity.toString() === canonical.toString() &&
-      normalizeFullPath(canonical.pathname).split(/[?#]/u, 1)[0] === expectedPath &&
+      canonicalFullPath === expectedPath &&
       model.openGraph.url === model.canonicalUrl
   } catch {
     return false

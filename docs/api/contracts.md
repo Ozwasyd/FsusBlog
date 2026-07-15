@@ -1313,6 +1313,10 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 
 公共动态路径只接受 `/article/{positive-int}`、`/category/{positive-int}` 与 `/tag/{positive-int|valid-name}` 的完整匹配。`/tag/{positive-int}` 是唯一标签成功页；可解析的历史名称 URL 单跳 301 到 `/tag/{id}`，不生成成功 HTML。`/article/123/extra`、`/category/8/extra`、`/tag/vue/extra`、零值、空 segment、无效 percent encoding 和未知 path 都是 404。除根路径外，尾斜杠使用 301 单跳规范化到无尾斜杠 canonical。
 
+Home、category 与稳定 ID tag 页面支持公开 HTML 页码。输入只允许单个 `page` query：省略或规范值 `1` 表示第一页，第一页 self-canonical 为基础 URL；`page=N (N>1)` 的 self-canonical、Open Graph URL、navigation snapshot canonical 与分页链接都必须逐字使用 `?page=N`。显式 `page=1`、非十进制正整数、0、负数、重复值、前导零或任何无关 query 参数返回 301 到规范 URL；有效但超过总页数返回 404。服务端 AOT provider 必须以目标页读取数据，首屏 HTML 的文章集合和分页 indicator 不得等待 JavaScript 修正。可用上一页/下一页必须渲染带 `href` 的 `<a data-aot-action="page-prev|page-next">`；SPA 只可拦截该真实链接做等价导航，禁用 JavaScript 时链接仍可逐页抓取。
+
+规范分页身份进入 `routeKey`：第一页沿用 `home` / `category:{id}` / `tag:{id}`，后续页为 `{base}:page:{N}`。AOT document cache、hot HTML、route quarantine、backfill、hydration seed、navigation payload hash/ETag 都以该身份隔离；`QueryString` 只保存规范 `?page=N`，不保留其它 query。`scope=all` route manifest 必须按公开文章总数和固定 page size 10 枚举 Home/category/tag 的全部有效页面。文章 mutation 必须按 Home/Archive/Filter page prefix 清除所有分页 HTML 与版本，并在失效后仅把第一页作为优先 backfill；其它页由 manifest 或首次访问重建。
+
 Public AOT 冷 miss 的分类结果固定为 `Success`、`NotFound`、`Gone`、`TransientFailure`。`Success` 才允许读取/排队普通 AOT；`NotFound` 返回 404；仅在持久化模型明确表达永久删除时使用 410；provider、数据库 gate 或基础设施不可用返回 503 + `Retry-After: 5`。所有 404/410/503 页面均满足：
 
 - `Content-Type: text/html; charset=utf-8`、`Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`；
@@ -1333,7 +1337,7 @@ Public AOT 冷 miss 的分类结果固定为 `Success`、`NotFound`、`Gone`、`
 
 | 参数 | 说明 |
 |------|------|
-| `scope=all` | 默认，列出 Home / About / Privacy / Guidelines / Copyright / Archive / 全部公开文章 / 有公开文章的分类与标签 |
+| `scope=all` | 默认，列出 Home / About / Privacy / Guidelines / Copyright / Archive / 全部公开文章，以及 Home/分类/标签的全部有效分页 |
 | `scope=hot` | 列出固定页与最近公开文章相关 route，用于轻量预热 |
 | `changedSince=<ISO-8601>` | 列出指定时间后变更/发布的公开文章及其关联分类、标签 route |
 

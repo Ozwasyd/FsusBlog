@@ -428,7 +428,11 @@ public sealed class PublicAotDocumentService(
     }
 
     private static string ResolveCanonicalPath(PublicAotShellEntryContract entry)
-        => PublicRouteIdentity.BuildCanonicalPath(entry.PageId, entry.RouteKey, entry.ArticleId);
+        => string.Concat(
+            PublicRouteIdentity.BuildCanonicalPath(entry.PageId, entry.RouteKey, entry.ArticleId),
+            PublicRouteIdentity.SupportsPagination(entry.PageId)
+                ? PublicRouteIdentity.BuildPaginationQueryString(PublicRouteIdentity.ParsePageRouteKey(entry.RouteKey))
+                : string.Empty);
 
     private static PublicAotArticleSeoMetadata? BuildArticleSeoMetadata(
         PublicPageKind kind,

@@ -108,35 +108,31 @@ public sealed class PublicAotInvalidationService(
             _ => 50
         };
 
-    private async Task InvalidateListingsAsync(
+    private Task InvalidateListingsAsync(
         IEnumerable<int>? categoryIds,
         IEnumerable<int>? tagIds,
         CancellationToken cancellationToken)
     {
-        RouteInvalidation[] filterRoutes =
+        _ = categoryIds;
+        _ = tagIds;
+        _ = cancellationToken;
+        PublicPageId[] listingPageIds =
         [
-            .. NormalizeIds(categoryIds).Select(static categoryId =>
-                new RouteInvalidation(PublicPageId.Filter, PublicRouteIdentity.BuildCategoryRouteKey(categoryId))),
-            .. NormalizeIds(tagIds).Select(static tagId =>
-                new RouteInvalidation(PublicPageId.Filter, PublicRouteIdentity.BuildTagIdRouteKey(tagId)))
+            PublicPageId.Home,
+            PublicPageId.Archive,
+            PublicPageId.Filter
         ];
-        RouteInvalidation[] listingRoutes =
-        [
-            new(PublicPageId.Home, PublicAotPageCatalog.Home.FixedRouteKey ?? PublicAotPageIdentity.GetCanonicalSlug(PublicPageKind.Home)),
-            new(PublicPageId.Archive, PublicAotPageCatalog.Archive.FixedRouteKey ?? PublicAotPageIdentity.GetCanonicalSlug(PublicPageKind.Archive)),
-            .. filterRoutes
-        ];
-        foreach (RouteInvalidation route in listingRoutes)
+        foreach (PublicPageId pageId in listingPageIds)
         {
-            string cacheKey = ScopeKey(CacheKeyBuilder.PublicAotDocument(route.PageId, route.RouteKey));
-            invalidationTracker.MarkKey(cacheKey);
-            ssrRuntimeState.ClearRouteQuarantine(PublicAotPageCatalog.GetRequired(route.PageId).Kind, route.RouteKey);
-            hotReadStore.RemoveHtml(route.RouteKey);
+            string prefix = ScopeKey(CacheKeyBuilder.PublicAotDocument(pageId, string.Empty));
+            invalidationTracker.MarkPrefix(prefix);
         }
 
-        await InvalidateRoutesAsync(filterRoutes, cancellationToken);
+        ssrRuntimeState.ClearAllRouteQuarantines();
+        hotReadStore.ClearHtml();
 
         logger.LogDebug("Public AOT listing versions bumped.");
+        return Task.CompletedTask;
     }
 
     private async Task InvalidateRoutesAsync(
@@ -238,7 +234,7 @@ public sealed class PublicAotInvalidationService(
             route.Kind,
             route.RouteKey,
             route.Path,
-            string.Empty,
+            PublicRouteIdentity.BuildPaginationQueryString(PublicRouteIdentity.ParsePageRouteKey(route.RouteKey)),
             cacheKey)
         {
             PagePrefixKey = pagePrefixKey,

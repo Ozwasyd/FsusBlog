@@ -189,9 +189,13 @@ public class ArticleService(
                     {
                         ArticleListPageReadModel result = await LoadArticleListPageFromDbAsync(version, page, size, categoryId, tagId, isDeleted, status, includePrivate, normalizedKeyword, gateCt);
                         gateCt.ThrowIfCancellationRequested();
-                        byte[] encoded = ServerCacheBinaryCodec.EncodeArticleListPage(result);
-                        gateCt.ThrowIfCancellationRequested();
-                        await _cache.SetRawAsync(CachePolicyId.ArticleList, cacheIdentity, encoded, null, gateCt);
+                        int totalPages = Math.Max(1, (int)Math.Ceiling(result.Total / (double)size));
+                        if (page <= totalPages)
+                        {
+                            byte[] encoded = ServerCacheBinaryCodec.EncodeArticleListPage(result);
+                            gateCt.ThrowIfCancellationRequested();
+                            await _cache.SetRawAsync(CachePolicyId.ArticleList, cacheIdentity, encoded, null, gateCt);
+                        }
                         return result;
                     },
                     async gateCt =>
@@ -1824,9 +1828,15 @@ public class ArticleService(
         CancellationToken cancellationToken)
     {
         int totalCount = await GetCachedArticleListTotalCountAsync(countIdentity, whereSql, baseParameters, cancellationToken);
+        long offset = ((long)page - 1L) * size;
+        if (page > 1 && offset >= totalCount)
+        {
+            return new ArticleListPageReadModel { Items = [], Total = totalCount };
+        }
+
         var parameters = new List<SugarParameter>(baseParameters.Count + 1);
         parameters.AddRange(baseParameters);
-        parameters.Add(new SugarParameter("@Offset", (page - 1) * size));
+        parameters.Add(new SugarParameter("@Offset", checked((int)offset)));
         List<ArticleListItemReadModel> pageItems = await LoadPublicArticleListOffsetPageItemsAsync(whereSql, parameters, size, cancellationToken);
         await AttachArticleListTagsAsync(pageItems, cancellationToken);
         ArticleListItemReadModel? lastItem = pageItems.Count > 0 ? pageItems[^1] : null;

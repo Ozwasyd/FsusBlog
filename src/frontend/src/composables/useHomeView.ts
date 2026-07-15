@@ -15,6 +15,7 @@ import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
 import { createPublicSeedRenderTimeOptions } from '@/public-renderers/publicRenderClock'
+import { buildPublicHomePaginationHref } from '@/public-renderers/publicRouteIdentity'
 
 const HOME_FEATURED_ARTICLE_COUNT = 1
 const HOME_FEATURED_ARTICLE_PREFETCH_COUNT = 3
@@ -100,6 +101,7 @@ export function useHomeView() {
           {
             currentPage: currentPage.value,
             pageSize: pageSize.value,
+            pageHref: buildPublicHomePaginationHref,
             time: useSeedRenderTime.value ? seedRenderTimeOptions : undefined
           }
         )

@@ -25,7 +25,7 @@ import {
   PUBLIC_FILTER_TYPE,
   type PublicFilterType
 } from '@/public-renderers/publicFilterSemantics'
-import { buildPublicTagHref, resolvePublicFilterIdentity } from '@/public-renderers/publicRouteIdentity'
+import { buildPublicPaginationHref, buildPublicTagHref, resolvePublicFilterIdentity } from '@/public-renderers/publicRouteIdentity'
 import { PUBLIC_FILTER_ROUTE_NAMES } from '@/public-renderers/publicRouteRegistry'
 
 type NamedMeta = Pick<CategoryItem, 'id' | 'name'> | Pick<TagItem, 'id' | 'name'>
@@ -547,6 +547,26 @@ export function useFilterView() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  function buildPaginationHref(page: number): string {
+    const normalizedPage = Math.max(1, Math.trunc(page))
+    const identity = resolveRouteFilterIdentity()
+    if (identity.filterType !== PUBLIC_FILTER_TYPE.search) {
+      return buildPublicPaginationHref(identity.canonicalPath || route.path, normalizedPage)
+    }
+
+    const query: Record<string, string> = {}
+    if (searchKeyword.value) {
+      query.q = searchKeyword.value
+    }
+    if (searchSortMode.value !== 'relevance') {
+      query.sort = searchSortMode.value
+    }
+    if (normalizedPage > 1) {
+      query.page = String(normalizedPage)
+    }
+    return router.resolve({ path: route.path, query }).href
+  }
+
   function setSearchSortMode(mode: SearchSortMode): void {
     if (filterType.value !== PUBLIC_FILTER_TYPE.search || searchSortMode.value === mode) {
       return
@@ -636,7 +656,9 @@ export function useFilterView() {
         totalPages: totalPages.value,
         pageIndicatorText: pageIndicatorText.value,
         canGoPrev: canGoPrev.value,
-        canGoNext: canGoNext.value
+        canGoNext: canGoNext.value,
+        previousHref: buildPaginationHref(Math.max(1, currentPage.value - 1)),
+        nextHref: buildPaginationHref(Math.min(totalPages.value, currentPage.value + 1))
       })
     })
   }

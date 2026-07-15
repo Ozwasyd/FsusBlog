@@ -1,12 +1,74 @@
 using System.Reflection;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
+using FsusBlog.Shared.Contracts.Outputs;
+using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicAotBootstrapProviderTests
 {
+    [Fact]
+    public async Task HomeProvider_UsesPageSpecificSnapshotOnFirstServerRender()
+    {
+        IArticleService articles = Substitute.For<IArticleService>();
+        IAotSeoConfigSnapshot seo = Substitute.For<IAotSeoConfigSnapshot>();
+        articles.GetPageListAsync(2, 10, null, null, false, cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(new ArticleListPageReadModel { Items = [], Total = 21 });
+        articles.GetFeaturedArticlesAsync(3, Arg.Any<CancellationToken>()).Returns([]);
+        articles.GetHotArticlesAsync(5, Arg.Any<CancellationToken>()).Returns([]);
+        seo.GetAsync(Arg.Any<CancellationToken>()).Returns(new PublicAotSeoSnapshot("Fsus", "Blog", "https://example.test"));
+        var provider = new PublicAotHomeBootstrapProvider(articles, seo);
+        var match = new PublicAotRouteMatch(PublicPageKind.Home, PublicPageId.Home, "home:page:2", "/", "/", "?page=2")
+        {
+            Page = 2
+        };
+
+        var result = await provider.BuildSnapshotAsync(match);
+
+        Assert.True(result.IsSuccess, result.Error.Message);
+        PublicHomePageSnapshot snapshot = Assert.IsType<PublicHomePageSnapshot>(result.Value);
+        Assert.Equal(2, snapshot.Page);
+        Assert.Equal(21, snapshot.Total);
+        await articles.Received(1).GetPageListAsync(2, 10, null, null, false, cancellationToken: Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HomeProvider_ReturnsNotFoundForPageBeyondTotal()
+    {
+        IArticleService articles = Substitute.For<IArticleService>();
+        IAotSeoConfigSnapshot seo = Substitute.For<IAotSeoConfigSnapshot>();
+        articles.GetPageListAsync(3, 10, null, null, false, cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(new ArticleListPageReadModel { Items = [], Total = 11 });
+        seo.GetAsync(Arg.Any<CancellationToken>()).Returns(new PublicAotSeoSnapshot("Fsus", "Blog", "https://example.test"));
+        var provider = new PublicAotHomeBootstrapProvider(articles, seo);
+        var match = new PublicAotRouteMatch(PublicPageKind.Home, PublicPageId.Home, "home:page:3", "/", "/", "?page=3")
+        {
+            Page = 3
+        };
+
+        var result = await provider.BuildSnapshotAsync(match);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(FsusBlog.Core.Common.ErrorCode.NotFound, result.Error.Code);
+        Assert.Equal("public_aot_page_out_of_range", result.Error.Message);
+        await articles.DidNotReceive().GetFeaturedArticlesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(typeof(PublicAotHomeBootstrapProvider))]
+    [InlineData(typeof(PublicAotFilterBootstrapProvider))]
+    public void PaginatedProviders_ReadNormalizedTargetPageAndRejectOverflow(Type provider)
+    {
+        string build = RuntimeMetadataInspection.DescribeMethods(provider, "BuildSnapshotAsync");
+
+        Assert.Contains("PublicAotRouteMatch.get_Page", build, StringComparison.Ordinal);
+        Assert.Contains("ParsePageRouteKey", build, StringComparison.Ordinal);
+        Assert.Contains("public_aot_page_out_of_range", build, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ArticleDetailProvider_RuntimeUsesPublicOnlyProjection()
     {

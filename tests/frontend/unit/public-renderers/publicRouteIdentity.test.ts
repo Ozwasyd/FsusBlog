@@ -6,6 +6,9 @@ import {
   buildPublicArticleRouteKey,
   buildPublicFilterRouteKey,
   buildPublicHomeRouteKey,
+  buildPublicHomePaginationHref,
+  buildPublicPaginatedRouteKey,
+  buildPublicRoutePaginationHref,
   buildPublicTagHref,
   resolvePublicFilterIdentity
 } from '@/public-renderers/publicRouteIdentity'
@@ -24,6 +27,15 @@ describe('public route identity builders', () => {
     expect(buildPublicArticleRouteKey('oops')).toBe('article:0')
     expect(buildPublicArticleHref(12)).toBe('/article/12')
     expect(buildPublicArticleHref('oops')).toBe('/article/0')
+  })
+
+  it('keeps normalized page identity in route keys and canonical hrefs', () => {
+    expect(buildPublicPaginatedRouteKey('home', 2)).toBe('home:page:2')
+    expect(buildPublicPaginatedRouteKey('category:7:page:2', 3)).toBe('category:7:page:3')
+    expect(buildPublicHomePaginationHref(1)).toBe('/')
+    expect(buildPublicHomePaginationHref(2)).toBe('/?page=2')
+    expect(buildPublicRoutePaginationHref('category:7:page:2', 3)).toBe('/category/7?page=3')
+    expect(buildPublicRoutePaginationHref('tag:9:page:2', 1)).toBe('/tag/9')
   })
 
   it('derives filter route keys without duplicating page-specific rules in SSR builders', () => {

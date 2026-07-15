@@ -8,4 +8,11 @@ public sealed record class PublicAotRouteMatch(
     string RouteKey,
     string CanonicalPath,
     string Path,
-    string QueryString);
+    string QueryString)
+{
+    public int Page { get; init; } = 1;
+
+    public bool RequiresPaginationRedirect { get; init; }
+
+    public string CanonicalPathAndQuery => string.Concat(CanonicalPath, QueryString);
+}

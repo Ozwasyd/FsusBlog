@@ -54,6 +54,33 @@ public sealed class PublicAotRouteRegistryTests
     }
 
     [Theory]
+    [InlineData("/", "?page=2", "home:page:2", 2, "?page=2", false)]
+    [InlineData("/category/7", "?page=3", "category:7:page:3", 3, "?page=3", false)]
+    [InlineData("/tag/9", "?page=1", "tag:9", 1, "", true)]
+    [InlineData("/", "?page=0", "home", 1, "", true)]
+    [InlineData("/", "?page=oops", "home", 1, "", true)]
+    [InlineData("/", "?page=2&utm_source=test", "home:page:2", 2, "?page=2", true)]
+    public void TryResolve_PaginatedRoutes_NormalizesCanonicalIdentity(
+        string path,
+        string query,
+        string expectedRouteKey,
+        int expectedPage,
+        string expectedCanonicalQuery,
+        bool expectedRedirect)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = path;
+        context.Request.QueryString = new QueryString(query);
+
+        Assert.True(_registry.TryResolve(context, out PublicAotRouteMatch match));
+        Assert.Equal(expectedRouteKey, match.RouteKey);
+        Assert.Equal(expectedPage, match.Page);
+        Assert.Equal(expectedCanonicalQuery, match.QueryString);
+        Assert.Equal(expectedRedirect, match.RequiresPaginationRedirect);
+        Assert.Equal(string.Concat(match.CanonicalPath, expectedCanonicalQuery), match.CanonicalPathAndQuery);
+    }
+
+    [Theory]
     [InlineData("/article/0")]
     [InlineData("/article/42/extra")]
     [InlineData("/category/0")]

@@ -140,7 +140,7 @@ public sealed class PublicAotInvalidationTrackerTests
     }
 
     [Fact]
-    public async Task InvalidateArticleMutationAsync_BumpsListingVersionsWithoutPrefixScanning()
+    public async Task InvalidateArticleMutationAsync_InvalidatesEveryPaginatedListingIdentity()
     {
         var tracker = new PublicAotInvalidationTracker();
         var cache = new RecordingAotCache();
@@ -160,6 +160,7 @@ public sealed class PublicAotInvalidationTrackerTests
         string articleKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.ArticleDetail, "article:42");
         string articlePrefixKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.ArticleDetail, string.Empty);
         string filterKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "category:7");
+        string filterPageTwoKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "category:7:page:2");
         string filterPrefixKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, string.Empty);
         var homeRequest = new PublicAotBackfillRequest(PublicPageKind.Home, "home", "/", string.Empty, homeKey)
         {
@@ -176,15 +177,20 @@ public sealed class PublicAotInvalidationTrackerTests
             PagePrefixKey = filterPrefixKey,
             ScheduledInvalidationVersion = tracker.GetCurrentVersion(filterKey, filterPrefixKey)
         };
+        var filterPageTwoRequest = new PublicAotBackfillRequest(PublicPageKind.Filter, "category:7:page:2", "/category/7", "?page=2", filterPageTwoKey)
+        {
+            PagePrefixKey = filterPrefixKey,
+            ScheduledInvalidationVersion = tracker.GetCurrentVersion(filterPageTwoKey, filterPrefixKey)
+        };
 
         await service.InvalidateArticleMutationAsync(42, [7], [9]);
 
         Assert.Empty(cache.PrefixesRemoved);
         Assert.Contains(articleKey, cache.KeysRemoved);
-        Assert.Contains(filterKey, cache.KeysRemoved);
         Assert.True(tracker.WasInvalidatedAfter(homeRequest));
         Assert.True(tracker.WasInvalidatedAfter(articleRequest));
         Assert.True(tracker.WasInvalidatedAfter(filterRequest));
+        Assert.True(tracker.WasInvalidatedAfter(filterPageTwoRequest));
         Assert.Contains(scheduler.Requests, request => request.RouteKey == "home");
         Assert.Contains(scheduler.Requests, request => request.RouteKey == "archive");
         Assert.Contains(scheduler.Requests, request => request.RouteKey == "category:7");

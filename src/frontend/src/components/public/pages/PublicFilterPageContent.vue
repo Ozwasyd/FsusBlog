@@ -133,11 +133,13 @@ const handleEmptyAction = (event: MouseEvent): void => {
 const paginationContract = computed<PaginationContract>(() => ({
   previous: {
     label: '上一页',
+    href: props.view.pagination.previousHref,
     disabled: !props.view.pagination.canGoPrev,
     action: { action: 'page-prev' }
   },
   next: {
     label: '下一页',
+    href: props.view.pagination.nextHref,
     disabled: !props.view.pagination.canGoNext,
     action: { action: 'page-next' }
   },

@@ -53,6 +53,8 @@ import {
   buildPublicFilterRouteKey,
   buildPublicGuidelinesRouteKey,
   buildPublicHomeRouteKey,
+  buildPublicHomePaginationHref,
+  buildPublicRoutePaginationHref,
   buildPublicPrivacyRouteKey
 } from '@/public-renderers/publicRouteIdentity'
 import {
@@ -282,10 +284,11 @@ const homeEntryDefinition = definePublicEntry({
     const currentPage = toNumber(options.pageIndex ?? options.page, 1)
     const pageSize = toNumber(options.pageSize ?? options.size, 8)
     const total = toNumber(options.total, items.length)
-    const scope = createScope(buildPublicHomeRouteKey())
+    const scope = createScope(toText(options.routeKey, buildPublicHomeRouteKey()))
     const view = createArticleListViewContract({ items, total }, {
       currentPage,
       pageSize,
+      pageHref: buildPublicHomePaginationHref,
       time: scope.renderTimeOptions
     })
     const hydration = {
@@ -508,7 +511,9 @@ const filterEntryDefinition = definePublicEntry({
       totalPages,
       pageIndicatorText: `${pageIndex} / ${totalPages}`,
       canGoPrev: pageIndex > 1,
-      canGoNext: pageIndex < totalPages
+      canGoNext: pageIndex < totalPages,
+      previousHref: buildPublicRoutePaginationHref(scope.routeKey, Math.max(1, pageIndex - 1)),
+      nextHref: buildPublicRoutePaginationHref(scope.routeKey, Math.min(totalPages, pageIndex + 1))
     })
     const filter = {
       filterType,

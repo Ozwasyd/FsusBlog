@@ -491,10 +491,13 @@ public sealed class PublicAotShellServiceTests
         var match = new PublicAotRouteMatch(
             PublicPageKind.Filter,
             PublicPageId.Filter,
-            "tag-name:Café",
+            "tag-name:Café:page:2",
             string.Empty,
             "/tag/Caf%C3%A9",
-            "?page=2");
+            "?page=2")
+        {
+            Page = 2
+        };
         var cache = new RecordingAotCache();
         var scheduler = new RecordingBackfillScheduler();
         PublicAotShellService sut = CreateService(
@@ -510,7 +513,7 @@ public sealed class PublicAotShellServiceTests
         PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
 
         Assert.Equal(PublicAotRenderStatus.PermanentRedirect, result.Status);
-        Assert.Equal("/tag/17", result.RedirectPath);
+        Assert.Equal("/tag/17?page=2", result.RedirectPath);
         Assert.Empty(cache.RequestedKeys);
         Assert.Empty(scheduler.Requests);
         Assert.Equal("none", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
@@ -523,10 +526,13 @@ public sealed class PublicAotShellServiceTests
         var match = new PublicAotRouteMatch(
             PublicPageKind.Filter,
             PublicPageId.Filter,
-            "tag:17",
+            "tag:17:page:2",
             "/tag/17",
             "/TAG/017/",
-            "?page=2");
+            "?page=2")
+        {
+            Page = 2
+        };
         var cache = new RecordingAotCache();
         var scheduler = new RecordingBackfillScheduler();
         PublicAotShellService sut = CreateService(match, cache, scheduler);
@@ -535,7 +541,23 @@ public sealed class PublicAotShellServiceTests
         PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
 
         Assert.Equal(PublicAotRenderStatus.PermanentRedirect, result.Status);
-        Assert.Equal("/tag/17", result.RedirectPath);
+        Assert.Equal("/tag/17?page=2", result.RedirectPath);
+        Assert.Empty(cache.RequestedKeys);
+        Assert.Empty(scheduler.Requests);
+    }
+
+    [Fact]
+    public async Task RenderClassifiedAsync_NonCanonicalPagination_RedirectsBeforeCacheOrBackfill()
+    {
+        var match = HomeMatch() with { RequiresPaginationRedirect = true };
+        var cache = new RecordingAotCache();
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(match, cache, scheduler);
+
+        PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(new DefaultHttpContext(), match);
+
+        Assert.Equal(PublicAotRenderStatus.PermanentRedirect, result.Status);
+        Assert.Equal("/", result.RedirectPath);
         Assert.Empty(cache.RequestedKeys);
         Assert.Empty(scheduler.Requests);
     }
@@ -546,10 +568,13 @@ public sealed class PublicAotShellServiceTests
         var match = new PublicAotRouteMatch(
             PublicPageKind.Filter,
             PublicPageId.Filter,
-            "tag-name:Legacy",
+            "tag-name:Legacy:page:2",
             string.Empty,
             "/tag/Legacy",
-            string.Empty);
+            "?page=2")
+        {
+            Page = 2
+        };
         var renderer = new NavigationSnapshotRenderer();
         PublicAotShellService sut = CreateService(
             match,
@@ -565,13 +590,14 @@ public sealed class PublicAotShellServiceTests
         Result<PublicAotNavigationSnapshot> result = await sut.BuildNavigationSnapshotAsync(context, match);
 
         Assert.True(result.IsSuccess, result.Error.Message);
-        Assert.Equal("tag:23", result.Value!.RouteKey);
+        Assert.Equal("tag:23:page:2", result.Value!.RouteKey);
         Assert.Equal("/tag/23", result.Value.Path);
-        Assert.Equal("/tag/23", result.Value.CanonicalPath);
+        Assert.Equal("/tag/23?page=2", result.Value.CanonicalPath);
         PublicAotRenderRequest renderRequest = Assert.Single(renderer.Requests);
-        Assert.Equal("tag:23", renderRequest.Match.RouteKey);
+        Assert.Equal("tag:23:page:2", renderRequest.Match.RouteKey);
         PublicFilterPageSnapshot filter = Assert.IsType<PublicFilterPageSnapshot>(renderRequest.Snapshot);
-        Assert.Equal("tag:23", filter.RouteKey);
+        Assert.Equal("tag:23:page:2", filter.RouteKey);
+        Assert.Equal("tag:23", filter.FilterKey);
     }
 
     [Fact]
@@ -621,6 +647,40 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal(PublicSeoHeadContract.Schema, seoHead["schema"]);
         Assert.Equal(PublicSeoHeadContract.Version, Convert.ToInt32(seoHead["version"]));
         Assert.Equal(snapshot.SeoHead.Digest, seoHead["digest"]);
+    }
+
+    [Fact]
+    public async Task BuildNavigationSnapshotAsync_DistinguishesPaginationPayloadHashAndEtag()
+    {
+        PublicAotRouteMatch pageOne = HomeMatch();
+        PublicAotRouteMatch pageTwo = HomeMatch() with
+        {
+            RouteKey = "home:page:2",
+            QueryString = "?page=2",
+            Page = 2
+        };
+        var renderer = new NavigationSnapshotRenderer();
+        PublicAotShellService pageOneService = CreateService(
+            pageOne,
+            new RecordingAotCache(),
+            new RecordingBackfillScheduler(),
+            entryRenderer: renderer,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate());
+        PublicAotShellService pageTwoService = CreateService(
+            pageTwo,
+            new RecordingAotCache(),
+            new RecordingBackfillScheduler(),
+            entryRenderer: renderer,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate());
+
+        PublicAotNavigationSnapshot first = (await pageOneService.BuildNavigationSnapshotAsync(new DefaultHttpContext(), pageOne)).Value!;
+        PublicAotNavigationSnapshot second = (await pageTwoService.BuildNavigationSnapshotAsync(new DefaultHttpContext(), pageTwo)).Value!;
+
+        Assert.Equal("/?page=2", second.CanonicalPath);
+        Assert.NotEqual(first.PayloadHash, second.PayloadHash);
+        Assert.NotEqual(
+            PublicAotNavigationSnapshot.CreateEntityTag(first.EncodeFrame()),
+            PublicAotNavigationSnapshot.CreateEntityTag(second.EncodeFrame()));
     }
 
     private static PublicAotRouteMatch HomeMatch()

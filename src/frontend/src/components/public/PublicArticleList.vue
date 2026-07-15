@@ -74,27 +74,29 @@
   </div>
 
   <nav v-if="showPagination" :class="themeTokens.articleList.pagination" aria-label="文章分页">
-    <button
-      type="button"
+    <a
+      v-if="!pagination.previous.disabled"
+      :href="pagination.previous.href"
       :class="paginationButtonClass"
-      :disabled="pagination.previous.disabled"
       data-aot-action="page-prev"
       :data-aot-value="pagination.previous.action?.value"
       @click="handlePrev"
     >
       {{ pagination.previous.label }}
-    </button>
+    </a>
+    <span v-else :class="paginationButtonClass" aria-disabled="true">{{ pagination.previous.label }}</span>
     <span :class="themeTokens.articleList.paginationIndicator">{{ pagination.indicator }}</span>
-    <button
-      type="button"
+    <a
+      v-if="!pagination.next.disabled"
+      :href="pagination.next.href"
       :class="paginationButtonClass"
-      :disabled="pagination.next.disabled"
       data-aot-action="page-next"
       :data-aot-value="pagination.next.action?.value"
       @click="handleNext"
     >
       {{ pagination.next.label }}
-    </button>
+    </a>
+    <span v-else :class="paginationButtonClass" aria-disabled="true">{{ pagination.next.label }}</span>
   </nav>
 </template>
 
@@ -122,7 +124,7 @@ const emit = defineEmits<{
 }>();
 
 const paginationButtonClass = [
-  'inline-flex min-h-10 items-center justify-center rounded-[var(--fsusblog-reading-radius-control)] px-0 text-sm font-bold tracking-normal text-[var(--fsusblog-color-primary)] outline-none transition-colors duration-[var(--fsus-motion-control-fast)] hover:text-[var(--fsusblog-text-primary)] disabled:cursor-not-allowed disabled:text-[var(--fsusblog-text-subtle)]',
+  'inline-flex min-h-10 items-center justify-center rounded-[var(--fsusblog-reading-radius-control)] px-0 text-sm font-bold tracking-normal text-[var(--fsusblog-color-primary)] outline-none transition-colors duration-[var(--fsus-motion-control-fast)] hover:text-[var(--fsusblog-text-primary)] aria-disabled:cursor-not-allowed aria-disabled:text-[var(--fsusblog-text-subtle)]',
   themeTokens.focusRing
 ].join(' ');
 

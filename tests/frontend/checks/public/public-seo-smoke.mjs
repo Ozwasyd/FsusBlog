@@ -99,9 +99,10 @@ function assertMinimalRuntimeHintContract(html, label) {
     !html.includes('id="fsus-public-runtime-hint-root"'),
     `[${label}] runtime hint root should not render until a blocking action happens`
   );
+  const paginationActions = html.match(/<[^>]+data-aot-action="page-(?:prev|next)"[^>]*>/gi) || [];
   assert(
-    !/<a[^>]*data-aot-action="page-(?:prev|next)"/i.test(html),
-    `[${label}] pagination actions must not be anchors`
+    paginationActions.every((element) => /^<a\b/i.test(element) && /\shref="[^"]+"/i.test(element)),
+    `[${label}] enabled pagination actions must be crawlable anchors`
   );
   assert(
     !/<button[^>]*data-aot-action="open-article"/i.test(html),
@@ -393,12 +394,13 @@ async function runCheck(item) {
   const openGraphUrl = new URL(ogUrl);
   const canonicalPath = normalizePath(canonicalUrl.pathname);
   const ogPath = normalizePath(openGraphUrl.pathname);
-  const expectedPath = normalizePath(item.path);
+  const expectedUrl = new URL(item.path, baseUrl);
+  const expectedPath = normalizePath(expectedUrl.pathname);
   assert(canonicalPath === expectedPath, `[${item.name}] canonical path mismatch: expected ${expectedPath}, got ${canonicalPath}`);
   assert(ogPath === expectedPath, `[${item.name}] og:url path mismatch: expected ${expectedPath}, got ${ogPath}`);
   assertSameOrigin(canonicalUrl, openGraphUrl, `[${item.name}] OG URL`);
-  assert(!canonicalUrl.search, `[${item.name}] canonical should not include query`);
-  assert(!openGraphUrl.search, `[${item.name}] og:url should not include query`);
+  assert(canonicalUrl.search === expectedUrl.search, `[${item.name}] canonical query mismatch`);
+  assert(openGraphUrl.search === expectedUrl.search, `[${item.name}] og:url query mismatch`);
   const blogPosting = assertJsonLdCoherence(body, item, canonicalUrl, openGraphUrl);
   await assertSocialImageRuntime(body, item, blogPosting);
 
@@ -427,6 +429,54 @@ async function runCheck(item) {
   for (const text of item.expectedText ?? []) {
     assert(body.includes(text), `[${item.name}] missing expected text: ${text}`);
   }
+
+  return { body, canonicalUrl };
+}
+
+function readPaginationHref(body, action) {
+  const element = body.match(new RegExp(`<a\\b[^>]*data-aot-action="${action}"[^>]*>`, 'i'))?.[0] || '';
+  return element.match(/\shref="([^"]+)"/i)?.[1] || '';
+}
+
+function readArticleIds(body) {
+  return [...body.matchAll(/\sdata-article-id="(\d+)"/gi)].map((match) => Number(match[1]));
+}
+
+async function assertPaginationCrawlerContract(item) {
+  const first = await runCheck(item);
+  const nextHref = readPaginationHref(first.body, 'page-next');
+  if (nextHref) {
+    const nextUrl = new URL(nextHref, baseUrl);
+    const second = await runCheck({
+      ...item,
+      name: `${item.name}_page_2`,
+      path: `${nextUrl.pathname}${nextUrl.search}`
+    });
+    const firstIds = readArticleIds(first.body);
+    const secondIds = readArticleIds(second.body);
+    assert(secondIds.length > 0, `[${item.name}] page 2 first HTML must contain target-page articles`);
+    assert(
+      secondIds.every((id) => !firstIds.includes(id)),
+      `[${item.name}] page 2 first HTML reused page 1 article identities`
+    );
+    assert(readPaginationHref(second.body, 'page-prev'), `[${item.name}] page 2 missing crawlable previous href`);
+  }
+
+  for (const invalidQuery of ['?page=1', '?page=0', '?page=oops', '?page=2&utm_source=smoke']) {
+    const response = await fetchWithTimeout(`${baseUrl}${item.path}${invalidQuery}`, {
+      redirect: 'manual',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (FsusBlog Pagination Canonical Smoke)',
+        Accept: 'text/html,application/xhtml+xml'
+      }
+    }, requestTimeoutMs);
+    const expectedLocation = invalidQuery.startsWith('?page=2&') ? `${item.path}?page=2` : item.path;
+    assert(response.status === 301, `[${item.name}] ${invalidQuery} expected 301, got ${response.status}`);
+    assert(response.headers.get('location') === expectedLocation, `[${item.name}] ${invalidQuery} wrong canonical redirect`);
+    await response.arrayBuffer();
+  }
+
+  await assertRealNotFoundStatus({ name: `${item.name}_page_overflow`, path: `${item.path}?page=2147483647` });
 }
 
 async function fetchSettledPublicHtml(path) {
@@ -478,6 +528,20 @@ async function main() {
   for (const item of checks) {
     try {
       await runCheck(item);
+      console.log(`[public-seo-smoke] ok: ${item.name}`);
+    } catch (error) {
+      failures.push(`[public-seo-smoke] fail: ${item.name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  const paginatedChecks = [
+    { name: 'home_pagination', path: '/', expectedHydrationKind: 'Home' },
+    ...(categoryId ? [{ name: 'category_pagination', path: `/category/${categoryId}`, expectedHydrationKind: 'Filter' }] : []),
+    ...(tagId ? [{ name: 'tag_pagination', path: `/tag/${tagId}`, expectedHydrationKind: 'Filter' }] : [])
+  ];
+  for (const item of paginatedChecks) {
+    try {
+      await assertPaginationCrawlerContract(item);
       console.log(`[public-seo-smoke] ok: ${item.name}`);
     } catch (error) {
       failures.push(`[public-seo-smoke] fail: ${item.name}: ${error instanceof Error ? error.message : String(error)}`);
@@ -561,7 +625,7 @@ async function main() {
       }, requestTimeoutMs);
       assert(legacyName.status === 301, `[tag_name_redirect] expected 301, got ${legacyName.status}`);
       assert(
-        legacyName.headers.get('location') === `/tag/${tagId}?from=legacy`,
+        legacyName.headers.get('location') === `/tag/${tagId}`,
         `[tag_name_redirect] wrong target: ${legacyName.headers.get('location') || 'missing'}`
       );
       console.log('[public-seo-smoke] ok: tag_name_redirect');

@@ -38,6 +38,9 @@ public sealed class PublicNavigationSnapshotEndpointTests
     [InlineData("https://evil.test/archive")]
     [InlineData("/account")]
     [InlineData("/search?q=test")]
+    [InlineData("/?page=1")]
+    [InlineData("/?page=0")]
+    [InlineData("/category/7?page=2&utm_source=test")]
     [InlineData("/admin")]
     public void TryCreateNavigationSnapshotTargetContext_FailsClosedForUnsupportedOrPrivatePaths(string rawPath)
     {

@@ -9,11 +9,13 @@ export type TagTone = 'neutral' | 'info' | 'success' | 'danger' | 'warning';
 export type PaginationContract = Readonly<{
   previous: Readonly<{
     label: string;
+    href?: string;
     disabled?: boolean;
     action?: UiActionContract;
   }>;
   next: Readonly<{
     label: string;
+    href?: string;
     disabled?: boolean;
     action?: UiActionContract;
   }>;

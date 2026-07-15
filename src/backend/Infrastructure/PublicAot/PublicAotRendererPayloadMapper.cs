@@ -24,6 +24,7 @@ internal static class PublicAotRendererPayloadMapper
     private static IReadOnlyDictionary<string, object?> ToOptions(PublicAotRenderRequest request)
     {
         Dictionary<string, object?> common = CreateCommonOptions(request.Snapshot.Seo);
+        common["routeKey"] = request.Match.RouteKey;
         switch (request.Snapshot)
         {
             case PublicHomePageSnapshot home:

@@ -146,6 +146,8 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 查询参数：`?page=1&pageSize=20`
 
 文章列表分页不做静默修正：`page` 必须大于等于 `1`，`pageSize` / binary `size` 必须在 `1..100`。缺省值仍为 `page=1`、`size=10`；显式传入 `page<1`、`size<1` 或 `size>100` 返回 `400 Bad Request`，不得回退到第一页或截断到最大值。
+
+首页、分类和标签的公开 HTML 使用独立的抓取分页契约：第一页 canonical 是不带 query 的基础路径，第 N 页是唯一的 `?page=N`；服务端必须在首个 HTML 中读取规范化页码、输出该页文章以及可用上一页/下一页的真实 `<a href>`。显式 `page=1`、非整数、负数、0、重复 page、非规范数字或夹带其它 query 参数统一 301 到规范 URL；超过总页数返回 404。该 HTML 规范化不改变 `/api/binary/**` 的 400 参数校验契约。
 公共文章列表的 page URL 是兼容层；服务端内部必须使用 `(createtime, id)` keyset walk 读取深页，并在响应上返回可选 `nextCursor` / `hasMore` 供客户端后续切换 cursor 翻页。公共列表 count 按 `ArticleListVersion + filter` 缓存，文章内容 mutation 通过 ArticleList version 失效，不允许每次公开读取都重新执行大范围 `COUNT + OFFSET`。
 
 ### 基于游标的分页（`CursorResponse<T>`）
@@ -330,6 +332,8 @@ tooling contract，不进入 AEDS runtime API，也不能被公开客户端或�
 ## AOT 公开页约定
 
 公开页（首页、文章详情、分类、标签、归档、关于、隐私政策、用户守则、版权声明）优先从 AOT 卷命中静态 HTML + AEDS payload。Bundle 格式遵循 [`PublicAotShellEntryContract`](contracts.md#aot-公开页契约)；SPA 接管后由 hydration 层用同一份 Bundle 数据初始化状态，无需二次网络请求。
+
+首页、分类和标签的规范页码同时进入 AOT `routeKey`（第 N 页后缀 `:page:N`）、document cache key、navigation snapshot `fullPath/canonicalPath`、hydration route seed、payload hash 与 ETag。`scope=all` manifest 枚举全部有效分页；文章可见性或 taxonomy 归属变化按 Home/Filter 页面前缀失效全部页码，再优先回填第一页，防止深分页继续返回旧列表。运行时紧急回退可禁用 Public AOT/SPA micro-navigation，让真实 `<a href>` 直接整页导航；不需要重启或恢复按钮分页。
 
 代码证据：[`PublicAotDocumentComposer.cs`](../../src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs)、[`PublicHotReadFastPath.cs`](../../src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs)、[`PublicAotEndpoints.cs`](../../src/backend/Modules/Endpoints/PublicAotEndpoints.cs)。
 

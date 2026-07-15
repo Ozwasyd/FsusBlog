@@ -32,9 +32,12 @@ public sealed class PublicAotRouteManifestTests
             PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Guidelines, 12),
             PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Copyright, 13),
             PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Archive, 20),
+            PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Home, 0, 2),
             PublicAotRouteManifestProvider.CreateArticleRoute(42, 7, [3, 9], 100),
             PublicAotRouteManifestProvider.CreateCategoryRoute(7, 200),
-            PublicAotRouteManifestProvider.CreateTagIdRoute(3, "CSharp", 210)
+            PublicAotRouteManifestProvider.CreateCategoryRoute(7, 200, 2),
+            PublicAotRouteManifestProvider.CreateTagIdRoute(3, "CSharp", 210),
+            PublicAotRouteManifestProvider.CreateTagIdRoute(3, "CSharp", 210, 2)
         ];
         var registry = new PublicAotRouteRegistry();
 
@@ -42,12 +45,16 @@ public sealed class PublicAotRouteManifestTests
         {
             var context = new DefaultHttpContext();
             context.Request.Path = descriptor.Path;
+            context.Request.QueryString = new QueryString(
+                descriptor.CanonicalPath.Length > descriptor.Path.Length
+                    ? descriptor.CanonicalPath[descriptor.Path.Length..]
+                    : string.Empty);
 
             Assert.True(registry.TryResolve(context, out PublicAotRouteMatch match));
             Assert.Equal(descriptor.PageId, match.PageId);
             Assert.Equal(descriptor.Kind, match.Kind);
             Assert.Equal(descriptor.RouteKey, match.RouteKey);
-            Assert.Equal(descriptor.CanonicalPath, match.CanonicalPath);
+            Assert.Equal(descriptor.CanonicalPath, match.CanonicalPathAndQuery);
             Assert.Contains("seo", descriptor.DependencyKeys);
         }
     }

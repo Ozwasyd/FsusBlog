@@ -102,12 +102,26 @@ public static class PublicAotShellContractRules
 
         return pageId switch
         {
-            PublicPageId.Home => "home",
+            PublicPageId.Home => NormalizePaginatedFixedRouteKey("home", resolved),
             PublicPageId.About => "about",
             PublicPageId.Archive => "archive",
             PublicPageId.Account => "account",
             _ => resolved
         };
+    }
+
+    private static string NormalizePaginatedFixedRouteKey(string fixedRouteKey, string routeKey)
+    {
+        const string marker = ":page:";
+        int markerIndex = routeKey.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex <= 0
+            || !int.TryParse(routeKey.AsSpan(markerIndex + marker.Length), out int page)
+            || page <= 1)
+        {
+            return fixedRouteKey;
+        }
+
+        return string.Concat(fixedRouteKey, marker, page.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
     public static string NormalizeHtml(string html, int? articleId)

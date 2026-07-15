@@ -9,10 +9,10 @@ public sealed class PublicAotRendererPayloadMapperTests
     public void HomeOptions_UseFlatBootstrapShape()
     {
         IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(
-            new PublicAotRouteMatch(PublicPageKind.Home, PublicPageId.Home, "home", "/", "/", string.Empty),
+            new PublicAotRouteMatch(PublicPageKind.Home, PublicPageId.Home, "home:page:2", "/", "/", "?page=2") { Page = 2 },
             new PublicHomePageSnapshot(
                 Seo(),
-                Page: 1,
+                Page: 2,
                 Size: 10,
                 Total: 1,
                 Items:
@@ -44,6 +44,7 @@ public sealed class PublicAotRendererPayloadMapperTests
         IReadOnlyDictionary<string, object?> options = GetOptions(payload);
 
         Assert.False(options.ContainsKey("response"));
+        Assert.Equal("home:page:2", options["routeKey"]);
         Assert.Equal(1, options["total"]);
         Assert.Single(Assert.IsType<Dictionary<string, object?>[]>(options["articles"]));
         Assert.Single(Assert.IsType<Dictionary<string, object?>[]>(options["featuredArticles"]));

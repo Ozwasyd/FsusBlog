@@ -91,13 +91,20 @@ public sealed class PublicAotShellService(
             return canonicalOutcome;
         }
 
+        if (classifyColdMiss && match.RequiresPaginationRedirect)
+        {
+            PublicAotRenderOutcome canonicalOutcome = PublicAotRenderOutcome.PermanentRedirect(match.CanonicalPathAndQuery);
+            SetClassifiedFailureContext(context, canonicalOutcome.Status, assetMode);
+            return canonicalOutcome;
+        }
+
         if (classifyColdMiss
             && match.RouteKey.StartsWith(
                 string.Concat(PublicRouteIdentityRegistry.TagBucket, ":"),
                 StringComparison.OrdinalIgnoreCase)
             && !string.Equals(match.Path, match.CanonicalPath, StringComparison.Ordinal))
         {
-            PublicAotRenderOutcome canonicalOutcome = PublicAotRenderOutcome.PermanentRedirect(match.CanonicalPath);
+            PublicAotRenderOutcome canonicalOutcome = PublicAotRenderOutcome.PermanentRedirect(match.CanonicalPathAndQuery);
             SetClassifiedFailureContext(context, canonicalOutcome.Status, assetMode);
             return canonicalOutcome;
         }
@@ -231,7 +238,12 @@ public sealed class PublicAotShellService(
             if (PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey)
                 && snapshot.Value is PublicFilterPageSnapshot { FilterId: > 0 } filter)
             {
-                return PublicAotRenderOutcome.PermanentRedirect(PublicRouteIdentity.BuildTagPath(filter.FilterId));
+                string canonicalRouteKey = PublicRouteIdentity.BuildPaginatedRouteKey(
+                    PublicRouteIdentity.BuildTagIdRouteKey(filter.FilterId),
+                    match.Page);
+                return PublicAotRenderOutcome.PermanentRedirect(string.Concat(
+                    PublicRouteIdentity.BuildCanonicalPath(PublicPageId.Filter, canonicalRouteKey, null),
+                    PublicRouteIdentity.BuildPaginationQueryString(match.Page)));
             }
 
             return PublicAotRenderOutcome.Success(null);
@@ -283,7 +295,10 @@ public sealed class PublicAotShellService(
         if (PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey)
             && snapshotValue is PublicFilterPageSnapshot { FilterId: > 0 } filter)
         {
-            string canonicalRouteKey = PublicRouteIdentity.BuildTagIdRouteKey(filter.FilterId);
+            string canonicalFilterKey = PublicRouteIdentity.BuildTagIdRouteKey(filter.FilterId);
+            string canonicalRouteKey = PublicRouteIdentity.BuildPaginatedRouteKey(
+                canonicalFilterKey,
+                match.Page);
             string canonicalPath = PublicRouteIdentity.BuildTagPath(filter.FilterId);
             match = match with
             {
@@ -294,7 +309,7 @@ public sealed class PublicAotShellService(
             snapshotValue = filter with
             {
                 RouteKey = canonicalRouteKey,
-                FilterKey = canonicalRouteKey
+                FilterKey = canonicalFilterKey
             };
         }
 
@@ -548,7 +563,10 @@ public sealed class PublicAotShellService(
             request.RouteKey,
             PublicRouteIdentity.BuildCanonicalPath(descriptor.PageId, request.RouteKey, null),
             request.Path,
-            request.QueryString);
+            request.QueryString)
+        {
+            Page = PublicRouteIdentity.ParsePageRouteKey(request.RouteKey)
+        };
     }
 
     private static IReadOnlyDictionary<PublicPageKind, IPublicAotBootstrapProvider> BuildBootstrapProviderMap(
