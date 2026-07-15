@@ -1,7 +1,5 @@
 using System.Globalization;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -31,7 +29,8 @@ public readonly record struct SecurityRiskEventWrite(
     string? Method,
     string? UserAgent,
     string? Detail,
-    string? TraceId);
+    string? TraceId,
+    int PseudonymEpoch = 1);
 
 public readonly record struct SecurityRiskEventRecord(
     string Id,
@@ -51,7 +50,8 @@ public readonly record struct SecurityRiskEventRecord(
     string? Method,
     string? UserAgent,
     string? Detail,
-    string? TraceId);
+    string? TraceId,
+    int PseudonymEpoch = 1);
 
 public readonly record struct SecurityRiskEventQuery(
     string? Source = null,
@@ -65,7 +65,8 @@ public readonly record struct SecurityRiskScoreQuery(
     string? Action,
     string? RouteKey,
     string? ClientIpHash,
-    string? DeviceFpHash);
+    string? DeviceFpHash,
+    int? PseudonymEpoch = null);
 
 public readonly record struct SecurityRiskScoreResult(int Score, DateTimeOffset? ExpiresAtUtc);
 
@@ -196,6 +197,11 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
             dbQuery = dbQuery.Where(item => item.DeviceFpHash == deviceFpHash);
         }
 
+        if (query.PseudonymEpoch is { } pseudonymEpoch)
+        {
+            dbQuery = dbQuery.Where(item => item.PseudonymEpoch == pseudonymEpoch);
+        }
+
         List<SecurityRiskEvent> rows = await dbQuery
             .OrderBy(item => item.OccurredAtUtc, OrderByType.Desc)
             .Take(clampedLimit)
@@ -222,10 +228,20 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
             item.Method,
             item.UserAgent,
             item.Detail,
-            item.TraceId);
+            item.TraceId,
+            item.PseudonymEpoch);
 
     private static SecurityRiskEvent ToEntity(SecurityRiskEventWrite write)
-        => new()
+    {
+        bool hasPseudonym = write.SubjectHash is not null
+            || write.ClientIpHash is not null
+            || write.DeviceFpHash is not null;
+        if (hasPseudonym && write.PseudonymEpoch <= 0)
+        {
+            throw new InvalidOperationException("Security risk identity pseudonyms require a positive epoch.");
+        }
+
+        return new()
         {
             Id = Normalize(write.Id, 64) ?? Guid.NewGuid().ToString("N"),
             OccurredAtUtc = write.OccurredAtUtc.UtcDateTime,
@@ -240,12 +256,14 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
             RouteKey = Normalize(write.RouteKey, 160),
             ClientIpHash = NormalizeHash(write.ClientIpHash),
             DeviceFpHash = NormalizeHash(write.DeviceFpHash),
-            Path = Normalize(write.Path, 256),
+            Path = null,
             Method = Normalize(write.Method, 16),
-            UserAgent = Normalize(write.UserAgent, 256),
+            UserAgent = null,
             Detail = Normalize(write.Detail, 256),
-            TraceId = Normalize(write.TraceId, 64)
+            TraceId = Normalize(write.TraceId, 64),
+            PseudonymEpoch = Math.Max(0, write.PseudonymEpoch)
         };
+    }
 
     private static string? Normalize(string? value, int maxLength)
     {
@@ -302,6 +320,7 @@ public sealed class SecurityRiskEventSink(
     CrawlerRiskService hotPath,
     IUnifiedCache cache,
     ISecurityAdminPolicyService policy,
+    ISecurityRiskPseudonymizer pseudonymizer,
     SecurityRiskEventWriteQueue eventQueue,
     IServiceScopeFactory scopeFactory,
     ILogger<SecurityRiskEventSink> logger,
@@ -352,9 +371,15 @@ public sealed class SecurityRiskEventSink(
             return hotScore;
         }
 
-        string clientIpHash = SecurityRiskIdentity.HashIdentity(ip);
-        SecurityRiskScoreResult fallback = await ComputeFallbackAsync(
-            new SecurityRiskScoreQuery(null, null, null, clientIpHash, null),
+        SecurityRiskScoreResult fallback = await ComputeFallbackForPseudonymsAsync(
+            pseudonymizer.PseudonymizeForRead(SecurityRiskIdentityDomain.ClientIp, ip),
+            static pseudonym => new SecurityRiskScoreQuery(
+                null,
+                null,
+                null,
+                pseudonym.Hash,
+                null,
+                pseudonym.Epoch),
             cancellationToken);
         if (fallback.Score <= 0)
         {
@@ -378,9 +403,15 @@ public sealed class SecurityRiskEventSink(
             return hotScore;
         }
 
-        string subjectHash = SecurityRiskIdentity.HashIdentity(subject.Identity);
-        SecurityRiskScoreResult fallback = await ComputeFallbackAsync(
-            new SecurityRiskScoreQuery(subjectHash, null, null, null, null),
+        SecurityRiskScoreResult fallback = await ComputeFallbackForPseudonymsAsync(
+            pseudonymizer.PseudonymizeForRead(SecurityRiskIdentityDomain.ClientIp, subject.Identity),
+            static pseudonym => new SecurityRiskScoreQuery(
+                null,
+                null,
+                null,
+                pseudonym.Hash,
+                null,
+                pseudonym.Epoch),
             cancellationToken);
         if (fallback.Score <= 0)
         {
@@ -410,6 +441,29 @@ public sealed class SecurityRiskEventSink(
             logger.LogWarning(ex, "security-risk-aggregation-failed");
             return new SecurityRiskScoreResult(0, null);
         }
+    }
+
+    private async Task<SecurityRiskScoreResult> ComputeFallbackForPseudonymsAsync(
+        IReadOnlyList<SecurityRiskPseudonym> pseudonyms,
+        Func<SecurityRiskPseudonym, SecurityRiskScoreQuery> buildQuery,
+        CancellationToken cancellationToken)
+    {
+        int total = 0;
+        DateTimeOffset? expiresAt = null;
+        foreach (SecurityRiskPseudonym pseudonym in pseudonyms)
+        {
+            SecurityRiskScoreResult result = await ComputeFallbackAsync(
+                buildQuery(pseudonym),
+                cancellationToken);
+            total = checked(total + result.Score);
+            if (result.ExpiresAtUtc is { } candidate
+                && (expiresAt is null || candidate > expiresAt.Value))
+            {
+                expiresAt = candidate;
+            }
+        }
+
+        return new SecurityRiskScoreResult(total, expiresAt);
     }
 
     private async Task WarmHotCacheAsync(
@@ -457,12 +511,12 @@ public sealed class SecurityRiskEventSink(
             ? TimeSpan.FromSeconds(policy.Current.Options.DefaultRiskTtlSeconds)
             : signal.Ttl;
         string reason = signal.Reason.ToString();
-        string? clientIpHash = NormalizeHash(signal.ClientIpHash) ?? ResolveClientIpHash(signal.Context);
-        string? subjectHash = NormalizeHash(signal.SubjectHash) ?? ResolveSubjectHash(signal.Context, clientIpHash);
+        SecurityRiskPseudonym? clientIp = ResolveClientIpPseudonym(signal);
+        SecurityRiskPseudonym? subject = ResolveSubjectPseudonym(signal);
         string? routeKey = Normalize(signal.RouteKey, 160)
             ?? Normalize(signal.Context.GetEndpoint()?.Metadata.GetMetadata<RiskActionEndpointMetadata>()?.RouteKey, 160)
-            ?? Normalize(signal.Context.Request.Path.Value, 160);
-        string? deviceHash = NormalizeHash(signal.DeviceFpHash) ?? ResolveDeviceHash(signal.Context);
+            ?? Normalize(signal.Action, 96);
+        SecurityRiskPseudonym? device = ResolveDevicePseudonym(signal);
         return new SecurityRiskEventWrite(
             Guid.NewGuid().ToString("N"),
             now,
@@ -473,37 +527,56 @@ public sealed class SecurityRiskEventSink(
             totalScore,
             (int)Math.Clamp(ttl.TotalSeconds, 0, int.MaxValue),
             now.Add(ttl),
-            subjectHash,
+            subject?.Hash,
             routeKey,
-            clientIpHash,
-            deviceHash,
-            Normalize(signal.Context.Request.Path.Value, 256),
+            clientIp?.Hash,
+            device?.Hash,
+            null,
             Normalize(signal.Context.Request.Method, 16),
-            Normalize(signal.Context.GetUserAgent(), 256),
+            null,
             Normalize(signal.Detail, 256),
-            Normalize(signal.Context.TraceIdentifier, 64));
+            Normalize(signal.Context.TraceIdentifier, 64),
+            clientIp?.Epoch ?? subject?.Epoch ?? device?.Epoch ?? pseudonymizer.CurrentEpoch);
     }
 
-    private static string? ResolveClientIpHash(HttpContext context)
+    private SecurityRiskPseudonym? ResolveClientIpPseudonym(SecurityRiskSignal signal)
     {
-        string ip = context.GetClientIp();
-        return string.IsNullOrWhiteSpace(ip) ? null : SecurityRiskIdentity.HashIdentity(ip);
+        string value = signal.Context.GetClientIp();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            value = NormalizeHash(signal.ClientIpHash) ?? string.Empty;
+        }
+
+        return value.Length == 0
+            ? null
+            : pseudonymizer.PseudonymizeCurrent(SecurityRiskIdentityDomain.ClientIp, value);
     }
 
-    private static string? ResolveSubjectHash(HttpContext context, string? fallbackClientIpHash)
+    private SecurityRiskPseudonym? ResolveSubjectPseudonym(SecurityRiskSignal signal)
     {
+        HttpContext context = signal.Context;
         string? identityKind = Normalize(context.User.FindFirstValue("identity_kind"), 64);
         string? accountSubjectHash = NormalizeHash(
             context.User.FindFirstValue(AnonymousIdentityRuntime.AccountSubjectHashClaim));
-        return identityKind is null || accountSubjectHash is null
-            ? fallbackClientIpHash
-            : SecurityRiskIdentity.HashIdentity(string.Join(':', "account", identityKind, accountSubjectHash));
+        string? value = identityKind is not null && accountSubjectHash is not null
+            ? string.Join('\0', identityKind, accountSubjectHash)
+            : NormalizeHash(signal.SubjectHash);
+        return value is null
+            ? null
+            : pseudonymizer.PseudonymizeCurrent(SecurityRiskIdentityDomain.AccountSubject, value);
     }
 
-    private static string? ResolveDeviceHash(HttpContext context)
+    private SecurityRiskPseudonym? ResolveDevicePseudonym(SecurityRiskSignal signal)
     {
-        string value = context.Request.Headers["X-Fsus-Device-Fp"].ToString();
-        return string.IsNullOrWhiteSpace(value) ? null : SecurityRiskIdentity.HashIdentity(value);
+        string value = signal.Context.Request.Headers["X-Fsus-Device-Fp"].ToString();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            value = NormalizeHash(signal.DeviceFpHash) ?? string.Empty;
+        }
+
+        return value.Length == 0
+            ? null
+            : pseudonymizer.PseudonymizeCurrent(SecurityRiskIdentityDomain.DeviceFingerprint, value);
     }
 
     private static string? NormalizeHash(string? value)
@@ -522,10 +595,4 @@ public sealed class SecurityRiskEventSink(
 
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
-}
-
-public static class SecurityRiskIdentity
-{
-    public static string HashIdentity(string value)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value.Trim()))).ToLowerInvariant();
 }

@@ -47,6 +47,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAnonymousCredentialRootLifecycleMigration(),
         BuildAccountSubjectHashBackfillMigration(),
         BuildSecurityRiskEventPersistenceMigration(),
+        BuildSecurityRiskPseudonymEpochMigration(),
         BuildSecurityPolicySnapshotMigration(),
         BuildSecurityPolicyVersionCounterMigration(),
         BuildSecurityChallengePersistenceMigration(),
@@ -1890,6 +1891,32 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     CREATE INDEX IF NOT EXISTS idx_security_risk_event_device ON security_risk_event(device_fp_hash);
                     CREATE INDEX IF NOT EXISTS idx_security_risk_event_expires ON security_risk_event(expires_at_utc);
                     """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildSecurityRiskPseudonymEpochMigration()
+        => new SchemaMigrationDescriptor(
+            "20260715-post-security-risk-pseudonym-epoch",
+            "Add keyed pseudonym epochs and remove historical unkeyed risk identity rows.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep(
+                    "security_risk_event",
+                    "pseudonym_epoch",
+                    "integer NOT NULL DEFAULT 0"),
+                new RawSqlStep("""
+                    UPDATE security_risk_event
+                    SET path = NULL,
+                        user_agent = NULL
+                    WHERE path IS NOT NULL OR user_agent IS NOT NULL;
+
+                    DELETE FROM security_risk_event
+                    WHERE pseudonym_epoch <= 0;
+                    """),
+                new CreateIndexStep(
+                    "idx_security_risk_event_epoch",
+                    "CREATE INDEX IF NOT EXISTS idx_security_risk_event_epoch ON security_risk_event(pseudonym_epoch);")
             ]);
 
     private static ISchemaMigrationDescriptor BuildSecurityPolicySnapshotMigration()

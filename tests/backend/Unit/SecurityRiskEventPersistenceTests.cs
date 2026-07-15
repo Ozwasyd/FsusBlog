@@ -1,5 +1,7 @@
 using System.Net;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Diagnostics.Metrics;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -24,6 +26,8 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-18T12:00:00Z");
+    private static readonly byte[] PseudonymKey = Enumerable.Range(1, 32).Select(static value => (byte)value).ToArray();
+    private static readonly byte[] PreviousPseudonymKey = Enumerable.Range(33, 32).Select(static value => (byte)value).ToArray();
 
     [Fact]
     public void Migration_CreatesSecurityRiskEventTableWithQueryableDimensions()
@@ -55,6 +59,23 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    public void Migration_AddsPseudonymEpochAndPurgesUnkeyedIdentityHistory()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260715-post-security-risk-pseudonym-epoch");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.Contains("pseudonym_epoch", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("DELETE FROM security_risk_event", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("SET path = NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_security_risk_event_epoch", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RiskScoreEngine_AggregatesActiveEventsWithLinearTtlDecay()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -62,7 +83,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         var clock = new MutableTimeProvider(BaselineNow.AddMinutes(5));
         var store = new SecurityRiskEventStore(db);
         var engine = new RiskScoreEngine(store, clock);
-        string subjectHash = SecurityRiskIdentity.HashIdentity("subject-a");
+        string subjectHash = Pseudonymize(SecurityRiskIdentityDomain.AccountSubject, "subject-a").Hash;
         string routeKey = "auth:login";
 
         await store.AppendAsync(CreateWrite(subjectHash, routeKey, scoreDelta: 20, occurredAt: BaselineNow, ttl: TimeSpan.FromMinutes(10)));
@@ -83,10 +104,10 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         using SqlSugarClient db = await CreateDbAsync();
         CreateRiskTable(db);
         var store = new SecurityRiskEventStore(db);
-        string subjectHash = SecurityRiskIdentity.HashIdentity("subject-query");
+        string subjectHash = Pseudonymize(SecurityRiskIdentityDomain.AccountSubject, "subject-query").Hash;
 
         await store.AppendAsync(CreateWrite(subjectHash, "auth:login", scoreDelta: 7, source: SecurityRiskSources.Auth, reason: SecurityRiskReason.AuthFailureBurst));
-        await store.AppendAsync(CreateWrite(SecurityRiskIdentity.HashIdentity("other"), "auth:login", scoreDelta: 7, source: SecurityRiskSources.Auth, reason: SecurityRiskReason.AuthFailureBurst));
+        await store.AppendAsync(CreateWrite(Pseudonymize(SecurityRiskIdentityDomain.AccountSubject, "other").Hash, "auth:login", scoreDelta: 7, source: SecurityRiskSources.Auth, reason: SecurityRiskReason.AuthFailureBurst));
         await store.AppendAsync(CreateWrite(subjectHash, "comment:42", scoreDelta: 4, source: SecurityRiskSources.CommentGovernance, reason: SecurityRiskReason.CommentSpamPatternHit));
 
         IReadOnlyList<SecurityRiskEventRecord> events = await store.QueryAsync(
@@ -98,6 +119,30 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         Assert.Equal(nameof(SecurityRiskReason.AuthFailureBurst), item.Reason);
         Assert.Equal(RiskActionNames.AuthLogin, item.Action);
         Assert.Equal(subjectHash, item.SubjectHash);
+    }
+
+    [Fact]
+    public async Task RiskEventStore_PersistsKeyedClientIpPseudonymInsteadOfRawSha256()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateRiskTable(db);
+        var store = new SecurityRiskEventStore(db);
+        const string rawIp = "198.51.100.77";
+        SecurityRiskPseudonym client = Pseudonymize(SecurityRiskIdentityDomain.ClientIp, rawIp);
+        string rawSha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(rawIp)));
+
+        await store.AppendAsync(CreateWrite(
+            Pseudonymize(SecurityRiskIdentityDomain.AccountSubject, "account-77").Hash,
+            "auth:login",
+            scoreDelta: 7,
+            clientIpHash: client.Hash));
+
+        SecurityRiskEventRecord stored = Assert.Single(await store.QueryAsync(new SecurityRiskEventQuery(Limit: 10)));
+        Assert.Equal(client.Hash, stored.ClientIpHash);
+        Assert.Equal(client.Epoch, stored.PseudonymEpoch);
+        Assert.NotEqual(rawSha256, stored.ClientIpHash);
+        Assert.Null(stored.Path);
+        Assert.Null(stored.UserAgent);
     }
 
     [Fact]
@@ -117,7 +162,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         var queue = new SecurityRiskEventWriteQueue(
             Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
             new CapturingLogger<SecurityRiskEventWriteQueue>());
-        var sink = new SecurityRiskEventSink(hotPath, cache, policy, queue, services.GetRequiredService<IServiceScopeFactory>(), logger, new MutableTimeProvider(BaselineNow));
+        var sink = new SecurityRiskEventSink(hotPath, cache, policy, CreatePseudonymizer(), queue, services.GetRequiredService<IServiceScopeFactory>(), logger, new MutableTimeProvider(BaselineNow));
         var workerLogger = new CapturingLogger<SecurityRiskEventWriterWorker>();
         var worker = new SecurityRiskEventWriterWorker(
             queue,
@@ -173,6 +218,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             hotPath,
             cache,
             policy,
+            CreatePseudonymizer(),
             queue,
             services.GetRequiredService<IServiceScopeFactory>(),
             new CapturingLogger<SecurityRiskEventSink>(),
@@ -224,9 +270,9 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             provider.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(new SecurityRiskEventWriterOptions { BatchSize = 3, FlushWindowMs = 10 }),
             new CapturingLogger<SecurityRiskEventWriterWorker>());
-        Assert.True(queue.TryWrite(CreateWrite(SecurityRiskIdentity.HashIdentity("batch-1"), "auth:login", 1)));
-        Assert.True(queue.TryWrite(CreateWrite(SecurityRiskIdentity.HashIdentity("batch-2"), "auth:login", 2)));
-        Assert.True(queue.TryWrite(CreateWrite(SecurityRiskIdentity.HashIdentity("batch-3"), "auth:login", 3)));
+        Assert.True(queue.TryWrite(CreateWrite(Pseudonymize(SecurityRiskIdentityDomain.AccountSubject, "batch-1").Hash, "auth:login", 1)));
+        Assert.True(queue.TryWrite(CreateWrite(Pseudonymize(SecurityRiskIdentityDomain.AccountSubject, "batch-2").Hash, "auth:login", 2)));
+        Assert.True(queue.TryWrite(CreateWrite(Pseudonymize(SecurityRiskIdentityDomain.AccountSubject, "batch-3").Hash, "auth:login", 3)));
 
         int flushed = await worker.FlushOnceAsync(CancellationToken.None);
 
@@ -261,8 +307,8 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             Options.Create(new SecurityRiskEventWriterOptions { BatchSize = 2, FlushWindowMs = 10 }),
             new CapturingLogger<SecurityRiskEventWriterWorker>());
 
-        Assert.True(queue.TryWrite(CreateWrite(SecurityRiskIdentity.HashIdentity("subject-1"), "auth:login", 5)));
-        Assert.True(queue.TryWrite(CreateWrite(SecurityRiskIdentity.HashIdentity("subject-2"), "auth:login", 7)));
+        Assert.True(queue.TryWrite(CreateWrite(Pseudonymize(SecurityRiskIdentityDomain.AccountSubject, "subject-1").Hash, "auth:login", 5)));
+        Assert.True(queue.TryWrite(CreateWrite(Pseudonymize(SecurityRiskIdentityDomain.AccountSubject, "subject-2").Hash, "auth:login", 7)));
 
         int flushed = await worker.FlushOnceAsync(CancellationToken.None);
 
@@ -305,18 +351,15 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
 
         Assert.Equal(2, flushed);
         Assert.Equal(2, store.Writes.Count);
-        string expected = SecurityRiskIdentity.HashIdentity(string.Join(
-            ':',
-            "account",
-            AnonymousIdentityRuntime.AnonymousAccountKind,
-            StableAccountSubjectHash));
+        string expected = Pseudonymize(
+            SecurityRiskIdentityDomain.AccountSubject,
+            string.Join('\0', AnonymousIdentityRuntime.AnonymousAccountKind, StableAccountSubjectHash)).Hash;
         Assert.All(store.Writes, write => Assert.Equal(expected, write.SubjectHash));
-        Assert.DoesNotContain(store.Writes, write => write.SubjectHash == SecurityRiskIdentity.HashIdentity("42"));
-        Assert.DoesNotContain(store.Writes, write => write.SubjectHash == SecurityRiskIdentity.HashIdentity("314"));
+        Assert.All(store.Writes, write => Assert.Equal(1, write.PseudonymEpoch));
     }
 
     [Fact]
-    public async Task SecurityRiskEventSink_MissingAccountSubjectHashFallsBackToClientIpHash()
+    public async Task SecurityRiskEventSink_MissingAccountSubjectHashDoesNotCrossIdentityDomains()
     {
         var store = new RecordingRiskEventStore();
         await using ServiceProvider provider = new ServiceCollection()
@@ -349,8 +392,11 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
 
         Assert.Equal(1, flushed);
         SecurityRiskEventWrite write = Assert.Single(store.Writes);
-        Assert.Equal(SecurityRiskIdentity.HashIdentity("198.51.100.32"), write.SubjectHash);
-        Assert.Equal(SecurityRiskIdentity.HashIdentity("198.51.100.32"), write.ClientIpHash);
+        Assert.Null(write.SubjectHash);
+        Assert.Equal(Pseudonymize(SecurityRiskIdentityDomain.ClientIp, "198.51.100.32").Hash, write.ClientIpHash);
+        Assert.Equal(1, write.PseudonymEpoch);
+        Assert.Null(write.Path);
+        Assert.Null(write.UserAgent);
     }
 
     [Fact]
@@ -360,14 +406,34 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         CreateRiskTable(db);
         var clock = new MutableTimeProvider(BaselineNow.AddMinutes(5));
         var store = new SecurityRiskEventStore(db);
-        string ipHash = SecurityRiskIdentity.HashIdentity("198.51.100.21");
+        var rotatingPseudonymizer = new SecurityRiskPseudonymizer(
+            2,
+            PseudonymKey,
+            previousEpoch: 1,
+            previousKey: PreviousPseudonymKey,
+            previousAcceptUntilUtc: BaselineNow.AddDays(1),
+            timeProvider: clock);
+        string currentIpHash = rotatingPseudonymizer.PseudonymizeCurrent(
+            SecurityRiskIdentityDomain.ClientIp,
+            "198.51.100.21").Hash;
+        string previousIpHash = new SecurityRiskPseudonymizer(1, PreviousPseudonymKey)
+            .PseudonymizeCurrent(SecurityRiskIdentityDomain.ClientIp, "198.51.100.21").Hash;
         await store.AppendAsync(CreateWrite(
-            subjectHash: ipHash,
+            subjectHash: currentIpHash,
             routeKey: "/api/binary/security/challenge",
-            scoreDelta: 20,
+            scoreDelta: 12,
             occurredAt: BaselineNow,
             ttl: TimeSpan.FromMinutes(10),
-            clientIpHash: ipHash));
+            clientIpHash: currentIpHash,
+            pseudonymEpoch: 2));
+        await store.AppendAsync(CreateWrite(
+            subjectHash: previousIpHash,
+            routeKey: "/api/binary/security/challenge",
+            scoreDelta: 8,
+            occurredAt: BaselineNow,
+            ttl: TimeSpan.FromMinutes(10),
+            clientIpHash: previousIpHash,
+            pseudonymEpoch: 1));
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
         cache.GetStringAsync(CachePolicyId.SecurityPowRisk, "198.51.100.21", Arg.Any<CancellationToken>())
             .Returns((string?)null);
@@ -384,6 +450,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             hotPath,
             cache,
             policy,
+            rotatingPseudonymizer,
             new SecurityRiskEventWriteQueue(
                 Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
                 new CapturingLogger<SecurityRiskEventWriteQueue>()),
@@ -411,7 +478,8 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         TimeSpan? ttl = null,
         string source = SecurityRiskSources.RiskControl,
         SecurityRiskReason reason = SecurityRiskReason.SecurityChallengeRejected,
-        string? clientIpHash = null)
+        string? clientIpHash = null,
+        int pseudonymEpoch = 1)
     {
         DateTimeOffset now = occurredAt ?? BaselineNow;
         TimeSpan effectiveTtl = ttl ?? TimeSpan.FromMinutes(10);
@@ -433,7 +501,8 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             HttpMethods.Post,
             "unit-test",
             "detail",
-            "trace-test");
+            "trace-test",
+            pseudonymEpoch);
     }
 
     private static DefaultHttpContext CreateContext(string ip)
@@ -463,11 +532,18 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             hotPath,
             cache,
             policy,
+            CreatePseudonymizer(),
             queue,
             services.GetRequiredService<IServiceScopeFactory>(),
             new CapturingLogger<SecurityRiskEventSink>(),
             new MutableTimeProvider(BaselineNow));
     }
+
+    private static SecurityRiskPseudonymizer CreatePseudonymizer()
+        => new(1, PseudonymKey, timeProvider: new MutableTimeProvider(BaselineNow));
+
+    private static SecurityRiskPseudonym Pseudonymize(SecurityRiskIdentityDomain domain, string value)
+        => CreatePseudonymizer().PseudonymizeCurrent(domain, value);
 
     private static SecurityRiskSignal CreateSignal(HttpContext context)
         => new(

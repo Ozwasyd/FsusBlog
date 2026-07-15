@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Moderation;
@@ -57,7 +58,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 15;
+    private const int SchemaVersion = 16;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
@@ -149,6 +150,8 @@ public static class ProductionStartupValidator
         Value("Security:Pow:SigningKey"),
         Value("Security:CaptchaV1:SigningKey"),
         Value($"{PerceptionSealedTokenOptions.SectionName}:CurrentKeyVersion"),
+        Value(SecurityRiskPseudonymizer.CurrentEpochKey),
+        Value(SecurityRiskPseudonymizer.CurrentKeyKey),
         Value("Security:RecoveryKeyPepper"),
         Value("PublicAot:ManifestToken"),
         Value("MfaChallenge:TicketSigningKey"),
@@ -321,6 +324,10 @@ public static class ProductionStartupValidator
         errors.AddRange(DataProtectionKeyProtection.ValidateConfiguration(configuration, enforceProductionRules));
         ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
         ValidatePerceptionSealedTokenSettings(configuration, enforceProductionRules, errors);
+        errors.AddRange(SecurityRiskPseudonymizer.ValidateConfiguration(
+            configuration,
+            enforceProductionRules,
+            DateTimeOffset.UtcNow));
         ValidateBuiltInAntiSpamRuntime(configuration, enforceProductionRules, errors);
         ValidateCrawlerRangeUrls(configuration, enforceProductionRules, errors);
         ValidateReleaseIdentity(configuration, enforceProductionRules, errors);

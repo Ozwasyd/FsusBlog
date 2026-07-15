@@ -112,6 +112,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             "20260621-post-anonymous-credential-account-binding-finalize",
             "20260618-post-anonymous-credential-issuance-audit",
             "20260618-post-security-risk-event-persistence",
+            "20260715-post-security-risk-pseudonym-epoch",
             "20260619-post-security-policy-snapshot",
             "20260625-post-security-policy-version-counter",
             "20260618-post-anonymous-credential-root-metadata",

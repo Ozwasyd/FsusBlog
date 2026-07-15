@@ -8,6 +8,7 @@ namespace FsusBlog.Server.Entities;
 [SugarIndex("idx_security_risk_event_client_ip", nameof(ClientIpHash), OrderByType.Asc)]
 [SugarIndex("idx_security_risk_event_device", nameof(DeviceFpHash), OrderByType.Asc)]
 [SugarIndex("idx_security_risk_event_expires", nameof(ExpiresAtUtc), OrderByType.Asc)]
+[SugarIndex("idx_security_risk_event_epoch", nameof(PseudonymEpoch), OrderByType.Asc)]
 public sealed class SecurityRiskEvent
 {
     [SugarColumn(IsPrimaryKey = true, ColumnName = "id", Length = 64)]
@@ -63,4 +64,7 @@ public sealed class SecurityRiskEvent
 
     [SugarColumn(ColumnName = "trace_id", Length = 64, IsNullable = true)]
     public string? TraceId { get; set; }
+
+    [SugarColumn(ColumnName = "pseudonym_epoch", DefaultValue = "0")]
+    public int PseudonymEpoch { get; set; }
 }

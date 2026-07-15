@@ -2,6 +2,8 @@
 
 本文档说明 FsusBlog 采用的安全机制及其实现要点。
 
+Security-risk 持久化只使用独立、带 epoch 且按 IP/device/account 域隔离的 HMAC pseudonym，并停止保留请求 path 与 User-Agent。生产 key ring、轮换、遗留 unkeyed hash 删除迁移、retention 和流量回退要求见 [security-risk identity pseudonyms](security/security-risk-pseudonyms.md)。
+
 ## 纵深防御层次
 
 ```text

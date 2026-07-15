@@ -27,6 +27,9 @@ public sealed class ProductionStartupValidatorTests
     private static string LocalReleaseJwtSecretSample
         => string.Concat("Local_Release", "_Smoke_Key_For_FsusBlog_2026_Only");
 
+    private static string RiskPseudonymKey
+        => Convert.ToBase64String(Enumerable.Range(1, 32).Select(static value => (byte)value).ToArray());
+
     [Fact]
     public void ValidateCore_AcceptsProductionConfigurationWithHttpsAndRedisPassword()
     {
@@ -47,6 +50,8 @@ public sealed class ProductionStartupValidatorTests
             ["Security:CaptchaV1:SigningKey"] = TestSecrets.CaptchaSigningKey,
             ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
             ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
+            [SecurityRiskPseudonymizer.CurrentEpochKey] = "1",
+            [SecurityRiskPseudonymizer.CurrentKeyKey] = RiskPseudonymKey,
             ["Security:RecoveryKeyPepper"] = TestSecrets.RecoveryKeyPepper,
             ["PublicAot:ManifestToken"] = "public-aot-manifest-token-with-enough-entropy",
             ["MfaChallenge:TicketSigningKey"] = TestSecrets.MfaTicketSigningKey,
@@ -89,6 +94,33 @@ public sealed class ProductionStartupValidatorTests
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
 
         Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsMissingWeakOrReusedRiskPseudonymKey()
+    {
+        IReadOnlyList<string> missing = ProductionStartupValidator.ValidateCore(
+            CreateValidProductionConfiguration(new Dictionary<string, string?>
+            {
+                [SecurityRiskPseudonymizer.CurrentKeyKey] = null
+            }),
+            enforceProductionRules: true);
+        IReadOnlyList<string> weak = ProductionStartupValidator.ValidateCore(
+            CreateValidProductionConfiguration(new Dictionary<string, string?>
+            {
+                [SecurityRiskPseudonymizer.CurrentKeyKey] = Convert.ToBase64String(new byte[32])
+            }),
+            enforceProductionRules: true);
+        IReadOnlyList<string> reused = ProductionStartupValidator.ValidateCore(
+            CreateValidProductionConfiguration(new Dictionary<string, string?>
+            {
+                [SecurityRiskPseudonymizer.CurrentKeyKey] = TestSecrets.JwtSigningKey
+            }),
+            enforceProductionRules: true);
+
+        Assert.Contains(missing, static error => error.Contains(SecurityRiskPseudonymizer.CurrentKeyKey, StringComparison.Ordinal));
+        Assert.Contains(weak, static error => error.Contains("strong base64", StringComparison.Ordinal));
+        Assert.Contains(reused, static error => error.Contains("must not reuse Jwt:SecretKey", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -580,7 +612,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(15, report.SchemaVersion);
+        Assert.Equal(16, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -874,6 +906,8 @@ public sealed class ProductionStartupValidatorTests
             ["Security:CaptchaV1:SigningKey"] = TestSecrets.CaptchaSigningKey,
             ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
             ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
+            [SecurityRiskPseudonymizer.CurrentEpochKey] = "1",
+            [SecurityRiskPseudonymizer.CurrentKeyKey] = RiskPseudonymKey,
             ["Security:RecoveryKeyPepper"] = TestSecrets.RecoveryKeyPepper,
             ["PublicAot:ManifestToken"] = "public-aot-manifest-token-with-enough-entropy",
             ["MfaChallenge:TicketSigningKey"] = TestSecrets.MfaTicketSigningKey,

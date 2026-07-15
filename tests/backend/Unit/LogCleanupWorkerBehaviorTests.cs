@@ -49,6 +49,7 @@ public sealed class LogCleanupWorkerBehaviorTests
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-14), cutoffs["rum"]);
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-365), cutoffs["audit"]);
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-90), cutoffs["anonymous-credential-audit"]);
+        Assert.Equal(BaselineNow.UtcDateTime, cutoffs["legacy-security-risk"]);
     }
 
     [Fact]
@@ -150,6 +151,7 @@ public sealed class LogCleanupWorkerBehaviorTests
         if (sql.Contains("frontend_rum_metric", StringComparison.Ordinal)) return "rum";
         if (sql.Contains("sys_audit_log", StringComparison.Ordinal)) return "audit";
         if (sql.Contains("anonymous_credential_issuance_audit", StringComparison.Ordinal)) return "anonymous-credential-audit";
+        if (sql.Contains("security_risk_event", StringComparison.Ordinal)) return "legacy-security-risk";
         throw new Xunit.Sdk.XunitException("Unknown cleanup target.");
     }
 

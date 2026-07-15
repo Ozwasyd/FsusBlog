@@ -79,6 +79,18 @@ public class LogCleanupService(
         USING expired
         WHERE target.id = expired.id;
         """;
+    private const string CleanupLegacySecurityRiskPseudonymsSql = """
+        WITH expired AS (
+            SELECT id
+            FROM security_risk_event
+            WHERE pseudonym_epoch <= 0
+            ORDER BY id
+            LIMIT @ChunkSize
+        )
+        DELETE FROM security_risk_event target
+        USING expired
+        WHERE target.id = expired.id;
+        """;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -144,21 +156,34 @@ public class LogCleanupService(
                 anonymousCredentialAuditExpireDate,
                 scopedToken),
             token);
-        await Task.WhenAll(visitTask, rumTask, auditTask, anonymousCredentialAuditTask);
+        Task<int> legacySecurityRiskTask = CleanupWithScopedDbAsync(
+            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
+                db,
+                CleanupLegacySecurityRiskPseudonymsSql,
+                now,
+                scopedToken),
+            token);
+        await Task.WhenAll(visitTask, rumTask, auditTask, anonymousCredentialAuditTask, legacySecurityRiskTask);
 
         int visitDeleted = await visitTask;
         int rumDeleted = await rumTask;
         int auditDeleted = await auditTask;
         int anonymousCredentialAuditDeleted = await anonymousCredentialAuditTask;
+        int legacySecurityRiskDeleted = await legacySecurityRiskTask;
 
-        if (visitDeleted > 0 || rumDeleted > 0 || auditDeleted > 0 || anonymousCredentialAuditDeleted > 0)
+        if (visitDeleted > 0
+            || rumDeleted > 0
+            || auditDeleted > 0
+            || anonymousCredentialAuditDeleted > 0
+            || legacySecurityRiskDeleted > 0)
         {
             _logger.LogInformation(
-                "日志自动清理成功 | visit={VisitCount} rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount}",
+                "日志自动清理成功 | visit={VisitCount} rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount} legacySecurityRisk={LegacySecurityRiskCount}",
                 visitDeleted,
                 rumDeleted,
                 auditDeleted,
-                anonymousCredentialAuditDeleted);
+                anonymousCredentialAuditDeleted,
+                legacySecurityRiskDeleted);
         }
     }
 
@@ -294,6 +319,21 @@ public class LogCleanupService(
             db,
             CleanupAnonymousCredentialIssuanceAuditSql,
             expireDate,
+            chunkSize,
+            maxChunks,
+            delayBetweenChunks,
+            token);
+
+    internal static Task<int> CleanupLegacySecurityRiskPseudonymsAsync(
+        ISqlSugarClient db,
+        int chunkSize,
+        int maxChunks,
+        TimeSpan delayBetweenChunks,
+        CancellationToken token)
+        => CleanupByServerSideLimitAsync(
+            db,
+            CleanupLegacySecurityRiskPseudonymsSql,
+            DateTime.UnixEpoch,
             chunkSize,
             maxChunks,
             delayBetweenChunks,
