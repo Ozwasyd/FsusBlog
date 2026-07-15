@@ -50,6 +50,10 @@ type CommentPrivacyWorkerRequest =
       verifyingKeyHash?: string
       issuerPublicKeyHash?: string
       policyHash?: string
+      isEligible?: boolean
+      mayComment?: boolean
+      rateClass?: 'common' | 'unknown'
+      requiresModeration?: boolean
       credentialCommitment?: ArrayBuffer
       credentialRoot?: ArrayBuffer
       revocationRoot?: ArrayBuffer
@@ -203,6 +207,10 @@ function toProofRequest(request: Extract<CommentPrivacyWorkerRequest, { type: 'p
     verifyingKeyHash: request.verifyingKeyHash,
     issuerPublicKeyHash: request.issuerPublicKeyHash,
     policyHash: request.policyHash,
+    isEligible: request.isEligible,
+    mayComment: request.mayComment,
+    rateClass: request.rateClass,
+    requiresModeration: request.requiresModeration,
     credentialCommitment: toBytes(request.credentialCommitment),
     credentialRoot: toBytes(request.credentialRoot),
     revocationRoot: toBytes(request.revocationRoot),

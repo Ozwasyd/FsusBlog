@@ -647,7 +647,7 @@ internal sealed class UnavailableNativeGroth16VerifierLibrary : INativeGroth16Ve
 
 internal static class NativeGroth16PublicInputCodec
 {
-    private const string TranscriptDomain = "fsus.anonymous.comment.v4.public-inputs";
+    private const string TranscriptDomain = "fsus.anonymous.comment.v5.public-inputs";
 
     public static ReadOnlyMemory<byte> Encode(ProductionZkProofBackendRequest request)
     {
@@ -658,14 +658,13 @@ internal static class NativeGroth16PublicInputCodec
             + EncodedStringSize(request.CircuitId)
             + EncodedStringSize(request.VerifyingKeyHash)
             + sizeof(ushort)
-            + sizeof(long)
             + EncodedStringSize(request.NullifierHash)
             + EncodedStringSize(request.CredentialRoot)
             + EncodedStringSize(request.RevocationRoot)
             + EncodedStringSize(request.IssuerPublicKeyHash)
             + EncodedStringSize(request.PolicyHash)
-            + EncodedStringSize(request.CredentialLevel)
-            + EncodedStringSize(request.ReputationBucket));
+            + 3
+            + EncodedStringSize(request.RateClass));
         byte[] encoded = GC.AllocateUninitializedArray<byte>(length);
         Span<byte> destination = encoded;
         int offset = 0;
@@ -675,14 +674,15 @@ internal static class NativeGroth16PublicInputCodec
         WriteString(destination, ref offset, request.CircuitId);
         WriteString(destination, ref offset, request.VerifyingKeyHash);
         WriteUInt16(destination, ref offset, request.PublicInputLayoutVersion);
-        WriteInt64(destination, ref offset, request.CredentialEpoch);
         WriteString(destination, ref offset, request.NullifierHash);
         WriteString(destination, ref offset, request.CredentialRoot);
         WriteString(destination, ref offset, request.RevocationRoot);
         WriteString(destination, ref offset, request.IssuerPublicKeyHash);
         WriteString(destination, ref offset, request.PolicyHash);
-        WriteString(destination, ref offset, request.CredentialLevel);
-        WriteString(destination, ref offset, request.ReputationBucket);
+        destination[offset++] = request.IsEligible ? (byte)1 : (byte)0;
+        destination[offset++] = request.MayComment ? (byte)1 : (byte)0;
+        WriteString(destination, ref offset, request.RateClass);
+        destination[offset++] = request.RequiresModeration ? (byte)1 : (byte)0;
         return encoded;
     }
 
@@ -708,9 +708,4 @@ internal static class NativeGroth16PublicInputCodec
         offset += sizeof(ushort);
     }
 
-    private static void WriteInt64(Span<byte> destination, ref int offset, long value)
-    {
-        BinaryPrimitives.WriteInt64LittleEndian(destination[offset..], value);
-        offset += sizeof(long);
-    }
 }

@@ -1,6 +1,8 @@
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Shared.Contracts.Validation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -21,12 +23,13 @@ public readonly record struct ProductionZkProofBackendRequest(
     string CircuitId,
     string VerifyingKeyHash,
     ushort PublicInputLayoutVersion,
-    long CredentialEpoch,
     string NullifierHash,
     string CredentialRoot,
-    string CredentialLevel,
-    string ReputationBucket,
     string PolicyHash,
+    bool IsEligible,
+    bool MayComment,
+    string RateClass,
+    bool RequiresModeration,
     ReadOnlyMemory<byte> Proof,
     string RevocationRoot = "",
     string IssuerPublicKeyHash = "");
@@ -130,11 +133,7 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
             return ZkProofVerificationResult.InvalidProof();
         }
 
-        if (!_rootReader.IsRootAccepted(
-            request.CredentialRoot,
-            request.RevocationRoot,
-            request.IssuerPublicKeyHash,
-            request.CredentialEpoch))
+        if (!IsRootAccepted(request))
         {
             return ZkProofVerificationResult.InvalidProof();
         }
@@ -154,12 +153,13 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
                         request.CircuitId.Trim(),
                         request.VerifyingKeyHash.Trim(),
                         request.PublicInputLayoutVersion,
-                        request.CredentialEpoch,
                         request.NullifierHash.Trim(),
                         request.CredentialRoot.Trim(),
-                        NormalizeToken(request.CredentialLevel, 32),
-                        NormalizeToken(request.ReputationBucket, 64),
                         NormalizeToken(request.PolicyHash, 64),
+                        request.IsEligible,
+                        request.MayComment,
+                        NormalizeToken(request.RateClass, AnonymousPrivacyContract.MaxRateClassBytes),
+                        request.RequiresModeration,
                         request.Proof,
                         NormalizeToken(request.RevocationRoot, 128),
                         NormalizeToken(request.IssuerPublicKeyHash, 128)),
@@ -222,7 +222,6 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
             !string.Equals(request.CircuitId, _options.CircuitId, StringComparison.Ordinal) ||
             !string.Equals(request.VerifyingKeyHash, _options.VerifyingKeyHash, StringComparison.Ordinal) ||
             request.PublicInputLayoutVersion != _options.PublicInputLayoutVersion ||
-            request.CredentialEpoch <= 0 ||
             request.Proof.Length == 0 ||
             request.Proof.Length > _options.MaxProofBytes)
         {
@@ -235,8 +234,21 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
             IsHexHash(request.RevocationRoot, minLength: 64, maxLength: 64) &&
             IsHexHash(request.IssuerPublicKeyHash, minLength: 64, maxLength: 64) &&
             IsHexHash(request.PolicyHash, minLength: 64, maxLength: 64) &&
-            IsToken(request.CredentialLevel, maxLength: 32) &&
-            IsToken(request.ReputationBucket, maxLength: 64);
+            request.IsEligible &&
+            request.MayComment &&
+            IsToken(request.RateClass, maxLength: AnonymousPrivacyContract.MaxRateClassBytes);
+    }
+
+    private bool IsRootAccepted(ZkProofVerificationRequest request)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        return _rootReader.CurrentSnapshot.AcceptedRoots.Any(root =>
+            root.GraceExpiresAtUtc > now &&
+            string.Equals(root.RootHash, request.CredentialRoot, StringComparison.Ordinal) &&
+            string.Equals(root.RevocationRootHash, request.RevocationRoot, StringComparison.Ordinal) &&
+            string.Equals(root.IssuerPublicKeyHash, request.IssuerPublicKeyHash, StringComparison.Ordinal) &&
+            (string.Equals(root.Status, AnonymousCredentialRootStatuses.Active, StringComparison.Ordinal) ||
+             string.Equals(root.Status, AnonymousCredentialRootStatuses.Grace, StringComparison.Ordinal)));
     }
 
     private static ProductionZkProofVerifierOptions ResolveOptions(IConfiguration configuration)

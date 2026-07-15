@@ -299,8 +299,8 @@ public class CommentProjectionTests
             ArticleId = 7,
             ArticleTitle = title,
             RootId = rootId,
-            Author = new CommentAuthorViewDto("public", "Author", "zh-CN", null, null, null),
-            ReplyToAuthor = replyTo is null ? null : new CommentAuthorViewDto("public", replyTo, "zh-CN", null, null, null),
+            Author = new CommentAuthorViewDto("public", "Author", "zh-CN", null, null),
+            ReplyToAuthor = replyTo is null ? null : new CommentAuthorViewDto("public", replyTo, "zh-CN", null, null),
             ModerationStatus = moderationStatus,
             IsDeleted = isDeleted,
             HasBlockedRegions = hasBlockedRegions

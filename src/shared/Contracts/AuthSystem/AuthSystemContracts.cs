@@ -22,7 +22,6 @@ public readonly record struct AdminAccountListItemContract(
     bool RecoveryInitialized,
     DateTime? PrivacyInitializedAt,
     string AnonymousCredentialStatus,
-    string AnonymousCredentialLevel,
     int RiskFlags,
     int Status,
     DateTime CreateTime,

@@ -138,7 +138,6 @@ describe('comment API', () => {
         displayLanguage: 'zh-CN'
       },
       {
-        credentialEpoch: 20260618,
         ticket: new Uint8Array([31, 32])
       },
       { signal }
@@ -169,12 +168,11 @@ describe('comment API', () => {
     expect(view.getBigInt64(8, true)).toBe(100n)
     expect(view.getBigInt64(16, true)).toBe(90n)
     expect(view.getBigInt64(24, true)).toBe(80n)
-    expect(view.getBigInt64(32, true)).toBe(20260618n)
-    const blob = payload.subarray(76)
-    expect(readSliceText(payload, blob, 40)).toBe('article:42')
-    expect(readSliceText(payload, blob, 48)).toBe('zh-CN')
-    expect([...readSliceBytes(payload, blob, 56)]).toEqual([31, 32])
-    expect(readSliceText(payload, blob, 64)).toBe('anonymous comment')
+    const blob = payload.subarray(68)
+    expect(readSliceText(payload, blob, 32)).toBe('article:42')
+    expect(readSliceText(payload, blob, 40)).toBe('zh-CN')
+    expect([...readSliceBytes(payload, blob, 48)]).toEqual([31, 32])
+    expect(readSliceText(payload, blob, 56)).toBe('anonymous comment')
   })
 
   it('createPublicComment forces public author mode and explicit opt-in', async () => {
@@ -218,24 +216,25 @@ describe('comment API', () => {
     expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5])
   })
 
-  it('encodeAnonymousCommentTicketRequest writes the full comment.v2 ticket POD without public identity', () => {
+  it('encodeAnonymousCommentTicketRequest writes the v5 minimal-predicate ticket POD without exact attributes', () => {
     const payload = encodeAnonymousCommentTicketRequest({
       articleId: 42,
       parentId: '100',
       rootId: '90',
       replyToCommentId: '80',
-      credentialEpoch: 20260618,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 4,
+      publicInputLayoutVersion: 6,
       anonymousScope: 'article:42',
-      circuitId: 'fsus.anonymous.comment.v3',
+      circuitId: 'fsus.anonymous.comment.v5',
       actionContext: 'comment.create',
       verifyingKeyHash: 'a'.repeat(64),
       nullifierHash: new Uint8Array([9, 10]),
       credentialRoot: new Uint8Array([23, 24]),
       revocationRoot: new Uint8Array([25, 26]),
-      credentialLevel: 'strong_anonymous',
-      reputationBucket: 'rep:low',
+      isEligible: true,
+      mayComment: true,
+      rateClass: 'common',
+      requiresModeration: false,
       zkProof: new Uint8Array([11, 12]),
       publicInputs: new Uint8Array([13, 14])
     } as never)
@@ -248,21 +247,21 @@ describe('comment API', () => {
     expect(view.getBigInt64(8, true)).toBe(100n)
     expect(view.getBigInt64(16, true)).toBe(90n)
     expect(view.getBigInt64(24, true)).toBe(80n)
-    expect(view.getBigInt64(32, true)).toBe(20260618n)
-    expect(view.getUint32(40, true)).toBe(7)
-    expect(view.getUint16(44, true)).toBe(4)
-    const blob = payload.subarray(140)
-    expect(readSliceText(payload, blob, 48)).toBe('comment.create')
-    expect(readSliceText(payload, blob, 56)).toBe('article:42')
-    expect(readSliceText(payload, blob, 64)).toBe('fsus.anonymous.comment.v3')
-    expect(readSliceText(payload, blob, 72)).toBe('a'.repeat(64))
-    expect([...readSliceBytes(payload, blob, 80)]).toEqual([9, 10])
-    expect([...readSliceBytes(payload, blob, 88)]).toEqual([23, 24])
-    expect([...readSliceBytes(payload, blob, 96)]).toEqual([25, 26])
-    expect(readSliceText(payload, blob, 104)).toBe('strong_anonymous')
-    expect(readSliceText(payload, blob, 112)).toBe('rep:low')
-    expect([...readSliceBytes(payload, blob, 120)]).toEqual([11, 12])
-    expect([...readSliceBytes(payload, blob, 128)]).toEqual([13, 14])
+    expect(view.getUint32(32, true)).toBe(7)
+    expect(view.getUint16(36, true)).toBe(6)
+    expect(payload[38]).toBe(1)
+    expect(payload[39]).toBe(0)
+    const blob = payload.subarray(124)
+    expect(readSliceText(payload, blob, 40)).toBe('comment.create')
+    expect(readSliceText(payload, blob, 48)).toBe('article:42')
+    expect(readSliceText(payload, blob, 56)).toBe('fsus.anonymous.comment.v5')
+    expect(readSliceText(payload, blob, 64)).toBe('a'.repeat(64))
+    expect([...readSliceBytes(payload, blob, 72)]).toEqual([9, 10])
+    expect([...readSliceBytes(payload, blob, 80)]).toEqual([23, 24])
+    expect([...readSliceBytes(payload, blob, 88)]).toEqual([25, 26])
+    expect(readSliceText(payload, blob, 96)).toBe('common')
+    expect([...readSliceBytes(payload, blob, 104)]).toEqual([11, 12])
+    expect([...readSliceBytes(payload, blob, 112)]).toEqual([13, 14])
     expect(new TextDecoder().decode(payload)).not.toContain('alice')
   })
 
@@ -273,7 +272,6 @@ describe('comment API', () => {
       parentId: '100',
       rootId: '90',
       replyToCommentId: '80',
-      credentialEpoch: 20260618,
       anonymousScope: 'article:42',
       displayLanguage: 'en',
       ticket: new Uint8Array([31, 32]),
@@ -291,12 +289,11 @@ describe('comment API', () => {
     expect(view.getBigInt64(8, true)).toBe(100n)
     expect(view.getBigInt64(16, true)).toBe(90n)
     expect(view.getBigInt64(24, true)).toBe(80n)
-    expect(view.getBigInt64(32, true)).toBe(20260618n)
-    const blob = payload.subarray(76)
-    expect(readSliceText(payload, blob, 40)).toBe('article:42')
-    expect(readSliceText(payload, blob, 48)).toBe('en')
-    expect([...readSliceBytes(payload, blob, 56)]).toEqual([31, 32])
-    expect(readSliceText(payload, blob, 64)).toBe('anonymous comment')
+    const blob = payload.subarray(68)
+    expect(readSliceText(payload, blob, 32)).toBe('article:42')
+    expect(readSliceText(payload, blob, 40)).toBe('en')
+    expect([...readSliceBytes(payload, blob, 48)]).toEqual([31, 32])
+    expect(readSliceText(payload, blob, 56)).toBe('anonymous comment')
     const raw = new TextDecoder().decode(payload)
     expect(raw).not.toContain('Alice')
     expect(raw).not.toContain('Bearer token')
@@ -311,7 +308,6 @@ describe('comment API', () => {
         displayName: '匿名用户 王明',
         displayLanguage: 'zh-CN',
         badge: '',
-        credentialLevel: 'strong_anonymous',
         scopeLabel: '本文'
       }
     })).toEqual({
@@ -319,8 +315,7 @@ describe('comment API', () => {
       displayName: '匿名用户 王明',
       displayLanguage: 'zh-CN',
       badge: null,
-      scopeLabel: '本文',
-      credentialLevel: 'strong_anonymous'
+      scopeLabel: '本文'
     })
   })
 

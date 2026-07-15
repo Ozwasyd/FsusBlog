@@ -21,6 +21,7 @@ public static class AnonymousCommentTicketStatuses
     public const string ProofInvalid = "proof_invalid";
     public const string NullifierBlocked = "nullifier_blocked";
     public const string ScopeLimitExceeded = "scope_limit_exceeded";
+    public const string AnonymitySetTooSmall = "anonymity_set_too_small";
 }
 
 public sealed record AnonymousCommentTicketPayload(
@@ -30,9 +31,8 @@ public sealed record AnonymousCommentTicketPayload(
     long? RootId,
     long? ReplyToCommentId,
     string NullifierHash,
-    long CredentialEpoch,
-    string CredentialLevel,
-    string ReputationBucket,
+    string RateClass,
+    bool RequiresModeration,
     long ExpiresAtUnixMs);
 
 public sealed record AnonymousCommentTicketIssueResult(
@@ -75,11 +75,10 @@ public sealed class AnonymousCommentTicketService(
     private const int MaxPublicInputsBytes = AnonymousPrivacyContract.MaxAnonymousTicketPublicInputsBytes;
     private const int MaxScopeChars = AnonymousPrivacyContract.MaxScopeBytes;
     private const string ActionContext = "comment.create";
-    private const string DefaultCredentialLevel = "strong_anonymous";
-    private const string DefaultReputationBucket = "unrated";
     private const string ModerationPepperKey = "Moderation:Pepper";
     private static readonly TimeSpan DefaultTicketTtl = TimeSpan.FromSeconds(120);
     private readonly byte[] _moderationSubjectHashKey = CreateModerationSubjectHashKey(configuration);
+    private readonly AnonymitySetPolicy _anonymitySetPolicy = new(configuration);
 
     public const int MaxRequestFrameBytes = 32 * 1024;
 
@@ -112,8 +111,6 @@ public sealed class AnonymousCommentTicketService(
         string credentialRoot = Convert.ToHexStringLower(request.CredentialRoot);
         string revocationRoot = Convert.ToHexStringLower(request.RevocationRoot);
         string issuerPublicKeyHash = root.IssuerPublicKeyHash;
-        string credentialLevel = NormalizeRequiredToken(request.CredentialLevel, DefaultCredentialLevel, 32);
-        string reputationBucket = NormalizeRequiredToken(request.ReputationBucket, DefaultReputationBucket, 64);
         string policyHash = AnonymousCommentPolicySnapshotHash.Resolve(policy);
         if (!IsHexHash(issuerPublicKeyHash, minLength: 32, maxLength: 128) ||
             !IsHexHash(policyHash, minLength: 64, maxLength: 64) ||
@@ -128,12 +125,13 @@ public sealed class AnonymousCommentTicketService(
             request.CircuitId.Trim(),
             request.VerifyingKeyHash.Trim(),
             request.PublicInputLayoutVersion,
-            request.CredentialEpoch,
             nullifierHash,
             credentialRoot,
-            credentialLevel,
-            reputationBucket,
             policyHash,
+            request.IsEligible,
+            request.MayComment,
+            request.RateClass.Trim().ToLowerInvariant(),
+            request.RequiresModeration,
             [.. request.Groth16Proof],
             revocationRoot,
             issuerPublicKeyHash);
@@ -146,6 +144,17 @@ public sealed class AnonymousCommentTicketService(
         if (!proof.Verified)
         {
             return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.ProofInvalid);
+        }
+
+        AnonymitySetDecision anonymitySet = _anonymitySetPolicy.Evaluate(
+            request.IsEligible,
+            request.MayComment,
+            request.RateClass,
+            request.RequiresModeration,
+            root.CircuitMetadata);
+        if (!anonymitySet.Allowed)
+        {
+            return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.AnonymitySetTooSmall);
         }
 
         NullifierReservationResult precheck = await nullifierService.PrecheckAsync(nullifierHash, scope, cancellationToken);
@@ -171,7 +180,6 @@ public sealed class AnonymousCommentTicketService(
         TimeSpan effectiveTtl = expiresAt - now;
         byte[] ticket = RandomNumberGenerator.GetBytes(TicketBytes);
         string ticketHash = HashTicket(ticket);
-        credentialLevel = string.IsNullOrWhiteSpace(credentialLevel) ? DefaultCredentialLevel : credentialLevel;
         var payload = new AnonymousCommentTicketPayload(
             request.ArticleId,
             scope,
@@ -179,9 +187,8 @@ public sealed class AnonymousCommentTicketService(
             TryParseOptionalCommentId(request.RootId, out long? rootId) ? rootId : null,
             TryParseOptionalCommentId(request.ReplyToCommentId, out long? replyToCommentId) ? replyToCommentId : null,
             nullifierHash,
-            request.CredentialEpoch,
-            credentialLevel,
-            reputationBucket,
+            anonymitySet.EffectiveRateClass,
+            request.RequiresModeration,
             expiresAt.ToUnixTimeMilliseconds());
         await cache.SetRawAsync(
             CachePolicyId.AnonymousCommentTicket,
@@ -192,9 +199,9 @@ public sealed class AnonymousCommentTicketService(
 
         byte[] moderationSubjectHash = CreateModerationSubjectHash(nullifierHash, _moderationSubjectHashKey);
         var response = new AnonymousCommentTicketResponseCoreModel(
-            request.CredentialEpoch,
             expiresAt.ToUnixTimeMilliseconds(),
-            credentialLevel,
+            anonymitySet.EffectiveRateClass,
+            request.RequiresModeration,
             ticket,
             moderationSubjectHash);
         return AnonymousCommentTicketIssueResult.Success(response);
@@ -239,7 +246,6 @@ public sealed class AnonymousCommentTicketService(
     private static bool PassesCheapValidation(AnonymousCommentTicketRequestCoreModel request, string scope)
     {
         if (request.ArticleId <= 0 ||
-            request.CredentialEpoch <= 0 ||
             request.CircuitNumericId == 0 ||
             request.PublicInputLayoutVersion == 0 ||
             request.PublicInputLayoutVersion != AnonymousPrivacyContract.PublicInputLayoutVersion ||
@@ -258,8 +264,9 @@ public sealed class AnonymousCommentTicketService(
             request.CredentialRoot.Length is < MinHashBytes or > MaxHashBytes ||
             request.RevocationRoot is null ||
             request.RevocationRoot.Length is < MinHashBytes or > MaxHashBytes ||
-            string.IsNullOrWhiteSpace(request.CredentialLevel) ||
-            string.IsNullOrWhiteSpace(request.ReputationBucket) ||
+            !request.IsEligible ||
+            !request.MayComment ||
+            !IsPublicRateClass(request.RateClass) ||
             !TryParseOptionalCommentId(request.ParentId, out _) ||
             !TryParseOptionalCommentId(request.RootId, out _) ||
             !TryParseOptionalCommentId(request.ReplyToCommentId, out _))
@@ -273,7 +280,6 @@ public sealed class AnonymousCommentTicketService(
     private bool RootMatchesRequest(AnonymousCredentialRootSnapshotCoreModel root, AnonymousCommentTicketRequestCoreModel request)
         => root.ZkAnonymousEnabled &&
             root.VerifierConfigured &&
-            root.CredentialEpoch == request.CredentialEpoch &&
             root.CircuitNumericId == request.CircuitNumericId &&
             root.PublicInputLayoutVersion == request.PublicInputLayoutVersion &&
             string.Equals(root.CircuitId, request.CircuitId, StringComparison.Ordinal) &&
@@ -296,23 +302,22 @@ public sealed class AnonymousCommentTicketService(
             proofRequest.CircuitId,
             proofRequest.VerifyingKeyHash,
             proofRequest.PublicInputLayoutVersion,
-            proofRequest.CredentialEpoch,
             proofRequest.NullifierHash,
             proofRequest.CredentialRoot,
-            proofRequest.CredentialLevel,
-            proofRequest.ReputationBucket,
             proofRequest.PolicyHash,
+            proofRequest.IsEligible,
+            proofRequest.MayComment,
+            proofRequest.RateClass,
+            proofRequest.RequiresModeration,
             proofRequest.Proof,
             proofRequest.RevocationRoot,
             proofRequest.IssuerPublicKeyHash));
         return expected.Span.SequenceEqual(publicInputs);
     }
 
-    private static string NormalizeRequiredToken(string? value, string fallback, int maxLength)
-    {
-        string normalized = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
-    }
+    private static bool IsPublicRateClass(string? value)
+        => string.Equals(value?.Trim(), AnonymousPrivacyContract.CommonRateClass, StringComparison.Ordinal) ||
+            string.Equals(value?.Trim(), AnonymousPrivacyContract.UnknownRateClass, StringComparison.Ordinal);
 
     private TimeSpan ResolveTicketTtl()
     {
@@ -354,18 +359,15 @@ public sealed class AnonymousCommentTicketService(
 
 internal static class AnonymousCommentTicketPayloadCodec
 {
-    private const byte Version = 2;
-    private const byte LegacyVersion = 1;
-    private const int FixedBytes = 1 + 4 + 1 + 8 + 8 + 8 + 8 + 8;
-    private const int LegacyFixedBytes = 1 + 4 + 8 + 8;
+    private const byte Version = 3;
+    private const int FixedBytes = 1 + 4 + 1 + 8 + 8 + 8 + 1 + 8;
 
     public static byte[] Encode(AnonymousCommentTicketPayload payload)
     {
         byte[] scope = Encoding.UTF8.GetBytes(payload.Scope);
         byte[] nullifier = Encoding.UTF8.GetBytes(payload.NullifierHash);
-        byte[] credentialLevel = Encoding.UTF8.GetBytes(payload.CredentialLevel);
-        byte[] reputationBucket = Encoding.UTF8.GetBytes(payload.ReputationBucket);
-        byte[] buffer = new byte[FixedBytes + EncodedLength(scope) + EncodedLength(nullifier) + EncodedLength(credentialLevel) + EncodedLength(reputationBucket)];
+        byte[] rateClass = Encoding.UTF8.GetBytes(payload.RateClass);
+        byte[] buffer = new byte[FixedBytes + EncodedLength(scope) + EncodedLength(nullifier) + EncodedLength(rateClass)];
         int offset = 0;
         buffer[offset++] = Version;
         BinaryPrimitives.WriteInt32LittleEndian(buffer.AsSpan(offset, 4), payload.ArticleId);
@@ -393,21 +395,19 @@ internal static class AnonymousCommentTicketPayloadCodec
         offset += 8;
         BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(offset, 8), payload.ReplyToCommentId ?? 0);
         offset += 8;
-        BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(offset, 8), payload.CredentialEpoch);
-        offset += 8;
+        buffer[offset++] = payload.RequiresModeration ? (byte)1 : (byte)0;
         BinaryPrimitives.WriteInt64LittleEndian(buffer.AsSpan(offset, 8), payload.ExpiresAtUnixMs);
         offset += 8;
         WriteBytes(buffer, ref offset, scope);
         WriteBytes(buffer, ref offset, nullifier);
-        WriteBytes(buffer, ref offset, credentialLevel);
-        WriteBytes(buffer, ref offset, reputationBucket);
+        WriteBytes(buffer, ref offset, rateClass);
         return buffer;
     }
 
     public static (bool Success, AnonymousCommentTicketPayload? Value) TryDecode(ReadOnlyMemory<byte> bytes)
     {
         ReadOnlySpan<byte> span = bytes.Span;
-        if (span.Length < LegacyFixedBytes || (span[0] != Version && span[0] != LegacyVersion))
+        if (span.Length < FixedBytes || span[0] != Version)
         {
             return (false, null);
         }
@@ -418,36 +418,30 @@ internal static class AnonymousCommentTicketPayloadCodec
         long? parentId = null;
         long? rootId = null;
         long? replyToCommentId = null;
-        if (span[0] == Version)
+        byte replyFlags = span[offset++];
+        long rawParentId = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
+        offset += 8;
+        long rawRootId = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
+        offset += 8;
+        long rawReplyToCommentId = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
+        offset += 8;
+        if (!DecodeOptionalId(replyFlags, 0, rawParentId, out parentId) ||
+            !DecodeOptionalId(replyFlags, 1, rawRootId, out rootId) ||
+            !DecodeOptionalId(replyFlags, 2, rawReplyToCommentId, out replyToCommentId))
         {
-            if (span.Length < FixedBytes)
-            {
-                return (false, null);
-            }
-
-            byte replyFlags = span[offset++];
-            long rawParentId = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
-            offset += 8;
-            long rawRootId = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
-            offset += 8;
-            long rawReplyToCommentId = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
-            offset += 8;
-            if (!DecodeOptionalId(replyFlags, 0, rawParentId, out parentId) ||
-                !DecodeOptionalId(replyFlags, 1, rawRootId, out rootId) ||
-                !DecodeOptionalId(replyFlags, 2, rawReplyToCommentId, out replyToCommentId))
-            {
-                return (false, null);
-            }
+            return (false, null);
         }
 
-        long credentialEpoch = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
-        offset += 8;
+        byte requiresModeration = span[offset++];
+        if (requiresModeration > 1)
+        {
+            return (false, null);
+        }
         long expiresAt = BinaryPrimitives.ReadInt64LittleEndian(span.Slice(offset, 8));
         offset += 8;
         if (!TryReadString(span, ref offset, out string scope) ||
             !TryReadString(span, ref offset, out string nullifierHash) ||
-            !TryReadString(span, ref offset, out string credentialLevel) ||
-            !TryReadString(span, ref offset, out string reputationBucket) ||
+            !TryReadString(span, ref offset, out string rateClass) ||
             offset != span.Length)
         {
             return (false, null);
@@ -460,9 +454,8 @@ internal static class AnonymousCommentTicketPayloadCodec
             rootId,
             replyToCommentId,
             nullifierHash,
-            credentialEpoch,
-            credentialLevel,
-            reputationBucket,
+            rateClass,
+            requiresModeration == 1,
             expiresAt));
     }
 

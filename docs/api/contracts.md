@@ -3,7 +3,13 @@
 本文件是 FsusBlog 所有请求/响应 DTO、通知 WebSocket 信封与 AOT 契约的**完整参考**。
 所有定义的权威源码位于 `src/shared/Contracts/` 目录。
 
-> 最近更新：2026-06-28 — 强匿名评论只允许 `anonymous-ticket` + `anonymous` 单次 ticket 链路；ZK root snapshot 增加 root attestation、Grace freshness 和 accumulator profile pathDepth 约束。
+> 最近更新：2026-07-16 — 强匿名评论升级为 `fsus.anonymous.comment.v5` / layout 6；公开契约只保留最小资格谓词。
+
+### v5/layout 6 强匿名资格契约（覆盖旧 presentation 描述）
+
+`AnonymousCommentTicketRequest` frame `198` 的 canonical public inputs 固定为 `action_context`、`scope`、`circuit_id`、`verifying_key_hash`、`public_input_layout_version`、`nullifier_hash`、`credential_root`、`revocation_root`、`issuer_public_key_hash`、`policy_hash`、`is_eligible`、`may_comment`、`rate_class`、`requires_moderation`。frame `199` 只返回 expiry、`rate_class`、`requires_moderation`、opaque ticket 与 moderation subject；最终 `AnonymousCommentCreateRequest` 不再携带 credential epoch。数值 `180/181` 和 ticket codec v1/v2 均退休并 fail closed。
+
+精确 credential epoch/level、reputation bucket、account age 只存在于浏览器 credential vault 与 circuit 私有 witness，由 finalized blind signature、credential root membership 和 policy constraint 绑定。评论公开作者、notification stream、审核队列、anti-spam metadata、stats 与 admin user list 均不得序列化这些字段。root attestation 的 `anonymity_sets` 只记录最小谓词组合和 aggregate size；Production `k >= 20`，`k-1` 只能要求客户端合并为 `common|unknown` 后重证，无法满足即拒绝。release evidence 只允许 set count、minimum、median，不包含成员标识。
 
 ---
 

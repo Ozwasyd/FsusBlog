@@ -74,11 +74,10 @@ describe('mapSiteStatsFromPodPayload', () => {
     const authorMode = enc('zk_anonymous')
     const authorBadge = enc('已验证匿名凭证')
     const authorScopeLabel = enc('article:42')
-    const credentialLevel = enc('strong_anonymous')
     const content = enc('Hello')
     const region = enc('EU')
-    const blob = joinBytes(authorDisplayName, authorMode, authorBadge, authorScopeLabel, credentialLevel, content, region)
-    const offsets = offsetsFor(authorDisplayName, authorMode, authorBadge, authorScopeLabel, credentialLevel, content, region)
+    const blob = joinBytes(authorDisplayName, authorMode, authorBadge, authorScopeLabel, content, region)
+    const offsets = offsetsFor(authorDisplayName, authorMode, authorBadge, authorScopeLabel, content, region)
 
     const pod = new Uint8Array(SITE_STATS_POD_SIZE)
     const suffix = new Uint8Array(4 + 4 + RECENT_COMMENT_RECORD_SIZE + 4 + REGION_DISTRIBUTION_RECORD_SIZE)
@@ -90,11 +89,11 @@ describe('mapSiteStatsFromPodPayload', () => {
     sliceRef(view, 24, offsets[1], authorMode.byteLength)
     sliceRef(view, 32, offsets[2], authorBadge.byteLength)
     sliceRef(view, 40, offsets[3], authorScopeLabel.byteLength)
-    sliceRef(view, 48, offsets[4], credentialLevel.byteLength)
-    sliceRef(view, 56, offsets[5], content.byteLength)
+    sliceRef(view, 48, 0, 0)
+    sliceRef(view, 56, offsets[4], content.byteLength)
     view.setInt32(64, 1, true)
     view.setInt32(68, 11, true)
-    sliceRef(view, 72, offsets[6], region.byteLength)
+    sliceRef(view, 72, offsets[5], region.byteLength)
 
     const result = mapSiteStatsFromPodPayload(buildCompactPayload(pod, blob, suffix))
     expect(result.recentComments).toEqual([{
@@ -102,7 +101,6 @@ describe('mapSiteStatsFromPodPayload', () => {
       authorMode: 'zk_anonymous',
       authorBadge: '已验证匿名凭证',
       authorScopeLabel: 'article:42',
-      credentialLevel: 'strong_anonymous',
       content: 'Hello',
       createTime: new Date(Date.UTC(2026, 0, 2)).toISOString()
     }])
@@ -162,7 +160,6 @@ describe('stats list mappers', () => {
       authorMode: 'public',
       authorBadge: null,
       authorScopeLabel: null,
-      credentialLevel: null,
       content,
       createTime: new Date(Date.UTC(2026, 0, 1)).toISOString()
     }])

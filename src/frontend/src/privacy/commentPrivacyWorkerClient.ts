@@ -40,6 +40,10 @@ type CommentPrivacyWorkerRequest =
       verifyingKeyHash?: string
       issuerPublicKeyHash?: string
       policyHash?: string
+      isEligible?: boolean
+      mayComment?: boolean
+      rateClass?: 'common' | 'unknown'
+      requiresModeration?: boolean
       credentialCommitment?: ArrayBuffer
       credentialRoot?: ArrayBuffer
       revocationRoot?: ArrayBuffer
@@ -106,6 +110,10 @@ type CommentPrivacyWorkerPostPayload =
       verifyingKeyHash?: string
       issuerPublicKeyHash?: string
       policyHash?: string
+      isEligible?: boolean
+      mayComment?: boolean
+      rateClass?: 'common' | 'unknown'
+      requiresModeration?: boolean
       credentialCommitment?: ArrayBuffer
       credentialRoot?: ArrayBuffer
       revocationRoot?: ArrayBuffer
@@ -301,6 +309,10 @@ export function createCommentPrivacyWorkerClient(options: CommentPrivacyWorkerCl
         verifyingKeyHash: request.verifyingKeyHash,
         issuerPublicKeyHash: request.issuerPublicKeyHash,
         policyHash: request.policyHash,
+        isEligible: request.isEligible,
+        mayComment: request.mayComment,
+        rateClass: request.rateClass,
+        requiresModeration: request.requiresModeration,
         credentialCommitment,
         credentialRoot,
         revocationRoot,

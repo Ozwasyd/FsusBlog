@@ -209,8 +209,7 @@ public partial class StatsService(
                 c.AuthorMode,
                 c.PublicHandle,
                 c.AnonymousDisplayName,
-                c.AnonymousScope,
-                c.CredentialLevel
+                c.AnonymousScope
             });
 
         var recentSql = recentQuery.ToSql();
@@ -223,7 +222,6 @@ public partial class StatsService(
         int fPublicHandle = reader.GetOrdinal("PublicHandle");
         int fAnonymousDisplayName = reader.GetOrdinal("AnonymousDisplayName");
         int fAnonymousScope = reader.GetOrdinal("AnonymousScope");
-        int fCredentialLevel = reader.GetOrdinal("CredentialLevel");
 
         while (await reader.ReadAsync(cancellationToken))
         {
@@ -232,7 +230,6 @@ public partial class StatsService(
                 reader.IsDBNull(fPublicHandle) ? null : reader.GetString(fPublicHandle),
                 reader.IsDBNull(fAnonymousDisplayName) ? null : reader.GetString(fAnonymousDisplayName),
                 reader.IsDBNull(fAnonymousScope) ? null : reader.GetString(fAnonymousScope),
-                reader.IsDBNull(fCredentialLevel) ? null : reader.GetString(fCredentialLevel),
                 reader.GetString(fContent),
                 reader.GetDateTime(fTime)));
         }
@@ -245,23 +242,17 @@ public partial class StatsService(
         string? publicHandle,
         string? anonymousDisplayName,
         string? anonymousScope,
-        string? credentialLevel,
         string content,
         DateTime createTime)
     {
         string mode = NormalizeRecentCommentAuthorMode(authorMode);
-        string? normalizedCredentialLevel = string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal)
-            ? null
-            : TextHelpers.NormalizeNullable(credentialLevel, 32);
-
         return new RecentCommentStatItemDto(
             ResolveRecentCommentAuthorDisplayName(mode, publicHandle, anonymousDisplayName),
             mode,
-            BuildRecentCommentAuthorBadge(mode, normalizedCredentialLevel),
+            BuildRecentCommentAuthorBadge(mode),
             string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal)
                 ? null
                 : TextHelpers.NormalizeNullable(anonymousScope, 128),
-            normalizedCredentialLevel,
             content,
             createTime);
     }
@@ -292,10 +283,9 @@ public partial class StatsService(
             : "匿名评论者";
     }
 
-    private static string? BuildRecentCommentAuthorBadge(string mode, string? credentialLevel)
+    private static string? BuildRecentCommentAuthorBadge(string mode)
         => string.Equals(mode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal)
-            && !string.IsNullOrWhiteSpace(credentialLevel)
-            ? "已验证匿名凭证"
+            ? "已验证匿名资格"
             : null;
 
     internal async Task<List<RegionStatItemDto>> LoadRegionStatsAsync(CancellationToken cancellationToken)

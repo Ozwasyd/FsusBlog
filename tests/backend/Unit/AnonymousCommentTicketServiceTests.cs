@@ -53,12 +53,13 @@ public sealed class AnonymousCommentTicketServiceTests
         CircuitId: AnonymousPrivacyContract.CircuitId,
         VerifyingKeyHash: VerifyingKeyHash,
         PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
-        CredentialEpoch: 20260619,
         NullifierHash: Convert.ToHexStringLower(Nullifier),
         CredentialRoot: Convert.ToHexStringLower(CredentialRoot),
-        CredentialLevel: "strong_anonymous",
-        ReputationBucket: "rep:low",
         PolicyHash: PolicyHash,
+        IsEligible: true,
+        MayComment: true,
+        RateClass: AnonymousPrivacyContract.CommonRateClass,
+        RequiresModeration: false,
         Proof: ReadOnlyMemory<byte>.Empty,
         RevocationRoot: Convert.ToHexStringLower(RevocationRoot),
         IssuerPublicKeyHash: new('f', 64))).ToArray();
@@ -74,8 +75,8 @@ public sealed class AnonymousCommentTicketServiceTests
 
         Assert.True(result.Issued);
         Assert.Equal(AnonymousCommentTicketStatuses.Issued, result.Status);
-        Assert.Equal(20260619, result.Response.CredentialEpoch);
-        Assert.Equal("strong_anonymous", result.Response.CredentialLevel);
+        Assert.Equal(AnonymousPrivacyContract.CommonRateClass, result.Response.RateClass);
+        Assert.False(result.Response.RequiresModeration);
         Assert.Equal(time.GetUtcNow().AddSeconds(120).ToUnixTimeMilliseconds(), result.Response.TicketExpiresAtUnixMs);
         Assert.Equal(32, result.Response.Ticket.Length);
         Assert.Equal(ExpectedModerationSubjectHash(), result.Response.ModerationSubjectHash);
@@ -378,7 +379,6 @@ public sealed class AnonymousCommentTicketServiceTests
             ParentId: null,
             RootId: null,
             ReplyToCommentId: null,
-            CredentialEpoch: 20260619,
             CircuitNumericId: 7,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
@@ -388,8 +388,10 @@ public sealed class AnonymousCommentTicketServiceTests
             NullifierHash: Nullifier,
             CredentialRoot: CredentialRoot,
             RevocationRoot: RevocationRoot,
-            CredentialLevel: "strong_anonymous",
-            ReputationBucket: "rep:low",
+            IsEligible: true,
+            MayComment: true,
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
             Groth16Proof: Proof,
             PublicInputs: PublicInputs);
 
@@ -400,12 +402,13 @@ public sealed class AnonymousCommentTicketServiceTests
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: VerifyingKeyHash,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
-            CredentialEpoch: 20260619,
             NullifierHash: Convert.ToHexStringLower(Nullifier),
             CredentialRoot: Convert.ToHexStringLower(CredentialRoot),
-            CredentialLevel: "strong_anonymous",
-            ReputationBucket: "rep:low",
             PolicyHash: policyHash,
+            IsEligible: true,
+            MayComment: true,
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
             Proof: ReadOnlyMemory<byte>.Empty,
             RevocationRoot: Convert.ToHexStringLower(RevocationRoot),
             IssuerPublicKeyHash: new('f', 64))).ToArray();
@@ -424,7 +427,7 @@ public sealed class AnonymousCommentTicketServiceTests
             IssuerPublicKeyHash: new('f', 64),
             CredentialRoot: CredentialRoot,
             RevocationRoot: RevocationRoot,
-            CircuitMetadata: []);
+            CircuitMetadata: Encoding.UTF8.GetBytes("{\"anonymity_sets\":[{\"is_eligible\":true,\"may_comment\":true,\"rate_class\":\"common\",\"requires_moderation\":false,\"size\":20}]}"));
 
     private static byte[] ExpectedModerationSubjectHash()
         => HMACSHA256.HashData(

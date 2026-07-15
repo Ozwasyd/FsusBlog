@@ -10,6 +10,9 @@ export function mapAdminUserPageFromPayload(payload: Uint8Array): PageResult<Adm
 
 function readAdminAccountListItem(reader: BinaryReader): AdminAccountListItem {
   const pod = reader.readSpan(USER_LIST_ITEM_POD_SIZE);
+  if (readFixedUtf8(pod, 168, 32).length > 0) {
+    throw new Error('admin_account_credential_class_must_be_empty');
+  }
   const hasPublicHandle = readByte(pod, 200) === 1;
   const passkeyInitialized = readByte(pod, 201) === 1;
   const recoveryInitialized = readByte(pod, 202) === 1;
@@ -26,7 +29,6 @@ function readAdminAccountListItem(reader: BinaryReader): AdminAccountListItem {
     identityKind: readFixedUtf8(pod, 40, 32),
     publicHandle: hasPublicHandle ? readFixedUtf8(pod, 72, 64) : null,
     anonymousCredentialStatus: readFixedUtf8(pod, 136, 32),
-    anonymousCredentialLevel: readFixedUtf8(pod, 168, 32),
     passkeyInitialized,
     recoveryInitialized
   };

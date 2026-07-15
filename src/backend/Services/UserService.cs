@@ -555,7 +555,6 @@ public partial class UserService(
                    recovery_enabled AS "RecoveryEnabled",
                    privacy_initialized_at AS "PrivacyInitializedAt",
                    anonymous_credential_status AS "AnonymousCredentialStatus",
-                   anonymous_credential_level AS "AnonymousCredentialLevel",
                    riskflags AS "RiskFlags",
                    status AS "Status",
                    createtime AS "CreateTime",
@@ -576,7 +575,6 @@ public partial class UserService(
             int fRecoveryEnabled = reader.GetOrdinal("RecoveryEnabled");
             int fPrivacyInitializedAt = reader.GetOrdinal("PrivacyInitializedAt");
             int fAnonymousCredentialStatus = reader.GetOrdinal("AnonymousCredentialStatus");
-            int fAnonymousCredentialLevel = reader.GetOrdinal("AnonymousCredentialLevel");
             int fRiskFlags = reader.GetOrdinal("RiskFlags");
             int fStatus = reader.GetOrdinal("Status");
             int fTime = reader.GetOrdinal("CreateTime");
@@ -592,7 +590,6 @@ public partial class UserService(
                     reader.GetBoolean(fRecoveryEnabled),
                     reader.IsDBNull(fPrivacyInitializedAt) ? null : reader.GetDateTime(fPrivacyInitializedAt),
                     reader.IsDBNull(fAnonymousCredentialStatus) ? "unknown" : reader.GetString(fAnonymousCredentialStatus),
-                    reader.IsDBNull(fAnonymousCredentialLevel) ? "basic" : reader.GetString(fAnonymousCredentialLevel),
                     reader.GetInt32(fRiskFlags),
                     reader.GetInt32(fStatus),
                     reader.GetDateTime(fTime),

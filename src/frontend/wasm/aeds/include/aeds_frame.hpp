@@ -208,8 +208,6 @@ enum class FrameType : std::uint16_t {
   AnonymousCredentialIssueRequest = 177,
   AnonymousCredentialIssueResponse = 178,
   AnonymousCredentialRootSnapshot = 179,
-  AnonymousCommentTicketRequest = 180,
-  AnonymousCommentTicketResponse = 181,
   AnonymousCommentCreateRequest = 182,
   AnonymousPrivacyStateSnapshot = 183,
   PerceptionSealedChallengeV2 = 184,
@@ -226,6 +224,8 @@ enum class FrameType : std::uint16_t {
   BlindCredentialIssueResponse = 195,
   AnonymousCredentialRevocationSnapshot = 196,
   AnonymousCredentialRevocationDelta = 197,
+  AnonymousCommentTicketRequest = 198,
+  AnonymousCommentTicketResponse = 199,
   EmptySuccess = 240,
   MutationId = 241,
   ApiError = 251,
@@ -406,8 +406,6 @@ enum class FrameType : std::uint16_t {
     case FrameType::AnonymousCredentialIssueRequest:
     case FrameType::AnonymousCredentialIssueResponse:
     case FrameType::AnonymousCredentialRootSnapshot:
-    case FrameType::AnonymousCommentTicketRequest:
-    case FrameType::AnonymousCommentTicketResponse:
     case FrameType::AnonymousCommentCreateRequest:
     case FrameType::AnonymousPrivacyStateSnapshot:
     case FrameType::PerceptionSealedChallengeV2:
@@ -424,6 +422,8 @@ enum class FrameType : std::uint16_t {
     case FrameType::BlindCredentialIssueResponse:
     case FrameType::AnonymousCredentialRevocationSnapshot:
     case FrameType::AnonymousCredentialRevocationDelta:
+    case FrameType::AnonymousCommentTicketRequest:
+    case FrameType::AnonymousCommentTicketResponse:
     case FrameType::EmptySuccess:
     case FrameType::MutationId:
     case FrameType::ApiError:

@@ -82,7 +82,6 @@ public sealed class StatsCoreGateway(StatsService service, StatsCoreQueryCache q
                 item.AuthorMode,
                 item.AuthorBadge,
                 item.AuthorScopeLabel,
-                item.CredentialLevel,
                 item.Content,
                 out _);
             recent.Add(new RecentCommentCoreModel(
@@ -91,7 +90,6 @@ public sealed class StatsCoreGateway(StatsService service, StatsCoreQueryCache q
                 item.AuthorMode,
                 item.AuthorBadge,
                 item.AuthorScopeLabel,
-                item.CredentialLevel,
                 item.Content,
                 item.CreateTime));
         }

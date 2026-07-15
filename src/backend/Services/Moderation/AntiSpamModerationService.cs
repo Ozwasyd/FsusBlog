@@ -127,9 +127,8 @@ public sealed class AntiSpamModerationService(
         AddMetadata(metadata, "moderation_subject_hash", context.ModerationSubjectHash);
         AddMetadata(metadata, "anonymous_nullifier_hash", context.AnonymousNullifierHash);
         AddMetadata(metadata, "anonymous_scope", context.AnonymousScope);
-        AddMetadata(metadata, "credential_level", context.CredentialLevel);
-        AddMetadata(metadata, "reputation_bucket", context.ReputationBucket);
-        AddMetadata(metadata, "account_age_bucket", context.AccountAgeBucket);
+        AddMetadata(metadata, "rate_class", context.RateClass);
+        AddMetadata(metadata, "requires_moderation", context.RequiresModeration);
         AddMetadata(metadata, "anonymous_comments_enabled", context.AnonymousCommentsEnabled);
         AddMetadata(metadata, "zk_anonymous_enabled", context.ZkAnonymousEnabled);
 

@@ -13,7 +13,6 @@ export interface RecentCommentStatItem {
   authorMode: string
   authorBadge: string | null
   authorScopeLabel: string | null
-  credentialLevel: string | null
   content: string
   createTime: string
 }

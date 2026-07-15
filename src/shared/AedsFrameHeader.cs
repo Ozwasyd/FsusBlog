@@ -216,8 +216,6 @@ public enum AedsFrameType : ushort
     AnonymousCredentialIssueRequest = 177,
     AnonymousCredentialIssueResponse = 178,
     AnonymousCredentialRootSnapshot = 179,
-    AnonymousCommentTicketRequest = 180,
-    AnonymousCommentTicketResponse = 181,
     AnonymousCommentCreateRequest = 182,
     AnonymousPrivacyStateSnapshot = 183,
     PerceptionSealedChallengeV2 = 184,
@@ -234,6 +232,8 @@ public enum AedsFrameType : ushort
     BlindCredentialIssueResponse = 195,
     AnonymousCredentialRevocationSnapshot = 196,
     AnonymousCredentialRevocationDelta = 197,
+    AnonymousCommentTicketRequest = 198,
+    AnonymousCommentTicketResponse = 199,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

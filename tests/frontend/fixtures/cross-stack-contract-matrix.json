@@ -8,8 +8,8 @@
     "backendGolden": "tests/backend/Fixtures/aeds-golden-catalog.json"
   },
   "anonymousPrivacyContract": {
-    "circuitId": "fsus.anonymous.comment.v4",
-    "publicInputLayoutVersion": 5,
+    "circuitId": "fsus.anonymous.comment.v5",
+    "publicInputLayoutVersion": 6,
     "blindCredentialScheme": "rfc9474-rsabssa-sha384-pss-randomized-3072",
     "blindRsaModulusBytes": 384,
     "maxCircuitNativeIssuerSignatureBytes": 256,
@@ -18,12 +18,18 @@
     "anonymousTicketPublicInputs": [
       "action_context",
       "scope",
+      "circuit_id",
+      "verifying_key_hash",
+      "public_input_layout_version",
+      "nullifier_hash",
       "credential_root",
       "revocation_root",
-      "nullifier_hash",
-      "credential_epoch",
-      "credential_level",
-      "reputation_bucket"
+      "issuer_public_key_hash",
+      "policy_hash",
+      "is_eligible",
+      "may_comment",
+      "rate_class",
+      "requires_moderation"
     ]
   },
   "negativeCases": [

@@ -307,8 +307,10 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | 已撤销的 circuit-native 请求 frame；旧 endpoint 固定 410 |
 | 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 已撤销的 circuit-native 响应 frame；运行时不得返回 |
 | 179 | `AnonymousCredentialRootSnapshot` | `AnonymousCredentialRootSnapshotPod` | 匿名凭证 root/verifying-key snapshot；包含 issuer public key hash、credential/revocation root；`GET /api/binary/anonymous-credential/root` 与 `/circuit` 响应 |
-| 180 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | `POST /api/binary/comment/anonymous-ticket` 请求体；action/scope/verifying key/nullifier/root metadata、Groth16 proof 与 canonical public inputs 使用 blob slice；不携带 credential commitment |
-| 181 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | 匿名评论 ticket 响应；one-time opaque ticket、expires_at、credential level 与 moderation subject hash，不返回用户身份或 nullifier 原文 |
+| 180 | retired | — | 旧精确属性 ticket request；必须按未知/退休 frame fail closed |
+| 181 | retired | — | 旧精确属性 ticket response；必须按未知/退休 frame fail closed |
+| 198 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | v5/layout 6 最小资格谓词、root hashes、proof 与 canonical public inputs；不携带精确属性 |
+| 199 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | expiry、`common|unknown` rate class、审核谓词、opaque ticket 与 moderation subject hash |
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |
@@ -395,8 +397,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | `BlindCredentialIssueResponsePod` | 64 |
 | `AnonymousCredentialRootSnapshotPod` | 80 |
 | `AnonymousCredentialRevocationArtifactPod` | 88 |
-| `AnonymousCommentTicketRequestPod` | 136 |
-| `AnonymousCommentTicketResponsePod` | 48 |
+| `AnonymousCommentTicketRequestPod` | 120 |
+| `AnonymousCommentTicketResponsePod` | 36 |
 | `AnonymousCommentCreateRequestPod` | 72 |
 | `AnonymousPrivacyStateSnapshotPod` | 66 |
 

@@ -22,7 +22,6 @@ describe('admin stats recent comments privacy contract', () => {
       authorMode: 'zk_anonymous',
       authorBadge: '已验证匿名凭证',
       authorScopeLabel: 'article:42',
-      credentialLevel: 'strong_anonymous',
       content: '匿名反馈',
       createTime: '2026-01-02T00:00:00.000Z'
     }]
@@ -34,8 +33,7 @@ describe('admin stats recent comments privacy contract', () => {
       authorDisplayName: '强匿名评论者',
       authorMode: 'zk_anonymous',
       authorBadge: '已验证匿名凭证',
-      authorScopeLabel: 'article:42',
-      credentialLevel: 'strong_anonymous'
+      authorScopeLabel: 'article:42'
     })
   })
 

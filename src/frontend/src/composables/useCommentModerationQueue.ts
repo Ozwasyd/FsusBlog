@@ -36,13 +36,12 @@ export interface CommentModerationViewItem extends CommentModerationItemResponse
   authorModeLabel: string
   displayLanguageLabel: string
   anonymousScopeLabel: string
-  credentialLevelLabel: string
-  reputationBucketLabel: string
-  accountAgeBucketLabel: string
+  rateClassLabel: string
+  moderationRequirementLabel: string
   nullifierStatusLabel: string
   riskLabels: string[]
   isAnonymousActor: boolean
-  isStrongAnonymous: boolean
+  isZkAnonymous: boolean
   hasAnonymousNullifier: boolean
   hasAnonymousCredential: boolean
   canBlockAnonymousNullifier: boolean
@@ -366,10 +365,9 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
   const firstModelSignal = item.modelSignals[0]
   const authorMode = normalizeAuthorMode(item)
   const isAnonymousActor = authorMode !== 'public'
-  const credentialLevel = cleanText(item.credentialLevel)
-  const isStrongAnonymous = authorMode === 'zk_anonymous' || credentialLevel?.toLowerCase() === 'strong'
+  const isZkAnonymous = authorMode === 'zk_anonymous'
   const actorDisplayName = isAnonymousActor
-    ? cleanText(item.authorDisplayName) ?? localizedAnonymousDisplayName(item.displayLanguage, isStrongAnonymous)
+    ? cleanText(item.authorDisplayName) ?? localizedAnonymousDisplayName(item.displayLanguage, isZkAnonymous)
     : cleanText(item.authorDisplayName) ?? '未署名用户'
   const authorModeLabel = authorModeText(authorMode)
   const anonymousScopeLabel = isAnonymousActor
@@ -380,7 +378,7 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
     : []
   const hasAnonymousNullifier = isAnonymousActor && Boolean(cleanText(item.nullifierHash))
   const hasAnonymousCredential = isAnonymousActor && Boolean(cleanText(item.anonymousCredentialId))
-  const userLabel = isStrongAnonymous
+  const userLabel = isZkAnonymous
     ? `${authorModeLabel} / ${anonymousScopeLabel} / 不显示真实账号`
     : isAnonymousActor
       ? `${authorModeLabel} / ${anonymousScopeLabel}`
@@ -392,13 +390,12 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
     authorModeLabel,
     displayLanguageLabel: displayLanguageText(item.displayLanguage),
     anonymousScopeLabel,
-    credentialLevelLabel: bucketText('credential', item.credentialLevel),
-    reputationBucketLabel: bucketText('声誉桶', item.reputationBucket),
-    accountAgeBucketLabel: bucketText('账号年龄桶', item.accountAgeBucket),
+    rateClassLabel: bucketText('速率类', item.rateClass),
+    moderationRequirementLabel: item.requiresModeration === true ? '需要审核' : '无需额外审核',
     nullifierStatusLabel: nullifierStatusText(item, isAnonymousActor),
     riskLabels,
     isAnonymousActor,
-    isStrongAnonymous,
+    isZkAnonymous,
     hasAnonymousNullifier,
     hasAnonymousCredential,
     canBlockAnonymousNullifier: hasAnonymousNullifier && item.canBlockAnonymousNullifier === true,
@@ -513,9 +510,8 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
           item.authorModeLabel,
           item.displayLanguageLabel,
           item.anonymousScopeLabel,
-          item.credentialLevelLabel,
-          item.reputationBucketLabel,
-          item.accountAgeBucketLabel,
+          item.rateClassLabel,
+          item.moderationRequirementLabel,
           item.riskLabels.join(' '),
           item.reason ?? ''
         ].join(' ').toLowerCase()

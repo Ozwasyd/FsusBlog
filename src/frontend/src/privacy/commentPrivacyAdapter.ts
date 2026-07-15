@@ -76,7 +76,6 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
       try {
         const ticket = await issueAnonymousCommentTicket({
           articleId,
-          credentialEpoch: metadata.credentialEpoch,
           circuitNumericId: metadata.circuitNumericId,
           publicInputLayoutVersion: metadata.publicInputLayoutVersion,
           actionContext: 'comment.create',
@@ -86,8 +85,10 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
           nullifierHash: proof.nullifierHash,
           credentialRoot: metadata.credentialRoot,
           revocationRoot: metadata.revocationRoot,
-          credentialLevel: metadata.credentialLevel,
-          reputationBucket: metadata.reputationBucket,
+          isEligible: true,
+          mayComment: true,
+          rateClass: 'common',
+          requiresModeration: false,
           zkProof: proof.proofBytes,
           publicInputs: proof.publicInputs
         }, { signal, credentials: 'omit' })
@@ -96,10 +97,10 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
           ok: true,
           ticket: {
             scope,
-            credentialEpoch: ticket.credentialEpoch,
             ticket: ticket.ticket,
             expiresAtUnixMs: ticket.ticketExpiresAtUnixMs,
-            credentialLevel: ticket.credentialLevel
+            rateClass: ticket.rateClass,
+            requiresModeration: ticket.requiresModeration
           }
         }
       } catch {

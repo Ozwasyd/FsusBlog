@@ -177,9 +177,8 @@ public sealed record class CommentModerationItemResponse(
     string? NullifierHash,
     string? NullifierStatusLabel,
     string? AnonymousScope,
-    string? CredentialLevel,
-    string? ReputationBucket,
-    string? AccountAgeBucket,
+    string? RateClass,
+    bool? RequiresModeration,
     string? AnonymousCredentialId,
     bool CanBlockAnonymousNullifier,
     bool CanRevokeAnonymousCredential);

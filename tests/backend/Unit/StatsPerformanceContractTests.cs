@@ -103,21 +103,19 @@ public sealed class StatsPerformanceContractTests(PostgresSchemaMigrationFixture
         Assert.Equal(CommentAuthorModes.Public, publicComment.AuthorMode);
         Assert.Null(publicComment.AuthorBadge);
         Assert.Null(publicComment.AuthorScopeLabel);
-        Assert.Null(publicComment.CredentialLevel);
 
         FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto anonymousComment = comments[1];
         Assert.Equal("Query Budget", anonymousComment.AuthorDisplayName);
         Assert.Equal(CommentAuthorModes.LegacyServerVisiblePseudonymous, anonymousComment.AuthorMode);
         Assert.Null(anonymousComment.AuthorBadge);
         Assert.Null(anonymousComment.AuthorScopeLabel);
-        Assert.Null(anonymousComment.CredentialLevel);
 
         FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto zkComment = comments[2];
         Assert.Equal("Verified Query", zkComment.AuthorDisplayName);
         Assert.Equal(CommentAuthorModes.ZkAnonymous, zkComment.AuthorMode);
         Assert.Equal("已验证匿名凭证", zkComment.AuthorBadge);
         Assert.Equal("article:10", zkComment.AuthorScopeLabel);
-        Assert.Equal("verified", zkComment.CredentialLevel);
+        Assert.DoesNotContain("CredentialLevel", typeof(FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto).GetProperties().Select(static property => property.Name));
         Assert.DoesNotContain(comments, static item =>
             item.AuthorDisplayName is "7001" or "7002" or "7003");
         Assert.Single(executedSql);

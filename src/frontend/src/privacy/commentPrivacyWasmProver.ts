@@ -43,7 +43,7 @@ const DEFAULT_MANIFEST_URL = '/wasm/comment-privacy-prover.manifest.json'
 const ARTIFACT_UNAVAILABLE = 'comment_privacy_prover_artifact_unavailable'
 const ARTIFACT_INVALID = 'comment_privacy_prover_artifact_invalid'
 const PROOF_FAILED = 'comment_privacy_prover_failed'
-const PUBLIC_INPUT_TRANSCRIPT_DOMAIN = 'fsus.anonymous.comment.v4.public-inputs'
+const PUBLIC_INPUT_TRANSCRIPT_DOMAIN = 'fsus.anonymous.comment.v5.public-inputs'
 const COMMENT_ACTION_CONTEXT = 'comment.create'
 const BROWSER_PROVER_MODULE_GLOBAL = '__fsusCommentPrivacyProverModule'
 const browserProverScriptLoads = new Map<string, Promise<unknown>>()
@@ -438,6 +438,10 @@ function assertProofRequest(request: CommentPrivacyProofRequest): void {
     !isNonEmptyString(request.verifyingKeyHash) ||
     !isNonEmptyString(request.issuerPublicKeyHash) ||
     !isNonEmptyString(request.policyHash) ||
+    request.isEligible !== true ||
+    request.mayComment !== true ||
+    (request.rateClass !== 'common' && request.rateClass !== 'unknown') ||
+    typeof request.requiresModeration !== 'boolean' ||
     !isNonEmptyString(request.credentialLevel) ||
     !isNonEmptyString(request.reputationBucket)) {
     throw new Error(ARTIFACT_INVALID)
@@ -470,14 +474,15 @@ function encodeNativeGroth16PublicInputs(
   writeString(chunks, request.circuitId ?? '')
   writeString(chunks, request.verifyingKeyHash ?? '')
   writeUInt16(chunks, request.publicInputLayoutVersion ?? 0)
-  writeInt64(chunks, request.credentialEpoch ?? 0)
   writeString(chunks, bytesToHex(nullifierHash))
   writeString(chunks, bytesToHex(toRequiredBytes(request.credentialRoot, 'credentialRoot')))
   writeString(chunks, bytesToHex(toRequiredBytes(request.revocationRoot, 'revocationRoot')))
   writeString(chunks, request.issuerPublicKeyHash ?? '')
   writeString(chunks, request.policyHash ?? '')
-  writeString(chunks, request.credentialLevel ?? '')
-  writeString(chunks, request.reputationBucket ?? '')
+  chunks.push(Uint8Array.of(request.isEligible ? 1 : 0))
+  chunks.push(Uint8Array.of(request.mayComment ? 1 : 0))
+  writeString(chunks, request.rateClass ?? 'unknown')
+  chunks.push(Uint8Array.of(request.requiresModeration ? 1 : 0))
   return concatChunks(chunks)
 }
 

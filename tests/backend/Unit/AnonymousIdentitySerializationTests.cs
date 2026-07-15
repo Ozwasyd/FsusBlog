@@ -68,7 +68,7 @@ public sealed class AnonymousIdentitySerializationTests
             "42",
             "hello",
             DateTime.UnixEpoch,
-            new CommentAuthorViewDto("anonymous", "Anonymous User 7", "en", null, "article", "trusted"));
+            new CommentAuthorViewDto("anonymous", "Anonymous User 7", "en", null, "article"));
 
         string json = JsonSerializer.Serialize(dto, JsonOptions());
 
@@ -77,6 +77,7 @@ public sealed class AnonymousIdentitySerializationTests
         Assert.DoesNotContain("userName", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("userId", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("role", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("credentialLevel", json, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -90,8 +91,8 @@ public sealed class AnonymousIdentitySerializationTests
             ArticleId = 7,
             ArticleTitle = "Article",
             RootId = 42,
-            Author = new CommentAuthorViewDto("public", "Alice", "zh-CN", null, null, null),
-            ReplyToAuthor = new CommentAuthorViewDto("public", "Bob", "zh-CN", null, null, null),
+            Author = new CommentAuthorViewDto("public", "Alice", "zh-CN", null, null),
+            ReplyToAuthor = new CommentAuthorViewDto("public", "Bob", "zh-CN", null, null),
             ModerationStatus = 1,
             ModerationStatusLabel = "已公开",
             VisibilityState = "public",

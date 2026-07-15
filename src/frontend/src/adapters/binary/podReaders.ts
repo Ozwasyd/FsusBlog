@@ -131,8 +131,7 @@ function readCommentAuthorViewPayload(payload: Uint8Array, errorCode: string): C
       displayName: readSliceText(blob, readSliceRef(pod, 4)),
       displayLanguage: decodeCommentDisplayLanguage(readSliceText(blob, readSliceRef(pod, 12))),
       badge: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 20))),
-      scopeLabel: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 28))),
-      credentialLevel: decodeCommentCredentialLevel(pod[1] ?? 0, errorCode)
+      scopeLabel: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 28)))
     }
   });
 }
@@ -146,14 +145,6 @@ function decodeCommentAuthorMode(raw: number, errorCode: string): CommentAuthorV
 
 function decodeCommentDisplayLanguage(value: string): CommentAuthorView['displayLanguage'] {
   return value === 'en' ? 'en' : 'zh-CN';
-}
-
-function decodeCommentCredentialLevel(raw: number, errorCode: string): string | null {
-  if (raw === 0) return null;
-  if (raw === 1) return 'basic';
-  if (raw === 2) return 'trusted';
-  if (raw === 3) return 'strong_anonymous';
-  throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
 }
 
 function nullableAuthorField(value: string): string | null {

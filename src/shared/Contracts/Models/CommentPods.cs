@@ -206,14 +206,14 @@ public readonly struct AnonymousCommentTicketRequestPod
     public readonly byte HasParentId;
     public readonly byte HasRootId;
     public readonly byte HasReplyToCommentId;
-    public readonly byte Reserved0;
+    public readonly byte IsEligible;
     public readonly long ParentId;
     public readonly long RootId;
     public readonly long ReplyToCommentId;
-    public readonly long CredentialEpoch;
     public readonly uint CircuitNumericId;
     public readonly ushort PublicInputLayoutVersion;
-    public readonly ushort Reserved1;
+    public readonly byte MayComment;
+    public readonly byte RequiresModeration;
     public readonly Utf8SliceRef ActionContext;
     public readonly Utf8SliceRef Scope;
     public readonly Utf8SliceRef CircuitId;
@@ -221,8 +221,7 @@ public readonly struct AnonymousCommentTicketRequestPod
     public readonly Utf8SliceRef NullifierHash;
     public readonly Utf8SliceRef CredentialRoot;
     public readonly Utf8SliceRef RevocationRoot;
-    public readonly Utf8SliceRef CredentialLevel;
-    public readonly Utf8SliceRef ReputationBucket;
+    public readonly Utf8SliceRef RateClass;
     public readonly Utf8SliceRef Groth16Proof;
     public readonly Utf8SliceRef PublicInputs;
 }
@@ -230,9 +229,11 @@ public readonly struct AnonymousCommentTicketRequestPod
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AnonymousCommentTicketResponsePod
 {
-    public readonly long CredentialEpoch;
     public readonly long TicketExpiresAtUnixMs;
-    public readonly Utf8SliceRef CredentialLevel;
+    public readonly byte RequiresModeration;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly Utf8SliceRef RateClass;
     public readonly Utf8SliceRef Ticket;
     public readonly Utf8SliceRef ModerationSubjectHash;
 }
@@ -248,7 +249,6 @@ public readonly struct AnonymousCommentCreateRequestPod
     public readonly long ParentId;
     public readonly long RootId;
     public readonly long ReplyToCommentId;
-    public readonly long CredentialEpoch;
     public readonly Utf8SliceRef AnonymousScope;
     public readonly Utf8SliceRef DisplayLanguage;
     public readonly Utf8SliceRef Ticket;
@@ -277,7 +277,7 @@ public readonly struct AnonymousPrivacyStateSnapshotPod
 public readonly struct CommentAuthorViewPod
 {
     public readonly byte Mode;
-    public readonly byte CredentialLevel;
+    public readonly byte ReservedPrivacyClass;
     public readonly ushort Reserved0;
     public readonly Utf8SliceRef DisplayName;
     public readonly Utf8SliceRef DisplayLanguage;

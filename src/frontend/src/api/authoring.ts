@@ -546,9 +546,8 @@ export interface CommentModerationItemResponse {
   authorDisplayName?: string | null
   displayLanguage?: 'zh-CN' | 'en' | string | null
   anonymousScope?: string | null
-  credentialLevel?: string | null
-  reputationBucket?: string | null
-  accountAgeBucket?: string | null
+  rateClass?: 'common' | 'unknown' | string | null
+  requiresModeration?: boolean | null
   riskLabels?: string[] | null
   nullifierHash?: string | null
   nullifierStatusLabel?: string | null

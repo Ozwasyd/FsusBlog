@@ -10,8 +10,8 @@ const manifest: CommentPrivacyProverManifest = {
   wasmUrl: '/wasm/comment-privacy-prover.wasm',
   provingKeyUrl: '/wasm/comment-privacy-prover.zkey',
   integrity: 'sha256-VudRNfCt5IqiLg8Sobjb2s8erK3IL1r3wbRnV9xN1pc=',
-  circuitId: 'fsus.anonymous.comment.v3',
-  publicInputLayoutVersion: 4,
+  circuitId: 'fsus.anonymous.comment.v5',
+  publicInputLayoutVersion: 6,
   wasmSha256: '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81',
   provingKeySha256: '787c798e39a5bc1910355bae6d0cd87a36b2e10fd0202a83e3bb6b005da83472'
 }
@@ -26,8 +26,8 @@ const proofRequest = {
   metadataBytes: new Uint8Array([1, 2, 3]),
   credentialEpoch: 20260618,
   circuitNumericId: 7,
-  publicInputLayoutVersion: 4,
-  circuitId: 'fsus.anonymous.comment.v3',
+  publicInputLayoutVersion: 6,
+  circuitId: 'fsus.anonymous.comment.v5',
   verifyingKeyHash,
   issuerPublicKeyHash,
   policyHash,
@@ -37,6 +37,10 @@ const proofRequest = {
   circuitMetadata: new Uint8Array([8, 9]),
   credentialLevel: 'strong_anonymous',
   reputationBucket: 'rep:low',
+  isEligible: true,
+  mayComment: true,
+  rateClass: 'common' as const,
+  requiresModeration: false,
   credentialSecret: new Uint8Array([10, 11]),
   issuerSignature: new Uint8Array([12, 13]),
   revocationWitness: encodeCommentPrivacyRevocationWitnessMaterial({
@@ -345,26 +349,21 @@ function encodeExpectedPublicInputs(
     new DataView(bytes.buffer).setUint16(0, value, true)
     chunks.push(bytes)
   }
-  const writeInt64 = (value: number): void => {
-    const bytes = new Uint8Array(8)
-    new DataView(bytes.buffer).setBigInt64(0, BigInt(value), true)
-    chunks.push(bytes)
-  }
-
-  writeString('fsus.anonymous.comment.v3.public-inputs')
+  writeString('fsus.anonymous.comment.v5.public-inputs')
   writeString('comment.create')
   writeString(request.scope)
   writeString(request.circuitId)
   writeString(request.verifyingKeyHash)
   writeUInt16(request.publicInputLayoutVersion)
-  writeInt64(request.credentialEpoch)
   writeString(bytesToHex(nullifierHash))
   writeString(bytesToHex(request.credentialRoot))
   writeString(bytesToHex(request.revocationRoot))
   writeString(request.issuerPublicKeyHash)
   writeString(request.policyHash)
-  writeString(request.credentialLevel)
-  writeString(request.reputationBucket)
+  chunks.push(Uint8Array.of(request.isEligible ? 1 : 0))
+  chunks.push(Uint8Array.of(request.mayComment ? 1 : 0))
+  writeString(request.rateClass)
+  chunks.push(Uint8Array.of(request.requiresModeration ? 1 : 0))
 
   const total = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0)
   const output = new Uint8Array(total)

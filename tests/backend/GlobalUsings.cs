@@ -9,6 +9,7 @@ global using FsusBlog.Server.Services.Security;
 global using FsusBlog.Server.Tests.TestInfrastructure;
 global using FsusBlog.Shared.Contracts.Models;
 global using FsusBlog.Shared.Contracts.Outputs;
+global using FsusBlog.Shared.Contracts.Validation;
 global using Microsoft.AspNetCore.Builder;
 global using Microsoft.AspNetCore.Http;
 global using Microsoft.AspNetCore.Routing;

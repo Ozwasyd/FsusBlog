@@ -19,8 +19,8 @@ const rootSnapshot = {
   credentialEpoch: 20260619,
   rootExpiresAtUnixMs: Date.now() + 60_000,
   circuitNumericId: 7,
-  publicInputLayoutVersion: 4,
-  circuitId: 'fsus.anonymous.comment.v3',
+  publicInputLayoutVersion: 6,
+  circuitId: 'fsus.anonymous.comment.v5',
   verifyingKeyHash: 'a'.repeat(64),
   issuerPublicKeyHash: 'b'.repeat(64),
   credentialRoot: new Uint8Array([1, 2]),
@@ -48,10 +48,10 @@ describe('commentPrivacyAdapter', () => {
     } as never)
     vi.mocked(getCommentPolicySnapshot).mockResolvedValue(policySnapshot as never)
     vi.mocked(issueAnonymousCommentTicket).mockResolvedValue({
-      credentialEpoch: 20260619,
       ticketExpiresAtUnixMs: Date.now() + 30_000,
       ticket: new Uint8Array([21, 22]),
-      credentialLevel: 'strong_anonymous'
+      rateClass: 'common',
+      requiresModeration: false
     } as never)
   })
 
@@ -122,18 +122,19 @@ describe('commentPrivacyAdapter', () => {
     expect(getCommentPolicySnapshot).toHaveBeenCalledWith({ signal, credentials: 'omit' })
     expect(issueAnonymousCommentTicket).toHaveBeenCalledWith(expect.objectContaining({
       articleId: 42,
-      credentialEpoch: 20260619,
       circuitNumericId: 7,
-      publicInputLayoutVersion: 4,
+      publicInputLayoutVersion: 6,
       actionContext: 'comment.create',
       anonymousScope: 'article:42',
-      circuitId: 'fsus.anonymous.comment.v3',
+      circuitId: 'fsus.anonymous.comment.v5',
       verifyingKeyHash: 'a'.repeat(64),
       nullifierHash: new Uint8Array([16, 17]),
       credentialRoot: new Uint8Array([1, 2]),
       revocationRoot: new Uint8Array([3, 4]),
-      credentialLevel: 'strong_anonymous',
-      reputationBucket: 'rep:low',
+      isEligible: true,
+      mayComment: true,
+      rateClass: 'common',
+      requiresModeration: false,
       zkProof: new Uint8Array([12, 13]),
       publicInputs: new Uint8Array([14, 15])
     }), { signal, credentials: 'omit' })

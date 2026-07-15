@@ -47,7 +47,7 @@
             <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">身份与治理状态</div>
             <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.authorModeLabel }} / {{ item.nullifierStatusLabel }}</div>
             <div class="mt-2 break-words text-[12px] text-[var(--fsusblog-text-muted)]">
-              {{ item.credentialLevelLabel }} / {{ item.reputationBucketLabel }} / {{ item.accountAgeBucketLabel }}
+              {{ item.rateClassLabel }} / {{ item.moderationRequirementLabel }}
             </div>
           </div>
         </div>

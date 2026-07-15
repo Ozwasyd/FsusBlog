@@ -43,7 +43,6 @@ export interface CommentAddedPayload {
       displayLanguage: 'zh-CN' | 'en'
       badge?: string | null
       scopeLabel?: string | null
-      credentialLevel?: string | null
     }
     authorAccountId?: number | null
     parentId?: string | null
@@ -54,7 +53,6 @@ export interface CommentAddedPayload {
       displayLanguage: 'zh-CN' | 'en'
       badge?: string | null
       scopeLabel?: string | null
-      credentialLevel?: string | null
     } | null
     replyToCommentId?: string | null
     depth?: number

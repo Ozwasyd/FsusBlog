@@ -70,9 +70,11 @@ public sealed class AnonymousCommentSubmitTests(
         Assert.Equal(CommentAuthorModes.ZkAnonymous, comment.AuthorMode);
         Assert.Equal(NullifierHash, comment.AnonymousNullifierHash);
         Assert.Equal("article:42", comment.AnonymousScope);
-        Assert.Equal("strong_anonymous", comment.CredentialLevel);
-        Assert.Equal("rep-low", comment.ReputationBucket);
-        Assert.Equal("credential_bound", comment.AccountAgeBucket);
+        Assert.Null(comment.CredentialLevel);
+        Assert.Null(comment.ReputationBucket);
+        Assert.Null(comment.AccountAgeBucket);
+        Assert.Equal(AnonymousPrivacyContract.CommonRateClass, comment.AnonymousRateClass);
+        Assert.False(comment.AnonymousRequiresModeration);
         Assert.Equal(
             Convert.ToHexStringLower(HMACSHA256.HashData(
                 Encoding.UTF8.GetBytes(ModerationPepper),
@@ -693,7 +695,6 @@ public sealed class AnonymousCommentSubmitTests(
             parentId,
             rootId,
             replyToCommentId,
-            20260619,
             "article:42",
             "en",
             [.. Ticket]);
@@ -711,9 +712,8 @@ public sealed class AnonymousCommentSubmitTests(
             rootId,
             replyToCommentId,
             NullifierHash,
-            20260619,
-            "strong_anonymous",
-            "rep-low",
+            AnonymousPrivacyContract.CommonRateClass,
+            false,
             expiresAtUnixMs ?? DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds());
 
     private static RegionModerationDecision RegionDecision()

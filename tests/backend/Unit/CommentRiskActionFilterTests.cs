@@ -198,7 +198,6 @@ public sealed class CommentRiskActionFilterTests
             ParentId: null,
             RootId: null,
             ReplyToCommentId: null,
-            CredentialEpoch: 7,
             AnonymousScope: "article:42",
             DisplayLanguage: "en",
             Ticket: [1, 2, 3]));

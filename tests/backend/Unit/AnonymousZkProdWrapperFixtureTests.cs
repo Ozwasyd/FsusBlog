@@ -59,7 +59,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
 
         Assert.True(ticket.Issued);
         Assert.Equal(1, nativeLibrary.CallCount);
-        Assert.Equal("strong_anonymous", ticket.Response.CredentialLevel);
+        Assert.Equal(AnonymousPrivacyContract.CommonRateClass, ticket.Response.RateClass);
 
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
@@ -278,7 +278,6 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             ParentId: null,
             RootId: null,
             ReplyToCommentId: null,
-            CredentialEpoch: CredentialEpoch,
             CircuitNumericId: CircuitNumericId,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
@@ -288,8 +287,10 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             NullifierHash: nullifier,
             CredentialRoot: CredentialRoot,
             RevocationRoot: RevocationRoot,
-            CredentialLevel: "strong_anonymous",
-            ReputationBucket: "rep-low",
+            IsEligible: true,
+            MayComment: true,
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
             Groth16Proof: proof,
             PublicInputs: PublicInputs(articleId, nullifier, temp.VerifyingKeySha256));
 
@@ -300,7 +301,6 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             ParentId: null,
             RootId: null,
             ReplyToCommentId: null,
-            CredentialEpoch,
             "article:42",
             "en",
             [.. ticket]);
@@ -312,12 +312,13 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: verifyingKeyHash,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
-            CredentialEpoch: CredentialEpoch,
             NullifierHash: Hex(nullifier),
             CredentialRoot: Hex(CredentialRoot),
-            CredentialLevel: "strong_anonymous",
-            ReputationBucket: "rep-low",
             PolicyHash: PolicyHash,
+            IsEligible: true,
+            MayComment: true,
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
             Proof: ReadOnlyMemory<byte>.Empty,
             RevocationRoot: Hex(RevocationRoot),
             IssuerPublicKeyHash: IssuerPublicKeyHash)).ToArray();
@@ -330,12 +331,13 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: temp.VerifyingKeySha256,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
-            CredentialEpoch: CredentialEpoch,
             NullifierHash: Hex(nullifier),
             CredentialRoot: Hex(CredentialRoot),
-            CredentialLevel: "strong_anonymous",
-            ReputationBucket: "rep-low",
             PolicyHash: PolicyHash,
+            IsEligible: true,
+            MayComment: true,
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
             Proof: ReadOnlyMemory<byte>.Empty,
             RevocationRoot: Hex(RevocationRoot),
             IssuerPublicKeyHash: IssuerPublicKeyHash);
@@ -367,7 +369,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             IssuerPublicKeyHash: IssuerPublicKeyHash,
             CredentialRoot: CredentialRoot,
             RevocationRoot: RevocationRoot,
-            CircuitMetadata: []);
+            CircuitMetadata: Encoding.UTF8.GetBytes("{\"anonymity_sets\":[{\"is_eligible\":true,\"may_comment\":true,\"rate_class\":\"common\",\"requires_moderation\":false,\"size\":20}]}"));
 
     private static IConfiguration BuildConfiguration(string verifyingKeyHash, bool zkProdEnabled = true)
         => new ConfigurationBuilder()

@@ -72,7 +72,6 @@ public sealed class StatsServiceCoreAdapter(IStatsCoreService core) : IStatsServ
                 item.AuthorMode,
                 item.AuthorBadge,
                 item.AuthorScopeLabel,
-                item.CredentialLevel,
                 item.Content,
                 item.CreateTime));
         }

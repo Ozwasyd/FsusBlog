@@ -2,7 +2,11 @@
 
 本文件说明 FsusBlog API 层的设计原则与约定，是所有 API 变更的**必读前提文件**。
 
-> 最近更新：2026-06-25 — 管理端安全配置写入 fail closed，crawler range 远程 URL 只允许官方 HTTPS host。
+> 最近更新：2026-07-16 — 强匿名资格证明升级为 v5/layout 6 最小公开谓词与生产匿名集下限。
+
+### 强匿名资格最小披露
+
+`fsus.anonymous.comment.v5` / layout `6` 的公开 statement 只允许 root/version/hash 绑定、scope-bound nullifier，以及 `is_eligible`、`may_comment`、`rate_class`（仅 `common|unknown`）和 `requires_moderation`。精确凭据 epoch、凭据级别、声誉桶和账号年龄只能作为签名约束下的私有 witness，不得进入请求响应、ticket、评论投影、审核、provider、统计或 admin DTO。Production 的公开谓词组合必须有至少 20 个成员；不足时只能合并到 common/unknown 后重新证明，无法合并则 fail closed。
 
 ---
 

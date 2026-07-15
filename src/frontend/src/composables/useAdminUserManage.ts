@@ -48,17 +48,6 @@ export function useAdminUserManage() {
     }
   }
 
-  const credentialLevelSuffix = (value: string): string => {
-    switch (value) {
-      case 'verified':
-        return '（已验证）'
-      case 'elevated':
-        return '（增强验证）'
-      default:
-        return ''
-    }
-  }
-
   const listView = computed<UserListViewItem[]>(() =>
     list.value.map((item) => {
       const isDeleted = item.status === 2
@@ -69,7 +58,7 @@ export function useAdminUserManage() {
       const identityKindLabel = item.identityKind === 'anonymous_account' ? '匿名账号' : item.identityKind
       const passkeyText = item.passkeyInitialized ? '通行密钥已设置' : '未设置通行密钥'
       const recoveryText = item.recoveryInitialized ? '恢复密钥已设置' : '未设置恢复密钥'
-      const anonymousCredentialText = `${credentialStatusLabel(item.anonymousCredentialStatus)}${credentialLevelSuffix(item.anonymousCredentialLevel)}`
+      const anonymousCredentialText = credentialStatusLabel(item.anonymousCredentialStatus)
       const credentialSummary = `${passkeyText}；${recoveryText}`
       return {
         ...item,

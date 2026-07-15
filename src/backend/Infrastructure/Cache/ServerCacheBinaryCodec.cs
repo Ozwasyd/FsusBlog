@@ -14,7 +14,7 @@ internal static class ServerCacheBinaryCodec
     private const uint SeoMagic = 0x4F455346; // FSEO
     private const uint ComplianceMagic = 0x504D4F43; // COMP
     private const uint AdminStatsMagic = 0x42545346; // FSTB
-    private const uint RecentCommentStatsMagic = 0x43545346; // FSTC
+    private const uint RecentCommentStatsMagic = 0x44545346; // FSTD (privacy-safe v2)
     private const uint RegionStatsMagic = 0x52545346; // FSTR
     private const uint Version = 3;
     private const uint ArticleDetailV4Version = 4;
@@ -340,7 +340,6 @@ internal static class ServerCacheBinaryCodec
             WriteString(writer, item.AuthorMode);
             WriteNullableString(writer, item.AuthorBadge);
             WriteNullableString(writer, item.AuthorScopeLabel);
-            WriteNullableString(writer, item.CredentialLevel);
             WriteString(writer, item.Content);
             writer.Write(item.CreateTime.ToBinary());
         }
@@ -365,7 +364,6 @@ internal static class ServerCacheBinaryCodec
                 items.Add(new RecentCommentStatItemDto(
                     ReadString(reader),
                     ReadString(reader),
-                    ReadNullableString(reader),
                     ReadNullableString(reader),
                     ReadNullableString(reader),
                     ReadString(reader),

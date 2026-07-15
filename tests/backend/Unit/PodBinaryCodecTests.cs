@@ -687,8 +687,8 @@ public class PodBinaryCodecTests
         Assert.Equal((ushort)177, (ushort)AedsFrameType.AnonymousCredentialIssueRequest);
         Assert.Equal((ushort)178, (ushort)AedsFrameType.AnonymousCredentialIssueResponse);
         Assert.Equal((ushort)179, (ushort)AedsFrameType.AnonymousCredentialRootSnapshot);
-        Assert.Equal((ushort)180, (ushort)AedsFrameType.AnonymousCommentTicketRequest);
-        Assert.Equal((ushort)181, (ushort)AedsFrameType.AnonymousCommentTicketResponse);
+        Assert.Equal((ushort)198, (ushort)AedsFrameType.AnonymousCommentTicketRequest);
+        Assert.Equal((ushort)199, (ushort)AedsFrameType.AnonymousCommentTicketResponse);
         Assert.Equal((ushort)182, (ushort)AedsFrameType.AnonymousCommentCreateRequest);
         Assert.Equal((ushort)183, (ushort)AedsFrameType.AnonymousPrivacyStateSnapshot);
         Assert.Equal((ushort)186, (ushort)AedsFrameType.RetiredCredentialSpecificRevocationRequest);
@@ -715,12 +715,13 @@ public class PodBinaryCodecTests
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: new string('a', 64),
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
-            CredentialEpoch: 20260618,
             NullifierHash: Convert.ToHexStringLower(Enumerable.Repeat((byte)0x33, 32).ToArray()),
             CredentialRoot: Convert.ToHexStringLower(Enumerable.Repeat((byte)0x11, 32).ToArray()),
-            CredentialLevel: "strong_anonymous",
-            ReputationBucket: "rep:low",
             PolicyHash: new string('9', 64),
+            IsEligible: true,
+            MayComment: true,
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
             Proof: ReadOnlyMemory<byte>.Empty,
             RevocationRoot: Convert.ToHexStringLower(Enumerable.Repeat((byte)0x22, 32).ToArray()),
             IssuerPublicKeyHash: new string('b', 64))).ToArray();
@@ -786,7 +787,6 @@ public class PodBinaryCodecTests
             ParentId: "100",
             RootId: "90",
             ReplyToCommentId: "80",
-            CredentialEpoch: 20260618,
             CircuitNumericId: 7,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             ActionContext: "comment.create",
@@ -796,8 +796,10 @@ public class PodBinaryCodecTests
             NullifierHash: Enumerable.Repeat((byte)0x33, 32).ToArray(),
             CredentialRoot: Enumerable.Repeat((byte)0x11, 32).ToArray(),
             RevocationRoot: Enumerable.Repeat((byte)0x22, 32).ToArray(),
-            CredentialLevel: "strong_anonymous",
-            ReputationBucket: "rep:low",
+            IsEligible: true,
+            MayComment: true,
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
             Groth16Proof: groth16Proof,
             PublicInputs: publicInputs);
         byte[] ticketEncoded = PodBinaryCodec.EncodeAnonymousCommentTicketRequest(ticket);
@@ -805,8 +807,10 @@ public class PodBinaryCodecTests
         Assert.Equal("comment.create", ticketDecoded.ActionContext);
         Assert.Equal("article:42", ticketDecoded.Scope);
         Assert.Equal(new string('a', 64), ticketDecoded.VerifyingKeyHash);
-        Assert.Equal("strong_anonymous", ticketDecoded.CredentialLevel);
-        Assert.Equal("rep:low", ticketDecoded.ReputationBucket);
+        Assert.True(ticketDecoded.IsEligible);
+        Assert.True(ticketDecoded.MayComment);
+        Assert.Equal(AnonymousPrivacyContract.CommonRateClass, ticketDecoded.RateClass);
+        Assert.False(ticketDecoded.RequiresModeration);
         Assert.Equal(groth16Proof, ticketDecoded.Groth16Proof);
         Assert.Equal(publicInputs, ticketDecoded.PublicInputs);
 
@@ -830,9 +834,9 @@ public class PodBinaryCodecTests
         Assert.Equal(revocationArtifact.EntryHashes, artifactDecoded.EntryHashes);
 
         var ticketResponse = new AnonymousCommentTicketResponseCoreModel(
-            CredentialEpoch: 20260618,
             TicketExpiresAtUnixMs: 1780000005000,
-            CredentialLevel: "strong_anonymous",
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
             Ticket: [25, 26],
             ModerationSubjectHash: [27, 28]);
         byte[] ticketResponseEncoded = PodBinaryCodec.EncodeAnonymousCommentTicketResponse(ticketResponse);
@@ -846,7 +850,6 @@ public class PodBinaryCodecTests
             ParentId: "100",
             RootId: "90",
             ReplyToCommentId: "80",
-            CredentialEpoch: 20260618,
             AnonymousScope: "article:42",
             DisplayLanguage: "en",
             Ticket: [31, 32]);
@@ -889,7 +892,6 @@ public class PodBinaryCodecTests
             ParentId: null,
             RootId: null,
             ReplyToCommentId: null,
-            CredentialEpoch: 20260618,
             AnonymousScope: "article:42",
             DisplayLanguage: "en",
             Ticket: [1, 2, 3]);
@@ -906,7 +908,6 @@ public class PodBinaryCodecTests
             ParentId: null,
             RootId: null,
             ReplyToCommentId: null,
-            CredentialEpoch: 20260618,
             CircuitNumericId: 7,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             ActionContext: "comment.create",
@@ -916,8 +917,10 @@ public class PodBinaryCodecTests
             NullifierHash: Enumerable.Repeat((byte)0x33, 32).ToArray(),
             CredentialRoot: Enumerable.Repeat((byte)0x11, 32).ToArray(),
             RevocationRoot: Enumerable.Repeat((byte)0x22, 32).ToArray(),
-            CredentialLevel: "strong_anonymous",
-            ReputationBucket: "rep:low",
+            IsEligible: true,
+            MayComment: true,
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
             Groth16Proof: new byte[AnonymousPrivacyContract.MaxGroth16ProofBytes + 1],
             PublicInputs: [2]);
         byte[] oversizedProofEncoded = PodBinaryCodec.EncodeAnonymousCommentTicketRequest(oversizedProof);
@@ -946,8 +949,8 @@ public class PodBinaryCodecTests
     [Fact]
     public void AnonymousCredentialIssueResponseContract_UsesIssuerSignatureAndNoShaCommitment()
     {
-        Assert.Equal("fsus.anonymous.comment.v4", AnonymousPrivacyContract.CircuitId);
-        Assert.Equal(5, AnonymousPrivacyContract.PublicInputLayoutVersion);
+        Assert.Equal("fsus.anonymous.comment.v5", AnonymousPrivacyContract.CircuitId);
+        Assert.Equal(6, AnonymousPrivacyContract.PublicInputLayoutVersion);
         Assert.Equal(256, AnonymousPrivacyContract.MaxCircuitNativeIssuerSignatureBytes);
         Assert.Equal(256, AnonymousPrivacyContract.MaxCircuitNativeCredentialRequestBytes);
         Assert.Equal(4096, AnonymousPrivacyContract.MaxGroth16ProofBytes);
@@ -1257,8 +1260,8 @@ public class PodBinaryCodecTests
             Total = 2,
             Items =
             [
-                new AdminAccountListItemContract(7, "anonymous_account", "alice-public", true, true, privacyInitialized, "active", "basic", 3, 1, created, deleted),
-                new AdminAccountListItemContract(8, "anonymous_account", null, false, false, null, "revoked", "elevated", 0, 0, created, null)
+                new AdminAccountListItemContract(7, "anonymous_account", "alice-public", true, true, privacyInitialized, "active", 3, 1, created, deleted),
+                new AdminAccountListItemContract(8, "anonymous_account", null, false, false, null, "revoked", 0, 0, created, null)
             ]
         };
 
@@ -1275,7 +1278,7 @@ public class PodBinaryCodecTests
         Assert.True(decoded.Items[0].RecoveryInitialized);
         Assert.Equal(privacyInitialized, decoded.Items[0].PrivacyInitializedAt);
         Assert.Equal("active", decoded.Items[0].AnonymousCredentialStatus);
-        Assert.Equal("basic", decoded.Items[0].AnonymousCredentialLevel);
+        Assert.DoesNotContain("AnonymousCredentialLevel", typeof(AdminAccountListItemContract).GetProperties().Select(static item => item.Name));
         Assert.Equal(3, decoded.Items[0].RiskFlags);
         Assert.Equal(1, decoded.Items[0].Status);
         Assert.Equal(deleted, decoded.Items[0].DeletedAt);
@@ -1347,8 +1350,7 @@ public class PodBinaryCodecTests
             DisplayName: "Anonymous reader",
             DisplayLanguage: "en",
             Badge: "verified proof",
-            ScopeLabel: "article scope",
-            CredentialLevel: "strong_anonymous");
+            ScopeLabel: "article scope");
 
         byte[] encoded = PodBinaryCodec.EncodeCommentAuthorView(author);
         bool ok = PodBinaryCodec.TryDecodeCommentAuthorView(encoded, out var decoded);
@@ -1359,7 +1361,7 @@ public class PodBinaryCodecTests
         Assert.Equal("en", decoded.DisplayLanguage);
         Assert.Equal("verified proof", decoded.Badge);
         Assert.Equal("article scope", decoded.ScopeLabel);
-        Assert.Equal("strong_anonymous", decoded.CredentialLevel);
+        Assert.DoesNotContain("CredentialLevel", typeof(CommentAuthorViewCoreModel).GetProperties().Select(static item => item.Name));
 
         byte[] historical = (byte[])encoded.Clone();
         historical[0] = 1;
@@ -2093,7 +2095,6 @@ public class PodBinaryCodecTests
             "public",
             null,
             null,
-            null,
             "Hello",
             out _);
         var regionPod = PodProjector.ProjectRegionDistribution("US", 12);
@@ -2108,7 +2109,7 @@ public class PodBinaryCodecTests
             760,
             240,
             popular,
-            [new RecentCommentCoreModel(recentPod, "Alice Public", "public", null, null, null, "Hello", new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))],
+            [new RecentCommentCoreModel(recentPod, "Alice Public", "public", null, null, "Hello", new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc))],
             [new RegionDistributionCoreModel(regionPod, "US", 12)]);
         byte[] encoded = PodBinaryCodec.EncodeSiteStats(stats);
         bool ok = PodBinaryCodec.TryDecodeSiteStats(encoded, out var decoded);
@@ -2145,7 +2146,6 @@ public class PodBinaryCodecTests
             "zk_anonymous",
             "已验证匿名凭证",
             "article:42",
-            "strong_anonymous",
             "Recent content",
             out _);
         IReadOnlyList<RecentCommentCoreModel> comments = [new(
@@ -2154,7 +2154,6 @@ public class PodBinaryCodecTests
             "zk_anonymous",
             "已验证匿名凭证",
             "article:42",
-            "strong_anonymous",
             "Recent content",
             createTime)];
 
@@ -2167,7 +2166,7 @@ public class PodBinaryCodecTests
         Assert.Equal("zk_anonymous", decoded[0].AuthorMode);
         Assert.Equal("已验证匿名凭证", decoded[0].AuthorBadge);
         Assert.Equal("article:42", decoded[0].AuthorScopeLabel);
-        Assert.Equal("strong_anonymous", decoded[0].CredentialLevel);
+        Assert.DoesNotContain("CredentialLevel", typeof(RecentCommentCoreModel).GetProperties().Select(static item => item.Name));
         Assert.Equal("Recent content", decoded[0].Content);
     }
 
@@ -2331,7 +2330,7 @@ public class PodBinaryCodecCommentTests
     private static CommentQueryCoreModel MakeCommentItem(long id = 1, string content = "hello", string user = "Alice")
     {
         var createTime = new DateTime(2024, 4, 1, 0, 0, 0, DateTimeKind.Utc);
-        var author = new CommentAuthorViewDto("public", user, "zh-CN", null, null, null);
+        var author = new CommentAuthorViewDto("public", user, "zh-CN", null, null);
         var pod = PodProjector.ProjectCommentItem(id, createTime, author.Mode, author.DisplayName, content, out _);
         return new CommentQueryCoreModel(pod, id, content, createTime, author);
     }
@@ -2368,7 +2367,7 @@ public class PodBinaryCodecCommentTests
             99,
             title,
             null,
-            new CommentAuthorViewDto("public", "未署名用户", "zh-CN", null, null, null),
+            new CommentAuthorViewDto("public", "未署名用户", "zh-CN", null, null),
             null,
             moderationStatus,
             moderationStatusLabel,

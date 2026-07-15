@@ -20,7 +20,7 @@ public readonly struct RecentCommentPod
     public readonly Utf8Fixed32 AuthorMode;
     public readonly Utf8SliceRef AuthorBadge;
     public readonly Utf8SliceRef AuthorScopeLabel;
-    public readonly Utf8SliceRef CredentialLevel;
+    public readonly Utf8SliceRef ReservedPrivacyClass;
     public readonly Utf8SliceRef Content;
 }
 

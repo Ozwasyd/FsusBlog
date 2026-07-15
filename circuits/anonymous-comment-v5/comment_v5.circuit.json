@@ -1,0 +1,93 @@
+{
+  "schema": "fsusblog.zk.anonymous-comment-circuit.v2",
+  "circuit_id": "fsus.anonymous.comment.v5",
+  "public_input_layout_version": 6,
+  "proof_system": "Groth16",
+  "curve": "bn254",
+  "credential_scheme": "rfc9474-blind-rsa-with-private-attributes",
+  "public_inputs": [
+    "action_context",
+    "scope",
+    "circuit_id",
+    "verifying_key_hash",
+    "public_input_layout_version",
+    "nullifier_hash",
+    "credential_root",
+    "revocation_root",
+    "issuer_public_key_hash",
+    "policy_hash",
+    "is_eligible",
+    "may_comment",
+    "rate_class",
+    "requires_moderation"
+  ],
+  "private_witness": [
+    "credential_secret",
+    "finalized_blind_signature",
+    "credential_opening",
+    "signed_credential_epoch",
+    "signed_credential_level",
+    "signed_reputation_bucket",
+    "signed_account_age",
+    "credential_membership_proof",
+    "revocation_non_membership_witness",
+    "policy_comparison_witness"
+  ],
+  "domain_separators": {
+    "public_input_transcript": "fsus.anonymous.comment.v5.public-inputs",
+    "nullifier_prf": "fsus.anonymous.comment.v5:nullifier:v1",
+    "credential_leaf": "fsus.anonymous.comment.v5:credential-leaf:v1",
+    "policy_binding": "fsus.anonymous.comment.v5:policy:v1"
+  },
+  "constraint_groups": [
+    {
+      "id": "layout-and-root-binding",
+      "checks": [
+        "public_input_layout_version == 6",
+        "circuit_id == hash_to_field(fsus.anonymous.comment.v5)",
+        "credential membership reconstructs credential_root",
+        "revocation non-membership reconstructs revocation_root",
+        "issuer key hashes to issuer_public_key_hash"
+      ]
+    },
+    {
+      "id": "private-signed-attribute-binding",
+      "checks": [
+        "finalized blind signature verifies over the private signed attributes and credential secret",
+        "credential leaf binds the same private signed attributes",
+        "no exact signed attribute is copied to a public signal"
+      ]
+    },
+    {
+      "id": "minimal-policy-predicates",
+      "checks": [
+        "policy witness derives is_eligible from private signed attributes",
+        "policy witness derives may_comment from private signed attributes",
+        "rate_class is exactly common or unknown",
+        "policy witness derives requires_moderation from private signed attributes",
+        "is_eligible == true and may_comment == true"
+      ]
+    },
+    {
+      "id": "scope-bound-nullifier",
+      "checks": [
+        "nullifier_hash == Poseidon(nullifier_prf, credential_secret, action_context, scope)"
+      ]
+    }
+  ],
+  "forbidden_public_inputs": [
+    "credential_epoch",
+    "credential_level",
+    "reputation_bucket",
+    "account_age",
+    "account_age_bucket",
+    "credential_commitment",
+    "credential_serial",
+    "member_id"
+  ],
+  "production_notes": [
+    "This declarative source defines the v5/layout 6 statement but is not a proving or verifying key.",
+    "A fresh circuit-specific setup is mandatory; all older layouts and keys fail closed.",
+    "Anonymity-set cardinality is enforced by root metadata and the ticket policy in addition to circuit predicate constraints."
+  ]
+}

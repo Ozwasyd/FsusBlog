@@ -25,7 +25,6 @@ type AdminRecentCommentViewContract = Readonly<{
   authorMode: string;
   authorBadge: string | null;
   authorScopeLabel: string | null;
-  credentialLevel: string | null;
   content: string;
   timeValue: string;
   timeText: string;
@@ -132,7 +131,6 @@ export function createAdminDashboardViewContract(
       authorMode: comment.authorMode,
       authorBadge: comment.authorBadge,
       authorScopeLabel: comment.authorScopeLabel,
-      credentialLevel: comment.credentialLevel,
       content: comment.content,
       timeValue: comment.createTime,
       timeText: TimeUtils.toFullLocalString(comment.createTime),

@@ -551,7 +551,7 @@ function checkNoSensitiveEvidence(value, pathSegments = []) {
 }
 
 function isSensitiveEvidenceKey(key) {
-  return /(?:credentialSecret|credential_secret|issuerSignature|issuer_signature|credentialOpening|credential_opening|revocationWitness|revocation_witness|proofBytes|proof_bytes|rawProof|raw_proof|nullifierSecret|nullifier_secret)/u.test(key)
+  return /(?:credentialSecret|credential_secret|issuerSignature|issuer_signature|credentialOpening|credential_opening|revocationWitness|revocation_witness|proofBytes|proof_bytes|rawProof|raw_proof|nullifierSecret|nullifier_secret|credentialLevel|credential_level|credentialEpoch|credential_epoch|reputationBucket|reputation_bucket|accountAgeBucket|account_age_bucket|memberIds|member_ids)/u.test(key)
 }
 
 function checkRollbackDocument() {

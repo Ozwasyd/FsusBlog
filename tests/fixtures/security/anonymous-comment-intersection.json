@@ -1,0 +1,15 @@
+{
+  "schema": "fsusblog.security.anonymous-comment-intersection.v1",
+  "minimumSetSize": 20,
+  "observations": [
+    { "article": "article-a", "timeWindow": "window-1", "rateClass": "common", "setSize": 24 },
+    { "article": "article-a", "timeWindow": "window-2", "rateClass": "common", "setSize": 24 },
+    { "article": "article-b", "timeWindow": "window-1", "rateClass": "unknown", "setSize": 31 }
+  ],
+  "forbiddenDimensions": ["credential_level", "reputation_bucket", "account_age_bucket", "member_identity"],
+  "expected": {
+    "rareClassPublished": false,
+    "memberIntersectionPossible": false,
+    "underThresholdAction": "merge-or-fail-closed"
+  }
+}

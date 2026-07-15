@@ -47,14 +47,15 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
         "circuit_id",
         "verifying_key_hash",
         "public_input_layout_version",
-        "credential_epoch",
         "nullifier_hash",
         "credential_root",
         "revocation_root",
         "issuer_public_key_hash",
         "policy_hash",
-        "credential_level",
-        "reputation_bucket"
+        "is_eligible",
+        "may_comment",
+        "rate_class",
+        "requires_moderation"
     ];
 
     private readonly IConfiguration _configuration;

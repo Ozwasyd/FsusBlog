@@ -220,7 +220,7 @@ public readonly struct UserListItemPod
     public readonly Utf8Fixed32 IdentityKind;
     public readonly Utf8Fixed64 PublicHandle;
     public readonly Utf8Fixed32 AnonymousCredentialStatus;
-    public readonly Utf8Fixed32 AnonymousCredentialLevel;
+    public readonly Utf8Fixed32 ReservedCredentialClass;
     public readonly byte HasPublicHandle;
     public readonly byte PasskeyInitialized;
     public readonly byte RecoveryInitialized;

@@ -10,11 +10,13 @@
     { "value": 43, "reason": "legacy-password-login" },
     { "value": 44, "reason": "legacy-password-register" },
     { "value": 45, "reason": "legacy-username-mutation" },
-    { "value": 46, "reason": "legacy-password-mutation" }
+    { "value": 46, "reason": "legacy-password-mutation" },
+    { "value": 180, "reason": "precise-anonymous-credential-ticket-request" },
+    { "value": 181, "reason": "precise-anonymous-credential-ticket-response" }
   ],
   "anonymousPrivacyContract": {
-    "circuitId": "fsus.anonymous.comment.v4",
-    "publicInputLayoutVersion": 5,
+    "circuitId": "fsus.anonymous.comment.v5",
+    "publicInputLayoutVersion": 6,
     "blindCredentialScheme": "rfc9474-rsabssa-sha384-pss-randomized-3072",
     "blindRsaModulusBytes": 384,
     "maxCircuitNativeIssuerSignatureBytes": 256,
@@ -26,9 +28,10 @@
       "credential_root",
       "revocation_root",
       "nullifier_hash",
-      "credential_epoch",
-      "credential_level",
-      "reputation_bucket"
+      "is_eligible",
+      "may_comment",
+      "rate_class",
+      "requires_moderation"
     ]
   },
   "frameTypes": [
@@ -205,8 +208,6 @@
     { "name": "AnonymousCredentialIssueRequest", "value": 177 },
     { "name": "AnonymousCredentialIssueResponse", "value": 178 },
     { "name": "AnonymousCredentialRootSnapshot", "value": 179 },
-    { "name": "AnonymousCommentTicketRequest", "value": 180 },
-    { "name": "AnonymousCommentTicketResponse", "value": 181 },
     { "name": "AnonymousCommentCreateRequest", "value": 182 },
     { "name": "AnonymousPrivacyStateSnapshot", "value": 183 },
     { "name": "PerceptionSealedChallengeV2", "value": 184 },
@@ -223,6 +224,8 @@
     { "name": "BlindCredentialIssueResponse", "value": 195 },
     { "name": "AnonymousCredentialRevocationSnapshot", "value": 196 },
     { "name": "AnonymousCredentialRevocationDelta", "value": 197 },
+    { "name": "AnonymousCommentTicketRequest", "value": 198 },
+    { "name": "AnonymousCommentTicketResponse", "value": 199 },
     { "name": "EmptySuccess", "value": 240 },
     { "name": "MutationId", "value": 241 },
     { "name": "ApiError", "value": 251 }

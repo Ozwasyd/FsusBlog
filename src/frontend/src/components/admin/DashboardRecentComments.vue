@@ -22,12 +22,11 @@
               <div class="min-w-0">
                 <p class="text-[13px] font-bold text-[var(--fsusblog-text-secondary)]">{{ comment.authorDisplayName }}</p>
                 <p
-                  v-if="comment.authorBadge || comment.authorScopeLabel || comment.credentialLevel"
+                  v-if="comment.authorBadge || comment.authorScopeLabel"
                   class="mt-1 text-[11px] leading-snug text-[var(--fsusblog-text-muted)]"
                 >
                   <span v-if="comment.authorBadge">{{ comment.authorBadge }}</span>
                   <span v-if="comment.authorScopeLabel"> {{ comment.authorScopeLabel }}</span>
-                  <span v-if="comment.credentialLevel"> {{ comment.credentialLevel }}</span>
                 </p>
               </div>
               <SemanticTime

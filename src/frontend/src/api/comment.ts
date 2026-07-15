@@ -19,7 +19,6 @@ export interface CommentAuthorView {
   displayLanguage: 'zh-CN' | 'en'
   badge?: string | null
   scopeLabel?: string | null
-  credentialLevel?: string | null
 }
 
 export interface CommentCreateV2Dto {
@@ -52,7 +51,6 @@ export interface AnonymousCommentSubmitDto {
 }
 
 export interface AnonymousCommentSubmitTicket {
-  credentialEpoch: number
   ticket: Uint8Array | number[]
 }
 
@@ -176,16 +174,18 @@ export interface AnonymousCommentTicketRequestDto {
   nullifierHash: Uint8Array | number[]
   credentialRoot: Uint8Array | number[]
   revocationRoot: Uint8Array | number[]
-  credentialLevel: string
-  reputationBucket: string
+  isEligible: boolean
+  mayComment: boolean
+  rateClass: 'common' | 'unknown'
+  requiresModeration: boolean
   zkProof: Uint8Array | number[]
   publicInputs: Uint8Array | number[]
 }
 
 export interface AnonymousCommentTicketResponse {
-  credentialEpoch: number
   ticketExpiresAtUnixMs: number
-  credentialLevel: string
+  rateClass: 'common' | 'unknown'
+  requiresModeration: boolean
   ticket: Uint8Array
   moderationSubjectHash: Uint8Array
 }
@@ -196,7 +196,6 @@ export interface AnonymousCommentCreateRequestDto {
   parentId?: string | null
   rootId?: string | null
   replyToCommentId?: string | null
-  credentialEpoch: number
   anonymousScope: string
   displayLanguage: string
   ticket: Uint8Array | number[]
@@ -289,8 +288,7 @@ export function resolveCommentAuthorView(input: {
       displayName: author.displayName.trim(),
       displayLanguage: normalizeCommentDisplayLanguage(author.displayLanguage),
       badge: normalizeNullableAuthorField(author.badge),
-      scopeLabel: normalizeNullableAuthorField(author.scopeLabel),
-      credentialLevel: normalizeNullableAuthorField(author.credentialLevel)
+      scopeLabel: normalizeNullableAuthorField(author.scopeLabel)
     }
   }
 
@@ -325,7 +323,6 @@ export const createAnonymousComment = (
     parentId: data.parentId ?? null,
     rootId: data.rootId ?? null,
     replyToCommentId: data.replyToCommentId ?? null,
-    credentialEpoch: ticket.credentialEpoch,
     anonymousScope: data.anonymousScope,
     displayLanguage: data.displayLanguage,
     ticket: ticket.ticket
@@ -383,7 +380,7 @@ export const getAnonymousCredentialCircuitSnapshot = (config?: ApiRequestConfig)
 
 export const getBlindCredentialIssuerMetadata = (config?: ApiRequestConfig) =>
   requestBinaryOnly<BlindCredentialIssuerMetadata>({
-    binaryUrl: '/api/binary/anonymous-credential/blind-issuer',
+    binaryRoute: { operationId: 'binary_get_anonymous_credential_blind_issuer' },
     frameType: FrameType.BlindCredentialIssuerMetadata,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
@@ -630,8 +627,7 @@ export function encodeAnonymousCommentTicketRequest(data: AnonymousCommentTicket
   const nullifierHash = bytesFrom(data.nullifierHash)
   const credentialRoot = bytesFrom(data.credentialRoot)
   const revocationRoot = bytesFrom(data.revocationRoot)
-  const credentialLevel = encodeText(data.credentialLevel ?? '')
-  const reputationBucket = encodeText(data.reputationBucket ?? '')
+  const rateClass = encodeText(data.rateClass ?? 'unknown')
   const zkProof = bytesFrom(data.zkProof)
   const publicInputs = bytesFrom(data.publicInputs)
   const blobLength = actionContext.byteLength +
@@ -641,8 +637,7 @@ export function encodeAnonymousCommentTicketRequest(data: AnonymousCommentTicket
     nullifierHash.byteLength +
     credentialRoot.byteLength +
     revocationRoot.byteLength +
-    credentialLevel.byteLength +
-    reputationBucket.byteLength +
+    rateClass.byteLength +
     zkProof.byteLength +
     publicInputs.byteLength
   const bytes = new Uint8Array(ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE + 4 + blobLength)
@@ -655,27 +650,26 @@ export function encodeAnonymousCommentTicketRequest(data: AnonymousCommentTicket
   bytes[4] = parentId === null ? 0 : 1
   bytes[5] = rootId === null ? 0 : 1
   bytes[6] = replyToCommentId === null ? 0 : 1
-  bytes[7] = 0
+  bytes[7] = data.isEligible ? 1 : 0
   view.setBigInt64(8, parentId ?? 0n, true)
   view.setBigInt64(16, rootId ?? 0n, true)
   view.setBigInt64(24, replyToCommentId ?? 0n, true)
-  view.setBigInt64(32, BigInt(data.credentialEpoch ?? 0), true)
-  view.setUint32(40, data.circuitNumericId ?? 0, true)
-  view.setUint16(44, data.publicInputLayoutVersion ?? 0, true)
-  view.setUint16(46, 0, true)
+  view.setUint32(32, data.circuitNumericId ?? 0, true)
+  view.setUint16(36, data.publicInputLayoutVersion ?? 0, true)
+  bytes[38] = data.mayComment ? 1 : 0
+  bytes[39] = data.requiresModeration ? 1 : 0
 
   let offset = 0
-  offset = writeBlobPart(bytes, view, 48, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, actionContext)
-  offset = writeBlobPart(bytes, view, 56, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, anonymousScope)
-  offset = writeBlobPart(bytes, view, 64, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, circuitId)
-  offset = writeBlobPart(bytes, view, 72, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, verifyingKeyHash)
-  offset = writeBlobPart(bytes, view, 80, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, nullifierHash)
-  offset = writeBlobPart(bytes, view, 88, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, credentialRoot)
-  offset = writeBlobPart(bytes, view, 96, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, revocationRoot)
-  offset = writeBlobPart(bytes, view, 104, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, credentialLevel)
-  offset = writeBlobPart(bytes, view, 112, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, reputationBucket)
-  offset = writeBlobPart(bytes, view, 120, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, zkProof)
-  writeBlobPart(bytes, view, 128, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, publicInputs)
+  offset = writeBlobPart(bytes, view, 40, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, actionContext)
+  offset = writeBlobPart(bytes, view, 48, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, anonymousScope)
+  offset = writeBlobPart(bytes, view, 56, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, circuitId)
+  offset = writeBlobPart(bytes, view, 64, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, verifyingKeyHash)
+  offset = writeBlobPart(bytes, view, 72, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, nullifierHash)
+  offset = writeBlobPart(bytes, view, 80, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, credentialRoot)
+  offset = writeBlobPart(bytes, view, 88, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, revocationRoot)
+  offset = writeBlobPart(bytes, view, 96, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, rateClass)
+  offset = writeBlobPart(bytes, view, 104, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, zkProof)
+  writeBlobPart(bytes, view, 112, ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START, offset, publicInputs)
   view.setInt32(ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE, blobLength, true)
   return bytes
 }
@@ -700,13 +694,11 @@ export function encodeAnonymousCommentCreateRequest(data: AnonymousCommentCreate
   view.setBigInt64(8, parentId ?? 0n, true)
   view.setBigInt64(16, rootId ?? 0n, true)
   view.setBigInt64(24, replyToCommentId ?? 0n, true)
-  view.setBigInt64(32, BigInt(data.credentialEpoch ?? 0), true)
-
   let offset = 0
-  offset = writeBlobPart(bytes, view, 40, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, anonymousScope)
-  offset = writeBlobPart(bytes, view, 48, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, displayLanguage)
-  offset = writeBlobPart(bytes, view, 56, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, ticket)
-  writeBlobPart(bytes, view, 64, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, content)
+  offset = writeBlobPart(bytes, view, 32, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, anonymousScope)
+  offset = writeBlobPart(bytes, view, 40, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, displayLanguage)
+  offset = writeBlobPart(bytes, view, 48, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, ticket)
+  writeBlobPart(bytes, view, 56, ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START, offset, content)
   view.setInt32(ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE, blobLength, true)
   return bytes
 }
@@ -769,7 +761,7 @@ const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE = 48
 const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START = ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4
 const BLIND_CREDENTIAL_ISSUE_REQUEST_POD_SIZE = 56
 const BLIND_CREDENTIAL_ISSUE_REQUEST_BLOB_START = BLIND_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4
-const ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE = 136
+const ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE = 120
 const ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START = ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE + 4
-const ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE = 72
+const ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE = 64
 const ANONYMOUS_COMMENT_CREATE_REQUEST_BLOB_START = ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE + 4

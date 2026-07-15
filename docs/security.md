@@ -2,6 +2,8 @@
 
 本文档说明 FsusBlog 采用的安全机制及其实现要点。
 
+> 2026-07-16 匿名资格最小披露覆盖说明：运行时 contract 为 `fsus.anonymous.comment.v5` / layout `6`。精确 credential epoch/level、reputation bucket 和 account age 不再是 public input，也不得进入 ticket、comment、moderation/provider、stats/admin 或 release evidence。公开只允许 `is_eligible`、`may_comment`、`rate_class=common|unknown`、`requires_moderation` 与 root/version/hash 绑定；Production 匿名集下限为 20，低于阈值必须合并重证或 fail closed。v5 ceremony 尚未执行且 `production_usable=false`，旧 layout/key/ticket codec 不能回退启用。发布前运行 `check:privacy-zk-prod-release`；无需重启的回退是热更新 `AnonymousIdentity:ZkProd:Enabled=false`（并关闭 ZK anonymous comments），不删除已写入的匿名评论、root 或 vault 数据。
+
 Security-risk 持久化只使用独立、带 epoch 且按 IP/device/account 域隔离的 HMAC pseudonym，并停止保留请求 path 与 User-Agent。生产 key ring、轮换、遗留 unkeyed hash 删除迁移、retention 和流量回退要求见 [security-risk identity pseudonyms](security/security-risk-pseudonyms.md)。
 
 历史 VisitLog IP pseudonym 仍按受限 pseudonym 而非匿名数据处置；当前 read analytics 不再创建该 pseudonym，也不把任何地址或地址 hash 放进 `VisitLogMessage`。遗留 `VisitLog:IpPseudonymization` key 只供仍在迁移期使用 `security-log` domain 的安全日志调用方，不能恢复 `analytics` 写入。历史 raw IP 的删除必须同步覆盖 backup、WAL archive、日志、Redis legacy keys 与 ETL/S3，保留上限、DSR export/delete、脱敏审计和月度全链扫描见 [historical raw-IP lifecycle](security/ip-anonymization-lifecycle.md)。不得用备份加密代替删除，也不得为按用户查找访问记录重建账号关联。
@@ -286,7 +288,7 @@ ZK-Prod 后端依赖策略固定为 .NET 10 + `System.Text.Json`。trusted setup
 
 现有 `comment-v2-*` / v3/layout 4 circuit、R1CS 与 key 文件仅保留历史 provenance，不能验证 blind RSA credential，不能被 runtime 选择，也不能作为 v4 release evidence。v4 manifest 必须保持 `ceremony_status=not-run`、`production_usable=false` 与空 active verifying-key hash，直到新电路和 ceremony 完成。`release-evidence/anonymous-credential-blind-issuance.json` 只证明 issuance primitive，不宣称 presentation circuit 可用。
 
-生产发布前必须先运行 blind issuance checker/backend/frontend tests，再运行现有 privacy-ZK smoke/release gate。功能关闭时只接受 `expected_unavailable`；真实上线 evidence 必须声明 `circuitId=fsus.anonymous.comment.v4`、layout 5、Groth16，并绑定真实 v4 R1CS/key/verifier/prover hashes、完整 tamper matrix 和至少 100 scopes 的 transcript unlinkability。回滚设置 `BlindRsa:Enabled=false` 与 `ZkProd:Enabled=false`；不删除评论、root 或 vault 数据，不重新启用 legacy issuance。
+生产发布前必须先运行 blind issuance checker/backend/frontend tests，再运行现有 privacy-ZK smoke/release gate。功能关闭时只接受 `expected_unavailable`；真实上线 evidence 必须声明 `circuitId=fsus.anonymous.comment.v5`、layout 6、Groth16，并绑定真实 v5 R1CS/key/verifier/prover hashes、完整 tamper matrix 和至少 100 scopes 的 transcript unlinkability。回滚设置 `BlindRsa:Enabled=false` 与 `ZkProd:Enabled=false`；不删除评论、root 或 vault 数据，不重新启用 legacy issuance。
 `security/zk/comment-v2-local-review.manifest.json` 与 `docs/zk/comment-v2-local-cryptographic-review.md` 是 #1107 的仓库本地密码学审查证据。该 manifest 必须明确 `independent_audit_claimed=false`、`external_evidence_required=false`、`production_authorization=false`，并 hash-bind report、circuit/setup/proving key/verifying key/prover/verifier 与聚焦测试源；每条 scope evidence 还必须指向这些已绑定文件。immutable release manifest 额外绑定整份 local-review manifest 的 SHA-256，部署会重算 host-side 文件并拒绝漂移。`node tools/security/check-zk-local-review.mjs` 和 `check:privacy-zk-prod-release` 会拒绝 bound file 漂移、scope 缺失、未解决 Critical/High、越界路径或独立审计/生产授权虚假声明。本地审查不能替代真实 trusted setup、issuer/root readiness 或 cross-stack smoke。
 
 `tools/deploy-production.sh` 是生产一键部署入口，会在 `docker compose up` 前加载 `.env.production`、检查只读挂载的真实 ZK config/secrets 目录，并强制运行 `check:privacy-zk-prod-release`；该入口不提供跳过 ZK release gate 的参数或环境变量，缺少真实材料、`FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST` 或 immutable release hash 匹配时必须停在引导输出，不得直接启动。

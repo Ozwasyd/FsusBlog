@@ -1,0 +1,14 @@
+{
+  "schema": "fsusblog.release.anonymous-eligibility-anonymity-set.v1",
+  "circuitId": "fsus.anonymous.comment.v5",
+  "publicInputLayoutVersion": 6,
+  "minimumRequired": 20,
+  "visibleClasses": ["common", "unknown"],
+  "sample": {
+    "setCount": 4,
+    "minimumSize": 24,
+    "medianSize": 61
+  },
+  "containsMemberIdentities": false,
+  "status": "fixture-only-not-production-attestation"
+}

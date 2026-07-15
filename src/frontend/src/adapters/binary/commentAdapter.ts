@@ -259,11 +259,11 @@ export function mapAnonymousCommentTicketResponseFromPayload(payload: Uint8Array
   const { pod, blob } = readAnonymousPrivacyPayload(payload, ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE, 'anonymous_comment_ticket_response');
 
   return {
-    credentialEpoch: readInt64Number(pod, 0),
-    ticketExpiresAtUnixMs: readInt64Number(pod, 8),
-    credentialLevel: readAnonymousSliceText(blob, readSliceRef(pod, 16), 'anonymous_comment_ticket_response_level_invalid'),
-    ticket: readAnonymousSliceBytes(blob, readSliceRef(pod, 24), 'anonymous_comment_ticket_response_ticket_invalid'),
-    moderationSubjectHash: readAnonymousSliceBytes(blob, readSliceRef(pod, 32), 'anonymous_comment_ticket_response_moderation_hash_invalid')
+    ticketExpiresAtUnixMs: readInt64Number(pod, 0),
+    rateClass: readAnonymousSliceText(blob, readSliceRef(pod, 12), 'anonymous_comment_ticket_response_rate_class_invalid') as 'common' | 'unknown',
+    requiresModeration: readByte(pod, 8) === 1,
+    ticket: readAnonymousSliceBytes(blob, readSliceRef(pod, 20), 'anonymous_comment_ticket_response_ticket_invalid'),
+    moderationSubjectHash: readAnonymousSliceBytes(blob, readSliceRef(pod, 28), 'anonymous_comment_ticket_response_moderation_hash_invalid')
   };
 }
 
@@ -389,8 +389,7 @@ function readCommentAuthorViewPayload(payload: Uint8Array, errorCode: string): U
       displayName: readSliceText(blob, readSliceRef(pod, 4)),
       displayLanguage: readSliceText(blob, readSliceRef(pod, 12)) === 'en' ? 'en' : 'zh-CN',
       badge: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 20))),
-      scopeLabel: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 28))),
-      credentialLevel: decodeEmbeddedCommentCredentialLevel(readByte(pod, 1), errorCode)
+      scopeLabel: nullableAuthorField(readSliceText(blob, readSliceRef(pod, 28)))
     }
   });
 }
@@ -399,14 +398,6 @@ function decodeEmbeddedCommentAuthorMode(raw: number, errorCode: string): UserCo
   if (raw === 0 || raw === 1) return 'legacy_server_visible_pseudonymous';
   if (raw === 3) return 'public';
   if (raw === 4) return 'zk_anonymous';
-  throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
-}
-
-function decodeEmbeddedCommentCredentialLevel(raw: number, errorCode: string): string | null {
-  if (raw === 0) return null;
-  if (raw === 1) return 'basic';
-  if (raw === 2) return 'trusted';
-  if (raw === 3) return 'strong_anonymous';
   throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
 }
 

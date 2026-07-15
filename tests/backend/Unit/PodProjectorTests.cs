@@ -317,7 +317,6 @@ public class PodProjectorTests
             authorMode: "public",
             authorBadge: null,
             authorScopeLabel: null,
-            credentialLevel: null,
             content: "recent",
             payload: out var payload);
 
@@ -335,7 +334,6 @@ public class PodProjectorTests
             authorMode: "zk_anonymous",
             authorBadge: "已验证匿名凭证",
             authorScopeLabel: "article:42",
-            credentialLevel: "strong_anonymous",
             content: "anon comment",
             payload: out var payload);
 
@@ -343,7 +341,7 @@ public class PodProjectorTests
         Assert.Equal("zk_anonymous", PodUtf8Codec.FromFixed32(pod.AuthorMode));
         Assert.Equal("已验证匿名凭证", PodProjector.ReadSlice(pod.AuthorBadge, payload.Span));
         Assert.Equal("article:42", PodProjector.ReadSlice(pod.AuthorScopeLabel, payload.Span));
-        Assert.Equal("strong_anonymous", PodProjector.ReadSlice(pod.CredentialLevel, payload.Span));
+        Assert.Equal(0, pod.ReservedPrivacyClass.Length);
     }
 
     // ── ProjectRegionDistribution ───────────────────────────────────────────

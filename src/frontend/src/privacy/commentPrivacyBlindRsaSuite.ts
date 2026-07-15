@@ -165,8 +165,8 @@ function isMetadataUsable(metadata: Parameters<CommentPrivacyCredentialSuite['cr
     Number.isSafeInteger(metadata.circuitNumericId) &&
     metadata.circuitNumericId > 0 &&
     Number.isSafeInteger(metadata.publicInputLayoutVersion) &&
-    metadata.publicInputLayoutVersion === 5 &&
-    metadata.circuitId === 'fsus.anonymous.comment.v4' &&
+    metadata.publicInputLayoutVersion === 6 &&
+    metadata.circuitId === 'fsus.anonymous.comment.v5' &&
     /^[0-9a-f]{64}$/u.test(metadata.issuerPublicKeyHash) &&
     metadata.subjectPublicKeyInfo.byteLength > 0
 }

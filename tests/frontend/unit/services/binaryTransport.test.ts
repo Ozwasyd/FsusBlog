@@ -709,7 +709,6 @@ describe('binaryTransport ApiError mapping', () => {
       authorMode: string;
       authorBadge: string | null;
       authorScopeLabel: string | null;
-      credentialLevel: string | null;
       content: string;
       createTime: string;
     }>>({
@@ -721,7 +720,6 @@ describe('binaryTransport ApiError mapping', () => {
         authorMode: 'public',
         authorBadge: null,
         authorScopeLabel: null,
-        credentialLevel: null,
         content: 'first admin comment',
         createTime: '2026-05-12T09:08:07.000Z'
       },
@@ -730,7 +728,6 @@ describe('binaryTransport ApiError mapping', () => {
         authorMode: 'zk_anonymous',
         authorBadge: '已验证匿名凭证',
         authorScopeLabel: 'article:42',
-        credentialLevel: 'strong_anonymous',
         content: 'hidden user',
         createTime: '2026-05-12T10:00:00.000Z'
       }
@@ -784,7 +781,6 @@ describe('binaryTransport ApiError mapping', () => {
         authorMode: string;
         authorBadge: string | null;
         authorScopeLabel: string | null;
-        credentialLevel: string | null;
         content: string;
         createTime: string;
       }>;
@@ -826,7 +822,6 @@ describe('binaryTransport ApiError mapping', () => {
           authorMode: 'public',
           authorBadge: null,
           authorScopeLabel: null,
-          credentialLevel: null,
           content: 'first admin comment',
           createTime: '2026-05-12T09:08:07.000Z'
         }
@@ -976,8 +971,7 @@ describe('binaryTransport ApiError mapping', () => {
             displayName: 'alice',
             displayLanguage: 'zh-CN',
             badge: null,
-            scopeLabel: null,
-            credentialLevel: null
+            scopeLabel: null
           },
           rootId: '101',
           isDeleted: false,
@@ -993,16 +987,14 @@ describe('binaryTransport ApiError mapping', () => {
                 displayName: 'bob',
                 displayLanguage: 'zh-CN',
                 badge: null,
-            scopeLabel: null,
-            credentialLevel: null
+                scopeLabel: null
               },
               replyToAuthor: {
                 mode: 'public',
                 displayName: 'alice',
                 displayLanguage: 'zh-CN',
                 badge: null,
-            scopeLabel: null,
-            credentialLevel: null
+                scopeLabel: null
               },
               isDeleted: false
             }

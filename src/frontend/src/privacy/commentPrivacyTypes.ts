@@ -20,10 +20,10 @@ export interface CommentPrivacyMetadata {
 
 export interface CommentPrivacyPreparedTicket {
   scope: string
-  credentialEpoch: number
   ticket: Uint8Array
   expiresAtUnixMs: number
-  credentialLevel?: string
+  rateClass: 'common' | 'unknown'
+  requiresModeration: boolean
 }
 
 export interface CommentPrivacyCredentialMaterial {
@@ -96,6 +96,10 @@ export interface CommentPrivacyProofRequest {
   verifyingKeyHash?: string
   issuerPublicKeyHash?: string
   policyHash?: string
+  isEligible?: boolean
+  mayComment?: boolean
+  rateClass?: 'common' | 'unknown'
+  requiresModeration?: boolean
   credentialCommitment?: Uint8Array
   credentialRoot?: Uint8Array
   revocationRoot?: Uint8Array

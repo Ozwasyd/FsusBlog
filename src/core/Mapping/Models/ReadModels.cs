@@ -241,7 +241,6 @@ public readonly record struct AnonymousCommentTicketRequestCoreModel(
     string? ParentId,
     string? RootId,
     string? ReplyToCommentId,
-    long CredentialEpoch,
     uint CircuitNumericId,
     ushort PublicInputLayoutVersion,
     string ActionContext,
@@ -251,15 +250,17 @@ public readonly record struct AnonymousCommentTicketRequestCoreModel(
     byte[] NullifierHash,
     byte[] CredentialRoot,
     byte[] RevocationRoot,
-    string CredentialLevel,
-    string ReputationBucket,
+    bool IsEligible,
+    bool MayComment,
+    string RateClass,
+    bool RequiresModeration,
     byte[] Groth16Proof,
     byte[] PublicInputs);
 
 public readonly record struct AnonymousCommentTicketResponseCoreModel(
-    long CredentialEpoch,
     long TicketExpiresAtUnixMs,
-    string CredentialLevel,
+    string RateClass,
+    bool RequiresModeration,
     byte[] Ticket,
     byte[] ModerationSubjectHash);
 
@@ -269,7 +270,6 @@ public readonly record struct AnonymousCommentCreateRequestCoreModel(
     string? ParentId,
     string? RootId,
     string? ReplyToCommentId,
-    long CredentialEpoch,
     string AnonymousScope,
     string DisplayLanguage,
     byte[] Ticket);
@@ -293,8 +293,7 @@ public readonly record struct CommentAuthorViewCoreModel(
     string DisplayName,
     string DisplayLanguage,
     string? Badge,
-    string? ScopeLabel,
-    string? CredentialLevel);
+    string? ScopeLabel);
 
 public readonly record struct AdminChangeUserStatusRequestCoreModel(int AccountId, int Status, string? Reason);
 
@@ -406,7 +405,6 @@ public readonly record struct RecentCommentCoreModel(
     string AuthorMode,
     string? AuthorBadge,
     string? AuthorScopeLabel,
-    string? CredentialLevel,
     string Content,
     DateTime CreateTime);
 

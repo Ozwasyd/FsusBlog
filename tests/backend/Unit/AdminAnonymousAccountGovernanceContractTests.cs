@@ -70,7 +70,6 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
             RecoveryInitialized: false,
             PrivacyInitializedAt: privacyInitialized,
             AnonymousCredentialStatus: "active",
-            AnonymousCredentialLevel: "basic",
             RiskFlags: 4,
             Status: 1,
             CreateTime: created,
@@ -86,7 +85,6 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
         string[] expectedFields =
         [
             "accountId",
-            "anonymousCredentialLevel",
             "anonymousCredentialStatus",
             "createTime",
             "deletedAt",
@@ -119,7 +117,6 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
                     dto.RecoveryInitialized,
                     dto.PrivacyInitializedAt,
                     dto.AnonymousCredentialStatus,
-                    dto.AnonymousCredentialLevel,
                     dto.RiskFlags,
                     dto.Status,
                     dto.CreateTime,

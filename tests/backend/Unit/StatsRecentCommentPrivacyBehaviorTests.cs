@@ -46,7 +46,6 @@ public sealed class StatsRecentCommentPrivacyBehaviorTests
             CommentAuthorModes.ZkAnonymous,
             "已验证匿名凭证",
             "article:42",
-            "verified",
             "privacy-safe",
             DateTime.UnixEpoch);
 
@@ -58,31 +57,28 @@ public sealed class StatsRecentCommentPrivacyBehaviorTests
             string.Equals(name, "userId", StringComparison.OrdinalIgnoreCase)
             || string.Equals(name, "userName", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(names, static name => string.Equals(name, "authorDisplayName", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(names, static name => string.Equals(name, "credentialLevel", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(names, static name => string.Equals(name, "credentialLevel", StringComparison.OrdinalIgnoreCase));
     }
 
     [Theory]
-    [InlineData(CommentAuthorModes.Public, "Public Handle", "ignored", "ignored", "verified", "Public Handle", null, null, null)]
-    [InlineData(CommentAuthorModes.LegacyServerVisiblePseudonymous, null, "Anonymous Finch", null, null, "Anonymous Finch", null, null, null)]
-    [InlineData(CommentAuthorModes.ZkAnonymous, null, "Verified Owl", "article:9", "verified", "Verified Owl", "已验证匿名凭证", "article:9", "verified")]
-    [InlineData(CommentAuthorModes.ZkAnonymous, null, null, null, "entry", "强匿名评论者", "已验证匿名凭证", null, "entry")]
-    public void CreateRecentCommentStatItem_PreservesPublicAnonymousAndCredentialSemantics(
+    [InlineData(CommentAuthorModes.Public, "Public Handle", "ignored", "ignored", "Public Handle", null, null)]
+    [InlineData(CommentAuthorModes.LegacyServerVisiblePseudonymous, null, "Anonymous Finch", null, "Anonymous Finch", null, null)]
+    [InlineData(CommentAuthorModes.ZkAnonymous, null, "Verified Owl", "article:9", "Verified Owl", "已验证匿名资格", "article:9")]
+    [InlineData(CommentAuthorModes.ZkAnonymous, null, null, null, "强匿名评论者", "已验证匿名资格", null)]
+    public void CreateRecentCommentStatItem_PreservesPrivacySafeAuthorSemantics(
         string authorMode,
         string? publicHandle,
         string? anonymousDisplayName,
         string? anonymousScope,
-        string? credentialLevel,
         string expectedDisplayName,
         string? expectedBadge,
-        string? expectedScope,
-        string? expectedCredentialLevel)
+        string? expectedScope)
     {
         RecentCommentStatItemDto item = StatsService.CreateRecentCommentStatItem(
             authorMode,
             publicHandle,
             anonymousDisplayName,
             anonymousScope,
-            credentialLevel,
             "comment",
             DateTime.UnixEpoch);
 
@@ -90,6 +86,6 @@ public sealed class StatsRecentCommentPrivacyBehaviorTests
         Assert.Equal(authorMode, item.AuthorMode);
         Assert.Equal(expectedBadge, item.AuthorBadge);
         Assert.Equal(expectedScope, item.AuthorScopeLabel);
-        Assert.Equal(expectedCredentialLevel, item.CredentialLevel);
+        Assert.DoesNotContain("CredentialLevel", typeof(RecentCommentStatItemDto).GetProperties().Select(static property => property.Name));
     }
 }

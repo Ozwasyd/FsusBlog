@@ -271,14 +271,12 @@ public static class PodProjector
         string authorMode,
         string? authorBadge,
         string? authorScopeLabel,
-        string? credentialLevel,
         string content,
         out ReadOnlyMemory<byte> payload)
     {
         var bytes = new ArrayBufferWriter<byte>(256);
         Utf8SliceRef authorBadgeSlice = PodUtf8Codec.AppendSlice(authorBadge, bytes);
         Utf8SliceRef authorScopeLabelSlice = PodUtf8Codec.AppendSlice(authorScopeLabel, bytes);
-        Utf8SliceRef credentialLevelSlice = PodUtf8Codec.AppendSlice(credentialLevel, bytes);
         Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
 
         MutableRecentCommentPod tmp = new()
@@ -288,7 +286,7 @@ public static class PodProjector
             AuthorMode = PodUtf8Codec.ToFixed32(authorMode),
             AuthorBadge = authorBadgeSlice,
             AuthorScopeLabel = authorScopeLabelSlice,
-            CredentialLevel = credentialLevelSlice,
+            ReservedPrivacyClass = default,
             Content = contentSlice
         };
 
@@ -495,7 +493,7 @@ public static class PodProjector
         public Utf8Fixed32 AuthorMode;
         public Utf8SliceRef AuthorBadge;
         public Utf8SliceRef AuthorScopeLabel;
-        public Utf8SliceRef CredentialLevel;
+        public Utf8SliceRef ReservedPrivacyClass;
         public Utf8SliceRef Content;
     }
 

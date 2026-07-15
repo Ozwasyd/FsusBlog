@@ -696,14 +696,14 @@ public static partial class PodBinaryCodec
             HasParentId = hasParentId ? (byte)1 : (byte)0,
             HasRootId = hasRootId ? (byte)1 : (byte)0,
             HasReplyToCommentId = hasReplyToCommentId ? (byte)1 : (byte)0,
-            Reserved0 = 0,
+            IsEligible = request.IsEligible ? (byte)1 : (byte)0,
             ParentId = parentId,
             RootId = rootId,
             ReplyToCommentId = replyToCommentId,
-            CredentialEpoch = request.CredentialEpoch,
             CircuitNumericId = request.CircuitNumericId,
             PublicInputLayoutVersion = request.PublicInputLayoutVersion,
-            Reserved1 = 0,
+            MayComment = request.MayComment ? (byte)1 : (byte)0,
+            RequiresModeration = request.RequiresModeration ? (byte)1 : (byte)0,
             ActionContext = PodUtf8Codec.AppendSlice(request.ActionContext, payload),
             Scope = PodUtf8Codec.AppendSlice(request.Scope, payload),
             CircuitId = PodUtf8Codec.AppendSlice(request.CircuitId, payload),
@@ -711,8 +711,7 @@ public static partial class PodBinaryCodec
             NullifierHash = AppendBytes(request.NullifierHash ?? [], payload),
             CredentialRoot = AppendBytes(request.CredentialRoot ?? [], payload),
             RevocationRoot = AppendBytes(request.RevocationRoot ?? [], payload),
-            CredentialLevel = PodUtf8Codec.AppendSlice(request.CredentialLevel, payload),
-            ReputationBucket = PodUtf8Codec.AppendSlice(request.ReputationBucket, payload),
+            RateClass = PodUtf8Codec.AppendSlice(request.RateClass, payload),
             Groth16Proof = AppendBytes(request.Groth16Proof ?? [], payload),
             PublicInputs = AppendBytes(request.PublicInputs ?? [], payload)
         };
@@ -734,6 +733,9 @@ public static partial class PodBinaryCodec
             pod.HasParentId > 1 ||
             pod.HasRootId > 1 ||
             pod.HasReplyToCommentId > 1 ||
+            pod.IsEligible > 1 ||
+            pod.MayComment > 1 ||
+            pod.RequiresModeration > 1 ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
         {
             request = default;
@@ -749,8 +751,7 @@ public static partial class PodBinaryCodec
             pod.NullifierHash,
             pod.CredentialRoot,
             pod.RevocationRoot,
-            pod.CredentialLevel,
-            pod.ReputationBucket,
+            pod.RateClass,
             pod.Groth16Proof,
             pod.PublicInputs
         };
@@ -763,8 +764,7 @@ public static partial class PodBinaryCodec
             !SliceLengthAtMost(pod.NullifierHash, AnonymousPrivacyContract.MaxNullifierHashBytes) ||
             !SliceLengthAtMost(pod.CredentialRoot, AnonymousPrivacyContract.MaxCredentialRootBytes) ||
             !SliceLengthAtMost(pod.RevocationRoot, AnonymousPrivacyContract.MaxRevocationRootBytes) ||
-            !SliceLengthAtMost(pod.CredentialLevel, AnonymousPrivacyContract.MaxCredentialLevelBytes) ||
-            !SliceLengthAtMost(pod.ReputationBucket, AnonymousPrivacyContract.MaxReputationBucketBytes) ||
+            !SliceLengthAtMost(pod.RateClass, AnonymousPrivacyContract.MaxRateClassBytes) ||
             !SliceLengthAtMost(pod.Groth16Proof, AnonymousPrivacyContract.MaxGroth16ProofBytes) ||
             !SliceLengthAtMost(pod.PublicInputs, AnonymousPrivacyContract.MaxAnonymousTicketPublicInputsBytes))
         {
@@ -777,7 +777,6 @@ public static partial class PodBinaryCodec
             pod.HasParentId == 1 ? pod.ParentId.ToString() : null,
             pod.HasRootId == 1 ? pod.RootId.ToString() : null,
             pod.HasReplyToCommentId == 1 ? pod.ReplyToCommentId.ToString() : null,
-            pod.CredentialEpoch,
             pod.CircuitNumericId,
             pod.PublicInputLayoutVersion,
             PodProjector.ReadSlice(pod.ActionContext, payload),
@@ -787,8 +786,10 @@ public static partial class PodBinaryCodec
             ReadBytes(pod.NullifierHash, payload),
             ReadBytes(pod.CredentialRoot, payload),
             ReadBytes(pod.RevocationRoot, payload),
-            PodProjector.ReadSlice(pod.CredentialLevel, payload),
-            PodProjector.ReadSlice(pod.ReputationBucket, payload),
+            pod.IsEligible == 1,
+            pod.MayComment == 1,
+            PodProjector.ReadSlice(pod.RateClass, payload),
+            pod.RequiresModeration == 1,
             ReadBytes(pod.Groth16Proof, payload),
             ReadBytes(pod.PublicInputs, payload));
         return reader.IsConsumed;
@@ -799,9 +800,11 @@ public static partial class PodBinaryCodec
         var payload = new ArrayBufferWriter<byte>(512 + (response.Ticket?.Length ?? 0));
         var mutable = new MutableAnonymousCommentTicketResponsePod
         {
-            CredentialEpoch = response.CredentialEpoch,
             TicketExpiresAtUnixMs = response.TicketExpiresAtUnixMs,
-            CredentialLevel = PodUtf8Codec.AppendSlice(response.CredentialLevel, payload),
+            RequiresModeration = response.RequiresModeration ? (byte)1 : (byte)0,
+            Reserved0 = 0,
+            Reserved1 = 0,
+            RateClass = PodUtf8Codec.AppendSlice(response.RateClass, payload),
             Ticket = AppendBytes(response.Ticket ?? [], payload),
             ModerationSubjectHash = AppendBytes(response.ModerationSubjectHash ?? [], payload)
         };
@@ -826,12 +829,13 @@ public static partial class PodBinaryCodec
 
         ReadOnlySpan<FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef> slices = stackalloc[]
         {
-            pod.CredentialLevel,
+            pod.RateClass,
             pod.Ticket,
             pod.ModerationSubjectHash
         };
         if (!ValidateAnonymousPayload(payload, slices) ||
-            !SliceLengthAtMost(pod.CredentialLevel, AnonymousPrivacyContract.MaxCredentialLevelBytes) ||
+            pod.RequiresModeration > 1 ||
+            !SliceLengthAtMost(pod.RateClass, AnonymousPrivacyContract.MaxRateClassBytes) ||
             !SliceLengthAtMost(pod.Ticket, AnonymousPrivacyContract.MaxOpaqueTicketBytes) ||
             !SliceLengthAtMost(pod.ModerationSubjectHash, AnonymousPrivacyContract.MaxModerationSubjectHashBytes))
         {
@@ -840,9 +844,9 @@ public static partial class PodBinaryCodec
         }
 
         response = new AnonymousCommentTicketResponseCoreModel(
-            pod.CredentialEpoch,
             pod.TicketExpiresAtUnixMs,
-            PodProjector.ReadSlice(pod.CredentialLevel, payload),
+            PodProjector.ReadSlice(pod.RateClass, payload),
+            pod.RequiresModeration == 1,
             ReadBytes(pod.Ticket, payload),
             ReadBytes(pod.ModerationSubjectHash, payload));
         return reader.IsConsumed;
@@ -864,7 +868,6 @@ public static partial class PodBinaryCodec
             ParentId = parentId,
             RootId = rootId,
             ReplyToCommentId = replyToCommentId,
-            CredentialEpoch = request.CredentialEpoch,
             AnonymousScope = PodUtf8Codec.AppendSlice(request.AnonymousScope, payload),
             DisplayLanguage = PodUtf8Codec.AppendSlice(request.DisplayLanguage, payload),
             Ticket = AppendBytes(request.Ticket ?? [], payload),
@@ -913,7 +916,6 @@ public static partial class PodBinaryCodec
             pod.HasParentId == 1 ? pod.ParentId.ToString() : null,
             pod.HasRootId == 1 ? pod.RootId.ToString() : null,
             pod.HasReplyToCommentId == 1 ? pod.ReplyToCommentId.ToString() : null,
-            pod.CredentialEpoch,
             PodProjector.ReadSlice(pod.AnonymousScope, payload),
             PodProjector.ReadSlice(pod.DisplayLanguage, payload),
             ReadBytes(pod.Ticket, payload));
@@ -999,7 +1001,7 @@ public static partial class PodBinaryCodec
         var mutable = new MutableCommentAuthorViewPod
         {
             Mode = EncodeCommentAuthorMode(author.Mode),
-            CredentialLevel = EncodeCommentCredentialLevel(author.CredentialLevel),
+            ReservedPrivacyClass = 0,
             Reserved0 = 0,
             DisplayName = PodUtf8Codec.AppendSlice(author.DisplayName, payload),
             DisplayLanguage = PodUtf8Codec.AppendSlice(author.DisplayLanguage, payload),
@@ -1020,7 +1022,7 @@ public static partial class PodBinaryCodec
         var reader = new BinaryPodReader(bytes.Span);
         if (!reader.TryReadPod(out CommentAuthorViewPod pod) ||
             !TryDecodeCommentAuthorMode(pod.Mode, out string mode) ||
-            !TryDecodeCommentCredentialLevel(pod.CredentialLevel, out string? credentialLevel) ||
+            pod.ReservedPrivacyClass != 0 ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
         {
             author = default;
@@ -1032,8 +1034,7 @@ public static partial class PodBinaryCodec
             PodProjector.ReadSlice(pod.DisplayName, payload),
             PodProjector.ReadSlice(pod.DisplayLanguage, payload),
             NullCommentFieldIfEmpty(PodProjector.ReadSlice(pod.Badge, payload)),
-            NullCommentFieldIfEmpty(PodProjector.ReadSlice(pod.ScopeLabel, payload)),
-            credentialLevel);
+            NullCommentFieldIfEmpty(PodProjector.ReadSlice(pod.ScopeLabel, payload)));
         return reader.IsConsumed;
     }
 
@@ -1334,8 +1335,7 @@ public static partial class PodBinaryCodec
             author.DisplayName,
             author.DisplayLanguage,
             author.Badge,
-            author.ScopeLabel,
-            author.CredentialLevel);
+            author.ScopeLabel);
 
     private static CommentAuthorViewDto FromCoreCommentAuthorView(CommentAuthorViewCoreModel author)
         => new(
@@ -1343,8 +1343,7 @@ public static partial class PodBinaryCodec
             author.DisplayName,
             author.DisplayLanguage,
             author.Badge,
-            author.ScopeLabel,
-            author.CredentialLevel);
+            author.ScopeLabel);
 
     private static CommentCreateV2RequestPod CreateCommentCreateV2RequestPod(
         CommentCreateV2RequestCoreModel request,
@@ -1405,28 +1404,6 @@ public static partial class PodBinaryCodec
             _ => string.Empty
         };
         return mode.Length > 0;
-    }
-
-    private static byte EncodeCommentCredentialLevel(string? level)
-        => NormalizeCommentToken(level) switch
-        {
-            "basic" => 1,
-            "trusted" => 2,
-            "strong_anonymous" => 3,
-            _ => 0
-        };
-
-    private static bool TryDecodeCommentCredentialLevel(byte raw, out string? level)
-    {
-        level = raw switch
-        {
-            0 => null,
-            1 => "basic",
-            2 => "trusted",
-            3 => "strong_anonymous",
-            _ => string.Empty
-        };
-        return level is null || level.Length > 0;
     }
 
     private static bool ValidateAnonymousPayload(
@@ -1801,14 +1778,14 @@ public static partial class PodBinaryCodec
         public byte HasParentId;
         public byte HasRootId;
         public byte HasReplyToCommentId;
-        public byte Reserved0;
+        public byte IsEligible;
         public long ParentId;
         public long RootId;
         public long ReplyToCommentId;
-        public long CredentialEpoch;
         public uint CircuitNumericId;
         public ushort PublicInputLayoutVersion;
-        public ushort Reserved1;
+        public byte MayComment;
+        public byte RequiresModeration;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ActionContext;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Scope;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CircuitId;
@@ -1816,8 +1793,7 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef NullifierHash;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialRoot;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RevocationRoot;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialLevel;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ReputationBucket;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RateClass;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Groth16Proof;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef PublicInputs;
     }
@@ -1825,9 +1801,11 @@ public static partial class PodBinaryCodec
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableAnonymousCommentTicketResponsePod
     {
-        public long CredentialEpoch;
         public long TicketExpiresAtUnixMs;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CredentialLevel;
+        public byte RequiresModeration;
+        public byte Reserved0;
+        public ushort Reserved1;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RateClass;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Ticket;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ModerationSubjectHash;
     }
@@ -1843,7 +1821,6 @@ public static partial class PodBinaryCodec
         public long ParentId;
         public long RootId;
         public long ReplyToCommentId;
-        public long CredentialEpoch;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AnonymousScope;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef DisplayLanguage;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Ticket;
@@ -1872,7 +1849,7 @@ public static partial class PodBinaryCodec
     private struct MutableCommentAuthorViewPod
     {
         public byte Mode;
-        public byte CredentialLevel;
+        public byte ReservedPrivacyClass;
         public ushort Reserved0;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef DisplayName;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef DisplayLanguage;

@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Moderation;
+using FsusBlog.Shared.Contracts.Validation;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -152,9 +153,8 @@ public sealed class CommentActorResolver(
                 AnonymousNullifierHash: null,
                 AnonymousScope: null,
                 ModerationSubjectHash: Sha256Hex($"public:user:{request.UserId.Value}"),
-                CredentialLevel: AnonymousCredentialLevels.Basic,
-                ReputationBucket: "account",
-                AccountAgeBucket: "known"));
+                RateClass: AnonymousPrivacyContract.CommonRateClass,
+                RequiresModeration: false));
         }
 
         if (string.Equals(decision.EffectiveAuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal))

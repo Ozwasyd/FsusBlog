@@ -261,7 +261,6 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             ParentId: null,
             RootId: null,
             ReplyToCommentId: null,
-            CredentialEpoch: 20260711,
             AnonymousScope: "article:42",
             DisplayLanguage: "en",
             Ticket: ticket);
@@ -274,9 +273,8 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             RootId: null,
             ReplyToCommentId: null,
             NullifierHash,
-            CredentialEpoch: 20260711,
-            CredentialLevel: "strong_anonymous",
-            ReputationBucket: "rep-low",
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
             ExpiresAtUnixMs: DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds());
 
     private static RegionModerationDecision RegionDecision()

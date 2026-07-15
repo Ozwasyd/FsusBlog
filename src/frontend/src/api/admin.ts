@@ -28,7 +28,6 @@ export interface AdminAccountListItem {
   recoveryInitialized: boolean
   privacyInitializedAt?: string | null
   anonymousCredentialStatus: string
-  anonymousCredentialLevel: string
   riskFlags: number
   status: number // 0:正常, 1:封禁, 2:已注销
   createTime: string

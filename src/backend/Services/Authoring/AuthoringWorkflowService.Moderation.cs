@@ -66,9 +66,8 @@ public sealed partial class AuthoringWorkflowService
                 ModerationSubjectHash = c.ModerationSubjectHash,
                 AnonymousNullifierHash = c.AnonymousNullifierHash,
                 AnonymousScope = c.AnonymousScope,
-                CredentialLevel = c.CredentialLevel,
-                ReputationBucket = c.ReputationBucket,
-                AccountAgeBucket = c.AccountAgeBucket,
+                RateClass = c.AnonymousRateClass,
+                RequiresModeration = c.AnonymousRequiresModeration,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 Status = c.ModerationStatus,
@@ -321,9 +320,8 @@ public sealed partial class AuthoringWorkflowService
             nullifierHash,
             isAnonymousActor ? BuildNullifierStatusLabel(row) : null,
             row.AnonymousScope,
-            row.CredentialLevel,
-            row.ReputationBucket,
-            row.AccountAgeBucket,
+            row.RateClass,
+            row.RequiresModeration,
             null,
             !string.IsNullOrWhiteSpace(nullifierHash) && row.NullifierKnown && !row.NullifierBlocked,
             false);
@@ -708,7 +706,6 @@ public sealed partial class AuthoringWorkflowService
                 AnonymousDisplayName = c.AnonymousDisplayName,
                 AnonymousDisplayLanguage = c.AnonymousDisplayLanguage,
                 AnonymousScope = c.AnonymousScope,
-                CredentialLevel = c.CredentialLevel,
                 Content = c.Content,
                 CreateTime = c.CreateTime,
                 ParentId = c.ParentId,
@@ -828,7 +825,6 @@ public sealed partial class AuthoringWorkflowService
                         row.AuthorMode,
                         row.AuthorDisplayName,
                         row.AnonymousDisplayLanguage,
-                        null,
                         null),
                     ParentId = row.ParentId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     RootId = (row.RootId ?? row.Id).ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -837,7 +833,6 @@ public sealed partial class AuthoringWorkflowService
                             row.ReplyToAuthorMode,
                             row.ReplyToAuthorDisplayName,
                             row.ReplyToAnonymousDisplayLanguage,
-                            null,
                             null)
                         : null,
                     ReplyToCommentId = row.ReplyToCommentId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -859,8 +854,7 @@ public sealed partial class AuthoringWorkflowService
         string? mode,
         string? displayName,
         string? displayLanguage,
-        string? scopeLabel,
-        string? credentialLevel)
+        string? scopeLabel)
     {
         string normalizedMode = string.IsNullOrWhiteSpace(mode)
             ? CommentAuthorModes.LegacyServerVisiblePseudonymous
@@ -876,8 +870,7 @@ public sealed partial class AuthoringWorkflowService
             string.IsNullOrWhiteSpace(displayName) ? fallbackName : displayName.Trim(),
             resolvedLanguage,
             null,
-            string.IsNullOrWhiteSpace(scopeLabel) ? null : scopeLabel.Trim(),
-            string.IsNullOrWhiteSpace(credentialLevel) ? null : credentialLevel.Trim());
+            string.IsNullOrWhiteSpace(scopeLabel) ? null : scopeLabel.Trim());
     }
 
     private async Task NotifyApprovedReplyAsync(CommentModerationStateRow row)
@@ -941,9 +934,8 @@ public sealed partial class AuthoringWorkflowService
         public string? ModerationSubjectHash { get; set; }
         public string? AnonymousNullifierHash { get; set; }
         public string? AnonymousScope { get; set; }
-        public string? CredentialLevel { get; set; }
-        public string? ReputationBucket { get; set; }
-        public string? AccountAgeBucket { get; set; }
+        public string? RateClass { get; set; }
+        public bool? RequiresModeration { get; set; }
         public string Content { get; set; } = string.Empty;
         public DateTime CreateTime { get; set; }
         public CommentModerationStatus Status { get; set; }
@@ -978,7 +970,6 @@ public sealed partial class AuthoringWorkflowService
         public string? AnonymousDisplayName { get; set; }
         public string? AnonymousDisplayLanguage { get; set; }
         public string? AnonymousScope { get; set; }
-        public string? CredentialLevel { get; set; }
         public string Content { get; init; } = string.Empty;
         public DateTime CreateTime { get; init; }
         public long? ParentId { get; init; }

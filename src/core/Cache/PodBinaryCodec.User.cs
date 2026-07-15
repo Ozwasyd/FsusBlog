@@ -713,7 +713,7 @@ public static partial class PodBinaryCodec
                 IdentityKind = PodUtf8Codec.ToFixed32(item.IdentityKind),
                 PublicHandle = PodUtf8Codec.ToFixed64(item.PublicHandle ?? string.Empty),
                 AnonymousCredentialStatus = PodUtf8Codec.ToFixed32(item.AnonymousCredentialStatus),
-                AnonymousCredentialLevel = PodUtf8Codec.ToFixed32(item.AnonymousCredentialLevel),
+                ReservedCredentialClass = default,
                 HasPublicHandle = string.IsNullOrWhiteSpace(item.PublicHandle) ? (byte)0 : (byte)1,
                 PasskeyInitialized = item.PasskeyInitialized ? (byte)1 : (byte)0,
                 RecoveryInitialized = item.RecoveryInitialized ? (byte)1 : (byte)0,
@@ -746,7 +746,8 @@ public static partial class PodBinaryCodec
                 pod.PasskeyInitialized > 1 ||
                 pod.RecoveryInitialized > 1 ||
                 pod.HasPrivacyInitializedAt > 1 ||
-                pod.HasDeletedAt > 1)
+                pod.HasDeletedAt > 1 ||
+                !string.IsNullOrEmpty(PodUtf8Codec.FromFixed32(pod.ReservedCredentialClass)))
             {
                 page = new AdminUserPageContract();
                 return false;
@@ -760,7 +761,6 @@ public static partial class PodBinaryCodec
                 pod.RecoveryInitialized == 1,
                 pod.HasPrivacyInitializedAt == 1 ? PodTimeCodec.FromUnixMs(pod.PrivacyInitializedAtUnixMs) : null,
                 PodUtf8Codec.FromFixed32(pod.AnonymousCredentialStatus),
-                PodUtf8Codec.FromFixed32(pod.AnonymousCredentialLevel),
                 pod.RiskFlags,
                 pod.Status,
                 PodTimeCodec.FromUnixMs(pod.CreateTimeUnixMs),
@@ -1021,7 +1021,7 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 IdentityKind;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 PublicHandle;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 AnonymousCredentialStatus;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 AnonymousCredentialLevel;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed32 ReservedCredentialClass;
         public byte HasPublicHandle;
         public byte PasskeyInitialized;
         public byte RecoveryInitialized;

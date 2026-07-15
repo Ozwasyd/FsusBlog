@@ -431,7 +431,7 @@ public sealed class AedsProtocolCrossLanguageTests
                     "101",
                     "root comment",
                     new DateTime(2026, 5, 12, 0, 0, 0, DateTimeKind.Utc),
-                    new CommentAuthorViewDto("public", "alice", "zh-CN", null, null, null),
+                    new CommentAuthorViewDto("public", "alice", "zh-CN", null, null),
                     "101",
                     false,
                     3,
@@ -441,8 +441,8 @@ public sealed class AedsProtocolCrossLanguageTests
                             "202",
                             "preview reply",
                             new DateTime(2026, 5, 12, 1, 2, 3, DateTimeKind.Utc),
-                            new CommentAuthorViewDto("public", "bob", "zh-CN", null, null, null),
-                            new CommentAuthorViewDto("public", "alice", "zh-CN", null, null, null),
+                            new CommentAuthorViewDto("public", "bob", "zh-CN", null, null),
+                            new CommentAuthorViewDto("public", "alice", "zh-CN", null, null),
                             false)
                     ])
             ],
@@ -610,7 +610,6 @@ public sealed class AedsProtocolCrossLanguageTests
                 "public",
                 null,
                 null,
-                null,
                 "first admin comment",
                 new DateTime(2026, 5, 12, 9, 8, 7, DateTimeKind.Utc)),
             new(
@@ -619,7 +618,6 @@ public sealed class AedsProtocolCrossLanguageTests
                 "zk_anonymous",
                 "已验证匿名凭证",
                 "article:42",
-                "strong_anonymous",
                 "hidden user",
                 new DateTime(2026, 5, 12, 10, 0, 0, DateTimeKind.Utc))
         ];
@@ -661,7 +659,7 @@ public sealed class AedsProtocolCrossLanguageTests
                 new PopularArticleCoreModel(default, 32, "Second post", 55)
             ],
             [
-                new RecentCommentCoreModel(default, "Alice Public", "public", null, null, null, "first admin comment", new DateTime(2026, 5, 12, 9, 8, 7, DateTimeKind.Utc))
+                new RecentCommentCoreModel(default, "Alice Public", "public", null, null, "first admin comment", new DateTime(2026, 5, 12, 9, 8, 7, DateTimeKind.Utc))
             ],
             [
                 new RegionDistributionCoreModel(default, "China", 5),

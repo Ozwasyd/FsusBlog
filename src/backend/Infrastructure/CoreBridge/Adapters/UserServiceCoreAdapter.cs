@@ -54,7 +54,6 @@ public sealed class UserServiceCoreAdapter(IUserCoreService core) : IUserService
                 item.RecoveryInitialized,
                 item.PrivacyInitializedAt,
                 item.AnonymousCredentialStatus,
-                item.AnonymousCredentialLevel,
                 item.RiskFlags,
                 item.Status,
                 item.CreateTime,

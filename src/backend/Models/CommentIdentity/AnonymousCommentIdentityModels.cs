@@ -69,12 +69,13 @@ public sealed record ZkProofVerificationRequest(
     string CircuitId,
     string VerifyingKeyHash,
     ushort PublicInputLayoutVersion,
-    long CredentialEpoch,
     string NullifierHash,
     string CredentialRoot,
-    string CredentialLevel,
-    string ReputationBucket,
     string PolicyHash,
+    bool IsEligible,
+    bool MayComment,
+    string RateClass,
+    bool RequiresModeration,
     byte[] Proof,
     string RevocationRoot = "",
     string IssuerPublicKeyHash = "")
@@ -85,12 +86,12 @@ public sealed record ZkProofVerificationRequest(
         !string.IsNullOrWhiteSpace(CircuitId) &&
         !string.IsNullOrWhiteSpace(VerifyingKeyHash) &&
         PublicInputLayoutVersion > 0 &&
-        CredentialEpoch > 0 &&
         !string.IsNullOrWhiteSpace(NullifierHash) &&
         !string.IsNullOrWhiteSpace(CredentialRoot) &&
-        !string.IsNullOrWhiteSpace(CredentialLevel) &&
-        !string.IsNullOrWhiteSpace(ReputationBucket) &&
         !string.IsNullOrWhiteSpace(PolicyHash) &&
+        IsEligible &&
+        MayComment &&
+        !string.IsNullOrWhiteSpace(RateClass) &&
         !string.IsNullOrWhiteSpace(RevocationRoot) &&
         !string.IsNullOrWhiteSpace(IssuerPublicKeyHash) &&
         Proof.Length > 0;
@@ -136,9 +137,8 @@ public sealed record CommentActor(
     string? AnonymousNullifierHash,
     string? AnonymousScope,
     string ModerationSubjectHash,
-    string CredentialLevel,
-    string ReputationBucket,
-    string AccountAgeBucket);
+    string RateClass,
+    bool RequiresModeration);
 
 public sealed record CommentActorResolveRequest(
     int? UserId,
@@ -152,11 +152,9 @@ public sealed record CommentActorResolveRequest(
     string? SubmitRegion,
     string? NullifierHash = null,
     string? CredentialRoot = null,
-    long CredentialEpoch = 0,
     string? CircuitId = null,
     string? VerifyingKeyHash = null,
     ushort PublicInputLayoutVersion = 0,
-    string? ReputationBucket = null,
     string? RevocationRoot = null,
     string? IssuerPublicKeyHash = null);
 

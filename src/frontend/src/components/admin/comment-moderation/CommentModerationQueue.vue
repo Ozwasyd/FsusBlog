@@ -33,10 +33,10 @@
                 <el-tag v-if="(item as CommentModerationViewItem).autoModerated" size="small" type="success">
                   {{ (item as CommentModerationViewItem).moderationActorLabel }}
                 </el-tag>
-                <el-tag size="small" :type="(item as CommentModerationViewItem).isStrongAnonymous ? 'warning' : 'info'">
+                <el-tag size="small" :type="(item as CommentModerationViewItem).isZkAnonymous ? 'warning' : 'info'">
                   {{ (item as CommentModerationViewItem).authorModeLabel }}
                 </el-tag>
-                <el-tag v-if="(item as CommentModerationViewItem).isStrongAnonymous" size="small" type="danger">
+                <el-tag v-if="(item as CommentModerationViewItem).isZkAnonymous" size="small" type="danger">
                   不显示真实账号
                 </el-tag>
               </div>
@@ -117,8 +117,8 @@
                 <div class="min-w-0 py-2">
                   <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                     <span class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ row.actorDisplayName }}</span>
-                    <el-tag size="small" :type="row.isStrongAnonymous ? 'warning' : 'info'">{{ row.authorModeLabel }}</el-tag>
-                    <el-tag v-if="row.isStrongAnonymous" size="small" type="danger">不显示真实账号</el-tag>
+                    <el-tag size="small" :type="row.isZkAnonymous ? 'warning' : 'info'">{{ row.authorModeLabel }}</el-tag>
+                    <el-tag v-if="row.isZkAnonymous" size="small" type="danger">不显示真实账号</el-tag>
                     <span class="text-xs font-medium tabular-nums text-[var(--fsusblog-text-muted)]">#{{ row.id }}</span>
                     <SemanticTime
                       :value="row.createTime"
@@ -322,35 +322,11 @@ const formatAnonymousScopeLabel = (value: string): string => {
   return normalized
 }
 
-const formatCredentialLevelLabel = (value: string): string => {
-  const normalized = value.trim()
-  const knownLabels: Record<string, string> = {
-    basic: '基础',
-    strong: '增强',
-    trusted: '可信',
-    verified: '已验证'
-  }
-  return knownLabels[normalized.toLowerCase()] ?? normalized
-}
-
-const formatBucketLabel = (value: string): string => {
-  const normalized = value.trim()
-  const knownLabels: Record<string, string> = {
-    seed: '初始',
-    new: '新建',
-    trusted: '可信',
-    risky: '风险',
-    unknown: '未记录'
-  }
-  return knownLabels[normalized.toLowerCase()] ?? normalized
-}
-
 const cardMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
   toMetaItem('展示语言', stripMetaPrefix(item.displayLanguageLabel, '展示语言')),
   toMetaItem('匿名范围', formatAnonymousScopeLabel(stripMetaPrefix(item.anonymousScopeLabel, 'scope'))),
-  toMetaItem('凭据级别', formatCredentialLevelLabel(stripMetaPrefix(item.credentialLevelLabel, 'credential'))),
-  toMetaItem('声誉状态', formatBucketLabel(stripMetaPrefix(item.reputationBucketLabel, '声誉桶'))),
-  toMetaItem('账号年龄', formatBucketLabel(stripMetaPrefix(item.accountAgeBucketLabel, '账号年龄桶'))),
+  toMetaItem('速率类', stripMetaPrefix(item.rateClassLabel, '速率类')),
+  toMetaItem('审核要求', item.moderationRequirementLabel),
   toMetaItem('防重标识', stripMetaPrefix(item.nullifierStatusLabel, 'Nullifier'))
 ]
 

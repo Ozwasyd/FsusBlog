@@ -459,12 +459,13 @@ public sealed class ZkProofVerifierTests
             CircuitId: CircuitId,
             VerifyingKeyHash: VerifyingKeyHash,
             PublicInputLayoutVersion: PublicInputLayoutVersion,
-            CredentialEpoch: CredentialEpoch,
             NullifierHash: PublicInputNullifierHash,
             CredentialRoot: CredentialRoot,
-            CredentialLevel: AnonymousCredentialLevels.StrongAnonymous,
-            ReputationBucket: "trusted",
             PolicyHash: PolicyHash,
+            IsEligible: true,
+            MayComment: true,
+            RateClass: AnonymousPrivacyContract.CommonRateClass,
+            RequiresModeration: false,
             Proof: [1, 2, 3],
             RevocationRoot: RevocationRoot,
             IssuerPublicKeyHash: IssuerPublicKeyHash);
@@ -482,11 +483,9 @@ public sealed class ZkProofVerifierTests
             SubmitRegion: "SG",
             NullifierHash: PublicInputNullifierHash,
             CredentialRoot: CredentialRoot,
-            CredentialEpoch: CredentialEpoch,
             CircuitId: CircuitId,
             VerifyingKeyHash: VerifyingKeyHash,
             PublicInputLayoutVersion: PublicInputLayoutVersion,
-            ReputationBucket: "trusted",
             RevocationRoot: RevocationRoot,
             IssuerPublicKeyHash: IssuerPublicKeyHash);
 

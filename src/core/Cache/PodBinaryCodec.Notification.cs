@@ -462,8 +462,7 @@ public static partial class PodBinaryCodec
         {
             int count = 3
                 + (author.Badge is null ? 0 : 1)
-                + (author.ScopeLabel is null ? 0 : 1)
-                + (author.CredentialLevel is null ? 0 : 1);
+                + (author.ScopeLabel is null ? 0 : 1);
             WriteObjectHeader(count);
             WriteField("mode", author.Mode);
             WriteField("displayName", author.DisplayName);
@@ -475,10 +474,6 @@ public static partial class PodBinaryCodec
             if (author.ScopeLabel is not null)
             {
                 WriteField("scopeLabel", author.ScopeLabel);
-            }
-            if (author.CredentialLevel is not null)
-            {
-                WriteField("credentialLevel", author.CredentialLevel);
             }
         }
 

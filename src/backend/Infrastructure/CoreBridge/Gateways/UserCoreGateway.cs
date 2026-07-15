@@ -47,7 +47,6 @@ public sealed class UserCoreGateway(UserService service) : IUserCoreGateway
                 item.RecoveryInitialized,
                 item.PrivacyInitializedAt,
                 item.AnonymousCredentialStatus,
-                item.AnonymousCredentialLevel,
                 item.RiskFlags,
                 item.Status,
                 item.CreateTime,

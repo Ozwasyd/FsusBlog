@@ -91,8 +91,11 @@ public sealed class BackendGoldenCatalogTests
     {
         string matrix = BackendTestPaths.ReadAllTextFromRoot("tests/frontend/fixtures/cross-stack-contract-matrix.json");
 
-        Assert.Contains("\"circuitId\": \"fsus.anonymous.comment.v4\"", matrix, StringComparison.Ordinal);
-        Assert.Contains("\"publicInputLayoutVersion\": 5", matrix, StringComparison.Ordinal);
+        Assert.Contains("\"circuitId\": \"fsus.anonymous.comment.v5\"", matrix, StringComparison.Ordinal);
+        Assert.Contains("\"publicInputLayoutVersion\": 6", matrix, StringComparison.Ordinal);
+        Assert.DoesNotContain("credential_epoch", matrix, StringComparison.Ordinal);
+        Assert.DoesNotContain("credential_level", matrix, StringComparison.Ordinal);
+        Assert.DoesNotContain("reputation_bucket", matrix, StringComparison.Ordinal);
         Assert.Contains("\"blindCredentialScheme\": \"rfc9474-rsabssa-sha384-pss-randomized-3072\"", matrix, StringComparison.Ordinal);
         Assert.Contains("\"blindRsaModulusBytes\": 384", matrix, StringComparison.Ordinal);
         Assert.Contains("\"maxCircuitNativeIssuerSignatureBytes\": 256", matrix, StringComparison.Ordinal);

@@ -56,6 +56,12 @@ public class Comment
     [SugarColumn(ColumnName = "account_age_bucket", Length = 32, IsNullable = true)]
     public string? AccountAgeBucket { get; set; }
 
+    [SugarColumn(ColumnName = "anonymous_rate_class", Length = 16, IsNullable = true)]
+    public string? AnonymousRateClass { get; set; }
+
+    [SugarColumn(ColumnName = "anonymous_requires_moderation", IsNullable = true)]
+    public bool? AnonymousRequiresModeration { get; set; }
+
     [SugarColumn(ColumnName = "parent_id", IsNullable = true)]
     public long? ParentId { get; set; }
 

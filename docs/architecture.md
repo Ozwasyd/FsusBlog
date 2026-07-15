@@ -2,6 +2,8 @@
 
 本文档描述 FsusBlog 的整体架构设计、数据流路径、缓存分层和模块边界。
 
+> 2026-07-16 强匿名资格链路：v5/layout 6 circuit 在浏览器私有 witness 内验证签名精确属性，server verifier 只重建最小谓词 transcript，并按 attested root metadata 校验匿名集 `k>=20`。ticket v3 仅保存 rate class、moderation predicate 与 scope-bound nullifier；Comment/notification/moderation/provider/stats/admin 投影不保存精确资格属性。旧 frame 180/181、ticket codec v1/v2、layout <=5 和旧 key 均 fail closed。无重启降级通过 reloadable `AnonymousIdentity:ZkAnonymousCommentsEnabled=false` 或 `AnonymousIdentity:ZkProd:Enabled=false` 停止新 ticket；已有 public comment/read path 不受影响。
+
 ## 概览
 
 FsusBlog 是一个单体全栈系统，以"公开内容首屏速度 + 运行时一致性 + 安全链路完整性"为核心约束。

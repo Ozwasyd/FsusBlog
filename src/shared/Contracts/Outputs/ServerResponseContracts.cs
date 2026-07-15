@@ -302,7 +302,6 @@ public sealed record class AnonymousCommentTicketRequest(
     string? ParentId,
     string? RootId,
     string? ReplyToCommentId,
-    long CredentialEpoch,
     uint CircuitNumericId,
     ushort PublicInputLayoutVersion,
     string ActionContext,
@@ -310,18 +309,19 @@ public sealed record class AnonymousCommentTicketRequest(
     string CircuitId,
     string VerifyingKeyHash,
     byte[] NullifierHash,
-    byte[] CredentialCommitment,
     byte[] CredentialRoot,
     byte[] RevocationRoot,
-    string CredentialLevel,
-    string ReputationBucket,
+    bool IsEligible,
+    bool MayComment,
+    string RateClass,
+    bool RequiresModeration,
     byte[] Groth16Proof,
     byte[] PublicInputs);
 
 public sealed record class AnonymousCommentTicketResponse(
-    long CredentialEpoch,
     long TicketExpiresAtUnixMs,
-    string CredentialLevel,
+    string RateClass,
+    bool RequiresModeration,
     byte[] Ticket,
     byte[] ModerationSubjectHash);
 
@@ -331,7 +331,6 @@ public sealed record class AnonymousCommentCreateRequest(
     string? ParentId,
     string? RootId,
     string? ReplyToCommentId,
-    long CredentialEpoch,
     string AnonymousScope,
     string DisplayLanguage,
     byte[] Ticket);
@@ -446,8 +445,7 @@ public readonly record struct CommentAuthorViewDto(
     string DisplayName,
     string DisplayLanguage,
     string? Badge,
-    string? ScopeLabel,
-    string? CredentialLevel);
+    string? ScopeLabel);
 
 public readonly record struct CommentReplyItemDto(
     string Id,
@@ -516,7 +514,6 @@ public readonly record struct RecentCommentStatItemDto(
     string AuthorMode,
     string? AuthorBadge,
     string? AuthorScopeLabel,
-    string? CredentialLevel,
     string Content,
     DateTime CreateTime);
 public readonly record struct RegionStatItemDto(string Region, int Count);
@@ -543,7 +540,6 @@ public readonly record struct AdminAccountListItemDto(
     bool RecoveryInitialized,
     DateTime? PrivacyInitializedAt,
     string AnonymousCredentialStatus,
-    string AnonymousCredentialLevel,
     int RiskFlags,
     int Status,
     DateTime CreateTime,

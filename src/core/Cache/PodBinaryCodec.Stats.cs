@@ -240,7 +240,7 @@ public static partial class PodBinaryCodec
                 PodUtf8Codec.AppendSlice(item.AuthorMode, blob),
                 PodUtf8Codec.AppendSlice(item.AuthorBadge, blob),
                 PodUtf8Codec.AppendSlice(item.AuthorScopeLabel, blob),
-                PodUtf8Codec.AppendSlice(item.CredentialLevel, blob),
+                default,
                 PodUtf8Codec.AppendSlice(item.Content, blob)));
         }
 
@@ -254,7 +254,7 @@ public static partial class PodBinaryCodec
         writer.WriteSliceRef(item.AuthorMode);
         writer.WriteSliceRef(item.AuthorBadge);
         writer.WriteSliceRef(item.AuthorScopeLabel);
-        writer.WriteSliceRef(item.CredentialLevel);
+        writer.WriteSliceRef(item.ReservedPrivacyClass);
         writer.WriteSliceRef(item.Content);
     }
 
@@ -265,7 +265,7 @@ public static partial class PodBinaryCodec
             !reader.TryReadSliceRef(out Utf8SliceRef authorModeSlice) ||
             !reader.TryReadSliceRef(out Utf8SliceRef authorBadgeSlice) ||
             !reader.TryReadSliceRef(out Utf8SliceRef authorScopeLabelSlice) ||
-            !reader.TryReadSliceRef(out Utf8SliceRef credentialLevelSlice) ||
+            !reader.TryReadSliceRef(out Utf8SliceRef reservedPrivacyClassSlice) ||
             !reader.TryReadSliceRef(out Utf8SliceRef contentSlice))
         {
             item = default;
@@ -276,7 +276,11 @@ public static partial class PodBinaryCodec
         string authorMode = PodUtf8Codec.ReadSlice(authorModeSlice, blob);
         string? authorBadge = EmptyToNull(PodUtf8Codec.ReadSlice(authorBadgeSlice, blob));
         string? authorScopeLabel = EmptyToNull(PodUtf8Codec.ReadSlice(authorScopeLabelSlice, blob));
-        string? credentialLevel = EmptyToNull(PodUtf8Codec.ReadSlice(credentialLevelSlice, blob));
+        if (reservedPrivacyClassSlice.Length != 0)
+        {
+            item = default;
+            return false;
+        }
         string content = PodUtf8Codec.ReadSlice(contentSlice, blob);
         DateTime createTime = PodTimeCodec.FromUnixMs(createTimeUnixMs);
         RecentCommentPod pod = PodProjector.ProjectRecentComment(
@@ -285,10 +289,9 @@ public static partial class PodBinaryCodec
             authorMode,
             authorBadge,
             authorScopeLabel,
-            credentialLevel,
             content,
             out _);
-        item = new RecentCommentCoreModel(pod, authorDisplayName, authorMode, authorBadge, authorScopeLabel, credentialLevel, content, createTime);
+        item = new RecentCommentCoreModel(pod, authorDisplayName, authorMode, authorBadge, authorScopeLabel, content, createTime);
         return true;
     }
 
@@ -298,6 +301,6 @@ public static partial class PodBinaryCodec
         Utf8SliceRef AuthorMode,
         Utf8SliceRef AuthorBadge,
         Utf8SliceRef AuthorScopeLabel,
-        Utf8SliceRef CredentialLevel,
+        Utf8SliceRef ReservedPrivacyClass,
         Utf8SliceRef Content);
 }
