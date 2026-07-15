@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -29,6 +30,7 @@ public sealed class JwtHelperTests
     {
         var settings = new JwtSettings
         {
+            KeyVersion = "test-v1",
             SecretKey = secretKey,
             Issuer = issuer,
             Audience = audience,
@@ -62,6 +64,17 @@ public sealed class JwtHelperTests
         string token = helper.GenerateAccessToken(TestUser());
         // A JWT is always three base64url segments separated by dots
         Assert.Equal(3, token.Split('.').Length);
+    }
+
+    [Fact]
+    public void GenerateAccessToken_BindsCurrentKeyVersionAsKid()
+    {
+        string token = CreateHelper().GenerateAccessToken(TestUser());
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        Assert.Equal("test-v1", jwt.Header.Kid);
+        Assert.Equal(SecurityAlgorithms.HmacSha256, jwt.Header.Alg);
     }
 
     [Fact]
@@ -182,6 +195,7 @@ public sealed class JwtHelperTests
             [AdminPermissions.AdminManage, AdminPermissions.SystemConfig]);
 
         var claims = ParseClaims(token).ToArray();
+        Assert.Equal("test-v1", new JwtSecurityTokenHandler().ReadJwtToken(token).Header.Kid);
         Assert.DoesNotContain(claims, IsRoleClaim);
         Assert.Contains(claims, claim => claim.Type == "identity_kind" && claim.Value == AnonymousIdentityRuntime.AdminPrincipalKind);
         Assert.Contains(claims, claim => claim.Type == "admin_id" && claim.Value == "7");
@@ -364,6 +378,60 @@ public sealed class JwtHelperTests
         string token = CreateHelper().GenerateRefreshToken();
         Assert.Equal(43, token.Length);
         Assert.Matches("^[A-Za-z0-9_-]*$", token);
+    }
+
+    [Fact]
+    [Trait("Category", "SecurityStateMachine")]
+    public void SigningKeyRing_ResolvesOnlyCurrentOrActiveMatchingKid()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var settings = new JwtSettings
+        {
+            KeyVersion = "v2-2026-07",
+            SecretKey = TestSecrets.JwtSigningKey,
+            RotationWindowDays = 30,
+            PreviousKeys =
+            [
+                new JwtPreviousKeySettings
+                {
+                    Version = "v1-2026-01",
+                    Key = TestSecrets.SecondaryJwtSigningKey,
+                    AcceptUntilUtc = now.AddDays(7)
+                }
+            ]
+        };
+
+        Assert.Equal("v2-2026-07", Assert.Single(JwtSigningKeyRing.ResolveValidationKeys(settings, "v2-2026-07", now)).KeyId);
+        Assert.Equal("v1-2026-01", Assert.Single(JwtSigningKeyRing.ResolveValidationKeys(settings, "v1-2026-01", now)).KeyId);
+        Assert.Empty(JwtSigningKeyRing.ResolveValidationKeys(settings, "unknown", now));
+        Assert.Empty(JwtSigningKeyRing.ResolveValidationKeys(settings, "v1-2026-01", now.AddDays(8)));
+        Assert.Empty(JwtSigningKeyRing.ResolveValidationKeys(settings, null, now));
+    }
+
+    [Fact]
+    [Trait("Category", "SecurityStateMachine")]
+    public void SigningKeyRing_AllowsMissingKidOnlyInsideExplicitLegacyWindow()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var settings = new JwtSettings
+        {
+            KeyVersion = "v2-2026-07",
+            SecretKey = TestSecrets.JwtSigningKey,
+            RotationWindowDays = 30,
+            LegacyNoKidAcceptUntilUtc = now.AddHours(1),
+            PreviousKeys =
+            [
+                new JwtPreviousKeySettings
+                {
+                    Version = "v1-2026-01",
+                    Key = TestSecrets.SecondaryJwtSigningKey,
+                    AcceptUntilUtc = now.AddDays(7)
+                }
+            ]
+        };
+
+        Assert.Equal(2, JwtSigningKeyRing.ResolveValidationKeys(settings, null, now).Count);
+        Assert.Empty(JwtSigningKeyRing.ResolveValidationKeys(settings, null, now.AddHours(2)));
     }
 
     // ─── helpers ──────────────────────────────────────────────────────────

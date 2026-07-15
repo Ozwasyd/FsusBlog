@@ -1,14 +1,19 @@
 using System.Net;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -29,7 +34,7 @@ public sealed class UserSessionJwtAuthenticationTests
             sessionId: "revoked-session",
             mfaVerified: true);
         using HttpClient client = app.GetTestClient();
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/binary/notification-stream/protected");
         request.Headers.Add("Cookie", $"AccessToken={token.Token}");
 
         using HttpResponseMessage response = await client.SendAsync(request);
@@ -93,21 +98,110 @@ public sealed class UserSessionJwtAuthenticationTests
             Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task ProtectedEndpoint_AcceptsPreviousKidInsideRotationWindow()
+    {
+        var userValidator = Substitute.For<IUserSessionValidationService>();
+        userValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(UserSessionValidationResult.Valid));
+        var adminValidator = Substitute.For<IAdminSessionValidationService>();
+        string acceptUntil = DateTimeOffset.UtcNow.AddDays(7).ToString("O");
+        await using WebApplication app = await StartHostAsync(userValidator, adminValidator, new Dictionary<string, string?>
+        {
+            ["Jwt:KeyVersion"] = "v2-2026-07",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["Jwt:PreviousKeys:0:Version"] = "v1-2026-01",
+            ["Jwt:PreviousKeys:0:Key"] = TestSecrets.SecondaryJwtSigningKey,
+            ["Jwt:PreviousKeys:0:AcceptUntilUtc"] = acceptUntil
+        });
+        string token = CreateOrdinaryToken(TestSecrets.SecondaryJwtSigningKey, "v1-2026-01");
+        using HttpClient client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        request.Headers.Add("Cookie", $"AccessToken={token}");
+
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await userValidator.Received(1).ValidateAsync(
+            Arg.Is<ClaimsPrincipal>(principal => principal.FindFirst("sid")!.Value == "rotation-session"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProtectedEndpoint_RejectsUnknownKidWithoutTryingEveryKey()
+    {
+        var userValidator = Substitute.For<IUserSessionValidationService>();
+        userValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(UserSessionValidationResult.Valid));
+        var adminValidator = Substitute.For<IAdminSessionValidationService>();
+        await using WebApplication app = await StartHostAsync(userValidator, adminValidator, new Dictionary<string, string?>
+        {
+            ["Jwt:KeyVersion"] = "v2-2026-07",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["Jwt:PreviousKeys:0:Version"] = "v1-2026-01",
+            ["Jwt:PreviousKeys:0:Key"] = TestSecrets.SecondaryJwtSigningKey,
+            ["Jwt:PreviousKeys:0:AcceptUntilUtc"] = DateTimeOffset.UtcNow.AddDays(7).ToString("O")
+        });
+        string token = CreateOrdinaryToken(TestSecrets.SecondaryJwtSigningKey, "unknown-kid");
+        using HttpClient client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        request.Headers.Add("Cookie", $"AccessToken={token}");
+
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await userValidator.DidNotReceive().ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProtectedEndpoint_AcceptsLegacyNoKidOnlyInsideExplicitMigrationWindow()
+    {
+        var userValidator = Substitute.For<IUserSessionValidationService>();
+        userValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(UserSessionValidationResult.Valid));
+        var adminValidator = Substitute.For<IAdminSessionValidationService>();
+        await using WebApplication app = await StartHostAsync(userValidator, adminValidator, new Dictionary<string, string?>
+        {
+            ["Jwt:KeyVersion"] = "v2-2026-07",
+            ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["Jwt:LegacyNoKidAcceptUntilUtc"] = DateTimeOffset.UtcNow.AddHours(1).ToString("O")
+        });
+        string token = CreateOrdinaryToken(TestSecrets.JwtSigningKey, keyVersion: null);
+        using HttpClient client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        request.Headers.Add("Cookie", $"AccessToken={token}");
+
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     private static async Task<WebApplication> StartHostAsync(
         IUserSessionValidationService userValidator,
-        IAdminSessionValidationService adminValidator)
+        IAdminSessionValidationService adminValidator,
+        IReadOnlyDictionary<string, string?>? jwtOverrides = null)
     {
         var options = new WebApplicationOptions { EnvironmentName = Environments.Development };
         WebApplicationBuilder builder = WebApplication.CreateBuilder(options);
         builder.WebHost.UseTestServer();
-        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        var configuration = new Dictionary<string, string?>
         {
+            ["Jwt:KeyVersion"] = "test-v1",
             ["Jwt:SecretKey"] = "issue-1052-jwt-signing-key-with-at-least-thirty-two-bytes",
             ["Jwt:Issuer"] = "issue-1052-tests",
             ["Jwt:Audience"] = "issue-1052-tests",
             ["Jwt:AccessTokenExpiresMinutes"] = "15",
+            ["Jwt:RotationWindowDays"] = "30",
             ["AuthCookies:AllowInsecureTransportCookies"] = "true"
-        });
+        };
+        if (jwtOverrides is not null)
+        {
+            foreach ((string key, string? value) in jwtOverrides)
+            {
+                configuration[key] = value;
+            }
+        }
+        builder.Configuration.AddInMemoryCollection(configuration);
         builder.Services.AddSingleton<AuthCookieService>();
         builder.Services.AddSingleton(userValidator);
         builder.Services.AddSingleton(adminValidator);
@@ -118,9 +212,36 @@ public sealed class UserSessionJwtAuthenticationTests
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapGet("/protected", static () => "ok").RequireAuthorization();
+        app.MapGet("/api/binary/notification-stream/protected", static () => "ok").RequireAuthorization();
         app.MapGet("/api/binary/admin/protected", static () => "ok").RequireAuthorization();
         await app.StartAsync();
         return app;
+    }
+
+    private static string CreateOrdinaryToken(string secret, string? keyVersion)
+    {
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret))
+        {
+            KeyId = keyVersion
+        };
+        var descriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, "42"),
+                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
+                new Claim(AccountSubjectHasher.ClaimType, new string('a', AccountSubjectHashRequirement.Sha256HexLength)),
+                new Claim("sid", "rotation-session")
+            ]),
+            IssuedAt = DateTime.UtcNow,
+            NotBefore = DateTime.UtcNow.AddMinutes(-1),
+            Expires = DateTime.UtcNow.AddMinutes(10),
+            Issuer = "issue-1052-tests",
+            Audience = "issue-1052-tests",
+            SigningCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256Signature)
+        };
+        var handler = new JwtSecurityTokenHandler();
+        return handler.WriteToken(handler.CreateToken(descriptor));
     }
 
     private static User OrdinaryAccount()

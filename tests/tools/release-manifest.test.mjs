@@ -78,6 +78,8 @@ function createDeploymentFixture(t) {
     'DB_NAME=fsusblog',
     'REDIS_PASSWORD=redis-password',
     'Jwt__SecretKey=0123456789abcdef0123456789abcdef',
+    'Jwt__KeyVersion=v2-2026-07',
+    'Jwt__RotationWindowDays=30',
     'SITE_BASEURL=https://example.com',
     'CORS_ALLOWED_HOSTS=https://example.com',
     'APP_ALLOWED_HOSTS=example.com',

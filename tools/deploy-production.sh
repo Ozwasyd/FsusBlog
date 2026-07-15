@@ -287,6 +287,8 @@ validate_env() {
     DB_NAME
     REDIS_PASSWORD
     Jwt__SecretKey
+    Jwt__KeyVersion
+    Jwt__RotationWindowDays
     SITE_BASEURL
     CORS_ALLOWED_HOSTS
     APP_ALLOWED_HOSTS

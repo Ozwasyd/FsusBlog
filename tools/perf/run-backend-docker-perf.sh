@@ -246,7 +246,9 @@ start_container() {
     -e ConnectionStrings__Redis="${FSUSBLOG_PERF_REDIS:-host.docker.internal:6379,abortConnect=false,connectTimeout=5000}" \
     -e RedisOptions__Configuration="${FSUSBLOG_PERF_REDIS:-host.docker.internal:6379,abortConnect=false,connectTimeout=5000}" \
     -e RedisOptions__InstanceName=FsusBlog_Perf_ \
+    -e Jwt__KeyVersion="${FSUSBLOG_PERF_JWT_KEY_VERSION:-perf-v1}" \
     -e Jwt__SecretKey="${FSUSBLOG_PERF_JWT_SECRET:-Local_Perf_Key_For_FsusBlog_2026_With_Enough_Length_Only}" \
+    -e Jwt__RotationWindowDays="${FSUSBLOG_PERF_JWT_ROTATION_WINDOW_DAYS:-30}" \
     -e AuthCookies__AllowInsecureTransportCookies=true \
     -e CORS_ALLOWED_HOSTS="$BASE_URL,http://localhost:$HOST_PORT" \
     -e AllowedHosts="${FSUSBLOG_PERF_ALLOWED_HOSTS:-*}" \

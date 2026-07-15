@@ -41,6 +41,8 @@ Required variables:
 - `DB_NAME`
 - `REDIS_PASSWORD`
 - `Jwt__SecretKey`
+- `Jwt__KeyVersion`
+- `Jwt__RotationWindowDays`
 - `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1`
 - `FSUSBLOG_ZK_PROD_ENABLED=true`
 - `FSUSBLOG_ZK_CONFIG_DIR`
@@ -62,7 +64,7 @@ Required variables:
 - `FSUSBLOG_RELEASE_ASSET_STORE`
 - `FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME`
 
-Production validation rejects default JWT secrets, placeholder secrets, empty Redis passwords, missing or disabled `FSUSBLOG_ANONYMOUS_IDENTITY_MODE`, HTTP CORS origins, non-HTTPS `SITE_BASEURL`, wildcard `AllowedHosts`, and missing reverse-proxy trust configuration. The production compose file defaults `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` to `1` and `FSUSBLOG_ZK_PROD_ENABLED` to `true`; keep both explicit in the private env file for auditability. ZK-Prod stays fail-closed until real trusted setup manifests, verifying key, issuer keys, root bootstrap evidence, and release smoke evidence are present. Invalid production validation marks `/health/ready` as `503`; operators can inspect the detailed degraded state through `/api/ops/health/ready-detail`.
+Production validation rejects default JWT secrets, missing/development JWT key versions, duplicate or weak previous keys, rotation deadlines outside `Jwt__RotationWindowDays`, placeholder secrets, empty Redis passwords, missing or disabled `FSUSBLOG_ANONYMOUS_IDENTITY_MODE`, HTTP CORS origins, non-HTTPS `SITE_BASEURL`, wildcard `AllowedHosts`, and missing reverse-proxy trust configuration. Use the two-phase blue/green procedure in [JWT signing-key rotation](security/jwt-key-rotation.md); an old token without `kid` is accepted only when an explicit bounded migration deadline is configured. The production compose file defaults `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` to `1` and `FSUSBLOG_ZK_PROD_ENABLED` to `true`; keep both explicit in the private env file for auditability. ZK-Prod stays fail-closed until real trusted setup manifests, verifying key, issuer keys, root bootstrap evidence, and release smoke evidence are present. Invalid production validation marks `/health/ready` as `503`; operators can inspect the detailed degraded state through `/api/ops/health/ready-detail`.
 
 `SITE_BASEURL` is projected into `Seo__BaseUrl` by the production compose file and is the authoritative public origin. Startup compares it with the persisted `Seo_BaseUrl` value and rejects a non-placeholder mismatch as `public_origin_conflict` before AOT/search initialization. Release smoke must compare AOT canonical/OG/JSON-LD, every sitemap location, robots `Sitemap:`, RSS/Atom links, and JSON Feed home/self/item URLs against that one origin. For a no-restart incident fallback, keep the application slot drained and make the edge proxy serve/normalize Feed and sitemap from the last verified same-origin artifacts; never rewrite only one distribution surface to another origin. Correct the environment/persisted value, then start and validate a replacement slot before activation.
 

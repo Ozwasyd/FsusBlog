@@ -35,7 +35,9 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
+            ["Jwt:KeyVersion"] = "v2-2026-07",
             ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["Jwt:RotationWindowDays"] = "30",
             ["AllowedHosts"] = "example.com;www.example.com",
             ["CORS_ALLOWED_HOSTS"] = "https://example.com,https://www.example.com",
             ["Seo:BaseUrl"] = "https://example.com",
@@ -72,6 +74,52 @@ public sealed class ProductionStartupValidatorTests
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
 
         Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateCore_AcceptsBoundedIndependentPreviousJwtKey()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["Jwt:PreviousKeys:0:Version"] = "v1-2026-01",
+            ["Jwt:PreviousKeys:0:Key"] = TestSecrets.SecondaryJwtSigningKey,
+            ["Jwt:PreviousKeys:0:AcceptUntilUtc"] = DateTimeOffset.UtcNow.AddDays(7).ToString("O")
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Empty(errors);
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsDuplicateWeakOrUnboundedPreviousJwtKey()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["Jwt:PreviousKeys:0:Version"] = "v2-2026-07",
+            ["Jwt:PreviousKeys:0:Key"] = "weak",
+            ["Jwt:PreviousKeys:0:AcceptUntilUtc"] = DateTimeOffset.UtcNow.AddDays(31).ToString("O")
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, static error => error.Contains("PreviousKeys:0:Version", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("PreviousKeys:0:Key", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("RotationWindowDays", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsMissingOrDevelopmentJwtKeyVersion()
+    {
+        IReadOnlyList<string> missingErrors = ProductionStartupValidator.ValidateCore(
+            CreateValidProductionConfiguration(new Dictionary<string, string?> { ["Jwt:KeyVersion"] = null }),
+            enforceProductionRules: true);
+        IReadOnlyList<string> developmentErrors = ProductionStartupValidator.ValidateCore(
+            CreateValidProductionConfiguration(new Dictionary<string, string?> { ["Jwt:KeyVersion"] = "dev-v2" }),
+            enforceProductionRules: true);
+
+        Assert.Contains(missingErrors, static error => error.Contains("Jwt:KeyVersion is required", StringComparison.Ordinal));
+        Assert.Contains(developmentErrors, static error => error.Contains("development version", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -414,7 +462,9 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
+            ["Jwt:KeyVersion"] = "v2-2026-07",
             ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["Jwt:RotationWindowDays"] = "30",
             ["AllowedHosts"] = "example.com",
             ["CORS_ALLOWED_HOSTS"] = "https://example.com",
             ["Seo:BaseUrl"] = "https://example.com",
@@ -530,13 +580,15 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(14, report.SchemaVersion);
+        Assert.Equal(15, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
             report.Requirements.Select(static requirement => requirement.Key).Order(StringComparer.Ordinal));
         Assert.Contains(AnonymousIdentityRuntime.ModeEnvironmentVariable, ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Jwt:SecretKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("Jwt:KeyVersion", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("Jwt:RotationWindowDays", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AllowedHosts", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:ServerDomain", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:Origins", ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -572,7 +624,9 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
+            ["Jwt:KeyVersion"] = "v2-2026-07",
             ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["Jwt:RotationWindowDays"] = "30",
             ["AllowedHosts"] = "example.com",
             ["CORS_ALLOWED_HOSTS"] = "https://example.com",
             ["Seo:BaseUrl"] = "https://example.com",
@@ -808,7 +862,9 @@ public sealed class ProductionStartupValidatorTests
             ["ConnectionStrings:DefaultConnection"] = "Host=db;Database=fsus;Username=fsus;Password=secret",
             ["ConnectionStrings:Redis"] = "redis:6379,password=redis-secret,abortConnect=false",
             ["RedisOptions:Configuration"] = "redis:6379,password=redis-secret,abortConnect=false",
+            ["Jwt:KeyVersion"] = "v2-2026-07",
             ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+            ["Jwt:RotationWindowDays"] = "30",
             ["AllowedHosts"] = "example.com;www.example.com",
             ["CORS_ALLOWED_HOSTS"] = "https://example.com,https://www.example.com",
             ["Seo:BaseUrl"] = "https://example.com",
@@ -834,6 +890,11 @@ public sealed class ProductionStartupValidatorTests
             ["DataProtection:KeyProtection:Mode"] = "Certificate",
             ["DataProtection:KeyProtection:CurrentCertificate:Path"] = "/run/secrets/fsusblog-data-protection-current.pfx",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
+            ["FSUSBLOG_RELEASE_ID"] = "20260711010101-0123456789ab",
+            ["FSUSBLOG_RELEASE_SLOT"] = "candidate",
+            ["FSUSBLOG_COMMIT_SHA"] = "0123456789abcdef0123456789abcdef01234567",
+            ["FSUSBLOG_IMAGE_DIGEST"] = $"sha256:{new string('a', 64)}",
+            ["FSUSBLOG_IMAGE_REF"] = $"ghcr.io/fsusblog/app@sha256:{new string('a', 64)}",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         };
 

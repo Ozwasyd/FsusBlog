@@ -71,9 +71,11 @@ POSTGRES_CONNECTION="Host=127.0.0.1;Port=${POSTGRES_PORT};Database=fsusblog;User
 REDIS_CONNECTION="127.0.0.1:${REDIS_PORT}"
 NOTIFICATION_DRILL_SECRET="${FSUSBLOG_NOTIFICATION_DRILL_SECRET:-fsus-notification-drill-$NS_SLUG}"
 JWT_SECRET="${FSUSBLOG_TEST_JWT_SECRET:-fsusblog-local-acceptance-jwt-secret-${NS_SLUG}-change-me}"
+JWT_KEY_VERSION="${FSUSBLOG_TEST_JWT_KEY_VERSION:-acceptance-v1}"
 JWT_ISSUER="${FSUSBLOG_TEST_JWT_ISSUER:-FsusBlogServer}"
 JWT_AUDIENCE="${FSUSBLOG_TEST_JWT_AUDIENCE:-FsusBlogClient}"
 JWT_ACCESS_TOKEN_EXPIRES_MINUTES="${FSUSBLOG_TEST_JWT_ACCESS_TOKEN_EXPIRES_MINUTES:-1440}"
+JWT_ROTATION_WINDOW_DAYS="${FSUSBLOG_TEST_JWT_ROTATION_WINDOW_DAYS:-30}"
 POW_SIGNING_KEY="${FSUSBLOG_TEST_POW_SIGNING_KEY:-fsusblog-local-acceptance-pow-signing-key-${NS_SLUG}}"
 POW_BASE_DIFFICULTY="${FSUSBLOG_ACCEPTANCE_POW_BASE_DIFFICULTY:-8}"
 POW_MAX_DIFFICULTY="${FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY:-8}"
@@ -150,10 +152,12 @@ ConnectionStrings__Redis=$REDIS_CONNECTION
 RedisOptions__Configuration=$REDIS_CONNECTION
 RedisOptions__InstanceName=FsusBlog_${NS_SLUG}_
 NotificationStream__DrillSecret=$NOTIFICATION_DRILL_SECRET
+Jwt__KeyVersion=$JWT_KEY_VERSION
 Jwt__SecretKey=$JWT_SECRET
 Jwt__Issuer=$JWT_ISSUER
 Jwt__Audience=$JWT_AUDIENCE
 Jwt__AccessTokenExpiresMinutes=$JWT_ACCESS_TOKEN_EXPIRES_MINUTES
+Jwt__RotationWindowDays=$JWT_ROTATION_WINDOW_DAYS
 Security__Pow__SigningKey=$POW_SIGNING_KEY
 Security__Pow__BaseDifficulty=$POW_BASE_DIFFICULTY
 Security__Pow__MaxDifficulty=$POW_MAX_DIFFICULTY
@@ -1130,10 +1134,12 @@ prepare_fixtures() {
     export FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER"
     export FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER"
     export FSUSBLOG_REDIS_CONTAINER_NAME="$REDIS_CONTAINER"
+    export Jwt__KeyVersion="$JWT_KEY_VERSION"
     export Jwt__SecretKey="$JWT_SECRET"
     export Jwt__Issuer="$JWT_ISSUER"
     export Jwt__Audience="$JWT_AUDIENCE"
     export Jwt__AccessTokenExpiresMinutes="$JWT_ACCESS_TOKEN_EXPIRES_MINUTES"
+    export Jwt__RotationWindowDays="$JWT_ROTATION_WINDOW_DAYS"
     export AnonymousCredentialIssuer__SubjectHashPepper="$ANONYMOUS_SUBJECT_HASH_PEPPER"
     # Use the same namespaced run-once keys as every downstream runtime lane.
     source "$ROOT_DIR/tools/test/lanes/_legacy.sh"

@@ -19,10 +19,21 @@ namespace FsusBlog.Server.Infrastructure.Helpers;
 // 1. 强类型配置模型
 public class JwtSettings
 {
+    public string KeyVersion { get; set; } = "legacy-current";
     public string SecretKey { get; set; } = string.Empty;
     public string Issuer { get; set; } = string.Empty;
     public string Audience { get; set; } = string.Empty;
     public int AccessTokenExpiresMinutes { get; set; } = 15;
+    public int RotationWindowDays { get; set; } = 30;
+    public DateTimeOffset? LegacyNoKidAcceptUntilUtc { get; set; }
+    public List<JwtPreviousKeySettings> PreviousKeys { get; set; } = [];
+}
+
+public sealed class JwtPreviousKeySettings
+{
+    public string Version { get; set; } = string.Empty;
+    public string Key { get; set; } = string.Empty;
+    public DateTimeOffset AcceptUntilUtc { get; set; }
 }
 
 public readonly record struct IssuedAccessToken(string Token, DateTimeOffset ExpiresAtUtc)
@@ -59,10 +70,10 @@ public class JwtHelper : IJwtHelper
         _configuration = configuration;
 
         // 使用 UTF8 支持更复杂的密钥字符 (在启动时执行一次)
-        var key = Encoding.UTF8.GetBytes(_settings.SecretKey);
+        SymmetricSecurityKey key = JwtSigningKeyRing.CreateKey(_settings.KeyVersion, _settings.SecretKey);
         // HmacSha256 需要至少 128 bit 的密钥，推荐 256 bit (32 字符)
         _credentials = new SigningCredentials(
-            new SymmetricSecurityKey(key),
+            key,
             SecurityAlgorithms.HmacSha256Signature);
     }
 
@@ -190,7 +201,14 @@ public static class JwtServiceExtensions
             throw new InvalidOperationException("JWT 配置缺失：请检查 appsettings.json 中的 SecretKey, Issuer, Audience");
         }
 
-        var key = Encoding.UTF8.GetBytes(settings.SecretKey);
+        IReadOnlyList<string> keyRingErrors = JwtSigningKeyRing.Validate(
+            settings,
+            enforceProductionRules: false,
+            DateTimeOffset.UtcNow);
+        if (keyRingErrors.Count > 0)
+        {
+            throw new InvalidOperationException("JWT key ring configuration is invalid: " + string.Join("; ", keyRingErrors));
+        }
 
         // 3. 配置认证方案
         services.AddAuthentication(x =>
@@ -210,7 +228,11 @@ public static class JwtServiceExtensions
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(key),
+                RequireSignedTokens = true,
+                TryAllIssuerSigningKeys = false,
+                ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+                IssuerSigningKeyResolver = (_, _, kid, _) =>
+                    JwtSigningKeyRing.ResolveValidationKeys(settings, kid, DateTimeOffset.UtcNow),
 
                 ValidateIssuer = true,
                 ValidIssuer = settings.Issuer,
@@ -372,4 +394,136 @@ public static class JwtServiceExtensions
                 (requirement.AllowedValues == null ||
                     requirement.AllowedValues.Contains(AnonymousIdentityRuntime.AdminPrincipalKind, StringComparer.Ordinal)) ||
             string.Equals(requirement.ClaimType, AdminPermissions.PermissionClaimType, StringComparison.Ordinal));
+}
+
+internal static class JwtSigningKeyRing
+{
+    private const int MinimumKeyBytes = 32;
+    private const int MaximumRotationWindowDays = 90;
+    private static readonly char[] VersionSeparators = ['.', '_', '-'];
+
+    internal static SymmetricSecurityKey CreateKey(string version, string secret)
+        => new(Encoding.UTF8.GetBytes(secret))
+        {
+            KeyId = version
+        };
+
+    internal static IReadOnlyList<SecurityKey> ResolveValidationKeys(
+        JwtSettings settings,
+        string? keyId,
+        DateTimeOffset now)
+    {
+        if (!string.IsNullOrWhiteSpace(keyId))
+        {
+            if (string.Equals(keyId, settings.KeyVersion, StringComparison.Ordinal))
+            {
+                return [CreateKey(settings.KeyVersion, settings.SecretKey)];
+            }
+
+            JwtPreviousKeySettings? previous = settings.PreviousKeys.FirstOrDefault(candidate =>
+                string.Equals(candidate.Version, keyId, StringComparison.Ordinal) &&
+                candidate.AcceptUntilUtc > now);
+            return previous is null ? [] : [CreateKey(previous.Version, previous.Key)];
+        }
+
+        if (settings.LegacyNoKidAcceptUntilUtc is not { } legacyDeadline || legacyDeadline <= now)
+        {
+            return [];
+        }
+
+        List<SecurityKey> legacyKeys = [CreateKey(settings.KeyVersion, settings.SecretKey)];
+        legacyKeys.AddRange(settings.PreviousKeys
+            .Where(previous => previous.AcceptUntilUtc > now)
+            .Select(previous => (SecurityKey)CreateKey(previous.Version, previous.Key)));
+        return legacyKeys;
+    }
+
+    internal static IReadOnlyList<string> Validate(
+        JwtSettings settings,
+        bool enforceProductionRules,
+        DateTimeOffset now)
+    {
+        List<string> errors = [];
+        if (!IsValidVersion(settings.KeyVersion))
+        {
+            errors.Add("Jwt:KeyVersion must contain 3-64 safe version characters.");
+        }
+        else if (enforceProductionRules && settings.KeyVersion.StartsWith("dev", StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add("Jwt:KeyVersion must not use a development version in production.");
+        }
+
+        ValidateKeyMaterial("Jwt:SecretKey", settings.SecretKey, errors);
+        if (settings.RotationWindowDays is < 1 or > MaximumRotationWindowDays)
+        {
+            errors.Add($"Jwt:RotationWindowDays must be between 1 and {MaximumRotationWindowDays}.");
+        }
+
+        DateTimeOffset maximumDeadline = now.AddDays(Math.Clamp(settings.RotationWindowDays, 1, MaximumRotationWindowDays));
+        HashSet<string> versions = new(StringComparer.Ordinal) { settings.KeyVersion };
+        HashSet<string> secrets = new(StringComparer.Ordinal) { settings.SecretKey };
+        for (int index = 0; index < settings.PreviousKeys.Count; index++)
+        {
+            JwtPreviousKeySettings previous = settings.PreviousKeys[index];
+            string prefix = $"Jwt:PreviousKeys:{index}";
+            if (!IsValidVersion(previous.Version))
+            {
+                errors.Add($"{prefix}:Version must contain 3-64 safe version characters.");
+            }
+            else if (!versions.Add(previous.Version))
+            {
+                errors.Add($"{prefix}:Version must be unique and differ from Jwt:KeyVersion.");
+            }
+
+            ValidateKeyMaterial($"{prefix}:Key", previous.Key, errors);
+            if (!string.IsNullOrEmpty(previous.Key) && !secrets.Add(previous.Key))
+            {
+                errors.Add($"{prefix}:Key must be independent from every other JWT signing key.");
+            }
+
+            if (previous.AcceptUntilUtc <= now)
+            {
+                errors.Add($"{prefix}:AcceptUntilUtc must be in the future while the key is configured.");
+            }
+            else if (previous.AcceptUntilUtc > maximumDeadline)
+            {
+                errors.Add($"{prefix}:AcceptUntilUtc must not exceed Jwt:RotationWindowDays.");
+            }
+        }
+
+        if (settings.LegacyNoKidAcceptUntilUtc is { } legacyDeadline)
+        {
+            if (legacyDeadline <= now)
+            {
+                errors.Add("Jwt:LegacyNoKidAcceptUntilUtc must be removed after it expires.");
+            }
+            else if (legacyDeadline > maximumDeadline)
+            {
+                errors.Add("Jwt:LegacyNoKidAcceptUntilUtc must not exceed Jwt:RotationWindowDays.");
+            }
+        }
+
+        return errors;
+    }
+
+    private static bool IsValidVersion(string? value)
+        => !string.IsNullOrWhiteSpace(value) &&
+            value.Length is >= 3 and <= 64 &&
+            value.All(character => char.IsAsciiLetterOrDigit(character) || VersionSeparators.Contains(character));
+
+    private static void ValidateKeyMaterial(string path, string? value, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(value) || Encoding.UTF8.GetByteCount(value) < MinimumKeyBytes)
+        {
+            errors.Add($"{path} must contain at least {MinimumKeyBytes} bytes of signing key material.");
+            return;
+        }
+
+        if (value.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("replace-with", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("MUST_BE_OVERRIDDEN", StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add($"{path} must not use template signing key material.");
+        }
+    }
 }

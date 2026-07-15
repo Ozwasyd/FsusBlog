@@ -2,6 +2,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Moderation;
@@ -56,7 +57,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 14;
+    private const int SchemaVersion = 15;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
@@ -138,6 +139,8 @@ public static class ProductionStartupValidator
         ConnectionString("Redis"),
         Value("RedisOptions:Configuration"),
         Value("Jwt:SecretKey"),
+        Value("Jwt:KeyVersion"),
+        Value("Jwt:RotationWindowDays"),
         Value("AllowedHosts"),
         Value("CORS_ALLOWED_HOSTS"),
         Value("Seo:BaseUrl"),
@@ -282,6 +285,15 @@ public static class ProductionStartupValidator
             {
                 errors.Add("Jwt:SecretKey must not use a template placeholder.");
             }
+        }
+
+        if (enforceProductionRules || !string.IsNullOrWhiteSpace(jwtSecret))
+        {
+            JwtSettings jwtSettings = configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
+            errors.AddRange(JwtSigningKeyRing.Validate(
+                jwtSettings,
+                enforceProductionRules,
+                DateTimeOffset.UtcNow));
         }
 
         ValidateIndependentSecuritySecret("Security:Pow:SigningKey", powSigningKey, jwtSecret, [], errors);
@@ -945,7 +957,7 @@ public static class ProductionStartupValidator
     }
 
     private static bool IsSecurityCriticalStartupError(string error)
-        => error.Contains("Jwt:SecretKey", StringComparison.Ordinal)
+        => error.Contains("Jwt:", StringComparison.Ordinal)
             || error.Contains("Security:Pow:SigningKey", StringComparison.Ordinal)
             || error.Contains("Security:CaptchaV1:SigningKey", StringComparison.Ordinal)
             || error.Contains("Security:RecoveryKeyPepper", StringComparison.Ordinal)
