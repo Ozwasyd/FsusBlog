@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 124,
+      "estimatedFacts": 132,
       "tests": [
         { "path": "Integration/SchemaMigrationIntegrationTests.cs", "class": "SchemaMigrationIntegrationTests" },
         { "path": "Unit/AnonymousCommentSubmitTests.cs", "class": "AnonymousCommentSubmitTests" },
@@ -24,7 +24,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 171,
+      "estimatedFacts": 191,
       "tests": [
         { "path": "Unit/AnonymousCredentialIssuerTests.cs", "class": "AnonymousCredentialIssuerTests" },
         { "path": "Unit/AnonymousCredentialRootLifecycleTests.cs", "class": "AnonymousCredentialRootLifecycleTests" },
@@ -56,7 +56,12 @@
         { "path": "Unit/StatsPerformanceContractTests.cs", "class": "StatsPerformanceContractTests" },
         { "path": "Unit/StatsServiceRegionTests.cs", "class": "StatsServiceRegionTests" },
         { "path": "Unit/SystemServiceTests.cs", "class": "SystemServiceTests" },
-        { "path": "Unit/UserAuthPostgresConcurrencyTests.cs", "class": "UserAuthPostgresConcurrencyTests" }
+        { "path": "Unit/UserAuthPostgresConcurrencyTests.cs", "class": "UserAuthPostgresConcurrencyTests" },
+        { "path": "Integration/ActiveReleaseFencedCommitIntegrationTests.cs", "class": "ActiveReleaseFencedCommitIntegrationTests" },
+        { "path": "Integration/PasskeyCounterRollbackIntegrationTests.cs", "class": "PasskeyCounterRollbackIntegrationTests" },
+        { "path": "Unit/PublicMutationFenceLeaseTests.cs", "class": "PublicMutationFenceLeaseTests" },
+        { "path": "Unit/ReadEventRetirementMigrationDatabaseTests.cs", "class": "ReadEventRetirementMigrationDatabaseTests" },
+        { "path": "Unit/VisitLogIpPseudonymMigrationDatabaseTests.cs", "class": "VisitLogIpPseudonymMigrationDatabaseTests" }
       ]
     }
   ]

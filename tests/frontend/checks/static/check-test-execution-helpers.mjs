@@ -780,6 +780,15 @@ assert.equal(commandManifest.resolveManifestWorkers({
 assert.equal(commandManifest.resolveManifestWorkers({
   env: {}, cpuCount: 16, freeMemoryBytes: 32 * 1024 ** 3, totalMemoryBytes: 32 * 1024 ** 3, load1: 0
 }), 16, 'healthy unmanaged manifests must not retain a fixed four-worker cap')
+assert.equal(commandManifest.resolveNestedManifestMemoryGiBPerWorker({
+  env: {
+    FSUSBLOG_STEP_CPU_BUDGET: '1',
+    FSUSBLOG_STEP_MEMORY_GIB: '0.0625'
+  }
+}), 0.0625, 'nested command manifests must fit the exact parent memory grant')
+assert.equal(commandManifest.resolveNestedManifestMemoryGiBPerWorker({
+  env: {}, defaultMemoryGiBPerWorker: 0.25
+}), 0.25, 'direct command manifests retain the measured default memory cost')
 assert.throws(() => commandManifest.resolveManifestWorkers({
   env: { FSUSBLOG_STEP_MEMORY_GIB: 'invalid' },
   cpuCount: 16,

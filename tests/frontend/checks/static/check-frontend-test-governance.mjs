@@ -11,7 +11,14 @@ import {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const frontendRoot = resolve(root, 'src/frontend')
 const require = createRequire(import.meta.url)
-const ts = require(require.resolve('typescript', { paths: [frontendRoot] }))
+const ts = (() => {
+  try {
+    return require(require.resolve('typescript', { paths: [frontendRoot] }))
+  } catch (error) {
+    if (error?.code !== 'MODULE_NOT_FOUND') throw error
+    return null
+  }
+})()
 const pkg = JSON.parse(readFileSync(resolve(root, 'src/frontend/package.json'), 'utf8'))
 const matrix = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8')
 const legacyTestSh = readFileSync(resolve(root, 'tools/test/legacy-test.sh'), 'utf8')
@@ -42,7 +49,7 @@ function walkUnitTests(dir) {
   })
 }
 
-function sourceLockViolations(source, fileName) {
+function sourceLockViolationsWithTypescript(source, fileName) {
   const scriptKind = fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
   const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, scriptKind)
   const directReaders = new Set()
@@ -131,6 +138,138 @@ function sourceLockViolations(source, fileName) {
   }
   visit(sourceFile)
   return violations
+}
+
+function maskNonCode(source) {
+  const output = [...source]
+  let state = 'code'
+  let escaped = false
+  for (let index = 0; index < source.length; index += 1) {
+    const current = source[index]
+    const next = source[index + 1]
+    if (state === 'code') {
+      if (current === '/' && next === '/') {
+        output[index] = output[index + 1] = ' '
+        index += 1
+        state = 'line-comment'
+      } else if (current === '/' && next === '*') {
+        output[index] = output[index + 1] = ' '
+        index += 1
+        state = 'block-comment'
+      } else if (current === "'" || current === '"' || current === '`') {
+        output[index] = ' '
+        state = current === '`' ? 'template' : current === "'" ? 'single' : 'double'
+        escaped = false
+      }
+      continue
+    }
+    if (state === 'line-comment') {
+      if (current === '\n') state = 'code'
+      else output[index] = ' '
+      continue
+    }
+    if (state === 'block-comment') {
+      if (current === '*' && next === '/') {
+        output[index] = output[index + 1] = ' '
+        index += 1
+        state = 'code'
+      } else if (current !== '\n') output[index] = ' '
+      continue
+    }
+    if (current === '\n') {
+      escaped = false
+      if (state !== 'template') state = 'code'
+      continue
+    }
+    output[index] = ' '
+    if (escaped) {
+      escaped = false
+    } else if (current === '\\') {
+      escaped = true
+    } else if ((state === 'single' && current === "'")
+      || (state === 'double' && current === '"')
+      || (state === 'template' && current === '`')) {
+      state = 'code'
+    }
+  }
+  return output.join('')
+}
+
+function sourceLockViolationsWithoutTypescript(source) {
+  const fsModules = new Set(['fs', 'fs/promises', 'node:fs', 'node:fs/promises'])
+  const directReaders = new Set()
+  const fsNamespaces = new Set()
+  const violations = []
+  const seen = new Set()
+  const addViolation = (index, kind) => {
+    const key = `${index}:${kind}`
+    if (seen.has(key)) return
+    seen.add(key)
+    const prefix = source.slice(0, index)
+    const line = prefix.split('\n').length
+    const column = index - prefix.lastIndexOf('\n')
+    violations.push({ kind, line, column })
+  }
+  const registerBindings = (clause, separatorPattern) => {
+    const defaultImport = clause.match(/^\s*([A-Za-z_$][\w$]*)(?:\s*,|\s*$)/u)
+    if (defaultImport) fsNamespaces.add(defaultImport[1])
+    const namespaceImport = clause.match(/\*\s+as\s+([A-Za-z_$][\w$]*)/u)
+    if (namespaceImport) fsNamespaces.add(namespaceImport[1])
+    const named = clause.match(/\{([\s\S]*?)\}/u)?.[1]
+    if (!named) return
+    for (const rawBinding of named.split(',')) {
+      const binding = rawBinding.trim().replace(/^type\s+/u, '')
+      if (!binding) continue
+      const [imported, local = imported] = binding.split(separatorPattern).map((part) => part.trim())
+      if (['readFile', 'readFileSync'].includes(imported)) directReaders.add(local)
+      if (imported === 'promises') fsNamespaces.add(local)
+    }
+  }
+
+  const importPattern = /^\s*import\s+(?:type\s+)?([^;]+?)\s+from\s+(['"])([^'"]+)\2\s*;?/gmu
+  for (const match of source.matchAll(importPattern)) {
+    const moduleName = match[3]
+    if (/\.(?:test|spec)(?:\.[cm]?[jt]sx?)?$/u.test(moduleName)) {
+      addViolation((match.index ?? 0) + match[0].indexOf(moduleName), 'test-source-import')
+    }
+    if (fsModules.has(moduleName)) registerBindings(match[1], /\s+as\s+/u)
+  }
+  const sideEffectImportPattern = /^\s*import\s+(['"])([^'"]+)\1\s*;?/gmu
+  for (const match of source.matchAll(sideEffectImportPattern)) {
+    if (/\.(?:test|spec)(?:\.[cm]?[jt]sx?)?$/u.test(match[2])) {
+      addViolation((match.index ?? 0) + match[0].indexOf(match[2]), 'test-source-import')
+    }
+  }
+  const requirePattern = /^\s*(?:const|let|var)\s+([^=]+?)\s*=\s*require\(\s*(['"])(node:fs(?:\/promises)?|fs(?:\/promises)?)\2\s*\)/gmu
+  for (const match of source.matchAll(requirePattern)) {
+    const binding = match[1].trim()
+    if (binding.startsWith('{')) registerBindings(binding, /\s*:\s*/u)
+    else if (/^[A-Za-z_$][\w$]*$/u.test(binding)) fsNamespaces.add(binding)
+  }
+
+  const code = maskNonCode(source)
+  const addCalls = (pattern, kind) => {
+    for (const match of code.matchAll(pattern)) addViolation(match.index ?? 0, kind)
+  }
+  addCalls(/\b(?:readRepoFile|repoFile|readSourceFile|readProductionFile)\s*\(/gu, 'source-lock-helper')
+  if (directReaders.size > 0) {
+    const names = [...directReaders].map((name) => name.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')).join('|')
+    addCalls(new RegExp(`\\b(?:${names})\\s*\\(`, 'gu'), 'filesystem-source-read')
+  }
+  for (const namespace of fsNamespaces) {
+    const escapedNamespace = namespace.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+    addCalls(
+      new RegExp(`\\b${escapedNamespace}(?:\\s*\\.\\s*promises)?\\s*\\.\\s*(?:readFile|readFileSync)\\s*\\(`, 'gu'),
+      'filesystem-source-read'
+    )
+  }
+  return violations
+}
+
+function sourceLockViolations(source, fileName) {
+  return ts
+    ? sourceLockViolationsWithTypescript(source, fileName)
+    : sourceLockViolationsWithoutTypescript(source)
 }
 
 function assertSourceLockingFixtures() {

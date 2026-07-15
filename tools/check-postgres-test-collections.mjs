@@ -224,6 +224,7 @@ for (const file of findCsFiles(backendTestRoot)) {
 const manifestEntries = new Map()
 const manifestClassNames = new Set()
 let manifestCaseCount = 0
+const collectionCaseCounts = new Map()
 
 for (const collection of manifest.collections ?? []) {
   const collectionId = String(collection.id ?? '')
@@ -280,6 +281,7 @@ for (const collection of manifest.collections ?? []) {
       `${collectionId} estimatedFacts mismatch: manifest=${String(collection.estimatedFacts)} source=${sourceCaseCount}`
     )
   }
+  collectionCaseCounts.set(collectionId, sourceCaseCount)
   manifestCaseCount += sourceCaseCount
 }
 
@@ -312,5 +314,7 @@ if (errors.length > 0) {
 }
 
 console.log(
-  `[postgres-test-collections] ok collections=${manifest.collections.length} classes=${manifestEntries.size} estimatedCases=${manifestCaseCount}`
+  `[postgres-test-collections] ok collections=${manifest.collections.length} classes=${manifestEntries.size}`
+  + ` estimatedCases=${manifestCaseCount}`
+  + ` collectionCases=${[...collectionCaseCounts].map(([id, count]) => `${id}:${count}`).join(',')}`
 )

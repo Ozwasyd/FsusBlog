@@ -194,6 +194,11 @@ requireIncludes('tools/contracts/export-openapi.sh', [
   'OpenApiDocumentsDirectory="$RUNTIME_OUT_DIR"'
 ])
 requireIncludes('src/frontend/wasm/build.sh', [
+  'WASM_SOURCE_DIR="${WASM_ROOT}"',
+  'WASM_POW_SOURCE_DIR="${WASM_ROOT}/pow"',
+  '--check-source-paths',
+  'emcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}"',
+  'emcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}"',
   '--sort=name',
   '--mtime=@0',
   '--numeric-owner',
@@ -229,6 +234,11 @@ requireIncludes('tools/test/bundles/run-bundle.mjs', [
   "schema: 'fsusblog.runtime-browser-admission.v1'",
   'blockedBySlotMs'
 ])
+requireIncludes('tools/test/run-command-manifest.mjs', [
+  'export function resolveNestedManifestMemoryGiBPerWorker',
+  'inheritedMemoryGiB / workers',
+  'orchestrationMemoryGiBPerWorker: resolveNestedManifestMemoryGiBPerWorker({ env })'
+])
 requireIncludes('tools/test/lanes/cross-browser-smoke.sh', [
   'PLAYWRIGHT_OUTPUT_DIR="${PLAYWRIGHT_OUTPUT_DIR:-test-results/playwright/cross-browser}"'
 ])
@@ -245,6 +255,12 @@ requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privac
 requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "await executeStep(staticStageStep('blocking-prebuild',", 'const step =', [
   "await executeStep(staticStageStep('blocking-prebuild'",
   'resources: { cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1 }'
+])
+requireIncludes('tools/test/bundles/run-bundle.mjs', [
+  'function bundleDagCapacityForSteps(steps)',
+  'const stepExclusiveResources = steps.flatMap((entry) => entry.resources?.exclusiveResources ?? [])',
+  '() => bundleDagCapacityForSteps(steps)',
+  'dotnet restore tests/FsusBlog.ProductionBackend.slnx --locked-mode'
 ])
 requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "staticStageStep('concurrent',", "commandStep('static-governance-concurrent'", [
   "staticStageStep('concurrent'",

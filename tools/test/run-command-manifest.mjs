@@ -277,6 +277,23 @@ export function resolveManifestWorkers({
   return Math.max(1, Math.min(cpuCap, memoryCap, loadCap, override ?? Number.POSITIVE_INFINITY))
 }
 
+export function resolveNestedManifestMemoryGiBPerWorker({
+  env = process.env,
+  defaultMemoryGiBPerWorker = 0.25
+} = {}) {
+  const fallback = Number(defaultMemoryGiBPerWorker)
+  if (!Number.isFinite(fallback) || fallback <= 0) {
+    throw new Error('defaultMemoryGiBPerWorker must be a positive number')
+  }
+  const inheritedMemoryGiB = optionalPositiveNumber(env, [
+    'FSUSBLOG_STEP_MEMORY_GIB',
+    'FSUSBLOG_BUNDLE_MEMORY_GIB'
+  ])
+  if (inheritedMemoryGiB === null) return fallback
+  const workers = resolveManifestWorkers({ env })
+  return Math.min(fallback, inheritedMemoryGiB / workers)
+}
+
 // Long-lived orchestration steps can outlive the resource pressure that fixed
 // their initial child budget. Re-read the scheduler's atomic grant immediately
 // before a new independent wave, but consume only currently idle host CPU and
@@ -719,7 +736,7 @@ export async function runCommandManifest(manifest, { cwd = process.cwd(), env = 
     cwd,
     env,
     workload: 'scheduler-admitted',
-    orchestrationMemoryGiBPerWorker: 0.25
+    orchestrationMemoryGiBPerWorker: resolveNestedManifestMemoryGiBPerWorker({ env })
   })
 }
 

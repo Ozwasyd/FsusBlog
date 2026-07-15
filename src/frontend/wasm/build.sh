@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WASM_ROOT="${ROOT_DIR}/wasm"
+WASM_SOURCE_DIR="${WASM_ROOT}"
+WASM_POW_SOURCE_DIR="${WASM_ROOT}/pow"
 RUN_WASM_ROOT="${FSUSBLOG_WASM_ARTIFACT_ROOT:-${WASM_ROOT}}"
 OUT_DIR="${FSUSBLOG_FRONTEND_WASM_ROOT:-${ROOT_DIR}/public/wasm}"
 BUILD_SIMD_DIR="${RUN_WASM_ROOT}/build-simd"
@@ -128,6 +130,19 @@ print_resource_plan() {
 }
 
 resolve_cpu_budget
+if [[ "${1:-}" == "--check-source-paths" ]]; then
+  [[ -f "${WASM_SOURCE_DIR}/CMakeLists.txt" ]] || {
+    echo "[build:wasm] missing wasm source: ${WASM_SOURCE_DIR}/CMakeLists.txt" >&2
+    exit 1
+  }
+  [[ -f "${WASM_POW_SOURCE_DIR}/CMakeLists.txt" ]] || {
+    echo "[build:wasm] missing pow wasm source: ${WASM_POW_SOURCE_DIR}/CMakeLists.txt" >&2
+    exit 1
+  }
+  printf '[build:wasm] source-paths ok wasm=%s pow=%s artifact-root=%s\n' \
+    "${WASM_SOURCE_DIR}" "${WASM_POW_SOURCE_DIR}" "${RUN_WASM_ROOT}"
+  exit 0
+fi
 if [[ "${1:-}" == "--print-resource-plan" ]]; then
   print_resource_plan
   exit 0
@@ -375,7 +390,7 @@ build_simd() {
     targets+=(FsusImageCodec)
   fi
   cd "${BUILD_SIMD_DIR}"
-  emcmake "${CMAKE_BIN}" --fresh .. \
+  emcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DWASM_SIMD=ON \
     -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
@@ -396,7 +411,7 @@ build_basic() {
     targets+=(FsusImageCodec)
   fi
   cd "${BUILD_BASIC_DIR}"
-  emcmake "${CMAKE_BIN}" --fresh .. \
+  emcmake "${CMAKE_BIN}" --fresh "${WASM_SOURCE_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DWASM_SIMD=OFF \
     -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
@@ -408,7 +423,7 @@ build_basic() {
 build_relaxed_pow() {
   local jobs="$1"
   cd "${BUILD_RELAXED_POW_DIR}"
-  emcmake "${CMAKE_BIN}" --fresh ../pow \
+  emcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DWASM_RELAXED_SIMD=ON \
     -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_RELAXED_POW_DIR}" \
@@ -419,7 +434,7 @@ build_relaxed_pow() {
 build_threads_pow() {
   local jobs="$1"
   cd "${BUILD_THREADS_POW_DIR}"
-  emcmake "${CMAKE_BIN}" --fresh ../pow \
+  emcmake "${CMAKE_BIN}" --fresh "${WASM_POW_SOURCE_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DWASM_THREADS=ON \
     -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_THREADS_POW_DIR}" \

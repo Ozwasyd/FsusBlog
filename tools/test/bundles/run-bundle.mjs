@@ -1061,6 +1061,18 @@ function bundleDagCapacity() {
   }
 }
 
+function bundleDagCapacityForSteps(steps) {
+  const capacity = bundleDagCapacity()
+  const stepExclusiveResources = steps.flatMap((entry) => entry.resources?.exclusiveResources ?? [])
+  return {
+    ...capacity,
+    exclusiveResources: [...new Set([
+      ...(capacity.exclusiveResources ?? []),
+      ...stepExclusiveResources
+    ])]
+  }
+}
+
 function bundleDeadlineMs() {
   const deadlineMs = Number(process.env.FSUSBLOG_BUNDLE_DEADLINE_MS)
   if (Number.isFinite(deadlineMs) && deadlineMs > 0) return deadlineMs
@@ -1244,7 +1256,7 @@ async function runBackendTests() {
       resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
     }),
     commandStep('dotnet-restore',
-      'FSUSBLOG_DOTNET_BUILD_PARALLELISM=auto tools/build-with-data-env.sh dotnet restore tests/FsusBlog.ProductionBackend.slnx -v minimal /p:NuGetAudit=false', [], {
+      'FSUSBLOG_DOTNET_BUILD_PARALLELISM=auto tools/build-with-data-env.sh dotnet restore tests/FsusBlog.ProductionBackend.slnx --locked-mode -v minimal /p:NuGetAudit=false', [], {
         resources: { cpuWeight: 2, memoryWeight: 1.5, minCpuUnits: 1 }
       })
   ])
@@ -2171,7 +2183,7 @@ async function run() {
     const steps = bundleId === 'runtime-browser' ? runtimeSteps() : performanceSteps()
     await executeWeightedStepDag(
       steps,
-      bundleDagCapacity,
+      () => bundleDagCapacityForSteps(steps),
       bundleId === 'runtime-browser' ? executeRuntimeStep : executePerformanceStep
     )
   }
