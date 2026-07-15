@@ -181,6 +181,32 @@ public sealed class PublicHotReadResidencyTests
     }
 
     [Fact]
+    public void Publish_DefaultRetiringDeadlineAllowsFreshSnapshotRecoveryBeforeGc()
+    {
+        var clock = new MutableTimeProvider(DateTimeOffset.UtcNow);
+        PublicHotReadSnapshot first = Snapshot(1, 1, Artifact(128, 0, 0, 1), clock.GetUtcNow());
+        PublicHotReadSnapshot second = Snapshot(2, 2, Artifact(128, 0, 0, 2), clock.GetUtcNow());
+        var store = new PublicHotReadStore(
+            options: Options.Create(RetiringOptions(
+                maxSnapshots: 0,
+                maxBytes: 1_000_000,
+                deadline: TimeSpan.Zero)),
+            timeProvider: clock);
+        store.Publish(first);
+        store.Publish(second);
+        clock.Advance(TimeSpan.FromMinutes(30));
+
+        PublicHotReadSnapshot fresh = Snapshot(3, 3, Artifact(128, 0, 0, 3), clock.GetUtcNow());
+        store.Publish(fresh);
+
+        Assert.Same(fresh, store.Current);
+        Assert.Equal(TimeSpan.Zero, store.RetiringSnapshotForTests().Limits.Deadline);
+        Assert.Equal(2, store.RetiringSnapshotForTests().SnapshotCount);
+        GC.KeepAlive(first);
+        GC.KeepAlive(second);
+    }
+
+    [Fact]
     public void Publish_RejectsWhenCurrentSnapshotWouldExceedRetiringBytesLimit()
     {
         PublicHotReadSnapshot first = Snapshot(1, 1, Artifact(256, 0, 0, 1));
@@ -428,7 +454,11 @@ public sealed class PublicHotReadResidencyTests
         Assert.Same(firstBytes, segment.Array);
     }
 
-    private static PublicHotReadSnapshot Snapshot(long version, int id, PublicBinaryArtifact artifact)
+    private static PublicHotReadSnapshot Snapshot(
+        long version,
+        int id,
+        PublicBinaryArtifact artifact,
+        DateTimeOffset? visibilityCutoffUtc = null)
         => new(
             version,
             new Dictionary<int, PublicBinaryArtifact> { [id] = artifact }.ToFrozenDictionary(),
@@ -436,7 +466,9 @@ public sealed class PublicHotReadResidencyTests
             default,
             default,
             FrozenDictionary<string, PublicHtmlArtifact>.Empty,
-            PublicHotReadPublicationEvidence.CreateVerified(version, DateTimeOffset.UtcNow));
+            PublicHotReadPublicationEvidence.CreateVerified(
+                version,
+                visibilityCutoffUtc ?? DateTimeOffset.UtcNow));
 
     private static PublicBinaryArtifact Artifact(int raw, int brotli, int gzip, long version)
     {

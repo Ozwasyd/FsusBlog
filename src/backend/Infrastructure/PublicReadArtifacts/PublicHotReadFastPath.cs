@@ -627,7 +627,8 @@ public sealed class PublicHotReadStore
                 {
                     violations.Add($"retiring-bytes:{predictedRetiringBytes}>{_retiringLimits.MaxBytes}");
                 }
-                if (retiringState.OldestRetiredAtUtc is { } oldest
+                if (_retiringLimits.Deadline > TimeSpan.Zero
+                    && retiringState.OldestRetiredAtUtc is { } oldest
                     && now - oldest > _retiringLimits.Deadline)
                 {
                     violations.Add($"retiring-deadline:{oldest:O}>{_retiringLimits.Deadline}");

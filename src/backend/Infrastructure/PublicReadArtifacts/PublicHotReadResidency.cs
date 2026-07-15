@@ -122,10 +122,7 @@ internal readonly record struct PublicHotReadRetiringLimits(
         long maxBytes = options.MaxRetiringBytes > 0
             ? options.MaxRetiringBytes
             : Math.Min(budgets.MaxSnapshotOverlapBytes, budgets.MaxResidentBytes);
-        int dynamicDeadlineScale = Math.Clamp(Environment.ProcessorCount * 2, 4, 64);
-        TimeSpan deadline = options.RetiringSnapshotDeadline > TimeSpan.Zero
-            ? options.RetiringSnapshotDeadline
-            : TimeSpan.FromSeconds(Math.Clamp(dynamicDeadlineScale * 30, 60, 1800));
+        TimeSpan deadline = options.RetiringSnapshotDeadline;
         return new(maxSnapshots, Math.Max(1, maxBytes), deadline);
     }
 }
