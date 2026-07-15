@@ -207,6 +207,17 @@ public sealed class UserSessionCommandService(UserService users) : IUserSessionC
         return (true, result.Data, expiresAt);
     }
 
+    public async Task<bool> VerifyRefreshRotationAsync(
+        string refreshToken,
+        string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        bool verified = await users.VerifyRefreshRotationAsync(refreshToken, sessionId);
+        cancellationToken.ThrowIfCancellationRequested();
+        return verified;
+    }
+
     public Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

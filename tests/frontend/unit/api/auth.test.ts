@@ -64,6 +64,29 @@ describe('auth API binary base session flow', () => {
     }))
   })
 
+  it('refreshToken retries one network failure exactly once', async () => {
+    mockBinary
+      .mockRejectedValueOnce({ name: 'BinaryTransportError', kind: 'network', message: 'connection reset' })
+      .mockResolvedValueOnce(null as never)
+
+    await refreshToken()
+
+    expect(mockBinary).toHaveBeenCalledTimes(2)
+    expect(mockBinary.mock.calls[0]?.[0]).toEqual(mockBinary.mock.calls[1]?.[0])
+  })
+
+  it('refreshToken does not retry auth failures', async () => {
+    mockBinary.mockRejectedValueOnce({
+      name: 'BinaryTransportError',
+      kind: 'auth_failed',
+      message: 'refresh rejected',
+      status: 401
+    })
+
+    await expect(refreshToken()).rejects.toMatchObject({ kind: 'auth_failed' })
+    expect(mockBinary).toHaveBeenCalledTimes(1)
+  })
+
   it('updatePublicHandle sends a dedicated binary public handle request', async () => {
     await updatePublicHandle({ publicHandle: 'QuietReader' })
     expectBinaryRoute('binary_put_auth_public_handle', FrameType.EmptySuccess, expect.objectContaining({

@@ -85,6 +85,8 @@ JWT bearer cookie 入口在 `UseAuthentication()` 内完成。`OnMessageReceived
 
 认证响应写 Cookie 时，普通账号 `SessionId` Cookie 由登录/刷新签发路径已知的 session id 显式传入 `AuthCookieService.SetTokenCookies`。JWT helper 的签发结果同时携带 token 与绝对 `ExpiresAtUtc`，普通登录、MFA、Passkey、refresh rotation 和 admin session 路径都把该值原样传给 Cookie 写入层；Cookie 层不得重新读取 `Jwt:AccessTokenExpiresMinutes`、反向解析 access token，或维护独立期限。缺少 session id 时只跳过 session cookie，不改变 access/refresh cookie 策略。
 
+Refresh rotation 的数据库 CAS 与 HTTP Cookie 交付由端点显式编排：commit 后先通过 `IUserSessionCommandService.VerifyRefreshRotationAsync` 核对新 hash/session，再追加三枚普通账号 Cookie，随后重复相同核对，最后才执行 `EmptySuccess` frame。前/后核对或 Cookie append 失败时响应尚未开始，端点追加普通账号 Cookie 删除头并返回 401；admin principal cookie plane 不受影响。该顺序不引入旧 token grace，也不跨层传入 `HttpResponse` 到领域服务。最终核对与网络送达之间仍是不可事务化窗口，客户端仅进行一次 network retry。
+
 路由组装按 `MapFsusOperationalRoutes`、`MapFsusApiRoutes`、`MapFsusPublicRoutes` 分层，避免在新增 API 时同时触碰健康探针、notification stream、SPA fallback 和静态文件策略。
 
 运行时 DI 组合根按边界拆分：基础设施注册由 `AddBinaryRuntime`、`AddNotificationRuntime`、`AddCrawlerAndSearchRuntime`、`AddFileAndAuthRuntime`、`AddAuditRuntime`、`AddMessagingRuntime`、`AddCacheRuntime`、`AddIdentityRuntime`、`AddBackgroundRuntime`、`AddSpaRuntime`、`AddObjectPools` 分段承载；领域注册由 `AddContentRuntimeServices`、`AddUserRuntimePorts`、`AddGeneralDomainServices`、`AddCoreBridgeServices` 分段承载。新增服务应优先落入对应分组，避免把 Bootstrap 重新变成无边界注册清单。

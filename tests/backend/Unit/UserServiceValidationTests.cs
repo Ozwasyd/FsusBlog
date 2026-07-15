@@ -918,6 +918,64 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    public async Task VerifyRefreshRotationAsync_RequiresExactlyOneActiveSessionWithCurrentHash()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var sessionQuery = Substitute.For<ISugarQueryable<UserSession>>();
+        db.Queryable<UserSession>().Returns(sessionQuery);
+        Expression<Func<UserSession, bool>>? predicate = null;
+        sessionQuery.Where(Arg.Do<Expression<Func<UserSession, bool>>>(value => predicate = value))
+            .Returns(sessionQuery);
+        sessionQuery.CountAsync().Returns(Task.FromResult(1));
+        var facade = new UserSessionCommandService(BuildService(db, Substitute.For<IJwtHelper>()));
+
+        bool verified = await facade.VerifyRefreshRotationAsync(
+            "rotated-refresh-token",
+            "rotated-session",
+            CancellationToken.None);
+
+        Assert.True(verified);
+        Assert.NotNull(predicate);
+        Func<UserSession, bool> matches = predicate.Compile();
+        DateTime now = DateTime.UtcNow;
+        Assert.True(matches(new UserSession
+        {
+            SessionId = "rotated-session",
+            RefreshTokenHash = InvokePrivateStatic<string>("HashToken", ["rotated-refresh-token"]),
+            IdleExpiresAt = now.AddMinutes(5),
+            AbsoluteExpiresAt = now.AddDays(1)
+        }));
+        Assert.False(matches(new UserSession
+        {
+            SessionId = "rotated-session",
+            RefreshTokenHash = InvokePrivateStatic<string>("HashToken", ["different-refresh-token"]),
+            IdleExpiresAt = now.AddMinutes(5),
+            AbsoluteExpiresAt = now.AddDays(1)
+        }));
+        await sessionQuery.Received(1).CountAsync();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public async Task VerifyRefreshRotationAsync_RejectsMissingOrAmbiguousRows(int matchCount)
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var sessionQuery = Substitute.For<ISugarQueryable<UserSession>>();
+        db.Queryable<UserSession>().Returns(sessionQuery);
+        sessionQuery.Where(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(sessionQuery);
+        sessionQuery.CountAsync().Returns(Task.FromResult(matchCount));
+        var facade = new UserSessionCommandService(BuildService(db, Substitute.For<IJwtHelper>()));
+
+        bool verified = await facade.VerifyRefreshRotationAsync(
+            "rotated-refresh-token",
+            "rotated-session",
+            CancellationToken.None);
+
+        Assert.False(verified);
+    }
+
+    [Fact]
     public async Task RefreshTokenAsync_RotationConflictEmitsReplayMetricAndReturnsFailure()
     {
         var db = Substitute.For<ISqlSugarClient>();

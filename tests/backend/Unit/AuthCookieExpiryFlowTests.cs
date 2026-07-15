@@ -1,5 +1,7 @@
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
@@ -16,6 +18,7 @@ using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
@@ -95,6 +98,33 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         }
     }
 
+    [Fact]
+    [Trait("Category", "SecurityStateMachine")]
+    public async Task Refresh_DbCommitThenPostCookieVerificationFault_DeletesStagedCookiesAndEmitsMetric()
+    {
+        var measurements = new ConcurrentBag<(string Name, double Value)>();
+        using MeterListener listener = ListenToFsusMeasurements(measurements);
+
+        (HttpResponseMessage response, int verificationCalls) =
+            await fixture.SendPostCommitVerificationFaultAsync();
+        using (response)
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Equal(2, verificationCalls);
+            string[] cookies = response.Headers.GetValues("Set-Cookie").ToArray();
+            AssertDeletionCookieIsLast(cookies, "AccessToken");
+            AssertDeletionCookieIsLast(cookies, "RefreshToken");
+            AssertDeletionCookieIsLast(cookies, "SessionId");
+            Assert.DoesNotContain(cookies, value =>
+                value.StartsWith("AdminAccessToken=", StringComparison.Ordinal)
+                || value.StartsWith("AdminSessionId=", StringComparison.Ordinal));
+        }
+
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "fsus.auth.refresh.cookie_write_failed_count"
+            && measurement.Value == 1);
+    }
+
     public sealed class AuthCookieExpiryFixture : IAsyncLifetime
     {
         private readonly SemaphoreSlim _requestGate = new(1, 1);
@@ -152,6 +182,50 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 _requestGate.Release();
             }
         }
+
+        internal async Task<(HttpResponseMessage Response, int VerificationCalls)> SendPostCommitVerificationFaultAsync()
+        {
+            await _requestGate.WaitAsync();
+            try
+            {
+                AuthCookieExpiryHarness harness = Assert.IsType<AuthCookieExpiryHarness>(_successHarness);
+                harness.PrepareForTest();
+                harness.ConfigurePostCookieVerificationFault();
+                HttpResponseMessage response = await harness.SendAsync(AuthExpiryFlow.Refresh);
+                return (response, harness.RefreshVerificationCallCount);
+            }
+            finally
+            {
+                _requestGate.Release();
+            }
+        }
+    }
+
+    private static void AssertDeletionCookieIsLast(string[] cookies, string cookieName)
+    {
+        string last = Assert.IsType<string>(cookies.Last(value =>
+            value.StartsWith(cookieName + "=", StringComparison.Ordinal)));
+        Assert.StartsWith(cookieName + "=;", last, StringComparison.Ordinal);
+        Assert.Contains("expires=", last, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static MeterListener ListenToFsusMeasurements(
+        ConcurrentBag<(string Name, double Value)> measurements)
+    {
+        var listener = new MeterListener();
+        listener.InstrumentPublished = static (instrument, state) =>
+        {
+            if (instrument.Meter.Name == FsusObservability.MeterName)
+            {
+                state.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, value, _, _) =>
+            measurements.Add((instrument.Name, value)));
+        listener.SetMeasurementEventCallback<double>((instrument, value, _, _) =>
+            measurements.Add((instrument.Name, value)));
+        listener.Start();
+        return listener;
     }
 
     private static DateTimeOffset ReadCookieExpiry(HttpResponseMessage response, string cookieName)
@@ -190,6 +264,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
         private readonly HttpClient _client;
         private readonly string _fixtureDirectory;
         private readonly ConfigurableLocalAuthFixtureRefreshRunner _localFixtureRunner;
+        private readonly IUserSessionCommandService _sessions;
         private readonly Action _prepareForTest;
 
         private AuthCookieExpiryHarness(
@@ -197,18 +272,35 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             HttpClient client,
             string fixtureDirectory,
             ConfigurableLocalAuthFixtureRefreshRunner localFixtureRunner,
+            IUserSessionCommandService sessions,
             Action prepareForTest)
         {
             _app = app;
             _client = client;
             _fixtureDirectory = fixtureDirectory;
             _localFixtureRunner = localFixtureRunner;
+            _sessions = sessions;
             _prepareForTest = prepareForTest;
         }
 
         public int LocalFixtureRunnerCallCount => _localFixtureRunner.CallCount;
 
+        public int RefreshVerificationCallCount => _sessions.ReceivedCalls().Count(call =>
+            call.GetMethodInfo().Name == nameof(IUserSessionCommandService.VerifyRefreshRotationAsync));
+
         public void PrepareForTest() => _prepareForTest();
+
+        public void ConfigurePostCookieVerificationFault()
+        {
+            _sessions.VerifyRefreshRotationAsync(
+                    Arg.Any<string>(),
+                    Arg.Any<string>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(
+                    _ => Task.FromResult(true),
+                    _ => Task.FromException<bool>(new InvalidOperationException("simulated post-commit delivery fault")));
+            _sessions.ClearReceivedCalls();
+        }
 
         public static async Task<AuthCookieExpiryHarness> CreateAsync(
             LocalAuthFixtureRefreshResult configuredFixtureResult)
@@ -353,6 +445,11 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                         Arg.Any<CancellationToken>())
                     .Returns(Task.FromResult<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)>(
                         (true, refreshTokens, UserAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7))));
+                sessions.VerifyRefreshRotationAsync(
+                        Arg.Any<string>(),
+                        Arg.Any<string>(),
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult(true));
 
                 var adminTokens = new AdminSessionTokens(
                     $"issued-admin-access-{testId}",
@@ -455,6 +552,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 app.GetTestClient(),
                 fixtureDirectory,
                 fixtureRunner,
+                sessions,
                 PrepareForTest);
         }
 

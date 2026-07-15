@@ -13,7 +13,8 @@ const defaultFixture = {
   thresholds: {
     postgresLatencyMs: 200,
     redisLatencyMs: 50,
-    notificationStreamSlowDisconnectsLast5m: 10
+    notificationStreamSlowDisconnectsLast5m: 10,
+    authRefreshCookieWriteFailedLastMinute: 3
   },
   readiness: {
     status: 'not_ready',
@@ -48,6 +49,7 @@ const defaultFixture = {
   security: {
     status: 'blocked',
     authRefreshFamilyRevokeWindowsLast5m: 1,
+    authRefreshCookieWriteFailedLastMinute: 4,
     blockers: [
       {
         source: 'dast',
@@ -64,6 +66,7 @@ const defaultFixture = {
     'notification_stream_disconnect_spike',
     'cache_registry_missing_scan',
     'auth_refresh_family_revoke',
+    'auth_refresh_cookie_write_failed',
     'security_blocker'
   ]
 };
@@ -116,6 +119,12 @@ const alertCatalog = {
     impact: 'A stale refresh token reached an active session family and forced atomic revocation, indicating replay or concurrent token theft.',
     investigate: 'fsus.auth.refresh.family_revoke_window_count and family_revoke_count, auth security audit events, affected deployment window and client retry patterns; never export token, session or device identifiers.',
     rollbackOrDegrade: 'Keep family revocation enabled, block release closeout, invalidate ordinary user sessions if the source is systemic, and retain admin/notification/public read availability while investigating.'
+  },
+  auth_refresh_cookie_write_failed: {
+    severity: 'critical',
+    impact: 'Refresh rotation committed but the corresponding cookies could not be verified or staged, so affected clients must re-authenticate.',
+    investigate: 'fsus.auth.refresh.cookie_write_failed_count, process restarts, response aborts, database connectivity and client one-retry outcomes; never export cookie, token or session values.',
+    rollbackOrDegrade: 'Stop rollout promotion, keep replay-family revocation enabled, drain the unhealthy instance and retain public reads plus independent admin access while ordinary sessions recover.'
   },
   security_blocker: {
     severity: 'critical',
@@ -175,7 +184,10 @@ function evaluateAlerts(fixture) {
   const thresholds = {
     postgresLatencyMs: numberAt(fixture?.thresholds?.postgresLatencyMs, 200),
     redisLatencyMs: numberAt(fixture?.thresholds?.redisLatencyMs, 50),
-    notificationStreamSlowDisconnectsLast5m: numberAt(fixture?.thresholds?.notificationStreamSlowDisconnectsLast5m, 10)
+    notificationStreamSlowDisconnectsLast5m: numberAt(fixture?.thresholds?.notificationStreamSlowDisconnectsLast5m, 10),
+    authRefreshCookieWriteFailedLastMinute: numberAt(
+      fixture?.thresholds?.authRefreshCookieWriteFailedLastMinute,
+      3)
   };
   const readiness = fixture?.readiness ?? {};
   const readinessChecks = readiness.checks ?? {};
@@ -196,6 +208,10 @@ function evaluateAlerts(fixture) {
   const authRefreshFamilyRevokeWindows = numberAt(
     security?.authRefreshFamilyRevokeWindowsLast5m
       ?? fixture?.auth?.refreshFamilyRevokeWindowsLast5m,
+    0);
+  const authRefreshCookieWriteFailed = numberAt(
+    security?.authRefreshCookieWriteFailedLastMinute
+      ?? fixture?.auth?.refreshCookieWriteFailedLastMinute,
     0);
   const securityBlockerCount = Array.isArray(security.blockers) ? security.blockers.length : 0;
   const cacheFallbackRecovered = numberAt(fixture?.cache?.registryMissingScanRecoveredLast5m, 0);
@@ -264,6 +280,13 @@ function evaluateAlerts(fixture) {
       windowsLast5m: authRefreshFamilyRevokeWindows,
       threshold: 0
     }, ['fsus.auth.refresh.family_revoke_window_count']);
+  }
+
+  if (authRefreshCookieWriteFailed > thresholds.authRefreshCookieWriteFailedLastMinute) {
+    addAlert(alerts, 'auth_refresh_cookie_write_failed', {
+      failuresLastMinute: authRefreshCookieWriteFailed,
+      threshold: thresholds.authRefreshCookieWriteFailedLastMinute
+    }, ['fsus.auth.refresh.cookie_write_failed_count']);
   }
 
   if (isUnhealthy(security) || securityBlockerCount > 0) {

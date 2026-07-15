@@ -18,6 +18,12 @@ export interface MfaStepUpProofPayload {
   mfaProofToken?: string | null
 }
 
+const isNetworkTransportFailure = (error: unknown): boolean =>
+  typeof error === 'object'
+  && error !== null
+  && (error as { name?: unknown }).name === 'BinaryTransportError'
+  && (error as { kind?: unknown }).kind === 'network'
+
 // ================= 响应模型定义 =================
 
 interface AuthAccountIdentitySnapshot {
@@ -186,8 +192,8 @@ export const deleteAccount = (data: DeleteAccountRequest, config?: ApiRequestCon
 /**
  * 手动刷新 Token
  */
-export const refreshToken = (config?: ApiRequestConfig) => {
-  return requestBinaryOnly<null>({
+export const refreshToken = async (config?: ApiRequestConfig) => {
+  const requestRefresh = () => requestBinaryOnly<null>({
     binaryRoute: { operationId: 'binary_post_auth_refresh_token' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
@@ -196,6 +202,16 @@ export const refreshToken = (config?: ApiRequestConfig) => {
       method: 'POST'
     }
   })
+
+  try {
+    return await requestRefresh()
+  } catch (error: unknown) {
+    if (!isNetworkTransportFailure(error) || config?.signal?.aborted) {
+      throw error
+    }
+
+    return requestRefresh()
+  }
 }
 
 export const listSessions = (config?: ApiRequestConfig) =>

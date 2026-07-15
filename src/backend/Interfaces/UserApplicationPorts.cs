@@ -67,6 +67,8 @@ public interface IUserSessionCommandService
 {
     Task<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)> RefreshTokenWithExpiryAsync(string refreshToken, string? sessionId, CancellationToken cancellationToken = default);
 
+    Task<bool> VerifyRefreshRotationAsync(string refreshToken, string sessionId, CancellationToken cancellationToken = default);
+
     Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId, CancellationToken cancellationToken = default);
 
     Task<UserSession?> GetSessionByRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);

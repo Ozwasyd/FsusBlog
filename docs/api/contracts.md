@@ -441,6 +441,8 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 - 该结构主要用于服务端内部登录/续签流程，不直接作为公开认证 API 的最终响应体
 - `accessTokenExpiresAtUtc` 由 JWT 签发结果直接给出并与 JWT `exp` 对齐；普通/MFA/Passkey 登录、refresh rotation 和 admin session 签发必须把该值原样传给 AccessToken Cookie，Cookie 层不得重新读取配置或解析 token
 - `refreshTokenExpiresAt` 对齐 `sys_user_session.IdleExpiresAt`，用于 refresh-token 成功路径直接写 Cookie expiry，避免按新 refresh token 回查 session
+- `POST /api/binary/auth/refresh-token` 成功仍只返回 `EmptySuccess`，token 不进入 AEDS payload。CAS 轮换后，服务端必须在追加 Cookie 前后分别按新 refresh hash + session id 精确验证一条未撤销且未过期的 session；验证/追加失败时删除普通账号 access/refresh/session cookies 并返回 AEDS `ApiError`/401。客户端只对 `BinaryTransportError(kind=network)` 重试一次；401、取消、协议/解码错误不得重试。
+- 该交付协议缩小并检测 DB/Cookie 边界故障，但不把 PostgreSQL commit 与浏览器接收响应声明为原子事务。最终验证后进程退出仍可能要求重新认证，且 replay-family revoke 语义不得为此放宽。
 - 对外认证接口成功后统一返回 `AuthLoginFlowDto`，认证 Cookie 通过 `Set-Cookie` 下发
 
 ### `AccountSnapshotContract`（shared/core 账号快照）

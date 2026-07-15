@@ -1247,6 +1247,25 @@ public partial class UserService(
             accessToken.ExpiresAtUtc));
     }
 
+    public async Task<bool> VerifyRefreshRotationAsync(string refreshToken, string sessionId)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken) || string.IsNullOrWhiteSpace(sessionId))
+        {
+            return false;
+        }
+
+        string hash = HashToken(refreshToken);
+        DateTime now = DateTime.UtcNow;
+        int matches = await _db.Queryable<UserSession>()
+            .Where(session => session.SessionId == sessionId
+                && session.RefreshTokenHash == hash
+                && session.RevokedAt == null
+                && session.IdleExpiresAt > now
+                && session.AbsoluteExpiresAt > now)
+            .CountAsync();
+        return matches == 1;
+    }
+
     public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(
         int userId,
         string issuer,

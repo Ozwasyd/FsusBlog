@@ -243,6 +243,7 @@ public static class FsusObservability
     private static readonly Counter<long> AuthRefreshReplayDetectedCount = Meter.CreateCounter<long>("fsus.auth.refresh.replay_detected_count");
     private static readonly Counter<long> AuthRefreshFamilyRevokeCount = Meter.CreateCounter<long>("fsus.auth.refresh.family_revoke_count");
     private static readonly Counter<long> AuthRefreshFamilyRevokeWindowCount = Meter.CreateCounter<long>("fsus.auth.refresh.family_revoke_window_count");
+    private static readonly Counter<long> AuthRefreshCookieWriteFailedCount = Meter.CreateCounter<long>("fsus.auth.refresh.cookie_write_failed_count");
     private static readonly Counter<long> AccountSnapshotCacheHit = Meter.CreateCounter<long>("fsus.account_snapshot.cache_hit");
     private static readonly Counter<long> AccountSnapshotDbReadCount = Meter.CreateCounter<long>("fsus.account_snapshot.db_read_count");
     private static long CommentActorResolverPublicHandleHits;
@@ -1270,6 +1271,15 @@ public static class FsusObservability
             {
                 AuthRefreshFamilyRevokeWindowCount.Add(1, tags);
             }
+        });
+    }
+
+    public static void RecordAuthRefreshCookieWriteFailed(string reason)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("auth-refresh", reason, "cookie_write_failed");
+            AuthRefreshCookieWriteFailedCount.Add(1, tags);
         });
     }
 

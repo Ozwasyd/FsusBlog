@@ -1074,20 +1074,59 @@ public static partial class BinaryEndpoints
 
             string? sessionId = authCookieService.ReadSessionId(httpContext);
             var (success, newTokens, expiresAt) = await sessions.RefreshTokenWithExpiryAsync(oldRefreshToken, sessionId, cancellationToken);
-            if (!success || newTokens == null || newTokens.Value.AccessTokenExpiresAtUtc is not { } accessTokenExpiresAtUtc)
+            if (!success
+                || newTokens == null
+                || newTokens.Value.AccessTokenExpiresAtUtc is not { } accessTokenExpiresAtUtc
+                || string.IsNullOrWhiteSpace(newTokens.Value.SessionId))
             {
-                authCookieService.ClearTokenCookies(httpContext);
+                authCookieService.ClearUserSessionCookies(httpContext);
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "刷新凭证已失效"), aeds);
             }
 
-            authCookieService.SetTokenCookies(
-                httpContext,
-                env,
-                newTokens.Value.AccessToken,
-                accessTokenExpiresAtUtc,
-                newTokens.Value.RefreshToken,
-                newTokens.Value.SessionId,
-                expiresAt);
+            TokenResponseDto rotatedTokens = newTokens.Value;
+            string rotatedSessionId = rotatedTokens.SessionId!;
+            if (!await VerifyRefreshCookieDeliveryAsync(
+                    sessions,
+                    authCookieService,
+                    httpContext,
+                    rotatedTokens.RefreshToken,
+                    rotatedSessionId,
+                    "before_cookie",
+                    cancellationToken))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "刷新凭证交付校验失败，请重新登录"), aeds);
+            }
+
+            try
+            {
+                authCookieService.SetTokenCookies(
+                    httpContext,
+                    env,
+                    rotatedTokens.AccessToken,
+                    accessTokenExpiresAtUtc,
+                    rotatedTokens.RefreshToken,
+                    rotatedSessionId,
+                    expiresAt);
+            }
+            catch
+            {
+                FsusObservability.RecordAuthRefreshCookieWriteFailed("cookie_append_exception");
+                authCookieService.ClearUserSessionCookies(httpContext);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "刷新凭证交付失败，请重新登录"), aeds);
+            }
+
+            if (!await VerifyRefreshCookieDeliveryAsync(
+                    sessions,
+                    authCookieService,
+                    httpContext,
+                    rotatedTokens.RefreshToken,
+                    rotatedSessionId,
+                    "after_cookie",
+                    cancellationToken))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "刷新凭证交付校验失败，请重新登录"), aeds);
+            }
+
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .RequireRateLimiting("fixed_ip")
@@ -1587,4 +1626,38 @@ public static partial class BinaryEndpoints
         => httpContext.Request.Headers.TryGetValue(name, out var values)
             ? values.ToString().Trim()
             : string.Empty;
+
+    private static async Task<bool> VerifyRefreshCookieDeliveryAsync(
+        IUserSessionCommandService sessions,
+        AuthCookieService authCookieService,
+        HttpContext httpContext,
+        string refreshToken,
+        string sessionId,
+        string phase,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (await sessions.VerifyRefreshRotationAsync(refreshToken, sessionId, cancellationToken))
+            {
+                return true;
+            }
+
+            FsusObservability.RecordAuthRefreshCookieWriteFailed($"{phase}_verify_failed");
+            authCookieService.ClearUserSessionCookies(httpContext);
+            return false;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            FsusObservability.RecordAuthRefreshCookieWriteFailed($"{phase}_request_aborted");
+            authCookieService.ClearUserSessionCookies(httpContext);
+            throw;
+        }
+        catch
+        {
+            FsusObservability.RecordAuthRefreshCookieWriteFailed($"{phase}_verify_exception");
+            authCookieService.ClearUserSessionCookies(httpContext);
+            return false;
+        }
+    }
 }
