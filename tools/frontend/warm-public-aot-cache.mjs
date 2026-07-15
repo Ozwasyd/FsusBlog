@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 
-import { cp, mkdir, stat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { cp, mkdir, rename, stat, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  createPublicAotWarmEvidence,
+  inspectPublicAotResponse,
+  isCompletePublicAotSuccess,
+  isValidColdFirstResponse,
+  validatePublicAotWarmEvidence
+} from './public-aot-warm-evidence.mjs'
 import { resolvePublicAotConcurrency } from '../test/resolve-public-aot-concurrency.mjs'
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url))
@@ -28,7 +35,12 @@ function parseArgs(argv) {
       ? null
       : parseConcurrency(configuredConcurrency, 'FSUSBLOG_PUBLIC_AOT_CONCURRENCY'),
     failFast: false,
-    jsonReport: false
+    jsonReport: false,
+    report: process.env.FSUSBLOG_PUBLIC_AOT_WARM_REPORT
+      || join(repoRoot, '.tmp', 'public-aot-warm-evidence.json'),
+    expectedRelease: process.env.FSUSBLOG_RELEASE_ID || '',
+    expectedSlot: process.env.FSUSBLOG_RELEASE_SLOT || '',
+    expectedPublicOrigin: process.env.FSUSBLOG_PUBLIC_ORIGIN || ''
   }
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -53,6 +65,26 @@ function parseArgs(argv) {
       options.failFast = true
     } else if (arg === '--json-report') {
       options.jsonReport = true
+    } else if (arg === '--report' && next) {
+      options.report = next
+      index += 1
+    } else if (arg.startsWith('--report=')) {
+      options.report = arg.slice('--report='.length)
+    } else if (arg === '--expected-release' && next) {
+      options.expectedRelease = next
+      index += 1
+    } else if (arg.startsWith('--expected-release=')) {
+      options.expectedRelease = arg.slice('--expected-release='.length)
+    } else if (arg === '--expected-slot' && next) {
+      options.expectedSlot = next
+      index += 1
+    } else if (arg.startsWith('--expected-slot=')) {
+      options.expectedSlot = arg.slice('--expected-slot='.length)
+    } else if (arg === '--expected-public-origin' && next) {
+      options.expectedPublicOrigin = next
+      index += 1
+    } else if (arg.startsWith('--expected-public-origin=')) {
+      options.expectedPublicOrigin = arg.slice('--expected-public-origin='.length)
     }
   }
 
@@ -119,6 +151,8 @@ async function fetchManifest(options) {
       kind: route.kind ?? route.Kind,
       routeKey: route.routeKey ?? route.RouteKey,
       path: route.path ?? route.Path,
+      canonicalPath: route.canonicalPath ?? route.CanonicalPath,
+      dependencyKeys: route.dependencyKeys ?? route.DependencyKeys ?? [],
       priority: Number(route.priority ?? route.Priority ?? 0)
     }))
     .filter((route) => typeof route.path === 'string' && route.path.startsWith('/'))
@@ -171,52 +205,32 @@ async function waitForPublicAotHealth() {
   throw new Error('health warmup deadline exceeded')
 }
 
-async function fetchHtml(path) {
+async function fetchHtml(path, expectedPublicOrigin) {
   const { promise } = withTimeout((signal) => fetch(`${baseUrl}${path}`, {
     signal,
     headers: { Accept: 'text/html,application/xhtml+xml' }
   }), timeoutMs)
   const response = await promise
-  const source = response.headers.get('X-Fsus-Public-Aot-Source') || 'unknown'
-  if (!response.ok) {
-    throw new Error(`${path} => ${response.status}`)
-  }
-  await response.text()
-  return source
+  const html = await response.text()
+  return inspectPublicAotResponse({
+    path,
+    status: response.status,
+    headers: response.headers,
+    html,
+    expectedPublicOrigin
+  })
 }
 
-function isAotHitSource(source) {
-  return source === 'server-ssr'
-}
-
-async function fetchHtmlUntil(path, deadlineMs) {
-  let lastError = null
-  while (Date.now() < deadlineMs) {
-    try {
-      return await fetchHtml(path)
-    } catch (error) {
-      lastError = error
-      await new Promise((resolve) => setTimeout(resolve, 500))
-    }
-  }
-
-  if (lastError) {
-    throw lastError
-  }
-
-  throw new Error(`${path} warmup deadline exceeded`)
-}
-
-async function waitForAotHit(path) {
+async function waitForAotHit(path, expectedPublicOrigin) {
   const startedAt = Date.now()
-  let lastSource = 'unknown'
+  let lastResponse = null
   let lastError = null
   while (Date.now() - startedAt < waitMs) {
     try {
-      lastSource = await fetchHtml(path)
+      lastResponse = await fetchHtml(path, expectedPublicOrigin)
       lastError = null
-      if (isAotHitSource(lastSource)) {
-        return lastSource
+      if (isCompletePublicAotSuccess(lastResponse)) {
+        return lastResponse
       }
     } catch (error) {
       lastError = error
@@ -229,25 +243,39 @@ async function waitForAotHit(path) {
     throw lastError
   }
 
-  return lastSource
+  return lastResponse
 }
 
-async function warmRoute(route) {
+async function warmRoute(route, expectedPublicOrigin) {
   const startedAt = Date.now()
-  const first = await fetchHtmlUntil(route.path, Date.now() + waitMs)
+  const first = await fetchHtml(route.path, expectedPublicOrigin)
   const firstResponseMs = Date.now() - startedAt
-  const settled = await waitForAotHit(route.path)
+  if (!isValidColdFirstResponse(first)) {
+    return {
+      ...route,
+      first,
+      settled: null,
+      ok: false,
+      error: `${route.path} => invalid cold first response ${first.status}/${first.source}/${first.state}`,
+      firstResponseMs,
+      settledMs: firstResponseMs
+    }
+  }
+
+  const settled = isCompletePublicAotSuccess(first)
+    ? first
+    : await waitForAotHit(route.path, expectedPublicOrigin)
   return {
     ...route,
     first,
     settled,
-    ok: isAotHitSource(settled),
+    ok: isCompletePublicAotSuccess(settled),
     firstResponseMs,
     settledMs: Date.now() - startedAt
   }
 }
 
-async function runPool(routes, concurrency, failFast) {
+async function runPool(routes, concurrency, failFast, expectedPublicOrigin) {
   const results = []
   let cursor = 0
   let failed = false
@@ -257,9 +285,9 @@ async function runPool(routes, concurrency, failFast) {
       const route = routes[cursor]
       cursor += 1
       try {
-        const result = await warmRoute(route)
+        const result = await warmRoute(route, expectedPublicOrigin)
         results.push(result)
-        console.log(`[warm-public-aot] ${route.path} first=${result.first} settled=${result.settled} firstMs=${result.firstResponseMs} settledMs=${result.settledMs}`)
+        console.log(`[warm-public-aot] ${route.path} first=${result.first?.status ?? 'none'}/${result.first?.source ?? 'unknown'} settled=${result.settled?.status ?? 'none'}/${result.settled?.source ?? 'unknown'} firstMs=${result.firstResponseMs} settledMs=${result.settledMs}`)
         if (!result.ok) {
           failed = true
         }
@@ -281,6 +309,13 @@ async function runPool(routes, concurrency, failFast) {
 
   await Promise.all(Array.from({ length: Math.min(concurrency, routes.length) }, () => worker()))
   return results.sort((left, right) => left.priority - right.priority || left.path.localeCompare(right.path))
+}
+
+async function writeJsonAtomic(path, value) {
+  await mkdir(dirname(path), { recursive: true })
+  const temporary = `${path}.tmp-${process.pid}-${Date.now()}`
+  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
+  await rename(temporary, path)
 }
 
 async function pathExists(path) {
@@ -321,11 +356,29 @@ async function main() {
   await waitForPublicAotHealth()
   const healthMs = Date.now() - healthStartedAt
   const warmStartedAt = Date.now()
-  const results = await runPool(routes, options.concurrency, options.failFast)
+  const results = await runPool(routes, options.concurrency, options.failFast, options.expectedPublicOrigin)
   const warmMs = Date.now() - warmStartedAt
+  const evidence = createPublicAotWarmEvidence({
+    baseUrl,
+    scope: options.changedSince ? 'changed' : options.scope,
+    manifest: routes,
+    results,
+    expectedPublicOrigin: options.expectedPublicOrigin
+  })
+  const evidenceErrors = validatePublicAotWarmEvidence(evidence, {
+    expectedRelease: options.expectedRelease,
+    expectedSlot: options.expectedSlot,
+    expectedPublicOrigin: options.expectedPublicOrigin,
+    requireScope: options.changedSince ? 'changed' : options.scope
+  })
+  if (evidenceErrors.length > 0) {
+    evidence.status = 'failed'
+    evidence.errors = evidenceErrors
+  }
+  await writeJsonAtomic(options.report, evidence)
   const failed = results.filter((result) => !result.ok)
   const syncStartedAt = Date.now()
-  if (failed.length === 0) {
+  if (failed.length === 0 && evidenceErrors.length === 0) {
     await syncHydrationSidecarsToPreviewDist()
   }
   const syncMs = Date.now() - syncStartedAt
@@ -337,20 +390,15 @@ async function main() {
     warmMs,
     syncMs,
     totalMs: Date.now() - startedAt,
-    failed: failed.length
+    failed: failed.length,
+    evidenceErrors: evidenceErrors.length,
+    report: options.report
   })}`)
   if (options.jsonReport) {
-    console.log(JSON.stringify({
-      baseUrl,
-      scope: options.changedSince ? 'changed' : options.scope,
-      total: routes.length,
-      warmed: results.length,
-      failed: failed.length,
-      routes: results
-    }, null, 2))
+    console.log(JSON.stringify(evidence, null, 2))
   }
 
-  if (failed.length > 0) {
+  if (failed.length > 0 || evidenceErrors.length > 0) {
     process.exitCode = 1
   }
 }

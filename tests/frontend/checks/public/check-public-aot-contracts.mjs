@@ -128,10 +128,20 @@ function assertStaticContracts() {
   if (/Math\.min\(32\b/.test(warmScript) || /PUBLIC_AOT_CONCURRENCY \|\| 1/.test(warmScript)) {
     fail('warm script must not use a fixed machine concurrency default or cap')
   }
-  for (const token of ["function isAotHitSource(source)", "source === 'server-ssr'", "ok: isAotHitSource(settled)"]) {
+  for (const token of [
+    'inspectPublicAotResponse',
+    'isValidColdFirstResponse(first)',
+    'isCompletePublicAotSuccess(settled)',
+    'createPublicAotWarmEvidence',
+    'validatePublicAotWarmEvidence',
+    'writeJsonAtomic(options.report, evidence)'
+  ]) {
     if (!warmScript.includes(token)) {
-      fail(`warm script must require explicit public AOT source headers: ${token}`)
+      fail(`warm script must preserve and verify cold-first AOT evidence: ${token}`)
     }
+  }
+  if (warmScript.includes('fetchHtmlUntil')) {
+    fail('warm script must not hide the real first response behind retry polling')
   }
   for (const token of ['syncHydrationSidecarsToPreviewDist', 'FSUSBLOG_SYNC_PUBLIC_AOT_SIDECARS_TO_DIST', 'aot-cache', 'payloads']) {
     if (!warmScript.includes(token)) {

@@ -1004,6 +1004,7 @@ public static class WebApplicationCompositionExtensions
         var headers = ctx.Response.Headers;
         headers["X-Fsus-Public-Aot-Source"] = source;
         headers["X-Fsus-Public-Aot-Version"] = version;
+        headers["X-Fsus-Public-Aot-Frontend-Asset-Version"] = document.FrontendAssetVersion;
         headers["X-Fsus-Public-Aot-Backfill"] = backfill;
         headers["X-Fsus-Public-Aot-State"] = state;
         headers["X-Fsus-Public-Aot-Asset-Mode"] = string.IsNullOrWhiteSpace(assetMode) ? "unknown" : assetMode;

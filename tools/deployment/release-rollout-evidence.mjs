@@ -4,6 +4,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { validatePublicAotWarmEvidence } from '../frontend/public-aot-warm-evidence.mjs'
 import { ROLLOUT_STAGES, readRolloutState } from './release-rollout-lib.mjs'
 
 const STAGE_SCHEMA = 'fsusblog.release-rollout-stage-evidence.v1'
@@ -24,6 +25,7 @@ const REQUIRED_AUXILIARY_EVIDENCE = Object.freeze([
   'assetMaterialization',
   'retentionPrepared',
   'retainedAssets',
+  'publicAotWarm',
   'candidateSmoke',
   'compatibilityMatrix',
   'gatewayTransition',
@@ -333,6 +335,17 @@ function validateAuxiliaryEvidence(name, value, state, errors) {
       || value.note.length > 4000) {
       errors.push(`${name}: structured operator note is invalid`)
     }
+    return
+  }
+  if (name === 'publicAotWarm') {
+    const publicAotErrors = validatePublicAotWarmEvidence(value, {
+      expectedRelease: state.target.releaseId,
+      expectedSlot: state.target.slot,
+      expectedPublicOrigin: value.expectedPublicOrigin,
+      requireScope: 'all',
+      maxAgeSeconds: Number.MAX_SAFE_INTEGER
+    })
+    errors.push(...publicAotErrors.map((error) => `${name}: ${error}`))
     return
   }
   if (value.status !== undefined && !['pass', 'ok', 'healthy', 'completed', 'dry-run'].includes(value.status)) {

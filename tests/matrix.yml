@@ -887,6 +887,7 @@ tiers:
       - tests/tools/release-worker-normal-observer.test.mjs
       - tests/fixtures/deployment/release-worker-normal-observer-plan.template.json
       - tests/tools/release-rollout-evidence.test.mjs
+      - tests/tools/public-aot-warm-evidence.test.mjs
       - tests/tools/release-rollout-bundle.test.mjs
       - tools/deployment/release-resource-probe.mjs
       - tests/tools/release-rollout-probes.test.mjs
@@ -1393,6 +1394,7 @@ tiers:
       - docs/issue-1029-storage-lifecycle-handoff.md
       - tests/tools/release-storage-lifecycle.test.mjs
       - tests/tools/release-rollout-evidence.test.mjs
+      - tests/tools/public-aot-warm-evidence.test.mjs
     ciJob: release-public
     localOnly: false
     nightlyOnly: false

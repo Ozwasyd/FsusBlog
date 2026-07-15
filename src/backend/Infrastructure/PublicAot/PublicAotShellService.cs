@@ -33,12 +33,17 @@ public sealed class PublicAotShellService(
         LoggerMessage.Define<PublicPageKind, string>(
             LogLevel.Information,
             new EventId(17001, nameof(PublicAotBackfillQueuedLog)),
-            "Public AOT cache miss -> SPA fallback (queued): {Kind} {RouteKey}");
+            "Public AOT cache miss -> retryable cold response (queued): {Kind} {RouteKey}");
     private static readonly Action<ILogger, PublicPageKind, string, Exception?> PublicAotBackfillDroppedLog =
         LoggerMessage.Define<PublicPageKind, string>(
             LogLevel.Debug,
             new EventId(17002, nameof(PublicAotBackfillDroppedLog)),
-            "Public AOT cache miss -> SPA fallback (dropped): {Kind} {RouteKey}");
+            "Public AOT cache miss -> retryable cold response (dropped): {Kind} {RouteKey}");
+    private static readonly Action<ILogger, PublicPageKind, string, Exception?> PublicAotCacheFailedLog =
+        LoggerMessage.Define<PublicPageKind, string>(
+            LogLevel.Warning,
+            new EventId(17003, nameof(PublicAotCacheFailedLog)),
+            "Public AOT cache operation failed: {Kind} {RouteKey}");
     private readonly IReadOnlyDictionary<PublicPageKind, IPublicAotBootstrapProvider> _bootstrapProviders =
         BuildBootstrapProviderMap(bootstrapProviders);
 
@@ -116,7 +121,22 @@ public sealed class PublicAotShellService(
             return PublicAotRenderOutcome.Success(null);
         }
 
-        PublicAotCacheEntry? entry = await cache.TryGetEntryAsync(documentCacheKey, frontendAssetVersion, cancellationToken);
+        PublicAotCacheEntry? entry;
+        try
+        {
+            entry = await cache.TryGetEntryAsync(documentCacheKey, frontendAssetVersion, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (classifyColdMiss)
+        {
+            PublicAotCacheFailedLog(logger, match.Kind, match.RouteKey, ex);
+            SetClassifiedFailureContext(context, PublicAotRenderStatus.TransientFailure, assetMode);
+            return PublicAotRenderOutcome.TransientFailure(
+                ErrorDetail.Create(ErrorCode.InfraFailure, "public_aot_cache_read_failed"));
+        }
         if (IsRenderableCacheEntry(entry, frontendAssetVersion))
         {
             context.Items[PublicAotSourceContextKey] = entry!.Source.ToHeaderValue();
@@ -128,7 +148,21 @@ public sealed class PublicAotShellService(
 
         if (entry is not null)
         {
-            await cache.RemoveAsync(documentCacheKey, cancellationToken);
+            try
+            {
+                await cache.RemoveAsync(documentCacheKey, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex) when (classifyColdMiss)
+            {
+                PublicAotCacheFailedLog(logger, match.Kind, match.RouteKey, ex);
+                SetClassifiedFailureContext(context, PublicAotRenderStatus.TransientFailure, assetMode);
+                return PublicAotRenderOutcome.TransientFailure(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "public_aot_cache_remove_failed"));
+            }
         }
 
         if (classifyColdMiss)
@@ -142,10 +176,10 @@ public sealed class PublicAotShellService(
         }
 
         bool queued = ScheduleBackfill(context, match, documentCacheKey, pagePrefixKey);
-        context.Items[PublicAotSourceContextKey] = "spa-fallback";
+        context.Items[PublicAotSourceContextKey] = classifyColdMiss ? "server-status" : "spa-fallback";
         context.Items[PublicAotVersionContextKey] = PublicRendererVersion;
         context.Items[PublicAotBackfillContextKey] = queued ? "queued" : "dropped";
-        context.Items[PublicAotStateContextKey] = "fallback";
+        context.Items[PublicAotStateContextKey] = classifyColdMiss ? "cold-miss" : "fallback";
         if (queued)
         {
             PublicAotBackfillQueuedLog(logger, match.Kind, match.RouteKey, null);
@@ -155,7 +189,11 @@ public sealed class PublicAotShellService(
             PublicAotBackfillDroppedLog(logger, match.Kind, match.RouteKey, null);
         }
 
-        return PublicAotRenderOutcome.Success(null);
+        return classifyColdMiss
+            ? PublicAotRenderOutcome.TransientFailure(ErrorDetail.Create(
+                ErrorCode.InfraFailure,
+                queued ? "public_aot_cold_miss_backfill_queued" : "public_aot_cold_miss_backfill_dropped"))
+            : PublicAotRenderOutcome.Success(null);
     }
 
     private async Task<PublicAotRenderOutcome> ClassifyRouteAsync(

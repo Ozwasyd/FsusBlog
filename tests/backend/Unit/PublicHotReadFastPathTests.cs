@@ -963,6 +963,9 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal(html.ETag, context.Response.Headers.ETag);
         Assert.Equal(html.Bytes.Length, context.Response.ContentLength);
         Assert.Equal("server-ssr", context.Response.Headers["X-Fsus-Public-Aot-Source"]);
+        Assert.Equal("fresh", context.Response.Headers["X-Fsus-Public-Aot-State"]);
+        Assert.Equal("renderer-hot-read", context.Response.Headers["X-Fsus-Public-Aot-Version"]);
+        Assert.Equal("frontend-hot-read", context.Response.Headers["X-Fsus-Public-Aot-Frontend-Asset-Version"]);
         Assert.Equal(html.Bytes.ToArray(), ((MemoryStream)context.Response.Body).ToArray());
         AssertHtmlSecurityHeaders(context);
     }
@@ -1735,7 +1738,9 @@ public sealed class PublicHotReadFastPathTests
     private static PublicHtmlArtifact CreateHtmlArtifact(string label)
         => PublicHotReadHtmlArtifactFactory.FromHtml(
             $"<!doctype html><html><body>{label} public hot read artifact</body></html>",
-            "public,max-age=60");
+            "public,max-age=60",
+            "renderer-hot-read",
+            "frontend-hot-read");
 
     private static void AssertNoStore(DefaultHttpContext context)
     {

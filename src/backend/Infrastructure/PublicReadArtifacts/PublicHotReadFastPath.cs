@@ -91,7 +91,9 @@ public readonly record struct PublicHtmlArtifact(
     string ContentType,
     string ETag,
     string CacheControl,
-    CspNonceUtf8Template? CspNonceTemplate = null)
+    CspNonceUtf8Template? CspNonceTemplate = null,
+    string RendererVersion = "",
+    string FrontendAssetVersion = "")
 {
     public bool RequiresCspNonceMutation => CspNonceTemplate is not null;
 
@@ -1195,7 +1197,7 @@ public static class PublicHotReadFastPath
         ApplyStaticPublicSecurityHeaders(response, isDevelopment);
         response.Headers["Cache-Control"] = string.IsNullOrWhiteSpace(html.CacheControl) ? "public,max-age=60" : html.CacheControl;
         response.Headers["Accept-Ranges"] = "none";
-        response.Headers["X-Fsus-Public-Aot-Source"] = ServerSsrAotSource;
+        SetPublicAotIdentityHeaders(response, html);
         if (!string.IsNullOrWhiteSpace(html.ETag))
         {
             response.Headers["ETag"] = html.ETag;
@@ -1233,7 +1235,7 @@ public static class PublicHotReadFastPath
         ApplyStaticPublicSecurityHeaders(response, isDevelopment, nonce);
         response.Headers["Cache-Control"] = "private,no-store";
         response.Headers["Accept-Ranges"] = "none";
-        response.Headers["X-Fsus-Public-Aot-Source"] = ServerSsrAotSource;
+        SetPublicAotIdentityHeaders(response, html);
         response.Headers.Remove("Content-Encoding");
         response.Headers.Remove("ETag");
         WriteDiagnosticHeaders(response, options, snapshotVersion, "html", routeKey);
@@ -1717,6 +1719,15 @@ public static class PublicHotReadFastPath
         response.Headers["X-Fsus-HotRead-Version"] = version.ToString(System.Globalization.CultureInfo.InvariantCulture);
         response.Headers["X-Fsus-HotRead-Artifact"] = artifactKind;
         response.Headers["X-Fsus-HotRead-Key"] = artifactKey;
+    }
+
+    private static void SetPublicAotIdentityHeaders(HttpResponse response, PublicHtmlArtifact html)
+    {
+        response.Headers["X-Fsus-Public-Aot-Source"] = ServerSsrAotSource;
+        response.Headers["X-Fsus-Public-Aot-State"] = "fresh";
+        response.Headers["X-Fsus-Public-Aot-Backfill"] = "none";
+        response.Headers["X-Fsus-Public-Aot-Version"] = html.RendererVersion;
+        response.Headers["X-Fsus-Public-Aot-Frontend-Asset-Version"] = html.FrontendAssetVersion;
     }
 
     private static string PublicListArtifactKind(PublicListKind kind)
@@ -2425,7 +2436,11 @@ public sealed class PublicHotReadMetricFlushWorker(
 
 internal static class PublicHotReadHtmlArtifactFactory
 {
-    internal static PublicHtmlArtifact FromHtml(string html, string cacheControl)
+    internal static PublicHtmlArtifact FromHtml(
+        string html,
+        string cacheControl,
+        string rendererVersion = "",
+        string frontendAssetVersion = "")
     {
         byte[] bytes = Encoding.UTF8.GetBytes(html);
         string etag = CreateEtag(bytes);
@@ -2437,7 +2452,9 @@ internal static class PublicHotReadHtmlArtifactFactory
             "text/html; charset=utf-8",
             etag,
             cacheControl,
-            nonceTemplate);
+            nonceTemplate,
+            rendererVersion,
+            frontendAssetVersion);
     }
 
     internal static PublicHtmlArtifact FromDocument(PublicAotHtmlArtifact document, string cacheControl)
@@ -2447,7 +2464,9 @@ internal static class PublicHotReadHtmlArtifactFactory
             string.IsNullOrWhiteSpace(document.ContentType) ? "text/html; charset=utf-8" : document.ContentType,
             document.ETag,
             string.IsNullOrWhiteSpace(cacheControl) ? document.CacheControl : cacheControl,
-            document.CspNonceTemplate);
+            document.CspNonceTemplate,
+            document.RendererVersion,
+            document.FrontendAssetVersion);
     }
 
     private static string CreateEtag(ReadOnlySpan<byte> bytes)

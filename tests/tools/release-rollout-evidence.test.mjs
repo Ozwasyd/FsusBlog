@@ -14,6 +14,7 @@ import {
   startRolloutStage,
   writeRolloutStateAtomic
 } from '../../tools/deployment/release-rollout-lib.mjs'
+import { createPublicAotWarmEvidence } from '../../tools/frontend/public-aot-warm-evidence.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const evidenceCli = path.join(root, 'tools/deployment/release-rollout-evidence.mjs')
@@ -40,8 +41,8 @@ const requiredArtifactNames = [
 ]
 const requiredAuxiliaryNames = [
   'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
-  'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'candidateSmoke',
-  'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
+  'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm',
+  'candidateSmoke', 'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
   'activeFenceSourceRevoke', 'activeFenceVerify', 'publicTrafficCheckpoint',
   'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
   'retentionDrainComplete', 'operatorNote'
@@ -421,7 +422,9 @@ function writeAuxiliary(fixture) {
           releaseId: target.releaseId,
           imageDigest: target.imageDigest
         }
-      : name === 'operatorNote'
+      : name === 'publicAotWarm'
+        ? validPublicAotWarmEvidence()
+        : name === 'operatorNote'
         ? {
             schema: 'fsusblog.release-rollout-operator-note.v1',
             rolloutId,
@@ -443,6 +446,38 @@ function writeAuxiliary(fixture) {
     files[name] = file
   }
   return files
+}
+
+function validPublicAotWarmEvidence() {
+  const route = { pageId: 'Home', kind: 'home', routeKey: 'home', path: '/', priority: 0 }
+  const settled = {
+    status: 200,
+    source: 'server-ssr',
+    state: 'fresh',
+    rendererVersion: 'renderer-release-evidence',
+    frontendAssetVersion: 'frontend-release-evidence',
+    releaseId: target.releaseId,
+    releaseSlot: target.slot,
+    canonicalUrl: 'https://blog.example.com/',
+    checks: {
+      title: true,
+      description: true,
+      canonical: true,
+      robots: true,
+      openGraph: true,
+      twitter: true,
+      jsonLd: true,
+      mainContent: true
+    }
+  }
+  return createPublicAotWarmEvidence({
+    baseUrl: 'http://127.0.0.1:7568',
+    scope: 'all',
+    manifest: [route],
+    results: [{ ...route, first: settled, settled, ok: true, firstResponseMs: 5, settledMs: 5 }],
+    generatedAtUtc: '2026-07-11T00:19:00.000Z',
+    expectedPublicOrigin: 'https://blog.example.com'
+  })
 }
 
 function auxiliaryArgs(files) {

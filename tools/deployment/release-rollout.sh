@@ -1137,8 +1137,24 @@ stage_asset_materialize() {
     --out "$EVIDENCE_DIR/retained-assets-before-switch.json"
 }
 
+verify_public_aot_warm_evidence() {
+  node "$ROOT_DIR/tools/frontend/verify-public-aot-warm-evidence.mjs" \
+    --report "$EVIDENCE_DIR/public-aot-warm.json" --require-scope all \
+    --expected-release "$TARGET_RELEASE" --expected-slot "$TARGET_SLOT" \
+    --expected-public-origin "$PUBLIC_PROBE_URL" \
+    --max-age-seconds "${FSUSBLOG_PUBLIC_AOT_WARM_EVIDENCE_MAX_AGE_SECONDS:-900}"
+}
+
 stage_candidate_smoke() {
   local stop_file="$EVIDENCE_DIR/candidate-smoke.stop"
+  local public_aot_report="$EVIDENCE_DIR/public-aot-warm.json"
+  FSUSBLOG_BASE_URL="http://127.0.0.1:$TARGET_PORT" \
+  FSUSBLOG_SYNC_PUBLIC_AOT_SIDECARS_TO_DIST=0 \
+    node "$ROOT_DIR/tools/frontend/warm-public-aot-cache.mjs" \
+      --scope all --fail-fast --report "$public_aot_report" \
+      --expected-release "$TARGET_RELEASE" --expected-slot "$TARGET_SLOT" \
+      --expected-public-origin "$PUBLIC_PROBE_URL"
+  verify_public_aot_warm_evidence
   FSUSBLOG_GATEWAY_ALLOW_HTTP_PROBE=1 node "$ROOT_DIR/tools/deployment/release-traffic-probe.mjs" \
     --base-url "http://127.0.0.1:$TARGET_PORT" \
     --scenario "$TRAFFIC_SCENARIO" --rollout-state "$ROLLOUT_STATE_FILE" \
@@ -1160,6 +1176,7 @@ stage_compatibility_smoke() {
 }
 
 stage_gateway_switch() {
+  verify_public_aot_warm_evidence
   wait_for_traffic_baseline
   wait_for_asset_checkpoint
   ensure_background_probes_alive
@@ -1300,6 +1317,7 @@ auxiliary_args() {
     --auxiliary "assetMaterialization=$EVIDENCE_DIR/asset-materialization.json" \
     --auxiliary "retentionPrepared=$EVIDENCE_DIR/asset-retention-prepared.json" \
     --auxiliary "retainedAssets=$EVIDENCE_DIR/retained-assets-before-switch.json" \
+    --auxiliary "publicAotWarm=$EVIDENCE_DIR/public-aot-warm.json" \
     --auxiliary "candidateSmoke=$EVIDENCE_DIR/candidate-smoke.json" \
     --auxiliary "compatibilityMatrix=$EVIDENCE_DIR/compatibility-matrix.json" \
     --auxiliary "gatewayTransition=$gateway_evidence" \

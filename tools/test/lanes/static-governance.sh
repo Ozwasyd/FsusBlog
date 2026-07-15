@@ -34,6 +34,7 @@ STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/release-worker-drill.test.mjs"
   "$ROOT_DIR/tests/tools/release-worker-reconciliation.test.mjs"
   "$ROOT_DIR/tests/tools/release-rollout-evidence.test.mjs"
+  "$ROOT_DIR/tests/tools/public-aot-warm-evidence.test.mjs"
   "$ROOT_DIR/tests/tools/release-rollout-bundle.test.mjs"
   "$ROOT_DIR/tests/tools/release-rollout-probes.test.mjs"
   "$ROOT_DIR/tests/tools/release-traffic-probe-session.test.mjs"

@@ -402,6 +402,48 @@ public sealed class PublicAotShellServiceTests
     }
 
     [Fact]
+    public async Task RenderClassifiedAsync_ProviderThrows_ReturnsTransientFailureWithoutQueueing()
+    {
+        var match = HomeMatch();
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(
+            match,
+            new RecordingAotCache(),
+            scheduler,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
+            bootstrapProviders: CreateBootstrapProviders(new ThrowingBootstrapProvider(PublicPageKind.Home)));
+        var context = new DefaultHttpContext();
+
+        PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
+
+        Assert.Equal(PublicAotRenderStatus.TransientFailure, result.Status);
+        Assert.Empty(scheduler.Requests);
+        Assert.Equal("server-status", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
+        Assert.Equal("transient-failure", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+    }
+
+    [Fact]
+    public async Task RenderClassifiedAsync_CacheReadThrows_ReturnsTransientFailureWithoutQueueing()
+    {
+        var match = HomeMatch();
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(
+            match,
+            new RecordingAotCache { TryGetException = new IOException("cache unavailable") },
+            scheduler,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate());
+        var context = new DefaultHttpContext();
+
+        PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
+
+        Assert.Equal(PublicAotRenderStatus.TransientFailure, result.Status);
+        Assert.Equal("public_aot_cache_read_failed", result.Error.Message);
+        Assert.Empty(scheduler.Requests);
+        Assert.Equal("server-status", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
+        Assert.Equal("transient-failure", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+    }
+
+    [Fact]
     public async Task RenderClassifiedAsync_ValidColdRoute_QueuesBackfillAfterClassification()
     {
         var match = HomeMatch();
@@ -415,9 +457,32 @@ public sealed class PublicAotShellServiceTests
 
         PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
 
-        Assert.Equal(PublicAotRenderStatus.Success, result.Status);
+        Assert.Equal(PublicAotRenderStatus.TransientFailure, result.Status);
+        Assert.Null(result.Entry);
         Assert.Single(scheduler.Requests);
+        Assert.Equal("server-status", context.Items[PublicAotShellService.PublicAotSourceContextKey]);
         Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Equal("cold-miss", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+    }
+
+    [Fact]
+    public async Task RenderClassifiedAsync_BackfillRejected_RemainsRetryableAndReportsDropped()
+    {
+        var match = HomeMatch();
+        var scheduler = new RecordingBackfillScheduler(accept: false);
+        PublicAotShellService sut = CreateService(
+            match,
+            new RecordingAotCache(),
+            scheduler,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate());
+        var context = new DefaultHttpContext();
+
+        PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
+
+        Assert.Equal(PublicAotRenderStatus.TransientFailure, result.Status);
+        Assert.Equal("public_aot_cold_miss_backfill_dropped", result.Error.Message);
+        Assert.Single(scheduler.Requests);
+        Assert.Equal("dropped", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
     }
 
     [Fact]
@@ -654,6 +719,7 @@ public sealed class PublicAotShellServiceTests
     private sealed class RecordingAotCache : IPublicAotShellCache
     {
         public PublicAotCacheEntry? Entry { get; init; }
+        public Exception? TryGetException { get; init; }
         public Dictionary<string, PublicAotCacheEntry> EntriesByKey { get; } = new(StringComparer.Ordinal);
         public List<string> RequestedKeys { get; } = [];
         public List<string> RemovedKeys { get; } = [];
@@ -661,12 +727,20 @@ public sealed class PublicAotShellServiceTests
         public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
         {
             RequestedKeys.Add(cacheKey);
+            if (TryGetException is not null)
+            {
+                return Task.FromException<PublicAotCacheEntry?>(TryGetException);
+            }
             return Task.FromResult(EntriesByKey.TryGetValue(cacheKey, out PublicAotCacheEntry? entry) ? entry : Entry);
         }
 
         public Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, string? frontendAssetVersion, CancellationToken cancellationToken = default)
         {
             RequestedKeys.Add(cacheKey);
+            if (TryGetException is not null)
+            {
+                return Task.FromException<PublicAotCacheEntry?>(TryGetException);
+            }
             return Task.FromResult(EntriesByKey.TryGetValue(cacheKey, out PublicAotCacheEntry? entry) ? entry : Entry);
         }
 
@@ -692,14 +766,14 @@ public sealed class PublicAotShellServiceTests
             => Task.CompletedTask;
     }
 
-    private sealed class RecordingBackfillScheduler : IPublicAotBackfillScheduler
+    private sealed class RecordingBackfillScheduler(bool accept = true) : IPublicAotBackfillScheduler
     {
         public List<PublicAotBackfillRequest> Requests { get; } = [];
 
         public bool TrySchedule(PublicAotBackfillRequest request)
         {
             Requests.Add(request);
-            return true;
+            return accept;
         }
     }
 
@@ -750,6 +824,16 @@ public sealed class PublicAotShellServiceTests
             PublicAotRouteMatch match,
             CancellationToken cancellationToken = default)
             => Task.FromResult(Result<PublicPageSnapshot>.Failure(code, message));
+    }
+
+    private sealed class ThrowingBootstrapProvider(PublicPageKind kind) : IPublicAotBootstrapProvider
+    {
+        public PublicPageKind Kind { get; } = kind;
+
+        public Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(
+            PublicAotRouteMatch match,
+            CancellationToken cancellationToken = default)
+            => Task.FromException<Result<PublicPageSnapshot>>(new IOException("database unavailable"));
     }
 
     private sealed class FixedSnapshotProvider(

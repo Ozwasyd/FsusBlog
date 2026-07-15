@@ -551,6 +551,8 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Equal(artifact.BrotliETag, context.Response.Headers["ETag"].ToString());
         Assert.Equal(artifact.BrotliBytes.Length, context.Response.ContentLength);
         Assert.Equal(artifact.BrotliBytes.ToArray(), ((MemoryStream)context.Response.Body).ToArray());
+        Assert.Equal("renderer-v2", context.Response.Headers["X-Fsus-Public-Aot-Version"]);
+        Assert.Equal("frontend-v2", context.Response.Headers["X-Fsus-Public-Aot-Frontend-Asset-Version"]);
     }
 
     [Fact]
