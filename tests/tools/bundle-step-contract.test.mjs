@@ -285,6 +285,10 @@ test('performance bundle folds the complete backend benchmark into the mixed win
   const steps = performanceSteps()
   const index = byId(steps)
   const measurements = ['browser-performance', 'backend-perf', 'mixed-performance-window', 'aeds-frame-cost']
+  const timedMeasurements = [
+    'browser-performance', 'backend-perf', 'privacy-zk-benchmark',
+    'mixed-performance-window', 'aeds-frame-cost'
+  ]
   const evidenceInputs = [
     'backend-perf', 'privacy-zk-benchmark', 'privacy-zk-finalize', 'mixed-performance-window',
     'browser-performance', 'aeds-frame-cost', 'aeds-compression'
@@ -299,7 +303,10 @@ test('performance bundle folds the complete backend benchmark into the mixed win
   assert.deepEqual(index.get('privacy-zk-benchmark').dependsOn, ['performance-measurement-ready'])
   assert.deepEqual(index.get('privacy-zk-benchmark').resources.exclusiveResources, ['benchmark-window'])
   assert.deepEqual(index.get('privacy-zk-benchmark').members, ['privacy-zk-comment-matrix'])
-  assert.deepEqual(index.get('privacy-zk-finalize').dependsOn, ['privacy-zk-benchmark'])
+  assert.deepEqual(index.get('privacy-zk-finalize').dependsOn, [
+    'browser-performance', 'backend-perf', 'privacy-zk-benchmark',
+    'mixed-performance-window', 'aeds-frame-cost'
+  ])
   assert.deepEqual(index.get('privacy-zk-finalize').members, ['privacy-zk-comment-matrix'])
   assert.equal(index.get('privacy-zk-finalize').resources.exclusiveResources, undefined)
   assert.deepEqual(index.get('coverage-merge').dependsOn, ['backend-coverage-ready', 'frontend-coverage-ready'])
@@ -315,6 +322,12 @@ test('performance bundle folds the complete backend benchmark into the mixed win
   assert.equal(steps.some((step) => /\b(?:skip|maxFailures)\b/u.test(step.command)), false)
   assert.match(index.get('mixed-performance-window').command, /--reuse-passed/u)
   assert.equal(steps.some((step) => Object.hasOwn(step.resources, 'cpuUnits') || Object.hasOwn(step.resources, 'memoryGiB')), false)
+  assert.ok(steps.every((step) => [
+    'coordination', 'preparation', 'measurement', 'post-measurement'
+  ].includes(step.evidencePhase)))
+  assert.deepEqual(steps.filter((step) => step.evidencePhase === 'measurement').map((step) => step.id), timedMeasurements)
+  assert.equal(steps.some((step) => step.evidencePhase !== 'measurement'
+    && step.resources.exclusiveResources?.includes('benchmark-window')), false)
 })
 
 test('AEDS compression is deterministic preparation rather than a timed profiler', () => {
@@ -442,6 +455,31 @@ test('coordination-only marker waits do not consume a one-CPU admission slot', a
   await execution
 })
 
+test('bundle cancellation interrupts an active coordination marker without admitting descendants', async () => {
+  const controller = new AbortController()
+  const started = []
+  const execution = executeWeightedStepDag([
+    { id: 'marker-ready', resources: { coordinationOnly: true } },
+    { id: 'dependent', dependsOn: ['marker-ready'], resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 } }
+  ], () => ({
+    maxParallel: 1,
+    cpuUnits: 1,
+    memoryGiB: 1,
+    signal: controller.signal
+  }), async (entry) => {
+    started.push(entry.id)
+    if (entry.id === 'marker-ready') {
+      await new Promise((resolve, reject) => controller.signal.addEventListener('abort', () => reject(
+        new Error('marker wait cancelled')
+      ), { once: true }))
+    }
+  })
+  await new Promise((resolve) => setImmediate(resolve))
+  controller.abort(new Error('bundle cancelled'))
+  await assert.rejects(execution, /bundle cancelled|marker wait cancelled/u)
+  assert.deepEqual(started, ['marker-ready'])
+})
+
 test('exact performance markers release preparation while unrelated runtime tail remains active', async () => {
   const backendCoverage = deferred()
   const frontendCoverage = deferred()
@@ -469,6 +507,23 @@ test('exact performance markers release preparation while unrelated runtime tail
   assert.equal(runtimeTailActive, true)
   runtimeTailActive = false
   await execution
+})
+
+test('failed exact producer blocks only its marker descendants while independent preparation completes', async () => {
+  const index = byId(performanceSteps())
+  const started = []
+  await assert.rejects(executeWeightedStepDag([
+    index.get('backend-coverage-ready'),
+    index.get('frontend-coverage-ready'),
+    index.get('frontend-build-ready'),
+    index.get('coverage-merge'),
+    index.get('aeds-compression')
+  ], { maxParallel: 3, cpuUnits: 3, memoryGiB: 3 }, async (entry) => {
+    started.push(entry.id)
+    if (entry.id === 'backend-coverage-ready') throw new Error('backend coverage producer failed')
+  }), /backend coverage producer failed/u)
+  assert.ok(started.includes('aeds-compression'))
+  assert.equal(started.includes('coverage-merge'), false)
 })
 
 test('weighted DAG fills each dependency-ready wave from actual grants across machine sizes', async () => {

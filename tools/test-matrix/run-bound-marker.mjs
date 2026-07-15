@@ -53,6 +53,15 @@ export function publishRunBoundMarker({
   artifacts = [],
   generatedAt = new Date().toISOString()
 }) {
+  if (!Array.isArray(artifacts) || artifacts.length === 0) {
+    throw new Error('run-bound marker artifacts must be non-empty')
+  }
+  const artifactRecords = artifacts.map((artifact) => artifactEvidence(root, artifact))
+  if (new Set(artifactRecords.map((artifact) => artifact.path)).size !== artifactRecords.length) {
+    throw new Error('run-bound marker artifacts must be unique')
+  }
+  const normalizedGeneratedAt = requiredText(generatedAt, 'generatedAt')
+  if (!Number.isFinite(Date.parse(normalizedGeneratedAt))) throw new Error('generatedAt must be a timestamp')
   const marker = {
     schema: runBoundMarkerSchema,
     status: 'success',
@@ -63,8 +72,8 @@ export function publishRunBoundMarker({
       bundleId: requiredText(producerBundleId, 'producerBundleId'),
       stepId: requiredText(producerStepId, 'producerStepId')
     },
-    artifacts: artifacts.map((artifact) => artifactEvidence(root, artifact)),
-    generatedAt: requiredText(generatedAt, 'generatedAt')
+    artifacts: artifactRecords,
+    generatedAt: normalizedGeneratedAt
   }
   const signed = { ...marker, digest: digest(marker) }
   const absolute = path.resolve(file)
@@ -81,7 +90,8 @@ export function validateRunBoundMarker(marker, {
   runId,
   sourceState,
   producerBundleId,
-  producerStepId
+  producerStepId,
+  artifacts
 }) {
   if (marker?.schema !== runBoundMarkerSchema || marker?.status !== 'success') {
     throw new Error('run-bound marker schema/status mismatch')
@@ -96,9 +106,20 @@ export function validateRunBoundMarker(marker, {
   if (marker.producer?.bundleId !== producerBundleId || marker.producer?.stepId !== producerStepId) {
     throw new Error('run-bound marker producer mismatch')
   }
+  if (!Array.isArray(artifacts) || artifacts.length === 0) {
+    throw new Error('run-bound marker expected artifacts must be non-empty')
+  }
   const { digest: markerDigest, ...unsigned } = marker
   if (markerDigest !== digest(unsigned)) throw new Error('run-bound marker digest mismatch')
-  if (!Array.isArray(marker.artifacts)) throw new Error('run-bound marker artifacts must be an array')
+  if (!Array.isArray(marker.artifacts) || marker.artifacts.length === 0) {
+    throw new Error('run-bound marker artifacts must be a non-empty array')
+  }
+  const expectedPaths = artifacts.map((artifact) => artifactEvidence(root, artifact).path).sort()
+  const declaredPaths = marker.artifacts.map((artifact) => artifact?.path).sort()
+  if (new Set(declaredPaths).size !== declaredPaths.length
+    || JSON.stringify(declaredPaths) !== JSON.stringify(expectedPaths)) {
+    throw new Error('run-bound marker artifact declaration mismatch')
+  }
   for (const artifact of marker.artifacts) {
     const observed = artifactEvidence(root, artifact?.path)
     if (artifact.path !== observed.path || artifact.bytes !== observed.bytes || artifact.sha256 !== observed.sha256) {

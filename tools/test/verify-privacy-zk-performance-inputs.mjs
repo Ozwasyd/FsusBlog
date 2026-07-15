@@ -48,9 +48,19 @@ export function verifyPrivacyZkPerformanceInputs({
   }
 
   const markers = [
-    ['backend-coverage-ready', 'backend-tests', 'backend-coverage-summary'],
-    ['frontend-coverage-ready', 'frontend-tests', 'frontend-coverage-summary']
-  ].map(([markerId, producerBundleId, producerStepId]) => {
+    [
+      'backend-coverage-ready',
+      'backend-tests',
+      'backend-coverage-summary',
+      '.tmp/coverage/backend-merged/Summary.json'
+    ],
+    [
+      'frontend-coverage-ready',
+      'frontend-tests',
+      'frontend-coverage-summary',
+      '.tmp/coverage/frontend/Summary.json'
+    ]
+  ].map(([markerId, producerBundleId, producerStepId, artifact]) => {
     const relativeFile = `.tmp/test-runs/${normalizedRunId}/${markerId}.json`
     try {
       readRunBoundMarker(path.join(resolvedRoot, relativeFile), {
@@ -59,7 +69,8 @@ export function verifyPrivacyZkPerformanceInputs({
         runId: normalizedRunId,
         sourceState,
         producerBundleId,
-        producerStepId
+        producerStepId,
+        artifacts: [path.join(resolvedRoot, artifact)]
       })
       return readBoundJson(resolvedRoot, relativeFile, () => {})
     } catch (error) {

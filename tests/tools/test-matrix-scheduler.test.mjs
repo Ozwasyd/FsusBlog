@@ -2506,15 +2506,28 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
   const temp = createTempDir('scheduler-ci-pr-smart')
   const runner = createRunnerFixture(temp)
   const marker = path.join(temp, 'events.txt')
+  const readyDir = path.join(temp, 'ready')
   const changedFiles = path.join(temp, 'changed.txt')
   const matrix = path.join(temp, 'matrix.yml')
   fs.writeFileSync(changedFiles, '')
+  fs.mkdirSync(readyDir)
   const scriptFor = (id) => {
     const script = path.join(temp, `${id}.mjs`)
     fs.writeFileSync(script, [
       "import fs from 'node:fs'",
+      "import path from 'node:path'",
       `fs.appendFileSync(${JSON.stringify(marker)}, ${JSON.stringify(`start:${id}\n`)})`,
-      `setTimeout(() => { fs.appendFileSync(${JSON.stringify(marker)}, ${JSON.stringify(`end:${id}\n`)}); }, 120)`
+      `fs.writeFileSync(path.join(${JSON.stringify(readyDir)}, ${JSON.stringify(id)}), 'ready')`,
+      'const deadline = Date.now() + 10_000',
+      'const waitForPeer = () => {',
+      `  if (fs.readdirSync(${JSON.stringify(readyDir)}).length === 2) {`,
+      `    fs.appendFileSync(${JSON.stringify(marker)}, ${JSON.stringify(`end:${id}\n`)})`,
+      '    return',
+      '  }',
+      "  if (Date.now() >= deadline) throw new Error('peer tier was never admitted concurrently')",
+      '  setTimeout(waitForPeer, 10)',
+      '}',
+      'waitForPeer()'
     ].join('\n'))
     return script
   }

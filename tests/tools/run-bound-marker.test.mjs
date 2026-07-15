@@ -21,7 +21,8 @@ function fixture() {
     runId: 'run-1',
     sourceState: { commit: 'abc', worktreeFingerprint: 'tree-1' },
     producerBundleId: 'backend-tests',
-    producerStepId: 'backend-coverage-summary'
+    producerStepId: 'backend-coverage-summary',
+    artifacts: [artifact]
   }
   return { root, artifact, file, expected }
 }
@@ -38,8 +39,29 @@ test('run-bound marker binds run, source, producer, and artifact digest', () => 
     ...value.expected,
     sourceState: { ...value.expected.sourceState, worktreeFingerprint: 'tree-2' }
   }), /another source state/u)
+  assert.throws(() => readRunBoundMarker(value.file, {
+    ...value.expected,
+    producerStepId: 'backend-tests-quiet'
+  }), /producer mismatch/u)
   fs.writeFileSync(value.artifact, '{"status":"changed"}\n')
   assert.throws(() => readRunBoundMarker(value.file, value.expected), /artifact changed/u)
+})
+
+test('run-bound marker rejects self-consistent but semantically foreign artifact declarations', () => {
+  const value = fixture()
+  const foreignArtifact = path.join(value.root, 'foreign.json')
+  fs.writeFileSync(foreignArtifact, '{"status":"success","scope":"foreign"}\n')
+  publishRunBoundMarker({
+    file: value.file,
+    ...value.expected,
+    artifacts: [foreignArtifact]
+  })
+  assert.throws(() => readRunBoundMarker(value.file, value.expected), /artifact declaration mismatch/u)
+  assert.throws(() => publishRunBoundMarker({
+    file: value.file,
+    ...value.expected,
+    artifacts: []
+  }), /artifacts must be non-empty/u)
 })
 
 test('wait returns as soon as the exact marker is published', async () => {

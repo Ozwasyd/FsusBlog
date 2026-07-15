@@ -515,11 +515,16 @@ test('production checkpoint projection binds all 77 logical tiers to one fresh r
     }))
   }]))
   bundleSummaries['performance-evidence'].deadlineEvidence = {
-    schema: 'fsusblog.performance-deadline-evidence.v1',
+    schema: 'fsusblog.performance-deadline-evidence.v2',
     status: 'sufficient',
     schedulerRunId: runId,
+    sourceState,
     candidateBudgetMs: 90_000,
     bundleDurationMs: 80_000,
+    coordinationWaitMs: 0,
+    preparationWorkMs: 20_000,
+    postMeasurementWorkMs: 0,
+    measurementIsolation: { status: 'isolated', noiseOverlaps: [] },
     mixedWindow: {
       stepId: 'mixed-performance-window',
       minimumDurationMs: performanceMixedWindowFloorMs,
@@ -528,8 +533,12 @@ test('production checkpoint projection binds all 77 logical tiers to one fresh r
     measuredOtherSerialMs: 20_000,
     requiredBudgetMs: 80_000,
     steps: [
-      { id: 'coverage-merge', status: 'success', durationMs: 20_000, startedAtMs: 0, finishedAtMs: 20_000 },
-      { id: 'mixed-performance-window', status: 'success', durationMs: 60_000, startedAtMs: 20_000, finishedAtMs: 80_000 }
+      { id: 'coverage-merge', evidencePhase: 'preparation', status: 'success', durationMs: 20_000, startedAtMs: 0, finishedAtMs: 20_000 },
+      { id: 'mixed-performance-window', evidencePhase: 'measurement', status: 'success', durationMs: 60_000, startedAtMs: 20_000, finishedAtMs: 80_000 },
+      { id: 'backend-perf', evidencePhase: 'measurement', status: 'success', durationMs: 20_000, startedAtMs: 80_000, finishedAtMs: 100_000 },
+      { id: 'browser-performance', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 100_000, finishedAtMs: 100_000 },
+      { id: 'privacy-zk-benchmark', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 100_000, finishedAtMs: 100_000 },
+      { id: 'aeds-frame-cost', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 100_000, finishedAtMs: 100_000 }
     ]
   }
   const checkpoint = {
@@ -829,6 +838,19 @@ test('runtime early start is guarded by run-bound atomic backend and frontend bu
   assert.match(localBundleRunner, /checkpoint\.tiers\?\.\[`local-\$\{profileId\}-backend-tests`\]\?\.status[\s\S]*?failure[\s\S]*?blocked[\s\S]*?cancelled/u)
   assert.match(localBundleRunner, /async function executeRuntimeStep[\s\S]*?backend-build-ready[\s\S]*?waitForBackendBuildReady[\s\S]*?frontend-build-ready[\s\S]*?waitForFrontendBuildReady/u)
   assert.match(localBundleRunner, /bundleId === 'runtime-browser' \? executeRuntimeStep : executePerformanceStep/u)
+})
+
+test('performance marker producers are exact and quiet markers publish only after bundle finalization', () => {
+  assert.match(localBundleRunner, /function publishCurrentRunMarker\(markerId, actualProducerStepId\)[\s\S]*?bundleId !== producerBundleId[\s\S]*?actualProducerStepId !== producerStepId/u)
+  assert.match(localBundleRunner, /function currentRunMarkerArtifacts[\s\S]*?backend-coverage-ready[\s\S]*?frontend-coverage-ready[\s\S]*?runtime-state-ready/u)
+  assert.match(localBundleRunner, /async function waitForCurrentRunMarker[\s\S]*?artifacts: currentRunMarkerArtifacts\(markerId\)[\s\S]*?signal: shutdownController\.signal/u)
+  const summaryPublished = localBundleRunner.lastIndexOf('fs.renameSync(temporary, summaryFile)')
+  const quietPublished = localBundleRunner.lastIndexOf('if (quietMarker) publishCurrentRunMarker(...quietMarker)')
+  assert.ok(summaryPublished >= 0 && quietPublished > summaryPublished)
+  assert.doesNotMatch(localBundleRunner.slice(localBundleRunner.indexOf('async function run()'), summaryPublished), /quiet-ready.*publishCurrentRunMarker/u)
+  assert.match(localBundleRunner, /signal: shutdownController\.signal,[\s\S]*?exclusiveResources: bundle\.exclusiveResources/u)
+  assert.match(localBundleRunner, /finalizeBundleResourceUtilization\('partial', new Error\(`bundle cancelled by/u)
+  assert.match(localBundleRunner, /coordination:\s*\{[\s\S]*?status: shutdownController\.signal\.aborted \? 'cancelled' : 'failure'/u)
 })
 
 test('bundle child processes inherit their admitted machine-resolved CPU and memory', () => {
@@ -1172,15 +1194,25 @@ test('bundle evidence must prove every member with executed IDs and digests', ()
 
 test('performance deadline evidence binds the mixed floor to same-run measured serial time', () => {
   const steps = [
-    { id: 'coverage-merge', status: 'success', durationMs: 4_000, startedAtMs: 1_000, finishedAtMs: 5_000 },
-    { id: 'mixed-performance-window', status: 'success', durationMs: 60_000, startedAtMs: 5_000, finishedAtMs: 65_000 }
+    { id: 'coverage-merge', evidencePhase: 'preparation', status: 'success', durationMs: 4_000, startedAtMs: 1_000, finishedAtMs: 5_000 },
+    { id: 'mixed-performance-window', evidencePhase: 'measurement', status: 'success', durationMs: 60_000, startedAtMs: 5_000, finishedAtMs: 65_000 },
+    { id: 'backend-perf', evidencePhase: 'measurement', status: 'success', durationMs: 20_000, startedAtMs: 65_000, finishedAtMs: 85_000 },
+    { id: 'browser-performance', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 85_000, finishedAtMs: 85_000 },
+    { id: 'privacy-zk-benchmark', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 85_000, finishedAtMs: 85_000 },
+    { id: 'aeds-frame-cost', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 85_000, finishedAtMs: 85_000 },
+    { id: 'performance-summary', evidencePhase: 'post-measurement', status: 'success', durationMs: 1_000, startedAtMs: 85_000, finishedAtMs: 86_000 }
   ]
   const valid = {
-    schema: 'fsusblog.performance-deadline-evidence.v1',
+    schema: 'fsusblog.performance-deadline-evidence.v2',
     status: 'sufficient',
     schedulerRunId: 'fresh-performance',
+    sourceState: { commit: 'abc123', worktreeFingerprint: 'tree-1' },
     candidateBudgetMs: 81_000,
     bundleDurationMs: 80_000,
+    coordinationWaitMs: 0,
+    preparationWorkMs: 4_000,
+    postMeasurementWorkMs: 1_000,
+    measurementIsolation: { status: 'isolated', noiseOverlaps: [] },
     mixedWindow: {
       stepId: 'mixed-performance-window',
       minimumDurationMs: performanceMixedWindowFloorMs,
@@ -1191,6 +1223,10 @@ test('performance deadline evidence binds the mixed floor to same-run measured s
     steps
   }
   assert.deepEqual(validatePerformanceDeadlineEvidence(valid, { expectedRunId: 'fresh-performance' }), [])
+  assert.ok(validatePerformanceDeadlineEvidence(valid, {
+    expectedRunId: 'fresh-performance',
+    expectedSourceState: { commit: 'abc123', worktreeFingerprint: 'tree-2' }
+  }).some((error) => error.includes('match the checkpoint')))
   assert.ok(validatePerformanceDeadlineEvidence({ ...valid, candidateBudgetMs: 79_999 }, {
     expectedRunId: 'fresh-performance'
   }).some((error) => error.includes('below required 80000')))
@@ -1200,6 +1236,16 @@ test('performance deadline evidence binds the mixed floor to same-run measured s
   }).some((error) => error.includes('at least 60000')))
   assert.ok(validatePerformanceDeadlineEvidence({ ...valid, measuredOtherSerialMs: 19_999 })
     .some((error) => error.includes('minus mixed duration')))
+  assert.ok(validatePerformanceDeadlineEvidence({
+    ...valid,
+    steps: valid.steps.filter((step) => step.id !== 'privacy-zk-benchmark')
+  }).some((error) => error.includes('measurement steps must be exactly')))
+  assert.ok(validatePerformanceDeadlineEvidence({
+    ...valid,
+    steps: valid.steps.map((step) => step.id === 'performance-summary'
+      ? { ...step, startedAtMs: 84_000, finishedAtMs: 85_000 }
+      : step)
+  }).some((error) => error.includes('measurement overlaps noise')))
 })
 
 test('bundle evidence is bound to matrix runtime declarations or an explicit command-log fallback', () => {

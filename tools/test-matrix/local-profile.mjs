@@ -14,7 +14,14 @@ const summaryOnlySchema = 'fsusblog.local-production.summary-only.v1'
 const logicalProjectionSchema = 'fsusblog.local-profile-projection.v1'
 export const productionWallClockBudgetMs = 300_000
 export const performanceMixedWindowFloorMs = 60_000
-const performanceDeadlineEvidenceSchema = 'fsusblog.performance-deadline-evidence.v1'
+const performanceDeadlineEvidenceSchema = 'fsusblog.performance-deadline-evidence.v2'
+const performanceMeasurementStepIds = Object.freeze([
+  'aeds-frame-cost',
+  'backend-perf',
+  'browser-performance',
+  'mixed-performance-window',
+  'privacy-zk-benchmark'
+])
 const generatedRuntimeRoots = [
   '.tmp',
   'BenchmarkDotNet.Artifacts',
@@ -629,6 +636,7 @@ function sameStringArray(left, right) {
 
 export function validateLocalBundleSummary(summary, bundle, {
   expectedRunId = null,
+  expectedSourceState = null,
   matrixTiers = null,
   profileId = 'production',
   expectedArtifactRefs = false
@@ -781,13 +789,17 @@ export function validateLocalBundleSummary(summary, bundle, {
   }
   if (bundle.id === 'performance-evidence') {
     errors.push(...validatePerformanceDeadlineEvidence(summary?.deadlineEvidence, {
-      expectedRunId: expectedRunId ?? summary?.schedulerRunId
+      expectedRunId: expectedRunId ?? summary?.schedulerRunId,
+      expectedSourceState
     }))
   }
   return errors
 }
 
-export function validatePerformanceDeadlineEvidence(evidence, { expectedRunId = null } = {}) {
+export function validatePerformanceDeadlineEvidence(evidence, {
+  expectedRunId = null,
+  expectedSourceState = null
+} = {}) {
   const errors = []
   if (evidence?.schema !== performanceDeadlineEvidenceSchema) {
     return [`deadlineEvidence.schema must be ${performanceDeadlineEvidenceSchema}`]
@@ -795,6 +807,13 @@ export function validatePerformanceDeadlineEvidence(evidence, { expectedRunId = 
   if (evidence.status !== 'sufficient') errors.push('deadlineEvidence.status must be sufficient')
   if (expectedRunId !== null && evidence.schedulerRunId !== expectedRunId) {
     errors.push(`deadlineEvidence.schedulerRunId must be ${expectedRunId}`)
+  }
+  if (!String(evidence.sourceState?.commit ?? '').trim()
+    || !String(evidence.sourceState?.worktreeFingerprint ?? '').trim()) {
+    errors.push('deadlineEvidence.sourceState must be present')
+  } else if (expectedSourceState !== null && (evidence.sourceState.commit !== expectedSourceState?.commit
+    || evidence.sourceState.worktreeFingerprint !== expectedSourceState?.worktreeFingerprint)) {
+    errors.push('deadlineEvidence.sourceState must match the checkpoint')
   }
   const candidateBudgetMs = Number(evidence.candidateBudgetMs)
   const bundleDurationMs = Number(evidence.bundleDurationMs)
@@ -829,10 +848,14 @@ export function validatePerformanceDeadlineEvidence(evidence, { expectedRunId = 
     errors.push('deadlineEvidence.steps must be non-empty')
   } else {
     const ids = new Set()
+    const phases = new Set(['coordination', 'preparation', 'measurement', 'post-measurement'])
     for (const step of evidence.steps) {
       if (!String(step?.id ?? '') || ids.has(step.id)) errors.push('deadlineEvidence.steps must contain unique non-empty ids')
       ids.add(step.id)
       if (step.status !== 'success') errors.push(`deadlineEvidence step ${step.id} must be success`)
+      if (!phases.has(step.evidencePhase)) {
+        errors.push(`deadlineEvidence step ${step.id} evidencePhase is invalid`)
+      }
       if (!Number.isFinite(step.durationMs) || step.durationMs < 0) errors.push(`deadlineEvidence step ${step.id} durationMs must be non-negative`)
       if (!Number.isFinite(step.startedAtMs) || !Number.isFinite(step.finishedAtMs)
         || step.finishedAtMs < step.startedAtMs || step.finishedAtMs - step.startedAtMs !== step.durationMs) {
@@ -840,6 +863,39 @@ export function validatePerformanceDeadlineEvidence(evidence, { expectedRunId = 
       }
     }
     if (!ids.has('mixed-performance-window')) errors.push('deadlineEvidence.steps must include mixed-performance-window')
+    const phaseDuration = (phase) => evidence.steps.filter((step) => step.evidencePhase === phase)
+      .reduce((total, step) => total + Number(step.durationMs), 0)
+    for (const [field, phase] of [
+      ['coordinationWaitMs', 'coordination'],
+      ['preparationWorkMs', 'preparation'],
+      ['postMeasurementWorkMs', 'post-measurement']
+    ]) {
+      if (!Number.isFinite(Number(evidence[field])) || Number(evidence[field]) !== phaseDuration(phase)) {
+        errors.push(`deadlineEvidence.${field} must equal ${phase} step duration`)
+      }
+    }
+    const measurements = evidence.steps.filter((step) => step.evidencePhase === 'measurement')
+    const measurementIds = measurements.map((step) => step.id).sort()
+    if (!sameStringArray(measurementIds, performanceMeasurementStepIds)) {
+      errors.push(`deadlineEvidence measurement steps must be exactly ${performanceMeasurementStepIds.join(', ')}`)
+    }
+    const noise = evidence.steps.filter((step) => ['preparation', 'post-measurement'].includes(step.evidencePhase))
+    const overlaps = noise.flatMap((noiseStep) => measurements
+      .filter((measurement) => noiseStep.startedAtMs < measurement.finishedAtMs
+        && measurement.startedAtMs < noiseStep.finishedAtMs)
+      .map((measurement) => `${noiseStep.id}:${measurement.id}`))
+    const measurementOverlaps = measurements.flatMap((left, index) => measurements.slice(index + 1)
+      .filter((right) => left.startedAtMs < right.finishedAtMs && right.startedAtMs < left.finishedAtMs)
+      .map((right) => `${left.id}:${right.id}`))
+    if (overlaps.length > 0) errors.push(`deadlineEvidence measurement overlaps noise: ${overlaps.join(', ')}`)
+    if (measurementOverlaps.length > 0) {
+      errors.push(`deadlineEvidence benchmark-window measurements overlap: ${measurementOverlaps.join(', ')}`)
+    }
+    if (evidence.measurementIsolation?.status !== 'isolated'
+      || !Array.isArray(evidence.measurementIsolation?.noiseOverlaps)
+      || evidence.measurementIsolation.noiseOverlaps.length !== 0) {
+      errors.push('deadlineEvidence.measurementIsolation must prove zero noise overlaps')
+    }
   }
   return errors
 }
@@ -978,6 +1034,7 @@ export function buildLocalProfileProjection({
     const summary = collectionEntry(bundleSummaries, bundle.id)
     const summaryErrors = validateLocalBundleSummary(summary, bundle, {
       expectedRunId: checkpoint.runId,
+      expectedSourceState: checkpoint.sourceState,
       matrixTiers: tiers,
       profileId,
       expectedArtifactRefs: artifactDigestTable !== null

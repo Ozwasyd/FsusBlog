@@ -16,15 +16,26 @@ function writeJson(root, relativeFile, value) {
 }
 
 function writeFixture(root, runId) {
-  for (const [markerId, producerBundleId, producerStepId] of [
-    ['backend-coverage-ready', 'backend-tests', 'backend-coverage-summary'],
-    ['frontend-coverage-ready', 'frontend-tests', 'frontend-coverage-summary']
+  for (const [markerId, producerBundleId, producerStepId, artifact] of [
+    [
+      'backend-coverage-ready',
+      'backend-tests',
+      'backend-coverage-summary',
+      '.tmp/coverage/backend-merged/Summary.json'
+    ],
+    [
+      'frontend-coverage-ready',
+      'frontend-tests',
+      'frontend-coverage-summary',
+      '.tmp/coverage/frontend/Summary.json'
+    ]
   ]) {
-    const artifact = path.join(root, `${markerId}.json`)
-    fs.writeFileSync(artifact, '{}\n')
+    const artifactFile = path.join(root, artifact)
+    fs.mkdirSync(path.dirname(artifactFile), { recursive: true })
+    fs.writeFileSync(artifactFile, '{}\n')
     publishRunBoundMarker({
       file: path.join(root, `.tmp/test-runs/${runId}/${markerId}.json`), root, markerId, runId,
-      sourceState, producerBundleId, producerStepId, artifacts: [artifact]
+      sourceState, producerBundleId, producerStepId, artifacts: [artifactFile]
     })
   }
   writeJson(root, `.tmp/test-runs/${runId}/frontend-build-ready.json`, {
@@ -55,6 +66,38 @@ test('privacy-ZK performance inputs bind all prerequisite bundles and receipts t
   assert.equal(evidence.stages.length, 2)
   assert.ok([...evidence.markers, evidence.frontendBuild, ...evidence.stages]
     .every((entry) => entry.digest.startsWith('sha256:')))
+})
+
+test('privacy-ZK performance inputs reject a re-signed marker for the wrong semantic artifact', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-privacy-performance-foreign-'))
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  writeFixture(root, 'production-fresh')
+  const foreignArtifact = path.join(root, '.tmp/coverage/backend-merged/foreign.json')
+  fs.writeFileSync(foreignArtifact, '{}\n')
+  publishRunBoundMarker({
+    file: path.join(root, '.tmp/test-runs/production-fresh/backend-coverage-ready.json'),
+    root,
+    markerId: 'backend-coverage-ready',
+    runId: 'production-fresh',
+    sourceState,
+    producerBundleId: 'backend-tests',
+    producerStepId: 'backend-coverage-summary',
+    artifacts: [foreignArtifact]
+  })
+
+  assert.throws(
+    () => verifyPrivacyZkPerformanceInputs({
+      runId: 'production-fresh',
+      sourceState,
+      repositoryRoot: root
+    }),
+    (error) => {
+      assert.ok(error instanceof AggregateError)
+      assert.equal(error.errors.length, 1)
+      assert.match(error.message, /artifact declaration mismatch/u)
+      return true
+    }
+  )
 })
 
 test('privacy-ZK performance inputs report every missing or stale prerequisite together', (t) => {

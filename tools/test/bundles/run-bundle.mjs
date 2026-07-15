@@ -257,7 +257,12 @@ function installShutdownForwarding() {
           complete: false,
           truncationReason: `bundle-${signal.toLowerCase()}`
         })
-      })).finally(() => process.exit(exitCode))
+      })).then(() => new Promise((resolve) => setImmediate(resolve))).finally(() => {
+        try {
+          finalizeBundleResourceUtilization('partial', new Error(`bundle cancelled by ${signal}`))
+        } catch {}
+        process.exit(exitCode)
+      })
     })
   }
 }
@@ -347,8 +352,23 @@ function currentSourceState() {
   }
 }
 
-function publishCurrentRunMarker(markerId, artifacts) {
+function currentRunMarkerArtifacts(markerId) {
+  const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim()
+  return {
+    'backend-coverage-ready': [path.join(root, '.tmp/coverage/backend-merged/Summary.json')],
+    'frontend-coverage-ready': [path.join(root, '.tmp/coverage/frontend/Summary.json')],
+    'runtime-state-ready': [path.join(root, `.tmp/env/${namespace}.env`)],
+    'backend-quiet-ready': [runMarkerFile('backend-coverage-ready')],
+    'frontend-quiet-ready': [runMarkerFile('frontend-coverage-ready')],
+    'build-static-quiet-ready': [frontendBuildReadyFile()]
+  }[markerId] ?? []
+}
+
+function publishCurrentRunMarker(markerId, actualProducerStepId) {
   const [producerBundleId, producerStepId] = runMarkerProducers[markerId] ?? []
+  if (bundleId !== producerBundleId || actualProducerStepId !== producerStepId) {
+    throw new Error(`run-bound marker ${markerId} was published by the wrong producer context`)
+  }
   const marker = publishRunBoundMarker({
     file: runMarkerFile(markerId),
     root,
@@ -357,7 +377,7 @@ function publishCurrentRunMarker(markerId, artifacts) {
     sourceState: currentSourceState(),
     producerBundleId,
     producerStepId,
-    artifacts
+    artifacts: currentRunMarkerArtifacts(markerId)
   })
   console.log(`[local-production:${bundleId}] run-marker=${marker.markerId}`)
   return marker
@@ -387,10 +407,12 @@ async function waitForCurrentRunMarker(markerId) {
       runId: schedulerRunId(),
       sourceState: currentSourceState(),
       producerBundleId,
-      producerStepId
+      producerStepId,
+      artifacts: currentRunMarkerArtifacts(markerId)
     },
     timeoutMs: bundleDeadlineMs(),
     pollIntervalMs: resolveMarkerPollIntervalMs(),
+    signal: shutdownController.signal,
     producerFailure: () => producerFailure(producerBundleId)
   })
 }
@@ -453,6 +475,9 @@ function publishBackendTestsReady() {
 }
 
 function publishBenchmarkBuildReady() {
+  if (bundleId !== 'backend-tests') {
+    throw new Error('benchmark build readiness was published outside backend-tests')
+  }
   const runId = schedulerRunId()
   const artifactPath = relative(benchmarkDll)
   if (!fs.existsSync(benchmarkDll)) {
@@ -463,6 +488,7 @@ function publishBenchmarkBuildReady() {
     schema: 'fsusblog.local-production.benchmark-build-ready.v1',
     status: 'success',
     physicalBundleId: 'backend-tests',
+    producerStepId: 'backend-benchmark-build',
     schedulerRunId: runId,
     buildLayout: buildLayoutBinding(),
     benchmarkDll: {
@@ -1028,6 +1054,7 @@ function bundleDagCapacity() {
   }
   return {
     ...capacity,
+    signal: shutdownController.signal,
     exclusiveResources: bundle.exclusiveResources ?? [],
     ...(chromiumPlan ? { countedResources: { chromiumLane: chromiumPlan.slots } } : {}),
     onWaitState: (stepId, state) => waitLedger.observe(stepId, state)
@@ -1072,6 +1099,28 @@ function resolveExecutionWaitTimeoutMs(dependencyBundleIds) {
 function resolveMarkerPollIntervalMs() {
   const cpuUnits = Math.max(1, Number(bundleCapacity().cpuUnits) || 1)
   return Math.max(10, Math.min(250, Math.ceil(1000 / cpuUnits)))
+}
+
+function cancellationError(label) {
+  const reason = shutdownController.signal.reason
+  return new Error(`cancelled waiting for ${label}: ${reason instanceof Error ? reason.message : String(reason ?? 'bundle shutdown')}`)
+}
+
+async function waitForCoordinationPoll(waitMs, label) {
+  if (shutdownController.signal.aborted) throw cancellationError(label)
+  await new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer)
+      shutdownController.signal.removeEventListener('abort', onAbort)
+      reject(cancellationError(label))
+    }
+    const timer = setTimeout(() => {
+      shutdownController.signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, Math.max(1, waitMs))
+    shutdownController.signal.addEventListener('abort', onAbort, { once: true })
+    if (shutdownController.signal.aborted) onAbort()
+  })
 }
 
 function commandStep(id, command, members, options = {}) {
@@ -1264,7 +1313,7 @@ async function runBackendTests() {
     const result = await executeStep(step)
     if (step.id === 'backend-benchmark-build') publishBenchmarkBuildReady()
     if (step.id === 'backend-coverage-summary') {
-      publishCurrentRunMarker('backend-coverage-ready', [path.join(root, '.tmp/coverage/backend-merged/Summary.json')])
+      publishCurrentRunMarker('backend-coverage-ready', step.id)
     }
     backendDagResults.set(step.id, result)
   })
@@ -1384,7 +1433,7 @@ async function waitForBackendProductionSummaryReady(timeoutMs = resolveExecution
         if (!(error instanceof SyntaxError)) throw error
       }
     }
-    await new Promise((resolve) => setTimeout(resolve, 250))
+    await waitForCoordinationPoll(250, 'backend production summary')
   }
   throw new Error(`timed out waiting for run-bound backend production summary: ${expectedRunId}`)
 }
@@ -1432,7 +1481,7 @@ async function waitForBackendBuildReady(timeoutMs = resolveExecutionWaitTimeoutM
         throw new Error(`invalid run-bound backend build readiness marker: ${error.message}`, { cause: error })
       }
     }
-    await new Promise((resolve) => setTimeout(resolve, 250))
+    await waitForCoordinationPoll(250, 'backend build readiness')
   }
   throw new Error(`timed out waiting for run-bound backend build readiness: ${expectedRunId}`)
 }
@@ -1568,7 +1617,7 @@ async function waitForFrontendTestCapacity(targetCpuUnits, timeoutMs = bundleDea
   while (Date.now() < deadline) {
     const currentCpuUnits = Math.floor(bundleCapacity().cpuUnits)
     if (currentCpuUnits >= targetCpuUnits) return
-    await new Promise((resolve) => setTimeout(resolve, Math.max(10, Math.ceil(1000 / targetCpuUnits))))
+    await waitForCoordinationPoll(Math.max(10, Math.ceil(1000 / targetCpuUnits)), 'frontend test capacity')
   }
   throw new Error(`timed out waiting for frontend test CPU target: ${targetCpuUnits}`)
 }
@@ -1613,8 +1662,7 @@ async function executeRuntimeStepBody(step) {
 async function executeRuntimeStep(step) {
   if (step.id === 'runtime-state-stable') {
     const result = await executeRuntimeStepBody(step)
-    const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim()
-    publishCurrentRunMarker('runtime-state-ready', [path.join(root, `.tmp/env/${namespace}.env`)])
+    publishCurrentRunMarker('runtime-state-ready', step.id)
     return result
   }
   if (!Object.hasOwn(step.resources?.countedResources ?? {}, 'chromiumLane')) {
@@ -1695,6 +1743,7 @@ async function waitForBenchmarkBuildReady() {
         || marker.status !== 'success'
         || marker.schedulerRunId !== schedulerRunId()
         || marker.physicalBundleId !== 'backend-tests'
+        || marker.producerStepId !== 'backend-benchmark-build'
         || !markerHasCurrentBuildLayout(marker)
         || marker.benchmarkDll?.path !== relative(benchmarkDll)
         || marker.benchmarkDll?.digest !== fileContentDigest(benchmarkDll)) {
@@ -1704,7 +1753,7 @@ async function waitForBenchmarkBuildReady() {
     }
     const failure = producerFailure('backend-tests')
     if (failure) throw new Error(`benchmark build producer failed: ${failure}`)
-    await new Promise((resolve) => setTimeout(resolve, resolveMarkerPollIntervalMs()))
+    await waitForCoordinationPoll(resolveMarkerPollIntervalMs(), 'benchmark build readiness')
   }
   throw new Error(`timed out waiting for benchmark build readiness: ${schedulerRunId()}`)
 }
@@ -1739,7 +1788,7 @@ async function waitForResidentHandoff() {
     }
     const failure = producerFailure('runtime-browser')
     if (failure) throw new Error(`resident runtime producer failed: ${failure}`)
-    await new Promise((resolve) => setTimeout(resolve, resolveMarkerPollIntervalMs()))
+    await waitForCoordinationPoll(resolveMarkerPollIntervalMs(), 'resident runtime handoff')
   }
   throw new Error(`timed out waiting for resident runtime handoff: ${schedulerRunId()}`)
 }
@@ -1766,13 +1815,50 @@ async function executePerformanceStep(step) {
     const logFile = path.join(logDir, `${step.id}.log`)
     const startedAtMs = Date.now()
     fs.writeFileSync(logFile, '')
-    const readiness = await observeWait(step.id, { readinessMarker: step.id }, readinessWait)
-    const finishedAtMs = Date.now()
-    fs.writeFileSync(logFile, `${JSON.stringify({ markerId: step.id, validated: true })}\n`)
-    const result = { code: 0, signal: null, durationMs: finishedAtMs - startedAtMs, startedAtMs, finishedAtMs, logFile, readiness }
-    stepExecutionResults.set(step.id, { ...result, status: 'success' })
-    register(step, result)
-    return result
+    try {
+      const readiness = await observeWait(step.id, { readinessMarker: step.id }, readinessWait)
+      const finishedAtMs = Date.now()
+      fs.writeFileSync(logFile, `${JSON.stringify({ markerId: step.id, validated: true })}\n`)
+      const result = { code: 0, signal: null, durationMs: finishedAtMs - startedAtMs, startedAtMs, finishedAtMs, logFile, readiness }
+      stepExecutionResults.set(step.id, { ...result, status: 'success' })
+      stepResourceMetrics.set(step.id, {
+        status: 'not-applicable',
+        wallSeconds: result.durationMs / 1000,
+        actualCpuSeconds: null,
+        grantedCpuSeconds: null,
+        coordination: { markerId: step.id, status: 'success' }
+      })
+      register(step, result)
+      return result
+    } catch (error) {
+      const finishedAtMs = Date.now()
+      const result = {
+        code: 1,
+        signal: shutdownController.signal.aborted ? 'cancelled' : null,
+        durationMs: finishedAtMs - startedAtMs,
+        startedAtMs,
+        finishedAtMs,
+        logFile
+      }
+      fs.writeFileSync(logFile, `${JSON.stringify({
+        markerId: step.id,
+        validated: false,
+        error: error instanceof Error ? error.message : String(error)
+      })}\n`)
+      stepExecutionResults.set(step.id, { ...result, status: 'failure' })
+      stepResourceMetrics.set(step.id, {
+        status: 'not-applicable',
+        wallSeconds: result.durationMs / 1000,
+        actualCpuSeconds: null,
+        grantedCpuSeconds: null,
+        coordination: {
+          markerId: step.id,
+          status: shutdownController.signal.aborted ? 'cancelled' : 'failure',
+          error: error instanceof Error ? error.message : String(error)
+        }
+      })
+      throw error
+    }
   }
   const result = await executeStep(step)
   return result
@@ -2001,7 +2087,7 @@ async function runFrontendTests() {
   ], bundleDagCapacity, async (frontendStep) => {
     const result = await executeFrontendStep(frontendStep)
     if (frontendStep.id === 'frontend-coverage-summary') {
-      publishCurrentRunMarker('frontend-coverage-ready', [path.join(root, '.tmp/coverage/frontend/Summary.json')])
+      publishCurrentRunMarker('frontend-coverage-ready', frontendStep.id)
     }
     frontendDagResults.set(frontendStep.id, result)
   })
@@ -2064,11 +2150,9 @@ async function run() {
   if (finalizeExisting) loadExistingMemberExecutionReceipts()
   else if (bundleId === 'backend-tests') {
     await runBackendTests()
-    publishCurrentRunMarker('backend-quiet-ready', [runMarkerFile('backend-coverage-ready')])
   }
   else if (bundleId === 'frontend-tests') {
     await runFrontendTests()
-    publishCurrentRunMarker('frontend-quiet-ready', [runMarkerFile('frontend-coverage-ready')])
   }
   else if (bundleId === 'build-static') {
     await executeWeightedStepDag(buildStaticSteps(), bundleDagCapacity, async (step) => {
@@ -2083,7 +2167,6 @@ async function run() {
         throw error
       }
     })
-    publishCurrentRunMarker('build-static-quiet-ready', [frontendBuildReadyFile()])
   } else {
     const steps = bundleId === 'runtime-browser' ? runtimeSteps() : performanceSteps()
     await executeWeightedStepDag(
@@ -2099,11 +2182,12 @@ async function run() {
     [...memberEvidence.entries()].map(([tierId, evidence]) => [tierId, evidence.artifactRefs])))
   if (bundleId === 'performance-evidence') {
     const currentInvocationDurationMs = Date.now() - startedAt
-    const steps = performanceSteps().map(({ id }) => {
+    const steps = performanceSteps().map(({ id, evidencePhase }) => {
       const result = stepExecutionResults.get(id)
       if (!result) throw new Error(`performance deadline evidence is missing step result: ${id}`)
       return {
         id,
+        evidencePhase,
         status: result.status,
         durationMs: result.durationMs,
         startedAtMs: result.startedAtMs,
@@ -2116,31 +2200,34 @@ async function run() {
       ? Number(JSON.parse(fs.readFileSync(mixedSummaryFile, 'utf8')).elapsedMs)
       : 0
     const mixedDurationMs = Math.max(mixedStepDurationMs, mixedSummaryDurationMs)
-    const timedMeasurementIds = new Set([
-      'browser-performance', 'backend-perf', 'privacy-zk-benchmark',
-      'mixed-performance-window', 'aeds-frame-cost'
-    ])
-    const coordinationIds = new Set([
-      'backend-coverage-ready', 'frontend-coverage-ready', 'frontend-build-ready',
-      'benchmark-build-ready', 'runtime-state-ready', 'backend-quiet-ready',
-      'frontend-quiet-ready', 'build-static-quiet-ready', 'resident-handoff-ready',
-      'performance-measurement-ready'
-    ])
+    const timedMeasurementIds = new Set(steps
+      .filter((step) => step.evidencePhase === 'measurement').map((step) => step.id))
+    const noiseOverlaps = steps.filter((step) => ['preparation', 'post-measurement'].includes(step.evidencePhase))
+      .flatMap((noise) => steps.filter((step) => step.evidencePhase === 'measurement'
+        && noise.startedAtMs < step.finishedAtMs && step.startedAtMs < noise.finishedAtMs)
+        .map((measurement) => ({ noiseStepId: noise.id, measurementStepId: measurement.id })))
+    if (noiseOverlaps.length > 0) {
+      throw new Error(`timed measurement overlapped non-measurement work: ${JSON.stringify(noiseOverlaps)}`)
+    }
     const measuredOtherSerialMs = steps
       .filter((step) => timedMeasurementIds.has(step.id) && step.id !== 'mixed-performance-window')
       .reduce((total, step) => total + step.durationMs, 0)
     const bundleDurationMs = measuredOtherSerialMs + mixedDurationMs
     performanceDeadlineEvidence = {
-      schema: 'fsusblog.performance-deadline-evidence.v1',
+      schema: 'fsusblog.performance-deadline-evidence.v2',
       status: 'sufficient',
       schedulerRunId: schedulerRunId(),
+      sourceState: currentSourceState(),
       candidateBudgetMs: bundleDeadlineMs(),
       invocationDurationMs: currentInvocationDurationMs,
       bundleDurationMs,
-      coordinationWaitMs: steps.filter((step) => coordinationIds.has(step.id))
+      coordinationWaitMs: steps.filter((step) => step.evidencePhase === 'coordination')
         .reduce((total, step) => total + step.durationMs, 0),
-      preparationWorkMs: steps.filter((step) => !coordinationIds.has(step.id) && !timedMeasurementIds.has(step.id))
+      preparationWorkMs: steps.filter((step) => step.evidencePhase === 'preparation')
         .reduce((total, step) => total + step.durationMs, 0),
+      postMeasurementWorkMs: steps.filter((step) => step.evidencePhase === 'post-measurement')
+        .reduce((total, step) => total + step.durationMs, 0),
+      measurementIsolation: { status: 'isolated', noiseOverlaps },
       mixedWindow: {
         stepId: 'mixed-performance-window',
         minimumDurationMs: performanceMixedWindowFloorMs,
@@ -2152,7 +2239,8 @@ async function run() {
       generatedAt: new Date().toISOString()
     }
     const deadlineErrors = validatePerformanceDeadlineEvidence(performanceDeadlineEvidence, {
-      expectedRunId: schedulerRunId()
+      expectedRunId: schedulerRunId(),
+      expectedSourceState: currentSourceState()
     })
     if (deadlineErrors.length > 0) throw new Error(`performance deadline evidence invalid: ${deadlineErrors.join('; ')}`)
     const deadlineFile = path.join(outDir, 'deadline-evidence.json')
@@ -2191,6 +2279,14 @@ async function run() {
   const temporary = `${summaryFile}.next-${process.pid}`
   fs.writeFileSync(temporary, `${JSON.stringify(summary, null, 2)}\n`)
   fs.renameSync(temporary, summaryFile)
+  if (!finalizeExisting) {
+    const quietMarker = {
+      'backend-tests': ['backend-quiet-ready', 'backend-tests-quiet'],
+      'frontend-tests': ['frontend-quiet-ready', 'frontend-tests-quiet'],
+      'build-static': ['build-static-quiet-ready', 'build-static-quiet']
+    }[bundleId]
+    if (quietMarker) publishCurrentRunMarker(...quietMarker)
+  }
   console.log(`[local-production:${bundleId}] summary=${relative(summaryFile)} members=${Object.keys(members).length}`)
 }
 
@@ -2258,7 +2354,20 @@ function buildRuntimeBrowserAdmissionEvidence(resourceUtilization, status) {
 }
 
 function finalizeBundleResourceUtilization(status, error = null) {
-  if (finalizedResourceUtilization) return finalizedResourceUtilization
+  if (finalizedResourceUtilization) {
+    if (status === 'partial' && finalizedResourceUtilization.status === 'complete') {
+      finalizedResourceUtilization.status = 'partial'
+      finalizedResourceUtilization.incomplete = true
+      finalizedResourceUtilization.failure = error ? (error instanceof Error ? error.message : String(error)) : 'bundle incomplete'
+      finalizedResourceUtilization.finishedAtMs = Date.now()
+      finalizedResourceUtilization.generatedAt = new Date().toISOString()
+      const file = path.join(outDir, 'resource-utilization.json')
+      const temporary = `${file}.next-${process.pid}`
+      fs.writeFileSync(temporary, `${JSON.stringify(finalizedResourceUtilization, null, 2)}\n`)
+      fs.renameSync(temporary, file)
+    }
+    return finalizedResourceUtilization
+  }
   const waits = waitLedger.finish()
   const steps = Object.fromEntries([...stepResourceMetrics.entries()].sort(([left], [right]) => left.localeCompare(right)))
   const values = Object.values(steps)

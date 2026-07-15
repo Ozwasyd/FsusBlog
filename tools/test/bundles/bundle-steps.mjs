@@ -818,6 +818,13 @@ export function performanceSteps() {
   ]
   const measurementBarrier = 'performance-measurement-ready'
   const benchmarkResources = { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['benchmark-window'] }
+  const timedMeasurements = [
+    'browser-performance',
+    'backend-perf',
+    'privacy-zk-benchmark',
+    'mixed-performance-window',
+    'aeds-frame-cost'
+  ]
   const measurements = [
     'backend-perf',
     'privacy-zk-benchmark',
@@ -828,7 +835,7 @@ export function performanceSteps() {
     'aeds-compression'
   ]
 
-  return [
+  const steps = [
     ...[
       'backend-coverage-ready',
       'frontend-coverage-ready',
@@ -887,7 +894,9 @@ export function performanceSteps() {
       resources: benchmarkResources
     }),
     step('privacy-zk-finalize', 'tools/test/lanes/privacy-zk-comment-matrix.sh finalize', ['privacy-zk-comment-matrix'], {
-      dependsOn: ['privacy-zk-benchmark']
+      // Finalization is not timing-sensitive and must not add CPU/filesystem
+      // noise beside any later timed profiler.
+      dependsOn: timedMeasurements
     }),
     step('mixed-performance-window', 'node tools/test/run-mixed-performance-window.mjs --reuse-passed', [
       ...windowMembers,
@@ -916,4 +925,23 @@ export function performanceSteps() {
       dependsOn: ['release-evidence']
     })
   ]
+  const coordination = new Set([
+    'backend-coverage-ready', 'frontend-coverage-ready', 'frontend-build-ready',
+    'benchmark-build-ready', 'runtime-state-ready', 'backend-quiet-ready',
+    'frontend-quiet-ready', 'build-static-quiet-ready', 'resident-handoff-ready',
+    measurementBarrier
+  ])
+  const postMeasurement = new Set([
+    'privacy-zk-finalize', 'performance-summary', 'release-evidence', 'production-summary'
+  ])
+  return steps.map((entry) => ({
+    ...entry,
+    evidencePhase: coordination.has(entry.id)
+      ? 'coordination'
+      : timedMeasurements.includes(entry.id)
+        ? 'measurement'
+        : postMeasurement.has(entry.id)
+          ? 'post-measurement'
+          : 'preparation'
+  }))
 }
