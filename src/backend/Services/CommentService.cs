@@ -764,9 +764,9 @@ public partial class CommentService(
         }
 
         return new AutomaticModerationTarget(
-            reader.GetInt64(0),
-            (CommentModerationStatus)reader.GetInt32(1),
-            reader.GetString(2));
+            reader.ReadInt64("id"),
+            (CommentModerationStatus)reader.ReadInt32("moderation_status"),
+            reader.ReadString("row_version"));
     }
 
     private async Task<bool> TryApplyAutomaticModerationDispositionAsync(
@@ -1121,16 +1121,16 @@ public partial class CommentService(
         }
 
         return new DeleteCommentRow(
-            reader.GetInt64(0),
-            reader.IsDBNull(1) ? null : reader.GetInt32(1),
-            reader.GetInt32(2),
-            reader.IsDBNull(3) ? null : reader.GetInt64(3),
-            reader.IsDBNull(4) ? null : reader.GetInt64(4),
-            reader.GetString(5),
-            reader.GetBoolean(6),
-            reader.GetString(7),
-            reader.IsDBNull(8) ? null : reader.GetString(8),
-            reader.GetString(9));
+            reader.ReadInt64("id"),
+            reader.IsNull("user_id") ? null : reader.ReadInt32("user_id"),
+            reader.ReadInt32("article_id"),
+            reader.IsNull("parent_id") ? null : reader.ReadInt64("parent_id"),
+            reader.IsNull("root_id") ? null : reader.ReadInt64("root_id"),
+            reader.ReadString("content"),
+            reader.ReadBoolean("is_deleted"),
+            reader.ReadString("author_mode"),
+            reader.IsNull("title") ? null : reader.ReadString("title"),
+            reader.ReadString("row_version"));
     }
 
     private async Task<bool> TrySoftDeleteCommentAsync(

@@ -70,7 +70,13 @@
       ],
       "constantName": "RecoveryKeyPbkdf2Iterations",
       "minimum": 600000
+    },
+    {
+      "id": "FSUSBLOGDATA001",
+      "kind": "forbid-literal-data-reader-ordinal",
+      "include": [
+        "src/backend/Services/**/*.cs"
+      ]
     }
   ]
 }
-

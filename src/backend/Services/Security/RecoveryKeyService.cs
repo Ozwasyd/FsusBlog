@@ -163,12 +163,12 @@ public sealed class RecoveryKeyService(
                 while (await reader.ReadAsync(cancellationToken))
                 {
                     revokedSessions.Add(new UserSessionValidationCacheState(
-                        reader.GetString(0),
-                        reader.GetInt32(1),
-                        AsUtc(reader.GetDateTime(2)),
-                        AsUtc(reader.GetDateTime(3)),
-                        AsUtc(reader.GetDateTime(4)),
-                        reader.GetString(5),
+                        reader.ReadString("sessionid"),
+                        reader.ReadInt32("userid"),
+                        AsUtc(reader.ReadDateTime("revokedat")),
+                        AsUtc(reader.ReadDateTime("idleexpiresat")),
+                        AsUtc(reader.ReadDateTime("absoluteexpiresat")),
+                        reader.ReadString("row_version"),
                         0,
                         null,
                         AnonymousIdentityRuntime.AnonymousAccountKind));
@@ -591,14 +591,14 @@ public sealed class RecoveryKeyService(
 
         return new RecoveryKeyCredential
         {
-            Id = reader.GetInt32(0),
-            AccountId = reader.GetInt32(1),
-            LookupIdHash = reader.IsDBNull(2) ? null : reader.GetString(2),
-            KeyHash = reader.GetString(3),
-            KeyVersion = reader.GetInt32(4),
-            CreatedAt = reader.GetDateTime(5),
-            UsedAt = reader.IsDBNull(6) ? null : reader.GetDateTime(6),
-            RevokedAt = reader.IsDBNull(7) ? null : reader.GetDateTime(7)
+            Id = reader.ReadInt32("id"),
+            AccountId = reader.ReadInt32("account_id"),
+            LookupIdHash = reader.IsNull("lookup_id_hash") ? null : reader.ReadString("lookup_id_hash"),
+            KeyHash = reader.ReadString("key_hash"),
+            KeyVersion = reader.ReadInt32("key_version"),
+            CreatedAt = reader.ReadDateTime("created_at"),
+            UsedAt = reader.IsNull("used_at") ? null : reader.ReadDateTime("used_at"),
+            RevokedAt = reader.IsNull("revoked_at") ? null : reader.ReadDateTime("revoked_at")
         };
     }
 

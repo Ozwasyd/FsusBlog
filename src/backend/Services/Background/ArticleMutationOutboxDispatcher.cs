@@ -629,27 +629,27 @@ public sealed class ArticleMutationOutboxDispatcher(
         {
             var item = new ArticleMutationOutboxEvent
             {
-                Id = reader.GetInt64(0),
-                EventId = reader.GetString(1),
-                AggregateType = reader.GetString(2),
-                AggregateId = reader.GetInt32(3),
-                EventType = reader.GetString(4),
-                PayloadJson = reader.GetString(5),
-                Status = reader.GetString(6),
-                RetryCount = reader.GetInt32(7),
-                NextRetryAt = reader.GetDateTime(8),
-                CreatedAt = reader.GetDateTime(9),
-                ProcessedAt = reader.IsDBNull(10) ? null : reader.GetDateTime(10),
-                LastError = reader.IsDBNull(11) ? null : reader.GetString(11),
-                ClaimToken = reader.GetString(12),
-                ClaimedBy = reader.GetString(13),
-                ClaimedAt = reader.GetDateTime(14),
-                HeartbeatAt = reader.GetDateTime(15),
-                ClaimExpiresAt = reader.GetDateTime(16)
+                Id = reader.ReadInt64("id"),
+                EventId = reader.ReadString("event_id"),
+                AggregateType = reader.ReadString("aggregate_type"),
+                AggregateId = reader.ReadInt32("aggregate_id"),
+                EventType = reader.ReadString("event_type"),
+                PayloadJson = reader.ReadString("payload_json"),
+                Status = reader.ReadString("status"),
+                RetryCount = reader.ReadInt32("retry_count"),
+                NextRetryAt = reader.ReadDateTime("next_retry_at"),
+                CreatedAt = reader.ReadDateTime("created_at"),
+                ProcessedAt = reader.IsNull("processed_at") ? null : reader.ReadDateTime("processed_at"),
+                LastError = reader.IsNull("last_error") ? null : reader.ReadString("last_error"),
+                ClaimToken = reader.ReadString("claim_token"),
+                ClaimedBy = reader.ReadString("claimed_by"),
+                ClaimedAt = reader.ReadDateTime("claimed_at"),
+                HeartbeatAt = reader.ReadDateTime("heartbeat_at"),
+                ClaimExpiresAt = reader.ReadDateTime("claim_expires_at")
             };
             claimed.Add(new ClaimedArticleMutationOutboxEvent(
                 item,
-                string.Equals(reader.GetString(17), "processing", StringComparison.Ordinal)));
+                string.Equals(reader.ReadString("previous_status"), "processing", StringComparison.Ordinal)));
         }
 
         return claimed;

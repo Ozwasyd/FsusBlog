@@ -167,7 +167,7 @@ public sealed class ScheduledPublishWorker(
             {
                 while (await reader.ReadAsync(cancellationToken))
                 {
-                    claimedArticleIds.Add(reader.GetInt32(0));
+                    claimedArticleIds.Add(reader.ReadInt32("id"));
                 }
             }
 

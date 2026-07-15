@@ -464,16 +464,16 @@ public sealed class AuthoringWorkflowService(
         {
             assets.Add(new AssetLibraryItem
             {
-                Id = reader.GetInt64(0),
-                Url = reader.GetString(1),
-                AltText = reader.IsDBNull(2) ? null : reader.GetString(2),
-                SourceArticleId = reader.IsDBNull(3) ? null : reader.GetInt32(3),
-                Width = reader.IsDBNull(4) ? null : reader.GetInt32(4),
-                Height = reader.IsDBNull(5) ? null : reader.GetInt32(5),
-                Sha256 = reader.IsDBNull(6) ? null : reader.GetString(6),
-                ReferenceCount = reader.GetInt32(7),
-                CreatedAt = reader.GetDateTime(8),
-                UpdatedAt = reader.GetDateTime(9)
+                Id = reader.ReadInt64("id"),
+                Url = reader.ReadString("url"),
+                AltText = reader.IsNull("alt_text") ? null : reader.ReadString("alt_text"),
+                SourceArticleId = reader.IsNull("source_article_id") ? null : reader.ReadInt32("source_article_id"),
+                Width = reader.IsNull("width") ? null : reader.ReadInt32("width"),
+                Height = reader.IsNull("height") ? null : reader.ReadInt32("height"),
+                Sha256 = reader.IsNull("sha256") ? null : reader.ReadString("sha256"),
+                ReferenceCount = reader.ReadInt32("reference_count"),
+                CreatedAt = reader.ReadDateTime("created_at"),
+                UpdatedAt = reader.ReadDateTime("updated_at")
             });
         }
 
@@ -519,10 +519,10 @@ public sealed class AuthoringWorkflowService(
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             rows.Add(new AssetArticleReferenceRow(
-                reader.GetString(0),
-                reader.GetInt32(1),
-                reader.IsDBNull(2) ? null : reader.GetString(2),
-                reader.GetInt32(3)));
+                reader.ReadString("url"),
+                reader.ReadInt32("article_id"),
+                reader.IsNull("alt_text") ? null : reader.ReadString("alt_text"),
+                reader.ReadInt32("reference_count")));
         }
 
         return rows;
@@ -605,10 +605,10 @@ public sealed class AuthoringWorkflowService(
             return null;
         }
 
-        var aggregate = new AssetReferenceAggregate(reader.GetString(0), reader.GetInt32(1))
+        var aggregate = new AssetReferenceAggregate(reader.ReadString("url"), reader.ReadInt32("source_article_id"))
         {
-            AltText = reader.IsDBNull(2) ? null : reader.GetString(2),
-            ReferenceCount = reader.GetInt32(3)
+            AltText = reader.IsNull("alt_text") ? null : reader.ReadString("alt_text"),
+            ReferenceCount = reader.ReadInt32("reference_count")
         };
         return aggregate;
     }
@@ -633,16 +633,16 @@ public sealed class AuthoringWorkflowService(
 
         return new AssetLibraryItem
         {
-            Id = reader.GetInt64(0),
-            Url = reader.GetString(1),
-            AltText = reader.IsDBNull(2) ? null : reader.GetString(2),
-            SourceArticleId = reader.IsDBNull(3) ? null : reader.GetInt32(3),
-            Width = reader.IsDBNull(4) ? null : reader.GetInt32(4),
-            Height = reader.IsDBNull(5) ? null : reader.GetInt32(5),
-            Sha256 = reader.IsDBNull(6) ? null : reader.GetString(6),
-            ReferenceCount = reader.GetInt32(7),
-            CreatedAt = reader.GetDateTime(8),
-            UpdatedAt = reader.GetDateTime(9)
+            Id = reader.ReadInt64("id"),
+            Url = reader.ReadString("url"),
+            AltText = reader.IsNull("alt_text") ? null : reader.ReadString("alt_text"),
+            SourceArticleId = reader.IsNull("source_article_id") ? null : reader.ReadInt32("source_article_id"),
+            Width = reader.IsNull("width") ? null : reader.ReadInt32("width"),
+            Height = reader.IsNull("height") ? null : reader.ReadInt32("height"),
+            Sha256 = reader.IsNull("sha256") ? null : reader.ReadString("sha256"),
+            ReferenceCount = reader.ReadInt32("reference_count"),
+            CreatedAt = reader.ReadDateTime("created_at"),
+            UpdatedAt = reader.ReadDateTime("updated_at")
         };
     }
 
@@ -762,10 +762,10 @@ public sealed class AuthoringWorkflowService(
         }
 
         return new AuthorArticleStatusCounts(
-            reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
-            reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
-            reader.IsDBNull(2) ? 0 : reader.GetInt32(2),
-            reader.IsDBNull(3) ? 0 : reader.GetInt32(3));
+            reader.IsNull("published") ? 0 : reader.ReadInt32("published"),
+            reader.IsNull("draft") ? 0 : reader.ReadInt32("draft"),
+            reader.IsNull("scheduled") ? 0 : reader.ReadInt32("scheduled"),
+            reader.IsNull("archived") ? 0 : reader.ReadInt32("archived"));
     }
 
     private async Task<AuthorReadRollup> LoadAuthorReadRollupAsync(CancellationToken cancellationToken)
@@ -784,10 +784,10 @@ public sealed class AuthoringWorkflowService(
             return new AuthorReadRollup(0, 0, 0);
         }
 
-        long totalReads = reader.GetInt64(0);
-        long articleReads = reader.GetInt64(1);
-        long completedArticleReads = reader.GetInt64(2);
-        long dwellMsTotal = reader.GetInt64(3);
+        long totalReads = reader.ReadInt64("total_reads");
+        long articleReads = reader.ReadInt64("article_reads");
+        long completedArticleReads = reader.ReadInt64("completed_article_reads");
+        long dwellMsTotal = reader.ReadInt64("dwell_ms_total");
         int averageDwellMs = totalReads <= 0 ? 0 : RoundingHelper.RoundToInt(dwellMsTotal / (double)totalReads);
         double readingCompletionRate = articleReads <= 0
             ? 0d
@@ -798,12 +798,12 @@ public sealed class AuthoringWorkflowService(
     private async Task<long> LoadAuthorAotRollupAsync(CancellationToken cancellationToken)
     {
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
-            SELECT COALESCE(SUM(event_count), 0)::bigint
+            SELECT COALESCE(SUM(event_count), 0)::bigint AS miss_count
             FROM author_aot_stats
             WHERE metric_kind = 'miss';
             """);
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false)
-            ? reader.GetInt64(0)
+            ? reader.ReadInt64("miss_count")
             : 0;
     }
 
@@ -846,10 +846,10 @@ public sealed class AuthoringWorkflowService(
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             rows.Add(new AuthorRumMetricResponse(
-                reader.GetString(0),
-                reader.GetInt32(1),
-                reader.GetDouble(2),
-                reader.GetDouble(3)));
+                reader.ReadString("name"),
+                reader.ReadInt32("event_count"),
+                reader.ReadDouble("p75"),
+                reader.ReadDouble("average")));
         }
 
         return rows;
@@ -860,7 +860,7 @@ public sealed class AuthoringWorkflowService(
         var rows = new List<AuthorAnalyticsMetricResponse>();
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            rows.Add(new AuthorAnalyticsMetricResponse(reader.GetString(0), reader.GetInt32(1)));
+            rows.Add(new AuthorAnalyticsMetricResponse(reader.ReadString("label"), reader.ReadInt32("event_count")));
         }
 
         return rows;
@@ -970,9 +970,9 @@ public sealed class AuthoringWorkflowService(
         }
 
         return new CommentModerationQueueCounts(
-            reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
-            reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
-            reader.IsDBNull(2) ? 0 : reader.GetInt32(2));
+            reader.IsNull("pending") ? 0 : reader.ReadInt32("pending"),
+            reader.IsNull("rejected") ? 0 : reader.ReadInt32("rejected"),
+            reader.IsNull("hidden") ? 0 : reader.ReadInt32("hidden"));
     }
 
     public async Task<bool> ModerateCommentAsync(long actorAdminPrincipalId, long commentId, CommentModerationRequest request, CancellationToken cancellationToken = default)
@@ -1515,25 +1515,25 @@ public sealed class AuthoringWorkflowService(
     private static CommentModerationSignal ReadCommentModerationSignal(DbDataReader reader)
         => new()
         {
-            Id = reader.GetInt64(0),
-            CommentId = reader.GetInt64(1),
-            Provider = reader.GetString(2),
-            Model = reader.GetString(3),
-            ContractVersion = reader.GetString(4),
-            Label = reader.GetString(5),
-            Severity = reader.GetString(6),
-            Confidence = reader.GetDouble(7),
-            PrimaryReason = reader.IsDBNull(8) ? null : reader.GetString(8),
-            NeedsSecondRound = reader.GetBoolean(9),
-            RiskCategories = reader.IsDBNull(10) ? null : reader.GetString(10),
-            EvidenceJson = reader.IsDBNull(11) ? null : reader.GetString(11),
-            RawReason = reader.IsDBNull(12) ? null : reader.GetString(12),
-            LatencyMs = reader.GetInt32(13),
-            Status = reader.GetString(14),
-            ErrorCode = reader.IsDBNull(15) ? null : reader.GetString(15),
-            ThresholdProfile = reader.IsDBNull(16) ? null : reader.GetString(16),
-            MetadataJson = reader.IsDBNull(17) ? null : reader.GetString(17),
-            CreatedAtUtc = reader.GetDateTime(18)
+            Id = reader.ReadInt64("id"),
+            CommentId = reader.ReadInt64("comment_id"),
+            Provider = reader.ReadString("provider"),
+            Model = reader.ReadString("model"),
+            ContractVersion = reader.ReadString("contract_version"),
+            Label = reader.ReadString("label"),
+            Severity = reader.ReadString("severity"),
+            Confidence = reader.ReadDouble("confidence"),
+            PrimaryReason = reader.IsNull("primary_reason") ? null : reader.ReadString("primary_reason"),
+            NeedsSecondRound = reader.ReadBoolean("needs_second_round"),
+            RiskCategories = reader.IsNull("risk_categories") ? null : reader.ReadString("risk_categories"),
+            EvidenceJson = reader.IsNull("evidence_json") ? null : reader.ReadString("evidence_json"),
+            RawReason = reader.IsNull("raw_reason") ? null : reader.ReadString("raw_reason"),
+            LatencyMs = reader.ReadInt32("latency_ms"),
+            Status = reader.ReadString("status"),
+            ErrorCode = reader.IsNull("error_code") ? null : reader.ReadString("error_code"),
+            ThresholdProfile = reader.IsNull("threshold_profile") ? null : reader.ReadString("threshold_profile"),
+            MetadataJson = reader.IsNull("metadata_json") ? null : reader.ReadString("metadata_json"),
+            CreatedAtUtc = reader.ReadDateTime("created_at_utc")
         };
 
     private async Task LoadAnonymousNullifierSummariesAsync(
@@ -1676,7 +1676,7 @@ public sealed class AuthoringWorkflowService(
         var candidates = new List<UserBanCandidate>();
         while (await reader.ReadAsync(cancellationToken))
         {
-            candidates.Add(new UserBanCandidate(reader.GetInt32(0), reader.GetString(1)));
+            candidates.Add(new UserBanCandidate(reader.ReadInt32("id"), reader.ReadString("row_version")));
         }
 
         return candidates;

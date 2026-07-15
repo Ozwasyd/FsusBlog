@@ -146,6 +146,27 @@ internal static class SecuritySourceAnalyzerProgram
                     }
                     break;
 
+                case "forbid-literal-data-reader-ordinal":
+                    foreach (InvocationExpressionSyntax invocation in syntaxRoot.DescendantNodes().OfType<InvocationExpressionSyntax>())
+                    {
+                        string methodName = InvocationName(invocation);
+                        if (!DataReaderOrdinalMethods.Contains(methodName)
+                            || invocation.ArgumentList.Arguments.Count == 0
+                            || invocation.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax literal
+                            || !literal.IsKind(SyntaxKind.NumericLiteralExpression))
+                        {
+                            continue;
+                        }
+
+                        Add(
+                            rule,
+                            relative,
+                            invocation.ArgumentList.Arguments[0],
+                            "Use a named projection reader column instead of a literal data-reader ordinal.",
+                            diagnostics);
+                    }
+                    break;
+
                 case "minimum-constant":
                     CheckMinimumConstant(rule, relative, syntaxRoot, diagnostics);
                     break;
@@ -191,6 +212,25 @@ internal static class SecuritySourceAnalyzerProgram
         return new[] { "hash", "root", "secret", "token", "signature", "proof", "witness", "key" }
             .Any(keyword => comparison.Contains(keyword, StringComparison.Ordinal));
     }
+
+    private static readonly IReadOnlySet<string> DataReaderOrdinalMethods = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "GetBoolean",
+        "GetByte",
+        "GetChar",
+        "GetDateTime",
+        "GetDecimal",
+        "GetDouble",
+        "GetFieldValue",
+        "GetFloat",
+        "GetGuid",
+        "GetInt16",
+        "GetInt32",
+        "GetInt64",
+        "GetString",
+        "GetValue",
+        "IsDBNull"
+    };
 
     private static bool IsExceptionDetail(MemberAccessExpressionSyntax member)
     {

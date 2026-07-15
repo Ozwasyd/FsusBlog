@@ -760,7 +760,7 @@ public sealed class AdminPrincipalService(
         {
             while (await reader.ReadAsync(cancellationToken))
             {
-                revokedSessionIds.Add(reader.GetString(0));
+                revokedSessionIds.Add(reader.ReadString("sessionid"));
             }
         }
 
@@ -793,9 +793,9 @@ public sealed class AdminPrincipalService(
         }
 
         return new AdminSessionRevokeCandidate(
-            reader.GetString(0),
-            reader.IsDBNull(1) ? null : reader.GetDateTime(1),
-            reader.GetString(2));
+            reader.ReadString("sessionid"),
+            reader.IsNull("revokedatutc") ? null : reader.ReadDateTime("revokedatutc"),
+            reader.ReadString("row_version"));
     }
 
     private async Task<bool> TryRevokeAdminSessionAsync(
@@ -1079,12 +1079,12 @@ public sealed class AdminPrincipalService(
     {
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
-            SELECT xmin::text
+            SELECT xmin::text AS row_version
             FROM admin_passkey_credential
             WHERE id = @id;
             """,
             new SugarParameter[] { new("@id", id) });
-        return await reader.ReadAsync(cancellationToken) ? reader.GetString(0) : null;
+        return await reader.ReadAsync(cancellationToken) ? reader.ReadString("row_version") : null;
     }
 
     private async Task<bool> TryUpdateAdminPasskeySignCountAsync(

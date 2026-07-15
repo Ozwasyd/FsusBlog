@@ -372,15 +372,15 @@ public sealed class UserSessionValidationService(
         }
 
         return new UserSessionValidationCacheState(
-            reader.GetString(0),
-            reader.GetInt32(1),
-            reader.IsDBNull(2) ? null : AsUtc(reader.GetDateTime(2)),
-            AsUtc(reader.GetDateTime(3)),
-            AsUtc(reader.GetDateTime(4)),
-            reader.GetString(5),
-            reader.GetInt32(6),
-            reader.IsDBNull(7) ? null : AsUtc(reader.GetDateTime(7)),
-            reader.IsDBNull(8) ? string.Empty : reader.GetString(8));
+            reader.ReadString("sessionid"),
+            reader.ReadInt32("userid"),
+            reader.IsNull("revokedat") ? null : AsUtc(reader.ReadDateTime("revokedat")),
+            AsUtc(reader.ReadDateTime("idleexpiresat")),
+            AsUtc(reader.ReadDateTime("absoluteexpiresat")),
+            reader.ReadString("row_version"),
+            reader.ReadInt32("status"),
+            reader.IsNull("deleted_at") ? null : AsUtc(reader.ReadDateTime("deleted_at")),
+            reader.IsNull("identity_kind") ? string.Empty : reader.ReadString("identity_kind"));
     }
 
     private static UserSessionValidationResult ValidateState(

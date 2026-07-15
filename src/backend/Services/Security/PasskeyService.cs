@@ -1109,7 +1109,7 @@ public sealed class PasskeyService(
                     throw new InvalidOperationException("Unable to allocate stable passkey user handle.");
                 }
 
-                string? lockedHandle = lockedReader.IsDBNull(0) ? null : lockedReader.GetString(0);
+                string? lockedHandle = lockedReader.IsNull("passkey_user_handle") ? null : lockedReader.ReadString("passkey_user_handle");
                 if (TryDecodeStoredPasskeyUserHandle(lockedHandle, out existing))
                 {
                     finalHandle = existing;
@@ -1135,7 +1135,7 @@ public sealed class PasskeyService(
                 });
             if (await updateReader.ReadAsync(cancellationToken))
             {
-                string returnedHandle = updateReader.GetString(0);
+                string returnedHandle = updateReader.ReadString("final_handle");
                 if (TryDecodeStoredPasskeyUserHandle(returnedHandle, out existing))
                 {
                     finalHandle = existing;
@@ -1341,10 +1341,10 @@ public sealed class PasskeyService(
         }
 
         return new PasskeyDeleteState(
-            reader.GetBoolean(0),
-            reader.GetBoolean(1),
-            reader.GetBoolean(2),
-            Convert.ToInt32(reader.GetValue(3), System.Globalization.CultureInfo.InvariantCulture));
+            reader.ReadBoolean("user_found"),
+            reader.ReadBoolean("credential_found"),
+            reader.ReadBoolean("deleted"),
+            Convert.ToInt32(reader.ReadValue("remaining"), System.Globalization.CultureInfo.InvariantCulture));
     }
 
     private async Task RespondToCounterRollbackAsync(

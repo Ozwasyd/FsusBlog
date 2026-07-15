@@ -164,11 +164,11 @@ public class BlacklistService(
 
         var user = new User
         {
-            Id = reader.GetInt32(0),
-            AccountSubjectHash = reader.IsDBNull(1) ? null : reader.GetString(1),
-            Status = reader.GetInt32(2),
-            BanReason = reader.IsDBNull(3) ? null : reader.GetString(3),
-            RowVersion = reader.GetString(4)
+            Id = reader.ReadInt32("id"),
+            AccountSubjectHash = reader.IsNull("account_subject_hash") ? null : reader.ReadString("account_subject_hash"),
+            Status = reader.ReadInt32("status"),
+            BanReason = reader.IsNull("banreason") ? null : reader.ReadString("banreason"),
+            RowVersion = reader.ReadString("row_version")
         };
         return BlacklistCacheRow.FromUser(user, user.RowVersion);
     }

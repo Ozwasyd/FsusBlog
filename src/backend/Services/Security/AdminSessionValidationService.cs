@@ -164,14 +164,14 @@ public sealed class AdminSessionValidationService : IAdminSessionValidationServi
         }
 
         return new AdminSessionValidationState(
-            reader.GetString(0),
-            reader.GetInt64(1),
-            reader.GetString(2),
-            reader.IsDBNull(3) ? null : AsUtc(reader.GetDateTime(3)),
-            AsUtc(reader.GetDateTime(4)),
-            AsUtc(reader.GetDateTime(5)),
-            reader.GetString(6),
-            reader.GetString(7));
+            reader.ReadString("sessionid"),
+            reader.ReadInt64("adminprincipalid"),
+            reader.ReadString("accesstokenhash"),
+            reader.IsNull("revokedatutc") ? null : AsUtc(reader.ReadDateTime("revokedatutc")),
+            AsUtc(reader.ReadDateTime("idleexpiresatutc")),
+            AsUtc(reader.ReadDateTime("absoluteexpiresatutc")),
+            reader.ReadString("row_version"),
+            reader.ReadString("principal_status"));
     }
 
     private async Task<bool> TryTouchAdminSessionAsync(

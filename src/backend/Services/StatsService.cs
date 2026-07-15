@@ -119,8 +119,8 @@ public partial class StatsService(
             {
                 if (await reader.ReadAsync(cancellationToken))
                 {
-                    totalArticles = reader.IsDBNull(0) ? 0 : (int)reader.GetInt64(0);
-                    trashCount = reader.IsDBNull(1) ? 0 : (int)reader.GetInt64(1);
+                    totalArticles = reader.IsNull("Total") ? 0 : (int)reader.ReadInt64("Total");
+                    trashCount = reader.IsNull("Trash") ? 0 : (int)reader.ReadInt64("Trash");
                 }
             }
 
@@ -168,11 +168,11 @@ public partial class StatsService(
             {
                 if (await reader.ReadAsync(cancellationToken))
                 {
-                    totalReads = reader.IsDBNull(0) ? 0 : (int)reader.GetInt64(0);
-                    humanVerifiedReads = reader.IsDBNull(1) ? 0 : (int)reader.GetInt64(1);
-                    uniqueViewerKeyEstimate = reader.IsDBNull(2) ? 0 : (int)reader.GetInt64(2);
-                    articleReads = reader.IsDBNull(3) ? 0 : (int)reader.GetInt64(3);
-                    siteReads = reader.IsDBNull(4) ? 0 : (int)reader.GetInt64(4);
+                    totalReads = reader.IsNull("TotalReads") ? 0 : (int)reader.ReadInt64("TotalReads");
+                    humanVerifiedReads = reader.IsNull("HumanVerifiedReads") ? 0 : (int)reader.ReadInt64("HumanVerifiedReads");
+                    uniqueViewerKeyEstimate = reader.IsNull("UniqueViewerKeyEstimate") ? 0 : (int)reader.ReadInt64("UniqueViewerKeyEstimate");
+                    articleReads = reader.IsNull("ArticleReads") ? 0 : (int)reader.ReadInt64("ArticleReads");
+                    siteReads = reader.IsNull("SiteReads") ? 0 : (int)reader.ReadInt64("SiteReads");
                 }
             }
 

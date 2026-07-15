@@ -724,11 +724,11 @@ public partial class UserService(
         }
 
         return new AdminStatusTarget(
-            reader.GetInt32(0),
-            reader.IsDBNull(1) ? AnonymousIdentityRuntime.AnonymousAccountKind : reader.GetString(1),
-            reader.GetInt32(2),
-            reader.IsDBNull(3) ? null : reader.GetDateTime(3),
-            reader.GetString(4));
+            reader.ReadInt32("id"),
+            reader.IsNull("identity_kind") ? AnonymousIdentityRuntime.AnonymousAccountKind : reader.ReadString("identity_kind"),
+            reader.ReadInt32("status"),
+            reader.IsNull("deleted_at") ? null : reader.ReadDateTime("deleted_at"),
+            reader.ReadString("row_version"));
     }
 
     private async Task<bool> TryUpdateAdminStatusAsync(AdminStatusTarget target, int status, string? banReason)
@@ -1131,12 +1131,12 @@ public partial class UserService(
 
     private static UserSessionValidationCacheState ReadRevokedSessionValidationState(DbDataReader reader)
         => new(
-            reader.GetString(0),
-            reader.GetInt32(1),
-            AsUtc(reader.GetDateTime(2)),
-            AsUtc(reader.GetDateTime(3)),
-            AsUtc(reader.GetDateTime(4)),
-            reader.GetString(5),
+            reader.ReadString("sessionid"),
+            reader.ReadInt32("userid"),
+            AsUtc(reader.ReadDateTime("revokedat")),
+            AsUtc(reader.ReadDateTime("idleexpiresat")),
+            AsUtc(reader.ReadDateTime("absoluteexpiresat")),
+            reader.ReadString("row_version"),
             UserStatusNormal,
             null,
             AnonymousIdentityRuntime.AnonymousAccountKind);
@@ -1699,7 +1699,7 @@ public partial class UserService(
     {
         using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
             """
-            SELECT COALESCE(mfaenabled, false)
+            SELECT COALESCE(mfaenabled, false) AS mfa_enabled
             FROM sys_user
             WHERE id = @UserId
             FOR UPDATE;
@@ -1710,7 +1710,7 @@ public partial class UserService(
             return null;
         }
 
-        return reader.GetBoolean(0);
+        return reader.ReadBoolean("mfa_enabled");
     }
 
     public async Task<bool> VerifyMfaOrRecoveryCodeAsync(User user, string? code, string? recoveryCode, bool persistRecoveryConsumption)

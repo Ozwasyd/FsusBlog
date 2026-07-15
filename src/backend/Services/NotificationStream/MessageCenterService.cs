@@ -335,14 +335,14 @@ public sealed class MessageCenterService(
         }
 
         var conversation = new ReplyConversationLock(
-            reader.GetInt64(0),
-            (ConversationStatus)reader.GetInt32(1));
-        ReplyParticipantLock? participant = reader.IsDBNull(2)
+            reader.ReadInt64("id"),
+            (ConversationStatus)reader.ReadInt32("status"));
+        ReplyParticipantLock? participant = reader.IsNull("conversationid")
             ? null
             : new ReplyParticipantLock(
-                reader.GetInt64(2),
-                reader.GetInt32(3),
-                reader.IsDBNull(4) ? null : reader.GetInt64(4));
+                reader.ReadInt64("conversationid"),
+                reader.ReadInt32("accountid"),
+                reader.IsNull("lastreadmessageid") ? null : reader.ReadInt64("lastreadmessageid"));
         return new ReplyLocks(conversation, participant);
     }
 
@@ -363,8 +363,8 @@ public sealed class MessageCenterService(
         }
 
         return new ReplyConversationLock(
-            reader.GetInt64(0),
-            (ConversationStatus)reader.GetInt32(1));
+            reader.ReadInt64("id"),
+            (ConversationStatus)reader.ReadInt32("status"));
     }
 
     private async Task<ReplyParticipantLock?> LoadReplyParticipantForUpdateAsync(long conversationId, int accountId)
@@ -387,9 +387,9 @@ public sealed class MessageCenterService(
         }
 
         return new ReplyParticipantLock(
-            reader.GetInt64(0),
-            reader.GetInt32(1),
-            reader.IsDBNull(2) ? null : reader.GetInt64(2));
+            reader.ReadInt64("conversationid"),
+            reader.ReadInt32("accountid"),
+            reader.IsNull("lastreadmessageid") ? null : reader.ReadInt64("lastreadmessageid"));
     }
 
     private async Task<bool> TryUpdateReplyConversationActivityAsync(long conversationId, DateTime now)
@@ -554,9 +554,9 @@ public sealed class MessageCenterService(
             return new MarkConversationReadResult(false, null);
         }
 
-        long? lastMessageId = reader.IsDBNull(0)
+        long? lastMessageId = reader.IsNull("lastreadmessageid")
             ? null
-            : Convert.ToInt64(reader.GetValue(0), CultureInfo.InvariantCulture);
+            : Convert.ToInt64(reader.ReadValue("lastreadmessageid"), CultureInfo.InvariantCulture);
         return new MarkConversationReadResult(true, lastMessageId);
     }
 
@@ -672,8 +672,8 @@ public sealed class MessageCenterService(
         }
 
         return new ConversationStatusUpdateState(
-            (ConversationStatus)reader.GetInt32(0),
-            reader.GetString(1));
+            (ConversationStatus)reader.ReadInt32("status"),
+            reader.ReadString("row_version"));
     }
 
     private Task<int> TryUpdateConversationStatusAsync(

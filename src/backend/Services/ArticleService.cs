@@ -132,8 +132,8 @@ public class ArticleService(
         {
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                int articleId = reader.GetInt32(0);
-                int currentViews = reader.GetInt32(1);
+                int articleId = reader.ReadInt32("id");
+                int currentViews = reader.ReadInt32("views");
                 updatedIds.Add(articleId);
                 updatedViews[articleId] = currentViews;
             }
@@ -745,7 +745,7 @@ public class ArticleService(
             throw new InvalidOperationException($"Article revision was not created for article {articleId}.");
         }
 
-        return new ArticleRevisionCoordinates(reader.GetInt64(0), reader.GetInt32(1));
+        return new ArticleRevisionCoordinates(reader.ReadInt64("id"), reader.ReadInt32("revision_no"));
     }
 
     private long ResolveRevisionAdminPrincipalId()
@@ -868,7 +868,7 @@ public class ArticleService(
             throw new InvalidOperationException($"Article rights snapshot was not created for article {articleId} revision {revision.Id}.");
         }
 
-        return reader.GetInt64(0);
+        return reader.ReadInt64("id");
     }
 
     private async Task<long> UpsertArticleRightsPolicyAsync(int articleId, ArticleRightsWriteModel rights)
@@ -941,7 +941,7 @@ public class ArticleService(
             throw new InvalidOperationException($"Article rights policy was not upserted for article {articleId}.");
         }
 
-        return reader.GetInt64(0);
+        return reader.ReadInt64("id");
     }
 
     private static ArticleRightsWriteModel NormalizeArticleRights(ArticleRightsRequest? request)
@@ -1127,13 +1127,13 @@ public class ArticleService(
             return null;
         }
 
-        int categoryId = reader.GetInt32(0);
-        string rowVersion = reader.GetString(1);
-        var status = (ArticleStatus)reader.GetInt32(2);
-        DateTime? publishedAt = reader.IsDBNull(3)
+        int categoryId = reader.ReadInt32("categoryid");
+        string rowVersion = reader.ReadString("row_version");
+        var status = (ArticleStatus)reader.ReadInt32("status");
+        DateTime? publishedAt = reader.IsNull("published_at")
             ? null
-            : NormalizeArticleListTimestampUtc(reader.GetDateTime(3));
-        int[] tags = reader.GetFieldValue<int[]>(4);
+            : NormalizeArticleListTimestampUtc(reader.ReadDateTime("published_at"));
+        int[] tags = reader.ReadFieldValue<int[]>("tag_ids");
         return new ArticleUpdateState(categoryId, tags.ToList(), rowVersion, status, publishedAt);
     }
 
@@ -1469,7 +1469,7 @@ public class ArticleService(
             """);
         while (await reader.ReadAsync(cancellationToken))
         {
-            rows.Add(new TrashArticleRow(reader.GetInt32(0), reader.GetInt32(1)));
+            rows.Add(new TrashArticleRow(reader.ReadInt32("id"), reader.ReadInt32("categoryid")));
         }
 
         return rows;
@@ -1796,7 +1796,7 @@ public class ArticleService(
         {
             if (await reader.ReadAsync(cancellationToken))
             {
-                totalCount = reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetValue(0));
+                totalCount = reader.IsNull("count") ? 0 : Convert.ToInt32(reader.ReadValue("count"));
             }
 
             if (!await reader.NextResultAsync(cancellationToken))
@@ -1901,7 +1901,7 @@ public class ArticleService(
         {
             if (await countReader.ReadAsync(cancellationToken))
             {
-                totalCount = countReader.IsDBNull(0) ? 0 : Convert.ToInt32(countReader.GetValue(0));
+                totalCount = countReader.IsNull("__TotalCount") ? 0 : Convert.ToInt32(countReader.ReadValue("__TotalCount"));
             }
         }
 
@@ -2257,9 +2257,9 @@ public class ArticleService(
             return null;
         }
 
-        int categoryId = reader.GetInt32(0);
-        string rowVersion = reader.GetString(1);
-        int[] tags = reader.GetFieldValue<int[]>(2);
+        int categoryId = reader.ReadInt32("categoryid");
+        string rowVersion = reader.ReadString("row_version");
+        int[] tags = reader.ReadFieldValue<int[]>("tag_ids");
         return new ArticleMutationState([categoryId], tags.ToList(), rowVersion);
     }
 

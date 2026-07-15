@@ -127,7 +127,7 @@ public sealed class CommentAnonymousNullifierService(
             new SugarParameter("@Now", now));
         if (await reservedReader.ReadAsync(cancellationToken))
         {
-            int reservedUseCount = reservedReader.GetInt32(1);
+            int reservedUseCount = reservedReader.ReadInt32("use_count");
             return new NullifierReservationResult(true, "reserved", "Nullifier reserved", reservedUseCount);
         }
 
@@ -192,9 +192,9 @@ public sealed class CommentAnonymousNullifierService(
             return new NullifierReservationResult(false, "scope_limit_exceeded", "Nullifier scope limit exceeded", maxUseCount);
         }
 
-        bool allowed = reader.GetBoolean(0);
-        string status = reader.GetString(1);
-        int useCount = reader.GetInt32(2);
+        bool allowed = reader.ReadBoolean("allowed");
+        string status = reader.ReadString("status");
+        int useCount = reader.ReadInt32("use_count");
         if (!allowed && string.Equals(status, "scope_limit_exceeded", StringComparison.Ordinal))
         {
             // PostgreSQL keeps the statement snapshot taken before an ON CONFLICT
@@ -296,7 +296,7 @@ public sealed class CommentAnonymousNullifierService(
             return null;
         }
 
-        return new NullifierState(reader.GetBoolean(0), reader.GetInt32(1));
+        return new NullifierState(reader.ReadBoolean("blocked"), reader.ReadInt32("use_count"));
     }
 
     private readonly record struct NullifierState(bool Blocked, int UseCount);

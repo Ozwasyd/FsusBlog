@@ -245,7 +245,7 @@ public sealed class SecurityPolicySnapshotService(
                 WHERE policy_id = @policyId;
                 """,
                 new SugarParameter[] { new("@policyId", policyId) });
-            return await reader.ReadAsync(cancellationToken) ? reader.GetInt64(0) : null;
+            return await reader.ReadAsync(cancellationToken) ? reader.ReadInt64("last_version") : null;
         }
 
         await EnsureVersionCounterAsync(policyId, cancellationToken);
@@ -265,7 +265,7 @@ public sealed class SecurityPolicySnapshotService(
                 throw new InvalidOperationException("security_policy_version_counter_missing");
             }
 
-            lastVersion = reader.GetInt64(0);
+            lastVersion = reader.ReadInt64("last_version");
         }
 
         long nextVersion = checked(lastVersion + 1);
@@ -301,7 +301,7 @@ public sealed class SecurityPolicySnapshotService(
                         new("@policyId", policyId),
                         new("@updatedAtUtc", timeProvider.GetUtcNow().UtcDateTime)
                     });
-                return await reader.ReadAsync(cancellationToken) ? reader.GetInt64(0) : null;
+                return await reader.ReadAsync(cancellationToken) ? reader.ReadInt64("last_version") : null;
             }
 
             long? postgresNextVersion = await TryIncrementPostgresCounterAsync();
