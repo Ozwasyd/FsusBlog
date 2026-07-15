@@ -240,6 +240,7 @@ export function verifyProductionBuildReceipt({
   expectedSourceState,
   expectedProducer = {},
   expectedToolchain = null,
+  expectedInputRoot = null,
   expectedReceiptDigest = null,
   transferStartedAtMs = null,
   now = () => new Date()
@@ -251,6 +252,9 @@ export function verifyProductionBuildReceipt({
   if (receipt.status !== 'complete') errors.push(`receipt is not complete: ${receipt.status}`)
   if (receipt.contentDigest !== contentDigest(receipt)) errors.push('receipt content digest mismatch')
   if (expectedReceiptDigest && receipt.contentDigest !== expectedReceiptDigest) errors.push('receipt digest does not match producer output')
+  try { validateSourceState(receipt.sourceState) } catch (error) { errors.push(error.message) }
+  try { normalizeProducer(receipt.producer) } catch (error) { errors.push(error.message) }
+  try { normalizeToolchain(receipt.toolchain) } catch (error) { errors.push(error.message) }
   if (expectedSourceState) {
     if (receipt.sourceState?.commit !== expectedSourceState.commit) errors.push('receipt commit SHA mismatch')
     if (receipt.sourceState?.worktreeFingerprint !== expectedSourceState.worktreeFingerprint) errors.push('receipt worktree fingerprint mismatch')
@@ -262,6 +266,32 @@ export function verifyProductionBuildReceipt({
   }
   for (const [key, value] of Object.entries(expectedToolchain ?? {})) {
     if (String(receipt.toolchain?.[key]) !== String(value)) errors.push(`receipt toolchain ${key} mismatch`)
+  }
+  const inputDigests = Array.isArray(receipt.inputDigests) ? receipt.inputDigests : []
+  if (inputDigests.length === 0) errors.push('receipt input digests are missing')
+  const inputPaths = new Set()
+  for (const record of inputDigests) {
+    try {
+      const inputPath = normalizeRelative(record?.path, 'input')
+      if (inputPaths.has(inputPath)) errors.push(`duplicate input digest path: ${inputPath}`)
+      inputPaths.add(inputPath)
+      if (!Number.isInteger(Number(record.fileCount)) || Number(record.fileCount) < 1
+        || !Number.isInteger(Number(record.size)) || Number(record.size) < 0
+        || !/^sha256:[a-f0-9]{64}$/u.test(String(record.sha256 ?? ''))) {
+        errors.push(`input digest record is invalid: ${inputPath}`)
+        continue
+      }
+      if (expectedInputRoot) {
+        const actual = digestInput(path.resolve(expectedInputRoot), inputPath)
+        if (actual.fileCount !== Number(record.fileCount)
+          || actual.size !== Number(record.size)
+          || actual.sha256 !== record.sha256) {
+          errors.push(`receipt input digest mismatch: ${inputPath}`)
+        }
+      }
+    } catch (error) {
+      errors.push(error.message)
+    }
   }
   const domains = Array.isArray(receipt.domains) ? receipt.domains : []
   const artifacts = Array.isArray(receipt.artifacts) ? receipt.artifacts : []
@@ -316,6 +346,10 @@ export function verifyProductionBuildReceipt({
     receiptContentDigest: receipt.contentDigest ?? null,
     sourceState: receipt.sourceState ?? null,
     producer: receipt.producer ?? null,
+    toolchain: receipt.toolchain ?? null,
+    expectedToolchain: expectedToolchain ?? null,
+    inputCount: inputDigests.length,
+    inputsVerifiedAgainstCheckout: Boolean(expectedInputRoot),
     artifactCount: artifacts.length,
     artifactBytes: artifacts.reduce((sum, record) => sum + Number(record.size || 0), 0),
     transferDurationMs: Number.isFinite(Number(transferStartedAtMs)) ? Math.max(0, Date.now() - Number(transferStartedAtMs)) : null,

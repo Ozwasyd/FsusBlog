@@ -33,8 +33,12 @@ runs:
           --artifact-root .tmp/downloaded-production-build \
           --expected-commit "$GITHUB_SHA" \
           --expected-fingerprint "${{ inputs.source-fingerprint }}" \
+          --expected-workflow "$GITHUB_WORKFLOW" \
           --expected-run-id "$GITHUB_RUN_ID" \
+          --expected-run-attempt "$GITHUB_RUN_ATTEMPT" \
           --expected-job production-build-artifacts \
+          --expected-current-toolchain true \
+          --expected-input-root "$GITHUB_WORKSPACE" \
           --expected-receipt-digest "${{ inputs.receipt-digest }}" \
           --transfer-started-at-ms "$FSUSBLOG_CI_ARTIFACT_TRANSFER_STARTED_AT_MS" \
           --evidence ".tmp/release-evidence/jobs/ci-build-consumer-${{ inputs.consumer-job }}.json"

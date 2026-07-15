@@ -51,10 +51,24 @@ function producer(options) {
 
 function expectedProducer(options) {
   return {
+    ...(options.expected_workflow === undefined ? {} : { workflow: options.expected_workflow }),
     runId: options.expected_run_id ?? process.env.GITHUB_RUN_ID,
     job: options.expected_job,
     ...(options.expected_run_attempt === undefined ? {} : { runAttempt: Number(options.expected_run_attempt) })
   }
+}
+
+function expectedToolchain(options, root) {
+  const current = options.expected_current_toolchain
+  if (current !== undefined && current !== 'true' && current !== 'false') {
+    throw new Error('--expected-current-toolchain must be true or false')
+  }
+  if (current === 'true' && options.tool.length > 0) {
+    throw new Error('--expected-current-toolchain cannot be combined with --tool')
+  }
+  return current === 'true'
+    ? collectProductionToolchain({ root })
+    : options.tool.length > 0 ? pairs(options.tool, '--tool') : null
 }
 
 function mappings(values) {
@@ -112,7 +126,8 @@ try {
       receiptFile,
       expectedSourceState: sourceState(options),
       expectedProducer: expectedProducer(options),
-      expectedToolchain: options.tool.length > 0 ? pairs(options.tool, '--tool') : null,
+      expectedToolchain: expectedToolchain(options, root),
+      expectedInputRoot: options.expected_input_root ? path.resolve(options.expected_input_root) : null,
       expectedReceiptDigest: options.expected_receipt_digest,
       transferStartedAtMs: options.transfer_started_at_ms
     })
@@ -127,7 +142,8 @@ try {
       verification: {
         expectedSourceState: sourceState(options),
         expectedProducer: expectedProducer(options),
-        expectedToolchain: options.tool.length > 0 ? pairs(options.tool, '--tool') : null,
+        expectedToolchain: expectedToolchain(options, root),
+        expectedInputRoot: options.expected_input_root ? path.resolve(options.expected_input_root) : null,
         expectedReceiptDigest: options.expected_receipt_digest,
         transferStartedAtMs: options.transfer_started_at_ms
       }

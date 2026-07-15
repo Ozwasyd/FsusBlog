@@ -27,9 +27,9 @@ Coverlet, mutation and benchmark lanes must not instrument these downloaded file
 - domain ownership, consumer mode, total file count and total bytes;
 - a canonical digest of the receipt itself.
 
-Creation and verification reject absolute paths, `..` traversal, symlinks, missing domains, duplicate domain ownership and empty domains. A consumer rejects a wrong commit/fingerprint, wrong workflow run or attempt, wrong producer job, toolchain mismatch, receipt swap, missing/damaged file and any unreceipted file inside a declared domain.
+Creation and verification reject absolute paths, `..` traversal, symlinks, missing domains, duplicate domain ownership and empty domains. A consumer rejects a wrong commit/fingerprint, wrong workflow run or attempt, wrong producer job, toolchain mismatch, receipt swap, missing/damaged file and any unreceipted file inside a declared domain. Every consumer also recomputes each receipted lockfile, project and build-config digest from its current checkout, so a self-consistent receipt built from different inputs cannot pass admission.
 
-`.github/actions/consume-production-build/action.yml` downloads only the artifact from the current workflow run, checks the receipt against `GITHUB_SHA`, run ID, attempt, producer job, exported worktree fingerprint and exported receipt digest, then writes a job-isolated verification record under `.tmp/release-evidence/jobs/`. Download plus verification time and downloaded bytes are recorded. GitHub artifact download failure is fail-closed; there is no empty-directory fallback.
+`.github/actions/consume-production-build/action.yml` downloads only the artifact from the current workflow run, checks the receipt against `GITHUB_SHA`, run ID, attempt, producer job, exported worktree fingerprint, exported receipt digest, the current runner toolchain and the current checkout's input digests, then writes a job-isolated verification record under `.tmp/release-evidence/jobs/`. Download plus verification time and downloaded bytes are recorded. GitHub artifact download failure is fail-closed; there is no empty-directory fallback.
 
 ## Smart-gate and retry topology
 

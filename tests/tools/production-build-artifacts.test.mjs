@@ -62,10 +62,28 @@ test('receipt binds source, toolchain, producer, input and every immutable artif
     artifactRoot: value.artifactRoot,
     expectedSourceState: sourceState,
     expectedProducer: { runId: '42', runAttempt: 2 },
-    expectedToolchain: { node: 'v24.1.0' }
+    expectedToolchain: { node: 'v24.1.0' },
+    expectedInputRoot: value.root
   })
   assert.equal(verified.evidence.status, 'success')
   assert.equal(verified.evidence.artifactBytes, Buffer.byteLength('server') + Buffer.byteLength('<main>ok</main>'))
+})
+
+test('consumer rejects checkout input drift even when the receipt and payload are unchanged', t => {
+  const value = fixture(t)
+  create(value)
+  fs.writeFileSync(path.join(value.root, 'global.json'), '{"sdk":{"version":"99.0.0"}}\n')
+
+  assert.throws(() => verifyProductionBuildReceipt({
+    artifactRoot: value.artifactRoot,
+    expectedSourceState: sourceState,
+    expectedToolchain: toolchain,
+    expectedInputRoot: value.root
+  }), error => {
+    assert.match(error.message, /input digest mismatch: global\.json/u)
+    assert.equal(error.evidence.status, 'failure')
+    return true
+  })
 })
 
 test('wrong commit, wrong run and toolchain drift fail closed', t => {
@@ -74,11 +92,13 @@ test('wrong commit, wrong run and toolchain drift fail closed', t => {
   assert.throws(() => verifyProductionBuildReceipt({
     artifactRoot: value.artifactRoot,
     expectedSourceState: { ...sourceState, commit: 'c'.repeat(40) },
-    expectedProducer: { runId: 'stale' },
+    expectedProducer: { workflow: 'Other Workflow', runId: 'stale', runAttempt: 3 },
     expectedToolchain: { node: 'v99.0.0' }
   }), error => {
     assert.match(error.message, /commit SHA mismatch/u)
+    assert.match(error.message, /producer workflow mismatch/u)
     assert.match(error.message, /producer runId mismatch/u)
+    assert.match(error.message, /producer runAttempt mismatch/u)
     assert.match(error.message, /toolchain node mismatch/u)
     assert.equal(error.evidence.status, 'failure')
     return true

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const workflowFile = path.join(root, '.github/workflows/quality-gate.yml')
 const actionFile = path.join(root, '.github/actions/consume-production-build/action.yml')
+const producerLaneFile = path.join(root, 'tools/test/lanes/production-build-artifacts.sh')
 
 function jobSource(workflow, jobId) {
   const start = workflow.indexOf(`\n  ${jobId}:\n`)
@@ -39,6 +40,9 @@ test('quality gate has one smart-gated producer and all runtime/browser consumer
     assert.match(source, /uses: \.\/\.github\/actions\/consume-production-build/u, jobId)
     assert.match(source, /needs\.production-build-artifacts\.outputs\.source_fingerprint/u, jobId)
     assert.match(source, /needs\.production-build-artifacts\.outputs\.receipt_digest/u, jobId)
+    const consumerAction = source.indexOf('uses: ./.github/actions/consume-production-build')
+    assert.ok(source.indexOf('actions/setup-node@') < consumerAction, `${jobId} must set up Node before verification`)
+    assert.ok(source.indexOf('actions/setup-dotnet@') < consumerAction, `${jobId} must set up .NET before verification`)
   }
 })
 
@@ -50,13 +54,42 @@ test('consumer action verifies same-run source and receipt identity before tests
     'production-build-artifacts-cli.mjs verify',
     '--expected-commit',
     '--expected-fingerprint',
+    '--expected-workflow "$GITHUB_WORKFLOW"',
     '--expected-run-id',
+    '--expected-run-attempt "$GITHUB_RUN_ATTEMPT"',
     '--expected-job production-build-artifacts',
+    '--expected-current-toolchain true',
+    '--expected-input-root "$GITHUB_WORKSPACE"',
     '--expected-receipt-digest',
     '--transfer-started-at-ms',
     'FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT=',
     'FSUSBLOG_RUNTIME_NO_BUILD=1'
   ]) assert.ok(source.includes(contract), contract)
+})
+
+test('producer receipts existing lock, project and build configuration inputs', () => {
+  const source = fs.readFileSync(producerLaneFile, 'utf8')
+  for (const input of [
+    'Directory.Build.props',
+    'FsusBlog.slnx',
+    'src/backend/FsusBlog.Server.csproj',
+    'src/backend/packages.lock.json',
+    'src/core/FsusBlog.Core.csproj',
+    'src/shared/FsusBlog.Shared.csproj',
+    'tests/backend/FsusBlog.Server.Tests.csproj',
+    'src/frontend/package.json',
+    'src/frontend/package-lock.json',
+    'src/frontend/vite.config.ts',
+    'tools/frontend/build.mjs',
+    'tools/frontend/ensure-wasm.mjs',
+    'src/frontend/wasm/CMakeLists.txt'
+  ]) assert.match(source, new RegExp(`--input ${input.replaceAll('.', '\\.')}`, 'u'), input)
+  assert.doesNotMatch(source, /--input global\.json/u)
+  const declaredInputs = [...source.matchAll(/--input ([A-Za-z0-9_./-]+)/gu)].map(match => match[1])
+  assert.ok(declaredInputs.length > 0)
+  for (const input of declaredInputs) {
+    assert.equal(fs.existsSync(path.join(root, input)), true, `missing producer receipt input: ${input}`)
+  }
 })
 
 test('smart gate selects producer exactly when an immutable build consumer is selected', t => {

@@ -112,18 +112,49 @@ CREATE_ARGS=(
   --started-at "$STARTED_AT"
   --finished-at "$FINISHED_AT"
   --duration-ms "$DURATION_MS"
-  --input global.json
   --input Directory.Build.props
   --input FsusBlog.slnx
+  --input tools/test/lanes/production-build-artifacts.sh
 )
 if has_domain backend-runtime || has_domain test-runtime; then
-  CREATE_ARGS+=(--input src/backend/FsusBlog.Server.csproj)
+  CREATE_ARGS+=(
+    --input src/backend/FsusBlog.Server.csproj
+    --input src/backend/packages.lock.json
+    --input src/core/FsusBlog.Core.csproj
+    --input src/core/packages.lock.json
+    --input src/shared/FsusBlog.Shared.csproj
+    --input src/shared/packages.lock.json
+  )
 fi
 if has_domain test-runtime; then
-  CREATE_ARGS+=(--input tests/backend/FsusBlog.Server.Tests.csproj)
+  CREATE_ARGS+=(--input tests/backend/FsusBlog.Server.Tests.csproj --input tests/backend/packages.lock.json)
 fi
 if has_domain frontend-dist || has_domain wasm; then
-  CREATE_ARGS+=(--input src/frontend/package-lock.json --input src/frontend/vite.config.ts)
+  CREATE_ARGS+=(
+    --input src/frontend/package.json
+    --input src/frontend/package-lock.json
+    --input tools/frontend/ensure-wasm.mjs
+  )
+fi
+if has_domain frontend-dist; then
+  CREATE_ARGS+=(
+    --input tools/frontend/build.mjs
+    --input src/frontend/vite.config.ts
+    --input src/frontend/tsconfig.json
+    --input src/frontend/tsconfig.app.json
+    --input src/frontend/tsconfig.node.json
+  )
+fi
+if has_domain wasm; then
+  CREATE_ARGS+=(
+    --input src/frontend/wasm/build.sh
+    --input src/frontend/wasm/CMakeLists.txt
+    --input src/frontend/wasm/aeds/CMakeLists.txt
+    --input src/frontend/wasm/comment_privacy/CMakeLists.txt
+    --input src/frontend/wasm/image_codec/CMakeLists.txt
+    --input src/frontend/wasm/pow/CMakeLists.txt
+    --input src/frontend/wasm/search/CMakeLists.txt
+  )
 fi
 for domain in "${DOMAIN_LIST[@]}"; do
   if [[ "$domain" == "test-runtime" ]]; then
