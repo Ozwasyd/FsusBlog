@@ -153,6 +153,37 @@ describe('binary notification adapter', () => {
     expect(JSON.stringify(decoded.event.payload)).not.toMatch(/\b(?:userName|replyToUserId)\b/)
   })
 
+  it('decodes session revocation without exposing session or credential identifiers', () => {
+    const payload: number[] = []
+    writeInt64(payload, 88)
+    writeInt64(payload, Date.parse('2026-07-15T00:00:00.000Z'))
+    writeInt32(payload, NotificationStreamEventType.SessionRevoked)
+    writeInt32(payload, 0)
+    writeValue(payload, {
+      reason: 'passkey_counter_rollback',
+      revokedSessionCount: 2,
+      time: '2026-07-15T00:00:00.000Z'
+    })
+
+    const frame = encodeAedsFrame(FrameType.NotificationEvent, new Uint8Array(payload))
+    const decoded = decodeNotificationFrame(frame)
+
+    expect(decoded).toEqual({
+      kind: 'event',
+      event: {
+        id: 88,
+        type: NotificationStreamEventType.SessionRevoked,
+        ts: Date.parse('2026-07-15T00:00:00.000Z'),
+        payload: {
+          reason: 'passkey_counter_rollback',
+          revokedSessionCount: 2,
+          time: '2026-07-15T00:00:00.000Z'
+        }
+      }
+    })
+    expect(JSON.stringify(decoded)).not.toMatch(/sessionId|credentialId|token/i)
+  })
+
   it('recognizes notification heartbeat frames', () => {
     const payload: number[] = []
     writeInt64(payload, Date.now())

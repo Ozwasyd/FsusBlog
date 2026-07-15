@@ -77,6 +77,8 @@ public interface IUserSessionCommandService
 
     Task<int> RevokeOtherSessionsAsync(int userId, string? currentSessionId, CancellationToken cancellationToken = default);
 
+    Task<int> RevokeAllSessionsAsync(int userId, string reason, CancellationToken cancellationToken = default);
+
     Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
 }
 

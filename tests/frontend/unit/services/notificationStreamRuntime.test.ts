@@ -198,4 +198,31 @@ describe('resolveNotificationStreamEndpointUrl', () => {
     expect(duplicateEvents).toHaveBeenCalledWith(590)
     expect(duplicateEvents).toHaveBeenCalledWith(100)
   })
+
+  it('accepts account session revocation as a valid private event', async () => {
+    const runtime = new NotificationStreamRuntime()
+    const events = vi.fn()
+    const protocolErrors = vi.fn()
+    runtime.onEvent = events
+    runtime.onProtocolError = protocolErrors
+
+    const started = runtime.start(undefined, undefined, 'auth')
+    ;(await waitForSocket(0)).open()
+    await started
+    ManualWebSocket.instances[0]?.message({
+      id: 1,
+      type: NotificationStreamEventType.SessionRevoked,
+      ts: Date.now(),
+      payload: {
+        reason: 'passkey_counter_rollback',
+        revokedSessionCount: 2,
+        time: new Date().toISOString()
+      }
+    })
+
+    expect(events).toHaveBeenCalledWith(expect.objectContaining({
+      type: NotificationStreamEventType.SessionRevoked
+    }))
+    expect(protocolErrors).not.toHaveBeenCalled()
+  })
 })

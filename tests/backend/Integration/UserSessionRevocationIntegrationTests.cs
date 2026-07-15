@@ -78,6 +78,40 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
     }
 
     [Fact]
+    public async Task RevokeAllSessions_InvalidatesEveryWarmPrincipalWithSecurityReason()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        int accountId = await SeedAccountAsync(db);
+        UserSession first = await SeedSessionAsync(db, accountId, "rollback-a");
+        UserSession second = await SeedSessionAsync(db, accountId, "rollback-b");
+        var cache = new VersionedSessionValidationCache();
+        var validator = new UserSessionValidationService(db, cache);
+        ClaimsPrincipal firstPrincipal = CreatePrincipal(accountId, first.SessionId);
+        ClaimsPrincipal secondPrincipal = CreatePrincipal(accountId, second.SessionId);
+
+        Assert.True((await validator.ValidateAsync(firstPrincipal, CancellationToken.None)).IsValid);
+        Assert.True((await validator.ValidateAsync(secondPrincipal, CancellationToken.None)).IsValid);
+
+        UserService users = CreateUserService(db, cache);
+        int revoked = await users.RevokeAllSessionsAsync(
+            accountId,
+            "passkey_counter_rollback",
+            CancellationToken.None);
+
+        Assert.Equal(2, revoked);
+        Assert.Equal("user_session_revoked", (await validator.ValidateAsync(firstPrincipal, CancellationToken.None)).Reason);
+        Assert.Equal("user_session_revoked", (await validator.ValidateAsync(secondPrincipal, CancellationToken.None)).Reason);
+        List<UserSession> stored = await db.Queryable<UserSession>()
+            .Where(row => row.UserId == accountId)
+            .ToListAsync();
+        Assert.All(stored, row =>
+        {
+            Assert.NotNull(row.RevokedAt);
+            Assert.Equal("passkey_counter_rollback", row.RevokeReason);
+        });
+    }
+
+    [Fact]
     public async Task RefreshReplay_RevokesSessionAndImmediatelyRejectsOldPrincipal()
     {
         using SqlSugarClient db = await CreateDbAsync();

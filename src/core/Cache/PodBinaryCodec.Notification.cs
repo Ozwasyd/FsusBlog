@@ -284,6 +284,13 @@ public static partial class PodBinaryCodec
                     WriteField("time", payload.time);
                     return true;
 
+                case SessionRevokedPayload payload:
+                    WriteObjectHeader(3);
+                    WriteField("reason", payload.reason);
+                    WriteField("revokedSessionCount", payload.revokedSessionCount);
+                    WriteField("time", payload.time);
+                    return true;
+
                 case NoticePayload payload:
                     WriteObjectHeader(3);
                     WriteField("title", payload.title);

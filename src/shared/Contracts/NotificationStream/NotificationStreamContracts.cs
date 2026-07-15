@@ -39,7 +39,8 @@ public enum NotificationStreamEventType : short
     InboxConversationUpsert = 12,
     InboxMessageAppend = 13,
     InboxReadUpdated = 14,
-    InboxConversationClosed = 15
+    InboxConversationClosed = 15,
+    SessionRevoked = 16
 }
 
 public readonly record struct NotificationStreamEnvelopeV2<TPayload>(long Id, NotificationStreamEventType Type, long Ts, TPayload Payload);

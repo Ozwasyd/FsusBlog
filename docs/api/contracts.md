@@ -1046,6 +1046,19 @@ fixture redirect query 最大 2048 字符；`user.storage-state.json` / `admin.s
 | 13 | `InboxMessageAppend` | `InboxMessageAppendPayload` | 对话消息追加 |
 | 14 | `InboxReadUpdated` | `InboxReadUpdatedPayload` | 对话已读状态更新 |
 | 15 | `InboxConversationClosed` | `InboxConversationClosedPayload` | 对话关闭 |
+| 16 | `SessionRevoked` | `SessionRevokedPayload` | 已验证的 Passkey counter 回滚等账号级安全事件撤销全部普通会话；客户端立即进入重新认证，独立 admin principal 不受影响 |
+
+### `SessionRevokedPayload`
+
+```json
+{
+  "reason": "passkey_counter_rollback",
+  "revokedSessionCount": 2,
+  "time": "2026-07-15T00:00:00Z"
+}
+```
+
+该事件只在服务端持久会话撤销成功后发布，不携带 session id、credential id、token 或账号可关联标识。事件投递失败不回滚撤销；旧 principal 仍由 session validation DB/cache 边界 fail closed，客户端最迟在下一次请求或 refresh 时重新认证。
 
 ### `CacheControlPayload`
 

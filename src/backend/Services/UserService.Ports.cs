@@ -237,6 +237,12 @@ public sealed class UserSessionCommandService(UserService users) : IUserSessionC
         return users.RevokeOtherSessionsAsync(userId, currentSessionId);
     }
 
+    public Task<int> RevokeAllSessionsAsync(int userId, string reason, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return users.RevokeAllSessionsAsync(userId, reason, cancellationToken);
+    }
+
     public Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

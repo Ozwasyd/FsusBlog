@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { reactive, ref, shallowRef } from 'vue'
 import { createNotificationStreamRenderScheduler } from '@/services/notificationStreamRenderScheduler'
-import { NotificationStreamEventType, NotificationStreamFailureCodes, type NotificationStreamArticleRenderPatch, type NotificationStreamCommentRenderPatch, type NotificationStreamCursor, type NotificationStreamEventV2, type NotificationStreamFailureCode, type NotificationStreamInboxRenderPatch, type NotificationStreamRenderPatch, type NotificationStreamRuntimeState, type AccountStatusPayload } from '@/services/notificationStreamTypes'
+import { NotificationStreamEventType, NotificationStreamFailureCodes, type NotificationStreamArticleRenderPatch, type NotificationStreamCommentRenderPatch, type NotificationStreamCursor, type NotificationStreamEventV2, type NotificationStreamFailureCode, type NotificationStreamInboxRenderPatch, type NotificationStreamRenderPatch, type NotificationStreamRuntimeState, type AccountStatusPayload, type SessionRevokedPayload } from '@/services/notificationStreamTypes'
 import { AppErrorCode } from '@/utils/appError'
 
 function createInitialState(): NotificationStreamRuntimeState {
@@ -57,6 +57,8 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
   const unreadCount = ref(0)
   const userStatus = shallowRef<AccountStatusPayload | null>(null)
   const userStatusRevision = ref(0)
+  const sessionRevocation = shallowRef<SessionRevokedPayload | null>(null)
+  const sessionRevocationRevision = ref(0)
 
   const articleBatch = shallowRef<readonly NotificationStreamArticleRenderPatch[]>([])
   const articleRevision = ref(0)
@@ -205,6 +207,14 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
         userStatusRevision.value += 1
         return
 
+      case NotificationStreamEventType.SessionRevoked:
+        sessionRevocation.value = event.payload as SessionRevokedPayload
+        sessionRevocationRevision.value += 1
+        void import('@/services/authBroadcastRuntime').then(({ authBroadcastRuntime }) => {
+          authBroadcastRuntime.expireUserSession()
+        })
+        return
+
       case NotificationStreamEventType.CommentAdded:
         schedulePatch({
           module: 'comment',
@@ -321,6 +331,8 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
     unreadCount,
     userStatus,
     userStatusRevision,
+    sessionRevocation,
+    sessionRevocationRevision,
     articleBatch,
     articleRevision,
     commentBatch,

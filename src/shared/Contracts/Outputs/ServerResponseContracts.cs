@@ -607,6 +607,7 @@ public readonly record struct CommentAddedNotifyDto
 public readonly record struct GlobalNoticePayload(string id, string title, DateTime time);
 public readonly record struct MessageRevokedPayload(string messageId, int? unreadCount = null, DateTime? time = null);
 public readonly record struct AccountStatusPayload(int status, string? reason, DateTime time);
+public readonly record struct SessionRevokedPayload(string reason, int revokedSessionCount, DateTime time);
 public readonly record struct NoticePayload(string title, int unreadCount, DateTime time);
 public readonly record struct InboxConversationUpsertPayload(ConversationListItemResponse Conversation, int? TotalUnread = null, DateTime? Time = null);
 public readonly record struct InboxMessageAppendPayload(string ConversationId, ConversationMessageResponse Message, int? ConversationUnreadCount = null, int? TotalUnread = null, DateTime? Time = null);

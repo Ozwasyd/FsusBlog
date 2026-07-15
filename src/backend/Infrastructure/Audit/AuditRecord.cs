@@ -101,6 +101,7 @@ public static class AuditActionCatalog
     public const string ArticleTrashCleared = "admin.article.trash_cleared";
     public const string AuditQueried = "admin.audit.queried";
     public const string AuthSelfServicePrincipalRejected = "security.auth.self_service_principal_rejected";
+    public const string PasskeyCounterRollback = "security.passkey.counter_rollback";
 }
 
 public static class AuditOutcomeCatalog

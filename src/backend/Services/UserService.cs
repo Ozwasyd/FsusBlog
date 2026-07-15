@@ -1061,6 +1061,74 @@ public partial class UserService(
         return revokedSessions.Count;
     }
 
+    public async Task<int> RevokeAllSessionsAsync(
+        int userId,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        if (userId <= 0)
+        {
+            return 0;
+        }
+
+        string normalizedReason = string.IsNullOrWhiteSpace(reason)
+            ? "security_revoke_all"
+            : reason.Trim();
+        if (normalizedReason.Length > 128)
+        {
+            normalizedReason = normalizedReason[..128];
+        }
+
+        DateTime revokedAt = DateTime.UtcNow;
+        List<UserSessionValidationCacheState> revokedSessions = [];
+        bool publicationAttempted = false;
+        var transaction = await _db.Ado.UseTranAsync(async () =>
+        {
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+                """
+                UPDATE sys_user_session
+                SET revokedat = @RevokedAt,
+                    revokereason = @Reason
+                WHERE userid = @UserId
+                  AND revokedat IS NULL
+                RETURNING sessionid,
+                          userid,
+                          revokedat,
+                          idleexpiresat,
+                          absoluteexpiresat,
+                          xmin::text AS row_version;
+                """,
+                new SugarParameter("@RevokedAt", revokedAt),
+                new SugarParameter("@Reason", normalizedReason),
+                new SugarParameter("@UserId", userId)))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    revokedSessions.Add(ReadRevokedSessionValidationState(reader));
+                }
+            }
+
+            publicationAttempted = revokedSessions.Count > 0;
+            await _userSessionValidationCache.PublishManyAsync(
+                revokedSessions,
+                allowOverwrite: true,
+                cancellationToken);
+        });
+
+        if (!transaction.IsSuccess)
+        {
+            if (publicationAttempted)
+            {
+                await BestEffortInvalidateRevocationSnapshotsAsync(revokedSessions);
+            }
+
+            throw transaction.ErrorException
+                ?? new InvalidOperationException("bulk user session security revocation transaction failed");
+        }
+
+        return revokedSessions.Count;
+    }
+
     private static UserSessionValidationCacheState ReadRevokedSessionValidationState(DbDataReader reader)
         => new(
             reader.GetString(0),

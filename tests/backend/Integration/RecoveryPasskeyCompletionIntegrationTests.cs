@@ -8,8 +8,11 @@ using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
@@ -519,6 +522,9 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
             fido ?? Substitute.For<IFido2>(),
             db,
             cache,
+            Substitute.For<IUserSessionCommandService>(),
+            Substitute.For<IMessageNotificationStreamPort>(),
+            Substitute.For<IAuditEventService>(),
             NullLogger<PasskeyService>.Instance);
     }
 

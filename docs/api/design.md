@@ -276,7 +276,7 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 
 ### 匿名 vs 认证
 
-匿名连接只接收公开事件（GlobalNotice、CacheControl 等），但匿名不等于零门槛：`NotificationStreamHandshakeService` 在 `!isAuthenticated` 时先接受有效 legacy `pow`，否则按 `notification.subscribe` RiskControl 裁决要求 proof、升级 PoSpaceV1 或阻断，失败映射为 `risk_challenge_required`、`risk_challenge_rejected`、`risk_control_blocked` 等握手失败码。已认证用户额外接收私人事件（MessageReceived、InboxConversationUpsert 等）；如果请求携带认证头但认证失败，握手返回 `auth_failed`。
+匿名连接只接收公开事件（GlobalNotice、CacheControl 等），但匿名不等于零门槛：`NotificationStreamHandshakeService` 在 `!isAuthenticated` 时先接受有效 legacy `pow`，否则按 `notification.subscribe` RiskControl 裁决要求 proof、升级 PoSpaceV1 或阻断，失败映射为 `risk_challenge_required`、`risk_challenge_rejected`、`risk_control_blocked` 等握手失败码。已认证用户额外接收私人事件（MessageReceived、InboxConversationUpsert 等）；如果请求携带认证头但认证失败，握手返回 `auth_failed`。服务端确认 Passkey signature counter 回滚后会先撤销该账号全部普通会话，再向仍连接的账号通道发布 `SessionRevoked`。客户端收到该事件必须立即清除普通账号态并跨 tab 标记 `user-expired`，不得同时注销独立 admin principal。
 
 ### 错误码与持久化对照
 
@@ -320,6 +320,8 @@ tooling contract，不进入 AEDS runtime API，也不能被公开客户端或�
 ### 审计与缓存清理
 
 慢消费者（背压积压）自动断开连接，客户端需实现重连逻辑。写消息、连接中断、重连和封禁/删除状态变化必须保留可观测性；公开评论审核导致已公开评论新增、隐藏、拒绝或删除时，必须同步清理 comment cursor/frame 缓存，并通过 notification stream 推送 `CommentAdded` 或 `CommentRemoved`。
+
+`SessionRevoked` 是会话撤销后的加速通知，不是安全真相源。即使 backlog/notification stream 暂时不可用，`sys_user_session.revokedat` 与跨实例 session validation snapshot 仍会立即拒绝旧 access/refresh session；客户端在下一次请求或 refresh 时进入重新认证。该降级无需重启，也不得为了恢复通知而重新启用已撤销 session。
 
 ---
 

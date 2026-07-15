@@ -19,6 +19,12 @@ export interface AccountStatusPayload {
   time: string
 }
 
+export interface SessionRevokedPayload {
+  reason: string
+  revokedSessionCount: number
+  time: string
+}
+
 export interface GlobalNoticePayload {
   id: string
   title: string
@@ -115,7 +121,8 @@ export const NotificationStreamEventType = {
   InboxConversationUpsert: 12,
   InboxMessageAppend: 13,
   InboxReadUpdated: 14,
-  InboxConversationClosed: 15
+  InboxConversationClosed: 15,
+  SessionRevoked: 16
 } as const
 
 export type NotificationStreamEventType = (typeof NotificationStreamEventType)[keyof typeof NotificationStreamEventType]

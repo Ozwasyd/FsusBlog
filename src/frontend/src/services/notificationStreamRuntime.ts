@@ -23,7 +23,8 @@ const VALID_EVENT_TYPES = new Set<number>([
   NotificationStreamEventType.InboxConversationUpsert,
   NotificationStreamEventType.InboxMessageAppend,
   NotificationStreamEventType.InboxReadUpdated,
-  NotificationStreamEventType.InboxConversationClosed
+  NotificationStreamEventType.InboxConversationClosed,
+  NotificationStreamEventType.SessionRevoked
 ])
 
 type RuntimeStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'stopped'

@@ -2,8 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { useAdminStore } from '@/store/admin'
+import { useAppShellStore } from '@/store/appShell'
+import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useUserStore } from '@/store/user'
 import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
+import { NotificationStreamEventType } from '@/services/notificationStreamTypes'
 
 vi.mock('@/api/auth', () => ({
   getMe: vi.fn(),
@@ -177,6 +180,44 @@ describe('authBroadcastRuntime', () => {
     expect(MockBroadcastChannel.instances[0]?.messages).toEqual([
       expect.objectContaining({ type: 'expired' })
     ])
+  })
+
+  it('session revocation event forces only the user account to reauthenticate across tabs', async () => {
+    const pinia = createRuntimePinia()
+    const userStore = useUserStore(pinia)
+    const adminStore = useAdminStore(pinia)
+    const appShellStore = useAppShellStore(pinia)
+    const notificationStore = useNotificationStreamStore(pinia)
+    userStore.markAuthenticated(anonymousUser(1) as never)
+    adminStore.setAdminPrincipal({
+      id: 'admin',
+      displayName: 'Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+
+    notificationStore.consumeEvent({
+      id: 42,
+      type: NotificationStreamEventType.SessionRevoked,
+      ts: Date.now(),
+      payload: {
+        reason: 'passkey_counter_rollback',
+        revokedSessionCount: 2,
+        time: new Date().toISOString()
+      }
+    })
+
+    await vi.waitFor(() => expect(userStore.accountState).toBe('guest'))
+    expect(notificationStore.sessionRevocationRevision).toBe(1)
+    expect(notificationStore.sessionRevocation?.reason).toBe('passkey_counter_rollback')
+    expect(appShellStore.sessionPhase).toBe('expired')
+    expect(adminStore.adminState).toBe('active')
+    expect(MockBroadcastChannel.instances[0]?.messages).toContainEqual({
+      type: 'user-expired',
+      at: expect.any(Number)
+    })
+    expect(notificationStreamRuntime.stop).toHaveBeenCalledWith(true)
   })
 
   it('localStorage fallback dispatches and receives events', () => {

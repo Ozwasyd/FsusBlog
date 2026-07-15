@@ -1,14 +1,17 @@
 import type { Pinia } from 'pinia'
 import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
 import { useAdminStore } from '@/store/admin'
+import { useAppShellStore } from '@/store/appShell'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useUserStore } from '@/store/user'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
+import { clearLocalFixtureSession } from '@/services/localFixtureSession'
 
 export type AuthBroadcastEvent =
   | { type: 'login'; at: number }
   | { type: 'logout'; at: number }
   | { type: 'expired'; at: number }
+  | { type: 'user-expired'; at: number }
   | { type: 'admin-changed'; at: number }
 
 const AUTH_BROADCAST_CHANNEL = 'fsus-auth'
@@ -26,6 +29,7 @@ function isAuthBroadcastEvent(value: unknown): value is AuthBroadcastEvent {
     (candidate.type === 'login'
       || candidate.type === 'logout'
       || candidate.type === 'expired'
+      || candidate.type === 'user-expired'
       || candidate.type === 'admin-changed')
     && typeof candidate.at === 'number'
     && Number.isFinite(candidate.at)
@@ -89,6 +93,12 @@ class AuthBroadcastRuntime {
     this.broadcast(createEvent('expired'))
   }
 
+  expireUserSession(): void {
+    const event = createEvent('user-expired')
+    this.handleAuthBroadcastEvent(event)
+    this.broadcast(event)
+  }
+
   broadcastAdminChanged(): void {
     this.broadcast(createEvent('admin-changed'))
   }
@@ -109,6 +119,14 @@ class AuthBroadcastRuntime {
 
     if (event.type === 'admin-changed') {
       adminStore.invalidateMissingCache()
+      return
+    }
+
+    if (event.type === 'user-expired') {
+      clearLocalFixtureSession()
+      userStore.markGuest()
+      useAppShellStore(this.pinia).markSessionExpired()
+      this.stopAuthenticatedRuntime()
       return
     }
 
