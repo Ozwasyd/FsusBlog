@@ -349,7 +349,7 @@ tooling contract，不进入 AEDS runtime API，也不能被公开客户端或�
 
 ### feed / sitemap / robots 缓存约束
 
-feed、sitemap 与 robots 等开放分发文本端点只负责生成标准格式正文、声明 `Cache-Control: public, max-age=60, stale-while-revalidate=300`、`Vary: Accept-Encoding, CF-IPCountry, X-Fsus-Region` 并挂载 OutputCache ArticleList/Seo tag；端点本身不得按响应正文手写 ETag、解析 `If-None-Match` 或绕过统一缓存失效链路。
+feed、sitemap 与 robots 等开放分发文本端点只负责生成标准格式正文、声明 `Cache-Control: public, max-age=60, stale-while-revalidate=300`、`Vary: Accept-Encoding, CF-IPCountry, X-Fsus-Region` 并挂载 OutputCache ArticleList/Seo tag；端点本身不得按响应正文手写 ETag、解析 `If-None-Match` 或绕过统一缓存失效链路。它们是通用 HTTPS response compression 的显式公开白名单，metadata 只授予这些无 secret、无请求反射的 GET/HEAD 响应；Cookie/Authorization/CSRF 请求、非 public cache 响应或错误状态会在 response start 时回落 identity。公开 integrity manifest 使用同一策略，失败/no-store manifest 不压缩。
 
 Feed 与 sitemap 是两条独立投影：Feed 只读取按实际发布时间排序的最新 50 篇，sitemap 不得复用该限制，必须读取全部公开 canonical article identity。两者只联接 `article_body.updated_at` 获取实质正文更新时间，不读取正文；Feed 的 `date_published` 使用首次公开时间，`date_modified`/Atom `updated` 与 sitemap article `lastmod` 都使用正文更新时间，缺失正文时间时才回退发布时间。首页/归档使用公开文章集合的最近实质变化，分类/标签使用各自公开集合的最近实质变化，about/privacy/guidelines/copyright 只使用自身 `page_content.updated_at`；没有可靠时间就省略 `lastmod`，禁止使用当前时间填充。
 

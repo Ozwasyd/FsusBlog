@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Distribution;
 using System.Text.Json;
 
@@ -13,16 +14,19 @@ public static class DistributionEndpoints
         app.MapGet("/feed/rss.xml", async (HttpContext ctx, BlogDistributionService service, CancellationToken cancellationToken) =>
             await BuildCachedTextResultAsync(ctx, () => service.BuildRssAsync(cancellationToken), "application/rss+xml; charset=utf-8"))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .CacheOutput(static builder => ApplyDistributionCache(builder));
 
         app.MapGet("/api/Article/rss", async (HttpContext ctx, BlogDistributionService service, CancellationToken cancellationToken) =>
             await BuildCachedTextResultAsync(ctx, () => service.BuildRssAsync(cancellationToken), "application/rss+xml; charset=utf-8"))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .CacheOutput(static builder => ApplyDistributionCache(builder));
 
         app.MapGet("/feed/atom.xml", async (HttpContext ctx, BlogDistributionService service, CancellationToken cancellationToken) =>
             await BuildCachedTextResultAsync(ctx, () => service.BuildAtomAsync(cancellationToken), "application/atom+xml; charset=utf-8"))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .CacheOutput(static builder => ApplyDistributionCache(builder));
 
         app.MapGet("/feed/feed.json", async (HttpContext ctx, BlogDistributionService service, CancellationToken cancellationToken) =>
@@ -31,11 +35,13 @@ public static class DistributionEndpoints
             return BuildCachedTextResult(ctx, body, "application/feed+json; charset=utf-8");
         })
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .CacheOutput(static builder => ApplyDistributionCache(builder));
 
         app.MapGet("/sitemap.xml", async (HttpContext ctx, BlogDistributionService service, CancellationToken cancellationToken) =>
             await BuildCachedTextResultAsync(ctx, () => service.BuildSitemapAsync(cancellationToken), "application/xml; charset=utf-8"))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .CacheOutput(static builder => ApplyDistributionCache(builder));
 
         app.MapGet("/sitemap/{page:int}.xml", async (int page, HttpContext ctx, BlogDistributionService service, CancellationToken cancellationToken) =>
@@ -46,11 +52,13 @@ public static class DistributionEndpoints
                 : BuildCachedTextResult(ctx, body, "application/xml; charset=utf-8");
         })
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .CacheOutput(static builder => ApplyDistributionCache(builder));
 
         app.MapGet("/robots.txt", async (HttpContext ctx, BlogDistributionService service, CancellationToken cancellationToken) =>
             await BuildCachedTextResultAsync(ctx, () => service.BuildRobotsAsync(cancellationToken), "text/plain; charset=utf-8"))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .CacheOutput(static builder => ApplyDistributionCache(builder));
 
         return app;

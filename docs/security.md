@@ -34,6 +34,14 @@ ASP.NET Core Data Protection 使用独立 X.509 RSA 证书保护共享 key ring 
 
 AEDS pooled response buffer 采用敏感优先分类：未知 frame 以及 auth、session、MFA、Passkey、匿名凭证、admin/private、错误响应一律 `clearArray:true`；只有 `AedsFrameSensitivity` 中逐项登记的公开 immutable response frame 可以在 `Seal(frameType)` 后跳过最终清零。writer 扩容时尚未得知 frame type，因此被替换的中间 buffer 始终清零。新增 frame 若未同步进入公开白名单会保守清零，禁止全局 `clearArray:false`。若运行中怀疑公开 frame 分类或缓存所有权异常，通过现有 cache action/version invalidation 清除对应 raw frame 与 PublicHotRead snapshot，使请求回落到 L2/dynamic rebuild；敏感和未知 frame 不受该降级影响，不需要重启或放宽清零边界。
 
+## HTTPS 响应压缩隔离
+
+通用 `ResponseCompressionMiddleware` 默认不压缩任何 endpoint。只有同时带 `AllowAnonymous` 与 `PublicResponseCompressionMetadata` 的公开 GET/HEAD endpoint，且最终响应为 `200`、显式 `Cache-Control: public`、安全 `Vary`、无 `Set-Cookie` / `Content-Disposition` / 既有 `Content-Encoding` 时，才允许进入 Brotli/Gzip。当前白名单只有 feed、sitemap、robots 与公开 integrity manifest；允许媒体类型固定为 `application/atom+xml`、`application/feed+json`、`application/json`、`application/rss+xml`、`application/xml`、`text/plain`。
+
+任一 Cookie、Authorization、`X-Fsus-Csrf-Token`/常见 CSRF header、已认证 principal、authorization/antiforgery metadata、WebSocket、notification stream、`/auth`、`/admin`、`/account`、`/user`、`/manage`、`/internal`、`/api/binary`、非 200、`private`/`no-store`/`no-cache`、按 Cookie/Authorization/CSRF 变化或 HTML/binary media type 都 fail closed 为 identity。带随机 CSP nonce 的 SPA fallback 同样固定 identity；公共 HTML/AEDS 只有 publication 阶段生成且不含请求反射的 immutable artifact 可以使用各自预生成 br/gzip variant。错误响应不得为了节省流量重新开放动态压缩。
+
+运行时若发现白名单或代理缓存行为异常，在 reload-capable 配置源把 `ResponseCompressionPolicy:Enabled=false`；下一请求即停用通用 endpoint 压缩，无需重启，认证、admin、account、notification 与 binary 边界继续保持 identity。确认 header/cache/BREACH 负向 smoke 后再热更新为 `true`。该开关不改变 PublicHotRead immutable artifact 的独立 variant negotiation。
+
 ---
 
 ## Proof of Work (PoW)

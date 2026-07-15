@@ -36,21 +36,7 @@ public static class ServiceCollectionExtensions
             });
         });
 
-        services.AddResponseCompression(options =>
-        {
-            options.EnableForHttps = true;
-            options.Providers.Add<BrotliCompressionProvider>();
-            options.Providers.Add<GzipCompressionProvider>();
-            options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
-            [
-                "application/json",
-                "application/aeds",
-                "application/octet-stream",
-                "application/vnd.fsus.aeds",
-                "application/wasm",
-                "image/svg+xml"
-            ]);
-        });
+        services.AddFsusPublicResponseCompression(configuration);
         services.Configure<BrotliCompressionProviderOptions>(static options => options.Level = CompressionLevel.Fastest);
         services.Configure<GzipCompressionProviderOptions>(static options => options.Level = CompressionLevel.Fastest);
         services.AddOutputCache();

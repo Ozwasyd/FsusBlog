@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Buffers;
-using System.IO.Compression;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -93,7 +92,6 @@ public static class WebApplicationCompositionExtensions
     private const string HtmlContentType = "text/html; charset=utf-8";
     private const int DefaultSpaHeadInjectionCacheMaxEntries = 256;
     private const int DefaultSpaTemplateCacheMaxEntries = 64;
-    private const int SpaFallbackCompressionMinBytes = 1024;
     private const string HeadInjectionKindRoutePreload = "route-preload";
     private const string HeadInjectionKindPublicAssetSet = "public-asset-set";
     private static readonly byte[] EmptyBytes = [];
@@ -1172,7 +1170,6 @@ public static class WebApplicationCompositionExtensions
         int contentLength = template.GetLength(nonceBytes.Length, headInjection.Length);
 
         ctx.Response.ContentType = HtmlContentType;
-        EnsureAcceptEncodingVary(ctx.Response.Headers);
 
         ArrayBufferWriter<byte> output = new(Math.Max(contentLength, 0));
         template.Write(output, nonceBytes.Span, headInjection.Span);
@@ -1214,20 +1211,12 @@ public static class WebApplicationCompositionExtensions
         ReadOnlyMemory<byte> identityBytes,
         out PublicAotHtmlArtifactVariant variant)
     {
-        ReadOnlyMemory<byte> brotliBytes = EmptyBytes;
-        ReadOnlyMemory<byte> gzipBytes = EmptyBytes;
-        if (identityBytes.Length >= SpaFallbackCompressionMinBytes)
-        {
-            brotliBytes = TryCompressSpaHtml(identityBytes.Span, "br") ?? EmptyBytes;
-            gzipBytes = TryCompressSpaHtml(identityBytes.Span, "gzip") ?? EmptyBytes;
-        }
-
         var document = new PublicAotHtmlArtifact(
             identityBytes,
             string.Empty,
-            brotliBytes,
+            EmptyBytes,
             string.Empty,
-            gzipBytes,
+            EmptyBytes,
             string.Empty,
             HtmlContentType,
             PublicAotHtmlArtifactOptions.DefaultCacheControl,
@@ -1235,27 +1224,6 @@ public static class WebApplicationCompositionExtensions
             string.Empty,
             CspNonceTemplate: null);
         return PublicAotHtmlResponseNegotiation.TrySelectVariant(acceptEncoding, document, out variant);
-    }
-
-    private static byte[]? TryCompressSpaHtml(ReadOnlySpan<byte> bytes, string encoding)
-    {
-        using var output = new MemoryStream();
-        if (encoding == "br")
-        {
-            using (var brotli = new BrotliStream(output, CompressionLevel.Fastest, leaveOpen: true))
-            {
-                brotli.Write(bytes);
-            }
-        }
-        else
-        {
-            using (var gzip = new GZipStream(output, CompressionLevel.Fastest, leaveOpen: true))
-            {
-                gzip.Write(bytes);
-            }
-        }
-
-        return output.Length < bytes.Length ? output.ToArray() : null;
     }
 
     private static void EnsureAcceptEncodingVary(IHeaderDictionary headers)

@@ -1,6 +1,7 @@
 using System.Globalization;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 
@@ -16,6 +17,7 @@ public static class IntegrityVerificationEndpoints
             CancellationToken cancellationToken) =>
             WriteManifest(ctx, await service.GetKeysAsync(cancellationToken).ConfigureAwait(false)))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
         app.MapGet("/integrity/article/{articleId:int}", async (
@@ -25,6 +27,7 @@ public static class IntegrityVerificationEndpoints
             CancellationToken cancellationToken) =>
             WriteManifest(ctx, await service.GetCurrentArticleProofAsync(articleId, cancellationToken).ConfigureAwait(false)))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
         app.MapGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}", async (
@@ -35,6 +38,7 @@ public static class IntegrityVerificationEndpoints
             CancellationToken cancellationToken) =>
             WriteManifest(ctx, await service.GetArticleRevisionProofAsync(articleId, revisionNo, cancellationToken).ConfigureAwait(false)))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
         app.MapGet("/integrity/article/{articleId:int}/rights", async (
@@ -44,6 +48,7 @@ public static class IntegrityVerificationEndpoints
             CancellationToken cancellationToken) =>
             WriteManifest(ctx, await service.GetCurrentArticleRightsProofAsync(articleId, cancellationToken).ConfigureAwait(false)))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
         app.MapGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/rights", async (
@@ -54,6 +59,7 @@ public static class IntegrityVerificationEndpoints
             CancellationToken cancellationToken) =>
             WriteManifest(ctx, await service.GetArticleRevisionRightsProofAsync(articleId, revisionNo, cancellationToken).ConfigureAwait(false)))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
         app.MapGet("/integrity/article/{articleId:int}/responsibility", async (
@@ -63,6 +69,7 @@ public static class IntegrityVerificationEndpoints
             CancellationToken cancellationToken) =>
             WriteManifest(ctx, await service.GetCurrentAsync(articleId, cancellationToken).ConfigureAwait(false)))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
         app.MapGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/responsibility", async (
@@ -73,6 +80,7 @@ public static class IntegrityVerificationEndpoints
             CancellationToken cancellationToken) =>
             WriteManifest(ctx, await service.GetRevisionAsync(articleId, revisionNo, cancellationToken).ConfigureAwait(false)))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
         app.MapGet("/integrity/revisions/{articleRevisionId:long}", async (
@@ -82,6 +90,7 @@ public static class IntegrityVerificationEndpoints
             CancellationToken cancellationToken) =>
             WriteManifest(ctx, await service.GetRevisionProofAsync(articleRevisionId, cancellationToken).ConfigureAwait(false)))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
         app.MapGet("/integrity/checkpoints/latest", async (
@@ -90,6 +99,7 @@ public static class IntegrityVerificationEndpoints
             CancellationToken cancellationToken) =>
             WriteManifest(ctx, await service.GetLatestCheckpointAsync(cancellationToken).ConfigureAwait(false)))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
         app.MapGet("/integrity/checkpoints/{date}", async (
@@ -109,6 +119,7 @@ public static class IntegrityVerificationEndpoints
             return WriteManifest(ctx, await service.GetCheckpointAsync(checkpointDate, cancellationToken).ConfigureAwait(false));
         })
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
         app.MapGet("/integrity/log/head", async (
@@ -117,6 +128,7 @@ public static class IntegrityVerificationEndpoints
             CancellationToken cancellationToken) =>
             WriteManifest(ctx, await service.GetLogHeadAsync(cancellationToken).ConfigureAwait(false)))
             .AllowAnonymous()
+            .AllowPublicResponseCompression()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
         return app;

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.ResponseCompression;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -18,7 +19,7 @@ namespace FsusBlog.Server.Tests;
 public sealed class ServiceCollectionExtensionsTests
 {
     [Fact]
-    public void AddFsusApiFoundation_ConfiguresFastestResponseCompressionForApiPayloads()
+    public void AddFsusApiFoundation_ConfiguresEndpointAwarePublicResponseCompression()
     {
         var services = new ServiceCollection();
         IConfiguration configuration = new ConfigurationBuilder()
@@ -44,8 +45,14 @@ public sealed class ServiceCollectionExtensionsTests
         GzipCompressionProviderOptions gzipOptions = provider
             .GetRequiredService<IOptions<GzipCompressionProviderOptions>>()
             .Value;
+        PublicResponseCompressionPolicyOptions policyOptions = provider
+            .GetRequiredService<IOptions<PublicResponseCompressionPolicyOptions>>()
+            .Value;
 
         Assert.True(responseOptions.EnableForHttps);
+        Assert.True(policyOptions.Enabled);
+        Assert.IsType<EndpointAwareResponseCompressionProvider>(
+            provider.GetRequiredService<IResponseCompressionProvider>());
         Type[] compressionProviderTypes = responseOptions.Providers
             .Select(static provider => provider.GetType()
                 .GetProperty("ProviderType", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
@@ -57,7 +64,10 @@ public sealed class ServiceCollectionExtensionsTests
         Assert.Equal(CompressionLevel.Fastest, brotliOptions.Level);
         Assert.Equal(CompressionLevel.Fastest, gzipOptions.Level);
         Assert.Contains("application/json", responseOptions.MimeTypes);
-        Assert.Contains("application/vnd.fsus.aeds", responseOptions.MimeTypes);
+        Assert.Contains("application/rss+xml", responseOptions.MimeTypes);
+        Assert.DoesNotContain("application/octet-stream", responseOptions.MimeTypes);
+        Assert.DoesNotContain("application/vnd.fsus.aeds", responseOptions.MimeTypes);
+        Assert.DoesNotContain("text/html", responseOptions.MimeTypes);
     }
 
     [Fact]
