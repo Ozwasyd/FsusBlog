@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const repoRoot = resolve(process.cwd(), '../..')
@@ -22,18 +22,23 @@ const publicAotComposer = read('src/backend/Infrastructure/PublicAot/PublicAotDo
 const serviceWorker = read('src/frontend/public/sw.js')
 const telemetry = read('src/frontend/src/services/telemetryService.ts')
 const subscription = read('src/backend/Modules/Endpoints/SubscriptionEndpoints.cs')
-const authorPreviewEndpoint = read('src/backend/Modules/Endpoints/AuthoringEndpoints.cs')
+const authoringEndpointsRoot = resolve(repoRoot, 'src/backend/Modules/Endpoints')
+const authorPreviewEndpoint = readdirSync(authoringEndpointsRoot)
+  .filter((name) => /^AuthoringEndpoints(?:\..+)?\.cs$/u.test(name))
+  .sort()
+  .map((name) => read(`src/backend/Modules/Endpoints/${name}`))
+  .join('\n')
 const bridgeAuthoringPrefixSymbol = ['BinaryBridgeInternalRequest', 'AuthoringPrefix'].join('.')
 const bridgeInternalOnlyFilterSymbol = ['BinaryBridgeInternalOnly', 'Filter'].join('')
 
-for (const [label, source] of [
-  ['distribution feeds/sitemap', distribution],
-  ['search index', search]
-]) {
-  assert(source.includes('ArticleStatus.Published'), `${label} must filter to published articles`)
-  assert(source.includes('PublishedAt <= now') || source.includes('PublishedAt == null ||'), `${label} must respect PublishedAt`)
-  assert(source.includes('ScheduledPublishAt <= now') || source.includes('ScheduledPublishAt == null ||'), `${label} must respect ScheduledPublishAt`)
-}
+assert(distribution.includes('a.status = @Status'), 'distribution feeds/sitemap must filter to published articles')
+assert(distribution.includes('new("@Status", (int)ArticleStatus.Published)'), 'distribution feeds/sitemap must bind published status')
+assert(distribution.includes('a.published_at IS NULL OR a.published_at <= @Now'), 'distribution feeds/sitemap must respect PublishedAt')
+assert(distribution.includes('a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now'), 'distribution feeds/sitemap must respect ScheduledPublishAt')
+
+assert(search.includes('ArticleStatus.Published'), 'search index must filter to published articles')
+assert(search.includes('PublishedAt <= now') || search.includes('PublishedAt == null ||'), 'search index must respect PublishedAt')
+assert(search.includes('ScheduledPublishAt <= now') || search.includes('ScheduledPublishAt == null ||'), 'search index must respect ScheduledPublishAt')
 
 for (const [label, source] of [
   ['PublicAOT snapshots', publicAotSnapshots],
@@ -68,7 +73,8 @@ for (const publicArtifactPath of [
 ]) {
   assert(!shellPathBlock.includes(publicArtifactPath), `service worker shell cache must not include ${publicArtifactPath}`)
 }
-assert(serviceWorker.includes('server headers own browser cache policy'), 'service worker must leave binary artifact browser cache policy to the server')
+assert(serviceWorker.includes("failureKind = url.pathname.startsWith('/api/binary/')"), 'service worker must classify binary requests as network-only')
+assert(serviceWorker.includes('event.respondWith(networkOnlyRequest(request, failureKind))'), 'service worker must leave binary artifact browser cache policy to the server')
 assert(serviceWorker.includes('clearLegacyFsusCaches'), 'service worker must clear old public caches on activate')
 assert(serviceWorker.includes('shell.invalidate'), 'service worker must support public shell invalidation')
 

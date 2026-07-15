@@ -6,6 +6,7 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Integration;
 
+[Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigrationFixture fixture)

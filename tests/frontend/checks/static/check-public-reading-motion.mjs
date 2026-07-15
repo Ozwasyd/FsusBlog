@@ -166,9 +166,10 @@ for (const [source, label] of [
   [filterArticleLoading, 'FilterArticleLoadingState.vue']
 ]) {
   expectNotMatches(source, /<el-skeleton[^>]*\sanimated\b/, `${label} public reading skeleton must not be animated`)
-  expectIncludes(source, '--el-skeleton-color: var(--fsusblog-skeleton-bg)', `${label} neutral skeleton color`)
-  expectIncludes(source, '--el-skeleton-to-color: var(--fsusblog-skeleton-bg)', `${label} neutral skeleton shimmer target`)
 }
+expectIncludes(publicPageCss, '.fsusblog-skeleton-surface {', 'public-page.css shared neutral skeleton surface')
+expectIncludes(publicPageCss, '--el-skeleton-color: var(--fsusblog-skeleton-bg);', 'public-page.css shared neutral skeleton color')
+expectIncludes(publicPageCss, '--el-skeleton-to-color: var(--fsusblog-skeleton-bg);', 'public-page.css shared neutral skeleton shimmer target')
 
 for (const [source, label] of [
   [publicArticleDetail, 'PublicArticleDetailPageContent.vue'],

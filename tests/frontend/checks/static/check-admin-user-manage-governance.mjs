@@ -177,12 +177,15 @@ for (const token of [
   'passkeyInitialized: boolean',
   'recoveryInitialized: boolean',
   'anonymousCredentialStatus: string',
-  'anonymousCredentialLevel: string',
   'riskFlags: number'
 ]) {
   if (!adminApi.includes(token)) {
     fail(adminApiPath, 1, `Admin API anonymous account contract is missing ${token}`)
   }
+}
+
+if (adminApi.includes('anonymousCredentialLevel')) {
+  fail(adminApiPath, lineOf(adminApi, 'anonymousCredentialLevel'), 'Admin API anonymous account contract must not expose the private credential level')
 }
 
 if (!/export interface AdminChangeStatusDto extends PowBaseDto\s*\{\s*accountId: number/u.test(adminApi)) {

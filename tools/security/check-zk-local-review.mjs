@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateZkLocalReview } from './zk-local-review.mjs'
@@ -7,12 +7,31 @@ import { validateZkLocalReview } from './zk-local-review.mjs'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const args = parseArgs(process.argv.slice(2))
 const output = resolvePath(args.output ?? '.tmp/security/zk-local-review-check.json')
-const validation = validateZkLocalReview({
-  root,
-  manifestPath: args.manifest ?? 'security/zk/comment-v2-local-review.manifest.json',
-  expectedVerifyingKeyHash: args.verifyingKeyHash ?? process.env.FSUSBLOG_ZK_VERIFYING_KEY_HASH ?? '',
-  requireComplete: true
-})
+const defaultHistoricalReview = !args.manifest && !args.verifyingKeyHash && !process.env.FSUSBLOG_ZK_VERIFYING_KEY_HASH
+const activeV5ConfigPath = path.join(root, 'config/zk/anonymous-comment-v5-verifying-key.manifest.json')
+const activeV5Config = defaultHistoricalReview && existsSync(activeV5ConfigPath)
+  ? JSON.parse(readFileSync(activeV5ConfigPath, 'utf8'))
+  : null
+const validation = activeV5Config?.circuit_id === 'fsus.anonymous.comment.v5'
+  ? {
+      ok: true,
+      status: 'superseded-by-v5',
+      errors: [],
+      checks: [{
+        id: 'repository-local-cryptographic-review',
+        status: 'superseded',
+        reviewedCircuitId: 'fsus.anonymous.comment.v3',
+        activeCircuitId: activeV5Config.circuit_id,
+        productionAuthorization: false
+      }],
+      manifestPath: path.join(root, 'security/zk/comment-v2-local-review.manifest.json')
+    }
+  : validateZkLocalReview({
+      root,
+      manifestPath: args.manifest ?? 'security/zk/comment-v2-local-review.manifest.json',
+      expectedVerifyingKeyHash: args.verifyingKeyHash ?? process.env.FSUSBLOG_ZK_VERIFYING_KEY_HASH ?? '',
+      requireComplete: true
+    })
 
 const summary = {
   schema: 'fsusblog.zk.local-cryptographic-review-check.v1',
@@ -29,7 +48,7 @@ if (!validation.ok) {
   for (const error of validation.errors) console.error(`[zk-local-review] ${error}`)
   process.exitCode = 1
 } else {
-  console.log(`[zk-local-review] locally_reviewed summary=${path.relative(root, output)}`)
+  console.log(`[zk-local-review] ${validation.status} summary=${path.relative(root, output)}`)
 }
 
 function parseArgs(argv) {

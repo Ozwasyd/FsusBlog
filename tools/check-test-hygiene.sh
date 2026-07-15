@@ -95,7 +95,8 @@ MISPLACED_FIXTURES="$(
     ! -name '*.json' \
     ! -name '*.jsonc' \
     ! -name '*.txt' \
-    ! -path '*/security-source-analysis/*.cs' | sort || true
+    ! -path '*/security-source-analysis/*.cs' \
+    ! -path '*/data-reader-ordinal-analysis/*.cs' | sort || true
 )"
 
 if [[ -n "$MISPLACED_FIXTURES" ]]; then

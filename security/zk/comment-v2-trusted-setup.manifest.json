@@ -3,7 +3,7 @@
   "circuit_id": "fsus.anonymous.comment.v3",
   "public_input_layout_version": 4,
   "circuit_manifest_path": "security/zk/comment-v2-circuit.manifest.json",
-  "circuit_manifest_sha256": "b638c72f626454d31d2e22b4da29c404901d5a1a12c1e98188d3224663c5cc5f",
+  "circuit_manifest_sha256": "f300fdb18a99c69d28b7bd809f35ab6277d762a05e45be18663d5e00d18337c9",
   "local_cryptographic_review_manifest": "security/zk/comment-v2-local-review.manifest.json",
   "ceremony_status": "not-run",
   "production_usable": false,

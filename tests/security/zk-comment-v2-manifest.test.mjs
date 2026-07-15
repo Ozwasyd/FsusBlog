@@ -367,6 +367,7 @@ test('checker accepts self-written verified setup when all artifacts are hash-bo
     }
 
     const result = withTempManifests((documents) => {
+      documents.setup.circuit_manifest_sha256 = manifestHash(documents.circuit)
       documents.setup.ceremony_status = 'verified'
       documents.setup.production_usable = true
       documents.setup.fail_closed_reason = ''

@@ -13,15 +13,16 @@ import {
 const root = path.resolve(import.meta.dirname, '..', '..')
 const committedManifest = path.join(root, 'security/zk/comment-v2-local-review.manifest.json')
 
-test('committed repository-local cryptographic review is complete and hash-bound', () => {
+test('superseded v3 repository-local review cannot authorize the active v5 source', () => {
   const result = validateZkLocalReview({
     root,
     manifestPath: committedManifest,
     requireComplete: true
   })
 
-  assert.equal(result.ok, true, result.errors.join('\n'))
-  assert.equal(result.status, 'locally_reviewed')
+  assert.equal(result.ok, false)
+  assert.equal(result.status, 'failed')
+  assert.match(result.errors.join('\n'), /SHA-256 does not match the file/)
   assert.equal(result.manifest.independent_audit_claimed, false)
   assert.equal(result.manifest.production_authorization, false)
 })

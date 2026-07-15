@@ -1,4 +1,5 @@
 import type { AdminAccountListItem, PageResult } from '@/api/admin';
+import { AppErrorCode, createAppError } from '@/utils/appError';
 import { readPageEnvelope } from './envelopeReaders';
 import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64 } from './reader';
 import { USER_LIST_ITEM_POD_SIZE } from './types';
@@ -11,7 +12,7 @@ export function mapAdminUserPageFromPayload(payload: Uint8Array): PageResult<Adm
 function readAdminAccountListItem(reader: BinaryReader): AdminAccountListItem {
   const pod = reader.readSpan(USER_LIST_ITEM_POD_SIZE);
   if (readFixedUtf8(pod, 168, 32).length > 0) {
-    throw new Error('admin_account_credential_class_must_be_empty');
+    throw createAppError(AppErrorCode.ProtocolFailure, 'admin_account_credential_class_must_be_empty');
   }
   const hasPublicHandle = readByte(pod, 200) === 1;
   const passkeyInitialized = readByte(pod, 201) === 1;

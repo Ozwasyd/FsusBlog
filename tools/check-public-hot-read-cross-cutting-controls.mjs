@@ -11,7 +11,11 @@ const files = {
   catalog: read('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadCrossCuttingControlCatalog.cs'),
   routeCatalog: read('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadRouteSecurityCatalog.cs'),
   early: read('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs'),
-  fast: read('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs'),
+  fast: [
+    read('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs'),
+    read('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Routing.cs'),
+    read('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs')
+  ].join('\n'),
   composition: read('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs'),
   tests: read('tests/backend/Unit/PublicHotReadCrossCuttingControlTests.cs')
 }

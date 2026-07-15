@@ -131,7 +131,7 @@ describe('commentPrivacyWasmProver', () => {
 
   it.each([
     ['external module', { moduleUrl: 'https://evil.example/comment-privacy-prover.js' }],
-    ['blob module', { moduleUrl: 'blob:https://fsus.blog/opaque' }],
+    ['blob module', { moduleUrl: 'blob:https://app.example.invalid/opaque' }],
     ['query-swapped module', { moduleUrl: '/wasm/comment-privacy-prover.js?version=evil' }],
     ['external wasm', { wasmUrl: 'https://evil.example/comment-privacy-prover.wasm' }],
     ['wrong proving key path', { provingKeyUrl: '/wasm/replacement.zkey' }]

@@ -3,8 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FASTPATH_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"
+FASTPATH_SERVING_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs"
+FASTPATH_ROUTING_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Routing.cs"
+export FSUSBLOG_FASTPATH_PART_FILES="$FASTPATH_ROUTING_FILE:$FASTPATH_SERVING_FILE"
 SANITY_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSanity.cs"
 RESIDENCY_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadResidency.cs"
+METRICS_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs"
 PROJECTOR_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"
 REVOCATION_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicArtifactRevocation.cs"
 MUTATION_FENCE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicMutationFenceLease.cs"
@@ -74,7 +78,8 @@ echo "[public-hot-read] checking declarative route security and publication evid
 node - "$FASTPATH_FILE" "$EARLY_DATA_PLANE_FILE" "$ROUTE_SECURITY_FILE" "$PROJECTOR_FILE" <<'NODE'
 const fs = require('node:fs');
 const [fastPathFile, earlyDataPlaneFile, routeSecurityFile, projectorFile] = process.argv.slice(2);
-const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const fastPath = [fastPathFile, ...process.env.FSUSBLOG_FASTPATH_PART_FILES.split(':')]
+  .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const earlyDataPlane = fs.readFileSync(earlyDataPlaneFile, 'utf8');
 const routeSecurity = fs.readFileSync(routeSecurityFile, 'utf8');
 const projector = fs.readFileSync(projectorFile, 'utf8');
@@ -126,10 +131,10 @@ for (const token of [
 NODE
 
 echo "[public-hot-read] checking post-publish sanity and fallback boundary"
-node - "$FASTPATH_FILE" "$SANITY_FILE" "$PROJECTOR_FILE" <<'NODE'
+node - "$FASTPATH_FILE" "$FASTPATH_SERVING_FILE" "$SANITY_FILE" "$PROJECTOR_FILE" <<'NODE'
 const fs = require('node:fs');
-const [fastPathFile, sanityFile, projectorFile] = process.argv.slice(2);
-const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const [fastPathFile, fastPathServingFile, sanityFile, projectorFile] = process.argv.slice(2);
+const fastPath = `${fs.readFileSync(fastPathFile, 'utf8')}\n${fs.readFileSync(fastPathServingFile, 'utf8')}`;
 const sanity = fs.readFileSync(sanityFile, 'utf8');
 const projector = fs.readFileSync(projectorFile, 'utf8');
 for (const token of [
@@ -233,7 +238,8 @@ echo "[public-hot-read] checking CSP nonce template publication boundary"
 node - "$FASTPATH_FILE" "$COMPOSITION_FILE" "$NONCE_TEMPLATE_FILE" <<'NODE'
 const fs = require('node:fs');
 const [fastPathFile, compositionFile, templateFile] = process.argv.slice(2);
-const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const fastPath = [fastPathFile, ...process.env.FSUSBLOG_FASTPATH_PART_FILES.split(':')]
+  .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const composition = fs.readFileSync(compositionFile, 'utf8');
 const template = fs.readFileSync(templateFile, 'utf8');
 for (const [label, source, token] of [
@@ -265,11 +271,13 @@ for (const [label, source, token] of [
 NODE
 
 echo "[public-hot-read] checking resident-byte admission and lifecycle contracts"
-node - "$FASTPATH_FILE" "$RESIDENCY_FILE" "$PROJECTOR_FILE" "$AOT_FILE_CACHE_FILE" "$AOT_MEMORY_CACHE_FILE" "$OBSERVABILITY_REGISTRATION_FILE" <<'NODE'
+node - "$FASTPATH_FILE" "$RESIDENCY_FILE" "$METRICS_FILE" "$PROJECTOR_FILE" "$AOT_FILE_CACHE_FILE" "$AOT_MEMORY_CACHE_FILE" "$OBSERVABILITY_REGISTRATION_FILE" <<'NODE'
 const fs = require('node:fs');
-const [fastPathFile, residencyFile, projectorFile, aotFileCacheFile, aotMemoryCacheFile, observabilityRegistrationFile] = process.argv.slice(2);
-const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const [fastPathFile, residencyFile, metricsFile, projectorFile, aotFileCacheFile, aotMemoryCacheFile, observabilityRegistrationFile] = process.argv.slice(2);
+const fastPath = [fastPathFile, ...process.env.FSUSBLOG_FASTPATH_PART_FILES.split(':')]
+  .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const residency = fs.readFileSync(residencyFile, 'utf8');
+const metrics = fs.readFileSync(metricsFile, 'utf8');
 const projector = fs.readFileSync(projectorFile, 'utf8');
 const aotFileCache = fs.readFileSync(aotFileCacheFile, 'utf8');
 const aotMemoryCache = fs.readFileSync(aotMemoryCacheFile, 'utf8');
@@ -287,14 +295,21 @@ for (const token of [
   'fsus.public_hot.retiring.evictions',
   'LifecycleHistory',
   'PublicHotReadResidentBreakdown',
-  'ValidateCandidate',
+  'ValidateCandidate'
+]) {
+  if (!fastPath.includes(token)) {
+    console.error(`[public-hot-read] missing resident lifecycle token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
   'IdentityVariant',
   'BrotliVariant',
   'GzipVariant',
   'fsus.hotread.encoding.br'
 ]) {
-  if (!fastPath.includes(token)) {
-    console.error(`[public-hot-read] missing resident lifecycle token: ${token}`);
+  if (!metrics.includes(token)) {
+    console.error(`[public-hot-read] missing encoding metric token: ${token}`);
     process.exit(1);
   }
 }
@@ -359,7 +374,8 @@ echo "[public-hot-read] checking single-classification feature sharing"
 node - "$FASTPATH_FILE" "$EARLY_DATA_PLANE_FILE" "$SECURITY_GATE_FILE" <<'NODE'
 const fs = require('node:fs');
 const [fastPathFile, earlyDataPlaneFile, securityGateFile] = process.argv.slice(2);
-const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const fastPath = [fastPathFile, ...process.env.FSUSBLOG_FASTPATH_PART_FILES.split(':')]
+  .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const earlyDataPlane = fs.readFileSync(earlyDataPlaneFile, 'utf8');
 const securityGate = fs.readFileSync(securityGateFile, 'utf8');
 for (const token of [
@@ -413,19 +429,22 @@ for (const token of ['TryClassifyRoute', 'RequiresSecurityGateForRequest']) {
 NODE
 
 echo "[public-hot-read] checking sensitive-prefix bypass observability"
-node - "$FASTPATH_FILE" "$EARLY_DATA_PLANE_FILE" "$GATEWAY_FILE" <<'NODE'
+node - "$FASTPATH_FILE" "$METRICS_FILE" "$EARLY_DATA_PLANE_FILE" "$GATEWAY_FILE" <<'NODE'
 const fs = require('node:fs');
-const [fastPathFile, earlyDataPlaneFile, gatewayFile] = process.argv.slice(2);
-const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const [fastPathFile, metricsFile, earlyDataPlaneFile, gatewayFile] = process.argv.slice(2);
+const fastPath = [fastPathFile, ...process.env.FSUSBLOG_FASTPATH_PART_FILES.split(':')]
+  .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+const metrics = fs.readFileSync(metricsFile, 'utf8');
 const earlyDataPlane = fs.readFileSync(earlyDataPlaneFile, 'utf8');
 const gateway = fs.readFileSync(gatewayFile, 'utf8');
+const sensitiveBypassEvidence = `${fastPath}\n${metrics}\n${earlyDataPlane}`;
 for (const token of [
   'fsus.hotread.classifier.sensitive_bypass',
   'public-hot-read-sensitive-prefix-bypass',
   'logger.LogWarning',
   'CollectSensitivePrefixBypassAndReset'
 ]) {
-  if (!fastPath.includes(token)) {
+  if (!sensitiveBypassEvidence.includes(token)) {
     console.error(`[public-hot-read] missing sensitive-prefix bypass metric/alert token: ${token}`);
     process.exit(1);
   }
@@ -455,11 +474,14 @@ for (const token of [
 NODE
 
 echo "[public-hot-read] checking credential-bearing bypass observability"
-node - "$FASTPATH_FILE" "$EARLY_DATA_PLANE_FILE" <<'NODE'
+node - "$FASTPATH_FILE" "$METRICS_FILE" "$EARLY_DATA_PLANE_FILE" <<'NODE'
 const fs = require('node:fs');
-const [fastPathFile, earlyDataPlaneFile] = process.argv.slice(2);
-const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const [fastPathFile, metricsFile, earlyDataPlaneFile] = process.argv.slice(2);
+const fastPath = [fastPathFile, ...process.env.FSUSBLOG_FASTPATH_PART_FILES.split(':')]
+  .map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+const metrics = fs.readFileSync(metricsFile, 'utf8');
 const earlyDataPlane = fs.readFileSync(earlyDataPlaneFile, 'utf8');
+const credentialBypassEvidence = `${fastPath}\n${metrics}\n${earlyDataPlane}`;
 for (const token of [
   'HasCredentialBearingInput',
   'Authorization',
@@ -470,7 +492,7 @@ for (const token of [
   'fsus.hotread.classifier.credential_bypass',
   'CollectCredentialBypassAndReset'
 ]) {
-  if (!fastPath.includes(token)) {
+  if (!credentialBypassEvidence.includes(token)) {
     console.error(`[public-hot-read] missing credential bypass token: ${token}`);
     process.exit(1);
   }
@@ -486,15 +508,12 @@ NODE
 echo "[public-hot-read] checking L0 hot path dependency budget"
 node - "$FASTPATH_FILE" <<'NODE'
 const fs = require('node:fs');
-const file = process.argv[2];
-const source = fs.readFileSync(file, 'utf8');
-const start = source.indexOf('public static class PublicHotReadFastPath');
-const end = source.indexOf('public readonly record struct PublicHotReadCounterSnapshot');
-if (start < 0 || end < 0 || end <= start) {
+const block = process.env.FSUSBLOG_FASTPATH_PART_FILES.split(':')
+  .map((path) => fs.readFileSync(path, 'utf8')).join('\n');
+if (!block.includes('public static partial class PublicHotReadFastPath')) {
   console.error('[public-hot-read] unable to isolate PublicHotReadFastPath source block');
   process.exit(1);
 }
-const block = source.slice(start, end);
 const banned = [
   'RequestServices',
   'File.',
@@ -517,9 +536,10 @@ for (const token of banned) {
 NODE
 
 echo "[public-hot-read] checking protocol/readiness boundary tokens"
-node - "$FASTPATH_FILE" <<'NODE'
+node - "$FASTPATH_FILE" "$METRICS_FILE" "$SANITY_FILE" <<'NODE'
 const fs = require('node:fs');
-const source = fs.readFileSync(process.argv[2], 'utf8');
+const source = [process.argv[2], process.argv[3], process.argv[4], ...process.env.FSUSBLOG_FASTPATH_PART_FILES.split(':')]
+  .map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 const required = [
   'private const string CategoryPath = "/api/binary/category.aeds"',
   'private const string CategoryPathWithoutSuffix = "/api/binary/category"',

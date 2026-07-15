@@ -92,7 +92,7 @@ function readPopularArticleStat(itemPod: Uint8Array, blob: Uint8Array): AdminSta
 
 function readRecentCommentStat(pod: Uint8Array, blob: Uint8Array): RecentCommentStatItem {
   if (readSliceText(blob, readSliceRef(pod, 40)).length > 0) {
-    throw new Error('recent_comment_privacy_class_must_be_empty');
+    throw createAppError(AppErrorCode.ProtocolFailure, 'recent_comment_privacy_class_must_be_empty');
   }
   return {
     createTime: readIsoDate64(pod, 0),

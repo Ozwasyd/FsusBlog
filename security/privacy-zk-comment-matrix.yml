@@ -49,7 +49,7 @@ scenarios:
       - tools/crypto/check-zk-comment-v2-manifests.mjs
     evidence:
       - .tmp/security/zk-comment-v2-manifest.json
-      - .tmp/security/comment-v3-unlinkability.json
+      - .tmp/security/comment-v5-unlinkability.json
 
   - id: PRIVACY-ZK-TRUSTED-SETUP
     scenario: comment.v2 trusted setup and verifying key manifests are fail-closed until real pk/vk/transcripts are supplied

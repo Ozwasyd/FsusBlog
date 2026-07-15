@@ -79,7 +79,7 @@ localProfiles:
         memoryWeight: 10
         minCpuUnits: 1
         startupMinCpuUnits: 1
-        startupMemoryWeight: 10
+        startupMemoryWeight: 0.25
         startupPriority: 1
         artifactSubstitutions: [fast::.tmp/backend-fast=>.tmp/local-production/performance-evidence/member-summaries/fast/summary.json, fast::.tmp/backend-fast/summary.json=>.tmp/local-production/performance-evidence/member-summaries/fast/summary.json, production::.tmp/backend-concurrency/summary.json=>.tmp/local-production/performance-evidence/member-summaries/production/summary.json, production::.tmp/release-evidence/test-suite-convergence.json=>.tmp/local-production/performance-evidence/member-summaries/production/summary.json]
         exclusiveResources: []

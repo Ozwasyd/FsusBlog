@@ -53,6 +53,34 @@
     },
     {
       "covers": [
+        "revocation_non_membership"
+      ],
+      "id": "tamper-revocation-content-hash",
+      "mutates": [
+        "revocation_artifact.content_sha256"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "revocation_non_membership",
+      "status": "rejected"
+    },
+    {
+      "covers": [
+        "revocation_non_membership",
+        "current_credential_root"
+      ],
+      "id": "tamper-revocation-artifact-binding",
+      "mutates": [
+        "revocation_artifact.issuer_id",
+        "revocation_artifact.circuit_id",
+        "revocation_artifact.epoch",
+        "revocation_artifact.root"
+      ],
+      "reason": "deterministic circuit IR verifier rejects mutated witness/public input binding",
+      "rejected_by": "revocation_non_membership",
+      "status": "rejected"
+    },
+    {
+      "covers": [
         "qualification_policy"
       ],
       "id": "tamper-policy-hash",

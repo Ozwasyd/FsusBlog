@@ -26,5 +26,12 @@
   "rate_class_catalog": ["common", "unknown"],
   "minimum_production_anonymity_set_size": 20,
   "legacy_layouts_rejected": [1, 2, 3, 4, 5],
+  "transcript_unlinkability": {
+    "sample_scope_count": 100,
+    "same_scope_nullifier_stable": true,
+    "different_scope_nullifier_unique": true,
+    "complete_wire_transcript_checked": true,
+    "credential_specific_stable_fields_allowed": []
+  },
   "verifying_key_hash": ""
 }

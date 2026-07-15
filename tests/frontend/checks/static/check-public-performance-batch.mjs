@@ -37,8 +37,9 @@ for (const token of [
   '.tmp/release-evidence/frontend-render-pressure-summary.json',
   '/category/:id',
   '/tag/:id',
-  'at least 20% smaller',
-  'Vary: Accept-Encoding'
+  'compression oracle',
+  'identity encoding',
+  'pre-materialized PublicAOT'
 ]) {
   assert(doc.includes(token), `performance batch doc missing ${token}`)
 }
@@ -62,10 +63,12 @@ for (const token of [
 }
 
 for (const token of [
-  'SpaFallbackHtmlResponse_CompressesBrotliAndPreservesNonceAndHeadInjection',
-  'SpaFallbackHtmlResponse_HonorsGzipNegotiation',
-  'identityBytes * 0.8',
-  'at least 20% smaller'
+  'SpaFallbackHtmlResponse_StreamsIdentityToKeepNonceOutOfCompressionOracle',
+  'SpaFallbackHtmlResponse_RejectsWhenIdentityIsForbidden',
+  'Assert.DoesNotContain("Accept-Encoding", context.Response.Headers.Vary.ToString()',
+  'PublicAotHtmlFastPath_ProbeCapturesBytesLatencyAndAllocationShape',
+  'Assert.True(brotliBytes < identityBytes)',
+  'Assert.True(gzipBytes < identityBytes)'
 ]) {
   assert(backendTests.includes(token), `backend fallback compression test missing ${token}`)
 }

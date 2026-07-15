@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const repoRoot = resolve(import.meta.dirname, '../../../..')
@@ -17,7 +17,12 @@ function assert(condition, message) {
 const authoringApi = read('src/frontend/src/api/authoring.ts')
 const authoringDtos = read('src/backend/Models/Dtos/AuthoringDtos.cs')
 const auditDtos = read('src/backend/Models/Dtos/AuditDtos.cs')
-const authoringService = read('src/backend/Services/Authoring/AuthoringWorkflowService.cs')
+const authoringServiceRoot = resolve(repoRoot, 'src/backend/Services/Authoring')
+const authoringService = readdirSync(authoringServiceRoot)
+  .filter((name) => /^AuthoringWorkflowService(?:\..+)?\.cs$/u.test(name))
+  .sort()
+  .map((name) => read(`src/backend/Services/Authoring/${name}`))
+  .join('\n')
 const auditQuery = read('src/backend/Infrastructure/Audit/AuditQueryService.cs')
 
 for (const token of [

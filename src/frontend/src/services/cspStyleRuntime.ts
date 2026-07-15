@@ -1,4 +1,5 @@
 import type { ObjectDirective } from 'vue'
+import { AppErrorCode, createAppError } from '@/utils/appError'
 
 export type CspStyleValue = string | number | null | undefined
 export type CspStyleDeclarations = Readonly<Record<string, CspStyleValue>>
@@ -54,13 +55,13 @@ function createRule(
   const sheet = styleElement.sheet
   if (!sheet) {
     styleElement.remove()
-    throw new Error('CSP runtime stylesheet is unavailable')
+    throw createAppError(AppErrorCode.InfraFailure, 'csp_runtime_stylesheet_unavailable')
   }
   const index = sheet.insertRule(`.${className} {}`, sheet.cssRules.length)
   const rule = sheet.cssRules[index] as CSSStyleRule | undefined
   if (!rule || typeof rule.style?.setProperty !== 'function') {
     styleElement.remove()
-    throw new Error('CSP runtime style rule was not created')
+    throw createAppError(AppErrorCode.InfraFailure, 'csp_runtime_style_rule_unavailable')
   }
 
   element.classList.add(className)

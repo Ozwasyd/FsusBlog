@@ -27,7 +27,7 @@ test('100-scope complete wire transcripts contain no stable credential identifie
 
 test('gate rejects a credential commitment reintroduced into public inputs', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'fsus-zk-linkable-'))
-  const manifest = JSON.parse(readFileSync(path.join(root, 'security/zk/comment-v2-circuit.manifest.json'), 'utf8'))
+  const manifest = JSON.parse(readFileSync(path.join(root, 'security/zk/comment-v5-circuit.manifest.json'), 'utf8'))
   manifest.public_inputs.splice(5, 0, {
     name: 'credential_commitment',
     type: 'field',
@@ -41,5 +41,5 @@ test('gate rejects a credential commitment reintroduced into public inputs', () 
     env: { ...process.env, FSUSBLOG_ZK_UNLINKABILITY_MANIFEST: manifestPath }
   })
   assert.notEqual(result.status, 0)
-  assert.match(result.stderr, /credential_commitment|exact unlinkable v4 order/u)
+  assert.match(result.stderr, /credential_commitment|exact unlinkable layout 6 order/u)
 })

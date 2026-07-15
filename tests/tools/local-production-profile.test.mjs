@@ -422,6 +422,11 @@ test('repository production profile maps every logical tier exactly once', () =>
     matrix.localProfiles.production.bundles.find((bundle) => bundle.id === 'performance-evidence').minimumDeadlineShare,
     0.2666666667
   )
+  assert.equal(
+    matrix.localProfiles.production.bundles.find((bundle) => bundle.id === 'performance-evidence').startupMemoryWeight,
+    0.25,
+    'coordination-only startup must not starve build and backend critical-path memory floors'
+  )
   assert.ok(matrix.localProfiles.production.bundles.every((bundle) => !Object.hasOwn(bundle, 'budgetMs')))
   assert.ok(matrix.localProfiles.production.bundles.every((bundle) => !Object.hasOwn(bundle, 'cpuUnits')))
   assert.ok(matrix.localProfiles.production.bundles.every((bundle) => !Object.hasOwn(bundle, 'memoryGiB')))

@@ -34,21 +34,11 @@ This document closes the public performance batch tracked by #166. Runtime work 
   - `/category/:id`
   - `/tag/:id`
 
-## Validated Improvement
+## Validated Transfer and Security Boundary
 
-The batch contains one directly executable >20% transfer-size improvement: dynamic SPA fallback HTML compression.
+Dynamic SPA fallback HTML contains a per-response CSP nonce, so it deliberately uses identity encoding and does not emit `Vary: Accept-Encoding`. This keeps the nonce out of a compression oracle while preserving runtime head injection, accurate `Content-Length`, and body-free `HEAD` responses. A client that explicitly forbids identity receives `406` instead of a compressed nonce-bearing document.
 
-The fallback writer now renders CSP nonce and runtime head injection first, then negotiates `br`, `gzip` or identity with `Vary: Accept-Encoding`, `Content-Encoding` and accurate `Content-Length`. `HEAD` requests negotiate headers but do not write a body.
-
-Representative rendered fallback payload:
-
-| Variant | Bytes | Reduction vs identity |
-| --- | ---: | ---: |
-| identity | 9,135 | 0% |
-| brotli | 162 | 98.23% |
-| gzip | 231 | 97.47% |
-
-`WebApplicationCompositionExtensionsTests` enforces the durable requirement: both br and gzip dynamic fallback bodies must be at least 20% smaller than the rendered identity HTML while preserving CSP nonce and head injection correctness.
+Compression remains available only for pre-materialized PublicAOT artifacts that contain no per-request secret. `WebApplicationCompositionExtensionsTests` verifies that their Brotli and gzip variants are smaller than identity bytes and that the emitted bytes match the precomputed artifact variants exactly.
 
 ## Gates
 

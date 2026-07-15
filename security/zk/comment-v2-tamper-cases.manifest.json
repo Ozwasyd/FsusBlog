@@ -25,6 +25,18 @@
         "tamper-credential-root",
         "tamper-revocation-root"
       ]
+    },
+    {
+      "id": "tamper-content-hash-reject",
+      "tamper_cases": [
+        "tamper-revocation-content-hash"
+      ]
+    },
+    {
+      "id": "tamper-binding-reject",
+      "tamper_cases": [
+        "tamper-revocation-artifact-binding"
+      ]
     }
   ],
   "tamper_cases": [
@@ -69,6 +81,30 @@
       ],
       "covers": [
         "revocation_non_membership"
+      ]
+    },
+    {
+      "id": "tamper-revocation-content-hash",
+      "expected": "reject",
+      "mutates": [
+        "revocation_artifact.content_sha256"
+      ],
+      "covers": [
+        "revocation_non_membership"
+      ]
+    },
+    {
+      "id": "tamper-revocation-artifact-binding",
+      "expected": "reject",
+      "mutates": [
+        "revocation_artifact.issuer_id",
+        "revocation_artifact.circuit_id",
+        "revocation_artifact.epoch",
+        "revocation_artifact.root"
+      ],
+      "covers": [
+        "revocation_non_membership",
+        "current_credential_root"
       ]
     },
     {

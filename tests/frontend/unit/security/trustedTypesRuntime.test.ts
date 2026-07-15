@@ -60,7 +60,7 @@ describe('trustedTypesRuntime', () => {
     expect(new URL(script.src).pathname).toBe('/wasm/comment-privacy-prover.js')
     expect(() => setCommentPrivacyProverScriptUrl(script, 'https://evil.example/prover.js'))
       .toThrow('comment_privacy_prover_artifact_invalid')
-    expect(() => setCommentPrivacyProverScriptUrl(script, 'blob:https://fsus.blog/opaque'))
+    expect(() => setCommentPrivacyProverScriptUrl(script, 'blob:https://app.example.invalid/opaque'))
       .toThrow('comment_privacy_prover_artifact_invalid')
     expect(() => setCommentPrivacyProverScriptUrl(script, '/wasm/comment-privacy-prover.js?replace=1'))
       .toThrow('comment_privacy_prover_artifact_invalid')

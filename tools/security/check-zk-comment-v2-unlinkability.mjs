@@ -5,8 +5,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-const CIRCUIT_ID = 'fsus.anonymous.comment.v3'
-const LAYOUT_VERSION = 4
+const CIRCUIT_ID = 'fsus.anonymous.comment.v5'
+const LAYOUT_VERSION = 6
 const SAMPLE_SCOPE_COUNT = 100
 const FORBIDDEN_STABLE_FIELDS = [
   'credential_commitment',
@@ -17,25 +17,26 @@ const FORBIDDEN_STABLE_FIELDS = [
   'stable_presentation_key'
 ]
 const EXPECTED_PUBLIC_INPUTS = [
-  'public_input_layout_version',
-  'circuit_id',
   'action_context',
   'scope',
+  'circuit_id',
+  'verifying_key_hash',
+  'public_input_layout_version',
   'nullifier_hash',
   'credential_root',
   'revocation_root',
-  'credential_epoch',
-  'credential_level',
-  'reputation_bucket',
   'issuer_public_key_hash',
   'policy_hash',
-  'verifying_key_hash'
+  'is_eligible',
+  'may_comment',
+  'rate_class',
+  'requires_moderation'
 ]
 
 const args = parseArgs(process.argv.slice(2))
-const manifestPath = resolvePath(process.env.FSUSBLOG_ZK_UNLINKABILITY_MANIFEST, 'security/zk/comment-v2-circuit.manifest.json')
-const sourcePath = resolvePath(process.env.FSUSBLOG_ZK_UNLINKABILITY_SOURCE, 'circuits/anonymous-comment-v2/comment_v2.circuit.json')
-const outputPath = resolvePath(args.out, '.tmp/security/comment-v3-unlinkability.json')
+const manifestPath = resolvePath(process.env.FSUSBLOG_ZK_UNLINKABILITY_MANIFEST, 'security/zk/comment-v5-circuit.manifest.json')
+const sourcePath = resolvePath(process.env.FSUSBLOG_ZK_UNLINKABILITY_SOURCE, 'circuits/anonymous-comment-v5/comment_v5.circuit.json')
+const outputPath = resolvePath(args.out, '.tmp/security/comment-v5-unlinkability.json')
 const failures = []
 
 const manifest = readJson(manifestPath, 'circuit manifest')
@@ -64,7 +65,7 @@ const evidence = {
   legacy_layout_rejected: true,
   public_input_schema_sha256: sha256(JSON.stringify(EXPECTED_PUBLIC_INPUTS)),
   transcript_set_sha256: vector.transcriptSetSha256,
-  note: 'Repository-local deterministic contract evidence; real Groth16 release evidence remains separately required.'
+  note: 'Repository-local layout-6 deterministic contract evidence; real Groth16 release evidence remains separately required.'
 }
 mkdirSync(path.dirname(outputPath), { recursive: true })
 writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`)
@@ -75,10 +76,10 @@ function checkProtocol(manifestValue, sourceValue) {
     if (value.circuit_id !== CIRCUIT_ID) fail(`${label}.circuit_id must be ${CIRCUIT_ID}`)
     if (Number(value.public_input_layout_version) !== LAYOUT_VERSION) fail(`${label}.public_input_layout_version must be ${LAYOUT_VERSION}`)
     const inputs = label === 'manifest'
-      ? array(value.public_inputs).map((entry) => text(entry?.name))
-      : array(value.public_inputs).map(text)
+      ? array(value.public_inputs).map((entry) => typeof entry === 'string' ? text(entry) : text(entry?.name))
+      : array(value.public_inputs).map((entry) => typeof entry === 'string' ? text(entry) : text(entry?.name))
     if (JSON.stringify(inputs) !== JSON.stringify(EXPECTED_PUBLIC_INPUTS)) {
-      fail(`${label}.public_inputs must use the exact unlinkable v4 order`)
+      fail(`${label}.public_inputs must use the exact unlinkable layout 6 order`)
     }
     for (const forbidden of FORBIDDEN_STABLE_FIELDS) {
       if (inputs.includes(forbidden)) fail(`${label}.public_inputs exposes ${forbidden}`)
@@ -97,7 +98,7 @@ function checkWireSources() {
   const backendCodec = readText('src/backend/Services/Security/NativeGroth16ZkProofBackend.cs')
   const backendEncode = between(backendCodec, 'internal static class NativeGroth16PublicInputCodec', 'internal sealed class')
   if (backendEncode.includes('CredentialCommitment')) fail('native verifier public-input codec still serializes CredentialCommitment')
-  if (!backendEncode.includes('fsus.anonymous.comment.v3.public-inputs')) fail('native verifier transcript domain is not upgraded')
+  if (!backendEncode.includes('fsus.anonymous.comment.v5.public-inputs')) fail('native verifier transcript domain is not upgraded')
 
   const podSource = readText('src/shared/Contracts/Models/CommentPods.cs')
   const ticketPod = between(podSource, 'public readonly struct AnonymousCommentTicketRequestPod', 'public readonly struct AnonymousCommentTicketResponsePod')
@@ -110,7 +111,7 @@ function checkWireSources() {
   const prover = readText('src/frontend/src/privacy/commentPrivacyWasmProver.ts')
   const publicEncoder = between(prover, 'function encodeNativeGroth16PublicInputs', 'function writeString')
   if (publicEncoder.includes('credentialCommitment')) fail('browser public-input codec still serializes credentialCommitment')
-  if (!prover.includes('fsus.anonymous.comment.v3.public-inputs')) fail('browser transcript domain is not upgraded')
+  if (!prover.includes('fsus.anonymous.comment.v5.public-inputs')) fail('browser transcript domain is not upgraded')
 }
 
 function buildVector() {
@@ -120,7 +121,7 @@ function buildVector() {
     revocationRoot: sha256('revocation-root'),
     issuerPublicKeyHash: sha256('issuer-public-key'),
     policyHash: sha256('policy'),
-    verifyingKeyHash: sha256('new-v3-verifying-key')
+    verifyingKeyHash: sha256('new-v5-verifying-key')
   }
   const nullifiers = new Set()
   const transcripts = new Set()
@@ -151,7 +152,7 @@ function buildVector() {
 
 function scopedNullifier(secret, scope) {
   return sha256(Buffer.concat([
-    Buffer.from('fsus.anonymous.comment.v3:nullifier:v1\0comment.create\0'),
+    Buffer.from('fsus.anonymous.comment.v5:nullifier:v1\0comment.create\0'),
     Buffer.from(scope),
     Buffer.from([0]),
     secret
@@ -160,7 +161,7 @@ function scopedNullifier(secret, scope) {
 
 function encodeCanonicalPublicInputs({ scope, nullifier, credentialRoot, revocationRoot, issuerPublicKeyHash, policyHash, verifyingKeyHash }) {
   return Buffer.from(JSON.stringify({
-    domain: 'fsus.anonymous.comment.v3.public-inputs',
+    domain: 'fsus.anonymous.comment.v5.public-inputs',
     circuitId: CIRCUIT_ID,
     layoutVersion: LAYOUT_VERSION,
     actionContext: 'comment.create',
@@ -168,12 +169,13 @@ function encodeCanonicalPublicInputs({ scope, nullifier, credentialRoot, revocat
     nullifierHash: nullifier,
     credentialRoot,
     revocationRoot,
-    credentialEpoch: 7,
-    credentialLevel: 'trusted',
-    reputationBucket: 'trusted',
     issuerPublicKeyHash,
     policyHash,
-    verifyingKeyHash
+    verifyingKeyHash,
+    isEligible: true,
+    mayComment: true,
+    rateClass: 'common',
+    requiresModeration: false
   }))
 }
 

@@ -10,7 +10,7 @@
     },
     "tamper_results": {
       "path": "tests/fixtures/zk/comment-v2/circuit-ir/tamper-results.json",
-      "sha256": "9d3f9d4fd4a7245146c6c08fc26fbea84212a53782263885308f7e7e9cac2adb"
+      "sha256": "0f44416be719c82133f255722a8fdf3a47baae903e9c16224add1fe92b7925bd"
     }
   },
   "circuit_id": "fsus.anonymous.comment.v3",

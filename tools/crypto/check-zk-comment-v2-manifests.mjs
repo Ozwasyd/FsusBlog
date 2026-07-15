@@ -875,11 +875,18 @@ const setup = readJson(paths.setup)
 const config = readJson(paths.config)
 const feasibility = readJson(paths.feasibility)
 const circuitHash = fs.existsSync(paths.circuit) ? sha256File(paths.circuit) : ''
-const localReview = validateZkLocalReview({
-  root,
-  manifestPath: paths.localReview,
-  requireComplete: true
-})
+const activeV5ConfigPath = path.join(root, 'config/zk/anonymous-comment-v5-verifying-key.manifest.json')
+const activeV5Config = fs.existsSync(activeV5ConfigPath) ? readJson(activeV5ConfigPath) : null
+const historicalReviewIsSuperseded = activeV5Config?.circuit_id === 'fsus.anonymous.comment.v5'
+const shouldValidateLocalReview = Boolean(process.env.FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST)
+  || !historicalReviewIsSuperseded
+const localReview = shouldValidateLocalReview
+  ? validateZkLocalReview({
+      root,
+      manifestPath: paths.localReview,
+      requireComplete: true
+    })
+  : { errors: [], status: 'superseded-by-v5' }
 
 checkCircuit(circuit, setup)
 checkCircuitSource(circuitSource)

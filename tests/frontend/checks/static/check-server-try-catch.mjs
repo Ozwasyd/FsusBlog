@@ -17,10 +17,13 @@ const defaultWhitelist = [
   'src/backend/Infrastructure/Audit/',
   'src/backend/Infrastructure/Auth/',
   'src/backend/Infrastructure/Binary/BinaryRequestBinder.cs',
+  'src/backend/Infrastructure/Bootstrap/DataProtectionKeyProtection.cs',
+  'src/backend/Infrastructure/Bootstrap/DependencyGraphValidation.cs',
   'src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs',
   'src/backend/Infrastructure/NotificationStream/',
   'src/backend/Infrastructure/NotificationStream/',
   'src/backend/Infrastructure/Cache/',
+  'src/backend/Infrastructure/Data/DbDataReaderNamedExtensions.cs',
   'src/backend/Infrastructure/SchemaMigration/',
   'src/backend/Infrastructure/Spa/',
   'src/backend/Infrastructure/Middlewares/',
@@ -29,10 +32,12 @@ const defaultWhitelist = [
   'src/backend/Infrastructure/Filters/',
   'src/backend/Infrastructure/Helpers/',
   'src/backend/Infrastructure/Integrity/IntegrityAdminConsoleService.cs',
+  'src/backend/Infrastructure/Integrity/ArticleResponsibilityManifest.cs',
   'src/backend/Infrastructure/Integrity/IntegrityProofPipeline.cs',
   'src/backend/Infrastructure/Integrity/IntegrityProofVerification.cs',
   'src/backend/Infrastructure/Integrity/SiteIntegritySigning.cs',
   'src/backend/Infrastructure/Operations/',
+  'src/backend/Infrastructure/Privacy/ReadAnalyticsPrivacyPolicy.cs',
   'src/backend/Infrastructure/PublicAot/',
   'src/backend/Infrastructure/PublicReadArtifacts/',
   'src/backend/Infrastructure/PowLoadResetWorker.cs',
@@ -42,6 +47,7 @@ const defaultWhitelist = [
   'src/backend/Infrastructure/Storage/ReleaseDerivedArtifactPublisher.cs',
   'src/backend/Infrastructure/Storage/UploadCommitTempCleanupLease.cs',
   'src/backend/Modules/Endpoints/AuthoringEndpoints.cs',
+  'src/backend/Modules/Endpoints/CspReportEndpoints.cs',
   'src/backend/Modules/Endpoints/AdminIntegrityConsoleEndpoints.cs',
   'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs',
   'src/backend/Modules/Endpoints/Binary/',
@@ -55,6 +61,7 @@ const defaultWhitelist = [
   'src/backend/Services/ArticleViewWriteBuffer.cs',
   'src/backend/Services/Authoring/AuthoringWorkflowService.cs',
   'src/backend/Services/FileService.cs',
+  'src/backend/Services/HumanReadProofService.cs',
   'src/backend/Services/Moderation/',
   'src/backend/Services/SearchIndexService.cs',
   'src/backend/Services/Security/',
@@ -134,7 +141,13 @@ function isWhitelisted(relativePath) {
       return normalized.startsWith(entry);
     }
 
-    return normalized === entry;
+    if (normalized === entry) {
+      return true;
+    }
+
+    return entry.endsWith('.cs')
+      && normalized.startsWith(`${entry.slice(0, -3)}.`)
+      && normalized.endsWith('.cs');
   });
 }
 

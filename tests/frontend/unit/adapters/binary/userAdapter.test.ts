@@ -27,7 +27,6 @@ describe('binary user adapter', () => {
     writeFixed(payload, 48, 32, 'anonymous_account')
     writeFixed(payload, 80, 64, 'alice-public')
     writeFixed(payload, 144, 32, 'active')
-    writeFixed(payload, 176, 32, 'basic')
     payload[208] = 1
     payload[209] = 1
     payload[210] = 1
@@ -45,7 +44,6 @@ describe('binary user adapter', () => {
         identityKind: 'anonymous_account',
         publicHandle: 'alice-public',
         anonymousCredentialStatus: 'active',
-        anonymousCredentialLevel: 'basic',
         passkeyInitialized: true,
         recoveryInitialized: true,
         deletedAt: '2026-01-04T03:04:05.000Z'
