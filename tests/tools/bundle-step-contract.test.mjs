@@ -1191,6 +1191,50 @@ test('CPU capacity still delays non-conflicting exclusive work', async () => {
   assert.deepEqual(events, ['first:start', 'second:start'])
 })
 
+test('memory capacity still delays non-conflicting exclusive work until the active grant is released', async () => {
+  const first = deferred()
+  const events = []
+  const waits = []
+  const running = executeWeightedStepDag([
+    {
+      id: 'first',
+      resources: {
+        cpuWeight: 1,
+        memoryWeight: 1,
+        minCpuUnits: 1,
+        minMemoryGiB: 1.5,
+        exclusiveResources: ['first-window']
+      }
+    },
+    {
+      id: 'second',
+      resources: {
+        cpuWeight: 1,
+        memoryWeight: 1,
+        minCpuUnits: 1,
+        minMemoryGiB: 1.5,
+        exclusiveResources: ['second-window']
+      }
+    }
+  ], {
+    maxParallel: 2,
+    cpuUnits: 2,
+    memoryGiB: 2,
+    exclusiveResources: ['first-window', 'second-window'],
+    onWaitState: (stepId, state) => waits.push({ stepId, state })
+  }, async (entry) => {
+    events.push(`${entry.id}:start`)
+    if (entry.id === 'first') await first.promise
+  })
+
+  await waitFor(() => events.length === 1)
+  assert.deepEqual(events, ['first:start'])
+  assert.ok(waits.some((entry) => entry.stepId === 'second' && entry.state?.capacity?.memory === true))
+  first.resolve()
+  await running
+  assert.deepEqual(events, ['first:start', 'second:start'])
+})
+
 test('machine execution deadlines derive pressure from workload weights and actual grants', () => {
   const workload = { cpuWeight: 5, memoryWeight: 5, minCpuUnits: 1 }
   assert.equal(resolveMachineExecutionTimeoutMs({
