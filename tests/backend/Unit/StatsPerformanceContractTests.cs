@@ -49,7 +49,7 @@ public sealed class StatsPerformanceContractTests(PostgresSchemaMigrationFixture
                 ArticleId = 10,
                 Content = "anonymous measured comment",
                 CreateTime = now.AddMinutes(-2),
-                AuthorMode = CommentAuthorModes.Anonymous,
+                AuthorMode = CommentAuthorModes.LegacyServerVisiblePseudonymous,
                 AnonymousDisplayName = "Query Budget",
                 AnonymousScope = "article:10",
                 CredentialLevel = "basic",
@@ -107,10 +107,10 @@ public sealed class StatsPerformanceContractTests(PostgresSchemaMigrationFixture
 
         FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto anonymousComment = comments[1];
         Assert.Equal("Query Budget", anonymousComment.AuthorDisplayName);
-        Assert.Equal(CommentAuthorModes.Anonymous, anonymousComment.AuthorMode);
+        Assert.Equal(CommentAuthorModes.LegacyServerVisiblePseudonymous, anonymousComment.AuthorMode);
         Assert.Null(anonymousComment.AuthorBadge);
-        Assert.Equal("article:10", anonymousComment.AuthorScopeLabel);
-        Assert.Equal("basic", anonymousComment.CredentialLevel);
+        Assert.Null(anonymousComment.AuthorScopeLabel);
+        Assert.Null(anonymousComment.CredentialLevel);
 
         FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto zkComment = comments[2];
         Assert.Equal("Verified Query", zkComment.AuthorDisplayName);

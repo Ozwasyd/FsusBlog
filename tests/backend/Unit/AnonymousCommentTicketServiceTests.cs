@@ -136,6 +136,26 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    public async Task IssueAsync_DisabledZkPolicyFailsClosedBeforeRootOrProofVerification()
+    {
+        var proof = new RecordingProofService(ZkProofVerificationResult.Success());
+        var service = CreateService(
+            proofService: proof,
+            policyService: new FixedCommentPolicyService(new AnonymousCommentPolicySnapshot(
+                true,
+                true,
+                false,
+                CommentAuthorModes.ZkAnonymous,
+                AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)));
+
+        AnonymousCommentTicketIssueResult result = await service.IssueAsync(ValidRequest(), CancellationToken.None);
+
+        Assert.False(result.Issued);
+        Assert.Equal(AnonymousCommentTicketStatuses.PolicyDisabled, result.Status);
+        Assert.Empty(proof.Requests);
+    }
+
+    [Fact]
     public async Task IssueAsync_InvalidProofDoesNotReserveNullifierOrStoreTicket()
     {
         var cache = new CapturingUnifiedCache(new MutableTimeProvider(DateTimeOffset.UtcNow));
@@ -181,8 +201,8 @@ public sealed class AnonymousCommentTicketServiceTests
             policyService: new FixedCommentPolicyService(new AnonymousCommentPolicySnapshot(
                 true,
                 true,
-                false,
-                CommentAuthorModes.Anonymous,
+                true,
+                CommentAuthorModes.ZkAnonymous,
                 AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)
             {
                 SnapshotHash = publishedPolicyHash
@@ -490,7 +510,7 @@ public sealed class AnonymousCommentTicketServiceTests
     {
         public List<ZkProofVerificationRequest> Requests { get; } = [];
 
-        public AnonymousCommentPolicySnapshot CurrentCommentPolicy => new(true, true, true, CommentAuthorModes.Anonymous, ["zh-CN"])
+        public AnonymousCommentPolicySnapshot CurrentCommentPolicy => new(true, true, true, CommentAuthorModes.ZkAnonymous, ["zh-CN"])
         {
             SnapshotHash = PolicyHash
         };

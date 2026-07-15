@@ -121,6 +121,26 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "评论请求体非法"), aeds);
             }
 
+            CommentAuthorModeDecision authorMode = await policyService.EvaluateAuthorModeAsync(
+                request.AuthorMode,
+                request.PublicSendExplicitlySelected,
+                cancellationToken);
+            if (!authorMode.Allowed)
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Validation, authorMode.Status),
+                    aeds,
+                    StatusCodes.Status400BadRequest);
+            }
+
+            if (!string.Equals(authorMode.EffectiveAuthorMode, CommentAuthorModes.Public, StringComparison.Ordinal))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Validation, "anonymous_ticket_required"),
+                    aeds,
+                    StatusCodes.Status400BadRequest);
+            }
+
             string content = request.Content?.Trim() ?? string.Empty;
             AnonymousCommentPolicySnapshot policy = await policyService.GetCurrentAsync(cancellationToken);
             if (!IsCommentContentWithinLimit(content, policy))

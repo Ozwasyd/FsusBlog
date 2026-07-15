@@ -41,7 +41,8 @@ public partial class CommentService(
     IHttpContextAccessor? httpContextAccessor = null,
     IAnonymousCommentTicketService? anonymousCommentTicketService = null,
     ICommentAnonymousDisplayNameGenerator? anonymousDisplayNameGenerator = null,
-    IConfiguration? configuration = null) : ICommentService, ICommentEndpointService
+    IConfiguration? configuration = null,
+    IZkAnonymousProofService? zkAnonymousProofService = null) : ICommentService, ICommentEndpointService
 {
     private const int DefaultReplyPreviewLimit = 3;
     private const int MaxReplyPreviewRootIds = 50;
@@ -131,8 +132,17 @@ public partial class CommentService(
         }
 
         string normalizedContent = NormalizeCommentContent(request.Content);
-        AnonymousCommentPolicySnapshot policySnapshot = await ResolveCommentPolicyAsync(cancellationToken);
-        if (!IsCommentContentWithinLimit(normalizedContent, policySnapshot))
+        if (anonymousCommentPolicyService is null ||
+            zkAnonymousProofService is null ||
+            !IsZkSubmissionReady(zkAnonymousProofService.CurrentZkProdPolicy))
+        {
+            return false;
+        }
+
+        AnonymousCommentPolicySnapshot policySnapshot = await anonymousCommentPolicyService.GetCurrentAsync(cancellationToken);
+        if (!policySnapshot.AnonymousCommentsEnabled ||
+            !policySnapshot.ZkAnonymousEnabled ||
+            !IsCommentContentWithinLimit(normalizedContent, policySnapshot))
         {
             return false;
         }
@@ -172,6 +182,14 @@ public partial class CommentService(
             null,
             DateTime.UtcNow));
         if (!effectiveRegionDecision.CanPublish)
+        {
+            return false;
+        }
+
+        AnonymousCommentPolicySnapshot currentPolicy = await anonymousCommentPolicyService.GetCurrentAsync(cancellationToken);
+        if (!currentPolicy.AnonymousCommentsEnabled ||
+            !currentPolicy.ZkAnonymousEnabled ||
+            !IsZkSubmissionReady(zkAnonymousProofService.CurrentZkProdPolicy))
         {
             return false;
         }
@@ -535,8 +553,15 @@ public partial class CommentService(
     private static bool RequiresAnonymousNullifierEnforcement(CommentActor actor)
         => !string.IsNullOrWhiteSpace(actor.AnonymousNullifierHash)
             && !string.IsNullOrWhiteSpace(actor.AnonymousScope)
-            && (string.Equals(actor.AuthorMode, CommentAuthorModes.Anonymous, StringComparison.Ordinal)
-                || string.Equals(actor.AuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal));
+            && string.Equals(actor.AuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal);
+
+    private static bool IsZkSubmissionReady(ZkProdPolicySnapshot policy)
+        => policy.Enabled &&
+            policy.NativeVerifierConfigured &&
+            policy.TrustedSetupVerified &&
+            policy.CredentialRequired &&
+            policy.CredentialRootReady &&
+            string.IsNullOrWhiteSpace(policy.UnavailableReason);
 
     private static string HashAnonymousScopeForLog(string? scope)
     {
@@ -1663,7 +1688,7 @@ ORDER BY x.root_id, x.id;
         string? normalized = TextHelpers.NormalizeModeToken(authorMode);
         return normalized is CommentAuthorModes.Public or CommentAuthorModes.ZkAnonymous
             ? normalized
-            : CommentAuthorModes.Anonymous;
+            : CommentAuthorModes.LegacyServerVisiblePseudonymous;
     }
 
     private static string NormalizeAuthorDisplayLanguage(string? displayLanguage)

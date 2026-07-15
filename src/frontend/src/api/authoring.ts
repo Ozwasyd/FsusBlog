@@ -623,7 +623,7 @@ export interface AnonymousCommentPolicyResponse {
   anonymousCommentsEnabled: boolean
   publicCommentsEnabled: boolean
   zkAnonymousEnabled: boolean
-  defaultAuthorMode: 'anonymous' | 'public' | 'zk_anonymous'
+  defaultAuthorMode: 'public' | 'zk_anonymous'
   supportedDisplayLanguages: string[]
   commentMaxChars: number
   commentMaxUtf8Bytes: number
@@ -637,7 +637,7 @@ export interface AnonymousCommentPolicyUpdateRequest {
   anonymousCommentsEnabled?: boolean | null
   publicCommentsEnabled?: boolean | null
   zkAnonymousEnabled?: boolean | null
-  defaultAuthorMode?: 'anonymous' | 'public' | 'zk_anonymous' | null
+  defaultAuthorMode?: 'public' | 'zk_anonymous' | null
   supportedDisplayLanguages?: string[] | null
   commentMaxChars?: number | null
   commentMaxUtf8Bytes?: number | null

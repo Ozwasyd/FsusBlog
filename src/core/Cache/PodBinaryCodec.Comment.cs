@@ -1452,7 +1452,7 @@ public static partial class PodBinaryCodec
         string normalized = NormalizeCommentToken(mode);
         return normalized switch
         {
-            "" or "anonymous" => 1,
+            "anonymous" or "legacy_server_visible_pseudonymous" => 1,
             "public" => 3,
             "zk_anonymous" => 4,
             _ => throw new ArgumentOutOfRangeException(nameof(mode), "comment_author_mode_invalid")
@@ -1463,7 +1463,7 @@ public static partial class PodBinaryCodec
     {
         mode = raw switch
         {
-            0 or 1 => "anonymous",
+            0 or 1 => "legacy_server_visible_pseudonymous",
             3 => "public",
             4 => "zk_anonymous",
             _ => string.Empty

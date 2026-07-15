@@ -1379,6 +1379,11 @@ public class PodBinaryCodecTests
         Assert.Equal("verified proof", decoded.Badge);
         Assert.Equal("article scope", decoded.ScopeLabel);
         Assert.Equal("strong_anonymous", decoded.CredentialLevel);
+
+        byte[] historical = (byte[])encoded.Clone();
+        historical[0] = 1;
+        Assert.True(PodBinaryCodec.TryDecodeCommentAuthorView(historical, out var legacy));
+        Assert.Equal("legacy_server_visible_pseudonymous", legacy.Mode);
     }
 
     private static ArticleDetailCoreModel MakeDetailItem(int id = 1, string title = "Detail", string content = "Hello content")

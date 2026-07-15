@@ -11,6 +11,25 @@ cryptoDecision:
   revocationRoot: revocation root non-revocation witness
   productionMode: fail-closed until circuit-native issuer, Groth16, trusted setup and native verifier are complete
 scenarios:
+  - id: PRIVACY-ZK-AUTHOR-MODE-RETIREMENT
+    scenario: production comment creation accepts only explicit public or identity-clean zk anonymous while historical server-visible pseudonyms remain display-only
+    owner: ServerContractAgent
+    status: automated
+    requiredCases: [retired-anonymous-zero-write, public-explicit-opt-in, zk-no-identity-headers, zk-unavailable-no-downgrade, root-expired-fail-closed, proof-invalid-fail-closed, legacy-migration-preserves-display-structure-visibility, legacy-nullifier-isolated]
+    localCommands: [check:comment-author-mode-retirement, check:privacy-zk-contract]
+    code:
+      - src/backend/Services/Security/AnonymousCommentPolicyService.cs
+      - src/backend/Services/Security/CommentActorResolver.cs
+      - src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.CommentAuthorModeRetirement.cs
+      - src/frontend/src/composables/useArticleDetailView.ts
+    tests:
+      - tests/backend/Unit/CommentAuthorModeRetirementTests.cs
+      - tests/backend/Unit/RejectIdentifiedPrincipalFilterTests.cs
+      - tests/backend/Unit/AnonymousCommentTicketServiceTests.cs
+      - tests/frontend/unit/components/ArticleCommentComposer.test.ts
+    evidence:
+      - release-evidence/comment-author-mode-retirement.json
+
   - id: PRIVACY-ZK-CIRCUIT-CONTRACT
     scenario: comment.v2 Groth16 circuit contract fixes public inputs, private witness, soundness cases and identity non-disclosure
     owner: ServerContractAgent

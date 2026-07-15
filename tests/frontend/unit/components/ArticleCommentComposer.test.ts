@@ -36,7 +36,7 @@ const baseProps = {
   isSubmitting: false,
   redirectPath: '/articles/42',
   replyTarget: null,
-  authorMode: 'anonymous' as const,
+  authorMode: 'zk_anonymous' as const,
   publicSendConfirmed: false,
   anonymousCommentsEnabled: true,
   publicCommentsEnabled: true,
@@ -111,14 +111,13 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     wrapper.unmount()
   })
 
-  it('defaults to anonymous and requires a user toggle before public attribution', async () => {
+  it('defaults to strong anonymous and requires a user toggle before public attribution', async () => {
     const wrapper = mountComposer()
     const identityToggle = wrapper.get<HTMLInputElement>('.comment-identity-toggle__input')
 
     expect(identityToggle.element.checked).toBe(false)
-    expect(wrapper.text()).toContain('匿名发布')
+    expect(wrapper.text()).toContain('强匿名发布')
     expect(wrapper.text()).toContain('公开显示我的名称')
-    expect(wrapper.text()).not.toContain('强匿名')
     expect(wrapper.text()).not.toContain('zk_anonymous')
     expect(wrapper.text().toLowerCase()).not.toContain('proof')
     expect(wrapper.emitted('update:authorMode')).toBeUndefined()
@@ -139,7 +138,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
 
     await identityToggle.setValue(false)
 
-    expect(wrapper.emitted('update:authorMode')).toEqual([['public'], ['anonymous']])
+    expect(wrapper.emitted('update:authorMode')).toEqual([['public'], ['zk_anonymous']])
     expect(wrapper.emitted('update:publicSendConfirmed')).toEqual([[true], [false]])
     wrapper.unmount()
   })

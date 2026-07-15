@@ -9,11 +9,12 @@ import { AppErrorCode, createAppError } from '@/utils/appError';
 // 1. 类型定义 (DTOs)
 // =================================================================================
 
-export type CommentAuthorMode = 'anonymous' | 'public' | 'zk_anonymous'
+export type CommentAuthorMode = 'public' | 'zk_anonymous'
+export type CommentAuthorViewMode = CommentAuthorMode | 'legacy_server_visible_pseudonymous'
 export type CommentDisplayLanguage = 'zh-CN' | 'en'
 
 export interface CommentAuthorView {
-  mode: 'anonymous' | 'public' | 'zk_anonymous'
+  mode: CommentAuthorViewMode
   displayName: string
   displayLanguage: 'zh-CN' | 'en'
   badge?: string | null
@@ -29,12 +30,9 @@ export interface CommentCreateV2Dto {
   replyToCommentId?: string | null
   /** @deprecated 匿名模式不应设置 replyToUserId；CommentCreateV2Request POD 会固定写入 0/0 兼容占位。 */
   replyToUserId?: number | null
-  authorMode: CommentAuthorMode
+  authorMode: 'public'
   publicSendExplicitlySelected: boolean
-  anonymousScope?: string | null
   displayLanguage: CommentDisplayLanguage
-  proofToken?: string | null
-  zkProof?: Uint8Array | number[] | null
   powSalt?: string
   powSignature?: string
   powTimestamp?: number
@@ -438,6 +436,10 @@ function sendCommentMutation(
   data: CommentCreateV2Dto,
   config?: ApiRequestConfig
 ) {
+  if (data.authorMode !== 'public' || data.publicSendExplicitlySelected !== true) {
+    return Promise.reject(new Error('public_opt_in_required'))
+  }
+
   const validation = validateCommentContent(data.content ?? '')
   if (!validation.isValid) {
     return Promise.reject(new Error(validation.message))
@@ -545,10 +547,10 @@ export const deleteComment = (id: string, config?: ApiRequestConfig) =>
   })
 
 export function encodeCommentCreateV2Request(data: CommentCreateV2Dto): Uint8Array {
-  const anonymousScope = encodeText(data.anonymousScope ?? '')
+  const anonymousScope = new Uint8Array()
   const displayLanguage = encodeText(data.displayLanguage ?? '')
-  const proofToken = encodeText(data.proofToken ?? '')
-  const zkProof = data.zkProof instanceof Uint8Array ? data.zkProof : new Uint8Array(data.zkProof ?? [])
+  const proofToken = new Uint8Array()
+  const zkProof = new Uint8Array()
   const content = encodeText(data.content ?? '')
   const blobLength = anonymousScope.byteLength + displayLanguage.byteLength + proofToken.byteLength + zkProof.byteLength + content.byteLength
   const bytes = new Uint8Array(80 + 4 + blobLength)
@@ -755,9 +757,7 @@ function writeBlobPart(bytes: Uint8Array, view: DataView, sliceOffset: number, b
 }
 
 function encodeCommentAuthorMode(mode: CommentCreateV2Dto['authorMode']): number {
-  switch ((mode ?? 'anonymous').trim().toLowerCase().replace('-', '_')) {
-    case 'anonymous':
-      return 1
+  switch (mode.trim().toLowerCase().replace('-', '_')) {
     case 'public':
       return 3
     case 'zk_anonymous':
@@ -767,9 +767,10 @@ function encodeCommentAuthorMode(mode: CommentCreateV2Dto['authorMode']): number
   }
 }
 
-function normalizeCommentAuthorMode(mode: CommentAuthorView['mode'] | string | null | undefined): CommentAuthorMode {
-  const normalized = String(mode ?? 'anonymous').trim().toLowerCase().replace('-', '_')
-  return normalized === 'public' || normalized === 'zk_anonymous' ? normalized : 'anonymous'
+function normalizeCommentAuthorMode(mode: CommentAuthorView['mode'] | string | null | undefined): CommentAuthorViewMode {
+  const normalized = String(mode ?? '').trim().toLowerCase().replace('-', '_')
+  if (normalized === 'public' || normalized === 'zk_anonymous') return normalized
+  return 'legacy_server_visible_pseudonymous'
 }
 
 function normalizeCommentDisplayLanguage(language: CommentDisplayLanguage | string | null | undefined): CommentDisplayLanguage {

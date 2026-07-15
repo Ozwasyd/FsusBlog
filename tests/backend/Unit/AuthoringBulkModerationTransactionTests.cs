@@ -90,7 +90,7 @@ public sealed class AuthoringBulkModerationTransactionTests(PostgresSchemaMigrat
             Id = commentId,
             ArticleId = articleId,
             Content = $"pending {commentId}",
-            AuthorMode = CommentAuthorModes.Anonymous,
+            AuthorMode = CommentAuthorModes.LegacyServerVisiblePseudonymous,
             AnonymousDisplayName = "Anonymous",
             CreateTime = DateTime.UtcNow.AddMinutes(-1),
             IsDeleted = false,

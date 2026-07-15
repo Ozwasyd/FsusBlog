@@ -302,7 +302,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | `GET /api/binary/auth/me`；匿名身份 account id、identity kind、public handle、Passkey/Recovery/TOTP/anonymous credential 和状态字段；不暴露 internalUserId |
 | 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、语言列表、策略 snapshot hash |
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
-| 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 新评论创建请求；仅用于 public/普通匿名兼容字段，`authorMode=zk_anonymous` 必须拒绝为 `anonymous_ticket_required`；强匿名 proof 只能走 `AnonymousCommentTicketRequest`，旧 replyToUserId 兼容槽固定为 0/0，不得从 userId/ProofToken 派生 ZK nullifier |
+| 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 登录态 public 新评论；必须 explicit opt-in。旧 `anonymous` 返回 `anonymous_author_mode_retired` 且零业务写，`zk_anonymous` 返回 `anonymous_ticket_required`；legacy scope/proof 槽只保留 wire layout |
 | 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；评论 cursor 必须显式携带，客户端不得从 legacy identity string 伪造匿名/公开显示名 |
 | 177 | `AnonymousCredentialIssueRequest` | `AnonymousCredentialIssueRequestPod` | 已撤销的 circuit-native 请求 frame；旧 endpoint 固定 410 |
 | 178 | `AnonymousCredentialIssueResponse` | `AnonymousCredentialIssueResponsePod` | 已撤销的 circuit-native 响应 frame；运行时不得返回 |

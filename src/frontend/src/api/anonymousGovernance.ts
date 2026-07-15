@@ -52,6 +52,7 @@ export interface AnonymousGovernanceCommentStats {
   rejectedAnonymous: number
   hiddenAnonymous: number
   zkAnonymous: number
+  legacyServerVisiblePseudonymous: number
 }
 
 export interface AnonymousGovernanceCredentialRow {

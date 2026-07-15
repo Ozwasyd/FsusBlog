@@ -16,6 +16,7 @@ public static class AnonymousCommentTicketStatuses
 {
     public const string Issued = "issued";
     public const string ValidationFailed = "validation_failed";
+    public const string PolicyDisabled = "zk_anonymous_disabled";
     public const string RootExpired = "root_expired";
     public const string ProofInvalid = "proof_invalid";
     public const string NullifierBlocked = "nullifier_blocked";
@@ -94,6 +95,12 @@ public sealed class AnonymousCommentTicketService(
             return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.ValidationFailed);
         }
 
+        AnonymousCommentPolicySnapshot policy = await policyService.GetCurrentAsync(cancellationToken);
+        if (!policy.AnonymousCommentsEnabled || !policy.ZkAnonymousEnabled)
+        {
+            return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.PolicyDisabled);
+        }
+
         Result<AnonymousCredentialRootSnapshotCoreModel> rootResult = await rootService.GetCurrentSnapshotAsync(cancellationToken);
         if (rootResult.IsFailure || !RootMatchesRequest(rootResult.Value, request))
         {
@@ -107,7 +114,6 @@ public sealed class AnonymousCommentTicketService(
         string issuerPublicKeyHash = root.IssuerPublicKeyHash;
         string credentialLevel = NormalizeRequiredToken(request.CredentialLevel, DefaultCredentialLevel, 32);
         string reputationBucket = NormalizeRequiredToken(request.ReputationBucket, DefaultReputationBucket, 64);
-        AnonymousCommentPolicySnapshot policy = await policyService.GetCurrentAsync(cancellationToken);
         string policyHash = AnonymousCommentPolicySnapshotHash.Resolve(policy);
         if (!IsHexHash(issuerPublicKeyHash, minLength: 32, maxLength: 128) ||
             !IsHexHash(policyHash, minLength: 64, maxLength: 64) ||
@@ -153,7 +159,16 @@ public sealed class AnonymousCommentTicketService(
 
         DateTimeOffset now = timeProvider.GetUtcNow();
         TimeSpan ttl = ResolveTicketTtl();
-        DateTimeOffset expiresAt = now.Add(ttl);
+        long expiresAtUnixMs = Math.Min(
+            now.Add(ttl).ToUnixTimeMilliseconds(),
+            root.RootGraceExpiresAtUnixMs);
+        if (expiresAtUnixMs <= now.ToUnixTimeMilliseconds())
+        {
+            return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.RootExpired);
+        }
+
+        DateTimeOffset expiresAt = DateTimeOffset.FromUnixTimeMilliseconds(expiresAtUnixMs);
+        TimeSpan effectiveTtl = expiresAt - now;
         byte[] ticket = RandomNumberGenerator.GetBytes(TicketBytes);
         string ticketHash = HashTicket(ticket);
         credentialLevel = string.IsNullOrWhiteSpace(credentialLevel) ? DefaultCredentialLevel : credentialLevel;
@@ -172,7 +187,7 @@ public sealed class AnonymousCommentTicketService(
             CachePolicyId.AnonymousCommentTicket,
             ticketHash,
             AnonymousCommentTicketPayloadCodec.Encode(payload),
-            ttl,
+            effectiveTtl,
             cancellationToken);
 
         byte[] moderationSubjectHash = CreateModerationSubjectHash(nullifierHash, _moderationSubjectHashKey);

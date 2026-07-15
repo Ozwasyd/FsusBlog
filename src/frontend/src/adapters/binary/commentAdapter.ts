@@ -29,7 +29,7 @@ import {
   USER_COMMENT_POD_SIZE
 } from './types';
 
-export type CommentAuthorMode = 'anonymous' | 'public' | 'zk_anonymous';
+export type CommentAuthorMode = 'public' | 'zk_anonymous';
 const ANONYMOUS_PRIVACY_MAX_PAYLOAD_BYTES = 16 * 1024;
 const decoder = new TextDecoder();
 
@@ -387,7 +387,7 @@ function readCommentAuthorViewPayload(payload: Uint8Array, errorCode: string): U
 }
 
 function decodeEmbeddedCommentAuthorMode(raw: number, errorCode: string): UserCommentResponse['author']['mode'] {
-  if (raw === 0 || raw === 1) return 'anonymous';
+  if (raw === 0 || raw === 1) return 'legacy_server_visible_pseudonymous';
   if (raw === 3) return 'public';
   if (raw === 4) return 'zk_anonymous';
   throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
@@ -457,9 +457,6 @@ function readUint32(bytes: Uint8Array, offset: number): number {
 
 function decodeCommentAuthorMode(value: number): CommentAuthorMode {
   switch (value) {
-    case 0:
-    case 1:
-      return 'anonymous';
     case 3:
       return 'public';
     case 4:

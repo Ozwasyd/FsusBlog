@@ -655,6 +655,7 @@ public sealed class AnonymousCommentSubmitTests(
     {
         nullifierService ??= new RecordingNullifierService();
         dispatcher ??= new RecordingCacheInvalidationDispatcher();
+        IConfiguration configuration = BuildConfiguration();
         return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
@@ -663,9 +664,11 @@ public sealed class AnonymousCommentSubmitTests(
             dispatcher,
             new RegionLegalModerationService(),
             anonymousNullifierService: nullifierService,
+            anonymousCommentPolicyService: new AnonymousCommentPolicyService(configuration),
             anonymousCommentTicketService: ticketService,
             anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator(),
-            configuration: BuildConfiguration());
+            configuration: configuration,
+            zkAnonymousProofService: FixedZkAnonymousProofService.Available());
     }
 
     private static IConfiguration BuildConfiguration()
@@ -673,7 +676,9 @@ public sealed class AnonymousCommentSubmitTests(
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Moderation:Pepper"] = ModerationPepper,
-                ["AnonymousIdentity:NullifierPepper"] = "unit-test-anonymous-nullifier-pepper-32-bytes-minimum"
+                ["AnonymousIdentity:NullifierPepper"] = "unit-test-anonymous-nullifier-pepper-32-bytes-minimum",
+                ["AnonymousIdentity:AnonymousCommentsEnabled"] = "true",
+                ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true"
             })
             .Build();
 

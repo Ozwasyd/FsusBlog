@@ -24,15 +24,15 @@
     <FsusUiSettingsSection
       v-if="showPolicyControls"
       class="anonymous-governance-section"
-      title="匿名评论策略"
-      description="配置匿名评论与公开发送策略。"
+      title="强匿名评论策略"
+      description="配置 ZK 强匿名评论与显式公开发送策略。历史服务端可见假名评论只读保留。"
       :title-tag="'h2'"
     >
       <div class="anonymous-governance-controls">
         <label class="anonymous-governance-control">
           <span>
-            <strong>匿名评论</strong>
-            <small>控制匿名作者模式是否可用于评论提交。</small>
+            <strong>强匿名评论</strong>
+            <small>控制 ZK 证明评论是否可提交；不会启用已退役的普通 anonymous 模式。</small>
           </span>
           <el-switch
             :model-value="anonymousCommentsEnabled"
@@ -43,8 +43,8 @@
         </label>
         <label class="anonymous-governance-control">
           <span>
-            <strong>仅公开发送</strong>
-            <small>匿名关闭时，只允许公开身份评论。</small>
+            <strong>公开发送</strong>
+            <small>允许用户明确选择公开名称；绝不作为强匿名失败后的自动降级。</small>
           </span>
           <el-switch
             :model-value="publicSendOptionEnabled"
@@ -397,14 +397,14 @@ const shouldLoadNullifiers = computed(() =>
 
 const policySignals = computed(() => [
   {
-    label: '匿名评论',
+    label: '强匿名评论',
     value: anonymousCommentsEnabled.value ? '启用' : '关闭',
-    helper: anonymousCommentsEnabled.value ? '匿名评论可提交。' : '匿名评论不可提交。'
+    helper: anonymousCommentsEnabled.value ? '仅 ZK 强匿名评论可提交。' : '强匿名评论不可提交。'
   },
   {
     label: '仅公开',
     value: publicOnlyMode.value ? '启用' : '关闭',
-    helper: publicOnlyMode.value ? '仅允许公开身份评论。' : '匿名与公开按策略并行。'
+    helper: publicOnlyMode.value ? '仅允许显式公开身份评论。' : '强匿名与显式公开按策略并行。'
   },
   {
     label: '凭据批次',
@@ -426,8 +426,8 @@ const riskRows = computed<AnonymousRiskRow[]>(() => {
 
   return [{
     subject: 'anonymous-comment-governance',
-    displayName: '匿名评论主体',
-    authorMode: `匿名 ${stats.totalAnonymous}`,
+    displayName: '强匿名评论主体',
+    authorMode: `ZK 强匿名 ${stats.totalAnonymous}`,
     displayLanguage: '按评论记录',
     scope: `待审 ${stats.pendingAnonymous}`,
     credential: `证明 ${stats.zkAnonymous}`,
@@ -435,7 +435,8 @@ const riskRows = computed<AnonymousRiskRow[]>(() => {
     accountAge: `隐藏 ${stats.hiddenAnonymous}`,
     riskLabels: [
       `rejected:${stats.rejectedAnonymous}`,
-      `pending:${stats.pendingAnonymous}`
+      `pending:${stats.pendingAnonymous}`,
+      `legacy-server-visible:${stats.legacyServerVisiblePseudonymous}`
     ]
   }]
 })

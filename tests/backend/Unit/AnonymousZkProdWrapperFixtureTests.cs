@@ -212,7 +212,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             true,
             true,
             true,
-            CommentAuthorModes.Anonymous,
+            CommentAuthorModes.ZkAnonymous,
             AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)
         {
             SnapshotHash = PolicyHash

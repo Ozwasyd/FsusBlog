@@ -62,7 +62,7 @@ public sealed class AnonymousCommentPolicyPersistenceTests(PostgresSchemaMigrati
             AnonymousCommentsEnabled: true,
             PublicCommentsEnabled: true,
             ZkAnonymousEnabled: true,
-            DefaultAuthorMode: CommentAuthorModes.Anonymous,
+            DefaultAuthorMode: CommentAuthorModes.ZkAnonymous,
             SupportedDisplayLanguages: ["fr", "zh-CN"],
             CommentMaxChars: 2400,
             CommentMaxUtf8Bytes: 9600,
@@ -72,7 +72,7 @@ public sealed class AnonymousCommentPolicyPersistenceTests(PostgresSchemaMigrati
         Assert.True(updated.AnonymousCommentsEnabled);
         Assert.True(updated.PublicCommentsEnabled);
         Assert.True(updated.ZkAnonymousEnabled);
-        Assert.Equal(CommentAuthorModes.Anonymous, updated.DefaultAuthorMode);
+        Assert.Equal(CommentAuthorModes.ZkAnonymous, updated.DefaultAuthorMode);
         Assert.Equal(["zh-CN"], updated.SupportedDisplayLanguages);
         Assert.Equal(2400, updated.CommentMaxChars);
         Assert.Equal(9600, updated.CommentMaxUtf8Bytes);
@@ -91,7 +91,7 @@ public sealed class AnonymousCommentPolicyPersistenceTests(PostgresSchemaMigrati
         Assert.True(stored.AnonymousCommentsEnabled);
         Assert.True(stored.PublicCommentsEnabled);
         Assert.True(stored.ZkAnonymousEnabled);
-        Assert.Equal(CommentAuthorModes.Anonymous, stored.DefaultAuthorMode);
+        Assert.Equal(CommentAuthorModes.ZkAnonymous, stored.DefaultAuthorMode);
         Assert.Equal("zh-CN", stored.SupportedDisplayLanguages);
         Assert.Equal(2400, stored.CommentMaxChars);
         Assert.Equal(9600, stored.CommentMaxUtf8Bytes);
@@ -112,7 +112,7 @@ public sealed class AnonymousCommentPolicyPersistenceTests(PostgresSchemaMigrati
         Assert.True(reloaded.AnonymousCommentsEnabled);
         Assert.True(reloaded.PublicCommentsEnabled);
         Assert.True(reloaded.ZkAnonymousEnabled);
-        Assert.Equal(CommentAuthorModes.Anonymous, reloaded.DefaultAuthorMode);
+        Assert.Equal(CommentAuthorModes.ZkAnonymous, reloaded.DefaultAuthorMode);
         Assert.Equal(["zh-CN"], reloaded.SupportedDisplayLanguages);
         Assert.Equal(updated.SnapshotHash, reloaded.SnapshotHash);
         Assert.Equal("admin:42", reloaded.ChangedBy);

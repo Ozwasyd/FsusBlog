@@ -145,6 +145,11 @@ public sealed class AnonymousCommentPolicyService(
         long? adminPrincipalId)
     {
         string defaultAuthorMode = current.DefaultAuthorMode;
+        if (request.DefaultAuthorMode is not null && IsRetiredAnonymousMode(request.DefaultAuthorMode))
+        {
+            throw new ArgumentException("anonymous_author_mode_retired", nameof(request.DefaultAuthorMode));
+        }
+
         if (request.DefaultAuthorMode is not null && !TryNormalizeAuthorMode(request.DefaultAuthorMode, out defaultAuthorMode))
         {
             throw new ArgumentException("author_mode_invalid", nameof(request.DefaultAuthorMode));
@@ -172,7 +177,14 @@ public sealed class AnonymousCommentPolicyService(
         string mode;
         if (string.IsNullOrWhiteSpace(requestedAuthorMode))
         {
-            mode = NormalizeAuthorMode(policy.DefaultAuthorMode, CommentAuthorModes.Anonymous);
+            mode = NormalizeAuthorMode(policy.DefaultAuthorMode, CommentAuthorModes.ZkAnonymous);
+        }
+        else if (IsRetiredAnonymousMode(requestedAuthorMode))
+        {
+            return CommentAuthorModeDecision.Reject(
+                CommentAuthorModes.RetiredAnonymous,
+                "anonymous_author_mode_retired",
+                "The server-visible anonymous author mode is retired");
         }
         else if (!TryNormalizeAuthorMode(requestedAuthorMode, out mode))
         {
@@ -203,12 +215,7 @@ public sealed class AnonymousCommentPolicyService(
                 : CommentAuthorModeDecision.Reject(mode, "zk_anonymous_disabled", "ZK anonymous comments are disabled");
         }
 
-        if (IsAnonymousMode(mode) && !policy.AnonymousCommentsEnabled)
-        {
-            return CommentAuthorModeDecision.Reject(mode, "anonymous_comments_disabled", "Anonymous comments are disabled");
-        }
-
-        return CommentAuthorModeDecision.Allow(mode);
+        return CommentAuthorModeDecision.Reject(mode, "author_mode_invalid", "Author mode is invalid");
     }
 
     private AnonymousCommentPolicySnapshot BuildInitialPolicy()
@@ -216,7 +223,7 @@ public sealed class AnonymousCommentPolicyService(
             configuration.GetValue("AnonymousIdentity:AnonymousCommentsEnabled", true),
             configuration.GetValue("AnonymousIdentity:PublicCommentsEnabled", true),
             configuration.GetValue("AnonymousIdentity:ZkAnonymousCommentsEnabled", false),
-            NormalizeAuthorMode(configuration["AnonymousIdentity:DefaultAuthorMode"], CommentAuthorModes.Anonymous),
+            NormalizeAuthorMode(configuration["AnonymousIdentity:DefaultAuthorMode"], CommentAuthorModes.ZkAnonymous),
             NormalizeLanguages(
                 configuration.GetSection("AnonymousIdentity:SupportedDisplayLanguages").Get<string[]>(),
                 AnonymousCommentPolicySnapshot.DefaultDisplayLanguages),
@@ -312,7 +319,7 @@ public sealed class AnonymousCommentPolicyService(
                 entity.AnonymousCommentsEnabled,
                 entity.PublicCommentsEnabled,
                 entity.ZkAnonymousEnabled,
-                NormalizeAuthorMode(entity.DefaultAuthorMode, CommentAuthorModes.Anonymous),
+                NormalizeAuthorMode(entity.DefaultAuthorMode, CommentAuthorModes.ZkAnonymous),
                 NormalizeLanguages(
                     entity.SupportedDisplayLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
                     AnonymousCommentPolicySnapshot.DefaultDisplayLanguages),
@@ -330,7 +337,7 @@ public sealed class AnonymousCommentPolicyService(
             AnonymousCommentsEnabled = snapshot.AnonymousCommentsEnabled,
             PublicCommentsEnabled = snapshot.PublicCommentsEnabled,
             ZkAnonymousEnabled = snapshot.ZkAnonymousEnabled,
-            DefaultAuthorMode = NormalizeAuthorMode(snapshot.DefaultAuthorMode, CommentAuthorModes.Anonymous),
+            DefaultAuthorMode = NormalizeAuthorMode(snapshot.DefaultAuthorMode, CommentAuthorModes.ZkAnonymous),
             SupportedDisplayLanguages = string.Join(',', NormalizeLanguages(snapshot.SupportedDisplayLanguages, AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)),
             CommentMaxChars = CommentLimits.NormalizeMaxChars(snapshot.CommentMaxChars),
             CommentMaxUtf8Bytes = CommentLimits.NormalizeMaxUtf8Bytes(snapshot.CommentMaxUtf8Bytes),
@@ -372,8 +379,7 @@ public sealed class AnonymousCommentPolicyService(
     private static bool TryNormalizeAuthorMode(string? value, out string normalized)
     {
         normalized = TextHelpers.NormalizeModeToken(value) ?? string.Empty;
-        return normalized is CommentAuthorModes.Anonymous or
-            CommentAuthorModes.Public or
+        return normalized is CommentAuthorModes.Public or
             CommentAuthorModes.ZkAnonymous;
     }
 
@@ -409,8 +415,11 @@ public sealed class AnonymousCommentPolicyService(
         return requested.Value;
     }
 
-    private static bool IsAnonymousMode(string mode)
-        => string.Equals(mode, CommentAuthorModes.Anonymous, StringComparison.Ordinal);
+    private static bool IsRetiredAnonymousMode(string? mode)
+    {
+        string normalized = TextHelpers.NormalizeModeToken(mode) ?? string.Empty;
+        return normalized is CommentAuthorModes.RetiredAnonymous or CommentAuthorModes.LegacyServerVisiblePseudonymous;
+    }
 
     private static string ChangedBy(long? adminPrincipalId)
         => adminPrincipalId.HasValue

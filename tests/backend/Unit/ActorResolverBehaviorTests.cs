@@ -10,22 +10,17 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ActorResolverBehaviorTests
 {
     [Fact]
-    public async Task CommentActorResolver_AnonymousModeDropsRequestUserId()
+    public async Task CommentActorResolver_RetiredAnonymousModeFailsBeforeAccountLookup()
     {
         var accountReader = Substitute.For<IUserAccountReader>();
-        accountReader.GetAccountByIdAsync(42)
-            .Returns(Task.FromResult<UserAccountSnapshot?>(CreateAccountSnapshot(42, credentialLevel: AnonymousCredentialLevels.Trusted)));
         var resolver = new CommentActorResolver(
             accountReader,
-            new AnonymousCommentPolicyService(BuildConfiguration([])),
-            new CommentAnonymousDisplayNameGenerator(),
-            Substitute.For<IZkAnonymousProofService>(),
-            BuildConfiguration([]));
+            new AnonymousCommentPolicyService(BuildConfiguration([])));
 
         CommentActorResolveResult result = await resolver.ResolveAsync(new CommentActorResolveRequest(
             UserId: 42,
             ArticleId: 7,
-            AuthorMode: CommentAuthorModes.Anonymous,
+            AuthorMode: CommentAuthorModes.RetiredAnonymous,
             PublicSendExplicitlySelected: false,
             AnonymousScope: "article:7",
             DisplayLanguage: "en",
@@ -33,13 +28,10 @@ public sealed class ActorResolverBehaviorTests
             ZkProof: null,
             SubmitRegion: "US"));
 
-        Assert.True(result.Allowed, result.Message);
-        Assert.NotNull(result.Actor);
-        Assert.Null(result.Actor.UserId);
-        Assert.Equal(CommentAuthorModes.Anonymous, result.Actor.AuthorMode);
-        Assert.Null(result.Actor.PublicHandle);
-        Assert.NotNull(result.Actor.AnonymousHandle);
-        Assert.Equal(AnonymousCredentialLevels.Trusted, result.Actor.CredentialLevel);
+        Assert.False(result.Allowed);
+        Assert.Null(result.Actor);
+        Assert.Equal("anonymous_author_mode_retired", result.Status);
+        Assert.Empty(accountReader.ReceivedCalls());
     }
 
     [Fact]
@@ -50,10 +42,7 @@ public sealed class ActorResolverBehaviorTests
             .Returns(Task.FromResult<UserAccountSnapshot?>(CreateAccountSnapshot(42, publicHandle: "PublicHandle")));
         var resolver = new CommentActorResolver(
             accountReader,
-            new AnonymousCommentPolicyService(BuildConfiguration([])),
-            new CommentAnonymousDisplayNameGenerator(),
-            Substitute.For<IZkAnonymousProofService>(),
-            BuildConfiguration([]));
+            new AnonymousCommentPolicyService(BuildConfiguration([])));
 
         CommentActorResolveResult result = await resolver.ResolveAsync(new CommentActorResolveRequest(
             UserId: 42,
@@ -82,10 +71,7 @@ public sealed class ActorResolverBehaviorTests
             .Returns(Task.FromResult<UserAccountSnapshot?>(CreateAccountSnapshot(42, publicHandle: null)));
         var resolver = new CommentActorResolver(
             accountReader,
-            new AnonymousCommentPolicyService(BuildConfiguration([])),
-            new CommentAnonymousDisplayNameGenerator(),
-            Substitute.For<IZkAnonymousProofService>(),
-            BuildConfiguration([]));
+            new AnonymousCommentPolicyService(BuildConfiguration([])));
 
         CommentActorResolveResult result = await resolver.ResolveAsync(new CommentActorResolveRequest(
             UserId: 42,

@@ -38,7 +38,8 @@ public sealed record class AnonymousGovernanceCommentStats(
     int ApprovedAnonymous,
     int RejectedAnonymous,
     int HiddenAnonymous,
-    int ZkAnonymous);
+    int ZkAnonymous,
+    int LegacyServerVisiblePseudonymous);
 
 public sealed record class AnonymousGovernanceCredentialRow(
     long Epoch,

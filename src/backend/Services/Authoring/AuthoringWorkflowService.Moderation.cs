@@ -332,7 +332,7 @@ public sealed partial class AuthoringWorkflowService
     private static bool IsAnonymousActor(CommentModerationQueueRow row)
     {
         string mode = TextHelpers.LowerTrimmed(row.AuthorMode) ?? string.Empty;
-        return mode is "" or "anonymous" or "zk_anonymous"
+        return mode is "" or CommentAuthorModes.RetiredAnonymous or CommentAuthorModes.LegacyServerVisiblePseudonymous or CommentAuthorModes.ZkAnonymous
             || !string.IsNullOrWhiteSpace(row.AnonymousNullifierHash)
             || !string.IsNullOrWhiteSpace(row.ModerationSubjectHash);
     }
@@ -353,7 +353,7 @@ public sealed partial class AuthoringWorkflowService
         string? anonymousDisplayLanguage)
     {
         string mode = string.IsNullOrWhiteSpace(authorMode)
-            ? CommentAuthorModes.Anonymous
+            ? CommentAuthorModes.LegacyServerVisiblePseudonymous
             : authorMode.Trim();
         if (string.Equals(mode, CommentAuthorModes.Public, StringComparison.OrdinalIgnoreCase))
         {
@@ -862,7 +862,9 @@ public sealed partial class AuthoringWorkflowService
         string? scopeLabel,
         string? credentialLevel)
     {
-        string normalizedMode = string.IsNullOrWhiteSpace(mode) ? CommentAuthorModes.Anonymous : mode.Trim();
+        string normalizedMode = string.IsNullOrWhiteSpace(mode)
+            ? CommentAuthorModes.LegacyServerVisiblePseudonymous
+            : mode.Trim();
         bool isPublic = string.Equals(normalizedMode, CommentAuthorModes.Public, StringComparison.OrdinalIgnoreCase);
         string resolvedLanguage = string.Equals(displayLanguage, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "zh-CN";
         string fallbackName = isPublic

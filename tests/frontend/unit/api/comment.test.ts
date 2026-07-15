@@ -46,8 +46,8 @@ describe('comment API', () => {
     const dto = {
       articleId: 1,
       content: 'Hello',
-      authorMode: 'anonymous',
-      publicSendExplicitlySelected: false,
+      authorMode: 'public',
+      publicSendExplicitlySelected: true,
       displayLanguage: 'zh-CN'
     } as const
     await createCommentV2(dto)
@@ -65,25 +65,22 @@ describe('comment API', () => {
     expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
   })
 
-  it('createCommentV2 uses CommentCreateV2 for anonymous author fields', async () => {
+  it('createCommentV2 keeps retired anonymous wire slots empty for public writes', async () => {
     const dto = {
       articleId: 9,
       content: 'Hello anonymous mode',
       parentId: '100',
       rootId: '90',
       replyToCommentId: '80',
-      authorMode: 'zk_anonymous',
-      publicSendExplicitlySelected: false,
-      anonymousScope: 'article:9:root:90',
+      authorMode: 'public',
+      publicSendExplicitlySelected: true,
       displayLanguage: 'zh-CN',
-      proofToken: 'proof-token',
-      zkProof: new Uint8Array([1, 2, 3, 4]),
       nonce: 'n',
       salt: 's',
       answer: 1
     }
 
-    await createCommentV2(dto as never)
+    await createCommentV2(dto)
 
     const body = mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer
     expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
@@ -95,16 +92,16 @@ describe('comment API', () => {
     expect(payload[9]).toBe(1)
     expect(payload[10]).toBe(1)
     expect(payload[11]).toBe(0)
-    expect(payload[12]).toBe(4)
-    expect(payload[13]).toBe(0)
+    expect(payload[12]).toBe(3)
+    expect(payload[13]).toBe(1)
     expect(view.getBigInt64(16, true)).toBe(100n)
     expect(view.getBigInt64(24, true)).toBe(90n)
     expect(view.getBigInt64(32, true)).toBe(80n)
     const blob = payload.subarray(84)
-    expect(readSliceText(payload, blob, 40)).toBe('article:9:root:90')
+    expect(readSliceText(payload, blob, 40)).toBe('')
     expect(readSliceText(payload, blob, 48)).toBe('zh-CN')
-    expect(readSliceText(payload, blob, 56)).toBe('proof-token')
-    expect([...readSliceBytes(payload, blob, 64)]).toEqual([1, 2, 3, 4])
+    expect(readSliceText(payload, blob, 56)).toBe('')
+    expect([...readSliceBytes(payload, blob, 64)]).toEqual([])
     expect(readSliceText(payload, blob, 72)).toBe('Hello anonymous mode')
   })
 
@@ -114,7 +111,6 @@ describe('comment API', () => {
       content: 'Public comment with explicit consent',
       authorMode: 'public',
       publicSendExplicitlySelected: true,
-      anonymousScope: 'article:10',
       displayLanguage: 'en'
     })
 
@@ -126,7 +122,7 @@ describe('comment API', () => {
     expect(payload[12]).toBe(3)
     expect(payload[13]).toBe(1)
     const blob = payload.subarray(84)
-    expect(readSliceText(payload, blob, 40)).toBe('article:10')
+    expect(readSliceText(payload, blob, 40)).toBe('')
     expect(readSliceText(payload, blob, 48)).toBe('en')
   })
 
@@ -334,7 +330,7 @@ describe('comment API', () => {
     expect(() => resolveCommentAuthorView({})).toThrow('comment_author_contract_missing')
     expect(resolveCommentAuthorView({
       author: {
-        mode: 'anonymous',
+        mode: 'legacy_server_visible_pseudonymous',
         displayName: '匿名用户 王明',
         displayLanguage: 'zh-CN',
         badge: '',
@@ -342,7 +338,7 @@ describe('comment API', () => {
         scopeLabel: '本文'
       }
     })).toEqual({
-      mode: 'anonymous',
+      mode: 'legacy_server_visible_pseudonymous',
       displayName: '匿名用户 王明',
       displayLanguage: 'zh-CN',
       badge: null,
@@ -355,8 +351,8 @@ describe('comment API', () => {
     const dto = {
       articleId: 1,
       content: 'a'.repeat(COMMENT_CONTENT_CONSTRAINT.maxChars + 1),
-      authorMode: 'anonymous',
-      publicSendExplicitlySelected: false,
+      authorMode: 'public',
+      publicSendExplicitlySelected: true,
       displayLanguage: 'zh-CN'
     } as const
 

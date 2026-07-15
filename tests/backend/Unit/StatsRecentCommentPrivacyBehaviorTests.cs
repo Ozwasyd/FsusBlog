@@ -63,7 +63,7 @@ public sealed class StatsRecentCommentPrivacyBehaviorTests
 
     [Theory]
     [InlineData(CommentAuthorModes.Public, "Public Handle", "ignored", "ignored", "verified", "Public Handle", null, null, null)]
-    [InlineData(CommentAuthorModes.Anonymous, null, "Anonymous Finch", "article:7", "basic", "Anonymous Finch", null, "article:7", "basic")]
+    [InlineData(CommentAuthorModes.LegacyServerVisiblePseudonymous, null, "Anonymous Finch", null, null, "Anonymous Finch", null, null, null)]
     [InlineData(CommentAuthorModes.ZkAnonymous, null, "Verified Owl", "article:9", "verified", "Verified Owl", "已验证匿名凭证", "article:9", "verified")]
     [InlineData(CommentAuthorModes.ZkAnonymous, null, null, null, "entry", "强匿名评论者", "已验证匿名凭证", null, "entry")]
     public void CreateRecentCommentStatItem_PreservesPublicAnonymousAndCredentialSemantics(

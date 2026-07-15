@@ -271,7 +271,7 @@ public partial class StatsService(
         string? normalized = TextHelpers.NormalizeModeToken(authorMode);
         return normalized is CommentAuthorModes.Public or CommentAuthorModes.ZkAnonymous
             ? normalized
-            : CommentAuthorModes.Anonymous;
+            : CommentAuthorModes.LegacyServerVisiblePseudonymous;
     }
 
     private static string ResolveRecentCommentAuthorDisplayName(string mode, string? publicHandle, string? anonymousDisplayName)

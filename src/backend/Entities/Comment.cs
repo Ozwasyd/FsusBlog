@@ -24,7 +24,7 @@ public class Comment
     public int? UserId { get; set; }
 
     [SugarColumn(ColumnName = "author_mode", Length = 32)]
-    public string AuthorMode { get; set; } = CommentAuthorModes.Anonymous;
+    public string AuthorMode { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "public_handle", Length = 64, IsNullable = true)]
     public string? PublicHandle { get; set; }

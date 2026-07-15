@@ -138,7 +138,7 @@ function readCommentAuthorViewPayload(payload: Uint8Array, errorCode: string): C
 }
 
 function decodeCommentAuthorMode(raw: number, errorCode: string): CommentAuthorView['mode'] {
-  if (raw === 0 || raw === 1) return 'anonymous';
+  if (raw === 0 || raw === 1) return 'legacy_server_visible_pseudonymous';
   if (raw === 3) return 'public';
   if (raw === 4) return 'zk_anonymous';
   throw createAppError(AppErrorCode.ProtocolFailure, errorCode);

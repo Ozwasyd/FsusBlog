@@ -272,6 +272,7 @@ function verifyPerceptionV2Matrix(text) {
 
 function verifyPrivacyZkCommentMatrix(text) {
   const requiredScenarioIds = [
+    'PRIVACY-ZK-AUTHOR-MODE-RETIREMENT',
     'PRIVACY-ZK-CIRCUIT-CONTRACT',
     'PRIVACY-ZK-TRUSTED-SETUP',
     'PRIVACY-ZK-TRANSPORT',
@@ -284,6 +285,12 @@ function verifyPrivacyZkCommentMatrix(text) {
     'PRIVACY-ZK-LOCAL-REVIEW'
   ]
   const requiredPrivacyCases = [
+    'retired-anonymous-zero-write',
+    'public-explicit-opt-in',
+    'zk-no-identity-headers',
+    'zk-unavailable-no-downgrade',
+    'legacy-migration-preserves-display-structure-visibility',
+    'legacy-nullifier-isolated',
     'no-cookie',
     'no-authorization',
     'cookie-rejected',

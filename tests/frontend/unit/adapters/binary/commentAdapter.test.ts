@@ -74,7 +74,7 @@ function lengthPrefixed(payload: Uint8Array): Uint8Array {
   return buildPayload(lenBuf, payload)
 }
 
-function commentAuthorPayload(displayName: string, mode: 'anonymous' | 'public' | 'zk_anonymous' = 'public'): Uint8Array {
+function commentAuthorPayload(displayName: string, mode: 'legacy_server_visible_pseudonymous' | 'public' | 'zk_anonymous' = 'public'): Uint8Array {
   const pod = new Uint8Array(COMMENT_AUTHOR_VIEW_POD_SIZE)
   pod[0] = mode === 'public' ? 3 : mode === 'zk_anonymous' ? 4 : 1
   const name = textBytes(displayName)
@@ -157,7 +157,7 @@ describe('comment create binary request compatibility slots', () => {
       rootId: '90',
       replyToCommentId: '80',
       replyToUserId: 7,
-      authorMode: 'anonymous',
+      authorMode: 'zk_anonymous',
       publicSendExplicitlySelected: false
     })
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
@@ -247,7 +247,7 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     expect(result.defaultAuthorMode).toBe('zk_anonymous')
   })
 
-  it('decodes legacy policy snapshots without configurable comment limits', () => {
+  it('rejects retired policy snapshots without configurable comment limits', () => {
     const pod = new Uint8Array(33)
     pod[0] = 1
     pod[1] = 1
@@ -264,16 +264,10 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     writeSliceRef(pod, 17, languages.byteLength, snapshotHash.byteLength)
     writeSliceRef(pod, 25, languages.byteLength + snapshotHash.byteLength, 0)
 
-    const result = mapCommentPolicySnapshotFromPayload(buildPayload(
+    expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(
       pod,
       blobParts(languages, snapshotHash)
-    ))
-
-    expect(result.commentMaxChars).toBe(1000)
-    expect(result.commentMaxUtf8Bytes).toBe(4096)
-    expect(result.supportedDisplayLanguages).toEqual(['zh-CN', 'en'])
-    expect(result.snapshotHash).toBe('9'.repeat(64))
-    expect(result.defaultAuthorMode).toBe('anonymous')
+    ))).toThrow('comment_policy_snapshot_author_mode_invalid')
   })
 
   it('rejects invalid policy flag bytes', () => {

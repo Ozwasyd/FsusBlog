@@ -18,7 +18,7 @@ public sealed class AnonymousCommentPolicy
     public bool ZkAnonymousEnabled { get; set; }
 
     [SugarColumn(ColumnName = "default_author_mode", Length = 32)]
-    public string DefaultAuthorMode { get; set; } = "anonymous";
+    public string DefaultAuthorMode { get; set; } = "zk_anonymous";
 
     [SugarColumn(ColumnName = "supported_display_languages", Length = 128)]
     public string SupportedDisplayLanguages { get; set; } = "zh-CN,en";

@@ -29,7 +29,7 @@
             </span>
           </div>
           <p v-if="anonymousUnavailableMessage" class="comment-identity-hint">
-            匿名发布暂不可用，可选择公开署名发布。
+            强匿名发布暂不可用，评论不会自动降级发送；你仍可明确选择公开署名。
           </p>
           <p v-if="publicIdentityModel" class="comment-identity-hint">
             公开发布后，其他人会看到你的公开名称。
@@ -284,7 +284,7 @@ const props = withDefaults(defineProps<{
   displayLanguage: CommentDisplayLanguage;
   anonymousScope: string;
 }>(), {
-  authorMode: 'anonymous',
+  authorMode: 'zk_anonymous',
   publicSendConfirmed: false,
   anonymousCommentsEnabled: true,
   publicCommentsEnabled: true,
@@ -343,9 +343,9 @@ const commentLimitWarning = computed(() =>
   commentUtf8Bytes.value / commentPolicy.value.maxUtf8Bytes >= 0.9
 )
 
-const effectiveAnonymousCommentsEnabled = computed(() => props.anonymousCommentsEnabled)
+const effectiveAnonymousCommentsEnabled = computed(() => props.anonymousCommentsEnabled && props.zkAnonymousEnabled)
 
-const anonymousStatusText = computed(() => '匿名发布')
+const anonymousStatusText = computed(() => '强匿名发布')
 
 const anonymousUnavailableMessage = computed(() => !effectiveAnonymousCommentsEnabled.value && props.publicCommentsEnabled)
 
@@ -353,10 +353,7 @@ const authorModeModel = computed<CommentAuthorMode>(() => {
   if (props.authorMode === 'public') {
     return 'public'
   }
-  if (props.authorMode === 'zk_anonymous' && props.zkAnonymousEnabled) {
-    return 'zk_anonymous'
-  }
-  return effectiveAnonymousCommentsEnabled.value ? 'anonymous' : 'public'
+  return 'zk_anonymous'
 })
 
 const publicIdentityModel = computed({
@@ -365,7 +362,7 @@ const publicIdentityModel = computed({
     if (value && !props.publicCommentsEnabled) {
       return
     }
-    emit('update:authorMode', value ? 'public' : 'anonymous')
+    emit('update:authorMode', value ? 'public' : 'zk_anonymous')
     emit('update:publicSendConfirmed', value)
   }
 })
@@ -403,7 +400,6 @@ const composerInputDisabled = computed(() =>
   props.isBanned ||
   props.isPowCalculating ||
   props.isSubmitting ||
-  (authorModeModel.value === 'anonymous' && !effectiveAnonymousCommentsEnabled.value) ||
   (authorModeModel.value === 'public' && !props.publicCommentsEnabled) ||
   (authorModeModel.value === 'zk_anonymous' && !props.zkAnonymousEnabled)
 )
@@ -523,11 +519,17 @@ const restoreCommentDraft = (): void => {
       return
     }
 
-    localDraft.value = draft
+    const restoredMode: CommentAuthorMode = draft.authorMode === 'public' ? 'public' : 'zk_anonymous'
+    const restoredDraft = {
+      ...draft,
+      authorMode: restoredMode,
+      publicSendConfirmed: restoredMode === 'public' && draft.publicSendConfirmed === true
+    }
+    localDraft.value = restoredDraft
     if (!contentModel.value.trim()) {
-      emit('update:modelValue', draft.content)
-      emit('update:authorMode', draft.authorMode)
-      emit('update:publicSendConfirmed', draft.publicSendConfirmed)
+      emit('update:modelValue', restoredDraft.content)
+      emit('update:authorMode', restoredDraft.authorMode)
+      emit('update:publicSendConfirmed', restoredDraft.publicSendConfirmed)
       restoredDraftVisible.value = true
     }
   } catch {

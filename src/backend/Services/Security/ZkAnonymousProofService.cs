@@ -98,7 +98,7 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
                 anonymousEnabled,
                 publicEnabled,
                 zkEnabled,
-                CommentAuthorModes.Anonymous,
+                CommentAuthorModes.ZkAnonymous,
                 AnonymousCommentPolicySnapshot.DefaultDisplayLanguages);
             return snapshot with
             {

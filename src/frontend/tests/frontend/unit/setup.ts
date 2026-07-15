@@ -23,6 +23,7 @@ const unitWindow = new Window({ url: 'https://fsusblog.test/' })
 // ---------------------------------------------------------------------------
 vi.mock('@wasm/aeds', () => ({
   initWasm: vi.fn().mockResolvedValue(true),
+  resolveAedsWorkerRuntimeModel: vi.fn().mockReturnValue({ activeRequests: 1 }),
   decode: vi.fn().mockReturnValue({
     ok: false,
     frameType: FrameType.Unknown,

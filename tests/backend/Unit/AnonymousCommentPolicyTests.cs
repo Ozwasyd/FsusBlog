@@ -12,16 +12,20 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AnonymousCommentPolicyTests
 {
     [Fact]
-    public void AnonymousCommentPolicy_DefaultsToAnonymousAndRejectsImplicitPublicMode()
+    public void AnonymousCommentPolicy_DefaultsToZkFailClosedAndRejectsImplicitPublicMode()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration([]));
 
-        CommentAuthorModeDecision anonymous = service.EvaluateAuthorMode(null, publicSendExplicitlySelected: false);
+        CommentAuthorModeDecision defaultMode = service.EvaluateAuthorMode(null, publicSendExplicitlySelected: false);
+        CommentAuthorModeDecision retired = service.EvaluateAuthorMode(CommentAuthorModes.RetiredAnonymous, publicSendExplicitlySelected: false);
         CommentAuthorModeDecision implicitPublic = service.EvaluateAuthorMode(CommentAuthorModes.Public, publicSendExplicitlySelected: false);
         CommentAuthorModeDecision explicitPublic = service.EvaluateAuthorMode(CommentAuthorModes.Public, publicSendExplicitlySelected: true);
 
-        Assert.True(anonymous.Allowed);
-        Assert.Equal(CommentAuthorModes.Anonymous, anonymous.EffectiveAuthorMode);
+        Assert.False(defaultMode.Allowed);
+        Assert.Equal(CommentAuthorModes.ZkAnonymous, defaultMode.EffectiveAuthorMode);
+        Assert.Equal("zk_anonymous_disabled", defaultMode.Status);
+        Assert.False(retired.Allowed);
+        Assert.Equal("anonymous_author_mode_retired", retired.Status);
         Assert.False(implicitPublic.Allowed);
         Assert.Equal("public_opt_in_required", implicitPublic.Status);
         Assert.True(explicitPublic.Allowed);
@@ -36,10 +40,11 @@ public sealed class AnonymousCommentPolicyTests
             ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true"
         }));
 
-        CommentAuthorModeDecision anonymous = service.EvaluateAuthorMode(CommentAuthorModes.Anonymous, publicSendExplicitlySelected: false);
+        CommentAuthorModeDecision anonymous = service.EvaluateAuthorMode(CommentAuthorModes.RetiredAnonymous, publicSendExplicitlySelected: false);
         CommentAuthorModeDecision zk = service.EvaluateAuthorMode(CommentAuthorModes.ZkAnonymous, publicSendExplicitlySelected: false);
 
         Assert.False(anonymous.Allowed);
+        Assert.Equal("anonymous_author_mode_retired", anonymous.Status);
         Assert.False(zk.Allowed);
         Assert.Equal("anonymous_comments_disabled", zk.Status);
     }

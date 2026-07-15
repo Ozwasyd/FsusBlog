@@ -4,7 +4,6 @@ import { getRelatedReading, type ArticleDetailResponse, type RelatedReadingRespo
 import { toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap'
 import {
   createAnonymousComment,
-  createCommentV2,
   createPublicComment,
   deleteComment,
   getCommentPolicySnapshot,
@@ -125,7 +124,7 @@ export function useArticleDetailView() {
 
   const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null)
   const commentContent = ref('')
-  const commentAuthorMode = ref<CommentAuthorMode>('anonymous')
+  const commentAuthorMode = ref<CommentAuthorMode>('zk_anonymous')
   const publicSendConfirmed = ref(false)
   const commentDisplayLanguage = ref<CommentDisplayLanguage>('zh-CN')
   const anonymousCommentsEnabled = ref(true)
@@ -361,12 +360,8 @@ export function useArticleDetailView() {
     }
     applySupportedCommentDisplayLanguage(policy.supportedDisplayLanguages)
 
-    if (
-      (commentAuthorMode.value === 'anonymous' && !anonymousCommentsEnabled.value) ||
-      (commentAuthorMode.value === 'public' && !publicCommentsEnabled.value) ||
-      (commentAuthorMode.value === 'zk_anonymous' && !zkAnonymousEnabled.value)
-    ) {
-      commentAuthorMode.value = anonymousCommentsEnabled.value ? 'anonymous' : 'public'
+    if (commentAuthorMode.value === 'public' && !publicCommentsEnabled.value) {
+      commentAuthorMode.value = 'zk_anonymous'
     }
 
     if (commentAuthorMode.value !== 'public') {
@@ -604,15 +599,7 @@ export function useArticleDetailView() {
   }
 
   const resolveCommentAuthorModeForPolicy = (): CommentAuthorMode => {
-    if (commentAuthorMode.value === 'anonymous' && anonymousCommentsEnabled.value) {
-      return 'anonymous'
-    }
-
-    if (commentAuthorMode.value === 'zk_anonymous' && zkAnonymousEnabled.value) {
-      return 'zk_anonymous'
-    }
-
-    return 'public'
+    return commentAuthorMode.value
   }
 
   const clearCommentChallenge = (): void => {
@@ -693,25 +680,6 @@ export function useArticleDetailView() {
   const canAttemptStrongAnonymousSubmit = (): boolean =>
     zkAnonymousEnabled.value && commentPrivacyUiState.value !== 'unavailable'
 
-  const submitOrdinaryAnonymousComment = async (signal: AbortSignal): Promise<void> => {
-    await createCommentV2(
-      {
-        articleId: article.value!.id,
-        content: commentContent.value,
-        parentId: replyTarget.value?.id ?? null,
-        rootId: replyTarget.value?.rootId ?? null,
-        replyToCommentId: replyTarget.value?.id ?? null,
-        authorMode: 'anonymous',
-        publicSendExplicitlySelected: false,
-        anonymousScope: commentAnonymousScope.value,
-        displayLanguage: commentDisplayLanguage.value,
-        proofToken: null,
-        zkProof: null
-      },
-      { signal }
-    )
-  }
-
   const submitComment = async (): Promise<void> => {
     if (!commentContent.value.trim() || !article.value) {
       return
@@ -731,11 +699,6 @@ export function useArticleDetailView() {
     }
 
     const selectedAuthorMode = resolveCommentAuthorModeForPolicy()
-    if (selectedAuthorMode === 'anonymous' && !anonymousCommentsEnabled.value) {
-      showErrorToast('匿名发布暂不可用，请稍后重试。')
-      return
-    }
-
     if (selectedAuthorMode === 'public' && !publicSendConfirmed.value) {
       showErrorToast('请先勾选公开显示我的名称。')
       return
@@ -747,16 +710,11 @@ export function useArticleDetailView() {
     }
 
     if (selectedAuthorMode === 'zk_anonymous' && !zkAnonymousEnabled.value) {
-      showErrorToast('匿名发布暂不可用，请稍后重试。')
+      showErrorToast('强匿名发布暂不可用，评论未发送。')
       return
     }
 
-    if (selectedAuthorMode === 'zk_anonymous') {
-      showErrorToast('匿名发布暂不可用，请稍后重试。')
-      return
-    }
-
-    const anonymousSubmitScope = selectedAuthorMode === 'anonymous'
+    const anonymousSubmitScope = selectedAuthorMode === 'zk_anonymous'
       ? commentAnonymousScope.value
       : null
     if (anonymousSubmitScope && anonymousSubmitScopesInFlight.has(anonymousSubmitScope)) {
@@ -775,7 +733,7 @@ export function useArticleDetailView() {
     try {
       await commentSubmitTask.run(
         async (signal) => {
-          if (selectedAuthorMode === 'anonymous') {
+          if (selectedAuthorMode === 'zk_anonymous') {
             let privacyTicket: CommentPrivacyPreparedTicket | null =
               canAttemptStrongAnonymousSubmit()
                 ? commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)
@@ -786,9 +744,7 @@ export function useArticleDetailView() {
             }
 
             if (!privacyTicket) {
-              await submitOrdinaryAnonymousComment(signal)
-              commentMutationSubmitted = true
-              return
+              throw new Error('strong_anonymous_ticket_unavailable')
             }
 
             await createAnonymousComment(
@@ -822,9 +778,7 @@ export function useArticleDetailView() {
               replyToCommentId: replyTarget.value?.id ?? null,
               authorMode: 'public',
               publicSendExplicitlySelected: true,
-              anonymousScope: commentAnonymousScope.value,
-              displayLanguage: commentDisplayLanguage.value,
-              proofToken: challengeProof?.proofToken ?? null
+              displayLanguage: commentDisplayLanguage.value
             },
             { signal }
           )
@@ -835,14 +789,14 @@ export function useArticleDetailView() {
       if (lifecycle.isActive() && commentMutationSubmitted) {
         toast.success('已提交审核')
         commentContent.value = ''
-        commentAuthorMode.value = anonymousCommentsEnabled.value ? 'anonymous' : 'public'
+        commentAuthorMode.value = 'zk_anonymous'
         publicSendConfirmed.value = false
         clearReplyTarget()
       }
     } catch (error: unknown) {
       if (!isAbortError(error)) {
         console.error('[Comment] Submit failed:', error)
-        showErrorToast(error, selectedAuthorMode === 'anonymous' ? '匿名评论发布失败' : '评论发布失败')
+        showErrorToast(error, selectedAuthorMode === 'zk_anonymous' ? '强匿名评论发布失败，未进行降级发送' : '评论发布失败')
       }
     } finally {
       if (anonymousSubmitScope) {

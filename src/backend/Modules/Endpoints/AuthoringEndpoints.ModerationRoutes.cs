@@ -96,7 +96,11 @@ public static partial class AuthoringEndpoints
             }
             catch (ArgumentException ex) when (ex.ParamName == nameof(AnonymousCommentPolicyUpdateRequest.DefaultAuthorMode))
             {
-                return AedsJsonResults.BadRequest(aeds, "author_mode_invalid");
+                return AedsJsonResults.BadRequest(
+                    aeds,
+                    ex.Message.StartsWith("anonymous_author_mode_retired", StringComparison.Ordinal)
+                        ? "anonymous_author_mode_retired"
+                        : "author_mode_invalid");
             }
             catch (ArgumentOutOfRangeException ex) when (
                 ex.ParamName == nameof(AnonymousCommentPolicyUpdateRequest.CommentMaxChars) ||

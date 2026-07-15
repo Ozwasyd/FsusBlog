@@ -26,7 +26,7 @@ internal static class AnonymousCommentPolicySnapshotHash
             snapshot.AnonymousCommentsEnabled ? "1" : "0",
             snapshot.PublicCommentsEnabled ? "1" : "0",
             snapshot.ZkAnonymousEnabled ? "1" : "0",
-            NormalizeAuthorMode(snapshot.DefaultAuthorMode, CommentAuthorModes.Anonymous),
+            NormalizeAuthorMode(snapshot.DefaultAuthorMode, CommentAuthorModes.ZkAnonymous),
             CommentLimits.NormalizeMaxChars(snapshot.CommentMaxChars),
             CommentLimits.NormalizeMaxUtf8Bytes(snapshot.CommentMaxUtf8Bytes),
             string.Join(',', NormalizeLanguages(snapshot.SupportedDisplayLanguages, AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)));
@@ -36,8 +36,7 @@ internal static class AnonymousCommentPolicySnapshotHash
     private static string NormalizeAuthorMode(string? value, string fallback)
     {
         string normalized = TextHelpers.NormalizeModeToken(value) ?? string.Empty;
-        return normalized is CommentAuthorModes.Anonymous or
-            CommentAuthorModes.Public or
+        return normalized is CommentAuthorModes.Public or
             CommentAuthorModes.ZkAnonymous
                 ? normalized
                 : fallback;

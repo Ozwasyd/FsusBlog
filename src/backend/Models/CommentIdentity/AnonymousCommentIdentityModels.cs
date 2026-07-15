@@ -4,7 +4,8 @@ namespace FsusBlog.Server.Models.CommentIdentity;
 
 public static class CommentAuthorModes
 {
-    public const string Anonymous = "anonymous";
+    public const string RetiredAnonymous = "anonymous";
+    public const string LegacyServerVisiblePseudonymous = "legacy_server_visible_pseudonymous";
     public const string Public = "public";
     public const string ZkAnonymous = "zk_anonymous";
 }
@@ -29,7 +30,7 @@ public sealed record AnonymousCommentPolicySnapshot(
         AnonymousCommentsEnabled: true,
         PublicCommentsEnabled: true,
         ZkAnonymousEnabled: false,
-        DefaultAuthorMode: CommentAuthorModes.Anonymous,
+        DefaultAuthorMode: CommentAuthorModes.ZkAnonymous,
         SupportedDisplayLanguages: DefaultDisplayLanguages);
 }
 

@@ -106,10 +106,7 @@ public interface ICommentActorResolver
 
 public sealed class CommentActorResolver(
     IUserAccountReader accountReader,
-    IAnonymousCommentPolicyService policyService,
-    ICommentAnonymousDisplayNameGenerator displayNameGenerator,
-    IZkAnonymousProofService zkProofService,
-    IConfiguration configuration) : ICommentActorResolver
+    IAnonymousCommentPolicyService policyService) : ICommentActorResolver
 {
     public async Task<CommentActorResolveResult> ResolveAsync(
         CommentActorResolveRequest request,
@@ -160,115 +157,14 @@ public sealed class CommentActorResolver(
                 AccountAgeBucket: "known"));
         }
 
-        string scope = NormalizeScope(request.AnonymousScope, request.ArticleId);
         if (string.Equals(decision.EffectiveAuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal))
         {
-            _ = zkProofService;
             return CommentActorResolveResult.Reject(
                 "anonymous_ticket_required",
                 "ZK anonymous comments must be submitted with a single-use anonymous comment ticket");
         }
 
-        string nullifierHash = DeriveEngineeringNullifierHash(
-            decision.EffectiveAuthorMode,
-            scope,
-            request.UserId,
-            request.ProofToken);
-        string credentialLevel = await ResolveCredentialLevelAsync(request.UserId, cancellationToken);
-        return CommentActorResolveResult.Allow(BuildAnonymousActor(
-            decision.EffectiveAuthorMode,
-            scope,
-            language,
-            nullifierHash,
-            credentialLevel,
-            ResolveReputationBucket(credentialLevel),
-            request.UserId is > 0 ? "account_bound" : "unbound"));
-    }
-
-    private CommentActor BuildAnonymousActor(
-        string authorMode,
-        string scope,
-        string language,
-        string nullifierHash,
-        string credentialLevel,
-        string reputationBucket,
-        string accountAgeBucket)
-    {
-        string moderationSubjectHash = Convert.ToHexStringLower(
-            AnonymousCommentTicketService.CreateModerationSubjectHash(nullifierHash, configuration));
-        CommentAnonymousDisplayName display = displayNameGenerator.Generate(new CommentAnonymousDisplayNameRequest(
-            language,
-            scope,
-            nullifierHash));
-
-        return new CommentActor(
-            UserId: null,
-            AuthorMode: authorMode,
-            PublicHandle: null,
-            AnonymousHandle: $"anon-{nullifierHash[..12]}",
-            DisplayName: display.DisplayName,
-            DisplayLanguage: display.DisplayLanguage,
-            AnonymousNullifierHash: nullifierHash,
-            AnonymousScope: scope,
-            ModerationSubjectHash: moderationSubjectHash,
-            CredentialLevel: credentialLevel,
-            ReputationBucket: reputationBucket,
-            AccountAgeBucket: accountAgeBucket);
-    }
-
-    private async Task<string> ResolveCredentialLevelAsync(int? userId, CancellationToken cancellationToken)
-    {
-        if (userId is not > 0)
-        {
-            return AnonymousCredentialLevels.Basic;
-        }
-
-        UserAccountSnapshot? account = await accountReader.GetAccountByIdAsync(userId.Value);
-        FsusObservability.RecordCommentActorResolverCredentialLevelCache(account.HasValue && !string.IsNullOrWhiteSpace(account.Value.AnonymousCredentialLevel));
-        string? level = account?.AnonymousCredentialLevel;
-        return NormalizeToken(level, 32) ?? AnonymousCredentialLevels.Basic;
-    }
-
-    private static string ResolveReputationBucket(string credentialLevel)
-        => credentialLevel switch
-        {
-            AnonymousCredentialLevels.Trusted => "trusted",
-            AnonymousCredentialLevels.StrongAnonymous => "strong_anonymous",
-            _ => "basic"
-        };
-
-    private string DeriveEngineeringNullifierHash(
-        string authorMode,
-        string scope,
-        int? userId,
-        string? proofToken)
-    {
-        _ = userId;
-        _ = proofToken;
-        byte[] key = ResolveNullifierPepper(configuration);
-        byte[] material = Encoding.UTF8.GetBytes(string.Concat(
-            "fsus.anonymous.nullifier.v2|",
-            NormalizeToken(authorMode, 32) ?? CommentAuthorModes.Anonymous,
-            "|",
-            NormalizeRequiredToken(scope, 256) ?? "global"));
-        return Convert.ToHexStringLower(HMACSHA256.HashData(key, material));
-    }
-
-    private static byte[] ResolveNullifierPepper(IConfiguration configuration)
-    {
-        string? value = configuration["AnonymousIdentity:NullifierPepper"];
-        if (string.IsNullOrWhiteSpace(value) || value.Trim().Length < 32)
-        {
-            throw new InvalidOperationException("AnonymousIdentity:NullifierPepper must be configured with at least 32 characters.");
-        }
-
-        return SHA256.HashData(Encoding.UTF8.GetBytes(value.Trim()));
-    }
-
-    private static string NormalizeScope(string? value, int articleId)
-    {
-        string normalized = NormalizeToken(value, 128) ?? $"article:{Math.Max(articleId, 0)}";
-        return normalized.Replace(' ', '_');
+        return CommentActorResolveResult.Reject("author_mode_invalid", "Author mode is invalid");
     }
 
     private static string? NormalizeToken(string? value, int maxLength)
@@ -280,17 +176,6 @@ public sealed class CommentActorResolver(
 
         string normalized = value.Trim();
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
-    }
-
-    private static string? NormalizeRequiredToken(string? value, int maxLength)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        string normalized = value.Trim();
-        return normalized.Length <= maxLength ? normalized : null;
     }
 
     private static string Sha256Hex(string value)

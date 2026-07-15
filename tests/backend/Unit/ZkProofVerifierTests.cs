@@ -136,10 +136,7 @@ public sealed class ZkProofVerifierTests
         });
         var resolver = new CommentActorResolver(
             accountReader,
-            new AnonymousCommentPolicyService(configuration),
-            new CommentAnonymousDisplayNameGenerator(),
-            proofService,
-            configuration);
+            new AnonymousCommentPolicyService(configuration));
 
         CommentActorResolveResult result = await resolver.ResolveAsync(ValidActorResolveRequest() with
         {
@@ -169,10 +166,7 @@ public sealed class ZkProofVerifierTests
         });
         var resolver = new CommentActorResolver(
             Substitute.For<IUserAccountReader>(),
-            new AnonymousCommentPolicyService(configuration),
-            new CommentAnonymousDisplayNameGenerator(),
-            proofService,
-            configuration);
+            new AnonymousCommentPolicyService(configuration));
         CommentActorResolveRequest request = missingField switch
         {
             "nullifier" => ValidActorResolveRequest() with { NullifierHash = string.Empty },

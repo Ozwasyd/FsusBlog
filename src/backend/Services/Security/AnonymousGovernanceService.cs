@@ -140,11 +140,7 @@ public sealed class AnonymousGovernanceService(
     private async Task<AnonymousGovernanceCommentStats> LoadCommentStatsAsync(CancellationToken cancellationToken)
     {
         ISugarQueryable<Comment> anonymous = db.Queryable<Comment>()
-            .Where(static item =>
-                item.AuthorMode == CommentAuthorModes.Anonymous ||
-                item.AuthorMode == CommentAuthorModes.ZkAnonymous ||
-                item.AnonymousNullifierHash != null ||
-                item.ModerationSubjectHash != null);
+            .Where(static item => item.AuthorMode == CommentAuthorModes.ZkAnonymous);
 
         int total = await anonymous.CountAsync(cancellationToken);
         int pending = await anonymous.Clone().Where(static item => item.ModerationStatus == CommentModerationStatus.Pending).CountAsync(cancellationToken);
@@ -152,7 +148,10 @@ public sealed class AnonymousGovernanceService(
         int rejected = await anonymous.Clone().Where(static item => item.ModerationStatus == CommentModerationStatus.Rejected).CountAsync(cancellationToken);
         int hidden = await anonymous.Clone().Where(static item => item.ModerationStatus == CommentModerationStatus.Hidden).CountAsync(cancellationToken);
         int zk = await anonymous.Clone().Where(static item => item.AuthorMode == CommentAuthorModes.ZkAnonymous).CountAsync(cancellationToken);
-        return new AnonymousGovernanceCommentStats(total, pending, approved, rejected, hidden, zk);
+        int legacy = await db.Queryable<Comment>()
+            .Where(static item => item.AuthorMode == CommentAuthorModes.LegacyServerVisiblePseudonymous)
+            .CountAsync(cancellationToken);
+        return new AnonymousGovernanceCommentStats(total, pending, approved, rejected, hidden, zk, legacy);
     }
 
     private static AnonymousGovernanceRootStatus ToRootStatus(Result<AnonymousCredentialRootSnapshotCoreModel> rootResult)
