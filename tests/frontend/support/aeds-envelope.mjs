@@ -18,6 +18,8 @@ const AEDS_HEADER_LENGTH = AEDS_PROTOCOL.header.size
 const AEDS_FRAME_TYPES = new Map(AEDS_PROTOCOL.frameTypes.map((frame) => [frame.name, frame.value]))
 const FRAME_ARTICLE_LIST = frameType('ArticleList')
 const FRAME_ARTICLE_DETAIL = frameType('ArticleDetail')
+const FRAME_ARTICLE_HOT = frameType('ArticleHot')
+const FRAME_ARTICLE_FEATURED = frameType('ArticleFeatured')
 const FRAME_SEO_CONFIG = frameType('SeoConfig')
 const FRAME_PAGE_CONTENT = frameType('PageContent')
 const FRAME_AUTH_LOGIN_FLOW = frameType('AuthLoginFlow')
@@ -836,6 +838,10 @@ export function decodeKnownFrame(buffer) {
       return decodeArticlePage(frame.payload)
     case FRAME_ARTICLE_DETAIL:
       return decodeArticleDetail(frame.payload)
+    case FRAME_ARTICLE_HOT:
+      return decodeArticleHot(frame.payload)
+    case FRAME_ARTICLE_FEATURED:
+      return decodeArticleFeatured(frame.payload)
     case FRAME_COMMENT_USER_CURSOR:
       return decodeUserCommentCursor(frame.payload)
     case FRAME_SEO_CONFIG:
@@ -900,6 +906,50 @@ export function decodeKnownFrame(buffer) {
 function decodeMutationId(payload) {
   assertPayloadLength(payload, 8, 'mutation_id_payload_invalid')
   return { id: readInt64FromBytes(payload, 0) }
+}
+
+function decodeArticleHot(payload) {
+  const reader = new BinaryReader(payload)
+  const count = reader.readInt32()
+  if (count < 0 || count > 10_000) throw new Error(`article_hot_count_invalid:${count}`)
+  const blob = reader.readBlob()
+  const items = []
+  for (let index = 0; index < count; index += 1) {
+    const pod = reader.readSpan(16)
+    const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+    items.push({
+      id: readInt32(view, 0),
+      views: readInt32(view, 4),
+      title: readSliceText(blob, readSliceRef(pod, 8))
+    })
+  }
+  if (reader.remaining() !== 0) throw new Error(`article_hot_trailing_payload_invalid:${reader.remaining()}`)
+  return items
+}
+
+function decodeArticleFeatured(payload) {
+  const reader = new BinaryReader(payload)
+  const count = reader.readInt32()
+  if (count < 0 || count > 10_000) throw new Error(`article_featured_count_invalid:${count}`)
+  const items = []
+  for (let index = 0; index < count; index += 1) {
+    const pod = reader.readSpan(412)
+    const blob = reader.readBlob()
+    const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+    items.push({
+      id: readInt32(view, 0),
+      views: readInt32(view, 4),
+      createTime: new Date(readInt64Number(view, 8)).toISOString(),
+      category: {
+        id: readInt32(view, 16),
+        name: readFixedUtf8(pod, 20, 128)
+      },
+      title: readFixedUtf8(pod, 148, 256),
+      coverImageUrl: readBlobText(pod, blob, 404)
+    })
+  }
+  if (reader.remaining() !== 0) throw new Error(`article_featured_trailing_payload_invalid:${reader.remaining()}`)
+  return items
 }
 
 function decodeUploadInit(payload) {

@@ -4,7 +4,7 @@ import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { authBinary, loginWithFixtureSessionBypass, requestTimeoutMs as defaultRequestTimeoutMs } from '../support/auth-helpers.mjs'
-import { readAedsResponse } from '../support/aeds-envelope.mjs'
+import { encodeAedsFrame, readAedsResponse } from '../support/aeds-envelope.mjs'
 import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../support/http.mjs'
 import { resolveFixtureAssetDirectory, resolvePublicFixtureFile } from '../support/fixture-paths.mjs'
 
@@ -26,6 +26,10 @@ const testSession = process.env.FSUSBLOG_TEST_SESSION || ''
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin'
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? ''
 const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'playwright-fixtures-node'
+const trustedOrigin = new URL(
+  process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || baseUrl
+).origin
+const adminCacheActionRequestFrame = 81
 const seedCategoryName = process.env.FSUSBLOG_PLAYWRIGHT_CATEGORY_NAME || 'Acceptance Category'
 const seedTagName = process.env.FSUSBLOG_PLAYWRIGHT_TAG_NAME || 'AcceptanceTag'
 const seedArticleTitle = process.env.FSUSBLOG_PLAYWRIGHT_ARTICLE_TITLE || 'Acceptance Public Article'
@@ -157,14 +161,33 @@ async function fetchAdminBinary(relativePath, options = {}) {
     cookieHeader: cookie,
     deviceFingerprint,
     body,
-    requiresPow: method !== 'GET' && method !== 'HEAD',
+    requiresPow: method !== 'GET'
+      && method !== 'HEAD'
+      && !relativePath.startsWith('/api/binary/author/'),
+    headers: method === 'GET' || method === 'HEAD' ? {} : { Origin: trustedOrigin },
     timeoutMs: requestTimeoutMs
   })
   if (!result.response.ok) {
     const message = result.payload?.message ?? result.payload?.Message ?? `status ${result.response.status}`
     throw new Error(`request failed: ${relativePath} -> ${result.response.status} ${message}`)
   }
-  return result.payload?.data ?? result.payload
+  const payload = result.payload?.data ?? result.payload
+  if (payload?.payload instanceof Uint8Array) {
+    return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(payload.payload))
+  }
+  return payload
+}
+
+async function requestPublicHotRebuild(cookie = null) {
+  const adminCookie = cookie || await loginAdminSession()
+  return fetchAdminBinary('/api/binary/author/cache/actions', {
+    method: 'POST',
+    cookie: adminCookie,
+    body: encodeAedsFrame(
+      adminCacheActionRequestFrame,
+      new TextEncoder().encode(JSON.stringify({ action: 'public-hot-rebuild', articleId: null }))
+    )
+  })
 }
 
 function buildSearchKeyword(title) {
@@ -249,6 +272,50 @@ function hasCompleteHomeSecondaryFixtures(featuredArticles, hotArticles) {
     && featuredArticles.some((article) => String(article?.coverImageUrl ?? '').trim().length > 0)
     && Array.isArray(hotArticles)
     && hotArticles.some((article) => Number(article?.id) > 0)
+}
+
+async function waitForPublicFixtureSnapshot() {
+  const deadlineAt = Date.now() + requestTimeoutMs * 2
+  const pollIntervalMs = Math.max(50, Math.min(250, Math.floor(requestTimeoutMs / 60)))
+  let lastFailure = 'public fixture snapshot was incomplete'
+
+  while (Date.now() < deadlineAt) {
+    try {
+      const [page, categories, tags, featuredArticles, hotArticles] = await Promise.all([
+        fetchPublicArticlePage(1, publicArticlePageSize),
+        fetchApiBinary('/api/Category'),
+        fetchApiBinary('/api/Tag'),
+        fetchPublicFeaturedArticles(3),
+        fetchPublicHotArticles(5)
+      ])
+      const candidates = page?.items ?? []
+      const hasPrimaryFixtures = candidates.some((article) => (
+        Number(article?.id) > 0 && pickArticleTag(article, Array.isArray(tags) ? tags : [])?.id
+      ))
+      if (hasPrimaryFixtures
+        && Array.isArray(categories)
+        && categories.length > 0
+        && hasCompleteHomeSecondaryFixtures(featuredArticles, hotArticles)) {
+        for (const candidate of candidates) {
+          if (!candidate?.id || !pickArticleTag(candidate, tags)) {
+            continue
+          }
+          try {
+            await fetchPublicArticleDetail(candidate.id)
+            return { page, categories, tags }
+          } catch (error) {
+            lastFailure = error instanceof Error ? error.message : String(error)
+          }
+        }
+      }
+    } catch (error) {
+      lastFailure = error instanceof Error ? error.message : String(error)
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+  }
+
+  throw new Error(`public fixture snapshot did not converge: ${lastFailure}`)
 }
 
 function escapeSqlLiteral(value) {
@@ -541,8 +608,8 @@ SELECT id FROM final_article;
 
 async function seedPublicFixturesViaApi() {
   const cookie = await loginAdminSession()
-  let categories = await fetchAdminBinary('/api/Category', { cookie })
-  let tags = await fetchAdminBinary('/api/Tag', { cookie })
+  let categories = await fetchAdminBinary('/api/binary/author/taxonomy/categories', { cookie })
+  let tags = await fetchAdminBinary('/api/binary/author/taxonomy/tags', { cookie })
 
   let category = Array.isArray(categories)
     ? categories.find((item) => String(item?.name ?? '').trim() === seedCategoryName)
@@ -553,7 +620,7 @@ async function seedPublicFixturesViaApi() {
       body: { name: seedCategoryName },
       cookie
     })
-    categories = await fetchAdminBinary('/api/Category', { cookie })
+    categories = await fetchAdminBinary('/api/binary/author/taxonomy/categories', { cookie })
     category = Array.isArray(categories)
       ? categories.find((item) => String(item?.name ?? '').trim() === seedCategoryName)
       : null
@@ -568,7 +635,7 @@ async function seedPublicFixturesViaApi() {
       body: { name: seedTagName },
       cookie
     })
-    tags = await fetchAdminBinary('/api/Tag', { cookie })
+    tags = await fetchAdminBinary('/api/binary/author/taxonomy/tags', { cookie })
     tag = Array.isArray(tags)
       ? tags.find((item) => String(item?.name ?? '').trim() === seedTagName)
       : null
@@ -591,6 +658,8 @@ async function seedPublicFixturesViaApi() {
       cookie
     })
   }
+
+  await requestPublicHotRebuild(cookie)
 
   return {
     categoryId: String(category.id),
@@ -619,12 +688,13 @@ async function main() {
       const seeded = seedPublicFixtures()
       seededFallback = seeded
       console.log(`[discover-playwright-fixtures] seeded minimal public fixtures via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
+      await requestPublicHotRebuild()
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    page = await fetchPublicArticlePage(1, publicArticlePageSize)
-    categories = await fetchApiBinary('/api/Category')
-    tags = await fetchApiBinary('/api/Tag')
+    const snapshot = await waitForPublicFixtureSnapshot()
+    page = snapshot.page
+    categories = snapshot.categories
+    tags = snapshot.tags
   }
 
   const featuredArticles = await fetchPublicFeaturedArticles(3).catch(() => [])
@@ -634,10 +704,11 @@ async function main() {
       const seeded = seedPublicFixtures()
       seededFallback = seeded
       console.log(`[discover-playwright-fixtures] seeded public home secondary fixtures via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      page = await fetchPublicArticlePage(1, publicArticlePageSize)
-      categories = await fetchApiBinary('/api/Category')
-      tags = await fetchApiBinary('/api/Tag')
+      await requestPublicHotRebuild()
+      const snapshot = await waitForPublicFixtureSnapshot()
+      page = snapshot.page
+      categories = snapshot.categories
+      tags = snapshot.tags
     } catch (dbSeedError) {
       console.warn(`[discover-playwright-fixtures] direct DB secondary seeding failed: ${dbSeedError instanceof Error ? dbSeedError.message : String(dbSeedError)}`)
     }
@@ -663,10 +734,11 @@ async function main() {
     const seeded = seedPublicFixtures()
     seededFallback = seeded
     console.log(`[discover-playwright-fixtures] seeded replacement public fixture via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    page = await fetchPublicArticlePage(1, publicArticlePageSize)
-    categories = await fetchApiBinary('/api/Category')
-    tags = await fetchApiBinary('/api/Tag')
+    await requestPublicHotRebuild()
+    const snapshot = await waitForPublicFixtureSnapshot()
+    page = snapshot.page
+    categories = snapshot.categories
+    tags = snapshot.tags
     for (const candidate of page?.items ?? []) {
       if (!candidate?.id || !pickArticleTag(candidate, Array.isArray(tags) ? tags : [])) {
         continue
