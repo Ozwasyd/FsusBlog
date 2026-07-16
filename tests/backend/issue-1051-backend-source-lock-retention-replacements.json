@@ -106,7 +106,7 @@
       "id": "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.DataScale_CommentSeedDoesNotEnumerateIdentityColumns",
       "path": "tests/backend/Unit/InfraHelperTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.DataScaleSeed_GeneratedSqlOmitsRetiredIdentityColumns"
+        "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.DataScaleSeed_GeneratedSqlUsesCurrentZkAnonymousIdentityShape"
       ],
       "reason": "The replacement runs the real seed tool and inspects the SQL actually sent to the fake PostgreSQL boundary, preserving the identity-column contract without reading seed.sh."
     },
