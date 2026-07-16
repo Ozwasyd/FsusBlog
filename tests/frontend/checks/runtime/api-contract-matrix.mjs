@@ -112,6 +112,25 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+async function waitOutPublicArtifactRevocation(initialResponse, execute, label) {
+  const deadlineAt = Date.now() + requestTimeoutMs
+  const retryDelayMs = Math.min(250, Math.max(25, Math.floor(requestTimeoutMs / 60)))
+  let response = initialResponse
+  let retries = 0
+
+  while (response.status === 410 && Date.now() < deadlineAt) {
+    await response.arrayBuffer()
+    await delay(Math.min(retryDelayMs, Math.max(1, deadlineAt - Date.now())))
+    response = await execute(Math.max(1, deadlineAt - Date.now()))
+    retries += 1
+  }
+
+  if (retries > 0) {
+    console.log(`[api-contract-revocation-retry] ${label} retries=${retries} final=${response.status}`)
+  }
+  return response
+}
+
 async function waitForDeterministicPow(label) {
   let lastDifficulty = 'unknown'
   for (let attempt = 0; attempt < 30; attempt += 1) {
@@ -142,16 +161,19 @@ function assertOctetStream(name, response) {
   assert(contentType.includes('application/octet-stream'), `[${name}] expected application/octet-stream, got ${contentType || 'none'}`)
 }
 
-async function fetchBinary(name, path, init = {}) {
-  const execute = () => fetchWithTimeout(`${baseUrl}${path}`, {
+async function fetchBinary(name, path, init = {}, { retryPublicRevocation = false } = {}) {
+  const execute = (timeoutMs = requestTimeoutMs) => fetchWithTimeout(`${baseUrl}${path}`, {
     ...init,
     headers: {
       Accept: 'application/octet-stream',
       ...(init.headers || {})
     }
-  }, requestTimeoutMs)
+  }, timeoutMs)
 
   let response = await execute()
+  if (retryPublicRevocation) {
+    response = await waitOutPublicArtifactRevocation(response, execute, name)
+  }
   if (response.status === 429 && resetSecurityTestState) {
     console.log(`[api-contract-rate-limit-retry] ${name}`)
     await resetLocalSecurityRiskState()
@@ -192,7 +214,7 @@ async function fetchBinary(name, path, init = {}) {
 }
 
 async function checkPublic([name, path, expectedFrameType]) {
-  const { response, payload } = await fetchBinary(name, path)
+  const { response, payload } = await fetchBinary(name, path, {}, { retryPublicRevocation: true })
   if (response.status === 503 && expectedUnavailablePublicChecks.has(name)) {
     const error = decodeApiErrorFrame(payload)
     assert(error.statusCode === 503, `[${name}] expected unavailable ApiError status 503, got ${error.statusCode}`)
@@ -231,20 +253,12 @@ async function checkDenied([name, path, expectedStatus]) {
 
 async function checkLegacyPublicQueryRoute() {
   const url = `${baseUrl}/api/binary/article?page=1&size=1`
-  const deadlineAt = Date.now() + requestTimeoutMs
-  let response
-  do {
-    // Publishing fixtures can briefly revoke public artifacts; 410 is not this route's stable contract.
-    response = await fetchWithTimeout(url, {
+  const execute = (timeoutMs = requestTimeoutMs) => fetchWithTimeout(url, {
       headers: { Accept: 'application/octet-stream' }
-    }, Math.max(1, deadlineAt - Date.now()))
-    if (response.status !== 410) {
-      break
-    }
-
-    await response.arrayBuffer()
-    await delay(Math.min(250, Math.max(25, Math.floor(requestTimeoutMs / 60))))
-  } while (Date.now() < deadlineAt)
+    }, timeoutMs)
+  const initialResponse = await execute()
+  // Publishing fixtures can briefly revoke public artifacts; 410 is not this route's stable contract.
+  const response = await waitOutPublicArtifactRevocation(initialResponse, execute, 'legacy public query')
 
   assert(response.status === 400, `[legacy public query] expected 400, got ${response.status}`)
   assert(response.headers.get('cache-control') === 'no-store', '[legacy public query] must be no-store')
