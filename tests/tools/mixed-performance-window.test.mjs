@@ -27,6 +27,8 @@ test('mixed performance window preserves every minimum duration and QPS cohort',
   const plan = buildMixedWindowPlan()
   assert.equal(plan.durationMs, 60_000)
   assert.equal(plan.cohorts.qps.publicApiCommand, 'npm run check:load:public-api')
+  assert.match(plan.cohorts.qps.securityResetCommand, /reset-security-runtime-state\.sh/u)
+  assert.match(plan.cohorts.notification.securityResetCommand, /reset-security-runtime-state\.sh/u)
   assert.equal(plan.cohorts.baseline.minimumDurationMs, 30_000)
   assert.equal(plan.cohorts.peak.minimumDurationMs, 60_000)
   assert.equal(plan.cohorts.burst.minimumDurationMs, 15_000)

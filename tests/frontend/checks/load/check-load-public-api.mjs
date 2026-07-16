@@ -90,7 +90,10 @@ async function exerciseEndpoint(definition) {
   const expectedTotal = concurrency * rounds;
   const p50 = percentile(durations, 50);
   const p95 = percentile(durations, 95);
-  assert(successCount === expectedTotal, `[${definition.name}] success rate drift: ${successCount}/${expectedTotal}`);
+  assert(
+    successCount === expectedTotal,
+    `[${definition.name}] success rate drift: ${successCount}/${expectedTotal} statuses=${JSON.stringify(statusCounts)} serverErrors=${serverErrors} timeouts=${timeouts}`
+  );
   assert(serverErrors === 0, `[${definition.name}] should not return 5xx under light load`);
   assert(timeouts === 0, `[${definition.name}] should not timeout under light load`);
   assert(p95 <= definition.p95BudgetMs, `[${definition.name}] p95 ${p95.toFixed(1)}ms exceeds budget ${definition.p95BudgetMs}ms`);
