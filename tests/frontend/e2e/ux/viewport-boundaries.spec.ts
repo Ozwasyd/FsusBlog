@@ -37,6 +37,8 @@ import {
   UX_VIEWPORT_MODEL_ROUTE_IDS,
   buildUxViewportPlan
 } from '../../support/playwright/uxViewportPlan.mjs'
+// @ts-ignore The retry helper is a pure module covered by node:test.
+import { navigateThroughRetryablePublicAot } from '../../support/playwright/publicAotNavigationRetry.mjs'
 // @ts-ignore The risk-only settle helper intentionally stays a pure module covered by node:test.
 import { settleUxViewportRiskPage } from '../../support/playwright/uxViewportRiskSettle.mjs'
 // @ts-ignore Shared runtime browser budgets are exercised by node:test.
@@ -102,9 +104,11 @@ const viewportExecutionMode = mode === 'smoke' || usesIsolatedSessions
   : 'default'
 const resume = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RESUME')
 const riskMatrix = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RISK_MATRIX')
+const runtimeBrowserTimeoutPlan = resolveRuntimeBrowserTimeoutPlan()
 const riskAppReadyTimeoutMs = riskMatrix
-  ? resolveRuntimeBrowserTimeoutPlan().requestTimeoutMs * 2
+  ? runtimeBrowserTimeoutPlan.requestTimeoutMs * 2
   : undefined
+const publicAotNavigationWindowMs = runtimeBrowserTimeoutPlan.requestTimeoutMs * 2
 const riskPublicBaseUrl = riskMatrix
   ? readOptionalHttpUrl('FSUSBLOG_UX_VIEWPORT_PUBLIC_BASE_URL')
   : undefined
@@ -450,15 +454,19 @@ async function runUxRouteThemeGroup(
         `${viewportPlan.id}:navigation`,
         () => pageSession.audit.checkpoint()
       )
+      const navigationTarget = riskPublicBaseUrl && group.storage === 'anonymous'
+        ? new URL(group.route.path, riskPublicBaseUrl).href
+        : group.route.path
       await timing.measure(
         'navigation.goto',
         viewportPlan.id,
-        () => pageSession.page.goto(
-          riskPublicBaseUrl && group.storage === 'anonymous'
-            ? new URL(group.route.path, riskPublicBaseUrl).href
-            : group.route.path,
-          { waitUntil: 'domcontentloaded' }
-        )
+        () => group.storage === 'anonymous'
+          ? navigateThroughRetryablePublicAot({
+              navigate: () => pageSession.page.goto(navigationTarget, { waitUntil: 'domcontentloaded' }),
+              sleep: (delayMs: number) => pageSession.page.waitForTimeout(delayMs),
+              deadlineAtMs: Date.now() + publicAotNavigationWindowMs
+            })
+          : pageSession.page.goto(navigationTarget, { waitUntil: 'domcontentloaded' })
       )
       await timing.measure(
         'navigation.app-ready',

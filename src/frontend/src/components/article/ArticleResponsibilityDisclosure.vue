@@ -133,7 +133,16 @@ onMounted(async () => {
 .article-responsibility__verification {
   display: flex;
   gap: 8px;
-  align-items: baseline;
+  align-items: center;
   margin-top: 4px;
+}
+.article-responsibility__verification a {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 100%;
+  align-items: center;
+  box-sizing: border-box;
+  padding-inline: 4px;
 }
 </style>

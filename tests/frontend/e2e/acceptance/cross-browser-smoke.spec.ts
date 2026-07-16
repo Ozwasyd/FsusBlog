@@ -90,6 +90,11 @@ test.describe('cross-browser release smoke', () => {
     expect(typeof hydrationState.passkeySupported).toBe('boolean')
     expect(typeof hydrationState.conditionalMediationProbeAvailable).toBe('boolean')
 
+    // Hydration can publish its ready marker while background dynamic imports
+    // are still in flight. Navigating immediately makes Firefox abort those
+    // requests with NS_BINDING_ABORTED and report a false module-load failure.
+    // Finish the real module graph before testing the next route.
+    await page.waitForLoadState('networkidle')
     await page.goto('/login', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
     await expect(page.getByRole('button', { name: /使用通行密钥登录/ })).toBeVisible()

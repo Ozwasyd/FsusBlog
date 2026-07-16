@@ -16,6 +16,7 @@ import {
   executeElasticUxGroupPool,
   executePersistentUxWorkerPool
 } from './ux-risk-elastic-pool.mjs'
+import { buildUxRiskSessionPlan } from './ux-risk-session-plan.mjs'
 import { validateReleasePreviewReady } from './release-preview-readiness.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -170,8 +171,22 @@ async function runPersistentBrowserPool() {
   process.once('SIGTERM', onSigterm)
 
   configurePersistentRuntimeEnvironment()
+  const sessionPlan = buildUxRiskSessionPlan(maximumWorkerCapacity, {
+    env: process.env,
+    repoRoot: root
+  })
+  process.env.FSUSBLOG_TEST_SESSION = sessionPlan.sessionIds[0]
   await preparePlaywrightSessions(maximumWorkerCapacity)
-  const availableSessions = Array.from({ length: maximumWorkerCapacity }, (_, index) => `pw-${index}`)
+  const missingFixtureFiles = sessionPlan.fixtureFiles.filter((fixtureFile) => !fs.existsSync(fixtureFile))
+  if (missingFixtureFiles.length > 0) {
+    throw new Error(`persistent UX session fixtures missing: ${missingFixtureFiles.join(', ')}`)
+  }
+  // The test module reads representative route metadata during SSR load,
+  // before any worker-specific BrowserContext exists. Every prepared session
+  // is cloned from the same public state, so bind that import to the first real
+  // lane-prefixed fixture instead of falling back to a nonexistent root file.
+  process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE = sessionPlan.bootstrapFixtureFile
+  const availableSessions = [...sessionPlan.sessionIds]
   const { server, runtime } = await loadPersistentUxRuntime()
   const metadata = runtime.persistentUxViewportRuntimeMetadata()
   const plannedIds = riskPlan.groups.map((group) => group.id)

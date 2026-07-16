@@ -248,13 +248,16 @@ async function waitForMainText(page, expectedText, label, timeoutMs = 20_000) {
     await page.waitForTimeout(500);
   }
 
-  throw new Error(`${label} should render title`);
+  const pageTitle = await page.title().catch(() => '');
+  throw new Error(
+    `${label} should render title; url=${page.url()} documentTitle=${JSON.stringify(pageTitle)} main=${JSON.stringify(lastText.slice(0, 240))}`
+  );
 }
 
 async function waitForArticleTitle(page, title) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      await waitForMainText(page, title, 'extreme article detail', attempt === 0 ? 12_000 : 20_000);
+      await waitForMainText(page, title, 'public fixture article detail', attempt === 0 ? 12_000 : 20_000);
       return;
     } catch (error) {
       if (attempt > 0) {
@@ -356,7 +359,13 @@ async function cleanupExtremeArticle(session, id) {
 }
 
 async function main() {
-  const browser = await chromium.launch(systemChromiumLaunchOptions({ headless: true }));
+  const browser = await chromium.launch(systemChromiumLaunchOptions({
+    headless: true,
+    // This lane validates DOM/runtime resilience rather than GPU composition.
+    // Keep it off host SwiftShader paths that can terminate a long-running
+    // Chromium process independently of the route under test.
+    args: ['--disable-gpu']
+  }));
   try {
     if (resilienceScopes.has('guest')) {
       const guest = await newRuntimeContext(browser);
