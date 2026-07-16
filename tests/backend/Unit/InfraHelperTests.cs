@@ -360,7 +360,7 @@ public class BackgroundWorkflowSourceTests
     }
 
     [Fact]
-    public async Task DataScaleSeed_GeneratedSqlOmitsRetiredIdentityColumns()
+    public async Task DataScaleSeed_GeneratedSqlUsesCurrentZkAnonymousIdentityShape()
     {
         using var fixture = DataScaleToolFixture.Create();
         ProcessResult seed = await fixture.RunAsync("seed.sh", "scale-xs");
@@ -379,8 +379,30 @@ public class BackgroundWorkflowSourceTests
             Assert.DoesNotContain("reply_to_user_id", columnList, StringComparison.Ordinal);
             Assert.DoesNotContain("moderated_by_admin_principal_id", columnList, StringComparison.Ordinal);
             Assert.Contains("author_mode", columnList, StringComparison.Ordinal);
+            Assert.Contains("anonymous_rate_class", columnList, StringComparison.Ordinal);
+            Assert.Contains("anonymous_requires_moderation", columnList, StringComparison.Ordinal);
             Assert.Contains("reply_to_comment_id", columnList, StringComparison.Ordinal);
         }
+
+        Assert.DoesNotContain("'anonymous'", generatedSql, StringComparison.Ordinal);
+        Assert.Equal(2, generatedSql.Split("'zk_anonymous'", StringSplitOptions.None).Length - 1);
+        Assert.Equal(2, generatedSql.Split("'common'", StringSplitOptions.None).Length - 1);
+        Assert.Contains("""
+            'scale-subject-' || root.seq,
+              NULL,
+              NULL,
+              NULL,
+              'common',
+              false,
+            """, generatedSql, StringComparison.Ordinal);
+        Assert.Contains("""
+            'scale-subject-' || nested.seq,
+              NULL,
+              NULL,
+              NULL,
+              'common',
+              false,
+            """, generatedSql, StringComparison.Ordinal);
     }
 
     [Fact]
