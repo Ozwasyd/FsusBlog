@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
-export const residentResourceLeaseSchema = 'fsusblog.test-matrix.resident-resource-leases.v2'
+export const residentResourceLeaseSchema = 'fsusblog.test-matrix.resident-resource-leases.v3'
 export const residentResourceHandoffSchema = 'fsusblog.test-matrix.resident-resource-handoff.v1'
 export const productionResidentServiceIds = Object.freeze([
   'debug-backend',
@@ -53,6 +53,12 @@ export function residentLeaseDigest(value) {
 function sameReservation(left, right) {
   return Math.abs(Number(left?.cpuUnits) - Number(right?.cpuUnits)) <= 1e-9
     && Math.abs(Number(left?.memoryGiB) - Number(right?.memoryGiB)) <= 1e-9
+}
+
+function withinRoundedStepGrant(stepGrant, schedulerGrant) {
+  const roundingTolerance = 0.5 / 1_000_000
+  return stepGrant.cpuUnits <= schedulerGrant.cpuUnits + roundingTolerance
+    && stepGrant.memoryGiB <= schedulerGrant.memoryGiB + roundingTolerance
 }
 
 function summedReservation(services) {
@@ -238,10 +244,15 @@ export function createResidentLeaseInventory({
   ownerBundleId,
   sourceState = null,
   resourceGrant,
+  schedulerResourceGrant = resourceGrant,
   services,
   generatedAt = new Date().toISOString()
 }) {
   const normalizedGrant = normalizedResourceGrant(resourceGrant)
+  const normalizedSchedulerGrant = normalizedResourceGrant(schedulerResourceGrant)
+  if (!withinRoundedStepGrant(normalizedGrant, normalizedSchedulerGrant)) {
+    throw new Error('resident step resource grant exceeds its scheduler grant')
+  }
   const allocated = allocateResidentReservations({ resourceGrant: normalizedGrant, services })
   const ids = allocated.map((service) => service.id)
   if (new Set(ids).size !== ids.length) throw new Error('resident service IDs must be unique')
@@ -261,6 +272,7 @@ export function createResidentLeaseInventory({
       generation: service.generation
     }))),
     resourceGrant: normalizedGrant,
+    schedulerResourceGrant: normalizedSchedulerGrant,
     services: allocated,
     reservation: {
       cpuUnits: allocated.reduce((sum, service) => sum + service.reservation.cpuUnits, 0),
@@ -348,6 +360,7 @@ export function validateResidentLeaseInventory(inventory, {
   ownerBundleId,
   sourceState,
   resourceGrant,
+  resourceGrantHistory,
   requiredServiceIds,
   verifyProcess,
   verifyContainer
@@ -361,7 +374,18 @@ export function validateResidentLeaseInventory(inventory, {
     throw new Error('resident lease inventory belongs to another source state')
   }
   const storedGrant = normalizedResourceGrant(inventory.resourceGrant)
-  if (resourceGrant !== undefined && !sameReservation(storedGrant, normalizedResourceGrant(resourceGrant))) {
+  const storedSchedulerGrant = normalizedResourceGrant(inventory.schedulerResourceGrant ?? storedGrant)
+  if (resourceGrant !== undefined && resourceGrantHistory !== undefined) {
+    throw new Error('resident lease validation accepts either resourceGrant or resourceGrantHistory')
+  }
+  const authorizedGrants = resourceGrantHistory === undefined
+    ? (resourceGrant === undefined ? null : [resourceGrant])
+    : resourceGrantHistory
+  if (authorizedGrants !== null && (!Array.isArray(authorizedGrants) || authorizedGrants.length === 0)) {
+    throw new Error('resident lease resource grant history must be a non-empty array')
+  }
+  if (authorizedGrants !== null
+    && !authorizedGrants.map(normalizedResourceGrant).some((grant) => sameReservation(storedSchedulerGrant, grant))) {
     throw new Error('resident lease inventory belongs to another resource grant')
   }
   if (requiredServiceIds !== undefined) {
@@ -381,6 +405,7 @@ export function validateResidentLeaseInventory(inventory, {
     ownerBundleId: inventory.ownerBundleId,
     sourceState: inventory.sourceState,
     resourceGrant: storedGrant,
+    schedulerResourceGrant: storedSchedulerGrant,
     services: inventory.services,
     generatedAt: inventory.generatedAt
   })

@@ -1695,7 +1695,7 @@ async function runDagUnlocked(options) {
         runId,
         namespace: residentState.inventory.namespace,
         ownerBundleId: residentState.inventory.ownerBundleId,
-        resourceGrant: residentState.resourceGrant,
+        resourceGrantHistory: residentState.resourceGrantHistory,
         requiredServiceIds: residentState.requiredServiceIds,
         sourceState: sourceState.commit ? sourceState : undefined
       })
@@ -1760,17 +1760,19 @@ async function runDagUnlocked(options) {
     }
     return reconciliation
   }
-  const acquireResidentState = (tier, tierEnvironment, { publishHandoff = true } = {}) => {
+  const acquireResidentState = (tier, tierEnvironment, {
+    publishHandoff = true,
+    resourceGrantHistory = [tierResourceUnits(tier)]
+  } = {}) => {
     if (!fs.existsSync(residentLeaseFile)) {
       throw new Error(`resident lease producer did not publish ${path.relative(root, residentLeaseFile)}`)
     }
     const inventory = readResidentLeaseDocument(residentLeaseFile)
-    const residentResourceGrant = tierResourceUnits(tier)
     validateResidentLeaseInventory(inventory, {
       runId,
       namespace: tierEnvironment.FSUSBLOG_TEST_NAMESPACE,
       ownerBundleId: tier.physicalBundleId ?? tier.id,
-      resourceGrant: residentResourceGrant,
+      resourceGrantHistory,
       ...(tier.residentLeaseServiceIds ? { requiredServiceIds: tier.residentLeaseServiceIds } : {}),
       sourceState: sourceState.commit ? sourceState : undefined
     })
@@ -1778,12 +1780,12 @@ async function runDagUnlocked(options) {
       inventory,
       reconciliation: null,
       enforcementBundleId: tier.physicalBundleId ?? tier.id,
-      resourceGrant: residentResourceGrant,
+      resourceGrantHistory,
       requiredServiceIds: tier.residentLeaseServiceIds
     }
     residentEvidence.status = 'acquired'
     residentEvidence.ownerBundleId = inventory.ownerBundleId
-    residentEvidence.resourceGrant = inventory.resourceGrant
+    residentEvidence.resourceGrant = inventory.schedulerResourceGrant ?? inventory.resourceGrant
     residentEvidence.acquiredAt = new Date().toISOString()
     residentEvidence.enforcement = inventory.enforcement ?? null
     recordResidentEvent('acquired', {
@@ -2329,7 +2331,10 @@ async function runDagUnlocked(options) {
     if (tier.residentLeaseProducer === true) {
       if (fs.existsSync(residentLeaseFile) || success) {
         try {
-          acquireResidentState(tier, tierEnvironment, { publishHandoff: success })
+          acquireResidentState(tier, tierEnvironment, {
+            publishHandoff: success,
+            resourceGrantHistory: entry.resourceGrantHistory ?? [tierResourceUnits(tier)]
+          })
         } catch (error) {
           recordResidentEvent('acquisition-failed', { reason: error.message })
           if (success) {

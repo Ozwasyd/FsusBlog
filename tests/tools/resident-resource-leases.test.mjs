@@ -69,6 +69,36 @@ test('resident inventory gives every live service a nonzero measured lease while
   })
 })
 
+test('resident inventory binds rounded step allocation to the full-precision scheduler grant history', () => {
+  const schedulerGrant = { cpuUnits: 1, memoryGiB: 4.428569793701172 }
+  const value = createResidentLeaseInventory({
+    runId: 'run-1',
+    namespace: 'production-fresh',
+    ownerBundleId: 'runtime-browser',
+    resourceGrant: { cpuUnits: 1, memoryGiB: 4.42857 },
+    schedulerResourceGrant: schedulerGrant,
+    services: services()
+  })
+
+  assert.doesNotThrow(() => validateResidentLeaseInventory(value, {
+    resourceGrantHistory: [
+      schedulerGrant,
+      { cpuUnits: 2, memoryGiB: 7.085711669921875 }
+    ]
+  }))
+  assert.throws(() => validateResidentLeaseInventory(value, {
+    resourceGrantHistory: [{ cpuUnits: 1, memoryGiB: 4.42857 }]
+  }), /another resource grant/u)
+  assert.throws(() => createResidentLeaseInventory({
+    runId: 'run-1',
+    namespace: 'production-fresh',
+    ownerBundleId: 'runtime-browser',
+    resourceGrant: { cpuUnits: 2, memoryGiB: 5 },
+    schedulerResourceGrant: schedulerGrant,
+    services: services()
+  }), /step resource grant exceeds/u)
+})
+
 test('reconciliation releases only confirmed exits and retains drift or unknown identities fail-closed', () => {
   const value = inventory()
   const reconciled = reconcileResidentLeaseInventory(value, {
@@ -117,8 +147,20 @@ test('resident inventory rejects foreign identity, digest drift, and zero reserv
     sourceState: value.sourceState,
     resourceGrant: { cpuUnits: 1, memoryGiB: 1 }, services: services()
   })
+  assert.doesNotThrow(() => validateResidentLeaseInventory(value, {
+    resourceGrantHistory: [
+      { cpuUnits: 1, memoryGiB: 1 },
+      { cpuUnits: 2, memoryGiB: 4 }
+    ]
+  }))
   assert.throws(() => validateResidentLeaseInventory(foreignGrant, {
     resourceGrant: { cpuUnits: 2, memoryGiB: 4 }
+  }), /another resource grant/u)
+  assert.throws(() => validateResidentLeaseInventory(value, {
+    resourceGrantHistory: [
+      { cpuUnits: 1, memoryGiB: 1 },
+      { cpuUnits: 3, memoryGiB: 6 }
+    ]
   }), /another resource grant/u)
   assert.throws(() => validateResidentLeaseInventory(value, {
     requiredServiceIds: productionResidentServiceIds
@@ -177,6 +219,14 @@ test('bootstrap publisher inventories all five services without mutating process
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-resident-publisher-'))
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const outputFile = path.join(directory, 'inventory.json')
+  const resourceGrantFile = path.join(directory, 'resource-grants.json')
+  fs.writeFileSync(resourceGrantFile, JSON.stringify({
+    schema: 'fsusblog.test-matrix.resource-grants.v1',
+    runId: 'publisher-run',
+    grants: {
+      'local-production-runtime-browser': { cpuUnits: 6, memoryGiB: 12 }
+    }
+  }))
   const originalMarker = process.env.FSUSBLOG_TEST_RUN_ID
   const env = {
     FSUSBLOG_TEST_RUN_ID: 'publisher-run',
@@ -186,6 +236,8 @@ test('bootstrap publisher inventories all five services without mutating process
     FSUSBLOG_TEST_SOURCE_FINGERPRINT: 'tree-publisher',
     FSUSBLOG_STEP_CPU_BUDGET: '4',
     FSUSBLOG_STEP_MEMORY_GIB: '8',
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: resourceGrantFile,
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: 'local-production-runtime-browser',
     FSUSBLOG_DEBUG_BACKEND_PORT: '24001',
     FSUSBLOG_DEBUG_FRONTEND_PORT: '24002',
     FSUSBLOG_RELEASE_PREVIEW_PORT: '24003',
@@ -229,6 +281,14 @@ test('bootstrap publisher inventories all five services without mutating process
   })
   assert.equal(result.inventory.services.length, 5)
   assert.deepEqual(result.inventory.sourceState, { commit: 'abc123', worktreeFingerprint: 'tree-publisher' })
+  assert.deepEqual(result.inventory.resourceGrant, { cpuUnits: 4, memoryGiB: 8 })
+  assert.deepEqual(result.inventory.schedulerResourceGrant, { cpuUnits: 6, memoryGiB: 12 })
+  assert.doesNotThrow(() => validateResidentLeaseInventory(result.inventory, {
+    resourceGrantHistory: [
+      { cpuUnits: 4, memoryGiB: 8 },
+      { cpuUnits: 6, memoryGiB: 12 }
+    ]
+  }))
   assert.deepEqual(result.inventory.services.map((service) => service.id), [
     'debug-backend', 'debug-frontend', 'release-preview', 'postgres', 'redis'
   ])
@@ -343,7 +403,7 @@ test('resident documents publish atomically and unreadable input fails closed', 
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const file = path.join(directory, 'leases.json')
   writeResidentLeaseDocument(file, inventory())
-  assert.equal(readResidentLeaseDocument(file).schema, 'fsusblog.test-matrix.resident-resource-leases.v2')
+  assert.equal(readResidentLeaseDocument(file).schema, 'fsusblog.test-matrix.resident-resource-leases.v3')
   assert.deepEqual(fs.readdirSync(directory), ['leases.json'])
   fs.writeFileSync(file, '{broken')
   assert.throws(() => readResidentLeaseDocument(file), /unreadable/u)

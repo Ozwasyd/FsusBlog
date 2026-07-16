@@ -26,6 +26,12 @@ function positiveEnvironment(env, name) {
   return value
 }
 
+function positiveNumber(value, name) {
+  const normalized = Number(value)
+  if (!Number.isFinite(normalized) || normalized <= 0) throw new Error(`${name} must be positive`)
+  return normalized
+}
+
 function processSnapshot(pidValue) {
   const pid = Number(pidValue)
   if (!Number.isInteger(pid) || pid < 1) throw new Error(`invalid resident process PID: ${pidValue}`)
@@ -127,6 +133,27 @@ export function publishResidentInventoryFromEnvironment({
     service('redis', 'container', requiredEnvironment(env, 'FSUSBLOG_REDIS_PORT'),
       snapshotContainer(requiredEnvironment(env, 'FSUSBLOG_REDIS_CONTAINER_NAME')))
   ]
+  const stepResourceGrant = {
+    cpuUnits: positiveEnvironment(env, 'FSUSBLOG_STEP_CPU_BUDGET'),
+    memoryGiB: positiveEnvironment(env, 'FSUSBLOG_STEP_MEMORY_GIB')
+  }
+  const grantFile = String(env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE ?? '').trim()
+  const grantTierId = String(env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID ?? '').trim()
+  if (Boolean(grantFile) !== Boolean(grantTierId)) {
+    throw new Error('scheduler resident lease binding requires both grant file and tier ID')
+  }
+  let schedulerResourceGrant = stepResourceGrant
+  if (grantFile) {
+    const grantDocument = JSON.parse(fs.readFileSync(path.resolve(grantFile), 'utf8'))
+    if (grantDocument?.schema !== 'fsusblog.test-matrix.resource-grants.v1'
+      || grantDocument.runId !== runId) {
+      throw new Error('scheduler resident lease grant document identity mismatch')
+    }
+    schedulerResourceGrant = {
+      cpuUnits: positiveNumber(grantDocument.grants?.[grantTierId]?.cpuUnits, 'schedulerGrant.cpuUnits'),
+      memoryGiB: positiveNumber(grantDocument.grants?.[grantTierId]?.memoryGiB, 'schedulerGrant.memoryGiB')
+    }
+  }
   let inventory = createResidentLeaseInventory({
     runId,
     namespace,
@@ -135,10 +162,8 @@ export function publishResidentInventoryFromEnvironment({
       commit: requiredEnvironment(env, 'FSUSBLOG_TEST_SOURCE_COMMIT'),
       worktreeFingerprint: requiredEnvironment(env, 'FSUSBLOG_TEST_SOURCE_FINGERPRINT')
     },
-    resourceGrant: {
-      cpuUnits: positiveEnvironment(env, 'FSUSBLOG_STEP_CPU_BUDGET'),
-      memoryGiB: positiveEnvironment(env, 'FSUSBLOG_STEP_MEMORY_GIB')
-    },
+    resourceGrant: stepResourceGrant,
+    schedulerResourceGrant,
     services
   })
   const processServices = inventory.services.filter((service) => service.kind === 'process')
