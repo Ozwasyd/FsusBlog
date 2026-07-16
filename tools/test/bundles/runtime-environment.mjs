@@ -61,6 +61,7 @@ const allowedRuntimeEnvironmentKeys = new Set([
   'RuntimeTuning__ThreadPool__MinThreadsPerCpu',
   'ASPNETCORE_URLS',
   'ASPNETCORE_ENVIRONMENT',
+  'Testing__EnforceProductionCsp',
   'CORS_ALLOWED_HOSTS',
   'AuthCookies__AllowInsecureTransportCookies'
 ])

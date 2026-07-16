@@ -269,7 +269,7 @@
       "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7",
-        "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-anonymous-and-requires-a-user-toggle-before--f5e12431da"
+        "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-strong-anonymous-and-requires-a-user-toggle--9493f03f6b"
       ],
       "reason": "Article/comment browser behavior and the mounted composer replace view source fragments."
     },

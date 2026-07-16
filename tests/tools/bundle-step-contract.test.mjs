@@ -28,6 +28,7 @@ const runtimeEnvironmentFixture = (overrides = {}) => ({
   FSUSBLOG_DEBUG_FRONTEND_URL: 'http://127.0.0.1:26501',
   FSUSBLOG_RELEASE_PREVIEW_URL: 'http://127.0.0.1:28501',
   Jwt__SecretKey: 'test-only-secret-that-is-long-enough',
+  Testing__EnforceProductionCsp: 'true',
   RuntimeTuning__ThreadPool__Enabled: 'true',
   RuntimeTuning__ThreadPool__MinThreadsPerCpu: '20',
   ...overrides
@@ -46,6 +47,7 @@ test('runtime environment parser preserves non-shell values and binds all URLs t
     'runtime-focused-1'
   )
   assert.equal(environment.Jwt__SecretKey, 'test-only-secret-that-is-long-enough')
+  assert.equal(environment.Testing__EnforceProductionCsp, 'true')
   assert.equal(environment.RuntimeTuning__ThreadPool__Enabled, 'true')
   assert.equal(environment.RuntimeTuning__ThreadPool__MinThreadsPerCpu, '20')
   assert.equal(environment.ActiveReleaseFence__AllowSyntheticLocalFence, 'true')

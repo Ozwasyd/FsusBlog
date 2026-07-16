@@ -55,7 +55,7 @@
       "path": "tests/backend/Unit/BusinessLogicHardeningContractTests.cs",
       "replacementTestIds": [
         "xunit:tests/backend/Unit/SearchIndexServiceTests.cs#SearchIndexServiceTests.TokenizeForTests_FallsBackToUnigram_ForUnknownCjkSegment",
-        "xunit:tests/backend/Unit/AnonymousCommentPolicyTests.cs#AnonymousCommentPolicyTests.AnonymousCommentPolicy_DefaultsToAnonymousAndRejectsImplicitPublicMode",
+        "xunit:tests/backend/Unit/AnonymousCommentPolicyTests.cs#AnonymousCommentPolicyTests.AnonymousCommentPolicy_DefaultsToZkFailClosedAndRejectsImplicitPublicMode",
         "xunit:tests/backend/Unit/CrawlerDetectorServiceTests.cs#CrawlerDetectorServiceTests.VerifyByReverseDnsAsync_WhenSemaphoreWaitTimesOut_ReturnsFalse",
         "xunit:tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs#CrawlerRangeSyncBehaviorTests.SynchronizeOnceAsync_FallsBackToConfigWhenRemoteAndSnapshotAreUnavailable",
         "xunit:tests/backend/Unit/ContentFilterServiceTests.cs#ContentFilterServiceTests.ReloadKeywords_UpdatesUnifiedRuleSearch"

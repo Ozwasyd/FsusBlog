@@ -72,7 +72,7 @@
         "vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#preloads-article-metadata-prepares-a-short-lived-ticket--84bead9691",
         "vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#cancels-stale-article-metadata-preloads-when-articles-sw-af5076eabc",
         "vitest:tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts#uses-one-lazy-worker-instance-and-transfers-proof-input--d48ad91c8e",
-        "vitest:tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts#fails-closed-when-no-in-memory-credential-provider-is-av-fd6e9e8c4b",
+        "vitest:tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts#fails-closed-before-metadata-or-ticket-calls-when-the-in-93274a3e0e",
         "vitest:tests/frontend/unit/api/comment.test.ts#createanonymouscomment-posts-an-anonymouscommentcreatere-d93c70823f"
       ],
       "reason": "Fake-time TTL, consume-once, Abort, transferable worker buffers, adapter fail-closed and credential-free transport are all executed directly."
@@ -101,7 +101,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#keeps-anonymous-comments-default-and-public-sending-expl-95f472c630",
       "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-anonymous-and-requires-a-user-toggle-before--f5e12431da",
+        "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-strong-anonymous-and-requires-a-user-toggle--9493f03f6b",
         "vitest:tests/frontend/unit/api/comment.test.ts#createpubliccomment-forces-public-author-mode-and-explic-d80d4ed935",
         "vitest:tests/frontend/unit/api/comment.test.ts#createanonymouscomment-posts-an-anonymouscommentcreatere-d93c70823f"
       ],
@@ -111,7 +111,7 @@
       "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#renders-the-comment-identity-selector-as-a-compact-readi-371bc27bac",
       "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-anonymous-and-requires-a-user-toggle-before--f5e12431da",
+        "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-strong-anonymous-and-requires-a-user-toggle--9493f03f6b",
         "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#prewarms-privacy-only-after-the-mounted-composer-becomes-8e52727b73"
       ],
       "reason": "Mounted DOM assertions and visibility-triggered privacy intent replace Vue template and CSS source-string matching."
@@ -123,7 +123,8 @@
         "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.RecoveryKeyPods_RoundTrip_PreserveFields",
         "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.AnonymousPrivacyPods_RoundTrip_PreserveCredentialRootTicketAndComment",
         "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.CommentCreateV2Request_RoundTrip_PreservesAnonymousFields",
-        "vitest:tests/frontend/unit/api/comment.test.ts#createcommentv2-uses-commentcreatev2-for-anonymous-autho-676246594c",
+        "vitest:tests/frontend/unit/api/comment.test.ts#createcommentv2-sends-commentcreatev2-binary-mutation-fr-04f6e5f019",
+        "vitest:tests/frontend/unit/api/comment.test.ts#createanonymouscomment-posts-an-anonymouscommentcreatere-d93c70823f",
         "vitest:tests/frontend/unit/api/comment.test.ts#requires-commentauthorview-instead-of-legacy-username-co-0cda3a0173"
       ],
       "reason": "Cross-stack POD round trips and actual frontend binary encoding own frame and author contracts."
