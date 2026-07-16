@@ -43,6 +43,9 @@ public sealed class AuditRetentionPolicyTests
         Assert.Equal(
             AuditActionCatalog.ModerationDictionaryLoaded,
             AuditRetentionCatalog.GetRequired(AuditActionCatalog.ModerationDictionaryLoaded).Action);
+        Assert.Equal(
+            AuditActionCatalog.PublicAotCache,
+            AuditRetentionCatalog.GetRequired(AuditActionCatalog.PublicAotCache).Action);
     }
 
     [Fact]

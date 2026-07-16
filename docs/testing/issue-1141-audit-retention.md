@@ -29,6 +29,7 @@ Do not run `./tools/test.sh production` for this issue.
 ## Required matrix
 
 - all declared actions have finite complete/pseudonym/aggregate limits and unknown actions fail closed;
+- dynamically classified public AOT cache failures resolve to the declared `public_aot.cache` action and its finite policy;
 - high-value and Critical are absent from cleanup exclusions;
 - anonymous credential issuance is capped at 30 days;
 - sensitive audit payload round-trips only while its retention-epoch DEK exists;

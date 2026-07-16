@@ -53,6 +53,7 @@ public sealed class AuditLogEventMapperTests
         Assert.NotNull(record);
         Assert.Equal(AuditSourceCatalog.PublicAot, record!.Source);
         Assert.Equal(AuditTypeCatalog.Exception, record.Type);
+        Assert.Equal(AuditActionCatalog.PublicAotCache, record.Action);
         IReadOnlyDictionary<string, object?> context = DecodeContext(record);
         Assert.Equal("boom", context["exceptionMessage"]);
     }

@@ -299,7 +299,7 @@ public sealed class AuditLogEventMapper
 
         if (source == AuditSourceCatalog.PublicAot)
         {
-            return "public_aot.cache";
+            return AuditActionCatalog.PublicAotCache;
         }
 
         return type == AuditTypeCatalog.Exception
