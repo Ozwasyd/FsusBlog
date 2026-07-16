@@ -164,9 +164,9 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
     'visual', 'visual-console', 'visual-public'
   ].sort())
 
-  assert.deepEqual(index.get('release-public-hydration').dependsOn, ['bootstrap'])
+  assert.deepEqual(index.get('release-public-hydration').dependsOn, ['runtime-integration'])
+  assert.deepEqual(index.get('security-runtime-core').dependsOn, ['bootstrap'])
   for (const id of [
-    'security-runtime-core',
     'endpoint-depth',
     'local-runtime-exposure'
   ]) {
@@ -572,8 +572,9 @@ test('runtime browser-heavy phases retain real dependencies while counted slots 
     started.push(entry.id)
     await gates.get(entry.id)?.promise
   })
-  await waitFor(() => started.includes('ux-risk-matrix') && started.includes('cross-browser'))
-  const simultaneouslyStarted = ['ux-risk-matrix', 'cross-browser', 'render-pressure', 'resilience']
+  const browserHeavyIds = ['ux-risk-matrix', 'cross-browser', 'render-pressure', 'resilience']
+  await waitFor(() => browserHeavyIds.filter((id) => started.includes(id)).length === 2)
+  const simultaneouslyStarted = browserHeavyIds
     .filter((id) => started.includes(id))
   assert.equal(simultaneouslyStarted.length, 2)
   assert.ok(started.indexOf('runtime-integration') < started.indexOf('release-public'))
@@ -613,21 +614,21 @@ test('two-CPU runtime grant gives the complete browser grant to each serial phas
   assert.deepEqual(started.map((entry) => entry.id), ['bootstrap'])
   bootstrap.resolve()
   await new Promise((resolve) => setImmediate(resolve))
-  assert.deepEqual(started.slice(1).map((entry) => entry.id), ['release-public-hydration'])
+  assert.deepEqual(started.slice(1).map((entry) => entry.id), ['security-runtime-core'])
   assert.equal(started.at(-1).capacity.cpuUnits, 2)
   assert.equal(started.at(-1).capacity.memoryGiB, 5)
-  hydration.resolve()
-  await waitFor(() => started.some((entry) => entry.id === 'security-runtime-core'))
-  assert.equal(started.some((entry) => entry.id === 'runtime-integration'), false)
-  assert.equal(started.at(-1).capacity.cpuUnits, 2)
   security.resolve()
   await waitFor(() => started.some((entry) => entry.id === 'runtime-integration'))
+  assert.equal(started.some((entry) => entry.id === 'release-public-hydration'), false)
   assert.equal(started.at(-1).capacity.cpuUnits, 2)
   integration.resolve()
+  await waitFor(() => started.some((entry) => entry.id === 'release-public-hydration'))
+  assert.equal(started.at(-1).capacity.cpuUnits, 2)
+  hydration.resolve()
   await execution
 })
 
-test('elastic 3/4/6 CPU grants immediately widen the independent post-hydration wave', async () => {
+test('elastic 3/4/6 CPU grants immediately widen an independent runtime wave', async () => {
   const core = deferred()
   const ux = deferred()
   const dast = deferred()
@@ -807,25 +808,24 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
 
   bootstrap.resolve()
   await new Promise((resolve) => setImmediate(resolve))
-  assert.equal(started.at(-1).id, 'release-public-hydration')
+  assert.equal(started.at(-1).id, 'security-runtime-core')
   assert.equal(started.at(-1).capacity.cpuUnits, 2)
-  hydration.resolve()
-  await waitFor(() => started.some((entry) => entry.id === 'security-runtime-core'))
-  assert.equal(started.some((entry) => entry.id === 'runtime-integration'), false)
   security.resolve()
   await waitFor(() => started.some((entry) => entry.id === 'runtime-integration'))
   integration.resolve()
+  await waitFor(() => started.some((entry) => entry.id === 'release-public-hydration'))
+  assert.equal(started.at(-1).capacity.cpuUnits, 2)
+  hydration.resolve()
   await execution
 })
 
-test('security join preserves the static preflight through the post-hydration core wave', async () => {
+test('security join preserves the static preflight through the post-bootstrap core wave', async () => {
   const bootstrap = deferred()
   const securityStatic = deferred()
-  const hydration = deferred()
   const securityCore = deferred()
   const started = []
   const selected = runtimeSteps()
-    .filter((entry) => ['bootstrap', 'security-static', 'release-public-hydration', 'security-runtime-core', 'security-join'].includes(entry.id))
+    .filter((entry) => ['bootstrap', 'security-static', 'security-runtime-core', 'security-join'].includes(entry.id))
     .map((entry) => {
       if (entry.id === 'bootstrap') return { ...entry, dependsOn: ['security-static'] }
       if (entry.id === 'security-join') return { ...entry, dependsOn: ['security-static', 'security-runtime-core'] }
@@ -840,7 +840,6 @@ test('security join preserves the static preflight through the post-hydration co
     started.push({ id: entry.id, capacity: entry.runtimeCapacity })
     if (entry.id === 'bootstrap') await bootstrap.promise
     if (entry.id === 'security-static') await securityStatic.promise
-    if (entry.id === 'release-public-hydration') await hydration.promise
     if (entry.id === 'security-runtime-core') await securityCore.promise
   })
 
@@ -851,11 +850,8 @@ test('security join preserves the static preflight through the post-hydration co
   assert.equal(started.at(-1).id, 'bootstrap')
   bootstrap.resolve()
   await new Promise((resolve) => setImmediate(resolve))
-  assert.equal(started.at(-1).id, 'release-public-hydration')
-  assert.ok(!started.some((entry) => entry.id === 'security-join'))
-  hydration.resolve()
-  await new Promise((resolve) => setImmediate(resolve))
   assert.equal(started.at(-1).id, 'security-runtime-core')
+  assert.ok(!started.some((entry) => entry.id === 'security-join'))
   securityCore.resolve()
   await execution
   assert.equal(started.at(-1).id, 'security-join')

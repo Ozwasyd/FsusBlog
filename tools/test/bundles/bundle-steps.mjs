@@ -690,14 +690,15 @@ export function runtimeSteps() {
       resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
     }),
     // This is the sole production-runtime writer to frontend/dist after build
-    // readiness. Settle the AOT sidecar copy before release-preview UX and the
-    // integration checks begin reading that tree.
+    // readiness. Runtime integration mutates and invalidates public fixtures,
+    // so settle the final AOT generation and sidecar copy after that last
+    // writer, immediately before release-preview readers enter the tree.
     step('release-public-hydration', 'tools/test/lanes/release-public-hydration.sh', [], {
-      dependsOn: needsRuntime,
+      dependsOn: ['runtime-integration'],
       resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
     }),
     step('security-runtime-core', 'FSUSBLOG_LOCAL_RUNTIME_EXPOSURE_IN_DAG=1 FSUSBLOG_SKIP_ZAP=1 tools/test/legacy-test.sh security-runtime-core', [], {
-      dependsOn: needsStableReleaseHydration,
+      dependsOn: needsRuntime,
       resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, countedResources: chromiumLane }
     }),
     // Browser lanes share a machine-adaptive counted resource instead of a
@@ -719,9 +720,9 @@ export function runtimeSteps() {
       resources: { cpuWeight: 1.5, memoryWeight: 1.5, minCpuUnits: 1 }
     }),
     step('release-public', 'FSUSBLOG_RELEASE_HYDRATION_PREPARED_BY_DAG=1 tools/test/lanes/release-public.sh', ['release'], {
-      // runtime-integration mutates article distribution state and waits for
-      // the corresponding AOT generation. Public hydration readers must not
-      // race that cache transition or validate the previous article version.
+      // The post-integration hydration step is the observable write barrier for
+      // article/taxonomy invalidations. Public readers must not race that cache
+      // transition or validate the previous fixture generation.
       dependsOn: [...needsStableReleaseHydration, 'runtime-integration'],
       resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, countedResources: chromiumLane }
     }),

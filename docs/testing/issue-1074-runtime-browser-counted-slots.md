@@ -20,9 +20,12 @@ whole bundle grant. Slot growth starts another fixed-size lane and does not resi
 
 ## Dependency and isolation boundaries
 
-`runtime-integration` remains the article/cache mutation boundary. `release-public` still waits for it and stable
-release hydration. Browser readers start only after their real runtime prerequisites, while independent UX,
-cross-browser, render-pressure, and resilience work can overlap when more than one slot is available.
+`runtime-integration` remains the article/cache mutation boundary. The single exact-once
+`release-public-hydration` writer now runs after that boundary and immediately before `release-public`, so taxonomy
+and article invalidations cannot leave release readers observing an earlier AOT generation. `security-runtime-core`
+can start as soon as bootstrap is ready because it consumes the debug/runtime surface rather than the release dist.
+Other browser readers start only after their real runtime prerequisites, while independent UX, cross-browser,
+render-pressure, and resilience work can overlap when more than one slot is available.
 
 ZAP remains behind every Chromium-bearing lane because its container lifecycle changes host networking. Benchmark and
 quiet windows remain in `performance-evidence` behind their named isolation resource. Coordination-only joins consume
