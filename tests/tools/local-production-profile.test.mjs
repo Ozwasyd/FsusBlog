@@ -459,6 +459,15 @@ test('repository production profile maps every logical tier exactly once', () =>
     assert.equal(frontendSubstitutions[canonical].some((entry) => /\/(?:property|model)-coverage$/u.test(entry)), false)
   }
   assert.ok(frontendSubstitutions['.tmp/test-results/vitest/perf'].includes('.tmp/test-results/vitest/production'))
+  const runtimeBundle = matrix.localProfiles.production.bundles.find((bundle) => bundle.id === 'runtime-browser')
+  const runtimeSubstitutions = resolveArtifactSubstitutions(runtimeBundle, matrix.tiers)
+  assert.deepEqual(
+    runtimeSubstitutions['cross-browser-smoke']['src/frontend/test-results/playwright/cross-browser'],
+    [
+      '.tmp/local-production/runtime-browser/browser-lanes/cross-browser/playwright',
+      '.tmp/local-production/runtime-browser/member-summaries/cross-browser-smoke/summary.json'
+    ]
+  )
   assert.deepEqual(validateLocalProfiles(matrix.localProfiles, matrix.tiers), [])
 })
 
