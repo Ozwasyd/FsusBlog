@@ -29,15 +29,18 @@ internal static class PublicSpaTemplateLocator
         string contentRootParent = Path.GetFullPath(Path.Combine(contentRoot, ".."));
         string appBase = AppContext.BaseDirectory;
         string appBaseParent = Path.GetFullPath(Path.Combine(appBase, ".."));
+        string configuredWebRootIndex = string.IsNullOrWhiteSpace(env.WebRootPath)
+            ? string.Empty
+            : Path.Combine(env.WebRootPath, "index.html");
 
         string[] distCandidates =
         [
+            configuredWebRootIndex,
             Path.Combine(contentRoot, "..", "frontend", "dist", "index.html"),
             Path.Combine(contentRoot, "..", "..", "frontend", "dist", "index.html"),
             Path.Combine(contentRoot, "FsusBlog.Client", "dist", "index.html"),
             Path.Combine(contentRootParent, "FsusBlog.Client", "dist", "index.html"),
             Path.Combine(appBaseParent, "FsusBlog.Client", "dist", "index.html"),
-            Path.Combine(env.WebRootPath ?? string.Empty, "index.html"),
             Path.Combine(AppContext.BaseDirectory, "wwwroot", "index.html")
         ];
 

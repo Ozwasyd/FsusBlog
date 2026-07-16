@@ -9,6 +9,43 @@ namespace FsusBlog.Server.Tests;
 public sealed class PublicSpaTemplateLocatorTests
 {
     [Fact]
+    public async Task ReleaseTemplate_ConfiguredWebRootWinsOverAdjacentSourceDist()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            string contentRoot = Path.Combine(root, "src", "backend");
+            string sourceDist = Path.Combine(root, "src", "frontend", "dist");
+            string runBoundWebRoot = Path.Combine(root, "run-bound", "wwwroot");
+            Directory.CreateDirectory(contentRoot);
+            Directory.CreateDirectory(sourceDist);
+            Directory.CreateDirectory(runBoundWebRoot);
+            await File.WriteAllTextAsync(
+                Path.Combine(sourceDist, "index.html"),
+                "<html><script src=\"/assets/index-stale.js\"></script></html>");
+            await File.WriteAllTextAsync(
+                Path.Combine(runBoundWebRoot, "index.html"),
+                "<html><script src=\"/assets/index-current.js\"></script></html>");
+            var env = new TestWebHostEnvironment(root, Environments.Development)
+            {
+                ContentRootPath = contentRoot,
+                WebRootPath = runBoundWebRoot
+            };
+            PublicSpaTemplateLocator.ResetCacheForTests();
+
+            string template = await PublicSpaTemplateLocator.ReadIndexTemplateAsync(env, CancellationToken.None);
+
+            Assert.Contains("index-current.js", template, StringComparison.Ordinal);
+            Assert.DoesNotContain("index-stale.js", template, StringComparison.Ordinal);
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Production_CachesTemplateAfterFileChanges()
     {
         string root = CreateTempDirectory();
