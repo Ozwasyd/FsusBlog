@@ -2724,7 +2724,8 @@ test('resident leases stay in admission accounting, hand off once, and release c
           runId,
           namespace,
           ownerBundleId: 'runtime-browser',
-          resourceGrant: { cpuUnits: 2, memoryGiB: 2 },
+          resourceGrant: { cpuUnits: 2, memoryGiB: 1.9999996 },
+          schedulerResourceGrant: { cpuUnits: 2, memoryGiB: 2 },
           services: [
             {
               id: 'backend',
