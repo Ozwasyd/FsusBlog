@@ -2344,7 +2344,7 @@ async function run() {
   const summary = {
     schema: 'fsusblog.local-production.bundle.v1',
     physicalBundleId: bundleId,
-    executionSource: 'fresh',
+    executionSource: process.env.FSUSBLOG_TEST_EXECUTION_SOURCE === 'resume' ? 'resume' : 'fresh',
     status: 'success',
     schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
     runToken: randomUUID(),

@@ -12,6 +12,7 @@ import {
   attachCheckpointEvidence,
   createRunId,
   findLatestRunId,
+  isProjectionOnlyCheckpointFailure,
   markCheckpointWallClockTimeout,
   resumeCheckpointEvidence,
   runDag,
@@ -847,6 +848,19 @@ function schedulerRunIdentity(targetTierId, options) {
   }
 }
 
+function resetResumeRunCoordination(runsRoot, runId) {
+  const runDirectory = path.join(runsRoot, runId)
+  if (!fs.existsSync(runDirectory)) return []
+  const removed = []
+  for (const entry of fs.readdirSync(runDirectory, { withFileTypes: true })) {
+    if (!entry.isFile() && !entry.isSymbolicLink()) continue
+    if (entry.name === 'checkpoint.json') continue
+    fs.rmSync(path.join(runDirectory, entry.name), { force: true })
+    removed.push(entry.name)
+  }
+  return removed.sort()
+}
+
 function bindScheduledBuildLayoutSource(layout, sourceState) {
   return bindProductionBuildLayoutSource(layout, {
     ...sourceState,
@@ -1293,52 +1307,58 @@ async function runLocalProfile(matrix, profileId, options) {
     availableMemoryGiB: os.freemem() / (1024 ** 3),
     load1: process.platform === 'win32' ? 0 : os.loadavg()[0]
   })
-  if (options.resume) {
-    const detectedResources = detectResources()
-    const resolvedLogicalMatrix = {
-      ...matrix,
-      tiers: resolveLogicalTierResources(matrix.tiers, detectedResources)
-    }
-    const { runsRoot, runId } = schedulerRunIdentity(profileId, options)
-    const checkpointPath = path.join(runsRoot, runId, 'checkpoint.json')
-    const checkpoint = await resumeCheckpointEvidence(checkpointPath, runId, (successfulCheckpoint) => {
-      if (successfulCheckpoint.logicalTierProjection) {
-        return { logicalTierProjection: successfulCheckpoint.logicalTierProjection }
+  const resumeIdentity = options.resume ? schedulerRunIdentity(profileId, options) : null
+  if (resumeIdentity && !options.planOnly) {
+    const checkpointPath = path.join(resumeIdentity.runsRoot, resumeIdentity.runId, 'checkpoint.json')
+    let resumeCheckpoint = null
+    try {
+      resumeCheckpoint = JSON.parse(fs.readFileSync(checkpointPath, 'utf8'))
+    } catch {}
+    if (isProjectionOnlyCheckpointFailure(resumeCheckpoint)) {
+      const detectedResources = detectResources()
+      const resolvedLogicalMatrix = {
+        ...matrix,
+        tiers: resolveLogicalTierResources(matrix.tiers, detectedResources)
       }
-      const completedTierIds = new Set(successfulCheckpoint.completedTiers ?? [])
-      const projectionInput = projectLocalBundleSummaries(
-        resolvedLogicalMatrix,
-        profileId,
-        profile,
-        runId,
-        completedTierIds)
-      const summaryOnlyEvidence = writeSummaryOnlyEvidence(
-        profileId,
-        profile,
-        runId,
-        successfulCheckpoint.sourceState)
-      return {
-        logicalTierProjection: buildLocalProfileProjection({
+      const checkpoint = await resumeCheckpointEvidence(checkpointPath, resumeIdentity.runId, (successfulCheckpoint) => {
+        if (successfulCheckpoint.logicalTierProjection) {
+          return { logicalTierProjection: successfulCheckpoint.logicalTierProjection }
+        }
+        const completedTierIds = new Set(successfulCheckpoint.completedTiers ?? [])
+        const projectionInput = projectLocalBundleSummaries(
+          resolvedLogicalMatrix,
           profileId,
           profile,
-          tiers: resolvedLogicalMatrix.tiers,
-          checkpoint: successfulCheckpoint,
-          bundleSummaries: projectionInput.bundleSummaries,
-          summaryOnlyEvidence
-        })
-      }
-    }, { root })
-    const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
-    const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
-    summary.status = 'success'
-    summary.executionSource = 'fresh-projection-resume'
-    summary.projectedTierIds = checkpoint.logicalTierProjection.logicalTierIds
-    summary.failure = null
-    summary.failures = []
-    summary.generatedAt = new Date().toISOString()
-    fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
-    console.error(`[matrix:${profileId}] resumed projection run=${runId} tiers=${summary.projectedTierIds.length} checkpoint=${relativeToRoot(checkpointPath)}`)
-    return
+          resumeIdentity.runId,
+          completedTierIds)
+        const summaryOnlyEvidence = writeSummaryOnlyEvidence(
+          profileId,
+          profile,
+          resumeIdentity.runId,
+          successfulCheckpoint.sourceState)
+        return {
+          logicalTierProjection: buildLocalProfileProjection({
+            profileId,
+            profile,
+            tiers: resolvedLogicalMatrix.tiers,
+            checkpoint: successfulCheckpoint,
+            bundleSummaries: projectionInput.bundleSummaries,
+            summaryOnlyEvidence
+          })
+        }
+      }, { root })
+      const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
+      const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+      summary.status = 'success'
+      summary.executionSource = 'fresh-projection-resume'
+      summary.projectedTierIds = checkpoint.logicalTierProjection.logicalTierIds
+      summary.failure = null
+      summary.failures = []
+      summary.generatedAt = new Date().toISOString()
+      fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+      console.error(`[matrix:${profileId}] resumed projection run=${resumeIdentity.runId} tiers=${summary.projectedTierIds.length} checkpoint=${relativeToRoot(checkpointPath)}`)
+      return
+    }
   }
   const wallClockStartedAtMs = Number(process.env.FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS ?? Date.now())
   if (!Number.isFinite(wallClockStartedAtMs) || wallClockStartedAtMs <= 0 || wallClockStartedAtMs > Date.now()) {
@@ -1382,13 +1402,18 @@ async function runLocalProfile(matrix, profileId, options) {
     return
   }
 
-  const { runsRoot, runId } = schedulerRunIdentity(profileId, { ...options, fresh: true, resume: false })
+  const { runsRoot, runId } = resumeIdentity ?? schedulerRunIdentity(profileId, options)
   console.error(`[matrix:${profileId}] stale runtime cleanup namespaces=${staleCleanup.namespaces.length} processes=${staleCleanup.terminatedPids.length} containers=${staleCleanup.removedContainers.length} dotnetBuildServers=${dotnetBuildServerPreflightPids.length}`)
-  const freshCleanup = cleanLocalProductionOutputs(root)
-  const buildLayout = prepareProductionBuildLayout({ root, runId })
-  const buildGc = scheduleStaleProductionBuildGc({ root, currentRunId: runId })
-  console.error(`[matrix:${profileId}] fresh cleanup duration=${freshCleanup.durationMs}ms traversed=${freshCleanup.traversedEntryCount} buildRoot=${path.relative(root, buildLayout.runRoot)}`)
-  console.error(`[matrix:${profileId}] stale build GC pid=${buildGc.pid ?? 'unavailable'} currentRun=${runId}`)
+  const freshCleanup = options.resume ? null : cleanLocalProductionOutputs(root)
+  const buildLayout = prepareProductionBuildLayout({ root, runId, fresh: !options.resume })
+  const preparedBuildSourceState = buildLayout.manifest.sourceState
+  const buildGc = options.resume ? null : scheduleStaleProductionBuildGc({ root, currentRunId: runId })
+  if (options.resume) {
+    console.error(`[matrix:${profileId}] physical resume run=${runId} buildRoot=${path.relative(root, buildLayout.runRoot)}`)
+  } else {
+    console.error(`[matrix:${profileId}] fresh cleanup duration=${freshCleanup.durationMs}ms traversed=${freshCleanup.traversedEntryCount} buildRoot=${path.relative(root, buildLayout.runRoot)}`)
+    console.error(`[matrix:${profileId}] stale build GC pid=${buildGc.pid ?? 'unavailable'} currentRun=${runId}`)
+  }
   const capacity = assertLocalProductionCapacity({ root })
   console.error(`[matrix:${profileId}] capacity preflight=${capacity.measurements.map(({ directory, availableBytes }) => `${directory}:${(availableBytes / (1024 ** 3)).toFixed(1)}GiB`).join(',')}`)
   console.error(`[matrix:${profileId}] dynamic resources cpu=${detectedResources.availableCpuUnits}/${detectedResources.cpuCount} memory=${detectedResources.availableMemoryGiB.toFixed(1)}GiB reserve=${detectedResources.memoryReserveGiB.toFixed(1)}GiB load1=${detectedResources.load1.toFixed(2)} launchParallelism=${launchParallelism}`)
@@ -1405,16 +1430,24 @@ async function runLocalProfile(matrix, profileId, options) {
       runsRoot,
       runId,
       targetTierId: profileId,
-      mode: 'fresh',
-      resume: false,
+      mode: options.resume ? 'resume' : 'fresh',
+      resume: options.resume,
       maxParallel: launchParallelism,
-      wallClockBudgetMs: profile.enforceBudget === false ? null : profile.budgetMs,
+      wallClockBudgetMs: options.resume || profile.enforceBudget === false ? null : profile.budgetMs,
       wallClockStartedAtMs,
       collectFailures: true,
+      reuseAcrossSourceChanges: false,
       resourceEnforcementMode: process.env.FSUSBLOG_CGROUP_ENFORCEMENT ?? 'auto',
       systemResources: detectedResources,
       teeOutput: true,
       onSourceState(sourceState) {
+        if (options.resume
+          && (preparedBuildSourceState?.commit !== sourceState.commit
+            || preparedBuildSourceState?.worktreeFingerprint !== sourceState.worktreeFingerprint)) {
+          fs.rmSync(path.join(buildLayout.generatedRoot, 'artifact-digest-table.json'), { force: true })
+          const removedCoordination = resetResumeRunCoordination(runsRoot, runId)
+          console.error(`[matrix:${profileId}] resume source changed; reset run-bound artifact digest table and ${removedCoordination.length} coordination file(s)`)
+        }
         bindScheduledBuildLayoutSource(buildLayout, sourceState)
       },
       envForTier(tier) {
@@ -1424,6 +1457,7 @@ async function runLocalProfile(matrix, profileId, options) {
           MATRIX_JOB: `local-${profileId}`,
           FSUSBLOG_TEST_NAMESPACE: runNamespace,
           FSUSBLOG_TEST_RUN_ID: runId,
+          FSUSBLOG_TEST_EXECUTION_SOURCE: options.resume ? 'resume' : 'fresh',
           FSUSBLOG_LOCAL_PROFILE: profileId,
           FSUSBLOG_PHYSICAL_BUNDLE_ID: tier.physicalBundleId,
           FSUSBLOG_DOTNET_BUILD_PARALLELISM: 'auto',
@@ -1445,7 +1479,7 @@ async function runLocalProfile(matrix, profileId, options) {
 
     let projectedTierIds = []
     const completedTierIds = new Set(result.checkpoint.completedTiers ?? [])
-    if (result.status === 'success') {
+    if (result.status === 'success' && !options.resume) {
       try {
         const expectedRevision = result.checkpoint.revision
         const buildProjectionEvidence = (lockedCheckpoint) => {
@@ -1501,7 +1535,7 @@ async function runLocalProfile(matrix, profileId, options) {
     const summary = {
       schema: 'fsusblog.local-production.run.v1',
       status: result.status,
-      executionSource: 'fresh',
+      executionSource: options.resume ? 'resume' : 'fresh',
       schedulerRunId: runId,
       budgetMs: profile.budgetMs,
       durationMs: Math.max(0, Date.now() - wallClockStartedAtMs),
@@ -1566,7 +1600,7 @@ async function runLocalProfile(matrix, profileId, options) {
   const completedAtMs = Date.now()
   const fullScriptDurationMs = Math.max(0, completedAtMs - wallClockStartedAtMs)
   const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
-  if (profile.enforceBudget !== false && fullScriptDurationMs > profile.budgetMs) {
+  if (!options.resume && profile.enforceBudget !== false && fullScriptDurationMs > profile.budgetMs) {
     const wallClockFailure = {
       tierId: profileId,
       exitCode: 124,
@@ -1597,25 +1631,43 @@ async function runLocalProfile(matrix, profileId, options) {
     wallClockMs: fullScriptDurationMs,
     completedAt: new Date(completedAtMs).toISOString()
   })
-  const buildEvidenceFile = path.join(root, '.tmp/release-evidence/production-build-layout.json')
+  const buildEvidenceFile = options.resume
+    ? path.join(root, `.tmp/local-${profileId}/resume-build-layout.json`)
+    : path.join(root, '.tmp/release-evidence/production-build-layout.json')
   fs.mkdirSync(path.dirname(buildEvidenceFile), { recursive: true })
   fs.writeFileSync(buildEvidenceFile, `${JSON.stringify(buildManifest, null, 2)}\n`)
 
-  const resourceUtilizationEvidence = emitProductionResourceUtilization({
-    profileId,
-    profile: resolvedProfile,
-    result,
-    detectedResources,
-    durationMs: fullScriptDurationMs
-  })
-  if (fs.existsSync(summaryFile)) {
-    const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
-    summary.resourceUtilization = {
-      path: '.tmp/release-evidence/production-resource-utilization.json',
-      status: resourceUtilizationEvidence.status,
-      digest: fileDigest(path.join(root, '.tmp/release-evidence/production-resource-utilization.json'))
+  if (options.resume) {
+    // A physical resume can combine unchanged fresh outputs with newly rerun
+    // bundles. Its checkpoint records that reuse, but it must not replace the
+    // same-source, all-fresh resource evidence consumed by release gates.
+    if (fs.existsSync(summaryFile)) {
+      const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+      summary.resourceUtilization = {
+        path: relativeToRoot(result.checkpointPath),
+        status: result.checkpoint.resourceUtilization?.status ?? 'unavailable',
+        digest: fileDigest(result.checkpointPath),
+        authoritative: false
+      }
+      fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
     }
-    fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+  } else {
+    const resourceUtilizationEvidence = emitProductionResourceUtilization({
+      profileId,
+      profile: resolvedProfile,
+      result,
+      detectedResources,
+      durationMs: fullScriptDurationMs
+    })
+    if (fs.existsSync(summaryFile)) {
+      const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+      summary.resourceUtilization = {
+        path: '.tmp/release-evidence/production-resource-utilization.json',
+        status: resourceUtilizationEvidence.status,
+        digest: fileDigest(path.join(root, '.tmp/release-evidence/production-resource-utilization.json'))
+      }
+      fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+    }
   }
 
   if (result.status !== 'success') {

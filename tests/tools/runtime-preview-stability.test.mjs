@@ -132,6 +132,10 @@ test('production runtime keeps hydration writes exact-once and gates all release
   }
   const integrationStart = bundle.indexOf("step('runtime-integration'")
   assert.match(bundle.slice(integrationStart, integrationStart + 500), /dependsOn: \['security-runtime-core'\]/u)
+  assert.match(distribution, /post-mutation outbox settlement/u)
+  assert.match(distribution, /SET search_path TO "\$\{sessionSchema\}", public/u)
+  assert.match(distribution, /status <> 'processed'/u)
+  assert.match(distribution, /assertArticleMutationOutboxSettled\(articleId\)/u)
   assert.match(distribution, /post-mutation anonymous public-read recovery/u)
   assert.match(distribution, /assertAnonymousPublicReadsRecovered\(stableArticleId\)/u)
   const uxStart = bundle.indexOf("step('ux-risk-matrix'")

@@ -617,7 +617,12 @@ test('checkpoint evidence builder failure is persisted instead of leaving a succ
 })
 
 test('projection-only resume reuses fresh successful physical evidence without rerunning tiers', async () => {
-  const { attachCheckpointEvidence, resumeCheckpointEvidence, runDag } = await loadScheduler()
+  const {
+    attachCheckpointEvidence,
+    isProjectionOnlyCheckpointFailure,
+    resumeCheckpointEvidence,
+    runDag
+  } = await loadScheduler()
   const fixture = await createCheckpointEvidenceFixture(runDag, 'scheduler-projection-resume')
   const invalidProjection = structuredClone(fixture.projection)
   invalidProjection.logicalTierCount += 1
@@ -626,6 +631,10 @@ test('projection-only resume reuses fresh successful physical evidence without r
       logicalTierProjection: invalidProjection
     }, fixture.attachOptions),
     /logicalTierCount must match its entries/u
+  )
+  assert.equal(
+    isProjectionOnlyCheckpointFailure(JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8'))),
+    true
   )
 
   const recovered = await resumeCheckpointEvidence(
@@ -648,6 +657,7 @@ test('projection-only resume reuses fresh successful physical evidence without r
   assert.equal(recovered.evidenceFinalization.mode, 'projection-resume')
   assert.equal(recovered.evidenceFinalization.finalizerSource.worktreeFingerprint, 'projection-fix')
   assert.equal(recovered.tiers['local-production-build-static'].reused, false)
+  assert.equal(isProjectionOnlyCheckpointFailure(recovered), false)
 })
 
 test('checkpoint evidence generation and attach reject a concurrent writer for the same run', async () => {
@@ -1440,6 +1450,42 @@ test('resume reuses successful tiers only while input and dependency fingerprint
   assert.equal(invalidated.status, 'success')
   assert.deepEqual(executed, ['compile', 'verify'])
   assert.deepEqual(invalidated.reusedTiers, [])
+})
+
+test('resume can require one coherent source state instead of reusing otherwise valid tiers', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-resume-source-state')
+  const runsRoot = path.join(temp, 'runs')
+  const tiers = [tier('compile'), tier('verify', { dependsOn: ['compile'] })]
+  const executed = []
+  let sourceFingerprint = 'source-v1'
+  const snapshotWorktree = async () => ({ fingerprint: sourceFingerprint, entries: {} })
+  const executeTier = async (current) => {
+    executed.push(current.id)
+    return { code: 0, signal: null }
+  }
+
+  await runDag({ tiers, root: temp, runsRoot, runId: 'source-state', snapshotWorktree, executeTier })
+  executed.length = 0
+  sourceFingerprint = 'source-v2'
+  const resumed = await runDag({
+    tiers,
+    root: temp,
+    runsRoot,
+    runId: 'source-state',
+    resume: true,
+    reuseAcrossSourceChanges: false,
+    snapshotWorktree,
+    executeTier
+  })
+
+  assert.equal(resumed.status, 'success')
+  assert.deepEqual(executed, ['compile', 'verify'])
+  assert.deepEqual(resumed.reusedTiers, [])
+  assert.deepEqual(resumed.checkpoint.resumePolicy, {
+    sourceChanged: true,
+    reuseAcrossSourceChanges: false
+  })
 })
 
 test('resume reruns tiers when declared artifacts disappear and never reuses service bootstraps', async () => {

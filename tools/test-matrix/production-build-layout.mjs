@@ -180,6 +180,8 @@ export function productionBuildEnvironment(layout, env = process.env) {
     FSUSBLOG_FRONTEND_WASM_ROOT: layout.frontendWasm,
     FSUSBLOG_WASM_ARTIFACT_ROOT: layout.wasmArtifacts,
     FSUSBLOG_BACKEND_WEBROOT: layout.backendWebRoot,
+    FSUSBLOG_PUBLIC_AOT_SSR_CLIENT_ROOT: layout.frontendDist,
+    FSUSBLOG_PUBLIC_AOT_SSR_WORKER_SCRIPT: './server/server-public-ssr.bundle.mjs',
     FSUSBLOG_WEB_ROOT: layout.backendWebRoot,
     FSUSBLOG_RETENTION_WEBROOT_DIR: layout.backendWebRoot,
     ASPNETCORE_WEBROOT: layout.backendWebRoot,

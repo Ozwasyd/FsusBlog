@@ -109,6 +109,7 @@ PUBLIC_AOT_BACKFILL_CONCURRENCY="${FSUSBLOG_PUBLIC_AOT_BACKFILL_CONCURRENCY:-$(
   "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/resolve-public-aot-concurrency.mjs"
 )}"
 PUBLIC_AOT_SSR_WORKER_COUNT="${FSUSBLOG_PUBLIC_AOT_SSR_WORKER_COUNT:-$PUBLIC_AOT_BACKFILL_CONCURRENCY}"
+PUBLIC_AOT_SSR_CLIENT_ROOT="${FSUSBLOG_PUBLIC_AOT_SSR_CLIENT_ROOT:-}"
 PUBLIC_AOT_SSR_WORKER_SCRIPT="${FSUSBLOG_PUBLIC_AOT_SSR_WORKER_SCRIPT:-}"
 RUNTIME_THREADPOOL_MIN_THREADS_PER_CPU="${FSUSBLOG_RUNTIME_THREADPOOL_MIN_THREADS_PER_CPU:-$(
   "${FSUSBLOG_NODE:-node}" --input-type=module -e '
@@ -184,6 +185,7 @@ RateLimiting__PublicReadQueueLimit=$PUBLIC_READ_QUEUE_LIMIT
 NotificationStream__MaxConnectionsPerAccount=$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT
 PublicAot__BackfillConcurrency=$PUBLIC_AOT_BACKFILL_CONCURRENCY
 PublicAot__SsrWorkerCount=$PUBLIC_AOT_SSR_WORKER_COUNT
+PublicAot__SsrClientRoot=$PUBLIC_AOT_SSR_CLIENT_ROOT
 PublicAot__SsrWorkerScript=$PUBLIC_AOT_SSR_WORKER_SCRIPT
 ActiveReleaseFence__AllowSyntheticLocalFence=true
 RuntimeTuning__ThreadPool__Enabled=true
@@ -280,6 +282,13 @@ NODE
 }
 
 materialize_ci_production_build
+if [[ -z "$PUBLIC_AOT_SSR_CLIENT_ROOT" \
+    && -n "${FSUSBLOG_FRONTEND_DIST_ROOT:-}" \
+    && -f "$FSUSBLOG_FRONTEND_DIST_ROOT/server/server-public-ssr.bundle.mjs" \
+    && -f "$FSUSBLOG_FRONTEND_DIST_ROOT/server/public-ssr.mjs" ]]; then
+  PUBLIC_AOT_SSR_CLIENT_ROOT="$FSUSBLOG_FRONTEND_DIST_ROOT"
+  PUBLIC_AOT_SSR_WORKER_SCRIPT='./server/server-public-ssr.bundle.mjs'
+fi
 write_env_file
 
 ci_production_has_domain() {
@@ -664,6 +673,50 @@ hash_release_inputs() {
   )
 }
 
+hash_backend_inputs() {
+  local worker_path=""
+  local bundle_path=""
+  if [[ -n "$PUBLIC_AOT_SSR_CLIENT_ROOT" && -n "$PUBLIC_AOT_SSR_WORKER_SCRIPT" ]]; then
+    worker_path="$PUBLIC_AOT_SSR_CLIENT_ROOT/${PUBLIC_AOT_SSR_WORKER_SCRIPT#./}"
+    bundle_path="$PUBLIC_AOT_SSR_CLIENT_ROOT/server/public-ssr.mjs"
+  fi
+
+  {
+    printf '%s\n' \
+      "source=${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-}" \
+      "commit=${FSUSBLOG_TEST_SOURCE_COMMIT:-}" \
+      "configuration=${FSUSBLOG_RUNTIME_CONFIGURATION:-}" \
+      "noBuild=${FSUSBLOG_RUNTIME_NO_BUILD:-0}" \
+      "webRoot=${ASPNETCORE_WEBROOT:-$SERVER_WWWROOT_DIR}" \
+      "ssrClientRoot=$PUBLIC_AOT_SSR_CLIENT_ROOT" \
+      "ssrWorkerScript=$PUBLIC_AOT_SSR_WORKER_SCRIPT"
+
+    if [[ -z "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-}" ]]; then
+      (
+        cd "$ROOT_DIR"
+        {
+          for file in Directory.Build.props Directory.Build.targets; do
+            if [[ -f "$file" ]]; then
+              printf '%s\0' "$file"
+            fi
+          done
+          find src/backend src/shared src/core -type f \
+            \( -name '*.cs' -o -name '*.csproj' -o -name '*.props' -o -name '*.targets' -o -name '*.json' \) \
+            -print0 2>/dev/null || true
+        } | sort -z | xargs -0 sha256sum 2>/dev/null
+      )
+    fi
+
+    for file in "${FSUSBLOG_BACKEND_SERVER_DLL:-}" "$worker_path" "$bundle_path"; do
+      if [[ -n "$file" && -f "$file" ]]; then
+        sha256sum "$file"
+      elif [[ -n "$file" ]]; then
+        printf 'missing %s\n' "$file"
+      fi
+    done
+  } | sha256sum | awk '{print $1}'
+}
+
 wait_for_url() {
   local label="$1"
   local url="$2"
@@ -903,8 +956,11 @@ reset_security_test_state() {
 ensure_backend() {
   local pid_file="$TMP_DIR/backend.pid"
   local log_file="$TMP_DIR/backend.log"
+  local fingerprint_file="$TMP_DIR/backend-inputs.sha"
   local managed_pid
   local existing_pid
+  local next_fingerprint
+  local current_fingerprint=""
   local readiness_deadline="${1:-}"
   if [[ -z "$readiness_deadline" ]]; then
     allocate_readiness_deadline 'debug backend'
@@ -912,11 +968,21 @@ ensure_backend() {
   fi
   managed_pid="$(read_pid_file "$pid_file")"
   existing_pid="$(find_port_pid "$DEBUG_BACKEND_PORT")"
+  next_fingerprint="$(hash_backend_inputs)"
+  if [[ -f "$fingerprint_file" ]]; then
+    current_fingerprint="$(cat "$fingerprint_file" 2>/dev/null || true)"
+  fi
 
-  if can_reuse_processes && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/system/seo" && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" && probe_notification_drill_url; then
+  if can_reuse_processes \
+      && [[ "$current_fingerprint" == "$next_fingerprint" ]] \
+      && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/system/seo" \
+      && probe_binary_url "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" \
+      && probe_notification_drill_url; then
     log 'debug backend already healthy; reusing existing process'
     return
   fi
+
+  rm -f "$fingerprint_file"
 
   if [[ -n "$managed_pid" ]] && kill -0 "$managed_pid" >/dev/null 2>&1; then
     log "restarting managed backend process on ${DEBUG_BACKEND_PORT} (pid ${managed_pid})"
@@ -951,6 +1017,7 @@ ensure_backend() {
   fi
   log "starting managed ${runtime_configuration,,} backend"
   local -x Testing__EnforceProductionCsp=true
+  local -x PublicAot__SsrClientRoot="$PUBLIC_AOT_SSR_CLIENT_ROOT"
   nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") FSUSBLOG_NOTIFICATION_DRILL_SECRET=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") NotificationStream__DrillSecret=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") Jwt__KeyVersion=$(printf '%q' "$JWT_KEY_VERSION") Jwt__SecretKey=$(printf '%q' "$JWT_SECRET") Jwt__Issuer=$(printf '%q' "$JWT_ISSUER") Jwt__Audience=$(printf '%q' "$JWT_AUDIENCE") Jwt__AccessTokenExpiresMinutes=$(printf '%q' "$JWT_ACCESS_TOKEN_EXPIRES_MINUTES") Security__Pow__SigningKey=$(printf '%q' "$POW_SIGNING_KEY") Security__Pow__BaseDifficulty=$(printf '%q' "$POW_BASE_DIFFICULTY") Security__Pow__MaxDifficulty=$(printf '%q' "$POW_MAX_DIFFICULTY") Security__CaptchaV1__SigningKey=$(printf '%q' "$CAPTCHA_SIGNING_KEY") Security__PerceptionSealedToken__CurrentKeyVersion=dev Security__PerceptionSealedToken__Keys__dev=$(printf '%q' "$PERCEPTION_SEALED_TOKEN_KEY") Security__RecoveryKeyPepper=$(printf '%q' "$RECOVERY_KEY_PEPPER") MfaChallenge__TicketSigningKey=$(printf '%q' "$MFA_TICKET_SIGNING_KEY") VisitLog__IpPseudonymization__CurrentEpoch=$(printf '%q' "$VISIT_LOG_IP_KEY_EPOCH") VisitLog__IpPseudonymization__CurrentKey=$(printf '%q' "$VISIT_LOG_IP_KEY") Moderation__Pepper=$(printf '%q' "$MODERATION_PEPPER") Moderation__RegionPolicy__IpHashKey=$(printf '%q' "$MODERATION_REGION_IP_HASH_KEY") Subscription__EmailHashPepper=$(printf '%q' "$SUBSCRIPTION_EMAIL_HASH_PEPPER") AnonymousCredentialIssuer__IssuerPublicKeyId=local-acceptance-issuer AnonymousCredentialIssuer__SubjectHashPepper=$(printf '%q' "$ANONYMOUS_SUBJECT_HASH_PEPPER") AnonymousCredentialRoot__AttestationKey=$(printf '%q' "$ANONYMOUS_ROOT_ATTESTATION_KEY") AnonymousCredentialRoot__AttestationKeyId=local-acceptance-root AnonymousIdentity__NullifierPepper=$(printf '%q' "$ANONYMOUS_NULLIFIER_PEPPER") FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$(printf '%q' "$ANONYMOUS_IDENTITY_MODE") Security__RiskControl__PublicReadChallenge__Enabled=$(printf '%q' "$RISK_PUBLIC_READ_CHALLENGE_ENABLED") RateLimiting__PublicReadPermitLimit=$(printf '%q' "$PUBLIC_READ_PERMIT_LIMIT") RateLimiting__PublicReadQueueLimit=$(printf '%q' "$PUBLIC_READ_QUEUE_LIMIT") NotificationStream__MaxConnectionsPerAccount=$(printf '%q' "$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT") PublicAot__BackfillConcurrency=$(printf '%q' "$PUBLIC_AOT_BACKFILL_CONCURRENCY") PublicAot__SsrWorkerCount=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_COUNT") PublicAot__SsrWorkerScript=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_SCRIPT") ActiveReleaseFence__AllowSyntheticLocalFence=true RuntimeTuning__ThreadPool__Enabled=true RuntimeTuning__ThreadPool__MinThreadsPerCpu=$(printf '%q' "$RUNTIME_THREADPOOL_MIN_THREADS_PER_CPU") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") AuthCookies__AllowInsecureTransportCookies=true && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile $runtime_args" >"$log_file" 2>&1 < /dev/null &
   local started_pid=$!
   echo "$started_pid" >"$pid_file"
@@ -965,6 +1032,7 @@ ensure_backend() {
     rm -f "$pid_file"
     return 1
   fi
+  printf '%s\n' "$next_fingerprint" > "$fingerprint_file"
 }
 
 start_background_if_needed() {

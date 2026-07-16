@@ -1348,6 +1348,21 @@ export async function attachCheckpointEvidence(checkpointFileValue, expectedRunI
   }
 }
 
+export function isProjectionOnlyCheckpointFailure(checkpoint) {
+  const projectionFailure = String(checkpoint?.failure?.reason ?? '')
+    .startsWith('checkpoint evidence finalization failed:')
+  const onlyProjectionMissing = checkpoint?.ungeneratedEvidence?.length === 1
+    && checkpoint.ungeneratedEvidence[0]?.tierId === checkpoint.targetTierId
+    && checkpoint.ungeneratedEvidence[0]?.declaration === 'logicalTierProjection'
+  const physicalTiers = Object.values(checkpoint?.tiers ?? {})
+  const physicalTiersSucceeded = physicalTiers.length > 0
+    && physicalTiers.every((tier) => tier?.status === 'success' && tier?.reused === false)
+  return checkpoint?.status === 'failure'
+    && projectionFailure
+    && onlyProjectionMissing
+    && physicalTiersSucceeded
+}
+
 export async function resumeCheckpointEvidence(checkpointFileValue, expectedRunId, evidenceBuilder, options = {}) {
   const checkpointFile = path.resolve(checkpointFileValue)
   const runsRoot = path.dirname(path.dirname(checkpointFile))
@@ -1360,14 +1375,7 @@ export async function resumeCheckpointEvidence(checkpointFileValue, expectedRunI
     if (!checkpoint || checkpoint.runId !== expectedRunId) {
       throw new Error(`missing or mismatched scheduler checkpoint: ${checkpointFileValue}`)
     }
-    const projectionFailure = String(checkpoint.failure?.reason ?? '')
-      .startsWith('checkpoint evidence finalization failed:')
-    const onlyProjectionMissing = checkpoint.ungeneratedEvidence?.length === 1
-      && checkpoint.ungeneratedEvidence[0]?.tierId === checkpoint.targetTierId
-      && checkpoint.ungeneratedEvidence[0]?.declaration === 'logicalTierProjection'
-    const physicalTiersSucceeded = Object.values(checkpoint.tiers ?? {}).length > 0
-      && Object.values(checkpoint.tiers).every((tier) => tier?.status === 'success' && tier?.reused === false)
-    if (checkpoint.status !== 'failure' || !projectionFailure || !onlyProjectionMissing || !physicalTiersSucceeded) {
+    if (!isProjectionOnlyCheckpointFailure(checkpoint)) {
       throw new Error('checkpoint is not a projection-only failure with fresh successful physical tiers')
     }
     validateCheckpointBundleSummaries(checkpoint, root)
@@ -1513,6 +1521,9 @@ async function runDagUnlocked(options) {
   if (!resume) fs.rmSync(runDirectory, { recursive: true, force: true })
   fs.mkdirSync(tierLogDirectory, { recursive: true })
   const previous = resume ? readCheckpoint(checkpointFile) : null
+  const resumeSourceChanged = Boolean(previous)
+    && (previous.sourceState?.commit !== sourceState.commit
+      || previous.sourceState?.worktreeFingerprint !== sourceState.worktreeFingerprint)
   const requestedWallClockStartedAtMs = options.wallClockStartedAtMs === undefined
     ? Date.now()
     : Number(options.wallClockStartedAtMs)
@@ -1566,6 +1577,10 @@ async function runDagUnlocked(options) {
     },
     maxParallel,
     sourceState,
+    resumePolicy: resume ? {
+      sourceChanged: resumeSourceChanged,
+      reuseAcrossSourceChanges: options.reuseAcrossSourceChanges !== false
+    } : null,
     completedTiers: [],
     tiers: {},
     failure: null,
@@ -2067,7 +2082,8 @@ async function runDagUnlocked(options) {
     const previousTier = previous?.tiers?.[tier.id]
     const currentOutputs = snapshotTierOutputs(root, tier, tierEnvironment)
     if (
-      previousTier?.status !== 'success'
+      (resumeSourceChanged && options.reuseAcrossSourceChanges === false)
+      || previousTier?.status !== 'success'
       || previousTier.inputFingerprint !== inputFingerprint
       || previousTier.dependencyFingerprint !== dependencyFingerprintValue
       || previousTier.outputFingerprint !== currentOutputs.fingerprint

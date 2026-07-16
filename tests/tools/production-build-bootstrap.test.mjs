@@ -40,6 +40,8 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
   write(temporary, 'payload/backend-runtime/FsusBlog.Server.dll', 'server')
   write(temporary, 'payload/test-runtime/FsusBlog.Server.Tests.dll', 'tests')
   write(temporary, 'payload/frontend-dist/index.html', '<main>immutable</main>')
+  write(temporary, 'payload/frontend-dist/server/server-public-ssr.bundle.mjs', 'worker')
+  write(temporary, 'payload/frontend-dist/server/public-ssr.mjs', 'renderer')
   write(temporary, 'payload/wasm/aeds.wasm', 'wasm')
   write(temporary, 'payload/generated-contracts/fsusblog.openapi.json', '{}')
   write(temporary, 'input.json', '{}')
@@ -93,7 +95,15 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
   assert.equal(fs.readFileSync(path.join(targetRoot, 'backend-wwwroot/index.html'), 'utf8'), '<main>immutable</main>')
   assert.equal(fs.readFileSync(path.join(targetRoot, 'frontend/wasm/aeds.wasm'), 'utf8'), 'wasm')
   assert.equal(fs.readFileSync(path.join(targetRoot, 'generated/ci-contracts/fsusblog.openapi.json'), 'utf8'), '{}')
-  assert.match(fs.readFileSync(envFile, 'utf8'), /^FSUSBLOG_RUNTIME_NO_BUILD=1$/mu)
+  const runtimeEnvironment = fs.readFileSync(envFile, 'utf8')
+  assert.match(runtimeEnvironment, /^FSUSBLOG_RUNTIME_NO_BUILD=1$/mu)
+  assert.ok(runtimeEnvironment.split('\n').includes(
+    `PublicAot__SsrClientRoot=${path.join(targetRoot, 'frontend/dist')}`
+  ))
+  assert.match(
+    runtimeEnvironment,
+    /^PublicAot__SsrWorkerScript=\.\/server\/server-public-ssr\.bundle\.mjs$/mu
+  )
   const evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8'))
   assert.equal(evidence.status, 'success')
   assert.ok(evidence.materialized.some(value => value.endsWith('backend/FsusBlog.Server.dll')))
@@ -104,5 +114,7 @@ test('CI bootstrap source keeps backend-only consumers free of frontend startup 
   assert.match(source, /ci_production_has_domain frontend-dist[\s\S]*runtime_applications\+=\(release-preview ensure_release_preview debug-frontend ensure_debug_frontend\)/u)
   assert.match(source, /FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT[\s\S]*vite preview/u)
   assert.match(source, /runtime_args="-c \$runtime_configuration --no-build --no-restore"/u)
+  assert.match(source, /local -x PublicAot__SsrClientRoot="\$PUBLIC_AOT_SSR_CLIENT_ROOT"/u)
+  assert.match(source, /current_fingerprint" == "\$next_fingerprint"[\s\S]*debug backend already healthy/u)
   assert.doesNotMatch(source, /CI production[^\n]*fallback[^\n]*build/iu)
 })

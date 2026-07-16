@@ -55,6 +55,7 @@ const allowedRuntimeEnvironmentKeys = new Set([
   'NotificationStream__MaxConnectionsPerAccount',
   'PublicAot__BackfillConcurrency',
   'PublicAot__SsrWorkerCount',
+  'PublicAot__SsrClientRoot',
   'PublicAot__SsrWorkerScript',
   'ActiveReleaseFence__AllowSyntheticLocalFence',
   'RuntimeTuning__ThreadPool__Enabled',

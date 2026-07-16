@@ -57,6 +57,8 @@ test('run-bound layout isolates every MSBuild project and exposes canonical arti
   assert.equal(env.FSUSBLOG_BACKEND_TEST_DLL, artifacts.testDll)
   assert.equal(env.FSUSBLOG_BENCHMARK_DLL, artifacts.benchmarkDll)
   assert.equal(env.ASPNETCORE_WEBROOT, layout.backendWebRoot)
+  assert.equal(env.FSUSBLOG_PUBLIC_AOT_SSR_CLIENT_ROOT, layout.frontendDist)
+  assert.equal(env.FSUSBLOG_PUBLIC_AOT_SSR_WORKER_SCRIPT, './server/server-public-ssr.bundle.mjs')
   assert.equal(env.FSUSBLOG_WASM_ARTIFACT_ROOT, layout.wasmArtifacts)
   assert.equal(env.FSUSBLOG_ARTIFACT_DIGEST_TABLE, path.join(layout.generatedRoot, 'artifact-digest-table.json'))
 })

@@ -15,6 +15,7 @@ import { fetchWithTimeout } from '../../support/http.mjs';
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
 import { resolveRuntimeBrowserTimeoutPlan } from '../../support/runtime-browser-timeout.mjs';
 import { createAdminStepUpProofToken } from '../../support/session-fixtures.mjs';
+import { resolveTestSession } from '../../support/test-session.mjs';
 
 const adminUsername = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
@@ -33,6 +34,10 @@ const testSessionIsolation = process.env.FSUSBLOG_TEST_SESSION_ISOLATION === '1'
 const execFileAsync = promisify(execFile);
 const resetSecurityTestState = process.env.FSUSBLOG_RESET_SECURITY_TEST_STATE !== '0';
 const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || 'fsusblog-redis';
+const postgresContainer = process.env.FSUSBLOG_PG_CONTAINER || process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME || '';
+const postgresUser = process.env.FSUSBLOG_PG_USER || 'fsusblog';
+const postgresDatabase = process.env.FSUSBLOG_PG_DB || 'fsusblog';
+const testSession = resolveTestSession();
 const maxDeterministicPowDifficulty = Number.parseInt(process.env.FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY ?? '20', 10) || 20;
 const ArticleStatus = Object.freeze({
   Draft: 0,
@@ -271,6 +276,43 @@ async function assertAnonymousPublicReadsRecovered(stableArticleId) {
     stableDetail.response.ok,
     `stable fixture article ${stableArticleId} remained revoked after mutation recovery: ${stableDetail.response.status}`
   );
+}
+
+async function assertArticleMutationOutboxSettled(articleId) {
+  if (!postgresContainer) {
+    return;
+  }
+
+  const numericArticleId = Number(articleId);
+  assert(Number.isSafeInteger(numericArticleId) && numericArticleId > 0, `invalid article id for outbox query: ${articleId}`);
+  const sessionSchema = testSession ? `fsus_e2e_${testSession.replaceAll('-', '_')}` : '';
+  const searchPath = sessionSchema ? `SET search_path TO "${sessionSchema}", public;` : '';
+  const sql = `
+    ${searchPath}
+    SELECT
+      count(*) FILTER (WHERE status <> 'processed') || '|' ||
+      count(*) FILTER (WHERE status = 'poison') || '|' ||
+      count(*)
+    FROM article_mutation_outbox
+    WHERE aggregate_type = 'article'
+      AND aggregate_id = ${numericArticleId};
+  `;
+  const result = await execFileAsync('docker', [
+    'exec', '-i', postgresContainer,
+    'psql', '-U', postgresUser, '-d', postgresDatabase,
+    '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-c', sql
+  ], { timeout: timeoutMs });
+  const [activeRaw, poisonRaw, totalRaw] = result.stdout.trim().split('|');
+  const active = Number(activeRaw);
+  const poison = Number(poisonRaw);
+  const total = Number(totalRaw);
+  assert(
+    [active, poison, total].every(Number.isSafeInteger),
+    `article mutation outbox returned an invalid state: ${result.stdout.trim()}`
+  );
+  assert(total > 0, `article mutation outbox has no events for article ${articleId}`);
+  assert(poison === 0, `article mutation outbox poisoned ${poison} event(s) for article ${articleId}`);
+  assert(active === 0, `article mutation outbox still has ${active} unsettled event(s) for article ${articleId}`);
 }
 
 async function readPublicSurfaces(articleId, categoryId, tagId, cookieHeader) {
@@ -566,10 +608,17 @@ async function main() {
     });
     console.log('[distribution-version-coherence] ok: permanent-delete');
 
-    // Test-session reads above prove the mutated article converged, but they
-    // intentionally bypass the anonymous aggregate. Hold the DAG barrier until
-    // the revocation tombstone has been cleared by a completed public rebuild;
-    // otherwise release/search/DOM readers can inherit a transient HTTP 410.
+    // The request path runs its side effects synchronously, while the durable
+    // outbox can replay the same idempotent edges on its next poll. Hold the DAG
+    // barrier until every event for this test-owned article is processed; a
+    // one-shot public read can otherwise pass immediately before a replay opens
+    // a newer revocation generation and hand the hydration lane an HTTP 410.
+    await eventually('post-mutation outbox settlement', async () => {
+      await assertArticleMutationOutboxSettled(articleId);
+    });
+
+    // With no remaining replay able to publish a later tombstone, require the
+    // anonymous aggregate and stable detail to recover from the final rebuild.
     await eventually('post-mutation anonymous public-read recovery', async () => {
       await assertAnonymousPublicReadsRecovered(stableArticleId);
     });
