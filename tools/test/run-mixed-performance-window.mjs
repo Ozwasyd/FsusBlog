@@ -18,6 +18,7 @@ const qpsModes = Object.freeze([
   'cache-miss-singleflight', 'risk-filter', 'related-reading', 'list-pagination',
   'article-detail-miss', 'cache-registry', 'cache-invalidation-batch', 'index-plan'
 ])
+const resumableCohortNames = Object.freeze(['benchmark', 'publicApi', 'qps'])
 
 export function buildMixedWindowPlan() {
   return {
@@ -506,13 +507,21 @@ export async function runQpsModeQueue({
 
 async function runQps(resource, declaration) {
   const capacity = resolveQpsWorkerCapacity({ resource, modeCount: qpsModes.length })
-  let publicApiResult
+  const publicApiPromise = runPublicApi(declaration.publicApiCommand, cohortEnvironment(resource))
+    .catch((error) => ({
+      name: 'publicApi',
+      status: 'failed',
+      failures: [error instanceof Error ? error.message : String(error)]
+    }))
+  const qpsPromise = runQpsChecks(resource, capacity)
+  return Promise.all([publicApiPromise, qpsPromise])
+}
+
+async function runQpsChecks(
+  resource,
+  capacity = resolveQpsWorkerCapacity({ resource, modeCount: qpsModes.length })
+) {
   let failures = []
-  try {
-    publicApiResult = await runPublicApi(declaration.publicApiCommand, cohortEnvironment(resource))
-  } catch (error) {
-    failures.push(`public-api: ${error instanceof Error ? error.message : String(error)}`)
-  }
   try {
     await runQpsModeQueue({
       modes: qpsModes,
@@ -526,23 +535,35 @@ async function runQps(resource, declaration) {
     failures = (error instanceof AggregateError ? error.errors : [error])
       .map((cause) => cause instanceof Error ? cause.message : String(cause))
   }
-  const publicApiFailures = failures.filter((failure) => failure.startsWith('public-api:'))
-  const qpsFailures = failures.filter((failure) => !failure.startsWith('public-api:'))
-  return [
-    publicApiResult ?? {
-      name: 'publicApi',
-      status: 'failed',
-      failures: publicApiFailures.length > 0 ? publicApiFailures : ['public API shared queue did not produce a result']
-    },
-    {
-      name: 'qps',
-      status: qpsFailures.length > 0 ? 'failed' : 'ok',
-      modes: [...qpsModes],
-      sampleCount: qpsModes.length,
-      workerCount: capacity.workerCount,
-      failures: qpsFailures
-    }
-  ]
+  return {
+    name: 'qps',
+    status: failures.length > 0 ? 'failed' : 'ok',
+    modes: [...qpsModes],
+    sampleCount: qpsModes.length,
+    workerCount: capacity.workerCount,
+    failures
+  }
+}
+
+export function resolveMixedWindowResumeNames(cohorts) {
+  if (!Array.isArray(cohorts)) throw new Error('mixed performance resume cohorts are missing')
+  const failedNames = cohorts
+    .filter((cohort) => cohort?.status === 'failed')
+    .map((cohort) => cohort.name)
+  if (failedNames.length === 0) throw new Error('mixed performance resume has no failed cohorts')
+  const unsupported = failedNames.filter((name) => !resumableCohortNames.includes(name))
+  if (unsupported.length > 0) {
+    throw new Error(`mixed performance resume cannot isolate cohorts: ${unsupported.join(', ')}`)
+  }
+  if (new Set(failedNames).size !== failedNames.length) {
+    throw new Error(`mixed performance resume contains duplicate failed cohorts: ${failedNames.join(', ')}`)
+  }
+  return failedNames
+}
+
+export function mergeMixedWindowResumedCohorts(previousCohorts, resumedCohorts) {
+  const replacements = new Map(resumedCohorts.map((cohort) => [cohort.name, cohort]))
+  return previousCohorts.map((cohort) => replacements.get(cohort.name) ?? cohort)
 }
 
 export async function settleCohortExecutions(executions) {
@@ -617,12 +638,30 @@ async function main() {
   if (process.argv.includes('--resume-failed')) {
     if (!fs.existsSync(outFile)) throw new Error('mixed performance resume summary is missing')
     const previous = JSON.parse(fs.readFileSync(outFile, 'utf8'))
-    const failedNames = previous.cohorts.filter((cohort) => cohort.status === 'failed').map((cohort) => cohort.name)
-    if (failedNames.length !== 1 || failedNames[0] !== 'benchmark') {
-      throw new Error(`mixed performance resume supports the isolated benchmark failure, received: ${failedNames.join(', ')}`)
-    }
-    const benchmark = await runBenchmark(startedAt, plan.cohorts.benchmark, resources.total)
-    const cohorts = previous.cohorts.map((cohort) => cohort.name === 'benchmark' ? benchmark : cohort)
+    const failedNames = resolveMixedWindowResumeNames(previous.cohorts)
+    const executions = failedNames.map((name) => {
+      if (name === 'benchmark') {
+        return {
+          name,
+          promise: runBenchmark(startedAt, plan.cohorts.benchmark, resources.total)
+        }
+      }
+      if (name === 'publicApi') {
+        return {
+          name,
+          promise: runPublicApi(
+            plan.cohorts.qps.publicApiCommand,
+            cohortEnvironment(resources.cohorts.qps)
+          )
+        }
+      }
+      return {
+        name,
+        promise: runQpsChecks(resources.cohorts.qps)
+      }
+    })
+    const resumedCohorts = await settleCohortExecutions(executions)
+    const cohorts = mergeMixedWindowResumedCohorts(previous.cohorts, resumedCohorts)
     const summary = {
       ...previous,
       status: cohorts.some((cohort) => cohort.status === 'failed') ? 'failed' : 'ok',

@@ -135,7 +135,7 @@ case "$MODE" in
     traffic_mode="cache-invalidation-pressure"
     checks=(dirty-coalescer versioned-hot-cache no-empty-hot-prefix-delete diagnostics-snapshot)
     require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "GetRequiredService<IHotStatsInvalidationCoalescer>()"
-    require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "MarkStatsDirtyAsync(\"visit-log-flush\""
+    require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "MarkStatsDirtyAsync(\"read-aggregate-flush\""
     require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "MarkHotArticlesDirtyAsync(\"article-read-projection\""
     reject_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "InvalidateStatsAsync(token)"
     reject_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "InvalidateHotArticlesAsync(token)"
@@ -179,17 +179,17 @@ case "$MODE" in
     require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs" "PublicReadSecurityGateResultFeature.Allowed"
     require_token "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs" "public-hot-read-classifier"
     require_token "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs" "public-hot-read-fallback-restore"
-    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs" "CategoryPathWithoutSuffix"
-    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs" "TagPathWithoutSuffix"
-    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs" "BodyWriter.WriteAsync(frame"
+    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs" "CategoryPathWithoutSuffix"
+    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs" "TagPathWithoutSuffix"
+    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs" "BodyWriter.WriteAsync(frame"
     ;;
   cache-miss-singleflight)
     traffic_mode="db-miss"
     checks=(detail-singleflight search-singleflight hot-singleflight featured-singleflight)
     require_token "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "AcquireSingleFlightAsync(CachePolicyId.ArticleDetail"
-    require_token "src/backend/Services/ArticleService.cs" "_cacheMissCoordinator.CoordinateAsync("
-    require_token "src/backend/Services/ArticleService.cs" "CachePolicyId.ArticleSearch"
-    require_token "src/backend/Services/ArticleService.cs" "\"article-search\""
+    require_token "src/backend/Services/ArticleService.LifecycleAndReadModels.cs" "_cacheMissCoordinator.CoordinateAsync("
+    require_token "src/backend/Services/ArticleService.LifecycleAndReadModels.cs" "CachePolicyId.ArticleSearch"
+    require_token "src/backend/Services/ArticleService.LifecycleAndReadModels.cs" "\"article-search\""
     require_token "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "AcquireSingleFlightAsync(CachePolicyId.ArticleHot"
     require_token "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "AcquireSingleFlightAsync(CachePolicyId.TopArticles"
     ;;
@@ -213,10 +213,10 @@ case "$MODE" in
     route="/api/binary/article/list/home/{page}/{size}.aeds"
     traffic_mode="db-miss"
     checks=(keyset-small-pages offset-deep-pages)
-    require_token "src/backend/Services/ArticleService.cs" "ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate)"
-    require_token "src/backend/Services/ArticleService.cs" "LoadPublicArticleListPageByKeysetAsync"
+    require_token "src/backend/Services/ArticleService.LifecycleAndReadModels.cs" "ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate)"
+    require_token "src/backend/Services/ArticleService.LifecycleAndReadModels.cs" "LoadPublicArticleListPageByKeysetAsync"
     require_token "src/backend/Services/ArticleService.cs" "ArticleListCursorWhereClause"
-    require_token "src/backend/Services/ArticleService.cs" "OFFSET @Offset"
+    require_token "src/backend/Services/ArticleService.LifecycleAndReadModels.cs" "OFFSET @Offset"
     ;;
   article-detail-miss)
     route="/api/binary/article/{id}.aeds"

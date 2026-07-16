@@ -15,9 +15,11 @@ import {
   collectBenchmarkEvidence,
   createMixedWindowResourceCoordinator,
   resolveMixedWindowResources,
+  resolveMixedWindowResumeNames,
   resolveAdaptiveLoadRounds,
   resolveQpsWorkerCapacity,
   runQpsModeQueue,
+  mergeMixedWindowResumedCohorts,
   settleCohortExecutions
 } from '../../tools/test/run-mixed-performance-window.mjs'
 
@@ -167,6 +169,27 @@ test('mixed cohort settlement preserves every independent failure', async () => 
     { name: 'qps', status: 'ok' },
     { name: 'three', status: 'failed', failures: ['third failed'] }
   ])
+})
+
+test('mixed performance resume reruns every isolatable failure and retains passed cohorts', () => {
+  const previous = [
+    { name: 'baseline', status: 'ok', marker: 'retained' },
+    { name: 'publicApi', status: 'failed' },
+    { name: 'qps', status: 'failed' }
+  ]
+  assert.deepEqual(resolveMixedWindowResumeNames(previous), ['publicApi', 'qps'])
+  assert.deepEqual(mergeMixedWindowResumedCohorts(previous, [
+    { name: 'publicApi', status: 'ok', marker: 'resumed' },
+    { name: 'qps', status: 'ok', marker: 'resumed' }
+  ]), [
+    { name: 'baseline', status: 'ok', marker: 'retained' },
+    { name: 'publicApi', status: 'ok', marker: 'resumed' },
+    { name: 'qps', status: 'ok', marker: 'resumed' }
+  ])
+  assert.throws(
+    () => resolveMixedWindowResumeNames([{ name: 'peak', status: 'failed' }]),
+    /cannot isolate cohorts: peak/u
+  )
 })
 
 test('mixed benchmark evidence binds fresh class shards, measurements, checker, and release summary', () => {

@@ -43,6 +43,10 @@ async function fetchFirstArticleId() {
 
 async function exerciseEndpoint(definition) {
   const durations = [];
+  const expectedStatuses = Array.isArray(definition.expectedStatuses)
+    ? definition.expectedStatuses
+    : null;
+  const statusCounts = {};
   let successCount = 0;
   let serverErrors = 0;
   let timeouts = 0;
@@ -56,12 +60,18 @@ async function exerciseEndpoint(definition) {
         }, requestTimeoutMs);
         const elapsed = performance.now() - startedAt;
         durations.push(elapsed);
+        statusCounts[response.status] = (statusCounts[response.status] || 0) + 1;
         if (response.status >= 500) {
           serverErrors += 1;
           return;
         }
-        if (!response.ok) {
-          throw new Error(`unexpected status ${response.status}`);
+        const hasExpectedStatus = expectedStatuses
+          ? expectedStatuses.includes(response.status)
+          : response.ok;
+        if (!hasExpectedStatus) {
+          throw new Error(
+            `[${definition.name}] unexpected status ${response.status} for ${definition.url}`
+          );
         }
         successCount += 1;
       } catch (error) {
@@ -91,6 +101,8 @@ async function exerciseEndpoint(definition) {
     p50Ms: Number(p50.toFixed(1)),
     p95Ms: Number(p95.toFixed(1)),
     p95BudgetMs: definition.p95BudgetMs,
+    expectedStatuses: expectedStatuses || ['2xx'],
+    statusCounts,
     serverErrors,
     timeouts
   };
@@ -120,6 +132,7 @@ async function main() {
       name: 'public_search_extreme_query',
       url: `${publicBaseUrl}/search?q=${encodeURIComponent('markdown latex mermaid ' + 'boundary '.repeat(30) + '<script>')}`,
       headers: { Accept: 'text/html' },
+      expectedStatuses: [400],
       p95BudgetMs: 2500
     },
     {
