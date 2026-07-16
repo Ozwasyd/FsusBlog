@@ -749,8 +749,12 @@ function validateAedsDecodeBudget() {
   const summary = readJson('.tmp/frontend/aeds-decode-budget/summary.json', true)
     ?? readJson('.tmp/release-evidence/aeds-decode-budget-summary.json', true)
   if (!summary) return
-  const budget = summary.decodeBudget ?? summary
   assert(summary.status === 'ok', 'aeds-decode-budget.status must be ok')
+  if (Array.isArray(summary.throughput) && Array.isArray(summary.tiers)) {
+    validateTieredAedsDecodeBudget(summary)
+    return
+  }
+  const budget = summary.decodeBudget ?? summary
   positiveNumber(budget.frameBytes, 'aeds-decode-budget.frameBytes')
   positiveNumber(budget.payloadBytes, 'aeds-decode-budget.payloadBytes')
   positiveNumber(budget.clientEnvelopeDecodeMs, 'aeds-decode-budget.clientEnvelopeDecodeMs')
@@ -758,6 +762,58 @@ function validateAedsDecodeBudget() {
   positiveNumber(budget.clientStructuredCloneMs, 'aeds-decode-budget.clientStructuredCloneMs')
   assert(budget.copyCount === 0, 'aeds-decode-budget.copyCount must be zero')
   assert(Number.isFinite(budget.allocBytesPerDecode) && budget.allocBytesPerDecode >= 0, 'aeds-decode-budget.allocBytesPerDecode must be >= 0')
+}
+
+function validateTieredAedsDecodeBudget(summary) {
+  assert(summary.measurementSource === 'real-basic-speed-wasm-runtime', 'aeds-decode-budget.measurementSource must be real-basic-speed-wasm-runtime')
+  assert(summary.throughput.length >= 3, 'aeds-decode-budget.throughput must contain at least three measured buckets')
+  for (const sample of summary.throughput) {
+    positiveInteger(sample.frameBytes, 'aeds-decode-budget.throughput.frameBytes')
+    positiveNumber(sample.basicMBps, 'aeds-decode-budget.throughput.basicMBps')
+    positiveNumber(sample.speedMBps, 'aeds-decode-budget.throughput.speedMBps')
+    positiveNumber(sample.speedup, 'aeds-decode-budget.throughput.speedup')
+  }
+  const improvedBuckets = summary.throughput.filter((sample) => sample.speedup > 1).length
+  const minimumImprovedBuckets = Number(summary.budgets?.minimumImprovedBuckets)
+  assert(Number.isSafeInteger(minimumImprovedBuckets) && minimumImprovedBuckets >= 1, 'aeds-decode-budget.budgets.minimumImprovedBuckets must be a positive integer')
+  assert(improvedBuckets >= minimumImprovedBuckets, 'aeds-decode-budget improved throughput bucket count is below budget')
+  positiveNumber(summary.budgets?.minimumMedianSpeedup, 'aeds-decode-budget.budgets.minimumMedianSpeedup')
+  positiveNumber(summary.budgets?.measuredMedianSpeedup, 'aeds-decode-budget.budgets.measuredMedianSpeedup')
+  assert(summary.budgets.measuredMedianSpeedup >= summary.budgets.minimumMedianSpeedup, 'aeds-decode-budget measured median speedup is below budget')
+
+  const tiers = new Map(summary.tiers.map((tier) => [tier.tier, tier]))
+  assert(tiers.size === summary.tiers.length, 'aeds-decode-budget tiers must be unique')
+  for (const tierName of ['basic', 'speed']) {
+    const tier = tiers.get(tierName)
+    assert(tier != null, `aeds-decode-budget tier ${tierName} is required`)
+    positiveInteger(tier.artifact?.rawBytes, `aeds-decode-budget.${tierName}.artifact.rawBytes`)
+    positiveInteger(tier.artifact?.gzipBytes, `aeds-decode-budget.${tierName}.artifact.gzipBytes`)
+    positiveInteger(tier.artifact?.brotliBytes, `aeds-decode-budget.${tierName}.artifact.brotliBytes`)
+    positiveNumber(tier.compileP95Ms, `aeds-decode-budget.${tierName}.compileP95Ms`)
+    positiveInteger(tier.initialMemoryPages, `aeds-decode-budget.${tierName}.initialMemoryPages`)
+    positiveInteger(tier.memoryPages, `aeds-decode-budget.${tierName}.memoryPages`)
+    positiveInteger(tier.peakMemoryPages, `aeds-decode-budget.${tierName}.peakMemoryPages`)
+    assert(tier.peakMemoryPages >= tier.initialMemoryPages, `aeds-decode-budget.${tierName}.peakMemoryPages must cover initial memory`)
+    assert(Number.isSafeInteger(tier.growCount) && tier.growCount >= 0, `aeds-decode-budget.${tierName}.growCount must be non-negative`)
+    positiveInteger(tier.arenaReallocationCount, `aeds-decode-budget.${tierName}.arenaReallocationCount`)
+    positiveInteger(tier.arenaClearCount, `aeds-decode-budget.${tierName}.arenaClearCount`)
+    assert(tier.sensitiveBytesCleared === true, `aeds-decode-budget.${tierName}.sensitiveBytesCleared must be true`)
+    const copy = tier.copyBudget
+    assert(copy?.measurementSource === 'executed-arena-and-owned-payload-copy', `aeds-decode-budget.${tierName}.copyBudget measurement source is invalid`)
+    positiveInteger(copy.measuredDecodeCount, `aeds-decode-budget.${tierName}.copyBudget.measuredDecodeCount`)
+    positiveInteger(copy.jsToWasmCopiedBytes, `aeds-decode-budget.${tierName}.copyBudget.jsToWasmCopiedBytes`)
+    assert(copy.jsToWasmCopiedBytes === copy.expectedJsToWasmCopiedBytes, `aeds-decode-budget.${tierName} JS-to-Wasm copy evidence must match`)
+    positiveInteger(copy.wasmToJsCopiedBytes, `aeds-decode-budget.${tierName}.copyBudget.wasmToJsCopiedBytes`)
+    assert(copy.wasmToJsCopiedBytes === copy.expectedWasmToJsCopiedBytes, `aeds-decode-budget.${tierName} Wasm-to-JS copy evidence must match`)
+    assert(copy.structuredCloneFullBufferCopies === 0, `aeds-decode-budget.${tierName} must not clone full buffers`)
+    assert(tier.arenaReallocationCount < copy.measuredDecodeCount, `aeds-decode-budget.${tierName} must reuse its decode arena`)
+  }
+  const speed = tiers.get('speed')
+  assert(
+    speed.initialMemoryPages === 1024 && speed.memoryPages === 1024
+      && speed.peakMemoryPages === 1024 && speed.growCount === 0,
+    'aeds-decode-budget speed tier must keep fixed 1024-page memory'
+  )
 }
 
 function validateUxViewportSummary() {
@@ -851,6 +907,54 @@ function main() {
 }
 
 function runSelfTest() {
+  const tierFixture = (tier, memoryPages) => ({
+    tier,
+    artifact: { rawBytes: 100, gzipBytes: 80, brotliBytes: 70 },
+    compileP95Ms: 1,
+    initialMemoryPages: memoryPages,
+    memoryPages,
+    peakMemoryPages: memoryPages,
+    growCount: 0,
+    arenaReallocationCount: 2,
+    arenaClearCount: 10,
+    sensitiveBytesCleared: true,
+    copyBudget: {
+      measurementSource: 'executed-arena-and-owned-payload-copy',
+      measuredDecodeCount: 10,
+      jsToWasmCopiedBytes: 1000,
+      expectedJsToWasmCopiedBytes: 1000,
+      wasmToJsCopiedBytes: 900,
+      expectedWasmToJsCopiedBytes: 900,
+      structuredCloneFullBufferCopies: 0
+    }
+  })
+  const tieredDecodeBudget = {
+    status: 'ok',
+    measurementSource: 'real-basic-speed-wasm-runtime',
+    budgets: {
+      minimumMedianSpeedup: 1.05,
+      minimumImprovedBuckets: 2,
+      measuredMedianSpeedup: 1.2
+    },
+    throughput: [4096, 65536, 1048576].map((frameBytes, index) => ({
+      frameBytes,
+      basicMBps: 100 + index,
+      speedMBps: 120 + index,
+      speedup: 1.2
+    })),
+    tiers: [tierFixture('basic', 256), tierFixture('speed', 1024)]
+  }
+  validateTieredAedsDecodeBudget(tieredDecodeBudget)
+  let regressedTieredDecodeBudgetFailedAsExpected = false
+  try {
+    const regressed = structuredClone(tieredDecodeBudget)
+    regressed.tiers[1].copyBudget.structuredCloneFullBufferCopies = 1
+    validateTieredAedsDecodeBudget(regressed)
+  } catch {
+    regressedTieredDecodeBudgetFailedAsExpected = true
+  }
+  assert(regressedTieredDecodeBudgetFailedAsExpected, 'self-test tiered AEDS decode budget must reject full-buffer clones')
+
   let missingLoadPolicyFailedAsExpected = false
   try {
     validateLoadProfileSummary({

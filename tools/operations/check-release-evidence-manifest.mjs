@@ -1151,9 +1151,12 @@ function validateManifest(manifest, options = {}) {
     errors.push('workflowRun object is required')
   }
 
-  if (context.manifestPath) {
+  const runtimeMatrixDeclared = typeof manifest.artifacts?.runtimePublishMatrix === 'string'
+    || manifest.releaseIdentity?.runtimeProfile != null
+    || manifest.evidenceSummary?.operations?.runtimeTuning?.runtimeMatrixStatus === 'ok'
+  if (context.manifestPath && (options.requireOk || runtimeMatrixDeclared)) {
     errors.push(...validateReleaseRuntimeMatrix(manifest, context.manifestPath))
-  } else {
+  } else if (!context.manifestPath && (options.requireOk || runtimeMatrixDeclared)) {
     errors.push('runtime matrix validation requires the manifest path')
   }
 
@@ -2135,6 +2138,19 @@ async function runSelfTest() {
   const mismatchedIdentityResult = validateManifest(mismatchedIdentity, { manifestPath: manifestFile })
   if (!mismatchedIdentityResult.ok || !mismatchedIdentityResult.missingRequired.includes('release identity')) {
     fail(`self-test expected mismatched release identity to stay blocked: ${mismatchedIdentityResult.errors.join('; ')}`)
+  }
+
+  const localProductionBlocked = structuredClone(base)
+  localProductionBlocked.status = 'collected-blocked'
+  localProductionBlocked.releaseIdentity = { status: 'missing' }
+  localProductionBlocked.artifacts.runtimePublishMatrix = null
+  localProductionBlocked.artifactDigests.runtimePublishMatrix = null
+  localProductionBlocked.evidenceSummary.operations.runtimeTuning = null
+  const localProductionBlockedResult = validateManifest(localProductionBlocked, { manifestPath: manifestFile })
+  if (!localProductionBlockedResult.ok
+    || !localProductionBlockedResult.missingRequired.includes('release identity')
+    || !localProductionBlockedResult.missingRequired.includes('sealed runtime publish matrix')) {
+    fail(`self-test expected local production evidence without release identity to stay collected-blocked: ${localProductionBlockedResult.errors.join('; ')}`)
   }
 
   const missingRuntimeMatrix = structuredClone(base)
