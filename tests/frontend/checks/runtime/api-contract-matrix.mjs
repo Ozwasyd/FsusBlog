@@ -230,9 +230,22 @@ async function checkDenied([name, path, expectedStatus]) {
 }
 
 async function checkLegacyPublicQueryRoute() {
-  const response = await fetchWithTimeout(`${baseUrl}/api/binary/article?page=1&size=1`, {
-    headers: { Accept: 'application/octet-stream' }
-  }, requestTimeoutMs)
+  const url = `${baseUrl}/api/binary/article?page=1&size=1`
+  const deadlineAt = Date.now() + requestTimeoutMs
+  let response
+  do {
+    // Publishing fixtures can briefly revoke public artifacts; 410 is not this route's stable contract.
+    response = await fetchWithTimeout(url, {
+      headers: { Accept: 'application/octet-stream' }
+    }, Math.max(1, deadlineAt - Date.now()))
+    if (response.status !== 410) {
+      break
+    }
+
+    await response.arrayBuffer()
+    await delay(Math.min(250, Math.max(25, Math.floor(requestTimeoutMs / 60))))
+  } while (Date.now() < deadlineAt)
+
   assert(response.status === 400, `[legacy public query] expected 400, got ${response.status}`)
   assert(response.headers.get('cache-control') === 'no-store', '[legacy public query] must be no-store')
   assert(
