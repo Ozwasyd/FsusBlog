@@ -258,6 +258,21 @@ async function warmPublicSurfaces(articleId, categoryId, tagId) {
   ]);
 }
 
+async function assertAnonymousPublicReadsRecovered(stableArticleId) {
+  const [publicItems, stableDetail] = await Promise.all([
+    fetchArticlePage(null),
+    fetchArticleDetail(stableArticleId)
+  ]);
+  assert(
+    publicItems.some((item) => Number(item?.id) === stableArticleId),
+    `stable fixture article ${stableArticleId} missing after mutation revocation recovery`
+  );
+  assert(
+    stableDetail.response.ok,
+    `stable fixture article ${stableArticleId} remained revoked after mutation recovery: ${stableDetail.response.status}`
+  );
+}
+
 async function readPublicSurfaces(articleId, categoryId, tagId, cookieHeader) {
   const publicItemsPromise = testSessionIsolation
     ? fetchArticlePage(cookieHeader, false, ArticleStatus.Published)
@@ -442,7 +457,11 @@ async function main() {
   // The integration lane prepared this namespace immediately before runtime
   // checks. Reuse only that current-run fixture contract; fail closed instead
   // of querying/creating taxonomy again or accepting a stale historical file.
-  const { categoryId, tagId } = readPublicFixtureIds({}, { requireCurrent: true });
+  const {
+    articleId: stableArticleId,
+    categoryId,
+    tagId
+  } = readPublicFixtureIds({}, { requireCurrent: true });
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const markerV1 = `dc${stamp}alpha`;
   const markerV2 = `dc${stamp}beta`;
@@ -453,7 +472,7 @@ async function main() {
   let permanentlyDeleted = false;
 
   try {
-    await warmPublicSurfaces(1, categoryId, tagId);
+    await warmPublicSurfaces(stableArticleId, categoryId, tagId);
     articleId = await createArticle(session, categoryId, tagId, titleV1, markerV1, {
       status: ArticleStatus.Draft
     });
@@ -546,6 +565,15 @@ async function main() {
       assert(!snapshot.deletedItems.some((item) => Number(item?.id) === articleId), `${titleV2} leaked in admin trash after permanent delete`);
     });
     console.log('[distribution-version-coherence] ok: permanent-delete');
+
+    // Test-session reads above prove the mutated article converged, but they
+    // intentionally bypass the anonymous aggregate. Hold the DAG barrier until
+    // the revocation tombstone has been cleared by a completed public rebuild;
+    // otherwise release/search/DOM readers can inherit a transient HTTP 410.
+    await eventually('post-mutation anonymous public-read recovery', async () => {
+      await assertAnonymousPublicReadsRecovered(stableArticleId);
+    });
+    console.log('[distribution-version-coherence] ok: anonymous-public-read-recovered');
 
     console.log('[distribution-version-coherence] all checks passed');
   } finally {

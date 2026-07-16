@@ -110,6 +110,7 @@ test('public AOT warmup concurrency derives independently bounded backend and I/
 test('production runtime keeps hydration writes exact-once and gates all release-dist readers', () => {
   const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
   const bundle = fs.readFileSync(path.join(root, 'tools/test/bundles/bundle-steps.mjs'), 'utf8')
+  const distribution = fs.readFileSync(path.join(root, 'tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs'), 'utf8')
   assert.equal((legacy.match(/npm run rebuild:public-hydration/gu) ?? []).length, 1)
   assert.match(legacy, /run_release_public_hydration_prepare_only\(\)[\s\S]*check:public-hydration-rebuild[\s\S]*rebuild:public-hydration/u)
   assert.match(legacy, /FSUSBLOG_RELEASE_HYDRATION_PREPARED_BY_DAG[\s\S]*reuse same-run release hydration write barrier/u)
@@ -130,6 +131,8 @@ test('production runtime keeps hydration writes exact-once and gates all release
   }
   const integrationStart = bundle.indexOf("step('runtime-integration'")
   assert.match(bundle.slice(integrationStart, integrationStart + 500), /dependsOn: \['security-runtime-core'\]/u)
+  assert.match(distribution, /post-mutation anonymous public-read recovery/u)
+  assert.match(distribution, /assertAnonymousPublicReadsRecovered\(stableArticleId\)/u)
   const uxStart = bundle.indexOf("step('ux-risk-matrix'")
   assert.match(bundle.slice(uxStart, uxStart + 500), /dependsOn: \['release-public'\]/u)
 })
