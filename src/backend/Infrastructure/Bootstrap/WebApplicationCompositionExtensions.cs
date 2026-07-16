@@ -299,8 +299,11 @@ public static partial class WebApplicationCompositionExtensions
 
         UseReleaseScopedStaticAssets(app);
 
+        PhysicalFileProvider authoritativeWebRoot = CreateAuthoritativeWebRootFileProvider(app.Environment);
+        app.Lifetime.ApplicationStopped.Register(authoritativeWebRoot.Dispose);
         app.UseStaticFiles(new StaticFileOptions
         {
+            FileProvider = authoritativeWebRoot,
             ContentTypeProvider = provider,
             OnPrepareResponse = PrepareStaticAssetResponse
         });
@@ -309,6 +312,22 @@ public static partial class WebApplicationCompositionExtensions
         {
             UseDevelopmentClientAssetFiles(app, provider);
         }
+    }
+
+    internal static PhysicalFileProvider CreateAuthoritativeWebRootFileProvider(IWebHostEnvironment environment)
+    {
+        ArgumentNullException.ThrowIfNull(environment);
+        string webRootPath = Path.GetFullPath(environment.WebRootPath);
+        if (!Directory.Exists(webRootPath))
+        {
+            throw new DirectoryNotFoundException($"Configured web root does not exist: {webRootPath}");
+        }
+
+        // Development static-web-assets can wrap WebRootFileProvider in a
+        // CompositeFileProvider whose source-tree entry precedes a run-bound
+        // ASPNETCORE_WEBROOT. Mutable search aliases must be read from the same
+        // physical root that SearchIndexService atomically updates.
+        return new PhysicalFileProvider(webRootPath);
     }
 
     private static void UseReleaseScopedStaticAssets(WebApplication app)

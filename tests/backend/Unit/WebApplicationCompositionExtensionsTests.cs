@@ -800,6 +800,44 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
+    public void StaticAssets_UseConfiguredPhysicalWebRootInsteadOfCompositeSourceShadow()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"fsus-static-root-{Guid.NewGuid():N}");
+        string sourceRoot = Path.Combine(root, "source");
+        string configuredRoot = Path.Combine(root, "configured");
+        string relativePath = Path.Combine("search", "index.bin");
+        Directory.CreateDirectory(Path.Combine(sourceRoot, "search"));
+        Directory.CreateDirectory(Path.Combine(configuredRoot, "search"));
+        File.WriteAllText(Path.Combine(sourceRoot, relativePath), "stale-source-alias");
+        File.WriteAllText(Path.Combine(configuredRoot, relativePath), "current-runtime-alias");
+
+        try
+        {
+            using var sourceProvider = new PhysicalFileProvider(sourceRoot);
+            using var configuredProvider = new PhysicalFileProvider(configuredRoot);
+            var compositeProvider = new CompositeFileProvider(sourceProvider, configuredProvider);
+            var environment = new TestWebHostEnvironment(configuredRoot, compositeProvider)
+            {
+                WebRootPath = configuredRoot
+            };
+
+            Assert.Equal(
+                "stale-source-alias",
+                File.ReadAllText(environment.WebRootFileProvider.GetFileInfo("search/index.bin").PhysicalPath!));
+
+            using PhysicalFileProvider authoritative =
+                WebApplicationCompositionExtensions.CreateAuthoritativeWebRootFileProvider(environment);
+            Assert.Equal(
+                "current-runtime-alias",
+                File.ReadAllText(authoritative.GetFileInfo("search/index.bin").PhysicalPath!));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task DynamicManifest_SourceUsesDerivedBytesCacheAndConditionalEtag()
     {
         await DynamicManifest_ReturnsNotModifiedForMatchingEtagAndChangesEtagWhenSeoChanges();

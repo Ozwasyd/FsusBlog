@@ -280,6 +280,8 @@ Blue/Green 存储按四类互不重叠的 root 分类：
 
 Compose 把 `${FSUSBLOG_RELEASE_ASSET_STORE}/releases` 只读挂载为 `/app/release-assets`，把共享 release-derived volume 挂载为 `/app/release-derived`。`UseReleaseScopedStaticAssets` 在 SPA fallback 前注册 `/release-assets/<releaseId>/...` 与 `/release-derived/<releaseId>/...`；Production 缺任一 root 配置会拒绝启动。服务可达不等于产物可发布：rollout 仍必须先 materialize exact manifest、验证 N/N-1、持久 retention state，执行 applied GC 后再复读旧 index/hash/SW/cache。无需重启的降级是停止 GC、保护 active/N-1、为当前 release 重新发布 generation；禁止 clear shared root、改写旧 release 或恢复 mutable `current/latest` 路径。
 
+通用静态文件中间件始终以配置后的物理 `WebRootPath` 为权威来源，不采用 Development static-web-assets 可能注入的 source-first composite provider。这样本地 Release 验收中的 `ASPNETCORE_WEBROOT`、搜索索引 writer 与 `/search/index.bin` / `index.manifest.aeds` reader 指向同一 run-bound root；源码树里的历史 alias 不能遮蔽刚完成的原子投影。
+
 ## 缓存分层
 
 | 层级 | 类型 | 用途 | 失效策略 |
