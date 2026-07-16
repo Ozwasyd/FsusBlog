@@ -80,6 +80,13 @@ test('browser runtime timeouts scale from machine contention while remaining bou
   assert.ok(pooled.navigationTimeoutMs <= 120000 * 0.6)
 })
 
+test('runtime service probes consume the shared machine-adaptive request timeout', () => {
+  const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
+  assert.match(legacy, /runtime_probe_timeout_seconds timeout_seconds/u)
+  assert.doesNotMatch(legacy, /curl[^\n]*--max-time 5/u)
+  assert.match(legacy, /error_detail="\$\(curl[\s\S]*?\)"/u)
+})
+
 test('public AOT warmup concurrency derives independently bounded backend and I/O fanout from live grants', () => {
   const env = {
     FSUSBLOG_STEP_CPU_BUDGET: '2',

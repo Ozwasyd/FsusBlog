@@ -2,6 +2,7 @@
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { generatedArtifactWatchIgnorePatterns } from '../../../../src/frontend/scripts/vite-watch-policy.mjs'
 
 const repoRoot = resolve(process.cwd(), '../..')
 const errors = []
@@ -62,6 +63,16 @@ for (const chunkName of [
   assert(viteConfig.includes(`return '${chunkName}'`), `vite admin chunk split missing ${chunkName}`)
 }
 assert(viteConfig.includes('function resolveAdminManualChunk'), 'vite config must keep admin domain chunk resolver')
+assert(
+  viteConfig.includes('ignored: generatedArtifactWatchIgnorePatterns'),
+  'vite dev server must isolate browser measurements from generated test artifacts'
+)
+for (const pattern of ['**/coverage/**', '**/test-results/**', '**/playwright-report/**']) {
+  assert(
+    generatedArtifactWatchIgnorePatterns.includes(pattern),
+    `vite watcher must ignore generated artifact path ${pattern}`
+  )
+}
 assert(!viteConfig.includes("id.includes('/src/bootstrap/entry.ts')"), 'vite config must keep the real entry module out of manual chunks to avoid preload-helper cycles')
 assert(!viteConfig.includes("id.includes('/src/services/themeRuntime.ts')"), 'vite config must keep Vue-backed theme runtime out of early entry-runtime chunks')
 assert(assetBudget.includes('adminRouteChunkBytes'), 'asset budget must define admin route chunk raw budget')

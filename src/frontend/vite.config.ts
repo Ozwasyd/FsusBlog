@@ -8,6 +8,7 @@ import { fileURLToPath, URL } from 'node:url'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { createFsusUiAliases, resolveFsusUiWasmDist, resolveLocalFsusUiRoot } from './scripts/fsusui-local'
+import { generatedArtifactWatchIgnorePatterns } from './scripts/vite-watch-policy.mjs'
 
 const FRONTEND_ROOT = fileURLToPath(new URL('./', import.meta.url))
 const REPO_ROOT = path.resolve(FRONTEND_ROOT, '../..')
@@ -727,6 +728,12 @@ export default defineConfig(({ command, mode }) => {
         server: {
             host: '0.0.0.0',
             port: 3000, // 前端运行端口
+            // Coverage and browser reports are written while production lanes
+            // exercise this server. They are evidence, not application input,
+            // and must never invalidate an in-flight browser measurement.
+            watch: {
+                ignored: generatedArtifactWatchIgnorePatterns
+            },
             fs: {
                 allow: serverFsAllow
             },

@@ -763,26 +763,48 @@ run_parallel() {
   log "parallel group done: $group"
 }
 
+RUNTIME_PROBE_TIMEOUT_SECONDS=""
+runtime_probe_timeout_seconds() {
+  local output_name="$1"
+  if [[ -z "$RUNTIME_PROBE_TIMEOUT_SECONDS" ]]; then
+    RUNTIME_PROBE_TIMEOUT_SECONDS="$(
+      "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/support/runtime-browser-timeout.mjs"
+    )"
+  fi
+  if [[ ! "$RUNTIME_PROBE_TIMEOUT_SECONDS" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+    fail "machine-adaptive runtime probe timeout is invalid: '$RUNTIME_PROBE_TIMEOUT_SECONDS'"
+  fi
+  printf -v "$output_name" '%s' "$RUNTIME_PROBE_TIMEOUT_SECONDS"
+}
+
 probe_url() {
   local label="$1"
   local url="$2"
+  local timeout_seconds
+  local error_detail
 
-  if curl -fsS --max-time 5 "$url" >/dev/null 2>&1; then
+  runtime_probe_timeout_seconds timeout_seconds
+
+  if error_detail="$(curl -fsS --max-time "$timeout_seconds" -o /dev/null "$url" 2>&1)"; then
     return 0
   fi
 
-  fail "$label unreachable at $url"
+  fail "$label unreachable at $url after ${timeout_seconds}s${error_detail:+: $error_detail}"
 }
 
 probe_binary_url() {
   local label="$1"
   local url="$2"
+  local timeout_seconds
+  local error_detail
 
-  if curl -fsS --max-time 5 -H 'Accept: application/octet-stream' "$url" >/dev/null 2>&1; then
+  runtime_probe_timeout_seconds timeout_seconds
+
+  if error_detail="$(curl -fsS --max-time "$timeout_seconds" -H 'Accept: application/octet-stream' -o /dev/null "$url" 2>&1)"; then
     return 0
   fi
 
-  fail "$label unreachable at $url"
+  fail "$label unreachable at $url after ${timeout_seconds}s${error_detail:+: $error_detail}"
 }
 
 require_debug_stack() {

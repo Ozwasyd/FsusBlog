@@ -1,4 +1,6 @@
 import os from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const DEFAULT_NAVIGATION_TIMEOUT_MS = 20_000
 const DEFAULT_REQUEST_TIMEOUT_MS = 25_000
@@ -85,4 +87,12 @@ export function resolveRuntimeBrowserTimeoutPlan({
 export function remainingRuntimeTimeout(deadlineAtMs, preferredMs, minimumMs = 1_000) {
   const remaining = Math.floor(Number(deadlineAtMs) - Date.now())
   return Math.max(1, Math.min(Math.floor(preferredMs), Math.max(minimumMs, remaining)))
+}
+
+const isMain = process.argv[1]
+  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+
+if (isMain) {
+  const { requestTimeoutMs } = resolveRuntimeBrowserTimeoutPlan()
+  process.stdout.write(String(requestTimeoutMs / 1_000))
 }
