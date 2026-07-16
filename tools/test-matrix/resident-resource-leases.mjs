@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
-export const residentResourceLeaseSchema = 'fsusblog.test-matrix.resident-resource-leases.v3'
+export const residentResourceLeaseSchema = 'fsusblog.test-matrix.resident-resource-leases.v4'
 export const residentResourceHandoffSchema = 'fsusblog.test-matrix.resident-resource-handoff.v1'
 export const productionResidentServiceIds = Object.freeze([
   'debug-backend',
@@ -245,13 +245,18 @@ export function createResidentLeaseInventory({
   sourceState = null,
   resourceGrant,
   schedulerResourceGrant = resourceGrant,
+  resourceBudget = schedulerResourceGrant,
   services,
   generatedAt = new Date().toISOString()
 }) {
   const normalizedGrant = normalizedResourceGrant(resourceGrant)
   const normalizedSchedulerGrant = normalizedResourceGrant(schedulerResourceGrant)
+  const normalizedBudget = normalizedResourceGrant(resourceBudget)
   if (!withinRoundedStepGrant(normalizedGrant, normalizedSchedulerGrant)) {
     throw new Error('resident step resource grant exceeds its scheduler grant')
+  }
+  if (!withinRoundedStepGrant(normalizedSchedulerGrant, normalizedBudget)) {
+    throw new Error('resident scheduler resource grant exceeds its run budget')
   }
   const allocated = allocateResidentReservations({ resourceGrant: normalizedGrant, services })
   const ids = allocated.map((service) => service.id)
@@ -273,6 +278,7 @@ export function createResidentLeaseInventory({
     }))),
     resourceGrant: normalizedGrant,
     schedulerResourceGrant: normalizedSchedulerGrant,
+    resourceBudget: normalizedBudget,
     services: allocated,
     reservation: {
       cpuUnits: allocated.reduce((sum, service) => sum + service.reservation.cpuUnits, 0),
@@ -281,6 +287,38 @@ export function createResidentLeaseInventory({
     generatedAt: requiredTimestamp(generatedAt, 'generatedAt')
   }
   return { ...inventory, digest: residentLeaseDigest(inventory) }
+}
+
+export function residentEnforcementScopeLimits(inventory) {
+  const budget = normalizedResourceGrant(inventory?.resourceBudget)
+  const processServices = inventory.services.filter((service) => service.kind === 'process')
+  const containerServices = inventory.services.filter((service) => service.kind === 'container')
+  const processReservation = summedReservation(processServices)
+  const scopes = [
+    ...(processServices.length > 0 ? [{ id: 'processScope', reservation: processReservation }] : []),
+    ...containerServices.map((service) => ({ id: service.id, reservation: service.reservation }))
+  ]
+  if (scopes.length === 0) throw new Error('resident enforcement requires at least one scope')
+  const reservation = scopes.reduce((total, scope) => ({
+    cpuUnits: total.cpuUnits + scope.reservation.cpuUnits,
+    memoryGiB: total.memoryGiB + scope.reservation.memoryGiB
+  }), { cpuUnits: 0, memoryGiB: 0 })
+  if (reservation.cpuUnits > budget.cpuUnits + 1e-9
+    || reservation.memoryGiB > budget.memoryGiB + 1e-9) {
+    throw new Error('resident reservation exceeds its run budget')
+  }
+  const elasticPerScope = {
+    cpuUnits: Math.max(0, budget.cpuUnits - reservation.cpuUnits) / scopes.length,
+    memoryGiB: Math.max(0, budget.memoryGiB - reservation.memoryGiB) / scopes.length
+  }
+  const limits = Object.fromEntries(scopes.map((scope) => [scope.id, {
+    cpuUnits: scope.reservation.cpuUnits + elasticPerScope.cpuUnits,
+    memoryGiB: scope.reservation.memoryGiB + elasticPerScope.memoryGiB
+  }]))
+  return {
+    processScope: limits.processScope ?? null,
+    containers: Object.fromEntries(containerServices.map((service) => [service.id, limits[service.id]]))
+  }
 }
 
 function validateResidentLeaseEnforcement(inventory, enforcement) {
@@ -303,6 +341,7 @@ function validateResidentLeaseEnforcement(inventory, enforcement) {
     throw new Error('resident enforced process cgroup path is missing')
   }
   const containerEvidence = enforcement?.containers ?? {}
+  const expectedLimits = residentEnforcementScopeLimits(inventory)
   const expectedContainerIds = new Set(containerServices.map((service) => service.id))
   for (const evidenceId of Object.keys(containerEvidence)) {
     if (!expectedContainerIds.has(evidenceId)) {
@@ -323,9 +362,12 @@ function validateResidentLeaseEnforcement(inventory, enforcement) {
     }
     if (evidence.status === 'enforced') {
       const expectedHigh = Math.round(service.reservation.memoryGiB * (1024 ** 3))
-      if (Math.abs(Number(evidence.observed?.cpuUnits) - service.reservation.cpuUnits) > 1e-6
+      const expectedLimit = expectedLimits.containers[service.id]
+      const expectedMax = Math.round(expectedLimit.memoryGiB * (1024 ** 3))
+      if (!sameReservation(evidence.limit, expectedLimit)
+        || Math.abs(Number(evidence.observed?.cpuUnits) - expectedLimit.cpuUnits) > 1e-6
         || Number(evidence.observed?.memoryHighBytes) !== expectedHigh
-        || Number(evidence.observed?.memoryMaxBytes) < expectedHigh) {
+        || Number(evidence.observed?.memoryMaxBytes) !== expectedMax) {
         throw new Error(`resident OCI hard limit does not match lease: ${service.id}`)
       }
     }
@@ -361,6 +403,7 @@ export function validateResidentLeaseInventory(inventory, {
   sourceState,
   resourceGrant,
   resourceGrantHistory,
+  resourceBudget,
   requiredServiceIds,
   verifyProcess,
   verifyContainer
@@ -375,6 +418,13 @@ export function validateResidentLeaseInventory(inventory, {
   }
   const storedGrant = normalizedResourceGrant(inventory.resourceGrant)
   const storedSchedulerGrant = normalizedResourceGrant(inventory.schedulerResourceGrant ?? storedGrant)
+  const storedBudget = normalizedResourceGrant(inventory.resourceBudget)
+  if (!withinRoundedStepGrant(storedSchedulerGrant, storedBudget)) {
+    throw new Error('resident scheduler resource grant exceeds its run budget')
+  }
+  if (resourceBudget !== undefined && !sameReservation(storedBudget, normalizedResourceGrant(resourceBudget))) {
+    throw new Error('resident lease inventory belongs to another resource budget')
+  }
   if (resourceGrant !== undefined && resourceGrantHistory !== undefined) {
     throw new Error('resident lease validation accepts either resourceGrant or resourceGrantHistory')
   }
@@ -406,6 +456,7 @@ export function validateResidentLeaseInventory(inventory, {
     sourceState: inventory.sourceState,
     resourceGrant: storedGrant,
     schedulerResourceGrant: storedSchedulerGrant,
+    resourceBudget: storedBudget,
     services: inventory.services,
     generatedAt: inventory.generatedAt
   })

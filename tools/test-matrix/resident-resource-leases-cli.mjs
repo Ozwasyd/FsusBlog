@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import {
   bindResidentLeaseEnforcement,
   createResidentLeaseInventory,
+  residentEnforcementScopeLimits,
   residentLeaseDigest,
   writeResidentLeaseDocument
 } from './resident-resource-leases.mjs'
@@ -87,13 +88,12 @@ function sumReservation(services) {
   }
 }
 
-function enforceContainerReservation(name, service, serviceCount, cpuEnvelope) {
+function enforceContainerReservation(name, service, limit) {
   const memoryHighBytes = Math.max(1, Math.round(service.reservation.memoryGiB * (1024 ** 3)))
-  const headroomFactor = 1 + (1 / Math.sqrt(Math.max(1, serviceCount * cpuEnvelope)))
-  const memoryMaxBytes = Math.max(memoryHighBytes, Math.ceil(memoryHighBytes * headroomFactor))
+  const memoryMaxBytes = Math.max(memoryHighBytes, Math.round(limit.memoryGiB * (1024 ** 3)))
   execFileSync('docker', [
     'update',
-    '--cpus', String(service.reservation.cpuUnits),
+    '--cpus', String(limit.cpuUnits),
     '--memory-reservation', String(memoryHighBytes),
     '--memory', String(memoryMaxBytes),
     name
@@ -103,6 +103,7 @@ function enforceContainerReservation(name, service, serviceCount, cpuEnvelope) {
     status: 'enforced',
     containerId: document.Id,
     reservation: service.reservation,
+    limit,
     observed: {
       cpuUnits: Number(document.HostConfig?.NanoCpus) / 1_000_000_000,
       memoryHighBytes: Number(document.HostConfig?.MemoryReservation),
@@ -143,6 +144,7 @@ export function publishResidentInventoryFromEnvironment({
     throw new Error('scheduler resident lease binding requires both grant file and tier ID')
   }
   let schedulerResourceGrant = stepResourceGrant
+  let resourceBudget = schedulerResourceGrant
   if (grantFile) {
     const grantDocument = JSON.parse(fs.readFileSync(path.resolve(grantFile), 'utf8'))
     if (grantDocument?.schema !== 'fsusblog.test-matrix.resource-grants.v1'
@@ -152,6 +154,10 @@ export function publishResidentInventoryFromEnvironment({
     schedulerResourceGrant = {
       cpuUnits: positiveNumber(grantDocument.grants?.[grantTierId]?.cpuUnits, 'schedulerGrant.cpuUnits'),
       memoryGiB: positiveNumber(grantDocument.grants?.[grantTierId]?.memoryGiB, 'schedulerGrant.memoryGiB')
+    }
+    resourceBudget = {
+      cpuUnits: positiveNumber(grantDocument.resourceBudget?.cpuUnits, 'resourceBudget.cpuUnits'),
+      memoryGiB: positiveNumber(grantDocument.resourceBudget?.memoryGiB, 'resourceBudget.memoryGiB')
     }
   }
   let inventory = createResidentLeaseInventory({
@@ -164,6 +170,7 @@ export function publishResidentInventoryFromEnvironment({
     },
     resourceGrant: stepResourceGrant,
     schedulerResourceGrant,
+    resourceBudget,
     services
   })
   const processServices = inventory.services.filter((service) => service.kind === 'process')
@@ -172,10 +179,10 @@ export function publishResidentInventoryFromEnvironment({
     redis: requiredEnvironment(env, 'FSUSBLOG_REDIS_CONTAINER_NAME')
   }
   const containerServices = inventory.services.filter((service) => service.kind === 'container')
+  const enforcementLimits = residentEnforcementScopeLimits(inventory)
   const containers = Object.fromEntries(containerServices.map((service) => [
     service.id,
-    enforceContainer(containerNames[service.id], service, inventory.services.length,
-      positiveEnvironment(env, 'FSUSBLOG_STEP_CPU_BUDGET'))
+    enforceContainer(containerNames[service.id], service, enforcementLimits.containers[service.id])
   ]))
   inventory = bindResidentLeaseEnforcement(inventory, {
     mode: requiredEnvironment(env, 'FSUSBLOG_CGROUP_ENFORCEMENT_MODE'),

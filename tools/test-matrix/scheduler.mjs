@@ -1696,6 +1696,7 @@ async function runDagUnlocked(options) {
         namespace: residentState.inventory.namespace,
         ownerBundleId: residentState.inventory.ownerBundleId,
         resourceGrantHistory: residentState.resourceGrantHistory,
+        resourceBudget: budget,
         requiredServiceIds: residentState.requiredServiceIds,
         sourceState: sourceState.commit ? sourceState : undefined
       })
@@ -1773,6 +1774,7 @@ async function runDagUnlocked(options) {
       namespace: tierEnvironment.FSUSBLOG_TEST_NAMESPACE,
       ownerBundleId: tier.physicalBundleId ?? tier.id,
       resourceGrantHistory,
+      resourceBudget: budget,
       ...(tier.residentLeaseServiceIds ? { requiredServiceIds: tier.residentLeaseServiceIds } : {}),
       sourceState: sourceState.commit ? sourceState : undefined
     })

@@ -16,6 +16,7 @@ import {
   productionResidentServiceIds,
   reconcileResidentLeaseInventory,
   readResidentLeaseDocument,
+  residentEnforcementScopeLimits,
   residentLeaseDigest,
   validateResidentLeaseInventory,
   writeResidentLeaseDocument
@@ -67,6 +68,25 @@ test('resident inventory gives every live service a nonzero measured lease while
     verifyProcess: (identity) => identity.pid === 42 && identity.startTimeTicks === '100',
     verifyContainer: (identity) => identity.containerId === 'a'.repeat(64)
   })
+})
+
+test('resident enforcement keeps measured reservations but distributes run-budget headroom across live scopes', () => {
+  const value = createResidentLeaseInventory({
+    runId: 'run-budget', namespace: 'production-fresh', ownerBundleId: 'runtime-browser',
+    resourceGrant: { cpuUnits: 1, memoryGiB: 2 },
+    schedulerResourceGrant: { cpuUnits: 2, memoryGiB: 4 },
+    resourceBudget: { cpuUnits: 8, memoryGiB: 16 },
+    services: services()
+  })
+  const limits = residentEnforcementScopeLimits(value)
+  const postgres = value.services.find((service) => service.id === 'postgres')
+  assert.ok(limits.containers.postgres.cpuUnits > postgres.reservation.cpuUnits)
+  assert.ok(limits.containers.postgres.memoryGiB > postgres.reservation.memoryGiB)
+  assert.ok(Math.abs(limits.processScope.cpuUnits + limits.containers.postgres.cpuUnits - 8) < 1e-9)
+  assert.ok(Math.abs(limits.processScope.memoryGiB + limits.containers.postgres.memoryGiB - 16) < 1e-9)
+  assert.throws(() => validateResidentLeaseInventory(value, {
+    resourceBudget: { cpuUnits: 7, memoryGiB: 16 }
+  }), /another resource budget/u)
 })
 
 test('resident inventory binds rounded step allocation to the full-precision scheduler grant history', () => {
@@ -176,7 +196,9 @@ test('enforcement binding reconciles process cgroup and per-container OCI hard l
   const value = inventory()
   const backend = value.services.find((service) => service.id === 'backend')
   const postgres = value.services.find((service) => service.id === 'postgres')
+  const postgresLimit = residentEnforcementScopeLimits(value).containers.postgres
   const memoryHighBytes = Math.round(postgres.reservation.memoryGiB * (1024 ** 3))
+  const memoryMaxBytes = Math.round(postgresLimit.memoryGiB * (1024 ** 3))
   const bound = bindResidentLeaseEnforcement(value, {
     mode: 'enforced',
     processScope: {
@@ -189,10 +211,11 @@ test('enforcement binding reconciles process cgroup and per-container OCI hard l
         status: 'enforced',
         containerId: postgres.identity.containerId,
         reservation: postgres.reservation,
+        limit: postgresLimit,
         observed: {
-          cpuUnits: postgres.reservation.cpuUnits,
+          cpuUnits: postgresLimit.cpuUnits,
           memoryHighBytes,
-          memoryMaxBytes: memoryHighBytes + 1
+          memoryMaxBytes
         }
       }
     },
@@ -223,6 +246,7 @@ test('bootstrap publisher inventories all five services without mutating process
   fs.writeFileSync(resourceGrantFile, JSON.stringify({
     schema: 'fsusblog.test-matrix.resource-grants.v1',
     runId: 'publisher-run',
+    resourceBudget: { cpuUnits: 8, memoryGiB: 16 },
     grants: {
       'local-production-runtime-browser': { cpuUnits: 6, memoryGiB: 12 }
     }
@@ -265,16 +289,17 @@ test('bootstrap publisher inventories all five services without mutating process
     outputFile,
     snapshotProcess: (pid) => processSnapshots.get(String(pid)),
     snapshotContainer: (name) => containerSnapshots.get(name),
-    enforceContainer: (_name, service) => {
+    enforceContainer: (_name, service, limit) => {
       const memoryHighBytes = Math.round(service.reservation.memoryGiB * (1024 ** 3))
       return {
         status: 'enforced',
         containerId: service.identity.containerId,
         reservation: service.reservation,
+        limit,
         observed: {
-          cpuUnits: service.reservation.cpuUnits,
+          cpuUnits: limit.cpuUnits,
           memoryHighBytes,
-          memoryMaxBytes: memoryHighBytes + 1
+          memoryMaxBytes: Math.round(limit.memoryGiB * (1024 ** 3))
         }
       }
     }
@@ -283,7 +308,9 @@ test('bootstrap publisher inventories all five services without mutating process
   assert.deepEqual(result.inventory.sourceState, { commit: 'abc123', worktreeFingerprint: 'tree-publisher' })
   assert.deepEqual(result.inventory.resourceGrant, { cpuUnits: 4, memoryGiB: 8 })
   assert.deepEqual(result.inventory.schedulerResourceGrant, { cpuUnits: 6, memoryGiB: 12 })
+  assert.deepEqual(result.inventory.resourceBudget, { cpuUnits: 8, memoryGiB: 16 })
   assert.doesNotThrow(() => validateResidentLeaseInventory(result.inventory, {
+    resourceBudget: { cpuUnits: 8, memoryGiB: 16 },
     resourceGrantHistory: [
       { cpuUnits: 4, memoryGiB: 8 },
       { cpuUnits: 6, memoryGiB: 12 }
@@ -403,7 +430,7 @@ test('resident documents publish atomically and unreadable input fails closed', 
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const file = path.join(directory, 'leases.json')
   writeResidentLeaseDocument(file, inventory())
-  assert.equal(readResidentLeaseDocument(file).schema, 'fsusblog.test-matrix.resident-resource-leases.v3')
+  assert.equal(readResidentLeaseDocument(file).schema, 'fsusblog.test-matrix.resident-resource-leases.v4')
   assert.deepEqual(fs.readdirSync(directory), ['leases.json'])
   fs.writeFileSync(file, '{broken')
   assert.throws(() => readResidentLeaseDocument(file), /unreadable/u)

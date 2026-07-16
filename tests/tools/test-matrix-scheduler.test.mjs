@@ -2726,6 +2726,7 @@ test('resident leases stay in admission accounting, hand off once, and release c
           ownerBundleId: 'runtime-browser',
           resourceGrant: { cpuUnits: 2, memoryGiB: 1.9999996 },
           schedulerResourceGrant: { cpuUnits: 2, memoryGiB: 2 },
+          resourceBudget: { cpuUnits: 4, memoryGiB: 4 },
           services: [
             {
               id: 'backend',
@@ -2777,6 +2778,7 @@ test('resident leases stay in admission accounting, hand off once, and release c
           namespace,
           ownerBundleId: 'runtime-browser',
           resourceGrant: { cpuUnits: 2, memoryGiB: 2 },
+          resourceBudget: { cpuUnits: 4, memoryGiB: 4 },
           services: [
             {
               id: 'backend', kind: 'process', identity: { pid: 43, startTimeTicks: '101' }, port: 24001,
@@ -2875,6 +2877,7 @@ test('failed resident producer retains partial live-service evidence without pub
           namespace,
           ownerBundleId: 'runtime-browser',
           resourceGrant: { cpuUnits: 2, memoryGiB: 2 },
+          resourceBudget: { cpuUnits: 4, memoryGiB: 4 },
           services: [{
             id: 'backend', kind: 'process', identity: { pid: 42, startTimeTicks: '100' }, port: 24001,
             generation: 'backend-1', health: { status: 'ready', checkedAt: '2026-07-14T00:00:00.000Z' },
