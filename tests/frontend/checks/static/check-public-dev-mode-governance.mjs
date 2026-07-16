@@ -56,6 +56,13 @@ expectIncludes(
   'dev public shell SSR proxy must be opt-in via VITE_PUBLIC_SHELL_PROXY=1',
 )
 
+expectIncludes(
+  viteConfigPath,
+  viteConfig,
+  "'^/integrity(?:/|$)': publicSeoProxy",
+  'dev and preview servers must proxy public integrity sidecars to the backend',
+)
+
 if (viteConfig.includes('const hasProxyFlag')) {
   fail(viteConfigPath, 'dev public shell proxy must not default to enabled when VITE_PUBLIC_SHELL_PROXY is missing')
 }

@@ -148,6 +148,10 @@ internal static class PublicAotBinaryPayload
                     WriteByte(BoolKind);
                     WriteByte(boolean ? (byte)1 : (byte)0);
                     return;
+                case Enum enumValue:
+                    WriteByte(StringKind);
+                    WriteStringPayload(enumValue.ToString());
+                    return;
                 case byte or sbyte or short or ushort or int:
                     WriteByte(Int32Kind);
                     WriteInt32(Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture));

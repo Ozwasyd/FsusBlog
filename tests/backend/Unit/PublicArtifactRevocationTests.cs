@@ -192,7 +192,12 @@ public sealed class PublicArtifactRevocationTests
     [Fact]
     public async Task Coordinator_PreCommitFenceCannotClearUntilCommitPromotesSameGeneration()
     {
-        var tombstone = new PublicArtifactTombstone(42, 25, 100);
+        var tombstone = new PublicArtifactTombstone(
+            42,
+            25,
+            100,
+            PurgeConfirmed: true,
+            TransitionPending: false);
         var state = new FakeStateStore(tombstone);
         var registry = new PublicArtifactRevocationRegistry();
         var coordinator = new PublicArtifactRevocationCoordinator(state, registry, new FakeCdnPurger());
@@ -214,6 +219,28 @@ public sealed class PublicArtifactRevocationTests
         await coordinator.CompleteRebuildAsync([42], coordinator.CurrentGeneration);
         Assert.False(registry.TryGet(42, out _));
         Assert.Equal(committed, Assert.Single(state.Cleared));
+    }
+
+    [Fact]
+    public async Task Coordinator_CommittedTombstoneDoesNotBlockNextMutationFence()
+    {
+        var committed = new PublicArtifactTombstone(
+            42,
+            25,
+            100,
+            PurgeConfirmed: true,
+            TransitionPending: false);
+        var state = new FakeStateStore(committed);
+        var registry = new PublicArtifactRevocationRegistry();
+        registry.Apply(committed);
+        var coordinator = new PublicArtifactRevocationCoordinator(state, registry, new FakeCdnPurger());
+
+        await coordinator.BeginArticleMutationFenceAsync(42);
+
+        Assert.True(registry.TryGet(42, out PublicArtifactTombstone pending));
+        Assert.Equal(26, pending.Generation);
+        Assert.True(pending.PurgeConfirmed);
+        Assert.True(pending.TransitionPending);
     }
 
     [Fact]
@@ -351,7 +378,17 @@ public sealed class PublicArtifactRevocationTests
             int articleId,
             CancellationToken cancellationToken)
         {
-            _current = _current with { ArticleId = articleId, TransitionPending = true };
+            if (_current.TransitionPending || !_current.PurgeConfirmed)
+            {
+                throw new InvalidOperationException("public artifact mutation fence is already active");
+            }
+
+            _current = new PublicArtifactTombstone(
+                articleId,
+                _current.Generation + 1,
+                _current.RevokedAtUnixMilliseconds + 1,
+                PurgeConfirmed: false,
+                TransitionPending: true);
             return Task.FromResult(_current);
         }
 

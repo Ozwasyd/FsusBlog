@@ -18,6 +18,11 @@ test('managed backend uses the same JWT key version as acceptance fixture tokens
   assert.match(bootstrap, /Jwt__KeyVersion=\$\(printf '%q' "\$JWT_KEY_VERSION"\).*Jwt__SecretKey=/u)
 })
 
+test('acceptance backend keeps local fixtures while enforcing the production CSP', () => {
+  assert.match(bootstrap, /ASPNETCORE_ENVIRONMENT=Development\nTesting__EnforceProductionCsp=true/u)
+  assert.match(bootstrap, /starting managed \$\{runtime_configuration,,\} backend[\s\S]*?local -x Testing__EnforceProductionCsp=true[\s\S]*?nohup/u)
+})
+
 test('managed backend readiness fails immediately when the no-build process exits', t => {
   const namespace = `runtime-release-backend-fail-${process.pid}`
   t.after(() => {

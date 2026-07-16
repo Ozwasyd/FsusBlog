@@ -155,6 +155,20 @@
   }
 }
 
+@keyframes fsus-navigation-progress {
+  0% {
+    transform: scaleX(0);
+  }
+
+  70% {
+    transform: scaleX(0.82);
+  }
+
+  100% {
+    transform: scaleX(0.94);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html:focus-within {
     scroll-behavior: auto;

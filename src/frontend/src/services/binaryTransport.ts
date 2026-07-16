@@ -5,6 +5,8 @@ import { readFixedUtf8, readInt32 } from '@/adapters/binary/reader';
 import { AppError, AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
 import { isAbortError } from '@/utils/errors';
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryService';
+import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime';
+import wasmDecodeWorkerUrl from '@/workers/wasmDecode.worker.ts?worker&url';
 import { FrameType } from '@wasm/protocol/frame';
 import {
   buildFsusBinaryRoute,
@@ -321,7 +323,9 @@ function handleWorkerFatalError(reason: unknown): void {
 function getWorker(): Worker {
   clearWorkerIdleTimer();
   if (!workerSingleton) {
-    workerSingleton = new Worker(new URL('../workers/wasmDecode.worker.ts', import.meta.url), { type: 'module' });
+    workerSingleton = new Worker(toTrustedApplicationWorkerScriptUrl(
+      new URL(wasmDecodeWorkerUrl, import.meta.url)
+    ) as string | URL, { type: 'module' });
     emitRumMetric('binary_worker_init_count', {
       value: 1
     });

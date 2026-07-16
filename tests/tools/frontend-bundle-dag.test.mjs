@@ -28,7 +28,7 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   assert.doesNotMatch(vitestDeclaration, /FSUSBLOG_VITEST_TARGET_WORKERS/u)
   assert.match(vitestDeclaration, /minCpuUnits: resolvedFrontendVitestAdmissionFloor\(\)/u)
   assert.match(vitestDeclaration, /exclusiveResources: \['frontend-test-results'\]/u)
-  assert.match(runnerSource, /Math\.ceil\(Math\.sqrt\(cpuCount\)\)/u)
+  assert.match(runnerSource, /resolveFrontendVitestAdmissionFloor\(\{ cpuCount, eventualFrontendCapacity \}\)/u)
   assert.doesNotMatch(vitestDeclaration, /dependsOn: \[[^\]]*frontend-build-ready/u)
   assert.match(perfDeclaration, /dependsOn: \['frontend-build-ready', 'vitest-settled'\]/u)
   assert.doesNotMatch(runnerSource, /waitForSiblingBundleSummaries\(\['build-static'\]\)[\s\S]*?run-frontend-vitest-perf-isolated/u)
@@ -48,7 +48,7 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   assert.match(dagDeclaration, /staticStageStep\('concurrent',[\s\S]*?exclusiveResources: \['generated-contracts'\]/u)
   assert.match(dagDeclaration, /commandStep\('frontend-build-ready',[\s\S]*?coordinationOnly: true/u)
   assert.match(dagDeclaration, /commandStep\('frontend-early-test-capacity-ready',[\s\S]*?coordinationOnly: true/u)
-  assert.match(dagDeclaration, /commandStep\('frontend-test-capacity-ready',[\s\S]*?coordinationOnly: true/u)
+  assert.doesNotMatch(dagDeclaration, /commandStep\('frontend-test-capacity-ready'/u)
   assert.ok(
     dagDeclaration.indexOf('\n    step,') < dagDeclaration.indexOf("commandStep('privacy-zk-contract-prebuild'"),
     'Vitest must be declared before every ordinary privacy/static sibling'
@@ -223,7 +223,6 @@ test('blocking static admission must settle before Vitest or concurrent static w
 })
 
 test('frontend bundle delays Vitest until the machine-derived floor and fills early capacity with other work', async () => {
-  const fullCapacityReady = deferred()
   const vitestRelease = deferred()
   const staticRelease = deferred()
   const started = []
@@ -231,7 +230,6 @@ test('frontend bundle delays Vitest until the machine-derived floor and fills ea
 
   const execution = executeWeightedStepDag([
     coordinationStep('frontend-early-test-capacity-ready'),
-    coordinationStep('frontend-test-capacity-ready'),
     {
       ...ordinaryStep('vitest-production-projects', ['frontend-early-test-capacity-ready']),
       resources: { cpuWeight: 2, memoryWeight: 1.5, minCpuUnits: 3 }
@@ -239,7 +237,6 @@ test('frontend bundle delays Vitest until the machine-derived floor and fills ea
     ordinaryStep('static-governance-concurrent', ['frontend-early-test-capacity-ready'])
   ], () => ({ maxParallel: cpuUnits, cpuUnits, memoryGiB: cpuUnits }), async (step) => {
     started.push({ id: step.id, cpuUnits: step.runtimeCapacity.cpuUnits })
-    if (step.id === 'frontend-test-capacity-ready') await fullCapacityReady.promise
     if (step.id === 'vitest-production-projects') await vitestRelease.promise
     if (step.id === 'static-governance-concurrent') await staticRelease.promise
   })
@@ -250,7 +247,6 @@ test('frontend bundle delays Vitest until the machine-derived floor and fills ea
 
   cpuUnits = 3
   staticRelease.resolve()
-  fullCapacityReady.resolve()
   await waitFor(() => started.some((entry) => entry.id === 'vitest-production-projects'))
   assert.ok(started.some((entry) => entry.id === 'vitest-production-projects' && entry.cpuUnits === 3), JSON.stringify(started))
 
@@ -264,13 +260,13 @@ test('three-CPU frontend admission starts Vitest at 2 plus one companion at 1 wi
   const staticRelease = deferred()
   const started = []
   const execution = executeWeightedStepDag([
-    coordinationStep('frontend-test-capacity-ready'),
+    coordinationStep('frontend-early-test-capacity-ready'),
     {
-      ...ordinaryStep('vitest-production-projects', ['frontend-test-capacity-ready']),
+      ...ordinaryStep('vitest-production-projects', ['frontend-early-test-capacity-ready']),
       resources: { cpuWeight: 2, memoryWeight: 1.5, minCpuUnits: 2 }
     },
-    ordinaryStep('privacy-zk-contract-prebuild', ['frontend-test-capacity-ready']),
-    ordinaryStep('static-governance-concurrent', ['frontend-test-capacity-ready'])
+    ordinaryStep('privacy-zk-contract-prebuild', ['frontend-early-test-capacity-ready']),
+    ordinaryStep('static-governance-concurrent', ['frontend-early-test-capacity-ready'])
   ], { maxParallel: 3, cpuUnits: 3, memoryGiB: 3 }, async (step) => {
     started.push({ id: step.id, cpuUnits: step.runtimeCapacity.cpuUnits })
     if (step.id === 'vitest-production-projects') await vitestRelease.promise
@@ -280,7 +276,7 @@ test('three-CPU frontend admission starts Vitest at 2 plus one companion at 1 wi
 
   await waitFor(() => started.length >= 3)
   assert.deepEqual(started.slice(0, 3), [
-    { id: 'frontend-test-capacity-ready', cpuUnits: 0 },
+    { id: 'frontend-early-test-capacity-ready', cpuUnits: 0 },
     { id: 'vitest-production-projects', cpuUnits: 2 },
     { id: 'privacy-zk-contract-prebuild', cpuUnits: 1 }
   ])
@@ -301,12 +297,12 @@ test('sub-three-CPU frontend admission gives Vitest the complete grant before co
     const companionRelease = deferred()
     const started = []
     const execution = executeWeightedStepDag([
-      coordinationStep('frontend-test-capacity-ready'),
+      coordinationStep('frontend-early-test-capacity-ready'),
       {
-        ...ordinaryStep('vitest-production-projects', ['frontend-test-capacity-ready']),
+        ...ordinaryStep('vitest-production-projects', ['frontend-early-test-capacity-ready']),
         resources: { cpuWeight: 2, memoryWeight: 1.5, minCpuUnits: cpuUnits }
       },
-      ordinaryStep('static-governance-concurrent', ['frontend-test-capacity-ready'])
+      ordinaryStep('static-governance-concurrent', ['frontend-early-test-capacity-ready'])
     ], { maxParallel: cpuUnits, cpuUnits, memoryGiB: cpuUnits }, async (step) => {
       started.push({ id: step.id, cpuUnits: step.runtimeCapacity.cpuUnits })
       if (step.id === 'vitest-production-projects') await vitestRelease.promise

@@ -130,7 +130,7 @@
               </el-form-item>
 
               <el-form-item label="SEO 描述 (Description)">
-                <el-input v-model="siteForm.description" name="siteDescription" type="textarea" :rows="4" maxlength="200" show-word-limit :disabled="siteFormDisabled" />
+                <el-input v-model="siteForm.description" name="siteDescription" :csp-safe="true" type="textarea" :rows="4" maxlength="200" show-word-limit :disabled="siteFormDisabled" />
               </el-form-item>
 
               <section class="mt-12 border-t border-[var(--fsusblog-panel-border)] pt-10" aria-label="浏览器与 PWA 资产">
@@ -449,7 +449,7 @@
                   </div>
 
                   <el-form-item label="版权说明">
-                    <el-input v-model="complianceForm.copyrightText" type="textarea" :rows="3" maxlength="512" show-word-limit :disabled="complianceFormDisabled" placeholder="保留所有权利。" />
+                    <el-input v-model="complianceForm.copyrightText" :csp-safe="true" type="textarea" :rows="3" maxlength="512" show-word-limit :disabled="complianceFormDisabled" placeholder="保留所有权利。" />
                   </el-form-item>
 
                   <div class="grid grid-cols-1 gap-x-10 sm:grid-cols-2">

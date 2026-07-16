@@ -25,6 +25,10 @@ import {
 } from '@/router/publicSeoHead'
 import { useAdminStore } from '@/store/admin'
 import {
+  hideNavigationProgress,
+  showNavigationProgress
+} from '@/services/navigationProgress'
+import {
   activateLocalFixtureSession,
   buildLocalFixtureAdminUrl,
   createLocalFixtureAccountSnapshot,
@@ -37,26 +41,10 @@ import {
   readFixtureStatus
 } from '@/services/localFixtureSession'
 
-type ProgressModule = typeof import('nprogress')
 const PROGRESS_DELAY_MS = 120
-let progressModulePromise: Promise<ProgressModule> | null = null
 let progressTimer: ReturnType<typeof window.setTimeout> | undefined
 let progressVisible = false
 let progressRequestId = 0
-
-function loadProgressBar(): Promise<ProgressModule> {
-  if (!progressModulePromise) {
-    progressModulePromise = Promise.all([
-      import('nprogress'),
-      import('nprogress/nprogress.css')
-    ]).then(([module]) => {
-      module.configure({ showSpinner: false })
-      return module
-    })
-  }
-
-  return progressModulePromise
-}
 
 function scheduleProgressForSlowNavigation(): void {
   if (typeof window === 'undefined') return
@@ -68,14 +56,10 @@ function scheduleProgressForSlowNavigation(): void {
 
   progressTimer = window.setTimeout(() => {
     progressTimer = undefined
-    void loadProgressBar().then((progress) => {
-      if (requestId !== progressRequestId) {
-        return
-      }
+    if (requestId !== progressRequestId) return
 
-      progressVisible = true
-      progress.start()
-    })
+    progressVisible = true
+    showNavigationProgress()
   }, PROGRESS_DELAY_MS)
 }
 
@@ -88,11 +72,9 @@ function finishProgressNavigation(): void {
     progressTimer = undefined
   }
 
-  if (progressVisible && progressModulePromise) {
+  if (progressVisible) {
     progressVisible = false
-    void progressModulePromise.then((progress) => {
-      progress.done()
-    })
+    hideNavigationProgress()
   }
 }
 

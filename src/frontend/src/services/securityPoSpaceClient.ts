@@ -1,4 +1,6 @@
 import { AppErrorCode, createAppError } from '@/utils/appError'
+import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime'
+import poSpaceWorkerUrl from '@/workers/security/pospace.worker.ts?worker&url'
 import type { PoSpaceCapabilitySnapshot } from './securityPoSpaceRuntime'
 
 export interface PoSpaceAssignmentRequest {
@@ -102,7 +104,9 @@ export function createPoSpaceWorkerClient(timeoutMs = DEFAULT_TIMEOUT_MS): PoSpa
       throw createAppError(AppErrorCode.InfraFailure, 'pospace_worker_unavailable')
     }
 
-    worker = new Worker(new URL('../workers/security/pospace.worker.ts', import.meta.url), {
+    worker = new Worker(toTrustedApplicationWorkerScriptUrl(
+      new URL(poSpaceWorkerUrl, import.meta.url)
+    ) as string | URL, {
       name: 'FsusPoSpaceWorker',
       type: 'module'
     })

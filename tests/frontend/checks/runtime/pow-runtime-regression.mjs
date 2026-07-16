@@ -369,6 +369,23 @@ async function runScenario(browser, scenario) {
   }
 }
 
+async function warmRuntimeModuleGraph(browser) {
+  const context = await browser.newContext()
+  await context.addInitScript(() => {
+    window.__FSUSBLOG_DISABLE_NOTIFICATION_STREAM__ = true
+  })
+  const page = await context.newPage()
+  try {
+    await gotoRuntime(page, `${baseUrl}/`)
+    await page.waitForSelector('[data-public-hydrated="true"]', {
+      state: 'attached',
+      timeout: navigationTimeoutMs()
+    })
+  } finally {
+    await context.close()
+  }
+}
+
 async function main() {
   console.log(`[pow-runtime] timeoutPlan=${JSON.stringify(timeoutPlan)} scenarioWorkers=${scenarioWorkers}`)
   const browser = await chromium.launch({
@@ -377,12 +394,22 @@ async function main() {
   })
 
   try {
+    // Build the shared Vite module graph once without starting notifications.
+    // Otherwise four isolated cold navigations all wait on the same transform
+    // graph, and the guest-stream scenario can exhaust its request deadline
+    // before AppRuntime mounts even though PoW and preflight are healthy.
+    await warmRuntimeModuleGraph(browser)
     const results = new Array(scenarios.length)
-    let nextScenario = 0
+    const guestStreamIndex = scenarios.findIndex((scenario) => scenario.id === 'public-guest-stream-first-preflight-pow')
+    results[guestStreamIndex] = await runScenario(browser, scenarios[guestStreamIndex])
+    const pendingScenarioIndexes = scenarios
+      .map((_, index) => index)
+      .filter((index) => index !== guestStreamIndex)
+    let nextPendingIndex = 0
     await Promise.all(Array.from({ length: scenarioWorkers }, async () => {
-      while (nextScenario < scenarios.length) {
-        const index = nextScenario
-        nextScenario += 1
+      while (nextPendingIndex < pendingScenarioIndexes.length) {
+        const index = pendingScenarioIndexes[nextPendingIndex]
+        nextPendingIndex += 1
         results[index] = await runScenario(browser, scenarios[index])
       }
     }))

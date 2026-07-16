@@ -1,5 +1,7 @@
 import { ref, shallowRef, triggerRef } from 'vue';
 import { AppErrorCode, createAppError } from '@/utils/appError';
+import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime';
+import powWorkerUrl from '@/workers/pow.worker.ts?worker&url';
 
 export interface PowResult {
   nonce: string;
@@ -55,7 +57,9 @@ export function usePow() {
 
     try {
       const newWorker = new Worker(
-        new URL('../workers/pow.worker.ts', import.meta.url),
+        toTrustedApplicationWorkerScriptUrl(
+          new URL(powWorkerUrl, import.meta.url)
+        ) as string | URL,
         {
           name: 'FsusPowWorker',
           type: 'module'

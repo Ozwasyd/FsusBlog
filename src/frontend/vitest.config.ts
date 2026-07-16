@@ -13,12 +13,19 @@ const disableLocalFsusUi = process.env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
 const localFsusUiRoot = disableLocalFsusUi
   ? null
   : resolveLocalFsusUiRoot(process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT)
+const localFsusUiCoverageExclude = localFsusUiRoot
+  ? [`${localFsusUiRoot.replaceAll('\\', '/')}/**`]
+  : []
+const serverFsAllow = [
+  repositoryRoot,
+  ...(localFsusUiRoot ? [localFsusUiRoot] : [])
+]
 
 export default defineConfig({
   plugins: [vue(), vueJsx()],
   server: {
     fs: {
-      allow: [repositoryRoot]
+      allow: serverFsAllow
     }
   },
   resolve: {
@@ -48,7 +55,8 @@ export default defineConfig({
         'src/bootstrap/**',
         'src/public-renderers/**',
         'src/wasm/**',
-        'src/workers/**'
+        'src/workers/**',
+        ...localFsusUiCoverageExclude
       ],
       thresholds: {
         lines: Number(process.env.FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD ?? 70),

@@ -591,21 +591,45 @@ async function runPartitionHost({ hostId, partition, workers, cacheEnv, cache })
   }
 }
 
+function isPathInside(parent, candidate) {
+  const relativePath = path.relative(parent, candidate)
+  return relativePath === ''
+    || (relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath))
+}
+
+export function isFrontendCoverageOwnedFile(file, {
+  repositoryRoot = root,
+  frontendDirectory = frontendRoot
+} = {}) {
+  const absoluteFile = path.resolve(file)
+  return isPathInside(path.join(frontendDirectory, 'src'), absoluteFile)
+    || absoluteFile === path.join(repositoryRoot, 'tests/frontend/support/playwright/testSession.ts')
+}
+
 export function mergeAuthoritativeCoverageMaps(universeFile, shardFiles, {
-  reportsDirectory = path.join(frontendRoot, 'coverage/unit')
+  reportsDirectory = path.join(frontendRoot, 'coverage/unit'),
+  repositoryRoot = root,
+  frontendDirectory = frontendRoot
 } = {}) {
   const { createCoverageMap } = frontendRequire('istanbul-lib-coverage')
   const { createContext } = frontendRequire('istanbul-lib-report')
   const reports = frontendRequire('istanbul-reports')
   const universe = JSON.parse(fs.readFileSync(universeFile, 'utf8'))
-  const authoritativeFiles = new Set(Object.keys(universe))
+  const universeEntries = Object.entries(universe)
+  const authoritativeEntries = universeEntries.filter(([file]) => isFrontendCoverageOwnedFile(file, {
+    repositoryRoot,
+    frontendDirectory
+  }))
+  const authoritativeFiles = new Set(authoritativeEntries.map(([file]) => file))
   if (authoritativeFiles.size === 0) throw new Error('frontend full coverage universe is empty')
-  const merged = createCoverageMap(universe)
+  const merged = createCoverageMap(Object.fromEntries(authoritativeEntries))
+  let emptyOwnedShardCount = 0
   for (const shardFile of shardFiles) {
     const shard = JSON.parse(fs.readFileSync(shardFile, 'utf8'))
+    if (Object.keys(shard).length === 0) throw new Error(`frontend coverage shard is empty: ${shardFile}`)
     const projected = Object.fromEntries(Object.entries(shard).filter(([file]) => authoritativeFiles.has(file)))
-    if (Object.keys(projected).length === 0) throw new Error(`frontend coverage shard has no authoritative files: ${shardFile}`)
-    merged.merge(projected)
+    if (Object.keys(projected).length === 0) emptyOwnedShardCount += 1
+    else merged.merge(projected)
   }
   fs.rmSync(reportsDirectory, { recursive: true, force: true })
   fs.mkdirSync(reportsDirectory, { recursive: true })
@@ -624,7 +648,13 @@ export function mergeAuthoritativeCoverageMaps(universeFile, shardFiles, {
   if (failures.length > 0) {
     throw new Error(`frontend coverage threshold failed: ${failures.map(([key, threshold]) => `${key}=${summary?.[key]?.pct ?? 'missing'}<${threshold}`).join(' ')}`)
   }
-  return { authoritativeFileCount: authoritativeFiles.size, summary, thresholds }
+  return {
+    authoritativeFileCount: authoritativeFiles.size,
+    excludedExternalFileCount: universeEntries.length - authoritativeEntries.length,
+    emptyOwnedShardCount,
+    summary,
+    thresholds
+  }
 }
 
 function readPreviousSummary() {

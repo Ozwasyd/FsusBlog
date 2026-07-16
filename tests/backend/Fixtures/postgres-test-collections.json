@@ -24,7 +24,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 192,
+      "estimatedFacts": 193,
       "tests": [
         { "path": "Unit/AnonymousCredentialIssuerTests.cs", "class": "AnonymousCredentialIssuerTests" },
         { "path": "Unit/AnonymousCredentialRootLifecycleTests.cs", "class": "AnonymousCredentialRootLifecycleTests" },

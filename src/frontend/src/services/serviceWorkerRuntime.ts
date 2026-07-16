@@ -1,5 +1,6 @@
 import { emitTelemetry } from '@/services/telemetryBus'
 import { resolveServiceWorkerScriptUrl } from '@/config/releaseStorage'
+import { toTrustedServiceWorkerScriptUrl } from '@/security/trustedTypesRuntime'
 import type { CacheControlPayload, SearchIndexUpdatePayload } from '@/services/notificationStreamTypes'
 import {
   purgeCommentPrivacyCredentialState,
@@ -77,9 +78,10 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   bindListener()
   if (!registrationPromise) {
     const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')
-    registrationPromise = navigator.serviceWorker.register(resolveServiceWorkerScriptUrl(
-      base,
-      import.meta.env.VITE_FSUSBLOG_BUILD_ID), {
+    const scriptUrl = resolveServiceWorkerScriptUrl(base, import.meta.env.VITE_FSUSBLOG_BUILD_ID)
+    registrationPromise = navigator.serviceWorker.register(toTrustedServiceWorkerScriptUrl(
+      scriptUrl
+    ) as string, {
       scope: '/',
       type: 'module',
       updateViaCache: 'none'

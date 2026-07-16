@@ -50,6 +50,7 @@
               <el-input
                 v-model="markdown"
                 name="contentImportMarkdown"
+                :csp-safe="true"
                 type="textarea"
                 :rows="14"
                 maxlength="200000"

@@ -2,6 +2,7 @@ import { nextTick, onBeforeUnmount, onMounted, type Ref } from 'vue'
 import { createCspStyleBinding, type CspStyleBinding } from '@/services/cspStyleRuntime'
 
 export const publicStickyHeaderSelector = '[data-public-shell-header]'
+export const publicStickyGeometryOwnerSelector = '[data-public-sticky-geometry-owner]'
 const anchorGap = '0.75rem'
 
 export const publicStickyGeometryTokens = {
@@ -18,6 +19,9 @@ export function usePublicStickyGeometry(rootRef: Ref<HTMLElement | undefined>): 
 
   const resolveHeader = (): HTMLElement | null =>
     rootRef.value?.querySelector<HTMLElement>(publicStickyHeaderSelector) ?? null
+
+  const resolveGeometryOwner = (root: HTMLElement): HTMLElement =>
+    root.querySelector<HTMLElement>(publicStickyGeometryOwnerSelector) ?? root
 
   const publish = (): void => {
     const root = rootRef.value
@@ -36,7 +40,11 @@ export function usePublicStickyGeometry(rootRef: Ref<HTMLElement | undefined>): 
       return
     }
 
-    rootStyleBinding ??= createCspStyleBinding(root, {}, 'public-sticky-geometry')
+    rootStyleBinding ??= createCspStyleBinding(
+      resolveGeometryOwner(root),
+      {},
+      'public-sticky-geometry'
+    )
     rootStyleBinding.update({
       [publicStickyGeometryTokens.headerHeight]: headerHeight,
       [publicStickyGeometryTokens.stickyTop]: headerHeight,

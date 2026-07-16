@@ -12,6 +12,7 @@ import {
   adminPassword,
   captureStorageState,
   openAuditedPage,
+  openThemedAuditedContext,
   prewarmDevRuntime,
   assertElementHitTarget,
   assertElementInViewport,
@@ -206,6 +207,10 @@ const postgresTextLiteral = (value: string): string =>
 
 const runLocalAcceptanceSql = async (sql: string): Promise<void> => {
   assertLocalAcceptancePgContainer()
+  const testSession = resolveTestSession()
+  const scopedSql = testSession
+    ? `SET search_path TO "fsus_e2e_${testSession.replaceAll('-', '_')}", public;\n${sql}`
+    : sql
   await execFileAsync('docker', [
     'exec',
     acceptancePgContainer,
@@ -217,7 +222,7 @@ const runLocalAcceptanceSql = async (sql: string): Promise<void> => {
     '-d',
     'fsusblog',
     '-c',
-    sql
+    scopedSql
   ], { timeout: 10_000 })
 }
 
@@ -239,7 +244,7 @@ const seedPendingModerationComment = async (variant: string): Promise<PendingMod
     articleId,
     postgresTextLiteral(content),
     'CURRENT_TIMESTAMP',
-    postgresTextLiteral('anonymous'),
+    postgresTextLiteral('zk_anonymous'),
     'NULL',
     postgresTextLiteral('acceptance-anonymous'),
     postgresTextLiteral('Acceptance Anonymous'),
@@ -430,14 +435,19 @@ for (const viewport of [
         }
       ]
 
-      const session = await openAuditedPage(browser, storageState)
+      const auditedContext = await openThemedAuditedContext(browser, 'light', storageState)
       try {
         for (const route of expectations) {
-          await expectRouteAndShell(session.page, session.audit, route)
-          await assertResponsiveLayoutContract(session.page, route.label)
+          const session = await auditedContext.newPage()
+          try {
+            await expectRouteAndShell(session.page, session.audit, route)
+            await assertResponsiveLayoutContract(session.page, route.label)
+          } finally {
+            await session.close()
+          }
         }
       } finally {
-        await session.close()
+        await auditedContext.close()
       }
     })
 
@@ -517,7 +527,7 @@ for (const viewport of [
         const accountMenuTrigger = session.page.locator('button[aria-label="打开账号菜单"]:visible').first()
         await assertElementHitTarget(session.page, accountMenuTrigger, 'account header menu trigger')
         await accountMenuTrigger.click()
-        const accountMenu = session.page.locator('[role="menu"][aria-label="账号菜单"]:visible').last()
+        const accountMenu = session.page.getByRole('menu', { name: '打开账号菜单' }).last()
         await expect(accountMenu).toBeVisible()
         await expect(accountMenu.getByRole('menuitem', { name: '账户中心' })).toBeVisible()
         await expect(accountMenu.getByRole('menuitem', { name: '使用规范' })).toBeVisible()
@@ -574,10 +584,13 @@ for (const viewport of [
 
         const queue = page.getByRole('region', { name: '评论审核队列' })
         const searchInput = page.getByLabel('搜索评论内容')
+        const visibleCommentContent = () => queue
+          .getByText(moderationFixture.content, { exact: true })
+          .filter({ visible: true })
         await expect(queue).toBeVisible()
         await searchInput.fill(moderationFixture.commentId)
         await searchInput.press('Enter')
-        await expect(queue.getByText(moderationFixture.content, { exact: true })).toBeVisible()
+        await expect(visibleCommentContent()).toBeVisible()
 
         await queue.locator('button:visible').filter({ hasText: /^详情$/u }).first().click()
         const detailDrawer = page.locator('.el-drawer:visible').last()
@@ -604,7 +617,7 @@ for (const viewport of [
         })
 
         await page.getByRole('radio', { name: '已通过', exact: true }).click()
-        await expect(queue.getByText(moderationFixture.content, { exact: true })).toBeVisible({
+        await expect(visibleCommentContent()).toBeVisible({
           timeout: 30_000
         })
         session.audit.assertCleanSince(start, 'admin-comment-moderation-action')
@@ -901,8 +914,12 @@ for (const viewport of [
           await expect(banReasonCombobox).toBeVisible()
           await banReasonCombobox.click()
           await session.page.getByRole('option', { name: '发布违规内容' }).click()
-          await session.page.locator('input[name="banConfirmAccountLabel"], input[name="banConfirmUsername"], input[placeholder*="binaryuser"]').first().fill('binaryuser')
           const banDialog = session.page.getByRole('dialog', { name: '账号封禁处理' })
+          const banConfirmInput = banDialog.locator('input[name="banConfirmAccountLabel"]')
+          const banConfirmPlaceholder = await banConfirmInput.getAttribute('placeholder')
+          const targetAccountLabel = banConfirmPlaceholder?.match(/^请输入 (.+) 以确认$/u)?.[1]
+          expect(targetAccountLabel, 'ban confirmation should expose the isolated target account label').toBeTruthy()
+          await banConfirmInput.fill(targetAccountLabel ?? '')
           const confirmBanButton = banDialog.getByRole('button', { name: /确认封禁|安全校验中/ })
           await expect(confirmBanButton).toBeEnabled()
           const banStatusResponse = session.page.waitForResponse((response) =>
@@ -986,7 +1003,7 @@ for (const viewport of [
         await mobileNavTrigger.click()
         mobileNavigation = session.page.getByRole('dialog', { name: /管理导航 · 互动/ })
         await expect(mobileNavigation).toBeVisible()
-        const mobileUserLink = mobileNavigation.getByRole('link', { name: /用户/ }).first()
+        const mobileUserLink = mobileNavigation.getByRole('link', { name: '用户', exact: true })
         await assertElementHitTarget(session.page, mobileUserLink, 'mobile user navigation link')
         await mobileUserLink.click()
         await expect(session.page).toHaveURL(/\/user\/manage\/users$/)

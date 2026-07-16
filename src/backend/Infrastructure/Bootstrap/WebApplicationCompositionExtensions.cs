@@ -205,11 +205,14 @@ public static partial class WebApplicationCompositionExtensions
             if (ShouldApplyHtmlCsp(ctx))
             {
                 string nonce = EnsureCspNonce(ctx);
-                headers["Content-Security-Policy"] = BuildHtmlCsp(app.Environment, nonce);
+                headers["Content-Security-Policy"] = BuildHtmlCsp(
+                    ShouldUseDevelopmentCspPolicy(app.Environment, app.Configuration),
+                    nonce);
             }
             else
             {
-                headers["Content-Security-Policy"] = BuildStaticCsp(app.Environment);
+                headers["Content-Security-Policy"] = BuildStaticCsp(
+                    ShouldUseDevelopmentCspPolicy(app.Environment, app.Configuration));
             }
 
             ctx.Response.OnStarting(static state =>
@@ -1168,21 +1171,15 @@ public static partial class WebApplicationCompositionExtensions
         return true;
     }
 
-    private static string BuildStaticCsp(IWebHostEnvironment env)
-        => BuildStaticCsp(env.IsDevelopment());
-
     internal static string BuildStaticCsp(bool isDevelopment)
         => isDevelopment
             ? "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; style-src-attr 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:7568 http://localhost:7568 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:7568 ws://localhost:7568; worker-src 'self' blob:; report-uri /api/security/csp-report;"
-            : "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; style-src-attr 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; require-trusted-types-for 'script'; trusted-types vue fsusblog; report-uri /api/security/csp-report;";
-
-    private static string BuildHtmlCsp(IWebHostEnvironment env, string nonce)
-        => BuildHtmlCsp(env.IsDevelopment(), nonce);
+            : "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; style-src-attr 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; require-trusted-types-for 'script'; trusted-types vue fsusblog fsusblog-spa-entry; report-uri /api/security/csp-report;";
 
     internal static string BuildHtmlCsp(bool isDevelopment, string nonce)
         => isDevelopment
             ? $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:7568 http://localhost:7568 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:7568 ws://localhost:7568; worker-src 'self' blob:; report-uri /api/security/csp-report;"
-            : $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; require-trusted-types-for 'script'; trusted-types vue fsusblog; report-uri /api/security/csp-report;";
+            : $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; require-trusted-types-for 'script'; trusted-types vue fsusblog fsusblog-spa-entry; report-uri /api/security/csp-report;";
 
     internal static string EnsureCspNonce(HttpContext ctx)
     {
@@ -1201,8 +1198,17 @@ public static partial class WebApplicationCompositionExtensions
     private static void EnsureHtmlCspHeader(HttpContext ctx, IWebHostEnvironment env)
     {
         string nonce = EnsureCspNonce(ctx);
-        ctx.Response.Headers["Content-Security-Policy"] = BuildHtmlCsp(env, nonce);
+        IConfiguration? configuration = ctx.RequestServices?.GetService<IConfiguration>();
+        ctx.Response.Headers["Content-Security-Policy"] = BuildHtmlCsp(
+            ShouldUseDevelopmentCspPolicy(env, configuration),
+            nonce);
     }
+
+    internal static bool ShouldUseDevelopmentCspPolicy(
+        IWebHostEnvironment environment,
+        IConfiguration? configuration)
+        => environment.IsDevelopment()
+            && configuration?.GetValue<bool>("Testing:EnforceProductionCsp") != true;
 
     private static string CreateCspNonce()
         => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(16));

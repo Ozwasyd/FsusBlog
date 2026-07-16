@@ -5,6 +5,7 @@
     :visibility="visibility"
     :variant="variant"
     :labels="resolvedLabels"
+    :csp-safe="true"
     size="small"
     :label="themeModeCopy.label"
     @update:model-value="handleThemeModeUpdate"

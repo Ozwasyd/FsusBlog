@@ -751,6 +751,23 @@ internal static class PublicAotDocumentComposer
     const entrySrc = ""{encodedSrc}"";
     const takeoverModulePreloads = {encodedModulePreloads};
     const takeoverStylesheets = {encodedStylesheets};
+    const trustedModuleSources = new Set([entrySrc, ...takeoverModulePreloads]);
+    const toTrustedModuleUrl = (() => {{
+      const factory = window.trustedTypes;
+      if (!factory || typeof factory.createPolicy !== 'function') {{
+        return (value) => value;
+      }}
+      const policy = factory.createPolicy('fsusblog-spa-entry', {{
+        createScriptURL: (value) => {{
+          if (!trustedModuleSources.has(value)) {{
+            throw new TypeError('fsusblog_spa_entry_url_rejected');
+          }}
+          return value;
+        }}
+      }});
+      return (value) => policy.createScriptURL(value);
+    }})();
+    const trustedEntrySrc = toTrustedModuleUrl(entrySrc);
     const mark = (name) => {{
       try {{
         if (window.performance && typeof window.performance.mark === 'function') {{
@@ -797,7 +814,7 @@ internal static class PublicAotDocumentComposer
         appendHeadLink('link[rel=""modulepreload""][href=""' + href + '""]', (preload) => {{
           preload.rel = 'modulepreload';
           preload.crossOrigin = 'anonymous';
-          preload.href = href;
+          preload.href = toTrustedModuleUrl(href);
           preload.fetchPriority = 'low';
           preload.dataset.fsusblogSpaPreload = 'deferred';
         }});
@@ -832,7 +849,7 @@ internal static class PublicAotDocumentComposer
       const script = document.createElement('script');
       script.type = 'module';
       script.crossOrigin = 'anonymous';
-      script.src = entrySrc;
+      script.src = trustedEntrySrc;
       script.dataset.fsusblogSpaEntry = 'deferred';
       document.body.appendChild(script);
     }};

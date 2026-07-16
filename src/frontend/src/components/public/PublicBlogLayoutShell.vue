@@ -12,7 +12,8 @@
       跳到主要内容
     </a>
     <FsusUiPublicShell
-      class="is-sticky fsusblog-public-shell-runtime"
+      class="is-sticky"
+      v-bind="{ 'data-public-sticky-geometry-owner': '' }"
       :hydration-kind="hydrationKind || undefined"
       :data-public-hydration-kind="hydrationKind || undefined"
       :data-public-mobile-nav-mode="PUBLIC_MOBILE_NAV_MODE"
@@ -35,6 +36,7 @@
       :search-aria-label="layoutCopy.searchAriaLabel"
       :spa-search="spaSearch"
       :sticky="true"
+      :csp-safe="true"
       max-width="64rem"
       @update:search-query="handleSearchInput"
       @search="handleSearch"

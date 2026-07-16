@@ -4,6 +4,8 @@ import type {
   PerceptionV2WorkerResponse,
   RenderRecipeV2
 } from '@/workers/security/perception-v2.renderer'
+import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime'
+import perceptionV2WorkerUrl from '@/workers/security/perception-v2.worker.ts?worker&url'
 
 export type PerceptionV2ClientRenderSuccess = {
   ok: true
@@ -53,7 +55,9 @@ export function createPerceptionV2WorkerClient(options: PerceptionV2WorkerClient
 
       worker = options.workerFactory
         ? options.workerFactory()
-        : new Worker(new URL('../workers/security/perception-v2.worker.ts', import.meta.url), {
+        : new Worker(toTrustedApplicationWorkerScriptUrl(
+            new URL(perceptionV2WorkerUrl, import.meta.url)
+          ) as string | URL, {
             name: 'FsusPerceptionV2Worker',
             type: 'module'
           })

@@ -6,6 +6,7 @@ import test from 'node:test'
 
 import {
   canonicalVitestId,
+  isFrontendCoverageOwnedFile,
   mergeIsolatedTransformCaches,
   planRollingVitestPartitions,
   readLiveVitestGrant,
@@ -265,6 +266,16 @@ test('host-private transform caches merge deterministically and reject conflicti
   fs.rmSync(temporary, { recursive: true, force: true })
 })
 
+test('coverage ownership includes Blog frontend sources but excludes local FsusUI aliases', () => {
+  const repositoryRoot = '/workspace/FsusBlog'
+  const frontendDirectory = `${repositoryRoot}/src/frontend`
+  const options = { repositoryRoot, frontendDirectory }
+  assert.equal(isFrontendCoverageOwnedFile(`${frontendDirectory}/src/router/index.ts`, options), true)
+  assert.equal(isFrontendCoverageOwnedFile(`${repositoryRoot}/tests/frontend/support/playwright/testSession.ts`, options), true)
+  assert.equal(isFrontendCoverageOwnedFile(`${repositoryRoot}/tests/frontend/unit/example.test.ts`, options), false)
+  assert.equal(isFrontendCoverageOwnedFile('/workspace/FsusUI/vue/packages/motion/src/runtime.ts', options), false)
+})
+
 test('runner uses one authoritative catalog, isolated outputs and a real coverage-owner host', () => {
   const source = fs.readFileSync('tools/test/run-frontend-vitest-rolling-shards.mjs', 'utf8')
   const config = fs.readFileSync('src/frontend/vitest.production.config.ts', 'utf8')
@@ -277,6 +288,7 @@ test('runner uses one authoritative catalog, isolated outputs and a real coverag
   assert.match(source, /cloneTransformCacheForHost[\s\S]*?COPYFILE_FICLONE/u)
   assert.match(source, /mergeIsolatedTransformCaches[\s\S]*?transform cache executable conflict/u)
   assert.match(source, /validateExactVitestExecution\(catalog, reports\)/u)
+  assert.match(source, /isFrontendCoverageOwnedFile[\s\S]*?excludedExternalFileCount/u)
   assert.match(source, /terminateAllChildren\('SIGTERM'\)[\s\S]*?terminateAllChildren\('SIGKILL'\)/u)
   assert.match(source, /catalogIdentityDigest[\s\S]*?grantHistory[\s\S]*?hostStartupMs[\s\S]*?transformCache/u)
   assert.match(config, /FSUSBLOG_VITEST_ROLLING_HOST === '1'/u)

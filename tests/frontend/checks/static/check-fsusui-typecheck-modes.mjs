@@ -9,6 +9,7 @@ const appTsconfigPath = path.join(frontendRoot, 'tsconfig.app.json')
 const publishedTsconfigPath = path.join(frontendRoot, 'tsconfig.fsusui-published.json')
 const localTsconfigPath = path.join(frontendRoot, 'tsconfig.fsusui-local.json')
 const viteAliasPath = path.join(frontendRoot, 'scripts/fsusui-local.ts')
+const vitestConfigPath = path.join(frontendRoot, 'vitest.config.ts')
 const localRunnerPath = path.join(frontendRoot, 'scripts/run-local-fsusui-typecheck.mjs')
 const augmentationPath = path.join(frontendRoot, 'src/fsusui/elementPlusAugmentations.d.ts')
 const contractPath = path.join(repoRoot, 'tests/frontend/typecheck/fsusui-export-contract.ts')
@@ -42,6 +43,7 @@ for (const file of [
   publishedTsconfigPath,
   localTsconfigPath,
   viteAliasPath,
+  vitestConfigPath,
   localRunnerPath,
   contractPath,
   docsPath,
@@ -61,6 +63,7 @@ if (failures.length === 0) {
   const local = readJson(localTsconfigPath)
   const localPaths = local.compilerOptions?.paths ?? {}
   const viteAliases = read(viteAliasPath)
+  const vitestConfig = read(vitestConfigPath)
   const localRunner = read(localRunnerPath)
   const contract = read(contractPath)
   const docs = read(docsPath)
@@ -142,6 +145,14 @@ if (failures.length === 0) {
     '@element-plus\\/([^/]+)',
   ]) {
     expectIncludes(viteAliasPath, viteAliases, token, `Vite alias token ${token}`)
+  }
+  for (const token of [
+    'localFsusUiRoot',
+    'serverFsAllow',
+    '...(localFsusUiRoot ? [localFsusUiRoot] : [])',
+    'allow: serverFsAllow',
+  ]) {
+    expectIncludes(vitestConfigPath, vitestConfig, token, `Vitest local FsusUI file-system boundary token ${token}`)
   }
   for (const token of [
     'FSUSBLOG_LOCAL_FSUSUI_ROOT',

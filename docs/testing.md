@@ -199,9 +199,9 @@ Acceptance parallelism decision（2026-06-15 / updated 2026-07-12）：`acceptan
 
 progress 以稳定 group/step ID 写入 `.tmp/ux/runs/`；`FSUSBLOG_UX_VIEWPORT_RESUME=1` 只续跑失败和未执行的 route-theme group，fresh 权威运行不读取旧 progress。Playwright 不配置 `maxFailures`，不会因为达到最大错误数而丢弃后续失败；诊断阶段 suite timeout 为 `0`。`run-ux-viewport-playwright.mjs` 无论 Playwright 成功或失败都会写 current-run summary，并保留原始失败退出码。trace、截图、console/pageerror/request audit、路由、触控面积、overflow、主题与 content-boundary 断言全部保留。
 
-三个 UX lane 都用同一命名空间的 release preview 承载浏览器访问，fixture 仍通过 debug backend 准备；这样保留 production bundle、API proxy 与 runtime audit，却避免并发 Vite 模块转换导致的 `ERR_INSUFFICIENT_RESOURCES`。lane 为实际 worker 数预生成隔离 session fixture；较低资源或较高负载会由 resolver 自动降低并发，覆盖内容不变。截图文件以 viewport/theme/route 命名，default media 仅写一次，因此并发 worker 不会覆盖 evidence。
+三个 UX lane 都用同一命名空间的 release preview 承载浏览器访问，fixture 仍通过 debug backend 准备；preview 启动时显式设置 `VITE_PUBLIC_SHELL_PROXY=1`，由 Vite 留在本地提供 immutable frontend assets，并把 application routes 转发给 backend，以保留 production SSR nonce、redirect、真实 404 与 integrity API 语义。acceptance backend 继续以 Development 暴露本地 fixture endpoints，但同时设置 `Testing:EnforceProductionCsp=true`，使普通 HTML 与 PublicHotRead 按 production Trusted Types/CSP 执行。这样保留 production bundle、API proxy 与 runtime audit，却避免并发 Vite 模块转换导致的 `ERR_INSUFFICIENT_RESOURCES`。lane 为实际 worker 数预生成隔离 session fixture；较低资源或较高负载会由 resolver 自动降低并发，覆盖内容不变。截图文件以 viewport/theme/route 命名，default media 仅写一次，因此并发 worker 不会覆盖 evidence。
 
-Session fixture policy：lane 已经能确定实际 worker 数时，必须用 `npm run prepare:playwright:sessions -- --workers <count>` 预生成对应数量的 `pw-*` fixture，并设置 `FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1`，避免每个 Playwright 子命令再触发 global setup 重复准备。直接运行 package script 时仍保留 global setup 兜底。
+Session fixture policy：lane 已经能确定实际 worker 数时，必须用 `npm run prepare:playwright:sessions -- --workers <count>` 预生成对应数量的 `pw-*` fixture，并设置 `FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1`，避免每个 Playwright 子命令再触发 global setup 重复准备。直接运行 package script 时仍保留 global setup 兜底。Playwright 的 `extraHTTPHeaders` 不会进入浏览器原生 WebSocket upgrade；Development/Test 的 notification preflight 因此把已校验的 `X-Fsus-Test-Session` 写入仅限 `/api/notifications/stream` 的 HttpOnly、SameSite=Strict session cookie，正式握手在 authentication 之前恢复同一 header。该桥接不在非隔离环境注册，不能替代生产认证 Cookie，也不能扩展到其他路由。
 
 ### Screenshot evidence tiers
 

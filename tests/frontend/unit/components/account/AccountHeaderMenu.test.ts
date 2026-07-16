@@ -26,7 +26,7 @@ const ElDropdownStub = defineComponent({
 
 const ElDropdownMenuStub = defineComponent({
   setup(_, { slots }) {
-    return () => h('div', { role: 'menu', 'aria-label': '账号菜单' }, slots.default?.())
+    return () => h('div', { role: 'menu', 'aria-label': '打开账号菜单' }, slots.default?.())
   }
 })
 
@@ -88,6 +88,7 @@ describe('AccountHeaderMenu', () => {
 
     expect(wrapper.get('[aria-label="打开账号菜单"]').attributes('aria-haspopup')).toBe('menu')
     expect(wrapper.get('[aria-label="打开账号菜单"]').attributes('aria-expanded')).toBe('false')
+    expect(wrapper.get('[role="menu"]').attributes('aria-label')).toBe('打开账号菜单')
     expect(wrapper.get('[role="menu"]').text()).toContain('账户中心')
     expect(wrapper.get('[role="menu"]').text()).toContain('使用规范')
     expect(wrapper.get('[role="menu"]').text()).toContain('隐私政策')

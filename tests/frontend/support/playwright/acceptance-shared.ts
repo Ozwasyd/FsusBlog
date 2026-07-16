@@ -2153,8 +2153,8 @@ export async function expectStableScreenshot(
 }
 
 export async function assertElementInViewport(page: Page, locator: Locator, label: string): Promise<void> {
-  await locator.scrollIntoViewIfNeeded()
   await expect(locator, `${label} should be visible`).toBeVisible()
+  await locator.scrollIntoViewIfNeeded()
 
   const box = await locator.boundingBox()
   expect(box, `${label} should have bounding box`).not.toBeNull()
@@ -2171,8 +2171,8 @@ export async function assertElementInViewport(page: Page, locator: Locator, labe
 }
 
 export async function assertElementHitTarget(page: Page, locator: Locator, label: string): Promise<void> {
-  await locator.scrollIntoViewIfNeeded()
   await expect(locator, `${label} should be visible`).toBeVisible()
+  await locator.scrollIntoViewIfNeeded()
 
   const box = await locator.boundingBox()
   expect(box, `${label} should have bounding box`).not.toBeNull()

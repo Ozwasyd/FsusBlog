@@ -220,6 +220,7 @@
                   <el-form-item prop="rights.rightsStatement" label="权利声明">
                     <el-input
                       v-model="articleForm.rights.rightsStatement"
+                      :csp-safe="true"
                       name="articleRightsStatement"
                       type="textarea"
                       :rows="3"
@@ -233,6 +234,7 @@
                   <el-form-item prop="rights.attributionTemplate" label="署名模板">
                     <el-input
                       v-model="articleForm.rights.attributionTemplate"
+                      :csp-safe="true"
                       name="articleRightsAttributionTemplate"
                       type="textarea"
                       :rows="2"
@@ -613,6 +615,7 @@
         </ul>
         <el-input
           v-model="prepublishWarningOverrideReason"
+          :csp-safe="true"
           type="textarea"
           :rows="3"
           maxlength="180"

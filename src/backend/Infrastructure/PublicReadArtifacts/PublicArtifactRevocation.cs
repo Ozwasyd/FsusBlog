@@ -206,7 +206,11 @@ public sealed class RedisPublicArtifactRevocationStateStore(
     private const string GenerationKey = "public-hot-read:revocation:generation";
     private const string TombstoneHashKey = "public-hot-read:revocation:tombstones";
     private static readonly LuaScript BeginTransition = LuaScript.Prepare(
-        "if redis.call('HEXISTS', @hash, @field) == 1 then return ''; end; " +
+        "local existing = redis.call('HGET', @hash, @field); " +
+        "if existing then " +
+        "local decoded = cjson.decode(existing); " +
+        "if decoded.TransitionPending == true or decoded.PurgeConfirmed ~= true then return ''; end; " +
+        "end; " +
         "local generation = redis.call('INCR', @generationKey); " +
         "local payload = cjson.encode({" +
         "ArticleId=tonumber(@articleId)," +

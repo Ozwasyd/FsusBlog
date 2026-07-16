@@ -90,6 +90,15 @@ public sealed class ArticleResponsibilityManifestService(
             .FirstAsync(cancellationToken);
         if (revision is null)
         {
+            if (!requestedRevisionNo.HasValue)
+            {
+                PublicAotSeoSnapshot legacySite = await seoConfigSnapshot.GetAsync(cancellationToken);
+                return new IntegrityManifestResult(
+                    StatusCodes.Status200OK,
+                    IntegrityVerificationCacheHeaders.PublicManifest,
+                    BuildPreRevisionLegacyFallback(articleId, legacySite.SiteAuthor));
+            }
+
             return NotFound();
         }
 
@@ -166,6 +175,29 @@ public sealed class ArticleResponsibilityManifestService(
         => string.IsNullOrWhiteSpace(siteAuthor)
             ? []
             : [new ArticleResponsiblePerson(siteAuthor.Trim(), null)];
+
+    internal static ArticleResponsibilityManifestResponse BuildPreRevisionLegacyFallback(
+        int articleId,
+        string? siteAuthor)
+        => new(
+            1,
+            articleId,
+            0,
+            true,
+            true,
+            BuildSiteAuthorFallback(siteAuthor),
+            null,
+            [],
+            null,
+            null,
+            null,
+            null,
+            false,
+            new ArticleVerificationSummary(
+                $"/integrity/article/{articleId}",
+                0,
+                null,
+                "unavailable"));
 
     private static ArticleUpdateDisclosure? BuildUpdate(ArticleResponsibilitySnapshot? snapshot)
     {

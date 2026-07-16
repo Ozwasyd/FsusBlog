@@ -4,6 +4,11 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicAotBinaryPayloadTests
 {
+    private enum PayloadState
+    {
+        Ready
+    }
+
     [Fact]
     public void StringPayload_RoundTripsEmptyUnicodeAndNestedValues()
     {
@@ -48,5 +53,19 @@ public sealed class PublicAotBinaryPayloadTests
         Assert.Equal(negativeFloor, Assert.IsType<decimal>(decoded["negativeFloor"]));
         var nested = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(decoded["nested"]);
         Assert.Equal(decimal.MaxValue, Assert.IsType<decimal>(nested["max"]));
+    }
+
+    [Fact]
+    public void EnumPayload_RoundTripsAsStableName()
+    {
+        var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["state"] = PayloadState.Ready
+        };
+
+        byte[] frame = PublicAotBinaryPayload.EncodeObjectFrame(payload);
+
+        Assert.True(PublicAotBinaryPayload.TryDecodeObject(frame, out Dictionary<string, object?> decoded));
+        Assert.Equal(nameof(PayloadState.Ready), decoded["state"]);
     }
 }

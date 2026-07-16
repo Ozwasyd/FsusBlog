@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { join, resolve } from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
-import { copyFile, cp, mkdir, readdir, rm, stat } from 'node:fs/promises';
+import { copyFile, cp, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
 import {
@@ -284,13 +284,24 @@ async function syncStableSpaEntryAlias() {
     throw new Error('stable spa entry alias sync failed: missing built index-*.js asset');
   }
 
-  const sourceEntry = join(distAssetsDir, entryCandidates[0]);
   const stableEntry = join(distAssetsDir, stableSpaEntryName);
 
   await mkdir(distAssetsDir, { recursive: true });
   await rm(stableEntry, { force: true });
-  await copyFile(sourceEntry, stableEntry);
+  await writeFile(stableEntry, renderStableSpaEntryAlias(entryCandidates[0]), 'utf8');
   log(`synced stable spa entry alias ${stableSpaEntryName} -> ${entryCandidates[0]}`);
+}
+
+export function renderStableSpaEntryAlias(entryName) {
+  if (!/^index-[A-Za-z0-9_-]+\.js$/iu.test(entryName)) {
+    throw new Error(`stable spa entry alias target is invalid: ${String(entryName)}`);
+  }
+
+  // Copying the entry chunk gives it a second module URL. Circular imports from
+  // split chunks then evaluate both URLs, duplicating application bootstrap and
+  // module-private Trusted Types policy creation. Keep the stable URL as a tiny
+  // redirect module so the hashed entry remains the single module identity.
+  return `import './${entryName}';\n`;
 }
 
 async function syncFsusUiMarkdownRuntimeAssets() {

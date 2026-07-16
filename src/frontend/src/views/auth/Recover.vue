@@ -43,6 +43,7 @@
               id="recovery-key"
               v-model="recoveryKeyInput"
               name="recoveryKey"
+              :csp-safe="true"
               type="textarea"
               :rows="3"
               :placeholder="copy.keyPlaceholder"

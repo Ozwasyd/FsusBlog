@@ -103,22 +103,55 @@ public sealed partial class HttpTestSessionKeyScope(IHttpContextAccessor httpCon
 
 public sealed class TestSessionValidationMiddleware(RequestDelegate next, IWebHostEnvironment environment)
 {
+    private const string NotificationStreamPath = "/api/notifications/stream";
+    private const string NotificationStreamPreflightPath = "/api/notifications/stream/preflight";
+    private const string NotificationStreamTestSessionCookieName = "FsusTestSession";
+
     public async Task InvokeAsync(HttpContext context)
     {
-        if (!HttpTestSessionKeyScope.IsIsolationEnabled(environment)
-            || !context.Request.Headers.TryGetValue(HttpTestSessionKeyScope.HeaderName, out var raw)
-            || string.IsNullOrWhiteSpace(raw.FirstOrDefault()))
+        if (!HttpTestSessionKeyScope.IsIsolationEnabled(environment))
         {
             await next(context);
             return;
         }
 
-        string session = TextHelpers.LowerTrimmed(raw.First()) ?? string.Empty;
+        bool isNotificationStream = string.Equals(context.Request.Path.Value, NotificationStreamPath, StringComparison.OrdinalIgnoreCase);
+        bool isNotificationStreamPreflight = string.Equals(context.Request.Path.Value, NotificationStreamPreflightPath, StringComparison.OrdinalIgnoreCase);
+        string? rawSession = context.Request.Headers[HttpTestSessionKeyScope.HeaderName].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(rawSession) && (isNotificationStream || isNotificationStreamPreflight))
+        {
+            rawSession = context.Request.Cookies[NotificationStreamTestSessionCookieName];
+            if (!string.IsNullOrWhiteSpace(rawSession))
+            {
+                context.Request.Headers[HttpTestSessionKeyScope.HeaderName] = rawSession;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(rawSession))
+        {
+            await next(context);
+            return;
+        }
+
+        string session = TextHelpers.LowerTrimmed(rawSession) ?? string.Empty;
         if (!HttpTestSessionKeyScope.IsValidSessionId(session))
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             await context.Response.WriteAsync("invalid test session id", context.RequestAborted);
             return;
+        }
+
+        context.Request.Headers[HttpTestSessionKeyScope.HeaderName] = session;
+        if (isNotificationStreamPreflight)
+        {
+            context.Response.Cookies.Append(NotificationStreamTestSessionCookieName, session, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = context.Request.IsHttps,
+                SameSite = SameSiteMode.Strict,
+                Path = NotificationStreamPath,
+                IsEssential = true
+            });
         }
 
         context.Response.Headers["Vary"] = HttpTestSessionKeyScope.HeaderName;

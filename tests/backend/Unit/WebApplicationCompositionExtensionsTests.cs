@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -80,7 +81,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Contains("style-src-attr 'none'", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("style-src-attr 'unsafe-inline'", csp, StringComparison.Ordinal);
         Assert.Contains("require-trusted-types-for 'script'", csp, StringComparison.Ordinal);
-        Assert.Contains("trusted-types vue fsusblog;", csp, StringComparison.Ordinal);
+        Assert.Contains("trusted-types vue fsusblog fsusblog-spa-entry;", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("trusted-types *", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("'allow-duplicates'", csp, StringComparison.Ordinal);
         Assert.Contains("report-uri /api/security/csp-report", csp, StringComparison.Ordinal);
@@ -97,6 +98,32 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Contains("http://127.0.0.1:3000", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("require-trusted-types-for", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("trusted-types vue fsusblog", csp, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("Development", false, true)]
+    [InlineData("Development", true, false)]
+    [InlineData("Production", false, false)]
+    [InlineData("Production", true, false)]
+    public void DevelopmentCspPolicy_CanBeDisabledForReleaseAcceptance(
+        string environmentName,
+        bool enforceProductionCsp,
+        bool expected)
+    {
+        var environment = new TestWebHostEnvironment(Path.GetTempPath(), new NullFileProvider())
+        {
+            EnvironmentName = environmentName
+        };
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Testing:EnforceProductionCsp"] = enforceProductionCsp.ToString()
+            })
+            .Build();
+
+        Assert.Equal(
+            expected,
+            WebApplicationCompositionExtensions.ShouldUseDevelopmentCspPolicy(environment, configuration));
     }
 
     [Theory]
@@ -119,7 +146,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         else
         {
             Assert.Contains("require-trusted-types-for 'script'", csp, StringComparison.Ordinal);
-            Assert.Contains("trusted-types vue fsusblog;", csp, StringComparison.Ordinal);
+            Assert.Contains("trusted-types vue fsusblog fsusblog-spa-entry;", csp, StringComparison.Ordinal);
             Assert.DoesNotContain("trusted-types *", csp, StringComparison.Ordinal);
             Assert.DoesNotContain("'allow-duplicates'", csp, StringComparison.Ordinal);
         }

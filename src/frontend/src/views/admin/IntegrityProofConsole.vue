@@ -244,7 +244,7 @@ function formatStatus(status: string): string {
 }
 
 function statusTone(status: string): AdminStatusTone {
-  if (['ready', 'active', 'signature-valid', 'logged'].includes(status)) return 'ok'
+  if (['ready', 'active', 'signature-valid', 'logged'].includes(status)) return 'success'
   if (['pending', 'retrying', 'old', 'stale'].includes(status)) return 'warning'
   if (['failed', 'chain-broken', 'missing', 'blocked', 'signature-invalid', 'key-revoked', 'key-compromised', 'revoked', 'compromised'].includes(status)) return 'danger'
   return 'neutral'

@@ -78,6 +78,14 @@ for (const viewport of [
         const firstHeading = firstSection.locator(headingSelector)
         await expect(firstSection).toBeVisible()
         await expect(firstHeading).toBeVisible()
+        await expect.poll(async () => {
+          const snapshot = await readGeometry(session.page)
+          return snapshot.headerHeight > 0
+            ? Math.abs(snapshot.stickyTop - snapshot.headerBottom) / snapshot.headerHeight
+            : Number.POSITIVE_INFINITY
+        }, {
+          message: 'runtime sticky geometry should replace the server-rendered fallback'
+        }).toBeLessThanOrEqual(0.04)
         const sectionId = await firstSection.getAttribute('id')
         expect(sectionId).toMatch(/^archive-year-[0-9]{4}$/u)
         if (!sectionId) {
@@ -87,8 +95,8 @@ for (const viewport of [
         await firstSection.evaluate((section) => {
           const spacer = document.createElement('div')
           spacer.dataset.archiveGeometrySpacer = 'true'
-          spacer.style.height = '200vh'
           spacer.setAttribute('aria-hidden', 'true')
+          spacer.append(...Array.from({ length: 160 }, () => document.createElement('br')))
           section.append(spacer)
         })
 
@@ -100,6 +108,7 @@ for (const viewport of [
         expect(initial.anchorOffset).toBeGreaterThan(initial.stickyTop)
 
         await session.page.evaluate((targetId) => {
+          window.scrollTo(0, document.documentElement.scrollHeight)
           history.replaceState(null, '', `${location.pathname}${location.search}`)
           location.hash = targetId
         }, sectionId)

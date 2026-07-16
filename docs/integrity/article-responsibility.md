@@ -21,7 +21,7 @@
 - 指定 revision：`GET /integrity/article/{articleId}/revisions/{revisionNo}/responsibility`
 - proof 原文：manifest 的 `verification.url`
 
-`verification.proofStatus` 只输出 `ready`、`failed` 或 `unavailable`，不泄漏失败详情、后台 principal、草稿、审计上下文或密钥。旧文章没有责任快照时，输出确定性的站点作者继承结果并标记 `legacyFallback=true`，不会根据请求时间生成随机或临时内容。
+`verification.proofStatus` 只输出 `ready`、`failed` 或 `unavailable`，不泄漏失败详情、后台 principal、草稿、审计上下文或密钥。旧文章没有责任快照时，输出确定性的站点作者继承结果并标记 `legacyFallback=true`，不会根据请求时间生成随机或临时内容。早于 revision 表的公开旧文章在 current 端点中使用 `revisionNo=0`、`proofStatus=unavailable` 和当前文章 proof URL；指定不存在的历史 revision 仍返回 404。
 
 ## 迁移
 

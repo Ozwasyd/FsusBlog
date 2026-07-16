@@ -165,6 +165,7 @@
             <div class="article-summary-field mt-2">
               <el-input
                 v-model="form.summary"
+                :csp-safe="true"
                 name="articleSummary"
                 type="textarea"
                 :rows="10"

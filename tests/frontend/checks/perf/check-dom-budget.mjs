@@ -17,8 +17,9 @@ const baseUrl = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_B
 const strict = process.env.FSUSBLOG_DOM_BUDGET_STRICT === '1'
 const routeArgIndex = process.argv.indexOf('--route')
 const routeFilter = routeArgIndex >= 0 ? process.argv[routeArgIndex + 1] : ''
+const resume = process.argv.includes('--resume')
 
-const routeBudgets = [
+const allRouteBudgets = [
   { id: 'public-home', path: '/', nodeSoft: 1200, nodeHard: 2200, depthHard: 28 },
   { id: 'public-archive', path: '/archive', nodeSoft: 1200, nodeHard: 2200, depthHard: 28 },
   { id: 'article-detail-normal', path: `/article/${process.env.FSUSBLOG_DOM_BUDGET_ARTICLE_ID || '1'}`, nodeSoft: 1800, nodeHard: 3600, depthHard: 34 },
@@ -39,7 +40,28 @@ const routeBudgets = [
   { id: 'manage-settings', path: '/user/manage/settings', nodeSoft: 2600, nodeHard: 4600, depthHard: 36 },
   { id: 'manage-users', path: '/user/manage/users', nodeSoft: 3000, nodeHard: 5200, depthHard: 38 },
   { id: 'manage-messages', path: '/user/manage/messages', nodeSoft: 2800, nodeHard: 5000, depthHard: 38 }
-].filter((route) => !routeFilter || route.path === routeFilter || route.id === routeFilter)
+]
+
+function readCompletedRoute(route) {
+  if (!resume || routeFilter) return null
+  const file = path.join(outDir, `${route.id}.json`)
+  if (!fs.existsSync(file)) return null
+  try {
+    const result = JSON.parse(fs.readFileSync(file, 'utf8'))
+    return result.id === route.id && result.path === route.path && result.status === 'ok'
+      ? result
+      : null
+  } catch {
+    return null
+  }
+}
+
+const completedResults = allRouteBudgets.map(readCompletedRoute).filter(Boolean)
+const completedIds = new Set(completedResults.map((result) => result.id))
+const routeBudgets = allRouteBudgets.filter((route) => (
+  (!routeFilter || route.path === routeFilter || route.id === routeFilter)
+  && !completedIds.has(route.id)
+))
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true })
@@ -97,8 +119,10 @@ async function collectRouteMetrics(page, route) {
       elementPlusRootCount: document.querySelectorAll('[class*="el-"]').length,
       tableRowCount: document.querySelectorAll('tr, .el-table__row, .user-mobile-card, .messages-conversation-entry').length,
       interactiveControlCount: document.querySelectorAll('button, a[href], input, textarea, select, [role="button"], .el-button').length,
-      longTaskCount: window.__fsusDomBudgetLongTasks ?? 0,
-      layoutShiftCount: window.__fsusDomBudgetLayoutShifts ?? 0,
+      // This gate owns structural DOM size/depth only. Long tasks and layout
+      // shifts are measured by the dedicated route-render-pressure probe.
+      longTaskCount: null,
+      layoutShiftCount: null,
       largestSubtreeSelector: labelFor(largest?.element),
       largestSubtreeNodeCount: largest?.count ?? 0,
       jsHeapBytes: performance.memory?.usedJSHeapSize ?? null
@@ -145,47 +169,66 @@ function writeReleaseSummary(summary) {
   fs.writeFileSync(releaseSummaryFile, `${JSON.stringify(next, null, 2)}\n`)
 }
 
-async function main() {
-  ensureDir(outDir)
-  const browser = await chromium.launch(systemChromiumLaunchOptions({ headless: true }))
+async function openMeasurementBrowser() {
+  const browser = await chromium.launch(systemChromiumLaunchOptions({
+    headless: true,
+    // DOM cardinality and depth do not depend on GPU compositing. Keeping this
+    // structural probe off SwiftShader avoids host-specific SIGILL exits.
+    args: ['--disable-gpu']
+  }))
   const context = await browser.newContext({
     baseURL: baseUrl,
     extraHTTPHeaders: process.env.FSUSBLOG_TEST_SESSION
       ? { 'X-Fsus-Test-Session': process.env.FSUSBLOG_TEST_SESSION }
       : undefined
   })
-  await context.addInitScript(() => {
-    window.__fsusDomBudgetLongTasks = 0
-    window.__fsusDomBudgetLayoutShifts = 0
-    try {
-      new PerformanceObserver((list) => {
-        window.__fsusDomBudgetLongTasks += list.getEntries().length
-      }).observe({ entryTypes: ['longtask'] })
-      new PerformanceObserver((list) => {
-        window.__fsusDomBudgetLayoutShifts += list.getEntries().length
-      }).observe({ entryTypes: ['layout-shift'] })
-    } catch {
-      // Older browser engines may not expose these entry types.
-    }
-  })
+  return { browser, context }
+}
 
-  const results = []
+function isBrowserExit(error) {
+  return /Target page, context or browser has been closed|browser has disconnected/iu.test(
+    error instanceof Error ? error.message : String(error)
+  )
+}
+
+async function main() {
+  ensureDir(outDir)
+  const results = [...completedResults]
+  let browser = null
+  let context = null
   try {
     for (const route of routeBudgets) {
-      const page = await context.newPage()
-      try {
-        const result = await collectRouteMetrics(page, route)
-        results.push(result)
-        fs.writeFileSync(path.join(outDir, `${route.id}.json`), `${JSON.stringify(result, null, 2)}\n`)
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        throw new Error(`route ${route.id} (${route.path}) failed: ${message}`)
-      } finally {
-        await page.close().catch(() => {})
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        if (!browser?.isConnected() || !context) {
+          const measurement = await openMeasurementBrowser()
+          browser = measurement.browser
+          context = measurement.context
+        }
+        const page = await context.newPage()
+        try {
+          const result = await collectRouteMetrics(page, route)
+          results.push(result)
+          fs.writeFileSync(path.join(outDir, `${route.id}.json`), `${JSON.stringify(result, null, 2)}\n`)
+          break
+        } catch (error) {
+          if (attempt === 1 && isBrowserExit(error)) {
+            console.warn(`[dom-budget] browser exited during ${route.id}; restarting this route once`)
+            await context.close().catch(() => {})
+            await browser.close().catch(() => {})
+            context = null
+            browser = null
+            continue
+          }
+          const message = error instanceof Error ? error.message : String(error)
+          throw new Error(`route ${route.id} (${route.path}) failed: ${message}`)
+        } finally {
+          await page.close().catch(() => {})
+        }
       }
     }
   } finally {
-    await browser.close()
+    await context?.close().catch(() => {})
+    await browser?.close().catch(() => {})
   }
 
   const violationCount = results.reduce((count, item) => count + item.violations.length, 0)
@@ -196,6 +239,8 @@ async function main() {
     baseUrl,
     strict,
     routeCount: results.length,
+    resumedRouteCount: completedResults.length,
+    executedRouteCount: routeBudgets.length,
     warningCount,
     violationCount,
     routes: results

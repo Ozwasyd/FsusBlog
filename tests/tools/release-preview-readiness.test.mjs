@@ -18,6 +18,7 @@ import {
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const bootstrapSource = fs.readFileSync(path.join(repositoryRoot, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
+const viteConfigSource = fs.readFileSync(path.join(repositoryRoot, 'src/frontend/vite.config.ts'), 'utf8')
 
 function createBuildFixture(t, runId = 'production-fresh-1') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-preview-'))
@@ -182,4 +183,13 @@ test('bootstrap validates the build marker before reuse/start and publishes only
   assert.ok(apiReady > start)
   assert.ok(publish > apiReady)
   assert.match(bootstrapSource, /rm -f "\$ROOT_DIR\/\.tmp\/test-runs\/\$FSUSBLOG_TEST_RUN_ID\/release-preview-ready\.json"/u)
+  assert.match(
+    bootstrapSource.slice(start, apiReady),
+    /VITE_API_BASE_URL="\$DEBUG_BACKEND_URL" VITE_PUBLIC_SHELL_PROXY=1[\s\\]*npm exec -- vite preview/u
+  )
+  assert.match(viteConfigSource, /const releasePreviewApplicationProxy:[\s\S]*?SSR nonce, redirects, real 404s, and integrity APIs/u)
+  assert.match(viteConfigSource, /publicSeoProxy:[\s\S]*?searchParams\.has\('fsus-preview-proof'\)[\s\S]*?return '\/index\.html'/u)
+  assert.match(viteConfigSource, /const sharedApiProxy:[\s\S]*?'\^\/integrity\(\?:\/\|\$\)': publicSeoProxy/u)
+  assert.match(viteConfigSource, /preview:[\s\S]*?\.\.\.sharedApiProxy,[\s\S]*?\.\.\.publicRouteProxy,[\s\S]*?\.\.\.releasePreviewApplicationProxy/u)
+  assert.match(viteConfigSource, /build:\s*\{[\s\S]*?modulePreload:\s*false/u)
 })

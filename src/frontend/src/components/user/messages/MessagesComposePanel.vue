@@ -29,6 +29,7 @@
             <el-input
               :model-value="systemBody"
               :name="mobile ? 'systemBodyMobile' : 'systemBodyDesktop'"
+              :csp-safe="true"
               type="textarea"
               :rows="4"
               maxlength="4000"
@@ -55,6 +56,7 @@
             <el-input
               :model-value="createBody"
               :name="mobile ? 'ticketBodyMobile' : 'ticketBodyDesktop'"
+              :csp-safe="true"
               type="textarea"
               :rows="4"
               maxlength="4000"

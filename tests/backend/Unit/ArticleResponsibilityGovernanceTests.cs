@@ -92,6 +92,21 @@ public sealed class ArticleResponsibilityGovernanceTests
     }
 
     [Fact]
+    public void PreRevisionLegacyFallback_IsStableAndDoesNotInventRevisionProof()
+    {
+        ArticleResponsibilityManifestResponse manifest =
+            ArticleResponsibilityManifestService.BuildPreRevisionLegacyFallback(42, " Site Author ");
+
+        Assert.Equal(0, manifest.RevisionNo);
+        Assert.True(manifest.InheritsSiteAuthor);
+        Assert.True(manifest.LegacyFallback);
+        Assert.Equal("Site Author", Assert.Single(manifest.Authors).Name);
+        Assert.Equal("/integrity/article/42", manifest.Verification.Url);
+        Assert.Equal("unavailable", manifest.Verification.ProofStatus);
+        Assert.Null(manifest.Verification.ContentHash);
+    }
+
+    [Fact]
     public void PublicManifestContract_DoesNotExposePrivateAuditOrFailureDetailFields()
     {
         string[] names = typeof(ArticleResponsibilityManifestResponse).GetProperties()

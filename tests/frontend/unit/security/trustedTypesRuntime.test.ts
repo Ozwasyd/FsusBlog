@@ -5,6 +5,9 @@ import {
   setCommentPrivacyProverScriptUrl,
   setNonExecutableScriptText,
   setSanitizedTemplateHtml,
+  toTrustedApplicationWorkerScriptUrl,
+  toTrustedMarkdownWorkerScriptUrl,
+  toTrustedServiceWorkerScriptUrl,
   toTrustedSanitizedHtml
 } from '@/security/trustedTypesRuntime'
 
@@ -89,6 +92,64 @@ describe('trustedTypesRuntime', () => {
     executableScript.type = 'module'
     expect(() => setNonExecutableScriptText(executableScript, 'alert(1)'))
       .toThrow('trusted_types_executable_script_text_rejected')
+  })
+
+  it('only trusts the same-origin hashed markdown renderer worker artifact', () => {
+    const workerUrl = new URL('/assets/markdown-renderer.worker-Abc_123.js', globalThis.location.href)
+    const trustedWorkerUrl = toTrustedMarkdownWorkerScriptUrl(workerUrl)
+
+    expect(String(trustedWorkerUrl)).toBe(workerUrl.href)
+    expect(() => toTrustedMarkdownWorkerScriptUrl('/assets/markdown-renderer.worker.js'))
+      .toThrow('markdown_renderer_worker_artifact_invalid')
+    expect(() => toTrustedMarkdownWorkerScriptUrl('/assets/other.worker-Abc_123.js'))
+      .toThrow('markdown_renderer_worker_artifact_invalid')
+    expect(() => toTrustedMarkdownWorkerScriptUrl(`${workerUrl.href}?replace=1`))
+      .toThrow('markdown_renderer_worker_artifact_invalid')
+    expect(() => toTrustedMarkdownWorkerScriptUrl(`${workerUrl.href}#replace`))
+      .toThrow('markdown_renderer_worker_artifact_invalid')
+    expect(() => toTrustedMarkdownWorkerScriptUrl('https://evil.example/markdown-renderer.worker-Abc_123.js'))
+      .toThrow('markdown_renderer_worker_artifact_invalid')
+  })
+
+  it('only trusts named same-origin application worker artifacts', () => {
+    for (const workerName of [
+      'captcha.worker-Abc_123.js',
+      'commentPrivacy.worker-Abc_123.js',
+      'perception-v2.worker-Abc_123.js',
+      'pospace.worker-Abc_123.js',
+      'pow.worker--_vxlx1q.js',
+      'wasmDecode.worker-Abc_123.js'
+    ]) {
+      const workerUrl = new URL(`/assets/${workerName}`, globalThis.location.href)
+      expect(String(toTrustedApplicationWorkerScriptUrl(workerUrl))).toBe(workerUrl.href)
+    }
+
+    const devWorkerUrl = new URL('/src/workers/pow.worker.ts', globalThis.location.href)
+    expect(String(toTrustedApplicationWorkerScriptUrl(devWorkerUrl))).toBe(devWorkerUrl.href)
+
+    expect(() => toTrustedApplicationWorkerScriptUrl('/assets/data-pipeline.worker-Abc_123.js'))
+      .toThrow('application_worker_artifact_invalid')
+    expect(() => toTrustedApplicationWorkerScriptUrl('/assets/pow.worker-Abc_123.js?replace=1'))
+      .toThrow('application_worker_artifact_invalid')
+    expect(() => toTrustedApplicationWorkerScriptUrl('https://evil.example/assets/pow.worker-Abc_123.js'))
+      .toThrow('application_worker_artifact_invalid')
+  })
+
+  it('only trusts the same-origin release service worker artifact', () => {
+    expect(String(toTrustedServiceWorkerScriptUrl('/sw.js')))
+      .toBe(new URL('/sw.js', globalThis.location.href).href)
+    expect(String(toTrustedServiceWorkerScriptUrl('/sw.js?build=release-2026.07.16')))
+      .toBe(new URL('/sw.js?build=release-2026.07.16', globalThis.location.href).href)
+    expect(() => toTrustedServiceWorkerScriptUrl('/sw.js?build=latest'))
+      .toThrow('service_worker_artifact_invalid')
+    expect(() => toTrustedServiceWorkerScriptUrl('/sw.js?replace=1'))
+      .toThrow('service_worker_artifact_invalid')
+    expect(() => toTrustedServiceWorkerScriptUrl('/sw.js?build=release-2026&build=other-2026'))
+      .toThrow('service_worker_artifact_invalid')
+    expect(() => toTrustedServiceWorkerScriptUrl('/sw.js#replace'))
+      .toThrow('service_worker_artifact_invalid')
+    expect(() => toTrustedServiceWorkerScriptUrl('https://evil.example/sw.js'))
+      .toThrow('service_worker_artifact_invalid')
   })
 
   it('fails closed at an enforced sink when the application policy cannot be created', () => {

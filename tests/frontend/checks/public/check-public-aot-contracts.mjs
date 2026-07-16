@@ -48,6 +48,7 @@ function assertStaticContracts() {
   const buildScript = read('tools/frontend/build.mjs')
   const publicSsrBuildScript = read('tools/frontend/build-public-ssr-bundle.mjs')
   const warmScript = read('tools/frontend/warm-public-aot-cache.mjs')
+  const publicAotSidecarPaths = read('tools/frontend/public-aot-sidecar-paths.mjs')
   const viteConfig = read('src/frontend/vite.config.ts')
   const indexHtml = read('src/frontend/index.html')
   const documentComposer = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs')
@@ -143,9 +144,14 @@ function assertStaticContracts() {
   if (warmScript.includes('fetchHtmlUntil')) {
     fail('warm script must not hide the real first response behind retry polling')
   }
-  for (const token of ['syncHydrationSidecarsToPreviewDist', 'FSUSBLOG_SYNC_PUBLIC_AOT_SIDECARS_TO_DIST', 'aot-cache', 'payloads']) {
+  for (const token of ['syncHydrationSidecarsToPreviewDist', 'FSUSBLOG_SYNC_PUBLIC_AOT_SIDECARS_TO_DIST', 'resolvePublicAotSidecarDirectories']) {
     if (!warmScript.includes(token)) {
       fail(`warm script must sync public AOT hydration sidecars into preview dist: ${token}`)
+    }
+  }
+  for (const token of ['aot-cache', 'payloads']) {
+    if (!publicAotSidecarPaths.includes(token)) {
+      fail(`public AOT sidecar path resolver must preserve the preview dist layout: ${token}`)
     }
   }
   if (warmScript.includes('/article/1') || warmScript.includes('publicPaths')) {

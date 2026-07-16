@@ -103,6 +103,7 @@
                 <el-input
                   :model-value="replyBody"
                   name="conversationReply"
+                  :csp-safe="true"
                   type="textarea"
                   :rows="4"
                   maxlength="4000"

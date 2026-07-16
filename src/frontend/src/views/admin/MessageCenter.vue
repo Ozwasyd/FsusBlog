@@ -213,6 +213,7 @@
                   <el-input
                     v-model="replyBody"
                     name="adminConversationReply"
+                    :csp-safe="true"
                     type="textarea"
                     :rows="4"
                     maxlength="4000"
@@ -267,6 +268,7 @@
               <el-input
                 v-model="systemBody"
                 name="adminSystemBody"
+                :csp-safe="true"
                 type="textarea"
                 :rows="4"
                 maxlength="4000"

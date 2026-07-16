@@ -17,7 +17,7 @@
     </button>
 
     <template #dropdown>
-      <el-dropdown-menu aria-label="账号菜单">
+      <el-dropdown-menu>
         <el-dropdown-item
           v-if="currentArea === 'manage' || canManage"
           :command="currentArea === 'manage' ? 'account' : 'manage'"

@@ -9,6 +9,8 @@
       :allow-mermaid="props.allowMermaid"
       :mode="props.mode"
       :base-url="props.baseUrl"
+      :trusted-html-factory="toTrustedSanitizedHtml"
+      :trusted-script-url-factory="toTrustedMarkdownWorkerScriptUrl"
       @features-activated="emit('features-activated', $event)"
       @render-complete="emit('render-complete', $event)"
       @render-error="emit('render-error', $event)"
@@ -19,6 +21,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { MarkdownFeatureActivationResult, MarkdownRenderResult } from '@/fsusui/markdown'
+import {
+  toTrustedMarkdownWorkerScriptUrl,
+  toTrustedSanitizedHtml
+} from '@/security/trustedTypesRuntime'
 import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml'
 import '@/assets/markdown.css'
 

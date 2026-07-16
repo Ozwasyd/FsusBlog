@@ -831,6 +831,12 @@ try {
   ]) {
     delete commandManifestEnv[key]
   }
+  // Keep this ordering contract independent of transient host load. The
+  // production caller is scheduler-admitted, so exercise the same explicit
+  // two-slot grant instead of sampling os.loadavg() twice and allowing the
+  // expected and actual worker counts to disagree between those samples.
+  commandManifestEnv.FSUSBLOG_STEP_CPU_BUDGET = '2'
+  commandManifestEnv.FSUSBLOG_STEP_MEMORY_GIB = '1'
   commandManifestEnv.FSUSBLOG_COMMAND_MANIFEST_WORKERS = '2'
   const commandManifestWorkers = commandManifest.resolveManifestWorkers({ env: commandManifestEnv })
   const overlapExpected = commandManifestWorkers > 1

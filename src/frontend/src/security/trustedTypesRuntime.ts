@@ -16,6 +16,12 @@ type TrustedTypePolicyFactoryLike = {
 
 const APP_POLICY_NAME = 'fsusblog'
 const COMMENT_PRIVACY_PROVER_MODULE_PATH = '/wasm/comment-privacy-prover.js'
+const MARKDOWN_RENDERER_WORKER_PATH = /^\/assets\/markdown-renderer\.worker-[A-Za-z0-9_-]+\.js$/u
+const APPLICATION_WORKER_PATH = /^\/assets\/(?:captcha|commentPrivacy|perception-v2|pospace|pow|wasmDecode)\.worker-[A-Za-z0-9_-]+\.js$/u
+const APPLICATION_WORKER_DEV_SOURCE_PATH = /^\/src\/workers\/(?:(?:pow|wasmDecode)\.worker|security\/(?:captcha|perception-v2|pospace)\.worker|privacy\/commentPrivacy\.worker)\.ts$/u
+const SERVICE_WORKER_MODULE_PATH = '/sw.js'
+const IMMUTABLE_BUILD_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u
+const MUTABLE_BUILD_IDS = new Set(['latest', 'current', 'final-current'])
 const NON_EXECUTABLE_SCRIPT_TYPES = new Set([
   'application/json',
   'application/ld+json',
@@ -52,11 +58,60 @@ export function setCommentPrivacyProverScriptUrl(script: HTMLScriptElement, modu
 }
 
 export function resolveCommentPrivacyProverModuleUrl(moduleUrl: string): string {
-  const resolved = resolveApplicationUrl(moduleUrl)
+  const resolved = resolveApplicationUrl(moduleUrl, 'comment_privacy_prover_artifact_invalid')
   if (resolved.pathname !== COMMENT_PRIVACY_PROVER_MODULE_PATH || resolved.search || resolved.hash) {
     throw new Error('comment_privacy_prover_artifact_invalid')
   }
   return resolved.href
+}
+
+export function toTrustedMarkdownWorkerScriptUrl(moduleUrl: URL | string): unknown {
+  const resolved = resolveApplicationUrl(
+    String(moduleUrl),
+    'markdown_renderer_worker_artifact_invalid'
+  )
+  if (!MARKDOWN_RENDERER_WORKER_PATH.test(resolved.pathname) || resolved.search || resolved.hash) {
+    throw new Error('markdown_renderer_worker_artifact_invalid')
+  }
+  const policy = getAppPolicy()
+  return policy?.createScriptURL(resolved.href) ?? resolved.href
+}
+
+export function toTrustedApplicationWorkerScriptUrl(moduleUrl: URL | string): unknown {
+  const resolved = resolveApplicationUrl(
+    String(moduleUrl),
+    'application_worker_artifact_invalid'
+  )
+  const isProductionAsset = APPLICATION_WORKER_PATH.test(resolved.pathname)
+  const isDevelopmentSource = import.meta.env.DEV
+    && APPLICATION_WORKER_DEV_SOURCE_PATH.test(resolved.pathname)
+  if ((!isProductionAsset && !isDevelopmentSource)
+    || isProductionAsset && resolved.search
+    || resolved.hash) {
+    throw new Error('application_worker_artifact_invalid')
+  }
+  const policy = getAppPolicy()
+  return policy?.createScriptURL(resolved.href) ?? resolved.href
+}
+
+export function toTrustedServiceWorkerScriptUrl(moduleUrl: string): unknown {
+  const resolved = resolveApplicationUrl(
+    moduleUrl,
+    'service_worker_artifact_invalid'
+  )
+  const buildIds = resolved.searchParams.getAll('build')
+  const hasValidBuildId = buildIds.length === 0
+    || buildIds.length === 1
+      && IMMUTABLE_BUILD_ID.test(buildIds[0] ?? '')
+      && !MUTABLE_BUILD_IDS.has((buildIds[0] ?? '').toLowerCase())
+  if (resolved.pathname !== SERVICE_WORKER_MODULE_PATH
+    || resolved.hash
+    || [...resolved.searchParams.keys()].some(key => key !== 'build')
+    || !hasValidBuildId) {
+    throw new Error('service_worker_artifact_invalid')
+  }
+  const policy = getAppPolicy()
+  return policy?.createScriptURL(resolved.href) ?? resolved.href
 }
 
 export function resetTrustedTypesRuntimeForTests(): void {
@@ -93,10 +148,10 @@ function assertSanitizedHtml(value: string): void {
   }
 }
 
-function resolveApplicationUrl(value: string): URL {
+function resolveApplicationUrl(value: string, invalidArtifactError: string): URL {
   const raw = value.trim()
   if (!raw) {
-    throw new Error('comment_privacy_prover_artifact_invalid')
+    throw new Error(invalidArtifactError)
   }
   const runtimeLocation = typeof globalThis.location === 'undefined' ? null : globalThis.location
   const baseHref = runtimeLocation?.href ?? 'http://localhost/'
@@ -104,11 +159,11 @@ function resolveApplicationUrl(value: string): URL {
   try {
     resolved = new URL(raw, baseHref)
   } catch {
-    throw new Error('comment_privacy_prover_artifact_invalid')
+    throw new Error(invalidArtifactError)
   }
   const expectedOrigin = runtimeLocation?.origin || new URL(baseHref).origin
   if (resolved.origin !== expectedOrigin || resolved.username || resolved.password) {
-    throw new Error('comment_privacy_prover_artifact_invalid')
+    throw new Error(invalidArtifactError)
   }
   return resolved
 }

@@ -8,7 +8,10 @@ import {
   runFrontendBuildStageDag,
   validateFrontendBuildStages
 } from '../../tools/frontend/build-stage-dag.mjs'
-import { createFrontendBuildStages } from '../../tools/frontend/build.mjs'
+import {
+  createFrontendBuildStages,
+  renderStableSpaEntryAlias
+} from '../../tools/frontend/build.mjs'
 
 function resources(overrides = {}) {
   return {
@@ -101,6 +104,17 @@ test('release build declares independent prebuild stages and explicit postbuild 
   assert.match(
     byId.get('sync-fsusui-markdown-runtime-assets').consumedInputs[0],
     /(?:FsusUI\/vue\/packages\/wasm\/dist|node_modules\/@ozwasyd\/element-plus\/es\/wasm\/dist)$/u
+  )
+})
+
+test('stable SPA entry preserves the hashed entry as the only module identity', () => {
+  assert.equal(
+    renderStableSpaEntryAlias('index-Abc_123.js'),
+    "import './index-Abc_123.js';\n"
+  )
+  assert.throws(
+    () => renderStableSpaEntryAlias('../index-escape.js'),
+    /stable spa entry alias target is invalid/u
   )
 })
 

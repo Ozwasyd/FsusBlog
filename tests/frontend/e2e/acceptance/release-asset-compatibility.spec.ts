@@ -48,9 +48,13 @@ test.describe('release asset compatibility drill', () => {
     const observations: RequestObservation[] = []
     const consoleErrors: string[] = []
     const networkFailures: string[] = []
+    const httpFailures: string[] = []
     page.on('console', event => { if (event.type() === 'error') consoleErrors.push(event.text()) })
     page.on('pageerror', error => consoleErrors.push(error.message))
     page.on('requestfailed', request => networkFailures.push(`${request.url()}: ${request.failure()?.errorText ?? 'unknown'}`))
+    page.on('response', response => {
+      if (response.status() >= 400) httpFailures.push(`${response.status()}:${response.url()}`)
+    })
     const delayedRequestArrivals = new Set<string>()
     let oldServiceWorkerArrived = false
     const compatibilityCalls: Array<{ client: string | undefined, server: string }> = []
@@ -93,6 +97,7 @@ test.describe('release asset compatibility drill', () => {
     const oldIndex = Buffer.from(`<!doctype html>
       <html><head>
         <meta charset="utf-8">
+        <link rel="icon" href="data:,">
         <script>
           globalThis.__FSUS_INDEX_PHASE__ = 'before-switch'
           navigator.serviceWorker.register('${oldPaths.serviceWorker}', { scope: '/', updateViaCache: 'none' })
@@ -105,7 +110,7 @@ test.describe('release asset compatibility drill', () => {
         <script type="module" src="${oldPaths.javascript}"></script>
       </head><body><main id="old-release">N-1 page</main></body></html>`)
     const newIndex = Buffer.from(`<!doctype html>
-      <html><head><meta charset="utf-8"><script type="module" src="${newPaths.javascript}"></script></head>
+      <html><head><meta charset="utf-8"><link rel="icon" href="data:,"><script type="module" src="${newPaths.javascript}"></script></head>
       <body><main id="new-release">N page after rollback</main></body></html>`)
     const serviceWorker = Buffer.from(`
       const CACHE = 'fsus-static-v4:${OLD_RELEASE}'
@@ -323,6 +328,8 @@ test.describe('release asset compatibility drill', () => {
         { client: NEW_RELEASE, server: OLD_RELEASE }
       ]))
       expect(browser.version()).not.toBe('')
+      expect(observations.filter(item => item.status >= 400)).toEqual([])
+      expect(httpFailures).toEqual([])
       expect(consoleErrors).toEqual([])
       expect(networkFailures).toEqual([])
     } finally {

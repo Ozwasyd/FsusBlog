@@ -15,6 +15,7 @@
  *
  * Usage:
  *   FSUSBLOG_BASE_URL=http://127.0.0.1:7568 node ../../tests/frontend/checks/public/check-public-refresh-hydration.mjs
+ *   FSUSBLOG_PUBLIC_HYDRATION_SCENARIOS=takeover-settings-drift FSUSBLOG_PUBLIC_HYDRATION_VIEWPORTS=mobile ...
  */
 import { createRequire } from 'node:module'
 import os from 'node:os'
@@ -59,6 +60,7 @@ const PUBLIC_SSR_ENTRY_URL = pathToFileURL(resolve(
 const PUBLIC_HYDRATION_DETECTOR_SCHEMA = 'fsusblog.public-hydration-detector.v1'
 const PUBLIC_HYDRATION_DETECTOR_SUMMARY_FILE = process.env.FSUSBLOG_PUBLIC_HYDRATION_SUMMARY_FILE
   || fileURLToPath(new URL('../../../../.tmp/release-evidence/public-hydration-detector-summary.json', import.meta.url))
+const PUBLIC_HYDRATION_RESUME_SUMMARY_FILE = process.env.FSUSBLOG_PUBLIC_HYDRATION_RESUME_SUMMARY_FILE || ''
 const PUBLIC_HYDRATION_BROWSER = 'chromium'
 const PUBLIC_HYDRATION_ROUTE_PHASE_MATRIX_SCHEMA = 'fsusblog.public-hydration-route-phase-matrix.v1'
 const PUBLIC_PAGE_MANIFEST_FILE = fileURLToPath(
@@ -194,6 +196,49 @@ const PUBLIC_INTERACTION_ONLY_SCENARIOS = [
 function parsePositiveInt(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ''), 10)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function selectNamedEntries(entries, rawSelection, label) {
+  const requested = new Set(String(rawSelection ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean))
+  if (requested.size === 0) {
+    return entries
+  }
+
+  const selected = entries.filter((entry) => requested.has(entry.name))
+  const selectedNames = new Set(selected.map((entry) => entry.name))
+  const unknown = [...requested].filter((name) => !selectedNames.has(name))
+  if (unknown.length > 0) {
+    throw new Error(`unknown ${label} selection: ${unknown.join(', ')}`)
+  }
+  return selected
+}
+
+function hydrationCellKey(routeName, viewportName) {
+  return `${routeName}\0${viewportName}`
+}
+
+function loadHydrationResume(baseUrl) {
+  if (!PUBLIC_HYDRATION_RESUME_SUMMARY_FILE) {
+    return null
+  }
+  const previous = JSON.parse(readFileSync(PUBLIC_HYDRATION_RESUME_SUMMARY_FILE, 'utf8'))
+  if (previous.schema !== PUBLIC_HYDRATION_DETECTOR_SCHEMA || previous.baseUrl !== baseUrl) {
+    throw new Error('public hydration resume summary does not match the current schema and base URL')
+  }
+  const failedCells = new Set((previous.routesChecked ?? [])
+    .filter((entry) => entry.status !== 'success')
+    .map((entry) => hydrationCellKey(entry.routeName, entry.viewport?.name)))
+  if (failedCells.size === 0) {
+    throw new Error('public hydration resume summary has no failed route cells')
+  }
+  return { previous, failedCells }
+}
+
+function belongsToHydrationCells(entry, cells) {
+  return cells.has(hydrationCellKey(entry.routeName, entry.viewport?.name))
 }
 
 function isHydrationIssue(text) {
@@ -839,7 +884,13 @@ async function replaceHydrationRawForTakeover(page, rawPayload) {
   await page.evaluate((raw) => {
     const script = document.getElementById('fsus-aot-hydration-props')
     if (script) {
-      script.textContent = raw
+      // The release CSP enforces Trusted Types for script sinks. This fixture
+      // models the server-provided, non-executable payload without weakening
+      // that policy or creating a duplicate application Trusted Types policy.
+      while (script.firstChild) {
+        script.removeChild(script.firstChild)
+      }
+      script.appendChild(document.createTextNode(raw))
     }
     window.__FSUS_PUBLIC_HYDRATION_RAW__ = raw
   }, rawPayload)
@@ -1582,12 +1633,29 @@ async function buildPublicHydrationScenarios(baseUrl) {
 
 async function main() {
   const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
-  const viewports = [
+  const resume = loadHydrationResume(baseUrl)
+  if (resume && (process.env.FSUSBLOG_PUBLIC_HYDRATION_SCENARIOS || process.env.FSUSBLOG_PUBLIC_HYDRATION_VIEWPORTS)) {
+    throw new Error('public hydration resume cannot be combined with explicit scenario or viewport selections')
+  }
+  const allViewports = [
     { name: 'desktop', width: 1440, height: 900 },
     { name: 'mobile', width: 390, height: 844 },
   ]
-  const scenarios = await buildPublicHydrationScenarios(baseUrl)
-  const routeMatrix = assertScenarioCoverageAgainstPublicPageManifest(scenarios)
+  const allScenarios = await buildPublicHydrationScenarios(baseUrl)
+  const routeMatrix = assertScenarioCoverageAgainstPublicPageManifest(allScenarios)
+  const viewports = resume ? allViewports : selectNamedEntries(
+      allViewports,
+      process.env.FSUSBLOG_PUBLIC_HYDRATION_VIEWPORTS,
+      'public hydration viewport'
+    )
+  const scenarios = resume ? allScenarios : selectNamedEntries(
+      allScenarios,
+      process.env.FSUSBLOG_PUBLIC_HYDRATION_SCENARIOS,
+      'public hydration scenario'
+    )
+  const preservePrevious = (field) => resume
+    ? (resume.previous[field] ?? []).filter((entry) => !belongsToHydrationCells(entry, resume.failedCells))
+    : []
   const summary = {
     schema: PUBLIC_HYDRATION_DETECTOR_SCHEMA,
     routePhaseMatrixSchema: PUBLIC_HYDRATION_ROUTE_PHASE_MATRIX_SCHEMA,
@@ -1596,11 +1664,20 @@ async function main() {
     generatedAt: new Date().toISOString(),
     fatalHydrationIssueCount: 0,
     routeMatrix,
-    phaseResults: [],
-    routesChecked: [],
-    warnings: [],
-    errors: [],
+    selection: {
+      scenarios: scenarios.map((scenario) => scenario.name),
+      viewports: viewports.map((viewport) => viewport.name),
+    },
+    phaseResults: preservePrevious('phaseResults'),
+    routesChecked: preservePrevious('routesChecked'),
+    warnings: preservePrevious('warnings'),
+    errors: preservePrevious('errors'),
     canary: null,
+    resume: resume ? {
+      source: PUBLIC_HYDRATION_RESUME_SUMMARY_FILE,
+      previousGeneratedAt: resume.previous.generatedAt,
+      rerunCells: [...resume.failedCells],
+    } : null,
   }
 
   try {
@@ -1670,7 +1747,7 @@ async function main() {
   }
 
   let failedCount = 0
-  let passedCount = 0
+  let passedCount = summary.routesChecked.filter((entry) => entry.status === 'success').length
   const allResults = []
   // Contexts retain per-scenario storage and cache isolation. Reusing the
   // browser process avoids 32 cold Chromium launches competing with the
@@ -1683,6 +1760,9 @@ async function main() {
 
   for (const vp of viewports) {
     for (const route of scenarios) {
+      if (resume && !resume.failedCells.has(hydrationCellKey(route.name, vp.name))) {
+        continue
+      }
       const label = `[${vp.name} ${route.name} ${route.route}]`
       process.stdout.write(`Testing ${label}... `)
       const result = await runRoute(routeBrowser, baseUrl, route, { width: vp.width, height: vp.height })

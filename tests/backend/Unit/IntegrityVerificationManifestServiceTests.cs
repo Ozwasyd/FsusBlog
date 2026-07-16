@@ -1,9 +1,11 @@
 using System.Text.Json;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using NSubstitute;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -14,6 +16,34 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
 {
     private static readonly SemaphoreSlim DatabaseResetLock = new(1, 1);
     private static string? sharedConnectionString;
+
+    [Fact]
+    public async Task GetCurrentResponsibilityAsync_PublicPreRevisionArticleReturnsDeterministicLegacyFallback()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        SeedArticle(db, articleId: 910001, ArticleStatus.Published);
+        IAotSeoConfigSnapshot seo = Substitute.For<IAotSeoConfigSnapshot>();
+        seo.GetAsync(Arg.Any<CancellationToken>()).Returns(
+            new PublicAotSeoSnapshot("Fsus", "Blog", "https://example.test", SiteAuthor: "Site Author"));
+        var service = new ArticleResponsibilityManifestService(db, seo);
+
+        IntegrityManifestResult current = await service.GetCurrentAsync(910001, CancellationToken.None);
+        IntegrityManifestResult historical = await service.GetRevisionAsync(910001, 1, CancellationToken.None);
+
+        Assert.Equal(StatusCodes.Status200OK, current.StatusCode);
+        Assert.Equal(IntegrityVerificationCacheHeaders.PublicManifest, current.CacheControl);
+        ArticleResponsibilityManifestResponse manifest = Assert.IsType<ArticleResponsibilityManifestResponse>(current.Body);
+        Assert.Equal(910001, manifest.ArticleId);
+        Assert.Equal(0, manifest.RevisionNo);
+        Assert.True(manifest.InheritsSiteAuthor);
+        Assert.True(manifest.LegacyFallback);
+        Assert.Equal("Site Author", Assert.Single(manifest.Authors).Name);
+        Assert.Equal("unavailable", manifest.Verification.ProofStatus);
+        Assert.Equal("/integrity/article/910001", manifest.Verification.Url);
+
+        Assert.Equal(StatusCodes.Status404NotFound, historical.StatusCode);
+        Assert.Equal(IntegrityVerificationCacheHeaders.NoStore, historical.CacheControl);
+    }
 
     [Fact]
     public async Task GetCurrentArticleProofAsync_PublicReadyProofReturnsImmutableVerificationPayload()
@@ -196,6 +226,8 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
         => PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(Article),
+            typeof(ArticleRevision),
+            typeof(ArticleResponsibilitySnapshot),
             typeof(ArticleRightsPolicy),
             typeof(ArticleRightsSnapshot),
             typeof(ArticleRightsProof),

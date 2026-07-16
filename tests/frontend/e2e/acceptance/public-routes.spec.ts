@@ -218,7 +218,8 @@ test.describe('public SEO head SPA parity', () => {
         const posting = graph.find((node: { '@type'?: string }) => node?.['@type'] === 'BlogPosting')
         const postingImage = typeof posting?.image === 'string' ? posting.image : posting?.image?.url ?? ''
         const image = new Image()
-        image.src = ogImage
+        const metadataImage = new URL(ogImage)
+        image.src = new URL(`${metadataImage.pathname}${metadataImage.search}`, location.origin).href
         await new Promise<void>((resolve, reject) => {
           if (image.complete) {
             image.naturalWidth > 0 ? resolve() : reject(new Error('social image completed without dimensions'))
@@ -431,7 +432,7 @@ test.describe('public CSP nonce enforcement', () => {
     expect(csp).toContain("style-src-attr 'none'")
     expect(csp).not.toContain("style-src-attr 'unsafe-inline'")
     expect(csp).toContain("require-trusted-types-for 'script'")
-    expect(csp).toContain('trusted-types vue fsusblog;')
+    expect(csp).toContain('trusted-types vue fsusblog fsusblog-spa-entry;')
     expect(csp).not.toMatch(/trusted-types\s+(?:\*|default)|allow-duplicates/u)
     expect(csp).toContain('report-uri /api/security/csp-report')
 

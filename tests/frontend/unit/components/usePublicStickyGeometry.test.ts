@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import { defineComponent, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  publicStickyGeometryOwnerSelector,
   publicStickyGeometryTokens,
   publicStickyHeaderSelector,
   usePublicStickyGeometry
@@ -34,7 +35,9 @@ const Probe = defineComponent({
   },
   template: `
     <div ref="root">
-      <header class="el-public-shell__header" data-public-shell-header data-test-height="64"></header>
+      <div data-public-sticky-geometry-owner>
+        <header class="el-public-shell__header" data-public-shell-header data-test-height="64"></header>
+      </div>
     </div>
   `
 })
@@ -79,16 +82,21 @@ describe('usePublicStickyGeometry', () => {
 
     const root = wrapper.element
     const header = root.querySelector<HTMLElement>(publicStickyHeaderSelector)
+    const geometryOwner = root.querySelector<HTMLElement>(publicStickyGeometryOwnerSelector)
     expect(header).not.toBeNull()
+    expect(geometryOwner).not.toBeNull()
     expect(publicStickyGeometryTokens).toEqual({
       headerHeight: '--fsusblog-public-header-height-current',
       stickyTop: '--fsusblog-public-sticky-top',
       anchorOffset: '--fsusblog-public-anchor-offset'
     })
     expect(publicStickyHeaderSelector).toBe('[data-public-shell-header]')
+    expect(publicStickyGeometryOwnerSelector).toBe('[data-public-sticky-geometry-owner]')
     expect(publicStickyHeaderSelector).not.toContain('.el-')
     expect(header?.matches('.el-public-shell__header')).toBe(true)
     expect(root.hasAttribute('style')).toBe(false)
+    expect(root.className).not.toMatch(/fsus-csp-style-/u)
+    expect(geometryOwner?.className).toMatch(/fsus-csp-style-/u)
     const geometryRule = document.head.querySelector<HTMLStyleElement>(
       '[data-fsus-csp-runtime-style="public-sticky-geometry"]'
     )?.sheet?.cssRules[0] as CSSStyleRule | undefined

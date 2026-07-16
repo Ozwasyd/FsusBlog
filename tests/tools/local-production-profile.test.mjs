@@ -800,7 +800,7 @@ test('backend bundle publishes server readiness before independent tests and ben
   assert.match(localBundleRunner, /resolveFrontendVitestAdmissionFloor\(\{ cpuCount, eventualFrontendCapacity \}\)/u)
   assert.match(localBundleRunner, /function resolvedFrontendEarlyTestCpuTarget\(\) \{[\s\S]*?currentCpuUnits >= 3 \? currentCpuUnits - 1 : currentCpuUnits/u)
   assert.match(frontendBundleRunner, /frontend-early-test-capacity-ready'[\s\S]*?coordinationOnly: true/u)
-  assert.match(frontendBundleRunner, /frontend-test-capacity-ready'[\s\S]*?coordinationOnly: true/u)
+  assert.doesNotMatch(frontendBundleRunner, /commandStep\('frontend-test-capacity-ready'/u)
   assert.match(frontendBundleRunner, /static-governance-concurrent'[\s\S]*?static-governance\.sh concurrent-prechecks'[\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 0\.5, minCpuUnits: 1 \}/u)
   assert.match(frontendBundleRunner, /static-governance-node-contracts'[\s\S]*?static-governance\.sh node-contracts'[\s\S]*?dependsOn: \['vitest-settled'\]/u)
   assert.match(frontendBundleRunner, /static-governance-post-vitest'[\s\S]*?static-governance\.sh post-vitest'[\s\S]*?dependsOn: \['vitest-settled'\]/u)

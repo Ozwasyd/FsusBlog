@@ -1,4 +1,6 @@
 import { AppErrorCode, createAppError } from '@/utils/appError'
+import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime'
+import captchaWorkerUrl from '@/workers/security/captcha.worker.ts?worker&url'
 import type { CaptchaRaster } from '@/../wasm/security/captcha'
 
 export interface CaptchaWorkerSolveResult {
@@ -59,7 +61,9 @@ export function createCaptchaWorkerClient(timeoutMs = DEFAULT_TIMEOUT_MS): Captc
       throw createAppError(AppErrorCode.InfraFailure, 'captcha_worker_unavailable')
     }
 
-    worker = new Worker(new URL('../workers/security/captcha.worker.ts', import.meta.url), {
+    worker = new Worker(toTrustedApplicationWorkerScriptUrl(
+      new URL(captchaWorkerUrl, import.meta.url)
+    ) as string | URL, {
       name: 'FsusCaptchaWorker',
       type: 'module'
     })

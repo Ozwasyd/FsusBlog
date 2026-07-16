@@ -86,6 +86,7 @@
         v-if="commentComposerMode === 'write'"
         ref="editorInputRef"
         v-model="contentModel"
+        :csp-safe="true"
         type="textarea"
         :rows="3"
         :autosize="{ minRows: 3, maxRows: 8 }"

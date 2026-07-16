@@ -178,7 +178,7 @@
         <div class="space-y-4 p-5">
           <el-input v-model="simulation.ip" placeholder="IP" />
           <el-input v-model="simulation.path" placeholder="请求路径" />
-          <el-input v-model="simulation.userAgent" type="textarea" :rows="3" placeholder="User-Agent" />
+          <el-input v-model="simulation.userAgent" :csp-safe="true" type="textarea" :rows="3" placeholder="User-Agent" />
           <el-input-number v-model="simulation.currentRiskScore" class="w-full" :min="0" :max="500" controls-position="right" />
           <el-button type="primary" :loading="simulating" @click="runSimulation">模拟</el-button>
           <div v-if="simulationResult" class="border-t border-[var(--fsusblog-panel-border)] pt-5 text-[12px] leading-6 text-[var(--fsusblog-text-secondary)]">

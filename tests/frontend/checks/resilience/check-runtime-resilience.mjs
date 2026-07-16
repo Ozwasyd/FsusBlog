@@ -20,6 +20,30 @@ const hydrationReadyTimeoutMs = Number.parseInt(process.env.FSUSBLOG_HYDRATION_R
 const require = createRequire(import.meta.url);
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }));
 
+function selectValues(values, rawSelection, label) {
+  const requested = new Set(String(rawSelection ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean));
+  if (requested.size === 0) return values;
+  const selected = values.filter((value) => requested.has(value));
+  const selectedValues = new Set(selected);
+  const unknown = [...requested].filter((value) => !selectedValues.has(value));
+  if (unknown.length > 0) throw new Error(`unknown ${label}: ${unknown.join(', ')}`);
+  return selected;
+}
+
+const resilienceScopes = new Set(selectValues(
+  ['guest', 'user', 'admin', 'mobile'],
+  process.env.FSUSBLOG_RESILIENCE_SCOPES,
+  'runtime resilience scope'
+));
+
+function selectedRoutes(scope, routes) {
+  const envName = `FSUSBLOG_RESILIENCE_${scope.toUpperCase()}_ROUTES`;
+  return selectValues(routes, process.env[envName], `${scope} resilience route`);
+}
+
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
@@ -334,60 +358,68 @@ async function cleanupExtremeArticle(session, id) {
 async function main() {
   const browser = await chromium.launch(systemChromiumLaunchOptions({ headless: true }));
   try {
-    const guest = await newRuntimeContext(browser);
-    const extremeQuery = encodeURIComponent('markdown latex mermaid ' + '<script>'.repeat(40) + ' 边界 搜索')
-    for (const path of ['/', '/search?q=blog', '/search?q=blog&sort=recent', `/search?q=${extremeQuery}`, '/about', '/archive']) {
-      await visitAuditedRoute(guest, path, 'guest');
+    if (resilienceScopes.has('guest')) {
+      const guest = await newRuntimeContext(browser);
+      const extremeQuery = encodeURIComponent('markdown latex mermaid ' + '<script>'.repeat(40) + ' 边界 搜索')
+      for (const path of selectedRoutes('guest', ['/', '/search?q=blog', '/search?q=blog&sort=recent', `/search?q=${extremeQuery}`, '/about', '/archive'])) {
+        await visitAuditedRoute(guest, path, 'guest');
+      }
+      await guest.close();
     }
-    await guest.close();
 
     const userSession = await loginWithFixtureSessionBypass(userName, userPassword, false, 'runtime-user');
     const adminSession = await loginWithFixtureSessionBypass(adminName, adminPassword, false, 'runtime-admin');
-    const userContext = await newRuntimeContext(browser);
-    await addSessionCookies(userContext, userSession);
-    for (const path of ['/user/profile', '/user/messagebox', '/user/comments', '/user/profile', '/']) {
-      await visitAuditedRoute(userContext, path, 'user', { settleMs: 800 });
-    }
-    await userContext.close();
-
-    const adminContext = await newRuntimeContext(browser);
-    await addSessionCookies(adminContext, adminSession);
-    let extremeArticle = null;
-    try {
-      const publicArticle = loadFixtureArticle();
-      await waitForPublicArticleReadable(publicArticle.id);
-      extremeArticle = await createExtremeArticle(adminSession);
-      for (const path of [
-      '/user/manage',
-      '/user/manage/users',
-      '/user/manage/settings',
-      '/user/manage/article/trash',
-      '/user/manage/article/write',
-      `/user/manage/article/edit/${extremeArticle.id}`,
-      `/article/${publicArticle.id}`,
-      '/user/manage',
-      '/search?q=blog'
-      ]) {
-      await visitAuditedRoute(adminContext, path, 'admin', {
-        settleMs: 900,
-        after: path.startsWith('/article/')
-          ? (page) => waitForArticleTitle(page, publicArticle.title)
-          : null
-      });
-    }
-    } finally {
-      if (extremeArticle) {
-        await cleanupExtremeArticle(adminSession, extremeArticle.id);
+    if (resilienceScopes.has('user')) {
+      const userContext = await newRuntimeContext(browser);
+      await addSessionCookies(userContext, userSession);
+      for (const path of selectedRoutes('user', ['/user/profile', '/user/messagebox', '/user/comments', '/user/profile', '/'])) {
+        await visitAuditedRoute(userContext, path, 'user', { settleMs: 800 });
       }
+      await userContext.close();
     }
-    await adminContext.close();
 
-    const mobileAdminContext = await newRuntimeContext(browser, { viewport: { width: 390, height: 844 } });
-    await addSessionCookies(mobileAdminContext, adminSession);
-    for (const path of ['/user/profile', '/user/messagebox', '/user/manage/article/write', '/user/manage/users']) {
-      await visitAuditedRoute(mobileAdminContext, path, 'mobile');
+    if (resilienceScopes.has('admin')) {
+      const adminContext = await newRuntimeContext(browser);
+      await addSessionCookies(adminContext, adminSession);
+      let extremeArticle = null;
+      try {
+        const publicArticle = loadFixtureArticle();
+        await waitForPublicArticleReadable(publicArticle.id);
+        extremeArticle = await createExtremeArticle(adminSession);
+        for (const path of selectedRoutes('admin', [
+          '/user/manage',
+          '/user/manage/users',
+          '/user/manage/settings',
+          '/user/manage/article/trash',
+          '/user/manage/article/write',
+          `/user/manage/article/edit/${extremeArticle.id}`,
+          `/article/${publicArticle.id}`,
+          '/user/manage',
+          '/search?q=blog'
+        ])) {
+          await visitAuditedRoute(adminContext, path, 'admin', {
+            settleMs: 900,
+            after: path.startsWith('/article/')
+              ? (page) => waitForArticleTitle(page, publicArticle.title)
+              : null
+          });
+        }
+      } finally {
+        if (extremeArticle) {
+          await cleanupExtremeArticle(adminSession, extremeArticle.id);
+        }
+      }
+      await adminContext.close();
     }
-    await mobileAdminContext.close();
+
+    if (resilienceScopes.has('mobile')) {
+      const mobileAdminContext = await newRuntimeContext(browser, { viewport: { width: 390, height: 844 } });
+      await addSessionCookies(mobileAdminContext, adminSession);
+      for (const path of selectedRoutes('mobile', ['/user/profile', '/user/messagebox', '/user/manage/article/write', '/user/manage/users'])) {
+        await visitAuditedRoute(mobileAdminContext, path, 'mobile');
+      }
+      await mobileAdminContext.close();
+    }
 
     console.log(`[check-runtime-resilience] ok | frontend=${frontendBaseUrl}`);
   } finally {

@@ -5,6 +5,7 @@
     :aria-label="ariaLabel"
     :nav-aria-label="navAriaLabel"
     :sticky="sticky"
+    :csp-safe="true"
     :max-width="maxWidth"
     :inner-class="innerClass"
     :primary-row-class="primaryRowClass"

@@ -1,4 +1,5 @@
-import { existsSync } from 'node:fs'
+import { existsSync, statfsSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 
 const SYSTEM_CHROMIUM_CANDIDATES = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -16,17 +17,46 @@ export function resolveSystemChromiumExecutablePath() {
     || undefined
 }
 
+function availableBytes(target) {
+  try {
+    const stats = statfsSync(target, { bigint: true })
+    return stats.bavail * stats.bsize
+  } catch {
+    return null
+  }
+}
+
+export function shouldDisableChromiumDevShmUsage() {
+  const sharedMemoryAvailable = availableBytes('/dev/shm')
+  if (sharedMemoryAvailable === null || sharedMemoryAvailable <= 0n) return true
+
+  const temporaryStorageAvailable = availableBytes(tmpdir())
+  if (temporaryStorageAvailable === null) return false
+
+  // Chromium should use whichever machine-backed scratch location currently
+  // has more headroom instead of forcing every host onto disk-backed /tmp.
+  return temporaryStorageAvailable > sharedMemoryAvailable
+}
+
 export function systemChromiumLaunchOptions(options = {}) {
   const executablePath = resolveSystemChromiumExecutablePath()
+  const disableDevShmUsage = shouldDisableChromiumDevShmUsage()
   const args = Array.from(new Set([
     ...(Array.isArray(options.args) ? options.args : []),
     '--no-sandbox',
-    '--disable-dev-shm-usage'
+    ...(disableDevShmUsage ? ['--disable-dev-shm-usage'] : [])
   ]))
+  const ignoreDefaultArgs = options.ignoreDefaultArgs === true
+    ? true
+    : Array.from(new Set([
+        ...(Array.isArray(options.ignoreDefaultArgs) ? options.ignoreDefaultArgs : []),
+        ...(!disableDevShmUsage ? ['--disable-dev-shm-usage'] : [])
+      ]))
 
   return {
     ...options,
     ...(executablePath ? { executablePath } : {}),
+    ...(ignoreDefaultArgs === true || ignoreDefaultArgs.length > 0 ? { ignoreDefaultArgs } : {}),
     args
   }
 }

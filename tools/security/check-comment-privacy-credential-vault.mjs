@@ -27,7 +27,9 @@ const REQUIRED_FILES = [
   'src/frontend/src/utils/safeHtml.ts',
   'src/frontend/src/privacy/commentPrivacyWasmProver.ts',
   'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
-  'deploy/production-openresty.conf'
+  'deploy/production-openresty.conf',
+  'src/frontend/src/components/ui/MarkdownRenderer.vue',
+  'src/frontend/vite.config.ts'
 ]
 
 const REQUIRED_RELEASE_EVIDENCE_IDS = new Set([
@@ -170,15 +172,21 @@ export function validateCommentPrivacyCredentialVaultSources(sources) {
   )
   rejectSource(trustedTypesFile, /createPolicy\(\s*['"](?:default|\*)['"]|allow-duplicates/, 'Trusted Types policy must not use default, wildcard, or duplicate escape hatches')
   expectSource(trustedTypesFile, /COMMENT_PRIVACY_PROVER_MODULE_PATH\s*=\s*['"]\/wasm\/comment-privacy-prover\.js['"][\s\S]*resolved\.origin\s*!==\s*expectedOrigin/, 'prover module URL is exact-path and same-origin only')
+  expectSource(trustedTypesFile, /MARKDOWN_RENDERER_WORKER_PATH\s*=\s*\/\^\\\/assets\\\/markdown-renderer\\\.worker-[\s\S]*toTrustedMarkdownWorkerScriptUrl[\s\S]*!MARKDOWN_RENDERER_WORKER_PATH\.test\(resolved\.pathname\)[\s\S]*resolved\.search[\s\S]*resolved\.hash/, 'Markdown worker URL is hashed-asset-path, same-origin, and query-free only')
+  expectSource(trustedTypesFile, /APPLICATION_WORKER_PATH\s*=\s*\/\^\\\/assets\\\/[\s\S]*toTrustedApplicationWorkerScriptUrl[\s\S]*APPLICATION_WORKER_PATH\.test\(resolved\.pathname\)[\s\S]*APPLICATION_WORKER_DEV_SOURCE_PATH\.test\(resolved\.pathname\)[\s\S]*resolved\.search[\s\S]*resolved\.hash/, 'application worker URLs are named hashed assets, same-origin, and query-free only')
+  expectSource(trustedTypesFile, /SERVICE_WORKER_MODULE_PATH\s*=\s*['"]\/sw\.js['"][\s\S]*toTrustedServiceWorkerScriptUrl[\s\S]*searchParams\.getAll\(['"]build['"]\)[\s\S]*IMMUTABLE_BUILD_ID[\s\S]*MUTABLE_BUILD_IDS/, 'service worker URL is exact-path, same-origin, and immutable-build only')
   expectSource('src/frontend/src/utils/safeHtml.ts', /setSanitizedTemplateHtml\(template,\s*sanitizeHtmlFallback\(html\)\)/, 'HTML parsing enters the audited sanitized TrustedHTML boundary')
   rejectSource('src/frontend/src/utils/safeHtml.ts', /template\.innerHTML\s*=/, 'HTML sanitizer must not assign a raw string to innerHTML')
   expectSource('src/frontend/src/privacy/commentPrivacyWasmProver.ts', /setCommentPrivacyProverScriptUrl\(script,\s*moduleUrl\)/, 'browser prover script URL enters the audited TrustedScriptURL boundary')
   rejectSource('src/frontend/src/privacy/commentPrivacyWasmProver.ts', /script\.src\s*=/, 'privacy prover must not assign a raw string to script.src')
+  expectSource('src/frontend/src/components/ui/MarkdownRenderer.vue', /:trusted-script-url-factory="toTrustedMarkdownWorkerScriptUrl"/, 'Markdown renderer worker enters the audited TrustedScriptURL boundary')
+  expectSource('src/frontend/src/services/serviceWorkerRuntime.ts', /serviceWorker\.register\(toTrustedServiceWorkerScriptUrl\([\s\S]*scriptUrl/, 'service worker registration enters the audited TrustedScriptURL boundary')
+  expectSource('src/frontend/vite.config.ts', /build:\s*\{[\s\S]*?modulePreload:\s*false/, 'Vite runtime modulepreload injection stays disabled under production Trusted Types')
   for (const cspFile of [
     'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
     'deploy/production-openresty.conf'
   ]) {
-    expectSource(cspFile, /require-trusted-types-for 'script'; trusted-types vue fsusblog;/, 'production CSP enforces exact Vue and app Trusted Types policies')
+    expectSource(cspFile, /require-trusted-types-for 'script'; trusted-types vue fsusblog fsusblog-spa-entry;/, 'production CSP enforces exact Vue, app, and fixed SPA entry Trusted Types policies')
     rejectSource(cspFile, /trusted-types\s+(?:\*|default)|allow-duplicates/, 'production CSP must not allow wildcard, default, or duplicate Trusted Types policies')
   }
 

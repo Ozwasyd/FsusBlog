@@ -29,10 +29,12 @@ public static class PublicHotReadFastPathExtensions
         var options = app.ApplicationServices.GetRequiredService<IOptions<PublicHotReadOptions>>().Value;
         var counters = app.ApplicationServices.GetRequiredService<PublicHotReadCounters>();
         var env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
-        bool isDevelopment = env.IsDevelopment();
+        var configuration = app.ApplicationServices.GetService<IConfiguration>();
 
         return app.Use((ctx, next) =>
         {
+            bool isDevelopment = WebApplicationCompositionExtensions
+                .ShouldUseDevelopmentCspPolicy(env, configuration);
             PublicHotReadRequestFeature? feature = ctx.Features.Get<PublicHotReadRequestFeature>();
             return feature is null
                 ? next(ctx)

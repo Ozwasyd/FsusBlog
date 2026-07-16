@@ -92,6 +92,14 @@ function walk(dir) {
         violations.push(`${relativePath}: CSP forbids render-function style props`)
       }
     }
+
+    if (relativePath.endsWith('.vue')) {
+      for (const match of content.matchAll(/<el-input\b[^>]*\btype=["']textarea["'][^>]*>/gu)) {
+        if (!/\b:csp-safe=["']true["']|\bcsp-safe(?:\s|=|\/>)/u.test(match[0])) {
+          violations.push(`${relativePath}: ElInput textarea must enable csp-safe under style-src-attr 'none'`)
+        }
+      }
+    }
   }
 }
 
@@ -150,7 +158,7 @@ for (const header of ['Content-Security-Policy', 'Cross-Origin-Opener-Policy', '
     violations.push(`deploy/production-openresty.conf: missing ${header} response header`)
   }
 }
-for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog;']) {
+for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog fsusblog-spa-entry;']) {
   if (!openResty.includes(token)) {
     violations.push(`deploy/production-openresty.conf: production CSP must include ${token}`)
   }
@@ -175,7 +183,7 @@ if (viteConfig.includes("require-trusted-types-for 'script'") || viteConfig.incl
 const composition = readRepoFile('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs')
 const staticCspSource = composition.slice(
   composition.indexOf('internal static string BuildStaticCsp'),
-  composition.indexOf('private static string BuildHtmlCsp')
+  composition.indexOf('internal static string BuildHtmlCsp')
 )
 for (const token of ["style-src-attr 'none'", 'report-uri /api/security/csp-report']) {
   if (!staticCspSource.includes(token)) {
@@ -185,7 +193,7 @@ for (const token of ["style-src-attr 'none'", 'report-uri /api/security/csp-repo
 if (staticCspSource.includes('wasm-unsafe-eval') || staticCspSource.includes("style-src-attr 'unsafe-inline'")) {
   violations.push('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs: non-HTML CSP must deny Wasm compilation and inline style attributes')
 }
-for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog;']) {
+for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog fsusblog-spa-entry;']) {
   if (!composition.includes(token)) {
     violations.push(`src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs: production CSP must include ${token}`)
   }
@@ -198,9 +206,15 @@ const trustedTypesRuntime = readRepoFile('src/frontend/src/security/trustedTypes
 for (const token of [
   "const APP_POLICY_NAME = 'fsusblog'",
   "const COMMENT_PRIVACY_PROVER_MODULE_PATH = '/wasm/comment-privacy-prover.js'",
+  'const MARKDOWN_RENDERER_WORKER_PATH =',
+  'const APPLICATION_WORKER_PATH =',
+  "const SERVICE_WORKER_MODULE_PATH = '/sw.js'",
   'setSanitizedTemplateHtml',
   'setNonExecutableScriptText',
-  'setCommentPrivacyProverScriptUrl'
+  'setCommentPrivacyProverScriptUrl',
+  'toTrustedMarkdownWorkerScriptUrl',
+  'toTrustedApplicationWorkerScriptUrl',
+  'toTrustedServiceWorkerScriptUrl'
 ]) {
   if (!trustedTypesRuntime.includes(token)) {
     violations.push(`src/frontend/src/security/trustedTypesRuntime.ts: audited Trusted Types boundary must include ${token}`)
@@ -209,6 +223,15 @@ for (const token of [
 if (/createPolicy\(\s*['"](?:default|\*)['"]|allow-duplicates/.test(trustedTypesRuntime)) {
   violations.push('src/frontend/src/security/trustedTypesRuntime.ts: policy must not use default, wildcard, or duplicate escape hatches')
 }
+const publicBlogLayoutShell = readRepoFile('src/frontend/src/components/public/PublicBlogLayoutShell.vue')
+if ((publicBlogLayoutShell.match(/fsusblog-public-shell-runtime/gu) ?? []).length !== 1) {
+  violations.push('src/frontend/src/components/public/PublicBlogLayoutShell.vue: runtime geometry variables must have one cascade owner')
+}
+requireContains(
+  'src/frontend/src/components/public/PublicBlogLayoutShell.vue',
+  "v-bind=\"{ 'data-public-sticky-geometry-owner': '' }\"",
+  'public shell must expose one explicit runtime geometry owner below library fallback variables'
+)
 requireContains(
   'src/frontend/src/utils/safeHtml.ts',
   'setSanitizedTemplateHtml(template, sanitizeHtmlFallback(html))',
@@ -228,6 +251,55 @@ requireNotContains(
   'src/frontend/src/privacy/commentPrivacyWasmProver.ts',
   'script.src =',
   'privacy prover must not assign raw strings to script.src'
+)
+requireContains(
+  'src/frontend/src/components/ui/MarkdownRenderer.vue',
+  ':trusted-script-url-factory="toTrustedMarkdownWorkerScriptUrl"',
+  'Markdown worker must use the hashed-asset TrustedScriptURL wrapper'
+)
+requireContains(
+  'src/frontend/src/services/serviceWorkerRuntime.ts',
+  'serviceWorker.register(toTrustedServiceWorkerScriptUrl(',
+  'service worker registration must use the exact-path TrustedScriptURL wrapper'
+)
+for (const workerRuntime of [
+  'src/frontend/src/services/binaryTransport.ts',
+  'src/frontend/src/composables/usePow.ts',
+  'src/frontend/src/services/securityPoSpaceClient.ts',
+  'src/frontend/src/services/securityPerceptionV2Client.ts',
+  'src/frontend/src/services/securityCaptchaClient.ts',
+  'src/frontend/src/privacy/commentPrivacyWorkerClient.ts'
+]) {
+  requireContains(
+    workerRuntime,
+    'toTrustedApplicationWorkerScriptUrl(',
+    'application Worker must use the named hashed-asset TrustedScriptURL wrapper'
+  )
+  requireNotContains(
+    workerRuntime,
+    'new Worker(new URL(',
+    'application Worker must not receive a raw URL'
+  )
+  requireContains(
+    workerRuntime,
+    '?worker&url',
+    'application Worker must use a Vite-emitted JavaScript asset URL before Trusted Types wrapping'
+  )
+}
+requireNotContains(
+  'src/frontend/src/router/index.ts',
+  "import('nprogress')",
+  'strict-CSP navigation must not load the innerHTML/style-mutating NProgress runtime'
+)
+requireContains(
+  'src/frontend/src/services/navigationProgress.ts',
+  "document.createElement('div')",
+  'navigation progress must build its fixed DOM without innerHTML'
+)
+requireContains(
+  'src/frontend/vite.config.ts',
+  'modulePreload: false',
+  'Vite runtime modulepreload injection must stay disabled under production Trusted Types'
 )
 
 requireContains(

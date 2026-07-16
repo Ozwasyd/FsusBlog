@@ -478,6 +478,16 @@ export default defineConfig(({ command, mode }) => {
     const publicSeoProxy: ProxyOptions = {
         target: apiBaseUrl,
         changeOrigin: false,
+        // The run-bound release readiness probe must observe the immutable
+        // frontend entry from this Vite process. Letting the public-shell
+        // proxy handle it can turn the backend's canonical-root redirect into
+        // a false stale-preview failure before runtime tests even start.
+        bypass: (request) => {
+            const requestUrl = new URL(request.url ?? '/', 'http://release-preview.local')
+            if (requestUrl.pathname === '/' && requestUrl.searchParams.has('fsus-preview-proof')) {
+                return '/index.html'
+            }
+        },
         configure: (proxy: any) => {
             proxy.on('proxyReq', (proxyReq: any, req: any) => {
                 const host = req.headers.host
@@ -504,7 +514,17 @@ export default defineConfig(({ command, mode }) => {
         }
         : {}
 
+    const releasePreviewApplicationProxy: Record<string, ProxyOptions> = enablePublicShellProxy
+        ? {
+            // The release preview serves immutable frontend files itself, but
+            // application routes must keep the backend's production HTTP
+            // semantics (SSR nonce, redirects, real 404s, and integrity APIs).
+            '^/(?!\\.vite(?:/|$)|aot-cache(?:/|$)|assets(?:/|$)|dist(?:/|$)|favicon(?:/|$)|fixtures(?:/|$)|release-assets(?:/|$)|server(?:/|$)|social(?:/|$)|wasm(?:/|$)|manifest\\.webmanifest(?:\\?|$)|public-shell-emergency\\.css(?:\\?|$)|sw\\.js(?:\\?|$)).*$': publicSeoProxy,
+        }
+        : {}
+
     const sharedApiProxy: Record<string, ProxyOptions> = {
+        '^/integrity(?:/|$)': publicSeoProxy,
         '/api': {
             target: apiBaseUrl,
             ws: true,
@@ -613,6 +633,10 @@ export default defineConfig(({ command, mode }) => {
             }
             : undefined,
         build: {
+            // Public AOT owns the audited modulepreload set. Vite's generated
+            // runtime helper assigns raw strings to modulepreload href, which
+            // is a TrustedScriptURL sink under the production CSP.
+            modulePreload: false,
             outDir: process.env.FSUSBLOG_FRONTEND_DIST_ROOT
                 ? path.resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT)
                 : 'dist',
@@ -721,8 +745,9 @@ export default defineConfig(({ command, mode }) => {
             host: '0.0.0.0',
             port: 8080,
             proxy: {
+                ...sharedApiProxy,
                 ...publicRouteProxy,
-                ...sharedApiProxy
+                ...releasePreviewApplicationProxy
             }
         },
         worker: {

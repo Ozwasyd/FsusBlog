@@ -1,5 +1,7 @@
 import type { CommentPrivacyProofBundle, CommentPrivacyProofRequest, CommentPrivacyRevocationWorkerRequest, CommentPrivacyRevocationWorkerResult, CommentPrivacyWorkerClient } from './commentPrivacyTypes'
 import { registerCommentPrivacyCredentialPurgeHandler } from './commentPrivacyCredentialLifecycle'
+import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime'
+import commentPrivacyWorkerUrl from '@/workers/privacy/commentPrivacy.worker.ts?worker&url'
 
 type CommentPrivacyWorkerRequest =
   | {
@@ -168,7 +170,9 @@ export function createCommentPrivacyWorkerClient(options: CommentPrivacyWorkerCl
 
     worker = options.workerFactory
       ? options.workerFactory()
-      : new Worker(new URL('../workers/privacy/commentPrivacy.worker.ts', import.meta.url), {
+      : new Worker(toTrustedApplicationWorkerScriptUrl(
+          new URL(commentPrivacyWorkerUrl, import.meta.url)
+        ) as string | URL, {
           name: 'FsusCommentPrivacyWorker',
           type: 'module'
         })

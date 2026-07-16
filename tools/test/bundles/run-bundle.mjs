@@ -1969,10 +1969,8 @@ async function executeFrontendStep(step) {
     register(step, result)
     return result
   }
-  if (['frontend-early-test-capacity-ready', 'frontend-test-capacity-ready'].includes(step.id)) {
-    const targetCpuUnits = step.id === 'frontend-early-test-capacity-ready'
-      ? resolvedFrontendEarlyTestCpuTarget()
-      : resolvedFrontendTestCpuTarget()
+  if (step.id === 'frontend-early-test-capacity-ready') {
+    const targetCpuUnits = resolvedFrontendEarlyTestCpuTarget()
     const logFile = path.join(logDir, `${step.id}.log`)
     const startedAtMs = Date.now()
     fs.writeFileSync(logFile, '')
@@ -2067,9 +2065,6 @@ async function runFrontendTests() {
     commandStep('frontend-early-test-capacity-ready', ':', [], {
       resources: { coordinationOnly: true }
     }),
-    commandStep('frontend-test-capacity-ready', ':', [], {
-      resources: { coordinationOnly: true }
-    }),
     staticStageStep('concurrent', {
       resources: {
         cpuWeight: 1,
@@ -2079,8 +2074,8 @@ async function runFrontendTests() {
       }
     }),
     // Static governance owns the first early CPU. Once build-static releases
-    // capacity, Vitest starts in the remaining slots; its run-bound barrier
-    // admits the final slot only after this static phase has settled.
+    // capacity, Vitest starts in the remaining slots; its live scheduler grant
+    // expands as this static phase settles and additional CPUs become free.
     commandStep('static-governance-concurrent', 'tools/test/lanes/static-governance.sh concurrent-prechecks', ['static-governance'], {
       dependsOn: ['frontend-build-ready'],
       resources: { cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1 }

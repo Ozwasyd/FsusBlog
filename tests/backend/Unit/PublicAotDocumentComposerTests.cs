@@ -328,6 +328,11 @@ public sealed class PublicAotDocumentComposerTests
         string result = PublicAotDocumentComposer.BuildDeferredSpaBootScript("<html></html>", "/assets/entry.js");
         Assert.Contains("fsus-spa-boot", result);
         Assert.Contains("/assets/entry.js", result);
+        Assert.Contains("createPolicy('fsusblog-spa-entry'", result);
+        Assert.Contains("if (!trustedModuleSources.has(value))", result);
+        Assert.Contains("script.src = trustedEntrySrc", result);
+        Assert.Contains("preload.href = toTrustedModuleUrl(href)", result);
+        Assert.DoesNotContain("script.src = entrySrc", result);
     }
 
     [Fact]
