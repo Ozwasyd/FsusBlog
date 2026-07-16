@@ -449,7 +449,7 @@ async function runUxRouteThemeGroup(
         )
       })
 
-      const navigationAuditStart = timing.measureSync(
+      let navigationAuditStart = timing.measureSync(
         'audit.checkpoint',
         `${viewportPlan.id}:navigation`,
         () => pageSession.audit.checkpoint()
@@ -464,7 +464,14 @@ async function runUxRouteThemeGroup(
           ? navigateThroughRetryablePublicAot({
               navigate: () => pageSession.page.goto(navigationTarget, { waitUntil: 'domcontentloaded' }),
               sleep: (delayMs: number) => pageSession.page.waitForTimeout(delayMs),
-              deadlineAtMs: Date.now() + publicAotNavigationWindowMs
+              deadlineAtMs: Date.now() + publicAotNavigationWindowMs,
+              onRetryableResponse: () => {
+                navigationAuditStart = timing.measureSync(
+                  'audit.checkpoint',
+                  `${viewportPlan.id}:retryable-public-aot`,
+                  () => pageSession.audit.checkpoint()
+                )
+              }
             })
           : pageSession.page.goto(navigationTarget, { waitUntil: 'domcontentloaded' })
       )

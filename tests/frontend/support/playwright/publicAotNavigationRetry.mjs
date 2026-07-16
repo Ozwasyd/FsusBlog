@@ -28,10 +28,14 @@ export async function navigateThroughRetryablePublicAot({
   navigate,
   sleep,
   deadlineAtMs,
-  now = Date.now
+  now = Date.now,
+  onRetryableResponse = null
 }) {
   if (typeof navigate !== 'function' || typeof sleep !== 'function') {
     throw new TypeError('public AOT navigation requires navigate and sleep functions')
+  }
+  if (onRetryableResponse !== null && typeof onRetryableResponse !== 'function') {
+    throw new TypeError('public AOT navigation retry observer must be a function')
   }
   if (!Number.isFinite(deadlineAtMs) || deadlineAtMs <= now()) {
     throw new TypeError('public AOT navigation requires a future runtime-derived deadline')
@@ -48,6 +52,7 @@ export async function navigateThroughRetryablePublicAot({
         `retryable public AOT response exceeds the runtime navigation deadline: retryAfterMs=${retryDelayMs} remainingMs=${Math.max(0, remainingMs)}`
       )
     }
+    await onRetryableResponse?.({ response, retryDelayMs })
     await sleep(retryDelayMs)
   }
 }

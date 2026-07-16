@@ -33,6 +33,7 @@ test('public AOT retry delay comes from the complete server retry contract', () 
 test('public AOT navigation retries only the cold response and uses Retry-After verbatim', async () => {
   let clockMs = 1_000
   const waits = []
+  const retryObservations = []
   const responses = [response(503, retryableHeaders), response(200)]
 
   const result = await navigateThroughRetryablePublicAot({
@@ -41,12 +42,16 @@ test('public AOT navigation retries only the cold response and uses Retry-After 
       waits.push(delayMs)
       clockMs += delayMs
     },
+    onRetryableResponse: ({ response: retryResponse, retryDelayMs }) => {
+      retryObservations.push([retryResponse.status(), retryDelayMs, waits.length])
+    },
     deadlineAtMs: 20_000,
     now: () => clockMs
   })
 
   assert.equal(result.status(), 200)
   assert.deepEqual(waits, [5_000])
+  assert.deepEqual(retryObservations, [[503, 5_000, 0]])
   assert.equal(responses.length, 0)
 })
 
