@@ -90,6 +90,8 @@ test('dynamic grants update effective CPU, memory and pids controls without rest
 test('hard CPU ceiling prevents a sibling from consuming more CPUs than its grant', () => {
   const one = resolveCgroupLimits({ cpuUnits: 1, memoryGiB: 1 }, { cpuUnits: 8, memoryGiB: 16 })
   const four = resolveCgroupLimits({ cpuUnits: 4, memoryGiB: 4 }, { cpuUnits: 8, memoryGiB: 16 })
+  const machineMemoryGiB = 12.799172019958496
+  const roundedSameMemoryGrantGiB = 12.799172019958498
   const ratio = (limit) => {
     const [quota, period] = limit.cpuMax.split(' ').map(Number)
     return quota / period
@@ -99,6 +101,13 @@ test('hard CPU ceiling prevents a sibling from consuming more CPUs than its gran
   assert.ok(one.cpuWeight < four.cpuWeight)
   assert.ok(one.memoryMaxBytes > one.memoryHighBytes)
   assert.equal(one.cpuset, null)
+  assert.equal(
+    resolveCgroupLimits(
+      { cpuUnits: 8 + Number.EPSILON * 8, memoryGiB: roundedSameMemoryGrantGiB },
+      { cpuUnits: 8, memoryGiB: machineMemoryGiB }
+    ).memoryHighBytes,
+    Math.round(machineMemoryGiB * 1024 ** 3)
+  )
   assert.throws(
     () => resolveCgroupLimits({ cpuUnits: 9, memoryGiB: 1 }, { cpuUnits: 8, memoryGiB: 16 }),
     /CPU grant 9 exceeds machine envelope 8/u
@@ -106,6 +115,13 @@ test('hard CPU ceiling prevents a sibling from consuming more CPUs than its gran
   assert.throws(
     () => resolveCgroupLimits({ cpuUnits: 1, memoryGiB: 17 }, { cpuUnits: 8, memoryGiB: 16 }),
     /memory grant 17 GiB exceeds machine envelope 16 GiB/u
+  )
+  assert.throws(
+    () => resolveCgroupLimits(
+      { cpuUnits: 1, memoryGiB: machineMemoryGiB + 2 / (1024 ** 3) },
+      { cpuUnits: 8, memoryGiB: machineMemoryGiB }
+    ),
+    /memory grant .* exceeds machine envelope/u
   )
 })
 

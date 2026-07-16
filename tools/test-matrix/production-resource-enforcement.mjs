@@ -5,6 +5,12 @@ import process from 'node:process'
 
 export const resourceEnforcementSchema = 'fsusblog.production.resource-enforcement.v1'
 const controllers = ['cpu', 'memory', 'pids']
+const bytesPerGiB = 1024 ** 3
+
+function exceedsFloatingPointEnvelope(value, envelope) {
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(value), Math.abs(envelope)) * 4
+  return value > envelope + tolerance
+}
 
 function safeSegment(value, name) {
   const segment = String(value ?? '')
@@ -79,20 +85,21 @@ export function resolveCgroupLimits(grant, machine) {
   const cpuUnits = Number(grant.cpuUnits)
   const memoryGiB = Number(grant.memoryGiB)
   const machineCpu = Math.max(1, Number(machine.cpuUnits ?? machine.cpuCount) || os.availableParallelism?.() || 1)
-  const machineMemoryGiB = Math.max(Number.EPSILON, Number(machine.memoryGiB) || os.totalmem() / (1024 ** 3))
-  const machineMemoryBytes = Math.max(1, machineMemoryGiB * 1024 ** 3)
+  const machineMemoryGiB = Math.max(Number.EPSILON, Number(machine.memoryGiB) || os.totalmem() / bytesPerGiB)
+  const machineMemoryBytes = Math.max(1, Math.round(machineMemoryGiB * bytesPerGiB))
   if (!Number.isFinite(cpuUnits) || cpuUnits <= 0 || !Number.isFinite(memoryGiB) || memoryGiB <= 0) {
     throw new Error('cgroup limits require positive CPU and memory grants')
   }
-  if (cpuUnits > machineCpu + Number.EPSILON) {
+  if (exceedsFloatingPointEnvelope(cpuUnits, machineCpu)) {
     throw new Error(`cgroup CPU grant ${cpuUnits} exceeds machine envelope ${machineCpu}`)
   }
-  if (memoryGiB > machineMemoryGiB + Number.EPSILON) {
+  const requestedMemoryBytes = Math.max(1, Math.round(memoryGiB * bytesPerGiB))
+  if (requestedMemoryBytes > machineMemoryBytes) {
     throw new Error(`cgroup memory grant ${memoryGiB} GiB exceeds machine envelope ${machineMemoryGiB} GiB`)
   }
   const periodUs = Math.max(10_000, Math.min(1_000_000, Math.round(100_000 * Math.sqrt(machineCpu) / Math.sqrt(cpuUnits))))
   const quotaUs = Math.max(1_000, Math.round(periodUs * cpuUnits))
-  const memoryHighBytes = Math.max(16 * 1024 ** 2, Math.round(memoryGiB * 1024 ** 3))
+  const memoryHighBytes = Math.max(16 * 1024 ** 2, requestedMemoryBytes)
   const headroomBytes = Math.max(64 * 1024 ** 2, Math.round(memoryHighBytes / Math.sqrt(machineCpu * 16)))
   const memoryMaxBytes = Math.min(machineMemoryBytes, memoryHighBytes + headroomBytes)
   const cpuWeight = Math.max(1, Math.min(10_000, Math.round(10_000 * cpuUnits / machineCpu)))
