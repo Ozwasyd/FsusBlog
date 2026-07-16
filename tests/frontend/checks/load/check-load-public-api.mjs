@@ -6,6 +6,7 @@ import { readAedsResponse } from '../../support/aeds-envelope.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { readLoadProfile } from './loadPolicy.mjs';
+import { matchesExpectedStatus, waitForReadyResponse } from './loadReadiness.mjs';
 
 const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:8080';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, defaultTimeoutMs);
@@ -31,10 +32,14 @@ function percentile(values, p) {
 }
 
 async function fetchFirstArticleId() {
-  const response = await fetchWithTimeout(`${apiBaseUrl}/api/binary/article/list/home/1/1.aeds`, {
-    headers: { Accept: 'application/octet-stream' }
-  }, requestTimeoutMs);
-  assert(response.ok, `article probe failed: ${response.status}`);
+  const response = await waitForReadyResponse(
+    {
+      name: 'article_fixture_probe',
+      url: `${apiBaseUrl}/api/binary/article/list/home/1/1.aeds`,
+      headers: { Accept: 'application/octet-stream' }
+    },
+    { requestTimeoutMs }
+  );
   const page = await readAedsResponse(response);
   const items = Array.isArray(page?.items) ? page.items : [];
   assert(items.length > 0, 'load smoke requires at least one article fixture');
@@ -65,9 +70,7 @@ async function exerciseEndpoint(definition) {
           serverErrors += 1;
           return;
         }
-        const hasExpectedStatus = expectedStatuses
-          ? expectedStatuses.includes(response.status)
-          : response.ok;
+        const hasExpectedStatus = matchesExpectedStatus(response, expectedStatuses);
         if (!hasExpectedStatus) {
           throw new Error(
             `[${definition.name}] unexpected status ${response.status} for ${definition.url}`
@@ -193,6 +196,11 @@ async function main() {
       p95BudgetMs: 2000
     }
   ];
+
+  await Promise.all(definitions.map(async (definition) => {
+    const response = await waitForReadyResponse(definition, { requestTimeoutMs });
+    await response.arrayBuffer();
+  }));
 
   const results = [];
   for (const definition of definitions) {
