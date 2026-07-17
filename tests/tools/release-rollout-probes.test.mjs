@@ -196,13 +196,27 @@ test('traffic probe covers all 12 categories, explicitly classifies business 5xx
   const data = createFixture(t, 'traffic-pass')
   const timing = machineTiming()
   let requests = 0
+  let baselineObservedMaxMs = 0
   const { baseUrl } = await loopbackServer(t, (request, response) => {
+    const requestStartedAt = performance.now()
     requests += 1
     const baseline = requests <= categories.length
     if (requests === categories.length) moveToOverlap(data)
     const headers = releaseHeaders(requests)
-    const delayMs = baseline ? timing.baselineLatencyMs : timing.overlapLatencyMs
+    // The production contract suite runs beside CPU-heavy build/browser work.
+    // Bind the synthetic overlap penalty to the baseline delay observed in
+    // this same process so host event-loop jitter cannot invert p95/p99 while
+    // the semantic degradation remains explicit and measurable.
+    const delayMs = baseline
+      ? timing.baselineLatencyMs
+      : Math.ceil(baselineObservedMaxMs + timing.overlapLatencyMs)
     setTimeout(() => {
+      if (baseline) {
+        baselineObservedMaxMs = Math.max(
+          baselineObservedMaxMs,
+          performance.now() - requestStartedAt
+        )
+      }
       if (request.url === '/write') {
         response.writeHead(500, {
           ...headers,
@@ -220,7 +234,10 @@ test('traffic probe covers all 12 categories, explicitly classifies business 5xx
     write: { expectedStatus: [500], allowedBusinessErrorCodes: ['WRITE_CONFLICT'] }
   })
   const { result, report } = await runTraffic(data, baseUrl, passingScenario, {
-    name: 'pass', rounds: 2
+    name: 'pass',
+    rounds: 2,
+    timeoutMs: timing.requestTimeoutMs + (timing.overlapLatencyMs * 2),
+    childTimeoutMs: timing.trafficChildTimeoutMs + (categories.length * timing.overlapLatencyMs * 2)
   })
 
   assert.equal(result.status, 0, result.stderr)
