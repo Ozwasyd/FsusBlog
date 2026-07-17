@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
 import fs from 'node:fs'
+import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -10,6 +12,34 @@ import { resolveRuntimeBrowserTimeoutPlan } from '../frontend/support/runtime-br
 import { resolvePublicAotConcurrency } from '../../tools/test/resolve-public-aot-concurrency.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+
+function runProcess(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.setEncoding('utf8')
+    child.stderr.setEncoding('utf8')
+    child.stdout.on('data', (chunk) => { stdout += chunk })
+    child.stderr.on('data', (chunk) => { stderr += chunk })
+    child.once('error', reject)
+    child.once('close', (status, signal) => resolve({ status, signal, stdout, stderr }))
+  })
+}
+
+async function listen(server) {
+  await new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
+  const address = server.address()
+  assert.ok(address && typeof address === 'object')
+  return `http://127.0.0.1:${address.port}`
+}
+
+async function close(server) {
+  await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
+}
 
 function createSearchDist(t, swSource) {
   const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-runtime-preview-'))
@@ -84,7 +114,56 @@ test('runtime service probes consume the shared machine-adaptive request timeout
   const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
   assert.match(legacy, /runtime_probe_timeout_seconds timeout_seconds/u)
   assert.doesNotMatch(legacy, /curl[^\n]*--max-time 5/u)
-  assert.match(legacy, /error_detail="\$\(curl[\s\S]*?\)"/u)
+  assert.match(legacy, /retryable_runtime_probe_status/u)
+  assert.match(legacy, /attempts=\$attempts observed=\$observations/u)
+})
+
+test('runtime service probe retries transient 503 responses until the endpoint becomes ready', async (t) => {
+  let attempts = 0
+  const server = http.createServer((_request, response) => {
+    attempts += 1
+    response.writeHead(attempts < 3 ? 503 : 200)
+    response.end()
+  })
+  const baseUrl = await listen(server)
+  t.after(() => close(server))
+  const legacy = path.join(root, 'tools/test/legacy-test.sh')
+
+  const result = await runProcess('bash', [
+    '-c',
+    'export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1; source "$1"; RUNTIME_PROBE_TIMEOUT_SECONDS=2; probe_url fixture "$2"',
+    'runtime-probe-test',
+    legacy,
+    `${baseUrl}/cold`
+  ])
+
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(attempts, 3)
+  assert.match(result.stdout, /fixture recovered[\s\S]*http-503:2/u)
+})
+
+test('runtime service probe fails immediately for a terminal 404 response', async (t) => {
+  let attempts = 0
+  const server = http.createServer((_request, response) => {
+    attempts += 1
+    response.writeHead(404)
+    response.end()
+  })
+  const baseUrl = await listen(server)
+  t.after(() => close(server))
+  const legacy = path.join(root, 'tools/test/legacy-test.sh')
+
+  const result = await runProcess('bash', [
+    '-c',
+    'export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1; source "$1"; RUNTIME_PROBE_TIMEOUT_SECONDS=2; probe_url fixture "$2"',
+    'runtime-probe-test',
+    legacy,
+    `${baseUrl}/missing`
+  ])
+
+  assert.equal(result.status, 1)
+  assert.equal(attempts, 1)
+  assert.match(result.stderr, /terminal HTTP 404[\s\S]*http-404:1/u)
 })
 
 test('public AOT warmup concurrency derives independently bounded backend and I/O fanout from live grants', () => {

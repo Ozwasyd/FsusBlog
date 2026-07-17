@@ -777,34 +777,106 @@ runtime_probe_timeout_seconds() {
   printf -v "$output_name" '%s' "$RUNTIME_PROBE_TIMEOUT_SECONDS"
 }
 
-probe_url() {
+retryable_runtime_probe_status() {
+  case "$1" in
+    408|425|429|500|502|503|504) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+format_runtime_probe_observations() {
+  local counts_name="$1"
+  local output_name="$2"
+  local -n counts="$counts_name"
+  local observation
+  local formatted=""
+
+  for observation in "${!counts[@]}"; do
+    formatted+="${formatted:+,}${observation}:${counts[$observation]}"
+  done
+  printf -v "$output_name" '%s' "${formatted:-none}"
+}
+
+probe_http_until_ready() {
   local label="$1"
   local url="$2"
+  local accept_header="${3:-}"
   local timeout_seconds
-  local error_detail
+  local timeout_ms
+  local started_at_ms
+  local deadline_at_ms
+  local now_ms
+  local remaining_ms
+  local attempt_timeout_seconds
+  local http_status
+  local curl_status
+  local observation
+  local observations
+  local attempts=0
+  local -A observation_counts=()
+  local -a curl_headers=()
 
   runtime_probe_timeout_seconds timeout_seconds
-
-  if error_detail="$(curl -fsS --max-time "$timeout_seconds" -o /dev/null "$url" 2>&1)"; then
-    return 0
+  timeout_ms="$(awk -v seconds="$timeout_seconds" 'BEGIN { value = int(seconds * 1000); if (value < 1) value = 1; printf "%d", value }')"
+  started_at_ms="$(date +%s%3N)"
+  deadline_at_ms=$((started_at_ms + timeout_ms))
+  if [[ -n "$accept_header" ]]; then
+    curl_headers=(-H "Accept: $accept_header")
   fi
 
-  fail "$label unreachable at $url after ${timeout_seconds}s${error_detail:+: $error_detail}"
+  while true; do
+    now_ms="$(date +%s%3N)"
+    if (( now_ms >= deadline_at_ms )); then
+      break
+    fi
+    remaining_ms=$((deadline_at_ms - now_ms))
+    attempt_timeout_seconds="$(awk -v remaining_ms="$remaining_ms" 'BEGIN { value = remaining_ms / 1000; if (value < 0.05) value = 0.05; printf "%.3f", value }')"
+    attempts=$((attempts + 1))
+    curl_status=0
+    if http_status="$(curl -sS --max-time "$attempt_timeout_seconds" "${curl_headers[@]}" -o /dev/null -w '%{http_code}' "$url" 2>/dev/null)"; then
+      :
+    else
+      curl_status=$?
+    fi
+
+    if [[ "$http_status" =~ ^[0-9]{3}$ ]] && (( 10#$http_status >= 200 && 10#$http_status < 400 )); then
+      if (( attempts > 1 )); then
+        format_runtime_probe_observations observation_counts observations
+        log "$label recovered at $url attempts=$attempts observed=$observations"
+      fi
+      return 0
+    fi
+
+    if (( curl_status != 0 )); then
+      observation="curl-$curl_status"
+    elif [[ "$http_status" =~ ^[0-9]{3}$ ]]; then
+      observation="http-$http_status"
+    else
+      observation="invalid-status"
+    fi
+    observation_counts[$observation]=$(( ${observation_counts[$observation]:-0} + 1 ))
+
+    if (( curl_status == 0 )) && ! retryable_runtime_probe_status "$http_status"; then
+      format_runtime_probe_observations observation_counts observations
+      fail "$label returned terminal HTTP $http_status at $url observed=$observations"
+    fi
+
+    now_ms="$(date +%s%3N)"
+    if (( now_ms < deadline_at_ms )); then
+      sleep 0.25
+    fi
+  done
+
+  format_runtime_probe_observations observation_counts observations
+  fail "$label did not become ready at $url within ${timeout_seconds}s attempts=$attempts observed=$observations"
+}
+
+probe_url() {
+  probe_http_until_ready "$1" "$2"
 }
 
 probe_binary_url() {
-  local label="$1"
-  local url="$2"
-  local timeout_seconds
-  local error_detail
-
-  runtime_probe_timeout_seconds timeout_seconds
-
-  if error_detail="$(curl -fsS --max-time "$timeout_seconds" -H 'Accept: application/octet-stream' -o /dev/null "$url" 2>&1)"; then
-    return 0
-  fi
-
-  fail "$label unreachable at $url after ${timeout_seconds}s${error_detail:+: $error_detail}"
+  probe_http_until_ready "$1" "$2" 'application/octet-stream'
 }
 
 require_debug_stack() {

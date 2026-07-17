@@ -1297,6 +1297,12 @@ main() {
   run_bootstrap_parallel 'runtime applications' "$READINESS_DEADLINE_AT_MS" "${runtime_applications[@]}"
   wait_for_pow_ready
   prepare_fixtures
+  if ci_production_has_domain frontend-dist; then
+    wait_for_url \
+      'release preview public home after fixture seeding' \
+      "$RELEASE_PREVIEW_URL/" \
+      "$EXECUTION_DEADLINE_AT_MS"
+  fi
   jq -n \
     --arg namespace "$FSUSBLOG_TEST_NAMESPACE" \
     --arg backend "$DEBUG_BACKEND_URL" \
