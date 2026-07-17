@@ -7,6 +7,8 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { resolvePerformanceEvidenceWorkers } from '../../tools/test/aggregate-performance-evidence.mjs'
+import { matrixGeneratedRuntimePaths } from '../../tools/test-matrix/local-profile.mjs'
+import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const aggregateScript = path.join(root, 'tools/test/aggregate-performance-evidence.mjs')
@@ -30,6 +32,16 @@ function runAggregator(base) {
     timeout: 10_000
   })
 }
+
+test('performance summary is the only required generated runtime evidence', () => {
+  const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
+  const tier = matrix.tiers.find((candidate) => candidate.id === 'performance-evidence-summary')
+
+  assert.ok(tier)
+  assert.deepEqual(matrixGeneratedRuntimePaths(tier), [
+    '.tmp/release-evidence/perf-summary.json'
+  ])
+})
 
 test('performance evidence workers follow the complete scheduler grant and source count', () => {
   assert.equal(resolvePerformanceEvidenceWorkers({

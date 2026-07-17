@@ -3044,7 +3044,7 @@ tiers:
     requiredFor: production
     coverage: [test-tool-artifact-behavior]
     artifacts: [.tmp/release-evidence/perf-summary.json]
-    evidence: [.tmp/release-evidence/perf-summary.json, .tmp/perf/release-summaries/performance-saturation-v2.json, tests/tools/performance-evidence-summary.test.mjs, tests/tools/performance-saturation-v2.test.mjs, tests/perf/performance-saturation-v2.schema.json]
+    evidence: [.tmp/release-evidence/perf-summary.json, tests/tools/performance-evidence-summary.test.mjs, tests/tools/performance-saturation-v2.test.mjs, tests/perf/performance-saturation-v2.schema.json]
     ciJob: release-evidence
     localOnly: false
     nightlyOnly: false
