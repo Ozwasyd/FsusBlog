@@ -1551,6 +1551,46 @@ tiers:
     triggerCoverage: [playwright-acceptance]
     triggerReason: route, auth flow, console flow, public flow, or acceptance fixture changed
 
+  - id: browser-contract
+    owner: InteropGlueAgent
+    command: bash tools/test/lanes/browser-contract.sh
+    dependsOn: [production-build-artifacts, bootstrap, release, integration]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    serialReason: one Playwright Library controller reuses one managed Chromium and creates one context for each fixed scenario
+    exclusiveResources: [browser-contract, database-writes]
+    phase: 5
+    cost: medium
+    resourceClass: browser
+    cpuWeight: 1
+    memoryWeight: 3
+    minCpuUnits: 1
+    maxParallel: 1
+    requiresBootstrap: full
+    workflowBootstraps: true
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: chromium
+    cacheProfile: full
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    cadence: release-manual
+    requiredFor: release-final
+    coverage: [release-browser-contract]
+    artifacts: [.tmp/browser-contract]
+    evidence: [.tmp/browser-contract/receipt.json, tests/browser-contract/run.mjs, tests/browser-contract/scenarios.mjs, tests/tools/browser-contract.test.mjs, docs/testing/browser-contract.md]
+    ciJob: release-final
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+    retentionClass: must-keep
+    triggerPaths: [src/frontend/src/bootstrap, src/frontend/src/public-renderers, src/frontend/src/router, src/frontend/src/views/auth, src/frontend/src/views/user, src/frontend/src/views/admin/article, src/frontend/src/services, src/frontend/src/workers, tests/browser-contract, tools/test/lanes/browser-contract.sh]
+    triggerFiles: [src/frontend/package.json, tests/matrix.yml, tests/coverage-registry.json]
+    triggerCoverage: [release-browser-contract]
+    triggerReason: release browser boundary or Browser Contract fixture/build input changed
+
   - id: visual-public
     owner: InteropGlueAgent
     command: tools/test/lanes/visual-public-playwright.sh
@@ -4193,7 +4233,7 @@ tiers:
   - id: release-final
     owner: ServerContractAgent
     command: tools/test/lanes/release-final.sh
-    dependsOn: [coverage-gate-strict, production, release-closeout, release-admin-console, release-auth-flow, release-authoring-flow, release-private-preview, release-error-boundary, release-rbac-negative, release-aot-generation, release-aot-consumption, release-static-asset-digest-coherence, release-soak-min, release-load-peak, release-load-burst, release-data-scale-m, release-mutation-critical-slice, release-memory-leak-budget, release-open-handle-budget, release-final-flaky-governance, release-final-shard-completeness, test-quality-lint]
+    dependsOn: [coverage-gate-strict, production, browser-contract, release-closeout, release-admin-console, release-auth-flow, release-authoring-flow, release-private-preview, release-error-boundary, release-rbac-negative, release-aot-generation, release-aot-consumption, release-static-asset-digest-coherence, release-soak-min, release-load-peak, release-load-burst, release-data-scale-m, release-mutation-critical-slice, release-memory-leak-budget, release-open-handle-budget, release-final-flaky-governance, release-final-shard-completeness, test-quality-lint]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     serialReason: aggregates and signs the final shared release evidence

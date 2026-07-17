@@ -168,6 +168,7 @@
     "check:acceptance:messagebox": "npm run check:acceptance:console",
     "check:acceptance:business-state": "node ../../tests/frontend/checks/acceptance/business-state-smoke.mjs",
     "check:acceptance:e2e": "npm run check:spa:routes && npm run check:acceptance:auth && npm run check:acceptance:public && npm run check:acceptance:console",
+    "check:browser-contract": "bash ../../tools/test/lanes/browser-contract.sh",
     "check:cross-browser:smoke": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_PLAYWRIGHT_BROWSERS=${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit} ../../tools/frontend/run-playwright-sanitized-env.sh npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs cross-browser-smoke`} acceptance/cross-browser-smoke.spec.ts",
     "check:visual:public:playwright": "env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_VISUAL_PUBLIC_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs visual-public`}} visual/public-visual.spec.ts",
     "check:visual:public": "npm run ensure:wasm && bash -c 'status=0; npm run check:public-header-material & header_pid=$!; npm run check:visual:public:playwright & visual_pid=$!; wait \"$header_pid\" || status=$?; wait \"$visual_pid\" || status=$?; exit \"$status\"'",

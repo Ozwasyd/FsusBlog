@@ -185,7 +185,7 @@ Rights V3 的完整验收矩阵由 `tools/test/lanes/rights-v3-test-matrix.sh` �
 
 | Lane | Scale mode | Current policy | Artifact isolation | Worker policy |
 |---|---|---|---|---|
-| `acceptance` | one serial browser contract + parallel lightweight tests | Router、auth、user/admin 状态机和 CRUD correctness 由 Vitest/API/PostgreSQL tests 并行执行；Chromium 只保留 4 个 hydration/navigation 场景 | `acceptance-playwright-N-of-M` | Browser Contract 固定 serial；不再为 route/auth/console 业务穷举分配 browser worker |
+| `browser-contract` | one Playwright Library process | Router、auth、user/admin 状态机和 CRUD correctness 由 Vitest/API/PostgreSQL tests 承担；release-final 运行 5 个基线浏览器场景，step-up-ready fixture 再加入第 6 个 WebAuthn 场景 | `.tmp/browser-contract/receipt.json` | 固定 1 次 managed Chromium launch、5–6 个串行 BrowserContext、0 worker pool、0 shard、0 retry |
 | `visual-public` / `visual-console` | shard + worker | each group resolves shard/job concurrency from the current machine; `visual` aggregate is artifact-only | `visual-public-playwright-N-of-M`, `visual-console-playwright-N-of-M`, aggregate `visual-playwright` | lane scripts compute a local cap and pass explicit `--workers`; visual worker semantics remain isolated from machine-resolved shard count |
 | `ux-viewport-smoke` | shared planner + guarded worker | one non-sharded plan，`10 routes / 20 route-theme groups / 120 navigations / 336 cases` | one `ux-viewport-smoke` artifact | lane script computes a local cap from CPU/memory/load; CI policy currently caps this authoritative plan at worker `1` |
 | `ux-viewport-visual` / `ux-viewport-boundaries` | guarded worker | one process retains the complete matrix and final evidence summary | one mode artifact plus screenshot directory | lane scripts compute a CPU/memory/load cap and prebuild one isolated session fixture per worker; the release-preview path permits up to `3` screenshot workers and `4` no-screenshot boundary workers on an 8-core host |
@@ -193,7 +193,7 @@ Rights V3 的完整验收矩阵由 `tools/test/lanes/rights-v3-test-matrix.sh` �
 | `frontend-render-pressure` | single process | no shard; measures DOM/render pressure noise | single artifact | no Playwright worker scaling |
 | `resilience` | single process | no shard; shares fault/runtime state | single artifact | no Playwright worker scaling |
 
-Acceptance parallelism decision（updated 2026-07-16）：`auth-flows.spec.ts`、`user-console.spec.ts`、`admin-console.spec.ts` 已退出浏览器层；对应 correctness 由 memory-history Router、mounted component、生产 API adapter 和隔离 PostgreSQL integration tests 并行承担。`spa-routes.spec.ts` 仅保留 3 个真实 AOT takeover/hydration 场景，`public-routes.spec.ts` 仅保留 1 个跨路由 head/history 场景，两者均为 serial Browser Contract。迁移前 35 个场景、31 条迁移映射和 4 条保留记录见 [`testing/issue-1146-lightweight-acceptance.md`](testing/issue-1146-lightweight-acceptance.md)。
+Acceptance parallelism decision（updated 2026-07-16）：`auth-flows.spec.ts`、`user-console.spec.ts`、`admin-console.spec.ts` 已退出浏览器层；对应 correctness 由 memory-history Router、mounted component、生产 API adapter 和隔离 PostgreSQL integration tests 并行承担。#1146 保留的 4 个真实 public browser risk 已收口到 [`testing/browser-contract.md`](testing/browser-contract.md) 的一个 hydration/history/reload 场景，并与 account/admin deep link、一次 article publish 和 Service Worker 组成 5 项基线 release contract；只有 immutable fixture 声明具备 step-up 注册前提时才加入第 6 个 WebAuthn 成功场景。入口直接使用 Playwright Library，不读取 CPU/memory/load，也不创建 worker pool 或 shard。迁移前 35 个场景及 31 条轻量映射见 [`testing/issue-1146-lightweight-acceptance.md`](testing/issue-1146-lightweight-acceptance.md)。
 
 三个 UX 模式共享 `uxViewportPlan.mjs` 纯规划器：smoke 固定 `336` cases，visual 固定 `378` cases，boundaries 固定 `14 × 2 × 7 × 33 = 6468` cases。boundaries 以 `route + theme` 为 66 个稳定 group；每个 group 复用一个 browser context，但每个 viewport 冷启动新 page 并只导航一次，因此导航数从 6468 降到 `33 × 2 × 14 = 924`。每个 viewport 依次运行 media step，步骤间执行 `default → target → default` 的 focus、selection、window/inner scroll、probe 与临时 style 完整复位；DOM 边界往返合并为一份结构化报告，焦点检查仍单独保留。
 
@@ -389,25 +389,27 @@ Public AOT SSR worker reliability 由 `PublicAotSsrRuntimeStateTests`、`PublicA
 
 ---
 
-### `acceptance` — 轻量 correctness + 窄 Browser Contract
+### `acceptance` / `browser-contract` — 轻量 correctness + 窄 release 探针
 
-**触发时机**：轻量 correctness 随常规测试执行；真实浏览器合同用于发布/浏览器风险验证
+**触发时机**：轻量 correctness 随常规测试执行；`browser-contract` 只进入 release-final/显式本地验证
 
-**前置条件**：Router/组件/API 单测不需要完整服务；PostgreSQL integration 只需要隔离 fixture；4 个 Browser Contract 场景需要 frontend/backend runtime
+**前置条件**：Router/组件/API 单测不需要完整服务；PostgreSQL integration 只需要隔离 fixture；Browser Contract 需要 #1078 immutable production build receipt、一个 run-scoped fixture namespace 与 frontend/backend runtime
 
 **覆盖场景**：
 - Router route/name/path、anonymous/user/admin、permission、guestOnly、redirect、403/404 和 deep link 使用 `createMemoryHistory()`；
 - auth、message、admin workbench、passkey dialog 和 mobile/desktop DOM 分支使用 Vue Test Utils；
 - AEDS mutation、工单、审核、文章发布、cache/audit side effect 使用 API/backend integration；
-- `spa-routes` 保留 3 个真实 AOT takeover/hydration 场景，`public-routes` 保留 1 个真实 head/history navigation 场景。
+- Browser Contract 在一个 managed Chromium 中顺序执行 5 个基线场景：hydration/history/reload、account deep link、admin session invalidation、一次 article publish 与 Service Worker offline reload；step-up-ready immutable fixture 才确定性加入 WebAuthn virtual authenticator 成功场景。
 
 **运行**：
 ```bash
 npm --prefix src/frontend run check:acceptance:auth
 npm --prefix src/frontend run check:acceptance:console
 node --test tests/tools/acceptance-layer-migration.test.mjs
-cd src/frontend && npx playwright test acceptance/spa-routes.spec.ts acceptance/public-routes.spec.ts --workers=1
+npm --prefix src/frontend run check:browser-contract
 ```
+
+`check:browser-contract` 不调用 `npx playwright test`。默认 9 分钟 process-group deadline；receipt 位于 `.tmp/browser-contract/receipt.json`，缺 immutable build/fixture、Chromium crash/disconnect 或任一 product/contract assertion 失败都会直接退出，且不会自动重试。
 
 ---
 

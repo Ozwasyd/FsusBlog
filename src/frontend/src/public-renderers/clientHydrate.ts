@@ -1,5 +1,5 @@
-import { createSSRApp, nextTick, type App as VueApp } from 'vue'
-import { createPinia } from 'pinia'
+import { createSSRApp, nextTick, ref, shallowRef, type App as VueApp, type VNode } from 'vue'
+import { createPinia, type Pinia } from 'pinia'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import type { PublicHydrationPayload } from './types';
@@ -13,7 +13,10 @@ import {
   verifyHydrationIdentity
 } from './hydrationIdentityGuard';
 import { normalizePublicHydrationPayload } from './publicPayloadNormalizer';
-import { createPublicHydrationRootComponent } from './publicHydrationRoot';
+import {
+  createPublicHydrationRootComponent,
+  type PublicHydrationTakeoverController
+} from './publicHydrationRoot';
 import { registerPublicStaticRouterLink } from './publicStaticRouterLink';
 
 const APP_SELECTOR = '#app';
@@ -29,6 +32,34 @@ const PUBLIC_AOT_MISMATCH_SELECTORS = [
   '#fsus-aot-shell [data-fsus-motion-surface]'
 ] as const;
 let mountedPublicShellApp: VueApp<Element> | null = null;
+let mountedPublicShellPinia: Pinia | null = null;
+let mountedPublicShellPayload: PublicHydrationPayload | null = null;
+let publicTakeoverController: PublicHydrationTakeoverController | null = null;
+
+export type PublicHydrationTakeoverHandle = Readonly<{
+  app: VueApp<Element>
+  pinia: Pinia
+  payload: PublicHydrationPayload
+  activate: (renderer: () => VNode) => Promise<void>
+}>
+
+export function getPublicHydrationTakeoverHandle(): PublicHydrationTakeoverHandle | null {
+  if (!mountedPublicShellApp || !mountedPublicShellPinia || !mountedPublicShellPayload || !publicTakeoverController) {
+    return null;
+  }
+
+  const controller = publicTakeoverController;
+  return {
+    app: mountedPublicShellApp,
+    pinia: mountedPublicShellPinia,
+    payload: mountedPublicShellPayload,
+    activate: async (renderer: () => VNode): Promise<void> => {
+      controller.renderer.value = renderer;
+      controller.active.value = true;
+      await nextTick();
+    }
+  };
+}
 
 export function disposePublicHydrationApp(): void {
   if (!mountedPublicShellApp) {
@@ -37,6 +68,9 @@ export function disposePublicHydrationApp(): void {
 
   mountedPublicShellApp.unmount();
   mountedPublicShellApp = null;
+  mountedPublicShellPinia = null;
+  mountedPublicShellPayload = null;
+  publicTakeoverController = null;
 }
 
 function removeWhitespaceTextNodes(container: HTMLElement): void {
@@ -83,7 +117,11 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
   markHydrationStep('hydrate:component-ready');
 
   if (!mountedPublicShellApp) {
-    const app = createSSRApp(createPublicHydrationRootComponent(normalizedPayload));
+    const takeoverController: PublicHydrationTakeoverController = {
+      active: ref(false),
+      renderer: shallowRef<(() => VNode) | null>(null)
+    };
+    const app = createSSRApp(createPublicHydrationRootComponent(normalizedPayload, takeoverController));
     const pinia = createPinia();
     pinia.use(piniaPluginPersistedstate);
     app.use(pinia);
@@ -91,6 +129,9 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
     registerPublicStaticRouterLink(app);
     app.mount(container, true);
     mountedPublicShellApp = app;
+    mountedPublicShellPinia = pinia;
+    mountedPublicShellPayload = normalizedPayload;
+    publicTakeoverController = takeoverController;
     await nextTick();
   }
 

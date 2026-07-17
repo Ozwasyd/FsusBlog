@@ -1370,6 +1370,25 @@
       ]
     },
     {
+      "id": "release-browser-contract",
+      "description": "Release-final consumes one deterministic Playwright Library Chromium process that serially verifies public hydration, auth deep links, one critical write and Service Worker policy, with WebAuthn added only by a step-up-ready immutable fixture.",
+      "owner": "InteropGlueAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/browser-contract/receipt.json",
+        "tests/browser-contract/run.mjs",
+        "tests/browser-contract/scenarios.mjs",
+        "tests/tools/browser-contract.test.mjs",
+        "docs/testing/browser-contract.md"
+      ],
+      "assertionType": "browser",
+      "failClosedRule": "Release-final must reject a missing or failed receipt, any topology other than one managed Chromium with five to six serial contexts and zero retries, nondeterministic capability selection, build/fixture identity drift, unexpected browser issues, or a product/contract/infra scenario failure.",
+      "minimumRequirement": "The receipt must bind immutable build and fixture identity, exact selected scenario IDs, Chromium revision, launch/context counts, wall clock, issue diagnostics, failure class and trace paths while covering hydration/history/reload, user/admin bootstrap, one persisted article publish and offline Service Worker behavior; WebAuthn success is additionally required when the immutable fixture declares step-up registration capability.",
+      "tierIds": [
+        "browser-contract"
+      ]
+    },
+    {
       "id": "playwright-acceptance",
       "description": "Playwright Acceptance is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",

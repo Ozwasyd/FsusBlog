@@ -20,6 +20,10 @@ function sha256Buffer(value) {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`
 }
 
+function compareArtifactPaths(left, right) {
+  return left.localeCompare(right)
+}
+
 function contentDigest(value) {
   const { contentDigest: _ignored, ...content } = value
   return sha256Buffer(JSON.stringify(canonicalize(content)))
@@ -323,7 +327,11 @@ export function verifyProductionBuildReceipt({
     try {
       const domainPath = normalizeRelative(domain?.path, `domain ${domain?.name ?? '<empty>'}`)
       const actualFiles = walkFiles(root, domainPath, `domain ${domain?.name ?? '<empty>'}`)
-      const expectedFiles = artifacts.filter(record => record.path === domainPath || record.path.startsWith(`${domainPath}/`)).map(record => record.path).sort()
+        .sort(compareArtifactPaths)
+      const expectedFiles = artifacts
+        .filter(record => record.path === domainPath || record.path.startsWith(`${domainPath}/`))
+        .map(record => record.path)
+        .sort(compareArtifactPaths)
       if (JSON.stringify(actualFiles) !== JSON.stringify(expectedFiles)) errors.push(`artifact domain contains unreceipted files: ${domain?.name}`)
       if (actualFiles.length !== Number(domain.fileCount)) errors.push(`artifact domain file count mismatch: ${domain?.name}`)
     } catch (error) {
@@ -331,8 +339,10 @@ export function verifyProductionBuildReceipt({
     }
   }
   try {
-    const actualPayloadFiles = walkRootFiles(root, 'artifact root').filter(value => value !== relative)
-    const expectedPayloadFiles = [...artifactPaths].sort()
+    const actualPayloadFiles = walkRootFiles(root, 'artifact root')
+      .filter(value => value !== relative)
+      .sort(compareArtifactPaths)
+    const expectedPayloadFiles = [...artifactPaths].sort(compareArtifactPaths)
     if (JSON.stringify(actualPayloadFiles) !== JSON.stringify(expectedPayloadFiles)) {
       errors.push('artifact root contains files not covered by the receipt')
     }

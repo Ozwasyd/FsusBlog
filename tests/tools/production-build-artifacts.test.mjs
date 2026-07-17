@@ -69,6 +69,17 @@ test('receipt binds source, toolchain, producer, input and every immutable artif
   assert.equal(verified.evidence.artifactBytes, Buffer.byteLength('server') + Buffer.byteLength('<main>ok</main>'))
 })
 
+test('receipt verification preserves the filesystem order for mixed-case artifact paths', t => {
+  const value = fixture(t)
+  fs.writeFileSync(path.join(value.artifactRoot, 'payload/backend/alpha.dll'), 'alpha')
+  fs.writeFileSync(path.join(value.artifactRoot, 'payload/backend/Zeta.dll'), 'zeta')
+  create(value)
+
+  const verified = verifyProductionBuildReceipt({ artifactRoot: value.artifactRoot })
+  assert.equal(verified.evidence.status, 'success')
+  assert.equal(verified.evidence.artifactCount, 4)
+})
+
 test('consumer rejects checkout input drift even when the receipt and payload are unchanged', t => {
   const value = fixture(t)
   create(value)

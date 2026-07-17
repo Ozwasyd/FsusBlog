@@ -40,6 +40,8 @@ describe('public takeover snapshot overlay', () => {
     const clone = snapshot?.element.querySelector<HTMLElement>('[data-public-takeover-snapshot-clone="true"]')
     expect(clone).not.toBeNull()
     expect(clone).not.toBe(originalShell)
+    expect(clone?.hasAttribute('id')).toBe(false)
+    expect(clone?.querySelector('[id]')).toBeNull()
     expect(clone?.textContent).toContain('Visible public shell')
     expect(clone?.classList.contains('fsus-public-takeover-snapshot__clone')).toBe(true)
     expect(clone?.hasAttribute('style')).toBe(false)

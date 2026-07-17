@@ -1,15 +1,29 @@
-import { createApp } from 'vue'
+import { createApp, h, type Component, type VNode } from 'vue'
 import { createPinia } from 'pinia'
 import { createHead } from '@unhead/vue/client'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import App from '@/App.vue'
 import router from '@/router'
+import PublicBlogLayoutShell from '@/components/public/PublicBlogLayoutShell.vue'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import { installFsusUiLoading } from '@/fsusui/feedback'
 import { scheduleNonCriticalResources } from '@/bootstrap/nonCriticalResources'
-import { scheduleFullAppRuntime } from '@/bootstrap/runtimeGate'
+import { runtimeReady, scheduleFullAppRuntime } from '@/bootstrap/runtimeGate'
 import { removeGlobalLoader } from '@/bootstrap/publicShellPrimitives'
-import { disposePublicHydrationApp } from '@/public-renderers/clientHydrate'
+import {
+  getPublicHydrationTakeoverHandle,
+  type PublicHydrationTakeoverHandle
+} from '@/public-renderers/clientHydrate'
+import type { PublicHydrationPayload } from '@/public-renderers/types'
+import {
+  isPublicSearchRouteName,
+  isPublicShellRouteName,
+  resolvePublicPageKind
+} from '@/public-renderers/publicPageModel'
+import { PUBLIC_SEARCH_ROUTE_NAME } from '@/public-renderers/publicRouteRegistry'
+import { normalizePublicSearchKeyword } from '@/public-renderers/publicSearchRoutePolicy'
+import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
+import { createPublicTakeoverSeed } from '@/public-renderers/publicSiteIdentity'
 import {
   beginPublicTakeoverCommit,
   completePublicTakeoverCommit,
@@ -50,6 +64,7 @@ export type PreparedFullApp = Readonly<{
   options: BootstrapFullAppOptions
   isPublicShellTakeover: boolean
   isDirectSpaBootstrap: boolean
+  publicTakeover: PublicHydrationTakeoverHandle | null
 }>
 
 let bootstrapPromise: Promise<typeof router> | null = null
@@ -57,21 +72,6 @@ let deferredMotionInstallStarted = false
 
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
-}
-
-function disposePublicShellForClientMount(): void {
-  const appRoot = document.getElementById('app')
-  if (!appRoot) {
-    return
-  }
-
-  const shell = appRoot.querySelector<HTMLElement>('#fsus-aot-shell')
-  if (shell?.dataset.publicHydrationKind) {
-    appRoot.dataset.publicTakeoverDisposedShell = shell.dataset.publicHydrationKind
-  }
-
-  disposePublicHydrationApp()
-  appRoot.replaceChildren()
 }
 
 function markDirectPublicShellReady(): void {
@@ -102,11 +102,103 @@ function installFullAppPlugins(prepared: PreparedFullApp): void {
   app.config.globalProperties.center = false
 
   app.use(head)
-  pinia.use(piniaPluginPersistedstate)
-  app.use(pinia)
+  if (!prepared.isPublicShellTakeover) {
+    pinia.use(piniaPluginPersistedstate)
+    app.use(pinia)
+  }
   app.use(router)
   installFsusUiLoading(app)
-  provideFsusUiAppContext(app)
+  if (!prepared.isPublicShellTakeover) {
+    provideFsusUiAppContext(app)
+  }
+}
+
+function resolvePublicRouteProps(): Record<string, unknown> {
+  const route = router.currentRoute.value
+  const record = route.matched.at(-1)
+  const option = record?.props?.default
+  if (option === true) {
+    return { ...route.params }
+  }
+  if (typeof option === 'function') {
+    return option(route)
+  }
+  return option && typeof option === 'object' ? { ...option } : {}
+}
+
+function renderPublicRouteComponent(): VNode | null {
+  const route = router.currentRoute.value
+  const component = route.matched.at(-1)?.components?.default as Component | undefined
+  if (!component) {
+    return null
+  }
+
+  return h(component, {
+    ...resolvePublicRouteProps(),
+    key: route.fullPath
+  })
+}
+
+function createPublicTakeoverRenderer(payload: PublicHydrationPayload): () => VNode {
+  const shellSeed = createPublicTakeoverSeed(payload)
+  if (!shellSeed) {
+    throw new Error('public takeover hydration payload is unavailable')
+  }
+
+  const handleSearch = async (query: string): Promise<void> => {
+    const canonicalQuery = normalizePublicSearchKeyword(query)
+    if (!canonicalQuery) {
+      return
+    }
+
+    const route = router.currentRoute.value
+    if (isPublicSearchRouteName(route.name) && route.query.q === canonicalQuery) {
+      return
+    }
+
+    await router.push({ name: PUBLIC_SEARCH_ROUTE_NAME, query: { q: canonicalQuery } })
+  }
+
+  const handleNavigate = async (href: string): Promise<void> => {
+    await router.push(href)
+  }
+
+  const handleSearchFocus = (): void => {
+    window.dispatchEvent(new CustomEvent('fsus:public-shell:search-focus'))
+  }
+
+  return (): VNode => {
+    const route = router.currentRoute.value
+    if (!isPublicShellRouteName(route.name)) {
+      return h(App)
+    }
+
+    const hydrationKind = resolvePublicPageKind(route.name) ?? payload.pageKind
+    const shellState = createPublicShellViewState({
+      hydrationKind,
+      siteTitle: shellSeed.siteTitle,
+      siteDescription: shellSeed.siteDescription,
+      siteLogoUrl: shellSeed.siteLogoUrl,
+      siteLogoDarkUrl: shellSeed.siteLogoDarkUrl,
+      siteWordmarkUrl: shellSeed.siteWordmarkUrl,
+      compliance: shellSeed.compliance,
+      renderYear: shellSeed.renderYear,
+      isSearchRoute: isPublicSearchRouteName(route.name),
+      initialSearchQuery: isPublicSearchRouteName(route.name) ? String(route.query.q ?? '') : '',
+      spaSearch: runtimeReady.value,
+      showRuntime: runtimeReady.value
+    })
+
+    return h(PublicBlogLayoutShell, {
+      ...shellState,
+      spaNavigation: true,
+      onNavigate: handleNavigate,
+      onSearch: handleSearch,
+      onSearchFocus: handleSearchFocus
+    }, {
+      default: renderPublicRouteComponent
+    })
+  }
 }
 
 function installDeferredFsusMotion(prepared: PreparedFullApp): void {
@@ -140,14 +232,19 @@ export function prepareFullApp(options: BootstrapFullAppOptions = {}): PreparedF
   const isPublicShellTakeover = options.takeover === 'public-shell'
   const isDirectSpaBootstrap = !isPublicShellTakeover
     && !document.getElementById('app')?.querySelector('#fsus-aot-shell')
+  const publicTakeover = isPublicShellTakeover ? getPublicHydrationTakeoverHandle() : null
+  if (isPublicShellTakeover && !publicTakeover) {
+    throw new Error('public takeover requires the mounted hydration app')
+  }
   const prepared: PreparedFullApp = {
-    app: createApp(App),
-    pinia: createPinia(),
+    app: publicTakeover?.app ?? createApp(App),
+    pinia: publicTakeover?.pinia ?? createPinia(),
     head: createHead(),
     router,
     options,
     isPublicShellTakeover,
-    isDirectSpaBootstrap
+    isDirectSpaBootstrap,
+    publicTakeover
   }
 
   if (isDirectSpaBootstrap) {
@@ -197,7 +294,6 @@ export async function commitPreparedFullApp(
     if (prepared.isPublicShellTakeover) {
       beginPublicTakeoverCommit({ reason: 'full-app-bootstrap' })
       abortPublicShellLifetime('full-app-bootstrap')
-      disposePublicShellForClientMount()
       await syncRouterToCurrentLocationForClientMount()
       await router.isReady()
       markStartup('full-app-bootstrap:router-ready-before-mount')
@@ -205,7 +301,11 @@ export async function commitPreparedFullApp(
 
     authBroadcastRuntime.init(prepared.pinia)
     authSessionRuntime.init(prepared.pinia)
-    prepared.app.mount('#app')
+    if (prepared.publicTakeover) {
+      await prepared.publicTakeover.activate(createPublicTakeoverRenderer(prepared.publicTakeover.payload))
+    } else {
+      prepared.app.mount('#app')
+    }
     markStartup('full-app-bootstrap:mounted')
     scheduleFullAppRuntime(Boolean(prepared.options.deferRuntime), {
       allowIdleActivation: !prepared.isPublicShellTakeover,

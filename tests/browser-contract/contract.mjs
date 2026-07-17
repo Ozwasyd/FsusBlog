@@ -1,0 +1,144 @@
+import { randomUUID } from 'node:crypto'
+import { mkdir, rename, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+
+export const browserContractReceiptSchema = 'fsusblog.browser-contract-receipt.v1'
+
+export const browserContractScenarios = Object.freeze([
+  Object.freeze({
+    id: 'public-hydration-history-reload',
+    role: 'anonymous',
+    capability: 'public-hydration',
+    serviceWorkers: 'allow'
+  }),
+  Object.freeze({
+    id: 'account-deep-link-bootstrap',
+    role: 'user',
+    capability: 'account-session',
+    serviceWorkers: 'block'
+  }),
+  Object.freeze({
+    id: 'admin-deep-link-expired-session',
+    role: 'admin',
+    capability: 'admin-session',
+    serviceWorkers: 'block'
+  }),
+  Object.freeze({
+    id: 'article-publish-persistence',
+    role: 'admin',
+    capability: 'critical-write',
+    serviceWorkers: 'block'
+  }),
+  Object.freeze({
+    id: 'webauthn-virtual-authenticator',
+    role: 'user',
+    capability: 'webauthn',
+    serviceWorkers: 'block'
+  }),
+  Object.freeze({
+    id: 'service-worker-offline-reload',
+    role: 'anonymous',
+    capability: 'service-worker',
+    serviceWorkers: 'allow'
+  })
+])
+
+export function selectBrowserContractScenarios(capabilities = {}) {
+  const selected = browserContractScenarios.filter((scenario) => (
+    scenario.capability !== 'webauthn' || capabilities.webAuthnRegistration === true
+  ))
+  contractAssert(selected.length >= 4 && selected.length <= 6, 'browser contract selected scenario count must stay between four and six')
+  return Object.freeze(selected)
+}
+
+export class BrowserContractFailure extends Error {
+  constructor(message, failureClass = 'contract', details = null) {
+    super(message)
+    this.name = 'BrowserContractFailure'
+    this.failureClass = failureClass
+    this.details = details
+  }
+}
+
+export function contractAssert(condition, message, details = null) {
+  if (!condition) throw new BrowserContractFailure(message, 'contract', details)
+}
+
+export function productAssert(condition, message, details = null) {
+  if (!condition) throw new BrowserContractFailure(message, 'product', details)
+}
+
+export function classifyBrowserContractFailure(error, options = {}) {
+  if (error instanceof BrowserContractFailure) return error.failureClass
+  const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+  if (options.browserDisconnected === true
+    || /browser (?:has been )?closed|browser disconnected|browser process|browserType\.launch|crash|target (?:page, context or browser )?has been closed|Target closed/iu.test(message)) {
+    return 'infra'
+  }
+  return 'product'
+}
+
+export function serializeBrowserContractError(error) {
+  if (!error) return null
+  return {
+    name: error instanceof Error ? error.name : 'Error',
+    message: error instanceof Error ? error.message : String(error),
+    failureClass: classifyBrowserContractFailure(error),
+    details: error instanceof BrowserContractFailure ? error.details : null,
+    stack: error instanceof Error ? error.stack ?? null : null
+  }
+}
+
+export function createBrowserContractReceipt({
+  sourceState = null,
+  build = null,
+  fixture = null,
+  playwright = null,
+  scenarios = browserContractScenarios,
+  startedAt = new Date().toISOString()
+} = {}) {
+  return {
+    schema: browserContractReceiptSchema,
+    status: 'running',
+    classification: null,
+    sourceState,
+    build,
+    fixture,
+    playwright,
+    topology: {
+      runner: 'playwright-library',
+      browserType: 'chromium',
+      managedBrowser: true,
+      workerPool: false,
+      shard: null,
+      retries: 0,
+      browserLaunchCount: 0,
+      maxConcurrentBrowserRoots: 0,
+      contextCount: 0
+    },
+    scenarios: scenarios.map((scenario) => ({
+      id: scenario.id,
+      capability: scenario.capability,
+      status: 'pending',
+      classification: null,
+      startedAt: null,
+      finishedAt: null,
+      durationMs: null,
+      issues: [],
+      artifacts: [],
+      error: null
+    })),
+    startedAt,
+    finishedAt: null,
+    wallClockMs: null,
+    error: null
+  }
+}
+
+export async function writeBrowserContractReceipt(file, receipt) {
+  const target = path.resolve(file)
+  await mkdir(path.dirname(target), { recursive: true })
+  const temporary = `${target}.next-${process.pid}-${randomUUID()}`
+  await writeFile(temporary, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 })
+  await rename(temporary, target)
+}

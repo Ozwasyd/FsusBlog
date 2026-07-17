@@ -1,4 +1,4 @@
-import { defineComponent, type VNode } from 'vue'
+import { defineComponent, type Ref, type ShallowRef, type VNode } from 'vue'
 import {
   createPublicAboutPageAssembly,
   createPublicArchivePageAssembly,
@@ -96,9 +96,19 @@ export function createPublicHydrationRoot(payload: PublicHydrationPayload): VNod
   })
 }
 
-export function createPublicHydrationRootComponent(payload: PublicHydrationPayload): ReturnType<typeof defineComponent> {
+export type PublicHydrationTakeoverController = Readonly<{
+  active: Ref<boolean>
+  renderer: ShallowRef<(() => VNode) | null>
+}>
+
+export function createPublicHydrationRootComponent(
+  payload: PublicHydrationPayload,
+  takeover?: PublicHydrationTakeoverController
+): ReturnType<typeof defineComponent> {
   return defineComponent({
     name: 'PublicHydrationRoot',
-    render: () => createPublicHydrationRoot(payload)
+    render: () => takeover?.active.value && takeover.renderer.value
+      ? takeover.renderer.value()
+      : createPublicHydrationRoot(payload)
   })
 }

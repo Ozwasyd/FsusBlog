@@ -24,6 +24,13 @@ function resolveSnapshotSource(source?: HTMLElement | null): HTMLElement | null 
   return document.getElementById('fsus-aot-shell')
 }
 
+function removeSnapshotIds(root: HTMLElement): void {
+  root.removeAttribute('id')
+  for (const element of Array.from(root.querySelectorAll<HTMLElement>('[id]'))) {
+    element.removeAttribute('id')
+  }
+}
+
 export function createPublicTakeoverSnapshot(
   options: PublicTakeoverSnapshotOptions = {}
 ): PublicTakeoverSnapshot | null {
@@ -46,6 +53,7 @@ export function createPublicTakeoverSnapshot(
   }, 'public-takeover-overlay')
 
   const clone = source.cloneNode(true) as HTMLElement
+  removeSnapshotIds(clone)
   clone.dataset.publicTakeoverSnapshotClone = 'true'
   clone.setAttribute('aria-hidden', 'true')
   clone.setAttribute('inert', '')

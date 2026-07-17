@@ -20,12 +20,31 @@ const fakeRouter = {
   isReady: vi.fn(async () => {})
 }
 const createApp = vi.fn(() => fakeApp)
-const createPinia = vi.fn(() => ({ use: vi.fn() }))
+const fakePinia = { use: vi.fn() }
+const createPinia = vi.fn(() => fakePinia)
 const createHead = vi.fn(() => ({}))
 const scheduleFullAppRuntime = vi.fn()
 const scheduleNonCriticalResources = vi.fn()
 const removeGlobalLoader = vi.fn()
-const disposePublicHydrationApp = vi.fn()
+const activatePublicTakeover = vi.fn(async () => {})
+const getPublicHydrationTakeoverHandle = vi.fn(() => ({
+  app: fakeApp,
+  pinia: fakePinia,
+  payload: {
+    pageKind: 'Home',
+    routeKey: 'home',
+    title: 'FsusBlog',
+    siteTitle: 'FsusBlog',
+    siteDescription: 'Test',
+    featuredArticles: [],
+    hotArticles: [],
+    view: {},
+    currentPage: 1,
+    pageSize: 10,
+    total: 0
+  },
+  activate: activatePublicTakeover
+}))
 const beginPublicTakeoverCommit = vi.fn(() => true)
 const completePublicTakeoverCommit = vi.fn(() => true)
 const resetPublicTakeover = vi.fn()
@@ -41,6 +60,7 @@ const waitForPublicTakeoverVisualReady = vi.fn(async () => {})
 
 vi.mock('vue', () => ({
   createApp,
+  h: vi.fn(),
   ref: vi.fn((value) => ({ value })),
   shallowRef: vi.fn((value) => ({ value })),
   triggerRef: vi.fn()
@@ -49,14 +69,15 @@ vi.mock('pinia', () => ({ createPinia }))
 vi.mock('@unhead/vue/client', () => ({ createHead }))
 vi.mock('pinia-plugin-persistedstate', () => ({ default: vi.fn() }))
 vi.mock('@/App.vue', () => ({ default: {} }))
+vi.mock('@/components/public/PublicBlogLayoutShell.vue', () => ({ default: {} }))
 vi.mock('@/router', () => ({ default: fakeRouter }))
 vi.mock('@/fsusui/appContext', () => ({ provideFsusUiAppContext: vi.fn() }))
 vi.mock('@/fsusui/feedback', () => ({ installFsusUiLoading: vi.fn() }))
 vi.mock('@/fsusui/motion', () => ({ FsuMotion: {} }))
 vi.mock('@/bootstrap/nonCriticalResources', () => ({ scheduleNonCriticalResources }))
-vi.mock('@/bootstrap/runtimeGate', () => ({ scheduleFullAppRuntime }))
+vi.mock('@/bootstrap/runtimeGate', () => ({ runtimeReady: { value: true }, scheduleFullAppRuntime }))
 vi.mock('@/bootstrap/publicShellPrimitives', () => ({ removeGlobalLoader }))
-vi.mock('@/public-renderers/clientHydrate', () => ({ disposePublicHydrationApp }))
+vi.mock('@/public-renderers/clientHydrate', () => ({ getPublicHydrationTakeoverHandle }))
 vi.mock('@/bootstrap/publicTakeoverState', () => ({
   beginPublicTakeoverCommit,
   completePublicTakeoverCommit,
@@ -90,9 +111,10 @@ describe('full app bootstrap prepare/commit', () => {
     const prepared = prepareFullApp({ takeover: 'public-shell', deferRuntime: true })
 
     expect(prepared.router).toBe(fakeRouter)
+    expect(createApp).not.toHaveBeenCalled()
     expect(document.querySelector('#app > #fsus-aot-shell')).not.toBeNull()
     expect(appMount).not.toHaveBeenCalled()
-    expect(disposePublicHydrationApp).not.toHaveBeenCalled()
+    expect(getPublicHydrationTakeoverHandle).toHaveBeenCalledTimes(1)
     expect(abortPublicShellLifetime).not.toHaveBeenCalled()
     expect(authSessionRuntimeInit).not.toHaveBeenCalled()
     expect(removeGlobalLoader).not.toHaveBeenCalled()
@@ -100,10 +122,6 @@ describe('full app bootstrap prepare/commit', () => {
 
   it('commits a prepared public takeover and replays a captured router intent after mount', async () => {
     const { prepareFullApp, commitPreparedFullApp } = await import('@/bootstrap/fullApp')
-    appMount.mockImplementationOnce((selector: string) => {
-      document.querySelector(selector)?.append(document.createElement('main'))
-    })
-
     const prepared = prepareFullApp({ takeover: 'public-shell', deferRuntime: true })
     const currentRoute = `${window.location.pathname}${window.location.search}${window.location.hash}` || '/'
     await commitPreparedFullApp(prepared, {
@@ -115,15 +133,15 @@ describe('full app bootstrap prepare/commit', () => {
 
     expect(beginPublicTakeoverCommit).toHaveBeenCalledWith({ reason: 'full-app-bootstrap' })
     expect(abortPublicShellLifetime).toHaveBeenCalledWith('full-app-bootstrap')
-    expect(disposePublicHydrationApp).toHaveBeenCalledTimes(1)
-    expect(appMount).toHaveBeenCalledWith('#app')
+    expect(activatePublicTakeover).toHaveBeenCalledTimes(1)
+    expect(appMount).not.toHaveBeenCalled()
     expect(beginPublicTakeoverVisualGuard).toHaveBeenCalledWith({
       navigationId: '/archive',
       timeoutMs: 5000
     })
     expect(fakeRouter.replace).toHaveBeenCalledWith(currentRoute)
     expect(fakeRouter.push).toHaveBeenCalledWith('/archive')
-    expect(fakeRouter.push.mock.invocationCallOrder[0]).toBeGreaterThan(appMount.mock.invocationCallOrder[0])
+    expect(fakeRouter.push.mock.invocationCallOrder[0]).toBeGreaterThan(activatePublicTakeover.mock.invocationCallOrder[0])
     expect(waitForPublicTakeoverVisualReady).toHaveBeenCalledWith({
       navigationId: '/archive',
       timeoutMs: 5000
@@ -138,21 +156,18 @@ describe('full app bootstrap prepare/commit', () => {
 
   it('leaves the public shell intact when prepare fails', async () => {
     const { prepareFullApp } = await import('@/bootstrap/fullApp')
-    createApp.mockImplementationOnce(() => {
-      throw new Error('prepare failed')
-    })
+    getPublicHydrationTakeoverHandle.mockReturnValueOnce(null)
 
-    expect(() => prepareFullApp({ takeover: 'public-shell' })).toThrow('prepare failed')
+    expect(() => prepareFullApp({ takeover: 'public-shell' })).toThrow('public takeover requires the mounted hydration app')
 
     expect(document.querySelector('#app > #fsus-aot-shell')?.textContent).toBe('AOT')
-    expect(disposePublicHydrationApp).not.toHaveBeenCalled()
     expect(appMount).not.toHaveBeenCalled()
     expect(resetPublicTakeover).not.toHaveBeenCalled()
   })
 
   it('resets public takeover state when commit fails', async () => {
     const { prepareFullApp, commitPreparedFullApp } = await import('@/bootstrap/fullApp')
-    appMount.mockImplementationOnce(() => {
+    activatePublicTakeover.mockImplementationOnce(async () => {
       throw new Error('mount failed')
     })
 
