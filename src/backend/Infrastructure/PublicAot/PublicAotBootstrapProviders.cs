@@ -48,11 +48,11 @@ public sealed class AotSeoConfigSnapshot(IServiceScopeFactory scopeFactory) : IA
 
             using IServiceScope scope = scopeFactory.CreateScope();
             ISystemService systemService = scope.ServiceProvider.GetRequiredService<ISystemService>();
-            Task<SeoConfigReadModel> seoTask = systemService.GetSeoConfigAsync();
-            Task<SiteComplianceConfigReadModel> complianceTask = systemService.GetSiteComplianceConfigAsync();
-            await Task.WhenAll(seoTask, complianceTask);
-            SeoConfigReadModel seo = await seoTask;
-            SiteComplianceConfigReadModel compliance = await complianceTask;
+            // ISystemService and its SqlSugar client share this scope. Npgsql
+            // permits only one active command per connection, so cache misses
+            // must not overlap reads inside the same scope.
+            SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
+            SiteComplianceConfigReadModel compliance = await systemService.GetSiteComplianceConfigAsync();
             snapshot = new PublicAotSeoSnapshot(
                 seo.Title,
                 seo.Description,

@@ -11,6 +11,48 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class PublicAotBootstrapProviderTests
 {
     [Fact]
+    public async Task SeoSnapshot_SerializesReadsThatShareOneScopedSystemService()
+    {
+        ISystemService systemService = Substitute.For<ISystemService>();
+        var seoStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var seoResult = new TaskCompletionSource<SeoConfigReadModel>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var complianceStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var complianceResult = new TaskCompletionSource<SiteComplianceConfigReadModel>(TaskCreationOptions.RunContinuationsAsynchronously);
+        systemService.GetSeoConfigAsync().Returns(_ =>
+        {
+            seoStarted.TrySetResult(true);
+            return seoResult.Task;
+        });
+        systemService.GetSiteComplianceConfigAsync().Returns(_ =>
+        {
+            complianceStarted.TrySetResult(true);
+            return complianceResult.Task;
+        });
+        await using ServiceProvider provider = new ServiceCollection()
+            .AddScoped(_ => systemService)
+            .BuildServiceProvider();
+        var snapshot = new AotSeoConfigSnapshot(provider.GetRequiredService<IServiceScopeFactory>());
+
+        Task<PublicAotSeoSnapshot> read = snapshot.GetAsync();
+        await seoStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        await systemService.DidNotReceive().GetSiteComplianceConfigAsync();
+        seoResult.SetResult(new SeoConfigReadModel
+        {
+            Title = "Scoped SEO",
+            Description = "serialized reads",
+            BaseUrl = "https://example.test"
+        });
+        await complianceStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        complianceResult.SetResult(new SiteComplianceConfigReadModel { Enabled = true });
+
+        PublicAotSeoSnapshot result = await read.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Equal("Scoped SEO", result.SiteTitle);
+        await systemService.Received(1).GetSeoConfigAsync();
+        await systemService.Received(1).GetSiteComplianceConfigAsync();
+    }
+
+    [Fact]
     public async Task HomeProvider_UsesPageSpecificSnapshotOnFirstServerRender()
     {
         IArticleService articles = Substitute.For<IArticleService>();
