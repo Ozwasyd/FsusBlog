@@ -1604,7 +1604,7 @@
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/release-evidence/public-hydration-matrix-summary.json"
+        ".tmp/release-evidence/public-hydration-matrix-fast-summary.json"
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
@@ -1619,7 +1619,7 @@
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/release-evidence/public-hydration-matrix-summary.json"
+        ".tmp/release-evidence/public-hydration-matrix-fast-summary.json"
       ],
       "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
@@ -1656,7 +1656,7 @@
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/release-evidence/public-hydration-matrix-summary.json"
+        ".tmp/release-evidence/public-hydration-matrix-nightly-full-summary.json"
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
@@ -1693,7 +1693,7 @@
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/release-evidence/public-hydration-matrix-summary.json"
+        ".tmp/release-evidence/public-hydration-matrix-nightly-full-summary.json"
       ],
       "assertionType": "browser",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",

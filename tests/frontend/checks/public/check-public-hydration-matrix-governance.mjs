@@ -302,6 +302,8 @@ function validateRegistry(registry, lane, errors) {
 function validateRepoWiring(errors) {
   const matrix = readText('tests/matrix.yml')
   const releaseLane = readText('tools/test/legacy-test.sh')
+  const fastLane = readText('tools/test/lanes/public-hydration-fast.sh')
+  const nightlyLane = readText('tools/test/lanes/public-hydration-nightly.sh')
   const workflow = readText('.github/workflows/quality-gate.yml')
   const collector = readText('tools/operations/collect-release-evidence.sh')
   const fixture = readText('tools/operations/test-release-evidence-fixture.sh')
@@ -310,6 +312,8 @@ function validateRepoWiring(errors) {
   for (const token of [
     'id: public-hydration-fast',
     'id: public-hydration-nightly',
+    'public-hydration-matrix-fast-summary.json',
+    'public-hydration-matrix-nightly-full-summary.json',
     'public-hydration-matrix-summary.json',
     'public-hydration-matrix',
   ]) {
@@ -322,7 +326,17 @@ function validateRepoWiring(errors) {
       errors.push(`release lane missing ${token}`)
     }
   }
-  for (const token of ['./tools/test.sh public-hydration-fast --no-deps', '.tmp/release-evidence/public-hydration-matrix-summary.json']) {
+  if (!fastLane.includes('public-hydration-matrix-fast-summary.json')) {
+    errors.push('fast hydration lane must own its lane-specific summary')
+  }
+  if (!nightlyLane.includes('public-hydration-matrix-nightly-full-summary.json')) {
+    errors.push('nightly hydration lane must own its lane-specific summary')
+  }
+  for (const token of [
+    './tools/test.sh public-hydration-fast --no-deps',
+    '.tmp/release-evidence/public-hydration-matrix-fast-summary.json',
+    '.tmp/release-evidence/public-hydration-matrix-summary.json',
+  ]) {
     if (!workflow.includes(token)) {
       errors.push(`quality gate workflow missing ${token}`)
     }

@@ -403,7 +403,7 @@ jobs:
             .tmp/release-evidence/test-plan.json
             .tmp/release-evidence/doc-sync-summary.json
             .tmp/release-evidence/test-retention-audit.json
-            .tmp/release-evidence/public-hydration-matrix-summary.json
+            .tmp/release-evidence/public-hydration-matrix-fast-summary.json
             .tmp/release-evidence/jobs/**
             .tmp/release-evidence/flaky/**
 

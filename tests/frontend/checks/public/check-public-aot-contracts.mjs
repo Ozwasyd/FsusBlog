@@ -468,7 +468,7 @@ function assertStaticContracts() {
   if (!releaseLane.includes('check:aot-cache-resilience')) {
     fail('resilience/release lane missing destructive AOT cache resilience check')
   }
-  for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json', 'public-hydration-browser-env-matrix', 'public-hydration-browser-env-summary.json', 'public-hydration-payload-fixture-matrix', 'public-hydration-payload-fixture-summary.json', 'public-hydration-dom-diff', 'public-hydration-dom-diff-summary.json', 'public-hydration-sidecar', 'public-hydration-sidecar-summary.json', 'public-hydration-fast', 'public-hydration-nightly', 'public-hydration-matrix', 'public-hydration-matrix-summary.json']) {
+  for (const token of ['public-hydration-clock-matrix', 'public-hydration-clock-matrix-summary.json', 'public-hydration-browser-env-matrix', 'public-hydration-browser-env-summary.json', 'public-hydration-payload-fixture-matrix', 'public-hydration-payload-fixture-summary.json', 'public-hydration-dom-diff', 'public-hydration-dom-diff-summary.json', 'public-hydration-sidecar', 'public-hydration-sidecar-summary.json', 'public-hydration-fast', 'public-hydration-matrix-fast-summary.json', 'public-hydration-nightly', 'public-hydration-matrix-nightly-full-summary.json', 'public-hydration-matrix', 'public-hydration-matrix-summary.json']) {
     if (!testMatrix.includes(token)) {
       fail(`test matrix missing public hydration release evidence token: ${token}`)
     }
@@ -487,7 +487,9 @@ function assertStaticContracts() {
   if (!qualityGateWorkflow.includes('public-hydration-dom-diff-summary.json')) {
     fail('quality gate workflow missing public hydration DOM diff artifact')
   }
-  if (!qualityGateWorkflow.includes('public-hydration-matrix-summary.json') || !qualityGateWorkflow.includes('./tools/test.sh public-hydration-fast --no-deps')) {
+  if (!qualityGateWorkflow.includes('public-hydration-matrix-fast-summary.json')
+    || !qualityGateWorkflow.includes('public-hydration-matrix-summary.json')
+    || !qualityGateWorkflow.includes('./tools/test.sh public-hydration-fast --no-deps')) {
     fail('quality gate workflow missing public hydration matrix fast lane/artifact')
   }
   if (!qualityGateWorkflow.includes('public-hydration-sidecar-summary.json')) {
