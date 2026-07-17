@@ -79,6 +79,9 @@ export async function writeUxViewportSummary({ root = defaultRoot, mode = 'smoke
 
   const summary = {
     status: summaryStatus,
+    evidenceClass: 'diagnostic',
+    affectsCorrectness: false,
+    executionBoundary: 'real-browser-ux-viewport',
     mode,
     runId: progress.runId,
     generatedAt: new Date().toISOString(),
@@ -282,6 +285,9 @@ function writeReleaseSummary({ root, matrix, corpus, mode, artifact, summary }) 
   )
   const releaseSummary = {
     status: summary.status,
+    evidenceClass: summary.evidenceClass,
+    affectsCorrectness: summary.affectsCorrectness,
+    executionBoundary: summary.executionBoundary,
     runId: summary.runId,
     generatedAt: new Date().toISOString(),
     latestMode: mode,

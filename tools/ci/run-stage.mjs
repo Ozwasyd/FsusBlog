@@ -46,6 +46,14 @@ function stageDurations(existing, stage, durationMs) {
   return durations
 }
 
+function evidenceClassification(jobId) {
+  const diagnostic = jobId === 'browser-diagnostics'
+  return {
+    evidenceClass: diagnostic ? 'diagnostic' : 'correctness',
+    affectsCorrectness: !diagnostic
+  }
+}
+
 function writeSummary(jobId, stage, status, durationMs, rootCause = null) {
   const file = summaryPath(jobId)
   let existing = null
@@ -62,6 +70,7 @@ function writeSummary(jobId, stage, status, durationMs, rootCause = null) {
     ciJob: existing?.ciJob ?? jobId,
     tierIds: existing?.tierIds?.length ? existing.tierIds : [jobId],
     status: status === 'success' && existing?.status ? existing.status : status,
+    ...evidenceClassification(jobId),
     failureStage: status === 'success' ? (existing?.failureStage ?? null) : stage,
     rootCause: status === 'success' ? (existing?.rootCause ?? null) : rootCause,
     durationMs: Math.max(0, Number(existing?.durationMs ?? 0)) + Math.max(0, durationMs),

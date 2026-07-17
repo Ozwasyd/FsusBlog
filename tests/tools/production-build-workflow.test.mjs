@@ -18,7 +18,7 @@ function jobSource(workflow, jobId) {
   return next < 0 ? workflow.slice(start) : workflow.slice(start, start + 1 + next)
 }
 
-test('quality gate has one smart-gated producer and all runtime/browser consumers verify it', () => {
+test('quality gate has one smart-gated producer and all immutable-build consumers verify it', () => {
   const workflow = fs.readFileSync(workflowFile, 'utf8')
   const producer = jobSource(workflow, 'production-build-artifacts')
   assert.match(producer, /ci-tier production-build-artifacts --no-deps/u)
@@ -30,9 +30,8 @@ test('quality gate has one smart-gated producer and all runtime/browser consumer
 
   const consumers = [
     'integration-runtime', 'endpoint-depth-runtime', 'release-public', 'security-runtime',
-    'acceptance-playwright', 'visual-public-playwright', 'visual-console-playwright',
-    'ux-viewport-smoke', 'frontend-render-pressure', 'cross-browser-smoke',
-    'resilience-runtime', 'load-smoke', 'backend-qps-collectors', 'perf-regression'
+    'acceptance-playwright', 'resilience-runtime', 'load-smoke',
+    'backend-qps-collectors', 'perf-regression'
   ]
   for (const jobId of consumers) {
     const source = jobSource(workflow, jobId)
@@ -126,10 +125,11 @@ test('smart gate selects producer exactly when an immutable build consumer is se
   assert.match(producer.reason, /immutable production build/u)
   assert.match(runtimeResult.githubOutput, /production_build_domains=.*backend-runtime/u)
 
-  const browserResult = run('src/frontend/src/App.vue')
-  assert.ok(browserResult.plan.selectedTierIds.includes('production-build-artifacts'))
-  assert.match(browserResult.githubOutput, /production_build_domains=.*frontend-dist/u)
-  assert.match(browserResult.githubOutput, /production_build_domains=.*wasm/u)
+  const frontendResult = run('src/frontend/src/App.vue')
+  assert.ok(frontendResult.plan.selectedTierIds.includes('production-build-artifacts'))
+  assert.doesNotMatch(frontendResult.githubOutput, /production_build_domains=.*frontend-dist/u)
+  assert.doesNotMatch(frontendResult.githubOutput, /production_build_domains=.*wasm/u)
+  assert.match(frontendResult.githubOutput, /browser_diagnostics=false/u)
 
   const docsOnlyResult = run('docs/README-only.md')
   const docsOnly = docsOnlyResult.plan

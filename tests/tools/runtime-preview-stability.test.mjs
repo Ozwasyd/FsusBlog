@@ -221,5 +221,7 @@ test('production runtime keeps hydration writes exact-once and gates all release
   assert.match(viewportBoundaries, /retryable-public-aot/u)
   assert.match(viewportBoundaries, /onRetryableResponse: \(\) =>/u)
   const uxStart = bundle.indexOf("step('ux-risk-matrix'")
-  assert.match(bundle.slice(uxStart, uxStart + 500), /dependsOn: \['release-public'\]/u)
+  assert.equal(uxStart, -1, 'UX risk must stay outside the Production correctness bundle')
+  const diagnosticsCatalog = fs.readFileSync(path.join(root, 'tests/browser-diagnostics/catalog.mjs'), 'utf8')
+  assert.match(diagnosticsCatalog, /probe\('risk-matrix',[\s\S]*browser-ux-risk-diagnostics\.sh/u)
 })

@@ -115,13 +115,13 @@ worker.postMessage(request, [request.buffer])
 
 `getAedsRuntimeDiagnostics()` 暴露 selected tier、SIMD support、fallback reason/count、download/compile/instantiate timing、module-cache hit、decode count/bytes/time、frame bucket p50/p95/p99、copy bytes、memory pages/peak/grow、arena stats。Worker 额外记录 transferable 到达时间；`binaryTransport` 只在 tier/fallback signature 改变时发送一次 `aeds_wasm_tier` audit telemetry，避免失败风暴。持续 RUM 复用白名单 `wasm_decode_timing`。性能 lane 必须实际执行 arena input copy 与 owned payload copy，并让 measured/expected byte counters 完全相等；写死“每帧 1 次”但不执行 copy 不构成证据。
 
-`aeds-frame-cost` lane 串行执行服务端 frame cost、真实 basic/speed Wasm 预算和浏览器 tier 测试，避免并发 benchmark 噪声。浏览器 evidence 在 Chromium/Firefox/WebKit 的本机受支持集合中记录 download/compile/instantiate、Worker transfer、decode bucket、copy bytes、peak/grow pages、long task、selection rate 与 fallback rate；正常路径必须只取 speed，故障注入后必须只回退 basic。hydration takeover 使用同一个 release manifest 中的 `publicHydrationSidecarSummary` 真实页面证据，不能用 Node microbenchmark 或合成 DOM 代替。
+普通 `aeds-frame-cost` lane 串行执行服务端 frame cost 与真实 basic/speed Wasm decoder budget，避免并发 benchmark 噪声；它不启动浏览器。Chromium/Firefox/WebKit 的 download/compile/instantiate、Worker transfer、decode bucket、copy bytes、peak/grow pages、long task、selection rate 与 fallback rate 已迁到 scheduled/manual browser diagnostics。diagnostics 正常路径必须只取 speed，故障注入后必须只回退 basic；hydration takeover 仍引用同一 immutable build 的真实 sidecar evidence，不能用 Node microbenchmark 或合成 DOM 代替。
 
-release budget 固定为：basic raw/gzip/br 不超过 64/32/24 KiB、compile p95 不超过 50 ms、memory 不超过 4096 pages；speed raw/gzip/br 不超过 96/48/40 KiB、compile p95 不超过 75 ms、固定 1024 pages 且 grow=0。三个真实 frame bucket 至少两个 speed 更快，median speedup 不低于 1.05。budget 与浏览器 summary 都进入 release evidence semantic checker，缺失或不满足时 manifest 保持 `collected-blocked`。
+普通 decoder budget 固定为：basic raw/gzip/br 不超过 64/32/24 KiB、compile p95 不超过 50 ms、memory 不超过 4096 pages；speed raw/gzip/br 不超过 96/48/40 KiB、compile p95 不超过 75 ms、固定 1024 pages 且 grow=0。三个真实 frame bucket 至少两个 speed 更快，median speedup 不低于 1.05。该 browserless budget 进入 release evidence semantic checker，缺失或不满足时 manifest 保持 `collected-blocked`。browser diagnostics summary 可随 manifest 收集用于观察，但不会改变 correctness/manifest status。
 
-两份 AEDS release summary 还必须携带当前 40-hex `commitSha`，并与 release manifest 完全一致。semantic checker 同时复核 artifact/compile 上限、真实 copy byte equality、arena reallocation 少于 decode count、敏感清零和 speed 1024 pages/grow=0；旧 SHA、缺字段或硬编码 copy 声明都不能完成 release closeout。
+`aeds-decode-budget-summary.json` 必须携带当前 40-hex `commitSha`，并与 release manifest 完全一致。semantic checker 复核 artifact/compile 上限、真实 copy byte equality、arena reallocation 少于 decode count、敏感清零和 speed 1024 pages/grow=0；旧 SHA、缺字段或硬编码 copy 声明都不能完成 release closeout。`aeds-wasm-browser-summary.json` 绑定 diagnostics 的 immutable source/build identity，但它是 `diagnostic` evidence，不是普通 correctness 前置。
 
-evidence producer 会先确认 `FSUSBLOG_EVIDENCE_COMMIT_SHA` / `GITHUB_SHA`（若提供）与当前 `HEAD` 相同，并拒绝 tracked worktree dirty 状态。未提交源码上的开发测量不能写成当前 commit evidence；必须先提交、确认 clean，再运行 budget/browser lane。
+ordinary evidence producer 会先确认 `FSUSBLOG_EVIDENCE_COMMIT_SHA` / `GITHUB_SHA`（若提供）与当前 `HEAD` 相同，并拒绝 tracked worktree dirty 状态。未提交源码上的开发测量不能写成当前 commit decoder budget evidence；必须先提交、确认 clean，再运行 ordinary budget lane。browser diagnostics 通过自己的 immutable build receipt 与 run/category/probe receipt 绑定身份，不能复用旧 summary。
 
 ## CRC 与 correctness 边界
 
@@ -148,8 +148,8 @@ cd src/frontend && node ../../tools/frontend/ensure-wasm.mjs status
 # basic/speed 真实吞吐、artifact raw/gzip/br、compile、memory、copy/arena
 cd ../.. && node tests/frontend/checks/perf/check-aeds-decode-budget.mjs
 
-# 受支持真实浏览器的 tier/fallback/transfer/load/long-task evidence
-node tests/frontend/checks/wasm/check-aeds-tier-browser.mjs
+# 受支持真实浏览器的 tier/fallback/transfer/load/long-task diagnostics
+bash tools/test/lanes/browser-diagnostics.sh manual --category performance --workers 1
 
 # basic/speed differential fuzz（release build 后）
 FSUSBLOG_WASM_FUZZ_SEEDS_PER_CORPUS=256 node tools/security/run-wasm-fuzz.mjs
@@ -165,7 +165,7 @@ pnpm vitest run --config vitest.config.ts \
   ../../tests/frontend/unit/protocol/aeds-contract.test.ts
 ```
 
-性能 summary 写入 `.tmp/frontend/aeds-decode-budget/summary.json`，release 投影写入 `.tmp/release-evidence/aeds-decode-budget-summary.json`；浏览器对应写入 `.tmp/frontend/aeds-wasm-browser/summary.json` 与 `.tmp/release-evidence/aeds-wasm-browser-summary.json`。fuzz summary 必须标记 `executionSource=fresh-wasm-runtime`，同时列出 basic/speed SHA-256、非零 seeds、replay plan 和空 crash 集合。
+普通性能 summary 写入 `.tmp/frontend/aeds-decode-budget/summary.json`，release correctness 投影写入 `.tmp/release-evidence/aeds-decode-budget-summary.json`。browser diagnostics 另写 `.tmp/frontend/aeds-wasm-browser/summary.json` 与 `.tmp/release-evidence/aeds-wasm-browser-summary.json`，并由 browser diagnostics receipt 归档；这些 browser 文件的缺失、unsupported 或失败不会阻断普通 correctness，也不能替代 decoder budget。fuzz summary 必须标记 `executionSource=fresh-wasm-runtime`，同时列出 basic/speed SHA-256、非零 seeds、replay plan 和空 crash 集合。
 
 ## 风险与无需重启的回退
 

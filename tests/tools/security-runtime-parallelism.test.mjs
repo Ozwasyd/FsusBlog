@@ -9,6 +9,7 @@ import { resolveAdaptiveManifestWorkers } from '../../tools/test/run-command-man
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
 const lane = fs.readFileSync(path.join(root, 'tools/test/lanes/security-runtime.sh'), 'utf8')
+const a11yDiagnostics = fs.readFileSync(path.join(root, 'tools/test/lanes/browser-a11y-diagnostics.sh'), 'utf8')
 const parallelHelper = legacy.slice(
   legacy.indexOf('run_parallel()'),
   legacy.indexOf('\nprobe_url()')
@@ -135,15 +136,13 @@ test('security runtime core keeps isolated runtime checks after one preparation 
   assert.match(securityCore, /local -x FSUSBLOG_PARALLEL_WORKLOAD=cpu/u)
   assert.match(securityCore, /run_security_stage "security-runtime-parallel" run_security_runtime_pool/u)
   assert.match(securityCore, /run_security_stage "security-runtime-permissions"[\s\S]*run_security_isolated_client_check permissions/u)
-  assert.match(securityCore, /run_security_stage "security-runtime-a11y"[\s\S]*run_security_isolated_client_check a11y/u)
-  assert.ok(
-    securityCore.indexOf('security-runtime-permissions') < securityCore.indexOf('security-runtime-a11y'),
-    'browser-heavy security checks must remain serialized'
-  )
+  assert.doesNotMatch(securityCore, /check:a11y:smoke|security-runtime-a11y/u)
+  assert.match(a11yDiagnostics, /run_in_client npm run check:a11y:smoke/u)
+  assert.match(a11yDiagnostics, /FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1/u)
 })
 
-test('session-mutating security checks receive stable unique user, admin and device suffixes', () => {
-  for (const suffix of ['auth-session', 'auth-mfa', 'auth-passkey', 'permissions', 'a11y']) {
+test('correctness session-mutating security checks receive stable unique user, admin and device suffixes', () => {
+  for (const suffix of ['auth-session', 'auth-mfa', 'auth-passkey', 'permissions']) {
     assert.ok(
       securityCore.includes(`run_security_isolated_client_check ${suffix} `),
       `missing isolated identity suffix for ${suffix}`

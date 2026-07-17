@@ -47,6 +47,7 @@ STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/release-asset-compatibility-probe.test.mjs"
   "$ROOT_DIR/tests/tools/performance-evidence-summary.test.mjs"
   "$ROOT_DIR/tests/tools/performance-saturation-v2.test.mjs"
+  "$ROOT_DIR/tests/tools/browser-diagnostics.test.mjs"
 )
 static_node_contracts() {
   FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \

@@ -1,16 +1,60 @@
-import { expect, test, type Page } from '@playwright/test'
-import {
-  DESKTOP_VIEWPORT,
-  MOBILE_VIEWPORT,
-  WARMUP_TIMEOUT_MS,
-  openAuditedPage,
-  prewarmDevRuntime,
-  waitForAppReady
-} from '../../support/playwright/acceptance-shared'
+import { expect, test, type Browser, type Page } from '@playwright/test'
+
+const DESKTOP_VIEWPORT = { width: 1440, height: 900 }
+const MOBILE_VIEWPORT = { width: 390, height: 844 }
+const WARMUP_TIMEOUT_MS = 45_000
 
 const headerSelector = '[data-public-shell-header]'
 const headingSelector = '.archive-year-heading'
 const sectionSelector = '.archive-year-section'
+
+async function openAuditedPage(browser: Browser, viewport: Readonly<{ width: number; height: number }>) {
+  const context = await browser.newContext({
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000',
+    viewport
+  })
+  const page = await context.newPage()
+  const diagnostics: string[] = []
+  page.on('pageerror', (error) => diagnostics.push(`pageerror:${error.message}`))
+  page.on('console', (message) => {
+    if (!['error', 'warning'].includes(message.type())) return
+    const text = message.text()
+    if (/Failed to load resource|favicon|notification.*preflight/iu.test(text)) return
+    diagnostics.push(`console:${message.type()}:${text}`)
+  })
+  page.on('requestfailed', (request) => {
+    const error = request.failure()?.errorText || 'request failed'
+    if (/ERR_ABORTED|ERR_NETWORK_CHANGED/iu.test(error)) return
+    diagnostics.push(`requestfailed:${request.method()} ${request.url()} ${error}`)
+  })
+  page.on('response', (response) => {
+    if (response.status() < 400 || response.status() === 401) return
+    const url = response.url()
+    if (/favicon|\/api\/notifications\/stream\/preflight/iu.test(url)) return
+    diagnostics.push(`response:${response.status()}:${response.request().method()} ${url}`)
+  })
+  return {
+    page,
+    audit: {
+      checkpoint: () => diagnostics.length,
+      assertCleanSince: (start: number, label: string) => {
+        expect(diagnostics.slice(start), `${label} runtime diagnostics`).toEqual([])
+      }
+    },
+    close: () => context.close()
+  }
+}
+
+async function waitForAppReady(page: Page, timeout: number) {
+  await page.waitForFunction(() => {
+    const shell = document.querySelector<HTMLElement>('#fsus-aot-shell')
+    const app = document.querySelector<HTMLElement>('#app')
+    if (!shell || !app || document.readyState !== 'complete') return false
+    const rect = app.getBoundingClientRect()
+    const style = getComputedStyle(app)
+    return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden'
+  }, undefined, { timeout })
+}
 
 type GeometrySnapshot = Readonly<{
   headerBottom: number
@@ -62,12 +106,8 @@ for (const viewport of [
     test.use({ viewport: viewport.size })
     test.describe.configure({ timeout: 120_000 })
 
-    test.beforeAll(async ({ browser }) => {
-      await prewarmDevRuntime(browser)
-    })
-
     test('keeps hash targets below the header and closes the sticky-layer gap', async ({ browser }) => {
-      const session = await openAuditedPage(browser)
+      const session = await openAuditedPage(browser, viewport.size)
       try {
         await session.page.setViewportSize(viewport.size)
         const auditStart = session.audit.checkpoint()

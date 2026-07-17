@@ -6,6 +6,10 @@ import { spawnSync } from 'node:child_process'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const downloadedArtifactsRoot = path.join(root, '.tmp/downloaded-artifacts')
+const diagnosticMode = process.env.FSUSBLOG_BROWSER_DIAGNOSTICS === '1'
+const diagnosticArtifactRoot = process.env.FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT
+  ? path.resolve(process.env.FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT)
+  : null
 const groups = [
   {
     id: 'public',
@@ -93,10 +97,46 @@ function expectedSummaryIds(jobId) {
   return payload.matrix.include.map((entry) => entry.artifact_name).filter(Boolean)
 }
 
+function diagnosticGroupOutputPath(group) {
+  if (!diagnosticArtifactRoot) return null
+  return path.join(path.dirname(diagnosticArtifactRoot), group.id, 'playwright', `visual-${group.id}`)
+}
+
+function validateGroupSummary({ group, summary, file, requiredStatus, expectedOutputPath, strictContract }) {
+  const errors = []
+  if (!requiredStatus.includes(summary.status)) {
+    errors.push(`${relative(file)} status=${summary.status ?? 'missing'}`)
+  }
+  if (strictContract && summary.schema !== 'fsusblog.visual.screenshot-group.v1') {
+    errors.push(`${relative(file)} schema=${summary.schema ?? 'missing'}`)
+  }
+  if (strictContract && summary.group !== group.id) {
+    errors.push(`${relative(file)} group=${summary.group ?? 'missing'}`)
+  }
+  if (strictContract && (!Number.isFinite(Number(summary.durationMs)) || Number(summary.durationMs) < 0)) {
+    errors.push(`${relative(file)} durationMs=${summary.durationMs ?? 'missing'}`)
+  }
+  if (strictContract && expectedOutputPath) {
+    const actualOutputPath = typeof summary.outputDir === 'string' && summary.outputDir.length > 0
+      ? path.resolve(root, summary.outputDir)
+      : null
+    if (actualOutputPath !== expectedOutputPath) {
+      errors.push(`${relative(file)} outputDir does not match current diagnostic probe`)
+    } else if (!fs.existsSync(actualOutputPath)) {
+      errors.push(`missing diagnostic screenshot output: ${relative(actualOutputPath)}`)
+    }
+  }
+  return errors
+}
+
 function summarizeGroup(group) {
-  const summaryFiles = findAllRelative(group.summaryPath)
+  const directSummary = path.join(root, group.summaryPath)
+  const summaryFiles = diagnosticMode
+    ? (fs.existsSync(directSummary) ? [directSummary] : [])
+    : findAllRelative(group.summaryPath)
   const parsedSummaries = []
   const errors = []
+  const expectedOutputPath = diagnosticMode ? diagnosticGroupOutputPath(group) : null
 
   if (summaryFiles.length === 0) {
     errors.push(`missing screenshot group summary: ${group.summaryPath}`)
@@ -106,9 +146,14 @@ function summarizeGroup(group) {
     try {
       const summary = readJson(file)
       parsedSummaries.push({ summary, file })
-      if (!['success', 'skipped'].includes(summary.status)) {
-        errors.push(`${relative(file)} status=${summary.status ?? 'missing'}`)
-      }
+      errors.push(...validateGroupSummary({
+        group,
+        summary,
+        file,
+        requiredStatus: diagnosticMode ? ['success'] : ['success', 'skipped'],
+        expectedOutputPath,
+        strictContract: diagnosticMode
+      }))
     } catch (error) {
       errors.push(`${relative(file)} is not valid JSON: ${error.message}`)
     }
@@ -116,18 +161,33 @@ function summarizeGroup(group) {
 
   const jobSummaries = []
   let expectedJobSummaries = []
-  try {
-    expectedJobSummaries = expectedSummaryIds(group.ciJob)
-  } catch (error) {
-    errors.push(error.message)
-  }
-  for (const summaryId of expectedJobSummaries) {
-    const files = jobSummaryFilesForId(summaryId)
-    if (files.length === 0) {
-      errors.push(`missing job summary artifact: ${summaryId}`)
-      continue
+  if (!diagnosticMode) {
+    try {
+      expectedJobSummaries = expectedSummaryIds(group.ciJob)
+    } catch (error) {
+      errors.push(error.message)
     }
-    for (const file of files) {
+    for (const summaryId of expectedJobSummaries) {
+      const files = jobSummaryFilesForId(summaryId)
+      if (files.length === 0) {
+        errors.push(`missing job summary artifact: ${summaryId}`)
+        continue
+      }
+      for (const file of files) {
+        try {
+          const summary = readJson(file)
+          jobSummaries.push({ summary, file })
+          if (summary.status !== 'success') {
+            errors.push(`${relative(file)} status=${summary.status ?? 'missing'}`)
+          }
+        } catch (error) {
+          errors.push(`${relative(file)} is not valid JSON: ${error.message}`)
+        }
+      }
+    }
+
+    for (const file of jobSummaryFiles(group.ciJob)) {
+      if (jobSummaries.some((entry) => path.resolve(entry.file) === path.resolve(file))) continue
       try {
         const summary = readJson(file)
         jobSummaries.push({ summary, file })
@@ -140,19 +200,6 @@ function summarizeGroup(group) {
     }
   }
 
-  for (const file of jobSummaryFiles(group.ciJob)) {
-    if (jobSummaries.some((entry) => path.resolve(entry.file) === path.resolve(file))) continue
-    try {
-      const summary = readJson(file)
-      jobSummaries.push({ summary, file })
-      if (summary.status !== 'success') {
-        errors.push(`${relative(file)} status=${summary.status ?? 'missing'}`)
-      }
-    } catch (error) {
-      errors.push(`${relative(file)} is not valid JSON: ${error.message}`)
-    }
-  }
-
   const durationMs = parsedSummaries.reduce((total, item) => total + (Number(item.summary.durationMs) || 0), 0)
   return {
     id: group.id,
@@ -162,17 +209,27 @@ function summarizeGroup(group) {
     expectedJobSummaries,
     summaryFiles: parsedSummaries.map((item) => relative(item.file)),
     jobSummaryFiles: jobSummaries.map((item) => relative(item.file)),
-    outputPath: group.outputPath,
+    outputPath: expectedOutputPath ? relative(expectedOutputPath) : group.outputPath,
     errors
   }
 }
 
+const configurationErrors = diagnosticMode && !diagnosticArtifactRoot
+  ? ['diagnostic: FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT is required']
+  : []
 const groupSummaries = groups.map(summarizeGroup)
-const errors = groupSummaries.flatMap((group) => group.errors.map((error) => `${group.id}: ${error}`))
+const errors = [
+  ...configurationErrors,
+  ...groupSummaries.flatMap((group) => group.errors.map((error) => `${group.id}: ${error}`))
+]
 const status = errors.length === 0 ? 'success' : 'failure'
 const summary = {
   schema: 'fsusblog.visual.screenshot-aggregate.v1',
   status,
+  aggregationMode: diagnosticMode ? 'diagnostic-probes' : 'ci-job-shards',
+  evidenceClass: diagnosticMode ? 'diagnostic' : 'correctness',
+  affectsCorrectness: !diagnosticMode,
+  executionBoundary: diagnosticMode ? 'real-browser-screenshot-diagnostics' : 'ci-job-shards',
   generatedAt: new Date().toISOString(),
   commit: git(['rev-parse', 'HEAD']),
   groups: groupSummaries,

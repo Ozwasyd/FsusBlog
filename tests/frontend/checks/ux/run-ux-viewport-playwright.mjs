@@ -60,6 +60,7 @@ async function spawnPlaywright(mode) {
   const args = [
     playwrightCli,
     'test',
+    `--config=${process.env.FSUSBLOG_PLAYWRIGHT_CONFIG || 'playwright.config.ts'}`,
     ...resolveShardArgs(process.env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG),
     `--workers=${workers}`,
     'ux/viewport-boundaries.spec.ts'

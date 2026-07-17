@@ -1,52 +1,44 @@
-# Runtime browser counted slots
+# Runtime browser counted slots (retired from correctness)
 
-Production `runtime-browser` uses a counted `chromiumLane` resource instead of encoding minimum-machine browser
-protection as a permanent dependency chain. CPU, memory, `maxParallel`, named exclusivity, real DAG dependencies, and
-the counted slot must all admit a step before it starts. Completion, failure, timeout, and cancellation release exactly
-the admitted slot; a live grant contraction never kills a running lane but prevents further admission.
+Issue #1074 introduced a machine-adaptive counted `chromiumLane` inside the production `runtime-browser` bundle.
+Issue #1148 retires that mechanism from the default local production and correctness path. This document now records
+the historical boundary and the replacement diagnostics contract; it no longer describes active correctness
+scheduling.
 
-## Machine-derived capacity
+## Default correctness boundary
 
-The bundle re-resolves slot capacity whenever it reads its live scheduler grant. The resolver combines current CPU and
-memory, browser-lane P95 RSS, memory headroom, file-descriptor and process limits, and
-`FSUSBLOG_CHROMIUM_LANE_MAX_SLOTS`. When same-machine prior resource evidence is available it supplies P95 RSS and
-browser process fanout; otherwise the fallback derives both from current machine CPU and memory. The default explicit
-ceiling also scales from machine CPU. A constrained input always resolves to one slot, retaining the prior safe serial
-behavior.
+`runtimeSteps()` does not declare `chromiumLane` or any browser-specific counted resource. Security runtime,
+authenticated DAST, release-public, and thin acceptance steps are admitted only by their real DAG dependencies and
+the CPU/memory grant already owned by the physical bundle.
 
-CPU and memory are divided between the admitted lanes before their commands start. Each lane therefore receives only
-its own `FSUSBLOG_STEP_CPU_BUDGET`, `FSUSBLOG_STEP_MEMORY_GIB`, and derived Playwright worker budget; it cannot read the
-whole bundle grant. Slot growth starts another fixed-size lane and does not resize a running Playwright suite.
+`run-bundle.mjs` therefore does not:
 
-## Dependency and isolation boundaries
+- derive browser slot counts from free memory, CPU, historical RSS, file-descriptor limits, process limits, or load;
+- parse `FSUSBLOG_CHROMIUM_LANE_MAX_SLOTS`;
+- wrap correctness steps with lane proxies, lane-specific fixture/session roots, or extra Playwright output roots; or
+- emit `browserAdmission` / `fsusblog.runtime-browser-admission.v1` evidence.
 
-`runtime-integration` remains the article/cache mutation boundary. The single exact-once
-`release-public-hydration` writer now runs after that boundary and immediately before `release-public`, so taxonomy
-and article invalidations cannot leave release readers observing an earlier AOT generation. `security-runtime-core`
-can start as soon as bootstrap is ready because it consumes the debug/runtime surface rather than the release dist.
-Other browser readers start only after their real runtime prerequisites, while independent UX, cross-browser,
-render-pressure, and resilience work can overlap when more than one slot is available.
+The generic counted-resource DAG implementation remains available for non-browser resources and explicit outer
+orchestration. It is not a hidden browser scheduler for the production correctness bundle.
 
-ZAP remains behind every Chromium-bearing lane because its container lifecycle changes host networking. Benchmark and
-quiet windows remain in `performance-evidence` behind their named isolation resource. Coordination-only joins consume
-no counted slot.
+## Browser diagnostics owns the single slot
 
-Every concurrent browser lane receives a run-and-step-bound namespace, session identity, output root, and three unique
-loopback proxy ports for the debug backend, debug frontend, and release preview. The proxy preserves the authoritative
-runtime and readiness marker while removing shared `PLAYWRIGHT_BASE_URL`/port identity between sibling lanes. Existing
-lane-specific Playwright output, screenshot, trace, and evidence paths remain disjoint. The bundle injects a bounded
-run-and-step-derived `FSUSBLOG_TEST_SESSION_PREFIX`; fixture preparation and every Playwright/Node consumer append the
-worker index to that prefix, so sibling lanes cannot concurrently drop/recreate the same `pw-N` schema, Redis keys, or
-fixture files. `FSUSBLOG_FIXTURE_ROOT` and `PLAYWRIGHT_OUTPUT_DIR` are also rooted below the lane output directory, and
-lane scripts preserve those caller-owned paths. The bundle owns each proxy and the complete detached child process
-group, so failure, timeout, or cancellation closes lane ports and descendants without stopping siblings.
+Nightly/manual browser diagnostics is the only owner of the Chromium admission boundary. The workflow and lane invoke
+the diagnostics runner with an explicit worker limit of `1`; the runner rejects every other value. Its receipt records
+`outerAdmissionMode: single-explicit-browser-diagnostics-tier`, `maxActiveBrowserLanes: 1`,
+`dynamicInnerPool: false`, and serial category execution.
 
-## Evidence and rollback
+That fixed outer slot is passed unchanged to Playwright and category-specific worker environment variables. The inner
+runner must not inspect free memory, CPU load, or historical resource evidence, and it must not grow an additional
+worker pool. Firefox and WebKit probes run within the same serial diagnostics boundary rather than acquiring parallel
+correctness lanes.
 
-The runtime bundle summary contains `browserAdmission` with initial/peak/final slots, plan and grant history,
-active/peak lanes, per-lane grants, ports, session prefix, fixture/result roots, RSS and sampled browser-process counts,
-slot wait intervals, lane overlap, resource error counts, and the resource-utilization evidence path.
-`ERR_INSUFFICIENT_RESOURCES`, OOM, browser crash, and FD pressure are reported separately.
+## Evidence and recovery
 
-Rollback is limited to the counted-resource declarations, resolver, and lane proxies. Restoring the former dependency
-chain preserves all test IDs and stable artifacts; no application API or runtime production behavior changes.
+Correctness bundle summaries retain ordinary resource-utilization evidence but contain no browser-admission plan or
+lane proxy evidence. Browser diagnostics writes separate plan, per-category summaries, logs, artifacts, and a final
+diagnostic receipt. Diagnostic failures do not redefine correctness evidence.
+
+If browser pressure or instability appears, rerun or narrow the nightly/manual diagnostics categories while preserving
+the fixed outer single-slot limit. Recovery does not require changing application runtime behavior or reintroducing the
+#1074 machine-adaptive admission path into production correctness.

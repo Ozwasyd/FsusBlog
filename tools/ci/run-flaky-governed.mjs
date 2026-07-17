@@ -7,10 +7,10 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const retryPolicy = new Map([
-  ['acceptance-playwright', { allowedRetries: 1, classification: 'unknown-flaky' }],
-  ['visual-playwright', { allowedRetries: 1, classification: 'unknown-flaky' }],
-  ['ux-viewport-smoke', { allowedRetries: 1, classification: 'unknown-flaky' }],
-  ['cross-browser-smoke', { allowedRetries: 1, classification: 'unknown-flaky' }]
+  ['acceptance-playwright', { allowedRetries: 1, classification: 'unknown-flaky', evidenceClass: 'correctness', affectsCorrectness: true }],
+  ['visual-playwright', { allowedRetries: 0, classification: 'unknown-flaky', evidenceClass: 'diagnostic', affectsCorrectness: false }],
+  ['ux-viewport-smoke', { allowedRetries: 0, classification: 'unknown-flaky', evidenceClass: 'diagnostic', affectsCorrectness: false }],
+  ['cross-browser-smoke', { allowedRetries: 0, classification: 'unknown-flaky', evidenceClass: 'diagnostic', affectsCorrectness: false }]
 ])
 
 function usage() {
@@ -43,7 +43,7 @@ function evidenceFile(suite) {
   return path.join(root, '.tmp/release-evidence/flaky', `${safeSuite}.json`)
 }
 
-function writeEvidence({ suite, test, classification, retryCount, finalStatus, command, attempts }) {
+function writeEvidence({ suite, test, classification, evidenceClass, affectsCorrectness, retryCount, finalStatus, command, attempts }) {
   const file = evidenceFile(suite)
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, `${JSON.stringify({
@@ -51,6 +51,8 @@ function writeEvidence({ suite, test, classification, retryCount, finalStatus, c
     suite,
     test,
     classification,
+    evidenceClass,
+    affectsCorrectness,
     issue: 134,
     retryCount,
     finalStatus,
@@ -76,7 +78,12 @@ function runCommand(command) {
 
 function main() {
   const { suite, test, command } = parseArgs(process.argv.slice(2))
-  const policy = retryPolicy.get(suite) ?? { allowedRetries: 0, classification: 'regression' }
+  const policy = retryPolicy.get(suite) ?? {
+    allowedRetries: 0,
+    classification: 'regression',
+    evidenceClass: 'correctness',
+    affectsCorrectness: true
+  }
   const attempts = []
 
   for (let attempt = 0; attempt <= policy.allowedRetries; attempt += 1) {
@@ -89,6 +96,8 @@ function main() {
           suite,
           test,
           classification: policy.classification,
+          evidenceClass: policy.evidenceClass,
+          affectsCorrectness: policy.affectsCorrectness,
           retryCount: attempt,
           finalStatus: 'passed-after-retry',
           command,
@@ -102,7 +111,9 @@ function main() {
   writeEvidence({
     suite,
     test,
-    classification: policy.allowedRetries > 0 ? policy.classification : 'regression',
+    classification: policy.classification,
+    evidenceClass: policy.evidenceClass,
+    affectsCorrectness: policy.affectsCorrectness,
     retryCount: policy.allowedRetries,
     finalStatus: policy.allowedRetries > 0 ? 'failed-after-retry' : 'failed-no-retry',
     command,

@@ -66,13 +66,19 @@ record_visual_gate_skip() {
 const fs = require('node:fs');
 const outFile = process.argv[2];
 const rerunUrl = process.env.FSUSBLOG_VISUAL_SKIP_RERUN_URL || '';
+const diagnostic = process.env.FSUSBLOG_BROWSER_DIAGNOSTICS === '1'
+  || process.env.MATRIX_JOB === 'browser-diagnostics';
 if (!/^https?:\/\/\S+$/.test(rerunUrl)) {
   console.error('[test:production] FSUSBLOG_VISUAL_SKIP_RERUN_URL must be an absolute http(s) URL');
   process.exit(1);
 }
 
 const evidence = {
+  schema: 'fsusblog.visual-gate-skip.v1',
   status: 'visual-gate-skipped',
+  evidenceClass: diagnostic ? 'diagnostic' : 'correctness',
+  affectsCorrectness: !diagnostic,
+  executionBoundary: diagnostic ? 'real-browser-screenshot-diagnostics' : 'release-correctness-gate',
   generatedAt: new Date().toISOString(),
   reason: process.env.FSUSBLOG_VISUAL_SKIP_REASON,
   approver: process.env.FSUSBLOG_VISUAL_SKIP_APPROVER,
@@ -431,14 +437,23 @@ configure_visual_playwright_lane() {
   local lane="$1"
   local index="${FSUSBLOG_TEST_SHARD_INDEX:-}"
   local total="${FSUSBLOG_TEST_SHARD_TOTAL:-}"
+  local diagnostics_root="${FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT:-}"
 
   if [[ -z "$index" && -z "$total" ]]; then
     unset FSUSBLOG_PLAYWRIGHT_SHARD_ARG
-    export PLAYWRIGHT_OUTPUT_DIR="test-results/playwright/$lane"
+    if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS:-0}" == "1" && -n "$diagnostics_root" ]]; then
+      export PLAYWRIGHT_OUTPUT_DIR="$diagnostics_root/playwright/$lane"
+    else
+      export PLAYWRIGHT_OUTPUT_DIR="test-results/playwright/$lane"
+    fi
     return
   fi
 
-  export PLAYWRIGHT_OUTPUT_DIR="test-results/playwright/$lane/shard-${index}-of-${total}"
+  if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS:-0}" == "1" && -n "$diagnostics_root" ]]; then
+    export PLAYWRIGHT_OUTPUT_DIR="$diagnostics_root/playwright/$lane/shard-${index}-of-${total}"
+  else
+    export PLAYWRIGHT_OUTPUT_DIR="test-results/playwright/$lane/shard-${index}-of-${total}"
+  fi
   configure_playwright_shard "$lane"
 }
 
@@ -1819,7 +1834,7 @@ run_security_static_only() {
 }
 
 run_security_runtime_core_only() {
-  log "tier=security-runtime-core | auth/mfa/passkey/pow/permission/a11y gates"
+  log "tier=security-runtime-core | auth/mfa/passkey/pow/permission/attack gates"
   local -a security_failures=()
   run_security_stage() {
     local label="$1"
@@ -1895,13 +1910,10 @@ run_security_runtime_core_only() {
     run_parallel "security-runtime-core" "${security_runtime_jobs[@]}"
   }
   run_security_stage "security-runtime-parallel" run_security_runtime_pool
-  # Permission and a11y each drive a real Chromium renderer. Sharing their
-  # parent grant made either page crash under full-machine load, so keep the
-  # non-browser checks parallel above and collect these two failures in order.
+  # Permission drives the thin correctness browser contract. Rendered a11y is
+  # diagnostic evidence and runs only from browser-a11y-diagnostics.sh.
   run_security_stage "security-runtime-permissions" \
     run_security_isolated_client_check permissions npm run check:security:permissions
-  run_security_stage "security-runtime-a11y" \
-    run_security_isolated_client_check a11y npm run check:a11y:smoke
 
   run_security_stage "reset-pre-attack" reset_security_runtime_state "pre attack matrix"
   run_security_stage "attack-matrix" run_in_client npm run check:security:attack-matrix
@@ -1925,7 +1937,7 @@ run_security_only() {
 }
 
 run_security() {
-  log "tier=security | bootstrap + auth/mfa/passkey/pow/permission/a11y gates"
+  log "tier=security | bootstrap + auth/mfa/passkey/pow/permission/attack gates"
   bootstrap_acceptance_env
   run_tier "security" run_security_only
 }
@@ -1942,7 +1954,6 @@ run_resilience_only() {
 
   prepare_runtime_fixtures_once
   run_in_client npm run check:aot-cache-resilience
-  run_in_client npm run check:resilience:runtime
   run_in_client npm run check:resilience:upload
   run_in_client npm run check:notification-stream-runtime
   run_in_client npm run check:search-runtime
@@ -2009,31 +2020,6 @@ run_production() {
 
   export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/acceptance'
   run_tier "acceptance" run_acceptance_only
-  if [[ "${FSUSBLOG_ENABLE_CROSS_BROWSER:-0}" == "1" ]]; then
-    local previous_playwright_browsers="${FSUSBLOG_PLAYWRIGHT_BROWSERS-}"
-    local previous_playwright_base_url="${PLAYWRIGHT_BASE_URL-}"
-    export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/cross-browser'
-    export FSUSBLOG_PLAYWRIGHT_BROWSERS="${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit}"
-    export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
-    run_in_client npm run check:cross-browser:smoke
-    if [[ -n "$previous_playwright_browsers" ]]; then
-      export FSUSBLOG_PLAYWRIGHT_BROWSERS="$previous_playwright_browsers"
-    else
-      unset FSUSBLOG_PLAYWRIGHT_BROWSERS
-    fi
-    if [[ -n "$previous_playwright_base_url" ]]; then
-      export PLAYWRIGHT_BASE_URL="$previous_playwright_base_url"
-    else
-      unset PLAYWRIGHT_BASE_URL
-    fi
-  fi
-  if [[ "${FSUSBLOG_SKIP_VISUAL_GATE:-0}" == "1" ]]; then
-    record_visual_gate_skip
-    log "tier=visual | skipped by FSUSBLOG_SKIP_VISUAL_GATE=1"
-  else
-    export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/visual'
-    run_tier "visual" run_visual_only
-  fi
   export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/resilience'
   run_tier "resilience" run_resilience_only
 
@@ -2058,13 +2044,13 @@ Tiers:
   coverage          Alias for coverage-gate.
   release      Release preview validation; requires preview at 8080.
   acceptance   Full acceptance gate; bootstraps env and runs fast + integration + release + full Playwright acceptance.
-  visual       Visual gate; bootstraps env and runs dark/mobile layout + screenshot baselines on public + console routes.
-  security     Auth/session/MFA/permission/a11y security gate.
+  visual       Diagnostic-only visual gate for public + console screenshot baselines; excluded from production correctness.
+  security     Auth/session/MFA/permission/attack security gate; rendered a11y runs in browser diagnostics.
   security-static-phase  Bootstrap-free security matrices, supply-chain, network and SBOM phase.
-  security-runtime-core  Runtime-only auth/session/MFA/permission/a11y/attack phase; requires bootstrapped services.
+  security-runtime-core  Runtime-only auth/session/MFA/permission/attack phase; requires bootstrapped services.
   resilience   Runtime/upload/search resilience gate.
   load         Lightweight public/API concurrency gate.
-  production   Industrial release gate; runs fast, bootstraps once, then runs integration + release + acceptance + visual + security + resilience + load. Set FSUSBLOG_SKIP_VISUAL_GATE=1 only with FSUSBLOG_VISUAL_SKIP_REASON, FSUSBLOG_VISUAL_SKIP_APPROVER, FSUSBLOG_VISUAL_SKIP_IMPACT and FSUSBLOG_VISUAL_SKIP_RERUN_URL.
+  production   Industrial correctness gate; runs fast, bootstraps once, then runs release + integration + security + thin acceptance + resilience + load. Browser-only visual/UX/cross-engine/geometry/performance diagnostics run separately.
   backend-api-integration       Backend endpoint/API matrix contract tier.
   backend-auth-state-machine    Backend auth/MFA/PoW/session state-machine tier.
   backend-concurrency           Backend deterministic race/idempotency tier.

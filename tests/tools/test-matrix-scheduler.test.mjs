@@ -1987,6 +1987,61 @@ test('runner accepts fresh, resume, and max-parallel flags while CI always execu
   assert.equal(fs.readFileSync(marker, 'utf8'), 'xx')
 })
 
+test('matrix job summaries explicitly separate browser diagnostics from correctness', () => {
+  const temp = createTempDir('diagnostic-job-summary')
+  try {
+    const runner = createRunnerFixture(temp)
+    const matrix = path.join(temp, 'matrix.yml')
+    const script = path.join(temp, 'success.mjs')
+    fs.writeFileSync(script, 'process.exit(0)\n')
+    const tierLines = (id, ciJob) => [
+      `  - id: ${id}`,
+      `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
+      '    dependsOn: []',
+      '    services: []',
+      '    parallelizable: true',
+      '    exclusiveResources: []',
+      '    resourceClass: cpu',
+      '    maxParallel: 2',
+      '    cpuUnits: 1',
+      '    memoryGiB: 0.1',
+      '    cacheInputs: []',
+      `    executionKey: ${id}`,
+      '    requiresPlaywright: none',
+      '    artifacts: []',
+      '    evidence: []',
+      `    ciJob: ${ciJob}`
+    ]
+    fs.writeFileSync(matrix, [
+      'version: fsusblog-test-matrix-v2',
+      'tiers:',
+      ...tierLines('diagnostic-fixture', 'browser-diagnostics'),
+      ...tierLines('correctness-fixture', 'correctness-fixture')
+    ].join('\n'))
+    const env = {
+      ...process.env,
+      FSUSBLOG_MATRIX_FILE: matrix,
+      FSUSBLOG_TEST_RUN_ID: `diagnostic-job-summary-${process.pid}`
+    }
+    for (const id of ['diagnostic-fixture', 'correctness-fixture']) {
+      const result = spawnSync(process.execPath, [runner, 'run', id, '--no-deps', '--fresh'], {
+        cwd: temp,
+        env,
+        encoding: 'utf8'
+      })
+      assert.equal(result.status, 0, result.stderr)
+    }
+    const diagnostic = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/jobs/browser-diagnostics.json'), 'utf8'))
+    assert.equal(diagnostic.evidenceClass, 'diagnostic')
+    assert.equal(diagnostic.affectsCorrectness, false)
+    const correctness = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/jobs/correctness-fixture.json'), 'utf8'))
+    assert.equal(correctness.evidenceClass, 'correctness')
+    assert.equal(correctness.affectsCorrectness, true)
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true })
+  }
+})
+
 test('viewport CLI resume reaches Playwright progress while fresh clears ambient resume state', () => {
   const temp = createTempDir('scheduler-viewport-resume')
   const runner = createRunnerFixture(temp)

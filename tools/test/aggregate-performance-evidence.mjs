@@ -17,7 +17,6 @@ export const performanceEvidenceSources = Object.freeze([
   { id: 'load-baseline', path: '.tmp/perf/release-summaries/load-baseline.json' },
   { id: 'load-peak', path: '.tmp/perf/release-summaries/load-expected-peak.json' },
   { id: 'backend-benchmark-regression', path: '.tmp/perf/release-summaries/backend-benchmark-regression.json' },
-  { id: 'browser-performance-regression', path: '.tmp/perf/release-summaries/browser-performance-regression.json' },
   {
     id: 'performance-saturation-v2',
     path: '.tmp/perf/release-summaries/performance-saturation-v2.json',

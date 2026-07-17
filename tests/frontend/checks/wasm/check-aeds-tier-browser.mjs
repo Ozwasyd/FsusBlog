@@ -10,6 +10,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const frontendRoot = path.join(root, 'src/frontend')
 const playwright = await import(pathToFileURL(path.join(frontendRoot, 'node_modules/playwright/index.mjs')).href)
 const requested = (process.env.FSUSBLOG_AEDS_BROWSERS || 'chromium,firefox,webkit').split(',').map(value => value.trim()).filter(Boolean)
+const diagnosticMode = process.env.FSUSBLOG_BROWSER_DIAGNOSTICS === '1'
 const outFile = path.join(root, '.tmp/frontend/aeds-wasm-browser/summary.json')
 const releaseFile = path.join(root, '.tmp/release-evidence/aeds-wasm-browser-summary.json')
 const commitSha = resolveCommitSha()
@@ -29,10 +30,15 @@ try {
   const results = []
   for (const browserName of requested) results.push(await runBrowser(browserName))
   const supported = results.filter(result => result.supported)
-  const failures = supported.filter(result => result.status !== 'ok')
+  // The scheduled/manual diagnostics workflow installs every requested engine.
+  // A missing engine is therefore infrastructure failure, not an optional skip.
+  const failures = results.filter(result => result.status !== 'ok' && (diagnosticMode || result.supported))
   if (supported.length === 0) failures.push({ browser: 'none', error: 'no_supported_browser' })
   const summary = {
     status: failures.length === 0 ? 'ok' : 'failed',
+    evidenceClass: 'diagnostic',
+    affectsCorrectness: false,
+    executionBoundary: 'real-browser-engines',
     commitSha,
     generatedAt: new Date().toISOString(),
     origin,
@@ -44,6 +50,9 @@ try {
   fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`)
   fs.writeFileSync(releaseFile, `${JSON.stringify({
     status: summary.status,
+    evidenceClass: summary.evidenceClass,
+    affectsCorrectness: summary.affectsCorrectness,
+    executionBoundary: summary.executionBoundary,
     commitSha,
     generatedAt: summary.generatedAt,
     artifact: path.relative(root, outFile).replaceAll(path.sep, '/'),

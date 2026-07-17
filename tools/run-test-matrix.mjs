@@ -1019,6 +1019,14 @@ function frontendFastGroupEvidence(tier) {
   return null
 }
 
+function jobEvidenceClassification(tier) {
+  const diagnostic = tier.ciJob === 'browser-diagnostics'
+  return {
+    evidenceClass: diagnostic ? 'diagnostic' : 'correctness',
+    affectsCorrectness: !diagnostic
+  }
+}
+
 function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
   const jobId = summaryJobIdForTier(tier, details)
   const schedulerRunId = ciSummaryAuthorityId ?? details.schedulerRunId ?? summaryInvocationId
@@ -1046,6 +1054,7 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
     ciJob: tier.ciJob,
     tierIds,
     status,
+    ...jobEvidenceClassification(tier),
     failureStage: status === 'success' ? null : (details.failureStage ?? stage),
     rootCause: status === 'success' ? null : (details.rootCause ?? `${tier.id} exited non-zero`),
     durationMs,
@@ -2592,11 +2601,6 @@ function buildPrSmartGatePlan(matrix, options) {
     'release-public',
     'security-runtime',
     'acceptance-playwright',
-    'visual-public-playwright',
-    'visual-console-playwright',
-    'ux-viewport-smoke',
-    'frontend-render-pressure',
-    'cross-browser-smoke',
     'resilience-runtime',
     'load-smoke',
     'backend-qps-collectors',
@@ -2646,9 +2650,7 @@ function productionBuildDomainsForJobs(selectedJobs) {
     if (jobs.has(job)) add('backend-runtime', 'test-runtime', 'generated-contracts')
   }
   for (const job of [
-    'release-public', 'security-runtime', 'acceptance-playwright', 'visual-public-playwright',
-    'visual-console-playwright', 'ux-viewport-smoke', 'frontend-render-pressure',
-    'cross-browser-smoke', 'perf-regression'
+    'release-public', 'security-runtime', 'acceptance-playwright', 'perf-regression'
   ]) {
     if (jobs.has(job)) add('backend-runtime', 'test-runtime', 'frontend-dist', 'wasm', 'generated-contracts')
   }

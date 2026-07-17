@@ -343,6 +343,9 @@ async function main() {
     || medianSpeedup < budgets.minimumMedianSpeedup) failures.push('speedThroughputBenefit')
   const summary = {
     status: failures.length === 0 ? 'ok' : 'failed',
+    evidenceClass: 'correctness',
+    affectsCorrectness: true,
+    executionBoundary: 'browserless-node-wasm-runtime',
     commitSha,
     generatedAt: new Date().toISOString(),
     measurementSource: 'real-basic-speed-wasm-runtime',
@@ -353,10 +356,6 @@ async function main() {
     tiers,
     throughput,
     workerTransfer: { boundary: 'postMessage-transferable', structuredCloneFullBufferCopies: 0 },
-    runtimeEvidence: {
-      browserTierSummary: '.tmp/release-evidence/aeds-wasm-browser-summary.json',
-      hydrationTakeoverSummary: '.tmp/release-evidence/public-hydration-sidecar-summary.json'
-    },
     failures
   }
   fs.mkdirSync(path.dirname(outFile), { recursive: true })
@@ -364,6 +363,9 @@ async function main() {
   fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`)
   fs.writeFileSync(releaseSummaryFile, `${JSON.stringify({
     status: summary.status,
+    evidenceClass: summary.evidenceClass,
+    affectsCorrectness: summary.affectsCorrectness,
+    executionBoundary: summary.executionBoundary,
     commitSha,
     generatedAt: summary.generatedAt,
     artifact: path.relative(root, outFile).replaceAll(path.sep, '/'),

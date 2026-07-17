@@ -78,15 +78,16 @@ const dynamicWorkerCap = Math.max(1, Math.min(cpuCap, memoryCap, loadCap))
 const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0
   ? Math.max(1, Math.min(Math.floor(configuredWorkers), dynamicWorkerCap))
   : dynamicWorkerCap
-const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || [
+const executablePath = process.env.FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY === '1'
+  ? undefined
+  : process.env.PLAYWRIGHT_CHROMIUM_PATH || [
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     '/Applications/Chromium.app/Contents/MacOS/Chromium',
     '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
     '/usr/bin/google-chrome',
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser'
-  ].find((candidate) => existsSync(candidate))
+    ].find((candidate) => existsSync(candidate))
 
 const chromiumLaunchOptions: {
   executablePath?: string
@@ -149,6 +150,16 @@ function resolvePositiveGrant(names: string[]): number | undefined {
 export default defineConfig({
   tsconfig: './tsconfig.playwright.json',
   testDir: '../../tests/frontend/e2e',
+  // Browser-only diagnostics have their own scheduled/manual config. Keeping
+  // this deny-list on the ordinary config prevents broad file globs and the
+  // production correctness lane from accidentally re-admitting them.
+  testIgnore: [
+    'visual/**',
+    'ux/**',
+    'diagnostics/**',
+    'acceptance/cross-browser-smoke.spec.ts',
+    'acceptance/archive-sticky-geometry.spec.ts',
+  ],
   fullyParallel: true,
   workers,
   globalSetup: '../../tests/frontend/support/playwright/global-setup.ts',

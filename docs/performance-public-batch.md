@@ -22,7 +22,7 @@ This document closes the public performance batch tracked by #166. Runtime work 
   - Generated at: `2026-06-12T07:33:57.346Z`
   - Total dist bytes: `67,596,707` of `83,886,080`
   - Violations: `0`
-- Route render pressure evidence: `.tmp/release-evidence/frontend-render-pressure-summary.json`
+- Browserless render-structure evidence: `.tmp/release-evidence/frontend-render-structure-summary.json`
   - Status: `ok`
   - Generated at: `2026-06-12T07:28:53.833Z`
   - Hard violations: `0`

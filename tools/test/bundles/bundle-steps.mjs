@@ -29,55 +29,6 @@ function normalizeCountedResources(value, name) {
   }).sort(([left], [right]) => left.localeCompare(right)))
 }
 
-export function resolveChromiumLaneCapacity({
-  cpuUnits,
-  memoryGiB,
-  laneCpuUnits,
-  laneP95RssGiB,
-  memoryHeadroomGiB,
-  fileDescriptorLimit,
-  fileDescriptorsPerLane,
-  processLimit,
-  processesPerLane,
-  explicitMaxSlots
-}) {
-  const cpu = finitePositive(cpuUnits, undefined, 'cpuUnits')
-  const memory = finitePositive(memoryGiB, undefined, 'memoryGiB')
-  const laneCpu = finitePositive(laneCpuUnits, undefined, 'laneCpuUnits')
-  const laneMemory = finitePositive(laneP95RssGiB, undefined, 'laneP95RssGiB')
-  const headroom = Number(memoryHeadroomGiB)
-  if (!Number.isFinite(headroom) || headroom < 0) throw new Error('memoryHeadroomGiB must be finite and non-negative')
-  const fdLimit = finitePositive(fileDescriptorLimit, undefined, 'fileDescriptorLimit')
-  const laneFds = finitePositive(fileDescriptorsPerLane, undefined, 'fileDescriptorsPerLane')
-  const pids = finitePositive(processLimit, undefined, 'processLimit')
-  const lanePids = finitePositive(processesPerLane, undefined, 'processesPerLane')
-  const maximum = finitePositive(explicitMaxSlots, undefined, 'explicitMaxSlots')
-  if (!Number.isInteger(maximum)) throw new Error('explicitMaxSlots must be an integer')
-  const limits = {
-    cpu: Math.floor(cpu / laneCpu),
-    memory: Math.floor(Math.max(0, memory - headroom) / laneMemory),
-    fileDescriptors: Math.floor(fdLimit / laneFds),
-    processes: Math.floor(pids / lanePids),
-    explicit: maximum
-  }
-  return {
-    slots: Math.max(1, Math.min(...Object.values(limits))),
-    limits,
-    inputs: {
-      cpuUnits: cpu,
-      memoryGiB: memory,
-      laneCpuUnits: laneCpu,
-      laneP95RssGiB: laneMemory,
-      memoryHeadroomGiB: headroom,
-      fileDescriptorLimit: fdLimit,
-      fileDescriptorsPerLane: laneFds,
-      processLimit: pids,
-      processesPerLane: lanePids,
-      explicitMaxSlots: maximum
-    }
-  }
-}
-
 /**
  * Resolve the resources granted to this bundle invocation. Matrix weights are
  * fallback shares for direct/local invocation; a scheduler grant is already an
@@ -650,19 +601,17 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
 }
 
 export function runtimeSteps() {
-  const riskMembers = ['acceptance', 'visual-public', 'visual-console', 'visual', 'ux-viewport-smoke']
   const runtimeStateConsumers = [
     'runtime-integration',
     'release-public',
+    'acceptance',
     'endpoint-depth',
     'security-runtime-core',
     'local-runtime-exposure',
     'authenticated-dast',
     'zap-baseline',
-    'ux-risk-matrix',
     'cross-stack-join',
-    'cross-browser',
-    'render-pressure',
+    'render-structure',
     'rights-matrix',
     'csrf-matrix',
     'resilience'
@@ -670,8 +619,6 @@ export function runtimeSteps() {
   const needsRuntime = ['bootstrap']
   const needsStableReleaseHydration = ['release-public-hydration']
   const runtimeBuildReadiness = ['backend-build-ready', 'frontend-build-ready']
-  const chromiumLane = { chromiumLane: 1 }
-
   return [
     step('backend-build-ready', null, [], {
       resources: { coordinationOnly: true }
@@ -700,21 +647,14 @@ export function runtimeSteps() {
     }),
     step('security-runtime-core', 'FSUSBLOG_LOCAL_RUNTIME_EXPOSURE_IN_DAG=1 FSUSBLOG_SKIP_ZAP=1 tools/test/legacy-test.sh security-runtime-core', [], {
       dependsOn: needsRuntime,
-      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, countedResources: chromiumLane }
-    }),
-    // Browser lanes share a machine-adaptive counted resource instead of a
-    // reference-machine serial chain. Their real runtime-state prerequisites
-    // remain explicit, while a one-slot host preserves the former safe order.
-    step('ux-risk-matrix', 'node tools/ux/run-local-production-risk.mjs', riskMembers, {
-      dependsOn: ['release-public'],
-      resources: { cpuWeight: 4, memoryWeight: 8, minCpuUnits: 1, countedResources: chromiumLane }
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
     }),
     // This lane creates dedicated identities in a private fixture directory,
     // so it can actively mutate the loopback runtime alongside shared security
     // checks without revoking or overwriting any sibling fixture session.
     step('authenticated-dast', 'tools/test/lanes/security-authenticated-dast.sh', ['security-authenticated-dast'], {
       dependsOn: ['security-runtime-core'],
-      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, countedResources: chromiumLane }
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
     }),
     step('runtime-integration', 'FSUSBLOG_SKIP_BACKEND_INTEGRATION_TESTS=1 tools/test/lanes/runtime-integration.sh', ['integration'], {
       dependsOn: ['security-runtime-core'],
@@ -725,24 +665,25 @@ export function runtimeSteps() {
       // article/taxonomy invalidations. Public readers must not race that cache
       // transition or validate the previous fixture generation.
       dependsOn: [...needsStableReleaseHydration, 'runtime-integration'],
-      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, countedResources: chromiumLane }
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+    }),
+    step('acceptance', 'tools/test/lanes/acceptance-playwright.sh', ['acceptance'], {
+      dependsOn: ['release-public'],
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
     }),
     step('endpoint-depth', 'tools/test/lanes/endpoint-depth.sh', ['endpoint-depth'], {
       dependsOn: needsStableReleaseHydration,
       resources: { cpuWeight: 1.5, memoryWeight: 1.5, minCpuUnits: 1 }
     }),
     // Starting/stopping the ZAP container changes the host network topology.
-    // Chromium reports that transition as ERR_NETWORK_CHANGED and can leave
-    // the Vite shell mounted but hidden. Run the scanner only after every
-    // browser-heavy branch has released its contexts.
+    // Run it after the remaining correctness browser/runtime readers release
+    // their contexts; browser diagnostics execute in a separate workflow.
     step('zap-baseline', 'tools/security/run-zap-baseline.sh', [], {
       dependsOn: [
         'security-runtime-core',
         'authenticated-dast',
         'release-public',
-        'ux-risk-matrix',
-        'cross-browser',
-        'render-pressure',
+        'acceptance',
         'resilience',
         'cross-stack-runtime'
       ]
@@ -756,13 +697,9 @@ export function runtimeSteps() {
     step('cross-stack-runtime', 'tools/test/legacy-test.sh cross-stack-contract runtime', [], {
       dependsOn: ['runtime-integration']
     }),
-    step('cross-browser', 'tools/test/lanes/cross-browser-smoke.sh', ['cross-browser-smoke'], {
-      dependsOn: ['release-public'],
-      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, countedResources: chromiumLane }
-    }),
-    step('render-pressure', 'tools/test/lanes/frontend-render-pressure.sh', ['frontend-render-pressure'], {
-      dependsOn: ['cross-stack-runtime'],
-      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, countedResources: chromiumLane }
+    step('render-structure', 'tools/test/lanes/frontend-render-pressure.sh', ['frontend-render-pressure'], {
+      dependsOn: ['frontend-build-ready'],
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
     }),
     step('rights-matrix', 'tools/test/lanes/rights-v3-test-matrix.sh', ['rights-v3-test-matrix'], { dependsOn: ['runtime-integration'] }),
     // This source-only matrix can use the backend/frontend marker gap without
@@ -772,7 +709,7 @@ export function runtimeSteps() {
     }),
     step('resilience', 'tools/test/lanes/resilience-runtime.sh', ['resilience'], {
       dependsOn: ['release-public'],
-      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, countedResources: chromiumLane }
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
     }),
     step('local-runtime-exposure', 'node tools/security/check-local-runtime-exposure.mjs', [], {
       dependsOn: needsStableReleaseHydration
@@ -821,7 +758,6 @@ export function performanceSteps() {
   const measurementBarrier = 'performance-measurement-ready'
   const benchmarkResources = { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['benchmark-window'] }
   const timedMeasurements = [
-    'browser-performance',
     'backend-perf',
     'privacy-zk-benchmark',
     'mixed-performance-window',
@@ -832,7 +768,6 @@ export function performanceSteps() {
     'privacy-zk-benchmark',
     'privacy-zk-finalize',
     'mixed-performance-window',
-    'browser-performance',
     'aeds-frame-cost',
     'aeds-compression'
   ]
@@ -882,10 +817,6 @@ export function performanceSteps() {
         'runtime-state-ready', 'resident-handoff-ready'
       ],
       resources: { coordinationOnly: true }
-    }),
-    step('browser-performance', 'tools/test/lanes/browser-performance-regression.sh', ['browser-performance-regression'], {
-      dependsOn: [measurementBarrier],
-      resources: benchmarkResources
     }),
     step('backend-perf', 'FSUSBLOG_BACKEND_PERF_READINESS_MODE=verify-fresh tools/test/lanes/perf-regression.sh', ['backend-perf'], {
       dependsOn: [measurementBarrier],

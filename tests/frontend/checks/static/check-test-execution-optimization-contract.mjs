@@ -220,23 +220,45 @@ const bundleStepSource = read('tools/test/bundles/bundle-steps.mjs')
 if (bundleStepSource.includes('record.exclusive) return []')) {
   errors.push('bundle weighted DAG must not restore global serialization for unrelated exclusive resource names')
 }
-requireSectionIncludes('tools/test/bundles/bundle-steps.mjs', "step('ux-risk-matrix'", "step('runtime-integration'", [
-  "dependsOn: ['release-public']",
-  'resources: { cpuWeight: 4, memoryWeight: 8, minCpuUnits: 1, countedResources: chromiumLane }'
-])
 requireIncludes('tools/test/bundles/bundle-steps.mjs', [
-  'resolveChromiumLaneCapacity',
   'blockedByCountedResources',
   'countedResource=${wait.resource}'
 ])
-requireIncludes('tools/test/bundles/run-bundle.mjs', [
+const runtimeStepsStart = bundleStepSource.indexOf('export function runtimeSteps()')
+const runtimeStepsEnd = bundleStepSource.indexOf('export function performanceSteps()', runtimeStepsStart)
+const runtimeStepsSource = bundleStepSource.slice(runtimeStepsStart, runtimeStepsEnd)
+for (const forbidden of ['chromiumLane', 'countedResources']) {
+  if (runtimeStepsSource.includes(forbidden)) {
+    errors.push(`default runtime correctness must not declare counted Chromium admission: ${forbidden}`)
+  }
+}
+const runBundleSource = read('tools/test/bundles/run-bundle.mjs')
+for (const forbidden of [
+  'resolveRuntimeBrowserLanePlan',
+  'resolveChromiumLaneCapacity',
+  'FSUSBLOG_CHROMIUM_LANE_MAX_SLOTS',
   'createBrowserLaneProxySet',
-  'FSUSBLOG_TEST_SESSION_PREFIX',
-  'FSUSBLOG_FIXTURE_ROOT',
-  'PLAYWRIGHT_OUTPUT_DIR',
-  "schema: 'fsusblog.runtime-browser-admission.v1'",
-  'blockedBySlotMs'
+  'FSUSBLOG_BROWSER_LANE_',
+  'fsusblog.runtime-browser-admission.v1',
+  'browserAdmission'
+]) {
+  if (runBundleSource.includes(forbidden)) {
+    errors.push(`default bundle runner must not resolve, wrap, or emit counted Chromium admission: ${forbidden}`)
+  }
+}
+requireIncludes('tests/browser-diagnostics/run.mjs', [
+  "if (options.workers !== 1) throw new Error('browser diagnostics require one outer-declared worker')",
+  "outerAdmissionMode: 'single-explicit-browser-diagnostics-tier'",
+  'maxActiveBrowserLanes: 1',
+  'dynamicInnerPool: false',
+  'categoriesSerial: true'
 ])
+const browserDiagnosticsSource = read('tests/browser-diagnostics/run.mjs')
+for (const forbidden of ['freemem(', 'loadavg(', 'availableParallelism(', 'FSUSBLOG_CHROMIUM_LANE_MAX_SLOTS']) {
+  if (browserDiagnosticsSource.includes(forbidden)) {
+    errors.push(`browser diagnostics inner runner must keep the fixed outer single-slot admission: ${forbidden}`)
+  }
+}
 requireIncludes('tools/test/run-command-manifest.mjs', [
   'export function resolveNestedManifestMemoryGiBPerWorker',
   'inheritedMemoryGiB / workers',

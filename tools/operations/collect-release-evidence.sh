@@ -616,6 +616,7 @@ coverage_summary_json() {
 
 runtime_tuning_json() {
   local cache_l1_counter_mode public_hot_read_counter_mode
+  local benchmark_evidence runtime_matrix_evidence
   cache_l1_counter_mode="$(awk -F'"' '/CacheL1CounterMode =/ { print $2; exit }' "$ROOT_DIR/src/backend/Infrastructure/Observability/FsusObservability.cs")"
   public_hot_read_counter_mode="$(awk -F'"' '
     /"PublicHotRead"[[:space:]]*:/ { in_public_hot_read = 1; next }
@@ -624,6 +625,8 @@ runtime_tuning_json() {
   ' "$ROOT_DIR/src/backend/appsettings.Production.json")"
   cache_l1_counter_mode="${cache_l1_counter_mode:-unknown}"
   public_hot_read_counter_mode="${public_hot_read_counter_mode:-unknown}"
+  benchmark_evidence="$(jq -r '.' <<<"${PERF_ARTIFACT:-null}")"
+  runtime_matrix_evidence="$(jq -r '.' <<<"${RUNTIME_MATRIX_ARTIFACT:-null}")"
   jq -n \
     --arg readyToRun "${DOTNET_ReadyToRun:-}" \
     --arg quickJitForLoops "${DOTNET_TC_QuickJitForLoops:-}" \
@@ -632,8 +635,8 @@ runtime_tuning_json() {
     --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
     --arg cacheL1CounterMode "$cache_l1_counter_mode" \
     --arg publicHotReadCounterMode "$public_hot_read_counter_mode" \
-    --arg benchmarkEvidence "$PERF_ARTIFACT" \
-    --arg runtimeMatrixEvidence "${RUNTIME_MATRIX_ARTIFACT:-null}" \
+    --arg benchmarkEvidence "$benchmark_evidence" \
+    --arg runtimeMatrixEvidence "$runtime_matrix_evidence" \
     --arg runtimeMatrixStatus "${RUNTIME_MATRIX_STATUS_VALUE:-missing}" \
     --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
     --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
@@ -749,6 +752,7 @@ PUBLIC_HYDRATION_MATRIX_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evide
 UX_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/ux" ux)"
 UX_VIEWPORT_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
 FRONTEND_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
+FRONTEND_RENDER_STRUCTURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-structure-summary.json" frontend-render-structure-summary.json)"
 PUBLISH_ARTIFACTS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json" publish-artifacts-summary.json)"
 BACKEND_QPS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json" backend-qps-summary.json)"
 MEMORY_LEAK_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/memory-leak-summary.json" memory-leak-summary.json)"
@@ -835,6 +839,7 @@ LOCAL_RUNTIME_EXPOSURE_STATUS_VALUE="$(local_runtime_exposure_status_or_missing 
 WASM_FUZZ_STATUS_VALUE="$(wasm_fuzz_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
 UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
 FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
+FRONTEND_RENDER_STRUCTURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-structure-summary.json")"
 PUBLISH_ARTIFACTS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json")"
 BACKEND_QPS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json")"
 MEMORY_LEAK_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/memory-leak-summary.json")"
@@ -875,8 +880,7 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$SOAK_STATUS_VALUE" != "ok" \
   || "$AUTHENTICATED_DAST_STATUS_VALUE" != "ok" \
   || "$WASM_FUZZ_STATUS_VALUE" != "ok" \
-  || "$UX_VIEWPORT_STATUS_VALUE" != "ok" \
-  || "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE" != "ok" \
+  || "$FRONTEND_RENDER_STRUCTURE_STATUS_VALUE" != "ok" \
   || "$AOT_CACHE_RESILIENCE_STATUS_VALUE" != "success" \
   || "$PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE" != "success" \
   || "$PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE" != "success" \
@@ -889,7 +893,6 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$MEMORY_LEAK_STATUS_VALUE" != "ok" \
   || "$OPEN_HANDLE_STATUS_VALUE" != "ok" \
   || "$AEDS_DECODE_BUDGET_STATUS_VALUE" != "ok" \
-  || "$AEDS_WASM_BROWSER_STATUS_VALUE" != "ok" \
   || "$DOC_SYNC_STATUS_VALUE" != "ok" \
   || "$RUNTIME_MATRIX_STATUS_VALUE" != "ok" \
   || "$RELEASE_IDENTITY_STATUS" != "ok" \
@@ -956,6 +959,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "ux": $UX_ARTIFACT,
     "uxViewportSummary": $UX_VIEWPORT_SUMMARY,
     "frontendRenderPressureSummary": $FRONTEND_RENDER_PRESSURE_SUMMARY,
+    "frontendRenderStructureSummary": $FRONTEND_RENDER_STRUCTURE_SUMMARY,
     "publishArtifactsSummary": $PUBLISH_ARTIFACTS_SUMMARY,
     "backendQpsSummary": $BACKEND_QPS_SUMMARY,
     "memoryLeakSummary": $MEMORY_LEAK_SUMMARY,
@@ -1011,6 +1015,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "visualGateSkip": $VISUAL_GATE_SKIP,
       "uxViewport": "$UX_VIEWPORT_STATUS_VALUE",
       "frontendRenderPressure": "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE",
+      "frontendRenderStructure": "$FRONTEND_RENDER_STRUCTURE_STATUS_VALUE",
       "publicHydrationDetector": "$PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE",
       "publicHydrationClockMatrix": "$PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE",
       "publicHydrationBrowserEnv": "$PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE",

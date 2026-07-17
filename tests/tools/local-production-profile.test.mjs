@@ -32,8 +32,6 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const localBundleRunner = fs.readFileSync(path.join(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8')
 const localBundleSteps = fs.readFileSync(path.join(root, 'tools/test/bundles/bundle-steps.mjs'), 'utf8')
 const backendShardRunner = fs.readFileSync(path.join(root, 'tools/test/run-backend-production-shards.mjs'), 'utf8')
-const uxRiskRunner = fs.readFileSync(path.join(root, 'tools/ux/run-local-production-risk.mjs'), 'utf8')
-const releasePreviewReadiness = fs.readFileSync(path.join(root, 'tools/ux/release-preview-readiness.mjs'), 'utf8')
 const matrixRunner = fs.readFileSync(path.join(root, 'tools/run-test-matrix.mjs'), 'utf8')
 const backendBundleRunner = localBundleRunner.slice(
   localBundleRunner.indexOf('async function runBackendTests()'),
@@ -464,12 +462,10 @@ test('repository production profile maps every logical tier exactly once', () =>
   assert.deepEqual(runtimeSubstitutions.security['.tmp/security'], [
     '.tmp/local-production/runtime-browser/member-summaries/security/summary.json'
   ])
-  assert.deepEqual(
-    runtimeSubstitutions['cross-browser-smoke']['src/frontend/test-results/playwright/cross-browser'],
-    [
-      '.tmp/local-production/runtime-browser/browser-lanes/cross-browser/playwright',
-      '.tmp/local-production/runtime-browser/member-summaries/cross-browser-smoke/summary.json'
-    ]
+  assert.equal(
+    runtimeSubstitutions['cross-browser-smoke'],
+    undefined,
+    'cross-browser diagnostics must not project into local production correctness evidence'
   )
   assert.deepEqual(validateLocalProfiles(matrix.localProfiles, matrix.tiers), [])
 })
@@ -573,7 +569,6 @@ test('production checkpoint projection binds every logical tier to one fresh run
       { id: 'coverage-merge', evidencePhase: 'preparation', status: 'success', durationMs: 20_000, startedAtMs: 0, finishedAtMs: 20_000 },
       { id: 'mixed-performance-window', evidencePhase: 'measurement', status: 'success', durationMs: 60_000, startedAtMs: 20_000, finishedAtMs: 80_000 },
       { id: 'backend-perf', evidencePhase: 'measurement', status: 'success', durationMs: 20_000, startedAtMs: 80_000, finishedAtMs: 100_000 },
-      { id: 'browser-performance', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 100_000, finishedAtMs: 100_000 },
       { id: 'privacy-zk-benchmark', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 100_000, finishedAtMs: 100_000 },
       { id: 'aeds-frame-cost', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 100_000, finishedAtMs: 100_000 }
     ]
@@ -1107,50 +1102,6 @@ test('acceptance service ports stay below the kernel ephemeral range and Vite ca
   assert.match(source, /process exited before becoming ready at \$url/u)
 })
 
-test('local production UX risk binds Playwright to the active namespace release build', () => {
-  assert.match(uxRiskRunner, /requireHttpUrl\('FSUSBLOG_RELEASE_PREVIEW_URL'\)/u)
-  assert.doesNotMatch(uxRiskRunner, /FSUSBLOG_DEBUG_FRONTEND_URL/u)
-  assert.match(uxRiskRunner, /import \{ validateReleasePreviewReady \} from '\.\/release-preview-readiness\.mjs'/u)
-  assert.match(uxRiskRunner, /const previewReady = validateReleasePreviewReady\(\{[\s\S]*?runId: schedulerRunId,[\s\S]*?previewUrl: process\.env\.FSUSBLOG_RELEASE_PREVIEW_MARKER_URL \?\? playwrightBaseUrl/u)
-  assert.match(uxRiskRunner, /const publicBaseUrl = requireHttpUrl\('FSUSBLOG_DEBUG_BACKEND_URL'\)/u)
-  assert.match(releasePreviewReadiness, /releasePreviewReadyFileName = 'release-preview-ready\.json'/u)
-  assert.match(releasePreviewReadiness, /export function validateReleasePreviewReady/u)
-  assert.match(releasePreviewReadiness, /marker\.schema !== releasePreviewReadySchema[\s\S]*?marker\.schedulerRunId !== schedulerRunId/u)
-  assert.match(releasePreviewReadiness, /marker\.servedIndex\?\.sourceDigestMatch !== true[\s\S]*?marker\.apiProbe\?\.namespaceBound !== true[\s\S]*?marker\.apiProbe\?\.status !== 200/u)
-  assert.match(releasePreviewReadiness, /actualContentDigest = sha256\(bytes\)[\s\S]*?actualDeclaredDigest = digestDeclaredOutputs/u)
-  assert.match(releasePreviewReadiness, /marker\.distEntry\?\.contentDigest !== actualContentDigest[\s\S]*?marker\.distEntry\?\.digest !== actualDeclaredDigest[\s\S]*?dist digest changed after readiness/u)
-  assert.match(uxRiskRunner, /PLAYWRIGHT_BASE_URL: playwrightBaseUrl/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_UX_VIEWPORT_PUBLIC_BASE_URL: publicBaseUrl/u)
-  assert.match(uxRiskRunner, /playwrightBaseUrl,/u)
-  assert.doesNotMatch(uxRiskRunner, /public-full-app-takeover|fsus:public-shell:takeover/u)
-  assert.doesNotMatch(uxRiskRunner, /127\.0\.0\.1:3000/u)
-})
-
-test('local production UX risk can resume the current matching viewport run', () => {
-  assert.match(uxRiskRunner, /process\.env\.FSUSBLOG_UX_VIEWPORT_RESUME === '1'/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_UX_VIEWPORT_RESUME: initializesRun && !resume \? '0' : '1'/u)
-  assert.match(uxRiskRunner, /resumeRunId \?\? freshRunId/u)
-  assert.match(uxRiskRunner, /waitForRunPointer\(pointerFile, uxRunId, child\)/u)
-  assert.match(uxRiskRunner, /writeUxViewportSummary\(\{ root, mode: 'boundaries', runId: uxRunId \}\)/u)
-  assert.match(uxRiskRunner, /summary\.runId !== uxRunId/u)
-  assert.match(uxRiskRunner, /executionSource: resume \? 'resume' : 'fresh'/u)
-})
-
-test('local production UX risk dynamically fills isolated Playwright workers', () => {
-  assert.match(uxRiskRunner, /os\.availableParallelism/u)
-  assert.match(uxRiskRunner, /Math\.min\(riskPlan\.counts\.routeThemeGroups, workerCapacity\)/u)
-  assert.match(uxRiskRunner, /executeElasticUxGroupPool\(riskPlan\.groups/u)
-  assert.match(uxRiskRunner, /capacityProvider: \(\) => resolveLiveWorkerCapacity\(\)/u)
-  assert.match(uxRiskRunner, /readManifestSchedulerResourceGrant\(\)/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_STEP_DEADLINE_AT_MS: String\(stepDeadlineAtMs\)/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_UX_VIEWPORT_EXECUTION_GROUP_IDS: group\.id/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_PLAYWRIGHT_WORKERS: '1'/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_TEST_SESSION_ISOLATION: '1'/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_DISABLE_NOTIFICATION_STREAM: '1'/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_UX_VIEWPORT_WORKERS: '1'/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_PLAYWRIGHT_TRACE: 'off'/u)
-})
-
 test('physical bundle DAG preserves dependencies and derives deadlines from resolved machine resources', () => {
   const resolved = resolveLocalProfileResources(profile(), { availableCpuUnits: 8, availableMemoryGiB: 18 })
   const bundles = createLocalBundleTiers('production', resolved)
@@ -1259,7 +1210,6 @@ test('performance deadline evidence binds the mixed floor to same-run measured s
     { id: 'coverage-merge', evidencePhase: 'preparation', status: 'success', durationMs: 4_000, startedAtMs: 1_000, finishedAtMs: 5_000 },
     { id: 'mixed-performance-window', evidencePhase: 'measurement', status: 'success', durationMs: 60_000, startedAtMs: 5_000, finishedAtMs: 65_000 },
     { id: 'backend-perf', evidencePhase: 'measurement', status: 'success', durationMs: 20_000, startedAtMs: 65_000, finishedAtMs: 85_000 },
-    { id: 'browser-performance', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 85_000, finishedAtMs: 85_000 },
     { id: 'privacy-zk-benchmark', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 85_000, finishedAtMs: 85_000 },
     { id: 'aeds-frame-cost', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 85_000, finishedAtMs: 85_000 },
     { id: 'performance-summary', evidencePhase: 'post-measurement', status: 'success', durationMs: 1_000, startedAtMs: 85_000, finishedAtMs: 86_000 }

@@ -16,9 +16,6 @@ exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mj
   --output .tmp/docs/fast-backend-matrix.json \
   --output .tmp/docs/fast-frontend-unit-matrix.json \
   --output .tmp/docs/acceptance-playwright-matrix.json \
-  --output .tmp/docs/visual-public-playwright-matrix.json \
-  --output .tmp/docs/visual-console-playwright-matrix.json \
-  --output .tmp/docs/ux-viewport-smoke-matrix.json \
   --test-id matrix-validate \
   --test-id matrix-preflight \
   --test-id matrix-evidence-plan \

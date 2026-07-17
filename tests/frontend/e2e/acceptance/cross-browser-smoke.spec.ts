@@ -1,17 +1,11 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('cross-browser release smoke', () => {
-  test('public shell, auth entry, passkey capability, PWA cache and security headers stay coherent', async ({ page, request, browserName }) => {
+  test('public shell engine capabilities and PWA cache stay coherent', async ({ page, browserName }) => {
     const consoleMessages: string[] = []
-    const rateLimitedUrls: string[] = []
     page.on('console', (message) => {
       if (message.type() === 'error' || message.type() === 'warning') {
         consoleMessages.push(`${message.type()}: ${message.text()}`)
-      }
-    })
-    page.on('response', (response) => {
-      if (response.status() === 429) {
-        rateLimitedUrls.push(response.url())
       }
     })
     page.on('pageerror', (error) => {
@@ -52,12 +46,9 @@ test.describe('cross-browser release smoke', () => {
       })
     }
 
-    const publicResponse = await request.get('/')
-    expect(publicResponse.ok()).toBeTruthy()
-    expect(publicResponse.headers()['x-content-type-options']).toBe('nosniff')
-    expect(publicResponse.headers()['referrer-policy']).toBe('strict-origin-when-cross-origin')
-    expect(publicResponse.headers()['content-security-policy'] ?? '').toContain("default-src 'self'")
-
+    // Backend contracts, auth rules and security headers are covered once by
+    // browserless/runtime correctness lanes. This diagnostic keeps only real
+    // engine differences so Firefox/WebKit never repeat business assertions.
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     await expect(page.locator('#fsus-aot-shell')).toBeVisible()
     await expect(page.locator('#fsus-aot-shell')).toHaveAttribute('data-public-hydration-kind', /Home|ArticleDetail|Archive|Filter|About/)
@@ -95,11 +86,6 @@ test.describe('cross-browser release smoke', () => {
     // requests with NS_BINDING_ABORTED and report a false module-load failure.
     // Finish the real module graph before testing the next route.
     await page.waitForLoadState('networkidle')
-    await page.goto('/login', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
-    await expect(page.getByRole('button', { name: /使用通行密钥登录/ })).toBeVisible()
-    await expect(page.getByText(/使用 Recovery Key 恢复访问/)).toBeVisible()
-
     if (hydrationState.serviceWorkerSupported && browserName !== 'webkit') {
       await page.goto('/', { waitUntil: 'networkidle' })
       await page.evaluate(async () => {
@@ -111,13 +97,8 @@ test.describe('cross-browser release smoke', () => {
       expect(cacheNames.some((name) => name.includes('shell')) || browserName !== 'chromium').toBeTruthy()
     }
 
-    const onlyNotificationPreflightRateLimits = rateLimitedUrls.length > 0
-      && rateLimitedUrls.every((url) => url.includes('/api/notifications/stream/preflight'))
     const relevantDiagnostics = consoleMessages.filter((message) => {
       if (/favicon|404|ResizeObserver|Failed to load resource: the server responded with a status of 401 \(Unauthorized\)|api\/notifications\/stream\/preflight.*428|Failed to load resource: the server responded with a status of 428 \(Precondition Required\)/i.test(message)) {
-        return false
-      }
-      if (onlyNotificationPreflightRateLimits && /Failed to load resource: the server responded with a status of 429 \(Too Many Requests\)/i.test(message)) {
         return false
       }
       if (browserName === 'webkit' && (

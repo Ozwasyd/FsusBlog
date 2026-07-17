@@ -30,10 +30,6 @@ jobs:
     outputs:
       acceptance_playwright_matrix: ${{ steps.acceptance_playwright_matrix.outputs.matrix }}
       acceptance_playwright_max_parallel: ${{ steps.acceptance_playwright_matrix.outputs.max_parallel }}
-      visual_public_playwright_matrix: ${{ steps.visual_public_playwright_matrix.outputs.matrix }}
-      visual_public_playwright_max_parallel: ${{ steps.visual_public_playwright_matrix.outputs.max_parallel }}
-      visual_console_playwright_matrix: ${{ steps.visual_console_playwright_matrix.outputs.matrix }}
-      visual_console_playwright_max_parallel: ${{ steps.visual_console_playwright_matrix.outputs.max_parallel }}
       backend_qps_collectors_matrix: ${{ steps.backend_qps_collectors_matrix.outputs.matrix }}
       backend_qps_collectors_max_parallel: ${{ steps.backend_qps_collectors_matrix.outputs.max_parallel }}
     steps:
@@ -52,10 +48,6 @@ jobs:
       - run: node tools/run-test-matrix.mjs evidence-plan --out .tmp/release-evidence/test-plan.json
       - id: acceptance_playwright_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix acceptance-playwright --github-output "$GITHUB_OUTPUT"
-      - id: visual_public_playwright_matrix
-        run: node tools/run-test-matrix.mjs ci-job-matrix visual-public-playwright --github-output "$GITHUB_OUTPUT"
-      - id: visual_console_playwright_matrix
-        run: node tools/run-test-matrix.mjs ci-job-matrix visual-console-playwright --github-output "$GITHUB_OUTPUT"
       - id: backend_qps_collectors_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix backend-qps-collectors --github-output "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -87,10 +79,6 @@ jobs:
       release_public: ${{ steps.smart.outputs.release_public }}
       security_runtime: ${{ steps.smart.outputs.security_runtime }}
       acceptance_playwright: ${{ steps.smart.outputs.acceptance_playwright }}
-      visual_public_playwright: ${{ steps.smart.outputs.visual_public_playwright }}
-      visual_console_playwright: ${{ steps.smart.outputs.visual_console_playwright }}
-      visual_playwright: ${{ steps.smart.outputs.visual_playwright }}
-      cross_browser_smoke: ${{ steps.smart.outputs.cross_browser_smoke }}
       frontend_render_pressure: ${{ steps.smart.outputs.frontend_render_pressure }}
       resilience_runtime: ${{ steps.smart.outputs.resilience_runtime }}
       load_smoke: ${{ steps.smart.outputs.load_smoke }}
@@ -355,8 +343,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: validate-matrix
     timeout-minutes: 20
+    env:
+      FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: Ozwasyd/FsusUI
+          ref: b967712bcb9dfc13babd49006451a46e2dcc4771
+          token: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
+          persist-credentials: false
+          path: .tmp/local-fsusui
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -742,235 +739,23 @@ jobs:
             .tmp/release-evidence/jobs/**
             .tmp/release-evidence/flaky/**
 
-  visual-public-playwright:
-    name: Visual Public Playwright ${{ matrix.shard }}
-    runs-on: ubuntu-latest
-    needs: [validate-matrix, plan-pr-risk, production-build-artifacts, integration-runtime]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.visual_public_playwright == 'true'
-    timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.visual_public_playwright_max_parallel) }}
-      matrix: ${{ fromJson(needs.validate-matrix.outputs.visual_public_playwright_matrix) }}
-    env:
-      FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
-      FSUSBLOG_TEST_NAMESPACE: ci-visual-public-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: visual-public-${{ matrix.shard_id }}
-      - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite visual-public-playwright --test visual-public-${{ matrix.shard_id }} -- ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: ${{ matrix.artifact_name }}
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/visual/public/**
-            src/frontend/test-results/playwright/visual-public/**
-            .tmp/gate-logs/visual-gate-skip.json
-            .tmp/release-evidence/jobs/**
-            .tmp/release-evidence/flaky/**
-
-  visual-console-playwright:
-    name: Visual Console Playwright ${{ matrix.shard }}
-    runs-on: ubuntu-latest
-    needs: [validate-matrix, plan-pr-risk, production-build-artifacts, integration-runtime]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.visual_console_playwright == 'true'
-    timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.visual_console_playwright_max_parallel) }}
-      matrix: ${{ fromJson(needs.validate-matrix.outputs.visual_console_playwright_matrix) }}
-    env:
-      FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
-      FSUSBLOG_TEST_NAMESPACE: ci-visual-console-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: visual-console-${{ matrix.shard_id }}
-      - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite visual-console-playwright --test visual-console-${{ matrix.shard_id }} -- ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: ${{ matrix.artifact_name }}
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/visual/console/**
-            src/frontend/test-results/playwright/visual-console/**
-            .tmp/gate-logs/visual-gate-skip.json
-            .tmp/release-evidence/jobs/**
-            .tmp/release-evidence/flaky/**
-
-  visual-playwright:
-    name: Visual Playwright Aggregate
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, visual-public-playwright, visual-console-playwright]
-    if: always() && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.visual_playwright == 'true')
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          pattern: visual-public-playwright-*
-          path: .tmp/downloaded-artifacts
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          pattern: visual-console-playwright-*
-          path: .tmp/downloaded-artifacts
-      - run: ./tools/test.sh ci-tier visual --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: visual-playwright
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/visual/summary.json
-            .tmp/release-evidence/visual-screenshot-summary.json
-            .tmp/release-evidence/jobs/**
-
-  ux-viewport-smoke:
-    name: UX Viewport Smoke
-    runs-on: ubuntu-latest
-    needs: [validate-matrix, production-build-artifacts, integration-runtime]
-    timeout-minutes: 35
-    env:
-      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
-      FSUSBLOG_TEST_NAMESPACE: ci-ux-viewport-${{ github.run_id }}-${{ github.run_attempt }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: ux-viewport-smoke
-      - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite ux-viewport-smoke --test viewport-smoke -- ./tools/test.sh ci-tier ux-viewport-smoke --no-deps --fresh
-        env:
-          FSUSBLOG_CI_JOB_ID: ux-viewport-smoke
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: ux-viewport-smoke
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/ux/**
-            .tmp/release-evidence/ux-viewport-summary.json
-            .tmp/release-evidence/jobs/**
-            .tmp/release-evidence/flaky/**
-            src/frontend/test-results/playwright/ux-viewport-smoke/**
-
   frontend-render-pressure:
-    name: Frontend Render Pressure
+    name: Frontend Structure Budgets
     runs-on: ubuntu-latest
-    needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+    needs: plan-pr-risk
     if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.frontend_render_pressure == 'true'
-    timeout-minutes: 35
+    timeout-minutes: 10
     env:
-      FSUSBLOG_TEST_NAMESPACE: ci-render-pressure-${{ github.run_id }}-${{ github.run_attempt }}
-      FSUSBLOG_DOM_BUDGET_STRICT: '1'
-      FSUSBLOG_ROUTE_RENDER_PRESSURE_STRICT: '1'
-      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
+      FSUSBLOG_TEST_NAMESPACE: ci-render-structure-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: frontend-render-pressure
-      - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite frontend-render-pressure --test render-pressure -- ./tools/test.sh frontend-render-pressure --no-deps
+      - run: ./tools/test.sh frontend-render-pressure --no-deps
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
@@ -979,68 +764,10 @@ jobs:
           retention-days: 14
           include-hidden-files: true
           path: |
-            .tmp/frontend/dom-budget.json
-            .tmp/frontend/dom-budget/**
-            .tmp/frontend/route-render-pressure.json
             .tmp/frontend/markdown-render-budget.json
             .tmp/frontend/dom-depth-static.json
-            .tmp/release-evidence/frontend-render-pressure-summary.json
+            .tmp/release-evidence/frontend-render-structure-summary.json
             .tmp/release-evidence/jobs/**
-            src/frontend/test-results/playwright/**
-
-  cross-browser-smoke:
-    name: Cross Browser ${{ matrix.browser }}
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, production-build-artifacts, release-public]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.cross_browser_smoke == 'true'
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      max-parallel: 2
-      matrix:
-        browser: [chromium, firefox, webkit]
-    env:
-      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
-      FSUSBLOG_PLAYWRIGHT_BROWSERS: ${{ matrix.browser }}
-      FSUSBLOG_TEST_NAMESPACE: ci-cross-browser-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.browser }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps ${{ matrix.browser }}
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: cross-browser-${{ matrix.browser }}
-      - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite cross-browser-smoke --test ${{ matrix.browser }} -- ./tools/test.sh cross-browser-smoke --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: cross-browser-smoke-${{ matrix.browser }}
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            src/frontend/test-results/playwright/cross-browser/**
-            .tmp/release-evidence/jobs/**
-            .tmp/release-evidence/flaky/**
 
   resilience-runtime:
     name: Resilience Runtime
@@ -1201,14 +928,10 @@ jobs:
             .tmp/release-evidence/jobs/**
 
   perf-regression:
-    name: Perf Regression (${{ matrix.browser }})
+    name: Perf Regression
     runs-on: ubuntu-latest
     needs: [validate-matrix, production-build-artifacts, frontend-build]
     timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -1224,42 +947,24 @@ jobs:
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps ${{ matrix.browser }}
       - uses: ./.github/actions/consume-production-build
         with:
           source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
           receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: perf-${{ matrix.browser }}
+          consumer-job: perf-regression
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: frontend-build
           path: .
-      - name: AEDS frame and browser boundary
-        if: matrix.browser == 'chromium'
-        env:
-          FSUSBLOG_AEDS_BROWSERS: chromium
-        run: node tools/ci/run-flaky-governed.mjs --suite perf-regression --test aeds-frame-cost-${{ matrix.browser }} -- ./tools/test.sh aeds-frame-cost --no-deps
-      - name: AEDS browser boundary
-        if: matrix.browser != 'chromium'
-        env:
-          FSUSBLOG_AEDS_BROWSERS: ${{ matrix.browser }}
-        run: node tools/ci/run-flaky-governed.mjs --suite perf-regression --test aeds-frame-cost-${{ matrix.browser }} -- node tests/frontend/checks/wasm/check-aeds-tier-browser.mjs
-      - if: matrix.browser == 'chromium'
-        run: ./tools/test.sh aeds-compression-profile --no-deps
-      - if: matrix.browser == 'chromium'
-        run: ./tools/test.sh backend-perf --no-deps
-      - if: matrix.browser == 'chromium'
-        run: ./tools/test.sh backend-benchmark-regression --no-deps
-      - if: matrix.browser == 'chromium'
-        run: ./tools/test.sh browser-performance-regression --no-deps
+      - name: AEDS frame and browserless decode budget
+        run: ./tools/test.sh aeds-frame-cost --no-deps
+      - run: ./tools/test.sh aeds-compression-profile --no-deps
+      - run: ./tools/test.sh backend-perf --no-deps
+      - run: ./tools/test.sh backend-benchmark-regression --no-deps
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: perf-regression-${{ matrix.browser }}
+          name: perf-regression
           if-no-files-found: ignore
           retention-days: 14
           include-hidden-files: true
@@ -1268,18 +973,13 @@ jobs:
             .tmp/perf/aeds-frame-cost/**
             .tmp/perf/aeds-compression-profile/**
             .tmp/perf/public-hot-read-residency-profile/summary.json
-            .tmp/perf/browser-performance.json
             .tmp/perf/release-summaries/backend-benchmark-regression.json
-            .tmp/perf/release-summaries/browser-performance-regression.json
             .tmp/frontend/aeds-decode-budget/summary.json
-            .tmp/frontend/aeds-wasm-browser/summary.json
             .tmp/release-evidence/aeds-frame-cost-summary.json
             .tmp/release-evidence/aeds-compression-profile-summary.json
             .tmp/release-evidence/aeds-decode-budget-summary.json
-            .tmp/release-evidence/aeds-wasm-browser-summary.json
             .tmp/release-evidence/public-hot-read-residency-profile.json
             .tmp/release-evidence/jobs/**
-            .tmp/release-evidence/flaky/**
             BenchmarkDotNet.Artifacts/results/**
 
   release-evidence:
@@ -1301,10 +1001,7 @@ jobs:
       - security-runtime
       - security-static-fuzz
       - acceptance-playwright
-      - visual-playwright
-      - ux-viewport-smoke
       - frontend-render-pressure
-      - cross-browser-smoke
       - resilience-runtime
       - load-smoke
       - backend-qps
@@ -1355,10 +1052,7 @@ jobs:
       - security-runtime
       - security-static-fuzz
       - acceptance-playwright
-      - visual-playwright
-      - ux-viewport-smoke
       - frontend-render-pressure
-      - cross-browser-smoke
       - resilience-runtime
       - load-smoke
       - backend-qps

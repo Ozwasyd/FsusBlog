@@ -1,0 +1,153 @@
+name: Browser Diagnostics
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      category:
+        description: Diagnostic category; all executes the complete catalog.
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - visual
+          - ux
+          - cross-browser
+          - geometry-motion-focus
+          - accessibility
+          - performance
+          - resilience
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: browser-diagnostics-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+  FSUSBLOG_REPO_ROOT: ${{ github.workspace }}
+  GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+  FSUSBLOG_LOCAL_FSUSUI_EXPECTED_COMMIT: b967712bcb9dfc13babd49006451a46e2dcc4771
+
+jobs:
+  production-build-artifacts:
+    name: Immutable Production Build Artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      source_fingerprint: ${{ steps.receipt.outputs.source_fingerprint }}
+      receipt_digest: ${{ steps.receipt.outputs.receipt_digest }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - run: ./tools/test.sh ci-tier production-build-artifacts --no-deps
+      - id: receipt
+        name: Export immutable receipt identity
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const receipt = JSON.parse(fs.readFileSync(".tmp/ci-production-build/receipt.json", "utf8"));
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `source_fingerprint=${receipt.sourceState.worktreeFingerprint}\nreceipt_digest=${receipt.contentDigest}\n`);
+          '
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-build-artifacts
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 6
+          include-hidden-files: true
+          path: .tmp/ci-production-build/**
+
+  browser-diagnostics:
+    name: Browser Diagnostics
+    runs-on: ubuntu-latest
+    needs: production-build-artifacts
+    timeout-minutes: 300
+    env:
+      FSUSBLOG_BROWSER_DIAGNOSTICS_WORKERS: '1'
+      FSUSBLOG_TEST_NAMESPACE: diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+      FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: Ozwasyd/FsusUI
+          ref: ${{ env.FSUSBLOG_LOCAL_FSUSUI_EXPECTED_COMMIT }}
+          token: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
+          persist-credentials: false
+          path: .tmp/local-fsusui
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" install --frozen-lockfile --ignore-scripts
+      - run: corepack pnpm --dir "$FSUSBLOG_LOCAL_FSUSUI_ROOT" run build:theme
+      - name: Verify pinned local FsusUI evidence identity
+        run: node tests/browser-diagnostics/local-fsusui-identity.mjs
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-diagnostics-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium firefox webkit
+      - uses: ./.github/actions/consume-production-build
+        with:
+          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+          consumer-job: browser-diagnostics
+      - run: ./tools/test.sh bootstrap --no-deps
+      - name: Execute complete or selected diagnostics catalog
+        env:
+          REQUESTED_CATEGORY: ${{ inputs.category || 'all' }}
+        run: |
+          mode=manual
+          args=()
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            mode=nightly
+          elif [[ "$REQUESTED_CATEGORY" != "all" ]]; then
+            args+=(--category "$REQUESTED_CATEGORY")
+          fi
+          bash tools/test/lanes/browser-diagnostics.sh "$mode" --workers 1 "${args[@]}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 21
+          include-hidden-files: true
+          path: |
+            .tmp/browser-diagnostics/**
+            .tmp/browser-diagnostics-runtime/**
+            .tmp/visual/**
+            .tmp/ux/**
+            .tmp/frontend/dom-budget*
+            .tmp/frontend/route-render-pressure.json
+            .tmp/frontend/aeds-wasm-browser/**
+            .tmp/release-evidence/aeds-wasm-browser-summary.json
+            src/frontend/test-results/playwright/**

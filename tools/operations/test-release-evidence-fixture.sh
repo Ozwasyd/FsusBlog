@@ -6,6 +6,9 @@ TMP_ROOT="$(mktemp -d)"
 RESTORE_DIR="$TMP_ROOT/restore"
 TRACKED_TMP_FILES=(
   ".tmp/release-evidence/frontend-render-pressure-summary.json"
+  ".tmp/release-evidence/frontend-render-structure-summary.json"
+  ".tmp/release-evidence/aeds-decode-budget-summary.json"
+  ".tmp/release-evidence/aeds-wasm-browser-summary.json"
   ".tmp/release-evidence/doc-sync-summary.json"
   ".tmp/release-evidence/backend-qps-summary.json"
   ".tmp/release-evidence/aot-cache-resilience-summary.json"
@@ -69,6 +72,10 @@ IMAGE_DIGEST="sha256:$(printf 'a%.0s' {1..64})"
 IMAGE_REPOSITORY="ghcr.io/fsusblog/app"
 IMAGE_REF="$IMAGE_REPOSITORY@$IMAGE_DIGEST"
 RELEASE_MANIFEST="$TMP_ROOT/release-manifest.json"
+RUNTIME_MATRIX_EVIDENCE="$TMP_ROOT/runtime-publish-matrix.json"
+RUNTIME_PROFILE_ID="throughput-musl"
+RUNTIME_PROFILE_MANIFEST_DIGEST="sha256:$(printf 'e%.0s' {1..64})"
+RUNTIME_PROFILE_DIGEST="sha256:$(printf 'f%.0s' {1..64})"
 GATEWAY_TRANSITION_EVIDENCE="$TMP_ROOT/gateway-transition.json"
 node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
   --output "$RELEASE_MANIFEST" \
@@ -79,13 +86,43 @@ node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
   --image-digest "$IMAGE_DIGEST" \
   --frontend-manifest-hash "sha256:$(printf 'b%.0s' {1..64})" \
   --wasm-artifact-hash "sha256:$(printf 'c%.0s' {1..64})" \
+  --zk-local-review-hash "sha256:$(printf 'e%.0s' {1..64})" \
   --schema-min-release "$RELEASE_ID" \
   --schema-max-release "$RELEASE_ID" \
   --dotnet-version "10.0.100-fixture" \
   --node-version "v20.19.0-fixture" \
   --docker-version "28.0.0-fixture" \
   --dockerfile-digest "sha256:$(sha256sum "$ROOT_DIR/ops/docker/FsusBlog.Server.Dockerfile" | awk '{print $1}')" \
+  --runtime-profile-id "$RUNTIME_PROFILE_ID" \
+  --runtime-profile-manifest-digest "$RUNTIME_PROFILE_MANIFEST_DIGEST" \
+  --runtime-profile-digest "$RUNTIME_PROFILE_DIGEST" \
+  --runtime-base-family "musl" \
+  --target-runtime "linux-musl-x64" \
+  --publish-single-file "true" \
+  --publish-ready-to-run "false" \
+  --tiered-pgo "true" \
+  --quick-jit-for-loops "true" \
+  --server-gc "true" \
+  --native-aot "false" \
+  --thread-pool-mode "runtime-default" \
+  --topology-mode "smt-visible" \
   --created-at-utc "2026-07-11T01:01:01.000Z" >/dev/null
+
+node --input-type=module - \
+  "$ROOT_DIR" \
+  "$RUNTIME_MATRIX_EVIDENCE" \
+  "$COMMIT_SHA" \
+  "$RUNTIME_PROFILE_MANIFEST_DIGEST" \
+  "$RUNTIME_PROFILE_DIGEST" <<'NODE'
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const [rootDir, output, commitSha, profileManifestDigest, profileDigest] = process.argv.slice(2)
+const fixtureModule = await import(pathToFileURL(path.join(rootDir, 'tests/tools/fixtures/release-runtime-matrix.mjs')).href)
+const evidence = fixtureModule.createReleaseRuntimeMatrixFixture({ commitSha, profileManifestDigest, profileDigest })
+fs.writeFileSync(output, `${JSON.stringify(evidence)}\n`)
+NODE
 
 jq -n \
   --arg releaseId "$RELEASE_ID" \
@@ -328,7 +365,94 @@ printf '{"summary":{"linecoverage":80,"branchcoverage":60,"methodcoverage":95,"a
 printf '{"summary":{"linecoverage":78,"branchcoverage":58,"methodcoverage":96,"assemblies":1,"classes":1,"files":1},"totals":{"lines":{"covered":78,"total":100},"branches":{"covered":58,"total":100},"methods":{"covered":96,"total":100}},"source":"backend-cobertura","reportPaths":["coverage/backend/fixture.cobertura.xml"]}\n' > "$COVERAGE_DIR/backend-merged/Summary.json"
 printf '{"summary":{"linecoverage":76,"branchcoverage":56,"functioncoverage":86,"assemblies":0,"classes":1,"files":1},"totals":{"lines":{"covered":76,"total":100},"branches":{"covered":56,"total":100},"methods":{"covered":86,"total":100}},"source":"frontend-vitest","reportPaths":["coverage/frontend/coverage-summary.json"]}\n' > "$COVERAGE_DIR/frontend/Summary.json"
 mkdir -p "$ROOT_DIR/.tmp/frontend" "$ROOT_DIR/.tmp/release-evidence"
-printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json"
+printf '{"schema":"fsusblog.frontend-render-pressure.v1","status":"ok","evidenceClass":"diagnostic","affectsCorrectness":false,"executionBoundary":"real-browser-render-diagnostics","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json"
+printf '{"schema":"fsusblog.frontend-render-structure.v1","status":"ok","evidenceClass":"correctness","affectsCorrectness":true,"executionBoundary":"browserless-static-analysis","checks":["dom-depth-static","markdown-render-budget"]}\n' > "$ROOT_DIR/.tmp/release-evidence/frontend-render-structure-summary.json"
+node - "$ROOT_DIR/.tmp/release-evidence" "$COMMIT_SHA" <<'NODE'
+const fs = require('node:fs')
+const path = require('node:path')
+
+const [outputDir, commitSha] = process.argv.slice(2)
+const workerModel = (resourceSource) => ({
+  resourceSource,
+  logicalProcessors: 8,
+  instancesPerPage: 1,
+  activeRequests: 4,
+  minimumActiveRequests: 1,
+  maximumActiveRequests: 8
+})
+const copyBudget = {
+  measurementSource: 'executed-arena-and-owned-payload-copy',
+  measuredDecodeCount: 120,
+  jsToWasmCopiedBytes: 1024,
+  expectedJsToWasmCopiedBytes: 1024,
+  wasmToJsCopiedBytes: 512,
+  expectedWasmToJsCopiedBytes: 512,
+  structuredCloneFullBufferCopies: 0
+}
+fs.writeFileSync(path.join(outputDir, 'aeds-decode-budget-summary.json'), `${JSON.stringify({
+  status: 'ok',
+  evidenceClass: 'correctness',
+  affectsCorrectness: true,
+  executionBoundary: 'browserless-node-wasm-runtime',
+  commitSha,
+  measurementSource: 'real-basic-speed-wasm-runtime',
+  workerModel: workerModel('os.availableParallelism'),
+  tiers: ['basic', 'speed'].map((tier) => ({
+    tier,
+    artifact: { rawBytes: 1024, gzipBytes: 512, brotliBytes: 480 },
+    compileP95Ms: 1,
+    initialMemoryPages: tier === 'speed' ? 1024 : 256,
+    memoryPages: tier === 'speed' ? 1024 : 256,
+    peakMemoryPages: tier === 'speed' ? 1024 : 256,
+    growCount: 0,
+    arenaReallocationCount: 3,
+    arenaClearCount: 150,
+    sensitiveBytesCleared: true,
+    copyBudget
+  })),
+  throughput: [4096, 65536, 1048576].map((frameBytes, index) => ({
+    frameBytes,
+    basicMBps: 200 + index,
+    speedMBps: 240 + index,
+    speedup: 1.2
+  })),
+  budgets: { measuredMedianSpeedup: 1.2 }
+})}\n`)
+fs.writeFileSync(path.join(outputDir, 'aeds-wasm-browser-summary.json'), `${JSON.stringify({
+  status: 'ok',
+  evidenceClass: 'diagnostic',
+  affectsCorrectness: false,
+  executionBoundary: 'real-browser-engines',
+  commitSha,
+  hydrationTakeoverEvidence: '.tmp/release-evidence/public-hydration-sidecar-summary.json',
+  selectionRate: 1,
+  fallbackRate: 1,
+  browsers: [{
+    browser: 'chromium',
+    supported: true,
+    status: 'ok',
+    selectedTier: 'speed',
+    fallbackTier: 'basic',
+    fallbackCount: 1,
+    load: { downloadMs: 1, compileMs: 1, instantiateMs: 1 },
+    decode: {
+      megabytesPerSecond: 250,
+      decodeCount: 40,
+      decodedBytes: 10486400,
+      jsToWasmCopiedBytes: 10486400,
+      wasmToJsCopiedBytes: 10485760,
+      initialPages: 1024,
+      peakPages: 1024,
+      growCount: 0,
+      workerModel: workerModel('navigator.hardwareConcurrency'),
+      arenaReallocationCount: 1,
+      arenaClearCount: 39,
+      longTaskDurationMs: 0
+    },
+    workerTransferMs: 0
+  }]
+})}\n`)
+NODE
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json"
 cat > "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json" <<'JSON'
 {
@@ -380,7 +504,7 @@ cat > "$ROOT_DIR/.tmp/release-evidence/public-hydration-sidecar-summary.json" <<
 }
 JSON
 printf '{"schema":"fsusblog.public-hydration-matrix-summary.v1","status":"success","lane":"release","gitSha":"fixture","rendererVersion":"fixture","coverage":{"routes":[{"kind":"Home","route":"/","routeKey":"home"}],"pageKinds":["Home","ArticleDetail","Archive","Filter","About","Privacy","Guidelines","Copyright"],"phases":["direct-first-load","reload"],"browsers":["chromium"],"states":["anonymous","user","admin"],"fixtures":["payload-fixture-matrix"]},"requiredArtifacts":{"detector":"public-hydration-detector-summary.json","clock":"public-hydration-clock-matrix-summary.json","browserEnv":"public-hydration-browser-env-summary.json","payloadFixture":"public-hydration-payload-fixture-summary.json","domDiff":"public-hydration-dom-diff-summary.json"},"artifactStatuses":{"detector":"success","clock":"success","browserEnv":"success","payloadFixture":"success","domDiff":"success"},"cells":[{"source":"detector","route":"/","pageKind":"Home","phase":"direct-first-load","browser":"chromium","viewport":{"name":"desktop","width":1440,"height":900},"state":{"session":"anonymous"},"clock":null,"fixtureId":null,"result":"success","fatalHydrationIssueCount":0,"warnings":[],"errors":[],"durationMs":1}],"fatalHydrationIssueCount":0,"warnings":[],"errors":[]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-matrix-summary.json"
-printf '{"status":"ok","latestMode":"boundaries","planFingerprint":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","plannedCaseCount":1,"completedCaseCount":1,"plannedNavigationCount":1,"completedNavigationCount":1,"completedRouteThemeGroupCount":1,"failedRouteThemeGroupCount":0,"artifacts":{"smoke":null,"visual":null,"boundaries":".tmp/ux/viewport-boundaries.json"}}\n' > "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json"
+printf '{"status":"ok","evidenceClass":"diagnostic","affectsCorrectness":false,"executionBoundary":"real-browser-ux-viewport","latestMode":"boundaries","planFingerprint":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","plannedCaseCount":1,"completedCaseCount":1,"plannedNavigationCount":1,"completedNavigationCount":1,"completedRouteThemeGroupCount":1,"failedRouteThemeGroupCount":0,"artifacts":{"smoke":null,"visual":null,"boundaries":".tmp/ux/viewport-boundaries.json"}}\n' > "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/dom-budget.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/route-render-pressure.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json"
@@ -586,6 +710,19 @@ cat > "$SOAK_DIR/short/summary.json" <<'JSON'
 }
 JSON
 
+MANIFEST_STATUS_CONDITION="$(
+  awk '
+    /^MANIFEST_STATUS="collected-ok"/ { capture = 1 }
+    /^cat > "\$OUT_DIR\/manifest.json"/ { capture = 0 }
+    capture { print }
+  ' "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
+)"
+grep -Fq 'FRONTEND_RENDER_STRUCTURE_STATUS_VALUE' <<<"$MANIFEST_STATUS_CONDITION"
+if grep -Eq 'UX_VIEWPORT_STATUS_VALUE|FRONTEND_RENDER_PRESSURE_STATUS_VALUE' <<<"$MANIFEST_STATUS_CONDITION"; then
+  echo "[release-evidence-fixture] diagnostic browser evidence must not block correctness collection" >&2
+  exit 1
+fi
+
 FSUSBLOG_RELEASE_STAMP=fixture \
 FSUSBLOG_RELEASE_EVIDENCE_DIR="$OUT_DIR" \
 FSUSBLOG_SECURITY_EVIDENCE_SOURCE_DIR="$SECURITY_DIR" \
@@ -597,6 +734,10 @@ FSUSBLOG_SOAK_EVIDENCE_DIR="$SOAK_DIR" \
 FSUSBLOG_FUZZ_EVIDENCE_DIR="$FUZZ_DIR" \
 FSUSBLOG_GATE_LOG_SOURCE_DIR="$GATE_LOG_DIR" \
 FSUSBLOG_GATEWAY_TRANSITION_EVIDENCE="$GATEWAY_TRANSITION_EVIDENCE" \
+FSUSBLOG_RUNTIME_MATRIX_EVIDENCE="$RUNTIME_MATRIX_EVIDENCE" \
+FSUSBLOG_RUNTIME_PROFILE_ID="$RUNTIME_PROFILE_ID" \
+FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST="$RUNTIME_PROFILE_MANIFEST_DIGEST" \
+FSUSBLOG_RUNTIME_PROFILE_DIGEST="$RUNTIME_PROFILE_DIGEST" \
 FSUSBLOG_RELEASE_MANIFEST="$RELEASE_MANIFEST" \
 FSUSBLOG_RELEASE_ID="$RELEASE_ID" \
 FSUSBLOG_RELEASE_SLOT="green" \
@@ -627,6 +768,9 @@ jq -e \
   and .artifacts.faultInjection == "fault-injection"
   and .artifacts.soak == "soak"
   and .artifacts.backendQpsSummary == "backend-qps-summary.json"
+  and .artifacts.uxViewportSummary == "ux-viewport-summary.json"
+  and .artifacts.frontendRenderPressureSummary == "frontend-render-pressure-summary.json"
+  and .artifacts.frontendRenderStructureSummary == "frontend-render-structure-summary.json"
   and .artifacts.aotCacheResilienceSummary == "aot-cache-resilience-summary.json"
   and .artifacts.publicHydrationDetectorSummary == "public-hydration-detector-summary.json"
   and .artifacts.publicHydrationClockMatrixSummary == "public-hydration-clock-matrix-summary.json"
@@ -690,6 +834,9 @@ jq -e \
   and .evidenceSummary.operations.runtimeTuning.counterModes.publicHotRead == "Sampled"
   and .evidenceSummary.operations.runtimeTuning.rollback == "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
   and .evidenceSummary.gates.backendQps == "ok"
+  and .evidenceSummary.gates.uxViewport == "ok"
+  and .evidenceSummary.gates.frontendRenderPressure == "ok"
+  and .evidenceSummary.gates.frontendRenderStructure == "ok"
   and .evidenceSummary.gates.publicAotCacheResilience == "success"
   and .evidenceSummary.gates.publicHydrationDetector == "success"
   and .evidenceSummary.gates.publicHydrationClockMatrix == "success"
@@ -717,6 +864,17 @@ jq -e \
   and (.securityEvidenceIndex | map(.kind) | index("production-exposure-status") != null)
   and (.securityEvidenceIndex | map(.kind) | index("production-exposure-request") != null)
 ' "$OUT_DIR/manifest.json" >/dev/null
+
+jq -e '
+  .schema == "fsusblog.frontend-render-structure.v1"
+  and .status == "ok"
+  and .evidenceClass == "correctness"
+  and .affectsCorrectness == true
+  and .executionBoundary == "browserless-static-analysis"
+  and .checks == ["dom-depth-static", "markdown-render-budget"]
+' "$OUT_DIR/frontend-render-structure-summary.json" >/dev/null
+jq -e '.status == "ok" and .evidenceClass == "diagnostic" and .affectsCorrectness == false and .executionBoundary == "real-browser-render-diagnostics"' "$OUT_DIR/frontend-render-pressure-summary.json" >/dev/null
+jq -e '.status == "ok" and .evidenceClass == "diagnostic" and .affectsCorrectness == false and .executionBoundary == "real-browser-ux-viewport"' "$OUT_DIR/ux-viewport-summary.json" >/dev/null
 
 [[ -f "$OUT_DIR/attack-matrix.json" ]]
 [[ -f "$OUT_DIR/permission-matrix.json" ]]

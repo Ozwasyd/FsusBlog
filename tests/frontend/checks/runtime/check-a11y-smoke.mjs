@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loginWithFixtureSessionBypass } from '../../support/auth-helpers.mjs';
 import {
   remainingRuntimeTimeout,
@@ -25,9 +27,12 @@ function positiveNumber(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-function resolveAuditWorkers(taskCount) {
-  const cpuWorkers = Math.max(1, Math.floor(timeoutPlan.effectiveCpuGrant));
-  const memoryGiB = positiveNumber(process.env.FSUSBLOG_STEP_MEMORY_GIB);
+export function resolveAuditWorkers(taskCount, options = {}) {
+  const env = options.env ?? process.env;
+  if (env.FSUSBLOG_BROWSER_DIAGNOSTICS === '1') return 1;
+  const effectiveCpuGrant = options.effectiveCpuGrant ?? timeoutPlan.effectiveCpuGrant;
+  const cpuWorkers = Math.max(1, Math.floor(effectiveCpuGrant));
+  const memoryGiB = positiveNumber(env.FSUSBLOG_STEP_MEMORY_GIB);
   // A context shares the browser process, but renderer isolation still needs a
   // meaningful slice of the live step grant under production-wide contention.
   const memoryWorkers = memoryGiB === undefined
@@ -243,7 +248,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error('[check-a11y-smoke] fatal:', error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+const isMain = process.argv[1]
+  && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+if (isMain) {
+  main().catch((error) => {
+    console.error('[check-a11y-smoke] fatal:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}

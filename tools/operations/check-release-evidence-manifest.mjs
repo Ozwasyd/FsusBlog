@@ -65,10 +65,8 @@ const requiredStatusChecks = [
   ['DNS readiness', (manifest) => manifest.evidenceSummary?.externalExposure?.dnsReadiness === 'ok'],
   ['DNS delegation', (manifest) => manifest.evidenceSummary?.externalExposure?.dnsDelegation === 'ok'],
   ['live exposure', (manifest) => manifest.evidenceSummary?.externalExposure?.liveExposure === 'ok'],
-  ['viewport behavior summary', (manifest, context) => manifest.evidenceSummary?.gates?.uxViewport === 'ok' && uxViewportSummaryOk(manifest, context)],
-  ['frontend render pressure', (manifest) => manifest.evidenceSummary?.gates?.frontendRenderPressure === 'ok'],
+  ['frontend render structure', (manifest, context) => manifest.evidenceSummary?.gates?.frontendRenderStructure === 'ok' && frontendRenderStructureOk(manifest, context)],
   ['AEDS Wasm decode budget', (manifest, context) => manifest.evidenceSummary?.gates?.aedsDecodeBudget === 'ok' && aedsDecodeBudgetOk(manifest, context)],
-  ['AEDS Wasm browser tiers', (manifest, context) => manifest.evidenceSummary?.gates?.aedsWasmBrowser === 'ok' && aedsWasmBrowserOk(manifest, context)],
   ['public AOT cache resilience', (manifest, context) => manifest.evidenceSummary?.gates?.publicAotCacheResilience === 'success' && publicAotCacheResilienceOk(manifest, context)],
   ['public hydration sidecar', (manifest, context) => manifest.evidenceSummary?.gates?.publicHydrationSidecar === 'success' && publicHydrationSidecarOk(manifest, context)],
   ['doc sync', (manifest) => manifest.evidenceSummary?.gates?.docSync === 'ok']
@@ -91,16 +89,12 @@ const requiredArtifacts = [
   'coverage',
   'runtimePublishMatrix',
   'jobSummaries',
-  'uxViewportSummary',
-  'frontendRenderPressureSummary',
+  'frontendRenderStructureSummary',
   'aedsDecodeBudgetSummary',
-  'aedsWasmBrowserSummary',
   'aotCacheResilienceSummary',
   'publicHydrationSidecarSummary',
   'publishArtifactsSummary',
   'docSyncSummary',
-  'domBudgetSummary',
-  'routeRenderPressureSummary',
   'markdownRenderBudgetSummary',
   'domDepthStaticSummary',
   'productionExposureStatus',
@@ -156,6 +150,9 @@ function aedsWorkerModelOk(model, resourceSource) {
 function aedsDecodeBudgetOk(manifest, context) {
   const report = readArtifactJson(manifest, context, 'aedsDecodeBudgetSummary')
   if (!report || report.status !== 'ok'
+    || report.evidenceClass !== 'correctness'
+    || report.affectsCorrectness !== true
+    || report.executionBoundary !== 'browserless-node-wasm-runtime'
     || report.commitSha !== manifest.commitSha
     || !/^[0-9a-f]{40}$/u.test(String(report.commitSha ?? ''))
     || report.measurementSource !== 'real-basic-speed-wasm-runtime'
@@ -206,38 +203,6 @@ function aedsDecodeBudgetOk(manifest, context) {
     && throughput.filter((sample) => sample.speedup > 1).length >= 2
     && Number.isFinite(report.budgets?.measuredMedianSpeedup)
     && report.budgets.measuredMedianSpeedup >= 1.05
-}
-
-function aedsWasmBrowserOk(manifest, context) {
-  const report = readArtifactJson(manifest, context, 'aedsWasmBrowserSummary')
-  if (!report || report.status !== 'ok'
-    || report.commitSha !== manifest.commitSha
-    || !/^[0-9a-f]{40}$/u.test(String(report.commitSha ?? ''))
-    || !Array.isArray(report.browsers)) return false
-  if (report.hydrationTakeoverEvidence !== '.tmp/release-evidence/public-hydration-sidecar-summary.json') return false
-  if (report.selectionRate !== 1 || report.fallbackRate !== 1) return false
-  const supported = report.browsers.filter((browser) => browser?.supported === true)
-  return supported.length > 0 && supported.every((browser) => browser.status === 'ok'
-    && browser.selectedTier === 'speed'
-    && browser.fallbackTier === 'basic'
-    && browser.fallbackCount === 1
-    && Number.isFinite(browser.load?.downloadMs) && browser.load.downloadMs >= 0
-    && Number.isFinite(browser.load?.compileMs) && browser.load.compileMs >= 0
-    && Number.isFinite(browser.load?.instantiateMs) && browser.load.instantiateMs >= 0
-    && Number.isFinite(browser.decode?.megabytesPerSecond) && browser.decode.megabytesPerSecond > 0
-    && Number.isSafeInteger(browser.decode?.decodeCount) && browser.decode.decodeCount > 1
-    && Number.isSafeInteger(browser.decode?.decodedBytes) && browser.decode.decodedBytes > 0
-    && browser.decode.jsToWasmCopiedBytes === browser.decode.decodedBytes
-    && browser.decode.wasmToJsCopiedBytes === browser.decode.decodedBytes - (16 * browser.decode.decodeCount)
-    && browser.decode.initialPages === 1024
-    && browser.decode.peakPages === 1024
-    && browser.decode?.growCount === 0
-    && aedsWorkerModelOk(browser.decode?.workerModel, 'navigator.hardwareConcurrency')
-    && Number.isSafeInteger(browser.decode?.arenaReallocationCount) && browser.decode.arenaReallocationCount >= 1
-    && browser.decode.arenaReallocationCount < browser.decode.decodeCount
-    && Number.isSafeInteger(browser.decode?.arenaClearCount) && browser.decode.arenaClearCount >= 1
-    && Number.isFinite(browser.decode?.longTaskDurationMs) && browser.decode.longTaskDurationMs >= 0
-    && Number.isFinite(browser.workerTransferMs) && browser.workerTransferMs >= 0)
 }
 
 function includesAll(values, required) {
@@ -1086,6 +1051,16 @@ function uxViewportSummaryOk(manifest, context) {
     && typeof report.artifacts?.[mode] === 'string'
 }
 
+function frontendRenderStructureOk(manifest, context) {
+  const report = readArtifactJson(manifest, context, 'frontendRenderStructureSummary')
+  return report?.schema === 'fsusblog.frontend-render-structure.v1'
+    && report.status === 'ok'
+    && report.evidenceClass === 'correctness'
+    && report.affectsCorrectness === true
+    && report.executionBoundary === 'browserless-static-analysis'
+    && ['dom-depth-static', 'markdown-render-budget'].every((check) => report.checks?.includes(check))
+}
+
 function publicAotCacheResilienceOk(manifest, context) {
   const report = readArtifactJson(manifest, context, 'aotCacheResilienceSummary')
   const requiredCases = [
@@ -1182,7 +1157,7 @@ function validateManifest(manifest, options = {}) {
     errors.push(`release closeout requires collected-ok, got ${manifest.status}`)
   }
 
-  for (const key of ['uxViewportSummary', 'frontendRenderPressureSummary', 'aedsDecodeBudgetSummary', 'aedsWasmBrowserSummary', 'aotCacheResilienceSummary', 'publicHydrationSidecarSummary', 'docSyncSummary', 'domBudgetSummary', 'routeRenderPressureSummary', 'markdownRenderBudgetSummary', 'domDepthStaticSummary']) {
+  for (const key of ['frontendRenderStructureSummary', 'aedsDecodeBudgetSummary', 'aotCacheResilienceSummary', 'publicHydrationSidecarSummary', 'docSyncSummary', 'markdownRenderBudgetSummary', 'domDepthStaticSummary']) {
     if (manifest.artifacts?.[key] === null || manifest.artifacts?.[key] === undefined) {
       errors.push(`artifacts.${key} must point to a collected required summary`)
     }
@@ -1540,10 +1515,8 @@ async function runSelfTest() {
         wasmFuzz: 'ok'
       },
       gates: {
-        uxViewport: 'ok',
-        frontendRenderPressure: 'ok',
+        frontendRenderStructure: 'ok',
         aedsDecodeBudget: 'ok',
-        aedsWasmBrowser: 'ok',
         publicAotCacheResilience: 'success',
         publicHydrationSidecar: 'success',
         docSync: 'ok'
@@ -1690,8 +1663,19 @@ async function runSelfTest() {
     failedRouteThemeGroupCount: 0,
     artifacts: { smoke: null, visual: null, boundaries: '.tmp/ux/viewport-boundaries.json' }
   }))
+  fs.writeFileSync(path.join(tmpDir, 'frontendRenderStructureSummary.json'), JSON.stringify({
+    schema: 'fsusblog.frontend-render-structure.v1',
+    status: 'ok',
+    evidenceClass: 'correctness',
+    affectsCorrectness: true,
+    executionBoundary: 'browserless-static-analysis',
+    checks: ['dom-depth-static', 'markdown-render-budget']
+  }))
   fs.writeFileSync(path.join(tmpDir, 'aedsDecodeBudgetSummary.json'), JSON.stringify({
     status: 'ok',
+    evidenceClass: 'correctness',
+    affectsCorrectness: true,
+    executionBoundary: 'browserless-node-wasm-runtime',
     commitSha,
     measurementSource: 'real-basic-speed-wasm-runtime',
     workerModel: {
@@ -1733,6 +1717,9 @@ async function runSelfTest() {
   }))
   fs.writeFileSync(path.join(tmpDir, 'aedsWasmBrowserSummary.json'), JSON.stringify({
     status: 'ok',
+    evidenceClass: 'diagnostic',
+    affectsCorrectness: false,
+    executionBoundary: 'real-browser-engines',
     commitSha,
     hydrationTakeoverEvidence: '.tmp/release-evidence/public-hydration-sidecar-summary.json',
     selectionRate: 1,
@@ -2019,21 +2006,17 @@ async function runSelfTest() {
     ...validAedsBrowser,
     selectionRate: 0.5
   }))
-  const regressedAedsBrowser = structuredClone(base)
-  regressedAedsBrowser.status = 'collected-blocked'
-  const regressedAedsBrowserResult = validateManifest(regressedAedsBrowser, { manifestPath: manifestFile })
-  if (!regressedAedsBrowserResult.ok || !regressedAedsBrowserResult.missingRequired.includes('AEDS Wasm browser tiers')) {
-    fail('self-test expected regressed AEDS browser selection to block release closeout')
+  const diagnosticAedsBrowserResult = validateManifest(base, { manifestPath: manifestFile })
+  if (!diagnosticAedsBrowserResult.ok) {
+    fail(`self-test expected regressed diagnostics-only AEDS browser evidence not to block correctness: ${diagnosticAedsBrowserResult.errors.join('; ')}`)
   }
   fs.writeFileSync(path.join(tmpDir, 'aedsWasmBrowserSummary.json'), JSON.stringify({
     ...validAedsBrowser,
     commitSha: 'f'.repeat(40)
   }))
-  const staleAedsBrowser = structuredClone(base)
-  staleAedsBrowser.status = 'collected-blocked'
-  const staleAedsBrowserResult = validateManifest(staleAedsBrowser, { manifestPath: manifestFile })
-  if (!staleAedsBrowserResult.ok || !staleAedsBrowserResult.missingRequired.includes('AEDS Wasm browser tiers')) {
-    fail('self-test expected stale-SHA AEDS browser evidence to block release closeout')
+  const staleDiagnosticAedsBrowserResult = validateManifest(base, { manifestPath: manifestFile })
+  if (!staleDiagnosticAedsBrowserResult.ok) {
+    fail(`self-test expected stale diagnostics-only AEDS browser evidence not to block correctness: ${staleDiagnosticAedsBrowserResult.errors.join('; ')}`)
   }
   fs.writeFileSync(path.join(tmpDir, 'aedsWasmBrowserSummary.json'), JSON.stringify(validAedsBrowser))
 

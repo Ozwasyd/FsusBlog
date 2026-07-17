@@ -89,7 +89,11 @@ function writeReleaseSummary(summary) {
     : { status: 'ok', generatedAt: new Date().toISOString(), artifacts: {} }
   const next = {
     ...existing,
+    schema: 'fsusblog.frontend-render-pressure.v1',
     status: existing.status === 'failed' || summary.status === 'failed' ? 'failed' : 'ok',
+    evidenceClass: 'diagnostic',
+    affectsCorrectness: false,
+    executionBoundary: 'real-browser-render-diagnostics',
     generatedAt: new Date().toISOString(),
     routeRenderPressure: {
       status: summary.status,
@@ -157,6 +161,9 @@ async function main() {
   const warningCount = results.reduce((count, item) => count + item.warnings.length, 0)
   const summary = {
     status: strict && results.some((item) => item.status === 'failed') ? 'failed' : 'ok',
+    evidenceClass: 'diagnostic',
+    affectsCorrectness: false,
+    executionBoundary: 'real-browser-route-render-pressure',
     generatedAt: new Date().toISOString(),
     baseUrl,
     strict,

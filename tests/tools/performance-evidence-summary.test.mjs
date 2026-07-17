@@ -15,8 +15,7 @@ const aggregateScript = path.join(root, 'tools/test/aggregate-performance-eviden
 const sourceFiles = {
   'load-baseline': '.tmp/perf/release-summaries/load-baseline.json',
   'load-peak': '.tmp/perf/release-summaries/load-expected-peak.json',
-  'backend-benchmark-regression': '.tmp/perf/release-summaries/backend-benchmark-regression.json',
-  'browser-performance-regression': '.tmp/perf/release-summaries/browser-performance-regression.json'
+  'backend-benchmark-regression': '.tmp/perf/release-summaries/backend-benchmark-regression.json'
 }
 
 function writeJson(base, relative, payload) {
@@ -79,7 +78,7 @@ test('performance evidence aggregation reports every missing producer in one run
   }
 })
 
-test('performance evidence producers stay isolated and the fresh aggregate retains all four classes', (t) => {
+test('correctness performance producers stay isolated from browser diagnostics', (t) => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-perf-summary-'))
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }))
   for (const [id, relative] of Object.entries(sourceFiles)) {
@@ -98,24 +97,10 @@ test('performance evidence producers stay isolated and the fresh aggregate retai
     ...Object.keys(sourceFiles),
     'performance-saturation-v2'
   ])
-  assert.ok(firstSummary.entries.slice(0, 4).every((entry) => entry.status === 'ok' && entry.summary.id === entry.id))
+  assert.ok(firstSummary.entries.slice(0, 3).every((entry) => entry.status === 'ok' && entry.summary.id === entry.id))
   assert.equal(firstSummary.entries.at(-1).status, 'blocked')
   assert.match(firstSummary.entries.at(-1).summary.reason, /not supplied/u)
 
-  writeJson(temp, sourceFiles['browser-performance-regression'], {
-    schema: 'fixture.browser-performance-regression.v1',
-    status: 'blocked',
-    id: 'browser-performance-regression'
-  })
-  const second = runAggregator(temp)
-  assert.equal(second.status, 0, second.stderr)
-  const secondSummary = JSON.parse(fs.readFileSync(outputFile, 'utf8'))
-  assert.equal(secondSummary.status, 'blocked')
-  assert.deepEqual(secondSummary.entries.map((entry) => entry.id), [
-    ...Object.keys(sourceFiles),
-    'performance-saturation-v2'
-  ])
-  assert.equal(secondSummary.entries.find((entry) => entry.id === 'browser-performance-regression').status, 'blocked')
   for (const relative of Object.values(sourceFiles)) assert.ok(fs.existsSync(path.join(temp, relative)))
 
   writeJson(temp, sourceFiles['backend-benchmark-regression'], {
@@ -148,6 +133,6 @@ test('performance aggregate restores producer summaries from downloaded CI artif
     ...Object.keys(sourceFiles),
     'performance-saturation-v2'
   ])
-  assert.ok(summary.entries.slice(0, 4).every((entry) => entry.sourceLocation.startsWith('.tmp/downloaded-artifacts/')))
+  assert.ok(summary.entries.slice(0, 3).every((entry) => entry.sourceLocation.startsWith('.tmp/downloaded-artifacts/')))
   assert.equal(summary.entries.at(-1).sourceLocation, null)
 })

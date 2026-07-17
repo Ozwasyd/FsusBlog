@@ -816,21 +816,6 @@ function validateTieredAedsDecodeBudget(summary) {
   )
 }
 
-function validateUxViewportSummary() {
-  const summary = readJson('.tmp/release-evidence/ux-viewport-summary.json', true)
-  if (!summary) return
-  assert(summary.status === 'ok', 'ux-viewport-summary.status must be ok')
-  assert(['smoke', 'visual', 'boundaries'].includes(summary.latestMode), 'ux-viewport-summary.latestMode is invalid')
-  assert(typeof summary.planFingerprint === 'string' && summary.planFingerprint.length > 0, 'ux-viewport-summary.planFingerprint is required')
-  assert(Number(summary.plannedCaseCount) > 0, 'ux-viewport-summary.plannedCaseCount must be positive')
-  assert(summary.completedCaseCount === summary.plannedCaseCount, 'ux-viewport-summary cases must be complete')
-  assert(Number(summary.plannedNavigationCount) > 0, 'ux-viewport-summary.plannedNavigationCount must be positive')
-  assert(summary.completedNavigationCount === summary.plannedNavigationCount, 'ux-viewport-summary navigations must be complete')
-  assert(Number(summary.completedRouteThemeGroupCount) > 0, 'ux-viewport-summary completed groups must be positive')
-  assert(summary.failedRouteThemeGroupCount === 0, 'ux-viewport-summary failed groups must be zero')
-  assert(typeof summary.artifacts?.[summary.latestMode] === 'string', 'ux-viewport-summary latest artifact is required')
-}
-
 function selfTestRuntimeProbe() {
   return {
     measurementSource: 'runtime-http-probe',
@@ -902,7 +887,6 @@ function main() {
   validateAedsFrameCost()
   validateAedsCompressionProfile()
   validateAedsDecodeBudget()
-  validateUxViewportSummary()
   console.log('[evidence-metrics] ok')
 }
 

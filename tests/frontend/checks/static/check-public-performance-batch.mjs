@@ -34,7 +34,7 @@ for (const token of [
   '#175',
   '#176',
   '.tmp/frontend/asset-size-budget.json',
-  '.tmp/release-evidence/frontend-render-pressure-summary.json',
+  '.tmp/release-evidence/frontend-render-structure-summary.json',
   '/category/:id',
   '/tag/:id',
   'compression oracle',

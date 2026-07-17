@@ -256,20 +256,34 @@
     },
     {
       "id": "aeds-wasm-tier-cross-stack",
-      "description": "AEDS basic/speed tier selection, fallback, transfer, decode budget, and browser behavior are covered by real artifact and browser evidence.",
+      "description": "AEDS basic/speed artifacts, compile output, decode/copy behavior and throughput budgets are covered without launching a browser.",
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
         ".tmp/frontend/aeds-decode-budget/summary.json",
-        ".tmp/release-evidence/aeds-decode-budget-summary.json",
+        ".tmp/release-evidence/aeds-decode-budget-summary.json"
+      ],
+      "assertionType": "perf",
+      "failClosedRule": "production matrix validation requires real basic/speed Wasm artifact, compile, decode, copy, memory and throughput measurements; source-only assertions are insufficient.",
+      "minimumRequirement": "Both real Wasm tiers must satisfy artifact, compile, decode, copy, memory and throughput budgets without using browser diagnostics as correctness evidence.",
+      "tierIds": [
+        "aeds-frame-cost"
+      ]
+    },
+    {
+      "id": "aeds-wasm-browser-diagnostics",
+      "description": "Supported browsers diagnose AEDS speed selection, basic fallback, transferable Worker decode, long-task pressure and duplicate download/decode behavior independently from correctness.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
         ".tmp/frontend/aeds-wasm-browser/summary.json",
         ".tmp/release-evidence/aeds-wasm-browser-summary.json"
       ],
       "assertionType": "perf",
-      "failClosedRule": "production matrix validation requires real basic/speed Wasm measurements and supported-browser selection/fallback evidence; source-only assertions are insufficient.",
-      "minimumRequirement": "Both real Wasm tiers must satisfy artifact, compile, decode, copy, memory, and throughput budgets, while every installed supported browser proves speed selection, basic fallback, transferable Worker decode, and no double download/decode.",
+      "failClosedRule": "The nightly diagnostics receipt fails when an installed browser cannot produce current selection, fallback, transfer and performance evidence; the result does not alter ordinary production correctness.",
+      "minimumRequirement": "Chromium, Firefox and WebKit diagnostics retain per-engine selection/fallback and runtime performance evidence with zero silent retry.",
       "tierIds": [
-        "aeds-frame-cost"
+        "browser-diagnostics-nightly"
       ]
     },
     {
@@ -897,16 +911,13 @@
       "risk": "high",
       "evidencePaths": [
         ".tmp/frontend/dom-budget.json",
-        ".tmp/frontend/dom-depth-static.json",
-        ".tmp/frontend/markdown-render-budget.json",
-        ".tmp/frontend/route-render-pressure.json",
-        ".tmp/release-evidence/frontend-render-pressure-summary.json"
+        ".tmp/browser-diagnostics"
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
       "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
-        "frontend-render-pressure"
+        "browser-diagnostics-nightly"
       ]
     },
     {
@@ -915,13 +926,11 @@
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/frontend/dom-budget.json",
         ".tmp/frontend/dom-depth-static.json",
         ".tmp/frontend/markdown-render-budget.json",
-        ".tmp/frontend/route-render-pressure.json",
-        ".tmp/release-evidence/frontend-render-pressure-summary.json"
+        ".tmp/release-evidence/frontend-render-structure-summary.json"
       ],
-      "assertionType": "perf",
+      "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
       "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
@@ -1252,13 +1261,11 @@
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/frontend/dom-budget.json",
         ".tmp/frontend/dom-depth-static.json",
         ".tmp/frontend/markdown-render-budget.json",
-        ".tmp/frontend/route-render-pressure.json",
-        ".tmp/release-evidence/frontend-render-pressure-summary.json"
+        ".tmp/release-evidence/frontend-render-structure-summary.json"
       ],
-      "assertionType": "perf",
+      "assertionType": "static",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
       "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
@@ -1386,6 +1393,28 @@
       "minimumRequirement": "The receipt must bind immutable build and fixture identity, exact selected scenario IDs, Chromium revision, launch/context counts, wall clock, issue diagnostics, failure class and trace paths while covering hydration/history/reload, user/admin bootstrap, one persisted article publish and offline Service Worker behavior; WebAuthn success is additionally required when the immutable fixture declares step-up registration capability.",
       "tierIds": [
         "browser-contract"
+      ]
+    },
+    {
+      "id": "browser-diagnostics-orchestration",
+      "description": "Scheduled and manual browser diagnostics retain visual, viewport, cross-engine, geometry, motion, accessibility, render-pressure and resilience risks outside authoritative correctness gates.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        ".tmp/browser-diagnostics",
+        "tests/browser-diagnostics/catalog.mjs",
+        "tests/browser-diagnostics/run.mjs",
+        "tests/issue-1148-browser-diagnostics-migration.json",
+        "tests/tools/browser-diagnostics.test.mjs",
+        ".github/workflows/browser-diagnostics.yml",
+        "docs/testing/issue-1148-browser-diagnostics.md"
+      ],
+      "assertionType": "browser",
+      "failClosedRule": "The diagnostics workflow must fail when any selected probe fails, preserve independent category summaries and classify browser process failures as infrastructure without changing the ordinary correctness result.",
+      "minimumRequirement": "A full nightly plan must include every catalog category with explicit fixed workers, zero retry, immutable build/source identity, per-lane namespaces and artifact roots, complete execution counts and diagnostic versus infrastructure failure classes.",
+      "tierIds": [
+        "browser-diagnostics-nightly",
+        "browser-diagnostics-manual"
       ]
     },
     {
@@ -2198,17 +2227,14 @@
       "owner": "InteropGlueAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/frontend/dom-budget.json",
-        ".tmp/frontend/dom-depth-static.json",
-        ".tmp/frontend/markdown-render-budget.json",
         ".tmp/frontend/route-render-pressure.json",
-        ".tmp/release-evidence/frontend-render-pressure-summary.json"
+        ".tmp/browser-diagnostics"
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
       "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
-        "frontend-render-pressure"
+        "browser-diagnostics-nightly"
       ]
     },
     {
@@ -2609,6 +2635,7 @@
       "evidencePaths": [
         "src/frontend/src/components/public/pages/PublicArchivePageContent.vue",
         "tests/frontend/checks/static/check-visual-density-governance.mjs",
+        "tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
         "tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts",
         "tests/frontend/issue-1017-archive-sticky-evidence.json"
       ],
@@ -2617,7 +2644,7 @@
       "minimumRequirement": "The consolidated visual-density checker must own archive selectors and token fallbacks, and Playwright must measure hash navigation plus sticky placement at desktop and mobile viewports.",
       "tierIds": [
         "frontend-static-governance",
-        "acceptance"
+        "browser-diagnostics-nightly"
       ]
     },
     {

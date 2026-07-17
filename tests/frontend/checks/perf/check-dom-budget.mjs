@@ -16,6 +16,7 @@ const summaryFile = path.join(root, '.tmp/frontend/dom-budget.json')
 const releaseSummaryFile = path.join(root, '.tmp/release-evidence/frontend-render-pressure-summary.json')
 const baseUrl = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000'
 const strict = process.env.FSUSBLOG_DOM_BUDGET_STRICT === '1'
+const diagnosticMode = process.env.FSUSBLOG_BROWSER_DIAGNOSTICS === '1'
 const routeArgIndex = process.argv.indexOf('--route')
 const routeFilter = routeArgIndex >= 0 ? process.argv[routeArgIndex + 1] : ''
 const resume = process.argv.includes('--resume')
@@ -153,7 +154,11 @@ function writeReleaseSummary(summary) {
     : { status: 'ok', generatedAt: new Date().toISOString(), artifacts: {} }
   const next = {
     ...existing,
+    schema: 'fsusblog.frontend-render-pressure.v1',
     status: existing.status === 'failed' || summary.status === 'failed' ? 'failed' : 'ok',
+    evidenceClass: 'diagnostic',
+    affectsCorrectness: false,
+    executionBoundary: 'real-browser-render-diagnostics',
     generatedAt: new Date().toISOString(),
     domBudget: {
       status: summary.status,
@@ -199,7 +204,8 @@ async function main() {
   let context = null
   try {
     for (const route of routeBudgets) {
-      for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const maximumAttempts = diagnosticMode ? 1 : 2
+      for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
         if (!browser?.isConnected() || !context) {
           const measurement = await openMeasurementBrowser()
           browser = measurement.browser
@@ -212,7 +218,7 @@ async function main() {
           fs.writeFileSync(path.join(outDir, `${route.id}.json`), `${JSON.stringify(result, null, 2)}\n`)
           break
         } catch (error) {
-          if (attempt === 1 && isBrowserExit(error)) {
+          if (attempt < maximumAttempts && isBrowserExit(error)) {
             console.warn(`[dom-budget] browser exited during ${route.id}; restarting this route once`)
             await context.close().catch(() => {})
             await browser.close().catch(() => {})
@@ -236,6 +242,9 @@ async function main() {
   const warningCount = results.reduce((count, item) => count + item.warnings.length, 0)
   const summary = {
     status: strict && violationCount > 0 ? 'failed' : 'ok',
+    evidenceClass: 'diagnostic',
+    affectsCorrectness: false,
+    executionBoundary: 'real-browser-dom-budget',
     generatedAt: new Date().toISOString(),
     baseUrl,
     strict,

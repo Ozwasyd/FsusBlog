@@ -12,6 +12,7 @@ const SYSTEM_CHROMIUM_CANDIDATES = [
 ]
 
 export function resolveSystemChromiumExecutablePath() {
+  if (process.env.FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY === '1') return undefined
   return process.env.PLAYWRIGHT_CHROMIUM_PATH
     || SYSTEM_CHROMIUM_CANDIDATES.find((candidate) => existsSync(candidate))
     || undefined

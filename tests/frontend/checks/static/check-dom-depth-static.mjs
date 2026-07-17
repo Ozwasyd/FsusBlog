@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const srcDir = path.join(root, 'src/frontend/src')
 const outFile = path.join(root, '.tmp/frontend/dom-depth-static.json')
-const releaseSummaryFile = path.join(root, '.tmp/release-evidence/frontend-render-pressure-summary.json')
+const releaseSummaryFile = path.join(root, '.tmp/release-evidence/frontend-render-structure-summary.json')
 
 const routeFiles = new Set([
   'src/frontend/src/views/admin/article/Write.vue',
@@ -227,7 +227,11 @@ const existing = fs.existsSync(releaseSummaryFile)
   : { status: 'ok', generatedAt: new Date().toISOString(), artifacts: {} }
 fs.writeFileSync(releaseSummaryFile, `${JSON.stringify({
   ...existing,
+  schema: 'fsusblog.frontend-render-structure.v1',
   status: existing.status === 'failed' || summary.status === 'failed' ? 'failed' : 'ok',
+  evidenceClass: 'correctness',
+  affectsCorrectness: true,
+  executionBoundary: 'browserless-static-analysis',
   generatedAt: new Date().toISOString(),
   domDepthStatic: {
     status: summary.status,

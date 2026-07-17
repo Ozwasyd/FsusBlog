@@ -18,7 +18,6 @@ const performanceDeadlineEvidenceSchema = 'fsusblog.performance-deadline-evidenc
 const performanceMeasurementStepIds = Object.freeze([
   'aeds-frame-cost',
   'backend-perf',
-  'browser-performance',
   'mixed-performance-window',
   'privacy-zk-benchmark'
 ])

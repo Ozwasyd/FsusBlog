@@ -17,6 +17,14 @@ function requireFileIncludes(file, expected, message) {
   }
 }
 
+function requireFileExcludes(file, forbidden, message) {
+  const text = fs.readFileSync(path.join(root, file), 'utf8')
+  if (text.includes(forbidden)) {
+    console.error(`[test-matrix] ${message}`)
+    process.exit(1)
+  }
+}
+
 function requireCondition(condition, message) {
   if (!condition) {
     console.error(`[test-matrix] ${message}`)
@@ -43,8 +51,7 @@ function validateStructuredToolWiring() {
   requireTierDependencies('performance-evidence-summary', [
     'load-baseline',
     'load-peak',
-    'backend-benchmark-regression',
-    'browser-performance-regression'
+    'backend-benchmark-regression'
   ])
   const releaseDependencies = new Set(tiers.get('release-evidence')?.dependsOn ?? [])
   for (const aggregate of ['data-scale-evidence-summary', 'performance-evidence-summary']) {
@@ -260,9 +267,9 @@ expectMatrixValidateFailure(
 )
 
 expectMatrixValidateFailure(
-  setTierBooleanField(matrixSourceText, 'ux-viewport-visual', 'cadence', 'pr'),
-  'ux-viewport-visual.manualOnly requires cadence=release-manual',
-  'manual-only tiers must use release-manual cadence'
+  setTierBooleanField(matrixSourceText, 'ux-viewport-visual', 'nightlyOnly', 'false'),
+  'ux-viewport-visual.cadence=nightly requires nightlyOnly=true',
+  'nightly diagnostics tiers must declare nightly-only cadence ownership'
 )
 
 expectMatrixValidateFailure(
@@ -301,9 +308,6 @@ run(['plan', 'production'])
 run(['ci-job-matrix', 'fast-backend', '--out', '.tmp/docs/fast-backend-matrix.json'])
 run(['ci-job-matrix', 'fast-frontend-unit', '--out', '.tmp/docs/fast-frontend-unit-matrix.json'])
 run(['ci-job-matrix', 'acceptance-playwright', '--out', '.tmp/docs/acceptance-playwright-matrix.json'])
-run(['ci-job-matrix', 'visual-public-playwright', '--out', '.tmp/docs/visual-public-playwright-matrix.json'])
-run(['ci-job-matrix', 'visual-console-playwright', '--out', '.tmp/docs/visual-console-playwright-matrix.json'])
-run(['ci-job-matrix', 'ux-viewport-smoke', '--out', '.tmp/docs/ux-viewport-smoke-matrix.json'])
 for (const tierId of [
   'frontend-build',
   'frontend-unit-shard',
@@ -360,41 +364,6 @@ for (const tierId of [
       ? new RegExp(`^acceptance-playwright-\\d-of-${shardCount}$`).test(entry.artifact_name)
       : entry.artifact_name === 'acceptance-playwright-acceptance')),
     'acceptance-playwright shard artifacts and worker policy must come from matrix metadata'
-  )
-}
-{
-  const matrix = readJsonFile('.tmp/docs/ux-viewport-smoke-matrix.json').matrix
-  requireCondition(
-    matrix.include.length === 1 && matrix.include[0].tier === 'ux-viewport-smoke' && matrix.include[0].shard === '',
-    'ux-viewport-smoke must run as one non-sharded planner execution'
-  )
-  requireCondition(
-    matrix.include[0].playwright_workers >= 1
-      && matrix.include[0].playwright_workers === Math.floor(matrix.include[0].cpu_units)
-      && matrix.include[0].artifact_name === 'ux-viewport-smoke-ux-viewport-smoke',
-    'ux-viewport-smoke worker policy must come from matrix metadata'
-  )
-}
-for (const [jobId, file] of [
-  ['visual-public-playwright', '.tmp/docs/visual-public-playwright-matrix.json'],
-  ['visual-console-playwright', '.tmp/docs/visual-console-playwright-matrix.json']
-]) {
-  const matrix = readJsonFile(file).matrix
-  const shardCount = matrix.resource_resolution.defaultShards
-  const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
-  requireCondition(
-    shardCount > 1
-      ? shards.length === shardCount && Array.from({ length: shardCount }, (_, index) => `${index + 1}/${shardCount}`).every((shard) => shards.includes(shard))
-      : shards.length === 0,
-    `${jobId} matrix must expand into machine-resolved Playwright shards`
-  )
-  requireCondition(
-    matrix.include.every((entry) => entry.playwright_workers >= 1
-      && entry.playwright_workers === Math.floor(entry.cpu_units)
-      && (shardCount > 1
-      ? new RegExp(`^${jobId}-\\d-of-${shardCount}$`).test(entry.artifact_name)
-      : entry.artifact_name === `${jobId}-${entry.tier}`)),
-    `${jobId} shard artifacts and worker policy must come from matrix metadata`
   )
 }
 run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-aggregate-plan.json'])
@@ -650,15 +619,10 @@ requireFileIncludes(
   'coverage: [ux-viewport-boundary, responsive-layout, content-boundary]\n    artifacts: [.tmp/ux/viewport-smoke.json, .tmp/release-evidence/ux-viewport-summary.json, src/frontend/test-results/playwright/ux-viewport-smoke]',
   'ux-viewport-smoke artifacts must remain stable across shards'
 )
-requireFileIncludes(
+requireFileExcludes(
   '.github/workflows/quality-gate.yml',
-  './tools/test.sh ci-tier ux-viewport-smoke --no-deps --fresh',
-  'ux-viewport-smoke workflow must run one authoritative fresh plan'
-)
-requireFileIncludes(
-  '.github/workflows/quality-gate.yml',
-  'name: ux-viewport-smoke',
-  'ux-viewport-smoke workflow must retain one stable artifact'
+  'ux-viewport-smoke:',
+  'ordinary quality gate must not define the UX viewport diagnostics job'
 )
 requireFileIncludes(
   'src/frontend/package.json',
@@ -667,7 +631,7 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'src/frontend/package.json',
-  'FSUSBLOG_UX_VIEWPORT_WORKERS=${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs ux-viewport-smoke`}} PLAYWRIGHT_OUTPUT_DIR=test-results/playwright/ux-viewport-smoke node ../../tests/frontend/checks/ux/run-ux-viewport-playwright.mjs smoke',
+  'FSUSBLOG_UX_VIEWPORT_WORKERS=${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs ux-viewport-smoke`}} PLAYWRIGHT_OUTPUT_DIR=${PLAYWRIGHT_OUTPUT_DIR:-test-results/playwright/ux-viewport-smoke} node ../../tests/frontend/checks/ux/run-ux-viewport-playwright.mjs smoke',
   'UX viewport smoke must honor lane-computed Playwright workers'
 )
 requireFileIncludes(
@@ -692,7 +656,7 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'src/frontend/package.json',
-  'check:visual:public:playwright": "env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_VISUAL_PUBLIC_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs visual-public`}}',
+  'check:visual:public:playwright": "env -u NO_COLOR NODE_PATH=./node_modules npx playwright test --config=${FSUSBLOG_PLAYWRIGHT_CONFIG:-playwright.config.ts} ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_VISUAL_PUBLIC_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs visual-public`}}',
   'visual public Playwright script must honor matrix or lane-computed workers'
 )
 requireFileIncludes(
@@ -801,15 +765,32 @@ requireFileIncludes(
   'artifacts: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console]',
   'console screenshot artifacts must use isolated output paths'
 )
+for (const forbidden of [
+  'visual-public-playwright:',
+  'visual-console-playwright:',
+  'visual-playwright:',
+  'cross-browser-smoke:'
+]) {
+  requireFileExcludes(
+    '.github/workflows/quality-gate.yml',
+    forbidden,
+    `ordinary quality gate must not define diagnostics job ${forbidden}`
+  )
+}
 requireFileIncludes(
-  '.github/workflows/quality-gate.yml',
-  'visual_public_playwright_matrix',
-  'visual public workflow must use generated shard matrix'
+  '.github/workflows/browser-diagnostics.yml',
+  'playwright install --with-deps chromium firefox webkit',
+  'scheduled/manual diagnostics must install every governed browser engine'
 )
 requireFileIncludes(
-  '.github/workflows/quality-gate.yml',
-  'visual_console_playwright_matrix',
-  'visual console workflow must use generated shard matrix'
+  'src/frontend/playwright.config.ts',
+  "'acceptance/cross-browser-smoke.spec.ts'",
+  'ordinary Playwright config must exclude cross-browser diagnostics'
+)
+requireFileIncludes(
+  'src/frontend/playwright.config.ts',
+  "'visual/**'",
+  'ordinary Playwright config must exclude visual diagnostics'
 )
 requireFileIncludes(
   'tools/visual/aggregate-screenshot-evidence.mjs',

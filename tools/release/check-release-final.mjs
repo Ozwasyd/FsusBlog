@@ -54,6 +54,29 @@ function isFiniteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+function isNonBlockingDiagnosticEvidence(summary) {
+  return summary?.evidenceClass === 'diagnostic'
+    && summary.affectsCorrectness === false
+}
+
+function isNonBlockingDiagnosticVisualGateSkip(manifest, manifestFile) {
+  const artifact = manifest.artifacts?.visualGateSkip
+  const summaryArtifact = manifest.evidenceSummary?.gates?.visualGateSkip
+  if (typeof artifact !== 'string' || artifact.length === 0 || summaryArtifact !== artifact) return false
+  const file = artifactPath(manifestFile, artifact)
+  if (!file) return false
+  try {
+    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return false
+    const evidence = readJson(file)
+    return evidence.schema === 'fsusblog.visual-gate-skip.v1'
+      && evidence.status === 'visual-gate-skipped'
+      && evidence.executionBoundary === 'real-browser-screenshot-diagnostics'
+      && isNonBlockingDiagnosticEvidence(evidence)
+  } catch {
+    return false
+  }
+}
+
 function validateReleaseResourceSummary(summary, artifactKey) {
   const errors = []
   if (!summary || typeof summary !== 'object') {
@@ -110,8 +133,12 @@ function validateManifest(manifest, manifestFile) {
   if (manifest.status !== 'collected-ok') errors.push(`release-final requires collected-ok, got ${manifest.status}`)
   if (!/^[0-9a-f]{40}$/i.test(String(manifest.commitSha ?? ''))) errors.push('commitSha must be a full 40-character SHA')
   if (!/^sha256:[A-Za-z0-9._~:+/-]+$/u.test(String(manifest.imageDigest ?? ''))) errors.push('imageDigest must be a concrete sha256 digest')
-  if (manifest.artifacts?.visualGateSkip !== null) errors.push('visual skip evidence cannot produce a release-final pass')
-  if (manifest.evidenceSummary?.gates?.visualGateSkip !== null) errors.push('visualGateSkip summary must be null for release-final')
+  const noVisualGateSkip = manifest.artifacts?.visualGateSkip === null
+    && manifest.evidenceSummary?.gates?.visualGateSkip === null
+  if (!noVisualGateSkip && !isNonBlockingDiagnosticVisualGateSkip(manifest, manifestFile)) {
+    if (manifest.artifacts?.visualGateSkip !== null) errors.push('correctness visual skip evidence cannot produce a release-final pass')
+    if (manifest.evidenceSummary?.gates?.visualGateSkip !== null) errors.push('correctness visualGateSkip summary must be null for release-final')
+  }
   if (manifest.evidenceSummary?.externalExposure?.liveExposure !== 'ok') errors.push('live production exposure evidence is required')
   if (manifest.evidenceSummary?.externalExposure?.status !== 'ok') errors.push('production exposure status must be ok')
   if (manifest.evidenceSummary?.externalExposure?.firewallPolicy !== 'present') errors.push('firewall policy evidence is required')
@@ -143,13 +170,19 @@ function validateManifest(manifest, manifestFile) {
   if (jobSummaries.length === 0) {
     errors.push('job summary artifact is missing or empty')
   }
+  let correctnessJobSummaryCount = 0
   for (const file of jobSummaries) {
     const summary = readJson(file)
     if (summary.schema !== 'fsusblog.ci.job-result.v1') continue
+    if (isNonBlockingDiagnosticEvidence(summary)) continue
+    correctnessJobSummaryCount += 1
     if (summary.status !== 'success') errors.push(`${path.relative(root, file)} must be success, got ${summary.status}`)
     if (summary.commit !== manifest.commitSha) {
       errors.push(`${path.relative(root, file)} commit ${summary.commit} does not match manifest ${manifest.commitSha}`)
     }
+  }
+  if (jobSummaries.length > 0 && correctnessJobSummaryCount === 0) {
+    errors.push('job summary artifact must include at least one correctness result')
   }
 
   for (const artifactKey of ['memoryLeakSummary', 'openHandleSummary']) {
@@ -178,6 +211,14 @@ async function runSelfTest() {
     jobId: 'fast',
     status: 'success',
     commit
+  }))
+  fs.writeFileSync(path.join(jobs, 'browser-diagnostics.json'), JSON.stringify({
+    schema: 'fsusblog.ci.job-result.v1',
+    jobId: 'browser-diagnostics',
+    status: 'failure',
+    commit: 'f'.repeat(40),
+    evidenceClass: 'diagnostic',
+    affectsCorrectness: false
   }))
   const validResourceSummary = {
     status: 'ok',
@@ -278,6 +319,64 @@ async function runSelfTest() {
   }
   const errors = validateManifest(manifest, manifestFile)
   if (errors.length > 0) fail([`self-test expected pass: ${errors.join('; ')}`])
+
+  const visualGateSkipFile = path.join(tmp, 'visual-gate-skip.json')
+  const diagnosticVisualGateSkip = {
+    schema: 'fsusblog.visual-gate-skip.v1',
+    status: 'visual-gate-skipped',
+    evidenceClass: 'diagnostic',
+    affectsCorrectness: false,
+    executionBoundary: 'real-browser-screenshot-diagnostics',
+    generatedAt: '2025-01-01T00:00:00.000Z',
+    reason: 'stale diagnostics fixture',
+    approver: 'fixture',
+    impact: 'diagnostics only',
+    rerunUrl: 'https://example.invalid/diagnostics'
+  }
+  fs.writeFileSync(visualGateSkipFile, `${JSON.stringify(diagnosticVisualGateSkip)}\n`)
+  const diagnosticVisualManifest = structuredClone(manifest)
+  diagnosticVisualManifest.artifacts.visualGateSkip = 'visual-gate-skip.json'
+  diagnosticVisualManifest.evidenceSummary.gates.visualGateSkip = 'visual-gate-skip.json'
+  const diagnosticVisualErrors = validateManifest(diagnosticVisualManifest, manifestFile)
+  if (diagnosticVisualErrors.length > 0) {
+    fail([`self-test expected stale diagnostic visual skip not to block correctness: ${diagnosticVisualErrors.join('; ')}`])
+  }
+
+  fs.writeFileSync(visualGateSkipFile, `${JSON.stringify({
+    ...diagnosticVisualGateSkip,
+    evidenceClass: 'correctness',
+    affectsCorrectness: true,
+    executionBoundary: 'release-correctness-gate'
+  })}\n`)
+  const correctnessVisualErrors = validateManifest(diagnosticVisualManifest, manifestFile)
+  if (!correctnessVisualErrors.some((error) => error.includes('correctness visual'))) {
+    fail(['self-test expected a correctness visual skip to block release-final'])
+  }
+  fs.rmSync(visualGateSkipFile)
+
+  const fastJobFile = path.join(jobs, 'fast.json')
+  const heldFastJobFile = path.join(jobs, 'fast.json.hold')
+  fs.renameSync(fastJobFile, heldFastJobFile)
+  const diagnosticOnlyErrors = validateManifest(manifest, manifestFile)
+  fs.renameSync(heldFastJobFile, fastJobFile)
+  if (!diagnosticOnlyErrors.some((error) => error.includes('at least one correctness result'))) {
+    fail(['self-test expected diagnostics-only job summaries not to satisfy correctness evidence'])
+  }
+
+  const correctnessFailureFile = path.join(jobs, 'correctness-failure.json')
+  fs.writeFileSync(correctnessFailureFile, JSON.stringify({
+    schema: 'fsusblog.ci.job-result.v1',
+    jobId: 'correctness-failure',
+    status: 'failure',
+    commit,
+    evidenceClass: 'correctness',
+    affectsCorrectness: true
+  }))
+  const correctnessFailureErrors = validateManifest(manifest, manifestFile)
+  fs.rmSync(correctnessFailureFile)
+  if (!correctnessFailureErrors.some((error) => error.includes('must be success'))) {
+    fail(['self-test expected a failed correctness job summary to block release-final'])
+  }
 
   const missingMatrix = structuredClone(manifest)
   missingMatrix.artifacts.runtimePublishMatrix = null
