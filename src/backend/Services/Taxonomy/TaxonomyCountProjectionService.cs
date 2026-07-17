@@ -21,62 +21,78 @@ public sealed class TaxonomyCountProjectionService(
     public async Task ReconcileArticleAsync(int articleId, CancellationToken cancellationToken = default)
     {
         Stopwatch stopwatch = Stopwatch.StartNew();
-        ArticlePublicTaxonomyProjection? previous = await db.Queryable<ArticlePublicTaxonomyProjection>()
-            .Where(it => it.ArticleId == articleId)
-            .FirstAsync();
-        CurrentPublicTaxonomy current = await LoadCurrentAsync(articleId);
-
         int updatedRows = 0;
-        int? previousCategoryId = previous?.CategoryId;
-        if (previousCategoryId != current.CategoryId)
+        var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            if (previousCategoryId is > 0)
-            {
-                await ApplyCategoryDeltaAsync(previousCategoryId.Value, -1).ConfigureAwait(false);
-                updatedRows++;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            await db.Ado.ExecuteCommandAsync(
+                "SELECT pg_advisory_xact_lock(hashtext('taxonomy_projection'), @ArticleId);",
+                new SugarParameter("@ArticleId", articleId)).ConfigureAwait(false);
 
-            if (current.CategoryId is > 0)
-            {
-                await ApplyCategoryDeltaAsync(current.CategoryId.Value, 1).ConfigureAwait(false);
-                updatedRows++;
-            }
-        }
-
-        HashSet<int> previousTagIds = ParseTagIds(previous?.TagIds);
-        HashSet<int> currentTagIds = current.TagIds.ToHashSet();
-        foreach (int tagId in previousTagIds.Except(currentTagIds))
-        {
-            await ApplyTagDeltaAsync(tagId, -1).ConfigureAwait(false);
-            updatedRows++;
-        }
-
-        foreach (int tagId in currentTagIds.Except(previousTagIds))
-        {
-            await ApplyTagDeltaAsync(tagId, 1).ConfigureAwait(false);
-            updatedRows++;
-        }
-
-        if (current.CategoryId is null && currentTagIds.Count == 0)
-        {
-            await db.Deleteable<ArticlePublicTaxonomyProjection>()
+            ArticlePublicTaxonomyProjection? previous = await db.Queryable<ArticlePublicTaxonomyProjection>()
                 .Where(it => it.ArticleId == articleId)
-                .ExecuteCommandAsync()
+                .FirstAsync(cancellationToken)
                 .ConfigureAwait(false);
-        }
-        else
-        {
-            var projection = new ArticlePublicTaxonomyProjection
+            CurrentPublicTaxonomy current = await LoadCurrentAsync(articleId, cancellationToken).ConfigureAwait(false);
+
+            int? previousCategoryId = previous?.CategoryId;
+            if (previousCategoryId != current.CategoryId)
             {
-                ArticleId = articleId,
-                CategoryId = current.CategoryId,
-                TagIds = FormatTagIds(currentTagIds),
-                UpdatedAtUtc = DateTime.UtcNow
-            };
-            await db.Storageable(projection)
-                .WhereColumns(it => it.ArticleId)
-                .ExecuteCommandAsync()
-                .ConfigureAwait(false);
+                if (previousCategoryId is > 0)
+                {
+                    await ApplyCategoryDeltaAsync(previousCategoryId.Value, -1).ConfigureAwait(false);
+                    updatedRows++;
+                }
+
+                if (current.CategoryId is > 0)
+                {
+                    await ApplyCategoryDeltaAsync(current.CategoryId.Value, 1).ConfigureAwait(false);
+                    updatedRows++;
+                }
+            }
+
+            HashSet<int> previousTagIds = ParseTagIds(previous?.TagIds);
+            HashSet<int> currentTagIds = current.TagIds.ToHashSet();
+            foreach (int tagId in previousTagIds.Except(currentTagIds))
+            {
+                await ApplyTagDeltaAsync(tagId, -1).ConfigureAwait(false);
+                updatedRows++;
+            }
+
+            foreach (int tagId in currentTagIds.Except(previousTagIds))
+            {
+                await ApplyTagDeltaAsync(tagId, 1).ConfigureAwait(false);
+                updatedRows++;
+            }
+
+            if (current.CategoryId is null && currentTagIds.Count == 0)
+            {
+                await db.Deleteable<ArticlePublicTaxonomyProjection>()
+                    .Where(it => it.ArticleId == articleId)
+                    .ExecuteCommandAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await db.Ado.ExecuteCommandAsync(
+                    """
+                    INSERT INTO article_public_taxonomy_projection(article_id, category_id, tag_ids, updated_at_utc)
+                    VALUES (@ArticleId, @CategoryId, @TagIds, @UpdatedAtUtc)
+                    ON CONFLICT (article_id) DO UPDATE
+                    SET category_id = EXCLUDED.category_id,
+                        tag_ids = EXCLUDED.tag_ids,
+                        updated_at_utc = EXCLUDED.updated_at_utc;
+                    """,
+                    new SugarParameter("@ArticleId", articleId),
+                    new SugarParameter("@CategoryId", current.CategoryId),
+                    new SugarParameter("@TagIds", FormatTagIds(currentTagIds)),
+                    new SugarParameter("@UpdatedAtUtc", DateTime.UtcNow)).ConfigureAwait(false);
+            }
+        }).ConfigureAwait(false);
+        if (!transaction.IsSuccess)
+        {
+            throw transaction.ErrorException
+                ?? new InvalidOperationException("Taxonomy projection transaction failed.");
         }
 
         long version = 0;
@@ -110,9 +126,15 @@ public sealed class TaxonomyCountProjectionService(
         return version;
     }
 
-    private async Task<CurrentPublicTaxonomy> LoadCurrentAsync(int articleId)
+    private async Task<CurrentPublicTaxonomy> LoadCurrentAsync(
+        int articleId,
+        CancellationToken cancellationToken)
     {
-        Article? article = await db.Queryable<Article>().ClearFilter().InSingleAsync(articleId);
+        Article? article = await db.Queryable<Article>()
+            .ClearFilter()
+            .Where(it => it.Id == articleId)
+            .FirstAsync(cancellationToken)
+            .ConfigureAwait(false);
         if (article is null || !ArticlePublication.IsPubliclyVisible(article, DateTime.UtcNow))
         {
             return new CurrentPublicTaxonomy(null, []);
@@ -122,7 +144,7 @@ public sealed class TaxonomyCountProjectionService(
             .Where(it => it.ArticleId == articleId)
             .OrderBy(it => it.TagId)
             .Select(it => it.TagId)
-            .ToListAsync()
+            .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
         return new CurrentPublicTaxonomy(article.CategoryId, tagIds);
     }
