@@ -181,7 +181,23 @@ test('production UX risk defaults to public-API persistent browsers with isolate
   assert.match(runner, /worker-\$\{worker\.workerIndex\}[\s\S]*groupSlug[\s\S]*attempt-\$\{attempt\.attempt\}/u)
   assert.match(runner, /schema: 'fsusblog\.local-production\.ux-risk\.v2'/u)
   assert.match(runner, /browserLaunchCount: pool\.browserLaunchCount/u)
+  assert.match(runner, /wallClockMs: Date\.now\(\) - uxStartedAtMs/u)
   assert.match(runner, /peakProcessTreeRssBytes/u)
+
+  const directPool = runner.slice(
+    runner.indexOf('async function runDirectCliPool()'),
+    runner.indexOf('function baseRiskEnvironment()')
+  )
+  assert.match(directPool, /const sessionPlan = buildUxRiskSessionPlan\(maximumWorkerCapacity/u)
+  assert.match(directPool, /await preparePlaywrightSessions\(maximumWorkerCapacity\)/u)
+  assert.match(directPool, /FSUSBLOG_TEST_SESSION: sessionId/u)
+  assert.match(directPool, /FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE: fixtureFile/u)
+  assert.match(directPool, /FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP: '1'/u)
+  assert.match(directPool, /parseUxRiskCliTimingLine\(line\)/u)
+  assert.match(directPool, /schema: 'fsusblog\.ux-risk\.cli-group\.v1'/u)
+  assert.match(directPool, /directAttempts\.set\(group\.id/u)
+  assert.match(directPool, /without an exact-once group evidence receipt/u)
+  assert.doesNotMatch(directPool, /FSUSBLOG_TEST_SESSION: 'pw-0'/u)
 
   assert.match(spec, /export async function runPersistentUxViewportGroup/u)
   assert.match(spec, /runUxRouteThemeGroup\(browser, group, timing, options\.outputDir, options\.sessionId\)/u)

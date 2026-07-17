@@ -4,7 +4,7 @@ import test from 'node:test'
 
 import { buildUxRiskSessionPlan } from '../../tools/ux/ux-risk-session-plan.mjs'
 
-test('persistent UX session plan follows the scheduler lane prefix and fixture root', () => {
+test('persistent and direct CLI UX session plans follow the scheduler lane prefix and fixture root', () => {
   const repoRoot = path.resolve('/workspace/fsusblog')
   const env = {
     FSUSBLOG_TEST_SESSION_PREFIX: 'Lane UX Risk 41F0F4C0',

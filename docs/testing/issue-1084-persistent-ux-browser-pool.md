@@ -12,6 +12,8 @@ FSUSBLOG_UX_RISK_EXECUTION_MODE=cli node tools/ux/run-local-production-risk.mjs
 
 This is a diagnostic fallback, not the Production default. The implementation does not import Playwright private runner, transport, connection or channel APIs, and remains pinned by the frontend lockfile to the repository Playwright version.
 
+The CLI path uses the same lane-prefixed prepared session plan as the persistent pool; it never invents a `pw-0` fixture. Its stdout timing receipt is schema-validated, bound to the selected group and persisted as a unique `group-result.json`, so before/after measurements use the same per-group phase evidence instead of terminal text or inferred durations.
+
 ## Lifecycle and admission
 
 Each pool slot owns one browser and one prepared lane-prefixed backend fixture session for its entire lifetime and consumes multiple groups sequentially. The runner and fixture preparer derive the exact same session IDs from `FSUSBLOG_TEST_SESSION_PREFIX`; the persistent runtime bootstrap is bound to the first resolved session fixture, and every worker leases one of those resolved IDs instead of assuming a literal `pw-N` name. Session IDs are leased from a bounded set sized to the host/configured maximum (at most the six governed risk groups) and returned only after the owning browser closes, so concurrently active workers never share a schema/Redis namespace and a later live-grant expansion never runs out of prepared isolation slots. Capacity is re-read from the run-bound scheduler grant before each admission decision. Growth starts additional slots; shrink never terminates an active group and causes excess workers to retire before taking another group. The UX step consumes one outer `chromiumLane` counted resource from the runtime-browser DAG, while the inner pool divides that step's live CPU and memory grant into local browser slots instead of giving every browser the full bundle grant.
@@ -34,7 +36,7 @@ Each group has a unique `worker/group/attempt` output directory and a `group-res
 
 - execution mode and fresh/resume source;
 - Playwright process count, browser launch count, maximum live workers and crash retry count;
-- time to first group, worker launch/lifetime summaries and every group attempt;
+- time to first group, total UX wall-clock, worker launch/lifetime summaries and every group attempt;
 - per-group timing results, logical test IDs and artifacts;
 - process-tree peak RSS/process count sampled across the runner and Chromium descendants on Linux;
 - the outer counted Chromium resource and inner live-grant capacity source;

@@ -16,6 +16,7 @@ import {
   executeElasticUxGroupPool,
   executePersistentUxWorkerPool
 } from './ux-risk-elastic-pool.mjs'
+import { parseUxRiskCliTimingLine } from './ux-risk-cli-timing.mjs'
 import { buildUxRiskSessionPlan } from './ux-risk-session-plan.mjs'
 import { validateReleasePreviewReady } from './release-preview-readiness.mjs'
 
@@ -105,6 +106,7 @@ const freshRunId = `local-production-risk-${schedulerRunId}-${Date.now()}`
 const uxRunId = resumeRunId ?? freshRunId
 const uxRunToken = `${freshRunId}-token`
 const pointerFile = path.join(root, '.tmp/ux/current-boundaries-run.json')
+const uxStartedAtMs = Date.now()
 const resourceSampler = startProcessTreeResourceSampler()
 let pool
 try {
@@ -139,6 +141,7 @@ const evidence = {
   browserLaunchCount: pool.browserLaunchCount,
   browserCrashRetryCount: pool.retryCount,
   timeToFirstGroupMs: pool.timeToFirstGroupMs,
+  wallClockMs: Date.now() - uxStartedAtMs,
   workerLifecycle: pool.workers,
   groupAttempts: pool.attempts,
   resourceUsage,
@@ -299,6 +302,15 @@ async function runPersistentBrowserPool() {
 }
 
 async function runDirectCliPool() {
+  const sessionPlan = buildUxRiskSessionPlan(maximumWorkerCapacity, {
+    env: process.env,
+    repoRoot: root
+  })
+  await preparePlaywrightSessions(maximumWorkerCapacity)
+  const missingFixtureFiles = sessionPlan.fixtureFiles.filter((fixtureFile) => !fs.existsSync(fixtureFile))
+  if (missingFixtureFiles.length > 0) {
+    throw new Error(`direct CLI UX session fixtures missing: ${missingFixtureFiles.join(', ')}`)
+  }
   let initializationResolve
   let initializationReject
   const initialization = new Promise((resolve, reject) => {
@@ -310,15 +322,29 @@ async function runDirectCliPool() {
   let processCount = 0
   const startedAt = Date.now()
   let firstGroupStartedAt = null
+  const directAttempts = new Map()
   const result = await executeElasticUxGroupPool(riskPlan.groups, {
     capacityProvider: () => resolveLiveWorkerCapacity(),
     pollMs: 100,
     execute: async (group, workerIndex) => {
+      const sessionId = sessionPlan.sessionIds[workerIndex]
+      const fixtureFile = sessionPlan.fixtureFiles[workerIndex]
+      if (!sessionId || !fixtureFile) {
+        throw new Error(`direct CLI UX worker ${workerIndex} has no isolated session fixture`)
+      }
       const initializesRun = !initializationStarted
       initializationStarted = true
       if (!initializesRun) await initialization
       if (firstGroupStartedAt === null) firstGroupStartedAt = Date.now()
       const groupSlug = group.id.replace(/[^a-z0-9._-]+/giu, '-')
+      const attemptStartedAt = new Date().toISOString()
+      const configuredOutputDir = path.join(
+        frontend,
+        'test-results/playwright/local-production-risk/cli',
+        `worker-${workerIndex}-${sessionId}`,
+        groupSlug
+      )
+      const groupOutputDir = path.join(configuredOutputDir, 'runs', uxRunId)
       const childEnvironment = { ...process.env }
       delete childEnvironment.NO_COLOR
       processCount += 1
@@ -331,12 +357,37 @@ async function runDirectCliPool() {
           FSUSBLOG_UX_VIEWPORT_EXECUTION_GROUP_IDS: group.id,
           FSUSBLOG_UX_VIEWPORT_WORKERS: '1',
           FSUSBLOG_PLAYWRIGHT_WORKERS: '1',
-          FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP: initializesRun ? '0' : '1',
+          FSUSBLOG_TEST_SESSION: sessionId,
+          FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE: fixtureFile,
+          FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP: '1',
           FSUSBLOG_UX_VIEWPORT_RESUME: initializesRun && !resume ? '0' : '1',
-          PLAYWRIGHT_OUTPUT_DIR: `test-results/playwright/local-production-risk/${groupSlug}-${workerIndex}`
+          PLAYWRIGHT_OUTPUT_DIR: path.relative(frontend, configuredOutputDir)
         },
-        stdio: 'inherit'
+        stdio: ['inherit', 'pipe', 'pipe']
       })
+      const timingSummaries = []
+      let timingParseError = null
+      let stdoutRemainder = ''
+      const parseOutputLine = (line) => {
+        if (timingParseError) return
+        try {
+          const timing = parseUxRiskCliTimingLine(line)
+          if (timing) timingSummaries.push(timing)
+        } catch (error) {
+          timingParseError = error
+        }
+      }
+      child.stdout.on('data', (chunk) => {
+        process.stdout.write(chunk)
+        stdoutRemainder += chunk.toString('utf8')
+        const lines = stdoutRemainder.split(/\r?\n/u)
+        stdoutRemainder = lines.pop() ?? ''
+        for (const line of lines) parseOutputLine(line)
+      })
+      child.stdout.on('end', () => {
+        if (stdoutRemainder.length > 0) parseOutputLine(stdoutRemainder)
+      })
+      child.stderr.pipe(process.stderr, { end: false })
       if (initializesRun) {
         waitForRunPointer(pointerFile, uxRunId, child)
           .then(initializationResolve, initializationReject)
@@ -350,8 +401,49 @@ async function runDirectCliPool() {
         if (initializesRun) initializationReject(error)
         throw error
       }
+      if (timingParseError) throw timingParseError
+      if (timingSummaries.length !== 1) {
+        throw new Error(`risk Playwright group ${group.id} emitted ${timingSummaries.length} timing summaries, expected 1`)
+      }
+      const timing = timingSummaries[0]
+      if (timing.groupId !== group.id || timing.status !== 'passed') {
+        throw new Error(
+          `risk Playwright group ${group.id} emitted mismatched timing: group=${timing.groupId} status=${timing.status}`
+        )
+      }
+      const artifactFile = path.join(groupOutputDir, 'group-result.json')
+      const artifact = path.relative(root, artifactFile).replaceAll(path.sep, '/')
+      const groupResult = {
+        schema: 'fsusblog.ux-risk.cli-group.v1',
+        status: 'passed',
+        groupId: group.id,
+        logicalTestId: `UX viewport boundaries (boundaries) › ${group.id}`,
+        caseTestIds: group.viewports.flatMap((viewport) => viewport.steps.map((step) => step.id)),
+        workerIndex,
+        attempt: 1,
+        sessionId,
+        sessionNamespace: `${sessionId}:context:${group.id}:attempt-1`,
+        timing,
+        artifacts: [artifact],
+        generatedAt: new Date().toISOString()
+      }
+      fs.mkdirSync(groupOutputDir, { recursive: true })
+      fs.writeFileSync(artifactFile, `${JSON.stringify(groupResult, null, 2)}\n`)
+      directAttempts.set(group.id, {
+        groupId: group.id,
+        workerIndex,
+        attempt: 1,
+        startedAt: attemptStartedAt,
+        status: 'passed',
+        result: groupResult,
+        finishedAt: new Date().toISOString()
+      })
     }
   })
+  const attempts = result.startedGroupIds.map((groupId) => directAttempts.get(groupId))
+  if (attempts.some((attempt) => !attempt)) {
+    throw new Error('direct CLI UX pool completed without an exact-once group evidence receipt')
+  }
   return {
     ...result,
     playwrightProcessCount: processCount,
@@ -359,7 +451,7 @@ async function runDirectCliPool() {
     retryCount: 0,
     timeToFirstGroupMs: firstGroupStartedAt === null ? null : firstGroupStartedAt - startedAt,
     workers: [],
-    attempts: result.startedGroupIds.map((groupId) => ({ groupId, status: 'passed' }))
+    attempts
   }
 }
 
@@ -372,7 +464,6 @@ function baseRiskEnvironment() {
     ...(stepDeadlineAtMs === undefined ? {} : {
       FSUSBLOG_STEP_DEADLINE_AT_MS: String(stepDeadlineAtMs)
     }),
-    FSUSBLOG_TEST_SESSION: 'pw-0',
     FSUSBLOG_TEST_SESSION_ISOLATION: '1',
     FSUSBLOG_DISABLE_NOTIFICATION_STREAM: '1',
     FSUSBLOG_PLAYWRIGHT_TRACE: 'off',
