@@ -956,11 +956,12 @@ async function executeStep(step) {
         )
       }
     : exit
+  const finishedAtMs = Date.now()
   const result = {
     ...finalizedExit,
-    durationMs: Date.now() - started,
+    durationMs: finishedAtMs - started,
     startedAtMs: started,
-    finishedAtMs: Date.now(),
+    finishedAtMs,
     logFile,
     logIndexFile: logFinalization.indexFile,
     logEvidenceFile: logFinalization.evidenceFile,

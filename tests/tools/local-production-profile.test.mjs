@@ -1310,6 +1310,13 @@ test('performance deadline evidence binds the mixed floor to same-run measured s
   }).some((error) => error.includes('measurement overlaps noise')))
 })
 
+test('bundle step timing derives duration and finish from one clock sample', () => {
+  assert.match(localBundleRunner,
+    /const finishedAtMs = Date\.now\(\)\s+const result = \{\s+\.\.\.finalizedExit,\s+durationMs: finishedAtMs - started,\s+startedAtMs: started,\s+finishedAtMs,/u)
+  assert.doesNotMatch(localBundleRunner,
+    /durationMs: Date\.now\(\) - started[\s\S]{0,120}finishedAtMs: Date\.now\(\)/u)
+})
+
 test('bundle evidence is bound to matrix runtime declarations or an explicit command-log fallback', () => {
   const runtimeTier = {
     id: 'runtime-tier',
