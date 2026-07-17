@@ -43,6 +43,9 @@ export function resolveProductionBuildLayout({
     frontendCache: path.join(runRoot, 'frontend/cache'),
     frontendWasm: path.join(runRoot, 'frontend/wasm'),
     backendWebRoot: path.join(runRoot, 'frontend/wwwroot'),
+    runtimeRoot: path.join(runRoot, 'runtime'),
+    runtimeFrontendDist: path.join(runRoot, 'runtime/frontend/dist'),
+    runtimeBackendWebRoot: path.join(runRoot, 'runtime/backend/wwwroot'),
     wasmArtifacts: path.join(runRoot, 'wasm'),
     generatedRoot: path.join(runRoot, 'generated')
   }
@@ -138,6 +141,8 @@ export function prepareProductionBuildLayout(options = {}) {
       frontendDist: relative(layout.repositoryRoot, layout.frontendDist),
       frontendWasm: relative(layout.repositoryRoot, layout.frontendWasm),
       backendWebRoot: relative(layout.repositoryRoot, layout.backendWebRoot),
+      runtimeFrontendDist: relative(layout.repositoryRoot, layout.runtimeFrontendDist),
+      runtimeBackendWebRoot: relative(layout.repositoryRoot, layout.runtimeBackendWebRoot),
       generatedRoot: relative(layout.repositoryRoot, layout.generatedRoot)
     },
     projects: Object.fromEntries(projects.map((entry) => [entry.name, {
@@ -193,6 +198,59 @@ export function productionBuildEnvironment(layout, env = process.env) {
     FSUSBLOG_BACKEND_TEST_BIN_DIR: artifacts.tests.outputDirectory,
     FSUSBLOG_BACKEND_TEST_OBJ_DIR: artifacts.tests.baseIntermediateOutputPath,
     FSUSBLOG_BENCHMARK_DLL: artifacts.benchmarkDll
+  }
+}
+
+export function productionRuntimeEnvironment(layout, env = process.env) {
+  return {
+    ...env,
+    FSUSBLOG_FRONTEND_DIST_ROOT: layout.runtimeFrontendDist,
+    FSUSBLOG_BACKEND_WEBROOT: layout.runtimeBackendWebRoot,
+    FSUSBLOG_WEB_ROOT: layout.runtimeBackendWebRoot,
+    FSUSBLOG_RETENTION_WEBROOT_DIR: layout.runtimeBackendWebRoot,
+    ASPNETCORE_WEBROOT: layout.runtimeBackendWebRoot
+  }
+}
+
+function assertRuntimeLayoutPath(layout, candidate, label) {
+  const runRoot = assertSafeProductionBuildRunRoot(layout.runRoot, { root: layout.repositoryRoot })
+  const resolved = path.resolve(candidate)
+  if (resolved === runRoot || !resolved.startsWith(`${runRoot}${path.sep}`)) {
+    throw new Error(`production runtime ${label} escapes the run root: ${candidate}`)
+  }
+  return resolved
+}
+
+export function prepareProductionRuntimeLayout(layout) {
+  const runtimeRoot = assertRuntimeLayoutPath(layout, layout.runtimeRoot, 'root')
+  const runtimeFrontendDist = assertRuntimeLayoutPath(layout, layout.runtimeFrontendDist, 'frontend dist')
+  const runtimeBackendWebRoot = assertRuntimeLayoutPath(layout, layout.runtimeBackendWebRoot, 'backend webroot')
+  for (const [label, source] of [
+    ['frontend dist', layout.frontendDist],
+    ['backend webroot', layout.backendWebRoot]
+  ]) {
+    const resolved = assertRuntimeLayoutPath(layout, source, `immutable ${label}`)
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+      throw new Error(`production runtime immutable ${label} is missing: ${source}`)
+    }
+  }
+  fs.rmSync(runtimeRoot, { recursive: true, force: true })
+  fs.mkdirSync(path.dirname(runtimeFrontendDist), { recursive: true })
+  fs.mkdirSync(path.dirname(runtimeBackendWebRoot), { recursive: true })
+  fs.cpSync(layout.frontendDist, runtimeFrontendDist, {
+    recursive: true,
+    force: true,
+    preserveTimestamps: true
+  })
+  fs.cpSync(layout.backendWebRoot, runtimeBackendWebRoot, {
+    recursive: true,
+    force: true,
+    preserveTimestamps: true
+  })
+  return {
+    runtimeRoot,
+    runtimeFrontendDist,
+    runtimeBackendWebRoot
   }
 }
 

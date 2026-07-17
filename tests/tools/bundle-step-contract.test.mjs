@@ -106,10 +106,12 @@ test('runtime bundle loads its generated environment only after bootstrap and be
   const stepEnvironment = source.indexOf('...(step.env ?? {})', runtimeEnvironment)
   assert.ok(processEnvironment >= 0 && runtimeEnvironment > processEnvironment && stepEnvironment > runtimeEnvironment)
 
-  const bootstrapExecution = source.indexOf("const result = await executeStep(step)\n    if (step.id === 'bootstrap')")
-  const environmentRead = source.indexOf('runtimeChildEnvironment = readRuntimeEnvironment(root, namespace)', bootstrapExecution)
+  const bootstrapExecution = source.indexOf("if (step.id === 'bootstrap') {\n      const runtimeLayout = prepareProductionRuntimeLayout(productionBuildLayout)")
+  const environmentRead = source.indexOf('...readRuntimeEnvironment(root, namespace)', bootstrapExecution)
   assert.ok(bootstrapExecution >= 0 && environmentRead > bootstrapExecution)
   assert.doesNotMatch(source.slice(bootstrapExecution, environmentRead), /source\s+[^\n]*\.env/u)
+  assert.match(source.slice(bootstrapExecution, environmentRead), /prepareProductionRuntimeLayout\(productionBuildLayout\)/u)
+  assert.match(source.slice(environmentRead, environmentRead + 300), /\.\.\.productionRuntimeChildEnvironment/u)
 })
 
 test('runtime browser runner binds isolated lane ports, process-group cleanup and admission evidence', () => {

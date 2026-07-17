@@ -32,9 +32,11 @@ import { validateShardSummaryArtifacts } from '../run-backend-production-shards.
 import { backendTopologyDefaults } from '../backend-production-topology.mjs'
 import { buildLocalStaticManifest, planLocalStaticCommands } from '../local-static-governance.mjs'
 import {
+  prepareProductionRuntimeLayout,
   productionBuildEnvironment,
   productionBuildLayoutDigest,
   productionDotnetArtifacts,
+  productionRuntimeEnvironment,
   resolveProductionBuildLayout
 } from '../../test-matrix/production-build-layout.mjs'
 import { createArtifactDigestTable } from '../../test-matrix/artifact-digest-table.mjs'
@@ -97,6 +99,7 @@ let peakActiveBrowserLanes = 0
 let shutdownPromise = null
 const shutdownController = new AbortController()
 let runtimeChildEnvironment = {}
+const productionRuntimeChildEnvironment = productionRuntimeEnvironment(productionBuildLayout, {})
 let performanceDeadlineEvidence = null
 let finalizedResourceUtilization = null
 let frontendPerfAdmissionEvidence = null
@@ -1707,10 +1710,29 @@ async function executeRuntimeStepBody(step) {
         ? waitForFrontendBuildReady
         : null
   if (!readinessWait) {
-    const result = await executeStep(step)
+    let executableStep = step
+    if (step.id === 'bootstrap') {
+      const runtimeLayout = prepareProductionRuntimeLayout(productionBuildLayout)
+      executableStep = {
+        ...step,
+        env: {
+          ...productionRuntimeChildEnvironment,
+          ...(step.env ?? {})
+        }
+      }
+      console.log(
+        `[local-production:${bundleId}] prepared mutable runtime roots`
+        + ` frontend=${relative(runtimeLayout.runtimeFrontendDist)}`
+        + ` backend=${relative(runtimeLayout.runtimeBackendWebRoot)}`
+      )
+    }
+    const result = await executeStep(executableStep)
     if (step.id === 'bootstrap') {
       const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim()
-      runtimeChildEnvironment = readRuntimeEnvironment(root, namespace)
+      runtimeChildEnvironment = {
+        ...readRuntimeEnvironment(root, namespace),
+        ...productionRuntimeChildEnvironment
+      }
       console.log(`[local-production:${bundleId}] loaded runtime environment namespace=${namespace}`)
     }
     return result
@@ -1859,13 +1881,14 @@ async function waitForResidentHandoff() {
         consumerBundleId: 'performance-evidence'
       })
       const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim()
-      runtimeChildEnvironment = readRuntimeEnvironment(root, namespace)
-      Object.assign(runtimeChildEnvironment, {
+      runtimeChildEnvironment = {
+        ...readRuntimeEnvironment(root, namespace),
+        ...productionRuntimeChildEnvironment,
         FSUSBLOG_RESIDENT_LEASE_INVENTORY: inventoryFile,
         FSUSBLOG_RESIDENT_LEASE_HANDOFF: handoffFile,
         FSUSBLOG_RESIDENT_RESERVED_CPU_UNITS: String(inventory.reservation.cpuUnits),
         FSUSBLOG_RESIDENT_RESERVED_MEMORY_GIB: String(inventory.reservation.memoryGiB)
-      })
+      }
       return consumed
     }
     const failure = producerFailure('runtime-browser')

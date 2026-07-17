@@ -11,10 +11,12 @@ import {
   collectStaleProductionBuildRoots,
   dotnetProjectLayout,
   finalizeProductionBuildLayout,
+  prepareProductionRuntimeLayout,
   prepareProductionBuildLayout,
   productionBuildEnvironment,
   productionBuildLayoutDigest,
   productionDotnetArtifacts,
+  productionRuntimeEnvironment,
   resolveProductionBuildLayout,
   scheduleStaleProductionBuildGc
 } from '../../tools/test-matrix/production-build-layout.mjs'
@@ -22,6 +24,7 @@ import {
   digestDeclaredOutputs,
   resolveRunBoundArtifactDeclaration
 } from '../../tools/test-matrix/local-profile.mjs'
+import { createArtifactDigestTable } from '../../tools/test-matrix/artifact-digest-table.mjs'
 import { snapshotTierOutputs } from '../../tools/test-matrix/scheduler.mjs'
 
 function repositoryFixture(t) {
@@ -61,6 +64,46 @@ test('run-bound layout isolates every MSBuild project and exposes canonical arti
   assert.equal(env.FSUSBLOG_PUBLIC_AOT_SSR_WORKER_SCRIPT, './server/server-public-ssr.bundle.mjs')
   assert.equal(env.FSUSBLOG_WASM_ARTIFACT_ROOT, layout.wasmArtifacts)
   assert.equal(env.FSUSBLOG_ARTIFACT_DIGEST_TABLE, path.join(layout.generatedRoot, 'artifact-digest-table.json'))
+})
+
+test('runtime writes use disposable overlays and cannot mutate sealed build roots', t => {
+  const root = repositoryFixture(t)
+  const layout = prepareProductionBuildLayout({ root, runId: 'production-runtime-overlay' })
+  for (const directory of [layout.frontendDist, layout.backendWebRoot]) {
+    fs.mkdirSync(directory, { recursive: true })
+    fs.writeFileSync(path.join(directory, 'index.html'), '<!doctype html>\n')
+  }
+  const immutableFrontend = fs.readFileSync(path.join(layout.frontendDist, 'index.html'), 'utf8')
+  const immutableBackend = fs.readFileSync(path.join(layout.backendWebRoot, 'index.html'), 'utf8')
+  const artifactTable = createArtifactDigestTable({
+    root,
+    file: path.join(layout.generatedRoot, 'artifact-digest-table.json'),
+    runId: layout.runId,
+    sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
+  })
+  artifactTable.digestDeclarations(['src/frontend/dist', 'src/backend/wwwroot'], {
+    env: productionBuildEnvironment(layout, {}),
+    producer: { bundle: 'build-static', step: 'matrix-runtime-artifacts' }
+  })
+
+  const runtime = prepareProductionRuntimeLayout(layout)
+  const env = productionRuntimeEnvironment(layout, { SENTINEL: 'runtime' })
+  assert.equal(env.SENTINEL, 'runtime')
+  assert.equal(env.FSUSBLOG_FRONTEND_DIST_ROOT, runtime.runtimeFrontendDist)
+  assert.equal(env.FSUSBLOG_BACKEND_WEBROOT, runtime.runtimeBackendWebRoot)
+  assert.equal(env.ASPNETCORE_WEBROOT, runtime.runtimeBackendWebRoot)
+  assert.notEqual(env.FSUSBLOG_FRONTEND_DIST_ROOT, layout.frontendDist)
+  assert.notEqual(env.FSUSBLOG_BACKEND_WEBROOT, layout.backendWebRoot)
+
+  fs.mkdirSync(path.join(runtime.runtimeFrontendDist, 'aot-cache/payloads'), { recursive: true })
+  fs.writeFileSync(path.join(runtime.runtimeFrontendDist, 'aot-cache/payloads/runtime.aeds'), 'runtime')
+  fs.mkdirSync(path.join(runtime.runtimeBackendWebRoot, 'search'), { recursive: true })
+  fs.writeFileSync(path.join(runtime.runtimeBackendWebRoot, 'search/index.bin'), 'runtime')
+  assert.equal(fs.readFileSync(path.join(layout.frontendDist, 'index.html'), 'utf8'), immutableFrontend)
+  assert.equal(fs.readFileSync(path.join(layout.backendWebRoot, 'index.html'), 'utf8'), immutableBackend)
+  assert.equal(fs.existsSync(path.join(layout.frontendDist, 'aot-cache')), false)
+  assert.equal(fs.existsSync(path.join(layout.backendWebRoot, 'search')), false)
+  assert.doesNotThrow(() => artifactTable.finalize())
 })
 
 test('layout identity binds run, source fingerprint and digest before readiness consumption', t => {

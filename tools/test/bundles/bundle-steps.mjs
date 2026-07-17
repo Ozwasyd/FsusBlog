@@ -689,10 +689,11 @@ export function runtimeSteps() {
       dependsOn: [...runtimeBuildReadiness, 'security-static'],
       resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
     }),
-    // This is the sole production-runtime writer to frontend/dist after build
-    // readiness. Runtime integration mutates and invalidates public fixtures,
-    // so settle the final AOT generation and sidecar copy after that last
-    // writer, immediately before release-preview readers enter the tree.
+    // This is the sole production-runtime writer to the mutable preview overlay.
+    // Runtime integration mutates and invalidates public fixtures, so settle the
+    // final AOT generation and sidecar copy after that last writer, immediately
+    // before release-preview readers enter the tree. Sealed build output stays
+    // read-only for the entire run.
     step('release-public-hydration', 'tools/test/lanes/release-public-hydration.sh', [], {
       dependsOn: ['runtime-integration'],
       resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
