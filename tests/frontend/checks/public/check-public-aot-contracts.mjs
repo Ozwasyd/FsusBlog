@@ -189,7 +189,7 @@ function assertStaticContracts() {
       fail(`SPA SEO head takeover missing token: ${token}`)
     }
   }
-  for (const token of ['public SEO head SPA parity', 'article A → article B', 'page.goBack()', 'page.goForward()', 'navigationCount', 'marker.digest']) {
+  for (const token of ['public browser-only navigation contract', 'article A → article B', 'page.goBack()', 'page.goForward()', 'navigationCount', 'marker.digest']) {
     if (!publicRoutesAcceptance.includes(token)) {
       fail(`production public acceptance must gate SEO head route parity: ${token}`)
     }

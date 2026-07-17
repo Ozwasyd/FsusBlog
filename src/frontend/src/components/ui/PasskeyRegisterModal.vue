@@ -134,10 +134,10 @@
 <script setup lang="ts">
 import { Check } from '@/fsusui/icons'
 import { computed, nextTick, ref, watch } from 'vue'
-import { startRegistration } from '@simplewebauthn/browser'
 import { beginRecoveryPasskeyRegistration, completeRecoveryPasskeyRegistration, passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
 import { FSUSBLOG_SECURITY_COPY } from '@/copy'
+import { startPasskeyRegistration, type PasskeyRegistrationResult } from '@/services/passkeyCeremony'
 
 type Step = 'name' | 'mfa' | 'ceremony' | 'success'
 
@@ -248,9 +248,9 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
       throw new Error(copy.invalidCeremonySession)
     }
 
-    let attestation: Awaited<ReturnType<typeof startRegistration>>
+    let attestation: PasskeyRegistrationResult
     try {
-      attestation = await startRegistration({ ['options' + String.fromCharCode(74, 83, 79, 78)]: options } as any)
+      attestation = await startPasskeyRegistration(options)
     } catch (e: any) {
       if (e?.name === 'NotAllowedError') {
         step.value = props.needsMfa ? 'mfa' : 'name'

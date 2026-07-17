@@ -371,7 +371,8 @@ export function auditCompactRetentionRecords({
   beforeSnapshot,
   afterRecords = null,
   replacements,
-  preBaselineDeletionIds = []
+  preBaselineDeletionIds = [],
+  postBaselineDeletionIds = []
 }) {
   if (!isCompactRetentionBaseline(beforeSnapshot)) {
     throw new Error('compact retention audit requires fsusblog.test-retention-baseline.v3')
@@ -394,6 +395,9 @@ export function auditCompactRetentionRecords({
   const preBaselineKeys = new Set(preBaselineDeletionIds.map((value) => (
     /^[A-Za-z0-9_-]{22}$/u.test(String(value)) ? String(value) : compactRetentionKey(value)
   )))
+  const postBaselineKeys = new Set(postBaselineDeletionIds.map((value) => (
+    /^[A-Za-z0-9_-]{22}$/u.test(String(value)) ? String(value) : compactRetentionKey(value)
+  )))
   const deletedKeys = afterByKey
     ? [...beforeKeys].filter((key) => !afterByKey.has(key)).sort()
     : []
@@ -408,7 +412,7 @@ export function auditCompactRetentionRecords({
   const unknownDeletionDeclarations = replacements
     .filter((entry) => {
       const key = compactRetentionKey(entry.id)
-      return !beforeKeys.has(key) && !preBaselineKeys.has(key)
+      return !beforeKeys.has(key) && !preBaselineKeys.has(key) && !postBaselineKeys.has(key)
     })
     .map((entry) => ({ id: entry.id, source: entry.source }))
   for (const unknown of unknownDeletionDeclarations) {

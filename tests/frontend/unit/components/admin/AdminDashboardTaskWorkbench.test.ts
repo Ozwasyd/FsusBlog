@@ -82,6 +82,37 @@ const mountWorkbench = (override: Partial<WorkbenchProps> = {}) => mount(AdminDa
 })
 
 describe('AdminDashboardTaskWorkbench', () => {
+  it('renders loading, unchecked, empty, and populated summary states without navigation', async () => {
+    const wrapper = mountWorkbench({
+      summaryLoaded: false,
+      summaryLoading: true
+    })
+
+    expect(wrapper.get('[role="status"]').text()).toBe('正在读取站点摘要…')
+
+    await wrapper.setProps({ summaryLoading: false })
+    expect(wrapper.get('[role="status"]').text()).toContain('站点摘要尚未检查')
+
+    await wrapper.setProps({ summaryLoaded: true })
+    expect(wrapper.get('.dashboard-summary__empty').text()).toContain('先写新文章')
+
+    await wrapper.setProps({
+      hasSummaryData: true,
+      ledgerItems: createAdminDashboardLedger({
+        totalArticles: 12,
+        totalComments: 34,
+        trashCount: 1,
+        totalReads: 56,
+        humanVerifiedReads: 0,
+        uniqueViewerKeyEstimate: 0,
+        articleReads: 0,
+        siteReads: 0
+      })
+    })
+    expect(wrapper.find('.dashboard-summary__empty').exists()).toBe(false)
+    expect(wrapper.get('dl[aria-label="站点统计摘要"]').text()).toContain('12')
+  })
+
   it('renders all four zero-workload actions and the compact definition list', () => {
     const wrapper = mountWorkbench()
 

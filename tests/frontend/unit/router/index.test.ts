@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory } from 'vue-router'
-import type { Router } from 'vue-router'
+import type { RouteRecordNormalized, Router } from 'vue-router'
 import { APP_ROUTE_RECORDS, createAppRouter } from '@/router'
 
 const ensureBootstrap = vi.fn<() => Promise<void>>()
@@ -75,6 +75,29 @@ async function createTestRouter(): Promise<Router> {
   })
 }
 
+function concretePath(route: RouteRecordNormalized): string {
+  if (route.name === 'NotFound') {
+    return '/missing/deep-link'
+  }
+
+  return route.path.replace(/:([A-Za-z][A-Za-z0-9_]*)(?:\([^)]*\))?[?+*]?/gu, (_match, parameter: string) =>
+    parameter === 'pathMatch' ? 'missing/deep-link' : '42'
+  )
+}
+
+function deepLinkParams(route: RouteRecordNormalized): Record<string, string | string[]> {
+  const params: Record<string, string | string[]> = {}
+  for (const match of route.path.matchAll(/:([A-Za-z][A-Za-z0-9_]*)/gu)) {
+    const parameter = match[1]!
+    params[parameter] = parameter === 'pathMatch'
+      ? ['missing', 'deep-link']
+      : route.name === 'Tag'
+        ? 'legacy-tag-name'
+        : '42'
+  }
+  return params
+}
+
 describe('account router meta and guards', () => {
   beforeEach(() => {
     ensureBootstrap.mockClear()
@@ -87,8 +110,53 @@ describe('account router meta and guards', () => {
     adminStore.adminState = 'unknown'
     adminStore.canManage = false
     adminStore.hasPermission.mockClear()
+    adminStore.hasPermission.mockImplementation((permission: string) => permission === 'admin.manage')
     userStore.isLoggedIn = true
     siteStore.isLoaded = true
+  })
+
+  it('keeps every named route and canonical path unique', async () => {
+    const router = await createTestRouter()
+    const namedRoutes = router.getRoutes().filter((route) => route.name)
+    const names = namedRoutes.map((route) => String(route.name))
+    const canonicalPaths = namedRoutes
+      .filter((route) => route.name !== 'NotFound')
+      .map((route) => route.path)
+
+    expect(new Set(names).size).toBe(names.length)
+    expect(new Set(canonicalPaths).size).toBe(canonicalPaths.length)
+  })
+
+  it('resolves every named deep link without browser navigation', async () => {
+    const router = await createTestRouter()
+
+    for (const route of router.getRoutes().filter((candidate) => candidate.name)) {
+      const resolved = router.resolve({
+        name: route.name!,
+        params: deepLinkParams(route)
+      })
+      const parsed = router.resolve(resolved.fullPath)
+
+      expect(resolved.matched.length, `${String(route.name)} must resolve by name`).toBeGreaterThan(0)
+      expect(parsed.name, `${String(route.name)} must own ${resolved.fullPath}`).toBe(route.name)
+    }
+  })
+
+  it('classifies every account deep link and every manage permission in route meta', async () => {
+    const router = await createTestRouter()
+    const accountRoutes = router.getRoutes().filter((route) => route.path.startsWith('/user'))
+
+    for (const route of accountRoutes) {
+      const resolved = router.resolve(concretePath(route))
+      expect(resolved.meta.requiresAuth, `${route.path} must inherit account authentication`).toBe(true)
+
+      if (route.path.startsWith('/user/manage')) {
+        expect(resolved.meta.accountArea, `${route.path} must stay in the manage surface`).toBe('manage')
+        expect(resolved.meta.permissions, `${route.path} must declare a permission`).toEqual(
+          expect.arrayContaining([expect.any(String)])
+        )
+      }
+    }
   })
 
   it('keeps /user authenticated without legacy role meta', async () => {
@@ -135,6 +203,29 @@ describe('account router meta and guards', () => {
     expect(ensureAdminSession).not.toHaveBeenCalled()
   }, 15_000)
 
+  it('redirects signed-in guest-only routes to the correct account surface', async () => {
+    const accountRouter = await createTestRouter()
+    await accountRouter.push('/login')
+    expect(accountRouter.currentRoute.value.path).toBe('/user/identity')
+
+    adminStore.adminState = 'active'
+    adminStore.canManage = true
+    adminStore.hasPermission.mockReturnValue(true)
+    const adminRouter = await createTestRouter()
+    await adminRouter.push('/register')
+    expect(adminRouter.currentRoute.value.path).toBe('/user/manage')
+  })
+
+  it('redirects anonymous account deep links to login with the exact return target', async () => {
+    userStore.isLoggedIn = false
+    const router = await createTestRouter()
+
+    await router.push('/user/messagebox?filter=unread')
+
+    expect(router.currentRoute.value.path).toBe('/login')
+    expect(router.currentRoute.value.query.redirect).toBe('/user/messagebox?filter=unread')
+  })
+
   it('account route probes account only', async () => {
     const router = await createTestRouter()
 
@@ -167,6 +258,32 @@ describe('account router meta and guards', () => {
     expect(ensureAdminSession).toHaveBeenCalledTimes(1)
     expect(adminStore.hasPermission).toHaveBeenCalledWith('article.write')
     expect(router.currentRoute.value.path).toBe('/403')
+  })
+
+  it('allows an authorized admin dynamic deep link', async () => {
+    adminStore.adminState = 'active'
+    adminStore.canManage = true
+    adminStore.hasPermission.mockReturnValue(true)
+    const router = await createTestRouter()
+
+    await router.push('/user/manage/article/edit/42')
+
+    expect(router.currentRoute.value.name).toBe('ManageEditArticle')
+    expect(router.currentRoute.value.params.id).toBe('42')
+    expect(adminStore.hasPermission).toHaveBeenCalledWith('article.write')
+  })
+
+  it('resolves account redirects, forbidden, and not-found routes in memory', async () => {
+    const router = await createTestRouter()
+
+    await router.push('/user/profile')
+    expect(router.currentRoute.value.name).toBe('UserIdentityOverview')
+
+    await router.push('/403')
+    expect(router.currentRoute.value.name).toBe('Forbidden')
+
+    await router.push('/missing/deep-link')
+    expect(router.currentRoute.value.name).toBe('NotFound')
   })
 
   it('integrity proof console is denied unless the admin has system.config', async () => {

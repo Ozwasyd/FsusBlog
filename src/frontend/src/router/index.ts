@@ -146,7 +146,6 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
       { path: 'manage/article/trash', name: 'ManageArticleTrash', component: () => import('@/views/admin/article/Trash.vue'), meta: manageMeta('回收站', ['article.write']) },
       {
         path: 'manage/security',
-        name: 'ManageSecuritySystem',
         component: () => import('@/views/admin/security/SecurityLayout.vue'),
         meta: manageMeta('安全系统', ['system.config']),
         children: [
@@ -165,7 +164,6 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
       },
       {
         path: 'manage/moderation',
-        name: 'ManageModerationSystem',
         component: () => import('@/views/admin/moderation/ModerationLayout.vue'),
         meta: manageMeta('审核系统', ['comment.moderate']),
         children: [

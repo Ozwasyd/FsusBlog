@@ -138,9 +138,9 @@ const requiredMarkers = [
     message: 'fixture bypass login must be explicitly named'
   },
   {
-    file: 'tests/frontend/e2e/acceptance/admin-console.spec.ts',
-    marker: 'assertLocalAcceptanceBackend',
-    message: 'raw draft cleanup fetch must require a local backend'
+    file: 'tests/frontend/fixtures/prepare-playwright-sessions.mjs',
+    marker: 'assertSafeFixtureContainer',
+    message: 'fixture preparation must guard direct container access'
   }
 ]
 

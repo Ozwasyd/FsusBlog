@@ -231,10 +231,32 @@ test('compact retention audit resolves hashed deletions, replacement targets, an
     afterRecords: [{ id: 'xunit:new#New.Test', path: 'tests/backend/Unit/New.cs' }],
     replacements: [{ ...replacement, path: 'tests/backend/Unit/Wrong.cs' }]
   })
+  const postBaseline = {
+    id: 'xunit:post-baseline#PostBaseline.Removed',
+    path: 'tests/backend/Unit/PostBaseline.cs',
+    replacementTestIds: ['xunit:new#New.Test'],
+    source: 'issue-post-baseline.json'
+  }
+  const acceptedPostBaseline = auditCompactRetentionRecords({
+    beforeSnapshot,
+    afterRecords: [{ id: 'xunit:new#New.Test', path: 'tests/backend/Unit/New.cs' }],
+    replacements: [replacement, postBaseline],
+    postBaselineDeletionIds: [postBaseline.id]
+  })
+  const rejectedUnknown = auditCompactRetentionRecords({
+    beforeSnapshot,
+    afterRecords: [{ id: 'xunit:new#New.Test', path: 'tests/backend/Unit/New.cs' }],
+    replacements: [replacement, postBaseline]
+  })
 
   assert.deepEqual(accepted.errors, [])
   assert.equal(accepted.deletedRecords.length, 1)
   assert.equal(wrongPath.mismatchedDeletionPaths.length, 1)
+  assert.deepEqual(acceptedPostBaseline.unknownDeletionDeclarations, [])
+  assert.deepEqual(rejectedUnknown.unknownDeletionDeclarations, [{
+    id: postBaseline.id,
+    source: postBaseline.source
+  }])
 })
 
 test('retention audit inherits pre-baseline declarations but rejects a wrong baseline path', () => {

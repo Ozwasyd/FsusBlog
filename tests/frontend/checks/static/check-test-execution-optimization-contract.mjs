@@ -160,9 +160,6 @@ requireIncludes('tests/frontend/support/session-fixtures.mjs', [
   'resolveAuthFixtureDirectory',
   'kid: jwtKeyVersion'
 ])
-requireIncludes('tests/frontend/e2e/acceptance/admin-console.spec.ts', [
-  'resolveAuthFixtureManifest'
-])
 requireIncludes('src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs', [
   'FSUSBLOG_FIXTURE_ROOT',
   'FSUSBLOG_TEST_NAMESPACE'

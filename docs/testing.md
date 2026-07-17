@@ -185,7 +185,7 @@ Rights V3 的完整验收矩阵由 `tools/test/lanes/rights-v3-test-matrix.sh` �
 
 | Lane | Scale mode | Current policy | Artifact isolation | Worker policy |
 |---|---|---|---|---|
-| `acceptance` | shard + guarded worker | shard 数与 job 并发按本轮 CPU 和 free/total memory 比例解析；isolated route audits may raise worker count | `acceptance-playwright-N-of-M` | `acceptance-spa-routes` and the fully isolated `acceptance-public-routes` resolve a local cap from CPU/memory/load; auth and console mutation flows stay worker `1` |
+| `acceptance` | one serial browser contract + parallel lightweight tests | Router、auth、user/admin 状态机和 CRUD correctness 由 Vitest/API/PostgreSQL tests 并行执行；Chromium 只保留 4 个 hydration/navigation 场景 | `acceptance-playwright-N-of-M` | Browser Contract 固定 serial；不再为 route/auth/console 业务穷举分配 browser worker |
 | `visual-public` / `visual-console` | shard + worker | each group resolves shard/job concurrency from the current machine; `visual` aggregate is artifact-only | `visual-public-playwright-N-of-M`, `visual-console-playwright-N-of-M`, aggregate `visual-playwright` | lane scripts compute a local cap and pass explicit `--workers`; visual worker semantics remain isolated from machine-resolved shard count |
 | `ux-viewport-smoke` | shared planner + guarded worker | one non-sharded plan，`10 routes / 20 route-theme groups / 120 navigations / 336 cases` | one `ux-viewport-smoke` artifact | lane script computes a local cap from CPU/memory/load; CI policy currently caps this authoritative plan at worker `1` |
 | `ux-viewport-visual` / `ux-viewport-boundaries` | guarded worker | one process retains the complete matrix and final evidence summary | one mode artifact plus screenshot directory | lane scripts compute a CPU/memory/load cap and prebuild one isolated session fixture per worker; the release-preview path permits up to `3` screenshot workers and `4` no-screenshot boundary workers on an 8-core host |
@@ -193,7 +193,7 @@ Rights V3 的完整验收矩阵由 `tools/test/lanes/rights-v3-test-matrix.sh` �
 | `frontend-render-pressure` | single process | no shard; measures DOM/render pressure noise | single artifact | no Playwright worker scaling |
 | `resilience` | single process | no shard; shares fault/runtime state | single artifact | no Playwright worker scaling |
 
-Acceptance parallelism decision（2026-06-15 / updated 2026-07-12）：`acceptance` shard/job 并发由 matrix resolver 根据本轮机器动态生成；`acceptance/spa-routes.spec.ts` 与关闭 human-read proof、notification stream 后的 `public-routes.spec.ts` 通过 `tools/test/resolve-playwright-workers.mjs` 提高 worker。未关闭这两个共享风险来源的 public route run 仍保持 serial；`auth-flows` 和 console flows 涉及登录态、写作、消息、用户状态变更，继续保持 worker `1`。如果 per-shard job summary 或 flaky evidence 显示新增不稳定，回退路径是 unset 对应 worker 环境变量或把 resolver profile cap 降回 `1`，workflow 仍从 validate-matrix 输出同步动态 shard 结构。
+Acceptance parallelism decision（updated 2026-07-16）：`auth-flows.spec.ts`、`user-console.spec.ts`、`admin-console.spec.ts` 已退出浏览器层；对应 correctness 由 memory-history Router、mounted component、生产 API adapter 和隔离 PostgreSQL integration tests 并行承担。`spa-routes.spec.ts` 仅保留 3 个真实 AOT takeover/hydration 场景，`public-routes.spec.ts` 仅保留 1 个跨路由 head/history 场景，两者均为 serial Browser Contract。迁移前 35 个场景、31 条迁移映射和 4 条保留记录见 [`testing/issue-1146-lightweight-acceptance.md`](testing/issue-1146-lightweight-acceptance.md)。
 
 三个 UX 模式共享 `uxViewportPlan.mjs` 纯规划器：smoke 固定 `336` cases，visual 固定 `378` cases，boundaries 固定 `14 × 2 × 7 × 33 = 6468` cases。boundaries 以 `route + theme` 为 66 个稳定 group；每个 group 复用一个 browser context，但每个 viewport 冷启动新 page 并只导航一次，因此导航数从 6468 降到 `33 × 2 × 14 = 924`。每个 viewport 依次运行 media step，步骤间执行 `default → target → default` 的 focus、selection、window/inner scroll、probe 与临时 style 完整复位；DOM 边界往返合并为一份结构化报告，焦点检查仍单独保留。
 
@@ -389,23 +389,24 @@ Public AOT SSR worker reliability 由 `PublicAotSsrRuntimeStateTests`、`PublicA
 
 ---
 
-### `acceptance` — 全量 Playwright E2E
+### `acceptance` — 轻量 correctness + 窄 Browser Contract
 
-**触发时机**：发布分支、合并到 main 前
+**触发时机**：轻量 correctness 随常规测试执行；真实浏览器合同用于发布/浏览器风险验证
 
-**前置条件**：全部服务（前端 3000、后端 7568、Release 8080）可访问
+**前置条件**：Router/组件/API 单测不需要完整服务；PostgreSQL integration 只需要隔离 fixture；4 个 Browser Contract 场景需要 frontend/backend runtime
 
 **覆盖场景**：
-- `spa-routes` — SPA 所有路由跳转无白屏
-- `public-routes` — 公开页直接访问与 hydration
-- `acceptance` — 完整用户流程（注册 → 登录 → 发评论 → 登出）
-- 管理员流程（内容管理、消息广播）
-- 作者工作台：私有预览、SEO/质量发布前检查、warning 跳过理由审计、封面上传、资产库重建与复用、修订历史与回滚
+- Router route/name/path、anonymous/user/admin、permission、guestOnly、redirect、403/404 和 deep link 使用 `createMemoryHistory()`；
+- auth、message、admin workbench、passkey dialog 和 mobile/desktop DOM 分支使用 Vue Test Utils；
+- AEDS mutation、工单、审核、文章发布、cache/audit side effect 使用 API/backend integration；
+- `spa-routes` 保留 3 个真实 AOT takeover/hydration 场景，`public-routes` 保留 1 个真实 head/history navigation 场景。
 
 **运行**：
 ```bash
-cd src/frontend
-npx playwright test --config=playwright.config.ts
+npm --prefix src/frontend run check:acceptance:auth
+npm --prefix src/frontend run check:acceptance:console
+node --test tests/tools/acceptance-layer-migration.test.mjs
+cd src/frontend && npx playwright test acceptance/spa-routes.spec.ts acceptance/public-routes.spec.ts --workers=1
 ```
 
 ---
@@ -775,7 +776,7 @@ cd src/frontend && npx vitest run --config vitest.config.ts ../../tests/frontend
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~AuthoringWorkflowServiceTests|FullyQualifiedName~CommentServiceValidationTests"
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~ObservabilityTests|FullyQualifiedName~ServiceCollectionExtensionsTests|FullyQualifiedName~ProductionHealthTests|FullyQualifiedName~ScheduledPublishWorkerTests|FullyQualifiedName~UnifiedCacheTests"
 npm --prefix src/frontend run check:security:attack-matrix
-cd src/frontend && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test acceptance/admin-console.spec.ts -g "dashboard, article write"
+npm --prefix src/frontend run check:acceptance:auth
 npm --prefix src/frontend run check:acceptance:console
 npm --prefix src/frontend run check:pwa-offline-policy
 npm --prefix src/frontend run check:pwa-offline-smoke

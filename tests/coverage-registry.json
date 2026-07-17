@@ -2703,7 +2703,6 @@
         "tests/frontend/unit/view-contracts/adminDashboardWorkbench.test.ts",
         "tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts",
         "tests/frontend/e2e/visual/console-visual.spec.ts",
-        "tests/frontend/e2e/acceptance/admin-console.spec.ts",
         "tests/frontend/checks/static/check-visual-density-governance.mjs",
         "src/frontend/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts",
         "docs/issue-1022-admin-dashboard-handoff.md",
@@ -2730,19 +2729,17 @@
         "src/frontend/src/components/account/AccountHeaderMenu.vue",
         "tests/frontend/unit/layouts/accountNavModules.test.ts",
         "tests/frontend/unit/components/account/AccountNavigationPanel.test.ts",
-        "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+        "tests/frontend/unit/router/index.test.ts",
         "tests/frontend/e2e/visual/console-visual.spec.ts",
         "tests/frontend/checks/static/check-visual-density-governance.mjs",
         "docs/issue-1023-admin-ia-handoff.md",
-        "src/frontend/test-results/playwright/acceptance",
         ".tmp/visual/console"
       ],
       "assertionType": "browser",
       "failClosedRule": "Reject unauthorized or empty modules, an invalid first-leaf fallback, stale current state after deep-link or browser history, multiple mobile drawers, module or local targets below 44px, desktop sidebar overflow or header actions that escape the active module boundary.",
-      "minimumRequirement": "Unit owners must cover module filtering and route-derived selection while acceptance measures mobile target height and navigation behavior and visual-console retains responsive console hierarchy.",
+      "minimumRequirement": "Unit owners must cover module filtering, route-derived selection and mounted mobile branching while visual-console retains real geometry and responsive console hierarchy.",
       "tierIds": [
         "frontend-unit-shard",
-        "acceptance",
         "visual-console"
       ]
     },
@@ -3066,14 +3063,15 @@
         "tests/frontend/unit/layouts/accountNavModules.test.ts",
         "tests/issue-1039-admin-console-evidence.json",
         "tests/backend/issue-1039-retention-replacements.json",
-        "tests/frontend/e2e/acceptance/admin-console.spec.ts"
+        "tests/frontend/unit/components/user/MessagesStateMachine.test.ts",
+        "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
       ],
-      "assertionType": "browser",
+      "assertionType": "integration",
       "failClosedRule": "Reject unauthorized module exposure, missing step-up consumption, incorrect moderation arguments, absent empty states or an admin route that fails rendered acceptance.",
-      "minimumRequirement": "Vitest API and view owners plus the admin Playwright suite must cover authorization, mutation payloads, retry, empty and failure states.",
+      "minimumRequirement": "Vitest API, router and mounted component owners plus PostgreSQL integration tests must cover authorization, mutation payloads, persistence, retry, empty and failure states.",
       "tierIds": [
         "frontend-unit-shard",
-        "acceptance",
+        "integration",
         "security",
         "production"
       ]

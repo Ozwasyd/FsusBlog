@@ -93,6 +93,52 @@ function discoverIssueManifests() {
   ).map((path) => ({ source: repoPath(path), manifest: readJson(path) }))
 }
 
+function validatePostBaselineIssueDeclarations(descriptors, authoritativeBefore) {
+  const ids = []
+  const errors = []
+  const sources = []
+  for (const descriptor of descriptors) {
+    const manifest = descriptor.manifest
+    if (manifest?.schema !== 'fsusblog.issue-test-retention-replacements.v1'
+      || !String(manifest.baseline ?? '').trim()
+      || manifest.baseline === authoritativeBefore) {
+      continue
+    }
+
+    const baselinePath = resolve(root, manifest.baseline)
+    if (!existsSync(baselinePath)) {
+      errors.push(`${descriptor.source}: post-baseline snapshot does not exist: ${manifest.baseline}`)
+      continue
+    }
+
+    let baseline
+    try {
+      baseline = readJson(baselinePath)
+    } catch (error) {
+      errors.push(`${descriptor.source}: invalid post-baseline snapshot: ${error instanceof Error ? error.message : String(error)}`)
+      continue
+    }
+    if (baseline?.schema !== 'fsusblog.issue-acceptance-baseline.v1' || baseline.issue !== manifest.issue) {
+      errors.push(`${descriptor.source}: post-baseline snapshot schema or issue binding is invalid`)
+      continue
+    }
+
+    const recordsById = new Map((baseline.records ?? []).map((record) => [record?.id, record]))
+    let accepted = 0
+    for (const entry of manifest.deletedTests ?? []) {
+      const record = recordsById.get(entry?.id)
+      if (!record || record.path !== entry.path || record.disposition !== 'migrated') {
+        errors.push(`${descriptor.source}: ${entry?.id ?? '<missing id>'} is not a migrated record in ${manifest.baseline}`)
+        continue
+      }
+      ids.push(entry.id)
+      accepted += 1
+    }
+    sources.push({ source: descriptor.source, baseline: manifest.baseline, accepted })
+  }
+  return { ids: [...new Set(ids)], errors, sources }
+}
+
 async function frontendReplacementDescriptor(beforeRecords) {
   const planPath = resolve(root, 'tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs')
   if (!existsSync(planPath)) return { descriptor: null, errors: [] }
@@ -180,10 +226,12 @@ const compactBefore = isCompactRetentionBaseline(beforeSnapshot)
 if (compactBefore) validateCompactRetentionBaseline(beforeSnapshot)
 const beforeRecords = compactBefore ? null : recordsFromSnapshot(beforeSnapshot, plan.beforeSnapshot)
 const centralPath = resolve(root, 'tests/test-retention-replacements.json')
+const issueManifestDescriptors = discoverIssueManifests()
 const manifestDescriptors = [
   { source: repoPath(centralPath), manifest: readJson(centralPath) },
-  ...discoverIssueManifests()
+  ...issueManifestDescriptors
 ]
+const postBaseline = validatePostBaselineIssueDeclarations(issueManifestDescriptors, plan.beforeSnapshot)
 const frontend = compactBefore
   ? { descriptor: null, errors: [] }
   : await frontendReplacementDescriptor(beforeRecords)
@@ -203,7 +251,8 @@ const retention = compactBefore
       preBaselineDeletionIds: decodeCompactRetentionIndex(
         beforeSnapshot.replacementManifestBaseline.deletedTestIndex,
         'before snapshot historical deletion index'
-      )
+      ),
+      postBaselineDeletionIds: postBaseline.ids
     })
   : auditRetentionRecords({
       beforeRecords,
@@ -222,6 +271,7 @@ const errors = [
   ...stageErrors,
   ...afterAuthorityErrors,
   ...frontend.errors,
+  ...postBaseline.errors,
   ...merged.errors,
   ...retention.errors,
   ...sourceLocking.fixtureAudit.errors,
@@ -242,6 +292,7 @@ const report = {
     beforeTestRecords: compactBefore ? beforeSnapshot.testIndex.count : beforeRecords.length,
     afterTestRecords: afterRecords?.length ?? null,
     replacementDeclarations: merged.entries.length,
+    postBaselineDeletionDeclarations: postBaseline.ids.length,
     deletedTestRecords: retention.deletedRecords.length,
     missingDeletionMappings: retention.missingDeletionMappings.length,
     mismatchedDeletionPaths: retention.mismatchedDeletionPaths.length,
@@ -257,6 +308,7 @@ const report = {
   replacementDeclarations: merged.entries.map(({ source: _source, ...entry }) => entry),
   replacementDeclarationSources: merged.entries.map((entry) => ({ id: entry.id, source: entry.source })),
   replacementConflicts: merged.conflicts,
+  postBaselineDeclarationSources: postBaseline.sources,
   missingDeletionMappings: retention.missingDeletionMappings,
   unknownDeletionDeclarations: retention.unknownDeletionDeclarations,
   mismatchedDeletionPaths: retention.mismatchedDeletionPaths,

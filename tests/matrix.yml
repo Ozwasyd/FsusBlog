@@ -304,6 +304,7 @@ tiers:
       - tests/frontend/unit/views/IntegrityProofConsole.test.ts
       - tests/frontend/unit/router/index.test.ts
       - tests/frontend/unit/layouts/accountNavModules.test.ts
+      - tests/frontend/unit/components/user/MessagesStateMachine.test.ts
       - tests/issue-1039-admin-console-evidence.json
       - tests/backend/issue-1039-retention-replacements.json
     ciJob: fast-frontend-unit
@@ -1290,6 +1291,7 @@ tiers:
       - backend-recovery-passkey-idempotent-completion
       - backend-anonymous-identity-behavior
       - backend-projection-serialization-behavior
+      - frontend-admin-console-behavior
     artifacts: [.tmp/acceptance/*.log, .tmp/runtime/integration.json]
     evidence:
       - .tmp/acceptance/*.log
@@ -1310,6 +1312,7 @@ tiers:
       - tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs
       - tests/backend/Integration/AnonymousCommentPolicyPersistenceTests.cs
       - tests/backend/Integration/TaxonomyProjectionPersistenceTests.cs
+      - tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs
       - docs/testing/issue-1045-anonymous-identity-behavior-handoff.md
       - docs/testing/issue-1047-projection-serialization-handoff.md
     ciJob: integration-runtime
@@ -1525,15 +1528,12 @@ tiers:
       - playwright-acceptance
       - frontend-public-archive-sticky-geometry
       - zero-downtime-release-rehearsal
-      - frontend-admin-console-behavior
       - frontend-source-locking-convergence
-      - frontend-admin-information-architecture
     artifacts: [src/frontend/test-results/playwright/acceptance]
     evidence:
       - src/frontend/test-results/playwright/acceptance
       - tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts
       - tests/frontend/e2e/acceptance/release-asset-compatibility.spec.ts
-      - tests/frontend/e2e/acceptance/admin-console.spec.ts
       - tests/frontend/checks/static/check-visual-density-governance.mjs
       - src/frontend/src/layouts/AccountLayout.vue
       - src/frontend/src/layouts/accountNav.ts
@@ -1629,7 +1629,7 @@ tiers:
     requiredFor: production
     coverage: [playwright-visual-console, frontend-admin-task-first-dashboard, frontend-admin-information-architecture]
     artifacts: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console]
-    evidence: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console, src/frontend/src/views/admin/Dashboard.vue, src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue, src/frontend/src/composables/useAdminDashboardWorkbench.ts, src/frontend/src/view-contracts/adminDashboard.ts, tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts, tests/frontend/e2e/acceptance/admin-console.spec.ts, tests/frontend/checks/static/check-visual-density-governance.mjs, src/frontend/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts, src/frontend/src/layouts/AccountLayout.vue, src/frontend/src/layouts/accountNav.ts, src/frontend/src/layouts/accountWorkspaceContext.ts, src/frontend/src/components/account/AccountNavigationPanel.vue, src/frontend/src/components/account/AccountHeaderMenu.vue, tests/frontend/e2e/visual/console-visual.spec.ts, docs/issue-1022-admin-dashboard-handoff.md, docs/issue-1023-admin-ia-handoff.md]
+    evidence: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console, src/frontend/src/views/admin/Dashboard.vue, src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue, src/frontend/src/composables/useAdminDashboardWorkbench.ts, src/frontend/src/view-contracts/adminDashboard.ts, tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts, tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts, tests/frontend/checks/static/check-visual-density-governance.mjs, src/frontend/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts, src/frontend/src/layouts/AccountLayout.vue, src/frontend/src/layouts/accountNav.ts, src/frontend/src/layouts/accountWorkspaceContext.ts, src/frontend/src/components/account/AccountNavigationPanel.vue, src/frontend/src/components/account/AccountHeaderMenu.vue, tests/frontend/e2e/visual/console-visual.spec.ts, docs/issue-1022-admin-dashboard-handoff.md, docs/issue-1023-admin-ia-handoff.md]
     ciJob: visual-console-playwright
     localOnly: false
     nightlyOnly: false
