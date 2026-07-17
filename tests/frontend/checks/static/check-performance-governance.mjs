@@ -82,6 +82,14 @@ assert(assetBudget.includes('isAdminRouteChunk'), 'asset budget must detect rout
 assert(assetBudget.includes('isEchartsVendorChunk'), 'asset budget must detect ECharts chunks')
 assert(assetBudget.includes('elementPlusVendorBytes'), 'asset budget must keep Element Plus vendor on an explicit budget')
 assert(assetBudget.includes('isElementPlusVendorChunk'), 'asset budget must detect Element Plus vendor chunks')
+assert(
+  domBudget.includes("import { evaluateAfterNavigationSettles } from './route-render-pressure-readiness.mjs'"),
+  'DOM budget must reuse the bounded navigation-settle evaluator'
+)
+assert(
+  domBudget.includes('await evaluateAfterNavigationSettles(page,'),
+  'DOM budget measurements must tolerate only bounded navigation context resets'
+)
 
 for (const route of [
   '/user/manage/moderation',

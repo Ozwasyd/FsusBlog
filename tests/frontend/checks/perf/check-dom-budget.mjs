@@ -5,6 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs'
+import { evaluateAfterNavigationSettles } from './route-render-pressure-readiness.mjs'
 
 const require = createRequire(import.meta.url)
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
@@ -77,7 +78,7 @@ async function collectRouteMetrics(page, route) {
   await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
   await page.waitForTimeout(250)
   const renderReadyMs = Math.round(performance.now() - startedAt)
-  const metrics = await page.evaluate(() => {
+  const metrics = await evaluateAfterNavigationSettles(page, () => {
     const elementList = Array.from(document.querySelectorAll('*'))
     const visible = (element) => {
       if (!(element instanceof HTMLElement)) return false
@@ -127,7 +128,7 @@ async function collectRouteMetrics(page, route) {
       largestSubtreeNodeCount: largest?.count ?? 0,
       jsHeapBytes: performance.memory?.usedJSHeapSize ?? null
     }
-  })
+  }, null)
 
   const violations = []
   const warnings = []
