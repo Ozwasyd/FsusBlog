@@ -192,31 +192,40 @@ function releaseHeaders(requestNumber) {
   }
 }
 
+function observedLatencySummary(values) {
+  const sorted = [...values].sort((left, right) => left - right)
+  const percentile = quantile => sorted[Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil(sorted.length * quantile) - 1)
+  )] ?? null
+  return {
+    samples: sorted.length,
+    p50: percentile(0.50),
+    p95: percentile(0.95),
+    p99: percentile(0.99),
+    max: sorted.at(-1) ?? null
+  }
+}
+
+function observedLatencyImpactPercent(baseline, overlap) {
+  if (!Number.isFinite(baseline) || baseline <= 0 || !Number.isFinite(overlap) || overlap < 0) return null
+  return Math.max(0, ((overlap - baseline) / baseline) * 100)
+}
+
 test('traffic probe covers all 12 categories, explicitly classifies business 5xx, and measures source/target baseline-overlap impact', async (t) => {
   const data = createFixture(t, 'traffic-pass')
   const timing = machineTiming()
   let requests = 0
-  let baselineObservedMaxMs = 0
+  const injectedDelayMs = { baseline: [], overlap: [] }
   const { baseUrl } = await loopbackServer(t, (request, response) => {
-    const requestStartedAt = performance.now()
     requests += 1
     const baseline = requests <= categories.length
     if (requests === categories.length) moveToOverlap(data)
     const headers = releaseHeaders(requests)
-    // The production contract suite runs beside CPU-heavy build/browser work.
-    // Bind the synthetic overlap penalty to the baseline delay observed in
-    // this same process so host event-loop jitter cannot invert p95/p99 while
-    // the semantic degradation remains explicit and measurable.
-    const delayMs = baseline
-      ? timing.baselineLatencyMs
-      : Math.ceil(baselineObservedMaxMs + timing.overlapLatencyMs)
+    const phase = baseline ? 'baseline' : 'overlap'
+    const delayMs = baseline ? timing.baselineLatencyMs : timing.overlapLatencyMs
+    injectedDelayMs[phase].push(delayMs)
     setTimeout(() => {
-      if (baseline) {
-        baselineObservedMaxMs = Math.max(
-          baselineObservedMaxMs,
-          performance.now() - requestStartedAt
-        )
-      }
       if (request.url === '/write') {
         response.writeHead(500, {
           ...headers,
@@ -255,10 +264,33 @@ test('traffic probe covers all 12 categories, explicitly classifies business 5xx
   assert.ok(report.releaseDistribution.target > 0)
   assert.equal(report.phaseLatencyMs.baseline.samples, 12)
   assert.equal(report.phaseLatencyMs.overlap.samples, 12)
-  assert.ok(report.phaseLatencyMs.overlap.p95 > report.phaseLatencyMs.baseline.p95)
-  assert.ok(report.phaseLatencyMs.overlap.p99 > report.phaseLatencyMs.baseline.p99)
-  assert.ok(report.impactPercent.p95 > 0)
-  assert.ok(report.impactPercent.p99 > 0)
+  assert.equal(injectedDelayMs.baseline.length, 12)
+  assert.equal(injectedDelayMs.overlap.length, 12)
+  assert.ok(Math.min(...injectedDelayMs.overlap) > Math.max(...injectedDelayMs.baseline))
+
+  // Production runs deliberately saturate the host. A baseline request can be
+  // descheduled after the server responds while an overlap request is not, so
+  // real wall-clock percentiles are not guaranteed to preserve the fixture's
+  // delay ordering. Verify the semantic injection separately, then prove that
+  // the report derives both phase summaries and impacts from its observations.
+  const baselineLatencies = report.responseObservations
+    .filter(observation => observation.stage === 'status:planned')
+    .map(observation => observation.lastObservation.latencyMs)
+  const overlapLatencies = report.responseObservations
+    .filter(observation => observation.stage === 'candidate-start')
+    .map(observation => observation.lastObservation.latencyMs)
+  const expectedBaseline = observedLatencySummary(baselineLatencies)
+  const expectedOverlap = observedLatencySummary(overlapLatencies)
+  assert.deepEqual(report.phaseLatencyMs.baseline, expectedBaseline)
+  assert.deepEqual(report.phaseLatencyMs.overlap, expectedOverlap)
+  assert.equal(
+    report.impactPercent.p95,
+    observedLatencyImpactPercent(expectedBaseline.p95, expectedOverlap.p95)
+  )
+  assert.equal(
+    report.impactPercent.p99,
+    observedLatencyImpactPercent(expectedBaseline.p99, expectedOverlap.p99)
+  )
 })
 
 test('traffic probe fail-closes gateway 5xx, unmarked 5xx, connection timeout and aborted in-flight work separately', async (t) => {
