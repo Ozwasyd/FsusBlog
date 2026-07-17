@@ -1,10 +1,13 @@
 export function integrityProofCommand(env = process.env) {
-  const command = [
+  void env
+  return [
     'test',
     'tests/backend/FsusBlog.Server.Tests.csproj',
+    '--configuration',
+    'Debug',
+    '--no-build',
+    '--no-restore',
     '--filter',
     'FullyQualifiedName~IntegrityProofVerification'
   ]
-  if (env.FSUSBLOG_LOCAL_PROFILE) command.push('--configuration', 'Release', '--no-build', '--no-restore')
-  return command
 }

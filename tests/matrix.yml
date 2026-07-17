@@ -43,7 +43,7 @@ localProfiles:
         deadlineWeight: 34
         minimumDeadlineShare: 0.7333333333
         dependsOn: []
-        members: [frontend-unit-shard, frontend-property-model-perf, frontend-fast-summary, coverage-frontend, static-governance, frontend-static-governance]
+        members: [frontend-unit-shard, frontend-property-model-perf, frontend-fast-summary, coverage-frontend, static-governance, frontend-static-governance, frontend-render-structure]
         resourceClass: cpu
         cpuWeight: 3
         memoryWeight: 2
@@ -52,28 +52,28 @@ localProfiles:
         startupMemoryWeight: 2
         startupPriority: 3
         artifactSubstitutions: [frontend-unit-shard::.tmp/frontend/frontend-unit-shard.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-unit-shard/summary.json|.tmp/coverage/frontend/Summary.json, frontend-unit-shard::.tmp/frontend/timings/frontend-unit-shard.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-unit-shard/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/frontend/frontend-property-model-perf.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/frontend/timings/frontend-property-model-perf.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/test-results/vitest/property=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production-rolling, frontend-property-model-perf::.tmp/test-results/vitest/model=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production-rolling, frontend-fast-summary::.tmp/frontend=>.tmp/local-production/frontend-tests/member-summaries/frontend-fast-summary/summary.json|.tmp/coverage/frontend/Summary.json, frontend-fast-summary::src/frontend/dist=>.tmp/local-production/build-static/member-summaries/frontend-build/summary.json|.tmp/frontend/frontend-build.json, frontend-property-model-perf::.tmp/test-results/vitest/perf=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production, frontend-static-governance::.tmp/frontend/frontend-static-governance.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-static-governance/summary.json|.tmp/local-production/frontend-tests/frontend-static-blocking-prebuild.json|.tmp/local-production/frontend-tests/frontend-static-concurrent.json|.tmp/local-production/frontend-tests/frontend-static-postbuild.json|.tmp/local-production/frontend-tests/frontend-static-isolated.json|.tmp/local-production/frontend-tests/frontend-static-final.json, frontend-static-governance::.tmp/frontend/timings/frontend-static-governance.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-static-governance/summary.json|.tmp/local-production/frontend-tests/frontend-static-blocking-prebuild.json|.tmp/local-production/frontend-tests/frontend-static-concurrent.json|.tmp/local-production/frontend-tests/frontend-static-postbuild.json|.tmp/local-production/frontend-tests/frontend-static-isolated.json|.tmp/local-production/frontend-tests/frontend-static-final.json]
-        exclusiveResources: [frontend-test-results, frontend-coverage, frontend-static-output, frontend-render-pressure, frontend-dist, generated-contracts, benchmark-window]
+        exclusiveResources: [frontend-test-results, frontend-coverage, frontend-static-output, frontend-render-structure, frontend-dist, generated-contracts, benchmark-window]
       - id: runtime-browser
         command: tools/test/bundles/runtime-browser.sh
         deadlineWeight: 70
         minimumDeadlineShare: 0.7333333333
         dependsOn: []
-        members: [bootstrap, release, integration, endpoint-depth, security, security-authenticated-dast, acceptance, frontend-render-pressure, resilience, rights-v3-test-matrix, csrf-browser-matrix, cross-stack-contract]
-        resourceClass: browser
+        members: [bootstrap, release, integration, endpoint-depth, security, security-authenticated-dast, resilience, rights-v3-test-matrix, csrf-browser-matrix, cross-stack-contract]
+        resourceClass: database
         cpuWeight: 2
         memoryWeight: 5
         minCpuUnits: 1
         startupMinCpuUnits: 1
         startupMemoryWeight: 5
         startupPriority: 4
-        artifactSubstitutions: [security::.tmp/security=>.tmp/local-production/runtime-browser/member-summaries/security/summary.json, bootstrap::.tmp/acceptance=>.tmp/local-production/runtime-browser/member-summaries/bootstrap/summary.json, bootstrap::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/bootstrap/summary.json, integration::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/integration/summary.json, release::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/release/summary.json|.tmp/release-evidence/public-hydration-detector-summary.json, acceptance::src/frontend/test-results/playwright/acceptance=>.tmp/local-production/runtime-browser/member-summaries/acceptance/summary.json]
+        artifactSubstitutions: [security::.tmp/security=>.tmp/local-production/runtime-browser/member-summaries/security/summary.json, bootstrap::.tmp/acceptance=>.tmp/local-production/runtime-browser/member-summaries/bootstrap/summary.json, bootstrap::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/bootstrap/summary.json, integration::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/integration/summary.json, release::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/release/summary.json|.tmp/release-evidence/public-hydration-detector-summary.json]
         exclusiveResources: [runtime-services, database-writes]
       - id: performance-evidence
         command: tools/test/bundles/performance-evidence.sh
         deadlineWeight: 44
         minimumDeadlineShare: 0.2666666667
         dependsOn: []
-        members: [fast, coverage-merge, coverage-threshold, coverage-gate, load, backend-qps-view-count-flush, backend-qps-visitlog-invalidation, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-cache-invalidation-batch, backend-qps-index-plan, backend-qps, load-baseline, load-peak, backend-benchmark-regression, performance-evidence-summary, backend-perf, privacy-zk-comment-matrix, release-evidence, production, aeds-frame-cost, aeds-compression-profile, data-scale-xs, data-scale-s, data-scale-evidence-summary, fault-injection]
+        members: [fast, coverage-merge, coverage-threshold, coverage-gate, load, backend-qps-view-count-flush, backend-qps-visitlog-invalidation, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-cache-invalidation-batch, backend-qps-index-plan, backend-qps, load-baseline, load-peak, backend-benchmark-regression, performance-evidence-summary, backend-perf, privacy-zk-comment-matrix, release-evidence, production-correctness, production, aeds-frame-cost, aeds-compression-profile, data-scale-xs, data-scale-s, data-scale-evidence-summary, fault-injection]
         resourceClass: benchmark
         cpuWeight: 8
         memoryWeight: 10
@@ -86,7 +86,8 @@ localProfiles:
 tiers:
   - id: validate-matrix
     owner: ServerContractAgent
-    command: node tools/run-test-matrix.mjs preflight
+    command: tools/test/run-matrix-governance-once.sh validate-matrix
+    cacheInputs: [tests/matrix.yml, tests/coverage-registry.json, tests/tools, tools/run-test-matrix.mjs, tools/check-test-matrix.mjs, tools/check-workflow-matrix-sync.mjs, tools/docs/generate-testing-docs.mjs, tools/test-matrix, tools/test/run-matrix-governance-once.sh, tools/test/run-deterministic-command.mjs, tools/test/run-once.mjs, .github/workflows]
     dependsOn: []
     services: []
     parallelizable: true
@@ -109,8 +110,8 @@ tiers:
     cadence: pr
     requiredFor: fast
     coverage: [test-dag]
-    artifacts: [.tmp/release-evidence/test-plan.json]
-    evidence: [.tmp/release-evidence/test-plan.json]
+    artifacts: [.tmp/release-evidence/test-plan.json, .tmp/physical-execution-projections/validate-matrix-matrix-governance.json]
+    evidence: [.tmp/release-evidence/test-plan.json, .tmp/physical-execution-projections/validate-matrix-matrix-governance.json]
     ciJob: validate-matrix
     localOnly: false
     nightlyOnly: false
@@ -183,7 +184,7 @@ tiers:
     nightlyOnly: false
     smartGateMode: conditional
     retentionClass: must-keep
-    triggerPaths: [Directory.Build.props, FsusBlog.slnx, global.json, src/backend/**, src/core/**, src/shared/**, src/frontend/**, tests/backend/**, tests/frontend/**, tests/matrix.yml, tests/coverage-registry.json, tools/ci/**, tools/contracts/**, tools/frontend/**, tools/test/lanes/production-build-artifacts.sh]
+    triggerPaths: [Directory.Build.props, FsusBlog.slnx, global.json, src/backend/**, src/core/**, src/shared/**, src/frontend/**, tests/backend/**, tests/frontend/**, tests/matrix.yml, tests/coverage-registry.json, tools/ci/**, tools/contracts/**, tools/frontend/**, tools/test/run-with-dotnet-release-build-lock.sh, tools/test/lanes/production-build-artifacts.sh]
     triggerReason: selected runtime/browser domains require one immutable production build artifact set
 
   - id: frontend-build
@@ -226,7 +227,7 @@ tiers:
     dependsOn: []
     services: []
     parallelizable: true
-    exclusiveResources: []
+    exclusiveResources: [frontend-vitest-unit]
     phase: 1
     cost: high
     resourceClass: cpu
@@ -382,7 +383,7 @@ tiers:
   - id: frontend-static-governance
     owner: InteropGlueAgent
     command: tools/test/lanes/frontend-static-governance.sh
-    dependsOn: []
+    dependsOn: [frontend-build]
     services: []
     parallelizable: true
     exclusiveResources: []
@@ -484,7 +485,7 @@ tiers:
     dependsOn: [backend-build-governance]
     services: []
     parallelizable: true
-    exclusiveResources: []
+    exclusiveResources: [backend-coverlet-instrumentation]
     phase: 1
     cost: high
     resourceClass: cpu
@@ -700,7 +701,7 @@ tiers:
     dependsOn: [validate-matrix, backend-build-governance]
     services: []
     parallelizable: true
-    exclusiveResources: []
+    exclusiveResources: [backend-coverlet-instrumentation]
     phase: 1
     cost: medium
     resourceClass: cpu
@@ -1070,7 +1071,7 @@ tiers:
     dependsOn: []
     services: []
     parallelizable: true
-    exclusiveResources: []
+    exclusiveResources: [frontend-vitest-unit]
     phase: 1
     cost: high
     resourceClass: io
@@ -1228,7 +1229,7 @@ tiers:
     exclusiveResources: [docker-compose, local-ports, redis-test-state]
     phase: 2
     cost: high
-    resourceClass: browser
+    resourceClass: database
     cpuWeight: 2
     memoryWeight: 4
     minCpuUnits: 1
@@ -1366,7 +1367,7 @@ tiers:
     exclusiveResources: [release-preview]
     phase: 2
     cost: medium
-    resourceClass: browser
+    resourceClass: network
     cpuWeight: 2
     memoryWeight: 4
     minCpuUnits: 1
@@ -1522,8 +1523,8 @@ tiers:
     timeoutMinutes: 45
     shardable: true
     risk: high
-    cadence: pr
-    requiredFor: production
+    cadence: nightly
+    requiredFor: none
     coverage:
       - playwright-acceptance
       - zero-downtime-release-rehearsal
@@ -1539,10 +1540,10 @@ tiers:
       - src/frontend/src/components/account/AccountNavigationPanel.vue
       - src/frontend/src/components/account/AccountHeaderMenu.vue
       - docs/issue-1023-admin-ia-handoff.md
-    ciJob: acceptance-playwright
+    ciJob: browser-diagnostics
     localOnly: false
-    nightlyOnly: false
-    smartGateMode: conditional
+    nightlyOnly: true
+    smartGateMode: full-only
     retentionClass: conditional
     triggerPaths: [src/frontend/src/views, src/frontend/src/router, src/frontend/src/layouts, src/frontend/src/components, tests/frontend/e2e/acceptance, tests/frontend/support/playwright]
     triggerFiles: [tests/matrix.yml]
@@ -1552,8 +1553,8 @@ tiers:
   - id: browser-contract
     owner: InteropGlueAgent
     command: bash tools/test/lanes/browser-contract.sh
-    dependsOn: [production-build-artifacts, bootstrap, release, integration]
-    services: [postgres, redis, backend, frontend, preview]
+    dependsOn: [production-build-artifacts]
+    services: []
     parallelizable: false
     serialReason: one Playwright Library controller consumes one sealed run namespace with one session/concurrency, reuses one managed Chromium, and creates one context for each fixed scenario
     exclusiveResources: [browser-contract, database-writes]
@@ -1565,7 +1566,7 @@ tiers:
     minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
-    workflowBootstraps: true
+    selfBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
@@ -1574,18 +1575,18 @@ tiers:
     shardable: false
     defaultShards: 1
     risk: critical
-    cadence: release-manual
+    cadence: push
     requiredFor: release-final
     coverage: [release-browser-contract]
-    artifacts: [.tmp/browser-contract]
-    evidence: [.tmp/browser-contract/receipt.json, tests/browser-contract/run.mjs, tests/browser-contract/scenarios.mjs, tests/browser-contract/fixture.mjs, tests/browser-contract/default-fixture-provider.mjs, tests/browser-contract/fixture-lifecycle.mjs, tests/browser-contract/fixture-lifecycle.test.mjs, tests/browser-contract/prepare-fixture.mjs, tools/bootstrap-acceptance-env.sh, tools/test-matrix/local-runtime-cleanup.mjs, tests/tools/browser-contract.test.mjs, tests/tools/local-runtime-cleanup.test.mjs, tests/tools/issue-1149-browser-contract-fixture.test.mjs, tests/tools/issue-1149-session-isolation.test.mjs, docs/testing/browser-contract.md, docs/testing/issue-1149-browser-contract-fixture.md]
-    ciJob: release-final
+    artifacts: [.tmp/browser-contract/receipt.json]
+    evidence: [.tmp/browser-contract/receipt.json, tests/browser-contract/run.mjs, tests/browser-contract/scenarios.mjs, tests/browser-contract/fixture.mjs, tests/browser-contract/default-fixture-provider.mjs, tests/browser-contract/fixture-lifecycle.mjs, tests/browser-contract/fixture-lifecycle.test.mjs, tests/browser-contract/prepare-fixture.mjs, tools/bootstrap-acceptance-env.sh, tools/test-matrix/local-runtime-cleanup.mjs, tests/tools/browser-contract.test.mjs, tests/tools/local-runtime-cleanup.test.mjs, tests/tools/issue-1149-browser-contract-fixture.test.mjs, tests/tools/issue-1149-session-isolation.test.mjs, tests/tools/issue-1150-browserless-ci-topology.test.mjs, .github/workflows/quality-gate.yml, docs/testing/browser-contract.md, docs/testing/issue-1149-browser-contract-fixture.md, docs/testing/issue-1150-browserless-ci-topology.md]
+    ciJob: browser-contract
     localOnly: false
     nightlyOnly: false
-    manualOnly: true
+    smartGateMode: conditional
     retentionClass: must-keep
     triggerPaths: [src/frontend/src/bootstrap, src/frontend/src/public-renderers, src/frontend/src/router, src/frontend/src/views/auth, src/frontend/src/views/user, src/frontend/src/views/admin/article, src/frontend/src/services, src/frontend/src/workers, tests/browser-contract, tools/test/lanes/browser-contract.sh]
-    triggerFiles: [src/frontend/package.json, tools/bootstrap-acceptance-env.sh, tools/test-matrix/local-runtime-cleanup.mjs, tests/matrix.yml, tests/coverage-registry.json, tests/tools/browser-contract.test.mjs, tests/tools/local-runtime-cleanup.test.mjs, tests/tools/issue-1149-browser-contract-fixture.test.mjs, tests/tools/issue-1149-session-isolation.test.mjs, docs/testing/browser-contract.md, docs/testing/issue-1149-browser-contract-fixture.md]
+    triggerFiles: [src/frontend/package.json, src/frontend/public/sw.js, src/frontend/public/manifest.webmanifest, src/frontend/src/api/auth.ts, src/frontend/src/adapters/binary/authAdapter.ts, src/frontend/src/adapters/binary/passkeyAdapter.ts, src/frontend/src/composables/useAuthLogin.ts, src/frontend/src/composables/usePasskeyLogin.ts, src/frontend/src/composables/usePasskeyManagement.ts, src/frontend/src/components/ui/PasskeyRegisterModal.vue, src/frontend/src/store/user.ts, src/frontend/src/store/admin.ts, src/frontend/src/copy/auth.ts, tools/bootstrap-acceptance-env.sh, tools/test-matrix/local-runtime-cleanup.mjs, tests/matrix.yml, tests/coverage-registry.json, tests/tools/browser-contract.test.mjs, tests/tools/local-runtime-cleanup.test.mjs, tests/tools/issue-1149-browser-contract-fixture.test.mjs, tests/tools/issue-1149-session-isolation.test.mjs, .github/workflows/quality-gate.yml, .github/actions/consume-production-build/action.yml, docs/testing/browser-contract.md, docs/testing/issue-1149-browser-contract-fixture.md]
     triggerCoverage: [release-browser-contract]
     triggerReason: release browser boundary, sealed single-namespace fixture lifecycle, or immutable build input changed
 
@@ -1654,6 +1655,77 @@ tiers:
     coverage: [browser-diagnostics-orchestration]
     artifacts: [.tmp/browser-diagnostics]
     evidence: [tests/browser-diagnostics/catalog.mjs, tests/browser-diagnostics/run.mjs, tests/issue-1148-browser-diagnostics-migration.json, tests/tools/browser-diagnostics.test.mjs, docs/testing/issue-1148-browser-diagnostics.md, .github/workflows/browser-diagnostics.yml]
+    ciJob: browser-diagnostics
+    localOnly: false
+    nightlyOnly: false
+    manualOnly: true
+    retentionClass: conditional
+
+  - id: browser-runtime-risk-diagnostics
+    owner: InteropGlueAgent
+    command: tools/test/lanes/browser-runtime-risk-diagnostics.sh
+    dependsOn: [bootstrap, release]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    serialReason: migrated runtime browser probes share one managed Chromium and reset mutable security state between probe groups
+    exclusiveResources: [browser-diagnostics, database-writes]
+    phase: 4
+    cost: high
+    resourceClass: browser
+    cpuWeight: 1
+    memoryWeight: 3
+    minCpuUnits: 1
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: chromium
+    cacheProfile: full
+    timeoutMinutes: 45
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: nightly
+    requiredFor: none
+    coverage: [browser-diagnostics-orchestration]
+    artifacts: [.tmp/browser-diagnostics-runtime]
+    evidence: [tools/test/lanes/browser-runtime-risk-diagnostics.sh, tests/frontend/checks/runtime/pow-runtime-regression.mjs, tests/frontend/checks/public/check-search-runtime.mjs, tests/frontend/checks/security/check-permission-matrix.mjs, tests/frontend/checks/runtime/zero-auth-probe-matrix.mjs]
+    ciJob: browser-diagnostics
+    localOnly: false
+    nightlyOnly: true
+    smartGateMode: full-only
+    retentionClass: conditional
+
+  - id: browser-diagnostics
+    owner: InteropGlueAgent
+    command: tools/test/lanes/noop.sh browser-diagnostics
+    dependsOn: [browser-diagnostics-manual]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    serialReason: the explicit manual diagnostics entry delegates to the single managed diagnostics orchestrator
+    exclusiveResources: [browser-diagnostics]
+    phase: 6
+    cost: very-high
+    resourceClass: browser
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
+    maxParallel: 1
+    requiresBootstrap: full
+    workflowBootstraps: true
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: all
+    cacheProfile: full
+    timeoutMinutes: 240
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: release-manual
+    requiredFor: none
+    coverage: [browser-diagnostics-orchestration]
+    artifacts: [.tmp/browser-diagnostics]
+    evidence: [.tmp/browser-diagnostics, tests/tools/issue-1150-matrix-commands.test.mjs, tests/tools/issue-1150-browserless-ci-topology.test.mjs, docs/testing/issue-1150-browserless-ci-topology.md]
     ciJob: browser-diagnostics
     localOnly: false
     nightlyOnly: false
@@ -1866,6 +1938,7 @@ tiers:
     dependsOn: [bootstrap]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
+    serialReason: writes the shared viewport screenshot evidence with one managed Chromium
     exclusiveResources: [playwright-ux-viewport, visual-baselines]
     phase: 3
     cost: high
@@ -1878,7 +1951,7 @@ tiers:
     workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
-    requiresPlaywright: none
+    requiresPlaywright: chromium
     cacheProfile: full
     timeoutMinutes: 45
     shardable: false
@@ -1928,9 +2001,9 @@ tiers:
     nightlyOnly: true
     smartGateMode: full-only
 
-  - id: frontend-render-pressure
+  - id: frontend-render-structure
     owner: InteropGlueAgent
-    command: tools/test/lanes/frontend-render-pressure.sh
+    command: tools/test/lanes/frontend-render-structure.sh
     dependsOn: []
     services: []
     parallelizable: true
@@ -1956,7 +2029,7 @@ tiers:
     coverage: [dom-depth-static, markdown-render-budget]
     artifacts: [.tmp/frontend/markdown-render-budget.json, .tmp/frontend/dom-depth-static.json, .tmp/release-evidence/frontend-render-structure-summary.json]
     evidence: [.tmp/frontend/markdown-render-budget.json, .tmp/frontend/dom-depth-static.json, .tmp/release-evidence/frontend-render-structure-summary.json, tools/test/lanes/frontend-render-structure.sh]
-    ciJob: frontend-render-pressure
+    ciJob: frontend-static-governance
     localOnly: false
     nightlyOnly: false
     smartGateMode: conditional
@@ -2656,9 +2729,10 @@ tiers:
     cpuWeight: 4
     memoryWeight: 2
     minCpuUnits: 1
+    cacheInputs: [Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tests/frontend/checks/perf/check-aeds-decode-budget.mjs, tools/build-with-data-env.sh, tools/test/run-once.mjs, tools/test/ensure-benchmark-release-build.sh, tools/test/run-with-dotnet-release-build-lock.sh, tools/test/lanes/aeds-frame-cost.sh]
     requiresBootstrap: none
     requiresNode: true
-    requiresDotnet: false
+    requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: none
     timeoutMinutes: 10
@@ -2687,9 +2761,10 @@ tiers:
     cpuWeight: 4
     memoryWeight: 2
     minCpuUnits: 1
+    cacheInputs: [Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tools/build-with-data-env.sh, tools/test/run-once.mjs, tools/test/ensure-benchmark-release-build.sh, tools/test/run-with-dotnet-release-build-lock.sh, tools/test/lanes/aeds-compression-profile.sh, tools/test/lanes/public-hot-read-residency-profile.sh]
     requiresBootstrap: none
-    requiresNode: false
-    requiresDotnet: false
+    requiresNode: true
+    requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: none
     timeoutMinutes: 10
@@ -3032,19 +3107,20 @@ tiers:
     command: tools/test/lanes/perf-regression.sh
     dependsOn: []
     services: []
-    parallelizable: true
-    exclusiveResources: []
+    parallelizable: false
+    exclusiveResources: [benchmark-window]
     phase: 3
     cost: medium
     resourceClass: benchmark
     cpuWeight: 4
     memoryWeight: 2
     minCpuUnits: 1
+    maxParallel: 1
     executionKey: backend-performance-tests
     executionVariant: performance
-    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tests/backend, tools/test/lanes/perf-regression.sh, tools/test/legacy-test.sh]
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tests/backend, tools/architecture/FsusBlog.DiLifetimeAnalyzer, tools/security/ZkCommentV2MclFixture, tools/build-with-data-env.sh, tools/test/run-once.mjs, tools/test/ensure-benchmark-release-build.sh, tools/test/run-with-dotnet-release-build-lock.sh, tools/test/lanes/perf-regression.sh, tools/test/legacy-test.sh]
     requiresBootstrap: none
-    requiresNode: false
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
@@ -3066,16 +3142,18 @@ tiers:
     command: tools/test/lanes/backend-benchmark-regression.sh
     dependsOn: []
     services: []
-    parallelizable: true
-    exclusiveResources: []
+    parallelizable: false
+    exclusiveResources: [benchmark-window]
     phase: 3
     cost: high
     resourceClass: benchmark
     cpuWeight: 4
     memoryWeight: 2
     minCpuUnits: 1
+    maxParallel: 1
+    cacheInputs: [Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tools/architecture/FsusBlog.DiLifetimeAnalyzer, tests/performance/backend-hotpath-budgets.json, tools/build-with-data-env.sh, tools/perf/run-backend-benchmark-regression.mjs, tools/perf/check-backend-benchmark-regression.mjs, tools/test/run-once.mjs, tools/test/ensure-benchmark-release-build.sh, tools/test/run-with-dotnet-release-build-lock.sh, tools/test/lanes/backend-benchmark-regression.sh]
     requiresBootstrap: none
-    requiresNode: false
+    requiresNode: true
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
@@ -3295,7 +3373,7 @@ tiers:
     exclusiveResources: [dast-target, database-writes]
     phase: 3
     cost: medium
-    resourceClass: browser
+    resourceClass: network
     cpuWeight: 2
     memoryWeight: 4
     minCpuUnits: 1
@@ -3328,7 +3406,7 @@ tiers:
     exclusiveResources: []
     phase: 3
     cost: medium
-    resourceClass: browser
+    resourceClass: cpu
     cpuWeight: 2
     memoryWeight: 4
     minCpuUnits: 1
@@ -3418,14 +3496,15 @@ tiers:
     command: tools/test/lanes/privacy-zk-comment-matrix.sh
     dependsOn: []
     services: []
-    parallelizable: true
-    exclusiveResources: []
+    parallelizable: false
+    exclusiveResources: [benchmark-window]
     phase: 3
     cost: medium
     resourceClass: cpu
     cpuWeight: 1
     memoryWeight: 1
     minCpuUnits: 1
+    maxParallel: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: true
@@ -3447,7 +3526,7 @@ tiers:
   - id: wasm-fuzz-regression
     owner: WasmEngineAgent
     command: tools/test/lanes/wasm-fuzz-regression.sh
-    dependsOn: []
+    dependsOn: [frontend-build]
     services: []
     parallelizable: true
     exclusiveResources: []
@@ -3540,7 +3619,7 @@ tiers:
   - id: release-evidence
     owner: ServerContractAgent
     command: tools/test/lanes/release-evidence.sh
-    dependsOn: [fast, coverage-gate, bootstrap, release, integration, rights-v3-test-matrix, data-scale-evidence-summary, cross-stack-contract, endpoint-depth, security, security-authenticated-dast, csrf-browser-matrix, risk-control-test-matrix, perception-v2-test-matrix, privacy-zk-comment-matrix, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, ux-viewport-plan-progress, frontend-render-pressure, resilience, fault-injection, load, performance-evidence-summary, backend-qps, aeds-frame-cost, aeds-compression-profile, backend-perf]
+    dependsOn: [fast, coverage-gate, bootstrap, release, integration, rights-v3-test-matrix, data-scale-evidence-summary, cross-stack-contract, endpoint-depth, security, security-authenticated-dast, csrf-browser-matrix, risk-control-test-matrix, perception-v2-test-matrix, privacy-zk-comment-matrix, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, ux-viewport-plan-progress, frontend-render-structure, resilience, fault-injection, load, performance-evidence-summary, backend-qps, aeds-frame-cost, aeds-compression-profile, backend-perf]
     services: []
     parallelizable: false
     exclusiveResources: [release-evidence]
@@ -3563,8 +3642,8 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [release-evidence-manifest, test-tool-artifact-behavior]
-    artifacts: [.tmp/release-evidence/*/manifest.json, .tmp/release-evidence/test-plan.json]
-    evidence: [.tmp/release-evidence/*/manifest.json, .tmp/release-evidence/test-plan.json, tests/tools/release-evidence-artifact-restore.test.mjs]
+    artifacts: [.tmp/release-evidence/*/manifest.json, .tmp/release-evidence/test-plan.json, .tmp/physical-execution-projections/release-evidence-plan-matrix-governance.json]
+    evidence: [.tmp/release-evidence/*/manifest.json, .tmp/release-evidence/test-plan.json, .tmp/physical-execution-projections/release-evidence-plan-matrix-governance.json, tests/tools/release-evidence-artifact-restore.test.mjs]
     ciJob: release-evidence
     localOnly: false
     nightlyOnly: false
@@ -3678,7 +3757,7 @@ tiers:
     exclusiveResources: [release-runtime]
     phase: 5
     cost: high
-    resourceClass: browser
+    resourceClass: cpu
     cpuWeight: 2
     memoryWeight: 4
     minCpuUnits: 1
@@ -3686,7 +3765,7 @@ tiers:
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
-    requiresPlaywright: chromium
+    requiresPlaywright: none
     cacheProfile: full
     timeoutMinutes: 45
     shardable: false
@@ -3695,8 +3774,8 @@ tiers:
     cadence: release-manual
     requiredFor: release-final
     coverage: [release-admin-console]
-    artifacts: [src/frontend/test-results/playwright/acceptance]
-    evidence: [src/frontend/test-results/playwright/acceptance]
+    artifacts: []
+    evidence: [tests/frontend/unit/router/index.test.ts, tests/frontend/unit/components/user/MessagesStateMachine.test.ts, tests/frontend/unit/components/account/AccountNavigationPanel.test.ts, tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts]
     ciJob: release-final
     localOnly: false
     nightlyOnly: false
@@ -3712,7 +3791,7 @@ tiers:
     exclusiveResources: [release-runtime]
     phase: 5
     cost: high
-    resourceClass: browser
+    resourceClass: cpu
     cpuWeight: 2
     memoryWeight: 4
     minCpuUnits: 1
@@ -3720,7 +3799,7 @@ tiers:
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
-    requiresPlaywright: chromium
+    requiresPlaywright: none
     cacheProfile: full
     timeoutMinutes: 45
     shardable: false
@@ -3729,8 +3808,8 @@ tiers:
     cadence: release-manual
     requiredFor: release-final
     coverage: [release-auth-flow]
-    artifacts: [src/frontend/test-results/playwright/acceptance]
-    evidence: [src/frontend/test-results/playwright/acceptance]
+    artifacts: []
+    evidence: [tests/frontend/unit/components/AuthFlowStates.test.ts]
     ciJob: release-final
     localOnly: false
     nightlyOnly: false
@@ -3746,7 +3825,7 @@ tiers:
     exclusiveResources: [release-runtime]
     phase: 5
     cost: high
-    resourceClass: browser
+    resourceClass: cpu
     cpuWeight: 2
     memoryWeight: 4
     minCpuUnits: 1
@@ -3754,7 +3833,7 @@ tiers:
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
-    requiresPlaywright: chromium
+    requiresPlaywright: none
     cacheProfile: full
     timeoutMinutes: 35
     shardable: false
@@ -3780,7 +3859,7 @@ tiers:
     exclusiveResources: [release-runtime]
     phase: 5
     cost: medium
-    resourceClass: browser
+    resourceClass: cpu
     cpuWeight: 2
     memoryWeight: 4
     minCpuUnits: 1
@@ -3788,7 +3867,7 @@ tiers:
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
-    requiresPlaywright: chromium
+    requiresPlaywright: none
     cacheProfile: full
     timeoutMinutes: 25
     shardable: false
@@ -3814,7 +3893,7 @@ tiers:
     exclusiveResources: [release-runtime]
     phase: 5
     cost: medium
-    resourceClass: browser
+    resourceClass: cpu
     cpuWeight: 2
     memoryWeight: 4
     minCpuUnits: 1
@@ -3822,7 +3901,7 @@ tiers:
     requiresBootstrap: frontend
     requiresNode: true
     requiresDotnet: false
-    requiresPlaywright: chromium
+    requiresPlaywright: none
     cacheProfile: frontend
     timeoutMinutes: 20
     shardable: false
@@ -3863,14 +3942,16 @@ tiers:
     defaultShards: 1
     risk: critical
     cadence: release-manual
-    requiredFor: release-final
+    requiredFor: none
     coverage: [release-rbac-negative]
     artifacts: [.tmp/security]
     evidence: [.tmp/security]
-    ciJob: release-final
+    ciJob: browser-diagnostics
     localOnly: false
     nightlyOnly: false
     manualOnly: true
+    smartGateMode: full-only
+    retentionClass: conditional
 
   - id: release-aot-generation
     owner: InteropGlueAgent
@@ -3881,7 +3962,7 @@ tiers:
     exclusiveResources: [release-aot]
     phase: 5
     cost: medium
-    resourceClass: browser
+    resourceClass: cpu
     cpuWeight: 2
     memoryWeight: 4
     minCpuUnits: 1
@@ -3930,14 +4011,16 @@ tiers:
     defaultShards: 1
     risk: critical
     cadence: release-manual
-    requiredFor: release-final
+    requiredFor: none
     coverage: [release-aot-consumption]
     artifacts: [src/frontend/test-results/playwright, .tmp/release-evidence]
     evidence: [src/frontend/test-results/playwright, .tmp/release-evidence]
-    ciJob: release-final
+    ciJob: browser-diagnostics
     localOnly: false
     nightlyOnly: false
     manualOnly: true
+    smartGateMode: full-only
+    retentionClass: conditional
 
   - id: release-static-asset-digest-coherence
     owner: InteropGlueAgent
@@ -4303,7 +4386,7 @@ tiers:
   - id: release-final
     owner: ServerContractAgent
     command: tools/test/lanes/release-final.sh
-    dependsOn: [coverage-gate-strict, production, browser-contract, release-closeout, release-admin-console, release-auth-flow, release-authoring-flow, release-private-preview, release-error-boundary, release-rbac-negative, release-aot-generation, release-aot-consumption, release-static-asset-digest-coherence, release-soak-min, release-load-peak, release-load-burst, release-data-scale-m, release-mutation-critical-slice, release-memory-leak-budget, release-open-handle-budget, release-final-flaky-governance, release-final-shard-completeness, test-quality-lint]
+    dependsOn: [coverage-gate-strict, production-correctness, browser-contract, release-closeout, release-admin-console, release-auth-flow, release-authoring-flow, release-private-preview, release-error-boundary, release-aot-generation, release-static-asset-digest-coherence, release-soak-min, release-load-peak, release-load-burst, release-data-scale-m, release-mutation-critical-slice, release-memory-leak-budget, release-open-handle-budget, release-final-flaky-governance, release-final-shard-completeness, test-quality-lint]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     serialReason: aggregates and signs the final shared release evidence
@@ -4318,7 +4401,7 @@ tiers:
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
-    requiresPlaywright: all
+    requiresPlaywright: none
     cacheProfile: full
     timeoutMinutes: 240
     shardable: false
@@ -4334,18 +4417,54 @@ tiers:
     nightlyOnly: false
     manualOnly: true
 
+  - id: production-correctness
+    owner: ServerContractAgent
+    command: tools/test/lanes/noop.sh production-correctness
+    dependsOn: [fast, coverage-gate, production-build-artifacts, bootstrap, release, integration, endpoint-depth, security, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, ux-viewport-plan-progress, frontend-render-structure, resilience, load, backend-qps, release-evidence]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [production-correctness]
+    phase: 4
+    cost: very-high
+    resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
+    maxParallel: 1
+    requiresBootstrap: full
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 10
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    cadence: pr
+    requiredFor: production
+    coverage: [browserless-production-correctness]
+    artifacts: [.tmp/release-evidence/*/manifest.json]
+    evidence: [.tmp/release-evidence/*/manifest.json, tests/matrix.yml, tools/test.sh, tools/test/legacy-test.sh, tools/run-test-matrix.mjs, tools/check-workflow-matrix-sync.mjs, tools/test/lanes/browser-runtime-risk-diagnostics.sh, .github/workflows/quality-gate.yml, .github/workflows/browser-diagnostics.yml, tests/tools/issue-1150-matrix-commands.test.mjs, tests/tools/issue-1150-browserless-ci-topology.test.mjs, docs/testing/issue-1150-browserless-ci-topology.md]
+    ciJob: production-summary
+    localOnly: false
+    nightlyOnly: false
+    prDefault: true
+    smartGateMode: always
+    retentionClass: must-keep
+    triggerReason: ordinary PR and local correctness always require the browserless production summary
+
   - id: production
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh production
-    dependsOn: [fast, coverage-gate, production-build-artifacts, bootstrap, release, integration, endpoint-depth, security, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, ux-viewport-plan-progress, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
+    dependsOn: [production-correctness]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [production-runtime]
     phase: 4
     cost: very-high
-    resourceClass: browser
-    cpuWeight: 2
-    memoryWeight: 4
+    resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
     minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
@@ -4812,7 +4931,7 @@ tiers:
 
   - id: cross-stack-contract
     owner: ServerContractAgent
-    command: tools/test/legacy-test.sh cross-stack-contract
+    command: tools/test/legacy-test.sh cross-stack-contract static
     dependsOn: []
     services: []
     parallelizable: true

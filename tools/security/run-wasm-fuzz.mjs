@@ -26,7 +26,9 @@ function positiveInteger(value, fallback) {
 }
 
 const grantedCpu = positiveInteger(
-  process.env.FSUSBLOG_STEP_CPU_UNITS,
+  process.env.FSUSBLOG_STEP_CPU_BUDGET
+    ?? process.env.FSUSBLOG_TIER_CPU_UNITS
+    ?? process.env.FSUSBLOG_BUNDLE_CPU_UNITS,
   Math.max(1, availableParallelism())
 )
 const seedsPerCorpus = positiveInteger(

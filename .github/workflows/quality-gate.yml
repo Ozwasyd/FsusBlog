@@ -27,9 +27,9 @@ jobs:
     name: Validate Test Matrix
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      FSUSBLOG_TEST_RUN_ID: quality-gate-validate-${{ github.run_id }}-${{ github.run_attempt }}
     outputs:
-      acceptance_playwright_matrix: ${{ steps.acceptance_playwright_matrix.outputs.matrix }}
-      acceptance_playwright_max_parallel: ${{ steps.acceptance_playwright_matrix.outputs.max_parallel }}
       backend_qps_collectors_matrix: ${{ steps.backend_qps_collectors_matrix.outputs.matrix }}
       backend_qps_collectors_max_parallel: ${{ steps.backend_qps_collectors_matrix.outputs.max_parallel }}
     steps:
@@ -39,15 +39,11 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
-      - run: node tools/run-test-matrix.mjs preflight
-      - run: node tools/run-test-matrix.mjs validate
+      - run: tools/test/run-matrix-governance-once.sh validate-matrix
+      - run: node tools/test/check-physical-execution-consumer-evidence.mjs .tmp/physical-execution-projections/validate-matrix-matrix-governance.json
       - run: node tools/moderation/provider-conformance.mjs --provider schema-only
       - run: node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json
       - run: node tools/check-workflow-matrix-sync.mjs .tmp/ci-plan.json .github/workflows/quality-gate.yml
-      - run: node tools/docs/generate-testing-docs.mjs --check
-      - run: node tools/run-test-matrix.mjs evidence-plan --out .tmp/release-evidence/test-plan.json
-      - id: acceptance_playwright_matrix
-        run: node tools/run-test-matrix.mjs ci-job-matrix acceptance-playwright --github-output "$GITHUB_OUTPUT"
       - id: backend_qps_collectors_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix backend-qps-collectors --github-output "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -60,8 +56,13 @@ jobs:
           path: |
             .tmp/ci-plan.json
             .tmp/gate-logs/preflight.json
+            .tmp/physical-execution-projections/validate-matrix-matrix-governance.json
+            .tmp/physical-executions/**
             .tmp/release-evidence/jobs/**
             .tmp/release-evidence/test-plan.json
+            .tmp/docs/browser-contract-matrix.json
+            .tmp/docs/fast-backend-matrix.json
+            .tmp/docs/fast-frontend-unit-matrix.json
             .tmp/docs/generated-testing-docs.json
             docs/testing.generated.md
 
@@ -78,8 +79,7 @@ jobs:
       integration_runtime: ${{ steps.smart.outputs.integration_runtime }}
       release_public: ${{ steps.smart.outputs.release_public }}
       security_runtime: ${{ steps.smart.outputs.security_runtime }}
-      acceptance_playwright: ${{ steps.smart.outputs.acceptance_playwright }}
-      frontend_render_pressure: ${{ steps.smart.outputs.frontend_render_pressure }}
+      browser_contract: ${{ steps.smart.outputs.browser_contract }}
       resilience_runtime: ${{ steps.smart.outputs.resilience_runtime }}
       load_smoke: ${{ steps.smart.outputs.load_smoke }}
       backend_qps_collectors: ${{ steps.smart.outputs.backend_qps_collectors }}
@@ -341,7 +341,7 @@ jobs:
   frontend-static-governance:
     name: Frontend Static Governance
     runs-on: ubuntu-latest
-    needs: validate-matrix
+    needs: [validate-matrix, frontend-build]
     timeout-minutes: 20
     env:
       FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
@@ -359,8 +359,14 @@ jobs:
           node-version: 24.x
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: frontend-build
+          path: .
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh ci-tier frontend-static-governance --no-deps
+      - name: Run browserless frontend structure budgets
+        run: ./tools/test.sh ci-tier frontend-render-structure --no-deps
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
@@ -370,6 +376,7 @@ jobs:
           include-hidden-files: true
           path: |
             .tmp/frontend/**
+            .tmp/release-evidence/frontend-render-structure-summary.json
             .tmp/release-evidence/jobs/**
 
   fast-static-governance:
@@ -665,12 +672,17 @@ jobs:
   security-static-fuzz:
     name: Security Static Fuzz
     runs-on: ubuntu-latest
+    needs: frontend-build
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: frontend-build
+          path: .
       - run: ./tools/test.sh wasm-fuzz-regression --no-deps
       - run: ./tools/test.sh contract-fuzz --no-deps
       - run: ./tools/test.sh perception-v2-redteam-pr --no-deps
@@ -687,19 +699,32 @@ jobs:
             .tmp/release-evidence/fuzz-seeds.json
             .tmp/release-evidence/jobs/**
 
-  acceptance-playwright:
-    name: Acceptance Playwright ${{ matrix.shard }}
+  # This is the only correctness/release browser job. workflow_dispatch is the
+  # explicit release-final entry; ordinary PRs select it only for browser-boundary changes.
+  # The matrix smart gate owns the bootstrap/public-renderer/router/auth/worker/PWA path list.
+  browser-contract:
+    name: Browser Contract
     runs-on: ubuntu-latest
-    needs: [validate-matrix, plan-pr-risk, production-build-artifacts, fast-summary, integration-runtime, release-public]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.acceptance_playwright == 'true'
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.acceptance_playwright_max_parallel) }}
-      matrix: ${{ fromJson(needs.validate-matrix.outputs.acceptance_playwright_matrix) }}
+    needs: [validate-matrix, plan-pr-risk, production-build-artifacts]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+      (github.event_name == 'pull_request' && needs.plan-pr-risk.outputs.browser_contract == 'true')
+    timeout-minutes: 10
+    outputs:
+      source_fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+      production_receipt_digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+      browser_contract_receipt_digest: ${{ steps.contract_receipt.outputs.receipt_digest }}
     env:
-      FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
-      FSUSBLOG_TEST_NAMESPACE: ci-acceptance-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
+      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
+      FSUSBLOG_BROWSER_CONTRACT_SESSIONS: '1'
+      FSUSBLOG_BROWSER_CONTRACT_CONCURRENCY: '1'
+      FSUSBLOG_BROWSER_CONTRACT_TIMEOUT: 7m
+      FSUSBLOG_BROWSER_CONTRACT_RUN_ID: browser-contract-${{ github.run_id }}-${{ github.run_attempt }}
+      FSUSBLOG_BROWSER_CONTRACT_OUTPUT: ${{ github.workspace }}/.tmp/browser-contract
+      FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT: ${{ github.workspace }}/.tmp/downloaded-production-build/receipt.json
+      FSUSBLOG_TEST_SOURCE_COMMIT: ${{ github.sha }}
+      FSUSBLOG_TEST_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -718,55 +743,48 @@ jobs:
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+          key: playwright-browser-contract-chromium-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - uses: ./.github/actions/consume-production-build
         with:
           source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
           receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: acceptance-${{ matrix.shard_id }}
-      - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite acceptance-playwright --test acceptance-shard-${{ matrix.shard_id }} -- ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}
+          consumer-job: browser-contract
+      # The fixture provider owns its dedicated runtime lifecycle. Do not add
+      # the shared acceptance bootstrap, another Playwright shard, or retries.
+      - name: Run the single release Browser Contract
+        run: ./tools/test.sh ci-tier browser-contract --no-deps
+      - id: contract_receipt
+        name: Export Browser Contract receipt identity
+        run: |
+          node --input-type=module -e '
+            import crypto from "node:crypto";
+            import fs from "node:fs";
+            const file = ".tmp/browser-contract/receipt.json";
+            const bytes = fs.readFileSync(file);
+            const receipt = JSON.parse(bytes);
+            if (receipt.schema !== "fsusblog.browser-contract-receipt.v2") throw new Error(`unexpected Browser Contract receipt schema: ${receipt.schema}`);
+            if (receipt.status !== "success") throw new Error(`Browser Contract receipt is not successful: ${receipt.status}`);
+            if (receipt.sourceState?.commit !== process.env.GITHUB_SHA) throw new Error("Browser Contract receipt commit mismatch");
+            if (receipt.sourceState?.worktreeFingerprint !== process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT) throw new Error("Browser Contract receipt fingerprint mismatch");
+            if (receipt.build?.receiptContentDigest !== process.env.PRODUCTION_RECEIPT_DIGEST) throw new Error("Browser Contract build receipt digest mismatch");
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `receipt_digest=sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}\n`);
+          '
+        env:
+          PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: ${{ matrix.artifact_name }}
+          name: browser-contract-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: ignore
           retention-days: 14
           include-hidden-files: true
+          # fixtures/** and runs/** may retain authentication material for
+          # local cleanup/debug recovery and must never cross the runner
+          # artifact boundary. The receipt contains only sealed identities,
+          # classifications and relative evidence paths.
           path: |
-            src/frontend/test-results/playwright/acceptance/**
-            .tmp/release-evidence/jobs/**
-            .tmp/release-evidence/flaky/**
-
-  frontend-render-pressure:
-    name: Frontend Structure Budgets
-    runs-on: ubuntu-latest
-    needs: plan-pr-risk
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.frontend_render_pressure == 'true'
-    timeout-minutes: 10
-    env:
-      FSUSBLOG_TEST_NAMESPACE: ci-render-structure-${{ github.run_id }}-${{ github.run_attempt }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh frontend-render-pressure --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: frontend-render-pressure
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/frontend/markdown-render-budget.json
-            .tmp/frontend/dom-depth-static.json
-            .tmp/release-evidence/frontend-render-structure-summary.json
+            .tmp/browser-contract/receipt.json
             .tmp/release-evidence/jobs/**
 
   resilience-runtime:
@@ -1000,8 +1018,6 @@ jobs:
       - release-public
       - security-runtime
       - security-static-fuzz
-      - acceptance-playwright
-      - frontend-render-pressure
       - resilience-runtime
       - load-smoke
       - backend-qps
@@ -1028,6 +1044,7 @@ jobs:
           include-hidden-files: true
           path: |
             .tmp/release-evidence/**
+            .tmp/physical-execution-projections/release-evidence-plan-matrix-governance.json
             .tmp/perf/release-summaries/performance-saturation-v2.json
 
   production-summary:
@@ -1051,8 +1068,6 @@ jobs:
       - release-public
       - security-runtime
       - security-static-fuzz
-      - acceptance-playwright
-      - frontend-render-pressure
       - resilience-runtime
       - load-smoke
       - backend-qps

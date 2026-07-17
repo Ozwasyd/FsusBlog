@@ -10,6 +10,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
 const lane = fs.readFileSync(path.join(root, 'tools/test/lanes/security-runtime.sh'), 'utf8')
 const a11yDiagnostics = fs.readFileSync(path.join(root, 'tools/test/lanes/browser-a11y-diagnostics.sh'), 'utf8')
+const runtimeRiskDiagnostics = fs.readFileSync(
+  path.join(root, 'tools/test/lanes/browser-runtime-risk-diagnostics.sh'),
+  'utf8'
+)
 const parallelHelper = legacy.slice(
   legacy.indexOf('run_parallel()'),
   legacy.indexOf('\nprobe_url()')
@@ -135,19 +139,25 @@ test('security runtime core keeps isolated runtime checks after one preparation 
   assert.match(securityCore, /local -x FSUSBLOG_ADAPTIVE_PARALLEL=1/u)
   assert.match(securityCore, /local -x FSUSBLOG_PARALLEL_WORKLOAD=cpu/u)
   assert.match(securityCore, /run_security_stage "security-runtime-parallel" run_security_runtime_pool/u)
-  assert.match(securityCore, /run_security_stage "security-runtime-permissions"[\s\S]*run_security_isolated_client_check permissions/u)
+  assert.doesNotMatch(securityCore, /check:security:permissions|security-runtime-permissions|run_security_isolated_client_check permissions/u)
+  assert.match(
+    runtimeRiskDiagnostics,
+    /run_collect "permission-matrix" run_in_client npm run check:security:permissions/u
+  )
+  assert.match(runtimeRiskDiagnostics, /FSUSBLOG_BROWSER_DIAGNOSTICS=1/u)
   assert.doesNotMatch(securityCore, /check:a11y:smoke|security-runtime-a11y/u)
   assert.match(a11yDiagnostics, /run_in_client npm run check:a11y:smoke/u)
   assert.match(a11yDiagnostics, /FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1/u)
 })
 
 test('correctness session-mutating security checks receive stable unique user, admin and device suffixes', () => {
-  for (const suffix of ['auth-session', 'auth-mfa', 'auth-passkey', 'permissions']) {
+  for (const suffix of ['auth-session', 'auth-mfa', 'auth-passkey']) {
     assert.ok(
       securityCore.includes(`run_security_isolated_client_check ${suffix} `),
       `missing isolated identity suffix for ${suffix}`
     )
   }
+  assert.doesNotMatch(securityCore, /run_security_isolated_client_check permissions/u)
   assert.match(securityCore, /FSUSBLOG_USER_USERNAME="\$\{FSUSBLOG_USER_USERNAME:-binaryuser\}-\$suffix"/u)
   assert.match(securityCore, /FSUSBLOG_ADMIN_USERNAME="\$\{FSUSBLOG_ADMIN_USERNAME:-binaryadmin\}-\$suffix"/u)
   assert.match(securityCore, /FSUSBLOG_DEVICE_FP="\$\{FSUSBLOG_DEVICE_FP:-binary-smoke-node\}-\$suffix"/u)

@@ -138,7 +138,8 @@ function annotateWorkflowJob(job) {
     && text.includes('NuGet.config')
   job.hasPlaywrightCache = usesAction(text, 'actions/cache', 'v4')
     && /path:\s*~\/\.cache\/ms-playwright/.test(text)
-    && /key:\s*playwright-\$\{\{\s*runner\.os\s*\}\}-\$\{\{\s*hashFiles\('src\/frontend\/package-lock\.json'\)/.test(text)
+    && /key:\s*playwright-[^\n]*\$\{\{\s*runner\.os\s*\}\}-[^\n]*\$\{\{\s*hashFiles\('src\/frontend\/package-lock\.json'\)/.test(text)
+  job.hasPlaywrightCachePath = /path:\s*~\/\.cache\/ms-playwright/.test(text)
   job.npmCiCommands = job.runs.filter((command) => /(?:^|\s)npm\s+--prefix\s+src\/frontend\s+ci(?:\s|$)/.test(command))
   job.playwrightInstallCommands = job.runs.filter((command) => /playwright\s+install/.test(command))
   job.flakyGovernedCommands = job.runs.filter((command) => /tools\/ci\/run-flaky-governed\.mjs/.test(command))
@@ -365,6 +366,10 @@ function coveredTiersForWorkflowJob(job, tiersById, plannedTierIds = []) {
     for (const tierId of plannedTierIds) covered.add(tierId)
   }
   for (const command of job.runs) {
+    if (/(?:^|\s)(?:\.\/)?tools\/test\/run-matrix-governance-once\.sh\s+validate-matrix(?:\s|$)/u.test(command)) {
+      covered.add('validate-matrix')
+      continue
+    }
     if (command === 'node tools/run-test-matrix.mjs validate' || command === 'node tools/run-test-matrix.mjs preflight') {
       covered.add('validate-matrix')
       continue
@@ -454,7 +459,9 @@ function setupRequirementsForTiers(tierIds, tiersById) {
     requirements.requiresDotnet = requirements.requiresDotnet || tier.requiresDotnet === true
     requirements.requiresPlaywright = combinePlaywrightRequirement(requirements.requiresPlaywright, tier.requiresPlaywright)
     if (tier.requiresPlaywright !== 'none') {
-      if (Number.isInteger(tier.playwrightWorkers) && tier.playwrightWorkers >= 1) {
+      if (tier.id === 'browser-contract') {
+        requirements.playwrightWorkerValues.add(1)
+      } else if (Number.isInteger(tier.playwrightWorkers) && tier.playwrightWorkers >= 1) {
         requirements.playwrightWorkerValues.add(Number(tier.playwrightWorkers))
       } else {
         requirements.missingPlaywrightWorkerTiers.push(tier.id)
@@ -573,11 +580,23 @@ function validateWorkflowSetup(jobId, workflowJob, requirements, errors) {
     if (requirements.requiresPlaywright === 'all' && !/\$\{\{\s*matrix\.browser\s*\}\}/.test(installCommand)) {
       errors.push(`workflow job ${jobId} must install the matrix browser for requiresPlaywright=all`)
     }
-    if (workflowJob.flakyGovernedCommands.length === 0) {
+    if (jobId === 'browser-contract') {
+      if (workflowJob.flakyGovernedCommands.length > 0) {
+        errors.push('workflow job browser-contract must run once without flaky retry governance')
+      }
+    } else if (workflowJob.flakyGovernedCommands.length === 0) {
       errors.push(`workflow job ${jobId} requires Playwright but does not run through tools/ci/run-flaky-governed.mjs`)
     }
-  } else if (workflowJob.flakyGovernedCommands.length > 0) {
-    errors.push(`workflow job ${jobId} uses flaky retry governance without requiresPlaywright metadata`)
+  } else {
+    if (workflowJob.playwrightInstallCommands.length > 0) {
+      errors.push(`browserless workflow job ${jobId} must not install Playwright browsers`)
+    }
+    if (workflowJob.hasPlaywrightCachePath) {
+      errors.push(`browserless workflow job ${jobId} must not cache Playwright browsers`)
+    }
+    if (workflowJob.flakyGovernedCommands.length > 0) {
+      errors.push(`workflow job ${jobId} uses flaky retry governance without requiresPlaywright metadata`)
+    }
   }
 }
 
@@ -627,7 +646,7 @@ function validateProductionBuildFanout(workflowText, workflowJobs, errors) {
     'endpoint-depth-runtime',
     'release-public',
     'security-runtime',
-    'acceptance-playwright',
+    'browser-contract',
     'resilience-runtime',
     'load-smoke',
     'backend-qps-collectors',
@@ -669,6 +688,25 @@ function validateProductionBuildFanout(workflowText, workflowJobs, errors) {
   }
 }
 
+function validateBrowserWorkflowTopology(workflowJobs, errors) {
+  const contract = workflowJobs.get('browser-contract')
+  if (!contract) {
+    errors.push('workflow is missing the single browser-contract job')
+    return
+  }
+  if (!contract.needs.has('production-build-artifacts')) {
+    errors.push('browser-contract must consume production-build-artifacts')
+  }
+  if (!/needs\.plan-pr-risk\.outputs\.browser_contract\s*==\s*'true'/u.test(contract.lines.join('\n'))) {
+    errors.push('browser-contract PR execution must be selected by the browser-boundary smart gate')
+  }
+  for (const aggregateId of ['release-evidence', 'production-summary']) {
+    if (workflowJobs.get(aggregateId)?.needs.has('browser-contract')) {
+      errors.push(`${aggregateId} must remain browserless and must not wait for browser-contract`)
+    }
+  }
+}
+
 function main() {
   const planPath = path.resolve(root, process.argv[2] ?? defaultPlanPath)
   const workflowPath = path.resolve(root, process.argv[3] ?? defaultWorkflowPath)
@@ -683,6 +721,7 @@ function main() {
     errors.push('workflow must not set FSUSBLOG_PLAYWRIGHT_WORKERS globally; use matrix tier playwrightWorkers policy')
   }
   validateProductionBuildFanout(workflowText, workflowJobs, errors)
+  validateBrowserWorkflowTopology(workflowJobs, errors)
   validateMatrixCoverageDimensions(matrix.tiers, errors)
 
   const isWorkflowRequiredTier = (tierId) => {

@@ -4,7 +4,7 @@ FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑
 
 `tests/coverage-registry.json` 是 matrix `coverage[]` 的机器可读索引。每个 coverage id 必须声明 `description`、`owner`、`risk`、`evidencePaths`、`assertionType`、`failClosedRule` 和 `minimumRequirement`；`description` 必须描述实际覆盖语义，不能保留 `Coverage contract for ...` 这类模板句，`minimumRequirement` 必须写明最低可接受断言或 evidence 形态，不能只重复 tier 类型。`tools/run-test-matrix.mjs validate` 会拒绝未注册的 coverage id、未被对应 tier artifact/evidence 声明的 evidence path、未使用的 registry id，拒绝只指向 unit/property 测试文件却标成非 `unit` 的明显 assertionType 错配，也会拒绝 `runtime` / `browser` / `perf` / `fuzz` / `mutation` 类型只指向静态 docs/source 文件的条目。该 registry 不替代测试本体，只把“这个 coverage 标签由什么证据证明”变成 fail-closed 合同。
 
-普通 PR 使用 smart gate：`plan-pr-risk` 始终运行并生成 `.tmp/pr-plan.json` 与 `.tmp/release-evidence/pr-smart-gate-summary.json`，fast lane 与 backend-qps sentinel 默认保留，Production、release、load、resilience 等 correctness lane 只在 changed paths、coverage id 或显式 full gate 命中时运行。backend/frontend coverage 已并入对应 fast `ci-job`，并通过 `supersedes` 替代同一 `executionKey` 的普通 unit 执行；跳过必须写入 skip evidence，不得 silent skip。visual、UX full/risk、cross-browser、geometry/motion/focus、browser a11y、browser performance 与 browser resilience 不受 smart gate 升级为普通 PR correctness，它们只由 scheduled/manual browser diagnostics 运行。
+普通 PR 使用 smart gate：`plan-pr-risk` 始终运行并生成 `.tmp/pr-plan.json` 与 `.tmp/release-evidence/pr-smart-gate-summary.json`，fast lane 与 backend-qps sentinel 默认保留，Production、release、load、resilience 等 correctness lane 只在 changed paths、coverage id 或显式 full gate 命中时运行。backend/frontend coverage 已并入对应 fast `ci-job`，并通过 `supersedes` 替代同一 `executionKey` 的普通 unit 执行；跳过必须写入 skip evidence，不得 silent skip。普通 `production-correctness` 的完整依赖闭包固定为零 Playwright、零 browser resource、零 session schema；只有 browser-boundary PR、主分支 push 或显式 release 追加一个 10 分钟、零 retry 的 Chromium `browser-contract`。Acceptance、visual、UX full/risk、cross-browser、geometry/motion/focus、browser a11y/performance/resilience 以及 search/PoW/permission/zero-auth browser probe 只由 scheduled/manual diagnostics 运行。完整拓扑见 [`testing/issue-1150-browserless-ci-topology.md`](testing/issue-1150-browserless-ci-topology.md)。
 
 测试瘦身只允许基于机器证据推进。`static-governance` 会运行 `tools/check-test-retention.mjs` 并写入 `.tmp/release-evidence/test-retention-audit.json`，按测试文件归类为 `must-keep`、`conditional`、`review-candidate` 或 `obsolete-candidate`。audit 对每个测试 ID 保存 framework、tier 调用次数、p50/p95、coverage ID、断言目标、失败历史、唯一证据与 replacement IDs；没有计时或历史样本时必须显式记录证据缺失，不能伪造为零。`catalogSnapshot` 同时保存 matrix tier/artifact/evidence、coverage registry、backend requirement catalog 与 release-evidence 路径及其源文件 SHA-256。producer 元数据记录 `runId`、`sourceState` 与 `generatedAt`；矩阵内执行自动继承 `FSUSBLOG_TEST_RUN_ID`，而 standalone audit 的 `runId=null` 只能用于诊断，不能成为 release authority。`must-keep` 覆盖 API/安全/协议/发布/矩阵/治理等契约；`conditional` 代表成本较高但仍由 smart gate 或 release-final 保留的 lane；`review-candidate` 只能进入人工复核，不得自动删除；只有 coverage registry、断言目标、critical mutation slice 与矩阵/requirement/release-artifact 维度均不下降，并为每个被删 test ID 给出已保留 replacement IDs，才允许标为删除。
 
@@ -20,7 +20,7 @@ Linux production 可把动态 grant 映射为 run-bound cgroup v2 与 Docker/OCI
 
 Production 的 unit/property/model Vitest 使用单次权威 test catalog、确定性 immutable partition 和 live grant rolling host；grant 扩张可增加 host，收缩只停止新 admission，不再为 coverage universe 冷启动无测试进程。exact-once、隔离输出、coverage 与证据合同见 [`testing/issue-1073-production-vitest-rolling-hosts.md`](testing/issue-1073-production-vitest-rolling-hosts.md)。
 
-Production `runtime-browser` 已停止声明或动态解析 counted `chromiumLane`，也不再生成 browser admission evidence。普通 correctness 的资源调度只使用真实 DAG、CPU/memory grant 与命名资源；其中仍可存在窄的业务 browser acceptance，但不恢复 counted browser slot。固定单 browser admission 仅描述 nightly/manual diagnostics 外层。退役边界与回退合同见 [`testing/issue-1074-runtime-browser-counted-slots.md`](testing/issue-1074-runtime-browser-counted-slots.md)。
+Production `runtime-browser` 已停止声明或动态解析 counted `chromiumLane`，也不再生成 browser admission evidence。#1150 后该兼容 bundle 实际只承载 browserless runtime/database correctness，普通 correctness 中不存在窄 browser acceptance。固定单 browser admission 只属于 release `browser-contract` 或 nightly/manual diagnostics 外层。退役边界与回退合同见 [`testing/issue-1074-runtime-browser-counted-slots.md`](testing/issue-1074-runtime-browser-counted-slots.md)。
 
 视觉、UX viewport、cross-browser、geometry/motion/focus、browser a11y、真实 renderer/AEDS browser performance 与 browser resilience 已建立独立 diagnostics 目录和 scheduled/manual workflow。每类独立保留 summary/artifact，runner 固定一个外层 worker、内层 worker 1、0 retry 且无 dynamic inner pool，聚合全部独立失败，并把 browser crash/OOM/launch failure 标为 infra；这些 evidence 不改变普通 correctness 结论。geometry 类的 menu motion/focus 使用本地 FsusUI source/dist isolated harness，archive sticky/hash 仍明确标为 release-preview integration。权威目录、local alias/no-publish 规则、轻量替代与 #1074 适用边界见 [`testing/issue-1148-browser-diagnostics.md`](testing/issue-1148-browser-diagnostics.md)。
 
@@ -44,7 +44,7 @@ UX risk matrix 只接受 browser diagnostics catalog 调用，并要求 `FSUSBLO
 
 mobile-landscape chrome 检查只审计主内容和 footer 之外的全局 header/nav；可换行的 footer 导航属于滚动内容，不按固定 chrome 高度误报。账户全局 header 在 `max-height: 520px` landscape 下把 inner block padding 收紧到 `0.5rem`，并从完整 desktop action row 切换到 mobile actions，确保 150–200% zoom 时仍保留足够内容高度且不会横向溢出。
 
-local production 以 `./tools/test.sh production` 从 shell 入口到最终 runtime cleanup 完成的真实 wall-clock 作为优化观测；fresh 清理、capacity preflight、namespace prepare 和 build-server shutdown 全部计入，不能只报告 DAG 内部时间。`budgetMs`、`deadlineWeight` 与 `minimumDeadlineShare` 继续作为性能目标和容量规划证据，但 production 设置 `enforceBudget: false`，外层 scheduler 和物理 bundle 不得在目标时间到达时终止测试；完整失败与实际耗时必须自然暴露。优化以本机当前依赖和资源条件下可重复达到的物理极限约 90% 为目标，不允许用截杀、跳过或历史结果复用缩短观测。当前五束相对权重为 `build-static=18`、`backend-tests=48`、`frontend-tests=34`、`runtime-browser=70`、`performance-evidence=44`。`runtime-browser` 从 time zero 运行 build-independent security static，完成后利用 build marker 间隙执行 cross-stack/CSRF；bootstrap 仍必须等 run-bound backend/frontend marker 并独占刷新后的 runtime grant。`runtime-integration` 会先完成文章创建、更新、删除与缓存失效验证；唯一的 `release-public-hydration` 写屏障随后重建并复制最终 AOT generation，`release-public` 最后读取稳定数据集。三者不得改回 mutation 与 hydration/readers 并发；不读取 release dist 的 `security-runtime-core` 可在 bootstrap 后独立开始。
+local production correctness 以 `./tools/test.sh production-correctness` 从 shell 入口到最终 runtime cleanup 完成的真实 wall-clock 作为优化观测；`./tools/test.sh production` 保留为同一 browserless 拓扑的兼容别名。fresh 清理、capacity preflight、namespace prepare 和 build-server shutdown 全部计入，不能只报告 DAG 内部时间。`budgetMs`、`deadlineWeight` 与 `minimumDeadlineShare` 继续作为性能目标和容量规划证据，但 production 设置 `enforceBudget: false`；直接 `production-correctness` / `production` / `release-final` 的 browserless tiers 同样使用 `observe-only`，不得把 CI timeout 元数据变成进程截杀预算。完整失败与实际耗时必须自然暴露；唯一例外是 release-final 中单 Browser Contract 仍保留 10 分钟 deadline。优化以本机当前依赖和资源条件下可重复达到的物理极限约 90% 为目标，不允许用截杀、跳过或历史结果复用缩短观测。当前五束相对权重为 `build-static=18`、`backend-tests=48`、`frontend-tests=34`、`runtime-browser=70`、`performance-evidence=44`。`runtime-browser` 从 time zero 运行 build-independent security static，完成后利用 build marker 间隙执行 cross-stack/CSRF；bootstrap 仍必须等 run-bound backend/frontend marker 并独占刷新后的 runtime grant。`runtime-integration` 会先完成文章创建、更新、删除与缓存失效验证；唯一的 `release-public-hydration` 写屏障随后重建并复制最终 AOT generation，`release-public` 最后读取稳定数据集。三者不得改回 mutation 与 hydration/readers 并发；不读取 release dist 的 `security-runtime-core` 可在 bootstrap 后独立开始。
 
 bundle 内同一 wave 的独立步骤不会在首个失败后停止调度，而是受 CPU/内存约束继续执行并在 wave 结束时聚合全部错误。step DAG 仅阻断依赖已失败节点的下游，其他独立分支及其下游继续运行；多个分支失败时统一以 `AggregateError` 报告，单个失败保持原错误对象。这样一次运行能暴露多个互不依赖的问题，同时不会在前置条件已经失败时伪跑依赖项。
 
@@ -87,10 +87,10 @@ mutation 使用仓库锁定的 Stryker.NET `4.14.2`。nightly `backend-mutation`
 
 ## 层级总览
 
-层级表由 `tests/matrix.yml` 生成，提交快照见 [testing.generated.md](testing.generated.md)。本地查看当前 production DAG：
+层级表由 `tests/matrix.yml` 生成，提交快照见 [testing.generated.md](testing.generated.md)。本地查看当前 browserless production correctness DAG：
 
 ```bash
-./tools/test.sh production --plan-only
+./tools/test.sh production-correctness --plan-only
 ```
 
 更新生成文档：
@@ -104,6 +104,7 @@ node tools/docs/generate-testing-docs.mjs --check
 
 ```bash
 ./tools/test.sh ci-fast
+./tools/test.sh ci-tier production-correctness
 ./tools/test.sh ci-production
 ./tools/test.sh ci-job fast-backend
 ./tools/test.sh ci-tier backend-fast
@@ -112,13 +113,13 @@ node tools/docs/generate-testing-docs.mjs --check
 
 `ci-job <job>` 按 `ciJob` 聚合运行该 Actions job 里的 required matrix tiers；`ci-tier <tier>` 运行单个 tier，默认包含它的 matrix 依赖，可继续传 `--no-deps` 或 `--shard i/n`。权威 CI/release 运行必须显式传 `--fresh`；调试中断点续跑使用 `--resume`，并可用 `--max-parallel N` 人工收紧并发。每个 tier 执行前都会在日志里打印对应的本地复现命令。完整 tier 与 CI job 对照见 [testing.generated.md](testing.generated.md)。
 
-Matrix 同时声明调度元数据：`phase` 表示 CI DAG 阶段，`cost` 表示预期耗时，`resourceClass` 标识主要资源（如 `browser`、`database`、`benchmark`），所有逻辑 tier 与本地物理 bundle 都只声明无量纲 `cpuWeight`、`memoryWeight` 和保证可运行下限的 `minCpuUnits`，不得写入机器绝对 `cpuUnits` / `memoryGiB`。`parallelizable` / `shardable` 表达语义能力；只有不可并行、不可分片时才保留 `maxParallel=1` / `defaultShards=1`。scheduler 不按整个 phase 预先切碎机器：每个 admission wave 都只对当时 ready 的 tier 结合 active reservation、`os.availableParallelism()` 和实时 free memory 重新分配 grant，单一 ready tier 因而可以拿满剩余容量；worker、Playwright 与 .NET processor 都以该实际 grant 为上限。`exclusiveResources` 声明互斥写入或共享服务，`requiresBootstrap` 标明是否依赖本地 runtime bootstrap；benchmark 噪声隔离通过 `exclusiveResources` 表达，不用某台机器的固定并发数表达。
+Matrix 同时声明调度元数据：`phase` 表示 CI DAG 阶段，`cost` 表示预期耗时，`resourceClass` 标识主要资源（如 `browser`、`database`、`benchmark`），所有逻辑 tier 与本地物理 bundle 都只声明无量纲 `cpuWeight`、`memoryWeight` 和保证可运行下限的 `minCpuUnits`，不得写入机器绝对 `cpuUnits` / `memoryGiB`。`parallelizable` / `shardable` 表达语义能力；只有不可并行、不可分片时才保留 `maxParallel=1` / `defaultShards=1`。scheduler 不按整个 phase 预先切碎机器：每个 admission wave 都只对当时 ready 的 tier 结合 active reservation、`os.availableParallelism()` 和实时 free memory 重新分配 grant，单一 ready tier 因而可以拿满剩余容量；worker、Playwright 与 .NET processor 都以该实际 grant 为上限。`exclusiveResources` 声明互斥写入或共享服务，`requiresBootstrap` 标明是否依赖本地 runtime bootstrap；benchmark 噪声隔离通过 `benchmark-window` 表达，包含真实 P99/BenchmarkDotNet 测量的 logical tier 同时不可与其他 tier 并行，lane 内编译与治理准备必须先结束。benchmark runner 按 `STEP > TIER > BUNDLE > host` 读取动态 grant，不使用某台机器的固定并发数。
 
 外层 matrix scheduler 与 bundle 内 weighted DAG 对 `exclusiveResources` 使用同一集合交集语义：active step 和当前 admission wave 已选 step 都只锁住自己声明的资源名。`build-output` 不会阻止无资源声明的静态检查或使用 `benchmark-window` 的独立步骤；两个写同一输出目录、同一 benchmark window 或同一数据库写窗口的步骤仍严格串行。coordination-only step 不占 CPU/内存且禁止声明资源锁。发生冲突时 bundle 日志写出 `exclusiveResource`、`heldBy` 与 holder state，资源在成功或失败 settle 后都由 active record 删除，独立失败继续聚合。
 
 本地 fresh production 的五个物理 bundle 只保存相对资源意图。time zero 的 build、backend、frontend、runtime 都声明启动 CPU `1`，启动 memory weight 为 `3/4/2/5`、优先级为 `3/4/3/4`；稳态 `minCpuUnits` 为 `2/2/1/1`，后置 performance 为 `1`。启动 admission 先按 priority、critical-path deadline weight、稳定 ID 排序，再在实时 CPU/free memory 内成波放行，因此不受 YAML 数组顺序影响。4 CPU 机器首波得到 `1/1/1/1`；5 CPU 的额外槽按启动优先级给 backend，形成 `1/2/1/1`；更多 CPU 仍从机器资源和相对策略计算，并在 sibling 结束后继续扩容。runtime 内两个 build marker 等待节点是零 CPU / 零内存协调节点，bootstrap-free contract/security 可以在等待期间使用实时 grant。核心数、free memory 或 reserve 变化时，解析结果和各 bundle 内部 worker 数随之变化；无法满足启动保底时记录 `waiting-for-startup-capacity`，低于 profile 的 4 CPU 支持下限则在执行前 fail closed。
 
-全局 `static-governance` 装入 `frontend-tests`；privacy contract receipt 由 frontend 生成，project-functional/input verification 则在早启动的 `performance-evidence` 中消费 exact backend/frontend coverage 与 frontend build marker。logical `privacy-zk-comment-matrix` member 仍只登记一次并绑定 benchmark/finalize canonical artifact。`runtime-browser` 的物理依赖为空，time0 同时等待两个 marker 并执行 bootstrap-free security/contract；只有两个 marker 都成功时才允许 bootstrap，伪造、过期、缺失或 digest 漂移的 marker 一律 fail closed。`performance-evidence` 同样没有整个 backend/runtime/frontend bundle 的入口依赖：coverage merge 与 deterministic compression 按精确 marker 提前，runtime consumers 稳定且 #1080 resident handoff 被一次性消费后，才在该 bundle 内并行运行隔离 namespace 的 `data-scale-xs` / `data-scale-s`，随后 evidence summary 与 fault injection 收口。五个 timed profiler 还必须等待三类 producer quiet marker；quiet marker 仅在对应 physical summary、member receipt、artifact digest 与 resource evidence 全部原子落盘后发布。所有 performance step 都标记 coordination/preparation/measurement/post-measurement phase，v2 deadline evidence 拒绝 profiler 互相重叠或与 preparation/finalize 噪声重叠；只有 measurement step 持有 `benchmark-window`。完整合同见 [`testing/issue-1081-performance-evidence-marker-dag.md`](testing/issue-1081-performance-evidence-marker-dag.md)。五个 bundle 不保存固定 CPU、GiB 或 worker 数：scheduler 每次从在线 CPU、实时 free memory、bundle 相对 workload 权重与语义最小 CPU 重新计算 grant；矩阵权重仅描述工作量比例。production 不把性能目标传成 scheduler 或 bundle deadline，bundle runner 仅保留各逻辑 tier 已声明的故障超时上限用于终止真正挂起的子进程。scheduler 将本轮 grant 传为 `FSUSBLOG_BUNDLE_CPU_BUDGET` 和 `FSUSBLOG_BUNDLE_MEMORY_GIB`，bundle runner、backend union、frontend Vitest 与 build-static command manifest 都从该运行时配额派生并发，不得从 8 核示例或历史运行反推固定 worker 数。
+全局 `static-governance` 装入 `frontend-tests`；privacy contract receipt 由 frontend 生成，project-functional/input verification 则在早启动的 `performance-evidence` 中消费 exact backend/frontend coverage 与 frontend build marker。logical `privacy-zk-comment-matrix` member 仍只登记一次并绑定 benchmark/finalize canonical artifact。`runtime-browser` 的物理依赖为空，time0 同时等待两个 marker 并执行 bootstrap-free security/contract；只有两个 marker 都成功时才允许 bootstrap，伪造、过期、缺失或 digest 漂移的 marker 一律 fail closed。`performance-evidence` 同样没有整个 backend/runtime/frontend bundle 的入口依赖：coverage merge 与 deterministic compression 按精确 marker 提前，runtime consumers 稳定且 #1080 resident handoff 被一次性消费后，才在该 bundle 内并行运行隔离 namespace 的 `data-scale-xs` / `data-scale-s`，随后 evidence summary 与 fault injection 收口。五个 timed profiler 还必须等待三类 producer quiet marker；quiet marker 仅在对应 physical summary、member receipt、artifact digest 与 resource evidence 全部原子落盘后发布。所有 performance step 都标记 coordination/preparation/measurement/post-measurement phase，v2 deadline evidence 拒绝 profiler 互相重叠或与 preparation/finalize 噪声重叠；只有 measurement step 持有 `benchmark-window`。完整合同见 [`testing/issue-1081-performance-evidence-marker-dag.md`](testing/issue-1081-performance-evidence-marker-dag.md)。五个 bundle 不保存固定 CPU、GiB 或 worker 数：scheduler 每次从在线 CPU、实时 free memory、bundle 相对 workload 权重与语义最小 CPU 重新计算 grant；矩阵权重仅描述工作量比例。production 不把性能目标传成 scheduler 或 bundle deadline，直接 correctness aggregate 也不执行逻辑 tier 截杀。scheduler 将本轮 grant 传为 `FSUSBLOG_BUNDLE_CPU_BUDGET` 和 `FSUSBLOG_BUNDLE_MEMORY_GIB`，bundle runner、backend union、frontend Vitest 与 build-static command manifest 都从该运行时配额派生并发，不得从 8 核示例或历史运行反推固定 worker 数。
 
 `frontend-static-governance` 的 local production manifest 使用 `blocking-prebuild`、`concurrent`、`postbuild`、`isolated`、`final` 五个显式阶段；每个有效命令都必须声明 reason、consumed inputs、owned outputs、dependencies 与动态资源/互斥资源。当前 66 项拆分为 `3 + 58 + 3 + 1 + 1`：只有测试拓扑与 FsusUI alias/typecheck 契约形成 Vitest admission 屏障，58 个无冲突只读/唯一临时 fixture 检查与 Vitest 进入同一 weighted DAG；dist 消费者等待本轮 `frontend-build-ready`，DOM/render-pressure evidence writer 在 Vitest settled 后隔离执行，public performance batch 最后消费三份显式依赖。`.tmp/test-results/vitest`、frontend coverage、`.tmp/frontend`、render-pressure evidence、generated contracts 与 frontend dist 使用独立命名资源，不再用一个全局写锁串行化无关工作。五个阶段分别生成 run-bound `frontend-static-<stage>.json`，记录每项 queued/start/finish、duration、wait reason、资源与输入输出；阶段内部使用 settled failure aggregation，独立命令不会因首个失败而静默跳过。
 
@@ -181,12 +182,12 @@ Rights V3 的完整验收矩阵由 `tools/test/lanes/rights-v3-test-matrix.sh` �
 
 ### Browser lane scaling policy
 
-普通 correctness 与 browser diagnostics 使用不同拓扑。acceptance/browser-contract 只保留不可替代的发布契约；视觉、UX、引擎差异、geometry/motion/focus、渲染性能和 browser runtime resilience 由独立 diagnostics catalog 串行执行，固定外层 worker `1`、retry `0`，不读取机器负载在内层扩容。
+普通 correctness 与 browser execution 使用完全不同拓扑。`production-correctness` 不包含任何真实浏览器；`browser-contract` 是 release-final 唯一不可替代的浏览器发布契约。旧 Acceptance、视觉、UX、引擎差异、geometry/motion/focus、渲染性能、browser runtime resilience 以及迁出的 PoW/search/permission/zero-auth probe 由独立 diagnostics 入口串行执行，固定外层 worker `1`、retry `0`，不读取机器负载在内层扩容。
 
 | Lane | Scale mode | Current policy | Artifact isolation | Worker policy |
 |---|---|---|---|---|
 | `browser-contract` | one Playwright Library process | Router、auth、user/admin 状态机和 CRUD correctness 由 Vitest/API/PostgreSQL tests 承担；release-final 运行 5 个基线浏览器场景，step-up-ready fixture 再加入第 6 个 WebAuthn 场景 | `.tmp/browser-contract/receipt.json` | 固定 1 次 managed Chromium launch、5–6 个串行 BrowserContext、0 worker pool、0 shard、0 retry |
-| `browser-diagnostics` | serial category catalog | scheduled/manual 运行 7 类 14 probes；各 probe 独立留证，最终一次性汇总全部失败 | `.tmp/browser-diagnostics/<run>/<category>/<probe>` | 固定 outer lane `1`、worker `1`、retry `0` |
+| `browser-diagnostics` | migrated runtime group + serial category catalog | scheduled/manual 先保留 PoW/search/permission/zero-auth browser risk，再运行 7 类 14 probes；各 probe 独立留证，最终一次性汇总全部失败 | `.tmp/browser-diagnostics-runtime/**` 与 `.tmp/browser-diagnostics/<run>/<category>/<probe>` | 固定 outer lane `1`、worker `1`、retry `0` |
 | diagnostics `visual` | public + console + aggregate | 直属聚合当前 run 的两组 summary，不依赖已退役 CI shard job | public/console 目录与 aggregate summary | 固定 worker `1`；missing/skipped/stale fail closed |
 | diagnostics `ux` | smoke + visual + boundaries + risk | 完整 planner/progress 保留；risk runner 只允许 diagnostics | 每个 mode/risk 独立 summary | 固定 worker `1`，无 persistent/elastic pool |
 | diagnostics `cross-browser` | engine smoke | Chromium/Firefox/WebKit 只验证引擎差异，不重复后端业务规则 | probe log + Playwright output snapshot | 三引擎在同一 diagnostics 外层串行运行 |
@@ -213,7 +214,7 @@ CI 的安装步骤必须通过 `node tools/ci/run-stage.mjs --stage install -- .
 
 Flaky 治理由 `tests/flaky.yml` 和 `tools/ci/check-flaky-registry.mjs` 控制。每个 quarantine 条目必须包含 `suite`、`test`、`issue`、`reason`、`expires`、`allowedRetries`、`owner`、`mode`、`classification`；过期条目会使 CI 失败。默认策略是不重试：unit、static governance、security、backend deterministic gates 都不得 silent retry。browser diagnostics 同样固定 retry 0，不经过 `run-flaky-governed.mjs`；browser crash 与 launch failure应归类为 infra，而不是重跑成 clean pass。Benchmark/perf 噪声不得走通用 flaky retry，必须使用独立的 `benchmark-noise` 分类和性能 evidence。`release-final` 会使用 `--release-final` 模式重新校验 registry/evidence，并拒绝任何 retry、skip 或 critical quarantine 证据。
 
-`coverage-gate` 与 `production` 是两个 independent required checks：coverage 负责阈值和合并覆盖率，production 负责运行时风险 DAG。`release-final` 在二者之上增加 strict coverage、changed-code coverage、critical module coverage、ordinary required-job completeness、live exposure、artifact digest binding 和 test-quality lint。browser diagnostics receipt 保持独立，不存在 visual skip 影响 correctness 的路径。
+`coverage-gate` 与 `production-correctness` 是两个 independent required checks：coverage 负责阈值和合并覆盖率，production-correctness 负责 browserless 运行时风险 DAG；`production` 只是相同拓扑的兼容命令。`release-final` 在二者之上增加唯一 Browser Contract、strict coverage、changed-code coverage、critical module coverage、ordinary required-job completeness、live exposure、artifact digest binding 和 test-quality lint。browser diagnostics receipt 保持独立，不存在 visual skip 影响 correctness 的路径。
 
 `load` 与 WebSocket pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/notification-stream-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。默认参数来自 `tests/perf/perf-policy.yml`：HTTP load baseline 为 `concurrency=10`、`rounds=6`、`durationMs=30000`；WebSocket pressure 为 `connections=50`、`durationMs=30000`。
 
@@ -389,9 +390,9 @@ Public AOT SSR worker reliability 由 `PublicAotSsrRuntimeStateTests`、`PublicA
 
 ---
 
-### `acceptance` / `browser-contract` — 轻量 correctness + 窄 release 探针
+### `production-correctness` / `browser-contract` — 轻量 correctness + 唯一 release 浏览器探针
 
-**触发时机**：轻量 correctness 随常规测试执行；`browser-contract` 只进入 release-final/显式本地验证
+**触发时机**：轻量 correctness 随常规测试执行；历史 `acceptance` tier 只进入 nightly diagnostics；`browser-contract` 仅在 browser-boundary PR、主分支 push、release-final 或显式本地验证中执行
 
 **前置条件**：Router/组件/API 单测不需要完整服务；PostgreSQL integration 只需要隔离 fixture；Browser Contract 需要 #1078 immutable production build receipt、一个绑定 source commit/run/lane identity 的 run-scoped fixture namespace 与 frontend/backend runtime
 
@@ -408,10 +409,12 @@ Browser Contract fixture 固定为 `1 session / 1 concurrency`，只准备一个
 npm --prefix src/frontend run check:acceptance:auth
 npm --prefix src/frontend run check:acceptance:console
 node --test tests/tools/acceptance-layer-migration.test.mjs
-npm --prefix src/frontend run check:browser-contract
+./tools/test.sh production-correctness
+./tools/test.sh browser-contract
+./tools/test.sh browser-diagnostics
 ```
 
-`check:browser-contract` 不调用 `npx playwright test`。默认 9 分钟 process-group deadline；调用者必须提供完整且与 immutable receipt 一致的 `FSUSBLOG_TEST_SOURCE_COMMIT` / `FSUSBLOG_TEST_SOURCE_FINGERPRINT`。运行期 sealed fixture manifest 位于 `.tmp/browser-contract/fixtures/<namespace>/contract-fixture.json`，trace/screenshot 写入 `.tmp/browser-contract/runs/<namespace>/`；cleanup 成功后删除该临时 fixture root，cleanup 失败时保留私有 recovery state 供同 identity 重试。新一轮只替换固定 `.tmp/browser-contract/receipt.json`，不会递归删除输出根或其他 run 的产物；receipt 保留 database schema、Redis namespace、稳定实体 IDs、source/build identity 和 lifecycle/cleanup 状态。缺 immutable build/fixture、Chromium crash/disconnect 或任一 product/contract assertion 失败都会直接退出，且不会自动重试。
+`check:browser-contract` 不调用 `npx playwright test`。默认 9 分钟 process-group deadline；调用者必须提供完整且与 immutable receipt 一致的 `FSUSBLOG_TEST_SOURCE_COMMIT` / `FSUSBLOG_TEST_SOURCE_FINGERPRINT`。运行期 sealed fixture manifest 位于 `.tmp/browser-contract/fixtures/<namespace>/contract-fixture.json`，本机私有 trace/screenshot 写入 `.tmp/browser-contract/runs/<namespace>/`；仅显式 `anonymous` 场景可启用 raw trace，已认证与未知 role 都不启动 tracing。CI 只上传 `.tmp/browser-contract/receipt.json` 和 job summary，不上传 `fixtures/**` 或 `runs/**`。cleanup 成功后删除该临时 fixture root，cleanup 失败时保留私有 recovery state 供同 identity 重试。新一轮只替换固定 receipt，不会递归删除输出根或其他 run 的本地产物；receipt 保留 database schema、Redis namespace、稳定实体 IDs、source/build identity 和 lifecycle/cleanup 状态，不内联 raw trace/screenshot 内容。缺 immutable build/fixture、Chromium crash/disconnect 或任一 product/contract assertion 失败都会直接退出，且不会自动重试。
 
 ---
 
@@ -512,9 +515,9 @@ data-scale lanes 必须生成真实、可查询、可清理的 fixture。`tools/
 - Binary 链并发读
 - WebSocket binary notification stream 多连接稳定性（`connections=50`、`durationMs=30000`）
 
-**backend-perf-readiness / 性能基准**：
+**backend-perf / 性能基准**：
 
-`backend-perf` 在矩阵中是 BenchmarkDotNet build/readiness tier，只构建并确认 benchmark 项目可用；真实回归运行由 `backend-benchmark-regression` 负责并输出 release evidence。该 lane 默认运行 `*HotPath*`：request audit/context、binary frame encode/PipeReader binding、notification shared fanout/frame pump、read-model projection、content filter、related scoring、stats projection 与 crawler/UA normalization。`tests/performance/backend-hotpath-budgets.json` 为唯一预算源；有诚实旧实现的场景按相同参数比较 mean/allocation ratio，没有可比旧实现的 PipeReader binding 与 frame pump 使用绝对 mean/allocation budget。
+`backend-perf` 先并行完成 Release test/benchmark producer readiness 与治理，再在 machine-quiet `benchmark-window` 中执行 native verifier P99；`backend-benchmark-regression` 负责完整 BenchmarkDotNet 回归并输出 release evidence。共享 producer 在 scheduler 下绑定 source commit + worktree fingerprint，运行时生成的 backend log/cache 不会造成同轮指纹漂移；测试 reader 一律 `--no-build --no-restore`。该 lane 默认运行 `*HotPath*`：request audit/context、binary frame encode/PipeReader binding、notification shared fanout/frame pump、read-model projection、content filter、related scoring、stats projection 与 crawler/UA normalization。`tests/performance/backend-hotpath-budgets.json` 为唯一预算源；有诚实旧实现的场景按相同参数比较 mean/allocation ratio，没有可比旧实现的 PipeReader binding 与 frame pump 使用绝对 mean/allocation budget。
 
 `tools/perf/check-backend-benchmark-regression.mjs` 必须读取 BenchmarkDotNet JSON 的实际 `Statistics.Mean` 与 `Memory.BytesAllocatedPerOperation`，逐预算生成 before/after measurement、失败原因和 release summary。缺基准、缺相同参数、缺 allocation 或超预算都必须使 lane 失败；禁止再用 report 数量或固定 `status=ok` 代替性能证据。数据库热路径另由 PostgreSQL AOP command counter 断言：stats 子端点各自只执行其窄查询，related-reading 冷 miss 有界且 memory hit 不访问数据库；并行路径使用真实 TCS/barrier 验证同时启动、失败、取消、超时和资源释放。
 
@@ -597,26 +600,26 @@ Chromium/SW/GC binding；验证只接受 key 路径，不把 secret 写入 artif
 执行顺序请以机器输出为准：
 
 ```bash
-./tools/test.sh production --plan-only
+./tools/test.sh production-correctness --plan-only
 ```
 
 当前高层顺序为：
 
 1. `fast`：Debug build `-warnaserror`、服务端非集成测试、`vue-tsc`、前端 release build warning-as-error、静态治理脚本。
 2. 强制 bootstrap：启动或重启 PostgreSQL、Redis、Debug 后端、Vite 前端、Release Preview。`fast` 会重新生成前端 release 资源并同步到后端 StaticWebAssets，production 门禁必须在这里重启运行时，避免旧进程继续服务上一代代码或静态资源。
-3. 复用同一套运行环境执行 `release`、`integration`、`security`、窄业务 `acceptance`、browserless `frontend-render-pressure` structure checks、`resilience`、`load` 与 `backend-qps`。visual、UX full/risk、cross-browser、geometry/motion/focus、browser performance/a11y/resilience 不在这里执行。
+3. 复用同一套运行环境执行 `release`、`integration`、`security`、browserless `frontend-render-structure`、`resilience`、`load` 与 `backend-qps`。Acceptance、PoW/search/permission/zero-auth browser probe、visual、UX full/risk、cross-browser、geometry/motion/focus、browser performance/a11y/resilience 都不在 production correctness 中执行。
 4. 收集 release evidence 并运行 schema/semantic check；此处不使用 `--require-ok`。
 
 Release rollout closeout 另外要求 `release-rollout.json` seal 15 stages 与 exactly six artifacts（public traffic、notification、asset compatibility、normal worker reconciliation、resource budget、fault injection），并要求 allowlisted `release-rollout-bundle/bundle-index.json` read-back。缺失、scheduled、hash drift 或 qualification ledger 冒充 normal 均保持 blocked。
 
 ```bash
-./tools/test.sh production
+./tools/test.sh production-correctness
 ```
 
 真实浏览器诊断另行执行，不存在 Production visual skip 开关：
 
 ```bash
-bash tools/test/lanes/browser-diagnostics.sh manual --workers 1
+./tools/test.sh browser-diagnostics
 ```
 
 diagnostics failure 只改变该 diagnostics receipt；不得把它写入 Production correctness status，也不得用 Production 通过冒充 diagnostics 已执行。
@@ -697,7 +700,7 @@ node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-pla
 .tmp/release-evidence/jobs/<job-id>.json
 ```
 
-摘要使用 `fsusblog.ci.job-result.v1`，包含 `status`、`failureStage`、`rootCause`、`tierIds`、`artifacts`、`localReproduction`、`commit`、`runId` 和 `attempt`。普通 CI matrix shard 继续使用稳定 job id / artifact 名称，例如 `acceptance-playwright-1-of-4`；visual、UX 与 cross-browser 不再作为普通 correctness job summary。Browser Diagnostics 使用自己的 run/category/probe receipt 和统一 workflow artifact，不能混入 Production required-job 列表。
+摘要使用 `fsusblog.ci.job-result.v1`，包含 `status`、`failureStage`、`rootCause`、`tierIds`、`artifacts`、`localReproduction`、`commit`、`runId` 和 `attempt`。普通 CI matrix shard 继续使用稳定 job id / artifact 名称；唯一普通真实浏览器 job 是不分片的 `browser-contract`。其 CI artifact 只上传 Browser Contract receipt 与 job summary，不上传可能含会话信息的 `fixtures/**` 或 `runs/**`。visual、UX 与 cross-browser 不再作为普通 correctness job summary。Browser Diagnostics 使用自己的 run/category/probe receipt 和统一 workflow artifact，不能混入 Production required-job 列表。
 
 失败后先看 `production-summary` 的 root failure 分组；若对应 job summary 已下载，它会附带 `failureStage`、`rootCause`、`reproduce` 和 summary artifact 路径。完整发布证据在 `.tmp/release-evidence/<stamp>/manifest.json`，其中 `artifacts.jobSummaries` 指向收集到的 `job-summaries/` 目录。`release-evidence` 在 CI 中会校验 required job summary 是否存在、schema 是否正确，以及 matrix 声明的生成型 artifact/evidence 是否由对应 job 上传。
 
@@ -723,15 +726,17 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 `release-final` 会从同一个 matrix DAG 派生执行路径，并在 `release-closeout` 之外额外强制：
 
 - `coverage-gate-strict`：backend line >= 85、backend branch >= 75、frontend line >= 75、frontend branch >= 65、changed-code line >= 90，critical backend module branch >= 90 或有批准例外。
-- release runtime lanes：admin console、auth flow、authoring flow、private preview、error boundary、RBAC negative path 都绑定 release artifact。
-- release AOT lanes：generation、consumption、static asset digest coherence 分开验证。
+- `production-correctness`：完整 browserless correctness closure 必须先通过。
+- `browser-contract`：只允许一个消费 immutable production build 的 managed Chromium job，固定 worker/session/concurrency 1、零 shard、零 retry；release-final 聚合器自身保持 `requiresPlaywright: none`。
+- release runtime lanes：admin console、auth flow、authoring flow、private preview 与 error boundary 使用 Vitest/API/static contract 绑定 release artifact；真实 RBAC browser negative path 已迁入 diagnostics。
+- release AOT lanes：generation 与 static asset digest coherence 作为 browserless release evidence；真实 consumption/browser fallback 属于 diagnostics。
 - release load/scale/stability lanes：peak、burst、scale-m、soak-min、memory leak budget、open handle budget、critical mutation slice。
-- strict evidence：manifest 必须为 `collected-ok`，live exposure/firewall/DNS evidence 必须存在，backup restore 必须是 real drill，post-deploy smoke 必须是 deployed endpoint 自动覆盖，authenticated DAST/Wasm fuzz/fault injection/short soak 必须真实执行，job summary 必须覆盖 ordinary acceptance 与其他 required correctness jobs。独立 browser diagnostics receipt 不进入该 correctness required-job 集合。
+- strict evidence：manifest 必须为 `collected-ok`，live exposure/firewall/DNS evidence 必须存在，backup restore 必须是 real drill，post-deploy smoke 必须是 deployed endpoint 自动覆盖，authenticated DAST/Wasm fuzz/fault injection/short soak 必须真实执行，job summary 必须覆盖 production-correctness 与其他 required correctness jobs。独立 browser diagnostics receipt 不进入该 correctness required-job 集合。
 - artifact binding：`tools/release/check-release-final.mjs` 要求 manifest commit、job summary commit 与 `sha256:` image digest 一致。
 - AEDS Wasm cross-stack：普通 `aeds-frame-cost` 在 `frontend-build` 后串行绑定 server frame cost 与 basic/speed artifact/compile/decode/copy/memory budget；这些 browserless summary 缺失或不满足预算时保持 blocked。真实浏览器的 speed 选择、basic 故障回退、transferable Worker 与 load/long-task 指标属于 diagnostics，只作独立可观测 evidence，不阻断或放行 correctness manifest。
 - test-quality lint：`tools/ci/check-test-quality.mjs` 阻断无断言测试、HTTP 200-only 弱断言和关键路径 snapshot-only 测试。
 
-`production` 可以证明 PR/CI 风险矩阵没有已知阻断；`release-closeout` 可以证明当前 manifest 已收口；只有 `release-final` 可以作为发布候选通过的最终凭据。
+`production-correctness`（以及兼容别名 `production`）可以证明 browserless PR/CI 风险矩阵没有已知阻断；`release-closeout` 可以证明当前 manifest 已收口；只有同时包含单 Browser Contract 的 `release-final` 可以作为发布候选通过的最终凭据。
 
 ---
 
@@ -800,13 +805,13 @@ tools/operations/test-release-evidence-fixture.sh
 tools/operations/cleanup-retention.sh
 ```
 
-这些检查覆盖文章公开可见性、SEO discovery/JSON-LD、分发版本一致性、schema migration registry、OpenTelemetry collector 开关与无 PII tag 白名单、AI provider 默认关闭、PWA 私有路由不缓存、RUM 不采集私有页与敏感字段、备份/烟测/证据/保留期脚本。这里的 backup restore 与 post-deploy smoke dry-run 只验证脚本调度，会写入 `status=scheduled`，不能作为发布收口证据。完整发布仍必须回到 `./tools/test.sh production` 与 `./tools/test.sh coverage-gate`，最终发布还必须跑 `./tools/test.sh release-final`。
+这些检查覆盖文章公开可见性、SEO discovery/JSON-LD、分发版本一致性、schema migration registry、OpenTelemetry collector 开关与无 PII tag 白名单、AI provider 默认关闭、PWA 私有路由不缓存、RUM 不采集私有页与敏感字段、备份/烟测/证据/保留期脚本。这里的 backup restore 与 post-deploy smoke dry-run 只验证脚本调度，会写入 `status=scheduled`，不能作为发布收口证据。完整发布必须回到 `./tools/test.sh production-correctness` 与 `./tools/test.sh coverage-gate`，再由 `./tools/test.sh release-final` 追加唯一 Browser Contract 并生成最终发布凭据；`./tools/test.sh production` 仅作兼容别名保留。
 
 作者 AI 辅助的静态门禁为 `npm --prefix src/frontend run check:author-ai-assist`，覆盖 admin-only endpoint、actor audit、provider review config、编辑器接线和文档同步。后端行为由 `AuthoringWorkflowServiceTests` 覆盖默认 disabled 与 provider-enabled review-blocked 分支。
 
-## Production 风险清单
+## Production correctness 风险清单
 
-`production` 必须同时满足：
+`production-correctness`（以及兼容别名 `production`）必须同时满足：
 
 - 编译、类型检查、Vite build 均为 0 warning / 0 error。
 - 所有运行时 API 响应均为 AEDS frame；错误、鉴权拒绝和异常兜底统一为 `ApiError`。

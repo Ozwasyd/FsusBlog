@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/security/check-security-matrices.mjs"
 
 if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" ]]; then
@@ -149,7 +149,8 @@ NODE
   exit 0
 fi
 
-dotnet_args=()
+FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build
+dotnet_args=(--no-build --no-restore)
 FSUSBLOG_REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/build-with-data-env.sh" dotnet test \
   "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
   -c Debug \

@@ -34,6 +34,20 @@ const replacementLayers = Object.freeze({
     'tests/frontend/checks/public/check-aot-cache-resilience.mjs',
     'tests/frontend/unit/services/telemetryService.test.ts',
     'tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts'
+  ],
+  acceptance: [
+    'tests/issue-1146-retention-replacements.json',
+    'tests/tools/acceptance-layer-migration.test.mjs'
+  ],
+  'release-runtime': [
+    'tests/browser-contract/scenarios.mjs',
+    'tests/frontend/checks/public/check-public-aot-contracts.mjs',
+    'tests/frontend/unit/router/index.test.ts'
+  ],
+  'runtime-risk': [
+    'tests/backend/Unit/BackendAuthStateMachineTests.cs',
+    'tests/frontend/unit/router/index.test.ts',
+    'tests/frontend/unit/services/authBroadcastRuntime.test.ts'
   ]
 })
 
@@ -143,6 +157,37 @@ export const browserDiagnosticCatalog = Object.freeze([
       probe('runtime-recovery', ['bash', 'tools/test/lanes/browser-resilience-diagnostics.sh'], [
         '.tmp/browser-diagnostics-runtime/resilience'
       ])
+    ])
+  }),
+  Object.freeze({
+    id: 'acceptance',
+    browsers: Object.freeze(['chromium']),
+    risk: 'retained-route-session-and-public-acceptance',
+    replacements: Object.freeze(replacementLayers.acceptance),
+    probes: Object.freeze([
+      probe('full-suite', ['bash', 'tools/test/lanes/browser-diagnostics-risk.sh', 'acceptance'], [], 45)
+    ])
+  }),
+  Object.freeze({
+    id: 'release-runtime',
+    browsers: Object.freeze(['chromium']),
+    risk: 'release-rbac-and-aot-consumption',
+    replacements: Object.freeze(replacementLayers['release-runtime']),
+    probes: Object.freeze([
+      probe('release-rbac-negative', ['bash', 'tools/test/lanes/browser-diagnostics-risk.sh', 'release-rbac-negative'], [], 35),
+      probe('release-aot-consumption', ['bash', 'tools/test/lanes/browser-diagnostics-risk.sh', 'release-aot-consumption'], [], 25)
+    ])
+  }),
+  Object.freeze({
+    id: 'runtime-risk',
+    browsers: Object.freeze(['chromium']),
+    risk: 'pow-search-zero-auth-and-permission-browser-runtime',
+    replacements: Object.freeze(replacementLayers['runtime-risk']),
+    probes: Object.freeze([
+      probe('pow-runtime', ['bash', 'tools/test/lanes/browser-diagnostics-risk.sh', 'pow-runtime'], [], 20),
+      probe('search-runtime', ['bash', 'tools/test/lanes/browser-diagnostics-risk.sh', 'search-runtime'], [], 20),
+      probe('zero-auth-probe', ['bash', 'tools/test/lanes/browser-diagnostics-risk.sh', 'zero-auth-probe'], [], 20),
+      probe('permission-matrix', ['bash', 'tools/test/lanes/browser-diagnostics-risk.sh', 'permission-matrix'], [], 30)
     ])
   })
 ])

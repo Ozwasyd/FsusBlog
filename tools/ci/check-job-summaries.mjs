@@ -10,6 +10,17 @@ const planFile = path.join(root, '.tmp/release-evidence/test-plan.json')
 const downloadedArtifactsDir = path.join(root, '.tmp/downloaded-artifacts')
 const allowedFailureStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
 const releaseBrowsers = ['chromium', 'firefox', 'webkit']
+const jobResultSchema = 'fsusblog.ci.job-result.v1'
+const productionBuildVerificationSchema = 'fsusblog.ci-production-build-verification.v1'
+const jobSummaryOnlyFields = [
+  'jobId',
+  'ciJob',
+  'tierIds',
+  'localReproduction',
+  'failureStage',
+  'rootCause',
+  'stageDurationsMs'
+]
 
 function fail(errors) {
   for (const error of errors) console.error(`[job-summary-check] ${error}`)
@@ -46,9 +57,53 @@ function listSummaryFiles() {
   return [...new Set(files)].sort()
 }
 
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function validateAuxiliaryEvidence(evidence, file, schema) {
+  const errors = []
+  for (const field of jobSummaryOnlyFields) {
+    if (Object.hasOwn(evidence, field)) {
+      errors.push(`${file}: auxiliary schema ${schema} cannot declare job summary field ${field}`)
+    }
+  }
+  return errors
+}
+
+const auxiliaryEvidenceContracts = new Map([
+  [productionBuildVerificationSchema, {
+    category: 'production-build-verification',
+    validate: validateAuxiliaryEvidence
+  }]
+])
+
+function classifyEvidence(document, file) {
+  if (!isRecord(document)) {
+    return { kind: 'invalid', errors: [`${file}: JSON root must be an object`] }
+  }
+  if (document.schema === jobResultSchema) return { kind: 'job-summary', errors: [] }
+  const auxiliaryContract = auxiliaryEvidenceContracts.get(document.schema)
+  if (auxiliaryContract) {
+    return {
+      kind: 'auxiliary-evidence',
+      schema: document.schema,
+      category: auxiliaryContract.category,
+      errors: auxiliaryContract.validate(document, file, document.schema)
+    }
+  }
+  if (typeof document.schema !== 'string' || document.schema.trim() === '') {
+    return { kind: 'invalid', errors: [`${file}: schema is required`] }
+  }
+  return {
+    kind: 'invalid',
+    errors: [`${file}: unsupported evidence schema in job summary directory: ${document.schema}`]
+  }
+}
+
 function validateSummary(summary, file) {
   const errors = []
-  if (summary.schema !== 'fsusblog.ci.job-result.v1') errors.push(`${file}: schema must be fsusblog.ci.job-result.v1`)
+  if (summary.schema !== jobResultSchema) errors.push(`${file}: schema must be ${jobResultSchema}`)
   for (const field of ['jobId', 'status', 'tierIds', 'localReproduction', 'commit', 'runId', 'attempt']) {
     if (summary[field] === undefined || summary[field] === null || summary[field] === '') errors.push(`${file}: ${field} is required`)
   }
@@ -153,7 +208,19 @@ function main() {
   }
   const files = listSummaryFiles()
   const errors = []
-  const summaries = files.map((file) => ({ file, summary: readJson(file) }))
+  const summaries = []
+  const auxiliaryEvidence = []
+
+  for (const file of files) {
+    const summary = readJson(file)
+    const relativeFile = path.relative(root, file)
+    const classification = classifyEvidence(summary, relativeFile)
+    errors.push(...classification.errors)
+    if (classification.kind === 'job-summary') summaries.push({ file, summary })
+    if (classification.kind === 'auxiliary-evidence') {
+      auxiliaryEvidence.push({ file, summary, classification })
+    }
+  }
 
   for (const { file, summary } of summaries) {
     errors.push(...validateSummary(summary, path.relative(root, file)))
@@ -177,7 +244,12 @@ function main() {
   }
 
   if (errors.length > 0) fail(errors)
-  console.log(`[job-summary-check] ok summaries=${summaries.length} required=${requirePlan ? requiredJobsFromPlan(options).length : 0}`)
+  const auxiliaryCounts = [...auxiliaryEvidence.reduce((counts, entry) => {
+    const schema = entry.classification.schema
+    counts.set(schema, (counts.get(schema) ?? 0) + 1)
+    return counts
+  }, new Map()).entries()].map(([schema, count]) => `${schema}:${count}`).join(',') || 'none'
+  console.log(`[job-summary-check] ok summaries=${summaries.length} auxiliary=${auxiliaryEvidence.length} auxiliarySchemas=${auxiliaryCounts} required=${requirePlan ? requiredJobsFromPlan(options).length : 0}`)
 }
 
 try {

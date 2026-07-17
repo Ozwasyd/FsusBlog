@@ -8,6 +8,7 @@ import { resolveAdaptiveManifestWorkers } from '../../tools/test/run-command-man
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
+const browserDiagnostics = fs.readFileSync(path.join(root, 'tools/test/lanes/browser-runtime-risk-diagnostics.sh'), 'utf8')
 const integration = legacy.slice(
   legacy.indexOf('run_integration_only()'),
   legacy.indexOf('\nrun_integration()', legacy.indexOf('run_integration_only()'))
@@ -27,7 +28,6 @@ test('runtime integration retains every check exactly once while parallelizing o
   assert.ok(parallelStart < authenticated && authenticated < distribution)
   for (const script of [
     'check:auth-session-smoke',
-    'check:pow-runtime',
     'check:binary-smoke',
     'check:binary-smoke:auth',
     'check:notification-stream-runtime',
@@ -35,22 +35,19 @@ test('runtime integration retains every check exactly once while parallelizing o
     'check:api-contracts',
     'check:binary-contract-smoke',
     'check:distribution-version-coherence',
-    'check:sw-search-runtime',
-    'check:search-runtime'
+    'check:sw-search-runtime'
   ]) assert.equal(countShellToken(integration, script), 1, `${script} must run exactly once`)
+  assert.doesNotMatch(integration, /check:pow-runtime|check:search-runtime/u)
 
   const pool = integration.slice(parallelStart, authenticated)
   assert.doesNotMatch(pool, /check:binary-smoke:auth|check:distribution-version-coherence/u)
-  assert.ok(
-    pool.indexOf('check:pow-runtime') < pool.indexOf('check:search-runtime')
-      && pool.indexOf('check:search-runtime') < pool.indexOf('check:auth-session-smoke'),
-    'measured long-running read checks must lead the two-worker queue'
-  )
   assert.match(integration, /FSUSBLOG_ADAPTIVE_PARALLEL=1/u)
   assert.match(integration, /FSUSBLOG_PARALLEL_WORKLOAD=orchestration/u)
 })
 
-test('pow runtime parallelizes isolated browser contexts with a machine-derived bounded pool', () => {
+test('diagnostics-only pow runtime parallelizes isolated browser contexts with a machine-derived bounded pool', () => {
+  assert.match(browserDiagnostics, /check:pow-runtime/u)
+  assert.match(browserDiagnostics, /check:search-runtime/u)
   const powRuntime = fs.readFileSync(
     path.join(root, 'tests/frontend/checks/runtime/pow-runtime-regression.mjs'),
     'utf8'

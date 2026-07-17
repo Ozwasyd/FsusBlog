@@ -33,11 +33,13 @@ export function resolveRuntimeBrowserTimeoutPlan({
   const machineCpuCount = Math.max(1, Math.floor(positiveNumber(cpuCount) ?? 1))
   const cpuGrant = Math.min(machineCpuCount, firstPositive(env, [
     'FSUSBLOG_STEP_CPU_BUDGET',
+    'FSUSBLOG_TIER_CPU_UNITS',
     'FSUSBLOG_BUNDLE_CPU_UNITS',
     'FSUSBLOG_BUNDLE_CPU_BUDGET'
   ]) ?? machineCpuCount)
   const stepDeadlineMs = Math.floor(
     positiveNumber(env.FSUSBLOG_STEP_DEADLINE_MS)
+      ?? positiveNumber(env.FSUSBLOG_TIER_DEADLINE_MS)
       ?? positiveNumber(env.FSUSBLOG_BUNDLE_DEADLINE_MS)
       ?? DEFAULT_STEP_DEADLINE_MS
   )

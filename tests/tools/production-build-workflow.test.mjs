@@ -30,7 +30,7 @@ test('quality gate has one smart-gated producer and all immutable-build consumer
 
   const consumers = [
     'integration-runtime', 'endpoint-depth-runtime', 'release-public', 'security-runtime',
-    'acceptance-playwright', 'resilience-runtime', 'load-smoke',
+    'browser-contract', 'resilience-runtime', 'load-smoke',
     'backend-qps-collectors', 'perf-regression'
   ]
   for (const jobId of consumers) {

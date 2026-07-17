@@ -16,6 +16,14 @@ function positiveNumber(value, fallback, label) {
   return parsed
 }
 
+function firstPositiveGrant(env, names) {
+  for (const name of names) {
+    if (env[name] === undefined || env[name] === null || env[name] === '') continue
+    return { name, value: positiveNumber(env[name], null, name) }
+  }
+  return null
+}
+
 export function discoverHotPathBenchmarkClasses(programSource) {
   const classes = [...String(programSource).matchAll(/typeof\(\s*([A-Za-z_][A-Za-z0-9_]*HotPath[A-Za-z0-9_]*)\s*\)/gu)]
     .map((match) => match[1])
@@ -120,17 +128,34 @@ export function resolveBenchmarkParallelism({
   ))
   const detectedFreeMemoryGiB = positiveNumber(freeMemoryGiB, null, 'free memory')
   const detectedTotalMemoryGiB = positiveNumber(totalMemoryGiB, null, 'total memory')
-  const stepCpuGrant = positiveNumber(env.FSUSBLOG_STEP_CPU_BUDGET, null, 'benchmark STEP CPU grant')
-  const stepMemoryGrantGiB = positiveNumber(env.FSUSBLOG_STEP_MEMORY_GIB, null, 'benchmark STEP memory grant')
-  const schedulerManaged = stepCpuGrant !== null && stepMemoryGrantGiB !== null
-  const inheritedCpu = stepCpuGrant ?? env.FSUSBLOG_BUNDLE_CPU_BUDGET
-  const inheritedMemory = stepMemoryGrantGiB ?? env.FSUSBLOG_BUNDLE_MEMORY_GIB
-  const cpuBudget = Math.min(hostCpu, positiveNumber(inheritedCpu, hostCpu, 'benchmark CPU grant'))
+  // Logical matrix tiers receive TIER grants, while physical-bundle steps and
+  // adaptive mixed-window cohorts receive the narrower STEP grants. Consume
+  // the nearest live scheduler grant before falling back to a direct-invocation
+  // bundle hint or the host. Otherwise a four-CPU logical tier can accidentally
+  // taskset its benchmark worker across every CPU on an eight-CPU host.
+  const liveCpuGrant = firstPositiveGrant(env, [
+    'FSUSBLOG_STEP_CPU_BUDGET',
+    'FSUSBLOG_STEP_CPU_UNITS',
+    'FSUSBLOG_TIER_CPU_UNITS'
+  ])
+  const liveMemoryGrant = firstPositiveGrant(env, [
+    'FSUSBLOG_STEP_MEMORY_GIB',
+    'FSUSBLOG_TIER_MEMORY_GIB'
+  ])
+  const fallbackCpuGrant = firstPositiveGrant(env, [
+    'FSUSBLOG_BUNDLE_CPU_UNITS',
+    'FSUSBLOG_BUNDLE_CPU_BUDGET'
+  ])
+  const fallbackMemoryGrant = firstPositiveGrant(env, ['FSUSBLOG_BUNDLE_MEMORY_GIB'])
+  const cpuGrant = liveCpuGrant ?? fallbackCpuGrant
+  const memoryGrant = liveMemoryGrant ?? fallbackMemoryGrant
+  const schedulerManaged = liveCpuGrant !== null && liveMemoryGrant !== null
+  const cpuBudget = Math.min(hostCpu, cpuGrant?.value ?? hostCpu)
   const memoryBudgetGiB = schedulerManaged
-    ? stepMemoryGrantGiB
+    ? liveMemoryGrant.value
     : Math.min(
         detectedFreeMemoryGiB,
-        positiveNumber(inheritedMemory, detectedFreeMemoryGiB, 'benchmark memory grant')
+        memoryGrant?.value ?? detectedFreeMemoryGiB
       )
   const memoryGiBPerCpu = detectedTotalMemoryGiB / hostCpu
   const cpuWorkerLimit = Math.max(1, Math.floor(cpuBudget))
@@ -160,7 +185,7 @@ export function resolveBenchmarkParallelism({
     workerCpuSets,
     affinityMode: process.platform === 'linux' ? 'linux-taskset' : 'os-scheduler',
     derivation: schedulerManaged
-      ? 'one statistically isolated worker using every scheduler-admitted CPU; step memory trusted after admission'
+      ? 'one statistically isolated worker using every scheduler-admitted CPU; live scheduler memory trusted after admission'
       : 'one statistically isolated worker using every CPU allowed by live CPU and memory budgets'
   }
 }

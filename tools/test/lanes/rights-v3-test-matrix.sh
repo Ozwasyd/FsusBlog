@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 EVIDENCE_PATH="$ROOT_DIR/.tmp/release-evidence/rights-v3-test-matrix.json"
 
@@ -44,7 +44,10 @@ FRONTEND_TESTS=(
 
 cd "$ROOT_DIR"
 
+FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
+  --configuration Debug \
+  --no-build \
   --no-restore \
   --filter "$BACKEND_FILTER" \
   -v minimal

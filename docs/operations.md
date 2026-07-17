@@ -5,14 +5,18 @@
 Before publishing a production image:
 
 ```bash
+./tools/test.sh production-correctness
+# Historical compatibility alias for the same browserless authority:
 ./tools/test.sh production
 ```
 
-`production` is the production-ci-gate: it runs fast validation first, starts the full local stack once, then reuses that stack for integration, release, acceptance, visual, security, resilience, load, frontend render-pressure, and release evidence schema checks. A passing production-ci-gate means no compile warnings, no TypeScript/Vite warnings, no runtime console errors or warnings, no API/Binary/WebSocket/AOT contract drift, and no blocker security or workflow regressions in the encoded risk matrix. It may still produce a schema-valid `collected-blocked` release evidence manifest while external production evidence is pending.
+`production-correctness` is the browserless production-ci-gate; historical `production` depends only on that authority and remains a compatibility alias. It runs fast validation, static governance, frontend/backend unit/property/model checks, SSR/AOT/HTTP contracts, API/DB/cache integration, browserless security/resilience/load/backend-QPS checks, frontend render-structure checks, and release evidence schema validation. Its complete dependency closure installs no Playwright browser and starts no Chromium. In particular, it does not run legacy Acceptance, visual, cross-browser, UX viewport, or browser render-pressure suites. A passing production-ci-gate means no compile warnings, no TypeScript/Vite warnings, no browserless runtime console errors or warnings, no API/Binary/WebSocket/AOT contract drift, and no blocker security or workflow regressions in the encoded browserless risk matrix. It may still produce a schema-valid `collected-blocked` release evidence manifest while external production evidence is pending.
+
+`browser-contract` is the only real-browser correctness tier. At the release boundary, and conditionally for `main` / `master` pushes or browser-boundary PRs, it consumes the immutable production build receipt and runs one managed Chromium with one controller/session, no shard, and no retry. `production-summary` and `release-evidence` do not wait for it. Scheduled/manual `browser-diagnostics` separately owns Acceptance, visual, UX viewport, cross-browser, renderer-pressure/performance, and browser-runtime resilience evidence; diagnostics failure remains visible but cannot be rewritten as either a production correctness pass or failure.
 
 `release-closeout-gate` is separate and must run `tools/operations/check-release-evidence-manifest.mjs --require-ok` or `./tools/test.sh release-closeout`. Only `collected-ok` is a release credential.
 
-The same gate is enforced by GitHub Actions `Quality Gate` on pull requests, pushes to `main` / `master`, and manual dispatch. CI requires `GITHUB_PACKAGES_TOKEN` for the private `@ozwasyd` npm package. Playwright worker counts come from the `tests/matrix.yml` tier policy; local runs should keep that policy unless a lane has separate stability evidence for higher parallelism.
+The same browserless gate is enforced by GitHub Actions `Quality Gate` on pull requests, pushes to `main` / `master`, and manual dispatch. CI requires `GITHUB_PACKAGES_TOKEN` for the private `@ozwasyd` npm package. Ordinary correctness jobs do not install Playwright; the single Browser Contract fixes its worker/concurrency at one, while scheduled/manual diagnostics remain under their separate workflow and matrix policy.
 
 ## Coverage Gate
 
@@ -35,8 +39,9 @@ Then restart VSCode and rerun the gate.
 
 On failure, collect:
 
-- `.tmp/acceptance/*.log`
-- `src/frontend/test-results/playwright/`
+- `.tmp/acceptance/*.log` for the shared browserless runtime bootstrap
+- `.tmp/browser-contract/receipt.json` for the single correctness browser boundary
+- `.tmp/browser-diagnostics/` and `src/frontend/test-results/playwright/` only for scheduled/manual diagnostics
 - GitHub Actions `quality-gate-artifacts`
 
 For Docker packaging and slot inspection:

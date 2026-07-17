@@ -144,7 +144,7 @@ configure_dotnet_build_parallelism() {
 
   case "$normalized" in
     ""|dynamic)
-      mode="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/resolve-dotnet-build-parallelism.mjs")"
+      mode="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/resolve-dotnet-build-parallelism.mjs")" || return $?
       msbuild_arg="/m:$mode"
       ;;
     safe|single|1)
@@ -197,9 +197,11 @@ require_bootstrapped_namespace() {
     fail "bootstrap namespace mismatch: current='$namespace' env_file='$recorded_namespace' ($env_file)"
   fi
 
-  local key value
-  while IFS='=' read -r key value; do
-    [[ -z "$key" || "$key" == \#* ]] && continue
+  local line key value
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" == \#* || "$line" != *=* ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
     if [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
       export "$key=$value"
     fi
@@ -1000,7 +1002,7 @@ run_fast_backend_lane() {
 
 configure_dotnet_test_processors() {
   export DOTNET_PROCESSOR_COUNT
-  DOTNET_PROCESSOR_COUNT="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/resolve-dotnet-test-processors.mjs")"
+  DOTNET_PROCESSOR_COUNT="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/resolve-dotnet-test-processors.mjs")" || return $?
   log "dotnet test processor count=$DOTNET_PROCESSOR_COUNT"
 }
 
@@ -1017,50 +1019,89 @@ backend_test_configuration() {
 }
 
 ensure_backend_filtered_build() {
-  local configuration configuration_slug test_bin_dir test_dll output_contract fingerprint_variant
-  configuration="$(backend_test_configuration)"
+  local configuration configuration_slug output_contract fingerprint_variant dotnet_sdk_version build_target
+  local debug_output_dir release_output_dir debug_server_output_dir debug_fixture_output_dir
+  local -a build_command
+  configuration="$(backend_test_configuration)" || return $?
   configuration_slug="${configuration,,}"
-  if [[ -n "${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}" ]]; then
-    test_bin_dir="$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/$configuration/net10.0"
-  else
-    test_bin_dir="$ROOT_DIR/tests/backend/bin/$configuration/net10.0"
-  fi
-  test_dll="$test_bin_dir/FsusBlog.Server.Tests.dll"
-  if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" && -f "$test_dll" ]]; then
-    log "reuse backend $configuration build from local physical build bundle"
-    return
-  fi
-  local debug_output_dir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0}"
-  local release_output_dir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Release/net10.0}"
+  debug_output_dir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0}"
+  release_output_dir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Release/net10.0}"
+  debug_server_output_dir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server/bin/Debug/net10.0}"
+  debug_fixture_output_dir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.ZkCommentV2MclFixture/bin/Debug/net10.0}"
   debug_output_dir="${debug_output_dir:-tests/backend/bin/Debug/net10.0}"
   release_output_dir="${release_output_dir:-tests/backend/bin/Release/net10.0}"
-  local debug_outputs="$debug_output_dir/FsusBlog.Server.Tests.dll|$debug_output_dir/FsusBlog.Server.Tests.deps.json|$debug_output_dir/FsusBlog.Server.Tests.runtimeconfig.json"
-  local release_outputs="$release_output_dir/FsusBlog.Server.Tests.dll|$release_output_dir/FsusBlog.Server.Tests.deps.json|$release_output_dir/FsusBlog.Server.Tests.runtimeconfig.json"
+  debug_server_output_dir="${debug_server_output_dir:-src/backend/bin/Debug/net10.0}"
+  debug_fixture_output_dir="${debug_fixture_output_dir:-tools/security/ZkCommentV2MclFixture/bin/Debug/net10.0}"
   if [[ "$configuration" == "Release" ]]; then
-    output_contract="$release_outputs"
-    fingerprint_variant='backend-filtered-release-v1'
+    output_contract="$release_output_dir"
+    fingerprint_variant='backend-filtered-release-v2'
+    # Keep the benchmark project outside this producer: it has its own
+    # run-bound Release producer and immutable measurement input.
+    build_target="$SERVER_TEST_PROJ"
   else
-    output_contract="$debug_outputs"
-    fingerprint_variant='backend-filtered-debug-v1'
+    # Directory contracts cover every runtime dependency, including the
+    # managed server and MCL native asset. A partially written DLL can never
+    # make another local-profile consumer bypass the run-once producer.
+    output_contract="$debug_output_dir|$debug_server_output_dir|$debug_fixture_output_dir"
+    fingerprint_variant='backend-filtered-debug-v2'
+    # The Debug privacy contract consumes the standalone MCL fixture with
+    # --no-build. The solution producer owns both test and fixture binaries.
+    build_target="$ROOT_DIR/FsusBlog.slnx"
   fi
   local fingerprint
-  configure_dotnet_build_parallelism
-  fingerprint="$(test_input_fingerprint \
-    --path Directory.Build.props \
-    --path FsusBlog.slnx \
-    --path src/backend \
-    --path src/core \
-    --path src/shared \
-    --path tests/backend \
-    --path tools/build-with-data-env.sh \
-    --path tools/test/legacy-test.sh \
-    --value "$fingerprint_variant")"
+  configure_dotnet_build_parallelism || return $?
+  dotnet_sdk_version="$(dotnet --version)" || return $?
+  if [[ -n "${FSUSBLOG_TEST_SOURCE_COMMIT:-}" && -n "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-}" ]]; then
+    # The scheduler identity is computed from versioned source state and stays
+    # stable while tests write ignored runtime cache/log files under src/backend.
+    # Binding both values keeps dirty worktrees and distinct commits separate
+    # without turning those runtime writes into duplicate build producers.
+    fingerprint="$(test_input_fingerprint \
+      --path Directory.Build.props \
+      --path FsusBlog.slnx \
+      --path tools/build-with-data-env.sh \
+      --path tools/test/legacy-test.sh \
+      --value "$fingerprint_variant" \
+      --value "dotnet-sdk=$dotnet_sdk_version" \
+      --value "source-commit=${FSUSBLOG_TEST_SOURCE_COMMIT}" \
+      --value "source-fingerprint=${FSUSBLOG_TEST_SOURCE_FINGERPRINT}")" || return $?
+  else
+    # Direct lane invocation has no scheduler snapshot, so retain a complete
+    # source scan as the conservative fallback.
+    fingerprint="$(test_input_fingerprint \
+      --path Directory.Build.props \
+      --path FsusBlog.slnx \
+      --path src/backend \
+      --path src/core \
+      --path src/shared \
+      --path tests/backend \
+      --path benchmarks/core \
+      --path tools/architecture/FsusBlog.DiLifetimeAnalyzer \
+      --path tools/security/ZkCommentV2MclFixture \
+      --path tools/build-with-data-env.sh \
+      --path tools/test/legacy-test.sh \
+      --value "$fingerprint_variant" \
+      --value "dotnet-sdk=$dotnet_sdk_version")" || return $?
+  fi
+  build_command=(
+    "$BUILD_ENV_RUNNER" dotnet build "$build_target"
+    -c "$configuration" -warnaserror -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
+  )
+  if [[ "$configuration" == "Release" ]]; then
+    # The filtered Release producer and the benchmark producer share project
+    # references and one output root. Serialize their only writer sections;
+    # every downstream test/benchmark remains a --no-build reader.
+    build_command=(
+      "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh"
+      "${build_command[@]}"
+    )
+  fi
   run_once_command \
     "backend-filtered-build-$configuration_slug" \
     "$fingerprint" \
     "$ROOT_DIR" \
     "$output_contract" \
-    "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/FsusBlog.slnx" -c "$configuration" -warnaserror -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
+    "${build_command[@]}"
 }
 
 backend_trx_file() {
@@ -1105,7 +1146,7 @@ run_backend_dotnet_filter_only() {
   ensure_backend_filtered_build
   rm -f "$trx_file"
   FSUSBLOG_BACKEND_DB_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}-${lane}-${BASHPID}" \
-    run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c "$configuration" -v minimal --no-build "${DOTNET_BUILD_SHARED_ARGS[@]}" --filter "$filter" --logger "trx;LogFileName=$trx_file"
+    run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c "$configuration" -v minimal --no-build --no-restore "${DOTNET_BUILD_SHARED_ARGS[@]}" --filter "$filter" --logger "trx;LogFileName=$trx_file"
 }
 
 run_backend_dotnet_filter_with_coverage() {
@@ -1125,6 +1166,7 @@ run_backend_dotnet_filter_with_coverage() {
     -c "$configuration" \
     -v minimal \
     --no-build \
+    --no-restore \
     "${DOTNET_BUILD_SHARED_ARGS[@]}" \
     --filter "$filter" \
     --logger "trx;LogFileName=$trx_file" \
@@ -1252,8 +1294,7 @@ run_backend_perf_readiness_build_only() {
     run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/verify-benchmark-build-ready.mjs"
     return 0
   fi
-  configure_dotnet_build_parallelism
-  run "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" -c Release -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
+  run "$ROOT_DIR/tools/test/ensure-benchmark-release-build.sh"
 }
 
 run_backend_mutation_with_config() {
@@ -1317,7 +1358,8 @@ run_backend_nightly_only() {
 }
 
 run_cross_stack_static_contracts() {
-  run "$ROOT_DIR/tools/contracts/export-openapi.sh"
+  FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build || return $?
+  FSUSBLOG_OPENAPI_BUILD=0 run "$ROOT_DIR/tools/contracts/export-openapi.sh"
   run_in_client npm run check:openapi-sync
   run_in_client npm run check:contract:openapi
   run_in_client npm run check:frontend-routes
@@ -1346,7 +1388,7 @@ run_cross_stack_runtime_contracts() {
 }
 
 run_cross_stack_contract_only() {
-  local phase="${1:-all}"
+  local phase="${1:-static}"
   case "$phase" in
     static)
       run_cross_stack_static_contracts
@@ -1583,8 +1625,6 @@ run_integration_only() {
     local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
     local -x FSUSBLOG_PARALLEL_WORKLOAD=orchestration
     run_parallel "integration-runtime-checks" \
-      "pow-runtime::run_integration_client_check check:pow-runtime" \
-      "search-runtime::run_integration_client_check check:search-runtime" \
       "auth-session::run_integration_client_check check:auth-session-smoke" \
       "api-contracts::run_integration_client_check check:api-contracts" \
       "binary-contract-smoke::run_integration_client_check check:binary-contract-smoke" \
@@ -1595,6 +1635,7 @@ run_integration_only() {
   }
 
   run_integration_stage "runtime-parallel" run_integration_parallel_checks
+  log "real-browser PoW and search probes are delegated to browser-runtime-risk-diagnostics"
   # Keep authenticated admin/session work and distribution mutation out of the
   # shared read pool so parallel execution cannot change their observable state.
   run_integration_stage "binary-smoke-auth" run_in_client npm run check:binary-smoke:auth
@@ -1737,7 +1778,10 @@ run_release() {
 }
 
 run_acceptance_only() {
-  log "tier=acceptance | full Playwright acceptance e2e, requires frontend=3000 backend=5000 preview=8080"
+  if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS:-0}" != "1" && "${MATRIX_JOB:-}" != "browser-diagnostics" ]]; then
+    fail "acceptance is diagnostics-only; use ./tools/test.sh browser-diagnostics"
+  fi
+  log "tier=acceptance | nightly/manual Playwright diagnostics, requires frontend=3000 backend=5000 preview=8080"
   configure_playwright_shard acceptance
   export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
   configure_playwright_workers acceptance-spa-routes FSUSBLOG_SPA_ROUTES_WORKERS
@@ -1910,10 +1954,9 @@ run_security_runtime_core_only() {
     run_parallel "security-runtime-core" "${security_runtime_jobs[@]}"
   }
   run_security_stage "security-runtime-parallel" run_security_runtime_pool
-  # Permission drives the thin correctness browser contract. Rendered a11y is
-  # diagnostic evidence and runs only from browser-a11y-diagnostics.sh.
-  run_security_stage "security-runtime-permissions" \
-    run_security_isolated_client_check permissions npm run check:security:permissions
+  # Rendered permission and a11y behavior are browser diagnostics. Correctness
+  # retains the backend/API authorization matrices and Browser Contract role flows.
+  log "real-browser permission routing is delegated to browser-runtime-risk-diagnostics"
 
   run_security_stage "reset-pre-attack" reset_security_runtime_state "pre attack matrix"
   run_security_stage "attack-matrix" run_in_client npm run check:security:attack-matrix
@@ -1956,7 +1999,7 @@ run_resilience_only() {
   run_in_client npm run check:aot-cache-resilience
   run_in_client npm run check:resilience:upload
   run_in_client npm run check:notification-stream-runtime
-  run_in_client npm run check:search-runtime
+  log "real-browser search recovery is delegated to browser-runtime-risk-diagnostics"
   run_in_client npm run check:binary-smoke
   run_in_client npm run check:binary-contract-smoke
   write_runtime_lane_summary resilience
@@ -1990,14 +2033,13 @@ run_load() {
   run_tier "load" run_load_only
 }
 
-run_production() {
-  log "tier=production | full industrial release gate with one post-fast runtime bootstrap"
+run_production_correctness() {
+  log "tier=production-correctness | browserless industrial correctness gate with one post-fast runtime bootstrap"
 
   run_tier "fast" run_fast_only
 
-  CURRENT_TIER="production"
+  CURRENT_TIER="production-correctness"
   export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
-  export FSUSBLOG_PLAYWRIGHT_WORKERS="${FSUSBLOG_PLAYWRIGHT_WORKERS:-$(default_playwright_workers)}"
   # Fast rebuilds backend StaticWebAssets and frontend release assets. Force the
   # shared runtime to restart once here so the remaining gates validate the
   # just-built code and asset generation instead of a previously healthy stack.
@@ -2009,18 +2051,11 @@ run_production() {
   else
     unset FSUSBLOG_FORCE_BOOTSTRAP
   fi
-  export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
-
   run_tier "release" run_release_only
 
-  export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/integration'
   run_tier "integration" run_integration_only
-  export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/security'
   run_tier "security" run_security_only
 
-  export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/acceptance'
-  run_tier "acceptance" run_acceptance_only
-  export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/resilience'
   run_tier "resilience" run_resilience_only
 
   run_tier "load" run_load_only
@@ -2028,9 +2063,13 @@ run_production() {
   run "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs"
 }
 
+run_production() {
+  run_production_correctness
+}
+
 usage() {
   cat <<'EOF'
-Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|security-static-phase|security-runtime-core|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-mutation-critical|backend-nightly|cross-stack-contract|backend-trx-contract-dry-run>
+Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|security-static-phase|security-runtime-core|resilience|load|production-correctness|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-mutation-critical|backend-nightly|cross-stack-contract|backend-trx-contract-dry-run>
 
 Tiers:
   fast         Static and local-only validation; no running services required.
@@ -2043,25 +2082,26 @@ Tiers:
   coverage-gate     One-shot coverage gate: backend + frontend + merge + threshold.
   coverage          Alias for coverage-gate.
   release      Release preview validation; requires preview at 8080.
-  acceptance   Full acceptance gate; bootstraps env and runs fast + integration + release + full Playwright acceptance.
+  acceptance   Diagnostics-only full Playwright acceptance; use browser-diagnostics for the managed entry.
   visual       Diagnostic-only visual gate for public + console screenshot baselines; excluded from production correctness.
   security     Auth/session/MFA/permission/attack security gate; rendered a11y runs in browser diagnostics.
   security-static-phase  Bootstrap-free security matrices, supply-chain, network and SBOM phase.
   security-runtime-core  Runtime-only auth/session/MFA/permission/attack phase; requires bootstrapped services.
   resilience   Runtime/upload/search resilience gate.
   load         Lightweight public/API concurrency gate.
-  production   Industrial correctness gate; runs fast, bootstraps once, then runs release + integration + security + thin acceptance + resilience + load. Browser-only visual/UX/cross-engine/geometry/performance diagnostics run separately.
+  production-correctness Industrial browserless correctness gate; runs fast, bootstraps once, then release + integration + security + resilience + load.
+  production   Compatibility alias for production-correctness.
   backend-api-integration       Backend endpoint/API matrix contract tier.
   backend-auth-state-machine    Backend auth/MFA/PoW/session state-machine tier.
   backend-concurrency           Backend deterministic race/idempotency tier.
   backend-property              Backend property-based protocol/cache/upload tier.
   backend-golden                Backend AEDS/POD golden catalog tier.
   backend-test-governance       Backend traceability/profile/static governance tier.
-  backend-perf                  Backend BenchmarkDotNet build/readiness tier.
+  backend-perf                  Shared Release readiness plus isolated native verifier P99 tier.
   backend-mutation              Backend Stryker.NET mutation tier.
   backend-mutation-critical     Release-critical AEDS/JWT/cache/binary/notification Stryker slice.
   backend-nightly               Backend exhaustive nightly readiness tier. Set FSUSBLOG_RUN_BACKEND_MUTATION_FULL=1 to include full mutation.
-  cross-stack-contract          Frontend/backend binary contract, API parity, schema sync, negative and coherence governance tier.
+  cross-stack-contract          Browserless frontend/backend binary contract, API parity, schema sync, negative and coherence governance tier.
 EOF
 }
 
@@ -2132,6 +2172,10 @@ main() {
       CURRENT_TIER="load"
       run_load
       ;;
+    production-correctness)
+      CURRENT_TIER="production-correctness"
+      run_production_correctness
+      ;;
     production)
       CURRENT_TIER="production"
       run_production
@@ -2178,7 +2222,7 @@ main() {
       ;;
     cross-stack-contract)
       CURRENT_TIER="cross-stack-contract"
-      run_tier "cross-stack-contract" run_cross_stack_contract_only "${2:-all}"
+      run_tier "cross-stack-contract" run_cross_stack_contract_only "${2:-static}"
       ;;
     backend-trx-contract-dry-run)
       CURRENT_TIER="backend-trx-contract-dry-run"

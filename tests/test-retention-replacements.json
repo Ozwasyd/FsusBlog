@@ -8488,6 +8488,24 @@
         "vitest:tests/frontend/unit/services/passkeyCeremony.test.ts#passes server options through the audited optionsJSON boundary"
       ],
       "reason": "The mounted modal owns accessible open/error/success states and the production ceremony adapter owns the WebAuthn boundary."
+    },
+    {
+      "id": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b",
+      "path": "tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-engine-capabilities-and-pwa-cache-stay-cohe-a4dfda78cd",
+        "shell:tools/test/lanes/browser-contract.sh",
+        "node-test:tests/tools/browser-contract.test.mjs#release-browser-contract-exposes-a-six-scenario-catalog--5221db5684"
+      ],
+      "reason": "The former broad cross-browser acceptance record is split between engine-only diagnostics and the single release Browser Contract, whose fixed catalog retains public hydration, account/admin sessions, critical writes, WebAuthn and service-worker behavior."
+    },
+    {
+      "id": "node-test:tests/tools/performance-evidence-summary.test.mjs#performance-evidence-producers-stay-isolated-and-the-fre-02a4e67e46",
+      "path": "tests/tools/performance-evidence-summary.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/performance-evidence-summary.test.mjs#correctness-performance-producers-stay-isolated-from-bro-04e1d8a0f4"
+      ],
+      "reason": "The same aggregation test was renamed after browser-only evidence moved to diagnostics; it still executes producer isolation, aggregate output and fail-closed behavior."
     }
   ],
   "assertionReplacements": [

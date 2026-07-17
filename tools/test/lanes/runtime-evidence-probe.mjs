@@ -1926,10 +1926,13 @@ function startManagedBackend() {
     throw new Error(`unsupported FSUSBLOG_RUNTIME_CONFIGURATION: ${configuration}`)
   }
   const noBuild = process.env.FSUSBLOG_RUNTIME_NO_BUILD === '1'
+  if (!noBuild) {
+    throw new Error('managed backend restart requires FSUSBLOG_RUNTIME_NO_BUILD=1 and a shared prebuilt runtime')
+  }
   const args = [
     'run', '--project', 'src/backend/FsusBlog.Server.csproj', '--no-launch-profile',
     '-c', configuration,
-    ...(noBuild ? ['--no-build', '--no-restore'] : []),
+    '--no-build', '--no-restore',
     '--urls', `http://127.0.0.1:${port}`
   ]
   const child = spawn('dotnet', args, {

@@ -69,12 +69,15 @@ rm -rf "$ARTIFACT_ROOT"
 mkdir -p "$PAYLOAD_ROOT"
 
 if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { has_domain backend-runtime || has_domain test-runtime; }; then
-  "$ROOT_DIR/tools/build-with-data-env.sh" dotnet restore "$ROOT_DIR/FsusBlog.slnx" -v minimal /p:NuGetAudit=false
-  "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/src/backend/FsusBlog.Server.csproj" \
+  "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
+    "$ROOT_DIR/tools/build-with-data-env.sh" dotnet restore "$ROOT_DIR/FsusBlog.slnx" -v minimal /p:NuGetAudit=false
+  "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
+    "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/src/backend/FsusBlog.Server.csproj" \
     -c Release --no-restore --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
 fi
 if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && has_domain test-runtime; then
-  "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
+  "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
+    "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
     -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
 fi
 if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { has_domain frontend-dist || has_domain wasm; }; then
@@ -127,6 +130,7 @@ CREATE_ARGS=(
   --duration-ms "$DURATION_MS"
   --input Directory.Build.props
   --input FsusBlog.slnx
+  --input tools/test/run-with-dotnet-release-build-lock.sh
   --input tools/test/lanes/production-build-artifacts.sh
 )
 if has_domain backend-runtime || has_domain test-runtime; then

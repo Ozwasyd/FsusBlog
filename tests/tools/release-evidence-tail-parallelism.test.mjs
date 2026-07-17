@@ -12,7 +12,7 @@ const script = path.join(root, relativeScript)
 test('release evidence tail preserves dependencies while parallelizing independent checks', () => {
   const source = fs.readFileSync(script, 'utf8')
   const planChain = source.indexOf('prepare_evidence_plan_and_check_jobs()')
-  const plan = source.indexOf('evidence-plan --out', planChain)
+  const plan = source.indexOf('run-matrix-governance-once.sh" release-evidence-plan', planChain)
   const jobs = source.indexOf('check_job_summaries', plan)
   const precollect = source.indexOf('run_collect_parallel release-evidence-precollect')
   const collect = source.indexOf('run_collect collect-evidence')
@@ -24,6 +24,7 @@ test('release evidence tail preserves dependencies while parallelizing independe
   assert.ok(precollect < collect)
   assert.ok(collect < postcollect)
   assert.ok(postcollect < finish)
+  assert.doesNotMatch(source, /run-test-matrix\.mjs[\s\S]{0,200}evidence-plan --out/u)
   for (const token of [
     'plan-and-job-summaries prepare_evidence_plan_and_check_jobs',
     'flaky-evidence check_flaky_evidence',

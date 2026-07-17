@@ -241,3 +241,32 @@ test('runner source enforces one managed launch, one context factory, and proces
     'the primary startup failure must be captured before cleanup retry evidence'
   )
 })
+
+test('authenticated Browser Contract evidence never retains or uploads raw Playwright traces', async () => {
+  const [runner, workflow] = await Promise.all([
+    readFile(path.join(root, 'tests/browser-contract/run.mjs'), 'utf8'),
+    readFile(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8')
+  ])
+  const browserContractJob = workflow.slice(
+    workflow.indexOf('  browser-contract:\n'),
+    workflow.indexOf('\n  resilience-runtime:', workflow.indexOf('  browser-contract:\n'))
+  )
+
+  assert.match(runner, /const mayRetainRawTrace = scenario\.role === 'anonymous'/u)
+  assert.equal((runner.match(/context\.tracing\.start\(/gu) ?? []).length, 1)
+  assert.equal((runner.match(/context\.tracing\.stop\(/gu) ?? []).length, 1)
+  assert.match(
+    runner,
+    /if \(mayRetainRawTrace\) \{\s*await context\.tracing\.start\(/u,
+    'raw tracing must be opt-in for the anonymous role only'
+  )
+  assert.match(
+    runner,
+    /if \(mayRetainRawTrace\) \{\s*const traced = await context\.tracing\.stop\(/u,
+    'a trace must never be materialized unless the anonymous allowlist admitted it'
+  )
+
+  assert.match(browserContractJob, /\.tmp\/browser-contract\/receipt\.json/u)
+  assert.match(browserContractJob, /\.tmp\/release-evidence\/jobs\/\*\*/u)
+  assert.doesNotMatch(browserContractJob, /\.tmp\/browser-contract\/(?:fixtures|runs)\/\*\*/u)
+})

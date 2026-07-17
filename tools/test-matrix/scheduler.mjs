@@ -35,6 +35,24 @@ const protectedAssertionTypes = new Set(['runtime', 'browser', 'perf', 'fuzz', '
 const protectedExecutionVariants = new Set(['property', 'model', 'performance', 'runtime'])
 const fingerprintEnvironmentPrefixes = ['FSUSBLOG_', 'PLAYWRIGHT_', 'MATRIX_', 'VITE_']
 const fingerprintEnvironmentKeys = new Set(['CI', 'NODE_ENV', 'DOTNET_ROOT'])
+const orchestrationOnlyFingerprintEnvironmentKeys = new Set([
+  'FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS',
+  'FSUSBLOG_TEST_EXECUTION_SOURCE',
+  'FSUSBLOG_TIER_CPU_UNITS',
+  'FSUSBLOG_TIER_MEMORY_GIB',
+  'FSUSBLOG_BUNDLE_CPU_BUDGET',
+  'FSUSBLOG_BUNDLE_MEMORY_GIB',
+  'FSUSBLOG_VITEST_MAX_WORKERS',
+  'FSUSBLOG_COMMAND_MANIFEST_WORKERS',
+  'FSUSBLOG_PLAYWRIGHT_WORKERS',
+  'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE',
+  'FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID',
+  'FSUSBLOG_CGROUP_BUNDLE_PATH',
+  'FSUSBLOG_CGROUP_EFFECTIVE_CPU_MAX',
+  'FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_HIGH_BYTES',
+  'FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_MAX_BYTES',
+  'FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX'
+])
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex')
 }
@@ -442,10 +460,17 @@ function declarationsOverlap(left, right) {
 
 function ownedGeneratedDeclarations(tier, byId) {
   if (/tools\/test\/lanes\/noop\.sh\b/u.test(String(tier.command))) return []
-  const dependencyDeclarations = (tier.dependsOn ?? []).flatMap((dependencyId) => {
+  const dependencyDeclarations = []
+  const visitedDependencies = new Set([tier.id])
+  const collectDependencyDeclarations = (dependencyId) => {
+    if (visitedDependencies.has(dependencyId)) return
+    visitedDependencies.add(dependencyId)
     const dependency = byId.get(dependencyId)
-    return dependency ? [...(dependency.artifacts ?? []), ...(dependency.evidence ?? [])] : []
-  })
+    if (!dependency) return
+    dependencyDeclarations.push(...(dependency.artifacts ?? []), ...(dependency.evidence ?? []))
+    for (const ancestorId of dependency.dependsOn ?? []) collectDependencyDeclarations(ancestorId)
+  }
+  for (const dependencyId of tier.dependsOn ?? []) collectDependencyDeclarations(dependencyId)
   const candidates = [...new Set([...(tier.artifacts ?? []), ...(tier.evidence ?? [])])]
     .filter(generatedOutputDeclaration)
     .filter((declaration) => !dependencyDeclarations.some((dependency) => declarationsOverlap(declaration, dependency)))
@@ -582,6 +607,7 @@ export function effectiveCacheInputs(tier) {
 function fingerprintEnvironment(env) {
   return Object.fromEntries(Object.entries(env ?? {})
     .filter(([key]) => !['FSUSBLOG_TEST_SOURCE_COMMIT', 'FSUSBLOG_TEST_SOURCE_FINGERPRINT'].includes(key))
+    .filter(([key]) => !orchestrationOnlyFingerprintEnvironmentKeys.has(key))
     .filter(([key]) => fingerprintEnvironmentKeys.has(key) || fingerprintEnvironmentPrefixes.some((prefix) => key.startsWith(prefix)))
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, value]) => [key, String(value)]))
@@ -903,6 +929,35 @@ function readCheckpoint(checkpointFile) {
   } catch {
     return null
   }
+}
+
+function resumeTierCandidates(previous, tierIds) {
+  const candidates = {}
+  if (!previous) return candidates
+
+  const retainSuccessful = (tierId, value, fallbackSourceState) => {
+    if (!tierIds.has(tierId)) return
+    const candidate = value?.schema === 'fsusblog.test-matrix.resume-candidate.v1'
+      ? value
+      : {
+          schema: 'fsusblog.test-matrix.resume-candidate.v1',
+          sourceState: value?.reuseSourceState ?? fallbackSourceState ?? null,
+          tierResult: value
+        }
+    if (candidate.tierResult?.status === 'success') candidates[tierId] = candidate
+    else delete candidates[tierId]
+  }
+
+  for (const [tierId, candidate] of Object.entries(previous.resumeCandidates ?? {})) {
+    retainSuccessful(tierId, candidate, previous.sourceState)
+  }
+  // Results recorded by the most recent attempt are newer than carried
+  // candidates. A failure/cancellation therefore retires any older candidate
+  // for the same tier instead of allowing a later resume to hide that result.
+  for (const [tierId, result] of Object.entries(previous.tiers ?? {})) {
+    retainSuccessful(tierId, result, previous.sourceState)
+  }
+  return candidates
 }
 
 function writeCheckpoint(checkpointFile, checkpoint) {
@@ -1282,6 +1337,7 @@ async function validateCurrentCheckpointSource(checkpoint, root, snapshotWorktre
   if (!String(current.worktreeFingerprint ?? '').trim() || !sameCheckpointSource(current, checkpoint.sourceState)) {
     throw new Error('checkpoint sourceState does not match the current repository source')
   }
+  return current
 }
 
 function persistEvidenceFailure(checkpointFile, expectedRunId, error) {
@@ -1358,6 +1414,8 @@ export function isProjectionOnlyCheckpointFailure(checkpoint) {
   const physicalTiersSucceeded = physicalTiers.length > 0
     && physicalTiers.every((tier) => tier?.status === 'success' && tier?.reused === false)
   return checkpoint?.status === 'failure'
+    && checkpoint?.mode === 'fresh'
+    && checkpoint?.authoritative === true
     && projectionFailure
     && onlyProjectionMissing
     && physicalTiersSucceeded
@@ -1378,6 +1436,7 @@ export async function resumeCheckpointEvidence(checkpointFileValue, expectedRunI
     if (!isProjectionOnlyCheckpointFailure(checkpoint)) {
       throw new Error('checkpoint is not a projection-only failure with fresh successful physical tiers')
     }
+    await validateCurrentCheckpointSource(checkpoint, root, options.snapshotWorktree)
     validateCheckpointBundleSummaries(checkpoint, root)
     const successfulCheckpoint = structuredClone(checkpoint)
     successfulCheckpoint.status = 'success'
@@ -1385,9 +1444,9 @@ export async function resumeCheckpointEvidence(checkpointFileValue, expectedRunI
     delete successfulCheckpoint.failurePoint
     delete successfulCheckpoint.ungeneratedEvidence
     const evidence = await evidenceBuilder(successfulCheckpoint)
+    const finalizerSource = await validateCurrentCheckpointSource(checkpoint, root, options.snapshotWorktree)
     validateCheckpointBundleSummaries(checkpoint, root)
     validateCheckpointEvidence(successfulCheckpoint, evidence, root)
-    const snapshot = await (options.snapshotWorktree ?? (() => snapshotGitWorktree(root)))()
     checkpoint.status = 'success'
     checkpoint.failure = null
     delete checkpoint.failurePoint
@@ -1396,10 +1455,7 @@ export async function resumeCheckpointEvidence(checkpointFileValue, expectedRunI
     checkpoint.evidenceFinalization = {
       mode: 'projection-resume',
       finalizedAt: new Date().toISOString(),
-      finalizerSource: {
-        commit: gitHead(root),
-        worktreeFingerprint: snapshot?.fingerprint ?? null
-      }
+      finalizerSource
     }
     writeCheckpoint(checkpointFile, checkpoint)
     return checkpoint
@@ -1581,6 +1637,10 @@ async function runDagUnlocked(options) {
       sourceChanged: resumeSourceChanged,
       reuseAcrossSourceChanges: options.reuseAcrossSourceChanges !== false
     } : null,
+    // A resume attempt may fail before it reaches otherwise reusable tiers.
+    // Keep those prior successes separate from this attempt's completed tiers;
+    // each candidate must still pass every normal reuse check before promotion.
+    resumeCandidates: resume ? resumeTierCandidates(previous, byId) : {},
     completedTiers: [],
     tiers: {},
     failure: null,
@@ -2083,10 +2143,11 @@ async function runDagUnlocked(options) {
   }
 
   const completeReusedTier = (tier, inputFingerprint, dependencyFingerprintValue, tierEnvironment) => {
-    const previousTier = previous?.tiers?.[tier.id]
+    const candidate = checkpoint.resumeCandidates?.[tier.id]
+    const previousTier = candidate?.tierResult
     const currentOutputs = snapshotTierOutputs(root, tier, tierEnvironment)
     if (
-      (resumeSourceChanged && options.reuseAcrossSourceChanges === false)
+      (options.reuseAcrossSourceChanges === false && !sameCheckpointSource(candidate?.sourceState, sourceState))
       || previousTier?.status !== 'success'
       || previousTier.inputFingerprint !== inputFingerprint
       || previousTier.dependencyFingerprint !== dependencyFingerprintValue
@@ -2100,9 +2161,11 @@ async function runDagUnlocked(options) {
     completed.add(tier.id)
     resultFingerprints.set(tier.id, resultFingerprint)
     reusedTiers.push(tier.id)
+    delete checkpoint.resumeCandidates[tier.id]
     checkpoint.tiers[tier.id] = {
       ...previousTier,
       reused: true,
+      reuseSourceState: candidate.sourceState,
       logFile: path.relative(root, path.join(tierLogDirectory, `${tier.id}.log`)).replaceAll(path.sep, '/')
     }
     writeCheckpoint(checkpointFile, checkpoint)
@@ -2141,6 +2204,15 @@ async function runDagUnlocked(options) {
     })
     const dependencyFingerprintValue = dependencyFingerprint(tier)
     if (resume && completeReusedTier(tier, inputFingerprint, dependencyFingerprintValue, tierEnvironment)) return false
+
+    // Once execution is about to begin, the old success is no longer a safe
+    // fallback: the command may mutate its outputs before failing or being
+    // interrupted. Persist the retirement before spawning any work so a killed
+    // resume remains fail-closed on the next attempt.
+    if (resume && checkpoint.resumeCandidates?.[tier.id]) {
+      delete checkpoint.resumeCandidates[tier.id]
+      writeCheckpoint(checkpointFile, checkpoint)
+    }
 
     const ownedOutputs = ownedGeneratedDeclarations(tier, byId)
     if (!resume) cleanFreshOwnedFiles(root, ownedOutputs, tierEnvironment)

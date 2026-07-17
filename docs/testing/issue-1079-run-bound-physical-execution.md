@@ -8,6 +8,8 @@ Local Production 对明确登记的确定性治理命令使用 `fsusblog.physica
 
 producer 的 success、failure 或 cancellation 都会写入收据并释放锁。failure 的 exit code/signal 原样传播给所有 consumer，不允许 consumer 静默重跑。收据自摘要或 required artifact digest 不匹配时 projection fail closed。
 
+稳定 consumer evidence 使用 `fsusblog.physical-execution-consumer-evidence.v2`。publisher 不信任 projection 中复制的字段：它只接受本 run 的 `projections/` 下 regular non-symlink 文件，随后重开同 run、同 execution key 的 `receipts/` 文件，校验 receipt contract/self digest、test ID、artifact digest 与当前输出状态。v2 evidence 嵌入完整 receipt/projection 文档及各自摘要；CI 还上传原始 receipt/projection 和被引用输出，使下载后的 evidence 不依赖 runner 私有路径才能审计。
+
 每个逻辑 projection 记录：
 
 - `physicalExecutionReceipt` 与 digest；
@@ -16,7 +18,7 @@ producer 的 success、failure 或 cancellation 都会写入收据并释放锁�
 - 等待时长与 avoided child startup；
 - artifact evidence。
 
-run summary 聚合 physical execution 数、logical consumer 数、dedup hit、避免的 child startup、等待时间和 receipt bytes。不同 execution key 的物理 producer 继续并行；只有 summary 的“读取当前 receipts/projections、合并、原子写入”使用 run 级短临界区，防止并发晚写者用旧快照覆盖新汇总。summary lock 使用与 execution lock 相同的 owner token、heartbeat 和 dead-stale-owner 回收语义，取消或进程崩溃后不会永久阻塞后续汇总。
+run summary 聚合 physical execution 数、logical consumer 数、dedup hit、避免的 child startup、等待时间和 receipt bytes。不同 execution key 的物理 producer 继续并行；只有 summary 的“读取当前 receipts/projections、合并、原子写入”使用 run 级短临界区，防止并发晚写者用旧快照覆盖新汇总。summary lock 使用与 execution lock 相同的 owner token、heartbeat 和 dead-stale-owner 回收语义。合法 owner PID 已死亡时经 token 二次确认立即回收，不等待长于 caller timeout 的 stale window；owner 仍存活或信息不完整时继续等待 heartbeat/stale 边界，取消或进程崩溃后不会永久阻塞后续汇总。
 
 ## 首批迁移
 

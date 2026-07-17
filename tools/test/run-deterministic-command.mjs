@@ -1,10 +1,17 @@
 #!/usr/bin/env node
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { fingerprintPaths, runBoundExecution } from './run-once.mjs'
+import {
+  buildRunBoundConsumerEvidence,
+  fingerprintPaths,
+  runBoundExecution,
+  validateRunBoundConsumerEvidence,
+  validateRunBoundProjection
+} from './run-once.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -29,6 +36,47 @@ function parse(argv) {
 
 function digest(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex')
+}
+
+function sanitizeSegment(value, fallback) {
+  const normalized = String(value ?? '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_.-]+/gu, '-')
+    .replace(/^-+|-+$/gu, '')
+  return normalized && normalized !== '.' && normalized !== '..' ? normalized : fallback
+}
+
+async function publishConsumerProjection({ result, directory, cwd, runId, key, consumerId }) {
+  const normalizedKey = sanitizeSegment(key, 'execution')
+  const validatedProjection = await validateRunBoundProjection({
+    runId,
+    key: normalizedKey,
+    consumerId,
+    projectionFile: result.projectionFile,
+    receiptFile: result.receiptFile
+  })
+
+  const outputDirectory = path.resolve(cwd, directory)
+  if (outputDirectory !== repoRoot && !outputDirectory.startsWith(`${repoRoot}${path.sep}`)) {
+    throw new Error('run-bound consumer projection output is outside the repository')
+  }
+  fs.mkdirSync(outputDirectory, { recursive: true })
+  const realRepository = fs.realpathSync(repoRoot)
+  const realOutputDirectory = fs.realpathSync(outputDirectory)
+  if (realOutputDirectory !== realRepository
+      && !realOutputDirectory.startsWith(`${realRepository}${path.sep}`)) {
+    throw new Error('run-bound consumer projection output resolves outside the repository')
+  }
+  const outputFile = path.join(
+    outputDirectory,
+    `${sanitizeSegment(consumerId, 'consumer')}-${normalizedKey}.json`
+  )
+  const document = buildRunBoundConsumerEvidence({ validatedProjection })
+  validateRunBoundConsumerEvidence(document, { runId, key: normalizedKey, consumerId })
+  const temporary = `${outputFile}.next-${process.pid}`
+  fs.writeFileSync(temporary, `${JSON.stringify(document, null, 2)}\n`, { mode: 0o600 })
+  fs.renameSync(temporary, outputFile)
+  return outputFile
 }
 
 function git(args) {
@@ -116,7 +164,17 @@ async function main(argv) {
       consumerId,
       signal: controller.signal
     }, async () => spawnCommand(command, cwd, controller.signal))
-    console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}`)
+    const consumerEvidenceFile = options.projectionDirectory
+      ? await publishConsumerProjection({
+          result,
+          directory: options.projectionDirectory,
+          cwd,
+          runId,
+          key: options.key,
+          consumerId
+        })
+      : null
+    console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}${consumerEvidenceFile ? ` consumer-evidence=${consumerEvidenceFile}` : ''}`)
   } finally {
     process.off('SIGINT', onSigint)
     process.off('SIGTERM', onSigterm)

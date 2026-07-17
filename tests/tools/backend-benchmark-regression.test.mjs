@@ -183,6 +183,47 @@ test('complete STEP grants retain every granted CPU in one statistically isolate
   assert.deepEqual(capacity.workerCpuSets, [[2, 3, 4, 5, 6, 7]])
 })
 
+test('logical TIER grants cap taskset affinity before wider bundle and host capacity', () => {
+  const capacity = resolveBenchmarkParallelism({
+    env: {
+      FSUSBLOG_TIER_CPU_UNITS: '4',
+      FSUSBLOG_TIER_MEMORY_GIB: '5',
+      FSUSBLOG_BUNDLE_CPU_UNITS: '8',
+      FSUSBLOG_BUNDLE_CPU_BUDGET: '8',
+      FSUSBLOG_BUNDLE_MEMORY_GIB: '12'
+    },
+    availableCpu: 8,
+    allowedCpuIds: [2, 3, 4, 5, 6, 7, 8, 9],
+    freeMemoryGiB: 12,
+    totalMemoryGiB: 16,
+    classCount: 10
+  })
+  assert.equal(capacity.schedulerManaged, true)
+  assert.equal(capacity.cpuBudget, 4)
+  assert.equal(capacity.cpuWorkerLimit, 4)
+  assert.equal(capacity.workerCount, 1)
+  assert.deepEqual(capacity.workerCpuSets, [[2, 3, 4, 5]])
+})
+
+test('live STEP grants narrow inherited TIER affinity at benchmark class boundaries', () => {
+  const capacity = resolveBenchmarkParallelism({
+    env: {
+      FSUSBLOG_STEP_CPU_BUDGET: '2',
+      FSUSBLOG_STEP_MEMORY_GIB: '3',
+      FSUSBLOG_TIER_CPU_UNITS: '4',
+      FSUSBLOG_TIER_MEMORY_GIB: '5'
+    },
+    availableCpu: 8,
+    allowedCpuIds: [0, 1, 2, 3, 4, 5, 6, 7],
+    freeMemoryGiB: 12,
+    totalMemoryGiB: 16,
+    classCount: 10
+  })
+  assert.equal(capacity.cpuBudget, 2)
+  assert.equal(capacity.memoryBudgetGiB, 3)
+  assert.deepEqual(capacity.workerCpuSets, [[0, 1]])
+})
+
 test('direct benchmark invocation still protects workers with current host memory', () => {
   const capacity = resolveBenchmarkParallelism({
     env: {

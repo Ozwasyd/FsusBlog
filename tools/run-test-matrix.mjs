@@ -207,11 +207,25 @@ function resolveLogicalTierResources(tiers, resources = logicalTierSystemResourc
   })
 }
 
+const observeOnlyCorrectnessTargets = new Set([
+  'production',
+  'production-correctness',
+  'release-final'
+])
+
+function applyDirectCorrectnessBudgetPolicy(tiers, targetTierId) {
+  if (!observeOnlyCorrectnessTargets.has(targetTierId)) return tiers
+  return tiers.map((tier) => tier.id === 'browser-contract'
+    ? tier
+    : { ...tier, budgetMs: null })
+}
+
 function normalizeTierId(id) {
   return aliases.get(id) ?? id
 }
 
 function playwrightWorkersForTier(tier) {
+  if (tier.id === 'browser-contract') return 1
   return tier.requiresPlaywright === 'none'
     ? null
     : Math.max(1, Math.floor(tierResourceUnits(tier).cpuUnits))
@@ -586,6 +600,9 @@ function validateMatrix(matrix) {
     if (!['none', 'chromium', 'all'].includes(tier.requiresPlaywright)) {
       errors.push(`${tier.id}.requiresPlaywright is invalid: ${tier.requiresPlaywright}`)
     }
+    if (tier.requiresPlaywright !== 'none' && tier.resourceClass !== 'browser') {
+      errors.push(`${tier.id}.requiresPlaywright=${tier.requiresPlaywright} requires resourceClass=browser`)
+    }
     if (!['none', 'frontend', 'backend', 'full'].includes(tier.cacheProfile)) {
       errors.push(`${tier.id}.cacheProfile is invalid: ${tier.cacheProfile}`)
     }
@@ -664,6 +681,72 @@ function validateMatrix(matrix) {
   }
   for (const id of ids) visit(id)
 
+  function dependencyClosure(targetId) {
+    const closure = new Set()
+    function collect(id) {
+      if (closure.has(id)) return
+      const tier = byId.get(id)
+      if (!tier) return
+      closure.add(id)
+      for (const dependency of tier.dependsOn ?? []) collect(dependency)
+    }
+    collect(targetId)
+    return closure
+  }
+
+  const productionCorrectness = byId.get('production-correctness')
+  if (!productionCorrectness) {
+    errors.push('browserless topology missing production-correctness tier')
+  } else {
+    if (productionCorrectness.requiresPlaywright !== 'none' || productionCorrectness.requiredFor !== 'production') {
+      errors.push('production-correctness must use requiresPlaywright=none and requiredFor=production')
+    }
+    const browserDependencies = [...dependencyClosure('production-correctness')]
+      .filter((id) => byId.get(id)?.requiresPlaywright !== 'none')
+    if (browserDependencies.length > 0) {
+      errors.push(`production-correctness dependency closure must be browserless: ${browserDependencies.join(', ')}`)
+    }
+  }
+
+  const productionAlias = byId.get('production')
+  if (productionAlias && JSON.stringify(productionAlias.dependsOn ?? []) !== JSON.stringify(['production-correctness'])) {
+    errors.push('production compatibility tier must depend only on production-correctness')
+  }
+
+  const browserContract = byId.get('browser-contract')
+  if (!browserContract) {
+    errors.push('release topology missing browser-contract tier')
+  } else if (
+    browserContract.resourceClass !== 'browser'
+    || browserContract.requiresPlaywright !== 'chromium'
+    || browserContract.parallelizable !== false
+    || browserContract.timeoutMinutes !== 10
+    || browserContract.requiredFor !== 'release-final'
+    || browserContract.ciJob !== 'browser-contract'
+    || browserContract.selfBootstraps !== true
+    || JSON.stringify(browserContract.dependsOn ?? []) !== JSON.stringify(['production-build-artifacts'])
+  ) {
+    errors.push('browser-contract must be one self-bootstrapped, unsharded 10m Chromium tier consuming only production-build-artifacts')
+  }
+
+  const releaseFinal = byId.get('release-final')
+  if (!releaseFinal) {
+    errors.push('release topology missing release-final tier')
+  } else {
+    if (releaseFinal.requiresPlaywright !== 'none') {
+      errors.push('release-final aggregate must not install or launch Playwright itself')
+    }
+    if (!(releaseFinal.dependsOn ?? []).includes('production-correctness') || !(releaseFinal.dependsOn ?? []).includes('browser-contract')) {
+      errors.push('release-final must depend on production-correctness and browser-contract')
+    }
+    const browserDependencies = [...dependencyClosure('release-final')]
+      .filter((id) => byId.get(id)?.requiresPlaywright !== 'none')
+      .sort()
+    if (JSON.stringify(browserDependencies) !== JSON.stringify(['browser-contract'])) {
+      errors.push(`release-final dependency closure must contain only browser-contract as a browser tier: ${browserDependencies.join(', ') || 'none'}`)
+    }
+  }
+
   return errors
 }
 
@@ -692,7 +775,10 @@ function printPlan(tiers) {
   for (const [index, tier] of tiers.entries()) {
     const deps = tier.dependsOn.length > 0 ? ` deps=${tier.dependsOn.join(',')}` : ''
     const shard = tier.shardable ? ` shards=${tier.defaultShards}` : ''
-    console.log(`${index + 1}. ${tier.id} [job=${tier.ciJob} phase=${tier.phase} resource=${tier.resourceClass} cost=${tier.cost} timeout=${tier.timeoutMinutes}m risk=${tier.risk}${shard}]${deps}`)
+    const timeout = Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0
+      ? `${Math.ceil(Number(tier.budgetMs) / 60_000)}m`
+      : 'observe-only'
+    console.log(`${index + 1}. ${tier.id} [job=${tier.ciJob} phase=${tier.phase} resource=${tier.resourceClass} cost=${tier.cost} timeout=${timeout} risk=${tier.risk}${shard}]${deps}`)
     console.log(`   ${tier.command}`)
   }
 }
@@ -1711,10 +1797,13 @@ async function runTier(matrix, tierId, args) {
     await runLocalProfile(matrix, normalizeTierId(tierId), options)
     return
   }
+  const targetTierId = normalizeTierId(tierId)
   const declaredTiers = options.noDeps ? [tierMap(matrix).get(normalizeTierId(tierId))] : planTier(matrix, tierId)
   if (declaredTiers.some((tier) => !tier)) throw new Error(`unknown tier: ${tierId}`)
   const systemResources = logicalTierSystemResources()
-  const all = resolveLogicalTierResources(declaredTiers, systemResources)
+  const all = applyDirectCorrectnessBudgetPolicy(
+    resolveLogicalTierResources(declaredTiers, systemResources),
+    targetTierId)
 
   if (options.shard) {
     const target = all[all.length - 1]
@@ -1728,7 +1817,6 @@ async function runTier(matrix, tierId, args) {
   }
 
   const target = all[all.length - 1]
-  const targetTierId = normalizeTierId(tierId)
   const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
   const buildLayout = prepareProductionBuildLayout({ root, runId, fresh: !options.resume })
   if (!options.resume) scheduleStaleProductionBuildGc({ root, currentRunId: runId })
@@ -2600,7 +2688,7 @@ function buildPrSmartGatePlan(matrix, options) {
     'endpoint-depth-runtime',
     'release-public',
     'security-runtime',
-    'acceptance-playwright',
+    'browser-contract',
     'resilience-runtime',
     'load-smoke',
     'backend-qps-collectors',
@@ -2650,7 +2738,7 @@ function productionBuildDomainsForJobs(selectedJobs) {
     if (jobs.has(job)) add('backend-runtime', 'test-runtime', 'generated-contracts')
   }
   for (const job of [
-    'release-public', 'security-runtime', 'acceptance-playwright', 'perf-regression'
+    'release-public', 'security-runtime', 'browser-contract', 'perf-regression'
   ]) {
     if (jobs.has(job)) add('backend-runtime', 'test-runtime', 'frontend-dist', 'wasm', 'generated-contracts')
   }

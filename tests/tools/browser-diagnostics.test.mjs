@@ -33,14 +33,28 @@ test('catalog retains every browser-only risk with lightweight replacement owner
   assert.equal(migration.schema, 'fsusblog.issue-1148-browser-diagnostics-migration.v1')
   assert.deepEqual(
     browserDiagnosticCatalog.map((category) => category.id),
-    ['visual', 'ux', 'cross-browser', 'geometry-motion-focus', 'accessibility', 'performance', 'resilience']
+    [
+      'visual',
+      'ux',
+      'cross-browser',
+      'geometry-motion-focus',
+      'accessibility',
+      'performance',
+      'resilience',
+      'acceptance',
+      'release-runtime',
+      'runtime-risk'
+    ]
   )
-  assert.equal(browserDiagnosticProbeCount(), 14)
+  assert.equal(browserDiagnosticProbeCount(), 21)
   assert.deepEqual(selectBrowserDiagnostics(['performance']).map((category) => category.id), ['performance'])
+  assert.deepEqual(selectBrowserDiagnostics(['runtime-risk']).map((category) => category.id), ['runtime-risk'])
   assert.throws(() => selectBrowserDiagnostics(['unknown']), /unknown browser diagnostic categories/u)
 
   const migrationByCategory = new Map(migration.records.map((record) => [record.category, record]))
-  for (const category of browserDiagnosticCatalog) {
+  const migratedCategories = browserDiagnosticCatalog.filter((category) => migrationByCategory.has(category.id))
+  assert.equal(migratedCategories.length, migration.records.length)
+  for (const category of migratedCategories) {
     const record = migrationByCategory.get(category.id)
     assert.ok(record, `${category.id} is absent from the migration map`)
     assert.ok(record.sourcePaths.length > 0)
@@ -51,6 +65,43 @@ test('catalog retains every browser-only risk with lightweight replacement owner
       assert.ok(fs.existsSync(path.join(root, relativePath)), `missing migration path: ${relativePath}`)
     }
   }
+})
+
+test('catalog owns retained acceptance, release and runtime-risk probes without a pre-run shell', () => {
+  const categories = new Map(browserDiagnosticCatalog.map((category) => [category.id, category]))
+  assert.deepEqual(categories.get('acceptance').probes.map((probe) => probe.id), ['full-suite'])
+  assert.deepEqual(
+    categories.get('release-runtime').probes.map((probe) => probe.id),
+    ['release-rbac-negative', 'release-aot-consumption']
+  )
+  assert.deepEqual(
+    categories.get('runtime-risk').probes.map((probe) => probe.id),
+    ['pow-runtime', 'search-runtime', 'zero-auth-probe', 'permission-matrix']
+  )
+
+  const commands = [...categories.values()]
+    .flatMap((category) => category.probes)
+    .map((probe) => probe.command.join(' '))
+  for (const probe of [
+    'acceptance',
+    'release-rbac-negative',
+    'release-aot-consumption',
+    'pow-runtime',
+    'search-runtime',
+    'zero-auth-probe',
+    'permission-matrix'
+  ]) {
+    assert.ok(commands.some((command) => command.endsWith(`browser-diagnostics-risk.sh ${probe}`)))
+  }
+  for (const categoryId of ['acceptance', 'release-runtime', 'runtime-risk']) {
+    for (const replacement of categories.get(categoryId).replacements) {
+      assert.ok(fs.existsSync(path.join(root, replacement)), `missing ${categoryId} replacement: ${replacement}`)
+    }
+  }
+
+  const entry = read('tools/test/lanes/browser-diagnostics.sh')
+  assert.doesNotMatch(entry, /browser-runtime-risk-diagnostics\.sh/u)
+  assert.match(entry, /exec .*tests\/browser-diagnostics\/run\.mjs/u)
 })
 
 test('diagnostics topology is fixed, managed and independent from correctness', () => {
@@ -77,6 +128,9 @@ test('diagnostics topology is fixed, managed and independent from correctness', 
   assert.match(workflow, /FSUSBLOG_TEST_NAMESPACE: browser-diagnostics-/u)
   assert.match(workflow, /FSUSBLOG_FIXTURE_ROOT: .*\.tmp\/browser-diagnostics\//u)
   assert.match(workflow, /FSUSBLOG_BROWSER_DIAGNOSTICS_OUTPUT_ROOT: \.tmp\/browser-diagnostics\//u)
+  for (const category of browserDiagnosticCatalog) {
+    assert.match(workflow, new RegExp(`^\\s+- ${category.id}$`, 'mu'))
+  }
   assert.match(matrix, /id: browser-diagnostics-nightly[\s\S]*?cadence: nightly[\s\S]*?requiredFor: none/u)
   assert.match(matrix, /id: browser-diagnostics-manual[\s\S]*?cadence: release-manual[\s\S]*?requiredFor: none/u)
 })

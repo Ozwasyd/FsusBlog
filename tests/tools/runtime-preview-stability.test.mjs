@@ -96,6 +96,17 @@ test('browser runtime timeouts scale from machine contention while remaining bou
   assert.ok(contended.requestTimeoutMs <= 102000 * 0.7)
   assert.ok(contended.pageAuditTimeoutMs <= 102000 * 0.5)
 
+  const matrixTierGrant = resolveRuntimeBrowserTimeoutPlan({
+    env: {
+      FSUSBLOG_TIER_CPU_UNITS: '1',
+      FSUSBLOG_TIER_DEADLINE_MS: '102000'
+    },
+    cpuCount: 8
+  })
+  assert.equal(matrixTierGrant.cpuGrant, 1)
+  assert.equal(matrixTierGrant.stepDeadlineMs, 102000)
+  assert.ok(matrixTierGrant.contentionMultiplier > unconstrained.contentionMultiplier)
+
   const pooled = resolveRuntimeBrowserTimeoutPlan({
     env: {
       FSUSBLOG_STEP_CPU_BUDGET: '8',

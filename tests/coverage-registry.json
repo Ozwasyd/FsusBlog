@@ -934,7 +934,7 @@
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
       "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
-        "frontend-render-pressure"
+        "frontend-render-structure"
       ]
     },
     {
@@ -1269,7 +1269,7 @@
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
       "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
-        "frontend-render-pressure"
+        "frontend-render-structure"
       ]
     },
     {
@@ -1377,6 +1377,31 @@
       ]
     },
     {
+      "id": "browserless-production-correctness",
+      "description": "Ordinary PR and local production correctness use a transitive browserless matrix closure, while release-final adds exactly one immutable-build-bound Chromium Browser Contract and scheduled/manual diagnostics retain every other real-browser risk.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/matrix.yml",
+        "tools/test.sh",
+        "tools/test/legacy-test.sh",
+        "tools/run-test-matrix.mjs",
+        "tools/check-workflow-matrix-sync.mjs",
+        "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
+        ".github/workflows/quality-gate.yml",
+        ".github/workflows/browser-diagnostics.yml",
+        "tests/tools/issue-1150-matrix-commands.test.mjs",
+        "tests/tools/issue-1150-browserless-ci-topology.test.mjs",
+        "docs/testing/issue-1150-browserless-ci-topology.md"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "Matrix validation and workflow synchronization must fail when production-correctness transitively reaches a Playwright tier, a browser-launching tier omits resourceClass=browser, ordinary correctness installs a browser or prepares Playwright sessions, release-final reaches any browser tier other than browser-contract, Browser Contract is sharded/retried/rebuilt, or diagnostics are allowed to affect correctness authority.",
+      "minimumRequirement": "The production-correctness closure must preserve static, frontend/backend unit/property/model, SSR/AOT/HTTP, API/DB/cache integration, resilience, load and release evidence with zero browser launches. Browser-boundary PRs, main pushes and explicit release runs may add one ten-minute, zero-retry, single-Chromium Browser Contract consuming the exact immutable production receipt; all Acceptance, visual, UX, cross-engine, render-pressure, browser resilience, PoW/search/permission/zero-auth probes remain scheduled/manual diagnostics.",
+      "tierIds": [
+        "production-correctness"
+      ]
+    },
+    {
       "id": "release-browser-contract",
       "description": "Release-final consumes one deterministic Playwright Library Chromium process and one sealed run-scoped fixture namespace with fixed one-session/one-concurrency topology to serially verify public hydration, auth deep links, one critical write and Service Worker policy, with WebAuthn added only by a step-up-ready immutable fixture.",
       "owner": "InteropGlueAgent",
@@ -1396,8 +1421,11 @@
         "tests/tools/local-runtime-cleanup.test.mjs",
         "tests/tools/issue-1149-browser-contract-fixture.test.mjs",
         "tests/tools/issue-1149-session-isolation.test.mjs",
+        "tests/tools/issue-1150-browserless-ci-topology.test.mjs",
+        ".github/workflows/quality-gate.yml",
         "docs/testing/browser-contract.md",
-        "docs/testing/issue-1149-browser-contract-fixture.md"
+        "docs/testing/issue-1149-browser-contract-fixture.md",
+        "docs/testing/issue-1150-browserless-ci-topology.md"
       ],
       "assertionType": "browser",
       "failClosedRule": "Release-final must reject a missing, stale or failed fixture/browser receipt, incomplete or mismatched explicit source identity, session or concurrency other than one, dynamic worker/resource topology, shared live-public-schema or diagnostics fallback, build/fixture/provider-state identity drift, unsafe fixture permissions or symlinks, unverified container labels/IDs or PID identity, incomplete per-resource cleanup evidence, any topology other than one managed Chromium with five to six serial contexts and zero retries, unexpected browser issues, or a product/contract/infra scenario failure.",
@@ -1417,15 +1445,21 @@
         "tests/browser-diagnostics/run.mjs",
         "tests/issue-1148-browser-diagnostics-migration.json",
         "tests/tools/browser-diagnostics.test.mjs",
+        "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
+        "tests/tools/issue-1150-matrix-commands.test.mjs",
+        "tests/tools/issue-1150-browserless-ci-topology.test.mjs",
         ".github/workflows/browser-diagnostics.yml",
-        "docs/testing/issue-1148-browser-diagnostics.md"
+        "docs/testing/issue-1148-browser-diagnostics.md",
+        "docs/testing/issue-1150-browserless-ci-topology.md"
       ],
       "assertionType": "browser",
       "failClosedRule": "The diagnostics workflow must fail when any selected probe fails, preserve independent category summaries and classify browser process failures as infrastructure without changing the ordinary correctness result.",
       "minimumRequirement": "A full nightly plan must include every catalog category with explicit fixed workers, zero retry, immutable build/source identity, per-lane namespaces and artifact roots, complete execution counts and diagnostic versus infrastructure failure classes.",
       "tierIds": [
         "browser-diagnostics-nightly",
-        "browser-diagnostics-manual"
+        "browser-diagnostics-manual",
+        "browser-runtime-risk-diagnostics",
+        "browser-diagnostics"
       ]
     },
     {
@@ -1845,15 +1879,18 @@
     },
     {
       "id": "release-admin-console",
-      "description": "Release Admin Console is covered by browser and public-page artifacts that exercise the named behavior.",
+      "description": "Release Admin Console is covered by browserless Vitest contracts for route authorization, message state, account navigation and the admin dashboard task workbench.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
-        "src/frontend/test-results/playwright/acceptance"
+        "tests/frontend/unit/router/index.test.ts",
+        "tests/frontend/unit/components/user/MessagesStateMachine.test.ts",
+        "tests/frontend/unit/components/account/AccountNavigationPanel.test.ts",
+        "tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts"
       ],
-      "assertionType": "browser",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
+      "assertionType": "unit",
+      "failClosedRule": "The release tier must run every declared Vitest owner and fail when route authorization, message state, account navigation or admin workbench behavior regresses; a stale Playwright directory cannot satisfy this coverage.",
+      "minimumRequirement": "The router, message state machine, account navigation and admin dashboard workbench Vitest suites must all execute in the release-admin-console tier.",
       "tierIds": [
         "release-admin-console"
       ]
@@ -1891,15 +1928,15 @@
     },
     {
       "id": "release-auth-flow",
-      "description": "Release Auth Flow is covered by browser and public-page artifacts that exercise the named behavior.",
+      "description": "Release Auth Flow is covered by the browserless AuthFlowStates Vitest contract for login, registration and recovery state transitions.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
-        "src/frontend/test-results/playwright/acceptance"
+        "tests/frontend/unit/components/AuthFlowStates.test.ts"
       ],
-      "assertionType": "browser",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
+      "assertionType": "unit",
+      "failClosedRule": "The release tier must execute the AuthFlowStates Vitest suite and fail on an invalid login, registration or recovery transition; a stale Playwright directory cannot satisfy this coverage.",
+      "minimumRequirement": "AuthFlowStates.test.ts must execute its login, registration and recovery state assertions in the release-auth-flow tier.",
       "tierIds": [
         "release-auth-flow"
       ]

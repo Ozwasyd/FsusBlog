@@ -16,6 +16,9 @@ export const secretName = 'FSUSBLOG_TEST_SESSION_SECRET'
   'tests/frontend/support/auth-helpers.mjs': `
 export function loginWithFixtureSessionBypass() {}
 `,
+  'tests/frontend/fixtures/prepare-playwright-sessions.mjs': `
+export function assertSafeFixtureContainer() {}
+`,
   'tests/frontend/e2e/acceptance/admin-console.spec.ts': `
 export function assertLocalAcceptanceBackend() {}
 `

@@ -67,14 +67,16 @@ add('coverage', 'README names coverage-gate as an independent required check', (
 
 add('production-order', 'production plan keeps release evidence as CI schema gate, not closeout gate', () => {
   const matrix = loadMatrix()
-  const production = matrix.tiers.find((tier) => tier.id === 'production')
+  const production = matrix.tiers.find((tier) => tier.id === 'production-correctness')
   return production?.dependsOn?.includes('release-evidence') && !production.dependsOn.includes('release-closeout')
 })
 
-add('production-order', 'production DAG includes the current primary runtime and frontend pressure tiers', () => {
+add('production-order', 'production DAG includes browserless runtime and frontend structure tiers', () => {
   const ids = planTier(loadMatrix(), 'production').map((tier) => tier.id)
-  return ['fast', 'bootstrap', 'release', 'integration', 'security', 'acceptance', 'frontend-render-pressure', 'release-evidence', 'production']
+  return ['fast', 'bootstrap', 'release', 'integration', 'security', 'frontend-render-structure', 'release-evidence', 'production-correctness', 'production']
     .every((id) => ids.includes(id))
+    && !ids.includes('acceptance')
+    && !ids.includes('browser-contract')
 })
 
 add('release-evidence', 'docs distinguish production-ci-gate from release-closeout-gate', () => {
@@ -169,9 +171,13 @@ add('time-budget', 'time budgets are sourced from tests/matrix.yml timeoutMinute
   return runNodeScript('tools/docs/check-time-budget-sync.mjs').ok
 })
 
-add('backend-perf', 'backend-perf is documented as BenchmarkDotNet readiness, not benchmark result', () => {
-  const text = `${read('docs/testing.md')}\n${read('docs/testing.generated.md')}\n${read('tests/backend/TESTING.md')}`
-  return text.includes('backend-perf-readiness') && text.includes('BenchmarkDotNet build/readiness')
+add('backend-perf', 'backend-perf native P99 and BenchmarkDotNet regression responsibilities are documented separately', () => {
+  const testingDocs = read('docs/testing.md')
+  const backendDocs = read('tests/backend/TESTING.md')
+  return testingDocs.includes('native verifier P99')
+    && testingDocs.includes('machine-quiet `benchmark-window`')
+    && backendDocs.includes('native verifier P99')
+    && backendDocs.includes('backend-benchmark-regression')
 })
 
 add('ports', 'testing docs describe fixed local default ports with environment overrides', () => {

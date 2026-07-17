@@ -209,7 +209,7 @@ test('UX risk is diagnostics-only with one fixed Playwright worker and no elasti
   const probe = ux.probes.find((candidate) => candidate.id === 'risk-matrix')
   assert.deepEqual(probe.command, ['bash', 'tools/test/lanes/browser-ux-risk-diagnostics.sh'])
   assert.ok(probe.artifactPaths.includes('.tmp/browser-diagnostics-runtime/ux-risk/summary.json'))
-  assert.equal(browserDiagnosticProbeCount(), 14)
+  assert.equal(browserDiagnosticProbeCount(), 21)
 })
 
 test('UX risk resource planning ignores machine pressure and ordinary production has no entry point', () => {

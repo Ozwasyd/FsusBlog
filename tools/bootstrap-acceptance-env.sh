@@ -1416,6 +1416,54 @@ reset_security_test_state() {
   fi
 }
 
+MANAGED_BACKEND_SHARED_DEBUG_BUILD_REQUIRED=0
+
+configure_managed_backend_runtime_reader() {
+  local runtime_configuration="${FSUSBLOG_RUNTIME_CONFIGURATION:-}"
+  local requested_no_build="${FSUSBLOG_RUNTIME_NO_BUILD:-0}"
+
+  if [[ -z "$runtime_configuration" ]]; then
+    if [[ "$requested_no_build" == "1" ]]; then
+      runtime_configuration="Release"
+    else
+      runtime_configuration="Debug"
+    fi
+  fi
+  case "$runtime_configuration" in
+    Debug)
+      MANAGED_BACKEND_SHARED_DEBUG_BUILD_REQUIRED=1
+      ;;
+    Release)
+      if [[ "$requested_no_build" != "1" ]]; then
+        log 'managed Release backend requires a prebuilt runtime and FSUSBLOG_RUNTIME_NO_BUILD=1'
+        return 2
+      fi
+      ;;
+    *)
+      log 'FSUSBLOG_RUNTIME_CONFIGURATION must be Debug or Release'
+      return 2
+      ;;
+  esac
+
+  # Runtime processes are readers. Debug is produced once through the same
+  # run-once key as backend test consumers; Release must arrive prebuilt.
+  FSUSBLOG_RUNTIME_CONFIGURATION="$runtime_configuration"
+  FSUSBLOG_RUNTIME_NO_BUILD=1
+  export FSUSBLOG_RUNTIME_CONFIGURATION FSUSBLOG_RUNTIME_NO_BUILD
+  write_env_file
+}
+
+ensure_managed_backend_shared_debug_build() {
+  if [[ "$MANAGED_BACKEND_SHARED_DEBUG_BUILD_REQUIRED" != "1" ]]; then
+    return
+  fi
+  log 'preparing managed Debug backend through the shared backend build producer'
+  (
+    source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
+    FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build
+  )
+}
+
 ensure_backend() {
   local pid_file="$TMP_DIR/backend.pid"
   local log_file="$TMP_DIR/backend.log"
@@ -1430,6 +1478,20 @@ ensure_backend() {
     allocate_readiness_deadline 'debug backend'
     readiness_deadline="$READINESS_DEADLINE_AT_MS"
   fi
+  if [[ "${FSUSBLOG_RUNTIME_NO_BUILD:-0}" != "1" ]]; then
+    log 'managed backend startup is read-only and requires FSUSBLOG_RUNTIME_NO_BUILD=1'
+    return 2
+  fi
+  local runtime_configuration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}"
+  case "$runtime_configuration" in
+    Debug|Release) ;;
+    *)
+      log 'FSUSBLOG_RUNTIME_CONFIGURATION must be Debug or Release'
+      return 2
+      ;;
+  esac
+  local runtime_args="-c $runtime_configuration --no-build --no-restore"
+
   managed_pid="$(read_pid_file "$pid_file")"
   existing_pid="$(find_port_pid "$DEBUG_BACKEND_PORT")"
   if probe_binary_url "$DEBUG_BACKEND_URL/api/binary/system/seo"; then
@@ -1464,25 +1526,6 @@ ensure_backend() {
   kill_runtime_pid_if_owned backend "$pid_file" "$managed_pid" "$readiness_deadline" || return 1
   wait_for_port_release "$DEBUG_BACKEND_PORT" "$readiness_deadline" || return 1
 
-  local runtime_args=""
-  local runtime_configuration="${FSUSBLOG_RUNTIME_CONFIGURATION:-}"
-  if [[ -z "$runtime_configuration" ]]; then
-    if [[ "${FSUSBLOG_RUNTIME_NO_BUILD:-0}" == "1" ]]; then
-      runtime_configuration="Release"
-    else
-      runtime_configuration="Debug"
-    fi
-  fi
-  case "$runtime_configuration" in
-    Debug|Release) ;;
-    *)
-      log 'FSUSBLOG_RUNTIME_CONFIGURATION must be Debug or Release'
-      return 2
-      ;;
-  esac
-  if [[ "${FSUSBLOG_RUNTIME_NO_BUILD:-0}" == "1" ]]; then
-    runtime_args="-c $runtime_configuration --no-build --no-restore"
-  fi
   log "starting managed ${runtime_configuration,,} backend"
   local -x Testing__EnforceProductionCsp=true
   local -x PublicAot__SsrClientRoot="$PUBLIC_AOT_SSR_CLIENT_ROOT"
@@ -1490,6 +1533,8 @@ ensure_backend() {
   FSUSBLOG_TEST_RUN_ID="${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}" \
     FSUSBLOG_TEST_NAMESPACE="$NS_SLUG" \
     FSUSBLOG_RUNTIME_ROLE=backend \
+    FSUSBLOG_RUNTIME_CONFIGURATION="$runtime_configuration" \
+    FSUSBLOG_RUNTIME_NO_BUILD=1 \
     FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME="${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" \
     FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}" \
     nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") FSUSBLOG_NOTIFICATION_DRILL_SECRET=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") NotificationStream__DrillSecret=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") Jwt__KeyVersion=$(printf '%q' "$JWT_KEY_VERSION") Jwt__SecretKey=$(printf '%q' "$JWT_SECRET") Jwt__Issuer=$(printf '%q' "$JWT_ISSUER") Jwt__Audience=$(printf '%q' "$JWT_AUDIENCE") Jwt__AccessTokenExpiresMinutes=$(printf '%q' "$JWT_ACCESS_TOKEN_EXPIRES_MINUTES") Security__Pow__SigningKey=$(printf '%q' "$POW_SIGNING_KEY") Security__Pow__BaseDifficulty=$(printf '%q' "$POW_BASE_DIFFICULTY") Security__Pow__MaxDifficulty=$(printf '%q' "$POW_MAX_DIFFICULTY") Security__CaptchaV1__SigningKey=$(printf '%q' "$CAPTCHA_SIGNING_KEY") Security__PerceptionSealedToken__CurrentKeyVersion=dev Security__PerceptionSealedToken__Keys__dev=$(printf '%q' "$PERCEPTION_SEALED_TOKEN_KEY") Security__RecoveryKeyPepper=$(printf '%q' "$RECOVERY_KEY_PEPPER") MfaChallenge__TicketSigningKey=$(printf '%q' "$MFA_TICKET_SIGNING_KEY") VisitLog__IpPseudonymization__CurrentEpoch=$(printf '%q' "$VISIT_LOG_IP_KEY_EPOCH") VisitLog__IpPseudonymization__CurrentKey=$(printf '%q' "$VISIT_LOG_IP_KEY") Moderation__Pepper=$(printf '%q' "$MODERATION_PEPPER") Moderation__RegionPolicy__IpHashKey=$(printf '%q' "$MODERATION_REGION_IP_HASH_KEY") Subscription__EmailHashPepper=$(printf '%q' "$SUBSCRIPTION_EMAIL_HASH_PEPPER") AnonymousCredentialIssuer__IssuerPublicKeyId=local-acceptance-issuer AnonymousCredentialIssuer__SubjectHashPepper=$(printf '%q' "$ANONYMOUS_SUBJECT_HASH_PEPPER") AnonymousCredentialRoot__AttestationKey=$(printf '%q' "$ANONYMOUS_ROOT_ATTESTATION_KEY") AnonymousCredentialRoot__AttestationKeyId=local-acceptance-root AnonymousIdentity__NullifierPepper=$(printf '%q' "$ANONYMOUS_NULLIFIER_PEPPER") FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$(printf '%q' "$ANONYMOUS_IDENTITY_MODE") Security__RiskControl__PublicReadChallenge__Enabled=$(printf '%q' "$RISK_PUBLIC_READ_CHALLENGE_ENABLED") RateLimiting__PublicReadPermitLimit=$(printf '%q' "$PUBLIC_READ_PERMIT_LIMIT") RateLimiting__PublicReadQueueLimit=$(printf '%q' "$PUBLIC_READ_QUEUE_LIMIT") NotificationStream__MaxConnectionsPerAccount=$(printf '%q' "$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT") PublicAot__BackfillConcurrency=$(printf '%q' "$PUBLIC_AOT_BACKFILL_CONCURRENCY") PublicAot__SsrWorkerCount=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_COUNT") PublicAot__SsrWorkerScript=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_SCRIPT") ActiveReleaseFence__AllowSyntheticLocalFence=true RuntimeTuning__ThreadPool__Enabled=true RuntimeTuning__ThreadPool__MinThreadsPerCpu=$(printf '%q' "$RUNTIME_THREADPOOL_MIN_THREADS_PER_CPU") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") AuthCookies__AllowInsecureTransportCookies=true && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile $runtime_args" >"$log_file" 2>&1 < /dev/null &
@@ -1835,12 +1880,20 @@ main() {
     READINESS_PHASES_REMAINING=1
   else
     READINESS_PHASES_REMAINING=2
+    configure_managed_backend_runtime_reader
   fi
   mkdir -p "$SERVER_WWWROOT_DIR"
   allocate_readiness_deadline 'database services'
-  run_bootstrap_parallel 'database services' "$READINESS_DEADLINE_AT_MS" \
-    postgres ensure_postgres \
-    redis ensure_redis
+  if [[ "${1:-}" == "--services-only" ]]; then
+    run_bootstrap_parallel 'database services' "$READINESS_DEADLINE_AT_MS" \
+      postgres ensure_postgres \
+      redis ensure_redis
+  else
+    run_bootstrap_parallel 'database services and backend producer' "$READINESS_DEADLINE_AT_MS" \
+      postgres ensure_postgres \
+      redis ensure_redis \
+      backend-debug-build ensure_managed_backend_shared_debug_build
+  fi
   refresh_fixture_service_generation
   if [[ "${1:-}" == "--services-only" ]]; then
     log 'postgres and redis ready'

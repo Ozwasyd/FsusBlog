@@ -13,10 +13,10 @@ test('wasm fuzz lane executes the real decoder instead of projecting an environm
   assert.match(runner, /decoderVariants = \['basic', 'speed'\]/u)
   assert.match(runner, /readFile\(variant\.wasmPath\)/u)
   assert.match(runner, /createAedsModule\(\{ wasmBinary/u)
-  assert.match(runner, /instance\._decode_io_buffer\(input\.byteLength\)/u)
+  assert.match(runner, /instance\._decode_io_buffer\(inputToken, input\.byteLength\)/u)
   assert.match(runner, /wasm_fuzz_tier_differential/u)
   assert.match(runner, /wasm_fuzz_arena_clear_failed/u)
-  assert.match(runner, /input\.byteLength === 0[\s\S]*instance\._decode_aeds\(0, 0\)/u)
+  assert.match(runner, /input\.byteLength === 0[\s\S]*instance\._decode_io_buffer\(0n, 0\)/u)
 })
 
 test('wasm fuzz evidence is run-bound, reproducible, and cannot report success without executed seeds', () => {
@@ -29,7 +29,8 @@ test('wasm fuzz evidence is run-bound, reproducible, and cannot report success w
 })
 
 test('wasm fuzz workload scales from the scheduler CPU grant with a non-zero floor', () => {
-  assert.match(runner, /FSUSBLOG_STEP_CPU_UNITS/u)
+  assert.match(runner, /FSUSBLOG_STEP_CPU_BUDGET[\s\S]*FSUSBLOG_TIER_CPU_UNITS[\s\S]*FSUSBLOG_BUNDLE_CPU_UNITS/u)
+  assert.doesNotMatch(runner, /FSUSBLOG_STEP_CPU_UNITS/u)
   assert.match(runner, /Math\.max\(64, grantedCpu \* 64\)/u)
   assert.match(runner, /corpus\.map\(\(entry, corpusIndex\)/u)
 })

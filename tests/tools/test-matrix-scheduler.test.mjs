@@ -616,7 +616,7 @@ test('checkpoint evidence builder failure is persisted instead of leaving a succ
   assert.match(persisted.failure.reason, /projection builder exploded/u)
 })
 
-test('projection-only resume reuses fresh successful physical evidence without rerunning tiers', async () => {
+test('projection-only resume rejects physical evidence from a different source state', async () => {
   const {
     attachCheckpointEvidence,
     isProjectionOnlyCheckpointFailure,
@@ -636,6 +636,46 @@ test('projection-only resume reuses fresh successful physical evidence without r
     isProjectionOnlyCheckpointFailure(JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8'))),
     true
   )
+  const failedCheckpoint = JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8'))
+  assert.equal(isProjectionOnlyCheckpointFailure({ ...failedCheckpoint, mode: 'resume' }), false)
+  assert.equal(isProjectionOnlyCheckpointFailure({ ...failedCheckpoint, authoritative: false }), false)
+
+  let builderCalled = false
+  await assert.rejects(
+    resumeCheckpointEvidence(
+      fixture.result.checkpointPath,
+      'production-fresh',
+      () => {
+        builderCalled = true
+        return { logicalTierProjection: fixture.projection }
+      },
+      {
+        root: fixture.temp,
+        snapshotWorktree: async () => ({ fingerprint: 'projection-fix', entries: {} })
+      }
+    ),
+    /checkpoint sourceState does not match the current repository source/u
+  )
+  assert.equal(builderCalled, false)
+  assert.equal(JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8')).status, 'failure')
+})
+
+test('projection-only resume reuses fresh successful physical evidence from the same source', async () => {
+  const {
+    attachCheckpointEvidence,
+    isProjectionOnlyCheckpointFailure,
+    resumeCheckpointEvidence,
+    runDag
+  } = await loadScheduler()
+  const fixture = await createCheckpointEvidenceFixture(runDag, 'scheduler-projection-resume-same-source')
+  const invalidProjection = structuredClone(fixture.projection)
+  invalidProjection.logicalTierCount += 1
+  await assert.rejects(
+    attachCheckpointEvidence(fixture.result.checkpointPath, 'production-fresh', {
+      logicalTierProjection: invalidProjection
+    }, fixture.attachOptions),
+    /logicalTierCount must match its entries/u
+  )
 
   const recovered = await resumeCheckpointEvidence(
     fixture.result.checkpointPath,
@@ -646,7 +686,7 @@ test('projection-only resume reuses fresh successful physical evidence without r
     },
     {
       root: fixture.temp,
-      snapshotWorktree: async () => ({ fingerprint: 'projection-fix', entries: {} })
+      snapshotWorktree: stableSnapshot
     }
   )
 
@@ -655,7 +695,7 @@ test('projection-only resume reuses fresh successful physical evidence without r
   assert.equal(recovered.sourceState.worktreeFingerprint, 'stable')
   assert.equal(recovered.logicalTierProjection.logicalTierCount, 2)
   assert.equal(recovered.evidenceFinalization.mode, 'projection-resume')
-  assert.equal(recovered.evidenceFinalization.finalizerSource.worktreeFingerprint, 'projection-fix')
+  assert.equal(recovered.evidenceFinalization.finalizerSource.worktreeFingerprint, 'stable')
   assert.equal(recovered.tiers['local-production-build-static'].reused, false)
   assert.equal(isProjectionOnlyCheckpointFailure(recovered), false)
 })
@@ -1452,6 +1492,159 @@ test('resume reuses successful tiers only while input and dependency fingerprint
   assert.deepEqual(invalidated.reusedTiers, [])
 })
 
+test('resume ignores invocation timing metadata but invalidates real execution environment changes', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-resume-orchestration-env')
+  const runsRoot = path.join(temp, 'runs')
+  const current = tier('work')
+  const executed = []
+  let invocationStartedAtMs = '1000'
+  let tierMemoryGiB = '1.5'
+  let featureMode = 'stable'
+  const run = (resume) => runDag({
+    tiers: [current],
+    root: temp,
+    runsRoot,
+    runId: 'orchestration-env',
+    mode: resume ? 'resume' : 'fresh',
+    resume,
+    maxParallel: 1,
+    snapshotWorktree: stableSnapshot,
+    envForTier: () => ({
+      FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS: invocationStartedAtMs,
+      FSUSBLOG_TIER_MEMORY_GIB: tierMemoryGiB,
+      FSUSBLOG_FEATURE_MODE: featureMode
+    }),
+    executeTier: async (selected) => {
+      executed.push(selected.id)
+      return { code: 0, signal: null }
+    }
+  })
+
+  await run(false)
+  assert.deepEqual(executed, ['work'])
+
+  invocationStartedAtMs = '2000'
+  tierMemoryGiB = '2.25'
+  executed.length = 0
+  const timingOnlyResume = await run(true)
+  assert.equal(timingOnlyResume.status, 'success')
+  assert.deepEqual(timingOnlyResume.reusedTiers, ['work'])
+  assert.deepEqual(executed, [], 'scheduler-only timing and live resource grants must not fragment resume candidates')
+
+  featureMode = 'changed'
+  executed.length = 0
+  const executionEnvironmentResume = await run(true)
+  assert.equal(executionEnvironmentResume.status, 'success')
+  assert.deepEqual(executionEnvironmentResume.reusedTiers, [])
+  assert.deepEqual(executed, ['work'])
+})
+
+test('an early resume failure preserves untouched success candidates for the next resume', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-resume-early-failure')
+  const runsRoot = path.join(temp, 'runs')
+  const gateInput = path.join(temp, 'gate.txt')
+  fs.writeFileSync(gateInput, 'v1\n')
+  const tiers = [
+    tier('gate', { cacheInputs: ['gate.txt'], phase: 0 }),
+    tier('later-independent', { phase: 1 })
+  ]
+  const executed = []
+  let failGate = false
+  const run = (resume) => runDag({
+    tiers,
+    root: temp,
+    runsRoot,
+    runId: 'early-failure',
+    mode: resume ? 'resume' : 'fresh',
+    resume,
+    maxParallel: 2,
+    snapshotWorktree: stableSnapshot,
+    executeTier: async (selected) => {
+      executed.push(selected.id)
+      if (selected.id === 'gate' && failGate) return { code: 7, signal: null }
+      return { code: 0, signal: null }
+    }
+  })
+
+  const fresh = await run(false)
+  assert.equal(fresh.status, 'success')
+  assert.deepEqual(executed, ['gate', 'later-independent'])
+
+  fs.writeFileSync(gateInput, 'v2\n')
+  failGate = true
+  executed.length = 0
+  const failedResume = await run(true)
+  assert.equal(failedResume.status, 'failure')
+  assert.deepEqual(executed, ['gate'])
+  assert.deepEqual(failedResume.checkpoint.completedTiers, [])
+  assert.equal(failedResume.checkpoint.tiers.gate.status, 'failure')
+  assert.equal(failedResume.checkpoint.resumeCandidates.gate, undefined)
+  assert.equal(failedResume.checkpoint.resumeCandidates['later-independent'].tierResult.status, 'success')
+
+  failGate = false
+  executed.length = 0
+  const recoveredResume = await run(true)
+  assert.equal(recoveredResume.status, 'success')
+  assert.deepEqual(executed, ['gate'])
+  assert.deepEqual(recoveredResume.reusedTiers, ['later-independent'])
+  assert.deepEqual(recoveredResume.checkpoint.completedTiers, ['gate', 'later-independent'])
+  assert.deepEqual(recoveredResume.checkpoint.resumeCandidates, {})
+})
+
+test('carried resume candidates retain source provenance across an early failure', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-resume-candidate-source')
+  const runsRoot = path.join(temp, 'runs')
+  fs.writeFileSync(path.join(temp, 'gate.txt'), 'v1\n')
+  const tiers = [
+    tier('gate', { cacheInputs: ['gate.txt'], phase: 0 }),
+    tier('later-independent', { phase: 1 })
+  ]
+  const executed = []
+  let sourceFingerprint = 'source-v1'
+  let failGate = false
+  const run = (resume) => runDag({
+    tiers,
+    root: temp,
+    runsRoot,
+    runId: 'candidate-source',
+    mode: resume ? 'resume' : 'fresh',
+    resume,
+    reuseAcrossSourceChanges: false,
+    maxParallel: 2,
+    snapshotWorktree: async () => ({ fingerprint: sourceFingerprint, entries: {} }),
+    executeTier: async (selected) => {
+      executed.push(selected.id)
+      if (selected.id === 'gate' && failGate) return { code: 7, signal: null }
+      return { code: 0, signal: null }
+    }
+  })
+
+  const fresh = await run(false)
+  assert.equal(fresh.status, 'success')
+
+  sourceFingerprint = 'source-v2'
+  fs.writeFileSync(path.join(temp, 'gate.txt'), 'v2\n')
+  failGate = true
+  executed.length = 0
+  const failedResume = await run(true)
+  assert.equal(failedResume.status, 'failure')
+  assert.deepEqual(executed, ['gate'])
+  assert.equal(
+    failedResume.checkpoint.resumeCandidates['later-independent'].sourceState.worktreeFingerprint,
+    'source-v1'
+  )
+
+  failGate = false
+  executed.length = 0
+  const recoveredResume = await run(true)
+  assert.equal(recoveredResume.status, 'success')
+  assert.deepEqual(recoveredResume.reusedTiers, [])
+  assert.deepEqual(executed, ['gate', 'later-independent'])
+})
+
 test('resume can require one coherent source state instead of reusing otherwise valid tiers', async () => {
   const { runDag } = await loadScheduler()
   const temp = createTempDir('scheduler-resume-source-state')
@@ -1564,6 +1757,47 @@ test('fresh execution cannot pass by inheriting a stale pre-existing generated a
 
   assert.equal(result.status, 'failure')
   assert.match(result.failure.reason, /required artifact\/evidence missing|did not produce or update/u)
+})
+
+test('a consumer does not claim generated evidence owned by a transitive dependency', async () => {
+  const { runDag } = await loadScheduler()
+  const repo = createTempDir('scheduler-transitive-output-owner')
+  const sharedRelativePath = '.tmp/shared/test-plan.json'
+  const sharedFile = path.join(repo, sharedRelativePath)
+  const result = await runDag({
+    tiers: [
+      tier('producer', {
+        artifacts: [sharedRelativePath],
+        evidence: [sharedRelativePath]
+      }),
+      tier('aggregate', {
+        command: 'tools/test/lanes/noop.sh aggregate',
+        dependsOn: ['producer']
+      }),
+      tier('consumer', {
+        dependsOn: ['aggregate'],
+        artifacts: [sharedRelativePath],
+        evidence: [sharedRelativePath]
+      })
+    ],
+    root: repo,
+    runsRoot: path.join(repo, '.tmp/runs'),
+    runId: 'transitive-output-owner',
+    mode: 'fresh',
+    snapshotWorktree: stableSnapshot,
+    executeTier: async (current) => {
+      if (current.id === 'producer') {
+        fs.mkdirSync(path.dirname(sharedFile), { recursive: true })
+        fs.writeFileSync(sharedFile, '{"source":"producer"}\n')
+      }
+      return { code: 0, signal: null }
+    }
+  })
+
+  assert.equal(result.status, 'success')
+  assert.deepEqual(result.checkpoint.tiers.producer.ownedGeneratedOutputs, [sharedRelativePath])
+  assert.deepEqual(result.checkpoint.tiers.consumer.ownedGeneratedOutputs, [])
+  assert.equal(fs.readFileSync(sharedFile, 'utf8'), '{"source":"producer"}\n')
 })
 
 test('fresh execution removes stale siblings from an owned generated directory', async () => {
@@ -1885,7 +2119,7 @@ test('logical tier matrix stores only weights and serial/single fixed-one semant
 })
 
 test('CI matrix exposes live machine resource resolution and derived shard concurrency', () => {
-  const result = spawnSync(process.execPath, [path.join(root, 'tools/run-test-matrix.mjs'), 'ci-job-matrix', 'acceptance-playwright'], {
+  const result = spawnSync(process.execPath, [path.join(root, 'tools/run-test-matrix.mjs'), 'ci-job-matrix', 'browser-contract'], {
     cwd: root,
     encoding: 'utf8'
   })
@@ -1898,9 +2132,14 @@ test('CI matrix exposes live machine resource resolution and derived shard concu
   assert.ok(resolution.totalMemoryGiB >= resolution.availableMemoryGiB)
   assert.ok(Number.isInteger(resolution.defaultShards) && resolution.defaultShards >= 1)
   const entries = payload.matrix.include
-  assert.equal(entries.length, resolution.defaultShards)
-  assert.ok(entries.every((entry) => entry.max_parallel === resolution.availableCpuUnits))
-  assert.ok(entries.every((entry) => entry.cpu_units <= resolution.availableCpuUnits && entry.memory_gib <= resolution.availableMemoryGiB))
+  assert.equal(entries.length, 1)
+  assert.equal(entries[0].tier, 'browser-contract')
+  assert.equal(entries[0].shard, '')
+  assert.equal(entries[0].max_parallel, 1)
+  assert.equal(entries[0].playwright_workers, 1)
+  assert.equal(entries[0].timeout_minutes, 10)
+  assert.ok(entries[0].cpu_units <= resolution.availableCpuUnits)
+  assert.ok(entries[0].memory_gib <= resolution.availableMemoryGiB)
 })
 
 test('effective cache inputs include shared lane, Vitest, and setup consumers', async () => {
@@ -2364,6 +2603,30 @@ test('tier fingerprints include shard, selected runtime environment, platform, a
     env: {
       MATRIX_SHARD: '1/2',
       FSUSBLOG_TEST_SHARD_INDEX: '1',
+      FSUSBLOG_TEST_SHARD_TOTAL: '2',
+      FSUSBLOG_PLAYWRIGHT_SHARD_ARG: '--shard=1/2',
+      FSUSBLOG_PRODUCTION_BUILD_ROOT: '/tmp/build-a',
+      FSUSBLOG_WASM_FUZZ_SEEDS_PER_CORPUS: '320',
+      FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS: '1000',
+      FSUSBLOG_TEST_EXECUTION_SOURCE: 'fresh',
+      FSUSBLOG_TIER_CPU_UNITS: '2',
+      FSUSBLOG_TIER_MEMORY_GIB: '1.5',
+      FSUSBLOG_TIER_DEADLINE_MS: '60000',
+      FSUSBLOG_BUNDLE_CPU_BUDGET: '2',
+      FSUSBLOG_BUNDLE_MEMORY_GIB: '1.5',
+      FSUSBLOG_BUNDLE_DEADLINE_MS: '60000',
+      FSUSBLOG_VITEST_MAX_WORKERS: '2',
+      FSUSBLOG_COMMAND_MANIFEST_WORKERS: '2',
+      FSUSBLOG_PLAYWRIGHT_WORKERS: '1',
+      FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: '/tmp/grant-a.json',
+      FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: 'contextual',
+      FSUSBLOG_CGROUP_ENFORCEMENT_MODE: 'advisory',
+      FSUSBLOG_CGROUP_BUNDLE_PATH: '/sys/fs/cgroup/run-a/contextual',
+      FSUSBLOG_CGROUP_ENFORCEMENT_REASON: 'delegate-unavailable',
+      FSUSBLOG_CGROUP_EFFECTIVE_CPU_MAX: '200000 100000',
+      FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_HIGH_BYTES: '1610612736',
+      FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_MAX_BYTES: '1879048192',
+      FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX: '256',
       PLAYWRIGHT_BROWSERS: 'chromium',
       VITE_MODE: 'test',
       CI: 'false',
@@ -2380,10 +2643,47 @@ test('tier fingerprints include shard, selected runtime environment, platform, a
     ...baseContext,
     env: { ...baseContext.env, HOME: '/ignored-b' }
   }), 'unrelated environment variables must not fragment the cache')
+  assert.equal(base, tierInputFingerprint(current, temp, {
+    ...baseContext,
+    env: { ...baseContext.env, FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS: '2000' }
+  }), 'invocation timing metadata must not fragment the cache')
+  assert.equal(base, tierInputFingerprint(current, temp, {
+    ...baseContext,
+    env: {
+      ...baseContext.env,
+      FSUSBLOG_TEST_EXECUTION_SOURCE: 'resume',
+      FSUSBLOG_TIER_CPU_UNITS: '6',
+      FSUSBLOG_TIER_MEMORY_GIB: '4.75',
+      FSUSBLOG_TIER_DEADLINE_MS: '60000',
+      FSUSBLOG_BUNDLE_CPU_BUDGET: '6',
+      FSUSBLOG_BUNDLE_MEMORY_GIB: '4.75',
+      FSUSBLOG_BUNDLE_DEADLINE_MS: '60000',
+      FSUSBLOG_VITEST_MAX_WORKERS: '6',
+      FSUSBLOG_COMMAND_MANIFEST_WORKERS: '5',
+      FSUSBLOG_PLAYWRIGHT_WORKERS: '3',
+      FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: '/tmp/grant-b.json',
+      FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: 'contextual-resume',
+      FSUSBLOG_CGROUP_ENFORCEMENT_MODE: 'advisory',
+      FSUSBLOG_CGROUP_BUNDLE_PATH: '/sys/fs/cgroup/run-b/contextual',
+      FSUSBLOG_CGROUP_ENFORCEMENT_REASON: 'delegate-unavailable',
+      FSUSBLOG_CGROUP_EFFECTIVE_CPU_MAX: '600000 100000',
+      FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_HIGH_BYTES: '5100273664',
+      FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_MAX_BYTES: '5368709120',
+      FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX: '768'
+    }
+  }), 'scheduler-only execution grants and enforcement paths must not fragment the cache')
 
   for (const changedContext of [
     { ...baseContext, env: { ...baseContext.env, MATRIX_SHARD: '2/2' } },
+    { ...baseContext, env: { ...baseContext.env, FSUSBLOG_TEST_SHARD_TOTAL: '3' } },
+    { ...baseContext, env: { ...baseContext.env, FSUSBLOG_PLAYWRIGHT_SHARD_ARG: '--shard=2/2' } },
+    { ...baseContext, env: { ...baseContext.env, FSUSBLOG_PRODUCTION_BUILD_ROOT: '/tmp/build-b' } },
+    { ...baseContext, env: { ...baseContext.env, FSUSBLOG_WASM_FUZZ_SEEDS_PER_CORPUS: '960' } },
     { ...baseContext, env: { ...baseContext.env, FSUSBLOG_FEATURE_FLAG: '1' } },
+    { ...baseContext, env: { ...baseContext.env, FSUSBLOG_CGROUP_ENFORCEMENT_MODE: 'enforced' } },
+    { ...baseContext, env: { ...baseContext.env, FSUSBLOG_CGROUP_ENFORCEMENT_REASON: 'delegated' } },
+    { ...baseContext, env: { ...baseContext.env, FSUSBLOG_TIER_DEADLINE_MS: '90000' } },
+    { ...baseContext, env: { ...baseContext.env, FSUSBLOG_BUNDLE_DEADLINE_MS: '90000' } },
     { ...baseContext, env: { ...baseContext.env, PLAYWRIGHT_BROWSERS: 'all' } },
     { ...baseContext, env: { ...baseContext.env, VITE_MODE: 'production' } },
     { ...baseContext, env: { ...baseContext.env, CI: 'true' } },

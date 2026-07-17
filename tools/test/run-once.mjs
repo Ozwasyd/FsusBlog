@@ -8,6 +8,7 @@ import {
   readFile,
   readlink,
   readdir,
+  realpath,
   rename,
   rm,
   stat,
@@ -19,6 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const defaultStateRoot = path.join(repoRoot, '.tmp', 'run-once')
+const defaultPhysicalExecutionRoot = path.join(repoRoot, '.tmp', 'physical-executions')
 const defaultLockTimeoutMs = 5 * 60 * 1000
 const defaultStaleLockMs = 15 * 60 * 1000
 const defaultHeartbeatMs = 5 * 1000
@@ -207,8 +209,11 @@ async function clearDeadStaleLock(lockDirectory, staleAfterMs) {
   const lastHeartbeatMs = Number.isFinite(heartbeatAt)
     ? Math.max(heartbeatAt, lockMetadata.mtimeMs)
     : lockMetadata.mtimeMs
-  if (Date.now() - lastHeartbeatMs <= staleAfterMs) return false
-  if (owner?.pid && isProcessAlive(Number(owner.pid))) return false
+  const ownerPid = Number(owner?.pid)
+  const hasValidOwnerPid = Number.isInteger(ownerPid) && ownerPid > 0
+  const ownerIsAlive = hasValidOwnerPid && isProcessAlive(ownerPid)
+  if (ownerIsAlive) return false
+  if (!hasValidOwnerPid && Date.now() - lastHeartbeatMs <= staleAfterMs) return false
 
   const token = owner?.token
   const confirmedOwner = await readState(ownerFile)
@@ -378,6 +383,161 @@ function validateReceiptIntegrity(receipt, { contractDigest, runId }) {
   }
 }
 
+function normalizedRepositoryPath(file) {
+  return path.relative(repoRoot, file).replaceAll(path.sep, '/')
+}
+
+function isWithin(parent, child) {
+  const relative = path.relative(parent, child)
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
+async function readRegularBoundJson(file, expectedDirectory, label) {
+  const resolvedFile = path.resolve(file)
+  const resolvedDirectory = path.resolve(expectedDirectory)
+  if (!isWithin(resolvedDirectory, resolvedFile)) {
+    throw new Error(`${label} path is outside its run-bound directory`)
+  }
+  const metadata = await lstat(resolvedFile)
+  if (!metadata.isFile() || metadata.isSymbolicLink()) {
+    throw new Error(`${label} must be a regular non-symlink file`)
+  }
+  const [realDirectory, realFile] = await Promise.all([
+    realpath(resolvedDirectory),
+    realpath(resolvedFile)
+  ])
+  if (!isWithin(realDirectory, realFile)) {
+    throw new Error(`${label} resolves outside its run-bound directory`)
+  }
+  const bytes = await readFile(realFile)
+  let document
+  try {
+    document = JSON.parse(bytes.toString('utf8'))
+  } catch {
+    throw new Error(`${label} is not valid JSON`)
+  }
+  return { file: realFile, bytes, document }
+}
+
+function validateProjectionReceiptBinding({ projection, receipt, runId, normalizedKey, consumerId }) {
+  validateReceiptIntegrity(receipt, { contractDigest: receipt?.contractDigest, runId })
+  if (receipt.status !== 'success'
+      || receipt.executionKey !== normalizedKey
+      || projection?.schema !== 'fsusblog.physical-execution-projection.v1'
+      || projection.schedulerRunId !== runId
+      || projection.executionKey !== normalizedKey
+      || projection.consumerId !== consumerId
+      || !['producer', 'consumer'].includes(projection.disposition)
+      || projection.status !== 'success'
+      || projection.physicalExecutionReceiptDigest !== receipt.receiptDigest
+      || JSON.stringify(normalizeTestIds(projection.testIds)) !== JSON.stringify(normalizeTestIds(receipt.testIds))
+      || JSON.stringify(canonicalize(projection.artifactEvidence)) !== JSON.stringify(canonicalize(receipt.requiredOutputStates))) {
+    throw new Error('run-bound projection and receipt binding validation failed')
+  }
+}
+
+export async function validateRunBoundProjection({
+  root = defaultPhysicalExecutionRoot,
+  runId,
+  key,
+  consumerId,
+  projectionFile,
+  receiptFile,
+  verifyOutputs = true
+}) {
+  const normalizedRunId = sanitizeSegment(runId, 'run')
+  const normalizedKey = sanitizeSegment(key, 'execution')
+  const runDirectory = path.join(root, normalizedRunId)
+  const projectionDirectory = path.join(runDirectory, 'projections')
+  const receiptDirectory = path.join(runDirectory, 'receipts', normalizedKey)
+  const projectionEntry = await readRegularBoundJson(projectionFile, projectionDirectory, 'run-bound projection')
+  const receiptEntry = await readRegularBoundJson(receiptFile, receiptDirectory, 'run-bound receipt')
+  const expectedReceiptPath = normalizedRepositoryPath(receiptEntry.file)
+
+  if (projectionEntry.document.physicalExecutionReceipt !== expectedReceiptPath
+      || path.basename(receiptEntry.file) !== `${receiptEntry.document.contractDigest}.json`) {
+    throw new Error('run-bound projection receipt path validation failed')
+  }
+  validateProjectionReceiptBinding({
+    projection: projectionEntry.document,
+    receipt: receiptEntry.document,
+    runId,
+    normalizedKey,
+    consumerId
+  })
+  if (verifyOutputs
+      && !await outputsMatchState(receiptEntry.document.requiredOutputs, receiptEntry.document.requiredOutputStates)) {
+    throw new Error('run-bound projection output validation failed')
+  }
+  return {
+    projectionFile: projectionEntry.file,
+    projectionBytes: projectionEntry.bytes,
+    projection: projectionEntry.document,
+    receiptFile: receiptEntry.file,
+    receiptBytes: receiptEntry.bytes,
+    receipt: receiptEntry.document
+  }
+}
+
+function consumerEvidencePayload(document) {
+  const { evidenceDigest: _evidenceDigest, ...payload } = document
+  return payload
+}
+
+export function validateRunBoundConsumerEvidence(document, { runId, key, consumerId } = {}) {
+  const normalizedKey = sanitizeSegment(key ?? document?.executionKey, 'execution')
+  if (document?.schema !== 'fsusblog.physical-execution-consumer-evidence.v2'
+      || document.schedulerRunId !== (runId ?? document.schedulerRunId)
+      || document.executionKey !== normalizedKey
+      || document.consumerId !== (consumerId ?? document.consumerId)
+      || document.status !== 'success'
+      || !/^sha256:[a-f0-9]{64}$/u.test(document.sourceProjectionDigest ?? '')
+      || document.sourceProjectionDocumentDigest !== digestValue(document.sourceProjectionDocument)
+      || document.physicalExecutionReceiptDigest !== document.physicalExecutionReceiptDocument?.receiptDigest
+      || document.evidenceDigest !== digestValue(consumerEvidencePayload(document))) {
+    throw new Error('run-bound consumer evidence integrity validation failed')
+  }
+  validateProjectionReceiptBinding({
+    projection: document.sourceProjectionDocument,
+    receipt: document.physicalExecutionReceiptDocument,
+    runId: document.schedulerRunId,
+    normalizedKey,
+    consumerId: document.consumerId
+  })
+  if (document.sourceProjectionDocument.physicalExecutionReceipt !== document.physicalExecutionReceipt
+      || document.sourceProjectionDocumentDigest !== digestValue(document.sourceProjectionDocument)
+      || document.projectedAt !== document.sourceProjectionDocument.projectedAt
+      || JSON.stringify(normalizeTestIds(document.testIds)) !== JSON.stringify(normalizeTestIds(document.sourceProjectionDocument.testIds))
+      || JSON.stringify(canonicalize(document.artifactEvidence)) !== JSON.stringify(canonicalize(document.sourceProjectionDocument.artifactEvidence))) {
+    throw new Error('run-bound consumer evidence projection validation failed')
+  }
+  return true
+}
+
+export function buildRunBoundConsumerEvidence({ validatedProjection }) {
+  const { projection, projectionBytes, receipt, projectionFile, receiptFile } = validatedProjection
+  const payload = {
+    schema: 'fsusblog.physical-execution-consumer-evidence.v2',
+    schedulerRunId: projection.schedulerRunId,
+    executionKey: projection.executionKey,
+    consumerId: projection.consumerId,
+    status: projection.status,
+    testIds: projection.testIds,
+    artifactEvidence: projection.artifactEvidence,
+    physicalExecutionReceipt: normalizedRepositoryPath(receiptFile),
+    physicalExecutionReceiptDigest: receipt.receiptDigest,
+    physicalExecutionReceiptDocument: receipt,
+    sourceProjection: normalizedRepositoryPath(projectionFile),
+    sourceProjectionDigest: `sha256:${createHash('sha256').update(projectionBytes).digest('hex')}`,
+    sourceProjectionDocumentDigest: digestValue(projection),
+    sourceProjectionDocument: projection,
+    projectedAt: projection.projectedAt
+  }
+  const document = { ...payload, evidenceDigest: digestValue(payload) }
+  validateRunBoundConsumerEvidence(document)
+  return document
+}
+
 function receiptFailure(receipt) {
   const error = new Error(receipt.failure?.message || `run-bound producer ${receipt.status}`)
   error.name = receipt.failure?.name || 'RunBoundProducerError'
@@ -505,7 +665,7 @@ async function writeRunBoundProjection({
 }
 
 export async function runBoundExecution({
-  root = path.join(repoRoot, '.tmp', 'physical-executions'),
+  root = defaultPhysicalExecutionRoot,
   runId,
   key,
   command,

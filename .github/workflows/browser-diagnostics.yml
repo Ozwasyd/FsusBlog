@@ -1,5 +1,7 @@
 name: Browser Diagnostics
 
+# Deliberately separate from Quality Gate: failures remain visible here, while
+# scheduled/manual diagnostic evidence can never satisfy or block correctness.
 on:
   schedule:
     - cron: '17 2 * * *'
@@ -19,6 +21,9 @@ on:
           - accessibility
           - performance
           - resilience
+          - acceptance
+          - release-runtime
+          - runtime-risk
 
 permissions:
   contents: read

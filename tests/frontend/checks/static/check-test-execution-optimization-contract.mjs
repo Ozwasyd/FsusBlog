@@ -434,8 +434,11 @@ if (!legacyTestSource.includes('run_backend_dotnet_filter_only "$BACKEND_ORDINAR
   errors.push('backend ordinary lane must consume BACKEND_ORDINARY_TEST_FILTER')
 }
 if (!legacyTestSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0')
-  || !legacyTestSource.includes('$debug_output_dir/FsusBlog.Server.Tests.dll|$debug_output_dir/FsusBlog.Server.Tests.deps.json|$debug_output_dir/FsusBlog.Server.Tests.runtimeconfig.json')) {
-  errors.push('backend shared build cache must require the test DLL and both testhost companion files')
+  || !legacyTestSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server/bin/Debug/net10.0')
+  || !legacyTestSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.ZkCommentV2MclFixture/bin/Debug/net10.0')
+  || !legacyTestSource.includes('output_contract="$debug_output_dir|$debug_server_output_dir|$debug_fixture_output_dir"')
+  || !legacyTestSource.includes('output_contract="$release_output_dir"')) {
+  errors.push('backend shared build cache must require complete run-bound Debug and Release output directories')
 }
 for (const [lane, filter] of [
   ['api-integration', 'Category=ApiIntegration'],

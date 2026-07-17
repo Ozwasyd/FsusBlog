@@ -1,8 +1,10 @@
 import { Window } from 'happy-dom'
-import { vi } from 'vitest'
+import { afterAll, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
+import { createUnitAnimationFrameEnvironment } from './animationFrameEnvironment'
 
 const unitWindow = new Window({ url: 'https://fsusblog.test/' })
+const animationFrames = createUnitAnimationFrameEnvironment()
 ;(globalThis as { window?: Window }).window = unitWindow
 ;(globalThis as { document?: Document }).document = unitWindow.document
 ;(globalThis as { history?: History }).history = unitWindow.history
@@ -16,9 +18,15 @@ const unitWindow = new Window({ url: 'https://fsusblog.test/' })
 ;(globalThis as { getComputedStyle?: typeof globalThis.getComputedStyle }).getComputedStyle =
   unitWindow.getComputedStyle.bind(unitWindow) as typeof globalThis.getComputedStyle
 ;(globalThis as { requestAnimationFrame?: (cb: FrameRequestCallback) => number }).requestAnimationFrame =
-  (cb: FrameRequestCallback): number => setTimeout(() => cb(Date.now()), 0) as unknown as number
+  animationFrames.request
 ;(globalThis as { cancelAnimationFrame?: (id: number) => void }).cancelAnimationFrame =
-  (id: number): void => clearTimeout(id)
+  animationFrames.cancel
+unitWindow.requestAnimationFrame = animationFrames.request
+unitWindow.cancelAnimationFrame = animationFrames.cancel
+
+afterAll(() => {
+  animationFrames.dispose()
+})
 
 // ---------------------------------------------------------------------------
 // @wasm/aeds — AEDS binary decoder

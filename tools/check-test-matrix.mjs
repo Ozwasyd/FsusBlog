@@ -254,6 +254,43 @@ expectWorkflowTextFailure(
   'workflow sync must reject undefined GitHub Actions needs before workflow load time'
 )
 
+expectWorkflowTextFailure(
+  (workflow) => {
+    const start = workflow.indexOf('  fast-backend:\n')
+    const end = workflow.indexOf('\n  fast-frontend-unit:\n', start)
+    const job = workflow.slice(start, end).replace(
+      '      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6\n',
+      '      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6\n      - run: npm --prefix src/frontend exec -- playwright install chromium\n'
+    )
+    return `${workflow.slice(0, start)}${job}${workflow.slice(end)}`
+  },
+  'browserless workflow job fast-backend must not install Playwright browsers',
+  'workflow sync must reject hidden browser installation in a browserless job'
+)
+
+expectWorkflowTextFailure(
+  (workflow) => {
+    const start = workflow.indexOf('  browser-contract:\n')
+    const end = workflow.indexOf('\n  resilience-runtime:\n', start)
+    const job = workflow.slice(start, end).replace('    timeout-minutes: 10\n', '    timeout-minutes: 11\n')
+    return `${workflow.slice(0, start)}${job}${workflow.slice(end)}`
+  },
+  'workflow job browser-contract timeout-minutes 11 does not match ci-plan 10',
+  'workflow sync must reject Browser Contract timeout drift'
+)
+
+expectWorkflowTextFailure(
+  (workflow) => {
+    const start = workflow.indexOf('  production-summary:\n')
+    return `${workflow.slice(0, start)}${workflow.slice(start).replace(
+      '    needs:\n',
+      '    needs:\n      - browser-contract\n'
+    )}`
+  },
+  'production-summary must remain browserless and must not wait for browser-contract',
+  'workflow sync must reject Browser Contract as a production summary dependency'
+)
+
 expectWorkflowSyncFailure(
   matrixSourceText.replace('identity-kind-anonymous-account', 'identity-kind-legacy-user'),
   'matrix coverage dimensions missing required identity kind: identity-kind-anonymous-account',
@@ -276,6 +313,24 @@ expectMatrixValidateFailure(
   setTierBooleanField(matrixSourceText, 'release-final', 'requiredFor', 'production'),
   'release-final.manualOnly must not be requiredFor=production',
   'manual-only tiers must not count as ordinary production coverage'
+)
+
+expectMatrixValidateFailure(
+  replaceTierField(matrixSourceText, 'production-correctness', 'dependsOn', '[fast, acceptance]'),
+  'production-correctness dependency closure must be browserless: acceptance',
+  'production correctness must reject any transitive Playwright tier'
+)
+
+expectMatrixValidateFailure(
+  replaceTierField(matrixSourceText, 'browser-contract', 'resourceClass', 'network'),
+  'browser-contract.requiresPlaywright=chromium requires resourceClass=browser',
+  'every browser tier must declare the browser resource boundary'
+)
+
+expectMatrixValidateFailure(
+  replaceTierField(matrixSourceText, 'release-final', 'dependsOn', '[production-correctness, browser-contract, acceptance]'),
+  'release-final dependency closure must contain only browser-contract as a browser tier: acceptance, browser-contract',
+  'release-final must reject a second browser dependency'
 )
 
 expectMatrixValidateFailure(
@@ -307,7 +362,7 @@ run(['plan', 'production'])
 }
 run(['ci-job-matrix', 'fast-backend', '--out', '.tmp/docs/fast-backend-matrix.json'])
 run(['ci-job-matrix', 'fast-frontend-unit', '--out', '.tmp/docs/fast-frontend-unit-matrix.json'])
-run(['ci-job-matrix', 'acceptance-playwright', '--out', '.tmp/docs/acceptance-playwright-matrix.json'])
+run(['ci-job-matrix', 'browser-contract', '--out', '.tmp/docs/browser-contract-matrix.json'])
 for (const tierId of [
   'frontend-build',
   'frontend-unit-shard',
@@ -347,23 +402,16 @@ for (const tierId of [
   )
 }
 {
-  const matrix = readJsonFile('.tmp/docs/acceptance-playwright-matrix.json').matrix
-  const shardCount = matrix.resource_resolution.defaultShards
-  const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
+  const matrix = readJsonFile('.tmp/docs/browser-contract-matrix.json').matrix
   requireCondition(
-    shardCount > 1
-      ? shards.length === shardCount && Array.from({ length: shardCount }, (_, index) => `${index + 1}/${shardCount}`).every((shard) => shards.includes(shard))
-      : shards.length === 0,
-    'acceptance-playwright matrix must expand acceptance using machine-resolved shards'
-  )
-  requireCondition(
-    matrix.include.every((entry) => entry.playwright_workers >= 1
-      && entry.playwright_workers <= entry.cpu_units
-      && entry.playwright_workers === Math.floor(entry.cpu_units)
-      && (shardCount > 1
-      ? new RegExp(`^acceptance-playwright-\\d-of-${shardCount}$`).test(entry.artifact_name)
-      : entry.artifact_name === 'acceptance-playwright-acceptance')),
-    'acceptance-playwright shard artifacts and worker policy must come from matrix metadata'
+    matrix.include.length === 1
+      && matrix.include[0].tier === 'browser-contract'
+      && matrix.include[0].shard === ''
+      && matrix.include[0].playwright_workers === 1
+      && matrix.include[0].max_parallel === 1
+      && matrix.include[0].timeout_minutes === 10
+      && matrix.include[0].artifact_name === 'browser-contract-browser-contract',
+    'browser-contract CI matrix must remain one unsharded, single-worker, ten-minute Chromium contract'
   )
 }
 run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-aggregate-plan.json'])
@@ -586,28 +634,55 @@ requireFileIncludes(
   'docs/testing.md must document frontend-fast split aggregate evidence'
 )
 {
-  const acceptance = parseMatrix(matrixSourceText).tiers.find((tier) => tier.id === 'acceptance')
+  const parsed = parseMatrix(matrixSourceText)
+  const tiers = new Map(parsed.tiers.map((tier) => [tier.id, tier]))
+  const production = tiers.get('production-correctness')
+  const contract = tiers.get('browser-contract')
+  const acceptance = tiers.get('acceptance')
+  const releaseFinal = tiers.get('release-final')
   requireCondition(
-    acceptance?.coverage?.includes('playwright-acceptance')
-      && acceptance?.artifacts?.includes('src/frontend/test-results/playwright/acceptance')
-      && acceptance?.evidence?.includes('src/frontend/test-results/playwright/acceptance'),
-    'acceptance matrix entry must expose the governed Playwright test-results artifact'
+    production?.requiresPlaywright === 'none'
+      && production?.requiredFor === 'production'
+      && production?.dependsOn?.includes('release-evidence')
+      && !production?.dependsOn?.includes('acceptance'),
+    'production-correctness must be the browserless production aggregate'
+  )
+  requireCondition(
+    contract?.ciJob === 'browser-contract'
+      && contract?.resourceClass === 'browser'
+      && contract?.requiresPlaywright === 'chromium'
+      && contract?.parallelizable === false
+      && contract?.timeoutMinutes === 10
+      && contract?.selfBootstraps === true,
+    'browser-contract must remain the single fixed release Chromium boundary'
+  )
+  requireCondition(
+    acceptance?.ciJob === 'browser-diagnostics'
+      && acceptance?.requiredFor === 'none'
+      && acceptance?.nightlyOnly === true,
+    'legacy acceptance must be diagnostics-only'
+  )
+  requireCondition(
+    releaseFinal?.requiresPlaywright === 'none'
+      && releaseFinal?.dependsOn?.includes('production-correctness')
+      && releaseFinal?.dependsOn?.includes('browser-contract'),
+    'release-final must aggregate browserless correctness and exactly one Browser Contract'
   )
 }
 requireFileIncludes(
-  'tests/matrix.yml',
-  'id: acceptance\n    owner: InteropGlueAgent\n    command: tools/test/lanes/acceptance-playwright.sh',
-  'acceptance tier must stay in the browser lane policy'
+  '.github/workflows/quality-gate.yml',
+  '  browser-contract:\n    name: Browser Contract',
+  'quality gate must expose one explicit Browser Contract job'
 )
-requireFileIncludes(
+requireFileExcludes(
   '.github/workflows/quality-gate.yml',
   'acceptance_playwright_matrix',
-  'acceptance-playwright workflow must use the generated shard matrix'
+  'ordinary quality gate must not generate an acceptance Playwright shard matrix'
 )
-requireFileIncludes(
+requireFileExcludes(
   '.github/workflows/quality-gate.yml',
   'acceptance_playwright_max_parallel',
-  'acceptance-playwright workflow must consume machine-resolved shard concurrency'
+  'ordinary quality gate must not consume acceptance Playwright shard concurrency'
 )
 requireFileIncludes(
   'tests/matrix.yml',
@@ -675,11 +750,6 @@ requireFileIncludes(
   'public route audit must honor the isolated acceptance worker cap'
 )
 requireFileIncludes(
-  'tools/test/legacy-test.sh',
-  'configure_playwright_workers acceptance-public-routes FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS',
-  'acceptance lane must resolve a public route worker cap from the current machine'
-)
-requireFileIncludes(
   'tools/test/lanes/ux-viewport-visual.sh',
   'configure_playwright_workers ux-viewport-visual FSUSBLOG_UX_VIEWPORT_WORKERS',
   'ux-viewport-visual must resolve a bounded worker cap from the current machine'
@@ -721,16 +791,6 @@ for (const file of [
   )
 }
 requireFileIncludes(
-  'tools/test/legacy-test.sh',
-  'FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_SPA_ROUTES_WORKERS" prepare_session_fixtures_once',
-  'acceptance lane must prepare session fixtures for the computed SPA route worker cap'
-)
-requireFileIncludes(
-  'tools/test/legacy-test.sh',
-  'FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_CONSOLE_VISUAL_WORKERS" prepare_session_fixtures_once',
-  'visual console lane must prepare session fixtures for the computed screenshot worker cap'
-)
-requireFileIncludes(
   'tools/run-test-matrix.mjs',
   'env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`',
   'matrix runner must pass Playwright shard arguments to direct browser lanes'
@@ -766,6 +826,8 @@ requireFileIncludes(
   'console screenshot artifacts must use isolated output paths'
 )
 for (const forbidden of [
+  'acceptance-playwright:',
+  'frontend-render-pressure:',
   'visual-public-playwright:',
   'visual-console-playwright:',
   'visual-playwright:',
@@ -802,4 +864,13 @@ requireFileIncludes(
   'Screenshot evidence tiers',
   'docs/testing.md must document visual screenshot tier split and aggregate evidence'
 )
+for (const testFile of [
+  'tests/tools/issue-1150-matrix-commands.test.mjs',
+  'tests/tools/issue-1150-browserless-ci-topology.test.mjs'
+]) {
+  const result = spawnSync(process.execPath, ['--test', testFile], { cwd: root, encoding: 'utf8' })
+  if (result.stdout) process.stdout.write(result.stdout)
+  if (result.stderr) process.stderr.write(result.stderr)
+  requireCondition(result.status === 0, `${testFile} must pass the #1150 browser-boundary governance contract`)
+}
 console.log('[test-matrix] ok')

@@ -303,11 +303,17 @@ async function main() {
       let context = null
       let page = null
       let audit = null
+      // Playwright traces serialize BrowserContext options and raw network
+      // headers. Only the explicit anonymous allowlist may retain that raw
+      // evidence; every authenticated or future role remains fail closed.
+      const mayRetainRawTrace = scenario.role === 'anonymous'
       const traceFile = path.join(traceRoot, `${scenario.id}.zip`)
       try {
         context = await browser.newContext(contextOptions(scenario, fixture))
         receipt.topology.contextCount += 1
-        await context.tracing.start({ screenshots: true, snapshots: true, sources: false, title: scenario.id })
+        if (mayRetainRawTrace) {
+          await context.tracing.start({ screenshots: true, snapshots: true, sources: false, title: scenario.id })
+        }
         page = await context.newPage()
         page.setDefaultTimeout(browserContractAppReadyTimeoutMs)
         page.setDefaultNavigationTimeout(browserContractAppReadyTimeoutMs)
@@ -340,10 +346,12 @@ async function main() {
       } finally {
         scenarioReceipt.issues = audit?.issues ?? []
         if (context) {
-          const traced = await context.tracing.stop({ path: traceFile }).then(() => true).catch(() => false)
-          if (traced) {
-            await chmod(traceFile, 0o600)
-            scenarioReceipt.artifacts.push(relative(traceFile))
+          if (mayRetainRawTrace) {
+            const traced = await context.tracing.stop({ path: traceFile }).then(() => true).catch(() => false)
+            if (traced) {
+              await chmod(traceFile, 0o600)
+              scenarioReceipt.artifacts.push(relative(traceFile))
+            }
           }
           await context.close().catch(() => {})
         }

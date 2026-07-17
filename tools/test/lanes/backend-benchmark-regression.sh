@@ -7,9 +7,7 @@ ARTIFACT_ROOT="$ROOT_DIR/BenchmarkDotNet.Artifacts"
 RELEASE_SUMMARY_DIR="$ROOT_DIR/.tmp/perf/release-summaries"
 mkdir -p "$OUT_DIR" "$RELEASE_SUMMARY_DIR"
 
-if [[ -z "${FSUSBLOG_LOCAL_PROFILE:-}" ]]; then
-  "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" -c Release -v minimal /p:NuGetAudit=false
-fi
+"$ROOT_DIR/tools/test/ensure-benchmark-release-build.sh"
 
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/perf/run-backend-benchmark-regression.mjs" \
   --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \

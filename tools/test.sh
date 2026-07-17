@@ -15,6 +15,9 @@ tier="$1"
 shift || true
 
 case "$tier" in
+  production-correctness|browser-contract|browser-diagnostics|release-final)
+    exec "$NODE_BIN" "$ROOT_DIR/tools/run-test-matrix.mjs" run "$tier" "$@"
+    ;;
   ci-fast|ci-production|ci-release-final|ci-job|ci-tier)
     exec "$NODE_BIN" "$ROOT_DIR/tools/run-test-matrix.mjs" "$tier" "$@"
     ;;

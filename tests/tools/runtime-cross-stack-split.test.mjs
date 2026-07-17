@@ -17,6 +17,8 @@ const runtimePhase = legacy.slice(
 )
 
 test('cross-stack static phase retains every source contract and excludes only the browser probe', () => {
+  assert.match(staticPhase, /FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build \|\| return \$\?/u)
+  assert.match(staticPhase, /FSUSBLOG_OPENAPI_BUILD=0 run "\$ROOT_DIR\/tools\/contracts\/export-openapi\.sh"/u)
   for (const token of [
     'tools/contracts/export-openapi.sh',
     'check:openapi-sync',
@@ -37,7 +39,12 @@ test('cross-stack static phase retains every source contract and excludes only t
     'check:coherence:perf',
     'check:cross-stack-test-governance'
   ]) assert.equal(staticPhase.split(token).length - 1, 1, `${token} must run exactly once`)
+  const producer = staticPhase.indexOf('FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build')
+  const exportReader = staticPhase.indexOf('FSUSBLOG_OPENAPI_BUILD=0 run "$ROOT_DIR/tools/contracts/export-openapi.sh"')
+  assert.ok(producer >= 0, 'cross-stack static must prepare the shared Debug build')
+  assert.ok(exportReader > producer, 'canonical OpenAPI export must run after the shared Debug producer')
   assert.doesNotMatch(staticPhase, /check:auth-zero-probe|require_debug_stack/u)
+  assert.doesNotMatch(staticPhase, /FSUSBLOG_OPENAPI_BUILD=1|dotnet build/u)
 })
 
 test('cross-stack runtime phase binds the exact browser probe to the bootstrapped debug stack', () => {

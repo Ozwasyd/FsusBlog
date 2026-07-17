@@ -22,16 +22,17 @@ const groupDefinitions = [
       'ci',
       'release',
       'security',
-      'acceptance',
-      'visual',
-      'ux-viewport-smoke',
-      'frontend-render-pressure',
-      'cross-browser-smoke',
+      'frontend-render-structure',
       'resilience',
       'load',
       'release-evidence',
+      'production-correctness',
       'production'
     ]).has(tier.id)
+  },
+  {
+    title: 'Browser Release And Diagnostics',
+    match: (tier) => tier.resourceClass === 'browser'
   },
   {
     title: 'Coverage Tiers',
@@ -81,6 +82,7 @@ function localTierCommand(tier) {
 }
 
 function playwrightWorkersForTier(tier) {
+  if (tier.id === 'browser-contract') return '1'
   return tier.requiresPlaywright === 'none' ? '-' : 'machine'
 }
 
@@ -204,7 +206,7 @@ function ciJobRows(matrix) {
         job.requiresPlaywright !== 'none' ? `playwright:${job.requiresPlaywright}` : null,
         job.cacheProfile !== 'none' ? `cache:${job.cacheProfile}` : null
       ].filter(Boolean).join(', ') || 'none',
-      job.requiresPlaywright === 'none' ? '-' : 'machine',
+      job.id === 'browser-contract' ? '1' : job.requiresPlaywright === 'none' ? '-' : 'machine',
       `${job.timeoutMinutes}m`,
       job.dynamicShards ? 'machine' : 'single',
       job.dynamicParallel ? 'machine' : 'serial'

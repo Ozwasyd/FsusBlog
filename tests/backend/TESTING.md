@@ -65,7 +65,7 @@ On Windows, a manual override can use `$env:FSUSBLOG_REPO_ROOT = (Get-Location).
   - Runs `tools/check-backend-test-governance.mjs`.
   - Validates issue #40 profile, requirement, endpoint, FrameType, mutation and matrix traceability.
 - `./tools/test.sh backend-perf`
-  - `backend-perf-readiness`: validates backend performance readiness by building the BenchmarkDotNet project in Release. It does not claim a benchmark result; use `backend-benchmark-regression` for real benchmark evidence.
+  - `backend-perf`: prepares the shared Release test/benchmark producers and governance in parallel, then runs the native verifier P99 alone in a machine-quiet `benchmark-window`. The reader uses `--no-build --no-restore`; compiler work and peer measurements must finish before the P99 window opens.
   - `backend-benchmark-regression`: runs the server `*HotPath*` BenchmarkDotNet cases and evaluates real mean/allocation results against `tests/performance/backend-hotpath-budgets.json`. Missing measurements and synthetic success manifests are failures. PostgreSQL command-count tests separately bind stats and related-reading query budgets to executed SQL. On unprivileged hosts, unavailable process-priority elevation is emitted once as scheduler information while the machine-derived CPU affinity remains enforced.
 - `./tools/test.sh backend-mutation`
   - Runs the repository-pinned Stryker.NET full nightly scope from solution context with `stryker-config.json`; project-relative globs are required and reports are written through `--output` to `.tmp/mutation/backend`.
@@ -82,37 +82,49 @@ On Windows, a manual override can use `$env:FSUSBLOG_REPO_ROOT = (Get-Location).
   - Requires release preview at `8080`.
   - Covers public hydration / SEO / AOT preview checks.
 - `./tools/test.sh acceptance`
-  - Bootstraps `3000 / 5000 / 8080`.
-  - Runs `fast + integration + release` and then full Playwright acceptance.
+  - Legacy nightly diagnostics-only tier; it is not part of production correctness.
+  - Its Playwright acceptance surface may run only under the governed `browser-diagnostics` job.
 - `./tools/test.sh visual`
-  - Requires the acceptance environment.
-  - Runs dark-mode, mobile-layout, and screenshot-baseline gates on key public and console routes.
+  - Nightly diagnostics-only visual aggregate; it is not a correctness credential.
+  - Runs dark-mode, mobile-layout, and screenshot-baseline probes through the browser diagnostics boundary.
 - `./tools/test.sh security`
-  - Requires the acceptance environment.
-  - Runs auth/session/MFA/PoW/permission/a11y release blockers.
+  - Requires the shared runtime bootstrap, but launches no browser.
+  - Runs browserless auth/session/MFA/PoW/permission contract and state checks; rendered a11y probes belong to browser diagnostics.
 - `./tools/test.sh resilience`
-  - Requires the acceptance environment.
-  - Runs runtime, upload, search and notification stream resilience gates.
+  - Requires the shared runtime bootstrap, but launches no browser.
+  - Runs server/runtime, upload, search, and notification stream resilience gates.
 - `./tools/test.sh load`
-  - Requires the acceptance environment.
+  - Requires the shared runtime bootstrap, but launches no browser.
   - Runs lightweight public/API concurrency checks.
+- `./tools/test.sh production-correctness`
+  - Authoritative browserless production CI gate.
+  - Covers fast/static/unit/property/model, SSR/AOT/HTTP, API/DB/cache integration, browserless security/resilience/load/backend-QPS, frontend render structure, and release evidence schema validation.
+  - Its dependency closure contains no Acceptance, visual, UX viewport, cross-browser, browser render-pressure, Playwright, or Chromium tier.
 - `./tools/test.sh production`
-  - Production CI gate.
-  - Runs `fast`, bootstraps `3000/7568/8080` once, then runs `integration + release + acceptance + visual + security + resilience + load + backend-qps` against the shared environment.
+  - Historical compatibility alias that depends only on `production-correctness`.
+  - It does not add any browser suite to the browserless production gate.
   - The backend production union is deterministically sharded by test method. Each shard instruments an isolated copy of the same fresh build, and the runner rejects any gap, overlap, non-passing TRX result, or incomplete coverage output.
   - Allows schema-valid `collected-blocked` release evidence for external production handoff; this is not a final publish credential.
+- `./tools/test.sh browser-contract`
+  - The only real-browser correctness tier and the only browser tier in the `release-final` closure.
+  - Consumes the immutable production build receipt and runs one managed Chromium with one controller/session, zero shard, and zero retry.
+- `./tools/test.sh browser-diagnostics`
+  - Explicit scheduled/manual diagnostics boundary for legacy Acceptance, visual, UX viewport, cross-browser, renderer pressure/performance, and browser-runtime resilience probes.
+  - Diagnostic failure is retained independently and never converted into production correctness evidence.
 - `./tools/test.sh release-final`
   - Final publish credential for manual release candidates.
-  - Adds strict coverage, changed-code coverage, release runtime lanes, AOT generation/consumption, peak/burst/scale/soak/mutation/resource budgets, strict shard completeness, no visual skip, live exposure evidence, real backup restore, deployed post-smoke coverage, authenticated DAST/Wasm fuzz/fault-injection/short-soak semantic evidence, flaky release-final governance, and artifact digest binding.
+  - Adds strict coverage, changed-code coverage, release runtime lanes, AOT generation/consumption, peak/burst/scale/soak/mutation/resource budgets, strict shard completeness, live exposure evidence, real backup restore, deployed post-smoke coverage, authenticated DAST/Wasm fuzz/fault-injection/short-soak semantic evidence, flaky release-final governance, artifact digest binding, and exactly one `browser-contract`.
+  - The aggregate itself is browserless; scheduled/manual visual and browser diagnostics are not folded into its correctness result.
   - This is the only gate that may be treated as the "zero known release-blocker bugs inside the declared release matrix" proof.
 
 ## CI Contract
 
-- `.github/workflows/quality-gate.yml` runs `./tools/test.sh production` on `pull_request`, `main` / `master` push, and manual dispatch.
+- `.github/workflows/quality-gate.yml` represents `production-correctness` on `pull_request`, `main` / `master` push, and manual dispatch; `production` remains only its compatibility alias.
+- The workflow conditionally runs the single `browser-contract` job for `main` / `master` pushes, manual/release boundaries, and browser-boundary PR changes. Ordinary PR jobs install no browser.
 - The same workflow also runs `./tools/test.sh coverage-gate` as the coverage blocker.
 - `release-final` is `manualOnly` in `tests/matrix.yml`; it is intentionally not part of ordinary PR CI.
 - CI must provide `GITHUB_PACKAGES_TOKEN` so `src/frontend/.npmrc` can install the private `@ozwasyd` package.
-- On failure, inspect `.tmp/acceptance/*.log` and `src/frontend/test-results/playwright/`; CI uploads both as `quality-gate-artifacts`.
+- On browserless runtime failure, inspect `.tmp/acceptance/*.log`. On Browser Contract failure, inspect `.tmp/browser-contract/receipt.json`; raw fixture/session/trace material remains private and is not a CI upload. Scheduled/manual diagnostics use `.tmp/browser-diagnostics/` and `src/frontend/test-results/playwright/`.
 
 ## Cleanliness Rules
 

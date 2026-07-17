@@ -8,15 +8,13 @@ RELEASE_SUMMARY="$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summar
 
 mkdir -p "$OUT_DIR" "$(dirname "$RELEASE_SUMMARY")"
 
-dotnet_args=()
-if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" ]]; then
-  dotnet_args+=(--no-build --no-restore)
-fi
+"$ROOT_DIR/tools/test/ensure-benchmark-release-build.sh"
 
 dotnet run \
   --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
   -c Release \
-  "${dotnet_args[@]}" \
+  --no-build \
+  --no-restore \
   -- \
   --aeds-compression-profile \
   --out "$SUMMARY_FILE" \

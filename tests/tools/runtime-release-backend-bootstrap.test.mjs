@@ -6,12 +6,86 @@ import test from 'node:test'
 
 const root = path.resolve(import.meta.dirname, '../..')
 const bootstrap = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
+const faultLane = fs.readFileSync(path.join(root, 'tools/test/lanes/fault-injection.sh'), 'utf8')
+const runtimeProbe = fs.readFileSync(path.join(root, 'tools/test/lanes/runtime-evidence-probe.mjs'), 'utf8')
 
 test('fresh no-build runtime reuses the production Release backend instead of a deleted Debug output', () => {
   assert.match(bootstrap, /FSUSBLOG_RUNTIME_NO_BUILD[\s\S]*?runtime_configuration="Release"/u)
   assert.match(bootstrap, /runtime_args="-c \$runtime_configuration --no-build --no-restore"/u)
   assert.match(bootstrap, /Debug\|Release/u)
   assert.doesNotMatch(bootstrap, /runtime_args="-c Debug --no-build --no-restore"/u)
+})
+
+test('managed Debug bootstrap is a no-build reader of the shared backend producer', t => {
+  const namespace = `runtime-debug-reader-${process.pid}`
+  t.after(() => {
+    fs.rmSync(path.join(root, '.tmp/acceptance', namespace), { recursive: true, force: true })
+    fs.rmSync(path.join(root, '.tmp/fixtures', namespace), { recursive: true, force: true })
+    fs.rmSync(path.join(root, '.tmp/env', `${namespace}.env`), { force: true })
+  })
+
+  const result = childProcess.spawnSync('bash', ['-lc', [
+    'export FSUSBLOG_BOOTSTRAP_SOURCE_ONLY=1',
+    `export FSUSBLOG_TEST_NAMESPACE=${namespace}`,
+    'export FSUSBLOG_RUNTIME_NO_BUILD=0',
+    'unset FSUSBLOG_RUNTIME_CONFIGURATION',
+    'source ./tools/bootstrap-acceptance-env.sh',
+    'configure_managed_backend_runtime_reader',
+    'printf "%s|%s|%s\\n" "$FSUSBLOG_RUNTIME_CONFIGURATION" "$FSUSBLOG_RUNTIME_NO_BUILD" "$MANAGED_BACKEND_SHARED_DEBUG_BUILD_REQUIRED"'
+  ].join('; ')], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 10_000
+  })
+
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  assert.match(result.stdout, /Debug\|1\|1/u)
+  const runtimeEnvironment = fs.readFileSync(path.join(root, '.tmp/env', `${namespace}.env`), 'utf8')
+  assert.match(runtimeEnvironment, /^FSUSBLOG_RUNTIME_CONFIGURATION=Debug$/mu)
+  assert.match(runtimeEnvironment, /^FSUSBLOG_RUNTIME_NO_BUILD=1$/mu)
+  assert.match(bootstrap, /source "\$ROOT_DIR\/tools\/test\/lanes\/_legacy\.sh"[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build/u)
+  assert.match(bootstrap, /backend-debug-build ensure_managed_backend_shared_debug_build/u)
+  assert.match(bootstrap, /managed backend startup is read-only and requires FSUSBLOG_RUNTIME_NO_BUILD=1/u)
+  assert.match(bootstrap, /FSUSBLOG_RUNTIME_CONFIGURATION="\$runtime_configuration"[\s\S]*?FSUSBLOG_RUNTIME_NO_BUILD=1/u)
+})
+
+test('fault recovery reloads bootstrap mode and cannot restart a managed backend as a build writer', () => {
+  const loadIndex = faultLane.indexOf('require_bootstrapped_namespace')
+  const producerIndex = faultLane.indexOf('FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build')
+  const probeIndex = faultLane.indexOf('runtime-evidence-probe.mjs')
+  assert.ok(loadIndex >= 0 && loadIndex < producerIndex)
+  assert.ok(producerIndex < probeIndex)
+  assert.match(faultLane, /export FSUSBLOG_RUNTIME_CONFIGURATION="\$runtime_configuration"[\s\S]*?export FSUSBLOG_RUNTIME_NO_BUILD=1/u)
+  assert.match(runtimeProbe, /managed backend restart requires FSUSBLOG_RUNTIME_NO_BUILD=1 and a shared prebuilt runtime/u)
+  assert.match(runtimeProbe, /'run', '--project', 'src\/backend\/FsusBlog\.Server\.csproj'[\s\S]*?'--no-build', '--no-restore'/u)
+  assert.doesNotMatch(runtimeProbe, /\.\.\.\(noBuild \? \['--no-build', '--no-restore'\] : \[\]\)/u)
+})
+
+test('bootstrap namespace loader preserves values containing and ending with equals signs', t => {
+  const namespace = `runtime-env-equals-${process.pid}`
+  const environmentFile = path.join(root, '.tmp/env', `${namespace}.env`)
+  t.after(() => fs.rmSync(environmentFile, { force: true }))
+  fs.mkdirSync(path.dirname(environmentFile), { recursive: true })
+  fs.writeFileSync(environmentFile, [
+    `FSUSBLOG_TEST_NAMESPACE=${namespace}`,
+    'VisitLog__IpPseudonymization__CurrentKey=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=',
+    'ConnectionStrings__DefaultConnection=Host=127.0.0.1;Password=value=with=equals',
+    ''
+  ].join('\n'))
+
+  const result = childProcess.spawnSync('bash', ['-lc', [
+    `export FSUSBLOG_TEST_NAMESPACE=${namespace}`,
+    'source ./tools/test/lanes/_legacy.sh',
+    'require_bootstrapped_namespace',
+    '[[ "$VisitLog__IpPseudonymization__CurrentKey" == "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=" ]]',
+    '[[ "$ConnectionStrings__DefaultConnection" == "Host=127.0.0.1;Password=value=with=equals" ]]'
+  ].join('; ')], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 10_000
+  })
+
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
 })
 
 test('managed backend uses the same JWT key version as acceptance fixture tokens', () => {
@@ -27,6 +101,7 @@ test('managed backend readiness fails immediately when the no-build process exit
   const namespace = `runtime-release-backend-fail-${process.pid}`
   t.after(() => {
     fs.rmSync(path.join(root, '.tmp/acceptance', namespace), { recursive: true, force: true })
+    fs.rmSync(path.join(root, '.tmp/fixtures', namespace), { recursive: true, force: true })
     fs.rmSync(path.join(root, '.tmp/env', `${namespace}.env`), { force: true })
   })
   const startedAt = performance.now()

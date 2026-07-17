@@ -49,10 +49,7 @@ NODE
 }
 
 local_dotnet_args() {
-  PRIVACY_DOTNET_ARGS=()
-  if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" ]]; then
-    PRIVACY_DOTNET_ARGS+=(-- --no-build --no-restore)
-  fi
+  PRIVACY_DOTNET_ARGS=(-- --no-build --no-restore)
 }
 
 run_privacy_matrix_contract() {
@@ -60,7 +57,9 @@ run_privacy_matrix_contract() {
 }
 
 run_privacy_prebuild_contract() {
-  npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-contract:prebuild
+  FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build || return $?
+  FSUSBLOG_ZK_MCL_NO_BUILD=1 \
+    npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-contract:prebuild
 }
 
 run_privacy_postbuild_contract() {
@@ -68,13 +67,15 @@ run_privacy_postbuild_contract() {
 }
 
 run_privacy_backend_functional() {
-  configure_dotnet_test_processors
+  configure_dotnet_test_processors || return $?
+  FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release ensure_backend_filtered_build || return $?
   local_dotnet_args
   npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-backend-functional "${PRIVACY_DOTNET_ARGS[@]}"
 }
 
 run_privacy_benchmark() {
-  configure_dotnet_test_processors
+  configure_dotnet_test_processors || return $?
+  FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release ensure_backend_filtered_build || return $?
   local_dotnet_args
   FSUSBLOG_RUN_PERFORMANCE_TESTS=1 \
     npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-benchmark "${PRIVACY_DOTNET_ARGS[@]}"
