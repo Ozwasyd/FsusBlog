@@ -58,8 +58,10 @@ import {
   buildPublicPrivacyRouteKey
 } from '@/public-renderers/publicRouteIdentity'
 import {
+  createPublicLocaleContext,
   createPublicRenderClock,
   createPublicRenderTimeOptions,
+  type Clock,
   type PublicRenderClock
 } from '@/public-renderers/publicRenderClock'
 import {
@@ -133,8 +135,17 @@ function createPublicEntryScope<K extends PublicPageKind>(kind: K, options: Publ
   const compliance = normalizePublicComplianceConfig(options.compliance)
   const baseUrlInput = options.baseUrl
   const baseUrlText = toText(baseUrlInput, '')
-  const renderClock = createPublicRenderClock(options.renderTimestamp ?? options.generatedAt)
-  const renderTimeOptions = createPublicRenderTimeOptions(renderClock)
+  const injectedClock = options.clock && typeof options.clock === 'object' && typeof (options.clock as Clock).now === 'function'
+    ? options.clock as Clock
+    : undefined
+  const renderClock = injectedClock
+    ? createPublicRenderClock(options.renderTimestamp ?? options.generatedAt, injectedClock)
+    : createPublicRenderClock(options.renderTimestamp ?? options.generatedAt)
+  const localeContext = createPublicLocaleContext({
+    locale: toText(options.renderLocale ?? options.locale, ''),
+    timeZone: toText(options.renderDisplayTimeZone ?? options.timeZone, '')
+  })
+  const renderTimeOptions = createPublicRenderTimeOptions(renderClock, localeContext)
   const baseModel = createPublicRenderBase(kind, routeKey, {
     rendererVersion: PUBLIC_RENDERER_VERSION,
     siteTitle,

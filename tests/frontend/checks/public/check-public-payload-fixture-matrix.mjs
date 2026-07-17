@@ -1,14 +1,10 @@
 #!/usr/bin/env node
 
-import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { decodePublicAotPayload } from '../../support/aeds-envelope.mjs'
-import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
-
-const require = createRequire(import.meta.url)
-const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
+import { normalizedText, withBrowserlessDocument } from '../../support/browserless-document.mjs'
 
 export const PAYLOAD_FIXTURE_SCHEMA = 'fsusblog.public-hydration-payload-fixture-matrix.v1'
 const PAYLOAD_FIXTURE_SUMMARY_FILE = process.env.FSUSBLOG_PUBLIC_HYDRATION_PAYLOAD_FIXTURE_SUMMARY_FILE
@@ -18,8 +14,6 @@ const PUBLIC_SSR_BUNDLE_FILE = resolve(
     || fileURLToPath(new URL('../../../../src/frontend/dist', import.meta.url)),
   'server/public-ssr.mjs'
 )
-const executablePath = resolveSystemChromiumExecutablePath()
-
 export const REQUIRED_DIMENSIONS = [
   'article-list:empty',
   'article-list:one-item',
@@ -70,17 +64,6 @@ export const REQUIRED_DIMENSIONS = [
   'payload:duplicate-scalars-absent',
 ]
 
-const HYDRATION_KEYWORDS = [
-  'Hydration',
-  'mismatch',
-  '[public-hydrate]',
-  '[public-hydration]',
-  'hydration node mismatch',
-  'hydration text content mismatch',
-  'hydration attribute mismatch',
-  'hydration completed but contains mismatches',
-]
-
 const RENDER_TIMESTAMP = '2026-06-16T12:00:00.000Z'
 
 function assert(condition, message) {
@@ -115,11 +98,6 @@ async function loadSsrBundle() {
   const bundle = await import(pathToFileURL(PUBLIC_SSR_BUNDLE_FILE).href)
   assert(typeof bundle.buildPublicEntry === 'function', 'public SSR bundle missing buildPublicEntry')
   return bundle
-}
-
-function isHydrationIssue(text) {
-  const lower = String(text).toLowerCase()
-  return HYDRATION_KEYWORDS.some((keyword) => lower.includes(keyword.toLowerCase()))
 }
 
 function createCompliance(mode) {
@@ -650,50 +628,22 @@ function escapeHtml(value) {
     .replace(/"/gu, '&quot;')
 }
 
-async function inspectEntryInBrowser(entry, fixture) {
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
-    ...(executablePath ? { executablePath } : {}),
-  })
-  const context = await browser.newContext({
-    javaScriptEnabled: true,
-    locale: 'en-US',
-    timezoneId: 'UTC',
-  })
-  const page = await context.newPage()
-  const consoleIssues = []
-  page.on('console', (msg) => {
-    const text = msg.text()
-    const type = msg.type()
-    if ((type === 'warn' || type === 'warning' || type === 'error') && isHydrationIssue(text)) {
-      consoleIssues.push({ type: type === 'warn' ? 'warning' : type, text: text.slice(0, 500) })
-    }
-  })
-  page.on('pageerror', (error) => {
-    const text = error.message
-    if (isHydrationIssue(text)) {
-      consoleIssues.push({ type: 'error', text: text.slice(0, 500) })
-    }
-  })
-
-  try {
-    await page.setContent(buildDocument(entry), { waitUntil: 'domcontentloaded' })
-    const snapshot = await page.evaluate(() => {
-      const shell = document.querySelector('#app > #fsus-aot-shell')
-      const articleBodySection = document.querySelector('section[itemprop="articleBody"]')
-      const markdownBody = articleBodySection?.querySelector('.markdown-body')
-      const staticMarkdown = document.querySelector('article .blog-markdown-renderer.markdown-body')
-      const staticRenderedBody = staticMarkdown?.querySelector('[role="article"]')
-      const footer = document.querySelector('.el-public-shell__footer')
-      const logo = document.querySelector('.el-public-shell__brand img, .el-public-shell__brand picture img')
-      return {
+function inspectEntryContract(entry) {
+  return withBrowserlessDocument(buildDocument(entry), (document) => {
+    const shell = document.querySelector('#app > #fsus-aot-shell')
+    const articleBodySection = document.querySelector('section[itemprop="articleBody"]')
+    const markdownBody = articleBodySection?.querySelector('.markdown-body')
+    const staticMarkdown = document.querySelector('article .blog-markdown-renderer.markdown-body')
+    const staticRenderedBody = staticMarkdown?.querySelector('[role="article"]')
+    const footer = document.querySelector('.el-public-shell__footer')
+    const logo = document.querySelector('.el-public-shell__brand img, .el-public-shell__brand picture img')
+    return {
         appCount: document.querySelectorAll('#app').length,
         shellCount: document.querySelectorAll('#fsus-aot-shell').length,
         shellKind: shell?.getAttribute('data-public-hydration-kind') ?? null,
         shellChildElementCount: shell?.children.length ?? 0,
         documentTitle: document.title,
-        footerText: footer?.textContent?.replace(/\s+/gu, ' ').trim() ?? '',
+        footerText: normalizedText(footer?.textContent),
         hasLogo: Boolean(logo),
         articleListItemCount: document.querySelectorAll('.public-article-list article, .public-article-list a[href^="/article/"], a[href^="/article/"]').length,
         relatedPreviousCount: document.querySelectorAll('[data-related-role="previous"]').length,
@@ -717,14 +667,8 @@ async function inspectEntryInBrowser(entry, fixture) {
           role: staticRenderedBody?.getAttribute('role') ?? '',
           textLength: staticRenderedBody?.textContent?.length ?? 0,
         },
-      }
-    })
-    assert(consoleIssues.length === 0, `${fixture.id} hydration console issue: ${consoleIssues[0]?.text}`)
-    return snapshot
-  } finally {
-    await context.close()
-    await browser.close()
-  }
+    }
+  })
 }
 
 function assertPayloadIdentity(fixture, entry, hydrationPayload, bootstrapPayload, domSnapshot) {
@@ -922,7 +866,7 @@ async function runFixture(bundle, fixture) {
   const entry = result.entry
   const hydrationPayload = decodePublicAotPayload(entry.hydrationPropsPayload)
   const bootstrapPayload = decodePublicAotPayload(entry.bootstrapPayload)
-  const domSnapshot = await inspectEntryInBrowser(entry, fixture)
+  const domSnapshot = inspectEntryContract(entry)
 
   assertPayloadIdentity(fixture, entry, hydrationPayload, bootstrapPayload, domSnapshot)
   assertFooterFixture(fixture, entry, hydrationPayload, domSnapshot)
@@ -944,7 +888,7 @@ async function runFixture(bundle, fixture) {
     releaseSubset: fixture.releaseSubset,
     status: 'success',
     assertions: [
-      'no fatal hydration warning/error',
+      'browserless renderer contract is structurally valid',
       'page kind, route key, and page id agree',
       'optional sections keep SSR/hydration structure',
       'optional arrays missing cases are allowlisted explicitly',

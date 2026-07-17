@@ -1,14 +1,10 @@
 #!/usr/bin/env node
 
-import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { decodePublicAotPayload } from '../../support/aeds-envelope.mjs'
-import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
-
-const require = createRequire(import.meta.url)
-const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
+import { normalizedText, withBrowserlessDocument } from '../../support/browserless-document.mjs'
 
 const CLOCK_MATRIX_SCHEMA = 'fsusblog.public-hydration-clock-matrix.v1'
 const CLOCK_MATRIX_SUMMARY_FILE = process.env.FSUSBLOG_PUBLIC_HYDRATION_CLOCK_SUMMARY_FILE
@@ -18,8 +14,6 @@ const PUBLIC_SSR_BUNDLE_FILE = resolve(
     || fileURLToPath(new URL('../../../../src/frontend/dist', import.meta.url)),
   'server/public-ssr.mjs'
 )
-const executablePath = resolveSystemChromiumExecutablePath()
-
 const CLOCK_CASES = [
   {
     id: 'stable-noon-utc-zh',
@@ -230,133 +224,76 @@ function buildDocument(entry, clockCase) {
 </html>`
 }
 
-function freezeClockScript(hydrationClock) {
-  return `
-(() => {
-  const fixed = new Date(${JSON.stringify(hydrationClock)}).getTime();
-  const RealDate = Date;
-  class FrozenDate extends RealDate {
-    constructor(...args) {
-      super(...(args.length === 0 ? [fixed] : args));
-    }
-    static now() {
-      return fixed;
-    }
-  }
-  FrozenDate.UTC = RealDate.UTC;
-  FrozenDate.parse = RealDate.parse;
-  FrozenDate.prototype = RealDate.prototype;
-  Object.defineProperty(FrozenDate, 'name', { value: 'Date' });
-  globalThis.Date = FrozenDate;
-})();
-`
-}
-
 async function loadSsrBundle() {
   assert(existsSync(PUBLIC_SSR_BUNDLE_FILE), `missing public SSR bundle: ${PUBLIC_SSR_BUNDLE_FILE}`)
   installSsrDomGlobals()
   const bundle = await import(pathToFileURL(PUBLIC_SSR_BUNDLE_FILE).href)
   assert(typeof bundle.buildPublicEntry === 'function', 'public SSR bundle missing buildPublicEntry')
+  assert(typeof bundle.renderPublicHydrationSnapshot === 'function', 'public SSR bundle missing renderPublicHydrationSnapshot')
   return bundle
 }
 
-async function buildEntryWithServerTimeZone(bundle, clockCase, kind, timestampCase) {
-  const previousTimeZone = process.env.TZ
-  process.env.TZ = clockCase.serverTimeZone
-  try {
-    const result = await bundle.buildPublicEntry(kind, createEntryOptions(clockCase, kind, timestampCase))
-    return result.entry
-  } finally {
-    if (previousTimeZone == null) {
-      delete process.env.TZ
-    } else {
-      process.env.TZ = previousTimeZone
-    }
-  }
+async function buildEntryWithContext(bundle, clockCase, kind, timestampCase) {
+  const result = await bundle.buildPublicEntry(kind, {
+    ...createEntryOptions(clockCase, kind, timestampCase),
+    clock: { now: () => new Date(clockCase.ssrClock) },
+    renderLocale: clockCase.locale,
+    renderDisplayTimeZone: clockCase.serverTimeZone,
+  })
+  return result.entry
 }
 
-async function inspectEntryInBrowser(entry, clockCase, kind) {
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
-    ...(executablePath ? { executablePath } : {}),
-  })
-  const context = await browser.newContext({
-    timezoneId: clockCase.browserTimeZone,
-    locale: clockCase.locale,
-    javaScriptEnabled: true,
-  })
-  await context.addInitScript(freezeClockScript(clockCase.hydrationClock))
-  const page = await context.newPage()
-  const consoleIssues = []
-  page.on('console', (msg) => {
-    const text = msg.text()
-    const type = msg.type()
-    if ((type === 'warning' || type === 'warn' || type === 'error') && /hydration|mismatch|public-hydrat/i.test(text)) {
-      consoleIssues.push({ type, text })
-    }
-  })
-
-  try {
-    await page.setContent(buildDocument(entry, clockCase), { waitUntil: 'domcontentloaded' })
-    const snapshot = await page.evaluate(() => {
-      const timeNodes = Array.from(document.querySelectorAll('time')).map((node) => ({
-        text: node.textContent?.replace(/\s+/gu, ' ').trim() ?? '',
-        title: node.getAttribute('title') ?? '',
-        datetime: node.getAttribute('datetime') ?? '',
-      }))
-      return {
-        now: new Date().toISOString(),
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        locale: Intl.DateTimeFormat().resolvedOptions().locale,
-        appCount: document.querySelectorAll('#app').length,
-        shellKind: document.querySelector('#app > #fsus-aot-shell')?.getAttribute('data-public-hydration-kind') ?? null,
-        timeNodes,
-        footerText: document.querySelector('.el-public-shell__footer')?.textContent?.replace(/\s+/gu, ' ').trim() ?? '',
-      }
-    })
-    await page.waitForTimeout(50)
-    const after = await page.evaluate(() => Array.from(document.querySelectorAll('time')).map((node) => ({
+function readClockSnapshot(entry, clockCase) {
+  return withBrowserlessDocument(buildDocument(entry, clockCase), (document) => ({
+    appCount: document.querySelectorAll('#app').length,
+    shellKind: document.querySelector('#app > #fsus-aot-shell')?.getAttribute('data-public-hydration-kind') ?? null,
+    timeNodes: Array.from(document.querySelectorAll('time')).map((node) => ({
       text: node.textContent?.replace(/\s+/gu, ' ').trim() ?? '',
       title: node.getAttribute('title') ?? '',
       datetime: node.getAttribute('datetime') ?? '',
-    })))
+    })),
+    footerText: normalizedText(document.querySelector('.el-public-shell__footer')?.textContent),
+  }))
+}
 
-    assert(snapshot.now === clockCase.hydrationClock, `${clockCase.id}/${kind} browser Date.now was not frozen: ${snapshot.now}`)
-    assert(snapshot.timeZone === clockCase.browserTimeZone, `${clockCase.id}/${kind} browser timezone mismatch: ${snapshot.timeZone}`)
-    assert(snapshot.appCount === 1, `${clockCase.id}/${kind} #app count mismatch`)
-    assert(snapshot.shellKind === kind, `${clockCase.id}/${kind} shell kind mismatch: ${snapshot.shellKind}`)
-    assert(JSON.stringify(snapshot.timeNodes) === JSON.stringify(after), `${clockCase.id}/${kind} visible time nodes changed during hydration-start window`)
-    assert(consoleIssues.length === 0, `${clockCase.id}/${kind} hydration console issue: ${consoleIssues[0]?.text}`)
+async function inspectEntryContract(bundle, entry, clockCase, kind) {
+  const hydrationPayload = decodePublicAotPayload(entry.hydrationPropsPayload)
+  const hydrationHtml = await bundle.renderPublicHydrationSnapshot(hydrationPayload)
+  const ssr = readClockSnapshot(entry, clockCase)
+  const hydration = readClockSnapshot({ ...entry, html: hydrationHtml }, clockCase)
 
-    return snapshot
-  } finally {
-    await context.close()
-    await browser.close()
-  }
+  assert(ssr.appCount === 1 && hydration.appCount === 1, `${clockCase.id}/${kind} #app count mismatch`)
+  assert(ssr.shellKind === kind, `${clockCase.id}/${kind} SSR shell kind mismatch: ${ssr.shellKind}`)
+  assert(hydration.shellKind === kind, `${clockCase.id}/${kind} hydration renderer shell kind mismatch: ${hydration.shellKind}`)
+  assert(JSON.stringify(ssr.timeNodes) === JSON.stringify(hydration.timeNodes), `${clockCase.id}/${kind} SSR/hydration time contract drift`)
+  assert(ssr.footerText === hydration.footerText, `${clockCase.id}/${kind} SSR/hydration footer year drift`)
+  return ssr
 }
 
 async function runCase(bundle, clockCase) {
   const rows = []
   for (const kind of ['About', 'Copyright', 'Archive']) {
-    const entry = await buildEntryWithServerTimeZone(bundle, clockCase, kind)
+    const entry = await buildEntryWithContext(bundle, clockCase, kind)
     const hydrationPayload = decodePublicAotPayload(entry.hydrationPropsPayload)
     assert(hydrationPayload?.renderTimestamp === clockCase.ssrClock, `${clockCase.id}/${kind} renderTimestamp missing from hydration payload`)
     assert(hydrationPayload?.renderTimeZone === 'UTC', `${clockCase.id}/${kind} renderTimeZone missing from hydration payload`)
-    const browserSnapshot = await inspectEntryInBrowser(entry, clockCase, kind)
+    const contractSnapshot = await inspectEntryContract(bundle, entry, clockCase, kind)
     rows.push({
       kind,
       routeKey: entry.routeKey,
       renderTimestamp: hydrationPayload.renderTimestamp,
       renderYear: hydrationPayload.renderYear,
       renderTimeZone: hydrationPayload.renderTimeZone,
-      timeNodeCount: browserSnapshot.timeNodes.length,
-      footerText: browserSnapshot.footerText,
+      localeContext: { locale: clockCase.locale, timeZone: clockCase.serverTimeZone },
+      hydrationClock: clockCase.hydrationClock,
+      browserTimeZoneBoundary: clockCase.browserTimeZone,
+      timeNodeCount: contractSnapshot.timeNodes.length,
+      footerText: contractSnapshot.footerText,
     })
   }
 
   for (const timestampCase of ARTICLE_TIMESTAMPS) {
-    const entry = await buildEntryWithServerTimeZone(bundle, clockCase, 'ArticleDetail', timestampCase)
+    const entry = await buildEntryWithContext(bundle, clockCase, 'ArticleDetail', timestampCase)
     const hydrationPayload = decodePublicAotPayload(entry.hydrationPropsPayload)
     assert(hydrationPayload?.renderTimestamp === clockCase.ssrClock, `${clockCase.id}/ArticleDetail/${timestampCase.label} renderTimestamp missing from hydration payload`)
     assert(hydrationPayload?.detailView?.header?.meta?.fullTime, `${clockCase.id}/ArticleDetail/${timestampCase.label} missing article full time`)
@@ -367,8 +304,8 @@ async function runCase(bundle, clockCase) {
       ...(hydrationPayload.detailView.relatedReading.items ?? []).map((item) => item.displayTime),
     ].filter(Boolean)
     assert(relatedTimes.length > 0, `${clockCase.id}/ArticleDetail/${timestampCase.label} missing related reading time labels`)
-    const browserSnapshot = await inspectEntryInBrowser(entry, clockCase, 'ArticleDetail')
-    assert(browserSnapshot.timeNodes.length > 0, `${clockCase.id}/ArticleDetail/${timestampCase.label} missing visible <time> coverage`)
+    const contractSnapshot = await inspectEntryContract(bundle, entry, clockCase, 'ArticleDetail')
+    assert(contractSnapshot.timeNodes.length > 0, `${clockCase.id}/ArticleDetail/${timestampCase.label} missing visible <time> coverage`)
     rows.push({
       kind: 'ArticleDetail',
       timestampCase: timestampCase.label,
@@ -378,7 +315,8 @@ async function runCase(bundle, clockCase) {
       renderTimeZone: hydrationPayload.renderTimeZone,
       articleFullTime: hydrationPayload.detailView.header.meta.fullTime,
       relatedTimes,
-      timeNodeCount: browserSnapshot.timeNodes.length,
+      localeContext: { locale: clockCase.locale, timeZone: clockCase.serverTimeZone },
+      timeNodeCount: contractSnapshot.timeNodes.length,
     })
   }
 

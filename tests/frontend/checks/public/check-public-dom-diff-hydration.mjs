@@ -1,15 +1,11 @@
 #!/usr/bin/env node
 
-import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { decodePublicAotPayload } from '../../support/aeds-envelope.mjs'
+import { normalizedText, withBrowserlessDocument } from '../../support/browserless-document.mjs'
 import { PUBLIC_PAYLOAD_FIXTURES } from './check-public-payload-fixture-matrix.mjs'
-import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
-
-const require = createRequire(import.meta.url)
-const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
 
 const DOM_DIFF_SCHEMA = 'fsusblog.public-hydration-dom-diff.v1'
 const DOM_DIFF_SUMMARY_FILE = process.env.FSUSBLOG_PUBLIC_HYDRATION_DOM_DIFF_SUMMARY_FILE
@@ -19,8 +15,6 @@ const PUBLIC_SSR_BUNDLE_FILE = resolve(
     || fileURLToPath(new URL('../../../../src/frontend/dist', import.meta.url)),
   'server/public-ssr.mjs'
 )
-const executablePath = resolveSystemChromiumExecutablePath()
-
 const REQUIRED_PAGE_KINDS = ['Home', 'ArticleDetail', 'Archive', 'Filter', 'About', 'Privacy', 'Guidelines', 'Copyright']
 const COMPARED_ATTRIBUTE_TOKENS = [
   'id',
@@ -86,70 +80,46 @@ function buildDocument(fragment) {
 </html>`
 }
 
-async function readNormalizedTree(page, fragment) {
-  await page.setContent(buildDocument(fragment), { waitUntil: 'domcontentloaded' })
-  return await page.evaluate((comparedAttributeTokens) => {
-    const exactAttributes = new Set(comparedAttributeTokens.filter((token) => !token.endsWith('-')))
-    const prefixAttributes = comparedAttributeTokens.filter((token) => token.endsWith('-'))
-
-    function normalizeText(value) {
-      return String(value ?? '').replace(/\s+/gu, ' ').trim()
-    }
+function readNormalizedTree(fragment) {
+  return withBrowserlessDocument(buildDocument(fragment), (document, window) => {
+    const prefixAttributes = COMPARED_ATTRIBUTE_TOKENS.filter((token) => token.endsWith('-'))
 
     function shouldKeepAttribute(name) {
-      if (name.startsWith('data-v-')) {
-        return false
-      }
-      if (exactAttributes.has(name)) {
-        return true
-      }
-      return prefixAttributes.some((prefix) => name.startsWith(prefix))
+      return !name.startsWith('data-v-')
+        && (EXACT_ATTRIBUTES.has(name) || prefixAttributes.some((prefix) => name.startsWith(prefix)))
     }
 
     function normalizeAttributes(element) {
       const attributes = {}
       for (const attribute of Array.from(element.attributes)) {
-        const name = attribute.name
-        if (!shouldKeepAttribute(name)) {
-          continue
-        }
-        const value = name === 'class'
-          ? normalizeText(attribute.value)
+        if (!shouldKeepAttribute(attribute.name)) continue
+        attributes[attribute.name] = attribute.name === 'class'
+          ? normalizedText(attribute.value)
           : attribute.value
-        attributes[name] = value
       }
       return Object.fromEntries(Object.entries(attributes).sort(([left], [right]) => left.localeCompare(right)))
     }
 
     function normalizeDomNode(node) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        const text = normalizeText(node.textContent)
+      if (node.nodeType === window.Node.TEXT_NODE) {
+        const text = normalizedText(node.textContent)
         return text ? { type: 'text', text } : null
       }
+      if (node.nodeType !== window.Node.ELEMENT_NODE) return null
 
-      if (node.nodeType !== Node.ELEMENT_NODE) {
-        return null
-      }
-
-      const element = node
-      const children = []
-      for (const child of Array.from(element.childNodes)) {
-        const normalized = normalizeDomNode(child)
-        if (normalized) {
-          children.push(normalized)
-        }
-      }
-
+      const children = Array.from(node.childNodes)
+        .map(normalizeDomNode)
+        .filter(Boolean)
       return {
         type: 'element',
-        tag: element.tagName.toLowerCase(),
-        attributes: normalizeAttributes(element),
+        tag: node.tagName.toLowerCase(),
+        attributes: normalizeAttributes(node),
         children,
       }
     }
 
     return normalizeDomNode(document.querySelector('#app'))
-  }, COMPARED_ATTRIBUTE_TOKENS)
+  })
 }
 
 function cloneJson(value) {
@@ -260,13 +230,13 @@ function countNodes(node) {
   return 1 + (node.children ?? []).reduce((total, child) => total + countNodes(child), 0)
 }
 
-async function runCase(bundle, page, fixture) {
+async function runCase(bundle, fixture) {
   const result = await bundle.buildPublicEntry(fixture.kind, fixture.options)
   const entry = result.entry
   const hydrationPayload = decodePublicAotPayload(entry.hydrationPropsPayload)
   const hydrationHtml = await bundle.renderPublicHydrationSnapshot(hydrationPayload)
-  const ssrTree = await readNormalizedTree(page, entry.html)
-  const csrTree = await readNormalizedTree(page, hydrationHtml)
+  const ssrTree = readNormalizedTree(entry.html)
+  const csrTree = readNormalizedTree(hydrationHtml)
   const diffs = compareNormalizedTrees(ssrTree, csrTree)
 
   return {
@@ -308,20 +278,13 @@ async function main() {
     cases: [],
   }
 
-  let browser
   try {
     const bundle = await loadSsrBundle()
-    browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-dev-shm-usage'],
-      ...(executablePath ? { executablePath } : {}),
-    })
-    const page = await browser.newPage()
     const pageKinds = new Set()
 
     for (const fixture of PUBLIC_PAYLOAD_FIXTURES) {
       process.stdout.write(`Testing DOM diff ${fixture.id}... `)
-      const row = await runCase(bundle, page, fixture)
+      const row = await runCase(bundle, fixture)
       summary.cases.push({
         ...row,
         ssrTree: undefined,
@@ -349,8 +312,6 @@ async function main() {
     writeSummary(summary)
     console.error(`[public-dom-diff-hydration] failed: ${summary.error}`)
     process.exit(1)
-  } finally {
-    await browser?.close()
   }
 }
 

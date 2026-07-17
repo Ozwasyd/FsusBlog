@@ -13,6 +13,7 @@ dayjs.locale('zh-cn');
 export type TimeRenderOptions = Readonly<{
     now?: string | Date | number | null;
     timeZone?: string | null;
+    locale?: string | null;
 }>;
 
 function resolveDisplayTimeZone(options?: TimeRenderOptions): string | null {
@@ -22,7 +23,12 @@ function resolveDisplayTimeZone(options?: TimeRenderOptions): string | null {
 
 function applyDisplayTimeZone(value: dayjs.Dayjs, options?: TimeRenderOptions): dayjs.Dayjs {
     const timeZone = resolveDisplayTimeZone(options);
-    return timeZone ? value.tz(timeZone) : value.local();
+    const localized = timeZone ? value.tz(timeZone) : value.local();
+    const locale = options?.locale?.trim().toLowerCase();
+    if (!locale) return localized;
+    if (locale === 'zh-cn' || locale === 'zh-hans' || locale.startsWith('zh-cn-')) return localized.locale('zh-cn');
+    if (locale === 'en' || locale.startsWith('en-')) return localized.locale('en');
+    return localized.locale(locale);
 }
 
 /**

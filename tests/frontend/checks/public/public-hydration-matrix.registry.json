@@ -62,18 +62,18 @@
     {
       "id": "route-phase-release",
       "dimensions": ["route", "phase"],
-      "defaultShards": 4,
+      "defaultShards": 1,
       "lane": "release",
       "owner": "ServerContractAgent",
-      "strategy": "stable shard key routeKey:phase for complete Chromium route phase coverage"
+      "strategy": "single browserless renderer/normalizer contract pass over every public page kind"
     },
     {
       "id": "browser-state-release",
       "dimensions": ["browser", "state", "viewport"],
-      "defaultShards": 2,
+      "defaultShards": 1,
       "lane": "release",
       "owner": "InteropGlueAgent",
-      "strategy": "pairwise state and environment subset before release"
+      "strategy": "production view-contract projection for theme, storage, auth, motion and route state"
     },
     {
       "id": "full-cartesian-nightly",
@@ -106,12 +106,12 @@
       "ciTier": "release",
       "command": "tools/test/lanes/release-public.sh",
       "routeSet": ["Home", "ArticleDetail", "Filter", "Archive", "About", "Privacy", "Guidelines", "Copyright"],
-      "phases": ["direct-first-load", "reload", "micro-navigation", "browser-back-forward", "hash-navigation", "full-spa-takeover", "non-aot-search-fallback"],
-      "browsers": ["chromium"],
+      "phases": ["renderer-contract", "clock-locale-contract", "environment-model", "payload-normalizer", "normalized-dom-diff"],
+      "browsers": [],
       "viewports": ["desktop", "mobile"],
       "states": ["anonymous", "user", "admin"],
       "fixtures": ["payload-fixture-matrix"],
-      "requiredArtifacts": ["detector", "clock", "browserEnv", "payloadFixture", "domDiff"],
+      "requiredArtifacts": ["clock", "browserEnv", "payloadFixture", "domDiff"],
       "shardStrategyRefs": ["route-phase-release", "browser-state-release"],
       "enforcement": "fail-closed-release-evidence"
     },

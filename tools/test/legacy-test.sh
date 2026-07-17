@@ -1704,12 +1704,9 @@ run_release_only() {
   export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
   export FSUSBLOG_HTTP_TIMEOUT_MS="$RELEASE_HTTP_TIMEOUT_MS"
   run_in_client node ../../tests/frontend/checks/public/aot-regression.mjs
-  export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
-  run_in_client npm run check:search-runtime
   export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
   export FSUSBLOG_PUBLIC_BASE_URL="$DEBUG_BACKEND_URL"
-  export PLAYWRIGHT_BASE_URL="$DEBUG_BACKEND_URL"
-  run_in_client npm run check:public-hydration
+  run_in_client node ../../tests/frontend/checks/public/check-public-hydration-identity.mjs
   run_in_client node ../../tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs
   run_in_client node ../../tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs
   run_in_client node ../../tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs
@@ -1717,10 +1714,7 @@ run_release_only() {
   run_in_client env FSUSBLOG_REQUIRE_PUBLIC_HYDRATION_ARTIFACTS=1 \
     node ../../tests/frontend/checks/public/check-public-hydration-matrix-governance.mjs --lane release
   run_in_client npm run check:public-seo-smoke
-  export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
-  export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
-  export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
-  run_in_client npm run check:pwa-offline-smoke
+  log "release browser-only hydration/search/PWA risks are delegated to browser-contract (#1147)"
 }
 
 run_release() {

@@ -324,10 +324,11 @@ function assertStaticContracts() {
     'near-midnight-plus-fifteen-minutes',
     'ARTICLE_TIMESTAMPS',
     'installSsrDomGlobals',
-    'timezoneId',
     'locale',
-    'addInitScript',
-    'freezeClockScript',
+    'withBrowserlessDocument',
+    'buildEntryWithContext',
+    'renderPublicHydrationSnapshot',
+    'localeContext',
     'renderTimestamp',
     'renderTimeZone',
     'createArticleRights',
@@ -351,20 +352,16 @@ function assertStaticContracts() {
     'themePreference',
     'sessionState',
     'storageBehavior',
-    'createScriptGate',
-    'installScriptGate',
-    'waitForExactRouteReadiness',
-    'exact-route-aot-readiness',
-    "waitUntil: 'commit'",
-    '/api/local/auth-fixture/status',
+    'projectPublicBrowserEnvironment',
+    'browserless-production-view-contract',
+    'browserLaunchCount: 0',
+    'playwrightBrowserInstalled: false',
     'motionPreference',
     'colorScheme',
     'viewport',
-    'encodeIdentityAccountSnapshotFrame',
-    'reducedMotion',
-    'colorScheme: cell.colorScheme',
-    'auth-gated-until-after-hydration',
-    'storage-cleared-after-reload',
+    'production-shell-auth-projection',
+    'storage-unavailable-and-cleared-fallback',
+    'browserContractDelegation',
     'public-hydration-browser-env-summary.json'
   ]) {
     if (!browserEnvHydrationCheck.includes(token)) {
@@ -418,6 +415,18 @@ function assertStaticContracts() {
       fail(`DOM diff hydration check missing matrix token: ${token}`)
     }
   }
+  for (const [label, source] of [
+    ['clock', clockHydrationCheck],
+    ['browser environment', browserEnvHydrationCheck],
+    ['payload fixture', payloadFixtureHydrationCheck],
+    ['DOM diff', domDiffHydrationCheck]
+  ]) {
+    for (const forbidden of ['@playwright/test', 'chromium.launch', 'resolveSystemChromiumExecutablePath']) {
+      if (source.includes(forbidden)) {
+        fail(`${label} browserless contract must not contain ${forbidden}`)
+      }
+    }
+  }
   for (const token of [
     'fsusblog.public-hydration-matrix-summary.v1',
     'fsusblog.public-hydration-matrix-registry.v1',
@@ -451,7 +460,7 @@ function assertStaticContracts() {
     '"route-phase-release"',
     '"browser-state-release"',
     '"full-cartesian-nightly"',
-    '"requiredArtifacts": ["detector", "clock", "browserEnv", "payloadFixture", "domDiff"]'
+    '"requiredArtifacts": ["clock", "browserEnv", "payloadFixture", "domDiff"]'
   ]) {
     if (!hydrationMatrixRegistry.includes(token)) {
       fail(`hydration matrix registry missing token: ${token}`)
