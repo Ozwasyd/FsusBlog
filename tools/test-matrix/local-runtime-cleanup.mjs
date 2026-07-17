@@ -19,6 +19,12 @@ const labeledSchemaContainerPattern = /^fsus-pg-[a-z0-9-]+-(\d+)-[0-9a-f]+$/u
 const schemaContainerKindLabel = 'com.fsusblog.test.kind'
 const schemaContainerOwnerPidLabel = 'com.fsusblog.test.owner-pid'
 const schemaContainerRunIdLabel = 'com.fsusblog.test.run-id'
+const runtimeContainerRunIdLabel = 'io.fsusblog.test.run-id'
+const runtimeContainerBundleIdLabel = 'io.fsusblog.test.bundle-id'
+const runtimeContainerStepIdLabel = 'io.fsusblog.test.step-id'
+const runtimeContainerNamespaceLabel = 'io.fsusblog.test.namespace'
+const runtimeContainerPreparationIdLabel = 'io.fsusblog.test.preparation-id'
+const runtimeProcessIdentitySchema = 'fsusblog.local-runtime-process-identity.v1'
 
 function positiveInteger(value) {
   const parsed = Number.parseInt(String(value ?? ''), 10)
@@ -137,8 +143,207 @@ function ownedContainerNames(namespace) {
   ])
 }
 
+function defaultContainerExists(name) {
+  return spawnSync('docker', ['inspect', name], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  }).status === 0
+}
+
 function defaultRemoveContainer(name) {
-  spawnSync('docker', ['rm', '--force', '--volumes', name], { stdio: 'ignore' })
+  const result = spawnSync('docker', ['rm', '--force', '--volumes', name], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+  const stillExists = defaultContainerExists(name)
+  return {
+    removed: !stillExists,
+    exitCode: result.status,
+    reason: stillExists
+      ? String(result.stderr ?? result.stdout ?? 'docker rm did not remove the container').trim()
+      : null
+  }
+}
+
+function expectedRoleForPidFile(pidFileName) {
+  if (pidFileName === 'backend.pid') return 'backend'
+  if (pidFileName === 'dev-server.pid') return 'debug-frontend'
+  if (pidFileName === 'preview.pid') return 'release-preview'
+  return null
+}
+
+function processIdentityFile(runtimeDirectory, pidFileName) {
+  return path.join(runtimeDirectory, pidFileName.replace(/\.pid$/u, '.identity.json'))
+}
+
+function readRuntimeProcessIdentity(file) {
+  try {
+    const stat = fs.lstatSync(file)
+    if (!stat.isFile()) return { identity: null, reason: 'identity-sidecar-not-regular' }
+    if ((stat.mode & 0o777) !== 0o600) return { identity: null, reason: 'identity-sidecar-not-private' }
+    const identity = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (identity?.schema !== runtimeProcessIdentitySchema
+      || !positiveInteger(identity.pid)
+      || !positiveInteger(identity.processGroupId)
+      || !/^\d+$/u.test(String(identity.startTimeTicks ?? ''))
+      || typeof identity.runId !== 'string'
+      || typeof identity.namespace !== 'string'
+      || typeof identity.role !== 'string'
+      || typeof identity.preparationId !== 'string'
+      || !identity.runId.trim()
+      || !identity.namespace.trim()
+      || !identity.role.trim()
+      || !identity.preparationId.trim()) {
+      return { identity: null, reason: 'identity-sidecar-invalid' }
+    }
+    return { identity, reason: null }
+  } catch (error) {
+    if (error.code === 'ENOENT') return { identity: null, reason: 'identity-sidecar-missing' }
+    return { identity: null, reason: 'identity-sidecar-unreadable' }
+  }
+}
+
+function withinRepository(record, root) {
+  if (!String(root ?? '').trim() || !String(record?.cwd ?? '').trim()) return false
+  const resolvedRoot = path.resolve(root)
+  const cwd = path.resolve(String(record?.cwd ?? ''))
+  return cwd === resolvedRoot || cwd.startsWith(`${resolvedRoot}${path.sep}`)
+}
+
+function hasExactFixtureOwnership(record, fixtureRoot, namespace) {
+  const expectedRoot = String(fixtureRoot ?? '').trim()
+  const observedRoot = String(record?.env?.FSUSBLOG_FIXTURE_ROOT ?? '').trim()
+  if (!expectedRoot || !observedRoot || !namespace) return false
+  const resolvedExpectedRoot = path.resolve(expectedRoot)
+  return path.basename(resolvedExpectedRoot) === namespace
+    && path.resolve(observedRoot) === resolvedExpectedRoot
+}
+
+function commandMatchesRuntimeRole(record, role) {
+  const command = (record?.args ?? []).join(' ')
+  if (role === 'backend') return /(?:dotnet.+FsusBlog\.Server|FsusBlog\.Server)/u.test(command)
+  if (role === 'debug-frontend' || role === 'release-preview') return /(?:^|\s|\/)vite(?:\s|$)/u.test(command)
+  return false
+}
+
+export function dedicatedProcessIdentityMatches(identity, observed, {
+  root,
+  namespace,
+  runId,
+  role,
+  preparationId,
+  fixtureRoot = ''
+}) {
+  return Boolean(root && namespace && runId && role && preparationId)
+    && identity?.schema === runtimeProcessIdentitySchema
+    && identity.pid === observed?.pid
+    && identity.pid === identity.processGroupId
+    && identity.processGroupId === observed?.processGroupId
+    && String(identity.startTimeTicks) === String(observed?.startTimeTicks ?? '')
+    && identity.runId === runId
+    && identity.namespace === namespace
+    && identity.role === role
+    && identity.preparationId === preparationId
+    && observed?.env?.FSUSBLOG_TEST_RUN_ID === runId
+    && observed?.env?.FSUSBLOG_TEST_NAMESPACE === namespace
+    && observed?.env?.FSUSBLOG_RUNTIME_ROLE === role
+    && observed?.env?.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME === '1'
+    && observed?.env?.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID === preparationId
+    && (withinRepository(observed, root)
+      || hasExactFixtureOwnership(observed, fixtureRoot, namespace))
+    && commandMatchesRuntimeRole(observed, role)
+}
+
+export function dedicatedProcessGroupMembersMatch(identity, members, {
+  root,
+  fixtureRoot = ''
+}) {
+  if (!identity?.runId || !identity.namespace || !identity.role || !identity.preparationId
+    || !root || !Array.isArray(members) || members.length === 0) return false
+  return members.every((member) => member?.state !== 'Z'
+    && positiveInteger(member?.pid) !== null
+    && member.processGroupId === identity.processGroupId
+    && member.env?.FSUSBLOG_TEST_RUN_ID === identity.runId
+    && member.env?.FSUSBLOG_TEST_NAMESPACE === identity.namespace
+    && member.env?.FSUSBLOG_RUNTIME_ROLE === identity.role
+    && member.env?.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME === '1'
+    && member.env?.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID === identity.preparationId
+    && (withinRepository(member, root)
+      || hasExactFixtureOwnership(member, fixtureRoot, identity.namespace)))
+}
+
+function defaultProcessGroupExists(processGroupId) {
+  try {
+    process.kill(-processGroupId, 0)
+    return true
+  } catch (error) {
+    if (error.code === 'ESRCH') return false
+    return true
+  }
+}
+
+function synchronousWaitUntil(predicate, timeoutMs) {
+  const waitBuffer = new Int32Array(new SharedArrayBuffer(4))
+  const deadline = Date.now() + timeoutMs
+  while (!predicate() && Date.now() < deadline) {
+    Atomics.wait(waitBuffer, 0, 0, Math.min(25, Math.max(1, deadline - Date.now())))
+  }
+  return predicate()
+}
+
+function signalProcessGroup(processGroupId, signal) {
+  try {
+    process.kill(-processGroupId, signal)
+    return true
+  } catch (error) {
+    return error.code === 'ESRCH'
+  }
+}
+
+export function terminateDedicatedProcessGroup(identity, {
+  observeProcess = readProcProcess,
+  processGroupExists = defaultProcessGroupExists,
+  signalGroup = signalProcessGroup,
+  listProcessGroupMembers = defaultListProcessGroupMembers,
+  procRoot = '/proc',
+  root = '',
+  fixtureRoot = '',
+  graceMs = 2_000
+} = {}) {
+  const initial = observeProcess(identity.pid)
+  if (initial === null) return !processGroupExists(identity.processGroupId)
+  if (!dedicatedProcessIdentityMatches(identity, initial, {
+    root,
+    namespace: identity.namespace,
+    runId: identity.runId,
+    role: identity.role,
+    preparationId: identity.preparationId,
+    fixtureRoot
+  })
+    || !processGroupExists(identity.processGroupId)) return false
+  if (!signalGroup(identity.processGroupId, 'SIGTERM')) return false
+  const exitedAfterTerm = synchronousWaitUntil(
+    () => observeProcess(identity.pid) === null && !processGroupExists(identity.processGroupId),
+    graceMs
+  )
+  if (exitedAfterTerm) return true
+
+  const observed = observeProcess(identity.pid)
+  if (observed !== null
+    && (observed.startTimeTicks !== identity.startTimeTicks
+      || observed.processGroupId !== identity.processGroupId)) return false
+  let members
+  try {
+    members = listProcessGroupMembers(identity.processGroupId, { procRoot })
+  } catch {
+    return false
+  }
+  if (!dedicatedProcessGroupMembersMatch(identity, members, { root, fixtureRoot })) return false
+  if (!signalGroup(identity.processGroupId, 'SIGKILL')) return false
+  return synchronousWaitUntil(
+    () => observeProcess(identity.pid) === null && !processGroupExists(identity.processGroupId),
+    graceMs
+  )
 }
 
 function defaultKillProcess(pid, root, pidFileName) {
@@ -174,31 +379,83 @@ function defaultKillProcess(pid, root, pidFileName) {
   }
 }
 
+function parseProcStat(pid, stat) {
+  const statTail = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u)
+  const startTimeTicks = statTail[19] ?? ''
+  if (!/^\d+$/u.test(startTimeTicks)) return null
+  return {
+    pid,
+    state: statTail[0] ?? '',
+    ppid: positiveInteger(statTail[1]),
+    processGroupId: positiveInteger(statTail[2]),
+    sessionId: positiveInteger(statTail[3]),
+    startTimeTicks
+  }
+}
+
+function decodeProcEnvironment(raw) {
+  return Object.fromEntries(raw
+    .split('\0')
+    .filter(Boolean)
+    .map((entry) => {
+      const separator = entry.indexOf('=')
+      return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)]
+    }))
+}
+
+function readProcProcessAtRoot(pid, procRoot) {
+  const processRoot = path.join(procRoot, String(pid))
+  const parsed = parseProcStat(pid, fs.readFileSync(path.join(processRoot, 'stat'), 'utf8'))
+  if (parsed === null) return null
+  return {
+    ...parsed,
+    cwd: fs.realpathSync(path.join(processRoot, 'cwd')),
+    args: fs.readFileSync(path.join(processRoot, 'cmdline'), 'utf8').split('\0').filter(Boolean),
+    env: decodeProcEnvironment(fs.readFileSync(path.join(processRoot, 'environ'), 'utf8'))
+  }
+}
+
 function readProcProcess(pid) {
   try {
-    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8')
-    const statTail = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u)
-    const startTimeTicks = statTail[19] ?? ''
-    if (!/^\d+$/u.test(startTimeTicks)) return null
-    const environment = Object.fromEntries(fs.readFileSync(`/proc/${pid}/environ`, 'utf8')
-      .split('\0')
-      .filter(Boolean)
-      .map((entry) => {
-        const separator = entry.indexOf('=')
-        return separator < 1 ? [entry, ''] : [entry.slice(0, separator), entry.slice(separator + 1)]
-      }))
-    return {
-      pid,
-      ppid: positiveInteger(statTail[1]),
-      startTimeTicks,
-      cwd: fs.realpathSync(`/proc/${pid}/cwd`),
-      args: fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').filter(Boolean),
-      env: environment
-    }
+    return readProcProcessAtRoot(pid, '/proc')
   } catch (error) {
     if (['ENOENT', 'EACCES', 'EPERM'].includes(error.code)) return null
     throw error
   }
+}
+
+function defaultListProcessGroupMembers(processGroupId, { procRoot = '/proc' } = {}) {
+  let entries
+  try {
+    entries = fs.readdirSync(procRoot, { withFileTypes: true })
+  } catch {
+    return null
+  }
+  const members = []
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !/^\d+$/u.test(entry.name)) continue
+    const pid = Number.parseInt(entry.name, 10)
+    let before
+    try {
+      before = parseProcStat(pid, fs.readFileSync(path.join(procRoot, entry.name, 'stat'), 'utf8'))
+    } catch (error) {
+      if (error.code === 'ENOENT') continue
+      return null
+    }
+    if (before === null || before.processGroupId !== processGroupId || before.state === 'Z') continue
+    let observed
+    try {
+      observed = readProcProcessAtRoot(pid, procRoot)
+    } catch (error) {
+      if (error.code === 'ENOENT') continue
+      return null
+    }
+    if (observed === null
+      || observed.startTimeTicks !== before.startTimeTicks
+      || observed.processGroupId !== processGroupId) return null
+    if (observed.state !== 'Z') members.push(observed)
+  }
+  return members
 }
 
 function discoverOrphanProductionViteProcesses(root) {
@@ -274,6 +531,28 @@ function defaultInspectContainer(name) {
   }
 }
 
+export function dedicatedContainerOwnershipMatches(container, {
+  runId,
+  bundleId,
+  stepId,
+  namespace,
+  preparationId
+}) {
+  const labels = container?.Config?.Labels ?? {}
+  return Boolean(runId && bundleId && stepId && namespace && preparationId)
+    && labels[runtimeContainerRunIdLabel] === runId
+    && labels[runtimeContainerBundleIdLabel] === bundleId
+    && labels[runtimeContainerStepIdLabel] === stepId
+    && labels[runtimeContainerNamespaceLabel] === namespace
+    && labels[runtimeContainerPreparationIdLabel] === preparationId
+}
+
+function containerRemovalSucceeded(outcome) {
+  if (outcome === false) return false
+  if (outcome && typeof outcome === 'object' && outcome.removed === false) return false
+  return true
+}
+
 function removeWithinRoot(root, relative) {
   const target = path.resolve(root, relative)
   if (target === root || !target.startsWith(`${root}${path.sep}`)) {
@@ -287,6 +566,12 @@ export function cleanupLocalRuntime({
   namespace,
   removeContainer = defaultRemoveContainer,
   killProcess = defaultKillProcess,
+  containerExists = null,
+  inspectContainer = defaultInspectContainer,
+  observeProcess = readProcProcess,
+  processGroupExists = defaultProcessGroupExists,
+  terminateDedicatedProcess = terminateDedicatedProcessGroup,
+  dedicatedTerminationGraceMs = 2_000,
   observeResidentService,
   residentCleanupTimeoutMs = null
 }) {
@@ -295,6 +580,12 @@ export function cleanupLocalRuntime({
   const envRelative = path.join('.tmp', 'env', `${slug}.env`)
   const envFile = path.join(resolvedRoot, envRelative)
   const environment = readEnvFile(envFile)
+  const dedicatedRuntime = environment.FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME === '1'
+  const runId = String(environment.FSUSBLOG_TEST_RUN_ID ?? '').trim()
+  const bundleId = String(environment.FSUSBLOG_PHYSICAL_BUNDLE_ID ?? '').trim()
+  const stepId = String(environment.FSUSBLOG_STEP_ID ?? '').trim()
+  const preparationId = String(environment.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID ?? '').trim()
+  const fixtureRoot = String(environment.FSUSBLOG_FIXTURE_ROOT ?? '').trim()
   const owned = ownedContainerNames(slug)
   const configuredContainers = [
     environment.FSUSBLOG_POSTGRES_CONTAINER_NAME,
@@ -302,27 +593,145 @@ export function cleanupLocalRuntime({
   ].filter(Boolean)
   const removedContainers = []
   const skippedContainers = []
+  const alreadyAbsentContainers = []
+  const containerCleanupFailures = []
+  const hasContainerObserver = dedicatedRuntime
+    || typeof containerExists === 'function'
+    || removeContainer === defaultRemoveContainer
+  const containerIsPresent = typeof containerExists === 'function'
+    ? containerExists
+    : removeContainer === defaultRemoveContainer || dedicatedRuntime
+      ? defaultContainerExists
+      : () => true
   for (const container of configuredContainers) {
     if (!owned.has(container)) {
       skippedContainers.push(container)
       continue
     }
-    removeContainer(container)
-    removedContainers.push(container)
+    if (!containerIsPresent(container)) {
+      alreadyAbsentContainers.push(container)
+      continue
+    }
+    let inspected = null
+    let removalTarget = container
+    if (dedicatedRuntime) {
+      inspected = inspectContainer(container)
+      if (!dedicatedContainerOwnershipMatches(inspected, {
+        runId,
+        bundleId,
+        stepId,
+        namespace: slug,
+        preparationId
+      })) {
+        skippedContainers.push(container)
+        containerCleanupFailures.push({ container, reason: 'ownership-label-mismatch' })
+        continue
+      }
+      const observedContainerId = String(inspected?.Id ?? '').trim()
+      if (!/^[a-f0-9]{64}$/u.test(observedContainerId)) {
+        skippedContainers.push(container)
+        containerCleanupFailures.push({ container, reason: 'container-id-unavailable' })
+        continue
+      }
+      removalTarget = observedContainerId
+    }
+    const outcome = removeContainer(removalTarget, { name: container, inspected })
+    const nameStillPresent = hasContainerObserver && containerIsPresent(container)
+    const idStillPresent = dedicatedRuntime && containerIsPresent(removalTarget)
+    const removed = containerRemovalSucceeded(outcome)
+      && !nameStillPresent
+      && !idStillPresent
+    if (removed) {
+      removedContainers.push(container)
+    } else {
+      skippedContainers.push(container)
+      containerCleanupFailures.push({
+        container,
+        reason: outcome?.reason || (idStillPresent
+          ? 'docker-rm-id-still-present'
+          : nameStillPresent
+            ? 'docker-rm-name-still-present'
+            : 'docker-rm-reported-failure'),
+        exitCode: outcome?.exitCode ?? null
+      })
+    }
   }
 
   const runtimeRelative = path.join('.tmp', 'acceptance', slug)
   const runtimeDirectory = path.join(resolvedRoot, runtimeRelative)
   const terminatedPids = []
+  const alreadyExitedPids = []
+  const skippedProcesses = []
   if (fs.existsSync(runtimeDirectory)) {
     for (const entry of fs.readdirSync(runtimeDirectory)) {
       if (!entry.endsWith('.pid')) continue
       const value = Number.parseInt(fs.readFileSync(path.join(runtimeDirectory, entry), 'utf8').trim(), 10)
-      if (Number.isInteger(value) && value > 1 && killProcess(value, resolvedRoot, entry)) terminatedPids.push(value)
+      if (!Number.isInteger(value) || value <= 1) {
+        if (dedicatedRuntime) skippedProcesses.push({ pidFile: entry, pid: null, reason: 'pid-file-invalid' })
+        continue
+      }
+      if (!dedicatedRuntime) {
+        if (killProcess(value, resolvedRoot, entry)) terminatedPids.push(value)
+        continue
+      }
+
+      const role = expectedRoleForPidFile(entry)
+      const sidecar = readRuntimeProcessIdentity(processIdentityFile(runtimeDirectory, entry))
+      if (!role || sidecar.identity === null) {
+        skippedProcesses.push({ pidFile: entry, pid: value, reason: role ? sidecar.reason : 'runtime-role-unknown' })
+        continue
+      }
+      const identity = sidecar.identity
+      if (identity.pid !== value) {
+        skippedProcesses.push({ pidFile: entry, pid: value, reason: 'identity-pid-mismatch' })
+        continue
+      }
+      const observed = observeProcess(value)
+      if (observed === null) {
+        if (processGroupExists(identity.processGroupId)) {
+          skippedProcesses.push({ pidFile: entry, pid: value, reason: 'process-leader-exited-group-still-live' })
+        } else {
+          alreadyExitedPids.push(value)
+        }
+        continue
+      }
+      if (!dedicatedProcessIdentityMatches(identity, observed, {
+        root: resolvedRoot,
+        namespace: slug,
+        runId,
+        role,
+        preparationId,
+        fixtureRoot
+      })) {
+        skippedProcesses.push({ pidFile: entry, pid: value, reason: 'proc-identity-mismatch' })
+        continue
+      }
+      const terminationReported = terminateDedicatedProcess(identity, {
+        observeProcess,
+        processGroupExists,
+        root: resolvedRoot,
+        fixtureRoot,
+        graceMs: dedicatedTerminationGraceMs
+      })
+      if (terminationReported && observeProcess(value) === null && !processGroupExists(identity.processGroupId)) {
+        terminatedPids.push(value)
+      } else {
+        skippedProcesses.push({ pidFile: entry, pid: value, reason: 'process-group-exit-unconfirmed' })
+      }
     }
   }
 
-  const result = { namespace: slug, removedContainers, skippedContainers, terminatedPids }
+  const result = {
+    namespace: slug,
+    dedicatedRuntime,
+    removedContainers,
+    alreadyAbsentContainers,
+    skippedContainers,
+    containerCleanupFailures,
+    terminatedPids,
+    alreadyExitedPids,
+    skippedProcesses
+  }
   const schedulerRunId = String(environment.FSUSBLOG_TEST_RUN_ID ?? '').trim()
   const checkpointFile = schedulerRunId
     ? path.join(resolvedRoot, '.tmp', 'test-runs', schedulerRunId, 'checkpoint.json')
@@ -341,12 +750,17 @@ export function cleanupLocalRuntime({
       reservation: checkpoint.residentResourceLeases?.reservation ?? { cpuUnits: 0, memoryGiB: 0 }
     }
   }
-  result.retainedRuntimeState = result.residentResourceLeases?.status === 'cleanup-pending-live-services'
+  const cleanupIdentityIncomplete = containerCleanupFailures.length > 0
+    || (dedicatedRuntime && (skippedContainers.length > 0 || skippedProcesses.length > 0))
+  result.retainedRuntimeState = cleanupIdentityIncomplete
+    || result.residentResourceLeases?.status === 'cleanup-pending-live-services'
+  result.cleanupStatus = result.retainedRuntimeState ? 'skipped' : 'complete'
   if (!result.retainedRuntimeState) {
     for (const relative of [
       runtimeRelative,
       path.join('.tmp', 'fixtures', slug),
       path.join('.tmp', 'data', slug),
+      path.join('.tmp', 'run-once', slug),
       envRelative
     ]) {
       removeWithinRoot(resolvedRoot, relative)
@@ -373,6 +787,7 @@ export function cleanupStaleLocalRuntimes({
   const namespaces = new Set()
   const acceptanceRoot = path.join(resolvedRoot, '.tmp', 'acceptance')
   const envRoot = path.join(resolvedRoot, '.tmp', 'env')
+  const runOnceRoot = path.join(resolvedRoot, '.tmp', 'run-once')
 
   if (fs.existsSync(acceptanceRoot)) {
     for (const entry of fs.readdirSync(acceptanceRoot, { withFileTypes: true })) {
@@ -384,6 +799,11 @@ export function cleanupStaleLocalRuntimes({
       if (!entry.isFile() || !entry.name.endsWith('.env')) continue
       const namespace = entry.name.slice(0, -4)
       if (namespaceSlug(namespace) === namespace) namespaces.add(namespace)
+    }
+  }
+  if (fs.existsSync(runOnceRoot)) {
+    for (const entry of fs.readdirSync(runOnceRoot, { withFileTypes: true })) {
+      if (entry.isDirectory() && namespaceSlug(entry.name) === entry.name) namespaces.add(entry.name)
     }
   }
 

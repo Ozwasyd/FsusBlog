@@ -45,10 +45,21 @@ test('immutable fixture capability selects five baseline scenarios or the sixth 
 })
 
 test('receipt exposes one managed Chromium, zero retries, and exact scenario IDs', () => {
+  const runIdentity = {
+    runId: 'release-run-42',
+    namespace: 'bc-aaaaaaaa-0123456789-abcdef',
+    commit: 'a'.repeat(40),
+    laneId: 'browser-contract'
+  }
   const receipt = createBrowserContractReceipt({
     sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) },
     build: { receiptContentDigest: `sha256:${'c'.repeat(64)}` },
-    fixture: { namespace: 'contract-1' },
+    fixture: {
+      namespace: runIdentity.namespace,
+      lifecycle: {
+        identity: runIdentity
+      }
+    },
     playwright: { chromiumRevision: '1234' }
   })
   receipt.topology.browserLaunchCount = 1
@@ -64,6 +75,7 @@ test('receipt exposes one managed Chromium, zero retries, and exact scenario IDs
   assert.equal(receipt.topology.browserLaunchCount, 1)
   assert.equal(receipt.topology.maxConcurrentBrowserRoots, 1)
   assert.equal(receipt.topology.contextCount, 6)
+  assert.deepEqual(receipt.runIdentity, runIdentity)
   assert.deepEqual(receipt.scenarios.map((scenario) => scenario.id), browserContractScenarios.map((scenario) => scenario.id))
 })
 
@@ -145,10 +157,13 @@ test('fixture adapter consumes one immutable namespace without exposing infrastr
 })
 
 test('runner source enforces one managed launch, one context factory, and process-group timeout', async () => {
-  const [runner, scenarios, fixture, lane] = await Promise.all([
+  const [runner, scenarios, fixture, lifecycle, prepareFacade, defaultProvider, lane] = await Promise.all([
     readFile(path.join(root, 'tests/browser-contract/run.mjs'), 'utf8'),
     readFile(path.join(root, 'tests/browser-contract/scenarios.mjs'), 'utf8'),
     readFile(path.join(root, 'tests/browser-contract/fixture.mjs'), 'utf8'),
+    readFile(path.join(root, 'tests/browser-contract/fixture-lifecycle.mjs'), 'utf8'),
+    readFile(path.join(root, 'tests/browser-contract/prepare-fixture.mjs'), 'utf8'),
+    readFile(path.join(root, 'tests/browser-contract/default-fixture-provider.mjs'), 'utf8'),
     readFile(path.join(root, 'tools/test/lanes/browser-contract.sh'), 'utf8')
   ])
 
@@ -164,5 +179,65 @@ test('runner source enforces one managed launch, one context factory, and proces
   assert.doesNotMatch(`${scenarios}\n${fixture}`, /node:child_process|\bdocker\b|\bpsql\b|\bredis-cli\b/u)
   assert.match(lane, /timeout --signal=TERM --kill-after=15s/u)
   assert.match(lane, /CONTRACT_TIMEOUT="\$\{FSUSBLOG_BROWSER_CONTRACT_TIMEOUT:-9m\}"/u)
+  assert.match(lane, /FSUSBLOG_BROWSER_CONTRACT_FIXTURE_PROVIDER[^\n]+default-fixture-provider\.mjs/u)
   assert.doesNotMatch(lane, /npx\s+playwright\s+test|--workers|--shard/u)
+  assert.match(lifecycle, /detached:\s*process\.platform !== 'win32'/u)
+  assert.match(lifecycle, /process\.kill\(-child\.pid, signalName\)/u)
+  assert.match(lifecycle, /FSUSBLOG_BROWSER_CONTRACT_PROVIDER_INVOCATION_ID/u)
+  assert.match(lifecycle, /providerProcessGroupIsOwned/u)
+  assert.match(lifecycle, /terminate\('SIGKILL'\)[\s\S]{0,80}\}, 750/u)
+  assert.match(lifecycle, /FSUSBLOG_BROWSER_CONTRACT_PROVIDER_TIMEOUT_MS/u)
+  assert.match(lifecycle, /FSUSBLOG_BROWSER_CONTRACT_CLEANUP_TIMEOUT_MS/u)
+  assert.match(lifecycle, /\? 10_000 : 30_000/u)
+  assert.match(prepareFacade, /export async function prepareSingleBrowserContractFixture/u)
+  assert.match(prepareFacade, /export async function cleanupSingleBrowserContractFixture/u)
+  assert.doesNotMatch(prepareFacade, /isMain|process\.argv|pathToFileURL|#!\/usr\/bin\/env/u)
+  assert.match(defaultProvider, /testSessionHeader:\s*false/u)
+  assert.match(defaultProvider, /databaseSchema !== 'public'/u)
+  assert.match(defaultProvider, /databaseInstance !== `fsusblog-test-postgres-\$\{namespace\}`/u)
+  assert.match(defaultProvider, /redisInstance !== `fsusblog-test-redis-\$\{namespace\}`/u)
+  assert.match(defaultProvider, /FSUSBLOG_PLAYWRIGHT_WORKERS:\s*'1'/u)
+  assert.match(defaultProvider, /FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY:\s*'1'/u)
+  assert.match(defaultProvider, /FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:\s*'1'/u)
+  assert.match(defaultProvider, /FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:\s*request\.preparation\.id/u)
+  assert.match(defaultProvider, /io\.fsusblog\.test\.preparation-id/u)
+  assert.match(defaultProvider, /phase:\s*'preparing'/u)
+  assert.match(defaultProvider, /phase:\s*'prepared'/u)
+  assert.match(defaultProvider, /now\(\),\s*(?:NULL,\s*)?'zk_anonymous'/u)
+  assert.match(defaultProvider, /retainedRuntimeState/u)
+  assert.doesNotMatch(defaultProvider, /os\.(?:loadavg|freemem)|FSUSBLOG_POSTGRES_PID_HEADROOM/u)
+  assert.match(runner, /extraHTTPHeaders:\s*fixture\.testSession\s*\?\s*\{ 'X-Fsus-Test-Session': fixture\.testSession \}\s*:\s*(?:undefined|\{\})/u)
+  assert.match(runner, /writeBrowserContractReceipt\(receiptFile, receipt\)/u)
+  assert.match(runner, /async function resetRunOutput\(\)[\s\S]+await rm\(ownedReceiptFile, \{ force: true \}\)/u)
+  assert.doesNotMatch(runner, /rm\(ownedOutputRoot, \{ recursive: true, force: true \}\)/u)
+  assert.match(runner, /path\.join\(outputRoot, 'runs', preparedFixture\.identity\.namespace\)/u)
+  assert.ok(
+    runner.indexOf('const sourceState = expectedSourceState()') < runner.indexOf('await resetRunOutput()'),
+    'complete current source identity must be admitted before the fixed receipt can be touched'
+  )
+  assert.ok(
+    runner.indexOf('await resetRunOutput()') < runner.indexOf('const build = await verifyImmutableBuild(sourceState)'),
+    'the fixed receipt must be removed before current-run build and fixture admission'
+  )
+  assert.match(runner, /expectedSourceState:\s*sourceState/u)
+  assert.doesNotMatch(runner, /process\.env\.GITHUB_SHA|return null/u)
+  assert.match(lane, /FSUSBLOG_TEST_SOURCE_COMMIT/u)
+  assert.match(lane, /FSUSBLOG_TEST_SOURCE_FINGERPRINT/u)
+  assert.ok(
+    runner.indexOf('await writeBrowserContractReceipt(receiptFile, runningReceipt)')
+      < runner.indexOf('preparedFixture = await prepareSingleBrowserContractFixture({'),
+    'the current run-scoped running receipt must replace stale evidence before fixture preparation'
+  )
+  assert.match(runner, /const fallbackFixture = \{[\s\S]+createBrowserContractReceipt\(\{[\s\S]+fixture: fallbackFixture/u)
+  assert.doesNotMatch(runner, /fallback\.fixture\s*=/u)
+  assert.match(lifecycle, /preparedFixture:\s*prepared/u)
+  assert.match(lifecycle, /cleanup\.resources\s*=\s*freshCleanupResources\(prepared\)/u)
+  assert.match(runner, /startupPreparedFixture\s*=\s*preparedFixture\s*\?\?\s*error\?\.preparedFixture/u)
+  assert.match(runner, /cleanup\?\.status === 'failure'[\s\S]+startup-failure-retry/u)
+  assert.match(runner, /cleanupAttempts\.push\(snapshotReceiptEvidence\(cleanup\)\)/u)
+  assert.ok(
+    runner.indexOf('const primaryError = serializeBrowserContractError(error)')
+      < runner.indexOf("reason: receivedSignal ? `signal:${receivedSignal}:retry` : 'startup-failure-retry'"),
+    'the primary startup failure must be captured before cleanup retry evidence'
+  )
 })

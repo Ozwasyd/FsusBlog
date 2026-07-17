@@ -15,6 +15,12 @@
       "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] }
     },
     {
+      "id": "browser-contract-fixture", "script": "check:browser-contract-fixture", "access": "write",
+      "stage": "concurrent", "reason": "Exercises the sealed single-namespace fixture lifecycle through injected providers and process-unique temporary roots without starting a browser or shared services.",
+      "consumedInputs": ["tests/browser-contract", "tests/tools/issue-1149-browser-contract-fixture.test.mjs", "tests/tools/issue-1149-session-isolation.test.mjs", "src/frontend/package.json"], "ownedOutputs": ["os-temp://fsus-browser-contract-fixture-unique"], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
       "id": "api-parity", "script": "check:contract:api-parity", "access": "read", "stage": "concurrent",
       "reason": "Reads API declarations only and does not mutate Vitest inputs or results.",
       "consumedInputs": ["src/frontend/src/api", "src/shared/Contracts", "docs/api"], "ownedOutputs": [], "dependsOn": [],

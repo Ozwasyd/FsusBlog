@@ -14,6 +14,7 @@ import {
 import {
   classifyDiagnosticFailure,
   diagnosticProbeEnvironment,
+  resolveDiagnosticResourceState,
   resolveDiagnosticsOutputRoot,
   runBrowserDiagnostics
 } from '../browser-diagnostics/run.mjs'
@@ -71,6 +72,11 @@ test('diagnostics topology is fixed, managed and independent from correctness', 
   assert.match(workflow, /workflow_dispatch:/u)
   assert.doesNotMatch(workflow, /^\s{2}(?:pull_request|push):/mu)
   assert.match(workflow, /playwright install --with-deps chromium firefox webkit/u)
+  assert.match(workflow, /FSUSBLOG_PLAYWRIGHT_SESSION_MODE: browser-diagnostics/u)
+  assert.match(workflow, /FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY: '1'/u)
+  assert.match(workflow, /FSUSBLOG_TEST_NAMESPACE: browser-diagnostics-/u)
+  assert.match(workflow, /FSUSBLOG_FIXTURE_ROOT: .*\.tmp\/browser-diagnostics\//u)
+  assert.match(workflow, /FSUSBLOG_BROWSER_DIAGNOSTICS_OUTPUT_ROOT: \.tmp\/browser-diagnostics\//u)
   assert.match(matrix, /id: browser-diagnostics-nightly[\s\S]*?cadence: nightly[\s\S]*?requiredFor: none/u)
   assert.match(matrix, /id: browser-diagnostics-manual[\s\S]*?cadence: release-manual[\s\S]*?requiredFor: none/u)
 })
@@ -141,20 +147,38 @@ test('failure classification preserves diagnostic and infrastructure boundaries'
   assert.equal(classifyDiagnosticFailure({ exitCode: 0 }), null)
 
   const env = diagnosticProbeEnvironment({
-    baseEnvironment: { FSUSBLOG_TEST_NAMESPACE: 'base' },
+    baseEnvironment: {
+      FSUSBLOG_TEST_NAMESPACE: 'base',
+      FSUSBLOG_FIXTURE_ROOT: '/tmp/shared-fixtures',
+      FSUSBLOG_BROWSER_CONTRACT_OUTPUT: '/tmp/browser-contract'
+    },
     runId: 'run',
     categoryId: 'visual',
     probeId: 'public',
     outputDir: '/tmp/diagnostic-output',
-    workers: 2
+    workers: 1
   })
-  assert.equal(env.FSUSBLOG_TEST_NAMESPACE, 'base')
-  assert.equal(env.FSUSBLOG_PLAYWRIGHT_WORKERS, '2')
+  assert.equal(env.FSUSBLOG_TEST_NAMESPACE, 'browser-diagnostics-run-visual-public')
+  assert.equal(env.FSUSBLOG_FIXTURE_ROOT, '/tmp/diagnostic-output/fixtures')
+  assert.equal(env.FSUSBLOG_PLAYWRIGHT_WORKERS, '1')
+  assert.equal(env.FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY, '1')
+  assert.equal(env.FSUSBLOG_PLAYWRIGHT_SESSION_MODE, 'browser-diagnostics')
+  assert.equal(env.FSUSBLOG_BROWSER_CONTRACT_OUTPUT, undefined)
   assert.match(env.FSUSBLOG_TEST_SESSION_PREFIX, /run-visual-public/u)
+  assert.match(env.FSUSBLOG_TEST_SESSION, /run-visual-public-0/u)
   assert.equal(env.FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY, '1')
   assert.equal(env.FSUSBLOG_PLAYWRIGHT_RETRIES, '0')
   assert.equal(env.FSUSBLOG_PLAYWRIGHT_CONFIG, 'playwright.diagnostics.config.ts')
   assert.match(env.FSUSBLOG_BROWSER_DIAGNOSTIC_NAMESPACE, /run-visual-public/u)
+
+  assert.deepEqual(resolveDiagnosticResourceState({ requestedWorkers: 1, env: {} }), {
+    status: 'complete',
+    reason: null,
+    requestedWorkers: 1,
+    effectiveWorkers: 1,
+    sessionCount: 1
+  })
+  assert.equal(resolveDiagnosticResourceState({ requestedWorkers: 3, env: {} }).status, 'incomplete')
 
   const scopedOutput = resolveDiagnosticsOutputRoot('', 'fixture-run')
   assert.equal(scopedOutput, path.join(root, '.tmp/browser-diagnostics/fixture-run'))

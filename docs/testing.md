@@ -393,13 +393,15 @@ Public AOT SSR worker reliability 由 `PublicAotSsrRuntimeStateTests`、`PublicA
 
 **触发时机**：轻量 correctness 随常规测试执行；`browser-contract` 只进入 release-final/显式本地验证
 
-**前置条件**：Router/组件/API 单测不需要完整服务；PostgreSQL integration 只需要隔离 fixture；Browser Contract 需要 #1078 immutable production build receipt、一个 run-scoped fixture namespace 与 frontend/backend runtime
+**前置条件**：Router/组件/API 单测不需要完整服务；PostgreSQL integration 只需要隔离 fixture；Browser Contract 需要 #1078 immutable production build receipt、一个绑定 source commit/run/lane identity 的 run-scoped fixture namespace 与 frontend/backend runtime
 
 **覆盖场景**：
 - Router route/name/path、anonymous/user/admin、permission、guestOnly、redirect、403/404 和 deep link 使用 `createMemoryHistory()`；
 - auth、message、admin workbench、passkey dialog 和 mobile/desktop DOM 分支使用 Vue Test Utils；
 - AEDS mutation、工单、审核、文章发布、cache/audit side effect 使用 API/backend integration；
 - Browser Contract 在一个 managed Chromium 中顺序执行 5 个基线场景：hydration/history/reload、account deep link、admin session invalidation、一次 article publish 与 Service Worker offline reload；step-up-ready immutable fixture 才确定性加入 WebAuthn virtual authenticator 成功场景。
+
+Browser Contract fixture 固定为 `1 session / 1 concurrency`，只准备一个专用 PostgreSQL instance/schema、一个专用 Redis instance/namespace、一个普通 user、一个 admin 和一份 auth/storage manifest。producer 不读取 dynamic worker、live memory/grant 或 PostgreSQL PID headroom，也不逐 worker clone schema；请求其他拓扑、source identity 缺失或 prepare 失败时在读取旧 receipt/启动 Chromium 前 fail closed，禁止回退到共享 live `public` schema。场景只通过正式 fixture API 消费稳定 ID、URL 与 storage state，不直接执行 SQL、Redis 或 Docker。成功、失败、取消和 timeout 共用幂等 cleanup，receipt 分别记录 database/Redis/processes/files cleanup；container labels/ID 与 PID start-time/run identity 均须复核，cleanup failure 保留 recovery state 且不覆盖首个测试失败。完整契约见 [`issue-1149-browser-contract-fixture.md`](testing/issue-1149-browser-contract-fixture.md)。
 
 **运行**：
 ```bash
@@ -409,7 +411,7 @@ node --test tests/tools/acceptance-layer-migration.test.mjs
 npm --prefix src/frontend run check:browser-contract
 ```
 
-`check:browser-contract` 不调用 `npx playwright test`。默认 9 分钟 process-group deadline；receipt 位于 `.tmp/browser-contract/receipt.json`，缺 immutable build/fixture、Chromium crash/disconnect 或任一 product/contract assertion 失败都会直接退出，且不会自动重试。
+`check:browser-contract` 不调用 `npx playwright test`。默认 9 分钟 process-group deadline；调用者必须提供完整且与 immutable receipt 一致的 `FSUSBLOG_TEST_SOURCE_COMMIT` / `FSUSBLOG_TEST_SOURCE_FINGERPRINT`。运行期 sealed fixture manifest 位于 `.tmp/browser-contract/fixtures/<namespace>/contract-fixture.json`，trace/screenshot 写入 `.tmp/browser-contract/runs/<namespace>/`；cleanup 成功后删除该临时 fixture root，cleanup 失败时保留私有 recovery state 供同 identity 重试。新一轮只替换固定 `.tmp/browser-contract/receipt.json`，不会递归删除输出根或其他 run 的产物；receipt 保留 database schema、Redis namespace、稳定实体 IDs、source/build identity 和 lifecycle/cleanup 状态。缺 immutable build/fixture、Chromium crash/disconnect 或任一 product/contract assertion 失败都会直接退出，且不会自动重试。
 
 ---
 

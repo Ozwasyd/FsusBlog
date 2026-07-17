@@ -247,13 +247,22 @@ for (const forbidden of [
   }
 }
 requireIncludes('tests/browser-diagnostics/run.mjs', [
-  "if (options.workers !== 1) throw new Error('browser diagnostics require one outer-declared worker')",
+  'resolveDiagnosticResourceState',
+  'requestedWorkerLimit: resources.requestedWorkers',
+  'workerLimit: resources.effectiveWorkers',
+  "status: 'skipped'",
+  "status: 'incomplete'",
+  'skippedProbeCount: plan.plannedProbeCount',
+  'incompleteReason: resources.reason',
   "outerAdmissionMode: 'single-explicit-browser-diagnostics-tier'",
   'maxActiveBrowserLanes: 1',
   'dynamicInnerPool: false',
   'categoriesSerial: true'
 ])
 const browserDiagnosticsSource = read('tests/browser-diagnostics/run.mjs')
+if (/options\.workers\s*!==\s*1[\s\S]{0,120}?throw/u.test(browserDiagnosticsSource)) {
+  errors.push('browser diagnostics must emit skipped/incomplete evidence instead of rejecting a reduced worker request before receipt creation')
+}
 for (const forbidden of ['freemem(', 'loadavg(', 'availableParallelism(', 'FSUSBLOG_CHROMIUM_LANE_MAX_SLOTS']) {
   if (browserDiagnosticsSource.includes(forbidden)) {
     errors.push(`browser diagnostics inner runner must keep the fixed outer single-slot admission: ${forbidden}`)

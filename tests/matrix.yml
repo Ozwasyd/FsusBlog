@@ -1555,7 +1555,7 @@ tiers:
     dependsOn: [production-build-artifacts, bootstrap, release, integration]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
-    serialReason: one Playwright Library controller reuses one managed Chromium and creates one context for each fixed scenario
+    serialReason: one Playwright Library controller consumes one sealed run namespace with one session/concurrency, reuses one managed Chromium, and creates one context for each fixed scenario
     exclusiveResources: [browser-contract, database-writes]
     phase: 5
     cost: medium
@@ -1578,16 +1578,16 @@ tiers:
     requiredFor: release-final
     coverage: [release-browser-contract]
     artifacts: [.tmp/browser-contract]
-    evidence: [.tmp/browser-contract/receipt.json, tests/browser-contract/run.mjs, tests/browser-contract/scenarios.mjs, tests/tools/browser-contract.test.mjs, docs/testing/browser-contract.md]
+    evidence: [.tmp/browser-contract/receipt.json, tests/browser-contract/run.mjs, tests/browser-contract/scenarios.mjs, tests/browser-contract/fixture.mjs, tests/browser-contract/default-fixture-provider.mjs, tests/browser-contract/fixture-lifecycle.mjs, tests/browser-contract/fixture-lifecycle.test.mjs, tests/browser-contract/prepare-fixture.mjs, tools/bootstrap-acceptance-env.sh, tools/test-matrix/local-runtime-cleanup.mjs, tests/tools/browser-contract.test.mjs, tests/tools/local-runtime-cleanup.test.mjs, tests/tools/issue-1149-browser-contract-fixture.test.mjs, tests/tools/issue-1149-session-isolation.test.mjs, docs/testing/browser-contract.md, docs/testing/issue-1149-browser-contract-fixture.md]
     ciJob: release-final
     localOnly: false
     nightlyOnly: false
     manualOnly: true
     retentionClass: must-keep
     triggerPaths: [src/frontend/src/bootstrap, src/frontend/src/public-renderers, src/frontend/src/router, src/frontend/src/views/auth, src/frontend/src/views/user, src/frontend/src/views/admin/article, src/frontend/src/services, src/frontend/src/workers, tests/browser-contract, tools/test/lanes/browser-contract.sh]
-    triggerFiles: [src/frontend/package.json, tests/matrix.yml, tests/coverage-registry.json]
+    triggerFiles: [src/frontend/package.json, tools/bootstrap-acceptance-env.sh, tools/test-matrix/local-runtime-cleanup.mjs, tests/matrix.yml, tests/coverage-registry.json, tests/tools/browser-contract.test.mjs, tests/tools/local-runtime-cleanup.test.mjs, tests/tools/issue-1149-browser-contract-fixture.test.mjs, tests/tools/issue-1149-session-isolation.test.mjs, docs/testing/browser-contract.md, docs/testing/issue-1149-browser-contract-fixture.md]
     triggerCoverage: [release-browser-contract]
-    triggerReason: release browser boundary or Browser Contract fixture/build input changed
+    triggerReason: release browser boundary, sealed single-namespace fixture lifecycle, or immutable build input changed
 
   - id: browser-diagnostics-nightly
     owner: InteropGlueAgent

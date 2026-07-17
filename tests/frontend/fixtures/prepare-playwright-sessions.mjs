@@ -2,9 +2,13 @@
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveWorkerTestSession } from '../support/test-session.mjs';
-import { resolveSessionFixtureDirectory } from '../support/fixture-paths.mjs';
+import {
+  playwrightSessionModes,
+  resolvePlaywrightSessionMode,
+  resolveSessionFixtureDirectory
+} from '../support/fixture-paths.mjs';
 import { resolveSessionPrepConcurrency } from './session-prep-admission.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,24 +28,60 @@ const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER
   || process.env.FSUSBLOG_REDIS_CONTAINER_NAME
   || '';
 
-function parseWorkers() {
-  const flagIndex = process.argv.indexOf('--workers');
-  const raw = flagIndex >= 0 ? process.argv[flagIndex + 1] : process.env.FSUSBLOG_PLAYWRIGHT_WORKERS;
+function parseWorkers(argv = process.argv.slice(2), env = process.env) {
+  const flagIndex = argv.indexOf('--workers');
+  const raw = flagIndex >= 0 ? argv[flagIndex + 1] : env.FSUSBLOG_PLAYWRIGHT_WORKERS;
   const parsed = Number(raw || '4');
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 4;
 }
 
-function parseConcurrency(workers) {
-  const flagIndex = process.argv.indexOf('--concurrency');
+function parseConcurrency(workers, argv = process.argv.slice(2), env = process.env) {
+  const flagIndex = argv.indexOf('--concurrency');
   const raw = flagIndex >= 0
-    ? process.argv[flagIndex + 1]
-    : process.env.FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY;
+    ? argv[flagIndex + 1]
+    : env.FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY;
   if (raw === undefined || String(raw).trim() === '') return workers;
   const parsed = Number(raw);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new Error(`Playwright session prep concurrency must be a positive integer, got ${raw}`);
   }
   return Math.min(workers, parsed);
+}
+
+export function resolveSessionPreparationTopology({
+  argv = process.argv.slice(2),
+  env = process.env
+} = {}) {
+  const mode = resolvePlaywrightSessionMode(env);
+  if (mode === playwrightSessionModes.browserContract) {
+    throw new Error(
+      'browser-contract must use its formal single-namespace fixture lifecycle; '
+      + 'legacy Playwright session preparation and public-schema cloning are disabled'
+    );
+  }
+
+  const workers = parseWorkers(argv, env);
+  const requestedSessionPrepConcurrency = parseConcurrency(workers, argv, env);
+  if (mode === playwrightSessionModes.browserDiagnostics) {
+    if (workers !== 1 || requestedSessionPrepConcurrency !== 1) {
+      throw new Error('browser-diagnostics session preparation requires exactly one worker and one preparation slot');
+    }
+    return {
+      mode,
+      workers: 1,
+      requestedSessionPrepConcurrency: 1,
+      usesDynamicPostgresPidAdmission: false,
+      sessions: [resolveWorkerTestSession(0, env)]
+    };
+  }
+
+  return {
+    mode,
+    workers,
+    requestedSessionPrepConcurrency,
+    usesDynamicPostgresPidAdmission: true,
+    sessions: Array.from({ length: workers }, (_, index) => resolveWorkerTestSession(index, env))
+  };
 }
 
 async function runWithConcurrency(items, concurrency, action) {
@@ -200,20 +240,28 @@ function formatSessionManifest(sessions) {
 }
 
 async function main() {
+  const topology = resolveSessionPreparationTopology();
   assertActiveNamespaceUrl(backendBaseUrl, 'FSUSBLOG_BASE_URL or FSUSBLOG_DEBUG_BACKEND_URL');
-  const workers = parseWorkers();
-  const requestedSessionPrepConcurrency = parseConcurrency(workers);
-  const postgresPids = await readPostgresPidSnapshot();
-  const sessionPrepConcurrency = resolveSessionPrepConcurrency(
+  const {
+    mode,
     requestedSessionPrepConcurrency,
-    postgresPids
-  );
-  const sessions = Array.from({ length: workers }, (_, index) => resolveWorkerTestSession(index));
+    sessions,
+    usesDynamicPostgresPidAdmission
+  } = topology;
+  const postgresPids = usesDynamicPostgresPidAdmission
+    ? await readPostgresPidSnapshot()
+    : null;
+  const sessionPrepConcurrency = postgresPids
+    ? resolveSessionPrepConcurrency(requestedSessionPrepConcurrency, postgresPids)
+    : 1;
   const fixturesDir = resolveSessionFixtureDirectory();
   await mkdir(fixturesDir, { recursive: true });
+  const admissionEvidence = postgresPids
+    ? `postgresPids=${postgresPids.current}/${postgresPids.max ?? 'max'}`
+    : 'postgresPids=not-read-fixed-topology';
   console.log(
-    `[prepare-playwright-sessions] admission requested=${requestedSessionPrepConcurrency}`
-    + ` effective=${sessionPrepConcurrency} postgresPids=${postgresPids.current}/${postgresPids.max ?? 'max'}`
+    `[prepare-playwright-sessions] mode=${mode} admission requested=${requestedSessionPrepConcurrency}`
+    + ` effective=${sessionPrepConcurrency} ${admissionEvidence}`
   );
 
   await runWithConcurrency(sessions, sessionPrepConcurrency, async (session) => {
@@ -254,7 +302,11 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  console.error('[prepare-playwright-sessions] fatal:', error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+const isMain = process.argv[1]
+  && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
+if (isMain) {
+  main().catch((error) => {
+    console.error('[prepare-playwright-sessions] fatal:', error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}

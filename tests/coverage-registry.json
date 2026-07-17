@@ -1378,19 +1378,30 @@
     },
     {
       "id": "release-browser-contract",
-      "description": "Release-final consumes one deterministic Playwright Library Chromium process that serially verifies public hydration, auth deep links, one critical write and Service Worker policy, with WebAuthn added only by a step-up-ready immutable fixture.",
+      "description": "Release-final consumes one deterministic Playwright Library Chromium process and one sealed run-scoped fixture namespace with fixed one-session/one-concurrency topology to serially verify public hydration, auth deep links, one critical write and Service Worker policy, with WebAuthn added only by a step-up-ready immutable fixture.",
       "owner": "InteropGlueAgent",
       "risk": "critical",
       "evidencePaths": [
         ".tmp/browser-contract/receipt.json",
         "tests/browser-contract/run.mjs",
         "tests/browser-contract/scenarios.mjs",
+        "tests/browser-contract/fixture.mjs",
+        "tests/browser-contract/default-fixture-provider.mjs",
+        "tests/browser-contract/fixture-lifecycle.mjs",
+        "tests/browser-contract/fixture-lifecycle.test.mjs",
+        "tests/browser-contract/prepare-fixture.mjs",
+        "tools/bootstrap-acceptance-env.sh",
+        "tools/test-matrix/local-runtime-cleanup.mjs",
         "tests/tools/browser-contract.test.mjs",
-        "docs/testing/browser-contract.md"
+        "tests/tools/local-runtime-cleanup.test.mjs",
+        "tests/tools/issue-1149-browser-contract-fixture.test.mjs",
+        "tests/tools/issue-1149-session-isolation.test.mjs",
+        "docs/testing/browser-contract.md",
+        "docs/testing/issue-1149-browser-contract-fixture.md"
       ],
       "assertionType": "browser",
-      "failClosedRule": "Release-final must reject a missing or failed receipt, any topology other than one managed Chromium with five to six serial contexts and zero retries, nondeterministic capability selection, build/fixture identity drift, unexpected browser issues, or a product/contract/infra scenario failure.",
-      "minimumRequirement": "The receipt must bind immutable build and fixture identity, exact selected scenario IDs, Chromium revision, launch/context counts, wall clock, issue diagnostics, failure class and trace paths while covering hydration/history/reload, user/admin bootstrap, one persisted article publish and offline Service Worker behavior; WebAuthn success is additionally required when the immutable fixture declares step-up registration capability.",
+      "failClosedRule": "Release-final must reject a missing, stale or failed fixture/browser receipt, incomplete or mismatched explicit source identity, session or concurrency other than one, dynamic worker/resource topology, shared live-public-schema or diagnostics fallback, build/fixture/provider-state identity drift, unsafe fixture permissions or symlinks, unverified container labels/IDs or PID identity, incomplete per-resource cleanup evidence, any topology other than one managed Chromium with five to six serial contexts and zero retries, unexpected browser issues, or a product/contract/infra scenario failure.",
+      "minimumRequirement": "The fixture lifecycle must bind source/build/run/lane/preparation identity to one dedicated database instance/schema, one Redis instance/namespace, stable entity IDs and storage state, expose the formal fixture API without browser-side SQL/Redis/Docker access, consume provider-owned runtime URLs without a test-session header, terminate timed-out provider process groups, verify detached runtime PID start-time identity and container ownership labels before TERM/KILL/removal, redact provider stderr, and idempotently prove database/Redis/processes/files cleanup for success/failure/cancel/timeout while preserving the first failure and retaining recovery state on cleanup failure. The browser receipt must bind exact selected scenario IDs, Chromium revision, launch/context counts, wall clock, issue diagnostics, failure class and trace paths while covering hydration/history/reload, user/admin bootstrap, one persisted article publish and offline Service Worker behavior; WebAuthn success is additionally required when the immutable fixture declares step-up registration capability.",
       "tierIds": [
         "browser-contract"
       ]

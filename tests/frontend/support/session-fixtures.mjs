@@ -3,7 +3,11 @@
 import { spawnSync } from 'node:child_process';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import path from 'node:path';
-import { resolveAuthFixtureDirectory } from './fixture-paths.mjs';
+import {
+  playwrightSessionModes,
+  resolveAuthFixtureDirectory,
+  resolvePlaywrightSessionMode
+} from './fixture-paths.mjs';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { resolveTestSession } from './test-session.mjs';
 
@@ -30,6 +34,7 @@ const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || '';
 const pgUser = process.env.FSUSBLOG_PG_USER || 'fsusblog';
 const pgDb = process.env.FSUSBLOG_PG_DB || 'fsusblog';
 const testSession = resolveTestSession();
+const playwrightSessionMode = resolvePlaywrightSessionMode();
 const persistAuthFixtures = process.env.FSUSBLOG_PERSIST_AUTH_FIXTURES !== '0';
 const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || '';
 
@@ -56,20 +61,32 @@ const accessTokenExpiresMinutes = Number.parseInt(
   10
 ) || 15;
 
-function sessionSchema() {
-  if (!testSession) {
+function schemaForSession(session) {
+  if (!session) {
     return '';
   }
-
-  return `fsus_e2e_${testSession.replaceAll('-', '_')}`;
+  const normalized = String(session).trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{0,40}$/u.test(normalized)) {
+    throw new Error('fixture session schema requires a sanitized test session id');
+  }
+  return `fsus_e2e_${normalized.replaceAll('-', '_')}`;
 }
 
 function sqlString(value) {
   return `'${String(value ?? '').replaceAll("'", "''")}'`;
 }
 
-function searchPathSql() {
-  const schema = sessionSchema();
+export function fixtureSessionSearchPathSql({
+  session = testSession,
+  mode = playwrightSessionMode
+} = {}) {
+  const schema = schemaForSession(session);
+  if (mode === playwrightSessionModes.browserContract) {
+    if (!schema) {
+      throw new Error('browser-contract fixtures require one explicit FSUSBLOG_TEST_SESSION schema');
+    }
+    return `set search_path to "${schema}";`;
+  }
   return schema ? `set search_path to "${schema}", public;` : '';
 }
 
@@ -104,7 +121,7 @@ function runPsql(sql) {
     '-d',
     pgDb,
     '-c',
-    `${searchPathSql()} ${sql}`
+    `${fixtureSessionSearchPathSql()} ${sql}`
   ], { encoding: 'utf8' });
 
   if (result.status !== 0) {

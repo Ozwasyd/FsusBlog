@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, rename, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-export const browserContractReceiptSchema = 'fsusblog.browser-contract-receipt.v1'
+export const browserContractReceiptSchema = 'fsusblog.browser-contract-receipt.v2'
 
 export const browserContractScenarios = Object.freeze([
   Object.freeze({
@@ -101,6 +101,7 @@ export function createBrowserContractReceipt({
     schema: browserContractReceiptSchema,
     status: 'running',
     classification: null,
+    runIdentity: fixture?.lifecycle?.identity ?? null,
     sourceState,
     build,
     fixture,
@@ -137,8 +138,10 @@ export function createBrowserContractReceipt({
 
 export async function writeBrowserContractReceipt(file, receipt) {
   const target = path.resolve(file)
-  await mkdir(path.dirname(target), { recursive: true })
+  await mkdir(path.dirname(target), { recursive: true, mode: 0o700 })
+  await chmod(path.dirname(target), 0o700)
   const temporary = `${target}.next-${process.pid}-${randomUUID()}`
   await writeFile(temporary, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 })
   await rename(temporary, target)
+  await chmod(target, 0o600)
 }

@@ -25,20 +25,22 @@
 
 ## 输入与输出
 
-runner 在启动 Chromium 前 fail closed 验证 #1078 的 immutable production build receipt，要求包含 `backend-runtime`、`frontend-dist`、`wasm` 和 `generated-contracts`。运行时数据只通过现有 fixture 文件适配器消费：一个 namespace、一个 user storage state、一个 admin storage state 和稳定 public article/category；场景代码不执行 SQL、Redis 或 Docker。#1149 将在不改变场景接口的前提下收敛 fixture producer 与清理 receipt。
+runner 在读取旧 receipt 或启动 Chromium 前，fail closed 验证显式的 `FSUSBLOG_TEST_SOURCE_COMMIT` / `FSUSBLOG_TEST_SOURCE_FINGERPRINT` 与 #1078 immutable production build receipt 完全一致，并要求 receipt 包含 `backend-runtime`、`frontend-dist`、`wasm` 和 `generated-contracts`。`GITHUB_SHA` 不能代替这两项专用 source identity。
 
-单一输出为 `.tmp/browser-contract/receipt.json`，记录 source/build fingerprint、Playwright 版本、Chromium revision、精确 scenario IDs、fixture namespace、launch/context 数、wall clock、console/page/request issues、product/contract/infra 分类及 trace/screenshot 路径。每个场景无论成功失败都尝试写 trace；失败时额外保存当前 viewport screenshot。
+#1149 的 fixture producer 固定准备 `1 session / 1 concurrency`：一个 run-scoped 专用 PostgreSQL instance/schema、一个 Redis instance/namespace、一个普通 user、一个 admin 和一份 sealed auth/storage manifest。它不读取 live CPU/memory grant 或 PostgreSQL PID headroom，不按 worker clone schema，也不回退到共享 `public` schema。场景只消费 `createPublishedArticle()`、`createPendingComment()`、`createUserSession()`、`createAdminSession()` 和 `resetContractNamespace()` 形成的稳定 fixture view；浏览器场景不执行 SQL、Redis 或 Docker 命令。完整生命周期见 [`issue-1149-browser-contract-fixture.md`](issue-1149-browser-contract-fixture.md)。
+
+固定结果输出为 `.tmp/browser-contract/receipt.json`，运行产物位于 `.tmp/browser-contract/runs/<namespace>/`，sealed fixture manifest 在 cleanup 前位于 `.tmp/browser-contract/fixtures/<namespace>/contract-fixture.json`。receipt 记录 source/build fingerprint、run/lane/preparation identity、database/Redis identity、稳定实体 ID、cleanup 分项证据、Playwright 版本、Chromium revision、精确 scenario IDs、launch/context 数、wall clock、console/page/request issues、product/contract/infra 分类及 trace/screenshot 路径。每个场景无论成功失败都尝试写 trace；失败时额外保存当前 viewport screenshot。
 
 ## 运行
 
-先准备并启动当前 commit 的 immutable production runtime 与单一 fixture namespace，再执行：
+先物化当前 source identity 的 immutable production build receipt，再执行：
 
 ```bash
 npm --prefix src/frontend run check:browser-contract
 ```
 
-可通过 `FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT`、`FSUSBLOG_FIXTURE_ROOT`、`FSUSBLOG_TEST_NAMESPACE`、`PLAYWRIGHT_BASE_URL` 与 `FSUSBLOG_BASE_URL` 指向已验证的本轮输入。release-final 不允许跳过 build receipt、回退到系统 Chrome，或通过 retry 掩盖失败。
+调用者必须提供 `FSUSBLOG_TEST_SOURCE_COMMIT`、`FSUSBLOG_TEST_SOURCE_FINGERPRINT` 和 `FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT`。lane 默认使用仓内 `tests/browser-contract/default-fixture-provider.mjs`，也可显式指定符合同一 protocol 的 provider。runtime URL、fixture root 和 namespace 由当前 run identity/producer 产出，不应指向上一轮运行。release-final 不允许跳过 build receipt、回退到系统 Chrome、共享 fixture 或通过 retry 掩盖失败。
 
 ## 风险与回退
 
-Browser Contract 失败时 release-final 保持阻断，并根据 receipt 的 `product`、`contract` 或 `infra` 分类定位；browserless production correctness 不会被改写成失败。紧急回退可以暂停 release-final 发布动作并保留 browserless gate，不能改用旧 Acceptance 矩阵、系统浏览器或自动重试生成 clean pass。Nightly/manual visual、cross-browser、geometry 和性能诊断由 #1148 独立承接。
+Browser Contract 失败时 release-final 保持阻断，并根据 receipt 的 `product`、`contract` 或 `infra` 分类定位；browserless production correctness 不会被改写成失败。无论成功、失败、取消或 timeout 都执行同一幂等 cleanup；cleanup failure 单独记录且不覆盖第一个产品/契约失败，并保留当前 identity 的私有 recovery state 供重试。无法证明 container/PID ownership 时必须 fail closed，禁止按名称强制删除。紧急回退可以暂停 release-final 发布动作并保留 browserless gate，不能改用旧 Acceptance 矩阵、系统浏览器、共享 `public` schema 或自动重试生成 clean pass。Nightly/manual visual、cross-browser、geometry 和性能诊断由 #1148 独立承接。

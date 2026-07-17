@@ -15,10 +15,12 @@ import {
 import { resolveLocalFsusUiIdentity } from './local-fsusui-identity.mjs'
 import { verifyProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
 import { snapshotGitWorktree } from '../../tools/test-matrix/scheduler.mjs'
+import { resolveWorkerTestSession } from '../frontend/support/test-session.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const thisFile = fileURLToPath(import.meta.url)
 const infraFailurePattern = /browser (?:closed|crash|disconnect)|target .*closed|oom|out of memory|err_insufficient_resources|emfile|enfile|failed to launch|executable doesn't exist|browser_not_installed|no_supported_browser|infra-failure|signal (?:sigkill|sigsegv)/iu
+const diagnosticResourceStatuses = new Set(['complete', 'skipped', 'incomplete'])
 
 function parsePositiveInteger(value, label) {
   const parsed = Number(value)
@@ -63,9 +65,37 @@ function parseArguments(argv) {
     else throw new Error(`unknown browser diagnostics argument: ${value}`)
   }
   if (!['nightly', 'manual'].includes(options.mode)) throw new Error(`invalid browser diagnostics mode: ${options.mode}`)
-  if (options.workers !== 1) throw new Error('browser diagnostics currently require the outer-declared fixed worker limit of 1')
   if (options.categoryIds.some((id) => !id)) throw new Error('--category requires a value')
   return options
+}
+
+export function resolveDiagnosticResourceState({ env = process.env, requestedWorkers = 1 } = {}) {
+  const parsedRequestedWorkers = parsePositiveInteger(requestedWorkers, 'requested diagnostic workers')
+  if (parsedRequestedWorkers !== 1) {
+    return {
+      status: 'incomplete',
+      reason: `requested-workers-${parsedRequestedWorkers}-cannot-be-reduced-silently-to-fixed-one`,
+      requestedWorkers: parsedRequestedWorkers,
+      effectiveWorkers: 1,
+      sessionCount: 1
+    }
+  }
+
+  const status = String(env.FSUSBLOG_BROWSER_DIAGNOSTICS_RESOURCE_STATUS || 'complete').trim().toLowerCase()
+  if (!diagnosticResourceStatuses.has(status)) {
+    throw new Error('FSUSBLOG_BROWSER_DIAGNOSTICS_RESOURCE_STATUS must be complete, skipped, or incomplete')
+  }
+  const reason = String(env.FSUSBLOG_BROWSER_DIAGNOSTICS_RESOURCE_REASON || '').trim()
+  if (status !== 'complete' && !reason) {
+    throw new Error('reduced browser diagnostic resources require FSUSBLOG_BROWSER_DIAGNOSTICS_RESOURCE_REASON')
+  }
+  return {
+    status,
+    reason: reason || null,
+    requestedWorkers: parsedRequestedWorkers,
+    effectiveWorkers: 1,
+    sessionCount: 1
+  }
 }
 
 function resolveBuildReceiptFile(env = process.env) {
@@ -180,31 +210,45 @@ export function classifyDiagnosticFailure({ timedOut = false, signal = null, out
 }
 
 export function diagnosticProbeEnvironment({ baseEnvironment, runId, categoryId, probeId, outputDir, workers }) {
+  if (workers !== 1) throw new Error('browser diagnostic probe environment requires one fixed worker')
   const laneIdentity = sanitizeIdentity(`${runId}-${categoryId}-${probeId}`)
-  return {
+  const diagnosticNamespace = sanitizeIdentity(`browser-diagnostics-${laneIdentity}`).toLowerCase()
+  const fixedSession = resolveWorkerTestSession(0, { FSUSBLOG_TEST_SESSION_PREFIX: laneIdentity })
+  const environment = {
     ...baseEnvironment,
     FSUSBLOG_BROWSER_DIAGNOSTICS: '1',
     FSUSBLOG_BROWSER_DIAGNOSTIC_CATEGORY: categoryId,
     FSUSBLOG_BROWSER_DIAGNOSTIC_LANE: probeId,
     FSUSBLOG_BROWSER_DIAGNOSTIC_NAMESPACE: laneIdentity,
-    FSUSBLOG_BROWSER_DIAGNOSTICS_WORKERS: String(workers),
-    FSUSBLOG_PLAYWRIGHT_WORKERS: String(workers),
-    FSUSBLOG_VISUAL_PUBLIC_WORKERS: String(workers),
-    FSUSBLOG_CONSOLE_VISUAL_WORKERS: String(workers),
-    FSUSBLOG_UX_VIEWPORT_WORKERS: String(workers),
-    FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS: String(workers),
-    FSUSBLOG_SPA_ROUTES_WORKERS: String(workers),
+    FSUSBLOG_BROWSER_DIAGNOSTICS_WORKERS: '1',
+    FSUSBLOG_PLAYWRIGHT_WORKERS: '1',
+    FSUSBLOG_VISUAL_PUBLIC_WORKERS: '1',
+    FSUSBLOG_CONSOLE_VISUAL_WORKERS: '1',
+    FSUSBLOG_UX_VIEWPORT_WORKERS: '1',
+    FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS: '1',
+    FSUSBLOG_SPA_ROUTES_WORKERS: '1',
     FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY: '1',
     FSUSBLOG_PLAYWRIGHT_CONFIG: 'playwright.diagnostics.config.ts',
     FSUSBLOG_PLAYWRIGHT_RETRIES: '0',
+    FSUSBLOG_PLAYWRIGHT_SESSION_MODE: 'browser-diagnostics',
+    FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY: '1',
+    FSUSBLOG_TEST_SESSION_ISOLATION: '1',
+    FSUSBLOG_TEST_NAMESPACE: diagnosticNamespace,
+    FSUSBLOG_FIXTURE_ROOT: path.join(outputDir, 'fixtures'),
+    FSUSBLOG_TEST_SESSION: fixedSession,
     FSUSBLOG_TEST_SESSION_PREFIX: laneIdentity,
     FSUSBLOG_PLAYWRIGHT_SESSION_PREFIX: laneIdentity,
     FSUSBLOG_UX_VIEWPORT_RUN_ID: laneIdentity,
     FSUSBLOG_UX_VIEWPORT_RUN_TOKEN: laneIdentity,
     FSUSBLOG_UX_VIEWPORT_RESUME: '0',
+    FSUSBLOG_BROWSER_DIAGNOSTICS_OUTPUT_ROOT: outputDir,
     FSUSBLOG_DIAGNOSTIC_ARTIFACT_ROOT: outputDir,
     PLAYWRIGHT_OUTPUT_DIR: path.join(outputDir, 'playwright')
   }
+  for (const key of Object.keys(environment)) {
+    if (key.startsWith('FSUSBLOG_BROWSER_CONTRACT')) delete environment[key]
+  }
+  return environment
 }
 
 function stopProcessGroup(child, signal) {
@@ -277,9 +321,12 @@ function executeProbe({ probe, env, outputDir, timeoutMinutes, activeChildren })
 }
 
 export async function runBrowserDiagnostics(options, dependencies = {}) {
-  if (options.workers !== 1) throw new Error('browser diagnostics require one outer-declared worker')
   const categories = dependencies.categories || selectBrowserDiagnostics(options.categoryIds)
   const baseEnvironment = dependencies.env || process.env
+  const resources = resolveDiagnosticResourceState({
+    env: baseEnvironment,
+    requestedWorkers: options.workers
+  })
   const source = dependencies.source || await resolveSourceAndBuild(options, baseEnvironment)
   const localFsusUi = dependencies.localFsusUi || resolveLocalFsusUiIdentity({ env: baseEnvironment })
   const runId = sanitizeIdentity(dependencies.runId || process.env.FSUSBLOG_BROWSER_DIAGNOSTICS_RUN_ID || [
@@ -299,8 +346,11 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
     sourceState: { commit: source.commit, worktreeFingerprint: source.worktreeFingerprint },
     build: source.build,
     localFsusUi,
+    resources,
     topology: {
-      workerLimit: options.workers,
+      requestedWorkerLimit: resources.requestedWorkers,
+      workerLimit: resources.effectiveWorkers,
+      fixedSessionCount: resources.sessionCount,
       outerAdmissionMode: 'single-explicit-browser-diagnostics-tier',
       maxActiveBrowserLanes: 1,
       dynamicInnerPool: false,
@@ -330,6 +380,60 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
 
   fs.rmSync(outputRoot, { recursive: true, force: true })
   writeJson(path.join(outputRoot, 'plan.json'), plan)
+  if (resources.status !== 'complete') {
+    const categoryResults = categories.map((category) => ({
+      id: category.id,
+      status: 'skipped',
+      incompleteReason: resources.reason,
+      plannedProbeCount: category.probes.length,
+      executedProbeCount: 0,
+      skippedProbeCount: category.probes.length,
+      failureClasses: ['infra'],
+      probes: []
+    }))
+    for (const categoryResult of categoryResults) {
+      writeJson(path.join(outputRoot, 'categories', categoryResult.id, 'summary.json'), {
+        schema: 'fsusblog.browser-diagnostics-category.v1',
+        evidenceClass: 'diagnostic',
+        affectsCorrectness: false,
+        runId,
+        mode: options.mode,
+        sourceState: plan.sourceState,
+        build: plan.build,
+        localFsusUi: plan.localFsusUi,
+        resources,
+        ...categoryResult
+      })
+    }
+    const receipt = {
+      schema: 'fsusblog.browser-diagnostics-receipt.v1',
+      status: 'incomplete',
+      evidenceClass: 'diagnostic',
+      affectsCorrectness: false,
+      mode: options.mode,
+      runId,
+      sourceState: plan.sourceState,
+      build: plan.build,
+      localFsusUi: plan.localFsusUi,
+      resources,
+      topology: plan.topology,
+      plannedCategoryCount: plan.plannedCategoryCount,
+      executedCategoryCount: 0,
+      plannedProbeCount: plan.plannedProbeCount,
+      executedProbeCount: 0,
+      skippedProbeCount: plan.plannedProbeCount,
+      incompleteReason: resources.reason,
+      failureClasses: ['infra'],
+      categories: categoryResults,
+      createdAt: new Date().toISOString()
+    }
+    receipt.contentDigest = `sha256:${createHash('sha256').update(JSON.stringify(receipt)).digest('hex')}`
+    const receiptFile = path.join(outputRoot, 'receipt.json')
+    writeJson(receiptFile, receipt)
+    const latestFile = path.join(root, '.tmp/browser-diagnostics/latest.json')
+    writeJson(latestFile, { runId, receipt: path.relative(root, receiptFile).replaceAll(path.sep, '/') })
+    return { status: receipt.status, plan, receipt, receiptFile }
+  }
   const activeChildren = new Set()
   let cancellationSignal = null
   const terminate = (signal) => {
@@ -357,7 +461,7 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
           categoryId: category.id,
           probeId: probe.id,
           outputDir: probeOutput,
-          workers: options.workers
+          workers: resources.effectiveWorkers
         })
         const artifactPaths = [
           ...probe.artifactPaths,
@@ -409,6 +513,7 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
         sourceState: plan.sourceState,
         build: plan.build,
         localFsusUi: plan.localFsusUi,
+        resources,
         ...categoryResult
       })
     }
@@ -433,6 +538,7 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
     sourceState: plan.sourceState,
     build: plan.build,
     localFsusUi: plan.localFsusUi,
+    resources,
     topology: plan.topology,
     plannedCategoryCount: plan.plannedCategoryCount,
     executedCategoryCount: categoryResults.length,

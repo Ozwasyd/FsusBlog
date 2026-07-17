@@ -83,7 +83,16 @@ jobs:
     timeout-minutes: 300
     env:
       FSUSBLOG_BROWSER_DIAGNOSTICS_WORKERS: '1'
-      FSUSBLOG_TEST_NAMESPACE: diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+      FSUSBLOG_BROWSER_DIAGNOSTICS_RESOURCE_STATUS: complete
+      FSUSBLOG_BROWSER_DIAGNOSTICS_RUN_ID: browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+      FSUSBLOG_BROWSER_DIAGNOSTICS_OUTPUT_ROOT: .tmp/browser-diagnostics/browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+      FSUSBLOG_PLAYWRIGHT_SESSION_MODE: browser-diagnostics
+      FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY: '1'
+      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
+      FSUSBLOG_TEST_SESSION_ISOLATION: '1'
+      FSUSBLOG_TEST_SESSION_PREFIX: browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+      FSUSBLOG_TEST_NAMESPACE: browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+      FSUSBLOG_FIXTURE_ROOT: ${{ github.workspace }}/.tmp/browser-diagnostics/browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}/workflow-fixtures
       FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
