@@ -77,6 +77,9 @@ assert(sw.includes("fetch(request, { cache: 'no-store' })"), 'public shell netwo
 assert(sw.includes('WASM_RUNTIME_ASSET_PATTERN'), 'service worker must detect Wasm runtime assets separately')
 assert(sw.includes('networkFirstStatic(request)'), 'Wasm runtime assets must stay network-first')
 assert(sw.includes('putCacheEntry(cache, request, response, { requireImmutable: true })'), 'static cache writes must require public immutable responses')
+assert(sw.includes('let staticCachePromise = null'), 'static Cache Storage opens must use single-flight state')
+assert(sw.includes('cache = await openStaticCache()'), 'cache-first static requests must share the single-flight cache handle')
+assert(sw.includes("return networkErrorResponse('static-network-unavailable')"), 'static cache failures must retain an explicit network fallback response')
 assert(sw.includes('SEARCH_MANIFEST_MIN_CHECK_INTERVAL_MS'), 'search index manifest checks must be TTL throttled')
 assert(sw.includes('let searchIndexUpdatePromise = null'), 'search index refresh must use single-flight promise state')
 assert(sw.includes('.finally(() =>') && sw.includes('searchIndexUpdatePromise = null'), 'search index single-flight promise must clear after settle')
@@ -198,6 +201,16 @@ async function runSensitiveFetchBehaviorCheck(path) {
   assert(context.__cache.puts.length === 0, `${path} must never enter Cache Storage`)
 }
 
+async function runStaticFetchBehaviorCheck({ open, fetch }) {
+  const { context, sandbox } = createServiceWorkerContext()
+  context.caches.open = open
+  context.fetch = fetch
+  return await vm.runInContext(
+    "cacheFirstStatic(new Request('https://example.test/assets/app.abcdef.js'))",
+    sandbox
+  )
+}
+
 for (const sensitivePath of [
   '/api/binary/auth/me.aeds',
   '/api/notifications/stream/preflight',
@@ -224,6 +237,69 @@ for (const sensitivePath of [
   assert(immutableResponseCacheable, 'explicit public immutable assets must remain cacheable')
   assert(explicitAsset, 'hashed public assets must remain cacheable')
   assert(!disguisedPrivateAsset, 'a private route with a static extension must not become cacheable')
+}
+
+{
+  let openCount = 0
+  let releaseOpen
+  const cacheOpen = new Promise((resolve) => {
+    releaseOpen = resolve
+  })
+  const { context, sandbox } = createServiceWorkerContext()
+  context.caches.open = async () => {
+    openCount += 1
+    return await cacheOpen
+  }
+  context.fetch = async () => new Response('module', {
+    headers: {
+      'Cache-Control': 'public,max-age=31536000,immutable',
+      'Content-Type': 'application/javascript'
+    }
+  })
+
+  const requests = Array.from({ length: 16 }, (_, index) => vm.runInContext(
+    `cacheFirstStatic(new Request('https://example.test/assets/chunk-${index}.abcdef.js'))`,
+    sandbox
+  ))
+  await Promise.resolve()
+  assert(openCount === 1, 'concurrent static module requests must open Cache Storage once')
+  releaseOpen(context.__cache)
+  const responses = await Promise.all(requests)
+  assert(responses.every((response) => response.ok), 'concurrent static module requests must all retain valid responses')
+}
+
+{
+  let fetchCount = 0
+  const response = await runStaticFetchBehaviorCheck({
+    open: async () => { throw new Error('cache storage unavailable') },
+    fetch: async () => {
+      fetchCount += 1
+      return new Response('network module', {
+        headers: { 'Content-Type': 'application/javascript' }
+      })
+    }
+  })
+  assert(response.ok, 'static requests must stay network-available when Cache Storage open fails')
+  assert(await response.text() === 'network module', 'cache-open failure must preserve the real network module response')
+  assert(fetchCount === 1, 'cache-open failure must perform exactly one network request')
+}
+
+{
+  let fetchCount = 0
+  const response = await runStaticFetchBehaviorCheck({
+    open: async () => ({
+      match: async () => { throw new Error('cache match unavailable') }
+    }),
+    fetch: async () => {
+      fetchCount += 1
+      return new Response('network module', {
+        headers: { 'Content-Type': 'application/javascript' }
+      })
+    }
+  })
+  assert(response.ok, 'static requests must stay network-available when Cache Storage match fails')
+  assert(await response.text() === 'network module', 'cache-match failure must preserve the real network module response')
+  assert(fetchCount === 1, 'cache-match failure must perform exactly one network request')
 }
 
 {

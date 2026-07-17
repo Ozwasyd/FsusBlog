@@ -20,6 +20,7 @@ const AEDS_BINARY_MEDIA_TYPE = 'application/octet-stream'
 const DOTNET_EPOCH_OFFSET_MS = 62135596800000
 const TEXT_DECODER = new TextDecoder()
 let searchIndexUpdatePromise = null
+let staticCachePromise = null
 let lastSearchManifestCheckAt = 0
 let currentSearchVersion = null
 const searchIndexTelemetry = {
@@ -227,15 +228,24 @@ async function networkOnlyRequest(request, failureKind) {
 }
 
 async function cacheFirstStatic(request) {
-  const cache = await caches.open(STATIC_CACHE)
-  const cached = await matchCacheableResponse(cache, request, { requireImmutable: true })
-  if (cached) {
-    return cached
+  let cache = null
+  try {
+    cache = await openStaticCache()
+    const cached = await matchCacheableResponse(cache, request, { requireImmutable: true })
+    if (cached) {
+      return cached
+    }
+  } catch {
+    // Cache Storage is an optimization boundary. Firefox can transiently
+    // reject concurrent cache opens/matches while a worker takes control;
+    // static module delivery must still fall through to the network.
   }
 
   try {
     const response = await fetch(request)
-    await putCacheEntry(cache, request, response, { requireImmutable: true })
+    if (cache) {
+      await putCacheEntry(cache, request, response, { requireImmutable: true })
+    }
     return response
   } catch {
     return networkErrorResponse('static-network-unavailable')
@@ -245,14 +255,33 @@ async function cacheFirstStatic(request) {
 async function networkFirstStatic(request) {
   try {
     const response = await fetch(request)
-    const cache = await caches.open(STATIC_CACHE)
-    await putCacheEntry(cache, request, response, { requireImmutable: true })
+    try {
+      const cache = await openStaticCache()
+      await putCacheEntry(cache, request, response, { requireImmutable: true })
+    } catch {
+      // A valid network response must not be rejected because Cache Storage
+      // is temporarily unavailable.
+    }
     return response
   } catch {
-    const cache = await caches.open(STATIC_CACHE)
-    return (await matchCacheableResponse(cache, request, { requireImmutable: true }))
-      ?? networkErrorResponse('static-network-unavailable')
+    try {
+      const cache = await openStaticCache()
+      return (await matchCacheableResponse(cache, request, { requireImmutable: true }))
+        ?? networkErrorResponse('static-network-unavailable')
+    } catch {
+      return networkErrorResponse('static-network-unavailable')
+    }
   }
+}
+
+function openStaticCache() {
+  if (!staticCachePromise) {
+    staticCachePromise = caches.open(STATIC_CACHE).catch((error) => {
+      staticCachePromise = null
+      throw error
+    })
+  }
+  return staticCachePromise
 }
 
 function responseCanEnterCache(response, options = {}) {
@@ -730,6 +759,9 @@ async function clearPrivateBrowserStateCaches(reason) {
   await Promise.all(cacheNames.map(async (cacheName) => {
     if (reason === 'panic' && cacheName.startsWith('fsus-')) {
       if (await caches.delete(cacheName)) {
+        if (cacheName === STATIC_CACHE) {
+          staticCachePromise = null
+        }
         deletedCacheCount += 1
       }
       return
