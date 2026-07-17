@@ -206,6 +206,37 @@ public sealed class PublicAotDocumentComposerTests
     }
 
     [Fact]
+    public void BuildSeoHeadModel_TreatsDatabaseTimestampsAsUtc()
+    {
+        var databaseTimestamp = new DateTime(2026, 7, 17, 0, 56, 33, DateTimeKind.Unspecified);
+        PublicSeoHeadModel model = PublicAotDocumentComposer.BuildSeoHeadModel(
+            PublicPageKind.ArticleDetail,
+            "Article",
+            "Blog",
+            "Description",
+            "https://example.com/article/42",
+            new PublicAotArticleSeoMetadata(
+                "Article",
+                "Description",
+                "https://example.com/article/42",
+                databaseTimestamp,
+                databaseTimestamp,
+                "Author",
+                string.Empty,
+                "Blog",
+                string.Empty));
+
+        using JsonDocument document = JsonDocument.Parse(model.JsonLdGraph);
+        JsonElement posting = document.RootElement.GetProperty("@graph").EnumerateArray()
+            .Single(static node => node.GetProperty("@type").GetString() == "BlogPosting");
+
+        Assert.Equal("2026-07-17T00:56:33.0000000Z", posting.GetProperty("datePublished").GetString());
+        Assert.Equal("2026-07-17T00:56:33.0000000Z", posting.GetProperty("dateModified").GetString());
+        Assert.Equal(TimeSpan.Zero, model.ArticlePublishedAtUtc?.Offset);
+        Assert.Equal(TimeSpan.Zero, model.ArticleModifiedAtUtc?.Offset);
+    }
+
+    [Fact]
     public void BuildSeoHeadTags_NonArticle_DoesNotEmitArticleOnlyJsonLdFields()
     {
         string result = PublicAotDocumentComposer.BuildSeoHeadTags(

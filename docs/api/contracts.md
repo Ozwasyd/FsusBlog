@@ -117,6 +117,8 @@ ABI v4 的 arena 与 payload export 使用单调 `uint64` handle token。`reserv
 
 compact record 内所有文本字段均为 `Utf8SliceRef`，指向当前 payload 的共享 blob。`ArticleList` 的 76B record 在原 56B 公开字段后追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`；`status` 值固定为 `Draft=0`、`Scheduled=1`、`Published=2`、`Archived=3`、`Deleted=4`，公开可见性以 [design.md#文章状态枚举](design.md#文章状态枚举) 为准。写请求、Passkey、上传和复杂评论游标仍使用 v2 header 包裹的 POD + blob 结构；`ArticleDetail` 外层仍是 AEDS v2 frame，新写 payload 使用 `ARD4` V4 envelope，解码器只读兼容 `ARD3` V3，不再允许旧 detail tail payload。
 
+所有 `*UnixMs` 字段均为 UTC Unix epoch 毫秒。服务端从数据库读取 `DateTimeKind.Unspecified` 时间时，必须把该 wall-clock 值视为已归一化的 UTC，不得再按宿主机本地时区偏移；`DateTimeKind.Local` 才按其实际时刻转换为 UTC。该规则只约束时间语义，不改变 `int64` wire layout、frame size 或 TypeScript/Worker/Wasm decoder ABI。
+
 payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/Conversation 等重复文本均落到单个 shared UTF-8 blob，records 只保存 `Utf8SliceRef`；前端 ArticlePage decode 不再创建 object records 数组，也不使用 `tagRecords.slice(...)` 复制 tag range。后续若引入 `ArticleListV4` category/tag dictionary，必须保持现有 frame type 的 downgrade 路径和 golden fixture。
 
 搜索运行时拒绝超过 128 字符的 keyword，避免在 DB fallback、runtime token hashing 和 snippet 构建前处理超大输入。搜索索引构建对正文 tokenization 只处理前 256 KiB，CJK 连续 segment 超过 4096 rune 时退回 bounded unigram fallback。

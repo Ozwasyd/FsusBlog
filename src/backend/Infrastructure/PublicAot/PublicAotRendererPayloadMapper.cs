@@ -46,9 +46,9 @@ internal static class PublicAotRendererPayloadMapper
                 common["authors"] = article.Authors.Select(ToResponsiblePersonPayload).ToArray();
                 common["reviewer"] = article.Reviewer is null ? null : ToResponsiblePersonPayload(article.Reviewer);
                 common["responsibility"] = article.Responsibility is null ? null : ToResponsibilityPayload(article.Responsibility);
-                common["createTime"] = article.CreateTime.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
-                common["publishedAt"] = article.PublishedAt?.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
-                common["updatedAt"] = article.UpdatedAt?.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+                common["createTime"] = PublicAotUtcTime.Format(article.CreateTime);
+                common["publishedAt"] = article.PublishedAt is DateTime publishedAt ? PublicAotUtcTime.Format(publishedAt) : null;
+                common["updatedAt"] = article.UpdatedAt is DateTime updatedAt ? PublicAotUtcTime.Format(updatedAt) : null;
                 common["categoryId"] = article.Category.Id;
                 common["categoryName"] = article.Category.Name;
                 common["tags"] = article.Tags.Select(ToTagPayload).ToArray();
@@ -81,7 +81,7 @@ internal static class PublicAotRendererPayloadMapper
                 {
                     ["id"] = article.Id,
                     ["title"] = article.Title,
-                    ["createTime"] = article.CreateTime.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture)
+                    ["createTime"] = PublicAotUtcTime.Format(article.CreateTime)
                 }).ToArray();
                 common["title"] = archive.Title;
                 return common;
@@ -130,7 +130,7 @@ internal static class PublicAotRendererPayloadMapper
             ["title"] = article.Title,
             ["summary"] = article.Summary,
             ["views"] = article.Views,
-            ["createTime"] = article.CreateTime.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            ["createTime"] = PublicAotUtcTime.Format(article.CreateTime),
             ["category"] = new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["id"] = article.Category.Id,
@@ -170,7 +170,7 @@ internal static class PublicAotRendererPayloadMapper
             ["title"] = article.Title,
             ["coverImageUrl"] = article.CoverImageUrl,
             ["views"] = article.Views,
-            ["createTime"] = article.CreateTime.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            ["createTime"] = PublicAotUtcTime.Format(article.CreateTime),
             ["category"] = new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["id"] = article.Category.Id,
@@ -231,7 +231,7 @@ internal static class PublicAotRendererPayloadMapper
             {
                 ["summary"] = responsibility.Update.Summary,
                 ["reason"] = responsibility.Update.Reason,
-                ["effectiveAt"] = responsibility.Update.EffectiveAt?.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                ["effectiveAt"] = responsibility.Update.EffectiveAt is DateTime effectiveAt ? PublicAotUtcTime.Format(effectiveAt) : null,
                 ["conclusionImpact"] = responsibility.Update.ConclusionImpact
             },
             ["methodology"] = responsibility.Methodology,
@@ -261,7 +261,7 @@ internal static class PublicAotRendererPayloadMapper
             ["id"] = item.Id,
             ["title"] = item.Title,
             ["summary"] = item.Summary,
-            ["createTime"] = item.CreateTime.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+            ["createTime"] = PublicAotUtcTime.Format(item.CreateTime),
             ["reason"] = item.Reason
         };
 

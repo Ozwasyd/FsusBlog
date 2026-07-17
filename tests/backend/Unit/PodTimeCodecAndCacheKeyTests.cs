@@ -26,6 +26,29 @@ public sealed class PodTimeCodecAndCacheKeyTests
     }
 
     [Fact]
+    public void ToUnixMs_UnspecifiedDatabaseTimestamp_TreatsWallClockAsUtc()
+    {
+        var databaseTimestamp = new DateTime(2026, 7, 17, 0, 25, 46, DateTimeKind.Unspecified);
+        long expected = new DateTimeOffset(DateTime.SpecifyKind(databaseTimestamp, DateTimeKind.Utc))
+            .ToUnixTimeMilliseconds();
+
+        long result = PodTimeCodec.ToUnixMs(databaseTimestamp);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ToUnixMs_LocalDatetime_ConvertsTheInstantToUtc()
+    {
+        var localTimestamp = new DateTime(2026, 7, 17, 8, 25, 46, DateTimeKind.Local);
+        long expected = new DateTimeOffset(localTimestamp.ToUniversalTime()).ToUnixTimeMilliseconds();
+
+        long result = PodTimeCodec.ToUnixMs(localTimestamp);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
     public void FromUnixMs_ReturnsUtcDateTime()
     {
         long ms = new DateTimeOffset(new DateTime(2023, 6, 15, 8, 0, 0, DateTimeKind.Utc)).ToUnixTimeMilliseconds();

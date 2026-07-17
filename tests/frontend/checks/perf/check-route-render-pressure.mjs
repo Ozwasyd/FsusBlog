@@ -5,6 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs'
+import { evaluateAfterNavigationSettles } from './route-render-pressure-readiness.mjs'
 
 const require = createRequire(import.meta.url)
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
@@ -58,7 +59,7 @@ async function measureRoute(page, route) {
   await page.waitForTimeout(150)
   const hotReadyMs = Math.round(performance.now() - hotStarted)
 
-  const metrics = await page.evaluate(({ coldReadyMs, hotReadyMs }) => ({
+  const metrics = await evaluateAfterNavigationSettles(page, ({ coldReadyMs, hotReadyMs }) => ({
     appReadyTimeMs: coldReadyMs,
     routeTransitionTimeMs: hotReadyMs,
     domMutationCount: window.__fsusRoutePressureMutations ?? 0,

@@ -68,4 +68,18 @@ public sealed class PublicAotBinaryPayloadTests
         Assert.True(PublicAotBinaryPayload.TryDecodeObject(frame, out Dictionary<string, object?> decoded));
         Assert.Equal(nameof(PayloadState.Ready), decoded["state"]);
     }
+
+    [Fact]
+    public void DatabaseTimestamp_RoundTripsAsUtcWithoutHostTimezoneShift()
+    {
+        var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["updatedAt"] = new DateTime(2026, 7, 17, 0, 56, 33, DateTimeKind.Unspecified)
+        };
+
+        byte[] frame = PublicAotBinaryPayload.EncodeObjectFrame(payload);
+
+        Assert.True(PublicAotBinaryPayload.TryDecodeObject(frame, out Dictionary<string, object?> decoded));
+        Assert.Equal("2026-07-17T00:56:33.0000000Z", decoded["updatedAt"]);
+    }
 }

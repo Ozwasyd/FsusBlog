@@ -86,6 +86,38 @@ public sealed class PublicAotRendererPayloadMapperTests
     }
 
     [Fact]
+    public void ArticleDetailOptions_TreatDatabaseTimestampsAsUtc()
+    {
+        var databaseTimestamp = new DateTime(2026, 7, 17, 0, 56, 33, DateTimeKind.Unspecified);
+        IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(
+            new PublicAotRouteMatch(PublicPageKind.ArticleDetail, PublicPageId.ArticleDetail, "article:42", "/article/42", "/article/42", string.Empty),
+            new PublicArticlePageSnapshot(
+                Seo(),
+                ArticleId: 42,
+                Title: "Article",
+                Content: "# Body",
+                Summary: "Summary",
+                Views: 9,
+                AuthorName: "Author",
+                CreateTime: databaseTimestamp,
+                Category: new PublicAotArticleCategorySnapshot(2, "Category"),
+                Tags: [],
+                Rights: Rights(),
+                RelatedReading: null)
+            {
+                PublishedAt = databaseTimestamp,
+                UpdatedAt = databaseTimestamp
+            }));
+
+        IReadOnlyDictionary<string, object?> options = GetOptions(payload);
+        const string expected = "2026-07-17T00:56:33.0000000Z";
+
+        Assert.Equal(expected, options["createTime"]);
+        Assert.Equal(expected, options["publishedAt"]);
+        Assert.Equal(expected, options["updatedAt"]);
+    }
+
+    [Fact]
     public void ArticleDetailOptions_ExposeRightsForPublicHydration()
     {
         IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(

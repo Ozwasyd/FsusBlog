@@ -7,6 +7,7 @@ import { authBinary, loginWithFixtureSessionBypass, requestTimeoutMs as defaultR
 import { encodeAedsFrame, readAedsResponse } from '../support/aeds-envelope.mjs'
 import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../support/http.mjs'
 import { resolveFixtureAssetDirectory, resolvePublicFixtureFile } from '../support/fixture-paths.mjs'
+import { buildDirectDbSeedCacheActions } from './direct-db-seed-cache-plan.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -178,16 +179,27 @@ async function fetchAdminBinary(relativePath, options = {}) {
   return payload
 }
 
-async function requestPublicHotRebuild(cookie = null) {
-  const adminCookie = cookie || await loginAdminSession()
+async function requestCacheAction(action, articleId, cookie) {
   return fetchAdminBinary('/api/binary/author/cache/actions', {
     method: 'POST',
-    cookie: adminCookie,
+    cookie,
     body: encodeAedsFrame(
       adminCacheActionRequestFrame,
-      new TextEncoder().encode(JSON.stringify({ action: 'public-hot-rebuild', articleId: null }))
+      new TextEncoder().encode(JSON.stringify({ action, articleId }))
     )
   })
+}
+
+async function requestPublicHotRebuild(cookie = null) {
+  const adminCookie = cookie || await loginAdminSession()
+  return requestCacheAction('public-hot-rebuild', null, adminCookie)
+}
+
+async function refreshDirectDbSeedCaches(seed) {
+  const adminCookie = await loginAdminSession()
+  for (const action of buildDirectDbSeedCacheActions(seed)) {
+    await requestCacheAction(action.action, action.articleId, adminCookie)
+  }
 }
 
 function buildSearchKeyword(title) {
@@ -603,7 +615,12 @@ SELECT id FROM final_article;
     ...seededArticles.flatMap((article) => [String(article.views), article.articleId])
   ])
 
-  return { articleId, categoryId, tagId }
+  return {
+    articleId,
+    articleIds: seededArticles.map((article) => article.articleId),
+    categoryId,
+    tagId
+  }
 }
 
 async function seedPublicFixturesViaApi() {
@@ -688,7 +705,7 @@ async function main() {
       const seeded = seedPublicFixtures()
       seededFallback = seeded
       console.log(`[discover-playwright-fixtures] seeded minimal public fixtures via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
-      await requestPublicHotRebuild()
+      await refreshDirectDbSeedCaches(seeded)
     }
 
     const snapshot = await waitForPublicFixtureSnapshot()
@@ -704,7 +721,7 @@ async function main() {
       const seeded = seedPublicFixtures()
       seededFallback = seeded
       console.log(`[discover-playwright-fixtures] seeded public home secondary fixtures via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
-      await requestPublicHotRebuild()
+      await refreshDirectDbSeedCaches(seeded)
       const snapshot = await waitForPublicFixtureSnapshot()
       page = snapshot.page
       categories = snapshot.categories
@@ -734,7 +751,7 @@ async function main() {
     const seeded = seedPublicFixtures()
     seededFallback = seeded
     console.log(`[discover-playwright-fixtures] seeded replacement public fixture via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
-    await requestPublicHotRebuild()
+    await refreshDirectDbSeedCaches(seeded)
     const snapshot = await waitForPublicFixtureSnapshot()
     page = snapshot.page
     categories = snapshot.categories

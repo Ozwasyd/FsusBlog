@@ -29,6 +29,8 @@ Core, backend, benchmarks, and backend tests import the generated Shared packed 
 | 10 | 4 | PayloadLength | `uint32` |
 | 14 | 2 | PayloadCrc16 | `uint16` |
 
+All `*UnixMs` payload fields are signed `int64` milliseconds from the UTC Unix epoch. Database timestamps materialized as `DateTimeKind.Unspecified` are already UTC wall-clock values and must not be shifted through the host local timezone; local `DateTime` values are converted by instant. This normalization rule does not change field widths, frame sizes, or the TypeScript/Worker/Wasm decoder ABI.
+
 ## CRC Rules
 
 - `PayloadCrc16 = CRC16(payload bytes)`

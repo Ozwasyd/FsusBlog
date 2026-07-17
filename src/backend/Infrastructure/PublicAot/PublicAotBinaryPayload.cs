@@ -169,11 +169,11 @@ internal static class PublicAotBinaryPayload
                     return;
                 case DateTime dateTime:
                     WriteByte(StringKind);
-                    WriteStringPayload(dateTime.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+                    WriteStringPayload(PublicAotUtcTime.Format(dateTime));
                     return;
                 case DateTimeOffset dateTimeOffset:
                     WriteByte(StringKind);
-                    WriteStringPayload(dateTimeOffset.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+                    WriteStringPayload(PublicAotUtcTime.Format(dateTimeOffset));
                     return;
                 case IReadOnlyDictionary<string, object?> dictionary:
                     WriteObject(dictionary);

@@ -116,10 +116,10 @@ internal static class PublicAotDocumentComposer
             },
             JsonLdGraph = jsonLd,
             ArticlePublishedAtUtc = articleSeo?.DatePublished is DateTime published
-                ? new DateTimeOffset(DateTime.SpecifyKind(published, DateTimeKind.Utc))
+                ? PublicAotUtcTime.ToOffset(published)
                 : null,
             ArticleModifiedAtUtc = articleSeo?.DateModified is DateTime modified
-                ? new DateTimeOffset(DateTime.SpecifyKind(modified, DateTimeKind.Utc))
+                ? PublicAotUtcTime.ToOffset(modified)
                 : null,
             ArticleAuthor = NullIfEmpty(articleSeo?.AuthorName),
             ArticleImageUrl = imageUrl
@@ -277,12 +277,12 @@ internal static class PublicAotDocumentComposer
 
         if (articleSeo?.DatePublished is { } publishedAt)
         {
-            writer.WriteString("datePublished", publishedAt.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            writer.WriteString("datePublished", PublicAotUtcTime.Format(publishedAt));
         }
 
         if (articleSeo?.DateModified is { } modifiedAt)
         {
-            writer.WriteString("dateModified", modifiedAt.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            writer.WriteString("dateModified", PublicAotUtcTime.Format(modifiedAt));
         }
 
         IReadOnlyList<PublicAotArticleAuthorMetadata> authors = ResolveAuthors(articleSeo);
@@ -425,12 +425,12 @@ internal static class PublicAotDocumentComposer
 
         if (articleSeo?.DatePublished is { } publishedAt)
         {
-            node["datePublished"] = publishedAt.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+            node["datePublished"] = PublicAotUtcTime.Format(publishedAt);
         }
 
         if (articleSeo?.DateModified is { } modifiedAt)
         {
-            node["dateModified"] = modifiedAt.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+            node["dateModified"] = PublicAotUtcTime.Format(modifiedAt);
         }
 
         IReadOnlyList<PublicAotArticleAuthorMetadata> authors = ResolveAuthors(articleSeo);
