@@ -116,7 +116,8 @@ requireIncludes('tests/frontend/fixtures/discover-playwright-fixtures.mjs', [
 requireIncludes('tests/frontend/fixtures/prepare-playwright-sessions.mjs', [
   'resolveSessionFixtureDirectory',
   'resolveWorkerTestSession',
-  'Promise.all(sessions.map',
+  'runWithConcurrency(sessions, sessionPrepConcurrency',
+  'FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY',
   "import { spawn } from 'node:child_process'",
   'process.env.FSUSBLOG_DEBUG_BACKEND_URL',
   'process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME',

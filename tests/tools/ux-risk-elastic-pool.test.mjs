@@ -169,6 +169,10 @@ test('production UX risk defaults to public-API persistent browsers with isolate
     path.join(root, 'tests/frontend/e2e/ux/viewport-boundaries.spec.ts'),
     'utf8'
   )
+  const sessionPreparer = fs.readFileSync(
+    path.join(root, 'tests/frontend/fixtures/prepare-playwright-sessions.mjs'),
+    'utf8'
+  )
   assert.match(runner, /resolveExecutionMode\(process\.env\.FSUSBLOG_UX_RISK_EXECUTION_MODE\)/u)
   assert.match(runner, /executionMode === 'cli'[\s\S]*runDirectCliPool\(\)[\s\S]*runPersistentBrowserPool\(\)/u)
   assert.match(runner, /executePersistentUxWorkerPool\(pendingGroups/u)
@@ -183,6 +187,11 @@ test('production UX risk defaults to public-API persistent browsers with isolate
   assert.match(runner, /browserLaunchCount: pool\.browserLaunchCount/u)
   assert.match(runner, /wallClockMs: Date\.now\(\) - uxStartedAtMs/u)
   assert.match(runner, /peakProcessTreeRssBytes/u)
+  assert.match(runner, /const sessionPrepConcurrency = Math\.min\(sessionCount, resolveLiveWorkerCapacity\(\)\)/u)
+  assert.match(runner, /'--concurrency', String\(sessionPrepConcurrency\)/u)
+  assert.match(sessionPreparer, /runWithConcurrency\(sessions, sessionPrepConcurrency/u)
+  assert.match(sessionPreparer, /FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY/u)
+  assert.doesNotMatch(sessionPreparer, /Promise\.all\(sessions\.map/u)
 
   const directPool = runner.slice(
     runner.indexOf('async function runDirectCliPool()'),

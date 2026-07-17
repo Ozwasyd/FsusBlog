@@ -30,6 +30,34 @@ function parseWorkers() {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 4;
 }
 
+function parseConcurrency(workers) {
+  const flagIndex = process.argv.indexOf('--concurrency');
+  const raw = flagIndex >= 0
+    ? process.argv[flagIndex + 1]
+    : process.env.FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY;
+  if (raw === undefined || String(raw).trim() === '') return workers;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Playwright session prep concurrency must be a positive integer, got ${raw}`);
+  }
+  return Math.min(workers, parsed);
+}
+
+async function runWithConcurrency(items, concurrency, action) {
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      await action(items[index]);
+    }
+  };
+  await Promise.all(Array.from(
+    { length: Math.min(items.length, concurrency) },
+    () => worker()
+  ));
+}
+
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const stdio = options.stdio || 'pipe';
@@ -155,11 +183,12 @@ function formatSessionManifest(sessions) {
 async function main() {
   assertActiveNamespaceUrl(backendBaseUrl, 'FSUSBLOG_BASE_URL or FSUSBLOG_DEBUG_BACKEND_URL');
   const workers = parseWorkers();
+  const sessionPrepConcurrency = parseConcurrency(workers);
   const sessions = Array.from({ length: workers }, (_, index) => resolveWorkerTestSession(index));
   const fixturesDir = resolveSessionFixtureDirectory();
   await mkdir(fixturesDir, { recursive: true });
 
-  await Promise.all(sessions.map(async (session) => {
+  await runWithConcurrency(sessions, sessionPrepConcurrency, async (session) => {
     console.log(`[prepare-playwright-sessions] preparing ${session}`);
     await Promise.all([
       clonePublicSchema(session),
@@ -185,14 +214,16 @@ async function main() {
 
     await runNodeScript(path.join(fixtureScriptRoot, 'prepare-auth-smoke-users.mjs'), env);
     await runNodeScript(path.join(fixtureScriptRoot, 'discover-playwright-fixtures.mjs'), env);
-  }));
+  });
 
   await writeFile(
     path.join(fixturesDir, 'sessions.aeds'),
     formatSessionManifest(sessions),
     'utf8'
   );
-  console.log(`[prepare-playwright-sessions] prepared ${sessions.length} sessions`);
+  console.log(
+    `[prepare-playwright-sessions] prepared ${sessions.length} sessions concurrency=${sessionPrepConcurrency}`
+  );
 }
 
 main().catch((error) => {

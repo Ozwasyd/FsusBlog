@@ -490,10 +490,19 @@ function configurePersistentRuntimeEnvironment() {
 
 async function preparePlaywrightSessions(sessionCount) {
   const script = path.join(root, 'tests/frontend/fixtures/prepare-playwright-sessions.mjs')
+  const sessionPrepConcurrency = Math.min(sessionCount, resolveLiveWorkerCapacity())
   const exitCode = await new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [script, '--workers', String(sessionCount)], {
+    const child = spawn(process.execPath, [
+      script,
+      '--workers', String(sessionCount),
+      '--concurrency', String(sessionPrepConcurrency)
+    ], {
       cwd: frontend,
-      env: { ...process.env, FSUSBLOG_PLAYWRIGHT_WORKERS: String(sessionCount) },
+      env: {
+        ...process.env,
+        FSUSBLOG_PLAYWRIGHT_WORKERS: String(sessionCount),
+        FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY: String(sessionPrepConcurrency)
+      },
       stdio: 'inherit'
     })
     child.once('error', reject)
