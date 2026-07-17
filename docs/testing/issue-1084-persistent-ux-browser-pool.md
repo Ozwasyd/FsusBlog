@@ -14,7 +14,7 @@ This is a diagnostic fallback, not the Production default. The implementation do
 
 The CLI path uses the same lane-prefixed prepared session plan as the persistent pool; it never invents a `pw-0` fixture. Its stdout timing receipt is schema-validated, bound to the selected group and persisted as a unique `group-result.json`, so before/after measurements use the same per-group phase evidence instead of terminal text or inferred durations.
 
-Both modes prepare the maximum session inventory needed for later live-grant growth, but session creation itself is admitted through a bounded queue. Its concurrency is recalculated from the current scheduler CPU/memory grant, so fixture schema cloning does not burst all possible sessions against the PostgreSQL container PID boundary.
+Both modes prepare the maximum session inventory needed for later live-grant growth, but session creation itself is admitted through a bounded queue. Its concurrency is recalculated from the current scheduler CPU/memory grant and the PostgreSQL container's live cgroup `pids.current/pids.max` headroom, so fixture schema cloning does not burst all possible sessions against the PID boundary.
 
 ## Lifecycle and admission
 

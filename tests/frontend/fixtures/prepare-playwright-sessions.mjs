@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveWorkerTestSession } from '../support/test-session.mjs';
 import { resolveSessionFixtureDirectory } from '../support/fixture-paths.mjs';
+import { resolveSessionPrepConcurrency } from './session-prep-admission.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -122,6 +123,24 @@ async function runRedis(args) {
   ]);
 }
 
+async function readPostgresPidSnapshot() {
+  assertSafeFixtureContainer(pgContainer, 'FSUSBLOG_PG_CONTAINER');
+  const output = await run('docker', [
+    'exec',
+    pgContainer,
+    'sh',
+    '-c',
+    'cat /sys/fs/cgroup/pids.current; cat /sys/fs/cgroup/pids.max'
+  ]);
+  const [currentRaw, maxRaw] = output.split(/\r?\n/u).map((value) => value.trim());
+  const current = Number(currentRaw);
+  const max = maxRaw === 'max' ? null : Number(maxRaw);
+  if (!Number.isInteger(current) || current < 0 || (max !== null && (!Number.isInteger(max) || max <= 0))) {
+    throw new Error(`invalid PostgreSQL cgroup PID counters: ${output}`);
+  }
+  return { current, max };
+}
+
 function schemaForSession(session) {
   return `fsus_e2e_${session.replaceAll('-', '_')}`;
 }
@@ -183,10 +202,19 @@ function formatSessionManifest(sessions) {
 async function main() {
   assertActiveNamespaceUrl(backendBaseUrl, 'FSUSBLOG_BASE_URL or FSUSBLOG_DEBUG_BACKEND_URL');
   const workers = parseWorkers();
-  const sessionPrepConcurrency = parseConcurrency(workers);
+  const requestedSessionPrepConcurrency = parseConcurrency(workers);
+  const postgresPids = await readPostgresPidSnapshot();
+  const sessionPrepConcurrency = resolveSessionPrepConcurrency(
+    requestedSessionPrepConcurrency,
+    postgresPids
+  );
   const sessions = Array.from({ length: workers }, (_, index) => resolveWorkerTestSession(index));
   const fixturesDir = resolveSessionFixtureDirectory();
   await mkdir(fixturesDir, { recursive: true });
+  console.log(
+    `[prepare-playwright-sessions] admission requested=${requestedSessionPrepConcurrency}`
+    + ` effective=${sessionPrepConcurrency} postgresPids=${postgresPids.current}/${postgresPids.max ?? 'max'}`
+  );
 
   await runWithConcurrency(sessions, sessionPrepConcurrency, async (session) => {
     console.log(`[prepare-playwright-sessions] preparing ${session}`);

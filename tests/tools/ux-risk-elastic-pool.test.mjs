@@ -191,6 +191,8 @@ test('production UX risk defaults to public-API persistent browsers with isolate
   assert.match(runner, /'--concurrency', String\(sessionPrepConcurrency\)/u)
   assert.match(sessionPreparer, /runWithConcurrency\(sessions, sessionPrepConcurrency/u)
   assert.match(sessionPreparer, /FSUSBLOG_PLAYWRIGHT_SESSION_PREP_CONCURRENCY/u)
+  assert.match(sessionPreparer, /resolveSessionPrepConcurrency\(/u)
+  assert.match(sessionPreparer, /readPostgresPidSnapshot\(\)/u)
   assert.doesNotMatch(sessionPreparer, /Promise\.all\(sessions\.map/u)
 
   const directPool = runner.slice(
