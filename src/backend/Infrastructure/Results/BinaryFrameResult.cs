@@ -70,39 +70,74 @@ public sealed record BinaryFrameResponseMetadata(
     bool AcceptRangesNone = true,
     bool VaryAcceptEncoding = false);
 
-public sealed class BinaryPreencodedFrameResult(
-    ReadOnlyMemory<byte> frame,
-    int? statusCode = null,
-    BinaryFrameResponseMetadata? metadata = null) : IResult
+public sealed class BinaryPreencodedFrameResult : IResult
 {
-    private readonly ReadOnlyMemory<byte> _frame = frame;
-    private readonly int? _statusCode = statusCode;
-    private readonly BinaryFrameResponseMetadata? _metadata = metadata;
+    private readonly ReadOnlyMemory<byte> _frame;
+    private OwnedAedsFrameReadLease? _ownedLease;
+    private readonly bool _ownsLease;
+    private int _ownedExecutionStarted;
+    private readonly int? _statusCode;
+    private readonly BinaryFrameResponseMetadata? _metadata;
+
+    public BinaryPreencodedFrameResult(
+        ReadOnlyMemory<byte> frame,
+        int? statusCode = null,
+        BinaryFrameResponseMetadata? metadata = null)
+    {
+        _frame = frame;
+        _statusCode = statusCode;
+        _metadata = metadata;
+    }
+
+    public BinaryPreencodedFrameResult(
+        OwnedAedsFrameReadLease ownedLease,
+        int? statusCode = null,
+        BinaryFrameResponseMetadata? metadata = null)
+    {
+        _ownedLease = ownedLease ?? throw new ArgumentNullException(nameof(ownedLease));
+        _ownsLease = true;
+        _statusCode = statusCode;
+        _metadata = metadata;
+    }
 
     public async Task ExecuteAsync(HttpContext httpContext)
     {
-        httpContext.Response.ContentType = "application/octet-stream";
-        if (_statusCode.HasValue)
+        if (_ownsLease && Interlocked.Exchange(ref _ownedExecutionStarted, 1) != 0)
         {
-            httpContext.Response.StatusCode = _statusCode.Value;
+            throw new InvalidOperationException("An owned pre-encoded frame result can only be executed once.");
         }
 
-        httpContext.Response.Headers["X-Fsus-Frame-Version"] = AedsFrameHeader.CurrentVersion.ToString();
-        ApplyMetadata(httpContext.Response, _metadata);
-        if (MatchesIfNoneMatch(httpContext.Request.Headers.IfNoneMatch, _metadata?.ETag))
+        OwnedAedsFrameReadLease? lease = Interlocked.Exchange(ref _ownedLease, null);
+        try
         {
-            httpContext.Response.StatusCode = StatusCodes.Status304NotModified;
-            httpContext.Response.ContentLength = 0;
-            return;
-        }
+            ReadOnlyMemory<byte> frame = lease?.Memory ?? _frame;
+            httpContext.Response.ContentType = "application/octet-stream";
+            if (_statusCode.HasValue)
+            {
+                httpContext.Response.StatusCode = _statusCode.Value;
+            }
 
-        httpContext.Response.ContentLength = _frame.Length;
-        if (HttpMethods.IsHead(httpContext.Request.Method))
+            httpContext.Response.Headers["X-Fsus-Frame-Version"] = AedsFrameHeader.CurrentVersion.ToString();
+            ApplyMetadata(httpContext.Response, _metadata);
+            if (MatchesIfNoneMatch(httpContext.Request.Headers.IfNoneMatch, _metadata?.ETag))
+            {
+                httpContext.Response.StatusCode = StatusCodes.Status304NotModified;
+                httpContext.Response.ContentLength = 0;
+                return;
+            }
+
+            httpContext.Response.ContentLength = frame.Length;
+            if (HttpMethods.IsHead(httpContext.Request.Method))
+            {
+                return;
+            }
+
+            await httpContext.Response.BodyWriter.WriteAsync(frame, httpContext.RequestAborted);
+        }
+        finally
         {
-            return;
+            lease?.Dispose();
         }
-
-        await httpContext.Response.BodyWriter.WriteAsync(_frame, httpContext.RequestAborted);
     }
 
     private static void ApplyMetadata(HttpResponse response, BinaryFrameResponseMetadata? metadata)

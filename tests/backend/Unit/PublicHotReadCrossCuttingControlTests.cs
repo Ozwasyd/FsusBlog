@@ -130,19 +130,25 @@ public sealed class PublicHotReadCrossCuttingControlTests
         byte[] payload = PodBinaryCodec.EncodeCategoryList([]);
         byte[] canonicalFrame = new AedsEncoder().Encode(AedsFrameType.CategoryList, payload);
         IUnifiedCache canonicalCache = Substitute.For<IUnifiedCache>();
+        IOwnedFrameCache ownedFrameCache = Substitute.For<IOwnedFrameCache>();
         canonicalCache.GetStringAsync(
                 CachePolicyId.TaxonomyFrameVersion,
                 "main",
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<string?>(null));
-        canonicalCache.TryGetRawReadonlyAsync(
+        OwnedAedsFrame owner = OwnedAedsFrame.TakeOwnership(canonicalFrame, AedsFrameType.CategoryList);
+        OwnedAedsFrameReadLease canonicalLease = owner.AcquireReadLease();
+        owner.Retire();
+        ownedFrameCache.TryGetOwnedFrameAsync(
                 CachePolicyId.CategoryFrame,
                 Arg.Any<string>(),
+                AedsFrameType.CategoryList,
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new CacheReadResult<ReadOnlyMemory<byte>>(true, canonicalFrame)));
+            .Returns(Task.FromResult(new OwnedFrameCacheReadResult(true, canonicalLease)));
         IResult canonicalResult = await BinaryEndpoints.ReadCategoryAsync(
             Substitute.For<ISqlSugarClient>(),
             canonicalCache,
+            ownedFrameCache,
             new AedsEncoder());
         var canonicalContext = new DefaultHttpContext();
         canonicalContext.Request.Method = HttpMethods.Get;
@@ -165,9 +171,10 @@ public sealed class PublicHotReadCrossCuttingControlTests
         Assert.Equal(canonicalFrame, canonicalBytes);
         Assert.Equal(canonicalBytes, fastBytes);
         Assert.Empty(fallbackRequests);
-        await canonicalCache.Received(1).TryGetRawReadonlyAsync(
+        await ownedFrameCache.Received(1).TryGetOwnedFrameAsync(
             CachePolicyId.CategoryFrame,
             Arg.Any<string>(),
+            AedsFrameType.CategoryList,
             Arg.Any<CancellationToken>());
     }
 

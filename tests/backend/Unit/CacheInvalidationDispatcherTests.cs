@@ -24,11 +24,17 @@ public sealed class CacheInvalidationDispatcherTests
             && HasKey(keys, CachePolicyId.ArticleDetailFrame, "core:v3:42")), Arg.Any<CancellationToken>());
         await cache.Received(1).IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, Arg.Any<CancellationToken>());
         await cache.Received(1).IncrementAsync(CachePolicyId.ArticleSearchVersion, "main", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).RemoveAsync(CachePolicyId.ArticleRss, "main", Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(
+            CachePolicyId.AdminStats,
+            AdminStatsFrameVersioning.CounterIdentity,
+            1,
+            Arg.Any<CancellationToken>());
         await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
-            HasKey(keys, CachePolicyId.ArticleRss, "main")
-            && HasKey(keys, CachePolicyId.AdminStats, "main")
+            HasKey(keys, CachePolicyId.AdminStats, "main")
             && HasKey(keys, CachePolicyId.AdminStats, "core:main")
-            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")), Arg.Any<CancellationToken>());
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:v0:main")), Arg.Any<CancellationToken>());
         await cache.DidNotReceive().RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
             HasKey(keys, CachePolicyId.CategoryFrame, "all")
             || HasKey(keys, CachePolicyId.TagFrame, "all")), Arg.Any<CancellationToken>());
@@ -49,10 +55,16 @@ public sealed class CacheInvalidationDispatcherTests
 
         await sut.InvalidateStatsAsync();
 
+        await cache.Received(1).IncrementAsync(
+            CachePolicyId.AdminStats,
+            AdminStatsFrameVersioning.CounterIdentity,
+            1,
+            Arg.Any<CancellationToken>());
         await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
             HasKey(keys, CachePolicyId.AdminStats, "main")
             && HasKey(keys, CachePolicyId.AdminStats, "core:main")
-            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")), Arg.Any<CancellationToken>());
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:v0:main")), Arg.Any<CancellationToken>());
         await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.Stats);
     }
 
@@ -102,7 +114,8 @@ public sealed class CacheInvalidationDispatcherTests
         await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
             HasKey(keys, CachePolicyId.AdminStats, "main")
             && HasKey(keys, CachePolicyId.AdminStats, "core:main")
-            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")), Arg.Any<CancellationToken>());
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:v0:main")), Arg.Any<CancellationToken>());
         await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.Stats);
         await httpCacheInvalidator.DidNotReceive().InvalidateAsync(CacheTag.Comment);
     }
@@ -128,7 +141,8 @@ public sealed class CacheInvalidationDispatcherTests
         await cache.Received(1).RemoveManyAsync(Arg.Is<IReadOnlyList<CacheKeyIdentity>>(keys =>
             HasKey(keys, CachePolicyId.AdminStats, "main")
             && HasKey(keys, CachePolicyId.AdminStats, "core:main")
-            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")), Arg.Any<CancellationToken>());
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:main")
+            && HasKey(keys, CachePolicyId.AdminStatsFrame, "core:v0:main")), Arg.Any<CancellationToken>());
         await httpCacheInvalidator.Received(1).InvalidateAsync(CacheTag.Stats);
         await httpCacheInvalidator.DidNotReceive().InvalidateAsync(CacheTag.Comment);
     }

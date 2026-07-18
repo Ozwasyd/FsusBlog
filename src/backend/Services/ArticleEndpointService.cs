@@ -18,8 +18,8 @@ public sealed class ArticleEndpointService(
     IArticleCoreService core,
     IArticleService articles,
     IUnifiedCache cache,
+    IOwnedFrameCache ownedFrameCache,
     ICacheMissCoordinator cacheMissCoordinator,
-    IAedsEncoder aeds,
     IArticleDetailAedsArtifactStore detailArtifacts,
     IPublicArticleProjectionStore publicArticleProjection,
     IArticleDetailAedsArtifactBackfillScheduler detailArtifactBackfill,
@@ -63,12 +63,16 @@ public sealed class ArticleEndpointService(
             identity,
             async token =>
             {
-                CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleListFrame, identity, token);
-                return frame.Hit && frame.Value.Length > 0
+                OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
+                    CachePolicyId.ArticleListFrame,
+                    identity,
+                    AedsFrameType.ArticleList,
+                    token);
+                return frame.Hit && frame.Lease is not null
                     ? new CacheReadResult<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>>(
                         true,
                         new ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>(
-                            frame.Value,
+                            frame.Lease,
                             Result<CorePageResult<ArticleListCoreModel>>.Failure(ErrorCode.None, "cache-hit")))
                     : new CacheReadResult<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>>(false, default);
             },
@@ -94,11 +98,26 @@ public sealed class ArticleEndpointService(
                 }
 
                 token.ThrowIfCancellationRequested();
-                byte[] payload = PodBinaryCodec.EncodeArticlePage(result.Value);
-                byte[] encodedFrame = aeds.Encode(AedsFrameType.ArticleList, payload);
-                token.ThrowIfCancellationRequested();
-                await cache.SetRawAsync(CachePolicyId.ArticleListFrame, identity, encodedFrame, TimeSpan.FromMinutes(10), token);
-                return new ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>(encodedFrame, result);
+                OwnedAedsFrame ownedFrame = AedsOwnedFrameBuilder.BuildOwned(
+                    AedsFrameType.ArticleList,
+                    writer => PodBinaryCodec.WriteArticlePage(result.Value, writer));
+                OwnedAedsFrameReadLease responseLease = ownedFrame.AcquireReadLease();
+                try
+                {
+                    token.ThrowIfCancellationRequested();
+                    await ownedFrameCache.SetOwnedFrameAsync(
+                        CachePolicyId.ArticleListFrame,
+                        identity,
+                        ownedFrame,
+                        TimeSpan.FromMinutes(10),
+                        token);
+                    return new ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>(responseLease, result);
+                }
+                catch
+                {
+                    responseLease.Dispose();
+                    throw;
+                }
             },
             "article-list-frame",
             cancellationToken);
@@ -140,10 +159,14 @@ public sealed class ArticleEndpointService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         string identity = BuildArticleHotCacheIdentity(count);
-        CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleHotFrame, identity, cancellationToken);
-        if (frame.Hit && frame.Value.Length > 0)
+        OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
+            CachePolicyId.ArticleHotFrame,
+            identity,
+            AedsFrameType.ArticleHot,
+            cancellationToken);
+        if (frame.Hit && frame.Lease is not null)
         {
-            return new(frame.Value, Result<IReadOnlyList<PopularArticleCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
+            return new(frame.Lease, Result<IReadOnlyList<PopularArticleCoreModel>>.Failure(ErrorCode.None, "cache-hit"));
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -154,11 +177,26 @@ public sealed class ArticleEndpointService(
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        byte[] payload = PodBinaryCodec.EncodePopularArticles(result.Value);
-        byte[] encodedFrame = aeds.Encode(AedsFrameType.ArticleHot, payload);
-        cancellationToken.ThrowIfCancellationRequested();
-        await cache.SetRawAsync(CachePolicyId.ArticleHotFrame, identity, encodedFrame, TimeSpan.FromMinutes(10), cancellationToken);
-        return new(encodedFrame, result);
+        OwnedAedsFrame ownedFrame = AedsOwnedFrameBuilder.BuildOwned(
+            AedsFrameType.ArticleHot,
+            writer => PodBinaryCodec.WritePopularArticles(result.Value, writer));
+        OwnedAedsFrameReadLease responseLease = ownedFrame.AcquireReadLease();
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await ownedFrameCache.SetOwnedFrameAsync(
+                CachePolicyId.ArticleHotFrame,
+                identity,
+                ownedFrame,
+                TimeSpan.FromMinutes(10),
+                cancellationToken);
+            return new(responseLease, result);
+        }
+        catch
+        {
+            responseLease.Dispose();
+            throw;
+        }
     }
 
     public async Task<Result<IReadOnlyList<FeaturedArticleSummaryDto>>> GetFeaturedArticlesAsync(

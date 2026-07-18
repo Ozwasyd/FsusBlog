@@ -48,6 +48,14 @@ public static class BinaryResults
     public static BinaryPreencodedFrameResult PreencodedFrame(ReadOnlyMemory<byte> frame, BinaryFrameResponseMetadata metadata)
         => new(frame, metadata: metadata);
 
+    public static BinaryPreencodedFrameResult PreencodedFrame(OwnedAedsFrameReadLease frameLease)
+        => new(frameLease);
+
+    public static BinaryPreencodedFrameResult PreencodedFrame(
+        OwnedAedsFrameReadLease frameLease,
+        BinaryFrameResponseMetadata metadata)
+        => new(frameLease, metadata: metadata);
+
     public static BinaryFrameResult Frame(
         IAedsEncoder aeds,
         AedsFrameType frameType,

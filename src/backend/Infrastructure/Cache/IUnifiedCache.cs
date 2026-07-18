@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
 using StackExchange.Redis;
 using System.Net;
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -78,7 +79,7 @@ public sealed class UnifiedCache(
     IConnectionMultiplexer redis,
     ICachePolicyRegistry policyRegistry,
     IRuntimeKeyScope keyScope,
-    ILogger<UnifiedCache> logger) : IUnifiedCache
+    ILogger<UnifiedCache> logger) : IUnifiedCache, IOwnedFrameCache, IDisposable
 {
     private static readonly TimeSpan MissingPolicyL2Ttl = TimeSpan.FromMinutes(5);
     private const string RegistryKeyPrefix = "cache:registry:";
@@ -96,7 +97,13 @@ public sealed class UnifiedCache(
     private readonly ConcurrentDictionary<string, SingleFlightEntry> _singleFlightEntries = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<CacheL1Key, L1IndexEntry> _l1Entries = new();
     private readonly ConcurrentDictionary<string, L1IndexEntry> _l1KeysByRedisKey = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<CacheL1Key, OwnedFrameL1Entry> _ownedFrameEntries = new();
+    private readonly ConcurrentDictionary<string, OwnedFrameL1Entry> _ownedFrameKeysByRedisKey = new(StringComparer.Ordinal);
     private readonly object _l1MutationLock = new();
+    private long _ownedFrameLogicalBytes;
+    private long _ownedFrameCapacityBytes;
+    private int _ownedFrameEntryCount;
+    private int _disposed;
 
     public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
     {
@@ -288,6 +295,218 @@ public sealed class UnifiedCache(
         SetL1(policy, l1Key, key, bytes);
         FsusObservability.RecordCacheOperation("get_raw_readonly", policyName, "l2", "hit", FsusObservability.GetElapsed(startedAt));
         return new CacheReadResult<ReadOnlyMemory<byte>>(true, bytes);
+    }
+
+    public Task<OwnedFrameCacheReadResult> TryGetOwnedFrameAsync(
+        CachePolicyId policyId,
+        string identity,
+        AedsFrameType expectedFrameType,
+        CancellationToken cancellationToken = default)
+        => TryGetOwnedFrameCoreAsync(
+            policyId,
+            CacheIdentity.FromString(identity),
+            expectedFrameType,
+            cancellationToken);
+
+    public Task<OwnedFrameCacheReadResult> TryGetOwnedFrameAsync(
+        CachePolicyId policyId,
+        int identity,
+        AedsFrameType expectedFrameType,
+        CancellationToken cancellationToken = default)
+        => TryGetOwnedFrameCoreAsync(
+            policyId,
+            CacheIdentity.FromInteger(identity),
+            expectedFrameType,
+            cancellationToken);
+
+    private async Task<OwnedFrameCacheReadResult> TryGetOwnedFrameCoreAsync(
+        CachePolicyId policyId,
+        CacheIdentity identity,
+        AedsFrameType expectedFrameType,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        long startedAt = Stopwatch.GetTimestamp();
+        using Activity? activity = FsusObservability.StartActivity("cache.get_owned_frame", "cache", ActivityKind.Client);
+        FsusObservability.SetTag(activity, "fsus.cache.operation", "get_owned_frame");
+        string policyName = CachePolicyTelemetry.Name(policyId);
+        FsusObservability.SetTag(activity, "fsus.cache.policy", policyName);
+        CachePolicy policy = ResolvePolicy(policyId);
+        CacheL1Key l1Key = identity.ToL1Key(keyScope.ScopeToken, policyId);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (TryGetOwnedL1(l1Key, expectedFrameType, out OwnedAedsFrameReadLease? l1Lease))
+        {
+            FsusObservability.RecordCacheOperation("get_owned_frame", policyName, "l1", "hit", FsusObservability.GetElapsed(startedAt));
+            return new OwnedFrameCacheReadResult(true, l1Lease);
+        }
+
+        string key = BuildRedisKey(policy, identity);
+        await using IAsyncDisposable mutationGate = await AcquireKeyedLockAsync(
+                $"owned-frame:{key}",
+                cancellationToken)
+            .ConfigureAwait(false);
+        ThrowIfDisposed();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (TryGetOwnedL1(l1Key, expectedFrameType, out l1Lease))
+        {
+            FsusObservability.RecordCacheOperation("get_owned_frame", policyName, "l1", "hit_after_wait", FsusObservability.GetElapsed(startedAt));
+            return new OwnedFrameCacheReadResult(true, l1Lease);
+        }
+
+        RedisValue l2Value = await ReadRedisAsync(
+                key,
+                "get_owned_frame",
+                policyName,
+                activity,
+                startedAt,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!l2Value.HasValue)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            FsusObservability.RecordCacheOperation("get_owned_frame", policyName, "l2", "miss", FsusObservability.GetElapsed(startedAt));
+            return default;
+        }
+
+        byte[]? bytes = (byte[])l2Value!;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Result<AedsDecodeResult> decoded = new AedsEncoder().TryDecode(bytes);
+            if (!decoded.IsSuccess || decoded.Value.FrameType != expectedFrameType)
+            {
+                await _db.KeyDeleteAsync(key).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                await UnregisterKeyAsync(policyId, key).ConfigureAwait(false);
+                activity?.SetStatus(ActivityStatusCode.Error, "cache_frame_validation_failed");
+                logger.LogWarning(
+                    "Owned cache frame validation failed for policy {PolicyId}; expected {ExpectedFrameType}",
+                    policyName,
+                    expectedFrameType);
+                FsusObservability.RecordCacheOperation("get_owned_frame", policyName, "l2", "decode_failed", FsusObservability.GetElapsed(startedAt));
+                return default;
+            }
+
+            OwnedAedsFrame owner = OwnedAedsFrame.TakeOwnership(bytes, expectedFrameType);
+            bytes = null;
+            OwnedAedsFrameReadLease? responseLease = null;
+            try
+            {
+                responseLease = owner.AcquireReadLease();
+                bool installed = SetOwnedL1(policy, l1Key, key, owner);
+                if (!installed)
+                {
+                    owner.Retire();
+                }
+
+                FsusObservability.RecordCacheOperation("get_owned_frame", policyName, "l2", "hit", FsusObservability.GetElapsed(startedAt));
+                return new OwnedFrameCacheReadResult(true, responseLease);
+            }
+            catch
+            {
+                responseLease?.Dispose();
+                owner.Retire();
+                throw;
+            }
+        }
+        finally
+        {
+            // Any byte[] that did not reach an owner is an invalid/cancelled boundary. Clear it
+            // conservatively because a corrupted frame cannot be trusted to identify its own
+            // sensitivity class.
+            bytes?.AsSpan().Clear();
+        }
+    }
+
+    public Task SetOwnedFrameAsync(
+        CachePolicyId policyId,
+        string identity,
+        OwnedAedsFrame frame,
+        TimeSpan? l2TtlOverride = null,
+        CancellationToken cancellationToken = default)
+        => SetOwnedFrameCoreAsync(
+            policyId,
+            CacheIdentity.FromString(identity),
+            frame,
+            l2TtlOverride,
+            cancellationToken);
+
+    public Task SetOwnedFrameAsync(
+        CachePolicyId policyId,
+        int identity,
+        OwnedAedsFrame frame,
+        TimeSpan? l2TtlOverride = null,
+        CancellationToken cancellationToken = default)
+        => SetOwnedFrameCoreAsync(
+            policyId,
+            CacheIdentity.FromInteger(identity),
+            frame,
+            l2TtlOverride,
+            cancellationToken);
+
+    private async Task SetOwnedFrameCoreAsync(
+        CachePolicyId policyId,
+        CacheIdentity identity,
+        OwnedAedsFrame frame,
+        TimeSpan? l2TtlOverride,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(frame);
+        bool installed = false;
+
+        try
+        {
+            ThrowIfDisposed();
+            long startedAt = Stopwatch.GetTimestamp();
+            using Activity? activity = FsusObservability.StartActivity("cache.set_owned_frame", "cache", ActivityKind.Client);
+            FsusObservability.SetTag(activity, "fsus.cache.operation", "set_owned_frame");
+            string policyName = CachePolicyTelemetry.Name(policyId);
+            FsusObservability.SetTag(activity, "fsus.cache.policy", policyName);
+            CachePolicy policy = ResolvePolicy(policyId);
+            CacheL1Key l1Key = identity.ToL1Key(keyScope.ScopeToken, policyId);
+            string key = BuildRedisKey(policy, identity);
+            TimeSpan? l2Ttl = ResolveL2Expiry(key, policy, l2TtlOverride);
+            cancellationToken.ThrowIfCancellationRequested();
+            await using IAsyncDisposable mutationGate = await AcquireKeyedLockAsync(
+                    $"owned-frame:{key}",
+                    cancellationToken)
+                .ConfigureAwait(false);
+            ThrowIfDisposed();
+            cancellationToken.ThrowIfCancellationRequested();
+            using OwnedAedsFrameReadLease writeLease = frame.AcquireReadLease();
+            RedisValue redisValue = writeLease.Memory;
+            await _db.StringSetAsync(key, redisValue, l2Ttl, When.Always, CommandFlags.None).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            await RegisterKeyAsync(policyId, key).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            installed = SetOwnedL1(policy, l1Key, key, frame);
+
+            OwnedFrameCacheTelemetry.RecordBuild(
+                policyId,
+                frame.FrameType,
+                frame.LogicalLength,
+                frame.Capacity,
+                frame.IsPooled ? "pooled" : "exact");
+            FsusObservability.RecordCacheOperation("set_owned_frame", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
+        }
+        finally
+        {
+            if (!installed)
+            {
+                frame.Retire();
+            }
+        }
+    }
+
+    public OwnedFrameCacheResidencySnapshot GetOwnedFrameResidencySnapshot()
+    {
+        lock (_l1MutationLock)
+        {
+            return new OwnedFrameCacheResidencySnapshot(
+                _ownedFrameEntryCount,
+                _ownedFrameLogicalBytes,
+                _ownedFrameCapacityBytes);
+        }
     }
 
     public Task SetRawAsync(
@@ -808,8 +1027,14 @@ return result
         FsusObservability.SetTag(activity, "fsus.cache.policy", policyName);
         CachePolicy policy = ResolvePolicy(policyId);
         string key = BuildRedisKey(policy, identity);
+        await using IAsyncDisposable mutationGate = await AcquireKeyedLockAsync(
+                $"owned-frame:{key}",
+                cancellationToken)
+            .ConfigureAwait(false);
         RemoveL1(policyId, identity, key);
+        cancellationToken.ThrowIfCancellationRequested();
         await _db.KeyDeleteAsync(key).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         await UnregisterKeyAsync(policyId, key).ConfigureAwait(false);
         FsusObservability.RecordCacheOperation("remove", policyName, "l2", "ok", FsusObservability.GetElapsed(startedAt));
     }
@@ -829,6 +1054,7 @@ return result
         var unregisteredRedisKeys = new List<RedisKey>(keys.Count);
         var registryMembersByPolicy = new Dictionary<CachePolicyId, List<RedisValue>>();
         var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+        var resolvedKeys = new List<(CachePolicyId PolicyId, string Identity, string RedisKey)>(keys.Count);
         foreach (CacheKeyIdentity identity in keys)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -839,7 +1065,7 @@ return result
                 continue;
             }
 
-            RemoveL1(identity.PolicyId, CacheIdentity.FromString(identity.Identity), key);
+            resolvedKeys.Add((identity.PolicyId, identity.Identity, key));
             if (policy.RegisterKeysForPrefixInvalidation)
             {
                 if (!registryMembersByPolicy.TryGetValue(identity.PolicyId, out List<RedisValue>? members))
@@ -853,6 +1079,15 @@ return result
             }
 
             unregisteredRedisKeys.Add(key);
+        }
+
+        await using IAsyncDisposable mutationGates = await AcquireOwnedFrameMutationGatesAsync(
+                seenKeys,
+                cancellationToken)
+            .ConfigureAwait(false);
+        foreach ((CachePolicyId policyId, string identity, string redisKey) in resolvedKeys)
+        {
+            RemoveL1(policyId, CacheIdentity.FromString(identity), redisKey);
         }
 
         int redisBatches = 0;
@@ -1068,17 +1303,16 @@ return result
 
             deleteKeys.Add(value);
             registryMembers.Add(value);
-            RemoveL1ByRedisKey(value);
 
             if (deleteKeys.Count >= PrefixInvalidationBatchSize)
             {
-                _ = await FlushRegisteredDeleteBatchAsync(registryKey, deleteKeys, registryMembers).ConfigureAwait(false);
+                _ = await FlushRegisteredDeleteBatchAsync(registryKey, deleteKeys, registryMembers, cancellationToken).ConfigureAwait(false);
             }
         }
 
         if (deleteKeys.Count > 0)
         {
-            _ = await FlushRegisteredDeleteBatchAsync(registryKey, deleteKeys, registryMembers).ConfigureAwait(false);
+            _ = await FlushRegisteredDeleteBatchAsync(registryKey, deleteKeys, registryMembers, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -1106,17 +1340,16 @@ return result
 
             deleteKeys.Add(value);
             registryMembers.Add(value);
-            RemoveL1ByRedisKey(value);
 
             if (deleteKeys.Count >= PrefixInvalidationBatchSize)
             {
-                deleted += await FlushRegisteredDeleteBatchAsync(registryKey, deleteKeys, registryMembers).ConfigureAwait(false);
+                deleted += await FlushRegisteredDeleteBatchAsync(registryKey, deleteKeys, registryMembers, cancellationToken).ConfigureAwait(false);
             }
         }
 
         if (deleteKeys.Count > 0)
         {
-            deleted += await FlushRegisteredDeleteBatchAsync(registryKey, deleteKeys, registryMembers).ConfigureAwait(false);
+            deleted += await FlushRegisteredDeleteBatchAsync(registryKey, deleteKeys, registryMembers, cancellationToken).ConfigureAwait(false);
         }
 
         return deleted;
@@ -1125,11 +1358,25 @@ return result
     private async Task<int> FlushRegisteredDeleteBatchAsync(
         string registryKey,
         List<RedisKey> deleteKeys,
-        List<RedisValue> registryMembers)
+        List<RedisValue> registryMembers,
+        CancellationToken cancellationToken)
     {
         int count = deleteKeys.Count;
-        await _db.KeyDeleteAsync(deleteKeys.ToArray()).ConfigureAwait(false);
-        await _db.SetRemoveAsync(registryKey, registryMembers.ToArray()).ConfigureAwait(false);
+        RedisKey[] keys = deleteKeys.ToArray();
+        RedisValue[] members = registryMembers.ToArray();
+        await using (IAsyncDisposable mutationGates = await AcquireOwnedFrameMutationGatesAsync(
+                         keys.Select(static key => key.ToString()),
+                         cancellationToken)
+                     .ConfigureAwait(false))
+        {
+            foreach (RedisKey key in keys)
+            {
+                RemoveL1ByRedisKey(key.ToString());
+            }
+
+            await _db.KeyDeleteAsync(keys).ConfigureAwait(false);
+            await _db.SetRemoveAsync(registryKey, members).ConfigureAwait(false);
+        }
         deleteKeys.Clear();
         registryMembers.Clear();
         return count;
@@ -1161,18 +1408,17 @@ return result
                 }
 
                 deleteKeys.Add(key);
-                RemoveL1ByRedisKey(keyText);
 
                 if (deleteKeys.Count >= PrefixInvalidationBatchSize)
                 {
-                    deleted += await FlushScanDeleteBatchAsync(deleteKeys).ConfigureAwait(false);
+                    deleted += await FlushScanDeleteBatchAsync(deleteKeys, cancellationToken).ConfigureAwait(false);
                 }
             }
         }
 
         if (deleteKeys.Count > 0)
         {
-            deleted += await FlushScanDeleteBatchAsync(deleteKeys).ConfigureAwait(false);
+            deleted += await FlushScanDeleteBatchAsync(deleteKeys, cancellationToken).ConfigureAwait(false);
         }
 
         return deleted;
@@ -1205,34 +1451,54 @@ return result
                 }
 
                 deleteKeys.Add(key);
-                RemoveL1ByRedisKey(keyText);
 
                 if (deleteKeys.Count >= PrefixInvalidationBatchSize)
                 {
-                    deleted += await FlushScanDeleteBatchAsync(deleteKeys).ConfigureAwait(false);
+                    deleted += await FlushScanDeleteBatchAsync(deleteKeys, cancellationToken).ConfigureAwait(false);
                 }
             }
         }
 
         if (deleteKeys.Count > 0)
         {
-            deleted += await FlushScanDeleteBatchAsync(deleteKeys).ConfigureAwait(false);
+            deleted += await FlushScanDeleteBatchAsync(deleteKeys, cancellationToken).ConfigureAwait(false);
         }
 
         return deleted;
     }
 
-    private async Task<int> FlushScanDeleteBatchAsync(List<RedisKey> deleteKeys)
+    private async Task<int> FlushScanDeleteBatchAsync(
+        List<RedisKey> deleteKeys,
+        CancellationToken cancellationToken)
     {
         int count = deleteKeys.Count;
-        await _db.KeyDeleteAsync(deleteKeys.ToArray()).ConfigureAwait(false);
+        RedisKey[] keys = deleteKeys.ToArray();
+        await using (IAsyncDisposable mutationGates = await AcquireOwnedFrameMutationGatesAsync(
+                         keys.Select(static key => key.ToString()),
+                         cancellationToken)
+                     .ConfigureAwait(false))
+        {
+            foreach (RedisKey key in keys)
+            {
+                RemoveL1ByRedisKey(key.ToString());
+            }
+
+            await _db.KeyDeleteAsync(keys).ConfigureAwait(false);
+        }
         deleteKeys.Clear();
         return count;
     }
 
     public async Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+        => await AcquireKeyedLockAsync(
+                $"singleflight:{BuildKey(policyId, identity)}",
+                cancellationToken)
+            .ConfigureAwait(false);
+
+    private async Task<IAsyncDisposable> AcquireKeyedLockAsync(
+        string lockKey,
+        CancellationToken cancellationToken)
     {
-        string lockKey = $"singleflight:{BuildKey(policyId, identity)}";
         while (true)
         {
             var singleFlight = _singleFlightEntries.GetOrAdd(lockKey, static _ => new SingleFlightEntry());
@@ -1258,6 +1524,44 @@ return result
                 ReleaseSingleFlightReference(lockKey, singleFlight);
                 throw;
             }
+        }
+    }
+
+    private async Task<IAsyncDisposable> AcquireOwnedFrameMutationGatesAsync(
+        IEnumerable<string> redisKeys,
+        CancellationToken cancellationToken)
+    {
+        string[] orderedKeys = redisKeys
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        if (orderedKeys.Length == 0)
+        {
+            return EmptyAsyncDisposable.Instance;
+        }
+
+        var leases = new List<IAsyncDisposable>(orderedKeys.Length);
+        try
+        {
+            foreach (string redisKey in orderedKeys)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                leases.Add(await AcquireKeyedLockAsync(
+                        $"owned-frame:{redisKey}",
+                        cancellationToken)
+                    .ConfigureAwait(false));
+            }
+
+            return new CompositeAsyncDisposable(leases);
+        }
+        catch
+        {
+            for (int index = leases.Count - 1; index >= 0; index--)
+            {
+                await leases[index].DisposeAsync().ConfigureAwait(false);
+            }
+
+            throw;
         }
     }
 
@@ -1305,6 +1609,156 @@ return result
         }
     }
 
+    private bool SetOwnedL1(
+        CachePolicy policy,
+        CacheL1Key l1Key,
+        string redisKey,
+        OwnedAedsFrame frame)
+    {
+        if (policy.L1Ttl <= TimeSpan.Zero)
+        {
+            return false;
+        }
+
+        var options = new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = policy.L1Ttl,
+            Size = frame.Capacity
+        };
+        long ttlTimestampDelta = (long)Math.Ceiling(policy.L1Ttl.TotalSeconds * Stopwatch.Frequency);
+        long expiresAtTimestamp = Stopwatch.GetTimestamp() + Math.Max(1L, ttlTimestampDelta);
+        var entry = new OwnedFrameL1Entry(l1Key, redisKey, frame, expiresAtTimestamp);
+        options.RegisterPostEvictionCallback(
+            static (_, _, _, state) =>
+            {
+                if (state is OwnedFrameL1EvictionState eviction)
+                {
+                    eviction.Owner.OnOwnedFrameEvicted(eviction.RedisKey, eviction.Entry);
+                }
+            },
+            new OwnedFrameL1EvictionState(this, redisKey, entry));
+
+        lock (_l1MutationLock)
+        {
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                return false;
+            }
+
+            _ownedFrameEntries.TryGetValue(l1Key, out OwnedFrameL1Entry? previousL1Entry);
+            _ownedFrameKeysByRedisKey.TryGetValue(redisKey, out OwnedFrameL1Entry? previousRedisEntry);
+            try
+            {
+                // Publish to IMemoryCache before changing our authoritative indexes. If the
+                // memory-cache admission throws, the previous owner and all residency counters
+                // remain untouched.
+                memoryCache.Set(entry, true, options);
+            }
+            catch
+            {
+                RetireOwnedEntry(entry);
+                throw;
+            }
+
+            if (!entry.TryActivate())
+            {
+                SafeRemoveMemoryCacheEntry(entry);
+                return false;
+            }
+
+            try
+            {
+                _ownedFrameEntries[l1Key] = entry;
+                _ownedFrameKeysByRedisKey[redisKey] = entry;
+            }
+            catch
+            {
+                RestoreOwnedFrameIndex(l1Key, entry, previousL1Entry, _ownedFrameEntries);
+                RestoreOwnedFrameIndex(redisKey, entry, previousRedisEntry, _ownedFrameKeysByRedisKey);
+                RetireOwnedEntry(entry);
+                throw;
+            }
+
+            _ownedFrameEntryCount++;
+            _ownedFrameLogicalBytes += frame.LogicalLength;
+            _ownedFrameCapacityBytes += frame.Capacity;
+            entry.MarkAccounted();
+
+            RemoveSupersededOwnedFrameEntry(previousL1Entry, entry);
+            RemoveSupersededOwnedFrameEntry(previousRedisEntry, entry);
+
+            if (_l1Entries.TryRemove(l1Key, out L1IndexEntry? rawEntry))
+            {
+                _l1KeysByRedisKey.TryRemove(
+                    new KeyValuePair<string, L1IndexEntry>(rawEntry.RedisKey, rawEntry));
+                SafeRemoveMemoryCacheEntry(rawEntry);
+            }
+            if (_l1KeysByRedisKey.TryRemove(redisKey, out L1IndexEntry? rawRedisEntry)
+                && !ReferenceEquals(rawRedisEntry, rawEntry))
+            {
+                _l1Entries.TryRemove(
+                    new KeyValuePair<CacheL1Key, L1IndexEntry>(rawRedisEntry.L1Key, rawRedisEntry));
+                SafeRemoveMemoryCacheEntry(rawRedisEntry);
+            }
+        }
+
+        return true;
+    }
+
+    private static void RestoreOwnedFrameIndex<TKey>(
+        TKey key,
+        OwnedFrameL1Entry attempted,
+        OwnedFrameL1Entry? previous,
+        ConcurrentDictionary<TKey, OwnedFrameL1Entry> index)
+        where TKey : notnull
+    {
+        if (previous is null)
+        {
+            index.TryRemove(new KeyValuePair<TKey, OwnedFrameL1Entry>(key, attempted));
+            return;
+        }
+
+        index.TryUpdate(key, previous, attempted);
+    }
+
+    private void OnOwnedFrameEvicted(string redisKey, OwnedFrameL1Entry entry)
+    {
+        lock (_l1MutationLock)
+        {
+            _ownedFrameEntries.TryRemove(
+                new KeyValuePair<CacheL1Key, OwnedFrameL1Entry>(entry.L1Key, entry));
+            _ownedFrameKeysByRedisKey.TryRemove(
+                new KeyValuePair<string, OwnedFrameL1Entry>(redisKey, entry));
+            RetireOwnedEntry(entry);
+        }
+    }
+
+    private bool TryGetOwnedL1(
+        CacheL1Key l1Key,
+        AedsFrameType expectedFrameType,
+        out OwnedAedsFrameReadLease? lease)
+    {
+        if (_ownedFrameEntries.TryGetValue(l1Key, out OwnedFrameL1Entry? entry))
+        {
+            if (Stopwatch.GetTimestamp() < entry.ExpiresAtTimestamp
+                && entry.Frame.FrameType == expectedFrameType
+                && entry.Frame.TryAcquireReadLease(out lease))
+            {
+                return true;
+            }
+
+            _ownedFrameEntries.TryRemove(
+                new KeyValuePair<CacheL1Key, OwnedFrameL1Entry>(l1Key, entry));
+            _ownedFrameKeysByRedisKey.TryRemove(
+                new KeyValuePair<string, OwnedFrameL1Entry>(entry.RedisKey, entry));
+            SafeRemoveMemoryCacheEntry(entry);
+            RetireOwnedEntry(entry);
+        }
+
+        lease = null;
+        return false;
+    }
+
     private void SetL1(CachePolicy policy, CacheL1Key l1Key, string redisKey, byte[] bytes)
     {
         if (policy.L1Ttl <= TimeSpan.Zero)
@@ -1340,6 +1794,22 @@ return result
             memoryCache.Set(indexEntry, true, options);
             RemoveSupersededL1Entry(previousL1Entry, indexEntry);
             RemoveSupersededL1Entry(previousRedisEntry, indexEntry);
+
+            if (_ownedFrameEntries.TryRemove(l1Key, out OwnedFrameL1Entry? ownedEntry))
+            {
+                _ownedFrameKeysByRedisKey.TryRemove(
+                    new KeyValuePair<string, OwnedFrameL1Entry>(ownedEntry.RedisKey, ownedEntry));
+                SafeRemoveMemoryCacheEntry(ownedEntry);
+                RetireOwnedEntry(ownedEntry);
+            }
+            if (_ownedFrameKeysByRedisKey.TryRemove(redisKey, out OwnedFrameL1Entry? ownedRedisEntry)
+                && !ReferenceEquals(ownedRedisEntry, ownedEntry))
+            {
+                _ownedFrameEntries.TryRemove(
+                    new KeyValuePair<CacheL1Key, OwnedFrameL1Entry>(ownedRedisEntry.L1Key, ownedRedisEntry));
+                SafeRemoveMemoryCacheEntry(ownedRedisEntry);
+                RetireOwnedEntry(ownedRedisEntry);
+            }
         }
     }
 
@@ -1371,6 +1841,14 @@ return result
                 memoryCache.Remove(directEntry);
             }
 
+            if (_ownedFrameEntries.TryRemove(l1Key, out OwnedFrameL1Entry? directOwnedEntry))
+            {
+                _ownedFrameKeysByRedisKey.TryRemove(
+                    new KeyValuePair<string, OwnedFrameL1Entry>(directOwnedEntry.RedisKey, directOwnedEntry));
+                SafeRemoveMemoryCacheEntry(directOwnedEntry);
+                RetireOwnedEntry(directOwnedEntry);
+            }
+
             if (redisKey is not null)
             {
                 if (_l1KeysByRedisKey.TryRemove(redisKey, out L1IndexEntry? indexed)
@@ -1381,6 +1859,15 @@ return result
                 }
 
                 memoryCache.Remove(redisKey); // rolling-upgrade cleanup for legacy string L1 keys
+
+                if (_ownedFrameKeysByRedisKey.TryRemove(redisKey, out OwnedFrameL1Entry? indexedOwned)
+                    && !ReferenceEquals(indexedOwned, directOwnedEntry))
+                {
+                    _ownedFrameEntries.TryRemove(
+                        new KeyValuePair<CacheL1Key, OwnedFrameL1Entry>(indexedOwned.L1Key, indexedOwned));
+                    SafeRemoveMemoryCacheEntry(indexedOwned);
+                    RetireOwnedEntry(indexedOwned);
+                }
             }
         }
     }
@@ -1398,6 +1885,15 @@ return result
                 memoryCache.Remove(indexEntry);
             }
 
+
+            if (_ownedFrameKeysByRedisKey.TryRemove(redisKey, out OwnedFrameL1Entry? ownedEntry))
+            {
+                _ownedFrameEntries.TryRemove(
+                    new KeyValuePair<CacheL1Key, OwnedFrameL1Entry>(ownedEntry.L1Key, ownedEntry));
+                SafeRemoveMemoryCacheEntry(ownedEntry);
+                RetireOwnedEntry(ownedEntry);
+            }
+
             memoryCache.Remove(redisKey); // rolling-upgrade cleanup for legacy string L1 keys
         }
     }
@@ -1411,6 +1907,73 @@ return result
 
         _l1Entries.TryRemove(new KeyValuePair<CacheL1Key, L1IndexEntry>(previous.L1Key, previous));
         memoryCache.Remove(previous);
+    }
+
+    private void RemoveSupersededOwnedFrameEntry(OwnedFrameL1Entry? previous, OwnedFrameL1Entry current)
+    {
+        if (previous is null || ReferenceEquals(previous, current))
+        {
+            return;
+        }
+
+        _ownedFrameEntries.TryRemove(
+            new KeyValuePair<CacheL1Key, OwnedFrameL1Entry>(previous.L1Key, previous));
+        _ownedFrameKeysByRedisKey.TryRemove(
+            new KeyValuePair<string, OwnedFrameL1Entry>(previous.RedisKey, previous));
+        SafeRemoveMemoryCacheEntry(previous);
+        RetireOwnedEntry(previous);
+    }
+
+    private void RetireOwnedEntry(OwnedFrameL1Entry entry)
+    {
+        lock (_l1MutationLock)
+        {
+            OwnedFrameL1Entry.Retirement retirement = entry.TryRetire();
+            if (retirement == OwnedFrameL1Entry.Retirement.AlreadyRetired)
+            {
+                return;
+            }
+
+            if (retirement == OwnedFrameL1Entry.Retirement.Active)
+            {
+                if (!entry.TryUnaccount())
+                {
+                    entry.Frame.Retire();
+                    return;
+                }
+
+                _ownedFrameEntryCount--;
+                _ = entry.Frame.Retire(_ => OnOwnedFrameBackingReleased(entry));
+                return;
+            }
+
+            entry.Frame.Retire();
+        }
+    }
+
+    private void OnOwnedFrameBackingReleased(OwnedFrameL1Entry entry)
+    {
+        lock (_l1MutationLock)
+        {
+            _ownedFrameLogicalBytes -= entry.Frame.LogicalLength;
+            _ownedFrameCapacityBytes -= entry.Frame.Capacity;
+        }
+    }
+
+    private void SafeRemoveMemoryCacheEntry(object key)
+    {
+        try
+        {
+            memoryCache.Remove(key);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The dictionaries and owner state remain authoritative during shutdown.
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Memory-cache entry removal failed during owned-frame retirement");
+        }
     }
 
     private static byte[] CopyRawBytes(byte[] bytes)
@@ -1631,6 +2194,36 @@ return result
             true);
     }
 
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        OwnedFrameL1Entry[] entries;
+        lock (_l1MutationLock)
+        {
+            entries = _ownedFrameEntries.Values.ToArray();
+            _ownedFrameEntries.Clear();
+            _ownedFrameKeysByRedisKey.Clear();
+            foreach (OwnedFrameL1Entry entry in entries)
+            {
+                SafeRemoveMemoryCacheEntry(entry);
+            }
+        }
+
+        foreach (OwnedFrameL1Entry entry in entries)
+        {
+            RetireOwnedEntry(entry);
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+    }
+
     private sealed class L1IndexEntry(CacheL1Key l1Key, string redisKey, byte[] bytes, long expiresAtTimestamp)
     {
         public CacheL1Key L1Key { get; } = l1Key;
@@ -1639,6 +2232,54 @@ return result
         public long ExpiresAtTimestamp { get; } = expiresAtTimestamp;
     }
     private sealed record L1EvictionState(UnifiedCache Owner, string RedisKey, L1IndexEntry IndexEntry);
+
+    private sealed class OwnedFrameL1Entry(
+        CacheL1Key l1Key,
+        string redisKey,
+        OwnedAedsFrame frame,
+        long expiresAtTimestamp)
+    {
+        private const int CreatedState = 0;
+        private const int ActiveState = 1;
+        private const int RetiredState = 2;
+        private int _state;
+        private int _accounted;
+
+        internal CacheL1Key L1Key { get; } = l1Key;
+        internal string RedisKey { get; } = redisKey;
+        internal OwnedAedsFrame Frame { get; } = frame;
+        internal long ExpiresAtTimestamp { get; } = expiresAtTimestamp;
+
+        internal bool TryActivate()
+            => Interlocked.CompareExchange(ref _state, ActiveState, CreatedState) == CreatedState;
+
+        internal void MarkAccounted() => Volatile.Write(ref _accounted, 1);
+
+        internal bool TryUnaccount() => Interlocked.Exchange(ref _accounted, 0) == 1;
+
+        internal Retirement TryRetire()
+        {
+            int previous = Interlocked.Exchange(ref _state, RetiredState);
+            return previous switch
+            {
+                ActiveState => Retirement.Active,
+                CreatedState => Retirement.NotActive,
+                _ => Retirement.AlreadyRetired
+            };
+        }
+
+        internal enum Retirement : byte
+        {
+            AlreadyRetired = 0,
+            NotActive = 1,
+            Active = 2
+        }
+    }
+
+    private sealed record OwnedFrameL1EvictionState(
+        UnifiedCache Owner,
+        string RedisKey,
+        OwnedFrameL1Entry Entry);
 
     internal sealed class SingleFlightEntry : IDisposable
     {
@@ -1735,6 +2376,32 @@ return result
                 Semaphore.Dispose();
             }
         }
+    }
+
+    private sealed class CompositeAsyncDisposable(List<IAsyncDisposable> leases) : IAsyncDisposable
+    {
+        private List<IAsyncDisposable>? _leases = leases;
+
+        public async ValueTask DisposeAsync()
+        {
+            List<IAsyncDisposable>? current = Interlocked.Exchange(ref _leases, null);
+            if (current is null)
+            {
+                return;
+            }
+
+            for (int index = current.Count - 1; index >= 0; index--)
+            {
+                await current[index].DisposeAsync().ConfigureAwait(false);
+            }
+        }
+    }
+
+    private sealed class EmptyAsyncDisposable : IAsyncDisposable
+    {
+        internal static readonly EmptyAsyncDisposable Instance = new();
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class AsyncReleaser(UnifiedCache owner, string lockKey, SingleFlightEntry entry) : IAsyncDisposable

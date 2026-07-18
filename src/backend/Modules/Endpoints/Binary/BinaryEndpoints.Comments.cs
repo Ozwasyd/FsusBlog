@@ -224,6 +224,7 @@ public static partial class BinaryEndpoints
             IClientRegionResolver regionResolver,
             ICommentCursorPolicyResolver cursorPolicies,
             IUnifiedCache cache,
+            IOwnedFrameCache ownedFrameCache,
             IAedsEncoder aeds) =>
         {
             CursorBindResult<long> bind = CursorPageBinder.Bind(
@@ -238,17 +239,26 @@ public static partial class BinaryEndpoints
             string viewerRegion = regionResolver.Resolve(httpContext).Region;
             string version = await ReadCommentCursorVersionAsync(cache, articleId, rootId: null, accountId: null, httpContext.RequestAborted);
             string identity = BuildCommentThreadFrameIdentity(articleId, bind.Request, previewLimit: 3, viewerRegion, version);
-            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity, httpContext.RequestAborted);
-            RecordCommentFrameCacheResult("roots", viewerRegion, frame.Hit && frame.Value.Length > 0);
-            if (frame.Hit && frame.Value.Length > 0)
+            OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
+                CachePolicyId.CommentCursorFrame,
+                identity,
+                AedsFrameType.CommentArticleCursor,
+                httpContext.RequestAborted);
+            RecordCommentFrameCacheResult("roots", viewerRegion, frame.Hit && frame.Lease is not null);
+            if (frame.Hit && frame.Lease is not null)
             {
-                return BinaryResults.PreencodedFrame(frame.Value);
+                return BinaryResults.PreencodedFrame(frame.Lease);
             }
 
             var result = await commentService.GetCommentThreadsByCursorAsync(articleId, bind.Request, viewerRegion: viewerRegion);
-            byte[] encodedFrame = EncodeCachedFrame(AedsFrameType.CommentArticleCursor, writer => PodBinaryCodec.WriteCommentThreadCursor(result, writer));
-            await cache.SetRawAsync(CachePolicyId.CommentCursorFrame, identity, encodedFrame, TimeSpan.FromMinutes(5), httpContext.RequestAborted);
-            return BinaryResults.PreencodedFrame(encodedFrame);
+            OwnedAedsFrame ownedFrame = BuildCachedFrame(AedsFrameType.CommentArticleCursor, writer => PodBinaryCodec.WriteCommentThreadCursor(result, writer));
+            return await StoreAndReturnOwnedFrameAsync(
+                ownedFrameCache,
+                CachePolicyId.CommentCursorFrame,
+                identity,
+                ownedFrame,
+                TimeSpan.FromMinutes(5),
+                httpContext.RequestAborted);
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
@@ -263,6 +273,7 @@ public static partial class BinaryEndpoints
             IClientRegionResolver regionResolver,
             ICommentCursorPolicyResolver cursorPolicies,
             IUnifiedCache cache,
+            IOwnedFrameCache ownedFrameCache,
             IAedsEncoder aeds) =>
         {
             CursorBindResult<long> bind = CursorPageBinder.Bind(
@@ -277,17 +288,26 @@ public static partial class BinaryEndpoints
             string viewerRegion = regionResolver.Resolve(httpContext).Region;
             string version = await ReadCommentCursorVersionAsync(cache, articleId, rootId, accountId: null, httpContext.RequestAborted);
             string identity = BuildCommentReplyFrameIdentity(articleId, rootId, bind.Request, viewerRegion, version);
-            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CommentCursorFrame, identity, httpContext.RequestAborted);
-            RecordCommentFrameCacheResult("replies", viewerRegion, frame.Hit && frame.Value.Length > 0);
-            if (frame.Hit && frame.Value.Length > 0)
+            OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
+                CachePolicyId.CommentCursorFrame,
+                identity,
+                AedsFrameType.CommentThreadReplyCursor,
+                httpContext.RequestAborted);
+            RecordCommentFrameCacheResult("replies", viewerRegion, frame.Hit && frame.Lease is not null);
+            if (frame.Hit && frame.Lease is not null)
             {
-                return BinaryResults.PreencodedFrame(frame.Value);
+                return BinaryResults.PreencodedFrame(frame.Lease);
             }
 
             var result = await commentService.GetThreadRepliesByCursorAsync(articleId, rootId, bind.Request, viewerRegion);
-            byte[] encodedFrame = EncodeCachedFrame(AedsFrameType.CommentThreadReplyCursor, writer => PodBinaryCodec.WriteCommentReplyCursor(rootId, result, writer));
-            await cache.SetRawAsync(CachePolicyId.CommentCursorFrame, identity, encodedFrame, TimeSpan.FromMinutes(5), httpContext.RequestAborted);
-            return BinaryResults.PreencodedFrame(encodedFrame);
+            OwnedAedsFrame ownedFrame = BuildCachedFrame(AedsFrameType.CommentThreadReplyCursor, writer => PodBinaryCodec.WriteCommentReplyCursor(rootId, result, writer));
+            return await StoreAndReturnOwnedFrameAsync(
+                ownedFrameCache,
+                CachePolicyId.CommentCursorFrame,
+                identity,
+                ownedFrame,
+                TimeSpan.FromMinutes(5),
+                httpContext.RequestAborted);
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
@@ -300,6 +320,7 @@ public static partial class BinaryEndpoints
             ICommentCoreService core,
             ICommentCursorPolicyResolver cursorPolicies,
             IUnifiedCache cache,
+            IOwnedFrameCache ownedFrameCache,
             IAedsEncoder aeds) =>
         {
             CursorBindResult<long> bind = CursorPageBinder.Bind(
@@ -313,10 +334,14 @@ public static partial class BinaryEndpoints
 
             string version = await ReadCommentCursorVersionAsync(cache, articleId: null, rootId: null, accountId: account.AccountId, httpContext.RequestAborted);
             string identity = BuildUserCommentFrameIdentity(account.AccountId, bind.Request, version);
-            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.UserCommentCursorFrame, identity, httpContext.RequestAborted);
-            if (frame.Hit && frame.Value.Length > 0)
+            OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
+                CachePolicyId.UserCommentCursorFrame,
+                identity,
+                AedsFrameType.CommentUserCursor,
+                httpContext.RequestAborted);
+            if (frame.Hit && frame.Lease is not null)
             {
-                return BinaryResults.PreencodedFrame(frame.Value);
+                return BinaryResults.PreencodedFrame(frame.Lease);
             }
 
             var result = await core.GetUserCommentsAsync(account.AccountId, bind.Request.Cursor, bind.Request.Limit);
@@ -325,9 +350,14 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(result.Error, aeds);
             }
 
-            byte[] encodedFrame = EncodeCachedFrame(AedsFrameType.CommentUserCursor, writer => PodBinaryCodec.WriteUserCommentCursor(result.Value, writer));
-            await cache.SetRawAsync(CachePolicyId.UserCommentCursorFrame, identity, encodedFrame, TimeSpan.FromMinutes(5), httpContext.RequestAborted);
-            return BinaryResults.PreencodedFrame(encodedFrame);
+            OwnedAedsFrame ownedFrame = BuildCachedFrame(AedsFrameType.CommentUserCursor, writer => PodBinaryCodec.WriteUserCommentCursor(result.Value, writer));
+            return await StoreAndReturnOwnedFrameAsync(
+                ownedFrameCache,
+                CachePolicyId.UserCommentCursorFrame,
+                identity,
+                ownedFrame,
+                TimeSpan.FromMinutes(5),
+                httpContext.RequestAborted);
         }).RequireAnonymousAccountPrincipal();
 
         group.MapDelete("/comment/{id:long}", static async Task<BinaryFrameResult> (
@@ -637,12 +667,30 @@ public static partial class BinaryEndpoints
             zkProd.CredentialRootReady,
             zkProd.UnavailableReason);
 
-    private static byte[] EncodeCachedFrame(AedsFrameType frameType, Action<IBufferWriter<byte>> writePayload)
+    private static OwnedAedsFrame BuildCachedFrame(
+        AedsFrameType frameType,
+        Action<IBufferWriter<byte>> writePayload)
+        => AedsOwnedFrameBuilder.BuildOwned(frameType, writePayload);
+
+    private static async Task<IResult> StoreAndReturnOwnedFrameAsync(
+        IOwnedFrameCache cache,
+        CachePolicyId policyId,
+        string identity,
+        OwnedAedsFrame frame,
+        TimeSpan ttl,
+        CancellationToken cancellationToken)
     {
-        using var frameWriter = new AedsFrameBufferWriter();
-        writePayload(frameWriter.PayloadWriter);
-        frameWriter.Seal(frameType);
-        return frameWriter.WrittenFrame.ToArray();
+        OwnedAedsFrameReadLease responseLease = frame.AcquireReadLease();
+        try
+        {
+            await cache.SetOwnedFrameAsync(policyId, identity, frame, ttl, cancellationToken);
+            return BinaryResults.PreencodedFrame(responseLease);
+        }
+        catch
+        {
+            responseLease.Dispose();
+            throw;
+        }
     }
 
     private static string BuildCommentThreadFrameIdentity(int articleId, CursorPageRequest<long> request, int previewLimit, string viewerRegion, string version)

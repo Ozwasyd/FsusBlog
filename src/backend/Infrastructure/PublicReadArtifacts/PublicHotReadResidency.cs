@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 
@@ -341,7 +342,10 @@ internal static class PublicHotReadResidentAccounting
 
             ArrayCount++;
             ObjectCount++;
-            int bytes = memory.Length;
+            int bytes = MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment)
+                && segment.Array is not null
+                    ? segment.Array.Length
+                    : memory.Length;
             if (bytes >= LohThresholdBytes)
             {
                 LohEligibleArrayCount++;

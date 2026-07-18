@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Buffers;
 using System.Diagnostics;
 using System.Data.Common;
 using FsusBlog.Core.Algorithms;
@@ -147,7 +148,7 @@ public sealed class PublicHotArtifactProjector(
         else
         {
             ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(changed);
-            articleFrames[changed.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, value);
+            articleFrames[changed.Id] = EncodeFrame(AedsFrameType.ArticleDetail, writer => PodBinaryCodec.WriteArticleDetail(core, writer), version, value);
             scope = BuildArticleDeltaScope(changed);
         }
         articleFrames = ApplyArticleAdmission(articleFrames, [articleId], value);
@@ -205,7 +206,7 @@ public sealed class PublicHotArtifactProjector(
 
                 changedArticleIds.Add(changed.Id);
                 ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(changed);
-                articleFrames[changed.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, value);
+                articleFrames[changed.Id] = EncodeFrame(AedsFrameType.ArticleDetail, writer => PodBinaryCodec.WriteArticleDetail(core, writer), version, value);
             }
 
             foreach (int articleId in normalizedArticleIds)
@@ -428,10 +429,9 @@ public sealed class PublicHotArtifactProjector(
             }
 
             ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(detail);
-            frames[detail.Id] = PublicHotReadBinaryArtifactFactory.FromPayload(
-                encoder,
+            frames[detail.Id] = PublicHotReadBinaryArtifactFactory.FromWriter(
                 AedsFrameType.ArticleDetail,
-                PodBinaryCodec.EncodeArticleDetail(core),
+                writer => PodBinaryCodec.WriteArticleDetail(core, writer),
                 options.CacheControl,
                 version,
                 options);
@@ -605,7 +605,7 @@ public sealed class PublicHotArtifactProjector(
                         : window.Items.Skip(offset).Take(size).ToList();
                     var result = new CorePageResult<ArticleListCoreModel>(items, window.Total);
                     frames[new PublicListKey(kind, targetId, (ushort)page, (byte)size)] =
-                        EncodeFrame(AedsFrameType.ArticleList, PodBinaryCodec.EncodeArticlePage(result), version, options);
+                        EncodeFrame(AedsFrameType.ArticleList, writer => PodBinaryCodec.WriteArticlePage(result, writer), version, options);
                 }
             }
         }
@@ -626,7 +626,7 @@ public sealed class PublicHotArtifactProjector(
         {
             IReadOnlyList<PopularArticleCoreModel> result = await LoadHotArticlesFromDbAsync(size, ct).ConfigureAwait(false);
             frames[new PublicListKey(PublicListKind.Hot, 0, 1, (byte)size)] =
-                EncodeFrame(AedsFrameType.ArticleHot, PodBinaryCodec.EncodePopularArticles(result), version, options);
+                EncodeFrame(AedsFrameType.ArticleHot, writer => PodBinaryCodec.WritePopularArticles(result, writer), version, options);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -645,7 +645,7 @@ public sealed class PublicHotArtifactProjector(
         {
             IReadOnlyList<FeaturedArticleCoreModel> result = await LoadFeaturedArticlesFromDbAsync(size, ct).ConfigureAwait(false);
             frames[new PublicListKey(PublicListKind.Featured, 0, 1, (byte)size)] =
-                EncodeFrame(AedsFrameType.ArticleFeatured, PodBinaryCodec.EncodeFeaturedArticleCoreList(result), version, options);
+                EncodeFrame(AedsFrameType.ArticleFeatured, writer => PodBinaryCodec.WriteFeaturedArticleCoreList(result, writer), version, options);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -1224,7 +1224,7 @@ public sealed class PublicHotArtifactProjector(
             }
         }
 
-        return EncodeFrame(AedsFrameType.CategoryList, PodBinaryCodec.EncodeCategoryList(result), version, options);
+        return EncodeFrame(AedsFrameType.CategoryList, writer => PodBinaryCodec.WriteCategoryList(result, writer), version, options);
     }
 
     private async Task<PublicBinaryArtifact> BuildTagFrameAsync(long version, PublicHotReadOptions options, CancellationToken ct)
@@ -1256,11 +1256,15 @@ public sealed class PublicHotArtifactProjector(
             }
         }
 
-        return EncodeFrame(AedsFrameType.TagList, PodBinaryCodec.EncodeTagWithCountList(result), version, options);
+        return EncodeFrame(AedsFrameType.TagList, writer => PodBinaryCodec.WriteTagWithCountList(result, writer), version, options);
     }
 
-    private PublicBinaryArtifact EncodeFrame(AedsFrameType frameType, byte[] payload, long version, PublicHotReadOptions options)
-        => PublicHotReadBinaryArtifactFactory.FromPayload(aeds, frameType, payload, options.CacheControl, version, options);
+    private static PublicBinaryArtifact EncodeFrame(
+        AedsFrameType frameType,
+        Action<IBufferWriter<byte>> writePayload,
+        long version,
+        PublicHotReadOptions options)
+        => PublicHotReadBinaryArtifactFactory.FromWriter(frameType, writePayload, options.CacheControl, version, options);
 
     private static int[] NormalizePositive(int[]? values, int[] fallback, int max)
     {

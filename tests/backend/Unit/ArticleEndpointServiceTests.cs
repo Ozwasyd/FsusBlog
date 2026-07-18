@@ -41,7 +41,8 @@ public sealed class ArticleEndpointServiceTests
     {
         var core = Substitute.For<IArticleCoreService>();
         var cache = Substitute.For<IUnifiedCache>();
-        var service = Create(core, cache: cache);
+        var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
+        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache);
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
@@ -68,7 +69,8 @@ public sealed class ArticleEndpointServiceTests
     {
         var core = Substitute.For<IArticleCoreService>();
         var cache = Substitute.For<IUnifiedCache>();
-        var service = Create(core, cache: cache);
+        var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
+        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache);
 
         var result = await service.GetPageListAsync(
             page,
@@ -92,14 +94,19 @@ public sealed class ArticleEndpointServiceTests
     {
         var core = Substitute.For<IArticleCoreService>();
         var cache = Substitute.For<IUnifiedCache>();
-        var service = Create(core, cache: cache);
+        var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
+        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache);
         using var cts = new CancellationTokenSource();
         var page = new CorePageResult<ArticleListCoreModel>([], 0);
 
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>())
             .Returns("7");
-        cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleListFrame, Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new CacheReadResult<ReadOnlyMemory<byte>>(false, default));
+        ownedFrameCache.TryGetOwnedFrameAsync(
+                CachePolicyId.ArticleListFrame,
+                Arg.Any<string>(),
+                AedsFrameType.ArticleList,
+                Arg.Any<CancellationToken>())
+            .Returns(default(OwnedFrameCacheReadResult));
         core.GetPageListAsync(
                 Arg.Any<int>(),
                 Arg.Any<int>(),
@@ -128,7 +135,12 @@ public sealed class ArticleEndpointServiceTests
             canReadPrivate: true,
             cancellationToken: cts.Token));
 
-        await cache.DidNotReceiveWithAnyArgs().SetRawAsync(default, (string)null!, default!, default, default);
+        await ownedFrameCache.DidNotReceiveWithAnyArgs().SetOwnedFrameAsync(
+            default,
+            (string)null!,
+            default!,
+            default,
+            default);
     }
 
     [Fact]
@@ -140,6 +152,7 @@ public sealed class ArticleEndpointServiceTests
         var service = Create(
             core,
             cache: cache,
+            ownedFrameCache: cache,
             cacheMissCoordinator: new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance));
         var releaseCore = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var firstCoreLoadStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -187,7 +200,12 @@ public sealed class ArticleEndpointServiceTests
 
         Assert.All(results, result => Assert.True(result.HasCachedFrame));
         Assert.Equal(1, Volatile.Read(ref coreLoads));
-        Assert.Equal(1, cache.RawSetCount);
+        Assert.Equal(1, cache.OwnedSetCount);
+        foreach (ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>> result in results)
+        {
+            result.CachedFrame!.Dispose();
+        }
+        cache.Dispose();
     }
 
     [Fact]
@@ -196,7 +214,8 @@ public sealed class ArticleEndpointServiceTests
         var core = Substitute.For<IArticleCoreService>();
         var articles = Substitute.For<IArticleService>();
         var cache = Substitute.For<IUnifiedCache>();
-        var service = Create(core, cache: cache, articles: articles);
+        var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
+        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache, articles: articles);
         var page = new ArticleListPageReadModel
         {
             Items = [],
@@ -207,8 +226,12 @@ public sealed class ArticleEndpointServiceTests
 
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>())
             .Returns("9");
-        cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleListFrame, Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new CacheReadResult<ReadOnlyMemory<byte>>(false, default));
+        ownedFrameCache.TryGetOwnedFrameAsync(
+                CachePolicyId.ArticleListFrame,
+                Arg.Any<string>(),
+                AedsFrameType.ArticleList,
+                Arg.Any<CancellationToken>())
+            .Returns(default(OwnedFrameCacheReadResult));
         articles.GetPageListAsync(
                 Arg.Any<int>(),
                 Arg.Any<int>(),
@@ -247,7 +270,13 @@ public sealed class ArticleEndpointServiceTests
             false,
             "fsus",
             Arg.Any<CancellationToken>());
-        await cache.Received(1).SetRawAsync(CachePolicyId.ArticleListFrame, Arg.Any<string>(), Arg.Any<byte[]>(), TimeSpan.FromMinutes(10), Arg.Any<CancellationToken>());
+        await ownedFrameCache.Received(1).SetOwnedFrameAsync(
+            CachePolicyId.ArticleListFrame,
+            Arg.Any<string>(),
+            Arg.Any<OwnedAedsFrame>(),
+            TimeSpan.FromMinutes(10),
+            Arg.Any<CancellationToken>());
+        result.CachedFrame!.Dispose();
     }
 
     [Fact]
@@ -350,11 +379,13 @@ public sealed class ArticleEndpointServiceTests
         IArticleDetailAedsArtifactStore? artifacts = null,
         IArticleDetailAedsArtifactBackfillScheduler? scheduler = null,
         IUnifiedCache? cache = null,
+        IOwnedFrameCache? ownedFrameCache = null,
         IArticleService? articles = null,
         ICacheMissCoordinator? cacheMissCoordinator = null,
         IPublicArticleProjectionStore? projection = null)
     {
         cache ??= Substitute.For<IUnifiedCache>();
+        ownedFrameCache ??= CreateOwnedFrameCacheSubstitute();
         var hotVersion = Substitute.For<IHotArticlesCacheVersionProvider>();
         hotVersion.BuildVersionedHotArticlesIdentity(Arg.Any<string>())
             .Returns(call => $"v1:{call.Arg<string>()}");
@@ -363,12 +394,35 @@ public sealed class ArticleEndpointServiceTests
             core,
             articles ?? Substitute.For<IArticleService>(),
             cache,
+            ownedFrameCache,
             cacheMissCoordinator ?? new PassthroughCacheMissCoordinator(),
-            new AedsEncoder(),
             artifacts ?? Substitute.For<IArticleDetailAedsArtifactStore>(),
             projection ?? Substitute.For<IPublicArticleProjectionStore>(),
             scheduler ?? Substitute.For<IArticleDetailAedsArtifactBackfillScheduler>(),
             hotVersion);
+    }
+
+    private static IOwnedFrameCache CreateOwnedFrameCacheSubstitute()
+    {
+        var cache = Substitute.For<IOwnedFrameCache>();
+        cache.TryGetOwnedFrameAsync(
+                Arg.Any<CachePolicyId>(),
+                Arg.Any<string>(),
+                Arg.Any<AedsFrameType>(),
+                Arg.Any<CancellationToken>())
+            .Returns(default(OwnedFrameCacheReadResult));
+        cache.SetOwnedFrameAsync(
+                Arg.Any<CachePolicyId>(),
+                Arg.Any<string>(),
+                Arg.Any<OwnedAedsFrame>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                call.Arg<OwnedAedsFrame>().Retire();
+                return Task.CompletedTask;
+            });
+        return cache;
     }
 
     private sealed class PassthroughCacheMissCoordinator : ICacheMissCoordinator
@@ -387,30 +441,28 @@ public sealed class ArticleEndpointServiceTests
         }
     }
 
-    private sealed class CoordinatedArticleFrameCache(int expectedColdReads) : IUnifiedCache
+    private sealed class CoordinatedArticleFrameCache(int expectedColdReads) : IUnifiedCache, IOwnedFrameCache, IDisposable
     {
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
         private readonly TaskCompletionSource<bool> _initialColdReadsCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private byte[]? _articleListFrame;
+        private OwnedAedsFrame? _articleListFrame;
         private int _coldReads;
-        private int _rawSetCount;
+        private int _ownedSetCount;
 
         public Task InitialColdReadsCompleted => _initialColdReadsCompleted.Task;
 
-        public int RawSetCount => Volatile.Read(ref _rawSetCount);
+        public int OwnedSetCount => Volatile.Read(ref _ownedSetCount);
 
-        public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
-        public async Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+        public async Task<OwnedFrameCacheReadResult> TryGetOwnedFrameAsync(
+            CachePolicyId policyId,
+            string identity,
+            AedsFrameType expectedFrameType,
+            CancellationToken cancellationToken = default)
         {
-            byte[]? current = Volatile.Read(ref _articleListFrame);
-            if (current is not null)
+            OwnedAedsFrame? current = Volatile.Read(ref _articleListFrame);
+            if (current is not null && current.TryAcquireReadLease(out OwnedAedsFrameReadLease? lease))
             {
-                return new CacheReadResult<ReadOnlyMemory<byte>>(true, current);
+                return new OwnedFrameCacheReadResult(true, lease);
             }
 
             if (policyId == CachePolicyId.ArticleListFrame)
@@ -423,19 +475,51 @@ public sealed class ArticleEndpointServiceTests
                 await _initialColdReadsCompleted.Task.WaitAsync(cancellationToken);
             }
 
-            return new CacheReadResult<ReadOnlyMemory<byte>>(false, default);
+            return default;
         }
 
-        public Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+        public Task SetOwnedFrameAsync(
+            CachePolicyId policyId,
+            string identity,
+            OwnedAedsFrame frame,
+            TimeSpan? l2TtlOverride = null,
+            CancellationToken cancellationToken = default)
         {
             if (policyId == CachePolicyId.ArticleListFrame)
             {
-                Interlocked.Increment(ref _rawSetCount);
-                Volatile.Write(ref _articleListFrame, value.ToArray());
+                Interlocked.Increment(ref _ownedSetCount);
+                OwnedAedsFrame? previous = Interlocked.Exchange(ref _articleListFrame, frame);
+                previous?.Retire();
+            }
+            else
+            {
+                frame.Retire();
             }
 
             return Task.CompletedTask;
         }
+
+        public OwnedFrameCacheResidencySnapshot GetOwnedFrameResidencySnapshot()
+        {
+            OwnedAedsFrame? current = Volatile.Read(ref _articleListFrame);
+            return current is null
+                ? default
+                : new OwnedFrameCacheResidencySnapshot(1, current.LogicalLength, current.Capacity);
+        }
+
+        public void Dispose() => Interlocked.Exchange(ref _articleListFrame, null)?.Retire();
+
+        public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
 
         public Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();

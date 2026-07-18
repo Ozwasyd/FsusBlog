@@ -46,14 +46,20 @@ public static partial class BinaryEndpoints
         group.MapGet("/tag", static async Task<IResult> (
             ISqlSugarClient db,
             IUnifiedCache cache,
-            IAedsEncoder aeds) =>
+            IOwnedFrameCache ownedFrameCache,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
         {
             string identity = await ResolveTaxonomyFrameIdentityAsync(cache);
-            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.TagFrame, identity);
-            if (frame.Hit && frame.Value.Length > 0)
+            OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
+                CachePolicyId.TagFrame,
+                identity,
+                AedsFrameType.TagList,
+                cancellationToken);
+            if (frame.Hit && frame.Lease is not null)
             {
                 FsusObservability.RecordTaxonomyFrameCache("tag", hit: true);
-                return BinaryResults.PreencodedFrame(frame.Value);
+                return BinaryResults.PreencodedFrame(frame.Lease);
             }
 
             FsusObservability.RecordTaxonomyFrameCache("tag", hit: false);
@@ -86,11 +92,18 @@ public static partial class BinaryEndpoints
                 }
             }
 
-            byte[] payload = PodBinaryCodec.EncodeTagWithCountList(result);
-            byte[] encodedFrame = aeds.Encode(AedsFrameType.TagList, payload);
-            await cache.SetRawAsync(CachePolicyId.TagFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+            OwnedAedsFrame ownedFrame = BuildCachedFrame(
+                AedsFrameType.TagList,
+                writer => PodBinaryCodec.WriteTagWithCountList(result, writer));
+            IResult response = await StoreAndReturnOwnedFrameAsync(
+                ownedFrameCache,
+                CachePolicyId.TagFrame,
+                identity,
+                ownedFrame,
+                TimeSpan.FromMinutes(10),
+                cancellationToken);
             FsusObservability.RecordTaxonomyFrameColdMiss("tag", stopwatch.Elapsed);
-            return BinaryResults.PreencodedFrame(encodedFrame);
+            return response;
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
@@ -362,14 +375,20 @@ public static partial class BinaryEndpoints
     internal static async Task<IResult> ReadCategoryAsync(
         ISqlSugarClient db,
         IUnifiedCache cache,
-        IAedsEncoder aeds)
+        IOwnedFrameCache ownedFrameCache,
+        IAedsEncoder aeds,
+        CancellationToken cancellationToken = default)
     {
         string identity = await ResolveTaxonomyFrameIdentityAsync(cache);
-        CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CategoryFrame, identity);
-        if (frame.Hit && frame.Value.Length > 0)
+        OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
+            CachePolicyId.CategoryFrame,
+            identity,
+            AedsFrameType.CategoryList,
+            cancellationToken);
+        if (frame.Hit && frame.Lease is not null)
         {
             FsusObservability.RecordTaxonomyFrameCache("category", hit: true);
-            return BinaryResults.PreencodedFrame(frame.Value);
+            return BinaryResults.PreencodedFrame(frame.Lease);
         }
 
         FsusObservability.RecordTaxonomyFrameCache("category", hit: false);
@@ -402,11 +421,18 @@ public static partial class BinaryEndpoints
             }
         }
 
-        byte[] payload = PodBinaryCodec.EncodeCategoryList(result);
-        byte[] encodedFrame = aeds.Encode(AedsFrameType.CategoryList, payload);
-        await cache.SetRawAsync(CachePolicyId.CategoryFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+        OwnedAedsFrame ownedFrame = BuildCachedFrame(
+            AedsFrameType.CategoryList,
+            writer => PodBinaryCodec.WriteCategoryList(result, writer));
+        IResult response = await StoreAndReturnOwnedFrameAsync(
+            ownedFrameCache,
+            CachePolicyId.CategoryFrame,
+            identity,
+            ownedFrame,
+            TimeSpan.FromMinutes(10),
+            cancellationToken);
         FsusObservability.RecordTaxonomyFrameColdMiss("category", stopwatch.Elapsed);
-        return BinaryResults.PreencodedFrame(encodedFrame);
+        return response;
     }
 
     private static async Task<string> ResolveTaxonomyFrameIdentityAsync(IUnifiedCache cache)

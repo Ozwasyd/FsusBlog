@@ -10,6 +10,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
     private bool _sealed;
     private bool _disposed;
     private bool _clearOnReturn = true;
+    private AedsFrameType _frameType;
 
     public AedsFrameBufferWriter(int initialCapacity = 1024, ArrayPool<byte>? pool = null)
     {
@@ -60,7 +61,27 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         ReadOnlySpan<byte> payload = _buffer.AsSpan(AedsFrameHeader.Size, PayloadLength);
         AedsEncoder.WriteHeaderInto(frameType, payload, version, flags, _buffer.AsSpan(0, AedsFrameHeader.Size));
         _clearOnReturn = AedsFrameSensitivity.RequiresClear(frameType);
+        _frameType = frameType;
         _sealed = true;
+    }
+
+    public OwnedAedsFrame DetachOwnedFrame()
+    {
+        ThrowIfDisposed();
+        if (!_sealed)
+        {
+            throw new InvalidOperationException("AEDS frame must be sealed before transferring ownership.");
+        }
+
+        OwnedAedsFrame ownedFrame = OwnedAedsFrame.TakePooledOwnership(
+            _buffer,
+            _written,
+            _frameType,
+            _pool);
+        _buffer = [];
+        _written = 0;
+        _disposed = true;
+        return ownedFrame;
     }
 
     public void Advance(int count)

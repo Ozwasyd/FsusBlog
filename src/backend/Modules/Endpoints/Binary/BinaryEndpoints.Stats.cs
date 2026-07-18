@@ -31,29 +31,18 @@ public static partial class BinaryEndpoints
 {
     private static void MapBinaryStatsEndpoints(IEndpointRouteBuilder group)
     {
-        group.MapGet("/stats", static async Task<IResult> (
+        group.MapGet("/stats", static Task<IResult> (
             IStatsCoreService core,
             IUnifiedCache cache,
-            IAedsEncoder aeds) =>
-        {
-            const string identity = "core:main";
-            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.AdminStatsFrame, identity);
-            if (frame.Hit && frame.Value.Length > 0)
-            {
-                return BinaryResults.PreencodedFrame(frame.Value);
-            }
-
-            var result = await core.GetAdminStatsAsync();
-            if (!result.IsSuccess)
-            {
-                return BinaryResults.FromError(result.Error, aeds);
-            }
-
-            byte[] payload = PodBinaryCodec.EncodeSiteStats(result.Value);
-            byte[] encodedFrame = aeds.Encode(AedsFrameType.AdminStats, payload);
-            await cache.SetRawAsync(CachePolicyId.AdminStatsFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
-            return BinaryResults.PreencodedFrame(encodedFrame);
-        }).RequireAdminPermission(AdminPermissions.AuditRead);
+            IOwnedFrameCache ownedFrameCache,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) => HandleAdminStatsFrameAsync(
+                core,
+                cache,
+                ownedFrameCache,
+                aeds,
+                cancellationToken))
+            .RequireAdminPermission(AdminPermissions.AuditRead);
 
         group.MapGet("/stats/recent-comments", static async Task<BinaryFrameResult> (
             IStatsCoreService core,
@@ -80,5 +69,64 @@ public static partial class BinaryEndpoints
 
             return BinaryResults.Frame(aeds, AedsFrameType.RegionStats, writer => PodBinaryCodec.WriteRegionStats(result.Value ?? [], writer));
         }).RequireAdminPermission(AdminPermissions.AuditRead);
+    }
+
+    internal static async Task<IResult> HandleAdminStatsFrameAsync(
+        IStatsCoreService core,
+        IUnifiedCache cache,
+        IOwnedFrameCache ownedFrameCache,
+        IAedsEncoder aeds,
+        CancellationToken cancellationToken)
+    {
+        const int maxVersionRetries = 2;
+        for (int attempt = 0; attempt <= maxVersionRetries; attempt++)
+        {
+            long version = await AdminStatsFrameVersioning.ResolveAsync(cache, cancellationToken);
+            string identity = AdminStatsFrameVersioning.BuildIdentity(version);
+            OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
+                CachePolicyId.AdminStatsFrame,
+                identity,
+                AedsFrameType.AdminStats,
+                cancellationToken);
+            if (frame.Hit && frame.Lease is not null)
+            {
+                return BinaryResults.PreencodedFrame(frame.Lease);
+            }
+
+            var result = await core.GetAdminStatsAsync(version);
+            if (!result.IsSuccess)
+            {
+                return BinaryResults.FromError(result.Error, aeds);
+            }
+
+            long confirmedVersion = await AdminStatsFrameVersioning.ResolveAsync(cache, cancellationToken);
+            if (confirmedVersion != version)
+            {
+                if (attempt < maxVersionRetries)
+                {
+                    continue;
+                }
+
+                // Sustained mutation churn: serve the just-read result without installing it
+                // under a generation that it did not observe.
+                return BinaryResults.Frame(
+                    aeds,
+                    AedsFrameType.AdminStats,
+                    writer => PodBinaryCodec.WriteSiteStats(result.Value, writer));
+            }
+
+            OwnedAedsFrame ownedFrame = BuildCachedFrame(
+                AedsFrameType.AdminStats,
+                writer => PodBinaryCodec.WriteSiteStats(result.Value, writer));
+            return await StoreAndReturnOwnedFrameAsync(
+                ownedFrameCache,
+                CachePolicyId.AdminStatsFrame,
+                identity,
+                ownedFrame,
+                TimeSpan.FromMinutes(10),
+                cancellationToken);
+        }
+
+        throw new InvalidOperationException("Admin stats frame version retry loop exited unexpectedly.");
     }
 }

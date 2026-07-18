@@ -7,8 +7,19 @@ namespace FsusBlog.Server.Infrastructure.CoreBridge.Caching;
 public sealed class StatsCoreQueryCache(IUnifiedCache cache)
 {
     public async Task<SiteStatsCoreModel> GetOrLoadAdminStatsAsync(Func<Task<SiteStatsCoreModel>> loader)
+        => await GetOrLoadAdminStatsAsync("core:main", loader);
+
+    public async Task<SiteStatsCoreModel> GetOrLoadAdminStatsAsync(
+        long sourceGeneration,
+        Func<Task<SiteStatsCoreModel>> loader)
+        => await GetOrLoadAdminStatsAsync(
+            AdminStatsFrameVersioning.BuildCoreSourceIdentity(sourceGeneration),
+            loader);
+
+    private async Task<SiteStatsCoreModel> GetOrLoadAdminStatsAsync(
+        string identity,
+        Func<Task<SiteStatsCoreModel>> loader)
     {
-        const string identity = "core:main";
         var hit = await cache.TryGetAsync(CachePolicyId.AdminStats, identity, DecodeSiteStats);
         if (hit.Hit)
         {

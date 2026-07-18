@@ -121,6 +121,8 @@ Refresh rotation 的数据库 CAS 与 HTTP Cookie 交付由端点显式编排：
 
 缓存治理清单由 `tools/cache/export-cache-governance.mjs` 从 `CachePolicyRegistry`、`CacheTag`、`HttpCachePolicyCatalog` 生成到 `docs/cache-governance.catalog.json`。`tools/check-cache-governance.sh` 会在 fast gate 中校验该清单，防止 cache key/tag/catalog 与文档证据漂移。
 
+预编码 AEDS frame 的 L1 生命周期通过独立 `IOwnedFrameCache` 边界管理，既有 `IUnifiedCache` raw payload API 保持 defensive-copy 语义。cache miss 直接把真实 POD writer 写入 `OwnedAedsFrame` 的最终 frame buffer；consumer 只能持有只读 lease。Redis serialization、并发 response、replace/eviction/invalidation、cancellation/exception 与 shutdown 都必须在最后一个 lease 释放前保留 backing；精确 key 和批量/prefix invalidation 在删除 L1/L2 时按 Redis key 获取确定顺序的 mutation gate，防止旧 L2 read 在删除后重新安装。owner retirement 会立即停止新 reader，但 logical/capacity residency 直到 backing 实际归还或清零后才扣减，因此 in-flight reader 不会被伪报为已释放。固定逻辑资源不能只靠 I/O gate 判断 source 新鲜度：AdminStats generation 以 Redis `INCRBY 0` 权威读取而不经过进程 L1；新 generation 同时隔离 frame、core aggregate、overview、recent 与 region source identity，因此跨实例旧 L1 或发布后的删除窗口不能把旧 source 安装成新 frame。rebuild 在 source read 前后复核 generation，漂移时重读，持续 churn 时只直出而不安装；invalidation 清理 previous-generation 与 legacy identity。敏感 frame 由 `AedsFrameSensitivity` 默认清零，只有显式 public-immutable allowlist 可跳过；无法验证的 L2 frame 一律保守清零。该边界只声明消除本进程 miss/rebuild 的 payload/frame application copy，不假设 StackExchange.Redis、socket 或文件系统内部零拷贝，也不改变 TTL、ETag 或 AEDS v2 wire contract；新增 generation 只进入 cache identity。PublicHotRead snapshot 与文件 artifact 继续使用 exact array，但 projector 直接写最终 frame，避免精确 payload 中间数组。测量、owner 状态机和聚焦验证见 [AEDS cache-miss owned-frame](performance-aeds-cache-miss-owned-frame.md)。
+
 ## 前端主题与组件覆盖边界
 
 FsusBlog 只维护应用语义 alias，底层颜色、阴影、过渡和缓动优先复用 Element Plus / FsusUI 变量：

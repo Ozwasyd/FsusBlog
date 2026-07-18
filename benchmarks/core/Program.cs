@@ -37,6 +37,11 @@ if (args.Contains("--aeds-frame-cost", StringComparer.Ordinal))
     return AedsFrameCostProfiler.Run(args);
 }
 
+if (args.Contains("--aeds-cache-miss-frame-cost", StringComparer.Ordinal))
+{
+    return AedsCacheMissFrameProfiler.Run(args);
+}
+
 if (args.Contains("--aeds-compression-profile", StringComparer.Ordinal))
 {
     return AedsCompressionProfiler.Run(args);

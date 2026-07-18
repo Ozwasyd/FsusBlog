@@ -1,12 +1,13 @@
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Interfaces;
 
-public readonly record struct ArticleEndpointPayload<T>(ReadOnlyMemory<byte> CachedFrame, Result<T> Result)
+public readonly record struct ArticleEndpointPayload<T>(OwnedAedsFrameReadLease? CachedFrame, Result<T> Result)
 {
-    public bool HasCachedFrame => !CachedFrame.IsEmpty;
+    public bool HasCachedFrame => CachedFrame is not null;
 }
 
 public readonly record struct ArticleDetailArtifactPayload(ReadOnlyMemory<byte> PreencodedFrame, bool BackfillQueued)

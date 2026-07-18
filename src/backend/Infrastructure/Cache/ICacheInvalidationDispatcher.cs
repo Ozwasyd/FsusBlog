@@ -38,6 +38,35 @@ public interface IHotArticlesCacheVersionPublisher : IHotArticlesCacheVersionPro
     long PublishNextHotArticlesVersion(string reason);
 }
 
+internal static class AdminStatsFrameVersioning
+{
+    internal const string CounterIdentity = "frame-version";
+
+    internal static string BuildIdentity(long version)
+        => $"core:v{Math.Max(0, version).ToString(CultureInfo.InvariantCulture)}:main";
+
+    internal static string BuildCoreSourceIdentity(long version)
+        => $"core:v{Math.Max(0, version).ToString(CultureInfo.InvariantCulture)}:main";
+
+    internal static string BuildSourceIdentity(long version)
+        => $"v{Math.Max(0, version).ToString(CultureInfo.InvariantCulture)}:main";
+
+    internal static async Task<long> ResolveAsync(
+        IUnifiedCache cache,
+        CancellationToken cancellationToken = default)
+    {
+        // INCRBY 0 is an authoritative Redis counter read. Unlike GetStringAsync it cannot
+        // observe or repopulate a process-local L1 generation that another node has retired.
+        long version = await cache.IncrementAsync(
+                CachePolicyId.AdminStats,
+                CounterIdentity,
+                0,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return Math.Max(0, version);
+    }
+}
+
 public sealed record HotStatsInvalidationSnapshot(
     long HotArticlesVersion,
     long StatsDirtyCount,
@@ -200,19 +229,8 @@ public sealed class CacheInvalidationDispatcher(
 
         await cache.IncrementAsync(CachePolicyId.ArticleListVersion, "main", 1, cancellationToken);
         long searchVersion = await cache.IncrementAsync(CachePolicyId.ArticleSearchVersion, "main", 1, cancellationToken);
-        await cache.RemoveManyAsync(
-            [
-                new(CachePolicyId.ArticleRss, "main"),
-                new(CachePolicyId.AdminStats, "main"),
-                new(CachePolicyId.AdminStats, "core:main"),
-                new(CachePolicyId.AdminStatsOverview, "main"),
-                new(CachePolicyId.AdminStatsRecentComments, "main"),
-                new(CachePolicyId.AdminStatsRecentComments, "core:main"),
-                new(CachePolicyId.AdminStatsRegions, "main"),
-                new(CachePolicyId.AdminStatsRegions, "core:main"),
-                new(CachePolicyId.AdminStatsFrame, "core:main")
-            ],
-            cancellationToken);
+        await cache.RemoveAsync(CachePolicyId.ArticleRss, "main", cancellationToken);
+        await InvalidateAdminStatsCachesAsync(cancellationToken);
         long hotVersion = PublishHotArticlesVersion("article-mutation");
         await httpCacheInvalidator.InvalidateAsync(CacheTag.ArticleList, CacheTag.HotArticles, CacheTag.Stats);
         await RecordRuntimeAsync("article", articleId is > 0 ? $"article:{articleId.Value};hot:v{hotVersion};search:v{searchVersion}" : $"all;hot:v{hotVersion};search:v{searchVersion}", cancellationToken);
@@ -296,20 +314,38 @@ public sealed class CacheInvalidationDispatcher(
 
     public async Task InvalidateStatsAsync(CancellationToken cancellationToken = default)
     {
+        await InvalidateAdminStatsCachesAsync(cancellationToken);
+        await httpCacheInvalidator.InvalidateAsync(CacheTag.Stats);
+        await RecordRuntimeAsync("stats", "admin-stats", cancellationToken);
+    }
+
+    private async Task InvalidateAdminStatsCachesAsync(CancellationToken cancellationToken)
+    {
+        long nextFrameVersion = await cache.IncrementAsync(
+            CachePolicyId.AdminStats,
+            AdminStatsFrameVersioning.CounterIdentity,
+            1,
+            cancellationToken);
+        string previousFrameIdentity = AdminStatsFrameVersioning.BuildIdentity(nextFrameVersion - 1);
+        string previousCoreSourceIdentity = AdminStatsFrameVersioning.BuildCoreSourceIdentity(nextFrameVersion - 1);
+        string previousSourceIdentity = AdminStatsFrameVersioning.BuildSourceIdentity(nextFrameVersion - 1);
         await cache.RemoveManyAsync(
             [
                 new(CachePolicyId.AdminStats, "main"),
                 new(CachePolicyId.AdminStats, "core:main"),
+                new(CachePolicyId.AdminStats, previousCoreSourceIdentity),
                 new(CachePolicyId.AdminStatsOverview, "main"),
+                new(CachePolicyId.AdminStatsOverview, previousSourceIdentity),
                 new(CachePolicyId.AdminStatsRecentComments, "main"),
                 new(CachePolicyId.AdminStatsRecentComments, "core:main"),
+                new(CachePolicyId.AdminStatsRecentComments, previousSourceIdentity),
                 new(CachePolicyId.AdminStatsRegions, "main"),
                 new(CachePolicyId.AdminStatsRegions, "core:main"),
-                new(CachePolicyId.AdminStatsFrame, "core:main")
+                new(CachePolicyId.AdminStatsRegions, previousSourceIdentity),
+                new(CachePolicyId.AdminStatsFrame, "core:main"),
+                new(CachePolicyId.AdminStatsFrame, previousFrameIdentity)
             ],
             cancellationToken);
-        await httpCacheInvalidator.InvalidateAsync(CacheTag.Stats);
-        await RecordRuntimeAsync("stats", "admin-stats", cancellationToken);
     }
 
     public async Task InvalidateArticleViewAsync(int articleId, CancellationToken cancellationToken = default)

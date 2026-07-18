@@ -161,7 +161,9 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddCacheRuntime(this IServiceCollection services)
     {
         services.AddSingleton<ICachePolicyRegistry, CachePolicyRegistry>();
-        services.AddSingleton<IUnifiedCache, UnifiedCache>();
+        services.AddSingleton<UnifiedCache>();
+        services.AddSingleton<IUnifiedCache>(sp => sp.GetRequiredService<UnifiedCache>());
+        services.AddSingleton<IOwnedFrameCache>(sp => sp.GetRequiredService<UnifiedCache>());
         services.AddSingleton(new BackgroundWorkerLeaseOptions(
             TimeSpan.FromSeconds(5),
             TimeSpan.FromSeconds(2),

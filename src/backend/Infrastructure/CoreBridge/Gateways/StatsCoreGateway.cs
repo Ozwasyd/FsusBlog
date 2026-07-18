@@ -16,6 +16,13 @@ public sealed class StatsCoreGateway(StatsService service, StatsCoreQueryCache q
         return await queryCache.GetOrLoadAdminStatsAsync(() => LoadAdminStatsAsync());
     }
 
+    public async Task<SiteStatsCoreModel> GetAdminStatsAsync(long sourceGeneration)
+    {
+        return await queryCache.GetOrLoadAdminStatsAsync(
+            sourceGeneration,
+            () => LoadAdminStatsAsync(sourceGeneration));
+    }
+
     public async Task<IReadOnlyList<RecentCommentCoreModel>> GetAdminRecentCommentsAsync()
         => await queryCache.GetOrLoadAdminRecentCommentsAsync(LoadAdminRecentCommentsAsync);
 
@@ -23,8 +30,16 @@ public sealed class StatsCoreGateway(StatsService service, StatsCoreQueryCache q
         => await queryCache.GetOrLoadAdminRegionStatsAsync(LoadAdminRegionStatsAsync);
 
     private async Task<SiteStatsCoreModel> LoadAdminStatsAsync()
+        => await LoadAdminStatsAsync(sourceGeneration: null);
+
+    private async Task<SiteStatsCoreModel> LoadAdminStatsAsync(long sourceGeneration)
+        => await LoadAdminStatsAsync((long?)sourceGeneration);
+
+    private async Task<SiteStatsCoreModel> LoadAdminStatsAsync(long? sourceGeneration)
     {
-        AdminStatsQueryDto query = await service.GetAdminStatsAsync();
+        AdminStatsQueryDto query = sourceGeneration.HasValue
+            ? await service.GetAdminStatsForGenerationAsync(sourceGeneration.Value)
+            : await service.GetAdminStatsAsync();
         AdminStatsOverviewDto overview = query.Overview;
 
         var popular = new List<PopularArticleCoreModel>(overview.PopularArticles.Count);

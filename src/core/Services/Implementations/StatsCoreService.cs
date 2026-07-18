@@ -9,6 +9,9 @@ public sealed class StatsCoreService(IStatsCoreGateway gateway) : IStatsCoreServ
 {
     public async Task<Result<SiteStatsCoreModel>> GetAdminStatsAsync() => Result<SiteStatsCoreModel>.Success(await gateway.GetAdminStatsAsync());
 
+    public async Task<Result<SiteStatsCoreModel>> GetAdminStatsAsync(long sourceGeneration)
+        => Result<SiteStatsCoreModel>.Success(await gateway.GetAdminStatsAsync(sourceGeneration));
+
     public async Task<Result<IReadOnlyList<RecentCommentCoreModel>>> GetAdminRecentCommentsAsync()
         => Result<IReadOnlyList<RecentCommentCoreModel>>.Success(await gateway.GetAdminRecentCommentsAsync());
 

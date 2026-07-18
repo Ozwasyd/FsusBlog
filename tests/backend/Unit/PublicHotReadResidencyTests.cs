@@ -48,6 +48,25 @@ public sealed class PublicHotReadResidencyTests
     }
 
     [Fact]
+    public void Accounting_ChargesBackingCapacityInsteadOfLogicalSliceLength()
+    {
+        byte[] backing = new byte[128 * 1024];
+        ReadOnlyMemory<byte> logicalFrame = backing.AsMemory(0, 1024);
+        var artifact = new PublicBinaryArtifact(
+            logicalFrame,
+            "\"slice\"",
+            "public,max-age=60",
+            1,
+            AedsFrameType.ArticleDetail);
+
+        PublicHotReadSnapshot snapshot = Snapshot(1, 1, artifact);
+
+        Assert.Equal(backing.Length, snapshot.Residency.RawAedsBytes);
+        Assert.Equal(1, snapshot.Residency.LohEligibleArrayCount);
+        Assert.Equal(backing.Length, snapshot.Residency.LohEligibleArrayBytes);
+    }
+
+    [Fact]
     public void DynamicBudgets_UseContainerVisibleLimitAndExplicitValuesWin()
     {
         PublicHotReadBudgetLimits dynamicLimits = PublicHotReadStore.ResolveBudgetLimitsForTests(
@@ -368,6 +387,36 @@ public sealed class PublicHotReadResidencyTests
             savingsOptions);
         Assert.True(savingsArtifact.BrotliFrame.IsEmpty);
         Assert.True(savingsArtifact.GzipFrame.IsEmpty);
+    }
+
+    [Fact]
+    public void WriterArtifactFactory_RemovesPayloadArrayWithoutChangingWireOrValidators()
+    {
+        var options = new PublicHotReadOptions
+        {
+            MinPrecompressedFrameBytes = 1,
+            ExpectedBrotliClientSharePercent = 80,
+            ExpectedGzipClientSharePercent = 15
+        };
+        byte[] payload = PodBinaryCodec.EncodeCategoryList([]);
+        PublicBinaryArtifact prior = PublicHotReadBinaryArtifactFactory.FromPayload(
+            new AedsEncoder(),
+            AedsFrameType.CategoryList,
+            payload,
+            "public,max-age=60",
+            7,
+            options);
+        PublicBinaryArtifact direct = PublicHotReadBinaryArtifactFactory.FromWriter(
+            AedsFrameType.CategoryList,
+            writer => PodBinaryCodec.WriteCategoryList([], writer),
+            "public,max-age=60",
+            7,
+            options);
+
+        Assert.Equal(prior.Frame.ToArray(), direct.Frame.ToArray());
+        Assert.Equal(prior.ETag, direct.ETag);
+        Assert.Equal(prior.BrotliFrame.ToArray(), direct.BrotliFrame.ToArray());
+        Assert.Equal(prior.GzipFrame.ToArray(), direct.GzipFrame.ToArray());
     }
 
     [Fact]

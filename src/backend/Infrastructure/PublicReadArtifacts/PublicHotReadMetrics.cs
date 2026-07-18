@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics.Metrics;
 using System.IO.Compression;
@@ -445,6 +446,30 @@ internal static class PublicHotReadBinaryArtifactFactory
         PublicHotReadOptions options)
     {
         byte[] frame = encoder.Encode(frameType, payload);
+        return FromFrame(frame, frameType, cacheControl, version, options);
+    }
+
+    internal static PublicBinaryArtifact FromWriter(
+        AedsFrameType frameType,
+        Action<IBufferWriter<byte>> writePayload,
+        string cacheControl,
+        long version,
+        PublicHotReadOptions options)
+    {
+        using var frameWriter = new AedsFrameBufferWriter();
+        writePayload(frameWriter.PayloadWriter);
+        frameWriter.Seal(frameType);
+        byte[] frame = frameWriter.WrittenFrame.ToArray();
+        return FromFrame(frame, frameType, cacheControl, version, options);
+    }
+
+    private static PublicBinaryArtifact FromFrame(
+        byte[] frame,
+        AedsFrameType frameType,
+        string cacheControl,
+        long version,
+        PublicHotReadOptions options)
+    {
         if (frame.Length > options.MaxFrameBytes)
         {
             throw new InvalidOperationException($"public hot-read frame too large: {frameType} {frame.Length} bytes");

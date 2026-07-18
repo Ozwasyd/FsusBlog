@@ -994,7 +994,6 @@ public sealed class ArticleDetailAedsArtifactBackfillWorker(
 
 public sealed class ArticleDetailAedsArtifactProjector(
     ISqlSugarClient db,
-    IAedsEncoder aeds,
     IArticleDetailAedsArtifactStore store,
     IPublicArticleProjectionStore publicProjection,
     IDbConcurrencyGate dbGate,
@@ -1025,8 +1024,12 @@ public sealed class ArticleDetailAedsArtifactProjector(
                     throw new InvalidOperationException($"article_detail_aeds_rights_missing:{articleId}");
                 }
 
-                byte[] payload = PodBinaryCodec.EncodeArticleDetail(ArticleProjection.ToCoreDetailModel(article));
-                byte[] frame = aeds.Encode(AedsFrameType.ArticleDetail, payload);
+                using var frameWriter = new AedsFrameBufferWriter();
+                PodBinaryCodec.WriteArticleDetail(
+                    ArticleProjection.ToCoreDetailModel(article),
+                    frameWriter.PayloadWriter);
+                frameWriter.Seal(AedsFrameType.ArticleDetail);
+                byte[] frame = frameWriter.WrittenFrame.ToArray();
                 string contentHash = PublicArticleProjectionStore.CreateContentHash(frame);
                 string etag = PublicArticleProjectionStore.CreateETag(frame);
                 await ArticleDetailProjectionCommitSequence.PublishAsync(

@@ -25,20 +25,29 @@ public partial class StatsService(
     ILogger<StatsService> _logger) : IStatsService
 {
     public async Task<AdminStatsQueryDto> GetAdminStatsAsync()
+        => await GetAdminStatsAsync("main");
+
+    internal async Task<AdminStatsQueryDto> GetAdminStatsForGenerationAsync(long sourceGeneration)
+        => await GetAdminStatsAsync(AdminStatsFrameVersioning.BuildSourceIdentity(sourceGeneration));
+
+    private async Task<AdminStatsQueryDto> GetAdminStatsAsync(string identity)
         => new()
         {
-            Overview = await GetAdminStatsOverviewAsync(),
-            RecentComments = await GetAdminRecentCommentsAsync(),
-            Regions = await GetAdminRegionStatsAsync()
+            Overview = await GetAdminStatsOverviewAsync(identity),
+            RecentComments = await GetAdminRecentCommentsAsync(identity),
+            Regions = await GetAdminRegionStatsAsync(identity)
         };
 
     public async Task<AdminStatsOverviewDto> GetAdminStatsOverviewAsync()
+        => await GetAdminStatsOverviewAsync("main");
+
+    private async Task<AdminStatsOverviewDto> GetAdminStatsOverviewAsync(string identity)
     {
         return await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.AdminStatsOverview,
-                "main",
+                identity,
                 ct => BoundaryExecutor.ExecuteValueAsync(
-                    () => _cache.TryGetAsync(CachePolicyId.AdminStatsOverview, "main", ServerCacheBinaryCodec.DecodeAdminStats, ct),
+                    () => _cache.TryGetAsync(CachePolicyId.AdminStatsOverview, identity, ServerCacheBinaryCodec.DecodeAdminStats, ct),
                     _ => new CacheReadResult<AdminStatsOverviewDto>(false, default),
                     _logger,
                     "stats-cache-read",
@@ -49,7 +58,7 @@ public partial class StatsService(
                     {
                         AdminStatsOverviewDto result = await LoadAdminStatsOverviewFromDbAsync(gateCt);
                         await BoundaryExecutor.ExecuteAsync(
-                            () => _cache.SetRawAsync(CachePolicyId.AdminStatsOverview, "main", ServerCacheBinaryCodec.EncodeAdminStats(result), null, gateCt),
+                            () => _cache.SetRawAsync(CachePolicyId.AdminStatsOverview, identity, ServerCacheBinaryCodec.EncodeAdminStats(result), null, gateCt),
                             _logger,
                             "stats-cache-write",
                             LogLevel.Error);
@@ -57,7 +66,7 @@ public partial class StatsService(
                     },
                     async gateCt =>
                     {
-                        CacheReadResult<AdminStatsOverviewDto> retry = await _cache.TryGetAsync(CachePolicyId.AdminStatsOverview, "main", ServerCacheBinaryCodec.DecodeAdminStats, gateCt);
+                        CacheReadResult<AdminStatsOverviewDto> retry = await _cache.TryGetAsync(CachePolicyId.AdminStatsOverview, identity, ServerCacheBinaryCodec.DecodeAdminStats, gateCt);
                         if (retry.Hit && retry.Value is not null)
                         {
                             return retry.Value;
@@ -72,15 +81,18 @@ public partial class StatsService(
     }
 
     public async Task<List<RecentCommentStatItemDto>> GetAdminRecentCommentsAsync()
+        => await GetAdminRecentCommentsAsync("main");
+
+    private async Task<List<RecentCommentStatItemDto>> GetAdminRecentCommentsAsync(string identity)
     {
         return await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.AdminStatsRecentComments,
-                "main",
-                ct => _cache.TryGetAsync(CachePolicyId.AdminStatsRecentComments, "main", ServerCacheBinaryCodec.DecodeRecentCommentStats, ct),
+                identity,
+                ct => _cache.TryGetAsync(CachePolicyId.AdminStatsRecentComments, identity, ServerCacheBinaryCodec.DecodeRecentCommentStats, ct),
                 async ct =>
                 {
                     List<RecentCommentStatItemDto> result = await LoadRecentCommentsAsync(ct);
-                    await _cache.SetRawAsync(CachePolicyId.AdminStatsRecentComments, "main", ServerCacheBinaryCodec.EncodeRecentCommentStats(result), null, ct);
+                    await _cache.SetRawAsync(CachePolicyId.AdminStatsRecentComments, identity, ServerCacheBinaryCodec.EncodeRecentCommentStats(result), null, ct);
                     return result;
                 },
                 "admin-stats-recent-comments")
@@ -89,15 +101,18 @@ public partial class StatsService(
     }
 
     public async Task<List<RegionStatItemDto>> GetAdminRegionStatsAsync()
+        => await GetAdminRegionStatsAsync("main");
+
+    private async Task<List<RegionStatItemDto>> GetAdminRegionStatsAsync(string identity)
     {
         return await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.AdminStatsRegions,
-                "main",
-                ct => _cache.TryGetAsync(CachePolicyId.AdminStatsRegions, "main", ServerCacheBinaryCodec.DecodeRegionStats, ct),
+                identity,
+                ct => _cache.TryGetAsync(CachePolicyId.AdminStatsRegions, identity, ServerCacheBinaryCodec.DecodeRegionStats, ct),
                 async ct =>
                 {
                     List<RegionStatItemDto> result = await LoadRegionStatsAsync(ct);
-                    await _cache.SetRawAsync(CachePolicyId.AdminStatsRegions, "main", ServerCacheBinaryCodec.EncodeRegionStats(result), null, ct);
+                    await _cache.SetRawAsync(CachePolicyId.AdminStatsRegions, identity, ServerCacheBinaryCodec.EncodeRegionStats(result), null, ct);
                     return result;
                 },
                 "admin-stats-regions")

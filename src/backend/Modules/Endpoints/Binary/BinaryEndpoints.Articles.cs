@@ -129,7 +129,7 @@ public static partial class BinaryEndpoints
                 cancellationToken: cancellationToken);
             if (payloadResult.HasCachedFrame)
             {
-                return BinaryResults.PreencodedFrame(payloadResult.CachedFrame);
+                return BinaryResults.PreencodedFrame(payloadResult.CachedFrame!);
             }
 
             return BinaryResults.FromResult(payloadResult.Result, aeds, AedsFrameType.ArticleList, static (value, writer) => PodBinaryCodec.WriteArticlePage(value, writer));
@@ -165,7 +165,7 @@ public static partial class BinaryEndpoints
             var payloadResult = await articles.GetHotArticlesAsync(count, cancellationToken);
             if (payloadResult.HasCachedFrame)
             {
-                return BinaryResults.PreencodedFrame(payloadResult.CachedFrame);
+                return BinaryResults.PreencodedFrame(payloadResult.CachedFrame!);
             }
 
             return BinaryResults.FromResult(

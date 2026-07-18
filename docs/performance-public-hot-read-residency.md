@@ -2,7 +2,7 @@
 
 ## 物理模型
 
-`PublicHotReadResidentAccounting` 在候选发布前生成 `independent-readonly-arrays-upper-bound-v1`。payload bytes 取实际 `ReadOnlyMemory<byte>.Length`；Frozen map、entry、key、ETag、cache-control、template string/offset/hash 清单使用稳定上界常量。该模型可能高估共享字符串和 map 内部布局，但不会把未知开销伪报为零。`85,000` bytes 以上的 backing array 计入 LOH eligible；runtime 同时报告 raw AEDS、br、gzip、HTML/template、key/index、article/list/taxonomy/HTML、base/overlay/removed、artifact/object/array 与 LOH bytes。
+`PublicHotReadResidentAccounting` 在候选发布前生成 `independent-readonly-arrays-upper-bound-v1`。array-backed `ReadOnlyMemory<byte>` 的 payload bytes 按完整 backing capacity 计账，而不是只取 logical slice length；无法解析 backing array 时才保守使用 logical length。Frozen map、entry、key、ETag、cache-control、template string/offset/hash 清单使用稳定上界常量。该模型可能高估共享字符串和 map 内部布局，但不会把未知开销伪报为零。`85,000` bytes 以上的 backing array 计入 LOH eligible；runtime 同时报告 raw AEDS、br、gzip、HTML/template、key/index、article/list/taxonomy/HTML、base/overlay/removed、artifact/object/array 与 LOH bytes。
 
 零配置从 `GC.GetGCMemoryInfo().TotalAvailableMemoryBytes` 派生，因此受容器/cgroup memory limit 约束。默认 resident 为可用内存的 1/8（64 MiB–2 GiB），raw 3/4、compressed 1/2、HTML 1/2、candidate/current overlap 2 倍 resident，article detail 取 resident 1/2 与 raw 3/4 的较小值。显式配置仍须落在 Blue/Green 双槽、SSR worker、managed heap 与系统余量共同允许的范围内。
 
