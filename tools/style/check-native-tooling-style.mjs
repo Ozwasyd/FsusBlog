@@ -1,0 +1,1441 @@
+#!/usr/bin/env node
+
+import crypto from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
+import { isUtf8 } from 'node:buffer'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+
+const scriptPath = fileURLToPath(import.meta.url)
+const repositoryRoot = path.resolve(path.dirname(scriptPath), '../..')
+const defaultPolicy = 'config/development/native-tooling-style-policy.json'
+const policySchema = 'fsusblog.native-tooling-style-policy.v1'
+const exceptionSchema = 'fsusblog.native-tooling-style-exceptions.v1'
+const baselineSchema = 'fsusblog.native-tooling-style-baseline.v1'
+const validModes = new Set(['changed', 'full'])
+const validDomains = new Set(['all', 'native', 'scripts', 'docs'])
+const validOperations = new Set(['format', 'lint'])
+
+let root = repositoryRoot
+let policy = null
+let policyPath = null
+let exceptionRegistry = null
+let baseline = new Map()
+const diagnostics = []
+let compileCommandDatabases = null
+
+function ParseArguments(argv)
+{
+    const result = {
+        files: [],
+        domain: 'all',
+        mode: 'changed',
+        operation: 'lint',
+        write: false,
+        requireTools: false,
+        updateBaseline: false
+    }
+
+    for (let index = 0; index < argv.length; index += 1)
+    {
+        const argument = argv[index]
+        if (argument === '--write')
+        {
+            result.write = true
+            continue
+        }
+        if (argument === '--require-tools')
+        {
+            result.requireTools = true
+            continue
+        }
+        if (argument === '--update-baseline')
+        {
+            result.updateBaseline = true
+            continue
+        }
+        if (!['--root', '--policy', '--mode', '--domain', '--operation', '--base', '--file', '--baseline-ref'].includes(argument))
+        {
+            throw new Error(`unknown argument ${argument}`)
+        }
+
+        const value = argv[index + 1]
+        if (!value)
+        {
+            throw new Error(`${argument} requires a value`)
+        }
+        if (argument === '--file')
+        {
+            result.files.push(value)
+        }
+        else
+        {
+            result[argument.slice(2).replace('-r', 'R')] = value
+        }
+        index += 1
+    }
+
+    if (!validModes.has(result.mode))
+    {
+        throw new Error(`--mode must be one of ${[...validModes].join(', ')}`)
+    }
+    if (!validDomains.has(result.domain))
+    {
+        throw new Error(`--domain must be one of ${[...validDomains].join(', ')}`)
+    }
+    if (!validOperations.has(result.operation))
+    {
+        throw new Error(`--operation must be one of ${[...validOperations].join(', ')}`)
+    }
+    if (result.write && result.operation !== 'format')
+    {
+        throw new Error('--write is valid only with --operation format')
+    }
+    return result
+}
+
+function AddDiagnostic(file, line, rule, message)
+{
+    diagnostics.push({ file, line, rule, message })
+}
+
+function ReadJson(file, label, allowJsonc = false)
+{
+    if (!fs.existsSync(file))
+    {
+        AddDiagnostic(path.relative(root, file), 1, 'configuration', `missing ${label}`)
+        return null
+    }
+
+    try
+    {
+        const source = fs.readFileSync(file, 'utf8')
+        return JSON.parse(allowJsonc ? NormalizeJsonc(source) : source)
+    }
+    catch (error)
+    {
+        AddDiagnostic(path.relative(root, file), 1, 'configuration', `invalid ${label}: ${error.message}`)
+        return null
+    }
+}
+
+function ToPosix(value)
+{
+    return value.split(path.sep).join('/')
+}
+
+function NormalizeFile(value)
+{
+    const absolute = path.isAbsolute(value) ? path.resolve(value) : path.resolve(root, value)
+    const relative = ToPosix(path.relative(root, absolute))
+    if (relative === '..' || relative.startsWith('../'))
+    {
+        throw new Error(`file is outside repository root: ${value}`)
+    }
+    return relative
+}
+
+function GlobToRegExp(pattern)
+{
+    let source = ''
+    for (let index = 0; index < pattern.length; index += 1)
+    {
+        const character = pattern[index]
+        if (character === '*' && pattern[index + 1] === '*')
+        {
+            if (pattern[index + 2] === '/')
+            {
+                source += '(?:.*/)?'
+                index += 2
+            }
+            else
+            {
+                source += '.*'
+                index += 1
+            }
+            continue
+        }
+        if (character === '*')
+        {
+            source += '[^/]*'
+            continue
+        }
+        if (character === '?')
+        {
+            source += '[^/]'
+            continue
+        }
+        source += /[.+^${}()|[\]\\]/u.test(character) ? `\\${character}` : character
+    }
+    return new RegExp(`^${source}$`, 'u')
+}
+
+function CompilePatterns(patterns)
+{
+    return patterns.map((pattern) => ({ pattern, expression: GlobToRegExp(pattern) }))
+}
+
+function MatchesAny(file, patterns)
+{
+    return patterns.some(({ expression }) => expression.test(file))
+}
+
+function FileDomain(file)
+{
+    const extension = path.posix.extname(file).toLowerCase()
+    const special = path.posix.basename(file)
+    for (const [domain, definition] of Object.entries(policy.domains))
+    {
+        if (definition.extensions.includes(extension) || definition.specialFiles.includes(special))
+        {
+            return domain
+        }
+    }
+    return null
+}
+
+function IsEligible(file, domain, exclusions)
+{
+    const owner = FileDomain(file)
+    return owner !== null && (domain === 'all' || domain === owner) && !MatchesAny(file, exclusions)
+}
+
+function Run(command, argumentsList, options = {})
+{
+    return spawnSync(command, argumentsList, {
+        cwd: options.cwd ?? root,
+        encoding: options.encoding ?? 'utf8',
+        env: { ...process.env, ...(options.env ?? {}) },
+        maxBuffer: 32 * 1024 * 1024,
+        timeout: options.timeout ?? 120_000
+    })
+}
+
+function GitLines(argumentsList)
+{
+    const result = Run('git', argumentsList)
+    if (result.status !== 0)
+    {
+        throw new Error((result.stderr || result.stdout || `git ${argumentsList.join(' ')} failed`).trim())
+    }
+    return result.stdout.split(/\r?\n/u).filter(Boolean).map(ToPosix)
+}
+
+function SelectFiles(argumentsValue, exclusions)
+{
+    if (argumentsValue.files.length > 0)
+    {
+        return [...new Set(argumentsValue.files.map(NormalizeFile))]
+            .filter((file) => IsEligible(file, argumentsValue.domain, exclusions))
+            .sort()
+    }
+
+    let candidates = []
+    if (argumentsValue.mode === 'full')
+    {
+        candidates = GitLines(['ls-files', '--cached', '--others', '--exclude-standard'])
+    }
+    else
+    {
+        const base = argumentsValue.base ?? policy.changedDefaultBase
+        const changed = Run('git', ['diff', '--name-only', '--diff-filter=ACMR', base, '--'])
+        if (changed.status !== 0)
+        {
+            throw new Error(`cannot resolve changed-file base ${base}: ${(changed.stderr || changed.stdout).trim()}`)
+        }
+        candidates = changed.stdout.split(/\r?\n/u).filter(Boolean).map(ToPosix)
+        candidates.push(...GitLines(['ls-files', '--others', '--exclude-standard']))
+    }
+
+    return [...new Set(candidates)]
+        .filter((file) => IsEligible(file, argumentsValue.domain, exclusions))
+        .sort()
+}
+
+function Sha256(content)
+{
+    return crypto.createHash('sha256').update(content).digest('hex')
+}
+
+function ValidatePolicy()
+{
+    if (!policy || policy.schema !== policySchema)
+    {
+        AddDiagnostic(ToPosix(path.relative(root, policyPath)), 1, 'policy-schema', `expected ${policySchema}`)
+        return false
+    }
+
+    for (const requiredDomain of ['native', 'scripts', 'docs'])
+    {
+        if (!policy.domains?.[requiredDomain])
+        {
+            AddDiagnostic(ToPosix(path.relative(root, policyPath)), 1, 'policy-domain', `missing ${requiredDomain}`)
+        }
+    }
+    return true
+}
+
+function LoadExceptionRegistry()
+{
+    const file = path.resolve(root, policy.exceptions)
+    const authorityFile = path.resolve(root, policy.authorityRegistry)
+    const authorityRegistry = ReadJson(authorityFile, 'authoritative development registry')
+    const authorityExceptionIds = new Set(
+        authorityRegistry?.externalContractExceptions?.map((item) => item.id) ?? []
+    )
+    const authorityClassificationIds = new Set(
+        authorityRegistry?.pathClassifications?.map((item) => item.id) ?? []
+    )
+    exceptionRegistry = ReadJson(file, 'native/tooling exception registry')
+    if (!exceptionRegistry)
+    {
+        return
+    }
+    if (exceptionRegistry.schema !== exceptionSchema)
+    {
+        AddDiagnostic(policy.exceptions, 1, 'exception-schema', `expected ${exceptionSchema}`)
+        return
+    }
+
+    const ids = new Set()
+    for (const item of exceptionRegistry.exceptions ?? [])
+    {
+        if (!item.id || ids.has(item.id))
+        {
+            AddDiagnostic(policy.exceptions, 1, 'exception-id', `missing or duplicate id ${item.id ?? '(missing)'}`)
+        }
+        ids.add(item.id)
+        const authorityBacked = item.authorityExceptionId
+            ? authorityExceptionIds.has(item.authorityExceptionId)
+            : (item.authorityClassificationId
+                ? authorityClassificationIds.has(item.authorityClassificationId)
+                : item.precedenceClass === 'language-syntax')
+        if (!authorityBacked)
+        {
+            AddDiagnostic(
+                policy.exceptions,
+                1,
+                'exception-authority',
+                `${item.id} must map to the #1157 authority registry or the language-syntax precedence class`
+            )
+        }
+        if (!Array.isArray(item.paths) || item.paths.length === 0 || item.paths.some((entry) => entry === '**' || entry === '*'))
+        {
+            AddDiagnostic(policy.exceptions, 1, 'exception-scope', `${item.id} must use narrow path patterns`)
+        }
+        for (const property of ['externalPattern', 'internalPattern', 'positive', 'negative', 'reason'])
+        {
+            if (!item[property])
+            {
+                AddDiagnostic(policy.exceptions, 1, 'exception-contract', `${item.id} is missing ${property}`)
+            }
+        }
+        try
+        {
+            const external = new RegExp(item.externalPattern, 'u')
+            const internal = new RegExp(item.internalPattern, 'u')
+            if (!external.test(item.positive?.external ?? '') || !internal.test(item.positive?.internal ?? ''))
+            {
+                AddDiagnostic(policy.exceptions, 1, 'exception-positive', `${item.id} positive mapping does not match its patterns`)
+            }
+            if (internal.test(item.negative?.internal ?? ''))
+            {
+                AddDiagnostic(policy.exceptions, 1, 'exception-negative', `${item.id} negative internal example must be rejected`)
+            }
+        }
+        catch (error)
+        {
+            AddDiagnostic(policy.exceptions, 1, 'exception-pattern', `${item.id}: ${error.message}`)
+        }
+    }
+
+    for (const requiredId of exceptionRegistry.requiredIds ?? [])
+    {
+        if (!ids.has(requiredId))
+        {
+            AddDiagnostic(policy.exceptions, 1, 'exception-required', `missing ${requiredId}`)
+        }
+    }
+}
+
+function LoadBaseline()
+{
+    const file = path.resolve(root, policy.baseline)
+    if (!fs.existsSync(file))
+    {
+        return
+    }
+    const value = ReadJson(file, 'native/tooling style baseline')
+    if (!value)
+    {
+        return
+    }
+    if (value.schema !== baselineSchema)
+    {
+        AddDiagnostic(policy.baseline, 1, 'baseline-schema', `expected ${baselineSchema}`)
+        return
+    }
+    let previous = ''
+    for (const item of value.files ?? [])
+    {
+        if (!item.path || !/^[a-f0-9]{64}$/u.test(item.sha256 ?? ''))
+        {
+            AddDiagnostic(policy.baseline, 1, 'baseline-entry', 'every entry requires a path and sha256 digest')
+            continue
+        }
+        if (item.path <= previous)
+        {
+            AddDiagnostic(policy.baseline, 1, 'baseline-order', 'entries must be unique and sorted by path')
+        }
+        previous = item.path
+        baseline.set(item.path, item.sha256)
+    }
+}
+
+function UpdateBaseline(argumentsValue, exclusions)
+{
+    const reference = argumentsValue.baselineRef ?? 'HEAD'
+    const commitResult = Run('git', ['rev-parse', reference])
+    if (commitResult.status !== 0)
+    {
+        throw new Error(`cannot resolve baseline ref ${reference}: ${(commitResult.stderr || commitResult.stdout).trim()}`)
+    }
+    const commit = commitResult.stdout.trim()
+    const files = GitLines(['ls-tree', '-r', '--name-only', reference])
+        .filter((file) => IsEligible(file, 'all', exclusions))
+        .sort()
+    const entries = []
+    for (const file of files)
+    {
+        const blob = Run('git', ['show', `${reference}:${file}`], { encoding: 'buffer' })
+        if (blob.status !== 0)
+        {
+            throw new Error(`cannot read ${file} at ${reference}`)
+        }
+        entries.push({ path: file, sha256: Sha256(blob.stdout) })
+    }
+    const output = {
+        schema: baselineSchema,
+        sourceCommit: commit,
+        semantics: 'An entry exempts only the exact pre-rule content digest; editing the file removes the exemption.',
+        files: entries
+    }
+    const target = path.resolve(root, policy.baseline)
+    fs.mkdirSync(path.dirname(target), { recursive: true })
+    fs.writeFileSync(target, `${JSON.stringify(output, null, 4)}\n`)
+    process.stdout.write(`[native-tooling-style] baseline updated files=${entries.length} ref=${commit}\n`)
+}
+
+function NormalizeText(content)
+{
+    return content
+        .replace(/^\uFEFF/u, '')
+        .replace(/\r\n?/gu, '\n')
+        .split('\n')
+        .map((line) => line.replace(/[ \t]+$/u, ''))
+        .join('\n')
+        .replace(/\n*$/u, '\n')
+}
+
+function CheckPhysical(file, buffer, content)
+{
+    if (!isUtf8(buffer))
+    {
+        AddDiagnostic(file, 1, 'utf8', 'file is not valid UTF-8')
+        return
+    }
+    if (content.startsWith('\uFEFF'))
+    {
+        AddDiagnostic(file, 1, 'bom', 'UTF-8 BOM is not allowed')
+    }
+    if (content.includes('\r'))
+    {
+        AddDiagnostic(file, 1, 'line-ending', 'use LF line endings')
+    }
+    if (!content.endsWith('\n'))
+    {
+        AddDiagnostic(file, Math.max(1, content.split(/\r?\n/u).length), 'final-newline', 'file must end with one newline')
+    }
+    else if (content.endsWith('\n\n'))
+    {
+        AddDiagnostic(file, content.split('\n').length - 1, 'final-newline', 'file must not end with a blank line')
+    }
+
+    const lines = content.split(/\r?\n/u)
+    for (let index = 0; index < lines.length; index += 1)
+    {
+        if (/\s+$/u.test(lines[index]))
+        {
+            AddDiagnostic(file, index + 1, 'trailing-whitespace', 'remove trailing whitespace')
+        }
+        if (lines[index].includes('\t'))
+        {
+            AddDiagnostic(file, index + 1, 'tab', 'use 4 spaces instead of Tab')
+        }
+    }
+}
+
+function IsCommandAvailable(command)
+{
+    if (process.env.FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS === '1')
+    {
+        return false
+    }
+    const paths = (process.env.PATH ?? '').split(path.delimiter)
+    return paths.some((directory) =>
+    {
+        try
+        {
+            fs.accessSync(path.join(directory, command), fs.constants.X_OK)
+            return true
+        }
+        catch
+        {
+            return false
+        }
+    })
+}
+
+function ToolFailure(file, rule, result)
+{
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+        .split(/\r?\n/u)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(0, 6)
+        .join(' | ')
+    AddDiagnostic(file, 1, rule, output || 'tool exited non-zero')
+}
+
+function LoadCompileCommandDatabases()
+{
+    if (compileCommandDatabases !== null)
+    {
+        return compileCommandDatabases
+    }
+    compileCommandDatabases = []
+    for (const relativeDirectory of policy.standardTools.cppLint.compileDatabaseCandidates ?? [])
+    {
+        const directory = path.resolve(root, relativeDirectory)
+        const file = path.join(directory, 'compile_commands.json')
+        if (!fs.existsSync(file))
+        {
+            continue
+        }
+        try
+        {
+            const entries = JSON.parse(fs.readFileSync(file, 'utf8'))
+            const files = new Set(entries.map((entry) => path.isAbsolute(entry.file)
+                ? path.resolve(entry.file)
+                : path.resolve(entry.directory ?? directory, entry.file)))
+            compileCommandDatabases.push({ directory, files })
+        }
+        catch (error)
+        {
+            AddDiagnostic(ToPosix(path.relative(root, file)), 1, 'compile-database', error.message)
+        }
+    }
+    return compileCommandDatabases
+}
+
+function FindCompileCommandDatabase(file)
+{
+    const absolute = path.resolve(root, file)
+    return LoadCompileCommandDatabases().find((database) => database.files.has(absolute)) ?? null
+}
+
+function RequireTool(name, file)
+{
+    if (!IsCommandAvailable(name))
+    {
+        AddDiagnostic(file, 1, 'missing-tool', `${name} is required by --require-tools`)
+        return false
+    }
+    return true
+}
+
+function LeadingSpaces(line)
+{
+    return line.match(/^ */u)?.[0].length ?? 0
+}
+
+function CheckFourSpaceIndent(file, content)
+{
+    const lines = content.split(/\r?\n/u)
+    for (let index = 0; index < lines.length; index += 1)
+    {
+        const line = lines[index]
+        if (line.trim() && LeadingSpaces(line) % 4 !== 0)
+        {
+            AddDiagnostic(file, index + 1, 'indent', 'indentation must be a multiple of 4 spaces')
+        }
+    }
+}
+
+function CheckCpp(file, content, argumentsValue)
+{
+    const clangFormat = policy.standardTools.cppFormat.command
+    if (IsCommandAvailable(clangFormat))
+    {
+        const argumentsList = argumentsValue.write
+            ? ['-i', '--style=file', file]
+            : ['--dry-run', '--Werror', '--style=file', '--fallback-style=none', file]
+        const result = Run(clangFormat, argumentsList)
+        if (result.status !== 0)
+        {
+            ToolFailure(file, 'clang-format', result)
+        }
+    }
+    else
+    {
+        if (argumentsValue.requireTools)
+        {
+            RequireTool(clangFormat, file)
+        }
+        CheckFourSpaceIndent(file, content)
+        const lines = content.split(/\r?\n/u)
+        for (let index = 0; index < lines.length; index += 1)
+        {
+            if (/\b(?:if|for|while|switch|catch)\s*\([^)]*\)\s*\{/u.test(lines[index])
+                || /^\s*[A-Za-z_][^;{}]*\([^;{}]*\)\s*\{/u.test(lines[index]))
+            {
+                AddDiagnostic(file, index + 1, 'allman-brace', 'opening brace must start on the next line')
+            }
+        }
+    }
+
+    const generated = ExceptionApplies('generated-native', file)
+    const abiAdapter = ExceptionApplies('c-abi-wasm-export', file)
+    const lines = content.split(/\r?\n/u)
+    for (let index = 0; index < lines.length; index += 1)
+    {
+        const line = lines[index].replace(/\/\/.*$/u, '')
+        const type = line.match(/^\s*(?:class|struct|enum(?:\s+class)?)\s+([A-Za-z_][A-Za-z0-9_]*)/u)
+        if (!generated && type && !/^[A-Z][A-Za-z0-9]*$/u.test(type[1]))
+        {
+            AddDiagnostic(file, index + 1, 'cpp-type-name', `${type[1]} must use PascalCase`)
+        }
+
+        const functionMatch = line.match(/^\s*(?:(?:extern\s+"C"|static|inline|constexpr|const|unsigned|signed|void|bool|int|char|auto|std::[A-Za-z0-9_:<>]+|[A-Za-z_][A-Za-z0-9_:<>]*)\s+)+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*\(/u)
+        if (!generated && functionMatch && functionMatch[1] !== 'main' && !/^[A-Z][A-Za-z0-9]*$/u.test(functionMatch[1]))
+        {
+            const externalAllowed = abiAdapter && /^[a-z][a-z0-9_]*$/u.test(functionMatch[1])
+            if (!externalAllowed)
+            {
+                AddDiagnostic(file, index + 1, 'cpp-function-name', `${functionMatch[1]} must use PascalCase or a registered ABI exception`)
+            }
+        }
+    }
+
+    if (argumentsValue.operation !== 'lint')
+    {
+        return
+    }
+    const clangTidy = policy.standardTools.cppLint.command
+    if (!IsCommandAvailable(clangTidy))
+    {
+        if (argumentsValue.requireTools)
+        {
+            RequireTool(clangTidy, file)
+        }
+        return
+    }
+    const compileDatabase = FindCompileCommandDatabase(file)
+    if (!compileDatabase)
+    {
+        if (argumentsValue.requireTools)
+        {
+            AddDiagnostic(file, 1, 'missing-compile-command', 'clang-tidy requires a matching compile_commands.json entry')
+        }
+        return
+    }
+    const tidyResult = Run(clangTidy, ['--quiet', '-p', compileDatabase.directory, file])
+    if (tidyResult.status !== 0 || /(?:warning|error):/u.test(`${tidyResult.stdout}\n${tidyResult.stderr}`))
+    {
+        ToolFailure(file, 'clang-tidy', tidyResult)
+    }
+}
+
+function ExceptionApplies(id, file)
+{
+    const item = exceptionRegistry?.exceptions?.find((entry) => entry.id === id)
+    return item ? MatchesAny(file, CompilePatterns(item.paths)) : false
+}
+
+function CheckCMake(file, content, argumentsValue)
+{
+    const formatter = policy.standardTools.cmakeFormat.command
+    if (IsCommandAvailable(formatter))
+    {
+        const args = argumentsValue.write ? ['-i', file] : ['--check', file]
+        const result = Run(formatter, args)
+        if (result.status !== 0)
+        {
+            ToolFailure(file, 'cmake-format', result)
+        }
+    }
+    else
+    {
+        if (argumentsValue.requireTools)
+        {
+            RequireTool(formatter, file)
+        }
+        CheckFourSpaceIndent(file, content)
+    }
+
+    const lines = content.split(/\r?\n/u)
+    for (let index = 0; index < lines.length; index += 1)
+    {
+        const functionMatch = lines[index].match(/^\s*(?:function|macro)\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)/iu)
+        if (functionMatch && !/^[A-Z][A-Za-z0-9]*$/u.test(functionMatch[1]))
+        {
+            AddDiagnostic(file, index + 1, 'cmake-function-name', `${functionMatch[1]} must use PascalCase`)
+        }
+        const variableMatch = lines[index].match(/^\s*set\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)/iu)
+        if (variableMatch
+            && !/^[a-z][A-Za-z0-9]*$/u.test(variableMatch[1])
+            && !/^(?:CMAKE|CTEST|CPACK|FSUSBLOG)_[A-Z0-9_]+$/u.test(variableMatch[1]))
+        {
+            AddDiagnostic(file, index + 1, 'cmake-variable-name', `${variableMatch[1]} must use camelCase or a registered cache/environment name`)
+        }
+    }
+}
+
+function CheckShell(file, content, argumentsValue)
+{
+    CheckFourSpaceIndent(file, content)
+    const lines = content.split(/\r?\n/u)
+    if (!lines[0]?.startsWith('#!'))
+    {
+        AddDiagnostic(file, 1, 'shell-shebang', 'shell scripts require an explicit interpreter')
+    }
+    const strictLine = lines.findIndex((line) => /^set -euo pipefail(?:\s|$)/u.test(line.trim()))
+    if (strictLine < 0)
+    {
+        AddDiagnostic(file, 1, 'shell-strict-mode', 'shell scripts require set -euo pipefail')
+    }
+    if (/\b(?:mktemp|coproc)\b|(?:^|\s)&\s*(?:#.*)?$/mu.test(content)
+        && !/^\s*trap\s+.+\b(?:EXIT|RETURN)\b/mu.test(content))
+    {
+        AddDiagnostic(file, 1, 'shell-cleanup-trap', 'temporary or background resources require an EXIT/RETURN cleanup trap')
+    }
+    for (let index = 0; index < lines.length; index += 1)
+    {
+        const functionMatch = lines[index].match(/^\s*(?:function\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(?:\(\))?\s*\{/u)
+        if (functionMatch && !/^[A-Z][A-Za-z0-9]*$/u.test(functionMatch[1]))
+        {
+            AddDiagnostic(file, index + 1, 'shell-function-name', `${functionMatch[1]} must use PascalCase`)
+        }
+        const localMatch = lines[index].match(/\blocal\s+(?:-[A-Za-z]+\s+)?([A-Za-z_][A-Za-z0-9_]*)/u)
+        if (localMatch && !/^[a-z][A-Za-z0-9]*$/u.test(localMatch[1]))
+        {
+            AddDiagnostic(file, index + 1, 'shell-local-name', `${localMatch[1]} must use camelCase`)
+        }
+        const exportMatch = lines[index].match(/\bexport\s+([A-Za-z_][A-Za-z0-9_]*)/u)
+        if (exportMatch && !/^[A-Z][A-Z0-9_]*$/u.test(exportMatch[1]))
+        {
+            AddDiagnostic(file, index + 1, 'shell-export-name', `${exportMatch[1]} must use UPPER_SNAKE_CASE`)
+        }
+        const unsafeExpansion = lines[index].match(/(^|[^'"\\])\$[A-Za-z_][A-Za-z0-9_]*/u)
+        if (unsafeExpansion && !/^\s*(?:#|export\s|readonly\s)/u.test(lines[index]))
+        {
+            AddDiagnostic(file, index + 1, 'shell-quote', 'quote variable expansions unless intentional word splitting is documented')
+        }
+    }
+
+    const shellcheck = policy.standardTools.shellLint.command
+    if (IsCommandAvailable(shellcheck))
+    {
+        const result = Run(shellcheck, ['--rcfile', policy.standardTools.shellLint.configuration, file])
+        if (result.status !== 0)
+        {
+            ToolFailure(file, 'shellcheck', result)
+        }
+    }
+    else if (argumentsValue.requireTools)
+    {
+        RequireTool(shellcheck, file)
+    }
+
+    const shfmt = policy.standardTools.shellFormat.command
+    if (IsCommandAvailable(shfmt))
+    {
+        const result = Run(shfmt, argumentsValue.write ? ['-w', '-i', '4', '-ci', file] : ['-d', '-i', '4', '-ci', file])
+        if (result.status !== 0)
+        {
+            ToolFailure(file, 'shfmt', result)
+        }
+    }
+    else if (argumentsValue.requireTools)
+    {
+        RequireTool(shfmt, file)
+    }
+}
+
+function CheckYaml(file, content, argumentsValue)
+{
+    const levels = new Map()
+    const lines = content.split(/\r?\n/u)
+    const sequenceIndents = new Set()
+    for (let index = 0; index < lines.length; index += 1)
+    {
+        const raw = lines[index]
+        const indentation = LeadingSpaces(raw)
+        const text = raw.trim()
+        if (!text || text.startsWith('#') || text === '---' || text === '...')
+        {
+            continue
+        }
+        if (indentation % 4 !== 0)
+        {
+            const alignedSequenceMapping = indentation >= 6
+                && indentation % 4 === 2
+                && sequenceIndents.has(indentation - 2)
+            if (!alignedSequenceMapping)
+            {
+                AddDiagnostic(file, index + 1, 'indent', 'YAML indentation must use 4-space levels')
+            }
+        }
+        for (const level of [...levels.keys()])
+        {
+            if (level > indentation)
+            {
+                levels.delete(level)
+            }
+        }
+        if (text.startsWith('- '))
+        {
+            levels.delete(indentation)
+            sequenceIndents.add(indentation)
+        }
+        const keyMatch = text.match(/^(?:-\s+)?([^#'"{}[\],][^:]*):(?:\s|$)/u)
+        if (!keyMatch)
+        {
+            continue
+        }
+        const key = keyMatch[1].trim()
+        const keys = levels.get(indentation) ?? new Set()
+        if (keys.has(key))
+        {
+            AddDiagnostic(file, index + 1, 'yaml-duplicate-key', `duplicate mapping key ${key}`)
+        }
+        keys.add(key)
+        levels.set(indentation, keys)
+    }
+
+    const yamllint = policy.standardTools.yamlLint.command
+    if (IsCommandAvailable(yamllint))
+    {
+        const result = Run(yamllint, ['-c', policy.standardTools.yamlLint.configuration, file])
+        if (result.status !== 0)
+        {
+            ToolFailure(file, 'yamllint', result)
+        }
+    }
+    else if (argumentsValue.requireTools)
+    {
+        RequireTool(yamllint, file)
+    }
+
+    if (/^\.github\/workflows\//u.test(file))
+    {
+        const actionlint = policy.standardTools.githubActionsLint.command
+        if (IsCommandAvailable(actionlint))
+        {
+            const result = Run(actionlint, ['-config-file', policy.standardTools.githubActionsLint.configuration, file])
+            if (result.status !== 0)
+            {
+                ToolFailure(file, 'actionlint', result)
+            }
+        }
+        else if (argumentsValue.requireTools)
+        {
+            RequireTool(actionlint, file)
+        }
+    }
+}
+
+function StripJsonComments(content)
+{
+    let output = ''
+    let inString = false
+    let escaped = false
+    let lineComment = false
+    let blockComment = false
+    for (let index = 0; index < content.length; index += 1)
+    {
+        const character = content[index]
+        const next = content[index + 1]
+        if (lineComment)
+        {
+            if (character === '\n')
+            {
+                lineComment = false
+                output += '\n'
+            }
+            else
+            {
+                output += ' '
+            }
+            continue
+        }
+        if (blockComment)
+        {
+            if (character === '*' && next === '/')
+            {
+                blockComment = false
+                output += '  '
+                index += 1
+            }
+            else
+            {
+                output += character === '\n' ? '\n' : ' '
+            }
+            continue
+        }
+        if (inString)
+        {
+            output += character
+            if (escaped)
+            {
+                escaped = false
+            }
+            else if (character === '\\')
+            {
+                escaped = true
+            }
+            else if (character === '"')
+            {
+                inString = false
+            }
+            continue
+        }
+        if (character === '"')
+        {
+            inString = true
+            output += character
+        }
+        else if (character === '/' && next === '/')
+        {
+            lineComment = true
+            output += '  '
+            index += 1
+        }
+        else if (character === '/' && next === '*')
+        {
+            blockComment = true
+            output += '  '
+            index += 1
+        }
+        else
+        {
+            output += character
+        }
+    }
+    return output
+}
+
+function RemoveJsonTrailingCommas(content)
+{
+    let output = ''
+    let inString = false
+    let escaped = false
+    for (let index = 0; index < content.length; index += 1)
+    {
+        const character = content[index]
+        if (inString)
+        {
+            output += character
+            if (escaped)
+            {
+                escaped = false
+            }
+            else if (character === '\\')
+            {
+                escaped = true
+            }
+            else if (character === '"')
+            {
+                inString = false
+            }
+            continue
+        }
+        if (character === '"')
+        {
+            inString = true
+            output += character
+            continue
+        }
+        if (character === ',')
+        {
+            let next = index + 1
+            while (/\s/u.test(content[next] ?? ''))
+            {
+                next += 1
+            }
+            if (content[next] === '}' || content[next] === ']')
+            {
+                output += ' '
+                continue
+            }
+        }
+        output += character
+    }
+    return output
+}
+
+function NormalizeJsonc(content)
+{
+    return RemoveJsonTrailingCommas(StripJsonComments(content))
+}
+
+function TokenizeJson(content)
+{
+    const tokens = []
+    let index = 0
+    let line = 1
+    while (index < content.length)
+    {
+        const character = content[index]
+        if (/\s/u.test(character))
+        {
+            if (character === '\n')
+            {
+                line += 1
+            }
+            index += 1
+            continue
+        }
+        if ('{}[]:,'.includes(character))
+        {
+            tokens.push({ type: character, value: character, raw: character, line })
+            index += 1
+            continue
+        }
+        if (character === '"')
+        {
+            const start = index
+            index += 1
+            let escaped = false
+            while (index < content.length)
+            {
+                const current = content[index]
+                if (current === '\n')
+                {
+                    line += 1
+                }
+                if (escaped)
+                {
+                    escaped = false
+                }
+                else if (current === '\\')
+                {
+                    escaped = true
+                }
+                else if (current === '"')
+                {
+                    index += 1
+                    break
+                }
+                index += 1
+            }
+            const source = content.slice(start, index)
+            tokens.push({ type: 'string', value: JSON.parse(source), raw: source, line })
+            continue
+        }
+        const match = content.slice(index).match(/^(?:-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)/u)
+        if (!match)
+        {
+            throw new Error(`unexpected token at line ${line}`)
+        }
+        tokens.push({ type: 'literal', value: match[0], raw: match[0], line })
+        index += match[0].length
+    }
+    return tokens
+}
+
+function FormatJsonTokens(tokens)
+{
+    let output = ''
+    let indentation = 0
+    for (let index = 0; index < tokens.length; index += 1)
+    {
+        const token = tokens[index]
+        const previous = tokens[index - 1]
+        const next = tokens[index + 1]
+        if (token.type === '{' || token.type === '[')
+        {
+            output += token.raw
+            if (!((token.type === '{' && next?.type === '}') || (token.type === '[' && next?.type === ']')))
+            {
+                indentation += 1
+                output += `\n${' '.repeat(indentation * 4)}`
+            }
+        }
+        else if (token.type === '}' || token.type === ']')
+        {
+            const matchingOpen = token.type === '}' ? '{' : '['
+            if (previous?.type !== matchingOpen)
+            {
+                indentation -= 1
+                output += `\n${' '.repeat(indentation * 4)}`
+            }
+            output += token.raw
+        }
+        else if (token.type === ',')
+        {
+            output += `,\n${' '.repeat(indentation * 4)}`
+        }
+        else if (token.type === ':')
+        {
+            output += ': '
+        }
+        else
+        {
+            output += token.raw
+        }
+    }
+    return `${output}\n`
+}
+
+function FindDuplicateJsonKeys(content)
+{
+    const tokens = TokenizeJson(content)
+    const duplicates = []
+    let cursor = 0
+
+    function ParseValue()
+    {
+        const token = tokens[cursor]
+        if (!token)
+        {
+            return
+        }
+        if (token.type === '{')
+        {
+            ParseObject()
+        }
+        else if (token.type === '[')
+        {
+            cursor += 1
+            while (tokens[cursor] && tokens[cursor].type !== ']')
+            {
+                ParseValue()
+                if (tokens[cursor]?.type === ',')
+                {
+                    cursor += 1
+                }
+            }
+            cursor += tokens[cursor]?.type === ']' ? 1 : 0
+        }
+        else
+        {
+            cursor += 1
+        }
+    }
+
+    function ParseObject()
+    {
+        cursor += 1
+        const keys = new Set()
+        while (tokens[cursor] && tokens[cursor].type !== '}')
+        {
+            const key = tokens[cursor]
+            if (key.type !== 'string')
+            {
+                cursor += 1
+                continue
+            }
+            if (keys.has(key.value))
+            {
+                duplicates.push({ key: key.value, line: key.line })
+            }
+            keys.add(key.value)
+            cursor += 1
+            if (tokens[cursor]?.type === ':')
+            {
+                cursor += 1
+            }
+            ParseValue()
+            if (tokens[cursor]?.type === ',')
+            {
+                cursor += 1
+            }
+        }
+        cursor += tokens[cursor]?.type === '}' ? 1 : 0
+    }
+
+    ParseValue()
+    return duplicates
+}
+
+function CheckJson(file, content, argumentsValue)
+{
+    const jsonc = file.endsWith('.jsonc')
+    const normalizedSource = jsonc ? NormalizeJsonc(content) : content
+    try
+    {
+        JSON.parse(normalizedSource)
+    }
+    catch (error)
+    {
+        AddDiagnostic(file, 1, 'json-syntax', error.message)
+        return
+    }
+
+    try
+    {
+        const tokens = TokenizeJson(normalizedSource)
+        for (const token of tokens)
+        {
+            if (token.type === 'literal'
+                && /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/u.test(token.raw)
+                && !Number.isFinite(Number(token.raw)))
+            {
+                AddDiagnostic(file, token.line, 'json-non-finite', `number is outside the finite JSON consumer range: ${token.raw}`)
+            }
+        }
+        for (const duplicate of FindDuplicateJsonKeys(normalizedSource))
+        {
+            AddDiagnostic(file, duplicate.line, 'json-duplicate-key', `duplicate object key ${duplicate.key}`)
+        }
+    }
+    catch (error)
+    {
+        AddDiagnostic(file, 1, 'json-token', error.message)
+    }
+
+    if (!jsonc)
+    {
+        const expected = FormatJsonTokens(TokenizeJson(content))
+        if (argumentsValue.write)
+        {
+            fs.writeFileSync(path.join(root, file), expected)
+        }
+        else if (content !== expected)
+        {
+            AddDiagnostic(file, 1, 'json-format', 'JSON must use stable existing key order and 4-space indentation')
+        }
+    }
+    else
+    {
+        CheckFourSpaceIndent(file, content)
+    }
+}
+
+function CheckMarkdown(file, content, argumentsValue)
+{
+    const lines = content.split(/\r?\n/u)
+    let inFence = false
+    let fenceMarker = ''
+    let previousHeading = 0
+    for (let index = 0; index < lines.length; index += 1)
+    {
+        const line = lines[index]
+        const fence = line.match(/^\s*(`{3,}|~{3,})(.*)$/u)
+        if (fence)
+        {
+            if (!inFence)
+            {
+                inFence = true
+                fenceMarker = fence[1][0]
+                if (!fence[2].trim())
+                {
+                    AddDiagnostic(file, index + 1, 'markdown-fence-language', 'opening code fence requires a language')
+                }
+            }
+            else if (fence[1][0] === fenceMarker)
+            {
+                inFence = false
+                fenceMarker = ''
+            }
+            continue
+        }
+        if (inFence)
+        {
+            continue
+        }
+        const heading = line.match(/^(#{1,6})\s+\S/u)
+        if (heading)
+        {
+            const level = heading[1].length
+            if (previousHeading > 0 && level > previousHeading + 1)
+            {
+                AddDiagnostic(file, index + 1, 'markdown-heading-level', `heading jumps from h${previousHeading} to h${level}`)
+            }
+            previousHeading = level
+        }
+        const list = line.match(/^( +)(?:[-+*]|\d+[.)])\s/u)
+        if (list && list[1].length % 4 !== 0)
+        {
+            AddDiagnostic(file, index + 1, 'markdown-list-indent', 'nested lists use 4-space indentation')
+        }
+        for (const match of line.matchAll(/\[[^\]]*\]\(([^)]+)\)/gu))
+        {
+            const destination = match[1].trim().replace(/^<|>$/gu, '').split(/\s+["']/u)[0]
+            if (!destination || /^(?:https?:|mailto:|#|\/)/u.test(destination))
+            {
+                continue
+            }
+            const relative = decodeURIComponent(destination.split('#')[0])
+            if (relative && !fs.existsSync(path.resolve(root, path.dirname(file), relative)))
+            {
+                AddDiagnostic(file, index + 1, 'markdown-link', `relative link does not exist: ${relative}`)
+            }
+        }
+    }
+    if (inFence)
+    {
+        AddDiagnostic(file, lines.length, 'markdown-fence-balance', 'code fence is not closed')
+    }
+
+    const markdownlint = policy.standardTools.markdownLint.command
+    if (IsCommandAvailable(markdownlint))
+    {
+        const result = Run(markdownlint, ['--config', policy.standardTools.markdownLint.configuration, file])
+        if (result.status !== 0)
+        {
+            ToolFailure(file, 'markdownlint', result)
+        }
+    }
+    else if (argumentsValue.requireTools)
+    {
+        RequireTool(markdownlint, file)
+    }
+}
+
+function ApplyGenericFormat(file, content)
+{
+    const normalized = NormalizeText(content)
+    if (normalized !== content)
+    {
+        fs.writeFileSync(path.join(root, file), normalized)
+    }
+}
+
+function CheckFile(file, argumentsValue)
+{
+    const absolute = path.resolve(root, file)
+    if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile())
+    {
+        AddDiagnostic(file, 1, 'missing-file', 'selected file does not exist')
+        return
+    }
+
+    let buffer = fs.readFileSync(absolute)
+    let content = buffer.toString('utf8')
+    if (argumentsValue.write)
+    {
+        ApplyGenericFormat(file, content)
+        buffer = fs.readFileSync(absolute)
+        content = buffer.toString('utf8')
+    }
+    CheckPhysical(file, buffer, content)
+
+    const extension = path.posix.extname(file).toLowerCase()
+    const basename = path.posix.basename(file)
+    if (['.c', '.cc', '.cpp', '.cxx', '.h', '.hh', '.hpp', '.hxx'].includes(extension))
+    {
+        CheckCpp(file, content, argumentsValue)
+    }
+    else if (extension === '.cmake' || basename === 'CMakeLists.txt')
+    {
+        CheckCMake(file, content, argumentsValue)
+    }
+    else if (extension === '.sh')
+    {
+        CheckShell(file, content, argumentsValue)
+    }
+    else if (extension === '.yaml' || extension === '.yml')
+    {
+        CheckYaml(file, content, argumentsValue)
+    }
+    else if (extension === '.json' || extension === '.jsonc')
+    {
+        CheckJson(file, content, argumentsValue)
+    }
+    else if (extension === '.md')
+    {
+        CheckMarkdown(file, content, argumentsValue)
+    }
+}
+
+function PrintDiagnostics()
+{
+    diagnostics.sort((left, right) => left.file.localeCompare(right.file)
+        || left.line - right.line
+        || left.rule.localeCompare(right.rule)
+        || left.message.localeCompare(right.message))
+    for (const diagnostic of diagnostics)
+    {
+        process.stderr.write(`${diagnostic.file}:${diagnostic.line} ${diagnostic.rule}: ${diagnostic.message}\n`)
+    }
+}
+
+function Main()
+{
+    const argumentsValue = ParseArguments(process.argv.slice(2))
+    root = path.resolve(argumentsValue.root ?? repositoryRoot)
+    policyPath = path.resolve(root, argumentsValue.policy ?? defaultPolicy)
+    policy = ReadJson(policyPath, 'native/tooling style policy')
+    if (!ValidatePolicy())
+    {
+        PrintDiagnostics()
+        process.exitCode = 1
+        return
+    }
+
+    const exclusions = CompilePatterns(policy.excludedPaths)
+    LoadExceptionRegistry()
+    if (argumentsValue.updateBaseline)
+    {
+        if (diagnostics.length > 0)
+        {
+            PrintDiagnostics()
+            process.exitCode = 1
+            return
+        }
+        UpdateBaseline(argumentsValue, exclusions)
+        return
+    }
+    LoadBaseline()
+
+    const selected = SelectFiles(argumentsValue, exclusions)
+    let checked = 0
+    let baselineExempt = 0
+    for (const file of selected)
+    {
+        const absolute = path.resolve(root, file)
+        if (argumentsValue.mode === 'full' && fs.existsSync(absolute))
+        {
+            const expectedDigest = baseline.get(file)
+            if (expectedDigest && expectedDigest === Sha256(fs.readFileSync(absolute)))
+            {
+                baselineExempt += 1
+                continue
+            }
+        }
+        checked += 1
+        CheckFile(file, argumentsValue)
+    }
+
+    if (diagnostics.length > 0)
+    {
+        PrintDiagnostics()
+        process.stderr.write(`[native-tooling-style] failed selected=${selected.length} checked=${checked} baseline=${baselineExempt} violations=${diagnostics.length}\n`)
+        process.exitCode = 1
+        return
+    }
+    process.stdout.write(`[native-tooling-style] ok operation=${argumentsValue.operation} domain=${argumentsValue.domain} mode=${argumentsValue.mode} selected=${selected.length} checked=${checked} baseline=${baselineExempt} violations=0\n`)
+}
+
+try
+{
+    Main()
+}
+catch (error)
+{
+    process.stderr.write(`[native-tooling-style] fatal: ${error.stack ?? error.message}\n`)
+    process.exitCode = 1
+}

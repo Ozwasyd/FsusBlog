@@ -1,0 +1,165 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "native-base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/.tmp/cmake/${presetName}",
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "clang++",
+                "FSUSBLOG_WARNINGS_AS_ERRORS": "OFF",
+                "FSUSBLOG_ENABLE_CLANG_TIDY": "OFF",
+                "FSUSBLOG_ENABLE_SANITIZERS": "OFF",
+                "FSUSBLOG_ENABLE_FUZZING": "OFF"
+            }
+        },
+        {
+            "name": "native-basic",
+            "displayName": "Host native basic checks",
+            "inherits": "native-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "native-speed",
+            "displayName": "Host native optimized checks",
+            "inherits": "native-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "native-asan-ubsan",
+            "displayName": "Host native ASan and UBSan checks",
+            "inherits": "native-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "FSUSBLOG_ENABLE_SANITIZERS": "ON"
+            }
+        },
+        {
+            "name": "native-fuzz",
+            "displayName": "Host native fuzz targets",
+            "inherits": "native-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "FSUSBLOG_ENABLE_FUZZING": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "native-basic",
+            "configurePreset": "native-basic"
+        },
+        {
+            "name": "native-speed",
+            "configurePreset": "native-speed"
+        },
+        {
+            "name": "native-asan-ubsan",
+            "configurePreset": "native-asan-ubsan"
+        },
+        {
+            "name": "native-fuzz",
+            "configurePreset": "native-fuzz"
+        },
+        {
+            "name": "format",
+            "configurePreset": "native-basic",
+            "targets": [
+                "FormatCheck"
+            ]
+        },
+        {
+            "name": "lint",
+            "configurePreset": "native-basic",
+            "targets": [
+                "LintNative"
+            ]
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "native-basic",
+            "configurePreset": "native-basic",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "native-speed",
+            "configurePreset": "native-speed",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "native-asan-ubsan",
+            "configurePreset": "native-asan-ubsan",
+            "output": {
+                "outputOnFailure": true
+            }
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "native-basic",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "native-basic"
+                },
+                {
+                    "type": "build",
+                    "name": "native-basic"
+                },
+                {
+                    "type": "test",
+                    "name": "native-basic"
+                }
+            ]
+        },
+        {
+            "name": "native-speed",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "native-speed"
+                },
+                {
+                    "type": "build",
+                    "name": "native-speed"
+                },
+                {
+                    "type": "test",
+                    "name": "native-speed"
+                }
+            ]
+        },
+        {
+            "name": "native-asan-ubsan",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "native-asan-ubsan"
+                },
+                {
+                    "type": "build",
+                    "name": "native-asan-ubsan"
+                },
+                {
+                    "type": "test",
+                    "name": "native-asan-ubsan"
+                }
+            ]
+        }
+    ]
+}

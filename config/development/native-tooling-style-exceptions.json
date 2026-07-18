@@ -1,0 +1,202 @@
+{
+    "schema": "fsusblog.native-tooling-style-exceptions.v1",
+    "precedence": [
+        "external-contract",
+        "language-syntax",
+        "fsusblog-csharp-mapping",
+        "formatter-linter-default"
+    ],
+    "requiredIds": [
+        "c-abi-wasm-export",
+        "compiler-intrinsic",
+        "generated-native",
+        "environment-variable",
+        "shell-environment-variable",
+        "cmake-cache-environment",
+        "github-actions-schema",
+        "json-wire-key",
+        "css-like-contract"
+    ],
+    "exceptions": [
+        {
+            "id": "c-abi-wasm-export",
+            "authorityExceptionId": "c-abi-wasm-export",
+            "paths": [
+                "src/frontend/wasm/**/src/*exports.cpp",
+                "src/frontend/wasm/aeds/src/exports.cpp",
+                "src/frontend/wasm/pow/src/main.cpp"
+            ],
+            "externalPattern": "^[a-z][a-z0-9_]*$",
+            "internalPattern": "^[A-Z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "decode_io_buffer",
+                "internal": "DecodeIoBuffer"
+            },
+            "negative": {
+                "external": "decode_io_buffer",
+                "internal": "decode_io_buffer"
+            },
+            "reason": "C ABI and Emscripten export spelling is a stable caller-visible contract."
+        },
+        {
+            "id": "compiler-intrinsic",
+            "precedenceClass": "language-syntax",
+            "paths": [
+                "src/frontend/wasm/**/*.cpp",
+                "tests/frontend/fixtures/*.cpp"
+            ],
+            "externalPattern": "^__(?:builtin|attribute|asm)_[A-Za-z0-9_]+$",
+            "internalPattern": "^[A-Z][A-Za-z0-9]*$",
+            "adapterRequired": false,
+            "positive": {
+                "external": "__builtin_trap",
+                "internal": "FailClosed"
+            },
+            "negative": {
+                "external": "__builtin_trap",
+                "internal": "business__builtin_trap"
+            },
+            "reason": "Compiler-provided intrinsic names cannot be renamed."
+        },
+        {
+            "id": "generated-native",
+            "authorityClassificationId": "generated",
+            "paths": [
+                "src/frontend/wasm/aeds/include/aeds_frame.hpp"
+            ],
+            "externalPattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "internalPattern": "^[A-Z][A-Za-z0-9]*$",
+            "adapterRequired": false,
+            "positive": {
+                "external": "payload_length",
+                "internal": "PayloadLength"
+            },
+            "negative": {
+                "external": "payload_length",
+                "internal": "manual_payload_length"
+            },
+            "reason": "The protocol generator owns this ABI-layout header and its member spelling."
+        },
+        {
+            "id": "environment-variable",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                "tools/**/*.mjs",
+                "src/**/*.cs"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "testProfile"
+            },
+            "negative": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "FSUSBLOG_TEST_PROFILE"
+            },
+            "reason": "Process environment spelling is external while option variables remain internal."
+        },
+        {
+            "id": "shell-environment-variable",
+            "authorityExceptionId": "shell-environment-variable",
+            "paths": [
+                "tools/**/*.sh"
+            ],
+            "externalPattern": "^[A-Z][A-Z0-9_]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "testProfile"
+            },
+            "negative": {
+                "external": "FSUSBLOG_TEST_PROFILE",
+                "internal": "FSUSBLOG_TEST_PROFILE"
+            },
+            "reason": "Exported shell variables retain process-level spelling; local aliases use camelCase."
+        },
+        {
+            "id": "cmake-cache-environment",
+            "authorityExceptionId": "cmake-built-in",
+            "paths": [
+                "**/CMakeLists.txt",
+                "**/*.cmake"
+            ],
+            "externalPattern": "^(?:CMAKE|CTEST|CPACK|FSUSBLOG)_[A-Z0-9_]+$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "FSUSBLOG_WARNINGS_AS_ERRORS",
+                "internal": "warningsAsErrors"
+            },
+            "negative": {
+                "external": "FSUSBLOG_WARNINGS_AS_ERRORS",
+                "internal": "FSUSBLOG_WARNINGS_AS_ERRORS"
+            },
+            "reason": "CMake cache and environment keys are public command-line contracts."
+        },
+        {
+            "id": "github-actions-schema",
+            "authorityExceptionId": "third-party-sdk-callback",
+            "paths": [
+                ".github/workflows/*.yml",
+                ".github/workflows/*.yaml"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": false,
+            "positive": {
+                "external": "runs-on",
+                "internal": "runnerLabel"
+            },
+            "negative": {
+                "external": "runs-on",
+                "internal": "runs-on"
+            },
+            "reason": "Workflow and third-party action keys are defined by an external schema."
+        },
+        {
+            "id": "json-wire-key",
+            "authorityExceptionId": "json-api-field",
+            "paths": [
+                "config/**/*.json",
+                "security/**/*.json",
+                "tests/**/*.json"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "article_id",
+                "internal": "articleId"
+            },
+            "negative": {
+                "external": "article_id",
+                "internal": "article_id"
+            },
+            "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming."
+        },
+        {
+            "id": "css-like-contract",
+            "authorityExceptionId": "css-selector-custom-property",
+            "paths": [
+                "docs/**/*.md",
+                "config/**/*.json"
+            ],
+            "externalPattern": "^(?:\\.[a-z][a-z0-9-]*|--[a-z][a-z0-9-]*)$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": ".article-card",
+                "internal": "articleCardClass"
+            },
+            "negative": {
+                "external": ".article-card",
+                "internal": "article-card"
+            },
+            "reason": "DOM and token spelling is preserved only when documented as a caller-visible contract."
+        }
+    ]
+}

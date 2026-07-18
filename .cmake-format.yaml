@@ -1,0 +1,22 @@
+format:
+    line_width: 120
+    tab_size: 4
+    use_tabchars: false
+    dangle_parens: true
+    separate_ctrl_name_with_space: false
+    separate_fn_name_with_space: false
+    enable_sort: true
+    autosort: false
+markup:
+    enable_markup: true
+    first_comment_is_literal: false
+    canonicalize_hashrulers: true
+    enable_formatter: true
+lint:
+    disabled_codes: []
+    function_pattern: '[A-Z][A-Za-z0-9]+'
+    macro_pattern: '[A-Z][A-Za-z0-9]+'
+    argument_var_pattern: '[a-z][A-Za-z0-9]*'
+    local_var_pattern: '[a-z][A-Za-z0-9]*'
+    private_var_pattern: '_[a-z][A-Za-z0-9]*'
+    public_var_pattern: '[A-Z][A-Z0-9_]*'

@@ -1,0 +1,7 @@
+{
+    "schema": "fixture.v1",
+    "enabled": true,
+    "limits": {
+        "attempts": 3
+    }
+}
