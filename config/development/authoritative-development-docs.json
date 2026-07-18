@@ -115,7 +115,7 @@
     {
       "id": "repository-config",
       "owner": "ConfigurationStyleOwner",
-      "extensions": [".conf", ".example", ".http", ".npmrc", ".template", ".production-template", ".Dockerfile", ".editorconfig", ".prettierrc", ".gitignore", ".gitattributes", ".dockerignore", ".ignore"],
+      "extensions": [".conf", ".example", ".http", ".npmrc", ".template", ".production-template", ".Dockerfile", ".editorconfig", ".prettierrc", ".git-blame-ignore-revs", ".gitignore", ".gitattributes", ".dockerignore", ".ignore"],
       "specialFiles": ["CODEOWNERS", "Dockerfile"],
       "documentationHeading": "## Repository baseline"
     }
@@ -233,6 +233,13 @@
       "path": "tools/test.sh",
       "invocation": "./tools/test.sh fast",
       "documents": ["CONTRIBUTING.md"]
+    },
+    {
+      "id": "csharp-style",
+      "kind": "node-script",
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "invocation": "node tools/dotnet/check-csharp-style.mjs --mode changed",
+      "documents": ["docs/development/csharp-style-enforcement.md"]
     },
     {
       "id": "frontend-fast-tests",

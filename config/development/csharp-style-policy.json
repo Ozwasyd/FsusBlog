@@ -1,0 +1,60 @@
+{
+  "schema": "fsusblog.csharp-style-policy.v1",
+  "editorConfig": ".editorconfig",
+  "workspace": "FsusBlog.slnx",
+  "baseline": "config/development/csharp-style-baseline.json",
+  "minimumDotnetMajor": 10,
+  "format": {
+    "whitespaceCommand": "dotnet format whitespace --folder --verify-no-changes",
+    "styleCommand": "dotnet format style FsusBlog.slnx --verify-no-changes --no-restore --severity info",
+    "changedDefaultBase": "HEAD^",
+    "fullMode": "baseline-aware",
+    "strictFullMode": "dotnet-format"
+  },
+  "excludedPaths": [
+    "**/bin/**",
+    "**/obj/**",
+    "**/generated/**",
+    "**/Generated/**",
+    "**/*.g.cs",
+    "**/*.generated.cs",
+    "**/*.designer.cs",
+    "artifacts/**",
+    "**/vendor/**",
+    "tools/vcpkg-overlays/**",
+    "**/node_modules/**",
+    "tests/**/Fixtures/**",
+    "tests/**/fixtures/**"
+  ],
+  "naming": {
+    "interfacePrefix": "I",
+    "privateInstanceFieldPrefix": "_",
+    "privateStaticFieldPrefix": "s_",
+    "threadStaticFieldPrefix": "t_",
+    "forbidConsecutiveUnderscores": true,
+    "externalContractAttributes": [
+      "JsonPropertyName",
+      "JsonProperty",
+      "Column",
+      "DataMember"
+    ]
+  },
+  "xmlDocumentation": {
+    "scopes": [
+      "src/shared/Contracts/**",
+      "src/core/Algorithms/**",
+      "src/core/Cache/PodBinaryCodec*.cs",
+      "tools/architecture/**",
+      "src/backend/Infrastructure/Auth/**",
+      "src/backend/Infrastructure/Security/**",
+      "src/backend/Infrastructure/Privacy/**"
+    ],
+    "declarationAccessibilities": ["public"],
+    "excludeModifiers": ["override"]
+  },
+  "enumNaming": {
+    "flagsMustBePlural": true,
+    "nonFlagsMustBeSingular": true,
+    "acceptedSingularSuffixes": ["Status", "State", "Kind", "Type", "Mode", "Policy", "Code", "Role", "Action", "Reason", "Level", "Phase"]
+  }
+}

@@ -1,0 +1,238 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const checker = path.join(root, 'tools/dotnet/check-csharp-style.mjs')
+const editorConfig = readFileSync(path.join(root, '.editorconfig'), 'utf8')
+const sourcePolicy = JSON.parse(readFileSync(path.join(root, 'config/development/csharp-style-policy.json'), 'utf8'))
+
+function writeFixture(fixtureRoot, relativePath, content) {
+  const target = path.join(fixtureRoot, relativePath)
+  mkdirSync(path.dirname(target), { recursive: true })
+  writeFileSync(target, content)
+}
+
+function createFixture() {
+  const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-csharp-style-'))
+  writeFixture(fixtureRoot, '.editorconfig', editorConfig)
+  const policy = {
+    ...sourcePolicy,
+    workspace: 'missing.slnx',
+    baseline: 'config/csharp-style-baseline.json'
+  }
+  writeFixture(fixtureRoot, 'config/csharp-style-policy.json', `${JSON.stringify(policy, null, 2)}\n`)
+  return fixtureRoot
+}
+
+function runChecker(fixtureRoot, args, env = {}) {
+  return spawnSync(process.execPath, [
+    checker,
+    '--root', fixtureRoot,
+    '--policy', path.join(fixtureRoot, 'config/csharp-style-policy.json'),
+    ...args
+  ], {
+    cwd: fixtureRoot,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+    timeout: 60_000
+  })
+}
+
+function output(result) {
+  return `${result.stdout}\n${result.stderr}`
+}
+
+function withFixture(callback) {
+  const fixtureRoot = createFixture()
+  try {
+    callback(fixtureRoot)
+  } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true })
+  }
+}
+
+const validSource = `using System;
+
+namespace Fixture;
+
+public sealed class GoodType
+{
+    private static int s_count;
+    private int _value;
+
+    public int Value => _value;
+
+    public int ReadValue(int amount)
+    {
+        int result = amount + _value + s_count;
+        return result;
+    }
+
+    public (bool Success, int Value) ReadPair(int amount)
+    {
+        return (true, amount);
+    }
+}
+`
+
+test('issue 1158 accepts Microsoft-style C# through the changed-file gate', () => {
+  withFixture((fixtureRoot) => {
+    writeFixture(fixtureRoot, 'src/sample/GoodType.cs', validSource)
+    const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/GoodType.cs'])
+    assert.equal(result.status, 0, output(result))
+    assert.match(result.stdout, /\[csharp-style\] ok files=1 violations=0 new=0/u)
+  })
+})
+
+test('issue 1158 aggregates tabs braces indentation using naming and line-ending failures', () => {
+  withFixture((fixtureRoot) => {
+    writeFixture(
+      fixtureRoot,
+      'src/sample/BadStyle.cs',
+      'namespace Fixture;\r\nusing System;\r\npublic class bad_type {\r\n\tprivate int wrongField;  \r\n  public void bad_method(int BadParameter) { int first = 1; int second = 2; }\r\n}\r\n'
+    )
+    const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/BadStyle.cs'])
+    const combined = output(result)
+    assert.notEqual(result.status, 0)
+    for (const rule of [
+      'line-ending',
+      'using-placement',
+      'type-name',
+      'allman-brace',
+      'tab',
+      'trailing-whitespace',
+      'indent',
+      'private-field-name',
+      'method-name',
+      'parameter-name',
+      'one-statement'
+    ]) {
+      assert.match(combined, new RegExp(` ${rule}:`, 'u'), `missing ${rule} in ${combined}`)
+    }
+  })
+})
+
+test('issue 1158 excludes explicitly generated C# files', () => {
+  withFixture((fixtureRoot) => {
+    writeFixture(fixtureRoot, 'src/generated/Bad.generated.cs', 'public class bad_type {\t}\r\n')
+    const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/generated/Bad.generated.cs'])
+    assert.equal(result.status, 0, output(result))
+    assert.match(result.stdout, /ok files=0 violations=0 new=0/u)
+  })
+})
+
+test('issue 1158 requires XML documentation only in declared public contract scopes', () => {
+  withFixture((fixtureRoot) => {
+    writeFixture(
+      fixtureRoot,
+      'src/shared/Contracts/UndocumentedContract.cs',
+      `namespace Fixture;
+
+public sealed class UndocumentedContract
+{
+    public int ReadValue(int amount)
+    {
+        return amount;
+    }
+}
+`
+    )
+    const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/shared/Contracts/UndocumentedContract.cs'])
+    assert.notEqual(result.status, 0)
+    assert.match(output(result), / xml-documentation:/u)
+  })
+})
+
+test('issue 1158 preserves external names in mapping metadata without leaking them into C# identifiers', () => {
+  withFixture((fixtureRoot) => {
+    writeFixture(
+      fixtureRoot,
+      'src/shared/Contracts/ExternalContract.cs',
+      `using System.Text.Json.Serialization;
+
+namespace Fixture;
+
+/// <summary>Represents a wire-compatible fixture.</summary>
+public sealed class ExternalContract
+{
+    /// <summary>Gets the value mapped from the stable external key.</summary>
+    [JsonPropertyName("legacy_user__id")]
+    public string UserId => string.Empty;
+}
+`
+    )
+    const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/shared/Contracts/ExternalContract.cs'])
+    assert.equal(result.status, 0, output(result))
+  })
+})
+
+test('issue 1158 full mode accepts only unchanged baseline debt and strict-full exposes it', () => {
+  withFixture((fixtureRoot) => {
+    const relativePath = 'src/legacy/LegacyStyle.cs'
+    const legacy = `namespace Fixture;
+
+public sealed class LegacyStyle
+{
+    public void legacy_name()
+    {
+    }
+}
+`
+    writeFixture(fixtureRoot, relativePath, legacy)
+    const update = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline'])
+    assert.equal(update.status, 0, output(update))
+    assert.match(update.stdout, /baseline updated violations=1/u)
+
+    const full = runChecker(fixtureRoot, ['--mode', 'full', '--file', relativePath])
+    assert.equal(full.status, 0, output(full))
+
+    const strict = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', relativePath])
+    assert.notEqual(strict.status, 0)
+    assert.match(output(strict), / method-name:/u)
+
+    writeFixture(fixtureRoot, relativePath, legacy.replace('    {\n    }', '    {\n        int value = 0;\n    }'))
+    const changedContent = runChecker(fixtureRoot, ['--mode', 'full', '--file', relativePath])
+    assert.notEqual(changedContent.status, 0)
+    assert.match(output(changedContent), / method-name:/u)
+  })
+})
+
+test('issue 1158 emits the same aggregate diagnostics in local and CI environments', () => {
+  withFixture((fixtureRoot) => {
+    const relativePath = 'src/sample/BadName.cs'
+    writeFixture(
+      fixtureRoot,
+      relativePath,
+      `namespace Fixture;
+
+public sealed class BadName
+{
+    public void bad_name(int BadParameter)
+    {
+    }
+}
+`
+    )
+    const local = runChecker(fixtureRoot, ['--mode', 'changed', '--file', relativePath], { CI: '' })
+    const ci = runChecker(fixtureRoot, ['--mode', 'changed', '--file', relativePath], { CI: 'true' })
+    assert.notEqual(local.status, 0)
+    assert.notEqual(ci.status, 0)
+    const diagnostics = (result) => output(result)
+      .split(/\r?\n/u)
+      .filter((line) => /BadName\.cs:\d+ (?:method-name|parameter-name):/u.test(line))
+      .sort()
+    assert.deepEqual(diagnostics(ci), diagnostics(local))
+    assert.equal(diagnostics(local).length, 2, output(local))
+  })
+})

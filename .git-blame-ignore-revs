@@ -1,0 +1,2 @@
+# Add only the SHA of a reviewed, pure mechanical formatting commit.
+# The #1158 rule/checker commit is intentionally not ignored.
