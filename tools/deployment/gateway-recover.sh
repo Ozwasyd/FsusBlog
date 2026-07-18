@@ -359,26 +359,34 @@ ActivateUpstream() {
     fi
 
     if ! "$OPENRESTY_BIN" -t -c "$GATEWAY_CONFIG_FILE"; then
-        [[ -n "$backupFile" && -f "$backupFile" ]] &&
-            node "$ROOT_DIR/tools/deployment/gateway-control.mjs" restore --active "$ACTIVE_UPSTREAM_FILE" --backup "$backupFile" >/dev/null 2>&1 || true
+        if [[ -n "$backupFile" && -f "$backupFile" ]]; then
+            node "$ROOT_DIR/tools/deployment/gateway-control.mjs" restore \
+                --active "$ACTIVE_UPSTREAM_FILE" --backup "$backupFile" >/dev/null 2>&1 || true
+        fi
         rm -f "$stagedConfig" "$backupFile"
         return 1
     fi
     active_config_ok=true
     if ! "$OPENRESTY_BIN" -s reload -c "$GATEWAY_CONFIG_FILE"; then
-        [[ -n "$backupFile" && -f "$backupFile" ]] &&
-            node "$ROOT_DIR/tools/deployment/gateway-control.mjs" restore --active "$ACTIVE_UPSTREAM_FILE" --backup "$backupFile" >/dev/null 2>&1 &&
-            "$OPENRESTY_BIN" -t -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1 &&
-            "$OPENRESTY_BIN" -s reload -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1 || true
+        if [[ -n "$backupFile" && -f "$backupFile" ]] &&
+            node "$ROOT_DIR/tools/deployment/gateway-control.mjs" restore \
+                --active "$ACTIVE_UPSTREAM_FILE" --backup "$backupFile" >/dev/null 2>&1; then
+            if "$OPENRESTY_BIN" -t -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1; then
+                "$OPENRESTY_BIN" -s reload -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1 || true
+            fi
+        fi
         rm -f "$stagedConfig" "$backupFile"
         return 1
     fi
     reload_ok=true
     if ! ProbeReleaseUntil "$PUBLIC_PROBE_URL" "$desiredRelease" "$desiredSlot"; then
-        [[ -n "$backupFile" && -f "$backupFile" ]] &&
-            node "$ROOT_DIR/tools/deployment/gateway-control.mjs" restore --active "$ACTIVE_UPSTREAM_FILE" --backup "$backupFile" >/dev/null 2>&1 &&
-            "$OPENRESTY_BIN" -t -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1 &&
-            "$OPENRESTY_BIN" -s reload -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1 || true
+        if [[ -n "$backupFile" && -f "$backupFile" ]] &&
+            node "$ROOT_DIR/tools/deployment/gateway-control.mjs" restore \
+                --active "$ACTIVE_UPSTREAM_FILE" --backup "$backupFile" >/dev/null 2>&1; then
+            if "$OPENRESTY_BIN" -t -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1; then
+                "$OPENRESTY_BIN" -s reload -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1 || true
+            fi
+        fi
         rm -f "$stagedConfig" "$backupFile"
         return 1
     fi
@@ -387,7 +395,7 @@ ActivateUpstream() {
     return 0
 }
 
-state="$(SlotStateRead)" || RecoveryFail "unable to read durable gateway state"
+state="$(SlotStateReadCurrent)" || RecoveryFail "unable to read durable gateway state"
 state_status="$(jq -r '.status' <<<"$state")"
 
 current_upstream="$(node "$ROOT_DIR/tools/deployment/gateway-control.mjs" inspect --file "$ACTIVE_UPSTREAM_FILE")" ||
@@ -407,9 +415,10 @@ if [[ "$state_status" == "stable" ]]; then
         "$public_before_release" == "$source_release" && "$public_before_slot" == "$source_slot" ]] ||
         RecoveryFail "stable state disagrees with the active upstream or public release headers"
     source_runtime="$("$ROOT_DIR/tools/deployment/slot-inspect.sh" --slot "$source_slot" --state-file "$SLOT_STATE_FILE" 2>/dev/null || true)"
-    RuntimeIsExpected "$source_runtime" "$source_release" "$source_digest" &&
-        DirectReleaseIsExpected "$source_runtime" "$source_release" "$source_slot" ||
+    if ! RuntimeIsExpected "$source_runtime" "$source_release" "$source_digest" ||
+        ! DirectReleaseIsExpected "$source_runtime" "$source_release" "$source_slot"; then
         RecoveryFail "stable source runtime identity or readiness is invalid"
+    fi
     LoadSourceLifecycle "$source_runtime" ||
         RecoveryFail "stable source deployment status cannot be verified"
     [[ "$source_active" == "true" ]] ||

@@ -165,11 +165,11 @@ test('current-run authority rejects an unbound producer and config/report thresh
 test('critical mutation lane publishes explicit raw and authority evidence', () => {
   const legacy = readFileSync(new URL('../../tools/test/legacy-test.sh', import.meta.url), 'utf8')
   const matrix = readFileSync(new URL('../matrix.yml', import.meta.url), 'utf8')
-  const tier = matrix.match(/  - id: release-mutation-critical-slice\n(?<body>[\s\S]*?)(?=\n  - id:)/u)?.groups?.body ?? ''
+  const tier = matrix.match(/^\s+- id: release-mutation-critical-slice\n(?<body>[\s\S]*?)(?=^\s+- id:)/mu)?.groups?.body ?? ''
 
-  assert.match(legacy, /--config "\$config_path"/u)
-  assert.match(legacy, /--tier "\$authority_tier"/u)
-  assert.match(legacy, /--out "\$authority_out"/u)
+  assert.match(legacy, /--config "\$configPath"/u)
+  assert.match(legacy, /--tier "\$authorityTier"/u)
+  assert.match(legacy, /--out "\$authorityOut"/u)
   assert.match(legacy, /release-mutation-critical-slice/u)
   assert.match(tier, /\.tmp\/mutation\/backend-critical\/reports\/backend-mutation-critical\.json/u)
   assert.match(tier, /\.tmp\/mutation\/backend-critical\/authority\.json/u)

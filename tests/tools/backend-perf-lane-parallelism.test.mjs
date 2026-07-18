@@ -25,12 +25,12 @@ function shellFunction(source, name, nextName) {
 
 test('backend perf prepares Release readers in parallel before opening an isolated native P99 window', () => {
   assert.match(lane, /export FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release/u)
-  assert.match(lane, /run_collect_parallel backend-perf-preparation/u)
-  assert.match(lane, /release-readiness run_backend_perf_release_readiness/u)
-  assert.match(lane, /governance run_backend_perf_governance_only/u)
-  assert.match(lane, /run_backend_perf_release_readiness\(\)[\s\S]*?run_backend_perf_readiness_build_only \|\| return \$\?[\s\S]*?ensure_backend_filtered_build/u)
+  assert.match(lane, /RunCollectParallel backend-perf-preparation/u)
+  assert.match(lane, /release-readiness RunBackendPerfReleaseReadiness/u)
+  assert.match(lane, /governance RunBackendPerfGovernanceOnly/u)
+  assert.match(lane, /RunBackendPerfReleaseReadiness\(\)[\s\S]*?RunBackendPerfReadinessBuildOnly \|\| return \$\?[\s\S]*?EnsureBackendFilteredBuild/u)
   assert.ok(
-    lane.indexOf('finish_collect') < lane.indexOf('run_collect native-p99 run_backend_perf_native_p99_only'),
+    lane.indexOf('FinishCollect') < lane.indexOf('RunCollect native-p99 RunBackendPerfNativeP99Only'),
     'all compiler/readiness work must settle before native P99 starts'
   )
 })
@@ -38,8 +38,8 @@ test('backend perf prepares Release readers in parallel before opening an isolat
 test('backend perf uses the shared run-bound Release build producer', () => {
   const readiness = shellFunction(
     legacy,
-    'run_backend_perf_readiness_build_only',
-    'run_backend_mutation_with_config'
+    'RunBackendPerfReadinessBuildOnly',
+    'RunBackendMutationWithConfig'
   )
   assert.match(readiness, /verify-benchmark-build-ready\.mjs/u)
   assert.match(readiness, /ensure-benchmark-release-build\.sh/u)
@@ -74,28 +74,28 @@ test('all logical benchmark consumers share one warning-free build and remain no
 test('shared backend producers bind scheduler source identity without hashing runtime-mutated source directories', () => {
   const filteredBuild = shellFunction(
     legacy,
-    'ensure_backend_filtered_build',
-    'backend_trx_file'
+    'EnsureBackendFilteredBuild',
+    'BackendTrxFile'
   )
   const scheduledStart = filteredBuild.indexOf('if [[ -n "${FSUSBLOG_TEST_SOURCE_COMMIT:-}"')
-  const scheduledEnd = filteredBuild.indexOf('\n  else', scheduledStart)
+  const scheduledEnd = filteredBuild.indexOf('\n    else', scheduledStart)
   const scheduledBranch = filteredBuild.slice(scheduledStart, scheduledEnd)
   assert.ok(scheduledStart >= 0 && scheduledEnd > scheduledStart)
   assert.match(scheduledBranch, /source-commit=\$\{FSUSBLOG_TEST_SOURCE_COMMIT\}/u)
   assert.match(scheduledBranch, /source-fingerprint=\$\{FSUSBLOG_TEST_SOURCE_FINGERPRINT\}/u)
-  assert.match(scheduledBranch, /dotnet-sdk=\$dotnet_sdk_version/u)
+  assert.match(scheduledBranch, /dotnet-sdk=\$dotnetSdkVersion/u)
   assert.doesNotMatch(scheduledBranch, /--path (?:src\/backend|src\/core|src\/shared|tests\/backend)/u)
   assert.match(filteredBuild.slice(scheduledEnd), /--path src\/backend/u)
   assert.match(filteredBuild.slice(scheduledEnd), /--path tools\/architecture\/FsusBlog\.DiLifetimeAnalyzer/u)
   assert.match(filteredBuild.slice(scheduledEnd), /--path tools\/security\/ZkCommentV2MclFixture/u)
-  assert.match(filteredBuild, /configuration="\$\(backend_test_configuration\)" \|\| return \$\?/u)
-  assert.match(filteredBuild, /configure_dotnet_build_parallelism \|\| return \$\?/u)
-  assert.match(filteredBuild, /fingerprint="\$\(test_input_fingerprint[\s\S]*?\)" \|\| return \$\?/u)
-  assert.match(filteredBuild, /build_target="\$SERVER_TEST_PROJ"/u)
-  assert.match(filteredBuild, /build_target="\$ROOT_DIR\/FsusBlog\.slnx"/u)
-  assert.match(filteredBuild, /dotnet build "\$build_target"/u)
-  assert.match(filteredBuild, /output_contract="\$debug_output_dir\|\$debug_server_output_dir\|\$debug_fixture_output_dir"/u)
-  assert.match(filteredBuild, /output_contract="\$release_output_dir"/u)
+  assert.match(filteredBuild, /configuration="\$\(BackendTestConfiguration\)" \|\| return \$\?/u)
+  assert.match(filteredBuild, /ConfigureDotnetBuildParallelism \|\| return \$\?/u)
+  assert.match(filteredBuild, /fingerprint="\$\(TestInputFingerprint[\s\S]*?\)" \|\| return \$\?/u)
+  assert.match(filteredBuild, /buildTarget="\$SERVER_TEST_PROJ"/u)
+  assert.match(filteredBuild, /buildTarget="\$ROOT_DIR\/FsusBlog\.slnx"/u)
+  assert.match(filteredBuild, /dotnet build "\$buildTarget"/u)
+  assert.match(filteredBuild, /outputContract="\$debugOutputDir\|\$debugServerOutputDir\|\$debugFixtureOutputDir"/u)
+  assert.match(filteredBuild, /outputContract="\$releaseOutputDir"/u)
   assert.doesNotMatch(filteredBuild, /FSUSBLOG_LOCAL_PROFILE[\s\S]*?return/u)
   assert.match(
     filteredBuild,
@@ -158,10 +158,10 @@ test('Release writer lock is not inherited by a detached compiler descendant', (
 })
 
 test('backend perf native P99 consumes the fresh Release test assembly without a duplicate Debug build', () => {
-  assert.match(legacy, /backend_test_configuration\(\)[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION:-Debug/u)
-  assert.match(legacy, /Debug\|Release/u)
-  assert.match(legacy, /release_output_dir="\$\{FSUSBLOG_PRODUCTION_BUILD_ROOT:\+\$FSUSBLOG_PRODUCTION_BUILD_ROOT\/dotnet\/FsusBlog\.Server\.Tests\/bin\/Release\/net10\.0\}"/u)
-  assert.match(legacy, /debug_server_output_dir="\$\{FSUSBLOG_PRODUCTION_BUILD_ROOT:\+\$FSUSBLOG_PRODUCTION_BUILD_ROOT\/dotnet\/FsusBlog\.Server\/bin\/Debug\/net10\.0\}"/u)
-  assert.match(legacy, /debug_fixture_output_dir="\$\{FSUSBLOG_PRODUCTION_BUILD_ROOT:\+\$FSUSBLOG_PRODUCTION_BUILD_ROOT\/dotnet\/FsusBlog\.ZkCommentV2MclFixture\/bin\/Debug\/net10\.0\}"/u)
+  assert.match(legacy, /BackendTestConfiguration\(\)[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION:-Debug/u)
+  assert.match(legacy, /Debug \| Release/u)
+  assert.match(legacy, /releaseOutputDir="\$\{FSUSBLOG_PRODUCTION_BUILD_ROOT:\+\$FSUSBLOG_PRODUCTION_BUILD_ROOT\/dotnet\/FsusBlog\.Server\.Tests\/bin\/Release\/net10\.0\}"/u)
+  assert.match(legacy, /debugServerOutputDir="\$\{FSUSBLOG_PRODUCTION_BUILD_ROOT:\+\$FSUSBLOG_PRODUCTION_BUILD_ROOT\/dotnet\/FsusBlog\.Server\/bin\/Debug\/net10\.0\}"/u)
+  assert.match(legacy, /debugFixtureOutputDir="\$\{FSUSBLOG_PRODUCTION_BUILD_ROOT:\+\$FSUSBLOG_PRODUCTION_BUILD_ROOT\/dotnet\/FsusBlog\.ZkCommentV2MclFixture\/bin\/Debug\/net10\.0\}"/u)
   assert.match(legacy, /dotnet test "\$SERVER_TEST_PROJ" -c "\$configuration" -v minimal --no-build --no-restore/u)
 })

@@ -110,7 +110,7 @@ export async function checkWasmArtifactOwnership({ repoRoot = defaultRepoRoot } 
     'tests/tools/issue-1165-wasm-artifact-ownership.test.mjs',
     'tools/check-wasm-artifact-ownership.mjs',
     'npm --prefix "$ROOT_DIR/src/frontend" run ensure:wasm',
-    'copy_directory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"',
+    'CopyDirectory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"',
     '--artifact-dir "$PAYLOAD_ROOT/wasm"'
   ], 'tools/test/lanes/production-build-artifacts.sh');
 

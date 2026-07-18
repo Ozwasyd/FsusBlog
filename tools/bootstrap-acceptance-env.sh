@@ -121,8 +121,8 @@ else
       import fs from "node:fs";
       import os from "node:os";
       const policy = fs.readFileSync("tests/perf/perf-policy.yml", "utf8");
-      const burst = policy.match(/(?:^|\n)  burst:\n([\s\S]*?)(?=\n  \S|$)/u)?.[1] ?? "";
-      const concurrency = Number(burst.match(/^    concurrency:\s*(\d+)\s*$/mu)?.[1]);
+      const burst = policy.match(/(?:^|\n)    burst:\n([\s\S]*?)(?=\n    \S|$)/u)?.[1] ?? "";
+      const concurrency = Number(burst.match(/^        concurrency:\s*(\d+)\s*$/mu)?.[1]);
       if (!Number.isInteger(concurrency) || concurrency < 1) throw new Error("burst concurrency is unavailable");
       const cpu = os.availableParallelism?.() ?? os.cpus().length;
       process.stdout.write(String(Math.max(1, Math.ceil(concurrency / cpu))));
@@ -488,6 +488,31 @@ for (const key of [
 NODE
 }
 
+CleanupBootstrapParallelChildren() {
+    local statusDir="$1"
+    shift
+    local childPid
+    for childPid in "$@"; do
+        [[ -n "$childPid" ]] || continue
+        kill "$childPid" >/dev/null 2>&1 || true
+        wait "$childPid" >/dev/null 2>&1 || true
+    done
+    rm -rf "$statusDir"
+}
+
+CleanupBootstrapParallelSignal() {
+    CleanupBootstrapParallelChildren "$@"
+    exit 130
+}
+
+CleanupBootstrapParallelReturn() {
+    local returnStatus="$1"
+    shift
+    CleanupBootstrapParallelChildren "$@"
+    trap - RETURN INT TERM
+    return "$returnStatus"
+}
+
 RunBootstrapParallel() {
     local group="$1"
     local readinessDeadline="$2"
@@ -500,13 +525,16 @@ RunBootstrapParallel() {
     local total=$(($# / 2))
     local workerCap
     workerCap="$(ResolveBootstrapParallelWorkers "$total")"
-    local statusDir="$TMP_DIR/parallel-$(printf '%s' "$group" | tr -cs 'A-Za-z0-9_.-' '-')-$$-$RANDOM"
+    local statusDir
+    statusDir="$TMP_DIR/parallel-$(printf '%s' "$group" | tr -cs 'A-Za-z0-9_.-' '-')-$$-$RANDOM"
     local -a labels=()
     local -a commands=()
     local -a statusFiles=()
     local -a childPids=()
     local -a observed=()
     mkdir -p "$statusDir"
+    trap 'CleanupBootstrapParallelSignal "$statusDir" "${childPids[@]:-}"' INT TERM
+    trap 'CleanupBootstrapParallelReturn "$?" "$statusDir" "${childPids[@]:-}"' RETURN
 
     while (($# > 0)); do
         local label="$1"
@@ -563,13 +591,13 @@ RunBootstrapParallel() {
                     mv "$pendingStatus" "${statusFiles[$index]}"
                     exit 0
                 ) &
-                childPids[$index]="$!"
+                childPids[index]="$!"
             else
                 Log "$group job ${labels[$index]} could not resolve its child resource grant"
                 printf '%s\n' "$waveChildEnvStatus" >"${statusFiles[$index]}"
-                childPids[$index]=''
+                childPids[index]=''
             fi
-            observed[$index]=0
+            observed[index]=0
             next=$((next + 1))
             active=$((active + 1))
         done
@@ -582,7 +610,7 @@ RunBootstrapParallel() {
             if [[ -n "${childPids[$index]:-}" ]]; then
                 wait "${childPids[$index]}" >/dev/null 2>&1 || true
             fi
-            observed[$index]=1
+            observed[index]=1
             active=$((active - 1))
             completed=$((completed + 1))
             progressed=1
@@ -606,6 +634,7 @@ RunBootstrapParallel() {
         fi
     done
     rm -rf "$statusDir"
+    trap - RETURN INT TERM
 
     if ((${#failures[@]} > 0)); then
         printf '[acceptance:bootstrap] %s failed in %d independent job(s):\n' "$group" "${#failures[@]}" >&2
@@ -1334,7 +1363,7 @@ EnsurePostgres() {
         fi
         Log 'creating postgres container'
         BuildDockerResourceArgs
-        docker Run -d \
+        docker run -d \
             "${DOCKER_RESOURCE_ARGS[@]}" \
             --name "$POSTGRES_CONTAINER" \
             -e POSTGRES_USER=fsusblog \
@@ -1384,7 +1413,7 @@ EnsureRedis() {
         fi
         Log 'creating redis container'
         BuildDockerResourceArgs
-        docker Run -d "${DOCKER_RESOURCE_ARGS[@]}" --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" redis:7-alpine >/dev/null
+        docker run -d "${DOCKER_RESOURCE_ARGS[@]}" --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" redis:7-alpine >/dev/null
     fi
 
     while (($(date +%s%3N) < readinessDeadline)); do
@@ -1471,8 +1500,9 @@ EnsureManagedBackendSharedDebugBuild() {
         return
     fi
     Log 'preparing managed Debug backend through the shared backend build producer'
+    local legacyLane="$ROOT_DIR/tools/test/lanes/_legacy.sh"
     (
-        source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
+        source "$legacyLane"
         FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild
     )
 }
@@ -1715,6 +1745,7 @@ EnsureReleasePreview() {
     local nextFingerprint
     local currentFingerprint=""
     local runBoundBuild="false"
+    local legacyLane="$ROOT_DIR/tools/test/lanes/_legacy.sh"
     local releaseReachable=0
     local readinessDeadline="${1:-}"
     if [[ -z "$readinessDeadline" ]]; then
@@ -1775,7 +1806,7 @@ EnsureReleasePreview() {
         (
             export VITE_API_BASE_URL="$DEBUG_BACKEND_URL"
             export FSUSBLOG_TEST_NAMESPACE
-            source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
+            source "$legacyLane"
             EnsureWasmOnce
             RunFrontendFastBuildGroup
         )
@@ -1824,6 +1855,7 @@ RefreshAcceptanceCacheAfterFixtures() {
 
 PrepareFixtures() {
     Log 'preparing auth users and playwright fixtures'
+    local legacyLane="$ROOT_DIR/tools/test/lanes/_legacy.sh"
     (
         export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
         export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
@@ -1840,7 +1872,7 @@ PrepareFixtures() {
         export Jwt__RotationWindowDays="$JWT_ROTATION_WINDOW_DAYS"
         export AnonymousCredentialIssuer__SubjectHashPepper="$ANONYMOUS_SUBJECT_HASH_PEPPER"
         # Use the same namespaced run-once keys as every downstream runtime lane.
-        source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
+        source "$legacyLane"
         # Auth identities and public article/taxonomy fixtures have disjoint
         # run-once keys, output contracts and database rows. Seed them together
         # after backend readiness, then flush Redis only after both writes settle.

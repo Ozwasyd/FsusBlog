@@ -34,7 +34,7 @@ const requirements = {
   basicAndSpeedTargets: /aeds_decoder_basic/u.test(sources.cmake) && /aeds_decoder_speed/u.test(sources.cmake),
   speedCompilerProfile: /-O3/u.test(sources.cmake) && /-flto/u.test(sources.cmake) && /-msimd128/u.test(sources.cmake),
   fixedSpeedMemory: /ALLOW_MEMORY_GROWTH=0/u.test(sources.cmake) && /INITIAL_MEMORY=67108864/u.test(sources.cmake),
-  strictWasmOpt: /optimize_aeds_speed_wasm/u.test(sources.build) && /mandatory AEDS speed wasm-opt failed/u.test(sources.build),
+  strictWasmOpt: /OptimizeAedsSpeedWasm/u.test(sources.build) && /mandatory AEDS speed wasm-opt failed/u.test(sources.build),
   reusableArena: /reserve_io_buffer/u.test(sources.exports) && /decode_io_buffer/u.test(sources.exports),
   noPerFrameMallocFree: !/std::malloc|std::free/u.test(sources.exports),
   sensitiveClear: /clear_io_buffer/u.test(sources.exports) && /if \(sensitive\) exportsRef\.clear_io_buffer/u.test(sources.bridge),

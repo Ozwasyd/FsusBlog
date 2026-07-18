@@ -333,16 +333,16 @@ test('concurrent privacy and static work cannot write Vitest reports, coverage, 
 
   const concurrentStatic = sourceSection(
     staticLaneSource,
-    'run_static_concurrent_phase() {',
-    'run_static_node_contracts_phase() {'
+    'RunStaticConcurrentPhase() {',
+    'RunStaticNodeContractsPhase() {'
   )
   const postVitestStatic = sourceSection(
     staticLaneSource,
-    'run_static_post_vitest_phase() {',
+    'RunStaticPostVitestPhase() {',
     'STATIC_GOVERNANCE_PHASE='
   )
-  assert.doesNotMatch(concurrentStatic, /static_retention/u)
-  assert.match(postVitestStatic, /static_retention/u)
+  assert.doesNotMatch(concurrentStatic, /StaticRetention/u)
+  assert.match(postVitestStatic, /StaticRetention/u)
   assert.match(staticLaneSource, /access: 'read'/u)
   assert.doesNotMatch(staticLaneSource, /access: 'write'/u)
 

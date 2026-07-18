@@ -46,7 +46,7 @@ SlotRequireCommand node
 SlotAcquireDeploymentLock
 SlotConfigure "$SLOT"
 SlotLoadManifest "$RELEASE_MANIFEST" "$SLOT"
-deployment_state="$(SlotStateRead)"
+deployment_state="$(SlotStateReadCurrent)"
 [[ "$(jq -r '.status' <<<"$deployment_state")" == "stable" ]] ||
     SlotFail "gateway state must be stable before starting a candidate"
 active_slot="$(jq -r '.activeSlot // ""' <<<"$deployment_state")"
@@ -100,7 +100,7 @@ fi
 if [[ -n "$PRE_RESERVED_GENERATION" ]]; then
     [[ "$PRE_RESERVED_GENERATION" =~ ^[0-9]+$ && "$PRE_RESERVED_GENERATION" -ge 1 ]] ||
         SlotFail "pre-reserved deployment generation is invalid"
-    current_generation="$(SlotStateRead | jq -r '.runtimeGeneration')"
+    current_generation="$(SlotStateReadCurrent | jq -r '.runtimeGeneration')"
     [[ "$PRE_RESERVED_GENERATION" == "$current_generation" ]] ||
         SlotFail "pre-reserved deployment generation is not the latest durable reservation"
     export FSUSBLOG_DEPLOYMENT_GENERATION="$PRE_RESERVED_GENERATION"
@@ -109,7 +109,8 @@ else
         --state "$SLOT_STATE_FILE" \
         --slot "$SLOT")" ||
         SlotFail "unable to reserve a unique candidate runtime generation"
-    export FSUSBLOG_DEPLOYMENT_GENERATION="$(jq -r '.generation' <<<"$generation_reservation")"
+    FSUSBLOG_DEPLOYMENT_GENERATION="$(jq -r '.generation' <<<"$generation_reservation")"
+    export FSUSBLOG_DEPLOYMENT_GENERATION
 fi
 [[ "$FSUSBLOG_DEPLOYMENT_GENERATION" =~ ^[0-9]+$ && "$FSUSBLOG_DEPLOYMENT_GENERATION" -ge 1 ]] ||
     SlotFail "reserved candidate runtime generation is invalid"

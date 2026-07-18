@@ -29,7 +29,7 @@ test('public synthetic matrices are browserless and use production contracts', (
 
 test('release correctness has no hidden browser command', () => {
   const legacy = read('tools/test/legacy-test.sh')
-  const releaseOnly = legacy.slice(legacy.indexOf('run_release_only()'), legacy.indexOf('\nrun_release()'))
+  const releaseOnly = legacy.slice(legacy.indexOf('RunReleaseOnly()'), legacy.indexOf('\nRunRelease()'))
   for (const forbidden of [
     'PLAYWRIGHT_BASE_URL',
     'check:search-runtime',

@@ -20,9 +20,9 @@ export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
 export FSUSBLOG_HTTP_TIMEOUT_MS="$ACCEPTANCE_HTTP_TIMEOUT_MS"
 
 PrepareRuntimeFixturesOnce
-RunCollect "pow-runtime" RunInClient npm Run check:pow-runtime
-RunCollect "search-runtime" RunInClient npm Run check:search-runtime
-RunCollect "zero-auth-probe" RunInClient npm Run check:auth-zero-probe
+RunCollect "pow-runtime" RunInClient npm run check:pow-runtime
+RunCollect "search-runtime" RunInClient npm run check:search-runtime
+RunCollect "zero-auth-probe" RunInClient npm run check:auth-zero-probe
 ResetSecurityRuntimeState "pre diagnostic permission matrix"
-RunCollect "permission-matrix" RunInClient npm Run check:security:permissions
+RunCollect "permission-matrix" RunInClient npm run check:security:permissions
 FinishCollect

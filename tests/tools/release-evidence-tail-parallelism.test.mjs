@@ -11,13 +11,13 @@ const script = path.join(root, relativeScript)
 
 test('release evidence tail preserves dependencies while parallelizing independent checks', () => {
   const source = fs.readFileSync(script, 'utf8')
-  const planChain = source.indexOf('prepare_evidence_plan_and_check_jobs()')
+  const planChain = source.indexOf('PrepareEvidencePlanAndCheckJobs()')
   const plan = source.indexOf('run-matrix-governance-once.sh" release-evidence-plan', planChain)
-  const jobs = source.indexOf('check_job_summaries', plan)
-  const precollect = source.indexOf('run_collect_parallel release-evidence-precollect')
-  const collect = source.indexOf('run_collect collect-evidence')
-  const postcollect = source.indexOf('run_collect_parallel release-evidence-postcollect')
-  const finish = source.indexOf('finish_collect')
+  const jobs = source.indexOf('CheckJobSummaries', plan)
+  const precollect = source.indexOf('RunCollectParallel release-evidence-precollect')
+  const collect = source.indexOf('RunCollect collect-evidence')
+  const postcollect = source.indexOf('RunCollectParallel release-evidence-postcollect')
+  const finish = source.indexOf('FinishCollect')
 
   assert.ok(planChain >= 0 && planChain < precollect)
   assert.ok(plan >= 0 && plan < jobs)
@@ -26,11 +26,11 @@ test('release evidence tail preserves dependencies while parallelizing independe
   assert.ok(postcollect < finish)
   assert.doesNotMatch(source, /run-test-matrix\.mjs[\s\S]{0,200}evidence-plan --out/u)
   for (const token of [
-    'plan-and-job-summaries prepare_evidence_plan_and_check_jobs',
-    'flaky-evidence check_flaky_evidence',
-    'artifact-slimness check_artifact_slimness',
-    'evidence-metrics check_evidence_metrics',
-    'evidence-manifest check_evidence_manifest'
+    'plan-and-job-summaries PrepareEvidencePlanAndCheckJobs',
+    'flaky-evidence CheckFlakyEvidence',
+    'artifact-slimness CheckArtifactSlimness',
+    'evidence-metrics CheckEvidenceMetrics',
+    'evidence-manifest CheckEvidenceManifest'
   ]) assert.ok(source.includes(token), `missing release evidence job: ${token}`)
   assert.doesNotMatch(source, /MAX_(?:ERRORS|FAILURES)|max[_-](?:errors|failures)/iu)
 })

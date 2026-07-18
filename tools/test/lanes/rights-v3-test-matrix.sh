@@ -59,12 +59,12 @@ if [[ ! -x "$CLIENT_DIR/node_modules/.bin/vitest" ]]; then
     npm --prefix "$CLIENT_DIR" ci --no-audit --progress=false
 fi
 
-npm --prefix "$CLIENT_DIR" Run check:public-page-manifest-sync
+npm --prefix "$CLIENT_DIR" run check:public-page-manifest-sync
 node "$ROOT_DIR/tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
 
 (
     cd "$CLIENT_DIR"
-    npm exec -- vitest Run --config vitest.config.ts "${FRONTEND_TESTS[@]}"
+    npm exec -- vitest run --config vitest.config.ts "${FRONTEND_TESTS[@]}"
 )
 
 mkdir -p "$(dirname "$EVIDENCE_PATH")"

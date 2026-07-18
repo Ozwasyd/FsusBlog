@@ -25,7 +25,8 @@ if [[ -z "${FSUSBLOG_BROWSER_CONTRACT_RUN_ID:-}" ]]; then
     if [[ -n "${GITHUB_RUN_ID:-}" ]]; then
         export FSUSBLOG_BROWSER_CONTRACT_RUN_ID="github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT:-1}"
     else
-        export FSUSBLOG_BROWSER_CONTRACT_RUN_ID="local-${BASHPID}-$(date -u +%s)"
+        FSUSBLOG_BROWSER_CONTRACT_RUN_ID="local-${BASHPID}-$(date -u +%s)"
+        export FSUSBLOG_BROWSER_CONTRACT_RUN_ID
     fi
 fi
 

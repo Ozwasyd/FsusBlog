@@ -35,7 +35,7 @@ SlotRequireCommand node
 SlotAcquireDeploymentLock
 SlotConfigure "$SLOT"
 
-state="$(SlotStateRead)"
+state="$(SlotStateReadCurrent)"
 active_slot="$(jq -r '.activeSlot // ""' <<<"$state")"
 [[ "$(jq -r '.status' <<<"$state")" == "stable" ]] || SlotFail "gateway state is not stable; recover it before stopping a slot"
 [[ "$active_slot" != "$SLOT" ]] || SlotFail "refusing to stop active slot $SLOT"
@@ -50,10 +50,11 @@ fi
     SlotFail "refusing to stop container whose labels do not match slot $SLOT"
 
 zero_digest="sha256:$(printf '0%.0s' {1..64})"
-export FSUSBLOG_RELEASE_ID="$(jq -r 'if (.release.releaseId // "") == "" then "stopped-slot" else .release.releaseId end' <<<"$before")"
-export FSUSBLOG_COMMIT_SHA="$(jq -r 'if (.release.commitSha // "") == "" then "0000000000000000000000000000000000000000" else .release.commitSha end' <<<"$before")"
-export FSUSBLOG_IMAGE_REF="$(jq -r --arg fallback "fsusblogapp@$zero_digest" 'if (.release.imageRef // "") == "" then $fallback else .release.imageRef end' <<<"$before")"
-export FSUSBLOG_IMAGE_DIGEST="$(jq -r --arg fallback "$zero_digest" 'if (.release.imageDigest // "") == "" then $fallback else .release.imageDigest end' <<<"$before")"
+FSUSBLOG_RELEASE_ID="$(jq -r 'if (.release.releaseId // "") == "" then "stopped-slot" else .release.releaseId end' <<<"$before")"
+FSUSBLOG_COMMIT_SHA="$(jq -r 'if (.release.commitSha // "") == "" then "0000000000000000000000000000000000000000" else .release.commitSha end' <<<"$before")"
+FSUSBLOG_IMAGE_REF="$(jq -r --arg fallback "fsusblogapp@$zero_digest" 'if (.release.imageRef // "") == "" then $fallback else .release.imageRef end' <<<"$before")"
+FSUSBLOG_IMAGE_DIGEST="$(jq -r --arg fallback "$zero_digest" 'if (.release.imageDigest // "") == "" then $fallback else .release.imageDigest end' <<<"$before")"
+export FSUSBLOG_RELEASE_ID FSUSBLOG_COMMIT_SHA FSUSBLOG_IMAGE_REF FSUSBLOG_IMAGE_DIGEST
 
 if ! SlotCompose down --remove-orphans; then
     SlotStateRecordFailure "$SLOT" stop "slot-scoped Compose down failed" || true

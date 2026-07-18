@@ -464,32 +464,32 @@ function createFixture(t, { continuationOnly = false } = {}) {
 }
 
 function installContinuationModeFixture(orchestrator) {
-  const marker = 'log "run=$RUN_ID modes=${REQUESTED_MODES[*]} root=$RUN_ROOT"'
+  const marker = 'Log "run=$RUN_ID modes=${REQUESTED_MODES[*]} root=$RUN_ROOT"'
   const source = fs.readFileSync(orchestrator, 'utf8')
   assert.ok(source.includes(marker), 'zero-downtime all-mode dispatch marker is missing')
   const fixtureFunctions = [
-    'fixture_write_continuation_mode() {',
+    'FixtureWriteContinuationMode() {',
     '  local mode="$1" status="$2" report="$RUN_ROOT/modes/$1/evidence/rehearsal-mode.json"',
     '  mkdir -p "$(dirname "$report")"',
     "  jq -n --arg mode \"$mode\" --arg status \"$status\" '{schema:\"fsusblog.zero-downtime-rehearsal-mode.v1\",mode:$mode,status:$status,checks:[],errors:(if $status == \"pass\" then [] else [\"fixture mode failure\"] end)}' >\"$report\"",
     '}',
-    'fixture_record_continuation() {',
+    'FixtureRecordContinuation() {',
     '  printf \'{"kind":"%s"}\\n\' "$1" >>"$FSUSBLOG_FIXTURE_LOG"',
     '}',
-    'run_normal_like_mode() {',
+    'RunNormalLikeMode() {',
     '  if [[ "$1" == "normal" && "${FSUSBLOG_FIXTURE_FAIL_NORMAL:-}" == "1" ]]; then',
-    '    fixture_write_continuation_mode "$1" fail',
+    '    FixtureWriteContinuationMode "$1" fail',
     '    return 17',
     '  fi',
-    '  fixture_write_continuation_mode "$1" pass',
+    '  FixtureWriteContinuationMode "$1" pass',
     '}',
-    'run_explicit_rollback_mode() {',
-    '  fixture_record_continuation release:rollback',
-    '  fixture_write_continuation_mode explicit-rollback pass',
+    'RunExplicitRollbackMode() {',
+    '  FixtureRecordContinuation release:rollback',
+    '  FixtureWriteContinuationMode explicit-rollback pass',
     '}',
-    'run_sigkill_resume_mode() {',
-    '  fixture_record_continuation release:resume',
-    '  fixture_write_continuation_mode sigkill-resume pass',
+    'RunSigkillResumeMode() {',
+    '  FixtureRecordContinuation release:resume',
+    '  FixtureWriteContinuationMode sigkill-resume pass',
     '}',
     ''
   ].join('\n')

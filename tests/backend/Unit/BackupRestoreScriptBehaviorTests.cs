@@ -157,7 +157,7 @@ public sealed class BackupRestoreScriptBehaviorTests
         public ScriptCapture RunBackup(string connectionString)
         {
             RunBashFunction(
-                "script_source=\"$(mktemp)\"; sed '$d' tools/operations/backup-site.sh > \"$script_source\"; source \"$script_source\"; rm -f \"$script_source\"; WORK_DIR=\"$1\"; dump_database; printf '%s|%s' \"$status\" \"${blockers[*]-}\" > \"$FSUSBLOG_STATE_PATH\"",
+                "script_source=\"$(mktemp)\"; sed '$d' tools/operations/backup-site.sh > \"$script_source\"; source \"$script_source\"; rm -f \"$script_source\"; WORK_DIR=\"$1\"; DumpDatabase; printf '%s|%s' \"$status\" \"${blockers[*]-}\" > \"$FSUSBLOG_STATE_PATH\"",
                 connectionString,
                 [_backupRoot]);
             return ReadCapture();
@@ -172,7 +172,7 @@ public sealed class BackupRestoreScriptBehaviorTests
                 File.WriteAllText(Path.Combine(packageRoot, "database.dump"), "dump");
             }
             RunBashFunction(
-                "script_source=\"$(mktemp)\"; sed '$d' tools/operations/restore-site.sh > \"$script_source\"; set --; source \"$script_source\"; rm -f \"$script_source\"; restore_database; printf '%s|%s' \"$status\" \"${blockers[*]-}\" > \"$FSUSBLOG_STATE_PATH\"",
+                "script_source=\"$(mktemp)\"; sed '$d' tools/operations/restore-site.sh > \"$script_source\"; set --; source \"$script_source\"; rm -f \"$script_source\"; RestoreDatabase; printf '%s|%s' \"$status\" \"${blockers[*]-}\" > \"$FSUSBLOG_STATE_PATH\"",
                 connectionString,
                 []);
             return ReadCapture();

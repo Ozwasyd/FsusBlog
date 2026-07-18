@@ -34,7 +34,7 @@ if [[ -d "$ROOT_DIR/.tmp/playwright-system-deps/root/usr/lib/x86_64-linux-gnu" ]
 fi
 
 ResetSecurityRuntimeState "pre cross-browser smoke"
-RunInClient npm Run check:cross-browser:smoke
+RunInClient npm run check:cross-browser:smoke
 
 if [[ -n "$previous_playwright_browsers" ]]; then
     export FSUSBLOG_PLAYWRIGHT_BROWSERS="$previous_playwright_browsers"

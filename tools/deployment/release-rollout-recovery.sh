@@ -107,12 +107,12 @@ failed_target_restart_file="$evidence_dir/rollback-failed-target-notification-re
 failed_target_drain_file="$evidence_dir/rollback-failed-target-drain.json"
 failed_target_drain_gate_file="$evidence_dir/rollback-failed-target-drain-gate.json"
 
-state_before="$(SlotStateRead)"
+state_before="$(SlotStateReadCurrent)"
 active_before="$(jq -r '.activeSlot // ""' <<<"$state_before")"
 source_current_generation="$(jq -r --arg slot "$source_slot" '.slots[$slot].deploymentGeneration // 0' <<<"$state_before")"
 
 if [[ "$active_before" != "$source_slot" ]]; then
-    source_inspect="$($ROOT_DIR/tools/deployment/slot-status.sh --slot "$source_slot" --state-file "$SLOT_STATE_FILE")"
+    source_inspect="$("$ROOT_DIR"/tools/deployment/slot-status.sh --slot "$source_slot" --state-file "$SLOT_STATE_FILE")"
     source_ready_candidate="$(jq -r \
         --arg release "$source_release" --arg digest "$source_digest" '
       .exists and .running and .identityMatchesSlot and .loopbackOnly
@@ -197,7 +197,7 @@ public_slot="$(awk 'BEGIN{IGNORECASE=1} /^X-Fsus-Release-Slot:/ {gsub(/\r/, "", 
 [[ "$public_release" == "$source_release" && "$public_slot" == "$source_slot" ]] ||
     SlotFail "public gateway identity does not match rollback source"
 
-final_state="$(SlotStateRead)"
+final_state="$(SlotStateReadCurrent)"
 final_fence="$(jq -c '.result.snapshot // .result' "$fence_after_file")"
 jq -cn \
     --arg rolloutId "$(jq -r '.rolloutId' <<<"$rollout")" \

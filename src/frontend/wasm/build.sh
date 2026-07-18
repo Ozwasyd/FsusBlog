@@ -18,6 +18,18 @@ STAGE_RELAXED_POW_DIR="${STAGE_DIR}/wasm-pow-relaxed"
 STAGE_THREADS_POW_DIR="${STAGE_DIR}/wasm-pow-threads"
 BUILD_IMAGE_CODEC="${FSUSBLOG_WASM_IMAGE_CODEC_ENABLE:-ON}"
 COMMENT_PRIVACY_PROVER_KEY="${FSUSBLOG_COMMENT_PROVER_KEY:-${ROOT_DIR}/../../artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk}"
+ACTIVE_WASM_CHILD_PIDS=()
+
+CleanupWasmChildren() {
+    local childPid
+    for childPid in "${ACTIVE_WASM_CHILD_PIDS[@]}"; do
+        kill "$childPid" >/dev/null 2>&1 || true
+        wait "$childPid" >/dev/null 2>&1 || true
+    done
+    ACTIVE_WASM_CHILD_PIDS=()
+}
+
+trap CleanupWasmChildren EXIT
 
 DetectCpuCount() {
     local detected=""
@@ -356,6 +368,7 @@ OptimizePowWasmParallel() {
         childMemoryGib="$("${FSUSBLOG_NODE:-node}" -e 'process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(6))' "${WASM_MEMORY_BUDGET_GIB}" "${active}")"
         optimizePids=()
         optimizeFiles=()
+        ACTIVE_WASM_CHILD_PIDS=()
         for ((slot = 0; slot < active; slot += 1)); do
             FSUSBLOG_STEP_CPU_BUDGET=1 \
                 FSUSBLOG_STEP_MEMORY_GIB="${childMemoryGib}" \
@@ -363,6 +376,7 @@ OptimizePowWasmParallel() {
                 FSUSBLOG_NODE_TEST_CONCURRENCY=1 \
                 OptimizePowWasm "${files[fileIndex]}" &
             optimizePids+=("$!")
+            ACTIVE_WASM_CHILD_PIDS+=("$!")
             optimizeFiles+=("${files[fileIndex]}")
             fileIndex=$((fileIndex + 1))
         done
@@ -371,6 +385,7 @@ OptimizePowWasmParallel() {
                 failedOptimizations+=("${optimizeFiles[slot]}")
             fi
         done
+        ACTIVE_WASM_CHILD_PIDS=()
     done
     if ((${#failedOptimizations[@]} > 0)); then
         printf '[build:wasm] %s wasm optimizations failed: %s\n' \
@@ -454,6 +469,7 @@ while ((mode_index < ${#build_modes[@]})); do
     extra_jobs=$((WASM_CPU_BUDGET % active))
     build_pids=()
     build_names=()
+    ACTIVE_WASM_CHILD_PIDS=()
     childMemoryGib="$("${FSUSBLOG_NODE:-node}" -e 'process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(6))' "${WASM_MEMORY_BUDGET_GIB}" "${active}")"
     for ((slot = 0; slot < active; slot += 1)); do
         jobs="${base_jobs}"
@@ -465,6 +481,7 @@ while ((mode_index < ${#build_modes[@]})); do
             FSUSBLOG_NODE_TEST_CONCURRENCY="${jobs}" \
             "${build_name}" "${jobs}" &
         build_pids+=("$!")
+        ACTIVE_WASM_CHILD_PIDS+=("$!")
         build_names+=("${build_name}")
         mode_index=$((mode_index + 1))
     done
@@ -474,6 +491,7 @@ while ((mode_index < ${#build_modes[@]})); do
             failed_modes+=("${build_names[slot]}")
         fi
     done
+    ACTIVE_WASM_CHILD_PIDS=()
 done
 if ((${#failed_modes[@]} > 0)); then
     printf '[build:wasm] %s build variants failed: %s\n' "${#failed_modes[@]}" "${failed_modes[*]}" >&2

@@ -45,20 +45,20 @@ test('acceptance machine readiness divides the remaining execution deadline inst
     'FSUSBLOG_STEP_DEADLINE_MS:-${FSUSBLOG_BUNDLE_DEADLINE_MS:-}',
     'os.availableParallelism?.() ?? os.cpus().length',
     'os.freemem() / (1024 ** 3)',
-    'allocate_readiness_deadline',
+    'AllocateReadinessDeadline',
     'READINESS_PHASES_REMAINING=2',
-    "allocate_readiness_deadline 'database services'",
-    "allocate_readiness_deadline 'runtime applications'",
-    "run_bootstrap_parallel 'database services'",
-    "run_bootstrap_parallel 'runtime applications'",
+    "AllocateReadinessDeadline 'database services'",
+    "AllocateReadinessDeadline 'runtime applications'",
+    "RunBootstrapParallel 'database services'",
+    "RunBootstrapParallel 'runtime applications'",
     "resolveManifestLiveCapacity({ env: process.env, workload: 'scheduler-admitted' })",
     'resolveManifestChildEnvironment',
     'FSUSBLOG_STEP_CPU_BUDGET',
     'FSUSBLOG_STEP_MEMORY_GIB',
-    'sleep_within_deadline',
-    'termination_deadline_at_ms',
-    'release_deadline_at_ms',
-    'sleep_ms > remaining',
+    'SleepWithinDeadline',
+    'terminationDeadlineAtMs',
+    'releaseDeadlineAtMs',
+    'sleepMs > remaining',
     'failed in %d independent job(s)'
   ]) assert.ok(source.includes(token), `missing bootstrap deadline token: ${token}`)
 
@@ -86,7 +86,7 @@ test('acceptance bootstrap bounds parallel startup by the inherited grant and ag
     'probe_a(){ printf "a:start\\n" >> "$BOOTSTRAP_MARKER"; sleep 0.1; printf "a:end\\n" >> "$BOOTSTRAP_MARKER"; }',
     'probe_b(){ printf "b:start\\n" >> "$BOOTSTRAP_MARKER"; sleep 0.1; printf "b:end\\n" >> "$BOOTSTRAP_MARKER"; }',
     'probe_c(){ printf "c:start\\n" >> "$BOOTSTRAP_MARKER"; sleep 0.1; printf "c:end\\n" >> "$BOOTSTRAP_MARKER"; }',
-    'run_bootstrap_parallel contract "$EXECUTION_DEADLINE_AT_MS" a probe_a b probe_b c probe_c'
+    'RunBootstrapParallel contract "$EXECUTION_DEADLINE_AT_MS" a probe_a b probe_b c probe_c'
   ].join('; ')], { cwd: root, encoding: 'utf8' })
   assert.equal(parallel.status, 0, parallel.stderr)
 
@@ -104,7 +104,7 @@ test('acceptance bootstrap bounds parallel startup by the inherited grant and ag
     ...common,
     'fail_a(){ return 7; }',
     'fail_b(){ return 9; }',
-    'if run_bootstrap_parallel contract-fail "$EXECUTION_DEADLINE_AT_MS" first fail_a second fail_b; then exit 99; fi'
+    'if RunBootstrapParallel contract-fail "$EXECUTION_DEADLINE_AT_MS" first fail_a second fail_b; then exit 99; fi'
   ].join('; ')], { cwd: root, encoding: 'utf8' })
   assert.equal(failures.status, 0, failures.stderr)
   assert.match(failures.stderr, /first \(exit 7\)/u)
@@ -154,7 +154,7 @@ test('acceptance bootstrap expands pending services from live grant 1 to 2 witho
     'probe_b(){ printf "b:start\\n" >> "$BOOTSTRAP_MARKER"; sleep 0.1; printf "b:end\\n" >> "$BOOTSTRAP_MARKER"; }',
     'probe_c(){ printf "c:start\\n" >> "$BOOTSTRAP_MARKER"; sleep 0.1; printf "c:end\\n" >> "$BOOTSTRAP_MARKER"; }',
     `${process.execPath} ${updater} ${grantFile} '${JSON.stringify(grantDocument(2))}' ${marker} & true`,
-    'run_bootstrap_parallel elastic "$EXECUTION_DEADLINE_AT_MS" a probe_a b probe_b c probe_c'
+    'RunBootstrapParallel elastic "$EXECUTION_DEADLINE_AT_MS" a probe_a b probe_b c probe_c'
   ].join('; ')], { cwd: root, encoding: 'utf8' })
   assert.equal(result.status, 0, result.stderr)
   assert.match(result.stdout, /elastic capacity update workers=1->2 active=1/u)
@@ -177,18 +177,18 @@ test('acceptance process cleanup clips polling to the remaining inherited deadli
     `source ${path.join(root, 'tools/bootstrap-acceptance-env.sh')}`,
     'spawn_stubborn(){ bash -c \'trap "" TERM; exec sleep 30\' & STUBBORN_PID=$!; sleep 0.05; }',
     'spawn_stubborn',
-    'started_at_ms=$(date +%s%3N)',
-    'deadline_at_ms=$((started_at_ms + 120))',
-    'kill_pid_if_running "$STUBBORN_PID" "$deadline_at_ms"',
+    'startedAtMs=$(date +%s%3N)',
+    'deadlineAtMs=$((startedAtMs + 120))',
+    'KillPidIfRunning "$STUBBORN_PID" "$deadlineAtMs"',
     'wait "$STUBBORN_PID" 2>/dev/null || true',
-    'kill_elapsed_ms=$(( $(date +%s%3N) - started_at_ms ))',
+    'kill_elapsed_ms=$(( $(date +%s%3N) - startedAtMs ))',
     'spawn_stubborn',
-    'find_port_pid(){ if kill -0 "$STUBBORN_PID" >/dev/null 2>&1; then printf "%s\\n" "$STUBBORN_PID"; fi; }',
-    'started_at_ms=$(date +%s%3N)',
-    'deadline_at_ms=$((started_at_ms + 120))',
-    'wait_for_port_release 29999 "$deadline_at_ms"',
+    'FindPortPid(){ if kill -0 "$STUBBORN_PID" >/dev/null 2>&1; then printf "%s\\n" "$STUBBORN_PID"; fi; }',
+    'startedAtMs=$(date +%s%3N)',
+    'deadlineAtMs=$((startedAtMs + 120))',
+    'WaitForPortRelease 29999 "$deadlineAtMs"',
     'wait "$STUBBORN_PID" 2>/dev/null || true',
-    'port_elapsed_ms=$(( $(date +%s%3N) - started_at_ms ))',
+    'port_elapsed_ms=$(( $(date +%s%3N) - startedAtMs ))',
     'printf "%s %s\\n" "$kill_elapsed_ms" "$port_elapsed_ms"'
   ].join('; ')
   const result = spawnSync('bash', ['-c', script], { cwd: root, encoding: 'utf8', timeout: 3_000 })

@@ -27,7 +27,7 @@ test('local production integrity proof reuses the completed backend build', () =
 
 test('integrity proof lane prepares the shared Debug producer before verification', () => {
   const lane = fs.readFileSync(path.join(root, 'tools/test/lanes/integrity-proof-verification.sh'), 'utf8')
-  const producer = lane.indexOf('FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build')
+  const producer = lane.indexOf('FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild')
   const verifier = lane.indexOf('verify-proof-fixtures.mjs')
 
   assert.match(lane, /source .*\/_legacy\.sh/u)

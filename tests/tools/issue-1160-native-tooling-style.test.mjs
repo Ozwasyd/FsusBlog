@@ -619,6 +619,31 @@ export ConnectionStrings__DefaultConnection="fixture"
     })
 })
 
+test('issue 1160 requires cleanup for allocations, not command inventory prose', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const inventory = `#!/usr/bin/env bash
+set -euo pipefail
+
+requiredCommands=(awk mktemp sort)
+printf '%s\n' "${'${requiredCommands[@]}'}"
+`
+        WriteFile(fixtureRoot, 'sample/ScriptStyle.sh', inventory)
+        const accepted = RunChecker(fixtureRoot, ['sample/ScriptStyle.sh'])
+        assert.equal(accepted.status, 0, Output(accepted))
+
+        WriteFile(
+            fixtureRoot,
+            'sample/ScriptStyle.sh',
+            inventory.replace('requiredCommands=(awk mktemp sort)', 'temporaryFile="$(mktemp)"')
+        )
+        const rejected = RunChecker(fixtureRoot, ['sample/ScriptStyle.sh'])
+        assert.notEqual(rejected.status, 0)
+        assert.match(Output(rejected), /shell-cleanup-trap/u)
+    })
+})
+
 test('issue 1160 does not confuse command substitution with an unquoted variable expansion', () =>
 {
     WithFixture((fixtureRoot) =>

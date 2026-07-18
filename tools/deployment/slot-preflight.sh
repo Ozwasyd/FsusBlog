@@ -104,7 +104,7 @@ if [[ "$(jq -r '.runtimeProfile != null' <<<"$manifest_contract")" == "true" ]];
         SlotFail "target image runtime profile labels do not match the release manifest"
 fi
 
-state="$(SlotStateRead)"
+state="$(SlotStateReadCurrent)"
 [[ "$(jq -r '.status' <<<"$state")" == "stable" ]] || SlotFail "gateway state is not stable; recovery is required before candidate start"
 active_slot="$(jq -r '.activeSlot // ""' <<<"$state")"
 persisted_release="$(jq -r --arg slot "$SLOT" '.slots[$slot].releaseId // ""' <<<"$state")"

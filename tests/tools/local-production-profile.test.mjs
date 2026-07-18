@@ -1076,24 +1076,24 @@ test('acceptance backend derives thread-pool capacity from machine CPUs and burs
 
 test('acceptance bootstrap starts independent services within dynamic CPU and memory grants', () => {
   const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
-  assert.match(source, /resolve_bootstrap_parallel_workers/u)
+  assert.match(source, /ResolveBootstrapParallelWorkers/u)
   assert.match(source, /resolveManifestLiveCapacity\(\{ env: process\.env, workload: 'scheduler-admitted' \}\)/u)
   assert.match(source, /readManifestSchedulerResourceGrant\(\{ env: process\.env \}\)/u)
   assert.match(source, /resolveManifestChildEnvironment/u)
-  assert.match(source, /capacity update workers=\$worker_cap->\$next_worker_cap active=\$active/u)
-  assert.match(source, /run_bootstrap_parallel 'database services'[\s\S]*?postgres ensure_postgres[\s\S]*?redis ensure_redis/u)
-  assert.match(source, /local -a runtime_applications=\(debug-backend ensure_backend\)[\s\S]*?ci_production_has_domain frontend-dist[\s\S]*?runtime_applications\+=\(release-preview ensure_release_preview debug-frontend ensure_debug_frontend\)[\s\S]*?run_bootstrap_parallel 'runtime applications'/u)
-  assert.match(source, /run_parallel "bootstrap-runtime-fixtures"[\s\S]*?auth-fixtures::prepare_auth_fixtures_once[\s\S]*?public-fixtures::prepare_public_fixtures_once/u)
-  assert.match(source, /FSUSBLOG_PARALLEL_WORKLOAD=scheduler-admitted[\s\S]*run_parallel "bootstrap-runtime-fixtures"/u)
-  assert.match(source, /run_parallel "bootstrap-runtime-fixtures"[\s\S]*refresh_acceptance_cache_after_fixtures/u)
-  assert.match(source, /failures\+=\("\$\{labels\[\$index\]\} \(exit \$\{child_status\}\)"\)/u)
+  assert.match(source, /capacity update workers=\$workerCap->\$nextWorkerCap active=\$active/u)
+  assert.match(source, /RunBootstrapParallel 'database services'[\s\S]*?postgres EnsurePostgres[\s\S]*?redis EnsureRedis/u)
+  assert.match(source, /local -a runtimeApplications=\(debug-backend EnsureBackend\)[\s\S]*?CiProductionHasDomain frontend-dist[\s\S]*?runtimeApplications\+=\(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend\)[\s\S]*?RunBootstrapParallel 'runtime applications'/u)
+  assert.match(source, /RunParallel "bootstrap-runtime-fixtures"[\s\S]*?auth-fixtures::PrepareAuthFixturesOnce[\s\S]*?public-fixtures::PreparePublicFixturesOnce/u)
+  assert.match(source, /FSUSBLOG_PARALLEL_WORKLOAD=scheduler-admitted[\s\S]*RunParallel "bootstrap-runtime-fixtures"/u)
+  assert.match(source, /RunParallel "bootstrap-runtime-fixtures"[\s\S]*RefreshAcceptanceCacheAfterFixtures/u)
+  assert.match(source, /failures\+=\("\$\{labels\[\$index\]\} \(exit \$\{childStatus\}\)"\)/u)
   assert.doesNotMatch(source, /FSUSBLOG_BOOTSTRAP_(?:WORKERS|CPU|MEMORY)=[0-9]/u)
 })
 
 test('acceptance service ports stay below the kernel ephemeral range and Vite cannot drift', () => {
   const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
   for (const range of ['20000 21999', '22000 23999', '24000 25999', '26000 27999', '28000 29999']) {
-    assert.match(source, new RegExp(`find_free_port ${range}`, 'u'))
+    assert.match(source, new RegExp(`FindFreePort ${range}`, 'u'))
   }
   assert.equal((source.match(/--strictPort/gu) ?? []).length, 3)
   assert.equal((source.match(/--host 127\.0\.0\.1/gu) ?? []).length, 3)

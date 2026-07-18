@@ -1068,6 +1068,13 @@ function HasUnsafeShellExpansion(line)
     const trimmed = line.trim()
     if (!trimmed
         || trimmed.startsWith('#')
+        || line.includes('[[')
+        || line.includes(']]')
+        || line.includes('((')
+        || line.includes('))')
+        || /\$\{[A-Za-z_][A-Za-z0-9_]*\[@\]\+"\$\{/u.test(line)
+        || /\$\{[A-Za-z_][A-Za-z0-9_]*#"\$[A-Za-z_][A-Za-z0-9_]*"\//u.test(line)
+        || /^for\s+[A-Za-z_][A-Za-z0-9_]*\s+in\b/u.test(trimmed)
         || /^(?:export|readonly|local|declare|typeset)\b/u.test(trimmed)
         || /^[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\])?\+?=/u.test(trimmed)
         || /^\[\[.*\]\](?:\s*(?:&&|\|\|).*)?$/u.test(trimmed)
@@ -1100,6 +1107,51 @@ function HasUnsafeShellExpansion(line)
             if (character === '\\')
             {
                 escaped = true
+                continue
+            }
+            if (quote === '"' && character === '$' && line[index + 1] === '(')
+            {
+                let depth = 1
+                let nestedQuote = null
+                let nestedEscaped = false
+                for (let nestedIndex = index + 2; nestedIndex < line.length; nestedIndex += 1)
+                {
+                    const nestedCharacter = line[nestedIndex]
+                    if (nestedQuote)
+                    {
+                        if (nestedEscaped)
+                        {
+                            nestedEscaped = false
+                        }
+                        else if (nestedCharacter === '\\' && nestedQuote === '"')
+                        {
+                            nestedEscaped = true
+                        }
+                        else if (nestedCharacter === nestedQuote)
+                        {
+                            nestedQuote = null
+                        }
+                        continue
+                    }
+                    if (nestedCharacter === "'" || nestedCharacter === '"')
+                    {
+                        nestedQuote = nestedCharacter
+                    }
+                    else if (nestedCharacter === '$' && line[nestedIndex + 1] === '(')
+                    {
+                        depth += 1
+                        nestedIndex += 1
+                    }
+                    else if (nestedCharacter === ')')
+                    {
+                        depth -= 1
+                        if (depth === 0)
+                        {
+                            index = nestedIndex
+                            break
+                        }
+                    }
+                }
                 continue
             }
             if (character === quote)
@@ -1145,6 +1197,7 @@ function CheckShell(file, content, argumentsValue)
         .map((line, index) => ignoredLines.has(index) ? '' : line)
         .join('\n')
     const dotnetConfigurationEnvironment = ExceptionApplies('dotnet-configuration-environment', file)
+    const shellEnvironmentVariable = ExceptionApplies('shell-environment-variable', file)
     CheckFourSpaceIndent(file, content, ignoredLines)
     if (!lines[0]?.startsWith('#!'))
     {
@@ -1156,7 +1209,12 @@ function CheckShell(file, content, argumentsValue)
     {
         AddDiagnostic(file, 1, 'shell-strict-mode', 'shell scripts require set -euo pipefail')
     }
-    if (/\b(?:mktemp|coproc)\b|(?:^|\s)&\s*(?:#.*)?$/mu.test(shellContent)
+    const shellLines = shellContent.split('\n')
+    const createsTemporaryResource = shellLines.some((line) =>
+        /\$\(\s*mktemp\b/u.test(line) || /^\s*(?:command\s+)?(?:mktemp|coproc)\b/u.test(line))
+    const launchesUnmanagedBackgroundJob = shellLines.some((line) =>
+        /(?:^|\s)&\s*(?:#.*)?$/u.test(line) && !/\bnohup\s+setsid\b/u.test(line))
+    if ((createsTemporaryResource || launchesUnmanagedBackgroundJob)
         && !/^\s*trap\s+.+\b(?:EXIT|RETURN)\b/mu.test(shellContent))
     {
         AddDiagnostic(file, 1, 'shell-cleanup-trap', 'temporary or background resources require an EXIT/RETURN cleanup trap')
@@ -1167,15 +1225,22 @@ function CheckShell(file, content, argumentsValue)
         {
             continue
         }
-        const functionMatch = lines[index].match(/^\s*(?:function\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(?:\(\))?\s*\{/u)
-        if (functionMatch && !/^[A-Z][A-Za-z0-9]*$/u.test(functionMatch[1]))
+        const functionMatch = lines[index].match(/^\s*(?:function\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\(\))?|([A-Za-z_][A-Za-z0-9_]*)\s*\(\))\s*\{/u)
+        const functionName = functionMatch?.[1] ?? functionMatch?.[2]
+        if (functionName && !/^[A-Z][A-Za-z0-9]*$/u.test(functionName))
         {
-            AddDiagnostic(file, index + 1, 'shell-function-name', `${functionMatch[1]} must use PascalCase`)
+            AddDiagnostic(file, index + 1, 'shell-function-name', `${functionName} must use PascalCase`)
         }
-        const localMatch = lines[index].match(/\blocal\s+(?:-[A-Za-z]+\s+)?([A-Za-z_][A-Za-z0-9_]*)/u)
-        if (localMatch && !/^[a-z][A-Za-z0-9]*$/u.test(localMatch[1]))
+        const localMatch = lines[index].match(/^\s*local\s+(-[A-Za-z]+\s+)?([A-Za-z_][A-Za-z0-9_]*)/u)
+        const localName = localMatch?.[2]
+        const exportedLocal = localMatch?.[1]?.includes('x') ?? false
+        const registeredExternalLocal = exportedLocal
+            && ((shellEnvironmentVariable && /^[A-Z][A-Z0-9_]*$/u.test(localName ?? ''))
+                || (dotnetConfigurationEnvironment
+                    && /^[A-Za-z][A-Za-z0-9]*(?:__[A-Za-z0-9]+)+$/u.test(localName ?? '')))
+        if (localName && !registeredExternalLocal && !/^[a-z][A-Za-z0-9]*$/u.test(localName))
         {
-            AddDiagnostic(file, index + 1, 'shell-local-name', `${localMatch[1]} must use camelCase`)
+            AddDiagnostic(file, index + 1, 'shell-local-name', `${localName} must use camelCase`)
         }
         const exportMatch = lines[index].match(/^\s*export\s+([A-Za-z_][A-Za-z0-9_]*)/u)
         const registeredDotnetKey = dotnetConfigurationEnvironment
@@ -1186,7 +1251,8 @@ function CheckShell(file, content, argumentsValue)
         {
             AddDiagnostic(file, index + 1, 'shell-export-name', `${exportMatch[1]} must use UPPER_SNAKE_CASE`)
         }
-        if (HasUnsafeShellExpansion(lines[index]))
+        const intentionalWordSplitting = /shellcheck\s+disable=SC2086|intentional\s+word\s+splitting/iu.test(lines[index - 1] ?? '')
+        if (!intentionalWordSplitting && HasUnsafeShellExpansion(lines[index]))
         {
             AddDiagnostic(file, index + 1, 'shell-quote', 'quote variable expansions unless intentional word splitting is documented')
         }

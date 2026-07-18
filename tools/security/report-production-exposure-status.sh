@@ -55,9 +55,11 @@ ExpectedDomainsFromHosts() {
 
 HasWord() {
     local needle="$1"
-    shift
+    local haystack="$2"
+    local -a words=()
+    read -r -a words <<<"$haystack"
     local word
-    for word in "$@"; do
+    for word in "${words[@]}"; do
         [[ "$word" == "$needle" ]] && return 0
     done
     return 1
@@ -102,7 +104,7 @@ CaptureDnsDelegationEvidence() {
     fi
 
     for domain in $expectedDomains; do
-        if ! HasWord "$domain" $delegationDomains; then
+        if ! HasWord "$domain" "$delegationDomains"; then
             AddBlocker dns-delegation "$domain: required delegation domain is missing from DNS delegation evidence"
         fi
     done
@@ -170,7 +172,7 @@ CaptureDnsReadinessEvidence() {
     fi
 
     for host in $expectedHosts; do
-        if ! HasWord "$host" $readinessHosts; then
+        if ! HasWord "$host" "$readinessHosts"; then
             AddBlocker dns-readiness "$host: required production host is missing from DNS readiness evidence"
         fi
     done
@@ -224,7 +226,7 @@ CaptureLiveRequiredHosts() {
     fi
 
     for host in $expectedHosts; do
-        if ! HasWord "$host" $liveHosts; then
+        if ! HasWord "$host" "$liveHosts"; then
             AddBlocker live-evidence "$host: required production host is missing from live evidence requiredHosts"
         fi
     done

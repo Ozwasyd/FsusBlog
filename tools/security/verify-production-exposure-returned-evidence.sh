@@ -20,9 +20,11 @@ JsonArrayWords() {
 
 HasWord() {
     local needle="$1"
-    shift
+    local haystack="$2"
+    local -a words=()
+    read -r -a words <<<"$haystack"
     local word
-    for word in "$@"; do
+    for word in "${words[@]}"; do
         [[ "$word" == "$needle" ]] && return 0
     done
     return 1
@@ -49,7 +51,7 @@ fi
 RETURNED_DIR="$(cd "$RETURNED_DIR" && pwd)"
 symlink_path="$(find "$RETURNED_DIR" -type l -print -quit 2>/dev/null || true)"
 if [[ -n "$symlink_path" ]]; then
-    Fail "returned evidence directory contains a symlink: ${symlink_path#$RETURNED_DIR/}"
+    Fail "returned evidence directory contains a symlink: ${symlink_path#"$RETURNED_DIR"/}"
 fi
 
 FIREWALL_POLICY_FILE="$RETURNED_DIR/production-firewall-policy.json"
@@ -89,12 +91,12 @@ ValidateScopeFile() {
     [[ -n "$scopeHosts" ]] || Fail "$label requiredHosts must be a non-empty array"
     [[ -n "$scopeDomains" ]] || Fail "$label delegationDomains must be a non-empty array"
     for expectedHost in $expected_host_words; do
-        if ! HasWord "$expectedHost" $scopeHosts; then
+        if ! HasWord "$expectedHost" "$scopeHosts"; then
             Fail "$label does not cover required production host: $expectedHost"
         fi
     done
     for expectedDomain in $expected_domain_words; do
-        if ! HasWord "$expectedDomain" $scopeDomains; then
+        if ! HasWord "$expectedDomain" "$scopeDomains"; then
             Fail "$label does not cover required delegation domain: $expectedDomain"
         fi
     done

@@ -44,7 +44,7 @@ RejectSymlinksOrFail() {
 
     symlinkPath="$(find "$dir" -type l -print -quit 2>/dev/null || true)"
     if [[ -n "$symlinkPath" ]]; then
-        PreserveExtractedAndFail "returned handoff bundle contains a symlink: ${symlinkPath#$dir/}"
+        PreserveExtractedAndFail "returned handoff bundle contains a symlink: ${symlinkPath#"$dir"/}"
     fi
 }
 

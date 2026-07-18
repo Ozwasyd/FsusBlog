@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const legacy = path.join(root, 'tools/test/legacy-test.sh')
 
-test('legacy run_parallel rolls jobs within the inherited CPU and memory grant', () => {
+test('legacy RunParallel rolls jobs within the inherited CPU and memory grant', () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-legacy-parallel-'))
   const markers = path.join(temp, 'markers.txt')
   const worker = path.join(temp, 'worker.mjs')
@@ -28,7 +28,7 @@ test('legacy run_parallel rolls jobs within the inherited CPU and memory grant',
   const result = spawnSync('bash', ['-c', [
     'export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1',
     `source ${legacy}`,
-    `run_parallel grant-contract ${specs}`
+    `RunParallel grant-contract ${specs}`
   ].join('; ')], {
     cwd: root,
     env: {
@@ -57,11 +57,11 @@ test('legacy run_parallel rolls jobs within the inherited CPU and memory grant',
   fs.rmSync(temp, { recursive: true, force: true })
 })
 
-test('legacy run_parallel gives a serial tail the complete STEP grant', () => {
+test('legacy RunParallel gives a serial tail the complete STEP grant', () => {
   const result = spawnSync('bash', ['-c', [
     'export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1',
     `source ${legacy}`,
-    'run_parallel serial-contract "only::test \"$FSUSBLOG_STEP_CPU_BUDGET:$FSUSBLOG_STEP_MEMORY_GIB\" = 3:6"'
+    'RunParallel serial-contract "only::test \"$FSUSBLOG_STEP_CPU_BUDGET:$FSUSBLOG_STEP_MEMORY_GIB\" = 3:6"'
   ].join('; ')], {
     cwd: root,
     env: {
@@ -74,11 +74,11 @@ test('legacy run_parallel gives a serial tail the complete STEP grant', () => {
   assert.equal(result.status, 0, result.stderr)
 })
 
-test('legacy run_parallel collects every bounded child failure', () => {
+test('legacy RunParallel collects every bounded child failure', () => {
   const result = spawnSync('bash', ['-c', [
     'export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1',
     `source ${legacy}`,
-    'run_parallel failure-contract "a::sh -c \'exit 2\'" "b::sh -c \'exit 3\'" "c::true"'
+    'RunParallel failure-contract "a::sh -c \'exit 2\'" "b::sh -c \'exit 3\'" "c::true"'
   ].join('; ')], {
     cwd: root,
     env: {

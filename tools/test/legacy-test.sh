@@ -12,7 +12,6 @@ GATE_LOG_DIR="${FSUSBLOG_GATE_LOG_DIR:-$ROOT_DIR/.tmp/gate-logs}"
 FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-}"
 FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-}"
 
-FAST_HTTP_TIMEOUT_MS="${FSUSBLOG_FAST_HTTP_TIMEOUT_MS:-15000}"
 INTEGRATION_HTTP_TIMEOUT_MS="${FSUSBLOG_INTEGRATION_HTTP_TIMEOUT_MS:-15000}"
 RELEASE_HTTP_TIMEOUT_MS="${FSUSBLOG_RELEASE_HTTP_TIMEOUT_MS:-15000}"
 ACCEPTANCE_HTTP_TIMEOUT_MS="${FSUSBLOG_ACCEPTANCE_HTTP_TIMEOUT_MS:-15000}"
@@ -280,7 +279,7 @@ RunOnceCommand() {
     local requiredOutput="$4"
     shift 4
     local -a args=(
-        Run
+        run
         --root "$ROOT_DIR/.tmp/run-once"
         --namespace "${FSUSBLOG_TEST_NAMESPACE:-local}"
         --key "$key"
@@ -314,7 +313,7 @@ EnsureWasmOnce() {
         "$fingerprint" \
         "$CLIENT_DIR" \
         "$wasmOutput" \
-        npm Run ensure:wasm
+        npm run ensure:wasm
 }
 
 PrepareAuthFixturesOnce() {
@@ -364,7 +363,7 @@ PrepareAuthFixturesOnce() {
         "$fingerprint" \
         "$CLIENT_DIR" \
         "$fixtureRoot/auth" \
-        npm Run prepare:binary-smoke:auth-users
+        npm run prepare:binary-smoke:auth-users
 }
 
 PreparePublicFixturesOnce() {
@@ -385,7 +384,7 @@ PreparePublicFixturesOnce() {
         "$fingerprint" \
         "$CLIENT_DIR" \
         "$fixtureRoot/public.aeds" \
-        npm Run prepare:playwright:fixtures
+        npm run prepare:playwright:fixtures
 }
 
 PrepareSessionFixturesOnce() {
@@ -410,7 +409,7 @@ PrepareSessionFixturesOnce() {
         "$fingerprint" \
         "$CLIENT_DIR" \
         "$fixtureRoot/sessions" \
-        env FSUSBLOG_PLAYWRIGHT_WORKERS="$workers" npm Run prepare:playwright:sessions -- --workers "$workers"
+        env FSUSBLOG_PLAYWRIGHT_WORKERS="$workers" npm run prepare:playwright:sessions -- --workers "$workers"
 }
 
 PrepareRuntimeFixturesOnce() {
@@ -424,15 +423,15 @@ PrepareRuntimeFixturesOnce() {
 RunVitestScript() {
     local script="$1"
     if [[ -n "${FSUSBLOG_VITEST_SHARD_ARG:-}" ]]; then
-        RunInClient npm Run "$script" -- "$FSUSBLOG_VITEST_SHARD_ARG"
+        RunInClient npm run "$script" -- "$FSUSBLOG_VITEST_SHARD_ARG"
     else
-        RunInClient npm Run "$script"
+        RunInClient npm run "$script"
     fi
 }
 
 RunVitestScriptUnsharded() {
     local script="$1"
-    RunInClient npm Run "$script"
+    RunInClient npm run "$script"
 }
 
 ConfigureVisualPlaywrightLane() {
@@ -650,13 +649,39 @@ for (const key of [
 NODE
 }
 
+CleanupTestParallelChildren() {
+    local statusDir="$1"
+    shift
+    local childPid
+    for childPid in "$@"; do
+        [[ -n "$childPid" ]] || continue
+        kill "$childPid" >/dev/null 2>&1 || true
+        wait "$childPid" >/dev/null 2>&1 || true
+    done
+    rm -rf "$statusDir"
+}
+
+CleanupTestParallelSignal() {
+    CleanupTestParallelChildren "$@"
+    exit 130
+}
+
+CleanupTestParallelReturn() {
+    local returnStatus="$1"
+    shift
+    CleanupTestParallelChildren "$@"
+    trap - RETURN INT TERM
+    return "$returnStatus"
+}
+
 RunParallel() {
     local group="$1"
     shift
     local -a specs=("$@")
     local -a pids=()
     local -a statusFiles=()
-    local statusDir="$ROOT_DIR/.tmp/parallel-status/$(NamespaceSlug "$group")-$$-$RANDOM"
+    local statusDir
+    statusDir="$ROOT_DIR/.tmp/parallel-status/$(NamespaceSlug "$group")-$$-$RANDOM"
     local total="${#specs[@]}"
     local workerCap
     workerCap="$(ResolveParallelWorkers "$total")"
@@ -670,6 +695,8 @@ RunParallel() {
         grantSignature="$(stat -c '%y:%s' "$grantFile" 2>/dev/null || printf 'missing')"
     fi
     mkdir -p "$statusDir"
+    trap 'CleanupTestParallelSignal "$statusDir" "${pids[@]:-}"' INT TERM
+    trap 'CleanupTestParallelReturn "$?" "$statusDir" "${pids[@]:-}"' RETURN
 
     CURRENT_STAGE="$group"
     Log "parallel group start: $group ($total jobs, workers=$workerCap, executionMode=$executionMode)"
@@ -678,7 +705,8 @@ RunParallel() {
     for ((index = 0; index < total; index += 1)); do
         local spec="${specs[$index]}"
         local label="${spec%%::*}"
-        local statusFile="$statusDir/$index-$(NamespaceSlug "$label").status"
+        local statusFile
+        statusFile="$statusDir/$index-$(NamespaceSlug "$label").status"
         statusFiles+=("$statusFile")
     done
 
@@ -750,7 +778,7 @@ RunParallel() {
                 continue
             fi
             wait "${pids[$index]}" >/dev/null 2>&1 || true
-            observed[$index]=1
+            observed[index]=1
             completed=$((completed + 1))
             active=$((active - 1))
             progressed=1
@@ -769,6 +797,7 @@ RunParallel() {
         fi
     done
     rm -rf "$statusDir"
+    trap - RETURN INT TERM
 
     if ((${#failures[@]} > 0)); then
         local failureMessage="parallel group failed: $group (${failures[*]})"
@@ -1313,7 +1342,7 @@ RunBackendMutationWithConfig() {
     export FSUSBLOG_MUTATION_BUILD
     (
         cd "$workingDir"
-        Run dotnet tool Run dotnet-stryker \
+        Run dotnet tool run dotnet-stryker \
             --config-file "$configPath" \
             --output "$outputDir"
     )
@@ -1363,23 +1392,23 @@ RunBackendNightlyOnly() {
 RunCrossStackStaticContracts() {
     FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild || return $?
     FSUSBLOG_OPENAPI_BUILD=0 Run "$ROOT_DIR/tools/contracts/export-openapi.sh"
-    RunInClient npm Run check:openapi-sync
-    RunInClient npm Run check:contract:openapi
-    RunInClient npm Run check:frontend-routes
-    RunInClient npm Run check:consumer:openapi
-    RunInClient npm Run check:contract:binary-matrix
-    RunInClient npm Run check:contract:api-parity
-    RunInClient npm Run check:contract:pow-parity
-    RunInClient npm Run check:contract:frame-schema
-    RunInClient npm Run check:contract:negative-matrix
-    RunInClient npm Run check:coherence:runtime-matrix
-    RunInClient npm Run check:coherence:distribution-full
-    RunInClient npm Run check:coherence:notification-stream-events
-    RunInClient npm Run check:coherence:upload-complete
+    RunInClient npm run check:openapi-sync
+    RunInClient npm run check:contract:openapi
+    RunInClient npm run check:frontend-routes
+    RunInClient npm run check:consumer:openapi
+    RunInClient npm run check:contract:binary-matrix
+    RunInClient npm run check:contract:api-parity
+    RunInClient npm run check:contract:pow-parity
+    RunInClient npm run check:contract:frame-schema
+    RunInClient npm run check:contract:negative-matrix
+    RunInClient npm run check:coherence:runtime-matrix
+    RunInClient npm run check:coherence:distribution-full
+    RunInClient npm run check:coherence:notification-stream-events
+    RunInClient npm run check:coherence:upload-complete
     RunInClient node ../../tests/frontend/checks/runtime/auth-state-coherence.mjs
-    RunInClient npm Run check:coherence:sw-cache
-    RunInClient npm Run check:coherence:perf
-    RunInClient npm Run check:cross-stack-test-governance
+    RunInClient npm run check:coherence:sw-cache
+    RunInClient npm run check:coherence:perf
+    RunInClient npm run check:cross-stack-test-governance
 }
 
 RunCrossStackRuntimeContracts() {
@@ -1387,7 +1416,7 @@ RunCrossStackRuntimeContracts() {
     export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
     export FSUSBLOG_PUBLIC_BASE_URL="$DEBUG_BACKEND_URL"
     export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
-    RunInClient npm Run check:auth-zero-probe
+    RunInClient npm run check:auth-zero-probe
 }
 
 RunCrossStackContractOnly() {
@@ -1447,7 +1476,7 @@ RunFrontendFastBuildGroup() {
         "$fingerprint" \
         "$CLIENT_DIR" \
         "$frontendDistOutput|$backendWebrootOutput" \
-        env FSUSBLOG_SKIP_ENSURE_WASM=1 FSUSBLOG_VALIDATE_GENERATED_ONLY=1 FSUSBLOG_VITE_WARN_AS_ERROR=1 npm Run build:release
+        env FSUSBLOG_SKIP_ENSURE_WASM=1 FSUSBLOG_VALIDATE_GENERATED_ONLY=1 FSUSBLOG_VITE_WARN_AS_ERROR=1 npm run build:release
 }
 
 WriteFrontendSplitSummary() {
@@ -1616,14 +1645,18 @@ RunIntegrationOnly() {
         fi
     }
 
+    # Dispatched indirectly by the RunParallel command specifications below.
+    # shellcheck disable=SC2317
     RunIntegrationClientCheck() {
-        RunInClient npm Run "$1"
+        RunInClient npm run "$1"
     }
 
     # These checks only read the already-prepared runtime fixtures (the session
     # smoke mutates only its own user sessions). They are subprocess/HTTP wait
     # heavy, so two children can share one admitted CPU while the live scheduler
     # grant remains the authoritative memory and CPU envelope.
+    # Dispatched indirectly through RunIntegrationStage.
+    # shellcheck disable=SC2317
     RunIntegrationParallelChecks() {
         local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
         local -x FSUSBLOG_PARALLEL_WORKLOAD=orchestration
@@ -1641,8 +1674,8 @@ RunIntegrationOnly() {
     Log "real-browser PoW and search probes are delegated to browser-runtime-risk-diagnostics"
     # Keep authenticated admin/session work and distribution mutation out of the
     # shared read pool so parallel execution cannot change their observable state.
-    RunIntegrationStage "binary-smoke-auth" RunInClient npm Run check:binary-smoke:auth
-    RunIntegrationStage "distribution-version-coherence" RunInClient npm Run check:distribution-version-coherence
+    RunIntegrationStage "binary-smoke-auth" RunInClient npm run check:binary-smoke:auth
+    RunIntegrationStage "distribution-version-coherence" RunInClient npm run check:distribution-version-coherence
 
     unset -f RunIntegrationStage RunIntegrationClientCheck RunIntegrationParallelChecks
     if ((${#integrationFailures[@]} > 0)); then
@@ -1740,13 +1773,13 @@ RunReleasePublicHydrationPrepareOnly() {
     export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
     export FSUSBLOG_HTTP_TIMEOUT_MS="$RELEASE_HTTP_TIMEOUT_MS"
 
-    RunInClient npm Run check:public-hydration-rebuild
+    RunInClient npm run check:public-hydration-rebuild
     # Public AOT warmup/backfill is a backend operation; Vite preview only serves static release assets.
     RunInClient env \
         FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" \
         FSUSBLOG_PUBLIC_BASE_URL="$DEBUG_BACKEND_URL" \
         FSUSBLOG_PUBLIC_AOT_WAIT_MS=120000 \
-        npm Run rebuild:public-hydration
+        npm run rebuild:public-hydration
 }
 
 RunReleaseOnly() {
@@ -1772,7 +1805,7 @@ RunReleaseOnly() {
     RunInClient node ../../tests/frontend/checks/public/check-public-dom-diff-hydration.mjs
     RunInClient env FSUSBLOG_REQUIRE_PUBLIC_HYDRATION_ARTIFACTS=1 \
         node ../../tests/frontend/checks/public/check-public-hydration-matrix-governance.mjs --lane release
-    RunInClient npm Run check:public-seo-smoke
+    RunInClient npm run check:public-seo-smoke
     Log "release browser-only hydration/search/PWA risks are delegated to browser-contract (#1147)"
 }
 
@@ -1803,15 +1836,15 @@ RunAcceptanceOnly() {
     export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
     export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
     export FSUSBLOG_HTTP_TIMEOUT_MS="$ACCEPTANCE_HTTP_TIMEOUT_MS"
-    RunInClient env FSUSBLOG_DISABLE_HUMAN_READ_PROOF=1 FSUSBLOG_DISABLE_NOTIFICATION_STREAM=1 npm Run check:acceptance:public
+    RunInClient env FSUSBLOG_DISABLE_HUMAN_READ_PROOF=1 FSUSBLOG_DISABLE_NOTIFICATION_STREAM=1 npm run check:acceptance:public
 
     export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
     export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
     export FSUSBLOG_HTTP_TIMEOUT_MS="$ACCEPTANCE_HTTP_TIMEOUT_MS"
-    RunInClient npm Run check:spa:routes
-    RunInClient npm Run check:acceptance:auth
+    RunInClient npm run check:spa:routes
+    RunInClient npm run check:acceptance:auth
     ResetSecurityRuntimeState "pre console acceptance"
-    RunInClient npm Run check:acceptance:console
+    RunInClient npm run check:acceptance:console
 }
 
 RunAcceptance() {
@@ -1840,7 +1873,7 @@ RunVisualPublicOnly() {
     export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
     export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
     export FSUSBLOG_HTTP_TIMEOUT_MS="$VISUAL_HTTP_TIMEOUT_MS"
-    RunVisualGroupCheck public npm Run check:visual:public
+    RunVisualGroupCheck public npm run check:visual:public
 }
 
 RunVisualConsoleOnly() {
@@ -1859,7 +1892,7 @@ RunVisualConsoleOnly() {
         FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_CONSOLE_VISUAL_WORKERS" PrepareSessionFixturesOnce
         export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
     fi
-    RunVisualGroupCheck console npm Run check:visual:console
+    RunVisualGroupCheck console npm run check:visual:console
 }
 
 RunVisual() {
@@ -1897,8 +1930,11 @@ RunSecurityRuntimeCoreOnly() {
         fi
     }
 
+    # Dispatched indirectly by the securityRuntimeJobs command specifications.
+    # shellcheck disable=SC2317
     RunSecurityIsolatedClientCheck() {
-        local suffix="security-$(NamespaceSlug "$1")"
+        local suffix
+        suffix="security-$(NamespaceSlug "$1")"
         shift
         (
             export FSUSBLOG_USER_USERNAME="${FSUSBLOG_USER_USERNAME:-binaryuser}-$suffix"
@@ -1908,10 +1944,14 @@ RunSecurityRuntimeCoreOnly() {
         )
     }
 
+    # Dispatched indirectly by the securityRuntimeJobs command specifications.
+    # shellcheck disable=SC2317
     CheckSecurityFirewallEvidence() {
         Run "$ROOT_DIR/tools/security/verify-production-firewall-policy-evidence.sh" "$FSUSBLOG_FIREWALL_POLICY_EVIDENCE"
     }
 
+    # Dispatched indirectly by the securityRuntimeJobs command specifications.
+    # shellcheck disable=SC2317
     CheckExternalProductionExposure() {
         local -a failures=()
         Run "$ROOT_DIR/tools/security/check-production-exposure-live.sh" || failures+=(live-check)
@@ -1952,6 +1992,8 @@ RunSecurityRuntimeCoreOnly() {
     if [[ "${FSUSBLOG_RUN_PRODUCTION_EXPOSURE_LIVE:-0}" == "1" ]]; then
         securityRuntimeJobs+=("external-production-exposure::CheckExternalProductionExposure")
     fi
+    # Dispatched indirectly through RunSecurityStage.
+    # shellcheck disable=SC2317
     RunSecurityRuntimePool() {
         local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
         local -x FSUSBLOG_PARALLEL_WORKLOAD=cpu
@@ -1963,10 +2005,10 @@ RunSecurityRuntimeCoreOnly() {
     Log "real-browser permission routing is delegated to browser-runtime-risk-diagnostics"
 
     RunSecurityStage "reset-pre-attack" ResetSecurityRuntimeState "pre attack matrix"
-    RunSecurityStage "attack-matrix" RunInClient npm Run check:security:attack-matrix
+    RunSecurityStage "attack-matrix" RunInClient npm run check:security:attack-matrix
     RunSecurityStage "reset-post-attack" ResetSecurityRuntimeState "post attack matrix"
     if [[ "${FSUSBLOG_SKIP_ZAP:-0}" != "1" ]]; then
-        RunSecurityStage "dast" RunInClient npm Run check:security:dast
+        RunSecurityStage "dast" RunInClient npm run check:security:dast
     fi
     RunSecurityStage "reset-post-gate" ResetSecurityRuntimeState "post security gate"
     unset -f RunSecurityStage RunSecurityIsolatedClientCheck RunSecurityRuntimePool \
@@ -2000,12 +2042,12 @@ RunResilienceOnly() {
     export FSUSBLOG_HTTP_TIMEOUT_MS="$RESILIENCE_HTTP_TIMEOUT_MS"
 
     PrepareRuntimeFixturesOnce
-    RunInClient npm Run check:aot-cache-resilience
-    RunInClient npm Run check:resilience:upload
-    RunInClient npm Run check:notification-stream-runtime
+    RunInClient npm run check:aot-cache-resilience
+    RunInClient npm run check:resilience:upload
+    RunInClient npm run check:notification-stream-runtime
     Log "real-browser search recovery is delegated to browser-runtime-risk-diagnostics"
-    RunInClient npm Run check:binary-smoke
-    RunInClient npm Run check:binary-contract-smoke
+    RunInClient npm run check:binary-smoke
+    RunInClient npm run check:binary-contract-smoke
     WriteRuntimeLaneSummary resilience
 }
 
@@ -2026,9 +2068,9 @@ RunLoadOnly() {
     export FSUSBLOG_HTTP_TIMEOUT_MS="$LOAD_HTTP_TIMEOUT_MS"
 
     PrepareRuntimeFixturesOnce
-    RunInClient npm Run check:load:public-api
+    RunInClient npm run check:load:public-api
     ResetSecurityRuntimeState "pre notification stream pressure"
-    RunInClient npm Run check:load:notification-stream-pressure
+    RunInClient npm run check:load:notification-stream-pressure
 }
 
 RunLoad() {

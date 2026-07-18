@@ -170,7 +170,12 @@ EOF
 
 (
     cd "${ARTIFACT_DIR}"
-    find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 sha256sum >SHA256SUMS
+    mapfile -d '' -t artifactFiles < <(find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z)
+    ((${#artifactFiles[@]} > 0)) || {
+        printf '[build-wasm-artifact] fatal: artifact directory is empty\n' >&2
+        exit 1
+    }
+    sha256sum "${artifactFiles[@]}" >SHA256SUMS
     sha256sum -c SHA256SUMS >/dev/null
 )
 

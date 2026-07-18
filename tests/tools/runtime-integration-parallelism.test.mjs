@@ -10,8 +10,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
 const browserDiagnostics = fs.readFileSync(path.join(root, 'tools/test/lanes/browser-runtime-risk-diagnostics.sh'), 'utf8')
 const integration = legacy.slice(
-  legacy.indexOf('run_integration_only()'),
-  legacy.indexOf('\nrun_integration()', legacy.indexOf('run_integration_only()'))
+  legacy.indexOf('RunIntegrationOnly()'),
+  legacy.indexOf('\nRunIntegration()', legacy.indexOf('RunIntegrationOnly()'))
 )
 
 function countShellToken(source, token) {
@@ -20,9 +20,9 @@ function countShellToken(source, token) {
 }
 
 test('runtime integration retains every check exactly once while parallelizing only shared-state-safe work', () => {
-  const parallelStart = integration.indexOf('run_parallel "integration-runtime-checks"')
-  const authenticated = integration.indexOf('run_integration_stage "binary-smoke-auth"')
-  const distribution = integration.indexOf('run_integration_stage "distribution-version-coherence"')
+  const parallelStart = integration.indexOf('RunParallel "integration-runtime-checks"')
+  const authenticated = integration.indexOf('RunIntegrationStage "binary-smoke-auth"')
+  const distribution = integration.indexOf('RunIntegrationStage "distribution-version-coherence"')
 
   assert.ok(parallelStart >= 0)
   assert.ok(parallelStart < authenticated && authenticated < distribution)
@@ -60,10 +60,10 @@ test('diagnostics-only pow runtime parallelizes isolated browser contexts with a
 })
 
 test('runtime integration collects independent pool and stateful failures before failing the lane', () => {
-  assert.match(integration, /local -a integration_failures=\(\)/u)
-  assert.match(integration, /integration_failures\+=\("\$label:\$status"\)/u)
-  assert.match(integration, /run_integration_stage "runtime-parallel"[\s\S]*run_integration_stage "binary-smoke-auth"[\s\S]*run_integration_stage "distribution-version-coherence"/u)
-  assert.match(integration, /if \(\( \$\{#integration_failures\[@\]\} > 0 \)\); then[\s\S]*fail "integration runtime failures/u)
+  assert.match(integration, /local -a integrationFailures=\(\)/u)
+  assert.match(integration, /integrationFailures\+=\("\$label:\$status"\)/u)
+  assert.match(integration, /RunIntegrationStage "runtime-parallel"[\s\S]*RunIntegrationStage "binary-smoke-auth"[\s\S]*RunIntegrationStage "distribution-version-coherence"/u)
+  assert.match(integration, /if \(\(\$\{#integrationFailures\[@\]\} > 0\)\); then[\s\S]*Fail "integration runtime failures/u)
   assert.doesNotMatch(integration, /max[-_]?errors?|fail-fast/u)
 })
 

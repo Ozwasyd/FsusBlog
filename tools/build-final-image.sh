@@ -268,7 +268,7 @@ image_id="$({
         FSUSBLOG_EXPECTED_THREAD_POOL_MODE="$THREAD_POOL_MODE" \
         FSUSBLOG_EXPECTED_THREAD_POOL_MIN_THREADS_PER_CPU="$THREAD_POOL_MIN_THREADS_PER_CPU" \
         FSUSBLOG_EXPECTED_TOPOLOGY_MODE="$TOPOLOGY_MODE" \
-        node -e '
+        node -e $'
     const fs = require("node:fs");
     const inspected = JSON.parse(fs.readFileSync(0, "utf8"));
     const image = inspected[0];

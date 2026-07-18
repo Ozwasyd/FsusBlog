@@ -179,16 +179,16 @@ test('evidence gate fails closed for stale, digest, coverage, asset, and canonic
 
 test('rollout warms and verifies all public routes before gateway switch', () => {
   const source = fs.readFileSync(path.join(root, 'tools/deployment/release-rollout.sh'), 'utf8')
-  const candidateIndex = source.indexOf('stage_candidate_smoke()')
+  const candidateIndex = source.indexOf('StageCandidateSmoke()')
   const warmIndex = source.indexOf('warm-public-aot-cache.mjs', candidateIndex)
-  const verifyIndex = source.indexOf('verify_public_aot_warm_evidence', warmIndex)
-  const switchIndex = source.indexOf('stage_gateway_switch()')
+  const verifyIndex = source.indexOf('VerifyPublicAotWarmEvidence', warmIndex)
+  const switchIndex = source.indexOf('StageGatewaySwitch()')
   assert.ok(candidateIndex >= 0)
   assert.ok(warmIndex >= 0)
   assert.ok(verifyIndex > warmIndex)
   assert.ok(switchIndex > verifyIndex)
   assert.match(source, /--scope all --fail-fast/u)
-  assert.match(source, /stage_gateway_switch\(\) \{\s+verify_public_aot_warm_evidence/u)
+  assert.match(source, /StageGatewaySwitch\(\) \{\s+VerifyPublicAotWarmEvidence/u)
   assert.match(source, /publicAotWarm=\$EVIDENCE_DIR\/public-aot-warm\.json/u)
 })
 

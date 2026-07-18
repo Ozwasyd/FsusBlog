@@ -111,10 +111,10 @@ test('acceptance bootstrap materializes verified domains into its current run-bo
 
 test('CI bootstrap source keeps backend-only consumers free of frontend startup and forbids rebuild fallback', () => {
   const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
-  assert.match(source, /ci_production_has_domain frontend-dist[\s\S]*runtime_applications\+=\(release-preview ensure_release_preview debug-frontend ensure_debug_frontend\)/u)
+  assert.match(source, /CiProductionHasDomain frontend-dist[\s\S]*runtimeApplications\+=\(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend\)/u)
   assert.match(source, /FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT[\s\S]*vite preview/u)
-  assert.match(source, /runtime_args="-c \$runtime_configuration --no-build --no-restore"/u)
+  assert.match(source, /runtimeArgs="-c \$runtimeConfiguration --no-build --no-restore"/u)
   assert.match(source, /local -x PublicAot__SsrClientRoot="\$PUBLIC_AOT_SSR_CLIENT_ROOT"/u)
-  assert.match(source, /current_fingerprint" == "\$next_fingerprint"[\s\S]*debug backend already healthy/u)
+  assert.match(source, /currentFingerprint" == "\$nextFingerprint"[\s\S]*debug backend already healthy/u)
   assert.doesNotMatch(source, /CI production[^\n]*fallback[^\n]*build/iu)
 })

@@ -140,12 +140,12 @@ test('dedicated browser bootstrap is fixed at one worker and fail-closes owned r
     < executionResolver.indexOf('os.availableParallelism'))
   assert.match(executionResolver, /DEDICATED_RUNTIME:-0\}" == "1"[\s\S]*?rounded < cap \? rounded : cap[\s\S]*?return 0[\s\S]*?os\.freemem/u)
   const workerResolver = source.slice(
-    source.indexOf('resolve_bootstrap_parallel_workers()'),
-    source.indexOf('resolve_bootstrap_child_environment()')
+    source.indexOf('ResolveBootstrapParallelWorkers()'),
+    source.indexOf('ResolveBootstrapChildEnvironment()')
   )
   const childResolver = source.slice(
-    source.indexOf('resolve_bootstrap_child_environment()'),
-    source.indexOf('run_bootstrap_parallel()')
+    source.indexOf('ResolveBootstrapChildEnvironment()'),
+    source.indexOf('RunBootstrapParallel()')
   )
   assert.ok(workerResolver.indexOf('FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME')
     < workerResolver.indexOf('resolveManifestLiveCapacity'))
@@ -168,45 +168,45 @@ test('dedicated browser bootstrap is fixed at one worker and fail-closes owned r
   assert.match(source, /FSUSBLOG_RUNTIME_IDENTITY_PREPARATION_ID[\s\S]*?environment\.FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID === preparationId[\s\S]*?preparationId,/u)
   assert.match(source, /fs\.writeFileSync\(pending,[\s\S]*?mode: 0o600/u)
   assert.match(source, /fs\.chmodSync\(file, 0o600\)/u)
-  assert.match(source, /write_runtime_process_identity "\$pid_file" "\$started_pid" backend "\$readiness_deadline"/u)
-  assert.match(source, /write_runtime_process_identity "\$pid_file" "\$started_pid" "\$role" "\$readiness_deadline"/u)
+  assert.match(source, /WriteRuntimeProcessIdentity "\$pidFile" "\$startedPid" backend "\$readinessDeadline"/u)
+  assert.match(source, /WriteRuntimeProcessIdentity "\$pidFile" "\$startedPid" "\$role" "\$readinessDeadline"/u)
   assert.match(source, /fs\.constants\.O_NOFOLLOW[\s\S]*?fs\.fstatSync\(fd\)[\s\S]*?\(stat\.mode & 0o777\) !== 0o600/u)
   assert.match(source, /observed\.processGroupId !== managedPid[\s\S]*?observed\.sessionId !== managedPid/u)
-  assert.match(source, /write_runtime_pid_file "\$pid_file" "\$started_pid"/u)
+  assert.match(source, /WriteRuntimePidFile "\$pidFile" "\$startedPid"/u)
 
-  const backend = source.slice(source.indexOf('ensure_backend()'), source.indexOf('start_background_if_needed()'))
-  const background = source.slice(source.indexOf('start_background_if_needed()'), source.indexOf('ensure_debug_frontend()'))
-  const debugFrontend = source.slice(source.indexOf('ensure_debug_frontend()'), source.indexOf('ensure_release_preview()'))
-  const releasePreview = source.slice(source.indexOf('ensure_release_preview()'), source.indexOf('prepare_fixtures()'))
+  const backend = source.slice(source.indexOf('EnsureBackend()'), source.indexOf('StartBackgroundIfNeeded()'))
+  const background = source.slice(source.indexOf('StartBackgroundIfNeeded()'), source.indexOf('EnsureDebugFrontend()'))
+  const debugFrontend = source.slice(source.indexOf('EnsureDebugFrontend()'), source.indexOf('EnsureReleasePreview()'))
+  const releasePreview = source.slice(source.indexOf('EnsureReleasePreview()'), source.indexOf('PrepareFixtures()'))
   for (const [label, runtimeSource, reuseMarker] of [
     ['backend', backend, 'already healthy'],
     ['background helper', background, 'already reachable'],
     ['debug frontend', debugFrontend, 'already healthy'],
     ['release preview', releasePreview, 'already healthy']
   ]) {
-    assert.ok(runtimeSource.indexOf('admit_dedicated_runtime_port') >= 0, `${label} lacks dedicated admission`)
-    assert.ok(runtimeSource.indexOf('admit_dedicated_runtime_port')
+    assert.ok(runtimeSource.indexOf('AdmitDedicatedRuntimePort') >= 0, `${label} lacks dedicated admission`)
+    assert.ok(runtimeSource.indexOf('AdmitDedicatedRuntimePort')
       < runtimeSource.indexOf(reuseMarker), `${label} admits after reuse`)
   }
-  assert.doesNotMatch(backend.slice(0, backend.indexOf('nohup setsid')), /kill_pid_if_running/u)
-  assert.doesNotMatch(debugFrontend, /kill_pid_if_running/u)
-  assert.doesNotMatch(releasePreview, /kill_pid_if_running/u)
-  assert.match(background, /local role[\s\S]*?role="\$\(runtime_process_role[\s\S]*?probe_url[\s\S]*?admit_dedicated_runtime_port[\s\S]*?already reachable/u)
-  assert.match(background, /assert_dedicated_runtime_port_available "\$label" "\$port"[\s\S]*?nohup setsid/u)
-  assert.match(backend, /assert_dedicated_runtime_port_available 'debug backend' "\$DEBUG_BACKEND_PORT"[\s\S]*?nohup setsid/u)
-  assert.match(debugFrontend, /kill_runtime_pid_if_owned debug-frontend[\s\S]*?wait_for_port_release[\s\S]*?start_background_if_needed/u)
-  assert.match(releasePreview, /admit_dedicated_runtime_port[\s\S]*?building release preview[\s\S]*?admit_dedicated_runtime_port[\s\S]*?kill_runtime_pid_if_owned release-preview/u)
-  const portRelease = source.slice(source.indexOf('wait_for_port_release()'), source.indexOf('probe_url()'))
-  assert.match(portRelease, /DEDICATED_RUNTIME:-0\}" == "1"[\s\S]*?port_is_listening[\s\S]*?refusing blind termination[\s\S]*?return 1[\s\S]*?kill_pid_if_running/u)
+  assert.doesNotMatch(backend.slice(0, backend.indexOf('nohup setsid')), /KillPidIfRunning/u)
+  assert.doesNotMatch(debugFrontend, /KillPidIfRunning/u)
+  assert.doesNotMatch(releasePreview, /KillPidIfRunning/u)
+  assert.match(background, /local role[\s\S]*?role="\$\(RuntimeProcessRole[\s\S]*?ProbeUrl[\s\S]*?AdmitDedicatedRuntimePort[\s\S]*?already reachable/u)
+  assert.match(background, /AssertDedicatedRuntimePortAvailable "\$label" "\$port"[\s\S]*?nohup setsid/u)
+  assert.match(backend, /AssertDedicatedRuntimePortAvailable 'debug backend' "\$DEBUG_BACKEND_PORT"[\s\S]*?nohup setsid/u)
+  assert.match(debugFrontend, /KillRuntimePidIfOwned debug-frontend[\s\S]*?WaitForPortRelease[\s\S]*?StartBackgroundIfNeeded/u)
+  assert.match(releasePreview, /AdmitDedicatedRuntimePort[\s\S]*?building release preview[\s\S]*?AdmitDedicatedRuntimePort[\s\S]*?KillRuntimePidIfOwned release-preview/u)
+  const portRelease = source.slice(source.indexOf('WaitForPortRelease()'), source.indexOf('ProbeUrl()'))
+  assert.match(portRelease, /DEDICATED_RUNTIME:-0\}" == "1"[\s\S]*?PortIsListening[\s\S]*?refusing blind termination[\s\S]*?return 1[\s\S]*?KillPidIfRunning/u)
 
-  const postgres = source.slice(source.indexOf('ensure_postgres()'), source.indexOf('ensure_redis()'))
-  const redis = source.slice(source.indexOf('ensure_redis()'), source.indexOf('refresh_fixture_service_generation()'))
+  const postgres = source.slice(source.indexOf('EnsurePostgres()'), source.indexOf('EnsureRedis()'))
+  const redis = source.slice(source.indexOf('EnsureRedis()'), source.indexOf('RefreshFixtureServiceGeneration()'))
   for (const serviceSource of [postgres, redis]) {
-    assert.match(serviceSource, /assert_dedicated_container_binding/u)
+    assert.match(serviceSource, /AssertDedicatedContainerBinding/u)
     assert.match(serviceSource, /DEDICATED_RUNTIME:-0\}" == "1"[\s\S]*?refusing to remove or recreate[\s\S]*?return 1[\s\S]*?docker rm -f -v/u)
   }
-  const fixtures = source.slice(source.indexOf('prepare_fixtures()'), source.indexOf('current_pow_difficulty()'))
-  assert.match(fixtures, /DEDICATED_RUNTIME:-0\}" == "1"[\s\S]*?prepare_auth_fixtures_once[\s\S]*?prepare_public_fixtures_once[\s\S]*?else[\s\S]*?run_parallel "bootstrap-runtime-fixtures"/u)
+  const fixtures = source.slice(source.indexOf('PrepareFixtures()'), source.indexOf('CurrentPowDifficulty()'))
+  assert.match(fixtures, /DEDICATED_RUNTIME:-0\}" == "1"[\s\S]*?PrepareAuthFixturesOnce[\s\S]*?PreparePublicFixturesOnce[\s\S]*?else[\s\S]*?RunParallel "bootstrap-runtime-fixtures"/u)
 })
 
 test('dedicated runtime admission fail-closes foreign, hidden, reachable, and raced listeners for all roles', (t) => {
@@ -241,59 +241,59 @@ test('dedicated runtime admission fail-closes foreign, hidden, reachable, and ra
     TEST_BINDING=0
     TEST_GROUP_EXISTS=0
     SIGNAL_CALLS=0
-    port_is_listening() { [[ "$TEST_LISTENING" == "1" ]]; }
-    find_port_pid() { printf '%s\n' "$TEST_PORT_PID"; }
-    dedicated_runtime_process_binding_matches() { [[ "$TEST_BINDING" == "1" ]]; }
-    runtime_process_group_exists() { [[ "$TEST_GROUP_EXISTS" == "1" ]]; }
-    signal_runtime_process_group() {
+    PortIsListening() { [[ "$TEST_LISTENING" == "1" ]]; }
+    FindPortPid() { printf '%s\n' "$TEST_PORT_PID"; }
+    DedicatedRuntimeProcessBindingMatches() { [[ "$TEST_BINDING" == "1" ]]; }
+    RuntimeProcessGroupExists() { [[ "$TEST_GROUP_EXISTS" == "1" ]]; }
+    SignalRuntimeProcessGroup() {
       SIGNAL_CALLS=$((SIGNAL_CALLS + 1))
       TEST_GROUP_EXISTS=0
     }
 
     while IFS=: read -r role pid_name port; do
-      pid_file="$TMP_DIR/$pid_name"
-      rm -f "$pid_file" "$(runtime_identity_file "$pid_file")"
+      pidFile="$TMP_DIR/$pid_name"
+      rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
 
       TEST_LISTENING=1
       TEST_PORT_PID=424242
       TEST_BINDING=0
-      if admit_dedicated_runtime_port "$role" "$role" "$pid_file" "$port" 0; then
+      if AdmitDedicatedRuntimePort "$role" "$role" "$pidFile" "$port" 0; then
         fail_fixture "$role admitted a foreign listener"
       fi
       [[ "$SIGNAL_CALLS" == "0" ]] || fail_fixture "$role signalled a foreign listener"
 
       TEST_PORT_PID=''
-      if admit_dedicated_runtime_port "$role" "$role" "$pid_file" "$port" 1; then
+      if AdmitDedicatedRuntimePort "$role" "$role" "$pidFile" "$port" 1; then
         fail_fixture "$role reused a reachable listener without an inspectable sidecar"
       fi
       [[ "$SIGNAL_CALLS" == "0" ]] || fail_fixture "$role signalled a hidden listener"
 
-      write_runtime_pid_file "$pid_file" "$$"
+      WriteRuntimePidFile "$pidFile" "$$"
       TEST_PORT_PID=424243
       TEST_BINDING=1
-      admit_dedicated_runtime_port "$role" "$role" "$pid_file" "$port" 1 \
+      AdmitDedicatedRuntimePort "$role" "$role" "$pidFile" "$port" 1 \
         || fail_fixture "$role rejected an owned child listener"
 
       TEST_LISTENING=0
       TEST_PORT_PID=''
-      admit_dedicated_runtime_port "$role" "$role" "$pid_file" "$port" 0 \
+      AdmitDedicatedRuntimePort "$role" "$role" "$pidFile" "$port" 0 \
         || fail_fixture "$role rejected a free port"
       TEST_LISTENING=1
       TEST_PORT_PID=424244
-      if assert_dedicated_runtime_port_available "$role" "$port"; then
+      if AssertDedicatedRuntimePortAvailable "$role" "$port"; then
         fail_fixture "$role missed a pre-spawn port race"
       fi
       [[ "$SIGNAL_CALLS" == "0" ]] || fail_fixture "$role signalled a raced listener"
 
       TEST_BINDING=0
       TEST_GROUP_EXISTS=1
-      if kill_runtime_pid_if_owned "$role" "$pid_file" "$$" "$EXECUTION_DEADLINE_AT_MS"; then
+      if KillRuntimePidIfOwned "$role" "$pidFile" "$$" "$EXECUTION_DEADLINE_AT_MS"; then
         fail_fixture "$role terminated a mismatched process"
       fi
       [[ "$SIGNAL_CALLS" == "0" ]] || fail_fixture "$role signalled a mismatched process group"
 
       TEST_BINDING=1
-      kill_runtime_pid_if_owned "$role" "$pid_file" "$$" "$EXECUTION_DEADLINE_AT_MS" \
+      KillRuntimePidIfOwned "$role" "$pidFile" "$$" "$EXECUTION_DEADLINE_AT_MS" \
         || fail_fixture "$role could not terminate its owned process group"
       [[ "$SIGNAL_CALLS" == "1" ]] || fail_fixture "$role did not signal exactly one owned group"
       SIGNAL_CALLS=0
@@ -301,7 +301,7 @@ test('dedicated runtime admission fail-closes foreign, hidden, reachable, and ra
       TEST_LISTENING=1
       TEST_PORT_PID=''
       deadline_now="$(date +%s%3N)"
-      if wait_for_port_release "$port" "$deadline_now"; then
+      if WaitForPortRelease "$port" "$deadline_now"; then
         fail_fixture "$role treated an uninspectable listener as released"
       fi
       [[ "$SIGNAL_CALLS" == "0" ]] || fail_fixture "$role blindly killed an uninspectable listener"

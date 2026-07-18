@@ -10,10 +10,10 @@ const faultLane = fs.readFileSync(path.join(root, 'tools/test/lanes/fault-inject
 const runtimeProbe = fs.readFileSync(path.join(root, 'tools/test/lanes/runtime-evidence-probe.mjs'), 'utf8')
 
 test('fresh no-build runtime reuses the production Release backend instead of a deleted Debug output', () => {
-  assert.match(bootstrap, /FSUSBLOG_RUNTIME_NO_BUILD[\s\S]*?runtime_configuration="Release"/u)
-  assert.match(bootstrap, /runtime_args="-c \$runtime_configuration --no-build --no-restore"/u)
-  assert.match(bootstrap, /Debug\|Release/u)
-  assert.doesNotMatch(bootstrap, /runtime_args="-c Debug --no-build --no-restore"/u)
+  assert.match(bootstrap, /FSUSBLOG_RUNTIME_NO_BUILD[\s\S]*?runtimeConfiguration="Release"/u)
+  assert.match(bootstrap, /runtimeArgs="-c \$runtimeConfiguration --no-build --no-restore"/u)
+  assert.match(bootstrap, /Debug \| Release/u)
+  assert.doesNotMatch(bootstrap, /runtimeArgs="-c Debug --no-build --no-restore"/u)
 })
 
 test('managed Debug bootstrap is a no-build reader of the shared backend producer', t => {
@@ -30,7 +30,7 @@ test('managed Debug bootstrap is a no-build reader of the shared backend produce
     'export FSUSBLOG_RUNTIME_NO_BUILD=0',
     'unset FSUSBLOG_RUNTIME_CONFIGURATION',
     'source ./tools/bootstrap-acceptance-env.sh',
-    'configure_managed_backend_runtime_reader',
+    'ConfigureManagedBackendRuntimeReader',
     'printf "%s|%s|%s\\n" "$FSUSBLOG_RUNTIME_CONFIGURATION" "$FSUSBLOG_RUNTIME_NO_BUILD" "$MANAGED_BACKEND_SHARED_DEBUG_BUILD_REQUIRED"'
   ].join('; ')], {
     cwd: root,
@@ -43,15 +43,15 @@ test('managed Debug bootstrap is a no-build reader of the shared backend produce
   const runtimeEnvironment = fs.readFileSync(path.join(root, '.tmp/env', `${namespace}.env`), 'utf8')
   assert.match(runtimeEnvironment, /^FSUSBLOG_RUNTIME_CONFIGURATION=Debug$/mu)
   assert.match(runtimeEnvironment, /^FSUSBLOG_RUNTIME_NO_BUILD=1$/mu)
-  assert.match(bootstrap, /source "\$ROOT_DIR\/tools\/test\/lanes\/_legacy\.sh"[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build/u)
-  assert.match(bootstrap, /backend-debug-build ensure_managed_backend_shared_debug_build/u)
+  assert.match(bootstrap, /local legacyLane="\$ROOT_DIR\/tools\/test\/lanes\/_legacy\.sh"[\s\S]*?source "\$legacyLane"[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild/u)
+  assert.match(bootstrap, /backend-debug-build EnsureManagedBackendSharedDebugBuild/u)
   assert.match(bootstrap, /managed backend startup is read-only and requires FSUSBLOG_RUNTIME_NO_BUILD=1/u)
-  assert.match(bootstrap, /FSUSBLOG_RUNTIME_CONFIGURATION="\$runtime_configuration"[\s\S]*?FSUSBLOG_RUNTIME_NO_BUILD=1/u)
+  assert.match(bootstrap, /FSUSBLOG_RUNTIME_CONFIGURATION="\$runtimeConfiguration"[\s\S]*?FSUSBLOG_RUNTIME_NO_BUILD=1/u)
 })
 
 test('fault recovery reloads bootstrap mode and cannot restart a managed backend as a build writer', () => {
-  const loadIndex = faultLane.indexOf('require_bootstrapped_namespace')
-  const producerIndex = faultLane.indexOf('FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build')
+  const loadIndex = faultLane.indexOf('RequireBootstrappedNamespace')
+  const producerIndex = faultLane.indexOf('FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild')
   const probeIndex = faultLane.indexOf('runtime-evidence-probe.mjs')
   assert.ok(loadIndex >= 0 && loadIndex < producerIndex)
   assert.ok(producerIndex < probeIndex)
@@ -76,7 +76,7 @@ test('bootstrap namespace loader preserves values containing and ending with equ
   const result = childProcess.spawnSync('bash', ['-lc', [
     `export FSUSBLOG_TEST_NAMESPACE=${namespace}`,
     'source ./tools/test/lanes/_legacy.sh',
-    'require_bootstrapped_namespace',
+    'RequireBootstrappedNamespace',
     '[[ "$VisitLog__IpPseudonymization__CurrentKey" == "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=" ]]',
     '[[ "$ConnectionStrings__DefaultConnection" == "Host=127.0.0.1;Password=value=with=equals" ]]'
   ].join('; ')], {
@@ -94,7 +94,7 @@ test('managed backend uses the same JWT key version as acceptance fixture tokens
 
 test('acceptance backend keeps local fixtures while enforcing the production CSP', () => {
   assert.match(bootstrap, /ASPNETCORE_ENVIRONMENT=Development\nTesting__EnforceProductionCsp=true/u)
-  assert.match(bootstrap, /starting managed \$\{runtime_configuration,,\} backend[\s\S]*?local -x Testing__EnforceProductionCsp=true[\s\S]*?nohup/u)
+  assert.match(bootstrap, /starting managed \$\{runtimeConfiguration,,\} backend[\s\S]*?local -x Testing__EnforceProductionCsp=true[\s\S]*?nohup/u)
 })
 
 test('managed backend readiness fails immediately when the no-build process exits', t => {
@@ -114,7 +114,7 @@ test('managed backend readiness fails immediately when the no-build process exit
     'source ./tools/bootstrap-acceptance-env.sh',
     'ROOT_DIR=/tmp/fsusblog-intentionally-missing-runtime-root',
     'deadline=$(( $(date +%s%3N) + 15000 ))',
-    'ensure_backend "$deadline"'
+    'EnsureBackend "$deadline"'
   ].join('; ')], {
     cwd: root,
     encoding: 'utf8',

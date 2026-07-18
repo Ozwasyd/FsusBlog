@@ -123,9 +123,9 @@ test('browser runtime timeouts scale from machine contention while remaining bou
 
 test('runtime service probes consume the shared machine-adaptive request timeout', () => {
   const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
-  assert.match(legacy, /runtime_probe_timeout_seconds timeout_seconds/u)
+  assert.match(legacy, /RuntimeProbeTimeoutSeconds timeoutSeconds/u)
   assert.doesNotMatch(legacy, /curl[^\n]*--max-time 5/u)
-  assert.match(legacy, /retryable_runtime_probe_status/u)
+  assert.match(legacy, /RetryableRuntimeProbeStatus/u)
   assert.match(legacy, /attempts=\$attempts observed=\$observations/u)
 })
 
@@ -142,7 +142,7 @@ test('runtime service probe retries transient 503 responses until the endpoint b
 
   const result = await runProcess('bash', [
     '-c',
-    'export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1; source "$1"; RUNTIME_PROBE_TIMEOUT_SECONDS=2; probe_url fixture "$2"',
+    'export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1; source "$1"; RUNTIME_PROBE_TIMEOUT_SECONDS=2; ProbeUrl fixture "$2"',
     'runtime-probe-test',
     legacy,
     `${baseUrl}/cold`
@@ -166,7 +166,7 @@ test('runtime service probe fails immediately for a terminal 404 response', asyn
 
   const result = await runProcess('bash', [
     '-c',
-    'export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1; source "$1"; RUNTIME_PROBE_TIMEOUT_SECONDS=2; probe_url fixture "$2"',
+    'export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1; source "$1"; RUNTIME_PROBE_TIMEOUT_SECONDS=2; ProbeUrl fixture "$2"',
     'runtime-probe-test',
     legacy,
     `${baseUrl}/missing`
@@ -203,7 +203,7 @@ test('production runtime keeps hydration writes exact-once and gates all release
   const distribution = fs.readFileSync(path.join(root, 'tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs'), 'utf8')
   const viewportBoundaries = fs.readFileSync(path.join(root, 'tests/frontend/e2e/ux/viewport-boundaries.spec.ts'), 'utf8')
   assert.equal((legacy.match(/npm run rebuild:public-hydration/gu) ?? []).length, 1)
-  assert.match(legacy, /run_release_public_hydration_prepare_only\(\)[\s\S]*check:public-hydration-rebuild[\s\S]*rebuild:public-hydration/u)
+  assert.match(legacy, /RunReleasePublicHydrationPrepareOnly\(\)[\s\S]*check:public-hydration-rebuild[\s\S]*rebuild:public-hydration/u)
   assert.match(legacy, /FSUSBLOG_RELEASE_HYDRATION_PREPARED_BY_DAG[\s\S]*reuse same-run release hydration write barrier/u)
   assert.match(bundle, /step\('release-public-hydration',[\s\S]*dependsOn: \['runtime-integration'\]/u)
   assert.match(bundle, /step\('security-runtime-core',[\s\S]*dependsOn: needsRuntime/u)

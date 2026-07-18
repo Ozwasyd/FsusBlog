@@ -106,7 +106,14 @@ if HasDomain wasm; then
     CopyDirectory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"
     (
         cd "$PAYLOAD_ROOT/wasm"
-        find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 sha256sum >SHA256SUMS
+        mapfile -d '' -t checksumFiles < <(
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z
+        )
+        if ((${#checksumFiles[@]} == 0)); then
+            : >SHA256SUMS
+        else
+            sha256sum "${checksumFiles[@]}" >SHA256SUMS
+        fi
     )
     node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs" \
         --require-generated \

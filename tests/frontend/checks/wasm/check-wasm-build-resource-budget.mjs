@@ -114,8 +114,8 @@ const buildWasmArtifactSource = readFileSync(buildWasmArtifact, 'utf8');
 const serverDockerfileSource = readFileSync(serverDockerfile, 'utf8');
 const buildSource = readFileSync(buildScript, 'utf8');
 const serviceWorkerSource = readFileSync(serviceWorker, 'utf8');
-const simdBuild = buildSource.match(/build_simd\(\) \{(?<body>[\s\S]*?)\n\}/u)?.groups?.body ?? '';
-const basicBuild = buildSource.match(/build_basic\(\) \{(?<body>[\s\S]*?)\n\}/u)?.groups?.body ?? '';
+const simdBuild = buildSource.match(/BuildSimd\(\) \{(?<body>[\s\S]*?)\n\}/u)?.groups?.body ?? '';
+const basicBuild = buildSource.match(/BuildBasic\(\) \{(?<body>[\s\S]*?)\n\}/u)?.groups?.body ?? '';
 const basicTargetList = basicBuild.match(/local targets=\((?<targets>[\s\S]*?)\n  \)/u)?.groups?.targets ?? '';
 
 for (const target of ['FsusPowEngine', 'aeds_decoder_speed', 'FsusSearchRuntime', 'FsusCommentPrivacyRuntime']) {
@@ -140,19 +140,19 @@ for (const token of [
   'FSUSBLOG_NODE_TEST_CONCURRENCY',
   'schedulerManaged',
   'failed_modes',
-  'optimize_pow_wasm_parallel',
-  'failed_optimizations'
+  'OptimizePowWasmParallel',
+  'failedOptimizations'
 ]) assert.match(buildSource, new RegExp(token, 'u'));
-for (const token of ['ensure-binaryen.sh', 'optimize_aeds_speed_wasm', '--enable-simd', 'mandatory AEDS speed wasm-opt failed']) {
+for (const token of ['ensure-binaryen.sh', 'OptimizeAedsSpeedWasm', '--enable-simd', 'mandatory AEDS speed wasm-opt failed']) {
   assert.match(buildSource, new RegExp(token, 'u'));
 }
-assert.equal((buildSource.match(/^optimize_pow_wasm_parallel \\/gmu) ?? []).length, 1,
+assert.equal((buildSource.match(/^OptimizePowWasmParallel \\/gmu) ?? []).length, 1,
   'all four independent PoW artifacts must enter one dynamically bounded optimization pool');
 
 assert.match(bootstrapSource, /CMAKE_VERSION="4\.3\.3"/u);
-assert.match(buildSource, /version_less_than "\$\{version\}" "3\.24\.0"/u,
+assert.match(buildSource, /VersionLessThan "\$\{version\}" "3\.24\.0"/u,
   'CMake versions without --fresh support must fall back before configuring a wasm variant');
-assert.match(buildSource, /version_less_than "\$\{version\}" "4\.3\.3"/u,
+assert.match(buildSource, /VersionLessThan "\$\{version\}" "4\.3\.3"/u,
   'CMake 4.3.3 must be accepted while known-incompatible earlier 4.2/4.3 releases remain blocked');
 assert.match(buildSource, /command -v cmake/u,
   'the build must reuse a supported host CMake before bootstrapping the pinned fallback');

@@ -35,7 +35,7 @@ test('production exposure self-test rolls every job within the dynamic STEP gran
     job_a() { worker a 0.10; }
     job_b() { worker b 0.35; }
     job_c() { worker c 0.10; }
-    run_parallel_functions fixture-roll job_a job_b job_c
+    RunParallelFunctions fixture-roll job_a job_b job_c
   `, {
     FSUSBLOG_STEP_CPU_BUDGET: '2',
     FSUSBLOG_STEP_MEMORY_GIB: String(os.totalmem() / 1024 ** 3)
@@ -80,7 +80,7 @@ test('production exposure self-test consumes the current run-bound scheduler gra
     live_a() { worker a; }
     live_b() { worker b; }
     live_c() { worker c; }
-    run_parallel_functions fixture-live-grant live_a live_b live_c
+    RunParallelFunctions fixture-live-grant live_a live_b live_c
   `, {
     FSUSBLOG_TEST_RUN_ID: 'exposure-live',
     FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: grantFile,
@@ -116,7 +116,7 @@ test('production exposure self-test rejects a scheduler grant from another run',
     resourceBudget: { cpuUnits: 8, memoryGiB: 8 },
     grants: { runtime: { cpuUnits: 2, memoryGiB: 1 } }
   }))
-  const result = runHarness('resolve_parallel_workers 3', {
+  const result = runHarness('ResolveParallelWorkers 3', {
     FSUSBLOG_TEST_RUN_ID: 'current-run',
     FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: grantFile,
     FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: 'runtime',
@@ -136,7 +136,7 @@ test('production exposure self-test reports all parallel failures after running 
     failed_a() { printf 'failure-a\n' >&2; return 2; }
     succeeded() { printf 'success-ran\n' > "${marker}"; }
     failed_b() { printf 'failure-b\n' >&2; return 3; }
-    run_parallel_functions fixture-failures failed_a succeeded failed_b
+    RunParallelFunctions fixture-failures failed_a succeeded failed_b
   `, {
     FSUSBLOG_STEP_CPU_BUDGET: '3',
     FSUSBLOG_STEP_MEMORY_GIB: String(os.totalmem() / 1024 ** 3)
@@ -155,7 +155,7 @@ test('production exposure self-test bounds a stuck pool and reports every active
   const result = runHarness(`
     stuck_a() { sleep 30; }
     stuck_b() { sleep 30; }
-    run_parallel_functions fixture-timeout stuck_a stuck_b
+    RunParallelFunctions fixture-timeout stuck_a stuck_b
   `, {
     FSUSBLOG_STEP_CPU_BUDGET: '2',
     FSUSBLOG_STEP_MEMORY_GIB: String(os.totalmem() / 1024 ** 3),
@@ -172,7 +172,7 @@ test('production exposure self-test converts the inherited relative STEP deadlin
   const started = Date.now()
   const result = runHarness(`
     stuck_deadline() { sleep 30; }
-    run_parallel_functions fixture-relative-deadline stuck_deadline
+    RunParallelFunctions fixture-relative-deadline stuck_deadline
   `, {
     FSUSBLOG_STEP_CPU_BUDGET: '1',
     FSUSBLOG_STEP_MEMORY_GIB: String(os.totalmem() / 1024 ** 3),
@@ -187,29 +187,29 @@ test('production exposure self-test converts the inherited relative STEP deadlin
 
 test('production exposure self-test keeps dependent archive checks in isolated groups', () => {
   assert.match(source, /parallel_log_root="\$\(mktemp -d\)"/u)
-  assert.match(source, /log_dir="\$parallel_log_root\/\$phase"/u)
-  assert.match(source, /mkfifo "\$completion_fifo"[\s\S]*?read -r -t "\$wait_timeout_seconds" -u "\$completion_fd" finished_pid rc/u)
-  assert.match(source, /phase_started_ms="\$\(date \+%s%3N\)"[\s\S]*?FSUSBLOG_STEP_DEADLINE_MS:-\$\{FSUSBLOG_BUNDLE_DEADLINE_MS/u)
-  assert.match(source, /FSUSBLOG_STEP_CPU_BUDGET="\$child_cpu"/u)
-  assert.match(source, /FSUSBLOG_STEP_MEMORY_GIB="\$child_memory"/u)
+  assert.match(source, /logDir="\$parallel_log_root\/\$phase"/u)
+  assert.match(source, /mkfifo "\$completionFifo"[\s\S]*?read -r -t "\$waitTimeoutSeconds" -u "\$completionFd" finishedPid rc/u)
+  assert.match(source, /phaseStartedMs="\$\(date \+%s%3N\)"[\s\S]*?FSUSBLOG_STEP_DEADLINE_MS:-\$\{FSUSBLOG_BUNDLE_DEADLINE_MS/u)
+  assert.match(source, /FSUSBLOG_STEP_CPU_BUDGET="\$childCpu"/u)
+  assert.match(source, /FSUSBLOG_STEP_MEMORY_GIB="\$childMemory"/u)
   assert.match(source, /fsusblog\.test-matrix\.resource-grants\.v1/u)
   assert.match(source, /FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE/u)
   assert.match(source, /FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID/u)
-  const pool = source.slice(source.indexOf('run_parallel_functions closeout-and-handoff'))
+  const pool = source.slice(source.indexOf('RunParallelFunctions closeout-and-handoff'))
   for (const group of [
-    'test_handoff_bundle_security',
-    'test_returned_evidence_rejections',
-    'test_returned_handoff_success',
-    'test_returned_handoff_archive_safety',
-    'test_returned_contract_drift',
-    'test_returned_status_and_complete',
-    'test_handoff_manifest_drift',
-    'test_complete_closeout_flows'
+    'TestHandoffBundleSecurity',
+    'TestReturnedEvidenceRejections',
+    'TestReturnedHandoffSuccess',
+    'TestReturnedHandoffArchiveSafety',
+    'TestReturnedContractDrift',
+    'TestReturnedStatusAndComplete',
+    'TestHandoffManifestDrift',
+    'TestCompleteCloseoutFlows'
   ]) assert.ok(pool.includes(group), `missing parallel validation group ${group}`)
 
   const archiveSafety = source.slice(
-    source.indexOf('test_returned_handoff_archive_safety()'),
-    source.indexOf('test_returned_contract_drift()')
+    source.indexOf('TestReturnedHandoffArchiveSafety()'),
+    source.indexOf('TestReturnedContractDrift()')
   )
   assert.match(archiveSafety, /returned-handoff-blocked\.tar\.gz/u)
   assert.match(archiveSafety, /returned-handoff-symlink\.tar\.gz/u)
@@ -217,8 +217,8 @@ test('production exposure self-test keeps dependent archive checks in isolated g
   assert.match(source, /returned_complete_ok_dir="\$tmp_dir\/returned-complete-ok"[\s\S]*?cp -a "\$returned_ok_dir" "\$returned_complete_ok_dir"/u)
 
   const sharedBaselineRegion = source.slice(
-    source.indexOf('test_returned_evidence_rejections()'),
-    source.indexOf('run_parallel_functions closeout-and-handoff')
+    source.indexOf('TestReturnedEvidenceRejections()'),
+    source.indexOf('RunParallelFunctions closeout-and-handoff')
   )
   assert.doesNotMatch(sharedBaselineRegion, />\s*"\$complete_failed_status"/u)
   assert.doesNotMatch(sharedBaselineRegion, />\s*"\$complete_failed_manifest"/u)

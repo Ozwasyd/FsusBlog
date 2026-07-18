@@ -11,6 +11,15 @@ DNS_READINESS_FILE="${FSUSBLOG_DNS_READINESS_EVIDENCE:-$ROOT_DIR/.tmp/security/p
 DNS_DELEGATION_FILE="${FSUSBLOG_DNS_DELEGATION_EVIDENCE:-$ROOT_DIR/.tmp/security/production-dns-delegation.json}"
 LIVE_EVIDENCE_FILE="${FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE:-$ROOT_DIR/.tmp/security/production-exposure-live.json}"
 STATUS_FILE="${FSUSBLOG_PRODUCTION_EXPOSURE_STATUS:-$ROOT_DIR/.tmp/security/production-exposure-status.json}"
+temporaryFile=""
+
+CleanupTemporaryRequest() {
+    if [[ -n "$temporaryFile" ]]; then
+        rm -f "$temporaryFile"
+    fi
+}
+
+trap CleanupTemporaryRequest EXIT
 
 Fail() {
     printf '[production-exposure-evidence-request] failed\n' >&2
@@ -64,6 +73,7 @@ done | sort -u | paste -sd ' ' -)"
 status_summary="$(StatusSummaryJson)"
 
 mkdir -p "$(dirname "$OUT_FILE")"
+temporaryFile="$(mktemp "${OUT_FILE}.tmp.XXXXXX")"
 
 jq -n \
     --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -317,6 +327,9 @@ jq -n \
     releaseEvidenceCommand: "tools/operations/collect-release-evidence.sh",
     closeoutRule: "Production exposure closeout is complete only after complete closeout succeeds and statusReport.status is ok"
   }
-' >"$OUT_FILE"
+' >"$temporaryFile"
+
+mv "$temporaryFile" "$OUT_FILE"
+temporaryFile=""
 
 printf '[production-exposure-evidence-request] wrote %s\n' "$OUT_FILE"

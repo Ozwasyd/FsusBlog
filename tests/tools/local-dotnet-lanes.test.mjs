@@ -8,7 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
 test('perception matrix projects the fresh production union and keeps standalone execution', () => {
   const lane = fs.readFileSync(path.join(root, 'tools/test/lanes/perception-v2-test-matrix.sh'), 'utf8')
-  const standaloneStart = lane.indexOf('\nFSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build')
+  const standaloneStart = lane.indexOf('\nFSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild')
   const localBranch = lane.slice(lane.indexOf('if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" ]]'), standaloneStart)
   const standaloneBranch = lane.slice(standaloneStart)
 
@@ -21,14 +21,14 @@ test('perception matrix projects the fresh production union and keeps standalone
   assert.match(localBranch, /PerceptionChallengeV2E2eTests/u)
   assert.match(localBranch, /entry\.outcome !== 'Passed'/u)
   assert.doesNotMatch(localBranch, /dotnet test|check-perception-v2-e2e-evidence/u)
-  assert.match(standaloneBranch, /FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build/u)
+  assert.match(standaloneBranch, /FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild/u)
   assert.match(standaloneBranch, /dotnet_args=\(--no-build --no-restore\)/u)
-  assert.match(standaloneBranch, /ensure_backend_filtered_build[\s\S]*?dotnet test[\s\S]*?check-perception-v2-e2e-evidence/u)
+  assert.match(standaloneBranch, /EnsureBackendFilteredBuild[\s\S]*?dotnet test[\s\S]*?check-perception-v2-e2e-evidence/u)
 })
 
 test('rights v3 matrix consumes the shared Debug build without another writer', () => {
   const lane = fs.readFileSync(path.join(root, 'tools/test/lanes/rights-v3-test-matrix.sh'), 'utf8')
-  const producer = lane.indexOf('FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build')
+  const producer = lane.indexOf('FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild')
   const reader = lane.indexOf('dotnet test tests/backend/FsusBlog.Server.Tests.csproj')
 
   assert.match(lane, /source .*\/_legacy\.sh/u)

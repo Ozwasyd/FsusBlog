@@ -17,7 +17,7 @@ test('geometry diagnostics split the isolated FsusUI harness from archive integr
   assert.doesNotMatch(lane, /acceptance\/public-mobile-menu-motion\.spec\.ts/u)
   assert.ok(
     lane.indexOf('diagnostics/public-mobile-menu-harness.spec.ts')
-      < lane.indexOf('require_release_preview'),
+      < lane.indexOf('RequireReleasePreview'),
     'the isolated harness must execute before release-preview is required',
   )
   assert.match(lane, /--workers=1/u)
@@ -28,9 +28,9 @@ test('geometry diagnostics split the isolated FsusUI harness from archive integr
   assert.match(lane, /excludes:\s*\["fsusblog-backend", "postgresql", "redis", "release-preview"\]/u)
   assert.match(lane, /CANONICAL_EVIDENCE_ROOT=.*browser-diagnostics-runtime\/geometry-motion-focus/u)
   assert.match(lane, /SUMMARY_FILE="\$CANONICAL_EVIDENCE_ROOT\/geometry-motion-focus-summary\.json"/u)
-  assert.match(lane, /if \( require_release_preview \); then/u)
+  assert.match(lane, /if \(RequireReleasePreview\); then/u)
   assert.match(lane, /infra-failure: release preview is unavailable/u)
-  assert.doesNotMatch(lane, /write_summary[\s\S]*?\|\| true/u)
+  assert.doesNotMatch(lane, /WriteSummary[\s\S]*?\|\| true/u)
 
   assert.match(config, /resolveLocalFsusUiRoot/u)
   assert.match(config, /createFsusUiAliases/u)

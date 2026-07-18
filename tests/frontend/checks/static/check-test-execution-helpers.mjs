@@ -11,30 +11,30 @@ const xunitRunner = JSON.parse(await readFile(path.join(root, 'tests/backend/xun
 assert.equal(xunitRunner.stopOnFail, false, 'xUnit must collect all failures in each run')
 const legacyRunner = await readFile(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
 const parallelHelper = legacyRunner.slice(
-  legacyRunner.indexOf('run_parallel()'),
-  legacyRunner.indexOf('\nprobe_url()')
+  legacyRunner.indexOf('RunParallel()'),
+  legacyRunner.indexOf('\nProbeUrl()')
 )
 assert.doesNotMatch(parallelHelper, /kill "\$pid"/, 'parallel groups must not kill peers after one failure')
 assert.match(parallelHelper, /local -a failures=\(\)/u)
 assert.match(parallelHelper, /parallel group failed: \$group \(\$\{failures\[\*\]\}\)/u)
 const securityStaticRunner = legacyRunner.slice(
-  legacyRunner.indexOf('run_security_static_only()'),
-  legacyRunner.indexOf('\nrun_security_runtime_core_only()')
+  legacyRunner.indexOf('RunSecurityStaticOnly()'),
+  legacyRunner.indexOf('\nRunSecurityRuntimeCoreOnly()')
 )
 const securityRuntimeRunner = legacyRunner.slice(
-  legacyRunner.indexOf('run_security_runtime_core_only()'),
-  legacyRunner.indexOf('\nrun_security_only()')
+  legacyRunner.indexOf('RunSecurityRuntimeCoreOnly()'),
+  legacyRunner.indexOf('\nRunSecurityOnly()')
 )
 const securityRunner = legacyRunner.slice(
-  legacyRunner.indexOf('run_security_only()'),
-  legacyRunner.indexOf('\nrun_security()')
+  legacyRunner.indexOf('RunSecurityOnly()'),
+  legacyRunner.indexOf('\nRunSecurity()')
 )
-assert.match(securityStaticRunner, /run_parallel "security-static"/u)
-assert.doesNotMatch(securityStaticRunner, /require_debug_stack/u)
-assert.match(securityRuntimeRunner, /run_parallel "security-runtime-core"/u)
-assert.match(securityRuntimeRunner, /local -a security_failures=\(\)/u)
+assert.match(securityStaticRunner, /RunParallel "security-static"/u)
+assert.doesNotMatch(securityStaticRunner, /RequireDebugStack/u)
+assert.match(securityRuntimeRunner, /RunParallel "security-runtime-core"/u)
+assert.match(securityRuntimeRunner, /local -a securityFailures=\(\)/u)
 assert.match(securityRuntimeRunner, /security stage failed, continuing/u)
-assert.match(securityRunner, /run_parallel "security-phases"/u)
+assert.match(securityRunner, /RunParallel "security-phases"/u)
 
 async function importRequired(relativePath) {
   const absolutePath = path.join(root, relativePath)
@@ -290,12 +290,12 @@ try {
 set -euo pipefail
 export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1
 source "$1"
-test_input_fingerprint() {
+TestInputFingerprint() {
   printf '%s\\n' "$@" > "$CAPTURE_FILE"
   printf 'test-fingerprint'
 }
-run_once_command() { :; }
-run_frontend_fast_build_group
+RunOnceCommand() { :; }
+RunFrontendFastBuildGroup
 `, 'bash', legacyTestScript], {
     cwd: root,
     env: { ...process.env, CAPTURE_FILE: captureFile },
@@ -327,17 +327,17 @@ try {
 set -euo pipefail
 export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1
 source "$1"
-fixture_root_path() { printf '%s\\n' "$FIXTURE_ROOT"; }
-run_once_command() { printf '%s:%s\\n' "$1" "$2" >> "$CAPTURE_FILE"; }
+FixtureRootPath() { printf '%s\\n' "$FIXTURE_ROOT"; }
+RunOnceCommand() { printf '%s:%s\\n' "$1" "$2" >> "$CAPTURE_FILE"; }
 export FSUSBLOG_TEST_NAMESPACE=contract
 export FSUSBLOG_FIXTURE_SERVICE_GENERATION=generation-a
-prepare_auth_fixtures_once
-prepare_public_fixtures_once
-prepare_auth_fixtures_once
-prepare_public_fixtures_once
+PrepareAuthFixturesOnce
+PreparePublicFixturesOnce
+PrepareAuthFixturesOnce
+PreparePublicFixturesOnce
 export FSUSBLOG_FIXTURE_SERVICE_GENERATION=generation-b
-prepare_auth_fixtures_once
-prepare_public_fixtures_once
+PrepareAuthFixturesOnce
+PreparePublicFixturesOnce
 `, 'bash', legacyTestScript], {
     cwd: root,
     env: {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -Euo pipefail
+set -Eeuo pipefail
 umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -649,7 +649,6 @@ WaitForJson() {
 PrepareTopology() {
     local base="$1" sourceSlot="$2" sourceManifest="$3"
     local previousRollbackRelease
-    TOPOLOGY_BASE="$base"
     TOPOLOGY_RUNTIME="$base/runtime"
     TOPOLOGY_STATE="$(dirname "$base")/states/slots.json"
     TOPOLOGY_ENV="$TOPOLOGY_RUNTIME/secrets/rehearsal.env"

@@ -24,7 +24,6 @@ SITE_BACKUP_PACKAGE="${FSUSBLOG_SITE_BACKUP_PACKAGE:-}"
 BACKUP_IDENTITY_FILE="${FSUSBLOG_BACKUP_IDENTITY_FILE:-}"
 BACKUP_IDENTITY_PASSPHRASE_FILE="${FSUSBLOG_BACKUP_IDENTITY_PASSPHRASE_FILE:-}"
 BACKUP_ENVELOPE_TOOL="$ROOT_DIR/tools/operations/backup-envelope.mjs"
-DATA_PROTECTION_KEYRING_BACKUP=""
 
 status="ok"
 blockers=()
@@ -577,7 +576,6 @@ PrepareSiteBackupPackage() {
         return
     fi
 
-    DATA_PROTECTION_KEYRING_BACKUP="$packageDir/data-protection-keyring.tar.gz"
     POSTGRES_BACKUP="${POSTGRES_BACKUP:-$packageDir/database.dump}"
     if [[ -z "$REDIS_BACKUP" ]]; then
         mkdir -p "$packageDir/redis-empty"

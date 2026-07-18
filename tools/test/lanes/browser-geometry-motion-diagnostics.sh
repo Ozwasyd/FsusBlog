@@ -43,7 +43,7 @@ WriteSummary() {
         FSUSBLOG_GEOMETRY_ISOLATED_EXIT_CODE="$ISOLATED_EXIT_CODE" \
         FSUSBLOG_GEOMETRY_ARCHIVE_STATUS="$ARCHIVE_STATUS" \
         FSUSBLOG_GEOMETRY_ARCHIVE_EXIT_CODE="$ARCHIVE_EXIT_CODE" \
-        "${FSUSBLOG_NODE:-node}" --input-type=module -e '
+        "${FSUSBLOG_NODE:-node}" --input-type=module <<'NODE' >/dev/null 2>&1
       import fs from "node:fs"
       import path from "node:path"
 
@@ -80,7 +80,7 @@ WriteSummary() {
         status,
         probes
       }, null, 2)}\n`)
-    ' >/dev/null 2>&1
+NODE
 }
 
 Cleanup() {

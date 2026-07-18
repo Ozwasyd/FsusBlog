@@ -76,9 +76,6 @@ RESOURCE_PID_FILE=""
 NOTIFICATION_PID_FILE=""
 ASSET_COMPATIBILITY_PID_FILE=""
 
-declare -A STAGE_STDOUTS=()
-declare -A STAGE_EVIDENCE=()
-
 Usage() {
     cat <<'USAGE'
 Usage: tools/deployment/release-rollout.sh --release-manifest <file> [options]
@@ -331,7 +328,7 @@ ReadInitialState() {
         return
     fi
 
-    state="$(SlotStateRead)" || RolloutFail "unable to read durable slot state"
+    state="$(SlotStateReadCurrent)" || RolloutFail "unable to read durable slot state"
     [[ "$(jq -r '.status' <<<"$state")" == "stable" ]] || RolloutFail "gateway state is not stable; recover it before rollout"
     SOURCE_SLOT="$(jq -r '.activeSlot // ""' <<<"$state")"
     SOURCE_RELEASE="$(jq -r '.activeReleaseId // ""' <<<"$state")"
@@ -511,7 +508,8 @@ RehearsalStageHold() {
         RolloutFail "rehearsal stage hold timeout must be 1..300 seconds"
     readyFile="$(realpath -m "$readyFile")"
     releaseFile="$(realpath -m "$releaseFile")"
-    local rehearsalRoot="$(realpath -m "$ROOT_DIR/.tmp")"
+    local rehearsalRoot
+    rehearsalRoot="$(realpath -m "$ROOT_DIR/.tmp")"
     local controlledPath
     for controlledPath in "$ROLLOUT_STATE_FILE" "$EVIDENCE_DIR" "$readyFile" "$releaseFile"; do
         [[ "$controlledPath" == "$rehearsalRoot/"* ]] ||
@@ -559,7 +557,7 @@ SlotPort() {
 
 PrintDryRun() {
     local state plannedGeneration
-    state="$(SlotStateRead)"
+    state="$(SlotStateReadCurrent)"
     plannedGeneration="$(($(jq -r '.runtimeGeneration' <<<"$state") + 1))"
     jq -cn \
         --arg rolloutId "$ROLLOUT_ID" \
@@ -1122,8 +1120,6 @@ RunStage() {
         exitCode=70
         printf '[release-rollout] stage evidence write failed for %s\n' "$stage" >>"$stderrFile"
     fi
-    STAGE_STDOUTS["$stage"]="$stdoutFile"
-    STAGE_EVIDENCE["$stage"]="$evidenceFile"
     if [[ "$exitCode" == "0" ]]; then
         node "$ROOT_DIR/tools/deployment/rollout-state.mjs" complete-stage \
             --state "$ROLLOUT_STATE_FILE" --stage "$stage" --evidence "$evidenceFile" --at "$completedAt" >/dev/null
@@ -1320,7 +1316,7 @@ StageCandidateSmoke() {
 
 StageCompatibilitySmoke() {
     local previousRelease
-    previousRelease="$(SlotStateRead | jq -r '.previousReleaseId // .activeReleaseId')"
+    previousRelease="$(SlotStateReadCurrent | jq -r '.previousReleaseId // .activeReleaseId')"
     node "$ROOT_DIR/tools/storage/check-release-compatibility.mjs" \
         --candidate "$TARGET_RELEASE" --active "$SOURCE_RELEASE" --previous "$previousRelease" \
         --store "$ASSET_STORE" --state "$RETENTION_STATE" --out "$EVIDENCE_DIR/compatibility-matrix.json" \
@@ -1344,7 +1340,7 @@ StageGatewaySwitch() {
 
 MarkGatewaySwitch() {
     local generation
-    generation="$(SlotStateRead | jq -r '.switchGeneration')"
+    generation="$(SlotStateReadCurrent | jq -r '.switchGeneration')"
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" mark-switch \
         --state "$ROLLOUT_STATE_FILE" --generation "$generation" >/dev/null
 }

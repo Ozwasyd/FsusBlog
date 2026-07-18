@@ -82,7 +82,7 @@ SourceTypeForSsh() {
     local source="$1"
 
     if [[ -n "${FSUSBLOG_FIREWALL_SSH_SOURCE_TYPES:-}" ]]; then
-        local pair key value
+        local key value
         while IFS='=' read -r key value; do
             key="$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' <<<"${key:-}")"
             value="$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' <<<"${value:-}")"
@@ -130,7 +130,10 @@ while IFS= read -r raw_line; do
         continue
     fi
 
-    to_field="$(sed 's/[[:space:]]*$//' <<<"${BASH_REMATCH[1]}")"
+    to_field="${BASH_REMATCH[1]}"
+    while [[ "$to_field" == *[[:space:]] ]]; do
+        to_field="${to_field%?}"
+    done
     source_field="$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' <<<"${BASH_REMATCH[3]}")"
     [[ -n "$source_field" ]] || continue
     to_field="${to_field% (v6)}"

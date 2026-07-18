@@ -644,11 +644,11 @@ function validateProductionBuildFanout(workflowText, workflowJobs, errors) {
   }
   const bootstrapSource = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
   for (const required of [
-    'materialize_ci_production_build',
+    'MaterializeCiProductionBuild',
     'production-build-artifacts-cli.mjs',
-    'materialize_args',
+    'materializeArgs',
     'FSUSBLOG_RUNTIME_NO_BUILD=1',
-    'ci_production_has_domain frontend-dist',
+    'CiProductionHasDomain frontend-dist',
     'vite preview'
   ]) {
     if (!bootstrapSource.includes(required)) errors.push(`CI no-build bootstrap is missing immutable artifact contract: ${required}`)

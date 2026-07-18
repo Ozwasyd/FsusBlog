@@ -371,10 +371,10 @@ for (const legacyKey of ['threshold-high', 'threshold-low', 'threshold-break', '
     fail(`Stryker.NET 4.14 config must not contain unsupported key ${legacyKey}`)
   }
 }
-if (!legacyTest.includes('--output "$output_dir"')) {
+if (!legacyTest.includes('--output "$outputDir"')) {
   fail('backend mutation runner must pass the report output directory through the supported CLI option')
 }
-if (!legacyTest.includes('cd "$ROOT_DIR"\n    run dotnet tool restore')) {
+if (!/cd "\$ROOT_DIR"\n\s+Run dotnet tool restore/u.test(legacyTest)) {
   fail('backend mutation runner must restore .config/dotnet-tools.json through standard repository-root discovery')
 }
 for (const configPath of [defaultStrykerConfigPath, criticalStrykerConfigRepoPath]) {

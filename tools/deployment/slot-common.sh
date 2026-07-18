@@ -131,7 +131,8 @@ SlotConfigure() {
     [[ "$bluePort" != "$greenPort" ]] || SlotFail "blue and green ports must be different"
 
     export FSUSBLOG_RELEASE_SLOT="$slot"
-    export FSUSBLOG_SLOT_PORT="$([[ "$slot" == "blue" ]] && printf '%s' "$bluePort" || printf '%s' "$greenPort")"
+    FSUSBLOG_SLOT_PORT="$([[ "$slot" == "blue" ]] && printf '%s' "$bluePort" || printf '%s' "$greenPort")"
+    export FSUSBLOG_SLOT_PORT
     export FSUSBLOG_COMPOSE_PROJECT_NAME="fsusblog-$slot"
     export FSUSBLOG_CONTAINER_NAME="fsus-app-$slot"
     export FSUSBLOG_SLOT_AOT_CACHE_VOLUME="fsusblog-aot-cache-$slot"
@@ -163,6 +164,10 @@ SlotLoadManifest() {
 
 SlotStateRead() {
     node "$ROOT_DIR/tools/deployment/slot-state.mjs" read --state "$SLOT_STATE_FILE" "$@"
+}
+
+SlotStateReadCurrent() {
+    node "$ROOT_DIR/tools/deployment/slot-state.mjs" read --state "$SLOT_STATE_FILE"
 }
 
 SlotStateRecordFailure() {

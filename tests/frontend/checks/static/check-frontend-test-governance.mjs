@@ -325,7 +325,7 @@ function requireFile(path) {
 
 function legacyFastGateRuns(script) {
   return legacyTestSh.includes(`npm run ${script}`)
-    || legacyTestSh.includes(`run_vitest_script ${script}`)
+    || legacyTestSh.includes(`RunVitestScript ${script}`)
     || runtimeManifest.includes(`"script": "${script}"`)
     || staticManifest.includes(`"script": "${script}"`)
     || (script === 'test:property' && productionVitestConfig.includes('vitest.property.config'))

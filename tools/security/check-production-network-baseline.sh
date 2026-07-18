@@ -12,7 +12,7 @@ failures=()
 RequireFile() {
     local file="$1"
     if [[ ! -f "$file" ]]; then
-        failures+=("missing file: ${file#$ROOT_DIR/}")
+        failures+=("missing file: ${file#"$ROOT_DIR"/}")
     fi
 }
 
@@ -21,7 +21,7 @@ RequirePattern() {
     local pattern="$2"
     local label="$3"
     if ! grep -Eq "$pattern" "$file"; then
-        failures+=("${file#$ROOT_DIR/}: missing $label")
+        failures+=("${file#"$ROOT_DIR"/}: missing $label")
     fi
 }
 
@@ -30,7 +30,7 @@ RejectPattern() {
     local pattern="$2"
     local label="$3"
     if grep -Eq "$pattern" "$file"; then
-        failures+=("${file#$ROOT_DIR/}: forbidden $label")
+        failures+=("${file#"$ROOT_DIR"/}: forbidden $label")
     fi
 }
 
@@ -74,7 +74,7 @@ if [[ -f "$GATEWAY_FILE" ]]; then
     RequirePattern "$GATEWAY_FILE" 'location[[:space:]]+~[[:space:]]+/\\\.\(\?!well-known\)' 'hidden file deny rule'
     RequirePattern "$GATEWAY_FILE" '\\\.\(bak\|old\|orig\|save\|sql\|tar\|gz\|zip\|7z\|rar\)' 'backup/archive deny rule'
     RequirePattern "$GATEWAY_FILE" 'client_max_body_size[[:space:]]+5m;' 'explicit upload limit'
-    RequirePattern "$GATEWAY_FILE" 'proxy_set_header[[:space:]]+Upgrade[[:space:]]+\$http_upgrade;' 'WebSocket upgrade forwarding'
+    RequirePattern "$GATEWAY_FILE" "proxy_set_header[[:space:]]+Upgrade[[:space:]]+\\\$http_upgrade;" 'WebSocket upgrade forwarding'
     RequirePattern "$GATEWAY_FILE" 'proxy_buffering[[:space:]]+off;' 'WebSocket buffering disabled'
     RequirePattern "$GATEWAY_FILE" 'Strict-Transport-Security' 'HSTS response header'
 fi

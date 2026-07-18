@@ -22,7 +22,7 @@ done
 
 SlotRequireCommand jq
 SlotRequireCommand node
-state="$(SlotStateRead)"
+state="$(SlotStateReadCurrent)"
 
 InspectOne() {
     "$ROOT_DIR/tools/deployment/slot-inspect.sh" --slot "$1" --state-file "$SLOT_STATE_FILE"

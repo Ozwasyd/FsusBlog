@@ -170,11 +170,11 @@ test('preview readiness refuses old HTML or an API response from another backend
 })
 
 test('bootstrap validates the build marker before reuse/start and publishes only after preview API readiness', () => {
-  const ensureStart = bootstrapSource.indexOf('ensure_release_preview()')
+  const ensureStart = bootstrapSource.indexOf('EnsureReleasePreview()')
   const validate = bootstrapSource.indexOf('release-preview-readiness.mjs" validate-build', ensureStart)
   const reuse = bootstrapSource.indexOf('release preview already healthy with matching fingerprint', ensureStart)
   const start = bootstrapSource.indexOf("'release preview' \\", ensureStart)
-  const apiReady = bootstrapSource.indexOf("wait_for_binary_url 'release preview namespace API'", start)
+  const apiReady = bootstrapSource.indexOf("WaitForBinaryUrl 'release preview namespace API'", start)
   const publish = bootstrapSource.indexOf('release-preview-readiness.mjs" publish-ready', apiReady)
 
   assert.ok(validate > ensureStart)
@@ -197,7 +197,7 @@ test('bootstrap validates the build marker before reuse/start and publishes only
 test('bootstrap does not publish resident readiness until the post-fixture public home is ready', () => {
   const mainStart = bootstrapSource.indexOf('main() {')
   const mainSource = bootstrapSource.slice(mainStart)
-  const fixtures = mainSource.indexOf('prepare_fixtures')
+  const fixtures = mainSource.indexOf('PrepareFixtures')
   const publicHome = mainSource.indexOf("'release preview public home after fixture seeding'", fixtures)
   const residentLease = mainSource.indexOf('resident-resource-leases-cli.mjs" publish', publicHome)
 

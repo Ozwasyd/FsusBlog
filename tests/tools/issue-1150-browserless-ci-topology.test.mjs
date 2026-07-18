@@ -32,12 +32,15 @@ function shellFunction(source, name) {
 }
 
 function workflowJob(source, id) {
-  const marker = `  ${id}:\n`
-  const start = source.indexOf(marker)
-  assert.notEqual(start, -1, `missing workflow job ${id}`)
-  const remaining = source.slice(start + marker.length)
-  const next = remaining.search(/^  [A-Za-z0-9_-]+:\s*$/mu)
-  return next === -1 ? source.slice(start) : source.slice(start, start + marker.length + next)
+  const escapedId = id.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+  const marker = source.match(new RegExp(`^(?<indent>[ \\t]+)${escapedId}:[ \\t]*$`, 'mu'))
+  assert.ok(marker?.groups?.indent, `missing workflow job ${id}`)
+  const start = marker.index
+  const bodyStart = start + marker[0].length
+  const next = source
+    .slice(bodyStart)
+    .search(new RegExp(`^${marker.groups.indent}[A-Za-z0-9_-]+:[ \\t]*$`, 'mu'))
+  return next === -1 ? source.slice(start) : source.slice(start, bodyStart + next)
 }
 
 function runSmartGatePlan(changedFile) {
@@ -189,11 +192,11 @@ test('every browser-launching tier declares the browser resource boundary', () =
 
 test('legacy production functions cannot hide direct Chromium launch scripts', () => {
   const source = read('tools/test/legacy-test.sh')
-  const integration = shellFunction(source, 'run_integration_only')
-  const security = shellFunction(source, 'run_security_runtime_core_only')
-  const resilience = shellFunction(source, 'run_resilience_only')
-  const acceptance = shellFunction(source, 'run_acceptance_only')
-  const production = shellFunction(source, 'run_production')
+  const integration = shellFunction(source, 'RunIntegrationOnly')
+  const security = shellFunction(source, 'RunSecurityRuntimeCoreOnly')
+  const resilience = shellFunction(source, 'RunResilienceOnly')
+  const acceptance = shellFunction(source, 'RunAcceptanceOnly')
+  const production = shellFunction(source, 'RunProduction')
 
   for (const forbidden of ['check:pow-runtime', 'check:search-runtime']) {
     assert.doesNotMatch(integration, new RegExp(forbidden.replace(':', '\\:')))
@@ -202,10 +205,10 @@ test('legacy production functions cannot hide direct Chromium launch scripts', (
   assert.doesNotMatch(resilience, /check:search-runtime/u)
   assert.match(acceptance, /browser-diagnostics/u)
   assert.ok(
-    acceptance.indexOf('acceptance is diagnostics-only') < acceptance.indexOf('prepare_session_fixtures_once'),
+    acceptance.indexOf('acceptance is diagnostics-only') < acceptance.indexOf('PrepareSessionFixturesOnce'),
     'legacy acceptance must fail closed outside the diagnostics job before preparing browser fixtures'
   )
-  assert.doesNotMatch(production, /run_acceptance_only|PLAYWRIGHT|prepare_session_fixtures_once/u)
+  assert.doesNotMatch(production, /RunAcceptanceOnly|PLAYWRIGHT|PrepareSessionFixturesOnce/u)
 
   assert.equal(
     tiers.get('cross-stack-contract')?.command,
@@ -225,14 +228,14 @@ test('legacy production functions cannot hide direct Chromium launch scripts', (
 
 test('ordinary quality gate has one conditional zero-retry Chromium job', () => {
   const workflow = read('.github/workflows/quality-gate.yml')
-  assert.doesNotMatch(workflow, /^  acceptance-playwright:/mu)
-  assert.doesNotMatch(workflow, /^  frontend-render-pressure:/mu)
+  assert.doesNotMatch(workflow, /^ {4}acceptance-playwright:/mu)
+  assert.doesNotMatch(workflow, /^ {4}frontend-render-pressure:/mu)
   assert.equal(workflow.match(/playwright install/g)?.length ?? 0, 1)
   assert.equal(workflow.match(/\.cache\/ms-playwright/g)?.length ?? 0, 1)
 
   const contract = workflowJob(workflow, 'browser-contract')
   assert.match(contract, /timeout-minutes: 10/u)
-  assert.match(contract, /FSUSBLOG_PLAYWRIGHT_WORKERS: '1'/u)
+  assert.match(contract, /FSUSBLOG_PLAYWRIGHT_WORKERS: ["']1["']/u)
   assert.match(contract, /playwright install --with-deps chromium/u)
   assert.match(contract, /uses: \.\/\.github\/actions\/consume-production-build/u)
   assert.match(contract, /\.\/tools\/test\.sh ci-tier browser-contract --no-deps/u)
@@ -253,9 +256,9 @@ test('ordinary quality gate has one conditional zero-retry Chromium job', () => 
   }
 
   const diagnostics = read('.github/workflows/browser-diagnostics.yml')
-  assert.match(diagnostics, /^  schedule:/mu)
-  assert.match(diagnostics, /^  workflow_dispatch:/mu)
-  assert.doesNotMatch(diagnostics, /^  pull_request:|^  push:/mu)
+  assert.match(diagnostics, /^ {4}schedule:/mu)
+  assert.match(diagnostics, /^ {4}workflow_dispatch:/mu)
+  assert.doesNotMatch(diagnostics, /^ {4}(?:pull_request|push):/mu)
 })
 
 test('smart gate selects Browser Contract only for its explicit boundary', () => {

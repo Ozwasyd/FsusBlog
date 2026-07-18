@@ -5,6 +5,23 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 OUT_DIR="${FSUSBLOG_SUPPLY_CHAIN_AUDIT_DIR:-$ROOT_DIR/.tmp/security/supply-chain}"
 mkdir -p "$OUT_DIR"
+SUPPLY_CHAIN_ACTIVE_PIDS=()
+SUPPLY_CHAIN_ACTIVE_STATUS_DIR=""
+
+CleanupSupplyChainChildren() {
+    local childPid
+    for childPid in "${SUPPLY_CHAIN_ACTIVE_PIDS[@]}"; do
+        kill "$childPid" >/dev/null 2>&1 || true
+        wait "$childPid" >/dev/null 2>&1 || true
+    done
+    if [[ -n "$SUPPLY_CHAIN_ACTIVE_STATUS_DIR" ]]; then
+        rm -rf "$SUPPLY_CHAIN_ACTIVE_STATUS_DIR"
+    fi
+    SUPPLY_CHAIN_ACTIVE_PIDS=()
+    SUPPLY_CHAIN_ACTIVE_STATUS_DIR=""
+}
+
+trap CleanupSupplyChainChildren EXIT
 
 if [[ -z "${GITHUB_PACKAGES_TOKEN:-}" ]] && command -v gh >/dev/null 2>&1; then
     GITHUB_PACKAGES_TOKEN="$(gh auth token 2>/dev/null || true)"
@@ -48,7 +65,7 @@ CheckDependencyLocks() {
     for project in "${NUGET_PROJECTS[@]}"; do
         lockFile="$(dirname "$project")/packages.lock.json"
         if [[ ! -f "$lockFile" ]]; then
-            missing+=("${lockFile#$ROOT_DIR/} is required for NuGet dependency integrity")
+            missing+=("${lockFile#"$ROOT_DIR"/} is required for NuGet dependency integrity")
         fi
     done
 
@@ -328,6 +345,8 @@ RunCheckGroup() {
     workers="$(ResolveAuditWorkers "$total")"
     local statusDir="$OUT_DIR/.parallel-$group-$$-$RANDOM"
     mkdir -p "$statusDir"
+    SUPPLY_CHAIN_ACTIVE_STATUS_DIR="$statusDir"
+    SUPPLY_CHAIN_ACTIVE_PIDS=()
     Log "parallel group start: $group ($total jobs, workers=$workers)"
 
     local -a pids=()
@@ -352,6 +371,7 @@ RunCheckGroup() {
             exit "$status"
         ) &
         pids+=("$!")
+        SUPPLY_CHAIN_ACTIVE_PIDS+=("$!")
         launched=$((launched + 1))
         active=$((active + 1))
         if ((active >= workers)); then
@@ -364,6 +384,7 @@ RunCheckGroup() {
         wait "${pids[$settled]}" >/dev/null 2>&1 || true
         settled=$((settled + 1))
     done
+    SUPPLY_CHAIN_ACTIVE_PIDS=()
 
     local index status
     for ((index = 0; index < total; index += 1)); do
@@ -374,6 +395,7 @@ RunCheckGroup() {
         fi
     done
     rm -rf "$statusDir"
+    SUPPLY_CHAIN_ACTIVE_STATUS_DIR=""
     Log "parallel group done: $group"
 }
 

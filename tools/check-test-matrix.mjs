@@ -699,27 +699,27 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'run_frontend_fast_build_lane',
+  'RunFrontendFastBuildLane',
   'frontend-fast split must expose a standalone build lane'
 )
 requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'run_frontend_unit_shard_lane',
+  'RunFrontendUnitShardLane',
   'frontend-fast split must expose a standalone unit shard lane'
 )
 requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'run_frontend_runtime_contracts_lane',
+  'RunFrontendRuntimeContractsLane',
   'frontend-fast split must expose a standalone runtime contracts lane'
 )
 requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'run_frontend_static_governance_lane',
+  'RunFrontendStaticGovernanceLane',
   'frontend-fast split must expose a standalone static governance lane'
 )
 requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'run_frontend_fast_summary_lane',
+  'RunFrontendFastSummaryLane',
   'frontend-fast split must expose a standalone summary lane'
 )
 requireFileIncludes(
@@ -845,7 +845,7 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'tools/test/lanes/ux-viewport-smoke.sh',
-  'FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" prepare_session_fixtures_once',
+  'FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" PrepareSessionFixturesOnce',
   'UX viewport smoke must prepare exactly the worker-counted session fixtures once'
 )
 requireFileIncludes(
@@ -870,7 +870,7 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'tools/test/lanes/ux-viewport-visual.sh',
-  'configure_playwright_workers ux-viewport-visual FSUSBLOG_UX_VIEWPORT_WORKERS',
+  'ConfigurePlaywrightWorkers ux-viewport-visual FSUSBLOG_UX_VIEWPORT_WORKERS',
   'ux-viewport-visual must resolve a bounded worker cap from the current machine'
 )
 requireFileIncludes(
@@ -885,7 +885,7 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'tools/test/lanes/ux-viewport-boundaries.sh',
-  'configure_playwright_workers "$profile" FSUSBLOG_UX_VIEWPORT_WORKERS',
+  'ConfigurePlaywrightWorkers "$profile" FSUSBLOG_UX_VIEWPORT_WORKERS',
   'ux-viewport-boundaries must apply its selected worker profile'
 )
 for (const file of [
@@ -895,12 +895,12 @@ for (const file of [
 ]) {
   requireFileIncludes(
     file,
-    'FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" prepare_session_fixtures_once',
+    'FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" PrepareSessionFixturesOnce',
     `${file} must prepare isolated session fixtures for its computed worker cap`
   )
   requireFileIncludes(
     file,
-    'require_release_preview',
+    'RequireReleasePreview',
     `${file} must exercise the release preview instead of the concurrent Vite development server`
   )
   requireFileIncludes(

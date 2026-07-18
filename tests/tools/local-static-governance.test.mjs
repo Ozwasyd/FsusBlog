@@ -143,12 +143,12 @@ test('five explicit phases form an exact 70-command partition with timing eviden
 test('static governance propagates bounded dynamic workers and explicit Node test concurrency', () => {
   assert.match(localStaticSource, /workload: 'scheduler-admitted'/u)
   assert.match(localStaticSource, /memoryCostGiB:[\s\S]*?0\.125 \* entry\.resources\.memoryWeight/u)
-  assert.match(legacyLaneSource, /next_worker_cap="\$\(resolve_collect_parallel_workers "\$total"\)"/u)
+  assert.match(legacyLaneSource, /nextWorkerCap="\$\(ResolveCollectParallelWorkers "\$total"\)"/u)
   assert.match(legacyLaneSource, /resolveManifestLiveCapacity\(\{ env: process\.env, workload: 'scheduler-admitted' \}\)/u)
   assert.match(legacyLaneSource, /resolveManifestChildEnvironment/u)
   assert.match(legacyLaneSource, /FSUSBLOG_STEP_CPU_BUDGET/u)
   assert.match(legacyLaneSource, /FSUSBLOG_STEP_MEMORY_GIB/u)
-  assert.match(staticLaneSource, /run_collect_parallel static-governance-prechecks/u)
+  assert.match(staticLaneSource, /RunCollectParallel static-governance-prechecks/u)
   assert.match(staticLaneSource, /runWeightedCommandManifest/u)
   assert.match(staticLaneSource, /FSUSBLOG_ZDT_FIXTURE_SHARD: shard/u)
   assert.match(staticLaneSource, /concurrencyWeight: Number\.MAX_SAFE_INTEGER/u)
@@ -690,8 +690,8 @@ test('_legacy collect pool expands and shrinks pending admission from the same l
     job_b() { pool_job b; }
     job_c() { pool_job c; }
     job_d() { pool_job d; }
-    run_collect_parallel collect-live a job_a b job_b c job_c d job_d
-    finish_collect
+    RunCollectParallel collect-live a job_a b job_b c job_c d job_d
+    FinishCollect
   `
   const child = spawn('bash', ['-c', script], {
     cwd: root,
@@ -752,28 +752,28 @@ test('static governance parallel group preserves every named check and the aggre
     'matrix-contract',
     'matrix-schema',
     'implementation-drift'
-  ]) assert.match(staticLaneSource, new RegExp(`\\n\\s+${label} static_`, 'u'))
-  assert.match(staticLaneSource, /run_collect node-contracts static_node_contracts/u)
+  ]) assert.match(staticLaneSource, new RegExp(`\\n\\s+${label} Static`, 'u'))
+  assert.match(staticLaneSource, /RunCollect node-contracts StaticNodeContracts/u)
   assert.match(staticLaneSource, /orchestrationWorkersPerCpu: 3/u)
   assert.match(staticLaneSource, /delete manifestEnv\.FSUSBLOG_COMMAND_MANIFEST_WORKERS/u)
   assert.match(staticLaneSource, /env: manifestEnv/u)
   assert.match(staticLaneSource, /process\.memoryUsage\(\)\.rss \/ 1024 \*\* 3/u)
   assert.match(staticLaneSource, /orchestrationMemoryGiBPerWorker: measuredNodeOrchestratorGiB/u)
   assert.match(staticLaneSource, /concurrencyWeight: Number\.MAX_SAFE_INTEGER/u)
-  assert.match(staticLaneSource, /node-contracts\)\s*run_static_node_contracts_phase/u)
-  assert.match(staticLaneSource, /run_static_post_vitest_phase\(\) \{\s*run_collect retention static_retention\s*\}/u)
-  assert.match(staticLaneSource, /concurrent\)\s*run_static_concurrent_phase/u)
-  assert.match(staticLaneSource, /post-vitest\)\s*run_static_post_vitest_phase/u)
-  assert.match(staticLaneSource, /all\)\s*run_static_concurrent_phase\s*run_static_post_vitest_phase/u)
-  assert.match(staticLaneSource, /finish_collect\s*$/u)
+  assert.match(staticLaneSource, /node-contracts\)\s*RunStaticNodeContractsPhase/u)
+  assert.match(staticLaneSource, /RunStaticPostVitestPhase\(\) \{\s*RunCollect retention StaticRetention\s*\}/u)
+  assert.match(staticLaneSource, /concurrent\)\s*RunStaticConcurrentPhase/u)
+  assert.match(staticLaneSource, /post-vitest\)\s*RunStaticPostVitestPhase/u)
+  assert.match(staticLaneSource, /all\)\s*RunStaticConcurrentPhase\s*RunStaticPostVitestPhase/u)
+  assert.match(staticLaneSource, /FinishCollect\s*$/u)
   assert.doesNotMatch(staticLaneSource, /max[-_]?errors?|fail-fast/u)
 })
 
 test('retention remains isolated from concurrent Vitest report writes', () => {
-  const concurrentPhase = staticLaneSource.match(/run_static_concurrent_phase\(\) \{([\s\S]*?)\n\}/u)?.[1] ?? ''
-  const postVitestPhase = staticLaneSource.match(/run_static_post_vitest_phase\(\) \{([\s\S]*?)\n\}/u)?.[1] ?? ''
+  const concurrentPhase = staticLaneSource.match(/RunStaticConcurrentPhase\(\) \{([\s\S]*?)\n\}/u)?.[1] ?? ''
+  const postVitestPhase = staticLaneSource.match(/RunStaticPostVitestPhase\(\) \{([\s\S]*?)\n\}/u)?.[1] ?? ''
 
-  assert.doesNotMatch(concurrentPhase, /static_retention/u)
-  assert.match(postVitestPhase, /run_collect retention static_retention/u)
+  assert.doesNotMatch(concurrentPhase, /StaticRetention/u)
+  assert.match(postVitestPhase, /RunCollect retention StaticRetention/u)
   assert.match(staticLaneSource, /Retention intentionally stays post-Vitest/u)
 })

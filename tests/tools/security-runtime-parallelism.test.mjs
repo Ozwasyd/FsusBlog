@@ -15,24 +15,24 @@ const runtimeRiskDiagnostics = fs.readFileSync(
   'utf8'
 )
 const parallelHelper = legacy.slice(
-  legacy.indexOf('run_parallel()'),
-  legacy.indexOf('\nprobe_url()')
+  legacy.indexOf('RunParallel()'),
+  legacy.indexOf('\nProbeUrl()')
 )
 const securityStatic = legacy.slice(
-  legacy.indexOf('run_security_static_only()'),
-  legacy.indexOf('\nrun_security_runtime_core_only()')
+  legacy.indexOf('RunSecurityStaticOnly()'),
+  legacy.indexOf('\nRunSecurityRuntimeCoreOnly()')
 )
 const securityCore = legacy.slice(
-  legacy.indexOf('run_security_runtime_core_only()'),
-  legacy.indexOf('\nrun_security_only()')
+  legacy.indexOf('RunSecurityRuntimeCoreOnly()'),
+  legacy.indexOf('\nRunSecurityOnly()')
 )
 const security = legacy.slice(
-  legacy.indexOf('run_security_only()'),
-  legacy.indexOf('\nrun_security()')
+  legacy.indexOf('RunSecurityOnly()'),
+  legacy.indexOf('\nRunSecurity()')
 )
 
 test('security static phase is bootstrap-free and retains every static gate exactly once', () => {
-  assert.doesNotMatch(securityStatic, /require_debug_stack|prepare_runtime_fixtures_once|reset_security_runtime_state/u)
+  assert.doesNotMatch(securityStatic, /RequireDebugStack|PrepareRuntimeFixturesOnce|ResetSecurityRuntimeState/u)
   assert.match(securityStatic, /local -x FSUSBLOG_ADAPTIVE_PARALLEL=1/u)
   for (const token of [
     'security-matrices::',
@@ -51,11 +51,11 @@ test('security static phase is bootstrap-free and retains every static gate exac
 test('adaptive security pools re-read fail-closed live grants without abandoning active jobs', () => {
   assert.match(parallelHelper, /FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE/u)
   assert.match(parallelHelper, /stat -c '%y:%s'/u)
-  assert.match(parallelHelper, /current_grant_signature[\s\S]*resolve_parallel_workers "\$total"/u)
-  assert.match(parallelHelper, /if \(\( refresh_capacity == 1 \)\) \|\| \[\[ "\$current_grant_signature" != "\$grant_signature" \]\]/u)
-  assert.match(parallelHelper, /active < worker_cap/u)
-  assert.match(parallelHelper, /refresh_capacity=1/u)
-  assert.match(legacy, /resolve_parallel_child_environment\(\)[\s\S]*readManifestSchedulerResourceGrant/u)
+  assert.match(parallelHelper, /currentGrantSignature[\s\S]*ResolveParallelWorkers "\$total"/u)
+  assert.match(parallelHelper, /if \(\(refreshCapacity == 1\)\) \|\| \[\[ "\$currentGrantSignature" != "\$grantSignature" \]\]/u)
+  assert.match(parallelHelper, /active < workerCap/u)
+  assert.match(parallelHelper, /refreshCapacity=1/u)
+  assert.match(legacy, /ResolveParallelChildEnvironment\(\)[\s\S]*readManifestSchedulerResourceGrant/u)
   assert.doesNotMatch(parallelHelper, /kill "\$pid"/u)
 })
 
@@ -110,9 +110,9 @@ test('ordinary adaptive pool trusts an admitted live grant despite stale host lo
 })
 
 test('security runtime core keeps isolated runtime checks after one preparation reset', () => {
-  const prepare = securityCore.indexOf('prepare_runtime_fixtures_once')
+  const prepare = securityCore.indexOf('PrepareRuntimeFixturesOnce')
   const reset = securityCore.indexOf('reset-pre-parallel')
-  const pool = securityCore.indexOf('run_parallel "security-runtime-core"')
+  const pool = securityCore.indexOf('RunParallel "security-runtime-core"')
   const preAttack = securityCore.indexOf('reset-pre-attack')
   const attack = securityCore.indexOf('check:security:attack-matrix')
   const postAttack = securityCore.indexOf('reset-post-attack')
@@ -120,7 +120,7 @@ test('security runtime core keeps isolated runtime checks after one preparation 
   assert.ok(prepare >= 0 && prepare < reset)
   assert.ok(reset < pool)
   assert.ok(pool < preAttack && preAttack < attack && attack < postAttack)
-  assert.equal(securityCore.match(/prepare_runtime_fixtures_once/gu)?.length, 1)
+  assert.equal(securityCore.match(/PrepareRuntimeFixturesOnce/gu)?.length, 1)
   for (const token of [
     'local-runtime-exposure::',
     'api-contracts::',
@@ -131,53 +131,53 @@ test('security runtime core keeps isolated runtime checks after one preparation 
     'notification-stream-binary::'
   ]) assert.ok(securityCore.includes(token), `missing security job ${token}`)
 
-  const jobsStart = securityCore.indexOf('local -a security_runtime_jobs=(')
-  const jobs = securityCore.slice(jobsStart, securityCore.indexOf('\n  )', jobsStart))
+  const jobsStart = securityCore.indexOf('local -a securityRuntimeJobs=(')
+  const jobs = securityCore.slice(jobsStart, securityCore.indexOf('\n    )', jobsStart))
   assert.doesNotMatch(jobs, /permissions::|a11y::/u)
   assert.doesNotMatch(jobs, /attack-matrix|check:security:dast/u)
   assert.doesNotMatch(jobs, /supply-chain|network-baseline|security-matrices|zap-warn-policy|generate-sbom/u)
   assert.match(securityCore, /local -x FSUSBLOG_ADAPTIVE_PARALLEL=1/u)
   assert.match(securityCore, /local -x FSUSBLOG_PARALLEL_WORKLOAD=cpu/u)
-  assert.match(securityCore, /run_security_stage "security-runtime-parallel" run_security_runtime_pool/u)
-  assert.doesNotMatch(securityCore, /check:security:permissions|security-runtime-permissions|run_security_isolated_client_check permissions/u)
+  assert.match(securityCore, /RunSecurityStage "security-runtime-parallel" RunSecurityRuntimePool/u)
+  assert.doesNotMatch(securityCore, /check:security:permissions|security-runtime-permissions|RunSecurityIsolatedClientCheck permissions/u)
   assert.match(
     runtimeRiskDiagnostics,
-    /run_collect "permission-matrix" run_in_client npm run check:security:permissions/u
+    /RunCollect "permission-matrix" RunInClient npm run check:security:permissions/u
   )
   assert.match(runtimeRiskDiagnostics, /FSUSBLOG_BROWSER_DIAGNOSTICS=1/u)
   assert.doesNotMatch(securityCore, /check:a11y:smoke|security-runtime-a11y/u)
-  assert.match(a11yDiagnostics, /run_in_client npm run check:a11y:smoke/u)
+  assert.match(a11yDiagnostics, /RunInClient npm run check:a11y:smoke/u)
   assert.match(a11yDiagnostics, /FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1/u)
 })
 
 test('correctness session-mutating security checks receive stable unique user, admin and device suffixes', () => {
   for (const suffix of ['auth-session', 'auth-mfa', 'auth-passkey']) {
     assert.ok(
-      securityCore.includes(`run_security_isolated_client_check ${suffix} `),
+      securityCore.includes(`RunSecurityIsolatedClientCheck ${suffix} `),
       `missing isolated identity suffix for ${suffix}`
     )
   }
-  assert.doesNotMatch(securityCore, /run_security_isolated_client_check permissions/u)
+  assert.doesNotMatch(securityCore, /RunSecurityIsolatedClientCheck permissions/u)
   assert.match(securityCore, /FSUSBLOG_USER_USERNAME="\$\{FSUSBLOG_USER_USERNAME:-binaryuser\}-\$suffix"/u)
   assert.match(securityCore, /FSUSBLOG_ADMIN_USERNAME="\$\{FSUSBLOG_ADMIN_USERNAME:-binaryadmin\}-\$suffix"/u)
   assert.match(securityCore, /FSUSBLOG_DEVICE_FP="\$\{FSUSBLOG_DEVICE_FP:-binary-smoke-node\}-\$suffix"/u)
 })
 
 test('attack resets stay exclusive while local exposure is mandatory and external closeout remains explicit', () => {
-  assert.match(securityCore, /run_security_stage "reset-pre-attack"[\s\S]*?run_security_stage "attack-matrix"[\s\S]*?run_security_stage "reset-post-attack"/u)
+  assert.match(securityCore, /RunSecurityStage "reset-pre-attack"[\s\S]*?RunSecurityStage "attack-matrix"[\s\S]*?RunSecurityStage "reset-post-attack"/u)
   assert.match(
     securityCore,
-    /run_security_stage "reset-post-gate" reset_security_runtime_state "post security gate"/u,
-    'the final runtime reset must remain a complete run_security_stage command'
+    /RunSecurityStage "reset-post-gate" ResetSecurityRuntimeState "post security gate"/u,
+    'the final runtime reset must remain a complete RunSecurityStage command'
   )
   assert.doesNotMatch(securityCore, /^hen\b/mu)
-  assert.match(securityCore, /if \[\[ "\$\{FSUSBLOG_SKIP_ZAP:-0\}" != "1" \]\]; then[\s\S]*?run_security_stage "dast"/u)
-  assert.match(securityCore, /local-runtime-exposure::run[\s\S]*?check-local-runtime-exposure\.mjs/u)
-  assert.match(securityCore, /FSUSBLOG_RUN_PRODUCTION_EXPOSURE_LIVE[\s\S]*?external-production-exposure::check_external_production_exposure/u)
+  assert.match(securityCore, /if \[\[ "\$\{FSUSBLOG_SKIP_ZAP:-0\}" != "1" \]\]; then[\s\S]*?RunSecurityStage "dast"/u)
+  assert.match(securityCore, /local-runtime-exposure::Run[\s\S]*?check-local-runtime-exposure\.mjs/u)
+  assert.match(securityCore, /FSUSBLOG_RUN_PRODUCTION_EXPOSURE_LIVE[\s\S]*?external-production-exposure::CheckExternalProductionExposure/u)
   assert.doesNotMatch(securityCore, /skip production live exposure/u)
-  assert.match(lane, /run_tier "security" run_security_only/u)
+  assert.match(lane, /RunTier "security" RunSecurityOnly/u)
 })
 
 test('combined direct security lane launches both phases independently and aggregates their failures', () => {
-  assert.match(security, /run_parallel "security-phases"[\s\S]*?security-static::run_security_static_only[\s\S]*?security-runtime-core::run_security_runtime_core_only/u)
+  assert.match(security, /RunParallel "security-phases"[\s\S]*?security-static::RunSecurityStaticOnly[\s\S]*?security-runtime-core::RunSecurityRuntimeCoreOnly/u)
 })

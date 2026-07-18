@@ -75,14 +75,14 @@ RunAcceptanceProbe() {
 
     export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
     export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
-    RunInClient env FSUSBLOG_DISABLE_HUMAN_READ_PROOF=1 FSUSBLOG_DISABLE_NOTIFICATION_STREAM=1 npm Run check:acceptance:public
+    RunInClient env FSUSBLOG_DISABLE_HUMAN_READ_PROOF=1 FSUSBLOG_DISABLE_NOTIFICATION_STREAM=1 npm run check:acceptance:public
 
     export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
     export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
-    RunInClient npm Run check:spa:routes
-    RunInClient npm Run check:acceptance:auth
+    RunInClient npm run check:spa:routes
+    RunInClient npm run check:acceptance:auth
     ResetSecurityRuntimeState "pre diagnostic console acceptance"
-    RunInClient npm Run check:acceptance:console
+    RunInClient npm run check:acceptance:console
 }
 
 LoadSharedDiagnosticsRuntime
@@ -94,32 +94,32 @@ case "$PROBE" in
     release-rbac-negative)
         PrepareProbeFixtures
         ResetSecurityRuntimeState "pre diagnostic release RBAC"
-        RunInClient npm Run check:security:permissions
-        RunInClient npm Run check:security:attack-matrix
+        RunInClient npm run check:security:permissions
+        RunInClient npm run check:security:attack-matrix
         ;;
     release-aot-consumption)
         PrepareProbeFixtures
         export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
-        RunInClient npm Run check:pow-runtime
-        RunInClient npm Run check:public-hydration
-        RunInClient npm Run check:distribution-version-coherence
+        RunInClient npm run check:pow-runtime
+        RunInClient npm run check:public-hydration
+        RunInClient npm run check:distribution-version-coherence
         ;;
     pow-runtime)
         PrepareProbeFixtures
-        RunInClient npm Run check:pow-runtime
+        RunInClient npm run check:pow-runtime
         ;;
     search-runtime)
         PrepareProbeFixtures
-        RunInClient npm Run check:search-runtime
+        RunInClient npm run check:search-runtime
         ;;
     zero-auth-probe)
         PrepareProbeFixtures
-        RunInClient npm Run check:auth-zero-probe
+        RunInClient npm run check:auth-zero-probe
         ;;
     permission-matrix)
         PrepareProbeFixtures
         ResetSecurityRuntimeState "pre diagnostic permission matrix"
-        RunInClient npm Run check:security:permissions
+        RunInClient npm run check:security:permissions
         ;;
     *)
         Fail "unknown browser diagnostics risk probe: $PROBE"

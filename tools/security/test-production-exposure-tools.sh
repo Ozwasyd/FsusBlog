@@ -37,6 +37,13 @@ Fail() {
     exit 1
 }
 
+WriteCurrentDirectoryChecksums() {
+    local -a checksumFiles=()
+    mapfile -d '' -t checksumFiles < <(find . -type f ! -name SHA256SUMS -print0 | sort -z)
+    ((${#checksumFiles[@]} > 0)) || Fail 'fixture directory contains no files to checksum'
+    sha256sum "${checksumFiles[@]}" >SHA256SUMS
+}
+
 ResolveParallelCapacity() {
     local total="$1"
     local hostCpus hostMemoryGib grantedCpus grantedMemoryGib
@@ -113,8 +120,8 @@ ResolveParallelCapacity() {
 }
 
 ResolveParallelWorkers() {
-    local workers cpu memory
-    IFS=$'\t' read -r workers cpu memory < <(ResolveParallelCapacity "$1")
+    local workers
+    IFS=$'\t' read -r workers _ _ < <(ResolveParallelCapacity "$1")
     printf '%s\n' "$workers"
 }
 
@@ -135,7 +142,7 @@ RunParallelFunctions() {
     mkdir -p "$logDir"
     completionFifo="$logDir/completions.fifo"
     mkfifo "$completionFifo"
-    exec {completion_fd}<>"$completionFifo"
+    exec {completionFd}<>"$completionFifo"
 
     ResolveWaitTimeoutSeconds() {
         local configured="${FSUSBLOG_PRODUCTION_EXPOSURE_SELFTEST_WAIT_TIMEOUT_SECONDS:-120}"
@@ -193,7 +200,7 @@ RunParallelFunctions() {
     while ((${#activePids[@]} > 0)); do
         ReapOne
     done
-    exec {completion_fd}>&-
+    exec {completionFd}>&-
     rm -f "$completionFifo"
 
     if ((${#failures[@]} > 0)); then
@@ -206,7 +213,10 @@ RunParallelFunctions() {
 }
 
 if [[ "${FSUSBLOG_PRODUCTION_EXPOSURE_SELFTEST_SOURCE_ONLY:-0}" == "1" ]]; then
-    return 0 2>/dev/null || exit 0
+    if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+        return 0
+    fi
+    exit 0
 fi
 
 "$PREREQ_SCRIPT" >/dev/null
@@ -1649,7 +1659,7 @@ TestHandoffBundleSecurity() {
         >"$tampered_handoff_bundle/returned-evidence/expected-evidence-manifest.json"
     (
         cd "$tampered_handoff_bundle"
-        find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
+        WriteCurrentDirectoryChecksums
     )
     if FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 "$HANDOFF_BUNDLE_CHECK_SCRIPT" "$tampered_handoff_bundle" >/dev/null 2>&1; then
         Fail "handoff bundle checker accepted narrowed returned evidence manifest"
@@ -1661,7 +1671,7 @@ TestHandoffBundleSecurity() {
         >"$tampered_summary_unblock_plan_bundle/handoff-summary.json"
     (
         cd "$tampered_summary_unblock_plan_bundle"
-        find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
+        WriteCurrentDirectoryChecksums
     )
     if FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 "$HANDOFF_BUNDLE_CHECK_SCRIPT" "$tampered_summary_unblock_plan_bundle" >/dev/null 2>&1; then
         Fail "handoff bundle checker accepted handoff summary unblock plan drift"
@@ -1673,7 +1683,7 @@ TestHandoffBundleSecurity() {
         >"$tampered_operator_checklist_bundle/operator-checklist.json"
     (
         cd "$tampered_operator_checklist_bundle"
-        find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
+        WriteCurrentDirectoryChecksums
     )
     if FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 "$HANDOFF_BUNDLE_CHECK_SCRIPT" "$tampered_operator_checklist_bundle" >/dev/null 2>&1; then
         Fail "handoff bundle checker accepted operator checklist unblock plan drift"
@@ -1685,7 +1695,7 @@ TestHandoffBundleSecurity() {
         >"$tampered_returned_readme_bundle/returned-evidence/README.md"
     (
         cd "$tampered_returned_readme_bundle"
-        find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
+        WriteCurrentDirectoryChecksums
     )
     if FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 "$HANDOFF_BUNDLE_CHECK_SCRIPT" "$tampered_returned_readme_bundle" >/dev/null 2>&1; then
         Fail "handoff bundle checker accepted tampered returned evidence README"
@@ -1696,7 +1706,7 @@ TestHandoffBundleSecurity() {
     ln -s ../README.md "$tampered_symlink_handoff_bundle/returned-evidence/README.md"
     (
         cd "$tampered_symlink_handoff_bundle"
-        find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
+        WriteCurrentDirectoryChecksums
     )
     if FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 "$HANDOFF_BUNDLE_CHECK_SCRIPT" "$tampered_symlink_handoff_bundle" >/dev/null 2>&1; then
         Fail "handoff bundle checker accepted symlinked bundle contents"
@@ -1708,7 +1718,7 @@ TestHandoffBundleSecurity() {
         >"$tampered_returned_unblock_plan_bundle/returned-evidence/expected-evidence-manifest.json"
     (
         cd "$tampered_returned_unblock_plan_bundle"
-        find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
+        WriteCurrentDirectoryChecksums
     )
     if FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 "$HANDOFF_BUNDLE_CHECK_SCRIPT" "$tampered_returned_unblock_plan_bundle" >/dev/null 2>&1; then
         Fail "handoff bundle checker accepted returned manifest unblock plan drift"
@@ -1720,7 +1730,7 @@ TestHandoffBundleSecurity() {
         >"$tampered_digest_handoff_bundle/release-evidence/manifest.json"
     (
         cd "$tampered_digest_handoff_bundle"
-        find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
+        WriteCurrentDirectoryChecksums
     )
     if FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 "$HANDOFF_BUNDLE_CHECK_SCRIPT" "$tampered_digest_handoff_bundle" >/dev/null 2>&1; then
         Fail "handoff bundle checker accepted tampered manifest artifact digest"
@@ -1869,7 +1879,7 @@ TestReturnedEvidenceRejections() {
         >"$tampered_returned_handoff_checklist_dir/operator-checklist.json"
     (
         cd "$tampered_returned_handoff_checklist_dir"
-        find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
+        WriteCurrentDirectoryChecksums
     )
     returned_handoff_tampered_checklist_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-handoff-tampered-checklist.fixture.md" | awk '{print $1}')"
     if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \

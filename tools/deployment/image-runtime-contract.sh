@@ -62,10 +62,16 @@ done
 [[ "$native_aot" == "false" ]] || Fail "target full image cannot claim NativeAOT without narrow prototype parity promotion"
 [[ "$gc_heap_count_mode" == "container-default" || "$gc_heap_count_mode" == "cpuset" ]] || Fail "target image GC heap count mode label is invalid"
 [[ "$gc_heap_hard_limit_mode" == "container-limit" || "$gc_heap_hard_limit_mode" == "explicit-container-percent" ]] || Fail "target image GC heap hard limit mode label is invalid"
-[[ "$gc_heap_hard_limit_percent" =~ ^[0-9]+$ ]] && ((gc_heap_hard_limit_percent >= 0 && gc_heap_hard_limit_percent <= 95)) || Fail "target image GC heap hard limit percent label is invalid"
+if [[ ! "$gc_heap_hard_limit_percent" =~ ^[0-9]+$ ]] ||
+    ! ((gc_heap_hard_limit_percent >= 0 && gc_heap_hard_limit_percent <= 95)); then
+    Fail "target image GC heap hard limit percent label is invalid"
+fi
 [[ "$gc_heap_hard_limit_mode" == "explicit-container-percent" && "$gc_heap_hard_limit_percent" -gt 0 || "$gc_heap_hard_limit_mode" == "container-limit" && "$gc_heap_hard_limit_percent" -eq 0 ]] || Fail "target image GC heap hard limit mode/percent labels are inconsistent"
 [[ "$thread_pool_mode" == "runtime-default" || "$thread_pool_mode" == "evidence-derived" || "$thread_pool_mode" == "overprovisioned-negative-control" ]] || Fail "target image thread pool mode label is invalid"
-[[ "$thread_pool_min_threads_per_cpu" =~ ^[0-9]+$ ]] && ((thread_pool_min_threads_per_cpu >= 0 && thread_pool_min_threads_per_cpu <= 256)) || Fail "target image ThreadPool minimum label is invalid"
+if [[ ! "$thread_pool_min_threads_per_cpu" =~ ^[0-9]+$ ]] ||
+    ! ((thread_pool_min_threads_per_cpu >= 0 && thread_pool_min_threads_per_cpu <= 256)); then
+    Fail "target image ThreadPool minimum label is invalid"
+fi
 [[ "$thread_pool_mode" == "overprovisioned-negative-control" && "$thread_pool_min_threads_per_cpu" -ge 64 || "$thread_pool_mode" != "overprovisioned-negative-control" && "$thread_pool_min_threads_per_cpu" -eq 0 ]] || Fail "target image ThreadPool mode/minimum labels are inconsistent"
 [[ "$topology_mode" == "smt-visible" || "$topology_mode" == "physical-core-only" || "$topology_mode" == "numa-local" ]] || Fail "target image topology mode label is invalid"
 

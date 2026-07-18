@@ -50,7 +50,7 @@ bundle 内同一 wave 的独立步骤不会在首个失败后停止调度，而�
 
 `privacy-zk-comment-matrix` 拆成跨物理束的 run-bound 阶段：`frontend-tests` 先完成 contract，并从本轮 backend production TRX 与主 Vitest JSON fail closed 投影 functional receipt；MCL P99 不在 frontend 的普通并发负载中重跑，而由后置 `performance-evidence` 消费同 run 的 contract/functional receipts，在独占 `benchmark-window` 中只执行唯一 benchmark case，最后由 finalize 同时校验 contract、functional、benchmark 三份 receipt 并生成 canonical matrix artifact。Wasm prover bundle 使用固定 entry order、epoch mtime、numeric owner 与无 gzip 时间戳的可重复归档，manifest 校验的是该确定性 SHA-256。cross-stack 导出的 AEDS OpenAPI 由矩阵生成器写入 canonical 输出，.NET 原生 OpenAPI 只写入独立 runtime 目录作构建验证，不得覆盖 AEDS 快照。
 
-legacy shell 的 `run_parallel` 同样等待全部子任务结束后聚合失败，不再因首错 kill peer。security 的 matrix、ZAP policy、SBOM、supply-chain 与 network baseline 静态检查并行；共享安全 fixture/runtime state 的 API、认证、权限、攻击矩阵、notification stream、a11y 与 DAST 保持有序执行，但每个失败只记入汇总，后续检查和必要 reset 继续执行，最后一次性报告全部失败。
+legacy shell 的 `RunParallel` 同样等待全部子任务结束后聚合失败，不再因首错 kill peer。security 的 matrix、ZAP policy、SBOM、supply-chain 与 network baseline 静态检查并行；共享安全 fixture/runtime state 的 API、认证、权限、攻击矩阵、notification stream、a11y 与 DAST 保持有序执行，但每个失败只记入汇总，后续检查和必要 reset 继续执行，最后一次性报告全部失败。
 
 本轮删测证据按以下顺序生成和核验（`<run-id>` 与 checkpoint 路径必须来自同一次权威 fresh run）：
 
@@ -172,7 +172,7 @@ Backend configuration 只允许四个 authority：共享 `appsettings.json`、�
 node tools/run-test-matrix.mjs aggregate fast-summary --dry-run
 ```
 
-`--shard i/n` 会注入 `FSUSBLOG_TEST_SHARD_INDEX/TOTAL`，`run_frontend_unit_shard_lane()` 将其转换成 Vitest `--shard=i/n`，只传给普通 `test:unit:fast` 调试入口。Vitest worker 数按 CPU、空闲内存和 load 动态计算，所有入口固定 `bail=0`，不接受最大失败数覆盖，以便单次运行收集完整失败集。每个 config 同时输出独立 JSON/JUnit 耗时报告。build、property/model/perf、runtime-contracts、static-governance 不随 unit 重复执行。
+`--shard i/n` 会注入 `FSUSBLOG_TEST_SHARD_INDEX/TOTAL`，`RunFrontendUnitShardLane()` 将其转换成 Vitest `--shard=i/n`，只传给普通 `test:unit:fast` 调试入口。Vitest worker 数按 CPU、空闲内存和 load 动态计算，所有入口固定 `bail=0`，不接受最大失败数覆盖，以便单次运行收集完整失败集。每个 config 同时输出独立 JSON/JUnit 耗时报告。build、property/model/perf、runtime-contracts、static-governance 不随 unit 重复执行。
 
 每个有效子 tier 都由 `run-test-matrix` 写入独立 `.tmp/release-evidence/jobs/<job-tier>.json` job summary。CI artifacts 为 `frontend-build`、一个包含 coverage 与 property/model/perf 的 `fast-frontend-unit`、`frontend-runtime-contracts`、`frontend-static-governance`；`fast-summary` 下载这些 artifacts 和 `fast-static-governance`/`fast-backend` 后运行 artifact-only aggregate。matrix validator 会拒绝缺少任一 frontend fast 子 tier、coverage 替代范围越界、或 `fast` 继续依赖旧 monolithic `frontend-fast`。
 
@@ -677,7 +677,7 @@ ordinary coverage 明确排除 `Integration`、`ApiIntegration`、`Concurrency`�
 - `src/backend/`、`src/shared/`、`src/core/`、`tests/backend/`、solution/build props、`global.json` 等 backend/shared/core/test 或构建输入变更时，升级为 `selection=affected effective=full`。
 - 鉴权、安全、权限相关路径，例如 `Infrastructure/Auth`、`BannedUserMiddleware`、`JwtHelper`、`Infrastructure/Security`、`Modules/Endpoints/Auth`、`src/shared/Contracts/Security` 以及 backend auth/security 测试变更，会记录 `reason=auth-security-sensitive` 并运行完整 non-integration backend tests；fast-backend 的独立 auth state-machine tier 仍照常运行。
 
-显式使用 affected diagnostic 时，日志必须同时显示请求策略和最终策略：`run_backend_unit_lane()` 输出 `backend-unit selection=affected|full`，affected 脚本输出 `effective=skip|full` 与 `reason=...`。
+显式使用 affected diagnostic 时，日志必须同时显示请求策略和最终策略：`RunBackendUnitLane()` 输出 `backend-unit selection=affected|full`，affected 脚本输出 `effective=skip|full` 与 `reason=...`。
 
 #### Backend build parallelism
 
@@ -689,7 +689,7 @@ PR fast-backend 可以通过 GitHub repository variable `FSUSBLOG_DOTNET_BUILD_P
 - `auto`：使用 `/m`，由 MSBuild 按 runner CPU 自动选择并行度。
 - 大于 `1` 的整数：使用 `/m:N`。
 
-`run_fast_backend_lane()` 在 build 前输出 `dotnet-build parallelism=<mode> arg=<msbuild-arg>`，用于确认 CI 实际选择的模式。无效值会直接失败，避免静默回退到未知并行度。
+`RunFastBackendLane()` 在 build 前输出 `dotnet-build parallelism=<mode> arg=<msbuild-arg>`，用于确认 CI 实际选择的模式。无效值会直接失败，避免静默回退到未知并行度。
 
 Benchmark 记录口径：在同一个 runner、同一个提交、同一份 NuGet cache 状态下分别运行 `FSUSBLOG_DOTNET_BUILD_PARALLELISM=safe ./tools/test.sh ci-tier backend-fast --no-deps` 与 `FSUSBLOG_DOTNET_BUILD_PARALLELISM=auto ./tools/test.sh ci-tier backend-fast --no-deps`，记录 wall-clock、退出码、重跑次数和是否出现非确定性失败。默认值只能在至少两轮 CI fast-backend 对比都显示 `auto` 无新增 flake 且明显降低 wall-clock 后再从 `safe` 提升；在此之前只通过 repo variable 对 PR fast gates opt in。
 

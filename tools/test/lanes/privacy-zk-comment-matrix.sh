@@ -60,18 +60,18 @@ RunPrivacyMatrixContract() {
 RunPrivacyPrebuildContract() {
     FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild || return $?
     FSUSBLOG_ZK_MCL_NO_BUILD=1 \
-        npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-contract:prebuild
+        npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-contract:prebuild
 }
 
 RunPrivacyPostbuildContract() {
-    npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-contract:postbuild
+    npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-contract:postbuild
 }
 
 RunPrivacyBackendFunctional() {
     ConfigureDotnetTestProcessors || return $?
     FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release EnsureBackendFilteredBuild || return $?
     LocalDotnetArgs
-    npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-backend-functional "${PRIVACY_DOTNET_ARGS[@]}"
+    npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-backend-functional "${PRIVACY_DOTNET_ARGS[@]}"
 }
 
 RunPrivacyBenchmark() {
@@ -79,15 +79,15 @@ RunPrivacyBenchmark() {
     FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release EnsureBackendFilteredBuild || return $?
     LocalDotnetArgs
     FSUSBLOG_RUN_PERFORMANCE_TESTS=1 \
-        npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-benchmark "${PRIVACY_DOTNET_ARGS[@]}"
+        npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-benchmark "${PRIVACY_DOTNET_ARGS[@]}"
 }
 
 RunPrivacyFrontend() {
-    npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-frontend
+    npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-frontend
 }
 
 RunPrivacyProdSmoke() {
-    npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-prod-smoke
+    npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-prod-smoke
 }
 
 RunContractPrebuildStage() {

@@ -19,6 +19,13 @@ JsonValue() {
     jq -r "$expr" "$file" 2>/dev/null || true
 }
 
+WriteCurrentDirectoryChecksums() {
+    local -a checksumFiles=()
+    mapfile -d '' -t checksumFiles < <(find . -type f ! -name SHA256SUMS -print0 | sort -z)
+    ((${#checksumFiles[@]} > 0)) || Fail 'handoff bundle contains no files to checksum'
+    sha256sum "${checksumFiles[@]}" >SHA256SUMS
+}
+
 if [[ -z "$MANIFEST_FILE" ]]; then
     Fail 'missing release evidence manifest path'
 fi
@@ -236,7 +243,7 @@ EOF
 
 (
     cd "$OUT_DIR"
-    find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
+    WriteCurrentDirectoryChecksums
 )
 
 "$BUNDLE_CHECK_SCRIPT" "$OUT_DIR" >/dev/null

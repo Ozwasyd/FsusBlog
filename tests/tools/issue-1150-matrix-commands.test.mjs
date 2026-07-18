@@ -354,19 +354,19 @@ test('migrated Acceptance and release browser probes are reachable only through 
 
 test('legacy correctness functions do not hide browser launches', () => {
   const legacy = read('tools/test/legacy-test.sh')
-  const integration = functionBody(legacy, 'run_integration_only', 'run_integration')
-  const security = functionBody(legacy, 'run_security_runtime_core_only', 'run_security_only')
-  const resilience = functionBody(legacy, 'run_resilience_only', 'run_resilience')
-  const production = functionBody(legacy, 'run_production_correctness', 'run_production')
+  const integration = functionBody(legacy, 'RunIntegrationOnly', 'RunIntegration')
+  const security = functionBody(legacy, 'RunSecurityRuntimeCoreOnly', 'RunSecurityOnly')
+  const resilience = functionBody(legacy, 'RunResilienceOnly', 'RunResilience')
+  const production = functionBody(legacy, 'RunProductionCorrectness', 'RunProduction')
 
   assert.doesNotMatch(integration, /check:(?:pow-runtime|search-runtime)/u)
   assert.doesNotMatch(security, /check:security:permissions/u)
   assert.doesNotMatch(resilience, /check:search-runtime/u)
-  assert.doesNotMatch(production, /run_tier "acceptance"|playwright|PLAYWRIGHT/u)
+  assert.doesNotMatch(production, /RunTier "acceptance"|playwright|PLAYWRIGHT/u)
   for (const stage of ['release', 'integration', 'security', 'resilience', 'load']) {
-    assert.match(production, new RegExp(`run_tier "${stage}"`))
+    assert.match(production, new RegExp(`RunTier "${stage}"`))
   }
 
-  assert.match(legacy, /run_cross_stack_contract_only\(\) \{\n\s+local phase="\$\{1:-static\}"/u)
+  assert.match(legacy, /RunCrossStackContractOnly\(\) \{\n\s+local phase="\$\{1:-static\}"/u)
   assert.equal(requireTier('cross-stack-contract').command, 'tools/test/legacy-test.sh cross-stack-contract static')
 })

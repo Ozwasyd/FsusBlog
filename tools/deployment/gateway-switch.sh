@@ -145,7 +145,6 @@ SlotAcquireDeploymentLock
 
 started_epoch_ms="$(date -u +%s%3N)"
 started_at="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
-stage="validate-state"
 prepared_file=""
 staged_config=""
 backup_file=""
@@ -194,7 +193,7 @@ WriteEvidence() {
     completedAt="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
     durationMs=$((completedEpochMs - started_epoch_ms))
     generation="$planned_generation"
-    stateSnapshot="$(SlotStateRead 2>/dev/null || true)"
+    stateSnapshot="$(SlotStateReadCurrent 2>/dev/null || true)"
     if jq -e 'type == "object" and (.switchGeneration | type == "number")' >/dev/null 2>&1 <<<"$stateSnapshot"; then
         generation="$(jq -r 'if .pendingTransition != null then .pendingTransition.generation else .switchGeneration end' <<<"$stateSnapshot")"
     fi
@@ -343,7 +342,7 @@ SanitizeRuntimeSnapshot() {
     jq -c '{releaseId, slot, mode, state, generation, canReceiveTraffic, canClaimBackgroundWork, canAcceptNotificationStream, inFlightHttpRequests, notificationStreamConnections, activeBackgroundClaims, drain: {requested: .drain.requested, drained: .drain.drained, timedOut: .drain.timedOut, blockers: .drain.blockers}}'
 }
 
-state="$(SlotStateRead)" || GatewayFail state-read "unable to read durable slot state"
+state="$(SlotStateReadCurrent)" || GatewayFail state-read "unable to read durable slot state"
 [[ "$(jq -r '.status' <<<"$state")" == "stable" ]] || GatewayFail state-read "gateway state is not stable; run gateway-recover.sh"
 planned_generation="$(jq -r '.switchGeneration + 1' <<<"$state")"
 source_slot="$(jq -r '.activeSlot // ""' <<<"$state")"
@@ -352,7 +351,7 @@ source_digest="$(jq -r '.activeImageDigest // ""' <<<"$state")"
 [[ -n "$source_slot" && -n "$source_release" && -n "$source_digest" ]] || GatewayFail state-read "active release identity is not initialized"
 [[ "$source_slot" != "$TARGET_SLOT" ]] || GatewayFail state-read "target slot is already active"
 
-source="$($ROOT_DIR/tools/deployment/slot-inspect.sh --slot "$source_slot" --state-file "$SLOT_STATE_FILE")" ||
+source="$("$ROOT_DIR"/tools/deployment/slot-inspect.sh --slot "$source_slot" --state-file "$SLOT_STATE_FILE")" ||
     GatewayFail source-inspect "unable to inspect active source slot"
 [[ "$(jq -r '.exists and .running and .identityMatchesSlot and .loopbackOnly and .liveness == "ok" and .readiness == "ok"' <<<"$source")" == "true" ]] ||
     GatewayFail source-inspect "persisted source slot is not a healthy loopback runtime"
@@ -431,7 +430,6 @@ ProbeReleaseOnce "$PUBLIC_PROBE_URL" "$source_release" "$source_slot" ||
     GatewayFail public-source-probe "public gateway does not currently serve persisted active release"
 source_public_release_ok=true
 
-stage="prepare-config"
 prepared="$(node "$ROOT_DIR/tools/deployment/gateway-control.mjs" prepare \
     --slot "$TARGET_SLOT" \
     --active "$ACTIVE_UPSTREAM_FILE" \

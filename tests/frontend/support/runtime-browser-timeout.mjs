@@ -52,7 +52,7 @@ export function resolveRuntimeBrowserTimeoutPlan({
   )
   // A scheduler grant below the physical CPU count means browser startup,
   // renderer work and the Vite transform pipeline are sharing the host. A
-  // run_parallel child must also account for its dynamically reported sibling
+  // RunParallel child must also account for its dynamically reported sibling
   // count: the parent grant belongs to the whole pool, not to every child.
   // Scale sub-operation timeouts sub-linearly so contention tolerance grows
   // without allowing one navigation to consume the complete step deadline.

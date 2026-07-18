@@ -116,7 +116,7 @@ SemanticStatusOrMissing() {
 }
 
 BackupRestoreStatusOrMissing() {
-    SemanticStatusOrMissing "$1" '
+    SemanticStatusOrMissing "$1" $'
     (.status == "ok")
     and (.mode == "real")
     and (.timings.rpoSeconds != null)
@@ -317,7 +317,8 @@ ReleaseRolloutStatusOrMissing() {
 }
 
 AuthenticatedDastStatusOrMissing() {
-    SemanticStatusOrMissing "$1" '
+    local query
+    IFS= read -r -d '' query <<'JQ' || true
     . as $root
     | (.schema == "fsusblog.security.authenticated-dast.v1")
     and (.status == "ok")
@@ -338,7 +339,8 @@ AuthenticatedDastStatusOrMissing() {
       and ($root.contexts[$context].failedCount == 0)
     ))
     and (($root.checks // []) | type == "array" and length == $root.activeScan.requestCount and all(.passed == true))
-  '
+JQ
+    SemanticStatusOrMissing "$1" "$query"
 }
 
 LocalRuntimeExposureStatusOrMissing() {

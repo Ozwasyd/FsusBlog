@@ -148,7 +148,7 @@ case "$ACTION" in
     down)
         for slot in blue green; do
             if [[ -f "$SLOT_STATE_FILE" ]]; then
-                state="$(SlotStateRead 2>/dev/null || true)"
+                state="$(SlotStateReadCurrent 2>/dev/null || true)"
                 active="$(jq -r '.activeSlot // ""' <<<"$state" 2>/dev/null || true)"
                 if [[ "$active" == "$slot" ]]; then
                     node "$ROOT_DIR/tools/deployment/slot-state.mjs" set-active --state "$SLOT_STATE_FILE" --slot "$([[ "$slot" == "blue" ]] && printf green || printf blue)" --kind teardown >/dev/null 2>&1 || true
@@ -157,7 +157,9 @@ case "$ACTION" in
             SlotConfigure "$slot"
             SlotCompose down --remove-orphans >/dev/null 2>&1 || true
         done
-        [[ -f "$PRODUCTION_ENV_FILE" ]] && InfraCompose down -v --remove-orphans >/dev/null 2>&1 || true
+        if [[ -f "$PRODUCTION_ENV_FILE" ]]; then
+            InfraCompose down -v --remove-orphans >/dev/null 2>&1 || true
+        fi
         docker volume rm -f "$release_derived_volume" >/dev/null 2>&1 || true
         rm -rf "$WORK_DIR"
         ;;

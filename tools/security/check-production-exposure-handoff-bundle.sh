@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 INPUT_PATH="${1:-${FSUSBLOG_PRODUCTION_EXPOSURE_HANDOFF_DIR:-}}"
 WORK_DIR=""
 BUNDLE_DIR=""
@@ -42,7 +41,7 @@ RejectSymlinks() {
 
     symlinkPath="$(find "$dir" -type l -print -quit 2>/dev/null || true)"
     if [[ -n "$symlinkPath" ]]; then
-        AddFailure "$label contains a symlink: ${symlinkPath#$dir/}"
+        AddFailure "$label contains a symlink: ${symlinkPath#"$dir"/}"
     fi
 }
 
@@ -228,7 +227,6 @@ if ((${#failures[@]} == 0)); then
     LIVE_FILE="$RELEASE_DIR/production-exposure-live.json"
     DNS_READINESS_FILE="$RELEASE_DIR/production-dns-readiness.json"
     DNS_DELEGATION_FILE="$RELEASE_DIR/production-dns-delegation.json"
-    FIREWALL_FILE="$RELEASE_DIR/production-firewall-policy.json"
     SUMMARY_FILE="$BUNDLE_DIR/handoff-summary.json"
     CHECKLIST_FILE="$BUNDLE_DIR/operator-checklist.json"
     ROOT_README_FILE="$BUNDLE_DIR/README.md"

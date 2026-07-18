@@ -134,6 +134,37 @@ fs.renameSync(temporary, outputFile)
 NODE
 }
 
+CleanupCollectParallelChildren() {
+    local childPid
+    for childPid in "$@"; do
+        [[ -n "$childPid" ]] || continue
+        kill "$childPid" >/dev/null 2>&1 || true
+        wait "$childPid" >/dev/null 2>&1 || true
+    done
+}
+
+CleanupCollectParallelSignal() {
+    local group="$1"
+    local statusDir="$2"
+    shift 2
+    CleanupCollectParallelChildren "$@"
+    WriteCollectLiveGrantEvidence "$group" "$statusDir" cancelled
+    rm -rf "$statusDir"
+    exit 130
+}
+
+CleanupCollectParallelReturn() {
+    local returnStatus="$1"
+    local group="$2"
+    local statusDir="$3"
+    shift 3
+    CleanupCollectParallelChildren "$@"
+    WriteCollectLiveGrantEvidence "$group" "$statusDir" cancelled
+    rm -rf "$statusDir"
+    trap - RETURN INT TERM
+    return "$returnStatus"
+}
+
 RunCollectParallel() {
     local group="$1"
     shift
@@ -145,7 +176,8 @@ RunCollectParallel() {
     local total=$(($# / 2))
     local workerCap
     workerCap="$(ResolveCollectParallelWorkers "$total")"
-    local statusDir="$ROOT_DIR/.tmp/parallel-status/$(NamespaceSlug "$group")-$$-$RANDOM"
+    local statusDir
+    statusDir="$ROOT_DIR/.tmp/parallel-status/$(NamespaceSlug "$group")-$$-$RANDOM"
     local -a labels=()
     local -a commands=()
     local -a statusFiles=()
@@ -176,7 +208,8 @@ RunCollectParallel() {
     local next=0
     local active=0
     local completed=0
-    trap 'for child_pid in "${childPids[@]:-}"; do kill "$child_pid" >/dev/null 2>&1 || true; done; WriteCollectLiveGrantEvidence "$group" "$statusDir" cancelled; exit 130' INT TERM
+    trap 'CleanupCollectParallelReturn "$?" "$group" "$statusDir" "${childPids[@]:-}"' RETURN
+    trap 'CleanupCollectParallelSignal "$group" "$statusDir" "${childPids[@]:-}"' INT TERM
     local blockedSignature=''
     while ((completed < total)); do
         local nextWorkerCap
@@ -218,8 +251,8 @@ RunCollectParallel() {
                 mv "$pendingStatus" "${statusFiles[$index]}"
                 exit 0
             ) &
-            childPids[$index]="$!"
-            observed[$index]=0
+            childPids[index]="$!"
+            observed[index]=0
             next=$((next + 1))
             active=$((active + 1))
             blockedSignature=''
@@ -238,7 +271,7 @@ RunCollectParallel() {
                 continue
             fi
             wait "${childPids[$index]}" >/dev/null 2>&1 || true
-            observed[$index]=1
+            observed[index]=1
             active=$((active - 1))
             completed=$((completed + 1))
             progressed=1
@@ -247,7 +280,7 @@ RunCollectParallel() {
             sleep 0.1
         fi
     done
-    trap - INT TERM
+    trap - RETURN INT TERM
 
     local index
     local groupFailed=0

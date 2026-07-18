@@ -8,7 +8,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
         exit 1
     }
 STATE_FILE="${FSUSBLOG_SLOT_STATE_FILE:-/var/lib/fsusblog/deployment/slots.json}"
-DRY_RUN=0
 PASSTHROUGH=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -34,7 +33,6 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --dry-run)
-            DRY_RUN=1
             PASSTHROUGH+=(--dry-run)
             shift
             ;;
