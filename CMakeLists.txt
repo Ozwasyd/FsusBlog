@@ -20,6 +20,7 @@ add_subdirectory(tests/native)
 add_custom_target(
     FormatCheck
     COMMAND "${PROJECT_SOURCE_DIR}/tools/format.sh" --check --full --domain native
+    COMMENT "Check repository-owned native formatting"
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
     USES_TERMINAL
 )
@@ -27,6 +28,7 @@ add_custom_target(
 add_custom_target(
     LintNative
     COMMAND "${PROJECT_SOURCE_DIR}/tools/lint.sh" native --full
+    COMMENT "Lint repository-owned native sources"
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
     USES_TERMINAL
 )

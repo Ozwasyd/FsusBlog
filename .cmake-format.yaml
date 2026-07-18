@@ -17,7 +17,8 @@ lint:
     disabled_codes: []
     function_pattern: '[A-Z][A-Za-z0-9]+'
     macro_pattern: '[A-Z][A-Za-z0-9]+'
+    global_var_pattern: '(?:[a-z][A-Za-z0-9]*|(?:CMAKE|CTEST|CPACK|FSUSBLOG|WASM)_[A-Z0-9_]+)'
     argument_var_pattern: '[a-z][A-Za-z0-9]*'
     local_var_pattern: '[a-z][A-Za-z0-9]*'
     private_var_pattern: '_[a-z][A-Za-z0-9]*'
-    public_var_pattern: '[A-Z][A-Z0-9_]*'
+    public_var_pattern: '(?:[a-z][A-Za-z0-9]*|(?:CMAKE|CTEST|CPACK|FSUSBLOG|WASM)_[A-Z0-9_]+)'

@@ -18,6 +18,10 @@ else()
     )
 endif()
 
+# Contract: Attach the repository warning profile and optional clang-tidy analysis to one owned target.
+# Input: targetName identifies an existing CMake target; NO_CLANG_TIDY opts that target out of clang-tidy only.
+# Output: The target inherits FsusWarnings and the configured warnings-as-errors or clang-tidy properties.
+# Failure: Configuration stops when targetName is missing or the requested clang-tidy executable is unavailable.
 function(FsusEnableProjectWarnings targetName)
     set(options NO_CLANG_TIDY)
     cmake_parse_arguments(PARSE_ARGV 1 warningOptions "${options}" "" "")
@@ -44,6 +48,10 @@ function(FsusEnableProjectWarnings targetName)
     endif()
 endfunction()
 
+# Contract: Attach the repository AddressSanitizer and UndefinedBehaviorSanitizer profile to one owned target.
+# Input: targetName identifies the target that should receive sanitizer compile and link options.
+# Output: The target is unchanged when sanitizers are disabled, otherwise it receives the shared sanitizer profile.
+# Failure: Configuration stops when sanitizers are requested with an unsupported compiler.
 function(FsusEnableSanitizers targetName)
     if(NOT FSUSBLOG_ENABLE_SANITIZERS)
         return()

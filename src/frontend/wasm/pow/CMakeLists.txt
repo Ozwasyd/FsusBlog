@@ -12,8 +12,8 @@ endif()
 
 add_compile_definitions(__DEFINED_max_align_t)
 
-set(SOURCES src/main.cpp)
-add_executable(FsusPowEngine ${SOURCES})
+set(sources src/main.cpp)
+add_executable(FsusPowEngine ${sources})
 
 # 显式包含 Emscripten 系统头文件
 target_include_directories(FsusPowEngine SYSTEM PRIVATE ${EMSCRIPTEN_SYSROOT}/include)

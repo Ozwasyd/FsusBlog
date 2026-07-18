@@ -129,6 +129,16 @@ else()
     message(STATUS "Image codec wasm scalar fallback enabled")
 endif()
 
+string(
+    CONCAT imageCodecExportedFunctions
+           "[\"_image_codec_alloc_buffer\",\"_image_codec_free_buffer\",\"_image_codec_encode\","
+           "\"_image_codec_get_last_output_ptr\",\"_image_codec_get_last_output_len\","
+           "\"_image_codec_get_last_error_ptr\",\"_image_codec_get_last_error_len\","
+           "\"_image_codec_get_last_error_code\",\"_image_codec_get_level_ptr\","
+           "\"_image_codec_get_level_len\",\"_image_codec_get_version_ptr\","
+           "\"_image_codec_get_version_len\",\"_image_codec_get_supported_formats_bitmap\"]"
+)
+
 target_link_options(
     FsusImageCodec
     PRIVATE
@@ -139,6 +149,6 @@ target_link_options(
     -sEXPORT_ES6=1
     -sEXPORT_NAME=createImageCodecModule
     -sENVIRONMENT=web,worker,node
-    -sEXPORTED_FUNCTIONS=["_image_codec_alloc_buffer","_image_codec_free_buffer","_image_codec_encode","_image_codec_get_last_output_ptr","_image_codec_get_last_output_len","_image_codec_get_last_error_ptr","_image_codec_get_last_error_len","_image_codec_get_last_error_code","_image_codec_get_level_ptr","_image_codec_get_level_len","_image_codec_get_version_ptr","_image_codec_get_version_len","_image_codec_get_supported_formats_bitmap"]
+    "-sEXPORTED_FUNCTIONS=${imageCodecExportedFunctions}"
     -sEXPORTED_RUNTIME_METHODS=["UTF8ToString","HEAPU8"]
 )

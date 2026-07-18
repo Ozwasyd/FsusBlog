@@ -17,6 +17,14 @@ set_target_properties(
                SUFFIX ".js"
 )
 
+string(
+    CONCAT commentPrivacyExportedFunctions
+           "[\"_malloc\",\"_free\",\"_comment_privacy_probe\","
+           "\"_comment_privacy_validate_proving_key\",\"_comment_privacy_prepare_proof\","
+           "\"_comment_privacy_get_proof_ptr\",\"_comment_privacy_get_proof_len\","
+           "\"_comment_privacy_get_last_error\"]"
+)
+
 target_link_options(
     FsusCommentPrivacyRuntime
     PRIVATE
@@ -33,6 +41,6 @@ target_link_options(
     -sMALLOC=emmalloc
     -sDYNAMIC_EXECUTION=0
     -sINCOMING_MODULE_JS_API=["locateFile","wasmBinary"]
-    -sEXPORTED_FUNCTIONS=["_malloc","_free","_comment_privacy_probe","_comment_privacy_validate_proving_key","_comment_privacy_prepare_proof","_comment_privacy_get_proof_ptr","_comment_privacy_get_proof_len","_comment_privacy_get_last_error"]
+    "-sEXPORTED_FUNCTIONS=${commentPrivacyExportedFunctions}"
     -sEXPORTED_RUNTIME_METHODS=["HEAPU8"]
 )

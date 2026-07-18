@@ -28,6 +28,12 @@ else()
     target_link_options(FsusSearchRuntime PRIVATE -Oz)
 endif()
 
+string(
+    CONCAT searchExportedFunctions "[\"_alloc_buffer\",\"_free_buffer\",\"_load_search_index\",\"_load_search_entry\","
+           "\"_search_articles\",\"_get_last_result_ptr\",\"_get_last_result_len\","
+           "\"_get_last_error_ptr\",\"_get_last_error_len\",\"_get_last_error_code\"]"
+)
+
 target_link_options(
     FsusSearchRuntime
     PRIVATE
@@ -40,6 +46,6 @@ target_link_options(
     -sENVIRONMENT=web,worker,node
     -sFILESYSTEM=0
     -sINCOMING_MODULE_JS_API=["locateFile","wasmBinary"]
-    -sEXPORTED_FUNCTIONS=["_alloc_buffer","_free_buffer","_load_search_index","_load_search_entry","_search_articles","_get_last_result_ptr","_get_last_result_len","_get_last_error_ptr","_get_last_error_len","_get_last_error_code"]
+    "-sEXPORTED_FUNCTIONS=${searchExportedFunctions}"
     -sEXPORTED_RUNTIME_METHODS=["HEAPU8"]
 )
