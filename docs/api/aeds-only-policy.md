@@ -33,7 +33,7 @@ error:    AedsFrameType.ApiError
 以下路径允许保留 JSON/XML/text，并必须登记在 `tools/contracts/aeds-only-policy.allowlist.json`：
 
 | 范围 | 路径 / contract | 理由 |
-|------|------------------|------|
+| ------ | ------------------ | ------ |
 | Health | `/health/live`, `/health/ready` | Kubernetes/systemd/监控探针消费 JSON；`/health/ready` 只暴露最小 `status` / `checkedAt` |
 | Feed | `/feed/rss.xml`, `/feed/atom.xml`, `/feed/feed.json` | RSS/Atom/JSON Feed 标准协议 |
 | SEO | `/sitemap.xml`, `/robots.txt` | 搜索引擎标准入口 |
@@ -50,7 +50,7 @@ error:    AedsFrameType.ApiError
 `must-migrate` 清单必须为空。#105 后以下旧内部 JSON 路径不再作为外部 API 暴露：
 
 | 旧路径 | 当前入口 |
-|--------|----------|
+| -------- | ---------- |
 | `/api/public/articles/{articleId}/related` | `/api/binary/article/{articleId}/related.aeds` |
 | `/api/read-proof/challenge`, `/api/read-proof/submit` | `/api/binary/read-proof/challenge.aeds`, `/api/binary/read-proof/submit.aeds` |
 | `/api/telemetry/rum` | `/api/binary/telemetry/rum` |
@@ -108,7 +108,7 @@ tools/check-aeds-only-policy.sh
 分类：
 
 | 分类 | 含义 | Gate 行为 |
-|------|------|-----------|
+| ------ | ------ | ----------- |
 | `allowed-exemption` | 标准协议、健康探针、工具专用 JSON | 允许 |
 | `must-migrate` | 已登记但仍未完成的内部 JSON | 阻断 |
 | `test-tool-docs-only` | 测试/工具/文档 JSON | 允许，不扫描 runtime |

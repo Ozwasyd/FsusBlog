@@ -4,7 +4,7 @@
 详细文档请参阅 [api/](api/) 子目录：
 
 | 文档 | 说明 |
-|------|------|
+| ------ | ------ |
 | [api/design.md](api/design.md) | API 设计哲学、响应格式约定、双链路决策 |
 | [api/contracts.md](api/contracts.md) | 请求/响应 DTO 完整契约、通知 WebSocket 契约、AOT 契约 |
 | [api/quick-reference.md](api/quick-reference.md) | 所有端点路由速查表（含认证 / 限流 / Binary 对照） |
@@ -15,7 +15,7 @@
 **图例**
 
 | 符号 | 含义 |
-|------|------|
+| ------ | ------ |
 | 🔓 | 匿名可访问 |
 | 🔑 | 需要登录（HttpOnly Cookie session / AEDS auth frame） |
 | 👑 | 需要 admin 角色 |
@@ -28,7 +28,7 @@
 当前客户端主链优先调用 `/api/binary/**`，响应为 `application/octet-stream` AEDS v2 frame。认证、MFA、Passkey、公开读、评论、消息、上传、RUM telemetry、作者工作台、安全后台和管理读链都通过 AEDS frame/POD 契约校验；少量 JSON 端点仅用于健康检查、外部标准协议和废弃兼容。
 
 | Family | Prefix | Auth | Notes |
-|--------|--------|------|-------|
+| -------- | -------- | ------ | ------- |
 | Public article/read | `/api/binary/article/**` | 🔓 | 首页、分类、标签、详情、热门与搜索 frame |
 | Comment cursors | `/api/binary/comment/**` | 🔓 / 🔑 | 公开评论游标与可归因评论记录 |
 | Auth / MFA / Passkey | `/api/binary/auth/**` | 🔓 / 🔑 | PoW、login flow、session、MFA、WebAuthn |
@@ -52,7 +52,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 ### PoW 与账号入口
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/binary/auth/pow-challenge` | 获取 Proof of Work 挑战 | 🔓 🚦 📦 |
 | POST | `/api/binary/auth/anonymous/bootstrap` | 初始化匿名账号容器并写入当前 session；不接受密码 | 🔓 🚦 📦 |
 | POST | `/api/binary/auth/refresh-token` | 使用 HttpOnly Cookie 续签 Access Token | 🔓 🚦 📦 |
@@ -60,7 +60,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 ### 当前用户
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/binary/auth/me` | 获取当前匿名账号容器快照 | 🔑 📦 |
 | PUT | `/api/binary/auth/public-handle` | 保存或清空当前匿名账号公开称呼 | 🔑 📦 |
 | POST | `/api/binary/auth/logout` | 安全登出（吊销 Refresh Token） | 🔑 📦 |
@@ -69,7 +69,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 ### 会话管理
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/binary/auth/sessions` | 获取活跃会话列表 | 🔑 📦 |
 | POST | `/api/binary/auth/sessions/{id}/revoke` | 吊销指定会话 | 🔑 📦 |
 | POST | `/api/binary/auth/sessions/revoke-others` | 吊销全部其他会话 | 🔑 📦 |
@@ -77,7 +77,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 ### MFA / TOTP
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | POST | `/api/binary/auth/mfa/setup/start` | 开始 MFA 设置，返回 TOTP 密钥与二维码 | 🔑 📦 |
 | POST | `/api/binary/auth/mfa/setup/verify` | 验证 TOTP 码，完成 MFA 启用 | 🔑 📦 |
 | GET | `/api/binary/auth/mfa/profile` | 查询 MFA 启用状态与恢复码剩余数 | 🔑 📦 |
@@ -93,7 +93,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 ## Auth — Passkey / WebAuthn — `/api/binary/auth/passkey`
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | POST | `/api/binary/auth/passkey/register/begin` | 开始注册 Passkey（返回 CredentialCreateOptions） | 🔑 |
 | POST | `/api/binary/auth/passkey/register/complete` | 完成 Passkey 注册 | 🔑 |
 | POST | `/api/binary/auth/passkey/login/begin` | 开始 Passkey 无密码登录（返回 AssertionOptions） | 🔓 🚦 |
@@ -107,7 +107,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 ## Article — `/api/Article`
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/Article/` | 文章列表（分页） | 🔓 |
 | GET | `/api/Article/{id}` | 文章详情 | 🔓 |
 | GET | `/api/Article/hot` | 热门文章 | 🔓 |
@@ -117,7 +117,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 ## Comment — `/api/Comment`
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/Comment/{articleId}` | 指定文章的顶层评论（游标分页） | 🔓 |
 | GET | `/api/Comment/{articleId}/thread/{rootId}` | 指定评论的回复线程 | 🔓 |
 | GET | `/api/Comment/me` | 当前用户可归因评论记录 | 🔑 |
@@ -127,7 +127,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 ## Category — `/api/Category`
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/Category/` | 所有分类 | 🔓 |
 
 ---
@@ -135,7 +135,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 ## Tag — `/api/Tag`
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/Tag/` | 所有标签 | 🔓 |
 
 ---
@@ -143,7 +143,7 @@ Notification stream 使用 WebSocket 传输、`fsus-aeds.v2` 子协议和 AEDS �
 ## System — `/api/System`
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/System/seo` | 站点 SEO 配置 | 🔓 |
 | GET | `/api/System/page/{slug}` | 指定 slug 的静态页面内容 | 🔓 |
 
@@ -158,7 +158,7 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 ### 公开读
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/binary/article/list/home/{page}/{size}.aeds` | 首页文章列表 L0 artifact（Binary） | 🔓 |
 | GET | `/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds` | 分类文章列表 L0 artifact（Binary） | 🔓 |
 | GET | `/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds` | 标签文章列表 L0 artifact（Binary） | 🔓 |
@@ -170,13 +170,13 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 ### 需认证
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/binary/comment/me` | 当前用户可归因评论记录（Binary） | 🔑 |
 
 ### 管理端
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/binary/stats` | Binary 聚合统计（overview + recent comments + regions） | 👑 |
 | POST | `/api/binary/upload/*` | 分片上传 | 👑 |
 | GET | `/api/binary/upload/*` | 分片上传查询 | 👑 |
@@ -190,7 +190,7 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 > 整个路由组需要登录。
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/binary/messages/conversations` | 当前用户对话列表 | 🔑 |
 | GET | `/api/binary/messages/conversations/{id}` | 对话详情与消息 | 🔑 |
 | POST | `/api/binary/messages/conversations` | 发起新对话 | 🔑 |
@@ -204,7 +204,7 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 > 整个路由组需要 admin 角色。
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/binary/admin/messages/conversations` | 所有对话列表 | 👑 |
 | GET | `/api/binary/admin/messages/conversations/{id}` | 对话详情 | 👑 |
 | POST | `/api/binary/admin/messages/conversations/{id}/reply` | 以管理员身份回复 | 👑 |
@@ -216,10 +216,10 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 ## 通知与健康检查
 
 | 方法 | 路径 | 描述 | 权限 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/notifications/stream` | WebSocket 通知通道（`fsus-aeds.v2`） | 🔓 |
 | GET | `/health/live` | JSON 存活探针 | 🔓 |
-| GET | `/health/ready` | JSON 最小就绪探针（仅 `status` / `checkedAt`）| 🔓 |
+| GET | `/health/ready` | JSON 最小就绪探针（仅 `status` / `checkedAt`） | 🔓 |
 | GET | `/api/ops/health/ready-detail` | JSON 详细就绪报告（配置、DB、Redis、runtime、observability） | 👑 |
 | GET | `/api/ops/crawler-ranges/status` | Crawler CIDR 同步状态 | 👑 |
 

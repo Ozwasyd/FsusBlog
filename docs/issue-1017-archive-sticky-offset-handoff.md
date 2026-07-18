@@ -11,7 +11,7 @@ did not rewrite the archive component or public shell.
 `PublicArchivePageContent.vue` currently preserves the required behavior:
 
 | concern | current implementation |
-|---|---|
+| --- | --- |
 | year target | `id="archive-year-${yearGroup.year}"` on every rendered year section |
 | quick navigation | `href="#archive-year-${yearGroup.year}"` |
 | anchor clearance | `.archive-year-section` consumes `--fsusblog-public-anchor-offset` with the documented header-derived fallback |
@@ -81,4 +81,3 @@ parallel lane rather than create a new serial lane.
 No test, build, lint, restore, syntax, typecheck, profile, Playwright, screenshot, or
 browser validation was executed in this implementation phase. The GitHub completion
 comment and dependency comment remain historical evidence only.
-

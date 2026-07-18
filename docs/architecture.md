@@ -32,7 +32,7 @@ Browser
 ## 模块边界
 
 | 模块 | 职责 |
-|------|------|
+| ------ | ------ |
 | `FsusBlog.Server` | HTTP API、认证、Rate Limiting、缓存治理、安全链路、AOT 输出、notification stream |
 | `FsusBlog.Client` | SPA、公开页 hydration、Wasm 解码、Service Worker 搜索、状态管理 |
 | `FsusBlog.Shared` | 前后端共享二进制协议模型（AEDS 帧结构、契约结构体） |
@@ -64,7 +64,7 @@ app.Run();
 Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting 与核心服务注册由 `Infrastructure/Bootstrap/WebApplicationBuilderCompositionExtensions.cs` 收口；具体 HTTP 管线由 `Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs` 收口：
 
 | 阶段 | 方法 | 职责 |
-|------|------|------|
+| ------ | ------ | ------ |
 | 安全响应头 | `UseFsusSecurityHeaders` | CSP/HSTS/跨源隔离等头部策略 |
 | 核心中间件 | `UseFsusCoreMiddlewares` | Shield、全局异常与 AEDS 错误响应边界 |
 | 可观测关联 | `ObservabilityCorrelationMiddleware` | 在公开读分类前建立低基数 trace/metrics 上下文，保证 L0 hit 与常规端点均返回同一 `X-Fsus-Trace-Id` 语义 |
@@ -211,7 +211,7 @@ IPublicAotRouteRegistry
 公开页路由身份采用集中规范，避免服务端与预热脚本各自推导：
 
 | 页面 | route key / filter key | canonical path |
-|------|------------------------|----------------|
+| ------ | ------------------------ | ---------------- |
 | 首页 | `home` | `/` |
 | 文章详情 | `article:{id}` | `/article/{id}` |
 | 分类筛选 | `category:{id}` | `/category/{id}` |
@@ -287,7 +287,7 @@ Compose 把 `${FSUSBLOG_RELEASE_ASSET_STORE}/releases` 只读挂载为 `/app/rel
 ## 缓存分层
 
 | 层级 | 类型 | 用途 | 失效策略 |
-|------|------|------|----------|
+| ------ | ------ | ------ | ---------- |
 | L0 — Hot read snapshot | `PublicHotReadSnapshot` 不可变进程内快照 | 公开 article/category/tag `.aeds` 与公开 HTML 高频命中 | 文章、浏览量、分类标签、定时发布与 AOT 变更只入队刷新；后台 projector debounce/coalesce 后重建并原子发布 |
 | L0 — AOT 卷 | 静态 HTML 文件 | 公开页首访 shell | 内容变更时主动清除 |
 | L1 — 内存 | `IMemoryCache` / `ConcurrentDictionary` | 进程内高频读对象 | 绝对过期 + 手动吊销 |
@@ -329,12 +329,13 @@ taxonomy 缓存故障的无需重启回退必须同时处理 raw frame 与 Publi
 FsusBlog 运行时 API 只维护 AEDS binary 链：
 
 | 链路 | 内容类型 | 解码位置 | 用途 |
-|------|----------|----------|------|
+| ------ | ---------- | ---------- | ------ |
 | Binary 链 | `application/octet-stream`（AEDS v2 帧） | TypeScript adapter / 浏览器 Wasm Worker | 生产主链、公开读取与管理端写操作 |
 
 **失败逻辑**：Wasm Worker 解码失败时，客户端可切到 TypeScript binary decoder 或展示协议错误；不得重发文本 API 请求。
 
 **v2 写出与缓存路径**：
+
 - `src/shared/Contracts/Validation/aeds-protocol.json` 是 v2 header 与活动 frame type 的唯一机器可读源；生成器同步产出 Core/Shared C#、TypeScript 与 C++ `aeds_frame.hpp`。Core、Server 和测试统一引用 Shared packed header，不再维护 Core 手写副本。`check:aeds-protocol` fail closed 检查全部生成文件，cross-stack frame-schema check 还会编译真实 C++ decoder、遍历所有活动 frame type，并用 C# golden frame 验证 C++ 解码，因此跨语言名称、数值或 16-byte layout 漂移会在 CI 中阻断。
 - 帧头固定 16 字节，动态响应通过 `AedsFrameBufferWriter` 预留 header 并在同一 pooled buffer 中写 payload，`Seal()` 后回填 header/CRC，避免先构造 payload 再复制到完整 frame。
 - `BinaryFrameResult`、`BinaryFramePayloadResult` 与 `BinaryPreencodedFrameResult` 每个响应只提交一次 `PipeWriter`：`WriteAsync` 本身完成 flush 时不得再无条件 `FlushAsync`；直接 `GetSpan/Advance` 的 payload 路径只显式 flush 一次。request cancellation、aborted response 和 pipe backpressure 原样传播。
@@ -358,6 +359,7 @@ FsusBlog 运行时 API 只维护 AEDS binary 链：
 ### Rights V3 final data flow
 
 Rights V3 的最终公开读模型是同一 artifact pipeline：`admin write` 写入 `ArticleWriteRequest V3` 和完整 rights payload；服务端在文章事务内冻结 `policy snapshot`，生成内容 canonical hash 与 rights policy hash；后台 projector 当前产出 `ArticleDetail AEDS V4`（并保留 V3 artifact 只读兼容），把可公开的 Rights V3 snapshot、copy policy、proof pointer、正文 `updatedAt` 和 integrity coordinates 编入同一 detail frame；`PublicAOT hydration` 消费这个 ArticleDetail 投影生成 HTML、metadata 和 hydration rights；integrity worker 生成 `rights proof`，把 snapshot、content hash、publish proof pointer 和 site signature 绑定；proof ready 后追加本地 append-only `transparency log`，再通过公开 integrity sidecar 暴露校验坐标。公开文章页没有、也不得新增 separate public rights endpoint；浏览器不得再请求 `/article/{id}/rights.aeds`、`/rights` 或其它 side channel 来补齐版权信息。
+
 - 浏览计数不在读取链路产生，而由独立真人阅读 proof 事件更新。
 - VisitLog flush 只写入 `IHotStatsInvalidationCoalescer` dirty 标记，不直接 broad invalidate AdminStats/HotArticles。coalescer 对 HotArticles 使用 2s debounce、Stats 使用 10s debounce，并在 threshold 或 shutdown 时 flush pending state；HotArticles 的 L1/L2 identity 形如 `ArticleHot:v{hotVersion}:core:v2:{count}` / `ArticleHotFrame:v{hotVersion}:core:v2:{count}`，失效时发布新版本并让旧版本按 TTL 自然过期，避免高频 `RemoveByPrefixAsync(..., string.Empty)` 扫描。
 - `IUnifiedCache` 提供 `RemoveManyAsync` 与 `RemoveByPrefixManyAsync`。写路径失效应优先传递 `CacheKeyIdentity` / `CachePrefixIdentity` 批量请求，由 cache 层合并 L1 remove、Redis `KeyDeleteAsync(RedisKey[])`、registry `SetRemoveAsync(RedisValue[])`，并在同 policy 多 prefix 时只扫描一次 registry；registry 缺失 fallback 使用同 policy prefixes 的共同前缀执行一次 keyspace scan 后再二次过滤。

@@ -38,4 +38,3 @@ The default public issue destination is `https://github.com/Ozwasyd/FsusBlog/iss
 `ConsoleWelcomeCallout.Enabled` and `ConsoleWelcomeCallout.ShowOnFirstRun` control only the retired callout compatibility behavior. `buildConsoleSupportLinks` deliberately ignores those two banner switches so feedback remains reachable after migration. It returns no links when external links are disabled, or when a private deployment requests hidden external destinations.
 
 The old dismissal key remains `fsus:console-welcome-callout:dismissed:<user>` for compatibility, but dismissal does not hide the dashboard help disclosure.
-

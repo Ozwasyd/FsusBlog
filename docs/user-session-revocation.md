@@ -30,7 +30,7 @@
 以下写路径都必须使用 `UPDATE ... RETURNING` 取得更新后的 `xmin`，并在同一显式数据库事务回调的最后一步发布 revoked snapshot；Redis fence 可见后才允许 commit：
 
 | 路径 | `revokereason` | 保留项 |
-|---|---|---|
+| --- | --- | --- |
 | logout / refresh token revoke | `logout` | 无 |
 | 单会话撤销 | 调用方规范化 reason | 其他 session |
 | 撤销其他会话 | `revoke_others` | 当前 `sid` |
@@ -75,7 +75,7 @@ Security:UserSessionValidation:DistributedCacheEnabled=false
 ## 验收场景与测试代码
 
 | 场景 | 预期 | 覆盖位置 |
-|---|---|---|
+| --- | --- | --- |
 | 匿名请求 | 不读 session cache/DB | `UserSessionRevocationIntegrationTests.UnauthenticatedPrincipal_DoesNotReadSessionCacheOrDatabase` |
 | 登录普通账号 | active snapshot 允许，cache hit 不读 DB | `UserSessionValidationServiceTests.CachedActiveSession_AllowsRequestWithoutDatabaseRead` |
 | 单会话撤销 | warmed old principal 下一请求被拒绝 | `UserSessionRevocationIntegrationTests.RevokeSession_RejectsPreviouslyIssuedPrincipalAfterCacheWasWarm` |

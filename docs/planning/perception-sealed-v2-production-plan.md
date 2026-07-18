@@ -40,7 +40,7 @@ V2 不是“更复杂的图片验证码”。生产定义是轻服务端 sealed 
 ## Issue coverage
 
 | Order | Issue | Unit | Tracking boundary |
-|---:|---:|---|---|
+| ---: | ---: | --- | --- |
 | 1 | #505 | V2 AEDS contract | issue、assignment、verify、proof 和错误 envelope 进入 binary contract；无公开 JSON fallback。 |
 | 2 | #506 | AEAD sealed token | opaque token 绑定 action、route、subject、device / IP / UA hash、过期时间与 nonce。 |
 | 3 | #507 | non-semantic render recipe | schema 只描述客户端渲染配方；服务端不生成图片、不保存语义标签。 |

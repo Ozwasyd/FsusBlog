@@ -25,4 +25,3 @@ keep the affected documents as cache misses while the canonical rebuild complete
 
 - `PublicAotFileShellCacheTests.TryGetEntryAsync_LegacyBase64UrlHydrationSidecarHash_TreatsDocumentAsMiss`
 - `RuntimeFallbackRetirementAcceptanceTests.A3_7_PublicAotAcceptsOnlyCanonicalHexSidecarHash`
-

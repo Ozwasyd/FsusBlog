@@ -15,7 +15,7 @@
 ## 场景目录与确定性选择
 
 | ID | 浏览器独有风险 |
-|---|---|
+| --- | --- |
 | `public-hydration-history-reload` | AOT article 直达、真实 Vue hydration、首次交互 takeover、public 导航、back、reload、head/body 与 app/shell identity |
 | `account-deep-link-bootstrap` | 真实普通账号 cookie 打开受保护 deep link 并完成 account bootstrap |
 | `admin-deep-link-expired-session` | 真实 admin cookie 完成权限 bootstrap；cookie 失效后保留 redirect 目标并呈现登录页 |
@@ -29,7 +29,7 @@
 
 runner 在读取旧 receipt 或启动 Chromium 前，fail closed 验证显式的 `FSUSBLOG_TEST_SOURCE_COMMIT` / `FSUSBLOG_TEST_SOURCE_FINGERPRINT` 与 #1078 immutable production build receipt 完全一致，并要求 receipt 包含 `backend-runtime`、`frontend-dist`、`wasm` 和 `generated-contracts`。`GITHUB_SHA` 不能代替这两项专用 source identity。
 
-#1149 的 fixture producer 固定准备 `1 session / 1 concurrency`：一个 run-scoped 专用 PostgreSQL instance/schema、一个 Redis instance/namespace、一个普通 user、一个 admin 和一份 sealed auth/storage manifest。它不读取 live CPU/memory grant 或 PostgreSQL PID headroom，不按 worker clone schema，也不回退到共享 `public` schema。场景只消费 `createPublishedArticle()`、`createPendingComment()`、`createUserSession()`、`createAdminSession()` 和 `resetContractNamespace()` 形成的稳定 fixture view；浏览器场景不执行 SQL、Redis 或 Docker 命令。完整生命周期见 [`issue-1149-browser-contract-fixture.md`](issue-1149-browser-contract-fixture.md)。
+# 1149 的 fixture producer 固定准备 `1 session / 1 concurrency`：一个 run-scoped 专用 PostgreSQL instance/schema、一个 Redis instance/namespace、一个普通 user、一个 admin 和一份 sealed auth/storage manifest。它不读取 live CPU/memory grant 或 PostgreSQL PID headroom，不按 worker clone schema，也不回退到共享 `public` schema。场景只消费 `createPublishedArticle()`、`createPendingComment()`、`createUserSession()`、`createAdminSession()` 和 `resetContractNamespace()` 形成的稳定 fixture view；浏览器场景不执行 SQL、Redis 或 Docker 命令。完整生命周期见 [`issue-1149-browser-contract-fixture.md`](issue-1149-browser-contract-fixture.md)。
 
 固定可上传结果只有 `.tmp/browser-contract/receipt.json`；sealed fixture manifest 在 cleanup 前位于 `.tmp/browser-contract/fixtures/<namespace>/contract-fixture.json`，本机私有调试产物位于 `.tmp/browser-contract/runs/<namespace>/`。receipt 记录 source/build fingerprint、run/lane/preparation identity、database/Redis identity、稳定实体 ID、cleanup 分项证据、Playwright 版本、Chromium revision、精确 scenario IDs、launch/context 数、wall clock、console/page/request issues、product/contract/infra 分类及本地证据的相对路径，不内联原始 trace、screenshot 或会话材料。只有显式 `anonymous` 场景允许在本地私有目录保留 raw trace；`user`、`admin` 及任何未知/未来 role 都不启动 tracing。场景失败时可在本地私有目录保留 viewport screenshot，但 CI 无论成功或失败都不上传 `fixtures/**` 或 `runs/**`，只上传 receipt 与 job summary。
 

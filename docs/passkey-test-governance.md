@@ -7,7 +7,7 @@
 统计口径为 `tests/backend/Unit/PasskeyServiceTests.cs`，并单列其 PostgreSQL replacement owner `PasskeySignCountConcurrencyTests.cs`。Theory 的每个数据行按一个展开 case 计数。
 
 | 指标 | Before | After | 变化 |
-|------|--------|-------|------|
+| ------ | -------- | ------- | ------ |
 | `PasskeyServiceTests` 测试方法 | 33 | 8 | -25（-75.8%） |
 | `PasskeyServiceTests` 展开 case | 39 | 13 | -26（-66.7%） |
 | `PasskeyServiceTests` 行数 | 560 | 149 | -411（-73.4%） |
@@ -19,7 +19,7 @@
 机器可读的逐 test ID 声明位于 [`tests/test-retention-replacements.json`](../tests/test-retention-replacements.json)。语义映射如下：
 
 | 删除或合并的旧证据 | 当前 owner | 保留理由 |
-|--------------------|------------|----------|
+| -------------------- | ------------ | ---------- |
 | `CachePolicyId_PasskeyValues_AreDistinct` | 两个 stable numeric value 测试 | `24` 与 `25` 的精确持久化契约已经蕴含 distinct |
 | registry presence、`SecurityCritical`、L1/L2 TTL、jitter、tags、domain/resource 的 8 个碎片方法 | `CachePolicyRegistry_PasskeyPolicies_PreserveSecurityContract` | 两个 policy ID 作为同一表驱动 theory 的数据行，全部原断言仍在 |
 | registration/authentication key 的两个独立方法 | `CachePolicy_PasskeyChallenge_BuildKeyUsesPolicyDomainAndResource` | 一个 theory 同时锁定两个完整 key |
@@ -38,7 +38,7 @@
 下表声明 mutation target、应由哪个行为测试杀死，以及失败信号。当前 issue 阶段按任务约束只落地代码，不运行 mutation 或其他验证；运行结果必须由后续统一验证绑定当前 source state 后写入 release evidence，本文不预填成功状态。
 
 | Mutation target | Evidence owner | 预期失败信号 |
-|-----------------|----------------|--------------|
+| ----------------- | ---------------- | -------------- |
 | 改动 Passkey cache policy numeric ID | 两个 stable numeric value 测试 | 精确整数不相等 |
 | 关闭 `SecurityCritical`，改变 TTL/jitter/tags/domain/resource | consolidated policy theory | 对应 policy row 断言失败 |
 | 删除 identity trim/default normalization | key normalization theory | empty/whitespace key 不再等于 `...:default` |

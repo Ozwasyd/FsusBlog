@@ -31,7 +31,7 @@
 ## 可见拓扑变化
 
 | 口径 | 迁移前 | 迁移后 |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Browserless authority dependency closure | 旧 `production`：72 tiers，含 `acceptance` | `production-correctness`：71 tiers，0 Playwright tier、0 browser resource tier |
 | Release-final dependency closure | 96 tiers，10 个 Playwright 声明 | 93 tiers，仅 `browser-contract` 一个 Playwright/browser tier |
 | Quality Gate job 定义 | 29，含 Acceptance shard 与 render pressure | 当前 25；删除旧 browser jobs，唯一 browser job 为单 `browser-contract` |

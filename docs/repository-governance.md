@@ -36,7 +36,7 @@ Required settings:
 The default branch rule should require these repository-security and quality checks:
 
 | Check | Why it is required |
-|-------|--------------------|
+| ------- | -------------------- |
 | `Quality Gate / Production Summary` | Summarizes the full production-ci-gate DAG and fails when any required upstream job failed, skipped unexpectedly, or produced invalid release evidence. |
 | `Quality Gate / Validate Test Matrix` | Prevents drift between `tests/matrix.yml`, generated docs, and the GitHub Actions workflow. |
 | `Quality Gate / Fast Backend` | Covers deterministic backend unit, auth state-machine, concurrency, property, and golden tests. |
@@ -89,7 +89,7 @@ Default policy: each workflow starts from `permissions: contents: read`, then ad
 Allowed exceptions:
 
 | Scope | Allowed workflow | Justification |
-|-------|------------------|---------------|
+| ------- | ------------------ | --------------- |
 | `pull-requests: read` | `dependency-review.yml`, `scorecard.yml` | Dependency Review needs PR metadata to inspect dependency changes. Scorecard needs read-only PR metadata in private repositories to evaluate review and branch-protection signals. |
 | `pull-requests: write` | `labeler.yml` | The path labeler applies labels to pull requests; it does not check out or execute PR code. |
 | `issues: write` | `issue-triage.yml` | Issue triage applies labels and status labels to public issue forms. |

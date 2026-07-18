@@ -5,7 +5,7 @@ Issue #1094 introduces a measurement layer that joins release identity, live pub
 ## Evidence and trust boundaries
 
 | Artifact | Producer | Trust rule |
-|---|---|---|
+| --- | --- | --- |
 | `search-console-daily.json` | `collect-search-console.mjs` | Must say `source=google-search-console-api`; credentials/access tokens are never serialized; missing access produces `status=blocked`, never an empty success |
 | `url-inventory-input.json` | `collect-url-inventory.mjs` | Reads the live same-origin sitemap and public HTML; records final status, redirect source, declared canonical, internal links and `X-Fsus-Public-Aot-*` response source/state |
 | `verified-crawler-daily.json` | `import-crawler-log.mjs` | Google UA is necessary but insufficient; PTR hostname must end in `.googlebot.com` or `.google.com`, then forward DNS must contain the original IP |

@@ -2,15 +2,15 @@
 
 文章附录和评论区域只消费 FsusBlog 产品语义变量，不在组件内声明主题色或 `html.dark` 覆盖。产品变量在 `public-page.css` 与 `public-shell-foundation.css` 中映射到相邻 FsusUI #183 的 public tokens：
 
-| FsusBlog alias                      | FsusUI source                  |
+| FsusBlog alias | FsusUI source |
 | ----------------------------------- | ------------------------------ |
-| `--fsusblog-text-primary`           | `--fsus-color-text-primary`    |
-| `--fsusblog-text-quiet`             | `--fsus-color-text-quiet`      |
-| `--fsusblog-text-decorative`        | `--fsus-color-text-decorative` |
-| `--fsusblog-panel-border`           | `--fsus-color-border-subtle`   |
-| `--fsusblog-color-primary`          | `--fsus-color-action-primary`  |
-| `--fsusblog-color-focus-ring`       | `--fsus-color-focus-ring`      |
-| `--fsusblog-reading-inline-code-bg` | `--fsus-color-surface-raised`  |
+| `--fsusblog-text-primary` | `--fsus-color-text-primary` |
+| `--fsusblog-text-quiet` | `--fsus-color-text-quiet` |
+| `--fsusblog-text-decorative` | `--fsus-color-text-decorative` |
+| `--fsusblog-panel-border` | `--fsus-color-border-subtle` |
+| `--fsusblog-color-primary` | `--fsus-color-action-primary` |
+| `--fsusblog-color-focus-ring` | `--fsus-color-focus-ring` |
+| `--fsusblog-reading-inline-code-bg` | `--fsus-color-surface-raised` |
 
 相邻仓库联调使用现有 local alias，不修改 `@ozwasyd/element-plus` 版本或 lockfile，也不依赖 npm 发布。旧发布包路径只通过每个产品 alias 的窄 fallback 保持可构建，不复制整套 FsusUI token。
 

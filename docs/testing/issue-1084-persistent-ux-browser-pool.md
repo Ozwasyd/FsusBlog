@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-#1084 曾为 local Production UX risk matrix 引入 persistent/elastic browser pool。#1148 完成测试面分层后，该执行模型已退役：UX full、visual、boundaries 与 risk matrix 不再属于普通 PR、Production correctness 或 release correctness 路径，只能从 scheduled/manual browser diagnostics 目录进入。
+# 1084 曾为 local Production UX risk matrix 引入 persistent/elastic browser pool。#1148 完成测试面分层后，该执行模型已退役：UX full、visual、boundaries 与 risk matrix 不再属于普通 PR、Production correctness 或 release correctness 路径，只能从 scheduled/manual browser diagnostics 目录进入。
 
 `tools/ux/run-local-production-risk.mjs` 现在会拒绝缺少 `FSUSBLOG_BROWSER_DIAGNOSTICS=1` 的调用。权威入口是：
 

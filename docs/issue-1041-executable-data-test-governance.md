@@ -67,17 +67,17 @@ The existing full backend Stryker `Services/**/*.cs` scope covers `RecoveryKeySe
 The following central files were under active ownership elsewhere while #1041 was implemented and must be updated by that owner without overwriting concurrent work:
 
 - `tests/backend/Fixtures/backend-test-requirements.json`
-  - add `RecoveryKeyAttemptLimiterContractTests.cs` to `BACKEND-FAKE-CLOCK`, `BACKEND-CONCURRENCY-RACES`, and `BACKEND-SECURITY-MATRIX` evidence;
-  - add `SubscriptionEndpointsContractTests.cs` to `BACKEND-WEBAPPLICATIONFACTORY`, `BACKEND-TRANSACTIONS`, `BACKEND-IDEMPOTENCY`, and `BACKEND-SECURITY-MATRIX` evidence;
-  - add `DevSeedSqlContractTests.cs` to `BACKEND-IDEMPOTENCY`, `BACKEND-MIGRATION-FAILURE-DRILLS`, and `BACKEND-SECURITY-MATRIX` evidence;
-  - add the subscription file to the `backend-api-integration` profile and the recovery file to the `backend-concurrency` profile.
+    - add `RecoveryKeyAttemptLimiterContractTests.cs` to `BACKEND-FAKE-CLOCK`, `BACKEND-CONCURRENCY-RACES`, and `BACKEND-SECURITY-MATRIX` evidence;
+    - add `SubscriptionEndpointsContractTests.cs` to `BACKEND-WEBAPPLICATIONFACTORY`, `BACKEND-TRANSACTIONS`, `BACKEND-IDEMPOTENCY`, and `BACKEND-SECURITY-MATRIX` evidence;
+    - add `DevSeedSqlContractTests.cs` to `BACKEND-IDEMPOTENCY`, `BACKEND-MIGRATION-FAILURE-DRILLS`, and `BACKEND-SECURITY-MATRIX` evidence;
+    - add the subscription file to the `backend-api-integration` profile and the recovery file to the `backend-concurrency` profile.
 - `tests/matrix.yml`
-  - add the subscription file to `backend-api-integration.evidence`;
-  - add the recovery file to `backend-concurrency.evidence`;
-  - keep all three files covered by `backend-unit` and production/nightly dependency closure.
+    - add the subscription file to `backend-api-integration.evidence`;
+    - add the recovery file to `backend-concurrency.evidence`;
+    - keep all three files covered by `backend-unit` and production/nightly dependency closure.
 - `tests/coverage-registry.json`
-  - include the three behavior files under backend endpoint/security/concurrency coverage ownership without adding duplicate coverage IDs.
+    - include the three behavior files under backend endpoint/security/concurrency coverage ownership without adding duplicate coverage IDs.
 - `tools/test/lanes/static-governance.sh`
-  - no new source-shape check is required; if an evidence-path allowlist is present, include the three behavior files only.
+    - no new source-shape check is required; if an evidence-path allowlist is present, include the three behavior files only.
 
 No test, build, lint, restore, syntax check, or other validation was run while preparing this change. Later acceptance evidence must be generated from the final merged source state for backend unit, integration, security, API integration, concurrency, mutation, retention, and production fresh tiers.

@@ -16,7 +16,7 @@
 场景分为四组：
 
 | Group | 用途 | 是否门禁动态路径结论 |
-|---|---|---|
+| --- | --- | --- |
 | `static-preencoded` | `EmptySuccess` 静态预编码 reference | 否 |
 | `tiny-dynamic` | `ApiError` 等纳秒/微秒级小 frame | 是，使用独立较宽但有界 noise band |
 | `representative-dynamic` | `ArticleList10/50/100`、`ArticleDetailLarge`、`CommentCursor`、`ConversationDetail`、`PublicAotBootstrap` | 是，全部必须存在且不回退 |

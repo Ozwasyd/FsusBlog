@@ -9,7 +9,7 @@ evidence that does not claim unexecuted production checks.
 ## Audited state
 
 | item | current production state | primary existing evidence |
-|---|---|---|
+| --- | --- | --- |
 | A3-1 | legacy upload-session root sweep absent; expiration-bucket cleanup only | `FileServiceTests.UploadSessionCleanup_SourceUsesExpirationBucketIndex` |
 | A3-2 | HMAC-only runtime; one-time finalize migration quarantines legacy rows and asserts count zero | `SchemaMigrationIntegrationTests.RunAsync_FinalizesLegacySiteSubscriptionHashes` |
 | A3-3 | all three article readers use `article_body` / `ArticleBody.MarkdownContent` | `ArticleServiceValidationTests.ArticleService_SourceDoesNotQueryLegacyArticleContentColumn` |
@@ -83,4 +83,3 @@ assertion.
 No test, build, lint, restore, syntax, profile, Playwright, migration, AOT rebuild,
 production query, or release-cycle observation was executed in this implementation
 phase. All pass/fail and milestone claims remain deferred to unified validation.
-

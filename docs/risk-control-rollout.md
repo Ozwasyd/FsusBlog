@@ -7,7 +7,7 @@
 RiskControl 的运行控制来自三层：
 
 | Layer | Current source | Names |
-|---|---|---|
+| --- | --- | --- |
 | Global / action policy | `security_policy_snapshot` active `SecurityRiskPolicySnapshotV2` | `GlobalMode`, action `ModeOverride`, `ActionOverrides`, `SubsystemModes`, `LastKnownGoodSnapshotId` |
 | Config fallback | app configuration | `AntiCrawler:Mode`, `Security:AntiCrawler:Mode`, `Pow:Mode`, `Security:PoSpaceV1:Mode`, `Security:Risk:RequireChallengeScore`, `Security:Risk:BlockScore`, `Security:Risk:MaxRiskScore`, `Security:Risk:DefaultRiskTtlSeconds`, `Security:Risk:ZeroRiskCacheTtlSeconds` |
 | Provider config | app configuration and DI | `Security:CaptchaV1:SigningKey` or `Jwt:SecretKey`, `Security:PoSpaceV1:MemoryKib`, `Security:PoSpaceV1:Iterations`, `Security:PoSpaceV1:Lanes`, `Security:PoSpaceV1:TargetDurationMs`, registered `ISecurityChallengeProvider` implementations |
@@ -27,7 +27,7 @@ Default `SecurityRiskPolicySnapshotV2` action policies use the `perception-seale
 Move one stage at a time. Do not advance while the previous stage has elevated 4xx, provider error, replay, timeout or readiness regressions.
 
 | Stage | Scope | Required gate |
-|---:|---|---|
+| ---: | --- | --- |
 | 1 | `observe` globally | `riskControl` readiness is ready; metrics and audit are visible; simulator matches expected decisions. |
 | 2 | public-read enforce | `public.read` challenges are enforced only for dynamic public APIs; verified crawler and social preview paths still behave as documented. |
 | 3 | auth enforce | `auth.passkey.begin`, `auth.passkey.complete` and `recovery-key.verify` enforce their configured challenges; recovery key still keeps legacy PoW and no-store. |
@@ -54,7 +54,7 @@ Move one stage at a time. Do not advance while the previous stage has elevated 4
 ## Fail-open / fail-closed matrix
 
 | Failure | Public read | Auth / recovery | Comment write | Admin policy write | Required action |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | Redis unavailable for challenge proof consume-once | Fail closed when proof is required; otherwise follow current policy decision. | Fail closed. | Fail closed or queue only when current policy explicitly chose queue before proof. | Fail closed. | Do not bypass consume-once. Switch affected actions to `observe` only through an audited policy change. |
 | PostgreSQL challenge persistence unavailable | Fail closed for challenge issue / verify because audit truth is unavailable. Risk event persistence failures outside challenge flow may fail open with structured fallback logging. | Fail closed. | Fail closed before persistence. | Fail closed. | Restore DB or activate last-known-good policy that avoids new challenges. |
 | Active policy missing or corrupt | Readiness `not_ready`; runtime may use loaded last-known-good only if available. | Same. | Same. | Same. | Restore last-known-good `security_policy_snapshot`; do not invent inline defaults in endpoints. |
@@ -64,7 +64,7 @@ Move one stage at a time. Do not advance while the previous stage has elevated 4
 | PoSpace parameter out of bounds | Fail closed for PoSpace verify; decision should fall back before issue when subsystem disabled. | Same. | Same. | Same. | Restore valid `Security:PoSpaceV1:*` values or disable subsystem. |
 | HumanReadProof unavailable | Public reads still render; read event proof may not lower risk or count views. | Not applicable. | Must not authorize writes. | Must not authorize writes. | Use `HumanReadProof:Mode=paused` only for read counting; never add it to write challenge requirements. |
 | Challenge kind mismatch / expired / replayed proof | 428 when proof is required; no handler execution. | 428; no auth state change. | 428 before comment write. | 428 before policy write. | Treat as attack signal; do not retry with relaxed binding. |
-| AdminPasskeyStepUp missing or expired | Not applicable. | Not applicable. | Not applicable unless endpoint is admin-sensitive. | 428 + `MFA_PROOF_REQUIRED`; no write. | Re-run `/api/binary/auth/admin/step-up/passkey/begin|complete`; never substitute `X-Fsus-Challenge-Proof` or `adminPasskeyStepUpV1` provider proof. |
+| AdminPasskeyStepUp missing or expired | Not applicable. | Not applicable. | Not applicable unless endpoint is admin-sensitive. | 428 + `MFA_PROOF_REQUIRED`; no write. | Re-run `/api/binary/auth/admin/step-up/passkey/begin | complete`; never substitute`X-Fsus-Challenge-Proof` or `adminPasskeyStepUpV1` provider proof. |
 | Provider timeout / exception | Fail closed when provider required. | Fail closed. | Fail closed or queue only if policy selected queue before provider issue. | Fail closed. | Switch affected policy scope to `observe` or restore last-known-good after incident approval. |
 
 ## Emergency switches

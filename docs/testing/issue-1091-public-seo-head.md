@@ -9,7 +9,7 @@ An atomic commit replaces title, description, robots, canonical, Open Graph, Twi
 ## Verification matrix
 
 | Scenario | Required assertion |
-|---|---|
+| --- | --- |
 | anonymous direct load / no JavaScript | AOT HTML contains one complete, escaped model and one canonical |
 | anonymous hydration / first takeover | current AOT model remains until a verified snapshot commits atomically |
 | Home → article A → article B → archive → category → tag → Home | title, description, canonical, OG URL and JSON-LD entity match every route; one canonical and one page graph only |

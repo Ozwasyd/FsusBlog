@@ -27,7 +27,7 @@ Active-release fence 的 ops JSON 只在 `/api/ops/deployment/fence/status|acqui
 Schema migration qualification 使用窄 JSON 负响应，不进入 AEDS `ApiError` 枚举：
 
 | route | HTTP | JSON code | 语义 |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `POST /api/release-evidence/schema-bridge/write` | 400 | `schema_qualification_write_invalid` | operationId/sequence 不满足有界 tooling contract |
 | `GET /api/release-evidence/schema-qualification/readiness` | 503 | `schema_incompatible` | 隔离资格场景已标记 missing Expand，candidate 不可继续 |
 
@@ -45,7 +45,7 @@ Schema migration qualification 使用窄 JSON 负响应，不进入 AEDS `ApiErr
 公共 HTML 不使用 AEDS `ApiError` body。搜索 query 超过 2048 字符、规范化后的 `q` 超过 128 字符或含非空白控制字符时返回 400；无效路径或不存在/不可公开实体返回 404；只有数据模型明确永久删除时才返回 410；provider、DB gate 或其它临时依赖故障返回 503 + `Retry-After: 5`。这些响应统一为独立 `noindex,follow` HTML，带 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`，不带 canonical、`og:url`、`BlogPosting`、SPA boot 或 hydration payload。
 
 | HTTP | `X-Fsus-Public-Aot-State` | 重试语义 |
-|------|---------------------------|----------|
+| ------ | --------------------------- | ---------- |
 | 400 | `invalid-request` | 缩短/修正搜索 query；不得按成功搜索页缓存 |
 | 404 | `not-found` | 修改 URL 或等待内容真正公开；不得缓存为成功页 |
 | 410 | `gone` | 仅明确永久删除；当前文章删除模型未使用 |
@@ -62,7 +62,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 ### 通用错误
 
 | 错误码 | HTTP 状态 | 含义 |
-|--------|-----------|------|
+| -------- | ----------- | ------ |
 | `InvalidRequest` | 400 | 请求参数格式无效 |
 | `NotFound` | 404 | 资源不存在 |
 | `Unauthorized` | 401 | 未认证或令牌失效 |
@@ -73,7 +73,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 ### 认证错误
 
 | 错误码 | HTTP 状态 | 含义 |
-|--------|-----------|------|
+| -------- | ----------- | ------ |
 | `InvalidCredentials` | 401 | 用户名或密码错误 |
 | `AccountBanned` | 403 | 账号已被封禁 |
 | `AccountNotFound` | 404 | 账号不存在 |
@@ -87,7 +87,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 ### PoW 错误
 
 | 错误码 | HTTP 状态 | 含义 |
-|--------|-----------|------|
+| -------- | ----------- | ------ |
 | `PowChallengeNotFound` | 400 | 挑战令牌不存在或已过期 |
 | `PowAnswerInvalid` | 400 | PoW 答案不满足难度要求 |
 | `PowChallengeAlreadyUsed` | 400 | 挑战令牌已被使用（防重放） |
@@ -95,7 +95,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 ### MFA 错误
 
 | 错误码 | HTTP 状态 | 含义 |
-|--------|-----------|------|
+| -------- | ----------- | ------ |
 | `MfaAlreadyEnabled` | 409 | MFA 已启用 |
 | `MfaNotEnabled` | 400 | MFA 未启用 |
 | `MfaCodeInvalid` | 400 | TOTP 码错误 |
@@ -106,7 +106,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 ### Passkey 错误
 
 | 错误码 | HTTP 状态 | 含义 |
-|--------|-----------|------|
+| -------- | ----------- | ------ |
 | `PasskeyCredentialLimitReached` | 409 | 已达到最大密钥数量（5 枚） |
 | `PasskeyCredentialNotFound` | 404 | 指定密钥不存在 |
 | `PasskeyAssertionFailed` | 401 | Passkey 断言验证失败 |
@@ -116,7 +116,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 ### 内容错误
 
 | 错误码 | HTTP 状态 | 含义 |
-|--------|-----------|------|
+| -------- | ----------- | ------ |
 | `ArticleNotFound` | 404 | 文章不存在 |
 | `CommentNotFound` | 404 | 评论不存在 |
 | `CommentContentEmpty` | 400 | 评论内容为空 |
@@ -127,7 +127,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 ### 消息系统错误
 
 | 错误码 | HTTP 状态 | 含义 |
-|--------|-----------|------|
+| -------- | ----------- | ------ |
 | `ConversationNotFound` | 404 | 对话不存在 |
 | `ConversationClosed` | 400 | 对话已关闭，无法回复 |
 | `MessageNotFound` | 404 | 消息不存在 |
@@ -136,7 +136,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 ### Binary / 文件上传错误
 
 | 错误码 | HTTP 状态 | 含义 |
-|--------|-----------|------|
+| -------- | ----------- | ------ |
 | `UploadNotFound` | 404 | 上传任务不存在 |
 | `UploadExpired` | 400 | 上传任务已过期 |
 | `UploadPartMissing` | 400 | 分片未完整上传 |
@@ -148,7 +148,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 Notification stream preflight 与 WebSocket 握手失败会在 `X-Fsus-Notification-Stream-Error-Code` 头、JSON preflight body 或 AEDS `ApiError` frame 中携带以下传输级失败码：
 
 | 失败码 | HTTP 状态 | 含义 |
-|--------|-----------|------|
+| -------- | ----------- | ------ |
 | `websocket_required` | 426 | 正式通知通道不是 WebSocket upgrade |
 | `protocol_mismatch` | 409 | 缺失或不接受 `fsus-aeds.v2` 子协议 |
 | `auth_failed` | 401 | 携带认证头但认证失败 |
@@ -249,7 +249,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 已退休且不得复用的 AEDS 数值记录在 `retiredFrameValues`：`40` 为 legacy admin password reset slot，`43`/`44`/`45`/`46` 为 legacy username/password auth slots。这些数值不生成 frame 名、POD、codec 或 OpenAPI 契约；解码器收到对应 raw frame type 时按 retired frame 拒绝。
 
 | 值 | 名称 | POD 类型 | 对应二进制端点 / 用途 |
-|----|------|---------|----------------|
+| ---- | ------ | --------- | ---------------- |
 | 0 | `Unknown` | — | — |
 | 1 | `ArticleList` | `ArticleListPod` | `GET /api/binary/article/list/home/{page}/{size}.aeds`；分类/标签列表见 `quick-reference.md` |
 | 2 | `ArticleDetail` | 当前 V4 detail/tag/rights records；只读兼容 V3 | `GET /api/binary/article/{id}.aeds` |
@@ -310,7 +310,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 180 | retired | — | 旧精确属性 ticket request；必须按未知/退休 frame fail closed |
 | 181 | retired | — | 旧精确属性 ticket response；必须按未知/退休 frame fail closed |
 | 198 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | v5/layout 6 最小资格谓词、root hashes、proof 与 canonical public inputs；不携带精确属性 |
-| 199 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | expiry、`common|unknown` rate class、审核谓词、opaque ticket 与 moderation subject hash |
+| 199 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | expiry、`common | unknown` rate class、审核谓词、opaque ticket 与 moderation subject hash |
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |
@@ -335,6 +335,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 源码：`src/shared/Contracts/Validation/PodSizeCatalog.cs`
 
 以下尺寸为**编译期常量**，C# 和 C++ 两侧必须保持一致。任何修改须同时更新：
+
 1. `PodSizeCatalog.cs` 中对应字段
 2. C++ 头文件中的 `static_assert` 验证
 3. 本表格
@@ -342,7 +343,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 ### 基本类型
 
 | 类型 | 字节数 |
-|------|--------|
+| ------ | -------- |
 | `Utf8Fixed32` | 32 |
 | `Utf8Fixed64` | 64 |
 | `Utf8Fixed128` | 128 |
@@ -353,7 +354,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 ### 信封
 
 | 类型 | 字节数 |
-|------|--------|
+| ------ | -------- |
 | `PodEnvelopeHeader` | 16 |
 | `PageEnvelope` | 8 |
 | `CursorEnvelope` | 16 |
@@ -363,7 +364,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 ### 通用响应 POD
 
 | 类型 | 字节数 |
-|------|--------|
+| ------ | -------- |
 | `EmptySuccessPod` | 4 |
 | `MutationIdPod` | 8 |
 | `ApiErrorPod` | 584 |
@@ -371,7 +372,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 ### 文章 POD
 
 | 类型 | 字节数 |
-|------|--------|
+| ------ | -------- |
 | `ArticleListPod` | ~512（含 Title/Summary 字段） |
 | `ArticleDetailPod` | legacy；公开运行时不再接受 |
 | `ArticleDetailV3HeaderPod` | 44 |
@@ -384,7 +385,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 ### 评论 POD
 
 | 类型 | 字节数 |
-|------|--------|
+| ------ | -------- |
 | `CommentPod` | ~256 |
 | `CommentPolicySnapshotPod` | 41 |
 | `CommentPolicyUpdateRequestPod` | 26 |
@@ -423,13 +424,13 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 ### 消息 POD
 
 | 类型 | 字节数 |
-|------|--------|
+| ------ | -------- |
 | `MessagePod` | ~512 |
 
 ### 用户 / 认证 POD
 
 | 类型 | 字节数 |
-|------|--------|
+| ------ | -------- |
 | `UserPod` | ~256 |
 | `AuthLoginFlowPod` | 168 |
 | `CurrentUserSnapshotPod` | 372 |
@@ -441,7 +442,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 ### 系统 POD
 
 | 类型 | 字节数 |
-|------|--------|
+| ------ | -------- |
 | `SystemPod` | ~128 |
 | `SeoConfigPod` | 5000 |
 | `SiteComplianceConfigPod` | 1709 |
@@ -449,13 +450,13 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 ### 统计 POD
 
 | 类型 | 字节数 |
-|------|--------|
+| ------ | -------- |
 | `AdminStatsPod` | ~64 |
 
 ### 文件 / PoW POD
 
 | 类型 | 字节数 |
-|------|--------|
+| ------ | -------- |
 | `FileUploadOutputPod` | 640 |
 | `UploadInitPod` | 568 |
 | `UploadStatusPod` | 136 |
@@ -470,7 +471,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 ### 安全挑战 POD
 
 | 类型 | 字节数 |
-|------|--------|
+| ------ | -------- |
 | `SecurityChallengeAssignmentPod` | 664 |
 | `SecurityChallengeEnvelopePod` | 132 |
 | `PerceptionSealedChallengeV2Pod` | 916 |
@@ -487,7 +488,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 ### 类型映射
 
 | C# 类型 | C++ 类型 | 大小 |
-|---------|---------|------|
+| --------- | --------- | ------ |
 | `int` / `int32_t` 值类型 | `std::int32_t` | 4 |
 | `long` / `int64_t` 值类型 | `std::int64_t` | 8 |
 | `byte` / `uint8_t` | `std::uint8_t` | 1 |
@@ -504,7 +505,7 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 ### 字符串长度预算
 
 | 用途 | 固定宽度类型 |
-|------|------------|
+| ------ | ------------ |
 | 匿名账号 public handle | `Utf8Fixed64` |
 | identity kind / anonymous credential status / level | `Utf8Fixed32` |
 | 分类名 / 标签名 / 地区 | `Utf8Fixed128` |

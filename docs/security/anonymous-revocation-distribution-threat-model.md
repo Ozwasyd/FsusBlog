@@ -10,7 +10,7 @@ only in the browser privacy worker while it derives the non-membership witness.
 ## Threats and controls
 
 | Threat | Fail-closed control |
-|---|---|
+| --- | --- |
 | Handle correlation at origin/CDN | No credential input exists in URL, query, header or body; two credentials have the same transcript shape and response bytes. |
 | Artifact tamper | Worker recomputes canonical SHA-256 content hash, public hash-binding and sparse-Merkle root. |
 | Rollback or fork | Root-attested epoch/version/root pins the artifact; cached version may only advance by an exact delta base. |

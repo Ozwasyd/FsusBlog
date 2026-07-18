@@ -10,7 +10,7 @@ validation run. The machine-readable companion is
 ## Current implementation
 
 | acceptance concern | authoritative current path |
-|---|---|
+| --- | --- |
 | physical projection and new writes | `src/backend/Entities/User.cs` maps nullable `account_subject_hash`; `src/backend/Services/UserService.cs` persists the final physical digest inside anonymous-account creation rather than leaving a request-time derivation path |
 | cached account reads | `src/backend/Services/UserService.Ports.cs` accepts only snapshots with a valid physical `AccountSubjectHash`, versions the namespace as `account:subject-v1:*`, and never calls `AccountSubjectHasher.Create` while serving reads |
 | notification admission | `src/backend/Infrastructure/NotificationStream/NotificationStreamAdmissionService.cs` reads the physical projection through `AccountSubjectHashRequirement`; a missing or malformed value returns `401 account_subject_invalid` before blacklist lookup |

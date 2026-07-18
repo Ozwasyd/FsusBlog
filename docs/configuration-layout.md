@@ -5,7 +5,7 @@ FsusBlog has one generic configuration root: `config/`. Framework-discovered fil
 ## Canonical layout
 
 | Configuration | Canonical path | Owner / discovery rule |
-|---|---|---|
+| --- | --- | --- |
 | .NET local tools | `.config/dotnet-tools.json` | Standard `dotnet tool restore` discovery from the repository tree |
 | Development governance manifests | `config/development/**` | Repository governance; authoritative docs and language-style policies |
 | Production SLO | `config/observability/slo.yml` | Operations and observability |

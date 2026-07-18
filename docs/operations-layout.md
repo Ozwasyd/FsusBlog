@@ -5,7 +5,7 @@ FsusBlog has one top-level operational-infrastructure root: `ops/`. Runtime temp
 ## Canonical ownership
 
 | Domain | Canonical path | Responsibility |
-|---|---|---|
+| --- | --- | --- |
 | Production container and Compose | `ops/docker/` | Immutable production image, production slot Compose, isolated rehearsal infrastructure, and the backend debug override |
 | Development dependencies | `ops/development/dependencies.compose.yml` | PostgreSQL and Redis used by local bootstrap scripts |
 | Gateway templates | `ops/gateway/` | Production OpenResty baseline, controlled active-upstream example, isolated rehearsal template, and development-machine Nginx example |

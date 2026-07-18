@@ -23,7 +23,7 @@
 运行时主业务 API 只暴露 AEDS 二进制链路：
 
 | 链路 | Content-Type | 解码方 | 路径前缀 |
-|------|-------------|-------|---------|
+| ------ | ------------- | ------- | --------- |
 | **AEDS Binary** | `application/octet-stream` | TypeScript adapter / C++23 Wasm Worker | `/api/binary/...` |
 | **Public AOT hydration sidecar** | `application/vnd.fsus.aeds` | public hydration bootstrap / shell navigation | `/aot-cache/payloads/.../*.aeds` |
 
@@ -76,12 +76,12 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 ## URL 命名约定
 
 | 规则 | 示例 |
-|------|------|
+| ------ | ------ |
 | Binary 端点统一前缀 `/api/binary/` + 小写资源名；公开热点 article 使用无 query 的 artifact 路径 | `/api/binary/article/list/home/1/10.aeds`、`/api/binary/comment/{id}` |
 | 消息系统使用 binary 消息路径 | `/api/binary/messages/conversations` |
 | 管理端以 binary admin 资源路径区分 | `/api/binary/admin/users`、`/api/binary/stats` |
 | 作者工作台生产前端使用原生 AEDS endpoint；不保留 legacy JSON runtime 兼容层 | `/api/binary/author/drafts`、`/api/binary/author/audit`、`/api/binary/author/moderation/overview` |
-| 健康检查、发布控制与通知独立于业务路径 | `/health/live`、`/health/ready`、`/api/ops/health/ready-detail`、`/api/ops/deployment/status|activate|drain`、`/api/ops/deployment/fence/**`、`/api/ops/deployment/notification-stream/**`、`/api/notifications/stream` |
+| 健康检查、发布控制与通知独立于业务路径 | `/health/live`、`/health/ready`、`/api/ops/health/ready-detail`、`/api/ops/deployment/status | activate | drain`、`/api/ops/deployment/fence/**`、`/api/ops/deployment/notification-stream/**`、`/api/notifications/stream` |
 
 持续增长表的管理端列表不得依赖深分页 OFFSET。审计日志列表保留 `page/pageSize` 兼容字段，但服务端排序和翻页以 `occurredAtUtc + id` keyset cursor 为准：首屏不传 `cursor`，后续请求传上一页响应的 `nextCursor`。summary/facet 这类刷新频繁的聚合读取必须使用归一化过滤条件做短 TTL cache 或等价 rollup，不能让每次 UI 刷新都重新触发多路 GroupBy。
 
@@ -94,7 +94,7 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 ## HTTP 方法语义
 
 | 方法 | 用途 |
-|------|------|
+| ------ | ------ |
 | `GET` | 读取资源，幂等，可缓存；AEDS read request frame 必须使用 `Flags = 0` |
 | `HEAD` | 只读取 HTTP metadata；仅用于 L0 artifact / 静态分发探测，不返回 AEDS body |
 | `POST` | 创建资源或执行动作（登录/挑战/发送） |
@@ -176,7 +176,7 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 ### 请求头
 
 | 场景 | 要求 |
-|------|------|
+| ------ | ------ |
 | Binary 读取 | `Accept: application/octet-stream` |
 | Binary 写入 | `Content-Type: application/octet-stream`，请求体为 AEDS frame |
 | 通知连接 | WebSocket 子协议 `fsus-aeds.v2` |
@@ -184,7 +184,7 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 ### 自定义头
 
 | 类别 | 头部 | 方向 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | 安全强制 | `X-Fsus-Mfa-Proof` | 请求 | admin-sensitive、高价值作者/安全写操作和普通用户敏感凭据操作的一次性 step-up proof；消费语义见 [contracts.md#user-mfa--totp-step-up](contracts.md#user-mfa--totp-step-up)、[contracts.md#admin-作者工作台](contracts.md#admin-作者工作台) 与 [contracts.md#admin-安全系统](contracts.md#admin-安全系统)。 |
 | 安全强制 | `X-Fsus-Admin-Bootstrap-Token` | 请求 | 首次 root admin Passkey bootstrap 的显式环境守门 token；必须匹配 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` / `Admin:BootstrapToken`，root admin 存在后不再生效。 |
 | 安全强制 | `X-Fsus-Admin-Handle` | 请求 | 首次 root admin Passkey bootstrap 的后台 handle；只用于 admin principal，不写入普通匿名账号。 |
@@ -227,7 +227,7 @@ RiskControl 新 challenge provider 不得自定义平行 assignment 结构。PoW
 ## 状态码约定
 
 | 状态码 | 含义 |
-|--------|------|
+| -------- | ------ |
 | `200 OK` | 操作成功 |
 | `204 No Content` | 预检或无 body 操作成功，例如 notification preflight 成功 |
 | `304 Not Modified` | L0 artifact 的 variant-aware `ETag` 命中当前 `Accept-Encoding` variant |
@@ -257,11 +257,13 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 匿名身份与评论作者模式扩展使用新增 AEDS frame，而不是改写已发布 payload layout。生产新评论只允许两种模式：登录态 `/api/binary/comment` 的显式 `public`，以及无身份态 ticket + `/api/binary/comment/anonymous` 的 `zk_anonymous`。`CommentCreateV2Request` 必须同时声明 `authorMode=public` 与 `publicSendExplicitlySelected=true`；旧 `authorMode=anonymous` 明确返回 `anonymous_author_mode_retired`，并在内容过滤、风险记录、地区判定和业务写入之前停止。ZK verifier、root、proof、ticket 任一不可用、过期或 invalid 时均 fail closed，不得降级为 public 或服务器可见伪匿名。评论 composer 只展示 public/ZK 两种选择，public 不得自动选中。AEDS byte `1` 仅用于把历史记录读成 `legacy_server_visible_pseudonymous`，不能重新启用写入；迁移保留历史数量、层级、可见性、审核状态、正文和展示名，同时清除旧 nullifier、moderation subject、credential/reputation 投影并从 active 治理聚合中隔离。Passkey 和 Recovery Key 仍复用现有 frame，匿名身份不得新增平行 Passkey 协议栈。
 
 不视为 Breaking Change 的变更：
+
 - 新增响应字段（客户端应忽略未知字段）
 - 新增可选请求参数
 - 新增端点
 
 视为 Breaking Change 的变更：
+
 - 移除或重命名现有字段
 - 修改字段类型
 - 移除端点
@@ -290,7 +292,7 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 ### 错误码与持久化对照
 
 | 失败码 | 持久化源 | 缓存层 | miss 回查 | HTTP status | AEDS frame |
-|--------|----------|--------|-----------|-------------|------------|
+| -------- | ---------- | -------- | ----------- | ------------- | ------------ |
 | `websocket_required` | WebSocket upgrade 语义 | 无 | 无 | `426` | `ApiError` |
 | `protocol_mismatch` | `fsus-aeds.v2` 子协议 | 无 | 无 | `409` | `ApiError` |
 | `auth_failed` | JWT / cookie auth 结果 | 认证栈内部 | 认证栈处理 | `401` | `ApiError` |
@@ -427,7 +429,7 @@ Public AOT 预热和内容变更驱动 backfill 必须消费后端权威 route m
 Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 AOT 管理区域；sentinel 是字符串相等匹配，不接受通配符。
 
 | sentinel | 用途 |
-|----------|------|
+| ---------- | ------ |
 | `<!--fsus:aot:head-start-->` | SEO/head 注入起点 |
 | `<!--fsus:aot:head-end-->` | SEO/head 注入终点 |
 | `<!--fsus:aot:app-->` | SPA/AOT shell 挂载点 |
@@ -451,7 +453,7 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 文章状态的单一语义如下；AEDS `ArticleList` record 中的 `status:int32` 必须按此表解释，公开读链只承认 `Published` 且已到发布时间的数据。
 
 | status | 名称 | 作者/管理端含义 | 公开可读 | 公开 artifact/feed/sitemap/search |
-|--------|------|----------------|----------|----------------------------------|
+| -------- | ------ | ---------------- | ---------- | ---------------------------------- |
 | `0` | `Draft` | 草稿，可预览、保存、发布或丢弃 | 否 | 不进入 |
 | `1` | `Scheduled` | 定时发布，未到点前只在作者/管理端可见 | 仅当调度 worker 转为 `Published` 后 | 未发布前不进入 |
 | `2` | `Published` | 已发布文章；还需满足发布时间已到 | 是 | 进入公开 Binary、AOT、feed、sitemap、search、related-reading |
@@ -533,7 +535,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 ### 审核端点契约表
 
 | 端点 | 语义 |
-|------|------|
+| ------ | ------ |
 | `overview` | 汇总队列、词库、地区策略和模型状态 |
 | `dictionaries` | 只返回词库 metadata、checksum、term count 和聚合 `evidencePolicy`，不返回 raw terms |
 | `policies` | 返回地区策略组合和 `CN-MAINLAND` 强制检查 |

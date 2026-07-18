@@ -14,7 +14,7 @@ and theme preview work; this issue does not duplicate those systems.
 The retained production contract has three roles:
 
 | role | hydrated scale | first-paint/AOT scale | purpose |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | display | 20/24/30px with 1.1/1.05 line height | 20/24/30px with 1.1/1.05 line height | article titles |
 | reading | 16/18px with 1.8/1.9 line height | 16/18px with 1.8/1.9 line height | summaries and long-form prose |
 | metadata | 12/14px with 16/20px line height | 12/14px with 16/20px line height | dates, categories, status, pagination, and read links |

@@ -56,7 +56,7 @@ overlap. The DAG contract allows only measurement steps to request
 so it cannot become noise beside a later profiler.
 
 | Step group | Required receipts | Reads runtime | Mutates runtime/database | Timing-sensitive | `benchmark-window` |
-|---|---|---:|---:|---:|---:|
+| --- | --- | ---: | ---: | ---: | ---: |
 | `coverage-merge`, `coverage-threshold` | backend + frontend coverage | no | no | no | no |
 | `aeds-compression` | frontend build | no | no | no | no |
 | `privacy-zk-project-functional`, input verification | backend/frontend coverage + frontend build + contract/functional receipts | no | no | no | no |

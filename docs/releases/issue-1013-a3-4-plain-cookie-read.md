@@ -30,4 +30,3 @@ SameSite=Strict, host-prefixed, and path `/`.
 - `AuthCookieServiceSecurityTests.ReadTokenCookies_DevelopmentRejectsLegacyPlainCookieFallback`
 - `ProductionStartupValidatorTests.ValidateCore_IgnoresRemovedLegacyPlainCookieReadSwitch`
 - `RuntimeFallbackRetirementAcceptanceTests.A3_4_LegacyPlainCookieSwitchCannotRestoreFallback`
-

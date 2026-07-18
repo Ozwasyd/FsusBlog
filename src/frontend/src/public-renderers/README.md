@@ -1,11 +1,13 @@
 # Public AOT Scaffold
 
 ## Goal
+
 Use one low-coupling, high-cohesion entry for public-page AOT and hydration.
 
 Cross-language page identity metadata is not authored here anymore. `pageId / canonicalSlug / seoEligible / aotShellReady / deferSpaBoot` and shared route identity primitives (`article / category / tag / tag-name / search`, plus shared paths like `/article/`, `/search`, and `/user/profile`) originate from `src/shared/Contracts/Outputs/PublicPageContracts.cs` and are generated into `generated/publicPageManifest.ts`; `publicRenderBase.ts` owns the shared frontend page-kind/base-payload contract, `publicFixedPageSemantics.ts` owns the fixed public-page `Home/About/Archive` kind/routeKey/path bridge, `publicRouteRegistry.ts` owns frontend public route registration/name grouping, `publicPageModel.ts` only binds active nav on top of that registry, and `publicRouteIdentity.ts` only implements runtime composition/parsing on top of the shared tokens.
 
 ## Add A New Public Page
+
 1. Update `src/shared/Contracts/Outputs/PublicPageContracts.cs`, then regenerate `generated/publicPageManifest.ts` via `npm run generate:public-page-manifest`.
 2. Define payload type in `types.ts`.
 3. Add the public route registration in `publicRouteRegistry.ts`, active-nav binding in `publicPageModel.ts`, and route key rules in `publicRouteIdentity.ts`.
@@ -15,6 +17,7 @@ Cross-language page identity metadata is not authored here anymore. `pageId / ca
 7. Server injects the inline bootstrap AEDS payload and exposes `hydrationPropsPayload` as a raw `.aeds` sidecar referenced by the public hydration marker; sidecars use `application/vnd.fsus.aeds` and content-hash immutable URLs.
 
 ## Rules
+
 - Never add page route/pageId/routeKey rules in multiple files.
 - Shared `PublicPageRegistry` and `PublicRouteIdentityRegistry` own cross-language page identity metadata, route tokens and shared paths (including account root path); `publicRouteRegistry.ts` owns frontend route names + router child route definitions, and `publicPageModel.ts` only owns active-nav binding on top of that registry.
 - `publicRenderBase.ts` owns the frontend `PublicPageKind` type and the shared bootstrap/hydration base payload shape used by AOT entry builders; `publicPageModel.ts` should not carry those rendering primitives anymore.

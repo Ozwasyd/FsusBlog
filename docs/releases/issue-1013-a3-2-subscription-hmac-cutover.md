@@ -38,4 +38,3 @@ the current HMAC-only runtime fail-closed until a corrected migration is ready.
 - `SchemaMigrationIntegrationTests.RunAsync_FinalizesLegacySiteSubscriptionHashes`
 - `SubscriptionEndpointsContractTests.SubscribeAsync_RepeatedCurrentHmacSubscriptionPersistsOneEnabledRowWithoutLegacyHash`
 - `RuntimeFallbackRetirementAcceptanceTests.A3_2_SubscriptionRuntimeUsesOnlyCurrentHmacIdentity`
-

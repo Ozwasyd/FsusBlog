@@ -65,7 +65,7 @@ RiskControl enforcement filter 是统一执行业务风险裁决的 baseline：�
 ## Ordered implementation units
 
 | Order | Unit | Issue | Acceptance boundary |
-|---:|---|---|---|
+| ---: | --- | --- | --- |
 | 1 | Risk action registry | #459 | Protected flows have stable action ids, owner, subject type, default policy and binary/admin labels. |
 | 2 | Risk control context factory | #460 | Request, viewer, device, route and admin context are normalized before scoring. |
 | 3 | Risk policy snapshot v2 | #461 | Versioned modes, thresholds, provider toggles and rollout metadata are represented without changing old public APIs. |

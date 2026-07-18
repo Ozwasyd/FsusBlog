@@ -113,7 +113,7 @@ perception-sealed@v2 的服务端真相使用 `IPerceptionSealedTokenService` �
 协议热路径分为两段：
 
 | 阶段 | 允许 | 禁止 | 失败行为 |
-|------|------|------|----------|
+| ------ | ------ | ------ | ---------- |
 | issue | 根据 RiskControl decision 选择 `perceptionTextTaskV2` / `perceptionCharacterV2`、`perceptionLocalizationV2` 或 `perceptionMicroInteractionV2`；生成非语义 render recipe；用 AEAD sealed token 封存期望答案、坐标或步骤；返回 AEDS `PerceptionSealedChallengeV2` | 服务端渲染 PNG / canvas / 图片；在 sealed truth 生成路径写 PostgreSQL 或 Redis；把答案、坐标、语义标签、原始 IP/设备指纹写入 payload | provider missing、recipe invalid、token seal failure 或 assignment invalid 均 fail closed；`observe` 模式只记录裁决，不签发实际 challenge |
 | verify | 解封 AEAD；校验 challengeId/action/routeKey/subjectHash/clientIpHash/deviceFpHash/policyVersion/recipeHash/keyVersion，并校验 payload binding hash；校验 `solveDurationMs`、答案/坐标/步骤；用 Redis `INCR` 做 attempt gate，用 Redis `SETNX` 做 consume-once；成功后只 mint `X-Fsus-Challenge-Proof` | 直接把 provider proof 交给业务 endpoint；把普通 challenge proof 当 MFA proof；verify 时查询 PostgreSQL 作为授权真相；在 Redis 不可用时默默放行写操作 | AEAD key missing/unknown、token tamper、AAD mismatch、context mismatch、过期、绑定不匹配、answer invalid、attempt exceeded、Redis unavailable 或 replay 均 fail closed |
 
@@ -124,12 +124,12 @@ RiskControl 的关系保持分层：V2 provider 只证明某个 challenge 被解
 运行和回滚矩阵：
 
 | 场景 | 行为 |
-|------|------|
+| ------ | ------ |
 | `Security:RiskControl:GlobalMode=disabled` | 不签发 RiskControl challenge，业务按基础鉴权/PoW/MFA/RBAC 继续执行 |
 | `Security:RiskControl:GlobalMode=observe` | 记录 perception-sealed@v2 裁决、risk score 和原因，不拦截、不挑战，适合首阶段观测 |
 | text-task enforce | 中风险 band 启用 `perceptionTextTaskV2` / `perceptionCharacterV2`；回滚为 `observe` 或关闭对应 action 的 `commentRiskControlEnabled` / `authRiskControlEnabled` |
 | localization enforce | 高风险 band 启用 `perceptionLocalizationV2 + sha256PowV1`；Redis、AEAD key 或 provider 异常必须 fail closed，必要时回滚到 text-task 或 `captchaV1` / `sha256PowV1` 组合 |
-| micro-interaction optional | 只在 `Security:PerceptionV2:MicroInteraction:Mode=enforce|strict|lockdown` 且高升级等级命中时签发；异常时立即切回 disabled，不影响 text-task/localization |
+| micro-interaction optional | 只在 `Security:PerceptionV2:MicroInteraction:Mode=enforce | strict | lockdown` 且高升级等级命中时签发；异常时立即切回 disabled，不影响 text-task/localization |
 | `strict` / `lockdown` | `strictRiskMultiplierPercent` 放大风险分，`lockdown` 额外阻断不允许的匿名写；回滚只通过 `/api/binary/admin/security/risk-control/options` 或 `/rollback`，必须携带 admin principal、`system.config` 和 `X-Fsus-Mfa-Proof` |
 
 故障预算按安全优先级分层：Redis attempt/consume-once 不可用时，写操作、auth、admin、notification subscription 的 enforced challenge 一律 fail closed；PostgreSQL 只承载审计、聚合和 policy snapshot，challenge 解答真相不得依赖请求期 PostgreSQL 查询，持久化失败会降低审计完整性并影响 readiness/admin 写入，但不得成为 verify 放行依据；AEAD key 不存在、keyVersion 未知或 key rotation 未覆盖旧 key 时，相关 token 只能失败，不能降级到明文答案或客户端自证。性能预算是 issue 端 O(1) CPU、零服务端 rasterize、sealed truth 路径零 DB/Redis 写；verify 端 O(1) AEAD + hash compare + Redis `INCR`/`SETNX`，不进入昂贵 renderer、不扫表、不按 payload 大小做非线性工作。安全预算是 fail-closed 优先、单次 proof、低基数指标、无原始 IP/设备指纹/答案落库，且所有 bypass 都必须表现为显式 `observe` / `disabled` 策略而不是隐式异常放行。
@@ -228,7 +228,7 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 ## JWT 认证
 
 | 参数 | 值 |
-|------|-----|
+| ------ | ----- |
 | Access Token 有效期 | `Jwt:AccessTokenExpiresMinutes`（默认 15 分钟） |
 | Refresh Token 形式 | HttpOnly Cookie（SameSite=Strict，Secure） |
 | 续签方式 | `POST /api/binary/auth/refresh-token`，基于 `UserSession.RefreshTokenHash` 的原子 CAS 轮换（旧 Token 立即失效） |
@@ -387,7 +387,7 @@ blind endpoint 只接受 `identity_kind=anonymous_account`；AdminPrincipal、�
 FsusBlog 采用三级角色体系：
 
 | 角色 | 覆盖 | 典型操作 |
-|------|------|----------|
+| ------ | ------ | ---------- |
 | `anonymous` | 所有人 | 阅读公开文章、评论、搜索 |
 | `authenticated` | 已登录用户 | 发评论、管理 Passkey/MFA、会话管理、消息 |
 | `admin` | 管理员 | 用户管理、MFA 重置、Binary 统计、系统广播 |
@@ -561,7 +561,7 @@ Destructive worker qualification 只能运行在隔离的 `ASPNETCORE_ENVIRONMEN
 ## 依赖与版本
 
 | 依赖 | 版本 | 用途 |
-|------|------|------|
+| ------ | ------ | ------ |
 | BCrypt.Net-Next | 4.1.0 | 密码哈希 |
 | Fido2 | 4.0.1 | WebAuthn / FIDO2 |
 | System.Buffers.Text.Base64Url | .NET 10 BCL | WebAuthn ID 编解码（替代旧版 FIDO2 helper 的 `Base64Url` 类） |

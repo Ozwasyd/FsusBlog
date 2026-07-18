@@ -7,7 +7,7 @@ PublicHotRead 在 routing/endpoint pipeline 之前返回预生成公开 bytes。
 ## 覆盖模式
 
 | 模式 | 当前控制 | 约束 |
-|------|----------|------|
+| ------ | ---------- | ------ |
 | `global-before-branch` | release/security headers、deployment tracking、Shield/exception/binary boundary、trace correlation | 在 classifier 前恰好执行一次，fast 与 canonical 自动共享 |
 | `early-replayed` | `public_read` limiter、轻量 request audit context | early 与 endpoint 两端都必须登记；request execution state 防止 miss fallback 重复 lease/context |
 | `endpoint-only/not-applicable` | CORS、antiforgery/CSRF、anonymous gateway header guard、authentication、banned-user、authorization | 必须绑定 executable constraint：精确 allowlist、匿名无凭据、不含 gateway guard 会拒绝的 `X-Fsus-*` header、无 `Origin`、仅 `GET`/`HEAD`；不允许只有文字豁免 |

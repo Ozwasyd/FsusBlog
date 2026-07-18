@@ -7,7 +7,7 @@
 recovery session 在统一缓存中保存以下状态：
 
 | 状态 | 含义 | 允许的后续动作 |
-|------|------|----------------|
+| ------ | ------ | ---------------- |
 | `pending` | 尚未开始完成，或上次尝试已安全失败 | 原子认领为 `completing` |
 | `completing` | 某个规范化请求 hash 持有 90 秒短租约 | 相同/不同并发请求均返回明确 conflict；租约过期后可恢复 `pending` |
 | `completed` | 数据库已完成逻辑提交 | 只接受数据库 durable marker 确认后的同请求幂等成功 |
@@ -29,7 +29,7 @@ recovery session 在统一缓存中保存以下状态：
 ## 并发、失败与响应丢失
 
 | 场景 | 服务端结果 | 可重试性 |
-|------|------------|----------|
+| ------ | ------------ | ---------- |
 | authenticator 验证失败 | 不写 credential、不删除 challenge，恢复 `pending` | 可用同一 recovery session 重新完成 |
 | 数据库异常/事务回滚 | credential、旧 credential 撤销、Passkey flag 都不提交，恢复 `pending` | 可用同一 recovery session 重试 |
 | 同一会话双提交 | 只有 compare-and-set 胜者进入写入；数据库唯一索引是第二道守门 | 最多一个逻辑完成 |
@@ -48,7 +48,7 @@ recovery session 在统一缓存中保存以下状态：
 本变更的定向测试代码覆盖 authenticator failure、数据库 provider exception、事务回滚、response loss、double-submit、successful replay、different-request conflict、过期 pending、过期 `completing` lease 恢复后成功重试，以及旧信封兼容。映射后的 binary complete endpoint 直接执行 `RouteEndpoint.RequestDelegate` 并解码成功 `EmptySuccess`、并发 conflict 与 retryable failure 的 `ApiError`；PostgreSQL integration 从 raw recovery token 进入 `RecoveryKeyService`，独立计算 SHA-256 session marker 与 canonical AEDS request hash，并与 durable credential 行逐字比对。统一验证阶段仍须实际执行这些测试，当前阶段不声明已运行：
 
 | 入口 | 期望 |
-|------|------|
+| ------ | ------ |
 | 匿名 recovery binary begin/complete | recovery session 可用，成功响应仍为 AEDS `EmptySuccess`，错误仍为 AEDS `ApiError` |
 | 普通登录请求 | 原有 Passkey register/login 与 step-up 语义不变 |
 | admin 请求 | independent admin principal 与 admin Passkey 流程不进入 recovery session 状态机 |

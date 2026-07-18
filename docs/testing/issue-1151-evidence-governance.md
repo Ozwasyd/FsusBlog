@@ -5,7 +5,7 @@
 ## Evidence 与失败分类
 
 | Evidence class | 执行边界 | 是否改变普通 correctness | 必需结论 |
-|---|---|---:|---|
+| --- | --- | ---: | --- |
 | `correctness` | unit/component/model/contract/integration、普通 PR、`production-correctness` | 是 | browser launch 为 0，Playwright browser install 为 false |
 | `browser-contract` | `release-final` 的单 Chromium 串行探针 | 否；只改变 release-final | 固定 source/build identity、scenario IDs、launch/context 数与 failure class |
 | `diagnostic` | nightly/manual visual、UX、cross-browser、geometry、performance、a11y、resilience | 否 | planned/executed/skipped 与每次 attempt 均可审计，缺失只能是 skipped/incomplete |

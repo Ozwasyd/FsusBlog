@@ -1,7 +1,7 @@
 # Issue #1031 worker reconciliation drill handoff
 
 This handoff covers the background-work and data-reconciliation part of issue
-#1031. It adds a destructive rehearsal driver and its plan contract, plus an
+# 1031. It adds a destructive rehearsal driver and its plan contract, plus an
 explicit split between ordinary graceful reconciliation and the independent
 destructive qualification verifier. Both paths are now wired by
 `zero-downtime-rehearsal.sh` and the release rollout orchestration; this module

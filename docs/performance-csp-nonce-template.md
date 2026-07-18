@@ -17,7 +17,7 @@ nonce 改变每次响应的实体，因此选择以下缓存/压缩模型：
 2026-07-14 本机基线（Intel Xeon Gold 6230、8 logical CPUs、.NET 10.0.8、164,814-byte nonce response）：
 
 | 路径 | BDN mean | allocated/op | profile p99.9 | estimated copied bytes | LOH/op |
-|---|---:|---:|---:|---:|---:|
+| --- | ---: | ---: | ---: | ---: | ---: |
 | 旧整页 decode/replace/encode | 569.206 µs | 781,645 B | 10.618 ms | 967,224 B | 1 array + 2 strings |
 | UTF-8 segment writer | 7.044 µs | 0 B | 39.491 µs | 164,814 B | 0 |
 

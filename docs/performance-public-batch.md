@@ -18,21 +18,21 @@ This document closes the public performance batch tracked by #166. Runtime work 
 ## Current Evidence
 
 - Asset budget evidence: `.tmp/frontend/asset-size-budget.json`
-  - Status: `ok`
-  - Generated at: `2026-06-12T07:33:57.346Z`
-  - Total dist bytes: `67,596,707` of `83,886,080`
-  - Violations: `0`
+    - Status: `ok`
+    - Generated at: `2026-06-12T07:33:57.346Z`
+    - Total dist bytes: `67,596,707` of `83,886,080`
+    - Violations: `0`
 - Browserless render-structure evidence: `.tmp/release-evidence/frontend-render-structure-summary.json`
-  - Status: `ok`
-  - Generated at: `2026-06-12T07:28:53.833Z`
-  - Hard violations: `0`
-  - Soft warnings: `1` existing admin `AuditLog.vue` page-size warning
+    - Status: `ok`
+    - Generated at: `2026-06-12T07:28:53.833Z`
+    - Hard violations: `0`
+    - Soft warnings: `1` existing admin `AuditLog.vue` page-size warning
 - Public route waterfall coverage:
-  - `/`
-  - `/article/:id`
-  - `/archive`
-  - `/category/:id`
-  - `/tag/:id`
+    - `/`
+    - `/article/:id`
+    - `/archive`
+    - `/category/:id`
+    - `/tag/:id`
 
 ## Validated Transfer and Security Boundary
 

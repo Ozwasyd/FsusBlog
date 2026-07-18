@@ -5,7 +5,7 @@ FsusBlog v1.1.0 is a public-preview release for development, evaluation, code re
 ## Required Policies
 
 | Area | File |
-|------|------|
+| ------ | ------ |
 | Repository license | [LICENSE](../LICENSE) |
 | Security reporting | [SECURITY.md](../SECURITY.md) |
 | Support routing | [SUPPORT.md](../SUPPORT.md) |
@@ -28,7 +28,7 @@ Do not commit copied `.env`, production `appsettings*.json`, database exports, R
 Current scanner output is generated under the untracked `.tmp/open-source-readiness/` directory. These reports describe the invocation that produced them; they are not release-closeout evidence unless a release-bound collector independently includes and seals them.
 
 | Evidence | Command |
-|----------|---------|
+| ---------- | --------- |
 | Secret/history/issue scan | `node tools/security/open-source-secret-scan.mjs` |
 | Dependency license audit | `node tools/security/open-source-license-audit.mjs` |
 | Supply-chain vulnerability audit | `FSUSBLOG_SUPPLY_CHAIN_AUDIT_DIR=.tmp/open-source-readiness/supply-chain tools/security/check-supply-chain-audit.sh` |

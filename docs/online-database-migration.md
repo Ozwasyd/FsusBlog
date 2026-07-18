@@ -48,7 +48,7 @@ rollback as non-compensable, and many descriptors mix additive, backfill, CodeFi
 and destructive work. They are therefore classified as:
 
 | property | legacy value |
-|---|---|
+| --- | --- |
 | phase | `Contract` |
 | destructive | `true` |
 | exclusive mode | `true` |
@@ -151,7 +151,7 @@ Public readiness exposes only `schema_incompatible`; protected diagnostics use t
 stable codes below through `OnlineSchemaCompatibilityRuntimeState`:
 
 | condition | protected code |
-|---|---|
+| --- | --- |
 | history absent | `schema_history_missing` |
 | duplicate/unknown history | `schema_history_duplicate`, `schema_history_unknown` |
 | checksum mismatch | `schema_history_checksum_mismatch` |
@@ -165,7 +165,7 @@ stable codes below through `OnlineSchemaCompatibilityRuntimeState`:
 ## Compatibility matrix
 
 | database state | current release | previous rollback release | serve | action |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | required Expand complete | inside range | inside range | ready | deploy compatible code |
 | required Expand pending | any | any | not ready | run explicit Expand |
 | Backfill pending, bridge healthy | inside range | inside range | ready with warning | resume Backfill |

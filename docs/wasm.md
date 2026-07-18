@@ -5,7 +5,7 @@
 ## 目录与职责
 
 | 路径 | 职责 |
-|---|---|
+| --- | --- |
 | `src/frontend/wasm/aeds/` | AEDS v2 C++ decoder、CRC16、POD validation 与 Emscripten exports |
 | `src/frontend/wasm/aeds/CMakeLists.txt` | basic/speed 两套受控目标 |
 | `src/frontend/wasm/build.sh` | 多 variant 并行构建、严格 Binaryen 优化、artifact 汇总 |
@@ -48,7 +48,7 @@ wasm/aeds_decoder_speed.wasm
 runtime 在 import tier 前会先读取实际 JS module bytes 并校验 `moduleSha256`，再校验 Wasm bytes；两套 artifact 的 hash identity、basic/speed feature 与精确内存 profile、有界动态 Worker 策略，以及 Emscripten/Binaryen/CMake/vcpkg/emsdk digest 任一不符都会 fail closed。JS import URL 绑定 module hash，缺失或篡改 `moduleSha256`、把 basic 伪装成 fixed/SIMD、把 speed 伪装成未增长或使用非 pinned Binaryen identity 都不能进入执行路径。
 
 | tier | 编译/优化 | 内存 | 用途 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `basic` | `-Oz`、scalar | 16 MiB initial，256 MiB bounded growth | 无 SIMD 浏览器兼容路径 |
 | `speed` | `-O3 -flto -msimd128`，Binaryen 123 `wasm-opt -O4 --enable-simd` 严格校验 | 64 MiB fixed，禁止 growth | 现代浏览器吞吐路径 |
 

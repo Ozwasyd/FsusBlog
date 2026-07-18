@@ -5,7 +5,7 @@ These screenshots are sanitized public-preview visual assets captured from the l
 ## Gallery
 
 | Surface | File |
-|---------|------|
+| --------- | ------ |
 | Public home page | [public-home-light.png](public-home-light.png) |
 | Article detail page | [article-detail-light.png](article-detail-light.png) |
 | Mobile article page | [article-detail-mobile.png](article-detail-mobile.png) |

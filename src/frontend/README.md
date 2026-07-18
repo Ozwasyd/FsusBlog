@@ -61,7 +61,7 @@ npm ci
 ## 常用命令
 
 | 命令 | 说明 |
-|------|------|
+| ------ | ------ |
 | `npm run dev:debug` | 启动开发服务器（端口 3000，HMR，代理到 7568） |
 | `npm run build` | 生产 Release 构建（等同 `build:release`） |
 | `npm run preview` | 本地预览 Release 构建产物（端口 8080） |

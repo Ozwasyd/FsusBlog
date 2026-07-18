@@ -38,7 +38,7 @@ node tools/operations/check-aeds-cache-miss-frame-evidence.mjs \
 ## Ownership 状态机
 
 | 阶段 | root owner | read lease | backing 与计账 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | build | builder 独占 | 无 | writer 直接写保留 header 的最终 frame |
 | Redis/file write | cache/artifact 持有 root | write lease | await 完成前不得归还或清零 |
 | L1 active | cache 持有 root | response/concurrent readers 可并发获取 | residency 同时计 logical length 与完整 backing capacity |

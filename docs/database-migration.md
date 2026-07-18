@@ -24,7 +24,7 @@ Expand/Backfill/Contract protocol. Its private plan supplies
 The resolved template always contains exactly these ten scenarios:
 
 | Order | Scenario | Required observation |
-|---:|---|---|
+| ---: | --- | --- |
 | 1 | Expand with old Active | old release is ready before Expand and still serves an AEDS read afterward |
 | 2 | Blue/Green concurrent read/write | both direct origins read and perform bounded idempotent bridge writes with exact release headers |
 | 3 | Backfill checkpoint/resume | pause is durable, resume token is hash-only, resume completes without row-count regression |
@@ -57,7 +57,7 @@ compatible retained release.
 The table below is the authoritative final-state inventory for legacy identity columns that are either removed from the physical schema or retained only for an explicit compatibility purpose. Keep it synchronized with `src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs`; `tools/db/migration-doc-lint.mjs` fails when the registry and this table diverge.
 
 | column | physical | code-mapped | kept-for | dropped-at-version |
-|--------|----------|-------------|----------|--------------------|
+| -------- | ---------- | ------------- | ---------- | -------------------- |
 | `sys_user.username` | dropped | no | legacy password-login identity only | 20260621-post-user-legacy-identity-columns-finalize |
 | `sys_user.password` | dropped | no | legacy password-login credential only | 20260621-post-user-legacy-identity-columns-finalize |
 | `sys_user.role` | dropped | no | legacy role authority only | 20260621-post-user-legacy-identity-columns-finalize |

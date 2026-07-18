@@ -5,7 +5,7 @@ The public verification API exposes signed integrity manifests as ordinary JSON 
 ## Endpoints
 
 | Method | Path | Purpose | Cache |
-|--------|------|---------|-------|
+| -------- | ------ | --------- | ------- |
 | GET | `/integrity/keys.json` | Public site signing key registry. | `public, max-age=60, stale-while-revalidate=300` |
 | GET | `/integrity/article/{articleId}` | Current public publish proof for an article. | ready or superseded proofs are immutable; non-ready states use `no-store` |
 | GET | `/integrity/article/{articleId}/revisions/{revisionNo}` | Publish proof for one public article revision number. | same as article proof |

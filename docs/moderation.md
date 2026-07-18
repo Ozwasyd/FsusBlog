@@ -52,7 +52,7 @@ Runtime reload validates artifact digests, signature policy, runtime format, thr
 Supported disposition modes:
 
 | Mode | Behavior |
-|------|----------|
+| ------ | ---------- |
 | `score-only` | Default; store the model signal and keep the comment in `Pending` |
 | `auto-low-risk-approve` | Auto-approve only clean high-confidence comments when region policy allows public display and does not require manual review |
 | `auto-hide-high-risk` | Auto-hide high-confidence `risky` / `blocked_candidate` comments, or second-round spam/scam/malicious-link signals |
@@ -90,7 +90,7 @@ The admin comment moderation workbench shows model label, confidence, runtime id
 `CommentModerationTransitions` is the single runtime source for manual and model-driven status changes. A state cannot transition to itself, and no state can return to `Pending` after a moderation decision. The machine-readable dashboard source is [`comment-moderation-state-machine.yaml`](moderation/comment-moderation-state-machine.yaml).
 
 | From / To | Pending | Approved | Rejected | Hidden |
-|-----------|---------|----------|----------|--------|
+| ----------- | --------- | ---------- | ---------- | -------- |
 | Pending | denied | allowed | allowed | allowed |
 | Approved | denied | denied | allowed | allowed |
 | Rejected | denied | allowed | denied | allowed |

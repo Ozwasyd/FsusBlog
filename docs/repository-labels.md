@@ -5,7 +5,7 @@ FsusBlog uses namespaced labels for new issues and pull requests. Historical Git
 ## Type Labels
 
 | Label | Meaning |
-|-------|---------|
+| ------- | --------- |
 | `type:bug` | Reproducible defect or broken expected behavior. |
 | `type:feature` | Focused product or engineering enhancement. |
 | `type:docs` | Documentation change, stale document, missing guide, or release evidence wording. |
@@ -16,7 +16,7 @@ FsusBlog uses namespaced labels for new issues and pull requests. Historical Git
 ## Area Labels
 
 | Label | Meaning |
-|-------|---------|
+| ------- | --------- |
 | `area:backend` | ASP.NET Core backend, services, middleware, or backend tests. |
 | `area:frontend` | Vue, Vite, frontend state, UI components, frontend tests, or browser runtime. |
 | `area:public-site` | Public reading pages, AOT/hydration, public renderers, SEO, archive/filter/article surfaces. |
@@ -36,7 +36,7 @@ FsusBlog uses namespaced labels for new issues and pull requests. Historical Git
 ## Risk Labels
 
 | Label | Meaning |
-|-------|---------|
+| ------- | --------- |
 | `risk:breaking-change` | Behavior or contract change that may break existing users or deployments. |
 | `risk:migration` | Requires database, cache, data, or deployment migration handling. |
 | `risk:security-sensitive` | Touches security-sensitive code or routing. Do not use public issues for vulnerability details. |
@@ -45,7 +45,7 @@ FsusBlog uses namespaced labels for new issues and pull requests. Historical Git
 ## Status Labels
 
 | Label | Meaning |
-|-------|---------|
+| ------- | --------- |
 | `status:triage` | New item awaiting maintainer review. |
 | `status:needs-info` | Missing required evidence or reproduction detail. |
 | `status:accepted` | Maintainer accepted the work as planned. |
@@ -56,7 +56,7 @@ FsusBlog uses namespaced labels for new issues and pull requests. Historical Git
 ## Evidence Labels
 
 | Label | Meaning |
-|-------|---------|
+| ------- | --------- |
 | `evidence:needs-repro` | Needs a clear reproduction, command, fixture, or demo seed confirmation. |
 | `evidence:needs-tests` | Needs test or check coverage before merge. |
 | `evidence:needs-docs` | Needs docs, release notes, support routing, or readiness evidence. |

@@ -5,7 +5,7 @@
 **图例**
 
 | 符号 | 含义 |
-|------|------|
+| ------ | ------ |
 | 🔓 | 匿名可访问 |
 | 🔑 | 需要登录（HttpOnly Cookie session / AEDS auth frame） |
 | 👑 | 需要 admin 角色 |
@@ -20,7 +20,7 @@
 ### PoW 与账号入口
 
 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/binary/auth/pow-challenge` | 🔓 🚦 📦 | 获取 PoW 挑战 |
 | POST | `/api/binary/auth/anonymous/bootstrap` | 🔓 🚦 📦 | 匿名身份模式初始化匿名账号容器并写入 session；请求 `AuthAnonymousBootstrapRequest`，不接受密码 |
 | POST | `/api/binary/auth/refresh-token` | 🔓 🚦 📦 | 用 HttpOnly Cookie 续签 Access Token |
@@ -28,7 +28,7 @@
 ### 当前用户
 
 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/binary/auth/me` | 🔑 📦 | 获取当前匿名账号容器快照 |
 | PUT | `/api/binary/auth/public-handle` | 🔑 📦 | 保存或清空当前匿名账号公开称呼 |
 | POST | `/api/binary/auth/logout` | 🔑 📦 | 安全登出（吊销当前 Refresh Token） |
@@ -37,7 +37,7 @@
 ### 会话管理
 
 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/binary/auth/sessions` | 🔑 📦 | 获取活跃会话列表 |
 | POST | `/api/binary/auth/sessions/{id}/revoke` | 🔑 📦 | 吊销指定会话 |
 | POST | `/api/binary/auth/sessions/revoke-others` | 🔑 📦 | 吊销全部其他会话 |
@@ -45,7 +45,7 @@
 ### MFA / TOTP
 
 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | POST | `/api/binary/auth/mfa/setup/start` | 🔑 📦 | 开始 MFA 设置，返回 TOTP 密钥与二维码 |
 | POST | `/api/binary/auth/mfa/setup/verify` | 🔑 📦 | 验证 TOTP 码，完成 MFA 启用 |
 | GET | `/api/binary/auth/mfa/profile` | 🔑 📦 | 查询 MFA 状态与恢复码剩余数 |
@@ -61,7 +61,7 @@
 ### Recovery Key
 
 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | POST | `/api/binary/auth/recovery-key/create` | 🔑 🚦 📦 | 创建账户恢复密钥，明文只在响应中返回一次 |
 | POST | `/api/binary/auth/recovery-key/rotate` | 🔑 🚦 📦 | 轮换账户恢复密钥 |
 | POST | `/api/binary/auth/recovery-key/verify` | 🔓 🚦 📦 | 验证恢复密钥并返回短期 recovery session，需 PoW |
@@ -73,7 +73,7 @@
 ## Passkey / WebAuthn — `/api/binary/auth/passkey`
 
 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | POST | `/api/binary/auth/passkey/register/begin` | 🔑 | 开始注册 Passkey |
 | POST | `/api/binary/auth/passkey/register/complete` | 🔑 | 完成 Passkey 注册 |
 | POST | `/api/binary/auth/passkey/login/begin` | 🔓 🚦 | 开始 Passkey 无密码登录 |
@@ -87,7 +87,7 @@
 ## Admin principal / Passkey — `/api/binary/auth/admin`
 
 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | POST | `/api/binary/auth/admin/bootstrap/passkey/begin` | 🔓 🚦 📦 | 首次 root admin Passkey 注册开始；必须带 `X-Fsus-Admin-Bootstrap-Token` 和 `X-Fsus-Admin-Handle` |
 | POST | `/api/binary/auth/admin/bootstrap/passkey/complete` | 🔓 🚦 📦 | 首次 root admin Passkey 注册完成；root admin 已存在后拒绝 |
 | POST | `/api/binary/auth/admin/login/passkey/begin` | 🔓 🚦 📦 | admin Passkey 登录开始 |
@@ -105,12 +105,12 @@
 ## 公共 HTML 状态
 
 | 请求 | 首响应 | 说明 |
-|------|--------|------|
+| ------ | -------- | ------ |
 | `GET/HEAD /article/{positive-int}` | 200 / 404 / 503 | 仅公开文章为 200；缺失、隐藏、未到发布时间为 404；临时依赖故障为 503 |
 | `GET/HEAD /category/{positive-int}` | 200 / 404 / 503 | 不存在分类不生成空 200 SEO 页 |
 | `GET/HEAD /tag/{positive-int}` | 200 / 404 / 503 | 唯一标签成功页与 self-canonical；不存在标签不生成空 200 SEO 页 |
 | `GET/HEAD /tag/{valid-name}` | 301 / 404 / 503 | 当前名称或持久旧 alias 单跳到 `/tag/{id}`；不产生第二个 200 canonical |
-| `GET/HEAD /search[?q&sort&page]` | 200 / 301 / 400 | 首响应始终 noindex；NFC/空白、`relevance|latest|hot`、`page=1..100` 规范化到唯一 URL，危险超限输入 400 |
+| `GET/HEAD /search[?q&sort&page]` | 200 / 301 / 400 | 首响应始终 noindex；NFC/空白、`relevance | latest | hot`、`page=1..100` 规范化到唯一 URL，危险超限输入 400 |
 | `GET/HEAD /unknown` 或额外 path segment | 404 | 服务器首响应 noindex，不交给 SPA catch-all 改写语义 |
 | 除 `/` 外的 `.../` | 301 | 单跳到无尾斜杠 canonical，并保留 query |
 
@@ -119,7 +119,7 @@
 ## 文章 — `/api/Article`
 
 | 方法 | 路径 | 权限 | 缓存 | 说明 |
-|------|------|------|------|------|
+| ------ | ------ | ------ | ------ | ------ |
 | GET | `/api/Article/` | 🔓 | 🗄️ | 文章列表（分页），查询参数：`page`、`pageSize`、`categoryId`、`tagId` |
 | GET | `/api/Article/{id}` | 🔓 | 🗄️ | 文章详情 |
 | GET | `/api/Article/hot` | 🔓 | 🗄️ | 热门文章列表 |
@@ -129,7 +129,7 @@
 ## 评论 — `/api/Comment`
 
 | 方法 | 路径 | 权限 | 缓存 | 说明 |
-|------|------|------|------|------|
+| ------ | ------ | ------ | ------ | ------ |
 | GET | `/api/Comment/{articleId}` | 🔓 | 🗄️ | 指定文章顶层评论（游标分页） |
 | GET | `/api/Comment/{articleId}/thread/{rootId}` | 🔓 | 🗄️ | 指定评论的回复线程 |
 | GET | `/api/Comment/me` | 🔑 | — | 当前用户可归因评论记录 |
@@ -139,7 +139,7 @@
 ## 分类 — `/api/Category`
 
 | 方法 | 路径 | 权限 | 缓存 | 说明 |
-|------|------|------|------|------|
+| ------ | ------ | ------ | ------ | ------ |
 | GET | `/api/Category/` | 🔓 | 🗄️ | 所有分类列表 |
 
 ---
@@ -147,7 +147,7 @@
 ## 标签 — `/api/Tag`
 
 | 方法 | 路径 | 权限 | 缓存 | 说明 |
-|------|------|------|------|------|
+| ------ | ------ | ------ | ------ | ------ |
 | GET | `/api/Tag/` | 🔓 | 🗄️ | 所有标签列表 |
 
 ---
@@ -155,7 +155,7 @@
 ## 系统配置 — `/api/binary/system`
 
 | 方法 | 路径 | 权限 | 缓存 | 说明 |
-|------|------|------|------|------|
+| ------ | ------ | ------ | ------ | ------ |
 | GET | `/api/binary/system/seo` | 🔓 | 🗄️ | 站点 SEO/品牌/PWA 配置，`SeoConfig` frame |
 | GET | `/api/binary/system/compliance` | 🔓 | 🗄️ | 公开页 footer 合规配置，`SiteComplianceConfig` frame |
 | GET | `/api/binary/system/page/{slug}` | 🔓 | 🗄️ | 指定 slug 的静态页面内容；当前只支持 `about/privacy/guidelines/copyright` |
@@ -173,7 +173,7 @@
 > 公开 JSON manifest，不属于 `/api/binary/**` AEDS 主链路。
 
 | 方法 | 路径 | 权限 | 缓存 | 说明 |
-|------|------|------|------|------|
+| ------ | ------ | ------ | ------ | ------ |
 | GET | `/integrity/keys.json` | 🔓 | 🗄️ | 公开签名 key registry，不包含 private key |
 | GET | `/integrity/article/{articleId}` | 🔓 | 🗄️ | 当前公开文章 publish proof；ready/superseded immutable，其他状态 no-store |
 | GET | `/integrity/article/{articleId}/revisions/{revisionNo}` | 🔓 | 🗄️ | 指定公开文章 revision number 的 publish proof |
@@ -198,7 +198,7 @@
 ### Binary 路由
 
 | Binary 路径 | 权限 | FrameType | 说明 |
-|------------|------|-----------|------|
+| ------------ | ------ | ----------- | ------ |
 | GET `/api/binary/article/list/home/{page}/{size}.aeds` | 🔓 📦 | `ArticleList`(1) | 首页文章列表 L0 artifact |
 | GET `/api/binary/article/list/category/{categoryId}/{page}/{size}.aeds` | 🔓 📦 | `ArticleList`(1) | 分类文章列表 L0 artifact |
 | GET `/api/binary/article/list/tag/{tagId}/{page}/{size}.aeds` | 🔓 📦 | `ArticleList`(1) | 标签文章列表 L0 artifact |
@@ -235,7 +235,7 @@
 ### 管理端 Binary
 
 | 方法 | 路径 | 权限 | FrameType | 说明 |
-|------|------|------|-----------|------|
+| ------ | ------ | ------ | ----------- | ------ |
 | GET | `/api/binary/stats` | 👑 📦 | `AdminStats`(7) | Binary 聚合统计（overview + recent comments + regions） |
 | GET | `/api/binary/admin/article` | 👑 📦 | `ArticleList`(1) | 管理端文章列表，可带 `status` / `isDeleted`；`page>=1`、`size=1..100`，非法值返回 400 |
 | GET | `/api/binary/admin/article/{id}` | 👑 📦 | `ArticleDetail`(2) | 管理端文章详情 |
@@ -253,7 +253,7 @@
 > 整个路由组需要登录（🔑）。
 
 | 方法 | 路径 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | GET | `/api/binary/messages/conversations` | 当前用户对话列表 |
 | GET | `/api/binary/messages/conversations/{id}` | 对话详情与消息 |
 | POST | `/api/binary/messages/conversations` | 发起新对话 |
@@ -267,7 +267,7 @@
 > 整个路由组需要 admin 角色（👑）。
 
 | 方法 | 路径 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | GET | `/api/binary/admin/messages/conversations` | 所有对话列表 |
 | GET | `/api/binary/admin/messages/conversations/{id}` | 对话详情 |
 | POST | `/api/binary/admin/messages/conversations/{id}/reply` | 以管理员身份回复 |
@@ -277,7 +277,7 @@
 ## 开放分发与作者工作台
 
 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/feed/rss.xml` | 🔓 | RSS 2.0 feed |
 | GET | `/api/Article/rss` | 🔓 | RSS 历史兼容路径 |
 | GET | `/feed/atom.xml` | 🔓 | Atom feed |
@@ -397,7 +397,7 @@
 ## 通知与健康检查
 
 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/notifications/stream/preflight` | 🔓 🚦 | WebSocket 通知握手预检；校验 Origin/协议/认证/RiskControl 或 legacy PoW，成功返回 204 |
 | GET | `/api/notifications/stream` | 🔓 🚦 | WebSocket 通知通道（子协议 `fsus-aeds.v2`，握手校验 Origin/RiskControl 或 legacy PoW） |
 | POST | `/_fsus/testing/notification-stream/publish` | 🔓 | Development/Test-only notification resilience drill；需 `X-Fsus-Notification-Drill-Secret`，生产不映射 |

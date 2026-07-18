@@ -25,4 +25,3 @@ path、line 与可定位消息；allowlist 必须显式且最小。
 三项实现已在 local master 的独立 commit 中落地；当前统一代码落地阶段没有重新运行测试、
 构建、lint、syntax check、matrix、retention、coverage、mutation 或 production fresh。最终状态
 仍取决于统一验证阶段的 after audit 和 77-tier production evidence。
-

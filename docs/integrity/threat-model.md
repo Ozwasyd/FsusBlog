@@ -25,7 +25,7 @@ Out of scope:
 ## Threat Matrix
 
 | Threat | Risk | Control | Residual Boundary |
-|--------|------|---------|-------------------|
+| -------- | ------ | --------- | ------------------- |
 | spoofing | A fake proof claims to be produced by this site. | Verify `keyId`, `algorithm`, public key registry, signature payload domain, and `ECDSA_P256_SHA256` signature. | If the private key is compromised, old trust must be revoked or rebuilt by policy. |
 | tamper | Content or artifact bytes change after publication. | Recompute canonical hash and artifact digest values before accepting the proof. | Only covered artifacts are protected. Unlisted runtime views are not proven. |
 | replay | An old proof is presented as current. | Check `articleId`, `articleRevisionId`, `revisionNo`, proof status, transparency log position, and checkpoint scope. | Historical `superseded` proofs can remain valid as historical records. |

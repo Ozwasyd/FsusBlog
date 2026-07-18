@@ -17,4 +17,3 @@ By default it uses the sibling workspace at `../../../FsusUI` from `src/frontend
 ## Full App Typecheck
 
 The focused FsusUI export contract is separate from full app `vue-tsc` because the full app can fail on unrelated baseline errors. Full app typecheck should still be run as part of broader frontend cleanup, but FsusUI package/local alias failures should be diagnosed with the two focused modes first.
-

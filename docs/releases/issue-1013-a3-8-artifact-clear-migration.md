@@ -30,4 +30,3 @@ image/database pair.
 - `SchemaMigrationRegistryTests.GetDescriptors_ClearLegacyPublicArtifacts_RunsAsOneTimeMigrationStep`
 - `PublicContentInvalidationFlowTests.AdminCacheAction_ExposesOnlyRuntimeArticleDetailAedsV3Actions`
 - `RuntimeFallbackRetirementAcceptanceTests.A3_8_LegacyArtifactClearIsOneTimeMigrationNotAdminRuntimeAction`
-

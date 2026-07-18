@@ -17,7 +17,7 @@
 ## 快速导航（仓库地图）
 
 | 目录 / 文件 | 职责 |
-|------------|------|
+| ------------ | ------ |
 | `src/backend/Program.cs` | 中间件链 + 路由注册收口 |
 | `src/backend/Modules/Endpoints/` | 所有 Minimal API 端点定义 |
 | `src/backend/Infrastructure/` | 缓存 / 安全 / 中间件 / 启动校验等横切关注点 |
@@ -54,17 +54,20 @@
 ### ServerContractAgent
 
 **负责范围**
+
 - `src/shared/`、`src/core/`
 - `src/backend/Modules/Endpoints/`
 - `src/backend/Infrastructure/`
 - `src/backend/Program.cs`
 
 **允许操作**
+
 - 修改端点注册与中间件顺序（仅在已有设计范围内，须同步 `docs/architecture.md`）
 - 新增 / 调整 `ApiContract` 与 `AedsFrameType`（满足 `Core`/`Client` 协同前提）
 - 调整鉴权策略与校验路径
 
 **禁止操作**
+
 - 无需求不改 `src/frontend/wasm/aeds/**` 的 C++ 实现
 - 未更新 `docs/api/design.md` + `docs/api/contracts.md` 前不推送 API 变更
 - 未核验就改 `MapProductionHealthEndpoints`、生产启动校验行为
@@ -73,29 +76,35 @@
 ### WasmEngineAgent
 
 **负责范围**
+
 - `src/frontend/wasm/aeds/include/**`
 - `src/frontend/wasm/aeds/src/**`
 
 **允许操作**
+
 - 修改 Wasm 解码器、协议映射、类型解析流程
 - 优化边界回退策略（Wasm binary decoder → TypeScript binary decoder / 协议错误）
 
 **禁止操作**
+
 - 修改业务路由、鉴权逻辑、JWT/Passkey 核心流程
 - 修改 Vue 状态或 Worker 上层业务分发逻辑
 
 ### InteropGlueAgent
 
 **负责范围**
+
 - `src/frontend/wasm/web/aeds.ts`
 - `src/frontend/src/workers/wasmDecode.worker.ts`
 - `src/frontend/src/workers/` 内与 API 通道相关文件
 
 **允许操作**
+
 - 调整协议解析参数、超时 / 回退策略
 - 增加错误处理分支、回退阈值与可观测性上报
 
 **禁止操作**
+
 - 修改 Wasm 核心解码器本体
 - 直接改动数据库 / 服务端安全鉴权路径
 - 改变现网 API 语义（仅承载 / 回退）
@@ -105,6 +114,7 @@
 ## 修改前必读清单
 
 ### API 变更
+
 1. 阅读 `docs/api/design.md`、`docs/api/contracts.md`
 2. 对照 `docs/api/quick-reference.md`、`docs/api/schemas-and-errors.md`
 3. 核验 `src/backend/Program.cs` 路由注册与中间件顺序
@@ -112,12 +122,14 @@
 5. 形成变更单：新增 / 移除 / 重命名 / 参数变更
 
 ### 缓存策略变更
+
 1. 阅读 `docs/architecture.md`（缓存分层与顺序）
 2. 核验 `src/backend/Infrastructure/Cache/*.cs`
 3. 核对 `UseOutputCache`、`CacheOutput` 标记
 4. 核对 L1/L2 回填与失效入口（`IHttpCacheInvalidator`）
 
 ### 鉴权 / 会话变更
+
 1. 阅读 `docs/security.md`
 2. 核验以下五个关键文件：
    - `src/backend/Infrastructure/Helpers/JwtHelper.cs`
@@ -127,6 +139,7 @@
    - `src/backend/Infrastructure/Operations/ProductionStartupValidator.cs`
 
 ### 二进制协议变更
+
 1. 阅读 `docs/api/contracts.md`、`src/core/Algorithms/AEDS_V2_PROTOCOL.md`
 2. 核验三个算法文件：
    - `src/core/Algorithms/AedsFrameType.cs`
@@ -233,7 +246,7 @@ group.MapGet("/article", async (IAedsEncoder aeds, ...) =>
 ## 各子项目修改策略速查
 
 | 子项目 | 允许 | 禁止 |
-|--------|------|------|
+| -------- | ------ | ------ |
 | `FsusBlog.Server` | 端点增删改、中间件顺序（须同步 `docs/architecture.md`）、安全过滤器、健康探针 | 未经文档核验直接推送 API 变更；删除 `X-Fsus-*` 头或 PoW 链支持 |
 | `FsusBlog.Client` | 修正 API 客户端模型、工具脚本、E2E 用例与文档一致性 | 未同步 `docs/api/contracts.md` 前重命名/移除 binary/json 字段；改写解码行为破坏旧缓存兼容性 |
 | `FsusBlog.Shared` | 共享模型、响应包装、NotificationStream/Security/Binary 契约结构体更新 | 删除 `ApiResponse` 与统一错误码语义；引入序列化/类型不兼容变更 |

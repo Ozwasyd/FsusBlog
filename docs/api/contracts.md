@@ -67,7 +67,7 @@ Integrity verification endpoints are public JSON sidecars, not `/api/binary/**` 
 Article responsibility sidecars extend this public verification boundary with revision-scoped authors, optional reviewer, structured public sources, substantial-update disclosure and optional methodology/applicability/limitations. `GET /integrity/article/{articleId}/responsibility` resolves the current revision; `GET /integrity/article/{articleId}/revisions/{revisionNo}/responsibility` resolves an immutable historical revision. Missing historical snapshots use an explicit deterministic site-author inheritance fallback. A public article that predates persisted revisions returns the same current fallback with `revisionNo=0`, `legacyFallback=true`, and `verification.proofStatus=unavailable`; only a requested missing historical revision remains `404`. Responses expose only safe public HTTP(S) links plus `ready|failed|unavailable` proof state; they never include admin actor ids, draft content, private sources, failure details or audit payloads. See [Article responsibility and sources](../integrity/article-responsibility.md).
 
 | Method | Path | Content-Type | Cache | 说明 |
-|--------|------|--------------|-------|------|
+| -------- | ------ | -------------- | ------- | ------ |
 | GET | `/integrity/keys.json` | `application/json; charset=utf-8` | short public manifest cache | Public signing key registry; never exposes private keys. |
 | GET | `/integrity/article/{articleId}` | `application/json; charset=utf-8` | immutable for ready/superseded proof; `no-store` otherwise | Current public publish proof for an article. |
 | GET | `/integrity/article/{articleId}/revisions/{revisionNo}` | `application/json; charset=utf-8` | same as proof | Publish proof for one public article revision number. |
@@ -87,7 +87,7 @@ Ready and superseded publish proof manifests contain `articleId`, `articleRevisi
 源码：`src/shared/Contracts/Models/CommonPods.cs`
 
 | FrameType | POD | 说明 |
-|-----------|-----|------|
+| ----------- | ----- | ------ |
 | `EmptySuccess` (`240`) | `EmptySuccessPod` | 无数据成功响应，`Ok = 1` |
 | `MutationId` (`241`) | `MutationIdPod` | 写操作返回的 `int64 Id` |
 | `ApiError` (`251`) | `ApiErrorPod` | Binary 错误响应，包含 `Code`、`Category`、`HttpStatus`、`Message`、`Details`、`TraceId`；非业务错误不得回显内部 exception/message |
@@ -107,7 +107,7 @@ ABI v4 的 arena 与 payload export 使用单调 `uint64` handle token。`reserv
 高频读取 frame 改为 compact POD：
 
 | FrameType | Payload layout |
-|-----------|----------------|
+| ----------- | ---------------- |
 | `ArticleList` | `total:int32` + `count:int32` + `tagRecordCount:int32` + shared UTF-8 blob + 76B article records + 12B tag records |
 | `ArticleSearch` | `total:int32` + `count:int32` + `tagRecordCount:int32` + shared UTF-8 blob + 52B search records + 12B tag records |
 | `ArticleHot` | `count:int32` + shared UTF-8 blob + 16B article records |
@@ -128,7 +128,7 @@ payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/
 `/api/binary/read-proof/**` 使用 request/response AEDS frame；错误语义统一为 `ApiError`。旧 `/api/read-proof/**` JSON endpoint 已移除，前端运行时不得调用或回退。
 
 | FrameType | 值 | POD | 用途 |
-|-----------|----|-----|------|
+| ----------- | ---- | ----- | ------ |
 | `HumanReadChallengeResponse` | 28 | `HumanReadChallengeResponsePod` + UTF-8 blob | challenge 响应 |
 | `HumanReadSubmitResponse` | 29 | `HumanReadSubmitResponsePod` + UTF-8 blob | submit 响应 |
 | `HumanReadChallengeRequest` | 73 | `HumanReadChallengeRequestPod` + UTF-8 blob | challenge 请求体 |
@@ -139,7 +139,7 @@ payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/
 生产前端只向 `/api/binary/telemetry/rum` 发送 RUM，使用 `credentials: omit`、`Content-Type: application/octet-stream` 和 `Accept: application/octet-stream`。旧 `/api/telemetry/rum` JSON endpoint 已移除，不允许生产前端回退。
 
 | Frame | Value | Payload | 用途 |
-|-------|-------|---------|------|
+| ------- | ------- | --------- | ------ |
 | `RumMetricBatchRequest` | 75 | `RumMetricBatchRequestPod` + `RumMetricItemPod[]` + `RumMetricValuePod[]` + `RumMetricDimensionPod[]` + UTF-8 blob | 批量 RUM 请求体 |
 | `RumMetricIngestResponse` | 76 | `RumMetricIngestResponsePod` | accepted / acceptedCount / rejectedCount |
 
@@ -176,7 +176,7 @@ perception-sealed@v2 运行时 metrics 使用 `fsus.security.challenge.v2.*` 前
 perception-sealed@v2 的验证矩阵：
 
 | 输入 / 依赖 | 预期行为 |
-|-------------|----------|
+| ------------- | ---------- |
 | `algorithm` 不是 `fsu.challenge/perception-sealed@v2` | AEDS `ApiError`，fail closed |
 | `taskKind` / `payloadKind` 不匹配 | AEDS `ApiError`，fail closed |
 | sealed token keyVersion 未配置、AAD mismatch、密文篡改或 token 过期 | AEDS `ApiError`，fail closed |
@@ -201,7 +201,7 @@ perception-sealed@v2 的验证矩阵：
 `SecurityChallengeIssueRequest` 字段：
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `action` | string | RiskControl action，例如 `public.read`、`comment.create`；必填 |
 | `routeKey` | string | 业务 route key，例如 `article:42`；必填 |
 | `deviceFp` | string | 可选设备指纹；服务端只使用规范化状态和 SHA-256 hash |
@@ -210,7 +210,7 @@ perception-sealed@v2 的验证矩阵：
 `SecurityChallengeIssueResponse` 字段：
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `decision` | enum | `allow`、`challenge`、`stepUp`、`queueForModeration`、`throttle`、`block` 或 `unknown` |
 | `riskScore` / `effectiveRiskScore` | int | 原始风险分与策略模式调整后的风险分 |
 | `escalationLevel` | int | 策略要求的升级等级 |
@@ -222,7 +222,7 @@ perception-sealed@v2 的验证矩阵：
 `SecurityChallengeVerifyRequest` 字段：
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `challengeId` | string | issue response 中的 assignment id；必填 |
 | `kind` | enum | `SecurityChallengeKind`；未知或未支持 kind fail closed |
 | `action` | string | 必须与 issue / 后续业务 endpoint 绑定的 action 一致 |
@@ -232,7 +232,7 @@ perception-sealed@v2 的验证矩阵：
 `SecurityChallengeVerifyResponse` 字段：
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `verified` | bool | provider 校验是否通过；成功响应固定为 `true` |
 | `challengeId` | string | 被验证的 challenge id |
 | `kind` | enum | 被验证的 provider kind |
@@ -244,7 +244,7 @@ perception-sealed@v2 的验证矩阵：
 受 `RequiresRiskControlFilter` 保护的 endpoint 必须具备 `RiskActionEndpointMetadata`，服务端用 action、routeKey、subjectHash、clientIpHash、deviceFpHash 和 policyVersion 消费统一 proof。RiskControl actor context 不能混用身份平面：普通账号 actor 可携带 `UserId/SessionId`，AdminPrincipal actor 只能携带 `AdminPrincipalId/AdminSessionId` 且 `UserId/SessionId` 必须为 null；subject binding 对 AdminPrincipal 只使用 admin id + admin session。客户端提交已签发 proof 时必须同时发送 `X-Fsus-Challenge-Proof`、`X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind`；缺 proof、proof 重放 / Redis miss、action 或 route mismatch、IP/device mismatch 均返回 428，block / throttle 类裁决返回 429。`queue` 裁决只允许业务端显式读取 `RiskControlDecisionContext` 后继续执行；评论创建会把 queue 映射为待审队列并记录 `risk_control_queue`，其他未接入 queue 语义的写入口不得默默放行。当前高价值入口使用的 action 为：`POST /api/binary/comment` root create -> `comment.create`，同一路径 reply payload -> `comment.reply`，`POST /api/binary/auth/passkey/login/begin` -> `auth.passkey.begin`，`POST /api/binary/auth/passkey/login/complete` -> `auth.passkey.complete`，`POST /api/binary/auth/recovery-key/verify` -> `recovery-key.verify`，匿名 `GET /api/notifications/stream/preflight` / WebSocket handshake -> `notification.subscribe`。旧 `auth.login` action 仅保留给 legacy migration/test policy，不绑定生产用户侧 password endpoint。旧 `RequiresPowFilter` endpoint 仍使用 `X-Fsus-Pow-Proof`；同时保留 PoW 的 auth/comment endpoint 需要同时提交 legacy PoW proof 与 RiskControl proof，notification stream 继续兼容 legacy `pow` query proof。
 
 | FrameType | 值 | POD | 用途 |
-|-----------|----|-----|------|
+| ----------- | ---- | ----- | ------ |
 | `SecurityChallengeAssignment` | 171 | `SecurityChallengeAssignmentPod` | 单个 challenge assignment |
 | `SecurityChallengeEnvelope` | 172 | `SecurityChallengeEnvelopePod` + `SecurityChallengeAssignmentPod[]` | 一次裁决返回的 challenge assignment 集合，最多 8 个 |
 | `SecurityChallengeIssueRequest` | 173 | `SecurityChallengeIssueRequestPod` + UTF-8 blob | RiskControl challenge 签发请求 |
@@ -292,7 +292,7 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 Passkey 删除与凭据友好名称更新是账号安全凭据变更，必须通过统一 user security step-up。生产 binary endpoint 只从 `X-Fsus-Mfa-Proof` 读取一次性 proof，proof 必须绑定对应 action：删除为 `passkey.delete`，友好名称更新为 `passkey.credential-name.update`，且服务端一次性消费。普通账号可先调用 `/api/binary/auth/step-up/passkey/begin` 提交对应 action，再调用 `/api/binary/auth/step-up/passkey/complete` 提交当前账号 Passkey assertion；complete 成功返回同 action 的 `MfaChallengeResult.proofToken`。`Auth:PasskeyStepUp:Enabled=false` 时这两个 step-up 端点必须 fail closed 为 503 + `PASSKEY_STEP_UP_DISABLED`，不允许创建 challenge 或签发 proof。MFA enabled 账号也可继续使用 TOTP challenge 获取对应 action proof；anonymous identity mode 下禁止 legacy password fallback，`DELETE /api/binary/auth/passkey/credentials/{id}` 与 `PUT /name` 都不得提交或解析 `MfaPasswordProofRequest` body。非匿名 legacy password fallback 如仍需保留，必须放在显式隔离的兼容路径，不能进入这些生产匿名敏感操作 endpoint。
 
 | FrameType | POD | 端点 / 用途 |
-|-----------|-----|-------------|
+| ----------- | ----- | ------------- |
 | `PasskeyRegisterBegin` (`63`) | `PasskeyRegisterBeginPod` | `POST /api/binary/auth/passkey/register/begin`；admin bootstrap begin 复用该响应 frame |
 | `PasskeyLoginBegin` (`64`) | `PasskeyLoginBeginPod` | `POST /api/binary/auth/passkey/login/begin`；admin login begin 复用该响应 frame |
 | `PasskeyCredentialList` (`65`) | `PasskeyCredentialSummaryPod[]` | `GET /api/binary/auth/passkey/credentials` |
@@ -305,7 +305,7 @@ Passkey 删除与凭据友好名称更新是账号安全凭据变更，必须通
 后台控制面身份独立于 `sys_user`，只使用 admin principal / session / passkey 表。首次 root admin bootstrap 必须带 `X-Fsus-Admin-Bootstrap-Token`，该 token 只从 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` 或 `Admin:BootstrapToken` 读取；存在 active root admin 后 bootstrap 端点固定拒绝。`X-Fsus-Admin-Handle` 只在 bootstrap begin 指定后台 handle，不写入匿名账号。所有后台控制面端点必须校验 `identity_kind=admin_principal` 与具体 `admin_permission` claim，不得接受 legacy `sys_user.role=admin`。
 
 | 方法 | 路径 | 请求 / 响应 frame | 权限 |
-|------|------|-------------------|------|
+| ------ | ------ | ------------------- | ------ |
 | POST | `/api/binary/auth/admin/bootstrap/passkey/begin` | 响应 `PasskeyRegisterBegin` | 匿名 + bootstrap token |
 | POST | `/api/binary/auth/admin/bootstrap/passkey/complete` | 请求 `PasskeyRegisterCompleteRequest`，响应 `EmptySuccess` | 匿名 + bootstrap token |
 | POST | `/api/binary/auth/admin/login/passkey/begin` | 响应 `PasskeyLoginBegin` | 匿名 |
@@ -343,7 +343,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 验证请求不携带 account id。服务端从 Recovery Key 中解析 `lookupId`，按 peppered `lookup_id_hash` 定位候选记录，再校验完整 Recovery Key；无 lookup id 的旧格式不会扫描全表兼容，统一返回恢复失败并受同一 attempt limiter 约束，用户需要通过仍可登录设备重新生成新格式 Recovery Key。验证成功会把当前 Recovery Key 标记为 used，返回 10 分钟 recovery session token 与 `expiresAt`，不得返回 account id、user id、internalUserId 或其他身份字段。该 token 只允许调用 recovery passkey begin/complete 端点绑定新 Passkey；如果 verify 请求设置 `revokeSessions`，服务端会撤销该账号现有会话；如果设置 `revokePasskeys`，新 Passkey 绑定完成后删除旧凭据。TOTP MFA recovery code 仍只用于 MFA bypass，不得作为账户恢复。
 
 | FrameType | POD | 端点 / 用途 |
-|-----------|-----|-------------|
+| ----------- | ----- | ------------- |
 | `RecoveryKeyCreateResponse` (`159`) | `RecoveryKeyCreateResponsePod` | `POST /api/binary/auth/recovery-key/create` 和 `/rotate` 响应 |
 | `RecoveryKeyVerifyRequest` (`160`) | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体；只携带 Recovery Key、`revokeSessions`、`revokePasskeys`，不携带 account id；匿名、`fixed_ip` 限流、RiskControl challenge、PoW、no-store |
 | `RecoveryKeyVerifyResponse` (`161`) | `RecoveryKeyVerifyResponsePod` | verify 成功后只返回短期 recovery session token 与过期时间 |
@@ -358,7 +358,7 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 普通账号自助 `/api/binary/auth/*` 端点只接受 `identity_kind=anonymous_account` 的账号主体，必须使用 `RequireAnonymousAccountPrincipal()` 或等价 `RequireClaim("identity_kind", "anonymous_account")` 策略；这包括 `/auth/me`、`/auth/public-handle`、普通 session 管理、MFA profile/setup/disable/recovery、Recovery Key create/rotate、Passkey credential 管理、自助注销和普通登出。AdminPrincipal JWT 即使 `NameIdentifier` 与 `sys_user.id` 数值碰撞，也不得进入这些 handler；授权层应返回 403，并记录 `security.auth.self_service_principal_rejected` 高价值审计。AdminPrincipal 只能访问 `/api/binary/auth/admin/*` 控制面端点，普通自助 handler 不得使用裸 `.RequireAuthorization()` 或把 `HttpContext.GetUserId()` 作为账号身份判定。
 
 | FrameType | POD | 用途 |
-|-----------|-----|------|
+| ----------- | ----- | ------ |
 | `IdentityAccountSnapshot` (`163`) | `IdentityAccountSnapshotPod` + UTF-8 blob | `GET /api/binary/auth/me` 响应；account id、identity kind、nullable public handle、Passkey/Recovery/TOTP step-up 状态、anonymous credential status/level、status/ban/deletedAt；不暴露 internalUserId 或旧兼容 id |
 | `AuthAnonymousBootstrapRequest` (`189`) | `AuthAnonymousBootstrapRequestPod` + UTF-8 blob | `POST /api/binary/auth/anonymous/bootstrap` 请求体；只含使用规范确认和可选 public handle，不含 password/username 注册字段 |
 | `AuthUpdatePublicHandleRequest` (`190`) | `StringMutationRequestPod` + UTF-8 blob | `PUT /api/binary/auth/public-handle` 请求体；保存或清空当前匿名账号的 public handle |
@@ -440,11 +440,11 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 用于 AEDS 帧内的分页元数据：
 
 | 结构 | 字段 | 类型 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | `PodEnvelopeHeader` | Version | byte | 信封版本 |
 | | Count | int | 记录数 |
 | | PayloadLength | int | 载荷字节长度 |
-| | Reserved | int | 保留（填 0）|
+| | Reserved | int | 保留（填 0） |
 | `PageEnvelope` | Total | int | 总记录数 |
 | | Count | int | 当前页记录数 |
 | `ArticleListCursorEnvelope` | NextCursorUnixMs | long | 下一页游标时间戳；无更多时为 `0` |
@@ -695,7 +695,7 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 请求 frame：`HumanReadChallengeRequest` (`73`)
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `scope` | string | `site` 或 `article` |
 | `routeKey` | string | 公开页 route key，例如 `home`、`article:42` |
 | `articleId` | int? | `scope=article` 时必填 |
@@ -707,7 +707,7 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 响应 frame：`HumanReadChallengeResponse` (`28`)
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `token` | string | HMAC-bound proof token；拒绝时为空字符串 |
 | `scope` | string | 规范化后的 `site` 或 `article` |
 | `routeKey` | string | 规范化后的公开页 route key |
@@ -721,7 +721,7 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 请求 frame：`HumanReadSubmitRequest` (`74`)
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `token` | string | challenge 返回的 proof token |
 | `scope` | string | `site` 或 `article` |
 | `routeKey` | string | 与 challenge 绑定的 route key |
@@ -735,7 +735,7 @@ Submit 同样受 `read_proof` 专用限流保护。限流 key 是 path + 一分�
 响应 frame：`HumanReadSubmitResponse` (`29`)
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `counted` | bool | 是否写入真人阅读事件 |
 | `status` | string | `counted`、`paused`、`duplicate_viewer`、`dedup_unavailable`、`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid` 等状态 |
 
@@ -848,7 +848,7 @@ Submit 同样受 `read_proof` 专用限流保护。限流 key 是 path + 一分�
 管理端创建分类和标签均使用 binary mutation path，写入成功响应 `MutationId`，编辑器可用返回的 `id` 立即选中新建分类或关联新建标签，不能只依赖刷新列表后按名称猜测：
 
 | 方法 | 路径 | 请求 frame | 响应 frame |
-|------|------|------------|------------|
+| ------ | ------ | ------------ | ------------ |
 | POST | `/api/binary/category` | `CategoryWriteRequest` | `MutationId` |
 | POST | `/api/binary/tag` | `TagWriteRequest` | `MutationId` |
 
@@ -1064,7 +1064,7 @@ fixture redirect query 最大 2048 字符；`user.storage-state.json` / `admin.s
 ### `NotificationStreamEventType` 枚举
 
 | 值 | 名称 | 载荷类型 | 说明 |
-|----|------|---------|------|
+| ---- | ------ | --------- | ------ |
 | 1 | `NoticeReceived` | `GlobalNoticePayload` | 用户收到通知 |
 | 2 | `GlobalNoticePublished` | `GlobalNoticePayload` | 全站广播（公开） |
 | 3 | `UnreadCountUpdated` | `UnreadCountPayload` | 未读数变更 |
@@ -1261,7 +1261,7 @@ SiteStatsPod、共享 UTF-8 blob、popular article records、recent comment reco
 `Overview.Summary` 的阅读字段为匿名安全口径：
 
 | 字段 | 说明 |
-|------|------|
+| ------ | ------ |
 | `totalReads` | `daily_read_stats` 中的聚合阅读计数 |
 | `humanVerifiedReads` | 通过 human-read proof 的聚合计数 |
 | `uniqueViewerKeyEstimate` | 兼容字段，固定为 `0`，不再收集 viewer identity |
@@ -1279,7 +1279,7 @@ SiteStatsPod、共享 UTF-8 blob、popular article records、recent comment reco
 ### `PublicPageId` 枚举
 
 | 值 | 页面 | 路由键格式 |
-|----|------|-----------|
+| ---- | ------ | ----------- |
 | 1 | `Home` | `"home"` |
 | 2 | `ArticleDetail` | `"article:{id}"` |
 | 3 | `Filter` | 成功页面：`"category:{id}"`、`"tag:{id}"`；兼容解析入口：`"tag-name:{name}"`（只返回 301/404，不得进入成功 payload） |
@@ -1321,11 +1321,11 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 - AOT HTML 缓存同时校验 `rendererVersion` 与 frontend asset version；前端 `index.html` 或
   `.vite/manifest.json` 变化会自动拒绝旧缓存，并按 frontend asset version 隔离文件 artifact。
 - AOT HTML 模板只接受以下 5 个具名 sentinel；sentinel 是字符串相等匹配，不接受通配式标记：
-  - `<!--fsus:aot:head-start-->`：SEO/head 注入起点。
-  - `<!--fsus:aot:head-end-->`：SEO/head 注入终点。
-  - `<!--fsus:aot:app-->`：SPA/AOT shell 挂载点。
-  - `<!--fsus:aot:payloads-->`：bootstrap AEDS 注入点与 hydration `.aeds` sidecar marker 注入点。
-  - `<!--fsus:aot:spa-boot-->`：deferred SPA boot 注入点。
+    - `<!--fsus:aot:head-start-->`：SEO/head 注入起点。
+    - `<!--fsus:aot:head-end-->`：SEO/head 注入终点。
+    - `<!--fsus:aot:app-->`：SPA/AOT shell 挂载点。
+    - `<!--fsus:aot:payloads-->`：bootstrap AEDS 注入点与 hydration `.aeds` sidecar marker 注入点。
+    - `<!--fsus:aot:spa-boot-->`：deferred SPA boot 注入点。
 - 由 Public AOT 管理的 SEO head 节点必须带 `data-fsus-aot-head`，包括 `<title>` 和 `script[data-fsus-seo-head-model]`。HTML、navigation snapshot 和 SPA takeover 必须使用 `PublicSeoHeadModel` 同一语义实例；不得由客户端从 route meta 另行拼接 canonical、OG、Twitter 或 JSON-LD。新增 sentinel/head 字段必须同步 `src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs`、`docs/api/design.md` 和 `tests/frontend/checks/public/check-public-aot-contracts.mjs`。
 - 含 `<head>`、inline `script` 或 inline `style` 的 document 在 publication/decode 阶段编译 CSP nonce UTF-8 segment template。模板绑定 renderer version、frontend asset version、artifact ETag/digest；请求只写预计算 segment/slot，不重新扫描或生成完整 rendered string/byte array。malformed/重复 nonce、预渲染 `csp-nonce` meta、原始 placeholder、重复 head、未闭合或自闭合 script/style 必须 fail closed。
 - nonce document 响应固定为 identity、`Cache-Control: private,no-store`、无 `Content-Encoding`、无 `ETag`/`304`；`Accept-Encoding` 明确 `identity;q=0` 时返回 406。无 nonce document 继续使用预生成 identity/br/gzip variant 与各自 strong ETag。HEAD 只返回按实际随机 nonce 长度计算的 Content-Length，不写 body。
@@ -1362,7 +1362,7 @@ Public AOT 冷 miss 的分类结果固定为 `Success`、`NotFound`、`Gone`、`
 查询参数：
 
 | 参数 | 说明 |
-|------|------|
+| ------ | ------ |
 | `scope=all` | 默认，列出 Home / About / Privacy / Guidelines / Copyright / Archive / 全部公开文章，以及 Home/分类/标签的全部有效分页 |
 | `scope=hot` | 列出固定页与最近公开文章相关 route，用于轻量预热 |
 | `changedSince=<ISO-8601>` | 列出指定时间后变更/发布的公开文章及其关联分类、标签 route |
@@ -1467,7 +1467,6 @@ hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件
 - `hydrationPropsPayload`：hydration props AEDS payload，服务端 compose 时写为 `/aot-cache/payloads/{bucket}/{sha256}.aeds` raw frame，并通过 HTML marker 的 `data-aeds-src` 传递给客户端渲染器；该 sidecar 使用 `application/vnd.fsus.aeds` 与 immutable hash URL 缓存
 - `html`：Vue SSR 产出的页面 shell HTML；上传模板仍可含占位符（如 `{{articleId}}`），写入前会规范化
 
-
 `islandsPayload` 已退役。文章评论区接管统一使用 `hydrationPropsPayload.commentsIsland.articleId`。
 
 ### `Home` AOT payload shape
@@ -1515,7 +1514,6 @@ hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件
 - `filterKey` 是成功筛选页的稳定身份，只能是 `category:{id}` 或 `tag:{id}`。`tag-name:{name}` 仅供服务端解析历史 URL，解析成功后必须先 301，不能出现在 200 AOT payload。
 - 无效分类/标签目标必须设置 `isInvalidTarget=true`，且 `articles` 必须为空。
 - 客户端不得再从 path string 反推标题或筛选语义。
-
 
 ### `ArticleDetail` AOT payload shape
 
@@ -1612,7 +1610,7 @@ X-Fsus-Pow-Answer: <nonce 值>
 公开分发端点只暴露 `published` 且到达发布时间的文章；`draft`、`scheduled`、`archived`、`deleted` 不得出现在 feed、sitemap、related-reading、搜索索引或 PublicAOT 公开缓存中。
 
 | 方法 | 路径 | 响应 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/feed/rss.xml` | `application/rss+xml` | RSS 2.0，包含 title、canonical URL、summary、author、published/update time、cover enclosure |
 | GET | `/api/Article/rss` | `application/rss+xml` | 历史兼容路径，内容等同 `/feed/rss.xml` |
 | GET | `/feed/atom.xml` | `application/atom+xml` | Atom feed |
@@ -1633,7 +1631,7 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 ### Crawler Range Ops
 
 | 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
+| ------ | ------ | ------ | ------ |
 | GET | `/api/ops/crawler-ranges/status` | admin | 返回 Google/Bing CIDR 数量、最近同步时间、最近成功时间、来源和错误摘要 |
 
 该状态来自 `CrawlerUpdateWorker` 的远程官方 JSON → last-known-good snapshot → 配置项 → empty degraded 加载链，只用于运维诊断，不返回客户端 IP、User-Agent 或用户数据。远程 CIDR URL 必须是 HTTPS，host 只允许 `developers.google.com` 或 `www.bing.com`，且不得使用非默认 HTTPS 端口；生产启动校验、`PUT /api/binary/admin/security/anti-crawler/options` 和 worker 同步前都会拒绝非法 URL，不做兼容回退。
@@ -1643,7 +1641,7 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 订阅表单使用 AEDS，不保存明文 email；服务端只写入由 `Subscription:EmailHashPepper` 派生的 `HMAC-SHA256(normalizedEmail)` keyed lookup identifier、`hash_version` 与归一化 channel。该值仅用于本部署内去重/查找，不是明文 email，也不是跨环境或跨系统稳定身份标识；旧裸 `SHA256(normalizedEmail)` 只允许在迁移期作为一次性匹配来源并在下一次写入时升级到当前 HMAC。公开退订必须额外携带一次性 `X-Fsus-Subscription-Proof`，proof 由服务内部签发并可交给受控外部投递域发送，绑定 keyed email hash 与 channel；当前公开 API 不提供明文 email 查询或无 proof 退订入口。
 
 | 方法 | 路径 | 请求帧 | 响应帧 | 说明 |
-|------|------|--------|--------|------|
+| ------ | ------ | -------- | -------- | ------ |
 | POST | `/api/binary/subscriptions` | `SiteSubscriptionRequest` | `SiteSubscriptionResponse` | 启用订阅，响应只包含 `subscribed=true` 与归一化 channel |
 | DELETE | `/api/binary/subscriptions` | `SiteSubscriptionRequest` + `X-Fsus-Subscription-Proof` | `SiteSubscriptionResponse` | 退订；缺失、重放、过期或绑定不匹配返回 428 + `ApiError` frame，DB 不更新 |
 
@@ -1654,7 +1652,7 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 `ArticleRelatedReading` frame payload 使用 `RelatedReadingHeaderPod` + `RelatedReadingItemPod[]` + UTF-8 blob 编码；业务视图为 `RelatedReadingResponse`：
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `related` | `RelatedReadingItem[]` | 最多 6 条相关文章，按同分类、共同标签、全文关键词命中和发布时间接近度综合排序 |
 | `previous` | `RelatedReadingItem \| null` | 按 `publishedAt ?? createTime` 定位的上一篇公开文章 |
 | `next` | `RelatedReadingItem \| null` | 按 `publishedAt ?? createTime` 定位的下一篇公开文章 |
@@ -1676,7 +1674,7 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 `Article.Status` 的服务端枚举为：
 
 | 值 | 语义 |
-|----|------|
+| ---- | ------ |
 | `Draft` | 草稿，不进入公开读链 |
 | `Scheduled` | 定时发布候选，到点后由 worker 转为 `Published` |
 | `Published` | 公开可读 |
@@ -1700,7 +1698,7 @@ delete、restore、permanent-delete 必须先读取 article `xmin`，写入时�
 公开与管理端文章响应矩阵：
 
 | 路径族 | 身份 | 状态范围 | 失败语义 |
-|--------|------|----------|----------|
+| -------- | ------ | ---------- | ---------- |
 | `/api/binary/article/**.aeds` | 仅无身份匿名公开，客户端 `credentials: omit`；存在 principal/credential/CSRF header 时强制常规管线 | 仅 `Published` 且发布时间已到、`IsDeleted=false`；帧内管理尾字段只允许公开安全值；snapshot evidence 与 source version/cutoff 必须匹配 | L0 miss/not-ready/协议错误只返回 HTTP 状态；前端按 `404`/`503`/`400`/`406` 分别处理 |
 | `/api/binary/admin/article/**` | admin | draft/scheduled/published/archived/deleted 按 `status` 查询参数精确读取 | AEDS `ApiError` frame，错误码与 JSON 语义保持一致 |
 
@@ -1715,7 +1713,7 @@ Authoring binary 写入请求 body 最大 1 MiB。`ServerDraftSaveRequest` 字�
 Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，字段与 `ArticleWriteRequest.rights` 一一对应：`enabled`、`licenseType`、`copyrightHolder`、`copyrightYear`、`rightsStatement`、`attributionTemplate`、`copyPolicy`、`maxExcerptChars`、`allowCodeCopy`、`showPublicBadge`、`proofBindingEnabled`。新文章默认选择“继承站点设置”，管理端会读取站点合规版权配置生成当前生效的文章版权值，并在提交时写入完整 `ArticleWriteRequest.rights` 快照；这不是发布后继续动态跟随站点配置。用户切换为“自定义本文版权”后才允许修改单篇文章字段；编辑既有文章时从冻结 `ArticleDetail.rights` 载入当前策略并进入自定义模式。浏览器 localStorage 只保存不可恢复正文的草稿 metadata，不保存 `rights`、标题、摘要、正文或其他未发布内容；完整 `rights` 只写入 `ServerDraftSaveRequest`，私有预览、发布前检查和最终提交共享同一份当前表单构造。客户端会提前校验 enum values、`copyrightYear`、`maxExcerptChars` 和必填文本字段，但 server-side validation remains authoritative，服务端仍按 Article write path 规范化并拒绝非法或缺失的 V3 rights payload。
 
 | 方法 | 路径 | 说明 |
-|------|------|------|
+| ------ | ------ | ------ |
 | POST | `/api/binary/author/drafts` | 保存服务端草稿，按 `ownerAdminPrincipalId + draftKey` 幂等覆盖；owner 来自 admin principal `admin_id`，payload 包含 `status`、`scheduledPublishAt` 与完整 `rights` |
 | GET | `/api/binary/author/drafts/{draftKey}` | 读取服务端草稿；不存在时返回 `success=true,data=null`，存在时返回 `updatedAt`、`clientRevision`、发布状态、定时发布时间与 `rights` |
 | DELETE | `/api/binary/author/drafts/{draftKey}` | 丢弃服务端草稿；编辑器同步清除浏览器中的草稿 metadata |
@@ -1774,8 +1772,8 @@ Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，�
 | GET | `/api/ops/deployment/status` | 受保护发布状态 JSON；要求 admin principal `system.config`、fixed-IP limit 与 loopback source |
 | POST | `/api/ops/deployment/activate` | 受保护激活 CAS；body 为 `releaseId/slot/generation`，仅 Ready Candidate 接受；正确重复请求幂等 |
 | POST | `/api/ops/deployment/drain` | 受保护排空 CAS；body 为 `releaseId/slot/generation/timeoutSeconds?`，超时仅限 5..300 秒；正确重复请求幂等 |
-| GET/POST | `/api/ops/deployment/fence/status|acquire|revoke` | 受保护 active-release fence 查询/CAS/撤销；要求 admin principal `system.config`、fixed-IP limit 与 loopback source |
-| GET/POST | `/api/ops/deployment/notification-stream/restart/status|restart` | 受保护 notification stream 1012 restart 协议；请求必须绑定精确 release/slot/generation |
+| GET/POST | `/api/ops/deployment/fence/status | acquire | revoke` | 受保护 active-release fence 查询/CAS/撤销；要求 admin principal `system.config`、fixed-IP limit 与 loopback source |
+| GET/POST | `/api/ops/deployment/notification-stream/restart/status | restart` | 受保护 notification stream 1012 restart 协议；请求必须绑定精确 release/slot/generation |
 | POST | `/api/ops/deployment/notification-stream/drill/publish` | 零停机演练专用事件发布；`Deployment:NotificationStreamDrillEnabled=false` 时固定 404，启用后仍要求 admin `system.config`、loopback、active runtime 与 active fence |
 
 匿名 `/health/ready` 只返回最小 readiness 结果，配置错误和依赖异常必须被归一为 `configuration_invalid`、`dependency_unavailable` 等固定类别，不暴露配置键、validation error 列表、连接串、URL、CIDR、exception type 或 provider/backend 细节。完整失败明细只允许在受保护的 `/api/ops/health/ready-detail` 和后台运维视图中按权限查看。

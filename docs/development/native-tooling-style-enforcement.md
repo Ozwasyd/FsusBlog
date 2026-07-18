@@ -20,7 +20,7 @@ Use `--base <ref>` for stacked branches and `--full` for the authoritative repos
 ## Standard tool adapters
 
 | Surface | Standard configuration | Gate behavior |
-|---|---|---|
+| --- | --- | --- |
 | C++23 | `.clang-format`, `.clang-tidy` | 4 spaces, Allman braces, grouped includes, C# naming map, analyzer/warning profiles |
 | CMake | `.cmake-format.yaml`, `cmake/FsusWarnings.cmake` | 4 spaces, PascalCase project helpers, camelCase locals, preserved built-ins/cache names |
 | Shell | `.editorconfig`, `.shellcheckrc` | 4 spaces, strict mode, PascalCase functions, camelCase locals, quoted expansion, ShellCheck/shfmt adapters |

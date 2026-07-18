@@ -8,7 +8,7 @@ PublicHot operation is executed inside or before that transaction commits.
 ## State machine
 
 | From | Guard | To | Atomic database write |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `pending` | `next_retry_at <= now` | `processing` | set a random `claim_token`, `claimed_by`, `claimed_at`, `heartbeat_at`, and `claim_expires_at` |
 | expired `processing` | effective lease deadline `<= now` | `processing` | replace the old token and owner; report a stale reclaim |
 | live `processing` | matching token and unexpired deadline | `processing` | heartbeat and extend the deadline |

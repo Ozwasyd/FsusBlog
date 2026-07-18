@@ -3,7 +3,7 @@
 ## Acceptance map
 
 | Risk | Automated evidence | Expected invariant |
-|---|---|---|
+| --- | --- | --- |
 | claim/state machine drift | `ClaimStateMachine_PersistsOwnerHeartbeatAndIndependentRetrySchedule` | scheduling and lease fields are separate and persisted |
 | two workers race | `ConcurrentWorkers_OnlyCurrentClaimTokenCanWriteReceiptRetryOrCompletion` | only the current token can write any durable transition |
 | claim commit fails | `ClaimCommitFailure_CannotReachExternalEffects` | gate timeout/failed claim returns zero and all effect substitutes receive no call |

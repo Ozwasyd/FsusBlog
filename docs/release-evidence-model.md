@@ -5,7 +5,7 @@
 ## Evidence classes
 
 | Class | Canonical location | Fresh or release-gate authority |
-|---|---|---|
+| --- | --- | --- |
 | `contract` | `security/evidence-contracts/` | No; declares required behavior or storage policy |
 | `fixture` | `tests/fixtures/evidence/` | No; controlled test input only |
 | `implementation-attestation` | `security/evidence-contracts/` | No; records focused implementation state |

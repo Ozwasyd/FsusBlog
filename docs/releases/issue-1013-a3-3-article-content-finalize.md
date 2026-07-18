@@ -28,4 +28,3 @@ pair from backup.
 
 - `ArticleServiceValidationTests.ArticleService_SourceDoesNotQueryLegacyArticleContentColumn`
 - `RuntimeFallbackRetirementAcceptanceTests.A3_3_ArticleReadersHaveNoLegacyContentColumnFallback`
-

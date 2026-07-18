@@ -164,7 +164,7 @@ key 错误或 evidence 漂移会阻断 closeout，但不要求重启应用：切
 私有 rehearsal plan 的强字段为：
 
 | 区域 | 字段 | 约束 |
-|---|---|---|
+| --- | --- | --- |
 | traffic | `evidenceInputs.trafficBindingKey` | private key file，32..4096 bytes |
 | asset | `evidenceInputs.assetBrowserBindingKey` | 独立 private key file，32..4096 bytes |
 | migration binary | `target.migrationServerDll` | target manifest 对应的精确 Server DLL |
@@ -295,7 +295,7 @@ tools/operations/check-slo-alert-fixture.mjs
 It writes `.tmp/operations/slo-alert-fixture.json`. With no argument it uses an embedded synthetic incident and asserts that every required alert can fire. A production or CI fixture can be passed as the first argument; it should include `/api/ops/health/ready-detail` JSON, `notificationStream.slowDisconnectsLast5m`, security status report data, `security.authRefreshFamilyRevokeWindowsLast5m` from the bounded refresh-replay metric window, `security.authRefreshCookieWriteFailedLastMinute`, and optional thresholds such as `authRefreshCookieWriteFailedLastMinute`.
 
 | Alert | Impact | Investigation entry | Rollback or degradation action |
-|-------|--------|---------------------|--------------------------------|
+| ------- | -------- | --------------------- | -------------------------------- |
 | `ready_degraded` | Candidate traffic switch and release closeout are blocked. | `/health/ready` status, `/api/ops/health/ready-detail`, runtime startup tasks, scheduled publish snapshot, app logs. | Keep traffic away from the candidate image or switch back to the previous image tag. |
 | `db_latency_high` | Cache misses, authoring writes, reads and migrations can stall behind PostgreSQL pressure. | `/api/ops/health/ready-detail` `checks.postgres.latencyMs`, DB concurrency gate snapshot, slow SQL logs, PostgreSQL connection usage. | Reduce public traffic, pause non-essential writes/background work, then rollback if latency started with the deploy. |
 | `redis_latency_high` | L2 cache, WebSocket notification backlog replay and cache-control fanout can become slow or stale. | `/api/ops/health/ready-detail` `checks.redis.latencyMs`, Redis memory/eviction policy, network path and command latency. | Keep the app out of new traffic until Redis recovers; allow public fallback only after readiness is healthy. |
@@ -423,7 +423,7 @@ The supply-chain script verifies npm and NuGet lock files, runs `dotnet list pac
 Author AI assist is an admin-only authoring tool and stays local by default. The endpoint writes `author-ai-assist` audit records and returns provider state to the editor so the author can see whether suggestions came from local fallback or an explicitly reviewed provider path.
 
 | Setting | Required value for external provider |
-|---------|--------------------------------------|
+| --------- | -------------------------------------- |
 | `Authoring:AiAssist:Enabled` | `true` |
 | `Authoring:AiAssist:Provider` | non-`local` provider id |
 | `Authoring:AiAssist:AllowExternalProvider` | `true` |

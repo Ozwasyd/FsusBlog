@@ -9,7 +9,7 @@ This document does not recreate the claimed 85-row source report. `artifacts/dea
 The index keeps three kinds of evidence separate:
 
 | Layer | Meaning | What it does not prove |
-|---|---|---|
+| --- | --- | --- |
 | GitHub historical evidence | A child issue state, owner completion comment, and commit identifiers observed through `gh issue view --comments` on 2026-07-11. | It does not prove the current shared worktree builds or still passes the historical commands. |
 | Current worktree evidence | Paths that exist in the current repository and can be inspected by the later verification phase. Every entry currently says `verificationStatus=not-run`. | Path presence is not a test result and is not acceptance proof. |
 | Source audit report | The original per-finding report named by #1015. | It is missing and ignored, so the 85/44/41 counts remain issue-body claims rather than a current recount. |
@@ -30,7 +30,7 @@ The claimed finding total remains 85 = 44 CONFIRMED + 41 PLAUSIBLE. `currentReco
 
 ## Stage gates
 
-#1013 and #1014 are fail-closed. Code deletion or local tests alone cannot satisfy their production milestones.
+# 1013 and #1014 are fail-closed. Code deletion or local tests alone cannot satisfy their production milestones.
 
 For #1013, completion requires evidence for all six triggers:
 

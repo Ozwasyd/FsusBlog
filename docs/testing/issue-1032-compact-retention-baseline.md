@@ -39,4 +39,3 @@ loss、coverage regression 和 mutation-slice drift。
 本轮按统一实施指令只落地 schema、checker 兼容和直接测试源码，没有运行测试、构建、
 lint、syntax check、治理 checker、coverage、mutation 或 production fresh。统一验证阶段须
 生成 source-bound after audit，再由 optimization/convergence authority 给出最终结论。
-

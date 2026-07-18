@@ -29,4 +29,3 @@ degradation path while upload writes continue to use indexed sessions.
 
 - `FileServiceTests.UploadSessionCleanup_SourceUsesExpirationBucketIndex`
 - `RuntimeFallbackRetirementAcceptanceTests.A3_1_UploadCleanupHasNoLegacySessionRootSweep`
-

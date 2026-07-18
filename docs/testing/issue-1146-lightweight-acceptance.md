@@ -3,7 +3,7 @@
 原 35 个 route/auth/user/admin/public Acceptance 场景已经按错误发现边界拆分：31 个场景迁移到 Router、mounted component、生产 API adapter、HTTP renderer 或隔离 PostgreSQL integration；仅 4 个真实 hydration/navigation 场景保留在 serial Browser Contract。权威逐条记录是 `tests/issue-1146-acceptance-baseline.json` 与 `tests/issue-1146-retention-replacements.json`，中央 retention 链同步在 `tests/test-retention-replacements.json`。
 
 | 责任层 | 当前覆盖 |
-|---|---|
+| --- | --- |
 | Router | route/path/name 唯一性、anonymous/user/admin、permission、guestOnly、redirect、403/404、AOT defer、deep link |
 | Vue component | loading/error/empty/success、表单启用与 inline error、dialog、message list/compose/thread、mobile navigation、aria-current、admin dashboard |
 | API/backend | 生产 AEDS adapter、工单持久化与 notification/cache、评论审核事务、文章发布 fence/rights/outbox、账号 ban/cache |

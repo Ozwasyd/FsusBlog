@@ -29,7 +29,7 @@ FsusUI 的组件源码和主题源码仍由 FsusUI 仓库单一拥有。FsusBlog
 Archive sticky/hash geometry 不能脱离真实页面、header、hydration 与滚动容器，因此 `tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts` 保留为 release-preview integration。它与 isolated menu harness 在同一 diagnostics category 中顺序执行，但 evidence 必须分别标记：
 
 | Probe | Scope | Runtime dependencies |
-|---|---|---|
+| --- | --- | --- |
 | public mobile menu | `isolated-component-harness` | local FsusUI source/dist、managed Chromium |
 | archive sticky/hash | `release-preview-integration` | FsusBlog release preview/archive runtime、managed Chromium |
 

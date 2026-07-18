@@ -20,7 +20,7 @@ Core, backend, benchmarks, and backend tests import the generated Shared packed 
 - Payload: compact POD bytes (from `PodBinaryCodec`)
 
 | Offset | Size | Field | Type |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | 0 | 4 | Magic | `uint32` (`0x53444541`, bytes: `41 45 44 53`, text: `AEDS`) |
 | 4 | 1 | Version | `uint8` (`2`) |
 | 5 | 1 | HeaderLength | `uint8` (`16`) |
@@ -226,7 +226,7 @@ A future `ArticleListV4` category/tag dictionary may add explicit category/tag d
 Notification payload values use a small tagged binary representation so the WebSocket stream is fully AEDS-native:
 
 | Kind | Type | Layout |
-|---:|---|---|
+| ---: | --- | --- |
 | 0 | Null | no bytes |
 | 1 | String | `int32 utf8Length`, `byte[utf8Length]` |
 | 2 | Int32 | `int32 value` |
