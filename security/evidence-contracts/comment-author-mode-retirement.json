@@ -1,26 +1,49 @@
 {
-  "schema": "fsusblog-comment-author-mode-retirement-v1",
-  "evidenceClass": "implementation-attestation",
-  "freshExecution": false,
-  "releaseBound": false,
-  "generatedFrom": {
-    "kind": "issue-implementation",
-    "source": "issue-1137-focused-validation"
-  },
-  "issue": 1137,
-  "productionWriteModes": ["public", "zk_anonymous"],
-  "historicalReadMode": "legacy_server_visible_pseudonymous",
-  "migration": {
-    "preserves": ["row-count", "parent-root-reply-shape", "visibility", "moderation-status", "content", "display-name"],
-    "isolates": ["anonymous-nullifier", "moderation-subject", "credential-level", "reputation-bucket", "account-age-bucket"]
-  },
-  "failClosed": ["zk-disabled", "verifier-unavailable", "root-unavailable", "root-expired", "proof-invalid", "identified-principal"],
-  "rollbackWithoutRestart": "Disable zk_anonymous through the persisted anonymous comment policy. Public creation remains available only after explicit opt-in; retired anonymous is never restored.",
-  "validation": [
-    "node tools/security/check-comment-author-mode-retirement.mjs",
-    "node tools/security/check-security-matrices.mjs",
-    "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter CommentAuthorModeRetirementTests|AnonymousCommentPolicyTests|ActorResolverBehaviorTests|AnonymousCommentTicketServiceTests|RejectIdentifiedPrincipalFilterTests|PodBinaryCodecTests",
-    "frontend focused Vitest and typecheck"
-  ],
-  "productionFreshRun": false
+    "schema": "fsusblog-comment-author-mode-retirement-v1",
+    "evidenceClass": "implementation-attestation",
+    "freshExecution": false,
+    "releaseBound": false,
+    "generatedFrom": {
+        "kind": "issue-implementation",
+        "source": "issue-1137-focused-validation"
+    },
+    "issue": 1137,
+    "productionWriteModes": [
+        "public",
+        "zk_anonymous"
+    ],
+    "historicalReadMode": "legacy_server_visible_pseudonymous",
+    "migration": {
+        "preserves": [
+            "row-count",
+            "parent-root-reply-shape",
+            "visibility",
+            "moderation-status",
+            "content",
+            "display-name"
+        ],
+        "isolates": [
+            "anonymous-nullifier",
+            "moderation-subject",
+            "credential-level",
+            "reputation-bucket",
+            "account-age-bucket"
+        ]
+    },
+    "failClosed": [
+        "zk-disabled",
+        "verifier-unavailable",
+        "root-unavailable",
+        "root-expired",
+        "proof-invalid",
+        "identified-principal"
+    ],
+    "rollbackWithoutRestart": "Disable zk_anonymous through the persisted anonymous comment policy. Public creation remains available only after explicit opt-in; retired anonymous is never restored.",
+    "validation": [
+        "node tools/security/check-comment-author-mode-retirement.mjs",
+        "node tools/security/check-security-matrices.mjs",
+        "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter CommentAuthorModeRetirementTests|AnonymousCommentPolicyTests|ActorResolverBehaviorTests|AnonymousCommentTicketServiceTests|RejectIdentifiedPrincipalFilterTests|PodBinaryCodecTests",
+        "frontend focused Vitest and typecheck"
+    ],
+    "productionFreshRun": false
 }

@@ -1,82 +1,82 @@
 {
-  "schemaVersion": "fsus.issue-governance-handoff.v1",
-  "issue": 1015,
-  "status": "central-registration-complete-external-stage-evidence-pending-validation-not-run",
-  "centralFilesIntegrated": [
-    "tests/coverage-registry.json",
-    "tests/matrix.yml",
-    "tests/backend/Fixtures/backend-test-requirements.json",
-    "tools/test/lanes/static-governance.sh"
-  ],
-  "conflictingIssuePathsNotModified": {
-    "1031": "deployment rollout implementation and evidence paths",
-    "1013": "runtime fallback, migration, cookie, article content, AOT, and storage cleanup paths",
-    "1014": "legacy identity admission/auth/reset/bootstrap paths"
-  },
-  "centralIntegration": [
-    {
-      "owner": "root/static-governance",
-      "file": "tools/test/lanes/static-governance.sh",
-      "add": "node tools/governance/check-dead-code-audit-index.mjs",
-      "status": "present-not-verified",
-      "reason": "Default mode validates truthful tracking state and reports all blockers without requiring external milestones to be complete.",
-      "constraint": "Do not pass --require-complete in ordinary static governance and do not add a maximum-error count."
+    "schemaVersion": "fsus.issue-governance-handoff.v1",
+    "issue": 1015,
+    "status": "central-registration-complete-external-stage-evidence-pending-validation-not-run",
+    "centralFilesIntegrated": [
+        "tests/coverage-registry.json",
+        "tests/matrix.yml",
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tools/test/lanes/static-governance.sh"
+    ],
+    "conflictingIssuePathsNotModified": {
+        "1031": "deployment rollout implementation and evidence paths",
+        "1013": "runtime fallback, migration, cookie, article content, AOT, and storage cleanup paths",
+        "1014": "legacy identity admission/auth/reset/bootstrap paths"
     },
-    {
-      "owner": "root/final-closure",
-      "file": "final issue/release closeout workflow",
-      "add": "node tools/governance/check-dead-code-audit-index.mjs --require-complete",
-      "status": "intentionally-deferred-until-external-stage-evidence-is-complete",
-      "reason": "Final closure must fail until the original report, current validation, and both stage issues have complete evidence."
+    "centralIntegration": [
+        {
+            "owner": "root/static-governance",
+            "file": "tools/test/lanes/static-governance.sh",
+            "add": "node tools/governance/check-dead-code-audit-index.mjs",
+            "status": "present-not-verified",
+            "reason": "Default mode validates truthful tracking state and reports all blockers without requiring external milestones to be complete.",
+            "constraint": "Do not pass --require-complete in ordinary static governance and do not add a maximum-error count."
+        },
+        {
+            "owner": "root/final-closure",
+            "file": "final issue/release closeout workflow",
+            "add": "node tools/governance/check-dead-code-audit-index.mjs --require-complete",
+            "status": "intentionally-deferred-until-external-stage-evidence-is-complete",
+            "reason": "Final closure must fail until the original report, current validation, and both stage issues have complete evidence."
+        },
+        {
+            "owner": "root/test-matrix",
+            "file": "tests/matrix.yml",
+            "request": "Register tests/tools/dead-code-audit-index.test.mjs in an existing Node governance tier without creating a serial-only lane.",
+            "status": "present-not-verified",
+            "tierId": "static-governance"
+        },
+        {
+            "owner": "root/coverage-registry",
+            "file": "tests/coverage-registry.json",
+            "request": "Add issue-1015 dead-code audit governance coverage pointing to the Node test, checker, index, and issue-local evidence.",
+            "status": "present-not-verified",
+            "coverageId": "dead-code-audit-governance"
+        },
+        {
+            "owner": "root/backend-test-requirements",
+            "file": "tests/backend/Fixtures/backend-test-requirements.json",
+            "request": "Only add a requirement if the catalog models repository-wide Node governance; do not misclassify this as a backend runtime test.",
+            "status": "present-not-verified",
+            "requirementId": "BACKEND-TRACEABILITY",
+            "classification": "repository-wide-governance-evidence-only; not a backend runtime test"
+        }
+    ],
+    "sourceReportRecovery": {
+        "currentAction": "Do not remove the .gitignore rule and do not synthesize the missing 85 findings.",
+        "ifRecovered": [
+            "Review all rows against primary evidence.",
+            "Remove the exact ignore rule only after the report is ready to check in.",
+            "Record sha256:<64 lowercase hex> in docs/planning/dead-code-audit-index.json.",
+            "Set sourceReport.availability to checked-in-complete.",
+            "Perform and record a current finding recount."
+        ]
     },
-    {
-      "owner": "root/test-matrix",
-      "file": "tests/matrix.yml",
-      "request": "Register tests/tools/dead-code-audit-index.test.mjs in an existing Node governance tier without creating a serial-only lane.",
-      "status": "present-not-verified",
-      "tierId": "static-governance"
-    },
-    {
-      "owner": "root/coverage-registry",
-      "file": "tests/coverage-registry.json",
-      "request": "Add issue-1015 dead-code audit governance coverage pointing to the Node test, checker, index, and issue-local evidence.",
-      "status": "present-not-verified",
-      "coverageId": "dead-code-audit-governance"
-    },
-    {
-      "owner": "root/backend-test-requirements",
-      "file": "tests/backend/Fixtures/backend-test-requirements.json",
-      "request": "Only add a requirement if the catalog models repository-wide Node governance; do not misclassify this as a backend runtime test.",
-      "status": "present-not-verified",
-      "requirementId": "BACKEND-TRACEABILITY",
-      "classification": "repository-wide-governance-evidence-only; not a backend runtime test"
+    "stageUpdatePolicy": [
+        "Read the full live #1013/#1014 bodies and comments before changing their GitHub snapshots.",
+        "Keep each trigger false until a concrete current evidence path exists.",
+        "Do not infer production SQL counts, release cycles, AOT rebuilds, or identity reset completion from source deletion.",
+        "A complete stage requires both all trigger evidence and observed closed GitHub state."
+    ],
+    "testRegistrationRequests": [
+        {
+            "path": "tests/tools/dead-code-audit-index.test.mjs",
+            "suggestedTier": "static-governance",
+            "status": "present-not-verified"
+        }
+    ],
+    "validation": {
+        "status": "not-run",
+        "executedCommands": []
     }
-  ],
-  "sourceReportRecovery": {
-    "currentAction": "Do not remove the .gitignore rule and do not synthesize the missing 85 findings.",
-    "ifRecovered": [
-      "Review all rows against primary evidence.",
-      "Remove the exact ignore rule only after the report is ready to check in.",
-      "Record sha256:<64 lowercase hex> in docs/planning/dead-code-audit-index.json.",
-      "Set sourceReport.availability to checked-in-complete.",
-      "Perform and record a current finding recount."
-    ]
-  },
-  "stageUpdatePolicy": [
-    "Read the full live #1013/#1014 bodies and comments before changing their GitHub snapshots.",
-    "Keep each trigger false until a concrete current evidence path exists.",
-    "Do not infer production SQL counts, release cycles, AOT rebuilds, or identity reset completion from source deletion.",
-    "A complete stage requires both all trigger evidence and observed closed GitHub state."
-  ],
-  "testRegistrationRequests": [
-    {
-      "path": "tests/tools/dead-code-audit-index.test.mjs",
-      "suggestedTier": "static-governance",
-      "status": "present-not-verified"
-    }
-  ],
-  "validation": {
-    "status": "not-run",
-    "executedCommands": []
-  }
 }

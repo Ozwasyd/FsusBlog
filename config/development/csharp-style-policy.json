@@ -1,176 +1,373 @@
 {
-  "schema": "fsusblog.csharp-style-policy.v1",
-  "editorConfig": ".editorconfig",
-  "workspace": "FsusBlog.slnx",
-  "baseline": "config/development/csharp-style-baseline.json",
-  "minimumDotnetMajor": 10,
-  "format": {
-    "whitespaceCommand": "dotnet format whitespace --folder --verify-no-changes",
-    "styleCommand": "dotnet format style FsusBlog.slnx --verify-no-changes --no-restore --severity info",
-    "changedDefaultBase": "HEAD^",
-    "fullMode": "baseline-aware",
-    "strictFullMode": "dotnet-format"
-  },
-  "excludedPaths": [
-    "**/bin/**",
-    "**/obj/**",
-    "**/generated/**",
-    "**/Generated/**",
-    "**/*.g.cs",
-    "**/*.generated.cs",
-    "**/*.designer.cs",
-    "src/core/Algorithms/AedsFrameType.cs",
-    "artifacts/**",
-    "**/vendor/**",
-    "tools/vcpkg-overlays/**",
-    "**/node_modules/**",
-    "tests/**/Fixtures/**",
-    "tests/**/fixtures/**"
-  ],
-  "naming": {
-    "interfacePrefix": "I",
-    "privateInstanceFieldPrefix": "_",
-    "privateStaticFieldPrefix": "s_",
-    "threadStaticFieldPrefix": "t_",
-    "forbidConsecutiveUnderscores": true,
-    "pascalCaseSeparatorScopes": [
-      "tests/**/*.cs",
-      "benchmarks/**/*.cs"
+    "schema": "fsusblog.csharp-style-policy.v1",
+    "editorConfig": ".editorconfig",
+    "workspace": "FsusBlog.slnx",
+    "baseline": "config/development/csharp-style-baseline.json",
+    "minimumDotnetMajor": 10,
+    "format": {
+        "whitespaceCommand": "dotnet format whitespace --folder --verify-no-changes",
+        "styleCommand": "dotnet format style FsusBlog.slnx --verify-no-changes --no-restore --severity info",
+        "changedDefaultBase": "HEAD^",
+        "fullMode": "baseline-aware",
+        "strictFullMode": "dotnet-format"
+    },
+    "excludedPaths": [
+        "**/bin/**",
+        "**/obj/**",
+        "**/generated/**",
+        "**/Generated/**",
+        "**/*.g.cs",
+        "**/*.generated.cs",
+        "**/*.designer.cs",
+        "src/core/Algorithms/AedsFrameType.cs",
+        "artifacts/**",
+        "**/vendor/**",
+        "tools/vcpkg-overlays/**",
+        "**/node_modules/**",
+        "tests/**/Fixtures/**",
+        "tests/**/fixtures/**"
     ],
-    "roslynCompatibilityExceptions": [
-      {
-        "path": "src/shared/Contracts/Outputs/ServerResponseContracts.cs",
-        "declarations": [
-          { "name": "GlobalNoticePayload", "parameters": ["id", "title", "time"] },
-          { "name": "MessageRevokedPayload", "parameters": ["messageId", "unreadCount", "time"] },
-          { "name": "AccountStatusPayload", "parameters": ["status", "reason", "time"] },
-          { "name": "SessionRevokedPayload", "parameters": ["reason", "revokedSessionCount", "time"] },
-          { "name": "NoticePayload", "parameters": ["title", "unreadCount", "time"] },
-          { "name": "InboxConversationUpsertPayload", "parameters": ["Conversation", "TotalUnread", "Time"] },
-          { "name": "InboxMessageAppendPayload", "parameters": ["ConversationId", "Message", "ConversationUnreadCount", "TotalUnread", "Time"] },
-          { "name": "InboxReadUpdatedPayload", "parameters": ["ConversationId", "LastReadMessageId", "ConversationUnreadCount", "TotalUnread", "Time"] },
-          { "name": "InboxConversationClosedPayload", "parameters": ["ConversationId", "Status", "Time"] },
-          { "name": "CommentRemovedPayload", "parameters": ["articleId", "commentId", "rootId", "parentId", "time"] }
+    "naming": {
+        "interfacePrefix": "I",
+        "privateInstanceFieldPrefix": "_",
+        "privateStaticFieldPrefix": "s_",
+        "threadStaticFieldPrefix": "t_",
+        "forbidConsecutiveUnderscores": true,
+        "pascalCaseSeparatorScopes": [
+            "tests/**/*.cs",
+            "benchmarks/**/*.cs"
         ],
-        "reason": "Legacy notification record parameter casing determines published property and wire contract names."
-      },
-      {
-        "path": "src/backend/Infrastructure/Helpers/Security/ModernAcAutomaton.cs",
-        "fields": ["t_ruleRemainingScratch", "t_touchedRuleScratch"],
-        "reason": "Roslyn naming symbol groups cannot distinguish ThreadStatic fields; the repository checker enforces t_camelCase."
-      },
-      {
-        "path": "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
-        "declarations": [
-          { "name": "BannedUserMiddleware", "parameters": ["_next"] }
+        "roslynCompatibilityExceptions": [
+            {
+                "path": "src/shared/Contracts/Outputs/ServerResponseContracts.cs",
+                "declarations": [
+                    {
+                        "name": "GlobalNoticePayload",
+                        "parameters": [
+                            "id",
+                            "title",
+                            "time"
+                        ]
+                    },
+                    {
+                        "name": "MessageRevokedPayload",
+                        "parameters": [
+                            "messageId",
+                            "unreadCount",
+                            "time"
+                        ]
+                    },
+                    {
+                        "name": "AccountStatusPayload",
+                        "parameters": [
+                            "status",
+                            "reason",
+                            "time"
+                        ]
+                    },
+                    {
+                        "name": "SessionRevokedPayload",
+                        "parameters": [
+                            "reason",
+                            "revokedSessionCount",
+                            "time"
+                        ]
+                    },
+                    {
+                        "name": "NoticePayload",
+                        "parameters": [
+                            "title",
+                            "unreadCount",
+                            "time"
+                        ]
+                    },
+                    {
+                        "name": "InboxConversationUpsertPayload",
+                        "parameters": [
+                            "Conversation",
+                            "TotalUnread",
+                            "Time"
+                        ]
+                    },
+                    {
+                        "name": "InboxMessageAppendPayload",
+                        "parameters": [
+                            "ConversationId",
+                            "Message",
+                            "ConversationUnreadCount",
+                            "TotalUnread",
+                            "Time"
+                        ]
+                    },
+                    {
+                        "name": "InboxReadUpdatedPayload",
+                        "parameters": [
+                            "ConversationId",
+                            "LastReadMessageId",
+                            "ConversationUnreadCount",
+                            "TotalUnread",
+                            "Time"
+                        ]
+                    },
+                    {
+                        "name": "InboxConversationClosedPayload",
+                        "parameters": [
+                            "ConversationId",
+                            "Status",
+                            "Time"
+                        ]
+                    },
+                    {
+                        "name": "CommentRemovedPayload",
+                        "parameters": [
+                            "articleId",
+                            "commentId",
+                            "rootId",
+                            "parentId",
+                            "time"
+                        ]
+                    }
+                ],
+                "reason": "Legacy notification record parameter casing determines published property and wire contract names."
+            },
+            {
+                "path": "src/backend/Infrastructure/Helpers/Security/ModernAcAutomaton.cs",
+                "fields": [
+                    "t_ruleRemainingScratch",
+                    "t_touchedRuleScratch"
+                ],
+                "reason": "Roslyn naming symbol groups cannot distinguish ThreadStatic fields; the repository checker enforces t_camelCase."
+            },
+            {
+                "path": "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
+                "declarations": [
+                    {
+                        "name": "BannedUserMiddleware",
+                        "parameters": [
+                            "_next"
+                        ]
+                    }
+                ],
+                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
+            },
+            {
+                "path": "src/backend/Infrastructure/Helpers/Initializer/CacheInitializer.cs",
+                "declarations": [
+                    {
+                        "name": "CacheInitializer",
+                        "parameters": [
+                            "_db",
+                            "_blacklist",
+                            "_cache"
+                        ]
+                    }
+                ],
+                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
+            },
+            {
+                "path": "src/backend/Infrastructure/Middlewares/CrawlerAuthMiddleware.cs",
+                "declarations": [
+                    {
+                        "name": "CrawlerAuthMiddleware",
+                        "parameters": [
+                            "_next",
+                            "_detector"
+                        ]
+                    }
+                ],
+                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
+            },
+            {
+                "path": "src/backend/Infrastructure/Middlewares/GlobalExceptionMiddleware.cs",
+                "declarations": [
+                    {
+                        "name": "GlobalExceptionMiddleware",
+                        "parameters": [
+                            "_next",
+                            "_logger",
+                            "_env"
+                        ]
+                    }
+                ],
+                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
+            },
+            {
+                "path": "src/backend/Services/ArticleService.cs",
+                "declarations": [
+                    {
+                        "name": "ArticleService",
+                        "parameters": [
+                            "_db",
+                            "_searchIndex",
+                            "_redisConnection",
+                            "_cache",
+                            "_cacheMissCoordinator",
+                            "_dbConcurrencyGate",
+                            "_runtimeKeyScope",
+                            "_httpContextAccessor",
+                            "_logger",
+                            "_publicAotInvalidationService",
+                            "_cacheInvalidationDispatcher",
+                            "_mutationSideEffects",
+                            "_viewWriteBuffer"
+                        ]
+                    }
+                ],
+                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
+            },
+            {
+                "path": "src/backend/Services/Background/CrawlerUpdateWorker.cs",
+                "declarations": [
+                    {
+                        "name": "CrawlerUpdateWorker",
+                        "parameters": [
+                            "_serviceProvider",
+                            "_configuration",
+                            "_httpClientFactory",
+                            "_policyProvider",
+                            "_logger",
+                            "workerLease",
+                            "timeProvider",
+                            "activeReleaseCommitGuard"
+                        ]
+                    }
+                ],
+                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
+            },
+            {
+                "path": "src/backend/Services/Background/LogCleanupService.cs",
+                "declarations": [
+                    {
+                        "name": "LogCleanupService",
+                        "parameters": [
+                            "_serviceProvider",
+                            "_logger",
+                            "workerLease",
+                            "timeProvider",
+                            "transactionalCommitGuard",
+                            "activeReleaseCommitGuard",
+                            "retentionErasureService",
+                            "legalHoldRegistry",
+                            "fallbackRetentionPurger"
+                        ]
+                    }
+                ],
+                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
+            },
+            {
+                "path": "src/backend/Services/StatsService.cs",
+                "declarations": [
+                    {
+                        "name": "StatsService",
+                        "parameters": [
+                            "_db",
+                            "_cache",
+                            "_cacheMissCoordinator",
+                            "_dbConcurrencyGate",
+                            "_readAnalyticsPrivacy",
+                            "_logger"
+                        ]
+                    }
+                ],
+                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
+            },
+            {
+                "path": "src/backend/Services/SystemService.cs",
+                "declarations": [
+                    {
+                        "name": "SystemService",
+                        "parameters": [
+                            "_db",
+                            "_cache",
+                            "_cacheMissCoordinator",
+                            "_dbConcurrencyGate",
+                            "_logger",
+                            "_publicAotInvalidationService",
+                            "_messageService",
+                            "_cacheInvalidationDispatcher"
+                        ]
+                    }
+                ],
+                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
+            },
+            {
+                "path": "src/backend/Services/UserService.cs",
+                "declarations": [
+                    {
+                        "name": "UserService",
+                        "parameters": [
+                            "_db",
+                            "_logger",
+                            "_jwtHelper",
+                            "_cache",
+                            "_blacklistService",
+                            "_messageCommandService",
+                            "_messageRealtimePublisher",
+                            "_totpService",
+                            "_authRiskService",
+                            "_userSessionValidationCache"
+                        ]
+                    }
+                ],
+                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
+            }
         ],
-        "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-      },
-      {
-        "path": "src/backend/Infrastructure/Helpers/Initializer/CacheInitializer.cs",
-        "declarations": [
-          { "name": "CacheInitializer", "parameters": ["_db", "_blacklist", "_cache"] }
+        "externalContractAttributes": [
+            "JsonPropertyName",
+            "JsonProperty",
+            "Column",
+            "DataMember"
+        ]
+    },
+    "xmlDocumentation": {
+        "scopes": [
+            "src/shared/Contracts/**",
+            "src/core/Algorithms/**",
+            "src/core/Cache/PodBinaryCodec*.cs",
+            "tools/architecture/**",
+            "src/backend/Infrastructure/Auth/**",
+            "src/backend/Infrastructure/Security/**",
+            "src/backend/Infrastructure/Privacy/**"
         ],
-        "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-      },
-      {
-        "path": "src/backend/Infrastructure/Middlewares/CrawlerAuthMiddleware.cs",
-        "declarations": [
-          { "name": "CrawlerAuthMiddleware", "parameters": ["_next", "_detector"] }
+        "memberScopes": [
+            "src/core/Algorithms/**",
+            "src/core/Cache/PodBinaryCodec*.cs",
+            "tools/architecture/**",
+            "src/backend/Infrastructure/Auth/**",
+            "src/backend/Infrastructure/Security/**",
+            "src/backend/Infrastructure/Privacy/**"
         ],
-        "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-      },
-      {
-        "path": "src/backend/Infrastructure/Middlewares/GlobalExceptionMiddleware.cs",
-        "declarations": [
-          { "name": "GlobalExceptionMiddleware", "parameters": ["_next", "_logger", "_env"] }
+        "declarationAccessibilities": [
+            "public"
         ],
-        "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-      },
-      {
-        "path": "src/backend/Services/ArticleService.cs",
-        "declarations": [
-          {
-            "name": "ArticleService",
-            "parameters": ["_db", "_searchIndex", "_redisConnection", "_cache", "_cacheMissCoordinator", "_dbConcurrencyGate", "_runtimeKeyScope", "_httpContextAccessor", "_logger", "_publicAotInvalidationService", "_cacheInvalidationDispatcher", "_mutationSideEffects", "_viewWriteBuffer"]
-          }
+        "excludeModifiers": [
+            "override"
+        ]
+    },
+    "enumNaming": {
+        "flagsMustBePlural": true,
+        "nonFlagsMustBeSingular": true,
+        "acceptedSingularSuffixes": [
+            "Status",
+            "State",
+            "Kind",
+            "Type",
+            "Mode",
+            "Policy",
+            "Code",
+            "Role",
+            "Action",
+            "Reason",
+            "Level",
+            "Phase",
+            "Class"
         ],
-        "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-      },
-      {
-        "path": "src/backend/Services/Background/CrawlerUpdateWorker.cs",
-        "declarations": [
-          { "name": "CrawlerUpdateWorker", "parameters": ["_serviceProvider", "_configuration", "_httpClientFactory", "_policyProvider", "_logger", "workerLease", "timeProvider", "activeReleaseCommitGuard"] }
-        ],
-        "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-      },
-      {
-        "path": "src/backend/Services/Background/LogCleanupService.cs",
-        "declarations": [
-          { "name": "LogCleanupService", "parameters": ["_serviceProvider", "_logger", "workerLease", "timeProvider", "transactionalCommitGuard", "activeReleaseCommitGuard", "retentionErasureService", "legalHoldRegistry", "fallbackRetentionPurger"] }
-        ],
-        "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-      },
-      {
-        "path": "src/backend/Services/StatsService.cs",
-        "declarations": [
-          { "name": "StatsService", "parameters": ["_db", "_cache", "_cacheMissCoordinator", "_dbConcurrencyGate", "_readAnalyticsPrivacy", "_logger"] }
-        ],
-        "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-      },
-      {
-        "path": "src/backend/Services/SystemService.cs",
-        "declarations": [
-          { "name": "SystemService", "parameters": ["_db", "_cache", "_cacheMissCoordinator", "_dbConcurrencyGate", "_logger", "_publicAotInvalidationService", "_messageService", "_cacheInvalidationDispatcher"] }
-        ],
-        "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-      },
-      {
-        "path": "src/backend/Services/UserService.cs",
-        "declarations": [
-          { "name": "UserService", "parameters": ["_db", "_logger", "_jwtHelper", "_cache", "_blacklistService", "_messageCommandService", "_messageRealtimePublisher", "_totpService", "_authRiskService", "_userSessionValidationCache"] }
-        ],
-        "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-      }
-    ],
-    "externalContractAttributes": [
-      "JsonPropertyName",
-      "JsonProperty",
-      "Column",
-      "DataMember"
-    ]
-  },
-  "xmlDocumentation": {
-    "scopes": [
-      "src/shared/Contracts/**",
-      "src/core/Algorithms/**",
-      "src/core/Cache/PodBinaryCodec*.cs",
-      "tools/architecture/**",
-      "src/backend/Infrastructure/Auth/**",
-      "src/backend/Infrastructure/Security/**",
-      "src/backend/Infrastructure/Privacy/**"
-    ],
-    "memberScopes": [
-      "src/core/Algorithms/**",
-      "src/core/Cache/PodBinaryCodec*.cs",
-      "tools/architecture/**",
-      "src/backend/Infrastructure/Auth/**",
-      "src/backend/Infrastructure/Security/**",
-      "src/backend/Infrastructure/Privacy/**"
-    ],
-    "declarationAccessibilities": ["public"],
-    "excludeModifiers": ["override"]
-  },
-  "enumNaming": {
-    "flagsMustBePlural": true,
-    "nonFlagsMustBeSingular": true,
-    "acceptedSingularSuffixes": ["Status", "State", "Kind", "Type", "Mode", "Policy", "Code", "Role", "Action", "Reason", "Level", "Phase", "Class"],
-    "compatibilityExceptions": [
-      {
-        "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs",
-        "name": "PublicHotArtifactDirtyReason",
-        "reason": "Published flags type name is an existing source contract; renaming it would break consumers."
-      }
-    ]
-  }
+        "compatibilityExceptions": [
+            {
+                "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs",
+                "name": "PublicHotArtifactDirtyReason",
+                "reason": "Published flags type name is an existing source contract; renaming it would break consumers."
+            }
+        ]
+    }
 }

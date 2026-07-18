@@ -1,35 +1,35 @@
 {
-  "stryker-config": {
-    "solution": "FsusBlog.slnx",
-    "configuration": "Debug",
-    "test-case-filter": "Category!=Integration",
-    "mutation-level": "Complete",
-    "thresholds": {
-      "high": 85,
-      "low": 70,
-      "break": 70
-    },
-    "reporters": [
-      "progress",
-      "html",
-      "json"
-    ],
-    "report-file-name": "backend-mutation",
-    "mutate": [
-      "Algorithms/**/*.cs",
-      "Cache/**/*.cs",
-      "Mapping/**/*.cs",
-      "Infrastructure/Auth/**/*.cs",
-      "Infrastructure/Binary/**/*.cs",
-      "Infrastructure/Cache/**/*.cs",
-      "Infrastructure/Filters/**/*.cs",
-      "Infrastructure/Middlewares/**/*.cs",
-      "Infrastructure/NotificationStream/**/*.cs",
-      "Services/**/*.cs"
-    ],
-    "ignore-methods": [
-      "ToString",
-      "GetHashCode"
-    ]
-  }
+    "stryker-config": {
+        "solution": "FsusBlog.slnx",
+        "configuration": "Debug",
+        "test-case-filter": "Category!=Integration",
+        "mutation-level": "Complete",
+        "thresholds": {
+            "high": 85,
+            "low": 70,
+            "break": 70
+        },
+        "reporters": [
+            "progress",
+            "html",
+            "json"
+        ],
+        "report-file-name": "backend-mutation",
+        "mutate": [
+            "Algorithms/**/*.cs",
+            "Cache/**/*.cs",
+            "Mapping/**/*.cs",
+            "Infrastructure/Auth/**/*.cs",
+            "Infrastructure/Binary/**/*.cs",
+            "Infrastructure/Cache/**/*.cs",
+            "Infrastructure/Filters/**/*.cs",
+            "Infrastructure/Middlewares/**/*.cs",
+            "Infrastructure/NotificationStream/**/*.cs",
+            "Services/**/*.cs"
+        ],
+        "ignore-methods": [
+            "ToString",
+            "GetHashCode"
+        ]
+    }
 }

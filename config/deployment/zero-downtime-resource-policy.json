@@ -1,26 +1,26 @@
 {
-  "schema": "fsusblog.zero-downtime-resource-policy.v1",
-  "minimumSupported": {
-    "cpuCores": 4,
-    "memoryMiB": 6144,
-    "freeDiskMiB": 10240
-  },
-  "budgets": {
-    "dualSlotCpuPercent": 360,
-    "dualSlotMemoryMiB": 4608,
-    "temporaryDiskMiB": 8192,
-    "activeTrafficP95ImpactPercent": 25,
-    "activeTrafficP99ImpactPercent": 35,
-    "openRestyReloadMs": 2000,
-    "drainMs": 60000,
-    "notificationReconnectMs": 5000
-  },
-  "sampling": {
-    "intervalMs": 1000,
-    "minimumOverlapSamples": 10
-  },
-  "notes": [
-    "The legacy 2C/2G single-slot profile is not certified for overlapping Blue/Green runtimes.",
-    "Prewarm throttling must be used when active traffic latency approaches either impact budget."
-  ]
+    "schema": "fsusblog.zero-downtime-resource-policy.v1",
+    "minimumSupported": {
+        "cpuCores": 4,
+        "memoryMiB": 6144,
+        "freeDiskMiB": 10240
+    },
+    "budgets": {
+        "dualSlotCpuPercent": 360,
+        "dualSlotMemoryMiB": 4608,
+        "temporaryDiskMiB": 8192,
+        "activeTrafficP95ImpactPercent": 25,
+        "activeTrafficP99ImpactPercent": 35,
+        "openRestyReloadMs": 2000,
+        "drainMs": 60000,
+        "notificationReconnectMs": 5000
+    },
+    "sampling": {
+        "intervalMs": 1000,
+        "minimumOverlapSamples": 10
+    },
+    "notes": [
+        "The legacy 2C/2G single-slot profile is not certified for overlapping Blue/Green runtimes.",
+        "Prewarm throttling must be used when active traffic latency approaches either impact budget."
+    ]
 }

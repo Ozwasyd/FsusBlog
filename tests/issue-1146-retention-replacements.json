@@ -1,532 +1,532 @@
 {
-  "schema": "fsusblog.issue-test-retention-replacements.v1",
-  "issue": 1146,
-  "baseline": "tests/issue-1146-acceptance-baseline.json",
-  "expectedDeletedTestIds": 31,
-  "deletedTests": [
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#visible-admin-routes-render-cleanly-c3e6ee4f99",
-      "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:visible admin routes render cleanly"
-      ],
-      "targetLayers": [
-        "router",
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
-        "vitest:tests/frontend/unit/router/index.test.ts#classifies every account deep link and every manage permission in route meta",
-        "vitest:tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts#renders loading, unchecked, empty, and populated summary states without navigation",
-        "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#moves the conversation list through loading, empty, and selected success states",
-        "vitest:tests/frontend/unit/views/IntegrityProofConsole.test.ts#renders explicit empty states after a successful empty response"
-      ],
-      "reason": "Named-route resolution owns visibility; representative mounted workbenches own first-screen state without a full browser stack."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#module-ia-preserves-deep-links-browser-back-local-curren-a6cc980e4e",
-      "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:module IA preserves deep links, browser back, local current state and account actions"
-      ],
-      "targetLayers": [
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#renders no more than six global links and only the current module leaves",
-        "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#updates module and page current state on deep navigation and browser back",
-        "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#keeps mobile module and local navigation in one panel with 44px-class controls",
-        "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#moves account switching, policies and logout behind one accessible trigger"
-      ],
-      "reason": "Mounted account navigation now owns module count, aria-current, deep-link/back updates, mobile branching and account actions."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#audit-log-facet-summary-supports-quick-filter-url-toggle-0c520b6ca5",
-      "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:audit log facet summary supports quick filter URL toggle"
-      ],
-      "targetLayers": [
-        "component-contract"
-      ],
-      "replacementTestIds": [
-        "node-script:tests/frontend/checks/static/check-audit-facet-summary.mjs"
-      ],
-      "reason": "The dedicated facet contract owns grouped semantics and action/outcome/severity URL toggles without browser navigation."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#moderation-workbench-applies-a-real-pending-comment-acti-05fd2be668",
-      "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:moderation workbench applies a real pending-comment action"
-      ],
-      "targetLayers": [
-        "api",
-        "backend-integration"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/api/authoring.test.ts#uses moderation AEDS request and response frames",
-        "xunit:tests/backend/Unit/AuthoringBulkModerationTransactionTests.cs#AuthoringBulkModerationTransactionTests.ModerateCommentsAsync_FiresSideEffectsAfterAllRowsAreCommitted"
-      ],
-      "reason": "The production AEDS adapter owns the request contract and isolated PostgreSQL integration owns commit plus invalidation ordering."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#dashboard-article-write-and-admin-workbench-actions-stay-b1a6a0529b",
-      "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:dashboard, article write and admin workbench actions stay usable"
-      ],
-      "targetLayers": [
-        "component",
-        "api",
-        "backend-integration"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts#renders loading, unchecked, empty, and populated summary states without navigation",
-        "vitest:tests/frontend/unit/api/article.test.ts#createArticle encodes ArticleWriteRequest V3 explicit rights fields",
-        "xunit:tests/backend/Unit/ArticleRightsWritePathTests.cs#ArticleRightsWritePathTests.CreateAsync_WritesRightsPolicySnapshotAndOutboxInSameTransaction",
-        "xunit:tests/backend/Unit/ArticleRightsWritePathTests.cs#ArticleRightsWritePathTests.CreateAsync_PublishedArticleEstablishesGlobalFenceBeforeInsert"
-      ],
-      "reason": "Mounted dashboard states and the production article adapter cover UI/API; isolated PostgreSQL tests own published write, rights, outbox and fence correctness."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#category-tag-settings-users-and-admin-message-center-sup-82a6b25819",
-      "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:category, tag, settings, users and admin message center support main actions"
-      ],
-      "targetLayers": [
-        "api",
-        "component",
-        "backend-integration"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createTag sends binary mutation frame",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createCategory sends binary mutation frame",
-        "vitest:tests/frontend/unit/api/system.test.ts#updateSiteConfig sends binary seo update request",
-        "vitest:tests/frontend/unit/api/admin.test.ts#adminChangeStatus sends binary status request for accountId with admin step-up proof",
-        "vitest:tests/frontend/unit/api/message.test.ts#uses binary admin message endpoints",
-        "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#gates replies and exposes mobile back plus admin status actions without real writes",
-        "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
-        "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey"
-      ],
-      "reason": "Production adapters own each mutation frame, mounted message state owns admin UI, and backend tests own durable ban/cache behavior."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#mobile-drawer-write-draft-and-quick-taxonomy-actions-sta-27a23f27fe",
-      "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:mobile drawer, write draft and quick taxonomy actions stay usable"
-      ],
-      "targetLayers": [
-        "component",
-        "api",
-        "backend-integration"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#keeps mobile module and local navigation in one panel with 44px-class controls",
-        "vitest:tests/frontend/unit/api/authoring.test.ts#saveServerDraft posts an AEDS author draft request frame",
-        "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#round-trips only non-recoverable metadata through the real AEDS storage codec",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createTag sends binary mutation frame",
-        "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createCategory sends binary mutation frame",
-        "xunit:tests/backend/Unit/AuthoringDraftConcurrencyTests.cs#AuthoringDraftConcurrencyTests.SaveDraftAsync_ConcurrentSameOwnerAndKeyKeepsSingleDraft"
-      ],
-      "reason": "Mobile DOM, draft codec/API, taxonomy frames and concurrent server-draft persistence are now isolated at their lowest useful layers."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#register-entry-enables-only-after-agreement-and-keeps-st-85e29ffd90",
-      "path": "tests/frontend/e2e/acceptance/auth-flows.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:register entry enables only after agreement and keeps step-up failures inline"
-      ],
-      "targetLayers": [
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#enables registration only after valid input and agreement",
-        "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#keeps registration validation and adapter failures inline"
-      ],
-      "reason": "The mounted production Register page owns button eligibility, agreement and inline adapter failure state."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#login-and-register-failures-stay-inline-and-explicit-7761569693",
-      "path": "tests/frontend/e2e/acceptance/auth-flows.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:login and register failures stay inline and explicit"
-      ],
-      "targetLayers": [
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#renders passkey-first login and exposes a recoverable inline failure",
-        "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#keeps registration validation and adapter failures inline"
-      ],
-      "reason": "Mounted Login/Register pages own passkey-first copy, validation hints and explicit inline errors."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#home-fallback-and-article-social-images-load-with-cohere-22e82c1f6e",
-      "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:home fallback and article social images load with coherent metadata and natural dimensions"
-      ],
-      "targetLayers": [
-        "component",
-        "http-renderer"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/PublicArticleCover.test.ts#uses the shared crop-safe evidence container when a cover exists",
-        "vitest:tests/frontend/unit/components/PublicArticleCover.test.ts#removes the media DOM for a blank cover while retaining the article hierarchy",
-        "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.BuildSeoHeadModel_UsesOneValidatedAbsoluteSocialImage"
-      ],
-      "reason": "Mounted cover states and the SSR composer own media presence, fallback hierarchy and one validated social image URL."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#no-javascript-direct-loads-expose-the-same-authoritative-bf11462acd",
-      "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:no-JavaScript direct loads expose the same authoritative head contract"
-      ],
-      "targetLayers": [
-        "http-renderer"
-      ],
-      "replacementTestIds": [
-        "node-script:tests/frontend/checks/public/check-public-aot-contracts.mjs",
-        "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.BuildSeoHeadTags_ArticleDetail_EmitsCompleteBlogPostingMetadata"
-      ],
-      "reason": "Browserless renderer contracts compare server HTML, payload and authoritative SEO metadata directly."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410",
-      "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:visible public routes stay clean and aligned"
-      ],
-      "targetLayers": [
-        "router",
-        "component",
-        "http-renderer"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
-        "vitest:tests/frontend/unit/public-renderers/publicEntryRegistry.test.ts#builds entries for every shared SEO page kind",
-        "vitest:tests/frontend/unit/public-renderers/publicEntryRegistry.test.ts#emits shared staticPage payload for public policy pages"
-      ],
-      "reason": "Memory-history resolution plus renderer entry construction replaces repeated viewport route traversal."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7",
-      "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:article detail and search page stay clean"
-      ],
-      "targetLayers": [
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/PublicArticleCover.test.ts#renders tags, rights, and related reading as a restrained appendix",
-        "vitest:tests/frontend/unit/components/ArticleCommentsEmptyState.test.ts#combines the empty message with the guest login action",
-        "vitest:tests/frontend/unit/public-renderers/publicShellViewState.test.ts#builds search shell state from shared rules"
-      ],
-      "reason": "Mounted article/comment states and the pure search shell contract own the non-layout behavior."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#nonce-is-unique-and-production-trusted-types-reject-raw--442c7d0085",
-      "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:nonce is unique and production Trusted Types reject raw script sinks"
-      ],
-      "targetLayers": [
-        "security-contract",
-        "http-renderer"
-      ],
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/CspNonceUtf8TemplateTests.cs#CspNonceUtf8TemplateTests.Compile_PerRenderNonceIsUniqueWhileEverySlotMatches",
-        "xunit:tests/backend/Unit/PublicHotReadFastPathTests.cs#PublicHotReadFastPathTests.TryServeAsync_PublicHtmlHomeHit_WithInlineAotDocumentUsesEnvironmentCsp",
-        "vitest:tests/frontend/unit/security/trustedTypesRuntime.test.ts#rejects raw HTML and script URL strings while allowing the audited wrappers"
-      ],
-      "reason": "Nonce uniqueness, response CSP and Trusted Types sink enforcement are tested directly without a browser page lifecycle."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#search-is-server-noindex-bounded-to-one-url-and-stays-no-74a10d8d56",
-      "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:search is server-noindex, bounded to one URL, and stays noindex through SPA navigation"
-      ],
-      "targetLayers": [
-        "router",
-        "component",
-        "http-renderer"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/public-renderers/publicSearchRoutePolicy.test.ts#normalizes Unicode and whitespace into one stable query",
-        "vitest:tests/frontend/unit/public-renderers/publicSearchRoutePolicy.test.ts#fails closed when the keyword exceeds the shared bound or contains controls",
-        "vitest:tests/frontend/unit/router/publicSeoHead.test.ts#atomically replaces a public page head with search noindex and clears it on exit",
-        "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.BuildSeoHeadTags_IncludesFeedDiscoveryWithoutIndexableSearchPageJsonLd"
-      ],
-      "reason": "Pure query normalization, head state and SSR composition own canonicalization, bounds and noindex behavior."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#invalid-public-urls-stay-404-before-hydration-and-get-ma-63cc0a1241",
-      "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:invalid public URLs stay 404 before hydration and GET matches HEAD"
-      ],
-      "targetLayers": [
-        "router",
-        "http-renderer"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/router/index.test.ts#resolves account redirects, forbidden, and not-found routes in memory",
-        "xunit:tests/backend/Unit/PublicAotShellServiceTests.cs#PublicAotShellServiceTests.RenderClassifiedAsync_NotFound_DoesNotQueueBackfillOrWriteSuccessState"
-      ],
-      "reason": "Memory routing owns the SPA not-found target and the server shell classifier owns 404/no-backfill behavior."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#trailing-slash-redirects-once-to-the-canonical-path-001e9e869f",
-      "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:trailing slash redirects once to the canonical path"
-      ],
-      "targetLayers": [
-        "http-renderer"
-      ],
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/PublicHotReadFastPathTests.cs#PublicHotReadFastPathTests.TryServeAsync_PublicHtmlTrailingSlashHit_RedirectsBeforeServingArtifact"
-      ],
-      "reason": "The hot-read HTTP path now directly owns one-hop trailing-slash canonicalization for GET and HEAD."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#legacy-tag-name-redirects-once-to-the-stable-id-canonica-0239e23c59",
-      "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:legacy tag name redirects once to the stable ID canonical"
-      ],
-      "targetLayers": [
-        "http-renderer"
-      ],
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/PublicAotShellServiceTests.cs#PublicAotShellServiceTests.RenderClassifiedAsync_TagNameRoute_RedirectsToStableIdBeforeCacheOrBackfill",
-        "xunit:tests/backend/Unit/PublicAotShellServiceTests.cs#PublicAotShellServiceTests.BuildNavigationSnapshotAsync_TagNameRoute_EmitsOnlyStableIdIdentity"
-      ],
-      "reason": "Server classification and navigation snapshot tests own the legacy-name to stable-ID redirect and emitted identity."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#dev-entry-serves-public-aot-for-public-routes-and-spa-sh-6fd28a726d",
-      "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:dev entry serves public AOT for public routes and SPA shell for app routes"
-      ],
-      "targetLayers": [
-        "router",
-        "http-renderer"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/router/index.test.ts#shouldDeferPublicBootstrap keeps AOT route zero-auth-probe",
-        "node-script:tests/frontend/checks/public/check-public-aot-contracts.mjs"
-      ],
-      "reason": "AOT bootstrap deferral and browserless public shell contracts replace environment-wide route probing."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#anonymous-routes-stay-stable-c53f6e7785",
-      "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:anonymous routes stay stable"
-      ],
-      "targetLayers": [
-        "router",
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
-        "vitest:tests/frontend/unit/public-renderers/publicShellViewState.test.ts#starts and resets to the SSR-compatible anonymous auth action"
-      ],
-      "reason": "Memory routing and public shell state own anonymous route stability."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#guest-account-login-does-not-trigger-mfa-and-routes-stay-a2c96217f1",
-      "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:guest account login does not trigger MFA and routes stay stable"
-      ],
-      "targetLayers": [
-        "router",
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/router/index.test.ts#guestOnly route probes account only",
-        "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#renders passkey-first login and exposes a recoverable inline failure"
-      ],
-      "reason": "The route guard proves account-only probing while the mounted Login page owns the passkey-first state."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#admin-account-login-does-not-trigger-mfa-and-routes-stay-137fa61845",
-      "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:admin account login does not trigger MFA and routes stay stable"
-      ],
-      "targetLayers": [
-        "router"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/router/index.test.ts#redirects signed-in guest-only routes to the correct account surface",
-        "vitest:tests/frontend/unit/router/index.test.ts#allows an authorized admin dynamic deep link"
-      ],
-      "reason": "Memory-history guards own admin login landing and authorized route resolution without a real login fixture."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#protected-redirect-flow-lands-on-requested-page-after-lo-a25fc2ddc1",
-      "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:protected redirect flow lands on requested page after login"
-      ],
-      "targetLayers": [
-        "router"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/router/index.test.ts#redirects anonymous account deep links to login with the exact return target",
-        "vitest:tests/frontend/unit/router/index.test.ts#redirects signed-in guest-only routes to the correct account surface"
-      ],
-      "reason": "The exact redirect query and post-auth landing are deterministic router behavior."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#article-detail-flow-renders-body-comments-and-reading-no-74c0374ffb",
-      "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:article detail flow renders body comments and reading notice cleanly"
-      ],
-      "targetLayers": [
-        "component",
-        "http-renderer"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/public-renderers/publicEntryRegistry.test.ts#keeps article hydration bodyHtml aligned with SSR body markup instead of raw markdown",
-        "vitest:tests/frontend/unit/components/PublicArticleCover.test.ts#renders tags, rights, and related reading as a restrained appendix",
-        "vitest:tests/frontend/unit/components/ArticleCommentsEmptyState.test.ts#combines the empty message with the guest login action"
-      ],
-      "reason": "Renderer and mounted article/comment components own body, related-reading, rights and comment-state semantics."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#search-flow-renders-and-allows-sort-switching-without-ru-55d7144778",
-      "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:search flow renders and allows sort switching without runtime errors"
-      ],
-      "targetLayers": [
-        "router",
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/public-renderers/publicSearchRoutePolicy.test.ts#accepts the canonical query without a redirect",
-        "vitest:tests/frontend/unit/public-renderers/publicShellViewState.test.ts#builds search shell state from shared rules",
-        "vitest:tests/frontend/unit/router/publicSeoHead.test.ts#atomically replaces a public page head with search noindex and clears it on exit"
-      ],
-      "reason": "Pure search policy and mounted head/shell state replace a full-stack sort navigation."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#user-center-routes-render-key-panels-without-runtime-err-84fcb27128",
-      "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:user center routes render key panels without runtime errors"
-      ],
-      "targetLayers": [
-        "router",
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
-        "vitest:tests/frontend/unit/router/index.test.ts#classifies every account deep link and every manage permission in route meta",
-        "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#moves the conversation list through loading, empty, and selected success states",
-        "vitest:tests/frontend/unit/components/PasskeyRegisterModal.test.ts#keeps a failed registration inline and returns to the actionable name step"
-      ],
-      "reason": "Route records and mounted representative user workbenches replace repeated page navigation."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#admin-key-routes-render-first-screen-without-runtime-err-7e08ca0395",
-      "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:admin key routes render first screen without runtime errors"
-      ],
-      "targetLayers": [
-        "router",
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
-        "vitest:tests/frontend/unit/router/index.test.ts#classifies every account deep link and every manage permission in route meta",
-        "vitest:tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts#renders loading, unchecked, empty, and populated summary states without navigation",
-        "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#gates replies and exposes mobile back plus admin status actions without real writes"
-      ],
-      "reason": "Route metadata and mounted admin workbench states replace browser route traversal."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#visible-user-routes-load-without-runtime-noise-db512e9f8c",
-      "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:visible user routes load without runtime noise"
-      ],
-      "targetLayers": [
-        "router",
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
-        "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#updates module and page current state on deep navigation and browser back",
-        "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#moves the conversation list through loading, empty, and selected success states"
-      ],
-      "reason": "Memory-history route resolution and mounted user navigation/message states replace desktop/mobile route loops."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#profile-session-actions-and-delete-guard-stay-aligned-9113d42b9d",
-      "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:profile session actions and delete guard stay aligned"
-      ],
-      "targetLayers": [
-        "api",
-        "component"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/api/auth.test.ts#listSessions uses binary session list frame",
-        "vitest:tests/frontend/unit/api/auth.test.ts#revokeOtherSessions uses binary empty success frame",
-        "vitest:tests/frontend/unit/api/auth.test.ts#deleteAccount sends anonymous delete request with step-up proof and no password payload",
-        "vitest:tests/frontend/unit/composables/useGlobalConfirm.test.ts#returns false when user cancels"
-      ],
-      "reason": "Production auth adapters own session/delete requests and the confirm composable owns cancellation without mutating an account."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#message-center-can-create-a-ticket-and-open-detail-clean-ffcadfa54d",
-      "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:message center can create a ticket and open detail cleanly"
-      ],
-      "targetLayers": [
-        "component",
-        "api",
-        "backend-integration"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#emits one account ticket contract from the mobile compose branch",
-        "vitest:tests/frontend/unit/api/message.test.ts#creates and replies through binary mutation frames",
-        "xunit:tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs#MessageCenterPersistenceIntegrationTests.CreateAccountTicketAsync_CommitsConversationMessageParticipantAndNotifications"
-      ],
-      "reason": "Mounted compose state, production AEDS transport and isolated PostgreSQL persistence cover the ticket chain without browser writes."
-    },
-    {
-      "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#passkey-section-is-accessible-and-opens-registration-mod-be56f40ffe",
-      "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
-      "removedAssertionTargets": [
-        "behavior:passkey section is accessible and opens registration modal"
-      ],
-      "targetLayers": [
-        "component",
-        "api"
-      ],
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/PasskeyRegisterModal.test.ts#runs the mounted MFA and WebAuthn state machine through the production auth adapter",
-        "vitest:tests/frontend/unit/components/PasskeyRegisterModal.test.ts#keeps a failed registration inline and returns to the actionable name step",
-        "vitest:tests/frontend/unit/services/passkeyCeremony.test.ts#passes server options through the audited optionsJSON boundary"
-      ],
-      "reason": "The mounted modal owns accessible open/error/success states and the production ceremony adapter owns the WebAuthn boundary."
-    }
-  ]
+    "schema": "fsusblog.issue-test-retention-replacements.v1",
+    "issue": 1146,
+    "baseline": "tests/issue-1146-acceptance-baseline.json",
+    "expectedDeletedTestIds": 31,
+    "deletedTests": [
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#visible-admin-routes-render-cleanly-c3e6ee4f99",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:visible admin routes render cleanly"
+            ],
+            "targetLayers": [
+                "router",
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
+                "vitest:tests/frontend/unit/router/index.test.ts#classifies every account deep link and every manage permission in route meta",
+                "vitest:tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts#renders loading, unchecked, empty, and populated summary states without navigation",
+                "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#moves the conversation list through loading, empty, and selected success states",
+                "vitest:tests/frontend/unit/views/IntegrityProofConsole.test.ts#renders explicit empty states after a successful empty response"
+            ],
+            "reason": "Named-route resolution owns visibility; representative mounted workbenches own first-screen state without a full browser stack."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#module-ia-preserves-deep-links-browser-back-local-curren-a6cc980e4e",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:module IA preserves deep links, browser back, local current state and account actions"
+            ],
+            "targetLayers": [
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#renders no more than six global links and only the current module leaves",
+                "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#updates module and page current state on deep navigation and browser back",
+                "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#keeps mobile module and local navigation in one panel with 44px-class controls",
+                "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#moves account switching, policies and logout behind one accessible trigger"
+            ],
+            "reason": "Mounted account navigation now owns module count, aria-current, deep-link/back updates, mobile branching and account actions."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#audit-log-facet-summary-supports-quick-filter-url-toggle-0c520b6ca5",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:audit log facet summary supports quick filter URL toggle"
+            ],
+            "targetLayers": [
+                "component-contract"
+            ],
+            "replacementTestIds": [
+                "node-script:tests/frontend/checks/static/check-audit-facet-summary.mjs"
+            ],
+            "reason": "The dedicated facet contract owns grouped semantics and action/outcome/severity URL toggles without browser navigation."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#moderation-workbench-applies-a-real-pending-comment-acti-05fd2be668",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:moderation workbench applies a real pending-comment action"
+            ],
+            "targetLayers": [
+                "api",
+                "backend-integration"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/api/authoring.test.ts#uses moderation AEDS request and response frames",
+                "xunit:tests/backend/Unit/AuthoringBulkModerationTransactionTests.cs#AuthoringBulkModerationTransactionTests.ModerateCommentsAsync_FiresSideEffectsAfterAllRowsAreCommitted"
+            ],
+            "reason": "The production AEDS adapter owns the request contract and isolated PostgreSQL integration owns commit plus invalidation ordering."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#dashboard-article-write-and-admin-workbench-actions-stay-b1a6a0529b",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:dashboard, article write and admin workbench actions stay usable"
+            ],
+            "targetLayers": [
+                "component",
+                "api",
+                "backend-integration"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts#renders loading, unchecked, empty, and populated summary states without navigation",
+                "vitest:tests/frontend/unit/api/article.test.ts#createArticle encodes ArticleWriteRequest V3 explicit rights fields",
+                "xunit:tests/backend/Unit/ArticleRightsWritePathTests.cs#ArticleRightsWritePathTests.CreateAsync_WritesRightsPolicySnapshotAndOutboxInSameTransaction",
+                "xunit:tests/backend/Unit/ArticleRightsWritePathTests.cs#ArticleRightsWritePathTests.CreateAsync_PublishedArticleEstablishesGlobalFenceBeforeInsert"
+            ],
+            "reason": "Mounted dashboard states and the production article adapter cover UI/API; isolated PostgreSQL tests own published write, rights, outbox and fence correctness."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#category-tag-settings-users-and-admin-message-center-sup-82a6b25819",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:category, tag, settings, users and admin message center support main actions"
+            ],
+            "targetLayers": [
+                "api",
+                "component",
+                "backend-integration"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createTag sends binary mutation frame",
+                "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createCategory sends binary mutation frame",
+                "vitest:tests/frontend/unit/api/system.test.ts#updateSiteConfig sends binary seo update request",
+                "vitest:tests/frontend/unit/api/admin.test.ts#adminChangeStatus sends binary status request for accountId with admin step-up proof",
+                "vitest:tests/frontend/unit/api/message.test.ts#uses binary admin message endpoints",
+                "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#gates replies and exposes mobile back plus admin status actions without real writes",
+                "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
+                "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey"
+            ],
+            "reason": "Production adapters own each mutation frame, mounted message state owns admin UI, and backend tests own durable ban/cache behavior."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#mobile-drawer-write-draft-and-quick-taxonomy-actions-sta-27a23f27fe",
+            "path": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:mobile drawer, write draft and quick taxonomy actions stay usable"
+            ],
+            "targetLayers": [
+                "component",
+                "api",
+                "backend-integration"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#keeps mobile module and local navigation in one panel with 44px-class controls",
+                "vitest:tests/frontend/unit/api/authoring.test.ts#saveServerDraft posts an AEDS author draft request frame",
+                "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#round-trips only non-recoverable metadata through the real AEDS storage codec",
+                "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createTag sends binary mutation frame",
+                "vitest:tests/frontend/unit/api/tagAndCategory.test.ts#createCategory sends binary mutation frame",
+                "xunit:tests/backend/Unit/AuthoringDraftConcurrencyTests.cs#AuthoringDraftConcurrencyTests.SaveDraftAsync_ConcurrentSameOwnerAndKeyKeepsSingleDraft"
+            ],
+            "reason": "Mobile DOM, draft codec/API, taxonomy frames and concurrent server-draft persistence are now isolated at their lowest useful layers."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#register-entry-enables-only-after-agreement-and-keeps-st-85e29ffd90",
+            "path": "tests/frontend/e2e/acceptance/auth-flows.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:register entry enables only after agreement and keeps step-up failures inline"
+            ],
+            "targetLayers": [
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#enables registration only after valid input and agreement",
+                "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#keeps registration validation and adapter failures inline"
+            ],
+            "reason": "The mounted production Register page owns button eligibility, agreement and inline adapter failure state."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#login-and-register-failures-stay-inline-and-explicit-7761569693",
+            "path": "tests/frontend/e2e/acceptance/auth-flows.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:login and register failures stay inline and explicit"
+            ],
+            "targetLayers": [
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#renders passkey-first login and exposes a recoverable inline failure",
+                "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#keeps registration validation and adapter failures inline"
+            ],
+            "reason": "Mounted Login/Register pages own passkey-first copy, validation hints and explicit inline errors."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#home-fallback-and-article-social-images-load-with-cohere-22e82c1f6e",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:home fallback and article social images load with coherent metadata and natural dimensions"
+            ],
+            "targetLayers": [
+                "component",
+                "http-renderer"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/components/PublicArticleCover.test.ts#uses the shared crop-safe evidence container when a cover exists",
+                "vitest:tests/frontend/unit/components/PublicArticleCover.test.ts#removes the media DOM for a blank cover while retaining the article hierarchy",
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.BuildSeoHeadModel_UsesOneValidatedAbsoluteSocialImage"
+            ],
+            "reason": "Mounted cover states and the SSR composer own media presence, fallback hierarchy and one validated social image URL."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#no-javascript-direct-loads-expose-the-same-authoritative-bf11462acd",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:no-JavaScript direct loads expose the same authoritative head contract"
+            ],
+            "targetLayers": [
+                "http-renderer"
+            ],
+            "replacementTestIds": [
+                "node-script:tests/frontend/checks/public/check-public-aot-contracts.mjs",
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.BuildSeoHeadTags_ArticleDetail_EmitsCompleteBlogPostingMetadata"
+            ],
+            "reason": "Browserless renderer contracts compare server HTML, payload and authoritative SEO metadata directly."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:visible public routes stay clean and aligned"
+            ],
+            "targetLayers": [
+                "router",
+                "component",
+                "http-renderer"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
+                "vitest:tests/frontend/unit/public-renderers/publicEntryRegistry.test.ts#builds entries for every shared SEO page kind",
+                "vitest:tests/frontend/unit/public-renderers/publicEntryRegistry.test.ts#emits shared staticPage payload for public policy pages"
+            ],
+            "reason": "Memory-history resolution plus renderer entry construction replaces repeated viewport route traversal."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:article detail and search page stay clean"
+            ],
+            "targetLayers": [
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/components/PublicArticleCover.test.ts#renders tags, rights, and related reading as a restrained appendix",
+                "vitest:tests/frontend/unit/components/ArticleCommentsEmptyState.test.ts#combines the empty message with the guest login action",
+                "vitest:tests/frontend/unit/public-renderers/publicShellViewState.test.ts#builds search shell state from shared rules"
+            ],
+            "reason": "Mounted article/comment states and the pure search shell contract own the non-layout behavior."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#nonce-is-unique-and-production-trusted-types-reject-raw--442c7d0085",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:nonce is unique and production Trusted Types reject raw script sinks"
+            ],
+            "targetLayers": [
+                "security-contract",
+                "http-renderer"
+            ],
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/CspNonceUtf8TemplateTests.cs#CspNonceUtf8TemplateTests.Compile_PerRenderNonceIsUniqueWhileEverySlotMatches",
+                "xunit:tests/backend/Unit/PublicHotReadFastPathTests.cs#PublicHotReadFastPathTests.TryServeAsync_PublicHtmlHomeHit_WithInlineAotDocumentUsesEnvironmentCsp",
+                "vitest:tests/frontend/unit/security/trustedTypesRuntime.test.ts#rejects raw HTML and script URL strings while allowing the audited wrappers"
+            ],
+            "reason": "Nonce uniqueness, response CSP and Trusted Types sink enforcement are tested directly without a browser page lifecycle."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#search-is-server-noindex-bounded-to-one-url-and-stays-no-74a10d8d56",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:search is server-noindex, bounded to one URL, and stays noindex through SPA navigation"
+            ],
+            "targetLayers": [
+                "router",
+                "component",
+                "http-renderer"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/public-renderers/publicSearchRoutePolicy.test.ts#normalizes Unicode and whitespace into one stable query",
+                "vitest:tests/frontend/unit/public-renderers/publicSearchRoutePolicy.test.ts#fails closed when the keyword exceeds the shared bound or contains controls",
+                "vitest:tests/frontend/unit/router/publicSeoHead.test.ts#atomically replaces a public page head with search noindex and clears it on exit",
+                "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.BuildSeoHeadTags_IncludesFeedDiscoveryWithoutIndexableSearchPageJsonLd"
+            ],
+            "reason": "Pure query normalization, head state and SSR composition own canonicalization, bounds and noindex behavior."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#invalid-public-urls-stay-404-before-hydration-and-get-ma-63cc0a1241",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:invalid public URLs stay 404 before hydration and GET matches HEAD"
+            ],
+            "targetLayers": [
+                "router",
+                "http-renderer"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts#resolves account redirects, forbidden, and not-found routes in memory",
+                "xunit:tests/backend/Unit/PublicAotShellServiceTests.cs#PublicAotShellServiceTests.RenderClassifiedAsync_NotFound_DoesNotQueueBackfillOrWriteSuccessState"
+            ],
+            "reason": "Memory routing owns the SPA not-found target and the server shell classifier owns 404/no-backfill behavior."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#trailing-slash-redirects-once-to-the-canonical-path-001e9e869f",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:trailing slash redirects once to the canonical path"
+            ],
+            "targetLayers": [
+                "http-renderer"
+            ],
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PublicHotReadFastPathTests.cs#PublicHotReadFastPathTests.TryServeAsync_PublicHtmlTrailingSlashHit_RedirectsBeforeServingArtifact"
+            ],
+            "reason": "The hot-read HTTP path now directly owns one-hop trailing-slash canonicalization for GET and HEAD."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#legacy-tag-name-redirects-once-to-the-stable-id-canonica-0239e23c59",
+            "path": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:legacy tag name redirects once to the stable ID canonical"
+            ],
+            "targetLayers": [
+                "http-renderer"
+            ],
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PublicAotShellServiceTests.cs#PublicAotShellServiceTests.RenderClassifiedAsync_TagNameRoute_RedirectsToStableIdBeforeCacheOrBackfill",
+                "xunit:tests/backend/Unit/PublicAotShellServiceTests.cs#PublicAotShellServiceTests.BuildNavigationSnapshotAsync_TagNameRoute_EmitsOnlyStableIdIdentity"
+            ],
+            "reason": "Server classification and navigation snapshot tests own the legacy-name to stable-ID redirect and emitted identity."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#dev-entry-serves-public-aot-for-public-routes-and-spa-sh-6fd28a726d",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:dev entry serves public AOT for public routes and SPA shell for app routes"
+            ],
+            "targetLayers": [
+                "router",
+                "http-renderer"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts#shouldDeferPublicBootstrap keeps AOT route zero-auth-probe",
+                "node-script:tests/frontend/checks/public/check-public-aot-contracts.mjs"
+            ],
+            "reason": "AOT bootstrap deferral and browserless public shell contracts replace environment-wide route probing."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#anonymous-routes-stay-stable-c53f6e7785",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:anonymous routes stay stable"
+            ],
+            "targetLayers": [
+                "router",
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
+                "vitest:tests/frontend/unit/public-renderers/publicShellViewState.test.ts#starts and resets to the SSR-compatible anonymous auth action"
+            ],
+            "reason": "Memory routing and public shell state own anonymous route stability."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#guest-account-login-does-not-trigger-mfa-and-routes-stay-a2c96217f1",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:guest account login does not trigger MFA and routes stay stable"
+            ],
+            "targetLayers": [
+                "router",
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts#guestOnly route probes account only",
+                "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#renders passkey-first login and exposes a recoverable inline failure"
+            ],
+            "reason": "The route guard proves account-only probing while the mounted Login page owns the passkey-first state."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#admin-account-login-does-not-trigger-mfa-and-routes-stay-137fa61845",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:admin account login does not trigger MFA and routes stay stable"
+            ],
+            "targetLayers": [
+                "router"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts#redirects signed-in guest-only routes to the correct account surface",
+                "vitest:tests/frontend/unit/router/index.test.ts#allows an authorized admin dynamic deep link"
+            ],
+            "reason": "Memory-history guards own admin login landing and authorized route resolution without a real login fixture."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#protected-redirect-flow-lands-on-requested-page-after-lo-a25fc2ddc1",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:protected redirect flow lands on requested page after login"
+            ],
+            "targetLayers": [
+                "router"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts#redirects anonymous account deep links to login with the exact return target",
+                "vitest:tests/frontend/unit/router/index.test.ts#redirects signed-in guest-only routes to the correct account surface"
+            ],
+            "reason": "The exact redirect query and post-auth landing are deterministic router behavior."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#article-detail-flow-renders-body-comments-and-reading-no-74c0374ffb",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:article detail flow renders body comments and reading notice cleanly"
+            ],
+            "targetLayers": [
+                "component",
+                "http-renderer"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/public-renderers/publicEntryRegistry.test.ts#keeps article hydration bodyHtml aligned with SSR body markup instead of raw markdown",
+                "vitest:tests/frontend/unit/components/PublicArticleCover.test.ts#renders tags, rights, and related reading as a restrained appendix",
+                "vitest:tests/frontend/unit/components/ArticleCommentsEmptyState.test.ts#combines the empty message with the guest login action"
+            ],
+            "reason": "Renderer and mounted article/comment components own body, related-reading, rights and comment-state semantics."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#search-flow-renders-and-allows-sort-switching-without-ru-55d7144778",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:search flow renders and allows sort switching without runtime errors"
+            ],
+            "targetLayers": [
+                "router",
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/public-renderers/publicSearchRoutePolicy.test.ts#accepts the canonical query without a redirect",
+                "vitest:tests/frontend/unit/public-renderers/publicShellViewState.test.ts#builds search shell state from shared rules",
+                "vitest:tests/frontend/unit/router/publicSeoHead.test.ts#atomically replaces a public page head with search noindex and clears it on exit"
+            ],
+            "reason": "Pure search policy and mounted head/shell state replace a full-stack sort navigation."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#user-center-routes-render-key-panels-without-runtime-err-84fcb27128",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:user center routes render key panels without runtime errors"
+            ],
+            "targetLayers": [
+                "router",
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
+                "vitest:tests/frontend/unit/router/index.test.ts#classifies every account deep link and every manage permission in route meta",
+                "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#moves the conversation list through loading, empty, and selected success states",
+                "vitest:tests/frontend/unit/components/PasskeyRegisterModal.test.ts#keeps a failed registration inline and returns to the actionable name step"
+            ],
+            "reason": "Route records and mounted representative user workbenches replace repeated page navigation."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#admin-key-routes-render-first-screen-without-runtime-err-7e08ca0395",
+            "path": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:admin key routes render first screen without runtime errors"
+            ],
+            "targetLayers": [
+                "router",
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
+                "vitest:tests/frontend/unit/router/index.test.ts#classifies every account deep link and every manage permission in route meta",
+                "vitest:tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts#renders loading, unchecked, empty, and populated summary states without navigation",
+                "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#gates replies and exposes mobile back plus admin status actions without real writes"
+            ],
+            "reason": "Route metadata and mounted admin workbench states replace browser route traversal."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#visible-user-routes-load-without-runtime-noise-db512e9f8c",
+            "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:visible user routes load without runtime noise"
+            ],
+            "targetLayers": [
+                "router",
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/router/index.test.ts#resolves every named deep link without browser navigation",
+                "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#updates module and page current state on deep navigation and browser back",
+                "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#moves the conversation list through loading, empty, and selected success states"
+            ],
+            "reason": "Memory-history route resolution and mounted user navigation/message states replace desktop/mobile route loops."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#profile-session-actions-and-delete-guard-stay-aligned-9113d42b9d",
+            "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:profile session actions and delete guard stay aligned"
+            ],
+            "targetLayers": [
+                "api",
+                "component"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/api/auth.test.ts#listSessions uses binary session list frame",
+                "vitest:tests/frontend/unit/api/auth.test.ts#revokeOtherSessions uses binary empty success frame",
+                "vitest:tests/frontend/unit/api/auth.test.ts#deleteAccount sends anonymous delete request with step-up proof and no password payload",
+                "vitest:tests/frontend/unit/composables/useGlobalConfirm.test.ts#returns false when user cancels"
+            ],
+            "reason": "Production auth adapters own session/delete requests and the confirm composable owns cancellation without mutating an account."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#message-center-can-create-a-ticket-and-open-detail-clean-ffcadfa54d",
+            "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:message center can create a ticket and open detail cleanly"
+            ],
+            "targetLayers": [
+                "component",
+                "api",
+                "backend-integration"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/components/user/MessagesStateMachine.test.ts#emits one account ticket contract from the mobile compose branch",
+                "vitest:tests/frontend/unit/api/message.test.ts#creates and replies through binary mutation frames",
+                "xunit:tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs#MessageCenterPersistenceIntegrationTests.CreateAccountTicketAsync_CommitsConversationMessageParticipantAndNotifications"
+            ],
+            "reason": "Mounted compose state, production AEDS transport and isolated PostgreSQL persistence cover the ticket chain without browser writes."
+        },
+        {
+            "id": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#passkey-section-is-accessible-and-opens-registration-mod-be56f40ffe",
+            "path": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+            "removedAssertionTargets": [
+                "behavior:passkey section is accessible and opens registration modal"
+            ],
+            "targetLayers": [
+                "component",
+                "api"
+            ],
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/components/PasskeyRegisterModal.test.ts#runs the mounted MFA and WebAuthn state machine through the production auth adapter",
+                "vitest:tests/frontend/unit/components/PasskeyRegisterModal.test.ts#keeps a failed registration inline and returns to the actionable name step",
+                "vitest:tests/frontend/unit/services/passkeyCeremony.test.ts#passes server options through the audited optionsJSON boundary"
+            ],
+            "reason": "The mounted modal owns accessible open/error/success states and the production ceremony adapter owns the WebAuthn boundary."
+        }
+    ]
 }

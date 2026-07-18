@@ -1,8 +1,8 @@
 {
-  "schema": "fsusblog.issue-test-retention-replacements.v1",
-  "issue": 1054,
-  "baseline": "tests/test-retention-before.json",
-  "expectedDeletedTestIds": 0,
-  "deletedTests": [],
-  "reason": "Issue #1054 adds retryable recovery completion behavior, persistence and migration evidence without deleting an existing backend test ID; frontend source-lock deletions are owned by issue #1049."
+    "schema": "fsusblog.issue-test-retention-replacements.v1",
+    "issue": 1054,
+    "baseline": "tests/test-retention-before.json",
+    "expectedDeletedTestIds": 0,
+    "deletedTests": [],
+    "reason": "Issue #1054 adds retryable recovery completion behavior, persistence and migration evidence without deleting an existing backend test ID; frontend source-lock deletions are owned by issue #1049."
 }

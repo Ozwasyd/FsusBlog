@@ -1,162 +1,175 @@
 {
-  "schema": "fsusblog.issue-1052.user-session-revocation-evidence.v1",
-  "issue": 1052,
-  "status": "implementation-present-validation-not-run",
-  "productionFiles": [
-    "src/backend/Infrastructure/Helpers/JwtHelper.cs",
-    "src/backend/Infrastructure/Auth/AuthCookieService.cs",
-    "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs",
-    "src/backend/Services/Security/UserSessionValidationService.cs",
-    "src/backend/Services/UserService.cs",
-    "src/backend/Services/Security/RecoveryKeyService.cs",
-    "src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs"
-  ],
-  "testFiles": [
-    "tests/backend/Unit/UserSessionValidationServiceTests.cs",
-    "tests/backend/Unit/UserSessionJwtAuthenticationTests.cs",
-    "tests/backend/Unit/UserSessionMappedBoundaryTests.cs",
-    "tests/backend/Unit/UserServiceValidationTests.cs",
-    "tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs",
-    "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs"
-  ],
-  "documentation": [
-    "docs/security.md",
-    "docs/architecture.md",
-    "docs/user-session-revocation.md"
-  ],
-  "securityInvariants": {
-    "ordinaryAccessTokenRequiresSid": true,
-    "ordinarySidValidatedAfterJwtSignatureAndExpiry": true,
-    "adminValidationPathRemainsIndependent": true,
-    "publicAnonymousRequestReadsSessionCache": false,
-    "publicAnonymousRequestReadsDatabase": false,
-    "cacheLayer": "direct-versioned-redis-l2-without-process-l1",
-    "databaseFallback": "single-session-primary-key-read",
-    "revocationPublication": "postgres-xmin-versioned-overwrite-before-database-commit",
-    "cacheMissRace": "stale-active-publication-rejected-by-version",
-    "revocationPublicationFailureFailClosed": true,
-    "commitFailureCleanup": "remove-many-possible-precommit-session-keys; cleanup failure retains safe revoked denial",
-    "dbOnlyMode": "reloadable toggle skips Redis read and publish; PostgreSQL commit is the visibility boundary"
-  },
-  "acceptanceMappings": [
-    {
-      "criterion": "single-session revoke immediately rejects the already issued access token",
-      "testIds": [
-        "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.RevokeSession_RejectsPreviouslyIssuedPrincipalAfterCacheWasWarm",
-        "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.ProtectedEndpoint_RevokedOrdinarySessionFailsAuthenticationAndClearsOnlyUserCookies"
-      ]
-    },
-    {
-      "criterion": "revoke-others invalidates every other token and preserves the current session",
-      "testIds": [
-        "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.RevokeOtherSessions_InvalidatesOthersAndKeepsCurrentSessionValid"
-      ]
-    },
-    {
-      "criterion": "refresh-token replay revokes the session and immediately rejects its old principal",
-      "testIds": [
-        "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.RefreshReplay_RevokesSessionAndImmediatelyRejectsOldPrincipal"
-      ]
-    },
-    {
-      "criterion": "a concurrent cache miss cannot overwrite a newer revoked snapshot",
-      "testIds": [
-        "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.ConcurrentCacheMissAndRevoke_DoesNotResurrectStaleActiveSnapshot",
-        "xunit:tests/backend/Unit/UserSessionValidationServiceTests.cs#UserSessionValidationServiceTests.RevocationPublish_UsesPostgresRowVersionAndOverwrite"
-      ]
-    },
-    {
-      "criterion": "cache hit avoids a database read and public unauthenticated traffic avoids both stores",
-      "testIds": [
-        "xunit:tests/backend/Unit/UserSessionValidationServiceTests.cs#UserSessionValidationServiceTests.CachedActiveSession_AllowsRequestWithoutDatabaseRead",
-        "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.UnauthenticatedPrincipal_DoesNotReadSessionCacheOrDatabase"
-      ]
-    },
-    {
-      "criterion": "admin session validation remains on the independent admin identity plane",
-      "testIds": [
-        "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.AdminEndpoint_KeepsIndependentAdminSessionValidationPath"
-      ]
-    },
-    {
-      "criterion": "a revoked ordinary JWT is rejected at the mapped notification-stream handshake and protected binary boundary before downstream work while only user cookies are cleared",
-      "testIds": [
-        "xunit:tests/backend/Unit/UserSessionMappedBoundaryTests.cs#UserSessionMappedBoundaryTests.MappedNotificationStreamPreflight_RevokedOrdinaryJwtRejectsBeforeAdmissionAndClearsUserCookies",
-        "xunit:tests/backend/Unit/UserSessionMappedBoundaryTests.cs#UserSessionMappedBoundaryTests.MappedProtectedBinarySessions_RevokedOrdinaryJwtRejectsBeforeHandlerAndClearsUserCookies"
-      ]
-    },
-    {
-      "criterion": "new login revokes prior active sessions in the creation transaction and publishes their PostgreSQL row versions",
-      "testIds": [
-        "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_UsesPostgresLockBulkRevocationAndInsertInOneTransaction"
-      ]
-    },
-    {
-      "criterion": "reloadable configuration can isolate Redis and retain DB-only validation",
-      "testIds": [
-        "xunit:tests/backend/Unit/UserSessionValidationServiceTests.cs#UserSessionValidationServiceTests.DistributedCacheToggle_CanEnterDbOnlyModeWithoutRestartOrRedisWrites"
-      ]
-    },
-    {
-      "criterion": "revocation publication failure rolls back the database mutation and cleans any partial distributed fence",
-      "testIds": [
-        "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.RevokeSessionAsync_PublicationFailureRollsBackAndInvalidatesPossiblePartialSnapshot",
-        "xunit:tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs#RecoveryKeyServiceBehaviorTests.VerifyAsync_RevocationPublicationFailureRollsBackDatabaseAndCleansPossiblePartialFence"
-      ]
-    },
-    {
-      "criterion": "database commit failure after publication invalidates the possible pre-commit fence",
-      "testIds": [
-        "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_CommitFailureInvalidatesPreCommitRevocationFence",
-        "xunit:tests/backend/Unit/UserSessionValidationServiceTests.cs#UserSessionValidationServiceTests.RevocationRollbackCleanup_RemovesDistinctDistributedSessionKeys"
-      ]
-    },
-    {
-      "criterion": "every session-revocation producer publishes the distributed revoked fence before transaction commit",
-      "testIds": [
-        "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.RevocationProducers_PublishDistributedFenceBeforeTransactionCommit",
-        "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_UsesPostgresLockBulkRevocationAndInsertInOneTransaction",
-        "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.DeleteAccountAsync_ExecutesAnonymousTombstoneAndAssetRevocationInsideTransaction",
-        "xunit:tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs#RecoveryKeyServiceBehaviorTests.VerifyAsync_WithOnlyRecoveryKey_CreatesPendingSessionWithoutPrematurePasskeyRevocation"
-      ]
-    }
-  ],
-  "rollback": {
-    "withoutRestart": "Set Security:UserSessionValidation:DistributedCacheEnabled=false through a provider that actually supports runtime reload to enter DB-only fail-closed validation; environment-variable-only deployments require a normal rolling restart.",
-    "forbiddenFallback": "Never trust a signed ordinary JWT without validating sid while the issue fix is active."
-  },
-  "staticAudit": {
-    "productionPathsObserved": true,
-    "listedTestIdsResolved": true,
-    "productionCodeGapsObserved": [],
-    "apiContractImpact": "none; endpoint routes, AEDS frames, error codes, and request/response fields are unchanged",
-    "uncoveredAcceptanceBranches": []
-  },
-  "centralGovernanceReadback": [
-    {
-      "path": "tests/coverage-registry.json",
-      "status": "present-not-verified",
-      "coverageId": "backend-user-session-revocation-enforcement",
-      "tierIds": ["backend-unit", "backend-auth-state-machine", "backend-concurrency", "integration"],
-      "evidencePaths": [
+    "schema": "fsusblog.issue-1052.user-session-revocation-evidence.v1",
+    "issue": 1052,
+    "status": "implementation-present-validation-not-run",
+    "productionFiles": [
+        "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+        "src/backend/Infrastructure/Auth/AuthCookieService.cs",
+        "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs",
+        "src/backend/Services/Security/UserSessionValidationService.cs",
+        "src/backend/Services/UserService.cs",
+        "src/backend/Services/Security/RecoveryKeyService.cs",
+        "src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs"
+    ],
+    "testFiles": [
         "tests/backend/Unit/UserSessionValidationServiceTests.cs",
         "tests/backend/Unit/UserSessionJwtAuthenticationTests.cs",
         "tests/backend/Unit/UserSessionMappedBoundaryTests.cs",
         "tests/backend/Unit/UserServiceValidationTests.cs",
         "tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs",
-        "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
-        "tests/backend/issue-1052-user-session-revocation-evidence.json"
-      ]
+        "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs"
+    ],
+    "documentation": [
+        "docs/security.md",
+        "docs/architecture.md",
+        "docs/user-session-revocation.md"
+    ],
+    "securityInvariants": {
+        "ordinaryAccessTokenRequiresSid": true,
+        "ordinarySidValidatedAfterJwtSignatureAndExpiry": true,
+        "adminValidationPathRemainsIndependent": true,
+        "publicAnonymousRequestReadsSessionCache": false,
+        "publicAnonymousRequestReadsDatabase": false,
+        "cacheLayer": "direct-versioned-redis-l2-without-process-l1",
+        "databaseFallback": "single-session-primary-key-read",
+        "revocationPublication": "postgres-xmin-versioned-overwrite-before-database-commit",
+        "cacheMissRace": "stale-active-publication-rejected-by-version",
+        "revocationPublicationFailureFailClosed": true,
+        "commitFailureCleanup": "remove-many-possible-precommit-session-keys; cleanup failure retains safe revoked denial",
+        "dbOnlyMode": "reloadable toggle skips Redis read and publish; PostgreSQL commit is the visibility boundary"
     },
-    {
-      "path": "tests/backend/Fixtures/backend-test-requirements.json",
-      "status": "present-not-verified",
-      "profileIds": ["backend-auth-state-machine", "backend-concurrency"],
-      "requirementIds": ["BACKEND-AUTH-STATE-MACHINE", "BACKEND-SECURITY-MATRIX", "BACKEND-CONCURRENCY-RACES", "BACKEND-REDIS-DB-FAULTS"]
+    "acceptanceMappings": [
+        {
+            "criterion": "single-session revoke immediately rejects the already issued access token",
+            "testIds": [
+                "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.RevokeSession_RejectsPreviouslyIssuedPrincipalAfterCacheWasWarm",
+                "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.ProtectedEndpoint_RevokedOrdinarySessionFailsAuthenticationAndClearsOnlyUserCookies"
+            ]
+        },
+        {
+            "criterion": "revoke-others invalidates every other token and preserves the current session",
+            "testIds": [
+                "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.RevokeOtherSessions_InvalidatesOthersAndKeepsCurrentSessionValid"
+            ]
+        },
+        {
+            "criterion": "refresh-token replay revokes the session and immediately rejects its old principal",
+            "testIds": [
+                "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.RefreshReplay_RevokesSessionAndImmediatelyRejectsOldPrincipal"
+            ]
+        },
+        {
+            "criterion": "a concurrent cache miss cannot overwrite a newer revoked snapshot",
+            "testIds": [
+                "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.ConcurrentCacheMissAndRevoke_DoesNotResurrectStaleActiveSnapshot",
+                "xunit:tests/backend/Unit/UserSessionValidationServiceTests.cs#UserSessionValidationServiceTests.RevocationPublish_UsesPostgresRowVersionAndOverwrite"
+            ]
+        },
+        {
+            "criterion": "cache hit avoids a database read and public unauthenticated traffic avoids both stores",
+            "testIds": [
+                "xunit:tests/backend/Unit/UserSessionValidationServiceTests.cs#UserSessionValidationServiceTests.CachedActiveSession_AllowsRequestWithoutDatabaseRead",
+                "xunit:tests/backend/Integration/UserSessionRevocationIntegrationTests.cs#UserSessionRevocationIntegrationTests.UnauthenticatedPrincipal_DoesNotReadSessionCacheOrDatabase"
+            ]
+        },
+        {
+            "criterion": "admin session validation remains on the independent admin identity plane",
+            "testIds": [
+                "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.AdminEndpoint_KeepsIndependentAdminSessionValidationPath"
+            ]
+        },
+        {
+            "criterion": "a revoked ordinary JWT is rejected at the mapped notification-stream handshake and protected binary boundary before downstream work while only user cookies are cleared",
+            "testIds": [
+                "xunit:tests/backend/Unit/UserSessionMappedBoundaryTests.cs#UserSessionMappedBoundaryTests.MappedNotificationStreamPreflight_RevokedOrdinaryJwtRejectsBeforeAdmissionAndClearsUserCookies",
+                "xunit:tests/backend/Unit/UserSessionMappedBoundaryTests.cs#UserSessionMappedBoundaryTests.MappedProtectedBinarySessions_RevokedOrdinaryJwtRejectsBeforeHandlerAndClearsUserCookies"
+            ]
+        },
+        {
+            "criterion": "new login revokes prior active sessions in the creation transaction and publishes their PostgreSQL row versions",
+            "testIds": [
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_UsesPostgresLockBulkRevocationAndInsertInOneTransaction"
+            ]
+        },
+        {
+            "criterion": "reloadable configuration can isolate Redis and retain DB-only validation",
+            "testIds": [
+                "xunit:tests/backend/Unit/UserSessionValidationServiceTests.cs#UserSessionValidationServiceTests.DistributedCacheToggle_CanEnterDbOnlyModeWithoutRestartOrRedisWrites"
+            ]
+        },
+        {
+            "criterion": "revocation publication failure rolls back the database mutation and cleans any partial distributed fence",
+            "testIds": [
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.RevokeSessionAsync_PublicationFailureRollsBackAndInvalidatesPossiblePartialSnapshot",
+                "xunit:tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs#RecoveryKeyServiceBehaviorTests.VerifyAsync_RevocationPublicationFailureRollsBackDatabaseAndCleansPossiblePartialFence"
+            ]
+        },
+        {
+            "criterion": "database commit failure after publication invalidates the possible pre-commit fence",
+            "testIds": [
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_CommitFailureInvalidatesPreCommitRevocationFence",
+                "xunit:tests/backend/Unit/UserSessionValidationServiceTests.cs#UserSessionValidationServiceTests.RevocationRollbackCleanup_RemovesDistinctDistributedSessionKeys"
+            ]
+        },
+        {
+            "criterion": "every session-revocation producer publishes the distributed revoked fence before transaction commit",
+            "testIds": [
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.RevocationProducers_PublishDistributedFenceBeforeTransactionCommit",
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_UsesPostgresLockBulkRevocationAndInsertInOneTransaction",
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.DeleteAccountAsync_ExecutesAnonymousTombstoneAndAssetRevocationInsideTransaction",
+                "xunit:tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs#RecoveryKeyServiceBehaviorTests.VerifyAsync_WithOnlyRecoveryKey_CreatesPendingSessionWithoutPrematurePasskeyRevocation"
+            ]
+        }
+    ],
+    "rollback": {
+        "withoutRestart": "Set Security:UserSessionValidation:DistributedCacheEnabled=false through a provider that actually supports runtime reload to enter DB-only fail-closed validation; environment-variable-only deployments require a normal rolling restart.",
+        "forbiddenFallback": "Never trust a signed ordinary JWT without validating sid while the issue fix is active."
+    },
+    "staticAudit": {
+        "productionPathsObserved": true,
+        "listedTestIdsResolved": true,
+        "productionCodeGapsObserved": [],
+        "apiContractImpact": "none; endpoint routes, AEDS frames, error codes, and request/response fields are unchanged",
+        "uncoveredAcceptanceBranches": []
+    },
+    "centralGovernanceReadback": [
+        {
+            "path": "tests/coverage-registry.json",
+            "status": "present-not-verified",
+            "coverageId": "backend-user-session-revocation-enforcement",
+            "tierIds": [
+                "backend-unit",
+                "backend-auth-state-machine",
+                "backend-concurrency",
+                "integration"
+            ],
+            "evidencePaths": [
+                "tests/backend/Unit/UserSessionValidationServiceTests.cs",
+                "tests/backend/Unit/UserSessionJwtAuthenticationTests.cs",
+                "tests/backend/Unit/UserSessionMappedBoundaryTests.cs",
+                "tests/backend/Unit/UserServiceValidationTests.cs",
+                "tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs",
+                "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
+                "tests/backend/issue-1052-user-session-revocation-evidence.json"
+            ]
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-test-requirements.json",
+            "status": "present-not-verified",
+            "profileIds": [
+                "backend-auth-state-machine",
+                "backend-concurrency"
+            ],
+            "requirementIds": [
+                "BACKEND-AUTH-STATE-MACHINE",
+                "BACKEND-SECURITY-MATRIX",
+                "BACKEND-CONCURRENCY-RACES",
+                "BACKEND-REDIS-DB-FAULTS"
+            ]
+        }
+    ],
+    "verification": {
+        "commandsExecuted": [],
+        "result": "not-run-by-instruction"
     }
-  ],
-  "verification": {
-    "commandsExecuted": [],
-    "result": "not-run-by-instruction"
-  }
 }

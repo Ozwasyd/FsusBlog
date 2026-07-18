@@ -1,162 +1,162 @@
 {
-  "schema": "fsusblog.issue-test-retention-replacements.v1",
-  "issue": 1051,
-  "baseline": "tests/test-retention-before.json",
-  "expectedDeletedTestIds": 16,
-  "sourceLockCorrections": [
-    {
-      "testId": "xunit:tests/backend/Unit/PublicAotNodeWorkerScriptTests.cs#PublicAotNodeWorkerScriptTests.ServerPublicSsrScript_ExecutesLineProtocolWorkerCommands",
-      "retention": "same-test-id-corrected-in-place",
-      "behaviorBoundary": "test-built Node runtime artifact invoked through PublicAotNodeSsrRenderer.ValidateBundleAsync",
-      "forbiddenSourceReadRemoved": "src/frontend/scripts/server-public-ssr.worker-core.mjs"
-    },
-    {
-      "testId": "xunit:tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#RuntimeFallbackRetirementAcceptanceTests.A3_4_LegacyPlainCookieSwitchCannotRestoreFallback",
-      "retention": "same-test-id-corrected-in-place",
-      "behaviorBoundary": "AuthCookieService production behavior plus compiled runtime metadata",
-      "forbiddenSourceReadRemoved": "src/backend/appsettings*.json"
-    }
-  ],
-  "deletedTests": [
-    {
-      "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.IUnifiedCache_ExposesIncrementWithExpiryPrimitive",
-      "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementWithExpiryAsync_UsesAtomicRedisScriptWithExpiryAndBypassesL1",
-        "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementManyWithExpiryAsync_UsesSingleRedisScriptWithExpiryForEveryKey",
-        "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementClampedWithExpiryAsync_UsesAtomicRedisScriptWithClampExpiryAndBypassesL1"
-      ],
-      "reason": "The public cache primitives are now invoked through the concrete interface implementation and their Redis command envelopes and results are asserted directly."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.UnifiedCache_IncrementWithExpiryUsesSingleRedisScriptAndPreservesExistingWindow",
-      "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementWithExpiryAsync_UsesAtomicRedisScriptWithExpiryAndBypassesL1"
-      ],
-      "reason": "The replacement executes the method, captures its single Lua request, verifies INCRBY and expiry arguments, and rejects fallback StringIncrement calls."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.UnifiedCache_IncrementManyWithExpiryUsesSingleRedisScriptForAllKeysAndPreservesExistingWindow",
-      "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementManyWithExpiryAsync_UsesSingleRedisScriptWithExpiryForEveryKey"
-      ],
-      "reason": "The replacement executes one multi-key Redis script and checks the complete key set, TTL arguments, atomic result vector, and L1 invalidation."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.UnifiedCache_IncrementClampedWithExpiryUsesSingleRedisScriptWithClampAndTtl",
-      "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementClampedWithExpiryAsync_UsesAtomicRedisScriptWithClampExpiryAndBypassesL1"
-      ],
-      "reason": "The replacement executes the clamp path and validates its script, clamp and TTL parameters, returned value, and absence of non-atomic Redis fallbacks."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.UnifiedCache_TrySetStringIfValueUsesRedisTransactionCondition",
-      "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.TrySetStringIfValueAsync_UsesRedisConditionAndPublishesL1OnlyAfterCommit"
-      ],
-      "reason": "The replacement executes compare-and-set through an ITransaction, verifies the condition, target write, commit, and post-commit L1 publication."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.UnifiedCache_TrySetVersionedStringUsesSingleLuaVersionGuard",
-      "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.TrySetVersionedStringAsync_UsesLuaVersionGuardAndUpdatesL1OnlyOnSuccess",
-        "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.TrySetVersionedStringAsync_ConflictDoesNotSetL1"
-      ],
-      "reason": "Success and conflict behavior now execute the Lua guard and prove that L1 is populated only after an accepted version transition."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/FsusHostRuntimeTuningTests.cs#FsusHostRuntimeTuningTests.DockerAndProjectFiles_UseConsistentThroughputReadyToRunProfile",
-      "path": "tests/backend/Unit/FsusHostRuntimeTuningTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/FsusHostRuntimeTuningTests.cs#FsusHostRuntimeTuningTests.CompiledServerMetadata_UsesConsistentThroughputReadyToRunProfile"
-      ],
-      "reason": "The replacement reads AssemblyMetadata from the compiled server assembly and verifies both ReadyToRun switches instead of locking the project file text."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/FsusHostRuntimeTuningTests.cs#FsusHostRuntimeTuningTests.Dockerfile_PinsVcpkgAndKeepsNpmOutOfRuntimeBase",
-      "path": "tests/backend/Unit/FsusHostRuntimeTuningTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/FsusHostRuntimeTuningTests.cs#FsusHostRuntimeTuningTests.ImageRuntimeContract_RequiresPinnedVcpkgNodeAndNoNpm",
-        "node-test:tests/tools/deployment-slots.test.mjs#slot-preflight-enforces-target-image-runtime-contract-wi-ae440dc3d8"
-      ],
-      "reason": "The replacements execute the deployment image contract with fake Docker behavior, verify pull and OCI label inspection, prove Node is present and npm absent, cover rejection paths, and keep the active slot untouched."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/HotStatsInvalidationCoalescerTests.cs#HotStatsInvalidationCoalescerTests.BackendQpsVisitLogEvidenceChecksAsyncDirtyCalls",
-      "path": "tests/backend/Unit/HotStatsInvalidationCoalescerTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/HotStatsInvalidationCoalescerTests.cs#HotStatsInvalidationCoalescerTests.VisitLogProcessor_RuntimeUsesAsyncDirtyContract"
-      ],
-      "reason": "The replacement inspects the compiled interface and VisitLogProcessor runtime metadata, proving both dirty paths are asynchronous and retain their production reasons without reading the backend-qps lane source."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.DataScale_SourceLinksSeedArtifactRebuildEvidenceToProbe",
-      "path": "tests/backend/Unit/InfraHelperTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.DataScaleScripts_EmitIsolatedArtifactRebuildEvidence"
-      ],
-      "reason": "The replacement executes the real seed and probe tools with isolated output and fake Docker and Node boundaries, then verifies their generated seed, artifact, namespace, invocation, summary, and invalid output-path behavior."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.DataScale_CommentSeedDoesNotEnumerateIdentityColumns",
-      "path": "tests/backend/Unit/InfraHelperTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.DataScaleSeed_GeneratedSqlUsesCurrentZkAnonymousIdentityShape"
-      ],
-      "reason": "The replacement runs the real seed tool and inspects the SQL actually sent to the fake PostgreSQL boundary, preserving the identity-column contract without reading seed.sh."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.BackendQps_SourceRequiresRuntimeCountersForCoreScenarios",
-      "path": "tests/backend/Unit/InfraHelperTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.RuntimeEvidenceTools_EmitAndValidateRequiredCountersAndObservability"
-      ],
-      "reason": "The replacement runs the real hotread collector against a local AEDS endpoint and fake PostgreSQL and Redis counters, proving that required counter evidence is complete."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.RuntimeEvidence_SourceCollectsExtendedObservabilityFields",
-      "path": "tests/backend/Unit/InfraHelperTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.RuntimeEvidenceTools_EmitAndValidateRequiredCountersAndObservability"
-      ],
-      "reason": "The replacement validates extended observability emitted by the real runtime collector through the real metrics validator and proves a missing required category is rejected."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/IntegrityProofVerificationMatrixTests.cs#IntegrityProofVerificationMatrixTests.ToolingMatrixAndDocsExposeIntegrityProofVerificationGate",
-      "path": "tests/backend/Unit/IntegrityProofVerificationMatrixTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/IntegrityProofVerificationMatrixTests.cs#IntegrityProofVerificationMatrixTests.VerificationTool_EmitsOfflineReleaseEvidenceAndPropagatesFailure"
-      ],
-      "reason": "The replacement executes the real verification evidence tool through a fake dotnet process boundary, validates its offline release evidence and tamper/public-model contract, and proves command failure is propagated."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/IntegrityVerificationManifestTests.cs#IntegrityVerificationManifestTests.Documentation_RegistersPublicVerificationApiAndManualSignatureCheck",
-      "path": "tests/backend/Unit/IntegrityVerificationManifestTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/IntegrityVerificationManifestTests.cs#IntegrityVerificationManifestTests.PublicVerificationRuntime_RegistersRoutesAndVerifiesWithPublicKeyOnly"
-      ],
-      "reason": "The replacement enumerates the mapped public verification routes and performs a real ECDSA verification with a public-only registry, including tamper rejection and private-key non-disclosure."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/BackendTestGovernanceTests.cs#BackendTestGovernanceTests.EndpointFamilies_CoverEveryEndpointFile",
-      "path": "tests/backend/Unit/BackendTestGovernanceTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/BackendTestGovernanceTests.cs#BackendTestGovernanceTests.EndpointFamilies_CoverEveryRuntimeRouteAndMethod"
-      ],
-      "reason": "The replacement maps the governed endpoint extensions into real EndpointDataSources and proves every runtime route and HTTP method is uniquely covered by a fixture-backed family and known requirements."
-    }
-  ],
-  "centralIntegration": [
-    {
-      "path": "tests/test-retention-replacements.json",
-      "status": "present-not-verified",
-      "operation": "merged-exact-deleted-tests",
-      "deletedTestIds": 16
-    }
-  ]
+    "schema": "fsusblog.issue-test-retention-replacements.v1",
+    "issue": 1051,
+    "baseline": "tests/test-retention-before.json",
+    "expectedDeletedTestIds": 16,
+    "sourceLockCorrections": [
+        {
+            "testId": "xunit:tests/backend/Unit/PublicAotNodeWorkerScriptTests.cs#PublicAotNodeWorkerScriptTests.ServerPublicSsrScript_ExecutesLineProtocolWorkerCommands",
+            "retention": "same-test-id-corrected-in-place",
+            "behaviorBoundary": "test-built Node runtime artifact invoked through PublicAotNodeSsrRenderer.ValidateBundleAsync",
+            "forbiddenSourceReadRemoved": "src/frontend/scripts/server-public-ssr.worker-core.mjs"
+        },
+        {
+            "testId": "xunit:tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#RuntimeFallbackRetirementAcceptanceTests.A3_4_LegacyPlainCookieSwitchCannotRestoreFallback",
+            "retention": "same-test-id-corrected-in-place",
+            "behaviorBoundary": "AuthCookieService production behavior plus compiled runtime metadata",
+            "forbiddenSourceReadRemoved": "src/backend/appsettings*.json"
+        }
+    ],
+    "deletedTests": [
+        {
+            "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.IUnifiedCache_ExposesIncrementWithExpiryPrimitive",
+            "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementWithExpiryAsync_UsesAtomicRedisScriptWithExpiryAndBypassesL1",
+                "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementManyWithExpiryAsync_UsesSingleRedisScriptWithExpiryForEveryKey",
+                "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementClampedWithExpiryAsync_UsesAtomicRedisScriptWithClampExpiryAndBypassesL1"
+            ],
+            "reason": "The public cache primitives are now invoked through the concrete interface implementation and their Redis command envelopes and results are asserted directly."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.UnifiedCache_IncrementWithExpiryUsesSingleRedisScriptAndPreservesExistingWindow",
+            "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementWithExpiryAsync_UsesAtomicRedisScriptWithExpiryAndBypassesL1"
+            ],
+            "reason": "The replacement executes the method, captures its single Lua request, verifies INCRBY and expiry arguments, and rejects fallback StringIncrement calls."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.UnifiedCache_IncrementManyWithExpiryUsesSingleRedisScriptForAllKeysAndPreservesExistingWindow",
+            "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementManyWithExpiryAsync_UsesSingleRedisScriptWithExpiryForEveryKey"
+            ],
+            "reason": "The replacement executes one multi-key Redis script and checks the complete key set, TTL arguments, atomic result vector, and L1 invalidation."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.UnifiedCache_IncrementClampedWithExpiryUsesSingleRedisScriptWithClampAndTtl",
+            "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementClampedWithExpiryAsync_UsesAtomicRedisScriptWithClampExpiryAndBypassesL1"
+            ],
+            "reason": "The replacement executes the clamp path and validates its script, clamp and TTL parameters, returned value, and absence of non-atomic Redis fallbacks."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.UnifiedCache_TrySetStringIfValueUsesRedisTransactionCondition",
+            "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.TrySetStringIfValueAsync_UsesRedisConditionAndPublishesL1OnlyAfterCommit"
+            ],
+            "reason": "The replacement executes compare-and-set through an ITransaction, verifies the condition, target write, commit, and post-commit L1 publication."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.UnifiedCache_TrySetVersionedStringUsesSingleLuaVersionGuard",
+            "path": "tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.TrySetVersionedStringAsync_UsesLuaVersionGuardAndUpdatesL1OnlyOnSuccess",
+                "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.TrySetVersionedStringAsync_ConflictDoesNotSetL1"
+            ],
+            "reason": "Success and conflict behavior now execute the Lua guard and prove that L1 is populated only after an accepted version transition."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FsusHostRuntimeTuningTests.cs#FsusHostRuntimeTuningTests.DockerAndProjectFiles_UseConsistentThroughputReadyToRunProfile",
+            "path": "tests/backend/Unit/FsusHostRuntimeTuningTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FsusHostRuntimeTuningTests.cs#FsusHostRuntimeTuningTests.CompiledServerMetadata_UsesConsistentThroughputReadyToRunProfile"
+            ],
+            "reason": "The replacement reads AssemblyMetadata from the compiled server assembly and verifies both ReadyToRun switches instead of locking the project file text."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FsusHostRuntimeTuningTests.cs#FsusHostRuntimeTuningTests.Dockerfile_PinsVcpkgAndKeepsNpmOutOfRuntimeBase",
+            "path": "tests/backend/Unit/FsusHostRuntimeTuningTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/FsusHostRuntimeTuningTests.cs#FsusHostRuntimeTuningTests.ImageRuntimeContract_RequiresPinnedVcpkgNodeAndNoNpm",
+                "node-test:tests/tools/deployment-slots.test.mjs#slot-preflight-enforces-target-image-runtime-contract-wi-ae440dc3d8"
+            ],
+            "reason": "The replacements execute the deployment image contract with fake Docker behavior, verify pull and OCI label inspection, prove Node is present and npm absent, cover rejection paths, and keep the active slot untouched."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/HotStatsInvalidationCoalescerTests.cs#HotStatsInvalidationCoalescerTests.BackendQpsVisitLogEvidenceChecksAsyncDirtyCalls",
+            "path": "tests/backend/Unit/HotStatsInvalidationCoalescerTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/HotStatsInvalidationCoalescerTests.cs#HotStatsInvalidationCoalescerTests.VisitLogProcessor_RuntimeUsesAsyncDirtyContract"
+            ],
+            "reason": "The replacement inspects the compiled interface and VisitLogProcessor runtime metadata, proving both dirty paths are asynchronous and retain their production reasons without reading the backend-qps lane source."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.DataScale_SourceLinksSeedArtifactRebuildEvidenceToProbe",
+            "path": "tests/backend/Unit/InfraHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.DataScaleScripts_EmitIsolatedArtifactRebuildEvidence"
+            ],
+            "reason": "The replacement executes the real seed and probe tools with isolated output and fake Docker and Node boundaries, then verifies their generated seed, artifact, namespace, invocation, summary, and invalid output-path behavior."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.DataScale_CommentSeedDoesNotEnumerateIdentityColumns",
+            "path": "tests/backend/Unit/InfraHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.DataScaleSeed_GeneratedSqlUsesCurrentZkAnonymousIdentityShape"
+            ],
+            "reason": "The replacement runs the real seed tool and inspects the SQL actually sent to the fake PostgreSQL boundary, preserving the identity-column contract without reading seed.sh."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.BackendQps_SourceRequiresRuntimeCountersForCoreScenarios",
+            "path": "tests/backend/Unit/InfraHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.RuntimeEvidenceTools_EmitAndValidateRequiredCountersAndObservability"
+            ],
+            "reason": "The replacement runs the real hotread collector against a local AEDS endpoint and fake PostgreSQL and Redis counters, proving that required counter evidence is complete."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.RuntimeEvidence_SourceCollectsExtendedObservabilityFields",
+            "path": "tests/backend/Unit/InfraHelperTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/InfraHelperTests.cs#BackgroundWorkflowSourceTests.RuntimeEvidenceTools_EmitAndValidateRequiredCountersAndObservability"
+            ],
+            "reason": "The replacement validates extended observability emitted by the real runtime collector through the real metrics validator and proves a missing required category is rejected."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/IntegrityProofVerificationMatrixTests.cs#IntegrityProofVerificationMatrixTests.ToolingMatrixAndDocsExposeIntegrityProofVerificationGate",
+            "path": "tests/backend/Unit/IntegrityProofVerificationMatrixTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/IntegrityProofVerificationMatrixTests.cs#IntegrityProofVerificationMatrixTests.VerificationTool_EmitsOfflineReleaseEvidenceAndPropagatesFailure"
+            ],
+            "reason": "The replacement executes the real verification evidence tool through a fake dotnet process boundary, validates its offline release evidence and tamper/public-model contract, and proves command failure is propagated."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/IntegrityVerificationManifestTests.cs#IntegrityVerificationManifestTests.Documentation_RegistersPublicVerificationApiAndManualSignatureCheck",
+            "path": "tests/backend/Unit/IntegrityVerificationManifestTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/IntegrityVerificationManifestTests.cs#IntegrityVerificationManifestTests.PublicVerificationRuntime_RegistersRoutesAndVerifiesWithPublicKeyOnly"
+            ],
+            "reason": "The replacement enumerates the mapped public verification routes and performs a real ECDSA verification with a public-only registry, including tamper rejection and private-key non-disclosure."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/BackendTestGovernanceTests.cs#BackendTestGovernanceTests.EndpointFamilies_CoverEveryEndpointFile",
+            "path": "tests/backend/Unit/BackendTestGovernanceTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/BackendTestGovernanceTests.cs#BackendTestGovernanceTests.EndpointFamilies_CoverEveryRuntimeRouteAndMethod"
+            ],
+            "reason": "The replacement maps the governed endpoint extensions into real EndpointDataSources and proves every runtime route and HTTP method is uniquely covered by a fixture-backed family and known requirements."
+        }
+    ],
+    "centralIntegration": [
+        {
+            "path": "tests/test-retention-replacements.json",
+            "status": "present-not-verified",
+            "operation": "merged-exact-deleted-tests",
+            "deletedTestIds": 16
+        }
+    ]
 }

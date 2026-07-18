@@ -1,214 +1,223 @@
 {
-  "schema": "fsusblog.issue-range-code-landing-handoff.v1",
-  "issues": [1032, 1033, 1034, 1035, 1036, 1037, 1038, 1039],
-  "status": "code-landed-validation-deferred",
-  "truthConstraints": {
-    "testsBuildsLintersSyntaxAndGovernanceCommandsExecuted": false,
-    "functionalValidationClaimed": false,
-    "newCommitCreatedByClosurePass": false,
-    "pushCommentOrIssueClosurePerformed": false
-  },
-  "items": [
-    {
-      "issue": 1032,
-      "codeStatus": "achieved",
-      "achieved": [
-        "Replaced the tracked raw source-bearing before audit with a deterministic compact v3 baseline.",
-        "Preserved test, assertion ownership, path, framework, risk, tier, coverage, timing, production DAG, coverage-baseline and mutation-slice comparison dimensions through fixed-width digest indexes.",
-        "Updated retention, optimization and suite-convergence readers plus direct test sources for compact-before versus raw-after comparison."
-      ],
-      "primaryFiles": [
-        "tests/test-retention-before.json",
-        "tools/test-retention/audit.mjs",
-        "tools/test/optimization-report.mjs",
-        "tools/test-convergence/audit.mjs",
-        "tools/check-test-suite-convergence.mjs",
-        "tests/frontend/checks/static/build-frontend-source-locking-handoff.mjs",
-        "tests/tools/test-retention-audit.test.mjs",
-        "tests/tools/test-optimization-report.test.mjs",
-        "tests/tools/test-suite-convergence.test.mjs",
-        "docs/testing/issue-1032-compact-retention-baseline.md",
-        "tests/issue-1032-retention-baseline-handoff.json"
-      ],
-      "missing": [
-        "Run the unified after audit and prove the compact-before comparison result.",
-        "Run coverage, mutation, production-tier and measured wall-clock acceptance required by the issue."
-      ]
+    "schema": "fsusblog.issue-range-code-landing-handoff.v1",
+    "issues": [
+        1032,
+        1033,
+        1034,
+        1035,
+        1036,
+        1037,
+        1038,
+        1039
+    ],
+    "status": "code-landed-validation-deferred",
+    "truthConstraints": {
+        "testsBuildsLintersSyntaxAndGovernanceCommandsExecuted": false,
+        "functionalValidationClaimed": false,
+        "newCommitCreatedByClosurePass": false,
+        "pushCommentOrIssueClosurePerformed": false
     },
-    {
-      "issue": 1033,
-      "codeStatus": "achieved",
-      "achieved": [
-        "Deleted eight meta-test files and mapped all 30 retired test IDs to authoritative checkers or behavior owners.",
-        "Removed the retired files from active matrix, requirement and package ownership."
-      ],
-      "primaryFiles": [
-        "tests/test-retention-replacements.json",
-        "tests/issue-1033-governance-handoff.json",
-        "docs/testing/issues-1033-1035-test-governance-retirements.md"
-      ],
-      "localImplementationCommit": "1e0dd109",
-      "missing": [
-        "Run retention, optimization, matrix and backend-governance acceptance for the 30 mappings."
-      ]
-    },
-    {
-      "issue": 1034,
-      "codeStatus": "achieved",
-      "achieved": [
-        "Retired ux-viewport-canary-parity, its runner, lane, Node test and incomplete legacy fixture tree.",
-        "Kept the active viewport plan-progress, smoke, boundaries and visual tiers as the behavior owners."
-      ],
-      "primaryFiles": [
-        "tests/matrix.yml",
-        "tests/coverage-registry.json",
-        "docs/testing.generated.md",
-        "docs/testing.md",
-        "tests/issue-1034-governance-handoff.json",
-        "docs/testing/issues-1033-1035-test-governance-retirements.md"
-      ],
-      "localImplementationCommit": "11fd455a",
-      "missing": [
-        "Run matrix/inventory/release-evidence governance and measure actual replacement-tier wall clock."
-      ]
-    },
-    {
-      "issue": 1035,
-      "codeStatus": "achieved",
-      "achieved": [
-        "Deleted three duplicate source-locking tests and mapped seven retired IDs.",
-        "Consolidated historical residue and fixture-secret ownership with SQL, unsafe/safe fixture and explicit allowlist support."
-      ],
-      "primaryFiles": [
-        "tools/check-historical-residue.sh",
-        "tests/frontend/checks/static/check-historical-residue-fixture.mjs",
-        "tests/frontend/checks/static/check-test-fixture-secret-governance.mjs",
-        "tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs",
-        "tests/frontend/checks/static/manifest.json",
-        "tests/issue-1035-governance-handoff.json",
-        "docs/testing/issues-1033-1035-test-governance-retirements.md"
-      ],
-      "localImplementationCommit": "d145c05c",
-      "missing": [
-        "Run the consolidated fixture/residue checkers and retention acceptance."
-      ]
-    },
-    {
-      "issue": 1036,
-      "codeStatus": "achieved",
-      "achieved": [
-        "Deleted the privacy release source gate and both destructive cold-start source gates.",
-        "Replaced them with mounted composer behavior, runtime TTL/single-use/Abort behavior, credential-free transport, worker/Wasm fail-closed behavior and account-subject projection/backfill behavior.",
-        "Rewired the privacy package command, security matrix, test matrix, coverage registry, backend requirements and generated inventory to real behavior owners."
-      ],
-      "primaryFiles": [
-        "src/frontend/package.json",
-        "security/matrices/privacy-zk-comment.yml",
-        "tests/matrix.yml",
-        "tests/coverage-registry.json",
-        "tests/backend/Fixtures/backend-test-requirements.json",
-        "docs/testing.generated.md",
-        "tests/frontend/unit/components/ArticleCommentComposer.test.ts",
-        "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
-        "tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts",
-        "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
-        "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
-        "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
-        "tests/backend/Unit/AccountSubjectHashProjectionTests.cs",
-        "tests/issue-1036-retention-replacements.json",
-        "tests/issue-1036-governance-handoff.json",
-        "docs/testing/issue-1036-privacy-and-cutover-replacements.md"
-      ],
-      "expectedDeletedTestIds": 13,
-      "missing": [
-        "Run frontend privacy, security-matrix, PostgreSQL migration and retention acceptance."
-      ]
-    },
-    {
-      "issue": 1037,
-      "codeStatus": "achieved",
-      "achieved": [
-        "Deleted five source-shape security suites and replaced them with executable canonical-path, input-limit, cryptography, disclosure and upload boundaries.",
-        "Added scoped Roslyn rules with positive and negative fixtures so repository diagnostics are reported without a maximum-error cap.",
-        "Wired the 19-ID replacement set into central retention, matrix, coverage, backend requirements and static governance."
-      ],
-      "primaryFiles": [
-        "src/backend/Infrastructure/Security/CanonicalPathBoundary.cs",
-        "src/backend/Infrastructure/Security/SecurityAssertionPayloadParser.cs",
-        "src/backend/Infrastructure/Security/SecurityRandomSource.cs",
-        "src/backend/Infrastructure/Security/SecurityStringComparisons.cs",
-        "tests/backend/Unit/SecurityHardening",
-        "security/policies/backend-source-policy.json",
-        "tools/security/FsusBlog.SecuritySourceAnalyzer",
-        "tests/backend/Fixtures/security-source-analysis",
-        "tests/tools/security-source-analyzer.test.mjs",
-        "tests/backend/issue-1037-retention-replacements.json",
-        "tests/backend/issue-1037-security-hardening-evidence.json",
-        "tests/backend/issue-1037-central-handoff.json",
-        "docs/testing/security-hardening-boundary-replacements.md",
-        "docs/testing/security-hardening-source-policy.md"
-      ],
-      "expectedDeletedTestIds": 19,
-      "missing": [
-        "Run the five xUnit boundary suites, Roslyn positive/negative fixtures, retention/matrix governance and critical mutation slice."
-      ]
-    },
-    {
-      "issue": 1038,
-      "codeStatus": "achieved",
-      "achieved": [
-        "Replaced four source-shape auth suites with final EndpointDataSource metadata and TestServer request behavior.",
-        "Added explicit endpoint-filter and admin-sensitive-step-up metadata while retaining the real filters and their ordering.",
-        "Wired all 40 retired IDs into central retention, coverage, matrix and backend requirements."
-      ],
-      "primaryFiles": [
-        "src/backend/Infrastructure/Policies/EndpointPolicyMetadata.cs",
-        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
-        "tests/backend/Helpers/TestInfrastructure/EndpointSecurityTestHost.cs",
-        "tests/backend/Unit/EndpointPolicyContractTests.cs",
-        "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
-        "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-        "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
-        "tests/backend/issue-1038-retention-replacements.json",
-        "tests/backend/issue-1038-endpoint-security-evidence.json",
-        "tests/backend/issue-1038-governance-handoff.json",
-        "docs/testing/issue-1038-endpoint-security-contract-replacements.md"
-      ],
-      "expectedDeletedTestIds": 40,
-      "missing": [
-        "Run focused backend compilation, unit/TestServer suites, auth/security mutation, retention and production-fresh acceptance."
-      ]
-    },
-    {
-      "issue": 1039,
-      "codeStatus": "achieved",
-      "achieved": [
-        "Replaced admin-console source assertions with endpoint metadata/requests, PostgreSQL persistence, DTO JSON/AEDS serialization and service mutation behavior.",
-        "Added frontend API, mounted integrity-console, routing/navigation and browser behavior ownership.",
-        "Wired all 15 retired IDs into central retention and three admin-console coverage owners."
-      ],
-      "primaryFiles": [
-        "tests/backend/Unit/AdminConsistencyContractTests.cs",
-        "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs",
-        "tests/backend/Unit/ModerationConsoleContractTests.cs",
-        "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs",
-        "tests/frontend/unit/api/admin.test.ts",
-        "tests/frontend/unit/api/authoring.test.ts",
-        "tests/frontend/unit/api/integrityConsole.test.ts",
-        "tests/frontend/unit/views/IntegrityProofConsole.test.ts",
-        "tests/frontend/unit/router/index.test.ts",
-        "tests/frontend/unit/layouts/accountNavModules.test.ts",
-        "tests/frontend/e2e/acceptance/admin-console.spec.ts",
-        "tests/backend/issue-1039-retention-replacements.json",
-        "tests/issue-1039-admin-console-evidence.json",
-        "tests/issue-1039-governance-handoff.json",
-        "docs/testing/admin-console-behavior-tests.md"
-      ],
-      "expectedDeletedTestIds": 15,
-      "missing": [
-        "Run focused backend/frontend suites, PostgreSQL behavior, browser acceptance, retention and production-fresh acceptance."
-      ]
-    }
-  ],
-  "nextAction": "Start the unified validation phase; do not claim any issue complete before its acceptance evidence passes."
+    "items": [
+        {
+            "issue": 1032,
+            "codeStatus": "achieved",
+            "achieved": [
+                "Replaced the tracked raw source-bearing before audit with a deterministic compact v3 baseline.",
+                "Preserved test, assertion ownership, path, framework, risk, tier, coverage, timing, production DAG, coverage-baseline and mutation-slice comparison dimensions through fixed-width digest indexes.",
+                "Updated retention, optimization and suite-convergence readers plus direct test sources for compact-before versus raw-after comparison."
+            ],
+            "primaryFiles": [
+                "tests/test-retention-before.json",
+                "tools/test-retention/audit.mjs",
+                "tools/test/optimization-report.mjs",
+                "tools/test-convergence/audit.mjs",
+                "tools/check-test-suite-convergence.mjs",
+                "tests/frontend/checks/static/build-frontend-source-locking-handoff.mjs",
+                "tests/tools/test-retention-audit.test.mjs",
+                "tests/tools/test-optimization-report.test.mjs",
+                "tests/tools/test-suite-convergence.test.mjs",
+                "docs/testing/issue-1032-compact-retention-baseline.md",
+                "tests/issue-1032-retention-baseline-handoff.json"
+            ],
+            "missing": [
+                "Run the unified after audit and prove the compact-before comparison result.",
+                "Run coverage, mutation, production-tier and measured wall-clock acceptance required by the issue."
+            ]
+        },
+        {
+            "issue": 1033,
+            "codeStatus": "achieved",
+            "achieved": [
+                "Deleted eight meta-test files and mapped all 30 retired test IDs to authoritative checkers or behavior owners.",
+                "Removed the retired files from active matrix, requirement and package ownership."
+            ],
+            "primaryFiles": [
+                "tests/test-retention-replacements.json",
+                "tests/issue-1033-governance-handoff.json",
+                "docs/testing/issues-1033-1035-test-governance-retirements.md"
+            ],
+            "localImplementationCommit": "1e0dd109",
+            "missing": [
+                "Run retention, optimization, matrix and backend-governance acceptance for the 30 mappings."
+            ]
+        },
+        {
+            "issue": 1034,
+            "codeStatus": "achieved",
+            "achieved": [
+                "Retired ux-viewport-canary-parity, its runner, lane, Node test and incomplete legacy fixture tree.",
+                "Kept the active viewport plan-progress, smoke, boundaries and visual tiers as the behavior owners."
+            ],
+            "primaryFiles": [
+                "tests/matrix.yml",
+                "tests/coverage-registry.json",
+                "docs/testing.generated.md",
+                "docs/testing.md",
+                "tests/issue-1034-governance-handoff.json",
+                "docs/testing/issues-1033-1035-test-governance-retirements.md"
+            ],
+            "localImplementationCommit": "11fd455a",
+            "missing": [
+                "Run matrix/inventory/release-evidence governance and measure actual replacement-tier wall clock."
+            ]
+        },
+        {
+            "issue": 1035,
+            "codeStatus": "achieved",
+            "achieved": [
+                "Deleted three duplicate source-locking tests and mapped seven retired IDs.",
+                "Consolidated historical residue and fixture-secret ownership with SQL, unsafe/safe fixture and explicit allowlist support."
+            ],
+            "primaryFiles": [
+                "tools/check-historical-residue.sh",
+                "tests/frontend/checks/static/check-historical-residue-fixture.mjs",
+                "tests/frontend/checks/static/check-test-fixture-secret-governance.mjs",
+                "tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs",
+                "tests/frontend/checks/static/manifest.json",
+                "tests/issue-1035-governance-handoff.json",
+                "docs/testing/issues-1033-1035-test-governance-retirements.md"
+            ],
+            "localImplementationCommit": "d145c05c",
+            "missing": [
+                "Run the consolidated fixture/residue checkers and retention acceptance."
+            ]
+        },
+        {
+            "issue": 1036,
+            "codeStatus": "achieved",
+            "achieved": [
+                "Deleted the privacy release source gate and both destructive cold-start source gates.",
+                "Replaced them with mounted composer behavior, runtime TTL/single-use/Abort behavior, credential-free transport, worker/Wasm fail-closed behavior and account-subject projection/backfill behavior.",
+                "Rewired the privacy package command, security matrix, test matrix, coverage registry, backend requirements and generated inventory to real behavior owners."
+            ],
+            "primaryFiles": [
+                "src/frontend/package.json",
+                "security/matrices/privacy-zk-comment.yml",
+                "tests/matrix.yml",
+                "tests/coverage-registry.json",
+                "tests/backend/Fixtures/backend-test-requirements.json",
+                "docs/testing.generated.md",
+                "tests/frontend/unit/components/ArticleCommentComposer.test.ts",
+                "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
+                "tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts",
+                "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
+                "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
+                "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+                "tests/backend/Unit/AccountSubjectHashProjectionTests.cs",
+                "tests/issue-1036-retention-replacements.json",
+                "tests/issue-1036-governance-handoff.json",
+                "docs/testing/issue-1036-privacy-and-cutover-replacements.md"
+            ],
+            "expectedDeletedTestIds": 13,
+            "missing": [
+                "Run frontend privacy, security-matrix, PostgreSQL migration and retention acceptance."
+            ]
+        },
+        {
+            "issue": 1037,
+            "codeStatus": "achieved",
+            "achieved": [
+                "Deleted five source-shape security suites and replaced them with executable canonical-path, input-limit, cryptography, disclosure and upload boundaries.",
+                "Added scoped Roslyn rules with positive and negative fixtures so repository diagnostics are reported without a maximum-error cap.",
+                "Wired the 19-ID replacement set into central retention, matrix, coverage, backend requirements and static governance."
+            ],
+            "primaryFiles": [
+                "src/backend/Infrastructure/Security/CanonicalPathBoundary.cs",
+                "src/backend/Infrastructure/Security/SecurityAssertionPayloadParser.cs",
+                "src/backend/Infrastructure/Security/SecurityRandomSource.cs",
+                "src/backend/Infrastructure/Security/SecurityStringComparisons.cs",
+                "tests/backend/Unit/SecurityHardening",
+                "security/policies/backend-source-policy.json",
+                "tools/security/FsusBlog.SecuritySourceAnalyzer",
+                "tests/backend/Fixtures/security-source-analysis",
+                "tests/tools/security-source-analyzer.test.mjs",
+                "tests/backend/issue-1037-retention-replacements.json",
+                "tests/backend/issue-1037-security-hardening-evidence.json",
+                "tests/backend/issue-1037-central-handoff.json",
+                "docs/testing/security-hardening-boundary-replacements.md",
+                "docs/testing/security-hardening-source-policy.md"
+            ],
+            "expectedDeletedTestIds": 19,
+            "missing": [
+                "Run the five xUnit boundary suites, Roslyn positive/negative fixtures, retention/matrix governance and critical mutation slice."
+            ]
+        },
+        {
+            "issue": 1038,
+            "codeStatus": "achieved",
+            "achieved": [
+                "Replaced four source-shape auth suites with final EndpointDataSource metadata and TestServer request behavior.",
+                "Added explicit endpoint-filter and admin-sensitive-step-up metadata while retaining the real filters and their ordering.",
+                "Wired all 40 retired IDs into central retention, coverage, matrix and backend requirements."
+            ],
+            "primaryFiles": [
+                "src/backend/Infrastructure/Policies/EndpointPolicyMetadata.cs",
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+                "tests/backend/Helpers/TestInfrastructure/EndpointSecurityTestHost.cs",
+                "tests/backend/Unit/EndpointPolicyContractTests.cs",
+                "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+                "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+                "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+                "tests/backend/issue-1038-retention-replacements.json",
+                "tests/backend/issue-1038-endpoint-security-evidence.json",
+                "tests/backend/issue-1038-governance-handoff.json",
+                "docs/testing/issue-1038-endpoint-security-contract-replacements.md"
+            ],
+            "expectedDeletedTestIds": 40,
+            "missing": [
+                "Run focused backend compilation, unit/TestServer suites, auth/security mutation, retention and production-fresh acceptance."
+            ]
+        },
+        {
+            "issue": 1039,
+            "codeStatus": "achieved",
+            "achieved": [
+                "Replaced admin-console source assertions with endpoint metadata/requests, PostgreSQL persistence, DTO JSON/AEDS serialization and service mutation behavior.",
+                "Added frontend API, mounted integrity-console, routing/navigation and browser behavior ownership.",
+                "Wired all 15 retired IDs into central retention and three admin-console coverage owners."
+            ],
+            "primaryFiles": [
+                "tests/backend/Unit/AdminConsistencyContractTests.cs",
+                "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs",
+                "tests/backend/Unit/ModerationConsoleContractTests.cs",
+                "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs",
+                "tests/frontend/unit/api/admin.test.ts",
+                "tests/frontend/unit/api/authoring.test.ts",
+                "tests/frontend/unit/api/integrityConsole.test.ts",
+                "tests/frontend/unit/views/IntegrityProofConsole.test.ts",
+                "tests/frontend/unit/router/index.test.ts",
+                "tests/frontend/unit/layouts/accountNavModules.test.ts",
+                "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+                "tests/backend/issue-1039-retention-replacements.json",
+                "tests/issue-1039-admin-console-evidence.json",
+                "tests/issue-1039-governance-handoff.json",
+                "docs/testing/admin-console-behavior-tests.md"
+            ],
+            "expectedDeletedTestIds": 15,
+            "missing": [
+                "Run focused backend/frontend suites, PostgreSQL behavior, browser acceptance, retention and production-fresh acceptance."
+            ]
+        }
+    ],
+    "nextAction": "Start the unified validation phase; do not claim any issue complete before its acceptance evidence passes."
 }

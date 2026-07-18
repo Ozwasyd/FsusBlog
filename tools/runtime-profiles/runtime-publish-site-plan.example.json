@@ -1,14 +1,64 @@
 {
-  "schema": "fsusblog.runtime-publish-stage-site-plan.v1",
-  "commands": {
-    "cleanupBefore": { "file": "/opt/fsus/site/runtime-matrix-cleanup", "args": ["before"], "timeoutMs": 300000 },
-    "build": { "file": "/opt/fsus/site/runtime-matrix-build", "args": [], "timeoutMs": 7200000 },
-    "correctness": { "file": "/opt/fsus/site/runtime-matrix-gate", "args": ["correctness"], "timeoutMs": 1800000 },
-    "security": { "file": "/opt/fsus/site/runtime-matrix-gate", "args": ["security"], "timeoutMs": 1800000 },
-    "release": { "file": "/opt/fsus/site/runtime-matrix-gate", "args": ["release"], "timeoutMs": 1800000 },
-    "featureParity": { "file": "/opt/fsus/site/runtime-matrix-parity", "args": ["feature"], "timeoutMs": 1800000 },
-    "securityParity": { "file": "/opt/fsus/site/runtime-matrix-parity", "args": ["security"], "timeoutMs": 1800000 },
-    "measure": { "file": "/opt/fsus/site/runtime-matrix-measure", "args": [], "timeoutMs": 7200000 },
-    "cleanupAfter": { "file": "/opt/fsus/site/runtime-matrix-cleanup", "args": ["after"], "timeoutMs": 300000 }
-  }
+    "schema": "fsusblog.runtime-publish-stage-site-plan.v1",
+    "commands": {
+        "cleanupBefore": {
+            "file": "/opt/fsus/site/runtime-matrix-cleanup",
+            "args": [
+                "before"
+            ],
+            "timeoutMs": 300000
+        },
+        "build": {
+            "file": "/opt/fsus/site/runtime-matrix-build",
+            "args": [],
+            "timeoutMs": 7200000
+        },
+        "correctness": {
+            "file": "/opt/fsus/site/runtime-matrix-gate",
+            "args": [
+                "correctness"
+            ],
+            "timeoutMs": 1800000
+        },
+        "security": {
+            "file": "/opt/fsus/site/runtime-matrix-gate",
+            "args": [
+                "security"
+            ],
+            "timeoutMs": 1800000
+        },
+        "release": {
+            "file": "/opt/fsus/site/runtime-matrix-gate",
+            "args": [
+                "release"
+            ],
+            "timeoutMs": 1800000
+        },
+        "featureParity": {
+            "file": "/opt/fsus/site/runtime-matrix-parity",
+            "args": [
+                "feature"
+            ],
+            "timeoutMs": 1800000
+        },
+        "securityParity": {
+            "file": "/opt/fsus/site/runtime-matrix-parity",
+            "args": [
+                "security"
+            ],
+            "timeoutMs": 1800000
+        },
+        "measure": {
+            "file": "/opt/fsus/site/runtime-matrix-measure",
+            "args": [],
+            "timeoutMs": 7200000
+        },
+        "cleanupAfter": {
+            "file": "/opt/fsus/site/runtime-matrix-cleanup",
+            "args": [
+                "after"
+            ],
+            "timeoutMs": 300000
+        }
+    }
 }

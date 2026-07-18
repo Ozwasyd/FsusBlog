@@ -1,240 +1,240 @@
 {
-  "schema": "fsusblog.zk.tamper-cases.v1",
-  "circuit_id": "fsus.anonymous.comment.v3",
-  "public_input_layout_version": 4,
-  "artifact_class": "tamper-contract",
-  "lifecycle": "active-test-contract",
-  "production_usable": false,
-  "valid_case": {
-    "id": "valid-comment-v2-witness",
-    "expected": "accept",
-    "covers": [
-      "valid_circuit_native_credential",
-      "current_credential_root",
-      "revocation_non_membership",
-      "qualification_policy",
-      "nullifier_prf_binding",
-      "credential_bucket_legality",
-      "identity_non_disclosure",
-      "presentation_unlinkability"
+    "schema": "fsusblog.zk.tamper-cases.v1",
+    "circuit_id": "fsus.anonymous.comment.v3",
+    "public_input_layout_version": 4,
+    "artifact_class": "tamper-contract",
+    "lifecycle": "active-test-contract",
+    "production_usable": false,
+    "valid_case": {
+        "id": "valid-comment-v2-witness",
+        "expected": "accept",
+        "covers": [
+            "valid_circuit_native_credential",
+            "current_credential_root",
+            "revocation_non_membership",
+            "qualification_policy",
+            "nullifier_prf_binding",
+            "credential_bucket_legality",
+            "identity_non_disclosure",
+            "presentation_unlinkability"
+        ]
+    },
+    "negative_invariants": [
+        {
+            "id": "tamper-nullifier-scope-root-revocation-reject",
+            "tamper_cases": [
+                "tamper-nullifier-hash",
+                "tamper-scope",
+                "tamper-credential-root",
+                "tamper-revocation-root"
+            ]
+        },
+        {
+            "id": "tamper-content-hash-reject",
+            "tamper_cases": [
+                "tamper-revocation-content-hash"
+            ]
+        },
+        {
+            "id": "tamper-binding-reject",
+            "tamper_cases": [
+                "tamper-revocation-artifact-binding"
+            ]
+        }
+    ],
+    "tamper_cases": [
+        {
+            "id": "tamper-issuer-signature",
+            "expected": "reject",
+            "mutates": [
+                "circuit_native_issuer_signature"
+            ],
+            "covers": [
+                "valid_circuit_native_credential"
+            ]
+        },
+        {
+            "id": "tamper-credential-root",
+            "expected": "reject",
+            "mutates": [
+                "credential_root",
+                "credential_membership_proof"
+            ],
+            "covers": [
+                "current_credential_root"
+            ]
+        },
+        {
+            "id": "tamper-credential-opening",
+            "expected": "reject",
+            "mutates": [
+                "credential_opening"
+            ],
+            "covers": [
+                "valid_circuit_native_credential",
+                "current_credential_root"
+            ]
+        },
+        {
+            "id": "tamper-revocation-root",
+            "expected": "reject",
+            "mutates": [
+                "revocation_root",
+                "revocation_non_membership_witness"
+            ],
+            "covers": [
+                "revocation_non_membership"
+            ]
+        },
+        {
+            "id": "tamper-revocation-content-hash",
+            "expected": "reject",
+            "mutates": [
+                "revocation_artifact.content_sha256"
+            ],
+            "covers": [
+                "revocation_non_membership"
+            ]
+        },
+        {
+            "id": "tamper-revocation-artifact-binding",
+            "expected": "reject",
+            "mutates": [
+                "revocation_artifact.issuer_id",
+                "revocation_artifact.circuit_id",
+                "revocation_artifact.epoch",
+                "revocation_artifact.root"
+            ],
+            "covers": [
+                "revocation_non_membership",
+                "current_credential_root"
+            ]
+        },
+        {
+            "id": "tamper-policy-hash",
+            "expected": "reject",
+            "mutates": [
+                "policy_hash",
+                "policy_comparison_witness"
+            ],
+            "covers": [
+                "qualification_policy"
+            ]
+        },
+        {
+            "id": "tamper-nullifier-hash",
+            "expected": "reject",
+            "mutates": [
+                "nullifier_hash"
+            ],
+            "covers": [
+                "nullifier_prf_binding"
+            ]
+        },
+        {
+            "id": "tamper-scope",
+            "expected": "reject",
+            "mutates": [
+                "scope"
+            ],
+            "covers": [
+                "nullifier_prf_binding"
+            ]
+        },
+        {
+            "id": "tamper-action-context",
+            "expected": "reject",
+            "mutates": [
+                "action_context"
+            ],
+            "covers": [
+                "nullifier_prf_binding"
+            ]
+        },
+        {
+            "id": "tamper-credential-level",
+            "expected": "reject",
+            "mutates": [
+                "credential_level",
+                "signed_credential_level"
+            ],
+            "covers": [
+                "credential_bucket_legality",
+                "qualification_policy"
+            ]
+        },
+        {
+            "id": "tamper-reputation-bucket",
+            "expected": "reject",
+            "mutates": [
+                "reputation_bucket",
+                "signed_reputation_bucket"
+            ],
+            "covers": [
+                "credential_bucket_legality",
+                "qualification_policy"
+            ]
+        },
+        {
+            "id": "tamper-credential-epoch",
+            "expected": "reject",
+            "mutates": [
+                "credential_epoch"
+            ],
+            "covers": [
+                "current_credential_root"
+            ]
+        },
+        {
+            "id": "tamper-layout-version",
+            "expected": "reject",
+            "mutates": [
+                "public_input_layout_version"
+            ],
+            "covers": [
+                "identity_non_disclosure"
+            ]
+        },
+        {
+            "id": "inject-credential-commitment-public-input",
+            "expected": "reject",
+            "mutates": [
+                "public_inputs.credential_commitment"
+            ],
+            "covers": [
+                "presentation_unlinkability"
+            ]
+        },
+        {
+            "id": "tamper-verifying-key-hash",
+            "expected": "reject",
+            "mutates": [
+                "verifying_key_hash"
+            ],
+            "covers": [
+                "valid_circuit_native_credential",
+                "current_credential_root"
+            ]
+        },
+        {
+            "id": "inject-user-id-public-input",
+            "expected": "reject",
+            "mutates": [
+                "public_inputs.userId"
+            ],
+            "covers": [
+                "identity_non_disclosure"
+            ]
+        },
+        {
+            "id": "inject-username-private-witness",
+            "expected": "reject",
+            "mutates": [
+                "private_witness.username"
+            ],
+            "covers": [
+                "identity_non_disclosure"
+            ]
+        }
     ]
-  },
-  "negative_invariants": [
-    {
-      "id": "tamper-nullifier-scope-root-revocation-reject",
-      "tamper_cases": [
-        "tamper-nullifier-hash",
-        "tamper-scope",
-        "tamper-credential-root",
-        "tamper-revocation-root"
-      ]
-    },
-    {
-      "id": "tamper-content-hash-reject",
-      "tamper_cases": [
-        "tamper-revocation-content-hash"
-      ]
-    },
-    {
-      "id": "tamper-binding-reject",
-      "tamper_cases": [
-        "tamper-revocation-artifact-binding"
-      ]
-    }
-  ],
-  "tamper_cases": [
-    {
-      "id": "tamper-issuer-signature",
-      "expected": "reject",
-      "mutates": [
-        "circuit_native_issuer_signature"
-      ],
-      "covers": [
-        "valid_circuit_native_credential"
-      ]
-    },
-    {
-      "id": "tamper-credential-root",
-      "expected": "reject",
-      "mutates": [
-        "credential_root",
-        "credential_membership_proof"
-      ],
-      "covers": [
-        "current_credential_root"
-      ]
-    },
-    {
-      "id": "tamper-credential-opening",
-      "expected": "reject",
-      "mutates": [
-        "credential_opening"
-      ],
-      "covers": [
-        "valid_circuit_native_credential",
-        "current_credential_root"
-      ]
-    },
-    {
-      "id": "tamper-revocation-root",
-      "expected": "reject",
-      "mutates": [
-        "revocation_root",
-        "revocation_non_membership_witness"
-      ],
-      "covers": [
-        "revocation_non_membership"
-      ]
-    },
-    {
-      "id": "tamper-revocation-content-hash",
-      "expected": "reject",
-      "mutates": [
-        "revocation_artifact.content_sha256"
-      ],
-      "covers": [
-        "revocation_non_membership"
-      ]
-    },
-    {
-      "id": "tamper-revocation-artifact-binding",
-      "expected": "reject",
-      "mutates": [
-        "revocation_artifact.issuer_id",
-        "revocation_artifact.circuit_id",
-        "revocation_artifact.epoch",
-        "revocation_artifact.root"
-      ],
-      "covers": [
-        "revocation_non_membership",
-        "current_credential_root"
-      ]
-    },
-    {
-      "id": "tamper-policy-hash",
-      "expected": "reject",
-      "mutates": [
-        "policy_hash",
-        "policy_comparison_witness"
-      ],
-      "covers": [
-        "qualification_policy"
-      ]
-    },
-    {
-      "id": "tamper-nullifier-hash",
-      "expected": "reject",
-      "mutates": [
-        "nullifier_hash"
-      ],
-      "covers": [
-        "nullifier_prf_binding"
-      ]
-    },
-    {
-      "id": "tamper-scope",
-      "expected": "reject",
-      "mutates": [
-        "scope"
-      ],
-      "covers": [
-        "nullifier_prf_binding"
-      ]
-    },
-    {
-      "id": "tamper-action-context",
-      "expected": "reject",
-      "mutates": [
-        "action_context"
-      ],
-      "covers": [
-        "nullifier_prf_binding"
-      ]
-    },
-    {
-      "id": "tamper-credential-level",
-      "expected": "reject",
-      "mutates": [
-        "credential_level",
-        "signed_credential_level"
-      ],
-      "covers": [
-        "credential_bucket_legality",
-        "qualification_policy"
-      ]
-    },
-    {
-      "id": "tamper-reputation-bucket",
-      "expected": "reject",
-      "mutates": [
-        "reputation_bucket",
-        "signed_reputation_bucket"
-      ],
-      "covers": [
-        "credential_bucket_legality",
-        "qualification_policy"
-      ]
-    },
-    {
-      "id": "tamper-credential-epoch",
-      "expected": "reject",
-      "mutates": [
-        "credential_epoch"
-      ],
-      "covers": [
-        "current_credential_root"
-      ]
-    },
-    {
-      "id": "tamper-layout-version",
-      "expected": "reject",
-      "mutates": [
-        "public_input_layout_version"
-      ],
-      "covers": [
-        "identity_non_disclosure"
-      ]
-    },
-    {
-      "id": "inject-credential-commitment-public-input",
-      "expected": "reject",
-      "mutates": [
-        "public_inputs.credential_commitment"
-      ],
-      "covers": [
-        "presentation_unlinkability"
-      ]
-    },
-    {
-      "id": "tamper-verifying-key-hash",
-      "expected": "reject",
-      "mutates": [
-        "verifying_key_hash"
-      ],
-      "covers": [
-        "valid_circuit_native_credential",
-        "current_credential_root"
-      ]
-    },
-    {
-      "id": "inject-user-id-public-input",
-      "expected": "reject",
-      "mutates": [
-        "public_inputs.userId"
-      ],
-      "covers": [
-        "identity_non_disclosure"
-      ]
-    },
-    {
-      "id": "inject-username-private-witness",
-      "expected": "reject",
-      "mutates": [
-        "private_witness.username"
-      ],
-      "covers": [
-        "identity_non_disclosure"
-      ]
-    }
-  ]
 }

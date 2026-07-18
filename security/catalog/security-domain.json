@@ -1,91 +1,91 @@
 {
-  "schema": "fsusblog.security-domain.v1",
-  "version": "1.0.0",
-  "owner": "ServerContractAgent",
-  "failClosed": true,
-  "allowedTopLevelDirectories": [
-    "catalog",
-    "evidence-contracts",
-    "matrices",
-    "policies",
-    "zk"
-  ],
-  "domains": [
-    {
-      "id": "matrices",
-      "root": "security/matrices",
-      "owner": "ServerContractAgent",
-      "catalog": "security/matrices/catalog.json",
-      "checker": "tools/security/check-security-matrices.mjs"
-    },
-    {
-      "id": "policies",
-      "root": "security/policies",
-      "owner": "ServerContractAgent",
-      "documents": [
-        "security/policies/backend-source-policy.json",
-        "security/policies/zap-warn-policy.yml"
-      ],
-      "checkers": [
-        "tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj",
-        "tools/security/check-zap-warn-policy.mjs"
-      ]
-    },
-    {
-      "id": "zk-contracts",
-      "root": "security/zk/contracts",
-      "owner": "ServerContractAgent",
-      "documents": [
-        "security/zk/contracts/comment-v2-circuit.manifest.json",
-        "security/zk/contracts/comment-v2-feasibility.manifest.json",
-        "security/zk/contracts/comment-v2-tamper-cases.manifest.json",
-        "security/zk/contracts/comment-v5-circuit.manifest.json",
-        "security/zk/contracts/comment-v5-tamper-cases.manifest.json"
-      ],
-      "checker": "tools/crypto/check-zk-comment-v2-manifests.mjs"
-    },
-    {
-      "id": "zk-provenance",
-      "root": "security/zk/provenance",
-      "owner": "ServerContractAgent",
-      "documents": [
-        "security/zk/provenance/artifact-ownership.manifest.json",
-        "security/zk/provenance/comment-v2-local-review.manifest.json",
-        "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
-        "security/zk/provenance/comment-v5-trusted-setup.manifest.json"
-      ],
-      "checker": "tools/crypto/check-zk-artifact-ownership.mjs"
-    },
-    {
-      "id": "evidence-contracts",
-      "root": "security/evidence-contracts",
-      "owner": "ServerContractAgent",
-      "documents": [
-        "security/evidence-contracts/anonymous-credential-blind-issuance.json",
-        "security/evidence-contracts/comment-author-mode-retirement.json",
-        "security/evidence-contracts/comment-privacy-credential-vault.release-plan.json",
-        "security/evidence-contracts/public-revocation-distribution.json",
-        "security/evidence-contracts/release-bundle-storage.json"
-      ],
-      "checker": "tools/operations/check-release-evidence-layout.mjs"
+    "schema": "fsusblog.security-domain.v1",
+    "version": "1.0.0",
+    "owner": "ServerContractAgent",
+    "failClosed": true,
+    "allowedTopLevelDirectories": [
+        "catalog",
+        "evidence-contracts",
+        "matrices",
+        "policies",
+        "zk"
+    ],
+    "domains": [
+        {
+            "id": "matrices",
+            "root": "security/matrices",
+            "owner": "ServerContractAgent",
+            "catalog": "security/matrices/catalog.json",
+            "checker": "tools/security/check-security-matrices.mjs"
+        },
+        {
+            "id": "policies",
+            "root": "security/policies",
+            "owner": "ServerContractAgent",
+            "documents": [
+                "security/policies/backend-source-policy.json",
+                "security/policies/zap-warn-policy.yml"
+            ],
+            "checkers": [
+                "tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj",
+                "tools/security/check-zap-warn-policy.mjs"
+            ]
+        },
+        {
+            "id": "zk-contracts",
+            "root": "security/zk/contracts",
+            "owner": "ServerContractAgent",
+            "documents": [
+                "security/zk/contracts/comment-v2-circuit.manifest.json",
+                "security/zk/contracts/comment-v2-feasibility.manifest.json",
+                "security/zk/contracts/comment-v2-tamper-cases.manifest.json",
+                "security/zk/contracts/comment-v5-circuit.manifest.json",
+                "security/zk/contracts/comment-v5-tamper-cases.manifest.json"
+            ],
+            "checker": "tools/crypto/check-zk-comment-v2-manifests.mjs"
+        },
+        {
+            "id": "zk-provenance",
+            "root": "security/zk/provenance",
+            "owner": "ServerContractAgent",
+            "documents": [
+                "security/zk/provenance/artifact-ownership.manifest.json",
+                "security/zk/provenance/comment-v2-local-review.manifest.json",
+                "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
+                "security/zk/provenance/comment-v5-trusted-setup.manifest.json"
+            ],
+            "checker": "tools/crypto/check-zk-artifact-ownership.mjs"
+        },
+        {
+            "id": "evidence-contracts",
+            "root": "security/evidence-contracts",
+            "owner": "ServerContractAgent",
+            "documents": [
+                "security/evidence-contracts/anonymous-credential-blind-issuance.json",
+                "security/evidence-contracts/comment-author-mode-retirement.json",
+                "security/evidence-contracts/comment-privacy-credential-vault.release-plan.json",
+                "security/evidence-contracts/public-revocation-distribution.json",
+                "security/evidence-contracts/release-bundle-storage.json"
+            ],
+            "checker": "tools/operations/check-release-evidence-layout.mjs"
+        }
+    ],
+    "runtimeSelections": [
+        {
+            "path": "src/backend/appsettings.json",
+            "circuitManifest": "security/zk/contracts/comment-v2-circuit.manifest.json",
+            "trustedSetupManifest": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
+        },
+        {
+            "path": "src/backend/appsettings.Production.json",
+            "circuitManifest": "security/zk/contracts/comment-v2-circuit.manifest.json",
+            "trustedSetupManifest": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
+        }
+    ],
+    "runtimePackaging": {
+        "dockerfile": "ops/docker/FsusBlog.Server.Dockerfile",
+        "source": "security/zk/contracts/",
+        "containerPath": "/app/security/zk/contracts/",
+        "trustedSetupMount": "/app/config/zk/"
     }
-  ],
-  "runtimeSelections": [
-    {
-      "path": "src/backend/appsettings.json",
-      "circuitManifest": "security/zk/contracts/comment-v2-circuit.manifest.json",
-      "trustedSetupManifest": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-    },
-    {
-      "path": "src/backend/appsettings.Production.json",
-      "circuitManifest": "security/zk/contracts/comment-v2-circuit.manifest.json",
-      "trustedSetupManifest": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-    }
-  ],
-  "runtimePackaging": {
-    "dockerfile": "ops/docker/FsusBlog.Server.Dockerfile",
-    "source": "security/zk/contracts/",
-    "containerPath": "/app/security/zk/contracts/",
-    "trustedSetupMount": "/app/config/zk/"
-  }
 }

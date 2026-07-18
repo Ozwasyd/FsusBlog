@@ -1,246 +1,270 @@
 {
-  "schema": "fsusblog.zk.circuit-manifest.v1",
-  "circuit_id": "fsus.anonymous.comment.v3",
-  "public_input_layout_version": 4,
-  "artifact_class": "circuit-contract",
-  "lifecycle": "active-source-contract",
-  "proof_system": "Groth16",
-  "curve": "bn254",
-  "credential_scheme": "circuit-native-credential-v2",
-  "artifact_status": "source-and-r1cs",
-  "production_usable": false,
-  "artifact_ownership_manifest": "security/zk/provenance/artifact-ownership.manifest.json",
-  "action_context": "comment.create",
-  "domain_separators": {
-    "nullifier_prf": "fsus.anonymous.comment.v3:nullifier:v1",
-    "scope_binding": "fsus.anonymous.comment.v3:scope:v1",
-    "policy_binding": "fsus.anonymous.comment.v3:policy:v1"
-  },
-  "public_inputs": [
-    {
-      "name": "public_input_layout_version",
-      "type": "u16",
-      "constraint": "equals 4"
+    "schema": "fsusblog.zk.circuit-manifest.v1",
+    "circuit_id": "fsus.anonymous.comment.v3",
+    "public_input_layout_version": 4,
+    "artifact_class": "circuit-contract",
+    "lifecycle": "active-source-contract",
+    "proof_system": "Groth16",
+    "curve": "bn254",
+    "credential_scheme": "circuit-native-credential-v2",
+    "artifact_status": "source-and-r1cs",
+    "production_usable": false,
+    "artifact_ownership_manifest": "security/zk/provenance/artifact-ownership.manifest.json",
+    "action_context": "comment.create",
+    "domain_separators": {
+        "nullifier_prf": "fsus.anonymous.comment.v3:nullifier:v1",
+        "scope_binding": "fsus.anonymous.comment.v3:scope:v1",
+        "policy_binding": "fsus.anonymous.comment.v3:policy:v1"
     },
-    {
-      "name": "circuit_id",
-      "type": "domain-separated-field",
-      "constraint": "equals fsus.anonymous.comment.v3"
-    },
-    {
-      "name": "action_context",
-      "type": "domain-separated-field",
-      "constraint": "equals comment.create"
-    },
-    {
-      "name": "scope",
-      "type": "field-hash",
-      "constraint": "bound into nullifier PRF and policy hash"
-    },
-    {
-      "name": "nullifier_hash",
-      "type": "field",
-      "constraint": "Poseidon credential_secret/action_context/scope output"
-    },
-    {
-      "name": "credential_root",
-      "type": "field",
-      "constraint": "membership root for credential_epoch"
-    },
-    {
-      "name": "revocation_root",
-      "type": "field",
-      "constraint": "non-membership accumulator root"
-    },
-    {
-      "name": "credential_epoch",
-      "type": "u64",
-      "constraint": "signed credential epoch and accepted root epoch"
-    },
-    {
-      "name": "credential_level",
-      "type": "u16",
-      "constraint": "signed credential attribute in allowed catalog"
-    },
-    {
-      "name": "reputation_bucket",
-      "type": "u16",
-      "constraint": "signed credential attribute in allowed catalog"
-    },
-    {
-      "name": "issuer_public_key_hash",
-      "type": "field",
-      "constraint": "accepted issuer key bound by root metadata"
-    },
-    {
-      "name": "policy_hash",
-      "type": "field",
-      "constraint": "anonymous comment policy context"
-    },
-    {
-      "name": "verifying_key_hash",
-      "type": "sha256-hex",
-      "constraint": "SHA256 of canonical verifying key bytes"
-    }
-  ],
-  "private_witness": [
-    {
-      "name": "credential_secret",
-      "type": "field",
-      "purpose": "secret seed for nullifier PRF"
-    },
-    {
-      "name": "circuit_native_issuer_signature",
-      "type": "poseidon-schnorr-signature",
-      "purpose": "prove accepted issuer signed credential attributes on the circuit-native curve"
-    },
-    {
-      "name": "issuer_signature_public_key",
-      "type": "jubjub-public-key",
-      "purpose": "verify the circuit-native issuer signature inside the circuit"
-    },
-    {
-      "name": "credential_opening",
-      "type": "commitment-opening",
-      "purpose": "open blinded credential commitment inside the circuit"
-    },
-    {
-      "name": "credential_membership_proof",
-      "type": "merkle-or-accumulator-witness",
-      "purpose": "prove credential is in credential_root"
-    },
-    {
-      "name": "revocation_non_membership_witness",
-      "type": "accumulator-non-membership-witness",
-      "purpose": "prove credential is not in revocation_root"
-    },
-    {
-      "name": "signed_credential_level",
-      "type": "attribute-field",
-      "purpose": "prove public credential_level is a signed attribute"
-    },
-    {
-      "name": "signed_reputation_bucket",
-      "type": "attribute-field",
-      "purpose": "prove public reputation_bucket is a signed attribute"
-    },
-    {
-      "name": "policy_comparison_witness",
-      "type": "range-and-set-membership-witness",
-      "purpose": "prove disclosed attributes satisfy policy"
-    }
-  ],
-  "nullifier_prf": {
-    "algorithm": "poseidon",
-    "formula": "Poseidon(domain_separator, credential_secret, action_context, scope)",
-    "binds": [
-      "credential_secret",
-      "action_context",
-      "scope"
+    "public_inputs": [
+        {
+            "name": "public_input_layout_version",
+            "type": "u16",
+            "constraint": "equals 4"
+        },
+        {
+            "name": "circuit_id",
+            "type": "domain-separated-field",
+            "constraint": "equals fsus.anonymous.comment.v3"
+        },
+        {
+            "name": "action_context",
+            "type": "domain-separated-field",
+            "constraint": "equals comment.create"
+        },
+        {
+            "name": "scope",
+            "type": "field-hash",
+            "constraint": "bound into nullifier PRF and policy hash"
+        },
+        {
+            "name": "nullifier_hash",
+            "type": "field",
+            "constraint": "Poseidon credential_secret/action_context/scope output"
+        },
+        {
+            "name": "credential_root",
+            "type": "field",
+            "constraint": "membership root for credential_epoch"
+        },
+        {
+            "name": "revocation_root",
+            "type": "field",
+            "constraint": "non-membership accumulator root"
+        },
+        {
+            "name": "credential_epoch",
+            "type": "u64",
+            "constraint": "signed credential epoch and accepted root epoch"
+        },
+        {
+            "name": "credential_level",
+            "type": "u16",
+            "constraint": "signed credential attribute in allowed catalog"
+        },
+        {
+            "name": "reputation_bucket",
+            "type": "u16",
+            "constraint": "signed credential attribute in allowed catalog"
+        },
+        {
+            "name": "issuer_public_key_hash",
+            "type": "field",
+            "constraint": "accepted issuer key bound by root metadata"
+        },
+        {
+            "name": "policy_hash",
+            "type": "field",
+            "constraint": "anonymous comment policy context"
+        },
+        {
+            "name": "verifying_key_hash",
+            "type": "sha256-hex",
+            "constraint": "SHA256 of canonical verifying key bytes"
+        }
     ],
-    "stable_for_same_secret_and_scope": true,
-    "unlinkable_across_scope": true
-  },
-  "security_assertions": [
-    {
-      "id": "valid_circuit_native_credential",
-      "statement": "holder has a circuit-native credential signed by an accepted issuer key"
+    "private_witness": [
+        {
+            "name": "credential_secret",
+            "type": "field",
+            "purpose": "secret seed for nullifier PRF"
+        },
+        {
+            "name": "circuit_native_issuer_signature",
+            "type": "poseidon-schnorr-signature",
+            "purpose": "prove accepted issuer signed credential attributes on the circuit-native curve"
+        },
+        {
+            "name": "issuer_signature_public_key",
+            "type": "jubjub-public-key",
+            "purpose": "verify the circuit-native issuer signature inside the circuit"
+        },
+        {
+            "name": "credential_opening",
+            "type": "commitment-opening",
+            "purpose": "open blinded credential commitment inside the circuit"
+        },
+        {
+            "name": "credential_membership_proof",
+            "type": "merkle-or-accumulator-witness",
+            "purpose": "prove credential is in credential_root"
+        },
+        {
+            "name": "revocation_non_membership_witness",
+            "type": "accumulator-non-membership-witness",
+            "purpose": "prove credential is not in revocation_root"
+        },
+        {
+            "name": "signed_credential_level",
+            "type": "attribute-field",
+            "purpose": "prove public credential_level is a signed attribute"
+        },
+        {
+            "name": "signed_reputation_bucket",
+            "type": "attribute-field",
+            "purpose": "prove public reputation_bucket is a signed attribute"
+        },
+        {
+            "name": "policy_comparison_witness",
+            "type": "range-and-set-membership-witness",
+            "purpose": "prove disclosed attributes satisfy policy"
+        }
+    ],
+    "nullifier_prf": {
+        "algorithm": "poseidon",
+        "formula": "Poseidon(domain_separator, credential_secret, action_context, scope)",
+        "binds": [
+            "credential_secret",
+            "action_context",
+            "scope"
+        ],
+        "stable_for_same_secret_and_scope": true,
+        "unlinkable_across_scope": true
     },
-    {
-      "id": "current_credential_root",
-      "statement": "credential belongs to credential_root for credential_epoch"
+    "security_assertions": [
+        {
+            "id": "valid_circuit_native_credential",
+            "statement": "holder has a circuit-native credential signed by an accepted issuer key"
+        },
+        {
+            "id": "current_credential_root",
+            "statement": "credential belongs to credential_root for credential_epoch"
+        },
+        {
+            "id": "revocation_non_membership",
+            "statement": "credential is not present in revocation_root"
+        },
+        {
+            "id": "qualification_policy",
+            "statement": "credential_level and reputation_bucket satisfy comment eligibility policy"
+        },
+        {
+            "id": "nullifier_prf_binding",
+            "statement": "nullifier_hash is derived from credential_secret, action_context and scope"
+        },
+        {
+            "id": "credential_bucket_legality",
+            "statement": "credential_level and reputation_bucket are signed attributes in allowed catalogs"
+        },
+        {
+            "id": "identity_non_disclosure",
+            "statement": "account identity fields are absent from public inputs and private witness"
+        },
+        {
+            "id": "presentation_unlinkability",
+            "statement": "public inputs contain no credential-specific stable identifier other than the scope-bound nullifier"
+        }
+    ],
+    "forbidden_public_presentation_fields": [
+        "credential_commitment",
+        "revocation_handle",
+        "issuer_audit_id",
+        "credential_leaf_index",
+        "stable_witness_hash",
+        "stable_presentation_key"
+    ],
+    "transcript_unlinkability": {
+        "sample_scope_count": 100,
+        "same_scope_nullifier_stable": true,
+        "different_scope_nullifier_unique": true,
+        "complete_wire_transcript_checked": true,
+        "credential_specific_stable_fields_allowed": []
     },
-    {
-      "id": "revocation_non_membership",
-      "statement": "credential is not present in revocation_root"
+    "revocation_distribution": {
+        "protocol": "public-snapshot-delta.v1",
+        "frames": {
+            "snapshot": 196,
+            "delta": 197,
+            "retired": [
+                186,
+                187
+            ]
+        },
+        "content_addressed": true,
+        "immutable_cache": true,
+        "local_witness_boundary": "privacy-worker",
+        "credential_specific_network_fields": [],
+        "entry_bytes": 32,
+        "path_depth": 128,
+        "download_budget_bytes": {
+            "low_memory": 1048576,
+            "medium": 2097152,
+            "maximum": 4194304
+        },
+        "cpu_budget_ms": {
+            "normal": 2000,
+            "low_resource": 4000
+        },
+        "fail_closed": [
+            "epoch",
+            "version",
+            "baseVersion",
+            "root",
+            "contentHash",
+            "hashBinding",
+            "expiry",
+            "rollback",
+            "budget"
+        ]
     },
-    {
-      "id": "qualification_policy",
-      "statement": "credential_level and reputation_bucket satisfy comment eligibility policy"
+    "forbidden_identity_fields": [
+        "userId",
+        "user_id",
+        "username",
+        "public_handle",
+        "account_id",
+        "session_id",
+        "client_ip",
+        "device_fingerprint",
+        "cookie",
+        "authorization"
+    ],
+    "budgets": {
+        "proof_bytes_max": 1024,
+        "wasm_prover_p95_ms_max": 3000,
+        "native_verifier_p99_ms_max": 50
     },
-    {
-      "id": "nullifier_prf_binding",
-      "statement": "nullifier_hash is derived from credential_secret, action_context and scope"
+    "r1cs_source": {
+        "path": "src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json",
+        "sha256": "5b4ef7c9f7e21290ea5e7a9095a9e80be6f9e6b7ef082900eba34b82dae103f6",
+        "builder": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
+        "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check"
     },
-    {
-      "id": "credential_bucket_legality",
-      "statement": "credential_level and reputation_bucket are signed attributes in allowed catalogs"
+    "constraint_metrics": {
+        "estimated_constraints": 125920,
+        "estimated_witness_signals": 53320,
+        "estimated_public_inputs": 13,
+        "estimated_proving_key_bytes": 192000000,
+        "estimated_wasm_prover_p95_ms": 2400
     },
-    {
-      "id": "identity_non_disclosure",
-      "statement": "account identity fields are absent from public inputs and private witness"
+    "artifact_hashes": {
+        "r1cs_sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb",
+        "groth16_r1cs_sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff"
     },
-    {
-      "id": "presentation_unlinkability",
-      "statement": "public inputs contain no credential-specific stable identifier other than the scope-bound nullifier"
+    "artifact_paths": {
+        "r1cs": "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
+        "wasm": "artifacts/zk/comment-v3-layout4/generated/comment_v3.wasm",
+        "symbol": "artifacts/zk/comment-v3-layout4/generated/comment_v3.sym",
+        "source_archive": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_source.tar.gz"
     }
-  ],
-  "forbidden_public_presentation_fields": [
-    "credential_commitment",
-    "revocation_handle",
-    "issuer_audit_id",
-    "credential_leaf_index",
-    "stable_witness_hash",
-    "stable_presentation_key"
-  ],
-  "transcript_unlinkability": {
-    "sample_scope_count": 100,
-    "same_scope_nullifier_stable": true,
-    "different_scope_nullifier_unique": true,
-    "complete_wire_transcript_checked": true,
-    "credential_specific_stable_fields_allowed": []
-  },
-  "revocation_distribution": {
-    "protocol": "public-snapshot-delta.v1",
-    "frames": { "snapshot": 196, "delta": 197, "retired": [186, 187] },
-    "content_addressed": true,
-    "immutable_cache": true,
-    "local_witness_boundary": "privacy-worker",
-    "credential_specific_network_fields": [],
-    "entry_bytes": 32,
-    "path_depth": 128,
-    "download_budget_bytes": { "low_memory": 1048576, "medium": 2097152, "maximum": 4194304 },
-    "cpu_budget_ms": { "normal": 2000, "low_resource": 4000 },
-    "fail_closed": ["epoch", "version", "baseVersion", "root", "contentHash", "hashBinding", "expiry", "rollback", "budget"]
-  },
-  "forbidden_identity_fields": [
-    "userId",
-    "user_id",
-    "username",
-    "public_handle",
-    "account_id",
-    "session_id",
-    "client_ip",
-    "device_fingerprint",
-    "cookie",
-    "authorization"
-  ],
-  "budgets": {
-    "proof_bytes_max": 1024,
-    "wasm_prover_p95_ms_max": 3000,
-    "native_verifier_p99_ms_max": 50
-  },
-  "r1cs_source": {
-    "path": "src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json",
-    "sha256": "5b4ef7c9f7e21290ea5e7a9095a9e80be6f9e6b7ef082900eba34b82dae103f6",
-    "builder": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
-    "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check"
-  },
-  "constraint_metrics": {
-    "estimated_constraints": 125920,
-    "estimated_witness_signals": 53320,
-    "estimated_public_inputs": 13,
-    "estimated_proving_key_bytes": 192000000,
-    "estimated_wasm_prover_p95_ms": 2400
-  },
-  "artifact_hashes": {
-    "r1cs_sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb",
-    "groth16_r1cs_sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff"
-  },
-  "artifact_paths": {
-    "r1cs": "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
-    "wasm": "artifacts/zk/comment-v3-layout4/generated/comment_v3.wasm",
-    "symbol": "artifacts/zk/comment-v3-layout4/generated/comment_v3.sym",
-    "source_archive": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_source.tar.gz"
-  }
 }

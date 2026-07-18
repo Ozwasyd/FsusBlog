@@ -1,124 +1,124 @@
 {
-  "schema": "fsusblog.issue-1029.storage-lifecycle-evidence.v1",
-  "issue": 1029,
-  "implementationStatus": "code-landed-unverified",
-  "verification": {
-    "status": "not-run-by-orchestration-instruction",
-    "passed": [],
-    "failed": [],
-    "notRun": [
-      "backend unit tests",
-      "frontend unit tests",
-      "Node tool tests",
-      "Docker materialization smoke",
-      "blue-green compatibility matrix",
-      "backup and restore drill"
-    ]
-  },
-  "coverage": {
-    "storageBoundary": "src/backend/Infrastructure/Storage/ReleaseStorageLayout.cs",
-    "dataProtectionProbe": "src/backend/Infrastructure/Storage/DataProtectionKeyRingProbe.cs",
-    "derivedPublisher": "src/backend/Infrastructure/Storage/ReleaseDerivedArtifactPublisher.cs",
-    "searchGenerationPublisher": "src/backend/Services/SearchIndexService.cs",
-    "publicAotArtifactPublisher": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
-    "staticServing": "src/backend/Infrastructure/Storage/ReleaseAssetStaticFileExtensions.cs",
-    "uploadCleanupLease": "src/backend/Infrastructure/Storage/UploadCommitTempCleanupLease.cs",
-    "uploadAtomicCommit": "src/backend/Services/FileService.cs",
-    "releaseScopedSearch": "src/backend/Services/SearchIndexService.cs",
-    "assetMaterializer": "tools/storage/materialize-release-assets.sh",
-    "retentionVerifier": "tools/storage/verify-retained-assets.mjs",
-    "compatibilityGate": "tools/storage/check-release-compatibility.mjs",
-    "garbageCollector": "tools/storage/gc-release-assets.mjs",
-    "compatibility": "tools/storage/release-compatibility.mjs",
-    "backendTests": "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
-    "toolTests": "tests/tools/release-storage-lifecycle.test.mjs",
-    "frontendTests": [
-      "tests/frontend/unit/wasmReleaseAssets.test.ts",
-      "tests/frontend/unit/releaseStorage.test.ts"
-    ]
-  },
-  "acceptanceMappings": [
-    {
-      "criterion": "shared DataProtection ring uses FsusBlog and supports old/new bidirectional payloads",
-      "testIds": [
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DataProtection_SharedRingSupportsBidirectionalOldAndNewPayloads",
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DataProtectionProbe_RequiresSharedFsusBlogContractWithoutLeakingKeys",
-        "xunit:tests/backend/Unit/ServiceCollectionExtensionsTests.cs#ServiceCollectionExtensionsTests.AddFsusApiFoundation_ProductionRejectsDifferentDataProtectionApplicationName"
-      ]
+    "schema": "fsusblog.issue-1029.storage-lifecycle-evidence.v1",
+    "issue": 1029,
+    "implementationStatus": "code-landed-unverified",
+    "verification": {
+        "status": "not-run-by-orchestration-instruction",
+        "passed": [],
+        "failed": [],
+        "notRun": [
+            "backend unit tests",
+            "frontend unit tests",
+            "Node tool tests",
+            "Docker materialization smoke",
+            "blue-green compatibility matrix",
+            "backup and restore drill"
+        ]
     },
-    {
-      "criterion": "derived artifacts are release scoped, staged atomically and retain rollback generations",
-      "testIds": [
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.Layout_CleanupGuardCannotAddressActiveOrSiblingRelease",
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DerivedArtifacts_PublishByAtomicGenerationAndRetainRollbackGeneration",
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.SearchIndex_UsesReleaseScopedRootAndBrowserUrlWhenDerivedRootIsConfigured",
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.SearchDerivedPublication_KeepsLegacyUrlsAndGenerationPointerConsistentDuringReactivation",
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DerivedArtifacts_TwoPublisherInstancesSerializeAliasesAndPointerToOneGeneration",
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DerivedArtifacts_PublicationLockTimeoutLeavesAliasesAndPointerUnchanged",
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DerivedArtifacts_TamperedReleaseIdentityCannotReactivateOrChangeVisibleState",
-        "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#PublicAotFileShellCacheTests.SetAsync_ReleasePublisherKeepsPerArtifactPointersIndependentAndRetainsHotRollbackGeneration"
-      ]
+    "coverage": {
+        "storageBoundary": "src/backend/Infrastructure/Storage/ReleaseStorageLayout.cs",
+        "dataProtectionProbe": "src/backend/Infrastructure/Storage/DataProtectionKeyRingProbe.cs",
+        "derivedPublisher": "src/backend/Infrastructure/Storage/ReleaseDerivedArtifactPublisher.cs",
+        "searchGenerationPublisher": "src/backend/Services/SearchIndexService.cs",
+        "publicAotArtifactPublisher": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
+        "staticServing": "src/backend/Infrastructure/Storage/ReleaseAssetStaticFileExtensions.cs",
+        "uploadCleanupLease": "src/backend/Infrastructure/Storage/UploadCommitTempCleanupLease.cs",
+        "uploadAtomicCommit": "src/backend/Services/FileService.cs",
+        "releaseScopedSearch": "src/backend/Services/SearchIndexService.cs",
+        "assetMaterializer": "tools/storage/materialize-release-assets.sh",
+        "retentionVerifier": "tools/storage/verify-retained-assets.mjs",
+        "compatibilityGate": "tools/storage/check-release-compatibility.mjs",
+        "garbageCollector": "tools/storage/gc-release-assets.mjs",
+        "compatibility": "tools/storage/release-compatibility.mjs",
+        "backendTests": "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
+        "toolTests": "tests/tools/release-storage-lifecycle.test.mjs",
+        "frontendTests": [
+            "tests/frontend/unit/wasmReleaseAssets.test.ts",
+            "tests/frontend/unit/releaseStorage.test.ts"
+        ]
     },
-    {
-      "criterion": "static assets are append only, release addressed and retained for old pages",
-      "testIds": [
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.ImmutableAssets_AreReleaseAddressedAndConflictsFailClosed",
-        "node:tests/tools/release-storage-lifecycle.test.mjs#materialization is release-addressed append-only idempotent and keeps old assets",
-        "vitest:tests/frontend/unit/wasmReleaseAssets.test.ts#binds Wasm URLs to the immutable frontend build id"
-      ]
+    "acceptanceMappings": [
+        {
+            "criterion": "shared DataProtection ring uses FsusBlog and supports old/new bidirectional payloads",
+            "testIds": [
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DataProtection_SharedRingSupportsBidirectionalOldAndNewPayloads",
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DataProtectionProbe_RequiresSharedFsusBlogContractWithoutLeakingKeys",
+                "xunit:tests/backend/Unit/ServiceCollectionExtensionsTests.cs#ServiceCollectionExtensionsTests.AddFsusApiFoundation_ProductionRejectsDifferentDataProtectionApplicationName"
+            ]
+        },
+        {
+            "criterion": "derived artifacts are release scoped, staged atomically and retain rollback generations",
+            "testIds": [
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.Layout_CleanupGuardCannotAddressActiveOrSiblingRelease",
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DerivedArtifacts_PublishByAtomicGenerationAndRetainRollbackGeneration",
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.SearchIndex_UsesReleaseScopedRootAndBrowserUrlWhenDerivedRootIsConfigured",
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.SearchDerivedPublication_KeepsLegacyUrlsAndGenerationPointerConsistentDuringReactivation",
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DerivedArtifacts_TwoPublisherInstancesSerializeAliasesAndPointerToOneGeneration",
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DerivedArtifacts_PublicationLockTimeoutLeavesAliasesAndPointerUnchanged",
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DerivedArtifacts_TamperedReleaseIdentityCannotReactivateOrChangeVisibleState",
+                "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#PublicAotFileShellCacheTests.SetAsync_ReleasePublisherKeepsPerArtifactPointersIndependentAndRetainsHotRollbackGeneration"
+            ]
+        },
+        {
+            "criterion": "static assets are append only, release addressed and retained for old pages",
+            "testIds": [
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.ImmutableAssets_AreReleaseAddressedAndConflictsFailClosed",
+                "node:tests/tools/release-storage-lifecycle.test.mjs#materialization is release-addressed append-only idempotent and keeps old assets",
+                "vitest:tests/frontend/unit/wasmReleaseAssets.test.ts#binds Wasm URLs to the immutable frontend build id"
+            ]
+        },
+        {
+            "criterion": "N N-1 old service worker and old decoder compatibility is blocking",
+            "testIds": [
+                "node:tests/tools/release-storage-lifecycle.test.mjs#compatibility matrix covers N N-1 old service worker and old decoder",
+                "node:tests/tools/release-storage-lifecycle.test.mjs#service worker derives cache namespace and search URLs from immutable build identity",
+                "node:tests/tools/release-storage-lifecycle.test.mjs#host CLIs emit stable machine JSON and retained asset gate fails closed"
+            ]
+        },
+        {
+            "criterion": "uploads use verified atomic no-overwrite idempotent commit and leased cleanup",
+            "testIds": [
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.UploadCleanupLease_IsExclusiveAndUsesInstanceRetentionPlan",
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DirectUpload_CommitsFromInstanceTempWithoutPartialOrDuplicateFinalFile",
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.ChunkCompletion_IsIdempotentAndNeverOverwritesDifferentContent",
+                "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.ChunkCompletion_DifferentExistingHashFailsClosedWithoutOverwrite"
+            ]
+        },
+        {
+            "criterion": "GC protects active previous draining retention and referenced releases with dry-run lock evidence",
+            "testIds": [
+                "node:tests/tools/release-storage-lifecycle.test.mjs#GC dry-run is locked and protects active previous draining retention and references"
+            ]
+        }
+    ],
+    "publicationProtocol": {
+        "search": {
+            "scope": "release-and-kind",
+            "lock": "<release>/search/.publication.lock",
+            "pointer": "<release>/search/current.json",
+            "compatibilityCommitLast": "index.manifest.aeds",
+            "rollback": "retained generation reactivation"
+        },
+        "publicAot": {
+            "scope": "release-kind-and-compatibility-path-hash",
+            "generation": "<release>/public-aot/.artifacts/<path-hash>/generations/<generation>",
+            "lock": "<release>/public-aot/.locks/<path-hash>.lock",
+            "pointer": "<release>/public-aot/.pointers/<path-hash>.json",
+            "rollback": "independent retained artifact generation reactivation",
+            "invalidation": "same artifact lock removes compatibility alias and pointer while retaining immutable generations"
+        },
+        "failClosed": [
+            "bounded lock timeout leaves compatibility aliases and pointer unchanged",
+            "conflicting immutable generation leaves compatibility aliases and pointer unchanged",
+            "stored release identity mismatch leaves compatibility aliases and pointer unchanged"
+        ]
     },
-    {
-      "criterion": "N N-1 old service worker and old decoder compatibility is blocking",
-      "testIds": [
-        "node:tests/tools/release-storage-lifecycle.test.mjs#compatibility matrix covers N N-1 old service worker and old decoder",
-        "node:tests/tools/release-storage-lifecycle.test.mjs#service worker derives cache namespace and search URLs from immutable build identity",
-        "node:tests/tools/release-storage-lifecycle.test.mjs#host CLIs emit stable machine JSON and retained asset gate fails closed"
-      ]
+    "writerInventory": {
+        "publicHot": "PublicHotArtifactProjector and PublicHotReadStore publish in-memory snapshots; no disk writer exists",
+        "ssr": "PublicAotNodeSsrRenderer returns rendered output to PublicAotFileShellCache; no separate runtime SSR writer exists",
+        "precompressed": "PublicAotHtmlArtifactFactory embeds Brotli and GZip bytes in the published PublicAOT entry",
+        "generatedManifest": "SearchIndexService owns the runtime search manifest; no production writer targets GeneratedManifestRoot",
+        "hydrationSidecar": "PublicAotDocumentService writes immutable content-addressed /aot-cache/payloads artifacts"
     },
-    {
-      "criterion": "uploads use verified atomic no-overwrite idempotent commit and leased cleanup",
-      "testIds": [
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.UploadCleanupLease_IsExclusiveAndUsesInstanceRetentionPlan",
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.DirectUpload_CommitsFromInstanceTempWithoutPartialOrDuplicateFinalFile",
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.ChunkCompletion_IsIdempotentAndNeverOverwritesDifferentContent",
-        "xunit:tests/backend/Unit/ReleaseStorageLifecycleTests.cs#ReleaseStorageLifecycleTests.ChunkCompletion_DifferentExistingHashFailsClosedWithoutOverwrite"
-      ]
-    },
-    {
-      "criterion": "GC protects active previous draining retention and referenced releases with dry-run lock evidence",
-      "testIds": [
-        "node:tests/tools/release-storage-lifecycle.test.mjs#GC dry-run is locked and protects active previous draining retention and references"
-      ]
-    }
-  ],
-  "publicationProtocol": {
-    "search": {
-      "scope": "release-and-kind",
-      "lock": "<release>/search/.publication.lock",
-      "pointer": "<release>/search/current.json",
-      "compatibilityCommitLast": "index.manifest.aeds",
-      "rollback": "retained generation reactivation"
-    },
-    "publicAot": {
-      "scope": "release-kind-and-compatibility-path-hash",
-      "generation": "<release>/public-aot/.artifacts/<path-hash>/generations/<generation>",
-      "lock": "<release>/public-aot/.locks/<path-hash>.lock",
-      "pointer": "<release>/public-aot/.pointers/<path-hash>.json",
-      "rollback": "independent retained artifact generation reactivation",
-      "invalidation": "same artifact lock removes compatibility alias and pointer while retaining immutable generations"
-    },
-    "failClosed": [
-      "bounded lock timeout leaves compatibility aliases and pointer unchanged",
-      "conflicting immutable generation leaves compatibility aliases and pointer unchanged",
-      "stored release identity mismatch leaves compatibility aliases and pointer unchanged"
-    ]
-  },
-  "writerInventory": {
-    "publicHot": "PublicHotArtifactProjector and PublicHotReadStore publish in-memory snapshots; no disk writer exists",
-    "ssr": "PublicAotNodeSsrRenderer returns rendered output to PublicAotFileShellCache; no separate runtime SSR writer exists",
-    "precompressed": "PublicAotHtmlArtifactFactory embeds Brotli and GZip bytes in the published PublicAOT entry",
-    "generatedManifest": "SearchIndexService owns the runtime search manifest; no production writer targets GeneratedManifestRoot",
-    "hydrationSidecar": "PublicAotDocumentService writes immutable content-addressed /aot-cache/payloads artifacts"
-  },
-  "integrationPending": []
+    "integrationPending": []
 }

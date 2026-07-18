@@ -1,142 +1,142 @@
 {
-  "schema": "fsusblog.issue-test-retention-replacements.v1",
-  "issue": 1036,
-  "baseline": "tests/test-retention-before.json",
-  "expectedDeletedTestIds": 13,
-  "deletedTests": [
-    {
-      "id": "xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.ColdStartResetOperation_GuardsBeforeTransactionAndPurgesLegacyProductionTables",
-      "path": "tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent",
-        "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"
-      ],
-      "reason": "The destructive one-time path was retired by #1014. PostgreSQL expand/backfill idempotency and the startup invariant now prove preservation and fail-closed behavior through the supported migration path."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.ColdStartResetIntegrationTestsAndSmokeDocs_PinDestructiveCutoverEvidence",
-      "path": "tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent",
-        "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation",
-        "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"
-      ],
-      "reason": "The current cutover preserves accounts and comments. Executed PostgreSQL backfill, durable resume and startup validation replace source and runbook text assertions."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.CrossStackAnonymousIdentityContracts_PinFramesRecoveryAdminAndCommentActors",
-      "path": "tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.RecoveryKeyPods_RoundTrip_PreserveFields",
-        "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.AnonymousPrivacyPods_RoundTrip_PreserveCredentialRootTicketAndComment",
-        "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.CommentCreateV2Request_RoundTrip_PreservesAnonymousFields",
-        "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.CommentAuthorView_RoundTrip_PreservesLocalizedAnonymousProjection",
-        "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AnonymousIdentityRuntime_DoesNotGrantAdminFromLegacyUserRole",
-        "xunit:tests/backend/Unit/ActorResolverBehaviorTests.cs#ActorResolverBehaviorTests.AnonymousDisplayNameGenerator_LocalizesStablyWithoutIdentityLeakage"
-      ],
-      "reason": "Real POD round trips, principal behavior and actor projection replace regex searches over frame enums and other test method names."
-    },
-    {
-      "id": "vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#keeps-the-privacy-matrix-complete-and-bound-to-local-com-07e5dd14f1",
-      "path": "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
-      "replacementTestIds": [
-        "node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-accepts-the-repository-manife-9757d7db93",
-        "node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-fails-when-required-negative--09a4408f49",
-        "node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-fails-when-a-negative-invaria-1d6d4d27a5"
-      ],
-      "reason": "The executable structured matrix verifier owns completeness and fail-closed negative invariants without a Vitest string wrapper."
-    },
-    {
-      "id": "vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#makes-ci-execute-the-privacy-lane-and-fail-closed-matrix-4d30c00322",
-      "path": "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
-      "replacementTestIds": [
-        "node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-accepts-the-repository-manife-9757d7db93"
-      ],
-      "reason": "Workflow and matrix linkage belongs to the structured matrix/static-governance owner, while the verifier executes the repository manifest."
-    },
-    {
-      "id": "vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#pins-the-zk-production-release-gate-to-fail-closed-check-5a86d42cac",
-      "path": "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
-      "replacementTestIds": [
-        "node-test:tests/security/privacy-zk-prod-release.test.mjs#privacy-zk-production-release-gate-rejects-bypass-flags--be3d8b5aad",
-        "node-test:tests/security/privacy-zk-prod-release.test.mjs#privacy-zk-production-release-gate-fails-closed-when-ena-d714b912c6",
-        "node-test:tests/security/privacy-zk-prod-release.test.mjs#privacy-zk-production-release-gate-accepts-complete-enab-1cbe95801b"
-      ],
-      "reason": "Production release policy is exercised directly for bypass, missing evidence and complete enabled configurations."
-    },
-    {
-      "id": "vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#pins-frontend-privacy-test-evidence-to-transport-timers--6b34558bf8",
-      "path": "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#uses-fake-timers-to-expire-prepared-tickets-by-ttl-7d3c04df21",
-        "vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#preloads-article-metadata-prepares-a-short-lived-ticket--84bead9691",
-        "vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#cancels-stale-article-metadata-preloads-when-articles-sw-af5076eabc",
-        "vitest:tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts#uses-one-lazy-worker-instance-and-transfers-proof-input--d48ad91c8e",
-        "vitest:tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts#fails-closed-before-metadata-or-ticket-calls-when-the-in-93274a3e0e",
-        "vitest:tests/frontend/unit/api/comment.test.ts#createanonymouscomment-posts-an-anonymouscommentcreatere-d93c70823f"
-      ],
-      "reason": "Fake-time TTL, consume-once, Abort, transferable worker buffers, adapter fail-closed and credential-free transport are all executed directly."
-    },
-    {
-      "id": "vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#removes-the-xor-placeholder-prover-and-keeps-wasm-prover-864a99ecaa",
-      "path": "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts#fails-closed-when-the-browser-prover-artifact-manifest-i-19ef770c3f",
-        "vitest:tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts#delegates-proof-generation-to-the-loaded-wasm-prover-art-dd80c27445",
-        "vitest:tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts#strips-witness-material-returned-by-the-delegate-from-th-d1ac321f65"
-      ],
-      "reason": "The real Wasm loader and delegate behavior prove fail-closed loading, proof generation and witness stripping without searching implementation text."
-    },
-    {
-      "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#keeps-accountlayout-manage-context-independent-from-lega-095617b30c",
-      "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#removes-unauthorized-modules-and-leaves-instead-of-expos-b2e02ea410",
-        "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#applies-feature-and-policy-gates-to-local-leaves-before--ee0a3a16d6",
-        "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#keeps-account-and-admin-surfaces-separate-in-the-persist-fd176fd462"
-      ],
-      "reason": "Imported navigation behavior executes permission, feature, policy and account/admin surface separation."
-    },
-    {
-      "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#keeps-anonymous-comments-default-and-public-sending-expl-95f472c630",
-      "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-strong-anonymous-and-requires-a-user-toggle--9493f03f6b",
-        "vitest:tests/frontend/unit/api/comment.test.ts#createpubliccomment-forces-public-author-mode-and-explic-d80d4ed935",
-        "vitest:tests/frontend/unit/api/comment.test.ts#createanonymouscomment-posts-an-anonymouscommentcreatere-d93c70823f"
-      ],
-      "reason": "A mounted composer proves anonymous default and explicit public opt-in; API tests prove the resulting binary request encoding."
-    },
-    {
-      "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#renders-the-comment-identity-selector-as-a-compact-readi-371bc27bac",
-      "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-strong-anonymous-and-requires-a-user-toggle--9493f03f6b",
-        "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#prewarms-privacy-only-after-the-mounted-composer-becomes-8e52727b73"
-      ],
-      "reason": "Mounted DOM assertions and visibility-triggered privacy intent replace Vue template and CSS source-string matching."
-    },
-    {
-      "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#pins-frontend-binary-frames-and-author-adapters-for-anon-f371fca63c",
-      "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.RecoveryKeyPods_RoundTrip_PreserveFields",
-        "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.AnonymousPrivacyPods_RoundTrip_PreserveCredentialRootTicketAndComment",
-        "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.CommentCreateV2Request_RoundTrip_PreservesAnonymousFields",
-        "vitest:tests/frontend/unit/api/comment.test.ts#createcommentv2-sends-commentcreatev2-binary-mutation-fr-04f6e5f019",
-        "vitest:tests/frontend/unit/api/comment.test.ts#createanonymouscomment-posts-an-anonymouscommentcreatere-d93c70823f",
-        "vitest:tests/frontend/unit/api/comment.test.ts#requires-commentauthorview-instead-of-legacy-username-co-0cda3a0173"
-      ],
-      "reason": "Cross-stack POD round trips and actual frontend binary encoding own frame and author contracts."
-    },
-    {
-      "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#documents-the-operator-smoke-flow-and-intentional-destru-bd4e7f2aef",
-      "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
-      "replacementTestIds": [
-        "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent",
-        "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation"
-      ],
-      "reason": "Documentation wording is no longer a Vitest contract; the supported preservation migration is proven against PostgreSQL."
-    }
-  ]
+    "schema": "fsusblog.issue-test-retention-replacements.v1",
+    "issue": 1036,
+    "baseline": "tests/test-retention-before.json",
+    "expectedDeletedTestIds": 13,
+    "deletedTests": [
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.ColdStartResetOperation_GuardsBeforeTransactionAndPurgesLegacyProductionTables",
+            "path": "tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent",
+                "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"
+            ],
+            "reason": "The destructive one-time path was retired by #1014. PostgreSQL expand/backfill idempotency and the startup invariant now prove preservation and fail-closed behavior through the supported migration path."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.ColdStartResetIntegrationTestsAndSmokeDocs_PinDestructiveCutoverEvidence",
+            "path": "tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent",
+                "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation",
+                "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"
+            ],
+            "reason": "The current cutover preserves accounts and comments. Executed PostgreSQL backfill, durable resume and startup validation replace source and runbook text assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.CrossStackAnonymousIdentityContracts_PinFramesRecoveryAdminAndCommentActors",
+            "path": "tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.RecoveryKeyPods_RoundTrip_PreserveFields",
+                "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.AnonymousPrivacyPods_RoundTrip_PreserveCredentialRootTicketAndComment",
+                "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.CommentCreateV2Request_RoundTrip_PreservesAnonymousFields",
+                "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.CommentAuthorView_RoundTrip_PreservesLocalizedAnonymousProjection",
+                "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AnonymousIdentityRuntime_DoesNotGrantAdminFromLegacyUserRole",
+                "xunit:tests/backend/Unit/ActorResolverBehaviorTests.cs#ActorResolverBehaviorTests.AnonymousDisplayNameGenerator_LocalizesStablyWithoutIdentityLeakage"
+            ],
+            "reason": "Real POD round trips, principal behavior and actor projection replace regex searches over frame enums and other test method names."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#keeps-the-privacy-matrix-complete-and-bound-to-local-com-07e5dd14f1",
+            "path": "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
+            "replacementTestIds": [
+                "node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-accepts-the-repository-manife-9757d7db93",
+                "node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-fails-when-required-negative--09a4408f49",
+                "node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-fails-when-a-negative-invaria-1d6d4d27a5"
+            ],
+            "reason": "The executable structured matrix verifier owns completeness and fail-closed negative invariants without a Vitest string wrapper."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#makes-ci-execute-the-privacy-lane-and-fail-closed-matrix-4d30c00322",
+            "path": "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
+            "replacementTestIds": [
+                "node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-accepts-the-repository-manife-9757d7db93"
+            ],
+            "reason": "Workflow and matrix linkage belongs to the structured matrix/static-governance owner, while the verifier executes the repository manifest."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#pins-the-zk-production-release-gate-to-fail-closed-check-5a86d42cac",
+            "path": "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
+            "replacementTestIds": [
+                "node-test:tests/security/privacy-zk-prod-release.test.mjs#privacy-zk-production-release-gate-rejects-bypass-flags--be3d8b5aad",
+                "node-test:tests/security/privacy-zk-prod-release.test.mjs#privacy-zk-production-release-gate-fails-closed-when-ena-d714b912c6",
+                "node-test:tests/security/privacy-zk-prod-release.test.mjs#privacy-zk-production-release-gate-accepts-complete-enab-1cbe95801b"
+            ],
+            "reason": "Production release policy is exercised directly for bypass, missing evidence and complete enabled configurations."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#pins-frontend-privacy-test-evidence-to-transport-timers--6b34558bf8",
+            "path": "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#uses-fake-timers-to-expire-prepared-tickets-by-ttl-7d3c04df21",
+                "vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#preloads-article-metadata-prepares-a-short-lived-ticket--84bead9691",
+                "vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#cancels-stale-article-metadata-preloads-when-articles-sw-af5076eabc",
+                "vitest:tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts#uses-one-lazy-worker-instance-and-transfers-proof-input--d48ad91c8e",
+                "vitest:tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts#fails-closed-before-metadata-or-ticket-calls-when-the-in-93274a3e0e",
+                "vitest:tests/frontend/unit/api/comment.test.ts#createanonymouscomment-posts-an-anonymouscommentcreatere-d93c70823f"
+            ],
+            "reason": "Fake-time TTL, consume-once, Abort, transferable worker buffers, adapter fail-closed and credential-free transport are all executed directly."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#removes-the-xor-placeholder-prover-and-keeps-wasm-prover-864a99ecaa",
+            "path": "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts#fails-closed-when-the-browser-prover-artifact-manifest-i-19ef770c3f",
+                "vitest:tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts#delegates-proof-generation-to-the-loaded-wasm-prover-art-dd80c27445",
+                "vitest:tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts#strips-witness-material-returned-by-the-delegate-from-th-d1ac321f65"
+            ],
+            "reason": "The real Wasm loader and delegate behavior prove fail-closed loading, proof generation and witness stripping without searching implementation text."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#keeps-accountlayout-manage-context-independent-from-lega-095617b30c",
+            "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#removes-unauthorized-modules-and-leaves-instead-of-expos-b2e02ea410",
+                "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#applies-feature-and-policy-gates-to-local-leaves-before--ee0a3a16d6",
+                "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#keeps-account-and-admin-surfaces-separate-in-the-persist-fd176fd462"
+            ],
+            "reason": "Imported navigation behavior executes permission, feature, policy and account/admin surface separation."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#keeps-anonymous-comments-default-and-public-sending-expl-95f472c630",
+            "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-strong-anonymous-and-requires-a-user-toggle--9493f03f6b",
+                "vitest:tests/frontend/unit/api/comment.test.ts#createpubliccomment-forces-public-author-mode-and-explic-d80d4ed935",
+                "vitest:tests/frontend/unit/api/comment.test.ts#createanonymouscomment-posts-an-anonymouscommentcreatere-d93c70823f"
+            ],
+            "reason": "A mounted composer proves anonymous default and explicit public opt-in; API tests prove the resulting binary request encoding."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#renders-the-comment-identity-selector-as-a-compact-readi-371bc27bac",
+            "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
+            "replacementTestIds": [
+                "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-strong-anonymous-and-requires-a-user-toggle--9493f03f6b",
+                "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#prewarms-privacy-only-after-the-mounted-composer-becomes-8e52727b73"
+            ],
+            "reason": "Mounted DOM assertions and visibility-triggered privacy intent replace Vue template and CSS source-string matching."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#pins-frontend-binary-frames-and-author-adapters-for-anon-f371fca63c",
+            "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.RecoveryKeyPods_RoundTrip_PreserveFields",
+                "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.AnonymousPrivacyPods_RoundTrip_PreserveCredentialRootTicketAndComment",
+                "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.CommentCreateV2Request_RoundTrip_PreservesAnonymousFields",
+                "vitest:tests/frontend/unit/api/comment.test.ts#createcommentv2-sends-commentcreatev2-binary-mutation-fr-04f6e5f019",
+                "vitest:tests/frontend/unit/api/comment.test.ts#createanonymouscomment-posts-an-anonymouscommentcreatere-d93c70823f",
+                "vitest:tests/frontend/unit/api/comment.test.ts#requires-commentauthorview-instead-of-legacy-username-co-0cda3a0173"
+            ],
+            "reason": "Cross-stack POD round trips and actual frontend binary encoding own frame and author contracts."
+        },
+        {
+            "id": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#documents-the-operator-smoke-flow-and-intentional-destru-bd4e7f2aef",
+            "path": "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
+            "replacementTestIds": [
+                "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent",
+                "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation"
+            ],
+            "reason": "Documentation wording is no longer a Vitest contract; the supported preservation migration is proven against PostgreSQL."
+        }
+    ]
 }

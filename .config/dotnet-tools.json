@@ -1,27 +1,27 @@
 {
-  "version": 1,
-  "isRoot": true,
-  "tools": {
-    "dotnet-reportgenerator-globaltool": {
-      "version": "5.5.9",
-      "commands": [
-        "reportgenerator"
-      ],
-      "rollForward": false
-    },
-    "dotnet-coverage": {
-      "version": "18.6.2",
-      "commands": [
-        "dotnet-coverage"
-      ],
-      "rollForward": false
-    },
-    "dotnet-stryker": {
-      "version": "4.14.2",
-      "commands": [
-        "dotnet-stryker"
-      ],
-      "rollForward": false
+    "version": 1,
+    "isRoot": true,
+    "tools": {
+        "dotnet-reportgenerator-globaltool": {
+            "version": "5.5.9",
+            "commands": [
+                "reportgenerator"
+            ],
+            "rollForward": false
+        },
+        "dotnet-coverage": {
+            "version": "18.6.2",
+            "commands": [
+                "dotnet-coverage"
+            ],
+            "rollForward": false
+        },
+        "dotnet-stryker": {
+            "version": "4.14.2",
+            "commands": [
+                "dotnet-stryker"
+            ],
+            "rollForward": false
+        }
     }
-  }
 }

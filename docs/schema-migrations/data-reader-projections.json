@@ -1,1082 +1,1082 @@
 {
-  "schema": "fsusblog.data-reader-projections.v1",
-  "generatedBy": "tools/schema/generate-data-reader-projection-schema.mjs",
-  "sourceFileCount": 16,
-  "projections": [
-    {
-      "path": "src/backend/Services/ArticleService.cs",
-      "columns": [
+    "schema": "fsusblog.data-reader-projections.v1",
+    "generatedBy": "tools/schema/generate-data-reader-projection-schema.mjs",
+    "sourceFileCount": 16,
+    "projections": [
         {
-          "name": "__TotalCount",
-          "accessors": [
-            "IsNull",
-            "ReadValue"
-          ]
+            "path": "src/backend/Services/ArticleService.cs",
+            "columns": [
+                {
+                    "name": "__TotalCount",
+                    "accessors": [
+                        "IsNull",
+                        "ReadValue"
+                    ]
+                },
+                {
+                    "name": "categoryid",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "count",
+                    "accessors": [
+                        "IsNull",
+                        "ReadValue"
+                    ]
+                },
+                {
+                    "name": "id",
+                    "accessors": [
+                        "ReadInt32",
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "published_at",
+                    "accessors": [
+                        "IsNull",
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "revision_no",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "row_version",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "status",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "tag_ids",
+                    "accessors": [
+                        "ReadFieldValue<int[]>"
+                    ]
+                },
+                {
+                    "name": "views",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                }
+            ]
         },
         {
-          "name": "categoryid",
-          "accessors": [
-            "ReadInt32"
-          ]
+            "path": "src/backend/Services/Authoring/AuthoringWorkflowService.cs",
+            "columns": [
+                {
+                    "name": "alt_text",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "archived",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "article_id",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "average",
+                    "accessors": [
+                        "ReadDouble"
+                    ]
+                },
+                {
+                    "name": "comment_id",
+                    "accessors": [
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "confidence",
+                    "accessors": [
+                        "ReadDouble"
+                    ]
+                },
+                {
+                    "name": "contract_version",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "created_at",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "created_at_utc",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "draft",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "error_code",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "event_count",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "evidence_json",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "height",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "hidden",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "id",
+                    "accessors": [
+                        "ReadInt32",
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "label",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "latency_ms",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "metadata_json",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "miss_count",
+                    "accessors": [
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "model",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "name",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "needs_second_round",
+                    "accessors": [
+                        "ReadBoolean"
+                    ]
+                },
+                {
+                    "name": "p75",
+                    "accessors": [
+                        "ReadDouble"
+                    ]
+                },
+                {
+                    "name": "pending",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "primary_reason",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "provider",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "published",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "raw_reason",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "reference_count",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "rejected",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "risk_categories",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "row_version",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "scheduled",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "severity",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "sha256",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "source_article_id",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "status",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "threshold_profile",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "total_reads",
+                    "accessors": [
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "updated_at",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "url",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "width",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt32"
+                    ]
+                }
+            ]
         },
         {
-          "name": "count",
-          "accessors": [
-            "IsNull",
-            "ReadValue"
-          ]
+            "path": "src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs",
+            "columns": [
+                {
+                    "name": "aggregate_id",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "aggregate_type",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "claim_expires_at",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "claim_token",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "claimed_at",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "claimed_by",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "created_at",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "event_id",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "event_type",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "heartbeat_at",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "id",
+                    "accessors": [
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "last_error",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "next_retry_at",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "payload_json",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "previous_status",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "processed_at",
+                    "accessors": [
+                        "IsNull",
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "retry_count",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "status",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                }
+            ]
         },
         {
-          "name": "id",
-          "accessors": [
-            "ReadInt32",
-            "ReadInt64"
-          ]
+            "path": "src/backend/Services/Background/ScheduledPublishWorker.cs",
+            "columns": [
+                {
+                    "name": "id",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                }
+            ]
         },
         {
-          "name": "published_at",
-          "accessors": [
-            "IsNull",
-            "ReadDateTime"
-          ]
+            "path": "src/backend/Services/CommentService.cs",
+            "columns": [
+                {
+                    "name": "article_id",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "author_mode",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "content",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "id",
+                    "accessors": [
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "is_deleted",
+                    "accessors": [
+                        "ReadBoolean"
+                    ]
+                },
+                {
+                    "name": "moderation_status",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "parent_id",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "root_id",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "row_version",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "title",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "user_id",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt32"
+                    ]
+                }
+            ]
         },
         {
-          "name": "revision_no",
-          "accessors": [
-            "ReadInt32"
-          ]
+            "path": "src/backend/Services/NotificationStream/MessageCenterService.cs",
+            "columns": [
+                {
+                    "name": "accountid",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "conversationid",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "id",
+                    "accessors": [
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "lastreadmessageid",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt64",
+                        "ReadValue"
+                    ]
+                },
+                {
+                    "name": "row_version",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "status",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                }
+            ]
         },
         {
-          "name": "row_version",
-          "accessors": [
-            "ReadString"
-          ]
+            "path": "src/backend/Services/Security/AdminPrincipalService.cs",
+            "columns": [
+                {
+                    "name": "revokedatutc",
+                    "accessors": [
+                        "IsNull",
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "row_version",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "sessionid",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                }
+            ]
         },
         {
-          "name": "status",
-          "accessors": [
-            "ReadInt32"
-          ]
+            "path": "src/backend/Services/Security/AdminSessionValidationService.cs",
+            "columns": [
+                {
+                    "name": "absoluteexpiresatutc",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "accesstokenhash",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "adminprincipalid",
+                    "accessors": [
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "idleexpiresatutc",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "principal_status",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "revokedatutc",
+                    "accessors": [
+                        "IsNull",
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "row_version",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "sessionid",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                }
+            ]
         },
         {
-          "name": "tag_ids",
-          "accessors": [
-            "ReadFieldValue<int[]>"
-          ]
+            "path": "src/backend/Services/Security/BlacklistService.cs",
+            "columns": [
+                {
+                    "name": "account_subject_hash",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "banreason",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "id",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "row_version",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "status",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                }
+            ]
         },
         {
-          "name": "views",
-          "accessors": [
-            "ReadInt32"
-          ]
+            "path": "src/backend/Services/Security/CommentAnonymousNullifierService.cs",
+            "columns": [
+                {
+                    "name": "allowed",
+                    "accessors": [
+                        "ReadBoolean"
+                    ]
+                },
+                {
+                    "name": "blocked",
+                    "accessors": [
+                        "ReadBoolean"
+                    ]
+                },
+                {
+                    "name": "status",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "use_count",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "src/backend/Services/Security/PasskeyService.cs",
+            "columns": [
+                {
+                    "name": "credential_found",
+                    "accessors": [
+                        "ReadBoolean"
+                    ]
+                },
+                {
+                    "name": "deleted",
+                    "accessors": [
+                        "ReadBoolean"
+                    ]
+                },
+                {
+                    "name": "final_handle",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "passkey_user_handle",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "remaining",
+                    "accessors": [
+                        "ReadValue"
+                    ]
+                },
+                {
+                    "name": "user_found",
+                    "accessors": [
+                        "ReadBoolean"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "src/backend/Services/Security/RecoveryKeyService.cs",
+            "columns": [
+                {
+                    "name": "absoluteexpiresat",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "account_id",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "created_at",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "id",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "idleexpiresat",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "key_hash",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "key_version",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "lookup_id_hash",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "revoked_at",
+                    "accessors": [
+                        "IsNull",
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "revokedat",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "row_version",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "sessionid",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "used_at",
+                    "accessors": [
+                        "IsNull",
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "userid",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "src/backend/Services/Security/SecurityPolicySnapshotService.cs",
+            "columns": [
+                {
+                    "name": "last_version",
+                    "accessors": [
+                        "ReadInt64"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "src/backend/Services/Security/UserSessionValidationService.cs",
+            "columns": [
+                {
+                    "name": "absoluteexpiresat",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "deleted_at",
+                    "accessors": [
+                        "IsNull",
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "identity_kind",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "idleexpiresat",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "revokedat",
+                    "accessors": [
+                        "IsNull",
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "row_version",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "sessionid",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "status",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "userid",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "src/backend/Services/StatsService.cs",
+            "columns": [
+                {
+                    "name": "ArticleReads",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "HumanVerifiedReads",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "SiteReads",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "Total",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "TotalReads",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "Trash",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt64"
+                    ]
+                },
+                {
+                    "name": "UniqueViewerKeyEstimate",
+                    "accessors": [
+                        "IsNull",
+                        "ReadInt64"
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "src/backend/Services/UserService.cs",
+            "columns": [
+                {
+                    "name": "absoluteexpiresat",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "deleted_at",
+                    "accessors": [
+                        "IsNull",
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "id",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "identity_kind",
+                    "accessors": [
+                        "IsNull",
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "idleexpiresat",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "mfa_enabled",
+                    "accessors": [
+                        "ReadBoolean"
+                    ]
+                },
+                {
+                    "name": "revokedat",
+                    "accessors": [
+                        "ReadDateTime"
+                    ]
+                },
+                {
+                    "name": "row_version",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "sessionid",
+                    "accessors": [
+                        "ReadString"
+                    ]
+                },
+                {
+                    "name": "status",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                },
+                {
+                    "name": "userid",
+                    "accessors": [
+                        "ReadInt32"
+                    ]
+                }
+            ]
         }
-      ]
-    },
-    {
-      "path": "src/backend/Services/Authoring/AuthoringWorkflowService.cs",
-      "columns": [
-        {
-          "name": "alt_text",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "archived",
-          "accessors": [
-            "IsNull",
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "article_id",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "average",
-          "accessors": [
-            "ReadDouble"
-          ]
-        },
-        {
-          "name": "comment_id",
-          "accessors": [
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "confidence",
-          "accessors": [
-            "ReadDouble"
-          ]
-        },
-        {
-          "name": "contract_version",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "created_at",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "created_at_utc",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "draft",
-          "accessors": [
-            "IsNull",
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "error_code",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "event_count",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "evidence_json",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "height",
-          "accessors": [
-            "IsNull",
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "hidden",
-          "accessors": [
-            "IsNull",
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "id",
-          "accessors": [
-            "ReadInt32",
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "label",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "latency_ms",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "metadata_json",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "miss_count",
-          "accessors": [
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "model",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "name",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "needs_second_round",
-          "accessors": [
-            "ReadBoolean"
-          ]
-        },
-        {
-          "name": "p75",
-          "accessors": [
-            "ReadDouble"
-          ]
-        },
-        {
-          "name": "pending",
-          "accessors": [
-            "IsNull",
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "primary_reason",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "provider",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "published",
-          "accessors": [
-            "IsNull",
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "raw_reason",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "reference_count",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "rejected",
-          "accessors": [
-            "IsNull",
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "risk_categories",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "row_version",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "scheduled",
-          "accessors": [
-            "IsNull",
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "severity",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "sha256",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "source_article_id",
-          "accessors": [
-            "IsNull",
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "status",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "threshold_profile",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "total_reads",
-          "accessors": [
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "updated_at",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "url",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "width",
-          "accessors": [
-            "IsNull",
-            "ReadInt32"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs",
-      "columns": [
-        {
-          "name": "aggregate_id",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "aggregate_type",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "claim_expires_at",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "claim_token",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "claimed_at",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "claimed_by",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "created_at",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "event_id",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "event_type",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "heartbeat_at",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "id",
-          "accessors": [
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "last_error",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "next_retry_at",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "payload_json",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "previous_status",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "processed_at",
-          "accessors": [
-            "IsNull",
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "retry_count",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "status",
-          "accessors": [
-            "ReadString"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/Background/ScheduledPublishWorker.cs",
-      "columns": [
-        {
-          "name": "id",
-          "accessors": [
-            "ReadInt32"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/CommentService.cs",
-      "columns": [
-        {
-          "name": "article_id",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "author_mode",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "content",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "id",
-          "accessors": [
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "is_deleted",
-          "accessors": [
-            "ReadBoolean"
-          ]
-        },
-        {
-          "name": "moderation_status",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "parent_id",
-          "accessors": [
-            "IsNull",
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "root_id",
-          "accessors": [
-            "IsNull",
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "row_version",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "title",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "user_id",
-          "accessors": [
-            "IsNull",
-            "ReadInt32"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/NotificationStream/MessageCenterService.cs",
-      "columns": [
-        {
-          "name": "accountid",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "conversationid",
-          "accessors": [
-            "IsNull",
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "id",
-          "accessors": [
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "lastreadmessageid",
-          "accessors": [
-            "IsNull",
-            "ReadInt64",
-            "ReadValue"
-          ]
-        },
-        {
-          "name": "row_version",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "status",
-          "accessors": [
-            "ReadInt32"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/Security/AdminPrincipalService.cs",
-      "columns": [
-        {
-          "name": "revokedatutc",
-          "accessors": [
-            "IsNull",
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "row_version",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "sessionid",
-          "accessors": [
-            "ReadString"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/Security/AdminSessionValidationService.cs",
-      "columns": [
-        {
-          "name": "absoluteexpiresatutc",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "accesstokenhash",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "adminprincipalid",
-          "accessors": [
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "idleexpiresatutc",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "principal_status",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "revokedatutc",
-          "accessors": [
-            "IsNull",
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "row_version",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "sessionid",
-          "accessors": [
-            "ReadString"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/Security/BlacklistService.cs",
-      "columns": [
-        {
-          "name": "account_subject_hash",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "banreason",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "id",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "row_version",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "status",
-          "accessors": [
-            "ReadInt32"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/Security/CommentAnonymousNullifierService.cs",
-      "columns": [
-        {
-          "name": "allowed",
-          "accessors": [
-            "ReadBoolean"
-          ]
-        },
-        {
-          "name": "blocked",
-          "accessors": [
-            "ReadBoolean"
-          ]
-        },
-        {
-          "name": "status",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "use_count",
-          "accessors": [
-            "ReadInt32"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/Security/PasskeyService.cs",
-      "columns": [
-        {
-          "name": "credential_found",
-          "accessors": [
-            "ReadBoolean"
-          ]
-        },
-        {
-          "name": "deleted",
-          "accessors": [
-            "ReadBoolean"
-          ]
-        },
-        {
-          "name": "final_handle",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "passkey_user_handle",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "remaining",
-          "accessors": [
-            "ReadValue"
-          ]
-        },
-        {
-          "name": "user_found",
-          "accessors": [
-            "ReadBoolean"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/Security/RecoveryKeyService.cs",
-      "columns": [
-        {
-          "name": "absoluteexpiresat",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "account_id",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "created_at",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "id",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "idleexpiresat",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "key_hash",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "key_version",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "lookup_id_hash",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "revoked_at",
-          "accessors": [
-            "IsNull",
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "revokedat",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "row_version",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "sessionid",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "used_at",
-          "accessors": [
-            "IsNull",
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "userid",
-          "accessors": [
-            "ReadInt32"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/Security/SecurityPolicySnapshotService.cs",
-      "columns": [
-        {
-          "name": "last_version",
-          "accessors": [
-            "ReadInt64"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/Security/UserSessionValidationService.cs",
-      "columns": [
-        {
-          "name": "absoluteexpiresat",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "deleted_at",
-          "accessors": [
-            "IsNull",
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "identity_kind",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "idleexpiresat",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "revokedat",
-          "accessors": [
-            "IsNull",
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "row_version",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "sessionid",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "status",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "userid",
-          "accessors": [
-            "ReadInt32"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/StatsService.cs",
-      "columns": [
-        {
-          "name": "ArticleReads",
-          "accessors": [
-            "IsNull",
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "HumanVerifiedReads",
-          "accessors": [
-            "IsNull",
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "SiteReads",
-          "accessors": [
-            "IsNull",
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "Total",
-          "accessors": [
-            "IsNull",
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "TotalReads",
-          "accessors": [
-            "IsNull",
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "Trash",
-          "accessors": [
-            "IsNull",
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "UniqueViewerKeyEstimate",
-          "accessors": [
-            "IsNull",
-            "ReadInt64"
-          ]
-        }
-      ]
-    },
-    {
-      "path": "src/backend/Services/UserService.cs",
-      "columns": [
-        {
-          "name": "absoluteexpiresat",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "deleted_at",
-          "accessors": [
-            "IsNull",
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "id",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "identity_kind",
-          "accessors": [
-            "IsNull",
-            "ReadString"
-          ]
-        },
-        {
-          "name": "idleexpiresat",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "mfa_enabled",
-          "accessors": [
-            "ReadBoolean"
-          ]
-        },
-        {
-          "name": "revokedat",
-          "accessors": [
-            "ReadDateTime"
-          ]
-        },
-        {
-          "name": "row_version",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "sessionid",
-          "accessors": [
-            "ReadString"
-          ]
-        },
-        {
-          "name": "status",
-          "accessors": [
-            "ReadInt32"
-          ]
-        },
-        {
-          "name": "userid",
-          "accessors": [
-            "ReadInt32"
-          ]
-        }
-      ]
-    }
-  ]
+    ]
 }

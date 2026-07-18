@@ -1,122 +1,122 @@
 {
-  "schema": "fsusblog.configuration-ownership.v1",
-  "genericRoot": "config",
-  "frameworkRoots": [
-    ".config"
-  ],
-  "rootJsonAllowlist": [
-    "global.json"
-  ],
-  "ownership": [
-    {
-      "id": "configuration-ownership-registry",
-      "owner": "repository-governance",
-      "canonicalPath": "config/configuration-ownership.json",
-      "pathType": "file"
-    },
-    {
-      "id": "development-governance",
-      "owner": "repository-governance",
-      "canonicalPath": "config/development",
-      "pathType": "directory",
-      "recursive": true
-    },
-    {
-      "id": "observability-slo",
-      "owner": "operations-observability",
-      "canonicalPath": "config/observability/slo.yml",
-      "pathType": "file",
-      "rejectedPaths": [
-        "config/slo.yml"
-      ]
-    },
-    {
-      "id": "zero-downtime-resource-policy",
-      "owner": "operations-deployment",
-      "canonicalPath": "config/deployment/zero-downtime-resource-policy.json",
-      "pathType": "file",
-      "rejectedPaths": [
-        "deploy/zero-downtime-resource-policy.json"
-      ]
-    },
-    {
-      "id": "moderation-policy-tree",
-      "owner": "backend-moderation",
-      "canonicalPath": "config/moderation",
-      "pathType": "directory",
-      "recursive": true,
-      "rejectedPaths": [
-        "configs/moderation"
-      ]
-    },
-    {
-      "id": "mutation-default",
-      "owner": "backend-test-governance",
-      "canonicalPath": "config/testing/mutation/default.json",
-      "pathType": "file",
-      "rejectedPaths": [
-        "stryker-config.json"
-      ]
-    },
-    {
-      "id": "mutation-critical",
-      "owner": "backend-test-governance",
-      "canonicalPath": "config/testing/mutation/critical.json",
-      "pathType": "file",
-      "rejectedPaths": [
-        "stryker-critical-config.json"
-      ]
-    },
-    {
-      "id": "zk-verification-key-manifests",
-      "owner": "backend-zk-security",
-      "canonicalPath": "config/zk",
-      "pathType": "directory",
-      "recursive": true
-    },
-    {
-      "id": "dotnet-local-tools",
-      "owner": "dotnet-cli",
-      "canonicalPath": ".config/dotnet-tools.json",
-      "pathType": "file",
-      "exclusiveBasename": true,
-      "rejectedPaths": [
-        "dotnet-tools.json"
-      ]
-    },
-    {
-      "id": "backend-appsettings",
-      "owner": "src/backend/FsusBlog.Server.csproj",
-      "canonicalPath": "src/backend/appsettings.json",
-      "pathType": "file"
-    },
-    {
-      "id": "backend-production-appsettings",
-      "owner": "src/backend/FsusBlog.Server.csproj",
-      "canonicalPath": "src/backend/appsettings.Production.json",
-      "pathType": "file"
-    },
-    {
-      "id": "backend-development-appsettings-example",
-      "owner": "src/backend/FsusBlog.Server.csproj",
-      "canonicalPath": "src/backend/appsettings.Development.example.json",
-      "pathType": "file",
-      "exclusiveBasename": true
-    },
-    {
-      "id": "backend-native-launch-profile",
-      "owner": "src/backend/FsusBlog.Server.csproj",
-      "canonicalPath": "src/backend/Properties/launchSettings.json",
-      "pathType": "file",
-      "rejectedPaths": [
-        "src/backend/FsusBlog.Server/Properties/launchSettings.json"
-      ]
-    },
-    {
-      "id": "docker-compose-launch-profile",
-      "owner": "ops/docker/docker-compose.dcproj",
-      "canonicalPath": "ops/docker/Properties/launchSettings.json",
-      "pathType": "file"
-    }
-  ]
+    "schema": "fsusblog.configuration-ownership.v1",
+    "genericRoot": "config",
+    "frameworkRoots": [
+        ".config"
+    ],
+    "rootJsonAllowlist": [
+        "global.json"
+    ],
+    "ownership": [
+        {
+            "id": "configuration-ownership-registry",
+            "owner": "repository-governance",
+            "canonicalPath": "config/configuration-ownership.json",
+            "pathType": "file"
+        },
+        {
+            "id": "development-governance",
+            "owner": "repository-governance",
+            "canonicalPath": "config/development",
+            "pathType": "directory",
+            "recursive": true
+        },
+        {
+            "id": "observability-slo",
+            "owner": "operations-observability",
+            "canonicalPath": "config/observability/slo.yml",
+            "pathType": "file",
+            "rejectedPaths": [
+                "config/slo.yml"
+            ]
+        },
+        {
+            "id": "zero-downtime-resource-policy",
+            "owner": "operations-deployment",
+            "canonicalPath": "config/deployment/zero-downtime-resource-policy.json",
+            "pathType": "file",
+            "rejectedPaths": [
+                "deploy/zero-downtime-resource-policy.json"
+            ]
+        },
+        {
+            "id": "moderation-policy-tree",
+            "owner": "backend-moderation",
+            "canonicalPath": "config/moderation",
+            "pathType": "directory",
+            "recursive": true,
+            "rejectedPaths": [
+                "configs/moderation"
+            ]
+        },
+        {
+            "id": "mutation-default",
+            "owner": "backend-test-governance",
+            "canonicalPath": "config/testing/mutation/default.json",
+            "pathType": "file",
+            "rejectedPaths": [
+                "stryker-config.json"
+            ]
+        },
+        {
+            "id": "mutation-critical",
+            "owner": "backend-test-governance",
+            "canonicalPath": "config/testing/mutation/critical.json",
+            "pathType": "file",
+            "rejectedPaths": [
+                "stryker-critical-config.json"
+            ]
+        },
+        {
+            "id": "zk-verification-key-manifests",
+            "owner": "backend-zk-security",
+            "canonicalPath": "config/zk",
+            "pathType": "directory",
+            "recursive": true
+        },
+        {
+            "id": "dotnet-local-tools",
+            "owner": "dotnet-cli",
+            "canonicalPath": ".config/dotnet-tools.json",
+            "pathType": "file",
+            "exclusiveBasename": true,
+            "rejectedPaths": [
+                "dotnet-tools.json"
+            ]
+        },
+        {
+            "id": "backend-appsettings",
+            "owner": "src/backend/FsusBlog.Server.csproj",
+            "canonicalPath": "src/backend/appsettings.json",
+            "pathType": "file"
+        },
+        {
+            "id": "backend-production-appsettings",
+            "owner": "src/backend/FsusBlog.Server.csproj",
+            "canonicalPath": "src/backend/appsettings.Production.json",
+            "pathType": "file"
+        },
+        {
+            "id": "backend-development-appsettings-example",
+            "owner": "src/backend/FsusBlog.Server.csproj",
+            "canonicalPath": "src/backend/appsettings.Development.example.json",
+            "pathType": "file",
+            "exclusiveBasename": true
+        },
+        {
+            "id": "backend-native-launch-profile",
+            "owner": "src/backend/FsusBlog.Server.csproj",
+            "canonicalPath": "src/backend/Properties/launchSettings.json",
+            "pathType": "file",
+            "rejectedPaths": [
+                "src/backend/FsusBlog.Server/Properties/launchSettings.json"
+            ]
+        },
+        {
+            "id": "docker-compose-launch-profile",
+            "owner": "ops/docker/docker-compose.dcproj",
+            "canonicalPath": "ops/docker/Properties/launchSettings.json",
+            "pathType": "file"
+        }
+    ]
 }

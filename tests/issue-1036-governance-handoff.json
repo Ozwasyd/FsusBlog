@@ -1,46 +1,46 @@
 {
-  "schema": "fsusblog.issue-1036.governance-handoff.v1",
-  "issue": 1036,
-  "status": "implementation-and-central-wiring-complete-validation-pending",
-  "deletedFiles": [
-    "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
-    "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
-    "tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs"
-  ],
-  "directBehaviorEvidence": [
-    "tests/frontend/unit/components/ArticleCommentComposer.test.ts",
-    "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
-    "tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts",
-    "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
-    "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
-    "tests/frontend/unit/api/comment.test.ts",
-    "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
-    "tests/backend/Unit/PodBinaryCodecTests.cs"
-  ],
-  "retentionManifest": "tests/issue-1036-retention-replacements.json",
-  "expectedDeletedTestIds": 13,
-  "centralMerge": {
-    "path": "tests/test-retention-replacements.json",
-    "operation": "merge deletedTests by exact id",
-    "required": true,
-    "status": "present-not-verified",
-    "deletedTestIds": 13,
-    "finalReplacementIdReadbackSynchronized": true
-  },
-  "activePrivacyEvidenceWiring": [
-    "src/frontend/package.json",
-    "security/matrices/privacy-zk-comment.yml",
-    "tests/matrix.yml",
-    "tests/coverage-registry.json",
-    "tests/backend/Fixtures/backend-test-requirements.json",
-    "docs/testing.generated.md"
-  ],
-  "documentation": [
-    "docs/testing/issue-1036-privacy-and-cutover-replacements.md",
-    "docs/anonymous-identity-smoke-flow.md"
-  ],
-  "verification": {
-    "commandsExecuted": [],
-    "result": "not-run-by-instruction"
-  }
+    "schema": "fsusblog.issue-1036.governance-handoff.v1",
+    "issue": 1036,
+    "status": "implementation-and-central-wiring-complete-validation-pending",
+    "deletedFiles": [
+        "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
+        "tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts",
+        "tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs"
+    ],
+    "directBehaviorEvidence": [
+        "tests/frontend/unit/components/ArticleCommentComposer.test.ts",
+        "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
+        "tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts",
+        "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
+        "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
+        "tests/frontend/unit/api/comment.test.ts",
+        "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+        "tests/backend/Unit/PodBinaryCodecTests.cs"
+    ],
+    "retentionManifest": "tests/issue-1036-retention-replacements.json",
+    "expectedDeletedTestIds": 13,
+    "centralMerge": {
+        "path": "tests/test-retention-replacements.json",
+        "operation": "merge deletedTests by exact id",
+        "required": true,
+        "status": "present-not-verified",
+        "deletedTestIds": 13,
+        "finalReplacementIdReadbackSynchronized": true
+    },
+    "activePrivacyEvidenceWiring": [
+        "src/frontend/package.json",
+        "security/matrices/privacy-zk-comment.yml",
+        "tests/matrix.yml",
+        "tests/coverage-registry.json",
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "docs/testing.generated.md"
+    ],
+    "documentation": [
+        "docs/testing/issue-1036-privacy-and-cutover-replacements.md",
+        "docs/anonymous-identity-smoke-flow.md"
+    ],
+    "verification": {
+        "commandsExecuted": [],
+        "result": "not-run-by-instruction"
+    }
 }

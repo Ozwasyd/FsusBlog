@@ -1,24 +1,24 @@
 {
-  "schema": "fsusblog.issue-1039.governance-handoff.v1",
-  "issue": 1039,
-  "status": "central-wiring-complete-validation-pending",
-  "retentionManifest": "tests/backend/issue-1039-retention-replacements.json",
-  "evidence": "tests/issue-1039-admin-console-evidence.json",
-  "documentation": "docs/testing/admin-console-behavior-tests.md",
-  "centralWiring": {
-    "coverageRegistry": "tests/coverage-registry.json",
-    "matrix": "tests/matrix.yml",
-    "backendRequirements": "tests/backend/Fixtures/backend-test-requirements.json",
-    "centralRetention": "tests/test-retention-replacements.json",
-    "status": "present-not-verified"
-  },
-  "riskAndFallback": {
-    "authorization": "Permission and step-up failures remain fail closed; UI retry obtains a new one-use proof.",
-    "mutation": "Service failures do not expose internal detail and do not bypass audit or cache invalidation.",
-    "frontend": "A failed read preserves the console shell and exposes a recoverable empty/error state."
-  },
-  "verification": {
-    "commandsExecuted": [],
-    "result": "not-run-by-instruction"
-  }
+    "schema": "fsusblog.issue-1039.governance-handoff.v1",
+    "issue": 1039,
+    "status": "central-wiring-complete-validation-pending",
+    "retentionManifest": "tests/backend/issue-1039-retention-replacements.json",
+    "evidence": "tests/issue-1039-admin-console-evidence.json",
+    "documentation": "docs/testing/admin-console-behavior-tests.md",
+    "centralWiring": {
+        "coverageRegistry": "tests/coverage-registry.json",
+        "matrix": "tests/matrix.yml",
+        "backendRequirements": "tests/backend/Fixtures/backend-test-requirements.json",
+        "centralRetention": "tests/test-retention-replacements.json",
+        "status": "present-not-verified"
+    },
+    "riskAndFallback": {
+        "authorization": "Permission and step-up failures remain fail closed; UI retry obtains a new one-use proof.",
+        "mutation": "Service failures do not expose internal detail and do not bypass audit or cache invalidation.",
+        "frontend": "A failed read preserves the console shell and exposes a recoverable empty/error state."
+    },
+    "verification": {
+        "commandsExecuted": [],
+        "result": "not-run-by-instruction"
+    }
 }

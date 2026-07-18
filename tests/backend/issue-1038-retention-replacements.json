@@ -1,397 +1,397 @@
 {
-  "schema": "fsusblog.issue-test-retention-replacements.v1",
-  "issue": 1038,
-  "baseline": "tests/test-retention-before.json",
-  "expectedDeletedTestIds": 40,
-  "deletedTests": [
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalPlane_DefinesIndependentTablesAndMigration",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_CreatesFreshAuthoringAndCommentTablesWithAdminPrincipalColumns",
-        "xunit:tests/backend/Unit/SchemaMigrationRegistryTests.cs#SchemaMigrationRegistryTests.GetDescriptors_FreshCreateStepsUseAdminPrincipalColumns"
-      ],
-      "reason": "Real PostgreSQL migration and descriptor behavior replace entity and migration source-string assertions."
+    "schema": "fsusblog.issue-test-retention-replacements.v1",
+    "issue": 1038,
+    "baseline": "tests/test-retention-before.json",
+    "expectedDeletedTestIds": 40,
+    "deletedTests": [
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalPlane_DefinesIndependentTablesAndMigration",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_CreatesFreshAuthoringAndCommentTablesWithAdminPrincipalColumns",
+                "xunit:tests/backend/Unit/SchemaMigrationRegistryTests.cs#SchemaMigrationRegistryTests.GetDescriptors_FreshCreateStepsUseAdminPrincipalColumns"
+            ],
+            "reason": "Real PostgreSQL migration and descriptor behavior replace entity and migration source-string assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalPlane_UsesSeparateCookiesAndJwtClaims",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAdminAccessToken_UsesAdminPrincipalAndPermissionClaimsWithoutLegacyRole",
+                "xunit:tests/backend/Unit/AuthCookieServiceSecurityTests.cs#AuthCookieServiceSecurityTests.AccessTokenCookies_UseExactIssuedJwtExpiry_ForOrdinaryAndAdminTokens",
+                "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalCookie_IsOnlyPreferredForAdminAuthorizationMetadata"
+            ],
+            "reason": "Issued admin JWT claims, concrete cookie behavior, and final endpoint metadata prove plane separation."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.LocalAuthFixtureLogin_IsDevelopmentOnlyAndUsesAuthCookieService",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.LocalAuthFixtureEndpoints_RegisterOnlyForDevelopmentWithExplicitFlag",
+                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.LocalFixtureStatus_ExposesOnlyBooleanStateAndFailsClosedForSecretOrNetworkMismatch"
+            ],
+            "reason": "Runtime endpoint enumeration and the fixture access boundary replace implementation-text inspection."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.UserTokenAndRequestContext_DoNotExposeLegacyAdminAuthority",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAccessToken_OmitsRoleAndUsernameClaimsForUserTokens",
+                "xunit:tests/backend/Unit/RequestAuditContextMiddlewareTests.cs#RequestAuditContextMiddlewareTests.InvokeAsync_RoleOnlyUserMutation_DoesNotBecomeAdminActor"
+            ],
+            "reason": "Issued ordinary tokens and an executed role-only request prove legacy role authority is not promoted."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.OrdinaryAuthSelfServiceEndpoints_RequireAnonymousAccountPrincipal",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CriticalEndpointMetadata_ComesFromFinalEndpointDataSource",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_BannedAccountBlocksNormalWriteButAllowsExplicitRestrictedAction"
+            ],
+            "reason": "Final authorization metadata and a TestServer account flow prove the ordinary-account boundary."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.OrdinaryAuthSelfServiceForbidden_AuditsAdminPrincipalRejection",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_AdminMutationEnforcesIdentityPermissionPowAndStepUpBeforeMutation",
+                "xunit:tests/backend/Unit/RequestAuditContextMiddlewareTests.cs#RequestAuditContextMiddlewareTests.InvokeAsync_RoleOnlyUserMutation_DoesNotBecomeAdminActor"
+            ],
+            "reason": "Executed authorization denial and request-audit actor resolution replace source-shape checks."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.ProductionAdminJudgments_DoNotUseRoleBasedAdminChecks",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AdminControlPlaneEndpoints_DoNotUseBareAdminRole",
+                "xunit:tests/backend/Unit/RequestAuditContextMiddlewareTests.cs#RequestAuditContextMiddlewareTests.InvokeAsync_RoleOnlyUserMutation_DoesNotBecomeAdminActor"
+            ],
+            "reason": "All final admin endpoint policies and role-only request behavior prove claims-based authority."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalPlane_BootstrapIsGuardedAndPasskeyOnly",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AdminMfaStepUpSecurityTests.cs#AdminMfaStepUpSecurityTests.AdminStepUpProof_BindsToAdminPrincipalSessionActionAndConsumesOnce",
+                "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAdminAccessToken_UsesAdminPrincipalAndPermissionClaimsWithoutLegacyRole"
+            ],
+            "reason": "One-use admin passkey step-up and issued admin claims retain the passkey-only control-plane guarantee."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPasskeyChallenges_AreConsumedAtomicallyBeforeWebAuthn",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AdminMfaStepUpSecurityTests.cs#AdminMfaStepUpSecurityTests.AdminStepUpProof_BindsToAdminPrincipalSessionActionAndConsumesOnce",
+                "xunit:tests/backend/Unit/SecurityChallengeProofServiceTests.cs#SecurityChallengeProofServiceTests.ConsumeProofAsync_AcceptsMatchingProofAndRejectsReplay"
+            ],
+            "reason": "One-use admin proof and replay rejection execute atomic challenge consumption."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPasskeyAssertion_SourceUsesOptimisticSignCountUpdate",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PasskeySignCountConcurrencyTests.cs#PasskeySignCountConcurrencyTests.AdminPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate"
+            ],
+            "reason": "A concurrent PostgreSQL stale-row-version race proves a single admin sign-count update."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPasskeyAssertion_LoadsCredentialPrincipalAndRowVersionInSingleJoinedRead",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PasskeySignCountConcurrencyTests.cs#PasskeySignCountConcurrencyTests.AdminPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate",
+                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen"
+            ],
+            "reason": "Database concurrency and admin-session validation retain credential ownership and freshness behavior without private query text."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.RootAdminBootstrap_UsesDatabaseUniquenessAndTransaction",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_CreatesFreshAuthoringAndCommentTablesWithAdminPrincipalColumns",
+                "xunit:tests/backend/Unit/AdminMfaStepUpSecurityTests.cs#AdminMfaStepUpSecurityTests.AdminStepUpProof_BindsToAdminPrincipalSessionActionAndConsumesOnce"
+            ],
+            "reason": "Fresh PostgreSQL schema constraints plus passkey-only admin step-up replace transaction source matching."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalPlane_AuditAndPermissionsAreExplicit",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_AdminMutationEnforcesIdentityPermissionPowAndStepUpBeforeMutation",
+                "xunit:tests/backend/Unit/AuditLogChannelTests.cs#AuditLogChannelTests.AdminAuditLogChannel_QueuesAndFlushesBatch"
+            ],
+            "reason": "TestServer permission denial/success and the real audit channel prove explicit authorization and audit delivery."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalPlane_HighImpactAuditUsesBoundedBatchChannel",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AuditLogChannelTests.cs#AuditLogChannelTests.AdminAuditLogChannel_QueuesAndFlushesBatch"
+            ],
+            "reason": "The channel behavior directly queues and flushes an admin audit batch."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPermissionPolicies_RequireIndependentAdminPrincipalId",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AdminControlPlaneEndpoints_DoNotUseBareAdminRole",
+                "xunit:tests/backend/Unit/BackendApiIntegrationContractTests.cs#BackendApiIntegrationContractTests.BinaryAdminMutationFiles_RetainAuthorizationAndPowBoundaries"
+            ],
+            "reason": "Final EndpointDataSource policies expose independent admin_id and permission claims."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalMe_ReturnsIndependentPrincipalSnapshot",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalCookie_IsOnlyPreferredForAdminAuthorizationMetadata",
+                "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAdminAccessToken_UsesAdminPrincipalAndPermissionClaimsWithoutLegacyRole"
+            ],
+            "reason": "The actual admin-me endpoint drives cookie selection and issued tokens carry only admin-principal claims."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.JwtBearerEvents_SourceSharesAdminRawAccessTokenThroughHttpContextItems",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+                "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalCookiePreference_CachesDecisionInHttpContextItems"
+            ],
+            "reason": "Executed bearer-event validation and per-request decision caching replace private handler text."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminJwtAndCookieSelection_DoNotRetainRoleBasedAdminCompatibility",
+            "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAdminAccessToken_UsesAdminPrincipalAndPermissionClaimsWithoutLegacyRole",
+                "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalCookie_IsOnlyPreferredForAdminAuthorizationMetadata",
+                "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AdminControlPlaneEndpoints_DoNotUseBareAdminRole"
+            ],
+            "reason": "Issued JWT, cookie selection, and endpoint policy behavior reject role-based compatibility."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.PasskeyLoginEndpoints_RouteThroughRiskControlAndUpdateAuthRisk",
+            "path": "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.AuthRiskEndpointMetadata_ComesFromFinalEndpointDataSource",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_PasskeyRiskControlShortCircuitsHandlersWithoutInventingPow",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_ValidPasskeyBeginRiskProofReachesHandlerWithoutPow"
+            ],
+            "reason": "Final metadata plus rejected and accepted TestServer legs execute passkey RiskControl without inventing PoW."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.RecoveryKeyVerifyEndpoint_RequiresRiskControlChallengeAndRetainsPow",
+            "path": "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.AuthRiskEndpointMetadata_ComesFromFinalEndpointDataSource",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_RiskControlShortCircuitsPowUntilRiskProofIsAccepted",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_InvalidExpiredAndWrongScopeRiskProofsReturnOneStableError"
+            ],
+            "reason": "TestServer proves RiskControl precedes retained PoW and rejects invalid, expired, and wrong-scope proofs."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.AuthRiskSignals_UseDedicatedReasonsSourcesAndActions",
+            "path": "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_InvalidExpiredAndWrongScopeRiskProofsReturnOneStableError",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_RateLimiterShortCircuitsRiskWithStableBinaryError",
+                "xunit:tests/backend/Unit/SecurityChallengeProofServiceTests.cs#SecurityChallengeProofServiceTests.ConsumeProofAsync_AcceptsMatchingProofAndRejectsReplay"
+            ],
+            "reason": "Captured runtime signals, rate-limit short-circuiting, and replay behavior replace constant-name source assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/BackendApiIntegrationContractTests.cs#BackendApiIntegrationContractTests.BackendProfiles_AreRepresentedInTestMatrix",
+            "path": "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+            "replacementTestIds": [
+                "node-script:tools/check-test-matrix.mjs",
+                "node-script:tools/check-backend-test-governance.mjs"
+            ],
+            "reason": "Structured matrix and backend-governance owners retain profile coverage without reading YAML from xUnit."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AuthoringAndSecurityAdminBinaryEndpoints_AreNativeAedsRoutesWithoutBridgePipeline",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CommentModerationEndpoints_RequireCommentModeratePermission",
+                "xunit:tests/backend/Unit/BackendApiIntegrationContractTests.cs#BackendApiIntegrationContractTests.BinaryAdminMutationFiles_RetainAuthorizationAndPowBoundaries"
+            ],
+            "reason": "Final native endpoint metadata replaces route-source and bridge-string matching."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AedsOnlyPolicy_DoesNotAllowRuntimeBinaryBridgeCompatibility",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/BackendApiIntegrationContractTests.cs#BackendApiIntegrationContractTests.BinaryEndpointFrameTypes_AreCoveredByAedsGoldenCatalog",
+                "xunit:tests/backend/Unit/GlobalExceptionMiddlewareTests.cs#GlobalExceptionMiddlewareTests.InvokeAsync_BinaryAccept_WritesApiErrorFrame"
+            ],
+            "reason": "Generated protocol metadata and executed binary error framing retain the AEDS-only boundary."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.SecurityChallengeVerifyRateLimiter_DoesNotUseStaticConcurrentDictionary",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityChallengeVerifyRateLimiterTests.cs#SecurityChallengeVerifyRateLimiterTests.TryAcquireAsync_UsesSharedUnifiedCacheWindowCounterWithoutRawIdentity",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_RateLimiterShortCircuitsRiskWithStableBinaryError"
+            ],
+            "reason": "The real shared-cache limiter and TestServer 429 ordering replace private storage-source assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AccountSecurityCredentialMutations_RequireUnifiedStepUpBoundary",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/UserSecurityStepUpServiceTests.cs#UserSecurityStepUpServiceTests.MfaEnabledAccount_RequiresActionBoundOneTimeProof",
+                "xunit:tests/backend/Unit/UserSecurityStepUpServiceTests.cs#UserSecurityStepUpServiceTests.PasswordProof_IsNotAcceptedAsAnonymousStepUp"
+            ],
+            "reason": "Actual user step-up service behavior proves one-use action binding and rejects password fallback."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AnonymousGatewayHeaderGuard_RunsBeforeAuthentication",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousGatewayHeaderGuardMiddlewareTests.cs#AnonymousGatewayHeaderGuardMiddlewareTests.InvokeAsync_RejectsTraditionalGatewayAccountHeaders",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_RateLimiterShortCircuitsRiskWithStableBinaryError"
+            ],
+            "reason": "Executed header rejection plus composed middleware ordering replace Program source scanning."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.BinaryArticleTrashClear_IsDestructiveAdminMutationWithStepUpRateLimitAndHighValueAudit",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CriticalEndpointMetadata_ComesFromFinalEndpointDataSource",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_AdminMutationEnforcesIdentityPermissionPowAndStepUpBeforeMutation",
+                "xunit:tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs#ArticleDestructiveMutationBehaviorTests.PermanentDeleteAndClearTrash_NeverRemoveActiveArticles"
+            ],
+            "reason": "Final metadata, full TestServer authorization/PoW/step-up, and destructive domain behavior cover the route."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.BannedUserMiddleware_UsesStableLockedWriteError",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_BannedAccountBlocksNormalWriteButAllowsExplicitRestrictedAction",
+                "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked"
+            ],
+            "reason": "TestServer decodes the stable 423 AEDS error and direct middleware behavior proves rejection."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AuthenticationBoundaries_DoNotRejectBannedAccountsBeforeSessionIssue",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_BannedAccountBlocksNormalWriteButAllowsExplicitRestrictedAction",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_PasskeyRiskControlShortCircuitsHandlersWithoutInventingPow"
+            ],
+            "reason": "A banned-account TestServer still reaches the AllowAnonymous passkey RiskControl leg while writes remain locked."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.PasskeyRegistrationEndpoint_DoesNotPassLegacyUsernameToService",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PasskeyServiceTests.cs#PasskeyServiceTests.BuildAnonymousSafeMetadata_MapsAccountLabelsAndPreservesStoredRandomHandle",
+                "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAccessToken_OmitsRoleAndUsernameClaimsForUserTokens"
+            ],
+            "reason": "Concrete passkey metadata and ordinary issued-token behavior retain anonymous-safe identity semantics."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.PasskeyService_UsesCsprngTokensAndConsumesRegistrationChallengeAfterVerification",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.CryptographicRandomSource_ProducesRequestedLengthAndUniqueOutputs",
+                "xunit:tests/backend/Unit/SecurityChallengeProofServiceTests.cs#SecurityChallengeProofServiceTests.ConsumeProofAsync_AcceptsMatchingProofAndRejectsReplay"
+            ],
+            "reason": "Injected cryptographic randomness and replay rejection replace random API and cache helper source strings."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.PasskeyAssertion_RejectsNonMonotonicSignatureCounters",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PasskeySignCountConcurrencyTests.cs#PasskeySignCountConcurrencyTests.UserPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate",
+                "xunit:tests/backend/Unit/PasskeySignCountConcurrencyTests.cs#PasskeySignCountConcurrencyTests.AdminPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate"
+            ],
+            "reason": "Concurrent PostgreSQL stale-counter races prove only one monotonic user/admin update."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.LocalAuthFixtureEndpoints_RequireDevelopmentAndSharedSecretHeader",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.LocalAuthFixtureEndpoints_RegisterOnlyForDevelopmentWithExplicitFlag",
+                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.LocalFixtureStatus_ExposesOnlyBooleanStateAndFailsClosedForSecretOrNetworkMismatch"
+            ],
+            "reason": "Runtime environment/flag registration and fixture guard behavior replace endpoint source reads."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CommentDeleteRoute_UsesAdminPrincipalPermissionForModeratorBranch",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CriticalEndpointMetadata_ComesFromFinalEndpointDataSource",
+                "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.DeleteCommentAsync_AdminCanDeleteStrongAnonymousCommentWithoutUserCommentInvalidation"
+            ],
+            "reason": "Final dual-principal route metadata and executed admin deletion retain the moderator branch."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.BinaryCommentAdminDelete_RequiresAdminSensitiveStepUpBeforeAdminDelete",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CriticalEndpointMetadata_ComesFromFinalEndpointDataSource",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_AdminMutationEnforcesIdentityPermissionPowAndStepUpBeforeMutation"
+            ],
+            "reason": "Enumerable step-up/PoW metadata and the common admin mutation TestServer prove pre-mutation ordering."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.BinarySystemPublicContentMutations_RequireAdminSensitiveStepUpBeforeMutation",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_AdminMutationEnforcesIdentityPermissionPowAndStepUpBeforeMutation",
+                "xunit:tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs#ArticleDestructiveMutationBehaviorTests.PermanentDeleteAndClearTrash_NeverRemoveActiveArticles"
+            ],
+            "reason": "Executed admin mutation ordering and destructive article behavior replace handler-text extraction."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AuthoringDangerousPublishMutations_RequireAdminSensitiveStepUpBeforeMutation",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CommentModerationEndpoints_RequireCommentModeratePermission",
+                "xunit:tests/backend/Unit/ModerationConsoleContractTests.cs#ModerationConsoleContractTests.ReloadAndRollbackEndpoints_EnforcePermissionAndStepUpThenAuditAndInvalidate"
+            ],
+            "reason": "Final authoring metadata and TestServer-backed moderation mutation behavior prove permission and one-use step-up."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CommentModerationAndAnonymousGovernancePermissions_DoNotReplaceEachOther",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CommentModerationEndpoints_RequireCommentModeratePermission",
+                "xunit:tests/backend/Unit/AnonymousGovernanceAdminEndpointTests.cs#AnonymousGovernanceAdminEndpointTests.AdminAnonymousGovernanceEndpoints_AreBinaryAdminStepUpAndPermissionGated"
+            ],
+            "reason": "Actual endpoint policies retain distinct comment-moderate and anonymous-governance permissions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AnonymousMfaMutations_RequireHeaderProofAndDoNotReadPasswordBody",
+            "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/UserSecurityStepUpServiceTests.cs#UserSecurityStepUpServiceTests.MfaEnabledAccount_RequiresActionBoundOneTimeProof",
+                "xunit:tests/backend/Unit/UserSecurityStepUpServiceTests.cs#UserSecurityStepUpServiceTests.PasswordProof_IsNotAcceptedAsAnonymousStepUp"
+            ],
+            "reason": "Executed user step-up behavior proves header-bound proof and rejects password proof."
+        }
+    ],
+    "centralRegistryContract": {
+        "coverageId": "backend-endpoint-security-metadata-and-testserver",
+        "tierIds": [
+            "backend-unit",
+            "backend-api-integration",
+            "security",
+            "auth-state",
+            "production-fresh"
+        ],
+        "backendRequirementOwners": [
+            "EndpointPolicyContractTests",
+            "AuthRiskControlEndpointContractTests",
+            "AdminPrincipalSecurityContractTests",
+            "BackendApiIntegrationContractTests"
+        ],
+        "centralRetentionManifest": "tests/test-retention-replacements.json"
     },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalPlane_UsesSeparateCookiesAndJwtClaims",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAdminAccessToken_UsesAdminPrincipalAndPermissionClaimsWithoutLegacyRole",
-        "xunit:tests/backend/Unit/AuthCookieServiceSecurityTests.cs#AuthCookieServiceSecurityTests.AccessTokenCookies_UseExactIssuedJwtExpiry_ForOrdinaryAndAdminTokens",
-        "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalCookie_IsOnlyPreferredForAdminAuthorizationMetadata"
-      ],
-      "reason": "Issued admin JWT claims, concrete cookie behavior, and final endpoint metadata prove plane separation."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.LocalAuthFixtureLogin_IsDevelopmentOnlyAndUsesAuthCookieService",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.LocalAuthFixtureEndpoints_RegisterOnlyForDevelopmentWithExplicitFlag",
-        "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.LocalFixtureStatus_ExposesOnlyBooleanStateAndFailsClosedForSecretOrNetworkMismatch"
-      ],
-      "reason": "Runtime endpoint enumeration and the fixture access boundary replace implementation-text inspection."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.UserTokenAndRequestContext_DoNotExposeLegacyAdminAuthority",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAccessToken_OmitsRoleAndUsernameClaimsForUserTokens",
-        "xunit:tests/backend/Unit/RequestAuditContextMiddlewareTests.cs#RequestAuditContextMiddlewareTests.InvokeAsync_RoleOnlyUserMutation_DoesNotBecomeAdminActor"
-      ],
-      "reason": "Issued ordinary tokens and an executed role-only request prove legacy role authority is not promoted."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.OrdinaryAuthSelfServiceEndpoints_RequireAnonymousAccountPrincipal",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CriticalEndpointMetadata_ComesFromFinalEndpointDataSource",
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_BannedAccountBlocksNormalWriteButAllowsExplicitRestrictedAction"
-      ],
-      "reason": "Final authorization metadata and a TestServer account flow prove the ordinary-account boundary."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.OrdinaryAuthSelfServiceForbidden_AuditsAdminPrincipalRejection",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_AdminMutationEnforcesIdentityPermissionPowAndStepUpBeforeMutation",
-        "xunit:tests/backend/Unit/RequestAuditContextMiddlewareTests.cs#RequestAuditContextMiddlewareTests.InvokeAsync_RoleOnlyUserMutation_DoesNotBecomeAdminActor"
-      ],
-      "reason": "Executed authorization denial and request-audit actor resolution replace source-shape checks."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.ProductionAdminJudgments_DoNotUseRoleBasedAdminChecks",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AdminControlPlaneEndpoints_DoNotUseBareAdminRole",
-        "xunit:tests/backend/Unit/RequestAuditContextMiddlewareTests.cs#RequestAuditContextMiddlewareTests.InvokeAsync_RoleOnlyUserMutation_DoesNotBecomeAdminActor"
-      ],
-      "reason": "All final admin endpoint policies and role-only request behavior prove claims-based authority."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalPlane_BootstrapIsGuardedAndPasskeyOnly",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AdminMfaStepUpSecurityTests.cs#AdminMfaStepUpSecurityTests.AdminStepUpProof_BindsToAdminPrincipalSessionActionAndConsumesOnce",
-        "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAdminAccessToken_UsesAdminPrincipalAndPermissionClaimsWithoutLegacyRole"
-      ],
-      "reason": "One-use admin passkey step-up and issued admin claims retain the passkey-only control-plane guarantee."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPasskeyChallenges_AreConsumedAtomicallyBeforeWebAuthn",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AdminMfaStepUpSecurityTests.cs#AdminMfaStepUpSecurityTests.AdminStepUpProof_BindsToAdminPrincipalSessionActionAndConsumesOnce",
-        "xunit:tests/backend/Unit/SecurityChallengeProofServiceTests.cs#SecurityChallengeProofServiceTests.ConsumeProofAsync_AcceptsMatchingProofAndRejectsReplay"
-      ],
-      "reason": "One-use admin proof and replay rejection execute atomic challenge consumption."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPasskeyAssertion_SourceUsesOptimisticSignCountUpdate",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/PasskeySignCountConcurrencyTests.cs#PasskeySignCountConcurrencyTests.AdminPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate"
-      ],
-      "reason": "A concurrent PostgreSQL stale-row-version race proves a single admin sign-count update."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPasskeyAssertion_LoadsCredentialPrincipalAndRowVersionInSingleJoinedRead",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/PasskeySignCountConcurrencyTests.cs#PasskeySignCountConcurrencyTests.AdminPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate",
-        "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen"
-      ],
-      "reason": "Database concurrency and admin-session validation retain credential ownership and freshness behavior without private query text."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.RootAdminBootstrap_UsesDatabaseUniquenessAndTransaction",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_CreatesFreshAuthoringAndCommentTablesWithAdminPrincipalColumns",
-        "xunit:tests/backend/Unit/AdminMfaStepUpSecurityTests.cs#AdminMfaStepUpSecurityTests.AdminStepUpProof_BindsToAdminPrincipalSessionActionAndConsumesOnce"
-      ],
-      "reason": "Fresh PostgreSQL schema constraints plus passkey-only admin step-up replace transaction source matching."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalPlane_AuditAndPermissionsAreExplicit",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_AdminMutationEnforcesIdentityPermissionPowAndStepUpBeforeMutation",
-        "xunit:tests/backend/Unit/AuditLogChannelTests.cs#AuditLogChannelTests.AdminAuditLogChannel_QueuesAndFlushesBatch"
-      ],
-      "reason": "TestServer permission denial/success and the real audit channel prove explicit authorization and audit delivery."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalPlane_HighImpactAuditUsesBoundedBatchChannel",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AuditLogChannelTests.cs#AuditLogChannelTests.AdminAuditLogChannel_QueuesAndFlushesBatch"
-      ],
-      "reason": "The channel behavior directly queues and flushes an admin audit batch."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPermissionPolicies_RequireIndependentAdminPrincipalId",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AdminControlPlaneEndpoints_DoNotUseBareAdminRole",
-        "xunit:tests/backend/Unit/BackendApiIntegrationContractTests.cs#BackendApiIntegrationContractTests.BinaryAdminMutationFiles_RetainAuthorizationAndPowBoundaries"
-      ],
-      "reason": "Final EndpointDataSource policies expose independent admin_id and permission claims."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalMe_ReturnsIndependentPrincipalSnapshot",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalCookie_IsOnlyPreferredForAdminAuthorizationMetadata",
-        "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAdminAccessToken_UsesAdminPrincipalAndPermissionClaimsWithoutLegacyRole"
-      ],
-      "reason": "The actual admin-me endpoint drives cookie selection and issued tokens carry only admin-principal claims."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.JwtBearerEvents_SourceSharesAdminRawAccessTokenThroughHttpContextItems",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
-        "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalCookiePreference_CachesDecisionInHttpContextItems"
-      ],
-      "reason": "Executed bearer-event validation and per-request decision caching replace private handler text."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminJwtAndCookieSelection_DoNotRetainRoleBasedAdminCompatibility",
-      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAdminAccessToken_UsesAdminPrincipalAndPermissionClaimsWithoutLegacyRole",
-        "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalCookie_IsOnlyPreferredForAdminAuthorizationMetadata",
-        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AdminControlPlaneEndpoints_DoNotUseBareAdminRole"
-      ],
-      "reason": "Issued JWT, cookie selection, and endpoint policy behavior reject role-based compatibility."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.PasskeyLoginEndpoints_RouteThroughRiskControlAndUpdateAuthRisk",
-      "path": "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.AuthRiskEndpointMetadata_ComesFromFinalEndpointDataSource",
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_PasskeyRiskControlShortCircuitsHandlersWithoutInventingPow",
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_ValidPasskeyBeginRiskProofReachesHandlerWithoutPow"
-      ],
-      "reason": "Final metadata plus rejected and accepted TestServer legs execute passkey RiskControl without inventing PoW."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.RecoveryKeyVerifyEndpoint_RequiresRiskControlChallengeAndRetainsPow",
-      "path": "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.AuthRiskEndpointMetadata_ComesFromFinalEndpointDataSource",
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_RiskControlShortCircuitsPowUntilRiskProofIsAccepted",
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_InvalidExpiredAndWrongScopeRiskProofsReturnOneStableError"
-      ],
-      "reason": "TestServer proves RiskControl precedes retained PoW and rejects invalid, expired, and wrong-scope proofs."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.AuthRiskSignals_UseDedicatedReasonsSourcesAndActions",
-      "path": "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_InvalidExpiredAndWrongScopeRiskProofsReturnOneStableError",
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_RateLimiterShortCircuitsRiskWithStableBinaryError",
-        "xunit:tests/backend/Unit/SecurityChallengeProofServiceTests.cs#SecurityChallengeProofServiceTests.ConsumeProofAsync_AcceptsMatchingProofAndRejectsReplay"
-      ],
-      "reason": "Captured runtime signals, rate-limit short-circuiting, and replay behavior replace constant-name source assertions."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/BackendApiIntegrationContractTests.cs#BackendApiIntegrationContractTests.BackendProfiles_AreRepresentedInTestMatrix",
-      "path": "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
-      "replacementTestIds": [
-        "node-script:tools/check-test-matrix.mjs",
-        "node-script:tools/check-backend-test-governance.mjs"
-      ],
-      "reason": "Structured matrix and backend-governance owners retain profile coverage without reading YAML from xUnit."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AuthoringAndSecurityAdminBinaryEndpoints_AreNativeAedsRoutesWithoutBridgePipeline",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CommentModerationEndpoints_RequireCommentModeratePermission",
-        "xunit:tests/backend/Unit/BackendApiIntegrationContractTests.cs#BackendApiIntegrationContractTests.BinaryAdminMutationFiles_RetainAuthorizationAndPowBoundaries"
-      ],
-      "reason": "Final native endpoint metadata replaces route-source and bridge-string matching."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AedsOnlyPolicy_DoesNotAllowRuntimeBinaryBridgeCompatibility",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/BackendApiIntegrationContractTests.cs#BackendApiIntegrationContractTests.BinaryEndpointFrameTypes_AreCoveredByAedsGoldenCatalog",
-        "xunit:tests/backend/Unit/GlobalExceptionMiddlewareTests.cs#GlobalExceptionMiddlewareTests.InvokeAsync_BinaryAccept_WritesApiErrorFrame"
-      ],
-      "reason": "Generated protocol metadata and executed binary error framing retain the AEDS-only boundary."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.SecurityChallengeVerifyRateLimiter_DoesNotUseStaticConcurrentDictionary",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityChallengeVerifyRateLimiterTests.cs#SecurityChallengeVerifyRateLimiterTests.TryAcquireAsync_UsesSharedUnifiedCacheWindowCounterWithoutRawIdentity",
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_RateLimiterShortCircuitsRiskWithStableBinaryError"
-      ],
-      "reason": "The real shared-cache limiter and TestServer 429 ordering replace private storage-source assertions."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AccountSecurityCredentialMutations_RequireUnifiedStepUpBoundary",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/UserSecurityStepUpServiceTests.cs#UserSecurityStepUpServiceTests.MfaEnabledAccount_RequiresActionBoundOneTimeProof",
-        "xunit:tests/backend/Unit/UserSecurityStepUpServiceTests.cs#UserSecurityStepUpServiceTests.PasswordProof_IsNotAcceptedAsAnonymousStepUp"
-      ],
-      "reason": "Actual user step-up service behavior proves one-use action binding and rejects password fallback."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AnonymousGatewayHeaderGuard_RunsBeforeAuthentication",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AnonymousGatewayHeaderGuardMiddlewareTests.cs#AnonymousGatewayHeaderGuardMiddlewareTests.InvokeAsync_RejectsTraditionalGatewayAccountHeaders",
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_RateLimiterShortCircuitsRiskWithStableBinaryError"
-      ],
-      "reason": "Executed header rejection plus composed middleware ordering replace Program source scanning."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.BinaryArticleTrashClear_IsDestructiveAdminMutationWithStepUpRateLimitAndHighValueAudit",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CriticalEndpointMetadata_ComesFromFinalEndpointDataSource",
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_AdminMutationEnforcesIdentityPermissionPowAndStepUpBeforeMutation",
-        "xunit:tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs#ArticleDestructiveMutationBehaviorTests.PermanentDeleteAndClearTrash_NeverRemoveActiveArticles"
-      ],
-      "reason": "Final metadata, full TestServer authorization/PoW/step-up, and destructive domain behavior cover the route."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.BannedUserMiddleware_UsesStableLockedWriteError",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_BannedAccountBlocksNormalWriteButAllowsExplicitRestrictedAction",
-        "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked"
-      ],
-      "reason": "TestServer decodes the stable 423 AEDS error and direct middleware behavior proves rejection."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AuthenticationBoundaries_DoNotRejectBannedAccountsBeforeSessionIssue",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_BannedAccountBlocksNormalWriteButAllowsExplicitRestrictedAction",
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_PasskeyRiskControlShortCircuitsHandlersWithoutInventingPow"
-      ],
-      "reason": "A banned-account TestServer still reaches the AllowAnonymous passkey RiskControl leg while writes remain locked."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.PasskeyRegistrationEndpoint_DoesNotPassLegacyUsernameToService",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/PasskeyServiceTests.cs#PasskeyServiceTests.BuildAnonymousSafeMetadata_MapsAccountLabelsAndPreservesStoredRandomHandle",
-        "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAccessToken_OmitsRoleAndUsernameClaimsForUserTokens"
-      ],
-      "reason": "Concrete passkey metadata and ordinary issued-token behavior retain anonymous-safe identity semantics."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.PasskeyService_UsesCsprngTokensAndConsumesRegistrationChallengeAfterVerification",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.CryptographicRandomSource_ProducesRequestedLengthAndUniqueOutputs",
-        "xunit:tests/backend/Unit/SecurityChallengeProofServiceTests.cs#SecurityChallengeProofServiceTests.ConsumeProofAsync_AcceptsMatchingProofAndRejectsReplay"
-      ],
-      "reason": "Injected cryptographic randomness and replay rejection replace random API and cache helper source strings."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.PasskeyAssertion_RejectsNonMonotonicSignatureCounters",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/PasskeySignCountConcurrencyTests.cs#PasskeySignCountConcurrencyTests.UserPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate",
-        "xunit:tests/backend/Unit/PasskeySignCountConcurrencyTests.cs#PasskeySignCountConcurrencyTests.AdminPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate"
-      ],
-      "reason": "Concurrent PostgreSQL stale-counter races prove only one monotonic user/admin update."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.LocalAuthFixtureEndpoints_RequireDevelopmentAndSharedSecretHeader",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.LocalAuthFixtureEndpoints_RegisterOnlyForDevelopmentWithExplicitFlag",
-        "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.LocalFixtureStatus_ExposesOnlyBooleanStateAndFailsClosedForSecretOrNetworkMismatch"
-      ],
-      "reason": "Runtime environment/flag registration and fixture guard behavior replace endpoint source reads."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CommentDeleteRoute_UsesAdminPrincipalPermissionForModeratorBranch",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CriticalEndpointMetadata_ComesFromFinalEndpointDataSource",
-        "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.DeleteCommentAsync_AdminCanDeleteStrongAnonymousCommentWithoutUserCommentInvalidation"
-      ],
-      "reason": "Final dual-principal route metadata and executed admin deletion retain the moderator branch."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.BinaryCommentAdminDelete_RequiresAdminSensitiveStepUpBeforeAdminDelete",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CriticalEndpointMetadata_ComesFromFinalEndpointDataSource",
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_AdminMutationEnforcesIdentityPermissionPowAndStepUpBeforeMutation"
-      ],
-      "reason": "Enumerable step-up/PoW metadata and the common admin mutation TestServer prove pre-mutation ordering."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.BinarySystemPublicContentMutations_RequireAdminSensitiveStepUpBeforeMutation",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_AdminMutationEnforcesIdentityPermissionPowAndStepUpBeforeMutation",
-        "xunit:tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs#ArticleDestructiveMutationBehaviorTests.PermanentDeleteAndClearTrash_NeverRemoveActiveArticles"
-      ],
-      "reason": "Executed admin mutation ordering and destructive article behavior replace handler-text extraction."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AuthoringDangerousPublishMutations_RequireAdminSensitiveStepUpBeforeMutation",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CommentModerationEndpoints_RequireCommentModeratePermission",
-        "xunit:tests/backend/Unit/ModerationConsoleContractTests.cs#ModerationConsoleContractTests.ReloadAndRollbackEndpoints_EnforcePermissionAndStepUpThenAuditAndInvalidate"
-      ],
-      "reason": "Final authoring metadata and TestServer-backed moderation mutation behavior prove permission and one-use step-up."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CommentModerationAndAnonymousGovernancePermissions_DoNotReplaceEachOther",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.CommentModerationEndpoints_RequireCommentModeratePermission",
-        "xunit:tests/backend/Unit/AnonymousGovernanceAdminEndpointTests.cs#AnonymousGovernanceAdminEndpointTests.AdminAnonymousGovernanceEndpoints_AreBinaryAdminStepUpAndPermissionGated"
-      ],
-      "reason": "Actual endpoint policies retain distinct comment-moderate and anonymous-governance permissions."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AnonymousMfaMutations_RequireHeaderProofAndDoNotReadPasswordBody",
-      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/UserSecurityStepUpServiceTests.cs#UserSecurityStepUpServiceTests.MfaEnabledAccount_RequiresActionBoundOneTimeProof",
-        "xunit:tests/backend/Unit/UserSecurityStepUpServiceTests.cs#UserSecurityStepUpServiceTests.PasswordProof_IsNotAcceptedAsAnonymousStepUp"
-      ],
-      "reason": "Executed user step-up behavior proves header-bound proof and rejects password proof."
+    "centralRegistryReadback": {
+        "status": "present-not-verified",
+        "authFilterRegistrationsUseMetadataWrapper": 6,
+        "coverageIdPresent": true,
+        "matrixWiringPresent": true,
+        "backendRequirementsPresent": true,
+        "centralDeletedTestIds": 40
     }
-  ],
-  "centralRegistryContract": {
-    "coverageId": "backend-endpoint-security-metadata-and-testserver",
-    "tierIds": [
-      "backend-unit",
-      "backend-api-integration",
-      "security",
-      "auth-state",
-      "production-fresh"
-    ],
-    "backendRequirementOwners": [
-      "EndpointPolicyContractTests",
-      "AuthRiskControlEndpointContractTests",
-      "AdminPrincipalSecurityContractTests",
-      "BackendApiIntegrationContractTests"
-    ],
-    "centralRetentionManifest": "tests/test-retention-replacements.json"
-  },
-  "centralRegistryReadback": {
-    "status": "present-not-verified",
-    "authFilterRegistrationsUseMetadataWrapper": 6,
-    "coverageIdPresent": true,
-    "matrixWiringPresent": true,
-    "backendRequirementsPresent": true,
-    "centralDeletedTestIds": 40
-  }
 }

@@ -1,102 +1,102 @@
 {
-  "schema": "fsusblog.zk.trusted-setup-manifest.v1",
-  "circuit_id": "fsus.anonymous.comment.v3",
-  "public_input_layout_version": 4,
-  "artifact_class": "trusted-setup-provenance",
-  "lifecycle": "ceremony-required",
-  "circuit_manifest_path": "security/zk/contracts/comment-v2-circuit.manifest.json",
-  "circuit_manifest_sha256": "51bff78778ea9501c678939edf42fede80607112e55d5f81781e3fbe99a1f85d",
-  "local_cryptographic_review_manifest": "security/zk/provenance/comment-v2-local-review.manifest.json",
-  "ceremony_status": "not-run",
-  "production_usable": false,
-  "fail_closed_reason": "The unlinkable v4 public-input layout changes the circuit id and invalidates every prior phase-2 key. Production remains fail-closed until a new circuit-specific Groth16 ceremony and hash-bound cross-stack evidence are supplied.",
-  "hash_binding": {
-    "verifying_key_hash_algorithm": "sha256(canonical_verifying_key_bytes)",
-    "runtime_binding": [
-      "circuit_id",
-      "public_input_layout_version",
-      "verifying_key_hash"
+    "schema": "fsusblog.zk.trusted-setup-manifest.v1",
+    "circuit_id": "fsus.anonymous.comment.v3",
+    "public_input_layout_version": 4,
+    "artifact_class": "trusted-setup-provenance",
+    "lifecycle": "ceremony-required",
+    "circuit_manifest_path": "security/zk/contracts/comment-v2-circuit.manifest.json",
+    "circuit_manifest_sha256": "51bff78778ea9501c678939edf42fede80607112e55d5f81781e3fbe99a1f85d",
+    "local_cryptographic_review_manifest": "security/zk/provenance/comment-v2-local-review.manifest.json",
+    "ceremony_status": "not-run",
+    "production_usable": false,
+    "fail_closed_reason": "The unlinkable v4 public-input layout changes the circuit id and invalidates every prior phase-2 key. Production remains fail-closed until a new circuit-specific Groth16 ceremony and hash-bound cross-stack evidence are supplied.",
+    "hash_binding": {
+        "verifying_key_hash_algorithm": "sha256(canonical_verifying_key_bytes)",
+        "runtime_binding": [
+            "circuit_id",
+            "public_input_layout_version",
+            "verifying_key_hash"
+        ],
+        "placeholder_hashes_forbidden": [
+            "vk-sha256",
+            "placeholder",
+            "TODO",
+            "TBD"
+        ]
+    },
+    "phase1": {
+        "protocol": "FsusBlog self-written Powers of Tau compatible transcript",
+        "curve": "bn254",
+        "status": "required",
+        "minimum_contributions": 3,
+        "transcript_path": "artifacts/zk/comment-v3-layout4/ceremony/phase1/powers_of_tau_final.fsptau",
+        "transcript_sha256": "",
+        "verification_command": "dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/ceremony/phase1/powers_of_tau_final.fsptau"
+    },
+    "phase2": {
+        "protocol": "FsusBlog self-written Groth16 circuit-specific setup",
+        "status": "required",
+        "minimum_contributions": 3,
+        "transcript_path": "artifacts/zk/comment-v3-layout4/ceremony/phase2/comment_v3_ceremony_transcript.json",
+        "transcript_sha256": "",
+        "verification_command": "dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk"
+    },
+    "artifacts": {
+        "r1cs": {
+            "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
+            "sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb",
+            "status": "required",
+            "format": "fsusblog.zk.r1cs-ir.v1",
+            "ceremony_input": false
+        },
+        "groth16_r1cs": {
+            "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs",
+            "sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff",
+            "status": "required",
+            "format": "rank1cs-binary",
+            "ceremony_input": true
+        },
+        "proving_key": {
+            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk",
+            "sha256": "",
+            "status": "required"
+        },
+        "verifying_key": {
+            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.bin",
+            "sha256": "",
+            "status": "required"
+        },
+        "verifying_key_json": {
+            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.json",
+            "sha256": "",
+            "status": "required"
+        },
+        "wasm_prover_bundle": {
+            "path": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz",
+            "sha256": "",
+            "status": "required"
+        }
+    },
+    "verifying_key_hash": "",
+    "public_input_layout_upgrade_rules": [
+        "Any public input name change requires a new public_input_layout_version.",
+        "Any public input order change requires a new public_input_layout_version.",
+        "Any public input encoding change requires a new public_input_layout_version.",
+        "Any public input semantic change requires a new public_input_layout_version.",
+        "A new public_input_layout_version requires a new circuit-specific Groth16 ceremony.",
+        "Credential root metadata must bind circuit_id, public_input_layout_version and verifying_key_hash together."
     ],
-    "placeholder_hashes_forbidden": [
-      "vk-sha256",
-      "placeholder",
-      "TODO",
-      "TBD"
+    "transcript_consistency_checks": [
+        "phase1 transcript SHA-256 matches phase1.transcript_sha256",
+        "phase2 transcript SHA-256 matches phase2.transcript_sha256",
+        "phase2 transcript references circuit_manifest_sha256",
+        "final proving key SHA-256 matches artifacts.proving_key.sha256",
+        "canonical verifying key bytes SHA-256 equals verifying_key_hash",
+        "verifying key hash matches config/zk/anonymous-comment-v2-verifying-key.manifest.json"
+    ],
+    "handoff_consumers": [
+        "#552 trusted setup ceremony artifacts",
+        "#553 browser wasm prover bundle",
+        "#555 native verifier / prover cross-stack fixture"
     ]
-  },
-  "phase1": {
-    "protocol": "FsusBlog self-written Powers of Tau compatible transcript",
-    "curve": "bn254",
-    "status": "required",
-    "minimum_contributions": 3,
-    "transcript_path": "artifacts/zk/comment-v3-layout4/ceremony/phase1/powers_of_tau_final.fsptau",
-    "transcript_sha256": "",
-    "verification_command": "dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/ceremony/phase1/powers_of_tau_final.fsptau"
-  },
-  "phase2": {
-    "protocol": "FsusBlog self-written Groth16 circuit-specific setup",
-    "status": "required",
-    "minimum_contributions": 3,
-    "transcript_path": "artifacts/zk/comment-v3-layout4/ceremony/phase2/comment_v3_ceremony_transcript.json",
-    "transcript_sha256": "",
-    "verification_command": "dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk"
-  },
-  "artifacts": {
-    "r1cs": {
-      "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
-      "sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb",
-      "status": "required",
-      "format": "fsusblog.zk.r1cs-ir.v1",
-      "ceremony_input": false
-    },
-    "groth16_r1cs": {
-      "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs",
-      "sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff",
-      "status": "required",
-      "format": "rank1cs-binary",
-      "ceremony_input": true
-    },
-    "proving_key": {
-      "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk",
-      "sha256": "",
-      "status": "required"
-    },
-    "verifying_key": {
-      "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.bin",
-      "sha256": "",
-      "status": "required"
-    },
-    "verifying_key_json": {
-      "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.json",
-      "sha256": "",
-      "status": "required"
-    },
-    "wasm_prover_bundle": {
-      "path": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz",
-      "sha256": "",
-      "status": "required"
-    }
-  },
-  "verifying_key_hash": "",
-  "public_input_layout_upgrade_rules": [
-    "Any public input name change requires a new public_input_layout_version.",
-    "Any public input order change requires a new public_input_layout_version.",
-    "Any public input encoding change requires a new public_input_layout_version.",
-    "Any public input semantic change requires a new public_input_layout_version.",
-    "A new public_input_layout_version requires a new circuit-specific Groth16 ceremony.",
-    "Credential root metadata must bind circuit_id, public_input_layout_version and verifying_key_hash together."
-  ],
-  "transcript_consistency_checks": [
-    "phase1 transcript SHA-256 matches phase1.transcript_sha256",
-    "phase2 transcript SHA-256 matches phase2.transcript_sha256",
-    "phase2 transcript references circuit_manifest_sha256",
-    "final proving key SHA-256 matches artifacts.proving_key.sha256",
-    "canonical verifying key bytes SHA-256 equals verifying_key_hash",
-    "verifying key hash matches config/zk/anonymous-comment-v2-verifying-key.manifest.json"
-  ],
-  "handoff_consumers": [
-    "#552 trusted setup ceremony artifacts",
-    "#553 browser wasm prover bundle",
-    "#555 native verifier / prover cross-stack fixture"
-  ]
 }

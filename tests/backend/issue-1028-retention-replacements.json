@@ -1,8 +1,8 @@
 {
-  "schema": "fsusblog.issue-test-retention-replacements.v1",
-  "issue": 1028,
-  "baseline": "tests/test-retention-before.json",
-  "expectedDeletedTestIds": 0,
-  "deletedTests": [],
-  "reason": "Issue #1028 adds online migration policy, compatibility, coordinator, and rollout-wrapper evidence without deleting or replacing an existing test id."
+    "schema": "fsusblog.issue-test-retention-replacements.v1",
+    "issue": 1028,
+    "baseline": "tests/test-retention-before.json",
+    "expectedDeletedTestIds": 0,
+    "deletedTests": [],
+    "reason": "Issue #1028 adds online migration policy, compatibility, coordinator, and rollout-wrapper evidence without deleting or replacing an existing test id."
 }

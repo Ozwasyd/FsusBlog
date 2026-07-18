@@ -1,168 +1,205 @@
 {
-  "schema": "fsusblog.issue-1053.auth-cookie-expiry-evidence.v1",
-  "issue": 1053,
-  "status": "implementation-present-validation-not-run",
-  "productionFiles": [
-    "src/backend/Infrastructure/Helpers/JwtHelper.cs",
-    "src/backend/Infrastructure/Auth/AuthCookieService.cs",
-    "src/backend/Services/UserService.cs",
-    "src/backend/Services/AuthBinaryApplicationFacade.cs",
-    "src/backend/Services/Security/AdminPrincipalService.cs",
-    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
-    "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
-    "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs"
-  ],
-  "testFiles": [
-    "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
-    "tests/backend/Unit/AuthCookieServiceSecurityTests.cs",
-    "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-    "tests/backend/Unit/JwtHelperTests.cs",
-    "tests/backend/Unit/UserServiceValidationTests.cs"
-  ],
-  "documentation": [
-    "docs/security.md",
-    "docs/architecture.md",
-    "docs/api/design.md",
-    "docs/api/contracts.md"
-  ],
-  "lifecycleInvariants": {
-    "issueResult": "IssuedAccessToken(Token, ExpiresAtUtc)",
-    "cookieReceivesAbsoluteIssueTime": true,
-    "cookieReadsJwtConfiguration": false,
-    "cookieParsesJwt": false,
-    "cookieExpiryLaterThanJwtExp": false,
-    "ordinaryFlows": ["anonymous-bootstrap", "refresh", "mfa-login", "passkey-login"],
-    "adminFlows": ["bootstrap", "passkey-login"],
-    "developmentFixtureFlows": ["user-storage-state", "admin-storage-state"],
-    "mappedDirectBehaviorHarness": "AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry",
-    "fixtureRunnerFailureEmitsNoCookies": true,
-    "testedExpiryMinutes": [1, 15, 60]
-  },
-  "acceptanceMappings": [
-    {
-      "criterion": "issued expiry equals JWT exp for 1, 15 and 60 minute configurations",
-      "testIds": [
-        "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAccessToken_ReturnedExpiryMatchesJwtAndConfiguredMinutes",
-        "xunit:tests/backend/Unit/AuthCookieServiceSecurityTests.cs#AuthCookieServiceSecurityTests.AccessTokenCookies_UseExactIssuedJwtExpiry_ForOrdinaryAndAdminTokens"
-      ]
-    },
-    {
-      "criterion": "reloadable expiry changes apply to later issuance without an independent Cookie snapshot",
-      "testIds": [
-        "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAccessToken_ReloadableExpiryChangeAppliesToNextIssueWithoutRestart"
-      ]
-    },
-    {
-      "criterion": "refresh rotation carries the exact issued absolute expiry to the HTTP Cookie handoff",
-      "testIds": [
-        "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.RefreshTokenAsync_RotationCarriesIssuedAccessExpiryForCookieHandoff"
-      ]
-    },
-    {
-      "criterion": "ordinary login token results carry the issued expiry for normal and restricted accounts",
-      "testIds": [
-        "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_NormalUser_IssuesSessionToken",
-        "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_BannedUser_IssuesRestrictedSessionToken"
-      ]
-    },
-    {
-      "criterion": "admin and ordinary access cookies both use the absolute issued UTC expiry",
-      "testIds": [
-        "xunit:tests/backend/Unit/AuthCookieServiceSecurityTests.cs#AuthCookieServiceSecurityTests.AccessTokenCookies_UseExactIssuedJwtExpiry_ForOrdinaryAndAdminTokens"
-      ]
-    },
-    {
-      "criterion": "mapped anonymous bootstrap, MFA login, refresh and Passkey login preserve the exact issued expiry through the real facade or handler into Set-Cookie",
-      "testIds": [
-        "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry"
-      ]
-    },
-    {
-      "criterion": "mapped admin bootstrap and Passkey login preserve AdminSessionTokens.AccessTokenExpiresAtUtc into AdminAccessToken Set-Cookie",
-      "testIds": [
-        "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry"
-      ]
-    },
-    {
-      "criterion": "development LocalAuthFixture reads exact persisted user/admin access expiry while runner failure emits no authentication Cookie",
-      "testIds": [
-        "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry",
-        "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.LocalAuthFixtureRunnerFailure_EmitsNoCookies",
-        "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.LocalAuthFixtureEndpoints_RegisterOnlyForDevelopmentWithExplicitFlag"
-      ]
-    }
-  ],
-  "rollback": {
-    "withoutRestart": "Restore Jwt:AccessTokenExpiresMinutes to 15 through a provider that actually supports runtime reload; already issued JWT/Cookie pairs keep their original shared absolute expiry. Environment-variable-only deployments require a normal rolling restart.",
-    "forbiddenFallback": "Do not restore a Cookie-local duration or parse the just-issued JWT in AuthCookieService."
-  },
-  "staticAudit": {
-    "productionPathsObserved": true,
-    "listedTestIdsResolved": true,
-    "productionCodeGapsObserved": [],
-    "uncoveredAcceptanceBranches": [],
-    "directBehaviorCoverage": [
-      {
-        "productionPaths": [
-          "src/backend/Services/AuthBinaryApplicationFacade.cs",
-          "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"
-        ],
-        "coveredFlows": ["anonymous-bootstrap", "mfa-login", "refresh", "passkey-login"],
-        "testId": "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry"
-      },
-      {
-        "productionPaths": [
-          "src/backend/Services/Security/AdminPrincipalService.cs",
-          "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"
-        ],
-        "coveredFlows": ["admin-bootstrap", "admin-passkey-login"],
-        "testId": "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry"
-      },
-      {
-        "productionPaths": [
-          "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
-          "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs"
-        ],
-        "coveredFlows": ["user-storage-state", "admin-storage-state", "runner-failure-zero-cookie"],
-        "testIds": [
-          "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry",
-          "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.LocalAuthFixtureRunnerFailure_EmitsNoCookies"
-        ]
-      }
-    ]
-  },
-  "centralGovernanceReadback": [
-    {
-      "path": "tests/coverage-registry.json",
-      "status": "present-not-verified",
-      "coverageId": "backend-auth-cookie-jwt-expiry-alignment",
-      "tierIds": ["backend-unit", "backend-auth-state-machine"],
-      "evidencePaths": [
+    "schema": "fsusblog.issue-1053.auth-cookie-expiry-evidence.v1",
+    "issue": 1053,
+    "status": "implementation-present-validation-not-run",
+    "productionFiles": [
+        "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+        "src/backend/Infrastructure/Auth/AuthCookieService.cs",
+        "src/backend/Services/UserService.cs",
+        "src/backend/Services/AuthBinaryApplicationFacade.cs",
+        "src/backend/Services/Security/AdminPrincipalService.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+        "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+        "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs"
+    ],
+    "testFiles": [
+        "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
         "tests/backend/Unit/AuthCookieServiceSecurityTests.cs",
-        "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
+        "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
         "tests/backend/Unit/JwtHelperTests.cs",
-        "tests/backend/Unit/UserServiceValidationTests.cs",
-        "tests/backend/issue-1053-auth-cookie-expiry-evidence.json",
-        "tests/backend/issue-1053-central-handoff.json"
-      ]
+        "tests/backend/Unit/UserServiceValidationTests.cs"
+    ],
+    "documentation": [
+        "docs/security.md",
+        "docs/architecture.md",
+        "docs/api/design.md",
+        "docs/api/contracts.md"
+    ],
+    "lifecycleInvariants": {
+        "issueResult": "IssuedAccessToken(Token, ExpiresAtUtc)",
+        "cookieReceivesAbsoluteIssueTime": true,
+        "cookieReadsJwtConfiguration": false,
+        "cookieParsesJwt": false,
+        "cookieExpiryLaterThanJwtExp": false,
+        "ordinaryFlows": [
+            "anonymous-bootstrap",
+            "refresh",
+            "mfa-login",
+            "passkey-login"
+        ],
+        "adminFlows": [
+            "bootstrap",
+            "passkey-login"
+        ],
+        "developmentFixtureFlows": [
+            "user-storage-state",
+            "admin-storage-state"
+        ],
+        "mappedDirectBehaviorHarness": "AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry",
+        "fixtureRunnerFailureEmitsNoCookies": true,
+        "testedExpiryMinutes": [
+            1,
+            15,
+            60
+        ]
     },
-    {
-      "path": "tests/backend/Fixtures/backend-test-requirements.json",
-      "status": "present-not-verified",
-      "profileIds": ["backend-auth-state-machine", "backend-test-governance"],
-      "requirementIds": ["BACKEND-AUTH-STATE-MACHINE", "BACKEND-SECURITY-MATRIX", "BACKEND-TRACEABILITY"],
-      "evidencePaths": [
-        "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
-        "tests/backend/issue-1053-central-handoff.json"
-      ]
+    "acceptanceMappings": [
+        {
+            "criterion": "issued expiry equals JWT exp for 1, 15 and 60 minute configurations",
+            "testIds": [
+                "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAccessToken_ReturnedExpiryMatchesJwtAndConfiguredMinutes",
+                "xunit:tests/backend/Unit/AuthCookieServiceSecurityTests.cs#AuthCookieServiceSecurityTests.AccessTokenCookies_UseExactIssuedJwtExpiry_ForOrdinaryAndAdminTokens"
+            ]
+        },
+        {
+            "criterion": "reloadable expiry changes apply to later issuance without an independent Cookie snapshot",
+            "testIds": [
+                "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAccessToken_ReloadableExpiryChangeAppliesToNextIssueWithoutRestart"
+            ]
+        },
+        {
+            "criterion": "refresh rotation carries the exact issued absolute expiry to the HTTP Cookie handoff",
+            "testIds": [
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.RefreshTokenAsync_RotationCarriesIssuedAccessExpiryForCookieHandoff"
+            ]
+        },
+        {
+            "criterion": "ordinary login token results carry the issued expiry for normal and restricted accounts",
+            "testIds": [
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_NormalUser_IssuesSessionToken",
+                "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.CompleteLoginAsync_BannedUser_IssuesRestrictedSessionToken"
+            ]
+        },
+        {
+            "criterion": "admin and ordinary access cookies both use the absolute issued UTC expiry",
+            "testIds": [
+                "xunit:tests/backend/Unit/AuthCookieServiceSecurityTests.cs#AuthCookieServiceSecurityTests.AccessTokenCookies_UseExactIssuedJwtExpiry_ForOrdinaryAndAdminTokens"
+            ]
+        },
+        {
+            "criterion": "mapped anonymous bootstrap, MFA login, refresh and Passkey login preserve the exact issued expiry through the real facade or handler into Set-Cookie",
+            "testIds": [
+                "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry"
+            ]
+        },
+        {
+            "criterion": "mapped admin bootstrap and Passkey login preserve AdminSessionTokens.AccessTokenExpiresAtUtc into AdminAccessToken Set-Cookie",
+            "testIds": [
+                "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry"
+            ]
+        },
+        {
+            "criterion": "development LocalAuthFixture reads exact persisted user/admin access expiry while runner failure emits no authentication Cookie",
+            "testIds": [
+                "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry",
+                "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.LocalAuthFixtureRunnerFailure_EmitsNoCookies",
+                "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.LocalAuthFixtureEndpoints_RegisterOnlyForDevelopmentWithExplicitFlag"
+            ]
+        }
+    ],
+    "rollback": {
+        "withoutRestart": "Restore Jwt:AccessTokenExpiresMinutes to 15 through a provider that actually supports runtime reload; already issued JWT/Cookie pairs keep their original shared absolute expiry. Environment-variable-only deployments require a normal rolling restart.",
+        "forbiddenFallback": "Do not restore a Cookie-local duration or parse the just-issued JWT in AuthCookieService."
+    },
+    "staticAudit": {
+        "productionPathsObserved": true,
+        "listedTestIdsResolved": true,
+        "productionCodeGapsObserved": [],
+        "uncoveredAcceptanceBranches": [],
+        "directBehaviorCoverage": [
+            {
+                "productionPaths": [
+                    "src/backend/Services/AuthBinaryApplicationFacade.cs",
+                    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"
+                ],
+                "coveredFlows": [
+                    "anonymous-bootstrap",
+                    "mfa-login",
+                    "refresh",
+                    "passkey-login"
+                ],
+                "testId": "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry"
+            },
+            {
+                "productionPaths": [
+                    "src/backend/Services/Security/AdminPrincipalService.cs",
+                    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"
+                ],
+                "coveredFlows": [
+                    "admin-bootstrap",
+                    "admin-passkey-login"
+                ],
+                "testId": "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry"
+            },
+            {
+                "productionPaths": [
+                    "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+                    "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs"
+                ],
+                "coveredFlows": [
+                    "user-storage-state",
+                    "admin-storage-state",
+                    "runner-failure-zero-cookie"
+                ],
+                "testIds": [
+                    "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.MappedAuthFlows_EmitExactIssuedAccessTokenExpiry",
+                    "xunit:tests/backend/Unit/AuthCookieExpiryFlowTests.cs#AuthCookieExpiryFlowTests.LocalAuthFixtureRunnerFailure_EmitsNoCookies"
+                ]
+            }
+        ]
+    },
+    "centralGovernanceReadback": [
+        {
+            "path": "tests/coverage-registry.json",
+            "status": "present-not-verified",
+            "coverageId": "backend-auth-cookie-jwt-expiry-alignment",
+            "tierIds": [
+                "backend-unit",
+                "backend-auth-state-machine"
+            ],
+            "evidencePaths": [
+                "tests/backend/Unit/AuthCookieServiceSecurityTests.cs",
+                "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
+                "tests/backend/Unit/JwtHelperTests.cs",
+                "tests/backend/Unit/UserServiceValidationTests.cs",
+                "tests/backend/issue-1053-auth-cookie-expiry-evidence.json",
+                "tests/backend/issue-1053-central-handoff.json"
+            ]
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-test-requirements.json",
+            "status": "present-not-verified",
+            "profileIds": [
+                "backend-auth-state-machine",
+                "backend-test-governance"
+            ],
+            "requirementIds": [
+                "BACKEND-AUTH-STATE-MACHINE",
+                "BACKEND-SECURITY-MATRIX",
+                "BACKEND-TRACEABILITY"
+            ],
+            "evidencePaths": [
+                "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
+                "tests/backend/issue-1053-central-handoff.json"
+            ]
+        }
+    ],
+    "centralGovernanceHandoff": {
+        "path": "tests/backend/issue-1053-central-handoff.json",
+        "status": "central-files-integrated-validation-not-run"
+    },
+    "verification": {
+        "commandsExecuted": [],
+        "result": "not-run-by-instruction"
     }
-  ],
-  "centralGovernanceHandoff": {
-    "path": "tests/backend/issue-1053-central-handoff.json",
-    "status": "central-files-integrated-validation-not-run"
-  },
-  "verification": {
-    "commandsExecuted": [],
-    "result": "not-run-by-instruction"
-  }
 }

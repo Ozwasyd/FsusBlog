@@ -1,327 +1,327 @@
 {
-  "schema": "fsusblog.zk.artifact-ownership.v1",
-  "circuit_id": "fsus.anonymous.comment.v3",
-  "public_input_layout_version": 4,
-  "artifact_class": "artifact-ownership-provenance",
-  "lifecycle": "active-provenance-policy",
-  "production_usable": false,
-  "controlled_roots": [
-    "artifacts/zk",
-    "tests/fixtures/zk"
-  ],
-  "binary_extensions": [
-    ".bin",
-    ".fsg16pk",
-    ".fsptau",
-    ".proof",
-    ".public_inputs",
-    ".r1cs",
-    ".vk",
-    ".wasm",
-    ".zkey"
-  ],
-  "storage_policy": {
-    "deterministic_small_artifacts": "git-with-hash-owner-and-reproduction-check",
-    "ceremony_and_delivery_artifacts": "immutable-release-or-oci-by-sha256",
-    "ordinary_git_for_ceremony_artifacts": false,
-    "production_requires_matching_release_evidence": true
-  },
-  "forbidden_roots": [
-    "artifacts/zk/comment-v2"
-  ],
-  "tracked_artifacts": [
-    {
-      "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
-      "package_root": "artifacts/zk/comment-v3-layout4",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "deterministic-r1cs-ir",
-      "lifecycle": "active-generated",
-      "production_usable": false,
-      "deterministic": true,
-      "storage_authority": "git",
-      "bytes": 8318,
-      "sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb",
-      "owner": "security/zk/contracts/comment-v2-circuit.manifest.json",
-      "generator": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
-      "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check",
-      "consumers": [
+    "schema": "fsusblog.zk.artifact-ownership.v1",
+    "circuit_id": "fsus.anonymous.comment.v3",
+    "public_input_layout_version": 4,
+    "artifact_class": "artifact-ownership-provenance",
+    "lifecycle": "active-provenance-policy",
+    "production_usable": false,
+    "controlled_roots": [
+        "artifacts/zk",
+        "tests/fixtures/zk"
+    ],
+    "binary_extensions": [
+        ".bin",
+        ".fsg16pk",
+        ".fsptau",
+        ".proof",
+        ".public_inputs",
+        ".r1cs",
+        ".vk",
+        ".wasm",
+        ".zkey"
+    ],
+    "storage_policy": {
+        "deterministic_small_artifacts": "git-with-hash-owner-and-reproduction-check",
+        "ceremony_and_delivery_artifacts": "immutable-release-or-oci-by-sha256",
+        "ordinary_git_for_ceremony_artifacts": false,
+        "production_requires_matching_release_evidence": true
+    },
+    "forbidden_roots": [
+        "artifacts/zk/comment-v2"
+    ],
+    "tracked_artifacts": [
+        {
+            "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
+            "package_root": "artifacts/zk/comment-v3-layout4",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "deterministic-r1cs-ir",
+            "lifecycle": "active-generated",
+            "production_usable": false,
+            "deterministic": true,
+            "storage_authority": "git",
+            "bytes": 8318,
+            "sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb",
+            "owner": "security/zk/contracts/comment-v2-circuit.manifest.json",
+            "generator": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
+            "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check",
+            "consumers": [
+                "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
+                "tools/crypto/check-zk-comment-v2-manifests.mjs"
+            ]
+        },
+        {
+            "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs",
+            "package_root": "artifacts/zk/comment-v3-layout4",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "deterministic-groth16-r1cs",
+            "lifecycle": "active-generated",
+            "production_usable": false,
+            "deterministic": true,
+            "storage_authority": "git",
+            "bytes": 2515,
+            "sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff",
+            "owner": "security/zk/contracts/comment-v2-circuit.manifest.json",
+            "generator": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
+            "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check",
+            "consumers": [
+                "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
+                "tools/security/ZkCommentV2MclFixture/Program.cs"
+            ]
+        },
+        {
+            "path": "tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.proof",
+            "package_root": "tests/fixtures/zk/comment-v2/mcl-pairing",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "deterministic-cross-stack-proof-fixture",
+            "lifecycle": "test-only",
+            "production_usable": false,
+            "deterministic": true,
+            "storage_authority": "git",
+            "bytes": 138,
+            "sha256": "93e2ba5a7dfc9fc3a00281ebdcc8bc1e5dfdb4b63be81b028e553f3588a3eb18",
+            "owner": "tests/fixtures/zk/comment-v2/mcl-pairing/fixture.manifest.json",
+            "generator": "tools/security/ZkCommentV2MclFixture/Program.cs",
+            "check_command": "node --test tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
+            "consumers": [
+                "tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
+                "tests/backend/Unit/ZkCommentV2CrossStackFixtureTests.cs"
+            ]
+        },
+        {
+            "path": "tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.public_inputs",
+            "package_root": "tests/fixtures/zk/comment-v2/mcl-pairing",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "deterministic-cross-stack-public-input-fixture",
+            "lifecycle": "test-only",
+            "production_usable": false,
+            "deterministic": true,
+            "storage_authority": "git",
+            "bytes": 460,
+            "sha256": "24a7a2326e1caf91ea1ebf327fdf0ab1fb9e33a63cc8b1fddb922fb8a2205d2e",
+            "owner": "tests/fixtures/zk/comment-v2/mcl-pairing/fixture.manifest.json",
+            "generator": "tools/security/ZkCommentV2MclFixture/Program.cs",
+            "check_command": "node --test tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
+            "consumers": [
+                "tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
+                "tests/backend/Unit/ZkCommentV2CrossStackFixtureTests.cs"
+            ]
+        },
+        {
+            "path": "tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.vk",
+            "package_root": "tests/fixtures/zk/comment-v2/mcl-pairing",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "deterministic-cross-stack-verifying-key-fixture",
+            "lifecycle": "test-only",
+            "production_usable": false,
+            "deterministic": true,
+            "storage_authority": "git",
+            "bytes": 304,
+            "sha256": "83d32fac0298fc836e6fa8a8944a0aef1e8a9011c0bd0043e717dd7c2d12941d",
+            "owner": "tests/fixtures/zk/comment-v2/mcl-pairing/fixture.manifest.json",
+            "generator": "tools/security/ZkCommentV2MclFixture/Program.cs",
+            "check_command": "node --test tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
+            "consumers": [
+                "tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
+                "tests/backend/Unit/ZkCommentV2CrossStackFixtureTests.cs"
+            ]
+        }
+    ],
+    "external_artifacts": [
+        {
+            "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.wasm",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "deterministic-build-output",
+            "lifecycle": "generated-on-demand",
+            "production_usable": false,
+            "storage_authority": "run-bound-build-output",
+            "hash_authority": "release evidence manifest"
+        },
+        {
+            "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.sym",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "deterministic-build-output",
+            "lifecycle": "generated-on-demand",
+            "production_usable": false,
+            "storage_authority": "run-bound-build-output",
+            "hash_authority": "release evidence manifest"
+        },
+        {
+            "path": "artifacts/zk/comment-v3-layout4/ceremony/phase1/powers_of_tau_final.fsptau",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "ceremony-transcript",
+            "lifecycle": "required-before-production",
+            "production_usable": false,
+            "storage_authority": "immutable-release-or-oci",
+            "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
+        },
+        {
+            "path": "artifacts/zk/comment-v3-layout4/ceremony/phase2/comment_v3_ceremony_transcript.json",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "ceremony-transcript",
+            "lifecycle": "required-before-production",
+            "production_usable": false,
+            "storage_authority": "immutable-release-or-oci",
+            "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
+        },
+        {
+            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "ceremony-derived-proving-key",
+            "lifecycle": "required-before-production",
+            "production_usable": false,
+            "storage_authority": "immutable-release-or-oci",
+            "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
+        },
+        {
+            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.bin",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "ceremony-derived-verifying-key",
+            "lifecycle": "required-before-production",
+            "production_usable": false,
+            "storage_authority": "immutable-release-or-oci",
+            "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
+        },
+        {
+            "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.json",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "ceremony-derived-verifying-key-metadata",
+            "lifecycle": "required-before-production",
+            "production_usable": false,
+            "storage_authority": "immutable-release-or-oci",
+            "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
+        },
+        {
+            "path": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_source.tar.gz",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "release-delivery-bundle",
+            "lifecycle": "generated-on-demand",
+            "production_usable": false,
+            "storage_authority": "immutable-release-or-oci",
+            "hash_authority": "release evidence manifest"
+        },
+        {
+            "path": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz",
+            "circuit_id": "fsus.anonymous.comment.v3",
+            "public_input_layout_version": 4,
+            "artifact_class": "release-delivery-bundle",
+            "lifecycle": "required-before-production",
+            "production_usable": false,
+            "storage_authority": "immutable-release-or-oci",
+            "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
+        }
+    ],
+    "retired_artifacts": [
+        {
+            "original_path": "artifacts/zk/comment-v2/comment_v2_final.fsg16pk",
+            "circuit_id": "fsus.anonymous.comment.v2",
+            "public_input_layout_version": 3,
+            "generation_source": "retired deterministic local setup fixture",
+            "deterministic": true,
+            "lifecycle": "deleted",
+            "production_usable": false,
+            "current_consumers": [],
+            "storage_authority": "deleted-no-supported-consumer",
+            "bytes": 1120,
+            "sha256": "96a270d9cd625e805ecfb6eefd675b78ae92d104d7af961ce803022b48567ec3"
+        },
+        {
+            "original_path": "artifacts/zk/comment-v2/comment_v2_verifying_key.bin",
+            "circuit_id": "fsus.anonymous.comment.v2",
+            "public_input_layout_version": 3,
+            "generation_source": "retired deterministic local setup fixture",
+            "deterministic": true,
+            "lifecycle": "deleted",
+            "production_usable": false,
+            "current_consumers": [],
+            "storage_authority": "deleted-no-supported-consumer",
+            "bytes": 304,
+            "sha256": "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c"
+        },
+        {
+            "original_path": "artifacts/zk/comment-v2/comment_v2_verifying_key.json",
+            "circuit_id": "fsus.anonymous.comment.v2",
+            "public_input_layout_version": 3,
+            "generation_source": "retired deterministic local setup fixture",
+            "deterministic": true,
+            "lifecycle": "deleted",
+            "production_usable": false,
+            "current_consumers": [],
+            "storage_authority": "deleted-no-supported-consumer",
+            "bytes": 799,
+            "sha256": "d906bfc2442142c0a8f6b59811e4f1b3b062c01e7d84d8f1fea8ffa20de52b0b"
+        },
+        {
+            "original_path": "artifacts/zk/comment-v2/phase1/powers_of_tau_final.fsptau",
+            "circuit_id": "fsus.anonymous.comment.v2",
+            "public_input_layout_version": 3,
+            "generation_source": "retired deterministic local phase-1 fixture",
+            "deterministic": true,
+            "lifecycle": "deleted",
+            "production_usable": false,
+            "current_consumers": [],
+            "storage_authority": "deleted-no-supported-consumer",
+            "bytes": 637,
+            "sha256": "434aa6e3aae26e4e20a6ab76fbb6e7d3bc7fe5a61ec60efc1b9973ebb62d1f85"
+        },
+        {
+            "original_path": "artifacts/zk/comment-v2/phase2/comment_v2_ceremony_transcript.json",
+            "circuit_id": "fsus.anonymous.comment.v2",
+            "public_input_layout_version": 3,
+            "generation_source": "retired deterministic local phase-2 fixture",
+            "deterministic": true,
+            "lifecycle": "deleted",
+            "production_usable": false,
+            "current_consumers": [],
+            "storage_authority": "deleted-no-supported-consumer",
+            "bytes": 664,
+            "sha256": "b508b8d2da19db62245715e45490eb581fc6c6eb9a740722e1a32dd70af9b8fa"
+        }
+    ],
+    "active_manifests": [
+        "security/zk/contracts/comment-v2-circuit.manifest.json",
         "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
-        "tools/crypto/check-zk-comment-v2-manifests.mjs"
-      ]
-    },
-    {
-      "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs",
-      "package_root": "artifacts/zk/comment-v3-layout4",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "deterministic-groth16-r1cs",
-      "lifecycle": "active-generated",
-      "production_usable": false,
-      "deterministic": true,
-      "storage_authority": "git",
-      "bytes": 2515,
-      "sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff",
-      "owner": "security/zk/contracts/comment-v2-circuit.manifest.json",
-      "generator": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
-      "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check",
-      "consumers": [
-        "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
-        "tools/security/ZkCommentV2MclFixture/Program.cs"
-      ]
-    },
-    {
-      "path": "tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.proof",
-      "package_root": "tests/fixtures/zk/comment-v2/mcl-pairing",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "deterministic-cross-stack-proof-fixture",
-      "lifecycle": "test-only",
-      "production_usable": false,
-      "deterministic": true,
-      "storage_authority": "git",
-      "bytes": 138,
-      "sha256": "93e2ba5a7dfc9fc3a00281ebdcc8bc1e5dfdb4b63be81b028e553f3588a3eb18",
-      "owner": "tests/fixtures/zk/comment-v2/mcl-pairing/fixture.manifest.json",
-      "generator": "tools/security/ZkCommentV2MclFixture/Program.cs",
-      "check_command": "node --test tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
-      "consumers": [
-        "tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
-        "tests/backend/Unit/ZkCommentV2CrossStackFixtureTests.cs"
-      ]
-    },
-    {
-      "path": "tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.public_inputs",
-      "package_root": "tests/fixtures/zk/comment-v2/mcl-pairing",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "deterministic-cross-stack-public-input-fixture",
-      "lifecycle": "test-only",
-      "production_usable": false,
-      "deterministic": true,
-      "storage_authority": "git",
-      "bytes": 460,
-      "sha256": "24a7a2326e1caf91ea1ebf327fdf0ab1fb9e33a63cc8b1fddb922fb8a2205d2e",
-      "owner": "tests/fixtures/zk/comment-v2/mcl-pairing/fixture.manifest.json",
-      "generator": "tools/security/ZkCommentV2MclFixture/Program.cs",
-      "check_command": "node --test tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
-      "consumers": [
-        "tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
-        "tests/backend/Unit/ZkCommentV2CrossStackFixtureTests.cs"
-      ]
-    },
-    {
-      "path": "tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.vk",
-      "package_root": "tests/fixtures/zk/comment-v2/mcl-pairing",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "deterministic-cross-stack-verifying-key-fixture",
-      "lifecycle": "test-only",
-      "production_usable": false,
-      "deterministic": true,
-      "storage_authority": "git",
-      "bytes": 304,
-      "sha256": "83d32fac0298fc836e6fa8a8944a0aef1e8a9011c0bd0043e717dd7c2d12941d",
-      "owner": "tests/fixtures/zk/comment-v2/mcl-pairing/fixture.manifest.json",
-      "generator": "tools/security/ZkCommentV2MclFixture/Program.cs",
-      "check_command": "node --test tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
-      "consumers": [
-        "tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
-        "tests/backend/Unit/ZkCommentV2CrossStackFixtureTests.cs"
-      ]
-    }
-  ],
-  "external_artifacts": [
-    {
-      "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.wasm",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "deterministic-build-output",
-      "lifecycle": "generated-on-demand",
-      "production_usable": false,
-      "storage_authority": "run-bound-build-output",
-      "hash_authority": "release evidence manifest"
-    },
-    {
-      "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.sym",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "deterministic-build-output",
-      "lifecycle": "generated-on-demand",
-      "production_usable": false,
-      "storage_authority": "run-bound-build-output",
-      "hash_authority": "release evidence manifest"
-    },
-    {
-      "path": "artifacts/zk/comment-v3-layout4/ceremony/phase1/powers_of_tau_final.fsptau",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "ceremony-transcript",
-      "lifecycle": "required-before-production",
-      "production_usable": false,
-      "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-    },
-    {
-      "path": "artifacts/zk/comment-v3-layout4/ceremony/phase2/comment_v3_ceremony_transcript.json",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "ceremony-transcript",
-      "lifecycle": "required-before-production",
-      "production_usable": false,
-      "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-    },
-    {
-      "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "ceremony-derived-proving-key",
-      "lifecycle": "required-before-production",
-      "production_usable": false,
-      "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-    },
-    {
-      "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.bin",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "ceremony-derived-verifying-key",
-      "lifecycle": "required-before-production",
-      "production_usable": false,
-      "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-    },
-    {
-      "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.json",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "ceremony-derived-verifying-key-metadata",
-      "lifecycle": "required-before-production",
-      "production_usable": false,
-      "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-    },
-    {
-      "path": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_source.tar.gz",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "release-delivery-bundle",
-      "lifecycle": "generated-on-demand",
-      "production_usable": false,
-      "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "release evidence manifest"
-    },
-    {
-      "path": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz",
-      "circuit_id": "fsus.anonymous.comment.v3",
-      "public_input_layout_version": 4,
-      "artifact_class": "release-delivery-bundle",
-      "lifecycle": "required-before-production",
-      "production_usable": false,
-      "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-    }
-  ],
-  "retired_artifacts": [
-    {
-      "original_path": "artifacts/zk/comment-v2/comment_v2_final.fsg16pk",
-      "circuit_id": "fsus.anonymous.comment.v2",
-      "public_input_layout_version": 3,
-      "generation_source": "retired deterministic local setup fixture",
-      "deterministic": true,
-      "lifecycle": "deleted",
-      "production_usable": false,
-      "current_consumers": [],
-      "storage_authority": "deleted-no-supported-consumer",
-      "bytes": 1120,
-      "sha256": "96a270d9cd625e805ecfb6eefd675b78ae92d104d7af961ce803022b48567ec3"
-    },
-    {
-      "original_path": "artifacts/zk/comment-v2/comment_v2_verifying_key.bin",
-      "circuit_id": "fsus.anonymous.comment.v2",
-      "public_input_layout_version": 3,
-      "generation_source": "retired deterministic local setup fixture",
-      "deterministic": true,
-      "lifecycle": "deleted",
-      "production_usable": false,
-      "current_consumers": [],
-      "storage_authority": "deleted-no-supported-consumer",
-      "bytes": 304,
-      "sha256": "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c"
-    },
-    {
-      "original_path": "artifacts/zk/comment-v2/comment_v2_verifying_key.json",
-      "circuit_id": "fsus.anonymous.comment.v2",
-      "public_input_layout_version": 3,
-      "generation_source": "retired deterministic local setup fixture",
-      "deterministic": true,
-      "lifecycle": "deleted",
-      "production_usable": false,
-      "current_consumers": [],
-      "storage_authority": "deleted-no-supported-consumer",
-      "bytes": 799,
-      "sha256": "d906bfc2442142c0a8f6b59811e4f1b3b062c01e7d84d8f1fea8ffa20de52b0b"
-    },
-    {
-      "original_path": "artifacts/zk/comment-v2/phase1/powers_of_tau_final.fsptau",
-      "circuit_id": "fsus.anonymous.comment.v2",
-      "public_input_layout_version": 3,
-      "generation_source": "retired deterministic local phase-1 fixture",
-      "deterministic": true,
-      "lifecycle": "deleted",
-      "production_usable": false,
-      "current_consumers": [],
-      "storage_authority": "deleted-no-supported-consumer",
-      "bytes": 637,
-      "sha256": "434aa6e3aae26e4e20a6ab76fbb6e7d3bc7fe5a61ec60efc1b9973ebb62d1f85"
-    },
-    {
-      "original_path": "artifacts/zk/comment-v2/phase2/comment_v2_ceremony_transcript.json",
-      "circuit_id": "fsus.anonymous.comment.v2",
-      "public_input_layout_version": 3,
-      "generation_source": "retired deterministic local phase-2 fixture",
-      "deterministic": true,
-      "lifecycle": "deleted",
-      "production_usable": false,
-      "current_consumers": [],
-      "storage_authority": "deleted-no-supported-consumer",
-      "bytes": 664,
-      "sha256": "b508b8d2da19db62245715e45490eb581fc6c6eb9a740722e1a32dd70af9b8fa"
-    }
-  ],
-  "active_manifests": [
-    "security/zk/contracts/comment-v2-circuit.manifest.json",
-    "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
-    "config/zk/anonymous-comment-v2-verifying-key.manifest.json"
-  ],
-  "active_consumers": [
-    {
-      "path": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
-      "required_artifacts": [
-        "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
-        "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs"
-      ]
-    },
-    {
-      "path": "tools/security/ZkCommentV2MclFixture/Program.cs",
-      "required_artifacts": [
-        "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs",
-        "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk"
-      ]
-    },
-    {
-      "path": "src/frontend/wasm/build.sh",
-      "required_artifacts": [
-        "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk",
-        "artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz"
-      ]
-    },
-    {
-      "path": "ops/docker/FsusBlog.Server.Dockerfile",
-      "required_artifacts": [
-        "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk"
-      ]
-    }
-  ]
+        "config/zk/anonymous-comment-v2-verifying-key.manifest.json"
+    ],
+    "active_consumers": [
+        {
+            "path": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
+            "required_artifacts": [
+                "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
+                "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs"
+            ]
+        },
+        {
+            "path": "tools/security/ZkCommentV2MclFixture/Program.cs",
+            "required_artifacts": [
+                "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs",
+                "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk"
+            ]
+        },
+        {
+            "path": "src/frontend/wasm/build.sh",
+            "required_artifacts": [
+                "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk",
+                "artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz"
+            ]
+        },
+        {
+            "path": "ops/docker/FsusBlog.Server.Dockerfile",
+            "required_artifacts": [
+                "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk"
+            ]
+        }
+    ]
 }

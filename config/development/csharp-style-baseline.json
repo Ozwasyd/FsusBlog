@@ -1,8 +1,8 @@
 {
-  "schema": "fsusblog.csharp-style-baseline.v1",
-  "generatedFrom": "63fdf66d3c6ac6d70ab9695e72ce80d8e3ce07e3",
-  "policySha256": "dbeab0d2e7be9d43ff4ceaa792d8178b2d8ae323739c21d95b3fb641d5858ae4",
-  "violationCount": 0,
-  "fileCount": 0,
-  "files": []
+    "schema": "fsusblog.csharp-style-baseline.v1",
+    "generatedFrom": "63fdf66d3c6ac6d70ab9695e72ce80d8e3ce07e3",
+    "policySha256": "dbeab0d2e7be9d43ff4ceaa792d8178b2d8ae323739c21d95b3fb641d5858ae4",
+    "violationCount": 0,
+    "fileCount": 0,
+    "files": []
 }

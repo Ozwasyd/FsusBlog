@@ -1,104 +1,165 @@
 {
-  "version": "aeds-only-policy-v1",
-  "entries": [
-    {
-      "id": "health-live-json",
-      "classification": "allowed-exemption",
-      "scope": "backend",
-      "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
-      "patterns": ["ProductionLivenessProbe.CreateReport"],
-      "routes": ["/health/live"],
-      "reason": "Kubernetes/systemd/monitoring liveness probes require a JSON health document outside the internal application API surface."
-    },
-    {
-      "id": "health-ready-json",
-      "classification": "allowed-exemption",
-      "scope": "backend",
-      "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
-      "patterns": ["ProductionReadinessPublicReport.Create(report)"],
-      "routes": ["/health/ready"],
-      "reason": "Kubernetes/systemd/monitoring readiness probes require a minimal JSON health document outside the internal application API surface."
-    },
-    {
-      "id": "ops-ready-detail-json",
-      "classification": "allowed-exemption",
-      "scope": "backend",
-      "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
-      "patterns": ["TypedResults.Json(report"],
-      "routes": ["/api/ops/health/ready-detail"],
-      "reason": "Detailed readiness is an authenticated ops probe for operators; public /health/ready exposes only minimal status."
-    },
-    {
-      "id": "ops-crawler-ranges-json",
-      "classification": "allowed-exemption",
-      "scope": "backend",
-      "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
-      "patterns": ["TypedResults.Json(new"],
-      "routes": ["/api/ops/crawler-ranges/status"],
-      "reason": "Crawler range status is an authenticated ops probe; the production admin UI uses /api/binary/admin/security/anti-crawler/crawler-ranges/status."
-    },
-    {
-      "id": "feed-json-standard",
-      "classification": "allowed-exemption",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/DistributionEndpoints.cs",
-      "patterns": ["BuildJsonFeedAsync", "application/feed+json", "JsonSerializer.Serialize"],
-      "routes": ["/feed/feed.json"],
-      "reason": "JSON Feed is an external syndication standard and is not an internal application API."
-    },
-    {
-      "id": "public-aot-manifest-tooling-json",
-      "classification": "allowed-exemption",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/PublicAotEndpoints.cs",
-      "patterns": ["JsonApiResponse<PublicAotRouteManifestResponse>", "JsonApiResponse<PublicAotSsrHealthReport>", "/internal/public-aot"],
-      "routes": ["/internal/public-aot/manifest", "/internal/public-aot/health"],
-      "reason": "Build/backfill tooling manifest and SSR worker diagnostics, protected by optional manifest token; not browser runtime application API."
-    },
-    {
-      "id": "integrity-public-verification-json",
-      "classification": "allowed-exemption",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/IntegrityVerificationEndpoints.cs",
-      "patterns": ["JsonContentType", "Results.Json(result.Body"],
-      "routes": ["/integrity/keys.json", "/integrity/article/{articleId}", "/integrity/article/{articleId}/revisions/{revisionNo}", "/integrity/revisions/{articleRevisionId}", "/integrity/checkpoints/latest", "/integrity/checkpoints/{date}", "/integrity/log/head"],
-      "reason": "Public integrity verification manifests are JSON sidecars for external/offline verification, not internal application API fallback."
-    },
-    {
-      "id": "admin-integrity-console-json",
-      "classification": "allowed-exemption",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/AdminIntegrityConsoleEndpoints.cs",
-      "patterns": ["Results.Json", "IntegrityVerificationJson.Options"],
-      "routes": ["/api/admin/integrity/console", "/api/admin/integrity/console/proofs/{proofId}/retry"],
-      "reason": "Admin-only integrity console is an operations endpoint for proof triage and retry; runtime client APIs remain AEDS/binary."
-    },
-    {
-      "id": "local-auth-fixture-status-json",
-      "classification": "allowed-exemption",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
-      "patterns": ["Results.Json(new"],
-      "routes": ["/__local/auth-fixture/status", "/api/local/auth-fixture/status"],
-      "reason": "Development-only Playwright auth fixture status probe, gated by loopback caller and shared secret; production startup rejects enabling this fixture."
-    },
-    {
-      "id": "test-release-schema-qualification-json",
-      "classification": "allowed-exemption",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/ReleaseSchemaQualificationEndpoints.cs",
-      "patterns": ["Results.Json(new", "Results.Json("],
-      "routes": ["/api/release-evidence/schema-bridge/write", "/api/release-evidence/schema-qualification/readiness"],
-      "reason": "Test-only release rehearsal probes, absent unless the Test environment and qualification switch are both enabled; production runtime application APIs remain AEDS/binary."
-    },
-    {
-      "id": "csp-browser-report-ingress-json",
-      "classification": "allowed-exemption",
-      "scope": "backend",
-      "file": "src/backend/Modules/Endpoints/CspReportEndpoints.cs",
-      "patterns": ["mediaType.Equals(\"application/json\""],
-      "routes": ["/csp-report"],
-      "reason": "CSP violation reports are browser/platform ingress documents, not an internal application API or JSON response fallback."
-    }
-  ]
+    "version": "aeds-only-policy-v1",
+    "entries": [
+        {
+            "id": "health-live-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "patterns": [
+                "ProductionLivenessProbe.CreateReport"
+            ],
+            "routes": [
+                "/health/live"
+            ],
+            "reason": "Kubernetes/systemd/monitoring liveness probes require a JSON health document outside the internal application API surface."
+        },
+        {
+            "id": "health-ready-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "patterns": [
+                "ProductionReadinessPublicReport.Create(report)"
+            ],
+            "routes": [
+                "/health/ready"
+            ],
+            "reason": "Kubernetes/systemd/monitoring readiness probes require a minimal JSON health document outside the internal application API surface."
+        },
+        {
+            "id": "ops-ready-detail-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "patterns": [
+                "TypedResults.Json(report"
+            ],
+            "routes": [
+                "/api/ops/health/ready-detail"
+            ],
+            "reason": "Detailed readiness is an authenticated ops probe for operators; public /health/ready exposes only minimal status."
+        },
+        {
+            "id": "ops-crawler-ranges-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "patterns": [
+                "TypedResults.Json(new"
+            ],
+            "routes": [
+                "/api/ops/crawler-ranges/status"
+            ],
+            "reason": "Crawler range status is an authenticated ops probe; the production admin UI uses /api/binary/admin/security/anti-crawler/crawler-ranges/status."
+        },
+        {
+            "id": "feed-json-standard",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/DistributionEndpoints.cs",
+            "patterns": [
+                "BuildJsonFeedAsync",
+                "application/feed+json",
+                "JsonSerializer.Serialize"
+            ],
+            "routes": [
+                "/feed/feed.json"
+            ],
+            "reason": "JSON Feed is an external syndication standard and is not an internal application API."
+        },
+        {
+            "id": "public-aot-manifest-tooling-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/PublicAotEndpoints.cs",
+            "patterns": [
+                "JsonApiResponse<PublicAotRouteManifestResponse>",
+                "JsonApiResponse<PublicAotSsrHealthReport>",
+                "/internal/public-aot"
+            ],
+            "routes": [
+                "/internal/public-aot/manifest",
+                "/internal/public-aot/health"
+            ],
+            "reason": "Build/backfill tooling manifest and SSR worker diagnostics, protected by optional manifest token; not browser runtime application API."
+        },
+        {
+            "id": "integrity-public-verification-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/IntegrityVerificationEndpoints.cs",
+            "patterns": [
+                "JsonContentType",
+                "Results.Json(result.Body"
+            ],
+            "routes": [
+                "/integrity/keys.json",
+                "/integrity/article/{articleId}",
+                "/integrity/article/{articleId}/revisions/{revisionNo}",
+                "/integrity/revisions/{articleRevisionId}",
+                "/integrity/checkpoints/latest",
+                "/integrity/checkpoints/{date}",
+                "/integrity/log/head"
+            ],
+            "reason": "Public integrity verification manifests are JSON sidecars for external/offline verification, not internal application API fallback."
+        },
+        {
+            "id": "admin-integrity-console-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/AdminIntegrityConsoleEndpoints.cs",
+            "patterns": [
+                "Results.Json",
+                "IntegrityVerificationJson.Options"
+            ],
+            "routes": [
+                "/api/admin/integrity/console",
+                "/api/admin/integrity/console/proofs/{proofId}/retry"
+            ],
+            "reason": "Admin-only integrity console is an operations endpoint for proof triage and retry; runtime client APIs remain AEDS/binary."
+        },
+        {
+            "id": "local-auth-fixture-status-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+            "patterns": [
+                "Results.Json(new"
+            ],
+            "routes": [
+                "/__local/auth-fixture/status",
+                "/api/local/auth-fixture/status"
+            ],
+            "reason": "Development-only Playwright auth fixture status probe, gated by loopback caller and shared secret; production startup rejects enabling this fixture."
+        },
+        {
+            "id": "test-release-schema-qualification-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/ReleaseSchemaQualificationEndpoints.cs",
+            "patterns": [
+                "Results.Json(new",
+                "Results.Json("
+            ],
+            "routes": [
+                "/api/release-evidence/schema-bridge/write",
+                "/api/release-evidence/schema-qualification/readiness"
+            ],
+            "reason": "Test-only release rehearsal probes, absent unless the Test environment and qualification switch are both enabled; production runtime application APIs remain AEDS/binary."
+        },
+        {
+            "id": "csp-browser-report-ingress-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/CspReportEndpoints.cs",
+            "patterns": [
+                "mediaType.Equals(\"application/json\""
+            ],
+            "routes": [
+                "/csp-report"
+            ],
+            "reason": "CSP violation reports are browser/platform ingress documents, not an internal application API or JSON response fallback."
+        }
+    ]
 }

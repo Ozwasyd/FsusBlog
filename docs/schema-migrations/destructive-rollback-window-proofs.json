@@ -1,154 +1,154 @@
 {
-  "schema": "fsusblog.destructive-migration-proof.v1",
-  "issue": 1127,
-  "inventoryCommitSha": "71fe04dcf7d930ab42090045920dca9cddf3fdaf",
-  "reportedDestructiveStepCount": 44,
-  "destructiveStepCount": 46,
-  "proofDescriptorCount": 18,
-  "minimumRollbackWindowDays": 30,
-  "requiredEvidence": [
-    "n_minus_one_qualification_passed",
-    "rollback_manifest_sealed",
-    "backup_restore_verified",
-    "wal_restore_verified",
-    "cross_region_restore_verified"
-  ],
-  "freshBootstrapPolicy": {
-    "windowBypassAllowed": true,
-    "condition": "the database contains no tables before migration history initialization",
-    "reason": "an empty schema contains neither prior-release data nor a destructive rollback dependency"
-  },
-  "runtimeGates": [
-    "SchemaMigrationRunner before descriptor transaction",
-    "PostgresOnlineSchemaMigrationDescriptorExecutor before descriptor transaction"
-  ],
-  "proofs": [
-    {
-      "migrationId": "20260715-post-read-event-retirement",
-      "earliestContractRelease": "20260715-post-read-event-retirement",
-      "introducedByCommit": "f661801b8feb5e04ce7d183fb2c0e398fbd26f9b",
-      "introducedAtUtc": "2026-07-15T10:09:50Z",
-      "rollbackWindowEndUtc": "2026-08-14T10:09:50Z"
+    "schema": "fsusblog.destructive-migration-proof.v1",
+    "issue": 1127,
+    "inventoryCommitSha": "71fe04dcf7d930ab42090045920dca9cddf3fdaf",
+    "reportedDestructiveStepCount": 44,
+    "destructiveStepCount": 46,
+    "proofDescriptorCount": 18,
+    "minimumRollbackWindowDays": 30,
+    "requiredEvidence": [
+        "n_minus_one_qualification_passed",
+        "rollback_manifest_sealed",
+        "backup_restore_verified",
+        "wal_restore_verified",
+        "cross_region_restore_verified"
+    ],
+    "freshBootstrapPolicy": {
+        "windowBypassAllowed": true,
+        "condition": "the database contains no tables before migration history initialization",
+        "reason": "an empty schema contains neither prior-release data nor a destructive rollback dependency"
     },
-    {
-      "migrationId": "20260418-post-content-cleanup",
-      "earliestContractRelease": "20260418-post-content-cleanup",
-      "introducedByCommit": "620685ed839982c043715048e604a739f3610b1f",
-      "introducedAtUtc": "2026-04-26T13:08:50Z",
-      "rollbackWindowEndUtc": "2026-05-26T13:08:50Z"
-    },
-    {
-      "migrationId": "20260418-post-messaging-split",
-      "earliestContractRelease": "20260418-post-messaging-split",
-      "introducedByCommit": "620685ed839982c043715048e604a739f3610b1f",
-      "introducedAtUtc": "2026-04-26T13:08:50Z",
-      "rollbackWindowEndUtc": "2026-05-26T13:08:50Z"
-    },
-    {
-      "migrationId": "20260621-post-message-legacy-identity-columns-finalize",
-      "earliestContractRelease": "20260621-post-message-legacy-identity-columns-finalize",
-      "introducedByCommit": "8fbd50c65ea89385d0b6150e203354336353dfd6",
-      "introducedAtUtc": "2026-06-21T10:07:07Z",
-      "rollbackWindowEndUtc": "2026-07-21T10:07:07Z"
-    },
-    {
-      "migrationId": "20260418-post-user-session-finalize",
-      "earliestContractRelease": "20260418-post-user-session-finalize",
-      "introducedByCommit": "620685ed839982c043715048e604a739f3610b1f",
-      "introducedAtUtc": "2026-04-26T13:08:50Z",
-      "rollbackWindowEndUtc": "2026-05-26T13:08:50Z"
-    },
-    {
-      "migrationId": "20260602-post-user-auth-security-hardening",
-      "earliestContractRelease": "20260602-post-user-auth-security-hardening",
-      "introducedByCommit": "c577bc51de327e184245598c009f886832e12e35",
-      "introducedAtUtc": "2026-06-02T10:33:12Z",
-      "rollbackWindowEndUtc": "2026-07-02T10:33:12Z"
-    },
-    {
-      "migrationId": "20260621-pre-sys-user-security-profile-split",
-      "earliestContractRelease": "20260621-pre-sys-user-security-profile-split",
-      "introducedByCommit": "9ffe184319285e97b25cfb6fbfa18f418a387da9",
-      "introducedAtUtc": "2026-06-21T10:14:15Z",
-      "rollbackWindowEndUtc": "2026-07-21T10:14:15Z"
-    },
-    {
-      "migrationId": "20260621-post-sys-user-security-profile-split-finalize",
-      "earliestContractRelease": "20260621-post-sys-user-security-profile-split-finalize",
-      "introducedByCommit": "9ffe184319285e97b25cfb6fbfa18f418a387da9",
-      "introducedAtUtc": "2026-06-21T10:14:15Z",
-      "rollbackWindowEndUtc": "2026-07-21T10:14:15Z"
-    },
-    {
-      "migrationId": "20260621-post-user-legacy-identity-columns-finalize",
-      "earliestContractRelease": "20260621-post-user-legacy-identity-columns-finalize",
-      "introducedByCommit": "6e71ce0f3e9551502f4986044b8cbd002ed02046",
-      "introducedAtUtc": "2026-06-21T10:21:46Z",
-      "rollbackWindowEndUtc": "2026-07-21T10:21:46Z"
-    },
-    {
-      "migrationId": "20260621-post-sys-user-username-finalize",
-      "earliestContractRelease": "20260621-post-sys-user-username-finalize",
-      "introducedByCommit": "ee389a37956fd8914d2c71d296eb7a5e7cd78c1b",
-      "introducedAtUtc": "2026-06-21T12:14:56Z",
-      "rollbackWindowEndUtc": "2026-07-21T12:14:56Z"
-    },
-    {
-      "migrationId": "20260621-post-passkey-recovery-key-account-id-finalize",
-      "earliestContractRelease": "20260621-post-passkey-recovery-key-account-id-finalize",
-      "introducedByCommit": "4e1b4c46420aae17af69093e3d5c829b8e6f69f9",
-      "introducedAtUtc": "2026-06-21T10:16:07Z",
-      "rollbackWindowEndUtc": "2026-07-21T10:16:07Z"
-    },
-    {
-      "migrationId": "20260621-post-anonymous-credential-account-binding-finalize",
-      "earliestContractRelease": "20260621-post-anonymous-credential-account-binding-finalize",
-      "introducedByCommit": "de2607dc47717170eaee539cef0236c50b3555f0",
-      "introducedAtUtc": "2026-06-21T07:47:26Z",
-      "rollbackWindowEndUtc": "2026-07-21T07:47:26Z"
-    },
-    {
-      "migrationId": "20260618-post-anonymous-credential-issuance-audit",
-      "earliestContractRelease": "20260618-post-anonymous-credential-issuance-audit",
-      "introducedByCommit": "bd43c80924efdb21e1a61583d1b9cdb673554ee6",
-      "introducedAtUtc": "2026-06-20T23:23:19Z",
-      "rollbackWindowEndUtc": "2026-07-20T23:23:19Z"
-    },
-    {
-      "migrationId": "20260418-post-audit-log",
-      "earliestContractRelease": "20260418-post-audit-log",
-      "introducedByCommit": "2e546df18cb8a2ec87f3e432e2d0b413b057890b",
-      "introducedAtUtc": "2026-05-30T13:41:01Z",
-      "rollbackWindowEndUtc": "2026-06-29T13:41:01Z"
-    },
-    {
-      "migrationId": "20260621-post-visit-log-anonymous-attribution-finalize",
-      "earliestContractRelease": "20260621-post-visit-log-anonymous-attribution-finalize",
-      "introducedByCommit": "adfa6aaa3b3f137dd8ad4d80e22023a84b2f9e81",
-      "introducedAtUtc": "2026-06-21T05:13:57Z",
-      "rollbackWindowEndUtc": "2026-07-21T05:13:57Z"
-    },
-    {
-      "migrationId": "20260621-post-visit-log-ip-anonymization",
-      "earliestContractRelease": "20260621-post-visit-log-ip-anonymization",
-      "introducedByCommit": "dc51971cde5ce7cb2d2eaec078413d716ff56c15",
-      "introducedAtUtc": "2026-06-21T09:43:16Z",
-      "rollbackWindowEndUtc": "2026-07-21T09:43:16Z"
-    },
-    {
-      "migrationId": "20260621-pre-authoring-admin-principal-attribution",
-      "earliestContractRelease": "20260621-pre-authoring-admin-principal-attribution",
-      "introducedByCommit": "6592bbe457204598b6f3ce3db53b5cc16708932f",
-      "introducedAtUtc": "2026-06-21T11:30:37Z",
-      "rollbackWindowEndUtc": "2026-07-21T11:30:37Z"
-    },
-    {
-      "migrationId": "20260621-pre-comment-moderation-admin-principal-attribution",
-      "earliestContractRelease": "20260621-pre-comment-moderation-admin-principal-attribution",
-      "introducedByCommit": "6ba5e918611866bc3b3b00205396c4280798d121",
-      "introducedAtUtc": "2026-06-21T08:17:00Z",
-      "rollbackWindowEndUtc": "2026-07-21T08:17:00Z"
-    }
-  ],
-  "failureCode": "schema_destructive_rollback_window_open"
+    "runtimeGates": [
+        "SchemaMigrationRunner before descriptor transaction",
+        "PostgresOnlineSchemaMigrationDescriptorExecutor before descriptor transaction"
+    ],
+    "proofs": [
+        {
+            "migrationId": "20260715-post-read-event-retirement",
+            "earliestContractRelease": "20260715-post-read-event-retirement",
+            "introducedByCommit": "f661801b8feb5e04ce7d183fb2c0e398fbd26f9b",
+            "introducedAtUtc": "2026-07-15T10:09:50Z",
+            "rollbackWindowEndUtc": "2026-08-14T10:09:50Z"
+        },
+        {
+            "migrationId": "20260418-post-content-cleanup",
+            "earliestContractRelease": "20260418-post-content-cleanup",
+            "introducedByCommit": "620685ed839982c043715048e604a739f3610b1f",
+            "introducedAtUtc": "2026-04-26T13:08:50Z",
+            "rollbackWindowEndUtc": "2026-05-26T13:08:50Z"
+        },
+        {
+            "migrationId": "20260418-post-messaging-split",
+            "earliestContractRelease": "20260418-post-messaging-split",
+            "introducedByCommit": "620685ed839982c043715048e604a739f3610b1f",
+            "introducedAtUtc": "2026-04-26T13:08:50Z",
+            "rollbackWindowEndUtc": "2026-05-26T13:08:50Z"
+        },
+        {
+            "migrationId": "20260621-post-message-legacy-identity-columns-finalize",
+            "earliestContractRelease": "20260621-post-message-legacy-identity-columns-finalize",
+            "introducedByCommit": "8fbd50c65ea89385d0b6150e203354336353dfd6",
+            "introducedAtUtc": "2026-06-21T10:07:07Z",
+            "rollbackWindowEndUtc": "2026-07-21T10:07:07Z"
+        },
+        {
+            "migrationId": "20260418-post-user-session-finalize",
+            "earliestContractRelease": "20260418-post-user-session-finalize",
+            "introducedByCommit": "620685ed839982c043715048e604a739f3610b1f",
+            "introducedAtUtc": "2026-04-26T13:08:50Z",
+            "rollbackWindowEndUtc": "2026-05-26T13:08:50Z"
+        },
+        {
+            "migrationId": "20260602-post-user-auth-security-hardening",
+            "earliestContractRelease": "20260602-post-user-auth-security-hardening",
+            "introducedByCommit": "c577bc51de327e184245598c009f886832e12e35",
+            "introducedAtUtc": "2026-06-02T10:33:12Z",
+            "rollbackWindowEndUtc": "2026-07-02T10:33:12Z"
+        },
+        {
+            "migrationId": "20260621-pre-sys-user-security-profile-split",
+            "earliestContractRelease": "20260621-pre-sys-user-security-profile-split",
+            "introducedByCommit": "9ffe184319285e97b25cfb6fbfa18f418a387da9",
+            "introducedAtUtc": "2026-06-21T10:14:15Z",
+            "rollbackWindowEndUtc": "2026-07-21T10:14:15Z"
+        },
+        {
+            "migrationId": "20260621-post-sys-user-security-profile-split-finalize",
+            "earliestContractRelease": "20260621-post-sys-user-security-profile-split-finalize",
+            "introducedByCommit": "9ffe184319285e97b25cfb6fbfa18f418a387da9",
+            "introducedAtUtc": "2026-06-21T10:14:15Z",
+            "rollbackWindowEndUtc": "2026-07-21T10:14:15Z"
+        },
+        {
+            "migrationId": "20260621-post-user-legacy-identity-columns-finalize",
+            "earliestContractRelease": "20260621-post-user-legacy-identity-columns-finalize",
+            "introducedByCommit": "6e71ce0f3e9551502f4986044b8cbd002ed02046",
+            "introducedAtUtc": "2026-06-21T10:21:46Z",
+            "rollbackWindowEndUtc": "2026-07-21T10:21:46Z"
+        },
+        {
+            "migrationId": "20260621-post-sys-user-username-finalize",
+            "earliestContractRelease": "20260621-post-sys-user-username-finalize",
+            "introducedByCommit": "ee389a37956fd8914d2c71d296eb7a5e7cd78c1b",
+            "introducedAtUtc": "2026-06-21T12:14:56Z",
+            "rollbackWindowEndUtc": "2026-07-21T12:14:56Z"
+        },
+        {
+            "migrationId": "20260621-post-passkey-recovery-key-account-id-finalize",
+            "earliestContractRelease": "20260621-post-passkey-recovery-key-account-id-finalize",
+            "introducedByCommit": "4e1b4c46420aae17af69093e3d5c829b8e6f69f9",
+            "introducedAtUtc": "2026-06-21T10:16:07Z",
+            "rollbackWindowEndUtc": "2026-07-21T10:16:07Z"
+        },
+        {
+            "migrationId": "20260621-post-anonymous-credential-account-binding-finalize",
+            "earliestContractRelease": "20260621-post-anonymous-credential-account-binding-finalize",
+            "introducedByCommit": "de2607dc47717170eaee539cef0236c50b3555f0",
+            "introducedAtUtc": "2026-06-21T07:47:26Z",
+            "rollbackWindowEndUtc": "2026-07-21T07:47:26Z"
+        },
+        {
+            "migrationId": "20260618-post-anonymous-credential-issuance-audit",
+            "earliestContractRelease": "20260618-post-anonymous-credential-issuance-audit",
+            "introducedByCommit": "bd43c80924efdb21e1a61583d1b9cdb673554ee6",
+            "introducedAtUtc": "2026-06-20T23:23:19Z",
+            "rollbackWindowEndUtc": "2026-07-20T23:23:19Z"
+        },
+        {
+            "migrationId": "20260418-post-audit-log",
+            "earliestContractRelease": "20260418-post-audit-log",
+            "introducedByCommit": "2e546df18cb8a2ec87f3e432e2d0b413b057890b",
+            "introducedAtUtc": "2026-05-30T13:41:01Z",
+            "rollbackWindowEndUtc": "2026-06-29T13:41:01Z"
+        },
+        {
+            "migrationId": "20260621-post-visit-log-anonymous-attribution-finalize",
+            "earliestContractRelease": "20260621-post-visit-log-anonymous-attribution-finalize",
+            "introducedByCommit": "adfa6aaa3b3f137dd8ad4d80e22023a84b2f9e81",
+            "introducedAtUtc": "2026-06-21T05:13:57Z",
+            "rollbackWindowEndUtc": "2026-07-21T05:13:57Z"
+        },
+        {
+            "migrationId": "20260621-post-visit-log-ip-anonymization",
+            "earliestContractRelease": "20260621-post-visit-log-ip-anonymization",
+            "introducedByCommit": "dc51971cde5ce7cb2d2eaec078413d716ff56c15",
+            "introducedAtUtc": "2026-06-21T09:43:16Z",
+            "rollbackWindowEndUtc": "2026-07-21T09:43:16Z"
+        },
+        {
+            "migrationId": "20260621-pre-authoring-admin-principal-attribution",
+            "earliestContractRelease": "20260621-pre-authoring-admin-principal-attribution",
+            "introducedByCommit": "6592bbe457204598b6f3ce3db53b5cc16708932f",
+            "introducedAtUtc": "2026-06-21T11:30:37Z",
+            "rollbackWindowEndUtc": "2026-07-21T11:30:37Z"
+        },
+        {
+            "migrationId": "20260621-pre-comment-moderation-admin-principal-attribution",
+            "earliestContractRelease": "20260621-pre-comment-moderation-admin-principal-attribution",
+            "introducedByCommit": "6ba5e918611866bc3b3b00205396c4280798d121",
+            "introducedAtUtc": "2026-06-21T08:17:00Z",
+            "rollbackWindowEndUtc": "2026-07-21T08:17:00Z"
+        }
+    ],
+    "failureCode": "schema_destructive_rollback_window_open"
 }

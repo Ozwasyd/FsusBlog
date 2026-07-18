@@ -1,127 +1,127 @@
 {
-  "schema": "fsusblog.issue-1013.runtime-fallback-milestones.v1",
-  "issue": 1013,
-  "status": "implementation-only-not-verified",
-  "items": [
-    {
-      "id": "A3-1",
-      "codeState": "retired",
-      "runtimeSurface": "upload-session-cleanup",
-      "codeEvidence": [
-        "src/backend/Services/FileService.cs",
-        "tests/backend/Unit/FileServiceTests.cs#UploadSessionCleanup_SourceUsesExpirationBucketIndex",
-        "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_1_UploadCleanupHasNoLegacySessionRootSweep"
-      ],
-      "requiredMilestone": "Upload pipeline has served at least one release cycle and a legacy-root dry scan finds zero deletable files.",
-      "milestoneEvidence": {
-        "status": "deferred-unverified",
-        "verificationRunId": null,
-        "releaseCycle": null,
-        "legacyRootDeletableFileCount": null,
-        "commandsExecuted": []
-      }
-    },
-    {
-      "id": "A3-2",
-      "codeState": "retired",
-      "runtimeSurface": "site-subscription-legacy-sha256",
-      "codeEvidence": [
-        "src/backend/Modules/Endpoints/SubscriptionEndpoints.cs",
-        "src/backend/Services/Subscriptions/SiteSubscriptionProofService.cs",
-        "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs#20260709-post-site-subscription-hmac-finalize",
-        "tests/backend/Integration/SchemaMigrationIntegrationTests.cs#RunAsync_FinalizesLegacySiteSubscriptionHashes",
-        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs#SubscribeAsync_RepeatedCurrentHmacSubscriptionPersistsOneEnabledRowWithoutLegacyHash",
-        "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_2_SubscriptionRuntimeUsesOnlyCurrentHmacIdentity"
-      ],
-      "requiredMilestone": "One-time migration is applied and the legacy hash-version count is zero.",
-      "milestoneEvidence": {
-        "status": "deferred-unverified",
-        "verificationRunId": null,
-        "migrationId": "20260709-post-site-subscription-hmac-finalize",
-        "legacyRowCount": null,
-        "requiredQuery": "SELECT COUNT(*) FROM site_subscription WHERE hash_version = 'sha256-legacy';",
-        "commandsExecuted": []
-      }
-    },
-    {
-      "id": "A3-3",
-      "codeState": "retired",
-      "runtimeSurface": "article-content-column-fallback",
-      "codeEvidence": [
-        "src/backend/Services/ArticleService.cs",
-        "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
-        "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs",
-        "tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleService_SourceDoesNotQueryLegacyArticleContentColumn",
-        "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_3_ArticleReadersHaveNoLegacyContentColumnFallback"
-      ],
-      "requiredMilestone": "The 2026-04 content-finalize migration is present in every environment before traffic uses the no-fallback readers.",
-      "milestoneEvidence": {
-        "status": "deferred-unverified",
-        "verificationRunId": null,
-        "requiredMigrationId": "20260418-post-content-cleanup",
-        "environmentHistorySnapshots": [],
-        "commandsExecuted": []
-      }
-    },
-    {
-      "id": "A3-4",
-      "codeState": "retired",
-      "runtimeSurface": "legacy-plain-cookie-read",
-      "codeEvidence": [
-        "src/backend/Infrastructure/Auth/AuthCookieService.cs",
-        "src/backend/Infrastructure/Operations/ProductionStartupValidator.cs",
-        "tests/backend/Unit/AuthCookieServiceSecurityTests.cs#ReadTokenCookies_DevelopmentRejectsLegacyPlainCookieFallback",
-        "tests/backend/Unit/ProductionStartupValidatorTests.cs#ValidateCore_IgnoresRemovedLegacyPlainCookieReadSwitch",
-        "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_4_LegacyPlainCookieSwitchCannotRestoreFallback"
-      ],
-      "requiredMilestone": "Local development configurations and browser sessions no longer depend on legacy plain-cookie fallback.",
-      "milestoneEvidence": {
-        "status": "deferred-unverified",
-        "verificationRunId": null,
-        "developmentConfigurationSurvey": null,
-        "legacyCookieReadCount": null,
-        "commandsExecuted": []
-      }
-    },
-    {
-      "id": "A3-7",
-      "codeState": "retired",
-      "runtimeSurface": "public-aot-legacy-base64url-sidecar-hash",
-      "codeEvidence": [
-        "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
-        "tests/backend/Unit/PublicAotFileShellCacheTests.cs#TryGetEntryAsync_LegacyBase64UrlHydrationSidecarHash_TreatsDocumentAsMiss",
-        "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_7_PublicAotAcceptsOnlyCanonicalHexSidecarHash"
-      ],
-      "requiredMilestone": "A complete AOT rebuild has finished and a residual scan finds no legacy Base64Url sidecar hashes.",
-      "milestoneEvidence": {
-        "status": "deferred-unverified",
-        "verificationRunId": null,
-        "aotRebuildEvidence": null,
-        "legacySidecarCount": null,
-        "commandsExecuted": []
-      }
-    },
-    {
-      "id": "A3-8",
-      "codeState": "retired",
-      "runtimeSurface": "manual-clear-legacy-public-artifacts-action",
-      "codeEvidence": [
-        "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs#ClearLegacyPublicArtifactsStep",
-        "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
-        "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs#20260709-post-clear-legacy-public-artifacts",
-        "src/backend/Infrastructure/Operations/AdminOperationsService.cs",
-        "tests/backend/Unit/SchemaMigrationRegistryTests.cs#GetDescriptors_ClearLegacyPublicArtifacts_RunsAsOneTimeMigrationStep",
-        "tests/backend/Unit/PublicContentInvalidationFlowTests.cs#AdminCacheAction_ExposesOnlyRuntimeArticleDetailAedsV3Actions",
-        "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_8_LegacyArtifactClearIsOneTimeMigrationNotAdminRuntimeAction"
-      ],
-      "requiredMilestone": "The one-time migration step executes successfully and its history record is durable before the manual action is considered retired.",
-      "milestoneEvidence": {
-        "status": "deferred-unverified",
-        "verificationRunId": null,
-        "migrationId": "20260709-post-clear-legacy-public-artifacts",
-        "migrationHistorySnapshot": null,
-        "commandsExecuted": []
-      }
-    }
-  ]
+    "schema": "fsusblog.issue-1013.runtime-fallback-milestones.v1",
+    "issue": 1013,
+    "status": "implementation-only-not-verified",
+    "items": [
+        {
+            "id": "A3-1",
+            "codeState": "retired",
+            "runtimeSurface": "upload-session-cleanup",
+            "codeEvidence": [
+                "src/backend/Services/FileService.cs",
+                "tests/backend/Unit/FileServiceTests.cs#UploadSessionCleanup_SourceUsesExpirationBucketIndex",
+                "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_1_UploadCleanupHasNoLegacySessionRootSweep"
+            ],
+            "requiredMilestone": "Upload pipeline has served at least one release cycle and a legacy-root dry scan finds zero deletable files.",
+            "milestoneEvidence": {
+                "status": "deferred-unverified",
+                "verificationRunId": null,
+                "releaseCycle": null,
+                "legacyRootDeletableFileCount": null,
+                "commandsExecuted": []
+            }
+        },
+        {
+            "id": "A3-2",
+            "codeState": "retired",
+            "runtimeSurface": "site-subscription-legacy-sha256",
+            "codeEvidence": [
+                "src/backend/Modules/Endpoints/SubscriptionEndpoints.cs",
+                "src/backend/Services/Subscriptions/SiteSubscriptionProofService.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs#20260709-post-site-subscription-hmac-finalize",
+                "tests/backend/Integration/SchemaMigrationIntegrationTests.cs#RunAsync_FinalizesLegacySiteSubscriptionHashes",
+                "tests/backend/Unit/SubscriptionEndpointsContractTests.cs#SubscribeAsync_RepeatedCurrentHmacSubscriptionPersistsOneEnabledRowWithoutLegacyHash",
+                "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_2_SubscriptionRuntimeUsesOnlyCurrentHmacIdentity"
+            ],
+            "requiredMilestone": "One-time migration is applied and the legacy hash-version count is zero.",
+            "milestoneEvidence": {
+                "status": "deferred-unverified",
+                "verificationRunId": null,
+                "migrationId": "20260709-post-site-subscription-hmac-finalize",
+                "legacyRowCount": null,
+                "requiredQuery": "SELECT COUNT(*) FROM site_subscription WHERE hash_version = 'sha256-legacy';",
+                "commandsExecuted": []
+            }
+        },
+        {
+            "id": "A3-3",
+            "codeState": "retired",
+            "runtimeSurface": "article-content-column-fallback",
+            "codeEvidence": [
+                "src/backend/Services/ArticleService.cs",
+                "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+                "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs",
+                "tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleService_SourceDoesNotQueryLegacyArticleContentColumn",
+                "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_3_ArticleReadersHaveNoLegacyContentColumnFallback"
+            ],
+            "requiredMilestone": "The 2026-04 content-finalize migration is present in every environment before traffic uses the no-fallback readers.",
+            "milestoneEvidence": {
+                "status": "deferred-unverified",
+                "verificationRunId": null,
+                "requiredMigrationId": "20260418-post-content-cleanup",
+                "environmentHistorySnapshots": [],
+                "commandsExecuted": []
+            }
+        },
+        {
+            "id": "A3-4",
+            "codeState": "retired",
+            "runtimeSurface": "legacy-plain-cookie-read",
+            "codeEvidence": [
+                "src/backend/Infrastructure/Auth/AuthCookieService.cs",
+                "src/backend/Infrastructure/Operations/ProductionStartupValidator.cs",
+                "tests/backend/Unit/AuthCookieServiceSecurityTests.cs#ReadTokenCookies_DevelopmentRejectsLegacyPlainCookieFallback",
+                "tests/backend/Unit/ProductionStartupValidatorTests.cs#ValidateCore_IgnoresRemovedLegacyPlainCookieReadSwitch",
+                "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_4_LegacyPlainCookieSwitchCannotRestoreFallback"
+            ],
+            "requiredMilestone": "Local development configurations and browser sessions no longer depend on legacy plain-cookie fallback.",
+            "milestoneEvidence": {
+                "status": "deferred-unverified",
+                "verificationRunId": null,
+                "developmentConfigurationSurvey": null,
+                "legacyCookieReadCount": null,
+                "commandsExecuted": []
+            }
+        },
+        {
+            "id": "A3-7",
+            "codeState": "retired",
+            "runtimeSurface": "public-aot-legacy-base64url-sidecar-hash",
+            "codeEvidence": [
+                "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
+                "tests/backend/Unit/PublicAotFileShellCacheTests.cs#TryGetEntryAsync_LegacyBase64UrlHydrationSidecarHash_TreatsDocumentAsMiss",
+                "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_7_PublicAotAcceptsOnlyCanonicalHexSidecarHash"
+            ],
+            "requiredMilestone": "A complete AOT rebuild has finished and a residual scan finds no legacy Base64Url sidecar hashes.",
+            "milestoneEvidence": {
+                "status": "deferred-unverified",
+                "verificationRunId": null,
+                "aotRebuildEvidence": null,
+                "legacySidecarCount": null,
+                "commandsExecuted": []
+            }
+        },
+        {
+            "id": "A3-8",
+            "codeState": "retired",
+            "runtimeSurface": "manual-clear-legacy-public-artifacts-action",
+            "codeEvidence": [
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs#ClearLegacyPublicArtifactsStep",
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs#20260709-post-clear-legacy-public-artifacts",
+                "src/backend/Infrastructure/Operations/AdminOperationsService.cs",
+                "tests/backend/Unit/SchemaMigrationRegistryTests.cs#GetDescriptors_ClearLegacyPublicArtifacts_RunsAsOneTimeMigrationStep",
+                "tests/backend/Unit/PublicContentInvalidationFlowTests.cs#AdminCacheAction_ExposesOnlyRuntimeArticleDetailAedsV3Actions",
+                "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs#A3_8_LegacyArtifactClearIsOneTimeMigrationNotAdminRuntimeAction"
+            ],
+            "requiredMilestone": "The one-time migration step executes successfully and its history record is durable before the manual action is considered retired.",
+            "milestoneEvidence": {
+                "status": "deferred-unverified",
+                "verificationRunId": null,
+                "migrationId": "20260709-post-clear-legacy-public-artifacts",
+                "migrationHistorySnapshot": null,
+                "commandsExecuted": []
+            }
+        }
+    ]
 }

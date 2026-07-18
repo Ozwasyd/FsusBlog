@@ -1,127 +1,127 @@
 {
-  "schema": "fsusblog.backend-hotpath-budgets.v1",
-  "policy": {
-    "description": "Measured BenchmarkDotNet budgets. Ratio entries compare matching parameter sets; absolute entries bound paths without an honest legacy equivalent.",
-    "requireAllocationEvidence": true
-  },
-  "budgets": [
-    {
-      "id": "request-audit-context",
-      "benchmark": "RequestAuditHotPathBenchmarks",
-      "method": "Current_ContextSnapshot",
-      "baselineMethod": "Legacy_DictionaryAndStringHash",
-      "maxMeanRatio": 1.2,
-      "maxAllocatedRatio": 0.8
+    "schema": "fsusblog.backend-hotpath-budgets.v1",
+    "policy": {
+        "description": "Measured BenchmarkDotNet budgets. Ratio entries compare matching parameter sets; absolute entries bound paths without an honest legacy equivalent.",
+        "requireAllocationEvidence": true
     },
-    {
-      "id": "binary-frame-encoding",
-      "benchmark": "BinaryTransportHotPathBenchmarks",
-      "method": "Current_EncodeFrame",
-      "baselineMethod": "Legacy_EncodeWithIntermediateCopies",
-      "maxMeanRatio": 1.1,
-      "maxAllocatedRatio": 0.75
-    },
-    {
-      "id": "binary-pipe-binding",
-      "benchmark": "BinaryTransportHotPathBenchmarks",
-      "method": "Current_BindPipeReaderFrame",
-      "maxMeanNanoseconds": 250000,
-      "maxAllocatedBytes": 65536
-    },
-    {
-      "id": "notification-shared-fanout",
-      "benchmark": "NotificationStreamHotPathBenchmarks",
-      "method": "Current_SharedFrameFanout",
-      "baselineMethod": "Legacy_CopyPerSubscriber",
-      "maxMeanRatio": 3.0,
-      "maxAllocatedRatio": 1.0
-    },
-    {
-      "id": "notification-frame-pump",
-      "benchmark": "NotificationStreamHotPathBenchmarks",
-      "method": "Current_FramePump",
-      "maxMeanNanoseconds": 500000,
-      "maxAllocatedBytes": 65536
-    },
-    {
-      "id": "read-model-projection",
-      "benchmark": "ReadModelProjectionHotPathBenchmarks",
-      "method": "Current_PreSizedProjection",
-      "baselineMethod": "Legacy_LinqProjection",
-      "maxMeanRatio": 1.05,
-      "maxAllocatedRatio": 0.98
-    },
-    {
-      "id": "content-filter-scan",
-      "benchmark": "ContentFilterHotPathBenchmarks",
-      "method": "UnifiedTaggedScan",
-      "baselineMethod": "LegacyMultiScan",
-      "maxMeanRatio": 1.05,
-      "maxAllocatedRatio": 1.0
-    },
-    {
-      "id": "related-reading-scoring",
-      "benchmark": "RelatedReadingHotPathBenchmarks",
-      "method": "Current_BoundedScoring",
-      "baselineMethod": "Legacy_SplitAndContainsScoring",
-      "maxMeanRatio": 1.1,
-      "maxAllocatedRatio": 0.8
-    },
-    {
-      "id": "stats-value-projection",
-      "benchmark": "StatsProjectionHotPathBenchmarks",
-      "method": "Current_ValueProjection",
-      "baselineMethod": "Legacy_DictionaryProjection",
-      "maxMeanRatio": 1.1,
-      "maxAllocatedRatio": 0.5
-    },
-    {
-      "id": "crawler-user-agent-normalization",
-      "benchmark": "CrawlerNormalizationHotPathBenchmarks",
-      "method": "Current_BoundedNormalization",
-      "baselineMethod": "Legacy_ReplaceAndLowercase",
-      "maxMeanRatio": 1.5,
-      "maxAllocatedRatio": 1.5
-    },
-    {
-      "id": "cache-l1-structured-integer-key",
-      "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
-      "method": "Current_L1IntegerStructuredKey",
-      "baselineMethod": "Legacy_L1FinalRedisStringKey",
-      "maxMeanRatio": 1.0,
-      "maxAllocatedRatio": 0.1
-    },
-    {
-      "id": "cache-raw-readonly-borrow",
-      "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
-      "method": "Current_RawReadonlyBorrow",
-      "baselineMethod": "Legacy_RawCallerCopy",
-      "maxMeanRatio": 0.5,
-      "maxAllocatedRatio": 0.1
-    },
-    {
-      "id": "binary-preencoded-frame",
-      "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
-      "method": "Current_PreencodedFrame",
-      "baselineMethod": "Current_DynamicFrame",
-      "maxMeanRatio": 0.5,
-      "maxAllocatedRatio": 0.1
-    },
-    {
-      "id": "cache-striped-counter",
-      "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
-      "method": "Current_StripedCachedTagCounter",
-      "baselineMethod": "Legacy_GlobalAtomicAndStringCounterKey",
-      "maxMeanRatio": 3.0,
-      "maxAllocatedRatio": 0.5
-    },
-    {
-      "id": "csp-nonce-precompiled-segments",
-      "benchmark": "CspNonceHtmlHotPathBenchmarks",
-      "method": "Current_PrecompiledSegmentWriter",
-      "baselineMethod": "Legacy_DecodeReplaceEncodeWholeDocument",
-      "maxMeanRatio": 0.5,
-      "maxAllocatedRatio": 0.02
-    }
-  ]
+    "budgets": [
+        {
+            "id": "request-audit-context",
+            "benchmark": "RequestAuditHotPathBenchmarks",
+            "method": "Current_ContextSnapshot",
+            "baselineMethod": "Legacy_DictionaryAndStringHash",
+            "maxMeanRatio": 1.2,
+            "maxAllocatedRatio": 0.8
+        },
+        {
+            "id": "binary-frame-encoding",
+            "benchmark": "BinaryTransportHotPathBenchmarks",
+            "method": "Current_EncodeFrame",
+            "baselineMethod": "Legacy_EncodeWithIntermediateCopies",
+            "maxMeanRatio": 1.1,
+            "maxAllocatedRatio": 0.75
+        },
+        {
+            "id": "binary-pipe-binding",
+            "benchmark": "BinaryTransportHotPathBenchmarks",
+            "method": "Current_BindPipeReaderFrame",
+            "maxMeanNanoseconds": 250000,
+            "maxAllocatedBytes": 65536
+        },
+        {
+            "id": "notification-shared-fanout",
+            "benchmark": "NotificationStreamHotPathBenchmarks",
+            "method": "Current_SharedFrameFanout",
+            "baselineMethod": "Legacy_CopyPerSubscriber",
+            "maxMeanRatio": 3.0,
+            "maxAllocatedRatio": 1.0
+        },
+        {
+            "id": "notification-frame-pump",
+            "benchmark": "NotificationStreamHotPathBenchmarks",
+            "method": "Current_FramePump",
+            "maxMeanNanoseconds": 500000,
+            "maxAllocatedBytes": 65536
+        },
+        {
+            "id": "read-model-projection",
+            "benchmark": "ReadModelProjectionHotPathBenchmarks",
+            "method": "Current_PreSizedProjection",
+            "baselineMethod": "Legacy_LinqProjection",
+            "maxMeanRatio": 1.05,
+            "maxAllocatedRatio": 0.98
+        },
+        {
+            "id": "content-filter-scan",
+            "benchmark": "ContentFilterHotPathBenchmarks",
+            "method": "UnifiedTaggedScan",
+            "baselineMethod": "LegacyMultiScan",
+            "maxMeanRatio": 1.05,
+            "maxAllocatedRatio": 1.0
+        },
+        {
+            "id": "related-reading-scoring",
+            "benchmark": "RelatedReadingHotPathBenchmarks",
+            "method": "Current_BoundedScoring",
+            "baselineMethod": "Legacy_SplitAndContainsScoring",
+            "maxMeanRatio": 1.1,
+            "maxAllocatedRatio": 0.8
+        },
+        {
+            "id": "stats-value-projection",
+            "benchmark": "StatsProjectionHotPathBenchmarks",
+            "method": "Current_ValueProjection",
+            "baselineMethod": "Legacy_DictionaryProjection",
+            "maxMeanRatio": 1.1,
+            "maxAllocatedRatio": 0.5
+        },
+        {
+            "id": "crawler-user-agent-normalization",
+            "benchmark": "CrawlerNormalizationHotPathBenchmarks",
+            "method": "Current_BoundedNormalization",
+            "baselineMethod": "Legacy_ReplaceAndLowercase",
+            "maxMeanRatio": 1.5,
+            "maxAllocatedRatio": 1.5
+        },
+        {
+            "id": "cache-l1-structured-integer-key",
+            "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
+            "method": "Current_L1IntegerStructuredKey",
+            "baselineMethod": "Legacy_L1FinalRedisStringKey",
+            "maxMeanRatio": 1.0,
+            "maxAllocatedRatio": 0.1
+        },
+        {
+            "id": "cache-raw-readonly-borrow",
+            "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
+            "method": "Current_RawReadonlyBorrow",
+            "baselineMethod": "Legacy_RawCallerCopy",
+            "maxMeanRatio": 0.5,
+            "maxAllocatedRatio": 0.1
+        },
+        {
+            "id": "binary-preencoded-frame",
+            "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
+            "method": "Current_PreencodedFrame",
+            "baselineMethod": "Current_DynamicFrame",
+            "maxMeanRatio": 0.5,
+            "maxAllocatedRatio": 0.1
+        },
+        {
+            "id": "cache-striped-counter",
+            "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
+            "method": "Current_StripedCachedTagCounter",
+            "baselineMethod": "Legacy_GlobalAtomicAndStringCounterKey",
+            "maxMeanRatio": 3.0,
+            "maxAllocatedRatio": 0.5
+        },
+        {
+            "id": "csp-nonce-precompiled-segments",
+            "benchmark": "CspNonceHtmlHotPathBenchmarks",
+            "method": "Current_PrecompiledSegmentWriter",
+            "baselineMethod": "Legacy_DecodeReplaceEncodeWholeDocument",
+            "maxMeanRatio": 0.5,
+            "maxAllocatedRatio": 0.02
+        }
+    ]
 }

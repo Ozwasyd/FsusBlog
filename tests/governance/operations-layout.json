@@ -1,70 +1,70 @@
 {
-  "schema": "fsusblog.operations-layout.v1",
-  "operationsRoot": "ops",
-  "allowedDomains": [
-    "development",
-    "docker",
-    "gateway",
-    "privacy"
-  ],
-  "canonicalAssets": [
-    "ops/development/dependencies.compose.yml",
-    "ops/docker/FsusBlog.Server.Dockerfile",
-    "ops/docker/docker-compose.dcproj",
-    "ops/docker/docker-compose.development-backend.yml",
-    "ops/docker/docker-compose.production.yml",
-    "ops/docker/docker-compose.zero-downtime.yml",
-    "ops/gateway/active-upstream.conf.example",
-    "ops/gateway/development-machine-nginx.conf",
-    "ops/gateway/production-openresty.conf",
-    "ops/gateway/zero-downtime-openresty.conf.template",
-    "ops/privacy/ip-anonymization-inventory.example.json",
-    "ops/privacy/ip-anonymization-lifecycle.example.json",
-    "config/deployment/zero-downtime-resource-policy.json"
-  ],
-  "forbiddenPaths": [
-    "deploy",
-    "ops/docker/docker-compose.yml",
-    "ops/docker/docker-compose.dev.yml",
-    "ops/docker/docker-compose.local-proxy.yml",
-    "ops/gateway/local-release-nginx.conf"
-  ],
-  "staleReferenceTokens": [
-    "deploy/dev/docker-compose.yml",
-    "deploy/production-openresty.conf",
-    "deploy/active-upstream.conf.example",
-    "deploy/zero-downtime-openresty.conf.template",
-    "deploy/zero-downtime-resource-policy.json",
-    "deploy/local-release-nginx.conf",
-    "ops/docker/docker-compose.yml",
-    "ops/docker/docker-compose.dev.yml",
-    "ops/docker/docker-compose.local-proxy.yml"
-  ],
-  "staleReferenceAllowlist": [
-    "config/configuration-ownership.json",
-    "docs/operations-layout.md"
-  ],
-  "relativeMountExceptions": [
-    {
-      "compose": "ops/docker/docker-compose.development-backend.yml",
-      "source": "../../",
-      "purpose": "Development-only source workspace mount for dotnet watch; it is not an infrastructure configuration mount."
-    }
-  ],
-  "ownership": {
-    "codeowners": [
-      "/ops/ @Ozwasyd",
-      "/config/deployment/ @Ozwasyd"
+    "schema": "fsusblog.operations-layout.v1",
+    "operationsRoot": "ops",
+    "allowedDomains": [
+        "development",
+        "docker",
+        "gateway",
+        "privacy"
     ],
-    "deploymentLabelGlobs": [
-      "ops/**",
-      "config/deployment/**",
-      "tools/deployment/**"
-    ]
-  },
-  "historicalLocalProxy": {
-    "disposition": "removed-no-supported-caller",
-    "compose": "ops/docker/docker-compose.local-proxy.yml",
-    "gateway": "ops/gateway/local-release-nginx.conf"
-  }
+    "canonicalAssets": [
+        "ops/development/dependencies.compose.yml",
+        "ops/docker/FsusBlog.Server.Dockerfile",
+        "ops/docker/docker-compose.dcproj",
+        "ops/docker/docker-compose.development-backend.yml",
+        "ops/docker/docker-compose.production.yml",
+        "ops/docker/docker-compose.zero-downtime.yml",
+        "ops/gateway/active-upstream.conf.example",
+        "ops/gateway/development-machine-nginx.conf",
+        "ops/gateway/production-openresty.conf",
+        "ops/gateway/zero-downtime-openresty.conf.template",
+        "ops/privacy/ip-anonymization-inventory.example.json",
+        "ops/privacy/ip-anonymization-lifecycle.example.json",
+        "config/deployment/zero-downtime-resource-policy.json"
+    ],
+    "forbiddenPaths": [
+        "deploy",
+        "ops/docker/docker-compose.yml",
+        "ops/docker/docker-compose.dev.yml",
+        "ops/docker/docker-compose.local-proxy.yml",
+        "ops/gateway/local-release-nginx.conf"
+    ],
+    "staleReferenceTokens": [
+        "deploy/dev/docker-compose.yml",
+        "deploy/production-openresty.conf",
+        "deploy/active-upstream.conf.example",
+        "deploy/zero-downtime-openresty.conf.template",
+        "deploy/zero-downtime-resource-policy.json",
+        "deploy/local-release-nginx.conf",
+        "ops/docker/docker-compose.yml",
+        "ops/docker/docker-compose.dev.yml",
+        "ops/docker/docker-compose.local-proxy.yml"
+    ],
+    "staleReferenceAllowlist": [
+        "config/configuration-ownership.json",
+        "docs/operations-layout.md"
+    ],
+    "relativeMountExceptions": [
+        {
+            "compose": "ops/docker/docker-compose.development-backend.yml",
+            "source": "../../",
+            "purpose": "Development-only source workspace mount for dotnet watch; it is not an infrastructure configuration mount."
+        }
+    ],
+    "ownership": {
+        "codeowners": [
+            "/ops/ @Ozwasyd",
+            "/config/deployment/ @Ozwasyd"
+        ],
+        "deploymentLabelGlobs": [
+            "ops/**",
+            "config/deployment/**",
+            "tools/deployment/**"
+        ]
+    },
+    "historicalLocalProxy": {
+        "disposition": "removed-no-supported-caller",
+        "compose": "ops/docker/docker-compose.local-proxy.yml",
+        "gateway": "ops/gateway/local-release-nginx.conf"
+    }
 }

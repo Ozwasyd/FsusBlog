@@ -1,502 +1,587 @@
 {
-  "schema": "fsusblog.browser-test-migration.v1",
-  "issue": 1151,
-  "expectedEffectiveRecordCount": 71,
-  "historyBaseline": {
-    "commit": "73c9c087185e69925aa4fee8593feec3f858051c",
-    "scopes": [
-      "tests/frontend/e2e",
-      "tests/tools/runtime-browser-resource-plan.test.mjs",
-      "tests/tools/ux-risk-elastic-pool.test.mjs"
+    "schema": "fsusblog.browser-test-migration.v1",
+    "issue": 1151,
+    "expectedEffectiveRecordCount": 71,
+    "historyBaseline": {
+        "commit": "73c9c087185e69925aa4fee8593feec3f858051c",
+        "scopes": [
+            "tests/frontend/e2e",
+            "tests/tools/runtime-browser-resource-plan.test.mjs",
+            "tests/tools/ux-risk-elastic-pool.test.mjs"
+        ],
+        "fallback": "tests/fixtures/issue-1151-browser-migration/historical-deleted-tests.json",
+        "reason": "#1145 is the last source state before Acceptance thinning, Browser Contract extraction, diagnostics isolation, and removal of elastic/persistent browser orchestration."
+    },
+    "authorities": {
+        "acceptanceBaseline": "tests/issue-1146-acceptance-baseline.json",
+        "acceptanceReplacements": "tests/issue-1146-retention-replacements.json",
+        "diagnosticsMigration": "tests/issue-1148-browser-diagnostics-migration.json"
+    },
+    "browserlessInPlaceSources": [
+        "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
+        "tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs",
+        "tests/frontend/checks/public/check-public-dom-diff-hydration.mjs",
+        "tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs"
     ],
-    "fallback": "tests/fixtures/issue-1151-browser-migration/historical-deleted-tests.json",
-    "reason": "#1145 is the last source state before Acceptance thinning, Browser Contract extraction, diagnostics isolation, and removal of elastic/persistent browser orchestration."
-  },
-  "authorities": {
-    "acceptanceBaseline": "tests/issue-1146-acceptance-baseline.json",
-    "acceptanceReplacements": "tests/issue-1146-retention-replacements.json",
-    "diagnosticsMigration": "tests/issue-1148-browser-diagnostics-migration.json"
-  },
-  "browserlessInPlaceSources": [
-    "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
-    "tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs",
-    "tests/frontend/checks/public/check-public-dom-diff-hydration.mjs",
-    "tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs"
-  ],
-  "imports": [
-    {
-      "kind": "retention-replacements",
-      "path": "tests/issue-1146-retention-replacements.json",
-      "selector": "deletedTests",
-      "fieldMap": {
-        "sourceFile": "path",
-        "sourceTestId": "id",
-        "assertionCategory": "targetLayers",
-        "replacementTestIds": "replacementTestIds"
-      },
-      "defaults": {
-        "replacementLayer": "correctness",
-        "browserOnlyRisk": {
-          "present": false,
-          "route": "none",
-          "testIds": []
-        },
-        "status": "migrated"
-      }
-    }
-  ],
-  "recordGroups": [
-    {
-      "id": "removed-runtime-browser-resource-planning",
-      "defaults": {
-        "assertionCategory": ["browser-orchestration", "resource-topology"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-test:tests/tools/issue-1150-browserless-ci-topology.test.mjs#every-browser-launching-tier-declares-the-browser-resour-40d7e73c6d",
-          "node-test:tests/tools/browser-diagnostics.test.mjs#diagnostics-topology-is-fixed-managed-and-independent-fr-cea18d9ce2"
-        ],
-        "browserOnlyRisk": {
-          "present": false,
-          "route": "none",
-          "testIds": []
-        },
-        "status": "migrated"
-      },
-      "sourceTests": [
+    "imports": [
         {
-          "file": "tests/tools/runtime-browser-resource-plan.test.mjs",
-          "testIds": [
-            "node-test:tests/tools/runtime-browser-resource-plan.test.mjs#runtime-ux-workers-use-browser-memory-capacity-when-it-e-1f82bb55a2",
-            "node-test:tests/tools/runtime-browser-resource-plan.test.mjs#runtime-ux-explicit-worker-request-remains-an-exact-uppe-6c03397984"
-          ]
+            "kind": "retention-replacements",
+            "path": "tests/issue-1146-retention-replacements.json",
+            "selector": "deletedTests",
+            "fieldMap": {
+                "sourceFile": "path",
+                "sourceTestId": "id",
+                "assertionCategory": "targetLayers",
+                "replacementTestIds": "replacementTestIds"
+            },
+            "defaults": {
+                "replacementLayer": "correctness",
+                "browserOnlyRisk": {
+                    "present": false,
+                    "route": "none",
+                    "testIds": []
+                },
+                "status": "migrated"
+            }
         }
-      ]
-    },
-    {
-      "id": "removed-elastic-persistent-browser-pool",
-      "defaults": {
-        "assertionCategory": ["browser-orchestration", "fixed-diagnostics", "crash-retry-policy"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-test:tests/tools/browser-diagnostics.test.mjs#catalog-retains-every-browser-only-risk-with-lightweight-52342d36a2",
-          "node-test:tests/tools/browser-diagnostics.test.mjs#diagnostics-topology-is-fixed-managed-and-independent-fr-cea18d9ce2",
-          "node-test:tests/tools/issue-1151-flaky-governance.test.mjs#diagnostics-retry-exactly-one-explicit-browser-process-c-968458e269"
-        ],
-        "browserOnlyRisk": {
-          "present": false,
-          "route": "none",
-          "testIds": []
-        },
-        "status": "migrated"
-      },
-      "sourceTests": [
+    ],
+    "recordGroups": [
         {
-          "file": "tests/tools/ux-risk-elastic-pool.test.mjs",
-          "testIds": [
-            "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#ux-route-theme-pool-expands-1-to-2-to-4-without-restarti-a51cfcb37e",
-            "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#ux-execution-group-filtering-leaves-the-complete-risk-pl-6b603740bd",
-            "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#persistent-ux-workers-reuse-one-browser-while-capacity-g-d813d17c69",
-            "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#persistent-ux-pool-retries-only-a-browser-crash-and-neve-1d9513b14b",
-            "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#persistent-ux-pool-cancellation-destroys-active-workers--6cd70a593d",
-            "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#production-ux-risk-defaults-to-public-api-persistent-bro-4a7932a532"
-          ]
+            "id": "removed-runtime-browser-resource-planning",
+            "defaults": {
+                "assertionCategory": [
+                    "browser-orchestration",
+                    "resource-topology"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-test:tests/tools/issue-1150-browserless-ci-topology.test.mjs#every-browser-launching-tier-declares-the-browser-resour-40d7e73c6d",
+                    "node-test:tests/tools/browser-diagnostics.test.mjs#diagnostics-topology-is-fixed-managed-and-independent-fr-cea18d9ce2"
+                ],
+                "browserOnlyRisk": {
+                    "present": false,
+                    "route": "none",
+                    "testIds": []
+                },
+                "status": "migrated"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/tools/runtime-browser-resource-plan.test.mjs",
+                    "testIds": [
+                        "node-test:tests/tools/runtime-browser-resource-plan.test.mjs#runtime-ux-workers-use-browser-memory-capacity-when-it-e-1f82bb55a2",
+                        "node-test:tests/tools/runtime-browser-resource-plan.test.mjs#runtime-ux-explicit-worker-request-remains-an-exact-uppe-6c03397984"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "removed-elastic-persistent-browser-pool",
+            "defaults": {
+                "assertionCategory": [
+                    "browser-orchestration",
+                    "fixed-diagnostics",
+                    "crash-retry-policy"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-test:tests/tools/browser-diagnostics.test.mjs#catalog-retains-every-browser-only-risk-with-lightweight-52342d36a2",
+                    "node-test:tests/tools/browser-diagnostics.test.mjs#diagnostics-topology-is-fixed-managed-and-independent-fr-cea18d9ce2",
+                    "node-test:tests/tools/issue-1151-flaky-governance.test.mjs#diagnostics-retry-exactly-one-explicit-browser-process-c-968458e269"
+                ],
+                "browserOnlyRisk": {
+                    "present": false,
+                    "route": "none",
+                    "testIds": []
+                },
+                "status": "migrated"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/tools/ux-risk-elastic-pool.test.mjs",
+                    "testIds": [
+                        "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#ux-route-theme-pool-expands-1-to-2-to-4-without-restarti-a51cfcb37e",
+                        "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#ux-execution-group-filtering-leaves-the-complete-risk-pl-6b603740bd",
+                        "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#persistent-ux-workers-reuse-one-browser-while-capacity-g-d813d17c69",
+                        "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#persistent-ux-pool-retries-only-a-browser-crash-and-neve-1d9513b14b",
+                        "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#persistent-ux-pool-cancellation-destroys-active-workers--6cd70a593d",
+                        "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#production-ux-risk-defaults-to-public-api-persistent-bro-4a7932a532"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "retained-acceptance-to-browser-contract",
+            "defaults": {
+                "assertionCategory": [
+                    "acceptance",
+                    "public-hydration-navigation"
+                ],
+                "replacementLayer": "browser-contract",
+                "replacementTestIds": [
+                    "browser-contract:public-hydration-history-reload"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "browser-contract",
+                    "testIds": [
+                        "browser-contract:public-hydration-history-reload"
+                    ]
+                },
+                "status": "retained-diagnostic"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#home-article-a-article-b-archive-category-tag-home-and-h-460e81e998"
+                    ]
+                },
+                {
+                    "file": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#public-aot-silently-takes-over-full-app-after-first-inte-394354e37c",
+                        "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#public-aot-route-can-return-home-without-remount-or-hydr-aee9b5dccb",
+                        "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#aot-home-click-article-should-navigate-to-article-withou-9fa2a8fe22"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "mobile-menu-motion-contract",
+            "defaults": {
+                "assertionCategory": [
+                    "geometry-motion-focus"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-script:tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
+                    "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#moves-account-switching-policies-and-logout-behind-one-a-22ee52afba"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "diagnostic",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/diagnostics/public-mobile-menu-harness.spec.ts#local-fsusui-component-owns-computed-menu-motion-and-esc-f271448874"
+                    ]
+                },
+                "status": "migrated"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts#theme-consumer-menu-uses-fsusui-enter-leave-motion-and-p-08fb4e6ad7",
+                        "vitest:tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts#rapid-reversal-and-every-consumer-close-path-converge-on-fb01718fda"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "mobile-menu-reduced-motion-contract",
+            "defaults": {
+                "assertionCategory": [
+                    "geometry-motion-focus",
+                    "reduced-motion"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-script:tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
+                    "vitest:tests/frontend/unit/composables/useMotionPreference.test.ts#disables-smooth-scroll-when-reduced-motion-is-preferred-5440d05a97"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "diagnostic",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/diagnostics/public-mobile-menu-harness.spec.ts#reduced-motion-removes-displacement-and-completes-the-sa-5a8d569ff0"
+                    ]
+                },
+                "status": "migrated"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts#ssr-shell-remains-closed-through-hydration-and-reduced-m-a218d39ea8"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "debug-passkey-contract",
+            "defaults": {
+                "assertionCategory": [
+                    "authentication",
+                    "webauthn"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#renders-passkey-first-login-and-exposes-a-recoverable-in-184207092e",
+                    "vitest:tests/frontend/unit/services/passkeyCeremony.test.ts#passes-server-options-through-the-audited-optionsjson-bo-7bedbbc6ed"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "browser-contract",
+                    "testIds": [
+                        "browser-contract:webauthn-virtual-authenticator"
+                    ]
+                },
+                "status": "migrated"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/e2e/debug-passkey.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/debug-passkey.spec.ts#passkey-login-button-triggers-authentication-flow-14e1a2b75b"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "visual-diagnostics",
+            "defaults": {
+                "assertionCategory": [
+                    "visual"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-script:tests/frontend/checks/static/check-visual-density-governance.mjs",
+                    "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
+                    "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#makes-lead-secondary-recommendations-and-the-current-fee-e44a2e31ca",
+                    "vitest:tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts#renders-loading-unchecked-empty-and-populated-summary-st-03724e7518"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "diagnostic",
+                    "testIds": [
+                        "diagnostic:visual"
+                    ]
+                },
+                "status": "retained-diagnostic"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/e2e/visual/public-visual.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/visual/public-visual.spec.ts#key-public-pages-keep-visual-contract-13c24e5998",
+                        "vitest:tests/frontend/e2e/visual/public-visual.spec.ts#scenario-name-resolves-article-colors-from-the-same-sema-6aaf66ec65"
+                    ]
+                },
+                {
+                    "file": "tests/frontend/e2e/visual/console-visual.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
+                        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#admin-workbench-pages-stay-visually-stable-31d156d2c9",
+                        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#shows-every-task-the-summary-and-the-migrated-help-actio-36a7ede382"
+                    ]
+                },
+                {
+                    "file": "tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts#keeps-every-task-actionable-and-the-ledger-compact-8742b31ccb"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ux-diagnostics",
+            "defaults": {
+                "assertionCategory": [
+                    "ux"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-script:tests/frontend/checks/static/check-views-constraints.mjs",
+                    "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#keeps-mobile-module-and-local-navigation-in-one-panel-wi-e51f125ece",
+                    "vitest:tests/frontend/unit/router/index.test.ts#resolves-every-named-deep-link-without-browser-navigatio-b1e09fb6c9"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "diagnostic",
+                    "testIds": [
+                        "diagnostic:ux"
+                    ]
+                },
+                "status": "retained-diagnostic"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/checks/ux/run-ux-viewport-playwright.mjs",
+                    "testIds": [
+                        "node-script:tests/frontend/checks/ux/run-ux-viewport-playwright.mjs"
+                    ]
+                },
+                {
+                    "file": "tests/frontend/e2e/ux/viewport-boundaries.spec.ts",
+                    "testIds": [
+                        "playwright-dynamic:tests/frontend/e2e/ux/viewport-boundaries.spec.ts"
+                    ]
+                },
+                {
+                    "file": "tools/ux/run-local-production-risk.mjs",
+                    "testIds": [
+                        "node-script:tools/ux/run-local-production-risk.mjs"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "thinned-cross-browser-auth-entry",
+            "defaults": {
+                "assertionCategory": [
+                    "cross-browser",
+                    "authentication",
+                    "pwa"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-script:tests/frontend/checks/public/check-public-aot-contracts.mjs",
+                    "test-support:tests/frontend/unit/public-renderers/publicBrowserEnvironment.test.ts",
+                    "vitest:tests/frontend/unit/services/passkeyCeremony.test.ts#passes-server-options-through-the-audited-optionsjson-bo-7bedbbc6ed"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "diagnostic",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-engine-capabilities-and-pwa-cache-stay-cohe-a4dfda78cd"
+                    ]
+                },
+                "status": "migrated"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "cross-browser-diagnostics",
+            "defaults": {
+                "assertionCategory": [
+                    "cross-browser"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-script:tests/frontend/checks/public/check-public-aot-contracts.mjs",
+                    "test-support:tests/frontend/unit/public-renderers/publicBrowserEnvironment.test.ts",
+                    "vitest:tests/frontend/unit/services/passkeyCeremony.test.ts#passes-server-options-through-the-audited-optionsjson-bo-7bedbbc6ed"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "diagnostic",
+                    "testIds": [
+                        "diagnostic:cross-browser"
+                    ]
+                },
+                "status": "retained-diagnostic"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-engine-capabilities-and-pwa-cache-stay-cohe-a4dfda78cd"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "geometry-motion-focus-diagnostics",
+            "defaults": {
+                "assertionCategory": [
+                    "geometry-motion-focus"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "vitest:tests/frontend/unit/components/usePublicStickyGeometry.test.ts#publishes-actual-header-geometry-and-keeps-it-current-af-d9feee0232",
+                    "node-script:tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
+                    "vitest:tests/frontend/unit/composables/useMotionPreference.test.ts#disables-smooth-scroll-when-reduced-motion-is-preferred-5440d05a97"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "diagnostic",
+                    "testIds": [
+                        "diagnostic:geometry-motion-focus"
+                    ]
+                },
+                "status": "retained-diagnostic"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts#keeps-hash-targets-below-the-header-and-closes-the-stick-d88cc1151d"
+                    ]
+                },
+                {
+                    "file": "tests/frontend/e2e/diagnostics/public-mobile-menu-harness.spec.ts",
+                    "testIds": [
+                        "vitest:tests/frontend/e2e/diagnostics/public-mobile-menu-harness.spec.ts#local-fsusui-component-owns-computed-menu-motion-and-esc-f271448874",
+                        "vitest:tests/frontend/e2e/diagnostics/public-mobile-menu-harness.spec.ts#reduced-motion-removes-displacement-and-completes-the-sa-5a8d569ff0"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "accessibility-diagnostics",
+            "defaults": {
+                "assertionCategory": [
+                    "accessibility"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
+                    "node-script:tests/frontend/checks/static/check-visual-density-governance.mjs",
+                    "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#moves-account-switching-policies-and-logout-behind-one-a-22ee52afba"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "diagnostic",
+                    "testIds": [
+                        "diagnostic:accessibility"
+                    ]
+                },
+                "status": "retained-diagnostic"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/checks/runtime/check-a11y-smoke.mjs",
+                    "testIds": [
+                        "node-script:tests/frontend/checks/runtime/check-a11y-smoke.mjs"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "performance-diagnostics",
+            "defaults": {
+                "assertionCategory": [
+                    "performance"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-script:tests/frontend/checks/static/check-dom-depth-static.mjs",
+                    "node-script:tests/frontend/checks/perf/check-markdown-render-budget.mjs",
+                    "vitest:tests/frontend/unit/public-renderers/publicPageModel.test.ts#binds-shared-seo-kinds-to-frontend-route-names-and-activ-b436ecdb5a"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "diagnostic",
+                    "testIds": [
+                        "diagnostic:performance"
+                    ]
+                },
+                "status": "retained-diagnostic"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/checks/perf/check-dom-budget.mjs",
+                    "testIds": [
+                        "node-script:tests/frontend/checks/perf/check-dom-budget.mjs"
+                    ]
+                },
+                {
+                    "file": "tests/frontend/checks/perf/check-route-render-pressure.mjs",
+                    "testIds": [
+                        "node-script:tests/frontend/checks/perf/check-route-render-pressure.mjs"
+                    ]
+                },
+                {
+                    "file": "tools/test/lanes/browser-performance-regression.sh",
+                    "testIds": [
+                        "shell:tools/test/lanes/browser-performance-regression.sh"
+                    ]
+                },
+                {
+                    "file": "tests/frontend/checks/wasm/check-aeds-tier-browser.mjs",
+                    "testIds": [
+                        "node-script:tests/frontend/checks/wasm/check-aeds-tier-browser.mjs"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "resilience-diagnostics",
+            "defaults": {
+                "assertionCategory": [
+                    "resilience"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-script:tests/frontend/checks/public/check-aot-cache-resilience.mjs",
+                    "vitest:tests/frontend/unit/services/telemetryService.test.ts#sends-only-anonymous-public-page-performance-fields-28630a2dbd",
+                    "vitest:tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts#uses-bounded-fast-reconnect-and-preserves-the-cursor-for-f49fa06c3d"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "diagnostic",
+                    "testIds": [
+                        "diagnostic:resilience"
+                    ]
+                },
+                "status": "retained-diagnostic"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/checks/resilience/check-runtime-resilience.mjs",
+                    "testIds": [
+                        "node-script:tests/frontend/checks/resilience/check-runtime-resilience.mjs"
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "browserless-public-contracts-in-place",
+            "defaults": {
+                "assertionCategory": [
+                    "public-hydration",
+                    "browser-environment"
+                ],
+                "replacementLayer": "correctness",
+                "replacementTestIds": [
+                    "node-test:tests/tools/browserless-public-contracts.test.mjs#public-synthetic-matrices-are-browserless-and-use-produc-1c3224edac",
+                    "node-test:tests/tools/browserless-public-contracts.test.mjs#migration-handoff-maps-every-removed-browser-responsibil-407381b615",
+                    "test-support:tests/frontend/unit/public-renderers/publicBrowserEnvironment.test.ts",
+                    "vitest:tests/frontend/unit/public-renderers/publicRenderClock.test.ts#uses-an-injected-clock-without-mutating-global-time-59f40a5cc1"
+                ],
+                "browserOnlyRisk": {
+                    "present": true,
+                    "route": "browser-contract",
+                    "testIds": [
+                        "browser-contract:public-hydration-history-reload",
+                        "browser-contract:service-worker-offline-reload"
+                    ]
+                },
+                "status": "migrated-in-place"
+            },
+            "sourceTests": [
+                {
+                    "file": "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
+                    "testIds": [
+                        "node-script:tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs"
+                    ]
+                },
+                {
+                    "file": "tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs",
+                    "testIds": [
+                        "node-script:tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs"
+                    ]
+                },
+                {
+                    "file": "tests/frontend/checks/public/check-public-dom-diff-hydration.mjs",
+                    "testIds": [
+                        "node-script:tests/frontend/checks/public/check-public-dom-diff-hydration.mjs"
+                    ]
+                },
+                {
+                    "file": "tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs",
+                    "testIds": [
+                        "node-script:tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs"
+                    ]
+                }
+            ]
         }
-      ]
-    },
-    {
-      "id": "retained-acceptance-to-browser-contract",
-      "defaults": {
-        "assertionCategory": ["acceptance", "public-hydration-navigation"],
-        "replacementLayer": "browser-contract",
-        "replacementTestIds": ["browser-contract:public-hydration-history-reload"],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "browser-contract",
-          "testIds": ["browser-contract:public-hydration-history-reload"]
-        },
-        "status": "retained-diagnostic"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#home-article-a-article-b-archive-category-tag-home-and-h-460e81e998"
-          ]
-        },
-        {
-          "file": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#public-aot-silently-takes-over-full-app-after-first-inte-394354e37c",
-            "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#public-aot-route-can-return-home-without-remount-or-hydr-aee9b5dccb",
-            "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#aot-home-click-article-should-navigate-to-article-withou-9fa2a8fe22"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "mobile-menu-motion-contract",
-      "defaults": {
-        "assertionCategory": ["geometry-motion-focus"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-script:tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
-          "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#moves-account-switching-policies-and-logout-behind-one-a-22ee52afba"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "diagnostic",
-          "testIds": [
-            "vitest:tests/frontend/e2e/diagnostics/public-mobile-menu-harness.spec.ts#local-fsusui-component-owns-computed-menu-motion-and-esc-f271448874"
-          ]
-        },
-        "status": "migrated"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts#theme-consumer-menu-uses-fsusui-enter-leave-motion-and-p-08fb4e6ad7",
-            "vitest:tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts#rapid-reversal-and-every-consumer-close-path-converge-on-fb01718fda"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "mobile-menu-reduced-motion-contract",
-      "defaults": {
-        "assertionCategory": ["geometry-motion-focus", "reduced-motion"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-script:tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
-          "vitest:tests/frontend/unit/composables/useMotionPreference.test.ts#disables-smooth-scroll-when-reduced-motion-is-preferred-5440d05a97"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "diagnostic",
-          "testIds": [
-            "vitest:tests/frontend/e2e/diagnostics/public-mobile-menu-harness.spec.ts#reduced-motion-removes-displacement-and-completes-the-sa-5a8d569ff0"
-          ]
-        },
-        "status": "migrated"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts#ssr-shell-remains-closed-through-hydration-and-reduced-m-a218d39ea8"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "debug-passkey-contract",
-      "defaults": {
-        "assertionCategory": ["authentication", "webauthn"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "vitest:tests/frontend/unit/components/AuthFlowStates.test.ts#renders-passkey-first-login-and-exposes-a-recoverable-in-184207092e",
-          "vitest:tests/frontend/unit/services/passkeyCeremony.test.ts#passes-server-options-through-the-audited-optionsjson-bo-7bedbbc6ed"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "browser-contract",
-          "testIds": ["browser-contract:webauthn-virtual-authenticator"]
-        },
-        "status": "migrated"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/e2e/debug-passkey.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/debug-passkey.spec.ts#passkey-login-button-triggers-authentication-flow-14e1a2b75b"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "visual-diagnostics",
-      "defaults": {
-        "assertionCategory": ["visual"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-script:tests/frontend/checks/static/check-visual-density-governance.mjs",
-          "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
-          "vitest:tests/frontend/unit/view-contracts/homeSpotlight.test.ts#makes-lead-secondary-recommendations-and-the-current-fee-e44a2e31ca",
-          "vitest:tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts#renders-loading-unchecked-empty-and-populated-summary-st-03724e7518"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "diagnostic",
-          "testIds": ["diagnostic:visual"]
-        },
-        "status": "retained-diagnostic"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/e2e/visual/public-visual.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/visual/public-visual.spec.ts#key-public-pages-keep-visual-contract-13c24e5998",
-            "vitest:tests/frontend/e2e/visual/public-visual.spec.ts#scenario-name-resolves-article-colors-from-the-same-sema-6aaf66ec65"
-          ]
-        },
-        {
-          "file": "tests/frontend/e2e/visual/console-visual.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0",
-            "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#admin-workbench-pages-stay-visually-stable-31d156d2c9",
-            "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#shows-every-task-the-summary-and-the-migrated-help-actio-36a7ede382"
-          ]
-        },
-        {
-          "file": "tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts#keeps-every-task-actionable-and-the-ledger-compact-8742b31ccb"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "ux-diagnostics",
-      "defaults": {
-        "assertionCategory": ["ux"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-script:tests/frontend/checks/static/check-views-constraints.mjs",
-          "vitest:tests/frontend/unit/components/account/AccountNavigationPanel.test.ts#keeps-mobile-module-and-local-navigation-in-one-panel-wi-e51f125ece",
-          "vitest:tests/frontend/unit/router/index.test.ts#resolves-every-named-deep-link-without-browser-navigatio-b1e09fb6c9"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "diagnostic",
-          "testIds": ["diagnostic:ux"]
-        },
-        "status": "retained-diagnostic"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/checks/ux/run-ux-viewport-playwright.mjs",
-          "testIds": ["node-script:tests/frontend/checks/ux/run-ux-viewport-playwright.mjs"]
-        },
-        {
-          "file": "tests/frontend/e2e/ux/viewport-boundaries.spec.ts",
-          "testIds": ["playwright-dynamic:tests/frontend/e2e/ux/viewport-boundaries.spec.ts"]
-        },
-        {
-          "file": "tools/ux/run-local-production-risk.mjs",
-          "testIds": ["node-script:tools/ux/run-local-production-risk.mjs"]
-        }
-      ]
-    },
-    {
-      "id": "thinned-cross-browser-auth-entry",
-      "defaults": {
-        "assertionCategory": ["cross-browser", "authentication", "pwa"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-script:tests/frontend/checks/public/check-public-aot-contracts.mjs",
-          "test-support:tests/frontend/unit/public-renderers/publicBrowserEnvironment.test.ts",
-          "vitest:tests/frontend/unit/services/passkeyCeremony.test.ts#passes-server-options-through-the-audited-optionsjson-bo-7bedbbc6ed"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "diagnostic",
-          "testIds": [
-            "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-engine-capabilities-and-pwa-cache-stay-cohe-a4dfda78cd"
-          ]
-        },
-        "status": "migrated"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cross-browser-diagnostics",
-      "defaults": {
-        "assertionCategory": ["cross-browser"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-script:tests/frontend/checks/public/check-public-aot-contracts.mjs",
-          "test-support:tests/frontend/unit/public-renderers/publicBrowserEnvironment.test.ts",
-          "vitest:tests/frontend/unit/services/passkeyCeremony.test.ts#passes-server-options-through-the-audited-optionsjson-bo-7bedbbc6ed"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "diagnostic",
-          "testIds": ["diagnostic:cross-browser"]
-        },
-        "status": "retained-diagnostic"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-engine-capabilities-and-pwa-cache-stay-cohe-a4dfda78cd"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "geometry-motion-focus-diagnostics",
-      "defaults": {
-        "assertionCategory": ["geometry-motion-focus"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "vitest:tests/frontend/unit/components/usePublicStickyGeometry.test.ts#publishes-actual-header-geometry-and-keeps-it-current-af-d9feee0232",
-          "node-script:tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs",
-          "vitest:tests/frontend/unit/composables/useMotionPreference.test.ts#disables-smooth-scroll-when-reduced-motion-is-preferred-5440d05a97"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "diagnostic",
-          "testIds": ["diagnostic:geometry-motion-focus"]
-        },
-        "status": "retained-diagnostic"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts#keeps-hash-targets-below-the-header-and-closes-the-stick-d88cc1151d"
-          ]
-        },
-        {
-          "file": "tests/frontend/e2e/diagnostics/public-mobile-menu-harness.spec.ts",
-          "testIds": [
-            "vitest:tests/frontend/e2e/diagnostics/public-mobile-menu-harness.spec.ts#local-fsusui-component-owns-computed-menu-motion-and-esc-f271448874",
-            "vitest:tests/frontend/e2e/diagnostics/public-mobile-menu-harness.spec.ts#reduced-motion-removes-displacement-and-completes-the-sa-5a8d569ff0"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "accessibility-diagnostics",
-      "defaults": {
-        "assertionCategory": ["accessibility"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-script:tests/frontend/checks/static/check-admin-a11y-governance.mjs",
-          "node-script:tests/frontend/checks/static/check-visual-density-governance.mjs",
-          "vitest:tests/frontend/unit/components/account/AccountHeaderMenu.test.ts#moves-account-switching-policies-and-logout-behind-one-a-22ee52afba"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "diagnostic",
-          "testIds": ["diagnostic:accessibility"]
-        },
-        "status": "retained-diagnostic"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/checks/runtime/check-a11y-smoke.mjs",
-          "testIds": ["node-script:tests/frontend/checks/runtime/check-a11y-smoke.mjs"]
-        }
-      ]
-    },
-    {
-      "id": "performance-diagnostics",
-      "defaults": {
-        "assertionCategory": ["performance"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-script:tests/frontend/checks/static/check-dom-depth-static.mjs",
-          "node-script:tests/frontend/checks/perf/check-markdown-render-budget.mjs",
-          "vitest:tests/frontend/unit/public-renderers/publicPageModel.test.ts#binds-shared-seo-kinds-to-frontend-route-names-and-activ-b436ecdb5a"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "diagnostic",
-          "testIds": ["diagnostic:performance"]
-        },
-        "status": "retained-diagnostic"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/checks/perf/check-dom-budget.mjs",
-          "testIds": ["node-script:tests/frontend/checks/perf/check-dom-budget.mjs"]
-        },
-        {
-          "file": "tests/frontend/checks/perf/check-route-render-pressure.mjs",
-          "testIds": ["node-script:tests/frontend/checks/perf/check-route-render-pressure.mjs"]
-        },
-        {
-          "file": "tools/test/lanes/browser-performance-regression.sh",
-          "testIds": ["shell:tools/test/lanes/browser-performance-regression.sh"]
-        },
-        {
-          "file": "tests/frontend/checks/wasm/check-aeds-tier-browser.mjs",
-          "testIds": ["node-script:tests/frontend/checks/wasm/check-aeds-tier-browser.mjs"]
-        }
-      ]
-    },
-    {
-      "id": "resilience-diagnostics",
-      "defaults": {
-        "assertionCategory": ["resilience"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-script:tests/frontend/checks/public/check-aot-cache-resilience.mjs",
-          "vitest:tests/frontend/unit/services/telemetryService.test.ts#sends-only-anonymous-public-page-performance-fields-28630a2dbd",
-          "vitest:tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts#uses-bounded-fast-reconnect-and-preserves-the-cursor-for-f49fa06c3d"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "diagnostic",
-          "testIds": ["diagnostic:resilience"]
-        },
-        "status": "retained-diagnostic"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/checks/resilience/check-runtime-resilience.mjs",
-          "testIds": ["node-script:tests/frontend/checks/resilience/check-runtime-resilience.mjs"]
-        }
-      ]
-    },
-    {
-      "id": "browserless-public-contracts-in-place",
-      "defaults": {
-        "assertionCategory": ["public-hydration", "browser-environment"],
-        "replacementLayer": "correctness",
-        "replacementTestIds": [
-          "node-test:tests/tools/browserless-public-contracts.test.mjs#public-synthetic-matrices-are-browserless-and-use-produc-1c3224edac",
-          "node-test:tests/tools/browserless-public-contracts.test.mjs#migration-handoff-maps-every-removed-browser-responsibil-407381b615",
-          "test-support:tests/frontend/unit/public-renderers/publicBrowserEnvironment.test.ts",
-          "vitest:tests/frontend/unit/public-renderers/publicRenderClock.test.ts#uses-an-injected-clock-without-mutating-global-time-59f40a5cc1"
-        ],
-        "browserOnlyRisk": {
-          "present": true,
-          "route": "browser-contract",
-          "testIds": [
-            "browser-contract:public-hydration-history-reload",
-            "browser-contract:service-worker-offline-reload"
-          ]
-        },
-        "status": "migrated-in-place"
-      },
-      "sourceTests": [
-        {
-          "file": "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs",
-          "testIds": ["node-script:tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs"]
-        },
-        {
-          "file": "tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs",
-          "testIds": ["node-script:tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs"]
-        },
-        {
-          "file": "tests/frontend/checks/public/check-public-dom-diff-hydration.mjs",
-          "testIds": ["node-script:tests/frontend/checks/public/check-public-dom-diff-hydration.mjs"]
-        },
-        {
-          "file": "tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs",
-          "testIds": ["node-script:tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs"]
-        }
-      ]
-    }
-  ]
+    ]
 }

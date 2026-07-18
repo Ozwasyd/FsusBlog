@@ -1,134 +1,370 @@
 {
-  "schema": "fsusblog.public-hydration-matrix-registry.v1",
-  "pageKinds": [
-    { "kind": "Home", "route": "/", "routeKey": "home", "fastRepresentative": true },
-    { "kind": "ArticleDetail", "route": "/article/{id}", "routeKey": "article:{id}", "fastRepresentative": true },
-    { "kind": "Filter", "route": "/tag/{id}", "routeKey": "tag:{id}", "fastRepresentative": true },
-    { "kind": "Archive", "route": "/archive", "routeKey": "archive", "fastRepresentative": false },
-    { "kind": "About", "route": "/about", "routeKey": "about", "fastRepresentative": true },
-    { "kind": "Privacy", "route": "/privacy", "routeKey": "privacy", "fastRepresentative": false },
-    { "kind": "Guidelines", "route": "/guidelines", "routeKey": "guidelines", "fastRepresentative": false },
-    { "kind": "Copyright", "route": "/copyright", "routeKey": "copyright", "fastRepresentative": false }
-  ],
-  "excludedPageKinds": [
-    {
-      "kind": "Account",
-      "reason": "Account is not an anonymous public AOT shell and publicPageManifest marks aotShellReady=false."
-    }
-  ],
-  "routePolicies": [
-    {
-      "routeName": "Search",
-      "kind": "Search",
-      "routes": ["/search"],
-      "seoEligible": false,
-      "aotShellReady": false,
-      "requiresUserState": false,
-      "expectedFallbackBehavior": "spa-public-search-fallback",
-      "cachePolicy": "must-not-write-public-aot-cache"
-    },
-    {
-      "routeName": "Account",
-      "kind": "Account",
-      "pageId": "Account",
-      "routes": ["/user/profile"],
-      "seoEligible": false,
-      "aotShellReady": false,
-      "requiresUserState": true,
-      "expectedFallbackBehavior": "user-state-runtime-only",
-      "cachePolicy": "must-not-write-public-aot-cache"
-    }
-  ],
-  "dimensions": [
-    { "id": "route", "owner": "ServerContractAgent", "risk": "high", "lanes": ["fast", "release", "nightly-full"], "source": "src/frontend/src/public-renderers/generated/publicPageManifest.ts" },
-    { "id": "phase", "owner": "InteropGlueAgent", "risk": "high", "lanes": ["fast", "release", "nightly-full"], "source": "tests/frontend/checks/public/check-public-refresh-hydration.mjs" },
-    { "id": "browser", "owner": "InteropGlueAgent", "risk": "medium", "lanes": ["fast", "release", "nightly-full"], "source": "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs" },
-    { "id": "viewport", "owner": "InteropGlueAgent", "risk": "medium", "lanes": ["fast", "release", "nightly-full"], "source": "tests/frontend/checks/public/check-public-refresh-hydration.mjs" },
-    { "id": "state", "owner": "InteropGlueAgent", "risk": "high", "lanes": ["release", "nightly-full"], "source": "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs" },
-    { "id": "clock-timezone-locale", "owner": "ServerContractAgent", "risk": "medium", "lanes": ["release", "nightly-full"], "source": "tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs" },
-    { "id": "payload-fixture", "owner": "ServerContractAgent", "risk": "high", "lanes": ["release", "nightly-full"], "source": "tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs" },
-    { "id": "normalized-dom-diff", "owner": "InteropGlueAgent", "risk": "high", "lanes": ["fast", "release", "nightly-full"], "source": "tests/frontend/checks/public/check-public-dom-diff-hydration.mjs" },
-    { "id": "service-worker-cache", "owner": "InteropGlueAgent", "risk": "medium", "lanes": ["nightly-full"], "source": "tests/frontend/checks/public/check-pwa-offline-smoke.mjs" }
-  ],
-  "shardStrategies": [
-    {
-      "id": "route-phase-smoke",
-      "dimensions": ["route", "phase"],
-      "defaultShards": 1,
-      "lane": "fast",
-      "owner": "ServerContractAgent",
-      "strategy": "representative route set with Home, ArticleDetail, Filter, and one static page"
-    },
-    {
-      "id": "route-phase-release",
-      "dimensions": ["route", "phase"],
-      "defaultShards": 1,
-      "lane": "release",
-      "owner": "ServerContractAgent",
-      "strategy": "single browserless renderer/normalizer contract pass over every public page kind"
-    },
-    {
-      "id": "browser-state-release",
-      "dimensions": ["browser", "state", "viewport"],
-      "defaultShards": 1,
-      "lane": "release",
-      "owner": "InteropGlueAgent",
-      "strategy": "production view-contract projection for theme, storage, auth, motion and route state"
-    },
-    {
-      "id": "full-cartesian-nightly",
-      "dimensions": ["route", "phase", "browser", "state", "clock-timezone-locale", "payload-fixture", "service-worker-cache"],
-      "defaultShards": 8,
-      "lane": "nightly-full",
-      "owner": "InteropGlueAgent",
-      "strategy": "off-critical-path expansion with Firefox, WebKit, cache, and larger fixture coverage"
-    }
-  ],
-  "lanes": [
-    {
-      "id": "fast",
-      "costClass": "PR",
-      "ciTier": "public-hydration-fast",
-      "command": "tools/test/lanes/public-hydration-fast.sh",
-      "routeSet": ["Home", "ArticleDetail", "Filter", "About"],
-      "phases": ["detector-canary", "normalized-ssr-vs-csr-dom-diff", "chromium-direct-first-load"],
-      "browsers": ["chromium"],
-      "viewports": ["desktop"],
-      "states": ["anonymous"],
-      "fixtures": ["home-empty", "article-rich", "filter-tag-by-name", "about-static"],
-      "requiredArtifacts": [],
-      "shardStrategyRefs": ["route-phase-smoke"],
-      "enforcement": "governance-summary"
-    },
-    {
-      "id": "release",
-      "costClass": "release",
-      "ciTier": "release",
-      "command": "tools/test/lanes/release-public.sh",
-      "routeSet": ["Home", "ArticleDetail", "Filter", "Archive", "About", "Privacy", "Guidelines", "Copyright"],
-      "phases": ["renderer-contract", "clock-locale-contract", "environment-model", "payload-normalizer", "normalized-dom-diff"],
-      "browsers": [],
-      "viewports": ["desktop", "mobile"],
-      "states": ["anonymous", "user", "admin"],
-      "fixtures": ["payload-fixture-matrix"],
-      "requiredArtifacts": ["clock", "browserEnv", "payloadFixture", "domDiff"],
-      "shardStrategyRefs": ["route-phase-release", "browser-state-release"],
-      "enforcement": "fail-closed-release-evidence"
-    },
-    {
-      "id": "nightly-full",
-      "costClass": "nightly",
-      "ciTier": "public-hydration-nightly",
-      "command": "tools/test/lanes/public-hydration-nightly.sh",
-      "routeSet": ["Home", "ArticleDetail", "Filter", "Archive", "About", "Privacy", "Guidelines", "Copyright"],
-      "phases": ["direct-first-load", "reload", "micro-navigation", "browser-back-forward", "hash-navigation", "full-spa-takeover", "non-aot-search-fallback", "service-worker-cache"],
-      "browsers": ["chromium", "firefox", "webkit"],
-      "viewports": ["desktop", "tablet", "mobile", "narrowMobile"],
-      "states": ["anonymous", "user", "admin"],
-      "fixtures": ["full-payload-fixture-catalog"],
-      "requiredArtifacts": [],
-      "shardStrategyRefs": ["full-cartesian-nightly"],
-      "enforcement": "scheduled-full-coverage"
-    }
-  ]
+    "schema": "fsusblog.public-hydration-matrix-registry.v1",
+    "pageKinds": [
+        {
+            "kind": "Home",
+            "route": "/",
+            "routeKey": "home",
+            "fastRepresentative": true
+        },
+        {
+            "kind": "ArticleDetail",
+            "route": "/article/{id}",
+            "routeKey": "article:{id}",
+            "fastRepresentative": true
+        },
+        {
+            "kind": "Filter",
+            "route": "/tag/{id}",
+            "routeKey": "tag:{id}",
+            "fastRepresentative": true
+        },
+        {
+            "kind": "Archive",
+            "route": "/archive",
+            "routeKey": "archive",
+            "fastRepresentative": false
+        },
+        {
+            "kind": "About",
+            "route": "/about",
+            "routeKey": "about",
+            "fastRepresentative": true
+        },
+        {
+            "kind": "Privacy",
+            "route": "/privacy",
+            "routeKey": "privacy",
+            "fastRepresentative": false
+        },
+        {
+            "kind": "Guidelines",
+            "route": "/guidelines",
+            "routeKey": "guidelines",
+            "fastRepresentative": false
+        },
+        {
+            "kind": "Copyright",
+            "route": "/copyright",
+            "routeKey": "copyright",
+            "fastRepresentative": false
+        }
+    ],
+    "excludedPageKinds": [
+        {
+            "kind": "Account",
+            "reason": "Account is not an anonymous public AOT shell and publicPageManifest marks aotShellReady=false."
+        }
+    ],
+    "routePolicies": [
+        {
+            "routeName": "Search",
+            "kind": "Search",
+            "routes": [
+                "/search"
+            ],
+            "seoEligible": false,
+            "aotShellReady": false,
+            "requiresUserState": false,
+            "expectedFallbackBehavior": "spa-public-search-fallback",
+            "cachePolicy": "must-not-write-public-aot-cache"
+        },
+        {
+            "routeName": "Account",
+            "kind": "Account",
+            "pageId": "Account",
+            "routes": [
+                "/user/profile"
+            ],
+            "seoEligible": false,
+            "aotShellReady": false,
+            "requiresUserState": true,
+            "expectedFallbackBehavior": "user-state-runtime-only",
+            "cachePolicy": "must-not-write-public-aot-cache"
+        }
+    ],
+    "dimensions": [
+        {
+            "id": "route",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "lanes": [
+                "fast",
+                "release",
+                "nightly-full"
+            ],
+            "source": "src/frontend/src/public-renderers/generated/publicPageManifest.ts"
+        },
+        {
+            "id": "phase",
+            "owner": "InteropGlueAgent",
+            "risk": "high",
+            "lanes": [
+                "fast",
+                "release",
+                "nightly-full"
+            ],
+            "source": "tests/frontend/checks/public/check-public-refresh-hydration.mjs"
+        },
+        {
+            "id": "browser",
+            "owner": "InteropGlueAgent",
+            "risk": "medium",
+            "lanes": [
+                "fast",
+                "release",
+                "nightly-full"
+            ],
+            "source": "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs"
+        },
+        {
+            "id": "viewport",
+            "owner": "InteropGlueAgent",
+            "risk": "medium",
+            "lanes": [
+                "fast",
+                "release",
+                "nightly-full"
+            ],
+            "source": "tests/frontend/checks/public/check-public-refresh-hydration.mjs"
+        },
+        {
+            "id": "state",
+            "owner": "InteropGlueAgent",
+            "risk": "high",
+            "lanes": [
+                "release",
+                "nightly-full"
+            ],
+            "source": "tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs"
+        },
+        {
+            "id": "clock-timezone-locale",
+            "owner": "ServerContractAgent",
+            "risk": "medium",
+            "lanes": [
+                "release",
+                "nightly-full"
+            ],
+            "source": "tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs"
+        },
+        {
+            "id": "payload-fixture",
+            "owner": "ServerContractAgent",
+            "risk": "high",
+            "lanes": [
+                "release",
+                "nightly-full"
+            ],
+            "source": "tests/frontend/checks/public/check-public-payload-fixture-matrix.mjs"
+        },
+        {
+            "id": "normalized-dom-diff",
+            "owner": "InteropGlueAgent",
+            "risk": "high",
+            "lanes": [
+                "fast",
+                "release",
+                "nightly-full"
+            ],
+            "source": "tests/frontend/checks/public/check-public-dom-diff-hydration.mjs"
+        },
+        {
+            "id": "service-worker-cache",
+            "owner": "InteropGlueAgent",
+            "risk": "medium",
+            "lanes": [
+                "nightly-full"
+            ],
+            "source": "tests/frontend/checks/public/check-pwa-offline-smoke.mjs"
+        }
+    ],
+    "shardStrategies": [
+        {
+            "id": "route-phase-smoke",
+            "dimensions": [
+                "route",
+                "phase"
+            ],
+            "defaultShards": 1,
+            "lane": "fast",
+            "owner": "ServerContractAgent",
+            "strategy": "representative route set with Home, ArticleDetail, Filter, and one static page"
+        },
+        {
+            "id": "route-phase-release",
+            "dimensions": [
+                "route",
+                "phase"
+            ],
+            "defaultShards": 1,
+            "lane": "release",
+            "owner": "ServerContractAgent",
+            "strategy": "single browserless renderer/normalizer contract pass over every public page kind"
+        },
+        {
+            "id": "browser-state-release",
+            "dimensions": [
+                "browser",
+                "state",
+                "viewport"
+            ],
+            "defaultShards": 1,
+            "lane": "release",
+            "owner": "InteropGlueAgent",
+            "strategy": "production view-contract projection for theme, storage, auth, motion and route state"
+        },
+        {
+            "id": "full-cartesian-nightly",
+            "dimensions": [
+                "route",
+                "phase",
+                "browser",
+                "state",
+                "clock-timezone-locale",
+                "payload-fixture",
+                "service-worker-cache"
+            ],
+            "defaultShards": 8,
+            "lane": "nightly-full",
+            "owner": "InteropGlueAgent",
+            "strategy": "off-critical-path expansion with Firefox, WebKit, cache, and larger fixture coverage"
+        }
+    ],
+    "lanes": [
+        {
+            "id": "fast",
+            "costClass": "PR",
+            "ciTier": "public-hydration-fast",
+            "command": "tools/test/lanes/public-hydration-fast.sh",
+            "routeSet": [
+                "Home",
+                "ArticleDetail",
+                "Filter",
+                "About"
+            ],
+            "phases": [
+                "detector-canary",
+                "normalized-ssr-vs-csr-dom-diff",
+                "chromium-direct-first-load"
+            ],
+            "browsers": [
+                "chromium"
+            ],
+            "viewports": [
+                "desktop"
+            ],
+            "states": [
+                "anonymous"
+            ],
+            "fixtures": [
+                "home-empty",
+                "article-rich",
+                "filter-tag-by-name",
+                "about-static"
+            ],
+            "requiredArtifacts": [],
+            "shardStrategyRefs": [
+                "route-phase-smoke"
+            ],
+            "enforcement": "governance-summary"
+        },
+        {
+            "id": "release",
+            "costClass": "release",
+            "ciTier": "release",
+            "command": "tools/test/lanes/release-public.sh",
+            "routeSet": [
+                "Home",
+                "ArticleDetail",
+                "Filter",
+                "Archive",
+                "About",
+                "Privacy",
+                "Guidelines",
+                "Copyright"
+            ],
+            "phases": [
+                "renderer-contract",
+                "clock-locale-contract",
+                "environment-model",
+                "payload-normalizer",
+                "normalized-dom-diff"
+            ],
+            "browsers": [],
+            "viewports": [
+                "desktop",
+                "mobile"
+            ],
+            "states": [
+                "anonymous",
+                "user",
+                "admin"
+            ],
+            "fixtures": [
+                "payload-fixture-matrix"
+            ],
+            "requiredArtifacts": [
+                "clock",
+                "browserEnv",
+                "payloadFixture",
+                "domDiff"
+            ],
+            "shardStrategyRefs": [
+                "route-phase-release",
+                "browser-state-release"
+            ],
+            "enforcement": "fail-closed-release-evidence"
+        },
+        {
+            "id": "nightly-full",
+            "costClass": "nightly",
+            "ciTier": "public-hydration-nightly",
+            "command": "tools/test/lanes/public-hydration-nightly.sh",
+            "routeSet": [
+                "Home",
+                "ArticleDetail",
+                "Filter",
+                "Archive",
+                "About",
+                "Privacy",
+                "Guidelines",
+                "Copyright"
+            ],
+            "phases": [
+                "direct-first-load",
+                "reload",
+                "micro-navigation",
+                "browser-back-forward",
+                "hash-navigation",
+                "full-spa-takeover",
+                "non-aot-search-fallback",
+                "service-worker-cache"
+            ],
+            "browsers": [
+                "chromium",
+                "firefox",
+                "webkit"
+            ],
+            "viewports": [
+                "desktop",
+                "tablet",
+                "mobile",
+                "narrowMobile"
+            ],
+            "states": [
+                "anonymous",
+                "user",
+                "admin"
+            ],
+            "fixtures": [
+                "full-payload-fixture-catalog"
+            ],
+            "requiredArtifacts": [],
+            "shardStrategyRefs": [
+                "full-cartesian-nightly"
+            ],
+            "enforcement": "scheduled-full-coverage"
+        }
+    ]
 }

@@ -1,40 +1,49 @@
 {
-  "schema": "fsusblog.zk.circuit-manifest.v2",
-  "circuit_id": "fsus.anonymous.comment.v5",
-  "public_input_layout_version": 6,
-  "artifact_class": "circuit-contract",
-  "lifecycle": "active-source-contract",
-  "proof_system": "Groth16",
-  "curve": "bn254",
-  "source": "src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json",
-  "source_sha256": "cdf5510a8df3feddf1ad1c5e760085d38bf7829ce0de813bff196e45acf69278",
-  "artifact_status": "source-only",
-  "production_usable": false,
-  "public_inputs": [
-    "action_context",
-    "scope",
-    "circuit_id",
-    "verifying_key_hash",
-    "public_input_layout_version",
-    "nullifier_hash",
-    "credential_root",
-    "revocation_root",
-    "issuer_public_key_hash",
-    "policy_hash",
-    "is_eligible",
-    "may_comment",
-    "rate_class",
-    "requires_moderation"
-  ],
-  "rate_class_catalog": ["common", "unknown"],
-  "minimum_production_anonymity_set_size": 20,
-  "legacy_layouts_rejected": [1, 2, 3, 4, 5],
-  "transcript_unlinkability": {
-    "sample_scope_count": 100,
-    "same_scope_nullifier_stable": true,
-    "different_scope_nullifier_unique": true,
-    "complete_wire_transcript_checked": true,
-    "credential_specific_stable_fields_allowed": []
-  },
-  "verifying_key_hash": ""
+    "schema": "fsusblog.zk.circuit-manifest.v2",
+    "circuit_id": "fsus.anonymous.comment.v5",
+    "public_input_layout_version": 6,
+    "artifact_class": "circuit-contract",
+    "lifecycle": "active-source-contract",
+    "proof_system": "Groth16",
+    "curve": "bn254",
+    "source": "src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json",
+    "source_sha256": "cdf5510a8df3feddf1ad1c5e760085d38bf7829ce0de813bff196e45acf69278",
+    "artifact_status": "source-only",
+    "production_usable": false,
+    "public_inputs": [
+        "action_context",
+        "scope",
+        "circuit_id",
+        "verifying_key_hash",
+        "public_input_layout_version",
+        "nullifier_hash",
+        "credential_root",
+        "revocation_root",
+        "issuer_public_key_hash",
+        "policy_hash",
+        "is_eligible",
+        "may_comment",
+        "rate_class",
+        "requires_moderation"
+    ],
+    "rate_class_catalog": [
+        "common",
+        "unknown"
+    ],
+    "minimum_production_anonymity_set_size": 20,
+    "legacy_layouts_rejected": [
+        1,
+        2,
+        3,
+        4,
+        5
+    ],
+    "transcript_unlinkability": {
+        "sample_scope_count": 100,
+        "same_scope_nullifier_stable": true,
+        "different_scope_nullifier_unique": true,
+        "complete_wire_transcript_checked": true,
+        "credential_specific_stable_fields_allowed": []
+    },
+    "verifying_key_hash": ""
 }

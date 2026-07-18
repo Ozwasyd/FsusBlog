@@ -1,29 +1,29 @@
 {
-  "stryker-config": {
-    "test-projects": [
-      "../../tests/backend/FsusBlog.Server.Tests.csproj"
-    ],
-    "configuration": "Debug",
-    "test-case-filter": "FullyQualifiedName~FsusBlog.Server.Tests.Unit.AedsEncoderTests",
-    "mutation-level": "Complete",
-    "thresholds": {
-      "high": 85,
-      "low": 70,
-      "break": 70
-    },
-    "break-on-initial-test-failure": true,
-    "reporters": [
-      "progress",
-      "html",
-      "json"
-    ],
-    "report-file-name": "backend-mutation-critical",
-    "mutate": [
-      "Algorithms/AedsEncoder.cs"
-    ],
-    "ignore-methods": [
-      "ToString",
-      "GetHashCode"
-    ]
-  }
+    "stryker-config": {
+        "test-projects": [
+            "../../tests/backend/FsusBlog.Server.Tests.csproj"
+        ],
+        "configuration": "Debug",
+        "test-case-filter": "FullyQualifiedName~FsusBlog.Server.Tests.Unit.AedsEncoderTests",
+        "mutation-level": "Complete",
+        "thresholds": {
+            "high": 85,
+            "low": 70,
+            "break": 70
+        },
+        "break-on-initial-test-failure": true,
+        "reporters": [
+            "progress",
+            "html",
+            "json"
+        ],
+        "report-file-name": "backend-mutation-critical",
+        "mutate": [
+            "Algorithms/AedsEncoder.cs"
+        ],
+        "ignore-methods": [
+            "ToString",
+            "GetHashCode"
+        ]
+    }
 }

@@ -1,219 +1,219 @@
 {
-  "schema": "fsusblog.issue-test-retention-replacements.v1",
-  "issue": 1037,
-  "baseline": "tests/test-retention-before.json",
-  "expectedDeletedTestIds": 19,
-  "deletedTests": [
-    {
-      "id": "xunit:tests/backend/Unit/InjectionHardeningContractTests.cs#InjectionHardeningContractTests.LocalAuthFixture_ValidatesScriptPathUnderExpectedFixturesDirectory",
-      "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.LocalFixtureScriptValidator_AcceptsOnlyNamedScriptInsideFixtureDirectory",
-        "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.TryResolveRelative_RejectsTraversalAndEncodedSeparators"
-      ],
-      "reason": "The real fixture path validator and the shared canonical boundary execute accepted and rejected paths without reading endpoint source text."
+    "schema": "fsusblog.issue-test-retention-replacements.v1",
+    "issue": 1037,
+    "baseline": "tests/test-retention-before.json",
+    "expectedDeletedTestIds": 19,
+    "deletedTests": [
+        {
+            "id": "xunit:tests/backend/Unit/InjectionHardeningContractTests.cs#InjectionHardeningContractTests.LocalAuthFixture_ValidatesScriptPathUnderExpectedFixturesDirectory",
+            "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.LocalFixtureScriptValidator_AcceptsOnlyNamedScriptInsideFixtureDirectory",
+                "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.TryResolveRelative_RejectsTraversalAndEncodedSeparators"
+            ],
+            "reason": "The real fixture path validator and the shared canonical boundary execute accepted and rejected paths without reading endpoint source text."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InjectionHardeningContractTests.cs#InjectionHardeningContractTests.AotSidecarAndWorkerPaths_StayInsideTheirCanonicalRoots",
+            "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.TryResolveRelative_RejectsTraversalAndEncodedSeparators",
+                "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.TryResolveRelative_ResolvesExistingPathInsidePhysicalRoot",
+                "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.TryResolveRelative_RejectsSymbolicLinkThatEscapesPhysicalRoot"
+            ],
+            "reason": "AOT sidecar and worker callers now share one physical-root resolver whose encoded traversal, valid path and symlink escape behavior is executable."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InjectionHardeningContractTests.cs#InjectionHardeningContractTests.UploadPathResolution_RejectsTraversalAndUsesCanonicalDirectoryChecks",
+            "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.TryResolveRelative_RejectsTraversalAndEncodedSeparators",
+                "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.FileService_RejectsAvifAndTraversalAtServiceBoundary"
+            ],
+            "reason": "Canonical resolution and the real FileService mutation boundary reject traversal through observed return values."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InjectionHardeningContractTests.cs#InjectionHardeningContractTests.UserControlledLogFields_AreSanitizedBeforeStructuredLogging",
+            "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
+                "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
+            ],
+            "reason": "The logger sink observes escaped control characters, while the Roslyn rule rejects raw sensitive structured placeholders."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InputValidationDosHardeningContractTests.cs#InputValidationDosHardeningContractTests.SearchIndex_BoundsKeywordBodyAndCjkSegmentWork",
+            "path": "tests/backend/Unit/InputValidationDosHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.Search_OversizedKeywordReturnsBeforeScopeOrDatabaseResolution",
+                "xunit:tests/backend/Unit/SearchIndexServiceTests.cs#SearchIndexServiceTests.TokenizeForTests_LongCjkSegment_KeepsDictionaryMatchesSubtokensAndStopwords"
+            ],
+            "reason": "Oversized queries return before database scope creation with bounded allocation/time, and the existing tokenizer behavior exercises long CJK input."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InputValidationDosHardeningContractTests.cs#InputValidationDosHardeningContractTests.ContentFilterAndAuthoring_BoundTextBeforeLargeAllocations",
+            "path": "tests/backend/Unit/InputValidationDosHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.ContentFilter_OversizedTextFailsBeforeLargePerCallAllocation",
+                "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.AuthoringRequestModel_RejectsOversizedContentBeforeWorkflow"
+            ],
+            "reason": "The content filter and actual authoring request model reject oversized values through their public validation behavior."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InputValidationDosHardeningContractTests.cs#InputValidationDosHardeningContractTests.PublicAndDevInputs_HaveExplicitLengthCaps",
+            "path": "tests/backend/Unit/InputValidationDosHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.PublicNavigationSnapshot_RejectsOversizedPathBeforeRendererResolution",
+                "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.Subscription_RejectsOversizedEmailBeforeDatabaseAccess",
+                "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.LocalFixture_RejectsOversizedRedirectAndStorageState",
+                "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.PasskeyAssertionParser_RejectsOversizedAndDeepJsonBeforeDomainServiceCall"
+            ],
+            "reason": "Public navigation, subscription, local fixture and passkey inputs now demonstrate fail-fast behavior at actual boundaries instead of constant-name assertions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.AnonymousCredentialIssuer_DoesNotFallbackToLocalIssuerKey",
+            "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ProductionCircuitNativeCredentialIssuer_ConfiguredManagedBackendWithoutPrivateKey_FailsClosed",
+                "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ProductionCircuitNativeCredentialIssuer_PublicKeyHashMismatch_FailsClosed"
+            ],
+            "reason": "The production issuer fails through observable results when private key material is missing or the configured public key hash is wrong."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.SecretAndWitnessComparisons_UseFixedTimeEquals",
+            "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.FixedTimeHexComparison_FailsClosedAndAcceptsEquivalentHexCase",
+                "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.FixedTimeUtf8Comparison_IsCaseSensitiveAndFailsClosed",
+                "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
+            ],
+            "reason": "Known equal, unequal, malformed and length-mismatch values execute the fixed-time helpers; FSUSBLOGSEC003 rejects ordinary sensitive comparisons."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.CryptoKeysAndIds_RejectDefaultsAndUseCryptographicRandomness",
+            "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.CryptographicRandomSource_ProducesRequestedLengthAndUniqueOutputs",
+                "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.SecurityAdminPolicy_UsesInjectedSecurityRandomSourceForSnapshotIdentifiers",
+                "xunit:tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs#CaptchaV1ChallengeProviderTests.VerifyAsync_RejectsTamperedSeedSignatureOrToken",
+                "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
+            ],
+            "reason": "CSPRNG output/injection and signed challenge behavior are observable; FSUSBLOGSEC001/002 forbid non-cryptographic random APIs in security scope."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.CryptoParameters_MeetCurrentMinimums",
+            "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
+            "replacementTestIds": [
+                "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548",
+                "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_RejectsOversizedHexPublicInputsBeforeBackendCall"
+            ],
+            "reason": "FSUSBLOGSEC006-008 enforce Argon2/PBKDF2 minima by Roslyn AST and the production verifier exercises bounded public-input shapes."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.SealedTokensAndPayloadHashes_AvoidAmbiguousCrypto",
+            "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/PerceptionSealedTokenServiceTests.cs#PerceptionSealedTokenServiceTests.SealOpen_RoundTripsPayloadWithConfiguredKeyVersion",
+                "xunit:tests/backend/Unit/PerceptionSealedTokenServiceTests.cs#PerceptionSealedTokenServiceTests.Open_RejectsTamperedAadField",
+                "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ManagedCircuitNativeCredentialSigner_SignsLowSAndRejectsHighSResponse"
+            ],
+            "reason": "Round-trip, authenticated-envelope tampering and canonical signature behavior replace implementation-call counting."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.ExceptionMiddleware_DoesNotReturnRawExceptionMessagesOutsideDevelopment",
+            "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.ProductionExceptionResponse_DoesNotExposeMessageStackSqlPathOrType",
+                "xunit:tests/backend/Unit/GlobalExceptionMiddlewareTests.cs#GlobalExceptionMiddlewareTests.InvokeAsync_Production500_DoesNotLeakExceptionMessage",
+                "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
+            ],
+            "reason": "The production AEDS response is decoded and inspected for raw details, while FSUSBLOGSEC005 blocks raw exception output paths."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.PowAndSecurityLogs_DoNotWriteRawTokensOrAccountIds",
+            "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
+            "replacementTestIds": [
+                "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548",
+                "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_DoesNotLogProofWitnessOrCredentialSecret",
+                "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_DoesNotLogRawNullifierHash"
+            ],
+            "reason": "FSUSBLOGSEC004 provides one scoped AST owner for raw sensitive placeholders and existing logger-sink tests exercise proof/nullifier redaction."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.LocalFixtureHealthAndStartup_DoNotExposeDetailedErrors",
+            "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.LocalFixtureStatus_ExposesOnlyBooleanStateAndFailsClosedForSecretOrNetworkMismatch",
+                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StartupValidationReport_ContainsRequirementStateButNotConfiguredSecretValues",
+                "xunit:tests/backend/Unit/ProductionHealthTests.cs#ProductionHealthTests.PublicReadinessReport_ContainsOnlyStatusAndCheckedAt",
+                "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
+            ],
+            "reason": "TestServer and report objects prove the exposed fields and redaction; health/startup/fixture raw exception outputs share FSUSBLOGSEC005."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.InfrastructureLogs_RedactFailureContext",
+            "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
+                "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StartupValidationReport_ContainsRequirementStateButNotConfiguredSecretValues",
+                "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
+            ],
+            "reason": "Captured structured state and serialized startup evidence cover observable disclosure; the scoped analyzer owns sensitive template regressions."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileUploadStorageHardeningContractTests.cs#FileUploadStorageHardeningContractTests.KestrelRequestBodyLimit_CoversDeclaredUploadLimit",
+            "path": "tests/backend/Unit/FileUploadStorageHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.KestrelRuntime_UsesDeclaredUploadRequestLimit",
+                "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.UploadPartHandler_RejectsDeclaredBodyAboveLimitBeforeStorage"
+            ],
+            "reason": "Resolved Kestrel options and the actual handler response prove both outer and inner request-body limits."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileUploadStorageHardeningContractTests.cs#FileUploadStorageHardeningContractTests.UploadPartEndpoint_RequiresExplicitContentLength",
+            "path": "tests/backend/Unit/FileUploadStorageHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.UploadPartTestServer_RequiresLengthAndRejectsChunkedTransfer",
+                "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.UploadPartTestServer_RejectsWrongContentTypeBeforeTokenOrStorage"
+            ],
+            "reason": "TestServer sends the real transfer encoding/content headers and observes 411/400 without a storage call."
+        },
+        {
+            "id": "xunit:tests/backend/Unit/FileUploadStorageHardeningContractTests.cs#FileUploadStorageHardeningContractTests.StaticAssetContentTypes_DoNotServeAvifUploads",
+            "path": "tests/backend/Unit/FileUploadStorageHardeningContractTests.cs",
+            "replacementTestIds": [
+                "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.FileService_RejectsAvifAndTraversalAtServiceBoundary",
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.InitUploadAsync_AvifRequest_ReturnsFail",
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsAllowedExtension_ReturnsExpected",
+                "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsSupportedImageMime_ReturnsExpected"
+            ],
+            "reason": "Actual upload initialization and extension/MIME classifiers reject AVIF without inspecting static-file provider source."
+        }
+    ],
+    "centralRegistryContract": {
+        "coverageId": "backend-security-hardening-boundary-and-ast",
+        "tierIds": [
+            "backend-unit",
+            "static-governance",
+            "backend-mutation",
+            "production"
+        ],
+        "backendRequirementOwners": [
+            "CanonicalPathBoundaryTests",
+            "InputLimitBoundaryTests",
+            "CryptographyBoundaryTests",
+            "DisclosureBoundaryTests",
+            "UploadBoundaryTests"
+        ],
+        "staticGovernanceCommand": "node --test tests/tools/security-source-analyzer.test.mjs",
+        "centralRetentionManifest": "tests/test-retention-replacements.json"
     },
-    {
-      "id": "xunit:tests/backend/Unit/InjectionHardeningContractTests.cs#InjectionHardeningContractTests.AotSidecarAndWorkerPaths_StayInsideTheirCanonicalRoots",
-      "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.TryResolveRelative_RejectsTraversalAndEncodedSeparators",
-        "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.TryResolveRelative_ResolvesExistingPathInsidePhysicalRoot",
-        "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.TryResolveRelative_RejectsSymbolicLinkThatEscapesPhysicalRoot"
-      ],
-      "reason": "AOT sidecar and worker callers now share one physical-root resolver whose encoded traversal, valid path and symlink escape behavior is executable."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InjectionHardeningContractTests.cs#InjectionHardeningContractTests.UploadPathResolution_RejectsTraversalAndUsesCanonicalDirectoryChecks",
-      "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs#CanonicalPathBoundaryTests.TryResolveRelative_RejectsTraversalAndEncodedSeparators",
-        "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.FileService_RejectsAvifAndTraversalAtServiceBoundary"
-      ],
-      "reason": "Canonical resolution and the real FileService mutation boundary reject traversal through observed return values."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InjectionHardeningContractTests.cs#InjectionHardeningContractTests.UserControlledLogFields_AreSanitizedBeforeStructuredLogging",
-      "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
-      ],
-      "reason": "The logger sink observes escaped control characters, while the Roslyn rule rejects raw sensitive structured placeholders."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InputValidationDosHardeningContractTests.cs#InputValidationDosHardeningContractTests.SearchIndex_BoundsKeywordBodyAndCjkSegmentWork",
-      "path": "tests/backend/Unit/InputValidationDosHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.Search_OversizedKeywordReturnsBeforeScopeOrDatabaseResolution",
-        "xunit:tests/backend/Unit/SearchIndexServiceTests.cs#SearchIndexServiceTests.TokenizeForTests_LongCjkSegment_KeepsDictionaryMatchesSubtokensAndStopwords"
-      ],
-      "reason": "Oversized queries return before database scope creation with bounded allocation/time, and the existing tokenizer behavior exercises long CJK input."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InputValidationDosHardeningContractTests.cs#InputValidationDosHardeningContractTests.ContentFilterAndAuthoring_BoundTextBeforeLargeAllocations",
-      "path": "tests/backend/Unit/InputValidationDosHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.ContentFilter_OversizedTextFailsBeforeLargePerCallAllocation",
-        "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.AuthoringRequestModel_RejectsOversizedContentBeforeWorkflow"
-      ],
-      "reason": "The content filter and actual authoring request model reject oversized values through their public validation behavior."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InputValidationDosHardeningContractTests.cs#InputValidationDosHardeningContractTests.PublicAndDevInputs_HaveExplicitLengthCaps",
-      "path": "tests/backend/Unit/InputValidationDosHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.PublicNavigationSnapshot_RejectsOversizedPathBeforeRendererResolution",
-        "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.Subscription_RejectsOversizedEmailBeforeDatabaseAccess",
-        "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.LocalFixture_RejectsOversizedRedirectAndStorageState",
-        "xunit:tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs#InputLimitBoundaryTests.PasskeyAssertionParser_RejectsOversizedAndDeepJsonBeforeDomainServiceCall"
-      ],
-      "reason": "Public navigation, subscription, local fixture and passkey inputs now demonstrate fail-fast behavior at actual boundaries instead of constant-name assertions."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.AnonymousCredentialIssuer_DoesNotFallbackToLocalIssuerKey",
-      "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ProductionCircuitNativeCredentialIssuer_ConfiguredManagedBackendWithoutPrivateKey_FailsClosed",
-        "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ProductionCircuitNativeCredentialIssuer_PublicKeyHashMismatch_FailsClosed"
-      ],
-      "reason": "The production issuer fails through observable results when private key material is missing or the configured public key hash is wrong."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.SecretAndWitnessComparisons_UseFixedTimeEquals",
-      "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.FixedTimeHexComparison_FailsClosedAndAcceptsEquivalentHexCase",
-        "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.FixedTimeUtf8Comparison_IsCaseSensitiveAndFailsClosed",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
-      ],
-      "reason": "Known equal, unequal, malformed and length-mismatch values execute the fixed-time helpers; FSUSBLOGSEC003 rejects ordinary sensitive comparisons."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.CryptoKeysAndIds_RejectDefaultsAndUseCryptographicRandomness",
-      "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.CryptographicRandomSource_ProducesRequestedLengthAndUniqueOutputs",
-        "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.SecurityAdminPolicy_UsesInjectedSecurityRandomSourceForSnapshotIdentifiers",
-        "xunit:tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs#CaptchaV1ChallengeProviderTests.VerifyAsync_RejectsTamperedSeedSignatureOrToken",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
-      ],
-      "reason": "CSPRNG output/injection and signed challenge behavior are observable; FSUSBLOGSEC001/002 forbid non-cryptographic random APIs in security scope."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.CryptoParameters_MeetCurrentMinimums",
-      "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
-      "replacementTestIds": [
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548",
-        "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_RejectsOversizedHexPublicInputsBeforeBackendCall"
-      ],
-      "reason": "FSUSBLOGSEC006-008 enforce Argon2/PBKDF2 minima by Roslyn AST and the production verifier exercises bounded public-input shapes."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.SealedTokensAndPayloadHashes_AvoidAmbiguousCrypto",
-      "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/PerceptionSealedTokenServiceTests.cs#PerceptionSealedTokenServiceTests.SealOpen_RoundTripsPayloadWithConfiguredKeyVersion",
-        "xunit:tests/backend/Unit/PerceptionSealedTokenServiceTests.cs#PerceptionSealedTokenServiceTests.Open_RejectsTamperedAadField",
-        "xunit:tests/backend/Unit/AnonymousCredentialIssuerTests.cs#AnonymousCredentialIssuerTests.ManagedCircuitNativeCredentialSigner_SignsLowSAndRejectsHighSResponse"
-      ],
-      "reason": "Round-trip, authenticated-envelope tampering and canonical signature behavior replace implementation-call counting."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.ExceptionMiddleware_DoesNotReturnRawExceptionMessagesOutsideDevelopment",
-      "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.ProductionExceptionResponse_DoesNotExposeMessageStackSqlPathOrType",
-        "xunit:tests/backend/Unit/GlobalExceptionMiddlewareTests.cs#GlobalExceptionMiddlewareTests.InvokeAsync_Production500_DoesNotLeakExceptionMessage",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
-      ],
-      "reason": "The production AEDS response is decoded and inspected for raw details, while FSUSBLOGSEC005 blocks raw exception output paths."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.PowAndSecurityLogs_DoNotWriteRawTokensOrAccountIds",
-      "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
-      "replacementTestIds": [
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548",
-        "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_DoesNotLogProofWitnessOrCredentialSecret",
-        "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_DoesNotLogRawNullifierHash"
-      ],
-      "reason": "FSUSBLOGSEC004 provides one scoped AST owner for raw sensitive placeholders and existing logger-sink tests exercise proof/nullifier redaction."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.LocalFixtureHealthAndStartup_DoNotExposeDetailedErrors",
-      "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.LocalFixtureStatus_ExposesOnlyBooleanStateAndFailsClosedForSecretOrNetworkMismatch",
-        "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StartupValidationReport_ContainsRequirementStateButNotConfiguredSecretValues",
-        "xunit:tests/backend/Unit/ProductionHealthTests.cs#ProductionHealthTests.PublicReadinessReport_ContainsOnlyStatusAndCheckedAt",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
-      ],
-      "reason": "TestServer and report objects prove the exposed fields and redaction; health/startup/fixture raw exception outputs share FSUSBLOGSEC005."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.InfrastructureLogs_RedactFailureContext",
-      "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
-        "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StartupValidationReport_ContainsRequirementStateButNotConfiguredSecretValues",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
-      ],
-      "reason": "Captured structured state and serialized startup evidence cover observable disclosure; the scoped analyzer owns sensitive template regressions."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/FileUploadStorageHardeningContractTests.cs#FileUploadStorageHardeningContractTests.KestrelRequestBodyLimit_CoversDeclaredUploadLimit",
-      "path": "tests/backend/Unit/FileUploadStorageHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.KestrelRuntime_UsesDeclaredUploadRequestLimit",
-        "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.UploadPartHandler_RejectsDeclaredBodyAboveLimitBeforeStorage"
-      ],
-      "reason": "Resolved Kestrel options and the actual handler response prove both outer and inner request-body limits."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/FileUploadStorageHardeningContractTests.cs#FileUploadStorageHardeningContractTests.UploadPartEndpoint_RequiresExplicitContentLength",
-      "path": "tests/backend/Unit/FileUploadStorageHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.UploadPartTestServer_RequiresLengthAndRejectsChunkedTransfer",
-        "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.UploadPartTestServer_RejectsWrongContentTypeBeforeTokenOrStorage"
-      ],
-      "reason": "TestServer sends the real transfer encoding/content headers and observes 411/400 without a storage call."
-    },
-    {
-      "id": "xunit:tests/backend/Unit/FileUploadStorageHardeningContractTests.cs#FileUploadStorageHardeningContractTests.StaticAssetContentTypes_DoNotServeAvifUploads",
-      "path": "tests/backend/Unit/FileUploadStorageHardeningContractTests.cs",
-      "replacementTestIds": [
-        "xunit:tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs#UploadBoundaryTests.FileService_RejectsAvifAndTraversalAtServiceBoundary",
-        "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.InitUploadAsync_AvifRequest_ReturnsFail",
-        "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsAllowedExtension_ReturnsExpected",
-        "xunit:tests/backend/Unit/FileServiceTests.cs#FileServiceTests.IsSupportedImageMime_ReturnsExpected"
-      ],
-      "reason": "Actual upload initialization and extension/MIME classifiers reject AVIF without inspecting static-file provider source."
+    "centralRegistryReadback": {
+        "status": "present-not-verified",
+        "coverageIdPresent": true,
+        "matrixWiringPresent": true,
+        "backendRequirementsPresent": true,
+        "staticGovernanceCommandPresent": true,
+        "centralDeletedTestIds": 19
     }
-  ],
-  "centralRegistryContract": {
-    "coverageId": "backend-security-hardening-boundary-and-ast",
-    "tierIds": [
-      "backend-unit",
-      "static-governance",
-      "backend-mutation",
-      "production"
-    ],
-    "backendRequirementOwners": [
-      "CanonicalPathBoundaryTests",
-      "InputLimitBoundaryTests",
-      "CryptographyBoundaryTests",
-      "DisclosureBoundaryTests",
-      "UploadBoundaryTests"
-    ],
-    "staticGovernanceCommand": "node --test tests/tools/security-source-analyzer.test.mjs",
-    "centralRetentionManifest": "tests/test-retention-replacements.json"
-  },
-  "centralRegistryReadback": {
-    "status": "present-not-verified",
-    "coverageIdPresent": true,
-    "matrixWiringPresent": true,
-    "backendRequirementsPresent": true,
-    "staticGovernanceCommandPresent": true,
-    "centralDeletedTestIds": 19
-  }
 }

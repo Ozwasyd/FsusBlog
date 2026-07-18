@@ -1,24 +1,40 @@
 {
-  "schema": "fsusblog.zk.trusted-setup-manifest.v2",
-  "circuit_id": "fsus.anonymous.comment.v5",
-  "public_input_layout_version": 6,
-  "artifact_class": "trusted-setup-provenance",
-  "lifecycle": "ceremony-required",
-  "circuit_manifest_path": "security/zk/contracts/comment-v5-circuit.manifest.json",
-  "ceremony_status": "not-run",
-  "production_usable": false,
-  "fail_closed_reason": "Layout 6 changes the statement and requires a fresh circuit-specific Groth16 setup. No prior proving or verifying key is compatible.",
-  "phase2": {
-    "status": "required",
-    "minimum_contributions": 3,
-    "transcript_path": "artifacts/zk/comment-v5/phase2/comment_v5_ceremony_transcript.json",
-    "transcript_sha256": ""
-  },
-  "artifacts": {
-    "r1cs": { "path": "artifacts/zk/comment-v5/comment_v5.r1cs", "sha256": "", "status": "required" },
-    "proving_key": { "path": "artifacts/zk/comment-v5/comment_v5_final.fsg16pk", "sha256": "", "status": "required" },
-    "verifying_key": { "path": "artifacts/zk/comment-v5/comment_v5_verifying_key.bin", "sha256": "", "status": "required" },
-    "wasm_prover_bundle": { "path": "artifacts/zk/comment-v5/comment_v5_prover_wasm.tar.gz", "sha256": "", "status": "required" }
-  },
-  "verifying_key_hash": ""
+    "schema": "fsusblog.zk.trusted-setup-manifest.v2",
+    "circuit_id": "fsus.anonymous.comment.v5",
+    "public_input_layout_version": 6,
+    "artifact_class": "trusted-setup-provenance",
+    "lifecycle": "ceremony-required",
+    "circuit_manifest_path": "security/zk/contracts/comment-v5-circuit.manifest.json",
+    "ceremony_status": "not-run",
+    "production_usable": false,
+    "fail_closed_reason": "Layout 6 changes the statement and requires a fresh circuit-specific Groth16 setup. No prior proving or verifying key is compatible.",
+    "phase2": {
+        "status": "required",
+        "minimum_contributions": 3,
+        "transcript_path": "artifacts/zk/comment-v5/phase2/comment_v5_ceremony_transcript.json",
+        "transcript_sha256": ""
+    },
+    "artifacts": {
+        "r1cs": {
+            "path": "artifacts/zk/comment-v5/comment_v5.r1cs",
+            "sha256": "",
+            "status": "required"
+        },
+        "proving_key": {
+            "path": "artifacts/zk/comment-v5/comment_v5_final.fsg16pk",
+            "sha256": "",
+            "status": "required"
+        },
+        "verifying_key": {
+            "path": "artifacts/zk/comment-v5/comment_v5_verifying_key.bin",
+            "sha256": "",
+            "status": "required"
+        },
+        "wasm_prover_bundle": {
+            "path": "artifacts/zk/comment-v5/comment_v5_prover_wasm.tar.gz",
+            "sha256": "",
+            "status": "required"
+        }
+    },
+    "verifying_key_hash": ""
 }

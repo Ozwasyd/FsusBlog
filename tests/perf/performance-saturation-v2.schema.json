@@ -1,355 +1,839 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fsus.example/schemas/performance-saturation-v2.schema.json",
-  "title": "FsusBlog performance saturation evidence v2",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema",
-    "status",
-    "evidenceKind",
-    "generatedAt",
-    "identity",
-    "identityDigest",
-    "policy",
-    "routeMatrix",
-    "topologies",
-    "scenarios",
-    "blockers"
-  ],
-  "properties": {
-    "schema": { "const": "fsusblog.performance-saturation.v2" },
-    "status": { "enum": ["ok", "blocked"] },
-    "evidenceKind": { "const": "real" },
-    "generatedAt": { "type": "string", "format": "date-time" },
-    "identity": { "$ref": "#/$defs/identity" },
-    "identityDigest": { "$ref": "#/$defs/sha256" },
-    "policy": { "$ref": "#/$defs/policy" },
-    "routeMatrix": {
-      "type": "array",
-      "prefixItems": [
-        { "const": "l0-binary-identity" },
-        { "const": "l0-binary-br" },
-        { "const": "l0-binary-gzip" },
-        { "const": "l0-binary-304" },
-        { "const": "l0-binary-head" },
-        { "const": "l0-html-static" },
-        { "const": "l0-html-nonce" },
-        { "const": "l1-cache-hit" },
-        { "const": "l2-redis-hit" },
-        { "const": "db-miss-buffer-cold" },
-        { "const": "db-miss-buffer-warm" },
-        { "const": "notification-1" },
-        { "const": "notification-100" },
-        { "const": "notification-1000" },
-        { "const": "browser-aeds-decode" },
-        { "const": "browser-public-takeover" },
-        { "const": "browser-hydration-long-task" }
-      ],
-      "items": false
-    },
-    "topologies": { "const": ["kestrel-only", "production-topology"] },
-    "scenarios": {
-      "type": "array",
-      "minItems": 34,
-      "maxItems": 34,
-      "items": { "$ref": "#/$defs/scenario" }
-    },
-    "blockers": { "type": "array", "items": { "type": "string", "minLength": 1 } }
-  },
-  "$defs": {
-    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-    "nonEmptyString": { "type": "string", "minLength": 1 },
-    "nonNegative": { "type": "number", "minimum": 0 },
-    "positive": { "type": "number", "exclusiveMinimum": 0 },
-    "positiveInteger": { "type": "integer", "minimum": 1 },
-    "identity": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "commitSha", "imageDigest", "capturedAt", "serviceHost", "hardware", "platform",
-        "cgroup", "runtime", "proxy", "postgres", "redis", "fixture", "loadGenerator",
-        "serviceCpuAffinity"
-      ],
-      "properties": {
-        "commitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-        "imageDigest": { "$ref": "#/$defs/sha256" },
-        "capturedAt": { "type": "string", "format": "date-time" },
-        "serviceHost": { "$ref": "#/$defs/nonEmptyString" },
-        "hardware": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["cpuModel", "logicalCpus", "physicalCores", "smt", "microcode"],
-          "properties": {
-            "cpuModel": { "$ref": "#/$defs/nonEmptyString" },
-            "logicalCpus": { "$ref": "#/$defs/positiveInteger" },
-            "physicalCores": { "$ref": "#/$defs/positiveInteger" },
-            "smt": { "type": "boolean" },
-            "microcode": { "$ref": "#/$defs/nonEmptyString" }
-          }
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsus.example/schemas/performance-saturation-v2.schema.json",
+    "title": "FsusBlog performance saturation evidence v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "status",
+        "evidenceKind",
+        "generatedAt",
+        "identity",
+        "identityDigest",
+        "policy",
+        "routeMatrix",
+        "topologies",
+        "scenarios",
+        "blockers"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.performance-saturation.v2"
         },
-        "platform": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["kernel", "libc", "containerRuntime"],
-          "properties": {
-            "kernel": { "$ref": "#/$defs/nonEmptyString" },
-            "libc": { "$ref": "#/$defs/nonEmptyString" },
-            "containerRuntime": { "$ref": "#/$defs/nonEmptyString" }
-          }
+        "status": {
+            "enum": [
+                "ok",
+                "blocked"
+            ]
         },
-        "cgroup": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["cpuQuota", "memoryLimitBytes", "cpuset"],
-          "properties": {
-            "cpuQuota": { "$ref": "#/$defs/nonEmptyString" },
-            "memoryLimitBytes": { "$ref": "#/$defs/positiveInteger" },
-            "cpuset": { "$ref": "#/$defs/nonEmptyString" }
-          }
+        "evidenceKind": {
+            "const": "real"
         },
-        "runtime": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["dotnetVersion", "environmentDigest"],
-          "properties": {
-            "dotnetVersion": { "$ref": "#/$defs/nonEmptyString" },
-            "environmentDigest": { "$ref": "#/$defs/sha256" }
-          }
+        "generatedAt": {
+            "type": "string",
+            "format": "date-time"
         },
-        "proxy": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["kind", "configDigest", "tlsConfigDigest"],
-          "properties": {
-            "kind": { "$ref": "#/$defs/nonEmptyString" },
-            "configDigest": { "$ref": "#/$defs/sha256" },
-            "tlsConfigDigest": { "$ref": "#/$defs/sha256" }
-          }
+        "identity": {
+            "$ref": "#/$defs/identity"
         },
-        "postgres": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["version", "configDigest"],
-          "properties": {
-            "version": { "$ref": "#/$defs/nonEmptyString" },
-            "configDigest": { "$ref": "#/$defs/sha256" }
-          }
+        "identityDigest": {
+            "$ref": "#/$defs/sha256"
         },
-        "redis": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["version", "configDigest"],
-          "properties": {
-            "version": { "$ref": "#/$defs/nonEmptyString" },
-            "configDigest": { "$ref": "#/$defs/sha256" }
-          }
+        "policy": {
+            "$ref": "#/$defs/policy"
         },
-        "fixture": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["datasetId", "articleCount", "commentCount", "artifactCount"],
-          "properties": {
-            "datasetId": { "$ref": "#/$defs/nonEmptyString" },
-            "articleCount": { "$ref": "#/$defs/positiveInteger" },
-            "commentCount": { "$ref": "#/$defs/positiveInteger" },
-            "artifactCount": { "$ref": "#/$defs/positiveInteger" }
-          }
+        "routeMatrix": {
+            "type": "array",
+            "prefixItems": [
+                {
+                    "const": "l0-binary-identity"
+                },
+                {
+                    "const": "l0-binary-br"
+                },
+                {
+                    "const": "l0-binary-gzip"
+                },
+                {
+                    "const": "l0-binary-304"
+                },
+                {
+                    "const": "l0-binary-head"
+                },
+                {
+                    "const": "l0-html-static"
+                },
+                {
+                    "const": "l0-html-nonce"
+                },
+                {
+                    "const": "l1-cache-hit"
+                },
+                {
+                    "const": "l2-redis-hit"
+                },
+                {
+                    "const": "db-miss-buffer-cold"
+                },
+                {
+                    "const": "db-miss-buffer-warm"
+                },
+                {
+                    "const": "notification-1"
+                },
+                {
+                    "const": "notification-100"
+                },
+                {
+                    "const": "notification-1000"
+                },
+                {
+                    "const": "browser-aeds-decode"
+                },
+                {
+                    "const": "browser-public-takeover"
+                },
+                {
+                    "const": "browser-hydration-long-task"
+                }
+            ],
+            "items": false
         },
-        "loadGenerator": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["host", "cpuModel", "logicalCpus", "cpuAffinity", "networkPath"],
-          "properties": {
-            "host": { "$ref": "#/$defs/nonEmptyString" },
-            "cpuModel": { "$ref": "#/$defs/nonEmptyString" },
-            "logicalCpus": { "$ref": "#/$defs/positiveInteger" },
-            "cpuAffinity": { "$ref": "#/$defs/nonEmptyString" },
-            "networkPath": { "$ref": "#/$defs/nonEmptyString" }
-          }
+        "topologies": {
+            "const": [
+                "kestrel-only",
+                "production-topology"
+            ]
         },
-        "serviceCpuAffinity": { "$ref": "#/$defs/nonEmptyString" }
-      }
-    },
-    "policy": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "minimumRepeats", "minimumOfferedLoadSteps", "saturationFloorPercent",
-        "saturationCeilingPercent", "maximumErrorRate", "maximumTimeoutRate",
-        "maximumP99AtSafeMs", "maximumP999AtSafeMs", "maximumThroughputVariance",
-        "maximumGeneratorCpuPercent", "maximumGeneratorScheduleLagP99Ms",
-        "safeHeadroomPercent", "maximumEvidenceAgeMs"
-      ],
-      "properties": {
-        "minimumRepeats": { "$ref": "#/$defs/positiveInteger" },
-        "minimumOfferedLoadSteps": { "$ref": "#/$defs/positiveInteger" },
-        "saturationFloorPercent": { "$ref": "#/$defs/nonNegative" },
-        "saturationCeilingPercent": { "$ref": "#/$defs/nonNegative" },
-        "maximumErrorRate": { "$ref": "#/$defs/nonNegative" },
-        "maximumTimeoutRate": { "$ref": "#/$defs/nonNegative" },
-        "maximumP99AtSafeMs": { "$ref": "#/$defs/positive" },
-        "maximumP999AtSafeMs": { "$ref": "#/$defs/positive" },
-        "maximumThroughputVariance": { "$ref": "#/$defs/nonNegative" },
-        "maximumGeneratorCpuPercent": { "$ref": "#/$defs/positive" },
-        "maximumGeneratorScheduleLagP99Ms": { "$ref": "#/$defs/nonNegative" },
-        "safeHeadroomPercent": { "$ref": "#/$defs/nonNegative" },
-        "maximumEvidenceAgeMs": { "$ref": "#/$defs/positiveInteger" }
-      }
-    },
-    "resourceSaturation": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["cpu", "memory", "tlsNic", "redis", "postgres"],
-      "properties": {
-        "cpu": { "type": "number", "minimum": 0, "maximum": 100 },
-        "memory": { "type": "number", "minimum": 0, "maximum": 100 },
-        "tlsNic": { "type": "number", "minimum": 0, "maximum": 100 },
-        "redis": { "type": "number", "minimum": 0, "maximum": 100 },
-        "postgres": { "type": "number", "minimum": 0, "maximum": 100 }
-      }
-    },
-    "metrics": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["request", "process", "managed", "queues", "postgres", "redis", "loadGenerator"],
-      "properties": {
-        "request": {
-          "type": "object",
-          "required": [
-            "cyclesPerRequest", "instructionsPerRequest", "ipc", "branchMissesPerRequest",
-            "llcMissesPerRequest", "contextSwitchesPerRequest", "cpuMigrationsPerRequest",
-            "syscallsPerRequest", "allocationBytesPerRequest", "responseBytesPerRequest",
-            "wireBytesPerRequest"
-          ],
-          "additionalProperties": { "$ref": "#/$defs/nonNegative" }
+        "scenarios": {
+            "type": "array",
+            "minItems": 34,
+            "maxItems": 34,
+            "items": {
+                "$ref": "#/$defs/scenario"
+            }
         },
-        "process": {
-          "type": "object",
-          "required": ["processCpuPercent", "containerCpuPercent", "cgroupThrottledMs"],
-          "additionalProperties": { "$ref": "#/$defs/nonNegative" }
-        },
-        "managed": {
-          "type": "object",
-          "required": ["heapBytes", "lohBytes", "gen0Count", "gen1Count", "gen2Count", "gcPauseP95Ms", "gcPauseP99Ms"],
-          "additionalProperties": { "$ref": "#/$defs/nonNegative" }
-        },
-        "queues": {
-          "type": "object",
-          "required": ["threadPoolQueueLength", "workerAvailable", "ioAvailable", "activeRequests", "sockets", "fileDescriptors", "requestQueueSlope"],
-          "additionalProperties": { "$ref": "#/$defs/nonNegative" }
-        },
-        "postgres": {
-          "type": "object",
-          "required": ["poolActive", "poolIdle", "poolWaitCount", "poolWaitP99Ms", "calls", "meanTimeMs", "maxTimeMs", "rows", "sharedBlocks", "tempBlocks", "walBytes"],
-          "additionalProperties": { "$ref": "#/$defs/nonNegative" }
-        },
-        "redis": {
-          "type": "object",
-          "required": ["commandCount", "roundtripP95Ms", "roundtripP99Ms"],
-          "additionalProperties": { "$ref": "#/$defs/nonNegative" }
-        },
-        "loadGenerator": {
-          "type": "object",
-          "required": ["cpuPercent", "scheduleLagP99Ms", "droppedArrivals"],
-          "additionalProperties": { "$ref": "#/$defs/nonNegative" }
+        "blockers": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
         }
-      }
     },
-    "sample": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "offeredRps", "achievedRps", "p50Ms", "p95Ms", "p99Ms", "p999Ms",
-        "errorRate", "timeoutRate", "durationMs", "repeat", "responseCount",
-        "resourceSaturation", "metrics", "window", "sourceDigests"
-      ],
-      "properties": {
-        "offeredRps": { "$ref": "#/$defs/positive" },
-        "achievedRps": { "$ref": "#/$defs/positive" },
-        "p50Ms": { "$ref": "#/$defs/nonNegative" },
-        "p95Ms": { "$ref": "#/$defs/nonNegative" },
-        "p99Ms": { "$ref": "#/$defs/nonNegative" },
-        "p999Ms": { "$ref": "#/$defs/nonNegative" },
-        "errorRate": { "$ref": "#/$defs/nonNegative" },
-        "timeoutRate": { "$ref": "#/$defs/nonNegative" },
-        "durationMs": { "$ref": "#/$defs/positive" },
-        "repeat": { "$ref": "#/$defs/positiveInteger" },
-        "responseCount": { "type": "integer", "minimum": 0 },
-        "resourceSaturation": { "$ref": "#/$defs/resourceSaturation" },
-        "metrics": { "$ref": "#/$defs/metrics" },
-        "window": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["startedAt", "endedAt"],
-          "properties": {
-            "startedAt": { "type": "string", "format": "date-time" },
-            "endedAt": { "type": "string", "format": "date-time" }
-          }
+    "$defs": {
+        "sha256": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
         },
-        "sourceDigests": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["load", "systemMetrics"],
-          "properties": {
-            "load": { "$ref": "#/$defs/sha256" },
-            "systemMetrics": { "$ref": "#/$defs/sha256" }
-          }
-        }
-      }
-    },
-    "conclusion": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "limitingResource", "saturationPointRps", "safeOperatingRps",
-        "p99AtSafeOperatingPoint", "p999AtSafeOperatingPoint", "cyclesPerRequest",
-        "instructionsPerRequest", "allocationBytesPerRequest", "queueGrowthStatus"
-      ],
-      "properties": {
-        "limitingResource": { "enum": ["cpu", "memory", "tlsNic", "redis", "postgres"] },
-        "limitingResourcePercent": { "$ref": "#/$defs/nonNegative" },
-        "saturationPointRps": { "$ref": "#/$defs/nonNegative" },
-        "safeOperatingRps": { "$ref": "#/$defs/nonNegative" },
-        "p99AtSafeOperatingPoint": { "$ref": "#/$defs/nonNegative" },
-        "p999AtSafeOperatingPoint": { "$ref": "#/$defs/nonNegative" },
-        "cyclesPerRequest": { "$ref": "#/$defs/nonNegative" },
-        "instructionsPerRequest": { "$ref": "#/$defs/nonNegative" },
-        "allocationBytesPerRequest": { "$ref": "#/$defs/nonNegative" },
-        "queueGrowthStatus": { "const": "stable" },
-        "throughputVariance": { "$ref": "#/$defs/nonNegative" },
-        "saturationOfferedRps": { "$ref": "#/$defs/positive" },
-        "safeOfferedRps": { "$ref": "#/$defs/positive" }
-      }
-    },
-    "scenario": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["routeId", "topology", "status", "sampleCount"],
-      "properties": {
-        "routeId": {
-          "enum": [
-            "l0-binary-identity", "l0-binary-br", "l0-binary-gzip", "l0-binary-304",
-            "l0-binary-head", "l0-html-static", "l0-html-nonce", "l1-cache-hit",
-            "l2-redis-hit", "db-miss-buffer-cold", "db-miss-buffer-warm", "notification-1",
-            "notification-100", "notification-1000", "browser-aeds-decode",
-            "browser-public-takeover", "browser-hydration-long-task"
-          ]
+        "nonEmptyString": {
+            "type": "string",
+            "minLength": 1
         },
-        "topology": { "enum": ["kestrel-only", "production-topology"] },
-        "status": { "enum": ["ok", "blocked"] },
-        "sampleCount": { "type": "integer", "minimum": 0 },
-        "samples": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/sample" } },
-        "conclusion": { "$ref": "#/$defs/conclusion" },
-        "blockers": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
-      },
-      "allOf": [
-        {
-          "if": { "properties": { "status": { "const": "ok" } }, "required": ["status"] },
-          "then": { "required": ["samples", "conclusion"] },
-          "else": { "required": ["blockers"] }
+        "nonNegative": {
+            "type": "number",
+            "minimum": 0
+        },
+        "positive": {
+            "type": "number",
+            "exclusiveMinimum": 0
+        },
+        "positiveInteger": {
+            "type": "integer",
+            "minimum": 1
+        },
+        "identity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "commitSha",
+                "imageDigest",
+                "capturedAt",
+                "serviceHost",
+                "hardware",
+                "platform",
+                "cgroup",
+                "runtime",
+                "proxy",
+                "postgres",
+                "redis",
+                "fixture",
+                "loadGenerator",
+                "serviceCpuAffinity"
+            ],
+            "properties": {
+                "commitSha": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                },
+                "imageDigest": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "capturedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "serviceHost": {
+                    "$ref": "#/$defs/nonEmptyString"
+                },
+                "hardware": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "cpuModel",
+                        "logicalCpus",
+                        "physicalCores",
+                        "smt",
+                        "microcode"
+                    ],
+                    "properties": {
+                        "cpuModel": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "logicalCpus": {
+                            "$ref": "#/$defs/positiveInteger"
+                        },
+                        "physicalCores": {
+                            "$ref": "#/$defs/positiveInteger"
+                        },
+                        "smt": {
+                            "type": "boolean"
+                        },
+                        "microcode": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        }
+                    }
+                },
+                "platform": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "kernel",
+                        "libc",
+                        "containerRuntime"
+                    ],
+                    "properties": {
+                        "kernel": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "libc": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "containerRuntime": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        }
+                    }
+                },
+                "cgroup": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "cpuQuota",
+                        "memoryLimitBytes",
+                        "cpuset"
+                    ],
+                    "properties": {
+                        "cpuQuota": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "memoryLimitBytes": {
+                            "$ref": "#/$defs/positiveInteger"
+                        },
+                        "cpuset": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        }
+                    }
+                },
+                "runtime": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "dotnetVersion",
+                        "environmentDigest"
+                    ],
+                    "properties": {
+                        "dotnetVersion": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "environmentDigest": {
+                            "$ref": "#/$defs/sha256"
+                        }
+                    }
+                },
+                "proxy": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "kind",
+                        "configDigest",
+                        "tlsConfigDigest"
+                    ],
+                    "properties": {
+                        "kind": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "configDigest": {
+                            "$ref": "#/$defs/sha256"
+                        },
+                        "tlsConfigDigest": {
+                            "$ref": "#/$defs/sha256"
+                        }
+                    }
+                },
+                "postgres": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "version",
+                        "configDigest"
+                    ],
+                    "properties": {
+                        "version": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "configDigest": {
+                            "$ref": "#/$defs/sha256"
+                        }
+                    }
+                },
+                "redis": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "version",
+                        "configDigest"
+                    ],
+                    "properties": {
+                        "version": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "configDigest": {
+                            "$ref": "#/$defs/sha256"
+                        }
+                    }
+                },
+                "fixture": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "datasetId",
+                        "articleCount",
+                        "commentCount",
+                        "artifactCount"
+                    ],
+                    "properties": {
+                        "datasetId": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "articleCount": {
+                            "$ref": "#/$defs/positiveInteger"
+                        },
+                        "commentCount": {
+                            "$ref": "#/$defs/positiveInteger"
+                        },
+                        "artifactCount": {
+                            "$ref": "#/$defs/positiveInteger"
+                        }
+                    }
+                },
+                "loadGenerator": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "host",
+                        "cpuModel",
+                        "logicalCpus",
+                        "cpuAffinity",
+                        "networkPath"
+                    ],
+                    "properties": {
+                        "host": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "cpuModel": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "logicalCpus": {
+                            "$ref": "#/$defs/positiveInteger"
+                        },
+                        "cpuAffinity": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        },
+                        "networkPath": {
+                            "$ref": "#/$defs/nonEmptyString"
+                        }
+                    }
+                },
+                "serviceCpuAffinity": {
+                    "$ref": "#/$defs/nonEmptyString"
+                }
+            }
+        },
+        "policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "minimumRepeats",
+                "minimumOfferedLoadSteps",
+                "saturationFloorPercent",
+                "saturationCeilingPercent",
+                "maximumErrorRate",
+                "maximumTimeoutRate",
+                "maximumP99AtSafeMs",
+                "maximumP999AtSafeMs",
+                "maximumThroughputVariance",
+                "maximumGeneratorCpuPercent",
+                "maximumGeneratorScheduleLagP99Ms",
+                "safeHeadroomPercent",
+                "maximumEvidenceAgeMs"
+            ],
+            "properties": {
+                "minimumRepeats": {
+                    "$ref": "#/$defs/positiveInteger"
+                },
+                "minimumOfferedLoadSteps": {
+                    "$ref": "#/$defs/positiveInteger"
+                },
+                "saturationFloorPercent": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "saturationCeilingPercent": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "maximumErrorRate": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "maximumTimeoutRate": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "maximumP99AtSafeMs": {
+                    "$ref": "#/$defs/positive"
+                },
+                "maximumP999AtSafeMs": {
+                    "$ref": "#/$defs/positive"
+                },
+                "maximumThroughputVariance": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "maximumGeneratorCpuPercent": {
+                    "$ref": "#/$defs/positive"
+                },
+                "maximumGeneratorScheduleLagP99Ms": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "safeHeadroomPercent": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "maximumEvidenceAgeMs": {
+                    "$ref": "#/$defs/positiveInteger"
+                }
+            }
+        },
+        "resourceSaturation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "cpu",
+                "memory",
+                "tlsNic",
+                "redis",
+                "postgres"
+            ],
+            "properties": {
+                "cpu": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                "memory": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                "tlsNic": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                "redis": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                "postgres": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                }
+            }
+        },
+        "metrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "request",
+                "process",
+                "managed",
+                "queues",
+                "postgres",
+                "redis",
+                "loadGenerator"
+            ],
+            "properties": {
+                "request": {
+                    "type": "object",
+                    "required": [
+                        "cyclesPerRequest",
+                        "instructionsPerRequest",
+                        "ipc",
+                        "branchMissesPerRequest",
+                        "llcMissesPerRequest",
+                        "contextSwitchesPerRequest",
+                        "cpuMigrationsPerRequest",
+                        "syscallsPerRequest",
+                        "allocationBytesPerRequest",
+                        "responseBytesPerRequest",
+                        "wireBytesPerRequest"
+                    ],
+                    "additionalProperties": {
+                        "$ref": "#/$defs/nonNegative"
+                    }
+                },
+                "process": {
+                    "type": "object",
+                    "required": [
+                        "processCpuPercent",
+                        "containerCpuPercent",
+                        "cgroupThrottledMs"
+                    ],
+                    "additionalProperties": {
+                        "$ref": "#/$defs/nonNegative"
+                    }
+                },
+                "managed": {
+                    "type": "object",
+                    "required": [
+                        "heapBytes",
+                        "lohBytes",
+                        "gen0Count",
+                        "gen1Count",
+                        "gen2Count",
+                        "gcPauseP95Ms",
+                        "gcPauseP99Ms"
+                    ],
+                    "additionalProperties": {
+                        "$ref": "#/$defs/nonNegative"
+                    }
+                },
+                "queues": {
+                    "type": "object",
+                    "required": [
+                        "threadPoolQueueLength",
+                        "workerAvailable",
+                        "ioAvailable",
+                        "activeRequests",
+                        "sockets",
+                        "fileDescriptors",
+                        "requestQueueSlope"
+                    ],
+                    "additionalProperties": {
+                        "$ref": "#/$defs/nonNegative"
+                    }
+                },
+                "postgres": {
+                    "type": "object",
+                    "required": [
+                        "poolActive",
+                        "poolIdle",
+                        "poolWaitCount",
+                        "poolWaitP99Ms",
+                        "calls",
+                        "meanTimeMs",
+                        "maxTimeMs",
+                        "rows",
+                        "sharedBlocks",
+                        "tempBlocks",
+                        "walBytes"
+                    ],
+                    "additionalProperties": {
+                        "$ref": "#/$defs/nonNegative"
+                    }
+                },
+                "redis": {
+                    "type": "object",
+                    "required": [
+                        "commandCount",
+                        "roundtripP95Ms",
+                        "roundtripP99Ms"
+                    ],
+                    "additionalProperties": {
+                        "$ref": "#/$defs/nonNegative"
+                    }
+                },
+                "loadGenerator": {
+                    "type": "object",
+                    "required": [
+                        "cpuPercent",
+                        "scheduleLagP99Ms",
+                        "droppedArrivals"
+                    ],
+                    "additionalProperties": {
+                        "$ref": "#/$defs/nonNegative"
+                    }
+                }
+            }
+        },
+        "sample": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "offeredRps",
+                "achievedRps",
+                "p50Ms",
+                "p95Ms",
+                "p99Ms",
+                "p999Ms",
+                "errorRate",
+                "timeoutRate",
+                "durationMs",
+                "repeat",
+                "responseCount",
+                "resourceSaturation",
+                "metrics",
+                "window",
+                "sourceDigests"
+            ],
+            "properties": {
+                "offeredRps": {
+                    "$ref": "#/$defs/positive"
+                },
+                "achievedRps": {
+                    "$ref": "#/$defs/positive"
+                },
+                "p50Ms": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "p95Ms": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "p99Ms": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "p999Ms": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "errorRate": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "timeoutRate": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "durationMs": {
+                    "$ref": "#/$defs/positive"
+                },
+                "repeat": {
+                    "$ref": "#/$defs/positiveInteger"
+                },
+                "responseCount": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "resourceSaturation": {
+                    "$ref": "#/$defs/resourceSaturation"
+                },
+                "metrics": {
+                    "$ref": "#/$defs/metrics"
+                },
+                "window": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "startedAt",
+                        "endedAt"
+                    ],
+                    "properties": {
+                        "startedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "endedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    }
+                },
+                "sourceDigests": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "load",
+                        "systemMetrics"
+                    ],
+                    "properties": {
+                        "load": {
+                            "$ref": "#/$defs/sha256"
+                        },
+                        "systemMetrics": {
+                            "$ref": "#/$defs/sha256"
+                        }
+                    }
+                }
+            }
+        },
+        "conclusion": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "limitingResource",
+                "saturationPointRps",
+                "safeOperatingRps",
+                "p99AtSafeOperatingPoint",
+                "p999AtSafeOperatingPoint",
+                "cyclesPerRequest",
+                "instructionsPerRequest",
+                "allocationBytesPerRequest",
+                "queueGrowthStatus"
+            ],
+            "properties": {
+                "limitingResource": {
+                    "enum": [
+                        "cpu",
+                        "memory",
+                        "tlsNic",
+                        "redis",
+                        "postgres"
+                    ]
+                },
+                "limitingResourcePercent": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "saturationPointRps": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "safeOperatingRps": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "p99AtSafeOperatingPoint": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "p999AtSafeOperatingPoint": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "cyclesPerRequest": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "instructionsPerRequest": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "allocationBytesPerRequest": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "queueGrowthStatus": {
+                    "const": "stable"
+                },
+                "throughputVariance": {
+                    "$ref": "#/$defs/nonNegative"
+                },
+                "saturationOfferedRps": {
+                    "$ref": "#/$defs/positive"
+                },
+                "safeOfferedRps": {
+                    "$ref": "#/$defs/positive"
+                }
+            }
+        },
+        "scenario": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "routeId",
+                "topology",
+                "status",
+                "sampleCount"
+            ],
+            "properties": {
+                "routeId": {
+                    "enum": [
+                        "l0-binary-identity",
+                        "l0-binary-br",
+                        "l0-binary-gzip",
+                        "l0-binary-304",
+                        "l0-binary-head",
+                        "l0-html-static",
+                        "l0-html-nonce",
+                        "l1-cache-hit",
+                        "l2-redis-hit",
+                        "db-miss-buffer-cold",
+                        "db-miss-buffer-warm",
+                        "notification-1",
+                        "notification-100",
+                        "notification-1000",
+                        "browser-aeds-decode",
+                        "browser-public-takeover",
+                        "browser-hydration-long-task"
+                    ]
+                },
+                "topology": {
+                    "enum": [
+                        "kestrel-only",
+                        "production-topology"
+                    ]
+                },
+                "status": {
+                    "enum": [
+                        "ok",
+                        "blocked"
+                    ]
+                },
+                "sampleCount": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "samples": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/$defs/sample"
+                    }
+                },
+                "conclusion": {
+                    "$ref": "#/$defs/conclusion"
+                },
+                "blockers": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "status": {
+                                "const": "ok"
+                            }
+                        },
+                        "required": [
+                            "status"
+                        ]
+                    },
+                    "then": {
+                        "required": [
+                            "samples",
+                            "conclusion"
+                        ]
+                    },
+                    "else": {
+                        "required": [
+                            "blockers"
+                        ]
+                    }
+                }
+            ]
         }
-      ]
     }
-  }
 }
