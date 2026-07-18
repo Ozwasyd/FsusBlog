@@ -16,7 +16,7 @@
 优先使用以下可搜索 marker：
 
 | Marker | Meaning |
-|---|---|
+| --- | --- |
 | `OWNERSHIP:` | 谁持有资源、何时转移、何时释放 |
 | `SECURITY-INVARIANT:` | 不可放宽的清零、校验或失败策略 |
 | `PERF-INVARIANT:` | 可由源码证明且受证据保护的结构边界 |
@@ -52,7 +52,7 @@ TODO(#1234): incomplete reason; removal condition: observable exit condition.
 ## Performance claim levels
 
 | Level | Allowed conclusion | Required authority |
-|---|---|---|
+| --- | --- | --- |
 | `S` structural | source-visible copy、allocation、lookup、branch 或 lifetime 结构事实 | source path、intent marker、明确 structural boundary；永远不能升级为“实测更快” |
 | `M` local measured | 同机同 runtime 的 before/after allocation、mean、p50、p95 | current commit、Release artifact digest、CPU/OS/runtime identity、raw rounds、iterations、noise policy |
 | `R` route measured | 某 route/protocol/status/cache/error-frame 组合的运行时结果 | `M` 全部条件，加完整 route dimensions 与同源 runtime evidence |

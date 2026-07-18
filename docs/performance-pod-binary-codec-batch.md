@@ -39,7 +39,7 @@ The focused local run used the same Release benchmark process, rotating candidat
 Representative results from that run:
 
 | Scenario | Variant | Allocation/frame | Allocation/item | p95 | Extra blob copy |
-|---|---:|---:|---:|---:|---:|
+| --- | ---: | ---: | ---: | ---: | ---: |
 | ArticleList 100, 8 tags, mixed long | legacy Lists | 2,156,130 B | 21,561 B | 9.0867 ms | 427,920 B |
 | ArticleList 100, 8 tags, mixed long | adaptive stack/pool | 455,262 B | 4,552 B | 2.2874 ms | 0 B |
 | ArticleList 1, 2 tags, mixed short | legacy Lists | 1,416 B | 1,416 B | 0.0136 ms | blob length |
