@@ -193,6 +193,15 @@ test('issue 1160 preserves registered C ABI spelling but rejects leakage into in
         const externalResult = RunChecker(fixtureRoot, ['src/frontend/wasm/aeds/src/exports.cpp'])
         assert.equal(externalResult.status, 0, Output(externalResult))
 
+        WriteFile(
+            fixtureRoot,
+            'src/frontend/wasm/aeds/src/exports.cpp',
+            `int internal_helper()\n{\n    return 0;\n}\n\n${externalSource}`
+        )
+        const leakedInternalResult = RunChecker(fixtureRoot, ['src/frontend/wasm/aeds/src/exports.cpp'])
+        assert.notEqual(leakedInternalResult.status, 0)
+        assert.match(Output(leakedInternalResult), /cpp-function-name: internal_helper/u)
+
         WriteFile(fixtureRoot, 'src/frontend/wasm/aeds/src/Internal.cpp', externalSource)
         const internalResult = RunChecker(fixtureRoot, ['src/frontend/wasm/aeds/src/Internal.cpp'])
         assert.notEqual(internalResult.status, 0)

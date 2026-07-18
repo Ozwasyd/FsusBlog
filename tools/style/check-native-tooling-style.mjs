@@ -607,23 +607,61 @@ function CheckCpp(file, content, argumentsValue)
 
     const generated = ExceptionApplies('generated-native', file)
     const abiAdapter = ExceptionApplies('c-abi-wasm-export', file)
+    const compilerIntrinsic = ExceptionApplies('compiler-intrinsic', file)
     const lines = content.split(/\r?\n/u)
+    let braceDepth = 0
+    let pendingExternalBlock = false
+    let externalBlockDepth = null
     for (let index = 0; index < lines.length; index += 1)
     {
         const line = lines[index].replace(/\/\/.*$/u, '')
+        const trimmed = line.trim()
+        const externalDeclaration = /\bextern\s+"C"/u.test(line)
+            || (externalBlockDepth !== null && braceDepth >= externalBlockDepth)
+        if (/^extern\s+"C"\s*$/u.test(trimmed))
+        {
+            pendingExternalBlock = true
+        }
         const type = line.match(/^\s*(?:class|struct|enum(?:\s+class)?)\s+([A-Za-z_][A-Za-z0-9_]*)/u)
         if (!generated && type && !/^[A-Z][A-Za-z0-9]*$/u.test(type[1]))
         {
             AddDiagnostic(file, index + 1, 'cpp-type-name', `${type[1]} must use PascalCase`)
         }
 
-        const functionMatch = line.match(/^\s*(?:(?:extern\s+"C"|static|inline|constexpr|const|unsigned|signed|void|bool|int|char|auto|std::[A-Za-z0-9_:<>]+|[A-Za-z_][A-Za-z0-9_:<>]*)\s+)+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*\(/u)
+        const statement = /^(?:return|co_return|throw|co_yield|case|delete|new|if|else|for|while|switch|catch|do)\b/u.test(trimmed)
+        const functionMatch = statement
+            ? null
+            : line.match(/^\s*(?:(?:extern\s+"C"|static|inline|constexpr|consteval|constinit|const|unsigned|signed|void|bool|int|char|auto|std::[A-Za-z0-9_:<>]+|[A-Za-z_][A-Za-z0-9_:<>]*)\s+)+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*\(/u)
         if (!generated && functionMatch && functionMatch[1] !== 'main' && !/^[A-Z][A-Za-z0-9]*$/u.test(functionMatch[1]))
         {
-            const externalAllowed = abiAdapter && /^[a-z][a-z0-9_]*$/u.test(functionMatch[1])
-            if (!externalAllowed)
+            const externalAllowed = abiAdapter
+                && externalDeclaration
+                && /^[a-z][a-z0-9_]*$/u.test(functionMatch[1])
+            const intrinsicAllowed = compilerIntrinsic && /^__(?:builtin|attribute|asm)_[A-Za-z0-9_]+$/u.test(functionMatch[1])
+            if (!externalAllowed && !intrinsicAllowed)
             {
                 AddDiagnostic(file, index + 1, 'cpp-function-name', `${functionMatch[1]} must use PascalCase or a registered ABI exception`)
+            }
+        }
+
+        for (const character of line)
+        {
+            if (character === '{')
+            {
+                braceDepth += 1
+                if (pendingExternalBlock)
+                {
+                    externalBlockDepth = braceDepth
+                    pendingExternalBlock = false
+                }
+            }
+            else if (character === '}')
+            {
+                braceDepth = Math.max(0, braceDepth - 1)
+                if (externalBlockDepth !== null && braceDepth < externalBlockDepth)
+                {
+                    externalBlockDepth = null
+                }
             }
         }
     }

@@ -24,6 +24,8 @@
             "paths": [
                 "src/frontend/wasm/**/src/*exports.cpp",
                 "src/frontend/wasm/aeds/src/exports.cpp",
+                "src/frontend/wasm/comment_privacy/src/comment_privacy.cpp",
+                "src/frontend/wasm/search/src/search_index.cpp",
                 "src/frontend/wasm/pow/src/main.cpp"
             ],
             "externalPattern": "^[a-z][a-z0-9_]*$",
