@@ -2156,7 +2156,8 @@ test('effective cache inputs include shared lane, Vitest, and setup consumers', 
     command: 'tools/test/lanes/frontend-unit-shard.sh',
     cacheInputs: ['tools/test/lanes/frontend-unit-shard.sh']
   }))
-  assert.ok(frontendInputs.includes('src/frontend/tests'))
+  assert.ok(frontendInputs.includes('tests/frontend'))
+  assert.equal(frontendInputs.includes('src/frontend/tests'), false)
   assert.ok(frontendInputs.includes('src/frontend/vitest*.config.ts'))
   assert.ok(frontendInputs.includes('src/frontend/vitest.shared.mjs'))
 })

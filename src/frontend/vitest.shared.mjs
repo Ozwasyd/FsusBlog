@@ -1,7 +1,27 @@
 import os from 'node:os'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const reportRoot = new URL('../../.tmp/test-results/vitest/', import.meta.url)
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url))
+
+export const frontendTestSupportRoot = path.join(repositoryRoot, 'tests/frontend/support')
+
+export function resolveFrontendTestSupportFile(relativeFile) {
+  if (typeof relativeFile !== 'string' || relativeFile.trim() === '' || path.isAbsolute(relativeFile)) {
+    throw new Error('frontend test support path must be a non-empty relative path')
+  }
+
+  const resolved = path.resolve(frontendTestSupportRoot, relativeFile)
+  const relative = path.relative(frontendTestSupportRoot, resolved)
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error(`frontend test support path escapes the canonical support root: ${relativeFile}`)
+  }
+  return resolved
+}
+
+export const frontendUnitSetupFile = resolveFrontendTestSupportFile('unit/setup.ts')
+export const frontendTestDependencyDedupe = ['happy-dom']
 
 function positiveInteger(value) {
   const parsed = Number.parseInt(String(value ?? ''), 10)

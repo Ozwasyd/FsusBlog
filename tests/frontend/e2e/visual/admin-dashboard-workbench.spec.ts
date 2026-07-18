@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { fileURLToPath } from 'node:url'
 import {
   assertElementHitTarget,
   assertNoHorizontalOverflow,
@@ -10,6 +11,9 @@ type DashboardTheme = 'light' | 'dark'
 
 const workloads: DashboardWorkload[] = ['zero', 'high']
 const themes: DashboardTheme[] = ['light', 'dark']
+const adminDashboardFixtureModule = `/@fs/${fileURLToPath(
+  new URL('../../fixtures/adminDashboardWorkbenchVisual.ts', import.meta.url)
+).replaceAll('\\', '/')}`
 const viewports = [
   { name: 'desktop', width: 1366, height: 768 },
   { name: 'mobile', width: 390, height: 844 }
@@ -29,7 +33,7 @@ async function openDashboardFixture(
           <head><meta charset="utf-8"><title>Admin dashboard workbench fixture</title></head>
           <body>
             <div id="admin-dashboard-workbench-fixture"></div>
-            <script type="module" src="/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts"></script>
+            <script type="module" src="${adminDashboardFixtureModule}"></script>
           </body>
         </html>`
     })

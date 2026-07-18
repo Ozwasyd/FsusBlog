@@ -1,6 +1,9 @@
 # Frontend Test Layout
 
 Use `npm run check:*` and `../../../tools/test.sh <tier>` as the stable entry points.
+`tests/frontend/` is the only frontend test ownership root. Production source and
+runner configuration stay under `src/frontend/`, but no `src/frontend/**/tests/**`
+tree is permitted without a reasoned, path-scoped governance exception.
 
 - `checks/`: Node-based gates grouped by tier or subsystem.
 - `e2e/`: Playwright specs and their colocated screenshot baselines.
@@ -8,7 +11,15 @@ Use `npm run check:*` and `../../../tools/test.sh <tier>` as the stable entry po
 - `property/`: Deterministic property tests for normalization, patch algebra, ranking, and boundary invariants.
 - `model/`: State-machine tests for interaction workflows that should not be verified only through visible-page smoke.
 - `benchmarks/`: Lightweight regression budgets that emit machine-readable evidence under `.tmp/`.
-- `support/`: Shared HTTP, auth, binary, corpus, and Playwright helpers.
+- `support/`: Shared HTTP, auth, binary, corpus, Playwright, and Vitest runtime helpers.
+  `support/unit/setup.ts` is the canonical browser-global/WASM mock setup and
+  `support/unit/animationFrameEnvironment.ts` owns its animation-frame lifecycle.
+
+Vitest configs remain beside the frontend package and all import
+`frontendUnitSetupFile` from `src/frontend/vitest.shared.mjs`; they must not resolve
+the support path independently. See
+[`../../docs/testing/issue-1173-frontend-test-support-ownership.md`](../../docs/testing/issue-1173-frontend-test-support-ownership.md)
+for ownership, transform-cache invalidation, and rollback details.
 
 Fast gate additions:
 
@@ -18,6 +29,7 @@ Fast gate additions:
 - `npm run check:frontend-perf-regression`
 - `npm run check:a11y:deep`
 - `npm run check:frontend-test-governance`
+- `npm run check:frontend-test-layout`
 - `npm run check:contract:binary-matrix`
 - `npm run check:contract:api-parity`
 - `npm run check:contract:frame-schema`

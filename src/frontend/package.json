@@ -41,6 +41,7 @@
     "check:a11y:deep": "node ../../tests/frontend/checks/runtime/check-a11y-deep.mjs",
     "check:ux-semantics": "node ../../tests/frontend/checks/ux/check-ux-semantics.mjs",
     "check:frontend-test-governance": "node ../../tests/frontend/checks/static/check-frontend-test-governance.mjs",
+    "check:frontend-test-layout": "node ../../tools/test/check-frontend-test-layout.mjs",
     "check:test-execution-optimization": "node ../../tests/frontend/checks/static/check-test-execution-optimization-contract.mjs && node ../../tests/frontend/checks/static/check-test-execution-helpers.mjs && node ../../tools/check-postgres-test-collections.mjs",
     "check:browser-contract-fixture": "node --test ../../tests/tools/issue-1149-browser-contract-fixture.test.mjs ../../tests/tools/issue-1149-session-isolation.test.mjs",
     "deps:wasm-codec": "bash ../../tools/frontend/install-wasm-codec-deps.sh",

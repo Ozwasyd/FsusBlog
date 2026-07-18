@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   createUnitAnimationFrameEnvironment
-} from '../../../../src/frontend/tests/frontend/unit/animationFrameEnvironment'
+} from '../../support/unit/animationFrameEnvironment'
 
 describe('frontend unit browser globals', () => {
   it('exposes getComputedStyle for motion code running under happy-dom', () => {

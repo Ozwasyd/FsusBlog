@@ -21,7 +21,8 @@ export const transformCacheConfigFiles = [
   'src/frontend/vitest.perf.config.ts',
   'src/frontend/vitest.shared.mjs',
   'src/frontend/vitest.transform-cache-coverage.mjs',
-  'src/frontend/tests/frontend/unit/setup.ts',
+  'tests/frontend/support/unit/setup.ts',
+  'tests/frontend/support/unit/animationFrameEnvironment.ts',
   'tools/test/frontend-vitest-transform-cache.mjs',
   'tools/test/run-frontend-vitest-rolling-shards.mjs',
   'tools/test/run-frontend-vitest-perf-isolated.mjs'

@@ -1,13 +1,12 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
-import { createVitestRuntimeOptions } from './vitest.shared.mjs'
-
-const unitSetupFile = fileURLToPath(new URL('./tests/frontend/unit/setup.ts', import.meta.url))
+import { createVitestRuntimeOptions, frontendTestDependencyDedupe, frontendUnitSetupFile } from './vitest.shared.mjs'
 
 export default defineConfig({
   plugins: [vue()],
   resolve: {
+    dedupe: frontendTestDependencyDedupe,
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@wasm': fileURLToPath(new URL('./wasm/web', import.meta.url))
@@ -17,7 +16,7 @@ export default defineConfig({
     ...createVitestRuntimeOptions('adapters-binary'),
     environment: 'node',
     include: ['../../tests/frontend/unit/adapters/binary/**/*.test.ts', '../../tests/frontend/unit/protocol/**/*.test.ts'],
-    setupFiles: [unitSetupFile],
+    setupFiles: [frontendUnitSetupFile],
     coverage: {
       provider: 'v8',
       allowExternal: true,

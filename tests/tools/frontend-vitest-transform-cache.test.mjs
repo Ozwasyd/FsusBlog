@@ -11,6 +11,7 @@ import {
   openTransformCacheForPerf,
   prepareTransformCache,
   sealTransformCache,
+  transformCacheConfigFiles,
   transformCacheEnvironment
 } from '../../tools/test/frontend-vitest-transform-cache.mjs'
 import {
@@ -63,6 +64,42 @@ test('transform cache identity invalidates every required source, config, toolch
     }
     fs.writeFileSync(path.join(rootDir, 'config/vitest.ts'), 'export default { changed: true }\n')
     assert.notEqual(buildTransformCacheIdentity(options).identityDigest, baseline.identityDigest)
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('transform cache identity owns both canonical unit support inputs and retires the secondary source root', () => {
+  assert.ok(transformCacheConfigFiles.includes('tests/frontend/support/unit/setup.ts'))
+  assert.ok(transformCacheConfigFiles.includes('tests/frontend/support/unit/animationFrameEnvironment.ts'))
+  assert.equal(transformCacheConfigFiles.some((file) => file.startsWith('src/frontend/tests/')), false)
+
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-vitest-support-cache-'))
+  const supportFiles = [
+    'tests/frontend/support/unit/setup.ts',
+    'tests/frontend/support/unit/animationFrameEnvironment.ts'
+  ]
+  try {
+    for (const file of supportFiles) {
+      fs.mkdirSync(path.dirname(path.join(rootDir, file)), { recursive: true })
+      fs.writeFileSync(path.join(rootDir, file), `export const identity = ${JSON.stringify(file)}\n`)
+    }
+    const options = {
+      rootDir,
+      configFiles: supportFiles,
+      sourceCommit: 'a'.repeat(40),
+      sourceFingerprint: 'b'.repeat(64),
+      packageVersions: { node: 'v24.0.0', vitest: '4.1.5', vite: '8.0.16' }
+    }
+    const baseline = buildTransformCacheIdentity(options).identityDigest
+
+    for (const file of supportFiles) {
+      const absolute = path.join(rootDir, file)
+      const original = fs.readFileSync(absolute, 'utf8')
+      fs.appendFileSync(absolute, '// changed\n')
+      assert.notEqual(buildTransformCacheIdentity(options).identityDigest, baseline)
+      fs.writeFileSync(absolute, original)
+    }
   } finally {
     fs.rmSync(rootDir, { recursive: true, force: true })
   }

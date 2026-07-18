@@ -611,6 +611,10 @@ export default defineConfig(({ command, mode }) => {
             }),
         ],
         resolve: {
+            // Browser fixtures live under the canonical repository-level test root.
+            // Resolve their package imports through this frontend package so they
+            // share the application's Vue/router instances.
+            dedupe: command === 'serve' ? ['vue', 'vue-router'] : [],
             alias: [
                 ...fsusUiAliases,
                 { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },

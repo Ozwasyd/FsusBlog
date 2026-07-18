@@ -49,7 +49,7 @@ of creating a duplicate issue-specific static tier. Registered paths are:
 - `src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue`
 - `src/frontend/src/composables/useAdminDashboardWorkbench.ts`
 - `src/frontend/src/view-contracts/adminDashboard.ts`
-- `src/frontend/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts`
+- `tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts`
 - `tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts`
 - `tests/frontend/unit/composables/useAdminDashboardWorkbench.test.ts`
 - `tests/frontend/unit/view-contracts/adminDashboardWorkbench.test.ts`

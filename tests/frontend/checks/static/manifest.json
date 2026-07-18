@@ -9,6 +9,12 @@
       "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] }
     },
     {
+      "id": "frontend-test-layout", "script": "check:frontend-test-layout", "access": "read",
+      "stage": "blocking-prebuild", "reason": "Rejects a secondary frontend test root and validates canonical setup, support, fixture, runner, and transform-cache ownership before Vitest starts.",
+      "consumedInputs": ["tests/governance/frontend-test-layout.json", "tests/frontend", "src/frontend/vitest*.{ts,mjs}", "src/frontend/vite.config.ts", "tools/test/frontend-vitest-transform-cache.mjs"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
       "id": "test-execution-optimization", "script": "check:test-execution-optimization", "access": "read",
       "stage": "blocking-prebuild", "reason": "Fail-closes invalid production test topology before Vitest consumes that topology.",
       "consumedInputs": ["tools/test", "tests/matrix.yml", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [],

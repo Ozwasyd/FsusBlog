@@ -583,7 +583,7 @@ export function effectiveCacheInputs(tier) {
     for (const value of ['tools/test/lanes/_legacy.sh', 'tools/test/legacy-test.sh', 'tools/test/run-once.mjs']) inputs.add(value)
   }
   if (tier.id === 'coverage-frontend' || String(tier.id).startsWith('frontend-')) {
-    for (const value of ['src/frontend/package.json', 'src/frontend/tests', 'src/frontend/vitest*.config.ts', 'src/frontend/vitest.shared.mjs']) inputs.add(value)
+    for (const value of ['src/frontend/package.json', 'tests/frontend', 'src/frontend/vitest*.config.ts', 'src/frontend/vitest.shared.mjs']) inputs.add(value)
   }
 
   const dependencyOnlyAggregate = (tier.dependsOn?.length ?? 0) > 0 && /tools\/test\/lanes\/noop\.sh\b/u.test(String(tier.command))
