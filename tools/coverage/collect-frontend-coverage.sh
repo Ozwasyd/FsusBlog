@@ -18,22 +18,22 @@ export FSUSBLOG_FRONTEND_COVERAGE_STATEMENT_THRESHOLD
 export FSUSBLOG_USE_LOCAL_FSUSUI="${FSUSBLOG_USE_LOCAL_FSUSUI:-0}"
 
 if [[ "${1:-}" == "--dry-run" ]]; then
-  jq -n --arg script "collect-frontend-coverage" --arg out "$SUMMARY_FILE" '{
+    jq -n --arg script "collect-frontend-coverage" --arg out "$SUMMARY_FILE" '{
     script: $script,
     status: "dry-run",
     output: $out,
     schema: "fsusblog.coverage.summary.v1"
   }'
-  exit 0
+    exit 0
 fi
 
 mkdir -p "$SUMMARY_DIR"
 
 if [[ "${FSUSBLOG_COVERAGE_SKIP_TESTS:-0}" != "1" ]]; then
-  (
-    cd "$CLIENT_DIR"
-    npm run test:unit:coverage
-  )
+    (
+        cd "$CLIENT_DIR"
+        npm run test:unit:coverage
+    )
 fi
 
 "${FSUSBLOG_NODE:-node}" - "$CLIENT_DIR/coverage/unit/coverage-summary.json" "$SUMMARY_FILE" <<'NODE'

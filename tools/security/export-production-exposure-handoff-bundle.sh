@@ -8,35 +8,35 @@ MANIFEST_FILE="${1:-${FSUSBLOG_RELEASE_EVIDENCE_MANIFEST:-}}"
 OUT_ROOT="${FSUSBLOG_PRODUCTION_EXPOSURE_HANDOFF_ROOT:-$ROOT_DIR/.tmp/security/production-exposure-handoff}"
 
 fail() {
-  printf '[production-exposure-handoff-bundle] failed\n' >&2
-  printf -- '- %s\n' "$1" >&2
-  exit 1
+    printf '[production-exposure-handoff-bundle] failed\n' >&2
+    printf -- '- %s\n' "$1" >&2
+    exit 1
 }
 
 json_value() {
-  local file="$1"
-  local expr="$2"
-  jq -r "$expr" "$file" 2>/dev/null || true
+    local file="$1"
+    local expr="$2"
+    jq -r "$expr" "$file" 2>/dev/null || true
 }
 
 if [[ -z "$MANIFEST_FILE" ]]; then
-  fail 'missing release evidence manifest path'
+    fail 'missing release evidence manifest path'
 fi
 
 if [[ ! -f "$MANIFEST_FILE" ]]; then
-  fail "release evidence manifest does not exist: $MANIFEST_FILE"
+    fail "release evidence manifest does not exist: $MANIFEST_FILE"
 fi
 
 manifest_dir="$(cd "$(dirname "$MANIFEST_FILE")" && pwd)"
 manifest_file_abs="$manifest_dir/$(basename "$MANIFEST_FILE")"
 release_stamp="$(json_value "$manifest_file_abs" '.releaseStamp // empty')"
 if [[ -z "$release_stamp" ]]; then
-  release_stamp="$(basename "$manifest_dir")"
+    release_stamp="$(basename "$manifest_dir")"
 fi
 
 OUT_DIR="${FSUSBLOG_PRODUCTION_EXPOSURE_HANDOFF_DIR:-$OUT_ROOT/$release_stamp}"
 if [[ -e "$OUT_DIR" ]]; then
-  fail "handoff output already exists: $OUT_DIR"
+    fail "handoff output already exists: $OUT_DIR"
 fi
 
 "$HANDOFF_CHECK_SCRIPT" "$manifest_file_abs" >/dev/null
@@ -48,7 +48,7 @@ cp "$manifest_file_abs" "$OUT_DIR/release-evidence/manifest.json"
 request_artifact="$(json_value "$manifest_file_abs" '.artifacts.productionExposureRequest // empty')"
 request_file="/dev/null"
 if [[ -n "$request_artifact" && -f "$manifest_dir/$request_artifact" ]]; then
-  request_file="$manifest_dir/$request_artifact"
+    request_file="$manifest_dir/$request_artifact"
 fi
 manifest_sha256="$(sha256sum "$manifest_file_abs" | awk '{print $1}')"
 request_sha256="$(sha256sum "$request_file" | awk '{print $1}')"
@@ -61,11 +61,11 @@ manifest_status="$(json_value "$manifest_file_abs" '.status // "unknown"')"
 external_status="$(json_value "$manifest_file_abs" '.evidenceSummary.externalExposure.status // "unknown"')"
 
 jq -n \
-  --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --arg sourceManifest "$manifest_file_abs" \
-  --arg releaseEvidenceDir "release-evidence" \
-  --slurpfile manifest "$manifest_file_abs" \
-  --slurpfile request "$request_file" '
+    --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg sourceManifest "$manifest_file_abs" \
+    --arg releaseEvidenceDir "release-evidence" \
+    --slurpfile manifest "$manifest_file_abs" \
+    --slurpfile request "$request_file" '
   ($manifest[0] // {}) as $manifestData
   | ($request[0] // {}) as $requestData
   | {
@@ -93,12 +93,12 @@ jq -n \
 
 mkdir -p "$OUT_DIR/returned-evidence"
 jq -n \
-  --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --arg generatedBy "tools/security/export-production-exposure-handoff-bundle.sh" \
-  --arg sourceReleaseManifest "$manifest_file_abs" \
-  --arg sourceReleaseManifestSha256 "$manifest_sha256" \
-  --arg sourceRequestSha256 "$request_sha256" \
-  --slurpfile request "$request_file" '
+    --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg generatedBy "tools/security/export-production-exposure-handoff-bundle.sh" \
+    --arg sourceReleaseManifest "$manifest_file_abs" \
+    --arg sourceReleaseManifestSha256 "$manifest_sha256" \
+    --arg sourceRequestSha256 "$request_sha256" \
+    --slurpfile request "$request_file" '
   ($request[0] // {}) as $requestData
   | ($requestData.unblockPlan // [] | map(select(.returnedEvidenceRequired == true))) as $returnedUnblockPlan
 	  | {
@@ -139,10 +139,10 @@ jq -n \
 ' >"$OUT_DIR/returned-evidence/expected-evidence-manifest.json"
 
 jq -n \
-  --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --arg generatedBy "tools/security/export-production-exposure-handoff-bundle.sh" \
-  --slurpfile manifest "$manifest_file_abs" \
-  --slurpfile request "$request_file" '
+    --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg generatedBy "tools/security/export-production-exposure-handoff-bundle.sh" \
+    --slurpfile manifest "$manifest_file_abs" \
+    --slurpfile request "$request_file" '
   ($manifest[0] // {}) as $manifestData
   | ($request[0] // {}) as $requestData
   | {
@@ -235,21 +235,21 @@ This is not a passing production closeout signal unless \`release-evidence/manif
 EOF
 
 (
-  cd "$OUT_DIR"
-  find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+    cd "$OUT_DIR"
+    find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum >SHA256SUMS
 )
 
 "$BUNDLE_CHECK_SCRIPT" "$OUT_DIR" >/dev/null
 
 tar_file="$OUT_DIR.tar.gz"
 if [[ -e "$tar_file" || -e "$tar_file.sha256" ]]; then
-  fail "handoff archive already exists: $tar_file"
+    fail "handoff archive already exists: $tar_file"
 fi
 
 tar -czf "$tar_file" -C "$(dirname "$OUT_DIR")" "$(basename "$OUT_DIR")"
 (
-  cd "$(dirname "$tar_file")"
-  sha256sum "$(basename "$tar_file")" >"$(basename "$tar_file").sha256"
+    cd "$(dirname "$tar_file")"
+    sha256sum "$(basename "$tar_file")" >"$(basename "$tar_file").sha256"
 )
 
 "$BUNDLE_CHECK_SCRIPT" "$tar_file" >/dev/null

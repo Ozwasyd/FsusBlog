@@ -23,64 +23,64 @@ static_authoritative_development_docs() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DI
 static_code_intent() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-code-intent.mjs"; }
 static_appsettings_authority() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-appsettings-authority.mjs"; }
 static_csharp_style() {
-  run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode changed
-  run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
+    run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode changed
+    run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
 }
 STATIC_NODE_CONTRACT_FILES=(
-  "$ROOT_DIR/tests/tools/release-manifest.test.mjs"
-  "$ROOT_DIR/tests/tools/runtime-publish-profile.test.mjs"
-  "$ROOT_DIR/tests/tools/final-image-toolchain-pin.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1165-wasm-artifact-ownership.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1166-zk-source-layout.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1168-zk-artifact-ownership.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1169-release-evidence-model.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1170-security-domain-layout.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1170-security-matrix-catalog.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1157-authoritative-development-docs.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1158-csharp-style.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1155-code-intent.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1171-appsettings-authority.test.mjs"
-  "$ROOT_DIR/tests/tools/configuration-layout.test.mjs"
-  "$ROOT_DIR/tests/tools/operations-layout.test.mjs"
-  "$ROOT_DIR/tests/tools/deployment-slots.test.mjs"
-  "$ROOT_DIR/tests/tools/gateway-switch.test.mjs"
-  "$ROOT_DIR/tests/tools/dead-code-audit-index.test.mjs"
-  "$ROOT_DIR/tests/tools/online-schema-migration-wrapper.test.mjs"
-  "$ROOT_DIR/tests/tools/destructive-migration-proof.test.mjs"
-  "$ROOT_DIR/tests/tools/release-storage-lifecycle.test.mjs"
-  "$ROOT_DIR/tests/tools/backup-envelope-contract.test.mjs"
-  "$ROOT_DIR/tests/tools/security-source-analyzer.test.mjs"
-  "$ROOT_DIR/tests/tools/test-suite-convergence.test.mjs"
-  "$ROOT_DIR/tests/tools/release-rollout-state.test.mjs"
-  "$ROOT_DIR/tests/tools/release-worker-drill.test.mjs"
-  "$ROOT_DIR/tests/tools/release-worker-reconciliation.test.mjs"
-  "$ROOT_DIR/tests/tools/release-rollout-evidence.test.mjs"
-  "$ROOT_DIR/tests/tools/public-aot-warm-evidence.test.mjs"
-  "$ROOT_DIR/tests/tools/release-rollout-bundle.test.mjs"
-  "$ROOT_DIR/tests/tools/release-rollout-probes.test.mjs"
-  "$ROOT_DIR/tests/tools/release-traffic-probe-session.test.mjs"
-  "$ROOT_DIR/tests/tools/release-notification-probe.test.mjs"
-  "$ROOT_DIR/tests/tools/release-worker-observer-service.test.mjs"
-  "$ROOT_DIR/tests/tools/release-worker-normal-observer.test.mjs"
-  "$ROOT_DIR/tests/tools/release-migration-qualification.test.mjs"
-  "$ROOT_DIR/tests/tools/rehearsal-schema-qualification-probe.test.mjs"
-  "$ROOT_DIR/tests/tools/release-asset-compatibility-probe.test.mjs"
-  "$ROOT_DIR/tests/tools/performance-evidence-summary.test.mjs"
-  "$ROOT_DIR/tests/tools/performance-saturation-v2.test.mjs"
-  "$ROOT_DIR/tests/tools/browser-diagnostics.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1151-browser-migration-governance.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1151-evidence-governance.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1151-flaky-governance.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1151-receipt-aggregate.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1151-receipt-authority.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1151-receipt-schema.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs"
-  "$ROOT_DIR/tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs"
+    "$ROOT_DIR/tests/tools/release-manifest.test.mjs"
+    "$ROOT_DIR/tests/tools/runtime-publish-profile.test.mjs"
+    "$ROOT_DIR/tests/tools/final-image-toolchain-pin.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1165-wasm-artifact-ownership.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1166-zk-source-layout.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1168-zk-artifact-ownership.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1169-release-evidence-model.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1170-security-domain-layout.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1170-security-matrix-catalog.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1157-authoritative-development-docs.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1158-csharp-style.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1155-code-intent.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1171-appsettings-authority.test.mjs"
+    "$ROOT_DIR/tests/tools/configuration-layout.test.mjs"
+    "$ROOT_DIR/tests/tools/operations-layout.test.mjs"
+    "$ROOT_DIR/tests/tools/deployment-slots.test.mjs"
+    "$ROOT_DIR/tests/tools/gateway-switch.test.mjs"
+    "$ROOT_DIR/tests/tools/dead-code-audit-index.test.mjs"
+    "$ROOT_DIR/tests/tools/online-schema-migration-wrapper.test.mjs"
+    "$ROOT_DIR/tests/tools/destructive-migration-proof.test.mjs"
+    "$ROOT_DIR/tests/tools/release-storage-lifecycle.test.mjs"
+    "$ROOT_DIR/tests/tools/backup-envelope-contract.test.mjs"
+    "$ROOT_DIR/tests/tools/security-source-analyzer.test.mjs"
+    "$ROOT_DIR/tests/tools/test-suite-convergence.test.mjs"
+    "$ROOT_DIR/tests/tools/release-rollout-state.test.mjs"
+    "$ROOT_DIR/tests/tools/release-worker-drill.test.mjs"
+    "$ROOT_DIR/tests/tools/release-worker-reconciliation.test.mjs"
+    "$ROOT_DIR/tests/tools/release-rollout-evidence.test.mjs"
+    "$ROOT_DIR/tests/tools/public-aot-warm-evidence.test.mjs"
+    "$ROOT_DIR/tests/tools/release-rollout-bundle.test.mjs"
+    "$ROOT_DIR/tests/tools/release-rollout-probes.test.mjs"
+    "$ROOT_DIR/tests/tools/release-traffic-probe-session.test.mjs"
+    "$ROOT_DIR/tests/tools/release-notification-probe.test.mjs"
+    "$ROOT_DIR/tests/tools/release-worker-observer-service.test.mjs"
+    "$ROOT_DIR/tests/tools/release-worker-normal-observer.test.mjs"
+    "$ROOT_DIR/tests/tools/release-migration-qualification.test.mjs"
+    "$ROOT_DIR/tests/tools/rehearsal-schema-qualification-probe.test.mjs"
+    "$ROOT_DIR/tests/tools/release-asset-compatibility-probe.test.mjs"
+    "$ROOT_DIR/tests/tools/performance-evidence-summary.test.mjs"
+    "$ROOT_DIR/tests/tools/performance-saturation-v2.test.mjs"
+    "$ROOT_DIR/tests/tools/browser-diagnostics.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1151-browser-migration-governance.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1151-evidence-governance.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1151-flaky-governance.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1151-receipt-aggregate.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1151-receipt-authority.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1151-receipt-schema.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs"
 )
 static_node_contracts() {
-  FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \
-    run "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" "$ROOT_DIR/tests/tools/zero-downtime-rehearsal.test.mjs" <<'NODE'
+    FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \
+        run "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" "$ROOT_DIR/tests/tools/zero-downtime-rehearsal.test.mjs" <<'NODE'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 
@@ -146,63 +146,63 @@ NODE
 # Vitest's live report directory. Retention intentionally stays post-Vitest
 # because it scans .tmp/test-results/vitest and must never observe partial JSON.
 run_static_prechecks_phase() {
-  run_collect_parallel static-governance-prechecks \
-    evidence-plan static_evidence_plan \
-    aeds-policy static_aeds_policy \
-    community-workflow static_community_workflow \
-    label-governance static_label_governance \
-    integrity-docs static_integrity_docs \
-    dead-code-index static_dead_code_index \
-    background-services static_background_services \
-    suite-convergence static_suite_convergence \
-    browser-test-migration static_browser_test_migration \
-    backend-governance static_backend_governance \
-    gate-integrity static_gate_integrity \
-    flaky-registry static_flaky_registry \
-    matrix-contract static_matrix_contract \
-    matrix-schema static_matrix_schema \
-    implementation-drift static_implementation_drift \
-    authoritative-development-docs static_authoritative_development_docs \
-    code-intent static_code_intent \
-    appsettings-authority static_appsettings_authority \
-    csharp-style static_csharp_style
+    run_collect_parallel static-governance-prechecks \
+        evidence-plan static_evidence_plan \
+        aeds-policy static_aeds_policy \
+        community-workflow static_community_workflow \
+        label-governance static_label_governance \
+        integrity-docs static_integrity_docs \
+        dead-code-index static_dead_code_index \
+        background-services static_background_services \
+        suite-convergence static_suite_convergence \
+        browser-test-migration static_browser_test_migration \
+        backend-governance static_backend_governance \
+        gate-integrity static_gate_integrity \
+        flaky-registry static_flaky_registry \
+        matrix-contract static_matrix_contract \
+        matrix-schema static_matrix_schema \
+        implementation-drift static_implementation_drift \
+        authoritative-development-docs static_authoritative_development_docs \
+        code-intent static_code_intent \
+        appsettings-authority static_appsettings_authority \
+        csharp-style static_csharp_style
 }
 
 run_static_concurrent_phase() {
-  run_static_prechecks_phase
-  run_static_node_contracts_phase
+    run_static_prechecks_phase
+    run_static_node_contracts_phase
 }
 
 run_static_node_contracts_phase() {
-  run_collect node-contracts static_node_contracts
+    run_collect node-contracts static_node_contracts
 }
 
 run_static_post_vitest_phase() {
-  run_collect retention static_retention
+    run_collect retention static_retention
 }
 
 STATIC_GOVERNANCE_PHASE="${FSUSBLOG_STATIC_GOVERNANCE_PHASE:-${1:-all}}"
 case "$STATIC_GOVERNANCE_PHASE" in
-  concurrent-prechecks)
-    run_static_prechecks_phase
-    ;;
-  concurrent)
-    run_static_concurrent_phase
-    ;;
-  post-vitest)
-    run_static_post_vitest_phase
-    ;;
-  node-contracts)
-    run_static_node_contracts_phase
-    ;;
-  all)
-    run_static_concurrent_phase
-    run_static_post_vitest_phase
-    ;;
-  *)
-    printf '[lane] unknown static governance phase: %s (expected concurrent-prechecks, concurrent, post-vitest, node-contracts, or all)\n' \
-      "$STATIC_GOVERNANCE_PHASE" >&2
-    exit 2
-    ;;
+    concurrent-prechecks)
+        run_static_prechecks_phase
+        ;;
+    concurrent)
+        run_static_concurrent_phase
+        ;;
+    post-vitest)
+        run_static_post_vitest_phase
+        ;;
+    node-contracts)
+        run_static_node_contracts_phase
+        ;;
+    all)
+        run_static_concurrent_phase
+        run_static_post_vitest_phase
+        ;;
+    *)
+        printf '[lane] unknown static governance phase: %s (expected concurrent-prechecks, concurrent, post-vitest, node-contracts, or all)\n' \
+            "$STATIC_GOVERNANCE_PHASE" >&2
+        exit 2
+        ;;
 esac
 finish_collect

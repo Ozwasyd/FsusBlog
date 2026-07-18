@@ -5,11 +5,19 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/slot-common.sh"
 
 SLOT=""
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --slot) [[ $# -ge 2 ]] || slot_fail "--slot requires a value"; SLOT="$2"; shift 2 ;;
-    --state-file) [[ $# -ge 2 ]] || slot_fail "--state-file requires a value"; SLOT_STATE_FILE="$2"; shift 2 ;;
-    *) slot_fail "unknown argument: $1" ;;
-  esac
+    case "$1" in
+        --slot)
+            [[ $# -ge 2 ]] || slot_fail "--slot requires a value"
+            SLOT="$2"
+            shift 2
+            ;;
+        --state-file)
+            [[ $# -ge 2 ]] || slot_fail "--state-file requires a value"
+            SLOT_STATE_FILE="$2"
+            shift 2
+            ;;
+        *) slot_fail "unknown argument: $1" ;;
+    esac
 done
 
 slot_require_command jq
@@ -17,21 +25,21 @@ slot_require_command node
 state="$(slot_state_read)"
 
 inspect_one() {
-  "$ROOT_DIR/tools/deployment/slot-inspect.sh" --slot "$1" --state-file "$SLOT_STATE_FILE"
+    "$ROOT_DIR/tools/deployment/slot-inspect.sh" --slot "$1" --state-file "$SLOT_STATE_FILE"
 }
 
 if [[ -n "$SLOT" ]]; then
-  slot_require "$SLOT"
-  inspect_one "$SLOT"
-  exit 0
+    slot_require "$SLOT"
+    inspect_one "$SLOT"
+    exit 0
 fi
 
 blue="$(inspect_one blue)"
 green="$(inspect_one green)"
 jq -cn \
-  --argjson state "$state" \
-  --argjson blue "$blue" \
-  --argjson green "$green" '
+    --argjson state "$state" \
+    --argjson blue "$blue" \
+    --argjson green "$green" '
   {
     schema: "fsusblog.deployment-slot-status.v1",
     gatewayStatus: $state.status,

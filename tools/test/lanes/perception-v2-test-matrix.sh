@@ -5,7 +5,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/security/check-security-matrices.mjs"
 
 if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" ]]; then
-  "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR" <<'NODE'
+    "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR" <<'NODE'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -146,15 +146,15 @@ fs.writeFileSync(temporary, `${JSON.stringify(projection, null, 2)}\n`)
 fs.renameSync(temporary, projectionFile)
 console.log(`[perception-v2-test-matrix] projected ${tests.length} passing tests from ${trxFiles.length} union TRX files`)
 NODE
-  exit 0
+    exit 0
 fi
 
 FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build
 dotnet_args=(--no-build --no-restore)
 FSUSBLOG_REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/build-with-data-env.sh" dotnet test \
-  "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
-  -c Debug \
-  -v minimal \
-  "${dotnet_args[@]}" \
-  --filter "FullyQualifiedName~PerceptionChallengeV2E2eTests"
+    "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
+    -c Debug \
+    -v minimal \
+    "${dotnet_args[@]}" \
+    --filter "FullyQualifiedName~PerceptionChallengeV2E2eTests"
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/security/check-perception-v2-e2e-evidence.mjs"

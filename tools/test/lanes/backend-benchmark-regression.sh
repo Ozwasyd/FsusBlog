@@ -10,13 +10,13 @@ mkdir -p "$OUT_DIR" "$RELEASE_SUMMARY_DIR"
 "$ROOT_DIR/tools/test/ensure-benchmark-release-build.sh"
 
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/perf/run-backend-benchmark-regression.mjs" \
-  --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
-  --program "$ROOT_DIR/benchmarks/core/Program.cs" \
-  --artifactRoot "$ARTIFACT_ROOT" \
-  --aggregateReports "$OUT_DIR" \
-  --budgets "$ROOT_DIR/tests/performance/backend-hotpath-budgets.json" \
-  --output "$OUT_DIR/fsusblog-benchmark-regression.json" \
-  --releaseSummary "$RELEASE_SUMMARY_DIR/backend-benchmark-regression.json" \
-  --checker "$ROOT_DIR/tools/perf/check-backend-benchmark-regression.mjs" \
-  --buildWrapper "$ROOT_DIR/tools/build-with-data-env.sh"
+    --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
+    --program "$ROOT_DIR/benchmarks/core/Program.cs" \
+    --artifactRoot "$ARTIFACT_ROOT" \
+    --aggregateReports "$OUT_DIR" \
+    --budgets "$ROOT_DIR/tests/performance/backend-hotpath-budgets.json" \
+    --output "$OUT_DIR/fsusblog-benchmark-regression.json" \
+    --releaseSummary "$RELEASE_SUMMARY_DIR/backend-benchmark-regression.json" \
+    --checker "$ROOT_DIR/tools/perf/check-backend-benchmark-regression.mjs" \
+    --buildWrapper "$ROOT_DIR/tools/build-with-data-env.sh"
 printf '[backend-benchmark-regression] wrote %s\n' "$OUT_DIR/fsusblog-benchmark-regression.json"

@@ -7,49 +7,49 @@ STAMP="${FSUSBLOG_RELEASE_STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}"
 OUT_DIR="${FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR:-$ROOT_DIR/.tmp/release-evidence/returned-$STAMP}"
 
 fail() {
-  printf '[production-exposure-returned-evidence] failed\n' >&2
-  printf -- '- %s\n' "$1" >&2
-  exit 1
+    printf '[production-exposure-returned-evidence] failed\n' >&2
+    printf -- '- %s\n' "$1" >&2
+    exit 1
 }
 
 json_array_words() {
-  local file="$1"
-  local expr="$2"
-  jq -r "$expr | if type == \"array\" then map(tostring) | join(\" \") else \"\" end" "$file" 2>/dev/null || true
+    local file="$1"
+    local expr="$2"
+    jq -r "$expr | if type == \"array\" then map(tostring) | join(\" \") else \"\" end" "$file" 2>/dev/null || true
 }
 
 has_word() {
-  local needle="$1"
-  shift
-  local word
-  for word in "$@"; do
-    [[ "$word" == "$needle" ]] && return 0
-  done
-  return 1
+    local needle="$1"
+    shift
+    local word
+    for word in "$@"; do
+        [[ "$word" == "$needle" ]] && return 0
+    done
+    return 1
 }
 
 domain_from_host() {
-  awk -F '.' '
+    awk -F '.' '
     NF >= 2 { print $(NF - 1) "." $NF }
   ' <<<"$1"
 }
 
 if [[ -z "$RETURNED_DIR" ]]; then
-  fail 'missing returned evidence directory'
+    fail 'missing returned evidence directory'
 fi
 
 if [[ ! -d "$RETURNED_DIR" ]]; then
-  fail "returned evidence directory does not exist: $RETURNED_DIR"
+    fail "returned evidence directory does not exist: $RETURNED_DIR"
 fi
 
 if [[ -L "$RETURNED_DIR" ]]; then
-  fail "returned evidence directory must not be a symlink: $RETURNED_DIR"
+    fail "returned evidence directory must not be a symlink: $RETURNED_DIR"
 fi
 
 RETURNED_DIR="$(cd "$RETURNED_DIR" && pwd)"
 symlink_path="$(find "$RETURNED_DIR" -type l -print -quit 2>/dev/null || true)"
 if [[ -n "$symlink_path" ]]; then
-  fail "returned evidence directory contains a symlink: ${symlink_path#$RETURNED_DIR/}"
+    fail "returned evidence directory contains a symlink: ${symlink_path#$RETURNED_DIR/}"
 fi
 
 FIREWALL_POLICY_FILE="$RETURNED_DIR/production-firewall-policy.json"
@@ -61,48 +61,48 @@ REQUEST_FILE="$RETURNED_DIR/production-exposure-evidence-request.json"
 EXPECTED_MANIFEST_FILE="$RETURNED_DIR/expected-evidence-manifest.json"
 
 for required_file in \
-  "$FIREWALL_POLICY_FILE" \
-  "$DNS_READINESS_FILE" \
-  "$DNS_DELEGATION_FILE" \
-  "$LIVE_EVIDENCE_FILE"; do
-  [[ -f "$required_file" ]] || fail "returned evidence is missing $(basename "$required_file")"
+    "$FIREWALL_POLICY_FILE" \
+    "$DNS_READINESS_FILE" \
+    "$DNS_DELEGATION_FILE" \
+    "$LIVE_EVIDENCE_FILE"; do
+    [[ -f "$required_file" ]] || fail "returned evidence is missing $(basename "$required_file")"
 done
 
 mapfile -t expected_hosts < <("$ROOT_DIR/tools/security/collect-production-hosts.sh")
-if (( ${#expected_hosts[@]} == 0 )); then
-  fail 'no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values'
+if ((${#expected_hosts[@]} == 0)); then
+    fail 'no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values'
 fi
 expected_host_words="$(printf '%s\n' "${expected_hosts[@]}" | paste -sd ' ' -)"
 expected_host_env="$(printf '%s\n' "${expected_hosts[@]}" | paste -sd ',' -)"
 expected_domain_words="$(printf '%s\n' "${expected_hosts[@]}" | while read -r host; do
-  [[ -n "$host" ]] || continue
-  domain_from_host "$host"
+    [[ -n "$host" ]] || continue
+    domain_from_host "$host"
 done | sort -u | paste -sd ' ' -)"
 
 validate_scope_file() {
-  local file="$1"
-  local label="$2"
-  local scope_hosts scope_domains expected_host expected_domain
+    local file="$1"
+    local label="$2"
+    local scope_hosts scope_domains expected_host expected_domain
 
-  scope_hosts="$(json_array_words "$file" '.requiredHosts')"
-  scope_domains="$(json_array_words "$file" '.delegationDomains')"
-  [[ -n "$scope_hosts" ]] || fail "$label requiredHosts must be a non-empty array"
-  [[ -n "$scope_domains" ]] || fail "$label delegationDomains must be a non-empty array"
-  for expected_host in $expected_host_words; do
-    if ! has_word "$expected_host" $scope_hosts; then
-      fail "$label does not cover required production host: $expected_host"
-    fi
-  done
-  for expected_domain in $expected_domain_words; do
-    if ! has_word "$expected_domain" $scope_domains; then
-      fail "$label does not cover required delegation domain: $expected_domain"
-    fi
-  done
+    scope_hosts="$(json_array_words "$file" '.requiredHosts')"
+    scope_domains="$(json_array_words "$file" '.delegationDomains')"
+    [[ -n "$scope_hosts" ]] || fail "$label requiredHosts must be a non-empty array"
+    [[ -n "$scope_domains" ]] || fail "$label delegationDomains must be a non-empty array"
+    for expected_host in $expected_host_words; do
+        if ! has_word "$expected_host" $scope_hosts; then
+            fail "$label does not cover required production host: $expected_host"
+        fi
+    done
+    for expected_domain in $expected_domain_words; do
+        if ! has_word "$expected_domain" $scope_domains; then
+            fail "$label does not cover required delegation domain: $expected_domain"
+        fi
+    done
 }
 
 if [[ -f "$EXPECTED_MANIFEST_FILE" ]]; then
-  validate_scope_file "$EXPECTED_MANIFEST_FILE" 'returned expected evidence manifest'
-  jq -e '
+    validate_scope_file "$EXPECTED_MANIFEST_FILE" 'returned expected evidence manifest'
+    jq -e '
     . as $manifest
     | def required_artifacts($source):
         ($manifest.requiredReturnedFiles // [])
@@ -182,12 +182,12 @@ if [[ -f "$EXPECTED_MANIFEST_FILE" ]]; then
       )
     )
     and (.scopeRule | tostring | contains("must not narrow"))
-  ' "$EXPECTED_MANIFEST_FILE" >/dev/null \
-    || fail 'returned expected evidence manifest must list source metadata, required returned files, unblock plan sources/count/key/file mappings, firewall source sha256, and scope rule'
+  ' "$EXPECTED_MANIFEST_FILE" >/dev/null ||
+        fail 'returned expected evidence manifest must list source metadata, required returned files, unblock plan sources/count/key/file mappings, firewall source sha256, and scope rule'
 fi
 
 if [[ -f "$REQUEST_FILE" ]]; then
-  validate_scope_file "$REQUEST_FILE" 'returned request'
+    validate_scope_file "$REQUEST_FILE" 'returned request'
 fi
 
 export FSUSBLOG_LIVE_HOSTS="$expected_host_env"
@@ -203,17 +203,17 @@ status_rc=0
 "$ROOT_DIR/tools/security/write-production-exposure-evidence-request.sh" "$REQUEST_FILE" >/dev/null
 
 FSUSBLOG_SECURITY_EVIDENCE_SOURCE_DIR="$RETURNED_DIR" \
-FSUSBLOG_RELEASE_EVIDENCE_DIR="$OUT_DIR" \
-  "$ROOT_DIR/tools/operations/collect-release-evidence.sh" >/dev/null
+    FSUSBLOG_RELEASE_EVIDENCE_DIR="$OUT_DIR" \
+    "$ROOT_DIR/tools/operations/collect-release-evidence.sh" >/dev/null
 
 "$ROOT_DIR/tools/security/check-production-exposure-handoff.sh" "$OUT_DIR/manifest.json" >/dev/null
 
-if (( status_rc != 0 )); then
-  printf '[production-exposure-returned-evidence] blocked\n' >&2
-  printf -- '- wrote %s\n' "$STATUS_FILE" >&2
-  printf -- '- wrote %s\n' "$REQUEST_FILE" >&2
-  printf -- '- wrote %s\n' "$OUT_DIR/manifest.json" >&2
-  exit "$status_rc"
+if ((status_rc != 0)); then
+    printf '[production-exposure-returned-evidence] blocked\n' >&2
+    printf -- '- wrote %s\n' "$STATUS_FILE" >&2
+    printf -- '- wrote %s\n' "$REQUEST_FILE" >&2
+    printf -- '- wrote %s\n' "$OUT_DIR/manifest.json" >&2
+    exit "$status_rc"
 fi
 
 printf '[production-exposure-returned-evidence] ok\n'

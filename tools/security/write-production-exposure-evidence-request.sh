@@ -13,30 +13,30 @@ LIVE_EVIDENCE_FILE="${FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE:-$ROOT_DIR/.tmp/secu
 STATUS_FILE="${FSUSBLOG_PRODUCTION_EXPOSURE_STATUS:-$ROOT_DIR/.tmp/security/production-exposure-status.json}"
 
 fail() {
-  printf '[production-exposure-evidence-request] failed\n' >&2
-  printf -- '- %s\n' "$1" >&2
-  exit 1
+    printf '[production-exposure-evidence-request] failed\n' >&2
+    printf -- '- %s\n' "$1" >&2
+    exit 1
 }
 
 domain_from_host() {
-  awk -F '.' '
+    awk -F '.' '
     NF >= 2 { print $(NF - 1) "." $NF }
   ' <<<"$1"
 }
 
 status_summary_json() {
-  if [[ ! -f "$STATUS_FILE" ]]; then
-    jq -n -c --arg sourceFile "$STATUS_FILE" '{
+    if [[ ! -f "$STATUS_FILE" ]]; then
+        jq -n -c --arg sourceFile "$STATUS_FILE" '{
       sourceFile: $sourceFile,
       status: "missing",
       blockerCount: 0,
       blockerSources: [],
       blockers: []
     }'
-    return
-  fi
+        return
+    fi
 
-  jq -c --arg sourceFile "$STATUS_FILE" '{
+    jq -c --arg sourceFile "$STATUS_FILE" '{
     sourceFile: $sourceFile,
     status: (.status // "unknown"),
     blockerCount: (.blockers // [] | length),
@@ -52,33 +52,33 @@ status_summary_json() {
 }
 
 mapfile -t hosts < <("$ROOT_DIR/tools/security/collect-production-hosts.sh")
-if (( ${#hosts[@]} == 0 )); then
-  fail 'no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values'
+if ((${#hosts[@]} == 0)); then
+    fail 'no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values'
 fi
 
 host_words="$(printf '%s\n' "${hosts[@]}" | paste -sd ' ' -)"
 domain_words="$(printf '%s\n' "${hosts[@]}" | while read -r host; do
-  [[ -n "$host" ]] || continue
-  domain_from_host "$host"
+    [[ -n "$host" ]] || continue
+    domain_from_host "$host"
 done | sort -u | paste -sd ' ' -)"
 status_summary="$(status_summary_json)"
 
 mkdir -p "$(dirname "$OUT_FILE")"
 
 jq -n \
-  --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --arg hosts "$host_words" \
-  --arg domains "$domain_words" \
-  --arg dnsResolvers "$DNS_RESOLVERS" \
-  --arg requiredOpenPorts "$REQUIRED_OPEN_PORTS" \
-  --arg forbiddenPublicPorts "$FORBIDDEN_PUBLIC_PORTS" \
-  --arg firewallPolicy "$FIREWALL_POLICY_FILE" \
-  --arg dnsReadiness "$DNS_READINESS_FILE" \
-  --arg dnsDelegation "$DNS_DELEGATION_FILE" \
-  --arg liveEvidence "$LIVE_EVIDENCE_FILE" \
-  --arg statusReport "$STATUS_FILE" \
-  --arg requestFile "$OUT_FILE" \
-  --argjson currentStatus "$status_summary" '
+    --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg hosts "$host_words" \
+    --arg domains "$domain_words" \
+    --arg dnsResolvers "$DNS_RESOLVERS" \
+    --arg requiredOpenPorts "$REQUIRED_OPEN_PORTS" \
+    --arg forbiddenPublicPorts "$FORBIDDEN_PUBLIC_PORTS" \
+    --arg firewallPolicy "$FIREWALL_POLICY_FILE" \
+    --arg dnsReadiness "$DNS_READINESS_FILE" \
+    --arg dnsDelegation "$DNS_DELEGATION_FILE" \
+    --arg liveEvidence "$LIVE_EVIDENCE_FILE" \
+    --arg statusReport "$STATUS_FILE" \
+    --arg requestFile "$OUT_FILE" \
+    --argjson currentStatus "$status_summary" '
   def words($value): ($value // "" | split(" ") | map(select(length > 0)));
   def numbers($value): words($value) | map(tonumber);
   def has_blocker($source): any($currentStatus.blockers[]?; .source == $source);

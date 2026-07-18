@@ -10,17 +10,17 @@ namespace="${FSUSBLOG_TEST_NAMESPACE:-local}"
 postgres_container="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-${FSUSBLOG_PG_CONTAINER:-fsusblog-dev-postgres}}"
 
 if ! docker exec "$postgres_container" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
-  printf '[data-scale:cleanup] postgres container is not ready: %s\n' "$postgres_container" >&2
-  exit 1
+    printf '[data-scale:cleanup] postgres container is not ready: %s\n' "$postgres_container" >&2
+    exit 1
 fi
 
 summary="$(
-  docker exec -i "$postgres_container" psql -X -q -t -A \
-    -U fsusblog \
-    -d fsusblog \
-    -v ON_ERROR_STOP=1 \
-    -v namespace="$namespace" \
-    -v tier="$TIER" <<'SQL'
+    docker exec -i "$postgres_container" psql -X -q -t -A \
+        -U fsusblog \
+        -d fsusblog \
+        -v ON_ERROR_STOP=1 \
+        -v namespace="$namespace" \
+        -v tier="$TIER" <<'SQL'
 BEGIN;
 
 CREATE TEMP TABLE data_scale_context(namespace text, tier text, prefix text, started_at timestamp NOT NULL) ON COMMIT DROP;
@@ -117,11 +117,11 @@ COMMIT;
 SQL
 )"
 
-printf '%s\n' "$summary" > "$OUT_DIR/cleanup.json"
+printf '%s\n' "$summary" >"$OUT_DIR/cleanup.json"
 
 if [[ "$(jq -r '.status // "failed"' "$OUT_DIR/cleanup.json")" != "ok" ]]; then
-  printf '[data-scale:cleanup] namespace cleanup left rows for %s/%s\n' "$TIER" "$namespace" >&2
-  exit 1
+    printf '[data-scale:cleanup] namespace cleanup left rows for %s/%s\n' "$TIER" "$namespace" >&2
+    exit 1
 fi
 
 printf '[data-scale:cleanup] wrote %s\n' "$OUT_DIR/cleanup.json"

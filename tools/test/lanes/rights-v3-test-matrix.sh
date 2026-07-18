@@ -6,62 +6,65 @@ CLIENT_DIR="$ROOT_DIR/src/frontend"
 EVIDENCE_PATH="$ROOT_DIR/.tmp/release-evidence/rights-v3-test-matrix.json"
 
 BACKEND_OWNERS=(
-  "FullyQualifiedName~SchemaMigrationRegistryTests.GetDescriptors_ArticleRightsV3Schema_CreatesPolicySnapshotProofTablesAndBackfillsDefaults"
-  "FullyQualifiedName~SchemaMigrationIntegrationTests.RunAsync_CreatesArticleRightsV3SchemaAndBackfillsLegacyArticles"
-  "FullyQualifiedName~ArticleRightsCanonicalHashTests"
-  "FullyQualifiedName~ArticleRightsWritePathTests"
-  "FullyQualifiedName~PodBinaryCodecTests.ArticleWriteRequest_RoundTrip_PreservesTextAndTags"
-  "FullyQualifiedName~PodBinaryCodecTests.ArticleWriteRequest_DecodeRejectsLegacyPayloadWithoutRightsV3Section"
-  "FullyQualifiedName~PodBinaryCodecTests.ArticleDetail_RoundTrip_PreservesFields"
-  "FullyQualifiedName~PodBinaryCodecTests.ArticleDetail_DecodeRejectsLegacyPayloadWithoutV3Envelope"
-  "FullyQualifiedName~PodBinaryCodecTests.LegacyPublicArticleArtifact_IsNotAcceptedAsArticleDetailV3"
-  "FullyQualifiedName~PodBinaryCodecTests.ArticleDetail_DecodeRejectsInvalidMagicVersionAndTrailingPayload"
-  "FullyQualifiedName~AedsProtocolCrossLanguageTests.BackendEncoder_MatchesSharedArticleDetailFixture"
-  "FullyQualifiedName~ArticleProjectionTests.ToDetailResponse_UsesContentWhenPresent"
-  "FullyQualifiedName~ArticleDetailAedsArtifactStoreBehaviorTests"
-  "FullyQualifiedName~ArticleRightsProofModelTests"
-  "FullyQualifiedName~TransparencyLogTests.AppendService_HandlesArticleRightsProofRowsAndBackReference"
-  "FullyQualifiedName~IntegrityVerificationManifestServiceTests.GetCurrentArticleRightsProofAsync_PublicReadyProofReturnsSafeRightsManifest"
-  "FullyQualifiedName~PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_BumpsListingVersionsWithoutPrefixScanning"
-  "FullyQualifiedName~PublicHotReadFastPathTests.TryServeAsync_DetailHit_WritesPreencodedFrameWithoutNext"
-  "FullyQualifiedName~PublicHotReadFastPathTests.BinaryArtifactFactory_ValidatesExpectedFrameAndRejectsCorruption"
-  "FullyQualifiedName~PublicHotReadFastPathTests.PreencodedArticleDetailHotPath_AvoidsPerRequestAllocationsAfterWarmup"
+    "FullyQualifiedName~SchemaMigrationRegistryTests.GetDescriptors_ArticleRightsV3Schema_CreatesPolicySnapshotProofTablesAndBackfillsDefaults"
+    "FullyQualifiedName~SchemaMigrationIntegrationTests.RunAsync_CreatesArticleRightsV3SchemaAndBackfillsLegacyArticles"
+    "FullyQualifiedName~ArticleRightsCanonicalHashTests"
+    "FullyQualifiedName~ArticleRightsWritePathTests"
+    "FullyQualifiedName~PodBinaryCodecTests.ArticleWriteRequest_RoundTrip_PreservesTextAndTags"
+    "FullyQualifiedName~PodBinaryCodecTests.ArticleWriteRequest_DecodeRejectsLegacyPayloadWithoutRightsV3Section"
+    "FullyQualifiedName~PodBinaryCodecTests.ArticleDetail_RoundTrip_PreservesFields"
+    "FullyQualifiedName~PodBinaryCodecTests.ArticleDetail_DecodeRejectsLegacyPayloadWithoutV3Envelope"
+    "FullyQualifiedName~PodBinaryCodecTests.LegacyPublicArticleArtifact_IsNotAcceptedAsArticleDetailV3"
+    "FullyQualifiedName~PodBinaryCodecTests.ArticleDetail_DecodeRejectsInvalidMagicVersionAndTrailingPayload"
+    "FullyQualifiedName~AedsProtocolCrossLanguageTests.BackendEncoder_MatchesSharedArticleDetailFixture"
+    "FullyQualifiedName~ArticleProjectionTests.ToDetailResponse_UsesContentWhenPresent"
+    "FullyQualifiedName~ArticleDetailAedsArtifactStoreBehaviorTests"
+    "FullyQualifiedName~ArticleRightsProofModelTests"
+    "FullyQualifiedName~TransparencyLogTests.AppendService_HandlesArticleRightsProofRowsAndBackReference"
+    "FullyQualifiedName~IntegrityVerificationManifestServiceTests.GetCurrentArticleRightsProofAsync_PublicReadyProofReturnsSafeRightsManifest"
+    "FullyQualifiedName~PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_BumpsListingVersionsWithoutPrefixScanning"
+    "FullyQualifiedName~PublicHotReadFastPathTests.TryServeAsync_DetailHit_WritesPreencodedFrameWithoutNext"
+    "FullyQualifiedName~PublicHotReadFastPathTests.BinaryArtifactFactory_ValidatesExpectedFrameAndRejectsCorruption"
+    "FullyQualifiedName~PublicHotReadFastPathTests.PreencodedArticleDetailHotPath_AvoidsPerRequestAllocationsAfterWarmup"
 )
-BACKEND_FILTER="$(IFS='|'; printf '%s' "${BACKEND_OWNERS[*]}")"
+BACKEND_FILTER="$(
+    IFS='|'
+    printf '%s' "${BACKEND_OWNERS[*]}"
+)"
 
 FRONTEND_TESTS=(
-  "../../tests/frontend/unit/protocol/aeds-contract.test.ts"
-  "../../tests/frontend/unit/api/article.test.ts"
-  "../../tests/frontend/unit/api/authoring.test.ts"
-  "../../tests/frontend/unit/view-contracts/articleDetailRights.test.ts"
-  "../../tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts"
-  "../../tests/frontend/unit/composables/useCodeBlockCopy.test.ts"
-  "../../tests/frontend/unit/public-renderers/publicEntryRegistry.test.ts"
-  "../../tests/frontend/unit/public-renderers/publicPayloadNormalizer.test.ts"
-  "../../tests/frontend/unit/bootstrap/publicSeedReaders.test.ts"
-  "../../tests/frontend/unit/services/publicReadHydrationGuard.test.ts"
+    "../../tests/frontend/unit/protocol/aeds-contract.test.ts"
+    "../../tests/frontend/unit/api/article.test.ts"
+    "../../tests/frontend/unit/api/authoring.test.ts"
+    "../../tests/frontend/unit/view-contracts/articleDetailRights.test.ts"
+    "../../tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts"
+    "../../tests/frontend/unit/composables/useCodeBlockCopy.test.ts"
+    "../../tests/frontend/unit/public-renderers/publicEntryRegistry.test.ts"
+    "../../tests/frontend/unit/public-renderers/publicPayloadNormalizer.test.ts"
+    "../../tests/frontend/unit/bootstrap/publicSeedReaders.test.ts"
+    "../../tests/frontend/unit/services/publicReadHydrationGuard.test.ts"
 )
 
 cd "$ROOT_DIR"
 
 FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
-  --configuration Debug \
-  --no-build \
-  --no-restore \
-  --filter "$BACKEND_FILTER" \
-  -v minimal
+    --configuration Debug \
+    --no-build \
+    --no-restore \
+    --filter "$BACKEND_FILTER" \
+    -v minimal
 
 if [[ ! -x "$CLIENT_DIR/node_modules/.bin/vitest" ]]; then
-  npm --prefix "$CLIENT_DIR" ci --no-audit --progress=false
+    npm --prefix "$CLIENT_DIR" ci --no-audit --progress=false
 fi
 
 npm --prefix "$CLIENT_DIR" run check:public-page-manifest-sync
 node "$ROOT_DIR/tests/frontend/checks/static/check-article-editor-workspace-governance.mjs"
 
 (
-  cd "$CLIENT_DIR"
-  npm exec -- vitest run --config vitest.config.ts "${FRONTEND_TESTS[@]}"
+    cd "$CLIENT_DIR"
+    npm exec -- vitest run --config vitest.config.ts "${FRONTEND_TESTS[@]}"
 )
 
 mkdir -p "$(dirname "$EVIDENCE_PATH")"

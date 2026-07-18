@@ -4,7 +4,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 
 if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS:-0}" != "1" && "${MATRIX_JOB:-}" != "browser-diagnostics" ]]; then
-  fail "browser runtime risk probes are diagnostics-only"
+    fail "browser runtime risk probes are diagnostics-only"
 fi
 
 export FSUSBLOG_BROWSER_DIAGNOSTICS=1

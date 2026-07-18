@@ -5,51 +5,51 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP_ROOT="$(mktemp -d)"
 RESTORE_DIR="$TMP_ROOT/restore"
 TRACKED_TMP_FILES=(
-  ".tmp/release-evidence/frontend-render-pressure-summary.json"
-  ".tmp/release-evidence/frontend-render-structure-summary.json"
-  ".tmp/release-evidence/aeds-decode-budget-summary.json"
-  ".tmp/release-evidence/aeds-wasm-browser-summary.json"
-  ".tmp/release-evidence/doc-sync-summary.json"
-  ".tmp/release-evidence/backend-qps-summary.json"
-  ".tmp/release-evidence/aot-cache-resilience-summary.json"
-  ".tmp/release-evidence/public-hydration-detector-summary.json"
-  ".tmp/release-evidence/public-hydration-clock-matrix-summary.json"
-  ".tmp/release-evidence/public-hydration-browser-env-summary.json"
-  ".tmp/release-evidence/public-hydration-payload-fixture-summary.json"
-  ".tmp/release-evidence/public-hydration-dom-diff-summary.json"
-  ".tmp/release-evidence/public-hydration-sidecar-summary.json"
-  ".tmp/release-evidence/public-hydration-matrix-summary.json"
-  ".tmp/release-evidence/ux-viewport-summary.json"
-  ".tmp/frontend/dom-budget.json"
-  ".tmp/frontend/route-render-pressure.json"
-  ".tmp/frontend/markdown-render-budget.json"
-  ".tmp/frontend/dom-depth-static.json"
+    ".tmp/release-evidence/frontend-render-pressure-summary.json"
+    ".tmp/release-evidence/frontend-render-structure-summary.json"
+    ".tmp/release-evidence/aeds-decode-budget-summary.json"
+    ".tmp/release-evidence/aeds-wasm-browser-summary.json"
+    ".tmp/release-evidence/doc-sync-summary.json"
+    ".tmp/release-evidence/backend-qps-summary.json"
+    ".tmp/release-evidence/aot-cache-resilience-summary.json"
+    ".tmp/release-evidence/public-hydration-detector-summary.json"
+    ".tmp/release-evidence/public-hydration-clock-matrix-summary.json"
+    ".tmp/release-evidence/public-hydration-browser-env-summary.json"
+    ".tmp/release-evidence/public-hydration-payload-fixture-summary.json"
+    ".tmp/release-evidence/public-hydration-dom-diff-summary.json"
+    ".tmp/release-evidence/public-hydration-sidecar-summary.json"
+    ".tmp/release-evidence/public-hydration-matrix-summary.json"
+    ".tmp/release-evidence/ux-viewport-summary.json"
+    ".tmp/frontend/dom-budget.json"
+    ".tmp/frontend/route-render-pressure.json"
+    ".tmp/frontend/markdown-render-budget.json"
+    ".tmp/frontend/dom-depth-static.json"
 )
 
 preserve_tracked_tmp_files() {
-  local relative
-  for relative in "${TRACKED_TMP_FILES[@]}"; do
-    if [[ -f "$ROOT_DIR/$relative" ]]; then
-      mkdir -p "$RESTORE_DIR/$(dirname "$relative")"
-      cp "$ROOT_DIR/$relative" "$RESTORE_DIR/$relative"
-    else
-      mkdir -p "$RESTORE_DIR/$(dirname "$relative")"
-      touch "$RESTORE_DIR/$relative.__missing"
-    fi
-  done
+    local relative
+    for relative in "${TRACKED_TMP_FILES[@]}"; do
+        if [[ -f "$ROOT_DIR/$relative" ]]; then
+            mkdir -p "$RESTORE_DIR/$(dirname "$relative")"
+            cp "$ROOT_DIR/$relative" "$RESTORE_DIR/$relative"
+        else
+            mkdir -p "$RESTORE_DIR/$(dirname "$relative")"
+            touch "$RESTORE_DIR/$relative.__missing"
+        fi
+    done
 }
 
 restore_tracked_tmp_files() {
-  local relative
-  for relative in "${TRACKED_TMP_FILES[@]}"; do
-    if [[ -f "$RESTORE_DIR/$relative" ]]; then
-      mkdir -p "$(dirname "$ROOT_DIR/$relative")"
-      cp "$RESTORE_DIR/$relative" "$ROOT_DIR/$relative"
-    elif [[ -f "$RESTORE_DIR/$relative.__missing" ]]; then
-      rm -f "$ROOT_DIR/$relative"
-    fi
-  done
-  rm -rf "$TMP_ROOT"
+    local relative
+    for relative in "${TRACKED_TMP_FILES[@]}"; do
+        if [[ -f "$RESTORE_DIR/$relative" ]]; then
+            mkdir -p "$(dirname "$ROOT_DIR/$relative")"
+            cp "$RESTORE_DIR/$relative" "$ROOT_DIR/$relative"
+        elif [[ -f "$RESTORE_DIR/$relative.__missing" ]]; then
+            rm -f "$ROOT_DIR/$relative"
+        fi
+    done
+    rm -rf "$TMP_ROOT"
 }
 
 trap restore_tracked_tmp_files EXIT
@@ -80,42 +80,42 @@ RUNTIME_PROFILE_MANIFEST_DIGEST="sha256:$(printf 'e%.0s' {1..64})"
 RUNTIME_PROFILE_DIGEST="sha256:$(printf 'f%.0s' {1..64})"
 GATEWAY_TRANSITION_EVIDENCE="$TMP_ROOT/gateway-transition.json"
 node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
-  --output "$RELEASE_MANIFEST" \
-  --release-id "$RELEASE_ID" \
-  --commit-sha "$COMMIT_SHA" \
-  --image-repository "$IMAGE_REPOSITORY" \
-  --image-tag "$IMAGE_REPOSITORY:$RELEASE_ID" \
-  --image-digest "$IMAGE_DIGEST" \
-  --frontend-manifest-hash "sha256:$(printf 'b%.0s' {1..64})" \
-  --wasm-artifact-hash "sha256:$(printf 'c%.0s' {1..64})" \
-  --zk-local-review-hash "sha256:$(printf 'e%.0s' {1..64})" \
-  --schema-min-release "$RELEASE_ID" \
-  --schema-max-release "$RELEASE_ID" \
-  --dotnet-version "10.0.100-fixture" \
-  --node-version "v20.19.0-fixture" \
-  --docker-version "28.0.0-fixture" \
-  --dockerfile-digest "sha256:$(sha256sum "$ROOT_DIR/ops/docker/FsusBlog.Server.Dockerfile" | awk '{print $1}')" \
-  --runtime-profile-id "$RUNTIME_PROFILE_ID" \
-  --runtime-profile-manifest-digest "$RUNTIME_PROFILE_MANIFEST_DIGEST" \
-  --runtime-profile-digest "$RUNTIME_PROFILE_DIGEST" \
-  --runtime-base-family "musl" \
-  --target-runtime "linux-musl-x64" \
-  --publish-single-file "true" \
-  --publish-ready-to-run "false" \
-  --tiered-pgo "true" \
-  --quick-jit-for-loops "true" \
-  --server-gc "true" \
-  --native-aot "false" \
-  --thread-pool-mode "runtime-default" \
-  --topology-mode "smt-visible" \
-  --created-at-utc "2026-07-11T01:01:01.000Z" >/dev/null
+    --output "$RELEASE_MANIFEST" \
+    --release-id "$RELEASE_ID" \
+    --commit-sha "$COMMIT_SHA" \
+    --image-repository "$IMAGE_REPOSITORY" \
+    --image-tag "$IMAGE_REPOSITORY:$RELEASE_ID" \
+    --image-digest "$IMAGE_DIGEST" \
+    --frontend-manifest-hash "sha256:$(printf 'b%.0s' {1..64})" \
+    --wasm-artifact-hash "sha256:$(printf 'c%.0s' {1..64})" \
+    --zk-local-review-hash "sha256:$(printf 'e%.0s' {1..64})" \
+    --schema-min-release "$RELEASE_ID" \
+    --schema-max-release "$RELEASE_ID" \
+    --dotnet-version "10.0.100-fixture" \
+    --node-version "v20.19.0-fixture" \
+    --docker-version "28.0.0-fixture" \
+    --dockerfile-digest "sha256:$(sha256sum "$ROOT_DIR/ops/docker/FsusBlog.Server.Dockerfile" | awk '{print $1}')" \
+    --runtime-profile-id "$RUNTIME_PROFILE_ID" \
+    --runtime-profile-manifest-digest "$RUNTIME_PROFILE_MANIFEST_DIGEST" \
+    --runtime-profile-digest "$RUNTIME_PROFILE_DIGEST" \
+    --runtime-base-family "musl" \
+    --target-runtime "linux-musl-x64" \
+    --publish-single-file "true" \
+    --publish-ready-to-run "false" \
+    --tiered-pgo "true" \
+    --quick-jit-for-loops "true" \
+    --server-gc "true" \
+    --native-aot "false" \
+    --thread-pool-mode "runtime-default" \
+    --topology-mode "smt-visible" \
+    --created-at-utc "2026-07-11T01:01:01.000Z" >/dev/null
 
 node --input-type=module - \
-  "$ROOT_DIR" \
-  "$RUNTIME_MATRIX_EVIDENCE" \
-  "$COMMIT_SHA" \
-  "$RUNTIME_PROFILE_MANIFEST_DIGEST" \
-  "$RUNTIME_PROFILE_DIGEST" <<'NODE'
+    "$ROOT_DIR" \
+    "$RUNTIME_MATRIX_EVIDENCE" \
+    "$COMMIT_SHA" \
+    "$RUNTIME_PROFILE_MANIFEST_DIGEST" \
+    "$RUNTIME_PROFILE_DIGEST" <<'NODE'
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -127,11 +127,11 @@ fs.writeFileSync(output, `${JSON.stringify(evidence)}\n`)
 NODE
 
 jq -n \
-  --arg releaseId "$RELEASE_ID" \
-  --arg imageDigest "$IMAGE_DIGEST" \
-  --arg sourceDigest "sha256:$(printf 'f%.0s' {1..64})" \
-  --arg upstreamBefore "sha256:$(printf '1%.0s' {1..64})" \
-  --arg upstreamAfter "sha256:$(printf '2%.0s' {1..64})" '
+    --arg releaseId "$RELEASE_ID" \
+    --arg imageDigest "$IMAGE_DIGEST" \
+    --arg sourceDigest "sha256:$(printf 'f%.0s' {1..64})" \
+    --arg upstreamBefore "sha256:$(printf '1%.0s' {1..64})" \
+    --arg upstreamAfter "sha256:$(printf '2%.0s' {1..64})" '
   {
     schema: "fsusblog.gateway-transition-evidence.v1",
     kind: "switch",
@@ -174,15 +174,15 @@ jq -n \
     error: null,
     recoveryAction: "none"
   }
-' > "$GATEWAY_TRANSITION_EVIDENCE"
+' >"$GATEWAY_TRANSITION_EVIDENCE"
 
-printf '{"status":"blocked","requiredHosts":["fsus.blog"],"delegationDomains":["fsus.blog"],"blockers":[{"source":"fixture","message":"synthetic"}]}\n' > "$SECURITY_DIR/production-exposure-status.json"
+printf '{"status":"blocked","requiredHosts":["fsus.blog"],"delegationDomains":["fsus.blog"],"blockers":[{"source":"fixture","message":"synthetic"}]}\n' >"$SECURITY_DIR/production-exposure-status.json"
 jq -n \
-  --arg firewallPolicy "$SECURITY_DIR/production-firewall-policy.json" \
-  --arg dnsReadiness "$SECURITY_DIR/production-dns-readiness.json" \
-  --arg dnsDelegation "$SECURITY_DIR/production-dns-delegation.json" \
-  --arg liveExposure "$SECURITY_DIR/production-exposure-live.json" \
-  --arg statusReport "$SECURITY_DIR/production-exposure-status.json" '{
+    --arg firewallPolicy "$SECURITY_DIR/production-firewall-policy.json" \
+    --arg dnsReadiness "$SECURITY_DIR/production-dns-readiness.json" \
+    --arg dnsDelegation "$SECURITY_DIR/production-dns-delegation.json" \
+    --arg liveExposure "$SECURITY_DIR/production-exposure-live.json" \
+    --arg statusReport "$SECURITY_DIR/production-exposure-status.json" '{
   status: "awaiting-external-evidence",
   requiredHosts: ["fsus.blog"],
   delegationDomains: ["fsus.blog"],
@@ -313,17 +313,17 @@ jq -n \
   returnedEvidenceCloseoutCommand: "tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>",
   returnedHandoffCloseoutCommand: "tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>",
   releaseEvidenceCommand: "tools/operations/collect-release-evidence.sh"
-}' > "$SECURITY_DIR/production-exposure-evidence-request.json"
-printf '{"generatedAt":"2026-05-18T00:00:00Z","requiredHosts":["fsus.blog"]}\n' > "$SECURITY_DIR/production-exposure-live.json"
-printf '{"generatedAt":"2026-05-18T00:00:00Z","appliesToHosts":["fsus.blog"],"evidenceSource":{"kind":"aws-security-groups","sourceFile":"fixture/aws-security-groups-ok.json","sourceSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}\n' > "$SECURITY_DIR/production-firewall-policy.json"
-printf '{"generatedAt":"2026-05-18T00:00:00Z","requiredHosts":"fsus.blog"}\n' > "$SECURITY_DIR/production-dns-readiness.json"
-printf '{"generatedAt":"2026-05-18T00:00:00Z","delegationDomains":"fsus.blog"}\n' > "$SECURITY_DIR/production-dns-delegation.json"
-printf '{"status":"ok","checks":["synthetic-attack"]}\n' > "$SECURITY_DIR/attack-matrix.json"
-printf '{"status":"ok","checks":["synthetic-permission"]}\n' > "$SECURITY_DIR/permission-matrix.json"
-printf '{"site":"frontend","status":"ok"}\n' > "$SECURITY_DIR/zap/run-1/zap.json"
-printf '{"status":"ok"}\n' > "$SECURITY_DIR/supply-chain/summary.json"
-printf '{"status":"ok"}\n' > "$SECURITY_DIR/sbom/summary.json"
-cat > "$OPERATIONS_DIR/backup-restore-drill.json" <<'JSON'
+}' >"$SECURITY_DIR/production-exposure-evidence-request.json"
+printf '{"generatedAt":"2026-05-18T00:00:00Z","requiredHosts":["fsus.blog"]}\n' >"$SECURITY_DIR/production-exposure-live.json"
+printf '{"generatedAt":"2026-05-18T00:00:00Z","appliesToHosts":["fsus.blog"],"evidenceSource":{"kind":"aws-security-groups","sourceFile":"fixture/aws-security-groups-ok.json","sourceSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}\n' >"$SECURITY_DIR/production-firewall-policy.json"
+printf '{"generatedAt":"2026-05-18T00:00:00Z","requiredHosts":"fsus.blog"}\n' >"$SECURITY_DIR/production-dns-readiness.json"
+printf '{"generatedAt":"2026-05-18T00:00:00Z","delegationDomains":"fsus.blog"}\n' >"$SECURITY_DIR/production-dns-delegation.json"
+printf '{"status":"ok","checks":["synthetic-attack"]}\n' >"$SECURITY_DIR/attack-matrix.json"
+printf '{"status":"ok","checks":["synthetic-permission"]}\n' >"$SECURITY_DIR/permission-matrix.json"
+printf '{"site":"frontend","status":"ok"}\n' >"$SECURITY_DIR/zap/run-1/zap.json"
+printf '{"status":"ok"}\n' >"$SECURITY_DIR/supply-chain/summary.json"
+printf '{"status":"ok"}\n' >"$SECURITY_DIR/sbom/summary.json"
+cat >"$OPERATIONS_DIR/backup-restore-drill.json" <<'JSON'
 {
   "status": "ok",
   "mode": "real",
@@ -342,7 +342,7 @@ cat > "$OPERATIONS_DIR/backup-restore-drill.json" <<'JSON'
   "blockers": []
 }
 JSON
-cat > "$OPERATIONS_DIR/post-deploy-smoke.json" <<'JSON'
+cat >"$OPERATIONS_DIR/post-deploy-smoke.json" <<'JSON'
 {
   "status": "ok",
   "dryRun": false,
@@ -361,14 +361,14 @@ cat > "$OPERATIONS_DIR/post-deploy-smoke.json" <<'JSON'
   "blockers": []
 }
 JSON
-printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/slo-alert-fixture.json"
-printf '{"status":"ok"}\n' > "$OPERATIONS_DIR/retention-cleanup.json"
-printf '{"summary":{"linecoverage":80,"branchcoverage":60,"methodcoverage":95,"assemblies":1,"classes":1,"files":1},"totals":{"lines":{"covered":80,"total":100},"branches":{"covered":60,"total":100},"methods":{"covered":95,"total":100}},"sources":{"mergeMethod":"covered-over-total-weighted"}}\n' > "$COVERAGE_DIR/merged/Summary.json"
-printf '{"summary":{"linecoverage":78,"branchcoverage":58,"methodcoverage":96,"assemblies":1,"classes":1,"files":1},"totals":{"lines":{"covered":78,"total":100},"branches":{"covered":58,"total":100},"methods":{"covered":96,"total":100}},"source":"backend-cobertura","reportPaths":["coverage/backend/fixture.cobertura.xml"]}\n' > "$COVERAGE_DIR/backend-merged/Summary.json"
-printf '{"summary":{"linecoverage":76,"branchcoverage":56,"functioncoverage":86,"assemblies":0,"classes":1,"files":1},"totals":{"lines":{"covered":76,"total":100},"branches":{"covered":56,"total":100},"methods":{"covered":86,"total":100}},"source":"frontend-vitest","reportPaths":["coverage/frontend/coverage-summary.json"]}\n' > "$COVERAGE_DIR/frontend/Summary.json"
+printf '{"status":"ok"}\n' >"$OPERATIONS_DIR/slo-alert-fixture.json"
+printf '{"status":"ok"}\n' >"$OPERATIONS_DIR/retention-cleanup.json"
+printf '{"summary":{"linecoverage":80,"branchcoverage":60,"methodcoverage":95,"assemblies":1,"classes":1,"files":1},"totals":{"lines":{"covered":80,"total":100},"branches":{"covered":60,"total":100},"methods":{"covered":95,"total":100}},"sources":{"mergeMethod":"covered-over-total-weighted"}}\n' >"$COVERAGE_DIR/merged/Summary.json"
+printf '{"summary":{"linecoverage":78,"branchcoverage":58,"methodcoverage":96,"assemblies":1,"classes":1,"files":1},"totals":{"lines":{"covered":78,"total":100},"branches":{"covered":58,"total":100},"methods":{"covered":96,"total":100}},"source":"backend-cobertura","reportPaths":["coverage/backend/fixture.cobertura.xml"]}\n' >"$COVERAGE_DIR/backend-merged/Summary.json"
+printf '{"summary":{"linecoverage":76,"branchcoverage":56,"functioncoverage":86,"assemblies":0,"classes":1,"files":1},"totals":{"lines":{"covered":76,"total":100},"branches":{"covered":56,"total":100},"methods":{"covered":86,"total":100}},"source":"frontend-vitest","reportPaths":["coverage/frontend/coverage-summary.json"]}\n' >"$COVERAGE_DIR/frontend/Summary.json"
 mkdir -p "$ROOT_DIR/.tmp/frontend" "$ROOT_DIR/.tmp/release-evidence"
-printf '{"schema":"fsusblog.frontend-render-pressure.v1","status":"ok","evidenceClass":"diagnostic","affectsCorrectness":false,"executionBoundary":"real-browser-render-diagnostics","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json"
-printf '{"schema":"fsusblog.frontend-render-structure.v1","status":"ok","evidenceClass":"correctness","affectsCorrectness":true,"executionBoundary":"browserless-static-analysis","checks":["dom-depth-static","markdown-render-budget"]}\n' > "$ROOT_DIR/.tmp/release-evidence/frontend-render-structure-summary.json"
+printf '{"schema":"fsusblog.frontend-render-pressure.v1","status":"ok","evidenceClass":"diagnostic","affectsCorrectness":false,"executionBoundary":"real-browser-render-diagnostics","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json"
+printf '{"schema":"fsusblog.frontend-render-structure.v1","status":"ok","evidenceClass":"correctness","affectsCorrectness":true,"executionBoundary":"browserless-static-analysis","checks":["dom-depth-static","markdown-render-budget"]}\n' >"$ROOT_DIR/.tmp/release-evidence/frontend-render-structure-summary.json"
 node - "$ROOT_DIR/.tmp/release-evidence" "$COMMIT_SHA" <<'NODE'
 const fs = require('node:fs')
 const path = require('node:path')
@@ -455,8 +455,8 @@ fs.writeFileSync(path.join(outputDir, 'aeds-wasm-browser-summary.json'), `${JSON
   }]
 })}\n`)
 NODE
-printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json"
-cat > "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json" <<'JSON'
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json"
+cat >"$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json" <<'JSON'
 {
   "schema": "fsusblog.public-aot-cache-resilience.v1",
   "status": "success",
@@ -474,12 +474,12 @@ cat > "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json" <<'JSO
   ]
 }
 JSON
-printf '{"schema":"fsusblog.public-hydration-detector.v1","status":"success","fatalHydrationIssueCount":0,"routesChecked":[{"route":"/","routeName":"home","stage":"home:first-visit:hydrate","browser":"chromium","viewport":{"name":"desktop","width":1440,"height":900},"status":"success"}],"warnings":[],"errors":[]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-detector-summary.json"
-printf '{"schema":"fsusblog.public-hydration-clock-matrix.v1","status":"success","cases":[{"id":"fixture","ssrClock":"2026-06-16T12:00:00.000Z","hydrationClock":"2026-06-16T12:01:10.000Z","serverTimeZone":"UTC","browserTimeZone":"Asia/Shanghai","locale":"zh-CN","rows":[{"kind":"ArticleDetail","timestampCase":"just-now","renderTimestamp":"2026-06-16T12:00:00.000Z","renderTimeZone":"UTC","timeNodeCount":1}]}]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-clock-matrix-summary.json"
-printf '{"schema":"fsusblog.public-hydration-browser-env-matrix.v1","status":"success","coverage":{"environmentCells":4,"routesChecked":12,"routesSkipped":0,"sessionStates":["anonymous","user","admin"],"themePreferences":["empty","light","dark","system"],"storageBehaviors":["normal","unavailable","cleared-after-reload"],"motionPreferences":["normal","reduced"],"colorSchemes":["light","dark"],"viewports":["desktop","tablet","mobile","narrowMobile"]},"rows":[{"routeId":"home","status":"success","environment":{"id":"fixture","sessionState":"anonymous","themePreference":"empty"}}]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-browser-env-summary.json"
-printf '{"schema":"fsusblog.public-hydration-payload-fixture-matrix.v1","status":"success","coverage":{"dimensions":["article-list:empty","article-body:code-blocks","filter:tag-by-name","archive:large","footer:complete","payload:duplicate-scalars-absent"],"missingDimensions":[]},"fixtures":[{"id":"fixture","status":"success","route":"/","kind":"Home","dimensions":["article-list:empty"]}]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-payload-fixture-summary.json"
-printf '{"schema":"fsusblog.public-hydration-dom-diff.v1","status":"success","coverage":{"pageKinds":["Home","ArticleDetail","Archive","Filter","About","Privacy","Guidelines","Copyright"],"missingPageKinds":[]},"canary":{"status":"success","diffCount":1},"cases":[{"routeKey":"home","pageKind":"Home","diffCount":0}]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-dom-diff-summary.json"
-cat > "$ROOT_DIR/.tmp/release-evidence/public-hydration-sidecar-summary.json" <<'JSON'
+printf '{"schema":"fsusblog.public-hydration-detector.v1","status":"success","fatalHydrationIssueCount":0,"routesChecked":[{"route":"/","routeName":"home","stage":"home:first-visit:hydrate","browser":"chromium","viewport":{"name":"desktop","width":1440,"height":900},"status":"success"}],"warnings":[],"errors":[]}\n' >"$ROOT_DIR/.tmp/release-evidence/public-hydration-detector-summary.json"
+printf '{"schema":"fsusblog.public-hydration-clock-matrix.v1","status":"success","cases":[{"id":"fixture","ssrClock":"2026-06-16T12:00:00.000Z","hydrationClock":"2026-06-16T12:01:10.000Z","serverTimeZone":"UTC","browserTimeZone":"Asia/Shanghai","locale":"zh-CN","rows":[{"kind":"ArticleDetail","timestampCase":"just-now","renderTimestamp":"2026-06-16T12:00:00.000Z","renderTimeZone":"UTC","timeNodeCount":1}]}]}\n' >"$ROOT_DIR/.tmp/release-evidence/public-hydration-clock-matrix-summary.json"
+printf '{"schema":"fsusblog.public-hydration-browser-env-matrix.v1","status":"success","coverage":{"environmentCells":4,"routesChecked":12,"routesSkipped":0,"sessionStates":["anonymous","user","admin"],"themePreferences":["empty","light","dark","system"],"storageBehaviors":["normal","unavailable","cleared-after-reload"],"motionPreferences":["normal","reduced"],"colorSchemes":["light","dark"],"viewports":["desktop","tablet","mobile","narrowMobile"]},"rows":[{"routeId":"home","status":"success","environment":{"id":"fixture","sessionState":"anonymous","themePreference":"empty"}}]}\n' >"$ROOT_DIR/.tmp/release-evidence/public-hydration-browser-env-summary.json"
+printf '{"schema":"fsusblog.public-hydration-payload-fixture-matrix.v1","status":"success","coverage":{"dimensions":["article-list:empty","article-body:code-blocks","filter:tag-by-name","archive:large","footer:complete","payload:duplicate-scalars-absent"],"missingDimensions":[]},"fixtures":[{"id":"fixture","status":"success","route":"/","kind":"Home","dimensions":["article-list:empty"]}]}\n' >"$ROOT_DIR/.tmp/release-evidence/public-hydration-payload-fixture-summary.json"
+printf '{"schema":"fsusblog.public-hydration-dom-diff.v1","status":"success","coverage":{"pageKinds":["Home","ArticleDetail","Archive","Filter","About","Privacy","Guidelines","Copyright"],"missingPageKinds":[]},"canary":{"status":"success","diffCount":1},"cases":[{"routeKey":"home","pageKind":"Home","diffCount":0}]}\n' >"$ROOT_DIR/.tmp/release-evidence/public-hydration-dom-diff-summary.json"
+cat >"$ROOT_DIR/.tmp/release-evidence/public-hydration-sidecar-summary.json" <<'JSON'
 {
   "schema": "fsusblog.public-hydration-sidecar-smoke.v1",
   "status": "success",
@@ -505,18 +505,18 @@ cat > "$ROOT_DIR/.tmp/release-evidence/public-hydration-sidecar-summary.json" <<
   ]
 }
 JSON
-printf '{"schema":"fsusblog.public-hydration-matrix-summary.v1","status":"success","lane":"release","gitSha":"fixture","rendererVersion":"fixture","coverage":{"routes":[{"kind":"Home","route":"/","routeKey":"home"}],"pageKinds":["Home","ArticleDetail","Archive","Filter","About","Privacy","Guidelines","Copyright"],"phases":["direct-first-load","reload"],"browsers":["chromium"],"states":["anonymous","user","admin"],"fixtures":["payload-fixture-matrix"]},"requiredArtifacts":{"detector":"public-hydration-detector-summary.json","clock":"public-hydration-clock-matrix-summary.json","browserEnv":"public-hydration-browser-env-summary.json","payloadFixture":"public-hydration-payload-fixture-summary.json","domDiff":"public-hydration-dom-diff-summary.json"},"artifactStatuses":{"detector":"success","clock":"success","browserEnv":"success","payloadFixture":"success","domDiff":"success"},"cells":[{"source":"detector","route":"/","pageKind":"Home","phase":"direct-first-load","browser":"chromium","viewport":{"name":"desktop","width":1440,"height":900},"state":{"session":"anonymous"},"clock":null,"fixtureId":null,"result":"success","fatalHydrationIssueCount":0,"warnings":[],"errors":[],"durationMs":1}],"fatalHydrationIssueCount":0,"warnings":[],"errors":[]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-matrix-summary.json"
-printf '{"status":"ok","evidenceClass":"diagnostic","affectsCorrectness":false,"executionBoundary":"real-browser-ux-viewport","latestMode":"boundaries","planFingerprint":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","plannedCaseCount":1,"completedCaseCount":1,"plannedNavigationCount":1,"completedNavigationCount":1,"completedRouteThemeGroupCount":1,"failedRouteThemeGroupCount":0,"artifacts":{"smoke":null,"visual":null,"boundaries":".tmp/ux/viewport-boundaries.json"}}\n' > "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json"
-printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/dom-budget.json"
-printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/route-render-pressure.json"
-printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json"
-printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/dom-depth-static.json"
-printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json"
+printf '{"schema":"fsusblog.public-hydration-matrix-summary.v1","status":"success","lane":"release","gitSha":"fixture","rendererVersion":"fixture","coverage":{"routes":[{"kind":"Home","route":"/","routeKey":"home"}],"pageKinds":["Home","ArticleDetail","Archive","Filter","About","Privacy","Guidelines","Copyright"],"phases":["direct-first-load","reload"],"browsers":["chromium"],"states":["anonymous","user","admin"],"fixtures":["payload-fixture-matrix"]},"requiredArtifacts":{"detector":"public-hydration-detector-summary.json","clock":"public-hydration-clock-matrix-summary.json","browserEnv":"public-hydration-browser-env-summary.json","payloadFixture":"public-hydration-payload-fixture-summary.json","domDiff":"public-hydration-dom-diff-summary.json"},"artifactStatuses":{"detector":"success","clock":"success","browserEnv":"success","payloadFixture":"success","domDiff":"success"},"cells":[{"source":"detector","route":"/","pageKind":"Home","phase":"direct-first-load","browser":"chromium","viewport":{"name":"desktop","width":1440,"height":900},"state":{"session":"anonymous"},"clock":null,"fixtureId":null,"result":"success","fatalHydrationIssueCount":0,"warnings":[],"errors":[],"durationMs":1}],"fatalHydrationIssueCount":0,"warnings":[],"errors":[]}\n' >"$ROOT_DIR/.tmp/release-evidence/public-hydration-matrix-summary.json"
+printf '{"status":"ok","evidenceClass":"diagnostic","affectsCorrectness":false,"executionBoundary":"real-browser-ux-viewport","latestMode":"boundaries","planFingerprint":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","plannedCaseCount":1,"completedCaseCount":1,"plannedNavigationCount":1,"completedNavigationCount":1,"completedRouteThemeGroupCount":1,"failedRouteThemeGroupCount":0,"artifacts":{"smoke":null,"visual":null,"boundaries":".tmp/ux/viewport-boundaries.json"}}\n' >"$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/frontend/dom-budget.json"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/frontend/route-render-pressure.json"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/frontend/markdown-render-budget.json"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/frontend/dom-depth-static.json"
+printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' >"$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json"
 mkdir -p "$SECURITY_DIR/authenticated-dast" "$FUZZ_DIR/wasm" "$FAULT_DIR" "$SOAK_DIR/short"
-printf '%s\n' '{"schema":"fsusblog.security.authenticated-dast.v1","status":"ok","executionSource":"fresh-current-lane","targetPolicy":{"loopbackOnly":true,"productionTargetAllowed":false},"fixture":{"executionSource":"fresh-current-lane","historicalStateAccepted":false,"cleanup":"success"},"activeScan":{"executed":true,"requestCount":4,"passedCount":4,"failedCount":0},"contexts":{"anonymous":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"user":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"admin":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"author-console":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0}},"checks":[{"context":"anonymous","passed":true},{"context":"user","passed":true},{"context":"admin","passed":true},{"context":"author-console","passed":true}]}' > "$SECURITY_DIR/authenticated-dast/summary.json"
-printf '%s\n' '{"schema":"fsusblog.security.local-runtime-exposure.v1","status":"ok","executionSource":"fresh-loopback-runtime","scope":{"loopbackRuntimeOnly":true,"externalProductionDnsChecked":false,"externalFirewallEvidenceChecked":false,"countsAsProductionCloseout":false},"targets":[{"id":"backend","status":200},{"id":"frontend","status":200},{"id":"release-preview","status":200}],"listeners":[{"id":"backend","addresses":["127.0.0.1:25001"]},{"id":"frontend","addresses":["127.0.0.1:25002"]},{"id":"release-preview","addresses":["127.0.0.1:25003"]}],"restrictedServices":[{"id":"postgres","loopbackOnly":true},{"id":"redis","loopbackOnly":true}],"failures":[]}' > "$SECURITY_DIR/local-runtime-exposure.json"
-printf '{"status":"ok","executionSource":"fresh-wasm-runtime","seedsRun":1,"seedPlan":[{"corpus":"fixture","firstSeed":1,"count":1}],"decoder":{"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"crashes":[]}\n' > "$FUZZ_DIR/wasm/summary.json"
-cat > "$FAULT_DIR/summary.json" <<'JSON'
+printf '%s\n' '{"schema":"fsusblog.security.authenticated-dast.v1","status":"ok","executionSource":"fresh-current-lane","targetPolicy":{"loopbackOnly":true,"productionTargetAllowed":false},"fixture":{"executionSource":"fresh-current-lane","historicalStateAccepted":false,"cleanup":"success"},"activeScan":{"executed":true,"requestCount":4,"passedCount":4,"failedCount":0},"contexts":{"anonymous":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"user":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"admin":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"author-console":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0}},"checks":[{"context":"anonymous","passed":true},{"context":"user","passed":true},{"context":"admin","passed":true},{"context":"author-console","passed":true}]}' >"$SECURITY_DIR/authenticated-dast/summary.json"
+printf '%s\n' '{"schema":"fsusblog.security.local-runtime-exposure.v1","status":"ok","executionSource":"fresh-loopback-runtime","scope":{"loopbackRuntimeOnly":true,"externalProductionDnsChecked":false,"externalFirewallEvidenceChecked":false,"countsAsProductionCloseout":false},"targets":[{"id":"backend","status":200},{"id":"frontend","status":200},{"id":"release-preview","status":200}],"listeners":[{"id":"backend","addresses":["127.0.0.1:25001"]},{"id":"frontend","addresses":["127.0.0.1:25002"]},{"id":"release-preview","addresses":["127.0.0.1:25003"]}],"restrictedServices":[{"id":"postgres","loopbackOnly":true},{"id":"redis","loopbackOnly":true}],"failures":[]}' >"$SECURITY_DIR/local-runtime-exposure.json"
+printf '{"status":"ok","executionSource":"fresh-wasm-runtime","seedsRun":1,"seedPlan":[{"corpus":"fixture","firstSeed":1,"count":1}],"decoder":{"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"crashes":[]}\n' >"$FUZZ_DIR/wasm/summary.json"
+cat >"$FAULT_DIR/summary.json" <<'JSON'
 {
   "status": "ok",
   "caseCount": 9,
@@ -681,7 +681,7 @@ cat > "$FAULT_DIR/summary.json" <<'JSON'
   ]
 }
 JSON
-cat > "$SOAK_DIR/short/summary.json" <<'JSON'
+cat >"$SOAK_DIR/short/summary.json" <<'JSON'
 {
   "status": "ok",
   "mode": "short",
@@ -713,7 +713,7 @@ cat > "$SOAK_DIR/short/summary.json" <<'JSON'
 JSON
 
 MANIFEST_STATUS_CONDITION="$(
-  awk '
+    awk '
     /^MANIFEST_STATUS="collected-ok"/ { capture = 1 }
     /^cat > "\$OUT_DIR\/manifest.json"/ { capture = 0 }
     capture { print }
@@ -721,41 +721,41 @@ MANIFEST_STATUS_CONDITION="$(
 )"
 grep -Fq 'FRONTEND_RENDER_STRUCTURE_STATUS_VALUE' <<<"$MANIFEST_STATUS_CONDITION"
 if grep -Eq 'UX_VIEWPORT_STATUS_VALUE|FRONTEND_RENDER_PRESSURE_STATUS_VALUE' <<<"$MANIFEST_STATUS_CONDITION"; then
-  echo "[release-evidence-fixture] diagnostic browser evidence must not block correctness collection" >&2
-  exit 1
+    echo "[release-evidence-fixture] diagnostic browser evidence must not block correctness collection" >&2
+    exit 1
 fi
 
 FSUSBLOG_RELEASE_STAMP=fixture \
-FSUSBLOG_RELEASE_EVIDENCE_DIR="$OUT_DIR" \
-FSUSBLOG_SECURITY_EVIDENCE_SOURCE_DIR="$SECURITY_DIR" \
-FSUSBLOG_OPERATIONS_EVIDENCE_SOURCE_DIR="$OPERATIONS_DIR" \
-FSUSBLOG_COVERAGE_EVIDENCE_DIR="$COVERAGE_DIR" \
-FSUSBLOG_PERF_EVIDENCE_DIR="$PERF_DIR" \
-FSUSBLOG_FAULT_EVIDENCE_DIR="$FAULT_DIR" \
-FSUSBLOG_SOAK_EVIDENCE_DIR="$SOAK_DIR" \
-FSUSBLOG_FUZZ_EVIDENCE_DIR="$FUZZ_DIR" \
-FSUSBLOG_GATE_LOG_SOURCE_DIR="$GATE_LOG_DIR" \
-FSUSBLOG_GATEWAY_TRANSITION_EVIDENCE="$GATEWAY_TRANSITION_EVIDENCE" \
-FSUSBLOG_RUNTIME_MATRIX_EVIDENCE="$RUNTIME_MATRIX_EVIDENCE" \
-FSUSBLOG_RUNTIME_PROFILE_ID="$RUNTIME_PROFILE_ID" \
-FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST="$RUNTIME_PROFILE_MANIFEST_DIGEST" \
-FSUSBLOG_RUNTIME_PROFILE_DIGEST="$RUNTIME_PROFILE_DIGEST" \
-FSUSBLOG_RELEASE_MANIFEST="$RELEASE_MANIFEST" \
-FSUSBLOG_RELEASE_ID="$RELEASE_ID" \
-FSUSBLOG_RELEASE_SLOT="green" \
-FSUSBLOG_COMMIT_SHA="$COMMIT_SHA" \
-FSUSBLOG_IMAGE_REF="$IMAGE_REF" \
-FSUSBLOG_IMAGE_DIGEST="$IMAGE_DIGEST" \
-  bash "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
+    FSUSBLOG_RELEASE_EVIDENCE_DIR="$OUT_DIR" \
+    FSUSBLOG_SECURITY_EVIDENCE_SOURCE_DIR="$SECURITY_DIR" \
+    FSUSBLOG_OPERATIONS_EVIDENCE_SOURCE_DIR="$OPERATIONS_DIR" \
+    FSUSBLOG_COVERAGE_EVIDENCE_DIR="$COVERAGE_DIR" \
+    FSUSBLOG_PERF_EVIDENCE_DIR="$PERF_DIR" \
+    FSUSBLOG_FAULT_EVIDENCE_DIR="$FAULT_DIR" \
+    FSUSBLOG_SOAK_EVIDENCE_DIR="$SOAK_DIR" \
+    FSUSBLOG_FUZZ_EVIDENCE_DIR="$FUZZ_DIR" \
+    FSUSBLOG_GATE_LOG_SOURCE_DIR="$GATE_LOG_DIR" \
+    FSUSBLOG_GATEWAY_TRANSITION_EVIDENCE="$GATEWAY_TRANSITION_EVIDENCE" \
+    FSUSBLOG_RUNTIME_MATRIX_EVIDENCE="$RUNTIME_MATRIX_EVIDENCE" \
+    FSUSBLOG_RUNTIME_PROFILE_ID="$RUNTIME_PROFILE_ID" \
+    FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST="$RUNTIME_PROFILE_MANIFEST_DIGEST" \
+    FSUSBLOG_RUNTIME_PROFILE_DIGEST="$RUNTIME_PROFILE_DIGEST" \
+    FSUSBLOG_RELEASE_MANIFEST="$RELEASE_MANIFEST" \
+    FSUSBLOG_RELEASE_ID="$RELEASE_ID" \
+    FSUSBLOG_RELEASE_SLOT="green" \
+    FSUSBLOG_COMMIT_SHA="$COMMIT_SHA" \
+    FSUSBLOG_IMAGE_REF="$IMAGE_REF" \
+    FSUSBLOG_IMAGE_DIGEST="$IMAGE_DIGEST" \
+    bash "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
 
 node "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" "$OUT_DIR/manifest.json" >/dev/null
 
 jq -e \
-  --arg releaseId "$RELEASE_ID" \
-  --arg releaseNamespace "$EXPECTED_RELEASE_NAMESPACE" \
-  --arg commitSha "$COMMIT_SHA" \
-  --arg imageRef "$IMAGE_REF" \
-  --arg imageDigest "$IMAGE_DIGEST" '
+    --arg releaseId "$RELEASE_ID" \
+    --arg releaseNamespace "$EXPECTED_RELEASE_NAMESPACE" \
+    --arg commitSha "$COMMIT_SHA" \
+    --arg imageRef "$IMAGE_REF" \
+    --arg imageDigest "$IMAGE_DIGEST" '
   .schema == "fsusblog.release-evidence-manifest.v2"
   and .evidenceClass == "fresh-run-evidence"
   and .freshExecution == true
@@ -900,12 +900,12 @@ jq -e '.status == "ok" and .evidenceClass == "diagnostic" and .affectsCorrectnes
 [[ -f "$OUT_DIR/zap/run-1/zap.json" ]]
 
 FSUSBLOG_PRODUCTION_EXPOSURE_REQUEST="$SECURITY_DIR/production-exposure-evidence-request.json" \
-FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$SECURITY_DIR/production-exposure-status.json" \
-FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE="$SECURITY_DIR/production-exposure-live.json" \
-FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$SECURITY_DIR/production-firewall-policy.json" \
-FSUSBLOG_DNS_READINESS_EVIDENCE="$SECURITY_DIR/production-dns-readiness.json" \
-FSUSBLOG_DNS_DELEGATION_EVIDENCE="$SECURITY_DIR/production-dns-delegation.json" \
-FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
-  "$ROOT_DIR/tools/security/check-production-exposure-handoff.sh" "$OUT_DIR/manifest.json" >/dev/null
+    FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$SECURITY_DIR/production-exposure-status.json" \
+    FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE="$SECURITY_DIR/production-exposure-live.json" \
+    FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$SECURITY_DIR/production-firewall-policy.json" \
+    FSUSBLOG_DNS_READINESS_EVIDENCE="$SECURITY_DIR/production-dns-readiness.json" \
+    FSUSBLOG_DNS_DELEGATION_EVIDENCE="$SECURITY_DIR/production-dns-delegation.json" \
+    FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
+    "$ROOT_DIR/tools/security/check-production-exposure-handoff.sh" "$OUT_DIR/manifest.json" >/dev/null
 
 echo "[release-evidence-fixture] ok"

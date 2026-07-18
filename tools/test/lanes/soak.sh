@@ -7,8 +7,11 @@ OUT_DIR="$ROOT_DIR/.tmp/soak/$MODE"
 mkdir -p "$OUT_DIR"
 
 case "$MODE" in
-  short|72h|7d) ;;
-  *) printf '[soak] unsupported FSUSBLOG_SOAK_MODE=%s\n' "$MODE" >&2; exit 1 ;;
+    short | 72h | 7d) ;;
+    *)
+        printf '[soak] unsupported FSUSBLOG_SOAK_MODE=%s\n' "$MODE" >&2
+        exit 1
+        ;;
 esac
 
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/lanes/runtime-evidence-probe.mjs" soak "$MODE" "$OUT_DIR/summary.json"

@@ -5,11 +5,19 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/slot-common.sh"
 
 SLOT=""
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --slot) [[ $# -ge 2 ]] || slot_fail "--slot requires a value"; SLOT="$2"; shift 2 ;;
-    --state-file) [[ $# -ge 2 ]] || slot_fail "--state-file requires a value"; SLOT_STATE_FILE="$2"; shift 2 ;;
-    *) slot_fail "unknown argument: $1" ;;
-  esac
+    case "$1" in
+        --slot)
+            [[ $# -ge 2 ]] || slot_fail "--slot requires a value"
+            SLOT="$2"
+            shift 2
+            ;;
+        --state-file)
+            [[ $# -ge 2 ]] || slot_fail "--state-file requires a value"
+            SLOT_STATE_FILE="$2"
+            shift 2
+            ;;
+        *) slot_fail "unknown argument: $1" ;;
+    esac
 done
 
 slot_require "$SLOT"
@@ -21,21 +29,21 @@ slot_configure "$SLOT"
 
 persisted="$(slot_state_read --slot "$SLOT")"
 if ! raw="$(docker inspect "$FSUSBLOG_CONTAINER_NAME" 2>/dev/null)"; then
-  jq -cn \
-    --arg slot "$SLOT" \
-    --arg containerName "$FSUSBLOG_CONTAINER_NAME" \
-    --arg projectName "$FSUSBLOG_COMPOSE_PROJECT_NAME" \
-    --argjson port "$FSUSBLOG_SLOT_PORT" \
-    --argjson persisted "$persisted" \
-    '{slot: $slot, exists: false, running: false, health: "missing", liveness: "not-running", readiness: "not-running", containerName: $containerName, projectName: $projectName, host: "127.0.0.1", port: $port, loopbackOnly: true, release: null, startedAt: null, persisted: $persisted}'
-  exit 0
+    jq -cn \
+        --arg slot "$SLOT" \
+        --arg containerName "$FSUSBLOG_CONTAINER_NAME" \
+        --arg projectName "$FSUSBLOG_COMPOSE_PROJECT_NAME" \
+        --argjson port "$FSUSBLOG_SLOT_PORT" \
+        --argjson persisted "$persisted" \
+        '{slot: $slot, exists: false, running: false, health: "missing", liveness: "not-running", readiness: "not-running", containerName: $containerName, projectName: $projectName, host: "127.0.0.1", port: $port, loopbackOnly: true, release: null, startedAt: null, persisted: $persisted}'
+    exit 0
 fi
 
 runtime="$(jq -c \
-  --arg slot "$SLOT" \
-  --arg containerName "$FSUSBLOG_CONTAINER_NAME" \
-  --arg projectName "$FSUSBLOG_COMPOSE_PROJECT_NAME" \
-  --argjson expectedPort "$FSUSBLOG_SLOT_PORT" '
+    --arg slot "$SLOT" \
+    --arg containerName "$FSUSBLOG_CONTAINER_NAME" \
+    --arg projectName "$FSUSBLOG_COMPOSE_PROJECT_NAME" \
+    --argjson expectedPort "$FSUSBLOG_SLOT_PORT" '
   .[0] as $container
   | ($container.NetworkSettings.Ports["8080/tcp"] // []) as $bindings
   | {
@@ -60,26 +68,26 @@ runtime="$(jq -c \
       },
       startedAt: ($container.State.StartedAt // null),
       identityMatchesSlot: (($container.Name | ltrimstr("/")) == $containerName and ($container.Config.Labels["io.fsusblog.deployment.project"] // "") == $projectName and ($container.Config.Labels["io.fsusblog.release.slot"] // "") == $slot)
-    }' <<< "$raw")"
+    }' <<<"$raw")"
 
 liveness="not-running"
 readiness="not-running"
-if [[ "$(jq -r '.running' <<< "$runtime")" == "true" ]]; then
-  if curl -fsS --max-time 5 "http://127.0.0.1:$FSUSBLOG_SLOT_PORT/health/live" >/dev/null; then
-    liveness="ok"
-  else
-    liveness="failed"
-  fi
-  if curl -fsS --max-time 5 "http://127.0.0.1:$FSUSBLOG_SLOT_PORT/health/ready" >/dev/null; then
-    readiness="ok"
-  else
-    readiness="failed"
-  fi
+if [[ "$(jq -r '.running' <<<"$runtime")" == "true" ]]; then
+    if curl -fsS --max-time 5 "http://127.0.0.1:$FSUSBLOG_SLOT_PORT/health/live" >/dev/null; then
+        liveness="ok"
+    else
+        liveness="failed"
+    fi
+    if curl -fsS --max-time 5 "http://127.0.0.1:$FSUSBLOG_SLOT_PORT/health/ready" >/dev/null; then
+        readiness="ok"
+    else
+        readiness="failed"
+    fi
 fi
 
 jq -cn \
-  --argjson runtime "$runtime" \
-  --argjson persisted "$persisted" \
-  --arg liveness "$liveness" \
-  --arg readiness "$readiness" \
-  '$runtime + {liveness: $liveness, readiness: $readiness, persisted: $persisted}'
+    --argjson runtime "$runtime" \
+    --argjson persisted "$persisted" \
+    --arg liveness "$liveness" \
+    --arg readiness "$readiness" \
+    '$runtime + {liveness: $liveness, readiness: $readiness, persisted: $persisted}'

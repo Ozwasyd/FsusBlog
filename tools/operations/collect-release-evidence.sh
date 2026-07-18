@@ -4,29 +4,29 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REQUIRE_OK=0
 if [[ $# -gt 1 ]]; then
-  echo "usage: collect-release-evidence.sh [--require-ok]" >&2
-  exit 2
+    echo "usage: collect-release-evidence.sh [--require-ok]" >&2
+    exit 2
 fi
 if [[ $# -eq 1 && "$1" != "--require-ok" ]]; then
-  echo "usage: collect-release-evidence.sh [--require-ok]" >&2
-  exit 2
+    echo "usage: collect-release-evidence.sh [--require-ok]" >&2
+    exit 2
 fi
 if [[ $# -eq 1 ]]; then
-  REQUIRE_OK=1
+    REQUIRE_OK=1
 fi
 STAMP="${FSUSBLOG_RELEASE_STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}"
 RELEASE_NAMESPACE="$STAMP"
 if [[ -n "${FSUSBLOG_RELEASE_ID:-}" ]]; then
-  if [[ ! "${FSUSBLOG_RELEASE_ID}" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]]; then
-    echo "FSUSBLOG_RELEASE_ID cannot form a safe release-evidence namespace" >&2
-    exit 2
-  fi
-  RELEASE_NAMESPACE="$FSUSBLOG_RELEASE_ID"
-  if [[ "${FSUSBLOG_COMMIT_SHA:-}" =~ ^[0-9a-f]{40}$ \
-    && "${FSUSBLOG_IMAGE_DIGEST:-}" =~ ^sha256:([0-9a-f]{64})$ ]]; then
-    IMAGE_NAMESPACE_DIGEST="${FSUSBLOG_IMAGE_DIGEST#sha256:}"
-    RELEASE_NAMESPACE="${FSUSBLOG_RELEASE_ID}--${FSUSBLOG_COMMIT_SHA:0:12}--${IMAGE_NAMESPACE_DIGEST:0:12}"
-  fi
+    if [[ ! "${FSUSBLOG_RELEASE_ID}" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]]; then
+        echo "FSUSBLOG_RELEASE_ID cannot form a safe release-evidence namespace" >&2
+        exit 2
+    fi
+    RELEASE_NAMESPACE="$FSUSBLOG_RELEASE_ID"
+    if [[ "${FSUSBLOG_COMMIT_SHA:-}" =~ ^[0-9a-f]{40}$ &&
+        "${FSUSBLOG_IMAGE_DIGEST:-}" =~ ^sha256:([0-9a-f]{64})$ ]]; then
+        IMAGE_NAMESPACE_DIGEST="${FSUSBLOG_IMAGE_DIGEST#sha256:}"
+        RELEASE_NAMESPACE="${FSUSBLOG_RELEASE_ID}--${FSUSBLOG_COMMIT_SHA:0:12}--${IMAGE_NAMESPACE_DIGEST:0:12}"
+    fi
 fi
 export FSUSBLOG_RELEASE_NAMESPACE="$RELEASE_NAMESPACE"
 OUT_DIR="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence/$RELEASE_NAMESPACE}"
@@ -34,7 +34,7 @@ SECURITY_DIR="${FSUSBLOG_SECURITY_EVIDENCE_SOURCE_DIR:-$ROOT_DIR/.tmp/security}"
 OPERATIONS_DIR="${FSUSBLOG_OPERATIONS_EVIDENCE_SOURCE_DIR:-$ROOT_DIR/.tmp/operations}"
 COVERAGE_DIR="${FSUSBLOG_COVERAGE_EVIDENCE_DIR:-$ROOT_DIR/artifacts/coverage}"
 if [[ ! -d "$COVERAGE_DIR" && -d "$ROOT_DIR/.tmp/coverage" ]]; then
-  COVERAGE_DIR="$ROOT_DIR/.tmp/coverage"
+    COVERAGE_DIR="$ROOT_DIR/.tmp/coverage"
 fi
 GATE_LOG_DIR="${FSUSBLOG_GATE_LOG_SOURCE_DIR:-$ROOT_DIR/.tmp/gate-logs}"
 PERF_DIR="${FSUSBLOG_PERF_EVIDENCE_DIR:-$ROOT_DIR/.tmp/perf}"
@@ -44,71 +44,71 @@ FUZZ_DIR="${FSUSBLOG_FUZZ_EVIDENCE_DIR:-$ROOT_DIR/.tmp/fuzz}"
 mkdir -p "$OUT_DIR"
 
 restore_downloaded_artifacts() {
-  bash "$ROOT_DIR/tools/operations/restore-downloaded-artifacts.sh" \
-    "$ROOT_DIR/.tmp/downloaded-artifacts" \
-    "$ROOT_DIR/.tmp"
+    bash "$ROOT_DIR/tools/operations/restore-downloaded-artifacts.sh" \
+        "$ROOT_DIR/.tmp/downloaded-artifacts" \
+        "$ROOT_DIR/.tmp"
 }
 
 restore_downloaded_artifacts
 
 copy_if_present() {
-  local src="$1"
-  local name="$2"
-  if [[ -e "$src" ]]; then
-    cp -a "$src" "$OUT_DIR/$name"
-    printf '"%s"' "$name"
-  else
-    printf 'null'
-  fi
+    local src="$1"
+    local name="$2"
+    if [[ -e "$src" ]]; then
+        cp -a "$src" "$OUT_DIR/$name"
+        printf '"%s"' "$name"
+    else
+        printf 'null'
+    fi
 }
 
 artifact_digest_json() {
-  local artifact_json="$1"
-  local artifact path digest
+    local artifact_json="$1"
+    local artifact path digest
 
-  artifact="$(jq -r '.' <<<"$artifact_json" 2>/dev/null || true)"
-  if [[ -z "$artifact" || "$artifact" == "null" ]]; then
-    printf 'null'
-    return
-  fi
+    artifact="$(jq -r '.' <<<"$artifact_json" 2>/dev/null || true)"
+    if [[ -z "$artifact" || "$artifact" == "null" ]]; then
+        printf 'null'
+        return
+    fi
 
-  path="$OUT_DIR/$artifact"
-  if [[ ! -f "$path" ]]; then
-    printf 'null'
-    return
-  fi
+    path="$OUT_DIR/$artifact"
+    if [[ ! -f "$path" ]]; then
+        printf 'null'
+        return
+    fi
 
-  digest="$(sha256sum "$path" | awk '{print $1}')"
-  jq -n --arg digest "$digest" '{
+    digest="$(sha256sum "$path" | awk '{print $1}')"
+    jq -n --arg digest "$digest" '{
     algorithm: "sha256",
     value: $digest
   }'
 }
 
 json_status_or_missing() {
-  local file="$1"
-  if [[ ! -f "$file" ]]; then
-    printf 'missing'
-    return
-  fi
+    local file="$1"
+    if [[ ! -f "$file" ]]; then
+        printf 'missing'
+        return
+    fi
 
-  jq -r '.status // "present"' "$file" 2>/dev/null || printf 'invalid'
+    jq -r '.status // "present"' "$file" 2>/dev/null || printf 'invalid'
 }
 
 semantic_status_or_missing() {
-  local file="$1"
-  local predicate="$2"
-  if [[ ! -f "$file" ]]; then
-    printf 'missing'
-    return
-  fi
+    local file="$1"
+    local predicate="$2"
+    if [[ ! -f "$file" ]]; then
+        printf 'missing'
+        return
+    fi
 
-  if jq -e "$predicate" "$file" >/dev/null 2>&1; then
-    printf 'ok'
-    return
-  fi
+    if jq -e "$predicate" "$file" >/dev/null 2>&1; then
+        printf 'ok'
+        return
+    fi
 
-  jq -r '
+    jq -r '
     if .status == "scheduled" then "scheduled"
     elif .status == "ok" then "blocked"
     else (.status // "invalid") end
@@ -116,7 +116,7 @@ semantic_status_or_missing() {
 }
 
 backup_restore_status_or_missing() {
-  semantic_status_or_missing "$1" '
+    semantic_status_or_missing "$1" '
     (.status == "ok")
     and (.mode == "real")
     and (.timings.rpoSeconds != null)
@@ -136,7 +136,7 @@ backup_restore_status_or_missing() {
 }
 
 post_deploy_smoke_status_or_missing() {
-  semantic_status_or_missing "$1" '
+    semantic_status_or_missing "$1" '
     (.status == "ok")
     and (.dryRun == false)
     and ((.blockers // []) | length == 0)
@@ -154,7 +154,7 @@ post_deploy_smoke_status_or_missing() {
 }
 
 gateway_transition_status_or_missing() {
-  semantic_status_or_missing "$1" '
+    semantic_status_or_missing "$1" '
     (.status == "ok")
     and (.generation | type == "number" and . >= 1)
     and (.durationMs | type == "number" and . >= 0)
@@ -289,17 +289,17 @@ gateway_transition_status_or_missing() {
 }
 
 release_rollout_status_or_missing() {
-  local file="$1"
-  if [[ ! -f "$file" ]]; then
-    printf 'missing'
-    return
-  fi
+    local file="$1"
+    if [[ ! -f "$file" ]]; then
+        printf 'missing'
+        return
+    fi
 
-  if node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" verify --evidence "$file" >/dev/null 2>&1 \
-    && jq -e \
-      --arg releaseId "${FSUSBLOG_RELEASE_ID:-}" \
-      --arg releaseSlot "${FSUSBLOG_RELEASE_SLOT:-}" \
-      --arg imageDigest "${FSUSBLOG_IMAGE_DIGEST:-}" '
+    if node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" verify --evidence "$file" >/dev/null 2>&1 &&
+        jq -e \
+            --arg releaseId "${FSUSBLOG_RELEASE_ID:-}" \
+            --arg releaseSlot "${FSUSBLOG_RELEASE_SLOT:-}" \
+            --arg imageDigest "${FSUSBLOG_IMAGE_DIGEST:-}" '
         .schema == "fsusblog.release-rollout-evidence.v1"
         and .status == "pass"
         and (.errors | type == "array" and length == 0)
@@ -309,15 +309,15 @@ release_rollout_status_or_missing() {
         and (.gatewayGeneration | type == "number" and . >= 1)
         and (.stages | type == "array" and length == 15)
       ' "$file" >/dev/null 2>&1; then
-    printf 'ok'
-    return
-  fi
+        printf 'ok'
+        return
+    fi
 
-  jq -r 'if .status == "pass" then "invalid" else (.status // "invalid") end' "$file" 2>/dev/null || printf 'invalid'
+    jq -r 'if .status == "pass" then "invalid" else (.status // "invalid") end' "$file" 2>/dev/null || printf 'invalid'
 }
 
 authenticated_dast_status_or_missing() {
-  semantic_status_or_missing "$1" '
+    semantic_status_or_missing "$1" '
     . as $root
     | (.schema == "fsusblog.security.authenticated-dast.v1")
     and (.status == "ok")
@@ -342,7 +342,7 @@ authenticated_dast_status_or_missing() {
 }
 
 local_runtime_exposure_status_or_missing() {
-  semantic_status_or_missing "$1" '
+    semantic_status_or_missing "$1" '
     (.schema == "fsusblog.security.local-runtime-exposure.v1")
     and (.status == "ok")
     and (.executionSource == "fresh-loopback-runtime")
@@ -359,7 +359,7 @@ local_runtime_exposure_status_or_missing() {
 }
 
 wasm_fuzz_status_or_missing() {
-  semantic_status_or_missing "$1" '
+    semantic_status_or_missing "$1" '
     (.status == "ok")
     and (.executionSource == "fresh-wasm-runtime")
     and ((.seedsRun // 0) | type == "number" and . > 0 and floor == .)
@@ -376,7 +376,7 @@ wasm_fuzz_status_or_missing() {
 }
 
 fault_injection_status_or_missing() {
-  semantic_status_or_missing "$1" '
+    semantic_status_or_missing "$1" '
     (.status == "ok")
     and ((.caseCount // 0) > 0)
     and ((.cases // []) | length > 0)
@@ -463,7 +463,7 @@ fault_injection_status_or_missing() {
 }
 
 short_soak_status_or_missing() {
-  semantic_status_or_missing "$1" '
+    semantic_status_or_missing "$1" '
     (.status == "ok")
     and (.mode == "short")
     and (.executionMode == "runtime")
@@ -481,13 +481,13 @@ short_soak_status_or_missing() {
 }
 
 result_status_or_missing() {
-  local file="$1"
-  if [[ ! -f "$file" ]]; then
-    printf 'missing'
-    return
-  fi
+    local file="$1"
+    if [[ ! -f "$file" ]]; then
+        printf 'missing'
+        return
+    fi
 
-  jq -r '
+    jq -r '
     if (.results // [] | length) == 0 then
       "present"
     elif any(.results[]?; .status != "ok") then
@@ -499,48 +499,48 @@ result_status_or_missing() {
 }
 
 zap_status_or_missing() {
-  local dir="$1"
-  if [[ ! -d "$dir" ]]; then
-    printf 'missing'
-    return
-  fi
+    local dir="$1"
+    if [[ ! -d "$dir" ]]; then
+        printf 'missing'
+        return
+    fi
 
-  if find "$dir" -type f -name '*.json' -print -quit | grep -q .; then
-    printf 'ok'
-    return
-  fi
+    if find "$dir" -type f -name '*.json' -print -quit | grep -q .; then
+        printf 'ok'
+        return
+    fi
 
-  printf 'invalid'
+    printf 'invalid'
 }
 
 blockers_json_or_empty() {
-  local file="$1"
-  if [[ ! -f "$file" ]]; then
-    printf '[]'
-    return
-  fi
+    local file="$1"
+    if [[ ! -f "$file" ]]; then
+        printf '[]'
+        return
+    fi
 
-  jq -c '.blockers // []' "$file" 2>/dev/null || printf '[]'
+    jq -c '.blockers // []' "$file" 2>/dev/null || printf '[]'
 }
 
 slo_critical_count_or_zero() {
-  local file="$1"
-  if [[ ! -f "$file" ]]; then
-    printf '0'
-    return
-  fi
+    local file="$1"
+    if [[ ! -f "$file" ]]; then
+        printf '0'
+        return
+    fi
 
-  jq -r '[.alerts[]? | select(.severity == "critical" and ((.status // "firing") == "firing"))] | length' "$file" 2>/dev/null || printf '0'
+    jq -r '[.alerts[]? | select(.severity == "critical" and ((.status // "firing") == "firing"))] | length' "$file" 2>/dev/null || printf '0'
 }
 
 request_summary_json() {
-  local file="$SECURITY_DIR/production-exposure-evidence-request.json"
-  if [[ ! -f "$file" ]]; then
-    jq -n '{status: "missing", currentStatus: null, blockerSources: [], nextActionSources: [], nextActionCount: 0, unblockPlanSources: [], unblockPlanCount: 0, requiredHosts: [], delegationDomains: [], requiredEvidenceKeys: [], requiredEvidenceCount: 0, firewallSourceSha256Required: false, rawSourceSha256Required: false, handoffCheckCount: 0, verificationCommandNames: [], verificationCommandCount: 0, returnedCloseoutCommandCount: 0, closeoutCommands: {finalCloseout: null, returnedEvidenceVerifier: null, returnedEvidenceCloseout: null, returnedHandoffCloseout: null, releaseEvidence: null}}'
-    return
-  fi
+    local file="$SECURITY_DIR/production-exposure-evidence-request.json"
+    if [[ ! -f "$file" ]]; then
+        jq -n '{status: "missing", currentStatus: null, blockerSources: [], nextActionSources: [], nextActionCount: 0, unblockPlanSources: [], unblockPlanCount: 0, requiredHosts: [], delegationDomains: [], requiredEvidenceKeys: [], requiredEvidenceCount: 0, firewallSourceSha256Required: false, rawSourceSha256Required: false, handoffCheckCount: 0, verificationCommandNames: [], verificationCommandCount: 0, returnedCloseoutCommandCount: 0, closeoutCommands: {finalCloseout: null, returnedEvidenceVerifier: null, returnedEvidenceCloseout: null, returnedHandoffCloseout: null, releaseEvidence: null}}'
+        return
+    fi
 
-  jq -c '
+    jq -c '
   def returned_closeout_command_count:
     [
       .verificationCommands[]?
@@ -586,28 +586,28 @@ request_summary_json() {
 }
 
 coverage_summary_json() {
-  local merged="$COVERAGE_DIR/merged/Summary.json"
-  local backend="$COVERAGE_DIR/backend-merged/Summary.json"
-  local frontend="$COVERAGE_DIR/frontend/Summary.json"
-  local merged_input="$merged"
-  local backend_input="$backend"
-  local frontend_input="$frontend"
+    local merged="$COVERAGE_DIR/merged/Summary.json"
+    local backend="$COVERAGE_DIR/backend-merged/Summary.json"
+    local frontend="$COVERAGE_DIR/frontend/Summary.json"
+    local merged_input="$merged"
+    local backend_input="$backend"
+    local frontend_input="$frontend"
 
-  if [[ ! -f "$merged" && ! -f "$backend" && ! -f "$frontend" ]]; then
-    jq -n '{status: "missing", merged: null, backend: null, frontend: null}'
-    return
-  fi
-  [[ -f "$merged_input" ]] || merged_input="/dev/null"
-  [[ -f "$backend_input" ]] || backend_input="/dev/null"
-  [[ -f "$frontend_input" ]] || frontend_input="/dev/null"
+    if [[ ! -f "$merged" && ! -f "$backend" && ! -f "$frontend" ]]; then
+        jq -n '{status: "missing", merged: null, backend: null, frontend: null}'
+        return
+    fi
+    [[ -f "$merged_input" ]] || merged_input="/dev/null"
+    [[ -f "$backend_input" ]] || backend_input="/dev/null"
+    [[ -f "$frontend_input" ]] || frontend_input="/dev/null"
 
-  jq -n \
-    --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
-    --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
-    --arg profileDigest "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" \
-    --slurpfile merged "$merged_input" \
-    --slurpfile backend "$backend_input" \
-    --slurpfile frontend "$frontend_input" '
+    jq -n \
+        --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
+        --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
+        --arg profileDigest "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" \
+        --slurpfile merged "$merged_input" \
+        --slurpfile backend "$backend_input" \
+        --slurpfile frontend "$frontend_input" '
       def summary($value):
         if ($value | length) == 0 then null
         else {
@@ -641,32 +641,32 @@ coverage_summary_json() {
 }
 
 runtime_tuning_json() {
-  local cache_l1_counter_mode public_hot_read_counter_mode
-  local benchmark_evidence runtime_matrix_evidence
-  cache_l1_counter_mode="$(awk -F'"' '/CacheL1CounterMode =/ { print $2; exit }' "$ROOT_DIR/src/backend/Infrastructure/Observability/FsusObservability.cs")"
-  public_hot_read_counter_mode="$(awk -F'"' '
+    local cache_l1_counter_mode public_hot_read_counter_mode
+    local benchmark_evidence runtime_matrix_evidence
+    cache_l1_counter_mode="$(awk -F'"' '/CacheL1CounterMode =/ { print $2; exit }' "$ROOT_DIR/src/backend/Infrastructure/Observability/FsusObservability.cs")"
+    public_hot_read_counter_mode="$(awk -F'"' '
     /"PublicHotRead"[[:space:]]*:/ { in_public_hot_read = 1; next }
     in_public_hot_read && /"CounterMode"[[:space:]]*:/ { print $4; exit }
     in_public_hot_read && /^[[:space:]]*}/ { exit }
   ' "$ROOT_DIR/src/backend/appsettings.Production.json")"
-  cache_l1_counter_mode="${cache_l1_counter_mode:-unknown}"
-  public_hot_read_counter_mode="${public_hot_read_counter_mode:-unknown}"
-  benchmark_evidence="$(jq -r '.' <<<"${PERF_ARTIFACT:-null}")"
-  runtime_matrix_evidence="$(jq -r '.' <<<"${RUNTIME_MATRIX_ARTIFACT:-null}")"
-  jq -n \
-    --arg readyToRun "${DOTNET_ReadyToRun:-}" \
-    --arg quickJitForLoops "${DOTNET_TC_QuickJitForLoops:-}" \
-    --arg tieredPgo "${DOTNET_TieredPGO:-}" \
-    --arg minWorkerThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS:-}" \
-    --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
-    --arg cacheL1CounterMode "$cache_l1_counter_mode" \
-    --arg publicHotReadCounterMode "$public_hot_read_counter_mode" \
-    --arg benchmarkEvidence "$benchmark_evidence" \
-    --arg runtimeMatrixEvidence "$runtime_matrix_evidence" \
-    --arg runtimeMatrixStatus "${RUNTIME_MATRIX_STATUS_VALUE:-missing}" \
-    --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
-    --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
-    --arg profileDigest "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" '
+    cache_l1_counter_mode="${cache_l1_counter_mode:-unknown}"
+    public_hot_read_counter_mode="${public_hot_read_counter_mode:-unknown}"
+    benchmark_evidence="$(jq -r '.' <<<"${PERF_ARTIFACT:-null}")"
+    runtime_matrix_evidence="$(jq -r '.' <<<"${RUNTIME_MATRIX_ARTIFACT:-null}")"
+    jq -n \
+        --arg readyToRun "${DOTNET_ReadyToRun:-}" \
+        --arg quickJitForLoops "${DOTNET_TC_QuickJitForLoops:-}" \
+        --arg tieredPgo "${DOTNET_TieredPGO:-}" \
+        --arg minWorkerThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS:-}" \
+        --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
+        --arg cacheL1CounterMode "$cache_l1_counter_mode" \
+        --arg publicHotReadCounterMode "$public_hot_read_counter_mode" \
+        --arg benchmarkEvidence "$benchmark_evidence" \
+        --arg runtimeMatrixEvidence "$runtime_matrix_evidence" \
+        --arg runtimeMatrixStatus "${RUNTIME_MATRIX_STATUS_VALUE:-missing}" \
+        --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
+        --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
+        --arg profileDigest "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" '
     {
       profile: {
         id: (if $profileId == "" then null else $profileId end),
@@ -712,12 +712,12 @@ GATEWAY_TRANSITION="$(copy_if_present "$GATEWAY_TRANSITION_SOURCE" gateway-trans
 RELEASE_ROLLOUT_SOURCE="${FSUSBLOG_RELEASE_ROLLOUT_EVIDENCE:-$OPERATIONS_DIR/release-rollout.json}"
 RELEASE_ROLLOUT="$(copy_if_present "$RELEASE_ROLLOUT_SOURCE" release-rollout.json)"
 if [[ -f "$RELEASE_ROLLOUT_SOURCE" ]]; then
-  node "$ROOT_DIR/tools/operations/collect-release-rollout-bundle.mjs" \
-    --input "$RELEASE_ROLLOUT_SOURCE" \
-    --output "$OUT_DIR/release-rollout-bundle" >/dev/null
-  RELEASE_ROLLOUT_BUNDLE='"release-rollout-bundle"'
+    node "$ROOT_DIR/tools/operations/collect-release-rollout-bundle.mjs" \
+        --input "$RELEASE_ROLLOUT_SOURCE" \
+        --output "$OUT_DIR/release-rollout-bundle" >/dev/null
+    RELEASE_ROLLOUT_BUNDLE='"release-rollout-bundle"'
 else
-  RELEASE_ROLLOUT_BUNDLE='null'
+    RELEASE_ROLLOUT_BUNDLE='null'
 fi
 SLO_ALERTS="$(copy_if_present "$OPERATIONS_DIR/slo-alert-fixture.json" slo-alert-fixture.json)"
 RETENTION_CLEANUP="$(copy_if_present "$OPERATIONS_DIR/retention-cleanup.json" retention-cleanup.json)"
@@ -727,35 +727,35 @@ RUNTIME_MATRIX_SOURCE="${FSUSBLOG_RUNTIME_MATRIX_EVIDENCE:-}"
 RUNTIME_MATRIX_ARTIFACT="null"
 RUNTIME_MATRIX_STATUS_VALUE="missing"
 if [[ -n "$RUNTIME_MATRIX_SOURCE" ]]; then
-  if [[ -z "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" || -z "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" || -z "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" ]]; then
-    echo "runtime matrix evidence requires FSUSBLOG_RUNTIME_PROFILE_ID and both profile digests" >&2
-    exit 1
-  fi
-  if [[ "$FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST" == "sha256:$(printf '0%.0s' {1..64})" \
-    || "$FSUSBLOG_RUNTIME_PROFILE_DIGEST" == "sha256:$(printf '0%.0s' {1..64})" ]]; then
-    echo "runtime matrix evidence cannot use zero release profile digests" >&2
-    exit 1
-  fi
-  if [[ -n "${FSUSBLOG_RELEASE_MANIFEST:-}" && -f "$FSUSBLOG_RELEASE_MANIFEST" ]]; then
-    RELEASE_PROFILE_ID="$(jq -r '.runtimeProfile.id // empty' "$FSUSBLOG_RELEASE_MANIFEST")"
-    RELEASE_PROFILE_MANIFEST_DIGEST="$(jq -r '.runtimeProfile.manifestDigest // empty' "$FSUSBLOG_RELEASE_MANIFEST")"
-    RELEASE_PROFILE_DIGEST="$(jq -r '.runtimeProfile.profileDigest // empty' "$FSUSBLOG_RELEASE_MANIFEST")"
-    if [[ "$FSUSBLOG_RUNTIME_PROFILE_ID" != "$RELEASE_PROFILE_ID" \
-      || "$FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST" != "$RELEASE_PROFILE_MANIFEST_DIGEST" \
-      || "$FSUSBLOG_RUNTIME_PROFILE_DIGEST" != "$RELEASE_PROFILE_DIGEST" ]]; then
-      echo "runtime matrix profile identity does not match the release manifest" >&2
-      exit 1
+    if [[ -z "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" || -z "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" || -z "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" ]]; then
+        echo "runtime matrix evidence requires FSUSBLOG_RUNTIME_PROFILE_ID and both profile digests" >&2
+        exit 1
     fi
-  fi
-  RUNTIME_MATRIX_COMMIT_SHA="$(git -C "$ROOT_DIR" rev-parse HEAD)"
-  node "$ROOT_DIR/tools/runtime-profiles/check-runtime-publish-evidence.mjs" \
-    --evidence "$RUNTIME_MATRIX_SOURCE" \
-    --expected-commit-sha "$RUNTIME_MATRIX_COMMIT_SHA" \
-    --expected-profile-id "$FSUSBLOG_RUNTIME_PROFILE_ID" \
-    --expected-profile-manifest-digest "$FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST" \
-    --expected-profile-digest "$FSUSBLOG_RUNTIME_PROFILE_DIGEST" >/dev/null
-  RUNTIME_MATRIX_ARTIFACT="$(copy_if_present "$RUNTIME_MATRIX_SOURCE" runtime-publish-matrix.json)"
-  RUNTIME_MATRIX_STATUS_VALUE="ok"
+    if [[ "$FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST" == "sha256:$(printf '0%.0s' {1..64})" ||
+    "$FSUSBLOG_RUNTIME_PROFILE_DIGEST" == "sha256:$(printf '0%.0s' {1..64})" ]]; then
+        echo "runtime matrix evidence cannot use zero release profile digests" >&2
+        exit 1
+    fi
+    if [[ -n "${FSUSBLOG_RELEASE_MANIFEST:-}" && -f "$FSUSBLOG_RELEASE_MANIFEST" ]]; then
+        RELEASE_PROFILE_ID="$(jq -r '.runtimeProfile.id // empty' "$FSUSBLOG_RELEASE_MANIFEST")"
+        RELEASE_PROFILE_MANIFEST_DIGEST="$(jq -r '.runtimeProfile.manifestDigest // empty' "$FSUSBLOG_RELEASE_MANIFEST")"
+        RELEASE_PROFILE_DIGEST="$(jq -r '.runtimeProfile.profileDigest // empty' "$FSUSBLOG_RELEASE_MANIFEST")"
+        if [[ "$FSUSBLOG_RUNTIME_PROFILE_ID" != "$RELEASE_PROFILE_ID" ||
+            "$FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST" != "$RELEASE_PROFILE_MANIFEST_DIGEST" ||
+            "$FSUSBLOG_RUNTIME_PROFILE_DIGEST" != "$RELEASE_PROFILE_DIGEST" ]]; then
+            echo "runtime matrix profile identity does not match the release manifest" >&2
+            exit 1
+        fi
+    fi
+    RUNTIME_MATRIX_COMMIT_SHA="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+    node "$ROOT_DIR/tools/runtime-profiles/check-runtime-publish-evidence.mjs" \
+        --evidence "$RUNTIME_MATRIX_SOURCE" \
+        --expected-commit-sha "$RUNTIME_MATRIX_COMMIT_SHA" \
+        --expected-profile-id "$FSUSBLOG_RUNTIME_PROFILE_ID" \
+        --expected-profile-manifest-digest "$FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST" \
+        --expected-profile-digest "$FSUSBLOG_RUNTIME_PROFILE_DIGEST" >/dev/null
+    RUNTIME_MATRIX_ARTIFACT="$(copy_if_present "$RUNTIME_MATRIX_SOURCE" runtime-publish-matrix.json)"
+    RUNTIME_MATRIX_STATUS_VALUE="ok"
 fi
 TEST_PLAN_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/test-plan.json" test-plan.json)"
 JOB_SUMMARIES="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/jobs" job-summaries)"
@@ -833,25 +833,25 @@ RELEASE_MANIFEST_FILE="${FSUSBLOG_RELEASE_MANIFEST:-}"
 RELEASE_IDENTITY_STATUS="missing"
 RELEASE_IDENTITY_MANIFEST='{"status":"missing"}'
 if [[ -n "$RELEASE_MANIFEST_FILE" && -f "$RELEASE_MANIFEST_FILE" ]]; then
-  release_check_args=(
-    --manifest "$RELEASE_MANIFEST_FILE"
-    --release-id "${FSUSBLOG_RELEASE_ID:-}"
-    --image-ref "${FSUSBLOG_IMAGE_REF:-}"
-    --image-digest "${FSUSBLOG_IMAGE_DIGEST:-}"
-    --commit-sha "${FSUSBLOG_COMMIT_SHA:-}"
-  )
-  if [[ -n "${FSUSBLOG_RELEASE_ID:-}" \
-    && -n "${FSUSBLOG_IMAGE_REF:-}" \
-    && -n "${FSUSBLOG_IMAGE_DIGEST:-}" \
-    && -n "${FSUSBLOG_COMMIT_SHA:-}" \
-    && "${FSUSBLOG_RELEASE_SLOT:-}" =~ ^[a-z][a-z0-9-]{0,31}$ ]] \
-    && node "$ROOT_DIR/tools/release/check-release-manifest.mjs" "${release_check_args[@]}" >/dev/null; then
-    RELEASE_IDENTITY_STATUS="ok"
-    RELEASE_IDENTITY_MANIFEST="$(jq -c --arg releaseSlot "$FSUSBLOG_RELEASE_SLOT" '. + {releaseSlot: $releaseSlot}' "$RELEASE_MANIFEST_FILE")"
-  else
-    RELEASE_IDENTITY_STATUS="failed"
-    RELEASE_IDENTITY_MANIFEST='{"status":"failed"}'
-  fi
+    release_check_args=(
+        --manifest "$RELEASE_MANIFEST_FILE"
+        --release-id "${FSUSBLOG_RELEASE_ID:-}"
+        --image-ref "${FSUSBLOG_IMAGE_REF:-}"
+        --image-digest "${FSUSBLOG_IMAGE_DIGEST:-}"
+        --commit-sha "${FSUSBLOG_COMMIT_SHA:-}"
+    )
+    if [[ -n "${FSUSBLOG_RELEASE_ID:-}" &&
+        -n "${FSUSBLOG_IMAGE_REF:-}" &&
+        -n "${FSUSBLOG_IMAGE_DIGEST:-}" &&
+        -n "${FSUSBLOG_COMMIT_SHA:-}" &&
+        "${FSUSBLOG_RELEASE_SLOT:-}" =~ ^[a-z][a-z0-9-]{0,31}$ ]] &&
+        node "$ROOT_DIR/tools/release/check-release-manifest.mjs" "${release_check_args[@]}" >/dev/null; then
+        RELEASE_IDENTITY_STATUS="ok"
+        RELEASE_IDENTITY_MANIFEST="$(jq -c --arg releaseSlot "$FSUSBLOG_RELEASE_SLOT" '. + {releaseSlot: $releaseSlot}' "$RELEASE_MANIFEST_FILE")"
+    else
+        RELEASE_IDENTITY_STATUS="failed"
+        RELEASE_IDENTITY_MANIFEST='{"status":"failed"}'
+    fi
 fi
 EXTERNAL_BLOCKERS="$(blockers_json_or_empty "$SECURITY_DIR/production-exposure-status.json")"
 REQUEST_SUMMARY="$(request_summary_json)"
@@ -885,48 +885,48 @@ PUBLIC_HYDRATION_SIDECAR_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/
 PUBLIC_HYDRATION_MATRIX_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-matrix-summary.json")"
 
 MANIFEST_STATUS="collected-ok"
-if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
-  || "$LIVE_STATUS_VALUE" != "ok" \
-  || "$DNS_READY_STATUS_VALUE" != "ok" \
-  || "$DNS_DELEGATION_STATUS_VALUE" != "ok" \
-  || "$FIREWALL_POLICY_STATUS_VALUE" != "present" \
-  || "$ATTACK_MATRIX_STATUS_VALUE" != "ok" \
-  || "$PERMISSION_MATRIX_STATUS_VALUE" != "ok" \
-  || "$ZAP_STATUS_VALUE" != "ok" \
-  || "$SUPPLY_CHAIN_STATUS_VALUE" != "ok" \
-  || "$SBOM_STATUS_VALUE" != "ok" \
-  || "$COVERAGE_STATUS_VALUE" != "ok" \
-  || "$BACKUP_RESTORE_STATUS_VALUE" != "ok" \
-  || "$POST_DEPLOY_SMOKE_STATUS_VALUE" != "ok" \
-  || "$GATEWAY_TRANSITION_STATUS_VALUE" != "ok" \
-  || "$RELEASE_ROLLOUT_STATUS_VALUE" != "ok" \
-  || "$SLO_STATUS_VALUE" != "ok" \
-  || "$SLO_CRITICAL_COUNT" != "0" \
-  || "$FAULT_STATUS_VALUE" != "ok" \
-  || "$SOAK_STATUS_VALUE" != "ok" \
-  || "$AUTHENTICATED_DAST_STATUS_VALUE" != "ok" \
-  || "$WASM_FUZZ_STATUS_VALUE" != "ok" \
-  || "$FRONTEND_RENDER_STRUCTURE_STATUS_VALUE" != "ok" \
-  || "$AOT_CACHE_RESILIENCE_STATUS_VALUE" != "success" \
-  || "$PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE" != "success" \
-  || "$PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE" != "success" \
-  || "$PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE" != "success" \
-  || "$PUBLIC_HYDRATION_PAYLOAD_FIXTURE_STATUS_VALUE" != "success" \
-  || "$PUBLIC_HYDRATION_DOM_DIFF_STATUS_VALUE" != "success" \
-  || "$PUBLIC_HYDRATION_SIDECAR_STATUS_VALUE" != "success" \
-  || "$PUBLIC_HYDRATION_MATRIX_STATUS_VALUE" != "success" \
-  || "$BACKEND_QPS_STATUS_VALUE" != "ok" \
-  || "$MEMORY_LEAK_STATUS_VALUE" != "ok" \
-  || "$OPEN_HANDLE_STATUS_VALUE" != "ok" \
-  || "$AEDS_DECODE_BUDGET_STATUS_VALUE" != "ok" \
-  || "$DOC_SYNC_STATUS_VALUE" != "ok" \
-  || "$RUNTIME_MATRIX_STATUS_VALUE" != "ok" \
-  || "$RELEASE_IDENTITY_STATUS" != "ok" \
-  || "$IMAGE_DIGEST_STATUS" != "present" ]]; then
-  MANIFEST_STATUS="collected-blocked"
+if [[ "$PRODUCTION_STATUS_VALUE" != "ok" ||
+    "$LIVE_STATUS_VALUE" != "ok" ||
+    "$DNS_READY_STATUS_VALUE" != "ok" ||
+    "$DNS_DELEGATION_STATUS_VALUE" != "ok" ||
+    "$FIREWALL_POLICY_STATUS_VALUE" != "present" ||
+    "$ATTACK_MATRIX_STATUS_VALUE" != "ok" ||
+    "$PERMISSION_MATRIX_STATUS_VALUE" != "ok" ||
+    "$ZAP_STATUS_VALUE" != "ok" ||
+    "$SUPPLY_CHAIN_STATUS_VALUE" != "ok" ||
+    "$SBOM_STATUS_VALUE" != "ok" ||
+    "$COVERAGE_STATUS_VALUE" != "ok" ||
+    "$BACKUP_RESTORE_STATUS_VALUE" != "ok" ||
+    "$POST_DEPLOY_SMOKE_STATUS_VALUE" != "ok" ||
+    "$GATEWAY_TRANSITION_STATUS_VALUE" != "ok" ||
+    "$RELEASE_ROLLOUT_STATUS_VALUE" != "ok" ||
+    "$SLO_STATUS_VALUE" != "ok" ||
+    "$SLO_CRITICAL_COUNT" != "0" ||
+    "$FAULT_STATUS_VALUE" != "ok" ||
+    "$SOAK_STATUS_VALUE" != "ok" ||
+    "$AUTHENTICATED_DAST_STATUS_VALUE" != "ok" ||
+    "$WASM_FUZZ_STATUS_VALUE" != "ok" ||
+    "$FRONTEND_RENDER_STRUCTURE_STATUS_VALUE" != "ok" ||
+    "$AOT_CACHE_RESILIENCE_STATUS_VALUE" != "success" ||
+    "$PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE" != "success" ||
+    "$PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE" != "success" ||
+    "$PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE" != "success" ||
+    "$PUBLIC_HYDRATION_PAYLOAD_FIXTURE_STATUS_VALUE" != "success" ||
+    "$PUBLIC_HYDRATION_DOM_DIFF_STATUS_VALUE" != "success" ||
+    "$PUBLIC_HYDRATION_SIDECAR_STATUS_VALUE" != "success" ||
+    "$PUBLIC_HYDRATION_MATRIX_STATUS_VALUE" != "success" ||
+    "$BACKEND_QPS_STATUS_VALUE" != "ok" ||
+    "$MEMORY_LEAK_STATUS_VALUE" != "ok" ||
+    "$OPEN_HANDLE_STATUS_VALUE" != "ok" ||
+    "$AEDS_DECODE_BUDGET_STATUS_VALUE" != "ok" ||
+    "$DOC_SYNC_STATUS_VALUE" != "ok" ||
+    "$RUNTIME_MATRIX_STATUS_VALUE" != "ok" ||
+    "$RELEASE_IDENTITY_STATUS" != "ok" ||
+    "$IMAGE_DIGEST_STATUS" != "present" ]]; then
+    MANIFEST_STATUS="collected-blocked"
 fi
 
-cat > "$OUT_DIR/manifest.json" <<JSON
+cat >"$OUT_DIR/manifest.json" <<JSON
 {
   "status": "$MANIFEST_STATUS",
   "releaseStamp": "$STAMP",
@@ -1107,7 +1107,7 @@ JSON
 
 seal_args=("$OUT_DIR")
 if [[ "$REQUIRE_OK" == "1" ]]; then
-  seal_args+=(--require-ok)
+    seal_args+=(--require-ok)
 fi
 node "$ROOT_DIR/tools/operations/seal-release-evidence-bundle.mjs" "${seal_args[@]}"
 

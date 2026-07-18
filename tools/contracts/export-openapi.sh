@@ -8,56 +8,56 @@ RUNTIME_OUT_DIR="$OUT_DIR/runtime"
 SNAPSHOT_FILE="$ROOT_DIR/src/shared/Contracts/Validation/fsusblog.openapi.json"
 UPDATE_SNAPSHOT="${FSUSBLOG_OPENAPI_UPDATE_SNAPSHOT:-0}"
 if [[ "${1:-}" == "--update-snapshot" ]]; then
-  UPDATE_SNAPSHOT=1
+    UPDATE_SNAPSHOT=1
 elif [[ -n "${1:-}" ]]; then
-  printf 'Usage: %s [--update-snapshot]\n' "$0" >&2
-  exit 2
+    printf 'Usage: %s [--update-snapshot]\n' "$0" >&2
+    exit 2
 fi
 mkdir -p "$OUT_DIR"
 
 if [[ "${FSUSBLOG_OPENAPI_BUILD:-1}" == "1" ]]; then
-  rm -rf "$RUNTIME_OUT_DIR"
-  mkdir -p "$RUNTIME_OUT_DIR"
-  ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}" \
-  CORS_ALLOWED_HOSTS="${CORS_ALLOWED_HOSTS:-http://localhost:3000,http://127.0.0.1:3000}" \
-  ConnectionStrings__DefaultConnection="${ConnectionStrings__DefaultConnection:-Host=127.0.0.1;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev}" \
-  ConnectionStrings__Redis="${ConnectionStrings__Redis:-127.0.0.1:6379,abortConnect=false}" \
-  RedisOptions__InstanceName="${RedisOptions__InstanceName:-FsusBlog_OpenApi_}" \
-  Jwt__SecretKey="${Jwt__SecretKey:-openapi-export-secret-key-with-at-least-32-chars}" \
-  Jwt__Issuer="${Jwt__Issuer:-FsusBlog.OpenApi}" \
-  Jwt__Audience="${Jwt__Audience:-FsusBlog.OpenApi}" \
-  FSUSBLOG_DATA_ROOT="${FSUSBLOG_DATA_ROOT:-$ROOT_DIR/.tmp/openapi-data}" \
-  FSUSBLOG_OPENAPI_EXPORT=1 \
-  dotnet build "$ROOT_DIR/src/backend/FsusBlog.Server.csproj" \
-    -p:OpenApiGenerateDocumentsOnBuild=true \
-    -p:OpenApiDocumentsDirectory="$RUNTIME_OUT_DIR" \
-    -p:PublishClientAssets=false \
-    -p:SkipClientDependenciesForPublish=true \
-    -p:SkipClientReleaseBuild=true \
-    -v minimal
-  runtime_candidate="$(find "$RUNTIME_OUT_DIR" -maxdepth 1 -type f -name '*.json' -print -quit 2>/dev/null || true)"
-  if [[ -z "$runtime_candidate" ]]; then
-    printf '[openapi] backend OpenAPI generation did not produce a runtime document under %s\n' "$RUNTIME_OUT_DIR" >&2
-    exit 1
-  fi
+    rm -rf "$RUNTIME_OUT_DIR"
+    mkdir -p "$RUNTIME_OUT_DIR"
+    ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}" \
+        CORS_ALLOWED_HOSTS="${CORS_ALLOWED_HOSTS:-http://localhost:3000,http://127.0.0.1:3000}" \
+        ConnectionStrings__DefaultConnection="${ConnectionStrings__DefaultConnection:-Host=127.0.0.1;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev}" \
+        ConnectionStrings__Redis="${ConnectionStrings__Redis:-127.0.0.1:6379,abortConnect=false}" \
+        RedisOptions__InstanceName="${RedisOptions__InstanceName:-FsusBlog_OpenApi_}" \
+        Jwt__SecretKey="${Jwt__SecretKey:-openapi-export-secret-key-with-at-least-32-chars}" \
+        Jwt__Issuer="${Jwt__Issuer:-FsusBlog.OpenApi}" \
+        Jwt__Audience="${Jwt__Audience:-FsusBlog.OpenApi}" \
+        FSUSBLOG_DATA_ROOT="${FSUSBLOG_DATA_ROOT:-$ROOT_DIR/.tmp/openapi-data}" \
+        FSUSBLOG_OPENAPI_EXPORT=1 \
+        dotnet build "$ROOT_DIR/src/backend/FsusBlog.Server.csproj" \
+        -p:OpenApiGenerateDocumentsOnBuild=true \
+        -p:OpenApiDocumentsDirectory="$RUNTIME_OUT_DIR" \
+        -p:PublishClientAssets=false \
+        -p:SkipClientDependenciesForPublish=true \
+        -p:SkipClientReleaseBuild=true \
+        -v minimal
+    runtime_candidate="$(find "$RUNTIME_OUT_DIR" -maxdepth 1 -type f -name '*.json' -print -quit 2>/dev/null || true)"
+    if [[ -z "$runtime_candidate" ]]; then
+        printf '[openapi] backend OpenAPI generation did not produce a runtime document under %s\n' "$RUNTIME_OUT_DIR" >&2
+        exit 1
+    fi
 fi
 
 if command -v "${FSUSBLOG_NODE:-node}" >/dev/null 2>&1; then
-  "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/generate-cross-stack-contract.mjs" --write-openapi "$OUT_FILE"
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/generate-cross-stack-contract.mjs" --write-openapi "$OUT_FILE"
 elif [[ "${FSUSBLOG_OPENAPI_ALLOW_SNAPSHOT_FALLBACK:-0}" == "1" && -f "$SNAPSHOT_FILE" ]]; then
-  cp "$SNAPSHOT_FILE" "$OUT_FILE"
+    cp "$SNAPSHOT_FILE" "$OUT_FILE"
 else
-  printf '[openapi] node is required to generate the canonical AEDS contract at %s\n' "$OUT_FILE" >&2
-  exit 1
+    printf '[openapi] node is required to generate the canonical AEDS contract at %s\n' "$OUT_FILE" >&2
+    exit 1
 fi
 
 if [[ "$UPDATE_SNAPSHOT" == "1" ]]; then
-  cp "$OUT_FILE" "$SNAPSHOT_FILE"
-  printf '[openapi] wrote %s and updated %s\n' "$OUT_FILE" "$SNAPSHOT_FILE"
+    cp "$OUT_FILE" "$SNAPSHOT_FILE"
+    printf '[openapi] wrote %s and updated %s\n' "$OUT_FILE" "$SNAPSHOT_FILE"
 elif ! cmp -s "$OUT_FILE" "$SNAPSHOT_FILE"; then
-  printf '[openapi] generated contract differs from tracked snapshot; inspect %s or rerun with --update-snapshot\n' "$OUT_FILE" >&2
-  diff -u "$SNAPSHOT_FILE" "$OUT_FILE" >&2 || true
-  exit 1
+    printf '[openapi] generated contract differs from tracked snapshot; inspect %s or rerun with --update-snapshot\n' "$OUT_FILE" >&2
+    diff -u "$SNAPSHOT_FILE" "$OUT_FILE" >&2 || true
+    exit 1
 else
-  printf '[openapi] generated contract matches tracked snapshot: %s\n' "$OUT_FILE"
+    printf '[openapi] generated contract matches tracked snapshot: %s\n' "$OUT_FILE"
 fi

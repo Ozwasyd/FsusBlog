@@ -25,7 +25,7 @@ while (($# > 0)); do
             domain="${2:?--domain requires a value}"
             shift
             ;;
-        --base|--file|--root|--policy)
+        --base | --file | --root | --policy)
             arguments+=("$1" "${2:?$1 requires a value}")
             shift
             ;;

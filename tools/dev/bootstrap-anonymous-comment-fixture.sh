@@ -7,10 +7,10 @@ BOOTSTRAP_PROJECT="$ROOT_DIR/tools/security/AnonymousCredentialRootBootstrap/Fsu
 FIXTURE_DIR="${FSUSBLOG_DEV_ANONYMOUS_COMMENT_FIXTURE_DIR:-$ROOT_DIR/.tmp/dev-anonymous-comment-fixture}"
 
 need_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "[anonymous-comment-fixture] missing required command: $1" >&2
-    exit 1
-  fi
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "[anonymous-comment-fixture] missing required command: $1" >&2
+        exit 1
+    fi
 }
 
 need_cmd docker
@@ -36,7 +36,7 @@ VERIFYING_KEY_MANIFEST="$FIXTURE_DIR/verifying-key.manifest.json"
 BOOTSTRAP_INPUT="$FIXTURE_DIR/anonymous-root-input.json"
 BOOTSTRAP_EVIDENCE="$FIXTURE_DIR/anonymous-root-evidence.json"
 
-cat > "$TRUSTED_SETUP_MANIFEST" <<JSON
+cat >"$TRUSTED_SETUP_MANIFEST" <<JSON
 {
   "schema": "fsusblog.zk.trusted-setup-manifest.v1",
   "circuit_id": "fsus.anonymous.comment.v3",
@@ -47,7 +47,7 @@ cat > "$TRUSTED_SETUP_MANIFEST" <<JSON
 }
 JSON
 
-cat > "$VERIFYING_KEY_MANIFEST" <<JSON
+cat >"$VERIFYING_KEY_MANIFEST" <<JSON
 {
   "schema": "fsusblog.zk.verifying-key-config.v1",
   "circuit_id": "fsus.anonymous.comment.v3",
@@ -57,7 +57,7 @@ cat > "$VERIFYING_KEY_MANIFEST" <<JSON
 }
 JSON
 
-cat > "$BOOTSTRAP_INPUT" <<JSON
+cat >"$BOOTSTRAP_INPUT" <<JSON
 {
   "schema": "fsusblog.anonymous-credential-root-bootstrap-request.v1",
   "epoch": $DEV_EPOCH,
@@ -78,19 +78,19 @@ JSON
 docker compose -f "$COMPOSE_FILE" up -d postgres >/dev/null
 
 existing_count="$(docker compose -f "$COMPOSE_FILE" exec -T -e PGPASSWORD="$DB_PASSWORD" postgres \
-  psql -U "$DB_USER" -d "$DB_NAME" -Atc "select count(*) from anonymous_credential_root where epoch = $DEV_EPOCH and status = 'active' and root_hash = '$DEV_CREDENTIAL_ROOT_HASH' and verifying_key_hash = '$DEV_VERIFYING_KEY_HASH' and issuer_public_key_hash = '$DEV_ISSUER_PUBLIC_KEY_HASH' and root_grace_expires_at_utc > now();" 2>/dev/null || true)"
+    psql -U "$DB_USER" -d "$DB_NAME" -Atc "select count(*) from anonymous_credential_root where epoch = $DEV_EPOCH and status = 'active' and root_hash = '$DEV_CREDENTIAL_ROOT_HASH' and verifying_key_hash = '$DEV_VERIFYING_KEY_HASH' and issuer_public_key_hash = '$DEV_ISSUER_PUBLIC_KEY_HASH' and root_grace_expires_at_utc > now();" 2>/dev/null || true)"
 
 if [[ "$existing_count" == "1" ]]; then
-  echo "[anonymous-comment-fixture] active local anonymous credential root already prepared."
-  exit 0
+    echo "[anonymous-comment-fixture] active local anonymous credential root already prepared."
+    exit 0
 fi
 
 dotnet run --project "$BOOTSTRAP_PROJECT" -- \
-  --input "$BOOTSTRAP_INPUT" \
-  --trusted-setup-manifest "$TRUSTED_SETUP_MANIFEST" \
-  --verifying-key-manifest "$VERIFYING_KEY_MANIFEST" \
-  --db-type postgres \
-  --connection-string "$DB_CONNECTION" \
-  --evidence "$BOOTSTRAP_EVIDENCE"
+    --input "$BOOTSTRAP_INPUT" \
+    --trusted-setup-manifest "$TRUSTED_SETUP_MANIFEST" \
+    --verifying-key-manifest "$VERIFYING_KEY_MANIFEST" \
+    --db-type postgres \
+    --connection-string "$DB_CONNECTION" \
+    --evidence "$BOOTSTRAP_EVIDENCE"
 
 echo "[anonymous-comment-fixture] local anonymous comment privacy root prepared."

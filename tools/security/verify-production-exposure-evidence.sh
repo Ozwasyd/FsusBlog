@@ -9,45 +9,45 @@ MAX_FUTURE_SKEW_SECONDS="${FSUSBLOG_PRODUCTION_EXPOSURE_MAX_FUTURE_SKEW_SECONDS:
 failures=()
 
 if [[ ! -f "$EVIDENCE_FILE" ]]; then
-  printf '[production-exposure-evidence] failed\n' >&2
-  printf -- '- missing evidence file: %s\n' "$EVIDENCE_FILE" >&2
-  exit 1
+    printf '[production-exposure-evidence] failed\n' >&2
+    printf -- '- missing evidence file: %s\n' "$EVIDENCE_FILE" >&2
+    exit 1
 fi
 
 if ! command -v jq >/dev/null 2>&1; then
-  printf '[production-exposure-evidence] failed\n' >&2
-  printf -- '- jq is required to verify production exposure evidence\n' >&2
-  exit 1
+    printf '[production-exposure-evidence] failed\n' >&2
+    printf -- '- jq is required to verify production exposure evidence\n' >&2
+    exit 1
 fi
 
 generated_at="$(jq -r '.generatedAt // ""' "$EVIDENCE_FILE")" || {
-  printf '[production-exposure-evidence] failed\n' >&2
-  printf -- '- invalid production exposure evidence JSON: %s\n' "$EVIDENCE_FILE" >&2
-  exit 1
+    printf '[production-exposure-evidence] failed\n' >&2
+    printf -- '- invalid production exposure evidence JSON: %s\n' "$EVIDENCE_FILE" >&2
+    exit 1
 }
 
 if [[ -z "$generated_at" ]]; then
-  printf '[production-exposure-evidence] failed\n' >&2
-  printf -- '- evidence generatedAt must be present\n' >&2
-  exit 1
+    printf '[production-exposure-evidence] failed\n' >&2
+    printf -- '- evidence generatedAt must be present\n' >&2
+    exit 1
 fi
 
 if ! generated_epoch="$(date -u -d "$generated_at" +%s 2>/dev/null)"; then
-  printf '[production-exposure-evidence] failed\n' >&2
-  printf -- '- evidence generatedAt is not parseable: %s\n' "$generated_at" >&2
-  exit 1
+    printf '[production-exposure-evidence] failed\n' >&2
+    printf -- '- evidence generatedAt is not parseable: %s\n' "$generated_at" >&2
+    exit 1
 fi
 
 now_epoch="$(date -u +%s)"
-if (( generated_epoch > now_epoch + MAX_FUTURE_SKEW_SECONDS )); then
-  printf '[production-exposure-evidence] failed\n' >&2
-  printf -- '- evidence generatedAt is too far in the future: %s\n' "$generated_at" >&2
-  exit 1
+if ((generated_epoch > now_epoch + MAX_FUTURE_SKEW_SECONDS)); then
+    printf '[production-exposure-evidence] failed\n' >&2
+    printf -- '- evidence generatedAt is too far in the future: %s\n' "$generated_at" >&2
+    exit 1
 fi
-if (( now_epoch - generated_epoch > MAX_AGE_SECONDS )); then
-  printf '[production-exposure-evidence] failed\n' >&2
-  printf -- '- evidence is stale: generatedAt=%s maxAgeSeconds=%s\n' "$generated_at" "$MAX_AGE_SECONDS" >&2
-  exit 1
+if ((now_epoch - generated_epoch > MAX_AGE_SECONDS)); then
+    printf '[production-exposure-evidence] failed\n' >&2
+    printf -- '- evidence is stale: generatedAt=%s maxAgeSeconds=%s\n' "$generated_at" "$MAX_AGE_SECONDS" >&2
+    exit 1
 fi
 
 jq_output="$(jq -r '
@@ -143,22 +143,22 @@ jq_output="$(jq -r '
     ]
   | .[]
 ' "$EVIDENCE_FILE")" || {
-  printf '[production-exposure-evidence] failed\n' >&2
-  printf -- '- invalid production exposure evidence JSON or verifier expression failed: %s\n' "$EVIDENCE_FILE" >&2
-  exit 1
+    printf '[production-exposure-evidence] failed\n' >&2
+    printf -- '- invalid production exposure evidence JSON or verifier expression failed: %s\n' "$EVIDENCE_FILE" >&2
+    exit 1
 }
 
 failures=()
 if [[ -n "$jq_output" ]]; then
-  mapfile -t failures <<<"$jq_output"
+    mapfile -t failures <<<"$jq_output"
 fi
 
-if (( ${#failures[@]} > 0 )); then
-  printf '[production-exposure-evidence] failed\n' >&2
-  for failure in "${failures[@]}"; do
-    printf -- '- %s\n' "$failure" >&2
-  done
-  exit 1
+if ((${#failures[@]} > 0)); then
+    printf '[production-exposure-evidence] failed\n' >&2
+    for failure in "${failures[@]}"; do
+        printf -- '- %s\n' "$failure" >&2
+    done
+    exit 1
 fi
 
 printf '[production-exposure-evidence] ok\n'

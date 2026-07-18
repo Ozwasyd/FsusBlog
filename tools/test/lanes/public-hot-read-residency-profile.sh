@@ -10,17 +10,17 @@ mkdir -p "$OUT_DIR" "$(dirname "$RELEASE_SUMMARY")"
 
 dotnet_args=()
 if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" ]]; then
-  dotnet_args+=(--no-build --no-restore)
+    dotnet_args+=(--no-build --no-restore)
 fi
 
 dotnet run \
-  --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
-  -c Release \
-  "${dotnet_args[@]}" \
-  -- \
-  --public-hot-read-residency-profile \
-  --out "$SUMMARY_FILE" \
-  "$@"
+    --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
+    -c Release \
+    "${dotnet_args[@]}" \
+    -- \
+    --public-hot-read-residency-profile \
+    --out "$SUMMARY_FILE" \
+    "$@"
 
 cp "$SUMMARY_FILE" "$RELEASE_SUMMARY"
 echo "[public-hot-read-residency] wrote $SUMMARY_FILE and $RELEASE_SUMMARY"

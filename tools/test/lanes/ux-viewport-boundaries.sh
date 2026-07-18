@@ -13,13 +13,13 @@ export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
 export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
 profile='ux-viewport-boundaries'
 if [[ "${FSUSBLOG_UX_VIEWPORT_SCREENSHOTS:-0}" == "1" ]]; then
-  profile='ux-viewport-visual'
+    profile='ux-viewport-visual'
 fi
 configure_playwright_workers "$profile" FSUSBLOG_UX_VIEWPORT_WORKERS
 
 if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
-  FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" prepare_session_fixtures_once
-  export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
+    FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" prepare_session_fixtures_once
+    export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
 fi
 
 npm --prefix "$ROOT_DIR/src/frontend" run check:ux:viewport-boundaries

@@ -7,22 +7,22 @@ OUT_DIR="$COVERAGE_ROOT/merged"
 OUT_FILE="$OUT_DIR/Summary.json"
 
 if [[ "${1:-}" == "--dry-run" ]]; then
-  jq -n --arg script "merge-coverage" --arg out "$OUT_FILE" '{
+    jq -n --arg script "merge-coverage" --arg out "$OUT_FILE" '{
     script: $script,
     status: "dry-run",
     output: $out,
     schema: "fsusblog.coverage.summary.v1"
   }'
-  exit 0
+    exit 0
 fi
 
 mkdir -p "$OUT_DIR"
 
 "${FSUSBLOG_NODE:-node}" --input-type=module - \
-  "$ROOT_DIR/tools/test/run-command-manifest.mjs" \
-  "$COVERAGE_ROOT/backend-merged/Summary.json" \
-  "$COVERAGE_ROOT/frontend/Summary.json" \
-  "$OUT_FILE" <<'NODE'
+    "$ROOT_DIR/tools/test/run-command-manifest.mjs" \
+    "$COVERAGE_ROOT/backend-merged/Summary.json" \
+    "$COVERAGE_ROOT/frontend/Summary.json" \
+    "$OUT_FILE" <<'NODE'
 import fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 

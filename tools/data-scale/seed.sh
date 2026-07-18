@@ -4,45 +4,66 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TIER="${1:-scale-xs}"
 if [[ "${FSUSBLOG_DATA_SCALE_OUT_DIR+x}" == "x" ]]; then
-  [[ -n "$FSUSBLOG_DATA_SCALE_OUT_DIR" ]] || {
-    printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must not be empty\n' >&2
-    exit 1
-  }
-  case "$FSUSBLOG_DATA_SCALE_OUT_DIR" in
-    /*) ;;
-    *) printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must be an absolute path\n' >&2; exit 1 ;;
-  esac
-  case "/$FSUSBLOG_DATA_SCALE_OUT_DIR/" in
-    */../*|*/./*) printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must not traverse directories\n' >&2; exit 1 ;;
-  esac
-  command -v readlink >/dev/null 2>&1 || {
-    printf '[data-scale:seed] readlink is required to validate FSUSBLOG_DATA_SCALE_OUT_DIR\n' >&2
-    exit 1
-  }
-  OUT_DIR="$(readlink -m -- "$FSUSBLOG_DATA_SCALE_OUT_DIR")"
-  repository_tmp="$(readlink -m -- "$ROOT_DIR/.tmp")"
-  system_tmp="$(readlink -m -- "${TMPDIR:-/tmp}")"
-  [[ "$system_tmp" != "/" ]] || {
-    printf '[data-scale:seed] TMPDIR must not resolve to the filesystem root\n' >&2
-    exit 1
-  }
-  if [[ "$OUT_DIR" != "$repository_tmp/"* && "$OUT_DIR" != "$system_tmp/"* ]]; then
-    printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must stay under %s or %s\n' "$repository_tmp" "$system_tmp" >&2
-    exit 1
-  fi
-  summary_reference="$OUT_DIR/summary.json"
+    [[ -n "$FSUSBLOG_DATA_SCALE_OUT_DIR" ]] || {
+        printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must not be empty\n' >&2
+        exit 1
+    }
+    case "$FSUSBLOG_DATA_SCALE_OUT_DIR" in
+        /*) ;;
+        *)
+            printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must be an absolute path\n' >&2
+            exit 1
+            ;;
+    esac
+    case "/$FSUSBLOG_DATA_SCALE_OUT_DIR/" in
+        */../* | */./*)
+            printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must not traverse directories\n' >&2
+            exit 1
+            ;;
+    esac
+    command -v readlink >/dev/null 2>&1 || {
+        printf '[data-scale:seed] readlink is required to validate FSUSBLOG_DATA_SCALE_OUT_DIR\n' >&2
+        exit 1
+    }
+    OUT_DIR="$(readlink -m -- "$FSUSBLOG_DATA_SCALE_OUT_DIR")"
+    repository_tmp="$(readlink -m -- "$ROOT_DIR/.tmp")"
+    system_tmp="$(readlink -m -- "${TMPDIR:-/tmp}")"
+    [[ "$system_tmp" != "/" ]] || {
+        printf '[data-scale:seed] TMPDIR must not resolve to the filesystem root\n' >&2
+        exit 1
+    }
+    if [[ "$OUT_DIR" != "$repository_tmp/"* && "$OUT_DIR" != "$system_tmp/"* ]]; then
+        printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must stay under %s or %s\n' "$repository_tmp" "$system_tmp" >&2
+        exit 1
+    fi
+    summary_reference="$OUT_DIR/summary.json"
 else
-  OUT_DIR="$ROOT_DIR/.tmp/scale/$TIER"
-  summary_reference=".tmp/scale/$TIER/summary.json"
+    OUT_DIR="$ROOT_DIR/.tmp/scale/$TIER"
+    summary_reference=".tmp/scale/$TIER/summary.json"
 fi
 mkdir -p "$OUT_DIR"
 
 case "$TIER" in
-  scale-xs) articles=1; comments=0 ;;
-  scale-s) articles=100; comments=1000 ;;
-  scale-m) articles=10000; comments=100000 ;;
-  scale-l-nightly) articles=100000; comments=1000000 ;;
-  *) printf '[data-scale:seed] unknown tier %s\n' "$TIER" >&2; exit 1 ;;
+    scale-xs)
+        articles=1
+        comments=0
+        ;;
+    scale-s)
+        articles=100
+        comments=1000
+        ;;
+    scale-m)
+        articles=10000
+        comments=100000
+        ;;
+    scale-l-nightly)
+        articles=100000
+        comments=1000000
+        ;;
+    *)
+        printf '[data-scale:seed] unknown tier %s\n' "$TIER" >&2
+        exit 1
+        ;;
 esac
 
 namespace="${FSUSBLOG_TEST_NAMESPACE:-local}"
@@ -50,19 +71,19 @@ postgres_container="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-${FSUSBLOG_PG_CONTAINER:
 fixture_prefix="data-scale:$namespace:$TIER"
 
 if ! docker exec "$postgres_container" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
-  printf '[data-scale:seed] postgres container is not ready: %s\n' "$postgres_container" >&2
-  exit 1
+    printf '[data-scale:seed] postgres container is not ready: %s\n' "$postgres_container" >&2
+    exit 1
 fi
 
 summary="$(
-  docker exec -i "$postgres_container" psql -X -q -t -A \
-    -U fsusblog \
-    -d fsusblog \
-    -v ON_ERROR_STOP=1 \
-    -v namespace="$namespace" \
-    -v tier="$TIER" \
-    -v article_count="$articles" \
-    -v comment_count="$comments" <<'SQL'
+    docker exec -i "$postgres_container" psql -X -q -t -A \
+        -U fsusblog \
+        -d fsusblog \
+        -v ON_ERROR_STOP=1 \
+        -v namespace="$namespace" \
+        -v tier="$TIER" \
+        -v article_count="$articles" \
+        -v comment_count="$comments" <<'SQL'
 BEGIN;
 
 CREATE TEMP TABLE data_scale_context(
@@ -486,19 +507,19 @@ COMMIT;
 SQL
 )"
 
-printf '%s\n' "$summary" > "$OUT_DIR/seed.json"
+printf '%s\n' "$summary" >"$OUT_DIR/seed.json"
 
 if [[ "$(jq -r '.status // "failed"' "$OUT_DIR/seed.json")" != "ok" ]]; then
-  printf '[data-scale:seed] fixture counts did not match %s/%s\n' "$TIER" "$namespace" >&2
-  exit 1
+    printf '[data-scale:seed] fixture counts did not match %s/%s\n' "$TIER" "$namespace" >&2
+    exit 1
 fi
 
 jq -n \
-  --arg tier "$TIER" \
-  --arg namespace "$namespace" \
-  --arg prefix "$fixture_prefix" \
-  --arg summary "$summary_reference" \
-  '{
+    --arg tier "$TIER" \
+    --arg namespace "$namespace" \
+    --arg prefix "$fixture_prefix" \
+    --arg summary "$summary_reference" \
+    '{
     status: "probe-required",
     tier: $tier,
     namespace: $namespace,
@@ -530,7 +551,7 @@ jq -n \
       }
     },
     generatedAt: now | todate
-  }' > "$OUT_DIR/artifact-rebuild.json"
+  }' >"$OUT_DIR/artifact-rebuild.json"
 
 printf '[data-scale:seed] wrote %s\n' "$OUT_DIR/seed.json"
 printf '[data-scale:seed] wrote %s\n' "$OUT_DIR/artifact-rebuild.json"

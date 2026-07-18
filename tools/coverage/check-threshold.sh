@@ -9,19 +9,19 @@ METHOD_THRESHOLD="${FSUSBLOG_COVERAGE_METHOD_THRESHOLD:-100}"
 FUNCTION_THRESHOLD="${FSUSBLOG_COVERAGE_FUNCTION_THRESHOLD:-$METHOD_THRESHOLD}"
 
 if [[ "${1:-}" == "--dry-run" ]]; then
-  SUMMARY_FILE="${SUMMARY_FILE:-.tmp/coverage/merged/Summary.json}"
-  jq -n --arg script "check-threshold" --arg summary "$SUMMARY_FILE" '{
+    SUMMARY_FILE="${SUMMARY_FILE:-.tmp/coverage/merged/Summary.json}"
+    jq -n --arg script "check-threshold" --arg summary "$SUMMARY_FILE" '{
     script: $script,
     status: "dry-run",
     summary: $summary,
     schema: "fsusblog.coverage.threshold.v1"
   }'
-  exit 0
+    exit 0
 fi
 
 if [[ -z "$SUMMARY_FILE" ]]; then
-  printf '[coverage:%s] FSUSBLOG_COVERAGE_SUMMARY_FILE is required\n' "$COVERAGE_LABEL" >&2
-  exit 1
+    printf '[coverage:%s] FSUSBLOG_COVERAGE_SUMMARY_FILE is required\n' "$COVERAGE_LABEL" >&2
+    exit 1
 fi
 
 "${FSUSBLOG_NODE:-node}" - "$SUMMARY_FILE" "$COVERAGE_LABEL" "$LINE_THRESHOLD" "$BRANCH_THRESHOLD" "$FUNCTION_THRESHOLD" <<'NODE'

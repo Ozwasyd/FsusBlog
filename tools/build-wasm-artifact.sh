@@ -8,14 +8,14 @@ CLIENT_DIR="${ROOT_DIR}/src/frontend"
 MANIFEST_PATH="${ARTIFACT_DIR}/wasm-manifest.aeds"
 
 log() {
-  printf '[build-wasm-artifact] %s\n' "$1"
+    printf '[build-wasm-artifact] %s\n' "$1"
 }
 
 require_command() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    printf '[build-wasm-artifact] fatal: missing required command: %s\n' "$1" >&2
-    exit 1
-  fi
+    if ! command -v "$1" >/dev/null 2>&1; then
+        printf '[build-wasm-artifact] fatal: missing required command: %s\n' "$1" >&2
+        exit 1
+    fi
 }
 
 require_command docker
@@ -27,11 +27,11 @@ log "building wasm artifact target"
 rm -rf "${TMP_DIR}"
 mkdir -p "${TMP_DIR}"
 DOCKER_BUILDKIT=1 docker build \
-  --pull \
-  -f "${ROOT_DIR}/ops/docker/FsusBlog.Server.Dockerfile" \
-  --target wasm-artifact \
-  --output "type=local,dest=${TMP_DIR}" \
-  "${ROOT_DIR}"
+    --pull \
+    -f "${ROOT_DIR}/ops/docker/FsusBlog.Server.Dockerfile" \
+    --target wasm-artifact \
+    --output "type=local,dest=${TMP_DIR}" \
+    "${ROOT_DIR}"
 
 log "refreshing artifact directory ${ARTIFACT_DIR}"
 rm -rf "${ARTIFACT_DIR}"
@@ -169,9 +169,9 @@ function parseManifest(raw) {
 EOF
 
 (
-  cd "${ARTIFACT_DIR}"
-  find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 sha256sum > SHA256SUMS
-  sha256sum -c SHA256SUMS >/dev/null
+    cd "${ARTIFACT_DIR}"
+    find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 sha256sum >SHA256SUMS
+    sha256sum -c SHA256SUMS >/dev/null
 )
 
 node "${ROOT_DIR}/tools/check-wasm-artifact-ownership.mjs" --require-generated --artifact-dir "${ARTIFACT_DIR}"

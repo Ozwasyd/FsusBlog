@@ -5,32 +5,32 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "[cache-governance] checking direct redis cache operations"
 DIRECT_REDIS_MATCHES="$(
-  rg -n "StringSetAsync\(|StringGetAsync\(|KeyDeleteAsync\(|GetDatabase\(\)" \
-    "$ROOT_DIR/src/backend" \
-    --glob '!**/bin/**' \
-    --glob '!**/obj/**' | \
-    grep -vE "Infrastructure/Cache/|Infrastructure/PublicAot/|Infrastructure/NotificationStream/|Infrastructure/Operations/|Infrastructure/CoreBridge/Cache/|Infrastructure/PublicReadArtifacts/PublicArtifactRevocation.cs|Services/ArticleService.cs|Services/ArticleMutationSideEffects.cs|Services/NotificationStream/RedisNotificationStreamPublisher.cs|Services/Security/UserSessionValidationService.cs|Services/Security/RedisPowService.cs|Services/Security/MfaChallengeService.cs|Services/Security/PerceptionChallengeV2Service.cs|Infrastructure/Security/AdaptivePowGovernor.cs" || true
+    rg -n "StringSetAsync\(|StringGetAsync\(|KeyDeleteAsync\(|GetDatabase\(\)" \
+        "$ROOT_DIR/src/backend" \
+        --glob '!**/bin/**' \
+        --glob '!**/obj/**' |
+        grep -vE "Infrastructure/Cache/|Infrastructure/PublicAot/|Infrastructure/NotificationStream/|Infrastructure/Operations/|Infrastructure/CoreBridge/Cache/|Infrastructure/PublicReadArtifacts/PublicArtifactRevocation.cs|Services/ArticleService.cs|Services/ArticleMutationSideEffects.cs|Services/NotificationStream/RedisNotificationStreamPublisher.cs|Services/Security/UserSessionValidationService.cs|Services/Security/RedisPowService.cs|Services/Security/MfaChallengeService.cs|Services/Security/PerceptionChallengeV2Service.cs|Infrastructure/Security/AdaptivePowGovernor.cs" || true
 )"
 
 if [[ -n "$DIRECT_REDIS_MATCHES" ]]; then
-  echo "[cache-governance] forbidden direct redis usages found:"
-  echo "$DIRECT_REDIS_MATCHES"
-  exit 1
+    echo "[cache-governance] forbidden direct redis usages found:"
+    echo "$DIRECT_REDIS_MATCHES"
+    exit 1
 fi
 
 echo "[cache-governance] checking hard-coded output cache tags"
 TAG_MATCHES="$(
-  rg -n "EvictByTagAsync\(\"|\.Tag\(\"" \
-    "$ROOT_DIR/src/backend" \
-    --glob '!**/bin/**' \
-    --glob '!**/obj/**' | \
-  grep -vE "Infrastructure/Cache/CacheTag.cs|Infrastructure/Cache/HttpCachePolicyCatalog.cs" || true
+    rg -n "EvictByTagAsync\(\"|\.Tag\(\"" \
+        "$ROOT_DIR/src/backend" \
+        --glob '!**/bin/**' \
+        --glob '!**/obj/**' |
+        grep -vE "Infrastructure/Cache/CacheTag.cs|Infrastructure/Cache/HttpCachePolicyCatalog.cs" || true
 )"
 
 if [[ -n "$TAG_MATCHES" ]]; then
-  echo "[cache-governance] hard-coded cache tag usages found:"
-  echo "$TAG_MATCHES"
-  exit 1
+    echo "[cache-governance] hard-coded cache tag usages found:"
+    echo "$TAG_MATCHES"
+    exit 1
 fi
 
 echo "[cache-governance] checking machine-readable cache catalog"

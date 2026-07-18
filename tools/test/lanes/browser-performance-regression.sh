@@ -11,14 +11,14 @@ ROUTE_PRESSURE="${FSUSBLOG_BROWSER_PERFORMANCE_ROUTE_PRESSURE_FILE:-$ROOT_DIR/.t
 DOM_BUDGET="${FSUSBLOG_BROWSER_PERFORMANCE_DOM_BUDGET_FILE:-$ROOT_DIR/.tmp/frontend/dom-budget.json}"
 
 if [[ -f "$ROUTE_PRESSURE" ]]; then
-  if [[ ! -f "$DOM_BUDGET" ]]; then
-    DOM_BUDGET="$ROOT_DIR/.tmp/perf/browser-dom-budget-empty.json"
-    jq -n '{routes: []}' > "$DOM_BUDGET"
-  fi
-  jq -n \
-    --slurpfile route "$ROUTE_PRESSURE" \
-    --slurpfile dom "$DOM_BUDGET" \
-    '
+    if [[ ! -f "$DOM_BUDGET" ]]; then
+        DOM_BUDGET="$ROOT_DIR/.tmp/perf/browser-dom-budget-empty.json"
+        jq -n '{routes: []}' >"$DOM_BUDGET"
+    fi
+    jq -n \
+        --slurpfile route "$ROUTE_PRESSURE" \
+        --slurpfile dom "$DOM_BUDGET" \
+        '
     ($route[0].routes // []) as $routes
     | {
       status: (if ($routes | length) > 0 then "ok" else "blocked" end),
@@ -40,19 +40,19 @@ if [[ -f "$ROUTE_PRESSURE" ]]; then
         domBudget: ".tmp/frontend/dom-budget.json"
       },
       generatedAt: now | todate
-    }' > "$OUT_FILE"
-  status="$(jq -r '.status' "$OUT_FILE")"
-  jq -n --arg status "$status" '{
+    }' >"$OUT_FILE"
+    status="$(jq -r '.status' "$OUT_FILE")"
+    jq -n --arg status "$status" '{
     status:$status,
     evidenceClass:"diagnostic",
     affectsCorrectness:false,
     executionBoundary:"real-browser-performance-diagnostics",
     browserPerformance:".tmp/perf/browser-performance.json",
     generatedAt: now | todate
-  }' > "$RELEASE_SUMMARY_FILE"
+  }' >"$RELEASE_SUMMARY_FILE"
 else
-  printf '[browser-performance] infra-failure: missing frontend render-pressure runtime artifact %s\n' "$ROUTE_PRESSURE" >&2
-  jq -n '{
+    printf '[browser-performance] infra-failure: missing frontend render-pressure runtime artifact %s\n' "$ROUTE_PRESSURE" >&2
+    jq -n '{
     status: "blocked",
     evidenceClass: "diagnostic",
     affectsCorrectness: false,
@@ -60,18 +60,18 @@ else
     reason: "missing frontend render-pressure runtime artifact",
     requiredArtifact: ".tmp/frontend/route-render-pressure.json",
     generatedAt: now | todate
-  }' > "$OUT_FILE"
-  jq -n '{
+  }' >"$OUT_FILE"
+    jq -n '{
     status:"blocked",
     evidenceClass:"diagnostic",
     affectsCorrectness:false,
     executionBoundary:"real-browser-performance-diagnostics",
     browserPerformance:".tmp/perf/browser-performance.json",
     generatedAt: now | todate
-  }' > "$RELEASE_SUMMARY_FILE"
+  }' >"$RELEASE_SUMMARY_FILE"
 fi
 printf '[browser-performance] wrote %s\n' "$OUT_FILE"
 if [[ "$(jq -r '.status' "$OUT_FILE")" != "ok" ]]; then
-  printf '[browser-performance] diagnostic blocked; see %s\n' "$OUT_FILE" >&2
-  exit 1
+    printf '[browser-performance] diagnostic blocked; see %s\n' "$OUT_FILE" >&2
+    exit 1
 fi

@@ -7,42 +7,42 @@ FLOW="${1:-}"
 RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:8080}"
 
 run_client() {
-  (
-    cd "$CLIENT_DIR"
-    PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL" "$@"
-  )
+    (
+        cd "$CLIENT_DIR"
+        PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL" "$@"
+    )
 }
 
 case "$FLOW" in
-  admin-console)
-    run_client npm run check:acceptance:console
-    ;;
-  auth-flow)
-    run_client npm run check:acceptance:auth
-    ;;
-  authoring-flow)
-    run_client npm run check:author-ai-assist
-    run_client node ../../tests/frontend/checks/static/check-markdown-editor-state-governance.mjs
-    run_client node ../../tests/frontend/checks/static/check-article-editor-workspace-governance.mjs
-    run_client npx vitest run --config vitest.config.ts ../../tests/frontend/unit/api/authoring.test.ts ../../tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts
-    ;;
-  private-preview)
-    run_client npm run check:public-private-data-leakage
-    run_client node ../../tests/frontend/checks/static/check-admin-task-feedback.mjs
-    ;;
-  error-boundary)
-    run_client npm run check:result-boundaries
-    run_client npx vitest run --config vitest.config.ts \
-      ../../tests/frontend/unit/app-error.test.ts \
-      ../../tests/frontend/unit/utils/errorKinds.test.ts \
-      ../../tests/frontend/unit/utils/errors.test.ts
-    ;;
-  rbac-negative)
-    run_client npm run check:security:permissions
-    run_client npm run check:security:attack-matrix
-    ;;
-  *)
-    printf '[release-runtime-flow] unknown flow: %s\n' "$FLOW" >&2
-    exit 1
-    ;;
+    admin-console)
+        run_client npm run check:acceptance:console
+        ;;
+    auth-flow)
+        run_client npm run check:acceptance:auth
+        ;;
+    authoring-flow)
+        run_client npm run check:author-ai-assist
+        run_client node ../../tests/frontend/checks/static/check-markdown-editor-state-governance.mjs
+        run_client node ../../tests/frontend/checks/static/check-article-editor-workspace-governance.mjs
+        run_client npx vitest run --config vitest.config.ts ../../tests/frontend/unit/api/authoring.test.ts ../../tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts
+        ;;
+    private-preview)
+        run_client npm run check:public-private-data-leakage
+        run_client node ../../tests/frontend/checks/static/check-admin-task-feedback.mjs
+        ;;
+    error-boundary)
+        run_client npm run check:result-boundaries
+        run_client npx vitest run --config vitest.config.ts \
+            ../../tests/frontend/unit/app-error.test.ts \
+            ../../tests/frontend/unit/utils/errorKinds.test.ts \
+            ../../tests/frontend/unit/utils/errors.test.ts
+        ;;
+    rbac-negative)
+        run_client npm run check:security:permissions
+        run_client npm run check:security:attack-matrix
+        ;;
+    *)
+        printf '[release-runtime-flow] unknown flow: %s\n' "$FLOW" >&2
+        exit 1
+        ;;
 esac

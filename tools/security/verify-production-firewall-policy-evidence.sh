@@ -9,62 +9,62 @@ MAX_AGE_SECONDS="${FSUSBLOG_FIREWALL_POLICY_MAX_AGE_SECONDS:-86400}"
 MAX_FUTURE_SKEW_SECONDS="${FSUSBLOG_FIREWALL_POLICY_MAX_FUTURE_SKEW_SECONDS:-300}"
 
 if [[ ! -f "$POLICY_FILE" ]]; then
-  printf '[production-firewall-policy] failed\n' >&2
-  printf -- '- missing firewall policy evidence file: %s\n' "$POLICY_FILE" >&2
-  exit 1
+    printf '[production-firewall-policy] failed\n' >&2
+    printf -- '- missing firewall policy evidence file: %s\n' "$POLICY_FILE" >&2
+    exit 1
 fi
 
 if ! command -v jq >/dev/null 2>&1; then
-  printf '[production-firewall-policy] failed\n' >&2
-  printf -- '- jq is required to verify firewall policy evidence\n' >&2
-  exit 1
+    printf '[production-firewall-policy] failed\n' >&2
+    printf -- '- jq is required to verify firewall policy evidence\n' >&2
+    exit 1
 fi
 
 generated_at="$(jq -r '.generatedAt // ""' "$POLICY_FILE")" || {
-  printf '[production-firewall-policy] failed\n' >&2
-  printf -- '- invalid firewall policy evidence JSON: %s\n' "$POLICY_FILE" >&2
-  exit 1
+    printf '[production-firewall-policy] failed\n' >&2
+    printf -- '- invalid firewall policy evidence JSON: %s\n' "$POLICY_FILE" >&2
+    exit 1
 }
 
 if [[ -z "$generated_at" ]]; then
-  printf '[production-firewall-policy] failed\n' >&2
-  printf -- '- firewall policy generatedAt must be present\n' >&2
-  exit 1
+    printf '[production-firewall-policy] failed\n' >&2
+    printf -- '- firewall policy generatedAt must be present\n' >&2
+    exit 1
 fi
 
 source_sha256="$(jq -r '.evidenceSource.sourceSha256 // ""' "$POLICY_FILE")"
 if ! [[ "$source_sha256" =~ ^[0-9a-f]{64}$ ]]; then
-  printf '[production-firewall-policy] failed\n' >&2
-  printf -- '- firewall policy evidenceSource.sourceSha256 must be a sha256 digest of the raw firewall export\n' >&2
-  exit 1
+    printf '[production-firewall-policy] failed\n' >&2
+    printf -- '- firewall policy evidenceSource.sourceSha256 must be a sha256 digest of the raw firewall export\n' >&2
+    exit 1
 fi
 
 source_file="$(jq -r '.evidenceSource.sourceFile // .evidenceSource.statusFile // ""' "$POLICY_FILE")"
 if [[ -n "$source_file" && -f "$source_file" ]]; then
-  actual_source_sha256="$(sha256sum "$source_file" | awk '{print $1}')"
-  if [[ "$source_sha256" != "$actual_source_sha256" ]]; then
-    printf '[production-firewall-policy] failed\n' >&2
-    printf -- '- firewall policy evidenceSource.sourceSha256 does not match raw source file: %s\n' "$source_file" >&2
-    exit 1
-  fi
+    actual_source_sha256="$(sha256sum "$source_file" | awk '{print $1}')"
+    if [[ "$source_sha256" != "$actual_source_sha256" ]]; then
+        printf '[production-firewall-policy] failed\n' >&2
+        printf -- '- firewall policy evidenceSource.sourceSha256 does not match raw source file: %s\n' "$source_file" >&2
+        exit 1
+    fi
 fi
 
 if ! generated_epoch="$(date -u -d "$generated_at" +%s 2>/dev/null)"; then
-  printf '[production-firewall-policy] failed\n' >&2
-  printf -- '- firewall policy generatedAt is not parseable: %s\n' "$generated_at" >&2
-  exit 1
+    printf '[production-firewall-policy] failed\n' >&2
+    printf -- '- firewall policy generatedAt is not parseable: %s\n' "$generated_at" >&2
+    exit 1
 fi
 
 now_epoch="$(date -u +%s)"
-if (( generated_epoch > now_epoch + MAX_FUTURE_SKEW_SECONDS )); then
-  printf '[production-firewall-policy] failed\n' >&2
-  printf -- '- firewall policy generatedAt is too far in the future: %s\n' "$generated_at" >&2
-  exit 1
+if ((generated_epoch > now_epoch + MAX_FUTURE_SKEW_SECONDS)); then
+    printf '[production-firewall-policy] failed\n' >&2
+    printf -- '- firewall policy generatedAt is too far in the future: %s\n' "$generated_at" >&2
+    exit 1
 fi
-if (( now_epoch - generated_epoch > MAX_AGE_SECONDS )); then
-  printf '[production-firewall-policy] failed\n' >&2
-  printf -- '- firewall policy evidence is stale: generatedAt=%s maxAgeSeconds=%s\n' "$generated_at" "$MAX_AGE_SECONDS" >&2
-  exit 1
+if ((now_epoch - generated_epoch > MAX_AGE_SECONDS)); then
+    printf '[production-firewall-policy] failed\n' >&2
+    printf -- '- firewall policy evidence is stale: generatedAt=%s maxAgeSeconds=%s\n' "$generated_at" "$MAX_AGE_SECONDS" >&2
+    exit 1
 fi
 
 jq_output="$(jq -r --arg requiredHosts "$REQUIRED_HOSTS" '
@@ -300,22 +300,22 @@ jq_output="$(jq -r --arg requiredHosts "$REQUIRED_HOSTS" '
   ]
   | .[]
 ' "$POLICY_FILE")" || {
-  printf '[production-firewall-policy] failed\n' >&2
-  printf -- '- invalid firewall policy evidence JSON or verifier expression failed: %s\n' "$POLICY_FILE" >&2
-  exit 1
+    printf '[production-firewall-policy] failed\n' >&2
+    printf -- '- invalid firewall policy evidence JSON or verifier expression failed: %s\n' "$POLICY_FILE" >&2
+    exit 1
 }
 
 failures=()
 if [[ -n "$jq_output" ]]; then
-  mapfile -t failures <<<"$jq_output"
+    mapfile -t failures <<<"$jq_output"
 fi
 
-if (( ${#failures[@]} > 0 )); then
-  printf '[production-firewall-policy] failed\n' >&2
-  for failure in "${failures[@]}"; do
-    printf -- '- %s\n' "$failure" >&2
-  done
-  exit 1
+if ((${#failures[@]} > 0)); then
+    printf '[production-firewall-policy] failed\n' >&2
+    for failure in "${failures[@]}"; do
+        printf -- '- %s\n' "$failure" >&2
+    done
+    exit 1
 fi
 
 printf '[production-firewall-policy] ok\n'

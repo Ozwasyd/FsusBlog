@@ -7,4 +7,4 @@ OUTPUT_FILE="$ROOT_DIR/.tmp/release-evidence/browserless-correctness-receipt.jso
 
 rm -f "$OUTPUT_FILE"
 exec "$NODE_BIN" "$ROOT_DIR/tools/release/test-evidence-receipts-cli.mjs" create-correctness \
-  --out "$OUTPUT_FILE"
+    --out "$OUTPUT_FILE"

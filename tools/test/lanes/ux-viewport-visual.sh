@@ -14,8 +14,8 @@ export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
 configure_playwright_workers ux-viewport-visual FSUSBLOG_UX_VIEWPORT_WORKERS
 
 if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
-  FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" prepare_session_fixtures_once
-  export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
+    FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" prepare_session_fixtures_once
+    export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
 fi
 
 npm --prefix "$ROOT_DIR/src/frontend" run check:ux:viewport-visual

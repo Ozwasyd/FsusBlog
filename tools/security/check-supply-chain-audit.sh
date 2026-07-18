@@ -7,17 +7,17 @@ OUT_DIR="${FSUSBLOG_SUPPLY_CHAIN_AUDIT_DIR:-$ROOT_DIR/.tmp/security/supply-chain
 mkdir -p "$OUT_DIR"
 
 if [[ -z "${GITHUB_PACKAGES_TOKEN:-}" ]] && command -v gh >/dev/null 2>&1; then
-  GITHUB_PACKAGES_TOKEN="$(gh auth token 2>/dev/null || true)"
-  export GITHUB_PACKAGES_TOKEN
+    GITHUB_PACKAGES_TOKEN="$(gh auth token 2>/dev/null || true)"
+    export GITHUB_PACKAGES_TOKEN
 fi
 
 log() {
-  printf '[supply-chain] %s\n' "$1"
+    printf '[supply-chain] %s\n' "$1"
 }
 
 fail() {
-  printf '[supply-chain] error: %s\n' "$1" >&2
-  exit 1
+    printf '[supply-chain] error: %s\n' "$1" >&2
+    exit 1
 }
 
 NUGET_OUT_DIR="$OUT_DIR/nuget"
@@ -25,42 +25,42 @@ rm -rf "$NUGET_OUT_DIR"
 mkdir -p "$NUGET_OUT_DIR"
 
 mapfile -d '' NUGET_PROJECTS < <(find "$ROOT_DIR" \
-  -name '*.csproj' \
-  ! -path '*/bin/*' \
-  ! -path '*/obj/*' \
-  ! -path '*/.tmp/*' \
-  ! -path '*/tmp/*' \
-  ! -path '*/release-evidence/*' \
-  -print0 | sort -z)
+    -name '*.csproj' \
+    ! -path '*/bin/*' \
+    ! -path '*/obj/*' \
+    ! -path '*/.tmp/*' \
+    ! -path '*/tmp/*' \
+    ! -path '*/release-evidence/*' \
+    -print0 | sort -z)
 
 if [[ "${#NUGET_PROJECTS[@]}" -eq 0 ]]; then
-  fail "no PackageReference .csproj files found for NuGet audit"
+    fail "no PackageReference .csproj files found for NuGet audit"
 fi
 
 check_dependency_locks() {
-  log "check dependency lock files"
-  local -a missing=()
-  if [[ ! -f "$CLIENT_DIR/package-lock.json" ]]; then
-    missing+=("src/frontend/package-lock.json is required for npm dependency integrity")
-  fi
-
-  local project lock_file
-  for project in "${NUGET_PROJECTS[@]}"; do
-    lock_file="$(dirname "$project")/packages.lock.json"
-    if [[ ! -f "$lock_file" ]]; then
-      missing+=("${lock_file#$ROOT_DIR/} is required for NuGet dependency integrity")
+    log "check dependency lock files"
+    local -a missing=()
+    if [[ ! -f "$CLIENT_DIR/package-lock.json" ]]; then
+        missing+=("src/frontend/package-lock.json is required for npm dependency integrity")
     fi
-  done
 
-  if (( ${#missing[@]} > 0 )); then
-    printf '[supply-chain] lock-file violation: %s\n' "${missing[@]}" >&2
-    return 1
-  fi
+    local project lock_file
+    for project in "${NUGET_PROJECTS[@]}"; do
+        lock_file="$(dirname "$project")/packages.lock.json"
+        if [[ ! -f "$lock_file" ]]; then
+            missing+=("${lock_file#$ROOT_DIR/} is required for NuGet dependency integrity")
+        fi
+    done
+
+    if ((${#missing[@]} > 0)); then
+        printf '[supply-chain] lock-file violation: %s\n' "${missing[@]}" >&2
+        return 1
+    fi
 }
 
 check_dependency_docs() {
-  log "check documented security-sensitive backend dependencies"
-  node - "$ROOT_DIR" <<'NODE'
+    log "check documented security-sensitive backend dependencies"
+    node - "$ROOT_DIR" <<'NODE'
 const fs = require('node:fs');
 const path = require('node:path');
 const root = process.argv[2];
@@ -100,12 +100,12 @@ NODE
 }
 
 run_nuget_audit() {
-  log "run NuGet vulnerable package audit (${#NUGET_PROJECTS[@]} projects in one solution evaluation)"
-  local audit_solution="$OUT_DIR/.nuget-audit.slnx"
-  local audit_json="$OUT_DIR/.nuget-audit.json"
-  local audit_stderr="$OUT_DIR/.nuget-audit.stderr"
+    log "run NuGet vulnerable package audit (${#NUGET_PROJECTS[@]} projects in one solution evaluation)"
+    local audit_solution="$OUT_DIR/.nuget-audit.slnx"
+    local audit_json="$OUT_DIR/.nuget-audit.json"
+    local audit_stderr="$OUT_DIR/.nuget-audit.stderr"
 
-  node - "$audit_solution" "${NUGET_PROJECTS[@]}" <<'NODE'
+    node - "$audit_solution" "${NUGET_PROJECTS[@]}" <<'NODE'
 const fs = require('node:fs');
 const solutionFile = process.argv[2];
 const projects = process.argv.slice(3);
@@ -118,12 +118,12 @@ const body = projects.map(project => `  <Project Path="${escapeXml(project)}" />
 fs.writeFileSync(solutionFile, `<Solution>\n${body}\n</Solution>\n`);
 NODE
 
-  local dotnet_status=0
-  dotnet list "$audit_solution" package --vulnerable --include-transitive --format json --output-version 1 \
-    > "$audit_json" 2> "$audit_stderr" || dotnet_status=$?
+    local dotnet_status=0
+    dotnet list "$audit_solution" package --vulnerable --include-transitive --format json --output-version 1 \
+        >"$audit_json" 2>"$audit_stderr" || dotnet_status=$?
 
-  local validation_status=0
-  node - "$ROOT_DIR" "$NUGET_OUT_DIR" "$audit_json" "$audit_stderr" "$dotnet_status" "${NUGET_PROJECTS[@]}" <<'NODE'
+    local validation_status=0
+    node - "$ROOT_DIR" "$NUGET_OUT_DIR" "$audit_json" "$audit_stderr" "$dotnet_status" "${NUGET_PROJECTS[@]}" <<'NODE'
 const fs = require('node:fs');
 const path = require('node:path');
 const root = process.argv[2];
@@ -219,22 +219,22 @@ if (blockers.length > 0) {
 
 console.log(JSON.stringify({ status: 'ok', blockers: [] }));
 NODE
-  validation_status=$?
-  rm -f "$audit_solution" "$audit_json"
-  if (( validation_status == 0 )); then rm -f "$audit_stderr"; fi
-  return "$validation_status"
+    validation_status=$?
+    rm -f "$audit_solution" "$audit_json"
+    if ((validation_status == 0)); then rm -f "$audit_stderr"; fi
+    return "$validation_status"
 }
 
 run_npm_audit() {
-  log "run npm production dependency audit"
-  local npm_status=0
-  (
-    cd "$CLIENT_DIR"
-    npm audit --omit=dev --audit-level=high --json
-  ) > "$OUT_DIR/npm-audit.json" 2> "$OUT_DIR/npm-audit.stderr" || npm_status=$?
+    log "run npm production dependency audit"
+    local npm_status=0
+    (
+        cd "$CLIENT_DIR"
+        npm audit --omit=dev --audit-level=high --json
+    ) >"$OUT_DIR/npm-audit.json" 2>"$OUT_DIR/npm-audit.stderr" || npm_status=$?
 
-  local validation_status=0
-  node - "$OUT_DIR/npm-audit.json" "$OUT_DIR/npm-audit.stderr" "$npm_status" <<'NODE'
+    local validation_status=0
+    node - "$OUT_DIR/npm-audit.json" "$OUT_DIR/npm-audit.stderr" "$npm_status" <<'NODE'
 const fs = require('node:fs');
 const jsonFile = process.argv[2];
 const stderrFile = process.argv[3];
@@ -284,13 +284,13 @@ if (exitCode !== 0) {
 
 console.log(JSON.stringify({ status: 'ok', high, critical, blockers: [] }));
 NODE
-  validation_status=$?
-  return "$validation_status"
+    validation_status=$?
+    return "$validation_status"
 }
 
 resolve_audit_workers() {
-  local job_count="$1"
-  FSUSBLOG_SUPPLY_CHAIN_JOB_COUNT="$job_count" node <<'NODE'
+    local job_count="$1"
+    FSUSBLOG_SUPPLY_CHAIN_JOB_COUNT="$job_count" node <<'NODE'
 const os = require('node:os');
 const positive = value => {
   const parsed = Number(value);
@@ -320,75 +320,75 @@ NODE
 
 SUPPLY_CHAIN_FAILURES=()
 run_check_group() {
-  local group="$1"
-  shift
-  local -a specs=("$@")
-  local total="${#specs[@]}"
-  local workers
-  workers="$(resolve_audit_workers "$total")"
-  local status_dir="$OUT_DIR/.parallel-$group-$$-$RANDOM"
-  mkdir -p "$status_dir"
-  log "parallel group start: $group ($total jobs, workers=$workers)"
+    local group="$1"
+    shift
+    local -a specs=("$@")
+    local total="${#specs[@]}"
+    local workers
+    workers="$(resolve_audit_workers "$total")"
+    local status_dir="$OUT_DIR/.parallel-$group-$$-$RANDOM"
+    mkdir -p "$status_dir"
+    log "parallel group start: $group ($total jobs, workers=$workers)"
 
-  local -a pids=()
-  local -a status_files=()
-  local -a log_files=()
-  local launched=0
-  local settled=0
-  local active=0
-  local spec label command status_file log_file
-  for spec in "${specs[@]}"; do
-    label="${spec%%::*}"
-    command="${spec#*::}"
-    status_file="$status_dir/$launched.status"
-    log_file="$status_dir/$launched.log"
-    status_files+=("$status_file")
-    log_files+=("$log_file")
-    (
-      set +e
-      "$command" > "$log_file" 2>&1
-      status=$?
-      printf '%s\t%s\n' "$status" "$label" > "$status_file"
-      exit "$status"
-    ) &
-    pids+=("$!")
-    launched=$((launched + 1))
-    active=$((active + 1))
-    if (( active >= workers )); then
-      wait "${pids[$settled]}" >/dev/null 2>&1 || true
-      settled=$((settled + 1))
-      active=$((active - 1))
-    fi
-  done
-  while (( settled < launched )); do
-    wait "${pids[$settled]}" >/dev/null 2>&1 || true
-    settled=$((settled + 1))
-  done
+    local -a pids=()
+    local -a status_files=()
+    local -a log_files=()
+    local launched=0
+    local settled=0
+    local active=0
+    local spec label command status_file log_file
+    for spec in "${specs[@]}"; do
+        label="${spec%%::*}"
+        command="${spec#*::}"
+        status_file="$status_dir/$launched.status"
+        log_file="$status_dir/$launched.log"
+        status_files+=("$status_file")
+        log_files+=("$log_file")
+        (
+            set +e
+            "$command" >"$log_file" 2>&1
+            status=$?
+            printf '%s\t%s\n' "$status" "$label" >"$status_file"
+            exit "$status"
+        ) &
+        pids+=("$!")
+        launched=$((launched + 1))
+        active=$((active + 1))
+        if ((active >= workers)); then
+            wait "${pids[$settled]}" >/dev/null 2>&1 || true
+            settled=$((settled + 1))
+            active=$((active - 1))
+        fi
+    done
+    while ((settled < launched)); do
+        wait "${pids[$settled]}" >/dev/null 2>&1 || true
+        settled=$((settled + 1))
+    done
 
-  local index status
-  for ((index = 0; index < total; index += 1)); do
-    cat "${log_files[$index]}"
-    IFS=$'\t' read -r status label < "${status_files[$index]}"
-    if [[ "$status" != "0" ]]; then
-      SUPPLY_CHAIN_FAILURES+=("$label:$status")
-    fi
-  done
-  rm -rf "$status_dir"
-  log "parallel group done: $group"
+    local index status
+    for ((index = 0; index < total; index += 1)); do
+        cat "${log_files[$index]}"
+        IFS=$'\t' read -r status label <"${status_files[$index]}"
+        if [[ "$status" != "0" ]]; then
+            SUPPLY_CHAIN_FAILURES+=("$label:$status")
+        fi
+    done
+    rm -rf "$status_dir"
+    log "parallel group done: $group"
 }
 
 run_check_group preflight \
-  "dependency-locks::check_dependency_locks" \
-  "dependency-docs::check_dependency_docs"
+    "dependency-locks::check_dependency_locks" \
+    "dependency-docs::check_dependency_docs"
 run_check_group ecosystem-audits \
-  "nuget::run_nuget_audit" \
-  "npm::run_npm_audit"
+    "nuget::run_nuget_audit" \
+    "npm::run_npm_audit"
 
-if (( ${#SUPPLY_CHAIN_FAILURES[@]} > 0 )); then
-  fail "supply-chain checks failed (${SUPPLY_CHAIN_FAILURES[*]})"
+if ((${#SUPPLY_CHAIN_FAILURES[@]} > 0)); then
+    fail "supply-chain checks failed (${SUPPLY_CHAIN_FAILURES[*]})"
 fi
 
-cat > "$OUT_DIR/summary.json" <<JSON
+cat >"$OUT_DIR/summary.json" <<JSON
 {
   "status": "ok",
   "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",

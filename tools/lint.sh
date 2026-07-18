@@ -13,8 +13,7 @@ fi
 domain="$1"
 shift
 case "$domain" in
-    native|scripts|docs)
-        ;;
+    native | scripts | docs) ;;
     *)
         printf 'Unknown lint domain: %s\n' "$domain" >&2
         exit 2
@@ -31,7 +30,7 @@ while (($# > 0)); do
         --full)
             mode="full"
             ;;
-        --base|--file|--root|--policy)
+        --base | --file | --root | --policy)
             arguments+=("$1" "${2:?$1 requires a value}")
             shift
             ;;

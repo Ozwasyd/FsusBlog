@@ -14,39 +14,39 @@ rm -f "$RAW_SUMMARY_FILE" "$SUMMARY_FILE" "$RELEASE_SUMMARY"
 CURRENT_COMMIT="$(git -C "$ROOT_DIR" rev-parse HEAD)"
 SOURCE_COMMIT="${FSUSBLOG_TEST_SOURCE_COMMIT:-${FSUSBLOG_EVIDENCE_COMMIT_SHA:-${GITHUB_SHA:-$CURRENT_COMMIT}}}"
 if [[ "$SOURCE_COMMIT" != "$CURRENT_COMMIT" ]]; then
-  printf '[aeds-frame-cost] source commit %s does not match HEAD %s\n' "$SOURCE_COMMIT" "$CURRENT_COMMIT" >&2
-  exit 1
+    printf '[aeds-frame-cost] source commit %s does not match HEAD %s\n' "$SOURCE_COMMIT" "$CURRENT_COMMIT" >&2
+    exit 1
 fi
 
 authority_args=()
 if [[ -n "$(git -C "$ROOT_DIR" status --porcelain --untracked-files=normal)" ]]; then
-  authority_args+=(--authority-blocked-reason tracked-worktree-dirty)
+    authority_args+=(--authority-blocked-reason tracked-worktree-dirty)
 fi
 
 "$ROOT_DIR/tools/test/ensure-benchmark-release-build.sh"
 
 dotnet run \
-  --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
-  -c Release \
-  --no-build \
-  --no-restore \
-  -- \
-  --aeds-frame-cost \
-  --out "$RAW_SUMMARY_FILE" \
-  --commit-sha "$SOURCE_COMMIT" \
-  --repo-root "$ROOT_DIR" \
-  "${authority_args[@]}" \
-  "$@"
+    --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
+    -c Release \
+    --no-build \
+    --no-restore \
+    -- \
+    --aeds-frame-cost \
+    --out "$RAW_SUMMARY_FILE" \
+    --commit-sha "$SOURCE_COMMIT" \
+    --repo-root "$ROOT_DIR" \
+    "${authority_args[@]}" \
+    "$@"
 
 node "$ROOT_DIR/tools/operations/check-evidence-metrics.mjs" \
-  --finalize-aeds-frame-cost "$RAW_SUMMARY_FILE" "$SUMMARY_FILE" \
-  --policy "$POLICY_FILE" \
-  --expected-commit "$SOURCE_COMMIT"
+    --finalize-aeds-frame-cost "$RAW_SUMMARY_FILE" "$SUMMARY_FILE" \
+    --policy "$POLICY_FILE" \
+    --expected-commit "$SOURCE_COMMIT"
 
 node "$ROOT_DIR/tools/operations/check-evidence-metrics.mjs" \
-  --validate-aeds-frame-cost "$SUMMARY_FILE" \
-  --policy "$POLICY_FILE" \
-  --expected-commit "$SOURCE_COMMIT"
+    --validate-aeds-frame-cost "$SUMMARY_FILE" \
+    --policy "$POLICY_FILE" \
+    --expected-commit "$SOURCE_COMMIT"
 
 cp "$SUMMARY_FILE" "$RELEASE_SUMMARY"
 

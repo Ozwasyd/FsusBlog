@@ -9,8 +9,8 @@ OUT_DIR="$TMP_ROOT/operations"
 mkdir -p "$OUT_DIR"
 
 FSUSBLOG_DRILL_OUTPUT_DIR="$OUT_DIR" \
-FSUSBLOG_DRILL_MODE=dry-run \
-  "$ROOT_DIR/tools/operations/backup-restore-drill.sh"
+    FSUSBLOG_DRILL_MODE=dry-run \
+    "$ROOT_DIR/tools/operations/backup-restore-drill.sh"
 
 jq -e '
   .status == "scheduled"
@@ -20,9 +20,9 @@ jq -e '
 
 set +e
 FSUSBLOG_DRILL_OUTPUT_DIR="$OUT_DIR" \
-FSUSBLOG_DRILL_MODE=real \
-FSUSBLOG_DRILL_RUN_ID=fixture-missing-inputs \
-  "$ROOT_DIR/tools/operations/backup-restore-drill.sh"
+    FSUSBLOG_DRILL_MODE=real \
+    FSUSBLOG_DRILL_RUN_ID=fixture-missing-inputs \
+    "$ROOT_DIR/tools/operations/backup-restore-drill.sh"
 status=$?
 set -e
 

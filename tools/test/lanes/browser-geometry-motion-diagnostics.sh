@@ -5,13 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1 source "$ROOT_DIR/tools/test/legacy-test.sh"
 
 if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS:-0}" != "1" ]]; then
-  printf '[browser-geometry-motion-diagnostics] diagnostics-only lane requires FSUSBLOG_BROWSER_DIAGNOSTICS=1\n' >&2
-  exit 2
+    printf '[browser-geometry-motion-diagnostics] diagnostics-only lane requires FSUSBLOG_BROWSER_DIAGNOSTICS=1\n' >&2
+    exit 2
 fi
-if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS_WORKERS:-1}" != "1" \
-    || "${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}" != "1" ]]; then
-  printf '[browser-geometry-motion-diagnostics] exactly one browser worker is required\n' >&2
-  exit 2
+if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS_WORKERS:-1}" != "1" ||
+    "${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}" != "1" ]]; then
+    printf '[browser-geometry-motion-diagnostics] exactly one browser worker is required\n' >&2
+    exit 2
 fi
 
 CLIENT_DIR="$ROOT_DIR/src/frontend"
@@ -29,21 +29,21 @@ ARCHIVE_EXIT_CODE=''
 mkdir -p "$EVIDENCE_ROOT" "$CANONICAL_EVIDENCE_ROOT"
 
 stop_harness() {
-  if [[ -n "$HARNESS_PID" ]] && kill -0 "$HARNESS_PID" >/dev/null 2>&1; then
-    kill "$HARNESS_PID" >/dev/null 2>&1 || true
-    wait "$HARNESS_PID" >/dev/null 2>&1 || true
-  fi
-  HARNESS_PID=''
+    if [[ -n "$HARNESS_PID" ]] && kill -0 "$HARNESS_PID" >/dev/null 2>&1; then
+        kill "$HARNESS_PID" >/dev/null 2>&1 || true
+        wait "$HARNESS_PID" >/dev/null 2>&1 || true
+    fi
+    HARNESS_PID=''
 }
 
 write_summary() {
-  env \
-    FSUSBLOG_GEOMETRY_SUMMARY_FILE="$SUMMARY_FILE" \
-    FSUSBLOG_GEOMETRY_ISOLATED_STATUS="$ISOLATED_STATUS" \
-    FSUSBLOG_GEOMETRY_ISOLATED_EXIT_CODE="$ISOLATED_EXIT_CODE" \
-    FSUSBLOG_GEOMETRY_ARCHIVE_STATUS="$ARCHIVE_STATUS" \
-    FSUSBLOG_GEOMETRY_ARCHIVE_EXIT_CODE="$ARCHIVE_EXIT_CODE" \
-    "${FSUSBLOG_NODE:-node}" --input-type=module -e '
+    env \
+        FSUSBLOG_GEOMETRY_SUMMARY_FILE="$SUMMARY_FILE" \
+        FSUSBLOG_GEOMETRY_ISOLATED_STATUS="$ISOLATED_STATUS" \
+        FSUSBLOG_GEOMETRY_ISOLATED_EXIT_CODE="$ISOLATED_EXIT_CODE" \
+        FSUSBLOG_GEOMETRY_ARCHIVE_STATUS="$ARCHIVE_STATUS" \
+        FSUSBLOG_GEOMETRY_ARCHIVE_EXIT_CODE="$ARCHIVE_EXIT_CODE" \
+        "${FSUSBLOG_NODE:-node}" --input-type=module -e '
       import fs from "node:fs"
       import path from "node:path"
 
@@ -84,18 +84,18 @@ write_summary() {
 }
 
 cleanup() {
-  local exit_code=$?
-  local summary_exit_code=0
-  trap - EXIT INT TERM ERR
-  stop_harness
-  write_summary || summary_exit_code=$?
-  if (( summary_exit_code != 0 )); then
-    printf '[browser-geometry-motion-diagnostics] infra-failure: unable to write canonical summary %s\n' "$SUMMARY_FILE" >&2
-    if (( exit_code == 0 )); then
-      exit_code=$summary_exit_code
+    local exit_code=$?
+    local summary_exit_code=0
+    trap - EXIT INT TERM ERR
+    stop_harness
+    write_summary || summary_exit_code=$?
+    if ((summary_exit_code != 0)); then
+        printf '[browser-geometry-motion-diagnostics] infra-failure: unable to write canonical summary %s\n' "$SUMMARY_FILE" >&2
+        if ((exit_code == 0)); then
+            exit_code=$summary_exit_code
+        fi
     fi
-  fi
-  exit "$exit_code"
+    exit "$exit_code"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -120,88 +120,88 @@ HARNESS_URL="http://127.0.0.1:$HARNESS_PORT"
 
 printf '[browser-geometry-motion-diagnostics] isolated component harness: FsusUI public-shell (no backend/database/cache)\n'
 (
-  cd "$CLIENT_DIR"
-  exec npm exec -- vite "$HARNESS_ROOT" \
-    --config "$HARNESS_ROOT/vite.config.ts" \
-    --host 127.0.0.1 \
-    --port "$HARNESS_PORT" \
-    --strictPort
+    cd "$CLIENT_DIR"
+    exec npm exec -- vite "$HARNESS_ROOT" \
+        --config "$HARNESS_ROOT/vite.config.ts" \
+        --host 127.0.0.1 \
+        --port "$HARNESS_PORT" \
+        --strictPort
 ) >"$HARNESS_LOG" 2>&1 &
 HARNESS_PID=$!
 
 HARNESS_READY=0
 for _ in $(seq 1 80); do
-  if curl -fsS "$HARNESS_URL/" >/dev/null 2>&1; then
-    HARNESS_READY=1
-    break
-  fi
-  if ! kill -0 "$HARNESS_PID" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.25
+    if curl -fsS "$HARNESS_URL/" >/dev/null 2>&1; then
+        HARNESS_READY=1
+        break
+    fi
+    if ! kill -0 "$HARNESS_PID" >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.25
 done
 
-if (( HARNESS_READY == 1 )); then
-  set +e
-  run_in_client env -u NO_COLOR \
-    PLAYWRIGHT_BASE_URL="$HARNESS_URL" \
-    FSUSBLOG_PUBLIC_BASE_URL="$HARNESS_URL" \
-    PLAYWRIGHT_OUTPUT_DIR="$EVIDENCE_ROOT/playwright/isolated-public-shell" \
-    NODE_PATH=./node_modules \
-    npx playwright test \
-      --config=playwright.diagnostics.config.ts \
-      --workers=1 \
-      --retries=0 \
-      diagnostics/public-mobile-menu-harness.spec.ts
-  ISOLATED_EXIT_CODE=$?
-  set -e
-  if (( ISOLATED_EXIT_CODE == 0 )); then
-    ISOLATED_STATUS='success'
-  else
-    ISOLATED_STATUS='failure'
-  fi
+if ((HARNESS_READY == 1)); then
+    set +e
+    run_in_client env -u NO_COLOR \
+        PLAYWRIGHT_BASE_URL="$HARNESS_URL" \
+        FSUSBLOG_PUBLIC_BASE_URL="$HARNESS_URL" \
+        PLAYWRIGHT_OUTPUT_DIR="$EVIDENCE_ROOT/playwright/isolated-public-shell" \
+        NODE_PATH=./node_modules \
+        npx playwright test \
+        --config=playwright.diagnostics.config.ts \
+        --workers=1 \
+        --retries=0 \
+        diagnostics/public-mobile-menu-harness.spec.ts
+    ISOLATED_EXIT_CODE=$?
+    set -e
+    if ((ISOLATED_EXIT_CODE == 0)); then
+        ISOLATED_STATUS='success'
+    else
+        ISOLATED_STATUS='failure'
+    fi
 else
-  ISOLATED_STATUS='infra-failure'
-  ISOLATED_EXIT_CODE=1
-  printf '[browser-geometry-motion-diagnostics] infra-failure: isolated harness failed to start; see %s\n' "$HARNESS_LOG" >&2
+    ISOLATED_STATUS='infra-failure'
+    ISOLATED_EXIT_CODE=1
+    printf '[browser-geometry-motion-diagnostics] infra-failure: isolated harness failed to start; see %s\n' "$HARNESS_LOG" >&2
 fi
 stop_harness
 
 printf '[browser-geometry-motion-diagnostics] release-preview integration: archive sticky/hash geometry\n'
 PREVIEW_EXIT_CODE=0
-if ( require_release_preview ); then
-  export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
-  export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
-  export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
-  set +e
-  run_in_client npm run ensure:wasm
-  ENSURE_WASM_EXIT_CODE=$?
-  if (( ENSURE_WASM_EXIT_CODE == 0 )); then
-    run_in_client env -u NO_COLOR \
-      PLAYWRIGHT_OUTPUT_DIR="$EVIDENCE_ROOT/playwright/archive-integration" \
-      NODE_PATH=./node_modules \
-      npx playwright test \
-        --config=playwright.diagnostics.config.ts \
-        --workers=1 \
-        --retries=0 \
-        acceptance/archive-sticky-geometry.spec.ts
-    ARCHIVE_EXIT_CODE=$?
-  else
-    ARCHIVE_EXIT_CODE=$ENSURE_WASM_EXIT_CODE
-  fi
-  set -e
-  if (( ARCHIVE_EXIT_CODE == 0 )); then
-    ARCHIVE_STATUS='success'
-  else
-    ARCHIVE_STATUS='failure'
-  fi
+if (require_release_preview); then
+    export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
+    export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
+    export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
+    set +e
+    run_in_client npm run ensure:wasm
+    ENSURE_WASM_EXIT_CODE=$?
+    if ((ENSURE_WASM_EXIT_CODE == 0)); then
+        run_in_client env -u NO_COLOR \
+            PLAYWRIGHT_OUTPUT_DIR="$EVIDENCE_ROOT/playwright/archive-integration" \
+            NODE_PATH=./node_modules \
+            npx playwright test \
+            --config=playwright.diagnostics.config.ts \
+            --workers=1 \
+            --retries=0 \
+            acceptance/archive-sticky-geometry.spec.ts
+        ARCHIVE_EXIT_CODE=$?
+    else
+        ARCHIVE_EXIT_CODE=$ENSURE_WASM_EXIT_CODE
+    fi
+    set -e
+    if ((ARCHIVE_EXIT_CODE == 0)); then
+        ARCHIVE_STATUS='success'
+    else
+        ARCHIVE_STATUS='failure'
+    fi
 else
-  PREVIEW_EXIT_CODE=$?
-  ARCHIVE_STATUS='infra-failure'
-  ARCHIVE_EXIT_CODE=$PREVIEW_EXIT_CODE
-  printf '[browser-geometry-motion-diagnostics] infra-failure: release preview is unavailable\n' >&2
+    PREVIEW_EXIT_CODE=$?
+    ARCHIVE_STATUS='infra-failure'
+    ARCHIVE_EXIT_CODE=$PREVIEW_EXIT_CODE
+    printf '[browser-geometry-motion-diagnostics] infra-failure: release preview is unavailable\n' >&2
 fi
 
 if [[ "$ISOLATED_STATUS" != 'success' || "$ARCHIVE_STATUS" != 'success' ]]; then
-  exit 1
+    exit 1
 fi

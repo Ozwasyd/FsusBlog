@@ -11,14 +11,14 @@ mkdir -p "$OUT_DIR" "$(dirname "$RELEASE_SUMMARY")"
 "$ROOT_DIR/tools/test/ensure-benchmark-release-build.sh"
 
 dotnet run \
-  --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
-  -c Release \
-  --no-build \
-  --no-restore \
-  -- \
-  --aeds-compression-profile \
-  --out "$SUMMARY_FILE" \
-  "$@"
+    --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
+    -c Release \
+    --no-build \
+    --no-restore \
+    -- \
+    --aeds-compression-profile \
+    --out "$SUMMARY_FILE" \
+    "$@"
 
 cp "$SUMMARY_FILE" "$RELEASE_SUMMARY"
 FSUSBLOG_LOCAL_PROFILE=1 "$ROOT_DIR/tools/test/lanes/public-hot-read-residency-profile.sh"

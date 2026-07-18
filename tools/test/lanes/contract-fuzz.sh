@@ -11,7 +11,7 @@ jq -n '{
   seeds: [],
   minimizedCrashes: [],
   generatedAt: now | todate
-}' > "$OUT_DIR/summary.json"
+}' >"$OUT_DIR/summary.json"
 
 jq -n '{
   status: "ok",
@@ -19,6 +19,6 @@ jq -n '{
   seeds: [],
   replayCommand: "./tools/test.sh contract-fuzz",
   generatedAt: now | todate
-}' > "$ROOT_DIR/.tmp/release-evidence/fuzz-seeds.json"
+}' >"$ROOT_DIR/.tmp/release-evidence/fuzz-seeds.json"
 
 printf '[contract-fuzz] wrote %s\n' "$OUT_DIR/summary.json"

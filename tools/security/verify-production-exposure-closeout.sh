@@ -14,22 +14,22 @@ export FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$FIREWALL_POLICY_FILE"
 export FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$STATUS_FILE"
 
 fail() {
-  printf '[production-exposure-closeout] failed\n' >&2
-  printf -- '- %s\n' "$1" >&2
-  exit 1
+    printf '[production-exposure-closeout] failed\n' >&2
+    printf -- '- %s\n' "$1" >&2
+    exit 1
 }
 
 if [[ -z "${FSUSBLOG_FIREWALL_POLICY_REQUIRED_HOSTS:-}" && -f "$EVIDENCE_FILE" ]] && command -v jq >/dev/null 2>&1; then
-  FSUSBLOG_FIREWALL_POLICY_REQUIRED_HOSTS="$(
-    jq -r '
+    FSUSBLOG_FIREWALL_POLICY_REQUIRED_HOSTS="$(
+        jq -r '
       if (.requiredHosts | type) == "array" then
         (.requiredHosts | map(tostring) | join(" "))
       else
         (.requiredHosts // "")
       end
     ' "$EVIDENCE_FILE"
-  )"
-  export FSUSBLOG_FIREWALL_POLICY_REQUIRED_HOSTS
+    )"
+    export FSUSBLOG_FIREWALL_POLICY_REQUIRED_HOSTS
 fi
 
 "$FIREWALL_VERIFY_SCRIPT" "$FIREWALL_POLICY_FILE" >/dev/null
@@ -39,10 +39,10 @@ fi
 [[ -f "$STATUS_FILE" ]] || fail "missing production exposure status report: $STATUS_FILE"
 
 if ! jq -e '.status == "ok"' "$STATUS_FILE" >/dev/null 2>&1; then
-  printf '[production-exposure-closeout] failed\n' >&2
-  printf -- '- production exposure status is not ok: %s\n' "$STATUS_FILE" >&2
-  jq -r '.blockers[]? | "- " + (.source // "unknown") + ": " + (.message // "blocked")' "$STATUS_FILE" >&2 || true
-  exit 1
+    printf '[production-exposure-closeout] failed\n' >&2
+    printf -- '- production exposure status is not ok: %s\n' "$STATUS_FILE" >&2
+    jq -r '.blockers[]? | "- " + (.source // "unknown") + ": " + (.message // "blocked")' "$STATUS_FILE" >&2 || true
+    exit 1
 fi
 
 printf '[production-exposure-closeout] ok\n'

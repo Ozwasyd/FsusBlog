@@ -11,7 +11,7 @@ INSTALL_DEPS=1
 CLEANUP=0
 
 usage() {
-  cat <<'USAGE'
+    cat <<'USAGE'
 Usage: tools/dev/start.sh [--seed-demo] [--no-install] [--cleanup]
 
 Starts the public-preview development stack:
@@ -27,28 +27,28 @@ USAGE
 }
 
 for arg in "$@"; do
-  case "$arg" in
-    --seed-demo) SEED_DEMO=1 ;;
-    --no-install) INSTALL_DEPS=0 ;;
-    --cleanup) CLEANUP=1 ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      echo "[dev-start] unknown argument: $arg" >&2
-      usage >&2
-      exit 2
-      ;;
-  esac
+    case "$arg" in
+        --seed-demo) SEED_DEMO=1 ;;
+        --no-install) INSTALL_DEPS=0 ;;
+        --cleanup) CLEANUP=1 ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "[dev-start] unknown argument: $arg" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
 done
 
 need_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "[dev-start] missing required command: $1" >&2
-    echo "[dev-start] install prerequisites from docs/development.md and retry." >&2
-    exit 1
-  fi
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "[dev-start] missing required command: $1" >&2
+        echo "[dev-start] install prerequisites from docs/development.md and retry." >&2
+        exit 1
+    fi
 }
 
 need_cmd docker
@@ -57,9 +57,9 @@ need_cmd node
 need_cmd npm
 
 if [[ "$CLEANUP" == "1" ]]; then
-  docker compose -f "$COMPOSE_FILE" down -v
-  echo "[dev-start] removed dev containers and volumes."
-  exit 0
+    docker compose -f "$COMPOSE_FILE" down -v
+    echo "[dev-start] removed dev containers and volumes."
+    exit 0
 fi
 
 echo "[dev-start] starting PostgreSQL and Redis..."
@@ -67,38 +67,38 @@ docker compose -f "$COMPOSE_FILE" up -d postgres redis
 
 echo "[dev-start] waiting for PostgreSQL..."
 for _ in $(seq 1 60); do
-  if docker exec fsusblog-dev-postgres pg_isready -U "${FSUSBLOG_DEV_POSTGRES_USER:-fsusblog}" -d "${FSUSBLOG_DEV_POSTGRES_DB:-fsusblog}" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 1
+    if docker exec fsusblog-dev-postgres pg_isready -U "${FSUSBLOG_DEV_POSTGRES_USER:-fsusblog}" -d "${FSUSBLOG_DEV_POSTGRES_DB:-fsusblog}" >/dev/null 2>&1; then
+        break
+    fi
+    sleep 1
 done
 if ! docker exec fsusblog-dev-postgres pg_isready -U "${FSUSBLOG_DEV_POSTGRES_USER:-fsusblog}" -d "${FSUSBLOG_DEV_POSTGRES_DB:-fsusblog}" >/dev/null 2>&1; then
-  echo "[dev-start] PostgreSQL did not become ready. Check: docker logs fsusblog-dev-postgres" >&2
-  exit 1
+    echo "[dev-start] PostgreSQL did not become ready. Check: docker logs fsusblog-dev-postgres" >&2
+    exit 1
 fi
 
 echo "[dev-start] waiting for Redis..."
 for _ in $(seq 1 60); do
-  if docker exec fsusblog-dev-redis redis-cli ping >/dev/null 2>&1; then
-    break
-  fi
-  sleep 1
+    if docker exec fsusblog-dev-redis redis-cli ping >/dev/null 2>&1; then
+        break
+    fi
+    sleep 1
 done
 if ! docker exec fsusblog-dev-redis redis-cli ping >/dev/null 2>&1; then
-  echo "[dev-start] Redis did not become ready. Check: docker logs fsusblog-dev-redis" >&2
-  exit 1
+    echo "[dev-start] Redis did not become ready. Check: docker logs fsusblog-dev-redis" >&2
+    exit 1
 fi
 
 if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
-  if [[ "$INSTALL_DEPS" != "1" ]]; then
-    echo "[dev-start] src/frontend/node_modules is missing and --no-install was used." >&2
-    exit 1
-  fi
-  if [[ -z "${GITHUB_PACKAGES_TOKEN:-}" ]]; then
-    echo "[dev-start] GITHUB_PACKAGES_TOKEN is not set. npm ci may fail for the private FsusUI package." >&2
-    echo "[dev-start] Set a read:packages token or install dependencies manually before retrying." >&2
-  fi
-  npm --prefix "$FRONTEND_DIR" ci
+    if [[ "$INSTALL_DEPS" != "1" ]]; then
+        echo "[dev-start] src/frontend/node_modules is missing and --no-install was used." >&2
+        exit 1
+    fi
+    if [[ -z "${GITHUB_PACKAGES_TOKEN:-}" ]]; then
+        echo "[dev-start] GITHUB_PACKAGES_TOKEN is not set. npm ci may fail for the private FsusUI package." >&2
+        echo "[dev-start] Set a read:packages token or install dependencies manually before retrying." >&2
+    fi
+    npm --prefix "$FRONTEND_DIR" ci
 fi
 
 export ASPNETCORE_ENVIRONMENT=Development
@@ -136,8 +136,8 @@ DEV_ANONYMOUS_ISSUER_PRIVATE_KEY_HEX="0102030405060708090a0b0c0d0e0f101112131415
 DEV_ANONYMOUS_ISSUER_PUBLIC_KEY_HEX="1f9ddd39507dea324e5402693b86b3b435507f3703e8ee5ff78462d40e53d49c09262f3fe2cf9fc8136734c6fa743b8121f7cc4d0d16854bf4cc205b8fc04352"
 DEV_ANONYMOUS_ISSUER_PUBLIC_KEY_SHA256="336a54a24c06ad3a47ed8090d09a73a876cc1e56e352fdafc96faa38faa2a81e"
 mkdir -p "$DEV_ANONYMOUS_COMMENT_FIXTURE_DIR"
-printf '%s' "$DEV_ANONYMOUS_ISSUER_PRIVATE_KEY_HEX" | xxd -r -p > "$DEV_ANONYMOUS_COMMENT_FIXTURE_DIR/issuer.sk"
-printf '%s' "$DEV_ANONYMOUS_ISSUER_PUBLIC_KEY_HEX" | xxd -r -p > "$DEV_ANONYMOUS_COMMENT_FIXTURE_DIR/issuer.pk"
+printf '%s' "$DEV_ANONYMOUS_ISSUER_PRIVATE_KEY_HEX" | xxd -r -p >"$DEV_ANONYMOUS_COMMENT_FIXTURE_DIR/issuer.sk"
+printf '%s' "$DEV_ANONYMOUS_ISSUER_PUBLIC_KEY_HEX" | xxd -r -p >"$DEV_ANONYMOUS_COMMENT_FIXTURE_DIR/issuer.pk"
 chmod 600 "$DEV_ANONYMOUS_COMMENT_FIXTURE_DIR/issuer.sk" >/dev/null 2>&1 || true
 export AnonymousCredentialIssuer__CircuitNative__Enabled="${FSUSBLOG_DEV_ANONYMOUS_ISSUER_ENABLED:-true}"
 export AnonymousCredentialIssuer__CircuitNative__Backend="managed_circuit_native_v2"
@@ -178,8 +178,8 @@ export AuthCookies__AllowInsecureTransportCookies="true"
 backend_pid=""
 frontend_pid=""
 cleanup_children() {
-  if [[ -n "$frontend_pid" ]]; then kill "$frontend_pid" >/dev/null 2>&1 || true; fi
-  if [[ -n "$backend_pid" ]]; then kill "$backend_pid" >/dev/null 2>&1 || true; fi
+    if [[ -n "$frontend_pid" ]]; then kill "$frontend_pid" >/dev/null 2>&1 || true; fi
+    if [[ -n "$backend_pid" ]]; then kill "$backend_pid" >/dev/null 2>&1 || true; fi
 }
 trap cleanup_children EXIT INT TERM
 
@@ -188,40 +188,40 @@ dotnet run --project "$BACKEND_PROJECT" --no-launch-profile --urls "http://127.0
 backend_pid=$!
 
 if command -v curl >/dev/null 2>&1; then
-  echo "[dev-start] waiting for backend health..."
-  backend_ready=0
-  for _ in $(seq 1 90); do
-    if curl -fsS "http://127.0.0.1:7568/health/live" >/dev/null 2>&1; then
-      backend_ready=1
-      break
+    echo "[dev-start] waiting for backend health..."
+    backend_ready=0
+    for _ in $(seq 1 90); do
+        if curl -fsS "http://127.0.0.1:7568/health/live" >/dev/null 2>&1; then
+            backend_ready=1
+            break
+        fi
+        if ! kill -0 "$backend_pid" >/dev/null 2>&1; then
+            echo "[dev-start] backend process exited before health check passed." >&2
+            exit 1
+        fi
+        sleep 1
+    done
+    if [[ "$backend_ready" != "1" ]]; then
+        echo "[dev-start] backend health did not become ready at http://127.0.0.1:7568/health/live" >&2
+        exit 1
     fi
-    if ! kill -0 "$backend_pid" >/dev/null 2>&1; then
-      echo "[dev-start] backend process exited before health check passed." >&2
-      exit 1
-    fi
-    sleep 1
-  done
-  if [[ "$backend_ready" != "1" ]]; then
-    echo "[dev-start] backend health did not become ready at http://127.0.0.1:7568/health/live" >&2
-    exit 1
-  fi
 else
-  echo "[dev-start] curl not found; skipping backend health probe."
-  sleep 8
+    echo "[dev-start] curl not found; skipping backend health probe."
+    sleep 8
 fi
 
 if [[ "$SEED_DEMO" == "1" ]]; then
-  "$ROOT_DIR/tools/dev/seed-demo-data.sh"
-  "$ROOT_DIR/tools/dev/bootstrap-anonymous-comment-fixture.sh"
+    "$ROOT_DIR/tools/dev/seed-demo-data.sh"
+    "$ROOT_DIR/tools/dev/bootstrap-anonymous-comment-fixture.sh"
 fi
 
 echo "[dev-start] preparing persistent local auth fixtures..."
 FSUSBLOG_BASE_URL="http://127.0.0.1:7568" \
-PLAYWRIGHT_BASE_URL="http://localhost:3000" \
-FSUSBLOG_PG_CONTAINER="fsusblog-dev-postgres" \
-FSUSBLOG_REDIS_CONTAINER="fsusblog-dev-redis" \
-FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES="$Jwt__AccessTokenExpiresMinutes" \
-npm --prefix "$FRONTEND_DIR" run prepare:binary-smoke:auth-users
+    PLAYWRIGHT_BASE_URL="http://localhost:3000" \
+    FSUSBLOG_PG_CONTAINER="fsusblog-dev-postgres" \
+    FSUSBLOG_REDIS_CONTAINER="fsusblog-dev-redis" \
+    FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES="$Jwt__AccessTokenExpiresMinutes" \
+    npm --prefix "$FRONTEND_DIR" run prepare:binary-smoke:auth-users
 
 echo "[dev-start] starting frontend on http://127.0.0.1:3000 ..."
 npm --prefix "$FRONTEND_DIR" run dev:debug &

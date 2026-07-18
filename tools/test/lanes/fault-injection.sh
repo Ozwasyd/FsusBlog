@@ -11,17 +11,17 @@ source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
 require_bootstrapped_namespace
 runtime_configuration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Debug}"
 case "$runtime_configuration" in
-  Debug)
-    FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build
-    ;;
-  Release)
-    if [[ "${FSUSBLOG_RUNTIME_NO_BUILD:-0}" != "1" ]]; then
-      fail 'fault injection cannot restart an unprepared Release backend'
-    fi
-    ;;
-  *)
-    fail "unsupported managed backend runtime configuration: $runtime_configuration"
-    ;;
+    Debug)
+        FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build
+        ;;
+    Release)
+        if [[ "${FSUSBLOG_RUNTIME_NO_BUILD:-0}" != "1" ]]; then
+            fail 'fault injection cannot restart an unprepared Release backend'
+        fi
+        ;;
+    *)
+        fail "unsupported managed backend runtime configuration: $runtime_configuration"
+        ;;
 esac
 export FSUSBLOG_RUNTIME_CONFIGURATION="$runtime_configuration"
 export FSUSBLOG_RUNTIME_NO_BUILD=1
@@ -32,18 +32,18 @@ probe_status=$?
 set -e
 
 summary_status="$(
-  "${FSUSBLOG_NODE:-node}" -e "const fs=require('node:fs'); const file=process.argv[1]; if (!fs.existsSync(file)) process.exit(2); const summary=JSON.parse(fs.readFileSync(file,'utf8')); process.stdout.write(String(summary.status || 'missing'))" \
-    "$OUT_DIR/summary.json"
+    "${FSUSBLOG_NODE:-node}" -e "const fs=require('node:fs'); const file=process.argv[1]; if (!fs.existsSync(file)) process.exit(2); const summary=JSON.parse(fs.readFileSync(file,'utf8')); process.stdout.write(String(summary.status || 'missing'))" \
+        "$OUT_DIR/summary.json"
 )"
 
 if [[ "$summary_status" != "ok" ]]; then
-  printf '[fault-injection] summary status is %s; failing lane\n' "$summary_status" >&2
-  exit 1
+    printf '[fault-injection] summary status is %s; failing lane\n' "$summary_status" >&2
+    exit 1
 fi
 
 if [[ "$probe_status" -ne 0 ]]; then
-  printf '[fault-injection] probe exited %s despite ok summary\n' "$probe_status" >&2
-  exit "$probe_status"
+    printf '[fault-injection] probe exited %s despite ok summary\n' "$probe_status" >&2
+    exit "$probe_status"
 fi
 
 printf '[fault-injection] wrote %s\n' "$OUT_DIR/summary.json"

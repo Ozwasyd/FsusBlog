@@ -7,4 +7,4 @@ SUMMARY_FILE="${FSUSBLOG_PUBLIC_HYDRATION_MATRIX_SUMMARY_FILE:-$ROOT_DIR/.tmp/re
 
 cd "$CLIENT_DIR"
 FSUSBLOG_PUBLIC_HYDRATION_MATRIX_SUMMARY_FILE="$SUMMARY_FILE" \
-  "${FSUSBLOG_NODE:-node}" ../../tests/frontend/checks/public/check-public-hydration-matrix-governance.mjs --lane fast
+    "${FSUSBLOG_NODE:-node}" ../../tests/frontend/checks/public/check-public-hydration-matrix-governance.mjs --lane fast
