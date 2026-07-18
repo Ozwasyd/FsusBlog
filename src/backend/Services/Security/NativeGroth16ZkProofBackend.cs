@@ -304,11 +304,11 @@ internal sealed unsafe class MclGroth16VerifierLibrary : INativeGroth16VerifierL
     private const int MclCompiledTimeVar = 46;
     private const ushort FormatVersion = 1;
     private const ushort PublicInputHashBindingMode = 1;
-    private static readonly byte[] VerifyingKeyMagic = "FSG16VK1"u8.ToArray();
-    private static readonly byte[] ProofMagic = "FSG16PF1"u8.ToArray();
-    private static readonly object InitializationLock = new();
-    private static bool _initialized;
-    private static bool _available;
+    private static readonly byte[] s_verifyingKeyMagic = "FSG16VK1"u8.ToArray();
+    private static readonly byte[] s_proofMagic = "FSG16PF1"u8.ToArray();
+    private static readonly object s_initializationLock = new();
+    private static bool s_initialized;
+    private static bool s_available;
 
     private MclGroth16VerifierLibrary(bool available)
     {
@@ -390,27 +390,27 @@ internal sealed unsafe class MclGroth16VerifierLibrary : INativeGroth16VerifierL
 
     private static bool EnsureInitialized()
     {
-        if (_initialized)
+        if (s_initialized)
         {
-            return _available;
+            return s_available;
         }
 
-        lock (InitializationLock)
+        lock (s_initializationLock)
         {
-            if (_initialized)
+            if (s_initialized)
             {
-                return _available;
+                return s_available;
             }
 
-            _available = Mcl.mclBn_init(MclBnSnark1, MclCompiledTimeVar) == 0;
-            if (_available)
+            s_available = Mcl.mclBn_init(MclBnSnark1, MclCompiledTimeVar) == 0;
+            if (s_available)
             {
                 Mcl.mclBn_verifyOrderG1(1);
                 Mcl.mclBn_verifyOrderG2(1);
             }
 
-            _initialized = true;
-            return _available;
+            s_initialized = true;
+            return s_available;
         }
     }
 
@@ -430,7 +430,7 @@ internal sealed unsafe class MclGroth16VerifierLibrary : INativeGroth16VerifierL
         inputConstant = default;
         inputHashGenerator = default;
         int offset = 0;
-        if (!TryReadMagic(bytes, ref offset, VerifyingKeyMagic) ||
+        if (!TryReadMagic(bytes, ref offset, s_verifyingKeyMagic) ||
             !TryReadUInt16(bytes, ref offset, out ushort version) ||
             !TryReadUInt16(bytes, ref offset, out ushort bindingMode) ||
             !TryReadUInt16(bytes, ref offset, out ushort curve) ||
@@ -481,7 +481,7 @@ internal sealed unsafe class MclGroth16VerifierLibrary : INativeGroth16VerifierL
         b = default;
         c = default;
         int offset = 0;
-        if (!TryReadMagic(bytes, ref offset, ProofMagic) ||
+        if (!TryReadMagic(bytes, ref offset, s_proofMagic) ||
             !TryReadUInt16(bytes, ref offset, out ushort version) ||
             version != FormatVersion)
         {

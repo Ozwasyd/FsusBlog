@@ -9,7 +9,7 @@ public sealed class AdminAuditLogWriterWorker(
     ILogger<AdminAuditLogWriterWorker> logger) : BackgroundService
 {
     private const int BatchSize = 128;
-    private static readonly TimeSpan FlushWindow = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan s_flushWindow = TimeSpan.FromMilliseconds(250);
 
     private readonly AdminAuditLogChannel _channel = channel;
     private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
@@ -72,7 +72,7 @@ public sealed class AdminAuditLogWriterWorker(
     private async Task FillBatchUntilFlushWindowAsync(List<AdminAuditLog> batch, CancellationToken cancellationToken)
     {
         using var flushCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        flushCts.CancelAfter(FlushWindow);
+        flushCts.CancelAfter(s_flushWindow);
 
         while (batch.Count < BatchSize)
         {

@@ -2,7 +2,7 @@ namespace FsusBlog.Server.Services.Security;
 
 internal static class CrawlerRangeUrlPolicy
 {
-    private static readonly HashSet<string> AllowedHosts = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> s_allowedHosts = new(StringComparer.OrdinalIgnoreCase)
     {
         "developers.google.com",
         "www.bing.com"
@@ -82,7 +82,7 @@ internal static class CrawlerRangeUrlPolicy
             return "port must be the default HTTPS port";
         }
 
-        return AllowedHosts.Contains(uri.Host)
+        return s_allowedHosts.Contains(uri.Host)
             ? null
             : "host must be developers.google.com or www.bing.com";
     }

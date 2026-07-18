@@ -77,7 +77,7 @@ public sealed class SecurityChallengeProofService(
 
     private const int ProofTokenRandomBytes = 32;
     private const int NonceRandomBytes = 16;
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
@@ -112,7 +112,7 @@ public sealed class SecurityChallengeProofService(
             GenerateNonce(),
             NormalizeRequired(request.PolicyVersion, nameof(request.PolicyVersion), 64));
 
-        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(claims, JsonOptions);
+        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(claims, s_jsonOptions);
         await cache.SetRawAsync(
             CachePolicyId.SecurityChallengeProof,
             BuildProofIdentity(proofToken),
@@ -159,7 +159,7 @@ public sealed class SecurityChallengeProofService(
     {
         try
         {
-            SecurityChallengeProofClaims? claims = JsonSerializer.Deserialize<SecurityChallengeProofClaims>(payload.Span, JsonOptions);
+            SecurityChallengeProofClaims? claims = JsonSerializer.Deserialize<SecurityChallengeProofClaims>(payload.Span, s_jsonOptions);
             return claims is null ? (false, null) : (true, claims);
         }
         catch (JsonException)

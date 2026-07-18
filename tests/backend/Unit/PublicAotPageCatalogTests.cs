@@ -13,7 +13,7 @@ public sealed class PublicAotPageCatalogTests
             .OrderBy(static kind => kind)
             .ToArray();
 
-        PublicPageKind[] actualKinds = PublicAotPageCatalog.All
+        PublicPageKind[] actualKinds = PublicAotPageCatalog.s_all
             .Select(static descriptor => descriptor.Kind)
             .OrderBy(static kind => kind)
             .ToArray();
@@ -34,7 +34,7 @@ public sealed class PublicAotPageCatalogTests
     [Fact]
     public void Catalog_DerivedIdentity_StaysAlignedWithSharedRegistry()
     {
-        foreach (PublicAotPageDescriptor descriptor in PublicAotPageCatalog.All)
+        foreach (PublicAotPageDescriptor descriptor in PublicAotPageCatalog.s_all)
         {
             PublicPageDescriptor shared = PublicPageRegistry.GetRequired(descriptor.PageId);
 

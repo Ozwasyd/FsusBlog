@@ -26,8 +26,8 @@ public sealed class AuditQueryService(
     AuditRetentionPayloadProtector? retentionProtector = null)
 {
     private const int MaxAuditPage = 50_000;
-    private static readonly TimeSpan SummaryCacheTtl = TimeSpan.FromSeconds(20);
-    private static readonly ConcurrentDictionary<string, AuditSummaryCacheEntry> SummaryCache = new(StringComparer.Ordinal);
+    private static readonly TimeSpan s_summaryCacheTtl = TimeSpan.FromSeconds(20);
+    private static readonly ConcurrentDictionary<string, AuditSummaryCacheEntry> s_summaryCache = new(StringComparer.Ordinal);
 
     private readonly ISqlSugarClient _db = db;
     private readonly AuditLogRuntimeState _runtimeState = runtimeState;
@@ -125,7 +125,7 @@ public sealed class AuditQueryService(
     {
         string cacheKey = NormalizeSummaryCacheKey(request);
         DateTime now = DateTime.UtcNow;
-        if (SummaryCache.TryGetValue(cacheKey, out AuditSummaryCacheEntry? cached)
+        if (s_summaryCache.TryGetValue(cacheKey, out AuditSummaryCacheEntry? cached)
             && cached.ExpiresAtUtc > now)
         {
             FsusObservability.RecordAuditSummaryCacheHit(auditSummaryCacheHit: true);
@@ -137,7 +137,7 @@ public sealed class AuditQueryService(
 
         if (cached is not null)
         {
-            SummaryCache.TryRemove(cacheKey, out _);
+            s_summaryCache.TryRemove(cacheKey, out _);
         }
 
         FsusObservability.RecordAuditSummaryCacheHit(auditSummaryCacheHit: false);
@@ -161,7 +161,7 @@ public sealed class AuditQueryService(
             outcome,
             severity,
             ToRuntimeResponse(_runtimeState.Snapshot()));
-        SummaryCache[cacheKey] = new AuditSummaryCacheEntry(response, now.Add(SummaryCacheTtl));
+        s_summaryCache[cacheKey] = new AuditSummaryCacheEntry(response, now.Add(s_summaryCacheTtl));
         FsusObservability.RecordAuditSummary(auditSummaryQueryCount: 5, auditFacetElapsed: FsusObservability.GetElapsed(startedAt));
         return response;
     }

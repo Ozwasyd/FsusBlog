@@ -23,12 +23,12 @@ public class ShieldMiddleware(
     IWebHostEnvironment env)
 {
     // 核心性能优化：使用新一代 SearchValues<string> 进行字符串多模式极速扫描，复杂度降至极限
-    private static readonly SearchValues<string> _blockedUserAgents = SearchValues.Create(
+    private static readonly SearchValues<string> s_blockedUserAgents = SearchValues.Create(
     [
         "python", "java", "curl", "wget", "httpclient", "ax" + "ios", "go-http-client", "censys", "zgrab"
     ], StringComparison.OrdinalIgnoreCase);
 
-    private static readonly SearchValues<string> _botKeywords = SearchValues.Create(
+    private static readonly SearchValues<string> s_botKeywords = SearchValues.Create(
     [
         "bot", "spider", "crawler"
     ], StringComparison.OrdinalIgnoreCase);
@@ -112,14 +112,14 @@ public class ShieldMiddleware(
 
                 await RecordRiskAsync(context, SecurityRiskReason.UnknownBot, "social_preview", 0, options, SecurityRiskSources.AntiCrawler, "social_preview");
             }
-            else if (uaSpan.ContainsAny(_botKeywords))
+            else if (uaSpan.ContainsAny(s_botKeywords))
             {
                 if (await RejectOrObserveAsync(context, SecurityRiskReason.UnknownBot, StatusCodes.Status403Forbidden, "unknown_bot", 15, antiCrawlerEnforcing, options))
                 {
                     return;
                 }
             }
-            else if (uaSpan.ContainsAny(_blockedUserAgents) || options.BlockedUserAgentKeywords.Any(keyword => ua?.Contains(keyword, StringComparison.OrdinalIgnoreCase) == true))
+            else if (uaSpan.ContainsAny(s_blockedUserAgents) || options.BlockedUserAgentKeywords.Any(keyword => ua?.Contains(keyword, StringComparison.OrdinalIgnoreCase) == true))
             {
                 // 不是声明 crawler/social-preview，通过自动机状态库极速检查是否在工具黑名单中
                 if (await RejectOrObserveAsync(context, SecurityRiskReason.BlockedUserAgent, StatusCodes.Status403Forbidden, "blocked_user_agent", 10, antiCrawlerEnforcing, options))

@@ -21,19 +21,19 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
 {
     public const string DevSourceAssetVersion = "dev-source-assets";
     private const string StableSpaEntry = "/assets/fsus-spa-entry.js";
-    private static readonly string[] PublicBaseCssNames =
+    private static readonly string[] s_publicBaseCssNames =
     [
         "public-shell-critical",
         "tailwind",
         "public-page"
     ];
 
-    private static readonly string[] PublicMarkdownCssNames =
+    private static readonly string[] s_publicMarkdownCssNames =
     [
         "markdown"
     ];
 
-    private static readonly string[] FullAppTakeoverModuleNames =
+    private static readonly string[] s_fullAppTakeoverModuleNames =
     [
         "entry-runtime",
         "public-page-runtime",
@@ -45,7 +45,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         "markdown-runtime"
     ];
 
-    private static readonly string[] FullAppTakeoverCssNames =
+    private static readonly string[] s_fullAppTakeoverCssNames =
     [
         "full-app-core",
         "vendor-element-plus",
@@ -57,10 +57,10 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         "index",
         "main"
     ];
-    private static readonly Regex StringPropertyRegex = new(
+    private static readonly Regex s_stringPropertyRegex = new(
         "\"(?<name>[^\"]+)\"\\s*:\\s*\"(?<value>[^\"]*)\"",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
-    private static readonly Regex ArrayStringRegex = new(
+    private static readonly Regex s_arrayStringRegex = new(
         "\"(?<value>[^\"]*)\"",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
@@ -330,8 +330,8 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
     {
         var styles = new List<string>();
         IEnumerable<string> allowedNames = ShouldIncludeMarkdownCss(pageId)
-            ? PublicBaseCssNames.Concat(PublicMarkdownCssNames)
-            : PublicBaseCssNames;
+            ? s_publicBaseCssNames.Concat(s_publicMarkdownCssNames)
+            : s_publicBaseCssNames;
         IReadOnlyList<string> cssHrefs = EnumerateCssHrefs(manifest).ToArray();
 
         foreach (string name in allowedNames)
@@ -355,7 +355,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         => manifest.Values
             .Where(static asset => !string.IsNullOrWhiteSpace(asset.File) &&
                 asset.File.EndsWith(".js", StringComparison.OrdinalIgnoreCase) &&
-                FullAppTakeoverModuleNames.Any(name => AssetNameMatches(asset, name)))
+                s_fullAppTakeoverModuleNames.Any(name => AssetNameMatches(asset, name)))
             .Select(static asset => asset.File)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
@@ -367,7 +367,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         var publicSet = publicStylesheets.ToHashSet(StringComparer.Ordinal);
         return EnumerateCssHrefs(manifest)
             .Where(href => !publicSet.Contains(href) &&
-                FullAppTakeoverCssNames.Any(name => AssetFileNameMatches(href, name)))
+                s_fullAppTakeoverCssNames.Any(name => AssetFileNameMatches(href, name)))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
     }
@@ -383,8 +383,8 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         }
 
         IEnumerable<string> allowedNames = ShouldIncludeMarkdownCss(pageId)
-            ? PublicBaseCssNames.Concat(PublicMarkdownCssNames)
-            : PublicBaseCssNames;
+            ? s_publicBaseCssNames.Concat(s_publicMarkdownCssNames)
+            : s_publicBaseCssNames;
         foreach (string prefix in allowedNames)
         {
             string? file = Directory.GetFiles(assetsRoot, $"{prefix}*.css", SearchOption.TopDirectoryOnly)
@@ -504,7 +504,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
 
     private static string TryReadString(string body, string propertyName)
     {
-        foreach (Match match in StringPropertyRegex.Matches(body))
+        foreach (Match match in s_stringPropertyRegex.Matches(body))
         {
             if (string.Equals(match.Groups["name"].Value, propertyName, StringComparison.Ordinal))
             {
@@ -536,7 +536,7 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
             return [];
         }
 
-        return ArrayStringRegex.Matches(body[(arrayStart + 1)..arrayEnd])
+        return s_arrayStringRegex.Matches(body[(arrayStart + 1)..arrayEnd])
             .Select(static match => Regex.Unescape(match.Groups["value"].Value))
             .Where(static value => value.Length > 0)
             .ToArray();

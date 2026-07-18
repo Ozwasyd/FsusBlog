@@ -11,10 +11,10 @@ internal static class AedsJsonResults
     public const int MaxAuthoringFrameBytes = 8 * 1024 * 1024;
     public const int MaxSecurityFrameBytes = 1024 * 1024;
 
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
     public static IResult Ok<T>(IAedsEncoder aeds, AedsFrameType frameType, T value)
-        => BinaryResults.FrameRaw(aeds, frameType, JsonSerializer.SerializeToUtf8Bytes(value, JsonOptions));
+        => BinaryResults.FrameRaw(aeds, frameType, JsonSerializer.SerializeToUtf8Bytes(value, s_jsonOptions));
 
     public static IResult OkNull(IAedsEncoder aeds, AedsFrameType frameType)
         => BinaryResults.FrameRaw(aeds, frameType, "null"u8.ToArray());
@@ -56,7 +56,7 @@ internal static class AedsJsonResults
 
         try
         {
-            T? value = JsonSerializer.Deserialize<T>(payload.Payload.Span, JsonOptions);
+            T? value = JsonSerializer.Deserialize<T>(payload.Payload.Span, s_jsonOptions);
             return value is null
                 ? AedsJsonRequest<T>.Failure(ErrorDetail.Create(ErrorCode.Validation, invalidMessage))
                 : AedsJsonRequest<T>.Success(value);

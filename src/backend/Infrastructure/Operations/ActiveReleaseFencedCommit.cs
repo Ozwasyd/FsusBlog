@@ -378,20 +378,20 @@ internal static class ActiveReleaseFencedCommitMetricNames
 
 public static class ActiveReleaseFencedCommitMetrics
 {
-    private static readonly Meter Meter = new(FsusObservability.MeterName, "1.0.0");
-    private static readonly Counter<long> Enlistments = Meter.CreateCounter<long>(
+    private static readonly Meter s_meter = new(FsusObservability.MeterName, "1.0.0");
+    private static readonly Counter<long> s_enlistments = s_meter.CreateCounter<long>(
         ActiveReleaseFencedCommitMetricNames.Enlistments);
-    private static readonly Counter<long> Audits = Meter.CreateCounter<long>(
+    private static readonly Counter<long> s_audits = s_meter.CreateCounter<long>(
         ActiveReleaseFencedCommitMetricNames.Audits);
-    private static readonly Counter<long> Violations = Meter.CreateCounter<long>(
+    private static readonly Counter<long> s_violations = s_meter.CreateCounter<long>(
         ActiveReleaseFencedCommitMetricNames.Violations);
 
     public static void RecordEnlist(string result, string operationScope)
-        => Enlistments.Add(1, new("result", result), new("operation_scope", operationScope));
+        => s_enlistments.Add(1, new("result", result), new("operation_scope", operationScope));
 
     public static void RecordAudit(string result, int violations)
     {
-        Audits.Add(
+        s_audits.Add(
             1,
             new KeyValuePair<string, object?>[]
             {
@@ -399,7 +399,7 @@ public static class ActiveReleaseFencedCommitMetrics
             });
         if (violations > 0)
         {
-            Violations.Add(
+            s_violations.Add(
                 violations,
                 new KeyValuePair<string, object?>[]
                 {

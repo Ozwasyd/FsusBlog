@@ -48,9 +48,9 @@ internal static class PublicHotReadArtifactIntegrity
 {
     internal const string Algorithm = "hmac-sha256-128-process-memory-v2";
     private const int StackUtf8Bytes = 256;
-    private static readonly byte[] ProcessKey = RandomNumberGenerator.GetBytes(32);
-    private static readonly ThreadLocal<IncrementalHash> ThreadHasher = new(
-        static () => IncrementalHash.CreateHMAC(HashAlgorithmName.SHA256, ProcessKey),
+    private static readonly byte[] s_processKey = RandomNumberGenerator.GetBytes(32);
+    private static readonly ThreadLocal<IncrementalHash> s_threadHasher = new(
+        static () => IncrementalHash.CreateHMAC(HashAlgorithmName.SHA256, s_processKey),
         trackAllValues: false);
 
     internal static PublicBinaryArtifact Seal(
@@ -398,7 +398,7 @@ internal static class PublicHotReadArtifactIntegrity
 
     private static IncrementalHash Begin(in PublicArtifactIntegrityContext context)
     {
-        IncrementalHash hasher = ThreadHasher.Value
+        IncrementalHash hasher = s_threadHasher.Value
             ?? throw new InvalidOperationException("public hot-read integrity hasher is unavailable");
         AppendString(hasher, Algorithm);
         AppendInt32(hasher, (byte)context.RouteKind);

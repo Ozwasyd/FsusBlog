@@ -18,12 +18,14 @@ internal interface IHumanReadProofEndpointAdapter
 
 internal sealed class HumanReadProofEndpointAdapter(IHumanReadProofService proofService) : IHumanReadProofEndpointAdapter
 {
+    /// <inheritdoc />
     public ValueTask<HumanReadChallengeResponse?> CreateChallengeAsync(
         HttpContext context,
         HumanReadChallengeRequest request,
         CancellationToken cancellationToken)
         => proofService.CreateChallengeAsync(context, request, cancellationToken);
 
+    /// <inheritdoc />
     public ValueTask<HumanReadSubmitResponse> SubmitAsync(
         HttpContext context,
         HumanReadSubmitRequest request,

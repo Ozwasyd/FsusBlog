@@ -221,8 +221,8 @@ internal readonly record struct DbWorkloadGateOptions(int Limit, int QueueLimit,
 
 public sealed class DbConcurrencyGate : IClassifiedDbConcurrencyGate
 {
-    private static readonly AsyncLocal<DbConcurrencyGateReservation?> CurrentReservation = new();
-    private static readonly AsyncLocal<int> ReentrantExecutionDepth = new();
+    private static readonly AsyncLocal<DbConcurrencyGateReservation?> s_currentReservation = new();
+    private static readonly AsyncLocal<int> s_reentrantExecutionDepth = new();
 
     private readonly ILogger<DbConcurrencyGate> _logger;
     private readonly DbConcurrencyGateOptions _options;
@@ -264,7 +264,7 @@ public sealed class DbConcurrencyGate : IClassifiedDbConcurrencyGate
         Func<CancellationToken, Task<T>> onTimeout,
         CancellationToken cancellationToken = default)
     {
-        if (CurrentReservation.Value is { AcceptsReentrantCalls: true } reservation)
+        if (s_currentReservation.Value is { AcceptsReentrantCalls: true } reservation)
         {
             return await ExecuteReentrantAsync(operation, reservation, action, onTimeout, cancellationToken)
                 .ConfigureAwait(false);
@@ -297,9 +297,9 @@ public sealed class DbConcurrencyGate : IClassifiedDbConcurrencyGate
             return await onTimeout(cancellationToken).ConfigureAwait(false);
         }
 
-        DbConcurrencyGateReservation? previousReservation = CurrentReservation.Value;
+        DbConcurrencyGateReservation? previousReservation = s_currentReservation.Value;
         reservation = new DbConcurrencyGateReservation();
-        CurrentReservation.Value = reservation;
+        s_currentReservation.Value = reservation;
         gate.EnterActive();
         long executionStarted = Stopwatch.GetTimestamp();
         try
@@ -309,7 +309,7 @@ public sealed class DbConcurrencyGate : IClassifiedDbConcurrencyGate
         finally
         {
             await reservation.CompleteAsync().ConfigureAwait(false);
-            CurrentReservation.Value = previousReservation;
+            s_currentReservation.Value = previousReservation;
             gate.LeaveActive(Stopwatch.GetElapsedTime(executionStarted));
             gate.Semaphore.Release();
         }
@@ -384,7 +384,7 @@ public sealed class DbConcurrencyGate : IClassifiedDbConcurrencyGate
         Func<CancellationToken, Task<T>> onTimeout,
         CancellationToken cancellationToken)
     {
-        if (ReentrantExecutionDepth.Value > 0)
+        if (s_reentrantExecutionDepth.Value > 0)
         {
             return await action(cancellationToken).ConfigureAwait(false);
         }
@@ -396,14 +396,14 @@ public sealed class DbConcurrencyGate : IClassifiedDbConcurrencyGate
             return await ExecuteAsync(operation, action, onTimeout, cancellationToken).ConfigureAwait(false);
         }
 
-        ReentrantExecutionDepth.Value++;
+        s_reentrantExecutionDepth.Value++;
         try
         {
             return await action(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            ReentrantExecutionDepth.Value--;
+            s_reentrantExecutionDepth.Value--;
             reservation.EndReentrantCall();
             reservation.Release();
         }

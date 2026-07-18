@@ -215,7 +215,7 @@ public sealed partial class AuthoringWorkflowService
 
     private async Task EnsureAssetArticleReferenceStoreAsync(CancellationToken cancellationToken)
     {
-        if (Volatile.Read(ref assetArticleReferenceStoreEnsured) == 1)
+        if (Volatile.Read(ref s_assetArticleReferenceStoreEnsured) == 1)
         {
             return;
         }
@@ -234,7 +234,7 @@ public sealed partial class AuthoringWorkflowService
             CREATE INDEX IF NOT EXISTS idx_asset_library_article_ref_article
             ON asset_library_article_ref(article_id);
             """).ConfigureAwait(false);
-        Volatile.Write(ref assetArticleReferenceStoreEnsured, 1);
+        Volatile.Write(ref s_assetArticleReferenceStoreEnsured, 1);
     }
 
     private async Task<List<AssetArticleReferenceRow>> LoadArticleAssetReferencesForUpdateAsync(int articleId, CancellationToken cancellationToken)

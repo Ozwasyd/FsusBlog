@@ -9,7 +9,7 @@ namespace FsusBlog.Server.Services.Moderation;
 
 public sealed class CommentModerationDispositionPolicy(IConfiguration configuration) : ICommentModerationDispositionPolicy
 {
-    private static readonly HashSet<string> RiskCategoryIds = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> s_riskCategoryIds = new(StringComparer.Ordinal)
     {
         "advertising",
         "contact_lead",
@@ -81,7 +81,7 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
             || modelResult.Severity is "high" or "critical"
             || modelResult.Categories.Any(static category =>
                 category.Severity is "high" or "critical"
-                || RiskCategoryIds.Contains(category.Id));
+                || s_riskCategoryIds.Contains(category.Id));
 
     private double ResolveThreshold(string key, double fallback)
         => Math.Clamp(configuration.GetValue<double?>(key) ?? fallback, 0d, 1d);

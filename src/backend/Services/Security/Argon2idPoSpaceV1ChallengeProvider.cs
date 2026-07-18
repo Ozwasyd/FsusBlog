@@ -36,7 +36,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
     private const int MaxLanes = 4;
     private const int MinTargetDurationMs = 100;
     private const int MaxTargetDurationMs = 5000;
-    private static readonly TimeSpan RiskSignalTtl = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
 
     public string Kind => WireKind;
 
@@ -258,7 +258,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
                 request.Context,
                 SecurityRiskReason.SecurityChallengeRejected,
                 10,
-                RiskSignalTtl,
+                s_riskSignalTtl,
                 SecurityRiskSources.RiskControl,
                 string.IsNullOrWhiteSpace(request.Action) ? "security_challenge" : request.Action,
                 riskDetail),

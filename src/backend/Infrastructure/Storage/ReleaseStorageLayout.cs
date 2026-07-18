@@ -37,7 +37,7 @@ public sealed class ReleaseStorageLayout
 {
     public const string RequiredDataProtectionApplicationName = "FsusBlog";
 
-    private static readonly FrozenSet<string> ValidDerivedKinds = new[]
+    private static readonly FrozenSet<string> s_validDerivedKinds = new[]
     {
         "public-aot",
         "public-hot",
@@ -113,7 +113,7 @@ public sealed class ReleaseStorageLayout
 
     public string GetReleaseDerivedPath(string kind)
     {
-        if (!ValidDerivedKinds.Contains(kind))
+        if (!s_validDerivedKinds.Contains(kind))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown release-derived artifact kind.");
         }
@@ -147,7 +147,7 @@ public sealed class ReleaseStorageLayout
 
     public static string BuildReleaseDerivedPath(string releaseDerivedBase, string releaseId, string kind)
     {
-        if (!ValidDerivedKinds.Contains(kind))
+        if (!s_validDerivedKinds.Contains(kind))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown release-derived artifact kind.");
         }

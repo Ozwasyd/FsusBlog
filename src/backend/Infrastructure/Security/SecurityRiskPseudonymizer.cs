@@ -4,6 +4,7 @@ using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
+/// <summary>Identifies the purpose domain included when deriving a security-risk pseudonym.</summary>
 public enum SecurityRiskIdentityDomain
 {
     ClientIp,
@@ -11,20 +12,26 @@ public enum SecurityRiskIdentityDomain
     AccountSubject
 }
 
+/// <summary>Pairs a purpose-bound security-risk hash with the key epoch that produced it.</summary>
 public readonly record struct SecurityRiskPseudonym(string Hash, int Epoch);
 
+/// <summary>Creates rotating, domain-separated pseudonyms for sensitive risk identities.</summary>
 public interface ISecurityRiskPseudonymizer
 {
+    /// <summary>Gets the active key epoch used for new risk records.</summary>
     int CurrentEpoch
     {
         get;
     }
 
+    /// <summary>Creates the active-epoch pseudonym for a normalized identity in the requested domain.</summary>
     SecurityRiskPseudonym PseudonymizeCurrent(SecurityRiskIdentityDomain domain, string value);
 
+    /// <summary>Returns current and temporarily accepted previous-epoch pseudonyms for read compatibility.</summary>
     IReadOnlyList<SecurityRiskPseudonym> PseudonymizeForRead(SecurityRiskIdentityDomain domain, string value);
 }
 
+/// <summary>Applies key rotation, normalization, and domain separation to persisted security-risk identities.</summary>
 public sealed class SecurityRiskPseudonymizer : ISecurityRiskPseudonymizer
 {
     public const string SectionName = "Security:RiskPseudonymization";
@@ -34,9 +41,9 @@ public sealed class SecurityRiskPseudonymizer : ISecurityRiskPseudonymizer
     public const string PreviousKeyKey = SectionName + ":PreviousKey";
     public const string PreviousAcceptUntilUtcKey = SectionName + ":PreviousAcceptUntilUtc";
     private const int MinimumKeyBytes = 32;
-    private static readonly TimeSpan MaximumPreviousEpochWindow = TimeSpan.FromDays(90);
+    private static readonly TimeSpan s_maximumPreviousEpochWindow = TimeSpan.FromDays(90);
 
-    private static readonly string[] IndependentSecretKeys =
+    private static readonly string[] s_independentSecretKeys =
     [
         "Jwt:SecretKey",
         "Security:Pow:SigningKey",
@@ -59,8 +66,10 @@ public sealed class SecurityRiskPseudonymizer : ISecurityRiskPseudonymizer
     private readonly SecurityRiskPseudonymizationKey? _previous;
     private readonly TimeProvider _timeProvider;
 
+    /// <inheritdoc />
     public int CurrentEpoch => _current.Epoch;
 
+    /// <summary>Loads and validates the production-aware current and previous pseudonymization key ring.</summary>
     public SecurityRiskPseudonymizer(
         IConfiguration configuration,
         IWebHostEnvironment environment,
@@ -95,9 +104,11 @@ public sealed class SecurityRiskPseudonymizer : ISecurityRiskPseudonymizer
         _timeProvider = timeProvider;
     }
 
+    /// <inheritdoc />
     public SecurityRiskPseudonym PseudonymizeCurrent(SecurityRiskIdentityDomain domain, string value)
         => Pseudonymize(_current, domain, Normalize(domain, value));
 
+    /// <inheritdoc />
     public IReadOnlyList<SecurityRiskPseudonym> PseudonymizeForRead(SecurityRiskIdentityDomain domain, string value)
     {
         string normalized = Normalize(domain, value);
@@ -112,6 +123,7 @@ public sealed class SecurityRiskPseudonymizer : ISecurityRiskPseudonymizer
         return [current, Pseudonymize(previous, domain, normalized)];
     }
 
+    /// <summary>Validates key strength, epoch ordering, overlap lifetime, and independence from other application secrets.</summary>
     public static IReadOnlyList<string> ValidateConfiguration(
         IConfiguration configuration,
         bool enforceProductionRules,
@@ -182,7 +194,7 @@ public sealed class SecurityRiskPseudonymizer : ISecurityRiskPseudonymizer
             {
                 errors.Add($"{PreviousAcceptUntilUtcKey} must be an explicit UTC timestamp when a previous key is configured.");
             }
-            else if (acceptUntil - (now ?? DateTimeOffset.UtcNow) > MaximumPreviousEpochWindow)
+            else if (acceptUntil - (now ?? DateTimeOffset.UtcNow) > s_maximumPreviousEpochWindow)
             {
                 errors.Add($"{PreviousAcceptUntilUtcKey} must not extend more than 90 days into the future.");
             }
@@ -294,7 +306,7 @@ public sealed class SecurityRiskPseudonymizer : ISecurityRiskPseudonymizer
             return;
         }
 
-        foreach (string independentSecretKey in IndependentSecretKeys)
+        foreach (string independentSecretKey in s_independentSecretKeys)
         {
             string other = (configuration[independentSecretKey] ?? string.Empty).Trim();
             if (other.Length > 0 && string.Equals(encodedKey, other, StringComparison.Ordinal))

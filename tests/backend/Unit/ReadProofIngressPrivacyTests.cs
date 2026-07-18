@@ -32,7 +32,7 @@ public sealed class ReadProofIngressPrivacyTests
         DefaultHttpContext context = CreateContext("2001:db8::41");
 
         string first = partitioner.CreatePartition(context);
-        time.Advance(ReadProofRateLimitPartitioner.PartitionEpochDuration);
+        time.Advance(ReadProofRateLimitPartitioner.s_partitionEpochDuration);
         string second = partitioner.CreatePartition(context);
 
         Assert.NotEqual(first, second);

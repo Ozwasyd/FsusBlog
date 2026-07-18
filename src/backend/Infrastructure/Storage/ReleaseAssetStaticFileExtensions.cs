@@ -6,7 +6,7 @@ public static class ReleaseAssetStaticFileExtensions
 {
     public const string RequestPath = "/release-assets";
 
-    private static readonly HashSet<string> MutableEntryNames = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> s_mutableEntryNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "index.html",
         "sw.js",
@@ -37,7 +37,7 @@ public static class ReleaseAssetStaticFileExtensions
             OnPrepareResponse = context =>
             {
                 string fileName = context.File.Name;
-                bool mutableEntry = MutableEntryNames.Contains(fileName);
+                bool mutableEntry = s_mutableEntryNames.Contains(fileName);
                 context.Context.Response.Headers.CacheControl = ReleaseStorageLayout.CacheControlFor(!mutableEntry);
                 context.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
                 context.Context.Response.Headers["X-Fsus-Frontend-Build"] = ResolveBuildId(context.Context.Request.Path);

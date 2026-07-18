@@ -22,10 +22,10 @@ internal sealed class NotificationStreamSessionService(
     ILogger<NotificationStreamSessionService> logger,
     NotificationStreamRestartCoordinator? restartCoordinator = null) : INotificationStreamSessionService
 {
-    private static readonly TimeSpan HeartbeatWindow = TimeSpan.FromSeconds(25);
-    private static readonly TimeSpan DefaultDrillSendDelay = TimeSpan.FromMilliseconds(250);
-    private static readonly TimeSpan MinDrillSendDelay = TimeSpan.FromMilliseconds(25);
-    private static readonly TimeSpan MaxDrillSendDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan s_heartbeatWindow = TimeSpan.FromSeconds(25);
+    private static readonly TimeSpan s_defaultDrillSendDelay = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan s_minDrillSendDelay = TimeSpan.FromMilliseconds(25);
+    private static readonly TimeSpan s_maxDrillSendDelay = TimeSpan.FromSeconds(5);
     private const int DefaultDrillQueueCapacity = 32;
     private const int MinDrillQueueCapacity = 32;
     private const int MaxDrillQueueCapacity = 4096;
@@ -245,7 +245,7 @@ internal sealed class NotificationStreamSessionService(
 
     private async Task RunHeartbeatLoopAsync(WebSocket socket, NotificationStreamConnection connection, SemaphoreSlim sendGate, CancellationToken cancellationToken)
     {
-        using var timer = new PeriodicTimer(HeartbeatWindow);
+        using var timer = new PeriodicTimer(s_heartbeatWindow);
         while (await timer.WaitForNextTickAsync(cancellationToken))
         {
             if (socket.State != WebSocketState.Open)
@@ -253,7 +253,7 @@ internal sealed class NotificationStreamSessionService(
                 break;
             }
 
-            if (connection.IsIdle(HeartbeatWindow))
+            if (connection.IsIdle(s_heartbeatWindow))
             {
                 await SendHeartbeatAsync(socket, sendGate, cancellationToken);
                 connection.MarkWriteActivity();
@@ -336,10 +336,10 @@ internal sealed class NotificationStreamSessionService(
 
         if (!int.TryParse(context.Request.Query["drillReadDelayMs"], NumberStyles.None, CultureInfo.InvariantCulture, out int delayMs))
         {
-            return DefaultDrillSendDelay;
+            return s_defaultDrillSendDelay;
         }
 
-        long boundedMs = Math.Clamp(delayMs, (int)MinDrillSendDelay.TotalMilliseconds, (int)MaxDrillSendDelay.TotalMilliseconds);
+        long boundedMs = Math.Clamp(delayMs, (int)s_minDrillSendDelay.TotalMilliseconds, (int)s_maxDrillSendDelay.TotalMilliseconds);
         return TimeSpan.FromMilliseconds(boundedMs);
     }
 

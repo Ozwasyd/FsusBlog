@@ -22,20 +22,20 @@ public interface ISchemaModelInspector
 
 public sealed class SchemaModelInspector : ISchemaModelInspector
 {
-    private static readonly NullabilityInfoContext NullabilityContext = new();
-    private static readonly Lazy<IReadOnlyList<Type>> ManagedEntityTypes = new(
+    private static readonly NullabilityInfoContext s_nullabilityContext = new();
+    private static readonly Lazy<IReadOnlyList<Type>> s_managedEntityTypes = new(
         () => typeof(SchemaModelInspector).Assembly
             .GetTypes()
             .Where(static type => type.GetCustomAttribute<SugarTable>() is not null)
             .OrderBy(static type => type.FullName, StringComparer.Ordinal)
             .ToArray());
-    private static readonly ConcurrentDictionary<string, SchemaModelSnapshot> ExpectedModelCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, SchemaModelSnapshot> s_expectedModelCache = new(StringComparer.Ordinal);
 
     public IReadOnlyList<Type> GetManagedEntityTypes()
-        => ManagedEntityTypes.Value;
+        => s_managedEntityTypes.Value;
 
     public SchemaModelSnapshot BuildExpectedModel(IReadOnlyList<Type> entityTypes)
-        => ExpectedModelCache.GetOrAdd(BuildEntityTypeCacheKey(entityTypes), _ => BuildExpectedModelCore(entityTypes));
+        => s_expectedModelCache.GetOrAdd(BuildEntityTypeCacheKey(entityTypes), _ => BuildExpectedModelCore(entityTypes));
 
     private static SchemaModelSnapshot BuildExpectedModelCore(IReadOnlyList<Type> entityTypes)
     {
@@ -291,7 +291,7 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
         Type propertyType = property.PropertyType;
         if (!propertyType.IsValueType)
         {
-            NullabilityInfo info = NullabilityContext.Create(property);
+            NullabilityInfo info = s_nullabilityContext.Create(property);
             return info.WriteState != NullabilityState.NotNull;
         }
 

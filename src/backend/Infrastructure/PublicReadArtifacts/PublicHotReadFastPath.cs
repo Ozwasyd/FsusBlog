@@ -531,12 +531,12 @@ public sealed class PublicHotReadSnapshot
 
 public sealed class PublicHotReadStore
 {
-    private static readonly TimeSpan MinimumSnapshotAge = TimeSpan.FromSeconds(2);
-    private static readonly Meter RetiringMeter = new("FsusBlog.PublicHotRead.Retiring", "1.0.0");
-    private static readonly Counter<long> RetiringPrunedCounter =
-        RetiringMeter.CreateCounter<long>("fsus.public_hot.retiring.evictions");
-    private static readonly Histogram<long> RetiringBytesHistogram =
-        RetiringMeter.CreateHistogram<long>("fsus.public_hot.retiring.bytes", "By");
+    private static readonly TimeSpan s_minimumSnapshotAge = TimeSpan.FromSeconds(2);
+    private static readonly Meter s_retiringMeter = new("FsusBlog.PublicHotRead.Retiring", "1.0.0");
+    private static readonly Counter<long> s_retiringPrunedCounter =
+        s_retiringMeter.CreateCounter<long>("fsus.public_hot.retiring.evictions");
+    private static readonly Histogram<long> s_retiringBytesHistogram =
+        s_retiringMeter.CreateHistogram<long>("fsus.public_hot.retiring.bytes", "By");
 
     private PublicHotReadSnapshot _current = PublicHotReadSnapshot.Empty;
     private int _ready;
@@ -567,12 +567,12 @@ public sealed class PublicHotReadStore
         _budgetLimits = PublicHotReadBudgetLimits.Resolve(value);
         _retiringLimits = PublicHotReadRetiringLimits.Resolve(value, _budgetLimits);
         _timeProvider = timeProvider ?? TimeProvider.System;
-        if (value.MaxSnapshotAge < MinimumSnapshotAge)
+        if (value.MaxSnapshotAge < s_minimumSnapshotAge)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(value.MaxSnapshotAge),
                 value.MaxSnapshotAge,
-                $"Snapshot age must be at least {MinimumSnapshotAge}.");
+                $"Snapshot age must be at least {s_minimumSnapshotAge}.");
         }
         _maxSnapshotAge = value.MaxSnapshotAge;
         _compressionPolicy = CompressionPolicy(value);
@@ -968,9 +968,9 @@ public sealed class PublicHotReadStore
         if (pruned > 0)
         {
             _retiringPrunedCount = checked(_retiringPrunedCount + pruned);
-            RetiringPrunedCounter.Add(pruned, new KeyValuePair<string, object?>("fsus.reason", "released"));
+            s_retiringPrunedCounter.Add(pruned, new KeyValuePair<string, object?>("fsus.reason", "released"));
         }
-        RetiringBytesHistogram.Record(total);
+        s_retiringBytesHistogram.Record(total);
         return new RetiringState(count, total, oldest);
     }
 

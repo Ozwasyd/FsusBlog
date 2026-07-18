@@ -72,7 +72,7 @@ public sealed class SiteSubscriptionProofService(
 
     private const int ProofTokenRandomBytes = 32;
     private const int NonceRandomBytes = 16;
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
@@ -103,7 +103,7 @@ public sealed class SiteSubscriptionProofService(
             expiresAt,
             GenerateNonce());
 
-        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(claims, JsonOptions);
+        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(claims, s_jsonOptions);
         await cache.SetRawAsync(
             CachePolicyId.SiteSubscriptionUnsubscribeProof,
             BuildProofIdentity(proofToken),
@@ -198,7 +198,7 @@ public sealed class SiteSubscriptionProofService(
     {
         try
         {
-            SiteSubscriptionUnsubscribeProofClaims? claims = JsonSerializer.Deserialize<SiteSubscriptionUnsubscribeProofClaims>(payload.Span, JsonOptions);
+            SiteSubscriptionUnsubscribeProofClaims? claims = JsonSerializer.Deserialize<SiteSubscriptionUnsubscribeProofClaims>(payload.Span, s_jsonOptions);
             return claims is null ? (false, null) : (true, claims);
         }
         catch (JsonException)

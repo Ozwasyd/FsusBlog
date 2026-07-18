@@ -80,8 +80,8 @@ public static partial class BinaryEndpoints
         IAedsEncoder aeds,
         CancellationToken cancellationToken)
     {
-        const int maxVersionRetries = 2;
-        for (int attempt = 0; attempt <= maxVersionRetries; attempt++)
+        const int MaxVersionRetries = 2;
+        for (int attempt = 0; attempt <= MaxVersionRetries; attempt++)
         {
             long version = await AdminStatsFrameVersioning.ResolveAsync(cache, cancellationToken);
             string identity = AdminStatsFrameVersioning.BuildIdentity(version);
@@ -104,7 +104,7 @@ public static partial class BinaryEndpoints
             long confirmedVersion = await AdminStatsFrameVersioning.ResolveAsync(cache, cancellationToken);
             if (confirmedVersion != version)
             {
-                if (attempt < maxVersionRetries)
+                if (attempt < MaxVersionRetries)
                 {
                     continue;
                 }

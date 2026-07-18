@@ -697,7 +697,7 @@ public sealed class OnlineSchemaMigrationCommandHost(
     IConfiguration configuration,
     ILogger<OnlineSchemaMigrationCommandHost> logger)
 {
-    private static readonly JsonSerializerOptions MachineJsonOptions = CreateMachineJsonOptions();
+    private static readonly JsonSerializerOptions s_machineJsonOptions = CreateMachineJsonOptions();
 
     public async Task<int> RunAsync(
         OnlineSchemaMigrationCommand command,
@@ -796,7 +796,7 @@ public sealed class OnlineSchemaMigrationCommandHost(
 
     private static async Task WriteJsonAsync<T>(T value, CancellationToken cancellationToken)
     {
-        string json = JsonSerializer.Serialize(value, MachineJsonOptions);
+        string json = JsonSerializer.Serialize(value, s_machineJsonOptions);
         await Console.Out.WriteLineAsync(json.AsMemory(), cancellationToken).ConfigureAwait(false);
     }
 

@@ -19,18 +19,18 @@ public static class ReadingEstimator
     private const int CodeCharsPerMinute = 140;
     private const int ImageSeconds = 12;
 
-    private static readonly Regex FencedCodeRegex = new("```[\\s\\S]*?```|~~~[\\s\\S]*?~~~", RegexOptions.Compiled);
-    private static readonly Regex InlineCodeRegex = new("`[^`\\n]+`", RegexOptions.Compiled);
-    private static readonly Regex ImageRegex = new("!\\[[^\\]]*\\]\\([^)]+\\)", RegexOptions.Compiled);
-    private static readonly Regex LinkRegex = new("\\[([^\\]]+)\\]\\([^)]+\\)", RegexOptions.Compiled);
-    private static readonly Regex LatinWordRegex = new("[A-Za-z]+(?:['-][A-Za-z]+)*", RegexOptions.Compiled);
+    private static readonly Regex s_fencedCodeRegex = new("```[\\s\\S]*?```|~~~[\\s\\S]*?~~~", RegexOptions.Compiled);
+    private static readonly Regex s_inlineCodeRegex = new("`[^`\\n]+`", RegexOptions.Compiled);
+    private static readonly Regex s_imageRegex = new("!\\[[^\\]]*\\]\\([^)]+\\)", RegexOptions.Compiled);
+    private static readonly Regex s_linkRegex = new("\\[([^\\]]+)\\]\\([^)]+\\)", RegexOptions.Compiled);
+    private static readonly Regex s_latinWordRegex = new("[A-Za-z]+(?:['-][A-Za-z]+)*", RegexOptions.Compiled);
 
     public static ReadingEstimate Estimate(string? content)
     {
         string source = content ?? string.Empty;
         int effectiveChars = CountNonWhitespace(source);
         int codeChars = CountCodeChars(source);
-        int imageCount = ImageRegex.Count(source);
+        int imageCount = s_imageRegex.Count(source);
         string readableText = StripMarkdownForReading(source);
         int cjkChars = 0;
         int latinChars = 0;
@@ -44,7 +44,7 @@ public static class ReadingEstimator
             }
         }
 
-        foreach (Match match in LatinWordRegex.Matches(readableText))
+        foreach (Match match in s_latinWordRegex.Matches(readableText))
         {
             latinWords++;
             latinChars += CountNonWhitespace(match.Value);
@@ -74,13 +74,13 @@ public static class ReadingEstimator
     private static int CountCodeChars(string source)
     {
         int count = 0;
-        foreach (Match match in FencedCodeRegex.Matches(source))
+        foreach (Match match in s_fencedCodeRegex.Matches(source))
         {
             string value = Regex.Replace(match.Value, "^(```|~~~)[^\\n]*\\n?|\\n?(```|~~~)$", string.Empty);
             count += CountNonWhitespace(value);
         }
 
-        foreach (Match match in InlineCodeRegex.Matches(source))
+        foreach (Match match in s_inlineCodeRegex.Matches(source))
         {
             count += CountNonWhitespace(match.Value[1..^1]);
         }
@@ -90,10 +90,10 @@ public static class ReadingEstimator
 
     private static string StripMarkdownForReading(string source)
     {
-        string withoutCode = FencedCodeRegex.Replace(source, " ");
-        withoutCode = InlineCodeRegex.Replace(withoutCode, " ");
-        withoutCode = ImageRegex.Replace(withoutCode, " ");
-        withoutCode = LinkRegex.Replace(withoutCode, "$1");
+        string withoutCode = s_fencedCodeRegex.Replace(source, " ");
+        withoutCode = s_inlineCodeRegex.Replace(withoutCode, " ");
+        withoutCode = s_imageRegex.Replace(withoutCode, " ");
+        withoutCode = s_linkRegex.Replace(withoutCode, "$1");
         withoutCode = Regex.Replace(withoutCode, "(^|\\n)\\s{0,3}(#{1,6}|[-*+]|\\d+\\.)\\s+", "$1");
         return Regex.Replace(withoutCode, "[*_~>#|\\[\\]()\\\\-]", string.Empty);
     }

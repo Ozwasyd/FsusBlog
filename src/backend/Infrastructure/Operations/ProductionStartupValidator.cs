@@ -64,8 +64,8 @@ public static class ProductionStartupValidator
 {
     private const int SchemaVersion = 19;
     private const int PerceptionSealedTokenKeyByteCount = 32;
-    private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
-    private static readonly object CoreValidationCacheLock = new();
+    private static readonly TimeSpan s_coreValidationCacheTtl = TimeSpan.FromSeconds(15);
+    private static readonly object s_coreValidationCacheLock = new();
     private static CoreValidationCacheEntry? s_coreValidationCache;
 
     private sealed class RequiredSettingRule(string key, Func<IConfiguration, string?> readValue)
@@ -82,71 +82,71 @@ public static class ProductionStartupValidator
         IChangeToken ReloadToken,
         ProductionStartupValidationReport Report);
 
-    private static readonly string[] DefaultJwtSecretHashes =
+    private static readonly string[] s_defaultJwtSecretHashes =
     [
         "sha256:8AE781617F18436996EC2FDDE2F601E24F737FDB607C5423A6140412F33D2E4A",
         "sha256:91445D22CD01562A9AB14D304FBFADE49F48C9E729E782855630A3DE79ACE275",
         "sha256:B9471D38BB8BAB7EA081015F342BFA2D8A4B87B448482D318200AB516175EAEE"
     ];
 
-    private static readonly string[] DefaultSubjectHashPeppers =
+    private static readonly string[] s_defaultSubjectHashPeppers =
     [
         "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
         "replace-with-stable-random-subject-hash-pepper",
         "development-subject-hash-pepper-change-before-shared-use"
     ];
 
-    private static readonly string[] DefaultModerationPeppers =
+    private static readonly string[] s_defaultModerationPeppers =
     [
         "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
         "replace-with-stable-random-moderation-pepper",
         "development-moderation-pepper-change-before-shared-use"
     ];
 
-    private static readonly string[] DefaultSubscriptionEmailHashPeppers =
+    private static readonly string[] s_defaultSubscriptionEmailHashPeppers =
     [
         "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
         "replace-with-stable-random-subscription-email-hash-pepper",
         "development-subscription-email-hash-pepper-change-before-shared-use"
     ];
 
-    private static readonly string[] DefaultAnonymousNullifierPeppers =
+    private static readonly string[] s_defaultAnonymousNullifierPeppers =
     [
         "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
         "replace-with-stable-random-anonymous-nullifier-pepper",
         "development-anonymous-nullifier-pepper-change-before-shared-use"
     ];
 
-    private static readonly string[] DefaultAnonymousRootAttestationKeys =
+    private static readonly string[] s_defaultAnonymousRootAttestationKeys =
     [
         "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
         "replace-with-stable-random-anonymous-root-attestation-key",
         "development-anonymous-root-attestation-key-change-before-shared-use"
     ];
 
-    private static readonly string[] DefaultMfaChallengeTicketSigningKeys =
+    private static readonly string[] s_defaultMfaChallengeTicketSigningKeys =
     [
         "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
         "replace-with-independent-mfa-challenge-ticket-signing-key",
         "development-mfa-challenge-ticket-signing-key-change-before-shared-use"
     ];
 
-    private static readonly string[] DefaultHumanReadProofSigningKeys =
+    private static readonly string[] s_defaultHumanReadProofSigningKeys =
     [
         "YGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn8="
     ];
 
-    private static readonly string[] DefaultHumanReadProofDedupKeys =
+    private static readonly string[] s_defaultHumanReadProofDedupKeys =
     [
         "gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp8="
     ];
 
-    private static readonly string[] DefaultReadAnalyticsNoiseKeys =
+    private static readonly string[] s_defaultReadAnalyticsNoiseKeys =
     [
         "oKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr8="
     ];
 
-    private static readonly RequiredSettingRule[] RequiredSettings =
+    private static readonly RequiredSettingRule[] s_requiredSettings =
     [
         ConnectionString("DefaultConnection"),
         ConnectionString("Redis"),
@@ -197,8 +197,8 @@ public static class ProductionStartupValidator
         get;
     } = new(
         SchemaVersion,
-        RequiredSettings.Select(static rule => rule.Key).ToArray(),
-        DefaultJwtSecretHashes);
+        s_requiredSettings.Select(static rule => rule.Key).ToArray(),
+        s_defaultJwtSecretHashes);
 
     public static void Validate(IConfiguration configuration, IWebHostEnvironment environment)
     {
@@ -224,7 +224,7 @@ public static class ProductionStartupValidator
     private static ProductionStartupValidationReport CreateCachedValidationReport(IConfiguration configuration, bool enforceProductionRules)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        lock (CoreValidationCacheLock)
+        lock (s_coreValidationCacheLock)
         {
             if (s_coreValidationCache is { } cached
                 && ReferenceEquals(cached.Configuration, configuration)
@@ -238,12 +238,12 @@ public static class ProductionStartupValidator
 
         ProductionStartupValidationReport report = CreateValidationReport(configuration, enforceProductionRules);
         IChangeToken reloadToken = configuration.GetReloadToken();
-        lock (CoreValidationCacheLock)
+        lock (s_coreValidationCacheLock)
         {
             s_coreValidationCache = new CoreValidationCacheEntry(
                 configuration,
                 enforceProductionRules,
-                now.Add(CoreValidationCacheTtl),
+                now.Add(s_coreValidationCacheTtl),
                 reloadToken,
                 report);
         }
@@ -257,12 +257,12 @@ public static class ProductionStartupValidator
         ZkProdRuntimeReadiness? zkProdReadiness = null)
     {
         List<string> errors = [];
-        List<ProductionStartupValidationRequirement> requirements = new(RequiredSettings.Length);
+        List<ProductionStartupValidationRequirement> requirements = new(s_requiredSettings.Length);
         Dictionary<string, string?> values = new(StringComparer.Ordinal);
 
-        for (int i = 0; i < RequiredSettings.Length; i++)
+        for (int i = 0; i < s_requiredSettings.Length; i++)
         {
-            RequiredSettingRule rule = RequiredSettings[i];
+            RequiredSettingRule rule = s_requiredSettings[i];
             string? value = rule.ReadValue(configuration);
             bool isPresent = !string.IsNullOrWhiteSpace(value);
             requirements.Add(new ProductionStartupValidationRequirement(rule.Key, isPresent));
@@ -311,7 +311,7 @@ public static class ProductionStartupValidator
                 errors.Add("Jwt:SecretKey must be at least 32 characters.");
             }
 
-            if (DefaultJwtSecretHashes.Contains(ComputeSecretHash(jwtSecret), StringComparer.Ordinal))
+            if (s_defaultJwtSecretHashes.Contains(ComputeSecretHash(jwtSecret), StringComparer.Ordinal))
             {
                 errors.Add("Jwt:SecretKey must not use a development/template/default value.");
             }
@@ -335,10 +335,10 @@ public static class ProductionStartupValidator
         ValidateIndependentSecuritySecret("Security:CaptchaV1:SigningKey", captchaSigningKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Security:RecoveryKeyPepper", recoveryKeyPepper, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("PublicAot:ManifestToken", publicAotManifestToken, jwtSecret, [], errors);
-        ValidateIndependentSecuritySecret("MfaChallenge:TicketSigningKey", mfaChallengeTicketSigningKey, jwtSecret, DefaultMfaChallengeTicketSigningKeys, errors);
-        ValidateIndependentSecuritySecret("HumanReadProof:SigningKey", humanReadSigningKey, jwtSecret, DefaultHumanReadProofSigningKeys, errors);
-        ValidateIndependentSecuritySecret("HumanReadProof:Dedup:CurrentKey", humanReadDedupKey, jwtSecret, DefaultHumanReadProofDedupKeys, errors);
-        ValidateIndependentSecuritySecret(ReadAnalyticsPrivacyPolicy.NoiseKeySetting, readAnalyticsNoiseKey, jwtSecret, DefaultReadAnalyticsNoiseKeys, errors);
+        ValidateIndependentSecuritySecret("MfaChallenge:TicketSigningKey", mfaChallengeTicketSigningKey, jwtSecret, s_defaultMfaChallengeTicketSigningKeys, errors);
+        ValidateIndependentSecuritySecret("HumanReadProof:SigningKey", humanReadSigningKey, jwtSecret, s_defaultHumanReadProofSigningKeys, errors);
+        ValidateIndependentSecuritySecret("HumanReadProof:Dedup:CurrentKey", humanReadDedupKey, jwtSecret, s_defaultHumanReadProofDedupKeys, errors);
+        ValidateIndependentSecuritySecret(ReadAnalyticsPrivacyPolicy.NoiseKeySetting, readAnalyticsNoiseKey, jwtSecret, s_defaultReadAnalyticsNoiseKeys, errors);
         ValidateBase64Key("HumanReadProof:SigningKey", humanReadSigningKey, errors);
         ValidateBase64Key("HumanReadProof:Dedup:CurrentKey", humanReadDedupKey, errors);
         ValidateBase64Key(ReadAnalyticsPrivacyPolicy.NoiseKeySetting, readAnalyticsNoiseKey, errors);
@@ -368,12 +368,12 @@ public static class ProductionStartupValidator
             }
         }
         ValidateAuditTamperEvidenceKey(auditTamperEvidenceKey, jwtSecret, errors);
-        ValidateIndependentSecuritySecret("AnonymousCredentialIssuer:SubjectHashPepper", subjectHashPepper, jwtSecret, DefaultSubjectHashPeppers, errors);
+        ValidateIndependentSecuritySecret("AnonymousCredentialIssuer:SubjectHashPepper", subjectHashPepper, jwtSecret, s_defaultSubjectHashPeppers, errors);
         ValidateIndependentSecuritySecret("Moderation:RegionPolicy:IpHashKey", regionIpHashKey, jwtSecret, [], errors);
-        ValidateIndependentSecuritySecret("Moderation:Pepper", moderationPepper, jwtSecret, DefaultModerationPeppers, errors);
-        ValidateIndependentSecuritySecret("Subscription:EmailHashPepper", subscriptionEmailHashPepper, jwtSecret, DefaultSubscriptionEmailHashPeppers, errors);
-        ValidateIndependentSecuritySecret("AnonymousIdentity:NullifierPepper", anonymousNullifierPepper, jwtSecret, DefaultAnonymousNullifierPeppers, errors);
-        ValidateIndependentSecuritySecret("AnonymousCredentialRoot:AttestationKey", anonymousRootAttestationKey, jwtSecret, DefaultAnonymousRootAttestationKeys, errors);
+        ValidateIndependentSecuritySecret("Moderation:Pepper", moderationPepper, jwtSecret, s_defaultModerationPeppers, errors);
+        ValidateIndependentSecuritySecret("Subscription:EmailHashPepper", subscriptionEmailHashPepper, jwtSecret, s_defaultSubscriptionEmailHashPeppers, errors);
+        ValidateIndependentSecuritySecret("AnonymousIdentity:NullifierPepper", anonymousNullifierPepper, jwtSecret, s_defaultAnonymousNullifierPeppers, errors);
+        ValidateIndependentSecuritySecret("AnonymousCredentialRoot:AttestationKey", anonymousRootAttestationKey, jwtSecret, s_defaultAnonymousRootAttestationKeys, errors);
 
         ValidateRedisConnection("ConnectionStrings:Redis", redisConnection, enforceProductionRules, errors);
         ValidateRedisConnection("RedisOptions:Configuration", redisOptionsConnection, enforceProductionRules, errors);
@@ -600,25 +600,25 @@ public static class ProductionStartupValidator
             return;
         }
 
-        const string sectionName = PerceptionSealedTokenOptions.SectionName;
-        string currentKeyVersion = (configuration[$"{sectionName}:CurrentKeyVersion"] ?? string.Empty).Trim();
+        const string SectionName = PerceptionSealedTokenOptions.SectionName;
+        string currentKeyVersion = (configuration[$"{SectionName}:CurrentKeyVersion"] ?? string.Empty).Trim();
         if (currentKeyVersion.Length == 0)
         {
             return;
         }
 
-        IConfigurationSection keysSection = configuration.GetSection($"{sectionName}:Keys");
+        IConfigurationSection keysSection = configuration.GetSection($"{SectionName}:Keys");
         if (!keysSection.GetChildren().Any(static child => !string.IsNullOrWhiteSpace(child.Key)))
         {
-            errors.Add($"{sectionName}:Keys must contain at least one signing key.");
+            errors.Add($"{SectionName}:Keys must contain at least one signing key.");
             return;
         }
 
-        string currentKeyPath = $"{sectionName}:Keys:{currentKeyVersion}";
+        string currentKeyPath = $"{SectionName}:Keys:{currentKeyVersion}";
         string? currentKey = configuration[currentKeyPath];
         if (string.IsNullOrWhiteSpace(currentKey))
         {
-            errors.Add($"{sectionName}:CurrentKeyVersion '{currentKeyVersion}' must reference configured {currentKeyPath}.");
+            errors.Add($"{SectionName}:CurrentKeyVersion '{currentKeyVersion}' must reference configured {currentKeyPath}.");
             return;
         }
 

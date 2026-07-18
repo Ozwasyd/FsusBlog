@@ -19,7 +19,7 @@ internal static class PublicAotPageCatalog
         string StoredPageName,
         LocalRouteTopology RouteTopology);
 
-    private static readonly FrozenDictionary<PublicPageKind, LocalPageMetadata> LocalMetadataByKind =
+    private static readonly FrozenDictionary<PublicPageKind, LocalPageMetadata> s_localMetadataByKind =
         new Dictionary<PublicPageKind, LocalPageMetadata>
         {
             [PublicPageKind.Home] = new(string.Empty, "首页", LocalRouteTopology.StaticSeoPage),
@@ -33,20 +33,20 @@ internal static class PublicAotPageCatalog
             [PublicPageKind.Account] = new("账户中心", "账户中心", LocalRouteTopology.AccountFixedPath)
         }.ToFrozenDictionary();
 
-    internal static readonly IReadOnlyList<PublicAotPageDescriptor> All = BuildDescriptors();
+    internal static readonly IReadOnlyList<PublicAotPageDescriptor> s_all = BuildDescriptors();
 
-    private static readonly FrozenDictionary<PublicPageKind, PublicAotPageDescriptor> ByKind =
-        All.ToFrozenDictionary(static descriptor => descriptor.Kind);
+    private static readonly FrozenDictionary<PublicPageKind, PublicAotPageDescriptor> s_byKind =
+        s_all.ToFrozenDictionary(static descriptor => descriptor.Kind);
 
-    private static readonly FrozenDictionary<PublicPageId, PublicAotPageDescriptor> ByPageId =
-        All.ToFrozenDictionary(static descriptor => descriptor.PageId);
+    private static readonly FrozenDictionary<PublicPageId, PublicAotPageDescriptor> s_byPageId =
+        s_all.ToFrozenDictionary(static descriptor => descriptor.PageId);
 
-    private static readonly FrozenDictionary<string, PublicAotPageDescriptor> ByStaticPath =
-        All.Where(static descriptor => !string.IsNullOrWhiteSpace(descriptor.StaticPath))
+    private static readonly FrozenDictionary<string, PublicAotPageDescriptor> s_byStaticPath =
+        s_all.Where(static descriptor => !string.IsNullOrWhiteSpace(descriptor.StaticPath))
             .ToFrozenDictionary(static descriptor => descriptor.StaticPath!, StringComparer.OrdinalIgnoreCase);
 
-    private static readonly FrozenDictionary<string, PublicAotPageDescriptor>.AlternateLookup<ReadOnlySpan<char>> ByStaticPathSpanLookup =
-        ByStaticPath.GetAlternateLookup<ReadOnlySpan<char>>();
+    private static readonly FrozenDictionary<string, PublicAotPageDescriptor>.AlternateLookup<ReadOnlySpan<char>> s_byStaticPathSpanLookup =
+        s_byStaticPath.GetAlternateLookup<ReadOnlySpan<char>>();
 
     internal static PublicAotPageDescriptor Home => GetRequired(PublicPageKind.Home);
 
@@ -67,26 +67,26 @@ internal static class PublicAotPageCatalog
     internal static PublicAotPageDescriptor Account => GetRequired(PublicPageKind.Account);
 
     internal static PublicAotPageDescriptor GetRequired(PublicPageKind kind)
-        => ByKind.TryGetValue(kind, out PublicAotPageDescriptor? descriptor)
+        => s_byKind.TryGetValue(kind, out PublicAotPageDescriptor? descriptor)
             ? descriptor
             : Home;
 
     internal static PublicAotPageDescriptor GetRequired(PublicPageId pageId)
-        => ByPageId.TryGetValue(pageId, out PublicAotPageDescriptor? descriptor)
+        => s_byPageId.TryGetValue(pageId, out PublicAotPageDescriptor? descriptor)
             ? descriptor
             : Home;
 
     internal static bool TryGet(PublicPageKind kind, out PublicAotPageDescriptor descriptor)
-        => ByKind.TryGetValue(kind, out descriptor!);
+        => s_byKind.TryGetValue(kind, out descriptor!);
 
     internal static bool TryGet(PublicPageId pageId, out PublicAotPageDescriptor descriptor)
-        => ByPageId.TryGetValue(pageId, out descriptor!);
+        => s_byPageId.TryGetValue(pageId, out descriptor!);
 
     internal static bool TryGetByStaticPath(string path, out PublicAotPageDescriptor descriptor)
-        => ByStaticPath.TryGetValue(path, out descriptor!);
+        => s_byStaticPath.TryGetValue(path, out descriptor!);
 
     internal static bool TryGetByStaticPath(ReadOnlySpan<char> path, out PublicAotPageDescriptor descriptor)
-        => ByStaticPathSpanLookup.TryGetValue(path, out descriptor!);
+        => s_byStaticPathSpanLookup.TryGetValue(path, out descriptor!);
 
     private static IReadOnlyList<PublicAotPageDescriptor> BuildDescriptors()
     {
@@ -99,7 +99,7 @@ internal static class PublicAotPageCatalog
                 continue;
             }
 
-            if (!LocalMetadataByKind.TryGetValue(kind, out LocalPageMetadata? metadata))
+            if (!s_localMetadataByKind.TryGetValue(kind, out LocalPageMetadata? metadata))
             {
                 throw new InvalidOperationException($"PublicAotPageCatalog is missing local metadata for kind '{kind}'.");
             }

@@ -5,7 +5,7 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
     public const string RejectedHeaderItemKey = "fsus.gateway.rejected_header";
     public const string RejectionReasonItemKey = "fsus.gateway.rejection_reason";
 
-    private static readonly HashSet<string> AllowedHeaders = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> s_allowedHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
         "X-Fsus-Access-Token",
         "X-Fsus-Admin-Bootstrap-Token",
@@ -36,13 +36,13 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
         "X-Fsus-Upload-Token"
     };
 
-    private static readonly string[] AllowedPrefixes =
+    private static readonly string[] s_allowedPrefixes =
     [
         "X-Fsus-Challenge-",
         "X-Fsus-Notification-Stream-"
     ];
 
-    private static readonly string[] ForbiddenFragments =
+    private static readonly string[] s_forbiddenFragments =
     [
         "username",
         "user-name",
@@ -117,7 +117,7 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
             return null;
         }
 
-        foreach (string fragment in ForbiddenFragments)
+        foreach (string fragment in s_forbiddenFragments)
         {
             if (headerName.Contains(fragment, StringComparison.OrdinalIgnoreCase))
             {
@@ -125,12 +125,12 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
             }
         }
 
-        if (AllowedHeaders.Contains(headerName))
+        if (s_allowedHeaders.Contains(headerName))
         {
             return null;
         }
 
-        foreach (string prefix in AllowedPrefixes)
+        foreach (string prefix in s_allowedPrefixes)
         {
             if (headerName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {

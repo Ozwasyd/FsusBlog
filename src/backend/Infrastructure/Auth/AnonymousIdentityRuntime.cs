@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 
 namespace FsusBlog.Server.Infrastructure.Auth;
 
+/// <summary>Centralizes anonymous-identity mode detection, identity kinds, and backend role normalization.</summary>
 public static class AnonymousIdentityRuntime
 {
     public const string ModeEnvironmentVariable = "FSUSBLOG_ANONYMOUS_IDENTITY_MODE";
@@ -13,6 +14,7 @@ public static class AnonymousIdentityRuntime
     public const string GuestRole = "guest";
     public const string LegacyPasswordDisabledMessage = "Legacy password identity is disabled in anonymous identity mode";
 
+    /// <summary>Reads the process-level anonymous-identity feature switch using the accepted enabled values.</summary>
     public static bool IsAnonymousIdentityModeEnabled()
     {
         string? value = Environment.GetEnvironmentVariable(ModeEnvironmentVariable);
@@ -21,9 +23,11 @@ public static class AnonymousIdentityRuntime
             || string.Equals(value, "enabled", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Resolves an account's effective backend role under the current anonymous-identity mode.</summary>
     public static string ResolveBackendRole(User user)
         => ResolveBackendRole(null, user.IdentityKind);
 
+    /// <summary>Normalizes a supplied role while preventing non-admin identities from retaining the administrator role.</summary>
     public static string ResolveBackendRole(string? roleValue, string? identityKind)
         => ResolveBackendRole(roleValue, identityKind, IsAnonymousIdentityModeEnabled());
 

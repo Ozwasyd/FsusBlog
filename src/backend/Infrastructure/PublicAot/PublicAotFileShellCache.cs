@@ -23,7 +23,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
     private readonly string _webRoot;
     private readonly string _cacheRoot;
     private readonly ReleaseDerivedArtifactPublisher? _derivedPublisher;
-    private readonly ILogger<PublicAotFileShellCache> logger;
+    private readonly ILogger<PublicAotFileShellCache> _logger;
     private readonly PublicAotBoundedMemoryCache _memoryCache;
     private readonly ConcurrentDictionary<string, FileMetadataCacheEntry> _fileMetadataCache = new(StringComparer.Ordinal);
     private readonly TimeProvider _timeProvider;
@@ -49,7 +49,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         _memoryCache = new PublicAotBoundedMemoryCache(
             PublicAotMemoryCacheLimits.Resolve(cacheOptions),
             _timeProvider);
-        this.logger = logger;
+        this._logger = logger;
     }
 
     internal PublicAotRecordedInvalidation? LastInvalidationForTests => _lastInvalidation;
@@ -166,7 +166,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
 
             if (stats.InvalidatedKeys == 0)
             {
-                logger.LogInformation(
+                _logger.LogInformation(
                     "public-aot-prefix-invalidation-registry-missing {Prefix}; skipped disk scan",
                     prefix);
             }
@@ -360,7 +360,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
                     "file",
                     "completed",
                     elapsed);
-                logger.LogDebug("public_aot_cache_file_read_ms {Path} {ElapsedMs}", path, elapsed.TotalMilliseconds);
+                _logger.LogDebug("public_aot_cache_file_read_ms {Path} {ElapsedMs}", path, elapsed.TotalMilliseconds);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -376,7 +376,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
                 "file",
                 "error",
                 elapsed);
-            logger.LogWarning(ex, "public_aot_cache_read_error {Path}", path);
+            _logger.LogWarning(ex, "public_aot_cache_read_error {Path}", path);
             return null;
         }
     }
@@ -390,7 +390,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
 
         if (!TryResolveHydrationSidecarPath(sidecar, out string sidecarPath))
         {
-            logger.LogWarning(
+            _logger.LogWarning(
                 "public_aot_cache_sidecar_path_invalid {CacheKey} {RouteKey} {SidecarUrl}",
                 entry.CacheKey,
                 entry.RouteKey,
@@ -400,7 +400,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
 
         if (!File.Exists(sidecarPath))
         {
-            logger.LogWarning(
+            _logger.LogWarning(
                 "public_aot_cache_sidecar_missing {CacheKey} {RouteKey} {SidecarUrl}",
                 entry.CacheKey,
                 entry.RouteKey,
@@ -410,7 +410,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
 
         if (!IsHydrationSidecarHashValid(sidecarPath, sidecar))
         {
-            logger.LogWarning(
+            _logger.LogWarning(
                 "public_aot_cache_sidecar_hash_mismatch {CacheKey} {RouteKey} {SidecarUrl}",
                 entry.CacheKey,
                 entry.RouteKey,
@@ -543,22 +543,22 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         switch (logToken)
         {
             case "public_aot_cache_memory_hit":
-                logger.LogDebug("public_aot_cache_memory_hit {CacheKey}", cacheKey);
+                _logger.LogDebug("public_aot_cache_memory_hit {CacheKey}", cacheKey);
                 break;
             case "public_aot_cache_file_hit":
-                logger.LogDebug("public_aot_cache_file_hit {CacheKey}", cacheKey);
+                _logger.LogDebug("public_aot_cache_file_hit {CacheKey}", cacheKey);
                 break;
             case "public_aot_cache_miss":
-                logger.LogDebug("public_aot_cache_miss {CacheKey}", cacheKey);
+                _logger.LogDebug("public_aot_cache_miss {CacheKey}", cacheKey);
                 break;
             case "public_aot_cache_stale_removed":
-                logger.LogDebug("public_aot_cache_stale_removed {CacheKey}", cacheKey);
+                _logger.LogDebug("public_aot_cache_stale_removed {CacheKey}", cacheKey);
                 break;
             case "public_aot_cache_sidecar_missing":
-                logger.LogDebug("public_aot_cache_sidecar_missing {CacheKey}", cacheKey);
+                _logger.LogDebug("public_aot_cache_sidecar_missing {CacheKey}", cacheKey);
                 break;
             default:
-                logger.LogDebug("public_aot_cache_lookup {Result} {Layer} {CacheKey}", result, layer, cacheKey);
+                _logger.LogDebug("public_aot_cache_lookup {Result} {Layer} {CacheKey}", result, layer, cacheKey);
                 break;
         }
     }
@@ -580,7 +580,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         }
         catch (Exception ex)
         {
-            logger.Log(failureLevel, ex, "{FailureToken} {Path}", failureToken, path);
+            _logger.Log(failureLevel, ex, "{FailureToken} {Path}", failureToken, path);
         }
     }
 
@@ -780,7 +780,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "public_aot_cache_superseded_version_delete_failed {CacheKey}", cacheKey);
+            _logger.LogDebug(ex, "public_aot_cache_superseded_version_delete_failed {CacheKey}", cacheKey);
         }
     }
 
@@ -895,7 +895,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex, "public-aot-read-registry-failed {RegistryKey}", registryKey);
+            _logger.LogWarning(ex, "public-aot-read-registry-failed {RegistryKey}", registryKey);
         }
 
         return stats;
@@ -990,7 +990,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         {
             await BoundaryExecutor.ExecuteAsync(
                 async () => removed += await _db.SetRemoveAsync((RedisKey)registryKey, [.. members]).ConfigureAwait(false),
-                logger,
+                _logger,
                 $"public-aot-unregister-batch:{registryKey}:{members.Count}");
         }
 
@@ -1016,7 +1016,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
             {
                 await BoundaryExecutor.ExecuteAsync(
                     async () => _ = await _db.SetAddAsync(registryKey, cacheKey).ConfigureAwait(false),
-                    logger,
+                    _logger,
                     $"public-aot-register:{registryKey}:{cacheKey}");
             }
 
@@ -1025,7 +1025,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
 
         await BoundaryExecutor.ExecuteAsync(
             async () => _ = await _db.SetAddAsync(PublicAotCacheRegistry.GlobalRegistryKey, cacheKey).ConfigureAwait(false),
-            logger,
+            _logger,
             $"public-aot-register:{cacheKey}");
     }
 
@@ -1049,7 +1049,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "public-aot-clear-registry-failed {RegistryKeyCount}", registryKeys.Length);
+            _logger.LogWarning(ex, "public-aot-clear-registry-failed {RegistryKeyCount}", registryKeys.Length);
             return PublicAotRegistryCleanupResult.Failed(ex.Message);
         }
     }
@@ -1126,7 +1126,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
 
         if (stats.InvalidatedKeys == 0)
         {
-            logger.LogInformation(
+            _logger.LogInformation(
                 "public-aot-remote-prefix-invalidation-registry-missing {Prefix}; skipped disk scan",
                 prefix);
         }
@@ -1167,7 +1167,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "public-aot-remote-prefix-registry-read-failed {RegistryKey}", registryKey);
+            _logger.LogWarning(ex, "public-aot-remote-prefix-registry-read-failed {RegistryKey}", registryKey);
         }
 
         return new PublicAotBatchInvalidationStats(invalidatedKeys, deletedFiles, 0, 0);
@@ -1189,7 +1189,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
                     .PublishAsync(RedisChannel.Literal(PublicAotInvalidationMessage.Channel), message.ToPayload())
                     .ConfigureAwait(false);
             },
-            logger,
+            _logger,
             $"public-aot-publish:{message.Type}:{message.Value}",
             LogLevel.Debug);
     }

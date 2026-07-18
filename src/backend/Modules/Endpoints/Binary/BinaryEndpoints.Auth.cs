@@ -36,7 +36,7 @@ namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
 public static partial class BinaryEndpoints
 {
-    private static readonly TimeSpan AuthRiskSignalTtl = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan s_authRiskSignalTtl = TimeSpan.FromMinutes(10);
 
     private static string ResolveBinaryIdentityKind(string? identityKind)
         => string.IsNullOrWhiteSpace(identityKind) ? AnonymousIdentityRuntime.AnonymousAccountKind : identityKind.Trim();
@@ -1579,7 +1579,7 @@ public static partial class BinaryEndpoints
             httpContext,
             SecurityRiskReason.PasskeyAssertionFailed,
             25,
-            AuthRiskSignalTtl,
+            s_authRiskSignalTtl,
             SecurityRiskSources.Passkey,
             RiskActionNames.AuthPasskeyComplete,
             "passkey_assertion_failed"), cancellationToken);
@@ -1592,7 +1592,7 @@ public static partial class BinaryEndpoints
             httpContext,
             SecurityRiskReason.PasskeyAssertionAccepted,
             -20,
-            AuthRiskSignalTtl,
+            s_authRiskSignalTtl,
             SecurityRiskSources.Passkey,
             RiskActionNames.AuthPasskeyComplete,
             "passkey_assertion_accepted"), cancellationToken);

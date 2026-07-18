@@ -44,7 +44,7 @@ public sealed class HumanReadProofSubmissionBehaviorTests
             harness.Cache.Acquisitions,
             item => item.Acquired
                 && item.Identity.StartsWith("dedup:article:42:epoch:", StringComparison.Ordinal)
-                && item.Ttl == HumanReadProofService.DedupLeaseTtl);
+                && item.Ttl == HumanReadProofService.s_dedupLeaseTtl);
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public sealed class HumanReadProofSubmissionBehaviorTests
         Assert.Equal(2, firstEpochKeys.Length);
         Assert.NotEqual(firstEpochKeys[0].Split(':')[^1], firstEpochKeys[1].Split(':')[^1]);
 
-        harness.Time.Advance(HumanReadProofService.DedupEpochDuration);
+        harness.Time.Advance(HumanReadProofService.s_dedupEpochDuration);
         await SubmitArticleAsync(harness, 42);
         string[] article42Keys = harness.Cache.Acquisitions
             .Where(static item => item.Acquired && item.Identity.StartsWith("dedup:article:42:", StringComparison.Ordinal))
@@ -179,7 +179,7 @@ public sealed class HumanReadProofSubmissionBehaviorTests
         Assert.NotEqual(article42Keys[0], article42Keys[1]);
         Assert.All(
             harness.Cache.Acquisitions.Where(static item => item.Identity.StartsWith("dedup:", StringComparison.Ordinal)),
-            static item => Assert.Equal(HumanReadProofService.DedupLeaseTtl, item.Ttl));
+            static item => Assert.Equal(HumanReadProofService.s_dedupLeaseTtl, item.Ttl));
     }
 
     [Fact]

@@ -45,7 +45,7 @@ public static class FsusObservability
     public const string ActivitySourceName = "FsusBlog.Server";
     public const string MeterName = "FsusBlog.Server";
 
-    private static readonly string[] AllowedCustomAttributeNames =
+    private static readonly string[] s_allowedCustomAttributeNames =
     [
         "fsus.aot.backfill",
         "fsus.aot.source",
@@ -82,256 +82,256 @@ public static class FsusObservability
         "fsus.upload.cleanup.signal"
     ];
 
-    private static readonly FrozenSet<string> AllowedCustomAttributes = AllowedCustomAttributeNames.ToFrozenSet(StringComparer.Ordinal);
+    private static readonly FrozenSet<string> s_allowedCustomAttributes = s_allowedCustomAttributeNames.ToFrozenSet(StringComparer.Ordinal);
 
     public static readonly ActivitySource ActivitySource = new(ActivitySourceName, ServiceVersion);
 
-    private static readonly Meter Meter = new(MeterName, ServiceVersion);
-    private static readonly Counter<long> OperationCounter = Meter.CreateCounter<long>("fsus.operation.count");
-    private static readonly ConcurrentDictionary<CacheOperationMetricKey, CacheOperationMetricState> CacheOperationRuntimeCounters = new();
+    private static readonly Meter s_meter = new(MeterName, ServiceVersion);
+    private static readonly Counter<long> s_operationCounter = s_meter.CreateCounter<long>("fsus.operation.count");
+    private static readonly ConcurrentDictionary<CacheOperationMetricKey, CacheOperationMetricState> s_cacheOperationRuntimeCounters = new();
     public const string CacheL1CounterMode = "striped";
     private const int SecurityEventTagCacheLimit = 256;
-    private static readonly ConcurrentDictionary<string, string> RouteKindCache = new(StringComparer.Ordinal);
-    private static readonly Histogram<double> OperationDuration = Meter.CreateHistogram<double>("fsus.operation.duration", "ms");
-    private static readonly Counter<long> CacheOperationCounter = Meter.CreateCounter<long>("fsus.cache.operation.count");
-    private static readonly Counter<long> SecurityEventCounter = Meter.CreateCounter<long>("fsus.security.event.count");
-    private static readonly Counter<long> SecurityEventTagCacheMissCounter = Meter.CreateCounter<long>("fsus.observability.tag_cache.miss_count");
-    private static readonly Histogram<double> SecurityEventRecordElapsed = Meter.CreateHistogram<double>("fsus.observability.record_security_event.elapsed", "ms");
-    private static readonly Counter<long> SecurityRiskEventCounter = Meter.CreateCounter<long>("fsus.security.risk.event.count");
-    private static readonly Counter<long> SecurityChallengeIssuedCounter = Meter.CreateCounter<long>("fsus.security.challenge.issued.count");
-    private static readonly Counter<long> SecurityChallengeVerifiedCounter = Meter.CreateCounter<long>("fsus.security.challenge.verified.count");
-    private static readonly Counter<long> SecurityChallengeFailedCounter = Meter.CreateCounter<long>("fsus.security.challenge.failed.count");
-    private static readonly Counter<long> SecurityChallengeReplayedCounter = Meter.CreateCounter<long>("fsus.security.challenge.replayed.count");
-    private static readonly Histogram<double> SecurityChallengeSolveDuration = Meter.CreateHistogram<double>("fsus.security.challenge.solve.duration", "ms");
-    private static readonly Counter<long> SecurityChallengeV2IssuedCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.issued.count");
-    private static readonly Counter<long> SecurityChallengeV2VerifiedCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.verified.count");
-    private static readonly Counter<long> SecurityChallengeV2FailedCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.failed.count");
-    private static readonly Counter<long> SecurityChallengeV2ReplayedCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.replayed.count");
-    private static readonly Histogram<double> SecurityChallengeV2SolveDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.solve.duration", "ms");
-    private static readonly Counter<long> ChallengeVerifyRateLimitedBeforeJson = Meter.CreateCounter<long>("fsus.security.challenge.verify.rate_limited_before_json");
-    private static readonly Histogram<double> ProviderPayloadParseElapsed = Meter.CreateHistogram<double>("fsus.security.challenge.provider_payload.parse_elapsed_ms", "ms");
-    private static readonly Counter<long> ProviderPayloadRejectedBytes = Meter.CreateCounter<long>("fsus.security.challenge.provider_payload.rejected_bytes", "By");
-    private static readonly Histogram<long> ChallengeVerifyAllocationBytes = Meter.CreateHistogram<long>("fsus.security.challenge.verify.allocation_bytes", "By");
-    private static readonly Histogram<double> SecurityChallengeV2PayloadBytes = Meter.CreateHistogram<double>("fsus.security.challenge.v2.payload.bytes", "By");
-    private static readonly Histogram<double> SecurityChallengeV2VerifyDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.verify.duration", "ms");
-    private static readonly Counter<long> SecurityChallengeV2TaskKindCounter = Meter.CreateCounter<long>("fsus.security.challenge.v2.task.kind.count");
-    private static readonly Histogram<double> SecurityChallengeV2IssueDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.issue.duration", "ms");
-    private static readonly Histogram<double> SecurityChallengeV2ClientRenderDuration = Meter.CreateHistogram<double>("fsus.security.challenge.v2.client.render.duration", "ms");
-    private static readonly Counter<long> SecurityDecisionCounter = Meter.CreateCounter<long>("fsus.security.decision.count");
-    private static readonly Histogram<double> SecurityRiskEventBatchSize = Meter.CreateHistogram<double>("fsus.security.risk_event.batch_size");
-    private static readonly Histogram<double> SecurityRiskEventFlushElapsed = Meter.CreateHistogram<double>("fsus.security.risk_event.flush_elapsed_ms", "ms");
-    private static readonly Counter<long> SecurityRiskEventInsertedRows = Meter.CreateCounter<long>("fsus.security.risk_event.inserted_rows");
-    private static readonly Counter<long> SecurityRiskEventFailedBatches = Meter.CreateCounter<long>("fsus.security.risk_event.failed_batches");
-    private static readonly Counter<long> SecurityRiskEventFallbackSingleInserts = Meter.CreateCounter<long>("fsus.security.risk_event.fallback_single_inserts");
-    private static readonly Histogram<double> RiskScoreAtomicUpdateElapsed = Meter.CreateHistogram<double>("fsus.security.risk_score.atomic_update_elapsed_ms", "ms");
-    private static readonly Counter<long> RiskScoreRedisRoundTrips = Meter.CreateCounter<long>("fsus.security.risk_score.redis_round_trips");
-    private static readonly Counter<long> RiskScoreConflictAvoided = Meter.CreateCounter<long>("fsus.security.risk_score.conflict_avoided");
-    private static readonly Counter<long> ZeroRiskCacheHit = Meter.CreateCounter<long>("fsus.security.risk_score.zero_cache_hit");
-    private static readonly Counter<long> AuditChainTailCacheAccess = Meter.CreateCounter<long>("fsus.audit.chain_tail.cache_access");
-    private static readonly Histogram<double> AuditChainTailQueryElapsed = Meter.CreateHistogram<double>("fsus.audit.chain_tail.query_elapsed_ms", "ms");
-    private static readonly Histogram<double> AuditBatchSize = Meter.CreateHistogram<double>("fsus.audit.batch.size");
-    private static readonly Histogram<double> AuditBatchWriteElapsed = Meter.CreateHistogram<double>("fsus.audit.batch.write_elapsed_ms", "ms");
-    private static readonly Counter<long> AuditListDbCounter = Meter.CreateCounter<long>("fsus.audit.list.db_count");
-    private static readonly Histogram<double> AuditListElapsed = Meter.CreateHistogram<double>("fsus.audit.list.elapsed_ms", "ms");
-    private static readonly Counter<long> AuditSummaryQueryCounter = Meter.CreateCounter<long>("fsus.audit.summary.query_count");
-    private static readonly Histogram<double> AuditFacetElapsed = Meter.CreateHistogram<double>("fsus.audit.facet.elapsed_ms", "ms");
-    private static readonly Counter<long> AuditSummaryCacheHitCounter = Meter.CreateCounter<long>("fsus.audit.summary.cache_hit");
-    private static readonly Counter<long> AdminAuditQueuedCounter = Meter.CreateCounter<long>("fsus.admin.audit.queued_count");
-    private static readonly Counter<long> AdminAuditDroppedCounter = Meter.CreateCounter<long>("fsus.admin.audit.dropped_count");
-    private static readonly Counter<long> AdminAuditFallbackWriteCounter = Meter.CreateCounter<long>("fsus.admin.audit.fallback_write_count");
-    private static readonly Histogram<double> AdminAuditQueueDepth = Meter.CreateHistogram<double>("fsus.admin.audit.queue_depth");
-    private static readonly Histogram<double> AdminAuditBatchSize = Meter.CreateHistogram<double>("fsus.admin.audit.batch_size");
-    private static readonly Histogram<double> AdminAuditWriteElapsed = Meter.CreateHistogram<double>("fsus.admin.audit.write_elapsed_ms", "ms");
-    private static readonly Histogram<double> CacheOperationDuration = Meter.CreateHistogram<double>("fsus.cache.operation.duration", "ms");
-    private static readonly Histogram<double> DbOperationDuration = Meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
-    private static readonly Histogram<double> AotRenderDuration = Meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
-    private static readonly Histogram<double> SearchOperationDuration = Meter.CreateHistogram<double>("fsus.search.operation.duration", "ms");
-    private static readonly Histogram<double> SearchRuntimeSnapshotMemoryBytes = Meter.CreateHistogram<double>("fsus.search.runtime_snapshot.memory", "By");
-    private static readonly Histogram<double> BackgroundJobDuration = Meter.CreateHistogram<double>("fsus.background.job.duration", "ms");
-    private static readonly Counter<long> ArticleOutboxClaimed = Meter.CreateCounter<long>("fsus.article_outbox.claimed.count");
-    private static readonly Counter<long> ArticleOutboxReclaimed = Meter.CreateCounter<long>("fsus.article_outbox.reclaimed.count");
-    private static readonly Counter<long> ArticleOutboxClaimLost = Meter.CreateCounter<long>("fsus.article_outbox.claim_lost.count");
-    private static readonly Counter<long> ArticleOutboxHeartbeat = Meter.CreateCounter<long>("fsus.article_outbox.heartbeat.count");
-    private static readonly Histogram<long> ArticleOutboxStuckClaims = Meter.CreateHistogram<long>("fsus.article_outbox.stuck_claims");
-    private static readonly Counter<long> ReadAggregateFlushCounter = Meter.CreateCounter<long>("fsus.read_aggregate.flush.count");
-    private static readonly Counter<long> HotArticlesDirtyCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.dirty.count");
-    private static readonly Counter<long> HotArticlesFlushCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.flush.count");
-    private static readonly Counter<long> HotArticlesCoalescedCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.flush.coalesced_batches");
-    private static readonly Counter<long> StatsDirtyCounter = Meter.CreateCounter<long>("fsus.cache.stats.dirty.count");
-    private static readonly Counter<long> StatsFlushCounter = Meter.CreateCounter<long>("fsus.cache.stats.flush.count");
-    private static long HotArticlesVersionValue;
-    private static string ActiveSecurityPolicyVersionValue = "unknown";
-    private static long SecurityEventTagCacheHits;
-    private static long SecurityEventTagCacheMisses;
-    private static readonly FrozenDictionary<SecurityRiskReason, string> SecurityRiskReasonNames = Enum
+    private static readonly ConcurrentDictionary<string, string> s_routeKindCache = new(StringComparer.Ordinal);
+    private static readonly Histogram<double> s_operationDuration = s_meter.CreateHistogram<double>("fsus.operation.duration", "ms");
+    private static readonly Counter<long> s_cacheOperationCounter = s_meter.CreateCounter<long>("fsus.cache.operation.count");
+    private static readonly Counter<long> s_securityEventCounter = s_meter.CreateCounter<long>("fsus.security.event.count");
+    private static readonly Counter<long> s_securityEventTagCacheMissCounter = s_meter.CreateCounter<long>("fsus.observability.tag_cache.miss_count");
+    private static readonly Histogram<double> s_securityEventRecordElapsed = s_meter.CreateHistogram<double>("fsus.observability.record_security_event.elapsed", "ms");
+    private static readonly Counter<long> s_securityRiskEventCounter = s_meter.CreateCounter<long>("fsus.security.risk.event.count");
+    private static readonly Counter<long> s_securityChallengeIssuedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.issued.count");
+    private static readonly Counter<long> s_securityChallengeVerifiedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.verified.count");
+    private static readonly Counter<long> s_securityChallengeFailedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.failed.count");
+    private static readonly Counter<long> s_securityChallengeReplayedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.replayed.count");
+    private static readonly Histogram<double> s_securityChallengeSolveDuration = s_meter.CreateHistogram<double>("fsus.security.challenge.solve.duration", "ms");
+    private static readonly Counter<long> s_securityChallengeV2IssuedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.v2.issued.count");
+    private static readonly Counter<long> s_securityChallengeV2VerifiedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.v2.verified.count");
+    private static readonly Counter<long> s_securityChallengeV2FailedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.v2.failed.count");
+    private static readonly Counter<long> s_securityChallengeV2ReplayedCounter = s_meter.CreateCounter<long>("fsus.security.challenge.v2.replayed.count");
+    private static readonly Histogram<double> s_securityChallengeV2SolveDuration = s_meter.CreateHistogram<double>("fsus.security.challenge.v2.solve.duration", "ms");
+    private static readonly Counter<long> s_challengeVerifyRateLimitedBeforeJson = s_meter.CreateCounter<long>("fsus.security.challenge.verify.rate_limited_before_json");
+    private static readonly Histogram<double> s_providerPayloadParseElapsed = s_meter.CreateHistogram<double>("fsus.security.challenge.provider_payload.parse_elapsed_ms", "ms");
+    private static readonly Counter<long> s_providerPayloadRejectedBytes = s_meter.CreateCounter<long>("fsus.security.challenge.provider_payload.rejected_bytes", "By");
+    private static readonly Histogram<long> s_challengeVerifyAllocationBytes = s_meter.CreateHistogram<long>("fsus.security.challenge.verify.allocation_bytes", "By");
+    private static readonly Histogram<double> s_securityChallengeV2PayloadBytes = s_meter.CreateHistogram<double>("fsus.security.challenge.v2.payload.bytes", "By");
+    private static readonly Histogram<double> s_securityChallengeV2VerifyDuration = s_meter.CreateHistogram<double>("fsus.security.challenge.v2.verify.duration", "ms");
+    private static readonly Counter<long> s_securityChallengeV2TaskKindCounter = s_meter.CreateCounter<long>("fsus.security.challenge.v2.task.kind.count");
+    private static readonly Histogram<double> s_securityChallengeV2IssueDuration = s_meter.CreateHistogram<double>("fsus.security.challenge.v2.issue.duration", "ms");
+    private static readonly Histogram<double> s_securityChallengeV2ClientRenderDuration = s_meter.CreateHistogram<double>("fsus.security.challenge.v2.client.render.duration", "ms");
+    private static readonly Counter<long> s_securityDecisionCounter = s_meter.CreateCounter<long>("fsus.security.decision.count");
+    private static readonly Histogram<double> s_securityRiskEventBatchSize = s_meter.CreateHistogram<double>("fsus.security.risk_event.batch_size");
+    private static readonly Histogram<double> s_securityRiskEventFlushElapsed = s_meter.CreateHistogram<double>("fsus.security.risk_event.flush_elapsed_ms", "ms");
+    private static readonly Counter<long> s_securityRiskEventInsertedRows = s_meter.CreateCounter<long>("fsus.security.risk_event.inserted_rows");
+    private static readonly Counter<long> s_securityRiskEventFailedBatches = s_meter.CreateCounter<long>("fsus.security.risk_event.failed_batches");
+    private static readonly Counter<long> s_securityRiskEventFallbackSingleInserts = s_meter.CreateCounter<long>("fsus.security.risk_event.fallback_single_inserts");
+    private static readonly Histogram<double> s_riskScoreAtomicUpdateElapsed = s_meter.CreateHistogram<double>("fsus.security.risk_score.atomic_update_elapsed_ms", "ms");
+    private static readonly Counter<long> s_riskScoreRedisRoundTrips = s_meter.CreateCounter<long>("fsus.security.risk_score.redis_round_trips");
+    private static readonly Counter<long> s_riskScoreConflictAvoided = s_meter.CreateCounter<long>("fsus.security.risk_score.conflict_avoided");
+    private static readonly Counter<long> s_zeroRiskCacheHit = s_meter.CreateCounter<long>("fsus.security.risk_score.zero_cache_hit");
+    private static readonly Counter<long> s_auditChainTailCacheAccess = s_meter.CreateCounter<long>("fsus.audit.chain_tail.cache_access");
+    private static readonly Histogram<double> s_auditChainTailQueryElapsed = s_meter.CreateHistogram<double>("fsus.audit.chain_tail.query_elapsed_ms", "ms");
+    private static readonly Histogram<double> s_auditBatchSize = s_meter.CreateHistogram<double>("fsus.audit.batch.size");
+    private static readonly Histogram<double> s_auditBatchWriteElapsed = s_meter.CreateHistogram<double>("fsus.audit.batch.write_elapsed_ms", "ms");
+    private static readonly Counter<long> s_auditListDbCounter = s_meter.CreateCounter<long>("fsus.audit.list.db_count");
+    private static readonly Histogram<double> s_auditListElapsed = s_meter.CreateHistogram<double>("fsus.audit.list.elapsed_ms", "ms");
+    private static readonly Counter<long> s_auditSummaryQueryCounter = s_meter.CreateCounter<long>("fsus.audit.summary.query_count");
+    private static readonly Histogram<double> s_auditFacetElapsed = s_meter.CreateHistogram<double>("fsus.audit.facet.elapsed_ms", "ms");
+    private static readonly Counter<long> s_auditSummaryCacheHitCounter = s_meter.CreateCounter<long>("fsus.audit.summary.cache_hit");
+    private static readonly Counter<long> s_adminAuditQueuedCounter = s_meter.CreateCounter<long>("fsus.admin.audit.queued_count");
+    private static readonly Counter<long> s_adminAuditDroppedCounter = s_meter.CreateCounter<long>("fsus.admin.audit.dropped_count");
+    private static readonly Counter<long> s_adminAuditFallbackWriteCounter = s_meter.CreateCounter<long>("fsus.admin.audit.fallback_write_count");
+    private static readonly Histogram<double> s_adminAuditQueueDepth = s_meter.CreateHistogram<double>("fsus.admin.audit.queue_depth");
+    private static readonly Histogram<double> s_adminAuditBatchSize = s_meter.CreateHistogram<double>("fsus.admin.audit.batch_size");
+    private static readonly Histogram<double> s_adminAuditWriteElapsed = s_meter.CreateHistogram<double>("fsus.admin.audit.write_elapsed_ms", "ms");
+    private static readonly Histogram<double> s_cacheOperationDuration = s_meter.CreateHistogram<double>("fsus.cache.operation.duration", "ms");
+    private static readonly Histogram<double> s_dbOperationDuration = s_meter.CreateHistogram<double>("fsus.db.operation.duration", "ms");
+    private static readonly Histogram<double> s_aotRenderDuration = s_meter.CreateHistogram<double>("fsus.aot.render.duration", "ms");
+    private static readonly Histogram<double> s_searchOperationDuration = s_meter.CreateHistogram<double>("fsus.search.operation.duration", "ms");
+    private static readonly Histogram<double> s_searchRuntimeSnapshotMemoryBytes = s_meter.CreateHistogram<double>("fsus.search.runtime_snapshot.memory", "By");
+    private static readonly Histogram<double> s_backgroundJobDuration = s_meter.CreateHistogram<double>("fsus.background.job.duration", "ms");
+    private static readonly Counter<long> s_articleOutboxClaimed = s_meter.CreateCounter<long>("fsus.article_outbox.claimed.count");
+    private static readonly Counter<long> s_articleOutboxReclaimed = s_meter.CreateCounter<long>("fsus.article_outbox.reclaimed.count");
+    private static readonly Counter<long> s_articleOutboxClaimLost = s_meter.CreateCounter<long>("fsus.article_outbox.claim_lost.count");
+    private static readonly Counter<long> s_articleOutboxHeartbeat = s_meter.CreateCounter<long>("fsus.article_outbox.heartbeat.count");
+    private static readonly Histogram<long> s_articleOutboxStuckClaims = s_meter.CreateHistogram<long>("fsus.article_outbox.stuck_claims");
+    private static readonly Counter<long> s_readAggregateFlushCounter = s_meter.CreateCounter<long>("fsus.read_aggregate.flush.count");
+    private static readonly Counter<long> s_hotArticlesDirtyCounter = s_meter.CreateCounter<long>("fsus.cache.hot_articles.dirty.count");
+    private static readonly Counter<long> s_hotArticlesFlushCounter = s_meter.CreateCounter<long>("fsus.cache.hot_articles.flush.count");
+    private static readonly Counter<long> s_hotArticlesCoalescedCounter = s_meter.CreateCounter<long>("fsus.cache.hot_articles.flush.coalesced_batches");
+    private static readonly Counter<long> s_statsDirtyCounter = s_meter.CreateCounter<long>("fsus.cache.stats.dirty.count");
+    private static readonly Counter<long> s_statsFlushCounter = s_meter.CreateCounter<long>("fsus.cache.stats.flush.count");
+    private static long s_hotArticlesVersionValue;
+    private static string s_activeSecurityPolicyVersionValue = "unknown";
+    private static long s_securityEventTagCacheHits;
+    private static long s_securityEventTagCacheMisses;
+    private static readonly FrozenDictionary<SecurityRiskReason, string> s_securityRiskReasonNames = Enum
         .GetValues<SecurityRiskReason>()
         .ToFrozenDictionary(static reason => reason, static reason => string.Intern(reason.ToString()));
-    private static readonly FrozenSet<string> SecurityEventInternedValues = BuildSecurityEventInternedValues();
-    private static readonly ConcurrentDictionary<SecurityEventTagCacheKey, TagList> SecurityEventTagCache = PrewarmSecurityEventTagCache();
-    private static readonly ObservableGauge<long> HotArticlesVersionGauge = Meter.CreateObservableGauge(
+    private static readonly FrozenSet<string> s_securityEventInternedValues = BuildSecurityEventInternedValues();
+    private static readonly ConcurrentDictionary<SecurityEventTagCacheKey, TagList> s_securityEventTagCache = PrewarmSecurityEventTagCache();
+    private static readonly ObservableGauge<long> s_hotArticlesVersionGauge = s_meter.CreateObservableGauge(
         "fsus.cache.hot_articles.version",
-        static () => Volatile.Read(ref HotArticlesVersionValue));
-    private static readonly ObservableGauge<long> SecurityPolicyVersionActiveGauge = Meter.CreateObservableGauge(
+        static () => Volatile.Read(ref s_hotArticlesVersionValue));
+    private static readonly ObservableGauge<long> s_securityPolicyVersionActiveGauge = s_meter.CreateObservableGauge(
         "fsus.security.policy.version.active",
         ObserveActiveSecurityPolicyVersion);
-    private static readonly ObservableGauge<double> SecurityEventTagCacheHitRatioGauge = Meter.CreateObservableGauge(
+    private static readonly ObservableGauge<double> s_securityEventTagCacheHitRatioGauge = s_meter.CreateObservableGauge(
         "fsus.observability.tag_cache.hit_ratio",
         ObserveSecurityEventTagCacheHitRatio);
-    private static readonly Counter<long> CacheRemoveManyKeyCounter = Meter.CreateCounter<long>("fsus.cache.remove_many.keys");
-    private static readonly Counter<long> CacheRemoveManyRedisBatchCounter = Meter.CreateCounter<long>("fsus.cache.remove_many.redis_batches");
-    private static readonly Histogram<double> CacheRemoveManyElapsed = Meter.CreateHistogram<double>("fsus.cache.remove_many.elapsed_ms", "ms");
-    private static readonly Counter<long> CacheIncrementManyWithExpiryKeyCount = Meter.CreateCounter<long>("fsus.cache.increment_many_with_expiry.key_count");
-    private static readonly Counter<long> CacheIncrementManyWithExpiryAppliedCount = Meter.CreateCounter<long>("fsus.cache.increment_many_with_expiry.expiry_applied_count");
-    private static readonly Histogram<double> CacheIncrementManyWithExpiryElapsed = Meter.CreateHistogram<double>("fsus.cache.increment_many_with_expiry.elapsed_ms", "ms");
-    private static readonly Counter<long> CacheRemovePrefixManyPrefixCounter = Meter.CreateCounter<long>("fsus.cache.remove_prefix_many.prefixes");
-    private static readonly Counter<long> CacheRemovePrefixManyRegistryScanCounter = Meter.CreateCounter<long>("fsus.cache.remove_prefix_many.registry_scans");
-    private static readonly Counter<long> CacheRemovePrefixManyDeletedKeyCounter = Meter.CreateCounter<long>("fsus.cache.remove_prefix_many.deleted_keys");
-    private static readonly Histogram<double> CacheRemovePrefixManyElapsed = Meter.CreateHistogram<double>("fsus.cache.remove_prefix_many.elapsed_ms", "ms");
-    private static readonly Counter<long> PublicAotInvalidationScopeCounter = Meter.CreateCounter<long>("public_aot_invalidation_scope");
-    private static readonly Counter<long> PublicAotInvalidatedKeyCounter = Meter.CreateCounter<long>("public_aot_invalidated_keys");
-    private static readonly Counter<long> PublicAotDeletedFileCounter = Meter.CreateCounter<long>("public_aot_deleted_files");
-    private static readonly Counter<long> PublicAotRegistryRemovedMemberCounter = Meter.CreateCounter<long>("public_aot_registry_removed_members");
-    private static readonly Counter<long> PublicAotRegistryCleanupCounter = Meter.CreateCounter<long>("public_aot_registry_cleanup_count");
-    private static readonly Counter<long> PublicAotRegistryDeletedKeyCounter = Meter.CreateCounter<long>("public_aot_registry_deleted_keys");
-    private static readonly Counter<long> PublicAotPublishCounter = Meter.CreateCounter<long>("public_aot_publish_count");
-    private static readonly Histogram<double> PublicAotInvalidationDuration = Meter.CreateHistogram<double>("public_aot_invalidation_duration_ms", "ms");
-    private static readonly Histogram<double> PublicAotComposeElapsed = Meter.CreateHistogram<double>("fsus.aot.compose.elapsed", "ms");
-    private static long PublicAotBootstrapSeoSnapshotHits;
-    private static long PublicAotBootstrapSeoSnapshotMisses;
-    private static long PublicAotCacheCodecHits;
-    private static long PublicAotCacheCodecMisses;
-    private static long PublicAotShellCacheFileHits;
-    private static long PublicAotShellCacheFileMisses;
-    private static readonly ObservableGauge<double> PublicAotBootstrapSeoSnapshotHitRatioGauge = Meter.CreateObservableGauge(
+    private static readonly Counter<long> s_cacheRemoveManyKeyCounter = s_meter.CreateCounter<long>("fsus.cache.remove_many.keys");
+    private static readonly Counter<long> s_cacheRemoveManyRedisBatchCounter = s_meter.CreateCounter<long>("fsus.cache.remove_many.redis_batches");
+    private static readonly Histogram<double> s_cacheRemoveManyElapsed = s_meter.CreateHistogram<double>("fsus.cache.remove_many.elapsed_ms", "ms");
+    private static readonly Counter<long> s_cacheIncrementManyWithExpiryKeyCount = s_meter.CreateCounter<long>("fsus.cache.increment_many_with_expiry.key_count");
+    private static readonly Counter<long> s_cacheIncrementManyWithExpiryAppliedCount = s_meter.CreateCounter<long>("fsus.cache.increment_many_with_expiry.expiry_applied_count");
+    private static readonly Histogram<double> s_cacheIncrementManyWithExpiryElapsed = s_meter.CreateHistogram<double>("fsus.cache.increment_many_with_expiry.elapsed_ms", "ms");
+    private static readonly Counter<long> s_cacheRemovePrefixManyPrefixCounter = s_meter.CreateCounter<long>("fsus.cache.remove_prefix_many.prefixes");
+    private static readonly Counter<long> s_cacheRemovePrefixManyRegistryScanCounter = s_meter.CreateCounter<long>("fsus.cache.remove_prefix_many.registry_scans");
+    private static readonly Counter<long> s_cacheRemovePrefixManyDeletedKeyCounter = s_meter.CreateCounter<long>("fsus.cache.remove_prefix_many.deleted_keys");
+    private static readonly Histogram<double> s_cacheRemovePrefixManyElapsed = s_meter.CreateHistogram<double>("fsus.cache.remove_prefix_many.elapsed_ms", "ms");
+    private static readonly Counter<long> s_publicAotInvalidationScopeCounter = s_meter.CreateCounter<long>("public_aot_invalidation_scope");
+    private static readonly Counter<long> s_publicAotInvalidatedKeyCounter = s_meter.CreateCounter<long>("public_aot_invalidated_keys");
+    private static readonly Counter<long> s_publicAotDeletedFileCounter = s_meter.CreateCounter<long>("public_aot_deleted_files");
+    private static readonly Counter<long> s_publicAotRegistryRemovedMemberCounter = s_meter.CreateCounter<long>("public_aot_registry_removed_members");
+    private static readonly Counter<long> s_publicAotRegistryCleanupCounter = s_meter.CreateCounter<long>("public_aot_registry_cleanup_count");
+    private static readonly Counter<long> s_publicAotRegistryDeletedKeyCounter = s_meter.CreateCounter<long>("public_aot_registry_deleted_keys");
+    private static readonly Counter<long> s_publicAotPublishCounter = s_meter.CreateCounter<long>("public_aot_publish_count");
+    private static readonly Histogram<double> s_publicAotInvalidationDuration = s_meter.CreateHistogram<double>("public_aot_invalidation_duration_ms", "ms");
+    private static readonly Histogram<double> s_publicAotComposeElapsed = s_meter.CreateHistogram<double>("fsus.aot.compose.elapsed", "ms");
+    private static long s_publicAotBootstrapSeoSnapshotHits;
+    private static long s_publicAotBootstrapSeoSnapshotMisses;
+    private static long s_publicAotCacheCodecHits;
+    private static long s_publicAotCacheCodecMisses;
+    private static long s_publicAotShellCacheFileHits;
+    private static long s_publicAotShellCacheFileMisses;
+    private static readonly ObservableGauge<double> s_publicAotBootstrapSeoSnapshotHitRatioGauge = s_meter.CreateObservableGauge(
         "fsus.aot.bootstrap.seo_snapshot.hit_ratio",
-        static () => Ratio(PublicAotBootstrapSeoSnapshotHits, PublicAotBootstrapSeoSnapshotMisses));
-    private static readonly ObservableGauge<double> PublicAotCacheCodecHitRatioGauge = Meter.CreateObservableGauge(
+        static () => Ratio(s_publicAotBootstrapSeoSnapshotHits, s_publicAotBootstrapSeoSnapshotMisses));
+    private static readonly ObservableGauge<double> s_publicAotCacheCodecHitRatioGauge = s_meter.CreateObservableGauge(
         "fsus.aot.cache.codec.hit_ratio",
-        static () => Ratio(PublicAotCacheCodecHits, PublicAotCacheCodecMisses));
-    private static readonly ObservableGauge<double> PublicAotShellCacheFileHitRatioGauge = Meter.CreateObservableGauge(
+        static () => Ratio(s_publicAotCacheCodecHits, s_publicAotCacheCodecMisses));
+    private static readonly ObservableGauge<double> s_publicAotShellCacheFileHitRatioGauge = s_meter.CreateObservableGauge(
         "fsus.aot.shell_cache.file_hit_ratio",
-        static () => Ratio(PublicAotShellCacheFileHits, PublicAotShellCacheFileMisses));
-    private static readonly Counter<long> PublicHotDeltaChangedArticleCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.changed_articles");
-    private static readonly Counter<long> PublicHotDeltaRebuiltListCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_lists");
-    private static readonly Counter<long> PublicHotDeltaRebuiltTaxonomyCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_taxonomy");
-    private static readonly Histogram<double> PublicHotDeltaElapsed = Meter.CreateHistogram<double>("fsus.public_hot.delta.elapsed_ms", "ms");
-    private static readonly Histogram<long> PublicHotResidentBytes = Meter.CreateHistogram<long>("fsus.public_hot.resident.bytes", "By");
-    private static readonly Histogram<long> PublicHotSnapshotOverlapBytes = Meter.CreateHistogram<long>("fsus.public_hot.snapshot_overlap.bytes", "By");
-    private static readonly Histogram<long> PublicHotLohEligibleBytes = Meter.CreateHistogram<long>("fsus.public_hot.loh_eligible.bytes", "By");
-    private static readonly Histogram<long> PublicHotArtifactObjects = Meter.CreateHistogram<long>("fsus.public_hot.artifact_objects", "{object}");
-    private static readonly Histogram<double> AdminIntegrityCheckElapsed = Meter.CreateHistogram<double>("fsus.admin.integrity.check_elapsed_ms", "ms");
-    private static readonly Counter<long> AdminIntegrityTotalCount = Meter.CreateCounter<long>("fsus.admin.integrity.total_count");
-    private static readonly Counter<long> AdminIntegritySampleCount = Meter.CreateCounter<long>("fsus.admin.integrity.sample_count");
-    private static readonly Counter<long> AdminIntegrityScannedFiles = Meter.CreateCounter<long>("fsus.admin.integrity.scanned_files");
-    private static readonly Counter<long> ModerationDictionaryScannedContent = Meter.CreateCounter<long>("fsus.moderation.dictionary.scanned_content_count");
-    private static readonly Counter<long> ModerationDictionaryMatchedTerms = Meter.CreateCounter<long>("fsus.moderation.dictionary.matched_term_count");
-    private static readonly Histogram<double> ModerationDictionaryMatchElapsed = Meter.CreateHistogram<double>("fsus.moderation.dictionary.match_elapsed_ms", "ms");
-    private static readonly Counter<long> ModerationDictionaryEvaluatedRegions = Meter.CreateCounter<long>("fsus.moderation.dictionary.evaluated_region_count");
-    private static readonly Counter<long> TaxonomyFrameCacheAccess = Meter.CreateCounter<long>("fsus.taxonomy.frame.cache_access");
-    private static readonly Histogram<double> TaxonomyFrameColdMissElapsed = Meter.CreateHistogram<double>("fsus.taxonomy.frame.cold_miss_elapsed_ms", "ms");
-    private static readonly Counter<long> TaxonomyProjectionUpdateCount = Meter.CreateCounter<long>("fsus.taxonomy.projection.update_count");
-    private static readonly Counter<long> TaxonomyFrameVersionCounter = Meter.CreateCounter<long>("fsus.taxonomy.frame.version_bump");
-    private static readonly Histogram<double> NotificationStreamOriginValidationElapsed = Meter.CreateHistogram<double>("fsus.notification_stream.handshake.origin_validation_elapsed_ms", "ms");
-    private static readonly Histogram<double> NotificationStreamOriginCacheElapsed = Meter.CreateHistogram<double>("fsus.notification.handshake.origin_cache.elapsed", "ms");
-    private static long NotificationStreamOriginCacheHits;
-    private static long NotificationStreamOriginCacheMisses;
-    private static readonly ObservableGauge<double> NotificationStreamOriginCacheHitRatioGauge = Meter.CreateObservableGauge(
+        static () => Ratio(s_publicAotShellCacheFileHits, s_publicAotShellCacheFileMisses));
+    private static readonly Counter<long> s_publicHotDeltaChangedArticleCounter = s_meter.CreateCounter<long>("fsus.public_hot.delta.changed_articles");
+    private static readonly Counter<long> s_publicHotDeltaRebuiltListCounter = s_meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_lists");
+    private static readonly Counter<long> s_publicHotDeltaRebuiltTaxonomyCounter = s_meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_taxonomy");
+    private static readonly Histogram<double> s_publicHotDeltaElapsed = s_meter.CreateHistogram<double>("fsus.public_hot.delta.elapsed_ms", "ms");
+    private static readonly Histogram<long> s_publicHotResidentBytes = s_meter.CreateHistogram<long>("fsus.public_hot.resident.bytes", "By");
+    private static readonly Histogram<long> s_publicHotSnapshotOverlapBytes = s_meter.CreateHistogram<long>("fsus.public_hot.snapshot_overlap.bytes", "By");
+    private static readonly Histogram<long> s_publicHotLohEligibleBytes = s_meter.CreateHistogram<long>("fsus.public_hot.loh_eligible.bytes", "By");
+    private static readonly Histogram<long> s_publicHotArtifactObjects = s_meter.CreateHistogram<long>("fsus.public_hot.artifact_objects", "{object}");
+    private static readonly Histogram<double> s_adminIntegrityCheckElapsed = s_meter.CreateHistogram<double>("fsus.admin.integrity.check_elapsed_ms", "ms");
+    private static readonly Counter<long> s_adminIntegrityTotalCount = s_meter.CreateCounter<long>("fsus.admin.integrity.total_count");
+    private static readonly Counter<long> s_adminIntegritySampleCount = s_meter.CreateCounter<long>("fsus.admin.integrity.sample_count");
+    private static readonly Counter<long> s_adminIntegrityScannedFiles = s_meter.CreateCounter<long>("fsus.admin.integrity.scanned_files");
+    private static readonly Counter<long> s_moderationDictionaryScannedContent = s_meter.CreateCounter<long>("fsus.moderation.dictionary.scanned_content_count");
+    private static readonly Counter<long> s_moderationDictionaryMatchedTerms = s_meter.CreateCounter<long>("fsus.moderation.dictionary.matched_term_count");
+    private static readonly Histogram<double> s_moderationDictionaryMatchElapsed = s_meter.CreateHistogram<double>("fsus.moderation.dictionary.match_elapsed_ms", "ms");
+    private static readonly Counter<long> s_moderationDictionaryEvaluatedRegions = s_meter.CreateCounter<long>("fsus.moderation.dictionary.evaluated_region_count");
+    private static readonly Counter<long> s_taxonomyFrameCacheAccess = s_meter.CreateCounter<long>("fsus.taxonomy.frame.cache_access");
+    private static readonly Histogram<double> s_taxonomyFrameColdMissElapsed = s_meter.CreateHistogram<double>("fsus.taxonomy.frame.cold_miss_elapsed_ms", "ms");
+    private static readonly Counter<long> s_taxonomyProjectionUpdateCount = s_meter.CreateCounter<long>("fsus.taxonomy.projection.update_count");
+    private static readonly Counter<long> s_taxonomyFrameVersionCounter = s_meter.CreateCounter<long>("fsus.taxonomy.frame.version_bump");
+    private static readonly Histogram<double> s_notificationStreamOriginValidationElapsed = s_meter.CreateHistogram<double>("fsus.notification_stream.handshake.origin_validation_elapsed_ms", "ms");
+    private static readonly Histogram<double> s_notificationStreamOriginCacheElapsed = s_meter.CreateHistogram<double>("fsus.notification.handshake.origin_cache.elapsed", "ms");
+    private static long s_notificationStreamOriginCacheHits;
+    private static long s_notificationStreamOriginCacheMisses;
+    private static readonly ObservableGauge<double> s_notificationStreamOriginCacheHitRatioGauge = s_meter.CreateObservableGauge(
         "fsus.notification.handshake.origin_cache.hit_ratio",
-        static () => Ratio(NotificationStreamOriginCacheHits, NotificationStreamOriginCacheMisses));
-    private static readonly Counter<long> NotificationStreamAdmissionAccountStateCache = Meter.CreateCounter<long>("fsus.notification_stream.admission.account_state_cache");
-    private static readonly Counter<long> NotificationStreamAdmissionDbReadCount = Meter.CreateCounter<long>("fsus.notification_stream.admission.db_read_count");
-    private static readonly Counter<long> NotificationStreamAdmissionRejectedCount = Meter.CreateCounter<long>("fsus.notification_stream.admission.rejected_reason_count");
-    private static readonly Counter<long> LoginReplacedSessionCount = Meter.CreateCounter<long>("fsus.auth.login.replaced_session_count");
-    private static readonly Histogram<double> LoginTransactionElapsed = Meter.CreateHistogram<double>("fsus.auth.login.transaction_elapsed_ms", "ms");
-    private static readonly Counter<long> LoginSessionRevokeCommandCount = Meter.CreateCounter<long>("fsus.auth.login.session_revoke_command_count");
-    private static readonly Counter<long> AuthRefreshSuccessDbCommandCount = Meter.CreateCounter<long>("fsus.auth.refresh.success_db_command_count");
-    private static readonly Histogram<double> AuthRefreshSuccessElapsed = Meter.CreateHistogram<double>("fsus.auth.refresh.success_elapsed_ms", "ms");
-    private static readonly Counter<long> AuthRefreshReplayDetectedCount = Meter.CreateCounter<long>("fsus.auth.refresh.replay_detected_count");
-    private static readonly Counter<long> AuthRefreshFamilyRevokeCount = Meter.CreateCounter<long>("fsus.auth.refresh.family_revoke_count");
-    private static readonly Counter<long> AuthRefreshFamilyRevokeWindowCount = Meter.CreateCounter<long>("fsus.auth.refresh.family_revoke_window_count");
-    private static readonly Counter<long> AuthRefreshCookieWriteFailedCount = Meter.CreateCounter<long>("fsus.auth.refresh.cookie_write_failed_count");
-    private static readonly Counter<long> AccountSnapshotCacheHit = Meter.CreateCounter<long>("fsus.account_snapshot.cache_hit");
-    private static readonly Counter<long> AccountSnapshotDbReadCount = Meter.CreateCounter<long>("fsus.account_snapshot.db_read_count");
-    private static long CommentActorResolverPublicHandleHits;
-    private static long CommentActorResolverPublicHandleMisses;
-    private static long CommentActorResolverCredentialLevelHits;
-    private static long CommentActorResolverCredentialLevelMisses;
-    private static readonly ObservableGauge<double> CommentActorResolverPublicHandleHitRatioGauge = Meter.CreateObservableGauge(
+        static () => Ratio(s_notificationStreamOriginCacheHits, s_notificationStreamOriginCacheMisses));
+    private static readonly Counter<long> s_notificationStreamAdmissionAccountStateCache = s_meter.CreateCounter<long>("fsus.notification_stream.admission.account_state_cache");
+    private static readonly Counter<long> s_notificationStreamAdmissionDbReadCount = s_meter.CreateCounter<long>("fsus.notification_stream.admission.db_read_count");
+    private static readonly Counter<long> s_notificationStreamAdmissionRejectedCount = s_meter.CreateCounter<long>("fsus.notification_stream.admission.rejected_reason_count");
+    private static readonly Counter<long> s_loginReplacedSessionCount = s_meter.CreateCounter<long>("fsus.auth.login.replaced_session_count");
+    private static readonly Histogram<double> s_loginTransactionElapsed = s_meter.CreateHistogram<double>("fsus.auth.login.transaction_elapsed_ms", "ms");
+    private static readonly Counter<long> s_loginSessionRevokeCommandCount = s_meter.CreateCounter<long>("fsus.auth.login.session_revoke_command_count");
+    private static readonly Counter<long> s_authRefreshSuccessDbCommandCount = s_meter.CreateCounter<long>("fsus.auth.refresh.success_db_command_count");
+    private static readonly Histogram<double> s_authRefreshSuccessElapsed = s_meter.CreateHistogram<double>("fsus.auth.refresh.success_elapsed_ms", "ms");
+    private static readonly Counter<long> s_authRefreshReplayDetectedCount = s_meter.CreateCounter<long>("fsus.auth.refresh.replay_detected_count");
+    private static readonly Counter<long> s_authRefreshFamilyRevokeCount = s_meter.CreateCounter<long>("fsus.auth.refresh.family_revoke_count");
+    private static readonly Counter<long> s_authRefreshFamilyRevokeWindowCount = s_meter.CreateCounter<long>("fsus.auth.refresh.family_revoke_window_count");
+    private static readonly Counter<long> s_authRefreshCookieWriteFailedCount = s_meter.CreateCounter<long>("fsus.auth.refresh.cookie_write_failed_count");
+    private static readonly Counter<long> s_accountSnapshotCacheHit = s_meter.CreateCounter<long>("fsus.account_snapshot.cache_hit");
+    private static readonly Counter<long> s_accountSnapshotDbReadCount = s_meter.CreateCounter<long>("fsus.account_snapshot.db_read_count");
+    private static long s_commentActorResolverPublicHandleHits;
+    private static long s_commentActorResolverPublicHandleMisses;
+    private static long s_commentActorResolverCredentialLevelHits;
+    private static long s_commentActorResolverCredentialLevelMisses;
+    private static readonly ObservableGauge<double> s_commentActorResolverPublicHandleHitRatioGauge = s_meter.CreateObservableGauge(
         "fsus.comment.actor_resolver.public_handle_cache.hit_ratio",
-        static () => Ratio(CommentActorResolverPublicHandleHits, CommentActorResolverPublicHandleMisses));
-    private static readonly ObservableGauge<double> CommentActorResolverCredentialLevelHitRatioGauge = Meter.CreateObservableGauge(
+        static () => Ratio(s_commentActorResolverPublicHandleHits, s_commentActorResolverPublicHandleMisses));
+    private static readonly ObservableGauge<double> s_commentActorResolverCredentialLevelHitRatioGauge = s_meter.CreateObservableGauge(
         "fsus.comment.actor_resolver.credential_level_cache.hit_ratio",
-        static () => Ratio(CommentActorResolverCredentialLevelHits, CommentActorResolverCredentialLevelMisses));
-    private static readonly Counter<long> CommentActorResolverDbRoundTrips = Meter.CreateCounter<long>("fsus.comment.actor_resolver.db_round_trips");
-    private static readonly Histogram<double> AuthMeElapsed = Meter.CreateHistogram<double>("fsus.auth.me.elapsed_ms", "ms");
-    private static readonly Histogram<double> MessageCenterListElapsed = Meter.CreateHistogram<double>("fsus.message.center.list.elapsed", "ms");
-    private static readonly Histogram<double> MessageCenterReplyElapsed = Meter.CreateHistogram<double>("fsus.message.center.reply.elapsed", "ms");
-    private static readonly Histogram<double> MessageCenterFanoutRefreshElapsed = Meter.CreateHistogram<double>("fsus.message.center.fanout.refresh.elapsed", "ms");
-    private static readonly Histogram<double> MessageCenterFanoutBuildItemElapsed = Meter.CreateHistogram<double>("fsus.message.center.fanout.build_item.elapsed", "ms");
-    private static readonly Histogram<double> MfaChallengeStartAccountReadElapsed = Meter.CreateHistogram<double>("fsus.mfa.challenge_start.account_read_elapsed_ms", "ms");
-    private static readonly Counter<long> MfaFailureCounterKeyCount = Meter.CreateCounter<long>("fsus.mfa.failure_counter.key_count");
-    private static readonly Counter<long> MfaCounterExpiredCount = Meter.CreateCounter<long>("fsus.mfa.counter_expired.count");
-    private static readonly Histogram<double> AdminAccountListQueryElapsed = Meter.CreateHistogram<double>("fsus.admin.account_list.query_elapsed_ms", "ms");
-    private static readonly Counter<long> AdminAccountListCountUsed = Meter.CreateCounter<long>("fsus.admin.account_list.count_used");
-    private static readonly Counter<long> AdminAccountListCountSkipped = Meter.CreateCounter<long>("fsus.admin.account_list.count_skipped");
-    private static readonly Counter<long> UploadSessionCleanupScannedSessions = Meter.CreateCounter<long>("fsus.upload.cleanup.scanned_sessions");
-    private static readonly Counter<long> UploadSessionCleanupDeletedSessions = Meter.CreateCounter<long>("fsus.upload.cleanup.deleted_sessions");
-    private static readonly Histogram<double> UploadSessionCleanupElapsed = Meter.CreateHistogram<double>("fsus.upload.cleanup.elapsed_ms", "ms");
-    private static readonly Counter<long> UploadSessionCleanupSignalCount = Meter.CreateCounter<long>("fsus.upload.cleanup.signal_count");
-    private static readonly Histogram<double> UploadSessionLockCurrentCount = Meter.CreateHistogram<double>("fsus.upload.session_lock.current_count");
-    private static readonly Counter<long> UploadSessionLockStaleScannedCount = Meter.CreateCounter<long>("fsus.upload.session_lock.stale_scanned_count");
-    private static readonly Counter<long> UploadSessionLockStaleDisposedCount = Meter.CreateCounter<long>("fsus.upload.session_lock.stale_disposed_count");
-    private static readonly Histogram<double> UploadSessionLockCleanupElapsed = Meter.CreateHistogram<double>("fsus.upload.session_lock.cleanup_elapsed_ms", "ms");
-    private static readonly Histogram<double> UploadSessionLockAcquireElapsed = Meter.CreateHistogram<double>("fsus.upload.session_lock.acquire_elapsed_ms", "ms");
-    private static readonly Counter<long> PasskeyAssertionDbCommandCount = Meter.CreateCounter<long>("fsus.passkey.assertion.db_command_count");
-    private static readonly Histogram<double> PasskeyAssertionElapsed = Meter.CreateHistogram<double>("fsus.passkey.assertion.elapsed_ms", "ms");
-    private static readonly Counter<long> PasskeySignCountUpdateConflictCount = Meter.CreateCounter<long>("fsus.passkey.sign_count.update_conflict_count");
-    private static readonly Counter<long> AdminPasskeyAssertionDbCommandCount = Meter.CreateCounter<long>("fsus.admin.passkey.assertion.db_command_count");
-    private static readonly Histogram<double> AdminPasskeyAssertionElapsed = Meter.CreateHistogram<double>("fsus.admin.passkey.assertion.elapsed_ms", "ms");
-    private static readonly Counter<long> AdminPasskeySignCountConflictCount = Meter.CreateCounter<long>("fsus.admin.passkey.sign_count.conflict_count");
-    private static readonly Counter<long> AdminSessionListReturnedCount = Meter.CreateCounter<long>("fsus.admin.session.list.returned_count");
-    private static readonly Histogram<double> AdminSessionListElapsed = Meter.CreateHistogram<double>("fsus.admin.session.list.elapsed_ms", "ms");
-    private static readonly Counter<long> AdminSessionRevokeOthersCount = Meter.CreateCounter<long>("fsus.admin.session.revoke_others.count");
-    private static readonly Histogram<double> AdminSessionRevokeOthersElapsed = Meter.CreateHistogram<double>("fsus.admin.session.revoke_others.elapsed_ms", "ms");
-    private static readonly Counter<long> AdminSessionValidationDbReadCount = Meter.CreateCounter<long>("fsus.admin.session.validation.db_read_count");
-    private static readonly Counter<long> AdminSessionValidationCacheHit = Meter.CreateCounter<long>("fsus.admin.session.validation.cache_hit");
-    private static readonly Counter<long> AdminSessionTouchSkipped = Meter.CreateCounter<long>("fsus.admin.session.touch_skipped");
-    private static readonly Histogram<double> AdminSessionTouchElapsed = Meter.CreateHistogram<double>("fsus.admin.session.touch_elapsed_ms", "ms");
-    private static readonly Histogram<double> DistributionDiagnosticsElapsed = Meter.CreateHistogram<double>("fsus.distribution.diagnostics.elapsed_ms", "ms");
-    private static readonly Counter<long> DistributionDiagnosticsCacheAccess = Meter.CreateCounter<long>("fsus.distribution.diagnostics.cache_access");
-    private static readonly Counter<long> DistributionDiagnosticsDbCommandCount = Meter.CreateCounter<long>("fsus.distribution.diagnostics.db_command_count");
-    private static readonly Histogram<double> RelatedReadingBuildElapsed = Meter.CreateHistogram<double>("fsus.related_reading.build.elapsed_ms", "ms");
-    private static readonly Counter<long> RelatedReadingBuildCacheAccess = Meter.CreateCounter<long>("fsus.related_reading.build.cache_access");
-    private static readonly Histogram<double> SitemapBuildElapsed = Meter.CreateHistogram<double>("fsus.sitemap.build.elapsed_ms", "ms");
-    private static readonly Counter<long> SitemapBuildCacheAccess = Meter.CreateCounter<long>("fsus.sitemap.build.cache_access");
-    private static readonly Counter<long> ReadinessSnapshotCacheAccess = Meter.CreateCounter<long>("fsus.readiness.snapshot.cache_access");
-    private static readonly Histogram<double> ReadinessSnapshotFreshCheckElapsed = Meter.CreateHistogram<double>("fsus.readiness.snapshot.fresh_check_elapsed_ms", "ms");
-    private static readonly Counter<long> ReadinessSnapshotDependencyCheckCount = Meter.CreateCounter<long>("fsus.readiness.snapshot.dependency_check_count");
-    private static readonly Histogram<double> ReadinessSnapshotAge = Meter.CreateHistogram<double>("fsus.readiness.snapshot.age_ms", "ms");
-    private static readonly Histogram<double> ReadinessCheckElapsed = Meter.CreateHistogram<double>("fsus.readiness.check.elapsed", "ms");
-    private static readonly Histogram<double> ReadinessPostgresElapsed = Meter.CreateHistogram<double>("fsus.readiness.postgres.elapsed", "ms");
-    private static readonly Histogram<double> ReadinessRedisElapsed = Meter.CreateHistogram<double>("fsus.readiness.redis.elapsed", "ms");
-    private static readonly Histogram<double> ReadinessRiskControlElapsed = Meter.CreateHistogram<double>("fsus.readiness.risk_control.elapsed", "ms");
-    private static readonly Histogram<double> ReadinessRuntimeElapsed = Meter.CreateHistogram<double>("fsus.readiness.runtime.elapsed", "ms");
-    private static readonly Counter<long> AnonymousNullifierPrecheckCount = Meter.CreateCounter<long>("fsus.anonymous_nullifier.precheck_count");
-    private static readonly Histogram<double> AnonymousNullifierAtomicIncrementElapsed = Meter.CreateHistogram<double>("fsus.anonymous_nullifier.atomic_increment_elapsed_ms", "ms");
-    private static readonly Counter<long> AnonymousNullifierScopeLimitRejectedCount = Meter.CreateCounter<long>("fsus.anonymous_nullifier.scope_limit_rejected_count");
-    private static readonly Counter<long> AnonymousNullifierBlockedRejectedCount = Meter.CreateCounter<long>("fsus.anonymous_nullifier.blocked_rejected_count");
+        static () => Ratio(s_commentActorResolverCredentialLevelHits, s_commentActorResolverCredentialLevelMisses));
+    private static readonly Counter<long> s_commentActorResolverDbRoundTrips = s_meter.CreateCounter<long>("fsus.comment.actor_resolver.db_round_trips");
+    private static readonly Histogram<double> s_authMeElapsed = s_meter.CreateHistogram<double>("fsus.auth.me.elapsed_ms", "ms");
+    private static readonly Histogram<double> s_messageCenterListElapsed = s_meter.CreateHistogram<double>("fsus.message.center.list.elapsed", "ms");
+    private static readonly Histogram<double> s_messageCenterReplyElapsed = s_meter.CreateHistogram<double>("fsus.message.center.reply.elapsed", "ms");
+    private static readonly Histogram<double> s_messageCenterFanoutRefreshElapsed = s_meter.CreateHistogram<double>("fsus.message.center.fanout.refresh.elapsed", "ms");
+    private static readonly Histogram<double> s_messageCenterFanoutBuildItemElapsed = s_meter.CreateHistogram<double>("fsus.message.center.fanout.build_item.elapsed", "ms");
+    private static readonly Histogram<double> s_mfaChallengeStartAccountReadElapsed = s_meter.CreateHistogram<double>("fsus.mfa.challenge_start.account_read_elapsed_ms", "ms");
+    private static readonly Counter<long> s_mfaFailureCounterKeyCount = s_meter.CreateCounter<long>("fsus.mfa.failure_counter.key_count");
+    private static readonly Counter<long> s_mfaCounterExpiredCount = s_meter.CreateCounter<long>("fsus.mfa.counter_expired.count");
+    private static readonly Histogram<double> s_adminAccountListQueryElapsed = s_meter.CreateHistogram<double>("fsus.admin.account_list.query_elapsed_ms", "ms");
+    private static readonly Counter<long> s_adminAccountListCountUsed = s_meter.CreateCounter<long>("fsus.admin.account_list.count_used");
+    private static readonly Counter<long> s_adminAccountListCountSkipped = s_meter.CreateCounter<long>("fsus.admin.account_list.count_skipped");
+    private static readonly Counter<long> s_uploadSessionCleanupScannedSessions = s_meter.CreateCounter<long>("fsus.upload.cleanup.scanned_sessions");
+    private static readonly Counter<long> s_uploadSessionCleanupDeletedSessions = s_meter.CreateCounter<long>("fsus.upload.cleanup.deleted_sessions");
+    private static readonly Histogram<double> s_uploadSessionCleanupElapsed = s_meter.CreateHistogram<double>("fsus.upload.cleanup.elapsed_ms", "ms");
+    private static readonly Counter<long> s_uploadSessionCleanupSignalCount = s_meter.CreateCounter<long>("fsus.upload.cleanup.signal_count");
+    private static readonly Histogram<double> s_uploadSessionLockCurrentCount = s_meter.CreateHistogram<double>("fsus.upload.session_lock.current_count");
+    private static readonly Counter<long> s_uploadSessionLockStaleScannedCount = s_meter.CreateCounter<long>("fsus.upload.session_lock.stale_scanned_count");
+    private static readonly Counter<long> s_uploadSessionLockStaleDisposedCount = s_meter.CreateCounter<long>("fsus.upload.session_lock.stale_disposed_count");
+    private static readonly Histogram<double> s_uploadSessionLockCleanupElapsed = s_meter.CreateHistogram<double>("fsus.upload.session_lock.cleanup_elapsed_ms", "ms");
+    private static readonly Histogram<double> s_uploadSessionLockAcquireElapsed = s_meter.CreateHistogram<double>("fsus.upload.session_lock.acquire_elapsed_ms", "ms");
+    private static readonly Counter<long> s_passkeyAssertionDbCommandCount = s_meter.CreateCounter<long>("fsus.passkey.assertion.db_command_count");
+    private static readonly Histogram<double> s_passkeyAssertionElapsed = s_meter.CreateHistogram<double>("fsus.passkey.assertion.elapsed_ms", "ms");
+    private static readonly Counter<long> s_passkeySignCountUpdateConflictCount = s_meter.CreateCounter<long>("fsus.passkey.sign_count.update_conflict_count");
+    private static readonly Counter<long> s_adminPasskeyAssertionDbCommandCount = s_meter.CreateCounter<long>("fsus.admin.passkey.assertion.db_command_count");
+    private static readonly Histogram<double> s_adminPasskeyAssertionElapsed = s_meter.CreateHistogram<double>("fsus.admin.passkey.assertion.elapsed_ms", "ms");
+    private static readonly Counter<long> s_adminPasskeySignCountConflictCount = s_meter.CreateCounter<long>("fsus.admin.passkey.sign_count.conflict_count");
+    private static readonly Counter<long> s_adminSessionListReturnedCount = s_meter.CreateCounter<long>("fsus.admin.session.list.returned_count");
+    private static readonly Histogram<double> s_adminSessionListElapsed = s_meter.CreateHistogram<double>("fsus.admin.session.list.elapsed_ms", "ms");
+    private static readonly Counter<long> s_adminSessionRevokeOthersCount = s_meter.CreateCounter<long>("fsus.admin.session.revoke_others.count");
+    private static readonly Histogram<double> s_adminSessionRevokeOthersElapsed = s_meter.CreateHistogram<double>("fsus.admin.session.revoke_others.elapsed_ms", "ms");
+    private static readonly Counter<long> s_adminSessionValidationDbReadCount = s_meter.CreateCounter<long>("fsus.admin.session.validation.db_read_count");
+    private static readonly Counter<long> s_adminSessionValidationCacheHit = s_meter.CreateCounter<long>("fsus.admin.session.validation.cache_hit");
+    private static readonly Counter<long> s_adminSessionTouchSkipped = s_meter.CreateCounter<long>("fsus.admin.session.touch_skipped");
+    private static readonly Histogram<double> s_adminSessionTouchElapsed = s_meter.CreateHistogram<double>("fsus.admin.session.touch_elapsed_ms", "ms");
+    private static readonly Histogram<double> s_distributionDiagnosticsElapsed = s_meter.CreateHistogram<double>("fsus.distribution.diagnostics.elapsed_ms", "ms");
+    private static readonly Counter<long> s_distributionDiagnosticsCacheAccess = s_meter.CreateCounter<long>("fsus.distribution.diagnostics.cache_access");
+    private static readonly Counter<long> s_distributionDiagnosticsDbCommandCount = s_meter.CreateCounter<long>("fsus.distribution.diagnostics.db_command_count");
+    private static readonly Histogram<double> s_relatedReadingBuildElapsed = s_meter.CreateHistogram<double>("fsus.related_reading.build.elapsed_ms", "ms");
+    private static readonly Counter<long> s_relatedReadingBuildCacheAccess = s_meter.CreateCounter<long>("fsus.related_reading.build.cache_access");
+    private static readonly Histogram<double> s_sitemapBuildElapsed = s_meter.CreateHistogram<double>("fsus.sitemap.build.elapsed_ms", "ms");
+    private static readonly Counter<long> s_sitemapBuildCacheAccess = s_meter.CreateCounter<long>("fsus.sitemap.build.cache_access");
+    private static readonly Counter<long> s_readinessSnapshotCacheAccess = s_meter.CreateCounter<long>("fsus.readiness.snapshot.cache_access");
+    private static readonly Histogram<double> s_readinessSnapshotFreshCheckElapsed = s_meter.CreateHistogram<double>("fsus.readiness.snapshot.fresh_check_elapsed_ms", "ms");
+    private static readonly Counter<long> s_readinessSnapshotDependencyCheckCount = s_meter.CreateCounter<long>("fsus.readiness.snapshot.dependency_check_count");
+    private static readonly Histogram<double> s_readinessSnapshotAge = s_meter.CreateHistogram<double>("fsus.readiness.snapshot.age_ms", "ms");
+    private static readonly Histogram<double> s_readinessCheckElapsed = s_meter.CreateHistogram<double>("fsus.readiness.check.elapsed", "ms");
+    private static readonly Histogram<double> s_readinessPostgresElapsed = s_meter.CreateHistogram<double>("fsus.readiness.postgres.elapsed", "ms");
+    private static readonly Histogram<double> s_readinessRedisElapsed = s_meter.CreateHistogram<double>("fsus.readiness.redis.elapsed", "ms");
+    private static readonly Histogram<double> s_readinessRiskControlElapsed = s_meter.CreateHistogram<double>("fsus.readiness.risk_control.elapsed", "ms");
+    private static readonly Histogram<double> s_readinessRuntimeElapsed = s_meter.CreateHistogram<double>("fsus.readiness.runtime.elapsed", "ms");
+    private static readonly Counter<long> s_anonymousNullifierPrecheckCount = s_meter.CreateCounter<long>("fsus.anonymous_nullifier.precheck_count");
+    private static readonly Histogram<double> s_anonymousNullifierAtomicIncrementElapsed = s_meter.CreateHistogram<double>("fsus.anonymous_nullifier.atomic_increment_elapsed_ms", "ms");
+    private static readonly Counter<long> s_anonymousNullifierScopeLimitRejectedCount = s_meter.CreateCounter<long>("fsus.anonymous_nullifier.scope_limit_rejected_count");
+    private static readonly Counter<long> s_anonymousNullifierBlockedRejectedCount = s_meter.CreateCounter<long>("fsus.anonymous_nullifier.blocked_rejected_count");
 
-    public static IReadOnlyList<string> CustomAttributeNames => AllowedCustomAttributeNames;
+    public static IReadOnlyList<string> CustomAttributeNames => s_allowedCustomAttributeNames;
 
     internal const int SecurityChallengeV2IssueP99BudgetMs = 100;
     internal const int SecurityChallengeV2VerifyP99BudgetMs = 32;
     internal const int SecurityChallengeV2PayloadP95BudgetBytes = 6200;
     internal const int SecurityChallengeV2ClientRenderP95BudgetMs = 55;
     private const int SecurityChallengeV2SampleLimit = 512;
-    private static readonly SlidingWindow<double> SecurityChallengeV2IssueSamples = new(SecurityChallengeV2SampleLimit);
-    private static readonly SlidingWindow<double> SecurityChallengeV2VerifySamples = new(SecurityChallengeV2SampleLimit);
-    private static readonly SlidingWindow<int> SecurityChallengeV2PayloadSamples = new(SecurityChallengeV2SampleLimit);
-    private static readonly SlidingWindow<double> SecurityChallengeV2ClientRenderSamples = new(SecurityChallengeV2SampleLimit);
+    private static readonly SlidingWindow<double> s_securityChallengeV2IssueSamples = new(SecurityChallengeV2SampleLimit);
+    private static readonly SlidingWindow<double> s_securityChallengeV2VerifySamples = new(SecurityChallengeV2SampleLimit);
+    private static readonly SlidingWindow<int> s_securityChallengeV2PayloadSamples = new(SecurityChallengeV2SampleLimit);
+    private static readonly SlidingWindow<double> s_securityChallengeV2ClientRenderSamples = new(SecurityChallengeV2SampleLimit);
 
     public static bool IsAllowedCustomAttribute(string name)
-        => AllowedCustomAttributes.Contains(name);
+        => s_allowedCustomAttributes.Contains(name);
 
     public static Activity? StartActivity(string name, string component, ActivityKind kind = ActivityKind.Internal)
     {
@@ -359,7 +359,7 @@ public static class FsusObservability
     public static string ClassifyRoute(PathString path)
     {
         string value = path.Value ?? string.Empty;
-        return RouteKindCache.GetOrAdd(value, ClassifyRouteCore);
+        return s_routeKindCache.GetOrAdd(value, ClassifyRouteCore);
     }
 
     private static string ClassifyRouteCore(string value)
@@ -408,8 +408,8 @@ public static class FsusObservability
     public static void RecordOperation(string component, string operation, string result, TimeSpan duration)
     {
         TagList tags = CreateBaseTags(component, operation, result);
-        OperationCounter.Add(1, tags);
-        OperationDuration.Record(duration.TotalMilliseconds, tags);
+        s_operationCounter.Add(1, tags);
+        s_operationDuration.Record(duration.TotalMilliseconds, tags);
     }
 
     public static void RecordHttpRequest(string routeKind, int statusCode, TimeSpan duration)
@@ -417,25 +417,25 @@ public static class FsusObservability
         TagList tags = CreateBaseTags("http", "request", statusCode < 500 ? "ok" : "error");
         tags.Add("fsus.route_kind", routeKind);
         tags.Add("fsus.http.status_code", statusCode);
-        OperationCounter.Add(1, tags);
-        OperationDuration.Record(duration.TotalMilliseconds, tags);
+        s_operationCounter.Add(1, tags);
+        s_operationDuration.Record(duration.TotalMilliseconds, tags);
     }
 
     public static void RecordCacheOperation(string operation, string policyId, string layer, string result, TimeSpan duration)
     {
         var key = new CacheOperationMetricKey(operation, policyId, layer, result);
-        CacheOperationMetricState state = CacheOperationRuntimeCounters.GetOrAdd(
+        CacheOperationMetricState state = s_cacheOperationRuntimeCounters.GetOrAdd(
             key,
             static metricKey => new CacheOperationMetricState(metricKey));
         state.Record();
-        CacheOperationCounter.Add(1, state.Tags);
-        CacheOperationDuration.Record(duration.TotalMilliseconds, state.Tags);
+        s_cacheOperationCounter.Add(1, state.Tags);
+        s_cacheOperationDuration.Record(duration.TotalMilliseconds, state.Tags);
     }
 
     public static IReadOnlyList<CacheOperationRuntimeCounter> GetCacheOperationCounters()
     {
-        var counters = new List<CacheOperationRuntimeCounter>(CacheOperationRuntimeCounters.Count);
-        foreach ((CacheOperationMetricKey key, CacheOperationMetricState state) in CacheOperationRuntimeCounters)
+        var counters = new List<CacheOperationRuntimeCounter>(s_cacheOperationRuntimeCounters.Count);
+        foreach ((CacheOperationMetricKey key, CacheOperationMetricState state) in s_cacheOperationRuntimeCounters)
         {
             counters.Add(new CacheOperationRuntimeCounter(key.Operation, key.Policy, key.Layer, key.Result, state.Count));
         }
@@ -507,24 +507,24 @@ public static class FsusObservability
         TryRecord(() =>
         {
             SecurityEventTagCacheKey cacheKey = CreateSecurityEventTagCacheKey(operation, reason, result);
-            if (SecurityEventTagCache.TryGetValue(cacheKey, out TagList cachedTags))
+            if (s_securityEventTagCache.TryGetValue(cacheKey, out TagList cachedTags))
             {
-                Interlocked.Increment(ref SecurityEventTagCacheHits);
-                SecurityEventCounter.Add(1, cachedTags);
+                Interlocked.Increment(ref s_securityEventTagCacheHits);
+                s_securityEventCounter.Add(1, cachedTags);
                 return;
             }
 
-            Interlocked.Increment(ref SecurityEventTagCacheMisses);
-            SecurityEventTagCacheMissCounter.Add(1);
+            Interlocked.Increment(ref s_securityEventTagCacheMisses);
+            s_securityEventTagCacheMissCounter.Add(1);
             TagList tags = CreateSecurityEventTags(cacheKey.Operation, cacheKey.Reason, cacheKey.Result);
-            if (SecurityEventTagCache.Count < SecurityEventTagCacheLimit)
+            if (s_securityEventTagCache.Count < SecurityEventTagCacheLimit)
             {
-                SecurityEventTagCache.TryAdd(cacheKey, tags);
+                s_securityEventTagCache.TryAdd(cacheKey, tags);
             }
 
-            SecurityEventCounter.Add(1, tags);
+            s_securityEventCounter.Add(1, tags);
         });
-        TryRecord(() => SecurityEventRecordElapsed.Record(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds));
+        TryRecord(() => s_securityEventRecordElapsed.Record(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds));
     }
 
     public static void RecordSecurityEvent(string operation, SecurityRiskReason reason, string result)
@@ -544,7 +544,7 @@ public static class FsusObservability
             tags.Add("fsus.security.source", NormalizeTelemetryValue(source, "unknown"));
             tags.Add("fsus.security.reason", NormalizeTelemetryValue(reason, "unknown"));
             tags.Add("fsus.security.action", NormalizeTelemetryValue(action, "unknown"));
-            SecurityRiskEventCounter.Add(1, tags);
+            s_securityRiskEventCounter.Add(1, tags);
         });
     }
 
@@ -557,11 +557,11 @@ public static class FsusObservability
     {
         TryRecord(() =>
         {
-            SecurityRiskEventBatchSize.Record(Math.Max(0, batchSize));
-            SecurityRiskEventFlushElapsed.Record(flushElapsed.TotalMilliseconds);
-            SecurityRiskEventInsertedRows.Add(Math.Max(0, insertedRows));
-            SecurityRiskEventFailedBatches.Add(Math.Max(0, failedBatches));
-            SecurityRiskEventFallbackSingleInserts.Add(Math.Max(0, fallbackSingleInserts));
+            s_securityRiskEventBatchSize.Record(Math.Max(0, batchSize));
+            s_securityRiskEventFlushElapsed.Record(flushElapsed.TotalMilliseconds);
+            s_securityRiskEventInsertedRows.Add(Math.Max(0, insertedRows));
+            s_securityRiskEventFailedBatches.Add(Math.Max(0, failedBatches));
+            s_securityRiskEventFallbackSingleInserts.Add(Math.Max(0, fallbackSingleInserts));
         });
     }
 
@@ -572,9 +572,9 @@ public static class FsusObservability
     {
         TryRecord(() =>
         {
-            RiskScoreAtomicUpdateElapsed.Record(riskScoreAtomicUpdateElapsed.TotalMilliseconds);
-            RiskScoreRedisRoundTrips.Add(Math.Max(0, riskScoreRedisRoundTrips));
-            RiskScoreConflictAvoided.Add(Math.Max(0, riskScoreConflictAvoided));
+            s_riskScoreAtomicUpdateElapsed.Record(riskScoreAtomicUpdateElapsed.TotalMilliseconds);
+            s_riskScoreRedisRoundTrips.Add(Math.Max(0, riskScoreRedisRoundTrips));
+            s_riskScoreConflictAvoided.Add(Math.Max(0, riskScoreConflictAvoided));
         });
     }
 
@@ -584,7 +584,7 @@ public static class FsusObservability
         {
             if (zeroRiskCacheHit)
             {
-                ZeroRiskCacheHit.Add(1);
+                s_zeroRiskCacheHit.Add(1);
             }
         });
     }
@@ -597,10 +597,10 @@ public static class FsusObservability
     {
         TryRecord(() =>
         {
-            AdminAuditQueuedCounter.Add(Math.Max(0, adminAuditQueuedCount));
-            AdminAuditDroppedCounter.Add(Math.Max(0, adminAuditDroppedCount));
-            AdminAuditFallbackWriteCounter.Add(Math.Max(0, adminAuditFallbackWriteCount));
-            AdminAuditQueueDepth.Record(Math.Max(0, queueDepth));
+            s_adminAuditQueuedCounter.Add(Math.Max(0, adminAuditQueuedCount));
+            s_adminAuditDroppedCounter.Add(Math.Max(0, adminAuditDroppedCount));
+            s_adminAuditFallbackWriteCounter.Add(Math.Max(0, adminAuditFallbackWriteCount));
+            s_adminAuditQueueDepth.Record(Math.Max(0, queueDepth));
         });
     }
 
@@ -608,8 +608,8 @@ public static class FsusObservability
     {
         TryRecord(() =>
         {
-            AdminAuditBatchSize.Record(Math.Max(0, adminAuditBatchSize));
-            AdminAuditWriteElapsed.Record(adminAuditWriteElapsed.TotalMilliseconds);
+            s_adminAuditBatchSize.Record(Math.Max(0, adminAuditBatchSize));
+            s_adminAuditWriteElapsed.Record(adminAuditWriteElapsed.TotalMilliseconds);
         });
     }
 
@@ -618,7 +618,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("audit", "chain_tail_cache", hit ? "hit" : "miss");
-            AuditChainTailCacheAccess.Add(1, tags);
+            s_auditChainTailCacheAccess.Add(1, tags);
         });
     }
 
@@ -627,7 +627,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("audit", "chain_tail_query", "ok");
-            AuditChainTailQueryElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_auditChainTailQueryElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -636,8 +636,8 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("audit", "batch_write", "ok");
-            AuditBatchSize.Record(Math.Max(0, batchSize), tags);
-            AuditBatchWriteElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_auditBatchSize.Record(Math.Max(0, batchSize), tags);
+            s_auditBatchWriteElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -645,8 +645,8 @@ public static class FsusObservability
     {
         TryRecord(() =>
         {
-            AuditListDbCounter.Add(Math.Max(0, auditListDbCount));
-            AuditListElapsed.Record(auditListElapsed.TotalMilliseconds);
+            s_auditListDbCounter.Add(Math.Max(0, auditListDbCount));
+            s_auditListElapsed.Record(auditListElapsed.TotalMilliseconds);
         });
     }
 
@@ -654,8 +654,8 @@ public static class FsusObservability
     {
         TryRecord(() =>
         {
-            AuditSummaryQueryCounter.Add(Math.Max(0, auditSummaryQueryCount));
-            AuditFacetElapsed.Record(auditFacetElapsed.TotalMilliseconds);
+            s_auditSummaryQueryCounter.Add(Math.Max(0, auditSummaryQueryCount));
+            s_auditFacetElapsed.Record(auditFacetElapsed.TotalMilliseconds);
         });
     }
 
@@ -664,7 +664,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("audit", "facet", NormalizeTelemetryValue(facet, "unknown"));
-            AuditFacetElapsed.Record(auditFacetElapsed.TotalMilliseconds, tags);
+            s_auditFacetElapsed.Record(auditFacetElapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -674,7 +674,7 @@ public static class FsusObservability
         {
             if (auditSummaryCacheHit)
             {
-                AuditSummaryCacheHitCounter.Add(1);
+                s_auditSummaryCacheHitCounter.Add(1);
             }
         });
     }
@@ -691,7 +691,7 @@ public static class FsusObservability
             tags.Add("fsus.security.action", NormalizeTelemetryValue(decision.ActionName, "unknown"));
             tags.Add("fsus.security.outcome", outcome);
             tags.Add("fsus.security.policy_version", NormalizeTelemetryValue(decision.PolicyVersion, "unknown"));
-            SecurityDecisionCounter.Add(1, tags);
+            s_securityDecisionCounter.Add(1, tags);
         });
     }
 
@@ -700,7 +700,7 @@ public static class FsusObservability
         string normalized = NormalizeTelemetryValue(policyVersion, "unknown");
         if (!string.Equals(normalized, "unknown", StringComparison.Ordinal))
         {
-            Volatile.Write(ref ActiveSecurityPolicyVersionValue, normalized);
+            Volatile.Write(ref s_activeSecurityPolicyVersionValue, normalized);
         }
     }
 
@@ -709,28 +709,28 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateSecurityChallengeTags("challenge_issue", "issued", kind, action, policyVersion);
-            SecurityChallengeIssuedCounter.Add(1, tags);
+            s_securityChallengeIssuedCounter.Add(1, tags);
         });
     }
 
     public static void RecordChallengeVerifyRateLimitedBeforeJson()
     {
-        TryRecord(() => ChallengeVerifyRateLimitedBeforeJson.Add(1));
+        TryRecord(() => s_challengeVerifyRateLimitedBeforeJson.Add(1));
     }
 
     public static void RecordProviderPayloadParse(TimeSpan providerPayloadParseElapsed)
     {
-        TryRecord(() => ProviderPayloadParseElapsed.Record(providerPayloadParseElapsed.TotalMilliseconds));
+        TryRecord(() => s_providerPayloadParseElapsed.Record(providerPayloadParseElapsed.TotalMilliseconds));
     }
 
     public static void RecordProviderPayloadRejectedBytes(long providerPayloadRejectedBytes)
     {
-        TryRecord(() => ProviderPayloadRejectedBytes.Add(Math.Max(0, providerPayloadRejectedBytes)));
+        TryRecord(() => s_providerPayloadRejectedBytes.Add(Math.Max(0, providerPayloadRejectedBytes)));
     }
 
     public static void RecordChallengeVerifyAllocationBytes(long challengeVerifyAllocationBytes)
     {
-        TryRecord(() => ChallengeVerifyAllocationBytes.Record(Math.Max(0, challengeVerifyAllocationBytes)));
+        TryRecord(() => s_challengeVerifyAllocationBytes.Record(Math.Max(0, challengeVerifyAllocationBytes)));
     }
 
     public static void RecordSecurityChallengeVerified(string kind, string action, string policyVersion, TimeSpan? solveDuration = null)
@@ -738,10 +738,10 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateSecurityChallengeTags("challenge_verify", "verified", kind, action, policyVersion);
-            SecurityChallengeVerifiedCounter.Add(1, tags);
+            s_securityChallengeVerifiedCounter.Add(1, tags);
             if (solveDuration is { } duration && duration >= TimeSpan.Zero)
             {
-                SecurityChallengeSolveDuration.Record(duration.TotalMilliseconds, tags);
+                s_securityChallengeSolveDuration.Record(duration.TotalMilliseconds, tags);
             }
         });
     }
@@ -752,7 +752,7 @@ public static class FsusObservability
         {
             TagList tags = CreateSecurityChallengeTags("challenge_verify", "failed", kind, action, policyVersion);
             tags.Add("fsus.security.reason", NormalizeTelemetryValue(reason, "failed"));
-            SecurityChallengeFailedCounter.Add(1, tags);
+            s_securityChallengeFailedCounter.Add(1, tags);
         });
     }
 
@@ -762,7 +762,7 @@ public static class FsusObservability
         {
             TagList tags = CreateSecurityChallengeTags("challenge_verify", "replayed", kind, action, policyVersion);
             tags.Add("fsus.security.reason", NormalizeTelemetryValue(reason, "replayed"));
-            SecurityChallengeReplayedCounter.Add(1, tags);
+            s_securityChallengeReplayedCounter.Add(1, tags);
         });
     }
 
@@ -777,12 +777,12 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateSecurityChallengeV2Tags("challenge_v2_issue", "issued", kind, action, policyVersion, taskKind);
-            SecurityChallengeV2IssuedCounter.Add(1, tags);
-            SecurityChallengeV2TaskKindCounter.Add(1, tags);
-            RecordNonNegativeHistogram(SecurityChallengeV2PayloadBytes, payloadBytes, tags);
-            RecordNonNegativeHistogram(SecurityChallengeV2IssueDuration, issueDuration.TotalMilliseconds, tags);
-            AddBoundedSample(SecurityChallengeV2PayloadSamples, payloadBytes);
-            AddBoundedSample(SecurityChallengeV2IssueSamples, issueDuration.TotalMilliseconds);
+            s_securityChallengeV2IssuedCounter.Add(1, tags);
+            s_securityChallengeV2TaskKindCounter.Add(1, tags);
+            RecordNonNegativeHistogram(s_securityChallengeV2PayloadBytes, payloadBytes, tags);
+            RecordNonNegativeHistogram(s_securityChallengeV2IssueDuration, issueDuration.TotalMilliseconds, tags);
+            AddBoundedSample(s_securityChallengeV2PayloadSamples, payloadBytes);
+            AddBoundedSample(s_securityChallengeV2IssueSamples, issueDuration.TotalMilliseconds);
         });
     }
 
@@ -798,7 +798,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateSecurityChallengeV2Tags("challenge_v2_verify", "verified", kind, action, policyVersion, taskKind);
-            SecurityChallengeV2VerifiedCounter.Add(1, tags);
+            s_securityChallengeV2VerifiedCounter.Add(1, tags);
             RecordSecurityChallengeV2VerifyMeasurements(tags, payloadBytes, verifyDuration, solveDuration);
         });
     }
@@ -817,7 +817,7 @@ public static class FsusObservability
         {
             TagList tags = CreateSecurityChallengeV2Tags("challenge_v2_verify", "failed", kind, action, policyVersion, taskKind);
             tags.Add("fsus.security.reason", NormalizeTelemetryValue(reason, "failed"));
-            SecurityChallengeV2FailedCounter.Add(1, tags);
+            s_securityChallengeV2FailedCounter.Add(1, tags);
             RecordSecurityChallengeV2VerifyMeasurements(tags, payloadBytes, verifyDuration, solveDuration);
         });
     }
@@ -836,7 +836,7 @@ public static class FsusObservability
         {
             TagList tags = CreateSecurityChallengeV2Tags("challenge_v2_verify", "replayed", kind, action, policyVersion, taskKind);
             tags.Add("fsus.security.reason", NormalizeTelemetryValue(reason, "replayed"));
-            SecurityChallengeV2ReplayedCounter.Add(1, tags);
+            s_securityChallengeV2ReplayedCounter.Add(1, tags);
             RecordSecurityChallengeV2VerifyMeasurements(tags, payloadBytes, verifyDuration, solveDuration);
         });
     }
@@ -852,17 +852,17 @@ public static class FsusObservability
                 "client-render",
                 "unknown",
                 taskKind);
-            RecordNonNegativeHistogram(SecurityChallengeV2ClientRenderDuration, renderDuration.TotalMilliseconds, tags);
-            AddBoundedSample(SecurityChallengeV2ClientRenderSamples, renderDuration.TotalMilliseconds);
+            RecordNonNegativeHistogram(s_securityChallengeV2ClientRenderDuration, renderDuration.TotalMilliseconds, tags);
+            AddBoundedSample(s_securityChallengeV2ClientRenderSamples, renderDuration.TotalMilliseconds);
         });
     }
 
     public static SecurityChallengeV2PerformanceBudgetSnapshot CreateSecurityChallengeV2PerformanceBudgetSnapshot()
     {
-        double issueP99 = Percentile(SecurityChallengeV2IssueSamples.Snapshot(), 0.99);
-        double verifyP99 = Percentile(SecurityChallengeV2VerifySamples.Snapshot(), 0.99);
-        int payloadP95 = Percentile(SecurityChallengeV2PayloadSamples.Snapshot(), 0.95);
-        double clientRenderP95 = Percentile(SecurityChallengeV2ClientRenderSamples.Snapshot(), 0.95);
+        double issueP99 = Percentile(s_securityChallengeV2IssueSamples.Snapshot(), 0.99);
+        double verifyP99 = Percentile(s_securityChallengeV2VerifySamples.Snapshot(), 0.99);
+        int payloadP95 = Percentile(s_securityChallengeV2PayloadSamples.Snapshot(), 0.95);
+        double clientRenderP95 = Percentile(s_securityChallengeV2ClientRenderSamples.Snapshot(), 0.95);
         List<string> warnings = [];
 
         if (issueP99 > SecurityChallengeV2IssueP99BudgetMs)
@@ -900,10 +900,10 @@ public static class FsusObservability
 
     internal static void ResetSecurityChallengeV2RuntimeMetricsForTests()
     {
-        SecurityChallengeV2IssueSamples.Clear();
-        SecurityChallengeV2VerifySamples.Clear();
-        SecurityChallengeV2PayloadSamples.Clear();
-        SecurityChallengeV2ClientRenderSamples.Clear();
+        s_securityChallengeV2IssueSamples.Clear();
+        s_securityChallengeV2VerifySamples.Clear();
+        s_securityChallengeV2PayloadSamples.Clear();
+        s_securityChallengeV2ClientRenderSamples.Clear();
     }
 
     public static void RecordDbOperation(string operation, string result, TimeSpan duration)
@@ -911,7 +911,7 @@ public static class FsusObservability
         TagList tags = CreateBaseTags("db", operation, result);
         tags.Add("fsus.db.system", "postgresql");
         tags.Add("fsus.db.operation", operation);
-        DbOperationDuration.Record(duration.TotalMilliseconds, tags);
+        s_dbOperationDuration.Record(duration.TotalMilliseconds, tags);
     }
 
     public static void RecordAotRender(string source, string backfill, string result, TimeSpan duration)
@@ -919,21 +919,21 @@ public static class FsusObservability
         TagList tags = CreateBaseTags("public_aot", "render", result);
         tags.Add("fsus.aot.source", source);
         tags.Add("fsus.aot.backfill", backfill);
-        AotRenderDuration.Record(duration.TotalMilliseconds, tags);
+        s_aotRenderDuration.Record(duration.TotalMilliseconds, tags);
     }
 
     public static void RecordSearchOperation(string mode, string result, TimeSpan duration)
     {
         TagList tags = CreateBaseTags("search", mode, result);
         tags.Add("fsus.search.mode", mode);
-        SearchOperationDuration.Record(duration.TotalMilliseconds, tags);
+        s_searchOperationDuration.Record(duration.TotalMilliseconds, tags);
     }
 
     public static void RecordSearchRuntimeSnapshotMemory(long estimatedBytes, string source)
     {
         TagList tags = CreateBaseTags("search", "runtime_snapshot_memory", "ok");
         tags.Add("fsus.search.source", source);
-        RecordNonNegativeHistogram(SearchRuntimeSnapshotMemoryBytes, estimatedBytes, tags);
+        RecordNonNegativeHistogram(s_searchRuntimeSnapshotMemoryBytes, estimatedBytes, tags);
     }
 
     public static void RecordBackgroundJob(string job, string result, TimeSpan duration, int? published = null, int? failed = null, int? backlog = null)
@@ -955,7 +955,7 @@ public static class FsusObservability
             tags.Add("fsus.background.backlog", backlog.Value);
         }
 
-        BackgroundJobDuration.Record(duration.TotalMilliseconds, tags);
+        s_backgroundJobDuration.Record(duration.TotalMilliseconds, tags);
     }
 
     public static void RecordArticleOutboxClaim(long claimed, long reclaimed)
@@ -963,33 +963,33 @@ public static class FsusObservability
         {
             if (claimed > 0)
             {
-                ArticleOutboxClaimed.Add(claimed);
+                s_articleOutboxClaimed.Add(claimed);
             }
 
             if (reclaimed > 0)
             {
-                ArticleOutboxReclaimed.Add(reclaimed);
+                s_articleOutboxReclaimed.Add(reclaimed);
             }
         });
 
     public static void RecordArticleOutboxClaimLost()
-        => TryRecord(() => ArticleOutboxClaimLost.Add(1));
+        => TryRecord(() => s_articleOutboxClaimLost.Add(1));
 
     public static void RecordArticleOutboxHeartbeat(string result, long renewed)
         => TryRecord(() =>
         {
             TagList tags = CreateBaseTags("article_outbox", "heartbeat", result);
-            ArticleOutboxHeartbeat.Add(Math.Max(1, renewed), tags);
+            s_articleOutboxHeartbeat.Add(Math.Max(1, renewed), tags);
         });
 
     public static void RecordArticleOutboxStuckClaims(long count)
-        => TryRecord(() => ArticleOutboxStuckClaims.Record(Math.Max(0, count)));
+        => TryRecord(() => s_articleOutboxStuckClaims.Record(Math.Max(0, count)));
 
     public static void RecordReadAggregateFlush(long count)
     {
         if (count > 0)
         {
-            ReadAggregateFlushCounter.Add(count);
+            s_readAggregateFlushCounter.Add(count);
         }
     }
 
@@ -1000,45 +1000,45 @@ public static class FsusObservability
         {
             if (string.Equals(operation, "dirty", StringComparison.Ordinal))
             {
-                HotArticlesDirtyCounter.Add(value);
+                s_hotArticlesDirtyCounter.Add(value);
                 return;
             }
 
-            HotArticlesFlushCounter.Add(1);
-            HotArticlesCoalescedCounter.Add(value);
+            s_hotArticlesFlushCounter.Add(1);
+            s_hotArticlesCoalescedCounter.Add(value);
             return;
         }
 
         if (string.Equals(operation, "dirty", StringComparison.Ordinal))
         {
-            StatsDirtyCounter.Add(value);
+            s_statsDirtyCounter.Add(value);
             return;
         }
 
-        StatsFlushCounter.Add(1);
+        s_statsFlushCounter.Add(1);
     }
 
     public static void RecordHotArticlesVersion(long version)
     {
         if (version > 0)
         {
-            Volatile.Write(ref HotArticlesVersionValue, version);
+            Volatile.Write(ref s_hotArticlesVersionValue, version);
         }
     }
 
     public static void RecordCacheRemoveMany(long keys, long redisBatches, TimeSpan elapsed)
     {
-        CacheRemoveManyKeyCounter.Add(Math.Max(0, keys));
-        CacheRemoveManyRedisBatchCounter.Add(Math.Max(0, redisBatches));
-        CacheRemoveManyElapsed.Record(elapsed.TotalMilliseconds);
+        s_cacheRemoveManyKeyCounter.Add(Math.Max(0, keys));
+        s_cacheRemoveManyRedisBatchCounter.Add(Math.Max(0, redisBatches));
+        s_cacheRemoveManyElapsed.Record(elapsed.TotalMilliseconds);
     }
 
     public static void RecordCacheRemovePrefixMany(long prefixes, long registryScans, long deletedKeys, TimeSpan elapsed)
     {
-        CacheRemovePrefixManyPrefixCounter.Add(Math.Max(0, prefixes));
-        CacheRemovePrefixManyRegistryScanCounter.Add(Math.Max(0, registryScans));
-        CacheRemovePrefixManyDeletedKeyCounter.Add(Math.Max(0, deletedKeys));
-        CacheRemovePrefixManyElapsed.Record(elapsed.TotalMilliseconds);
+        s_cacheRemovePrefixManyPrefixCounter.Add(Math.Max(0, prefixes));
+        s_cacheRemovePrefixManyRegistryScanCounter.Add(Math.Max(0, registryScans));
+        s_cacheRemovePrefixManyDeletedKeyCounter.Add(Math.Max(0, deletedKeys));
+        s_cacheRemovePrefixManyElapsed.Record(elapsed.TotalMilliseconds);
     }
 
     public static void RecordIncrementManyWithExpiry(string policyId, long keyCount, long expiryAppliedCount, TimeSpan elapsed)
@@ -1047,9 +1047,9 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("cache", "increment_many_with_expiry", "ok");
             tags.Add("fsus.cache.policy", NormalizeTelemetryValue(policyId, "unknown"));
-            CacheIncrementManyWithExpiryKeyCount.Add(Math.Max(0, keyCount), tags);
-            CacheIncrementManyWithExpiryAppliedCount.Add(Math.Max(0, expiryAppliedCount), tags);
-            CacheIncrementManyWithExpiryElapsed.Record(Math.Max(0d, elapsed.TotalMilliseconds), tags);
+            s_cacheIncrementManyWithExpiryKeyCount.Add(Math.Max(0, keyCount), tags);
+            s_cacheIncrementManyWithExpiryAppliedCount.Add(Math.Max(0, expiryAppliedCount), tags);
+            s_cacheIncrementManyWithExpiryElapsed.Record(Math.Max(0d, elapsed.TotalMilliseconds), tags);
         });
     }
 
@@ -1063,17 +1063,17 @@ public static class FsusObservability
         string? registryCleanupStatus = null,
         long registryDeletedKeys = 0)
     {
-        PublicAotInvalidationScopeCounter.Add(Math.Max(0, scopes));
-        PublicAotInvalidatedKeyCounter.Add(Math.Max(0, invalidatedKeys));
-        PublicAotDeletedFileCounter.Add(Math.Max(0, deletedFiles));
-        PublicAotRegistryRemovedMemberCounter.Add(Math.Max(0, registryRemovedMembers));
-        PublicAotPublishCounter.Add(Math.Max(0, publishCount));
-        PublicAotInvalidationDuration.Record(elapsed.TotalMilliseconds);
+        s_publicAotInvalidationScopeCounter.Add(Math.Max(0, scopes));
+        s_publicAotInvalidatedKeyCounter.Add(Math.Max(0, invalidatedKeys));
+        s_publicAotDeletedFileCounter.Add(Math.Max(0, deletedFiles));
+        s_publicAotRegistryRemovedMemberCounter.Add(Math.Max(0, registryRemovedMembers));
+        s_publicAotPublishCounter.Add(Math.Max(0, publishCount));
+        s_publicAotInvalidationDuration.Record(elapsed.TotalMilliseconds);
         if (!string.IsNullOrWhiteSpace(registryCleanupStatus))
         {
             TagList tags = CreateBaseTags("public_aot", "registry_cleanup", registryCleanupStatus);
-            PublicAotRegistryCleanupCounter.Add(1, tags);
-            PublicAotRegistryDeletedKeyCounter.Add(Math.Max(0, registryDeletedKeys), tags);
+            s_publicAotRegistryCleanupCounter.Add(1, tags);
+            s_publicAotRegistryDeletedKeyCounter.Add(Math.Max(0, registryDeletedKeys), tags);
         }
     }
 
@@ -1082,7 +1082,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("public_aot", NormalizeTelemetryValue(operation, "compose"), "ok");
-            PublicAotComposeElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+            s_publicAotComposeElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
         });
     }
 
@@ -1090,33 +1090,33 @@ public static class FsusObservability
     {
         if (cacheHit)
         {
-            Interlocked.Increment(ref PublicAotBootstrapSeoSnapshotHits);
+            Interlocked.Increment(ref s_publicAotBootstrapSeoSnapshotHits);
             return;
         }
 
-        Interlocked.Increment(ref PublicAotBootstrapSeoSnapshotMisses);
+        Interlocked.Increment(ref s_publicAotBootstrapSeoSnapshotMisses);
     }
 
     public static void RecordPublicAotCacheCodecAccess(bool cacheHit)
     {
         if (cacheHit)
         {
-            Interlocked.Increment(ref PublicAotCacheCodecHits);
+            Interlocked.Increment(ref s_publicAotCacheCodecHits);
             return;
         }
 
-        Interlocked.Increment(ref PublicAotCacheCodecMisses);
+        Interlocked.Increment(ref s_publicAotCacheCodecMisses);
     }
 
     public static void RecordPublicAotShellCacheFileAccess(bool cacheHit)
     {
         if (cacheHit)
         {
-            Interlocked.Increment(ref PublicAotShellCacheFileHits);
+            Interlocked.Increment(ref s_publicAotShellCacheFileHits);
             return;
         }
 
-        Interlocked.Increment(ref PublicAotShellCacheFileMisses);
+        Interlocked.Increment(ref s_publicAotShellCacheFileMisses);
     }
 
     public static void RecordPublicHotDelta(
@@ -1125,10 +1125,10 @@ public static class FsusObservability
         long rebuiltTaxonomyFrames,
         TimeSpan elapsed)
     {
-        PublicHotDeltaChangedArticleCounter.Add(Math.Max(0, changedArticles));
-        PublicHotDeltaRebuiltListCounter.Add(Math.Max(0, rebuiltListFrames));
-        PublicHotDeltaRebuiltTaxonomyCounter.Add(Math.Max(0, rebuiltTaxonomyFrames));
-        PublicHotDeltaElapsed.Record(elapsed.TotalMilliseconds);
+        s_publicHotDeltaChangedArticleCounter.Add(Math.Max(0, changedArticles));
+        s_publicHotDeltaRebuiltListCounter.Add(Math.Max(0, rebuiltListFrames));
+        s_publicHotDeltaRebuiltTaxonomyCounter.Add(Math.Max(0, rebuiltTaxonomyFrames));
+        s_publicHotDeltaElapsed.Record(elapsed.TotalMilliseconds);
     }
 
     public static void RecordPublicHotResidency(
@@ -1138,10 +1138,10 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("public-hot-read", "snapshot_publish", "ok");
-            PublicHotResidentBytes.Record(residency.TotalBytes, tags);
-            PublicHotSnapshotOverlapBytes.Record(Math.Max(0, snapshotOverlapBytes), tags);
-            PublicHotLohEligibleBytes.Record(residency.LohEligibleArrayBytes, tags);
-            PublicHotArtifactObjects.Record(residency.ObjectCount, tags);
+            s_publicHotResidentBytes.Record(residency.TotalBytes, tags);
+            s_publicHotSnapshotOverlapBytes.Record(Math.Max(0, snapshotOverlapBytes), tags);
+            s_publicHotLohEligibleBytes.Record(residency.LohEligibleArrayBytes, tags);
+            s_publicHotArtifactObjects.Record(residency.ObjectCount, tags);
         });
     }
 
@@ -1155,10 +1155,10 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("admin-integrity", NormalizeTelemetryValue(code, "unknown"), totalCount == 0 ? "ok" : "issue");
-            AdminIntegrityCheckElapsed.Record(elapsed.TotalMilliseconds, tags);
-            AdminIntegrityTotalCount.Add(Math.Max(0, totalCount), tags);
-            AdminIntegritySampleCount.Add(Math.Max(0, sampleCount), tags);
-            AdminIntegrityScannedFiles.Add(Math.Max(0, scannedFileCount), tags);
+            s_adminIntegrityCheckElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_adminIntegrityTotalCount.Add(Math.Max(0, totalCount), tags);
+            s_adminIntegritySampleCount.Add(Math.Max(0, sampleCount), tags);
+            s_adminIntegrityScannedFiles.Add(Math.Max(0, scannedFileCount), tags);
         });
     }
 
@@ -1171,10 +1171,10 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("moderation", "region_dictionary_match", "ok");
-            ModerationDictionaryScannedContent.Add(Math.Max(0, scannedContentCount), tags);
-            ModerationDictionaryMatchedTerms.Add(Math.Max(0, matchedTermCount), tags);
-            ModerationDictionaryMatchElapsed.Record(elapsed.TotalMilliseconds, tags);
-            ModerationDictionaryEvaluatedRegions.Add(Math.Max(0, evaluatedRegionCount), tags);
+            s_moderationDictionaryScannedContent.Add(Math.Max(0, scannedContentCount), tags);
+            s_moderationDictionaryMatchedTerms.Add(Math.Max(0, matchedTermCount), tags);
+            s_moderationDictionaryMatchElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_moderationDictionaryEvaluatedRegions.Add(Math.Max(0, evaluatedRegionCount), tags);
         });
     }
 
@@ -1183,7 +1183,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("taxonomy-frame", NormalizeTelemetryValue(frame, "unknown"), hit ? "hit" : "miss");
-            TaxonomyFrameCacheAccess.Add(1, tags);
+            s_taxonomyFrameCacheAccess.Add(1, tags);
         });
     }
 
@@ -1192,7 +1192,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("taxonomy-frame", NormalizeTelemetryValue(frame, "unknown"), "miss");
-            TaxonomyFrameColdMissElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_taxonomyFrameColdMissElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1201,8 +1201,8 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("taxonomy-projection", frameVersion > 0 ? "changed" : "unchanged", "ok");
-            TaxonomyProjectionUpdateCount.Add(Math.Max(0, updatedRows), tags);
-            TaxonomyFrameColdMissElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_taxonomyProjectionUpdateCount.Add(Math.Max(0, updatedRows), tags);
+            s_taxonomyFrameColdMissElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1211,7 +1211,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("taxonomy-frame", NormalizeTelemetryValue(reason, "unknown"), "version");
-            TaxonomyFrameVersionCounter.Add(version > 0 ? 1 : 0, tags);
+            s_taxonomyFrameVersionCounter.Add(version > 0 ? 1 : 0, tags);
         });
     }
 
@@ -1220,27 +1220,27 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("notification-stream", NormalizeTelemetryValue(stage, "origin"), accepted ? "accepted" : "rejected");
-            NotificationStreamOriginValidationElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_notificationStreamOriginValidationElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
     public static void RecordNotificationStreamOriginCacheAccess(TimeSpan elapsed)
     {
-        Interlocked.Increment(ref NotificationStreamOriginCacheHits);
+        Interlocked.Increment(ref s_notificationStreamOriginCacheHits);
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("notification-stream", "origin-cache", "hit");
-            NotificationStreamOriginCacheElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+            s_notificationStreamOriginCacheElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
         });
     }
 
     public static void RecordNotificationStreamOriginCacheRebuild(TimeSpan elapsed)
     {
-        Interlocked.Increment(ref NotificationStreamOriginCacheMisses);
+        Interlocked.Increment(ref s_notificationStreamOriginCacheMisses);
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("notification-stream", "origin-cache", "miss");
-            NotificationStreamOriginCacheElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+            s_notificationStreamOriginCacheElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
         });
     }
 
@@ -1249,10 +1249,10 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("notification-stream", "account_state", hit ? "hit" : "miss");
-            NotificationStreamAdmissionAccountStateCache.Add(1, tags);
+            s_notificationStreamAdmissionAccountStateCache.Add(1, tags);
             if (loadedFromDb)
             {
-                NotificationStreamAdmissionDbReadCount.Add(1, tags);
+                s_notificationStreamAdmissionDbReadCount.Add(1, tags);
             }
         });
     }
@@ -1262,7 +1262,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("notification-stream", NormalizeTelemetryValue(reason, "unknown"), "rejected");
-            NotificationStreamAdmissionRejectedCount.Add(1, tags);
+            s_notificationStreamAdmissionRejectedCount.Add(1, tags);
         });
     }
 
@@ -1271,9 +1271,9 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("auth-login", "session-replacement", "ok");
-            LoginReplacedSessionCount.Add(Math.Max(0, replacedSessionCount), tags);
-            LoginSessionRevokeCommandCount.Add(Math.Max(0, sessionRevokeCommandCount), tags);
-            LoginTransactionElapsed.Record(transactionElapsed.TotalMilliseconds, tags);
+            s_loginReplacedSessionCount.Add(Math.Max(0, replacedSessionCount), tags);
+            s_loginSessionRevokeCommandCount.Add(Math.Max(0, sessionRevokeCommandCount), tags);
+            s_loginTransactionElapsed.Record(transactionElapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1282,8 +1282,8 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("auth-refresh", "refresh", "success");
-            AuthRefreshSuccessDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
-            AuthRefreshSuccessElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_authRefreshSuccessDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
+            s_authRefreshSuccessElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1292,7 +1292,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("auth-refresh", "refresh", "replay_detected");
-            AuthRefreshReplayDetectedCount.Add(1, tags);
+            s_authRefreshReplayDetectedCount.Add(1, tags);
         });
     }
 
@@ -1302,10 +1302,10 @@ public static class FsusObservability
         {
             bool hit = revokedSessionCount > 0;
             TagList tags = CreateBaseTags("auth-refresh", "family-revoke", hit ? "hit" : "miss");
-            AuthRefreshFamilyRevokeCount.Add(Math.Max(0, revokedSessionCount), tags);
+            s_authRefreshFamilyRevokeCount.Add(Math.Max(0, revokedSessionCount), tags);
             if (hit)
             {
-                AuthRefreshFamilyRevokeWindowCount.Add(1, tags);
+                s_authRefreshFamilyRevokeWindowCount.Add(1, tags);
             }
         });
     }
@@ -1315,7 +1315,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("auth-refresh", reason, "cookie_write_failed");
-            AuthRefreshCookieWriteFailedCount.Add(1, tags);
+            s_authRefreshCookieWriteFailedCount.Add(1, tags);
         });
     }
 
@@ -1324,7 +1324,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("account-snapshot", "cache", hit ? "hit" : "miss");
-            AccountSnapshotCacheHit.Add(hit ? 1 : 0, tags);
+            s_accountSnapshotCacheHit.Add(hit ? 1 : 0, tags);
         });
     }
 
@@ -1333,7 +1333,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("account-snapshot", "db_read", "ok");
-            AccountSnapshotDbReadCount.Add(1, tags);
+            s_accountSnapshotDbReadCount.Add(1, tags);
         });
     }
 
@@ -1341,22 +1341,22 @@ public static class FsusObservability
     {
         if (hit)
         {
-            Interlocked.Increment(ref CommentActorResolverPublicHandleHits);
+            Interlocked.Increment(ref s_commentActorResolverPublicHandleHits);
             return;
         }
 
-        Interlocked.Increment(ref CommentActorResolverPublicHandleMisses);
+        Interlocked.Increment(ref s_commentActorResolverPublicHandleMisses);
     }
 
     public static void RecordCommentActorResolverCredentialLevelCache(bool hit)
     {
         if (hit)
         {
-            Interlocked.Increment(ref CommentActorResolverCredentialLevelHits);
+            Interlocked.Increment(ref s_commentActorResolverCredentialLevelHits);
             return;
         }
 
-        Interlocked.Increment(ref CommentActorResolverCredentialLevelMisses);
+        Interlocked.Increment(ref s_commentActorResolverCredentialLevelMisses);
     }
 
     public static void RecordCommentActorResolverDbRoundTrip(string projection)
@@ -1364,7 +1364,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("comment-actor", NormalizeTelemetryValue(projection, "account"), "db");
-            CommentActorResolverDbRoundTrips.Add(1, tags);
+            s_commentActorResolverDbRoundTrips.Add(1, tags);
         });
     }
 
@@ -1373,7 +1373,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("message-center", NormalizeTelemetryValue(phase, "list"), "ok");
-            MessageCenterListElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+            s_messageCenterListElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
         });
     }
 
@@ -1382,7 +1382,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("message-center", NormalizeTelemetryValue(phase, "reply"), "ok");
-            MessageCenterReplyElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+            s_messageCenterReplyElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
         });
     }
 
@@ -1391,7 +1391,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("message-center", "fanout-refresh", "ok");
-            MessageCenterFanoutRefreshElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+            s_messageCenterFanoutRefreshElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
         });
     }
 
@@ -1400,7 +1400,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("message-center", "fanout-build-item", "ok");
-            MessageCenterFanoutBuildItemElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+            s_messageCenterFanoutBuildItemElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
         });
     }
 
@@ -1409,7 +1409,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("auth", "me", "ok");
-            AuthMeElapsed.Record(Math.Max(0d, elapsed.TotalMilliseconds), tags);
+            s_authMeElapsed.Record(Math.Max(0d, elapsed.TotalMilliseconds), tags);
         });
     }
 
@@ -1418,7 +1418,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("mfa", "challenge_start_account_read", "ok");
-            MfaChallengeStartAccountReadElapsed.Record(Math.Max(0d, elapsed.TotalMilliseconds), tags);
+            s_mfaChallengeStartAccountReadElapsed.Record(Math.Max(0d, elapsed.TotalMilliseconds), tags);
         });
     }
 
@@ -1439,14 +1439,14 @@ public static class FsusObservability
             tags.Add("fsus.admin.account_list.page_size", Math.Max(1, pageSize));
             tags.Add("fsus.admin.account_list.cursor", cursor);
 
-            AdminAccountListQueryElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_adminAccountListQueryElapsed.Record(elapsed.TotalMilliseconds, tags);
             if (totalCountUsed)
             {
-                AdminAccountListCountUsed.Add(1, tags);
+                s_adminAccountListCountUsed.Add(1, tags);
                 return;
             }
 
-            AdminAccountListCountSkipped.Add(1, tags);
+            s_adminAccountListCountSkipped.Add(1, tags);
         });
     }
 
@@ -1455,9 +1455,9 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("upload-session-cleanup", "scan", "ok");
-            UploadSessionCleanupScannedSessions.Add(Math.Max(0, scannedSessions), tags);
-            UploadSessionCleanupDeletedSessions.Add(Math.Max(0, deletedSessions), tags);
-            UploadSessionCleanupElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_uploadSessionCleanupScannedSessions.Add(Math.Max(0, scannedSessions), tags);
+            s_uploadSessionCleanupDeletedSessions.Add(Math.Max(0, deletedSessions), tags);
+            s_uploadSessionCleanupElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1468,7 +1468,7 @@ public static class FsusObservability
             string normalized = NormalizeTelemetryValue(result, "unknown");
             TagList tags = CreateBaseTags("upload-session-cleanup", "signal", normalized);
             tags.Add("fsus.upload.cleanup.signal", normalized);
-            UploadSessionCleanupSignalCount.Add(1, tags);
+            s_uploadSessionCleanupSignalCount.Add(1, tags);
         });
     }
 
@@ -1477,8 +1477,8 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("upload-session-lock", "acquire", "ok");
-            UploadSessionLockCurrentCount.Record(Math.Max(0, currentLockCount), tags);
-            UploadSessionLockAcquireElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_uploadSessionLockCurrentCount.Record(Math.Max(0, currentLockCount), tags);
+            s_uploadSessionLockAcquireElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1491,10 +1491,10 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("upload-session-lock", "cleanup", "ok");
-            UploadSessionLockCurrentCount.Record(Math.Max(0, currentLockCount), tags);
-            UploadSessionLockStaleScannedCount.Add(Math.Max(0, scannedLockCount), tags);
-            UploadSessionLockStaleDisposedCount.Add(Math.Max(0, disposedLockCount), tags);
-            UploadSessionLockCleanupElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_uploadSessionLockCurrentCount.Record(Math.Max(0, currentLockCount), tags);
+            s_uploadSessionLockStaleScannedCount.Add(Math.Max(0, scannedLockCount), tags);
+            s_uploadSessionLockStaleDisposedCount.Add(Math.Max(0, disposedLockCount), tags);
+            s_uploadSessionLockCleanupElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1504,8 +1504,8 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("passkey", "assertion", NormalizeTelemetryValue(result, "unknown"));
             tags.Add("fsus.passkey.assertion.kind", NormalizeTelemetryValue(kind, "unknown"));
-            PasskeyAssertionDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
-            PasskeyAssertionElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_passkeyAssertionDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
+            s_passkeyAssertionElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1515,7 +1515,7 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("passkey", "sign_count_update", "conflict");
             tags.Add("fsus.passkey.assertion.kind", NormalizeTelemetryValue(kind, "unknown"));
-            PasskeySignCountUpdateConflictCount.Add(1, tags);
+            s_passkeySignCountUpdateConflictCount.Add(1, tags);
         });
     }
 
@@ -1525,8 +1525,8 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("admin-passkey", "assertion", NormalizeTelemetryValue(result, "unknown"));
             tags.Add("fsus.admin.passkey.assertion.kind", NormalizeTelemetryValue(kind, "unknown"));
-            AdminPasskeyAssertionDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
-            AdminPasskeyAssertionElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_adminPasskeyAssertionDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
+            s_adminPasskeyAssertionElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1536,7 +1536,7 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("admin-passkey", "sign_count_update", "conflict");
             tags.Add("fsus.admin.passkey.assertion.kind", NormalizeTelemetryValue(kind, "unknown"));
-            AdminPasskeySignCountConflictCount.Add(1, tags);
+            s_adminPasskeySignCountConflictCount.Add(1, tags);
         });
     }
 
@@ -1545,8 +1545,8 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("admin-session", "list", "ok");
-            AdminSessionListReturnedCount.Add(Math.Max(0, returnedCount), tags);
-            AdminSessionListElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_adminSessionListReturnedCount.Add(Math.Max(0, returnedCount), tags);
+            s_adminSessionListElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1555,8 +1555,8 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("admin-session", "revoke_others", "ok");
-            AdminSessionRevokeOthersCount.Add(Math.Max(0, revokedCount), tags);
-            AdminSessionRevokeOthersElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_adminSessionRevokeOthersCount.Add(Math.Max(0, revokedCount), tags);
+            s_adminSessionRevokeOthersElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1565,7 +1565,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("admin-session", "validation", "db_read");
-            AdminSessionValidationDbReadCount.Add(1, tags);
+            s_adminSessionValidationDbReadCount.Add(1, tags);
         });
     }
 
@@ -1574,7 +1574,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("admin-session", "validation", "cache_hit");
-            AdminSessionValidationCacheHit.Add(1, tags);
+            s_adminSessionValidationCacheHit.Add(1, tags);
         });
     }
 
@@ -1583,7 +1583,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("mfa", "failure_counter", "ok");
-            MfaFailureCounterKeyCount.Add(Math.Max(0, keyCount), tags);
+            s_mfaFailureCounterKeyCount.Add(Math.Max(0, keyCount), tags);
         });
     }
 
@@ -1592,7 +1592,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("mfa", "failure_counter", "expiry_applied");
-            MfaCounterExpiredCount.Add(Math.Max(0, count), tags);
+            s_mfaCounterExpiredCount.Add(Math.Max(0, count), tags);
         });
     }
 
@@ -1601,7 +1601,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("admin-session", "touch", "skipped");
-            AdminSessionTouchSkipped.Add(1, tags);
+            s_adminSessionTouchSkipped.Add(1, tags);
         });
     }
 
@@ -1610,7 +1610,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("admin-session", "touch", updated ? "updated" : "conflict");
-            AdminSessionTouchElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_adminSessionTouchElapsed.Record(elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1619,9 +1619,9 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("distribution", "diagnostics", cacheHit ? "hit" : "miss");
-            DistributionDiagnosticsElapsed.Record(elapsed.TotalMilliseconds, tags);
-            DistributionDiagnosticsCacheAccess.Add(1, tags);
-            DistributionDiagnosticsDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
+            s_distributionDiagnosticsElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_distributionDiagnosticsCacheAccess.Add(1, tags);
+            s_distributionDiagnosticsDbCommandCount.Add(Math.Max(0, dbCommandCount), tags);
         });
     }
 
@@ -1630,8 +1630,8 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("related-reading", "build", cacheHit ? "hit" : "miss");
-            RelatedReadingBuildElapsed.Record(elapsed.TotalMilliseconds, tags);
-            RelatedReadingBuildCacheAccess.Add(1, tags);
+            s_relatedReadingBuildElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_relatedReadingBuildCacheAccess.Add(1, tags);
         });
     }
 
@@ -1640,8 +1640,8 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("sitemap", "build", cacheHit ? "hit" : "miss");
-            SitemapBuildElapsed.Record(elapsed.TotalMilliseconds, tags);
-            SitemapBuildCacheAccess.Add(1, tags);
+            s_sitemapBuildElapsed.Record(elapsed.TotalMilliseconds, tags);
+            s_sitemapBuildCacheAccess.Add(1, tags);
         });
     }
 
@@ -1654,10 +1654,10 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("readiness", "snapshot", cacheHit ? "hit" : "miss");
-            ReadinessSnapshotCacheAccess.Add(1, tags);
-            ReadinessSnapshotFreshCheckElapsed.Record(freshCheckElapsed.TotalMilliseconds, tags);
-            ReadinessSnapshotDependencyCheckCount.Add(Math.Max(0, dependencyCheckCount), tags);
-            ReadinessSnapshotAge.Record(Math.Max(0, snapshotAge.TotalMilliseconds), tags);
+            s_readinessSnapshotCacheAccess.Add(1, tags);
+            s_readinessSnapshotFreshCheckElapsed.Record(freshCheckElapsed.TotalMilliseconds, tags);
+            s_readinessSnapshotDependencyCheckCount.Add(Math.Max(0, dependencyCheckCount), tags);
+            s_readinessSnapshotAge.Record(Math.Max(0, snapshotAge.TotalMilliseconds), tags);
         });
     }
 
@@ -1668,20 +1668,20 @@ public static class FsusObservability
             string normalized = NormalizeTelemetryValue(check, "unknown");
             TagList tags = CreateBaseTags("readiness", normalized, "ok");
             double elapsedMs = Math.Max(0, elapsed.TotalMilliseconds);
-            ReadinessCheckElapsed.Record(elapsedMs, tags);
+            s_readinessCheckElapsed.Record(elapsedMs, tags);
             switch (normalized)
             {
                 case "postgres":
-                    ReadinessPostgresElapsed.Record(elapsedMs, tags);
+                    s_readinessPostgresElapsed.Record(elapsedMs, tags);
                     break;
                 case "redis":
-                    ReadinessRedisElapsed.Record(elapsedMs, tags);
+                    s_readinessRedisElapsed.Record(elapsedMs, tags);
                     break;
                 case "risk_control":
-                    ReadinessRiskControlElapsed.Record(elapsedMs, tags);
+                    s_readinessRiskControlElapsed.Record(elapsedMs, tags);
                     break;
                 case "runtime":
-                    ReadinessRuntimeElapsed.Record(elapsedMs, tags);
+                    s_readinessRuntimeElapsed.Record(elapsedMs, tags);
                     break;
             }
         });
@@ -1692,7 +1692,7 @@ public static class FsusObservability
         TryRecord(() =>
         {
             TagList tags = CreateBaseTags("anonymous-nullifier", "precheck", "ok");
-            AnonymousNullifierPrecheckCount.Add(1, tags);
+            s_anonymousNullifierPrecheckCount.Add(1, tags);
         });
     }
 
@@ -1703,7 +1703,7 @@ public static class FsusObservability
             string normalizedStatus = NormalizeTelemetryValue(status, "unknown");
             TagList tags = CreateBaseTags("anonymous-nullifier", "atomic_increment", normalizedStatus);
             tags.Add("fsus.anonymous_nullifier.status", normalizedStatus);
-            RecordNonNegativeHistogram(AnonymousNullifierAtomicIncrementElapsed, elapsed.TotalMilliseconds, tags);
+            RecordNonNegativeHistogram(s_anonymousNullifierAtomicIncrementElapsed, elapsed.TotalMilliseconds, tags);
         });
     }
 
@@ -1716,13 +1716,13 @@ public static class FsusObservability
             tags.Add("fsus.anonymous_nullifier.status", normalizedStatus);
             if (string.Equals(normalizedStatus, "blocked", StringComparison.Ordinal))
             {
-                AnonymousNullifierBlockedRejectedCount.Add(1, tags);
+                s_anonymousNullifierBlockedRejectedCount.Add(1, tags);
                 return;
             }
 
             if (string.Equals(normalizedStatus, "scope_limit_exceeded", StringComparison.Ordinal))
             {
-                AnonymousNullifierScopeLimitRejectedCount.Add(1, tags);
+                s_anonymousNullifierScopeLimitRejectedCount.Add(1, tags);
             }
         });
     }
@@ -1763,7 +1763,7 @@ public static class FsusObservability
             AddSecurityEventTagCacheEntry(cache, "security_risk", reason, "write_failed");
         }
 
-        foreach (string reason in SecurityRiskReasonNames.Values)
+        foreach (string reason in s_securityRiskReasonNames.Values)
         {
             AddSecurityEventTagCacheEntry(cache, "security_risk", reason, "risk_added");
             AddSecurityEventTagCacheEntry(cache, "security_risk", reason, "shield_rejected");
@@ -1808,7 +1808,7 @@ public static class FsusObservability
             "verified_crawler",
             "write_failed"
         };
-        foreach (string reason in SecurityRiskReasonNames.Values)
+        foreach (string reason in s_securityRiskReasonNames.Values)
         {
             values.Add(reason);
         }
@@ -1843,7 +1843,7 @@ public static class FsusObservability
             InternSecurityEventValue(NormalizeTelemetryValue(result, "unknown")));
 
     private static string InternSecurityEventValue(string value)
-        => SecurityEventInternedValues.Contains(value)
+        => s_securityEventInternedValues.Contains(value)
             ? string.Intern(value)
             : value;
 
@@ -1855,14 +1855,14 @@ public static class FsusObservability
     }
 
     private static string ResolveSecurityRiskReasonName(SecurityRiskReason reason)
-        => SecurityRiskReasonNames.TryGetValue(reason, out string? name)
+        => s_securityRiskReasonNames.TryGetValue(reason, out string? name)
             ? name
             : string.Intern(reason.ToString());
 
     private static double ObserveSecurityEventTagCacheHitRatio()
     {
-        long hits = Volatile.Read(ref SecurityEventTagCacheHits);
-        long misses = Volatile.Read(ref SecurityEventTagCacheMisses);
+        long hits = Volatile.Read(ref s_securityEventTagCacheHits);
+        long misses = Volatile.Read(ref s_securityEventTagCacheMisses);
         long total = hits + misses;
         return total == 0 ? 1 : Math.Round((double)hits / total, 4, MidpointRounding.AwayFromZero);
     }
@@ -1911,13 +1911,13 @@ public static class FsusObservability
         TimeSpan verifyDuration,
         TimeSpan? solveDuration)
     {
-        RecordNonNegativeHistogram(SecurityChallengeV2PayloadBytes, payloadBytes, tags);
-        RecordNonNegativeHistogram(SecurityChallengeV2VerifyDuration, verifyDuration.TotalMilliseconds, tags);
-        AddBoundedSample(SecurityChallengeV2PayloadSamples, payloadBytes);
-        AddBoundedSample(SecurityChallengeV2VerifySamples, verifyDuration.TotalMilliseconds);
+        RecordNonNegativeHistogram(s_securityChallengeV2PayloadBytes, payloadBytes, tags);
+        RecordNonNegativeHistogram(s_securityChallengeV2VerifyDuration, verifyDuration.TotalMilliseconds, tags);
+        AddBoundedSample(s_securityChallengeV2PayloadSamples, payloadBytes);
+        AddBoundedSample(s_securityChallengeV2VerifySamples, verifyDuration.TotalMilliseconds);
         if (solveDuration is { } duration)
         {
-            RecordNonNegativeHistogram(SecurityChallengeV2SolveDuration, duration.TotalMilliseconds, tags);
+            RecordNonNegativeHistogram(s_securityChallengeV2SolveDuration, duration.TotalMilliseconds, tags);
         }
     }
 
@@ -1979,7 +1979,7 @@ public static class FsusObservability
     private static Measurement<long> ObserveActiveSecurityPolicyVersion()
     {
         TagList tags = CreateBaseTags("security", "risk_policy", "active");
-        tags.Add("fsus.security.policy_version", Volatile.Read(ref ActiveSecurityPolicyVersionValue));
+        tags.Add("fsus.security.policy_version", Volatile.Read(ref s_activeSecurityPolicyVersionValue));
         return new Measurement<long>(1, tags);
     }
 

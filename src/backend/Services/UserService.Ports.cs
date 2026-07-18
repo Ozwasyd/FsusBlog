@@ -16,7 +16,7 @@ namespace FsusBlog.Server.Services;
 
 public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : IUserAccountReader
 {
-    private static readonly JsonSerializerOptions SnapshotJsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_snapshotJsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<UserAccountSnapshot?> GetAccountByIdAsync(int id)
     {
@@ -47,7 +47,7 @@ public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : 
         {
             byte[] payload = JsonSerializer.SerializeToUtf8Bytes(
                 new AccountSnapshotCacheEnvelope(version, snapshot.Value),
-                SnapshotJsonOptions);
+                s_snapshotJsonOptions);
             await cache.SetRawAsync(CachePolicyId.AccountSnapshot, identity, payload).ConfigureAwait(false);
         }
         else
@@ -80,7 +80,7 @@ public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : 
     {
         try
         {
-            AccountSnapshotCacheEnvelope? envelope = JsonSerializer.Deserialize<AccountSnapshotCacheEnvelope>(payload.Span, SnapshotJsonOptions);
+            AccountSnapshotCacheEnvelope? envelope = JsonSerializer.Deserialize<AccountSnapshotCacheEnvelope>(payload.Span, s_snapshotJsonOptions);
             return envelope is null ? (false, null) : (true, envelope);
         }
         catch (JsonException)

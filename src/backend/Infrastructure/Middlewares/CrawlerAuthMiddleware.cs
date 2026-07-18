@@ -3,9 +3,12 @@ using FsusBlog.Server.Services.Security;
 
 namespace FsusBlog.Server.Infrastructure.Middlewares;
 
+// Public named-argument source compatibility; exact exception registered in csharp-style-policy.
+#pragma warning disable IDE1006
 public class CrawlerAuthMiddleware(
     RequestDelegate _next,
     CrawlerDetectorService _detector)
+#pragma warning restore IDE1006
 {
     public async Task InvokeAsync(HttpContext context)
     {

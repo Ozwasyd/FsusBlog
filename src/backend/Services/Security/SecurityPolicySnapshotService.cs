@@ -76,7 +76,7 @@ public sealed class SecurityPolicySnapshotService(
     TimeProvider timeProvider,
     IAuditEventService? auditEvents = null) : ISecurityPolicySnapshotService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<SecurityPolicySnapshotRecord> ActivateAsync<T>(
         string policyId,
@@ -88,7 +88,7 @@ public sealed class SecurityPolicySnapshotService(
     {
         string normalizedPolicyId = NormalizePolicyId(policyId);
         string normalizedMode = SecuritySystemModes.Normalize(mode);
-        string documentJson = JsonSerializer.Serialize(document, JsonOptions);
+        string documentJson = JsonSerializer.Serialize(document, s_jsonOptions);
         string? normalizedReason = TextHelpers.NormalizeNullable(reason, 128);
         DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
         SecurityPolicySnapshot? inserted = null;
@@ -439,7 +439,7 @@ public sealed class SecurityPolicySnapshotService(
 
         try
         {
-            document = JsonSerializer.Deserialize<T>(row.Document, JsonOptions);
+            document = JsonSerializer.Deserialize<T>(row.Document, s_jsonOptions);
             return document is not null;
         }
         catch (JsonException)

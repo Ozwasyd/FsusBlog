@@ -40,7 +40,7 @@ internal readonly record struct PublicHotReadRoutePolicy(
 
 internal static class PublicHotReadRouteSecurityCatalog
 {
-    internal static readonly PublicHotReadRoutePolicy RejectedCandidate = new(
+    internal static readonly PublicHotReadRoutePolicy s_rejectedCandidate = new(
         PublicHotReadRouteKind.None,
         "rejected-candidate",
         PublicHotReadArtifactMediaKind.Binary,
@@ -54,7 +54,7 @@ internal static class PublicHotReadRouteSecurityCatalog
         DefersCorsRequestsToEndpointPipeline: false,
         ProbePath: string.Empty);
 
-    private static readonly PublicHotReadRoutePolicy[] Policies =
+    private static readonly PublicHotReadRoutePolicy[] s_policies =
     [
         Create(PublicHotReadRouteKind.Category, "taxonomy-category", PublicHotReadArtifactMediaKind.Binary, "/api/binary/category.aeds"),
         Create(PublicHotReadRouteKind.Tag, "taxonomy-tag", PublicHotReadArtifactMediaKind.Binary, "/api/binary/tag.aeds"),
@@ -66,14 +66,14 @@ internal static class PublicHotReadRouteSecurityCatalog
         Create(PublicHotReadRouteKind.PublicHtml, "public-html", PublicHotReadArtifactMediaKind.Html, "/")
     ];
 
-    internal static IReadOnlyList<PublicHotReadRoutePolicy> All => Policies;
+    internal static IReadOnlyList<PublicHotReadRoutePolicy> All => s_policies;
 
     internal static bool TryGet(PublicHotReadRouteKind kind, out PublicHotReadRoutePolicy policy)
     {
         int index = (int)kind - 1;
-        if ((uint)index < (uint)Policies.Length && Policies[index].Kind == kind)
+        if ((uint)index < (uint)s_policies.Length && s_policies[index].Kind == kind)
         {
-            policy = Policies[index];
+            policy = s_policies[index];
             return true;
         }
 
@@ -82,7 +82,7 @@ internal static class PublicHotReadRouteSecurityCatalog
     }
 
     internal static void ValidateOrThrow()
-        => ValidateOrThrow(Policies);
+        => ValidateOrThrow(s_policies);
 
     internal static void ValidateOrThrow(IReadOnlyList<PublicHotReadRoutePolicy> policies)
     {

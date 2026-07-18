@@ -50,7 +50,7 @@ public partial class CommentService(
     private const int DefaultReplyPreviewLimit = 3;
     private const int MaxReplyPreviewRootIds = 50;
     private const string DeletedPlaceholder = "该回复已删除";
-    private static readonly Int64CursorCodec CursorCodec = Int64CursorCodec.Instance;
+    private static readonly Int64CursorCodec s_cursorCodec = Int64CursorCodec.Instance;
 
     private static bool TryParsePositiveCommentId(string? raw, out long value)
     {
@@ -930,7 +930,7 @@ public partial class CommentService(
                 replyCount,
                 hasMoreReplies,
                 previewReplies);
-        }, CursorCodec);
+        }, s_cursorCodec);
     }
 
     public async Task<CursorResponse<CommentReplyItemDto>> GetThreadRepliesByCursorAsync(
@@ -953,7 +953,7 @@ public partial class CommentService(
 
         List<ReplyRow> rows = await QueryThreadRepliesAsync(articleId, rootId, request, normalizedViewerRegion);
 
-        return CursorPagination.SliceMapToResponse(rows, request.Limit, row => row.Id, MapReplyRow, CursorCodec);
+        return CursorPagination.SliceMapToResponse(rows, request.Limit, row => row.Id, MapReplyRow, s_cursorCodec);
     }
 
     public async Task<CursorResponse<CommentQueryResultDto>> GetCommentsByCursorAsync(int articleId, CursorPageRequest<long> request)
@@ -1035,7 +1035,7 @@ public partial class CommentService(
             ModerationStatus = (int)item.ModerationStatus,
             IsDeleted = item.IsDeleted,
             HasBlockedRegions = !string.IsNullOrWhiteSpace(item.BlockedRegions)
-        }), CursorCodec);
+        }), s_cursorCodec);
     }
 
     public Task<bool> DeleteCommentAsAccountAsync(long id, int accountId, string reason = "违反社区管理条例")
@@ -1289,7 +1289,7 @@ WHERE c.article_id = @ArticleId
         long rootId,
         string normalizedViewerRegion)
     {
-        const string sql = """
+        const string Sql = """
 SELECT 1
 FROM comment c
 WHERE c.id = @RootId
@@ -1311,7 +1311,7 @@ LIMIT 1;
         List<SugarParameter> parameters = BuildPublicCommentReadParameters(articleId, normalizedViewerRegion);
         parameters.Add(new SugarParameter("@RootId", rootId));
 
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql, parameters);
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(Sql, parameters);
         return await reader.ReadAsync();
     }
 

@@ -21,11 +21,11 @@ public sealed class ScheduledPublishWorker(
     IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
 {
     internal const string FencedCommitOperationScope = "scheduled-publish";
-    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan s_interval = TimeSpan.FromMinutes(1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using PeriodicTimer timer = new(Interval, timeProvider);
+        using PeriodicTimer timer = new(s_interval, timeProvider);
         while (!stoppingToken.IsCancellationRequested)
         {
             await workerLease.TryRunAsLeaderAsync("scheduled-publish-worker", token => PublishDueArticlesAsync(token), stoppingToken);
@@ -189,32 +189,32 @@ public sealed class ScheduledPublishWorker(
         var tran = await db.Ado.UseTranAsync(async () =>
         {
             using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-                       """
-                       UPDATE article
-                       SET status = @PublishedStatus,
-                           published_at = @Now,
-                           scheduled_publish_at = NULL
-                       WHERE id IN (
-                           SELECT id
-                           FROM article
-                           WHERE id IN (@CandidateArticleIds)
-                             AND isdeleted = false
-                             AND status = @ScheduledStatus
-                             AND scheduled_publish_at <= @Now
-                           ORDER BY scheduled_publish_at, id
-                           LIMIT @BatchSize
-                           FOR UPDATE SKIP LOCKED
-                       )
-                       RETURNING id;
-                       """,
-                       new SugarParameter[]
-                       {
-                           new("@PublishedStatus", (int)ArticleStatus.Published),
-                           new("@Now", now),
-                           new("@ScheduledStatus", (int)ArticleStatus.Scheduled),
-                           new("@CandidateArticleIds", candidateArticleIds.ToArray()),
-                           new("@BatchSize", 100)
-                       }))
+                    """
+                    UPDATE article
+                    SET status = @PublishedStatus,
+                        published_at = @Now,
+                        scheduled_publish_at = NULL
+                    WHERE id IN (
+                        SELECT id
+                        FROM article
+                        WHERE id IN (@CandidateArticleIds)
+                          AND isdeleted = false
+                          AND status = @ScheduledStatus
+                          AND scheduled_publish_at <= @Now
+                        ORDER BY scheduled_publish_at, id
+                        LIMIT @BatchSize
+                        FOR UPDATE SKIP LOCKED
+                    )
+                    RETURNING id;
+                    """,
+                    new SugarParameter[]
+                    {
+                        new("@PublishedStatus", (int)ArticleStatus.Published),
+                        new("@Now", now),
+                        new("@ScheduledStatus", (int)ArticleStatus.Scheduled),
+                        new("@CandidateArticleIds", candidateArticleIds.ToArray()),
+                        new("@BatchSize", 100)
+                    }))
             {
                 while (await reader.ReadAsync(cancellationToken))
                 {

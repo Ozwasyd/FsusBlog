@@ -17,6 +17,8 @@ namespace FsusBlog.Server.Services.Background;
 /// 吸收审查建议：彻底废弃单次全表删除。引入分块删除 (Chunked Deletion) 机制，每次仅剔除 5000 条并微睡眠。
 /// 物理真相：防止 PostgreSQL MVCC 机制下引发 WAL 日志暴增与磁盘 I/O 瞬间打满，保障线上读写性能平稳。
 /// </summary>
+// Public named-argument source compatibility; exact exception registered in csharp-style-policy.
+#pragma warning disable IDE1006
 public class LogCleanupService(
     IServiceProvider _serviceProvider,
     ILogger<LogCleanupService> _logger,
@@ -27,6 +29,7 @@ public class LogCleanupService(
     AuditRetentionErasureService? retentionErasureService = null,
     AuditLegalHoldRegistry? legalHoldRegistry = null,
     AuditFallbackRetentionPurger? fallbackRetentionPurger = null) : BackgroundService
+#pragma warning restore IDE1006
 {
     internal const string FencedCommitOperationScope = "fenced-commit-retention";
     private const int ChunkSize = 5000;
@@ -34,7 +37,7 @@ public class LogCleanupService(
     private const int RumRetentionDays = 14;
     private const int AnonymousCredentialIssuanceAuditRetentionDays = 30;
     private const int FencedCommitRetentionDays = 30;
-    private static readonly TimeSpan DelayBetweenChunks = TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan s_delayBetweenChunks = TimeSpan.FromMilliseconds(50);
     private const string CleanupRumMetricsSql = """
         WITH expired AS (
             SELECT id
@@ -229,7 +232,7 @@ public class LogCleanupService(
             expireDate,
             ChunkSize,
             MaxChunksPerCycle,
-            DelayBetweenChunks,
+            s_delayBetweenChunks,
             activeReleaseCommitGuard,
             transactionalCommitGuard,
             operationScope,
@@ -284,9 +287,9 @@ public class LogCleanupService(
                     rows.Select(static row => row.Id).ToArray(),
                     prepared.Anchor.CheckpointDigest,
                     token).ConfigureAwait(false);
-                if (DelayBetweenChunks > TimeSpan.Zero)
+                if (s_delayBetweenChunks > TimeSpan.Zero)
                 {
-                    await Task.Delay(DelayBetweenChunks, token).ConfigureAwait(false);
+                    await Task.Delay(s_delayBetweenChunks, token).ConfigureAwait(false);
                 }
             }
         }
@@ -300,7 +303,7 @@ public class LogCleanupService(
         string checkpointDigest,
         CancellationToken token)
     {
-        const string sql = "DELETE FROM sys_audit_log WHERE id = ANY(@Ids);";
+        const string Sql = "DELETE FROM sys_audit_log WHERE id = ANY(@Ids);";
         var parameters = new[] { new SugarParameter("@Ids", ids) };
         if (transactionalCommitGuard is not null)
         {
@@ -309,7 +312,7 @@ public class LogCleanupService(
                 transactionalCommitGuard,
                 "audit-log-retention",
                 $"audit-log-retention:{checkpointDigest}",
-                _ => db.Ado.ExecuteCommandAsync(sql, parameters),
+                _ => db.Ado.ExecuteCommandAsync(Sql, parameters),
                 token,
                 static deletedRows => deletedRows > 0).ConfigureAwait(false);
         }
@@ -318,7 +321,7 @@ public class LogCleanupService(
         {
             await activeReleaseCommitGuard.EnsureCurrentAsync(token).ConfigureAwait(false);
         }
-        return await db.Ado.ExecuteCommandAsync(sql, parameters).ConfigureAwait(false);
+        return await db.Ado.ExecuteCommandAsync(Sql, parameters).ConfigureAwait(false);
     }
 
     internal static Task<int> CleanupVisitLogsAsync(
@@ -343,7 +346,7 @@ public class LogCleanupService(
             expireDate,
             ChunkSize,
             MaxChunksPerCycle,
-            DelayBetweenChunks,
+            s_delayBetweenChunks,
             token);
 
     internal static Task<int> CleanupRumMetricsAsync(
@@ -369,7 +372,7 @@ public class LogCleanupService(
             expireDate,
             ChunkSize,
             MaxChunksPerCycle,
-            DelayBetweenChunks,
+            s_delayBetweenChunks,
             token);
 
     internal static Task<int> CleanupAuditLogsAsync(
@@ -399,7 +402,7 @@ public class LogCleanupService(
             expireDate,
             ChunkSize,
             MaxChunksPerCycle,
-            DelayBetweenChunks,
+            s_delayBetweenChunks,
             token);
     }
 

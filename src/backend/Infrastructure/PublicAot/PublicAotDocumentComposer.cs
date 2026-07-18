@@ -63,7 +63,7 @@ internal static class PublicAotDocumentComposer
     private const string AotAppSentinel = "<!--fsus:aot:app-->";
     private const string AotPayloadsSentinel = "<!--fsus:aot:payloads-->";
     private const string AotSpaBootSentinel = "<!--fsus:aot:spa-boot-->";
-    private static readonly Regex BodyTagRegex = new(
+    private static readonly Regex s_bodyTagRegex = new(
         "<body\\b(?<attrs>[^>]*)>",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
@@ -582,7 +582,7 @@ internal static class PublicAotDocumentComposer
             html = InsertBeforeHeadClose(html, model.HeadLinks);
         }
 
-        const string bodyClose = "</body>";
+        const string BodyClose = "</body>";
         string bootstrapScript = BuildBinaryPayloadScript("fsus-aot-bootstrap", model.BootstrapPayload);
         string hydrationScript = string.IsNullOrWhiteSpace(model.HydrationPropsPayload)
             ? string.Empty
@@ -600,7 +600,7 @@ internal static class PublicAotDocumentComposer
         html = html.Replace(AotPayloadsSentinel, payloadScripts, StringComparison.Ordinal);
         html = html.Replace(AotSpaBootSentinel, deferredSpaBoot, StringComparison.Ordinal);
 
-        return html.Contains(bodyClose, StringComparison.Ordinal)
+        return html.Contains(BodyClose, StringComparison.Ordinal)
             ? html
             : html + payloadScripts + deferredSpaBoot;
     }
@@ -661,7 +661,7 @@ internal static class PublicAotDocumentComposer
 
     private static string EnsureBodyAttributes(string html)
     {
-        return BodyTagRegex.Replace(
+        return s_bodyTagRegex.Replace(
             html,
             match =>
             {
@@ -951,14 +951,14 @@ internal static class PublicAotDocumentComposer
             return html;
         }
 
-        const string marker = "id=\"fsus-aot-shell\"";
-        int markerIndex = html.IndexOf(marker, StringComparison.Ordinal);
+        const string Marker = "id=\"fsus-aot-shell\"";
+        int markerIndex = html.IndexOf(Marker, StringComparison.Ordinal);
         if (markerIndex < 0)
         {
             return html;
         }
 
-        int insertIndex = markerIndex + marker.Length;
+        int insertIndex = markerIndex + Marker.Length;
         return html.Insert(insertIndex, $" data-public-hydration-kind=\"{Encode(hydrationKind)}\"");
     }
 
@@ -1021,8 +1021,8 @@ internal static class PublicAotDocumentComposer
 
     private static string StripModulePreloadLinks(string template)
     {
-        const string marker = "<link";
-        int linkIndex = template.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        const string Marker = "<link";
+        int linkIndex = template.IndexOf(Marker, StringComparison.OrdinalIgnoreCase);
         while (linkIndex >= 0)
         {
             int linkEnd = template.IndexOf('>', linkIndex);
@@ -1037,11 +1037,11 @@ internal static class PublicAotDocumentComposer
             if (isModulePreload)
             {
                 template = template.Remove(linkIndex, linkEnd - linkIndex + 1);
-                linkIndex = template.IndexOf(marker, linkIndex, StringComparison.OrdinalIgnoreCase);
+                linkIndex = template.IndexOf(Marker, linkIndex, StringComparison.OrdinalIgnoreCase);
                 continue;
             }
 
-            linkIndex = template.IndexOf(marker, linkEnd + 1, StringComparison.OrdinalIgnoreCase);
+            linkIndex = template.IndexOf(Marker, linkEnd + 1, StringComparison.OrdinalIgnoreCase);
         }
 
         return template;

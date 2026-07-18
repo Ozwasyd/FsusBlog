@@ -15,7 +15,7 @@ public interface IAuditFallbackWriter
 public sealed class AuditFallbackWriter : IAuditFallbackWriter
 {
     private const int WriteBufferSize = 81920;
-    private static readonly byte[] NewLineBytes = Encoding.UTF8.GetBytes(Environment.NewLine);
+    private static readonly byte[] s_newLineBytes = Encoding.UTF8.GetBytes(Environment.NewLine);
 
     private readonly string _fallbackPathPrefix;
     private readonly AuditLogRuntimeState _runtimeState;
@@ -115,7 +115,7 @@ public sealed class AuditFallbackWriter : IAuditFallbackWriter
 
     private static void WriteNewLine(ArrayBufferWriter<byte> buffer)
     {
-        NewLineBytes.CopyTo(buffer.GetSpan(NewLineBytes.Length));
-        buffer.Advance(NewLineBytes.Length);
+        s_newLineBytes.CopyTo(buffer.GetSpan(s_newLineBytes.Length));
+        buffer.Advance(s_newLineBytes.Length);
     }
 }

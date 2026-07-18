@@ -28,8 +28,8 @@ public interface ILocalAuthFixtureRefreshRunner
 
 internal sealed class LocalAuthFixtureRefreshRunner : ILocalAuthFixtureRefreshRunner
 {
-    private static readonly TimeSpan RefreshTimeout = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan OutputDrainTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan s_refreshTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan s_outputDrainTimeout = TimeSpan.FromSeconds(5);
 
     public static LocalAuthFixtureRefreshRunner Instance { get; } = new();
 
@@ -99,7 +99,7 @@ internal sealed class LocalAuthFixtureRefreshRunner : ILocalAuthFixtureRefreshRu
 
         Task<string> stdout = process.StandardOutput.ReadToEndAsync();
         Task<string> stderr = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(RefreshTimeout);
+        using var timeout = new CancellationTokenSource(s_refreshTimeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
         try
         {
@@ -134,7 +134,7 @@ internal sealed class LocalAuthFixtureRefreshRunner : ILocalAuthFixtureRefreshRu
         try
         {
             _ = await Task.WhenAll(stdout, stderr)
-                .WaitAsync(OutputDrainTimeout)
+                .WaitAsync(s_outputDrainTimeout)
                 .ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is TimeoutException or IOException or ObjectDisposedException)

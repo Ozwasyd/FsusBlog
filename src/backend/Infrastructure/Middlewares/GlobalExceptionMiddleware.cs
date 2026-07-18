@@ -10,7 +10,10 @@ namespace FsusBlog.Server.Infrastructure.Middlewares;
 
 // 注入 IHostEnvironment 以便在运行时判断环境，而不是编译时
 // 修复日期: 2026-02-23 (声明为 partial 以引入 LoggerMessage 源生成器消除日志分配，增强序列化中断韧性)
+// Public named-argument source compatibility; exact exception registered in csharp-style-policy.
+#pragma warning disable IDE1006
 public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<GlobalExceptionMiddleware> _logger, IHostEnvironment _env)
+#pragma warning restore IDE1006
 {
     private const string BadRequestMessage = "请求参数非法";
 

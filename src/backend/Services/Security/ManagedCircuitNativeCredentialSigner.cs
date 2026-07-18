@@ -17,19 +17,19 @@ internal static class ManagedCircuitNativeCredentialSigner
     private const string TranscriptDomain = "fsus.anonymous.comment.v3:credential-signature:v1";
     private const int MaxSigningAttempts = 1024;
 
-    private static readonly BigInteger FieldPrime = BigInteger.Parse(
+    private static readonly BigInteger s_fieldPrime = BigInteger.Parse(
         "21888242871839275222246405745257275088696311157297823662689037894645226208583",
         CultureInfo.InvariantCulture);
-    private static readonly BigInteger ScalarOrder = BigInteger.Parse(
+    private static readonly BigInteger s_scalarOrder = BigInteger.Parse(
         "21888242871839275222246405745257275088548364400416034343698204186575808495617",
         CultureInfo.InvariantCulture);
-    private static readonly BigInteger LowSUpperBound = ScalarOrder / 2;
-    private static readonly CurvePoint Generator = new(BigInteger.One, new BigInteger(2), false);
+    private static readonly BigInteger s_lowSUpperBound = s_scalarOrder / 2;
+    private static readonly CurvePoint s_generator = new(BigInteger.One, new BigInteger(2), false);
 
     public static byte[] DerivePublicKey(ReadOnlySpan<byte> privateKey)
     {
         BigInteger scalar = ReadPrivateScalar(privateKey);
-        CurvePoint publicKey = Multiply(Generator, scalar);
+        CurvePoint publicKey = Multiply(s_generator, scalar);
         if (publicKey.Infinity)
         {
             throw new CryptographicException("invalid circuit-native public key");
@@ -44,7 +44,7 @@ internal static class ManagedCircuitNativeCredentialSigner
         CircuitNativeCredentialIssueMaterial material)
     {
         BigInteger secret = ReadPrivateScalar(privateKey);
-        CurvePoint expectedPublicKey = Multiply(Generator, secret);
+        CurvePoint expectedPublicKey = Multiply(s_generator, secret);
         CurvePoint configuredPublicKey = ReadPublicKey(publicKey);
         if (!PointEquals(expectedPublicKey, configuredPublicKey))
         {
@@ -57,11 +57,11 @@ internal static class ManagedCircuitNativeCredentialSigner
         for (int attempt = 0; attempt < MaxSigningAttempts; attempt++)
         {
             BigInteger nonce = DeriveDeterministicNonce(attempt, privateKey, publicKey, canonical);
-            CurvePoint noncePoint = Multiply(Generator, nonce);
+            CurvePoint noncePoint = Multiply(s_generator, nonce);
             nonceBytes = WritePublicKey(noncePoint);
             BigInteger challenge = HashToScalar("challenge", publicKey, nonceBytes, canonical);
-            response = Mod(nonce + challenge * secret, ScalarOrder);
-            if (response.Sign > 0 && response < LowSUpperBound)
+            response = Mod(nonce + challenge * secret, s_scalarOrder);
+            if (response.Sign > 0 && response < s_lowSUpperBound)
             {
                 break;
             }
@@ -96,14 +96,14 @@ internal static class ManagedCircuitNativeCredentialSigner
             CurvePoint issuerPublicKey = ReadPublicKey(publicKey);
             CurvePoint noncePoint = ReadPublicKey(signature[..PublicKeyBytes]);
             BigInteger response = ReadScalar(signature.Slice(PublicKeyBytes, 32));
-            if (response.Sign <= 0 || response >= LowSUpperBound)
+            if (response.Sign <= 0 || response >= s_lowSUpperBound)
             {
                 return false;
             }
 
             byte[] canonical = Canonicalize(material);
             BigInteger challenge = HashToScalar("challenge", publicKey, signature[..PublicKeyBytes], canonical);
-            CurvePoint left = Multiply(Generator, response);
+            CurvePoint left = Multiply(s_generator, response);
             CurvePoint right = Add(noncePoint, Multiply(issuerPublicKey, challenge));
             return PointEquals(left, right);
         }
@@ -253,7 +253,7 @@ internal static class ManagedCircuitNativeCredentialSigner
     }
 
     private static BigInteger ReadScalar(ReadOnlySpan<byte> bytes)
-        => Mod(new BigInteger(bytes, isUnsigned: true, isBigEndian: true), ScalarOrder);
+        => Mod(new BigInteger(bytes, isUnsigned: true, isBigEndian: true), s_scalarOrder);
 
     private static CurvePoint ReadPublicKey(ReadOnlySpan<byte> publicKey)
     {
@@ -294,7 +294,7 @@ internal static class ManagedCircuitNativeCredentialSigner
     private static BigInteger ReadFieldElement(ReadOnlySpan<byte> bytes)
     {
         BigInteger value = new(bytes, isUnsigned: true, isBigEndian: true);
-        if (value.Sign < 0 || value >= FieldPrime)
+        if (value.Sign < 0 || value >= s_fieldPrime)
         {
             throw new CryptographicException("invalid circuit-native field element");
         }
@@ -304,7 +304,7 @@ internal static class ManagedCircuitNativeCredentialSigner
 
     private static void WriteFieldElement(BigInteger value, Span<byte> destination)
     {
-        value = Mod(value, FieldPrime);
+        value = Mod(value, s_fieldPrime);
         byte[] source = value.ToByteArray(isUnsigned: true, isBigEndian: true);
         if (source.Length > destination.Length)
         {
@@ -328,7 +328,7 @@ internal static class ManagedCircuitNativeCredentialSigner
         AppendHash(hash, second);
         AppendHash(hash, third);
         byte[] digest = hash.GetHashAndReset();
-        BigInteger scalar = Mod(new BigInteger(digest, isUnsigned: true, isBigEndian: true), ScalarOrder);
+        BigInteger scalar = Mod(new BigInteger(digest, isUnsigned: true, isBigEndian: true), s_scalarOrder);
         return scalar.Sign == 0 ? BigInteger.One : scalar;
     }
 
@@ -352,7 +352,7 @@ internal static class ManagedCircuitNativeCredentialSigner
         {
             v = Hmac(k, v);
             BigInteger candidate = new(v, isUnsigned: true, isBigEndian: true);
-            if (candidate.Sign > 0 && candidate < ScalarOrder)
+            if (candidate.Sign > 0 && candidate < s_scalarOrder)
             {
                 return candidate;
             }
@@ -430,17 +430,17 @@ internal static class ManagedCircuitNativeCredentialSigner
             return false;
         }
 
-        BigInteger left = Mod(point.Y * point.Y, FieldPrime);
-        BigInteger right = Mod(point.X * point.X * point.X + 3, FieldPrime);
+        BigInteger left = Mod(point.Y * point.Y, s_fieldPrime);
+        BigInteger right = Mod(point.X * point.X * point.X + 3, s_fieldPrime);
         return left == right;
     }
 
     private static bool IsInPrimeOrderSubgroup(CurvePoint point)
-        => PointEquals(MultiplyUnreduced(point, ScalarOrder), CurvePoint.InfinityPoint);
+        => PointEquals(MultiplyUnreduced(point, s_scalarOrder), CurvePoint.InfinityPoint);
 
     private static CurvePoint Multiply(CurvePoint point, BigInteger scalar)
     {
-        scalar = Mod(scalar, ScalarOrder);
+        scalar = Mod(scalar, s_scalarOrder);
         return MultiplyUnreduced(point, scalar);
     }
 
@@ -476,7 +476,7 @@ internal static class ManagedCircuitNativeCredentialSigner
 
         if (left.X == right.X)
         {
-            if (Mod(left.Y + right.Y, FieldPrime).IsZero)
+            if (Mod(left.Y + right.Y, s_fieldPrime).IsZero)
             {
                 return CurvePoint.InfinityPoint;
             }
@@ -486,9 +486,9 @@ internal static class ManagedCircuitNativeCredentialSigner
 
         BigInteger lambda = Mod(
             (right.Y - left.Y) * ModInverse(right.X - left.X),
-            FieldPrime);
-        BigInteger x = Mod(lambda * lambda - left.X - right.X, FieldPrime);
-        BigInteger y = Mod(lambda * (left.X - x) - left.Y, FieldPrime);
+            s_fieldPrime);
+        BigInteger x = Mod(lambda * lambda - left.X - right.X, s_fieldPrime);
+        BigInteger y = Mod(lambda * (left.X - x) - left.Y, s_fieldPrime);
         return new CurvePoint(x, y, false);
     }
 
@@ -501,14 +501,14 @@ internal static class ManagedCircuitNativeCredentialSigner
 
         BigInteger lambda = Mod(
             (3 * point.X * point.X) * ModInverse(2 * point.Y),
-            FieldPrime);
-        BigInteger x = Mod(lambda * lambda - (2 * point.X), FieldPrime);
-        BigInteger y = Mod(lambda * (point.X - x) - point.Y, FieldPrime);
+            s_fieldPrime);
+        BigInteger x = Mod(lambda * lambda - (2 * point.X), s_fieldPrime);
+        BigInteger y = Mod(lambda * (point.X - x) - point.Y, s_fieldPrime);
         return new CurvePoint(x, y, false);
     }
 
     private static BigInteger ModInverse(BigInteger value)
-        => BigInteger.ModPow(Mod(value, FieldPrime), FieldPrime - 2, FieldPrime);
+        => BigInteger.ModPow(Mod(value, s_fieldPrime), s_fieldPrime - 2, s_fieldPrime);
 
     private static BigInteger Mod(BigInteger value, BigInteger modulus)
     {

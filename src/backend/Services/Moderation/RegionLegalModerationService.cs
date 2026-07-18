@@ -27,7 +27,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
         _auditLogChannel = auditLogChannel;
     }
 
-    private static readonly string[] EnabledViewerRegions =
+    private static readonly string[] s_enabledViewerRegions =
     [
         RegionCodes.MainlandChina,
         RegionCodes.HongKong,
@@ -41,7 +41,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
         RegionCodes.Unknown
     ];
 
-    private static readonly Dictionary<string, string[]> CategoryTokens = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, string[]> s_categoryTokens = new(StringComparer.Ordinal)
     {
         [ModerationRiskCategories.PoliticalSensitive] =
         [
@@ -93,7 +93,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
         ]
     };
 
-    private static readonly HashSet<string> MainlandStrictCategories =
+    private static readonly HashSet<string> s_mainlandStrictCategories =
     [
         ModerationRiskCategories.PoliticalSensitive,
         ModerationRiskCategories.Pornographic,
@@ -157,7 +157,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
             }
         }
 
-        foreach (string viewerRegion in EnabledViewerRegions)
+        foreach (string viewerRegion in s_enabledViewerRegions)
         {
             IReadOnlyList<ModerationDictionaryMatch> viewerMatches = MatchDictionaries(contentMatches, viewerRegion);
             foreach (ModerationDictionaryMatch match in viewerMatches)
@@ -198,7 +198,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
             contentMatches.ScannedContentCount,
             contentMatches.MatchCount,
             FsusObservability.GetElapsed(dictionaryStarted),
-            EnabledViewerRegions.Length + 1);
+            s_enabledViewerRegions.Length + 1);
 
         return new RegionModerationDecision(
             CanPublish: !submitRejected,
@@ -344,7 +344,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
         }
 
         var categories = new SortedSet<string>(StringComparer.Ordinal);
-        foreach ((string category, string[] tokens) in CategoryTokens)
+        foreach ((string category, string[] tokens) in s_categoryTokens)
         {
             if (tokens.Any(token => content.Contains(token, StringComparison.OrdinalIgnoreCase)))
             {
@@ -356,7 +356,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
     }
 
     private static bool HasMainlandStrictHit(IEnumerable<string> categories)
-        => categories.Any(MainlandStrictCategories.Contains);
+        => categories.Any(s_mainlandStrictCategories.Contains);
 
     private ModerationContentMatches BuildContentMatches(string content)
     {
@@ -402,7 +402,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
             return _dictionaryService.ResolveAction(region, category);
         }
 
-        return NormalizeRegion(region) == RegionCodes.MainlandChina && MainlandStrictCategories.Contains(category)
+        return NormalizeRegion(region) == RegionCodes.MainlandChina && s_mainlandStrictCategories.Contains(category)
             ? new ModerationPolicyAction(ModerationDictionaryActions.RejectSubmit, ModerationDictionaryActions.GeoBlock)
             : new ModerationPolicyAction(ModerationDictionaryActions.Allow, ModerationDictionaryActions.Allow);
     }

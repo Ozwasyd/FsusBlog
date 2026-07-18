@@ -17,7 +17,7 @@ namespace FsusBlog.Server.Modules.Endpoints.Binary;
 public static partial class BinaryEndpoints
 {
     private const int MaxAnonymousGovernanceActionFrameBytes = 8 * 1024;
-    private static readonly JsonSerializerOptions AnonymousGovernanceJsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_anonymousGovernanceJsonOptions = new(JsonSerializerDefaults.Web);
 
     private static void MapBinaryAnonymousGovernanceEndpoints(IEndpointRouteBuilder group)
     {
@@ -203,7 +203,7 @@ public static partial class BinaryEndpoints
 
     private static BinaryFrameResult JsonGovernanceFrame(IAedsEncoder aeds, object value)
     {
-        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(value, AnonymousGovernanceJsonOptions);
+        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(value, s_anonymousGovernanceJsonOptions);
         return BinaryResults.Frame(aeds, AedsFrameType.AnonymousGovernanceActionResponse, writer => writer.Write(payload));
     }
 
@@ -211,7 +211,7 @@ public static partial class BinaryEndpoints
     {
         try
         {
-            value = JsonSerializer.Deserialize<T>(payload.Span, AnonymousGovernanceJsonOptions);
+            value = JsonSerializer.Deserialize<T>(payload.Span, s_anonymousGovernanceJsonOptions);
             return true;
         }
         catch (JsonException)

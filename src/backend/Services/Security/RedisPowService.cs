@@ -25,7 +25,7 @@ public class RedisPowService : IPowService
     private const int MaxSignatureUtf8Bytes = 128;
     private const int MaxBrowserFingerprintUtf8Bytes = 256;
     private const int MaxBindingContextUtf8Bytes = 128;
-    private static readonly TimeSpan ProofReplayTtl = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan s_proofReplayTtl = TimeSpan.FromMinutes(5);
     private readonly byte[] _cachedPowKey;
     private readonly ILogger<RedisPowService> _logger;
     private readonly AdaptivePowGovernor _governor;
@@ -288,7 +288,7 @@ public class RedisPowService : IPowService
             return TimeSpan.FromSeconds(1);
         }
 
-        return ProofReplayTtl;
+        return s_proofReplayTtl;
     }
 
     private static bool IsTimestampWithinWindow(long timestamp, long now)

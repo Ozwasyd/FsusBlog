@@ -40,11 +40,14 @@ public class ModernAcAutomaton
 
     // ContainsAny is synchronous. These buffers are isolated per OS thread,
     // never shared by concurrent requests, and touched slots are cleared before return.
+    // Roslyn naming symbols cannot select ThreadStatic fields; the repository checker still enforces t_camelCase.
+#pragma warning disable IDE1006
     [ThreadStatic]
     private static int[]? t_ruleRemainingScratch;
 
     [ThreadStatic]
     private static int[]? t_touchedRuleScratch;
+#pragma warning restore IDE1006
 
     public void Build(string[] keywords)
     {

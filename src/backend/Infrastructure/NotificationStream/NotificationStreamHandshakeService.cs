@@ -83,7 +83,7 @@ internal sealed class NotificationStreamHandshakeService(
     private const string ChallengeProofQueryName = "challengeProof";
     private const string ChallengeIdQueryName = "challengeId";
     private const string ChallengeKindQueryName = "challengeKind";
-    private static readonly TimeSpan RiskSignalTtl = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
 
     public async Task<NotificationStreamHandshakeResult> ValidateAsync(
         HttpContext context,
@@ -427,7 +427,7 @@ internal sealed class NotificationStreamHandshakeService(
                 context,
                 SecurityRiskReason.SecurityChallengeRejected,
                 score,
-                RiskSignalTtl,
+                s_riskSignalTtl,
                 SecurityRiskSources.RiskControl,
                 string.IsNullOrWhiteSpace(action) ? RiskActionNames.NotificationSubscribe : action,
                 detail), cancellationToken);

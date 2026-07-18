@@ -9,7 +9,7 @@ namespace FsusBlog.Server.Services.Background;
 public sealed class UploadSessionCleanupQueue
 {
     internal const int SignalCapacity = 64;
-    private static readonly TimeSpan DefaultMinSignalInterval = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan s_defaultMinSignalInterval = TimeSpan.FromSeconds(45);
     private readonly TimeProvider _timeProvider;
     private readonly TimeSpan _minSignalInterval;
     private long _lastAcceptedSignalTicks;
@@ -24,7 +24,7 @@ public sealed class UploadSessionCleanupQueue
     public UploadSessionCleanupQueue(TimeProvider? timeProvider = null, TimeSpan? minSignalInterval = null)
     {
         _timeProvider = timeProvider ?? TimeProvider.System;
-        _minSignalInterval = minSignalInterval ?? DefaultMinSignalInterval;
+        _minSignalInterval = minSignalInterval ?? s_defaultMinSignalInterval;
     }
 
     public bool TryRequestScan()
@@ -94,7 +94,7 @@ public sealed class UploadSessionCleanupQueue
 
 public sealed class UploadSessionCleanupWorker : BackgroundService
 {
-    private static readonly TimeSpan ScanInterval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan s_scanInterval = TimeSpan.FromMinutes(5);
     private readonly UploadSessionCleanupQueue _queue;
     private readonly ILogger<UploadSessionCleanupWorker> _logger;
     private readonly TimeProvider _timeProvider;
@@ -133,7 +133,7 @@ public sealed class UploadSessionCleanupWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using PeriodicTimer timer = new(ScanInterval, _timeProvider);
+        using PeriodicTimer timer = new(s_scanInterval, _timeProvider);
         Task<bool> timerTask = timer.WaitForNextTickAsync(stoppingToken).AsTask();
         Task<bool> signalTask = _queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
 

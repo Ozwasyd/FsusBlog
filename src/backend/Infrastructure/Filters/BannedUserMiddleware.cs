@@ -11,12 +11,15 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace FsusBlog.Server.Infrastructure.Filters;
 
+// Public named-argument source compatibility; exact exception registered in csharp-style-policy.
+#pragma warning disable IDE1006
 public class BannedUserMiddleware(RequestDelegate _next)
+#pragma warning restore IDE1006
 {
     private const string BannedWriteErrorCode = "ACCOUNT_BANNED_WRITE_LOCKED";
     private const string BannedWriteMessage = "account is restricted and cannot perform this write action";
 
-    private static readonly MemoryCacheEntryOptions AccountStateCacheOptions = new()
+    private static readonly MemoryCacheEntryOptions s_accountStateCacheOptions = new()
     {
         AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60)
     };
@@ -124,7 +127,7 @@ public class BannedUserMiddleware(RequestDelegate _next)
                 accountSubjectHash,
                 StringComparison.Ordinal))
         {
-            cache.Set(cacheKey, snapshot.Value, AccountStateCacheOptions);
+            cache.Set(cacheKey, snapshot.Value, s_accountStateCacheOptions);
         }
         else
         {

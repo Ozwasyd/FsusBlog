@@ -2,6 +2,7 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Auth;
 
+/// <summary>Verifies that every persisted account has a valid stable subject projection before traffic is served.</summary>
 public interface IAccountSubjectHashInvariantGate
 {
     Task EnsureAsync(CancellationToken cancellationToken = default);
@@ -14,6 +15,7 @@ public interface IAccountSubjectHashInvariantGate
 /// </summary>
 public sealed class AccountSubjectHashInvariantGate(ISqlSugarClient db) : IAccountSubjectHashInvariantGate
 {
+    /// <inheritdoc />
     public async Task EnsureAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

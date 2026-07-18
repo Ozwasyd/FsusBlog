@@ -243,16 +243,16 @@ public sealed record PerceptionChallengeV2IssueResult(
     PerceptionChallengeV2IssuePayload Payload)
 {
     public static PerceptionChallengeV2IssueResult Failed(string reason)
-        => new(false, NormalizeReason(reason), null, EmptyPayload);
+        => new(false, NormalizeReason(reason), null, s_emptyPayload);
 
     public static PerceptionChallengeV2IssueResult Success(SecurityChallengeAssignment assignment, PerceptionChallengeV2IssuePayload payload)
         => new(true, "ok", assignment, payload);
 
-    private static readonly RenderRecipeV2 EmptyRecipe =
+    private static readonly RenderRecipeV2 s_emptyRecipe =
         new(RenderRecipeV2Contracts.Schema, RenderRecipeV2TaskKind.Unknown, [], new Dictionary<string, string>(StringComparer.Ordinal));
 
-    private static readonly PerceptionChallengeV2IssuePayload EmptyPayload =
-        new(string.Empty, string.Empty, RenderRecipeV2TaskKind.Unknown, EmptyRecipe, string.Empty, string.Empty, string.Empty, 0, 0);
+    private static readonly PerceptionChallengeV2IssuePayload s_emptyPayload =
+        new(string.Empty, string.Empty, RenderRecipeV2TaskKind.Unknown, s_emptyRecipe, string.Empty, string.Empty, string.Empty, 0, 0);
 
     private static string NormalizeReason(string reason)
         => string.IsNullOrWhiteSpace(reason) ? "perception_issue_failed" : reason.Trim();
@@ -902,7 +902,7 @@ public sealed class RedisPerceptionChallengeV2Gate(
 
         try
         {
-            const string script = """
+            const string Script = """
 local count = redis.call('INCR', KEYS[1])
 if count == 1 then
   redis.call('PEXPIRE', KEYS[1], ARGV[1])
@@ -911,7 +911,7 @@ return count
 """;
             long ttlMilliseconds = Math.Max(1L, (long)Math.Ceiling(ttl.Value.TotalMilliseconds));
             RedisResult result = await _database.ScriptEvaluateAsync(
-                    script,
+                    Script,
                     [key],
                     [ttlMilliseconds],
                     CommandFlags.None)

@@ -28,7 +28,7 @@ public static class SecurityEndpoints
     private const string BinaryPrefix = "/api/binary/admin/security";
     private const int DefaultRiskListLimit = 100;
     private const int MaxRiskListLimit = 1000;
-    private static readonly JsonSerializerOptions AuditPayloadJsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_auditPayloadJsonOptions = new(JsonSerializerDefaults.Web);
 
     public static IEndpointRouteBuilder MapSecurityEndpoints(this IEndpointRouteBuilder app)
     {
@@ -1385,14 +1385,14 @@ public static class SecurityEndpoints
     private static double EstimateSolveDurationMs(SecurityChallengeAttempt attempt)
     {
         string reason = attempt.Reason ?? string.Empty;
-        const string marker = "solve_duration_ms:";
-        int markerIndex = reason.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        const string Marker = "solve_duration_ms:";
+        int markerIndex = reason.IndexOf(Marker, StringComparison.OrdinalIgnoreCase);
         if (markerIndex < 0)
         {
             return 0;
         }
 
-        string tail = reason[(markerIndex + marker.Length)..];
+        string tail = reason[(markerIndex + Marker.Length)..];
         int separatorIndex = tail.IndexOfAny([';', ',', ' ']);
         string number = separatorIndex >= 0 ? tail[..separatorIndex] : tail;
         return double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) && double.IsFinite(value)
@@ -1739,7 +1739,7 @@ public static class SecurityEndpoints
                 StringComparer.Ordinal),
             System.Collections.IDictionary dictionary => NormalizeDictionaryPayload(dictionary),
             System.Collections.IEnumerable enumerable => NormalizeEnumerablePayload(enumerable),
-            _ => NormalizeJsonElement(JsonSerializer.SerializeToElement(payload, AuditPayloadJsonOptions))
+            _ => NormalizeJsonElement(JsonSerializer.SerializeToElement(payload, s_auditPayloadJsonOptions))
         };
     }
 

@@ -399,16 +399,16 @@ internal sealed class BinaryRequestBufferLease
 
 internal sealed class BinaryRequestBufferLeaseScope : IDisposable
 {
-    private static readonly object ItemsKey = new();
+    private static readonly object s_itemsKey = new();
     private readonly object _sync = new();
     private List<BinaryRequestBufferLease>? _leases = [];
 
     public static void Register(HttpContext context, BinaryRequestBufferLease lease)
     {
-        if (!context.Items.TryGetValue(ItemsKey, out object? value))
+        if (!context.Items.TryGetValue(s_itemsKey, out object? value))
         {
             var scope = new BinaryRequestBufferLeaseScope();
-            context.Items[ItemsKey] = scope;
+            context.Items[s_itemsKey] = scope;
             context.Response.OnCompleted(static state =>
             {
                 Release((HttpContext)state, "response-completed");
@@ -428,7 +428,7 @@ internal sealed class BinaryRequestBufferLeaseScope : IDisposable
 
     public static void Release(HttpContext context, string reason)
     {
-        if (context.Items.TryGetValue(ItemsKey, out object? value)
+        if (context.Items.TryGetValue(s_itemsKey, out object? value)
             && value is BinaryRequestBufferLeaseScope scope)
         {
             scope.Dispose(reason);
@@ -475,32 +475,32 @@ internal sealed class BinaryRequestBufferLeaseScope : IDisposable
 
 internal static class BinaryRequestBufferMetrics
 {
-    private static readonly Meter Meter = new(FsusObservability.MeterName, FsusObservability.ServiceVersion);
-    private static readonly Counter<long> RentCounter = Meter.CreateCounter<long>("fsus.binary_request.pool.rent_count");
-    private static readonly Counter<long> ReturnCounter = Meter.CreateCounter<long>("fsus.binary_request.pool.return_count");
-    private static readonly Counter<long> RentedBytesCounter = Meter.CreateCounter<long>("fsus.binary_request.pool.rented_bytes", "By");
-    private static readonly Counter<long> ReturnedBytesCounter = Meter.CreateCounter<long>("fsus.binary_request.pool.returned_bytes", "By");
-    private static long _outstanding;
+    private static readonly Meter s_meter = new(FsusObservability.MeterName, FsusObservability.ServiceVersion);
+    private static readonly Counter<long> s_rentCounter = s_meter.CreateCounter<long>("fsus.binary_request.pool.rent_count");
+    private static readonly Counter<long> s_returnCounter = s_meter.CreateCounter<long>("fsus.binary_request.pool.return_count");
+    private static readonly Counter<long> s_rentedBytesCounter = s_meter.CreateCounter<long>("fsus.binary_request.pool.rented_bytes", "By");
+    private static readonly Counter<long> s_returnedBytesCounter = s_meter.CreateCounter<long>("fsus.binary_request.pool.returned_bytes", "By");
+    private static long s_outstanding;
 
     static BinaryRequestBufferMetrics()
     {
-        Meter.CreateObservableGauge(
+        s_meter.CreateObservableGauge(
             "fsus.binary_request.pool.outstanding",
-            static () => Volatile.Read(ref _outstanding));
+            static () => Volatile.Read(ref s_outstanding));
     }
 
     public static void Rented(int bytes)
     {
-        Interlocked.Increment(ref _outstanding);
-        RentCounter.Add(1);
-        RentedBytesCounter.Add(bytes);
+        Interlocked.Increment(ref s_outstanding);
+        s_rentCounter.Add(1);
+        s_rentedBytesCounter.Add(bytes);
     }
 
     public static void Returned(int bytes, string reason)
     {
-        Interlocked.Decrement(ref _outstanding);
-        ReturnCounter.Add(1, new KeyValuePair<string, object?>("reason", reason));
-        ReturnedBytesCounter.Add(bytes);
+        Interlocked.Decrement(ref s_outstanding);
+        s_returnCounter.Add(1, new KeyValuePair<string, object?>("reason", reason));
+        s_returnedBytesCounter.Add(bytes);
     }
 }
 

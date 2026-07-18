@@ -794,9 +794,9 @@ public sealed partial class SearchIndexService
 
     private static byte[] BuildPackage(ReadOnlySpan<SearchPackageEntry> entries)
     {
-        const int packageHeaderSize = 12;
-        const int entryHeaderSize = 16;
-        int offset = Align(packageHeaderSize + entries.Length * entryHeaderSize, 8);
+        const int PackageHeaderSize = 12;
+        const int EntryHeaderSize = 16;
+        int offset = Align(PackageHeaderSize + entries.Length * EntryHeaderSize, 8);
         int[] offsets = new int[entries.Length];
         for (int i = 0; i < entries.Length; i++)
         {
@@ -808,7 +808,7 @@ public sealed partial class SearchIndexService
         WriteUInt32(writer, PackageMagic);
         WriteUInt32(writer, SearchPackageVersion);
         WriteUInt32(writer, (uint)entries.Length);
-        AlignWriter(writer, packageHeaderSize);
+        AlignWriter(writer, PackageHeaderSize);
 
         for (int i = 0; i < entries.Length; i++)
         {

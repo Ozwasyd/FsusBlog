@@ -57,7 +57,7 @@ public sealed class ArticleResponsibilityManifestService(
     ISqlSugarClient db,
     IAotSeoConfigSnapshot seoConfigSnapshot) : IArticleResponsibilityManifestService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
     public Task<IntegrityManifestResult> GetCurrentAsync(int articleId, CancellationToken cancellationToken = default)
         => BuildAsync(articleId, null, cancellationToken);
@@ -289,9 +289,12 @@ public sealed class ArticleResponsibilityManifestService(
             return default;
         try
         {
-            return JsonSerializer.Deserialize<T>(json, JsonOptions);
+            return JsonSerializer.Deserialize<T>(json, s_jsonOptions);
         }
-        catch (JsonException) { return default; }
+        catch (JsonException)
+        {
+            return default;
+        }
     }
 
     private static IReadOnlyList<T> DeserializeList<T>(string? json)
@@ -344,7 +347,7 @@ public sealed class ArticleResponsibilityAuthoringService(
     ISqlSugarClient db,
     IPublicAotInvalidationService publicAotInvalidation) : IArticleResponsibilityAuthoringService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<ArticleResponsibilitySaveResponse?> SaveAsync(
         int articleId,
@@ -364,9 +367,9 @@ public sealed class ArticleResponsibilityAuthoringService(
             return new ArticleResponsibilitySaveResponse(false, articleId, articleRevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture), revision.RevisionNo, issues);
         }
 
-        string authorsJson = JsonSerializer.Serialize(draft.Authors, JsonOptions);
-        string? reviewerJson = draft.Reviewer is null ? null : JsonSerializer.Serialize(draft.Reviewer, JsonOptions);
-        string sourcesJson = JsonSerializer.Serialize(draft.Sources, JsonOptions);
+        string authorsJson = JsonSerializer.Serialize(draft.Authors, s_jsonOptions);
+        string? reviewerJson = draft.Reviewer is null ? null : JsonSerializer.Serialize(draft.Reviewer, s_jsonOptions);
+        string sourcesJson = JsonSerializer.Serialize(draft.Sources, s_jsonOptions);
         await db.Ado.ExecuteCommandAsync(
             """
             INSERT INTO article_responsibility_snapshot (

@@ -9,9 +9,9 @@ public sealed class HotStatsInvalidationCoalescer(
     ILogger<HotStatsInvalidationCoalescer> logger,
     IUnifiedCache? sharedCache = null) : BackgroundService, IHotStatsInvalidationCoalescer, IHotArticlesCacheVersionPublisher
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
-    private static readonly TimeSpan HotArticlesDebounce = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan StatsDebounce = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan s_pollInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan s_hotArticlesDebounce = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan s_statsDebounce = TimeSpan.FromSeconds(10);
     private const long HotArticlesForceFlushThreshold = 16;
     private const long StatsForceFlushThreshold = 32;
 
@@ -165,7 +165,7 @@ public sealed class HotStatsInvalidationCoalescer(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using PeriodicTimer timer = new(PollInterval);
+        using PeriodicTimer timer = new(s_pollInterval);
         try
         {
             while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
@@ -243,11 +243,11 @@ public sealed class HotStatsInvalidationCoalescer(
             bool flushStats = _pendingStatsDirtyCount > 0
                 && (force
                     || _pendingStatsDirtyCount >= StatsForceFlushThreshold
-                    || (_statsFirstDirtyAt.HasValue && now - _statsFirstDirtyAt.Value >= StatsDebounce));
+                    || (_statsFirstDirtyAt.HasValue && now - _statsFirstDirtyAt.Value >= s_statsDebounce));
             bool flushHotArticles = _pendingHotArticlesDirtyCount > 0
                 && (force
                     || _pendingHotArticlesDirtyCount >= HotArticlesForceFlushThreshold
-                    || (_hotArticlesFirstDirtyAt.HasValue && now - _hotArticlesFirstDirtyAt.Value >= HotArticlesDebounce));
+                    || (_hotArticlesFirstDirtyAt.HasValue && now - _hotArticlesFirstDirtyAt.Value >= s_hotArticlesDebounce));
 
             if (!flushStats && !flushHotArticles)
             {

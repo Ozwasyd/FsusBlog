@@ -5,26 +5,32 @@ using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
+/// <summary>Separates analytics and security-log IP pseudonyms so the two datasets cannot be joined by hash.</summary>
 public enum VisitLogIpPseudonymScope
 {
     Analytics,
     SecurityLog
 }
 
+/// <summary>Identifies a windowed IP pseudonym together with its key epoch and UTC retention window.</summary>
 public readonly record struct VisitLogIpPseudonym(string Hash, int KeyEpoch, int WindowUtc);
 
+/// <summary>Creates rotating, purpose-bound IP pseudonyms for visit-log writes and compatibility reads.</summary>
 public interface IVisitLogIpPseudonymizer
 {
+    /// <summary>Gets the active key epoch used for new visit-log pseudonyms.</summary>
     int CurrentEpoch
     {
         get;
     }
 
+    /// <summary>Creates a current-epoch pseudonym bound to the requested purpose and occurrence window.</summary>
     VisitLogIpPseudonym PseudonymizeCurrent(
         VisitLogIpPseudonymScope scope,
         string ip,
         DateTimeOffset occurredAt);
 
+    /// <summary>Returns current and temporarily accepted previous-epoch pseudonyms for read compatibility.</summary>
     IReadOnlyList<VisitLogIpPseudonym> PseudonymizeForRead(
         VisitLogIpPseudonymScope scope,
         string ip,
@@ -48,8 +54,8 @@ public sealed class VisitLogIpPseudonymizer : IVisitLogIpPseudonymizer
 
     private const int MinimumKeyBytes = 32;
     private const int TruncatedHashBytes = 16;
-    private static readonly TimeSpan MaximumPreviousEpochWindow = TimeSpan.FromDays(31);
-    private static readonly string[] IndependentSecretKeys =
+    private static readonly TimeSpan s_maximumPreviousEpochWindow = TimeSpan.FromDays(31);
+    private static readonly string[] s_independentSecretKeys =
     [
         "Jwt:SecretKey",
         "Security:Pow:SigningKey",
@@ -72,8 +78,10 @@ public sealed class VisitLogIpPseudonymizer : IVisitLogIpPseudonymizer
     private readonly VisitLogIpKey? _previous;
     private readonly TimeProvider _timeProvider;
 
+    /// <inheritdoc />
     public int CurrentEpoch => _current.Epoch;
 
+    /// <summary>Loads and validates the production-aware visit-log key ring and retired-pepper boundary.</summary>
     public VisitLogIpPseudonymizer(
         IConfiguration configuration,
         IWebHostEnvironment environment,
@@ -114,12 +122,14 @@ public sealed class VisitLogIpPseudonymizer : IVisitLogIpPseudonymizer
         _timeProvider = timeProvider;
     }
 
+    /// <inheritdoc />
     public VisitLogIpPseudonym PseudonymizeCurrent(
         VisitLogIpPseudonymScope scope,
         string ip,
         DateTimeOffset occurredAt)
         => Pseudonymize(_current, scope, NormalizeIp(ip), occurredAt);
 
+    /// <inheritdoc />
     public IReadOnlyList<VisitLogIpPseudonym> PseudonymizeForRead(
         VisitLogIpPseudonymScope scope,
         string ip,
@@ -137,6 +147,7 @@ public sealed class VisitLogIpPseudonymizer : IVisitLogIpPseudonymizer
         return [current, Pseudonymize(previous, scope, normalized, occurredAt)];
     }
 
+    /// <summary>Validates key strength, epoch ordering, rotation overlap, legacy-pepper removal, and secret independence.</summary>
     public static IReadOnlyList<string> ValidateConfiguration(
         IConfiguration configuration,
         bool enforceProductionRules,
@@ -211,7 +222,7 @@ public sealed class VisitLogIpPseudonymizer : IVisitLogIpPseudonymizer
             {
                 errors.Add($"{PreviousAcceptUntilUtcKey} must be an explicit UTC timestamp when a previous key is configured.");
             }
-            else if (acceptUntil - (now ?? DateTimeOffset.UtcNow) > MaximumPreviousEpochWindow)
+            else if (acceptUntil - (now ?? DateTimeOffset.UtcNow) > s_maximumPreviousEpochWindow)
             {
                 errors.Add($"{PreviousAcceptUntilUtcKey} must not extend more than 31 days into the future.");
             }
@@ -327,7 +338,7 @@ public sealed class VisitLogIpPseudonymizer : IVisitLogIpPseudonymizer
             return;
         }
 
-        foreach (string otherKey in IndependentSecretKeys)
+        foreach (string otherKey in s_independentSecretKeys)
         {
             if (string.Equals(encodedKey, Value(configuration, otherKey), StringComparison.Ordinal))
             {

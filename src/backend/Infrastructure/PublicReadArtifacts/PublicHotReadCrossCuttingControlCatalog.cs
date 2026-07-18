@@ -35,7 +35,7 @@ internal static class PublicHotReadCrossCuttingControlCatalog
     internal const string SafeMethodEvidence = "safe-method-anonymous-public-artifact";
     internal const string SameOriginEvidence = "same-origin-anonymous-public-artifact";
 
-    private static readonly PublicHotReadCrossCuttingControl[] Controls =
+    private static readonly PublicHotReadCrossCuttingControl[] s_controls =
     [
         Global("release-and-security-headers", "security-headers"),
         Global("deployment-request-tracking", "deployment-request-tracking"),
@@ -52,7 +52,7 @@ internal static class PublicHotReadCrossCuttingControlCatalog
         EndpointOnly("authorization", "authorization", CredentialFreeEvidence)
     ];
 
-    private static readonly string[] RequiredControlIds =
+    private static readonly string[] s_requiredControlIds =
     [
         "release-and-security-headers",
         "deployment-request-tracking",
@@ -69,14 +69,14 @@ internal static class PublicHotReadCrossCuttingControlCatalog
         "authorization"
     ];
 
-    private static readonly HashSet<string> AllowedNotApplicableEvidence = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> s_allowedNotApplicableEvidence = new(StringComparer.Ordinal)
     {
         CredentialFreeEvidence,
         SafeMethodEvidence,
         SameOriginEvidence
     };
 
-    internal static IReadOnlyList<PublicHotReadCrossCuttingControl> All => Controls;
+    internal static IReadOnlyList<PublicHotReadCrossCuttingControl> All => s_controls;
 
     internal static void ValidateOrThrow(
         IReadOnlyList<PublicHotReadPipelineStageDescriptor> applicationStages,
@@ -84,7 +84,7 @@ internal static class PublicHotReadCrossCuttingControlCatalog
         => ValidateOrThrow(
             applicationStages,
             endpointStages,
-            Controls,
+            s_controls,
             PublicHotReadRouteSecurityCatalog.All,
             PublicHotReadEarlyEndpointCatalog.All);
 
@@ -108,7 +108,7 @@ internal static class PublicHotReadCrossCuttingControlCatalog
             .Select(static control => control.ControlId)
             .OrderBy(static id => id, StringComparer.Ordinal)
             .ToArray();
-        string[] requiredControlIds = RequiredControlIds
+        string[] requiredControlIds = s_requiredControlIds
             .OrderBy(static id => id, StringComparer.Ordinal)
             .ToArray();
         if (!actualControlIds.SequenceEqual(requiredControlIds, StringComparer.Ordinal))
@@ -176,7 +176,7 @@ internal static class PublicHotReadCrossCuttingControlCatalog
                     if (control.GlobalStageId is not null
                         || control.EarlyStageId is not null
                         || control.DoubleExecutionGuardId is not null
-                        || !AllowedNotApplicableEvidence.Contains(control.NotApplicableEvidenceId ?? string.Empty))
+                        || !s_allowedNotApplicableEvidence.Contains(control.NotApplicableEvidenceId ?? string.Empty))
                     {
                         throw Invalid(control, "endpoint-only control requires explicit fast-path non-applicability evidence");
                     }

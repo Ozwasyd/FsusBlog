@@ -69,12 +69,12 @@ public sealed class CacheMissCoordinator(
     ILogger<CacheMissCoordinator> logger) : ICacheMissCoordinator
 {
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _rebuildSemaphores = new(StringComparer.Ordinal);
-    private static readonly TimeSpan MinLeaseTtl = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan MaxLeaseTtl = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan MinWaitTimeout = TimeSpan.FromMilliseconds(750);
-    private static readonly TimeSpan MaxWaitTimeout = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan DefaultPollInterval = TimeSpan.FromMilliseconds(125);
-    private static readonly TimeSpan MaxPollInterval = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan s_minLeaseTtl = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan s_maxLeaseTtl = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan s_minWaitTimeout = TimeSpan.FromMilliseconds(750);
+    private static readonly TimeSpan s_maxWaitTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan s_defaultPollInterval = TimeSpan.FromMilliseconds(125);
+    private static readonly TimeSpan s_maxPollInterval = TimeSpan.FromMilliseconds(500);
 
     public async Task<T?> CoordinateAsync<T>(
         CachePolicyId policyId,
@@ -250,7 +250,7 @@ public sealed class CacheMissCoordinator(
         CancellationToken cancellationToken)
     {
         DateTimeOffset deadline = DateTimeOffset.UtcNow.Add(strategy.WaitTimeout);
-        TimeSpan pollInterval = strategy.PollInterval <= TimeSpan.Zero ? DefaultPollInterval : strategy.PollInterval;
+        TimeSpan pollInterval = strategy.PollInterval <= TimeSpan.Zero ? s_defaultPollInterval : strategy.PollInterval;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -274,7 +274,7 @@ public sealed class CacheMissCoordinator(
 
             TimeSpan delay = remaining < pollInterval ? remaining : pollInterval;
             await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
-            pollInterval = TimeSpan.FromTicks(Math.Min(pollInterval.Ticks * 2L, MaxPollInterval.Ticks));
+            pollInterval = TimeSpan.FromTicks(Math.Min(pollInterval.Ticks * 2L, s_maxPollInterval.Ticks));
         }
 
         RuntimePressureSnapshot pressure = RuntimePressureSnapshot.Capture();
@@ -294,10 +294,10 @@ public sealed class CacheMissCoordinator(
     {
         CachePolicy policy = ResolvePolicy(policyId);
         TimeSpan leaseTtl = policy.L2Ttl <= TimeSpan.Zero
-            ? MinLeaseTtl
-            : TimeSpan.FromTicks(Math.Clamp(policy.L2Ttl.Ticks / 20L, MinLeaseTtl.Ticks, MaxLeaseTtl.Ticks));
-        TimeSpan waitTimeout = TimeSpan.FromTicks(Math.Clamp(leaseTtl.Ticks / 4L, MinWaitTimeout.Ticks, MaxWaitTimeout.Ticks));
-        return new CacheRebuildStrategy(leaseTtl, waitTimeout, DefaultPollInterval);
+            ? s_minLeaseTtl
+            : TimeSpan.FromTicks(Math.Clamp(policy.L2Ttl.Ticks / 20L, s_minLeaseTtl.Ticks, s_maxLeaseTtl.Ticks));
+        TimeSpan waitTimeout = TimeSpan.FromTicks(Math.Clamp(leaseTtl.Ticks / 4L, s_minWaitTimeout.Ticks, s_maxWaitTimeout.Ticks));
+        return new CacheRebuildStrategy(leaseTtl, waitTimeout, s_defaultPollInterval);
     }
 
     private CachePolicy ResolvePolicy(CachePolicyId policyId)

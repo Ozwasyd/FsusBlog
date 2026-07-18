@@ -662,16 +662,16 @@ public sealed partial class SearchIndexService
 
     private static SearchRuntimePostingBlock[] BuildRuntimePostingBlocks(SearchRuntimePosting[] postings)
     {
-        const int blockSize = 64;
+        const int BlockSize = 64;
         if (postings.Length == 0)
         {
             return [];
         }
 
-        var blocks = new SearchRuntimePostingBlock[(postings.Length + blockSize - 1) / blockSize];
-        for (int start = 0, blockIndex = 0; start < postings.Length; start += blockSize, blockIndex++)
+        var blocks = new SearchRuntimePostingBlock[(postings.Length + BlockSize - 1) / BlockSize];
+        for (int start = 0, blockIndex = 0; start < postings.Length; start += BlockSize, blockIndex++)
         {
-            int length = Math.Min(blockSize, postings.Length - start);
+            int length = Math.Min(BlockSize, postings.Length - start);
             double maxScore = 0d;
             for (int i = start; i < start + length; i++)
             {

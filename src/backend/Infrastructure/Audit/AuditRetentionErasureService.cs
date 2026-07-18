@@ -34,7 +34,7 @@ public sealed class AuditRetentionErasureService(
 {
     public const string EvidenceTrustDomain = "fsusblog.audit.retention-key-destruction.v1";
     private const int EvidenceVersion = 1;
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<AuditRetentionErasureResult> AnchorAndDestroyKeysAsync(
         IReadOnlyList<AuditLog> rows,
@@ -210,7 +210,7 @@ public sealed class AuditRetentionErasureService(
         string digest = Convert.ToHexStringLower(SHA256.HashData(BuildEvidenceBytes(evidence)));
         string path = Path.Combine(anchorRoot, $"key-destruction-{digest}.json");
         Directory.CreateDirectory(anchorRoot);
-        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(evidence, JsonOptions);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(evidence, s_jsonOptions);
         await using var stream = new FileStream(path, new FileStreamOptions
         {
             Mode = FileMode.CreateNew,

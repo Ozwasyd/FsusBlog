@@ -641,7 +641,7 @@ public sealed partial class AuthoringWorkflowService
     }
 
     private static string SerializeDraftRights(ArticleRightsRequest rights)
-        => JsonSerializer.Serialize(rights, DraftRightsJsonOptions);
+        => JsonSerializer.Serialize(rights, s_draftRightsJsonOptions);
 
     private static ArticleRightsRequest DeserializeDraftRights(string? raw)
     {
@@ -652,7 +652,7 @@ public sealed partial class AuthoringWorkflowService
 
         try
         {
-            return NormalizeDraftRights(JsonSerializer.Deserialize<ArticleRightsRequest>(raw, DraftRightsJsonOptions));
+            return NormalizeDraftRights(JsonSerializer.Deserialize<ArticleRightsRequest>(raw, s_draftRightsJsonOptions));
         }
         catch (JsonException)
         {

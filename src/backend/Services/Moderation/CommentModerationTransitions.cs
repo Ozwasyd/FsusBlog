@@ -4,7 +4,7 @@ namespace FsusBlog.Server.Services.Moderation;
 
 public static class CommentModerationTransitions
 {
-    private static readonly HashSet<(CommentModerationStatus From, CommentModerationStatus To)> Allowed =
+    private static readonly HashSet<(CommentModerationStatus From, CommentModerationStatus To)> s_allowed =
     [
         (CommentModerationStatus.Pending, CommentModerationStatus.Approved),
         (CommentModerationStatus.Pending, CommentModerationStatus.Rejected),
@@ -18,5 +18,5 @@ public static class CommentModerationTransitions
     ];
 
     public static bool IsAllowed(CommentModerationStatus from, CommentModerationStatus to)
-        => from != to && Allowed.Contains((from, to));
+        => from != to && s_allowed.Contains((from, to));
 }

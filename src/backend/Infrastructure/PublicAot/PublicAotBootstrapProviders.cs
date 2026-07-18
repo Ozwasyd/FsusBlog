@@ -22,7 +22,7 @@ public interface IAotSeoConfigSnapshot
 
 public sealed class AotSeoConfigSnapshot(IServiceScopeFactory scopeFactory) : IAotSeoConfigSnapshot
 {
-    private static readonly TimeSpan AotSeoConfigSnapshotTtl = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan s_aotSeoConfigSnapshotTtl = TimeSpan.FromSeconds(30);
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private PublicAotSeoSnapshot? _snapshot;
     private DateTimeOffset _expiresAtUtc;
@@ -67,7 +67,7 @@ public sealed class AotSeoConfigSnapshot(IServiceScopeFactory scopeFactory) : IA
                 seo.LoginLogoUrl,
                 seo.LoginIconUrl);
             Volatile.Write(ref _snapshot, snapshot);
-            _expiresAtUtc = now.Add(AotSeoConfigSnapshotTtl);
+            _expiresAtUtc = now.Add(s_aotSeoConfigSnapshotTtl);
             FsusObservability.RecordPublicAotBootstrapSeoSnapshot(cacheHit: false);
             return snapshot;
         }
@@ -162,27 +162,27 @@ public sealed class PublicAotHomeBootstrapProvider(
 
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
-        const int pageSize = 10;
-        const int featuredSize = 3;
-        const int hotSize = 5;
+        const int PageSize = 10;
+        const int FeaturedSize = 3;
+        const int HotSize = 5;
         int pageIndex = PublicRouteIdentity.ParsePageRouteKey(match.RouteKey);
         if (pageIndex == 1)
         {
             pageIndex = Math.Max(1, match.Page);
         }
         PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
-        ArticleListPageReadModel page = await articleService.GetPageListAsync(pageIndex, pageSize, null, null, false, cancellationToken: cancellationToken);
-        if (IsPageOutOfRange(pageIndex, pageSize, page.Total))
+        ArticleListPageReadModel page = await articleService.GetPageListAsync(pageIndex, PageSize, null, null, false, cancellationToken: cancellationToken);
+        if (IsPageOutOfRange(pageIndex, PageSize, page.Total))
         {
             return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_page_out_of_range");
         }
-        List<FeaturedArticleSummaryDto> featuredArticles = await articleService.GetFeaturedArticlesAsync(featuredSize, cancellationToken);
-        List<PopularArticleSummaryDto> hotArticles = await articleService.GetHotArticlesAsync(hotSize, cancellationToken);
+        List<FeaturedArticleSummaryDto> featuredArticles = await articleService.GetFeaturedArticlesAsync(FeaturedSize, cancellationToken);
+        List<PopularArticleSummaryDto> hotArticles = await articleService.GetHotArticlesAsync(HotSize, cancellationToken);
 
         return Result<PublicPageSnapshot>.Success(new PublicHomePageSnapshot(
             seo,
             Page: pageIndex,
-            pageSize,
+            PageSize,
             page.Total,
             page.Items.Select(ToArticleSummarySnapshot).ToArray(),
             featuredArticles.Select(ToFeaturedArticleSnapshot).ToArray(),
@@ -313,7 +313,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
 
     private async Task<ArticleRightsReadModel> LoadArticleRightsForAotAsync(int articleId, CancellationToken cancellationToken)
     {
-        const string sql = """
+        const string Sql = """
             SELECT
                 snapshot.id AS "RightsSnapshotId",
                 snapshot.article_revision_id AS "RightsArticleRevisionId",
@@ -351,7 +351,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             """;
 
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            sql,
+            Sql,
             new SugarParameter("@ArticleId", articleId));
         return await reader.ReadAsync(cancellationToken)
             ? ReadArticleRights(reader)
@@ -522,7 +522,7 @@ public sealed class PublicAotFilterBootstrapProvider(
 
     public override async Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(PublicAotRouteMatch match, CancellationToken cancellationToken = default)
     {
-        const int pageSize = 10;
+        const int PageSize = 10;
         int pageIndex = PublicRouteIdentity.ParsePageRouteKey(match.RouteKey);
         if (pageIndex == 1)
         {
@@ -537,7 +537,7 @@ public sealed class PublicAotFilterBootstrapProvider(
         Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
         Task<ArticleListPageReadModel> pageTask = articleService.GetPageListAsync(
             pageIndex,
-            pageSize,
+            PageSize,
             identity.CategoryId,
             identity.TagId,
             false,
@@ -545,7 +545,7 @@ public sealed class PublicAotFilterBootstrapProvider(
         PublicAotSeoSnapshot seo = await seoTask;
         ArticleListPageReadModel page = await pageTask;
         if (!PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey)
-            && pageIndex > Math.Max(1, (int)Math.Ceiling(page.Total / (double)pageSize)))
+            && pageIndex > Math.Max(1, (int)Math.Ceiling(page.Total / (double)PageSize)))
         {
             return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_page_out_of_range");
         }
@@ -560,7 +560,7 @@ public sealed class PublicAotFilterBootstrapProvider(
             identity.FilterName,
             identity.IsInvalidTarget,
             pageIndex,
-            pageSize,
+            PageSize,
             page.Total,
             page.Items.Select(ToArticleSummarySnapshot).ToArray(),
             title));

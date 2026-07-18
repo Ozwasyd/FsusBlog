@@ -18,9 +18,9 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
     private const string PublishOrderLockKey = "fsus:notification-stream:v2:publish-order-lock";
     private const int StreamMaxLength = 4096;
     private const int MaxReplayEntries = 512;
-    private static readonly TimeSpan IdempotencyRetention = TimeSpan.FromDays(7);
-    private static readonly TimeSpan PublishOrderLockExpiry = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan PublishOrderRetryDelay = TimeSpan.FromMilliseconds(10);
+    private static readonly TimeSpan s_idempotencyRetention = TimeSpan.FromDays(7);
+    private static readonly TimeSpan s_publishOrderLockExpiry = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan s_publishOrderRetryDelay = TimeSpan.FromMilliseconds(10);
 
     private readonly IDatabase _database = redis.GetDatabase();
 
@@ -28,9 +28,9 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
     {
         RedisKey lockKey = keyScope.PrefixKey(PublishOrderLockKey);
         RedisValue lockToken = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
-        while (!await _database.LockTakeAsync(lockKey, lockToken, PublishOrderLockExpiry).ConfigureAwait(false))
+        while (!await _database.LockTakeAsync(lockKey, lockToken, s_publishOrderLockExpiry).ConfigureAwait(false))
         {
-            await Task.Delay(PublishOrderRetryDelay, cancellationToken).ConfigureAwait(false);
+            await Task.Delay(s_publishOrderRetryDelay, cancellationToken).ConfigureAwait(false);
         }
 
         return lockToken;
@@ -68,7 +68,7 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
             return event_id
             """,
             [dedupeKey, sequenceKey],
-            [(RedisValue)(long)IdempotencyRetention.TotalMilliseconds]).ConfigureAwait(false);
+            [(RedisValue)(long)s_idempotencyRetention.TotalMilliseconds]).ConfigureAwait(false);
         return (long)result;
     }
 

@@ -14,6 +14,8 @@ namespace FsusBlog.Server.Services.Background;
 /// <summary>
 /// 爬虫 IP 库自动更新服务
 /// </summary>
+// Public named-argument source compatibility; exact exception registered in csharp-style-policy.
+#pragma warning disable IDE1006
 public class CrawlerUpdateWorker(
     IServiceProvider _serviceProvider,
     IConfiguration _configuration,
@@ -23,10 +25,11 @@ public class CrawlerUpdateWorker(
     IBackgroundWorkerLease workerLease,
     TimeProvider timeProvider,
     IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService, ICrawlerRangeSyncService
+#pragma warning restore IDE1006
 {
     private const int MaxCidrsPerProvider = 8192;
-    private static readonly Uri DefaultGoogleRangeUrl = new("https://developers.google.com/static/search/apis/ipranges/googlebot.json");
-    private static readonly Uri DefaultBingRangeUrl = new("https://www.bing.com/toolbox/bingbot.json");
+    private static readonly Uri s_defaultGoogleRangeUrl = new("https://developers.google.com/static/search/apis/ipranges/googlebot.json");
+    private static readonly Uri s_defaultBingRangeUrl = new("https://www.bing.com/toolbox/bingbot.json");
     private CrawlerUpdateRuntimeState _runtimeState = CrawlerUpdateRuntimeState.Initial;
     private readonly string? _configuredGoogleCidrs = _configuration["Security:CrawlerCidrs:Google"];
     private readonly string? _configuredBingCidrs = _configuration["Security:CrawlerCidrs:Bing"];
@@ -180,8 +183,8 @@ public class CrawlerUpdateWorker(
 
         var googleErrors = new List<string>(1);
         var bingErrors = new List<string>(1);
-        Task<List<string>> remoteGoogleTask = FetchRemoteCidrsAsync(ResolveUri(options.GoogleCrawlerRangesUrl, DefaultGoogleRangeUrl), "google", googleErrors, token);
-        Task<List<string>> remoteBingTask = FetchRemoteCidrsAsync(ResolveUri(options.BingCrawlerRangesUrl, DefaultBingRangeUrl), "bing", bingErrors, token);
+        Task<List<string>> remoteGoogleTask = FetchRemoteCidrsAsync(ResolveUri(options.GoogleCrawlerRangesUrl, s_defaultGoogleRangeUrl), "google", googleErrors, token);
+        Task<List<string>> remoteBingTask = FetchRemoteCidrsAsync(ResolveUri(options.BingCrawlerRangesUrl, s_defaultBingRangeUrl), "bing", bingErrors, token);
         await Task.WhenAll(remoteGoogleTask, remoteBingTask);
         errors.AddRange(googleErrors);
         errors.AddRange(bingErrors);

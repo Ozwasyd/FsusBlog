@@ -674,11 +674,11 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
 
     private static string GenerateTextTaskAnswer()
     {
-        const string alphabet = "AEFHKMRTY2347";
+        const string Alphabet = "AEFHKMRTY2347";
         Span<char> result = stackalloc char[5];
         for (int i = 0; i < result.Length; i++)
         {
-            result[i] = alphabet[RandomNumberGenerator.GetInt32(alphabet.Length)];
+            result[i] = Alphabet[RandomNumberGenerator.GetInt32(Alphabet.Length)];
         }
 
         return new string(result);
@@ -729,7 +729,7 @@ public abstract class PerceptionChallengeV2ProviderBase(
     bool requiresHighRiskEscalation) : ISecurityChallengeProvider
 {
     private const string GenericFailure = "perception_challenge_failed";
-    private static readonly JsonSerializerOptions RenderRecipeJsonOptions = CreateRenderRecipeJsonOptions();
+    private static readonly JsonSerializerOptions s_renderRecipeJsonOptions = CreateRenderRecipeJsonOptions();
 
     public string Kind => SecurityChallengeContracts.ToWireName(challengeKind);
 
@@ -829,7 +829,7 @@ public abstract class PerceptionChallengeV2ProviderBase(
 
     private IReadOnlyDictionary<string, string> ToProviderPayload(PerceptionChallengeV2IssuePayload payload)
     {
-        string recipeJson = JsonSerializer.Serialize(payload.Recipe, RenderRecipeJsonOptions);
+        string recipeJson = JsonSerializer.Serialize(payload.Recipe, s_renderRecipeJsonOptions);
         return new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["algorithm"] = payload.Algorithm,
@@ -922,10 +922,10 @@ internal static class PerceptionChallengeV2StandaloneFactory
 
     private static PerceptionSealedTokenOptions CreateTokenOptions(IConfiguration configuration)
     {
-        const string fallbackKeyVersion = "current";
+        const string FallbackKeyVersion = "current";
         string currentKeyVersion = NormalizeToken(
             configuration[$"{PerceptionSealedTokenOptions.SectionName}:CurrentKeyVersion"],
-            fallbackKeyVersion);
+            FallbackKeyVersion);
         var options = new PerceptionSealedTokenOptions
         {
             CurrentKeyVersion = currentKeyVersion

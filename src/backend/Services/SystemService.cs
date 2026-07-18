@@ -22,6 +22,8 @@ namespace FsusBlog.Server.Services;
 /// 系统设置与动态页面服务
 /// 修复日期: 2026-02-23 (移除标量查询中的 DataReader 反向优化，引入 Ordinal 字符串极速比对)
 /// </summary>
+// Public named-argument source compatibility; exact exception registered in csharp-style-policy.
+#pragma warning disable IDE1006
 public partial class SystemService(
         ISqlSugarClient _db,
         IUnifiedCache _cache,
@@ -31,88 +33,89 @@ public partial class SystemService(
         IPublicAotInvalidationService _publicAotInvalidationService,
         IMessageRealtimePublisher _messageService,
         ICacheInvalidationDispatcher _cacheInvalidationDispatcher) : ISystemService
+#pragma warning restore IDE1006
 {
-    private const string Key_Title = "Seo_Title";
-    private const string Key_Desc = "Seo_Description";
-    private const string Key_Keywords = "Seo_Keywords";
-    private const string Key_Author = "Seo_Author";
-    private const string Key_OgImage = "Seo_OgImage";
-    private const string Key_BaseUrl = "Seo_BaseUrl";
-    private const string Key_FaviconSvgUrl = "Seo_FaviconSvgUrl";
-    private const string Key_FaviconIcoUrl = "Seo_FaviconIcoUrl";
-    private const string Key_FaviconPngUrl = "Seo_FaviconPngUrl";
-    private const string Key_AppleTouchIconUrl = "Seo_AppleTouchIconUrl";
-    private const string Key_ManifestName = "Seo_ManifestName";
-    private const string Key_ManifestShortName = "Seo_ManifestShortName";
-    private const string Key_PwaIcon192Url = "Seo_PwaIcon192Url";
-    private const string Key_PwaIcon512Url = "Seo_PwaIcon512Url";
-    private const string Key_PwaMaskableIconUrl = "Seo_PwaMaskableIconUrl";
-    private const string Key_ThemeColor = "Seo_ThemeColor";
-    private const string Key_BackgroundColor = "Seo_BackgroundColor";
-    private const string Key_SiteLogoUrl = "Seo_SiteLogoUrl";
-    private const string Key_SiteLogoDarkUrl = "Seo_SiteLogoDarkUrl";
-    private const string Key_SiteWordmarkUrl = "Seo_SiteWordmarkUrl";
-    private const string Key_AdminLogoUrl = "Seo_AdminLogoUrl";
-    private const string Key_AdminCollapsedIconUrl = "Seo_AdminCollapsedIconUrl";
-    private const string Key_LoginLogoUrl = "Seo_LoginLogoUrl";
-    private const string Key_LoginIconUrl = "Seo_LoginIconUrl";
-    private const string Key_ComplianceEnabled = "Compliance_Enabled";
-    private const string Key_ComplianceRegionMode = "Compliance_RegionMode";
-    private const string Key_ComplianceCopyrightOwner = "Compliance_CopyrightOwner";
-    private const string Key_ComplianceCopyrightStartYear = "Compliance_CopyrightStartYear";
-    private const string Key_ComplianceCopyrightText = "Compliance_CopyrightText";
-    private const string Key_ComplianceContentLicenseName = "Compliance_ContentLicenseName";
-    private const string Key_ComplianceContentLicenseUrl = "Compliance_ContentLicenseUrl";
-    private const string Key_ComplianceIcpRecordNumber = "Compliance_IcpRecordNumber";
-    private const string Key_ComplianceIcpRecordUrl = "Compliance_IcpRecordUrl";
-    private const string Key_CompliancePoliceRecordNumber = "Compliance_PoliceRecordNumber";
-    private const string Key_CompliancePoliceRecordUrl = "Compliance_PoliceRecordUrl";
-    private const string Key_CompliancePoliceBadgeIconUrl = "Compliance_PoliceBadgeIconUrl";
-    private const string Key_ComplianceOperatorName = "Compliance_OperatorName";
-    private const string Key_ComplianceContactEmail = "Compliance_ContactEmail";
-    private static readonly string[] SeoConfigKeys =
+    private const string KeyTitle = "Seo_Title";
+    private const string KeyDesc = "Seo_Description";
+    private const string KeyKeywords = "Seo_Keywords";
+    private const string KeyAuthor = "Seo_Author";
+    private const string KeyOgImage = "Seo_OgImage";
+    private const string KeyBaseUrl = "Seo_BaseUrl";
+    private const string KeyFaviconSvgUrl = "Seo_FaviconSvgUrl";
+    private const string KeyFaviconIcoUrl = "Seo_FaviconIcoUrl";
+    private const string KeyFaviconPngUrl = "Seo_FaviconPngUrl";
+    private const string KeyAppleTouchIconUrl = "Seo_AppleTouchIconUrl";
+    private const string KeyManifestName = "Seo_ManifestName";
+    private const string KeyManifestShortName = "Seo_ManifestShortName";
+    private const string KeyPwaIcon192Url = "Seo_PwaIcon192Url";
+    private const string KeyPwaIcon512Url = "Seo_PwaIcon512Url";
+    private const string KeyPwaMaskableIconUrl = "Seo_PwaMaskableIconUrl";
+    private const string KeyThemeColor = "Seo_ThemeColor";
+    private const string KeyBackgroundColor = "Seo_BackgroundColor";
+    private const string KeySiteLogoUrl = "Seo_SiteLogoUrl";
+    private const string KeySiteLogoDarkUrl = "Seo_SiteLogoDarkUrl";
+    private const string KeySiteWordmarkUrl = "Seo_SiteWordmarkUrl";
+    private const string KeyAdminLogoUrl = "Seo_AdminLogoUrl";
+    private const string KeyAdminCollapsedIconUrl = "Seo_AdminCollapsedIconUrl";
+    private const string KeyLoginLogoUrl = "Seo_LoginLogoUrl";
+    private const string KeyLoginIconUrl = "Seo_LoginIconUrl";
+    private const string KeyComplianceEnabled = "Compliance_Enabled";
+    private const string KeyComplianceRegionMode = "Compliance_RegionMode";
+    private const string KeyComplianceCopyrightOwner = "Compliance_CopyrightOwner";
+    private const string KeyComplianceCopyrightStartYear = "Compliance_CopyrightStartYear";
+    private const string KeyComplianceCopyrightText = "Compliance_CopyrightText";
+    private const string KeyComplianceContentLicenseName = "Compliance_ContentLicenseName";
+    private const string KeyComplianceContentLicenseUrl = "Compliance_ContentLicenseUrl";
+    private const string KeyComplianceIcpRecordNumber = "Compliance_IcpRecordNumber";
+    private const string KeyComplianceIcpRecordUrl = "Compliance_IcpRecordUrl";
+    private const string KeyCompliancePoliceRecordNumber = "Compliance_PoliceRecordNumber";
+    private const string KeyCompliancePoliceRecordUrl = "Compliance_PoliceRecordUrl";
+    private const string KeyCompliancePoliceBadgeIconUrl = "Compliance_PoliceBadgeIconUrl";
+    private const string KeyComplianceOperatorName = "Compliance_OperatorName";
+    private const string KeyComplianceContactEmail = "Compliance_ContactEmail";
+    private static readonly string[] s_seoConfigKeys =
     [
-        Key_Title,
-        Key_Desc,
-        Key_Keywords,
-        Key_Author,
-        Key_OgImage,
-        Key_BaseUrl,
-        Key_FaviconSvgUrl,
-        Key_FaviconIcoUrl,
-        Key_FaviconPngUrl,
-        Key_AppleTouchIconUrl,
-        Key_ManifestName,
-        Key_ManifestShortName,
-        Key_PwaIcon192Url,
-        Key_PwaIcon512Url,
-        Key_PwaMaskableIconUrl,
-        Key_ThemeColor,
-        Key_BackgroundColor,
-        Key_SiteLogoUrl,
-        Key_SiteLogoDarkUrl,
-        Key_SiteWordmarkUrl,
-        Key_AdminLogoUrl,
-        Key_AdminCollapsedIconUrl,
-        Key_LoginLogoUrl,
-        Key_LoginIconUrl
+        KeyTitle,
+        KeyDesc,
+        KeyKeywords,
+        KeyAuthor,
+        KeyOgImage,
+        KeyBaseUrl,
+        KeyFaviconSvgUrl,
+        KeyFaviconIcoUrl,
+        KeyFaviconPngUrl,
+        KeyAppleTouchIconUrl,
+        KeyManifestName,
+        KeyManifestShortName,
+        KeyPwaIcon192Url,
+        KeyPwaIcon512Url,
+        KeyPwaMaskableIconUrl,
+        KeyThemeColor,
+        KeyBackgroundColor,
+        KeySiteLogoUrl,
+        KeySiteLogoDarkUrl,
+        KeySiteWordmarkUrl,
+        KeyAdminLogoUrl,
+        KeyAdminCollapsedIconUrl,
+        KeyLoginLogoUrl,
+        KeyLoginIconUrl
     ];
-    private static readonly string[] ComplianceConfigKeys =
+    private static readonly string[] s_complianceConfigKeys =
     [
-        Key_ComplianceEnabled,
-        Key_ComplianceRegionMode,
-        Key_ComplianceCopyrightOwner,
-        Key_ComplianceCopyrightStartYear,
-        Key_ComplianceCopyrightText,
-        Key_ComplianceContentLicenseName,
-        Key_ComplianceContentLicenseUrl,
-        Key_ComplianceIcpRecordNumber,
-        Key_ComplianceIcpRecordUrl,
-        Key_CompliancePoliceRecordNumber,
-        Key_CompliancePoliceRecordUrl,
-        Key_CompliancePoliceBadgeIconUrl,
-        Key_ComplianceOperatorName,
-        Key_ComplianceContactEmail
+        KeyComplianceEnabled,
+        KeyComplianceRegionMode,
+        KeyComplianceCopyrightOwner,
+        KeyComplianceCopyrightStartYear,
+        KeyComplianceCopyrightText,
+        KeyComplianceContentLicenseName,
+        KeyComplianceContentLicenseUrl,
+        KeyComplianceIcpRecordNumber,
+        KeyComplianceIcpRecordUrl,
+        KeyCompliancePoliceRecordNumber,
+        KeyCompliancePoliceRecordUrl,
+        KeyCompliancePoliceBadgeIconUrl,
+        KeyComplianceOperatorName,
+        KeyComplianceContactEmail
     ];
     private const string MissingPageContent = "页面内容正在准备中，请稍后再试。";
     private const string DefaultIcpRecordUrl = "https://beian.miit.gov.cn/";
@@ -127,20 +130,20 @@ public partial class SystemService(
     private const string DefaultPwaMaskableIconUrl = "/favicon/maskable-icon-512x512.png";
     private const string DefaultThemeColor = "#0B4F7A";
     private const string DefaultBackgroundColor = "#FFFFFF";
-    private static readonly string[] RetiredDefaultOgImages =
+    private static readonly string[] s_retiredDefaultOgImages =
     [
         "/og-image.png",
         "/images/og.png",
         "/images/og-default.png"
     ];
-    private static readonly string[] RetiredDefaultFaviconSvgUrls = ["/favicon.svg"];
-    private static readonly string[] RetiredDefaultFaviconIcoUrls = ["/favicon.ico"];
-    private static readonly string[] RetiredDefaultAppleTouchIconUrls = ["/apple-touch-icon.png"];
-    private static readonly string[] RetiredDefaultPwaIcon192Urls = ["/icons/icon-192.png"];
-    private static readonly string[] RetiredDefaultPwaIcon512Urls = ["/icons/icon-512.png"];
-    private static readonly string[] RetiredDefaultPwaMaskableIconUrls = ["/icons/maskable-512.png"];
-    private static readonly string[] RetiredDefaultThemeColors = ["#0f0f11", "#09090b"];
-    private static readonly string[] RetiredDefaultBackgroundColors = ["#fcfcfc", "#f7f7f8"];
+    private static readonly string[] s_retiredDefaultFaviconSvgUrls = ["/favicon.svg"];
+    private static readonly string[] s_retiredDefaultFaviconIcoUrls = ["/favicon.ico"];
+    private static readonly string[] s_retiredDefaultAppleTouchIconUrls = ["/apple-touch-icon.png"];
+    private static readonly string[] s_retiredDefaultPwaIcon192Urls = ["/icons/icon-192.png"];
+    private static readonly string[] s_retiredDefaultPwaIcon512Urls = ["/icons/icon-512.png"];
+    private static readonly string[] s_retiredDefaultPwaMaskableIconUrls = ["/icons/maskable-512.png"];
+    private static readonly string[] s_retiredDefaultThemeColors = ["#0f0f11", "#09090b"];
+    private static readonly string[] s_retiredDefaultBackgroundColors = ["#fcfcfc", "#f7f7f8"];
 
     private const int MaxSlugLength = 64;
     private const int MaxPageContentLength = 200_000;
@@ -197,30 +200,30 @@ public partial class SystemService(
         SeoConfigReadModel normalized = NormalizeSeoConfig(dto);
         SystemConfig[] configs =
         [
-            new() { Key = Key_Title, Value = normalized.Title },
-            new() { Key = Key_Desc, Value = normalized.Description },
-            new() { Key = Key_Keywords, Value = normalized.Keywords },
-            new() { Key = Key_Author, Value = normalized.Author },
-            new() { Key = Key_OgImage, Value = normalized.OgImage },
-            new() { Key = Key_BaseUrl, Value = normalized.BaseUrl },
-            new() { Key = Key_FaviconSvgUrl, Value = normalized.FaviconSvgUrl },
-            new() { Key = Key_FaviconIcoUrl, Value = normalized.FaviconIcoUrl },
-            new() { Key = Key_FaviconPngUrl, Value = normalized.FaviconPngUrl },
-            new() { Key = Key_AppleTouchIconUrl, Value = normalized.AppleTouchIconUrl },
-            new() { Key = Key_ManifestName, Value = normalized.ManifestName },
-            new() { Key = Key_ManifestShortName, Value = normalized.ManifestShortName },
-            new() { Key = Key_PwaIcon192Url, Value = normalized.PwaIcon192Url },
-            new() { Key = Key_PwaIcon512Url, Value = normalized.PwaIcon512Url },
-            new() { Key = Key_PwaMaskableIconUrl, Value = normalized.PwaMaskableIconUrl },
-            new() { Key = Key_ThemeColor, Value = normalized.ThemeColor },
-            new() { Key = Key_BackgroundColor, Value = normalized.BackgroundColor },
-            new() { Key = Key_SiteLogoUrl, Value = normalized.SiteLogoUrl },
-            new() { Key = Key_SiteLogoDarkUrl, Value = normalized.SiteLogoDarkUrl },
-            new() { Key = Key_SiteWordmarkUrl, Value = normalized.SiteWordmarkUrl },
-            new() { Key = Key_AdminLogoUrl, Value = normalized.AdminLogoUrl },
-            new() { Key = Key_AdminCollapsedIconUrl, Value = normalized.AdminCollapsedIconUrl },
-            new() { Key = Key_LoginLogoUrl, Value = normalized.LoginLogoUrl },
-            new() { Key = Key_LoginIconUrl, Value = normalized.LoginIconUrl }
+            new() { Key = KeyTitle, Value = normalized.Title },
+            new() { Key = KeyDesc, Value = normalized.Description },
+            new() { Key = KeyKeywords, Value = normalized.Keywords },
+            new() { Key = KeyAuthor, Value = normalized.Author },
+            new() { Key = KeyOgImage, Value = normalized.OgImage },
+            new() { Key = KeyBaseUrl, Value = normalized.BaseUrl },
+            new() { Key = KeyFaviconSvgUrl, Value = normalized.FaviconSvgUrl },
+            new() { Key = KeyFaviconIcoUrl, Value = normalized.FaviconIcoUrl },
+            new() { Key = KeyFaviconPngUrl, Value = normalized.FaviconPngUrl },
+            new() { Key = KeyAppleTouchIconUrl, Value = normalized.AppleTouchIconUrl },
+            new() { Key = KeyManifestName, Value = normalized.ManifestName },
+            new() { Key = KeyManifestShortName, Value = normalized.ManifestShortName },
+            new() { Key = KeyPwaIcon192Url, Value = normalized.PwaIcon192Url },
+            new() { Key = KeyPwaIcon512Url, Value = normalized.PwaIcon512Url },
+            new() { Key = KeyPwaMaskableIconUrl, Value = normalized.PwaMaskableIconUrl },
+            new() { Key = KeyThemeColor, Value = normalized.ThemeColor },
+            new() { Key = KeyBackgroundColor, Value = normalized.BackgroundColor },
+            new() { Key = KeySiteLogoUrl, Value = normalized.SiteLogoUrl },
+            new() { Key = KeySiteLogoDarkUrl, Value = normalized.SiteLogoDarkUrl },
+            new() { Key = KeySiteWordmarkUrl, Value = normalized.SiteWordmarkUrl },
+            new() { Key = KeyAdminLogoUrl, Value = normalized.AdminLogoUrl },
+            new() { Key = KeyAdminCollapsedIconUrl, Value = normalized.AdminCollapsedIconUrl },
+            new() { Key = KeyLoginLogoUrl, Value = normalized.LoginLogoUrl },
+            new() { Key = KeyLoginIconUrl, Value = normalized.LoginIconUrl }
         ];
 
         await _db.Storageable(configs).ExecuteCommandAsync();
@@ -275,20 +278,20 @@ public partial class SystemService(
         SiteComplianceConfigReadModel normalized = NormalizeComplianceConfig(dto);
         SystemConfig[] configs =
         [
-            new() { Key = Key_ComplianceEnabled, Value = normalized.Enabled ? "true" : "false" },
-            new() { Key = Key_ComplianceRegionMode, Value = normalized.RegionMode },
-            new() { Key = Key_ComplianceCopyrightOwner, Value = normalized.CopyrightOwner },
-            new() { Key = Key_ComplianceCopyrightStartYear, Value = normalized.CopyrightStartYear?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty },
-            new() { Key = Key_ComplianceCopyrightText, Value = normalized.CopyrightText },
-            new() { Key = Key_ComplianceContentLicenseName, Value = normalized.ContentLicenseName },
-            new() { Key = Key_ComplianceContentLicenseUrl, Value = normalized.ContentLicenseUrl },
-            new() { Key = Key_ComplianceIcpRecordNumber, Value = normalized.IcpRecordNumber },
-            new() { Key = Key_ComplianceIcpRecordUrl, Value = normalized.IcpRecordUrl },
-            new() { Key = Key_CompliancePoliceRecordNumber, Value = normalized.PoliceRecordNumber },
-            new() { Key = Key_CompliancePoliceRecordUrl, Value = normalized.PoliceRecordUrl },
-            new() { Key = Key_CompliancePoliceBadgeIconUrl, Value = normalized.PoliceBadgeIconUrl },
-            new() { Key = Key_ComplianceOperatorName, Value = normalized.OperatorName },
-            new() { Key = Key_ComplianceContactEmail, Value = normalized.ContactEmail }
+            new() { Key = KeyComplianceEnabled, Value = normalized.Enabled ? "true" : "false" },
+            new() { Key = KeyComplianceRegionMode, Value = normalized.RegionMode },
+            new() { Key = KeyComplianceCopyrightOwner, Value = normalized.CopyrightOwner },
+            new() { Key = KeyComplianceCopyrightStartYear, Value = normalized.CopyrightStartYear?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty },
+            new() { Key = KeyComplianceCopyrightText, Value = normalized.CopyrightText },
+            new() { Key = KeyComplianceContentLicenseName, Value = normalized.ContentLicenseName },
+            new() { Key = KeyComplianceContentLicenseUrl, Value = normalized.ContentLicenseUrl },
+            new() { Key = KeyComplianceIcpRecordNumber, Value = normalized.IcpRecordNumber },
+            new() { Key = KeyComplianceIcpRecordUrl, Value = normalized.IcpRecordUrl },
+            new() { Key = KeyCompliancePoliceRecordNumber, Value = normalized.PoliceRecordNumber },
+            new() { Key = KeyCompliancePoliceRecordUrl, Value = normalized.PoliceRecordUrl },
+            new() { Key = KeyCompliancePoliceBadgeIconUrl, Value = normalized.PoliceBadgeIconUrl },
+            new() { Key = KeyComplianceOperatorName, Value = normalized.OperatorName },
+            new() { Key = KeyComplianceContactEmail, Value = normalized.ContactEmail }
         ];
 
         await _db.Storageable(configs).ExecuteCommandAsync();
@@ -481,19 +484,19 @@ public partial class SystemService(
             Description = dto.Description,
             Keywords = dto.Keywords,
             Author = dto.Author,
-            OgImage = DefaultIfRetiredDefault(dto.OgImage, DefaultOgImage, RetiredDefaultOgImages),
+            OgImage = DefaultIfRetiredDefault(dto.OgImage, DefaultOgImage, s_retiredDefaultOgImages),
             BaseUrl = dto.BaseUrl,
-            FaviconSvgUrl = DefaultIfRetiredDefault(dto.FaviconSvgUrl, DefaultFaviconSvgUrl, RetiredDefaultFaviconSvgUrls),
-            FaviconIcoUrl = DefaultIfRetiredDefault(dto.FaviconIcoUrl, DefaultFaviconIcoUrl, RetiredDefaultFaviconIcoUrls),
+            FaviconSvgUrl = DefaultIfRetiredDefault(dto.FaviconSvgUrl, DefaultFaviconSvgUrl, s_retiredDefaultFaviconSvgUrls),
+            FaviconIcoUrl = DefaultIfRetiredDefault(dto.FaviconIcoUrl, DefaultFaviconIcoUrl, s_retiredDefaultFaviconIcoUrls),
             FaviconPngUrl = dto.FaviconPngUrl,
-            AppleTouchIconUrl = DefaultIfRetiredDefault(dto.AppleTouchIconUrl, DefaultAppleTouchIconUrl, RetiredDefaultAppleTouchIconUrls),
+            AppleTouchIconUrl = DefaultIfRetiredDefault(dto.AppleTouchIconUrl, DefaultAppleTouchIconUrl, s_retiredDefaultAppleTouchIconUrls),
             ManifestName = dto.ManifestName,
             ManifestShortName = dto.ManifestShortName,
-            PwaIcon192Url = DefaultIfRetiredDefault(dto.PwaIcon192Url, DefaultPwaIcon192Url, RetiredDefaultPwaIcon192Urls),
-            PwaIcon512Url = DefaultIfRetiredDefault(dto.PwaIcon512Url, DefaultPwaIcon512Url, RetiredDefaultPwaIcon512Urls),
-            PwaMaskableIconUrl = DefaultIfRetiredDefault(dto.PwaMaskableIconUrl, DefaultPwaMaskableIconUrl, RetiredDefaultPwaMaskableIconUrls),
-            ThemeColor = DefaultIfRetiredDefault(dto.ThemeColor, DefaultThemeColor, RetiredDefaultThemeColors),
-            BackgroundColor = DefaultIfRetiredDefault(dto.BackgroundColor, DefaultBackgroundColor, RetiredDefaultBackgroundColors),
+            PwaIcon192Url = DefaultIfRetiredDefault(dto.PwaIcon192Url, DefaultPwaIcon192Url, s_retiredDefaultPwaIcon192Urls),
+            PwaIcon512Url = DefaultIfRetiredDefault(dto.PwaIcon512Url, DefaultPwaIcon512Url, s_retiredDefaultPwaIcon512Urls),
+            PwaMaskableIconUrl = DefaultIfRetiredDefault(dto.PwaMaskableIconUrl, DefaultPwaMaskableIconUrl, s_retiredDefaultPwaMaskableIconUrls),
+            ThemeColor = DefaultIfRetiredDefault(dto.ThemeColor, DefaultThemeColor, s_retiredDefaultThemeColors),
+            BackgroundColor = DefaultIfRetiredDefault(dto.BackgroundColor, DefaultBackgroundColor, s_retiredDefaultBackgroundColors),
             SiteLogoUrl = dto.SiteLogoUrl,
             SiteLogoDarkUrl = dto.SiteLogoDarkUrl,
             SiteWordmarkUrl = dto.SiteWordmarkUrl,
@@ -735,7 +738,7 @@ public partial class SystemService(
     private async Task<SeoConfigReadModel> LoadSeoConfigFromDbAsync(CancellationToken cancellationToken)
     {
         var query = _db.Queryable<SystemConfig>()
-            .In(c => c.Key, SeoConfigKeys)
+            .In(c => c.Key, s_seoConfigKeys)
             .Select(c => new { c.Key, c.Value });
 
         var sqlObj = query.ToSql();
@@ -756,37 +759,37 @@ public partial class SystemService(
 
         return NormalizeSeoConfig(new UpdateSeoConfigRequest
         {
-            Title = GetValue(configs, Key_Title, PublicSiteIdentityDefaults.SiteTitle),
-            Description = GetValue(configs, Key_Desc, PublicSiteIdentityDefaults.SiteDescription),
-            Keywords = GetValue(configs, Key_Keywords, PublicSiteIdentityDefaults.SiteKeywords),
-            Author = GetValue(configs, Key_Author, PublicSiteIdentityDefaults.SiteAuthor),
-            OgImage = GetDefaultAwareValue(configs, Key_OgImage, DefaultOgImage, RetiredDefaultOgImages),
-            BaseUrl = GetValue(configs, Key_BaseUrl, PublicSiteIdentityDefaults.SiteBaseUrl),
-            FaviconSvgUrl = GetDefaultAwareValue(configs, Key_FaviconSvgUrl, DefaultFaviconSvgUrl, RetiredDefaultFaviconSvgUrls),
-            FaviconIcoUrl = GetDefaultAwareValue(configs, Key_FaviconIcoUrl, DefaultFaviconIcoUrl, RetiredDefaultFaviconIcoUrls),
-            FaviconPngUrl = GetValue(configs, Key_FaviconPngUrl, DefaultFaviconPngUrl),
-            AppleTouchIconUrl = GetDefaultAwareValue(configs, Key_AppleTouchIconUrl, DefaultAppleTouchIconUrl, RetiredDefaultAppleTouchIconUrls),
-            ManifestName = GetValue(configs, Key_ManifestName, string.Empty),
-            ManifestShortName = GetValue(configs, Key_ManifestShortName, PublicSiteIdentityDefaults.ManifestShortName),
-            PwaIcon192Url = GetDefaultAwareValue(configs, Key_PwaIcon192Url, DefaultPwaIcon192Url, RetiredDefaultPwaIcon192Urls),
-            PwaIcon512Url = GetDefaultAwareValue(configs, Key_PwaIcon512Url, DefaultPwaIcon512Url, RetiredDefaultPwaIcon512Urls),
-            PwaMaskableIconUrl = GetDefaultAwareValue(configs, Key_PwaMaskableIconUrl, DefaultPwaMaskableIconUrl, RetiredDefaultPwaMaskableIconUrls),
-            ThemeColor = GetDefaultAwareValue(configs, Key_ThemeColor, DefaultThemeColor, RetiredDefaultThemeColors),
-            BackgroundColor = GetDefaultAwareValue(configs, Key_BackgroundColor, DefaultBackgroundColor, RetiredDefaultBackgroundColors),
-            SiteLogoUrl = GetValue(configs, Key_SiteLogoUrl, string.Empty),
-            SiteLogoDarkUrl = GetValue(configs, Key_SiteLogoDarkUrl, string.Empty),
-            SiteWordmarkUrl = GetValue(configs, Key_SiteWordmarkUrl, string.Empty),
-            AdminLogoUrl = GetValue(configs, Key_AdminLogoUrl, string.Empty),
-            AdminCollapsedIconUrl = GetValue(configs, Key_AdminCollapsedIconUrl, string.Empty),
-            LoginLogoUrl = GetValue(configs, Key_LoginLogoUrl, string.Empty),
-            LoginIconUrl = GetValue(configs, Key_LoginIconUrl, string.Empty)
+            Title = GetValue(configs, KeyTitle, PublicSiteIdentityDefaults.SiteTitle),
+            Description = GetValue(configs, KeyDesc, PublicSiteIdentityDefaults.SiteDescription),
+            Keywords = GetValue(configs, KeyKeywords, PublicSiteIdentityDefaults.SiteKeywords),
+            Author = GetValue(configs, KeyAuthor, PublicSiteIdentityDefaults.SiteAuthor),
+            OgImage = GetDefaultAwareValue(configs, KeyOgImage, DefaultOgImage, s_retiredDefaultOgImages),
+            BaseUrl = GetValue(configs, KeyBaseUrl, PublicSiteIdentityDefaults.SiteBaseUrl),
+            FaviconSvgUrl = GetDefaultAwareValue(configs, KeyFaviconSvgUrl, DefaultFaviconSvgUrl, s_retiredDefaultFaviconSvgUrls),
+            FaviconIcoUrl = GetDefaultAwareValue(configs, KeyFaviconIcoUrl, DefaultFaviconIcoUrl, s_retiredDefaultFaviconIcoUrls),
+            FaviconPngUrl = GetValue(configs, KeyFaviconPngUrl, DefaultFaviconPngUrl),
+            AppleTouchIconUrl = GetDefaultAwareValue(configs, KeyAppleTouchIconUrl, DefaultAppleTouchIconUrl, s_retiredDefaultAppleTouchIconUrls),
+            ManifestName = GetValue(configs, KeyManifestName, string.Empty),
+            ManifestShortName = GetValue(configs, KeyManifestShortName, PublicSiteIdentityDefaults.ManifestShortName),
+            PwaIcon192Url = GetDefaultAwareValue(configs, KeyPwaIcon192Url, DefaultPwaIcon192Url, s_retiredDefaultPwaIcon192Urls),
+            PwaIcon512Url = GetDefaultAwareValue(configs, KeyPwaIcon512Url, DefaultPwaIcon512Url, s_retiredDefaultPwaIcon512Urls),
+            PwaMaskableIconUrl = GetDefaultAwareValue(configs, KeyPwaMaskableIconUrl, DefaultPwaMaskableIconUrl, s_retiredDefaultPwaMaskableIconUrls),
+            ThemeColor = GetDefaultAwareValue(configs, KeyThemeColor, DefaultThemeColor, s_retiredDefaultThemeColors),
+            BackgroundColor = GetDefaultAwareValue(configs, KeyBackgroundColor, DefaultBackgroundColor, s_retiredDefaultBackgroundColors),
+            SiteLogoUrl = GetValue(configs, KeySiteLogoUrl, string.Empty),
+            SiteLogoDarkUrl = GetValue(configs, KeySiteLogoDarkUrl, string.Empty),
+            SiteWordmarkUrl = GetValue(configs, KeySiteWordmarkUrl, string.Empty),
+            AdminLogoUrl = GetValue(configs, KeyAdminLogoUrl, string.Empty),
+            AdminCollapsedIconUrl = GetValue(configs, KeyAdminCollapsedIconUrl, string.Empty),
+            LoginLogoUrl = GetValue(configs, KeyLoginLogoUrl, string.Empty),
+            LoginIconUrl = GetValue(configs, KeyLoginIconUrl, string.Empty)
         });
     }
 
     private async Task<SiteComplianceConfigReadModel> LoadComplianceConfigFromDbAsync(CancellationToken cancellationToken)
     {
         var query = _db.Queryable<SystemConfig>()
-            .In(c => c.Key, ComplianceConfigKeys)
+            .In(c => c.Key, s_complianceConfigKeys)
             .Select(c => new { c.Key, c.Value });
 
         var sqlObj = query.ToSql();
@@ -807,20 +810,20 @@ public partial class SystemService(
 
         return new SiteComplianceConfigReadModel
         {
-            Enabled = ParseBool(GetValue(configs, Key_ComplianceEnabled, "false")),
-            RegionMode = NormalizeRegionMode(GetValue(configs, Key_ComplianceRegionMode, "global")),
-            CopyrightOwner = TrimUtf8Bytes(GetValue(configs, Key_ComplianceCopyrightOwner, string.Empty), 128),
-            CopyrightStartYear = ParseStartYear(GetValue(configs, Key_ComplianceCopyrightStartYear, string.Empty)),
-            CopyrightText = TrimText(GetValue(configs, Key_ComplianceCopyrightText, string.Empty), 512),
-            ContentLicenseName = TrimUtf8Bytes(GetValue(configs, Key_ComplianceContentLicenseName, string.Empty), 128),
-            ContentLicenseUrl = NormalizeOptionalHttpUrl(GetValue(configs, Key_ComplianceContentLicenseUrl, string.Empty), 256),
-            IcpRecordNumber = TrimUtf8Bytes(GetValue(configs, Key_ComplianceIcpRecordNumber, string.Empty), 64),
-            IcpRecordUrl = NormalizeHttpUrlOrDefault(GetValue(configs, Key_ComplianceIcpRecordUrl, DefaultIcpRecordUrl), DefaultIcpRecordUrl, 256),
-            PoliceRecordNumber = TrimUtf8Bytes(GetValue(configs, Key_CompliancePoliceRecordNumber, string.Empty), 64),
-            PoliceRecordUrl = NormalizeHttpUrlOrDefault(GetValue(configs, Key_CompliancePoliceRecordUrl, DefaultPoliceRecordUrl), DefaultPoliceRecordUrl, 256),
-            PoliceBadgeIconUrl = NormalizeOptionalHttpUrl(GetValue(configs, Key_CompliancePoliceBadgeIconUrl, string.Empty), 256),
-            OperatorName = TrimUtf8Bytes(GetValue(configs, Key_ComplianceOperatorName, string.Empty), 128),
-            ContactEmail = TrimUtf8Bytes(GetValue(configs, Key_ComplianceContactEmail, string.Empty), 128)
+            Enabled = ParseBool(GetValue(configs, KeyComplianceEnabled, "false")),
+            RegionMode = NormalizeRegionMode(GetValue(configs, KeyComplianceRegionMode, "global")),
+            CopyrightOwner = TrimUtf8Bytes(GetValue(configs, KeyComplianceCopyrightOwner, string.Empty), 128),
+            CopyrightStartYear = ParseStartYear(GetValue(configs, KeyComplianceCopyrightStartYear, string.Empty)),
+            CopyrightText = TrimText(GetValue(configs, KeyComplianceCopyrightText, string.Empty), 512),
+            ContentLicenseName = TrimUtf8Bytes(GetValue(configs, KeyComplianceContentLicenseName, string.Empty), 128),
+            ContentLicenseUrl = NormalizeOptionalHttpUrl(GetValue(configs, KeyComplianceContentLicenseUrl, string.Empty), 256),
+            IcpRecordNumber = TrimUtf8Bytes(GetValue(configs, KeyComplianceIcpRecordNumber, string.Empty), 64),
+            IcpRecordUrl = NormalizeHttpUrlOrDefault(GetValue(configs, KeyComplianceIcpRecordUrl, DefaultIcpRecordUrl), DefaultIcpRecordUrl, 256),
+            PoliceRecordNumber = TrimUtf8Bytes(GetValue(configs, KeyCompliancePoliceRecordNumber, string.Empty), 64),
+            PoliceRecordUrl = NormalizeHttpUrlOrDefault(GetValue(configs, KeyCompliancePoliceRecordUrl, DefaultPoliceRecordUrl), DefaultPoliceRecordUrl, 256),
+            PoliceBadgeIconUrl = NormalizeOptionalHttpUrl(GetValue(configs, KeyCompliancePoliceBadgeIconUrl, string.Empty), 256),
+            OperatorName = TrimUtf8Bytes(GetValue(configs, KeyComplianceOperatorName, string.Empty), 128),
+            ContactEmail = TrimUtf8Bytes(GetValue(configs, KeyComplianceContactEmail, string.Empty), 128)
         };
     }
 

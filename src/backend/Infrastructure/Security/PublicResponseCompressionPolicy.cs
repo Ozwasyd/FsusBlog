@@ -11,6 +11,7 @@ namespace FsusBlog.Server.Infrastructure.Security;
 
 internal sealed class PublicResponseCompressionMetadata
 {
+    /// <summary>Gets the marker attached only to endpoints explicitly approved for public response compression.</summary>
     public static PublicResponseCompressionMetadata Instance { get; } = new();
 
     private PublicResponseCompressionMetadata()
@@ -22,6 +23,7 @@ internal sealed class PublicResponseCompressionPolicyOptions
 {
     public const string SectionName = "ResponseCompressionPolicy";
 
+    /// <summary>Gets or sets whether the public-only response compression policy may admit requests.</summary>
     public bool Enabled { get; set; } = true;
 }
 
@@ -37,6 +39,7 @@ internal static class PublicResponseCompressionEndpointConventionBuilderExtensio
 
 internal static class PublicResponseCompressionServiceCollectionExtensions
 {
+    /// <summary>Registers endpoint-aware compression that excludes authenticated, binary, and sensitive responses.</summary>
     public static IServiceCollection AddFsusPublicResponseCompression(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -60,6 +63,7 @@ internal sealed class EndpointAwareResponseCompressionProvider : IResponseCompre
     private readonly ResponseCompressionProvider _inner;
     private readonly IOptionsMonitor<PublicResponseCompressionPolicyOptions> _options;
 
+    /// <summary>Wraps the framework provider with the current request and response eligibility policy.</summary>
     public EndpointAwareResponseCompressionProvider(
         IServiceProvider services,
         IOptions<ResponseCompressionOptions> compressionOptions,
@@ -69,16 +73,19 @@ internal sealed class EndpointAwareResponseCompressionProvider : IResponseCompre
         _options = options;
     }
 
+    /// <inheritdoc />
     public ICompressionProvider? GetCompressionProvider(HttpContext context)
         => PublicResponseCompressionPolicy.IsRequestEligible(context, _options.CurrentValue)
             ? _inner.GetCompressionProvider(context)
             : null;
 
+    /// <inheritdoc />
     public bool ShouldCompressResponse(HttpContext context)
         => PublicResponseCompressionPolicy.IsRequestEligible(context, _options.CurrentValue)
             && PublicResponseCompressionPolicy.IsResponseEligible(context.Response)
             && _inner.ShouldCompressResponse(context);
 
+    /// <inheritdoc />
     public bool CheckRequestAcceptsCompression(HttpContext context)
         => PublicResponseCompressionPolicy.IsRequestEligible(context, _options.CurrentValue)
             && _inner.CheckRequestAcceptsCompression(context);
@@ -96,7 +103,7 @@ internal static class PublicResponseCompressionPolicy
         "text/plain"
     ];
 
-    private static readonly string[] SensitiveRequestHeaders =
+    private static readonly string[] s_sensitiveRequestHeaders =
     [
         "Authorization",
         "Cookie",
@@ -105,7 +112,7 @@ internal static class PublicResponseCompressionPolicy
         "X-XSRF-TOKEN"
     ];
 
-    private static readonly string[] SensitiveVaryHeaders =
+    private static readonly string[] s_sensitiveVaryHeaders =
     [
         "*",
         "Authorization",
@@ -115,7 +122,7 @@ internal static class PublicResponseCompressionPolicy
         "X-XSRF-TOKEN"
     ];
 
-    private static readonly PathString[] SensitivePathPrefixes =
+    private static readonly PathString[] s_sensitivePathPrefixes =
     [
         new("/account"),
         new("/admin"),
@@ -129,6 +136,7 @@ internal static class PublicResponseCompressionPolicy
         new("/user")
     ];
 
+    /// <summary>Admits only anonymous HTTPS reads on explicitly marked endpoints without sensitive request state.</summary>
     public static bool IsRequestEligible(
         HttpContext context,
         PublicResponseCompressionPolicyOptions options)
@@ -159,7 +167,7 @@ internal static class PublicResponseCompressionPolicy
             return false;
         }
 
-        foreach (string header in SensitiveRequestHeaders)
+        foreach (string header in s_sensitiveRequestHeaders)
         {
             if (!StringValues.IsNullOrEmpty(context.Request.Headers[header]))
             {
@@ -167,7 +175,7 @@ internal static class PublicResponseCompressionPolicy
             }
         }
 
-        foreach (PathString prefix in SensitivePathPrefixes)
+        foreach (PathString prefix in s_sensitivePathPrefixes)
         {
             if (context.Request.Path.StartsWithSegments(prefix, StringComparison.OrdinalIgnoreCase))
             {
@@ -178,6 +186,7 @@ internal static class PublicResponseCompressionPolicy
         return true;
     }
 
+    /// <summary>Admits only successful public-cacheable textual responses without cookies, downloads, or unsafe vary headers.</summary>
     public static bool IsResponseEligible(HttpResponse response)
     {
         if (response.StatusCode != StatusCodes.Status200OK
@@ -226,7 +235,7 @@ internal static class PublicResponseCompressionPolicy
         {
             foreach (string token in (value ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
-                if (SensitiveVaryHeaders.Contains(token, StringComparer.OrdinalIgnoreCase))
+                if (s_sensitiveVaryHeaders.Contains(token, StringComparer.OrdinalIgnoreCase))
                 {
                     return true;
                 }

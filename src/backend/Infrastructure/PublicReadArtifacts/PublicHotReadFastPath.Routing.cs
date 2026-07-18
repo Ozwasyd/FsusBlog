@@ -39,7 +39,7 @@ public static partial class PublicHotReadFastPath
         ctx.Response.Headers["Pragma"] = "no-cache";
         ctx.Response.Headers["Expires"] = "0";
         ctx.Response.Headers["Accept-Ranges"] = "none";
-        return Completed;
+        return s_completed;
     }
 
     private static void WriteDiagnosticHeaders(
@@ -82,7 +82,7 @@ public static partial class PublicHotReadFastPath
 
     private static bool IsSensitiveApiPath(string path)
     {
-        foreach (string prefix in SensitiveApiPrefixes)
+        foreach (string prefix in s_sensitiveApiPrefixes)
         {
             if (string.Equals(path, prefix, StringComparison.OrdinalIgnoreCase)
                 || (path.Length > prefix.Length
@@ -169,13 +169,13 @@ public static partial class PublicHotReadFastPath
             return true;
         }
 
-        const string articlePrefix = "/api/binary/article/";
-        if (!path.StartsWith(articlePrefix, StringComparison.Ordinal))
+        const string ArticleRoutePrefix = "/api/binary/article/";
+        if (!path.StartsWith(ArticleRoutePrefix, StringComparison.Ordinal))
         {
             return false;
         }
 
-        ReadOnlySpan<char> rest = path[articlePrefix.Length..];
+        ReadOnlySpan<char> rest = path[ArticleRoutePrefix.Length..];
         if (rest.StartsWith("list/".AsSpan(), StringComparison.Ordinal))
         {
             return TryClassifyArticleList(rest["list/".Length..], out route);

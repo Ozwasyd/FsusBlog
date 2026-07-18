@@ -41,7 +41,7 @@ public sealed partial class AuthoringWorkflowService(
     private const int PreviewLength = 24_000;
     private const int WarningOverrideReasonLength = 180;
     private const string ModelRiskBorderlineReviewReason = "model_policy:model_risk_borderline_review";
-    private static readonly JsonSerializerOptions DraftRightsJsonOptions = new(JsonSerializerDefaults.Web);
-    private static int assetArticleReferenceStoreEnsured;
+    private static readonly JsonSerializerOptions s_draftRightsJsonOptions = new(JsonSerializerDefaults.Web);
+    private static int s_assetArticleReferenceStoreEnsured;
 
 }

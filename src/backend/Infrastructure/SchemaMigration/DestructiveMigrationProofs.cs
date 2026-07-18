@@ -23,7 +23,7 @@ public static partial class DestructiveMigrationProofs
 {
     internal const int MinimumRollbackWindowDays = 30;
 
-    private static readonly IReadOnlyList<string> EvidenceRequirements =
+    private static readonly IReadOnlyList<string> s_evidenceRequirements =
     [
         "n_minus_one_qualification_passed",
         "rollback_manifest_sealed",
@@ -32,7 +32,7 @@ public static partial class DestructiveMigrationProofs
         "cross_region_restore_verified"
     ];
 
-    private static readonly IReadOnlyDictionary<string, DestructiveMigrationProof> Proofs =
+    private static readonly IReadOnlyDictionary<string, DestructiveMigrationProof> s_proofs =
         new Dictionary<string, DestructiveMigrationProof>(StringComparer.Ordinal)
         {
             ["20260715-post-read-event-retirement"] = Create(
@@ -111,7 +111,7 @@ public static partial class DestructiveMigrationProofs
 
     public static DestructiveMigrationProof For(string migrationId)
     {
-        if (!Proofs.TryGetValue(migrationId, out DestructiveMigrationProof? proof))
+        if (!s_proofs.TryGetValue(migrationId, out DestructiveMigrationProof? proof))
         {
             throw new ArgumentException(
                 "Destructive migration has no reviewed rollback-window proof registration.",
@@ -181,7 +181,7 @@ public static partial class DestructiveMigrationProofs
             migrationId,
             introducedAt.AddDays(MinimumRollbackWindowDays),
             $"docs/schema-migrations/destructive-rollback-window-proofs.json#{migrationId}",
-            EvidenceRequirements);
+            s_evidenceRequirements);
     }
 
     [GeneratedRegex("^[0-9a-f]{40}$", RegexOptions.CultureInvariant)]

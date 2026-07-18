@@ -180,7 +180,7 @@ public sealed class PublicArticleProjectionRuntimeState
 
 public sealed class PublicArticleProjectionNegativeCache(TimeProvider timeProvider)
 {
-    private static readonly TimeSpan Ttl = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan s_ttl = TimeSpan.FromSeconds(30);
     private readonly ConcurrentDictionary<string, DateTimeOffset> _missing = new(StringComparer.Ordinal);
 
     public bool IsMissing(string? scope, int articleId)
@@ -201,7 +201,7 @@ public sealed class PublicArticleProjectionNegativeCache(TimeProvider timeProvid
     }
 
     public void MarkMissing(string? scope, int articleId)
-        => _missing[BuildKey(scope, articleId)] = timeProvider.GetUtcNow().Add(Ttl);
+        => _missing[BuildKey(scope, articleId)] = timeProvider.GetUtcNow().Add(s_ttl);
 
     public void Invalidate(string? scope, int articleId)
         => _missing.TryRemove(BuildKey(scope, articleId), out _);

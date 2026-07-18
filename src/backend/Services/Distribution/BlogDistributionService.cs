@@ -29,9 +29,9 @@ public sealed class BlogDistributionService(
     private const int SitemapPageSize = 45_000;
     private const int StaticSitemapPageCount = 6;
     private const string DiagnosticsCacheKey = "distribution:diagnostics-counts:v2";
-    private static readonly TimeSpan DiagnosticsCacheTtl = TimeSpan.FromSeconds(45);
-    private static readonly TimeSpan SitemapCacheTtl = TimeSpan.FromMinutes(5);
-    private static readonly XNamespace AtomNamespace = "http://www.w3.org/2005/Atom";
+    private static readonly TimeSpan s_diagnosticsCacheTtl = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan s_sitemapCacheTtl = TimeSpan.FromMinutes(5);
+    private static readonly XNamespace s_atomNamespace = "http://www.w3.org/2005/Atom";
 
     public async Task<string> BuildRssAsync(CancellationToken cancellationToken = default)
     {
@@ -73,24 +73,24 @@ public sealed class BlogDistributionService(
         var document = new XDocument(
             new XDeclaration("1.0", "utf-8", null),
             new XElement(
-                AtomNamespace + "feed",
-                new XElement(AtomNamespace + "title", snapshot.Seo.Title),
-                new XElement(AtomNamespace + "subtitle", snapshot.Seo.Description),
-                new XElement(AtomNamespace + "id", snapshot.BaseUrl),
+                s_atomNamespace + "feed",
+                new XElement(s_atomNamespace + "title", snapshot.Seo.Title),
+                new XElement(s_atomNamespace + "subtitle", snapshot.Seo.Description),
+                new XElement(s_atomNamespace + "id", snapshot.BaseUrl),
                 snapshot.UpdatedAt is DateTimeOffset updatedAt
-                    ? new XElement(AtomNamespace + "updated", ToWireIsoDate(updatedAt))
+                    ? new XElement(s_atomNamespace + "updated", ToWireIsoDate(updatedAt))
                     : null,
-                new XElement(AtomNamespace + "link", new XAttribute("href", snapshot.BaseUrl), new XAttribute("rel", "alternate")),
-                new XElement(AtomNamespace + "link", new XAttribute("href", $"{snapshot.BaseUrl}/feed/atom.xml"), new XAttribute("rel", "self")),
-                new XElement(AtomNamespace + "author", new XElement(AtomNamespace + "name", snapshot.Seo.Author)),
+                new XElement(s_atomNamespace + "link", new XAttribute("href", snapshot.BaseUrl), new XAttribute("rel", "alternate")),
+                new XElement(s_atomNamespace + "link", new XAttribute("href", $"{snapshot.BaseUrl}/feed/atom.xml"), new XAttribute("rel", "self")),
+                new XElement(s_atomNamespace + "author", new XElement(s_atomNamespace + "name", snapshot.Seo.Author)),
                 snapshot.Articles.Select(article => new XElement(
-                    AtomNamespace + "entry",
-                    new XElement(AtomNamespace + "title", article.Title),
-                    new XElement(AtomNamespace + "id", article.CanonicalUrl),
-                    new XElement(AtomNamespace + "link", new XAttribute("href", article.CanonicalUrl), new XAttribute("rel", "alternate")),
-                    new XElement(AtomNamespace + "published", ToWireIsoDate(article.PublishedAt)),
-                    new XElement(AtomNamespace + "updated", ToWireIsoDate(article.ModifiedAt)),
-                    new XElement(AtomNamespace + "summary", article.Summary)))));
+                    s_atomNamespace + "entry",
+                    new XElement(s_atomNamespace + "title", article.Title),
+                    new XElement(s_atomNamespace + "id", article.CanonicalUrl),
+                    new XElement(s_atomNamespace + "link", new XAttribute("href", article.CanonicalUrl), new XAttribute("rel", "alternate")),
+                    new XElement(s_atomNamespace + "published", ToWireIsoDate(article.PublishedAt)),
+                    new XElement(s_atomNamespace + "updated", ToWireIsoDate(article.ModifiedAt)),
+                    new XElement(s_atomNamespace + "summary", article.Summary)))));
         return document.ToString(SaveOptions.DisableFormatting);
     }
 
@@ -147,7 +147,7 @@ public sealed class BlogDistributionService(
             sitemapUrlCount,
             feedItemCount,
             checkedAt);
-        memoryCache.Set(cacheKey, counts, DiagnosticsCacheTtl);
+        memoryCache.Set(cacheKey, counts, s_diagnosticsCacheTtl);
         FsusObservability.RecordDistributionDiagnostics(cacheHit: false, dbCommandCount: 0, FsusObservability.GetElapsed(startedAt));
         return counts;
     }
@@ -206,7 +206,7 @@ public sealed class BlogDistributionService(
 
     private async Task<List<DistributionArticleRow>> LoadFeedArticlesAsync(CancellationToken cancellationToken)
     {
-        const string sql = """
+        const string Sql = """
             SELECT
                 a.id AS "Id",
                 a.title AS "Title",
@@ -225,7 +225,7 @@ public sealed class BlogDistributionService(
             """;
         var rows = new List<DistributionArticleRow>(FeedLimit);
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            sql,
+            Sql,
             CreatePublicVisibilityParameters(new SugarParameter("@Limit", FeedLimit)));
         while (await reader.ReadAsync(cancellationToken))
         {
@@ -288,14 +288,14 @@ public sealed class BlogDistributionService(
         entries.AddRange(tags.Select(tag => new SitemapEntry($"{baseUrl}/tag/{tag.Id}", tag.ModifiedAt)));
 
         SitemapArtifactSet artifact = BuildSitemapArtifactSet(baseUrl, entries);
-        memoryCache.Set(cacheKey, artifact, SitemapCacheTtl);
+        memoryCache.Set(cacheKey, artifact, s_sitemapCacheTtl);
         FsusObservability.RecordSitemapBuild(cacheHit: false, FsusObservability.GetElapsed(startedAt));
         return artifact;
     }
 
     private async Task<IReadOnlyList<SitemapArticleRow>> LoadSitemapArticlesAsync(CancellationToken cancellationToken)
     {
-        const string sql = """
+        const string Sql = """
             SELECT
                 a.id AS "Id",
                 COALESCE(body.updated_at, a.published_at, a.createtime) AS "ModifiedAt"
@@ -308,7 +308,7 @@ public sealed class BlogDistributionService(
             ORDER BY a.id;
             """;
         var rows = new List<SitemapArticleRow>();
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql, CreatePublicVisibilityParameters());
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(Sql, CreatePublicVisibilityParameters());
         while (await reader.ReadAsync(cancellationToken))
         {
             rows.Add(new SitemapArticleRow(
@@ -320,7 +320,7 @@ public sealed class BlogDistributionService(
 
     private async Task<IReadOnlyList<SitemapTaxonomyRow>> LoadSitemapCategoriesAsync(CancellationToken cancellationToken)
     {
-        const string sql = """
+        const string Sql = """
             SELECT
                 category.id AS "Id",
                 MAX(COALESCE(body.updated_at, a.published_at, a.createtime)) AS "ModifiedAt"
@@ -334,12 +334,12 @@ public sealed class BlogDistributionService(
             GROUP BY category.id
             ORDER BY category.id;
             """;
-        return await ReadSitemapTaxonomyRowsAsync(sql, cancellationToken);
+        return await ReadSitemapTaxonomyRowsAsync(Sql, cancellationToken);
     }
 
     private async Task<IReadOnlyList<SitemapTaxonomyRow>> LoadSitemapTagsAsync(CancellationToken cancellationToken)
     {
-        const string sql = """
+        const string Sql = """
             SELECT
                 tag.id AS "Id",
                 MAX(COALESCE(body.updated_at, a.published_at, a.createtime)) AS "ModifiedAt"
@@ -354,7 +354,7 @@ public sealed class BlogDistributionService(
             GROUP BY tag.id
             ORDER BY tag.id;
             """;
-        return await ReadSitemapTaxonomyRowsAsync(sql, cancellationToken);
+        return await ReadSitemapTaxonomyRowsAsync(Sql, cancellationToken);
     }
 
     private async Task<IReadOnlyList<SitemapTaxonomyRow>> ReadSitemapTaxonomyRowsAsync(

@@ -94,7 +94,7 @@ internal static class ArticleMutationEventTypes
     internal const string TagUpdated = "tag-updated";
     internal const string RightsProofUpdated = "rights-proof-updated";
 
-    internal static readonly IReadOnlySet<string> Supported = new HashSet<string>(StringComparer.Ordinal)
+    internal static readonly IReadOnlySet<string> s_supported = new HashSet<string>(StringComparer.Ordinal)
     {
         Created,
         Updated,

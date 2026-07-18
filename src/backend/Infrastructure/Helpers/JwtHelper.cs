@@ -70,7 +70,7 @@ public class JwtHelper : IJwtHelper
     private readonly SigningCredentials _credentials;
 
     // 核心优化 2：JwtSecurityTokenHandler 是线程安全的，全局复用避免高频实例化开销
-    private static readonly JwtSecurityTokenHandler _tokenHandler = new();
+    private static readonly JwtSecurityTokenHandler s_tokenHandler = new();
 
     public JwtHelper(IOptions<JwtSettings> options, IConfiguration? configuration = null)
     {
@@ -118,8 +118,8 @@ public class JwtHelper : IJwtHelper
             SigningCredentials = _credentials
         };
 
-        var token = _tokenHandler.CreateToken(tokenDescriptor);
-        return new IssuedAccessToken(_tokenHandler.WriteToken(token), expiresAtUtc);
+        var token = s_tokenHandler.CreateToken(tokenDescriptor);
+        return new IssuedAccessToken(s_tokenHandler.WriteToken(token), expiresAtUtc);
     }
 
     public IssuedAccessToken GenerateAdminAccessToken(
@@ -159,8 +159,8 @@ public class JwtHelper : IJwtHelper
             SigningCredentials = _credentials
         };
 
-        var token = _tokenHandler.CreateToken(tokenDescriptor);
-        return new IssuedAccessToken(_tokenHandler.WriteToken(token), expiresAtUtc);
+        var token = s_tokenHandler.CreateToken(tokenDescriptor);
+        return new IssuedAccessToken(s_tokenHandler.WriteToken(token), expiresAtUtc);
     }
 
     /// <summary>
@@ -408,7 +408,7 @@ internal static class JwtSigningKeyRing
 {
     private const int MinimumKeyBytes = 32;
     private const int MaximumRotationWindowDays = 90;
-    private static readonly char[] VersionSeparators = ['.', '_', '-'];
+    private static readonly char[] s_versionSeparators = ['.', '_', '-'];
 
     internal static SymmetricSecurityKey CreateKey(string version, string secret)
         => new(Encoding.UTF8.GetBytes(secret))
@@ -517,7 +517,7 @@ internal static class JwtSigningKeyRing
     private static bool IsValidVersion(string? value)
         => !string.IsNullOrWhiteSpace(value) &&
             value.Length is >= 3 and <= 64 &&
-            value.All(character => char.IsAsciiLetterOrDigit(character) || VersionSeparators.Contains(character));
+            value.All(character => char.IsAsciiLetterOrDigit(character) || s_versionSeparators.Contains(character));
 
     private static void ValidateKeyMaterial(string path, string? value, List<string> errors)
     {

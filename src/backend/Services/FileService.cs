@@ -34,10 +34,10 @@ public sealed partial class FileService : IFileService
     private const string UploadCommitTempDirectoryName = ".incoming";
     private const string ExpirationIndexDirectoryName = "expires";
     private const string ExpirationBucketFormat = "yyyyMMddHH";
-    private static readonly TimeSpan SessionTtl = TimeSpan.FromHours(6);
-    private static readonly TimeSpan SessionLockTtl = TimeSpan.FromHours(6);
-    private static readonly TimeSpan UploadCommitTempRetention = TimeSpan.FromHours(24);
-    private static readonly TimeSpan UploadCommitTempCleanupLeaseTtl = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan s_sessionTtl = TimeSpan.FromHours(6);
+    private static readonly TimeSpan s_sessionLockTtl = TimeSpan.FromHours(6);
+    private static readonly TimeSpan s_uploadCommitTempRetention = TimeSpan.FromHours(24);
+    private static readonly TimeSpan s_uploadCommitTempCleanupLeaseTtl = TimeSpan.FromMinutes(2);
 
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<FileService> _logger;
@@ -50,9 +50,9 @@ public sealed partial class FileService : IFileService
     private readonly string _expirationIndexRootPath;
     private readonly UploadSessionCleanupQueue? _cleanupQueue;
 
-    private static readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".ico"];
-    private static readonly string[] _allowedFormats = ["jpg", "jpeg", "png", "gif", "webp", "ico"];
-    private static readonly ConcurrentDictionary<string, SessionLockEntry> _sessionLocks = new(StringComparer.Ordinal);
+    private static readonly string[] s_allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".ico"];
+    private static readonly string[] s_allowedFormats = ["jpg", "jpeg", "png", "gif", "webp", "ico"];
+    private static readonly ConcurrentDictionary<string, SessionLockEntry> s_sessionLocks = new(StringComparer.Ordinal);
 
     public FileService(
         IWebHostEnvironment env,
@@ -176,7 +176,7 @@ public sealed partial class FileService : IFileService
         int totalParts = checked((int)Math.Ceiling(dto.TotalBytes / (double)chunkSize));
         string uploadId = Guid.NewGuid().ToString("N");
         string uploadToken = CreateUploadSessionToken();
-        DateTime expiresAt = DateTime.UtcNow.Add(SessionTtl);
+        DateTime expiresAt = DateTime.UtcNow.Add(s_sessionTtl);
 
         var record = new UploadSessionRecord
         {
@@ -411,7 +411,7 @@ public sealed partial class FileService : IFileService
             }
 
             record.Status = uploadedParts.Count >= record.TotalParts ? "uploaded" : "uploading";
-            record.ExpiresAt = DateTime.UtcNow.Add(SessionTtl);
+            record.ExpiresAt = DateTime.UtcNow.Add(s_sessionTtl);
             if (!isNewPart && record.UploadedBytes == 0 && uploadedParts.Count > 0)
             {
                 record.UploadedBytes = await ResolveUploadedBytesAsync(normalizedUploadId, record, cancellationToken);
@@ -433,7 +433,9 @@ public sealed partial class FileService : IFileService
                 UploadedPartCount = uploadedParts.Count
             });
         }
-        finally { }
+        finally
+        {
+        }
     }
 
     public async Task<Result<UploadCompleteDto>> CompleteUploadAsync(string uploadId, string? sha256, CancellationToken cancellationToken = default)
@@ -551,7 +553,9 @@ public sealed partial class FileService : IFileService
             await DeleteSessionDirectoryAsync(normalizedUploadId);
             return commit;
         }
-        finally { }
+        finally
+        {
+        }
     }
 
     private async Task<Result<UploadCompleteDto>> CommitVerifiedUploadAsync(
@@ -620,7 +624,7 @@ public sealed partial class FileService : IFileService
         string expectedSha256,
         CancellationToken cancellationToken)
     {
-        string[] candidates = _allowedExtensions
+        string[] candidates = s_allowedExtensions
             .Select(extension => Path.Combine(_folderPath, uploadId + extension))
             .Where(File.Exists)
             .ToArray();
@@ -891,7 +895,7 @@ public sealed partial class FileService : IFileService
 
         while (true)
         {
-            SessionLockEntry entry = _sessionLocks.GetOrAdd(uploadId, static _ => new SessionLockEntry());
+            SessionLockEntry entry = s_sessionLocks.GetOrAdd(uploadId, static _ => new SessionLockEntry());
             if (!entry.TryAddReference())
             {
                 continue;
@@ -900,7 +904,7 @@ public sealed partial class FileService : IFileService
             try
             {
                 await entry.Semaphore.WaitAsync(cancellationToken);
-                FsusObservability.RecordUploadSessionLockAcquire(_sessionLocks.Count, Stopwatch.GetElapsedTime(started));
+                FsusObservability.RecordUploadSessionLockAcquire(s_sessionLocks.Count, Stopwatch.GetElapsedTime(started));
                 return new SessionLockLease(uploadId, entry);
             }
             catch
@@ -1093,7 +1097,7 @@ public sealed partial class FileService : IFileService
     }
 
     private static bool IsAllowedExtension(string extension)
-        => _allowedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase);
+        => s_allowedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase);
 
     private static bool IsSupportedImageMime(string? mimeType)
     {
@@ -1178,7 +1182,7 @@ public sealed partial class FileService : IFileService
         }
 
         candidate = candidate.ToLowerInvariant();
-        return _allowedFormats.Contains(candidate, StringComparer.OrdinalIgnoreCase) ? candidate : string.Empty;
+        return s_allowedFormats.Contains(candidate, StringComparer.OrdinalIgnoreCase) ? candidate : string.Empty;
     }
 
     private async Task<UploadSessionRecord?> LoadSessionAsync(string uploadId, CancellationToken cancellationToken)
@@ -1704,7 +1708,7 @@ public sealed partial class FileService : IFileService
         await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
         int disposedLocks = CleanupStaleSessionLocks(DateTimeOffset.UtcNow, out int scannedLocks);
         FsusObservability.RecordUploadSessionLockCleanup(
-            _sessionLocks.Count,
+            s_sessionLocks.Count,
             scannedLocks,
             disposedLocks,
             Stopwatch.GetElapsedTime(lockStarted));
@@ -1721,7 +1725,7 @@ public sealed partial class FileService : IFileService
         await using UploadCommitTempCleanupLease? lease = await UploadCommitTempCleanupLease.TryAcquireAsync(
             incomingRoot,
             currentInstanceDirectoryName,
-            UploadCommitTempCleanupLeaseTtl,
+            s_uploadCommitTempCleanupLeaseTtl,
             cancellationToken).ConfigureAwait(false);
         if (lease is null)
         {
@@ -1730,7 +1734,7 @@ public sealed partial class FileService : IFileService
 
         await lease.ExecuteAsync(
             currentInstanceDirectoryName,
-            DateTimeOffset.UtcNow.Subtract(UploadCommitTempRetention),
+            DateTimeOffset.UtcNow.Subtract(s_uploadCommitTempRetention),
             dryRun: false,
             beforeDelete: async (_, commitToken) =>
             {
@@ -1829,7 +1833,7 @@ public sealed partial class FileService : IFileService
 
     private static void RetireSessionLock(string uploadId)
     {
-        if (_sessionLocks.TryGetValue(uploadId, out SessionLockEntry? entry))
+        if (s_sessionLocks.TryGetValue(uploadId, out SessionLockEntry? entry))
         {
             entry.MarkRetired();
             TryDisposeSessionLock(uploadId, entry);
@@ -1854,7 +1858,7 @@ public sealed partial class FileService : IFileService
             return;
         }
 
-        if (_sessionLocks.TryRemove(new KeyValuePair<string, SessionLockEntry>(uploadId, entry)))
+        if (s_sessionLocks.TryRemove(new KeyValuePair<string, SessionLockEntry>(uploadId, entry)))
         {
             entry.Dispose();
         }
@@ -1865,10 +1869,10 @@ public sealed partial class FileService : IFileService
 
     private static int CleanupStaleSessionLocks(DateTimeOffset now, out int scanned)
     {
-        DateTimeOffset cutoff = now - SessionLockTtl;
+        DateTimeOffset cutoff = now - s_sessionLockTtl;
         scanned = 0;
         int removed = 0;
-        foreach (KeyValuePair<string, SessionLockEntry> pair in _sessionLocks)
+        foreach (KeyValuePair<string, SessionLockEntry> pair in s_sessionLocks)
         {
             scanned++;
             if (!pair.Value.IsIdleSince(cutoff))
@@ -1877,9 +1881,9 @@ public sealed partial class FileService : IFileService
             }
 
             pair.Value.MarkRetired();
-            int before = _sessionLocks.Count;
+            int before = s_sessionLocks.Count;
             TryDisposeSessionLock(pair.Key, pair.Value);
-            if (_sessionLocks.Count < before)
+            if (s_sessionLocks.Count < before)
             {
                 removed++;
             }

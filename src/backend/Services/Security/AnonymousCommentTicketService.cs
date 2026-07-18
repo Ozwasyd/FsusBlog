@@ -77,7 +77,7 @@ public sealed class AnonymousCommentTicketService(
     private const int MaxScopeChars = AnonymousPrivacyContract.MaxScopeBytes;
     private const string ActionContext = "comment.create";
     private const string ModerationPepperKey = "Moderation:Pepper";
-    private static readonly TimeSpan DefaultTicketTtl = TimeSpan.FromSeconds(120);
+    private static readonly TimeSpan s_defaultTicketTtl = TimeSpan.FromSeconds(120);
     private readonly byte[] _moderationSubjectHashKey = CreateModerationSubjectHashKey(configuration);
     private readonly AnonymitySetPolicy _anonymitySetPolicy = new(configuration);
 
@@ -322,7 +322,7 @@ public sealed class AnonymousCommentTicketService(
 
     private TimeSpan ResolveTicketTtl()
     {
-        int seconds = configuration.GetValue("AnonymousIdentity:AnonymousCommentTicketTtlSeconds", (int)DefaultTicketTtl.TotalSeconds);
+        int seconds = configuration.GetValue("AnonymousIdentity:AnonymousCommentTicketTtlSeconds", (int)s_defaultTicketTtl.TotalSeconds);
         return TimeSpan.FromSeconds(Math.Clamp(seconds, 15, 600));
     }
 

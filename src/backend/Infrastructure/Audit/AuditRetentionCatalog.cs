@@ -13,11 +13,11 @@ public sealed record AuditRetentionPolicy(
 
 public static class AuditRetentionCatalog
 {
-    private static readonly TimeSpan DefaultFullAge = TimeSpan.FromDays(90);
-    private static readonly TimeSpan DefaultPseudonymAge = TimeSpan.FromDays(90);
-    private static readonly TimeSpan DefaultAggregateAfter = TimeSpan.FromDays(90);
+    private static readonly TimeSpan s_defaultFullAge = TimeSpan.FromDays(90);
+    private static readonly TimeSpan s_defaultPseudonymAge = TimeSpan.FromDays(90);
+    private static readonly TimeSpan s_defaultAggregateAfter = TimeSpan.FromDays(90);
 
-    private static readonly string[] RuntimeActions =
+    private static readonly string[] s_runtimeActions =
     [
         AuditActionCatalog.LogRecorded,
         AuditActionCatalog.UserStatusChanged,
@@ -120,19 +120,19 @@ public static class AuditRetentionCatalog
         "tag.update"
     ];
 
-    private static readonly IReadOnlyDictionary<string, AuditRetentionPolicy> Policies = BuildPolicies();
+    private static readonly IReadOnlyDictionary<string, AuditRetentionPolicy> s_policies = BuildPolicies();
 
     public static IReadOnlyCollection<AuditRetentionPolicy> All
     {
         get;
-    } = Policies.Values
+    } = s_policies.Values
         .OrderBy(static policy => policy.Action, StringComparer.Ordinal)
         .ToArray();
 
     public static AuditRetentionPolicy GetRequired(string? action)
     {
         string normalized = string.IsNullOrWhiteSpace(action) ? AuditActionCatalog.LogRecorded : action.Trim();
-        return Policies.TryGetValue(normalized, out AuditRetentionPolicy? policy)
+        return s_policies.TryGetValue(normalized, out AuditRetentionPolicy? policy)
             ? policy
             : throw new InvalidOperationException($"audit_retention_policy_missing:{normalized}");
     }
@@ -144,18 +144,18 @@ public static class AuditRetentionCatalog
             .Where(static field => field.IsLiteral && field.FieldType == typeof(string))
             .Select(static field => (string)field.GetRawConstantValue()!)
             .ToArray();
-        return declared.Where(action => !Policies.ContainsKey(action)).Order(StringComparer.Ordinal).ToArray();
+        return declared.Where(action => !s_policies.ContainsKey(action)).Order(StringComparer.Ordinal).ToArray();
     }
 
     private static IReadOnlyDictionary<string, AuditRetentionPolicy> BuildPolicies()
     {
-        var result = RuntimeActions.Distinct(StringComparer.Ordinal).ToDictionary(
+        var result = s_runtimeActions.Distinct(StringComparer.Ordinal).ToDictionary(
             static action => action,
             action => new AuditRetentionPolicy(
                 action,
-                DefaultFullAge,
-                DefaultPseudonymAge,
-                DefaultAggregateAfter,
+                s_defaultFullAge,
+                s_defaultPseudonymAge,
+                s_defaultAggregateAfter,
                 AnchorForever: true,
                 LegalHoldAllowed: action.StartsWith("admin.", StringComparison.Ordinal)
                     || action.StartsWith("security.", StringComparison.Ordinal),
@@ -200,7 +200,7 @@ public sealed record AuditRetentionStoragePolicy(
 
 public static class AuditRetentionStorageContract
 {
-    private static readonly TimeSpan MaximumAge = AuditRetentionCatalog.All
+    private static readonly TimeSpan s_maximumAge = AuditRetentionCatalog.All
         .Max(static policy => policy.MaxFullRecordAge);
 
     public static IReadOnlyList<AuditRetentionStoragePolicy> All
@@ -208,10 +208,10 @@ public static class AuditRetentionStorageContract
         get;
     } =
     [
-        new("database", MaximumAge, ControlledByApplication: true, RequiresOperatorAttestation: false),
-        new("local-fallback", MaximumAge, ControlledByApplication: true, RequiresOperatorAttestation: false),
-        new("backup", MaximumAge, ControlledByApplication: false, RequiresOperatorAttestation: true),
-        new("wal", MaximumAge, ControlledByApplication: false, RequiresOperatorAttestation: true),
-        new("replica", MaximumAge, ControlledByApplication: false, RequiresOperatorAttestation: true)
+        new("database", s_maximumAge, ControlledByApplication: true, RequiresOperatorAttestation: false),
+        new("local-fallback", s_maximumAge, ControlledByApplication: true, RequiresOperatorAttestation: false),
+        new("backup", s_maximumAge, ControlledByApplication: false, RequiresOperatorAttestation: true),
+        new("wal", s_maximumAge, ControlledByApplication: false, RequiresOperatorAttestation: true),
+        new("replica", s_maximumAge, ControlledByApplication: false, RequiresOperatorAttestation: true)
     ];
 }

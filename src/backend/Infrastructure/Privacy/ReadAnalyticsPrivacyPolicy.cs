@@ -5,8 +5,10 @@ using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.Privacy;
 
+/// <summary>Represents one labeled aggregate after privacy suppression and noise have been applied.</summary>
 public readonly record struct ReadAggregateCount(string Label, long Count);
 
+/// <summary>Describes the configured k-anonymity threshold and daily differential-privacy spend.</summary>
 public sealed record ReadAnalyticsPrivacyBudget(
     int KThreshold,
     double EpsilonPerRelease,
@@ -14,13 +16,16 @@ public sealed record ReadAnalyticsPrivacyBudget(
     double ScheduledDailyEpsilon,
     IReadOnlyList<string> ReleaseScopes);
 
+/// <summary>Protects administrative read aggregates before they cross the analytics release boundary.</summary>
 public interface IReadAnalyticsPrivacyPolicy
 {
+    /// <summary>Gets the validated privacy budget enforced for every release scope.</summary>
     ReadAnalyticsPrivacyBudget Budget
     {
         get;
     }
 
+    /// <summary>Suppresses sparse cells and applies stable daily noise for the requested approved scope.</summary>
     IReadOnlyList<ReadAggregateCount> Protect(
         string releaseScope,
         IReadOnlyList<ReadAggregateCount> cells);
@@ -41,10 +46,11 @@ public sealed class ReadAnalyticsPrivacyPolicy : IReadAnalyticsPrivacyPolicy
     public const string AdminRegionScope = "admin-region";
     public const string AdminDwellScope = "admin-dwell";
 
-    private static readonly string[] ReleaseScopes = [AdminRegionScope, AdminDwellScope];
+    private static readonly string[] s_releaseScopes = [AdminRegionScope, AdminDwellScope];
     private readonly byte[] _noiseKey;
     private readonly TimeProvider _timeProvider;
 
+    /// <summary>Validates the noise secret and rejects a configuration whose scheduled releases exceed the daily budget.</summary>
     public ReadAnalyticsPrivacyPolicy(IConfiguration configuration, TimeProvider timeProvider)
     {
         _noiseKey = ReadKey(configuration);
@@ -52,14 +58,14 @@ public sealed class ReadAnalyticsPrivacyPolicy : IReadAnalyticsPrivacyPolicy
         int k = ReadInt(configuration, KThresholdSetting, 10, min: 2, max: 10_000);
         double epsilon = ReadDouble(configuration, EpsilonPerReleaseSetting, 0.5d, minExclusive: 0d, maxInclusive: 2d);
         double dailyLimit = ReadDouble(configuration, DailyEpsilonLimitSetting, 1d, minExclusive: 0d, maxInclusive: 10d);
-        double scheduled = epsilon * ReleaseScopes.Length;
+        double scheduled = epsilon * s_releaseScopes.Length;
         if (scheduled > dailyLimit)
         {
             throw new InvalidOperationException(
                 $"{EpsilonPerReleaseSetting} schedules {scheduled.ToString(CultureInfo.InvariantCulture)} epsilon per day, exceeding {DailyEpsilonLimitSetting}={dailyLimit.ToString(CultureInfo.InvariantCulture)}.");
         }
 
-        Budget = new ReadAnalyticsPrivacyBudget(k, epsilon, dailyLimit, scheduled, ReleaseScopes);
+        Budget = new ReadAnalyticsPrivacyBudget(k, epsilon, dailyLimit, scheduled, s_releaseScopes);
     }
 
     public ReadAnalyticsPrivacyBudget Budget
@@ -67,11 +73,12 @@ public sealed class ReadAnalyticsPrivacyPolicy : IReadAnalyticsPrivacyPolicy
         get;
     }
 
+    /// <inheritdoc />
     public IReadOnlyList<ReadAggregateCount> Protect(
         string releaseScope,
         IReadOnlyList<ReadAggregateCount> cells)
     {
-        if (!ReleaseScopes.Contains(releaseScope, StringComparer.Ordinal))
+        if (!s_releaseScopes.Contains(releaseScope, StringComparer.Ordinal))
         {
             throw new ArgumentOutOfRangeException(nameof(releaseScope), "Unknown read analytics release scope.");
         }

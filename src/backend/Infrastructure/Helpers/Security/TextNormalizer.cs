@@ -14,10 +14,10 @@ public static class TextNormalizer
 {
     // 终极优化：创建一个覆盖所有 char 范围的数组作为直接查找表 (Look-Up Table)。
     // 这将消耗 128KB 内存 (65536 * 2 bytes)，但会将繁简转换的性能提升到物理极限。
-    private static char[] _charMap;
-    private static readonly Lock _initLock = new();
-    private static PhraseNode _phraseRoot = new();
-    private static int _openCcLoaded;
+    private static char[] s_charMap;
+    private static readonly Lock s_initLock = new();
+    private static PhraseNode s_phraseRoot = new();
+    private static int s_openCcLoaded;
 
     // 静态构造函数，在服务启动时只执行一次，负责构建这个巨大的查找表
     static TextNormalizer()
@@ -32,19 +32,19 @@ public static class TextNormalizer
 
         // 仅保留基础 ASCII 归一化。OpenCC 词典在显式初始化阶段加载，避免静态构造吞异常。
         ApplyAsciiNormalization(charMap);
-        _charMap = charMap;
+        s_charMap = charMap;
     }
 
     public static Result Initialize(ILogger logger)
     {
-        if (Volatile.Read(ref _openCcLoaded) == 1)
+        if (Volatile.Read(ref s_openCcLoaded) == 1)
         {
             return Result.Success();
         }
 
-        lock (_initLock)
+        lock (s_initLock)
         {
-            if (_openCcLoaded == 1)
+            if (s_openCcLoaded == 1)
             {
                 return Result.Success();
             }
@@ -52,7 +52,7 @@ public static class TextNormalizer
             var result = LoadOpenCcSuperDictionary(logger);
             if (result.IsSuccess)
             {
-                Volatile.Write(ref _openCcLoaded, 1);
+                Volatile.Write(ref s_openCcLoaded, 1);
             }
 
             return result;
@@ -64,7 +64,7 @@ public static class TextNormalizer
         string baseDirectory = AppContext.BaseDirectory;
         string dictDirectory = Path.Combine(baseDirectory, "Dictionaries");
         var phraseRoot = new PhraseNode();
-        char[] charMap = (char[])Volatile.Read(ref _charMap).Clone();
+        char[] charMap = (char[])Volatile.Read(ref s_charMap).Clone();
 
         var variantsResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TWVariants.txt"), phraseRoot, charMap, logger);
         if (variantsResult.IsFailure)
@@ -82,8 +82,8 @@ public static class TextNormalizer
         if (charactersResult.IsSuccess)
         {
             ApplyAsciiNormalization(charMap);
-            Volatile.Write(ref _charMap, charMap);
-            Volatile.Write(ref _phraseRoot, phraseRoot);
+            Volatile.Write(ref s_charMap, charMap);
+            Volatile.Write(ref s_phraseRoot, phraseRoot);
         }
 
         return charactersResult;
@@ -172,7 +172,7 @@ public static class TextNormalizer
     /// </summary>
     public static void NormalizeInPlace(Span<char> buffer)
     {
-        char[] charMap = Volatile.Read(ref _charMap);
+        char[] charMap = Volatile.Read(ref s_charMap);
         // 由于所有转换逻辑已预烘焙到 _charMap 中，
         // 归一化过程简化为一次极致的、无分支的循环查表。
         for (int i = 0; i < buffer.Length; i++)
@@ -191,7 +191,7 @@ public static class TextNormalizer
 
         if (!usePhraseMappings)
         {
-            char[] charMap = Volatile.Read(ref _charMap);
+            char[] charMap = Volatile.Read(ref s_charMap);
             return string.Create(value.Length, (Value: value, CharMap: charMap), static (buffer, state) =>
             {
                 for (int i = 0; i < state.Value.Length; i++)
@@ -201,7 +201,7 @@ public static class TextNormalizer
             });
         }
 
-        return NormalizeWithPhraseRoot(value, Volatile.Read(ref _phraseRoot));
+        return NormalizeWithPhraseRoot(value, Volatile.Read(ref s_phraseRoot));
     }
 
     internal static string NormalizeWithPhraseMappingsForTests(string value, IReadOnlyDictionary<string, string> phrases)
@@ -218,7 +218,7 @@ public static class TextNormalizer
     private static string NormalizeWithPhraseRoot(string value, PhraseNode phraseRoot)
     {
         var builder = new StringBuilder(value.Length);
-        char[] charMap = Volatile.Read(ref _charMap);
+        char[] charMap = Volatile.Read(ref s_charMap);
         int index = 0;
         while (index < value.Length)
         {

@@ -87,8 +87,8 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
     private const string SectionName = "AnonymousIdentity:ZkVerifier";
     private const string CommentActionContext = "comment.create";
     private const int DefaultMaxProofBytes = 16 * 1024;
-    private static readonly TimeSpan DefaultBackendTimeout = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan BackendCancellationObservationWindow = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan s_defaultBackendTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan s_backendCancellationObservationWindow = TimeSpan.FromMilliseconds(100);
 
     private readonly ProductionZkProofVerifierOptions _options;
     private readonly IAnonymousCredentialRootReader _rootReader;
@@ -210,7 +210,7 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
 
     private static async Task ObserveBackendCancellationAsync(Task backendTask)
     {
-        Task completed = await Task.WhenAny(backendTask, Task.Delay(BackendCancellationObservationWindow));
+        Task completed = await Task.WhenAny(backendTask, Task.Delay(s_backendCancellationObservationWindow));
         if (ReferenceEquals(completed, backendTask) && backendTask.IsFaulted)
         {
             _ = backendTask.Exception;
@@ -264,7 +264,7 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
             maxProofBytes = DefaultMaxProofBytes;
         }
 
-        int timeoutMs = configuration.GetValue($"{SectionName}:BackendTimeoutMs", (int)DefaultBackendTimeout.TotalMilliseconds);
+        int timeoutMs = configuration.GetValue($"{SectionName}:BackendTimeoutMs", (int)s_defaultBackendTimeout.TotalMilliseconds);
         timeoutMs = Math.Clamp(timeoutMs, 1, 30_000);
         int maxConcurrent = configuration.GetValue($"{SectionName}:MaxConcurrentVerifications", Math.Max(1, Environment.ProcessorCount / 2));
         maxConcurrent = Math.Clamp(maxConcurrent, 1, 64);

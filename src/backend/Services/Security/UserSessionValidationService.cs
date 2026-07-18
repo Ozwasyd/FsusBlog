@@ -61,8 +61,8 @@ public sealed class UserSessionValidationCache(
 {
     internal const string DistributedCacheEnabledKey = "Security:UserSessionValidation:DistributedCacheEnabled";
     private const string PayloadVersion = "v1";
-    private static readonly TimeSpan SnapshotTtl = TimeSpan.FromMinutes(2);
-    private readonly IDatabase database = redis.GetDatabase();
+    private static readonly TimeSpan s_snapshotTtl = TimeSpan.FromMinutes(2);
+    private readonly IDatabase _database = redis.GetDatabase();
 
     public async Task<UserSessionValidationCacheState?> ReadAsync(
         string sessionId,
@@ -76,7 +76,7 @@ public sealed class UserSessionValidationCache(
         }
 
         string key = cache.BuildKey(CachePolicyId.SecurityUserSessionValidation, identity);
-        RedisValue value = await database.StringGetAsync(key).ConfigureAwait(false);
+        RedisValue value = await _database.StringGetAsync(key).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (!value.HasValue)
         {
@@ -107,7 +107,7 @@ public sealed class UserSessionValidationCache(
             Encode(state),
             state.RowVersion,
             allowOverwrite,
-            SnapshotTtl,
+            s_snapshotTtl,
             cancellationToken);
     }
 

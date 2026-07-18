@@ -117,13 +117,13 @@ public sealed record SiteSigningKeyRecord(
 
 public sealed class SiteSigningKeyRegistry
 {
-    private readonly IReadOnlyDictionary<string, SiteSigningKeyRecord> keysById;
+    private readonly IReadOnlyDictionary<string, SiteSigningKeyRecord> _keysById;
 
     private SiteSigningKeyRegistry(
         IReadOnlyDictionary<string, SiteSigningKeyRecord> keysById,
         string currentKeyId)
     {
-        this.keysById = keysById;
+        this._keysById = keysById;
         CurrentKeyId = currentKeyId;
         PublicKeys = new ReadOnlyCollection<SiteSigningKeyMetadata>(
             [.. keysById.Values
@@ -165,10 +165,10 @@ public sealed class SiteSigningKeyRegistry
     }
 
     public bool TryGetKey(string keyId, out SiteSigningKeyRecord key)
-        => keysById.TryGetValue(keyId, out key!);
+        => _keysById.TryGetValue(keyId, out key!);
 
     public bool TryGetCurrentKey(out SiteSigningKeyRecord key)
-        => keysById.TryGetValue(CurrentKeyId, out key!);
+        => _keysById.TryGetValue(CurrentKeyId, out key!);
 
     private static SiteSigningKeyRecord NormalizeKey(SiteSigningKeyRecord key)
         => key with

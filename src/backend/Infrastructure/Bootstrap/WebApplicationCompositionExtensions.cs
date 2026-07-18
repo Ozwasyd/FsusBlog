@@ -99,14 +99,14 @@ public static partial class WebApplicationCompositionExtensions
     private const int DefaultSpaTemplateCacheMaxEntries = 64;
     private const string HeadInjectionKindRoutePreload = "route-preload";
     private const string HeadInjectionKindPublicAssetSet = "public-asset-set";
-    private static readonly byte[] EmptyBytes = [];
-    private static readonly byte[] SearchNoIndexHeadInjection = Encoding.UTF8.GetBytes(
+    private static readonly byte[] s_emptyBytes = [];
+    private static readonly byte[] s_searchNoIndexHeadInjection = Encoding.UTF8.GetBytes(
         "<meta name=\"robots\" content=\"noindex,follow\" data-fsus-search-head>\n");
-    private static readonly ConcurrentDictionary<string, SpaHtmlByteTemplate> SpaHtmlByteTemplates = new(StringComparer.Ordinal);
-    private static readonly ConcurrentDictionary<HeadInjectionCacheKey, CachedHeadInjection> SpaHeadInjectionCache = new();
-    private static readonly ConcurrentDictionary<string, CachedDynamicManifest> DynamicManifestCache = new(StringComparer.Ordinal);
-    private static long SpaHeadInjectionBuildCount;
-    private static long SpaHeadInjectionHitCount;
+    private static readonly ConcurrentDictionary<string, SpaHtmlByteTemplate> s_spaHtmlByteTemplates = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<HeadInjectionCacheKey, CachedHeadInjection> s_spaHeadInjectionCache = new();
+    private static readonly ConcurrentDictionary<string, CachedDynamicManifest> s_dynamicManifestCache = new(StringComparer.Ordinal);
+    private static long s_spaHeadInjectionBuildCount;
+    private static long s_spaHeadInjectionHitCount;
 
     private sealed record PipelineStage(
         string Id,
@@ -118,7 +118,7 @@ public static partial class WebApplicationCompositionExtensions
             => new(Id, Classification, ControlId);
     }
 
-    private static readonly PipelineStage[] ApplicationPipelineStages =
+    private static readonly PipelineStage[] s_applicationPipelineStages =
     [
         new("forwarded-headers", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseForwardedHeaders()),
         new("security-headers", PublicHotReadPipelineStageClassification.CrossCuttingControl, "release-and-security-headers", static app => app.UseFsusSecurityHeaders()),
@@ -137,7 +137,7 @@ public static partial class WebApplicationCompositionExtensions
         new("static-assets", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseFsusStaticAssets())
     ];
 
-    private static readonly PipelineStage[] EndpointPipelineStages =
+    private static readonly PipelineStage[] s_endpointPipelineStages =
     [
         new("routing", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseRouting()),
         new("endpoint-metadata-headers", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseFsusEndpointMetadataHeaders()),
@@ -156,16 +156,16 @@ public static partial class WebApplicationCompositionExtensions
     ];
 
     internal static IReadOnlyList<PublicHotReadPipelineStageDescriptor> ApplicationPipelineStageDescriptors
-        => ApplicationPipelineStages.Select(static stage => stage.Descriptor).ToArray();
+        => s_applicationPipelineStages.Select(static stage => stage.Descriptor).ToArray();
 
     internal static IReadOnlyList<PublicHotReadPipelineStageDescriptor> EndpointPipelineStageDescriptors
-        => EndpointPipelineStages.Select(static stage => stage.Descriptor).ToArray();
+        => s_endpointPipelineStages.Select(static stage => stage.Descriptor).ToArray();
 
     internal static IReadOnlyList<string> ApplicationPipelineStageIds
-        => ApplicationPipelineStages.Select(static stage => stage.Id).ToArray();
+        => s_applicationPipelineStages.Select(static stage => stage.Id).ToArray();
 
     internal static IReadOnlyList<string> EndpointPipelineStageIds
-        => EndpointPipelineStages.Select(static stage => stage.Id).ToArray();
+        => s_endpointPipelineStages.Select(static stage => stage.Id).ToArray();
 
     private sealed record CachedDynamicManifest(byte[] Bytes, string Etag);
 
@@ -174,7 +174,7 @@ public static partial class WebApplicationCompositionExtensions
         PublicHotReadCrossCuttingControlCatalog.ValidateOrThrow(
             ApplicationPipelineStageDescriptors,
             EndpointPipelineStageDescriptors);
-        foreach (PipelineStage stage in ApplicationPipelineStages)
+        foreach (PipelineStage stage in s_applicationPipelineStages)
         {
             stage.Configure(app);
         }
@@ -361,7 +361,7 @@ public static partial class WebApplicationCompositionExtensions
 
     private static void UseFsusEndpointPipeline(this WebApplication app)
     {
-        foreach (PipelineStage stage in EndpointPipelineStages)
+        foreach (PipelineStage stage in s_endpointPipelineStages)
         {
             stage.Configure(app);
         }
@@ -557,7 +557,7 @@ public static partial class WebApplicationCompositionExtensions
     private static async Task WriteDynamicManifestAsync(HttpContext ctx, SeoConfigReadModel seo)
     {
         string cacheKey = BuildDynamicManifestCacheKey(seo);
-        CachedDynamicManifest cached = DynamicManifestCache.GetOrAdd(cacheKey, _ => BuildDynamicManifest(seo));
+        CachedDynamicManifest cached = s_dynamicManifestCache.GetOrAdd(cacheKey, _ => BuildDynamicManifest(seo));
         ctx.Response.Headers["Cache-Control"] = "no-cache";
         ctx.Response.Headers["ETag"] = cached.Etag;
         if (ctx.Request.Headers.IfNoneMatch.Any(value => string.Equals(value, cached.Etag, StringComparison.Ordinal)))
@@ -804,7 +804,7 @@ public static partial class WebApplicationCompositionExtensions
         ReadOnlyMemory<byte> seoHeadInjection = BuildSeoBrandHeadInjection(seo);
         if (isSearchRoute)
         {
-            seoHeadInjection = CombineHeadInjections(seoHeadInjection, SearchNoIndexHeadInjection);
+            seoHeadInjection = CombineHeadInjections(seoHeadInjection, s_searchNoIndexHeadInjection);
         }
 
         string path = ctx.Request.Path.Value ?? string.Empty;
@@ -1148,15 +1148,15 @@ public static partial class WebApplicationCompositionExtensions
 
     internal static bool IsImmutableSearchIndexAssetPath(ReadOnlySpan<char> path)
     {
-        const string prefix = "/search/index.";
-        const string suffix = ".bin";
-        if (!path.StartsWith(prefix.AsSpan(), StringComparison.OrdinalIgnoreCase)
-            || !path.EndsWith(suffix.AsSpan(), StringComparison.OrdinalIgnoreCase))
+        const string Prefix = "/search/index.";
+        const string Suffix = ".bin";
+        if (!path.StartsWith(Prefix.AsSpan(), StringComparison.OrdinalIgnoreCase)
+            || !path.EndsWith(Suffix.AsSpan(), StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        ReadOnlySpan<char> middle = path[prefix.Length..^suffix.Length];
+        ReadOnlySpan<char> middle = path[Prefix.Length..^Suffix.Length];
         int dot = middle.LastIndexOf('.');
         if (dot <= 0 || dot == middle.Length - 1)
         {

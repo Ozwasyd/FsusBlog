@@ -16,7 +16,7 @@ public sealed class CommentCoreGateway(
     CommentCoreQueryCache queryCache,
     ICommentCursorPolicyResolver cursorPolicies) : ICommentCoreGateway
 {
-    private static readonly Int64CursorCodec CursorCodec = Int64CursorCodec.Instance;
+    private static readonly Int64CursorCodec s_cursorCodec = Int64CursorCodec.Instance;
 
     public Task<bool> CreateCommentAsync(int userId, int articleId, string content)
         => service.CreateCommentAsync(userId, new CommentDto { ArticleId = articleId, Content = content });
@@ -37,7 +37,7 @@ public sealed class CommentCoreGateway(
     private async Task<CoreCursorResult<CommentQueryCoreModel>> LoadCommentsByCursorAsync(int articleId, long? cursor, int limit)
     {
         var request = new CursorPageRequest<long>(
-            cursor.HasValue ? CursorCodec.Format(cursor.Value) : null,
+            cursor.HasValue ? s_cursorCodec.Format(cursor.Value) : null,
             cursor,
             cursorPolicies.Resolve(CommentCursorPolicyKind.Threads).NormalizeLimit(limit));
         CursorResponse<CommentQueryResultDto> source = await service.GetCommentsByCursorAsync(articleId, request);
@@ -45,13 +45,13 @@ public sealed class CommentCoreGateway(
         {
             var pod = PodProjector.ProjectCommentItem(item.Id, item.CreateTime, item.Author.Mode, item.Author.DisplayName, item.Content, out _);
             return new CommentQueryCoreModel(pod, item.Id, item.Content, item.CreateTime, item.Author);
-        }, CursorCodec);
+        }, s_cursorCodec);
     }
 
     private async Task<CoreCursorResult<UserCommentCoreModel>> LoadUserCommentsAsync(int userId, long? cursor, int limit)
     {
         var request = new CursorPageRequest<long>(
-            cursor.HasValue ? CursorCodec.Format(cursor.Value) : null,
+            cursor.HasValue ? s_cursorCodec.Format(cursor.Value) : null,
             cursor,
             cursorPolicies.Resolve(CommentCursorPolicyKind.UserComments).NormalizeLimit(limit));
         CursorResponse<UserCommentResponse> source = await service.GetAttributableCommentsAsync(userId, request);
@@ -68,7 +68,7 @@ public sealed class CommentCoreGateway(
             ModerationStatus = item.ModerationStatus,
             IsDeleted = item.VisibilityReasonCode == "deleted_by_user_or_admin",
             HasBlockedRegions = item.VisibilityReasonCode == "geo_limited"
-        }), CursorCodec);
+        }), s_cursorCodec);
     }
 
 }

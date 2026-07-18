@@ -13,7 +13,7 @@ public enum SchemaDdlDialect
 
 public readonly record struct SchemaIdentifier
 {
-    private static readonly Regex ValidIdentifier = new(
+    private static readonly Regex s_validIdentifier = new(
         "^[A-Za-z_][A-Za-z0-9_]{0,62}$",
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
 
@@ -26,7 +26,7 @@ public readonly record struct SchemaIdentifier
 
     public static SchemaIdentifier Parse(string value, string parameterName)
     {
-        if (string.IsNullOrWhiteSpace(value) || !ValidIdentifier.IsMatch(value))
+        if (string.IsNullOrWhiteSpace(value) || !s_validIdentifier.IsMatch(value))
         {
             throw new ArgumentException(
                 "Schema identifiers must start with a letter or underscore and contain only ASCII letters, digits, or underscores.",
@@ -41,7 +41,7 @@ public readonly record struct SchemaIdentifier
 
 public sealed record SchemaColumnDefinition
 {
-    private static readonly Regex SupportedDefinition = new(
+    private static readonly Regex s_supportedDefinition = new(
         "^(?:smallint|integer|bigint|boolean|bytea|text|timestamp|varchar\\([1-9][0-9]{0,4}\\))(?:\\s+(?:NULL|NOT NULL))?(?:\\s+DEFAULT\\s+(?:-?[0-9]+|true|false|now\\(\\)|'(?:[^']|'')*'))?$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
 
@@ -55,7 +55,7 @@ public sealed record SchemaColumnDefinition
     public static SchemaColumnDefinition Parse(string value, string parameterName)
     {
         string normalized = NormalizeLegacyLiteralEscapes(value?.Trim() ?? string.Empty);
-        if (!SupportedDefinition.IsMatch(normalized))
+        if (!s_supportedDefinition.IsMatch(normalized))
         {
             throw new ArgumentException(
                 "Unsupported schema column definition. Use a supported type, nullability, and scalar default instead of raw DDL.",
@@ -248,7 +248,9 @@ public abstract class SchemaDdlProviderBase(SchemaDdlDialect dialect, char quote
 public sealed class PostgresSchemaDdlProvider : SchemaDdlProviderBase
 {
     public static PostgresSchemaDdlProvider Instance { get; } = new();
-    private PostgresSchemaDdlProvider() : base(SchemaDdlDialect.PostgreSql, '"') { }
+    private PostgresSchemaDdlProvider() : base(SchemaDdlDialect.PostgreSql, '"')
+    {
+    }
 
     public override string EnsureColumn(SchemaIdentifier table, SchemaIdentifier column, SchemaColumnDefinition definition)
     {
@@ -327,7 +329,9 @@ public sealed class PostgresSchemaDdlProvider : SchemaDdlProviderBase
 public sealed class MySqlSchemaDdlProvider : SchemaDdlProviderBase
 {
     public static MySqlSchemaDdlProvider Instance { get; } = new();
-    private MySqlSchemaDdlProvider() : base(SchemaDdlDialect.MySql, '`') { }
+    private MySqlSchemaDdlProvider() : base(SchemaDdlDialect.MySql, '`')
+    {
+    }
 
     public override string EnsureColumn(SchemaIdentifier table, SchemaIdentifier column, SchemaColumnDefinition definition)
         => $"ALTER TABLE {Quote(table)} ADD COLUMN IF NOT EXISTS {Quote(column)} {definition.ForDialect(Dialect)};";
@@ -343,7 +347,9 @@ public sealed class MySqlSchemaDdlProvider : SchemaDdlProviderBase
 public sealed class SqliteSchemaDdlProvider : SchemaDdlProviderBase
 {
     public static SqliteSchemaDdlProvider Instance { get; } = new();
-    private SqliteSchemaDdlProvider() : base(SchemaDdlDialect.Sqlite, '"') { }
+    private SqliteSchemaDdlProvider() : base(SchemaDdlDialect.Sqlite, '"')
+    {
+    }
 
     public override string EnsureColumn(SchemaIdentifier table, SchemaIdentifier column, SchemaColumnDefinition definition)
         => $"ALTER TABLE {Quote(table)} ADD COLUMN {Quote(column)} {definition.ForDialect(Dialect)};";

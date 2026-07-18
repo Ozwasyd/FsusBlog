@@ -30,21 +30,21 @@ public sealed record AdminSessionValidationResult(bool IsValid, string Reason)
 
 public sealed class AdminSessionValidationService : IAdminSessionValidationService
 {
-    private static readonly TimeSpan AdminSessionValidationSnapshotTtl = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan AdminSessionTouchMinInterval = TimeSpan.FromSeconds(45);
-    private static readonly MemoryCacheEntryOptions ValidationSnapshotOptions = new()
+    private static readonly TimeSpan s_adminSessionValidationSnapshotTtl = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan s_adminSessionTouchMinInterval = TimeSpan.FromSeconds(45);
+    private static readonly MemoryCacheEntryOptions s_validationSnapshotOptions = new()
     {
-        AbsoluteExpirationRelativeToNow = AdminSessionValidationSnapshotTtl
+        AbsoluteExpirationRelativeToNow = s_adminSessionValidationSnapshotTtl
     };
-    private static readonly ConcurrentDictionary<string, DateTime> LastTouchBySession = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, DateTime> s_lastTouchBySession = new(StringComparer.Ordinal);
 
-    private readonly ISqlSugarClient db;
-    private readonly IMemoryCache validationCache;
+    private readonly ISqlSugarClient _db;
+    private readonly IMemoryCache _validationCache;
 
     public AdminSessionValidationService(ISqlSugarClient db, IMemoryCache? validationCache = null)
     {
-        this.db = db;
-        this.validationCache = validationCache ?? new MemoryCache(new MemoryCacheOptions());
+        this._db = db;
+        this._validationCache = validationCache ?? new MemoryCache(new MemoryCacheOptions());
     }
 
     public async Task<AdminSessionValidationResult> ValidateAsync(ClaimsPrincipal? principal, string accessToken, CancellationToken cancellationToken)
@@ -129,7 +129,7 @@ public sealed class AdminSessionValidationService : IAdminSessionValidationServi
             return AdminSessionValidationResult.Valid;
         }
 
-        validationCache.Remove(snapshotKey);
+        _validationCache.Remove(snapshotKey);
 
         return await ValidateCurrentSessionAfterTouchConflictAsync(
             adminId,
@@ -144,7 +144,7 @@ public sealed class AdminSessionValidationService : IAdminSessionValidationServi
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
             """
             SELECT sessionid,
                    s.adminprincipalid,
@@ -184,7 +184,7 @@ public sealed class AdminSessionValidationService : IAdminSessionValidationServi
     {
         cancellationToken.ThrowIfCancellationRequested();
         long startedAt = Stopwatch.GetTimestamp();
-        int updated = await db.Ado.ExecuteCommandAsync(
+        int updated = await _db.Ado.ExecuteCommandAsync(
             """
             UPDATE admin_session
             SET lastseenatutc = @LastSeenAtUtc
@@ -252,10 +252,10 @@ public sealed class AdminSessionValidationService : IAdminSessionValidationServi
     }
 
     private bool TryGetValidationSnapshot(string snapshotKey, out AdminSessionValidationSnapshot? snapshot)
-        => validationCache.TryGetValue(snapshotKey, out snapshot);
+        => _validationCache.TryGetValue(snapshotKey, out snapshot);
 
     private void SetValidationSnapshot(string snapshotKey, AdminSessionValidationSnapshot snapshot)
-        => validationCache.Set(snapshotKey, snapshot, ValidationSnapshotOptions);
+        => _validationCache.Set(snapshotKey, snapshot, s_validationSnapshotOptions);
 
     private static AdminSessionValidationResult ValidateSnapshot(
         AdminSessionValidationSnapshot snapshot,
@@ -299,13 +299,13 @@ public sealed class AdminSessionValidationService : IAdminSessionValidationServi
     private static bool ShouldTouchAdminSession(string sessionId, string accessTokenHash, DateTime now)
     {
         string touchKey = SnapshotKey(sessionId, accessTokenHash);
-        if (LastTouchBySession.TryGetValue(touchKey, out DateTime lastTouchedAt) &&
-            now - lastTouchedAt < AdminSessionTouchMinInterval)
+        if (s_lastTouchBySession.TryGetValue(touchKey, out DateTime lastTouchedAt) &&
+            now - lastTouchedAt < s_adminSessionTouchMinInterval)
         {
             return false;
         }
 
-        LastTouchBySession[touchKey] = now;
+        s_lastTouchBySession[touchKey] = now;
         return true;
     }
 

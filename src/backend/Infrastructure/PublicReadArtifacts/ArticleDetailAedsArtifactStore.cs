@@ -143,7 +143,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
     private const uint ArticleDetailV4PayloadMagic = 0x41524434; // ARD4
     private const int ArticleDetailV4PayloadVersion = 4;
     private const int ArticleDetailV3HeaderSize = sizeof(uint) + sizeof(int);
-    private static readonly TimeSpan MemoryTtl = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan s_memoryTtl = TimeSpan.FromSeconds(30);
     private readonly string _root = Path.Combine(env.ContentRootPath, "runtime-cache", "public", "articles");
     private readonly ConcurrentDictionary<int, CachedFrame> _memory = new();
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
@@ -178,7 +178,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
             return default;
         }
 
-        _memory[articleId] = new CachedFrame(bytes, _timeProvider.GetUtcNow().Add(MemoryTtl));
+        _memory[articleId] = new CachedFrame(bytes, _timeProvider.GetUtcNow().Add(s_memoryTtl));
         FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "hit_file", FsusObservability.GetElapsed(startedAt));
         return new ArticleDetailAedsArtifact(bytes);
     }
@@ -201,7 +201,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
         string tempPath = string.Concat(path, ".", Guid.NewGuid().ToString("N"), ".tmp");
         await File.WriteAllBytesAsync(tempPath, bytes, cancellationToken).ConfigureAwait(false);
         File.Move(tempPath, path, overwrite: true);
-        _memory[articleId] = new CachedFrame(bytes, _timeProvider.GetUtcNow().Add(MemoryTtl));
+        _memory[articleId] = new CachedFrame(bytes, _timeProvider.GetUtcNow().Add(s_memoryTtl));
         FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "write", TimeSpan.Zero);
     }
 

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace FsusBlog.Server.Infrastructure.Auth;
 
+/// <summary>Issues, reads, and revokes user and administrator authentication cookies with environment-safe attributes.</summary>
 public sealed class AuthCookieService
 {
     private const string AccessTokenCookieName = "AccessToken";
@@ -23,6 +24,7 @@ public sealed class AuthCookieService
     private readonly string _sessionIdCookieName;
     private readonly string _adminAccessTokenCookieName;
 
+    /// <summary>Selects host-prefixed secure cookie names unless explicitly running an allowed development transport.</summary>
     public AuthCookieService(
         IConfiguration configuration,
         IWebHostEnvironment? environment = null,
@@ -36,6 +38,7 @@ public sealed class AuthCookieService
         _adminAccessTokenCookieName = useSecureTransportCookies ? HostAdminAccessTokenCookieName : AdminAccessTokenCookieName;
     }
 
+    /// <summary>Writes the user access, refresh, and optional session cookies with their independent expiry boundaries.</summary>
     public void SetTokenCookies(
         HttpContext context,
         IWebHostEnvironment env,
@@ -68,6 +71,7 @@ public sealed class AuthCookieService
         }
     }
 
+    /// <summary>Replaces only the short-lived user access-token cookie after token refresh.</summary>
     public void SetAccessTokenCookie(
         HttpContext context,
         IWebHostEnvironment env,
@@ -79,6 +83,7 @@ public sealed class AuthCookieService
         AppendAccessTokenCookie(context, accessCookieName, accessToken, accessTokenExpiresAtUtc, baseOptions);
     }
 
+    /// <summary>Writes the administrator access-token and session cookies using the stricter admin namespace.</summary>
     public void SetAdminSessionCookies(
         HttpContext context,
         IWebHostEnvironment env,
@@ -121,12 +126,14 @@ public sealed class AuthCookieService
             Expires = accessTokenExpiresAtUtc.ToUniversalTime()
         });
 
+    /// <summary>Deletes every supported user and administrator authentication cookie variant.</summary>
     public void ClearTokenCookies(HttpContext context)
     {
         ClearUserSessionCookies(context);
         ClearAdminSessionCookies(context);
     }
 
+    /// <summary>Deletes legacy and host-prefixed user access, refresh, and session cookies.</summary>
     public void ClearUserSessionCookies(HttpContext context)
     {
         var options = new CookieOptions { Path = "/" };
@@ -140,6 +147,7 @@ public sealed class AuthCookieService
         context.Response.Cookies.Delete(HostSessionIdCookieName, hostOptions);
     }
 
+    /// <summary>Deletes legacy and host-prefixed administrator access and session cookies.</summary>
     public void ClearAdminSessionCookies(HttpContext context)
     {
         var options = new CookieOptions { Path = "/" };
@@ -160,21 +168,26 @@ public sealed class AuthCookieService
             Path = "/"
         };
 
+    /// <summary>Reads the access token from the cookie name selected for the current environment.</summary>
     public string? ReadAccessToken(HttpContext context)
         => ReadCookie(context, _accessTokenCookieName);
 
+    /// <summary>Reads the refresh token from the cookie name selected for the current environment.</summary>
     public string? ReadRefreshToken(HttpContext context)
         => ReadCookie(context, _refreshTokenCookieName);
 
+    /// <summary>Reads the user session identifier from the cookie name selected for the current environment.</summary>
     public string? ReadSessionId(HttpContext context)
         => ReadCookie(context, _sessionIdCookieName);
 
+    /// <summary>Attempts to read a non-empty administrator access token from the active cookie namespace.</summary>
     public bool TryReadAdminAccessToken(HttpContext context, out string token)
     {
         token = ReadCookie(context, _adminAccessTokenCookieName) ?? string.Empty;
         return !string.IsNullOrWhiteSpace(token);
     }
 
+    /// <summary>Returns the externally visible access-token cookie name for production or development transport.</summary>
     public static string? ResolveAccessTokenCookieName(bool isProduction)
         => isProduction ? HostAccessTokenCookieName : AccessTokenCookieName;
 

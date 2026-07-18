@@ -1,5 +1,6 @@
 namespace FsusBlog.Server.Infrastructure.Auth;
 
+/// <summary>Defines the canonical claim type and permission values accepted by administrator authorization policies.</summary>
 public static class AdminPermissions
 {
     public const string PermissionClaimType = "admin_permission";
@@ -30,8 +31,10 @@ public static class AdminPermissions
     ];
 }
 
+/// <summary>Applies administrator identity and permission claims to Minimal API endpoints and route groups.</summary>
 public static class AdminAuthorizationEndpointExtensions
 {
+    /// <summary>Requires an authenticated administrator token containing the specified permission on one endpoint.</summary>
     public static RouteHandlerBuilder RequireAdminPermission(this RouteHandlerBuilder builder, string permission)
         => builder.RequireAuthorization(policy => policy
             .RequireAuthenticatedUser()
@@ -39,6 +42,7 @@ public static class AdminAuthorizationEndpointExtensions
             .RequireClaim("admin_id")
             .RequireClaim(AdminPermissions.PermissionClaimType, permission));
 
+    /// <summary>Requires an authenticated administrator token containing the specified permission across a route group.</summary>
     public static RouteGroupBuilder RequireAdminPermission(this RouteGroupBuilder builder, string permission)
         => builder.RequireAuthorization(policy => policy
             .RequireAuthenticatedUser()

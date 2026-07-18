@@ -64,8 +64,8 @@ public static partial class PublicHotReadFastPath
     private const string HtmlMediaType = "text/html";
     private const string HtmlContentType = "text/html; charset=utf-8";
     private const string ServerSsrAotSource = "server-ssr";
-    private static readonly Task Completed = Task.CompletedTask;
-    private static readonly string[] SensitiveApiPrefixes =
+    private static readonly Task s_completed = Task.CompletedTask;
+    private static readonly string[] s_sensitiveApiPrefixes =
     [
         "/api/binary/auth",
         "/api/binary/admin",
@@ -140,7 +140,7 @@ public static partial class PublicHotReadFastPath
         PublicHotReadRoutePolicy routePolicy = classified
             && PublicHotReadRouteSecurityCatalog.TryGet(route.Kind, out PublicHotReadRoutePolicy matchedPolicy)
                 ? matchedPolicy
-                : PublicHotReadRouteSecurityCatalog.RejectedCandidate;
+                : PublicHotReadRouteSecurityCatalog.s_rejectedCandidate;
         bool isPublicHtmlRoute = route.Kind == PublicHotReadRouteKind.PublicHtml;
 
         if (IsDynamicRelatedReadingPath(span)
@@ -250,7 +250,7 @@ public static partial class PublicHotReadFastPath
             ctx.Response.StatusCode = StatusCodes.Status301MovedPermanently;
             ctx.Response.Headers.Location = redirectLocation;
             ctx.Response.ContentLength = 0;
-            return Completed;
+            return s_completed;
         }
 
         if (ctx.Request.Headers.ContainsKey("Range"))
@@ -338,15 +338,15 @@ public static partial class PublicHotReadFastPath
 
     private static bool IsDynamicRelatedReadingPath(ReadOnlySpan<char> path)
     {
-        const string prefix = "/api/binary/article/";
+        const string Prefix = "/api/binary/article/";
         ReadOnlySpan<char> suffix = "/related.aeds".AsSpan();
-        if (!path.StartsWith(prefix, StringComparison.Ordinal)
+        if (!path.StartsWith(Prefix, StringComparison.Ordinal)
             || !path.EndsWith(suffix, StringComparison.Ordinal))
         {
             return false;
         }
 
-        ReadOnlySpan<char> articleId = path[prefix.Length..^suffix.Length];
+        ReadOnlySpan<char> articleId = path[Prefix.Length..^suffix.Length];
         return TryParsePositiveInt(articleId, out _);
     }
 
@@ -586,16 +586,16 @@ public static partial class PublicHotReadFastPath
         {
             response.StatusCode = StatusCodes.Status304NotModified;
             response.ContentLength = 0;
-            return Completed;
+            return s_completed;
         }
 
         if (HttpMethods.IsHead(ctx.Request.Method))
         {
-            return Completed;
+            return s_completed;
         }
 
         ValueTask<FlushResult> write = response.BodyWriter.WriteAsync(html.Bytes, ctx.RequestAborted);
-        return write.IsCompletedSuccessfully ? Completed : AwaitWrite(write);
+        return write.IsCompletedSuccessfully ? s_completed : AwaitWrite(write);
     }
 
     private static Task ServeHtmlWithNonce(
@@ -622,7 +622,7 @@ public static partial class PublicHotReadFastPath
         {
             response.StatusCode = StatusCodes.Status406NotAcceptable;
             response.ContentLength = 0;
-            return Completed;
+            return s_completed;
         }
 
         response.StatusCode = StatusCodes.Status200OK;
@@ -630,7 +630,7 @@ public static partial class PublicHotReadFastPath
 
         if (HttpMethods.IsHead(ctx.Request.Method) || response.ContentLength == 0)
         {
-            return Completed;
+            return s_completed;
         }
 
         return CspNonceHtmlResponseWriter.WriteBodyAsync(response, template, nonce, ctx.RequestAborted);
@@ -737,16 +737,16 @@ public static partial class PublicHotReadFastPath
         {
             response.StatusCode = StatusCodes.Status304NotModified;
             response.ContentLength = 0;
-            return Completed;
+            return s_completed;
         }
 
         if (HttpMethods.IsHead(ctx.Request.Method))
         {
-            return Completed;
+            return s_completed;
         }
 
         ValueTask<FlushResult> write = response.BodyWriter.WriteAsync(frame, ctx.RequestAborted);
-        return write.IsCompletedSuccessfully ? Completed : AwaitWrite(write);
+        return write.IsCompletedSuccessfully ? s_completed : AwaitWrite(write);
     }
 
     private static bool TrySelectBinaryVariant(

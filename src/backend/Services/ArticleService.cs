@@ -33,6 +33,8 @@ namespace FsusBlog.Server.Services;
 /// 3. 废弃高危的 Task.Run 游离线程，阻塞等待搜索索引落盘，杜绝生产环境滚动发版导致的索引永久损坏。
 /// 4. 引入 IN(...) 容量阀门与 Parallel.ForEachAsync 控制外部 I/O 并发风暴。
 /// </summary>
+// Public named-argument source compatibility; exact exception registered in csharp-style-policy.
+#pragma warning disable IDE1006
 public partial class ArticleService(
     ISqlSugarClient _db,
     ISearchIndexService _searchIndex,
@@ -47,6 +49,7 @@ public partial class ArticleService(
     ICacheInvalidationDispatcher _cacheInvalidationDispatcher,
     IArticleMutationSideEffectCoordinator _mutationSideEffects,
     IArticleViewWriteBuffer _viewWriteBuffer) : IArticleService
+#pragma warning restore IDE1006
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId);
     private readonly record struct ArticleRevisionCoordinates(long Id, int RevisionNo);

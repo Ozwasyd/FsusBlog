@@ -292,8 +292,8 @@ public sealed class ProductionRfc9474BlindCredentialSigner : IRfc9474BlindCreden
         if (!OperatingSystem.IsWindows() && File.Exists(path))
         {
             UnixFileMode mode = File.GetUnixFileMode(path);
-            const UnixFileMode permitted = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-            if ((mode & ~permitted) != 0)
+            const UnixFileMode Permitted = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            if ((mode & ~Permitted) != 0)
             {
                 throw new InvalidOperationException(
                     "AnonymousCredentialIssuer:BlindRsa:PrivateKeyPath must use permissions no broader than 0600.");

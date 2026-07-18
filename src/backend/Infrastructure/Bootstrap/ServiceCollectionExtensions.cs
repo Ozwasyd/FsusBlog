@@ -341,10 +341,10 @@ internal static class RateLimiterRejectionRiskSampler
 {
     private const int MaxRiskWritesPerBucket = 4;
     private const int MaxTrackedBuckets = 4096;
-    private static readonly BoundedRateLimiterRejectionRiskSampler Sampler = new(
+    private static readonly BoundedRateLimiterRejectionRiskSampler s_sampler = new(
         MaxRiskWritesPerBucket,
         MaxTrackedBuckets);
 
     public static bool ShouldWriteRiskSignal(HttpContext context)
-        => Sampler.Sample(context) == RateLimiterRiskSampleDecision.WriteRiskSignal;
+        => s_sampler.Sample(context) == RateLimiterRiskSampleDecision.WriteRiskSignal;
 }

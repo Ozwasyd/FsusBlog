@@ -13,7 +13,7 @@ public sealed class AuditLogWriterWorker(
     ILogger<AuditLogWriterWorker> logger) : BackgroundService
 {
     private const int BatchSize = 256;
-    private static readonly TimeSpan FlushWindow = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan s_flushWindow = TimeSpan.FromMilliseconds(500);
 
     private readonly AuditLogChannel _channel = channel;
     private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
@@ -155,7 +155,7 @@ public sealed class AuditLogWriterWorker(
                 return;
             }
 
-            TimeSpan remaining = FlushWindow - Stopwatch.GetElapsedTime(startedAt);
+            TimeSpan remaining = s_flushWindow - Stopwatch.GetElapsedTime(startedAt);
             if (remaining <= TimeSpan.Zero)
             {
                 return;

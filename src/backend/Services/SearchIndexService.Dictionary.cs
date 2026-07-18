@@ -1069,8 +1069,8 @@ public sealed partial class SearchIndexService
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint HashBytes(ReadOnlySpan<byte> bytes)
         {
-            const uint c1 = 0xcc9e2d51;
-            const uint c2 = 0x1b873593;
+            const uint C1 = 0xcc9e2d51;
+            const uint C2 = 0x1b873593;
             uint h1 = 0;
             int length = bytes.Length;
             int roundedEnd = length & ~0x3;
@@ -1082,9 +1082,9 @@ public sealed partial class SearchIndexService
                     | bytes[i + 2] << 16
                     | bytes[i + 3] << 24);
 
-                k1 *= c1;
+                k1 *= C1;
                 k1 = BitOperations.RotateLeft(k1, 15);
-                k1 *= c2;
+                k1 *= C2;
 
                 h1 ^= k1;
                 h1 = BitOperations.RotateLeft(h1, 13);
@@ -1102,9 +1102,9 @@ public sealed partial class SearchIndexService
                     goto case 1;
                 case 1:
                     tail ^= bytes[roundedEnd];
-                    tail *= c1;
+                    tail *= C1;
                     tail = BitOperations.RotateLeft(tail, 15);
-                    tail *= c2;
+                    tail *= C2;
                     h1 ^= tail;
                     break;
             }

@@ -67,10 +67,10 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
     private const string ProtocolMaximumRelease = "99999999-online-schema-v1";
     private const string OnlineProtocolRelease = "20260711-online-migration-gate";
 
-    private static readonly IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> Metadata =
+    private static readonly IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> s_metadata =
         BuildMetadata();
 
-    public IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> GetMetadata() => Metadata;
+    public IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> GetMetadata() => s_metadata;
 
     private static IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> BuildMetadata()
     {
@@ -428,7 +428,7 @@ public sealed record OnlineSchemaMigrationPolicyReport(
 
 public static partial class OnlineSchemaMigrationPolicy
 {
-    private static readonly string[] DestructiveSqlTokens =
+    private static readonly string[] s_destructiveSqlTokens =
     [
         " DROP COLUMN ",
         " DROP TABLE ",
@@ -577,7 +577,7 @@ public static partial class OnlineSchemaMigrationPolicy
         }
 
         string normalized = $" {WhitespaceRegex().Replace(step.Fingerprint, " ").ToUpperInvariant()} ";
-        return DestructiveSqlTokens.Any(normalized.Contains);
+        return s_destructiveSqlTokens.Any(normalized.Contains);
     }
 
     [GeneratedRegex("\\s+", RegexOptions.CultureInvariant)]

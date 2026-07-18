@@ -193,7 +193,7 @@ internal sealed class PublicHotReadEarlyPipelineState
 
 internal sealed class PublicReadSecurityGateResultFeature
 {
-    internal static readonly PublicReadSecurityGateResultFeature Allowed = new();
+    internal static readonly PublicReadSecurityGateResultFeature s_allowed = new();
 
     private PublicReadSecurityGateResultFeature()
     {
@@ -202,31 +202,31 @@ internal sealed class PublicReadSecurityGateResultFeature
 
 internal static class PublicHotReadEarlyEndpointCatalog
 {
-    private static readonly Endpoint ArticleDetail = Create(PublicHotReadRouteKind.ArticleDetail, "article.detail", "public-hot-read:article-detail", "public-hot-read-binary");
-    private static readonly Endpoint ArticleList = Create(PublicHotReadRouteKind.ArticleList, "public.hot-read.binary", "public-hot-read:article-list", "public-hot-read-binary");
-    private static readonly Endpoint ArticleHot = Create(PublicHotReadRouteKind.ArticleHot, "public.hot-read.binary", "public-hot-read:article-hot", "public-hot-read-binary");
-    private static readonly Endpoint ArticleFeatured = Create(PublicHotReadRouteKind.ArticleFeatured, "public.hot-read.binary", "public-hot-read:article-featured", "public-hot-read-binary");
-    private static readonly Endpoint Category = Create(PublicHotReadRouteKind.Category, "taxonomy.category", "public-hot-read:category", "public-hot-read-binary");
-    private static readonly Endpoint Tag = Create(PublicHotReadRouteKind.Tag, "taxonomy.tag", "public-hot-read:tag", "public-hot-read-binary");
-    private static readonly Endpoint Html = Create(PublicHotReadRouteKind.ArticleHtml, "public.hot-read.html", "public-hot-read:html", "public-hot-read-html");
-    private static readonly Endpoint PublicHome = Create(PublicHotReadRouteKind.PublicHtml, "public.html.home", "public-hot-read:public-home", "public-hot-read-html");
-    private static readonly Endpoint PublicFallback = Create(PublicHotReadRouteKind.PublicHtml, "public.html.fallback", "public-hot-read:public-fallback", "public-hot-read-html");
+    private static readonly Endpoint s_articleDetail = Create(PublicHotReadRouteKind.ArticleDetail, "article.detail", "public-hot-read:article-detail", "public-hot-read-binary");
+    private static readonly Endpoint s_articleList = Create(PublicHotReadRouteKind.ArticleList, "public.hot-read.binary", "public-hot-read:article-list", "public-hot-read-binary");
+    private static readonly Endpoint s_articleHot = Create(PublicHotReadRouteKind.ArticleHot, "public.hot-read.binary", "public-hot-read:article-hot", "public-hot-read-binary");
+    private static readonly Endpoint s_articleFeatured = Create(PublicHotReadRouteKind.ArticleFeatured, "public.hot-read.binary", "public-hot-read:article-featured", "public-hot-read-binary");
+    private static readonly Endpoint s_category = Create(PublicHotReadRouteKind.Category, "taxonomy.category", "public-hot-read:category", "public-hot-read-binary");
+    private static readonly Endpoint s_tag = Create(PublicHotReadRouteKind.Tag, "taxonomy.tag", "public-hot-read:tag", "public-hot-read-binary");
+    private static readonly Endpoint s_html = Create(PublicHotReadRouteKind.ArticleHtml, "public.hot-read.html", "public-hot-read:html", "public-hot-read-html");
+    private static readonly Endpoint s_publicHome = Create(PublicHotReadRouteKind.PublicHtml, "public.html.home", "public-hot-read:public-home", "public-hot-read-html");
+    private static readonly Endpoint s_publicFallback = Create(PublicHotReadRouteKind.PublicHtml, "public.html.fallback", "public-hot-read:public-fallback", "public-hot-read-html");
 
     internal static IReadOnlyList<Endpoint> All =>
-        [ArticleDetail, ArticleList, ArticleHot, ArticleFeatured, Category, Tag, Html, PublicHome, PublicFallback];
+        [s_articleDetail, s_articleList, s_articleHot, s_articleFeatured, s_category, s_tag, s_html, s_publicHome, s_publicFallback];
 
     internal static Endpoint Resolve(PublicHotReadRequestFeature feature)
         => feature.RouteKind switch
         {
-            PublicHotReadRouteKind.ArticleDetail => ArticleDetail,
-            PublicHotReadRouteKind.ArticleList => ArticleList,
-            PublicHotReadRouteKind.ArticleHot => ArticleHot,
-            PublicHotReadRouteKind.ArticleFeatured => ArticleFeatured,
-            PublicHotReadRouteKind.Category => Category,
-            PublicHotReadRouteKind.Tag => Tag,
-            PublicHotReadRouteKind.ArticleHtml => Html,
-            PublicHotReadRouteKind.PublicHtml when feature.RiskRouteKey == "public.html.home" => PublicHome,
-            PublicHotReadRouteKind.PublicHtml => PublicFallback,
+            PublicHotReadRouteKind.ArticleDetail => s_articleDetail,
+            PublicHotReadRouteKind.ArticleList => s_articleList,
+            PublicHotReadRouteKind.ArticleHot => s_articleHot,
+            PublicHotReadRouteKind.ArticleFeatured => s_articleFeatured,
+            PublicHotReadRouteKind.Category => s_category,
+            PublicHotReadRouteKind.Tag => s_tag,
+            PublicHotReadRouteKind.ArticleHtml => s_html,
+            PublicHotReadRouteKind.PublicHtml when feature.RiskRouteKey == "public.html.home" => s_publicHome,
+            PublicHotReadRouteKind.PublicHtml => s_publicFallback,
             _ => throw new InvalidOperationException($"public hot-read endpoint policy missing: {feature.RouteKind}")
         };
 

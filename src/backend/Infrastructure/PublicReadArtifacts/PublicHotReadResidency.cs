@@ -147,73 +147,73 @@ internal static class PublicHotReadResidentAccounting
         IEnumerable<string> htmlRemoved)
     {
         var state = new AccountingState();
-        state.ObjectCount += 6;
-        state.KeyIndexBytes += 6L * MapObjectUpperBoundBytes;
+        state._objectCount += 6;
+        state._keyIndexBytes += 6L * MapObjectUpperBoundBytes;
 
         foreach ((int _, PublicBinaryArtifact artifact) in articles)
         {
             long bytes = state.AddBinary(artifact);
-            state.ArticleBytes += bytes;
+            state._articleBytes += bytes;
             state.AddFixedIndex(sizeof(int));
         }
 
         foreach ((PublicListKey _, PublicBinaryArtifact artifact) in lists)
         {
             long bytes = state.AddBinary(artifact);
-            state.ListBytes += bytes;
+            state._listBytes += bytes;
             state.AddFixedIndex(Unsafe.SizeOf<PublicListKey>());
         }
 
         long categoryBytes = state.AddBinary(category);
         long tagBytes = state.AddBinary(tag);
-        state.TaxonomyBytes += categoryBytes + tagBytes;
+        state._taxonomyBytes += categoryBytes + tagBytes;
 
         foreach ((string key, PublicHtmlArtifact artifact) in htmlBase)
         {
             long bytes = state.AddHtml(key, artifact);
-            state.BaseBytes += bytes;
+            state._baseBytes += bytes;
         }
 
         foreach ((string key, PublicHtmlArtifact artifact) in htmlOverlay)
         {
             long bytes = state.AddHtml(key, artifact);
-            state.OverlayBytes += bytes;
+            state._overlayBytes += bytes;
         }
 
         foreach (string key in htmlRemoved)
         {
             long bytes = EstimateStringBytes(key) + EntryObjectUpperBoundBytes;
-            state.KeyIndexBytes += bytes;
-            state.RemovedSetBytes += bytes;
-            state.ObjectCount += 2;
+            state._keyIndexBytes += bytes;
+            state._removedSetBytes += bytes;
+            state._objectCount += 2;
         }
 
-        long total = state.RawAedsBytes
-            + state.BrotliBytes
-            + state.GzipBytes
-            + state.HtmlBytes
-            + state.HtmlTemplateBytes
-            + state.KeyIndexBytes;
+        long total = state._rawAedsBytes
+            + state._brotliBytes
+            + state._gzipBytes
+            + state._htmlBytes
+            + state._htmlTemplateBytes
+            + state._keyIndexBytes;
         return new PublicHotReadResidentBreakdown(
             total,
-            state.RawAedsBytes,
-            state.BrotliBytes,
-            state.GzipBytes,
-            state.HtmlBytes,
-            state.HtmlTemplateBytes,
-            state.KeyIndexBytes,
-            state.ArticleBytes,
-            state.ListBytes,
-            state.TaxonomyBytes,
-            state.HtmlResidentBytes,
-            state.BaseBytes,
-            state.OverlayBytes,
-            state.RemovedSetBytes,
-            state.ArtifactCount,
-            state.ObjectCount,
-            state.ArrayCount,
-            state.LohEligibleArrayCount,
-            state.LohEligibleArrayBytes);
+            state._rawAedsBytes,
+            state._brotliBytes,
+            state._gzipBytes,
+            state._htmlBytes,
+            state._htmlTemplateBytes,
+            state._keyIndexBytes,
+            state._articleBytes,
+            state._listBytes,
+            state._taxonomyBytes,
+            state._htmlResidentBytes,
+            state._baseBytes,
+            state._overlayBytes,
+            state._removedSetBytes,
+            state._artifactCount,
+            state._objectCount,
+            state._arrayCount,
+            state._lohEligibleArrayCount,
+            state._lohEligibleArrayBytes);
     }
 
     internal static IReadOnlyList<string> ValidateCandidate(
@@ -239,10 +239,10 @@ internal static class PublicHotReadResidentAccounting
         var state = new AccountingState();
         _ = state.AddBinary(artifact);
         state.AddFixedIndex(sizeof(int));
-        return state.RawAedsBytes
-            + state.BrotliBytes
-            + state.GzipBytes
-            + state.KeyIndexBytes;
+        return state._rawAedsBytes
+            + state._brotliBytes
+            + state._gzipBytes
+            + state._keyIndexBytes;
     }
 
     private static void AddIfExceeded(List<string> violations, string name, long actual, long limit)
@@ -258,24 +258,24 @@ internal static class PublicHotReadResidentAccounting
 
     private sealed class AccountingState
     {
-        internal long RawAedsBytes;
-        internal long BrotliBytes;
-        internal long GzipBytes;
-        internal long HtmlBytes;
-        internal long HtmlTemplateBytes;
-        internal long KeyIndexBytes;
-        internal long ArticleBytes;
-        internal long ListBytes;
-        internal long TaxonomyBytes;
-        internal long HtmlResidentBytes;
-        internal long BaseBytes;
-        internal long OverlayBytes;
-        internal long RemovedSetBytes;
-        internal int ArtifactCount;
-        internal int ObjectCount;
-        internal int ArrayCount;
-        internal int LohEligibleArrayCount;
-        internal long LohEligibleArrayBytes;
+        internal long _rawAedsBytes;
+        internal long _brotliBytes;
+        internal long _gzipBytes;
+        internal long _htmlBytes;
+        internal long _htmlTemplateBytes;
+        internal long _keyIndexBytes;
+        internal long _articleBytes;
+        internal long _listBytes;
+        internal long _taxonomyBytes;
+        internal long _htmlResidentBytes;
+        internal long _baseBytes;
+        internal long _overlayBytes;
+        internal long _removedSetBytes;
+        internal int _artifactCount;
+        internal int _objectCount;
+        internal int _arrayCount;
+        internal int _lohEligibleArrayCount;
+        internal long _lohEligibleArrayBytes;
 
         internal long AddBinary(in PublicBinaryArtifact artifact)
         {
@@ -284,26 +284,26 @@ internal static class PublicHotReadResidentAccounting
                 return 0;
             }
 
-            ArtifactCount++;
-            ObjectCount++;
+            _artifactCount++;
+            _objectCount++;
             long metadataBytes = LogicalArtifactObjectUpperBoundBytes
                 + BinaryIntegrityMetadataBytes
                 + AddMetadataString(artifact.ETag)
                 + AddMetadataString(artifact.CacheControl)
                 + AddMetadataString(artifact.BrotliETag)
                 + AddMetadataString(artifact.GzipETag);
-            KeyIndexBytes += metadataBytes;
-            long before = RawAedsBytes + BrotliBytes + GzipBytes;
-            RawAedsBytes += AddMemory(artifact.Frame);
-            BrotliBytes += AddMemory(artifact.BrotliFrame);
-            GzipBytes += AddMemory(artifact.GzipFrame);
-            return (RawAedsBytes + BrotliBytes + GzipBytes) - before + metadataBytes;
+            _keyIndexBytes += metadataBytes;
+            long before = _rawAedsBytes + _brotliBytes + _gzipBytes;
+            _rawAedsBytes += AddMemory(artifact.Frame);
+            _brotliBytes += AddMemory(artifact.BrotliFrame);
+            _gzipBytes += AddMemory(artifact.GzipFrame);
+            return (_rawAedsBytes + _brotliBytes + _gzipBytes) - before + metadataBytes;
         }
 
         internal long AddHtml(string key, in PublicHtmlArtifact artifact)
         {
-            ArtifactCount++;
-            ObjectCount += 2;
+            _artifactCount++;
+            _objectCount += 2;
             long keyBytes = EstimateStringBytes(key)
                 + EntryObjectUpperBoundBytes
                 + LogicalArtifactObjectUpperBoundBytes
@@ -311,26 +311,26 @@ internal static class PublicHotReadResidentAccounting
                 + AddMetadataString(artifact.ContentType)
                 + AddMetadataString(artifact.ETag)
                 + AddMetadataString(artifact.CacheControl);
-            KeyIndexBytes += keyBytes;
+            _keyIndexBytes += keyBytes;
             long html = AddMemory(artifact.Bytes);
-            HtmlBytes += html;
+            _htmlBytes += html;
             long template = artifact.CspNonceTemplate?.ResidentBytes ?? 0;
-            HtmlTemplateBytes += template;
-            HtmlResidentBytes += html + template + keyBytes;
+            _htmlTemplateBytes += template;
+            _htmlResidentBytes += html + template + keyBytes;
             if (artifact.CspNonceTemplate is { } nonceTemplate)
             {
-                ObjectCount += nonceTemplate.ResidentObjectCount;
-                ArrayCount += nonceTemplate.ResidentArrayCount;
-                LohEligibleArrayCount += nonceTemplate.LohEligibleArrayCount;
-                LohEligibleArrayBytes += nonceTemplate.LohEligibleArrayBytes;
+                _objectCount += nonceTemplate.ResidentObjectCount;
+                _arrayCount += nonceTemplate.ResidentArrayCount;
+                _lohEligibleArrayCount += nonceTemplate.LohEligibleArrayCount;
+                _lohEligibleArrayBytes += nonceTemplate.LohEligibleArrayBytes;
             }
             return html + template + keyBytes;
         }
 
         internal void AddFixedIndex(int keyBytes)
         {
-            KeyIndexBytes += EntryObjectUpperBoundBytes + keyBytes;
-            ObjectCount++;
+            _keyIndexBytes += EntryObjectUpperBoundBytes + keyBytes;
+            _objectCount++;
         }
 
         private long AddMemory(ReadOnlyMemory<byte> memory)
@@ -340,16 +340,16 @@ internal static class PublicHotReadResidentAccounting
                 return 0;
             }
 
-            ArrayCount++;
-            ObjectCount++;
+            _arrayCount++;
+            _objectCount++;
             int bytes = MemoryMarshal.TryGetArray(memory, out ArraySegment<byte> segment)
                 && segment.Array is not null
                     ? segment.Array.Length
                     : memory.Length;
             if (bytes >= LohThresholdBytes)
             {
-                LohEligibleArrayCount++;
-                LohEligibleArrayBytes += bytes;
+                _lohEligibleArrayCount++;
+                _lohEligibleArrayBytes += bytes;
             }
 
             return bytes;
@@ -361,7 +361,7 @@ internal static class PublicHotReadResidentAccounting
             {
                 return 0;
             }
-            ObjectCount++;
+            _objectCount++;
             return EstimateStringBytes(value);
         }
     }

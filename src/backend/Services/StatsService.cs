@@ -18,6 +18,8 @@ namespace FsusBlog.Server.Services;
 /// 站点统计服务实现
 /// 修复日期: 2026-02-23 (修复 LINQ 投影后上下文丢失导致的编译错误，保持 Dapper 级物理映射)
 /// </summary>
+// Public named-argument source compatibility; exact exception registered in csharp-style-policy.
+#pragma warning disable IDE1006
 public partial class StatsService(
     ISqlSugarClient _db,
     IUnifiedCache _cache,
@@ -25,6 +27,7 @@ public partial class StatsService(
     IDbConcurrencyGate _dbConcurrencyGate,
     IReadAnalyticsPrivacyPolicy _readAnalyticsPrivacy,
     ILogger<StatsService> _logger) : IStatsService
+#pragma warning restore IDE1006
 {
     public async Task<AdminStatsQueryDto> GetAdminStatsAsync()
         => await GetAdminStatsAsync("main");
@@ -168,7 +171,7 @@ public partial class StatsService(
             }
         }
 
-        const string readStatsSql = """
+        const string ReadStatsSql = """
                 SELECT
                     COALESCE((SELECT SUM(total_reads)::bigint FROM daily_read_stats), 0)::bigint AS "TotalReads",
                     COALESCE((SELECT SUM(human_verified_reads)::bigint FROM daily_read_stats), 0)::bigint AS "HumanVerifiedReads",
@@ -183,7 +186,7 @@ public partial class StatsService(
         int articleReads = 0;
         int siteReads = 0;
 
-        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(readStatsSql))
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(ReadStatsSql))
         {
             if (await reader.ReadAsync(cancellationToken))
             {
@@ -307,7 +310,7 @@ public partial class StatsService(
 
     internal async Task<List<RegionStatItemDto>> LoadRegionStatsAsync(CancellationToken cancellationToken)
     {
-        const string regionSql = """
+        const string RegionSql = """
             WITH normalized_regions AS (
                 SELECT
                     CASE
@@ -333,7 +336,7 @@ public partial class StatsService(
 
         var aggregateCells = new List<ReadAggregateCount>(10);
         using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-            regionSql,
+            RegionSql,
             new SugarParameter("@KThreshold", _readAnalyticsPrivacy.Budget.KThreshold));
         int fRegion = reader.GetOrdinal("Region");
         int fCount = reader.GetOrdinal("Count");

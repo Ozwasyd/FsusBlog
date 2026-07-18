@@ -61,13 +61,13 @@ public static class AnonymousCredentialRevocationAccumulator
     private const int CircuitFriendlyTreeDepth = 128;
     private const int CircuitFriendlyMimcRounds = 91;
     private const int CircuitFriendlyRootCacheMaxEntries = 64;
-    private static readonly BigInteger CircuitFriendlyFieldPrime = BigInteger.Parse(
+    private static readonly BigInteger s_circuitFriendlyFieldPrime = BigInteger.Parse(
         "21888242871839275222246405745257275088548364400416034343698204186575808495617",
         CultureInfo.InvariantCulture);
-    private static readonly Lazy<BigInteger[]> CircuitFriendlyMimcRoundConstants = new(BuildCircuitFriendlyMimcRoundConstants);
-    private static readonly Lazy<string[]> CircuitFriendlyDefaultSparseRoots = new(BuildCircuitFriendlyDefaultSparseRoots);
-    private static readonly ConcurrentDictionary<CircuitFriendlyTreeCacheKey, Lazy<Result<CircuitFriendlySparseTree>>> CircuitFriendlyTreeCache = new();
-    private static long CircuitFriendlyTreeCacheEpoch;
+    private static readonly Lazy<BigInteger[]> s_circuitFriendlyMimcRoundConstants = new(BuildCircuitFriendlyMimcRoundConstants);
+    private static readonly Lazy<string[]> s_circuitFriendlyDefaultSparseRoots = new(BuildCircuitFriendlyDefaultSparseRoots);
+    private static readonly ConcurrentDictionary<CircuitFriendlyTreeCacheKey, Lazy<Result<CircuitFriendlySparseTree>>> s_circuitFriendlyTreeCache = new();
+    private static long s_circuitFriendlyTreeCacheEpoch;
 
     public const string LegacySha256HashTreeAlgorithmId = "legacy-sha256-hash-tree.v1";
     public const string CircuitFriendlyNonMembershipAlgorithmId = "circuit-friendly-non-membership.v1";
@@ -323,7 +323,7 @@ public static class AnonymousCredentialRevocationAccumulator
         BigInteger key = ResolveCircuitFriendlyLeafKey(handle);
         var siblings = new string[CircuitFriendlyTreeDepth];
         BigInteger cursor = key;
-        string[] defaults = CircuitFriendlyDefaultSparseRoots.Value;
+        string[] defaults = s_circuitFriendlyDefaultSparseRoots.Value;
         for (int level = 0; level < CircuitFriendlyTreeDepth; level++)
         {
             Dictionary<BigInteger, string> nodes = tree.Value.Levels[level];
@@ -435,7 +435,7 @@ public static class AnonymousCredentialRevocationAccumulator
             return false;
         }
 
-        string computed = CircuitFriendlyDefaultSparseRoots.Value[0];
+        string computed = s_circuitFriendlyDefaultSparseRoots.Value[0];
         BigInteger cursor = key;
         for (int level = 0; level < CircuitFriendlyTreeDepth; level++)
         {
@@ -566,23 +566,23 @@ public static class AnonymousCredentialRevocationAccumulator
     {
         TryEvictCircuitFriendlyTreeCacheEpoch(epoch);
         var key = new CircuitFriendlyTreeCacheKey(epoch, issuer, ComputeCircuitFriendlyHandleSetHash(normalizedHandles));
-        Lazy<Result<CircuitFriendlySparseTree>> lazy = CircuitFriendlyTreeCache.GetOrAdd(
+        Lazy<Result<CircuitFriendlySparseTree>> lazy = s_circuitFriendlyTreeCache.GetOrAdd(
             key,
             static (cacheKey, state) => new Lazy<Result<CircuitFriendlySparseTree>>(
                 () => BuildCircuitFriendlySparseTreeCore(cacheKey.Epoch, cacheKey.IssuerPublicKeyHash, state),
                 LazyThreadSafetyMode.ExecutionAndPublication),
             normalizedHandles);
         Result<CircuitFriendlySparseTree> result = lazy.Value;
-        if (CircuitFriendlyTreeCache.Count > CircuitFriendlyRootCacheMaxEntries)
+        if (s_circuitFriendlyTreeCache.Count > CircuitFriendlyRootCacheMaxEntries)
         {
-            foreach (CircuitFriendlyTreeCacheKey candidate in CircuitFriendlyTreeCache.Keys)
+            foreach (CircuitFriendlyTreeCacheKey candidate in s_circuitFriendlyTreeCache.Keys)
             {
-                if (CircuitFriendlyTreeCache.Count <= CircuitFriendlyRootCacheMaxEntries)
+                if (s_circuitFriendlyTreeCache.Count <= CircuitFriendlyRootCacheMaxEntries)
                 {
                     break;
                 }
 
-                CircuitFriendlyTreeCache.TryRemove(candidate, out _);
+                s_circuitFriendlyTreeCache.TryRemove(candidate, out _);
             }
         }
 
@@ -591,23 +591,23 @@ public static class AnonymousCredentialRevocationAccumulator
 
     private static void TryEvictCircuitFriendlyTreeCacheEpoch(long epoch)
     {
-        long current = Volatile.Read(ref CircuitFriendlyTreeCacheEpoch);
+        long current = Volatile.Read(ref s_circuitFriendlyTreeCacheEpoch);
         if (current == epoch)
         {
             return;
         }
 
-        long previous = Interlocked.CompareExchange(ref CircuitFriendlyTreeCacheEpoch, epoch, current);
+        long previous = Interlocked.CompareExchange(ref s_circuitFriendlyTreeCacheEpoch, epoch, current);
         if (previous == current)
         {
-            CircuitFriendlyTreeCache.Clear();
+            s_circuitFriendlyTreeCache.Clear();
         }
     }
 
     internal static void ClearCircuitFriendlyRootCacheForTests()
     {
-        CircuitFriendlyTreeCache.Clear();
-        Volatile.Write(ref CircuitFriendlyTreeCacheEpoch, 0);
+        s_circuitFriendlyTreeCache.Clear();
+        Volatile.Write(ref s_circuitFriendlyTreeCacheEpoch, 0);
     }
 
     private static string ComputeCircuitFriendlyHandleSetHash(IReadOnlyList<string> normalizedHandles)
@@ -637,7 +637,7 @@ public static class AnonymousCredentialRevocationAccumulator
             leaves[key] = leaf;
         }
 
-        string[] defaults = CircuitFriendlyDefaultSparseRoots.Value;
+        string[] defaults = s_circuitFriendlyDefaultSparseRoots.Value;
         var levels = new List<Dictionary<BigInteger, string>>(CircuitFriendlyTreeDepth + 1)
         {
             leaves
@@ -789,7 +789,7 @@ public static class AnonymousCredentialRevocationAccumulator
     private static BigInteger CircuitFriendlyMiMCPermute(BigInteger value)
     {
         BigInteger x = value;
-        foreach (BigInteger roundConstant in CircuitFriendlyMimcRoundConstants.Value)
+        foreach (BigInteger roundConstant in s_circuitFriendlyMimcRoundConstants.Value)
         {
             x = Pow7(Mod(x + roundConstant));
         }
@@ -841,8 +841,8 @@ public static class AnonymousCredentialRevocationAccumulator
 
     private static BigInteger Mod(BigInteger value)
     {
-        BigInteger result = value % CircuitFriendlyFieldPrime;
-        return result.Sign < 0 ? result + CircuitFriendlyFieldPrime : result;
+        BigInteger result = value % s_circuitFriendlyFieldPrime;
+        return result.Sign < 0 ? result + s_circuitFriendlyFieldPrime : result;
     }
 
     private static string NormalizeHexToken(string? value, int maxLength)

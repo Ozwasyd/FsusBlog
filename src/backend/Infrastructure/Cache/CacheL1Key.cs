@@ -58,12 +58,12 @@ internal readonly record struct CacheIdentity(
 
 internal static class CachePolicyTelemetry
 {
-    private static readonly FrozenDictionary<CachePolicyId, string> Names =
+    private static readonly FrozenDictionary<CachePolicyId, string> s_names =
         Enum.GetValues<CachePolicyId>()
             .ToFrozenDictionary(static id => id, static id => id.ToString());
 
     public static string Name(CachePolicyId policyId)
-        => Names.TryGetValue(policyId, out string? name)
+        => s_names.TryGetValue(policyId, out string? name)
             ? name
             : ((int)policyId).ToString(CultureInfo.InvariantCulture);
 }

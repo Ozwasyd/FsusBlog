@@ -18,15 +18,15 @@ public sealed partial class PowLoadResetWorker(
 {
     // AdaptivePowGovernor 依赖 RPS (Requests Per Second) 计算
     // 因此这里必须调整为 1秒 触发一次，配合 Governor 内部的 Environment.TickCount64 检查
-    private static readonly TimeSpan Interval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan s_interval = TimeSpan.FromSeconds(1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        LogHeartbeatStarted(Interval.TotalSeconds);
+        LogHeartbeatStarted(s_interval.TotalSeconds);
         await BackgroundTaskExecutor.RunAsync(
             async token =>
             {
-                using var timer = new PeriodicTimer(Interval);
+                using var timer = new PeriodicTimer(s_interval);
                 while (await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
                 {
                     await workerLease.TryRunAsLeaderAsync("pow-load-reset-worker",

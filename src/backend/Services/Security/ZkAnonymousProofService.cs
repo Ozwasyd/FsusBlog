@@ -53,7 +53,7 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
 {
     private const string CommentActionContext = "comment.create";
 
-    private static readonly IReadOnlyList<string> ExpectedPublicInputs =
+    private static readonly IReadOnlyList<string> s_expectedPublicInputs =
     [
         "action_context",
         "article_or_comment_scope",
@@ -126,7 +126,7 @@ public sealed class ZkAnonymousProofService : IZkAnonymousProofService
             CurrentCommentPolicy.ZkAnonymousEnabled,
             _verifier.IsConfigured,
             CommentActionContext,
-            ExpectedPublicInputs);
+            s_expectedPublicInputs);
 
     public ZkProdPolicySnapshot CurrentZkProdPolicy
         => ZkProdPolicySnapshotFactory.Create(

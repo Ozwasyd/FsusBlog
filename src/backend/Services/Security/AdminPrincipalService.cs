@@ -148,14 +148,14 @@ public sealed class AdminPrincipalService(
     private const string AdminSensitiveAction = "admin-sensitive";
     private const int AdminSessionListLimit = 50;
     private const long RootBootstrapAdvisoryLockKey = 761245219401267874L;
-    private static readonly TimeSpan ChallengeTtl = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan StepUpProofTtl = TimeSpan.FromSeconds(45);
-    private static readonly TimeSpan AdminIdleSessionTtl = TimeSpan.FromHours(8);
-    private static readonly JsonSerializerOptions ChallengeCacheJsonOptions = new(JsonSerializerDefaults.Web)
+    private static readonly TimeSpan s_challengeTtl = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan s_stepUpProofTtl = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan s_adminIdleSessionTtl = TimeSpan.FromHours(8);
+    private static readonly JsonSerializerOptions s_challengeCacheJsonOptions = new(JsonSerializerDefaults.Web)
     {
         MaxDepth = 32
     };
-    private static readonly TimeSpan AdminAbsoluteSessionTtl = TimeSpan.FromHours(12);
+    private static readonly TimeSpan s_adminAbsoluteSessionTtl = TimeSpan.FromHours(12);
 
     public async Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginBootstrapPasskeyRegistrationAsync(
         string? bootstrapToken,
@@ -206,7 +206,7 @@ public sealed class AdminPrincipalService(
             CachePolicyId.SecurityPasskeyRegChallenge,
             CacheKey(BootstrapCachePrefix, sessionKey),
             JsonSerializer.Serialize(challenge),
-            ChallengeTtl,
+            s_challengeTtl,
             cancellationToken);
 
         return (true, "已生成 root admin Passkey 注册选项", new PasskeyRegBeginData(coreOptions));
@@ -316,7 +316,7 @@ public sealed class AdminPrincipalService(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             CacheKey(LoginCachePrefix, challengeToken),
             JsonSerializer.Serialize(coreOptions),
-            ChallengeTtl,
+            s_challengeTtl,
             cancellationToken);
 
         return (true, "已生成 admin Passkey 登录选项", new PasskeyAuthBeginData(coreOptions));
@@ -438,14 +438,14 @@ public sealed class AdminPrincipalService(
             adminSessionId,
             AdminSensitiveAction,
             challengeToken,
-            DateTime.UtcNow.Add(ChallengeTtl),
+            DateTime.UtcNow.Add(s_challengeTtl),
             coreOptions);
 
         await cache.SetStringAsync(
             CachePolicyId.SecurityPasskeyAuthChallenge,
             CacheKey(StepUpCachePrefix, challengeToken),
             JsonSerializer.Serialize(challenge),
-            ChallengeTtl,
+            s_challengeTtl,
             cancellationToken);
 
         return (true, "已生成 admin step-up Passkey 认证选项", new PasskeyAuthBeginData(coreOptions));
@@ -527,7 +527,7 @@ public sealed class AdminPrincipalService(
             return (false, "Admin step-up Passkey assertion failed", null);
         }
 
-        string proofToken = await CreateAdminStepUpProofTokenAsync(adminPrincipalId, adminSessionId, AdminSensitiveAction, StepUpProofTtl, cancellationToken);
+        string proofToken = await CreateAdminStepUpProofTokenAsync(adminPrincipalId, adminSessionId, AdminSensitiveAction, s_stepUpProofTtl, cancellationToken);
         await WriteAuditAsync(adminPrincipalId, adminSessionId, "admin.step_up.completed", "success", clientContext, highImpact: true, cancellationToken);
         FsusObservability.RecordAdminPasskeyAssertion("step_up", 1, Stopwatch.GetElapsedTime(startedAt), "success");
         return (true, "Admin step-up completed", proofToken);
@@ -902,8 +902,8 @@ public sealed class AdminPrincipalService(
             UserAgent = Truncate(clientContext.UserAgent, 512),
             CreatedAtUtc = now,
             LastSeenAtUtc = now,
-            IdleExpiresAtUtc = now.Add(AdminIdleSessionTtl),
-            AbsoluteExpiresAtUtc = now.Add(AdminAbsoluteSessionTtl),
+            IdleExpiresAtUtc = now.Add(s_adminIdleSessionTtl),
+            AbsoluteExpiresAtUtc = now.Add(s_adminAbsoluteSessionTtl),
             StepUpVerified = stepUpVerified
         };
 
@@ -1290,7 +1290,7 @@ public sealed class AdminPrincipalService(
                     return (false, default);
                 }
 
-                T? challenge = JsonSerializer.Deserialize<T>(value, ChallengeCacheJsonOptions);
+                T? challenge = JsonSerializer.Deserialize<T>(value, s_challengeCacheJsonOptions);
                 return challenge is null ? (false, default) : (true, challenge);
             },
             cancellationToken);

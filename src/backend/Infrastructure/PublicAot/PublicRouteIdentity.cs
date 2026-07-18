@@ -8,13 +8,13 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 internal static class PublicRouteIdentity
 {
-    private static readonly string ArticlePathPrefix = PublicRouteIdentityRegistry.ArticlePathPrefix;
-    private static readonly string CategoryPathPrefix = PublicRouteIdentityRegistry.CategoryPathPrefix;
-    private static readonly string TagPathPrefix = PublicRouteIdentityRegistry.TagPathPrefix;
-    private static readonly string ArticleRoutePrefix = string.Concat(PublicRouteIdentityRegistry.ArticleBucket, ":");
-    private static readonly string CategoryRoutePrefix = string.Concat(PublicRouteIdentityRegistry.CategoryBucket, ":");
-    private static readonly string TagRoutePrefix = string.Concat(PublicRouteIdentityRegistry.TagBucket, ":");
-    private static readonly string TagNameRoutePrefix = string.Concat(PublicRouteIdentityRegistry.TagNameBucket, ":");
+    private static readonly string s_articlePathPrefix = PublicRouteIdentityRegistry.ArticlePathPrefix;
+    private static readonly string s_categoryPathPrefix = PublicRouteIdentityRegistry.CategoryPathPrefix;
+    private static readonly string s_tagPathPrefix = PublicRouteIdentityRegistry.TagPathPrefix;
+    private static readonly string s_articleRoutePrefix = string.Concat(PublicRouteIdentityRegistry.ArticleBucket, ":");
+    private static readonly string s_categoryRoutePrefix = string.Concat(PublicRouteIdentityRegistry.CategoryBucket, ":");
+    private static readonly string s_tagRoutePrefix = string.Concat(PublicRouteIdentityRegistry.TagBucket, ":");
+    private static readonly string s_tagNameRoutePrefix = string.Concat(PublicRouteIdentityRegistry.TagNameBucket, ":");
     private const string PageRouteMarker = ":page:";
 
     internal static bool TryResolveKind(PathString path, out PublicPageKind kind)
@@ -35,13 +35,13 @@ internal static class PublicRouteIdentity
             return true;
         }
 
-        if (TryMatchPositiveIdPath(normalizedPath, ArticlePathPrefix, out _))
+        if (TryMatchPositiveIdPath(normalizedPath, s_articlePathPrefix, out _))
         {
             kind = PublicPageKind.ArticleDetail;
             return true;
         }
 
-        if (TryMatchPositiveIdPath(normalizedPath, CategoryPathPrefix, out _) ||
+        if (TryMatchPositiveIdPath(normalizedPath, s_categoryPathPrefix, out _) ||
             TryMatchTagPath(normalizedPath))
         {
             kind = PublicPageKind.Filter;
@@ -69,7 +69,7 @@ internal static class PublicRouteIdentity
 
         return kind switch
         {
-            PublicPageKind.ArticleDetail when TryResolvePathId(context, ArticlePathPrefix, out int id) => BuildArticleRouteKey(id),
+            PublicPageKind.ArticleDetail when TryResolvePathId(context, s_articlePathPrefix, out int id) => BuildArticleRouteKey(id),
             PublicPageKind.Filter => BuildFilterRouteKey(context, path),
             _ => path
         };
@@ -184,7 +184,7 @@ internal static class PublicRouteIdentity
         => string.Concat(PublicRouteIdentityRegistry.ArticleBucket, ":", Math.Max(0, articleId));
 
     internal static int ParseArticleRouteKey(string routeKey)
-        => ResolveId((routeKey ?? string.Empty).Trim(), ArticleRoutePrefix);
+        => ResolveId((routeKey ?? string.Empty).Trim(), s_articleRoutePrefix);
 
     internal static string BuildCategoryRouteKey(int categoryId)
         => string.Concat(PublicRouteIdentityRegistry.CategoryBucket, ":", Math.Max(0, categoryId));
@@ -193,7 +193,7 @@ internal static class PublicRouteIdentity
         => string.Concat(PublicRouteIdentityRegistry.TagBucket, ":", Math.Max(0, tagId));
 
     internal static string BuildTagPath(int tagId)
-        => string.Concat(TagPathPrefix, Math.Max(0, tagId));
+        => string.Concat(s_tagPathPrefix, Math.Max(0, tagId));
 
     internal static string BuildTagNameRouteKey(string tagName)
         => string.Concat(
@@ -202,15 +202,15 @@ internal static class PublicRouteIdentity
             PublicTagUrlIdentity.NormalizeDisplayName(Uri.UnescapeDataString(tagName)));
 
     internal static string BuildCategoryPath(int categoryId)
-        => string.Concat(CategoryPathPrefix, Math.Max(0, categoryId));
+        => string.Concat(s_categoryPathPrefix, Math.Max(0, categoryId));
 
     internal static ParsedFilterRouteIdentity ParseFilterRouteKey(string routeKey)
     {
         string normalizedRouteKey = StripPagination(routeKey);
 
-        if (normalizedRouteKey.StartsWith(CategoryRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        if (normalizedRouteKey.StartsWith(s_categoryRoutePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            int categoryId = ResolveId(normalizedRouteKey, CategoryRoutePrefix);
+            int categoryId = ResolveId(normalizedRouteKey, s_categoryRoutePrefix);
             return new ParsedFilterRouteIdentity(
                 FilterType: "category",
                 FilterKey: BuildCategoryRouteKey(categoryId),
@@ -220,9 +220,9 @@ internal static class PublicRouteIdentity
                 TagId: null);
         }
 
-        if (normalizedRouteKey.StartsWith(TagRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        if (normalizedRouteKey.StartsWith(s_tagRoutePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            int tagId = ResolveId(normalizedRouteKey, TagRoutePrefix);
+            int tagId = ResolveId(normalizedRouteKey, s_tagRoutePrefix);
             return new ParsedFilterRouteIdentity(
                 FilterType: "tag",
                 FilterKey: BuildTagIdRouteKey(tagId),
@@ -232,9 +232,9 @@ internal static class PublicRouteIdentity
                 TagId: tagId);
         }
 
-        if (normalizedRouteKey.StartsWith(TagNameRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        if (normalizedRouteKey.StartsWith(s_tagNameRoutePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            string tagName = Uri.UnescapeDataString(normalizedRouteKey[TagNameRoutePrefix.Length..]).Trim();
+            string tagName = Uri.UnescapeDataString(normalizedRouteKey[s_tagNameRoutePrefix.Length..]).Trim();
             return new ParsedFilterRouteIdentity(
                 FilterType: "tag",
                 FilterKey: BuildTagNameRouteKey(tagName),
@@ -255,15 +255,15 @@ internal static class PublicRouteIdentity
 
     private static string BuildFilterRouteKey(HttpContext context, string path)
     {
-        if (path.StartsWith(CategoryPathPrefix, StringComparison.OrdinalIgnoreCase) &&
-            TryResolvePathId(context, CategoryPathPrefix, out int categoryId))
+        if (path.StartsWith(s_categoryPathPrefix, StringComparison.OrdinalIgnoreCase) &&
+            TryResolvePathId(context, s_categoryPathPrefix, out int categoryId))
         {
             return BuildCategoryRouteKey(categoryId);
         }
 
-        if (path.StartsWith(TagPathPrefix, StringComparison.OrdinalIgnoreCase))
+        if (path.StartsWith(s_tagPathPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            string segment = GetRouteSegment(context, TagPathPrefix);
+            string segment = GetRouteSegment(context, s_tagPathPrefix);
             string decodedSegment = Uri.UnescapeDataString(segment);
             if (int.TryParse(decodedSegment, out int tagId) && tagId > 0)
             {
@@ -283,24 +283,24 @@ internal static class PublicRouteIdentity
     {
         int resolvedArticleId = articleId is > 0 ? articleId.Value : ParseArticleRouteKey(routeKey);
         return resolvedArticleId > 0
-            ? string.Concat(ArticlePathPrefix, resolvedArticleId)
+            ? string.Concat(s_articlePathPrefix, resolvedArticleId)
             : "/";
     }
 
     private static string BuildCanonicalFilterPath(string routeKey)
     {
         routeKey = StripPagination(routeKey);
-        if (routeKey.StartsWith(CategoryRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        if (routeKey.StartsWith(s_categoryRoutePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            return string.Concat(CategoryPathPrefix, routeKey[CategoryRoutePrefix.Length..]);
+            return string.Concat(s_categoryPathPrefix, routeKey[s_categoryRoutePrefix.Length..]);
         }
 
-        if (routeKey.StartsWith(TagRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        if (routeKey.StartsWith(s_tagRoutePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            return string.Concat(TagPathPrefix, routeKey[TagRoutePrefix.Length..]);
+            return string.Concat(s_tagPathPrefix, routeKey[s_tagRoutePrefix.Length..]);
         }
 
-        if (routeKey.StartsWith(TagNameRoutePrefix, StringComparison.OrdinalIgnoreCase))
+        if (routeKey.StartsWith(s_tagNameRoutePrefix, StringComparison.OrdinalIgnoreCase))
         {
             return string.Empty;
         }
@@ -380,12 +380,12 @@ internal static class PublicRouteIdentity
 
     private static bool TryMatchTagPath(ReadOnlySpan<char> path)
     {
-        if (!path.StartsWith(TagPathPrefix.AsSpan(), StringComparison.OrdinalIgnoreCase))
+        if (!path.StartsWith(s_tagPathPrefix.AsSpan(), StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        ReadOnlySpan<char> rawSegment = path[TagPathPrefix.Length..];
+        ReadOnlySpan<char> rawSegment = path[s_tagPathPrefix.Length..];
         while (rawSegment.Length > 1 && rawSegment[^1] == '/')
         {
             rawSegment = rawSegment[..^1];

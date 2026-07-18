@@ -24,12 +24,12 @@ public sealed class ArticleMutationOutboxDispatcher(
     internal const string FencedCommitOperationScope = "article-outbox-complete";
     private const int BatchSize = 50;
     private const int PoisonRetryThreshold = 10;
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
-    private static readonly string WorkerId = BuildWorkerId();
+    private static readonly TimeSpan s_pollInterval = TimeSpan.FromSeconds(10);
+    private static readonly string s_workerId = BuildWorkerId();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using PeriodicTimer timer = new(PollInterval, timeProvider);
+        using PeriodicTimer timer = new(s_pollInterval, timeProvider);
         while (!stoppingToken.IsCancellationRequested)
         {
             await workerLease.TryRunAsLeaderAsync("article-mutation-outbox-dispatcher", token => ProcessPendingAsync(token), stoppingToken)
@@ -80,7 +80,7 @@ public sealed class ArticleMutationOutboxDispatcher(
                         now,
                         now.Add(claimLease),
                         claimToken,
-                        WorkerId,
+                        s_workerId,
                         transactionToken),
                     gateCt,
                     static rows => rows.Count > 0),
@@ -518,7 +518,7 @@ public sealed class ArticleMutationOutboxDispatcher(
             catch (Exception ex)
             {
                 FsusObservability.RecordArticleOutboxHeartbeat("failed", 0);
-                logger.LogError(ex, "article-mutation-outbox-heartbeat-failed {ClaimedBy}", WorkerId);
+                logger.LogError(ex, "article-mutation-outbox-heartbeat-failed {ClaimedBy}", s_workerId);
             }
         }
     }

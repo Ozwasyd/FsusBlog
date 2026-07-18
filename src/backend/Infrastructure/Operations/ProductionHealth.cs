@@ -623,14 +623,14 @@ public sealed class ProductionReadinessProbe(
 
     private bool CheckPerceptionAeadKey()
     {
-        const string sectionName = PerceptionSealedTokenOptions.SectionName;
-        string currentKeyVersion = (configuration[$"{sectionName}:CurrentKeyVersion"] ?? string.Empty).Trim();
+        const string SectionName = PerceptionSealedTokenOptions.SectionName;
+        string currentKeyVersion = (configuration[$"{SectionName}:CurrentKeyVersion"] ?? string.Empty).Trim();
         if (currentKeyVersion.Length == 0)
         {
             return false;
         }
 
-        string? key = configuration[$"{sectionName}:Keys:{currentKeyVersion}"];
+        string? key = configuration[$"{SectionName}:Keys:{currentKeyVersion}"];
         return TryDecodePerceptionAeadKey(key, out _);
     }
 
@@ -958,12 +958,12 @@ public sealed class ConfigurationHealthSnapshotRefreshWorker(
     IConfigurationHealthSnapshot snapshot,
     ILogger<ConfigurationHealthSnapshotRefreshWorker> logger) : BackgroundService
 {
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan s_refreshInterval = TimeSpan.FromSeconds(30);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         RefreshSnapshot();
-        using PeriodicTimer timer = new(RefreshInterval);
+        using PeriodicTimer timer = new(s_refreshInterval);
         try
         {
             while (await timer.WaitForNextTickAsync(stoppingToken))
@@ -991,7 +991,7 @@ public sealed class ConfigurationHealthSnapshotRefreshWorker(
 
 public sealed class ProductionReadinessSnapshotCache
 {
-    private static readonly TimeSpan ReadinessSnapshotTtl = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan s_readinessSnapshotTtl = TimeSpan.FromSeconds(5);
     private readonly Func<CancellationToken, Task<ProductionHealthReport>> _refreshAsync;
     private readonly TimeSpan _ttl;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
@@ -1003,7 +1003,7 @@ public sealed class ProductionReadinessSnapshotCache
             using IServiceScope scope = scopeFactory.CreateScope();
             ProductionReadinessProbe probe = scope.ServiceProvider.GetRequiredService<ProductionReadinessProbe>();
             return await probe.CheckAsync(cancellationToken);
-        }, ReadinessSnapshotTtl)
+        }, s_readinessSnapshotTtl)
     {
     }
 

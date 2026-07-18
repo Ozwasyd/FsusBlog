@@ -70,9 +70,9 @@ public sealed partial class SearchIndexService(
     private const int TermMetadataSize = 24;
     private const int DocMetadataSize = 52;
     private const int DictionaryMetadataSize = 16;
-    private static readonly SemaphoreSlim SearchIndexWriteGate = new(1, 1);
+    private static readonly SemaphoreSlim s_searchIndexWriteGate = new(1, 1);
     private volatile SearchRuntimeSnapshot? _runtimeSnapshot;
-    private static readonly FrozenDictionary<SearchShardRole, int> DefaultLoadPhase = new Dictionary<SearchShardRole, int>
+    private static readonly FrozenDictionary<SearchShardRole, int> s_defaultLoadPhase = new Dictionary<SearchShardRole, int>
     {
         [SearchShardRole.Core] = 0,
         [SearchShardRole.Recent] = 0,
@@ -477,7 +477,7 @@ public sealed partial class SearchIndexService(
 
         string manifestPath = Path.Combine(root, SearchManifestFileName);
         SearchIndexManifest? previousManifest = null;
-        await SearchIndexWriteGate.WaitAsync().ConfigureAwait(false);
+        await s_searchIndexWriteGate.WaitAsync().ConfigureAwait(false);
         try
         {
             previousManifest = ReadManifest(manifestPath);
@@ -537,7 +537,7 @@ public sealed partial class SearchIndexService(
                     ToLowerHex(SHA256.HashData(shard.Bytes)),
                     patchUrl,
                     patchSha,
-                    DefaultLoadPhase[shard.Role]));
+                    s_defaultLoadPhase[shard.Role]));
             }
 
             SearchIndexManifest manifest = new(
@@ -577,7 +577,7 @@ public sealed partial class SearchIndexService(
         }
         finally
         {
-            SearchIndexWriteGate.Release();
+            s_searchIndexWriteGate.Release();
         }
 
         if (!string.Equals(previousManifest?.CurrentVersion, artifacts.Version, StringComparison.Ordinal))

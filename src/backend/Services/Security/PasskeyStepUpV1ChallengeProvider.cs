@@ -19,9 +19,9 @@ public sealed class PasskeyStepUpV1ChallengeProvider(
     public const string Algorithm = "fsu.passkey-step-up@v1";
 
     private const int ChallengeTtlSeconds = 300;
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
-    public static JsonSerializerOptions JsonOptionsForTests => JsonOptions;
+    public static JsonSerializerOptions JsonOptionsForTests => s_jsonOptions;
 
     public string Kind => WireKind;
 
@@ -49,7 +49,7 @@ public sealed class PasskeyStepUpV1ChallengeProvider(
         {
             ["algorithm"] = Algorithm,
             ["challengeToken"] = data.Options.ChallengeToken,
-            ["optionsJson"] = JsonSerializer.Serialize(data.Options, JsonOptions)
+            ["optionsJson"] = JsonSerializer.Serialize(data.Options, s_jsonOptions)
         };
         string payloadHash = HashPayload(payload);
 

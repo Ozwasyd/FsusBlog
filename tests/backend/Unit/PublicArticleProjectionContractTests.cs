@@ -71,7 +71,7 @@ public sealed class PublicArticleProjectionContractTests
     public async Task ProjectionWrite_IsCriticalOutboxEdgeAndCoversMutationSources()
     {
         Assert.Contains(ArticleMutationReplayEdges.ArticleDetailAeds, ArticleMutationReplayEdges.Required);
-        Assert.True(ArticleMutationEventTypes.Supported.SetEquals(
+        Assert.True(ArticleMutationEventTypes.s_supported.SetEquals(
         [
             "created",
             "updated",

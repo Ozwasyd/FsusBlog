@@ -6,11 +6,11 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 internal static class PublicAotPageIdentity
 {
-    private static readonly FrozenDictionary<PublicPageKind, PublicPageId> PageIds = BuildPageIds();
-    private static readonly FrozenSet<PublicPageKind> SeoEligibleKinds = BuildSeoEligibleKinds();
+    private static readonly FrozenDictionary<PublicPageKind, PublicPageId> s_pageIds = BuildPageIds();
+    private static readonly FrozenSet<PublicPageKind> s_seoEligibleKinds = BuildSeoEligibleKinds();
 
     internal static PublicPageId ToPageId(PublicPageKind kind)
-        => PageIds.TryGetValue(kind, out PublicPageId pageId)
+        => s_pageIds.TryGetValue(kind, out PublicPageId pageId)
             ? pageId
             : throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported public page kind.");
 
@@ -31,7 +31,7 @@ internal static class PublicAotPageIdentity
         };
 
     internal static IReadOnlyCollection<PublicPageKind> GetSeoEligibleKinds()
-        => SeoEligibleKinds;
+        => s_seoEligibleKinds;
 
     private static FrozenDictionary<PublicPageKind, PublicPageId> BuildPageIds()
     {

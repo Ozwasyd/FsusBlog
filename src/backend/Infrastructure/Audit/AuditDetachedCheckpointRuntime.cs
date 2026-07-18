@@ -227,8 +227,8 @@ public static class AuditDetachedCheckpointRuntimeConfiguration
         if (privateKey && !OperatingSystem.IsWindows())
         {
             UnixFileMode mode = File.GetUnixFileMode(path);
-            const UnixFileMode permitted = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-            if ((mode & ~permitted) != 0)
+            const UnixFileMode Permitted = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            if ((mode & ~Permitted) != 0)
             {
                 throw new InvalidOperationException("audit_checkpoint_private_key_permissions_invalid");
             }

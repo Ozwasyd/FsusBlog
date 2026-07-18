@@ -120,8 +120,8 @@ public sealed class AnonymousCredentialRootService(
     IConfiguration configuration,
     TimeProvider timeProvider) : IAnonymousCredentialRootService
 {
-    private static readonly TimeSpan PositiveCacheTtl = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan NegativeCacheTtl = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan s_positiveCacheTtl = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan s_negativeCacheTtl = TimeSpan.FromSeconds(5);
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private AnonymousCredentialRootCacheEntry? _cache;
     private long _version;
@@ -244,12 +244,12 @@ public sealed class AnonymousCredentialRootService(
     {
         if (!result.IsSuccess)
         {
-            return now.Add(NegativeCacheTtl);
+            return now.Add(s_negativeCacheTtl);
         }
 
         AnonymousCredentialRootSnapshotCoreModel snapshot = result.Value;
         DateTimeOffset grace = DateTimeOffset.FromUnixTimeMilliseconds(snapshot.RootGraceExpiresAtUnixMs);
-        DateTimeOffset ttl = now.Add(PositiveCacheTtl);
+        DateTimeOffset ttl = now.Add(s_positiveCacheTtl);
         return grace < ttl ? grace : ttl;
     }
 

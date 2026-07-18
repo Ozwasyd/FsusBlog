@@ -17,11 +17,11 @@ public sealed class AdaptivePowGovernor
     // ==========================================
     // 难度配置 (适配前端 SIMD 加速后的新基准)
     // ==========================================
-    private const int BASE_DIFFICULTY = 16;       // 静默期
-    private const int ELEVATED_DIFFICULTY = 20;   // 活跃期
-    private const int HIGH_LOAD_DIFFICULTY = 24;  // 拥堵期
-    private const int WAR_MODE_DIFFICULTY = 28;   // 激战期
-    private const int RISK_PENALTY_BITS = 4;
+    private const int BaseDifficulty = 16;       // 静默期
+    private const int ElevatedDifficulty = 20;   // 活跃期
+    private const int HighLoadDifficulty = 24;  // 拥堵期
+    private const int WarModeDifficulty = 28;   // 激战期
+    private const int RiskPenaltyBits = 4;
     private readonly int _baseDifficulty;
     private readonly int _maxDifficulty;
 
@@ -31,18 +31,18 @@ public sealed class AdaptivePowGovernor
     private int _currentRps;
     private long _lastTick = Environment.TickCount64;
     private int _rpsEwmaScaled;
-    private const int EWMA_SCALE = 1000;
-    private const int EWMA_ALPHA_NUMERATOR = 35;
-    private const int EWMA_ALPHA_DENOMINATOR = 100;
+    private const int EwmaScale = 1000;
+    private const int EwmaAlphaNumerator = 35;
+    private const int EwmaAlphaDenominator = 100;
 
     // ==========================================
     // 极限 L1 本地缓存 (无锁 Set-Associative Cache)
     // ==========================================
-    private const int CACHE_SET_COUNT = 2048;
-    private const int CACHE_SET_MASK = CACHE_SET_COUNT - 1;
-    private const int CACHE_WAYS = 4;
-    private readonly RiskCacheEntry?[] _localRiskCache = new RiskCacheEntry?[CACHE_SET_COUNT * CACHE_WAYS];
-    private const int CACHE_DURATION_MS = 10000; // 本地缓存 10 秒
+    private const int CacheSetCount = 2048;
+    private const int CacheSetMask = CacheSetCount - 1;
+    private const int CacheWays = 4;
+    private readonly RiskCacheEntry?[] _localRiskCache = new RiskCacheEntry?[CacheSetCount * CacheWays];
+    private const int CacheDurationMs = 10000; // 本地缓存 10 秒
 
     // 采用引用类型包装缓存节点，确保引用的原子级更新，防止多线程结构体撕裂 (Struct Tearing)
     private sealed class RiskCacheEntry
@@ -65,11 +65,12 @@ public sealed class AdaptivePowGovernor
         }
     }
 
+    /// <summary>Loads bounded PoW difficulty thresholds while retaining the shared risk cache as the scoring source.</summary>
     public AdaptivePowGovernor(IUnifiedCache cache, IConfiguration? configuration = null)
     {
         _cache = cache;
-        _baseDifficulty = Math.Clamp(ReadInt(configuration, "Security:Pow:BaseDifficulty", BASE_DIFFICULTY), 1, WAR_MODE_DIFFICULTY);
-        _maxDifficulty = Math.Clamp(ReadInt(configuration, "Security:Pow:MaxDifficulty", WAR_MODE_DIFFICULTY), _baseDifficulty, WAR_MODE_DIFFICULTY);
+        _baseDifficulty = Math.Clamp(ReadInt(configuration, "Security:Pow:BaseDifficulty", BaseDifficulty), 1, WarModeDifficulty);
+        _maxDifficulty = Math.Clamp(ReadInt(configuration, "Security:Pow:MaxDifficulty", WarModeDifficulty), _baseDifficulty, WarModeDifficulty);
     }
 
     /// <summary>
@@ -93,11 +94,11 @@ public sealed class AdaptivePowGovernor
         long now = Environment.TickCount64;
 
         uint hash = StableIpHash(ip);
-        int setStart = (int)(hash & CACHE_SET_MASK) * CACHE_WAYS;
-        int replacementIndex = setStart + (int)((hash >> 16) & (CACHE_WAYS - 1));
+        int setStart = (int)(hash & CacheSetMask) * CacheWays;
+        int replacementIndex = setStart + (int)((hash >> 16) & (CacheWays - 1));
         int riskScore = 0;
 
-        for (int way = 0; way < CACHE_WAYS; way++)
+        for (int way = 0; way < CacheWays; way++)
         {
             int index = setStart + way;
             RiskCacheEntry? cached = Volatile.Read(ref _localRiskCache[index]);
@@ -125,7 +126,7 @@ public sealed class AdaptivePowGovernor
             Ip = ip,
             Hash = hash,
             Score = riskScore,
-            ExpireAt = now + CACHE_DURATION_MS
+            ExpireAt = now + CacheDurationMs
         };
         Volatile.Write(ref _localRiskCache[replacementIndex], newEntry);
 
@@ -178,26 +179,26 @@ public sealed class AdaptivePowGovernor
     {
         // 性能微调：使用 Volatile 读取确保最新值，省去不必要的 Interlocked 锁开销
         int currentRps = Volatile.Read(ref _currentRps);
-        int ewmaRps = Volatile.Read(ref _rpsEwmaScaled) / EWMA_SCALE;
+        int ewmaRps = Volatile.Read(ref _rpsEwmaScaled) / EwmaScale;
         int rps = Math.Max(currentRps, ewmaRps);
 
         if (rps > 1000)
-            return Math.Min(WAR_MODE_DIFFICULTY, _maxDifficulty);
+            return Math.Min(WarModeDifficulty, _maxDifficulty);
         if (rps > 300)
-            return Math.Min(HIGH_LOAD_DIFFICULTY, _maxDifficulty);
+            return Math.Min(HighLoadDifficulty, _maxDifficulty);
         if (rps > 100)
-            return Math.Min(ELEVATED_DIFFICULTY, _maxDifficulty);
+            return Math.Min(ElevatedDifficulty, _maxDifficulty);
 
         return _baseDifficulty;
     }
 
     private void UpdateRpsEwma(int observedRps)
     {
-        int observedScaled = Math.Max(0, observedRps) * EWMA_SCALE;
+        int observedScaled = Math.Max(0, observedRps) * EwmaScale;
         int previous = Volatile.Read(ref _rpsEwmaScaled);
         int next = previous == 0
             ? observedScaled
-            : ((previous * (EWMA_ALPHA_DENOMINATOR - EWMA_ALPHA_NUMERATOR)) + (observedScaled * EWMA_ALPHA_NUMERATOR)) / EWMA_ALPHA_DENOMINATOR;
+            : ((previous * (EwmaAlphaDenominator - EwmaAlphaNumerator)) + (observedScaled * EwmaAlphaNumerator)) / EwmaAlphaDenominator;
         Volatile.Write(ref _rpsEwmaScaled, next);
     }
 
@@ -208,7 +209,7 @@ public sealed class AdaptivePowGovernor
             return globalDiff;
         }
 
-        int penalty = (riskScore / 10) * RISK_PENALTY_BITS;
+        int penalty = (riskScore / 10) * RiskPenaltyBits;
         return Math.Min(globalDiff + penalty, _maxDifficulty);
     }
 

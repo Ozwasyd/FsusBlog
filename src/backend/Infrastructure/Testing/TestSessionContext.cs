@@ -49,7 +49,7 @@ public sealed class TestAwareRuntimeKeyScope(ITestSessionKeyScope keyScope) : IR
 public sealed partial class HttpTestSessionKeyScope(IHttpContextAccessor httpContextAccessor, IWebHostEnvironment environment) : ITestSessionKeyScope
 {
     public const string HeaderName = "X-Fsus-Test-Session";
-    private static readonly AsyncLocal<string?> ExplicitSessionId = new();
+    private static readonly AsyncLocal<string?> s_explicitSessionId = new();
 
     public string? SessionId
     {
@@ -60,7 +60,7 @@ public sealed partial class HttpTestSessionKeyScope(IHttpContextAccessor httpCon
                 return null;
             }
 
-            if (NormalizeSessionId(ExplicitSessionId.Value) is { } explicitSession)
+            if (NormalizeSessionId(s_explicitSessionId.Value) is { } explicitSession)
             {
                 return explicitSession;
             }
@@ -77,8 +77,8 @@ public sealed partial class HttpTestSessionKeyScope(IHttpContextAccessor httpCon
 
     public IDisposable BeginScope(string? sessionId)
     {
-        string? previous = ExplicitSessionId.Value;
-        ExplicitSessionId.Value = NormalizeSessionId(sessionId);
+        string? previous = s_explicitSessionId.Value;
+        s_explicitSessionId.Value = NormalizeSessionId(sessionId);
         return new ExplicitSessionScope(previous);
     }
 
@@ -109,7 +109,7 @@ public sealed partial class HttpTestSessionKeyScope(IHttpContextAccessor httpCon
     {
         public void Dispose()
         {
-            ExplicitSessionId.Value = previous;
+            s_explicitSessionId.Value = previous;
         }
     }
 }

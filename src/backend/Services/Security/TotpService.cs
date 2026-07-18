@@ -39,7 +39,7 @@ public sealed class TotpService : ITotpService
     private const int RecoveryCodeArgon2Iterations = 3;
     private const int RecoveryCodeArgon2Parallelism = 4;
     public const short CurrentRecoveryCodeHashVersion = 3;
-    private static readonly DateTimeOffset LegacyRecoveryCodeDeadlineUtc = new(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_legacyRecoveryCodeDeadlineUtc = new(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
     private readonly IDataProtector _protector;
     private readonly TimeProvider _timeProvider;
     private readonly RecoveryCodeHashPolicy _recoveryCodeHashPolicy;
@@ -222,7 +222,7 @@ public sealed class TotpService : ITotpService
             return RecoveryCodeHashVerification.FromSuccess(CryptographicOperations.FixedTimeEquals(actualHash, expectedHash), legacyHash: false);
         }
 
-        if (nowUtc >= LegacyRecoveryCodeDeadlineUtc)
+        if (nowUtc >= s_legacyRecoveryCodeDeadlineUtc)
         {
             return RecoveryCodeHashVerification.ExpiredLegacy;
         }
@@ -374,7 +374,7 @@ public sealed class TotpService : ITotpService
 
     private static string Base32Encode(ReadOnlySpan<byte> data)
     {
-        const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+        const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
         var output = new StringBuilder((data.Length * 8 + 4) / 5);
         int buffer = data[0];
         int next = 1;
@@ -399,7 +399,7 @@ public sealed class TotpService : ITotpService
 
             int index = (buffer >> (bitsLeft - 5)) & 0x1F;
             bitsLeft -= 5;
-            output.Append(alphabet[index]);
+            output.Append(Alphabet[index]);
         }
 
         return output.ToString();

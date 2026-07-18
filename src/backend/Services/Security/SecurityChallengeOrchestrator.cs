@@ -76,13 +76,13 @@ public sealed record SecurityChallengeProviderIssueResult(
     SecurityChallengeAssignment? Assignment,
     IReadOnlyDictionary<string, string> ProviderPayload)
 {
-    private static readonly IReadOnlyDictionary<string, string> EmptyProviderPayload = new Dictionary<string, string>(0, StringComparer.Ordinal);
+    private static readonly IReadOnlyDictionary<string, string> s_emptyProviderPayload = new Dictionary<string, string>(0, StringComparer.Ordinal);
 
     public static SecurityChallengeProviderIssueResult Success(SecurityChallengeAssignment assignment, IReadOnlyDictionary<string, string>? providerPayload = null)
-        => new(true, "ok", assignment, providerPayload ?? EmptyProviderPayload);
+        => new(true, "ok", assignment, providerPayload ?? s_emptyProviderPayload);
 
     public static SecurityChallengeProviderIssueResult Failed(string reason)
-        => new(false, NormalizeReason(reason), null, EmptyProviderPayload);
+        => new(false, NormalizeReason(reason), null, s_emptyProviderPayload);
 
     private static string NormalizeReason(string reason)
         => string.IsNullOrWhiteSpace(reason) ? "provider_failed" : reason.Trim();
@@ -127,16 +127,16 @@ public sealed record SecurityChallengeOrchestrationIssueResult(
     SecurityChallengeEnvelope? Envelope,
     IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> ProviderPayloads)
 {
-    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> EmptyProviderPayloads =
+    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> s_emptyProviderPayloads =
         new Dictionary<string, IReadOnlyDictionary<string, string>>(0, StringComparer.Ordinal);
 
     public static SecurityChallengeOrchestrationIssueResult Success(
         SecurityChallengeEnvelope envelope,
         IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? providerPayloads = null)
-        => new(true, "ok", envelope, providerPayloads ?? EmptyProviderPayloads);
+        => new(true, "ok", envelope, providerPayloads ?? s_emptyProviderPayloads);
 
     public static SecurityChallengeOrchestrationIssueResult Failed(string reason)
-        => new(false, string.IsNullOrWhiteSpace(reason) ? "challenge_issue_failed" : reason.Trim(), null, EmptyProviderPayloads);
+        => new(false, string.IsNullOrWhiteSpace(reason) ? "challenge_issue_failed" : reason.Trim(), null, s_emptyProviderPayloads);
 }
 
 public sealed record SecurityChallengeOrchestrationVerifyResult(
@@ -157,8 +157,8 @@ public sealed partial class SecurityChallengeOrchestrator(
     ISecurityRiskSignalSink riskSignalSink,
     ILogger<SecurityChallengeOrchestrator>? logger = null) : ISecurityChallengeOrchestrator
 {
-    private static readonly TimeSpan RiskSignalTtl = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan DefaultProofTtl = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan s_defaultProofTtl = TimeSpan.FromMinutes(5);
     private readonly IReadOnlyDictionary<string, ISecurityChallengeProvider> _providers = providers
         .Where(static provider => !string.IsNullOrWhiteSpace(provider.Kind))
         .GroupBy(static provider => NormalizeKind(provider.Kind), StringComparer.Ordinal)
@@ -305,7 +305,7 @@ public sealed partial class SecurityChallengeOrchestrator(
         DateTimeOffset issuedAt = DateTimeOffset.UtcNow;
         DateTimeOffset expiresAt = providerResult.ProofExpiresAt is { } proofExpiresAt && proofExpiresAt > issuedAt
             ? proofExpiresAt
-            : issuedAt.Add(DefaultProofTtl);
+            : issuedAt.Add(s_defaultProofTtl);
         try
         {
             SecurityChallengeProofMintResult proof = await proofService.MintProofAsync(
@@ -346,7 +346,7 @@ public sealed partial class SecurityChallengeOrchestrator(
             context,
             SecurityRiskReason.SecurityChallengeRejected,
             10,
-            RiskSignalTtl,
+            s_riskSignalTtl,
             SecurityRiskSources.RiskControl,
             string.IsNullOrWhiteSpace(action) ? "security_challenge" : action,
             detail), cancellationToken);

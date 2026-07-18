@@ -117,14 +117,14 @@ public sealed class ArticleServiceViewFlushSink(
             return updatedArticleIds;
         }
 
-        const string reason = "article-view-projection-buffer-flush";
-        await hotStatsInvalidation.MarkStatsDirtyAsync(reason, cancellationToken).ConfigureAwait(false);
-        await hotStatsInvalidation.MarkHotArticlesDirtyAsync(reason, cancellationToken).ConfigureAwait(false);
+        const string Reason = "article-view-projection-buffer-flush";
+        await hotStatsInvalidation.MarkStatsDirtyAsync(Reason, cancellationToken).ConfigureAwait(false);
+        await hotStatsInvalidation.MarkHotArticlesDirtyAsync(Reason, cancellationToken).ConfigureAwait(false);
         foreach (int articleId in updatedArticleIds)
         {
-            if (!publicHotUpdates.TryEnqueue(articleId, reason))
+            if (!publicHotUpdates.TryEnqueue(articleId, Reason))
             {
-                logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", articleId, reason);
+                logger.LogWarning("public-hot-read-update-enqueue-failed {ArticleId} {Reason}", articleId, Reason);
             }
         }
 
@@ -136,11 +136,11 @@ public sealed class ArticleViewFlushWorker(
     IArticleViewWriteBuffer buffer,
     ILogger<ArticleViewFlushWorker> logger) : BackgroundService
 {
-    private static readonly TimeSpan FlushInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan s_flushInterval = TimeSpan.FromSeconds(5);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(FlushInterval);
+        using var timer = new PeriodicTimer(s_flushInterval);
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
         {
             await FlushPendingAsync(stoppingToken).ConfigureAwait(false);

@@ -25,7 +25,7 @@ public sealed class RumTelemetryService(RumTelemetryChannel channel) : IRumTelem
 {
     public const int MaxFrameBytes = RumTelemetryContractLimits.MaxFrameBytes;
 
-    private static readonly FrozenSet<string> AllowedNames = new[]
+    private static readonly FrozenSet<string> s_allowedNames = new[]
     {
         "web_vital_lcp",
         "web_vital_cls",
@@ -35,7 +35,7 @@ public sealed class RumTelemetryService(RumTelemetryChannel channel) : IRumTelem
         "markdown_render_timing"
     }.ToFrozenSet(StringComparer.Ordinal);
 
-    private static readonly FrozenSet<string> AllowedPageTypes = new[]
+    private static readonly FrozenSet<string> s_allowedPageTypes = new[]
     {
         "home",
         "article",
@@ -46,14 +46,14 @@ public sealed class RumTelemetryService(RumTelemetryChannel channel) : IRumTelem
         "unknown"
     }.ToFrozenSet(StringComparer.Ordinal);
 
-    private static readonly FrozenSet<string> AllowedAotSources = new[]
+    private static readonly FrozenSet<string> s_allowedAotSources = new[]
     {
         "server-aot",
         "spa",
         "unknown"
     }.ToFrozenSet(StringComparer.Ordinal);
 
-    private static readonly FrozenSet<string> AllowedMetricKeys = new[]
+    private static readonly FrozenSet<string> s_allowedMetricKeys = new[]
     {
         "value",
         "domInteractive",
@@ -61,7 +61,7 @@ public sealed class RumTelemetryService(RumTelemetryChannel channel) : IRumTelem
         "durationMs"
     }.ToFrozenSet(StringComparer.Ordinal);
 
-    private static readonly FrozenDictionary<string, FrozenSet<string>> AllowedDimensionValues = new Dictionary<string, FrozenSet<string>>(StringComparer.Ordinal)
+    private static readonly FrozenDictionary<string, FrozenSet<string>> s_allowedDimensionValues = new Dictionary<string, FrozenSet<string>>(StringComparer.Ordinal)
     {
         ["visibility"] = new[] { "visible", "hidden", "prerender", "unknown" }.ToFrozenSet(StringComparer.Ordinal),
         ["renderMode"] = new[] { "server-aot", "spa", "unknown" }.ToFrozenSet(StringComparer.Ordinal),
@@ -174,13 +174,13 @@ public sealed class RumTelemetryService(RumTelemetryChannel channel) : IRumTelem
 
     internal static RumMetricAuditContext? Normalize(RumMetricRequest request)
     {
-        if (!AllowedNames.Contains(request.Name))
+        if (!s_allowedNames.Contains(request.Name))
         {
             return null;
         }
 
-        string pageType = AllowedPageTypes.Contains(request.PageType) ? request.PageType : "public";
-        string aotSource = AllowedAotSources.Contains(request.AotSource) ? request.AotSource : "unknown";
+        string pageType = s_allowedPageTypes.Contains(request.PageType) ? request.PageType : "public";
+        string aotSource = s_allowedAotSources.Contains(request.AotSource) ? request.AotSource : "unknown";
         double? value = NormalizeMetricValue(request.Value);
         Dictionary<string, double> metrics = [];
 
@@ -193,7 +193,7 @@ public sealed class RumTelemetryService(RumTelemetryChannel channel) : IRumTelem
         {
             foreach ((string key, double metricValue) in request.Metrics)
             {
-                if (!AllowedMetricKeys.Contains(key))
+                if (!s_allowedMetricKeys.Contains(key))
                 {
                     continue;
                 }
@@ -266,7 +266,7 @@ public sealed class RumTelemetryService(RumTelemetryChannel channel) : IRumTelem
 
         foreach ((string key, string value) in item.Dimensions)
         {
-            if (!AllowedDimensionValues.TryGetValue(key, out FrozenSet<string>? allowedValues) ||
+            if (!s_allowedDimensionValues.TryGetValue(key, out FrozenSet<string>? allowedValues) ||
                 key.Length > RumTelemetryContractLimits.MaxDimensionKeyLength ||
                 value.Length > RumTelemetryContractLimits.MaxDimensionValueLength ||
                 !allowedValues.Contains(value))
@@ -294,14 +294,14 @@ public sealed class RumTelemetryService(RumTelemetryChannel channel) : IRumTelem
 public sealed class RumTelemetryChannel
 {
     private const int DefaultCapacity = 4096;
-    private readonly Channel<RumMetricBatchRequest> channel;
-    private readonly object gate = new();
-    private readonly int capacity;
-    private int queuedBatches;
-    private long acceptedBatches;
-    private long rejectedBatches;
-    private long droppedBatches;
-    private long droppedMetrics;
+    private readonly Channel<RumMetricBatchRequest> _channel;
+    private readonly object _gate = new();
+    private readonly int _capacity;
+    private int _queuedBatches;
+    private long _acceptedBatches;
+    private long _rejectedBatches;
+    private long _droppedBatches;
+    private long _droppedMetrics;
 
     public RumTelemetryChannel()
         : this(DefaultCapacity)
@@ -310,8 +310,8 @@ public sealed class RumTelemetryChannel
 
     public RumTelemetryChannel(int capacity)
     {
-        this.capacity = Math.Clamp(capacity, 1, 1_000_000);
-        channel = Channel.CreateBounded<RumMetricBatchRequest>(new BoundedChannelOptions(this.capacity)
+        this._capacity = Math.Clamp(capacity, 1, 1_000_000);
+        _channel = Channel.CreateBounded<RumMetricBatchRequest>(new BoundedChannelOptions(this._capacity)
         {
             SingleReader = true,
             SingleWriter = false,
@@ -323,59 +323,59 @@ public sealed class RumTelemetryChannel
     {
         int droppedBatch = 0;
         int droppedMetric = 0;
-        lock (gate)
+        lock (_gate)
         {
-            if (queuedBatches >= capacity)
+            if (_queuedBatches >= _capacity)
             {
-                if (channel.Reader.TryRead(out RumMetricBatchRequest? dropped))
+                if (_channel.Reader.TryRead(out RumMetricBatchRequest? dropped))
                 {
-                    queuedBatches--;
+                    _queuedBatches--;
                     droppedBatch = 1;
                     droppedMetric = dropped.Metrics?.Count ?? 0;
-                    droppedBatches++;
-                    droppedMetrics += droppedMetric;
+                    _droppedBatches++;
+                    _droppedMetrics += droppedMetric;
                 }
                 else
                 {
-                    queuedBatches = 0;
+                    _queuedBatches = 0;
                 }
             }
 
-            if (!channel.Writer.TryWrite(request))
+            if (!_channel.Writer.TryWrite(request))
             {
-                if (queuedBatches > 0)
+                if (_queuedBatches > 0)
                 {
-                    queuedBatches--;
+                    _queuedBatches--;
                 }
 
-                rejectedBatches++;
+                _rejectedBatches++;
                 return new RumTelemetryEnqueueResult(false, droppedBatch, droppedMetric);
             }
 
-            queuedBatches++;
-            acceptedBatches++;
+            _queuedBatches++;
+            _acceptedBatches++;
             return new RumTelemetryEnqueueResult(true, droppedBatch, droppedMetric);
         }
     }
 
     public void RecordRejectedBatch()
-        => Interlocked.Increment(ref rejectedBatches);
+        => Interlocked.Increment(ref _rejectedBatches);
 
     public ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken)
-        => channel.Reader.WaitToReadAsync(cancellationToken);
+        => _channel.Reader.WaitToReadAsync(cancellationToken);
 
     public bool TryRead(out RumMetricBatchRequest? request)
     {
-        lock (gate)
+        lock (_gate)
         {
-            if (!channel.Reader.TryRead(out request))
+            if (!_channel.Reader.TryRead(out request))
             {
                 return false;
             }
 
-            if (queuedBatches > 0)
+            if (_queuedBatches > 0)
             {
-                queuedBatches--;
+                _queuedBatches--;
             }
 
             return true;
@@ -384,11 +384,11 @@ public sealed class RumTelemetryChannel
 
     public RumTelemetryChannelSnapshot CreateSnapshot()
         => new(
-            Volatile.Read(ref acceptedBatches),
-            Volatile.Read(ref rejectedBatches),
-            Volatile.Read(ref droppedBatches),
-            Volatile.Read(ref droppedMetrics),
-            Volatile.Read(ref queuedBatches));
+            Volatile.Read(ref _acceptedBatches),
+            Volatile.Read(ref _rejectedBatches),
+            Volatile.Read(ref _droppedBatches),
+            Volatile.Read(ref _droppedMetrics),
+            Volatile.Read(ref _queuedBatches));
 }
 
 public sealed class RumTelemetryFlushWorker(
@@ -397,7 +397,7 @@ public sealed class RumTelemetryFlushWorker(
     ILogger<RumTelemetryFlushWorker> logger) : BackgroundService
 {
     private const int MaxRequestsPerFlush = 128;
-    private static readonly TimeSpan IdleFlushDelay = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan s_idleFlushDelay = TimeSpan.FromMilliseconds(250);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -425,7 +425,7 @@ public sealed class RumTelemetryFlushWorker(
                 }
 
                 await FlushAsync(requests, stoppingToken);
-                await Task.Delay(IdleFlushDelay, stoppingToken);
+                await Task.Delay(s_idleFlushDelay, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

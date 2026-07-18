@@ -24,10 +24,10 @@ public sealed class PublicAotDocumentService(
     ILogger<PublicAotDocumentService> logger) : IPublicAotDocumentService
 {
     private const int MaxDescriptionLength = 160;
-    private static readonly string EmptyPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>(StringComparer.Ordinal));
-    private static readonly ConcurrentDictionary<string, PreparedTemplateCacheEntry> PreparedTemplateCache = new(StringComparer.Ordinal);
-    private static readonly ConcurrentDictionary<string, string> HeadLinksCache = new(StringComparer.Ordinal);
-    private static readonly ConcurrentDictionary<string, byte> HydrationSidecarExistsCache = new(StringComparer.Ordinal);
+    private static readonly string s_emptyPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>(StringComparer.Ordinal));
+    private static readonly ConcurrentDictionary<string, PreparedTemplateCacheEntry> s_preparedTemplateCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, string> s_headLinksCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, byte> s_hydrationSidecarExistsCache = new(StringComparer.Ordinal);
     private readonly string? _configuredBaseUrl = configuration["Seo:BaseUrl"];
 
     public async Task<Result<PublicSeoHeadModel>> BuildSeoHeadModelAsync(
@@ -77,7 +77,7 @@ public sealed class PublicAotDocumentService(
             string preparedTemplate = template.PreparedTemplate;
             string shell = PublicAotDocumentComposer.EnsureShellRoot(NormalizeHtml(entry.Html, entry.ArticleId), seoContext.Kind);
             string headLinks = GetHeadLinks(template, assetSet, seo);
-            string bootstrapPayload = NormalizeOptionalText(entry.BootstrapPayload ?? EmptyPayload, entry.ArticleId);
+            string bootstrapPayload = NormalizeOptionalText(entry.BootstrapPayload ?? s_emptyPayload, entry.ArticleId);
             string hydrationPayload = NormalizeOptionalText(entry.HydrationPropsPayload ?? string.Empty, entry.ArticleId);
             await WriteHydrationPayloadSidecarAsync(hydrationPayload, cancellationToken).ConfigureAwait(false);
 
@@ -152,7 +152,7 @@ public sealed class PublicAotDocumentService(
             templateHash,
             '|',
             assetSet.UsesSourceAssets ? "source" : "dist");
-        return PreparedTemplateCache.GetOrAdd(cacheKey, _ => new PreparedTemplateCacheEntry(
+        return s_preparedTemplateCache.GetOrAdd(cacheKey, _ => new PreparedTemplateCacheEntry(
             rawTemplate,
             PublicAotDocumentComposer.PreparePublicDocumentTemplate(rawTemplate),
             assetSet.FrontendAssetVersion,
@@ -171,7 +171,7 @@ public sealed class PublicAotDocumentService(
             BuildAssetSignature(assetSet),
             '|',
             BuildSeoSignature(seo));
-        return HeadLinksCache.GetOrAdd(cacheKey, _ => BuildHeadLinks(template.RawTemplate, assetSet, seo));
+        return s_headLinksCache.GetOrAdd(cacheKey, _ => BuildHeadLinks(template.RawTemplate, assetSet, seo));
     }
 
     private async Task WriteHydrationPayloadSidecarAsync(string hydrationPayload, CancellationToken cancellationToken)
@@ -195,21 +195,21 @@ public sealed class PublicAotDocumentService(
 
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
 
-        if (HydrationSidecarExistsCache.ContainsKey(targetPath))
+        if (s_hydrationSidecarExistsCache.ContainsKey(targetPath))
         {
             return;
         }
 
         if (File.Exists(targetPath))
         {
-            HydrationSidecarExistsCache.TryAdd(targetPath, 0);
+            s_hydrationSidecarExistsCache.TryAdd(targetPath, 0);
             return;
         }
 
         string tempPath = Path.Combine(Path.GetDirectoryName(targetPath)!, $"{Path.GetFileName(targetPath)}.{Guid.NewGuid():N}.tmp");
         await File.WriteAllBytesAsync(tempPath, PublicAotDocumentComposer.DecodePayloadFrameBytes(hydrationPayload), cancellationToken).ConfigureAwait(false);
         File.Move(tempPath, targetPath, overwrite: true);
-        HydrationSidecarExistsCache.TryAdd(targetPath, 0);
+        s_hydrationSidecarExistsCache.TryAdd(targetPath, 0);
     }
 
     private static bool TryResolveHydrationSidecarPath(string webRoot, string relativePath, out string targetPath)

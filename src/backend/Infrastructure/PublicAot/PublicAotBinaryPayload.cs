@@ -511,16 +511,16 @@ internal static class PublicAotBinaryPayload
                 return false;
             }
 
-            const int signMask = unchecked((int)0x80000000);
-            const int scaleMask = 0x00FF0000;
-            int reservedBits = flags & ~(signMask | scaleMask);
+            const int SignMask = unchecked((int)0x80000000);
+            const int ScaleMask = 0x00FF0000;
+            int reservedBits = flags & ~(SignMask | ScaleMask);
             byte scale = (byte)((flags >> 16) & 0xFF);
             if (reservedBits != 0 || scale > 28)
             {
                 return false;
             }
 
-            bool isNegative = (flags & signMask) != 0;
+            bool isNegative = (flags & SignMask) != 0;
             value = new decimal(lo, mid, hi, isNegative, scale);
             return true;
         }

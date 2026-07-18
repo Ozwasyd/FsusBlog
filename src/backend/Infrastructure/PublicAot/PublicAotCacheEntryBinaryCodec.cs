@@ -18,8 +18,8 @@ internal static class PublicAotCacheEntryBinaryCodec
     private const int DecodedCacheCapacity = 256;
     private const int MaxStringBytes = 8 * 1024 * 1024;
     private const int MaxBlobBytes = 32 * 1024 * 1024;
-    private static readonly ConcurrentDictionary<string, PublicAotCacheEntry> DecodedCache = new(StringComparer.Ordinal);
-    private static readonly ConcurrentQueue<string> DecodedCacheKeys = new();
+    private static readonly ConcurrentDictionary<string, PublicAotCacheEntry> s_decodedCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentQueue<string> s_decodedCacheKeys = new();
 
     internal static byte[] Encode(PublicAotCacheEntry entry)
     {
@@ -139,22 +139,22 @@ internal static class PublicAotCacheEntryBinaryCodec
     }
 
     private static bool TryGetDecodedCacheEntry(string cacheKey, out PublicAotCacheEntry? entry)
-        => DecodedCache.TryGetValue(cacheKey, out entry);
+        => s_decodedCache.TryGetValue(cacheKey, out entry);
 
     private static void AddDecodedCacheEntry(string cacheKey, PublicAotCacheEntry entry)
     {
-        if (DecodedCache.TryAdd(cacheKey, entry))
+        if (s_decodedCache.TryAdd(cacheKey, entry))
         {
-            DecodedCacheKeys.Enqueue(cacheKey);
+            s_decodedCacheKeys.Enqueue(cacheKey);
             TrimDecodedCache();
         }
     }
 
     private static void TrimDecodedCache()
     {
-        while (DecodedCache.Count > DecodedCacheCapacity && DecodedCacheKeys.TryDequeue(out string? oldestKey))
+        while (s_decodedCache.Count > DecodedCacheCapacity && s_decodedCacheKeys.TryDequeue(out string? oldestKey))
         {
-            DecodedCache.TryRemove(oldestKey, out _);
+            s_decodedCache.TryRemove(oldestKey, out _);
         }
     }
 

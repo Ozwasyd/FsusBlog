@@ -94,7 +94,7 @@ public sealed class PerceptionSealedTokenService(
     private const int KeyByteCount = 32;
     private const int MaxTokenBytes = 16 * 1024;
 
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -116,7 +116,7 @@ public sealed class PerceptionSealedTokenService(
         byte[] key = ResolveKeyOrThrow(currentOptions, normalized.KeyVersion);
 
         byte[] nonce = RandomNumberGenerator.GetBytes(NonceByteCount);
-        byte[] plaintext = JsonSerializer.SerializeToUtf8Bytes(normalized, JsonOptions);
+        byte[] plaintext = JsonSerializer.SerializeToUtf8Bytes(normalized, s_jsonOptions);
         byte[] ciphertext = new byte[plaintext.Length];
         byte[] tag = new byte[TagByteCount];
         byte[] aad = BuildAad(normalized, ciphertext);
@@ -136,7 +136,7 @@ public sealed class PerceptionSealedTokenService(
             WebEncoders.Base64UrlEncode(nonce),
             WebEncoders.Base64UrlEncode(ciphertext),
             WebEncoders.Base64UrlEncode(tag));
-        byte[] envelopeJson = JsonSerializer.SerializeToUtf8Bytes(envelope, JsonOptions);
+        byte[] envelopeJson = JsonSerializer.SerializeToUtf8Bytes(envelope, s_jsonOptions);
         return TokenPrefix + WebEncoders.Base64UrlEncode(envelopeJson);
     }
 
@@ -177,7 +177,7 @@ public sealed class PerceptionSealedTokenService(
         PerceptionSealedTokenPayload? payload;
         try
         {
-            payload = JsonSerializer.Deserialize<PerceptionSealedTokenPayload>(plaintext, JsonOptions);
+            payload = JsonSerializer.Deserialize<PerceptionSealedTokenPayload>(plaintext, s_jsonOptions);
         }
         catch (JsonException)
         {
@@ -241,7 +241,7 @@ public sealed class PerceptionSealedTokenService(
 
         try
         {
-            envelope = JsonSerializer.Deserialize<PerceptionSealedTokenEnvelope>(envelopeBytes, JsonOptions);
+            envelope = JsonSerializer.Deserialize<PerceptionSealedTokenEnvelope>(envelopeBytes, s_jsonOptions);
         }
         catch (JsonException)
         {
@@ -360,7 +360,7 @@ public sealed class PerceptionSealedTokenService(
                 payload.ExpiresAtUnixMs,
                 payload.KeyVersion,
                 CiphertextAadMarker),
-            JsonOptions);
+            s_jsonOptions);
 
     private static byte[] BuildAad(PerceptionSealedTokenEnvelope envelope, byte[] ciphertext)
         => JsonSerializer.SerializeToUtf8Bytes(
@@ -375,7 +375,7 @@ public sealed class PerceptionSealedTokenService(
                 envelope.ExpiresAtUnixMs,
                 envelope.KeyVersion,
                 CiphertextAadMarker),
-            JsonOptions);
+            s_jsonOptions);
 
     private static void EncryptPayload(
         byte[] key,
@@ -406,7 +406,7 @@ public sealed class PerceptionSealedTokenService(
             {
                 PayloadBindingHashHex = string.Empty
             },
-            JsonOptions);
+            s_jsonOptions);
         return Sha256Hex(bytes);
     }
 

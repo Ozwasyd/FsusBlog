@@ -319,8 +319,8 @@ internal sealed record CircuitNativeCredentialIssuerOptions(
         }
 
         UnixFileMode mode = File.GetUnixFileMode(fullPath);
-        const UnixFileMode allowedMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        if ((mode & ~allowedMode) != 0)
+        const UnixFileMode AllowedMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        if ((mode & ~AllowedMode) != 0)
         {
             throw new InvalidOperationException(
                 "AnonymousCredentialIssuer:CircuitNative:IssuerPrivateKeyPath must use Unix permissions no broader than 0600.");

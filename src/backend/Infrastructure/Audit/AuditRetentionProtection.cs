@@ -192,7 +192,7 @@ public sealed class AuditRetentionPayloadProtector(IAuditRetentionEpochKeyStore 
 {
     public const int EnvelopeVersion = 1;
     public const string EncryptedEventInfo = "retention-encrypted";
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
     public async ValueTask<AuditRecord> ProtectAsync(AuditRecord record, CancellationToken cancellationToken)
     {
@@ -210,7 +210,7 @@ public sealed class AuditRetentionPayloadProtector(IAuditRetentionEpochKeyStore 
             .ConfigureAwait(false);
         try
         {
-            byte[] plaintext = JsonSerializer.SerializeToUtf8Bytes(AuditSensitivePayload.FromRecord(record), JsonOptions);
+            byte[] plaintext = JsonSerializer.SerializeToUtf8Bytes(AuditSensitivePayload.FromRecord(record), s_jsonOptions);
             byte[] nonce = RandomNumberGenerator.GetBytes(12);
             byte[] ciphertext = new byte[plaintext.Length];
             byte[] tag = new byte[16];
@@ -226,7 +226,7 @@ public sealed class AuditRetentionPayloadProtector(IAuditRetentionEpochKeyStore 
                     WebEncoders.Base64UrlEncode(nonce),
                     WebEncoders.Base64UrlEncode(tag),
                     WebEncoders.Base64UrlEncode(ciphertext));
-                byte[] envelopeBytes = JsonSerializer.SerializeToUtf8Bytes(envelope, JsonOptions);
+                byte[] envelopeBytes = JsonSerializer.SerializeToUtf8Bytes(envelope, s_jsonOptions);
                 return record with
                 {
                     ActorId = Pseudonymize(key, "actor", record.ActorId),
@@ -263,7 +263,7 @@ public sealed class AuditRetentionPayloadProtector(IAuditRetentionEpochKeyStore 
         {
             return row;
         }
-        AuditRetentionEnvelope? envelope = JsonSerializer.Deserialize<AuditRetentionEnvelope>(row.ContextPayload, JsonOptions);
+        AuditRetentionEnvelope? envelope = JsonSerializer.Deserialize<AuditRetentionEnvelope>(row.ContextPayload, s_jsonOptions);
         if (envelope is null || envelope.Version != EnvelopeVersion)
         {
             return row;
@@ -285,7 +285,7 @@ public sealed class AuditRetentionPayloadProtector(IAuditRetentionEpochKeyStore 
             {
                 using var aes = new AesGcm(key, tag.Length);
                 aes.Decrypt(nonce, ciphertext, tag, plaintext, associatedData);
-                AuditSensitivePayload payload = JsonSerializer.Deserialize<AuditSensitivePayload>(plaintext, JsonOptions)
+                AuditSensitivePayload payload = JsonSerializer.Deserialize<AuditSensitivePayload>(plaintext, s_jsonOptions)
                     ?? throw new InvalidDataException("audit_retention_payload_empty");
                 return payload.Apply(row);
             }
@@ -314,7 +314,7 @@ public sealed class AuditRetentionPayloadProtector(IAuditRetentionEpochKeyStore 
         }
         try
         {
-            envelope = JsonSerializer.Deserialize<AuditRetentionEnvelope>(row.ContextPayload, JsonOptions)!;
+            envelope = JsonSerializer.Deserialize<AuditRetentionEnvelope>(row.ContextPayload, s_jsonOptions)!;
             return envelope is { Version: EnvelopeVersion };
         }
         catch (JsonException)

@@ -78,7 +78,7 @@ internal sealed record NotificationStreamAccountAdmissionCacheResult(
 
 internal sealed class NotificationStreamAccountAdmissionCache
 {
-    private static readonly TimeSpan EntryTtl = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan s_entryTtl = TimeSpan.FromSeconds(60);
     private readonly ConcurrentDictionary<int, CacheEntry> _entries = new();
 
     public async Task<NotificationStreamAccountAdmissionCacheResult> GetOrCreateAsync(
@@ -97,7 +97,7 @@ internal sealed class NotificationStreamAccountAdmissionCache
         if (loaded.HasValue
             && AccountSubjectHashRequirement.TryResolve(loaded.Value.AccountSubjectHash, out _))
         {
-            _entries[accountId] = new CacheEntry(loaded.Value, DateTimeOffset.UtcNow.Add(EntryTtl).UtcTicks);
+            _entries[accountId] = new CacheEntry(loaded.Value, DateTimeOffset.UtcNow.Add(s_entryTtl).UtcTicks);
         }
         else
         {

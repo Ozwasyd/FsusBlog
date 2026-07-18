@@ -1309,8 +1309,8 @@ public sealed class AdminOperationsService(
         }
 
         string normalizedUrl = url.Trim().Replace('\\', '/');
-        const string uploadPrefix = "/uploads/";
-        if (!normalizedUrl.StartsWith(uploadPrefix, StringComparison.OrdinalIgnoreCase))
+        const string UploadPrefix = "/uploads/";
+        if (!normalizedUrl.StartsWith(UploadPrefix, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -1318,7 +1318,7 @@ public sealed class AdminOperationsService(
         string uploadRoot = Path.GetFullPath(Path.Combine(webRoot, "uploads"));
         return CanonicalPathBoundary.TryResolveRelative(
             uploadRoot,
-            normalizedUrl[uploadPrefix.Length..],
+            normalizedUrl[UploadPrefix.Length..],
             out path);
     }
 

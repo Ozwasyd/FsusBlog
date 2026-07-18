@@ -100,9 +100,9 @@ public static partial class WebApplicationCompositionExtensions
         var document = new PublicAotHtmlArtifact(
             identityBytes,
             string.Empty,
-            EmptyBytes,
+            s_emptyBytes,
             string.Empty,
-            EmptyBytes,
+            s_emptyBytes,
             string.Empty,
             HtmlContentType,
             PublicAotHtmlArtifactOptions.DefaultCacheControl,
@@ -142,17 +142,17 @@ public static partial class WebApplicationCompositionExtensions
         Span<byte> digest = stackalloc byte[32];
         SHA256.HashData(templateBytes.Span, digest);
         string key = Convert.ToHexStringLower(digest);
-        if (SpaHtmlByteTemplates.TryGetValue(key, out SpaHtmlByteTemplate? cached))
+        if (s_spaHtmlByteTemplates.TryGetValue(key, out SpaHtmlByteTemplate? cached))
         {
             return cached;
         }
 
-        if (SpaHtmlByteTemplates.Count >= DefaultSpaTemplateCacheMaxEntries)
+        if (s_spaHtmlByteTemplates.Count >= DefaultSpaTemplateCacheMaxEntries)
         {
-            SpaHtmlByteTemplates.Clear();
+            s_spaHtmlByteTemplates.Clear();
         }
 
-        return SpaHtmlByteTemplates.GetOrAdd(
+        return s_spaHtmlByteTemplates.GetOrAdd(
             key,
             static (_, bytes) => SpaHtmlByteTemplate.Create(bytes.Span),
             templateBytes);
@@ -172,7 +172,7 @@ public static partial class WebApplicationCompositionExtensions
     {
         if (preloads.Count == 0)
         {
-            return EmptyBytes;
+            return s_emptyBytes;
         }
 
         var key = new HeadInjectionCacheKey(
@@ -191,7 +191,7 @@ public static partial class WebApplicationCompositionExtensions
         int assetCount = publicAssetSet.ModulePreloads.Count + publicAssetSet.Stylesheets.Count;
         if (assetCount == 0)
         {
-            return EmptyBytes;
+            return s_emptyBytes;
         }
 
         var key = new HeadInjectionCacheKey(
@@ -210,22 +210,22 @@ public static partial class WebApplicationCompositionExtensions
         int assetCount,
         Func<ReadOnlyMemory<byte>> build)
     {
-        if (SpaHeadInjectionCache.TryGetValue(key, out CachedHeadInjection cached))
+        if (s_spaHeadInjectionCache.TryGetValue(key, out CachedHeadInjection cached))
         {
-            Interlocked.Increment(ref SpaHeadInjectionHitCount);
+            Interlocked.Increment(ref s_spaHeadInjectionHitCount);
             return cached;
         }
 
-        if (SpaHeadInjectionCache.Count >= DefaultSpaHeadInjectionCacheMaxEntries)
+        if (s_spaHeadInjectionCache.Count >= DefaultSpaHeadInjectionCacheMaxEntries)
         {
-            SpaHeadInjectionCache.Clear();
+            s_spaHeadInjectionCache.Clear();
         }
 
-        return SpaHeadInjectionCache.GetOrAdd(
+        return s_spaHeadInjectionCache.GetOrAdd(
             key,
             static (cacheKey, state) =>
             {
-                Interlocked.Increment(ref SpaHeadInjectionBuildCount);
+                Interlocked.Increment(ref s_spaHeadInjectionBuildCount);
                 return new CachedHeadInjection(state.Build(), state.AssetCount, cacheKey.AssetVersion);
             },
             (Build: build, AssetCount: assetCount));
@@ -239,16 +239,16 @@ public static partial class WebApplicationCompositionExtensions
 
     internal static void ResetSpaHeadInjectionCacheForTests()
     {
-        SpaHeadInjectionCache.Clear();
-        Interlocked.Exchange(ref SpaHeadInjectionBuildCount, 0);
-        Interlocked.Exchange(ref SpaHeadInjectionHitCount, 0);
+        s_spaHeadInjectionCache.Clear();
+        Interlocked.Exchange(ref s_spaHeadInjectionBuildCount, 0);
+        Interlocked.Exchange(ref s_spaHeadInjectionHitCount, 0);
     }
 
     internal static SpaHeadInjectionCacheStats GetSpaHeadInjectionCacheStatsForTests()
         => new(
-            SpaHeadInjectionCache.Count,
-            Volatile.Read(ref SpaHeadInjectionBuildCount),
-            Volatile.Read(ref SpaHeadInjectionHitCount));
+            s_spaHeadInjectionCache.Count,
+            Volatile.Read(ref s_spaHeadInjectionBuildCount),
+            Volatile.Read(ref s_spaHeadInjectionHitCount));
 
     internal static ReadOnlyMemory<byte> GetRoutePreloadHeadInjectionForTests(
         string assetVersion,
@@ -263,7 +263,7 @@ public static partial class WebApplicationCompositionExtensions
         => BuildSeoBrandHeadInjection(seo);
 
     internal static ReadOnlyMemory<byte> GetSearchNoIndexHeadInjectionForTests()
-        => SearchNoIndexHeadInjection;
+        => s_searchNoIndexHeadInjection;
 
     internal static async Task<string> RenderSpaHtmlForTestsAsync(
         string templateHtml,
@@ -315,7 +315,7 @@ public static partial class WebApplicationCompositionExtensions
     {
         if (preloads.Count == 0)
         {
-            return EmptyBytes;
+            return s_emptyBytes;
         }
 
         var sb = new StringBuilder(preloads.Count * 64);
@@ -335,7 +335,7 @@ public static partial class WebApplicationCompositionExtensions
             }
         }
 
-        return sb.Length == 0 ? EmptyBytes : Encoding.UTF8.GetBytes(sb.ToString());
+        return sb.Length == 0 ? s_emptyBytes : Encoding.UTF8.GetBytes(sb.ToString());
     }
 
     private static ReadOnlyMemory<byte> BuildSeoBrandHeadInjection(SeoConfigReadModel seo)
@@ -348,7 +348,7 @@ public static partial class WebApplicationCompositionExtensions
         AppendLink(sb, "apple-touch-icon", seo.AppleTouchIconUrl, null);
         AppendMetaProperty(sb, "og:image", seo.OgImage);
         AppendMeta(sb, "twitter:image", seo.OgImage);
-        return sb.Length == 0 ? EmptyBytes : Encoding.UTF8.GetBytes(sb.ToString());
+        return sb.Length == 0 ? s_emptyBytes : Encoding.UTF8.GetBytes(sb.ToString());
     }
 
     private static ReadOnlyMemory<byte> CombineHeadInjections(ReadOnlyMemory<byte> first, ReadOnlyMemory<byte> second)
@@ -424,7 +424,7 @@ public static partial class WebApplicationCompositionExtensions
         int assetCount = publicAssetSet.ModulePreloads.Count + publicAssetSet.Stylesheets.Count;
         if (assetCount == 0)
         {
-            return EmptyBytes;
+            return s_emptyBytes;
         }
 
         var sb = new StringBuilder(assetCount * 72);

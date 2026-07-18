@@ -24,10 +24,10 @@ public sealed class HumanReadProofService(
 {
     private const int DefaultMinDwellMs = 8000;
     private const int MaxRouteKeyLength = 200;
-    private static readonly TimeSpan ChallengeTtl = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan ReplayTtl = TimeSpan.FromMinutes(10);
-    internal static readonly TimeSpan DedupEpochDuration = TimeSpan.FromMinutes(15);
-    internal static readonly TimeSpan DedupLeaseTtl = DedupEpochDuration + ChallengeTtl;
+    private static readonly TimeSpan s_challengeTtl = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan s_replayTtl = TimeSpan.FromMinutes(10);
+    internal static readonly TimeSpan s_dedupEpochDuration = TimeSpan.FromMinutes(15);
+    internal static readonly TimeSpan s_dedupLeaseTtl = s_dedupEpochDuration + s_challengeTtl;
     private readonly HumanReadProofKeyMaterial _keys = HumanReadProofKeyMaterial.Load(configuration);
     private readonly FrozenSet<string> _trustedOrigins = BuildTrustedOriginSnapshot(configuration, environment);
 
@@ -50,7 +50,7 @@ public sealed class HumanReadProofService(
         }
 
         DateTimeOffset now = timeProvider.GetUtcNow();
-        DateTimeOffset expiresAt = now.Add(ChallengeTtl);
+        DateTimeOffset expiresAt = now.Add(s_challengeTtl);
         string nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
         long dedupEpoch = ResolveDedupEpoch(now);
         var payload = new ChallengePayload(
@@ -125,7 +125,7 @@ public sealed class HumanReadProofService(
                 CachePolicyId.HumanReadProof,
                 $"proof:{proofId}",
                 "1",
-                ReplayTtl,
+                s_replayTtl,
                 cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -154,7 +154,7 @@ public sealed class HumanReadProofService(
                 CachePolicyId.HumanReadProof,
                 lockIdentity,
                 "1",
-                DedupLeaseTtl,
+                s_dedupLeaseTtl,
                 cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -472,7 +472,7 @@ public sealed class HumanReadProofService(
     }
 
     private static long ResolveDedupEpoch(DateTimeOffset now)
-        => now.ToUnixTimeSeconds() / checked((long)DedupEpochDuration.TotalSeconds);
+        => now.ToUnixTimeSeconds() / checked((long)s_dedupEpochDuration.TotalSeconds);
 
     private static DateTime TruncateToHour(DateTime utc)
     {

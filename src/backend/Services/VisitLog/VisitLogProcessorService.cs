@@ -87,8 +87,8 @@ public class VisitLogChannel
 public class VisitLogProcessorService : BackgroundService
 {
     private const int BatchSize = 500;
-    internal static readonly TimeSpan FlushWindow = TimeSpan.FromMilliseconds(200);
-    private static readonly long FlushWindowStopwatchTicks = Math.Max(1, (long)(FlushWindow.TotalSeconds * Stopwatch.Frequency));
+    internal static readonly TimeSpan s_flushWindow = TimeSpan.FromMilliseconds(200);
+    private static readonly long s_flushWindowStopwatchTicks = Math.Max(1, (long)(s_flushWindow.TotalSeconds * Stopwatch.Frequency));
 
     private readonly VisitLogChannel _channel;
     private readonly IServiceProvider _serviceProvider;
@@ -225,7 +225,7 @@ public class VisitLogProcessorService : BackgroundService
     }
 
     private static long CreateFlushDeadline()
-        => Stopwatch.GetTimestamp() + FlushWindowStopwatchTicks;
+        => Stopwatch.GetTimestamp() + s_flushWindowStopwatchTicks;
 
     private static TimeSpan ResolveFlushWindowRemaining(long flushDeadline)
     {

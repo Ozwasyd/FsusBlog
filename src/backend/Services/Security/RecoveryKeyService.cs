@@ -67,9 +67,9 @@ public sealed class RecoveryKeyService(
     private const int RecoveryKeyPbkdf2Iterations = 600_000;
     private const int MaxRecoveryKeyChars = 256;
     private const int MaxFailedAttempts = 8;
-    private static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan RecoverySessionTtl = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan CompletionLeaseTtl = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan s_failureWindow = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan s_recoverySessionTtl = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan s_completionLeaseTtl = TimeSpan.FromSeconds(90);
 
     public Task<Result<RecoveryKeyCreateResponseCoreModel>> CreateAsync(int accountId, CancellationToken cancellationToken = default)
         => CreateOrRotateAsync(accountId, rotate: false, cancellationToken);
@@ -178,13 +178,13 @@ public sealed class RecoveryKeyService(
             }
 
             string token = GenerateSecretToken();
-            DateTime expiresAt = now.Add(RecoverySessionTtl);
+            DateTime expiresAt = now.Add(s_recoverySessionTtl);
             var session = new RecoveryKeySession(credential.AccountId, request.RevokePasskeys, now, expiresAt);
             await cache.SetStringAsync(
                 CachePolicyId.SecurityRecoveryKeySession,
                 BuildSessionIdentity(token),
                 EncodeSessionEnvelope(ToPendingEnvelope(session)),
-                RecoverySessionTtl,
+                s_recoverySessionTtl,
                 cancellationToken).ConfigureAwait(false);
 
             transactionResult = Result<RecoveryKeyVerifyResponseCoreModel>.Success(
@@ -357,7 +357,7 @@ public sealed class RecoveryKeyService(
                 State = RecoveryPasskeyCompletionState.Completing,
                 RequestHash = recoveryRequestHash,
                 LeaseId = leaseId,
-                LeaseExpiresAtUtc = Min(envelope.Session.ExpiresAtUtc, now.Add(CompletionLeaseTtl))
+                LeaseExpiresAtUtc = Min(envelope.Session.ExpiresAtUtc, now.Add(s_completionLeaseTtl))
             };
             if (await TryReplaceSessionEnvelopeAsync(identity, encoded, completing, cancellationToken).ConfigureAwait(false))
             {
@@ -609,7 +609,7 @@ public sealed class RecoveryKeyService(
         long attempts = await cache.IncrementWithExpiryAsync(
             CachePolicyId.SecurityRecoveryKeyAttempt,
             identity,
-            FailureWindow,
+            s_failureWindow,
             1,
             cancellationToken).ConfigureAwait(false);
         if (attempts >= MaxFailedAttempts)

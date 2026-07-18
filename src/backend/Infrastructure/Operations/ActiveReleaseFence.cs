@@ -126,7 +126,7 @@ public sealed class RedisActiveReleaseFenceStore(
     {
         ValidateAcquireRequest(request);
         cancellationToken.ThrowIfCancellationRequested();
-        const string script = """
+        const string Script = """
 local exists = redis.call('EXISTS', KEYS[1])
 local current_release = redis.call('HGET', KEYS[1], 'release_id') or ''
 local current_slot = redis.call('HGET', KEYS[1], 'slot') or ''
@@ -178,7 +178,7 @@ redis.call('HSET', KEYS[1],
 return result(1, 0, 'acquired', '', ARGV[1], ARGV[2], target_generation, ARGV[4], 'active', ARGV[8], '')
 """;
         RedisResult raw = await _database.ScriptEvaluateAsync(
-                script,
+                Script,
                 [Key()],
                 [
                     Normalize(request.ReleaseId),
@@ -203,7 +203,7 @@ return result(1, 0, 'acquired', '', ARGV[1], ARGV[2], target_generation, ARGV[4]
     {
         ValidateIdentity(request.ReleaseId, request.Slot, request.Generation);
         cancellationToken.ThrowIfCancellationRequested();
-        const string script = """
+        const string Script = """
 local exists = redis.call('EXISTS', KEYS[1])
 local current_release = redis.call('HGET', KEYS[1], 'release_id') or ''
 local current_slot = redis.call('HGET', KEYS[1], 'slot') or ''
@@ -233,7 +233,7 @@ redis.call('HSET', KEYS[1], 'status', 'revoked', 'revoked_at_unix_ms', ARGV[4])
 return result(1, 0, 'revoked', '', 'revoked', ARGV[4])
 """;
         RedisResult raw = await _database.ScriptEvaluateAsync(
-                script,
+                Script,
                 [Key()],
                 [
                     Normalize(request.ReleaseId),
@@ -258,7 +258,7 @@ return result(1, 0, 'revoked', '', 'revoked', ARGV[4])
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        const string script = """
+        const string Script = """
 local exists = redis.call('EXISTS', KEYS[1])
 local current_generation = tonumber(redis.call('HGET', KEYS[1], 'generation') or '0')
 local current_release = redis.call('HGET', KEYS[1], 'release_id') or ''
@@ -293,7 +293,7 @@ redis.call('HSET', KEYS[1],
 return exists == 0 and 'restored' or 'updated'
 """;
         RedisResult raw = await _database.ScriptEvaluateAsync(
-                script,
+                Script,
                 [Key()],
                 [
                     Normalize(snapshot.ReleaseId),
@@ -858,26 +858,26 @@ internal static class ActiveReleaseFenceMetricNames
 
 public static class ActiveReleaseFenceMetrics
 {
-    private static readonly Meter Meter = new(FsusObservability.MeterName, "1.0.0");
-    private static readonly Counter<long> Operations = Meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.Operations);
-    private static readonly Counter<long> Eligibility = Meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.Eligibility);
-    private static readonly Counter<long> WitnessReconcile = Meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.WitnessReconcile);
-    private static readonly Histogram<long> WitnessGenerationGap = Meter.CreateHistogram<long>(ActiveReleaseFenceMetricNames.WitnessGenerationGap);
-    private static readonly Counter<long> RefreshFailures = Meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.RefreshFailures);
-    private static readonly Histogram<long> ConsecutiveRefreshFailures = Meter.CreateHistogram<long>(ActiveReleaseFenceMetricNames.ConsecutiveRefreshFailures);
-    private static readonly Histogram<double> RefreshStaleSeconds = Meter.CreateHistogram<double>(ActiveReleaseFenceMetricNames.RefreshStaleSeconds);
-    private static readonly Counter<long> RefreshShutdowns = Meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.RefreshShutdowns);
+    private static readonly Meter s_meter = new(FsusObservability.MeterName, "1.0.0");
+    private static readonly Counter<long> s_operations = s_meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.Operations);
+    private static readonly Counter<long> s_eligibility = s_meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.Eligibility);
+    private static readonly Counter<long> s_witnessReconcile = s_meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.WitnessReconcile);
+    private static readonly Histogram<long> s_witnessGenerationGap = s_meter.CreateHistogram<long>(ActiveReleaseFenceMetricNames.WitnessGenerationGap);
+    private static readonly Counter<long> s_refreshFailures = s_meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.RefreshFailures);
+    private static readonly Histogram<long> s_consecutiveRefreshFailures = s_meter.CreateHistogram<long>(ActiveReleaseFenceMetricNames.ConsecutiveRefreshFailures);
+    private static readonly Histogram<double> s_refreshStaleSeconds = s_meter.CreateHistogram<double>(ActiveReleaseFenceMetricNames.RefreshStaleSeconds);
+    private static readonly Counter<long> s_refreshShutdowns = s_meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.RefreshShutdowns);
 
     public static void RecordOperation(string operation, string result, string reason)
-        => Operations.Add(1, new("operation", operation), new("result", result), new("reason", NormalizeReason(reason)));
+        => s_operations.Add(1, new("operation", operation), new("result", result), new("reason", NormalizeReason(reason)));
 
     public static void RecordEligibility(string result, string reason)
-        => Eligibility.Add(1, new("result", result), new("reason", NormalizeReason(reason)));
+        => s_eligibility.Add(1, new("result", result), new("reason", NormalizeReason(reason)));
 
     public static void RecordWitnessReconcile(string result, string reason, long generationGap = 0)
     {
-        WitnessReconcile.Add(1, new("result", result), new("reason", NormalizeReason(reason)));
-        WitnessGenerationGap.Record(
+        s_witnessReconcile.Add(1, new("result", result), new("reason", NormalizeReason(reason)));
+        s_witnessGenerationGap.Record(
             Math.Abs(generationGap),
             new KeyValuePair<string, object?>[]
             {
@@ -896,13 +896,13 @@ public static class ActiveReleaseFenceMetrics
             new("reason", NormalizeReason(reason)),
             new("severity", severity)
         };
-        RefreshFailures.Add(1, tags);
-        ConsecutiveRefreshFailures.Record(consecutiveFailures, tags);
-        RefreshStaleSeconds.Record(Math.Max(0, staleFor.TotalSeconds), tags);
+        s_refreshFailures.Add(1, tags);
+        s_consecutiveRefreshFailures.Record(consecutiveFailures, tags);
+        s_refreshStaleSeconds.Record(Math.Max(0, staleFor.TotalSeconds), tags);
     }
 
     public static void RecordRefreshShutdown(string reason)
-        => RefreshShutdowns.Add(
+        => s_refreshShutdowns.Add(
             1,
             new KeyValuePair<string, object?>[]
             {

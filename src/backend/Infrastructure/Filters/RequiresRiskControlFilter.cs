@@ -22,7 +22,7 @@ public sealed partial class RequiresRiskControlFilter(
     public const string ChallengeIdHeaderName = "X-Fsus-Challenge-Id";
     public const string ChallengeKindHeaderName = "X-Fsus-Challenge-Kind";
 
-    private static readonly TimeSpan RiskSignalTtl = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
 
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
@@ -151,7 +151,7 @@ public sealed partial class RequiresRiskControlFilter(
             context,
             SecurityRiskReason.SecurityChallengeRejected,
             score,
-            RiskSignalTtl,
+            s_riskSignalTtl,
             SecurityRiskSources.RiskControl,
             string.IsNullOrWhiteSpace(action) ? "risk_control" : action,
             detail), cancellationToken);

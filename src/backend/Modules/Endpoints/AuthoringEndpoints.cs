@@ -30,7 +30,7 @@ public static partial class AuthoringEndpoints
     private const string MfaProofHeader = "X-Fsus-Mfa-Proof";
     private const string BinaryPrefix = "/api/binary/author";
     private const int MaxAuthoringRequestBytes = 1 * 1024 * 1024;
-    private static readonly string[] MainlandMandatoryDictionaryIds =
+    private static readonly string[] s_mainlandMandatoryDictionaryIds =
     [
         "cn-mainland.political-sensitive",
         "cn-mainland.porn-strict",
@@ -678,7 +678,7 @@ public static partial class AuthoringEndpoints
                 "CN-MAINLAND policy does not inherit GLOBAL")
         };
 
-        foreach (string dictionaryId in MainlandMandatoryDictionaryIds)
+        foreach (string dictionaryId in s_mainlandMandatoryDictionaryIds)
         {
             checks.Add(BuildPolicyCheck(
                 $"dictionary:{dictionaryId}",

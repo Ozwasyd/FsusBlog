@@ -10,7 +10,7 @@ namespace FsusBlog.Server.Infrastructure.Audit;
 
 public sealed class AuditLogEventMapper
 {
-    private static readonly HashSet<string> ForbiddenContextProperties = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> s_forbiddenContextProperties = new(StringComparer.OrdinalIgnoreCase)
     {
         "Authorization",
         "Body",
@@ -41,7 +41,7 @@ public sealed class AuditLogEventMapper
         "Username"
     };
 
-    private static readonly string[] ForbiddenContextPropertySubstrings =
+    private static readonly string[] s_forbiddenContextPropertySubstrings =
     [
         "body",
         "clientip",
@@ -58,7 +58,7 @@ public sealed class AuditLogEventMapper
         "issuersignature"
     ];
 
-    private static readonly string[] BackgroundLifecycleKeywords =
+    private static readonly string[] s_backgroundLifecycleKeywords =
     [
         "初始化",
         "启动",
@@ -70,7 +70,7 @@ public sealed class AuditLogEventMapper
     ];
 
     private const int SourceContextCacheLimit = 256;
-    private static readonly FrozenDictionary<string, string> SourceContextExactCatalog = new Dictionary<string, string>(StringComparer.Ordinal)
+    private static readonly FrozenDictionary<string, string> s_sourceContextExactCatalog = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["FsusBlog.Server.Infrastructure.Middlewares.VisitLogMiddleware"] = AuditSourceCatalog.Access,
         ["FsusBlog.Server.Services.VisitLogProcessorService"] = AuditSourceCatalog.Access,
@@ -87,7 +87,7 @@ public sealed class AuditLogEventMapper
         ["FsusBlog.Server.Infrastructure.Security.AdaptivePowGovernor"] = AuditSourceCatalog.Security
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    private static readonly SourceContextRule[] SourceContextRules =
+    private static readonly SourceContextRule[] s_sourceContextRules =
     [
         new(["VisitLogMiddleware", "VisitLogProcessorService"], AuditSourceCatalog.Access),
         new(["AuthController", "AuthEndpoints"], AuditSourceCatalog.Auth),
@@ -108,7 +108,7 @@ public sealed class AuditLogEventMapper
         new([".Modules.Controllers.", ".Modules.Endpoints."], AuditSourceCatalog.Request)
     ];
 
-    private static readonly ConcurrentDictionary<string, string> SourceContextCatalogCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, string> s_sourceContextCatalogCache = new(StringComparer.Ordinal);
 
     public static bool IsAuditCandidate(LogEvent logEvent)
         => logEvent.Exception is not null
@@ -183,13 +183,13 @@ public sealed class AuditLogEventMapper
         }
 
         sourceContext = sourceContext.Trim();
-        if (SourceContextExactCatalog.TryGetValue(sourceContext, out string? exactCatalog) ||
-            SourceContextCatalogCache.TryGetValue(sourceContext, out exactCatalog))
+        if (s_sourceContextExactCatalog.TryGetValue(sourceContext, out string? exactCatalog) ||
+            s_sourceContextCatalogCache.TryGetValue(sourceContext, out exactCatalog))
         {
             return exactCatalog;
         }
 
-        foreach (SourceContextRule rule in SourceContextRules)
+        foreach (SourceContextRule rule in s_sourceContextRules)
         {
             if (rule.IsMatch(sourceContext))
             {
@@ -209,9 +209,9 @@ public sealed class AuditLogEventMapper
 
     private static void AddSourceContextCacheEntry(string sourceContext, string catalog)
     {
-        if (SourceContextCatalogCache.Count < SourceContextCacheLimit)
+        if (s_sourceContextCatalogCache.Count < SourceContextCacheLimit)
         {
-            _ = SourceContextCatalogCache.TryAdd(sourceContext, catalog);
+            _ = s_sourceContextCatalogCache.TryAdd(sourceContext, catalog);
         }
     }
 
@@ -263,7 +263,7 @@ public sealed class AuditLogEventMapper
         }
 
         if ((source == AuditSourceCatalog.Background || source == AuditSourceCatalog.Runtime)
-            && BackgroundLifecycleKeywords.Any(keyword => eventInfo.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+            && s_backgroundLifecycleKeywords.Any(keyword => eventInfo.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
         {
             return AuditTypeCatalog.Lifecycle;
         }
@@ -389,13 +389,13 @@ public sealed class AuditLogEventMapper
 
     private static bool ShouldDropContextProperty(string propertyName)
     {
-        if (ForbiddenContextProperties.Contains(propertyName))
+        if (s_forbiddenContextProperties.Contains(propertyName))
         {
             return true;
         }
 
         string normalized = NormalizeContextPropertyName(propertyName);
-        return ForbiddenContextPropertySubstrings.Any(keyword =>
+        return s_forbiddenContextPropertySubstrings.Any(keyword =>
             normalized.Contains(keyword, StringComparison.OrdinalIgnoreCase));
     }
 

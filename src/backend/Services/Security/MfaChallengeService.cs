@@ -66,7 +66,7 @@ public sealed class MfaChallengeService(
     private const int MaxTicketFailures = 5;
     private const int MaxSubjectWindowFailures = 10;
     private const int MaxIpWindowFailures = 25;
-    private static readonly TimeSpan FailureWindowTtl = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan s_failureWindowTtl = TimeSpan.FromMinutes(10);
 
     public Task<MfaChallengeTicket> CreateLoginChallengeAsync(int accountId, string accountSubjectHash, bool riskTriggered, bool rememberMe)
         => CreateAsync(accountId, accountSubjectHash, "login", "login", riskTriggered, rememberMe, TimeSpan.FromMinutes(5));
@@ -105,7 +105,7 @@ public sealed class MfaChallengeService(
         long[] failures = await cache.IncrementManyWithExpiryAsync(
                 CachePolicyId.SecurityMfaChallenge,
                 [ticketIdentity, subjectIdentity, ipIdentity],
-                FailureWindowTtl)
+                s_failureWindowTtl)
             .ConfigureAwait(false);
         FsusObservability.RecordMfaFailureCounterKeys(failures.Length);
         long ticketFailures = failures[0];

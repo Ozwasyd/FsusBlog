@@ -32,6 +32,8 @@ namespace FsusBlog.Server.Services;
 /// 用户服务实现
 /// 修复日期: 2026-02-23 (修复 LoginAsync 中 SqlSugar 更新模式混用导致的异常，统一使用泛型表达式原子更新)
 /// </summary>
+// Public named-argument source compatibility; exact exception registered in csharp-style-policy.
+#pragma warning disable IDE1006
 public partial class UserService(
     ISqlSugarClient _db,
     ILogger<UserService> _logger,
@@ -43,6 +45,7 @@ public partial class UserService(
     ITotpService _totpService,
     IAuthRiskService _authRiskService,
     IUserSessionValidationCache _userSessionValidationCache) : IUserService, IUserAuthService
+#pragma warning restore IDE1006
 {
     private const int UserStatusNormal = 0;
     private const int UserStatusBanned = 1;
@@ -52,10 +55,10 @@ public partial class UserService(
     private const int MaxAdminPageSize = 200;
     private const int MaxIpLength = 64;
     private const int UserSessionLoginLockNamespace = 833064;
-    private static readonly TimeSpan StandardSessionIdleTtl = TimeSpan.FromDays(7);
-    private static readonly TimeSpan RememberMeSessionIdleTtl = TimeSpan.FromDays(30);
-    private static readonly TimeSpan StandardSessionAbsoluteTtl = TimeSpan.FromDays(30);
-    private static readonly TimeSpan RememberMeSessionAbsoluteTtl = TimeSpan.FromDays(90);
+    private static readonly TimeSpan s_standardSessionIdleTtl = TimeSpan.FromDays(7);
+    private static readonly TimeSpan s_rememberMeSessionIdleTtl = TimeSpan.FromDays(30);
+    private static readonly TimeSpan s_standardSessionAbsoluteTtl = TimeSpan.FromDays(30);
+    private static readonly TimeSpan s_rememberMeSessionAbsoluteTtl = TimeSpan.FromDays(90);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string NormalizePublicHandleToken(string input)
@@ -69,10 +72,10 @@ public partial class UserService(
     }
 
     private static TimeSpan ResolveIdleSessionTtl(bool rememberMe)
-        => rememberMe ? RememberMeSessionIdleTtl : StandardSessionIdleTtl;
+        => rememberMe ? s_rememberMeSessionIdleTtl : s_standardSessionIdleTtl;
 
     private static TimeSpan ResolveAbsoluteSessionTtl(bool rememberMe)
-        => rememberMe ? RememberMeSessionAbsoluteTtl : StandardSessionAbsoluteTtl;
+        => rememberMe ? s_rememberMeSessionAbsoluteTtl : s_standardSessionAbsoluteTtl;
 
     private async Task<UserMfaProfile?> GetUserMfaProfileAsync(int userId)
         => await _db.Queryable<UserMfaProfile>()
@@ -82,7 +85,7 @@ public partial class UserService(
     private async Task UpsertUserMfaProfileAsync(UserMfaProfile profile)
     {
         profile.UpdatedAtUtc = DateTime.UtcNow;
-        const string sql = """
+        const string Sql = """
             INSERT INTO user_mfa_profile (
                 user_id,
                 mfa_secret_encrypted,
@@ -113,7 +116,7 @@ public partial class UserService(
                 updated_at_utc = EXCLUDED.updated_at_utc;
             """;
 
-        await _db.Ado.ExecuteCommandAsync(sql, new SugarParameter[]
+        await _db.Ado.ExecuteCommandAsync(Sql, new SugarParameter[]
         {
             new SugarParameter("@UserId", profile.UserId),
             new SugarParameter("@MfaSecretEncrypted", DbValue(profile.MfaSecretEncrypted)),
@@ -266,7 +269,7 @@ public partial class UserService(
 
     internal async Task<UserAccountSnapshot?> GetAccountSnapshotProjectionAsync(int id)
     {
-        const string sql = """
+        const string Sql = """
             SELECT id AS "Id",
                    status AS "Status",
                    banreason AS "BanReason",
@@ -285,7 +288,7 @@ public partial class UserService(
             """;
 
         using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-            sql,
+            Sql,
             new SugarParameter[] { new("@Id", id) }).ConfigureAwait(false);
         if (!await reader.ReadAsync().ConfigureAwait(false))
         {
@@ -1804,7 +1807,7 @@ public partial class UserService(
     private async Task<bool> TryConsumeTotpStepAsync(int userId, long matchedStep)
     {
         DateTime usedAtUtc = DateTime.UtcNow;
-        const string sql = """
+        const string Sql = """
             UPDATE user_mfa_profile
             SET last_totp_step = @MatchedStep,
                 last_totp_used_at_utc = @UsedAtUtc,
@@ -1812,7 +1815,7 @@ public partial class UserService(
             WHERE user_id = @UserId
               AND (last_totp_step IS NULL OR last_totp_step < @MatchedStep);
             """;
-        int updated = await _db.Ado.ExecuteCommandAsync(sql, new SugarParameter[]
+        int updated = await _db.Ado.ExecuteCommandAsync(Sql, new SugarParameter[]
         {
             new("@MatchedStep", matchedStep),
             new("@UsedAtUtc", usedAtUtc),
@@ -1828,7 +1831,7 @@ public partial class UserService(
         string updatedHashes,
         short hashVersion)
     {
-        const string sql = """
+        const string Sql = """
             UPDATE user_mfa_profile
             SET mfa_recovery_codes_hash = @UpdatedHashes,
                 hash_version = @HashVersion,
@@ -1836,7 +1839,7 @@ public partial class UserService(
             WHERE user_id = @UserId
               AND mfa_recovery_codes_hash = @OldHashes;
             """;
-        int updated = await _db.Ado.ExecuteCommandAsync(sql, new SugarParameter[]
+        int updated = await _db.Ado.ExecuteCommandAsync(Sql, new SugarParameter[]
         {
             new("@UpdatedHashes", updatedHashes),
             new("@HashVersion", hashVersion),
@@ -1854,7 +1857,7 @@ public partial class UserService(
             return 0;
         }
 
-        const string reason = "refresh_token_reuse_family_revoke";
+        const string Reason = "refresh_token_reuse_family_revoke";
         DateTime revokedAt = DateTime.UtcNow;
         List<UserSessionValidationCacheState> revokedSessions = [];
         bool publicationAttempted = false;
@@ -1897,7 +1900,7 @@ public partial class UserService(
                 new SugarParameter("@SessionId", sessionId),
                 new SugarParameter("@StaleHash", staleHash),
                 new SugarParameter("@RevokedAt", revokedAt),
-                new SugarParameter("@Reason", reason)))
+                new SugarParameter("@Reason", Reason)))
             {
                 while (await reader.ReadAsync())
                 {

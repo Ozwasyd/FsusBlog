@@ -29,7 +29,7 @@ public sealed class VisitLogProcessorServiceTests
         elapsed.Stop();
 
         Assert.Single(batch);
-        Assert.True(elapsed.Elapsed >= VisitLogProcessorService.FlushWindow * 0.75);
+        Assert.True(elapsed.Elapsed >= VisitLogProcessorService.s_flushWindow * 0.75);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class VisitLogProcessorServiceTests
         elapsed.Stop();
 
         Assert.Equal(500, batch.Count);
-        Assert.True(elapsed.Elapsed < VisitLogProcessorService.FlushWindow);
+        Assert.True(elapsed.Elapsed < VisitLogProcessorService.s_flushWindow);
     }
 
     [Fact]

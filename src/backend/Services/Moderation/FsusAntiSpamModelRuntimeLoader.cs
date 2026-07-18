@@ -137,7 +137,7 @@ public static class FsusAntiSpamModelRuntimeLoader
         "test_vectors.jsonl"
     ];
 
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
     };
@@ -160,7 +160,7 @@ public static class FsusAntiSpamModelRuntimeLoader
             }
 
             string manifestJson = File.ReadAllText(manifestPath);
-            RuntimeManifest? manifest = JsonSerializer.Deserialize<RuntimeManifest>(manifestJson, JsonOptions);
+            RuntimeManifest? manifest = JsonSerializer.Deserialize<RuntimeManifest>(manifestJson, s_jsonOptions);
             if (manifest is null || !IsRuntimeFormat(manifest.RuntimeFormat))
             {
                 return Fail("fsus_antispam_runtime_format_invalid");
@@ -286,7 +286,7 @@ public static class FsusAntiSpamModelRuntimeLoader
                 continue;
             }
 
-            TestVector? vector = JsonSerializer.Deserialize<TestVector>(line, JsonOptions);
+            TestVector? vector = JsonSerializer.Deserialize<TestVector>(line, s_jsonOptions);
             if (vector is null || string.IsNullOrWhiteSpace(vector.Text) || string.IsNullOrWhiteSpace(vector.ExpectedLabel))
             {
                 return Result.Failure(ErrorCode.Validation, "fsus_antispam_runtime_test_vector_failed");
@@ -335,7 +335,7 @@ public static class FsusAntiSpamModelRuntimeLoader
         => string.Equals(TextHelpers.TrimOrNull(value), RuntimeFormat, StringComparison.Ordinal);
 
     private static T? ReadJson<T>(string runtimePath, string fileName)
-        => JsonSerializer.Deserialize<T>(File.ReadAllText(Path.Combine(runtimePath, fileName)), JsonOptions);
+        => JsonSerializer.Deserialize<T>(File.ReadAllText(Path.Combine(runtimePath, fileName)), s_jsonOptions);
 
     private static string Sha256File(string path)
         => Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));

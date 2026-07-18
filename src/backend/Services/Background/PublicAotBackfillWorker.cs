@@ -13,7 +13,7 @@ public sealed class PublicAotBackfillWorker(
     IBackgroundWorkerLease workerLease,
     IActiveReleaseCommitGuard activeReleaseCommitGuard) : BackgroundService
 {
-    private static readonly TimeSpan StandbyDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan s_standbyDelay = TimeSpan.FromSeconds(5);
 
     private readonly int _backfillConcurrency = NormalizeBackfillConcurrency(
         configuration.GetValue<int?>("PublicAot:BackfillConcurrency") ?? 1);
@@ -40,7 +40,7 @@ public sealed class PublicAotBackfillWorker(
                 .ConfigureAwait(false);
             if (!ran)
             {
-                await Task.Delay(StandbyDelay, stoppingToken).ConfigureAwait(false);
+                await Task.Delay(s_standbyDelay, stoppingToken).ConfigureAwait(false);
             }
         }
     }

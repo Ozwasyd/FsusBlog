@@ -22,8 +22,8 @@ public sealed record ReleaseDerivedArtifactGeneration(
 public sealed class ReleaseDerivedArtifactPublisher
 {
     private const string GenerationSchema = "fsusblog.release-derived-generation.v1";
-    private static readonly TimeSpan DefaultLockTimeout = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan DefaultLockRetryDelay = TimeSpan.FromMilliseconds(25);
+    private static readonly TimeSpan s_defaultLockTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan s_defaultLockRetryDelay = TimeSpan.FromMilliseconds(25);
 
     private readonly string _releaseId;
     private readonly Func<string, string> _resolveKindRoot;
@@ -726,8 +726,8 @@ public sealed class ReleaseDerivedArtifactPublisher
         TimeSpan? timeout,
         TimeSpan? retryDelay)
     {
-        TimeSpan normalizedTimeout = timeout ?? DefaultLockTimeout;
-        TimeSpan normalizedRetryDelay = retryDelay ?? DefaultLockRetryDelay;
+        TimeSpan normalizedTimeout = timeout ?? s_defaultLockTimeout;
+        TimeSpan normalizedRetryDelay = retryDelay ?? s_defaultLockRetryDelay;
         if (normalizedTimeout <= TimeSpan.Zero || normalizedRetryDelay <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(timeout), "Publication lock timing must be positive.");

@@ -43,7 +43,7 @@ public static partial class BinaryEndpoints
     private const string UploadPayloadHashHeader = "X-Fsus-Upload-Payload-Hash";
     private const string UploadTokenHeader = "X-Fsus-Upload-Token";
     private const string CanonicalIllustrationUploadPrefix = "/uploads/illustration/";
-    private static readonly HashSet<string> AllowedPageSlugs = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> s_allowedPageSlugs = new(StringComparer.OrdinalIgnoreCase)
     {
         "about", "privacy", "guidelines", "copyright"
     };
@@ -102,7 +102,7 @@ public static partial class BinaryEndpoints
         ReadOnlySpan<char> value = (slug ?? string.Empty).AsSpan();
         return !value.IsEmpty
             && FastCharValidator.IsAlphaNumericHyphen(value)
-            && AllowedPageSlugs.Contains(slug!);
+            && s_allowedPageSlugs.Contains(slug!);
     }
 
     private static async Task<(ErrorDetail Error, int StatusCode)?> RequireAdminSensitiveStepUpAsync(

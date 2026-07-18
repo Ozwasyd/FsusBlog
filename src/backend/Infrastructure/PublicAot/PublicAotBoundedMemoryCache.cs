@@ -79,11 +79,11 @@ internal readonly record struct PublicAotMemoryCacheSnapshot(
 
 internal sealed class PublicAotBoundedMemoryCache
 {
-    private static readonly Meter Meter = new("FsusBlog.PublicAot.MemoryCache", "1.0.0");
-    private static readonly Counter<long> EvictionCounter =
-        Meter.CreateCounter<long>("fsus.public_aot.memory_cache.evictions");
-    private static readonly Histogram<long> ResidentBytesHistogram =
-        Meter.CreateHistogram<long>("fsus.public_aot.memory_cache.resident_bytes", "By");
+    private static readonly Meter s_meter = new("FsusBlog.PublicAot.MemoryCache", "1.0.0");
+    private static readonly Counter<long> s_evictionCounter =
+        s_meter.CreateCounter<long>("fsus.public_aot.memory_cache.evictions");
+    private static readonly Histogram<long> s_residentBytesHistogram =
+        s_meter.CreateHistogram<long>("fsus.public_aot.memory_cache.resident_bytes", "By");
 
     private readonly object _gate = new();
     private readonly Dictionary<string, PublicAotMemoryCacheEntry> _entries = new(StringComparer.Ordinal);
@@ -165,7 +165,7 @@ internal sealed class PublicAotBoundedMemoryCache
             _nodes.Clear();
             _lru.Clear();
             _residentBytes = 0;
-            ResidentBytesHistogram.Record(0);
+            s_residentBytesHistogram.Record(0);
         }
     }
 
@@ -215,7 +215,7 @@ internal sealed class PublicAotBoundedMemoryCache
                 RemoveLocked(oldest.Value, "capacity", countEviction: true, out _);
             }
 
-            ResidentBytesHistogram.Record(_residentBytes);
+            s_residentBytesHistogram.Record(_residentBytes);
         }
     }
 
@@ -274,7 +274,7 @@ internal sealed class PublicAotBoundedMemoryCache
             {
                 _deadlineEvictionCount++;
             }
-            EvictionCounter.Add(1, new KeyValuePair<string, object?>("fsus.reason", reason));
+            s_evictionCounter.Add(1, new KeyValuePair<string, object?>("fsus.reason", reason));
         }
         return true;
     }

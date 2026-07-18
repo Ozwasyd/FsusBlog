@@ -22,11 +22,11 @@ public sealed class RelatedReadingService(
 {
     private const int RelatedLimit = 6;
     private const int CandidateWindow = 120;
-    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private static readonly string[] ScoreReasons = CreateScoreReasons();
+    private static readonly TimeSpan s_cacheTtl = TimeSpan.FromMinutes(5);
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly string[] s_scoreReasons = CreateScoreReasons();
 
-    private static readonly HashSet<string> StopWords = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> s_stopWords = new(StringComparer.OrdinalIgnoreCase)
     {
         "the", "and", "for", "with", "from", "this", "that", "article", "blog", "https", "http", "www"
     };
@@ -54,7 +54,7 @@ public sealed class RelatedReadingService(
             cancellationToken);
         if (sharedCached.Hit && sharedCached.Value is not null)
         {
-            memoryCache.Set(cacheKey, sharedCached.Value, CacheTtl);
+            memoryCache.Set(cacheKey, sharedCached.Value, s_cacheTtl);
             FsusObservability.RecordRelatedReadingBuild(cacheHit: true, FsusObservability.GetElapsed(startedAt));
             return sharedCached.Value;
         }
@@ -90,15 +90,15 @@ public sealed class RelatedReadingService(
             related,
             previous is null ? null : ToItem(previous, "上一篇"),
             next is null ? null : ToItem(next, "下一篇"));
-        memoryCache.Set(cacheKey, response, CacheTtl);
-        await cache.SetRawAsync(CachePolicyId.RelatedReading, cacheKey, JsonSerializer.SerializeToUtf8Bytes(response, JsonOptions), CacheTtl, cancellationToken);
+        memoryCache.Set(cacheKey, response, s_cacheTtl);
+        await cache.SetRawAsync(CachePolicyId.RelatedReading, cacheKey, JsonSerializer.SerializeToUtf8Bytes(response, s_jsonOptions), s_cacheTtl, cancellationToken);
         FsusObservability.RecordRelatedReadingBuild(cacheHit: false, FsusObservability.GetElapsed(startedAt));
         return response;
     }
 
     private static (bool Success, RelatedReadingResponse? Value) DecodeRelatedReading(ReadOnlyMemory<byte> bytes)
     {
-        RelatedReadingResponse? value = JsonSerializer.Deserialize<RelatedReadingResponse>(bytes.Span, JsonOptions);
+        RelatedReadingResponse? value = JsonSerializer.Deserialize<RelatedReadingResponse>(bytes.Span, s_jsonOptions);
         return (value is not null, value);
     }
 
@@ -359,7 +359,7 @@ public sealed class RelatedReadingService(
             reasonMask |= 8;
         }
 
-        return new RelatedReadingScore(score, publishedDistance, ScoreReasons[reasonMask]);
+        return new RelatedReadingScore(score, publishedDistance, s_scoreReasons[reasonMask]);
     }
 
     private static int CountSharedTags(
@@ -465,7 +465,7 @@ public sealed class RelatedReadingService(
                 {
                     CollectionsMarshal.AsSpan(chars).CopyTo(span);
                 });
-                if (!StopWords.Contains(token))
+                if (!s_stopWords.Contains(token))
                 {
                     tokens.Add(token);
                 }

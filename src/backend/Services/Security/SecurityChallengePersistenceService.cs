@@ -54,7 +54,7 @@ internal sealed record SecurityChallengeMetricContext(
 
 public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : ISecurityChallengePersistenceService
 {
-    private static readonly string[] ValidStatuses =
+    private static readonly string[] s_validStatuses =
     [
         SecurityChallengeStatuses.Issued,
         SecurityChallengeStatuses.Verified,
@@ -328,7 +328,7 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
     private static string NormalizeOutcome(string value)
     {
         string normalized = NormalizeRequired(value, nameof(value), 32).ToLowerInvariant().Replace('-', '_');
-        if (!ValidStatuses.Contains(normalized, StringComparer.Ordinal) || string.Equals(normalized, SecurityChallengeStatuses.Issued, StringComparison.Ordinal))
+        if (!s_validStatuses.Contains(normalized, StringComparer.Ordinal) || string.Equals(normalized, SecurityChallengeStatuses.Issued, StringComparison.Ordinal))
         {
             throw new ArgumentException($"Unsupported security challenge attempt outcome: {value}", nameof(value));
         }

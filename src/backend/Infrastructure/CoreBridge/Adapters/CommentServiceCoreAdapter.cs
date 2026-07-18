@@ -9,7 +9,7 @@ namespace FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 
 public sealed class CommentServiceCoreAdapter(ICommentCoreService core) : ICommentService
 {
-    private static readonly Int64CursorCodec CursorCodec = Int64CursorCodec.Instance;
+    private static readonly Int64CursorCodec s_cursorCodec = Int64CursorCodec.Instance;
 
     public Task<bool> CreateCommentAsync(int userId, CommentDto dto)
         => ExecuteBool(core.CreateCommentAsync(userId, dto.ArticleId, dto.Content));
@@ -24,7 +24,7 @@ public sealed class CommentServiceCoreAdapter(ICommentCoreService core) : IComme
 
         return CursorInterop.FromCore(result.Value,
             item => new CommentQueryResultDto(item.Id, item.Content, item.CreateTime, item.Author),
-            CursorCodec);
+            s_cursorCodec);
     }
 
     public async Task<CursorResponse<UserCommentResponse>> GetAttributableCommentsAsync(int userId, CursorPageRequest<long> request)
@@ -50,7 +50,7 @@ public sealed class CommentServiceCoreAdapter(ICommentCoreService core) : IComme
                 IsDeleted = item.VisibilityReasonCode == "deleted_by_user_or_admin",
                 HasBlockedRegions = item.VisibilityReasonCode == "geo_limited"
             }),
-            CursorCodec);
+            s_cursorCodec);
     }
 
     public Task<bool> DeleteCommentAsync(long id, int currentUserId, bool isAdmin, string reason = "违反社区管理条例")

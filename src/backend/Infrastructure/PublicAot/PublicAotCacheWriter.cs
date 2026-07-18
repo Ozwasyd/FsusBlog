@@ -10,7 +10,7 @@ public sealed class PublicAotCacheWriter(
     PublicHotReadStore hotReadStore,
     IOptions<PublicAotHtmlArtifactOptions> htmlArtifactOptions) : IPublicAotCacheWriter
 {
-    private static readonly TimeSpan DefaultTtl = TimeSpan.FromDays(30);
+    private static readonly TimeSpan s_defaultTtl = TimeSpan.FromDays(30);
 
     public async Task WriteAsync(
         string cacheKey,
@@ -40,7 +40,7 @@ public sealed class PublicAotCacheWriter(
             PageId = pageId,
             Source = source,
             GeneratedAtUtc = generatedAt,
-            ExpiresAtUtc = generatedAt.Add(ttl ?? DefaultTtl),
+            ExpiresAtUtc = generatedAt.Add(ttl ?? s_defaultTtl),
             RendererVersion = rendererVersion,
             FrontendAssetVersion = frontendAssetVersion,
             Value = html,

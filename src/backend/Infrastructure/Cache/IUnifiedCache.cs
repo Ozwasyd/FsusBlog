@@ -84,7 +84,7 @@ public sealed class UnifiedCache(
     IRuntimeKeyScope keyScope,
     ILogger<UnifiedCache> logger) : IUnifiedCache, IOwnedFrameCache, IDisposable
 {
-    private static readonly TimeSpan MissingPolicyL2Ttl = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan s_missingPolicyL2Ttl = TimeSpan.FromMinutes(5);
     private const string RegistryKeyPrefix = "cache:registry:";
     private const int PrefixInvalidationBatchSize = 256;
     private const string DeleteKeysAndRegistryMembersScript = """
@@ -641,7 +641,7 @@ public sealed class UnifiedCache(
             : -1L;
         RemoveL1(l1Key, key);
         cancellationToken.ThrowIfCancellationRequested();
-        const string script = """
+        const string Script = """
 local current = redis.call('GET', KEYS[1])
 if current and ARGV[4] == '0' then
   local first = string.find(current, '|', 1, true)
@@ -665,7 +665,7 @@ end
 return 1
 """;
         RedisResult result = await _db.ScriptEvaluateAsync(
-                script,
+                Script,
                 [key],
                 [value, version, ttlMilliseconds, allowOverwrite ? "1" : "0"],
                 CommandFlags.None)
@@ -729,7 +729,7 @@ return 1
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        const string script = """
+        const string Script = """
 local result = {}
 for i = 1, #KEYS do
   result[i] = redis.call('INCRBY', KEYS[i], ARGV[1])
@@ -737,7 +737,7 @@ end
 return result
 """;
         RedisResult result = await _db.ScriptEvaluateAsync(
-                script,
+                Script,
                 keys,
                 [value],
                 CommandFlags.None)
@@ -781,7 +781,7 @@ return result
         string key = BuildKey(policyId, identity);
         RemoveL1(policyId, CacheIdentity.FromString(identity), key);
         cancellationToken.ThrowIfCancellationRequested();
-        const string script = """
+        const string Script = """
 local current = redis.call('INCRBY', KEYS[1], ARGV[1])
 if redis.call('PTTL', KEYS[1]) < 0 then
   redis.call('PEXPIRE', KEYS[1], ARGV[2])
@@ -790,7 +790,7 @@ return current
 """;
         long ttlMilliseconds = Math.Max(1L, (long)Math.Ceiling(ttl.TotalMilliseconds));
         RedisResult result = await _db.ScriptEvaluateAsync(
-                script,
+                Script,
                 [key],
                 [value, ttlMilliseconds],
                 CommandFlags.None)
@@ -829,7 +829,7 @@ return current
         cancellationToken.ThrowIfCancellationRequested();
         long ttlMilliseconds = Math.Max(1L, (long)Math.Ceiling(ttl.TotalMilliseconds));
         delta = Math.Clamp(delta, -maxValue, maxValue);
-        const string script = """
+        const string Script = """
 local current = tonumber(redis.call('GET', KEYS[1]) or '0')
 local nextValue = current + tonumber(ARGV[1])
 local maxValue = tonumber(ARGV[2])
@@ -844,7 +844,7 @@ redis.call('PEXPIRE', KEYS[1], ARGV[3])
 return nextValue
 """;
         RedisResult result = await _db.ScriptEvaluateAsync(
-                script,
+                Script,
                 [key],
                 [delta, maxValue, ttlMilliseconds],
                 CommandFlags.None)
@@ -888,7 +888,7 @@ return nextValue
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        const string script = """
+        const string Script = """
 local result = {}
 local expiryApplied = 0
 for i = 1, #KEYS do
@@ -903,7 +903,7 @@ return result
 """;
         long ttlMilliseconds = Math.Max(1L, (long)Math.Ceiling(ttl.TotalMilliseconds));
         RedisResult result = await _db.ScriptEvaluateAsync(
-                script,
+                Script,
                 keys,
                 [value, ttlMilliseconds],
                 CommandFlags.None)
@@ -1540,7 +1540,7 @@ return result
             .ToArray();
         if (orderedKeys.Length == 0)
         {
-            return EmptyAsyncDisposable.Instance;
+            return EmptyAsyncDisposable.s_instance;
         }
 
         var leases = new List<IAsyncDisposable>(orderedKeys.Length);
@@ -2191,7 +2191,7 @@ return result
             "missing",
             $"policy-{policyId}",
             TimeSpan.Zero,
-            MissingPolicyL2Ttl,
+            s_missingPolicyL2Ttl,
             null,
             null,
             true);
@@ -2402,7 +2402,7 @@ return result
 
     private sealed class EmptyAsyncDisposable : IAsyncDisposable
     {
-        internal static readonly EmptyAsyncDisposable Instance = new();
+        internal static readonly EmptyAsyncDisposable s_instance = new();
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

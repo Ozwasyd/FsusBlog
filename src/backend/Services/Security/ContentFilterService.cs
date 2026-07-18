@@ -34,19 +34,19 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
     private string[] _adRules = [];
     private ModernTaggedAcAutomaton<ContentRulePayload> _ruleSearch = new();
 
-    private static readonly string[] ContactRules =
+    private static readonly string[] s_contactRules =
     [
         "加v", "加微", "加威", "加薇", "加嶶", "vx", "微信", "威信", "薇信", "+v", "qq", "扣扣", "企鹅", "q群", "加群"
     ];
 
-    private static readonly string[] TopRedLineRules =
+    private static readonly string[] s_topRedLineRules =
     [
         "习+近+平",
         "毛+泽+东",
         "六+四+事+件"
     ];
 
-    private static readonly FrozenSet<string> GlobalDictionaryHardFilterCategories = new[]
+    private static readonly FrozenSet<string> s_globalDictionaryHardFilterCategories = new[]
     {
         "html_risk",
         "malicious_link"
@@ -587,11 +587,11 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         IReadOnlyList<ModerationDictionaryTerm> globalDictionaryTerms)
     {
         var rules = new List<ModernTaggedAcRule<ContentRulePayload>>(
-            ContactRules.Length + TopRedLineRules.Length + sensitiveRules.Length + adRules.Length + globalDictionaryTerms.Count);
+            s_contactRules.Length + s_topRedLineRules.Length + sensitiveRules.Length + adRules.Length + globalDictionaryTerms.Count);
 
         AddRules(
             rules,
-            NormalizeKeywords(ContactRules),
+            NormalizeKeywords(s_contactRules),
             new ContentRulePayload(
                 ContentRuleKind.Contact,
                 "contact_lead_detected",
@@ -605,14 +605,14 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
                 "输入内容包含涉嫌引流的违规业务或恶意链接，已被拦截。"));
         foreach (ModerationDictionaryTerm term in globalDictionaryTerms)
         {
-            if (GlobalDictionaryHardFilterCategories.Contains(term.Category))
+            if (s_globalDictionaryHardFilterCategories.Contains(term.Category))
             {
                 AddGlobalDictionaryTermRules(rules, term);
             }
         }
         AddRules(
             rules,
-            NormalizeKeywords(TopRedLineRules),
+            NormalizeKeywords(s_topRedLineRules),
             new ContentRulePayload(
                 ContentRuleKind.TopRedLine,
                 "political_redline_detected",

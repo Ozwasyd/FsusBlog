@@ -152,7 +152,7 @@ public sealed class PublicHotReadSecurityGateMiddleware(RequestDelegate next)
             return;
         }
 
-        httpContext.Features.Set(PublicReadSecurityGateResultFeature.Allowed);
+        httpContext.Features.Set(PublicReadSecurityGateResultFeature.s_allowed);
         await _next(httpContext);
     }
 }

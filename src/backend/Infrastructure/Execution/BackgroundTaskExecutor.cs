@@ -2,7 +2,7 @@ namespace FsusBlog.Server.Infrastructure.Execution;
 
 public static class BackgroundTaskExecutor
 {
-    private static readonly TimeSpan DefaultRetryDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan s_defaultRetryDelay = TimeSpan.FromSeconds(5);
 
     public static async Task RunAsync(
         Func<CancellationToken, Task> action,
@@ -51,7 +51,7 @@ public static class BackgroundTaskExecutor
         Func<Exception, Task>? onFaulted = null,
         Func<Task>? onFinally = null)
     {
-        TimeSpan faultDelay = retryDelay ?? DefaultRetryDelay;
+        TimeSpan faultDelay = retryDelay ?? s_defaultRetryDelay;
 
         try
         {

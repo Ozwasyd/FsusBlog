@@ -17,15 +17,16 @@ internal interface IReadProofRateLimitPartitioner
 /// </summary>
 internal sealed class ReadProofRateLimitPartitioner : IReadProofRateLimitPartitioner, IDisposable
 {
-    internal static readonly TimeSpan PartitionEpochDuration = TimeSpan.FromMinutes(1);
+    internal static readonly TimeSpan s_partitionEpochDuration = TimeSpan.FromMinutes(1);
 
     private const string DedupKeySetting = "HumanReadProof:Dedup:CurrentKey";
     private const string DedupKeyEpochSetting = "HumanReadProof:Dedup:CurrentKeyEpoch";
-    private static readonly byte[] KeyDomain = Encoding.UTF8.GetBytes("fsus-human-read/rate-limit-key/v1");
+    private static readonly byte[] s_keyDomain = Encoding.UTF8.GetBytes("fsus-human-read/rate-limit-key/v1");
     private readonly byte[] _partitionKey;
     private readonly int _keyEpoch;
     private readonly TimeProvider _timeProvider;
 
+    /// <summary>Derives a purpose-specific partition key from validated independent root material and its epoch.</summary>
     public ReadProofRateLimitPartitioner(IConfiguration configuration, TimeProvider timeProvider)
     {
         byte[] rootKey;
@@ -57,7 +58,7 @@ internal sealed class ReadProofRateLimitPartitioner : IReadProofRateLimitPartiti
 
         try
         {
-            _partitionKey = HMACSHA256.HashData(rootKey, KeyDomain);
+            _partitionKey = HMACSHA256.HashData(rootKey, s_keyDomain);
         }
         finally
         {
@@ -67,10 +68,11 @@ internal sealed class ReadProofRateLimitPartitioner : IReadProofRateLimitPartiti
         _timeProvider = timeProvider;
     }
 
+    /// <inheritdoc />
     public string CreatePartition(HttpContext context)
     {
         long window = _timeProvider.GetUtcNow().ToUnixTimeSeconds()
-            / checked((long)PartitionEpochDuration.TotalSeconds);
+            / checked((long)s_partitionEpochDuration.TotalSeconds);
         string normalizedIp = context.GetClientIp();
         string path = context.Request.Path.Value ?? string.Empty;
         byte[] framed = Encoding.UTF8.GetBytes(string.Join('\0',
@@ -90,5 +92,6 @@ internal sealed class ReadProofRateLimitPartitioner : IReadProofRateLimitPartiti
         }
     }
 
+    /// <summary>Erases the derived in-memory partition key when the service is disposed.</summary>
     public void Dispose() => CryptographicOperations.ZeroMemory(_partitionKey);
 }

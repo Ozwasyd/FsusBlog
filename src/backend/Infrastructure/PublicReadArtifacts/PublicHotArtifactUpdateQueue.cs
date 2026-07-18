@@ -84,7 +84,7 @@ public sealed class PublicHotArtifactUpdateWorker(
     IOptions<PublicHotReadOptions> options,
     ILogger<PublicHotArtifactUpdateWorker> logger) : BackgroundService
 {
-    private static readonly TimeSpan ViewProjectionRefreshInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan s_viewProjectionRefreshInterval = TimeSpan.FromSeconds(30);
     private DateTime _lastViewProjectionRefreshUtc = DateTime.MinValue;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -114,7 +114,7 @@ public sealed class PublicHotArtifactUpdateWorker(
             if (dirtyReason == PublicHotArtifactDirtyReason.ViewProjection)
             {
                 DateTime now = DateTime.UtcNow;
-                if (now - _lastViewProjectionRefreshUtc < ViewProjectionRefreshInterval)
+                if (now - _lastViewProjectionRefreshUtc < s_viewProjectionRefreshInterval)
                 {
                     logger.LogInformation(
                         "public-hot-read-view-refresh-coalesced {Reason} {Coalesced}",

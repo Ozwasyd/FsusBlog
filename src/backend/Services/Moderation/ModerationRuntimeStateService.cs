@@ -12,7 +12,7 @@ public sealed class ModerationRuntimeStateService(
     IConfiguration configuration,
     IWebHostEnvironment environment) : IModerationRuntimeStateService
 {
-    private static readonly HashSet<string> ValidGlobalStates = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> s_validGlobalStates = new(StringComparer.Ordinal)
     {
         ModerationGlobalStates.Enabled,
         ModerationGlobalStates.ReadOnly,
@@ -21,7 +21,7 @@ public sealed class ModerationRuntimeStateService(
         ModerationGlobalStates.EmergencyLockdown
     };
 
-    private static readonly HashSet<string> ValidRegionStates = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> s_validRegionStates = new(StringComparer.Ordinal)
     {
         ModerationRegionStates.Enabled,
         ModerationRegionStates.ManualReviewOnly,
@@ -30,13 +30,13 @@ public sealed class ModerationRuntimeStateService(
         ModerationRegionStates.Disabled
     };
 
-    private static readonly HashSet<string> ValidModelProviders = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> s_validModelProviders = new(StringComparer.Ordinal)
     {
         AntiSpamModerationProviders.None,
         AntiSpamModerationProviders.BuiltIn
     };
 
-    private static readonly HashSet<string> MainlandMandatoryDictionaryIds = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> s_mainlandMandatoryDictionaryIds = new(StringComparer.Ordinal)
     {
         "cn-mainland.political-sensitive",
         "cn-mainland.porn-strict",
@@ -114,7 +114,7 @@ public sealed class ModerationRuntimeStateService(
     public Result<ModerationRuntimeSnapshot> SetGlobalState(string state, string? reason, DateTime? expiresAtUtc, string changedBy)
     {
         string normalized = NormalizeState(state);
-        if (!ValidGlobalStates.Contains(normalized))
+        if (!s_validGlobalStates.Contains(normalized))
         {
             return Result<ModerationRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_global_state_invalid");
         }
@@ -147,7 +147,7 @@ public sealed class ModerationRuntimeStateService(
     {
         string normalizedRegion = NormalizeRegion(region);
         string normalizedState = NormalizeState(state);
-        if (!ValidRegionStates.Contains(normalizedState))
+        if (!s_validRegionStates.Contains(normalizedState))
         {
             return Result<ModerationRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_region_state_invalid");
         }
@@ -202,7 +202,7 @@ public sealed class ModerationRuntimeStateService(
         }
 
         if (!enabled
-            && MainlandMandatoryDictionaryIds.Contains(normalizedId)
+            && s_mainlandMandatoryDictionaryIds.Contains(normalizedId)
             && !string.Equals(confirmPhrase, ModerationRuntimeConfirmPhrases.MainlandChange, StringComparison.Ordinal))
         {
             return Result<ModerationRuntimeSnapshot>.Failure(ErrorCode.Forbidden, "cn_mainland_dictionary_confirmation_required");
@@ -266,7 +266,7 @@ public sealed class ModerationRuntimeStateService(
         {
             ModerationModelRuntimeSnapshot current = Current.Model;
             string resolvedProvider = string.IsNullOrWhiteSpace(provider) ? current.Provider : NormalizeProvider(provider);
-            if (!ValidModelProviders.Contains(resolvedProvider))
+            if (!s_validModelProviders.Contains(resolvedProvider))
             {
                 return Result<ModerationRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_provider_invalid");
             }

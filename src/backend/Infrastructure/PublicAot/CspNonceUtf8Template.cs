@@ -14,7 +14,7 @@ public sealed class CspNonceUtf8Template
 {
     public const string Placeholder = "%%FSUSBLOG_CSP_NONCE%%";
 
-    private static readonly UTF8Encoding StrictUtf8 = new(false, true);
+    private static readonly UTF8Encoding s_strictUtf8 = new(false, true);
     private readonly byte[] _templateBytes;
     private readonly int[] _slotOffsets;
     private readonly ReadOnlyCollection<string> _staticInlineSha256Sources;
@@ -31,7 +31,7 @@ public sealed class CspNonceUtf8Template
         _staticInlineSha256Sources = Array.AsReadOnly(staticInlineSha256Sources);
         ArtifactIdentity = artifactIdentity;
         TemplateDigest = templateDigest;
-        LengthWithoutNonce = templateBytes.Length - (slotOffsets.Length * StrictUtf8.GetByteCount(Placeholder));
+        LengthWithoutNonce = templateBytes.Length - (slotOffsets.Length * s_strictUtf8.GetByteCount(Placeholder));
         ResidentBytes = templateBytes.LongLength
             + ((long)slotOffsets.Length * sizeof(int))
             + ((long)staticInlineSha256Sources.Length * IntPtr.Size)
@@ -220,8 +220,8 @@ public sealed class CspNonceUtf8Template
             return null;
         }
 
-        byte[] templateBytes = StrictUtf8.GetBytes(output.ToString());
-        byte[] placeholderBytes = StrictUtf8.GetBytes(Placeholder);
+        byte[] templateBytes = s_strictUtf8.GetBytes(output.ToString());
+        byte[] placeholderBytes = s_strictUtf8.GetBytes(Placeholder);
         int[] slotOffsets = FindSlotOffsets(templateBytes, placeholderBytes, slotCount);
         Span<byte> digest = stackalloc byte[32];
         SHA256.HashData(templateBytes, digest);
@@ -247,7 +247,7 @@ public sealed class CspNonceUtf8Template
             throw new InvalidOperationException("CSP nonce must be non-empty base64url data.");
         }
 
-        int placeholderLength = StrictUtf8.GetByteCount(Placeholder);
+        int placeholderLength = s_strictUtf8.GetByteCount(Placeholder);
         int position = 0;
         foreach (int slotOffset in _slotOffsets)
         {
@@ -484,7 +484,7 @@ public sealed class CspNonceUtf8Template
 
     private static void AddStaticInlineHash(ReadOnlySpan<char> content, List<string> hashes)
     {
-        byte[] contentBytes = StrictUtf8.GetBytes(content.ToString());
+        byte[] contentBytes = s_strictUtf8.GetBytes(content.ToString());
         Span<byte> hash = stackalloc byte[32];
         SHA256.HashData(contentBytes, hash);
         hashes.Add(string.Concat("'sha256-", Convert.ToBase64String(hash), "'"));

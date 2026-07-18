@@ -19,7 +19,7 @@ public sealed class AuditCheckpointAppendConflictException(string message) : IOE
 
 public static class AuditDetachedCheckpointPackageCodec
 {
-    private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions s_options = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = false,
         PropertyNameCaseInsensitive = false,
@@ -30,12 +30,12 @@ public static class AuditDetachedCheckpointPackageCodec
     {
         ArgumentNullException.ThrowIfNull(envelope);
         AuditDetachedCheckpointCanonicalizer.ValidateEnvelope(envelope);
-        return JsonSerializer.SerializeToUtf8Bytes(envelope, Options);
+        return JsonSerializer.SerializeToUtf8Bytes(envelope, s_options);
     }
 
     public static AuditDetachedCheckpointEnvelope Deserialize(ReadOnlySpan<byte> bytes)
     {
-        AuditDetachedCheckpointEnvelope envelope = JsonSerializer.Deserialize<AuditDetachedCheckpointEnvelope>(bytes, Options)
+        AuditDetachedCheckpointEnvelope envelope = JsonSerializer.Deserialize<AuditDetachedCheckpointEnvelope>(bytes, s_options)
             ?? throw new InvalidDataException("audit_checkpoint_package_empty");
         byte[] canonical = Serialize(envelope);
         if (!bytes.SequenceEqual(canonical))
@@ -50,13 +50,13 @@ public static class AuditDetachedCheckpointPackageCodec
     {
         ArgumentNullException.ThrowIfNull(anchor);
         ValidateTrustAnchor(anchor);
-        return JsonSerializer.SerializeToUtf8Bytes(anchor, Options);
+        return JsonSerializer.SerializeToUtf8Bytes(anchor, s_options);
     }
 
     public static AuditDetachedCheckpointTrustAnchor DeserializeTrustAnchor(ReadOnlySpan<byte> bytes)
     {
         AuditDetachedCheckpointTrustAnchor anchor =
-            JsonSerializer.Deserialize<AuditDetachedCheckpointTrustAnchor>(bytes, Options)
+            JsonSerializer.Deserialize<AuditDetachedCheckpointTrustAnchor>(bytes, s_options)
             ?? throw new InvalidDataException("audit_checkpoint_trust_anchor_empty");
         ValidateTrustAnchor(anchor);
         byte[] canonical = SerializeTrustAnchor(anchor);

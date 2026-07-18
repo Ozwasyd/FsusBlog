@@ -20,7 +20,7 @@ public sealed class AntiSpamModerationService(
     ILogger<AntiSpamModerationService> logger,
     IModerationRuntimeStateService? runtimeState = null) : IAntiSpamModerationService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<AntiSpamModerationResult?> ScoreCommentAsync(
         AntiSpamCommentModerationContext context,
@@ -253,13 +253,13 @@ public sealed class AntiSpamModerationService(
             PrimaryReason = TextHelpers.NormalizeNullable(result.PrimaryReason, 128),
             NeedsSecondRound = result.NeedsSecondRound,
             RiskCategories = result.Categories.Count == 0 ? null : string.Join(',', result.Categories.Select(static item => item.Id).Distinct(StringComparer.Ordinal)),
-            EvidenceJson = result.Evidence.Count == 0 ? null : JsonSerializer.Serialize(result.Evidence, JsonOptions),
+            EvidenceJson = result.Evidence.Count == 0 ? null : JsonSerializer.Serialize(result.Evidence, s_jsonOptions),
             RawReason = TextHelpers.NormalizeNullable(result.RawReason, 4_096),
             LatencyMs = Math.Max(0, RoundingHelper.RoundToInt(result.Latency.TotalMilliseconds)),
             Status = Normalize(result.Status, 32),
             ErrorCode = TextHelpers.NormalizeNullable(result.ErrorCode, 64),
             ThresholdProfile = TextHelpers.NormalizeNullable(result.ThresholdProfile, 128),
-            MetadataJson = result.Metadata.Count == 0 ? null : JsonSerializer.Serialize(result.Metadata, JsonOptions),
+            MetadataJson = result.Metadata.Count == 0 ? null : JsonSerializer.Serialize(result.Metadata, s_jsonOptions),
             CreatedAtUtc = DateTime.UtcNow
         };
 

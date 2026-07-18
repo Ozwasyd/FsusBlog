@@ -32,24 +32,24 @@ public sealed record DependencyGraphRuntimeSnapshot(
 
 public sealed class DependencyGraphRuntimeState
 {
-    private static readonly Meter Meter = new(FsusObservability.MeterName, FsusObservability.ServiceVersion);
-    private static long _registrationCount;
-    private static long _captiveDependencyCount;
-    private static long _opaqueFactoryCount;
+    private static readonly Meter s_meter = new(FsusObservability.MeterName, FsusObservability.ServiceVersion);
+    private static long s_registrationCount;
+    private static long s_captiveDependencyCount;
+    private static long s_opaqueFactoryCount;
 
-    private static readonly ObservableGauge<long> RegistrationCountGauge = Meter.CreateObservableGauge(
+    private static readonly ObservableGauge<long> s_registrationCountGauge = s_meter.CreateObservableGauge(
         "fsus.di.graph.registration_count",
-        static () => Volatile.Read(ref _registrationCount),
+        static () => Volatile.Read(ref s_registrationCount),
         "{registration}");
 
-    private static readonly ObservableGauge<long> CaptiveDependencyCountGauge = Meter.CreateObservableGauge(
+    private static readonly ObservableGauge<long> s_captiveDependencyCountGauge = s_meter.CreateObservableGauge(
         "fsus.di.graph.captive_dependency_count",
-        static () => Volatile.Read(ref _captiveDependencyCount),
+        static () => Volatile.Read(ref s_captiveDependencyCount),
         "{dependency}");
 
-    private static readonly ObservableGauge<long> OpaqueFactoryCountGauge = Meter.CreateObservableGauge(
+    private static readonly ObservableGauge<long> s_opaqueFactoryCountGauge = s_meter.CreateObservableGauge(
         "fsus.di.graph.opaque_factory_count",
-        static () => Volatile.Read(ref _opaqueFactoryCount),
+        static () => Volatile.Read(ref s_opaqueFactoryCount),
         "{registration}");
 
     private DependencyGraphRuntimeSnapshot _snapshot = DependencyGraphRuntimeSnapshot.Empty;
@@ -59,9 +59,9 @@ public sealed class DependencyGraphRuntimeState
     internal void Publish(DependencyGraphRuntimeSnapshot snapshot)
     {
         Volatile.Write(ref _snapshot, snapshot);
-        Volatile.Write(ref _registrationCount, snapshot.RegistrationCount);
-        Volatile.Write(ref _captiveDependencyCount, snapshot.CaptiveDependencies.Count);
-        Volatile.Write(ref _opaqueFactoryCount, snapshot.OpaqueFactoryCount);
+        Volatile.Write(ref s_registrationCount, snapshot.RegistrationCount);
+        Volatile.Write(ref s_captiveDependencyCount, snapshot.CaptiveDependencies.Count);
+        Volatile.Write(ref s_opaqueFactoryCount, snapshot.OpaqueFactoryCount);
     }
 }
 
@@ -108,9 +108,9 @@ public static class FsusServiceProviderValidation
 
 internal static class DependencyGraphValidator
 {
-    private static readonly Type EnumerableType = typeof(IEnumerable<>);
-    private static readonly Type ServiceProviderType = typeof(IServiceProvider);
-    private static readonly Type ScopeFactoryType = typeof(IServiceScopeFactory);
+    private static readonly Type s_enumerableType = typeof(IEnumerable<>);
+    private static readonly Type s_serviceProviderType = typeof(IServiceProvider);
+    private static readonly Type s_scopeFactoryType = typeof(IServiceScopeFactory);
 
     public static DependencyGraphRuntimeSnapshot Analyze(IList<ServiceDescriptor> services)
     {
@@ -239,12 +239,12 @@ internal static class DependencyGraphValidator
         HashSet<Type> visiting,
         ISet<string> violations)
     {
-        if (dependencyType == ServiceProviderType || dependencyType == ScopeFactoryType)
+        if (dependencyType == s_serviceProviderType || dependencyType == s_scopeFactoryType)
         {
             return;
         }
 
-        if (dependencyType.IsGenericType && dependencyType.GetGenericTypeDefinition() == EnumerableType)
+        if (dependencyType.IsGenericType && dependencyType.GetGenericTypeDefinition() == s_enumerableType)
         {
             Type elementType = dependencyType.GetGenericArguments()[0];
             if (registrations.TryGetValue(elementType, out List<ServiceDescriptor>? enumerableDescriptors))

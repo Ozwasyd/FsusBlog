@@ -4,7 +4,7 @@ namespace FsusBlog.Server.Infrastructure.Cache;
 
 public sealed class CachePolicyRegistry : ICachePolicyRegistry
 {
-    private static readonly FrozenDictionary<CachePolicyId, CachePolicy> Policies =
+    private static readonly FrozenDictionary<CachePolicyId, CachePolicy> s_policies =
         new Dictionary<CachePolicyId, CachePolicy>
         {
             [CachePolicyId.ArticleList] = new(CachePolicyId.ArticleList, "blog", "article-list", TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), null, [CacheTag.ArticleList, CacheTag.Category], false, 0.10d, false),
@@ -72,7 +72,7 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
 
     public bool TryGet(CachePolicyId id, out CachePolicy policy)
     {
-        if (Policies.TryGetValue(id, out CachePolicy? resolved) && resolved is not null)
+        if (s_policies.TryGetValue(id, out CachePolicy? resolved) && resolved is not null)
         {
             policy = resolved;
             return true;

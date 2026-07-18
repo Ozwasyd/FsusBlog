@@ -27,7 +27,7 @@ public readonly record struct CommentAnonymousDisplayName(
 
 public sealed class CommentAnonymousDisplayNameGenerator : ICommentAnonymousDisplayNameGenerator
 {
-    private static readonly string[] ZhCnNames =
+    private static readonly string[] s_zhCnNames =
     [
         "小明",
         "小林",
@@ -43,7 +43,7 @@ public sealed class CommentAnonymousDisplayNameGenerator : ICommentAnonymousDisp
         "亦辰"
     ];
 
-    private static readonly string[] EnNames =
+    private static readonly string[] s_enNames =
     [
         "Alex",
         "Jordan",
@@ -63,10 +63,10 @@ public sealed class CommentAnonymousDisplayNameGenerator : ICommentAnonymousDisp
     {
         string language = NormalizeDisplayLanguage(request.DisplayLanguage, RegionCodes.Unknown);
         string seed = $"{language}|{request.Scope}|{request.StableSeed}";
-        int index = StableIndex(seed, language == "zh-CN" ? ZhCnNames.Length : EnNames.Length);
+        int index = StableIndex(seed, language == "zh-CN" ? s_zhCnNames.Length : s_enNames.Length);
         return language == "zh-CN"
-            ? new CommentAnonymousDisplayName($"匿名用户{ZhCnNames[index]}", language)
-            : new CommentAnonymousDisplayName($"Anonymous User {EnNames[index]}", language);
+            ? new CommentAnonymousDisplayName($"匿名用户{s_zhCnNames[index]}", language)
+            : new CommentAnonymousDisplayName($"Anonymous User {s_enNames[index]}", language);
     }
 
     internal static string NormalizeDisplayLanguage(string? displayLanguage, string? submitRegion)

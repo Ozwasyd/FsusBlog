@@ -215,22 +215,22 @@ public sealed class PublicHotReadMetricFlushWorker(
     PublicHotReadClassifierCounters classifierCounters,
     ILogger<PublicHotReadMetricFlushWorker> logger) : BackgroundService
 {
-    private static readonly Meter Meter = new("FsusBlog.PublicHotRead", "1.0.0");
-    private static readonly Counter<long> ArticleHitCounter = Meter.CreateCounter<long>("fsus.hotread.article.hit");
-    private static readonly Counter<long> ArticleMissCounter = Meter.CreateCounter<long>("fsus.hotread.article.miss");
-    private static readonly Counter<long> ListHitCounter = Meter.CreateCounter<long>("fsus.hotread.list.hit");
-    private static readonly Counter<long> ListMissCounter = Meter.CreateCounter<long>("fsus.hotread.list.miss");
-    private static readonly Counter<long> HtmlHitCounter = Meter.CreateCounter<long>("fsus.hotread.html.hit");
-    private static readonly Counter<long> HtmlMissCounter = Meter.CreateCounter<long>("fsus.hotread.html.miss");
-    private static readonly Counter<long> BytesCounter = Meter.CreateCounter<long>("fsus.hotread.bytes");
-    private static readonly Counter<long> IdentityVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.identity");
-    private static readonly Counter<long> BrotliVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.br");
-    private static readonly Counter<long> GzipVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.gzip");
-    private static readonly Counter<long> SanityFallbackCounter = Meter.CreateCounter<long>("fsus.hotread.sanity.fallback");
-    private static readonly Counter<long> SensitivePrefixBypassCounter =
-        Meter.CreateCounter<long>("fsus.hotread.classifier.sensitive_bypass");
-    private static readonly Counter<long> CredentialBypassCounter =
-        Meter.CreateCounter<long>("fsus.hotread.classifier.credential_bypass");
+    private static readonly Meter s_meter = new("FsusBlog.PublicHotRead", "1.0.0");
+    private static readonly Counter<long> s_articleHitCounter = s_meter.CreateCounter<long>("fsus.hotread.article.hit");
+    private static readonly Counter<long> s_articleMissCounter = s_meter.CreateCounter<long>("fsus.hotread.article.miss");
+    private static readonly Counter<long> s_listHitCounter = s_meter.CreateCounter<long>("fsus.hotread.list.hit");
+    private static readonly Counter<long> s_listMissCounter = s_meter.CreateCounter<long>("fsus.hotread.list.miss");
+    private static readonly Counter<long> s_htmlHitCounter = s_meter.CreateCounter<long>("fsus.hotread.html.hit");
+    private static readonly Counter<long> s_htmlMissCounter = s_meter.CreateCounter<long>("fsus.hotread.html.miss");
+    private static readonly Counter<long> s_bytesCounter = s_meter.CreateCounter<long>("fsus.hotread.bytes");
+    private static readonly Counter<long> s_identityVariantCounter = s_meter.CreateCounter<long>("fsus.hotread.encoding.identity");
+    private static readonly Counter<long> s_brotliVariantCounter = s_meter.CreateCounter<long>("fsus.hotread.encoding.br");
+    private static readonly Counter<long> s_gzipVariantCounter = s_meter.CreateCounter<long>("fsus.hotread.encoding.gzip");
+    private static readonly Counter<long> s_sanityFallbackCounter = s_meter.CreateCounter<long>("fsus.hotread.sanity.fallback");
+    private static readonly Counter<long> s_sensitivePrefixBypassCounter =
+        s_meter.CreateCounter<long>("fsus.hotread.classifier.sensitive_bypass");
+    private static readonly Counter<long> s_credentialBypassCounter =
+        s_meter.CreateCounter<long>("fsus.hotread.classifier.credential_bypass");
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -253,19 +253,19 @@ public sealed class PublicHotReadMetricFlushWorker(
         PublicHotReadCounterSnapshot snapshot = counters.CollectAndReset();
         long sensitivePrefixBypass = classifierCounters.CollectSensitivePrefixBypassAndReset();
         long credentialBypass = classifierCounters.CollectCredentialBypassAndReset();
-        AddIfPositive(ArticleHitCounter, snapshot.ArticleHit);
-        AddIfPositive(ArticleMissCounter, snapshot.ArticleMiss);
-        AddIfPositive(ListHitCounter, snapshot.ListHit);
-        AddIfPositive(ListMissCounter, snapshot.ListMiss);
-        AddIfPositive(HtmlHitCounter, snapshot.HtmlHit);
-        AddIfPositive(HtmlMissCounter, snapshot.HtmlMiss);
-        AddIfPositive(BytesCounter, snapshot.Bytes);
-        AddIfPositive(IdentityVariantCounter, snapshot.IdentityVariant);
-        AddIfPositive(BrotliVariantCounter, snapshot.BrotliVariant);
-        AddIfPositive(GzipVariantCounter, snapshot.GzipVariant);
-        AddIfPositive(SanityFallbackCounter, snapshot.SanityFallback);
-        AddIfPositive(SensitivePrefixBypassCounter, sensitivePrefixBypass);
-        AddIfPositive(CredentialBypassCounter, credentialBypass);
+        AddIfPositive(s_articleHitCounter, snapshot.ArticleHit);
+        AddIfPositive(s_articleMissCounter, snapshot.ArticleMiss);
+        AddIfPositive(s_listHitCounter, snapshot.ListHit);
+        AddIfPositive(s_listMissCounter, snapshot.ListMiss);
+        AddIfPositive(s_htmlHitCounter, snapshot.HtmlHit);
+        AddIfPositive(s_htmlMissCounter, snapshot.HtmlMiss);
+        AddIfPositive(s_bytesCounter, snapshot.Bytes);
+        AddIfPositive(s_identityVariantCounter, snapshot.IdentityVariant);
+        AddIfPositive(s_brotliVariantCounter, snapshot.BrotliVariant);
+        AddIfPositive(s_gzipVariantCounter, snapshot.GzipVariant);
+        AddIfPositive(s_sanityFallbackCounter, snapshot.SanityFallback);
+        AddIfPositive(s_sensitivePrefixBypassCounter, sensitivePrefixBypass);
+        AddIfPositive(s_credentialBypassCounter, credentialBypass);
         if (snapshot.Rejected > 0)
         {
             logger.LogDebug("public-hot-read-rejected {Count}", snapshot.Rejected);

@@ -13,9 +13,9 @@ public sealed class BinaryFrameResult(
     Action<IBufferWriter<byte>> writePayload,
     int? statusCode = null) : IResult
 {
-    private static readonly byte[] EmptySuccessPayload = PodBinaryCodec.EncodeEmptySuccess();
-    private static readonly ReadOnlyMemory<byte> EmptySuccessFrame =
-        new AedsEncoder().Encode(AedsFrameType.EmptySuccess, EmptySuccessPayload);
+    private static readonly byte[] s_emptySuccessPayload = PodBinaryCodec.EncodeEmptySuccess();
+    private static readonly ReadOnlyMemory<byte> s_emptySuccessFrame =
+        new AedsEncoder().Encode(AedsFrameType.EmptySuccess, s_emptySuccessPayload);
     private readonly AedsFrameType _frameType = frameType;
     private readonly Action<IBufferWriter<byte>> _writePayload = writePayload;
     private readonly int? _statusCode = statusCode;
@@ -25,8 +25,8 @@ public sealed class BinaryFrameResult(
         IBinaryEnvelopePolicy envelopePolicy = ResolveEnvelopePolicy(httpContext);
         if (!_statusCode.HasValue && _frameType == AedsFrameType.EmptySuccess)
         {
-            envelopePolicy.ApplyFrameResponse(httpContext.Response, EmptySuccessPayload.Length);
-            await httpContext.Response.BodyWriter.WriteAsync(EmptySuccessFrame, httpContext.RequestAborted);
+            envelopePolicy.ApplyFrameResponse(httpContext.Response, s_emptySuccessPayload.Length);
+            await httpContext.Response.BodyWriter.WriteAsync(s_emptySuccessFrame, httpContext.RequestAborted);
             return;
         }
 

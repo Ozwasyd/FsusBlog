@@ -19,9 +19,9 @@ internal static class PublicSpaTemplateLocator
 </body>
 </html>
 """;
-    private static readonly byte[] MinimalIndexTemplateBytes = Encoding.UTF8.GetBytes(MinimalIndexTemplate);
-    private static readonly ConcurrentDictionary<string, string> _assetPathCache = new(StringComparer.Ordinal);
-    private static readonly ConcurrentDictionary<string, TemplateSnapshot> _templateCache = new(StringComparer.Ordinal);
+    private static readonly byte[] s_minimalIndexTemplateBytes = Encoding.UTF8.GetBytes(MinimalIndexTemplate);
+    private static readonly ConcurrentDictionary<string, string> s_assetPathCache = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, TemplateSnapshot> s_templateCache = new(StringComparer.Ordinal);
 
     internal static string ResolveIndexTemplatePath(IWebHostEnvironment env, bool preferSourceTemplate = false)
     {
@@ -84,7 +84,7 @@ internal static class PublicSpaTemplateLocator
             return string.Empty;
 
         string cacheKey = string.Concat(Path.GetFullPath(assetsRoot), '|', prefix, '|', extension);
-        return _assetPathCache.GetOrAdd(cacheKey, _ => ResolveAssetPathUncached(assetsRoot, prefix, extension));
+        return s_assetPathCache.GetOrAdd(cacheKey, _ => ResolveAssetPathUncached(assetsRoot, prefix, extension));
     }
 
     private static string ResolveAssetPathUncached(string assetsRoot, string prefix, string extension)
@@ -101,8 +101,8 @@ internal static class PublicSpaTemplateLocator
 
     internal static void ResetCacheForTests()
     {
-        _templateCache.Clear();
-        _assetPathCache.Clear();
+        s_templateCache.Clear();
+        s_assetPathCache.Clear();
     }
 
     private static async Task<TemplateSnapshot> GetTemplateSnapshotAsync(IWebHostEnvironment env, CancellationToken cancellationToken, bool preferSourceTemplate)
@@ -115,7 +115,7 @@ internal static class PublicSpaTemplateLocator
         {
             string minimalKey = string.Concat("minimal|", Path.GetFullPath(env.ContentRootPath), '|', preferSourceTemplate ? "source" : "dist");
             return canUseCachedTemplate
-                ? _templateCache.GetOrAdd(minimalKey, static _ => TemplateSnapshot.Minimal)
+                ? s_templateCache.GetOrAdd(minimalKey, static _ => TemplateSnapshot.Minimal)
                 : TemplateSnapshot.Minimal;
         }
 
@@ -128,7 +128,7 @@ internal static class PublicSpaTemplateLocator
             lastWriteTimeUtc.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture),
             '|',
             preferSourceTemplate ? "source" : "dist");
-        if (canUseCachedTemplate && _templateCache.TryGetValue(cacheKey, out TemplateSnapshot? cachedTemplate))
+        if (canUseCachedTemplate && s_templateCache.TryGetValue(cacheKey, out TemplateSnapshot? cachedTemplate))
         {
             return cachedTemplate;
         }
@@ -142,7 +142,7 @@ internal static class PublicSpaTemplateLocator
 
         if (canUseCachedTemplate)
         {
-            _templateCache[cacheKey] = snapshot;
+            s_templateCache[cacheKey] = snapshot;
         }
 
         return snapshot;
@@ -163,11 +163,11 @@ internal static class PublicSpaTemplateLocator
         } = new(
             string.Empty,
             DateTime.MinValue,
-            MinimalIndexTemplateBytes,
-            ComputeAssetVersion(MinimalIndexTemplateBytes));
+            s_minimalIndexTemplateBytes,
+            ComputeAssetVersion(s_minimalIndexTemplateBytes));
 
-        private string? LazyText;
+        private string? _lazyText;
 
-        public string Text => LazyText ??= Encoding.UTF8.GetString(Bytes);
+        public string Text => _lazyText ??= Encoding.UTF8.GetString(Bytes);
     }
 }

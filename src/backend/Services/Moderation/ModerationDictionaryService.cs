@@ -16,7 +16,7 @@ public sealed class ModerationDictionaryService(
     AuditLogChannel? auditLogChannel = null,
     IModerationRuntimeStateService? runtimeState = null) : IModerationDictionaryService
 {
-    private static readonly string[] MainlandMandatoryDictionaryIds =
+    private static readonly string[] s_mainlandMandatoryDictionaryIds =
     [
         "cn-mainland.political-sensitive",
         "cn-mainland.porn-strict",
@@ -52,8 +52,8 @@ public sealed class ModerationDictionaryService(
             Result<ModerationDictionarySnapshot> result = BuildSnapshot();
             if (result.IsFailure)
             {
-                const string publicMessage = "moderation_dictionary_reload_failed";
-                Volatile.Write(ref _lastError, publicMessage);
+                const string PublicMessage = "moderation_dictionary_reload_failed";
+                Volatile.Write(ref _lastError, PublicMessage);
                 WriteAudit(
                     "dictionary_reload_failed",
                     AuditOutcomeCatalog.Failure,
@@ -62,7 +62,7 @@ public sealed class ModerationDictionaryService(
                     "current",
                     new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
-                        ["message"] = publicMessage,
+                        ["message"] = PublicMessage,
                         ["previousSnapshotId"] = _snapshot.SnapshotId,
                         ["previousChecksum"] = _snapshot.Checksum
                     });
@@ -74,7 +74,7 @@ public sealed class ModerationDictionaryService(
                     "current",
                     new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
-                        ["message"] = publicMessage,
+                        ["message"] = PublicMessage,
                         ["previousSnapshotId"] = _snapshot.SnapshotId,
                         ["previousChecksum"] = _snapshot.Checksum
                     });
@@ -510,7 +510,7 @@ public sealed class ModerationDictionaryService(
         }
 
         string[] mainlandDictionaryIds = ResolveDictionaryIds(dictionaries, policies, mainlandPolicy.Region);
-        foreach (string required in MainlandMandatoryDictionaryIds)
+        foreach (string required in s_mainlandMandatoryDictionaryIds)
         {
             if (!mainlandDictionaryIds.Contains(required, StringComparer.Ordinal))
             {

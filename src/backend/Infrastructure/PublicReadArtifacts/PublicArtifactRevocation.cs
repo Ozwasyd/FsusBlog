@@ -211,7 +211,7 @@ public sealed class RedisPublicArtifactRevocationStateStore(
 {
     private const string GenerationKey = "public-hot-read:revocation:generation";
     private const string TombstoneHashKey = "public-hot-read:revocation:tombstones";
-    private static readonly LuaScript BeginTransition = LuaScript.Prepare(
+    private static readonly LuaScript s_beginTransition = LuaScript.Prepare(
         "local existing = redis.call('HGET', @hash, @field); " +
         "if existing then " +
         "local decoded = cjson.decode(existing); " +
@@ -225,13 +225,13 @@ public sealed class RedisPublicArtifactRevocationStateStore(
         "PurgeConfirmed=false," +
         "TransitionPending=true}); " +
         "redis.call('HSET', @hash, @field, payload); return payload;");
-    private static readonly LuaScript CompareAndSet = LuaScript.Prepare(
+    private static readonly LuaScript s_compareAndSet = LuaScript.Prepare(
         "local value = redis.call('HGET', @hash, @field); " +
         "if not value then return 0; end; " +
         "local decoded = cjson.decode(value); " +
         "if tonumber(decoded.Generation) ~= tonumber(@generation) then return 0; end; " +
         "redis.call('HSET', @hash, @field, @replacement); return 1;");
-    private static readonly LuaScript CompareAndDelete = LuaScript.Prepare(
+    private static readonly LuaScript s_compareAndDelete = LuaScript.Prepare(
         "local value = redis.call('HGET', @hash, @field); " +
         "if not value then return 1; end; " +
         "local decoded = cjson.decode(value); " +
@@ -246,7 +246,7 @@ public sealed class RedisPublicArtifactRevocationStateStore(
     {
         cancellationToken.ThrowIfCancellationRequested();
         RedisResult result = await _database.ScriptEvaluateAsync(
-                BeginTransition,
+                s_beginTransition,
                 new
                 {
                     generationKey = (RedisKey)runtimeKeyScope.PrefixKey(GenerationKey),
@@ -313,7 +313,7 @@ public sealed class RedisPublicArtifactRevocationStateStore(
             TransitionPending = false
         };
         RedisResult result = await _database.ScriptEvaluateAsync(
-                CompareAndSet,
+                s_compareAndSet,
                 new
                 {
                     hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
@@ -354,7 +354,7 @@ public sealed class RedisPublicArtifactRevocationStateStore(
             PurgeConfirmed = true
         };
         RedisResult updated = await _database.ScriptEvaluateAsync(
-                CompareAndSet,
+                s_compareAndSet,
                 new
                 {
                     hash = hashKey,
@@ -374,7 +374,7 @@ public sealed class RedisPublicArtifactRevocationStateStore(
     {
         cancellationToken.ThrowIfCancellationRequested();
         RedisResult result = await _database.ScriptEvaluateAsync(
-                CompareAndDelete,
+                s_compareAndDelete,
                 new
                 {
                     hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),

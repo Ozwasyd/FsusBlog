@@ -29,8 +29,8 @@ public sealed class CaptchaV1ChallengeProvider(
     private const int GridHeight = 24;
     private const int DistortionLevel = 18;
     private const int PowDifficultyBits = 8;
-    private static readonly TimeSpan RiskSignalTtl = TimeSpan.FromMinutes(10);
-    private static readonly HashSet<string> KnownDevelopmentSigningKeys = new(StringComparer.Ordinal)
+    private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
+    private static readonly HashSet<string> s_knownDevelopmentSigningKeys = new(StringComparer.Ordinal)
     {
         "development-captcha-signing-key-change-before-shared-use",
         "CHANGE_ME_CAPTCHA_SIGNING_KEY"
@@ -202,7 +202,7 @@ public sealed class CaptchaV1ChallengeProvider(
                 request.Context,
                 SecurityRiskReason.SecurityChallengeRejected,
                 10,
-                RiskSignalTtl,
+                s_riskSignalTtl,
                 SecurityRiskSources.RiskControl,
                 string.IsNullOrWhiteSpace(request.Action) ? "security_challenge" : request.Action,
                 riskDetail),
@@ -242,7 +242,7 @@ public sealed class CaptchaV1ChallengeProvider(
         }
 
         string normalized = key.Trim();
-        if (KnownDevelopmentSigningKeys.Contains(normalized))
+        if (s_knownDevelopmentSigningKeys.Contains(normalized))
         {
             throw new InvalidOperationException("Security:CaptchaV1:SigningKey must not use a checked-in development value.");
         }
@@ -299,7 +299,7 @@ public sealed record CaptchaV1ChallengeVerifyPayload(
 
 public static class CaptchaV1ChallengeCodec
 {
-    private static readonly string[] Alphabet = ["A", "E", "F", "H", "K", "M", "R", "T", "Y", "2", "3", "4"];
+    private static readonly string[] s_alphabet = ["A", "E", "F", "H", "K", "M", "R", "T", "Y", "2", "3", "4"];
     private const int MaxPowNonceAttempts = 1 << (8 + 4);
     private const ulong Mask64 = ulong.MaxValue;
 
@@ -496,7 +496,7 @@ public static class CaptchaV1ChallengeCodec
         var builder = new StringBuilder(4);
         for (int i = 0; i < 4; i++)
         {
-            builder.Append(Alphabet[(int)(XoshiroNext(ref state) % (ulong)Alphabet.Length)]);
+            builder.Append(s_alphabet[(int)(XoshiroNext(ref state) % (ulong)s_alphabet.Length)]);
         }
 
         return builder.ToString();

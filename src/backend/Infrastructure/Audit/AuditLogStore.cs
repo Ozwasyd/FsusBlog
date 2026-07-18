@@ -21,9 +21,9 @@ public sealed class AuditLogStore(
     AuditRetentionPayloadProtector? retentionProtector = null) : IAuditLogStore
 {
     private const int ColumnCount = 27;
-    private static readonly ConcurrentDictionary<int, AuditLogInsertBatchShape> InsertBatchShapes = new();
-    private static readonly ConcurrentDictionary<string, string> ChainTailCache = new(StringComparer.Ordinal);
-    private static readonly string[] ParameterColumns =
+    private static readonly ConcurrentDictionary<int, AuditLogInsertBatchShape> s_insertBatchShapes = new();
+    private static readonly ConcurrentDictionary<string, string> s_chainTailCache = new(StringComparer.Ordinal);
+    private static readonly string[] s_parameterColumns =
     [
         "source",
         "type",
@@ -65,7 +65,7 @@ public sealed class AuditLogStore(
         }
 
         long startedAt = Stopwatch.GetTimestamp();
-        AuditLogInsertBatchShape shape = InsertBatchShapes.GetOrAdd(records.Count, BuildInsertBatchShape);
+        AuditLogInsertBatchShape shape = s_insertBatchShapes.GetOrAdd(records.Count, BuildInsertBatchShape);
         var parameters = new SugarParameter[records.Count * ColumnCount];
         var chainTails = new Dictionary<string, string?>(StringComparer.Ordinal);
         int parameterOffset = 0;
@@ -79,7 +79,7 @@ public sealed class AuditLogStore(
             string chainId = ResolveChainId(record);
             if (!chainTails.TryGetValue(chainId, out string? prevHash))
             {
-                if (ChainTailCache.TryGetValue(chainId, out prevHash))
+                if (s_chainTailCache.TryGetValue(chainId, out prevHash))
                 {
                     FsusObservability.RecordAuditChainTailCache(hit: true);
                 }
@@ -105,7 +105,7 @@ public sealed class AuditLogStore(
         {
             if (!string.IsNullOrWhiteSpace(recordHash))
             {
-                ChainTailCache[chainId] = recordHash;
+                s_chainTailCache[chainId] = recordHash;
             }
         }
 
@@ -155,14 +155,14 @@ public sealed class AuditLogStore(
             }
 
             sql.Append('(');
-            for (int column = 0; column < ParameterColumns.Length; column++)
+            for (int column = 0; column < s_parameterColumns.Length; column++)
             {
                 if (column > 0)
                 {
                     sql.Append(", ");
                 }
 
-                string parameterName = string.Concat("@", ParameterColumns[column], "_", row);
+                string parameterName = string.Concat("@", s_parameterColumns[column], "_", row);
                 parameterNames[parameterOffset++] = parameterName;
                 sql.Append(parameterName);
             }
@@ -254,7 +254,7 @@ public sealed class AuditLogStore(
             : record.ChainId.Trim();
 
     internal static void ClearChainTailCacheForTests()
-        => ChainTailCache.Clear();
+        => s_chainTailCache.Clear();
 
     private sealed record AuditLogInsertBatchShape(string Sql, string[] ParameterNames);
 }

@@ -23,7 +23,7 @@ public sealed class SecurityChallengeVerifyRateLimiter(
     private const int MaxAttempts = 3;
     private const int MaxChallengeIdLength = 64;
     private const int MaxActionLength = 96;
-    private static readonly TimeSpan CacheExpiry = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan s_cacheExpiry = TimeSpan.FromMinutes(2);
 
     public async Task<bool> TryAcquireAsync(
         HttpContext httpContext,
@@ -38,7 +38,7 @@ public sealed class SecurityChallengeVerifyRateLimiter(
         long count = await cache.IncrementWithExpiryAsync(
             CachePolicyId.SecurityChallengeVerifyRateLimit,
             identity,
-            CacheExpiry,
+            s_cacheExpiry,
             1,
             cancellationToken);
 
