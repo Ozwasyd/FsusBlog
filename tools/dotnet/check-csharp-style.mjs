@@ -393,7 +393,7 @@ function checkFile(file, xmlScopePatterns) {
     if (interfaceMatch && !/^I[A-Z][A-Za-z0-9]*$/u.test(interfaceMatch[1])) {
       violations.push(makeViolation(file, lineNumber, 'interface-name', interfaceMatch[1], 'interface must use I + PascalCase'))
     }
-    const typeMatch = trimmed.match(/\b(?:class|struct|record(?:\s+(?:class|struct))?|enum|delegate)\s+([A-Za-z_]\w*)/u)
+    const typeMatch = trimmed.match(/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:class|struct|record(?:\s+(?:class|struct))?|enum|delegate)\s+([A-Za-z_]\w*)/u)
     if (typeMatch && !isPascalCase(typeMatch[1])) {
       violations.push(makeViolation(file, lineNumber, 'type-name', typeMatch[1], 'type must use PascalCase'))
     }
@@ -443,7 +443,10 @@ function checkFile(file, xmlScopePatterns) {
       if (!flags && plural) violations.push(makeViolation(file, lineNumber, 'enum-name', enumMatch[1], 'non-flags enum must use a singular name'))
     }
 
-    if (xmlScope && /^public\s+/u.test(trimmed) && !/\boverride\b/u.test(trimmed)) {
+    // Contract scopes use file-scoped namespaces. Restrict the text fallback to
+    // top-level types and their direct members so a public field inside a
+    // private nested scratch type is not mistaken for a public API surface.
+    if (xmlScope && indent <= 4 && /^public\s+/u.test(trimmed) && !/\boverride\b/u.test(trimmed)) {
       const declaration = /\b(?:class|struct|record|interface|enum|delegate)\b/u.test(trimmed)
         || /\b[A-Za-z_]\w*\s*\(/u.test(trimmed)
         || /\b[A-Za-z_]\w*\s*(?:=>|\{|;)/u.test(trimmed)
@@ -493,7 +496,7 @@ function runDotnetFormat(files, mode) {
   const workspace = path.join(root, policy.workspace)
   if (fs.existsSync(workspace)) {
     const style = command([
-      'dotnet', 'format', 'style', workspace, '--verify-no-changes', '--no-restore', '--severity', 'info', '--include', ...relativeFiles, '--verbosity', 'quiet'
+      'dotnet', 'format', 'style', workspace, '--verify-no-changes', '--no-restore', '--severity', 'info', '--exclude-diagnostics', 'IDE1006', '--include', ...relativeFiles, '--verbosity', 'quiet'
     ], { allowFailure: true })
     if (style.status !== 0) {
       fail(`dotnet format style rejected selected files: ${(style.stderr || style.stdout).trim()}`)

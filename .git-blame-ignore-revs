@@ -1,2 +1,5 @@
 # Add only the SHA of a reviewed, pure mechanical formatting commit.
 # The #1158 rule/checker commit is intentionally not ignored.
+
+# dotnet 10 whitespace and import-order migration for #1158.
+892489472e27c85d277fb98c2c35969851294b58

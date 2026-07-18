@@ -75,6 +75,10 @@ public sealed class GoodType
 
     public int ReadValue(int amount)
     {
+        foreach (GoodType item in Array.Empty<GoodType>())
+        {
+            _ = item;
+        }
         int result = amount + _value + s_count;
         return result;
     }
@@ -169,6 +173,11 @@ public sealed class ExternalContract
     /// <summary>Gets the value mapped from the stable external key.</summary>
     [JsonPropertyName("legacy_user__id")]
     public string UserId => string.Empty;
+
+    private struct Scratch
+    {
+        public int Value;
+    }
 }
 `
     )
@@ -235,4 +244,27 @@ public sealed class BadName
     assert.deepEqual(diagnostics(ci), diagnostics(local))
     assert.equal(diagnostics(local).length, 2, output(local))
   })
+})
+
+test('issue 1158 blame ignore contains the reviewed mechanical C# commit', () => {
+  const lines = readFileSync(path.join(root, '.git-blame-ignore-revs'), 'utf8')
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+  assert.deepEqual(lines, ['892489472e27c85d277fb98c2c35969851294b58'])
+
+  const commit = spawnSync('git', ['cat-file', '-e', `${lines[0]}^{commit}`], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  assert.equal(commit.status, 0, output(commit))
+
+  const names = spawnSync('git', ['diff-tree', '--no-commit-id', '--name-only', '-r', lines[0]], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  assert.equal(names.status, 0, output(names))
+  const changed = names.stdout.split(/\r?\n/u).filter(Boolean)
+  assert.ok(changed.length > 0)
+  assert.ok(changed.every((file) => file.endsWith('.cs')), names.stdout)
 })

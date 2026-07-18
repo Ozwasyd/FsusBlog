@@ -37,13 +37,14 @@ An unchanged file may carry only the exact debt captured for its current content
 node tools/dotnet/check-csharp-style.mjs --mode strict-full
 ```
 
-The direct Microsoft formatter proof is:
+The reviewed mechanical migration is commit `892489472e27c85d277fb98c2c35969851294b58`. It formats 762 solution-owned C# files with .NET 10 whitespace and import ordering only; generated, vendor and fixture sources remain excluded. The repeatable Microsoft formatter proofs are:
 
 ```bash
-dotnet format FsusBlog.slnx --verify-no-changes --no-restore
+dotnet format whitespace FsusBlog.slnx --verify-no-changes --no-restore
+dotnet format style FsusBlog.slnx --severity warn --exclude-diagnostics IDE1006 --verify-no-changes --no-restore
 ```
 
-The Fast Static Governance lane must call the changed-file gate on every change and schedule the full scan. The shared lane wiring is performed only after active C# feature branches have landed, so the lane never points at a temporarily formatted worktree.
+`IDE1006` remains controlled by the repository naming checker and the transparent baseline because automatic rename fixes can change public API, AEDS, database and security contracts. After the mechanical migration the baseline contains 11,582 explicitly classified naming, XML-documentation and text-policy findings across 992 C# files; this is migration debt, not a clean-style claim. The Fast Static Governance lane calls the changed-file gate on every change, while the baseline-aware full scan remains the repository-wide authority during staged cleanup.
 
 ## Naming and external contracts
 
@@ -60,7 +61,7 @@ The gate requires meaningful XML documentation for public declarations in shared
 1. Land the rules, checker and transparent baseline without changing application logic.
 2. After all active C# feature work has landed, run the formatter and commit only its mechanical output.
 3. Review that commit for semantic changes, then add its real commit SHA to `.git-blame-ignore-revs` in a follow-up commit.
-4. Regenerate the baseline with `node tools/dotnet/check-csharp-style.mjs --mode full --update-baseline`; the target is an empty strict-full result.
+4. Regenerate the baseline with `node tools/dotnet/check-csharp-style.mjs --mode full --update-baseline`; each later module migration must reduce it, and the long-term target is an empty strict-full result.
 5. Fix naming and documentation debt by module in reviewable commits; never mix broad renames with the mechanical format commit.
 
 No placeholder SHA is accepted in `.git-blame-ignore-revs`. A formatting commit is ignored only after it exists and has been reviewed as purely mechanical.

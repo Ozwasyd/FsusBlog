@@ -88,6 +88,28 @@
       ]
     },
     {
+      "id": "csharp-style-governance",
+      "description": "Root EditorConfig, Roslyn settings, baseline-aware changed/full checks and reviewed blame metadata enforce the Microsoft .NET C# mother style without rewriting external contracts.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        ".editorconfig",
+        "Directory.Build.props",
+        ".git-blame-ignore-revs",
+        "config/development/csharp-style-policy.json",
+        "config/development/csharp-style-baseline.json",
+        "tools/dotnet/check-csharp-style.mjs",
+        "tests/tools/issue-1158-csharp-style.test.mjs",
+        "docs/development/csharp-style-enforcement.md"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "Fast Static Governance must reject new C# whitespace, brace, using, naming, encoding or scoped XML-documentation drift, stale baseline policy identity, excluded-path leakage, placeholder blame revisions and local/CI diagnostic disagreement.",
+      "minimumRequirement": "Evidence must cover positive and aggregate negative fixtures, generated exclusions, public-contract XML scope, external naming adapters, changed/full/strict-full modes, formatter idempotence and the exact reviewed mechanical migration SHA.",
+      "tierIds": [
+        "static-governance"
+      ]
+    },
+    {
       "id": "runtime-publish-profile-matrix",
       "description": "Named .NET/container publish profiles are one-factor comparable, digest-bound to release images and measured across all production route classes on isolated target/load-generator resources.",
       "owner": "ServerContractAgent",
