@@ -20,6 +20,8 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
     /// </summary>
     public AedsFrameBufferWriter(int initialCapacity = 1024, ArrayPool<byte>? pool = null)
     {
+        // PERF-INVARIANT: The reserved header and payload share one rented buffer;
+        // measured frame-cost evidence owns any change that adds an intermediate payload array.
         _pool = pool ?? ArrayPool<byte>.Shared;
         _buffer = _pool.Rent(Math.Max(AedsFrameHeader.Size + 1, initialCapacity));
         _written = AedsFrameHeader.Size;
@@ -90,6 +92,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
             throw new InvalidOperationException("AEDS frame must be sealed before transferring ownership.");
         }
 
+        // OWNERSHIP: Detaching consumes this writer; only the returned owner may retain the pooled array.
         OwnedAedsFrame ownedFrame = OwnedAedsFrame.TakePooledOwnership(
             _buffer,
             _written,
@@ -150,6 +153,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
             return;
         }
 
+        // SECURITY-INVARIANT: Sensitive frame types clear the complete rented capacity before reuse.
         _pool.Return(_buffer, clearArray: _clearOnReturn);
         _buffer = [];
         _written = 0;
@@ -172,7 +176,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         int newSize = Math.Max(_buffer.Length * 2, _written + sizeHint);
         byte[] next = _pool.Rent(newSize);
         _buffer.AsSpan(0, _written).CopyTo(next);
-        // The frame type is not known until Seal, so intermediate buffers are sensitive.
+        // SECURITY-INVARIANT: Before Seal identifies the frame type, every intermediate buffer is sensitive.
         _pool.Return(_buffer, clearArray: true);
         _buffer = next;
     }

@@ -1,0 +1,614 @@
+{
+    "schema": "fsusblog.code-intent-registry.v1",
+    "commentPolicy": {
+        "scanRoots": [
+            ".config",
+            ".github",
+            "benchmarks",
+            "config",
+            "ops",
+            "security",
+            "src",
+            "tests",
+            "tools"
+        ],
+        "extensions": [
+            ".cs",
+            ".csproj",
+            ".dcproj",
+            ".props",
+            ".pubxml",
+            ".cpp",
+            ".hpp",
+            ".ts",
+            ".mts",
+            ".js",
+            ".mjs",
+            ".vue",
+            ".sh",
+            ".cmake",
+            ".yml",
+            ".yaml",
+            ".sql"
+        ],
+        "specialFiles": [
+            "CMakeLists.txt"
+        ],
+        "publicClaimDocuments": [
+            "README.md",
+            "CONTRIBUTING.md",
+            "docs/architecture/overview.md",
+            "docs/development.md",
+            "docs/index.md"
+        ],
+        "excludedClassifications": [
+            "generated",
+            "vendor",
+            "fixture",
+            "lock",
+            "minified"
+        ],
+        "historicalNarrativeTerms": [
+            "修复日期",
+            "修订日期",
+            "修改日期",
+            "创建日期",
+            "历史记录",
+            "历史优化",
+            "核心修复",
+            "核心重构",
+            "核心优化",
+            "架构重构",
+            "毕业版"
+        ],
+        "absolutePerformanceTerms": [
+            "零开销",
+            "零分配",
+            "零 GC",
+            "零争用",
+            "绝对最快",
+            "绝对下限",
+            "物理极限",
+            "性能最大化",
+            "高性能",
+            "极速",
+            "极限速度",
+            "极致性能",
+            "极限性能",
+            "纳秒级",
+            "30GB/s",
+            "faster",
+            "zero copy",
+            "zero-copy",
+            "zero allocation",
+            "zero-allocation",
+            "no allocation",
+            "no-allocation",
+            "zero gc",
+            "zero overhead",
+            "thread safe",
+            "thread-safe",
+            "high performance",
+            "high-performance",
+            "fastest possible"
+        ],
+        "maxBlockCommentLines": 8,
+        "scopedRules": {
+            "mode": "registered-intents-and-public-contracts",
+            "rules": [
+                "trailing-comment",
+                "redundant-comment",
+                "long-design-block"
+            ]
+        }
+    },
+    "trackedTodoPolicy": {
+        "repository": "Ozwasyd/FsusBlog",
+        "verificationMaxAgeHours": 168
+    },
+    "claimLevels": {
+        "S": {
+            "name": "structural",
+            "measured": false,
+            "requirements": [
+                "source-path",
+                "intent-anchor",
+                "structural-boundary"
+            ]
+        },
+        "M": {
+            "name": "local-measured",
+            "measured": true,
+            "requirements": [
+                "current-commit",
+                "artifact-digest",
+                "machine-identity",
+                "raw-rounds",
+                "mean",
+                "p50",
+                "p95",
+                "allocation",
+                "iterations",
+                "noise-policy"
+            ]
+        },
+        "R": {
+            "name": "route-measured",
+            "measured": true,
+            "requirements": [
+                "M",
+                "route",
+                "protocol",
+                "status",
+                "cache-state",
+                "error-frame"
+            ]
+        },
+        "C": {
+            "name": "capacity-measured",
+            "measured": true,
+            "requirements": [
+                "R",
+                "saturation",
+                "hardware-counter-authority",
+                "target-and-load-generator-identity"
+            ]
+        }
+    },
+    "trackedTodos": [],
+    "publicContracts": [
+        {
+            "id": "notification-stream-envelope",
+            "language": "csharp",
+            "path": "src/shared/Contracts/NotificationStream/NotificationStreamContracts.cs",
+            "symbol": "NotificationStreamEnvelopeV2",
+            "documentationStyle": "xml-doc"
+        },
+        {
+            "id": "public-cover-presentation",
+            "language": "typescript",
+            "path": "src/frontend/src/view-contracts/coverArt.ts",
+            "symbol": "resolvePublicCoverPresentation",
+            "documentationStyle": "tsdoc"
+        },
+        {
+            "id": "code-intent-checker-api",
+            "language": "javascript",
+            "path": "tools/governance/check-code-intent.mjs",
+            "symbol": "checkCodeIntent",
+            "documentationStyle": "jsdoc"
+        },
+        {
+            "id": "passkey-mfa-prop",
+            "language": "vue",
+            "path": "src/frontend/src/components/ui/PasskeyRegisterModal.vue",
+            "symbol": "needsMfa",
+            "documentationStyle": "vue-tsdoc"
+        },
+        {
+            "id": "aeds-wasm-decode",
+            "language": "cpp",
+            "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+            "symbol": "decode_frame",
+            "documentationStyle": "doxygen"
+        },
+        {
+            "id": "test-tier-entrypoint",
+            "language": "shell",
+            "path": "tools/test.sh",
+            "symbol": "case \"$tier\" in",
+            "documentationStyle": "shell-doc"
+        },
+        {
+            "id": "aeds-decoder-target",
+            "language": "cmake",
+            "path": "src/frontend/wasm/aeds/CMakeLists.txt",
+            "symbol": "add_aeds_decoder",
+            "documentationStyle": "cmake-doc"
+        }
+    ],
+    "intents": [
+        {
+            "id": "aeds-frame-buffer-lifetime",
+            "sourcePaths": [
+                "src/core/Algorithms/AedsFrameBufferWriter.cs"
+            ],
+            "intentKinds": [
+                "ownership",
+                "sensitive-clearing",
+                "copy-boundary"
+            ],
+            "anchors": [
+                {
+                    "path": "src/core/Algorithms/AedsFrameBufferWriter.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "DetachOwnedFrame"
+                },
+                {
+                    "path": "src/core/Algorithms/AedsFrameBufferWriter.cs",
+                    "marker": "SECURITY-INVARIANT:",
+                    "symbol": "Dispose"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "One pool-backed header and payload buffer remains writer-owned until sealing transfers it or disposal clears and returns it."
+        },
+        {
+            "id": "owned-aeds-frame-read-leases",
+            "sourcePaths": [
+                "src/core/Algorithms/OwnedAedsFrame.cs"
+            ],
+            "intentKinds": [
+                "ownership",
+                "concurrency",
+                "sensitive-clearing"
+            ],
+            "anchors": [
+                {
+                    "path": "src/core/Algorithms/OwnedAedsFrame.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "RetireCore"
+                },
+                {
+                    "path": "src/core/Algorithms/OwnedAedsFrame.cs",
+                    "marker": "SECURITY-INVARIANT:",
+                    "symbol": "ReleaseBuffer"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "Retirement rejects new leases while the final current lease retains the backing array and controls its single release."
+        },
+        {
+            "id": "binary-preencoded-result-lease",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Results/BinaryFrameResult.cs"
+            ],
+            "intentKinds": [
+                "ownership",
+                "concurrency",
+                "disposal"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Infrastructure/Results/BinaryFrameResult.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "BinaryPreencodedFrameResult"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "An owned result consumes exactly one lease during its only execution and releases it from finally on every response branch."
+        },
+        {
+            "id": "banned-user-recovery-boundary",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs"
+            ],
+            "intentKinds": [
+                "fail-open-closed",
+                "compatibility"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
+                    "marker": "SECURITY-INVARIANT:",
+                    "symbol": "InvokeAsync"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "Anonymous recovery endpoints bypass account write restrictions while authenticated writes bind ban state to both account ID and stable subject hash."
+        },
+        {
+            "id": "redis-pow-bounded-hash-buffer",
+            "sourcePaths": [
+                "src/backend/Services/Security/RedisPowService.cs"
+            ],
+            "intentKinds": [
+                "performance",
+                "deliberate-buffer",
+                "deliberate-validation"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Services/Security/RedisPowService.cs",
+                    "marker": "PERF-INVARIANT:",
+                    "symbol": "CheckWorkloadWithSpan"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "Validated PoW fields are assembled into bounded stack buffers and oversized concatenations fail closed before hashing."
+        },
+        {
+            "id": "article-summary-unicode-boundary",
+            "sourcePaths": [
+                "src/backend/Services/ArticleService.CacheAndInvalidation.cs"
+            ],
+            "intentKinds": [
+                "compatibility",
+                "deliberate-validation"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Services/ArticleService.CacheAndInvalidation.cs",
+                    "marker": "COMPATIBILITY:",
+                    "symbol": "GenerateSafeSummary"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "Summary truncation preserves UTF-16 surrogate pairs so the persisted and returned text cannot contain a split emoji code point."
+        },
+        {
+            "id": "vite-worker-sourcemap-compatibility",
+            "sourcePaths": [
+                "src/frontend/vite.config.ts"
+            ],
+            "intentKinds": [
+                "compatibility",
+                "workaround"
+            ],
+            "anchors": [
+                {
+                    "path": "src/frontend/vite.config.ts",
+                    "marker": "COMPATIBILITY:",
+                    "symbol": "sourcemap"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "Production keeps sourcemaps disabled because generated Wasm glue URLs are resolved inside a Worker; development remains the only enabled mode."
+        },
+        {
+            "id": "ip2location-pooled-initialization",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Helpers/IP2LocationPooledObjectPolicy.cs"
+            ],
+            "intentKinds": [
+                "ownership",
+                "lifetime"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Infrastructure/Helpers/IP2LocationPooledObjectPolicy.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "component.Open"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "Each pooled component opens and parses its database before publication, and a caller borrows one initialized instance at a time."
+        },
+        {
+            "id": "jwt-singleton-token-material",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Helpers/JwtHelper.cs"
+            ],
+            "intentKinds": [
+                "ownership",
+                "lifetime",
+                "fail-open-closed"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "_credentials"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "s_tokenHandler"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                    "marker": "SECURITY-INVARIANT:",
+                    "symbol": "ClockSkew"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "The singleton owns one configured signing credential and one immutable token handler for all issuances under that key version; bearer validation adds no expiry grace period."
+        },
+        {
+            "id": "crawler-range-atomic-publication",
+            "sourcePaths": [
+                "src/backend/Services/Security/CrawlerDetectorService.cs"
+            ],
+            "intentKinds": [
+                "concurrency",
+                "fail-open-closed"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Services/Security/CrawlerDetectorService.cs",
+                    "marker": "SECURITY-INVARIANT:",
+                    "symbol": "_googleTree"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "Refresh publishes complete immutable crawler ranges by reference replacement so readers cannot authorize from a partially rebuilt tree."
+        },
+        {
+            "id": "system-page-write-fail-closed",
+            "sourcePaths": [
+                "src/backend/Services/SystemService.cs"
+            ],
+            "intentKinds": [
+                "fail-open-closed",
+                "deliberate-validation"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Services/SystemService.cs",
+                    "marker": "SECURITY-INVARIANT:",
+                    "symbol": "affectedRows"
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "A zero-row page update returns failure and never invalidates caches or reports a successful durable write."
+        },
+        {
+            "id": "aeds-frame-cost",
+            "sourcePaths": [
+                "src/core/Algorithms/AedsFrameBufferWriter.cs",
+                "src/backend/Infrastructure/Results/BinaryFrameResult.cs"
+            ],
+            "intentKinds": [
+                "performance",
+                "measurement",
+                "copy-boundary"
+            ],
+            "anchors": [
+                {
+                    "path": "src/core/Algorithms/AedsFrameBufferWriter.cs",
+                    "marker": "PERF-INVARIANT:",
+                    "symbol": "AedsFrameBufferWriter"
+                }
+            ],
+            "claimLevel": "M",
+            "status": "measurement-contract",
+            "evidence": {
+                "producer": "tools/operations/aeds-frame-cost-evidence.mjs",
+                "paths": [
+                    "docs/testing/issue-1152-aeds-frame-cost-evidence.md",
+                    "tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs"
+                ],
+                "policy": {
+                    "path": "tests/perf/perf-policy.yml",
+                    "anchor": "aedsFrameCost:"
+                },
+                "authority": {
+                    "requiresCurrentCommit": true,
+                    "requiresArtifactDigest": true,
+                    "requiresMachineIdentity": true
+                },
+                "requiredStatistics": [
+                    "mean",
+                    "p50",
+                    "p95",
+                    "allocation",
+                    "iterations",
+                    "noise"
+                ]
+            },
+            "nonGoals": [
+                "cache-hit-qps",
+                "downstream-zero-copy",
+                "hardware-copy-counter"
+            ]
+        },
+        {
+            "id": "aeds-cache-miss-owned-frame",
+            "sourcePaths": [
+                "src/core/Algorithms/OwnedAedsFrame.cs"
+            ],
+            "intentKinds": [
+                "performance",
+                "measurement",
+                "ownership"
+            ],
+            "anchors": [
+                {
+                    "path": "src/core/Algorithms/OwnedAedsFrame.cs",
+                    "marker": "MEASUREMENT:",
+                    "symbol": "OwnedAedsFrame"
+                }
+            ],
+            "claimLevel": "M",
+            "status": "measurement-contract",
+            "evidence": {
+                "producer": "benchmarks/core/AedsCacheMissFrameProfiler.cs",
+                "paths": [
+                    "docs/performance-aeds-cache-miss-owned-frame.md",
+                    "tests/backend/Unit/OwnedAedsFrameTests.cs"
+                ],
+                "policy": {
+                    "path": "docs/performance-aeds-cache-miss-owned-frame.md",
+                    "anchor": "选择规则"
+                },
+                "authority": {
+                    "requiresCurrentCommit": true,
+                    "requiresArtifactDigest": true,
+                    "requiresMachineIdentity": true
+                },
+                "requiredStatistics": [
+                    "mean",
+                    "p50",
+                    "p95",
+                    "allocation",
+                    "iterations",
+                    "noise"
+                ]
+            },
+            "nonGoals": [
+                "cache-hit-qps",
+                "downstream-zero-copy"
+            ]
+        },
+        {
+            "id": "pod-binary-codec-batch",
+            "sourcePaths": [
+                "src/core/Cache/PodBinaryCodec.Article.cs"
+            ],
+            "intentKinds": [
+                "performance",
+                "measurement",
+                "ownership",
+                "deliberate-branch"
+            ],
+            "anchors": [
+                {
+                    "path": "src/core/Cache/PodBinaryCodec.Article.cs",
+                    "marker": "PERF-INVARIANT:",
+                    "symbol": "WriteArticleDetail"
+                },
+                {
+                    "path": "src/core/Cache/PodBinaryCodec.Article.cs",
+                    "marker": "COMPATIBILITY:",
+                    "symbol": "ArticlePageCursorEnvelopeMagic"
+                },
+                {
+                    "path": "src/core/Cache/PodBinaryCodec.Article.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "WriteArticlePage",
+                    "maxLineDistance": 64
+                }
+            ],
+            "claimLevel": "M",
+            "status": "measurement-contract",
+            "evidence": {
+                "producer": "tools/operations/check-pod-binary-codec-batch-evidence.mjs",
+                "paths": [
+                    "docs/performance-pod-binary-codec-batch.md",
+                    "tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs"
+                ],
+                "policy": {
+                    "path": "docs/performance-pod-binary-codec-batch.md",
+                    "anchor": "## Local before/after evidence"
+                },
+                "authority": {
+                    "requiresCurrentCommit": true,
+                    "requiresArtifactDigest": true,
+                    "requiresMachineIdentity": true
+                },
+                "requiredStatistics": [
+                    "mean",
+                    "p50",
+                    "p95",
+                    "allocation",
+                    "iterations",
+                    "noise"
+                ]
+            },
+            "nonGoals": [
+                "cache-hit-qps"
+            ]
+        }
+    ]
+}

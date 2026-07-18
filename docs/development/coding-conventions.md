@@ -26,8 +26,8 @@
 - 4 spaces，禁止用 Tab 缩进；续行增加一个 4-space 层级；
 - 一行一条语句、一行一个声明；同一逻辑块之间用最少必要空行分隔；
 - import、include、using 先按平台/标准库、第三方、仓库内部三组排列，各组内稳定排序；
-- 注释解释约束与原因，不复述代码；公开契约使用该语言的文档注释；
-- `TODO(owner-or-issue): reason` 与 `FIXME(owner-or-issue): reason` 必须有 owner 或 issue，禁止无归属占位。
+- 注释解释约束与原因，不复述代码；公开契约使用该语言的文档注释；高价值意图和性能声明见 [Code intent governance](code-intent-governance.md)；
+- TODO/FIXME 只允许 `TODO(#1234): reason; removal condition: observable exit condition.`，并登记 open issue 与删除条件，禁止 owner-only 或无归属占位。
 
 Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake、YAML、JSON 与 Markdown 服从语言语法和社区工具可稳定表达的形式，不机械套用 Allman。
 
@@ -142,7 +142,7 @@ Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake
 
 所有语言都遵循“platform/standard → third-party → repository/local”的依赖方向；语言强制顺序（例如对应 C++ header）优先。循环依赖不能靠调整 import 顺序掩盖。
 
-短注释放在被解释语句之前。公共 contract doc comment 说明输入、输出、失败和安全边界；TODO/FIXME 必须绑定 owner 或 issue。历史叙述、release 记录和长篇设计理由写入 `docs/`，不堆进 hot path。
+短注释放在被解释语句之前。公共 contract doc comment 说明输入、输出、失败和安全边界；TODO/FIXME 必须绑定 open issue、删除条件和 registry entry。历史叙述、release 记录、行尾注释和长篇设计理由写入 `docs/`，不堆进 hot path。结构事实与实测性能结论不得混用；具体 marker、S/M/R/C 等级和 fail-closed 条件见 [Code intent governance](code-intent-governance.md)。
 
 ## Enforcement
 
@@ -150,6 +150,7 @@ Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake
 
 ```bash
 node tools/docs/check-authoritative-development-docs.mjs
+node tools/governance/check-code-intent.mjs
 ```
 
 门禁从 `config/development/authoritative-development-docs.json` 读取路径、symbol、command、style owner、外部例外和 generated/vendor/fixture 分类，聚合全部错误后失败。后续 formatter/linter issue 必须消费这份基线；不得创建另一份同级“唯一编码规范”。

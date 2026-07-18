@@ -22,8 +22,7 @@ public interface ICacheInitializer
 }
 
 /// <summary>
-/// 系统缓存初始化器
-/// 修复日期: 2026-02-23 (引入并发批处理机制，消除串行 Redis 网络 I/O 带来的冷启动阻塞延迟，实现极速预热)
+/// Warms ban-state caches in batches and records the previous state needed for rollback.
 /// </summary>
 // Public named-argument source compatibility; exact exception registered in csharp-style-policy.
 #pragma warning disable IDE1006
@@ -32,7 +31,6 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
 {
     public async Task<CacheInitializationResult> InitializeAsync()
     {
-        // 1. 极速筛选 Status=1 的用户
         var bannedUsers = await _db.Queryable<User>()
             .Where(u => u.Status == 1)
             .Select(u => new BannedUserCacheRow

@@ -22,6 +22,8 @@ public sealed class OwnedAedsFrame : IDisposable
         AedsFrameType frameType,
         ArrayPool<byte>? pool)
     {
+        // MEASUREMENT: Pool-versus-exact selection remains governed by the cache-miss evidence;
+        // this owner alone does not imply a cache-hit throughput result.
         ArgumentNullException.ThrowIfNull(buffer);
         if (logicalLength < AedsFrameHeader.Size || logicalLength > buffer.Length)
         {
@@ -161,6 +163,7 @@ public sealed class OwnedAedsFrame : IDisposable
 
     private bool RetireCore(Action<int>? backingReleased)
     {
+        // OWNERSHIP: Retirement closes admission, but the final active lease still owns release timing.
         BufferRelease? release = null;
         lock (_gate)
         {
@@ -220,6 +223,7 @@ public sealed class OwnedAedsFrame : IDisposable
             return;
         }
 
+        // SECURITY-INVARIANT: Pooled sensitive frames clear on return; exact frames clear before final release.
         if (_pool is not null)
         {
             try

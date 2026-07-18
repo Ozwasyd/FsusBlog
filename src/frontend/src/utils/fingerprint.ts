@@ -1,8 +1,7 @@
 /**
  * FsusPow Engine - 指纹采集器
- * 核心职责：生成设备唯一的同步指纹，作为 PoW 校验盐值的一部分
- * 性能要求：纯同步计算，耗时需小于 1ms
- * 优化逻辑：[修复 2026-02-23] 引入哈希坍缩算法，消除线性截断导致的熵黑洞
+ * 核心职责：生成稳定的同步设备指纹，作为 PoW 校验盐值的一部分
+ * 哈希策略：四路 32 位累积器分别吸收全部输入字符。
  */
 const HASH_PRIME_3 = Number.parseInt('5f356495', 16);
 
@@ -22,18 +21,17 @@ export const getBrowserFp = (): string => {
   const raw = `${ua}|${resolution}|${timezone}|${language}|${cores}|${memory}`
 
   /**
-   * 3. 核心算法：哈希坍缩 (Entropy Collapse)
-   * 逻辑自洽：使用四个不同的偏移初值与质数，进行并行的 FNV-1a 位运算
-   * 算法最优：通过 Math.imul (32位整数乘法) 强制执行物理层面的溢出截断，模拟 128 位哈希
+   * 3. 哈希坍缩
+   * 四个独立种子分别执行 FNV-1a 风格的异或和 32 位乘法。
    */
   const collapse = (str: string): string => {
-    // 四个不同的 32 位哈希种子 (种子选自逻辑质数)
+    // 四个独立的 32 位哈希种子。
     let h1 = 0x811c9dc5, h2 = 0xdeadbeef, h3 = 0xbadc0fee, h4 = 0x243f6a88;
 
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
-      // 利用 Math.imul 实现极速的 32 位乘法坍缩
-      // 每一个字符的变动都会通过异或和乘法运算，呈雪崩式扩散到四个哈希池中
+      // Math.imul 提供确定的 32 位整数乘法和溢出截断。
+      // 每个字符分别更新四个哈希累积值。
       h1 = Math.imul(h1 ^ char, 16777619);
       h2 = Math.imul(h2 ^ char, 2654435761);
       h3 = Math.imul(h3 ^ char, HASH_PRIME_3);
@@ -42,7 +40,7 @@ export const getBrowserFp = (): string => {
 
     // 4. 格式化输出
     // 将 4 个 32 位整数转换为 16 进制并拼接，得到 32 位的紧凑指纹
-    // 逻辑自洽：使用无符号右移 (>>> 0) 确保结果为正整数
+    // 无符号右移 (>>> 0) 将结果规范为 32 位无符号整数。
     const toHex = (num: number) => (num >>> 0).toString(16).padStart(8, '0');
 
     return `${toHex(h1)}${toHex(h2)}${toHex(h3)}${toHex(h4)}`.slice(0, 32);

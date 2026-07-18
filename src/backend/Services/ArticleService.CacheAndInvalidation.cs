@@ -413,8 +413,7 @@ public partial class ArticleService
     internal static void AttachTagsForTests(List<ArticleListItemReadModel> items, IReadOnlyDictionary<int, List<TagReadModel>> tagMap)
         => AttachTags(items, tagMap);
 
-    // [修改日期 2026-03-01]
-    // 写入时绝对安全的摘要生成：防御 C# 字符串切片由于 UTF-16 代理对断裂引发的 Emoji 碎裂乱码。[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    // COMPATIBILITY: Truncation must not split a UTF-16 surrogate pair because summaries retain emoji text.
     private static string GenerateSafeSummary(string? content)
     {
         if (string.IsNullOrWhiteSpace(content))

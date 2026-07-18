@@ -5,8 +5,7 @@ using System.Text.RegularExpressions;
 namespace FsusBlog.Server.Helpers;
 
 /// <summary>
-/// 博客插图辅助工具：负责从 Markdown 或 HTML 正文中精准提取资源引用
-/// 修复日期: 2026-02-23 (引入 EnumerateMatches 流式解析，短路求值消灭 O(N) 扫描，利用 Span 与 string.Create 实现全流程极低分配)
+/// Extracts illustration references from Markdown and HTML content.
 /// </summary>
 public static partial class ImageHelper
 {
@@ -92,7 +91,7 @@ public static partial class ImageHelper
 
         foreach (var match in IllustrationRegex().EnumerateMatches(span))
         {
-            // 彻底消灭原有的 match.Value 分配
+            // Slice the original content instead of materializing Match.Value.
             var matchSpan = span.Slice(match.Index, match.Length).Trim();
             if (matchSpan.IsEmpty)
                 continue;
@@ -191,8 +190,7 @@ public static partial class ImageHelper
         if (string.IsNullOrWhiteSpace(content))
             return null;
 
-        // 核心优化：使用 EnumerateMatches 替代 Match。
-        // 如果没有匹配项，它的开销为绝对的 0（没有实例化任何 Match 对象体系）。
+        // EnumerateMatches avoids materializing a Match object graph before the first result.
         var enumerator = IllustrationRegex().EnumerateMatches(content.AsSpan());
         if (enumerator.MoveNext())
         {

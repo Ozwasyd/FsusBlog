@@ -5,8 +5,7 @@ using Microsoft.AspNetCore.Http;
 namespace FsusBlog.Server.Infrastructure;
 
 /// <summary>
-/// 极速用户 ID 解析器
-/// 作用：以 O(1) 的极限速度直接从 HTTP Claims 中提取用户标识
+/// Parses a user ID from claims and caches the validated value in the current HTTP context.
 /// </summary>
 public static class FastUserIdProvider
 {

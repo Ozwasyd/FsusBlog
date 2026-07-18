@@ -15,8 +15,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Services;
 
 /// <summary>
-/// 站点统计服务实现
-/// 修复日期: 2026-02-23 (修复 LINQ 投影后上下文丢失导致的编译错误，保持 Dapper 级物理映射)
+/// Reads administrative and public site statistics through generation-scoped cache identities.
 /// </summary>
 // Public named-argument source compatibility; exact exception registered in csharp-style-policy.
 #pragma warning disable IDE1006
@@ -368,9 +367,7 @@ public partial class StatsService(
             : trimmed;
     }
 
-    // ==========================================
-    // 高性能日志源生成器 (Zero-Allocation Logging)
-    // ==========================================
+    // LoggerMessage source-generates typed logging calls without a params object array.
 
     [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "仪表盘统计缓存读取异常，已自动切换为实时计算")]
     private partial void LogCacheReadError(Exception ex);

@@ -8,9 +8,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 namespace FsusBlog.Server.Infrastructure.Helpers;
 
 /// <summary>
-/// ClaimsPrincipal 扩展工具类
-/// 用于从 HttpContext.User 中快速提取身份信息
-/// 修复日期: 2026-02-23 (引入 ReadOnlySpan<char> 实现零内存分配的 ID 解析，移除冗余包装方法并实现内联加速)
+/// Extracts typed identity values from <see cref="ClaimsPrincipal"/> and treats invalid IDs as absent.
 /// </summary>
 public static class ClaimsPrincipalExtensions
 {

@@ -14,6 +14,10 @@ fi
 tier="$1"
 shift || true
 
+# Contract: tools/test.sh dispatches one named matrix tier through the canonical Node runner.
+# Input: The first argument is a tier; remaining arguments are forwarded without reinterpretation.
+# Output: Standard output and artifacts belong to the selected matrix tier.
+# Failure: Missing or rejected tiers return the canonical runner's nonzero status.
 case "$tier" in
   production-correctness|browser-contract|browser-diagnostics|release-final)
     exec "$NODE_BIN" "$ROOT_DIR/tools/run-test-matrix.mjs" run "$tier" "$@"

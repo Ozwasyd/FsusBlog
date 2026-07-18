@@ -18,7 +18,6 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace FsusBlog.Server.Infrastructure.Helpers;
 
-// 1. 强类型配置模型
 public class JwtSettings
 {
     public string KeyVersion { get; set; } = "legacy-current";
@@ -49,7 +48,6 @@ public readonly record struct IssuedAccessToken(string Token, DateTimeOffset Exp
     public static implicit operator string(IssuedAccessToken issuedToken) => issuedToken.Token;
 }
 
-// 2. 服务接口
 public interface IJwtHelper
 {
     IssuedAccessToken GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false);
@@ -58,18 +56,17 @@ public interface IJwtHelper
 }
 
 /// <summary>
-/// JWT 服务实现：负责高安全性的令牌签发
-/// 修复日期: 2026-02-23 (引入静态 Handler 复用，预计算签名凭证，并实现零中间分配的 CSPRNG 刷新令牌生成)
+/// Issues signed access tokens and cryptographically random refresh tokens.
 /// </summary>
 public class JwtHelper : IJwtHelper
 {
     private readonly JwtSettings _settings;
     private readonly IConfiguration? _configuration;
 
-    // 核心优化 1：预计算签名凭证。由于服务是单例，避免每次签发 Token 时重复申请 byte[] 和对象
+    // OWNERSHIP: The singleton reuses immutable signing credentials for one configured key version.
     private readonly SigningCredentials _credentials;
 
-    // 核心优化 2：JwtSecurityTokenHandler 是线程安全的，全局复用避免高频实例化开销
+    // OWNERSHIP: One immutable handler configuration is shared by all token issuances.
     private static readonly JwtSecurityTokenHandler s_tokenHandler = new();
 
     public JwtHelper(IOptions<JwtSettings> options, IConfiguration? configuration = null)
@@ -77,9 +74,8 @@ public class JwtHelper : IJwtHelper
         _settings = options.Value;
         _configuration = configuration;
 
-        // 使用 UTF8 支持更复杂的密钥字符 (在启动时执行一次)
+        // The configured key material is parsed once during singleton construction.
         SymmetricSecurityKey key = JwtSigningKeyRing.CreateKey(_settings.KeyVersion, _settings.SecretKey);
-        // HmacSha256 需要至少 128 bit 的密钥，推荐 256 bit (32 字符)
         _credentials = new SigningCredentials(
             key,
             SecurityAlgorithms.HmacSha256Signature);
@@ -87,7 +83,6 @@ public class JwtHelper : IJwtHelper
 
     public IssuedAccessToken GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false)
     {
-        // 核心优化 3：使用数组代替 List<Claim>，省去底层 List 对象的分配开销
         string identityKind = string.IsNullOrWhiteSpace(user.IdentityKind)
             ? AnonymousIdentityRuntime.AnonymousAccountKind
             : user.IdentityKind.Trim();
@@ -183,7 +178,7 @@ public class JwtHelper : IJwtHelper
 }
 
 /// <summary>
-/// 扩展方法：负责将 JWT 服务注册到 DI 容器和管道
+/// Registers token issuance and bearer validation, rejecting an invalid signing-key configuration at startup.
 /// </summary>
 public static class JwtServiceExtensions
 {
@@ -192,14 +187,11 @@ public static class JwtServiceExtensions
 
     public static void AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
-        // 1. 绑定配置
         var jwtSection = configuration.GetSection("Jwt");
         services.Configure<JwtSettings>(jwtSection);
 
-        // 注册服务为单例
         services.AddSingleton<IJwtHelper, JwtHelper>();
 
-        // 2. 校验配置完整性
         var settings = jwtSection.Get<JwtSettings>();
         if (settings == null ||
             string.IsNullOrEmpty(settings.SecretKey) ||
@@ -218,7 +210,6 @@ public static class JwtServiceExtensions
             throw new InvalidOperationException("JWT key ring configuration is invalid: " + string.Join("; ", keyRingErrors));
         }
 
-        // 3. 配置认证方案
         services.AddAuthentication(x =>
         {
             x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -249,10 +240,10 @@ public static class JwtServiceExtensions
                 ValidAudience = settings.Audience,
 
                 ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero // 严格过期策略
+                // SECURITY-INVARIANT: Validation never extends the configured token lifetime.
+                ClockSkew = TimeSpan.Zero
             };
 
-            // 从 Cookie 提取 Token
             options.Events = new JwtBearerEvents
             {
                 OnMessageReceived = context =>

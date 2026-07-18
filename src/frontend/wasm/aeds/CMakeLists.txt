@@ -14,6 +14,10 @@ set(AEDS_EXPORTED_FUNCTIONS
 
 option(FSUSBLOG_AEDS_MEMORY64 "Build AEDS decoder with Emscripten memory64" OFF)
 
+# Contract: Define one AEDS decoder target without changing its exported C ABI.
+# Input: target is the CMake target name, output_name is the emitted module name, and tier selects basic or speed flags.
+# Output: A configured Emscripten executable that emits the requested JavaScript and WebAssembly module.
+# Failure: Configuration or linking fails when the toolchain, tier options, or required exports are invalid.
 function(add_aeds_decoder target output_name tier)
   add_executable(${target} ${AEDS_DECODER_SOURCES})
   target_include_directories(${target} PRIVATE include)

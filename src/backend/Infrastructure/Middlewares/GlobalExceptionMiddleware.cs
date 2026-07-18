@@ -8,8 +8,8 @@ using FsusBlog.Server.Infrastructure.Results;
 
 namespace FsusBlog.Server.Infrastructure.Middlewares;
 
-// 注入 IHostEnvironment 以便在运行时判断环境，而不是编译时
-// 修复日期: 2026-02-23 (声明为 partial 以引入 LoggerMessage 源生成器消除日志分配，增强序列化中断韧性)
+// Runtime environment policy controls diagnostic disclosure; the build configuration does not.
+// Partial LoggerMessage methods avoid params-array and boxing at these call sites.
 // Public named-argument source compatibility; exact exception registered in csharp-style-policy.
 #pragma warning disable IDE1006
 public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<GlobalExceptionMiddleware> _logger, IHostEnvironment _env)
@@ -103,9 +103,7 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
             _ => ErrorDetail.Create(ErrorCode.InfraFailure, "服务器内部错误，请稍后重试")
         };
 
-    // ====================================================================
-    // 高性能日志源生成器声明区 (彻底消灭装箱与 object[] 分配)
-    // ====================================================================
+    // LoggerMessage source-generates typed logging calls without a params object array.
 
     [LoggerMessage(
         EventId = 1,

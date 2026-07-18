@@ -7,8 +7,7 @@ using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Infrastructure.Security;
 
 /// <summary>
-/// 全局自适应 PoW 治理器 (The Governor) - High Performance Edition
-/// 修复日期: 2026-02-23 (废弃 ConcurrentDictionary 引入无锁环形缓存彻底解决 Count 性能瓶颈与缓存雪崩问题)
+/// Adjusts global PoW difficulty from recent request pressure and bounded local risk state.
 /// </summary>
 public sealed class AdaptivePowGovernor
 {
@@ -35,9 +34,7 @@ public sealed class AdaptivePowGovernor
     private const int EwmaAlphaNumerator = 35;
     private const int EwmaAlphaDenominator = 100;
 
-    // ==========================================
-    // 极限 L1 本地缓存 (无锁 Set-Associative Cache)
-    // ==========================================
+    // The fixed set-associative cache bounds local risk-state residency.
     private const int CacheSetCount = 2048;
     private const int CacheSetMask = CacheSetCount - 1;
     private const int CacheWays = 4;

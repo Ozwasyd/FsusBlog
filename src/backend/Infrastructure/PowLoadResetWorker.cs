@@ -6,9 +6,7 @@ using FsusBlog.Server.Infrastructure.Security;
 namespace FsusBlog.Server.Infrastructure;
 
 /// <summary>
-/// PoW 自适应治理器心跳服务 (The Heartbeat)
-/// 修复日期: 2026-02-23 (类声明为 partial，引入 [LoggerMessage] 源生成器彻底消除日志参数的装箱与数组堆分配)
-/// 核心职责：按秒级驱动 Governor 进行流量窗口重置
+/// Advances the PoW governor's request-rate window once per second under the background-worker lease.
 /// </summary>
 public sealed partial class PowLoadResetWorker(
     AdaptivePowGovernor governor,
@@ -61,9 +59,7 @@ public sealed partial class PowLoadResetWorker(
             });
     }
 
-    // ====================================================================
-    // 🚀 高性能日志源生成器声明区 (彻底消灭装箱与 params object[] 分配)
-    // ====================================================================
+    // LoggerMessage source-generates typed logging calls without a params object array.
 
     [LoggerMessage(
         EventId = 1,

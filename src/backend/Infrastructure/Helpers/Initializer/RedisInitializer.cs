@@ -3,8 +3,7 @@ using StackExchange.Redis;
 namespace FsusBlog.Server.Infrastructure.Helpers.Initializer;
 
 /// <summary>
-/// Redis 基础设施注册
-/// 修复日期: 2026-02-23 (引入延迟异步连接以消除启动阻塞，配置高并发连接池与保活策略，提升极限抗压能力)
+/// Registers Redis connection startup, retry, keepalive, and timeout policy.
 /// </summary>
 public static class RedisInitializer
 {
@@ -18,16 +17,16 @@ public static class RedisInitializer
 
         var redisOptions = ConfigurationOptions.Parse(connectionString);
 
-        // 核心稳定性配置：
+        // Startup remains available for the hosted connector to perform delayed retries.
         redisOptions.AbortOnConnectFail = false;
 
-        // 极限抗压优化：自动重连机制增强。在线上环境，Redis 可能发生短暂的主从切换或网络抖动
+        // Redis failover and transient network faults may require several reconnect attempts.
         redisOptions.ConnectRetry = 5;
 
-        // 保活优化：解决云服务器环境（如 AWS/Aliyun）由于 NAT 会话超时导致的长连接静默断开问题
+        // Keepalive prevents idle NAT mappings from silently dropping the connection.
         redisOptions.KeepAlive = 15;
 
-        // 增加吞吐量：在单实例连接下，适当调高异步操作的超时容忍度，配合外部的限流保护
+        // The external rate limiter bounds admission while Redis operations use the same timeout budget.
         redisOptions.AsyncTimeout = 15000;
         redisOptions.SyncTimeout = 15000;
 

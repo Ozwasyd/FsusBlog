@@ -71,7 +71,7 @@ export interface AdminChangeStatusDto extends PowBaseDto {
 // ================= API 方法定义 =================
 
 /**
- * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持 AbortSignal 物理中断
+ * 所有方法接受可选的 config.signal，以便调用方通过 AbortSignal 中断请求。
  */
 
 /**

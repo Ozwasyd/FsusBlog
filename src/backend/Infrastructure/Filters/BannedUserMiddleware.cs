@@ -37,9 +37,8 @@ public class BannedUserMiddleware(RequestDelegate _next)
             return;
         }
 
-        // --- 核心修复(2026-02-21)：允许所有带有 [AllowAnonymous] 的终结点直接放行 ---
-        // 逻辑自洽：解决受限用户在携带旧 Token 请求 Login/RefreshToken 时被中间件误杀拦截的问题。
-        // 性能最大化：利用 Endpoint Routing 提供的内存元数据，O(1) 复杂度极速判定。
+        // SECURITY-INVARIANT: Anonymous endpoint metadata wins over a stale authenticated cookie so
+        // restricted users can still reach login and refresh recovery paths.
         var endpoint = context.GetEndpoint();
         if (endpoint?.Metadata?.GetMetadata<IAllowAnonymous>() != null)
         {
@@ -85,8 +84,7 @@ public class BannedUserMiddleware(RequestDelegate _next)
                 return;
             }
 
-            // 4. 提取账号标识与稳定 subject hash
-            // 5. 高性能校验：直接命中 Redis
+            // SECURITY-INVARIANT: Ban state is keyed by both the account ID and stable subject hash.
             BanStateSnapshot banState = await blacklist.GetBanStateAsync(accountId, accountSubjectHash);
 
             if (banState.IsBanned)

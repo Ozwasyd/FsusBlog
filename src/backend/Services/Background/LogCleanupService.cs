@@ -10,12 +10,8 @@ using SqlSugar;
 namespace FsusBlog.Server.Services.Background;
 
 /// <summary>
-/// 访问日志自动清理服务（后台定时任务）
-///[修改日期 2026-03-01]
-/// 修改理由：采用 .NET 现代的 PeriodicTimer 替换 Task.Delay。
-///[架构重构 2026-03-01]
-/// 吸收审查建议：彻底废弃单次全表删除。引入分块删除 (Chunked Deletion) 机制，每次仅剔除 5000 条并微睡眠。
-/// 物理真相：防止 PostgreSQL MVCC 机制下引发 WAL 日志暴增与磁盘 I/O 瞬间打满，保障线上读写性能平稳。
+/// Periodically removes expired operational records under the active-release lease.
+/// Deletion is chunked and briefly yielded between chunks to bound each transaction and its WAL burst.
 /// </summary>
 // Public named-argument source compatibility; exact exception registered in csharp-style-policy.
 #pragma warning disable IDE1006

@@ -7,14 +7,12 @@ using System.Text;
 namespace FsusBlog.Server.Infrastructure.Helpers.Security;
 
 /// <summary>
-/// 高性能物理字符校验器
-/// 修复日期: 2026-02-23 (全站校验函数 SIMD 化，利用 .NET 8 指令集实现零分配、零分支预测失败的极限吞吐)
+/// Validates supported character ranges with an AVX2 path and a scalar fallback.
 /// </summary>
 public static class FastCharValidator
 {
     /// <summary>
-    /// 判定字符串是否仅包含中英文 (等价于正则: ^[\u4e00-\u9fa5a-zA-Z]+$)
-    /// 性能：AVX2 模式下处理速度约为 30GB/s
+    /// Determines whether the span contains only the configured Chinese and Latin alphabetic ranges.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsOnlyChineseAndAlpha(ReadOnlySpan<char> span)
@@ -27,7 +25,7 @@ public static class FastCharValidator
 
         if (Avx2.IsSupported && length >= 16)
         {
-            // 零开销重解释内存
+            // Reinterpret UTF-16 code units as unsigned lanes for the AVX2 comparisons.
             ReadOnlySpan<ushort> uSpan = MemoryMarshal.Cast<char, ushort>(span);
 
             var lowerMin = Vector256.Create((ushort)'a');
@@ -132,8 +130,8 @@ public static class FastCharValidator
     }
 
     /// <summary>
-    /// 判定字符串是否仅包含英文字母、数字和连字符 (等价于正则: ^[a-zA-Z0-9\-]+$)
-    /// 性能：全向量化扫描，彻底杜绝 ReDoS 风险与正则状态机开销
+    /// Determines whether the span contains only Latin letters, digits, and hyphens.
+    /// The bounded vector/scalar scan does not invoke a regular-expression state machine.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsAlphaNumericHyphen(ReadOnlySpan<char> span)

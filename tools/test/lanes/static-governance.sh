@@ -20,6 +20,7 @@ static_matrix_schema() { run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh
 static_retention() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-retention.mjs"; }
 static_implementation_drift() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-doc-implementation-drift.mjs"; }
 static_authoritative_development_docs() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-authoritative-development-docs.mjs"; }
+static_code_intent() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-code-intent.mjs"; }
 static_appsettings_authority() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-appsettings-authority.mjs"; }
 static_csharp_style() {
   run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode changed
@@ -38,6 +39,7 @@ STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1157-authoritative-development-docs.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1158-csharp-style.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1155-code-intent.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1171-appsettings-authority.test.mjs"
   "$ROOT_DIR/tests/tools/configuration-layout.test.mjs"
   "$ROOT_DIR/tests/tools/operations-layout.test.mjs"
@@ -161,6 +163,7 @@ run_static_prechecks_phase() {
     matrix-schema static_matrix_schema \
     implementation-drift static_implementation_drift \
     authoritative-development-docs static_authoritative_development_docs \
+    code-intent static_code_intent \
     appsettings-authority static_appsettings_authority \
     csharp-style static_csharp_style
 }

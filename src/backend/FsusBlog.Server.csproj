@@ -42,7 +42,7 @@
 		<ReadyToRunUseCrossgen2>false</ReadyToRunUseCrossgen2>
 	</PropertyGroup>
 
-		<!--[修改日期 2026-03-01] 打破 VS 缓存屏障：将前端源码纳入 MSBuild 监控，保存前端代码即触发增量更新 -->
+	<!-- Frontend inputs participate in Visual Studio's up-to-date check. -->
 	<ItemGroup>
 		<UpToDateCheckInput Include="..\frontend\src\**\*" />
 		<UpToDateCheckInput Include="..\frontend\package.json" />
@@ -50,7 +50,7 @@
 		<UpToDateCheckInput Include="..\frontend\index.html" />
 	</ItemGroup>
 
-	<!-- 核心修复 (修订日期: 2026-02-22)：使用 Content Include 批量匹配，确保发布时字典文件绝对不会遗漏 -->
+	<!-- Dictionary and moderation policy files are required publish content. -->
 	<ItemGroup>
 		<Content Include="Dictionaries\**\*.txt">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

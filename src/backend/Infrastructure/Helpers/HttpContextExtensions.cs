@@ -13,8 +13,7 @@ public static class HttpContextExtensions
     public const int MaxUserAgentLength = 512;
 
     /// <summary>
-    /// 获取客户端真实 IP 地址 (深度适配代理穿透与 IPv6)
-    /// 修复日期: 2026-02-23 (引入 ReadOnlySpan<char> 零分配解析管道，拦截 RemoteIpAddress 序列化开销，修复 UserAgent 空值判断)
+    /// Returns the remote address after trusted forwarded-header processing and normalizes IPv4-mapped IPv6.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string GetClientIp(this HttpContext context)

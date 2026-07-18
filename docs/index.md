@@ -1,6 +1,7 @@
 # Documentation Index
 
 - [Coding Conventions](development/coding-conventions.md) - C#-derived cross-language style mapping, precedence, and external-contract exceptions.
+- [Code Intent Governance](development/code-intent-governance.md) - ownership/security/performance markers, TODO lifecycle, public documentation, and S/M/R/C evidence levels.
 - [Local Development](development.md) - local toolchain, startup, debugging, and authoritative development-doc checks.
 - [API Contracts](api/contracts.md) - request, response, AEDS, and binary contract rules.
 - [Rights V3 Schema](rights-v3-schema.md) - database schema and migration contract for rights policies, snapshots, and proofs.

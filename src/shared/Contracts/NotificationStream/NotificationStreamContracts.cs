@@ -50,6 +50,7 @@ public enum NotificationStreamEventType : short
 }
 
 /// <summary>
-/// Defines the notification-stream transport contract represented by <c>NotificationStreamEnvelopeV2</c>.
+/// Carries the ordered event ID, stable event-type code, producer timestamp, and typed payload.
+/// Positional field order is part of the notification-stream AEDS wire contract.
 /// </summary>
 public readonly record struct NotificationStreamEnvelopeV2<TPayload>(long Id, NotificationStreamEventType Type, long Ts, TPayload Payload);

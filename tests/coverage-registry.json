@@ -110,6 +110,25 @@
       ]
     },
     {
+      "id": "code-intent-governance",
+      "description": "Machine-readable ownership, security, compatibility and performance intent remains attached to live source and evidence while comment debt, public-contract documentation drift and unsupported claim upgrades fail closed.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/governance/code-intent-registry.json",
+        "tools/governance/check-code-intent.mjs",
+        "tests/tools/issue-1155-code-intent.test.mjs",
+        "docs/development/code-intent-governance.md",
+        "docs/development/coding-conventions.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Static governance must aggregate historical/date comments, trailing or redundant comments on registered surfaces, untracked, stale, expired or closed-issue TODO/FIXME, unbounded performance claims, missing public docs, stale source/evidence/policy references, missing sensitive markers and S/M/R/C authority drift without a baseline or maximum error count.",
+      "minimumRequirement": "Evidence must include ownership and ordinary-helper positives; historical, trailing, TODO, redundant, absolute-claim and long-block negatives; live TODO open/closed/expired/stale-record cases; C#/TypeScript/C++ public-doc pairs; stale marker/source/policy cases; Level S non-upgrade; and stale/wrong-SHA measured blocking.",
+      "tierIds": [
+        "static-governance"
+      ]
+    },
+    {
       "id": "runtime-publish-profile-matrix",
       "description": "Named .NET/container publish profiles are one-factor comparable, digest-bound to release images and measured across all production route classes on isolated target/load-generator resources.",
       "owner": "ServerContractAgent",

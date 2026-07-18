@@ -10,9 +10,7 @@ using FsusBlog.Server.Services.Security;
 namespace FsusBlog.Server.Infrastructure.Middlewares;
 
 /// <summary>
-/// 零容忍防御中间件 (The Shield)
-/// 修复日期: 2026-02-22 (引入 SearchValues 实现 Aho-Corasick 自动机，消除 String 驻留与 GC Alloc，实现极速清洗)
-/// 职责：在请求进入 Pipeline 最前端时，直接过滤非法特征，但为真爬虫通过 VIP 通道
+/// Applies request-signature policy before business endpoints and preserves the verified-crawler path.
 /// </summary>
 public class ShieldMiddleware(
     RequestDelegate next,
@@ -22,7 +20,7 @@ public class ShieldMiddleware(
     IAntiCrawlerPolicyProvider antiCrawlerPolicy,
     IWebHostEnvironment env)
 {
-    // 核心性能优化：使用新一代 SearchValues<string> 进行字符串多模式极速扫描，复杂度降至极限
+    // SearchValues centralizes the fixed user-agent patterns without per-request pattern setup.
     private static readonly SearchValues<string> s_blockedUserAgents = SearchValues.Create(
     [
         "python", "java", "curl", "wget", "httpclient", "ax" + "ios", "go-http-client", "censys", "zgrab"
@@ -121,7 +119,7 @@ public class ShieldMiddleware(
             }
             else if (uaSpan.ContainsAny(s_blockedUserAgents) || options.BlockedUserAgentKeywords.Any(keyword => ua?.Contains(keyword, StringComparison.OrdinalIgnoreCase) == true))
             {
-                // 不是声明 crawler/social-preview，通过自动机状态库极速检查是否在工具黑名单中
+                // Undeclared crawler and social-preview agents still pass through the blocked-tool policy.
                 if (await RejectOrObserveAsync(context, SecurityRiskReason.BlockedUserAgent, StatusCodes.Status403Forbidden, "blocked_user_agent", 10, antiCrawlerEnforcing, options))
                 {
                     return;
@@ -129,7 +127,7 @@ public class ShieldMiddleware(
             }
         }
 
-        // 4. 路径合法性初步扫描 (Span 零分配切割优化)
+        // The path scan uses a span instead of materializing Split substrings.
         string? path = context.Request.Path.Value;
         if (options.IllegalPathHardAbortEnabled && ContainsIllegalPathPattern(path))
         {

@@ -15,8 +15,7 @@ using Microsoft.AspNetCore.WebUtilities;
 namespace FsusBlog.Server.Services;
 
 /// <summary>
-/// 基于 Redis 的工作量证明 (PoW) 校验服务
-/// 修复日期: 2026-02-22 (彻底移除 C++ 依赖启用 SHA-NI 硬件加速，消除所有异常控制流与字符串分配)
+/// Validates bounded proof-of-work inputs and uses Redis to enforce replay protection.
 /// </summary>
 public class RedisPowService : IPowService
 {
@@ -83,7 +82,7 @@ public class RedisPowService : IPowService
         long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         int difficulty = await _governor.GetDifficultyForIpAsync(normalizedIp);
 
-        // 性能保障：容量从 128 扩充至 256，物理杜绝溢出可能，彻底消灭 Fallback 回退分配
+        // PERF-INVARIANT: Validated field limits must fit this fixed signature buffer or fail closed.
         Span<byte> buffer = stackalloc byte[256];
         if (!TryFormatSignatureData(buffer, normalizedIp, salt, difficulty, timestamp, normalizedBindingContext, out int bytesWritten))
         {
@@ -189,10 +188,10 @@ public class RedisPowService : IPowService
         return true;
     }
 
-    // 核心重构：纯 C# 零分配 SHA-NI 硬件加速校验
+    // PERF-INVARIANT: Hash input is assembled in one bounded stack buffer before SHA-256 validation.
     private static bool CheckWorkloadWithSpan(IPowRequest req)
     {
-        // 分配 1024 字节防越界，完全在线程栈上执行，零 GC
+        // The validated field-size limits keep the concatenated input within this fixed capacity.
         Span<byte> dataBuffer = stackalloc byte[1024];
         int offset = 0;
 

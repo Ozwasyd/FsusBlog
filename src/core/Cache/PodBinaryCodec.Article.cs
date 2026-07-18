@@ -19,11 +19,13 @@ public static partial class PodBinaryCodec
 {
     internal const int ArticlePageStackScratchByteBudget = 4 * 1024;
     internal const int ArticleDetailDirectCharThreshold = 8 * 1024;
-    private const int ArticlePageCursorEnvelopeMagic = 0x41535046; // FSPA
+    // COMPATIBILITY: The wire prefix is ASCII FSPA in little-endian storage order.
+    private const int ArticlePageCursorEnvelopeMagic = 0x41535046;
     private const int ArticlePageCursorEnvelopeVersion = 1;
-    private const uint ArticleDetailV3PayloadMagic = 0x41524433; // ARD3
+    // COMPATIBILITY: Existing payloads retain the ARD3 and ARD4 wire identifiers.
+    private const uint ArticleDetailV3PayloadMagic = 0x41524433;
     private const int ArticleDetailV3PayloadVersion = 3;
-    private const uint ArticleDetailV4PayloadMagic = 0x41524434; // ARD4
+    private const uint ArticleDetailV4PayloadMagic = 0x41524434;
     private const int ArticleDetailV4PayloadVersion = 4;
     private const int ArticleWriteRequestVersion = 3;
     private const int RightsFlagEnabled = 1 << 0;
@@ -308,6 +310,7 @@ public static partial class PodBinaryCodec
         bool useStackScratch = checked(itemScratchBytes + tagScratchBytes) <= stackScratchByteBudget;
         ArticlePageItemSlicePlan[]? rentedItemPlans = null;
         Utf8SliceRef[]? rentedTagSlices = null;
+        // OWNERSHIP: Both optional rents are returned by the same finally, including second-rent failure.
         try
         {
             Span<ArticlePageItemSlicePlan> itemPlans = useStackScratch
@@ -591,6 +594,7 @@ public static partial class PodBinaryCodec
     public static void WriteArticleDetail(ArticleDetailCoreModel item, IBufferWriter<byte> destination)
     {
         ArgumentNullException.ThrowIfNull(destination);
+        // PERF-INVARIANT: The measured tiny-content path stays list-based below this adaptive boundary.
         if (item.Content.Length < ArticleDetailDirectCharThreshold)
         {
             WriteArticleDetailWithLists(item, destination);

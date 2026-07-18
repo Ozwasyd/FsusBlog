@@ -646,10 +646,8 @@ export default defineConfig(({ command, mode }) => {
                 ? path.resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT)
                 : 'dist',
             emptyOutDir: process.env.FSUSBLOG_FRONTEND_DIST_ROOT ? true : undefined,
-            // 核心修复(2026-02-21)：生产环境禁用 sourcemap
-            // 逻辑自洽：消除 Wasm 胶水代码在 Worker 线程中引发的 URL 解析错误
+            // COMPATIBILITY: Production sourcemaps break Wasm glue URL resolution inside the Worker.
             sourcemap: mode === 'development',
-            // 性能最大化：使用默认的 esbuild 进行压缩，显著提升构建速度
             minify: true,
             manifest: true,
             // 针对大型项目优化块大小
@@ -731,7 +729,7 @@ export default defineConfig(({ command, mode }) => {
         },
         server: {
             host: '0.0.0.0',
-            port: 3000, // 前端运行端口
+            port: 3000,
             // Coverage and browser reports are written while production lanes
             // exercise this server. They are evidence, not application input,
             // and must never invalidate an in-flight browser measurement.

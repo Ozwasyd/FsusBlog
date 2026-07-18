@@ -29,8 +29,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Services;
 
 /// <summary>
-/// 用户服务实现
-/// 修复日期: 2026-02-23 (修复 LoginAsync 中 SqlSugar 更新模式混用导致的异常，统一使用泛型表达式原子更新)
+/// Coordinates user identity, authentication, session, and account-state operations.
 /// </summary>
 // Public named-argument source compatibility; exact exception registered in csharp-style-policy.
 #pragma warning disable IDE1006

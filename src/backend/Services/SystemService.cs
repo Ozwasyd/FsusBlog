@@ -19,8 +19,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Services;
 
 /// <summary>
-/// 系统设置与动态页面服务
-/// 修复日期: 2026-02-23 (移除标量查询中的 DataReader 反向优化，引入 Ordinal 字符串极速比对)
+/// Manages system settings, dynamic pages, cache invalidation, and public artifact projection.
 /// </summary>
 // Public named-argument source compatibility; exact exception registered in csharp-style-policy.
 #pragma warning disable IDE1006
@@ -148,7 +147,6 @@ public partial class SystemService(
     private const int MaxSlugLength = 64;
     private const int MaxPageContentLength = 200_000;
 
-    // 内部私有结构体：用于列表数据的极速回捞
     private readonly record struct ConfigItem(string Key, string Value);
 
     // ================= 1. SEO 全局配置 (SEO Config) =================
@@ -378,11 +376,11 @@ public partial class SystemService(
             UpdatedAt = DateTime.UtcNow
         }).ExecuteCommandAsync();
 
-        // 2. 物理防线：0 行受影响代表更新失败，直接抛出异常，阻断 200 OK 响应
+        // SECURITY-INVARIANT: A zero-row write must not be reported as a successful update.
         if (affectedRows <= 0)
             return false;
 
-        // 3. 落盘成功后，立即以 O(1) 物理驱逐旧缓存
+        // Invalidate only after the durable write succeeds.
         await _cacheInvalidationDispatcher.InvalidateSystemPageAsync(slug);
         await InvalidatePagePublicAotAsync(slug, $"update-page:{slug}");
         await _messageService.PushCacheControlAsync(new CacheControlPayload("shell.invalidate", slug));
@@ -405,14 +403,14 @@ public partial class SystemService(
     }
 
     /// <summary>
-    /// 辅助方法：利用 Span 遍历和 Ordinal 比较实现极致性能查找
+    /// Finds a configuration value using the repository's case-sensitive key contract.
     /// </summary>
     private static string GetValue(List<ConfigItem> list, string key, string defaultValue)
     {
         var span = CollectionsMarshal.AsSpan(list);
         for (int i = 0; i < span.Length; i++)
         {
-            // 核心优化：使用 Ordinal (字节级) 比较，跳过 CultureInfo 开销，这是 C# 字符串比对的物理极限
+            // Configuration keys are wire-stable and therefore compared ordinally.
             if (string.Equals(span[i].Key, key, StringComparison.Ordinal))
             {
                 return span[i].Value;
@@ -859,9 +857,7 @@ public partial class SystemService(
             : read;
     }
 
-    // ====================================================================
-    // 高性能日志源生成器 (Zero-Allocation Logging)
-    // ====================================================================
+    // LoggerMessage source-generates typed logging calls without a params object array.
 
     [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "SEO 缓存读取异常，已自动切换至数据库模式")]
     private partial void LogSeoCacheReadError(Exception ex);

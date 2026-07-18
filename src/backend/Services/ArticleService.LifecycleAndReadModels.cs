@@ -213,9 +213,7 @@ public partial class ArticleService
                 .ToListAsync(ct))
                 .ToDictionary(static it => it.ArticleId, static it => it.MarkdownContent);
 
-            //[修改日期 2026-03-01]
-            // 物理防线：将上千个 ID 拆分为每批 500 个的块 (Chunking) 进行删除事务。
-            // 防止构建超出数据库解析上限的超大 IN (...) 语法树。
+            // Bound each IN expression to avoid exceeding the database parser's practical limit.
             foreach (var chunk in articleIds.Chunk(500))
             {
                 await _db.Deleteable<Comment>().Where(c => chunk.Contains(c.ArticleId)).ExecuteCommandAsync();

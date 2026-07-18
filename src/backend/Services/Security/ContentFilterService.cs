@@ -14,9 +14,7 @@ using FsusBlog.Server.Models.Moderation;
 namespace FsusBlog.Server.Services.Security;
 
 /// <summary>
-/// 高并发内存级内容审查服务 (Singleton 生命周期)
-/// 毕业版: 2026-02-22 (优化词库重载逻辑，消除内存池抖动，实现冷热路径双重极限性能)
-/// 职责: 专注于政治红线与动态广告的极致审查
+/// Owns the in-memory moderation dictionaries and atomically publishes rebuilt search automata.
 /// </summary>
 public partial class ContentFilterService : IContentFilterService, IDisposable
 {

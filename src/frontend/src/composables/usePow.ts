@@ -8,7 +8,7 @@ export interface PowResult {
   duration: number;
 }
 
-// [修复 2026-02-23] 标准中断异常，用于上游组件静默捕获，防止 Promise 级联崩溃
+// 上游可识别的 PoW 中断错误；调用方可将其作为取消而非失败处理。
 export class PowAbortError extends Error {
   constructor(message: string = "POW_CALCULATION_ABORTED") {
     super(message);
@@ -75,8 +75,7 @@ export function usePow() {
   };
 
   /**
-   * 物理硬杀 (唯一有效的抢占手段)
-   * 逻辑自洽：直接销毁物理线程，释放 CPU 资源
+   * 终止 Worker 并释放关联资源。
    */
   const destroyWorker = (worker: Worker | null) => {
     if (!worker) {
@@ -268,8 +267,8 @@ export function usePow() {
   }
 
   /**
-   * 核心方法：异步求解 PoW 挑战
-   * 同一时间只运行一个 Worker 任务，后续请求 FIFO 排队，避免并发 API 互相物理抢占。
+   * 异步求解 PoW 挑战。
+   * 同一时间只运行一个 Worker 任务，后续请求按 FIFO 排队。
    */
   const calculate = (
     salt: string,

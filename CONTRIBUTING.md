@@ -50,6 +50,8 @@ For release-sensitive, security, visual, load, or AEDS changes, follow [docs/tes
 - Preserve external wire, ABI, database, and third-party names at their boundary, then adapt them to the repository naming rules internally.
 - Language syntax takes precedence over the cross-language mapping. Formatter/linter defaults and personal IDE settings do not override repository rules.
 - Run `node tools/docs/check-authoritative-development-docs.mjs` when changing authoritative development docs, repository paths, style ownership, or command examples.
+- Follow [code intent governance](docs/development/code-intent-governance.md) for ownership/security markers, public contract documentation, TODO lifecycle, and performance claims; run `node tools/governance/check-code-intent.mjs` after changing those surfaces.
+- Label performance statements as structural (`S`), local measured (`M`), route measured (`R`), or capacity measured (`C`). A stale SHA, missing artifact or machine identity, or incomplete statistics must remain blocked instead of being reported as measured.
 - Keep changes scoped to the issue being closed.
 - Prefer existing patterns and local helpers over new abstractions.
 - Update API docs when changing request/response contracts, AEDS frame semantics, routes, or binary/JSON behavior.

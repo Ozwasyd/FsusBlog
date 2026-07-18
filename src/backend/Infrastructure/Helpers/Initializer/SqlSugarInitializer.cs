@@ -9,8 +9,7 @@ using DbType = SqlSugar.DbType;
 namespace FsusBlog.Server.Infrastructure.Helpers.Initializer;
 
 /// <summary>
-/// SqlSugar 初始化器
-/// 修复日期: 2026-02-23 (修复 SqlSugarCacheService 依赖注入链，衔接零分配 Redis 架构，增强 AOP 性能防线)
+/// Registers SqlSugar clients and applies per-session schema isolation when requested.
 /// </summary>
 public static class SqlSugarInitializer
 {

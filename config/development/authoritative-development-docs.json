@@ -2,6 +2,7 @@
   "schema": "fsusblog.authoritative-development-docs.v1",
   "authority": {
     "codingConventions": "docs/development/coding-conventions.md",
+    "codeIntentGovernance": "docs/development/code-intent-governance.md",
     "agentOperations": "AGENTS.md",
     "codeowners": ".github/CODEOWNERS",
     "authorityDocuments": [
@@ -12,7 +13,8 @@
       ".github/PULL_REQUEST_TEMPLATE.md",
       "docs/development.md",
       "docs/index.md",
-      "docs/development/coding-conventions.md"
+      "docs/development/coding-conventions.md",
+      "docs/development/code-intent-governance.md"
     ],
     "linkDocuments": [
       "AGENTS.md",
@@ -20,7 +22,8 @@
       ".github/PULL_REQUEST_TEMPLATE.md",
       "docs/development.md",
       "docs/index.md",
-      "docs/development/coding-conventions.md"
+      "docs/development/coding-conventions.md",
+      "docs/development/code-intent-governance.md"
     ]
   },
   "precedence": [
@@ -240,6 +243,13 @@
       "path": "tools/dotnet/check-csharp-style.mjs",
       "invocation": "node tools/dotnet/check-csharp-style.mjs --mode changed",
       "documents": ["docs/development/csharp-style-enforcement.md"]
+    },
+    {
+      "id": "code-intent-governance",
+      "kind": "node-script",
+      "path": "tools/governance/check-code-intent.mjs",
+      "invocation": "node tools/governance/check-code-intent.mjs",
+      "documents": ["docs/development/code-intent-governance.md", "docs/development/coding-conventions.md"]
     },
     {
       "id": "frontend-fast-tests",

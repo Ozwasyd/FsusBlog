@@ -800,6 +800,7 @@ tiers:
       - repository-source-layout-governance
       - csharp-entrypoint-ownership-governance
       - csharp-style-governance
+      - code-intent-governance
       - authoritative-development-docs-governance
       - appsettings-authority-governance
       - zk-artifact-lifecycle-ownership
@@ -895,6 +896,10 @@ tiers:
       - tools/dotnet/check-csharp-style.mjs
       - tests/tools/issue-1158-csharp-style.test.mjs
       - docs/development/csharp-style-enforcement.md
+      - tools/governance/check-code-intent.mjs
+      - tests/governance/code-intent-registry.json
+      - tests/tools/issue-1155-code-intent.test.mjs
+      - docs/development/code-intent-governance.md
       - tools/docs/check-authoritative-development-docs.mjs
       - config/development/authoritative-development-docs.json
       - tests/tools/issue-1157-authoritative-development-docs.test.mjs

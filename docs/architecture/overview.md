@@ -1,6 +1,6 @@
 # FsusBlog Architecture Overview
 
-FsusBlog is a high-performance personal content system built around fast public reading, consistent runtime contracts, and a single-process deployment baseline. It is not a generic CRUD blog template: the public read path, binary API contracts, AOT rendering, cache strategy, moderation, and anti-crawler controls are all first-class architecture concerns.
+FsusBlog is a personal content system built around a cache-aware public read path, consistent runtime contracts, and a single-process deployment baseline. It is not a generic CRUD blog template: binary API contracts, AOT rendering, cache strategy, moderation, and anti-crawler controls are all first-class architecture concerns.
 
 ## Current Status
 

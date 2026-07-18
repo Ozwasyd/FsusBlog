@@ -11,12 +11,12 @@ export interface CategoryItem {
 // ================= API 方法定义 =================
 
 /**
- * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持 AbortSignal 物理中断
+ * 所有方法接受可选的 config.signal，以便调用方通过 AbortSignal 中断请求。
  */
 
 /**
  * 获取分类列表
- * [修复 2026-02-23] 类型安全：将返回类型由 any[] 收敛为具体的 CategoryItem[]
+ * 返回 CategoryItem[]。
  */
 export const getCategories = (config?: { signal?: AbortSignal }) =>
   requestBinaryOnly<CategoryItem[]>({
@@ -64,7 +64,7 @@ export const updateCategory = (id: number, name: string, config?: RequestInit) =
 
 /**
  * 删除分类
- * [修复 2026-02-23] 逻辑自洽：删除操作同样接入 PoW 保护，防止恶意删库
+ * 删除请求必须携带 PoW 证明。
  */
 export const deleteCategory = (id: number, config?: RequestInit) =>
   requestBinaryOnly<null>({

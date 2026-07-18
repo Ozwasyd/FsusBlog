@@ -56,12 +56,12 @@ public interface IArticleService
     Task<List<FeaturedArticleSummaryDto>> GetFeaturedArticlesAsync(int size, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 高性能增加阅读量：同步更新 DB、热榜 Score 并失效详情缓存
+    /// Records one view, updates the hot-article score, and invalidates the detail cache.
     /// </summary>
     ValueTask IncreaseViewCountAsync(int id);
 
     /// <summary>
-    /// 高性能批量增加阅读量：按聚合计数减少后台写入往返
+    /// Records an aggregated view count in one background write operation.
     /// </summary>
     ValueTask IncreaseViewCountAsync(int id, int count);
 

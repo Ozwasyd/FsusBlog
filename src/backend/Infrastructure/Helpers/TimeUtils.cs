@@ -3,8 +3,7 @@ using System.Runtime.CompilerServices;
 namespace FsusBlog.Server.Infrastructure.Helpers;
 
 /// <summary>
-/// 时间工具类
-/// 修复日期: 2026-02-23 (利用常量长度与 string.Create 实现绕过 Culture 查找的极限格式化)
+/// Formats timestamps for wire contracts that require invariant RFC 822 output.
 /// </summary>
 public static class TimeUtils
 {
@@ -21,11 +20,9 @@ public static class TimeUtils
         // 确保转换为 UTC 时间以符合标准
         DateTime utcTime = dateTime.ToUniversalTime();
 
-        // 终极优化：直接分配精确长度的字符串，并调用底层的 TryFormat 将内容写入 Span<char>。
-        // 这彻底斩断了 ToString() 内部的通用状态机流转和多余的虚方法调用开销。
+        // The fixed-width contract lets TryFormat write directly into the returned string.
         return string.Create(Rfc822StringLength, utcTime, (span, dt) =>
         {
-            // "R" 格式是内建的快速路径，搭配精确大小的 Span，耗时趋近于绝对下限
             dt.TryFormat(span, out _, "R");
         });
     }

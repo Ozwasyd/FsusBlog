@@ -12,12 +12,12 @@ export interface TagItem {
 // ================= API 方法定义 =================
 
 /**
- * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持 AbortSignal 物理中断
+ * 所有方法接受可选的 config.signal，以便调用方通过 AbortSignal 中断请求。
  */
 
 /**
  * 获取标签列表
- * [修复 2026-02-23] 类型安全：将返回类型由 any[] 收敛为具体的 TagItem[]
+ * 返回 TagItem[]。
  */
 export const getTags = (config?: { signal?: AbortSignal }) =>
   requestBinaryOnly<TagItem[]>({
@@ -31,7 +31,7 @@ export const getTags = (config?: { signal?: AbortSignal }) =>
 
 /**
  * 创建标签
- * 安全性保障：接入 PoW 算力校验，物理隔离针对管理接口的自动化探测或批量篡改攻击
+ * 创建请求必须携带 PoW 证明。
  */
 export const createTag = (name: string, config?: RequestInit) =>
   requestBinaryOnly<{ id: number }>({
@@ -65,7 +65,7 @@ export const updateTag = (id: number, name: string, config?: RequestInit) =>
 
 /**
  * 删除标签
- * [修复 2026-02-23] 逻辑自洽：物理删除风险操作强制接入 PoW 保护
+ * 删除请求必须携带 PoW 证明。
  */
 export const deleteTag = (id: number, config?: RequestInit) =>
   requestBinaryOnly<null>({

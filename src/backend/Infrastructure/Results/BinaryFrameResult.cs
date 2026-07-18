@@ -104,6 +104,8 @@ public sealed class BinaryPreencodedFrameResult : IResult
 
     public async Task ExecuteAsync(HttpContext httpContext)
     {
+        // OWNERSHIP: The result consumes one lease during its only execution and releases it in finally,
+        // including HEAD, conditional 304, cancellation, and write-failure branches.
         if (_ownsLease && Interlocked.Exchange(ref _ownedExecutionStarted, 1) != 0)
         {
             throw new InvalidOperationException("An owned pre-encoded frame result can only be executed once.");

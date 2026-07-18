@@ -6,26 +6,23 @@
 		<ProjectGuid>81dded9d-158b-e303-5f62-77a2896d2a5a</ProjectGuid>
 		<DockerComposeProjectPath>docker-compose.production.yml</DockerComposeProjectPath>
 
-		<!--[修改日期 2026-03-01] -->
-		<!-- 物理真相：明确宣告调试目标。免除 VS 轮询查询容器的 O(N) 开销，让调试器以 O(1) 速度瞬间挂载到后端容器 -->
+		<!-- Visual Studio attaches to the backend service; the frontend runs separately under Vite. -->
 		<DockerServiceName>fsusblog.server</DockerServiceName>
-		<!-- 逻辑自洽：开发环境下前后端分离，前端由 VS Code (Vite) 在 3000 端口独立运行。禁用 VS 启动时强行弹出无用的 API 空白网页 -->
+		<!-- The backend project does not own a browser launch target. -->
 		<DockerLaunchBrowser>false</DockerLaunchBrowser>
 	</PropertyGroup>
 
-	<!-- 核心修复(2026-02-21)：根据 VS 顶部的配置自动适配 Compose 文件组合 -->
+	<!-- Debug adds the development overlay; Release consumes only the production composition. -->
 	<PropertyGroup>
 		<DockerComposeBaseConfiguration>docker-compose.production.yml</DockerComposeBaseConfiguration>
 
-		<!-- 调试模式：加载基础配置 + 开发覆盖配置 (支持热更新和挂载) -->
 		<DockerComposeBaseConfiguration Condition="'$(Configuration)' == 'Debug'">$(DockerComposeBaseConfiguration);docker-compose.development-backend.yml</DockerComposeBaseConfiguration>
 
-		<!-- 发布模式：仅加载基础配置 (执行纯净的 Dockerfile 多阶段构建) -->
 		<DockerComposeBaseConfiguration Condition="'$(Configuration)' == 'Release'">$(DockerComposeBaseConfiguration)</DockerComposeBaseConfiguration>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- 逻辑自洽：这里的 DependentUpon 保持 UI 上的树形结构 -->
+		<!-- DependentUpon keeps the overlay nested under the production composition in Visual Studio. -->
 		<None Include="docker-compose.development-backend.yml">
 			<DependentUpon>docker-compose.production.yml</DependentUpon>
 		</None>

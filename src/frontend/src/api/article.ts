@@ -158,7 +158,7 @@ export interface ArticleWriteRequest {
 // ================= API 方法 =================
 
 /**
- * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持物理中断 (AbortSignal)
+ * 所有方法接受可选的 config.signal，以便调用方通过 AbortSignal 中断请求。
  */
 
 /** 获取文章列表 */
@@ -275,7 +275,7 @@ export const getAdminArticleById = (id: number, config?: ApiRequestConfig) => {
 
 /**
  * 创建文章
- * [修复 2026-02-23] 安全性保障：强制算力校验，防止自动化垃圾投稿攻击
+ * 创建请求必须携带 PoW 证明，以限制自动化滥用。
  */
 export const createArticle = (data: ArticleWriteRequest, config?: ApiRequestConfig) =>
   requestBinaryOnly<{ id: number }>({

@@ -300,7 +300,7 @@ export function resolveCommentAuthorView(input: {
 // =================================================================================
 
 /**
- * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持 AbortSignal 物理中断
+ * 所有方法接受可选的 config.signal，以便调用方通过 AbortSignal 中断请求。
  */
 
 export const createCommentV2 = (data: CommentCreateV2Dto, config?: ApiRequestConfig) => {
@@ -450,7 +450,7 @@ function sendCommentMutation(
 }
 
 /** 获取文章下的评论列表
- * 算法最优：透传 config 确保长列表加载时可被物理中断
+ * 透传 config.signal，使调用方可中断长列表请求。
  */
 export const getComments = (
   articleId: number,

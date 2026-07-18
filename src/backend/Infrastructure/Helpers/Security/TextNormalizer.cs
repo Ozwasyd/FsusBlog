@@ -6,25 +6,21 @@ using FsusBlog.Server.Infrastructure.Execution;
 namespace FsusBlog.Server.Infrastructure.Helpers.Security;
 
 /// <summary>
-/// 文本归一化预处理器 (最终物理优化版)
-/// 修复日期: 2026-02-22 (废弃 Dictionary，改用 char[65536] 直接内存寻址，实现 O(1) 物理极限查找)
-/// 职责：以极致性能将文本转换为“标准指纹”，为 AC 自动机提供最干净的输入。
+/// Normalizes text into the canonical fingerprint consumed by the content-filter automaton.
 /// </summary>
 public static class TextNormalizer
 {
-    // 终极优化：创建一个覆盖所有 char 范围的数组作为直接查找表 (Look-Up Table)。
-    // 这将消耗 128KB 内存 (65536 * 2 bytes)，但会将繁简转换的性能提升到物理极限。
+    // The fixed 65,536-entry table trades 128 KiB for one direct lookup per UTF-16 code unit.
     private static char[] s_charMap;
     private static readonly Lock s_initLock = new();
     private static PhraseNode s_phraseRoot = new();
     private static int s_openCcLoaded;
 
-    // 静态构造函数，在服务启动时只执行一次，负责构建这个巨大的查找表
     static TextNormalizer()
     {
         var charMap = new char[char.MaxValue + 1];
 
-        // 第一步：初始化映射表，让每个字符默认映射到自身
+        // Unconfigured characters preserve their original code unit.
         for (int i = 0; i < charMap.Length; i++)
         {
             charMap[i] = (char)i;
@@ -173,11 +169,9 @@ public static class TextNormalizer
     public static void NormalizeInPlace(Span<char> buffer)
     {
         char[] charMap = Volatile.Read(ref s_charMap);
-        // 由于所有转换逻辑已预烘焙到 _charMap 中，
-        // 归一化过程简化为一次极致的、无分支的循环查表。
+        // Every UTF-16 code unit maps through the precomputed fixed table.
         for (int i = 0; i < buffer.Length; i++)
         {
-            // 使用 ref 直接修改内存，并用 char 值作为索引进行 O(1) 物理寻址
             buffer[i] = charMap[buffer[i]];
         }
     }

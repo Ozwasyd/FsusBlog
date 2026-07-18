@@ -62,8 +62,7 @@ export interface PageContentAdmin {
 }
 
 /**
- * [修复 2026-02-23] 逻辑自洽：所有 API 方法增加可选的 config 参数
- * 物理真相：为了支持 AbortController 抢占机制，必须允许外部传入 signal
+ * 所有 API 方法接受可选的 config.signal，以支持 AbortController 中断请求。
  */
 
 // 站点 SEO 配置
@@ -83,7 +82,7 @@ export const getAdminSiteConfig = (config?: ApiRequestConfig) =>
 
 /**
  * 更新站点配置
- * 安全性保障：接入 PoW 算力校验，物理隔离针对全站元数据的恶意篡改尝试
+ * 更新请求必须携带 PoW 证明。
  */
 export const updateSiteConfig = (data: SeoConfigAdmin, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({
@@ -178,7 +177,7 @@ export const refreshPageData = (slug: string, config?: ApiRequestConfig) =>
 
 /**
  * 删除文件
- * 安全性保障：物理删除操作接入 PoW 保护，杜绝自动化脚本批量抹除服务器资源
+ * 删除请求必须携带 PoW 证明。
  */
 export const deleteImage = (url: string, config?: ApiRequestConfig) =>
   requestBinaryOnly<null>({

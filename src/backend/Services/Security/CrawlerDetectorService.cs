@@ -10,9 +10,7 @@ using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Services.Security;
 
 /// <summary>
-/// 爬虫验身服务 (Singleton)
-/// 修复日期: 2026-02-22 (修复 GetHostEntryAsync 重载问题及可空引用警告，确保严苛编译环境下 0 错误 0 警告)
-/// 职责: 维护各大搜索引擎的 IP CIDR 白名单，并提供 rDNS 动态验证能力
+/// Maintains crawler CIDR allowlists and performs bounded reverse-DNS verification when required.
 /// </summary>
 public class CrawlerDetectorService(
     ILogger<CrawlerDetectorService> logger,
@@ -27,7 +25,7 @@ public class CrawlerDetectorService(
     private const string OtherIgnoredUserAgentCharacters = "\u200C\u200D\u200E\u200F\uFEFF";
     private readonly SemaphoreSlim _dnsSemaphore = new(50);
 
-    // 核心性能优化：使用 volatile 保证后台更新时的原子性指针切换，查询侧达到绝对的“无锁零争用”
+    // SECURITY-INVARIANT: Publishers replace complete immutable trees; readers never observe a partially rebuilt tree.
     private volatile IpRadixTree _googleTree = new();
     private volatile IpRadixTree _bingTree = new();
     private volatile CrawlerRangeStatus _rangeStatus = CrawlerRangeStatus.Empty;
@@ -75,7 +73,7 @@ public class CrawlerDetectorService(
         if (ip.IsIPv4MappedToIPv6)
             ip = ip.MapToIPv4();
 
-        // 1. 极速 CIDR 内存前缀树匹配 (O(1) 复杂度，纳秒级无 IO)
+        // CIDR prefix lookup runs before the bounded reverse-DNS fallback.
         if (normalizedUserAgent.Contains("googlebot", StringComparison.Ordinal))
         {
             return _googleTree.Contains(ip);
@@ -147,7 +145,7 @@ public class CrawlerDetectorService(
     {
         string cacheKey = BuildCrawlerVerificationCacheKey(ipStr);
 
-        // A. 查缓存 (极速返回)
+        // A cached verification result avoids repeating reverse DNS within its TTL.
         if (cache.TryGetValue(cacheKey, out bool isVerified))
         {
             return isVerified;
@@ -280,7 +278,7 @@ public sealed record CrawlerRangeStatus(
     public static readonly CrawlerRangeStatus Empty = new(0, 0, null, null, "empty", null);
 }
 
-#region 极速 IP 前缀区间表
+#region IP prefix range table
 public class IpRadixTree
 {
     private readonly List<Ipv4Interval> _v4Intervals = [];

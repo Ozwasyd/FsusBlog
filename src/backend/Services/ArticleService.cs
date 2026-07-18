@@ -25,13 +25,8 @@ using StackExchange.Redis;
 namespace FsusBlog.Server.Services;
 
 /// <summary>
-/// 文章核心业务服务
-/// 修复日期: 2026-02-23 (应用 DataReader 物理级映射，引入 MemoryCache 实现 Double-Check 缓存锁，彻底解决后台作用域销毁炸弹)
-///[架构重构 2026-03-01]
-/// 1. 废弃 Read-Time 摘要计算，改为 Write-Time 计算，消灭 LOH 内存暴涨与网络带宽冗余。
-/// 2. 补充 RegisterPostEvictionCallback 解决 SemaphoreSlim 游离造成的内核句柄泄露。
-/// 3. 废弃高危的 Task.Run 游离线程，阻塞等待搜索索引落盘，杜绝生产环境滚动发版导致的索引永久损坏。
-/// 4. 引入 IN(...) 容量阀门与 Parallel.ForEachAsync 控制外部 I/O 并发风暴。
+/// Coordinates article persistence, cache invalidation, search indexing, and public artifact projection.
+/// Search-index writes remain awaited across release transitions, and cache eviction owns per-key lock disposal.
 /// </summary>
 // Public named-argument source compatibility; exact exception registered in csharp-style-policy.
 #pragma warning disable IDE1006

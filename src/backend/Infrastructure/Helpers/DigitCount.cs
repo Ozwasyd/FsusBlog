@@ -5,7 +5,7 @@ namespace FsusBlog.Server.Infrastructure.Helpers;
 public class DigitCount
 {
     /// <summary>
-    /// 金融级位数计算逻辑：彻底免疫 long.MinValue 溢出风险，并正确处理符号位长度
+    /// Counts sign and decimal digits without negating <see cref="long.MinValue"/> directly.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int GetDigitCount(long n)
