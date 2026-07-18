@@ -40,7 +40,7 @@ const required = [
   'SECURITY.md',
   'docs/open-source-readiness.md',
   'docs/repository-governance.md',
-  'release-evidence/open-source-readiness/readiness-checklist.md'
+  'docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md'
 ]
 
 const contents = new Map(required.map((path) => [path, read(path)]))
@@ -114,7 +114,8 @@ includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'src/backend/
 includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'src/frontend/ @Ozwasyd')
 includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'docs/ @Ozwasyd')
 includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'tools/ @Ozwasyd')
-includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'release-evidence/ @Ozwasyd')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'security/evidence-contracts/ @Ozwasyd')
+includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'tests/fixtures/evidence/ @Ozwasyd')
 includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'SECURITY.md @Ozwasyd')
 includes('.github/CODEOWNERS', contents.get('.github/CODEOWNERS'), 'src/backend/Infrastructure/Auth/ @Ozwasyd')
 includes('CONTRIBUTING.md', contents.get('CONTRIBUTING.md'), 'docs/development.md')
@@ -159,10 +160,11 @@ includes('docs/repository-governance.md', contents.get('docs/repository-governan
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Dependabot version updates are intentionally not configured')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Dependabot alerts')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Dependabot security')
-includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'CodeQL analysis')
-includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'OpenSSF Scorecard posture scan')
-includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'Branch protection expectations')
-includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'Workflow permissions policy')
+includes('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md', contents.get('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md'), 'Historical snapshot — not current master evidence.')
+includes('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md', contents.get('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md'), 'CodeQL analysis')
+includes('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md', contents.get('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md'), 'OpenSSF Scorecard posture scan')
+includes('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md', contents.get('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md'), 'Branch protection expectations')
+includes('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md', contents.get('docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md'), 'Workflow permissions policy')
 
 for (const [path, source] of contents) {
   if (path.includes('ISSUE_TEMPLATE') && /security vulnerabilities as public issues[\s\S]*title:/i.test(source)) {

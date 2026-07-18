@@ -2,16 +2,22 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 
+import { assertEvidenceClassification } from '../operations/evidence-classification.mjs'
+
 const root = path.resolve(import.meta.dirname, '..', '..')
 const evidenceArg = process.argv.indexOf('--evidence')
-const evidencePath = path.resolve(root, evidenceArg >= 0 ? process.argv[evidenceArg + 1] : 'release-evidence/anonymous-eligibility-anonymity-set.json')
+const evidencePath = path.resolve(root, evidenceArg >= 0 ? process.argv[evidenceArg + 1] : 'tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json')
 const errors = []
 
 const circuit = readJson('src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json')
 const manifest = readJson('security/zk/comment-v5-circuit.manifest.json')
 const setup = readJson('security/zk/comment-v5-trusted-setup.manifest.json')
 const tamper = readJson('security/zk/comment-v5-tamper-cases.manifest.json')
-const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
+const evidence = assertEvidenceClassification(
+  JSON.parse(readFileSync(evidencePath, 'utf8')),
+  'fixture',
+  'anonymous eligibility aggregate fixture'
+)
 const intersection = readJson('tests/fixtures/security/anonymous-comment-intersection.json')
 
 const expectedPublicInputs = [
@@ -34,9 +40,10 @@ expect(tamper.tamper_cases?.some(item => item.id === 'tamper-layout-5' && item.e
 for (const id of ['tamper-is-eligible', 'tamper-may-comment', 'tamper-rate-class', 'tamper-requires-moderation']) {
   expect(tamper.tamper_cases?.some(item => item.id === id && item.expected === 'reject'), `${id} rejection is required`)
 }
-expect(evidence.minimumRequired >= 20, 'release evidence minimum must be at least 20')
-expect(Number.isInteger(evidence.sample?.minimumSize) && Number.isInteger(evidence.sample?.medianSize), 'release evidence must contain only aggregate minimum and median sizes')
-expect(evidence.sample.minimumSize >= evidence.minimumRequired, 'release evidence minimum is below policy')
+expect(evidence.fixtureState === 'aggregate-sample-not-production-attestation', 'aggregate fixture must not claim production attestation')
+expect(evidence.minimumRequired >= 20, 'fixture minimum must be at least 20')
+expect(Number.isInteger(evidence.sample?.minimumSize) && Number.isInteger(evidence.sample?.medianSize), 'fixture must contain only aggregate minimum and median sizes')
+expect(evidence.sample.minimumSize >= evidence.minimumRequired, 'fixture minimum is below policy')
 expect(intersection.expected?.rareClassPublished === false && intersection.expected?.memberIntersectionPossible === false, 'intersection fixture must prevent rare-class membership intersection')
 checkNoSensitiveEvidence(evidence)
 
@@ -83,7 +90,7 @@ function checkNoSensitiveEvidence(value, segments = []) {
   }
   if (!value || typeof value !== 'object') return
   for (const [key, child] of Object.entries(value)) {
-    if (forbiddenExactFields.test(key)) errors.push(`release evidence contains sensitive field: ${[...segments, key].join('.')}`)
+    if (forbiddenExactFields.test(key)) errors.push(`fixture evidence contains sensitive field: ${[...segments, key].join('.')}`)
     checkNoSensitiveEvidence(child, [...segments, key])
   }
 }

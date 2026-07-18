@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
-const outDir = path.join(root, 'release-evidence/open-source-readiness')
+const outDir = path.resolve(root, process.env.FSUSBLOG_OPEN_SOURCE_READINESS_OUT_DIR ?? '.tmp/open-source-readiness')
 const jsonOut = path.join(outDir, 'dependency-license-audit.json')
 const mdOut = path.join(outDir, 'dependency-license-audit.md')
 const deniedPattern = /\b(?:AGPL|GPL|LGPL|SSPL)\b/iu
@@ -37,7 +37,7 @@ function nugetPackages() {
   const lockFiles = run('git', ['ls-files', '--cached', '--others', '--exclude-standard', ':(glob)**/packages.lock.json'])
     .split(/\r?\n/u)
     .filter(Boolean)
-    .filter((file) => !/(?:^|\/)(?:\.tmp|tmp|release-evidence)(?:\/|$)/u.test(file))
+    .filter((file) => !/(?:^|\/)(?:\.tmp|tmp|docs\/reports\/open-source-readiness)(?:\/|$)/u.test(file))
   const packages = new Map()
   for (const file of lockFiles) {
     const lock = readJson(file)

@@ -3,6 +3,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { assertEvidenceClassification } from '../operations/evidence-classification.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8')
 const fail = message => {
@@ -70,12 +72,16 @@ const migration = read('src/backend/Infrastructure/SchemaMigration/SchemaMigrati
 requireText(migration, 'SET trace_id = NULL', 'privacy migration')
 requireText(migration, "date_trunc('hour'", 'privacy migration')
 
-const evidence = JSON.parse(read('release-evidence/anonymous-credential-blind-issuance.json'))
+const evidence = assertEvidenceClassification(
+  JSON.parse(read('security/evidence-contracts/anonymous-credential-blind-issuance.json')),
+  'implementation-attestation',
+  'anonymous blind issuance attestation'
+)
 if (evidence.issuanceImplementationStatus !== 'verified' ||
   evidence.presentationCircuitStatus !== 'not-run' ||
   evidence.productionUsable !== false ||
   evidence.noHostedService !== true) {
-  fail('release evidence status is not fail-closed')
+  fail('implementation attestation is not fail-closed')
 }
 if (evidence.scenarioCoverage.length !== 5 ||
   evidence.scenarioCoverage.some(item => item.status !== 'covered')) {

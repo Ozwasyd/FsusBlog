@@ -1,5 +1,8 @@
 # Dependency License Audit
 
+> **Historical snapshot — not current master evidence.**
+> Generated during the 2026-06-11 v1.1.0 public-preview audit window. This status is not a statement about current dependencies or current master.
+
 Status: ok
 Generated at: 2026-06-11T03:50:39.139Z
 

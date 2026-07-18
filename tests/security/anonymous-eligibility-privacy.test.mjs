@@ -13,10 +13,10 @@ test('anonymous eligibility privacy contract and aggregate evidence pass', () =>
   assert.equal(result.status, 0, result.stderr)
 })
 
-test('release evidence rejects exact attributes and member identifiers', () => {
+test('aggregate fixture rejects exact attributes and member identifiers', () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'fsus-anonymity-evidence-'))
   try {
-    const evidence = JSON.parse(readFileSync(path.join(root, 'release-evidence/anonymous-eligibility-anonymity-set.json'), 'utf8'))
+    const evidence = JSON.parse(readFileSync(path.join(root, 'tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json'), 'utf8'))
     evidence.sample.memberIds = ['forbidden']
     const file = path.join(directory, 'evidence.json')
     writeFileSync(file, JSON.stringify(evidence))

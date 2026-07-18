@@ -3774,6 +3774,33 @@
       ]
     },
     {
+      "id": "release-evidence-classification-governance",
+      "description": "Historical reports, static contracts, fixtures, fresh run output, and release closeout evidence have distinct canonical owners; only an identity-bound, fully sealed bundle that passes require-ok may produce a small immutable-storage index.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tools/operations/check-release-evidence-layout.mjs",
+        "tools/operations/evidence-classification.mjs",
+        "tools/operations/seal-release-evidence-bundle.mjs",
+        "tools/operations/check-release-evidence-manifest.mjs",
+        "tools/operations/collect-release-evidence.sh",
+        "tests/tools/issue-1169-release-evidence-model.test.mjs",
+        "security/evidence-contracts/release-bundle-storage.json",
+        "security/privacy-zk-comment-matrix.yml",
+        "tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json",
+        ".github/workflows/release-evidence-storage.yml",
+        "docs/release-evidence-model.md",
+        "docs/reports/open-source-readiness/v1.1.0-public-preview/snapshot-manifest.json",
+        "tests/governance/repository-source-layout.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject a reintroduced top-level release-evidence root, ambiguous or contradictory evidence classes, tracked files claiming fresh authority, unscoped historical green reports, incomplete artifact inventories, release identity drift, mutable storage, or an index created before successful require-ok validation.",
+      "minimumRequirement": "Static governance must classify every tracked evidence-like artifact, hash-bind the historical snapshot, validate release ID plus full commit and image identity, seal every bundle member, reject post-seal tampering, and prove failed or blocked closeout cannot leave an index.",
+      "tierIds": [
+        "static-governance"
+      ]
+    },
+    {
       "id": "configuration-layout-governance",
       "description": "Repository configuration has one canonical owner: generic settings under config, framework tool manifests under .config, and project-specific appsettings or launch profiles colocated with their owning project.",
       "owner": "ServerContractAgent",

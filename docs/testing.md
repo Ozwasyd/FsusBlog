@@ -704,7 +704,7 @@ node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-pla
 
 摘要使用 `fsusblog.ci.job-result.v1`，包含 `status`、`failureStage`、`rootCause`、`tierIds`、`artifacts`、`localReproduction`、`commit`、`runId` 和 `attempt`。普通 CI matrix shard 继续使用稳定 job id / artifact 名称；唯一普通真实浏览器 job 是不分片的 `browser-contract`。其 CI artifact 只上传 Browser Contract receipt 与 job summary，不上传可能含会话信息的 `fixtures/**` 或 `runs/**`。visual、UX 与 cross-browser 不再作为普通 correctness job summary。Browser Diagnostics 使用自己的 run/category/probe receipt 和统一 workflow artifact，不能混入 Production required-job 列表。
 
-失败后先看 `production-summary` 的 root failure 分组；若对应 job summary 已下载，它会附带 `failureStage`、`rootCause`、`reproduce` 和 summary artifact 路径。完整发布证据在 `.tmp/release-evidence/<stamp>/manifest.json`，其中 `artifacts.jobSummaries` 指向收集到的 `job-summaries/` 目录。`release-evidence` 在 CI 中会校验 required job summary 是否存在、schema 是否正确，以及 matrix 声明的生成型 artifact/evidence 是否由对应 job 上传。
+失败后先看 `production-summary` 的 root failure 分组；若对应 job summary 已下载，它会附带 `failureStage`、`rootCause`、`reproduce` 和 summary artifact 路径。完整发布证据在 `.tmp/release-evidence/<release-identity>/manifest.json`，其中 `artifacts.jobSummaries` 指向收集到的 `job-summaries/` 目录。`release-evidence` 在 CI 中会校验 required job summary 是否存在、schema 是否正确，以及 matrix 声明的生成型 artifact/evidence 是否由对应 job 上传。
 
 ### `release-closeout` — release-closeout-gate
 

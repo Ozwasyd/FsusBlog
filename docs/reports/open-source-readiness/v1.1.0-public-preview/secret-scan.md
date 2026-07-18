@@ -1,5 +1,8 @@
 # Open Source Readiness Secret Scan
 
+> **Historical snapshot — not current master evidence.**
+> Generated on 2026-06-11 for repository revision `5b81efe6a14cae5f29f4db306a324b37d39c974b`. The status below is provenance only and cannot satisfy a current gate.
+
 Status: ok
 Generated at: 2026-06-11T03:52:56.400Z
 Git head: 5b81efe6a14cae5f29f4db306a324b37d39c974b

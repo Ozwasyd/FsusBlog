@@ -121,9 +121,16 @@ for (const token of [
   'ops/**',
   'config/deployment/**',
   'tools/deployment/**',
-  'release-evidence/**'
+  '.github/workflows/release-evidence-storage.yml',
+  'security/evidence-contracts/**',
+  'tests/fixtures/evidence/**',
+  'docs/reports/open-source-readiness/**',
+  'docs/release-evidence-model.md'
 ]) {
   requireIncludes('.github/labeler.yml', labeler, token)
+}
+if (/^\s*-\s*["']?release-evidence\/\*\*["']?\s*$/mu.test(labeler)) {
+  errors.push('.github/labeler.yml must not classify the forbidden top-level release-evidence root')
 }
 
 const labelerWorkflow = read('.github/workflows/labeler.yml')

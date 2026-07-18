@@ -180,7 +180,7 @@ check_request_handoff_schema() {
     and any(.verificationCommands[]?; .name == "verify-returned-evidence" and .command == "tools/security/verify-production-exposure-returned-evidence.sh <returned-evidence-dir>" and .requiredBeforeReturnedCloseout == true)
     and any(.verificationCommands[]?; .name == "complete-returned-evidence" and .command == "tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>" and .requiredForCloseout == true)
     and any(.verificationCommands[]?; .name == "complete-returned-handoff" and .command == "tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>" and .requiredForCloseout == true)
-    and any(.verificationCommands[]?; .name == "release-evidence" and .command == "tools/operations/collect-release-evidence.sh" and .outputPattern == ".tmp/release-evidence/<timestamp>/manifest.json")
+    and any(.verificationCommands[]?; .name == "release-evidence" and .command == "tools/operations/collect-release-evidence.sh" and .outputPattern == ".tmp/release-evidence/<release-identity>/manifest.json")
     and any(.verificationCommands[]?; .name == "handoff-check" and .command == "tools/security/check-production-exposure-handoff.sh <manifest.json>" and .requiredBeforeExternalHandoff == true)
     and any(.handoffChecks[]?; .id == "request-status-manifest-alignment" and .requiredBeforeExternalHandoff == true)
     and .finalCloseoutCommand == "tools/security/complete-production-exposure-closeout.sh"

@@ -6,6 +6,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { validateReleaseManifest } from '../release/release-manifest.mjs'
 import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs'
+import { evidenceClassificationErrors } from './evidence-classification.mjs'
 
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..')
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
@@ -744,6 +745,157 @@ function isIsoUtc(value) {
     && Number.isFinite(Date.parse(value))
 }
 
+function releaseEvidenceModelErrors(manifest, options, context) {
+  const errors = []
+  const isV2 = manifest.schema === 'fsusblog.release-evidence-manifest.v2'
+  if (options.requireOk && !isV2) {
+    errors.push('release closeout requires fsusblog.release-evidence-manifest.v2')
+    return errors
+  }
+  if (!isV2) return errors
+
+  const expectedClass = options.requireOk || manifest.evidenceClass === 'release-closeout-evidence'
+    ? 'release-closeout-evidence'
+    : 'fresh-run-evidence'
+  for (const error of evidenceClassificationErrors(manifest, expectedClass)) {
+    errors.push(`evidence classification: ${error}`)
+  }
+  if (!isIsoUtc(manifest.generatedAt)) {
+    errors.push('generatedAt must be an ISO UTC timestamp')
+  }
+  if (!/^[a-z][a-z0-9-]{1,31}$/u.test(String(manifest.targetEnvironment ?? ''))) {
+    errors.push('targetEnvironment must explicitly identify the release environment')
+  }
+  if (manifest.status === 'collected-blocked' && manifest.evidenceClass !== 'fresh-run-evidence') {
+    errors.push('collected-blocked manifest cannot claim release-closeout-evidence')
+  }
+  if (manifest.releaseId !== (manifest.releaseIdentity?.releaseId ?? null)) {
+    errors.push('releaseId must match releaseIdentity.releaseId')
+  }
+  const identityMatches = typeof manifest.releaseId === 'string'
+    && /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u.test(manifest.releaseId)
+    && /^[0-9a-f]{40}$/u.test(String(manifest.commitSha ?? ''))
+    && /^sha256:[0-9a-f]{64}$/u.test(String(manifest.imageDigest ?? ''))
+    && manifest.releaseIdentity?.commitSha === manifest.commitSha
+    && manifest.releaseIdentity?.imageDigest === manifest.imageDigest
+  if (manifest.releaseBound !== identityMatches) {
+    errors.push('releaseBound must exactly reflect release ID, commit SHA, and image digest agreement')
+  }
+  if (identityMatches
+    && (manifest.targetTopology?.releaseSlot !== manifest.releaseIdentity?.releaseSlot
+      || manifest.targetTopology?.runtimeProfileId !== manifest.releaseIdentity?.runtimeProfile?.id)) {
+    errors.push('targetTopology must match the release slot and selected runtime profile')
+  }
+  if (!/^[0-9A-Za-z][0-9A-Za-z._-]{5,191}$/u.test(String(manifest.releaseNamespace ?? ''))) {
+    errors.push('releaseNamespace must be a safe immutable identity namespace')
+  }
+  const expectedNamespace = identityMatches
+    ? `${manifest.releaseId}--${manifest.commitSha.slice(0, 12)}--${manifest.imageDigest.slice('sha256:'.length, 'sha256:'.length + 12)}`
+    : null
+  if (expectedNamespace && manifest.releaseNamespace !== expectedNamespace) {
+    errors.push('releaseNamespace must bind release ID, commit SHA, and image digest')
+  }
+
+  const storage = manifest.storage
+  if (storage?.schema !== 'fsusblog.release-evidence-storage-binding.v1'
+    || storage.authority !== 'github-actions-artifact'
+    || storage.contractPath !== 'security/evidence-contracts/release-bundle-storage.json'
+    || storage.workflow !== '.github/workflows/release-evidence-storage.yml'
+    || storage.immutable !== true
+    || storage.overwriteAllowed !== false
+    || storage.publicationState !== 'pending-immutable-upload') {
+    errors.push('storage binding must use the immutable GitHub Actions artifact authority')
+  }
+  if (storage?.retention?.days !== 90
+    || typeof storage.retention?.deletionPolicy !== 'string'
+    || typeof storage.retention?.legalHoldPolicy !== 'string'
+    || typeof storage.retention?.auditHoldPolicy !== 'string'
+    || typeof storage.retention?.rollbackReferencePolicy !== 'string') {
+    errors.push('storage binding must include the complete retention and hold contract')
+  }
+  if (identityMatches) {
+    const expectedArtifactName = `fsusblog-release-evidence-${manifest.releaseId}-${manifest.commitSha.slice(0, 12)}`
+    if (storage?.artifactName !== expectedArtifactName) {
+      errors.push('storage artifact name must bind release ID and commit SHA')
+    }
+  }
+  if (options.requireOk || manifest.evidenceClass === 'release-closeout-evidence') {
+    if (!/^\d+$/u.test(String(manifest.workflowRun?.id ?? ''))
+      || !/^\d+$/u.test(String(manifest.workflowRun?.attempt ?? ''))
+      || typeof manifest.workflowRun?.workflow !== 'string'
+      || manifest.workflowRun.workflow.trim() === '') {
+      errors.push('release closeout requires workflow run, attempt, and workflow identity')
+    }
+    if (String(storage?.workflowRunId ?? '') !== String(manifest.workflowRun?.id ?? '')) {
+      errors.push('storage workflow run must match manifest workflowRun.id')
+    }
+    if (!/^\d+$/u.test(String(storage?.workflowRunId ?? ''))) {
+      errors.push('release closeout storage requires a numeric workflow run id')
+    }
+    if (!/^fsusblog-release-evidence-[0-9A-Za-z._-]+-[0-9a-f]{12}$/u.test(String(storage?.artifactName ?? ''))) {
+      errors.push('release closeout storage requires an identity-bound artifact name')
+    }
+    if (!/^github-actions:\/\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/actions\/runs\/\d+\/artifacts\/[A-Za-z0-9_.-]+$/u.test(String(storage?.storageReference ?? ''))) {
+      errors.push('release closeout storage requires an immutable workflow-run storage reference')
+    } else if (!String(storage.storageReference).endsWith(`/artifacts/${storage.artifactName}`)) {
+      errors.push('release closeout storage reference must name the identity-bound artifact')
+    }
+  }
+
+  if (!context.manifestPath) {
+    errors.push('artifact inventory validation requires the manifest path')
+    return errors
+  }
+  errors.push(...artifactInventoryErrors(manifest, context.manifestPath))
+  return errors
+}
+
+function artifactInventoryErrors(manifest, manifestPath) {
+  const errors = []
+  const directory = path.dirname(manifestPath)
+  const inventory = manifest.artifactInventory
+  if (inventory?.schema !== 'fsusblog.release-evidence-artifact-inventory.v1'
+    || inventory.algorithm !== 'sha256'
+    || !Array.isArray(inventory.files)) {
+    return ['artifactInventory must be a SHA-256 file inventory']
+  }
+
+  const actual = []
+  const visit = (relativeDirectory = '') => {
+    for (const entry of fs.readdirSync(path.join(directory, relativeDirectory), { withFileTypes: true })) {
+      const relative = path.join(relativeDirectory, entry.name).replaceAll('\\', '/')
+      if (relative === 'manifest.json' || relative === 'release-index.json') continue
+      const absolute = path.join(directory, relative)
+      const stat = fs.lstatSync(absolute)
+      if (stat.isSymbolicLink()) {
+        errors.push(`artifact inventory rejects symbolic link: ${relative}`)
+      } else if (stat.isDirectory()) {
+        visit(relative)
+      } else if (stat.isFile()) {
+        actual.push({
+          path: relative,
+          bytes: stat.size,
+          sha256: `sha256:${sha256Hex(absolute)}`
+        })
+      } else {
+        errors.push(`artifact inventory rejects unsupported entry: ${relative}`)
+      }
+    }
+  }
+  visit()
+  actual.sort((left, right) => left.path.localeCompare(right.path))
+  if (JSON.stringify(inventory.files) !== JSON.stringify(actual)) {
+    errors.push('artifactInventory.files must exactly seal every copied bundle artifact')
+  }
+  if (inventory.fileCount !== actual.length) errors.push('artifactInventory.fileCount mismatch')
+  const totalBytes = actual.reduce((total, file) => total + file.bytes, 0)
+  if (inventory.totalBytes !== totalBytes) errors.push('artifactInventory.totalBytes mismatch')
+  if (inventory.artifactSetSha256 !== sha256Value(canonicalJson(actual))) {
+    errors.push('artifactInventory.artifactSetSha256 mismatch')
+  }
+  return errors
+}
+
 function containsSensitiveFieldName(value) {
   if (Array.isArray(value)) return value.some(containsSensitiveFieldName)
   if (!value || typeof value !== 'object') return false
@@ -1125,6 +1277,8 @@ function validateManifest(manifest, options = {}) {
   if (!manifest.workflowRun || typeof manifest.workflowRun !== 'object') {
     errors.push('workflowRun object is required')
   }
+
+  errors.push(...releaseEvidenceModelErrors(manifest, options, context))
 
   const runtimeMatrixDeclared = typeof manifest.artifacts?.runtimePublishMatrix === 'string'
     || manifest.releaseIdentity?.runtimeProfile != null

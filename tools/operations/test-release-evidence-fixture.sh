@@ -69,6 +69,8 @@ mkdir -p "$SECURITY_DIR/zap/run-1" "$SECURITY_DIR/supply-chain" "$SECURITY_DIR/s
 RELEASE_ID="20260711010101-$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD)"
 COMMIT_SHA="$(git -C "$ROOT_DIR" rev-parse HEAD)"
 IMAGE_DIGEST="sha256:$(printf 'a%.0s' {1..64})"
+IMAGE_DIGEST_HEX="${IMAGE_DIGEST#sha256:}"
+EXPECTED_RELEASE_NAMESPACE="${RELEASE_ID}--${COMMIT_SHA:0:12}--${IMAGE_DIGEST_HEX:0:12}"
 IMAGE_REPOSITORY="ghcr.io/fsusblog/app"
 IMAGE_REF="$IMAGE_REPOSITORY@$IMAGE_DIGEST"
 RELEASE_MANIFEST="$TMP_ROOT/release-manifest.json"
@@ -291,7 +293,7 @@ jq -n \
     {
       name: "release-evidence",
       command: "tools/operations/collect-release-evidence.sh",
-      outputPattern: ".tmp/release-evidence/<timestamp>/manifest.json"
+      outputPattern: ".tmp/release-evidence/<release-identity>/manifest.json"
     },
     {
       name: "handoff-check",
@@ -750,10 +752,25 @@ node "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" "$OUT_DIR/
 
 jq -e \
   --arg releaseId "$RELEASE_ID" \
+  --arg releaseNamespace "$EXPECTED_RELEASE_NAMESPACE" \
   --arg commitSha "$COMMIT_SHA" \
   --arg imageRef "$IMAGE_REF" \
   --arg imageDigest "$IMAGE_DIGEST" '
-  .releaseStamp == "fixture"
+  .schema == "fsusblog.release-evidence-manifest.v2"
+  and .evidenceClass == "fresh-run-evidence"
+  and .freshExecution == true
+  and .releaseBound == true
+  and .productionFreshRun == false
+  and .releaseStamp == "fixture"
+  and .releaseNamespace == $releaseNamespace
+  and .storage.authority == "github-actions-artifact"
+  and .storage.immutable == true
+  and .storage.overwriteAllowed == false
+  and .storage.retention.days == 90
+  and .storage.storageReference == null
+  and .artifactInventory.algorithm == "sha256"
+  and .artifactInventory.fileCount > 0
+  and (.artifactInventory.artifactSetSha256 | test("^sha256:[0-9a-f]{64}$"))
   and .status == "collected-blocked"
   and .artifacts.attackMatrix == "attack-matrix.json"
   and .artifacts.permissionMatrix == "permission-matrix.json"
@@ -864,6 +881,8 @@ jq -e \
   and (.securityEvidenceIndex | map(.kind) | index("production-exposure-status") != null)
   and (.securityEvidenceIndex | map(.kind) | index("production-exposure-request") != null)
 ' "$OUT_DIR/manifest.json" >/dev/null
+
+[[ ! -e "$OUT_DIR/release-index.json" ]]
 
 jq -e '
   .schema == "fsusblog.frontend-render-structure.v1"

@@ -25,17 +25,19 @@ Do not commit copied `.env`, production `appsettings*.json`, database exports, R
 
 ## Secret And Privacy Scrub
 
-The public-preview gate records evidence under `release-evidence/open-source-readiness/`:
+Current scanner output is generated under the untracked `.tmp/open-source-readiness/` directory. These reports describe the invocation that produced them; they are not release-closeout evidence unless a release-bound collector independently includes and seals them.
 
 | Evidence | Command |
 |----------|---------|
 | Secret/history/issue scan | `node tools/security/open-source-secret-scan.mjs` |
 | Dependency license audit | `node tools/security/open-source-license-audit.mjs` |
-| Supply-chain vulnerability audit | `FSUSBLOG_SUPPLY_CHAIN_AUDIT_DIR=release-evidence/open-source-readiness/supply-chain tools/security/check-supply-chain-audit.sh` |
+| Supply-chain vulnerability audit | `FSUSBLOG_SUPPLY_CHAIN_AUDIT_DIR=.tmp/open-source-readiness/supply-chain tools/security/check-supply-chain-audit.sh` |
 | CodeQL SARIF analysis | `.github/workflows/codeql.yml` |
 | OpenSSF Scorecard posture scan | `.github/workflows/scorecard.yml` |
 | Branch protection and workflow permissions | [docs/repository-governance.md](repository-governance.md) |
-| Final checklist | `release-evidence/open-source-readiness/readiness-checklist.md` |
+| Historical v1.1.0 checklist | `docs/reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md` |
+
+The retained [v1.1.0 public-preview snapshot](reports/open-source-readiness/v1.1.0-public-preview/README.md) is dated, revision-scoped provenance. Historical `green` or `ok` fields there do not state current master readiness and cannot satisfy fresh or release gates.
 
 The secret scan covers the tracked tree, git history, public GitHub issue text, issue comments, and a documentation image inventory. It blocks unapproved private keys, tokens, production-looking credentials, public IPs, and personal email patterns.
 

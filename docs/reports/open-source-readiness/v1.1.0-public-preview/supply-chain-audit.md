@@ -1,5 +1,8 @@
 # Supply-Chain Audit
 
+> **Historical snapshot — not current master evidence.**
+> Generated during the 2026-06-11 v1.1.0 public-preview audit window. Vulnerability status is time-bound and cannot satisfy a current release gate.
+
 Status: ok
 Generated at: 2026-06-11T03:47:01Z
 
@@ -26,4 +29,4 @@ Generated at: 2026-06-11T03:47:01Z
 - npm high vulnerabilities: 0.
 - npm critical vulnerabilities: 0.
 
-Machine-readable evidence is stored in `release-evidence/open-source-readiness/supply-chain/summary.json`, `release-evidence/open-source-readiness/supply-chain/nuget/`, and `release-evidence/open-source-readiness/supply-chain/npm-audit.json`.
+The preserved machine-readable snapshot is stored in `supply-chain/summary.json`, `supply-chain/nuget/`, and `supply-chain/npm-audit.json` beside this report.

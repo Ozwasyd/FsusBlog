@@ -38,8 +38,9 @@
       "architecturalException": "Operator-owned deployment scripts stay outside application source and are never compiled into the product."
     },
     {
-      "path": "release-evidence",
-      "classification": "release-evidence"
+      "path": "release-index",
+      "classification": "release-index",
+      "architecturalException": "An optional Git-tracked release index may contain only the small identity and integrity records enforced by release-evidence layout governance; complete bundles remain outside Git."
     },
     {
       "path": "security",
@@ -62,7 +63,8 @@
   ],
   "forbiddenRootSourceDirectories": [
     "circuits",
-    "deploy"
+    "deploy",
+    "release-evidence"
   ],
   "zk": {
     "circuitSourceRoot": "src/zk/circuits",

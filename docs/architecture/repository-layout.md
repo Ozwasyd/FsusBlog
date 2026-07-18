@@ -53,7 +53,12 @@ assemblies。`.config/` 是 .NET tool manifest 所需的 framework root；其他
 top-level 目录必须在
 `tests/governance/repository-source-layout.json` 中声明为 artifact、configuration、
 documentation、security 或 automation ownership；新增 source-like root 必须同时提供
-明确的 `architecturalException`，否则 checker fail closed。
+明确的 `architecturalException`，否则 checker fail closed。顶层 `release-evidence/`
+已经退役并被列入禁止目录：历史报告属于 `docs/reports/`，静态契约属于
+`security/evidence-contracts/`，fixture 属于 `tests/fixtures/evidence/`，fresh bundle
+只能写入未跟踪的 `.tmp/release-evidence/`。可选 `release-index/` 是唯一例外，且
+只能保存 `check-release-evidence-layout.mjs` 校验过的最小 identity/integrity JSON，
+不能保存 bundle 或替代其不可变存储引用。
 
 ## Verification
 
@@ -66,5 +71,5 @@ node --test tests/tools/issue-1166-zk-source-layout.test.mjs
 ```
 
 `tools/check-repository-source-layout.mjs` 从 Git index 读取 top-level inventory，
-拒绝重新出现的 root `circuits/`、未声明的顶层目录、缺少理由的 source exception、
+拒绝重新出现的 root `circuits/`、`deploy/`、`release-evidence/`，以及未声明的顶层目录、缺少理由的 source exception、
 旧 circuit source 引用、source hash 漂移和 manifest/R1CS source binding 漂移。

@@ -296,4 +296,4 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 
 FsusBlog 代码以 Apache-2.0 许可发布；贡献流程、安全报告、行为准则、已知限制、路线图和 release notes 均在上方 public-preview entry 与文档索引中列出。v1.1.0 不承诺生产 SLA、稳定第三方客户端兼容或稳定内部 AEDS/admin/database 契约。
 
-开源 readiness 证据位于 `release-evidence/open-source-readiness/`，包含 secret/history/issue scan、dependency license audit、supply-chain audit、CodeQL/Scorecard posture checks、repository governance 和最终 checklist。公开截图与 demo seed data 使用 fictional content；仓库不包含真实生产域名、邮箱、IP、日志、token、私有标识、独立商标图稿或生产品牌资产。
+历史开源 readiness 快照位于 `docs/reports/open-source-readiness/v1.1.0-public-preview/`，只保留对应审计窗口的 provenance，不能代表当前 `master` 或充当 fresh release credential。当前证据分类、release identity 绑定与不可变存储规则见 `docs/release-evidence-model.md`。公开截图与 demo seed data 使用 fictional content；仓库不包含真实生产域名、邮箱、IP、日志、token、私有标识、独立商标图稿或生产品牌资产。

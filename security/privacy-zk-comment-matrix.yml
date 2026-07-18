@@ -1,4 +1,17 @@
 version: privacy-zk-comment-matrix-v1
+evidenceClassRegistry:
+  contract:
+    - security/evidence-contracts/release-bundle-storage.json
+  fixture:
+    - tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json
+  implementation-attestation:
+    - security/evidence-contracts/anonymous-credential-blind-issuance.json
+    - security/evidence-contracts/comment-author-mode-retirement.json
+    - security/evidence-contracts/public-revocation-distribution.json
+  fresh-run-evidence:
+    - .tmp/security/privacy-zk-comment-matrix.json
+  release-closeout-evidence:
+    - .tmp/release-evidence/<release-identity>/manifest.json
 cryptoDecision:
   adr: docs/architecture/decisions/ADR-ZK-CircuitNative-Groth16.md
   credentialScheme: circuit-native-credential-v2
@@ -28,7 +41,7 @@ scenarios:
       - tests/backend/Unit/AnonymousCommentTicketServiceTests.cs
       - tests/frontend/unit/components/ArticleCommentComposer.test.ts
     evidence:
-      - release-evidence/comment-author-mode-retirement.json
+      - security/evidence-contracts/comment-author-mode-retirement.json
 
   - id: PRIVACY-ZK-CIRCUIT-CONTRACT
     scenario: comment.v2 Groth16 circuit contract fixes public inputs, private witness, soundness cases and identity non-disclosure
@@ -189,7 +202,7 @@ scenarios:
       - tests/frontend/unit/api/comment.test.ts
       - tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts
     evidence:
-      - release-evidence/public-revocation-distribution.json
+      - security/evidence-contracts/public-revocation-distribution.json
 
   - id: PRIVACY-ZK-PROD-SMOKE
     scenario: production ZK smoke validates native verifier, browser prover evidence, ticket issue, anonymous submit and pending DB state without identity headers or sensitive payload logs

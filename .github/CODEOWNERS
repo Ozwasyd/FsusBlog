@@ -18,10 +18,11 @@ tests/backend/ @Ozwasyd
 src/frontend/ @Ozwasyd
 tests/frontend/ @Ozwasyd
 
-# Contracts, tools, documentation, and release evidence
+# Contracts, tools, documentation, and evidence ownership
 tools/ @Ozwasyd
 docs/ @Ozwasyd
-release-evidence/ @Ozwasyd
+security/evidence-contracts/ @Ozwasyd
+tests/fixtures/evidence/ @Ozwasyd
 
 # Security-sensitive areas
 src/backend/Modules/Endpoints/ @Ozwasyd

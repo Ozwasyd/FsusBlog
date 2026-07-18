@@ -1,5 +1,13 @@
 {
   "schema": "fsusblog.release.anonymous-eligibility-anonymity-set.v1",
+  "evidenceClass": "fixture",
+  "freshExecution": false,
+  "releaseBound": false,
+  "productionFreshRun": false,
+  "generatedFrom": {
+    "kind": "curated-test-fixture",
+    "source": "anonymous-eligibility-privacy-contract"
+  },
   "circuitId": "fsus.anonymous.comment.v5",
   "publicInputLayoutVersion": 6,
   "minimumRequired": 20,
@@ -10,5 +18,5 @@
     "medianSize": 61
   },
   "containsMemberIdentities": false,
-  "status": "fixture-only-not-production-attestation"
+  "fixtureState": "aggregate-sample-not-production-attestation"
 }

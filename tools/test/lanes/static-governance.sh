@@ -26,6 +26,7 @@ STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/issue-1165-wasm-artifact-ownership.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1166-zk-source-layout.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1168-zk-artifact-ownership.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1169-release-evidence-model.test.mjs"
   "$ROOT_DIR/tests/tools/configuration-layout.test.mjs"
   "$ROOT_DIR/tests/tools/operations-layout.test.mjs"
   "$ROOT_DIR/tests/tools/deployment-slots.test.mjs"

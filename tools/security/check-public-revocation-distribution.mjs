@@ -2,6 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { assertEvidenceClassification } from '../operations/evidence-classification.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8')
 const errors = []
@@ -80,8 +82,17 @@ for (const file of [
   'docs/security/anonymous-revocation-distribution-runbook.md',
   'security/privacy-zk-comment-matrix.yml',
   'security/zk/comment-v2-circuit.manifest.json',
-  'release-evidence/public-revocation-distribution.json'
+  'security/evidence-contracts/public-revocation-distribution.json'
 ]) requireText(file, 'revocation')
+
+const attestation = assertEvidenceClassification(
+  JSON.parse(read('security/evidence-contracts/public-revocation-distribution.json')),
+  'implementation-attestation',
+  'public revocation distribution attestation'
+)
+if (attestation.implementationStatus !== 'implemented-focused-validation-required') {
+  errors.push('public revocation distribution attestation must remain focused-only')
+}
 
 if (errors.length) {
   console.error(errors.join('\n'))

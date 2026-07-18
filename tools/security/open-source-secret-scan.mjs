@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
-const outDir = path.join(root, 'release-evidence/open-source-readiness')
+const outDir = path.resolve(root, process.env.FSUSBLOG_OPEN_SOURCE_READINESS_OUT_DIR ?? '.tmp/open-source-readiness')
 const jsonOut = path.join(outDir, 'secret-scan.json')
 const mdOut = path.join(outDir, 'secret-scan.md')
 
@@ -22,7 +22,7 @@ const denyPatterns = [
 ]
 
 const allowedValuePattern = /(?:replace|example|localhost|127\.0\.0\.1|0\.0\.0\.0|ChangeMe|changeme|demo|fictional|sample|placeholder|your_|your-|fsusblog_dev|BinaryAdminPass123|TestPassword|Password123|example\.com|test\.com|schemas\.openxmlformats\.org|www\.w3\.org)/iu
-const skipPathPattern = /(?:^|\/)(?:\.git|node_modules|bin|obj|coverage|TestResults|test-results|playwright-report|release-evidence\/open-source-readiness)(?:\/|$)|package-lock\.json$|packages\.lock\.json$|\.(?:png|jpg|jpeg|gif|webp|ico|woff2?|ttf|zip|gz|dll|so|wasm|pdf)$/iu
+const skipPathPattern = /(?:^|\/)(?:\.git|\.tmp|node_modules|bin|obj|coverage|TestResults|test-results|playwright-report|docs\/reports\/open-source-readiness)(?:\/|$)|package-lock\.json$|packages\.lock\.json$|\.(?:png|jpg|jpeg|gif|webp|ico|woff2?|ttf|zip|gz|dll|so|wasm|pdf)$/iu
 const documentationIpPattern = /^(?:192\.0\.2|198\.51\.100|203\.0\.113)\.\d{1,3}$/u
 const placeholderIps = new Set(['1.2.3.4'])
 const publicResolverIps = new Set(['1.1.1.1', '8.8.8.8', '8.8.4.4'])

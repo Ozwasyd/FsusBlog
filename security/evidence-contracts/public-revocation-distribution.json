@@ -1,7 +1,15 @@
 {
   "schemaVersion": "fsus.public-revocation-distribution.evidence.v1",
+  "evidenceClass": "implementation-attestation",
+  "freshExecution": false,
+  "releaseBound": false,
+  "productionFreshRun": false,
+  "generatedFrom": {
+    "kind": "issue-implementation",
+    "source": "issue-1139-focused-validation"
+  },
   "issue": 1139,
-  "status": "implemented-focused-validation-required",
+  "implementationStatus": "implemented-focused-validation-required",
   "networkContract": {
     "method": "GET",
     "credentials": "omit",

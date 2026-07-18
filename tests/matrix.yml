@@ -797,6 +797,7 @@ tiers:
       - wasm-release-artifact-ownership
       - repository-source-layout-governance
       - zk-artifact-lifecycle-ownership
+      - release-evidence-classification-governance
       - configuration-layout-governance
       - operations-layout-governance
       - runtime-publish-profile-matrix
@@ -878,6 +879,16 @@ tiers:
       - security/zk/artifact-ownership.manifest.json
       - tests/tools/issue-1168-zk-artifact-ownership.test.mjs
       - docs/zk/trusted-setup-ceremony.md
+      - tools/operations/check-release-evidence-layout.mjs
+      - tools/operations/evidence-classification.mjs
+      - tools/operations/seal-release-evidence-bundle.mjs
+      - tests/tools/issue-1169-release-evidence-model.test.mjs
+      - security/evidence-contracts/release-bundle-storage.json
+      - security/privacy-zk-comment-matrix.yml
+      - tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json
+      - .github/workflows/release-evidence-storage.yml
+      - docs/release-evidence-model.md
+      - docs/reports/open-source-readiness/v1.1.0-public-preview/snapshot-manifest.json
       - tools/configuration/check-configuration-layout.mjs
       - config/configuration-ownership.json
       - tests/tools/configuration-layout.test.mjs

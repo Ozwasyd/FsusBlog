@@ -1,5 +1,8 @@
 # v1.1.0 Open Source Readiness Checklist
 
+> **Historical snapshot — not current master evidence.**
+> This checklist records the 2026-06-11 v1.1.0 public-preview audit window. Its green status cannot satisfy a current readiness, fresh-run, or release-closeout gate; the recorded revision authority is documented in `snapshot-manifest.json`.
+
 Status: green
 Generated for issue: #121
 Release target: v1.1.0-public-preview
@@ -29,9 +32,9 @@ Release target: v1.1.0-public-preview
 
 | Gate | Status | Evidence |
 |------|--------|----------|
-| Secret/history/issue scan | OK | `release-evidence/open-source-readiness/secret-scan.md` |
-| Dependency license audit | OK | `release-evidence/open-source-readiness/dependency-license-audit.md` |
-| Supply-chain vulnerability audit | OK | `release-evidence/open-source-readiness/supply-chain-audit.md`, `release-evidence/open-source-readiness/supply-chain/summary.json` |
+| Secret/history/issue scan | OK | `secret-scan.md` |
+| Dependency license audit | OK | `dependency-license-audit.md` |
+| Supply-chain vulnerability audit | OK | `supply-chain-audit.md`, `supply-chain/summary.json` |
 | GitHub dependency review policy | OK | `.github/workflows/dependency-review.yml` denies AGPL/GPL/LGPL/SSPL families |
 | CodeQL analysis | OK | `.github/workflows/codeql.yml` scans C# and JavaScript/TypeScript on PRs, default-branch pushes, weekly schedule, and manual dispatch, then stores SARIF artifacts while code scanning is disabled |
 | OpenSSF Scorecard posture scan | OK | `.github/workflows/scorecard.yml` runs on default-branch governance changes, weekly schedule, and manual dispatch, then stores a SARIF artifact without Code Scanning upload while code scanning is disabled |
@@ -45,7 +48,7 @@ Release target: v1.1.0-public-preview
 ```bash
 node tools/security/open-source-secret-scan.mjs
 node tools/security/open-source-license-audit.mjs
-FSUSBLOG_SUPPLY_CHAIN_AUDIT_DIR=release-evidence/open-source-readiness/supply-chain tools/security/check-supply-chain-audit.sh
+FSUSBLOG_SUPPLY_CHAIN_AUDIT_DIR=.tmp/open-source-readiness/supply-chain tools/security/check-supply-chain-audit.sh
 node tools/docs/check-community-workflow.mjs
 ```
 

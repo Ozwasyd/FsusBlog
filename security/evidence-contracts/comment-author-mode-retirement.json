@@ -1,5 +1,12 @@
 {
   "schema": "fsusblog-comment-author-mode-retirement-v1",
+  "evidenceClass": "implementation-attestation",
+  "freshExecution": false,
+  "releaseBound": false,
+  "generatedFrom": {
+    "kind": "issue-implementation",
+    "source": "issue-1137-focused-validation"
+  },
   "issue": 1137,
   "productionWriteModes": ["public", "zk_anonymous"],
   "historicalReadMode": "legacy_server_visible_pseudonymous",

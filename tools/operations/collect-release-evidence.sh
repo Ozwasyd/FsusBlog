@@ -2,8 +2,34 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REQUIRE_OK=0
+if [[ $# -gt 1 ]]; then
+  echo "usage: collect-release-evidence.sh [--require-ok]" >&2
+  exit 2
+fi
+if [[ $# -eq 1 && "$1" != "--require-ok" ]]; then
+  echo "usage: collect-release-evidence.sh [--require-ok]" >&2
+  exit 2
+fi
+if [[ $# -eq 1 ]]; then
+  REQUIRE_OK=1
+fi
 STAMP="${FSUSBLOG_RELEASE_STAMP:-$(date -u +%Y%m%dT%H%M%SZ)}"
-OUT_DIR="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence/$STAMP}"
+RELEASE_NAMESPACE="$STAMP"
+if [[ -n "${FSUSBLOG_RELEASE_ID:-}" ]]; then
+  if [[ ! "${FSUSBLOG_RELEASE_ID}" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]]; then
+    echo "FSUSBLOG_RELEASE_ID cannot form a safe release-evidence namespace" >&2
+    exit 2
+  fi
+  RELEASE_NAMESPACE="$FSUSBLOG_RELEASE_ID"
+  if [[ "${FSUSBLOG_COMMIT_SHA:-}" =~ ^[0-9a-f]{40}$ \
+    && "${FSUSBLOG_IMAGE_DIGEST:-}" =~ ^sha256:([0-9a-f]{64})$ ]]; then
+    IMAGE_NAMESPACE_DIGEST="${FSUSBLOG_IMAGE_DIGEST#sha256:}"
+    RELEASE_NAMESPACE="${FSUSBLOG_RELEASE_ID}--${FSUSBLOG_COMMIT_SHA:0:12}--${IMAGE_NAMESPACE_DIGEST:0:12}"
+  fi
+fi
+export FSUSBLOG_RELEASE_NAMESPACE="$RELEASE_NAMESPACE"
+OUT_DIR="${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence/$RELEASE_NAMESPACE}"
 SECURITY_DIR="${FSUSBLOG_SECURITY_EVIDENCE_SOURCE_DIR:-$ROOT_DIR/.tmp/security}"
 OPERATIONS_DIR="${FSUSBLOG_OPERATIONS_EVIDENCE_SOURCE_DIR:-$ROOT_DIR/.tmp/operations}"
 COVERAGE_DIR="${FSUSBLOG_COVERAGE_EVIDENCE_DIR:-$ROOT_DIR/artifacts/coverage}"
@@ -1079,4 +1105,10 @@ cat > "$OUT_DIR/manifest.json" <<JSON
 }
 JSON
 
-echo "[release-evidence] wrote $OUT_DIR/manifest.json"
+seal_args=("$OUT_DIR")
+if [[ "$REQUIRE_OK" == "1" ]]; then
+  seal_args+=(--require-ok)
+fi
+node "$ROOT_DIR/tools/operations/seal-release-evidence-bundle.mjs" "${seal_args[@]}"
+
+echo "[release-evidence] wrote $OUT_DIR/manifest.json namespace=$RELEASE_NAMESPACE requireOk=$REQUIRE_OK"

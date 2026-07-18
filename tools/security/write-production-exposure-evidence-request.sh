@@ -192,7 +192,7 @@ jq -n \
       {
         name: "release-evidence",
         command: "tools/operations/collect-release-evidence.sh",
-        outputPattern: ".tmp/release-evidence/<timestamp>/manifest.json"
+        outputPattern: ".tmp/release-evidence/<release-identity>/manifest.json"
       },
       {
         name: "handoff-check",

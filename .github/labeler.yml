@@ -106,7 +106,11 @@
 "risk:public-preview-policy":
   - changed-files:
       - any-glob-to-any-file:
-          - "release-evidence/**"
+          - ".github/workflows/release-evidence-storage.yml"
+          - "security/evidence-contracts/**"
+          - "tests/fixtures/evidence/**"
+          - "docs/reports/open-source-readiness/**"
+          - "docs/release-evidence-model.md"
           - "docs/open-source-readiness.md"
           - "docs/known-limitations.md"
           - "docs/releases/**"
