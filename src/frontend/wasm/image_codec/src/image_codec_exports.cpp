@@ -29,14 +29,14 @@ enum class ErrorCode : std::uint8_t
     EncodeFailed = 6
 };
 
-constexpr const char *kCodecVersion = "fsus-image-codec/0.2.0";
+constexpr const char* kCodecVersion = "fsus-image-codec/0.2.0";
 #if defined(__wasm_simd128__)
-constexpr const char *kCodecLevel = "simd";
+constexpr const char* kCodecLevel = "simd";
 #else
-constexpr const char *kCodecLevel = "basic";
+constexpr const char* kCodecLevel = "basic";
 #endif
 
-constexpr std::uint32_t fnv1a(const char *value)
+constexpr std::uint32_t fnv1a(const char* value)
 {
     std::uint32_t hash = 2166136261u;
     while (*value != '\0')
@@ -103,13 +103,13 @@ void clear_error()
     g_last_error_code = ErrorCode::None;
 }
 
-void set_error(ErrorCode code, const char *message)
+void set_error(ErrorCode code, const char* message)
 {
     g_last_error_code = code;
     g_last_error = message;
 }
 
-void append_u32_be(std::vector<std::uint8_t> &out, std::uint32_t value)
+void append_u32_be(std::vector<std::uint8_t>& out, std::uint32_t value)
 {
     out.push_back(static_cast<std::uint8_t>((value >> 24) & 0xFFu));
     out.push_back(static_cast<std::uint8_t>((value >> 16) & 0xFFu));
@@ -117,7 +117,7 @@ void append_u32_be(std::vector<std::uint8_t> &out, std::uint32_t value)
     out.push_back(static_cast<std::uint8_t>(value & 0xFFu));
 }
 
-std::uint32_t crc32(const std::uint8_t *data, std::size_t len)
+std::uint32_t crc32(const std::uint8_t* data, std::size_t len)
 {
     std::uint32_t crc = 0xFFFFFFFFu;
     for (std::size_t i = 0; i < len; ++i)
@@ -132,7 +132,7 @@ std::uint32_t crc32(const std::uint8_t *data, std::size_t len)
     return ~crc;
 }
 
-std::uint32_t adler32(const std::uint8_t *data, std::size_t len)
+std::uint32_t adler32(const std::uint8_t* data, std::size_t len)
 {
     constexpr std::uint32_t mod = 65521u;
     std::uint32_t a = 1u;
@@ -145,7 +145,7 @@ std::uint32_t adler32(const std::uint8_t *data, std::size_t len)
     return (b << 16) | a;
 }
 
-void append_chunk(std::vector<std::uint8_t> &png, const char type[4], const std::vector<std::uint8_t> &payload)
+void append_chunk(std::vector<std::uint8_t>& png, const char type[4], const std::vector<std::uint8_t>& payload)
 {
     append_u32_be(png, static_cast<std::uint32_t>(payload.size()));
     const auto type_start = png.size();
@@ -159,7 +159,10 @@ void append_chunk(std::vector<std::uint8_t> &png, const char type[4], const std:
     append_u32_be(png, crc32(crc_start, crc_len));
 }
 
-bool encode_png_rgba(const std::uint8_t *rgba, std::uint32_t width, std::uint32_t height, std::vector<std::uint8_t> &out)
+bool encode_png_rgba(const std::uint8_t* rgba,
+                     std::uint32_t width,
+                     std::uint32_t height,
+                     std::vector<std::uint8_t>& out)
 {
     if (width == 0 || height == 0)
     {
@@ -197,7 +200,9 @@ bool encode_png_rgba(const std::uint8_t *rgba, std::uint32_t width, std::uint32_
         const std::uint16_t nlen = static_cast<std::uint16_t>(~block_len);
         zlib.push_back(static_cast<std::uint8_t>(nlen & 0xFFu));
         zlib.push_back(static_cast<std::uint8_t>((nlen >> 8) & 0xFFu));
-        zlib.insert(zlib.end(), raw.begin() + static_cast<std::ptrdiff_t>(cursor), raw.begin() + static_cast<std::ptrdiff_t>(cursor + block_len));
+        zlib.insert(zlib.end(),
+                    raw.begin() + static_cast<std::ptrdiff_t>(cursor),
+                    raw.begin() + static_cast<std::ptrdiff_t>(cursor + block_len));
         cursor += block_len;
     }
 
@@ -225,11 +230,7 @@ bool encode_png_rgba(const std::uint8_t *rgba, std::uint32_t width, std::uint32_
 }
 
 bool encode_jpeg_rgba(
-    const std::uint8_t *rgba,
-    std::uint32_t width,
-    std::uint32_t height,
-    int quality,
-    std::vector<std::uint8_t> &out)
+    const std::uint8_t* rgba, std::uint32_t width, std::uint32_t height, int quality, std::vector<std::uint8_t>& out)
 {
 #ifndef FSUSBLOG_IMAGE_CODEC_ENABLE_JPEG
     (void)rgba;
@@ -262,8 +263,9 @@ bool encode_jpeg_rgba(
         char message[JMSG_LENGTH_MAX]{};
     };
 
-    auto onJpegError = [](j_common_ptr cinfo) {
-        auto *err = reinterpret_cast<JpegErrorManager *>(cinfo->err);
+    auto onJpegError = [](j_common_ptr cinfo)
+    {
+        auto* err = reinterpret_cast<JpegErrorManager*>(cinfo->err);
         (*cinfo->err->format_message)(cinfo, err->message);
         longjmp(err->setjmpBuffer, 1);
     };
@@ -272,7 +274,7 @@ bool encode_jpeg_rgba(
     JpegErrorManager jerr{};
     cinfo.err = jpeg_std_error(&jerr.pub);
     jerr.pub.error_exit = onJpegError;
-    unsigned char *jpeg_buf = nullptr;
+    unsigned char* jpeg_buf = nullptr;
     unsigned long jpeg_len = 0;
     if (setjmp(jerr.setjmpBuffer))
     {
@@ -327,11 +329,7 @@ bool encode_jpeg_rgba(
 }
 
 bool encode_webp_rgba(
-    const std::uint8_t *rgba,
-    std::uint32_t width,
-    std::uint32_t height,
-    int quality,
-    std::vector<std::uint8_t> &out)
+    const std::uint8_t* rgba, std::uint32_t width, std::uint32_t height, int quality, std::vector<std::uint8_t>& out)
 {
 #ifndef FSUSBLOG_IMAGE_CODEC_ENABLE_WEBP
     (void)rgba;
@@ -348,14 +346,13 @@ bool encode_webp_rgba(
         return false;
     }
     const int normalized_quality = std::clamp(quality <= 0 ? 82 : quality, 1, 100);
-    std::uint8_t *webp_buf = nullptr;
-    const size_t webp_len = WebPEncodeRGBA(
-        rgba,
-        static_cast<int>(width),
-        static_cast<int>(height),
-        static_cast<int>(width * 4u),
-        static_cast<float>(normalized_quality),
-        &webp_buf);
+    std::uint8_t* webp_buf = nullptr;
+    const size_t webp_len = WebPEncodeRGBA(rgba,
+                                           static_cast<int>(width),
+                                           static_cast<int>(height),
+                                           static_cast<int>(width * 4u),
+                                           static_cast<float>(normalized_quality),
+                                           &webp_buf);
     if (webp_len == 0 || webp_buf == nullptr)
     {
         set_error(ErrorCode::EncodeFailed, "codec_encode_failed");
@@ -368,11 +365,7 @@ bool encode_webp_rgba(
 }
 
 bool encode_avif_rgba(
-    const std::uint8_t *rgba,
-    std::uint32_t width,
-    std::uint32_t height,
-    int quality,
-    std::vector<std::uint8_t> &out)
+    const std::uint8_t* rgba, std::uint32_t width, std::uint32_t height, int quality, std::vector<std::uint8_t>& out)
 {
 #ifndef FSUSBLOG_IMAGE_CODEC_ENABLE_AVIF
     (void)rgba;
@@ -394,7 +387,7 @@ bool encode_avif_rgba(
         return false;
     }
 
-    avifImage *image = avifImageCreate(static_cast<int>(width), static_cast<int>(height), 8, AVIF_PIXEL_FORMAT_YUV444);
+    avifImage* image = avifImageCreate(static_cast<int>(width), static_cast<int>(height), 8, AVIF_PIXEL_FORMAT_YUV444);
     if (image == nullptr)
     {
         set_error(ErrorCode::EncodeFailed, "codec_encode_failed");
@@ -424,7 +417,7 @@ bool encode_avif_rgba(
         return false;
     }
 
-    avifEncoder *encoder = avifEncoderCreate();
+    avifEncoder* encoder = avifEncoderCreate();
     if (encoder == nullptr)
     {
         avifImageDestroy(image);
@@ -457,7 +450,7 @@ bool encode_avif_rgba(
 #endif
 }
 
-std::uint32_t parse_format(const char *format)
+std::uint32_t parse_format(const char* format)
 {
     if (format == nullptr || *format == '\0')
     {
@@ -469,142 +462,162 @@ std::uint32_t parse_format(const char *format)
 
 extern "C"
 {
-std::uint8_t *image_codec_alloc_buffer(int size)
-{
-    if (size <= 0)
+    std::uint8_t* image_codec_alloc_buffer(int size)
     {
-        return nullptr;
-    }
-    return static_cast<std::uint8_t *>(std::malloc(static_cast<std::size_t>(size)));
-}
-
-void image_codec_free_buffer(std::uint8_t *ptr)
-{
-    if (ptr == nullptr)
-    {
-        return;
-    }
-    std::free(ptr);
-}
-
-int image_codec_encode(
-    const std::uint8_t *rgba_ptr,
-    int rgba_len,
-    int width,
-    int height,
-    const char *format,
-    int quality,
-    int preserve_alpha)
-{
-    (void)preserve_alpha;
-
-    clear_error();
-    g_output.clear();
-
-    if (rgba_ptr == nullptr || rgba_len <= 0 || width <= 0 || height <= 0)
-    {
-        set_error(ErrorCode::InvalidInput, "codec_invalid_input");
-        return 0;
+        if (size <= 0)
+        {
+            return nullptr;
+        }
+        return static_cast<std::uint8_t*>(std::malloc(static_cast<std::size_t>(size)));
     }
 
-    const auto expected_len = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4u;
-    if (static_cast<std::size_t>(rgba_len) != expected_len)
+    void image_codec_free_buffer(std::uint8_t* ptr)
     {
-        set_error(ErrorCode::RgbaSizeMismatch, "codec_rgba_size_mismatch");
-        return 0;
+        if (ptr == nullptr)
+        {
+            return;
+        }
+        std::free(ptr);
     }
 
-    const std::uint32_t fmt = parse_format(format);
-    if (fmt == kFormatPng)
+    int image_codec_encode(const std::uint8_t* rgba_ptr,
+                           int rgba_len,
+                           int width,
+                           int height,
+                           const char* format,
+                           int quality,
+                           int preserve_alpha)
     {
-        return encode_png_rgba(rgba_ptr, static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), g_output) ? 1 : 0;
-    }
+        (void)preserve_alpha;
 
-    if (fmt == kFormatJpeg)
-    {
-        return encode_jpeg_rgba(rgba_ptr, static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), quality, g_output) ? 1 : 0;
-    }
+        clear_error();
+        g_output.clear();
 
-    if (fmt == kFormatWebp)
-    {
-        return encode_webp_rgba(rgba_ptr, static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), quality, g_output) ? 1 : 0;
-    }
+        if (rgba_ptr == nullptr || rgba_len <= 0 || width <= 0 || height <= 0)
+        {
+            set_error(ErrorCode::InvalidInput, "codec_invalid_input");
+            return 0;
+        }
 
-    if (fmt == kFormatAvif)
-    {
-        if ((g_supported_formats_bitmap & kSupportAvifBit) == 0u)
+        const auto expected_len = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4u;
+        if (static_cast<std::size_t>(rgba_len) != expected_len)
+        {
+            set_error(ErrorCode::RgbaSizeMismatch, "codec_rgba_size_mismatch");
+            return 0;
+        }
+
+        const std::uint32_t fmt = parse_format(format);
+        if (fmt == kFormatPng)
+        {
+            return encode_png_rgba(
+                       rgba_ptr, static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), g_output)
+                       ? 1
+                       : 0;
+        }
+
+        if (fmt == kFormatJpeg)
+        {
+            return encode_jpeg_rgba(rgba_ptr,
+                                    static_cast<std::uint32_t>(width),
+                                    static_cast<std::uint32_t>(height),
+                                    quality,
+                                    g_output)
+                       ? 1
+                       : 0;
+        }
+
+        if (fmt == kFormatWebp)
+        {
+            return encode_webp_rgba(rgba_ptr,
+                                    static_cast<std::uint32_t>(width),
+                                    static_cast<std::uint32_t>(height),
+                                    quality,
+                                    g_output)
+                       ? 1
+                       : 0;
+        }
+
+        if (fmt == kFormatAvif)
+        {
+            if ((g_supported_formats_bitmap & kSupportAvifBit) == 0u)
+            {
+                set_error(ErrorCode::NeedFallback, "codec_need_fallback");
+                return 0;
+            }
+            return encode_avif_rgba(rgba_ptr,
+                                    static_cast<std::uint32_t>(width),
+                                    static_cast<std::uint32_t>(height),
+                                    quality,
+                                    g_output)
+                       ? 1
+                       : 0;
+        }
+
+        if (fmt == kFormatGif)
         {
             set_error(ErrorCode::NeedFallback, "codec_need_fallback");
             return 0;
         }
-        return encode_avif_rgba(rgba_ptr, static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), quality, g_output) ? 1 : 0;
-    }
 
-    if (fmt == kFormatGif)
-    {
-        set_error(ErrorCode::NeedFallback, "codec_need_fallback");
+        set_error(ErrorCode::FormatNotSupported, "codec_format_not_supported");
         return 0;
     }
 
-    set_error(ErrorCode::FormatNotSupported, "codec_format_not_supported");
-    return 0;
-}
-
-int image_codec_get_last_output_ptr()
-{
-    if (g_output.empty())
+    int image_codec_get_last_output_ptr()
     {
-        return 0;
+        if (g_output.empty())
+        {
+            return 0;
+        }
+        return static_cast<int>(reinterpret_cast<std::uintptr_t>(g_output.data()));
     }
-    return static_cast<int>(reinterpret_cast<std::uintptr_t>(g_output.data()));
-}
 
-int image_codec_get_last_output_len()
-{
-    return static_cast<int>(g_output.size());
-}
-
-int image_codec_get_last_error_ptr()
-{
-    if (g_last_error.empty())
+    int image_codec_get_last_output_len()
     {
-        return 0;
+        return static_cast<int>(g_output.size());
     }
-    return static_cast<int>(reinterpret_cast<std::uintptr_t>(g_last_error.data()));
-}
 
-int image_codec_get_last_error_len()
-{
-    return static_cast<int>(g_last_error.size());
-}
+    int image_codec_get_last_error_ptr()
+    {
+        if (g_last_error.empty())
+        {
+            return 0;
+        }
+        return static_cast<int>(reinterpret_cast<std::uintptr_t>(g_last_error.data()));
+    }
 
-int image_codec_get_last_error_code()
-{
-    return static_cast<int>(g_last_error_code);
-}
+    int image_codec_get_last_error_len()
+    {
+        return static_cast<int>(g_last_error.size());
+    }
 
-int image_codec_get_level_ptr()
-{
-    return static_cast<int>(reinterpret_cast<std::uintptr_t>(kCodecLevel));
-}
+    int image_codec_get_last_error_code()
+    {
+        return static_cast<int>(g_last_error_code);
+    }
 
-int image_codec_get_level_len()
-{
-    return static_cast<int>(std::strlen(kCodecLevel));
-}
+    int image_codec_get_level_ptr()
+    {
+        return static_cast<int>(reinterpret_cast<std::uintptr_t>(kCodecLevel));
+    }
 
-int image_codec_get_version_ptr()
-{
-    return static_cast<int>(reinterpret_cast<std::uintptr_t>(kCodecVersion));
-}
+    int image_codec_get_level_len()
+    {
+        return static_cast<int>(std::strlen(kCodecLevel));
+    }
 
-int image_codec_get_version_len()
-{
-    return static_cast<int>(std::strlen(kCodecVersion));
-}
+    int image_codec_get_version_ptr()
+    {
+        return static_cast<int>(reinterpret_cast<std::uintptr_t>(kCodecVersion));
+    }
 
-int image_codec_get_supported_formats_bitmap()
-{
-    return static_cast<int>(g_supported_formats_bitmap);
-}
+    int image_codec_get_version_len()
+    {
+        return static_cast<int>(std::strlen(kCodecVersion));
+    }
+
+    int image_codec_get_supported_formats_bitmap()
+    {
+        return static_cast<int>(g_supported_formats_bitmap);
+    }
 }
