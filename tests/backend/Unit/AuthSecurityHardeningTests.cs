@@ -1,6 +1,7 @@
 using System.Reflection;
 
 using Fido2NetLib.Objects;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Modules.Endpoints.Binary;
@@ -8,6 +9,7 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;

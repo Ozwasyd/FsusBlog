@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Middlewares;
+
 using Microsoft.AspNetCore.Http;
 namespace FsusBlog.Server.Tests.Unit;
 

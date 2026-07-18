@@ -9,6 +9,7 @@ using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;

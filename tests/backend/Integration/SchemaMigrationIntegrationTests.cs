@@ -20,13 +20,17 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Npgsql;
+
 using NSubstitute;
+
 using SqlSugar;
 namespace FsusBlog.Server.Tests;
 

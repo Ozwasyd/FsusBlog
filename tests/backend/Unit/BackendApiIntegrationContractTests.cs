@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Validation;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;

@@ -4,6 +4,7 @@ using System.Text;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Subscriptions;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 namespace FsusBlog.Server.Tests.Unit;

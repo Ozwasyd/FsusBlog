@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.VisitLog;
+
 using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests.Unit;
 

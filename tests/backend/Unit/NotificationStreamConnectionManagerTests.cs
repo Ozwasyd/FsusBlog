@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 
 using FsusBlog.Server.Infrastructure.NotificationStream;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests.Unit;

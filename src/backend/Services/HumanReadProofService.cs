@@ -9,6 +9,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Hosting;
 
 namespace FsusBlog.Server.Services;

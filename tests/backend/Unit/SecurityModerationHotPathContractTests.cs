@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests.Unit;
 

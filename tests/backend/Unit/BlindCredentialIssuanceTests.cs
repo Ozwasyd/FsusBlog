@@ -13,6 +13,7 @@ using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Validation;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;

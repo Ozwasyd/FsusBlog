@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.Extensions.Logging;
 namespace FsusBlog.Server.Tests.Unit;
 

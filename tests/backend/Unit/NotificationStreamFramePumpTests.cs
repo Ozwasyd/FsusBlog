@@ -3,6 +3,7 @@ using System.IO.Pipelines;
 using System.Reflection;
 
 using FsusBlog.Server.Infrastructure.NotificationStream;
+
 using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests;
 

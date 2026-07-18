@@ -3,6 +3,7 @@ using System.Collections.Frozen;
 using System.Globalization;
 
 using FsusBlog.Server.Infrastructure.PublicAot;
+
 using Serilog.Events;
 
 namespace FsusBlog.Server.Infrastructure.Audit;

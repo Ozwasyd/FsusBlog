@@ -13,6 +13,7 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 namespace FsusBlog.Server.Tests.Unit;

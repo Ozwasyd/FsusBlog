@@ -9,7 +9,9 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 

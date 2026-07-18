@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Background;
+
 using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests.Unit;
 

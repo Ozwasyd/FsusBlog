@@ -14,13 +14,16 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
 using NSubstitute;
+
 using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 

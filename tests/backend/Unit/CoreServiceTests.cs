@@ -5,6 +5,7 @@ using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Core.Services.Implementations;
 using FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 

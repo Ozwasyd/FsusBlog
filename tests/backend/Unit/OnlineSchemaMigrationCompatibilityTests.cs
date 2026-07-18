@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+
 using Microsoft.AspNetCore.Http;
 namespace FsusBlog.Server.Tests.Unit;
 

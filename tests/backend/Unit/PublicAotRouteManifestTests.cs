@@ -10,6 +10,7 @@ using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Tests.Unit;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;

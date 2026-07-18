@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Middlewares;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests.Unit;

@@ -6,9 +6,12 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+
 using NSubstitute;
+
 using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 

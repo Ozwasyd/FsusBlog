@@ -4,6 +4,7 @@ using System.Security.Claims;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.VisitLog;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
 namespace FsusBlog.Server.Tests.TestInfrastructure;
 

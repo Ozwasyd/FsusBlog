@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Execution;
+
 using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests.Unit;
 

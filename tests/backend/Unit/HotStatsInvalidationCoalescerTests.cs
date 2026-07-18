@@ -4,8 +4,10 @@ using System.Reflection;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 

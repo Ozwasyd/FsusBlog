@@ -8,6 +8,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 namespace FsusBlog.Server.Tests.Unit;

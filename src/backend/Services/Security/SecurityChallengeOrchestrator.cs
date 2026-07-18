@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.Extensions.Logging;
 
 namespace FsusBlog.Server.Services.Security;

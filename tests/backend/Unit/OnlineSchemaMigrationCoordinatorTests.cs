@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;

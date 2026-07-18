@@ -4,6 +4,7 @@ using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
 

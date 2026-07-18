@@ -9,6 +9,7 @@ using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
+
 using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Modules.Endpoints;

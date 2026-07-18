@@ -1,4 +1,5 @@
 using Fido2NetLib;
+
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
@@ -7,6 +8,7 @@ using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;

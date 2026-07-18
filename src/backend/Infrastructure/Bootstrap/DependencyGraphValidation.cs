@@ -3,6 +3,7 @@ using System.Diagnostics.Metrics;
 using System.Reflection;
 
 using FsusBlog.Server.Infrastructure.Observability;
+
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;

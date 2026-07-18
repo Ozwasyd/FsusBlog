@@ -5,6 +5,7 @@ using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.PublicAot;
+
 using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
 

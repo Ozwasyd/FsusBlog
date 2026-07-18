@@ -14,7 +14,9 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.Extensions.Options;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;

@@ -8,8 +8,11 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
 namespace FsusBlog.Server.Tests;
 

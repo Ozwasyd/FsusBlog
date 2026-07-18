@@ -3,6 +3,7 @@ using System.Security.Claims;
 
 using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Audit;
+
 using Microsoft.AspNetCore.Http;
 namespace FsusBlog.Server.Tests.Unit;
 

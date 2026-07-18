@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.VisitLog;

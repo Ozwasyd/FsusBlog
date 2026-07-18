@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.PublicAot;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;

@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;

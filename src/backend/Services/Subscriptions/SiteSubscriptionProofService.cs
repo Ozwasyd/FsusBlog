@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Services.Subscriptions;

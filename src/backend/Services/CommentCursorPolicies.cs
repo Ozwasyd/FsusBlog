@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Pagination;
+
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Services;

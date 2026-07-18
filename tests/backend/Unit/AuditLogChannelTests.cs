@@ -2,6 +2,7 @@ using System.Threading.Channels;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests;

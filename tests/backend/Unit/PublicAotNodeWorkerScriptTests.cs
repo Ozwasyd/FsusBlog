@@ -3,6 +3,7 @@ using System.Reflection;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Tests.Unit;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 namespace FsusBlog.Server.Tests.Unit;

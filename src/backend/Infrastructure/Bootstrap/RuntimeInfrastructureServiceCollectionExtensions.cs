@@ -18,6 +18,7 @@ using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Taxonomy;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Server.Services.VisitLog;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.ObjectPool;

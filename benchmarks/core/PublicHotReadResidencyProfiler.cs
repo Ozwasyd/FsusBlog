@@ -4,6 +4,7 @@ using System.Text.Json;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+
 using Microsoft.Extensions.Options;
 
 internal static class PublicHotReadResidencyProfiler

@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
+
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 

@@ -1,6 +1,8 @@
 using FsusBlog.Server.Infrastructure.Testing;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+
 using NSubstitute;
 namespace FsusBlog.Tests.Unit;
 

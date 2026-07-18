@@ -9,6 +9,7 @@ using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;

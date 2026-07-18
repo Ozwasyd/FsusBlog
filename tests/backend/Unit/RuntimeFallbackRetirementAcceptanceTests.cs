@@ -12,6 +12,7 @@ using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;

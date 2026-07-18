@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace FsusBlog.Server.Infrastructure.Filters;

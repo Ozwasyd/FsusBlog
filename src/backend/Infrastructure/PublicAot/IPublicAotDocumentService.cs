@@ -1,5 +1,6 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;

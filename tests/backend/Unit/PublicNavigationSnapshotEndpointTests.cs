@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Modules.Endpoints;
+
 using Microsoft.AspNetCore.Http;
 namespace FsusBlog.Server.Tests.Unit;
 

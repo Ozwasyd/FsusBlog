@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Integrity;
+
 using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
 

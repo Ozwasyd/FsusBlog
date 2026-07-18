@@ -24,9 +24,11 @@ using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+
 using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 

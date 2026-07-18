@@ -13,13 +13,16 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Modules.Endpoints.Binary;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+
 using NSubstitute;
+
 using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 

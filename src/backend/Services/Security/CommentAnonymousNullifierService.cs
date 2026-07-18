@@ -3,7 +3,9 @@ using System.Diagnostics;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Observability;
+
 using Microsoft.Extensions.Configuration;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;

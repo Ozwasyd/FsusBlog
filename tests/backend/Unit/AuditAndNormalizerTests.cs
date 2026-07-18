@@ -5,7 +5,9 @@ using System.Reflection;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.PublicAot;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Serilog.Events;
 using Serilog.Parsing;
 namespace FsusBlog.Server.Tests.Unit;

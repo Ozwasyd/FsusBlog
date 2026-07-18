@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
+
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;

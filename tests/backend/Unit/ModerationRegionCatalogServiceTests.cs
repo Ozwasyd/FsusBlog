@@ -3,6 +3,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;

@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

@@ -2,10 +2,13 @@ using System.Collections.Concurrent;
 using System.Text;
 
 using FsusBlog.Server.Infrastructure.Cache;
+
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
+
 using NSubstitute;
+
 using StackExchange.Redis;
 namespace FsusBlog.Server.Tests;
 
