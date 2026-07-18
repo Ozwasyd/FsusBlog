@@ -4,6 +4,20 @@
 
 ---
 
+## 编码规范与权威文档门禁
+
+跨语言代码风格统一见 [development/coding-conventions.md](development/coding-conventions.md)。该规范以 Microsoft .NET C# 约定为母规范，集中定义语言映射、外部契约例外和 generated/vendor/fixture 分类；`AGENTS.md` 只保留代理角色与操作边界。
+
+修改开发文档中的路径、symbol、命令或规范入口后运行：
+
+```bash
+node tools/docs/check-authoritative-development-docs.mjs
+```
+
+门禁会聚合失效路径、退休 symbol、缺失命令、坏链接、style owner 漂移和未分类例外，全部修正后才成功。
+
+---
+
 ## 环境要求
 
 | 工具 | 版本要求 | 用途 |
@@ -347,6 +361,7 @@ cd src/frontend && npm run ensure:wasm
 
 ## 参见
 
+- [development/coding-conventions.md](development/coding-conventions.md) — 跨语言编码规范、命名映射与外部契约例外
 - [testing.md](testing.md) — 完整测试分层策略
 - [wasm.md](wasm.md) — WebAssembly 工具链与构建指南
 - [production.md](production.md) — 生产部署配置

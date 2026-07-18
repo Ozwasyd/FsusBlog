@@ -21,7 +21,7 @@ FsusBlog is currently a public-preview project. Contributions should keep change
 
 ## Development Setup
 
-Start with [docs/development.md](docs/development.md) and the local development section in [README.md](README.md#本地开发).
+Start with [docs/development.md](docs/development.md), the [cross-language coding conventions](docs/development/coding-conventions.md), and the local development section in [README.md](README.md#本地开发).
 
 Common prerequisites:
 
@@ -39,13 +39,17 @@ Use the smallest command that proves the change, then broaden when the risk cros
 ```bash
 ./tools/test.sh fast
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj --filter "Category!=Integration" -v minimal
-cd src/frontend && npm run test:fast
+npm --prefix src/frontend run test:fast
 ```
 
 For release-sensitive, security, visual, load, or AEDS changes, follow [docs/testing.md](docs/testing.md) and [tests/backend/TESTING.md](tests/backend/TESTING.md).
 
 ## Coding Conventions
 
+- Follow the canonical [cross-language coding conventions](docs/development/coding-conventions.md), derived from the Microsoft .NET C# conventions.
+- Preserve external wire, ABI, database, and third-party names at their boundary, then adapt them to the repository naming rules internally.
+- Language syntax takes precedence over the cross-language mapping. Formatter/linter defaults and personal IDE settings do not override repository rules.
+- Run `node tools/docs/check-authoritative-development-docs.mjs` when changing authoritative development docs, repository paths, style ownership, or command examples.
 - Keep changes scoped to the issue being closed.
 - Prefer existing patterns and local helpers over new abstractions.
 - Update API docs when changing request/response contracts, AEDS frame semantics, routes, or binary/JSON behavior.

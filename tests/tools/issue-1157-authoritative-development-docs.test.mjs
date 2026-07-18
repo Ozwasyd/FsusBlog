@@ -1,0 +1,168 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const checker = path.join(root, 'tools/docs/check-authoritative-development-docs.mjs')
+const manifestPath = path.join(root, 'config/development/authoritative-development-docs.json')
+
+function read(relativePath) {
+  return readFileSync(path.join(root, relativePath), 'utf8')
+}
+
+function writeOverlay(overlay, relativePath, content) {
+  const target = path.join(overlay, relativePath)
+  mkdirSync(path.dirname(target), { recursive: true })
+  writeFileSync(target, content.endsWith('\n') ? content : `${content}\n`)
+}
+
+function createOverlay() {
+  return mkdtempSync(path.join(tmpdir(), 'fsusblog-authority-docs-'))
+}
+
+function readManifest() {
+  return JSON.parse(readFileSync(manifestPath, 'utf8'))
+}
+
+function writeManifest(overlay, manifest) {
+  writeOverlay(
+    overlay,
+    'config/development/authoritative-development-docs.json',
+    JSON.stringify(manifest, null, 2)
+  )
+}
+
+function runChecker(overlay) {
+  return spawnSync(process.execPath, [checker, '--overlay', overlay], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+}
+
+function output(result) {
+  return `${result.stdout}\n${result.stderr}`
+}
+
+function withOverlay(callback) {
+  const overlay = createOverlay()
+  try {
+    callback(overlay)
+  } finally {
+    rmSync(overlay, { recursive: true, force: true })
+  }
+}
+
+test('issue 1157 authoritative development documents pass from the canonical repository state', () => {
+  withOverlay((overlay) => {
+    const result = runChecker(overlay)
+    assert.equal(result.status, 0, output(result))
+    assert.match(result.stdout, /\[authoritative-development-docs] ok/)
+  })
+})
+
+test('issue 1157 checker rejects a stale AGENTS repository path', () => {
+  withOverlay((overlay) => {
+    writeOverlay(
+      overlay,
+      'AGENTS.md',
+      `${read('AGENTS.md')}\n| \`src/backend/Retired/NoLongerExists.cs\` | stale fixture |\n`
+    )
+    const result = runChecker(overlay)
+    assert.notEqual(result.status, 0)
+    assert.match(output(result), /AGENTS\.md declares missing repository path src\/backend\/Retired\/NoLongerExists\.cs/)
+  })
+})
+
+test('issue 1157 checker rejects a retired class name', () => {
+  withOverlay((overlay) => {
+    writeOverlay(overlay, 'AGENTS.md', `${read('AGENTS.md')}\nRetired fixture: BannedUserFilter\n`)
+    const result = runChecker(overlay)
+    assert.notEqual(result.status, 0)
+    assert.match(output(result), /AGENTS\.md contains retired token BannedUserFilter/)
+  })
+})
+
+test('issue 1157 checker aggregates missing command and documentation link', () => {
+  withOverlay((overlay) => {
+    const manifest = readManifest()
+    manifest.commands[0].path = 'tools/docs/no-such-authority-check.mjs'
+    writeManifest(overlay, manifest)
+    writeOverlay(
+      overlay,
+      'CONTRIBUTING.md',
+      `${read('CONTRIBUTING.md')}\n[Missing authority document](docs/no-such-authority-document.md)\n`
+    )
+
+    const result = runChecker(overlay)
+    const combined = output(result)
+    assert.notEqual(result.status, 0)
+    assert.match(combined, /references missing command path tools\/docs\/no-such-authority-check\.mjs/)
+    assert.match(combined, /CONTRIBUTING\.md references missing document link docs\/no-such-authority-document\.md/)
+  })
+})
+
+test('issue 1157 checker validates external-contract positive and negative adapters', () => {
+  withOverlay((overlay) => {
+    const manifest = readManifest()
+    const exception = manifest.externalContractExceptions.find((entry) => entry.id === 'json-api-field')
+    exception.positive.internal = 'user_id'
+    exception.negative.internal = 'userId'
+    writeManifest(overlay, manifest)
+
+    const result = runChecker(overlay)
+    const combined = output(result)
+    assert.notEqual(result.status, 0)
+    assert.match(combined, /positive internal adapter is invalid/)
+    assert.match(combined, /negative internal example unexpectedly satisfies internal naming/)
+  })
+})
+
+test('issue 1157 checker rejects formatter defaults that override repository rules', () => {
+  withOverlay((overlay) => {
+    writeOverlay(
+      overlay,
+      '.editorconfig',
+      `root = true
+
+[*]
+indent_style = tab
+indent_size = 2
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+`
+    )
+    const result = runChecker(overlay)
+    const combined = output(result)
+    assert.notEqual(result.status, 0)
+    assert.match(combined, /indent_style=tab conflicts with repository baseline space/)
+    assert.match(combined, /indent_size=2 conflicts with repository baseline 4/)
+  })
+})
+
+test('issue 1157 checker rejects a missing generated or vendor classification', () => {
+  withOverlay((overlay) => {
+    const manifest = readManifest()
+    manifest.pathClassifications = manifest.pathClassifications.filter(
+      (entry) => entry.id !== 'generated' && entry.id !== 'vendor'
+    )
+    writeManifest(overlay, manifest)
+
+    const result = runChecker(overlay)
+    assert.notEqual(result.status, 0)
+    const combined = output(result)
+    assert.match(combined, /missing required path classification generated/)
+    assert.match(combined, /missing required path classification vendor/)
+  })
+})

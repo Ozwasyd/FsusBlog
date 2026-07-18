@@ -33,7 +33,7 @@ tests/fixtures/evidence/ @Ozwasyd
 src/backend/Modules/Endpoints/ @Ozwasyd
 src/backend/Infrastructure/Auth/ @Ozwasyd
 src/backend/Infrastructure/Helpers/JwtHelper.cs @Ozwasyd
-src/backend/Infrastructure/Filters/BannedUserFilter.cs @Ozwasyd
+src/backend/Infrastructure/Filters/BannedUserMiddleware.cs @Ozwasyd
 src/backend/Infrastructure/Operations/ProductionStartupValidator.cs @Ozwasyd
 /src/backend/Infrastructure/PublicAot/ @Ozwasyd
 src/backend/Services/ @Ozwasyd

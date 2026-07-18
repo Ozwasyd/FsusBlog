@@ -797,6 +797,7 @@ tiers:
       - wasm-release-artifact-ownership
       - repository-source-layout-governance
       - csharp-entrypoint-ownership-governance
+      - authoritative-development-docs-governance
       - zk-artifact-lifecycle-ownership
       - release-evidence-classification-governance
       - security-domain-structure-governance
@@ -881,6 +882,17 @@ tiers:
       - tests/governance/csharp-entrypoint-ownership.json
       - tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs
       - docs/testing/issue-1174-csharp-entrypoint-ownership.md
+      - tools/docs/check-authoritative-development-docs.mjs
+      - config/development/authoritative-development-docs.json
+      - tests/tools/issue-1157-authoritative-development-docs.test.mjs
+      - docs/development/coding-conventions.md
+      - AGENTS.md
+      - CONTRIBUTING.md
+      - .github/CODEOWNERS
+      - .github/labeler.yml
+      - .github/PULL_REQUEST_TEMPLATE.md
+      - docs/development.md
+      - docs/index.md
       - tools/crypto/check-zk-artifact-ownership.mjs
       - security/zk/provenance/artifact-ownership.manifest.json
       - tests/tools/issue-1168-zk-artifact-ownership.test.mjs

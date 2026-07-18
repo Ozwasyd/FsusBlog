@@ -4,7 +4,7 @@ Closes #
 
 ## Scope Summary
 
-- 
+- <!-- Summarize the issue-scoped change. -->
 
 ## Tests Run
 
@@ -22,6 +22,8 @@ Closes #
 
 ## Compatibility And Risk
 
+- [ ] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
+- [ ] External wire / ABI / database / third-party names preserved or explicitly adapted
 - [ ] Public API impact reviewed
 - [ ] AEDS frame / binary contract impact reviewed
 - [ ] Database migration impact reviewed

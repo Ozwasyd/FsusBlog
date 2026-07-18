@@ -64,7 +64,7 @@
   - changed-files:
       - any-glob-to-any-file:
           - "src/core/Algorithms/**"
-          - "src/frontend/src/wasm/**"
+          - "src/frontend/wasm/**"
           - "src/frontend/src/workers/wasmDecode.worker.ts"
           - "src/shared/Contracts/Validation/aeds-protocol.json"
 
@@ -127,7 +127,7 @@
           - "SECURITY.md"
           - "src/backend/Infrastructure/Auth/**"
           - "src/backend/Infrastructure/Helpers/JwtHelper.cs"
-          - "src/backend/Infrastructure/Filters/BannedUserFilter.cs"
+          - "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs"
           - "src/backend/Infrastructure/Operations/ProductionStartupValidator.cs"
           - "src/backend/Modules/Endpoints/AuthEndpoints.cs"
           - "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"

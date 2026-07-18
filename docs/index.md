@@ -1,5 +1,7 @@
 # Documentation Index
 
+- [Coding Conventions](development/coding-conventions.md) - C#-derived cross-language style mapping, precedence, and external-contract exceptions.
+- [Local Development](development.md) - local toolchain, startup, debugging, and authoritative development-doc checks.
 - [API Contracts](api/contracts.md) - request, response, AEDS, and binary contract rules.
 - [Rights V3 Schema](rights-v3-schema.md) - database schema and migration contract for rights policies, snapshots, and proofs.
 - [Rights V3 Cutover Runbook](rights-v3-cutover-runbook.md) - historical Rights V3 cutover sequence; current ArticleDetail writers use V4 with V3 read compatibility.

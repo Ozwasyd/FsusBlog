@@ -1,7 +1,16 @@
-﻿# AGENTS.md — FsusBlog Code Agent 操作规范
+# AGENTS.md — FsusBlog Code Agent 操作规范
 
-本文件是面向代码代理（Code Agent）的**唯一权威操作规范**，所有协作行为以本文件为准。
+本文件定义代码代理（Code Agent）的角色边界、修改前核验和交付要求。
+通用代码风格不在此重复维护，统一遵循 [跨语言编码规范](docs/development/coding-conventions.md)。
 首选语言：中文；代码名词、路径、命令保留英文。
+
+---
+
+## 编码规范
+
+- `docs/development/coding-conventions.md` 是跨语言代码风格入口，以 Microsoft .NET C# 约定为母规范。
+- 外部 wire/ABI/数据库/第三方契约和语言语法优先；formatter、linter 与个人 IDE 设置不得覆盖仓库规范。
+- generated、vendor、fixture 与外部名称例外必须使用规范中登记的分类，不得在本文件另建同级规则。
 
 ---
 
@@ -11,12 +20,11 @@
 |------------|------|
 | `src/backend/Program.cs` | 中间件链 + 路由注册收口 |
 | `src/backend/Modules/Endpoints/` | 所有 Minimal API 端点定义 |
-| `src/backend/Modules/Controllers/` | MVC 控制器（若有） |
 | `src/backend/Infrastructure/` | 缓存 / 安全 / 中间件 / 启动校验等横切关注点 |
 | `src/backend/Infrastructure/Cache/` | L1 内存缓存、L2 Redis 缓存、失效入口 |
 | `src/backend/Infrastructure/Auth/` | JWT、Cookie、认证服务 |
 | `src/backend/Infrastructure/Helpers/JwtHelper.cs` | JWT 签发与校验 |
-| `src/backend/Infrastructure/Filters/BannedUserFilter.cs` | 封禁用户过滤 |
+| `src/backend/Infrastructure/Filters/BannedUserMiddleware.cs` | 登录账号状态与封禁写操作中间件 |
 | `src/backend/Infrastructure/Middlewares/` | ShieldMiddleware / GlobalException / ApiBinaryResponse |
 | `src/backend/Infrastructure/Operations/ProductionStartupValidator.cs` | 生产启动校验 |
 | `src/backend/Infrastructure/PublicAot/` | AOT 公开页壳层 |
@@ -29,9 +37,9 @@
 | `src/core/Algorithms/AedsFrameType.cs` | 帧类型枚举（权威来源） |
 | `src/core/Algorithms/AEDS_V2_PROTOCOL.md` | 二进制帧协议规格（当前运行时只接受 v2） |
 | `src/zk/circuits/` | 手写 ZK circuit 领域源码（generated artifact 仍在 `artifacts/zk/`） |
-| `src/frontend/src/wasm/` | C++23 解码器源码（include/ + src/） |
+| `src/frontend/wasm/aeds/` | C++23 AEDS 解码器源码（include/ + src/） |
+| `src/frontend/wasm/web/aeds.ts` | AEDS C++/TypeScript runtime glue |
 | `src/frontend/src/workers/wasmDecode.worker.ts` | Wasm 解码 Web Worker |
-| `src/frontend/src/wasm/aeds.ts` | C++/TS 胶水层 |
 | `docs/api/design.md` | API 设计哲学（改 API 前必读） |
 | `docs/api/contracts.md` | 请求/响应契约完整文档（改 API 前必读） |
 | `docs/api/quick-reference.md` | 路由速查表 |
@@ -47,7 +55,7 @@
 
 **负责范围**
 - `src/shared/`、`src/core/`
-- `src/backend/Modules/Endpoints/`、`src/backend/Modules/Controllers/`
+- `src/backend/Modules/Endpoints/`
 - `src/backend/Infrastructure/`
 - `src/backend/Program.cs`
 
@@ -57,7 +65,7 @@
 - 调整鉴权策略与校验路径
 
 **禁止操作**
-- 无需求不改 `src/frontend/src/wasm/**` 的 C++/TS 实现
+- 无需求不改 `src/frontend/wasm/aeds/**` 的 C++ 实现
 - 未更新 `docs/api/design.md` + `docs/api/contracts.md` 前不推送 API 变更
 - 未核验就改 `MapProductionHealthEndpoints`、生产启动校验行为
 - 删除对 `X-Fsus-*` 约定头、PoW 验证链或统一响应模型的支持
@@ -65,8 +73,8 @@
 ### WasmEngineAgent
 
 **负责范围**
-- `src/frontend/src/wasm/include/**`
-- `src/frontend/src/wasm/src/**`
+- `src/frontend/wasm/aeds/include/**`
+- `src/frontend/wasm/aeds/src/**`
 
 **允许操作**
 - 修改 Wasm 解码器、协议映射、类型解析流程
@@ -79,7 +87,7 @@
 ### InteropGlueAgent
 
 **负责范围**
-- `src/frontend/src/wasm/aeds.ts`
+- `src/frontend/wasm/web/aeds.ts`
 - `src/frontend/src/workers/wasmDecode.worker.ts`
 - `src/frontend/src/workers/` 内与 API 通道相关文件
 
@@ -112,11 +120,11 @@
 ### 鉴权 / 会话变更
 1. 阅读 `docs/security.md`
 2. 核验以下五个关键文件：
-   - `Infrastructure/Helpers/JwtHelper.cs`
-   - `Infrastructure/Auth/AuthCookieService.cs`
-   - `Infrastructure/Filters/BannedUserFilter.cs`
-   - `Infrastructure/Bootstrap/ServiceCollectionExtensions.cs`
-   - `Infrastructure/Operations/ProductionStartupValidator.cs`
+   - `src/backend/Infrastructure/Helpers/JwtHelper.cs`
+   - `src/backend/Infrastructure/Auth/AuthCookieService.cs`
+   - `src/backend/Infrastructure/Filters/BannedUserMiddleware.cs`
+   - `src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs`
+   - `src/backend/Infrastructure/Operations/ProductionStartupValidator.cs`
 
 ### 二进制协议变更
 1. 阅读 `docs/api/contracts.md`、`src/core/Algorithms/AEDS_V2_PROTOCOL.md`
@@ -128,7 +136,7 @@
    - `src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs`
    - `src/backend/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs`
 4. 同步更新 `src/shared/Contracts/Validation/PodSizeCatalog.cs` 中的尺寸常量
-5. 同步更新 `src/frontend/src/wasm/` 侧的解码逻辑
+5. 同步核验 `src/frontend/wasm/aeds/` 与 `src/frontend/wasm/web/aeds.ts` 的解码逻辑
 
 ---
 
@@ -152,14 +160,14 @@ public static class XxxEndpoints
 
         // 鉴权端点
         group.MapPost("/", HandleCreateAsync)
-            .RequireAuthorization()
-            .AddEndpointFilter<BannedUserFilter>();
+            .RequireAuthorization();
 
         return app;
     }
 }
 // 在 Program.cs 中挂载：
 // app.MapXxxEndpoints();
+// 账号封禁写限制由全局 BannedUserMiddleware 统一执行。
 ```
 
 ### 统一响应包装模式
@@ -189,14 +197,24 @@ CacheKeyBuilder.PublicAotShell(pageId, routeKey)
 ### Binary 端点模式
 
 ```csharp
-// Binary 端点是运行时主 API；不得新增旧文本 API fallback
-group.MapGet("/article", async (IAedsEncoder encoder, ...) =>
+// Binary 端点是运行时主 API；不得新增旧文本 API fallback。
+group.MapGet("/article", async (IAedsEncoder aeds, ...) =>
 {
-    var pods = await service.GetArticleListPodsAsync(...);
-    // AedsBinaryWriter 零分配写入
-    return Results.Stream(stream => encoder.WriteAsync(stream, AedsFrameType.ArticleList, pods));
+    var payloadResult = await service.GetPageListAsync(...);
+    if (payloadResult.HasCachedFrame)
+    {
+        return BinaryResults.PreencodedFrame(payloadResult.CachedFrame!);
+    }
+
+    return BinaryResults.FromResult(
+        payloadResult.Result,
+        aeds,
+        AedsFrameType.ArticleList,
+        static (value, writer) => PodBinaryCodec.WriteArticlePage(value, writer));
 });
 ```
+
+`BinaryResults.Frame` 返回 `BinaryFrameResult`，通过 `AedsFrameBufferWriter` 构造新帧；已缓存的完整帧使用 `BinaryResults.PreencodedFrame` 返回 `BinaryPreencodedFrameResult`，不得退回通用 stream response 拼装旧式响应。
 
 ---
 

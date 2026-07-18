@@ -3767,6 +3767,31 @@
       ]
     },
     {
+      "id": "authoritative-development-docs-governance",
+      "description": "One C#-derived cross-language convention authority defines precedence, language mappings, external contract exceptions and generated/vendor/fixture ownership while repository maps, symbols, commands and links remain live.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tools/docs/check-authoritative-development-docs.mjs",
+        "config/development/authoritative-development-docs.json",
+        "tests/tools/issue-1157-authoritative-development-docs.test.mjs",
+        "docs/development/coding-conventions.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md",
+        ".github/CODEOWNERS",
+        ".github/labeler.yml",
+        ".github/PULL_REQUEST_TEMPLATE.md",
+        "docs/development.md",
+        "docs/index.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject stale or missing authority paths, current-symbol drift, retired tokens, nonexistent commands or local document links, unowned source extensions, duplicate coding authorities, formatter conflicts, incomplete generated/vendor/fixture classification, and invalid external-contract adapters.",
+      "minimumRequirement": "Static governance must execute the canonical aggregate checker plus fixture-backed stale-path, retired-symbol, missing command/link, external adapter, formatter conflict and path-classification negative cases without suppressing sibling errors.",
+      "tierIds": [
+        "static-governance"
+      ]
+    },
+    {
       "id": "zk-artifact-lifecycle-ownership",
       "description": "Cryptographic artifacts are separated by exact circuit identity, public-input layout and lifecycle; only deterministic small outputs and explicit test fixtures are Git-tracked, while ceremony and delivery material uses immutable SHA-256-addressed storage.",
       "owner": "ServerContractAgent",

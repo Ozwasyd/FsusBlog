@@ -275,6 +275,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/production.md](docs/production.md) | 生产部署、环境变量、健康检查 |
 | [docs/operations.md](docs/operations.md) | 运维手册：发布门控、回滚、备份、事故处置 |
 | [docs/development.md](docs/development.md) | 本地开发环境搭建、常用脚本说明 |
+| [docs/development/coding-conventions.md](docs/development/coding-conventions.md) | C# 母规范的跨语言映射、优先级、外部契约和 generated/vendor/fixture 例外 |
 | [docs/development/demo-data.md](docs/development/demo-data.md) | deterministic fictional demo seed data、默认本地账号和重置方法 |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | SDK、Node/npm、PostgreSQL、Redis、端口、AEDS/Wasm、WebAuthn、cookie、migration、AOT 常见故障排查 |
 | [docs/testing.md](docs/testing.md) | 测试 DAG、production-ci-gate、release-closeout-gate 与覆盖场景说明 |

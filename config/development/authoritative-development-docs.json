@@ -1,0 +1,340 @@
+{
+  "schema": "fsusblog.authoritative-development-docs.v1",
+  "authority": {
+    "codingConventions": "docs/development/coding-conventions.md",
+    "agentOperations": "AGENTS.md",
+    "codeowners": ".github/CODEOWNERS",
+    "authorityDocuments": [
+      "AGENTS.md",
+      "CONTRIBUTING.md",
+      ".github/CODEOWNERS",
+      ".github/labeler.yml",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      "docs/development.md",
+      "docs/index.md",
+      "docs/development/coding-conventions.md"
+    ],
+    "linkDocuments": [
+      "AGENTS.md",
+      "CONTRIBUTING.md",
+      ".github/PULL_REQUEST_TEMPLATE.md",
+      "docs/development.md",
+      "docs/index.md",
+      "docs/development/coding-conventions.md"
+    ]
+  },
+  "precedence": [
+    "external-contract",
+    "language-syntax",
+    "fsusblog-csharp-mapping",
+    "formatter-linter-default",
+    "personal-ide-setting"
+  ],
+  "formatterBaseline": {
+    "indentStyle": "space",
+    "indentSize": 4,
+    "endOfLine": "lf",
+    "charset": "utf-8",
+    "insertFinalNewline": true,
+    "trimTrailingWhitespace": true
+  },
+  "requiredStyleOwnerIds": [
+    "csharp-dotnet",
+    "typescript-javascript-vue",
+    "css-web",
+    "cpp",
+    "cmake",
+    "shell",
+    "yaml",
+    "json",
+    "markdown",
+    "sql"
+  ],
+  "styleOwners": [
+    {
+      "id": "csharp-dotnet",
+      "owner": "CSharpDotNetStyleOwner",
+      "extensions": [".cs", ".csproj", ".props", ".slnx", ".slnLaunch", ".esproj", ".dcproj", ".pubxml"],
+      "documentationHeading": "## C# and .NET"
+    },
+    {
+      "id": "typescript-javascript-vue",
+      "owner": "FrontendLanguageStyleOwner",
+      "extensions": [".ts", ".mts", ".js", ".mjs", ".vue"],
+      "documentationHeading": "## TypeScript, JavaScript, and Vue"
+    },
+    {
+      "id": "css-web",
+      "owner": "FrontendStyleOwner",
+      "extensions": [".css", ".html"],
+      "documentationHeading": "## CSS"
+    },
+    {
+      "id": "cpp",
+      "owner": "WasmEngineAgent",
+      "extensions": [".cpp", ".hpp"],
+      "documentationHeading": "## C++"
+    },
+    {
+      "id": "cmake",
+      "owner": "WasmBuildStyleOwner",
+      "extensions": [".cmake"],
+      "specialFiles": ["CMakeLists.txt"],
+      "documentationHeading": "## CMake"
+    },
+    {
+      "id": "shell",
+      "owner": "ToolingStyleOwner",
+      "extensions": [".sh"],
+      "documentationHeading": "## Shell"
+    },
+    {
+      "id": "yaml",
+      "owner": "ConfigurationStyleOwner",
+      "extensions": [".yml", ".yaml"],
+      "documentationHeading": "## YAML"
+    },
+    {
+      "id": "json",
+      "owner": "ContractStyleOwner",
+      "extensions": [".json", ".jsonc", ".webmanifest"],
+      "documentationHeading": "## JSON"
+    },
+    {
+      "id": "markdown",
+      "owner": "DocumentationStyleOwner",
+      "extensions": [".md"],
+      "documentationHeading": "## Markdown"
+    },
+    {
+      "id": "sql",
+      "owner": "DatabaseStyleOwner",
+      "extensions": [".sql"],
+      "documentationHeading": "## SQL"
+    },
+    {
+      "id": "repository-config",
+      "owner": "ConfigurationStyleOwner",
+      "extensions": [".conf", ".example", ".http", ".npmrc", ".template", ".production-template", ".Dockerfile", ".editorconfig", ".prettierrc", ".gitignore", ".gitattributes", ".dockerignore", ".ignore"],
+      "specialFiles": ["CODEOWNERS", "Dockerfile"],
+      "documentationHeading": "## Repository baseline"
+    }
+  ],
+  "nonSourceExtensions": [
+    ".aeds",
+    ".diff",
+    ".hex",
+    ".ico",
+    ".png",
+    ".proof",
+    ".public_inputs",
+    ".r1cs",
+    ".stderr",
+    ".svg",
+    ".txt",
+    ".vk",
+    ".webp"
+  ],
+  "nonSourceSpecialFiles": ["LICENSE"],
+  "requiredPathClassificationIds": ["generated", "vendor", "fixture", "lock", "minified"],
+  "pathClassifications": [
+    {
+      "id": "generated",
+      "owner": "GeneratorOwner",
+      "patterns": ["artifacts/**", "**/generated/**"],
+      "reason": "generated outputs are changed through their source or generator"
+    },
+    {
+      "id": "vendor",
+      "owner": "DependencyOwner",
+      "patterns": ["tools/vcpkg-overlays/**", "**/vendor/**", "**/node_modules/**"],
+      "reason": "vendored material preserves upstream format and license"
+    },
+    {
+      "id": "fixture",
+      "owner": "TestOwner",
+      "patterns": ["tests/**/Fixtures/**", "tests/**/fixtures/**", "src/frontend/public/fixtures/**", "src/frontend/tests/**/fixtures/**"],
+      "reason": "fixtures may intentionally encode invalid or external formatting"
+    },
+    {
+      "id": "lock",
+      "owner": "PackageManager",
+      "patterns": ["**/package-lock.json", "**/pnpm-lock.yaml", "**/yarn.lock"],
+      "reason": "package managers own lock ordering and formatting"
+    },
+    {
+      "id": "minified",
+      "owner": "GeneratorOwner",
+      "patterns": ["**/*.min.*"],
+      "reason": "minified output is never a hand-written style precedent"
+    }
+  ],
+  "symbols": [
+    {
+      "id": "banned-user-middleware",
+      "source": "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
+      "sourceToken": "class BannedUserMiddleware",
+      "documents": ["AGENTS.md"],
+      "documentToken": "BannedUserMiddleware"
+    },
+    {
+      "id": "binary-frame-result",
+      "source": "src/backend/Infrastructure/Results/BinaryFrameResult.cs",
+      "sourceToken": "class BinaryFrameResult",
+      "documents": ["AGENTS.md"],
+      "documentToken": "BinaryFrameResult"
+    },
+    {
+      "id": "binary-preencoded-frame-result",
+      "source": "src/backend/Infrastructure/Results/BinaryFrameResult.cs",
+      "sourceToken": "class BinaryPreencodedFrameResult",
+      "documents": ["AGENTS.md"],
+      "documentToken": "BinaryPreencodedFrameResult"
+    },
+    {
+      "id": "pod-binary-codec",
+      "source": "src/core/Cache/PodBinaryCodec.Common.cs",
+      "sourceToken": "static partial class PodBinaryCodec",
+      "documents": ["AGENTS.md"],
+      "documentToken": "PodBinaryCodec.WriteArticlePage"
+    },
+    {
+      "id": "aeds-frame-buffer-writer",
+      "source": "src/core/Algorithms/AedsFrameBufferWriter.cs",
+      "sourceToken": "class AedsFrameBufferWriter",
+      "documents": ["AGENTS.md"],
+      "documentToken": "AedsFrameBufferWriter"
+    },
+    {
+      "id": "binary-results-frame",
+      "source": "src/backend/Infrastructure/Results/BinaryResults.cs",
+      "sourceToken": "BinaryFrameResult Frame(",
+      "documents": ["AGENTS.md"],
+      "documentToken": "BinaryResults.Frame"
+    }
+  ],
+  "retiredTokens": [
+    "BannedUserFilter",
+    "src/frontend/src/wasm",
+    "Results.Stream",
+    "AedsBinaryWriter"
+  ],
+  "commands": [
+    {
+      "id": "authoritative-development-docs",
+      "kind": "node-script",
+      "path": "tools/docs/check-authoritative-development-docs.mjs",
+      "invocation": "node tools/docs/check-authoritative-development-docs.mjs",
+      "documents": ["docs/development/coding-conventions.md", "docs/development.md"]
+    },
+    {
+      "id": "repository-fast-tests",
+      "kind": "shell-script",
+      "path": "tools/test.sh",
+      "invocation": "./tools/test.sh fast",
+      "documents": ["CONTRIBUTING.md"]
+    },
+    {
+      "id": "frontend-fast-tests",
+      "kind": "npm-script",
+      "package": "src/frontend/package.json",
+      "script": "test:fast",
+      "invocation": "npm --prefix src/frontend run test:fast",
+      "documents": ["CONTRIBUTING.md"]
+    }
+  ],
+  "requiredExternalContractExceptionIds": [
+    "json-api-field",
+    "postgres-column-migration",
+    "http-header",
+    "redis-key",
+    "c-abi-wasm-export",
+    "environment-variable",
+    "css-selector-custom-property",
+    "shell-environment-variable",
+    "cmake-built-in",
+    "third-party-sdk-callback"
+  ],
+  "externalContractExceptions": [
+    {
+      "id": "json-api-field",
+      "externalPattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+      "internalPattern": "^[a-z][A-Za-z0-9]*$",
+      "adapterRequired": true,
+      "positive": {"external": "user_id", "internal": "userId"},
+      "negative": {"external": "user_id", "internal": "user_id"}
+    },
+    {
+      "id": "postgres-column-migration",
+      "externalPattern": "^[a-z][a-z0-9_]*$",
+      "internalPattern": "^[a-z][A-Za-z0-9]*$",
+      "adapterRequired": true,
+      "positive": {"external": "account_subject_hash", "internal": "accountSubjectHash"},
+      "negative": {"external": "account_subject_hash", "internal": "account_subject_hash"}
+    },
+    {
+      "id": "http-header",
+      "externalPattern": "^[A-Za-z][A-Za-z0-9-]*$",
+      "internalPattern": "^[a-z][A-Za-z0-9]*$",
+      "adapterRequired": true,
+      "positive": {"external": "X-Fsus-Frame-Version", "internal": "frameVersion"},
+      "negative": {"external": "X-Fsus-Frame-Version", "internal": "X-Fsus-Frame-Version"}
+    },
+    {
+      "id": "redis-key",
+      "externalPattern": "^[a-z][a-z0-9-]*(?::[a-z0-9{}-]+)+$",
+      "internalPattern": "^[a-z][A-Za-z0-9]*$",
+      "adapterRequired": true,
+      "positive": {"external": "article:detail:{id}", "internal": "articleDetailKey"},
+      "negative": {"external": "article:detail:{id}", "internal": "article:detail:{id}"}
+    },
+    {
+      "id": "c-abi-wasm-export",
+      "externalPattern": "^[a-z][a-z0-9_]*$",
+      "internalPattern": "^[a-z][A-Za-z0-9]*$",
+      "adapterRequired": true,
+      "positive": {"external": "aeds_decode_frame", "internal": "decodeFrame"},
+      "negative": {"external": "aeds_decode_frame", "internal": "aeds_decode_frame"}
+    },
+    {
+      "id": "environment-variable",
+      "externalPattern": "^[A-Z][A-Z0-9_]*$",
+      "internalPattern": "^[a-z][A-Za-z0-9]*$",
+      "adapterRequired": true,
+      "positive": {"external": "FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN", "internal": "adminBootstrapToken"},
+      "negative": {"external": "FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN", "internal": "FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN"}
+    },
+    {
+      "id": "css-selector-custom-property",
+      "externalPattern": "^(?:\\.[a-z][a-z0-9-]*|--[a-z][a-z0-9-]*)$",
+      "internalPattern": "^[a-z][A-Za-z0-9]*$",
+      "adapterRequired": true,
+      "positive": {"external": ".article-card", "internal": "articleCardClass"},
+      "negative": {"external": ".article-card", "internal": "article-card"}
+    },
+    {
+      "id": "shell-environment-variable",
+      "externalPattern": "^[A-Z][A-Z0-9_]*$",
+      "internalPattern": "^[a-z][A-Za-z0-9]*$",
+      "adapterRequired": true,
+      "positive": {"external": "FSUSBLOG_TEST_PROFILE", "internal": "testProfile"},
+      "negative": {"external": "FSUSBLOG_TEST_PROFILE", "internal": "FSUSBLOG_TEST_PROFILE"}
+    },
+    {
+      "id": "cmake-built-in",
+      "externalPattern": "^[a-z][a-z0-9_]*$",
+      "internalPattern": "^[a-z][A-Za-z0-9]*$",
+      "adapterRequired": true,
+      "positive": {"external": "add_executable", "internal": "addExecutableCommand"},
+      "negative": {"external": "add_executable", "internal": "add_executable"}
+    },
+    {
+      "id": "third-party-sdk-callback",
+      "externalPattern": "^[a-z][a-z0-9_]*$",
+      "internalPattern": "^[a-z][A-Za-z0-9]*$",
+      "adapterRequired": true,
+      "positive": {"external": "on_passkey_complete", "internal": "onPasskeyComplete"},
+      "negative": {"external": "on_passkey_complete", "internal": "on_passkey_complete"}
+    }
+  ]
+}
