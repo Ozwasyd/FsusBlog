@@ -27,7 +27,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_HealthPath_AlwaysCallsNext()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/health/live", "python/3.8");
 
         await sut.InvokeAsync(ctx);
@@ -39,7 +45,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_HealthSubPath_AlwaysCallsNext()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/health/ready", "curl/7.0");
 
         await sut.InvokeAsync(ctx);
@@ -53,7 +65,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_DevelopmentEnv_AlwaysCallsNext()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: DevelopmentEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: DevelopmentEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", "python/3.8");
 
         await sut.InvokeAsync(ctx);
@@ -67,7 +85,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_EmptyUserAgent_Production_DoesNotCallNext()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", ua: "");
 
         await sut.InvokeAsync(ctx);
@@ -79,7 +103,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_WhitespaceUserAgent_Production_DoesNotCallNext()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", ua: "   ");
 
         await sut.InvokeAsync(ctx);
@@ -100,7 +130,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_BlockedToolUserAgent_DoesNotCallNext(string ua)
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", ua);
 
         await sut.InvokeAsync(ctx);
@@ -115,7 +151,13 @@ public sealed class ShieldMiddlewareTests
     {
         // "bot" keyword triggers crawler path; no CIDR loaded → unverified → abort
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", "FakeBot/2.0");
 
         await sut.InvokeAsync(ctx);
@@ -127,7 +169,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_UnverifiedSpiderUA_DoesNotCallNext()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", "FakeSpider/1.0");
 
         await sut.InvokeAsync(ctx);
@@ -144,7 +192,11 @@ public sealed class ShieldMiddlewareTests
             env: ProductionEnv(),
             securityRisk: riskSink,
             antiCrawlerPolicy: new TestAntiCrawlerPolicyProvider(SecuritySystemModes.Observe),
-            onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", "Mozilla/5.0 (compatible; Googlebot/2.1)");
         ctx.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.42");
 
@@ -170,7 +222,11 @@ public sealed class ShieldMiddlewareTests
             crawlerDetector: crawlerDetector,
             securityRisk: riskSink,
             antiCrawlerPolicy: new TestAntiCrawlerPolicyProvider(SecuritySystemModes.Observe),
-            onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", "Mozilla/5.0 (compatible; Googlebot/2.1)");
         ctx.Connection.RemoteIpAddress = IPAddress.Parse("66.249.64.1");
 
@@ -191,7 +247,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_EnforceModeUnverifiedSearchCrawler_RejectsWithoutVerifiedCrawlerMarker()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", "Mozilla/5.0 (compatible; Googlebot/2.1)");
         ctx.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.42");
 
@@ -218,7 +280,11 @@ public sealed class ShieldMiddlewareTests
             env: ProductionEnv(),
             securityRisk: riskSink,
             antiCrawlerPolicy: new TestAntiCrawlerPolicyProvider(SecuritySystemModes.Observe),
-            onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/article/42", ua);
         ctx.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.42");
 
@@ -237,7 +303,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_PathWithDotDot_DoesNotCallNext()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/../etc/passwd", "Mozilla/5.0");
 
         await sut.InvokeAsync(ctx);
@@ -249,7 +321,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_PathWithDoubleSlash_DoesNotCallNext()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api//articles", "Mozilla/5.0");
 
         await sut.InvokeAsync(ctx);
@@ -265,7 +343,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_EncodedTraversalPath_DoesNotCallNext(string path)
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext(path, "Mozilla/5.0");
 
         await sut.InvokeAsync(ctx);
@@ -281,7 +365,11 @@ public sealed class ShieldMiddlewareTests
         bool nextCalled = false;
         var governor = CreateWarModeGovernor();
         var sut = CreateMiddleware(env: ProductionEnv(), governor: governor,
-            onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", "Mozilla/5.0", method: "POST");
 
         await sut.InvokeAsync(ctx);
@@ -296,7 +384,11 @@ public sealed class ShieldMiddlewareTests
         bool nextCalled = false;
         var governor = CreateWarModeGovernor();
         var sut = CreateMiddleware(env: ProductionEnv(), governor: governor,
-            onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", "Mozilla/5.0", method: "GET");
 
         await sut.InvokeAsync(ctx);
@@ -310,7 +402,11 @@ public sealed class ShieldMiddlewareTests
         bool nextCalled = false;
         var governor = CreateWarModeGovernor();
         var sut = CreateMiddleware(env: ProductionEnv(), governor: governor,
-            onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", "Mozilla/5.0", method: "OPTIONS");
 
         await sut.InvokeAsync(ctx);
@@ -324,7 +420,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_NormalBrowserUA_Production_CallsNext()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/articles", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
 
         await sut.InvokeAsync(ctx);
@@ -336,7 +438,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_SocialPreviewBot_PublicArticleGet_CallsNext()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/article/42", "Twitterbot/1.0", method: "GET");
 
         await sut.InvokeAsync(ctx);
@@ -349,7 +457,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_SocialPreviewBot_ApiRead_DoesNotCallNext()
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/binary/category", "Discordbot/2.0", method: "GET");
 
         await sut.InvokeAsync(ctx);
@@ -369,7 +483,13 @@ public sealed class ShieldMiddlewareTests
     public async Task InvokeAsync_SocialPreviewUserAgents_ApiReadDeniedAndMarked(string ua)
     {
         bool nextCalled = false;
-        var sut = CreateMiddleware(env: ProductionEnv(), onNext: _ => { nextCalled = true; return Task.CompletedTask; });
+        var sut = CreateMiddleware(
+            env: ProductionEnv(),
+            onNext: _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            });
         var ctx = BuildContext("/api/binary/category", ua, method: "GET");
 
         await sut.InvokeAsync(ctx);
@@ -484,7 +604,9 @@ public sealed class ShieldMiddlewareTests
         public string BuildKey(CachePolicyId policyId, string identity, string? version = null) => $"{policyId}:{identity}";
         private sealed class NullDisposable : IAsyncDisposable
         {
-            public static readonly NullDisposable Instance = new(); public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+            public static readonly NullDisposable Instance = new();
+
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
     }
 

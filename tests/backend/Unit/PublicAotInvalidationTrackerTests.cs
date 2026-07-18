@@ -290,7 +290,10 @@ public sealed class PublicAotInvalidationTrackerTests
     {
         public string? SessionId { get; } = sessionId;
 
-        public string PrefixKey(string key) => SessionId is { } session ? $"e2e:{session}:{key}" : key;
+        public string PrefixKey(string key)
+        {
+            return SessionId is { } session ? $"e2e:{session}:{key}" : key;
+        }
 
         public IDisposable BeginScope(string? sessionId) => new NoopScope();
 

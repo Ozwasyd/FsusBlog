@@ -103,7 +103,10 @@ public class PooledByteBufferWriterTests
         Assert.Throws<InvalidOperationException>(() => w.GetMemory(1));
         Assert.Throws<InvalidOperationException>(() => w.Advance(0));
         Assert.Throws<InvalidOperationException>(() => w.ToArray());
-        Assert.Throws<InvalidOperationException>(() => { _ = w.WrittenCount; });
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            _ = w.WrittenCount;
+        });
     }
 
     [Fact]
@@ -125,7 +128,10 @@ public class PooledByteBufferWriterTests
         Assert.Throws<ObjectDisposedException>(() => w.GetMemory(1));
         Assert.Throws<ObjectDisposedException>(() => w.Advance(0));
         Assert.Throws<ObjectDisposedException>(() => w.ToArray());
-        Assert.Throws<ObjectDisposedException>(() => { _ = w.WrittenCount; });
+        Assert.Throws<ObjectDisposedException>(() =>
+        {
+            _ = w.WrittenCount;
+        });
     }
 }
 

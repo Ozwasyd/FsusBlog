@@ -647,7 +647,10 @@ public sealed class FileServiceTests
             });
             Assert.False(result.IsSuccess);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -667,7 +670,10 @@ public sealed class FileServiceTests
             });
             Assert.False(result.IsSuccess);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -687,7 +693,10 @@ public sealed class FileServiceTests
             });
             Assert.False(result.IsSuccess);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -707,7 +716,10 @@ public sealed class FileServiceTests
             });
             Assert.False(result.IsSuccess);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -727,7 +739,10 @@ public sealed class FileServiceTests
             });
             Assert.False(result.IsSuccess);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -747,7 +762,10 @@ public sealed class FileServiceTests
             });
             Assert.True(result.IsSuccess);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -767,7 +785,10 @@ public sealed class FileServiceTests
             });
             Assert.True(result.IsSuccess);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -787,7 +808,10 @@ public sealed class FileServiceTests
             });
             Assert.True(result.IsSuccess);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -812,7 +836,10 @@ public sealed class FileServiceTests
             Assert.False(await svc.ValidateUploadSessionTokenAsync(init.Value.UploadId, "wrong-token"));
             Assert.False(await svc.ValidateUploadSessionTokenAsync(init.Value.UploadId, null));
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -826,7 +853,10 @@ public sealed class FileServiceTests
             Assert.False(result.IsSuccess);
             Assert.Equal(ErrorCode.NotFound, result.Error.Code);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -840,7 +870,10 @@ public sealed class FileServiceTests
             Assert.False(result.IsSuccess);
             Assert.Equal(ErrorCode.NotFound, result.Error.Code);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -854,7 +887,10 @@ public sealed class FileServiceTests
             Assert.False(result.IsSuccess);
             Assert.Equal(ErrorCode.NotFound, result.Error.Code);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Theory]
@@ -930,7 +966,10 @@ public sealed class FileServiceTests
             var result = await svc.UploadImageAsync(null!);
             Assert.False(result.Success);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -944,7 +983,10 @@ public sealed class FileServiceTests
             var result = await svc.UploadImageAsync(emptyFile);
             Assert.False(result.Success);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -959,7 +1001,10 @@ public sealed class FileServiceTests
             var result = await svc.UploadImageAsync(file);
             Assert.False(result.Success);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -977,7 +1022,10 @@ public sealed class FileServiceTests
             Assert.False(result.Success);
             Assert.Empty(Directory.GetFiles(GetIllustrationFolder(root)));
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -995,7 +1043,10 @@ public sealed class FileServiceTests
             Assert.False(result.Success);
             Assert.Empty(Directory.GetFiles(GetIllustrationFolder(root)));
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -1013,7 +1064,10 @@ public sealed class FileServiceTests
             Assert.False(result.Success);
             Assert.Empty(Directory.GetFiles(GetIllustrationFolder(root)));
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -1066,7 +1120,10 @@ public sealed class FileServiceTests
             Assert.True(deleted);
             Assert.False(File.Exists(filePath));
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -1088,7 +1145,10 @@ public sealed class FileServiceTests
             Assert.Contains("\\r\\n", message, StringComparison.Ordinal);
             Assert.Contains("\\u001B", message, StringComparison.Ordinal);
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -1378,7 +1438,10 @@ public sealed class FileServiceTests
             Assert.False(mode.HasFlag(UnixFileMode.OtherWrite));
             Assert.False(mode.HasFlag(UnixFileMode.OtherExecute));
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     private static FormFile CreateFormFile(byte[] payload, string name)

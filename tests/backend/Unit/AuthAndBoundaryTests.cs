@@ -14,7 +14,10 @@ public class BoundaryExecutorTests
     public void Execute_ActionSucceeds_ReturnsSuccess()
     {
         var result = BoundaryExecutor.Execute(
-            () => { /* no-op */ },
+            () =>
+            {
+                // no-op
+            },
             ex => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message),
             s_logger, "test-op");
         Assert.True(result.IsSuccess);
@@ -134,7 +137,11 @@ public class BoundaryExecutorTests
     {
         bool ran = false;
         await BoundaryExecutor.ExecuteAsync(
-            () => { ran = true; return Task.CompletedTask; },
+            () =>
+            {
+                ran = true;
+                return Task.CompletedTask;
+            },
             s_logger, "op");
         Assert.True(ran);
     }

@@ -262,7 +262,8 @@ public sealed class CommentRiskActionFilterTests
         public override long Length => throw new NotSupportedException();
         public override long Position
         {
-            get => throw new NotSupportedException(); set => throw new NotSupportedException();
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
         }
         public override void Flush()
         {
@@ -292,7 +293,8 @@ public sealed class CommentRiskActionFilterTests
         public override long Length => throw new NotSupportedException();
         public override long Position
         {
-            get => throw new NotSupportedException(); set => throw new NotSupportedException();
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
         }
         public override void Flush()
         {
@@ -327,7 +329,8 @@ public sealed class CommentRiskActionFilterTests
         public override long Length => throw new NotSupportedException();
         public override long Position
         {
-            get => throw new NotSupportedException(); set => throw new NotSupportedException();
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
         }
         public override void Flush()
         {

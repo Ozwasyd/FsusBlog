@@ -403,7 +403,10 @@ public sealed class OwnedFrameCacheTests
         {
             get; private set;
         }
-        internal int ReturnCount => Volatile.Read(ref _returnCount);
+        internal int ReturnCount
+        {
+            get => Volatile.Read(ref _returnCount);
+        }
 
         public override byte[] Rent(int minimumLength)
         {
@@ -565,7 +568,10 @@ public sealed class OwnedFrameResponseResultTests
     private sealed class ResponseTrackingArrayPool : ArrayPool<byte>
     {
         private int _returnCount;
-        internal int ReturnCount => Volatile.Read(ref _returnCount);
+        internal int ReturnCount
+        {
+            get => Volatile.Read(ref _returnCount);
+        }
         public override byte[] Rent(int minimumLength) => new byte[Math.Max(1, minimumLength)];
         public override void Return(byte[] array, bool clearArray = false)
         {

@@ -78,7 +78,9 @@ public sealed class PublicAotRouteManifestTests
     public async Task Runtime_ExposesInternalEndpointPublicVisibilityAndOperationalDiagnostic()
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
-        builder.Services.AddRateLimiter(_ => { });
+        builder.Services.AddRateLimiter(_ =>
+        {
+        });
         await using WebApplication app = builder.Build();
         app.MapPublicAotEndpoints();
         RouteEndpoint manifest = FindRoute(app, "/internal/public-aot/manifest");

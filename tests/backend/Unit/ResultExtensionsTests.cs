@@ -107,7 +107,11 @@ public sealed class ResultExtensionsTests
     {
         bool called = false;
         var r = Result<int>.Failure(ErrorCode.Forbidden, "outer")
-            .Bind(x => { called = true; return Result<string>.Success(x.ToString()); });
+            .Bind(x =>
+            {
+                called = true;
+                return Result<string>.Success(x.ToString());
+            });
         Assert.False(r.IsSuccess);
         Assert.False(called);
     }
