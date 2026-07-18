@@ -1,7 +1,7 @@
-using SqlSugar;
-using DbType = SqlSugar.DbType;
-
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using SqlSugar;
+
+using DbType = SqlSugar.DbType;
 namespace FsusBlog.Server.Tests.TestInfrastructure;
 
 public abstract class PostgresClassDatabaseFixture

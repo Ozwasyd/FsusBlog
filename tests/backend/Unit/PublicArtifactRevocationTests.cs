@@ -1,10 +1,9 @@
 using System.Net;
 using System.Text.Json;
 
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
-
-using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicArtifactRevocationTests

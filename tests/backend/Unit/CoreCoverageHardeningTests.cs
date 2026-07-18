@@ -2,15 +2,14 @@ using System.Buffers;
 using System.Data;
 using System.Data.Common;
 
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.DependencyInjection;
 using FsusBlog.Core.Mapping.Readers;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Implementations;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CoreCoverageHardeningTests

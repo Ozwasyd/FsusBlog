@@ -1,5 +1,4 @@
 using BenchmarkDotNet.Attributes;
-
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 
 [MemoryDiagnoser]

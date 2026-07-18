@@ -1,7 +1,6 @@
+using FsusBlog.Server.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-
-using FsusBlog.Server.Services;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleViewWriteBufferTests

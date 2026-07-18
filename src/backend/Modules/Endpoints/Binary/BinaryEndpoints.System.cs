@@ -24,7 +24,6 @@ using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;

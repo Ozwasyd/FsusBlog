@@ -2,11 +2,10 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Collection(MclGroth16TestCollection.Name)]

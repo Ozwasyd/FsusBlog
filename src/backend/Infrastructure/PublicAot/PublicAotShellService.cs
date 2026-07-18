@@ -7,7 +7,6 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
-
 using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;

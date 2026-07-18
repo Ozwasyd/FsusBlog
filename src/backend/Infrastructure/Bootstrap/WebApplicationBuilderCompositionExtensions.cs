@@ -5,9 +5,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Services;
-
 using Microsoft.AspNetCore.HttpOverrides;
-
 using Serilog;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;

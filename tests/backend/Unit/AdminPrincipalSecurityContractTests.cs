@@ -1,12 +1,11 @@
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
-
-using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Modules.Endpoints;
-using FsusBlog.Server.Tests.TestInfrastructure;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AdminPrincipalSecurityContractTests

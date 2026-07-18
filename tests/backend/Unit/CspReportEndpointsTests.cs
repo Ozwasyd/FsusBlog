@@ -1,9 +1,8 @@
 using System.Text;
 
+using FsusBlog.Server.Modules.Endpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
-
-using FsusBlog.Server.Modules.Endpoints;
 namespace FsusBlog.Server.Tests;
 
 public sealed class CspReportEndpointsTests

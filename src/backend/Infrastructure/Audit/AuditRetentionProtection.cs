@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 
 using FsusBlog.Server.Entities;
-
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Infrastructure.Audit;

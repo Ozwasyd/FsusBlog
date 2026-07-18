@@ -8,9 +8,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Testing;
-
 using Npgsql;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;

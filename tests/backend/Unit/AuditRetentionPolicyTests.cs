@@ -2,11 +2,10 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 
-using Microsoft.Extensions.Configuration;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Services.Background;
+using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AuditRetentionPolicyTests

@@ -11,7 +11,6 @@ using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
-
 using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;

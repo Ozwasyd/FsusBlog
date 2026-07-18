@@ -9,7 +9,6 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Shared.Contracts.Outputs;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Telemetry;

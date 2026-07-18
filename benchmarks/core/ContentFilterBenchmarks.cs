@@ -3,9 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 using BenchmarkDotNet.Attributes;
-
 using FsusBlog.Server.Infrastructure.Helpers.Security;
-
 using Microsoft.Extensions.Logging.Abstractions;
 
 [MemoryDiagnoser]

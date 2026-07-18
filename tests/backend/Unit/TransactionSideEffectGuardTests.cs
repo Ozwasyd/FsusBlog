@@ -1,6 +1,5 @@
-using Microsoft.Extensions.Logging.Abstractions;
-
 using FsusBlog.Server.Infrastructure.Execution;
+using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests;
 
 public sealed class TransactionSideEffectGuardTests

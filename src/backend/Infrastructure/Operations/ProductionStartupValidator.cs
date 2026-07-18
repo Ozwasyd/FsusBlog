@@ -12,10 +12,8 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
-
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
-
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Operations;

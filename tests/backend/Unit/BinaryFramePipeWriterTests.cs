@@ -1,10 +1,9 @@
 using System.Buffers;
 using System.IO.Pipelines;
 
-using Microsoft.AspNetCore.Http.Features;
-
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Results;
+using Microsoft.AspNetCore.Http.Features;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class BinaryFramePipeWriterTests

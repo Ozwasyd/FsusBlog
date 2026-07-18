@@ -3,7 +3,6 @@ using System.Globalization;
 
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
-
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Operations;

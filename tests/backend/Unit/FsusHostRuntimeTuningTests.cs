@@ -2,10 +2,9 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json;
 
-using Microsoft.Extensions.Configuration;
-
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class FsusHostRuntimeTuningTests

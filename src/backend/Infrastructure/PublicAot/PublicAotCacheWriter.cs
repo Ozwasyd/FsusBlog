@@ -1,6 +1,5 @@
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Shared.Contracts.Outputs;
-
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;

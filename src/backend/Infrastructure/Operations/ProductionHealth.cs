@@ -19,12 +19,9 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
-
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
-
 using Npgsql;
-
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Operations;

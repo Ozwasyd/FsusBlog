@@ -1,10 +1,9 @@
-using Npgsql;
-using SqlSugar;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Npgsql;
+using SqlSugar;
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Dependency", "Docker")]

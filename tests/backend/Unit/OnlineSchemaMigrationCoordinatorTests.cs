@@ -1,8 +1,7 @@
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-
-using FsusBlog.Server.Infrastructure.SchemaMigration;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class OnlineSchemaMigrationCoordinatorTests

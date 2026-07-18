@@ -3,9 +3,8 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 
-using Microsoft.AspNetCore.DataProtection;
-
 using FsusBlog.Server.Services.Security;
+using Microsoft.AspNetCore.DataProtection;
 namespace FsusBlog.Server.Tests.Unit;
 
 // ──────────────────────────────────────────────────────────────────────────────

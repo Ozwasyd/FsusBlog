@@ -1,9 +1,8 @@
-using NSubstitute;
-
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Core.Services.Implementations;
 using FsusBlog.Shared.Contracts.AuthSystem;
+using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
 public class UserCoreServiceTests

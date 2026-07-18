@@ -1,11 +1,6 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
@@ -14,6 +9,10 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
 
 // ──────────────────────────────────────────────────────────────────────────────

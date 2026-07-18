@@ -1,8 +1,7 @@
 using System.Text;
 
-using Microsoft.Extensions.Configuration;
-
 using FsusBlog.Server.Services.Security;
+using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AnonymitySetPolicyTests

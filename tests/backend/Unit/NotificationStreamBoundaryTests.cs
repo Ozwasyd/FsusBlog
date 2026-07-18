@@ -6,20 +6,6 @@ using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Text;
 
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging.Abstractions;
-using NSubstitute;
-using StackExchange.Redis;
-
 using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
@@ -33,6 +19,19 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.NotificationStream;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using StackExchange.Redis;
 namespace FsusBlog.Server.Tests.Unit;
 
 public class NotificationStreamBoundaryTests

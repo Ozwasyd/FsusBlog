@@ -1,8 +1,7 @@
-using Microsoft.AspNetCore.Http;
-
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
+using Microsoft.AspNetCore.Http;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RiskControlSimulatorContractTests

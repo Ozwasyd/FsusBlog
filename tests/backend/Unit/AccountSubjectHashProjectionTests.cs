@@ -3,11 +3,10 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
 
-using SqlSugar;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services;
+using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AccountSubjectHashProjectionTests

@@ -2,7 +2,6 @@ using System.Data;
 using System.Reflection;
 
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;

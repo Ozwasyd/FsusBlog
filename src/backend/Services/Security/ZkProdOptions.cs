@@ -1,7 +1,6 @@
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Helpers;
-
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Services.Security;

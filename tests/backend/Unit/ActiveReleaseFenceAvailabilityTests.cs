@@ -1,12 +1,11 @@
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Operations;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Operations;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ActiveReleaseFenceAvailabilityTests

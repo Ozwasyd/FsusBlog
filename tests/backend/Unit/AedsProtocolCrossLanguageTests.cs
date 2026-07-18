@@ -4,8 +4,6 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-using CoreAedsEncoder = FsusBlog.Core.Algorithms.AedsEncoder;
-using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
@@ -16,6 +14,9 @@ using FsusBlog.Shared;
 using FsusBlog.Shared.Contracts.Envelopes;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Validation;
+
+using CoreAedsEncoder = FsusBlog.Core.Algorithms.AedsEncoder;
+using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
 namespace FsusBlog.Server.Tests;
 
 public sealed class AedsProtocolCrossLanguageTests

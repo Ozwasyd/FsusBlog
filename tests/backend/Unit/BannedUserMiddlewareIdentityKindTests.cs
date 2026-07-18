@@ -1,14 +1,13 @@
 using System.Security.Claims;
 
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.DependencyInjection;
-using NSubstitute;
-
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Interfaces;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class BannedUserMiddlewareIdentityKindTests

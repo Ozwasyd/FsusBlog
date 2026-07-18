@@ -1,10 +1,7 @@
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
-
 using Microsoft.Extensions.Options;
-
 using Npgsql;
-
 using NpgsqlTypes;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;

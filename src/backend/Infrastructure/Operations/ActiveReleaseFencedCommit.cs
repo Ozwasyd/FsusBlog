@@ -3,9 +3,7 @@ using System.Diagnostics.Metrics;
 
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Operations;

@@ -1,7 +1,6 @@
-using Microsoft.Extensions.Configuration;
-
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
+using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit.SecurityHardening;
 
 public sealed class CryptographyBoundaryTests

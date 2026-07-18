@@ -1,5 +1,4 @@
 using FsusBlog.Server.Infrastructure.Auth;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Entities;

@@ -4,6 +4,12 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 
+using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -11,13 +17,6 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
-
-using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Modules.Endpoints;
-using FsusBlog.Server.Tests.TestInfrastructure;
-using FsusBlog.Server.Tests.Unit;
-using FsusBlog.Shared.Contracts.Outputs;
 namespace FsusBlog.Server.Tests;
 
 public sealed class PublicAotRouteManifestTests

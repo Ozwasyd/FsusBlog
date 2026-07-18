@@ -10,7 +10,6 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Storage;
-
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;

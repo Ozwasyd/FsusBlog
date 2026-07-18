@@ -3,7 +3,6 @@ using System.Text.Json;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicAot;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Integrity;

@@ -1,9 +1,8 @@
+using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.Unit;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
-
-using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Tests.Unit;
 namespace FsusBlog.Server.Tests;
 
 public sealed class ContentFilterServiceTests

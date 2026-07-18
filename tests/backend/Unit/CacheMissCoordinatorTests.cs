@@ -1,8 +1,7 @@
 using System.Collections.Concurrent;
 
-using Microsoft.Extensions.Logging.Abstractions;
-
 using FsusBlog.Server.Infrastructure.Cache;
+using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests;
 
 public sealed class CacheMissCoordinatorTests

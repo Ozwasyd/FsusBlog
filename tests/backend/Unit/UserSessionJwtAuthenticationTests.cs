@@ -3,6 +3,11 @@ using System.Net;
 using System.Security.Claims;
 using System.Text;
 
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -11,12 +16,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using NSubstitute;
-
-using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "SecurityStateMachine")]

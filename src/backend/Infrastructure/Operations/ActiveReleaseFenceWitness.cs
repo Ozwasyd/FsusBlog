@@ -1,7 +1,6 @@
 using System.Data.Common;
 
 using Microsoft.Extensions.DependencyInjection;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Operations;

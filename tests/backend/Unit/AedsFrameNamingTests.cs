@@ -1,10 +1,11 @@
 using System.Text.Json;
 
-using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
 using FsusBlog.Server.Tests.TestInfrastructure;
-using SharedFrameType = FsusBlog.Shared.AedsFrameType;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Validation;
+
+using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
+using SharedFrameType = FsusBlog.Shared.AedsFrameType;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AedsFrameNamingTests

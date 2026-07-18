@@ -1,9 +1,8 @@
+using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-
-using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Infrastructure.SchemaMigration;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ActiveReleaseFenceDurableWitnessTests

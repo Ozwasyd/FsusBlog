@@ -1,13 +1,12 @@
 using System.Diagnostics;
 
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Tests.TestInfrastructure;
 namespace FsusBlog.Server.Tests;
 
 public sealed class DependencyGraphValidationTests

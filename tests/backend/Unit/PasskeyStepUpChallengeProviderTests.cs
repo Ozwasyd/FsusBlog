@@ -2,10 +2,6 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
 
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -14,6 +10,9 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Security;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PasskeyStepUpChallengeProviderTests

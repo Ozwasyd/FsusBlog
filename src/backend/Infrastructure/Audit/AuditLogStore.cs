@@ -5,7 +5,6 @@ using System.Text;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Observability;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Audit;

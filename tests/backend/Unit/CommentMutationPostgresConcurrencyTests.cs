@@ -1,12 +1,5 @@
 using System.Collections.Concurrent;
 
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using Npgsql;
-using NSubstitute;
-using SqlSugar;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -17,6 +10,12 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
+using NSubstitute;
+using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Concurrency")]

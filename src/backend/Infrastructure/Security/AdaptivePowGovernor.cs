@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 
 using FsusBlog.Server.Infrastructure.Cache;
-
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Infrastructure.Security;

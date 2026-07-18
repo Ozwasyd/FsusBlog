@@ -1,14 +1,13 @@
 using System.Net;
 using System.Security.Claims;
 
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Security;
 using Microsoft.AspNetCore.Http;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
-
-using FsusBlog.Server.Infrastructure.Audit;
-using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Security;
 namespace FsusBlog.Server.Tests;
 
 public sealed class RequestAuditContextMiddlewareTests

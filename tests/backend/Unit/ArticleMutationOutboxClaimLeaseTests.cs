@@ -1,11 +1,5 @@
 using System.Reflection;
 
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-using NSubstitute;
-using SqlSugar;
-using StackExchange.Redis;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -19,6 +13,11 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+using StackExchange.Redis;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleMutationOutboxClaimLeaseTests

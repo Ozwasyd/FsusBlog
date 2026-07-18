@@ -1,9 +1,8 @@
 using System.Collections.Concurrent;
 
+using FsusBlog.Server.Infrastructure.NotificationStream;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
-
-using FsusBlog.Server.Infrastructure.NotificationStream;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class NotificationStreamConnectionManagerTests

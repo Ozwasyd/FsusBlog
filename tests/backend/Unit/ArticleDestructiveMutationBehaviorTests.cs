@@ -1,10 +1,3 @@
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging.Abstractions;
-using Npgsql;
-using NSubstitute;
-using SqlSugar;
-using StackExchange.Redis;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -12,6 +5,12 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
+using NSubstitute;
+using SqlSugar;
+using StackExchange.Redis;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Concurrency")]

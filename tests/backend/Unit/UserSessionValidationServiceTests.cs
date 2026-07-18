@@ -1,13 +1,12 @@
 using System.Security.Claims;
 
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Services.Security;
 using Microsoft.Extensions.Configuration;
 using NSubstitute;
 using SqlSugar;
 using StackExchange.Redis;
-
-using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Services.Security;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "SecurityStateMachine")]

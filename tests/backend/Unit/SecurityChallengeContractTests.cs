@@ -1,9 +1,10 @@
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
-using SharedFrameType = FsusBlog.Shared.AedsFrameType;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Security;
 using FsusBlog.Shared.Contracts.Validation;
+
+using SharedFrameType = FsusBlog.Shared.AedsFrameType;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityChallengeContractTests

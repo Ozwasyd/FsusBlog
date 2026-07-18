@@ -1,11 +1,10 @@
+using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Npgsql;
 using NSubstitute;
 using SqlSugar;
-
-using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Tests.TestInfrastructure;
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Category", "Integration")]

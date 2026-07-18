@@ -1,9 +1,8 @@
 using System.Net;
 
+using FsusBlog.Server.Infrastructure.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
-
-using FsusBlog.Server.Infrastructure.Security;
 namespace FsusBlog.Server.Tests;
 
 public sealed class ReadProofIngressPrivacyTests

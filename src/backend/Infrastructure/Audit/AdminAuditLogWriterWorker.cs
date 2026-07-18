@@ -1,5 +1,4 @@
 using FsusBlog.Server.Entities;
-
 using FsusBlog.Server.Infrastructure.Observability;
 
 namespace FsusBlog.Server.Infrastructure.Audit;

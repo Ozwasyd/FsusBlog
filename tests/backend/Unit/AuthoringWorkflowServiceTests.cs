@@ -2,11 +2,6 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using NSubstitute;
-using SqlSugar;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -19,6 +14,10 @@ using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Server.Tests.Unit;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+using SqlSugar;
 namespace FsusBlog.Server.Tests;
 
 public sealed class AuthoringWorkflowServiceTests

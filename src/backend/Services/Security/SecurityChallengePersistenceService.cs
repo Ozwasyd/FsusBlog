@@ -3,7 +3,6 @@ using System.Data.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;

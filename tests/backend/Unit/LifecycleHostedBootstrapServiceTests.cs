@@ -1,3 +1,9 @@
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Interfaces;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,13 +12,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-
-using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Helpers.Initializer;
-using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Interfaces;
 namespace FsusBlog.Server.Tests;
 
 public sealed class LifecycleHostedBootstrapServiceTests

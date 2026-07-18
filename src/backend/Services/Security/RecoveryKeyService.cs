@@ -11,7 +11,6 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;

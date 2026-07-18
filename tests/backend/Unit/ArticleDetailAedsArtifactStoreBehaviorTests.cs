@@ -1,5 +1,8 @@
 using System.Buffers.Binary;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -7,10 +10,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
-
-using FsusBlog.Core.Algorithms;
-using FsusBlog.Server.Infrastructure.Execution;
-using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleDetailAedsArtifactStoreBehaviorTests

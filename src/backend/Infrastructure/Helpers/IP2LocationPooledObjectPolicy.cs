@@ -1,5 +1,4 @@
 using IP2Location;
-
 using Microsoft.Extensions.ObjectPool;
 
 namespace FsusBlog.Server.Infrastructure.Helpers;

@@ -1,13 +1,12 @@
 using System.Collections.Concurrent;
 using System.Text;
 
+using FsusBlog.Server.Infrastructure.Cache;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using NSubstitute;
 using StackExchange.Redis;
-
-using FsusBlog.Server.Infrastructure.Cache;
 namespace FsusBlog.Server.Tests;
 
 public sealed class UnifiedCacheTests

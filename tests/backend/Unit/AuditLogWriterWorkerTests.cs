@@ -1,9 +1,8 @@
 using System.Collections.Concurrent;
 
+using FsusBlog.Server.Infrastructure.Audit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-
-using FsusBlog.Server.Infrastructure.Audit;
 namespace FsusBlog.Server.Tests;
 
 public sealed class AuditLogWriterWorkerTests

@@ -1,6 +1,5 @@
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
-
 using Microsoft.AspNetCore.Mvc;
 
 using HttpResults = Microsoft.AspNetCore.Http.Results;

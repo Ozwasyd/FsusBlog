@@ -1,6 +1,5 @@
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
-
 using Microsoft.AspNetCore.Mvc;
 
 namespace FsusBlog.Server.Infrastructure.Results;

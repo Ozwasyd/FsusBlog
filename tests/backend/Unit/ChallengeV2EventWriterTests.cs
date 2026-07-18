@@ -1,12 +1,11 @@
 using System.Threading.Channels;
 
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ChallengeV2EventWriterTests

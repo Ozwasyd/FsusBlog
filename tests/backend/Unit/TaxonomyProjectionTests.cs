@@ -1,8 +1,7 @@
-using NSubstitute;
-using SqlSugar;
-
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Taxonomy;
+using NSubstitute;
+using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class TaxonomyProjectionTests

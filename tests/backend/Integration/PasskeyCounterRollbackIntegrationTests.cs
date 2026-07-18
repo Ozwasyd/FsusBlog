@@ -4,10 +4,6 @@ using System.Buffers.Text;
 using Fido2NetLib;
 using Fido2NetLib.Exceptions;
 using Fido2NetLib.Objects;
-using Microsoft.Extensions.Logging.Abstractions;
-using NSubstitute;
-using SqlSugar;
-
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -18,6 +14,9 @@ using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Dependency", "Docker")]

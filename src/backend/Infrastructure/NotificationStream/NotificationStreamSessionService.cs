@@ -4,7 +4,6 @@ using System.Threading.Channels;
 
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Shared.Contracts.NotificationStream;
-
 using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;

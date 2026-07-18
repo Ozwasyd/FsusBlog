@@ -1,11 +1,10 @@
 using System.Reflection;
 
-using SqlSugar;
-
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class MerkleCheckpointTests

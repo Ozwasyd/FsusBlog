@@ -1,9 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 
-using Microsoft.Extensions.Configuration;
-
 using FsusBlog.Server.Infrastructure.Security;
+using Microsoft.Extensions.Configuration;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class VisitLogIpPseudonymizerTests

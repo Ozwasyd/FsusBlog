@@ -7,7 +7,6 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Shared.Contracts.Security;
-
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Services.Security;

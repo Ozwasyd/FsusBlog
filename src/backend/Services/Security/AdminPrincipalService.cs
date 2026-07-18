@@ -7,7 +7,6 @@ using System.Text.Json;
 
 using Fido2NetLib;
 using Fido2NetLib.Objects;
-
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
@@ -17,11 +16,8 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Shared.Contracts.Outputs;
-
 using Microsoft.AspNetCore.WebUtilities;
-
 using Npgsql;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;

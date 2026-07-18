@@ -1,5 +1,4 @@
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
-
 using Npgsql;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;

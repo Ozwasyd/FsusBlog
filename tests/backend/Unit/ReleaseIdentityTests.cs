@@ -1,13 +1,12 @@
 using System.Text.Json;
 
+using FsusBlog.Server.Infrastructure.Operations;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-
-using FsusBlog.Server.Infrastructure.Operations;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ReleaseIdentityTests

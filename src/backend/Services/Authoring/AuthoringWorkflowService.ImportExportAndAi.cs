@@ -20,7 +20,6 @@ using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;

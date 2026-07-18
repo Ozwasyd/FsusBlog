@@ -1,13 +1,12 @@
 using System.Reflection;
 using System.Text.Json;
 
-using SqlSugar;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
+using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]

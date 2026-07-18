@@ -16,7 +16,6 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints;

@@ -1,11 +1,10 @@
 using System.Security.Claims;
 
-using Microsoft.AspNetCore.Http;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Modules.Endpoints;
+using Microsoft.AspNetCore.Http;
 namespace FsusBlog.Server.Tests;
 
 public sealed class AuditProjectionBehaviorTests

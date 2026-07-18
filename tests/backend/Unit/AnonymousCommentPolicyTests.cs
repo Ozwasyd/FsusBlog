@@ -1,13 +1,12 @@
 using System.Linq.Expressions;
 
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Server.Services.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using SqlSugar;
-
-using FsusBlog.Server.Entities;
-using FsusBlog.Server.Models.CommentIdentity;
-using FsusBlog.Server.Services.Security;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AnonymousCommentPolicyTests

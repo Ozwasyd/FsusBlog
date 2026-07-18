@@ -1,6 +1,5 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Shared.Contracts.Outputs;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;

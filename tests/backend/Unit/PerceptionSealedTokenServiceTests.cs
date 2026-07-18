@@ -3,13 +3,12 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Services.Security;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PerceptionSealedTokenServiceTests

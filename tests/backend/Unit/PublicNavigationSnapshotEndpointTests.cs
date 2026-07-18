@@ -1,7 +1,6 @@
-using Microsoft.AspNetCore.Http;
-
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Modules.Endpoints;
+using Microsoft.AspNetCore.Http;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicNavigationSnapshotEndpointTests

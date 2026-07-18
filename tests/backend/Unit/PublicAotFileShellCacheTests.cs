@@ -6,6 +6,10 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
@@ -13,11 +17,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using StackExchange.Redis;
-
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Infrastructure.Storage;
-using FsusBlog.Server.Tests.TestInfrastructure;
-using FsusBlog.Shared.Contracts.Outputs;
 namespace FsusBlog.Server.Tests;
 
 public sealed class PublicAotFileShellCacheTests

@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Threading.Channels;
 
 using FsusBlog.Server.Infrastructure.Observability;
-
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.Security;

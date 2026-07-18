@@ -1,11 +1,10 @@
+using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
-
-using FsusBlog.Server.Infrastructure.Spa;
-using FsusBlog.Shared.Contracts.Outputs;
 namespace FsusBlog.Server.Tests;
 
 public sealed class SpaAssetManifestServiceTests

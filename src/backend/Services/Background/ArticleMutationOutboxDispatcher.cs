@@ -7,7 +7,6 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Background;

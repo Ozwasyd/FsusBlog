@@ -1,9 +1,8 @@
-using Microsoft.AspNetCore.Http;
-
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
+using Microsoft.AspNetCore.Http;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityNativeAedsEndpointTests

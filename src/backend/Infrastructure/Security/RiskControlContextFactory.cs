@@ -5,7 +5,6 @@ using System.Text;
 
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 

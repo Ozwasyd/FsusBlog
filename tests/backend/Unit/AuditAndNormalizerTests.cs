@@ -2,13 +2,12 @@ using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Reflection;
 
-using Microsoft.Extensions.Logging.Abstractions;
-using Serilog.Events;
-using Serilog.Parsing;
-
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using Microsoft.Extensions.Logging.Abstractions;
+using Serilog.Events;
+using Serilog.Parsing;
 namespace FsusBlog.Server.Tests.Unit;
 
 // ──────────────────────────────────────────────────────────────────────────────

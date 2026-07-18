@@ -4,11 +4,10 @@ using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-using Microsoft.AspNetCore.Http.Features;
-using Microsoft.Extensions.Options;
-
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.Options;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CspNonceUtf8TemplateTests

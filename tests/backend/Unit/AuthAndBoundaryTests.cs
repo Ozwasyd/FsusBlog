@@ -1,8 +1,7 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 namespace FsusBlog.Server.Tests.Unit;
 
 public class BoundaryExecutorTests

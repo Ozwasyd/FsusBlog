@@ -1,8 +1,5 @@
 using System.Collections.Concurrent;
 
-using Microsoft.Extensions.Logging.Abstractions;
-using NSubstitute;
-
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
@@ -12,6 +9,8 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleEndpointServiceTests

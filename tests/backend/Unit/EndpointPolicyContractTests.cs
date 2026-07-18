@@ -1,15 +1,14 @@
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
-
-using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Filters;
-using FsusBlog.Server.Infrastructure.Policies;
-using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class EndpointPolicyContractTests

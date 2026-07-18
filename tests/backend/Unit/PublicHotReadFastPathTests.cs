@@ -3,6 +3,11 @@ using System.Reflection;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -12,12 +17,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using NSubstitute;
-
-using FsusBlog.Core.Algorithms;
-using FsusBlog.Core.Cache;
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-using FsusBlog.Shared.Contracts.Outputs;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicHotReadFastPathTests

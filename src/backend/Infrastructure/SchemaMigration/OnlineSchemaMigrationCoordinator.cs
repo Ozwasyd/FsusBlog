@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Microsoft.Extensions.DependencyInjection.Extensions;
-
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
