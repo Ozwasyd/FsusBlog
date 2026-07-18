@@ -28,11 +28,11 @@ public sealed class IgnoreRulesTests
     }
 
     [Fact]
-    public async Task GitIgnore_DoesNotIgnoreControlledWasmReleaseArtifact()
+    public async Task GitIgnore_CoversGeneratedWasmReleaseArtifact()
     {
-        GitCheckIgnoreResult result = await GitCheckIgnoreAsync("build/artifacts/wasm-release/aeds_decoder.wasm");
+        GitCheckIgnoreResult result = await GitCheckIgnoreAsync("build/artifacts/wasm-release/wasm-manifest.aeds");
 
-        Assert.False(result.Ignored, $"Controlled wasm artifact should stay trackable. stdout={result.StandardOutput}");
+        Assert.True(result.Ignored, $"Generated wasm artifact must stay outside Git. stderr={result.StandardError}");
     }
 
     private static async Task<GitCheckIgnoreResult> GitCheckIgnoreAsync(string path)

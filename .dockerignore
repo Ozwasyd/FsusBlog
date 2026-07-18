@@ -113,6 +113,7 @@ BenchmarkDotNet.Artifacts/
 .local-docker-assets/
 build/**
 !build/artifacts/
+# Generated WASM packages stay out of Git but enter the final image build context.
 !build/artifacts/wasm-release/
 !build/artifacts/wasm-release/**
 !build/artifacts/native-zk/

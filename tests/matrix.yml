@@ -176,15 +176,15 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: production
-    coverage: [ci-production-build-artifact-receipt]
+    coverage: [ci-production-build-artifact-receipt, wasm-release-artifact-ownership]
     artifacts: [.tmp/ci-production-build]
-    evidence: [.tmp/ci-production-build/receipt.json, tests/tools/production-build-artifacts.test.mjs]
+    evidence: [.tmp/ci-production-build/receipt.json, tests/tools/production-build-artifacts.test.mjs, tools/check-wasm-artifact-ownership.mjs, tools/build-wasm-artifact.sh, tools/frontend/ensure-wasm.mjs, tools/test/lanes/production-build-artifacts.sh, tests/tools/issue-1165-wasm-artifact-ownership.test.mjs, docs/wasm.md, .gitignore, .dockerignore]
     ciJob: production-build-artifacts
     localOnly: false
     nightlyOnly: false
     smartGateMode: conditional
     retentionClass: must-keep
-    triggerPaths: [Directory.Build.props, FsusBlog.slnx, global.json, src/backend/**, src/core/**, src/shared/**, src/frontend/**, tests/backend/**, tests/frontend/**, tests/matrix.yml, tests/coverage-registry.json, tools/ci/**, tools/contracts/**, tools/frontend/**, tools/test/run-with-dotnet-release-build-lock.sh, tools/test/lanes/production-build-artifacts.sh]
+    triggerPaths: [Directory.Build.props, FsusBlog.slnx, global.json, src/backend/**, src/core/**, src/shared/**, src/frontend/**, tests/backend/**, tests/frontend/**, tests/tools/issue-1165-wasm-artifact-ownership.test.mjs, tests/matrix.yml, tests/coverage-registry.json, tools/ci/**, tools/contracts/**, tools/frontend/**, tools/check-wasm-artifact-ownership.mjs, tools/build-wasm-artifact.sh, tools/test/run-with-dotnet-release-build-lock.sh, tools/test/lanes/production-build-artifacts.sh, docs/wasm.md, .gitignore, .dockerignore]
     triggerReason: selected runtime/browser domains require one immutable production build artifact set
 
   - id: frontend-build
@@ -794,6 +794,7 @@ tiers:
       - test-retention-classification
       - integrity-proof-docs-consistency
       - immutable-release-identity
+      - wasm-release-artifact-ownership
       - runtime-publish-profile-matrix
       - blue-green-slot-orchestration
       - atomic-gateway-switch-rollback
@@ -858,6 +859,13 @@ tiers:
       - tools/runtime-profiles/runtime-publish-selection-policy.example.json
       - tools/operations/collect-release-evidence.sh
       - tools/frontend/ensure-wasm.mjs
+      - tools/check-wasm-artifact-ownership.mjs
+      - tools/build-wasm-artifact.sh
+      - tools/test/lanes/production-build-artifacts.sh
+      - tests/tools/issue-1165-wasm-artifact-ownership.test.mjs
+      - docs/wasm.md
+      - .gitignore
+      - .dockerignore
       - tools/build-native.sh
       - tools/build-final-image.sh
       - docs/production.md

@@ -15,6 +15,21 @@
 | `src/frontend/wasm/web/runtime/emscripten.ts` | Wasm hash 校验、compiled module 单飞缓存与 load timing |
 | `src/frontend/src/workers/wasmDecode.worker.ts` | Worker decode、transfer timing、错误分类 |
 | `src/frontend/src/services/binaryTransport.ts` | 网络 `ArrayBuffer` transferable 边界与 telemetry |
+| `build/artifacts/wasm-release/` | 每次 release/CI 临时生成的可搬运 package；被 Git 忽略，不是源码基线 |
+
+## Artifact ownership：Option B
+
+`build/artifacts/wasm-release/` 明确采用 **Option B：生成产物不进入 Git**。仓库只保存 Wasm 源码、`wasm/build.sh`、`ensure-wasm.mjs` 的 schema/ABI/output contract，以及 Dockerfile/工具脚本中的固定 toolchain identity。这样 ABI 或输出集合变化只有一个源码契约需要维护，不再依赖人工同时更新一组不可 review 的二进制文件。
+
+受控链路如下：
+
+1. `tools/build-wasm-artifact.sh` 用 pinned `wasm-builder` fresh 构建到临时目录，不读取仓库历史中的 Wasm binary。
+2. 生成的 `wasm-manifest.aeds` 必须是 schema `3`、`aedsAbi=fsusblog.aeds.v4`，其 output set/hash、runtime manifest 与当前 `ensure-wasm` source hash 完全一致。
+3. `tools/check-wasm-artifact-ownership.mjs --require-generated` 校验精确文件集、每个 output hash、完整 `SHA256SUMS`、仓库权威 toolchain pins，并逐字段锁定 runtime root（`maxFrameBytes`、`workerModel`）和 basic/speed tier（module、wasm、优化能力、内存边界），同时把 `moduleSha256`/`wasmSha256` 与实际文件交叉验证；随后再次执行 `ensure-wasm status`。任一 stale/missing/extra/tampered field 或 file 在 final image 前 fail closed。
+4. `.dockerignore` 只为 Docker context 重新纳入这个已生成目录；Dockerfile 在 frontend build 前复核 `SHA256SUMS` 和 `ensure-wasm status`。
+5. Quality Gate 将 fresh `payload/wasm` 连同 immutable production-build receipt 上传为短期 Actions artifact。最终 OCI image 内的 `SHA256SUMS` hash 写入 release manifest 的 `wasmArtifactHash`，消费方绑定该 digest，而不是 Git 路径中的旧 binary。
+
+`.gitignore` 必须持续忽略该目录，仓库中出现任何 tracked `build/artifacts/wasm-release/**` 都是治理错误。`FSUSBLOG_FINAL_SKIP_WASM=1` 只允许同一工作区断点续用已经生成且立即通过 `--require-generated` 复核的 package；它不能把缺失、stale、自报错误 toolchain 或被篡改的 package 变成可发布状态。
 
 ## AEDS artifact 与固定 ABI
 
@@ -57,7 +72,7 @@ npm run bench:pow-wasm
 emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e222f57dafd930973
 ```
 
-同时固定 CMake `4.3.3`、Binaryen `123` 与 vcpkg commit `eae1680538b86f962455c27abca2aad0dc304a4d`。禁止使用无 digest 的 `latest` 作为性能证据身份。本机构建可以使用另一受支持 compiler，但 manifest 必须记录实际 `emscriptenVersion`，不能冒充生产 builder。
+同时固定 CMake `4.3.3`、Binaryen `123` 与 vcpkg commit `eae1680538b86f962455c27abca2aad0dc304a4d`。这些值与上述 emsdk image/digest 一起由 `ensure-wasm.mjs` 的单一权威 contract 导出；outer/runtime manifest 必须逐字段完全一致。其他 compiler 可用于本地实验，但不能生成通过 `ensure-wasm status` 的 release package，也不能冒充生产 builder。
 
 ## 内存与并发模型
 
@@ -142,8 +157,14 @@ node ../../tools/frontend/ensure-wasm.mjs status
 定向验证：
 
 ```bash
+# ownership（默认不要求本地已有生成包）
+node tools/check-wasm-artifact-ownership.mjs
+
 # ABI/hash/toolchain/runtime artifact
-cd src/frontend && node ../../tools/frontend/ensure-wasm.mjs status
+(cd src/frontend && node ../../tools/frontend/ensure-wasm.mjs status)
+
+# release package 已生成后，复核完整 package 与当前 source contract
+node tools/check-wasm-artifact-ownership.mjs --require-generated
 
 # basic/speed 真实吞吐、artifact raw/gzip/br、compile、memory、copy/arena
 cd ../.. && node tests/frontend/checks/perf/check-aeds-decode-budget.mjs
@@ -169,6 +190,7 @@ pnpm vitest run --config vitest.config.ts \
 
 ## 风险与无需重启的回退
 
+- 生成 package 缺失、stale、hash/toolchain 不一致：release 构建在装入 image 前终止；修复后从 `wasm-artifact` checkpoint 重建，不需要服务端重启，也不得恢复已删除的 tracked binary。
 - speed load/compile/instantiate/hash failure：当前 Worker 顺序切到 basic，记录原因；服务端无需重启。
 - speed runtime 指标回归：通过下一 frontend release 的 immutable manifest 将默认候选限制为 basic；N/N-1 asset 继续保留。
 - basic/speed 都不可用：Worker 返回 `wasm_init_failed`，上层显示 binary transport failure；不得改走 JSON/text API。

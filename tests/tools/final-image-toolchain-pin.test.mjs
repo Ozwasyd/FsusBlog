@@ -89,6 +89,11 @@ function runBuildWithInspect(t, labels, extraEnv = {}) {
     Config: { Labels: labels }
   }])
   fs.mkdirSync(binDir)
+  fs.writeFileSync(path.join(binDir, 'node'), `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "\${1:-}" == "${path.join(root, 'tools/check-wasm-artifact-ownership.mjs')}" ]]; then exit 0; fi
+exec "${process.execPath}" "$@"
+`, { mode: 0o755 })
   fs.writeFileSync(path.join(binDir, 'docker'), `#!/usr/bin/env bash
 set -euo pipefail
 if [[ "\${1:-}" == "build" ]]; then printf '%s\\n' "$*" > "${dockerArgs}"; exit 0; fi

@@ -187,7 +187,10 @@ cleanup_local_context() {
 trap cleanup_local_context EXIT
 
 if [[ "${FSUSBLOG_FINAL_SKIP_WASM:-0}" == "1" ]]; then
-  log "skip wasm artifact package by FSUSBLOG_FINAL_SKIP_WASM=1"
+  log "resume with an existing generated wasm artifact package by FSUSBLOG_FINAL_SKIP_WASM=1"
+  node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs" \
+    --require-generated \
+    --artifact-dir "$ROOT_DIR/build/artifacts/wasm-release"
 else
   log "building wasm artifact package"
   "$ROOT_DIR/tools/build-wasm-artifact.sh"

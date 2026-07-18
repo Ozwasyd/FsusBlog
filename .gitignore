@@ -27,8 +27,7 @@ Thumbs.db
 /build/*
 !/build/artifacts/
 /build/artifacts/*
-!/build/artifacts/wasm-release/
-!/build/artifacts/wasm-release/**
+# WASM release packages are generated CI/local outputs, never source-controlled.
 !/build/artifacts/native-zk/
 !/build/artifacts/native-zk/**
 /data/

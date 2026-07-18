@@ -21,6 +21,8 @@ require_command() {
 require_command docker
 require_command node
 
+node "${ROOT_DIR}/tools/check-wasm-artifact-ownership.mjs"
+
 log "building wasm artifact target"
 rm -rf "${TMP_DIR}"
 mkdir -p "${TMP_DIR}"
@@ -171,5 +173,7 @@ EOF
   find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 sha256sum > SHA256SUMS
   sha256sum -c SHA256SUMS >/dev/null
 )
+
+node "${ROOT_DIR}/tools/check-wasm-artifact-ownership.mjs" --require-generated --artifact-dir "${ARTIFACT_DIR}"
 
 log "artifact ready at ${ARTIFACT_DIR}"

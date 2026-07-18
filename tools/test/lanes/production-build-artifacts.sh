@@ -14,6 +14,9 @@ PRODUCER_WORKFLOW="${GITHUB_WORKFLOW:-Local production}"
 PRODUCER_JOB="${GITHUB_JOB:-production-build-artifacts}"
 IFS=',' read -r -a DOMAIN_LIST <<< "$REQUESTED_DOMAINS"
 
+node --test "$ROOT_DIR/tests/tools/issue-1165-wasm-artifact-ownership.test.mjs"
+node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs"
+
 case "$REUSE_BUILD_OUTPUTS" in
   0|1) ;;
   *)
@@ -101,6 +104,13 @@ fi
 if has_domain wasm; then
   WASM_SOURCE="${FSUSBLOG_FRONTEND_WASM_ROOT:-$ROOT_DIR/src/frontend/public/wasm}"
   copy_directory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"
+  (
+    cd "$PAYLOAD_ROOT/wasm"
+    find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 sha256sum > SHA256SUMS
+  )
+  node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs" \
+    --require-generated \
+    --artifact-dir "$PAYLOAD_ROOT/wasm"
 fi
 if has_domain generated-contracts; then
   mkdir -p "$PAYLOAD_ROOT/generated-contracts"
@@ -130,6 +140,14 @@ CREATE_ARGS=(
   --duration-ms "$DURATION_MS"
   --input Directory.Build.props
   --input FsusBlog.slnx
+  --input .gitignore
+  --input .dockerignore
+  --input ops/docker/FsusBlog.Server.Dockerfile
+  --input tools/build-final-image.sh
+  --input tools/build-wasm-artifact.sh
+  --input tools/check-wasm-artifact-ownership.mjs
+  --input tools/frontend/ensure-wasm.mjs
+  --input tests/tools/issue-1165-wasm-artifact-ownership.test.mjs
   --input tools/test/run-with-dotnet-release-build-lock.sh
   --input tools/test/lanes/production-build-artifacts.sh
 )
@@ -150,7 +168,6 @@ if has_domain frontend-dist || has_domain wasm; then
   CREATE_ARGS+=(
     --input src/frontend/package.json
     --input src/frontend/package-lock.json
-    --input tools/frontend/ensure-wasm.mjs
   )
 fi
 if has_domain frontend-dist; then

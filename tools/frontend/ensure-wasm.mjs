@@ -17,37 +17,88 @@ const dependencyInstallerPath = fileURLToPath(new URL('./install-wasm-codec-deps
 const cmakeBootstrapPath = fileURLToPath(new URL('./ensure-cmake.sh', import.meta.url));
 const binaryenBootstrapPath = fileURLToPath(new URL('./ensure-binaryen.sh', import.meta.url));
 const buildScriptPath = join(wasmRoot, 'build.sh');
-const schemaVersion = 3;
-const aedsAbi = 'fsusblog.aeds.v4';
-const buildModes = ['basic', 'simd', 'relaxed', 'threads'];
-const requiredOutputFiles = [
-  'aeds_decoder_basic.js',
-  'aeds_decoder_basic.wasm',
-  'aeds_decoder_speed.js',
-  'aeds_decoder_speed.wasm',
-  'aeds-runtime-manifest.json',
-  'fsus_pow_basic.js',
-  'fsus_pow_basic.wasm',
-  'fsus_pow_simd.js',
-  'fsus_pow_simd.wasm',
-  'fsus_pow_relaxed.js',
-  'fsus_pow_relaxed.wasm',
-  'fsus_pow_threads.js',
-  'fsus_pow_threads.wasm',
-  'image_codec_basic.js',
-  'image_codec_basic.wasm',
-  'image_codec_simd.js',
-  'image_codec_simd.wasm',
-  'search_basic.js',
-  'search_basic.wasm',
-  'search_simd.js',
-  'search_simd.wasm',
-  'comment-privacy-prover.js',
-  'comment-privacy-prover.zkey',
-  'comment-privacy-prover.manifest.json',
-  'comment_privacy_runtime.js',
-  'comment_privacy_runtime.wasm'
-];
+export const wasmToolchainContract = Object.freeze({
+  emscriptenVersion: '4.0.13',
+  binaryenVersion: '123',
+  cmakeVersion: '4.3.3',
+  vcpkgCommit: 'eae1680538b86f962455c27abca2aad0dc304a4d',
+  emsdkImage: 'emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e222f57dafd930973'
+});
+export const wasmArtifactContract = Object.freeze({
+  schemaVersion: 3,
+  aedsAbi: 'fsusblog.aeds.v4',
+  buildModes: Object.freeze(['basic', 'simd', 'relaxed', 'threads']),
+  toolchain: wasmToolchainContract,
+  aedsRuntimeRoot: Object.freeze({
+    schema: 'fsusblog.aeds-runtime.v1',
+    maxFrameBytes: 8 * 1024 * 1024,
+    workerModel: Object.freeze({
+      instancesPerPage: 1,
+      activeRequests: Object.freeze({
+        source: 'runtime-logical-processors',
+        minimum: 1,
+        maximum: 8,
+        logicalProcessorsPerRequest: 2
+      })
+    })
+  }),
+  aedsRuntimeTiers: Object.freeze({
+    basic: Object.freeze({
+      module: 'aeds_decoder_basic.js',
+      wasm: 'aeds_decoder_basic.wasm',
+      wasmOptValidated: false,
+      simd: false,
+      lto: false,
+      initialMemoryBytes: 16 * 1024 * 1024,
+      maximumMemoryBytes: 256 * 1024 * 1024,
+      memoryGrowth: 'bounded'
+    }),
+    speed: Object.freeze({
+      module: 'aeds_decoder_speed.js',
+      wasm: 'aeds_decoder_speed.wasm',
+      wasmOptValidated: true,
+      simd: true,
+      lto: true,
+      initialMemoryBytes: 64 * 1024 * 1024,
+      maximumMemoryBytes: 64 * 1024 * 1024,
+      memoryGrowth: 'disabled'
+    })
+  }),
+  requiredOutputFiles: Object.freeze([
+    'aeds_decoder_basic.js',
+    'aeds_decoder_basic.wasm',
+    'aeds_decoder_speed.js',
+    'aeds_decoder_speed.wasm',
+    'aeds-runtime-manifest.json',
+    'fsus_pow_basic.js',
+    'fsus_pow_basic.wasm',
+    'fsus_pow_simd.js',
+    'fsus_pow_simd.wasm',
+    'fsus_pow_relaxed.js',
+    'fsus_pow_relaxed.wasm',
+    'fsus_pow_threads.js',
+    'fsus_pow_threads.wasm',
+    'image_codec_basic.js',
+    'image_codec_basic.wasm',
+    'image_codec_simd.js',
+    'image_codec_simd.wasm',
+    'search_basic.js',
+    'search_basic.wasm',
+    'search_simd.js',
+    'search_simd.wasm',
+    'comment-privacy-prover.js',
+    'comment-privacy-prover.zkey',
+    'comment-privacy-prover.manifest.json',
+    'comment_privacy_runtime.js',
+    'comment_privacy_runtime.wasm'
+  ])
+});
+const {
+  schemaVersion,
+  aedsAbi,
+  buildModes,
+  requiredOutputFiles
+} = wasmArtifactContract;
 const ignoredWasmDirectories = new Set([
   '.artifacts',
   '.cmake',
@@ -186,7 +237,7 @@ async function readManifest() {
   }
 
   const raw = await readFile(manifestPath, 'utf8');
-  return parseManifest(raw);
+  return parseWasmManifest(raw);
 }
 
 async function createManifest({ builtAtUtc, toolchain }) {
@@ -219,81 +270,47 @@ function resolveToolchain(recorded) {
     vcpkgCommit: process.env.FSUSBLOG_WASM_TOOLCHAIN_VCPKG || recorded?.vcpkgCommit || '',
     emsdkImage: process.env.FSUSBLOG_WASM_TOOLCHAIN_EMSDK_IMAGE || recorded?.emsdkImage || ''
   };
-  if (!isValidToolchain(toolchain)) {
-    throw new Error('Wasm toolchain identity is incomplete; build.sh must supply pinned Emscripten, Binaryen, CMake, vcpkg, and emsdk image identities');
+  if (!matchesWasmToolchainContract(toolchain)) {
+    const mismatches = Object.entries(wasmToolchainContract)
+      .filter(([name, expected]) => toolchain[name] !== expected)
+      .map(([name, expected]) => `${name}=${toolchain[name] || 'missing'} (expected ${expected})`);
+    throw new Error(`Wasm toolchain identity does not match the pinned release contract: ${mismatches.join(', ')}`);
   }
-  return toolchain;
+  return { ...wasmToolchainContract };
 }
 
-function isValidToolchain(value) {
-  return Boolean(
-    value && typeof value === 'object' && !Array.isArray(value)
-    && /^\d+\.\d+\.\d+$/u.test(String(value.emscriptenVersion ?? ''))
-    && /^\d+$/u.test(String(value.binaryenVersion ?? ''))
-    && /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/u.test(String(value.cmakeVersion ?? ''))
-    && /^[0-9a-f]{40}$/u.test(String(value.vcpkgCommit ?? ''))
-    && /^emscripten\/emsdk:\d+\.\d+\.\d+@sha256:[0-9a-f]{64}$/u.test(String(value.emsdkImage ?? ''))
-  );
+export function matchesWasmToolchainContract(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const actualKeys = Object.keys(value).sort();
+  const expectedKeys = Object.keys(wasmToolchainContract).sort();
+  return actualKeys.length === expectedKeys.length
+    && actualKeys.every((key, index) => key === expectedKeys[index])
+    && expectedKeys.every((key) => value[key] === wasmToolchainContract[key]);
 }
 
 async function writeAedsRuntimeManifest(toolchain) {
-  const tierFiles = {
-    basic: ['aeds_decoder_basic.js', 'aeds_decoder_basic.wasm'],
-    speed: ['aeds_decoder_speed.js', 'aeds_decoder_speed.wasm']
-  };
-  for (const files of Object.values(tierFiles)) {
-    for (const file of files) {
+  for (const tier of Object.values(wasmArtifactContract.aedsRuntimeTiers)) {
+    for (const file of [tier.module, tier.wasm]) {
       if (!await exists(join(publicWasmRoot, file))) {
         throw new Error(`cannot write AEDS runtime manifest because ${file} is missing`);
       }
     }
   }
-  const [basicModuleHash, basicWasmHash, speedModuleHash, speedWasmHash] = await Promise.all([
-    sha256File(join(publicWasmRoot, tierFiles.basic[0])),
-    sha256File(join(publicWasmRoot, tierFiles.basic[1])),
-    sha256File(join(publicWasmRoot, tierFiles.speed[0])),
-    sha256File(join(publicWasmRoot, tierFiles.speed[1]))
-  ]);
+  const tiers = Object.fromEntries(await Promise.all(
+    Object.entries(wasmArtifactContract.aedsRuntimeTiers).map(async ([tierName, tier]) => [
+      tierName,
+      {
+        ...tier,
+        moduleSha256: await sha256File(join(publicWasmRoot, tier.module)),
+        wasmSha256: await sha256File(join(publicWasmRoot, tier.wasm))
+      }
+    ])
+  ));
   const runtimeManifest = {
-    schema: 'fsusblog.aeds-runtime.v1',
+    ...wasmArtifactContract.aedsRuntimeRoot,
     abi: aedsAbi,
-    maxFrameBytes: 8 * 1024 * 1024,
-    workerModel: {
-      instancesPerPage: 1,
-      activeRequests: {
-        source: 'runtime-logical-processors',
-        minimum: 1,
-        maximum: 8,
-        logicalProcessorsPerRequest: 2
-      }
-    },
     toolchain,
-    tiers: {
-      basic: {
-        module: tierFiles.basic[0],
-        wasm: tierFiles.basic[1],
-        moduleSha256: basicModuleHash,
-        wasmSha256: basicWasmHash,
-        simd: false,
-        lto: false,
-        wasmOptValidated: false,
-        initialMemoryBytes: 16 * 1024 * 1024,
-        maximumMemoryBytes: 256 * 1024 * 1024,
-        memoryGrowth: 'bounded'
-      },
-      speed: {
-        module: tierFiles.speed[0],
-        wasm: tierFiles.speed[1],
-        moduleSha256: speedModuleHash,
-        wasmSha256: speedWasmHash,
-        simd: true,
-        lto: true,
-        wasmOptValidated: true,
-        initialMemoryBytes: 64 * 1024 * 1024,
-        maximumMemoryBytes: 64 * 1024 * 1024,
-        memoryGrowth: 'disabled'
-      }
-    }
+    tiers
   };
   await writeFile(aedsRuntimeManifestPath, `${JSON.stringify(runtimeManifest, null, 2)}\n`, 'utf8');
 }
@@ -350,7 +367,7 @@ function formatManifest(manifest) {
   return `${lines.join('\n')}\n`;
 }
 
-function parseManifest(raw) {
+export function parseWasmManifest(raw) {
   const manifest = {
     schemaVersion: 0,
     builtAtUtc: '',
@@ -418,6 +435,95 @@ function parseManifest(raw) {
   return manifest;
 }
 
+function sameExactIdentity(actual, expected) {
+  if (Object.is(actual, expected)) return true;
+  if (!actual || !expected || typeof actual !== 'object' || typeof expected !== 'object'
+      || Array.isArray(actual) !== Array.isArray(expected)) {
+    return false;
+  }
+  const actualKeys = Object.keys(actual).sort();
+  const expectedKeys = Object.keys(expected).sort();
+  return actualKeys.length === expectedKeys.length
+    && actualKeys.every((key, index) => key === expectedKeys[index])
+    && expectedKeys.every((key) => sameExactIdentity(actual[key], expected[key]));
+}
+
+export function validateAedsRuntimeManifestIdentity(runtimeManifest, outerToolchain) {
+  if (!runtimeManifest || typeof runtimeManifest !== 'object' || Array.isArray(runtimeManifest)) {
+    return 'AEDS runtime root identity is invalid';
+  }
+  const rootContract = wasmArtifactContract.aedsRuntimeRoot;
+  const expectedRootKeys = [...Object.keys(rootContract), 'abi', 'toolchain', 'tiers'].sort();
+  const actualRootKeys = Object.keys(runtimeManifest).sort();
+  if (!sameExactIdentity(actualRootKeys, expectedRootKeys)) {
+    return 'AEDS runtime root identity is invalid';
+  }
+  if (runtimeManifest.schema !== rootContract.schema) {
+    return `AEDS runtime schema mismatch (${runtimeManifest.schema || 'missing'})`;
+  }
+  if (runtimeManifest.abi !== aedsAbi) {
+    return `AEDS runtime ABI mismatch (${runtimeManifest.abi || 'missing'} != ${aedsAbi})`;
+  }
+  if (runtimeManifest.maxFrameBytes !== rootContract.maxFrameBytes) {
+    return 'AEDS runtime maxFrameBytes does not match the release contract';
+  }
+  if (!sameExactIdentity(runtimeManifest.workerModel, rootContract.workerModel)) {
+    return 'AEDS runtime workerModel does not match the release contract';
+  }
+  if (!matchesWasmToolchainContract(runtimeManifest.toolchain)
+      || !sameExactIdentity(runtimeManifest.toolchain, outerToolchain)) {
+    return 'AEDS runtime manifest toolchain does not match the outer pinned toolchain';
+  }
+  if (!runtimeManifest.tiers || typeof runtimeManifest.tiers !== 'object'
+      || Array.isArray(runtimeManifest.tiers)
+      || !sameExactIdentity(
+        Object.keys(runtimeManifest.tiers).sort(),
+        Object.keys(wasmArtifactContract.aedsRuntimeTiers).sort()
+      )) {
+    return 'AEDS runtime tier set does not match the release contract';
+  }
+  for (const [tierName, expectedTier] of Object.entries(wasmArtifactContract.aedsRuntimeTiers)) {
+    const actualTier = runtimeManifest.tiers[tierName];
+    const expectedTierKeys = [...Object.keys(expectedTier), 'moduleSha256', 'wasmSha256'].sort();
+    if (!actualTier || typeof actualTier !== 'object' || Array.isArray(actualTier)
+        || !sameExactIdentity(Object.keys(actualTier).sort(), expectedTierKeys)) {
+      return `AEDS runtime ${tierName} tier identity is invalid`;
+    }
+    for (const [field, expectedValue] of Object.entries(expectedTier)) {
+      if (!sameExactIdentity(actualTier[field], expectedValue)) {
+        return `AEDS runtime ${tierName} tier identity is invalid`;
+      }
+    }
+  }
+  return null;
+}
+
+async function validateAedsRuntimeManifest(outerToolchain) {
+  let runtimeManifest;
+  try {
+    runtimeManifest = JSON.parse(await readFile(aedsRuntimeManifestPath, 'utf8'));
+  } catch (error) {
+    return `AEDS runtime manifest is unreadable: ${error instanceof Error ? error.message : String(error)}`;
+  }
+  const identityError = validateAedsRuntimeManifestIdentity(runtimeManifest, outerToolchain);
+  if (identityError) return identityError;
+
+  for (const [tierName, expected] of Object.entries(wasmArtifactContract.aedsRuntimeTiers)) {
+    const tier = runtimeManifest.tiers?.[tierName];
+    const [moduleHash, wasmHash] = await Promise.all([
+      sha256File(join(publicWasmRoot, expected.module)),
+      sha256File(join(publicWasmRoot, expected.wasm))
+    ]);
+    if (tier.moduleSha256 !== moduleHash) {
+      return `AEDS runtime ${tierName} module hash changed`;
+    }
+    if (tier.wasmSha256 !== wasmHash) {
+      return `AEDS runtime ${tierName} wasm hash changed`;
+    }
+  }
+  return null;
+}
+
 async function isFresh() {
   const manifest = await readManifest();
   if (!manifest) {
@@ -431,8 +537,8 @@ async function isFresh() {
   if (manifest.aedsAbi !== aedsAbi) {
     return { fresh: false, reason: `AEDS ABI mismatch (${manifest.aedsAbi || 'missing'} != ${aedsAbi})` };
   }
-  if (!isValidToolchain(manifest.toolchain)) {
-    return { fresh: false, reason: 'toolchain identity missing or mutable' };
+  if (!matchesWasmToolchainContract(manifest.toolchain)) {
+    return { fresh: false, reason: 'toolchain identity does not match the pinned release contract' };
   }
 
   for (const outputFile of requiredOutputFiles) {
@@ -440,6 +546,11 @@ async function isFresh() {
     if (!await exists(outputPath)) {
       return { fresh: false, reason: `missing output ${outputFile}` };
     }
+  }
+
+  const runtimeManifestError = await validateAedsRuntimeManifest(manifest.toolchain);
+  if (runtimeManifestError) {
+    return { fresh: false, reason: runtimeManifestError };
   }
 
   const expected = await createManifest({

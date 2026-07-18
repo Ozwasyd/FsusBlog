@@ -3666,6 +3666,31 @@
         "release-final",
         "production-correctness"
       ]
+    },
+    {
+      "id": "wasm-release-artifact-ownership",
+      "description": "WASM release outputs are generated from pinned sources and one exact toolchain contract, remain outside ordinary Git ownership, and are hash-bound across outer, runtime and payload manifests before reuse or packaging.",
+      "owner": "InteropGlueAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tools/frontend/ensure-wasm.mjs",
+        "tools/check-wasm-artifact-ownership.mjs",
+        "tools/build-wasm-artifact.sh",
+        "tools/build-final-image.sh",
+        "tools/test/lanes/production-build-artifacts.sh",
+        "tests/tools/issue-1165-wasm-artifact-ownership.test.mjs",
+        "tests/tools/final-image-toolchain-pin.test.mjs",
+        "docs/wasm.md",
+        ".gitignore",
+        ".dockerignore"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject tracked release outputs, stale source hashes, a non-pinned or self-declared toolchain, schema or ABI drift, incomplete output inventories, outer/runtime tier identity mismatch, resealed module bytes, checksum drift, or skip/reuse without a fully generated package.",
+      "minimumRequirement": "Static governance and the production artifact producer must execute the ownership fixtures and validate schema v3, ABI v4, all 26 outputs, exact Emscripten/Binaryen/CMake/vcpkg/container pins, complete basic/speed runtime identity and every declared module, Wasm and package digest.",
+      "tierIds": [
+        "static-governance",
+        "production-build-artifacts"
+      ]
     }
   ]
 }
