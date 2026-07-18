@@ -128,7 +128,7 @@ assert(searchRequestPolicy.includes('PublicSearchRoutePolicy.MaxQueryStringChars
 assert(searchRoutePolicy.includes('PUBLIC_SEARCH_ROUTE_POLICY'), 'SPA search policy must consume the generated shared contract')
 assert(generatedPageManifest.includes('maxKeywordChars: 128'), 'generated search policy must expose the shared keyword bound')
 assert(applicationComposition.includes('X-Robots-Tag"] = "noindex, follow"'), 'server search HTML must emit noindex before SPA rendering')
-assert(applicationComposition.includes('SearchNoIndexHeadInjection'), 'server search HTML must inject noindex before hydration')
+assert(applicationComposition.includes('s_searchNoIndexHeadInjection'), 'server search HTML must inject noindex before hydration')
 
 for (const [path, source] of sqlSugarVisibilitySources) {
   assert(!source.includes('.PublishedAt.HasValue'), `${path}: SqlSugar visibility queries must not use nullable HasValue`)

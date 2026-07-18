@@ -265,7 +265,7 @@ public sealed class AuthorizationAccessControlHardeningTests
         }
 
         TimeSpan proofTtl = (TimeSpan)typeof(AdminPrincipalService)
-            .GetField("StepUpProofTtl", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetField("s_stepUpProofTtl", BindingFlags.Static | BindingFlags.NonPublic)!
             .GetValue(null)!;
         Assert.Equal(TimeSpan.FromSeconds(45), proofTtl);
         Assert.NotEqual(TimeSpan.FromMinutes(5), proofTtl);
@@ -273,10 +273,10 @@ public sealed class AuthorizationAccessControlHardeningTests
         IReadOnlyList<string> completionReferences = RuntimeMetadataInspection
             .DescribeDeclaredMemberReferencesInOrderContaining(
                 typeof(AdminPrincipalService),
-                "StepUpProofTtl",
+                "s_stepUpProofTtl",
                 nameof(AdminPrincipalService.CreateAdminStepUpProofTokenAsync));
         Assert.True(
-            FindReference(completionReferences, "StepUpProofTtl") <
+            FindReference(completionReferences, "s_stepUpProofTtl") <
             FindReference(completionReferences, nameof(AdminPrincipalService.CreateAdminStepUpProofTokenAsync)));
 
         string consume = RuntimeMetadataInspection.DescribeMethods(

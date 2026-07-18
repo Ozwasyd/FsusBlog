@@ -156,6 +156,76 @@ function makeViolation(file, line, rule, evidence, message) {
   }
 }
 
+function quotedStringPrefixAt(line, index) {
+  if (line.startsWith('$@"', index) || line.startsWith('@$"', index)) return { length: 3, verbatim: true, interpolated: true }
+  if (line.startsWith('@"', index)) return { length: 2, verbatim: true, interpolated: false }
+  if (line.startsWith('$"', index)) return { length: 2, verbatim: false, interpolated: true }
+  if (line[index] === '"') return { length: 1, verbatim: false, interpolated: false }
+  return null
+}
+
+function findQuotedStringEnd(line, start, { verbatim, interpolated }) {
+  let interpolationDepth = 0
+  for (let index = start; index < line.length;) {
+    if (interpolationDepth === 0) {
+      if (verbatim && line.startsWith('""', index)) {
+        index += 2
+        continue
+      }
+      if (!verbatim && line[index] === '\\' && index + 1 < line.length) {
+        index += 2
+        continue
+      }
+      if (line[index] === '"') return index
+      if (interpolated && line.startsWith('{{', index)) {
+        index += 2
+        continue
+      }
+      if (interpolated && line[index] === '{') {
+        interpolationDepth = 1
+        index += 1
+        continue
+      }
+      if (interpolated && line.startsWith('}}', index)) {
+        index += 2
+        continue
+      }
+      index += 1
+      continue
+    }
+
+    const raw = line.slice(index).match(/^(?:\$+)?("{3,})/u)
+    if (raw) {
+      const close = line.indexOf(raw[1], index + raw[0].length)
+      if (close < 0) return -1
+      index = close + raw[1].length
+      continue
+    }
+    const nested = quotedStringPrefixAt(line, index)
+    if (nested) {
+      const close = findQuotedStringEnd(line, index + nested.length, nested)
+      if (close < 0) return -1
+      index = close + 1
+      continue
+    }
+    if (line[index] === "'") {
+      index += 1
+      while (index < line.length) {
+        if (line[index] === '\\' && index + 1 < line.length) index += 2
+        else if (line[index] === "'") {
+          index += 1
+          break
+        } else index += 1
+      }
+      continue
+    }
+    if (line[index] === '{') interpolationDepth += 1
+    else if (line[index] === '}') interpolationDepth -= 1
+    index += 1
+  }
+  return -1
+}
+
 function stripStringsAndComments(lines) {
   let inBlockComment = false
   let inVerbatimString = false
@@ -221,8 +291,21 @@ function stripStringsAndComments(lines) {
         : (line.startsWith('@"', index) || line.startsWith('$"', index) ? 2 : (line[index] === '"' ? 1 : 0))
       if (prefixLength > 0) {
         const verbatim = line.slice(index, index + prefixLength).includes('@')
+        const interpolated = line.slice(index, index + prefixLength).includes('$')
         output += ' '.repeat(prefixLength)
         index += prefixLength
+        if (interpolated) {
+          // Interpolation expressions may contain ordinary or nested
+          // interpolated string literals. The text checker does not inspect
+          // expression contents, so walk nested literals and consume through
+          // the matching outer quote instead of stopping at an inner quote.
+          const close = findQuotedStringEnd(line, index, { verbatim, interpolated })
+          if (close >= 0) {
+            output += ' '.repeat(close + 1 - index)
+            index = close + 1
+            continue
+          }
+        }
         let closed = false
         while (index < line.length) {
           if (verbatim && line.startsWith('""', index)) {
@@ -298,26 +381,30 @@ function isAutoPropertyAccessorLine(value) {
 }
 
 function hasInlineBlockOpeningBrace(value) {
-  const braceIndex = value.indexOf('{')
-  if (braceIndex < 0 || value === '{') return false
-  const prefix = value.slice(0, braceIndex).trimEnd()
-  if (!prefix) return false
+  if (value === '{') return false
+  for (let braceIndex = value.indexOf('{'); braceIndex >= 0; braceIndex = value.indexOf('{', braceIndex + 1)) {
+    const prefix = value.slice(0, braceIndex).trimEnd()
+    if (!prefix || /\bis\s+(?:not\s+)?$/u.test(`${prefix} `)) continue
 
-  if (/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\b/u.test(prefix)) {
-    return true
-  }
-  if (/^(?:if|else\s+if|for|foreach|while|switch|lock|using|fixed|catch)\b/u.test(prefix) && prefix.endsWith(')')) {
-    return true
-  }
-  if (/^(?:else|try|finally|do|unsafe|checked|unchecked)\b/u.test(prefix) || /^[}]\s*(?:else|catch|finally)\b/u.test(prefix)) {
-    return true
-  }
-  if (/^(?:(?:public|protected|private|internal)\s+)?(?:get|set|init|add|remove)\b/u.test(prefix)) {
-    return true
-  }
-  if (/=>\s*$/u.test(prefix) || parseMethodDeclaration(prefix)) return true
+    if (/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\b/u.test(prefix)) {
+      return true
+    }
+    if (/^(?:if|else\s+if|for|foreach|while|switch|lock|using|fixed|catch)\b/u.test(prefix) && prefix.endsWith(')')) {
+      return true
+    }
+    if (/^(?:else|try|finally|do|unsafe|checked|unchecked)\b/u.test(prefix) || /^[}]\s*(?:else|catch|finally)\b/u.test(prefix)) {
+      return true
+    }
+    if (/^(?:(?:public|protected|private|internal)\s+)?(?:get|set|init|add|remove)\b/u.test(prefix)) {
+      return true
+    }
+    if (/=>\s*$/u.test(prefix) || parseMethodDeclaration(prefix)) return true
 
-  return /^(?:(?:public|protected|private|internal|static|virtual|abstract|sealed|override|readonly|required|unsafe|new|partial|extern)\s+)+[A-Za-z_][\w<>,.?\[\]\s]*\s+(?:this\s*\[[^\]]+\]|[A-Za-z_]\w*)$/u.test(prefix)
+    if (/^(?:(?:public|protected|private|internal|static|virtual|abstract|sealed|override|readonly|required|unsafe|new|partial|extern)\s+)+[A-Za-z_][\w<>,.?\[\]\s]*\s+(?:this\s*\[[^\]]+\]|[A-Za-z_]\w*)$/u.test(prefix)) {
+      return true
+    }
+  }
+  return false
 }
 
 function isStructuralIndentLine(value) {
@@ -421,6 +508,153 @@ function splitTopLevelParameters(value) {
   }
   parameters.push(value.slice(start).trim())
   return parameters.filter(Boolean)
+}
+
+function parameterName(parameter) {
+  return parameter.replace(/\s*=.*$/u, '').match(/([A-Za-z_]\w*)\s*$/u)?.[1] ?? null
+}
+
+function extractPrimaryConstructorDeclarations(code) {
+  const declarations = []
+  const consumed = Array.from(code, () => false)
+  const modifiers = '(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)[ \\t]+)*'
+  const pattern = new RegExp(`^[ \\t]*${modifiers}(?:class|struct|record(?:[ \\t]+(?:class|struct))?)[ \\t]+([A-Za-z_]\\w*)[ \\t]*\\(`, 'gmu')
+  let match = null
+  while ((match = pattern.exec(code)) !== null) {
+    const openIndex = match.index + match[0].lastIndexOf('(')
+    const closeIndex = findMatchingParenthesis(code, openIndex)
+    if (closeIndex < 0) {
+      declarations.push({ name: match[1], parameters: [null] })
+      continue
+    }
+    const lineEnd = code.indexOf('\n', closeIndex)
+    const declarationEnd = lineEnd < 0 ? code.length : lineEnd
+    const suffix = code.slice(closeIndex + 1, declarationEnd)
+    if (!/^[ \t]*(?::[^{};\n]*?)?[ \t]*;?[ \t]*$/u.test(suffix) || suffix.includes('=>')) {
+      declarations.push({ name: match[1], parameters: [null] })
+      pattern.lastIndex = closeIndex + 1
+      continue
+    }
+    declarations.push({
+      name: match[1],
+      parameters: splitTopLevelParameters(code.slice(openIndex + 1, closeIndex)).map(parameterName)
+    })
+    for (let index = match.index; index < declarationEnd; index += 1) consumed[index] = true
+    pattern.lastIndex = declarationEnd
+  }
+  const remainder = [...code].map((character, index) => consumed[index] ? ' ' : character).join('').trim()
+  return { declarations, remainder }
+}
+
+function extractFieldNames(code) {
+  const fields = []
+  const remainder = []
+  for (const rawLine of code.split('\n')) {
+    const line = rawLine.trim()
+    if (!line) continue
+    if (/^\[[^\]\n]+\]$/u.test(line)) continue
+    const match = line.match(/^(?:public|protected|private|internal)\s+(?:(?:static|readonly|volatile|const|unsafe|required|new)\s+)*(?<type>.+)[ \t]+(?<name>[A-Za-z_]\w*)\s*;$/u)
+    if (!match?.groups || hasTopLevelComma(match.groups.type)) {
+      remainder.push(line)
+      continue
+    }
+    fields.push(match.groups.name)
+  }
+  return { fields, remainder: remainder.join('\n') }
+}
+
+function hasTopLevelComma(value) {
+  let depth = 0
+  for (const character of value) {
+    if ('(<[{'.includes(character)) depth += 1
+    else if (')>]}'.includes(character)) depth = Math.max(0, depth - 1)
+    else if (character === ',' && depth === 0) return true
+  }
+  return false
+}
+
+function sameContract(actual, expected) {
+  return JSON.stringify(actual) === JSON.stringify(expected)
+}
+
+function checkRoslynCompatibilityExceptions(file, lines) {
+  const violations = []
+  const entries = policy.naming.roslynCompatibilityExceptions.filter((entry) => entry.path === file)
+  const blocks = []
+  let open = null
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    const directive = line.match(/^\s*#pragma\s+warning\s+(disable|restore)(?:\s+(.+?))?\s*$/u)
+    if (!directive) {
+      if (open) open.contentLines.push(line)
+      continue
+    }
+    const diagnostics = (directive[2] ?? '')
+      .replace(/\/\/.*$/u, '')
+      .split(',')
+      .map((diagnostic) => diagnostic.trim())
+      .filter(Boolean)
+    const affectsEveryDiagnostic = diagnostics.length === 0
+    if (!affectsEveryDiagnostic && !diagnostics.includes('IDE1006')) {
+      if (open) open.contentLines.push(line)
+      continue
+    }
+    if (affectsEveryDiagnostic || !sameContract(diagnostics, ['IDE1006'])) {
+      violations.push(makeViolation(file, index + 1, 'roslyn-exception-scope', line, 'IDE1006 must be isolated in its own pragma directive'))
+    }
+    if (directive[1] === 'disable') {
+      if (open) {
+        violations.push(makeViolation(file, index + 1, 'roslyn-exception-scope', line, 'IDE1006 exception blocks may not be nested'))
+      } else {
+        open = { line: index + 1, contentLines: [] }
+      }
+      continue
+    }
+    if (!open) {
+      violations.push(makeViolation(file, index + 1, 'roslyn-exception-scope', line, 'IDE1006 restore has no matching disable'))
+    } else {
+      blocks.push(open)
+      open = null
+    }
+  }
+
+  if (open) {
+    violations.push(makeViolation(file, open.line, 'roslyn-exception-scope', '#pragma warning disable IDE1006', 'IDE1006 exception block must restore the diagnostic'))
+  }
+
+  if (entries.length === 0 && blocks.length === 0) return violations
+
+  if (entries.length !== 1 || blocks.length !== 1) {
+    const rule = entries.length === 0 ? 'roslyn-exception-registration' : 'roslyn-exception-contract'
+    violations.push(makeViolation(file, blocks[0]?.line ?? 1, rule, file, 'IDE1006 requires exactly one registered path and one local exception block'))
+    return violations
+  }
+
+  const entry = entries[0]
+  const block = blocks[0]
+  const code = stripStringsAndComments(block.contentLines).join('\n')
+  const primaryConstructors = extractPrimaryConstructorDeclarations(code)
+  const fieldDeclarations = extractFieldNames(code)
+  const declarationsMatch = entry.declarations
+    ? sameContract(primaryConstructors.declarations, entry.declarations)
+      && primaryConstructors.remainder.length === 0
+    : primaryConstructors.declarations.length === 0
+  const fieldsMatch = entry.fields
+    ? sameContract(fieldDeclarations.fields, entry.fields)
+      && fieldDeclarations.remainder.length === 0
+    : fieldDeclarations.fields.length === 0
+  if (!declarationsMatch || !fieldsMatch) {
+    violations.push(makeViolation(
+      file,
+      block.line,
+      'roslyn-exception-contract',
+      code,
+      'IDE1006 exception block must exactly match its registered declarations or fields'
+    ))
+  }
+
+  return violations
 }
 
 function parseMethodDeclaration(trimmed) {
@@ -560,8 +794,9 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
     if (enumMatch) {
       const flags = lines.slice(Math.max(0, index - 4), index).some((candidate) => candidate.includes('[Flags]'))
       const plural = enumMatch[1].endsWith('s') && !policy.enumNaming.acceptedSingularSuffixes.some((suffix) => enumMatch[1].endsWith(suffix))
-      if (flags && !plural) violations.push(makeViolation(file, lineNumber, 'flags-enum-name', enumMatch[1], 'flags enum must use a plural name'))
-      if (!flags && plural) violations.push(makeViolation(file, lineNumber, 'enum-name', enumMatch[1], 'non-flags enum must use a singular name'))
+      const compatibilityException = policy.enumNaming.compatibilityExceptions.some((entry) => entry.path === file && entry.name === enumMatch[1])
+      if (!compatibilityException && flags && !plural) violations.push(makeViolation(file, lineNumber, 'flags-enum-name', enumMatch[1], 'flags enum must use a plural name'))
+      if (!compatibilityException && !flags && plural) violations.push(makeViolation(file, lineNumber, 'enum-name', enumMatch[1], 'non-flags enum must use a singular name'))
     }
 
     // Contract scopes use file-scoped namespaces. Restrict the text fallback to
@@ -591,6 +826,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
       violations.push(makeViolation(file, current.line, 'using-group', current.namespace, 'using directives from the same root namespace must stay in one group'))
     }
   }
+  violations.push(...checkRoslynCompatibilityExceptions(file, lines))
   return violations
 }
 
@@ -670,6 +906,38 @@ function validatePolicy() {
   if (!Array.isArray(policy.xmlDocumentation?.scopes) || policy.xmlDocumentation.scopes.length === 0) fail('xmlDocumentation.scopes must be non-empty')
   if (!Array.isArray(policy.xmlDocumentation?.memberScopes) || policy.xmlDocumentation.memberScopes.length === 0) fail('xmlDocumentation.memberScopes must be non-empty')
   if (!Array.isArray(policy.naming?.pascalCaseSeparatorScopes) || policy.naming.pascalCaseSeparatorScopes.length === 0) fail('naming.pascalCaseSeparatorScopes must be non-empty')
+  if (!Array.isArray(policy.naming?.roslynCompatibilityExceptions)) fail('naming.roslynCompatibilityExceptions must be an array')
+  const roslynExceptionPaths = new Set()
+  for (const entry of policy.naming?.roslynCompatibilityExceptions ?? []) {
+    const hasDeclarations = Array.isArray(entry?.declarations) && entry.declarations.length > 0
+    const hasFields = Array.isArray(entry?.fields) && entry.fields.length > 0
+    const validDeclarations = hasDeclarations
+      && new Set(entry.declarations.map((declaration) => declaration?.name)).size === entry.declarations.length
+      && entry.declarations.every((declaration) => {
+        const parameters = declaration?.parameters
+        return typeof declaration?.name === 'string'
+          && /^[A-Za-z_]\w*$/u.test(declaration.name)
+          && Array.isArray(parameters)
+          && new Set(parameters).size === parameters.length
+          && parameters.every((parameter) => typeof parameter === 'string' && /^[A-Za-z_]\w*$/u.test(parameter))
+      })
+    const validFields = hasFields
+      && new Set(entry.fields).size === entry.fields.length
+      && entry.fields.every((field) => typeof field === 'string' && /^[A-Za-z_]\w*$/u.test(field))
+    const validContract = hasDeclarations !== hasFields && (hasDeclarations ? validDeclarations : validFields)
+    if (!entry || typeof entry.path !== 'string' || !entry.path.endsWith('.cs') || !validContract || typeof entry.reason !== 'string' || entry.reason.length < 20) {
+      fail('naming.roslynCompatibilityExceptions entries require a C# path, exactly one valid declaration/field contract and a meaningful reason')
+      continue
+    }
+    if (roslynExceptionPaths.has(entry.path)) fail(`naming.roslynCompatibilityExceptions contains duplicate path ${entry.path}`)
+    roslynExceptionPaths.add(entry.path)
+  }
+  if (!Array.isArray(policy.enumNaming?.compatibilityExceptions)) fail('enumNaming.compatibilityExceptions must be an array')
+  for (const entry of policy.enumNaming?.compatibilityExceptions ?? []) {
+    if (!entry || typeof entry.path !== 'string' || typeof entry.name !== 'string' || typeof entry.reason !== 'string' || entry.reason.length < 20) {
+      fail('enumNaming.compatibilityExceptions entries require path, name and a meaningful reason')
+    }
+  }
   for (const required of ['_', 's_', 't_']) {
     const values = Object.values(policy.naming ?? {})
     if (!values.includes(required)) fail(`naming policy is missing required prefix ${required}`)

@@ -34,10 +34,10 @@ node - "$COMPOSITION_FILE" <<'NODE'
 const fs = require('node:fs');
 const file = process.argv[2];
 const source = fs.readFileSync(file, 'utf8');
-const methodStart = source.indexOf('private static readonly PipelineStage[] ApplicationPipelineStages');
-const methodEnd = source.indexOf('private static readonly PipelineStage[] EndpointPipelineStages', methodStart);
+const methodStart = source.indexOf('private static readonly PipelineStage[] s_applicationPipelineStages');
+const methodEnd = source.indexOf('private static readonly PipelineStage[] s_endpointPipelineStages', methodStart);
 if (methodStart < 0 || methodEnd < 0 || methodEnd <= methodStart) {
-  console.error('[public-hot-read] unable to isolate ApplicationPipelineStages');
+  console.error('[public-hot-read] unable to isolate s_applicationPipelineStages');
   process.exit(1);
 }
 const block = source.slice(methodStart, methodEnd);

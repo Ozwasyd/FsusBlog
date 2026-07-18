@@ -61,6 +61,8 @@ C# identifiers follow the repository mapping: PascalCase types/members/methods/l
 
 External spelling is preserved at the boundary instead of leaking into C# identifiers. For example, `[JsonPropertyName("user_id")] public string UserId` keeps the wire key while retaining a PascalCase property. The same adapter rule applies to ORM columns, HTTP headers, Redis keys, environment variables and ABI symbols. A rename that changes an API, AEDS, database or security contract is a semantic change and is never part of formatting migration.
 
+An existing public primary-constructor parameter can also be a source contract because callers may use named arguments. When such a name cannot be changed safely, or Roslyn cannot distinguish a `[ThreadStatic]` field from an ordinary static field, `IDE1006` may be suppressed only around the affected declaration. Every suppression must isolate `IDE1006` in its own pragma pair and register an exact path plus an ordered declaration/parameter or field contract with a meaningful compatibility reason in `naming.roslynCompatibilityExceptions`. The repository checker rejects bare or combined pragmas, missing or nested pairs, unregistered blocks, extra declarations and any block content not consumed by the registered contract. These entries are audited contract exceptions, not baseline debt, and they do not relax naming checks for any other symbol.
+
 ## XML documentation scope
 
 The gate requires meaningful XML documentation for public declarations in shared contracts, public core protocol/codec extension points, analyzer APIs, cross-assembly interfaces, and security/privacy/ownership/lifecycle types. Overrides and ordinary internal helpers are excluded. Do not add comments that only repeat a symbol name.

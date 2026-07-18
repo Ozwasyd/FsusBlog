@@ -129,14 +129,23 @@ public sealed record ExpressionBraces(string Name)
         {
             _ = present;
         }
+        else if (payload is { } fallback)
+        {
+            _ = fallback;
+        }
         ExpressionBraces normalized = this with
         {
             Name = Name.Trim()
         };
+        string diagnostic = $"items: {string.Join("; ", new[] { Name })}";
+        string nested = $"checksum:{Compute($"{Name}:{diagnostic}")}";
+        string verbatimNested = $@"items: {string.Join("; ", new[] { Name })}";
         return @"if (ready) {
   run();
-}" + normalized.Name;
+}" + normalized.Name + nested + verbatimNested;
     }
+
+    private static string Compute(string value) => value;
 }
 
 public sealed record MultiLineRecord(
@@ -156,6 +165,33 @@ public readonly record struct StringWrapper(string Value)
     )
     const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/ExpressionBraces.cs'])
     assert.equal(result.status, 0, output(result))
+
+    writeFixture(
+      fixtureRoot,
+      'src/sample/InterpolatedStatements.cs',
+      `namespace Fixture;
+
+public sealed class InterpolatedStatements
+{
+    public void Run()
+    {
+        string first = $"{1}"; string second = "still a separate statement";
+    }
+
+    public void InlinePatternBlock(object payload)
+    {
+        if (payload is { } present) { _ = present; }
+    }
+}
+`
+    )
+    const multipleStatements = runChecker(fixtureRoot, [
+      '--mode', 'changed',
+      '--file', 'src/sample/InterpolatedStatements.cs'
+    ])
+    assert.notEqual(multipleStatements.status, 0)
+    assert.match(output(multipleStatements), / one-statement:/u)
+    assert.match(output(multipleStatements), / allman-brace:/u)
   })
 })
 
@@ -240,6 +276,190 @@ public sealed class ScenarioNames
     const rejected = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/ScenarioNames.cs'])
     assert.notEqual(rejected.status, 0)
     assert.match(output(rejected), / method-name:/u)
+  })
+})
+
+test('issue 1158 keeps enum source compatibility exceptions exact and rejects undeclared singular flags names', () => {
+  withFixture((fixtureRoot) => {
+    writeFixture(
+      fixtureRoot,
+      'src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs',
+      `using System;
+
+namespace Fixture;
+
+[Flags]
+public enum PublicHotArtifactDirtyReason
+{
+    None = 0,
+    Article = 1
+}
+`
+    )
+    const compatible = runChecker(fixtureRoot, [
+      '--mode', 'changed',
+      '--file', 'src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs'
+    ])
+    assert.equal(compatible.status, 0, output(compatible))
+
+    writeFixture(
+      fixtureRoot,
+      'src/sample/Permission.cs',
+      `using System;
+
+namespace Fixture;
+
+[Flags]
+public enum Permission
+{
+    None = 0,
+    Read = 1
+}
+`
+    )
+    const rejected = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/Permission.cs'])
+    assert.notEqual(rejected.status, 0)
+    assert.match(output(rejected), / flags-enum-name:/u)
+  })
+})
+
+test('issue 1158 requires every Roslyn naming suppression to match an exact compatibility registration', () => {
+  withFixture((fixtureRoot) => {
+    const compatiblePath = 'src/backend/Infrastructure/Filters/BannedUserMiddleware.cs'
+    const declaration = `namespace Fixture;
+
+#pragma warning disable IDE1006
+public sealed class BannedUserMiddleware(object _next)
+#pragma warning restore IDE1006
+{
+    public object Next => _next;
+}
+`
+    writeFixture(fixtureRoot, compatiblePath, declaration)
+    const compatible = runChecker(fixtureRoot, ['--mode', 'changed', '--file', compatiblePath])
+    assert.equal(compatible.status, 0, output(compatible))
+
+    writeFixture(
+      fixtureRoot,
+      compatiblePath,
+      declaration.replace('#pragma warning disable IDE1006\n', '').replace('#pragma warning restore IDE1006\n', '')
+    )
+    const missingScope = runChecker(fixtureRoot, ['--mode', 'changed', '--file', compatiblePath])
+    assert.notEqual(missingScope.status, 0)
+    assert.match(output(missingScope), / roslyn-exception-contract:/u)
+
+    writeFixture(
+      fixtureRoot,
+      compatiblePath,
+      declaration
+        .replace('disable IDE1006', 'disable IDE1006, IDE0055')
+        .replace('restore IDE1006', 'restore IDE1006, IDE0055')
+    )
+    const combinedScope = runChecker(fixtureRoot, ['--mode', 'changed', '--file', compatiblePath])
+    assert.notEqual(combinedScope.status, 0)
+    assert.match(output(combinedScope), / roslyn-exception-scope:/u)
+
+    writeFixture(
+      fixtureRoot,
+      compatiblePath,
+      declaration
+        .replace('disable IDE1006', 'disable')
+        .replace('restore IDE1006', 'restore')
+    )
+    const bareScope = runChecker(fixtureRoot, ['--mode', 'changed', '--file', compatiblePath])
+    assert.notEqual(bareScope.status, 0)
+    assert.match(output(bareScope), / roslyn-exception-scope:/u)
+
+    writeFixture(
+      fixtureRoot,
+      compatiblePath,
+      declaration.replace('object _next)', 'object _next, object _undeclared)')
+    )
+    const extraParameter = runChecker(fixtureRoot, ['--mode', 'changed', '--file', compatiblePath])
+    assert.notEqual(extraParameter.status, 0)
+    assert.match(output(extraParameter), / roslyn-exception-contract:/u)
+
+    writeFixture(
+      fixtureRoot,
+      compatiblePath,
+      `namespace Fixture;
+
+#pragma warning disable IDE1006
+// BannedUserMiddleware(object _next) must not satisfy the registration.
+public sealed class Replacement(object _undeclared)
+#pragma warning restore IDE1006
+{
+    public object Next => _undeclared;
+}
+`
+    )
+    const commentSpoof = runChecker(fixtureRoot, ['--mode', 'changed', '--file', compatiblePath])
+    assert.notEqual(commentSpoof.status, 0)
+    assert.match(output(commentSpoof), / roslyn-exception-contract:/u)
+
+    writeFixture(
+      fixtureRoot,
+      compatiblePath,
+      declaration.replace(
+        '#pragma warning restore IDE1006',
+        `{\n    public object bad_member => _next;\n#pragma warning restore IDE1006\n}`
+      )
+    )
+    const widenedScope = runChecker(fixtureRoot, ['--mode', 'changed', '--file', compatiblePath])
+    assert.notEqual(widenedScope.status, 0)
+    assert.match(output(widenedScope), / roslyn-exception-contract:/u)
+
+    writeFixture(
+      fixtureRoot,
+      compatiblePath,
+      declaration.replace(
+        'object _next)',
+        'object _next) : Base { public object bad_member => _next;'
+      )
+    )
+    const inlineWidenedScope = runChecker(fixtureRoot, ['--mode', 'changed', '--file', compatiblePath])
+    assert.notEqual(inlineWidenedScope.status, 0)
+    assert.match(output(inlineWidenedScope), / roslyn-exception-contract:/u)
+
+    const fieldPath = 'src/backend/Infrastructure/Helpers/Security/ModernAcAutomaton.cs'
+    writeFixture(
+      fixtureRoot,
+      fieldPath,
+      `namespace Fixture;
+
+public sealed class ModernAcAutomaton
+{
+#pragma warning disable IDE1006
+    [ThreadStatic]
+    private static int[]? t_ruleRemainingScratch;
+    [ThreadStatic]
+    private static int[]? t_touchedRuleScratch;
+    private static (int Left, int Right) BadField;
+#pragma warning restore IDE1006
+}
+`
+    )
+    const complexField = runChecker(fixtureRoot, ['--mode', 'changed', '--file', fieldPath])
+    assert.notEqual(complexField.status, 0)
+    assert.match(output(complexField), / roslyn-exception-contract:/u)
+
+    const unregisteredPath = 'src/sample/UnregisteredNamingSuppression.cs'
+    writeFixture(
+      fixtureRoot,
+      unregisteredPath,
+      `namespace Fixture;
+
+#pragma warning disable IDE1006
+public sealed class UnregisteredNamingSuppression(object _value)
+#pragma warning restore IDE1006
+{
+    public object Value => _value;
+}
+`
+    )
+    const unregistered = runChecker(fixtureRoot, ['--mode', 'changed', '--file', unregisteredPath])
+    assert.notEqual(unregistered.status, 0)
+    assert.match(output(unregistered), / roslyn-exception-registration:/u)
   })
 })
 

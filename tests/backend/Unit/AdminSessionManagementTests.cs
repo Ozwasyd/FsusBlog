@@ -132,9 +132,9 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
         Assert.Contains("WriteAdminSessionRevokeAuditsAsync", revokeOthers, StringComparison.Ordinal);
         Assert.Contains("RecordAdminSessionRevokeOthers", revokeOthers, StringComparison.Ordinal);
 
-        AssertMetricName("AdminSessionListReturnedCount", "fsus.admin.session.list.returned_count");
-        AssertMetricName("AdminSessionRevokeOthersCount", "fsus.admin.session.revoke_others.count");
-        AssertMetricName("AdminSessionRevokeOthersElapsed", "fsus.admin.session.revoke_others.elapsed_ms");
+        AssertMetricName("s_adminSessionListReturnedCount", "fsus.admin.session.list.returned_count");
+        AssertMetricName("s_adminSessionRevokeOthersCount", "fsus.admin.session.revoke_others.count");
+        AssertMetricName("s_adminSessionRevokeOthersElapsed", "fsus.admin.session.revoke_others.elapsed_ms");
     }
 
     private static void AssertMetricName(string fieldName, string expectedName)

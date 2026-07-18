@@ -1465,21 +1465,21 @@ public sealed class FileServiceTests
 
     private static int GetSessionLockCount()
     {
-        FieldInfo field = typeof(FileService).GetField("_sessionLocks", BindingFlags.Static | BindingFlags.NonPublic)!;
+        FieldInfo field = typeof(FileService).GetField("s_sessionLocks", BindingFlags.Static | BindingFlags.NonPublic)!;
         object dictionary = field.GetValue(null)!;
         return (int)dictionary.GetType().GetProperty("Count")!.GetValue(dictionary)!;
     }
 
     private static void ResetSessionLocks()
     {
-        FieldInfo field = typeof(FileService).GetField("_sessionLocks", BindingFlags.Static | BindingFlags.NonPublic)!;
+        FieldInfo field = typeof(FileService).GetField("s_sessionLocks", BindingFlags.Static | BindingFlags.NonPublic)!;
         object dictionary = field.GetValue(null)!;
         dictionary.GetType().GetMethod("Clear")!.Invoke(dictionary, null);
     }
 
     private static void RegisterSessionLock(string uploadId, FileService.SessionLockEntry entry)
     {
-        FieldInfo field = typeof(FileService).GetField("_sessionLocks", BindingFlags.Static | BindingFlags.NonPublic)!;
+        FieldInfo field = typeof(FileService).GetField("s_sessionLocks", BindingFlags.Static | BindingFlags.NonPublic)!;
         object dictionary = field.GetValue(null)!;
         dictionary.GetType().GetMethod("TryAdd")!.Invoke(dictionary, [uploadId, entry]);
     }

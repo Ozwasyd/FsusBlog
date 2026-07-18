@@ -186,7 +186,7 @@ public sealed class ObservabilityTests
     {
         Type observability = typeof(FsusObservability);
         FieldInfo limit = observability.GetField("SecurityEventTagCacheLimit", BindingFlags.NonPublic | BindingFlags.Static)!;
-        FieldInfo cacheField = observability.GetField("SecurityEventTagCache", BindingFlags.NonPublic | BindingFlags.Static)!;
+        FieldInfo cacheField = observability.GetField("s_securityEventTagCache", BindingFlags.NonPublic | BindingFlags.Static)!;
         object cache = cacheField.GetValue(null)!;
         PropertyInfo countProperty = cache.GetType().GetProperty(nameof(ICollection.Count))!;
         int initialCount = (int)countProperty.GetValue(cache)!;
@@ -194,7 +194,7 @@ public sealed class ObservabilityTests
         Assert.Equal(256, limit.GetRawConstantValue());
         Assert.True(initialCount > 0);
         Assert.Equal(typeof(ConcurrentDictionary<,>), cache.GetType().GetGenericTypeDefinition());
-        Assert.NotNull(observability.GetField("SecurityRiskReasonNames", BindingFlags.NonPublic | BindingFlags.Static));
+        Assert.NotNull(observability.GetField("s_securityRiskReasonNames", BindingFlags.NonPublic | BindingFlags.Static));
         MethodInfo enumOverload = observability.GetMethod(
             nameof(FsusObservability.RecordSecurityEvent),
             [typeof(string), typeof(SecurityRiskReason), typeof(string)])!;
@@ -249,7 +249,7 @@ public sealed class ObservabilityTests
     public void ObservabilityHotPaths_UseRouteCacheRingBuffersAndInlinedTryRecord()
     {
         Type observability = typeof(FsusObservability);
-        FieldInfo routeCacheField = observability.GetField("RouteKindCache", BindingFlags.NonPublic | BindingFlags.Static)!;
+        FieldInfo routeCacheField = observability.GetField("s_routeKindCache", BindingFlags.NonPublic | BindingFlags.Static)!;
         var routeCache = Assert.IsType<ConcurrentDictionary<string, string>>(routeCacheField.GetValue(null));
         const string Route = "/runtime-cache-probe/42";
         routeCache.TryRemove(Route, out _);
@@ -268,8 +268,8 @@ public sealed class ObservabilityTests
         Assert.Contains(ReadCalledMethods(classifyCore), static method =>
             method.DeclaringType == typeof(string) && method.Name == nameof(string.StartsWith));
 
-        FieldInfo issueSamples = observability.GetField("SecurityChallengeV2IssueSamples", BindingFlags.NonPublic | BindingFlags.Static)!;
-        FieldInfo payloadSamples = observability.GetField("SecurityChallengeV2PayloadSamples", BindingFlags.NonPublic | BindingFlags.Static)!;
+        FieldInfo issueSamples = observability.GetField("s_securityChallengeV2IssueSamples", BindingFlags.NonPublic | BindingFlags.Static)!;
+        FieldInfo payloadSamples = observability.GetField("s_securityChallengeV2PayloadSamples", BindingFlags.NonPublic | BindingFlags.Static)!;
         Assert.Contains("SlidingWindow", issueSamples.FieldType.Name, StringComparison.Ordinal);
         Assert.Contains("SlidingWindow", payloadSamples.FieldType.Name, StringComparison.Ordinal);
         Type slidingWindow = issueSamples.FieldType.GetGenericTypeDefinition();

@@ -196,8 +196,8 @@ public class AuditLogEventMapperTests
     public void ClassifySource_RuntimeUsesPrecompiledLookupAndBoundedCache()
     {
         Type mapperType = typeof(AuditLogEventMapper);
-        FieldInfo exactCatalog = mapperType.GetField("SourceContextExactCatalog", BindingFlags.Static | BindingFlags.NonPublic)!;
-        FieldInfo cacheField = mapperType.GetField("SourceContextCatalogCache", BindingFlags.Static | BindingFlags.NonPublic)!;
+        FieldInfo exactCatalog = mapperType.GetField("s_sourceContextExactCatalog", BindingFlags.Static | BindingFlags.NonPublic)!;
+        FieldInfo cacheField = mapperType.GetField("s_sourceContextCatalogCache", BindingFlags.Static | BindingFlags.NonPublic)!;
         int limit = (int)mapperType.GetField("SourceContextCacheLimit", BindingFlags.Static | BindingFlags.NonPublic)!
             .GetRawConstantValue()!;
         Assert.Equal(typeof(FrozenDictionary<string, string>), exactCatalog.FieldType);

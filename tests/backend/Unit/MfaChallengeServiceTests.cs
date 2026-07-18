@@ -136,7 +136,7 @@ public sealed class MfaChallengeServiceTests
         Assert.DoesNotContain("UserId", recordFailure, StringComparison.Ordinal);
         Assert.Equal(
             TimeSpan.FromMinutes(10),
-            typeof(MfaChallengeService).GetField("FailureWindowTtl", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null));
+            typeof(MfaChallengeService).GetField("s_failureWindowTtl", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null));
     }
 
     [Fact]

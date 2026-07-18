@@ -237,7 +237,7 @@ public sealed class ProductionHealthTests
     public async Task ProductionReadiness_UsesShortTtlSnapshotCacheForPublicProbe()
     {
         FieldInfo ttlField = typeof(ProductionReadinessSnapshotCache).GetField(
-            "ReadinessSnapshotTtl",
+            "s_readinessSnapshotTtl",
             BindingFlags.NonPublic | BindingFlags.Static)!;
         Assert.Equal(TimeSpan.FromSeconds(5), ttlField.GetValue(null));
         Assert.Equal(typeof(SemaphoreSlim), typeof(ProductionReadinessSnapshotCache)

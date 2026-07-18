@@ -259,7 +259,7 @@ public class BackgroundWorkflowSourceTests
             nameof(ArticleViewProjectionService.ApplyAsync));
         string repair = RuntimeMetadataInspection.DescribeType(typeof(ArticleViewProjectionRepairWorker));
         FieldInfo refreshInterval = Assert.IsAssignableFrom<FieldInfo>(typeof(PublicHotArtifactUpdateWorker).GetField(
-            "ViewProjectionRefreshInterval",
+            "s_viewProjectionRefreshInterval",
             BindingFlags.Static | BindingFlags.NonPublic));
 
         Assert.Contains("IncreaseViewCountsAsync", projection, StringComparison.Ordinal);

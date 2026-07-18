@@ -15,7 +15,7 @@ public sealed class AnonymousCredentialRevocationAccumulatorPerformanceTests
     {
         Type accumulator = typeof(AnonymousCredentialRevocationAccumulator);
         FieldInfo cache = accumulator.GetFields(BindingFlags.Static | BindingFlags.NonPublic)
-            .Single(static field => field.Name.Contains("CircuitFriendlyTreeCache", StringComparison.Ordinal)
+            .Single(static field => field.Name.Contains("s_circuitFriendlyTreeCache", StringComparison.Ordinal)
                 && field.FieldType.IsGenericType
                 && field.FieldType.GetGenericTypeDefinition() == typeof(ConcurrentDictionary<,>));
         Assert.Contains("CircuitFriendlyTreeCacheKey", cache.FieldType.GenericTypeArguments[0].Name, StringComparison.Ordinal);

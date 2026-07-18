@@ -219,7 +219,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
         Assert.Empty(InvokePayloadParser(parser, """{"proof":"fpow"} trailing""", expectedAccepted: false));
 
         FieldInfo cacheOptionsField = typeof(AdminPrincipalService).GetField(
-            "ChallengeCacheJsonOptions",
+            "s_challengeCacheJsonOptions",
             BindingFlags.NonPublic | BindingFlags.Static)
             ?? throw new InvalidOperationException("Admin challenge cache serializer options were not found.");
         JsonSerializerOptions cacheOptions = Assert.IsType<JsonSerializerOptions>(cacheOptionsField.GetValue(null));

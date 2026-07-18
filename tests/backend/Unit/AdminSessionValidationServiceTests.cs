@@ -86,10 +86,10 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     {
         Type serviceType = typeof(AdminSessionValidationService);
         TimeSpan snapshotTtl = (TimeSpan)serviceType
-            .GetField("AdminSessionValidationSnapshotTtl", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetField("s_adminSessionValidationSnapshotTtl", BindingFlags.Static | BindingFlags.NonPublic)!
             .GetValue(null)!;
         TimeSpan touchInterval = (TimeSpan)serviceType
-            .GetField("AdminSessionTouchMinInterval", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetField("s_adminSessionTouchMinInterval", BindingFlags.Static | BindingFlags.NonPublic)!
             .GetValue(null)!;
         Assert.Equal(TimeSpan.FromSeconds(10), snapshotTtl);
         Assert.Equal(TimeSpan.FromSeconds(45), touchInterval);

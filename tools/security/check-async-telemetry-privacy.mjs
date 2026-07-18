@@ -200,8 +200,8 @@ if (sources.has(visitLogPath) || sources.has(humanReadPath)) {
   }
   for (const marker of [
     'BuildScopedDedupToken',
-    'DedupEpochDuration = TimeSpan.FromMinutes(15)',
-    'DedupLeaseTtl = DedupEpochDuration + ChallengeTtl',
+    's_dedupEpochDuration = TimeSpan.FromMinutes(15)',
+    's_dedupLeaseTtl = s_dedupEpochDuration + s_challengeTtl',
     'new VisitLogMessage(',
     'ReadDwellBuckets.Classify'
   ]) {
@@ -222,7 +222,7 @@ if (sources.has(visitLogPath) || sources.has(humanReadPath)) {
   const readIngressPath = 'src/backend/Infrastructure/Security/ReadProofIngressPrivacy.cs'
   const readIngressSource = sources.get(readIngressPath) ?? ''
   for (const marker of [
-    'PartitionEpochDuration = TimeSpan.FromMinutes(1)',
+    's_partitionEpochDuration = TimeSpan.FromMinutes(1)',
     'fsus-human-read/rate-limit-key/v1',
     'fsus-human-read/rate-limit-partition/v1',
     'HMACSHA256.HashData',

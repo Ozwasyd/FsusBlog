@@ -43,9 +43,9 @@ public sealed class PublicAotDocumentServiceTests
                 ["cacheProbe"] = Guid.NewGuid().ToString("N")
             });
             PublicAotShellEntryContract entry = CreateEntry(hydrationPayload);
-            FieldInfo preparedCache = StaticCacheField("PreparedTemplateCache");
-            FieldInfo headLinksCache = StaticCacheField("HeadLinksCache");
-            FieldInfo sidecarCache = StaticCacheField("HydrationSidecarExistsCache");
+            FieldInfo preparedCache = StaticCacheField("s_preparedTemplateCache");
+            FieldInfo headLinksCache = StaticCacheField("s_headLinksCache");
+            FieldInfo sidecarCache = StaticCacheField("s_hydrationSidecarExistsCache");
             int preparedBefore = CacheCount(preparedCache);
             int headBefore = CacheCount(headLinksCache);
             int sidecarBefore = CacheCount(sidecarCache);

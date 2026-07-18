@@ -60,8 +60,8 @@ if (process.argv.includes('--self-test')) {
   expectFailure({
     ...files,
     composition: files.composition.replace(
-      'private static readonly PipelineStage[] EndpointPipelineStages =\n    [',
-      'private static readonly PipelineStage[] EndpointPipelineStages =\n    [\n' +
+      'private static readonly PipelineStage[] s_endpointPipelineStages =\n    [',
+      'private static readonly PipelineStage[] s_endpointPipelineStages =\n    [\n' +
         '        new("future-endpoint-security-control", PublicHotReadPipelineStageClassification.CrossCuttingControl, "future-endpoint-security-control", static app => app.UseRouting()),')
   }, 'unregistered endpoint security stage')
   expectFailure({
@@ -75,11 +75,11 @@ console.log('[public-hot-read-controls] declarative catalog, startup guard, both
 function validate(source) {
   const applicationBlock = between(
     source.composition,
-    'private static readonly PipelineStage[] ApplicationPipelineStages',
-    'private static readonly PipelineStage[] EndpointPipelineStages')
+    'private static readonly PipelineStage[] s_applicationPipelineStages',
+    'private static readonly PipelineStage[] s_endpointPipelineStages')
   const endpointBlock = between(
     source.composition,
-    'private static readonly PipelineStage[] EndpointPipelineStages',
+    'private static readonly PipelineStage[] s_endpointPipelineStages',
     'internal static IReadOnlyList<PublicHotReadPipelineStageDescriptor> ApplicationPipelineStageDescriptors')
   const applicationDescriptors = stageDescriptors(applicationBlock)
   const endpointDescriptors = stageDescriptors(endpointBlock)
