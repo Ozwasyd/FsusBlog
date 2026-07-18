@@ -148,6 +148,14 @@ export function validatePolicy(policy) {
     }
   }
 
+  const csharpEntrypoint = object(policy?.languageOwnership?.csharpEntrypoint)
+  if (csharpEntrypoint.policy !== 'tests/governance/csharp-entrypoint-ownership.json') {
+    errors.push('C# entrypoint ownership policy must be tests/governance/csharp-entrypoint-ownership.json')
+  }
+  if (csharpEntrypoint.checker !== 'tools/check-csharp-entrypoint-ownership.mjs') {
+    errors.push('C# entrypoint ownership checker must be tools/check-csharp-entrypoint-ownership.mjs')
+  }
+
   const zk = object(policy?.zk)
   const boundaryPaths = [
     zk.circuitSourceRoot,
@@ -255,6 +263,17 @@ export function checkRepositorySourceLayout({ root = defaultRoot, policyFile = d
     }
   }
 
+  const csharpEntrypoint = object(policy?.languageOwnership?.csharpEntrypoint)
+  let languageOwnershipBindingCount = 0
+  for (const [field, label] of [
+    ['policy', 'C# entrypoint ownership policy'],
+    ['checker', 'C# entrypoint ownership checker']
+  ]) {
+    if (resolveRegularFileInside(absoluteRoot, csharpEntrypoint[field], errors, label)) {
+      languageOwnershipBindingCount += 1
+    }
+  }
+
   const zk = object(policy?.zk)
   const sourceById = new Map()
   for (const declaration of array(zk.circuitSources)) {
@@ -284,6 +303,7 @@ export function checkRepositorySourceLayout({ root = defaultRoot, policyFile = d
     ok: errors.length === 0,
     errors,
     rootDirectoryCount: new Set(rootDirectories).size,
+    languageOwnershipBindingCount,
     circuitSourceCount: sourceById.size,
     bindingCount: array(zk.jsonSourceBindings).length
   }
@@ -309,7 +329,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === toolFile) {
       for (const error of result.errors) console.error(`[repository-source-layout] ${error}`)
       process.exit(1)
     }
-    console.log(`[repository-source-layout] ok roots=${result.rootDirectoryCount} circuits=${result.circuitSourceCount} bindings=${result.bindingCount}`)
+    console.log(`[repository-source-layout] ok roots=${result.rootDirectoryCount} ownership-bindings=${result.languageOwnershipBindingCount} circuits=${result.circuitSourceCount} bindings=${result.bindingCount}`)
   } catch (error) {
     console.error(`[repository-source-layout] ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)

@@ -47,6 +47,17 @@ launch profile 因而位于 `ops/docker/Properties/`。根级 `configs/`、无 r
 `tools/operations/`。完整路径表、历史 local-proxy 删除决策和回退边界见
 [`docs/operations-layout.md`](../operations-layout.md)。
 
+## Language entrypoint ownership
+
+`src/frontend/` 由 `FsusBlog.Client.esproj`、Vite 和 JavaScript/TypeScript 工具链拥有，
+不得出现 C# application entrypoint。所有 C# source 必须位于某个 `.csproj` 的目录边界内，
+或作为带 owner、依赖声明、调用命令、测试和输出契约的 file-based app 显式登记。
+`tests/governance/repository-source-layout.json` 将这条语言 ownership 边界绑定到
+`tests/governance/csharp-entrypoint-ownership.json` 和
+`tools/check-csharp-entrypoint-ownership.mjs`；生成 protocol fixture 的工具还必须拥有稳定的
+`generate`/`check` 命令，且不得写死 `/tmp` 或 `/var/tmp` 输出路径。完整决策见
+[`docs/testing/issue-1174-csharp-entrypoint-ownership.md`](../testing/issue-1174-csharp-entrypoint-ownership.md)。
+
 Issue #1166 将原 top-level `circuits/` 纯路径迁移到
 `src/zk/circuits/`。v2 与 v5 source bytes 的 SHA-256 保持不变；v2 R1CS
 IR 和 Groth16 binary 因内嵌 `source_path` 合法变化，因此对应 artifact、circuit、
@@ -74,6 +85,7 @@ documentation、security 或 automation ownership；新增 source-like root 必�
 
 ```sh
 node tools/check-repository-source-layout.mjs
+node tools/check-csharp-entrypoint-ownership.mjs
 node tools/security/check-security-domain-layout.mjs
 node tools/crypto/build-zk-comment-v2-r1cs.mjs --check
 node tools/crypto/check-zk-comment-v2-manifests.mjs
@@ -84,3 +96,5 @@ node --test tests/tools/issue-1166-zk-source-layout.test.mjs
 `tools/check-repository-source-layout.mjs` 从 Git index 读取 top-level inventory，
 拒绝重新出现的 root `circuits/`、`deploy/`、`release-evidence/`，以及未声明的顶层目录、缺少理由的 source exception、
 旧 circuit source 引用、source hash 漂移和 manifest/R1CS source binding 漂移。
+它同时确认 C# entrypoint ownership 的 policy/checker 没有脱离 canonical source-layout contract；
+具体 C# project/file-app/global-output/protocol-fixture 违规由后者一次聚合报告。

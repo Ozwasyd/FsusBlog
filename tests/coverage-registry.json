@@ -3744,6 +3744,29 @@
       ]
     },
     {
+      "id": "csharp-entrypoint-ownership-governance",
+      "description": "C# application entrypoints and executable source remain owned by a .csproj or a complete file-based app contract, never by the JavaScript frontend project root or an undocumented global temporary-output script.",
+      "owner": "InteropGlueAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tools/check-csharp-entrypoint-ownership.mjs",
+        "tests/governance/csharp-entrypoint-ownership.json",
+        "tests/governance/repository-source-layout.json",
+        "tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs",
+        "tests/frontend/checks/static/manifest.json",
+        "src/frontend/package.json",
+        "docs/testing/issue-1174-csharp-entrypoint-ownership.md",
+        "docs/architecture/repository-layout.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject C# source under a declared JavaScript project root, source without project or explicit file-app ownership, fixed /tmp or /var/tmp generator writes, incomplete file-app declarations, and generated AEDS frame fixtures without exactly one generator and blocking check owner.",
+      "minimumRequirement": "Frontend blocking prebuild and static governance must scan the full repository, aggregate all ownership errors, prove src/frontend/Program.cs remains absent, and exercise frontend, orphan project, global-output, file-app and fixture-owner negative cases.",
+      "tierIds": [
+        "frontend-static-governance",
+        "static-governance"
+      ]
+    },
+    {
       "id": "zk-artifact-lifecycle-ownership",
       "description": "Cryptographic artifacts are separated by exact circuit identity, public-input layout and lifecycle; only deterministic small outputs and explicit test fixtures are Git-tracked, while ceremony and delivery material uses immutable SHA-256-addressed storage.",
       "owner": "ServerContractAgent",

@@ -395,7 +395,7 @@ tiers:
     minCpuUnits: 1
     executionKey: frontend-static-governance
     executionVariant: ordinary
-    cacheInputs: [src/frontend/package.json, src/frontend/src, tests/frontend/checks/static, tests/frontend/checks/ux, tests/frontend/support, tools/check-*.mjs, tools/test/lanes/frontend-static-governance.sh, tools/test/legacy-test.sh, tools/test/run-command-manifest.mjs]
+    cacheInputs: [src/frontend/package.json, src, benchmarks, tests/backend, tests/governance/csharp-entrypoint-ownership.json, tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs, tests/frontend/checks/static, tests/frontend/checks/ux, tests/frontend/support, tools]
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -407,9 +407,9 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: fast
-    coverage: [frontend-static, frontend-public-archive-sticky-geometry, frontend-public-typography]
+    coverage: [frontend-static, frontend-public-archive-sticky-geometry, frontend-public-typography, csharp-entrypoint-ownership-governance]
     artifacts: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/timings/frontend-static-governance.json]
-    evidence: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/timings/frontend-static-governance.json, src/frontend/src/components/public/pages/PublicArchivePageContent.vue, src/frontend/src/ui-tokens/themeTokens.ts, src/frontend/src/assets/public-page.css, src/frontend/public/public-shell-emergency.css, src/frontend/src/assets/markdown.css, tests/frontend/checks/static/check-visual-density-governance.mjs, tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs, tests/frontend/issue-1017-archive-sticky-evidence.json, tests/issue-1018-public-typography-evidence.json, docs/issue-1018-public-typography-handoff.md]
+    evidence: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/timings/frontend-static-governance.json, src/frontend/src/components/public/pages/PublicArchivePageContent.vue, src/frontend/src/ui-tokens/themeTokens.ts, src/frontend/src/assets/public-page.css, src/frontend/public/public-shell-emergency.css, src/frontend/src/assets/markdown.css, tests/frontend/checks/static/check-visual-density-governance.mjs, tests/frontend/checks/static/check-local-fsusui-public-shell-motion.mjs, tests/frontend/issue-1017-archive-sticky-evidence.json, tests/issue-1018-public-typography-evidence.json, docs/issue-1018-public-typography-handoff.md, tools/check-csharp-entrypoint-ownership.mjs, tests/governance/csharp-entrypoint-ownership.json, tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs, tests/frontend/checks/static/manifest.json, src/frontend/package.json, docs/testing/issue-1174-csharp-entrypoint-ownership.md]
     ciJob: frontend-static-governance
     localOnly: false
     nightlyOnly: false
@@ -796,6 +796,7 @@ tiers:
       - immutable-release-identity
       - wasm-release-artifact-ownership
       - repository-source-layout-governance
+      - csharp-entrypoint-ownership-governance
       - zk-artifact-lifecycle-ownership
       - release-evidence-classification-governance
       - security-domain-structure-governance
@@ -876,6 +877,10 @@ tiers:
       - tests/governance/repository-source-layout.json
       - tests/tools/issue-1166-zk-source-layout.test.mjs
       - docs/architecture/repository-layout.md
+      - tools/check-csharp-entrypoint-ownership.mjs
+      - tests/governance/csharp-entrypoint-ownership.json
+      - tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs
+      - docs/testing/issue-1174-csharp-entrypoint-ownership.md
       - tools/crypto/check-zk-artifact-ownership.mjs
       - security/zk/provenance/artifact-ownership.manifest.json
       - tests/tools/issue-1168-zk-artifact-ownership.test.mjs

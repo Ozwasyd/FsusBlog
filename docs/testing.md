@@ -151,6 +151,8 @@ xUnit 通过 `tests/backend/xunit.runner.json` 固定 `stopOnFail=false`，单�
 
 前端 fast gate 拆成独立 tier：`frontend-build`、`frontend-unit-shard`、`frontend-property-model-perf`、`frontend-runtime-contracts`、`frontend-static-governance`、`frontend-fast-summary`。`frontend-build` 只运行一次并上传 `src/frontend/dist/**` 与 `.tmp/frontend/frontend-build.json`；普通 Vitest unit 由 `coverage-frontend` 以同一 `executionKey` 覆盖执行一次，原 `frontend-unit-shard` 仅保留为无 coverage 的调试入口；property/model/perf 继续由独立 tier 执行，不会被 coverage 替代。`frontend-runtime-contracts` 单独覆盖 worker/a11y/binary/runtime/wasm checks；`frontend-static-governance` 单独覆盖前端静态治理，并把 `check-gate-integrity`、`check-test-matrix` 这类全局 static governance 留给 `static-governance` job，避免重复。
 
+前端 blocking-prebuild 会在编译前执行 C# entrypoint ownership gate：`src/frontend/` 下禁止 C# source，其他 C# source 必须由最近的 `.csproj` 或完整 file-based app 声明拥有；generator 不得写死 `/tmp`/`/var/tmp`，生成 AEDS frame fixture 必须有唯一 generator、manifest 与稳定 `generate`/`check` 命令。`static-governance` 运行同一组负向 fixtures，确保一次扫描保留全部违规。完整 contract 见 [`testing/issue-1174-csharp-entrypoint-ownership.md`](testing/issue-1174-csharp-entrypoint-ownership.md)。
+
 本地复现命令：
 
 ```bash

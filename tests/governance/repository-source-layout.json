@@ -66,6 +66,12 @@
     "deploy",
     "release-evidence"
   ],
+  "languageOwnership": {
+    "csharpEntrypoint": {
+      "policy": "tests/governance/csharp-entrypoint-ownership.json",
+      "checker": "tools/check-csharp-entrypoint-ownership.mjs"
+    }
+  },
   "zk": {
     "circuitSourceRoot": "src/zk/circuits",
     "generatedArtifactsRoot": "artifacts/zk",

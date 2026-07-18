@@ -15,6 +15,12 @@
       "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] }
     },
     {
+      "id": "csharp-entrypoint-ownership", "script": "check:csharp-entrypoint-ownership", "access": "read",
+      "stage": "blocking-prebuild", "reason": "Rejects C# entrypoints under the JavaScript frontend root and any executable source without explicit project or file-app ownership before frontend build work starts.",
+      "consumedInputs": ["tests/governance/csharp-entrypoint-ownership.json", "src", "benchmarks", "tests/backend", "tools"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
       "id": "test-execution-optimization", "script": "check:test-execution-optimization", "access": "read",
       "stage": "blocking-prebuild", "reason": "Fail-closes invalid production test topology before Vitest consumes that topology.",
       "consumedInputs": ["tools/test", "tests/matrix.yml", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [],

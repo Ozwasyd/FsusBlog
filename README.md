@@ -257,6 +257,8 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 
 `production` 是 production-ci-gate：要求 0 编译警告、0 类型错误、0 Vite build warning、0 测试失败、0 运行时 error/warning，并覆盖匿名/登录/admin、Binary API、作者工作台/read-proof/health JSON、WebSocket binary notification stream、AOT hydration、PoW/MFA/Passkey/session、视觉、弹性、轻量负载与 backend-qps 热路径证据。它会校验 release evidence schema/semantic，但允许 manifest 处于 `collected-blocked` 来表达外部生产证据尚未回传或占位证据仍是 `scheduled`；`release-closeout` 要求 manifest 为 `collected-ok`；最终发布候选必须另跑 `./tools/test.sh release-final`，它会额外阻断 visual skip、dry-run backup/smoke、未执行 DAST/fuzz/fault/soak、缺失 live exposure、缺失 shard/browser summary、覆盖率不足、changed-code coverage 不足、critical flaky quarantine 和 artifact digest 不一致。GitHub Actions `Quality Gate` 会在 PR、`main` / `master` push 和手动触发时运行 production-ci-gate；仓库 secret 需要配置 `GITHUB_PACKAGES_TOKEN`。
 
+`src/frontend/` 是 JavaScript/Vue 项目根，不接受 C# application entrypoint。`frontend-static-governance` 和 `static-governance` 都会执行 `node tools/check-csharp-entrypoint-ownership.mjs`，一次报告全部无 project/file-app owner、固定全局临时输出或 protocol fixture owner 缺失问题；决策与扩展契约见 [docs/testing/issue-1174-csharp-entrypoint-ownership.md](docs/testing/issue-1174-csharp-entrypoint-ownership.md)。
+
 ## 文档索引
 
 | 文档 | 说明 |
@@ -288,6 +290,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/repository-labels.md](docs/repository-labels.md) | GitHub issue / PR label taxonomy、路径 labeler、issue triage 策略 |
 | [docs/repository-governance.md](docs/repository-governance.md) | 默认分支保护、required checks、CodeQL / Scorecard posture checks 与 GitHub Actions 权限策略 |
 | [docs/architecture/repository-layout.md](docs/architecture/repository-layout.md) | product source、ZK artifacts、security manifests、runtime config 与 test fixtures 的 canonical ownership |
+| [docs/testing/issue-1174-csharp-entrypoint-ownership.md](docs/testing/issue-1174-csharp-entrypoint-ownership.md) | C# entrypoint、file-based app 与 AEDS protocol fixture generator 的 ownership contract |
 | [SUPPORT.md](SUPPORT.md) | 使用、部署、自托管支持路由；公开 issue 中禁止发布的敏感信息 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献流程、Issue/PR 模板、测试证据与 public-preview 稳定性边界 |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区行为准则和执行路径 |

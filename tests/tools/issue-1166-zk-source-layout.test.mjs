@@ -22,6 +22,7 @@ const v5SourceSha = 'cdf5510a8df3feddf1ad1c5e760085d38bf7829ce0de813bff196e45acf
 test('repository layout owns all handwritten ZK circuit source under src/zk/circuits', () => {
   const result = checkRepositorySourceLayout({ root, policyFile: policyPath })
   assert.equal(result.ok, true, result.errors.join('\n'))
+  assert.equal(result.languageOwnershipBindingCount, 2)
   assert.equal(result.circuitSourceCount, 2)
   assert.equal(result.bindingCount, 3)
   assert.equal(existsSync(path.join(root, 'circuits')), false, 'top-level circuits directory must not exist')

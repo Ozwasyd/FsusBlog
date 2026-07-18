@@ -1,0 +1,30 @@
+{
+  "schema": "fsusblog.csharp-entrypoint-ownership.v1",
+  "javascriptProjectRoots": [
+    {
+      "path": "src/frontend",
+      "project": "src/frontend/FsusBlog.Client.esproj"
+    }
+  ],
+  "entrypointNames": [
+    "Program.cs"
+  ],
+  "dotnetProjectExtensions": [
+    ".csproj"
+  ],
+  "fileBasedApps": [],
+  "forbiddenFixedGlobalOutputRoots": [
+    "/tmp",
+    "/var/tmp"
+  ],
+  "protocolFixtures": {
+    "roots": [
+      "tests/frontend/fixtures/aeds"
+    ],
+    "suffixes": [
+      ".frame.bin",
+      ".frame.hex"
+    ],
+    "generators": []
+  }
+}

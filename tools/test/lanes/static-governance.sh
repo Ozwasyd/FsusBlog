@@ -29,6 +29,7 @@ STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/issue-1169-release-evidence-model.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1170-security-domain-layout.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1170-security-matrix-catalog.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs"
   "$ROOT_DIR/tests/tools/configuration-layout.test.mjs"
   "$ROOT_DIR/tests/tools/operations-layout.test.mjs"
   "$ROOT_DIR/tests/tools/deployment-slots.test.mjs"
