@@ -2,6 +2,7 @@ format:
     line_width: 120
     tab_size: 4
     use_tabchars: false
+    command_case: unchanged
     dangle_parens: true
     separate_ctrl_name_with_space: false
     separate_fn_name_with_space: false
@@ -11,7 +12,6 @@ markup:
     enable_markup: true
     first_comment_is_literal: false
     canonicalize_hashrulers: true
-    enable_formatter: true
 lint:
     disabled_codes: []
     function_pattern: '[A-Z][A-Za-z0-9]+'
