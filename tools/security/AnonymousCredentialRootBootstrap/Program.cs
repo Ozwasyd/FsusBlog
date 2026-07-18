@@ -25,7 +25,7 @@ internal static partial class Program
     private const string TrustedSetupSchema = "fsusblog.zk.trusted-setup-manifest.v1";
     private const string VerifyingKeySchema = "fsusblog.zk.verifying-key-config.v1";
     private const string EvidenceSchema = "fsusblog.anonymous-credential-root-bootstrap-evidence.v1";
-    private static readonly HashSet<string> AllowedInputKeys = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> s_allowedInputKeys = new(StringComparer.Ordinal)
     {
         "schema",
         "epoch",
@@ -347,7 +347,7 @@ internal static partial class Program
 
         foreach (JsonProperty property in input.EnumerateObject())
         {
-            if (!AllowedInputKeys.Contains(property.Name))
+            if (!s_allowedInputKeys.Contains(property.Name))
             {
                 errors.Add($"unknown bootstrap input field: {property.Name}");
             }
@@ -656,7 +656,10 @@ internal static partial class Program
 
         public Task RecordHighValueAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
         {
-            _highValueAudit = auditEvent with { IsHighValue = true };
+            _highValueAudit = auditEvent with
+            {
+                IsHighValue = true
+            };
             return Task.CompletedTask;
         }
 

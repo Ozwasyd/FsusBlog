@@ -11,26 +11,26 @@ using Microsoft.Extensions.Logging.Abstractions;
 [MemoryDiagnoser]
 public partial class ContentFilterHotPathBenchmarks
 {
-    private static readonly string[] ContactRules =
+    private static readonly string[] s_contactRules =
     [
         "加v", "加微", "加威", "加薇", "加嶶", "vx", "微信", "威信", "薇信", "+v", "qq", "扣扣", "企鹅", "q群", "加群"
     ];
 
-    private static readonly string[] AdRules =
+    private static readonly string[] s_adRules =
     [
         "广告关键词",
         "恶意链接",
         "优惠+推广"
     ];
 
-    private static readonly string[] SensitiveRules =
+    private static readonly string[] s_sensitiveRules =
     [
         "违禁词汇",
         "敏感关键词",
         "风险+内容"
     ];
 
-    private static readonly string[] TopRedLineRules =
+    private static readonly string[] s_topRedLineRules =
     [
         "习+近+平",
         "毛+泽+东",
@@ -55,15 +55,15 @@ public partial class ContentFilterHotPathBenchmarks
     {
         TextNormalizer.Initialize(NullLogger.Instance);
 
-        _legacyContactSearch.Build(NormalizeKeywords(ContactRules));
-        _legacyAdSearch.Build(NormalizeKeywords(AdRules));
-        _legacySensitiveSearch.Build(NormalizeKeywords(SensitiveRules));
+        _legacyContactSearch.Build(NormalizeKeywords(s_contactRules));
+        _legacyAdSearch.Build(NormalizeKeywords(s_adRules));
+        _legacySensitiveSearch.Build(NormalizeKeywords(s_sensitiveRules));
 
         var unifiedRules = new List<ModernTaggedAcRule<int>>();
-        AddRules(unifiedRules, ContactRules, 1, 0);
-        AddRules(unifiedRules, AdRules, 2, 1);
-        AddRules(unifiedRules, TopRedLineRules, 3, 2);
-        AddRules(unifiedRules, SensitiveRules, 4, 3);
+        AddRules(unifiedRules, s_contactRules, 1, 0);
+        AddRules(unifiedRules, s_adRules, 2, 1);
+        AddRules(unifiedRules, s_topRedLineRules, 3, 2);
+        AddRules(unifiedRules, s_sensitiveRules, 4, 3);
         _unifiedSearch.Build(CollectionsMarshal.AsSpan(unifiedRules));
 
         _text = CommentSize switch

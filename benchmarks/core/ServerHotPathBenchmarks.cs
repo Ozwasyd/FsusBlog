@@ -488,7 +488,7 @@ public class RelatedReadingHotPathBenchmarks
 [MemoryDiagnoser]
 public class StatsProjectionHotPathBenchmarks
 {
-    private static readonly DateTime CreatedAt = DateTime.UnixEpoch.AddDays(20_000);
+    private static readonly DateTime s_createdAt = DateTime.UnixEpoch.AddDays(20_000);
 
     [Benchmark(Baseline = true)]
     public int Legacy_DictionaryProjection()
@@ -499,7 +499,7 @@ public class StatsProjectionHotPathBenchmarks
             ["mode"] = "anonymous",
             ["badge"] = "访客",
             ["content"] = "benchmark comment",
-            ["createdAt"] = CreatedAt
+            ["createdAt"] = s_createdAt
         };
         return item.Count;
     }
@@ -513,7 +513,7 @@ public class StatsProjectionHotPathBenchmarks
             "Benchmark User",
             "site",
             "benchmark comment",
-            CreatedAt);
+            s_createdAt);
         return item.Content.Length + item.AuthorDisplayName.Length;
     }
 }

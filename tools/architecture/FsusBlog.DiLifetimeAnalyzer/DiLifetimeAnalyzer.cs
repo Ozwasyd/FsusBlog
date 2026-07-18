@@ -11,12 +11,15 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace FsusBlog.DiLifetimeAnalyzer;
 
+/// <summary>
+/// Detects singleton registrations that capture scoped dependencies.
+/// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class DiLifetimeAnalyzer : DiagnosticAnalyzer
 {
     public const string CaptiveDependencyDiagnosticId = "FSUSDI001";
 
-    private static readonly DiagnosticDescriptor CaptiveDependencyRule = new(
+    private static readonly DiagnosticDescriptor s_captiveDependencyRule = new(
         CaptiveDependencyDiagnosticId,
         "Singleton captures a scoped dependency",
         "Singleton registration '{0}' captures scoped dependency through '{1}'",
@@ -27,7 +30,7 @@ public sealed class DiLifetimeAnalyzer : DiagnosticAnalyzer
         customTags: new[] { WellKnownDiagnosticTags.CompilationEnd });
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => ImmutableArray.Create(CaptiveDependencyRule);
+        => ImmutableArray.Create(s_captiveDependencyRule);
 
     public override void Initialize(AnalysisContext context)
     {
@@ -154,7 +157,7 @@ public sealed class DiLifetimeAnalyzer : DiagnosticAnalyzer
             }
 
             context.ReportDiagnostic(Diagnostic.Create(
-                CaptiveDependencyRule,
+                s_captiveDependencyRule,
                 root.Location,
                 root.ImplementationType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
                 captivePath));

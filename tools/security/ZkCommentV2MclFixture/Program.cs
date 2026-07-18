@@ -20,9 +20,9 @@ internal static unsafe class Program
     private const string TranscriptDomain = "fsus.anonymous.comment.v3.public-inputs";
     private const string FixtureSchema = "fsusblog.zk.comment-v2-cross-stack-fixture.v1";
     private const string TamperSchema = "fsusblog.zk.comment-v2-cross-stack-tamper-cases.v1";
-    private static readonly byte[] VerifyingKeyMagic = "FSG16VK1"u8.ToArray();
-    private static readonly byte[] ProofMagic = "FSG16PF1"u8.ToArray();
-    private static bool _initialized;
+    private static readonly byte[] s_verifyingKeyMagic = "FSG16VK1"u8.ToArray();
+    private static readonly byte[] s_proofMagic = "FSG16PF1"u8.ToArray();
+    private static bool s_initialized;
 
     public static int Main(string[] args)
     {
@@ -214,7 +214,7 @@ internal static unsafe class Program
         VerifyVerifyingKey(verifyingKey);
         _ = ReadLengthPrefixedBytes(bytes, ref offset);
         byte[] proof = ReadLengthPrefixedBytes(bytes, ref offset);
-        if (proof.Length != ProofMagic.Length + sizeof(ushort) + 32 + 64 + 32)
+        if (proof.Length != s_proofMagic.Length + sizeof(ushort) + 32 + 64 + 32)
         {
             throw new InvalidDataException("FSG16PK1 embedded proof length is invalid.");
         }
@@ -227,7 +227,7 @@ internal static unsafe class Program
     private static void VerifyVerifyingKey(ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length != 304 ||
-            !bytes[..VerifyingKeyMagic.Length].SequenceEqual(VerifyingKeyMagic))
+            !bytes[..s_verifyingKeyMagic.Length].SequenceEqual(s_verifyingKeyMagic))
         {
             throw new InvalidDataException("FSG16VK1 verifying key is invalid.");
         }
@@ -416,7 +416,7 @@ internal static unsafe class Program
 
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write(VerifyingKeyMagic);
+        writer.Write(s_verifyingKeyMagic);
         writer.Write((ushort)1);
         writer.Write((ushort)1);
         writer.Write((ushort)MclBnSnark1);
@@ -468,7 +468,7 @@ internal static unsafe class Program
     {
         EnsureInitialized();
         ReadOnlySpan<byte> key = verifyingKey;
-        int offset = VerifyingKeyMagic.Length + (sizeof(ushort) * 4);
+        int offset = s_verifyingKeyMagic.Length + (sizeof(ushort) * 4);
         mclBnG1 alpha = DeserializeG1(key.Slice(offset, Mcl.mclBn_getG1ByteSize()));
         offset += Mcl.mclBn_getG1ByteSize();
         mclBnG2 beta = DeserializeG2(key.Slice(offset, Mcl.mclBn_getG2ByteSize()));
@@ -487,7 +487,7 @@ internal static unsafe class Program
 
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write(ProofMagic);
+        writer.Write(s_proofMagic);
         writer.Write((ushort)1);
         writer.Write(SerializeG1(ref alpha));
         writer.Write(SerializeG2(ref beta));
@@ -518,7 +518,7 @@ internal static unsafe class Program
 
     private static void EnsureInitialized()
     {
-        if (_initialized)
+        if (s_initialized)
         {
             return;
         }
@@ -526,7 +526,7 @@ internal static unsafe class Program
         ThrowIfNonZero(Mcl.mclBn_init(MclBnSnark1, MclCompiledTimeVar), "mcl_init_failed");
         Mcl.mclBn_verifyOrderG1(1);
         Mcl.mclBn_verifyOrderG2(1);
-        _initialized = true;
+        s_initialized = true;
     }
 
     private static mclBnG1 HashToG1(string seed)
@@ -662,12 +662,16 @@ internal static unsafe class Program
     }
 
     private static JsonObject ReadJsonObject(string path)
-        => JsonNode.Parse(File.ReadAllText(path))?.AsObject() ??
-           throw new InvalidOperationException($"invalid JSON object: {path}");
+    {
+        return JsonNode.Parse(File.ReadAllText(path))?.AsObject()
+            ?? throw new InvalidOperationException($"invalid JSON object: {path}");
+    }
 
     private static JsonObject RequireObject(JsonObject parent, string key)
-        => parent[key]?.AsObject() ??
-           throw new InvalidOperationException($"missing JSON object: {key}");
+    {
+        return parent[key]?.AsObject()
+            ?? throw new InvalidOperationException($"missing JSON object: {key}");
+    }
 
     private static void UpdatePhase(
         JsonObject setup,

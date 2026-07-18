@@ -10,7 +10,7 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 internal static class AedsCacheMissFrameProfiler
 {
-    private static readonly AedsEncoder Encoder = new();
+    private static readonly AedsEncoder s_encoder = new();
 
     public static int Run(string[] args)
     {
@@ -219,7 +219,7 @@ internal static class AedsCacheMissFrameProfiler
         var payloadWriter = new ArrayBufferWriter<byte>();
         scenario.WritePayload(payloadWriter);
         byte[] payload = payloadWriter.WrittenSpan.ToArray();
-        byte[] frame = Encoder.Encode(scenario.FrameType, payload);
+        byte[] frame = s_encoder.Encode(scenario.FrameType, payload);
         byte[] redisBoundCopy = frame.ToArray();
         byte[] l1Copy = redisBoundCopy.ToArray();
         return Consume(l1Copy);
@@ -251,7 +251,7 @@ internal static class AedsCacheMissFrameProfiler
     {
         var payload = new ArrayBufferWriter<byte>();
         scenario.WritePayload(payload);
-        return Encoder.Encode(scenario.FrameType, payload.WrittenSpan);
+        return s_encoder.Encode(scenario.FrameType, payload.WrittenSpan);
     }
 
     private static byte[] MaterializeOwnedWire(CacheMissFrameScenario scenario, bool pooled)

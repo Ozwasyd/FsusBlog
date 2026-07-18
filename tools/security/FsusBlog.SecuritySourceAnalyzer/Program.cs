@@ -9,7 +9,7 @@ return await SecuritySourceAnalyzerProgram.RunAsync(args);
 
 internal static class SecuritySourceAnalyzerProgram
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
     };
@@ -19,7 +19,7 @@ internal static class SecuritySourceAnalyzerProgram
         AnalyzerArguments parsed = AnalyzerArguments.Parse(args);
         string root = Path.GetFullPath(parsed.Root);
         string policyPath = ResolvePath(root, parsed.Policy);
-        AnalyzerPolicy policy = JsonSerializer.Deserialize<AnalyzerPolicy>(File.ReadAllText(policyPath), JsonOptions)
+        AnalyzerPolicy policy = JsonSerializer.Deserialize<AnalyzerPolicy>(File.ReadAllText(policyPath), s_jsonOptions)
             ?? throw new InvalidOperationException("security_source_policy_invalid");
         ValidatePolicy(policy);
 
@@ -40,7 +40,7 @@ internal static class SecuritySourceAnalyzerProgram
                 .ThenBy(item => item.Line)
                 .ThenBy(item => item.RuleId, StringComparer.Ordinal)
                 .ToArray());
-        Console.WriteLine(JsonSerializer.Serialize(report, JsonOptions));
+        Console.WriteLine(JsonSerializer.Serialize(report, s_jsonOptions));
         return Task.FromResult(diagnostics.Count == 0 ? 0 : 1);
     }
 
@@ -200,7 +200,7 @@ internal static class SecuritySourceAnalyzerProgram
                     foreach (InvocationExpressionSyntax invocation in syntaxRoot.DescendantNodes().OfType<InvocationExpressionSyntax>())
                     {
                         string methodName = InvocationName(invocation);
-                        if (!DataReaderOrdinalMethods.Contains(methodName)
+                        if (!s_dataReaderOrdinalMethods.Contains(methodName)
                             || invocation.ArgumentList.Arguments.Count == 0
                             || invocation.ArgumentList.Arguments[0].Expression is not LiteralExpressionSyntax literal
                             || !literal.IsKind(SyntaxKind.NumericLiteralExpression))
@@ -263,7 +263,7 @@ internal static class SecuritySourceAnalyzerProgram
             .Any(keyword => comparison.Contains(keyword, StringComparison.Ordinal));
     }
 
-    private static readonly IReadOnlySet<string> DataReaderOrdinalMethods = new HashSet<string>(StringComparer.Ordinal)
+    private static readonly IReadOnlySet<string> s_dataReaderOrdinalMethods = new HashSet<string>(StringComparer.Ordinal)
     {
         "GetBoolean",
         "GetByte",

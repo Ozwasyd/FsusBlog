@@ -360,9 +360,9 @@ internal static class AedsFrameCostProfiler
             }));
         string artifactSetDigest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(artifactSetCanonical))).ToLowerInvariant();
 #if DEBUG
-        const string buildConfiguration = "Debug";
+        const string BuildConfiguration = "Debug";
 #else
-        const string buildConfiguration = "Release";
+        const string BuildConfiguration = "Release";
 #endif
 
         if (!ProfilerSupport.IsCommitSha(commitSha))
@@ -377,7 +377,7 @@ internal static class AedsFrameCostProfiler
         {
             authorityBlockedReasons.Add("processor-affinity-unavailable");
         }
-        if (!string.Equals(buildConfiguration, "Release", StringComparison.Ordinal))
+        if (!string.Equals(BuildConfiguration, "Release", StringComparison.Ordinal))
         {
             authorityBlockedReasons.Add("non-release-artifact");
         }
@@ -478,7 +478,7 @@ internal static class AedsFrameCostProfiler
             source = new
             {
                 commitSha,
-                buildConfiguration,
+                buildConfiguration = BuildConfiguration,
                 artifactSet = new
                 {
                     schema = "fsusblog.aeds-frame-cost-artifact-set.v1",
