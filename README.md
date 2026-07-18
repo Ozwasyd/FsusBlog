@@ -55,7 +55,7 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 
 ### 技术栈
 
-**后端**
+#### 后端
 
 | 技术 | 版本 | 用途 |
 | ------ | ------ | ------ |
@@ -68,7 +68,7 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 | Serilog | 4.3.1 | 结构化日志，异步滚动文件 |
 | IP2Location | — | 地理定位 |
 
-**前端**
+#### 前端
 
 | 技术 | 版本 | 用途 |
 | ------ | ------ | ------ |
@@ -82,7 +82,7 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 | FsusUI | GitHub Packages | 项目专属组件库 |
 | Playwright | 1.59.x | E2E 测试 |
 
-**WebAssembly / C++**
+#### WebAssembly / C++
 
 - C++23（Freestanding，无 STL 堆分配）
 - Emscripten SDK，CMake + Ninja
@@ -205,7 +205,7 @@ npm --prefix src/frontend run dev:debug
 
 `dev:debug` 默认由 Vite 直接服务 `/src` 资源，适合前端样式和本地 FsusUI HMR。需要验证后端 public shell SSR proxy 时，改用 `npm --prefix src/frontend run dev:ssr`，该脚本会设置 `VITE_PUBLIC_SHELL_PROXY=1`。
 
-**常用地址**
+#### 常用地址
 
 | 地址 | 用途 |
 | ------ | ------ |
