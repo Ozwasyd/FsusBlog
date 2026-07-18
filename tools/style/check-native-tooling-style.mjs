@@ -710,6 +710,19 @@ function CheckFourSpaceIndent(file, content, ignoredLines = new Set())
     }
 }
 
+function CheckCMakeIndent(file, content)
+{
+    const commandLine = /^\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*\(|else\s*\(|elseif\s*\(|endif\s*\(|endfunction\s*\(|endmacro\s*\(|endforeach\s*\(|endwhile\s*\()/iu
+    const lines = content.split(/\r?\n/u)
+    for (let index = 0; index < lines.length; index += 1)
+    {
+        if (commandLine.test(lines[index]) && LeadingSpaces(lines[index]) % 4 !== 0)
+        {
+            AddDiagnostic(file, index + 1, 'indent', 'CMake command indentation must be a multiple of 4 spaces')
+        }
+    }
+}
+
 function CheckCpp(file, content, argumentsValue)
 {
     const clangFormat = policy.standardTools.cppFormat.command
@@ -862,7 +875,7 @@ function CheckCMake(file, content, argumentsValue)
         {
             RequireTool(formatter, file)
         }
-        CheckFourSpaceIndent(file, content)
+        CheckCMakeIndent(file, content)
     }
 
     const lines = content.split(/\r?\n/u)
