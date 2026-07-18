@@ -1,0 +1,7 @@
+perf(cache): reduce measured hot-read latency
+
+Avoid a repeated allocation on the measured route.
+
+Performance-Claim: R
+Evidence: artifacts/performance/hot-read.json
+Refs: #1163

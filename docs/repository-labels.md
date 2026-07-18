@@ -62,6 +62,21 @@ FsusBlog uses namespaced labels for new issues and pull requests. Historical Git
 | `evidence:needs-docs` | Needs docs, release notes, support routing, or readiness evidence. |
 | `evidence:needs-screenshot` | Needs screenshot, video, a11y tree, trace, or visual proof. |
 
+## Release Note Labels
+
+Exactly one release-note label is required on every pull request. The executable category registry lives in `tools/governance/change-contract-registry.mjs`; `.github/release.yml` and the Change Contract gate consume the same taxonomy.
+
+| Label | Generated release-note disposition |
+| ------- | ------------------------------------ |
+| `release-note:added` | User-facing `Added` entry. |
+| `release-note:changed` | User-facing `Changed` entry. |
+| `release-note:fixed` | User-facing `Fixed` entry. |
+| `release-note:security` | User-facing defensive `Security` entry without vulnerability detail. |
+| `release-note:deprecated` | User-facing `Deprecated` entry. |
+| `release-note:removed` | User-facing `Removed` entry. |
+| `release-note:internal` | Internal/tooling entry excluded from user-facing categories. |
+| `release-note:none` | Excluded from generated release notes. |
+
 ## Automatic Triage
 
 Issue forms assign the initial type/status/evidence labels. `.github/workflows/issue-triage.yml` keeps a `status:*` label on new or reopened public issues and marks issues with `_No response_` form sections as `status:needs-info`.

@@ -1,0 +1,6 @@
+feat(api)!: remove deprecated article field
+
+The compatibility window has ended and callers now use the replacement field.
+
+BREAKING CHANGE: article responses no longer include the deprecated field.
+Refs: #1163

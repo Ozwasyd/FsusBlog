@@ -1,0 +1,13 @@
+## Linked Issue
+
+Closes #1163
+
+## Change Classification
+
+- [x] Behavior change
+
+## Release Note
+
+- Audience: user-facing
+- Category: Added
+- Summary: Add a reviewed reader capability.

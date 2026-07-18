@@ -3,6 +3,7 @@
     "authority": {
         "codingConventions": "docs/development/coding-conventions.md",
         "codeIntentGovernance": "docs/development/code-intent-governance.md",
+        "changeContract": "docs/development/change-contract.md",
         "agentOperations": "AGENTS.md",
         "codeowners": ".github/CODEOWNERS",
         "authorityDocuments": [
@@ -14,7 +15,8 @@
             "docs/development.md",
             "docs/index.md",
             "docs/development/coding-conventions.md",
-            "docs/development/code-intent-governance.md"
+            "docs/development/code-intent-governance.md",
+            "docs/development/change-contract.md"
         ],
         "linkDocuments": [
             "AGENTS.md",
@@ -23,7 +25,8 @@
             "docs/development.md",
             "docs/index.md",
             "docs/development/coding-conventions.md",
-            "docs/development/code-intent-governance.md"
+            "docs/development/code-intent-governance.md",
+            "docs/development/change-contract.md"
         ]
     },
     "precedence": [

@@ -1,0 +1,3 @@
+feature(frontend): expose article reading progress
+
+Refs: #1163

@@ -10,6 +10,8 @@
 
 ownership、安全边界、TODO lifecycle、公共 API 文档与性能声明等级见 [development/code-intent-governance.md](development/code-intent-governance.md)。该文档消费编码规范而不建立新的同级风格权威。
 
+commit/squash title、PR classification、纯格式与命名迁移、performance/generated evidence、release-note label 和 rollback metadata 见 [development/change-contract.md](development/change-contract.md)。它约束 Git/review 元数据，不建立第二套源码命名规范。
+
 修改开发文档中的路径、symbol、命令或规范入口后运行：
 
 ```bash

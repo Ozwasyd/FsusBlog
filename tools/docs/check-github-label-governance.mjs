@@ -3,6 +3,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import { changeContract } from '../governance/change-contract-registry.mjs'
+
 const root = resolve(import.meta.dirname, '../..')
 const errors = []
 
@@ -76,7 +78,8 @@ const labels = [
   'evidence:needs-repro',
   'evidence:needs-tests',
   'evidence:needs-docs',
-  'evidence:needs-screenshot'
+  'evidence:needs-screenshot',
+  ...changeContract.releaseNoteCategories.map((entry) => entry.label)
 ]
 
 const taxonomy = read('docs/repository-labels.md')

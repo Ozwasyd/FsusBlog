@@ -1,0 +1,3 @@
+fix(test): fix bug
+
+Refs: #1163

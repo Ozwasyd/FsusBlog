@@ -37,6 +37,7 @@ The default branch rule should require these repository-security and quality che
 
 | Check | Why it is required |
 | ------- | -------------------- |
+| `Change Contract / Change Contract` | Enforces the trusted-base PR title, linked issue, classification, evidence binding, release-note label, format history, and squash metadata contract. |
 | `Quality Gate / Production Summary` | Summarizes the full production-ci-gate DAG and fails when any required upstream job failed, skipped unexpectedly, or produced invalid release evidence. |
 | `Quality Gate / Validate Test Matrix` | Prevents drift between `tests/matrix.yml`, generated docs, and the GitHub Actions workflow. |
 | `Quality Gate / Fast Backend` | Covers deterministic backend unit, auth state-machine, concurrency, property, and golden tests. |
@@ -51,6 +52,8 @@ The default branch rule should require these repository-security and quality che
 | `OpenSSF Scorecard / Scorecard` | Records weekly/default-branch repository security posture results. |
 
 When GitHub branch protection cannot express the full `Quality Gate` dependency graph, requiring `Quality Gate / Production Summary` is the minimum safe branch rule because that job evaluates all required upstream jobs from the workflow's `needs` payload.
+
+The current private-repository plan returns HTTP 403 for both classic branch protection and repository rulesets. Until that external capability changes, `Change Contract` on a `master` push is a post-push audit rather than a preventive required check. Readiness and issue-closeout evidence must report that limitation explicitly and must not claim that the documented required-check set is enabled.
 
 ## Dependency And Supply-Chain Checks
 

@@ -1,0 +1,4 @@
+security(auth): document authentication bypass exploit chain
+
+Security-Disclosure: private
+Refs: #1163

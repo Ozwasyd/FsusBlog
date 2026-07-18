@@ -4,7 +4,23 @@ Closes #
 
 ## Scope Summary
 
-- <!-- Summarize the issue-scoped change. -->
+- <!-- Summarize the issue-scoped change. Do not hide unrelated work behind "also". -->
+
+<!-- The gate requires a substantive summary and at least one checked Tests Run entry. -->
+
+## Change Classification
+
+- [ ] Behavior change
+- [ ] Format-only
+- [ ] Naming-only
+- [ ] Generated output
+- [ ] Public contract change
+- [ ] External naming exception
+- Contract impact: none / compatible / breaking
+
+`Behavior change`, `Format-only`, and `Naming-only` are mutually exclusive. `Generated output`, `Public contract change`, and `External naming exception` are supplementary.
+
+The gate reads fields only from their named section, rejects duplicate fields or headings hidden in fenced examples, and requires contract checkboxes to be checked. Record a not-applicable reason in `Notes For Reviewers` before checking that review item.
 
 ## Tests Run
 
@@ -20,6 +36,37 @@ Closes #
 - [ ] Dark mode checked
 - [ ] Accessibility and reduced-motion impact considered
 
+## Coding Convention
+
+- [ ] C# mother-style mapping checked
+- [ ] Formatter/linter run
+- [ ] No tool default overrides repository style
+- [ ] Mechanical formatting separated from logic
+- [ ] `.git-blame-ignore-revs` updated when applicable
+
+For a `Format-only` change, complete every field. The idempotence evidence must be one repository-relative `.json` path changed by this PR and conform to `fsusblog.format-idempotence-evidence.v1`. Use `none` for other changes.
+
+- Formatter identity:
+- Formatter version:
+- Formatter command:
+- Formatter idempotence evidence:
+- Blame-ignore revision:
+
+## External Naming Exception
+
+For a checked `External naming exception`, use one registered exception ID, list the affected repository paths, and explain why the external spelling cannot follow the internal convention. Use `none` for all three fields otherwise.
+
+- Exception ID:
+- Affected paths:
+- Reason:
+
+## Documentation / Intent
+
+- [ ] Public API docs updated
+- [ ] Ownership/security/performance intent updated
+- [ ] Historical handoff archived or source-of-truth updated
+- [ ] TODO/FIXME references valid issues
+
 ## Compatibility And Risk
 
 - [ ] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
@@ -28,9 +75,43 @@ Closes #
 - [ ] AEDS frame / binary contract impact reviewed
 - [ ] Database migration impact reviewed
 - [ ] Security, auth, moderation, PoW, or privacy impact reviewed
-- [ ] Docs updated
+- [ ] Docs updated or a reason is recorded below
 - [ ] Known limitations updated if applicable
+
+## Performance Claim
+
+Use `none` and `Evidence path: none` unless the PR title type is `perf`. For S/M/R/C, the evidence path must be a changed repository-relative JSON manifest using `fsusblog.performance-claim-evidence.v1`; it binds the one perf commit SHA, claim level, `structural-only`/`measured` status, and each changed evidence file with its SHA-256 digest.
+
+- Claim level: none / S / M / R / C
+- Evidence path:
+- Non-goals:
+
+## Release Note
+
+The matching `release-note:*` label selects the generated release category. GitHub renders the merged PR title as the release entry, so every included category requires `Summary` to exactly equal the summary portion of the PR title after `type(scope):`; `Category: none` instead requires `Summary: none`. Pure formatting, internal renames, and CI rearrangement must use `Internal/Tooling` or `none`.
+
+- Audience: user-facing / internal / none
+- Category: Added / Changed / Fixed / Security / Deprecated / Removed / Internal/Tooling / none
+- Summary:
+
+## Generated Output
+
+For a checked `Generated output`, bind the output to its source through one repository-relative `.json` manifest path changed by this PR and conforming to `fsusblog.generated-output-binding.v1`. An authenticated bot must identify itself exactly. Use `none` otherwise.
+
+- Generator source:
+- Generated outputs:
+- Digest/evidence:
+- Automation identity:
+
+## Rollout / Rollback
+
+- Rollout:
+- Rollback:
+- Deferred work:
+- Known limitations:
 
 ## Notes For Reviewers
 
-CODEOWNERS may request the configured maintainer for touched paths, but it does not replace the checklist above. Mention rollout steps, limitations, follow-up issues, or intentionally deferred work.
+CODEOWNERS may request the configured maintainer for touched paths, but it does not replace this contract. Name the child issue actually closed and keep API, UI, database, security, generated, and mechanical changes separated unless the linked issue explicitly requires one atomic boundary.
+
+The executable change-contract policy files are evaluated from the trusted base and cannot be replaced by the candidate PR that they judge. Until branch protection is available, their bootstrap update is an owner-controlled direct push followed by the post-push audit; do not describe that audit as preventive protection.

@@ -1,0 +1,7 @@
+style(cpp): normalize internal decoder names
+
+Keep exported ABI symbols unchanged behind the existing adapter.
+
+Change-Class: naming-only
+External-Contracts: preserved
+Refs: #1163

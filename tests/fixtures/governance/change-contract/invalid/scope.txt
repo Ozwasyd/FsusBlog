@@ -1,0 +1,3 @@
+fix/article-page: reject stale article projection
+
+Refs: #1163

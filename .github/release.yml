@@ -1,0 +1,29 @@
+# GitHub renders each merged PR title as the release-note entry. The Change
+# Contract gate keeps each included PR body's Release Note Summary equal to
+# that title's summary; release-note:none instead requires Summary: none.
+changelog:
+    exclude:
+        labels:
+            - release-note:none
+    categories:
+        - title: Added
+          labels:
+              - release-note:added
+        - title: Changed
+          labels:
+              - release-note:changed
+        - title: Fixed
+          labels:
+              - release-note:fixed
+        - title: Security
+          labels:
+              - release-note:security
+        - title: Deprecated
+          labels:
+              - release-note:deprecated
+        - title: Removed
+          labels:
+              - release-note:removed
+        - title: Internal/Tooling
+          labels:
+              - release-note:internal
