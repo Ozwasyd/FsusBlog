@@ -5,7 +5,7 @@ SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT_DIR="${FSUSBLOG_HISTORICAL_RESIDUE_ROOT:-$SCRIPT_ROOT}"
 cd "$ROOT_DIR"
 
-IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX='^(docs/(api/(design|contracts)[.]md|database-migration[.]md|anonymous-identity-smoke-flow[.]md)|tools/db/.*|tests/(backend|frontend)/.*)$'
+IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX='^(docs/(api/(design|contracts)[.]md|database-migration[.]md|anonymous-identity-smoke-flow[.]md)|tools/db/.*|tests/(backend|frontend)/.*|src/backend/Infrastructure/SchemaMigration/Definitions/[^/]+MigrationDefinitions[.]cs)$'
 
 RunResidueCheck() {
     local description="$1"
@@ -303,8 +303,8 @@ RunResidueCheck \
     "raw anonymous credential issuance user ids" \
     "raw anonymous credential issuance user-id residue detected" \
     'anonymous_credential_issuance_audit[(][^)]*user_id|unique_idx_anonymous_credential_issuance_user_epoch|idx_anonymous_credential_issuance_user\b|ON CONFLICT[(]user_id,\s*epoch[)]|ActorId:\s*userId[.]ToString|int\s+UserId,\s*long\s+Epoch' \
-    '^(tests/backend/Unit/AnonymousCredentialIssuerTests[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs)$' \
-    src/backend/Entities/AnonymousCredentialIssuanceAudit.cs src/backend/Services/Security/AnonymousCredentialIssuerService.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs tests/backend/Unit/AnonymousCredentialIssuerTests.cs
+    '^(tests/backend/Unit/AnonymousCredentialIssuerTests[.]cs|src/backend/Infrastructure/SchemaMigration/Definitions/[^/]+MigrationDefinitions[.]cs)$' \
+    src/backend/Entities/AnonymousCredentialIssuanceAudit.cs src/backend/Services/Security/AnonymousCredentialIssuerService.cs src/backend/Infrastructure/SchemaMigration/Definitions tests/backend/Unit/AnonymousCredentialIssuerTests.cs
 
 RunResidueCheck \
     "anonymous credential issue naked authorization" \
@@ -367,7 +367,7 @@ RunResidueCheck \
     "legacy sys_user identity field residue detected" \
     '\bsys_user[.](username|password|role|last_username_update_time|lastusernameupdatetime)\b|\bpublic[[:space:]]+string[?]?[[:space:]]+(Username|Password|Role)\b|\bLastUsernameUpdateTime\b|\b(user|u|ru)[.](Username|Role)\b|Role[[:space:]]*(==|!=)[[:space:]]*"admin"|Role[.]Equals[(]"admin"|Username[[:space:]]*[{][[:space:]]*get[;][[:space:]]*init[;][[:space:]]*[}]' \
     "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
-    src/backend/Entities/User.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Services/Security/PasskeyService.cs src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs
+    src/backend/Entities/User.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Services/Security/PasskeyService.cs src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs src/backend/Infrastructure/SchemaMigration/Definitions
 
 RunAppsettingsIdentityResidueCheck
 
@@ -466,8 +466,8 @@ RunResidueCheck \
     "legacy authoring user attribution" \
     "legacy authoring user attribution residue detected" \
     'SaveDraftAsync[(]\s*context[.]GetUserId[(][)]|GetDraftAsync[(]\s*context[.]GetUserId[(][)]|DiscardDraftAsync[(]\s*context[.]GetUserId[(][)]|RollbackRevisionAsync[(]\s*context[.]GetUserId[(][)]|OwnerUserId|owner_user_id|CreatedByUserId|created_by_user_id|createdByUserId' \
-    '^(src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs)$' \
-    src/backend/Modules/Endpoints/AuthoringEndpoints.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Services/ArticleService.cs src/backend/Entities/Article.cs src/backend/Models/Dtos/AuthoringDtos.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs src/frontend/src/api/authoring.ts src/frontend/src/components/admin/article/ArticleRevisionPanel.vue
+    '^(src/backend/Infrastructure/SchemaMigration/Definitions/[^/]+MigrationDefinitions[.]cs)$' \
+    src/backend/Modules/Endpoints/AuthoringEndpoints.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Services/ArticleService.cs src/backend/Entities/Article.cs src/backend/Models/Dtos/AuthoringDtos.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Infrastructure/SchemaMigration/Definitions src/frontend/src/api/authoring.ts src/frontend/src/components/admin/article/ArticleRevisionPanel.vue
 
 RunResidueCheck \
     "legacy comment moderation account display fallback" \
@@ -480,8 +480,8 @@ RunResidueCheck \
     "legacy comment moderation user attribution" \
     "legacy comment moderation user attribution residue detected" \
     'ModerateCommentAsync[(]\s*int\s+actorUserId|ModerateCommentsAsync[(][^)]*int\s+actorUserId|ModeratedByUserId|moderatedByUserId|moderated_by_user_id|ModeratedByUserId\s*==\s*actorUserId|ModerateCommentAsync[(]\s*context[.]GetUserId[(][)]|ModerateCommentsAsync[(]\s*context[.]GetUserId[(][)]' \
-    '^(src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs|tests/backend/Integration/SchemaMigrationIntegrationTests[.]cs)$' \
-    src/backend/Entities/Comment.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Modules/Endpoints/AuthoringEndpoints.cs src/backend/Models/Dtos/AuthoringDtos.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs src/frontend/src/api/authoring.ts src/frontend/src/composables/useCommentModerationQueue.ts src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue tests/backend/Integration/SchemaMigrationIntegrationTests.cs
+    '^(src/backend/Infrastructure/SchemaMigration/Definitions/[^/]+MigrationDefinitions[.]cs|tests/backend/Integration/SchemaMigrationIntegrationTests[.]cs)$' \
+    src/backend/Entities/Comment.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Modules/Endpoints/AuthoringEndpoints.cs src/backend/Models/Dtos/AuthoringDtos.cs src/backend/Infrastructure/SchemaMigration/Definitions src/frontend/src/api/authoring.ts src/frontend/src/composables/useCommentModerationQueue.ts src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue tests/backend/Integration/SchemaMigrationIntegrationTests.cs
 
 RunResidueCheck \
     "legacy anonymous credential user commitment binding" \
@@ -532,15 +532,15 @@ RunResidueCheck \
     "human-read visit user binding" \
     "human-read visit user-bound residue detected" \
     'context[.]GetUserId[(][)]|VisitLogMessage[(][^;\n]*UserId|msg[.]UserId|public[[:space:]]+int[?][[:space:]]+UserId\b|new[[:space:]]+VisitLog[[:space:]]*[{][^}]*UserId[[:space:]]*=|\bRegisteredVisits\b|\bAnonymousVisits\b|registeredVisits|anonymousVisits|v[.]UserId' \
-    '^(src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationConsistencyChecker[.]cs)$' \
+    '^(src/backend/Infrastructure/SchemaMigration/Definitions/[^/]+MigrationDefinitions[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationConsistencyChecker[.]cs)$' \
     src/backend/Entities/VisitLog.cs src/backend/Services/HumanReadProofService.cs src/backend/Services/VisitLog src/backend/Services/StatsService.cs src/backend/Infrastructure/CoreBridge src/backend/Infrastructure/Cache src/shared/Contracts src/core src/frontend/src tests/frontend/fixtures
 
 RunResidueCheck \
     "human-read raw visit ip persistence" \
     "human-read raw visit-ip persistence residue detected" \
     'public[[:space:]]+string[?]?[[:space:]]+IP\b|SugarColumn[(][^;\n]*ColumnName[[:space:]]*=[[:space:]]*["'\'']ip["'\'']|EnsureColumnStep[(][^;\n]*["'\'']sys_visit_log["'\''][^;\n]*["'\'']ip["'\'']|ADD COLUMN IF NOT EXISTS ip\b|new[[:space:]]+VisitLog[[:space:]]*[{][^}]*IP[[:space:]]*=|IP[[:space:]]*=[[:space:]]*(?:msg[.]IP|ip)\b|sys_visit_log[."]ip\b' \
-    "" \
-    src/backend/Entities/VisitLog.cs src/backend/Services/VisitLog/VisitLogProcessorService.cs src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs
+    '^(src/backend/Infrastructure/SchemaMigration/Definitions/[^/]+MigrationDefinitions[.]cs)$' \
+    src/backend/Entities/VisitLog.cs src/backend/Services/VisitLog/VisitLogProcessorService.cs src/backend/Infrastructure/SchemaMigration/Definitions
 
 RunResidueCheck \
     "message legacy user identity sync coupling" \

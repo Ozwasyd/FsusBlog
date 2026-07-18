@@ -23,7 +23,7 @@ public class User
         get; set;
     }
 
-    [SugarColumn(ColumnName = "identity_kind", Length = 32, DefaultValue = "'anonymous_account'")]
+    [SugarColumn(ColumnName = "identity_kind", Length = 32, DefaultValue = "anonymous_account")]
     public string IdentityKind { get; set; } = AnonymousIdentityRuntime.AnonymousAccountKind;
 
     /// <summary>
@@ -61,10 +61,10 @@ public class User
         get; set;
     }
 
-    [SugarColumn(ColumnName = "anonymous_credential_level", Length = 32, DefaultValue = "'basic'")]
+    [SugarColumn(ColumnName = "anonymous_credential_level", Length = 32, DefaultValue = "basic")]
     public string AnonymousCredentialLevel { get; set; } = "basic";
 
-    [SugarColumn(ColumnName = "anonymous_credential_status", Length = 32, DefaultValue = "'active'")]
+    [SugarColumn(ColumnName = "anonymous_credential_status", Length = 32, DefaultValue = "active")]
     public string AnonymousCredentialStatus { get; set; } = "active";
 
     // ====== 管理字段 ======

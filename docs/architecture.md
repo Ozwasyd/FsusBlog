@@ -579,7 +579,9 @@ Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoin
 
 ## Runtime capability 文件边界
 
-Search index、schema migration registry、authoring workflow/API、article service、PublicHotRead 与 application composition 按 orchestration、policy/state、I/O/persistence、codec/routing 和 metrics 拆为同一 runtime type 的 capability files。primary constructor 和 DI 注册仍只属于稳定 root type；partial 只改变源码组织，不新增服务实例、路由、AEDS frame、数据库步骤或缓存 key。受治理 capability file 必须少于 1,500 行，`backend-build-governance` 会执行机器检查；最终 endpoint data source 和 DI descriptor 的行为测试负责证明 authoring 58 条 method/path、admin permission、frame lookup 与 singleton/scoped lifetime 未漂移。完整映射、验证和回退见 [Runtime capability slices and source-file budget](architecture/issue-1119-runtime-capability-slices.md)。
+Search index、authoring workflow/API、article service、PublicHotRead 与 application composition 按 orchestration、policy/state、I/O/persistence、codec/routing 和 metrics 拆为同一 runtime type 的 capability files。primary constructor 和 DI 注册仍只属于稳定 root type；这些 partial 只改变源码组织，不新增服务实例、路由、AEDS frame 或缓存 key。受治理 capability file 必须少于 1,500 行，`backend-build-governance` 会执行机器检查；最终 endpoint data source 和 DI descriptor 的行为测试负责证明 authoring 58 条 method/path、admin permission、frame lookup 与 singleton/scoped lifetime 未漂移。完整映射、验证和回退见 [Runtime capability slices and source-file budget](architecture/issue-1119-runtime-capability-slices.md)。
+
+Schema migration 不再使用 runtime service partial。`SchemaMigrationRegistry` 只暴露由 `SchemaMigrationManifest` 验证后的执行计划；release-range catalog 声明本区间 descriptor，domain-oriented definition 类型承载不可删除的历史 SQL/step。manifest 在数据库访问前校验 ID 唯一、phase + migration ID 单调顺序、catalog range、phase-tail dependency 和显式 gap，runner 不再自行重排数组。空库与 20260517 代表性历史 fixture 都必须在重复执行前后保持各自的 columns/indexes/constraints snapshot、history 和数据转换结果不变。目录、版本边界和新增迁移规则见 [Database Migration Runbook](database-migration.md#versioned-legacy-catalog)。
 
 ## 生产启动保护
 

@@ -1,8 +1,10 @@
-namespace FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 
-public sealed partial class SchemaMigrationRegistry
+namespace FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
+
+internal static class CommentAuthorModeRetirementMigrationDefinitions
 {
-    private static ISchemaMigrationDescriptor BuildCommentAuthorModeRetirementMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentAuthorModeRetirementMigration()
         => new SchemaMigrationDescriptor(
             "20260716-post-comment-author-mode-retirement",
             "Retire server-visible anonymous writes and isolate historical pseudonymous comments from active identity aggregation.",

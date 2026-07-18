@@ -15,6 +15,55 @@ N/N-1 bridge or pausing the durable token. After destructive Contract, code roll
 cannot recreate removed data: isolate the write path and restore a verified backup
 before selecting a compatible retained image/database pair.
 
+## Versioned Legacy Catalog
+
+`SchemaMigrationRegistry` is a thin runtime adapter over the explicit
+`SchemaMigrationManifest`; it no longer owns descriptor implementations or a single
+ever-growing array. The manifest composes four immutable version catalogs:
+
+| Catalog | Version range | Gap policy | Required previous phase tails |
+| --- | --- | --- | --- |
+| `legacy-bootstrap-20260418-20260518` | 20260418-20260518 | sparse dates allowed | none |
+| `identity-security-20260602-20260621` | 20260602-20260621 | sparse dates allowed | 20260518 pre/post tails |
+| `projection-integrity-20260625-20260704` | 20260625-20260704 | sparse dates allowed | 20260621 pre/post tails |
+| `current-20260709-20260716` | 20260709-20260716 | sparse dates allowed | 20260629 pre and 20260704 post tails |
+
+Catalog boundaries have three explicitly declared gaps: 20260519-20260601,
+20260622-20260624, and 20260705-20260708. Startup composition fails before any SQL
+runs when catalog IDs or migration IDs repeat, a descriptor is outside its range,
+declaration order is not monotonic, a dependency is absent or does not point to the
+latest earlier migration in the same phase, or the actual boundaries differ from
+the declared gaps. The runner consumes this manifest order directly: all
+`PreCodeFirst` descriptors remain ordered by migration ID before all
+`PostCodeFirst` descriptors, which preserves the historical execution contract.
+
+Descriptor implementations live under
+`src/backend/Infrastructure/SchemaMigration/Definitions/`; release-range catalogs
+live under `src/backend/Infrastructure/SchemaMigration/Catalogs/`. To add a
+migration, put its implementation in a focused definition type and register it once
+in the catalog whose range owns the ID. A version beyond the current range requires
+a new catalog, explicit phase-tail dependencies, and an explicit boundary gap. Do
+not append builders or descriptors to `SchemaMigrationRegistry.cs` and do not
+reopen `SchemaMigrationRegistry.*.cs` partial files. `migration-doc-lint.mjs` and
+`SchemaMigrationCatalogTests.SourceLayout_PreventsLegacyRegistryDescriptorAggregation`
+enforce the one-definition/one-catalog rule without code generation or external
+tools.
+
+The PostgreSQL fixture exercises both an empty database and the representative
+20260517 historical schema twice. For each starting point, the normalized columns,
+indexes, and constraints after the first run must exactly match the second run. It
+also retains the data-conversion assertions for article bodies, page content, view
+seeds, comment attribution, and history row count. This protects fresh bootstrap,
+supported upgrades, and duplicate-run idempotency without a production database or
+external migration service.
+
+SqlSugar string `SugarColumn.DefaultValue` values are logical literals, not
+pre-quoted SQL fragments. For example, use `DefaultValue = "basic"`, never
+`DefaultValue = "'basic'"`; the latter is escaped again during each CodeFirst pass
+and changes the database default to a value containing quote characters. The fresh
+fixture inserts a `sys_user` row after the second run while omitting these columns
+and requires `anonymous_account|basic|active`.
+
 ## Zero-Downtime Migration Qualification
 
 Issue #1031 qualification is an isolated Test-topology gate around the production
@@ -54,7 +103,12 @@ compatible retained release.
 
 ## 字段最终态表
 
-The table below is the authoritative final-state inventory for legacy identity columns that are either removed from the physical schema or retained only for an explicit compatibility purpose. Keep it synchronized with `src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs`; `tools/db/migration-doc-lint.mjs` fails when the registry and this table diverge.
+The table below is the authoritative final-state inventory for legacy identity
+columns that are either removed from the physical schema or retained only for an
+explicit compatibility purpose. Keep it synchronized with
+`src/backend/Infrastructure/SchemaMigration/Definitions/`;
+`tools/db/migration-doc-lint.mjs` fails when the definitions, catalogs, manifest,
+and this table diverge.
 
 | column | physical | code-mapped | kept-for | dropped-at-version |
 | -------- | ---------- | ------------- | ---------- | -------------------- |

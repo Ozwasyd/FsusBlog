@@ -1,8 +1,10 @@
-namespace FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 
-public sealed partial class SchemaMigrationRegistry
+namespace FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
+
+internal static class AnonymousPrivacyMigrationDefinitions
 {
-    private static ISchemaMigrationDescriptor BuildBlindCredentialIssuancePrivacyMigration()
+    internal static ISchemaMigrationDescriptor BuildBlindCredentialIssuancePrivacyMigration()
         => new SchemaMigrationDescriptor(
             "20260715-post-blind-credential-issuance-privacy",
             "Purge request correlation from blind credential issuance quota records.",

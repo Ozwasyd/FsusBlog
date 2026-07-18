@@ -1082,14 +1082,48 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     {
         string databaseName = await fixture.CreateDatabaseAsync();
         string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        string freshDatabaseName = await fixture.CreateDatabaseAsync();
+        string freshConnectionString = fixture.BuildDatabaseConnectionString(freshDatabaseName);
 
         await fixture.ExecuteAsync(connectionString, ReadFixtureSql(Legacy20260517Fixture));
         Legacy20260517Counts legacyCounts = await ReadLegacy20260517CountsAsync(connectionString);
 
         await RunMigrationsAsync(connectionString);
+        IReadOnlyList<string> upgradedSchemaAfterFirstRun =
+            await fixture.CaptureSchemaSnapshotAsync(connectionString);
         await RunMigrationsAsync(connectionString);
+        IReadOnlyList<string> upgradedSchemaAfterSecondRun =
+            await fixture.CaptureSchemaSnapshotAsync(connectionString);
+
+        await RunMigrationsAsync(freshConnectionString);
+        IReadOnlyList<string> freshSchemaAfterFirstRun =
+            await fixture.CaptureSchemaSnapshotAsync(freshConnectionString);
+        await RunMigrationsAsync(freshConnectionString);
+        IReadOnlyList<string> freshSchemaAfterSecondRun =
+            await fixture.CaptureSchemaSnapshotAsync(freshConnectionString);
+        await fixture.ExecuteAsync(
+            freshConnectionString,
+            "INSERT INTO sys_user(account_subject_hash) VALUES (repeat('d', 64));");
+        string insertedDefaults = await fixture.QueryScalarAsync<string>(
+            freshConnectionString,
+            """
+            SELECT identity_kind || '|' || anonymous_credential_level || '|' || anonymous_credential_status
+            FROM sys_user
+            ORDER BY id DESC
+            LIMIT 1;
+            """);
 
         await AssertLegacy20260517CommonUpgradeAsync(connectionString, legacyCounts);
+
+        AssertSchemaSnapshotEqual(
+            "representative legacy upgrade",
+            upgradedSchemaAfterFirstRun,
+            upgradedSchemaAfterSecondRun);
+        AssertSchemaSnapshotEqual(
+            "fresh bootstrap",
+            freshSchemaAfterFirstRun,
+            freshSchemaAfterSecondRun);
+        Assert.Equal("anonymous_account|basic|active", insertedDefaults);
 
         string? markdown = await fixture.QueryScalarAsync<string>(
             connectionString,
@@ -2121,6 +2155,22 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         return File.Exists(candidate)
             ? File.ReadAllText(candidate)
             : throw new FileNotFoundException($"Fixture SQL file was not found: {fileName}", candidate);
+    }
+
+    private static void AssertSchemaSnapshotEqual(
+        string scenario,
+        IReadOnlyList<string> first,
+        IReadOnlyList<string> second)
+    {
+        string[] firstOnly = [.. first.Except(second, StringComparer.Ordinal)];
+        string[] secondOnly = [.. second.Except(first, StringComparer.Ordinal)];
+
+        Assert.True(
+            firstOnly.Length == 0 && secondOnly.Length == 0,
+            $"{scenario} first-run-only schema objects:{Environment.NewLine}"
+            + $"{string.Join(Environment.NewLine, firstOnly)}{Environment.NewLine}"
+            + $"{scenario} second-run-only schema objects:{Environment.NewLine}"
+            + string.Join(Environment.NewLine, secondOnly));
     }
 
     private static ServiceProvider BuildProvider(

@@ -1,8 +1,10 @@
-namespace FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 
-public sealed partial class SchemaMigrationRegistry
+namespace FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
+
+internal static class LegacyIdentityMigrationDefinitions
 {
-    private static ISchemaMigrationDescriptor BuildReadEventRetirementCompatMigration()
+    internal static ISchemaMigrationDescriptor BuildReadEventRetirementCompatMigration()
         => new SchemaMigrationDescriptor(
             "20260715-pre-read-event-retirement-compat",
             "Create an empty compatibility table so previously released visit-log migrations remain replayable before the final aggregate-only retirement step.",
@@ -31,7 +33,7 @@ public sealed partial class SchemaMigrationRegistry
                 new EnsureColumnStep("sys_visit_log", "ip_hash", "varchar(64) NOT NULL DEFAULT ''")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildReadEventRetirementMigration()
+    internal static ISchemaMigrationDescriptor BuildReadEventRetirementMigration()
         => new SchemaMigrationDescriptor(
             "20260715-post-read-event-retirement",
             "Delete event-level reading trajectories and retain only bounded hourly/daily aggregates.",
@@ -53,7 +55,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropTableStep("sys_visit_log", DestructiveMigrationProofs.For("20260715-post-read-event-retirement"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildPublicArticleProjectionMigration()
+    internal static ISchemaMigrationDescriptor BuildPublicArticleProjectionMigration()
         => new SchemaMigrationDescriptor(
             "20260714-post-public-article-projection",
             "Expand the write-maintained public article binary projection, resumable backfill control, and shadow mismatch evidence.",
@@ -136,7 +138,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_public_article_projection_shadow_article_time ON public_article_projection_shadow_mismatch(article_id, observed_at_utc DESC);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildUserSessionCompatPreMigration()
+    internal static ISchemaMigrationDescriptor BuildUserSessionCompatPreMigration()
         => new SchemaMigrationDescriptor(
             "20260418-pre-user-session-compat",
             "Backfill legacy sys_user_session expiration columns before CodeFirst sync.",
@@ -183,7 +185,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentThreadCompatMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentThreadCompatMigration()
         => new SchemaMigrationDescriptor(
             "20260418-pre-comment-threading-compat",
             "Upgrade comment threading/delete columns before CodeFirst sync on legacy comment tables.",
@@ -218,7 +220,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildLegacy20260517ProfileCompatibilityMigration()
+    internal static ISchemaMigrationDescriptor BuildLegacy20260517ProfileCompatibilityMigration()
         => new SchemaMigrationDescriptor(
             "20260517-pre-legacy-profile-compat",
             "Align the 20260517 legacy PostgreSQL profile before CodeFirst shrink/expand operations.",
@@ -360,7 +362,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentThreadIndexMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentThreadIndexMigration()
         => new SchemaMigrationDescriptor(
             "20260418-post-comment-threading-indexes",
             "Align comment indexes to the current threading model.",
@@ -383,7 +385,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_comment_user_id_desc ON comment(user_id, id DESC);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildContentCompatMigration()
+    internal static ISchemaMigrationDescriptor BuildContentCompatMigration()
         => new SchemaMigrationDescriptor(
             "20260418-pre-content-compat",
             "Create compatibility content tables and backfill legacy article/page content before CodeFirst sync.",
@@ -489,7 +491,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildContentCleanupMigration()
+    internal static ISchemaMigrationDescriptor BuildContentCleanupMigration()
         => new SchemaMigrationDescriptor(
             "20260418-post-content-cleanup",
             "Finalize content migration, regenerate summaries, and delete legacy structures.",
@@ -526,7 +528,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("article", "content", DestructiveMigrationProofs.For("20260418-post-content-cleanup"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildMessagingSplitMigration()
+    internal static ISchemaMigrationDescriptor BuildMessagingSplitMigration()
         => new SchemaMigrationDescriptor(
             "20260418-post-messaging-split",
             "Backfill legacy sys_message/sys_user_message into msg_* tables and drop the old tables.",
@@ -630,7 +632,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropTableStep("sys_message", DestructiveMigrationProofs.For("20260418-post-messaging-split"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildMessageAccountPrincipalMigration()
+    internal static ISchemaMigrationDescriptor BuildMessageAccountPrincipalMigration()
         => new SchemaMigrationDescriptor(
             "20260620-post-message-account-principal",
             "Move message center sender identity from sys_user IDs to account and admin principal columns.",
@@ -868,7 +870,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_msg_participant_account_unread ON msg_participant_state(accountid, unreadcount DESC);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildMessageLegacyIdentityColumnsFinalizeMigration()
+    internal static ISchemaMigrationDescriptor BuildMessageLegacyIdentityColumnsFinalizeMigration()
         => new SchemaMigrationDescriptor(
             "20260621-post-message-legacy-identity-columns-finalize",
             "Drop legacy message user identity columns and identity sync triggers after account principal migration.",
@@ -889,7 +891,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("msg_participant_state", "userid", DestructiveMigrationProofs.For("20260621-post-message-legacy-identity-columns-finalize"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildUserSoftDeleteMigration()
+    internal static ISchemaMigrationDescriptor BuildUserSoftDeleteMigration()
         => new SchemaMigrationDescriptor(
             "20260418-post-user-soft-delete",
             "Ensure sys_user soft-delete columns exist on legacy databases.",
@@ -901,7 +903,7 @@ public sealed partial class SchemaMigrationRegistry
                 new EnsureColumnStep("sys_user", "deleted_reason", "varchar(256) NULL")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildUserSessionFinalizeMigration()
+    internal static ISchemaMigrationDescriptor BuildUserSessionFinalizeMigration()
         => new SchemaMigrationDescriptor(
             "20260418-post-user-session-finalize",
             "Finalize sys_user_session schema and remove legacy expiration columns.",
@@ -948,7 +950,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("sys_user_session", "expiresat", DestructiveMigrationProofs.For("20260418-post-user-session-finalize"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildUserSessionActiveUniqueMigration()
+    internal static ISchemaMigrationDescriptor BuildUserSessionActiveUniqueMigration()
         => new SchemaMigrationDescriptor(
             "20260625-post-user-session-active-unique",
             "Enforce one active user session per account.",
@@ -981,7 +983,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS ux_user_session_one_active_per_user ON sys_user_session(userid) WHERE revokedat IS NULL;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildUserAuthSecurityHardeningMigration()
+    internal static ISchemaMigrationDescriptor BuildUserAuthSecurityHardeningMigration()
         => new SchemaMigrationDescriptor(
             "20260602-post-user-auth-security-hardening",
             "Add MFA pending secret columns and remove legacy plaintext refresh token columns.",
@@ -1015,7 +1017,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("sys_user", "refresh_token_expiry_time", DestructiveMigrationProofs.For("20260602-post-user-auth-security-hardening"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildSysUserSecurityProfileSplitMigration()
+    internal static ISchemaMigrationDescriptor BuildSysUserSecurityProfileSplitMigration()
         => new SchemaMigrationDescriptor(
             "20260621-pre-sys-user-security-profile-split",
             "Move TOTP material out of sys_user and remove legacy login observation columns.",
@@ -1147,7 +1149,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("sys_user", "mfarecoverycodeshash", DestructiveMigrationProofs.For("20260621-pre-sys-user-security-profile-split"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildSysUserSecurityProfileSplitFinalizeMigration()
+    internal static ISchemaMigrationDescriptor BuildSysUserSecurityProfileSplitFinalizeMigration()
         => new SchemaMigrationDescriptor(
             "20260621-post-sys-user-security-profile-split-finalize",
             "Drop legacy sys_user security columns after older post-CodeFirst compatibility migrations run.",
@@ -1164,7 +1166,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("sys_user", "mfarecoverycodeshash", DestructiveMigrationProofs.For("20260621-post-sys-user-security-profile-split-finalize"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAdminPrincipalPlaneMigration()
+    internal static ISchemaMigrationDescriptor BuildAdminPrincipalPlaneMigration()
         => new SchemaMigrationDescriptor(
             "20260616-pre-admin-principal-plane",
             "Create independent admin principal, session, passkey credential and audit-log tables.",
@@ -1257,7 +1259,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAnonymousIdentityAccountSchemaMigration()
+    internal static ISchemaMigrationDescriptor BuildAnonymousIdentityAccountSchemaMigration()
         => new SchemaMigrationDescriptor(
             "20260616-pre-anonymous-identity-account-schema",
             "Reinterpret sys_user as an anonymous account container after password-era identity retirement.",
@@ -1293,7 +1295,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_public_handle_unique ON sys_user(public_handle) WHERE public_handle IS NOT NULL;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAccountSubjectHashExpandMigration()
+    internal static ISchemaMigrationDescriptor BuildAccountSubjectHashExpandMigration()
         => new SchemaMigrationDescriptor(
             "20260711-pre-account-subject-hash-expand",
             "Add the nullable physical account-subject projection for rolling compatibility.",

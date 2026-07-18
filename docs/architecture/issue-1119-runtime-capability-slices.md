@@ -7,14 +7,14 @@ Issue #1119 将后端 7 个高耦合服务、端点和组合根按 capability �
 | Logical component | Stable runtime type | Capability files |
 | --- | --- | --- |
 | Search index | `SearchIndexService` singleton | orchestration, artifact codec, runtime persistence, models, dictionary/tokenizer |
-| Schema migrations | `SchemaMigrationRegistry` singleton | descriptor order plus legacy/identity, security/projection, authoring/integrity descriptors |
+| Schema migrations | `SchemaMigrationRegistry` singleton | thin registry, validated manifest, release-range catalogs, domain-oriented definitions |
 | Authoring workflow | `AuthoringWorkflowService` scoped | drafts/preview, assets, analytics, moderation, import/export/AI |
 | Authoring API | `AuthoringEndpoints` static route boundary | route orchestration, workflow routes, moderation routes, operations routes, codec/helpers |
 | Articles | `ArticleService` scoped | detail/write orchestration, lifecycle/read models, cache/invalidation |
 | Public hot read | `PublicHotReadStore` and `PublicHotReadCounters` singletons | snapshot/store, serving, route classification, metrics/artifact factories |
 | Application composition | `WebApplicationCompositionExtensions` static composition root | pipeline/routes and HTML/CSP response materialization |
 
-Partial declarations are an implementation boundary only. The primary constructor remains on exactly one root file, so constructor injection, service identity and lifetime do not change. Extracted pure codec/policy helpers remain private members of the same runtime type; they are not registered as stateful services and cannot accidentally acquire a broader lifetime.
+Partial declarations are an implementation boundary only. The primary constructor remains on exactly one root file, so constructor injection, service identity and lifetime do not change. Extracted pure codec/policy helpers remain private members of the same runtime type; they are not registered as stateful services and cannot accidentally acquire a broader lifetime. Schema migration is the later #1266 exception: its stable singleton is now a non-partial adapter over an explicit versioned manifest, while descriptor implementations are non-service definition types.
 
 ## Runtime invariants
 

@@ -48,7 +48,7 @@ scenarios:
       code:
           - src/backend/Services/Security/AnonymousCommentPolicyService.cs
           - src/backend/Services/Security/CommentActorResolver.cs
-          - src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.CommentAuthorModeRetirement.cs
+          - src/backend/Infrastructure/SchemaMigration/Definitions/CommentAuthorModeRetirementMigrationDefinitions.cs
           - src/frontend/src/composables/useArticleDetailView.ts
       tests:
           - tests/backend/Unit/CommentAuthorModeRetirementTests.cs

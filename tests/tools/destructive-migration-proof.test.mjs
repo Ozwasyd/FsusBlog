@@ -11,13 +11,13 @@ const paths = {
   manifest: new URL('../../docs/schema-migrations/destructive-rollback-window-proofs.json', import.meta.url),
 }
 
-const registryDirectory = new URL('../../src/backend/Infrastructure/SchemaMigration/', import.meta.url)
-const registryFiles = (await readdir(registryDirectory))
-  .filter(name => /^SchemaMigrationRegistry(?:\..+)?\.cs$/u.test(name))
+const definitionsDirectory = new URL('../../src/backend/Infrastructure/SchemaMigration/Definitions/', import.meta.url)
+const definitionFiles = (await readdir(definitionsDirectory))
+  .filter(name => name.endsWith('MigrationDefinitions.cs'))
   .sort()
 const [entries, registrySources] = await Promise.all([
   Promise.all(Object.entries(paths).map(async ([name, path]) => [name, await readFile(path, 'utf8')])),
-  Promise.all(registryFiles.map(name => readFile(new URL(name, registryDirectory), 'utf8')))
+  Promise.all(definitionFiles.map(name => readFile(new URL(name, definitionsDirectory), 'utf8')))
 ])
 const source = { ...Object.fromEntries(entries), registry: registrySources.join('\n') }
 const manifest = JSON.parse(source.manifest)

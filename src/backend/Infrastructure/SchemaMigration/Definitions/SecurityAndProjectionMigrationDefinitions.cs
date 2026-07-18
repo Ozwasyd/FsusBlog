@@ -1,8 +1,10 @@
-namespace FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 
-public sealed partial class SchemaMigrationRegistry
+namespace FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
+
+internal static class SecurityAndProjectionMigrationDefinitions
 {
-    private static ISchemaMigrationDescriptor BuildAccountSubjectHashBackfillMigration()
+    internal static ISchemaMigrationDescriptor BuildAccountSubjectHashBackfillMigration()
         => new SchemaMigrationDescriptor(
             "20260711-post-account-subject-hash-backfill",
             "Backfill the physical account-subject projection with the canonical C# hasher and enforce its format.",
@@ -54,7 +56,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAdminAccountListKeysetIndexMigration()
+    internal static ISchemaMigrationDescriptor BuildAdminAccountListKeysetIndexMigration()
         => new SchemaMigrationDescriptor(
             "20260629-pre-admin-account-list-keyset-indexes",
             "Add keyset and prefix-search indexes for admin anonymous account listing.",
@@ -76,7 +78,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_user_public_handle_prefix ON sys_user(public_handle text_pattern_ops) WHERE public_handle IS NOT NULL;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildPasskeyUserHandleMigration()
+    internal static ISchemaMigrationDescriptor BuildPasskeyUserHandleMigration()
         => new SchemaMigrationDescriptor(
             "20260621-pre-passkey-user-handle",
             "Add per-account stable random WebAuthn user handle storage for anonymous passkeys.",
@@ -87,7 +89,7 @@ public sealed partial class SchemaMigrationRegistry
                 new EnsureColumnStep("sys_user", "passkey_user_handle", "varchar(128) NULL")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildPasskeyRecoveryKeyAccountIdMigration()
+    internal static ISchemaMigrationDescriptor BuildPasskeyRecoveryKeyAccountIdMigration()
         => new SchemaMigrationDescriptor(
             "20260621-pre-passkey-recovery-key-account-id",
             "Rename passkey and recovery key credential ownership columns from user_id to account_id.",
@@ -140,7 +142,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_account_recovery_key_lookup_active_unique ON account_recovery_key(lookup_id_hash) WHERE lookup_id_hash IS NOT NULL AND used_at IS NULL AND revoked_at IS NULL;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildPasskeyRecoveryKeyAccountIdPostCodeFirstCompatMigration()
+    internal static ISchemaMigrationDescriptor BuildPasskeyRecoveryKeyAccountIdPostCodeFirstCompatMigration()
         => new SchemaMigrationDescriptor(
             "20260615-post-passkey-recovery-key-account-id-compat",
             "Temporarily restore recovery key user_id compatibility after CodeFirst so the legacy recovery key descriptor remains idempotent.",
@@ -173,7 +175,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildUserLegacyIdentityColumnsFinalizeMigration()
+    internal static ISchemaMigrationDescriptor BuildUserLegacyIdentityColumnsFinalizeMigration()
         => new SchemaMigrationDescriptor(
             "20260621-post-user-legacy-identity-columns-finalize",
             "Drop legacy sys_user password/role columns after anonymous account schema is authoritative.",
@@ -188,7 +190,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("sys_user", "last_username_update_time", DestructiveMigrationProofs.For("20260621-post-user-legacy-identity-columns-finalize"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildSysUserUsernameFinalizeMigration()
+    internal static ISchemaMigrationDescriptor BuildSysUserUsernameFinalizeMigration()
         => new SchemaMigrationDescriptor(
             "20260621-post-sys-user-username-finalize",
             "Drop legacy sys_user username after CodeFirst has reconciled the anonymous account schema.",
@@ -199,7 +201,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("sys_user", "username", DestructiveMigrationProofs.For("20260621-post-sys-user-username-finalize"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAccountRecoveryKeyMigration()
+    internal static ISchemaMigrationDescriptor BuildAccountRecoveryKeyMigration()
         => new SchemaMigrationDescriptor(
             "20260616-post-account-recovery-key",
             "Create independent account recovery key storage for anonymous identity recovery.",
@@ -242,7 +244,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_account_recovery_key_lookup_active_unique ON account_recovery_key(lookup_id_hash) WHERE lookup_id_hash IS NOT NULL AND used_at IS NULL AND revoked_at IS NULL;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildPasskeyRecoveryKeyAccountIdFinalizerMigration()
+    internal static ISchemaMigrationDescriptor BuildPasskeyRecoveryKeyAccountIdFinalizerMigration()
         => new SchemaMigrationDescriptor(
             "20260621-post-passkey-recovery-key-account-id-finalize",
             "Finalize passkey and recovery key credential ownership indexes on account_id.",
@@ -272,7 +274,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_account_recovery_key_active_unique ON account_recovery_key(account_id) WHERE used_at IS NULL AND revoked_at IS NULL;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildRecoveryPasskeyCompletionIdempotencyMigration()
+    internal static ISchemaMigrationDescriptor BuildRecoveryPasskeyCompletionIdempotencyMigration()
         => new SchemaMigrationDescriptor(
             "20260711-post-recovery-passkey-completion-idempotency",
             "Persist recovery Passkey completion hashes for transactional and replay-safe account recovery.",
@@ -287,7 +289,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS ux_passkey_recovery_session_hash ON passkey_credential(recovery_session_hash) WHERE recovery_session_hash IS NOT NULL;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAnonymousCredentialAccountBindingMigration()
+    internal static ISchemaMigrationDescriptor BuildAnonymousCredentialAccountBindingMigration()
         => new SchemaMigrationDescriptor(
             "20260621-pre-anonymous-credential-account-binding",
             "Rename anonymous credential account-bound columns away from user/ZK commitment semantics.",
@@ -322,7 +324,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_account_binding ON anonymous_credential(account_binding_hash);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAnonymousCredentialAccountBindingLegacyCompatibilityMigration()
+    internal static ISchemaMigrationDescriptor BuildAnonymousCredentialAccountBindingLegacyCompatibilityMigration()
         => new SchemaMigrationDescriptor(
             "20260615-post-anonymous-credential-account-binding-legacy-compat",
             "Temporarily expose legacy anonymous credential columns so the old governance descriptor remains idempotent on fresh databases.",
@@ -334,7 +336,7 @@ public sealed partial class SchemaMigrationRegistry
                 new EnsureColumnStep("anonymous_credential", "commitment_hash", "varchar(128) NULL")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAnonymousCommentGovernanceMigration()
+    internal static ISchemaMigrationDescriptor BuildAnonymousCommentGovernanceMigration()
         => new SchemaMigrationDescriptor(
             "20260616-post-anonymous-comment-governance",
             "Create anonymous comment policy, credential, and nullifier governance tables.",
@@ -419,7 +421,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAnonymousCredentialAccountBindingFinalizeMigration()
+    internal static ISchemaMigrationDescriptor BuildAnonymousCredentialAccountBindingFinalizeMigration()
         => new SchemaMigrationDescriptor(
             "20260621-post-anonymous-credential-account-binding-finalize",
             "Drop legacy anonymous credential account binding columns and ensure account-bound indexes.",
@@ -454,7 +456,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS unique_idx_anonymous_credential_account_binding ON anonymous_credential(account_binding_hash);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAnonymousCredentialIssuanceAuditMigration()
+    internal static ISchemaMigrationDescriptor BuildAnonymousCredentialIssuanceAuditMigration()
         => new SchemaMigrationDescriptor(
             "20260618-post-anonymous-credential-issuance-audit",
             "Create unlinkable anonymous credential issuance audit table.",
@@ -507,7 +509,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("anonymous_credential_issuance_audit", "user_id", DestructiveMigrationProofs.For("20260618-post-anonymous-credential-issuance-audit"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildSecurityRiskEventPersistenceMigration()
+    internal static ISchemaMigrationDescriptor BuildSecurityRiskEventPersistenceMigration()
         => new SchemaMigrationDescriptor(
             "20260618-post-security-risk-event-persistence",
             "Create durable RiskControl event audit table.",
@@ -546,7 +548,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildSecurityRiskPseudonymEpochMigration()
+    internal static ISchemaMigrationDescriptor BuildSecurityRiskPseudonymEpochMigration()
         => new SchemaMigrationDescriptor(
             "20260715-post-security-risk-pseudonym-epoch",
             "Add keyed pseudonym epochs and remove historical unkeyed risk identity rows.",
@@ -572,7 +574,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_security_risk_event_epoch ON security_risk_event(pseudonym_epoch);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildSecurityPolicySnapshotMigration()
+    internal static ISchemaMigrationDescriptor BuildSecurityPolicySnapshotMigration()
         => new SchemaMigrationDescriptor(
             "20260619-post-security-policy-snapshot",
             "Create versioned RiskControl security policy snapshot storage.",
@@ -612,7 +614,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildSecurityPolicyVersionCounterMigration()
+    internal static ISchemaMigrationDescriptor BuildSecurityPolicyVersionCounterMigration()
         => new SchemaMigrationDescriptor(
             "20260625-post-security-policy-version-counter",
             "Create per-policy locked version counters for security policy snapshots.",
@@ -631,7 +633,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAnonymousCredentialRootMetadataMigration()
+    internal static ISchemaMigrationDescriptor BuildAnonymousCredentialRootMetadataMigration()
         => new SchemaMigrationDescriptor(
             "20260618-post-anonymous-credential-root-metadata",
             "Create public anonymous credential root and circuit metadata table.",
@@ -664,7 +666,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAnonymousCredentialRootLifecycleMigration()
+    internal static ISchemaMigrationDescriptor BuildAnonymousCredentialRootLifecycleMigration()
         => new SchemaMigrationDescriptor(
             "20260619-post-anonymous-credential-root-lifecycle",
             "Create anonymous credential root lifecycle epoch and revocation storage.",
@@ -718,7 +720,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildSecurityChallengePersistenceMigration()
+    internal static ISchemaMigrationDescriptor BuildSecurityChallengePersistenceMigration()
         => new SchemaMigrationDescriptor(
             "20260618-post-security-challenge-persistence",
             "Create auditable security challenge issuance and verification attempt storage.",
@@ -834,7 +836,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_security_challenge_attempt_outcome ON security_challenge_attempt(outcome, attempted_at_utc DESC);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentActorMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentActorMigration()
         => new SchemaMigrationDescriptor(
             "20260617-post-comment-actor-anonymous-default",
             "Allow anonymous comment actors and persist author display projections on comments.",
@@ -878,7 +880,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_comment_moderation_subject_hash ON comment(moderation_subject_hash);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentActorPreCodeFirstMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentActorPreCodeFirstMigration()
         => new SchemaMigrationDescriptor(
             "20260620-pre-comment-actor-codefirst-compat",
             "Backfill comment actor columns before CodeFirst touches legacy comment tables.",
@@ -903,7 +905,7 @@ public sealed partial class SchemaMigrationRegistry
                 new EnsureColumnStep("comment", "author_mode", "varchar(32) NOT NULL DEFAULT 'public'")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentAttributionIndexFinalizerMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentAttributionIndexFinalizerMigration()
         => new SchemaMigrationDescriptor(
             "20260621-post-comment-attribution-index-finalize",
             "Retire generic comment user_id index and keep only explicit public attribution lookup.",
@@ -917,7 +919,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_comment_attributable_public_user_id_desc ON comment(user_id, id DESC) WHERE author_mode = 'public' AND user_id IS NOT NULL;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAuditLogMigration()
+    internal static ISchemaMigrationDescriptor BuildAuditLogMigration()
         => new SchemaMigrationDescriptor(
             "20260418-post-audit-log",
             "Create structured audit log table and indexes.",
@@ -950,7 +952,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_audit_type_time ON sys_audit_log(type, occurred_at_utc DESC);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAuditLogStructuredFieldsMigration()
+    internal static ISchemaMigrationDescriptor BuildAuditLogStructuredFieldsMigration()
         => new SchemaMigrationDescriptor(
             "20260603-post-audit-structured-fields",
             "Add structured audit fields, privacy hashes, and tamper-evidence metadata.",
@@ -997,7 +999,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_record_hash ON sys_audit_log(record_hash) WHERE record_hash IS NOT NULL;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAuditLogStructuredFieldsPreCodeFirstMigration()
+    internal static ISchemaMigrationDescriptor BuildAuditLogStructuredFieldsPreCodeFirstMigration()
         => new SchemaMigrationDescriptor(
             "20260603-pre-audit-structured-fields-codefirst-compat",
             "Create structured audit fields before CodeFirst sync touches non-null audit columns.",
@@ -1049,7 +1051,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAuditLogChainTailIndexMigration()
+    internal static ISchemaMigrationDescriptor BuildAuditLogChainTailIndexMigration()
         => new SchemaMigrationDescriptor(
             "20260629-post-audit-chain-tail-index",
             "Add chain tail index for audit tamper evidence append lookups.",
@@ -1062,7 +1064,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_audit_chain_tail ON sys_audit_log(chain_id, id DESC) WHERE record_hash IS NOT NULL;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildFrontendRumMetricMigration()
+    internal static ISchemaMigrationDescriptor BuildFrontendRumMetricMigration()
         => new SchemaMigrationDescriptor(
             "20260603-post-frontend-rum-metric",
             "Move browser RUM telemetry out of the security audit log.",
@@ -1095,7 +1097,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_rum_page_type_time ON frontend_rum_metric(page_type, occurred_at_utc DESC);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCoverImageMigration()
+    internal static ISchemaMigrationDescriptor BuildCoverImageMigration()
         => new SchemaMigrationDescriptor(
             "20260508-pre-cover-image",
             "Add coverimageurl to article table.",
@@ -1106,7 +1108,7 @@ public sealed partial class SchemaMigrationRegistry
                 new EnsureColumnStep("article", "coverimageurl", "VARCHAR(512)")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildHumanReadEventMigration()
+    internal static ISchemaMigrationDescriptor BuildHumanReadEventMigration()
         => new SchemaMigrationDescriptor(
             "20260513-post-human-read-events",
             "Extend visit logs into the single human-read event source and seed legacy article views.",
@@ -1148,7 +1150,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_visit_proof_id ON sys_visit_log(proof_id) WHERE proof_id IS NOT NULL;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildVisitLogStatsRollupMigration()
+    internal static ISchemaMigrationDescriptor BuildVisitLogStatsRollupMigration()
         => new SchemaMigrationDescriptor(
             "20260629-post-visit-log-stats-rollup",
             "Add pre-aggregated visit log rollups for admin statistics.",
@@ -1234,7 +1236,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildArticleViewProjectionWatermarkMigration()
+    internal static ISchemaMigrationDescriptor BuildArticleViewProjectionWatermarkMigration()
         => new SchemaMigrationDescriptor(
             "20260629-post-article-view-projection-watermark",
             "Create durable article view projection repair watermark state.",
@@ -1270,7 +1272,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildTaxonomyCountProjectionMigration()
+    internal static ISchemaMigrationDescriptor BuildTaxonomyCountProjectionMigration()
         => new SchemaMigrationDescriptor(
             "20260629-post-taxonomy-count-projection",
             "Create public taxonomy count rollups for category/tag binary frames.",

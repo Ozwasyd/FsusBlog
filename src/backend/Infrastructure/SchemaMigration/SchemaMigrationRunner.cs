@@ -81,7 +81,7 @@ public sealed class SchemaMigrationRunner(
         await using IAsyncDisposable schemaLock = await _migrationLock.AcquireAsync(cancellationToken).ConfigureAwait(false);
         await EnsureHistoryTableAsync(cancellationToken).ConfigureAwait(false);
 
-        IReadOnlyList<ISchemaMigrationDescriptor> descriptors = ValidateAndSort(_registry.GetDescriptors());
+        IReadOnlyList<ISchemaMigrationDescriptor> descriptors = ValidateExecutionPlan(_registry.GetDescriptors());
         Dictionary<string, SchemaMigrationHistoryEntry> appliedHistory = await LoadHistoryAsync(cancellationToken).ConfigureAwait(false);
         ValidateAppliedChecksums(descriptors, appliedHistory);
 
@@ -192,24 +192,11 @@ public sealed class SchemaMigrationRunner(
             result.ToDetail());
     }
 
-    private static IReadOnlyList<ISchemaMigrationDescriptor> ValidateAndSort(IReadOnlyList<ISchemaMigrationDescriptor> descriptors)
+    private static IReadOnlyList<ISchemaMigrationDescriptor> ValidateExecutionPlan(
+        IReadOnlyList<ISchemaMigrationDescriptor> descriptors)
     {
-        string[] duplicates = descriptors
-            .GroupBy(static descriptor => descriptor.MigrationId, StringComparer.Ordinal)
-            .Where(static group => group.Count() > 1)
-            .Select(static group => group.Key)
-            .OrderBy(static id => id, StringComparer.Ordinal)
-            .ToArray();
-
-        if (duplicates.Length > 0)
-        {
-            throw new InvalidOperationException($"Duplicate schema migration ids found: {string.Join(", ", duplicates)}");
-        }
-
-        return descriptors
-            .OrderBy(static descriptor => descriptor.Phase)
-            .ThenBy(static descriptor => descriptor.MigrationId, StringComparer.Ordinal)
-            .ToArray();
+        SchemaMigrationManifest.ValidateExecutionOrder(descriptors);
+        return descriptors;
     }
 
     private static void ValidateAppliedChecksums(

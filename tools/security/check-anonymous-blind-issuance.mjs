@@ -68,7 +68,7 @@ for (const needle of [
 
 const auditEntity = read('src/backend/Entities/AnonymousCredentialIssuanceAudit.cs')
 rejectText(auditEntity, 'TraceId', 'issuance audit entity')
-const migration = read('src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.AnonymousPrivacy.cs')
+const migration = read('src/backend/Infrastructure/SchemaMigration/Definitions/AnonymousPrivacyMigrationDefinitions.cs')
 requireText(migration, 'SET trace_id = NULL', 'privacy migration')
 requireText(migration, "date_trunc('hour'", 'privacy migration')
 

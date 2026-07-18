@@ -9,6 +9,10 @@ const root = process.env.FSUSBLOG_REPO_ROOT
 
 const docsPath = path.join(root, 'docs/database-migration.md')
 const registryPath = path.join(root, 'src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs')
+const migrationRoot = path.dirname(registryPath)
+const definitionsPath = path.join(migrationRoot, 'Definitions')
+const catalogsPath = path.join(migrationRoot, 'Catalogs')
+const manifestPath = path.join(migrationRoot, 'SchemaMigrationManifest.cs')
 
 const expectedRows = [
   {
@@ -212,6 +216,13 @@ function readFile(filePath) {
   return fs.readFileSync(filePath, 'utf8')
 }
 
+function readSourceDirectory(directory) {
+  return fs.readdirSync(directory)
+    .filter((name) => name.endsWith('.cs'))
+    .sort((left, right) => left.localeCompare(right, 'en'))
+    .map((name) => ({ name, source: readFile(path.join(directory, name)) }))
+}
+
 function fail(message) {
   errors.push(message)
 }
@@ -278,24 +289,24 @@ function assertRegistryState(registry, rule) {
   const checks = rule.registry ?? {}
   if (checks.drop) {
     const [table, column] = checks.drop
-    const pattern = new RegExp(`new\\s+DropColumnStep\\("${escapeRegExp(table)}",\\s*"${escapeRegExp(column)}"\\)`, 'u')
+    const pattern = new RegExp(`new\\s+DropColumnStep\\(\\s*"${escapeRegExp(table)}",\\s*"${escapeRegExp(column)}"\\s*,`, 'u')
     if (!pattern.test(registry)) {
-      fail(`${rule.column} 文档标记为 dropped，但 SchemaMigrationRegistry.cs 缺少 DropColumnStep("${table}", "${column}")`)
+      fail(`${rule.column} 文档标记为 dropped，但 migration definitions 缺少 DropColumnStep("${table}", "${column}")`)
     }
   }
 
   if (checks.ensure) {
     const [table, column] = checks.ensure
-    const pattern = new RegExp(`new\\s+EnsureColumnStep\\("${escapeRegExp(table)}",\\s*"${escapeRegExp(column)}"`, 'u')
+    const pattern = new RegExp(`new\\s+EnsureColumnStep\\(\\s*"${escapeRegExp(table)}",\\s*"${escapeRegExp(column)}"`, 'u')
     if (!pattern.test(registry)) {
-      fail(`${rule.column} 文档标记为保留，但 SchemaMigrationRegistry.cs 缺少 EnsureColumnStep("${table}", "${column}", ...)`)
+      fail(`${rule.column} 文档标记为保留，但 migration definitions 缺少 EnsureColumnStep("${table}", "${column}", ...)`)
     }
   }
 
   if (checks.dropTable) {
-    const pattern = new RegExp(`new\\s+DropTableStep\\("${escapeRegExp(checks.dropTable)}"\\)`, 'u')
+    const pattern = new RegExp(`new\\s+DropTableStep\\(\\s*"${escapeRegExp(checks.dropTable)}"\\s*,`, 'u')
     if (!pattern.test(registry)) {
-      fail(`${rule.column} 文档标记为 dropped，但 SchemaMigrationRegistry.cs 缺少 DropTableStep("${checks.dropTable}")`)
+      fail(`${rule.column} 文档标记为 dropped，但 migration definitions 缺少 DropTableStep("${checks.dropTable}")`)
     }
   }
 
@@ -303,41 +314,99 @@ function assertRegistryState(registry, rule) {
     const [table, column] = checks.ensureOrReference
     const pattern = new RegExp(`table_name\\s*=\\s*'${escapeRegExp(table)}'[\\s\\S]+column_name\\s*=\\s*'${escapeRegExp(column)}'`, 'u')
     if (!pattern.test(registry)) {
-      fail(`${rule.column} 文档标记为保留，但 SchemaMigrationRegistry.cs 缺少 ${table}.${column} 兼容引用`)
+      fail(`${rule.column} 文档标记为保留，但 migration definitions 缺少 ${table}.${column} 兼容引用`)
     }
   }
 
   if (checks.rename) {
     const [table, from, to] = checks.rename
-    const pattern = new RegExp(`new\\s+RenameColumnStep\\("${escapeRegExp(table)}",\\s*"${escapeRegExp(from)}",\\s*"${escapeRegExp(to)}"\\)`, 'u')
+    const pattern = new RegExp(`new\\s+RenameColumnStep\\(\\s*"${escapeRegExp(table)}",\\s*"${escapeRegExp(from)}",\\s*"${escapeRegExp(to)}"\\)`, 'u')
     if (!pattern.test(registry)) {
-      fail(`${rule.column} 文档标记为 rename legacy，但 SchemaMigrationRegistry.cs 缺少 RenameColumnStep("${table}", "${from}", "${to}")`)
+      fail(`${rule.column} 文档标记为 rename legacy，但 migration definitions 缺少 RenameColumnStep("${table}", "${from}", "${to}")`)
     }
   }
 
   if (checks.notDropped) {
     const [table, column] = rule.column.split('.')
-    const pattern = new RegExp(`new\\s+DropColumnStep\\("${escapeRegExp(table)}",\\s*"${escapeRegExp(column)}"\\)`, 'u')
+    const pattern = new RegExp(`new\\s+DropColumnStep\\(\\s*"${escapeRegExp(table)}",\\s*"${escapeRegExp(column)}"(?:\\s*,|\\s*\\))`, 'u')
     if (pattern.test(registry)) {
-      fail(`${rule.column} 文档标记为保留，但 SchemaMigrationRegistry.cs 存在 DropColumnStep("${table}", "${column}")`)
+      fail(`${rule.column} 文档标记为保留，但 migration definitions 存在 DropColumnStep("${table}", "${column}")`)
     }
   }
 
   for (const literal of [checks.copiedTo, checks.replacement].filter(Boolean)) {
     if (!registry.includes(literal)) {
-      fail(`${rule.column} 文档标记的迁移目标 ${literal} 未出现在 SchemaMigrationRegistry.cs`)
+      fail(`${rule.column} 文档标记的迁移目标 ${literal} 未出现在 migration definitions`)
     }
   }
 
   if (rule.droppedAtVersion !== 'n/a' && !registry.includes(rule.droppedAtVersion)) {
-    fail(`${rule.column} 的 dropped-at-version ${rule.droppedAtVersion} 未出现在 SchemaMigrationRegistry.cs`)
+    fail(`${rule.column} 的 dropped-at-version ${rule.droppedAtVersion} 未出现在 migration definitions`)
+  }
+}
+
+function assertCatalogStructure(registry, definitions, catalogs, manifest) {
+  if (registry.includes('partial class SchemaMigrationRegistry')) {
+    fail('SchemaMigrationRegistry 必须是 manifest 的薄适配器，不得继续声明 partial 聚合')
+  }
+  if (registry.includes('new SchemaMigrationDescriptor(') || /Build\w+Migration\(\)/u.test(registry)) {
+    fail('SchemaMigrationRegistry 不得直接声明或追加 migration descriptor')
+  }
+
+  const legacyRegistryPartials = fs.readdirSync(migrationRoot)
+    .filter((name) => /^SchemaMigrationRegistry\..+\.cs$/u.test(name))
+  if (legacyRegistryPartials.length > 0) {
+    fail(`旧 SchemaMigrationRegistry partial 文件仍存在: ${legacyRegistryPartials.join(', ')}`)
+  }
+
+  const definitionMethods = definitions.flatMap(({ name, source }) => {
+    if (source.includes('partial class')) {
+      fail(`migration definition 不得继续使用巨型 partial 类型: ${name}`)
+    }
+    return [...source.matchAll(/internal static ISchemaMigrationDescriptor (Build\w+Migration)\(\)/gu)]
+      .map((match) => match[1])
+  })
+  const catalogMethods = catalogs.flatMap(({ source }) =>
+    [...source.matchAll(/\w+MigrationDefinitions\.(Build\w+Migration)\(\)/gu)]
+      .map((match) => match[1]))
+
+  const duplicateDefinitionMethods = definitionMethods
+    .filter((method, index) => definitionMethods.indexOf(method) !== index)
+  const duplicateCatalogMethods = catalogMethods
+    .filter((method, index) => catalogMethods.indexOf(method) !== index)
+  if (duplicateDefinitionMethods.length > 0) {
+    fail(`migration definition method 重复: ${[...new Set(duplicateDefinitionMethods)].join(', ')}`)
+  }
+  if (duplicateCatalogMethods.length > 0) {
+    fail(`migration catalog 重复注册 descriptor: ${[...new Set(duplicateCatalogMethods)].join(', ')}`)
+  }
+
+  const sortedDefinitions = [...definitionMethods].sort()
+  const sortedCatalogs = [...catalogMethods].sort()
+  if (JSON.stringify(sortedDefinitions) !== JSON.stringify(sortedCatalogs)) {
+    const missing = sortedDefinitions.filter((method) => !sortedCatalogs.includes(method))
+    const unknown = sortedCatalogs.filter((method) => !sortedDefinitions.includes(method))
+    fail(`migration catalog/definition 不一致: missing=[${missing.join(', ')}], unknown=[${unknown.join(', ')}]`)
+  }
+
+  for (const { name, source } of catalogs.filter(({ name }) => /^SchemaMigrationCatalog\d+To\d+\.cs$/u.test(name))) {
+    const typeMatch = source.match(/internal static class (SchemaMigrationCatalog\d+To\d+)/u)
+    if (!typeMatch || !manifest.includes(`${typeMatch[1]}.Create()`)) {
+      fail(`主 manifest 未注册 catalog: ${name}`)
+    }
   }
 }
 
 const errors = []
 const docs = readFile(docsPath)
-const registry = readFile(registryPath)
+const registryAdapter = readFile(registryPath)
+const definitions = readSourceDirectory(definitionsPath)
+const catalogs = readSourceDirectory(catalogsPath)
+const registry = definitions.map(({ source }) => source).join('\n')
+const manifest = readFile(manifestPath)
 const docRows = parseFinalStateTable(docs)
+
+assertCatalogStructure(registryAdapter, definitions, catalogs, manifest)
 
 for (const expected of expectedRows) {
   const actual = docRows.get(expected.column)

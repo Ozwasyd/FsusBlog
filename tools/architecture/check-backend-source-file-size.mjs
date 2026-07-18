@@ -13,8 +13,15 @@ const components = [
   },
   {
     id: 'schema-migration-registry',
-    roots: ['src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs'],
-    minimumFiles: 4
+    roots: [
+      'src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs',
+      'src/backend/Infrastructure/SchemaMigration/SchemaMigrationManifest.cs'
+    ],
+    directories: [
+      'src/backend/Infrastructure/SchemaMigration/Catalogs',
+      'src/backend/Infrastructure/SchemaMigration/Definitions'
+    ],
+    minimumFiles: 13
   },
   {
     id: 'authoring-workflow',
@@ -62,6 +69,14 @@ function componentFiles(component) {
       if (!entry.isFile() || !entry.name.endsWith('.cs')) continue
       const entryName = basename(entry.name, '.cs')
       if (entryName === rootName || entryName.startsWith(`${rootName}.`)) {
+        selected.add(resolve(directory, entry.name))
+      }
+    }
+  }
+  for (const directoryPath of component.directories ?? []) {
+    const directory = resolve(root, directoryPath)
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.isFile() && entry.name.endsWith('.cs')) {
         selected.add(resolve(directory, entry.name))
       }
     }

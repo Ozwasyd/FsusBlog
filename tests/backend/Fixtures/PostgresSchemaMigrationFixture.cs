@@ -1,3 +1,5 @@
+#nullable enable
+
 using System.Diagnostics;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using Npgsql;
@@ -157,6 +159,55 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
         command.CommandText = sql;
         object? value = await command.ExecuteScalarAsync().ConfigureAwait(false);
         return (T)Convert.ChangeType(value!, typeof(T))!;
+    }
+
+    public async Task<IReadOnlyList<string>> CaptureSchemaSnapshotAsync(string connectionString)
+    {
+        const string Sql = """
+            WITH schema_objects AS (
+                SELECT
+                    'column|' || table_name || '|' || column_name || '|'
+                    || data_type || '|' || is_nullable || '|'
+                    || COALESCE(column_default, '') AS object
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+
+                UNION ALL
+
+                SELECT
+                    'index|' || tablename || '|' || indexname || '|' || indexdef AS object
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+
+                UNION ALL
+
+                SELECT
+                    'constraint|' || table_name.relname || '|' || constraint_name.conname
+                    || '|' || pg_get_constraintdef(constraint_name.oid, true) AS object
+                FROM pg_constraint AS constraint_name
+                INNER JOIN pg_class AS table_name
+                    ON table_name.oid = constraint_name.conrelid
+                INNER JOIN pg_namespace AS schema_name
+                    ON schema_name.oid = table_name.relnamespace
+                WHERE schema_name.nspname = 'public'
+            )
+            SELECT object
+            FROM schema_objects
+            ORDER BY object;
+            """;
+
+        var snapshot = new List<string>();
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = Sql;
+        await using NpgsqlDataReader reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            snapshot.Add(reader.GetString(0));
+        }
+
+        return snapshot;
     }
 
     public async Task RestoreCustomDumpAsync(string connectionString, string dumpPath)

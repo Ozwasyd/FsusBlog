@@ -1,8 +1,10 @@
-namespace FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 
-public sealed partial class SchemaMigrationRegistry
+namespace FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
+
+internal static class AnonymousEligibilityPredicateMigrationDefinitions
 {
-    private static ISchemaMigrationDescriptor BuildAnonymousEligibilityPredicatePreCodeFirstMigration()
+    internal static ISchemaMigrationDescriptor BuildAnonymousEligibilityPredicatePreCodeFirstMigration()
         => new SchemaMigrationDescriptor(
             "20260716-pre-anonymous-eligibility-predicate",
             "Expand comment storage with low-cardinality anonymous policy predicates.",
@@ -14,7 +16,7 @@ public sealed partial class SchemaMigrationRegistry
                 new EnsureColumnStep("comment", "anonymous_requires_moderation", "boolean NULL")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAnonymousEligibilityPredicateMigration()
+    internal static ISchemaMigrationDescriptor BuildAnonymousEligibilityPredicateMigration()
         => new SchemaMigrationDescriptor(
             "20260716-post-anonymous-eligibility-predicate",
             "Erase precise anonymous credential attributes and retain only policy-minimal predicates.",

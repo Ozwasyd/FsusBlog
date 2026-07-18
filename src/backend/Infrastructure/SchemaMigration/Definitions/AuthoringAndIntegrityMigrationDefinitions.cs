@@ -1,8 +1,12 @@
-namespace FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 
-public sealed partial class SchemaMigrationRegistry
+namespace FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
+
+internal static class AuthoringAndIntegrityMigrationDefinitions
 {
-    private static ISchemaMigrationDescriptor BuildAuthorAnalyticsRollupMigration()
+    private const string LegacyAuthoringWorkspaceTablesChecksum = "6D43EB5F292169C39F022C7EE5F81591DBD28B3F89F83BB42FE75764B3E1DD77";
+
+    internal static ISchemaMigrationDescriptor BuildAuthorAnalyticsRollupMigration()
         => new SchemaMigrationDescriptor(
             "20260629-post-author-analytics-rollups",
             "Create rollup tables for author analytics dashboard reads.",
@@ -177,7 +181,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildVisitLogAnonymousAttributionFinalizeMigration()
+    internal static ISchemaMigrationDescriptor BuildVisitLogAnonymousAttributionFinalizeMigration()
         => new SchemaMigrationDescriptor(
             "20260621-post-visit-log-anonymous-attribution-finalize",
             "Drop legacy account binding columns from human-read visit logs.",
@@ -189,7 +193,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("sys_visit_log", "user_id", DestructiveMigrationProofs.For("20260621-post-visit-log-anonymous-attribution-finalize"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildVisitLogIpAnonymizationMigration()
+    internal static ISchemaMigrationDescriptor BuildVisitLogIpAnonymizationMigration()
         => new SchemaMigrationDescriptor(
             "20260621-post-visit-log-ip-anonymization",
             "Replace raw visit log IP persistence with server-peppered anonymous hashes.",
@@ -201,7 +205,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("sys_visit_log", "ip", DestructiveMigrationProofs.For("20260621-post-visit-log-ip-anonymization"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildVisitLogIpPseudonymEpochCompatMigration()
+    internal static ISchemaMigrationDescriptor BuildVisitLogIpPseudonymEpochCompatMigration()
         => new SchemaMigrationDescriptor(
             "20260715-pre-visit-log-ip-pseudonym-epoch",
             "Erase stable legacy visit-log hashes and add purpose-bound metadata before CodeFirst narrows the hash column.",
@@ -233,7 +237,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_visit_ip_pseudonym ON sys_visit_log(ip_hash_key_epoch, ip_hash_window_utc, ip_hash);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAuthoringAdminPrincipalAttributionMigration()
+    internal static ISchemaMigrationDescriptor BuildAuthoringAdminPrincipalAttributionMigration()
         => new SchemaMigrationDescriptor(
             "20260621-pre-authoring-admin-principal-attribution",
             "Rename authoring draft and revision attribution columns to independent admin principal semantics.",
@@ -265,7 +269,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_article_draft_admin_principal_key ON article_draft(owner_admin_principal_id, draft_key);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildSingleAuthorArticleLifecycleMigration()
+    internal static ISchemaMigrationDescriptor BuildSingleAuthorArticleLifecycleMigration()
         => new SchemaMigrationDescriptor(
             "20260518-pre-single-author-article-lifecycle",
             "Add article lifecycle state for draft, scheduled, published, archived, and deleted flows.",
@@ -303,7 +307,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_article_scheduled_publish ON article(status, scheduled_publish_at) WHERE status = 1;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildSingleAuthorArticleLifecycleIndexMigration()
+    internal static ISchemaMigrationDescriptor BuildSingleAuthorArticleLifecycleIndexMigration()
         => new SchemaMigrationDescriptor(
             "20260518-post-single-author-article-lifecycle-indexes",
             "Ensure article lifecycle indexes exist after CodeFirst creates fresh article tables.",
@@ -319,7 +323,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_article_scheduled_publish ON article(status, scheduled_publish_at) WHERE status = 1;")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildPublicArticleListKeysetIndexMigration()
+    internal static ISchemaMigrationDescriptor BuildPublicArticleListKeysetIndexMigration()
         => new SchemaMigrationDescriptor(
             "20260628-post-public-article-list-keyset-indexes",
             "Ensure public article list keyset pagination and tag filters use covering indexes.",
@@ -338,7 +342,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_article_tag_tagid_articleid ON article_tag(tagid, articleid);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildArticleMutationOutboxEdgeMigration()
+    internal static ISchemaMigrationDescriptor BuildArticleMutationOutboxEdgeMigration()
         => new SchemaMigrationDescriptor(
             "20260618-post-article-mutation-outbox-edge",
             "Create edge-level replay state for article mutation outbox events.",
@@ -373,7 +377,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildArticleMutationOutboxClaimLeaseMigration()
+    internal static ISchemaMigrationDescriptor BuildArticleMutationOutboxClaimLeaseMigration()
         => new SchemaMigrationDescriptor(
             "20260715-post-article-mutation-outbox-claim-lease",
             "Add tokenized claim leases and deterministic edge delivery keys to article mutation outbox replay.",
@@ -392,7 +396,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_article_mutation_outbox_claim ON article_mutation_outbox(status, claim_expires_at, id);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildActiveReleaseFenceDurableWitnessMigration()
+    internal static ISchemaMigrationDescriptor BuildActiveReleaseFenceDurableWitnessMigration()
         => new SchemaMigrationDescriptor(
             "20260715-post-active-release-fence-durable-witness",
             "Create the durable PostgreSQL witness for the active release generation fence.",
@@ -420,7 +424,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildActiveReleaseFencedCommitLedgerMigration()
+    internal static ISchemaMigrationDescriptor BuildActiveReleaseFencedCommitLedgerMigration()
         => new SchemaMigrationDescriptor(
             "20260715-post-active-release-fenced-commit-ledger",
             "Create the durable transaction-enlistment ledger for active release fenced commits.",
@@ -458,7 +462,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAssetLibraryArticleRefMigration()
+    internal static ISchemaMigrationDescriptor BuildAssetLibraryArticleRefMigration()
         => new SchemaMigrationDescriptor(
             "20260629-post-asset-library-article-ref",
             "Create article-scoped asset reference projection for targeted reindex.",
@@ -486,7 +490,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAuthoringWorkspaceTablesMigration()
+    internal static ISchemaMigrationDescriptor BuildAuthoringWorkspaceTablesMigration()
         => new SchemaMigrationDescriptor(
             "20260518-post-authoring-workspace-tables",
             "Create durable authoring tables for server drafts, revisions, assets, and site subscriptions.",
@@ -579,7 +583,7 @@ public sealed partial class SchemaMigrationRegistry
             ],
             CompatibleChecksums: [LegacyAuthoringWorkspaceTablesChecksum]);
 
-    private static ISchemaMigrationDescriptor BuildSiteSubscriptionHmacFinalizeMigration()
+    internal static ISchemaMigrationDescriptor BuildSiteSubscriptionHmacFinalizeMigration()
         => new SchemaMigrationDescriptor(
             "20260709-post-site-subscription-hmac-finalize",
             "Finalize site subscription HMAC identifiers and disable legacy SHA-256 rows.",
@@ -631,7 +635,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildClearLegacyPublicArtifactsMigration()
+    internal static ISchemaMigrationDescriptor BuildClearLegacyPublicArtifactsMigration()
         => new SchemaMigrationDescriptor(
             "20260709-post-clear-legacy-public-artifacts",
             "Clear legacy ArticleDetail AEDS files after Rights V3 cutover.",
@@ -642,7 +646,7 @@ public sealed partial class SchemaMigrationRegistry
                 new ClearLegacyPublicArtifactsStep()
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentModerationMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentModerationMigration()
         => new SchemaMigrationDescriptor(
             "20260518-pre-comment-moderation",
             "Add comment moderation state, reason, actor, and timestamp.",
@@ -659,7 +663,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_comment_moderation_status_time ON comment(moderation_status, create_time DESC);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentModerationAdminPrincipalAttributionMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentModerationAdminPrincipalAttributionMigration()
         => new SchemaMigrationDescriptor(
             "20260621-pre-comment-moderation-admin-principal-attribution",
             "Move comment moderation attribution from legacy user id to admin principal id.",
@@ -678,7 +682,7 @@ public sealed partial class SchemaMigrationRegistry
                 new DropColumnStep("comment", "moderated_by_user_id", DestructiveMigrationProofs.For("20260621-pre-comment-moderation-admin-principal-attribution"))
             ]);
 
-    private static ISchemaMigrationDescriptor BuildArticleRevisionAtomicRevisionNoMigration()
+    internal static ISchemaMigrationDescriptor BuildArticleRevisionAtomicRevisionNoMigration()
         => new SchemaMigrationDescriptor(
             "20260625-post-article-revision-atomic-revision-no",
             "Enforce per-article unique revision numbers before atomic revision allocation.",
@@ -691,7 +695,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS ux_article_revision_article_revision_no ON article_revision(article_id, revision_no);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildArticlePublishProofMigration()
+    internal static ISchemaMigrationDescriptor BuildArticlePublishProofMigration()
         => new SchemaMigrationDescriptor(
             "20260704-post-article-publish-proof",
             "Create durable publish proof records for signed article revision artifacts.",
@@ -749,7 +753,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildArticleRightsV3SchemaMigration()
+    internal static ISchemaMigrationDescriptor BuildArticleRightsV3SchemaMigration()
         => new SchemaMigrationDescriptor(
             "20260704-post-article-rights-v3-schema",
             "Create Rights V3 policy, snapshot, and proof tables with legacy article backfill seeds.",
@@ -971,7 +975,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildIntegrityTransparencyLogMigration()
+    internal static ISchemaMigrationDescriptor BuildIntegrityTransparencyLogMigration()
         => new SchemaMigrationDescriptor(
             "20260704-post-integrity-transparency-log",
             "Create local append-only transparency log for publish proof history.",
@@ -1038,7 +1042,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildIntegrityMerkleCheckpointMigration()
+    internal static ISchemaMigrationDescriptor BuildIntegrityMerkleCheckpointMigration()
         => new SchemaMigrationDescriptor(
             "20260704-post-integrity-merkle-checkpoint",
             "Create signed Merkle checkpoints for transparency log inclusion proofs.",
@@ -1093,7 +1097,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAuthoringDraftLifecycleMigration()
+    internal static ISchemaMigrationDescriptor BuildAuthoringDraftLifecycleMigration()
         => new SchemaMigrationDescriptor(
             "20260518-post-authoring-draft-lifecycle",
             "Persist article lifecycle fields in durable authoring drafts.",
@@ -1105,7 +1109,7 @@ public sealed partial class SchemaMigrationRegistry
                 new EnsureColumnStep("article_draft", "scheduled_publish_at", "timestamp NULL")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildAuthoringAdminPrincipalAttributionIndexMigration()
+    internal static ISchemaMigrationDescriptor BuildAuthoringAdminPrincipalAttributionIndexMigration()
         => new SchemaMigrationDescriptor(
             "20260621-post-authoring-admin-principal-attribution-indexes",
             "Ensure authoring draft admin-principal index exists after CodeFirst creates fresh tables.",
@@ -1118,7 +1122,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_article_draft_admin_principal_key ON article_draft(owner_admin_principal_id, draft_key);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentModerationIndexMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentModerationIndexMigration()
         => new SchemaMigrationDescriptor(
             "20260518-post-comment-moderation-indexes",
             "Ensure comment moderation indexes exist after CodeFirst creates fresh comment tables.",
@@ -1131,7 +1135,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_comment_moderation_status_time ON comment(moderation_status, create_time DESC);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentRegionComplianceMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentRegionComplianceMigration()
         => new SchemaMigrationDescriptor(
             "20260610-post-comment-region-compliance",
             "Create region-aware comment compliance storage and lookup indexes.",
@@ -1172,7 +1176,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_comment_region_compliance_policy ON comment_region_compliance(policy_version, created_at_utc DESC);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentBlockedRegionLookupMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentBlockedRegionLookupMigration()
         => new SchemaMigrationDescriptor(
             "20260628-post-comment-blocked-region-lookup",
             "Create indexable per-region comment visibility lookup rows.",
@@ -1204,7 +1208,7 @@ public sealed partial class SchemaMigrationRegistry
                     """)
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentModerationSignalMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentModerationSignalMigration()
         => new SchemaMigrationDescriptor(
             "20260610-post-comment-moderation-signal",
             "Create optional anti-spam model signal storage for comment moderation.",
@@ -1251,7 +1255,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_comment_moderation_signal_second_round ON comment_moderation_signal(needs_second_round, created_at_utc DESC);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentModerationSignalLatestIndexMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentModerationSignalLatestIndexMigration()
         => new SchemaMigrationDescriptor(
             "20260629-post-comment-moderation-signal-latest-index",
             "Index moderation signals for latest-per-comment queue lookups.",
@@ -1264,7 +1268,7 @@ public sealed partial class SchemaMigrationRegistry
                     "CREATE INDEX IF NOT EXISTS idx_comment_moderation_signal_comment_created ON comment_moderation_signal(comment_id, created_at_utc DESC, id DESC);")
             ]);
 
-    private static ISchemaMigrationDescriptor BuildCommentPublicHotPathIndexMigration()
+    internal static ISchemaMigrationDescriptor BuildCommentPublicHotPathIndexMigration()
         => new SchemaMigrationDescriptor(
             "20260603-post-comment-public-hot-path-indexes",
             "Add partial indexes for public approved comment roots, replies, reply counts, and recent stats.",
