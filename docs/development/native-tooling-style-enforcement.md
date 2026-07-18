@@ -58,6 +58,17 @@ An exception preserves only the boundary spelling. Internal wrappers still retur
 
 ## Migration discipline
 
-Each formatter-only migration is isolated from semantic changes and recorded by its real commit SHA. The current sequence is native `13e382d6`, JSON `e4cb5b4e`, JSONC `677b4657` / `482035c6`, YAML `e4f192d2`, Shell `4eefccaf`, CMake `cd6926a7`, and Markdown `ba2833d0`. After dependency-ordered integration, those real pure-format commits are added to `.git-blame-ignore-revs`; placeholder hashes and mixed behavior/format commits are rejected.
+Each formatter-only migration is isolated from semantic changes and recorded by its real, reachable commit SHA. Dependency-ordered integration required a few current-baseline batches where later issues added files after the first migration; every batch remains purely mechanical.
+
+| Surface | Pure format commit(s) |
+| --- | --- |
+| C++ | `6e140ce9def52fb5120c48a377ef7a4a4fdf16c9` |
+| JSON / JSONC | `dc804d61a416c12306724dc8fa8a251bc04da833`, `98b7f65b0df3715ef21a5f4b9c6c9d6b39cfa01e`, `2af86bc584f263d4177a5596da110ebbe8c67081` |
+| YAML | `5108de15b762877205b30527c0cdedccc2fe84c2` |
+| CMake | `b3dab49538a9b24d0047e387f20595b58c39c0c8` |
+| Markdown | `553a3f4fafb7bcd2c8cb048a62d8378f153d59d7`, `2d4101efba4e9b056a291ca4d1eed50cec07168f`, `494b36e41942402cc35c5997bb0a6840e846af57` |
+| Shell | `465c8b3cf0387f157d5f82cf8bab5df1964ddf5a` |
+
+The same exact SHA set is registered in `.git-blame-ignore-revs`; placeholder hashes and mixed behavior/format commits are rejected.
 
 The positive and aggregate-negative fixtures live under `tests/fixtures/issue-1160-native-tooling-style/`. The focused contract test proves portable fallback behavior, exception boundaries, full-mode digest invalidation, formatter idempotence and wrapper parity.
