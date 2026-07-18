@@ -11,11 +11,17 @@ using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
+/// <summary>
+/// Builds a normalized risk-control context from trusted request and principal state.
+/// </summary>
 public interface IRiskControlContextFactory
 {
     RiskControlContext Create(HttpContext context);
 }
 
+/// <summary>
+/// Defines resolution states used by request-derived risk-control fields.
+/// </summary>
 public static class RiskControlContextStatuses
 {
     public const string Resolved = "resolved";
@@ -24,6 +30,9 @@ public static class RiskControlContextStatuses
     public const string Invalid = "invalid";
 }
 
+/// <summary>
+/// Defines the authenticated-principal categories exposed to risk policy evaluation.
+/// </summary>
 public static class RiskControlActorStatuses
 {
     public const string Anonymous = "anonymous";
@@ -31,12 +40,29 @@ public static class RiskControlActorStatuses
     public const string AdminPrincipal = "admin_principal";
 }
 
+/// <summary>
+/// Defines the supported user identity domains used in risk proof binding.
+/// </summary>
 public static class RiskControlIdentityKinds
 {
     public const string Anonymous = "anonymous";
     public const string LegacyUser = "legacy_user";
 }
 
+/// <summary>
+/// Captures normalized request, actor, device, and region inputs consumed by risk policy decisions.
+/// </summary>
+/// <param name="ActionName">Registered action identifier, or an empty value when endpoint metadata is missing.</param>
+/// <param name="RouteKey">Resolved route-specific policy key.</param>
+/// <param name="ActionStatus">Resolution status for action metadata.</param>
+/// <param name="ClientIp">Normalized client IP identity.</param>
+/// <param name="UserAgent">Request user-agent value.</param>
+/// <param name="UserAgentStatus">Presence status for the user-agent signal.</param>
+/// <param name="Actor">Normalized authenticated or anonymous actor context.</param>
+/// <param name="DeviceFingerprint">Validated device-fingerprint context.</param>
+/// <param name="Region">Normalized region hint and provenance.</param>
+/// <param name="VerifiedCrawler">Whether crawler verification succeeded.</param>
+/// <param name="SocialPreviewBot">Whether the request represents a recognized social preview bot.</param>
 public sealed record RiskControlContext(
     string ActionName,
     string RouteKey,
@@ -56,6 +82,16 @@ public sealed record RiskControlContext(
     }
 }
 
+/// <summary>
+/// Describes the principal identity material allowed to influence a risk decision or proof binding.
+/// </summary>
+/// <param name="Status">Actor authentication category.</param>
+/// <param name="IdentityKind">User identity domain, or anonymous when no user identity is present.</param>
+/// <param name="UserId">Legacy user identifier when available.</param>
+/// <param name="AccountSubjectHash">Stable account subject hash when available.</param>
+/// <param name="SessionId">User session identifier when available.</param>
+/// <param name="AdminPrincipalId">Administrative principal identifier when applicable.</param>
+/// <param name="AdminSessionId">Administrative session identifier when applicable.</param>
 public sealed record RiskControlActorContext(
     string Status,
     string IdentityKind,
@@ -65,18 +101,37 @@ public sealed record RiskControlActorContext(
     string? AdminPrincipalId,
     string? AdminSessionId);
 
+/// <summary>
+/// Carries validation status and privacy-safe digest material for a device fingerprint.
+/// </summary>
+/// <param name="Status">Whether a usable fingerprint was present.</param>
+/// <param name="Length">Length of the submitted fingerprint before hashing.</param>
+/// <param name="Sha256Hash">Lowercase SHA-256 digest for a valid fingerprint.</param>
+/// <param name="Reason">Machine-readable reason when validation fails.</param>
 public sealed record RiskControlDeviceFingerprintContext(
     string Status,
     int Length,
     string? Sha256Hash,
     string? Reason);
 
+/// <summary>
+/// Describes a normalized region hint together with its source and validation state.
+/// </summary>
+/// <param name="Status">Whether a usable region was resolved.</param>
+/// <param name="Region">Normalized region value.</param>
+/// <param name="Source">Trusted header or platform source that supplied the value.</param>
+/// <param name="Reason">Machine-readable reason when resolution fails.</param>
 public sealed record RiskControlRegionContext(
     string Status,
     string Region,
     string? Source,
     string? Reason);
 
+/// <summary>
+/// Resolves endpoint metadata and privacy-bounded request signals into a policy-ready context.
+/// </summary>
+/// <param name="environment">Host environment used to constrain development-only local bypasses.</param>
+/// <param name="configuration">Configuration used to opt local test fixtures into the development bypass.</param>
 public sealed class RiskControlContextFactory(
     IWebHostEnvironment? environment = null,
     IConfiguration? configuration = null) : IRiskControlContextFactory
@@ -87,6 +142,11 @@ public sealed class RiskControlContextFactory(
     private const string DeviceFingerprintHeader = "X-Fsus-Device-Fp";
     private const string AllowLocalAuthFixtureConfigurationKey = "fsus:allowLocalAuthFixture";
 
+    /// <summary>
+    /// Creates an immutable risk-control view of the current request without retaining raw device fingerprint data.
+    /// </summary>
+    /// <param name="context">HTTP request and principal state to normalize.</param>
+    /// <returns>The action, actor, device, region, and crawler signals used by risk policy evaluation.</returns>
     public RiskControlContext Create(HttpContext context)
     {
         ArgumentNullException.ThrowIfNull(context);

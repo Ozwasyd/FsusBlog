@@ -34,6 +34,12 @@ internal sealed class BoundedRateLimiterRejectionRiskSampler
     private long _writeLimitDropCount;
     private long _capacityDropCount;
 
+    /// <summary>
+    /// Creates a minute-window sampler that bounds both writes per logical bucket and the number of tracked buckets.
+    /// </summary>
+    /// <param name="maxRiskWritesPerBucket">Maximum risk signals emitted for one subject and route during a window.</param>
+    /// <param name="maxTrackedBuckets">Maximum distinct subject-and-route buckets retained during a window.</param>
+    /// <param name="timeProvider">Clock used to rotate sampling windows; the system clock is used when omitted.</param>
     public BoundedRateLimiterRejectionRiskSampler(
         int maxRiskWritesPerBucket,
         int maxTrackedBuckets,
@@ -54,6 +60,11 @@ internal sealed class BoundedRateLimiterRejectionRiskSampler
         _window = new SamplerWindow(long.MinValue, 1);
     }
 
+    /// <summary>
+    /// Samples a rejected request using its logical client identity and endpoint route.
+    /// </summary>
+    /// <param name="context">Rejected HTTP request whose risk-write eligibility is evaluated.</param>
+    /// <returns>The decision to emit a signal or drop it because a configured bound was reached.</returns>
     public RateLimiterRiskSampleDecision Sample(HttpContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -219,6 +230,11 @@ internal static class RateLimiterRejectionRouteIdentity
 {
     private const int MaxInlineRouteIdentityLength = 192;
 
+    /// <summary>
+    /// Builds a bounded, method-qualified identity for the matched endpoint without retaining an oversized route value.
+    /// </summary>
+    /// <param name="context">Request containing the matched endpoint and HTTP method.</param>
+    /// <returns>The normalized method and route identity, with long routes represented by a SHA-256 digest.</returns>
     public static string Resolve(HttpContext context)
     {
         ArgumentNullException.ThrowIfNull(context);

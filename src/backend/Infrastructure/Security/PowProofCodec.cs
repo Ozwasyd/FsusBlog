@@ -16,9 +16,22 @@ internal static class PowProofCodec
     private const int MaxSignatureUtf8Bytes = 128;
     private const int MaxBrowserFingerprintUtf8Bytes = 256;
 
+    /// <summary>
+    /// Decodes a Base64-encoded proof using the bounded binary proof format.
+    /// </summary>
+    /// <param name="encodedProof">Base64 representation of the proof, or <see langword="null"/>.</param>
+    /// <param name="proof">Receives the decoded request when decoding succeeds.</param>
+    /// <returns><see langword="true"/> when the complete proof is validly encoded; otherwise <see langword="false"/>.</returns>
     public static bool TryDecodeBase64Proof(string? encodedProof, out VirtualPowRequest proof)
         => TryDecodeBase64Proof(encodedProof, out proof, out _);
 
+    /// <summary>
+    /// Decodes a Base64 proof and distinguishes transport decoding from binary-format failures.
+    /// </summary>
+    /// <param name="encodedProof">Base64 representation of the proof, or <see langword="null"/>.</param>
+    /// <param name="proof">Receives the decoded request when decoding succeeds.</param>
+    /// <param name="failure">Receives the failure category when decoding fails.</param>
+    /// <returns><see langword="true"/> when both Base64 and binary decoding succeed; otherwise <see langword="false"/>.</returns>
     public static bool TryDecodeBase64Proof(string? encodedProof, out VirtualPowRequest proof, out PowProofDecodeFailure failure)
     {
         proof = new VirtualPowRequest();
@@ -53,6 +66,12 @@ internal static class PowProofCodec
         }
     }
 
+    /// <summary>
+    /// Decodes one versioned FPOW binary payload while enforcing field-length limits and full input consumption.
+    /// </summary>
+    /// <param name="source">Binary proof bytes to decode.</param>
+    /// <param name="proof">Receives the decoded request when the payload is valid.</param>
+    /// <returns><see langword="true"/> when the payload has a supported header and valid bounded fields; otherwise <see langword="false"/>.</returns>
     public static bool TryDecodeBinaryProof(ReadOnlySpan<byte> source, out VirtualPowRequest proof)
     {
         proof = new VirtualPowRequest();

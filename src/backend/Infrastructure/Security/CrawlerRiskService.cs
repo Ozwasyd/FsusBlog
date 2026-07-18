@@ -11,6 +11,9 @@ using Microsoft.Extensions.Caching.Memory;
 namespace FsusBlog.Server.Infrastructure.Security;
 
 // Compatibility alias kept for existing callers while new code moves to SecurityRiskReason.
+/// <summary>
+/// Identifies legacy crawler-risk causes that are translated into the unified security-risk taxonomy.
+/// </summary>
 public enum CrawlerRiskReason
 {
     FakeCrawler,
@@ -25,6 +28,13 @@ public enum CrawlerRiskReason
     PublicReadBlocked
 }
 
+/// <summary>
+/// Maintains the low-latency crawler risk score while honoring runtime anti-crawler policy modes.
+/// </summary>
+/// <param name="cache">Unified cache used for atomic, expiring risk-score updates.</param>
+/// <param name="zeroRiskCache">Local negative cache for identities that currently have no risk score.</param>
+/// <param name="securityPolicy">Runtime policy and administrative risk-event projection.</param>
+/// <param name="logger">Logger for privacy-safe risk-score transitions.</param>
 public sealed class CrawlerRiskService(
     IUnifiedCache cache,
     IMemoryCache zeroRiskCache,
@@ -34,6 +44,15 @@ public sealed class CrawlerRiskService(
     public const int RequirePowScore = 50;
     public const int BlockScore = 100;
 
+    /// <summary>
+    /// Translates a legacy crawler signal and applies it to the unified risk-score path.
+    /// </summary>
+    /// <param name="context">Request associated with the risk signal.</param>
+    /// <param name="reason">Legacy crawler-risk reason to translate.</param>
+    /// <param name="score">Signed score delta to apply.</param>
+    /// <param name="ttl">Lifetime of the score contribution.</param>
+    /// <param name="cancellationToken">Token that cancels cache access.</param>
+    /// <returns>A task that completes after the risk update and policy projection are processed.</returns>
     public async Task AddRiskAsync(
         HttpContext context,
         CrawlerRiskReason reason,
@@ -51,6 +70,12 @@ public sealed class CrawlerRiskService(
                 reason.ToString()),
             cancellationToken);
 
+    /// <summary>
+    /// Applies a unified risk signal to the hot score, policy projection, and observability stream.
+    /// </summary>
+    /// <param name="signal">Normalized signal containing request, source, reason, score, and expiry data.</param>
+    /// <param name="cancellationToken">Token that cancels cache access.</param>
+    /// <returns>A value task that completes when the signal has been applied or intentionally ignored by policy.</returns>
     public async ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
     {
         AntiCrawlerPolicyOptions antiCrawlerOptions = securityPolicy.Current.Options;
@@ -154,6 +179,12 @@ public sealed class CrawlerRiskService(
             (int)effectiveTtl.TotalSeconds);
     }
 
+    /// <summary>
+    /// Reads the current hot risk score for the client IP resolved from a request.
+    /// </summary>
+    /// <param name="context">Request whose client identity is queried.</param>
+    /// <param name="cancellationToken">Token that cancels cache access.</param>
+    /// <returns>The bounded score, or zero when the request has no usable client identity.</returns>
     public async Task<int> GetRiskScoreAsync(HttpContext context, CancellationToken cancellationToken = default)
     {
         string ip = context.GetClientIp();
@@ -171,6 +202,12 @@ public sealed class CrawlerRiskService(
         return Convert.ToHexStringLower(hash.AsSpan(0, 8));
     }
 
+    /// <summary>
+    /// Reads the current hot risk score for an explicit risk subject.
+    /// </summary>
+    /// <param name="subject">Logical subject whose identity is used as the cache key.</param>
+    /// <param name="cancellationToken">Token that cancels cache access.</param>
+    /// <returns>The bounded score, or zero for a blank or unscored identity.</returns>
     public async Task<int> GetRiskScoreAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(subject.Identity))
@@ -181,12 +218,30 @@ public sealed class CrawlerRiskService(
         return await GetRiskScoreForIpAsync(subject.Identity, cancellationToken);
     }
 
+    /// <summary>
+    /// Determines whether a request has reached the current policy's challenge threshold.
+    /// </summary>
+    /// <param name="context">Request whose client risk is evaluated.</param>
+    /// <param name="cancellationToken">Token that cancels score lookup.</param>
+    /// <returns><see langword="true"/> when the current score requires a challenge; otherwise <see langword="false"/>.</returns>
     public async Task<bool> IsHighRiskAsync(HttpContext context, CancellationToken cancellationToken = default)
         => await GetRiskScoreAsync(context, cancellationToken) >= securityPolicy.Current.Options.RequireChallengeScore;
 
+    /// <summary>
+    /// Clears the hot risk score associated with a client IP identity.
+    /// </summary>
+    /// <param name="ip">Client IP identity to clear.</param>
+    /// <param name="cancellationToken">Token that cancels cache removal.</param>
+    /// <returns>A task that completes after the reset is projected.</returns>
     public async Task ResetRiskAsync(string ip, CancellationToken cancellationToken = default)
         => await ResetRiskAsync(new SecurityRiskSubject(ip), cancellationToken);
 
+    /// <summary>
+    /// Clears the hot risk score for an explicit subject and records an administrative reset snapshot.
+    /// </summary>
+    /// <param name="subject">Logical subject whose score is removed.</param>
+    /// <param name="cancellationToken">Token that cancels cache removal.</param>
+    /// <returns>A task that completes after cache and policy state are updated.</returns>
     public async Task ResetRiskAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(subject.Identity))

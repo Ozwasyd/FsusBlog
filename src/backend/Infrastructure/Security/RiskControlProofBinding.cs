@@ -10,6 +10,11 @@ internal sealed record RiskControlProofBinding(
 
 internal static class RiskControlProofBindingFactory
 {
+    /// <summary>
+    /// Derives domain-separated subject, client, and device hashes for binding a challenge proof to request context.
+    /// </summary>
+    /// <param name="context">Normalized risk-control context whose identity material is bound.</param>
+    /// <returns>A proof binding containing only deterministic SHA-256 digests.</returns>
     public static RiskControlProofBinding Create(RiskControlContext context)
     {
         ArgumentNullException.ThrowIfNull(context);

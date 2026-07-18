@@ -4,6 +4,9 @@ using FsusBlog.Server.Models.Security;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
+/// <summary>
+/// Identifies the enforcement disposition selected by risk policy evaluation.
+/// </summary>
 public enum RiskDecisionKind
 {
     Allow,
@@ -14,6 +17,18 @@ public enum RiskDecisionKind
     Block
 }
 
+/// <summary>
+/// Represents the resolved enforcement outcome together with challenge and audit rationale.
+/// </summary>
+/// <param name="Kind">Selected enforcement disposition.</param>
+/// <param name="ActionName">Risk action evaluated by the policy.</param>
+/// <param name="RouteKey">Route-specific policy key.</param>
+/// <param name="RiskScore">Current stored score before policy adjustments.</param>
+/// <param name="EffectiveRiskScore">Score after action and policy adjustments.</param>
+/// <param name="EscalationLevel">Challenge escalation level selected by the decision band.</param>
+/// <param name="RequiredChallenges">Ordered challenge kinds required before the action may continue.</param>
+/// <param name="PolicyVersion">Policy version that produced the decision.</param>
+/// <param name="Reasons">Machine-readable reasons explaining the outcome and any fallback.</param>
 public sealed record RiskDecision(
     RiskDecisionKind Kind,
     string ActionName,
@@ -32,16 +47,26 @@ public sealed record RiskDecision(
         PerceptionChallengeGeneratorDistributionPolicy.Default;
 }
 
+/// <summary>
+/// Carries the resolved risk decision through the current HTTP request pipeline.
+/// </summary>
+/// <param name="Decision">Decision produced for the protected action.</param>
 public sealed record RiskControlDecisionContext(RiskDecision Decision)
 {
     public const string HttpContextItemKey = "__fsus_risk_decision_context";
 }
 
+/// <summary>
+/// Evaluates normalized request context and accumulated score against a versioned risk policy.
+/// </summary>
 public interface IRiskDecisionService
 {
     RiskDecision Decide(RiskControlContext context, SecurityRiskPolicySnapshotV2 policy, int currentRiskScore);
 }
 
+/// <summary>
+/// Maps policy bands to enforceable dispositions and available challenge subsystems.
+/// </summary>
 public sealed class RiskDecisionService : IRiskDecisionService
 {
     private const string CaptchaV1ChallengeKind = "captchaV1";
@@ -52,6 +77,13 @@ public sealed class RiskDecisionService : IRiskDecisionService
     private const string LocalizationV2ChallengeKind = "perceptionLocalizationV2";
     private const string MicroInteractionV2ChallengeKind = "perceptionMicroInteractionV2";
 
+    /// <summary>
+    /// Resolves an enforcement decision, including challenge fallback and trusted-request bypass rules.
+    /// </summary>
+    /// <param name="context">Normalized action, actor, device, region, and crawler context.</param>
+    /// <param name="policy">Versioned policy snapshot used for this evaluation.</param>
+    /// <param name="currentRiskScore">Accumulated non-negative score before action-specific policy evaluation.</param>
+    /// <returns>The disposition, effective score, required challenges, and audit reasons.</returns>
     public RiskDecision Decide(RiskControlContext context, SecurityRiskPolicySnapshotV2 policy, int currentRiskScore)
     {
         ArgumentNullException.ThrowIfNull(context);
