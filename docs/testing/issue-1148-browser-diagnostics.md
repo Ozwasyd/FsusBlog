@@ -44,7 +44,7 @@ canonical `.tmp/browser-diagnostics-runtime/geometry-motion-focus/geometry-motio
 
 普通 `aeds-frame-cost` 仍执行 server frame cost 与真实 basic/speed decoder budget，但不启动浏览器。`performance-evidence-summary` 与 release manifest correctness status 不消费 browser performance 或 AEDS browser summary；diagnostic artifact 可被收集并显示，但缺失、unsupported 或失败不会把普通 correctness 改写为失败或通过。反过来，diagnostics clean pass 也不能替代结构、decoder、协议或业务 correctness。
 
-# 1074 counted Chromium slot 已从 Production scheduler 退役；固定单 browser admission 只描述 diagnostics 外层，不能重新变成 Production counted resource。
+\#1074 counted Chromium slot 已从 Production scheduler 退役；固定单 browser admission 只描述 diagnostics 外层，不能重新变成 Production counted resource。
 
 ## 失败分类与回退
 

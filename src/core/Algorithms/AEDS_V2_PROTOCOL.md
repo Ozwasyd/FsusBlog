@@ -12,7 +12,7 @@ This file is the current wire protocol specification. AEDS v2 is the only accept
 - `src/frontend/src/wasm/web/protocol/frame.ts`
 - `src/frontend/wasm/aeds/include/aeds_frame.hpp`
 
-Core, backend, benchmarks, and backend tests import the generated Shared packed header instead of defining another `AedsFrameHeader`. `node tools/frontend/generate-aeds-protocol.mjs --check` fails when any generated surface is stale. The cross-stack frame-schema check also compiles the production C++ decoder, runs every active manifest value through it, and decodes a C# golden frame. C++ callers use generated `is_known_frame_type`; values absent from the active manifest, including retired slots, must be rejected rather than silently accepted.
+Core, backend, benchmarks, and backend tests import the generated Shared packed header instead of defining another `AedsFrameHeader`. `node tools/frontend/generate-aeds-protocol.mjs --check` fails when any generated surface is stale. The cross-stack frame-schema check also compiles the production C++ decoder, runs every active manifest value through it, and decodes a C# golden frame. C++ callers use generated `IsKnownFrameType`; values absent from the active manifest, including retired slots, must be rejected rather than silently accepted.
 
 ## Frame Layout
 

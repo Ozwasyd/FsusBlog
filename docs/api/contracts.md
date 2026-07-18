@@ -5,7 +5,7 @@
 
 > 最近更新：2026-07-16 — 强匿名评论升级为 `fsus.anonymous.comment.v5` / layout 6；公开契约只保留最小资格谓词。
 
-### v5/layout 6 强匿名资格契约（覆盖旧 presentation 描述）
+## v5/layout 6 强匿名资格契约（覆盖旧 presentation 描述）
 
 `AnonymousCommentTicketRequest` frame `198` 的 canonical public inputs 固定为 `action_context`、`scope`、`circuit_id`、`verifying_key_hash`、`public_input_layout_version`、`nullifier_hash`、`credential_root`、`revocation_root`、`issuer_public_key_hash`、`policy_hash`、`is_eligible`、`may_comment`、`rate_class`、`requires_moderation`。frame `199` 只返回 expiry、`rate_class`、`requires_moderation`、opaque ticket 与 moderation subject；最终 `AnonymousCommentCreateRequest` 不再携带 credential epoch。数值 `180/181` 和 ticket codec v1/v2 均退休并 fail closed。
 
@@ -1250,7 +1250,7 @@ Admin 设置页的品牌资产上传只是把现有上传结果回填到对应�
 
 对应 `AedsFrameType.AdminStats`，POD 结构包含：
 
-```
+```text
 SiteStatsPod、共享 UTF-8 blob、popular article records、recent comment records、region records
 ```
 
@@ -1596,7 +1596,7 @@ hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件
 
 携带 PoW 答案的请求需附带以下 HTTP 请求头：
 
-```
+```http
 X-Fsus-Pow-Challenge: <challenge 值>
 X-Fsus-Pow-Answer: <nonce 值>
 ```
@@ -1772,8 +1772,8 @@ Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，�
 | GET | `/api/ops/deployment/status` | 受保护发布状态 JSON；要求 admin principal `system.config`、fixed-IP limit 与 loopback source |
 | POST | `/api/ops/deployment/activate` | 受保护激活 CAS；body 为 `releaseId/slot/generation`，仅 Ready Candidate 接受；正确重复请求幂等 |
 | POST | `/api/ops/deployment/drain` | 受保护排空 CAS；body 为 `releaseId/slot/generation/timeoutSeconds?`，超时仅限 5..300 秒；正确重复请求幂等 |
-| GET/POST | `/api/ops/deployment/fence/status | acquire | revoke` | 受保护 active-release fence 查询/CAS/撤销；要求 admin principal `system.config`、fixed-IP limit 与 loopback source |
-| GET/POST | `/api/ops/deployment/notification-stream/restart/status | restart` | 受保护 notification stream 1012 restart 协议；请求必须绑定精确 release/slot/generation |
+| GET/POST | `/api/ops/deployment/fence/status`、`/api/ops/deployment/fence/acquire`、`/api/ops/deployment/fence/revoke` | 受保护 active-release fence 查询/CAS/撤销；要求 admin principal `system.config`、fixed-IP limit 与 loopback source |
+| GET/POST | `/api/ops/deployment/notification-stream/restart/status`、`/api/ops/deployment/notification-stream/restart` | 受保护 notification stream 1012 restart 协议；请求必须绑定精确 release/slot/generation |
 | POST | `/api/ops/deployment/notification-stream/drill/publish` | 零停机演练专用事件发布；`Deployment:NotificationStreamDrillEnabled=false` 时固定 404，启用后仍要求 admin `system.config`、loopback、active runtime 与 active fence |
 
 匿名 `/health/ready` 只返回最小 readiness 结果，配置错误和依赖异常必须被归一为 `configuration_invalid`、`dependency_unavailable` 等固定类别，不暴露配置键、validation error 列表、连接串、URL、CIDR、exception type 或 provider/backend 细节。完整失败明细只允许在受保护的 `/api/ops/health/ready-detail` 和后台运维视图中按权限查看。

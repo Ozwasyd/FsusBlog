@@ -53,20 +53,20 @@
 
 ### ServerContractAgent
 
-**负责范围**
+#### 负责范围
 
 - `src/shared/`、`src/core/`
 - `src/backend/Modules/Endpoints/`
 - `src/backend/Infrastructure/`
 - `src/backend/Program.cs`
 
-**允许操作**
+#### 允许操作
 
 - 修改端点注册与中间件顺序（仅在已有设计范围内，须同步 `docs/architecture.md`）
 - 新增 / 调整 `ApiContract` 与 `AedsFrameType`（满足 `Core`/`Client` 协同前提）
 - 调整鉴权策略与校验路径
 
-**禁止操作**
+#### 禁止操作
 
 - 无需求不改 `src/frontend/wasm/aeds/**` 的 C++ 实现
 - 未更新 `docs/api/design.md` + `docs/api/contracts.md` 前不推送 API 变更
@@ -75,35 +75,35 @@
 
 ### WasmEngineAgent
 
-**负责范围**
+#### 负责范围
 
 - `src/frontend/wasm/aeds/include/**`
 - `src/frontend/wasm/aeds/src/**`
 
-**允许操作**
+#### 允许操作
 
 - 修改 Wasm 解码器、协议映射、类型解析流程
 - 优化边界回退策略（Wasm binary decoder → TypeScript binary decoder / 协议错误）
 
-**禁止操作**
+#### 禁止操作
 
 - 修改业务路由、鉴权逻辑、JWT/Passkey 核心流程
 - 修改 Vue 状态或 Worker 上层业务分发逻辑
 
 ### InteropGlueAgent
 
-**负责范围**
+#### 负责范围
 
 - `src/frontend/wasm/web/aeds.ts`
 - `src/frontend/src/workers/wasmDecode.worker.ts`
 - `src/frontend/src/workers/` 内与 API 通道相关文件
 
-**允许操作**
+#### 允许操作
 
 - 调整协议解析参数、超时 / 回退策略
 - 增加错误处理分支、回退阈值与可观测性上报
 
-**禁止操作**
+#### 禁止操作
 
 - 修改 Wasm 核心解码器本体
 - 直接改动数据库 / 服务端安全鉴权路径
@@ -132,22 +132,22 @@
 
 1. 阅读 `docs/security.md`
 2. 核验以下五个关键文件：
-   - `src/backend/Infrastructure/Helpers/JwtHelper.cs`
-   - `src/backend/Infrastructure/Auth/AuthCookieService.cs`
-   - `src/backend/Infrastructure/Filters/BannedUserMiddleware.cs`
-   - `src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs`
-   - `src/backend/Infrastructure/Operations/ProductionStartupValidator.cs`
+    - `src/backend/Infrastructure/Helpers/JwtHelper.cs`
+    - `src/backend/Infrastructure/Auth/AuthCookieService.cs`
+    - `src/backend/Infrastructure/Filters/BannedUserMiddleware.cs`
+    - `src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs`
+    - `src/backend/Infrastructure/Operations/ProductionStartupValidator.cs`
 
 ### 二进制协议变更
 
 1. 阅读 `docs/api/contracts.md`、`src/core/Algorithms/AEDS_V2_PROTOCOL.md`
 2. 核验三个算法文件：
-   - `src/core/Algorithms/AedsFrameType.cs`
-   - `src/core/Algorithms/AedsEncoder.cs`
-   - `src/core/Algorithms/AedsDecoderValidator.cs`
+    - `src/core/Algorithms/AedsFrameType.cs`
+    - `src/core/Algorithms/AedsEncoder.cs`
+    - `src/core/Algorithms/AedsDecoderValidator.cs`
 3. 核对端点与中间件：
-   - `src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs`
-   - `src/backend/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs`
+    - `src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs`
+    - `src/backend/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs`
 4. 同步更新 `src/shared/Contracts/Validation/PodSizeCatalog.cs` 中的尺寸常量
 5. 同步核验 `src/frontend/wasm/aeds/` 与 `src/frontend/wasm/web/aeds.ts` 的解码逻辑
 

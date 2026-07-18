@@ -145,11 +145,11 @@ Before activating the new binary:
 2. Confirm both migration ids are successful in `__fsus_schema_migration_history`.
 3. Run the exact completion query below; the result must be `0`.
 
-```sql
-SELECT COUNT(*)
-FROM sys_user
-WHERE account_subject_hash IS NULL OR account_subject_hash = '';
-```
+    ```sql
+    SELECT COUNT(*)
+    FROM sys_user
+    WHERE account_subject_hash IS NULL OR account_subject_hash = '';
+    ```
 
 4. Also confirm every non-null value matches lowercase SHA-256 hex: `account_subject_hash ~ '^[0-9a-f]{64}$'`.
 5. Start the candidate and confirm startup task `accountSubjectHashInvariant=ok` before routing traffic.

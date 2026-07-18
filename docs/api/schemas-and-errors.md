@@ -1,4 +1,4 @@
-﻿# 错误码、Binary 帧格式与 POD 大小目录
+# 错误码、Binary 帧格式与 POD 大小目录
 
 本文件是 FsusBlog 错误码枚举、AEDS v2 二进制帧格式规格和 POD 类型大小的**完整参考**。
 
@@ -181,7 +181,7 @@ L0 artifact fast path 的负响应不写 AEDS frame body，固定 `Cache-Control
 
 ### 帧头布局（16 字节，小端序）
 
-```
+```text
 偏移   大小   字段           类型      说明
  0      4    Magic          uint32   固定值 0x53444541 ("AEDS" 小端序)
  4      1    Version        uint8    协议版本，当前为 2
@@ -196,7 +196,7 @@ L0 artifact fast path 的负响应不写 AEDS frame body，固定 `Cache-Control
 
 ### CRC16 计算规则
 
-```
+```text
 PayloadCrc16 = CRC16(payload_bytes)
 ```
 
@@ -226,7 +226,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 
 高频公开与统计 frame 使用 compact layout，载荷由计数、固定数值记录、共享 UTF-8 blob 与 `Utf8SliceRef` 组成：
 
-```
+```text
 [count/meta] [blobLength:int32 + blob] [fixed numeric records] [slice refs into blob]
 ```
 
@@ -310,7 +310,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 180 | retired | — | 旧精确属性 ticket request；必须按未知/退休 frame fail closed |
 | 181 | retired | — | 旧精确属性 ticket response；必须按未知/退休 frame fail closed |
 | 198 | `AnonymousCommentTicketRequest` | `AnonymousCommentTicketRequestPod` | v5/layout 6 最小资格谓词、root hashes、proof 与 canonical public inputs；不携带精确属性 |
-| 199 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | expiry、`common | unknown` rate class、审核谓词、opaque ticket 与 moderation subject hash |
+| 199 | `AnonymousCommentTicketResponse` | `AnonymousCommentTicketResponsePod` | expiry、`common` / `unknown` rate class、审核谓词、opaque ticket 与 moderation subject hash |
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |

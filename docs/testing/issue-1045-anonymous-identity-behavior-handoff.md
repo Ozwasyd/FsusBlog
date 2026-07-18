@@ -37,7 +37,7 @@ mounted component、binary adapter、API、store/router 与 privacy runtime/work
 
 `tests/test-retention-replacements.json` 对十一个旧文件逐 test ID 登记 replacement。并发
 nullifier transaction 仍由 #1040 的 PostgreSQL 套件拥有；endpoint permission/rate limit 由
-# 1038 拥有；protocol 只由 enum/reflection/golden/generator/round-trip owner 维护。
+\#1038 拥有；protocol 只由 enum/reflection/golden/generator/round-trip owner 维护。
 
 后续统一验证必须覆盖 privacy ZK、backend unit/integration、golden、auth state machine、
 concurrency、coverage/mutation、retention 与 production fresh。当前代码阶段未运行任何测试、

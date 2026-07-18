@@ -129,7 +129,7 @@ RiskControl 的关系保持分层：V2 provider 只证明某个 challenge 被解
 | `Security:RiskControl:GlobalMode=observe` | 记录 perception-sealed@v2 裁决、risk score 和原因，不拦截、不挑战，适合首阶段观测 |
 | text-task enforce | 中风险 band 启用 `perceptionTextTaskV2` / `perceptionCharacterV2`；回滚为 `observe` 或关闭对应 action 的 `commentRiskControlEnabled` / `authRiskControlEnabled` |
 | localization enforce | 高风险 band 启用 `perceptionLocalizationV2 + sha256PowV1`；Redis、AEAD key 或 provider 异常必须 fail closed，必要时回滚到 text-task 或 `captchaV1` / `sha256PowV1` 组合 |
-| micro-interaction optional | 只在 `Security:PerceptionV2:MicroInteraction:Mode=enforce | strict | lockdown` 且高升级等级命中时签发；异常时立即切回 disabled，不影响 text-task/localization |
+| micro-interaction optional | 只在 `Security:PerceptionV2:MicroInteraction:Mode` 为 `enforce`、`strict` 或 `lockdown` 且高升级等级命中时签发；异常时立即切回 disabled，不影响 text-task/localization |
 | `strict` / `lockdown` | `strictRiskMultiplierPercent` 放大风险分，`lockdown` 额外阻断不允许的匿名写；回滚只通过 `/api/binary/admin/security/risk-control/options` 或 `/rollback`，必须携带 admin principal、`system.config` 和 `X-Fsus-Mfa-Proof` |
 
 故障预算按安全优先级分层：Redis attempt/consume-once 不可用时，写操作、auth、admin、notification subscription 的 enforced challenge 一律 fail closed；PostgreSQL 只承载审计、聚合和 policy snapshot，challenge 解答真相不得依赖请求期 PostgreSQL 查询，持久化失败会降低审计完整性并影响 readiness/admin 写入，但不得成为 verify 放行依据；AEAD key 不存在、keyVersion 未知或 key rotation 未覆盖旧 key 时，相关 token 只能失败，不能降级到明文答案或客户端自证。性能预算是 issue 端 O(1) CPU、零服务端 rasterize、sealed truth 路径零 DB/Redis 写；verify 端 O(1) AEAD + hash compare + Redis `INCR`/`SETNX`，不进入昂贵 renderer、不扫表、不按 payload 大小做非线性工作。安全预算是 fail-closed 优先、单次 proof、低基数指标、无原始 IP/设备指纹/答案落库，且所有 bypass 都必须表现为显式 `observe` / `disabled` 策略而不是隐式异常放行。
@@ -352,7 +352,7 @@ blind endpoint 只接受 `identity_kind=anonymous_account`；AdminPrincipal、�
 - 本地开发豁免：浏览器可把 `localhost` / `127.0.0.1` 视为 secure context，因此 Debug 环境允许在这两个 loopback origin 上用 HTTP 执行 WebAuthn ceremony。该豁免仅限本机开发和自动化测试；生产、共享预览、LAN IP 与自定义域名仍必须使用 HTTPS、匹配 RP ID 和明确的 `Fido2:Origins`。自动化中的“Passkey 注入”只能注入浏览器 WebAuthn virtual authenticator，然后走正常注册 / admin bootstrap / login complete 流程；不得通过数据库写入固定凭据替代 ceremony。
 - 服务端配置：
 
-  ```
+  ```yaml
   ServerDomain: 来自 Fido2:ServerDomain 配置（默认 localhost）
   ServerName:   来自 Fido2:ServerName 配置（默认 FsusBlog）
   Origins:      来自 Fido2:Origins 配置（HashSet<string>）

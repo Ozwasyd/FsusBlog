@@ -5,7 +5,7 @@ GitHub #1016 is already closed. Its completion comment identifies commit
 Playwright results. This pass did not treat those historical results as current
 validation; it audited the shared workspace against the original acceptance
 criteria. The original #1016 implementation queried `.el-public-shell__header`;
-# 1018 later intentionally superseded that selector with a FsusBlog-owned hook to
+\#1018 later intentionally superseded that selector with a FsusBlog-owned hook to
 preserve the strict FsusUI boundary. The final state below keeps #1016's measurement
 behavior while following #1018's newer selector contract.
 

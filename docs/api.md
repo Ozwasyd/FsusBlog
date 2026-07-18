@@ -1,4 +1,4 @@
-﻿# API overview / selected quick reference
+# API overview / selected quick reference
 
 本文档是 FsusBlog 当前 API overview / selected quick reference，不再手写声明覆盖所有端点。完整 HTTP shell 契约以 `src/shared/Contracts/Validation/fsusblog.openapi.json` 为准，AEDS frame/header 以 `src/shared/Contracts/Validation/aeds-protocol.json` 为准，路由速查表见 [api/quick-reference.md](api/quick-reference.md)。
 详细文档请参阅 [api/](api/) 子目录：
@@ -12,7 +12,7 @@
 
 ---
 
-**图例**
+## 图例
 
 | 符号 | 含义 |
 | ------ | ------ |
@@ -233,7 +233,7 @@ Binary 端点输出 AEDS v2 帧（`Content-Type: application/octet-stream`）。
 
 ## AEDS 帧格式
 
-```
+```text
 Offset  Size  字段
 0       4     Magic (0x53444541 "AEDS")
 4       1     Version (2)

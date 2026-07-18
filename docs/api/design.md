@@ -4,7 +4,7 @@
 
 > 最近更新：2026-07-16 — 强匿名资格证明升级为 v5/layout 6 最小公开谓词与生产匿名集下限。
 
-### 强匿名资格最小披露
+## 强匿名资格最小披露
 
 `fsus.anonymous.comment.v5` / layout `6` 的公开 statement 只允许 root/version/hash 绑定、scope-bound nullifier，以及 `is_eligible`、`may_comment`、`rate_class`（仅 `common|unknown`）和 `requires_moderation`。精确凭据 epoch、凭据级别、声誉桶和账号年龄只能作为签名约束下的私有 witness，不得进入请求响应、ticket、评论投影、审核、provider、统计或 admin DTO。Production 的公开谓词组合必须有至少 20 个成员；不足时只能合并到 common/unknown 后重新证明，无法合并则 fail closed。
 
@@ -81,7 +81,7 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 | 消息系统使用 binary 消息路径 | `/api/binary/messages/conversations` |
 | 管理端以 binary admin 资源路径区分 | `/api/binary/admin/users`、`/api/binary/stats` |
 | 作者工作台生产前端使用原生 AEDS endpoint；不保留 legacy JSON runtime 兼容层 | `/api/binary/author/drafts`、`/api/binary/author/audit`、`/api/binary/author/moderation/overview` |
-| 健康检查、发布控制与通知独立于业务路径 | `/health/live`、`/health/ready`、`/api/ops/health/ready-detail`、`/api/ops/deployment/status | activate | drain`、`/api/ops/deployment/fence/**`、`/api/ops/deployment/notification-stream/**`、`/api/notifications/stream` |
+| 健康检查、发布控制与通知独立于业务路径 | `/health/live`、`/health/ready`、`/api/ops/health/ready-detail`、`/api/ops/deployment/status`、`/api/ops/deployment/activate`、`/api/ops/deployment/drain`、`/api/ops/deployment/fence/**`、`/api/ops/deployment/notification-stream/**`、`/api/notifications/stream` |
 
 持续增长表的管理端列表不得依赖深分页 OFFSET。审计日志列表保留 `page/pageSize` 兼容字段，但服务端排序和翻页以 `occurredAtUtc + id` keyset cursor 为准：首屏不传 `cursor`，后续请求传上一页响应的 `nextCursor`。summary/facet 这类刷新频繁的聚合读取必须使用归一化过滤条件做短 TTL cache 或等价 rollup，不能让每次 UI 刷新都重新触发多路 GroupBy。
 
@@ -508,7 +508,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 ### Taxonomy
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`useAdminCategoryManage.ts`](../../src/frontend/src/composables/useAdminCategoryManage.ts)、[`useAdminTagManage.ts`](../../src/frontend/src/composables/useAdminTagManage.ts)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`useAdminTaxonomyManage.ts`](../../src/frontend/src/composables/useAdminTaxonomyManage.ts)。
 
 管理端分类/标签列表不得复用公开 `CategoryList` / `TagList` 的公开文章计数。作者工作台必须读取 `/api/binary/author/taxonomy/categories` 与 `/api/binary/author/taxonomy/tags`，用所有非删除状态或所有 `ArticleTag` 关联形成 `totalBlockingArticleCount` 与 `canDelete`，这样草稿、定时、归档和已删除关联不会被公开计数隐藏。标签删除采用严格锁定语义：只要仍有关联文章就拒绝删除，不静默移除文章上的标签关系。
 

@@ -30,7 +30,7 @@ The claimed finding total remains 85 = 44 CONFIRMED + 41 PLAUSIBLE. `currentReco
 
 ## Stage gates
 
-# 1013 and #1014 are fail-closed. Code deletion or local tests alone cannot satisfy their production milestones.
+\#1013 and #1014 are fail-closed. Code deletion or local tests alone cannot satisfy their production milestones.
 
 For #1013, completion requires evidence for all six triggers:
 

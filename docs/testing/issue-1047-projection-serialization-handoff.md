@@ -2,7 +2,7 @@
 
 五个旧混合测试文件共 25 个 test ID 已拆分。`tests/test-retention-replacements.json` 对每个旧
 ID 登记直接 replacement；其中 `ReadModelProjectionHotPathContractTests` 的性能 intent 与
-# 1042 共用 benchmark owner，状态语义由本 issue 的参数化行为 owner 保留。
+\#1042 共用 benchmark owner，状态语义由本 issue 的参数化行为 owner 保留。
 
 ## 权威 owner
 

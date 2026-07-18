@@ -41,4 +41,4 @@ diagnostic receipt. Diagnostic failures do not redefine correctness evidence.
 
 If browser pressure or instability appears, rerun or narrow the nightly/manual diagnostics categories while preserving
 the fixed outer single-slot limit. Recovery does not require changing application runtime behavior or reintroducing the
-# 1074 machine-adaptive admission path into production correctness.
+\#1074 machine-adaptive admission path into production correctness.

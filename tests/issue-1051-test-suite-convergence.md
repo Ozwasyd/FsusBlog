@@ -4,7 +4,7 @@ Issue #1051 is the final tracking gate for issues #1032 through #1050. It does
 not own another broad deletion batch. Its executable owner is
 `tools/check-test-suite-convergence.mjs`, which consumes the authoritative
 before snapshot, central and issue-local replacement manifests, the frontend
-# 1049 migration plan, and an optional after retention snapshot.
+\#1049 migration plan, and an optional after retention snapshot.
 
 ## What the convergence audit proves
 
@@ -78,7 +78,7 @@ before snapshot.
 
 The issue capture is read-only. It queries the current GitHub repository through
 `gh`, records the URL and `closedAt` value for every issue from #1032 through
-# 1050, and fails unless the exact 19-issue set is closed. It does not comment,
+\#1050, and fails unless the exact 19-issue set is closed. It does not comment,
 close, label, or otherwise mutate any issue.
 
 ## Central integration state

@@ -1,4 +1,4 @@
-﻿# FsusBlog Client
+# FsusBlog Client
 
 Vue 3 SPA 前端，集成 WebAssembly 解码引擎、Service Worker 离线搜索和公开页静态 hydration。
 
@@ -108,7 +108,7 @@ npx playwright test                   # 全量 E2E
 npx playwright test tests/e2e/acceptance/
 ```
 
-测试布局详见 [tests/README.md](tests/README.md)。
+测试布局详见 [tests/frontend/README.md](../../tests/frontend/README.md)。
 
 ## Wasm 解码器
 
