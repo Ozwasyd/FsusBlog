@@ -9,7 +9,7 @@ FsusBlog v1.1.0 is a public preview. It is suitable for development, evaluation,
 ## Repository Layout
 
 | Area | Purpose |
-|------|---------|
+| ------ | --------- |
 | `src/backend/` | ASP.NET Core / Kestrel application, Binary API endpoints, Public AOT, cache, security, moderation, notification stream, admin operations |
 | `src/frontend/` | Vue SPA, public hydration, admin UI, AEDS client adapters, Web Workers, Wasm integration, service worker |
 | `src/shared/` | DTOs, POD contracts, AEDS metadata, shared validation rules, OpenAPI artifacts |
@@ -51,7 +51,7 @@ Public AOT pre-renders public pages so first visits can receive indexable HTML b
 FsusBlog uses layered cache behavior:
 
 | Layer | Role |
-|-------|------|
+| ------- | ------ |
 | In-process cache | Fast local reuse for hot computed data and policy snapshots |
 | Redis / distributed cache | Shared cache, notification backlog, rate-limit and PoW state |
 | Public HotRead artifacts | Optimized public binary/read artifacts |

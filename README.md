@@ -1,11 +1,11 @@
-﻿# Fsu's Blog
+# Fsu's Blog
 
 一个面向真实部署、以二进制公开读取链路和可验证运行时契约为核心的个人内容系统。
 
 > **v1.1.0-public-preview** — FsusBlog 当前处于公开预览阶段，可用于开发、自托管实验和代码审查，但在 v1.2.0 前 API、部署契约、数据模型、后台工作流和性能 profile 仍可能发生破坏性变更。不应将 v1.1.0-public-preview 视为稳定生产版。
 
 | Public preview entry | Link |
-|----------------------|------|
+| ---------------------- | ------ |
 | Architecture overview | [docs/architecture/overview.md](docs/architecture/overview.md) |
 | Roadmap | [ROADMAP.md](ROADMAP.md) |
 | API stability | [docs/api/stability.md](docs/api/stability.md) |
@@ -22,7 +22,7 @@
 ## 功能特性
 
 | 功能 | 说明 |
-|------|------|
+| ------ | ------ |
 | 公开内容页 | 首页、归档、分类、标签、文章详情，AOT 预渲染 + SPA hydration 双路保障首屏 |
 | Binary 传输 | AEDS v2 二进制帧协议，C++23 Wasm / TypeScript 双解码，hot-path 池化写入且不构造第二份完整 frame，不回退旧文本 API |
 | 本地搜索 | Service Worker 缓存静态索引 + 浏览器端 Wasm 排序，无服务端在线检索 |
@@ -58,7 +58,7 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 **后端**
 
 | 技术 | 版本 | 用途 |
-|------|------|------|
+| ------ | ------ | ------ |
 | .NET SDK / C# | 10 / 14 | 运行时与语言版本 |
 | ASP.NET Core Kestrel | 10 | HTTP 服务器 |
 | SqlSugar | 5.1.4.214 | PostgreSQL ORM，CodeFirst |
@@ -71,7 +71,7 @@ FsusBlog 以 `SEO 首访速度 + 运行时一致性 + 工程可维护性` 为核
 **前端**
 
 | 技术 | 版本 | 用途 |
-|------|------|------|
+| ------ | ------ | ------ |
 | Vue | 3.5.x | 渐进式框架 |
 | Vite | 8.x | 构建工具，HMR |
 | TypeScript | 6.x | 静态类型 |
@@ -153,7 +153,7 @@ cp .env.example .env
 该命令会启动本地 PostgreSQL、Redis、ASP.NET Core backend 和 Vite frontend，并在后端完成迁移后写入 deterministic fictional demo data。
 
 | 项目 | 地址 / 说明 |
-|------|-------------|
+| ------ | ------------- |
 | Frontend | `http://127.0.0.1:3000` |
 | Backend | `http://127.0.0.1:7568` |
 | Demo seed identities | `demo-reader` is an anonymous account container; `demo-admin` is a disabled mock independent admin principal used only for admin-attribution smoke flows |
@@ -208,7 +208,7 @@ npm --prefix src/frontend run dev:debug
 **常用地址**
 
 | 地址 | 用途 |
-|------|------|
+| ------ | ------ |
 | `http://127.0.0.1:3000` | Vite 前端开发壳（HMR） |
 | `http://127.0.0.1:7568` | ASP.NET Core API + 公开页（Debug） |
 | `http://127.0.0.1:8080` | Release Preview（生产构建测试） |
@@ -234,7 +234,7 @@ dotnet publish src/backend/FsusBlog.Server.csproj -c Release /p:PublishClientAss
 测试通过 `./tools/test.sh <tier>` 按 `tests/matrix.yml` 中的 DAG 执行；提交快照见 [docs/testing.generated.md](docs/testing.generated.md)。
 
 | 层级 | 用途 | 依赖 |
-|------|------|------|
+| ------ | ------ | ------ |
 | `fast` | 前后端快速检查、静态治理与单元测试汇总 | 无 |
 | `coverage-gate` | backend/frontend coverage merge 与阈值，和 production 是 independent required check | 无 |
 | `integration` | 服务端集成测试 | Docker、3000/7568 |
@@ -265,7 +265,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 ## 文档索引
 
 | 文档 | 说明 |
-|------|------|
+| ------ | ------ |
 | [docs/architecture.md](docs/architecture.md) | 系统架构、缓存分层、双读链、安全链路全景 |
 | [docs/architecture/overview.md](docs/architecture/overview.md) | 面向外部贡献者的短版架构概览、运行基线、AEDS / HotRead / AOT 定位 |
 | [docs/api.md](docs/api.md) | API 端点快速参考（路由 / 认证要求 / 速率限制） |

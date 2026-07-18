@@ -34,7 +34,7 @@ Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake
 ## Naming map
 
 | C# mother rule | Cross-language mapping |
-|---|---|
+| --- | --- |
 | namespace、type、public member、method、local function 使用 `PascalCase` | TS class/type/component 使用 `PascalCase`；Vue component 文件使用 `PascalCase.vue`；C++ public type 使用 `PascalCase` |
 | interface 使用 `I` + `PascalCase` | 仅 C# interface 强制 `I`；TS structural type 不机械添加 `I` |
 | parameter/local 使用 `camelCase` | TS/JS/C++ local、Shell local function name 的可表达部分沿用 `camelCase` |
@@ -114,7 +114,7 @@ Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake
 例外只保护外部名称。只要存在内部 adapter，内部名称仍须回到 C# 母规范映射。以下 ID 与 `config/development/authoritative-development-docs.json` 一一对应：
 
 | Exception ID | External surface | Internal rule |
-|---|---|---|
+| --- | --- | --- |
 | `json-api-field` | JSON/API field | wire key 原样；DTO/property/adapter 使用语言内部命名 |
 | `postgres-column-migration` | PostgreSQL column、constraint、migration SQL | database identity 原样；reader/model 使用内部命名 |
 | `http-header` | HTTP header | header spelling 原样；constant/accessor 使用内部命名 |

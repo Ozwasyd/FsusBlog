@@ -193,7 +193,7 @@ Rights V3 的完整验收矩阵由 `tools/test/lanes/rights-v3-test-matrix.sh` �
 普通 correctness 与 browser execution 使用完全不同拓扑。`production-correctness` 不包含任何真实浏览器；`browser-contract` 是 release-final 唯一不可替代的浏览器发布契约。旧 Acceptance、视觉、UX、引擎差异、geometry/motion/focus、渲染性能、browser runtime resilience 以及迁出的 PoW/search/permission/zero-auth probe 由独立 diagnostics 入口串行执行，固定外层 worker `1`、retry `0`，不读取机器负载在内层扩容。
 
 | Lane | Scale mode | Current policy | Artifact isolation | Worker policy |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `browser-contract` | one Playwright Library process | Router、auth、user/admin 状态机和 CRUD correctness 由 Vitest/API/PostgreSQL tests 承担；release-final 运行 5 个基线浏览器场景，step-up-ready fixture 再加入第 6 个 WebAuthn 场景 | `.tmp/browser-contract/receipt.json` | 固定 1 次 managed Chromium launch、5–6 个串行 BrowserContext、0 worker pool、0 shard、0 retry |
 | `browser-diagnostics` | migrated runtime group + serial category catalog | scheduled/manual 先保留 PoW/search/permission/zero-auth browser risk，再运行 7 类 14 probes；各 probe 独立留证，最终一次性汇总全部失败 | `.tmp/browser-diagnostics-runtime/**` 与 `.tmp/browser-diagnostics/<run>/<category>/<probe>` | 固定 outer lane `1`、worker `1`、retry `0` |
 | diagnostics `visual` | public + console + aggregate | 直属聚合当前 run 的两组 summary，不依赖已退役 CI shard job | public/console 目录与 aggregate summary | 固定 worker `1`；missing/skipped/stale fail closed |
@@ -326,6 +326,7 @@ optional_deployment_layer:
 **触发时机**：本地提交前、PR 检查
 
 **覆盖内容**：
+
 - `tests/backend/Unit/` — 服务逻辑、工具函数、DTO 映射
 - `PodContractValidation.AreAllPodModelsReferenceFree()` — POD 引用安全断言
 - AEDS v2 帧头编解码逻辑（`AedsEncoder`、`AedsDecoderValidator`）：16-byte header、CRC16、payload length、unknown version 拒绝、v1 frame 拒绝
@@ -334,6 +335,7 @@ optional_deployment_layer:
 - 缓存键构建逻辑（`CacheKeyBuilder`）
 
 **单独运行**：
+
 ```bash
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
   --filter "Category!=Integration" -v minimal
@@ -346,12 +348,14 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 **触发时机**：PR 检查、分支合并前
 
 **前置条件**：
+
 ```bash
 docker compose -f ops/development/dependencies.compose.yml up -d
 # 等待 /health/ready 通过
 ```
 
 **覆盖内容**：
+
 - `tests/backend/Integration/` — 真实数据库 + Redis
 - 端点级集成：文章 CRUD、评论流、分类/标签查询
 - 缓存回填与失效（L1 + L2）
@@ -360,6 +364,7 @@ docker compose -f ops/development/dependencies.compose.yml up -d
 - 会话吊销语义
 
 **单独运行**：
+
 ```bash
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
   --filter "Category=Integration" -v minimal
@@ -374,6 +379,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 **前置条件**：`http://127.0.0.1:8080` 可访问（Release 构建容器）
 
 **覆盖内容**（主要通过 `npm run check:*` 系列）：
+
 - `check:public-seo-smoke` — 公开页 SEO 标签（canonical、页面差异化纯文本 description、OpenGraph/Twitter/JSON-LD 图片一致性、feed discovery、JSON-LD `@graph` 中单一 `WebSite` 与正确 `WebPage`/`CollectionPage`/`BlogPosting`），并断言 noindex `/search` 不生成 `SearchAction`、任何 HTML 不生成 `meta keywords`
 - `check:public-hydration` — AOT 首屏到 SPA hydration 无闪白，并核验文章详情 hydration/bootstrap 均携带 `relatedReading`
 - `check:aot` — AOT 契约合规（`PublicAotShellEntryContract` 格式验证）
@@ -390,6 +396,7 @@ Public hydration matrix 由 `tests/frontend/checks/public/public-hydration-matri
 Public AOT SSR worker reliability 由 `PublicAotSsrRuntimeStateTests`、`PublicAotBackfillSchedulerTests`、`PublicAotShellServiceTests`、`PublicAotRouteManifestTests` 和 `PublicAotNodeWorkerScriptTests` 覆盖。测试必须证明 worker timeout / malformed renderer response 会进入分类 counters，连续 worker failure 打开 circuit breaker，cooldown 后 half-open probe 成功才关闭，重复 route failure 会 quarantine 单 route，breaker 打开时公开读仍返回 stale AOT 或 SPA fallback。运行时诊断可用 `FSUSBLOG_BASE_URL=http://127.0.0.1:7568 node tools/operations/public-aot-health.mjs` 拉取 `/internal/public-aot/health`；若配置 `PublicAot:ManifestToken`，同时设置 `FSUSBLOG_PUBLIC_AOT_TOKEN`。
 
 **Public hydration matrix 本地复现**：
+
 ```bash
 ./tools/test.sh ci-tier public-hydration-fast --no-deps
 ./tools/test.sh ci-tier release
@@ -405,6 +412,7 @@ Public AOT SSR worker reliability 由 `PublicAotSsrRuntimeStateTests`、`PublicA
 **前置条件**：Router/组件/API 单测不需要完整服务；PostgreSQL integration 只需要隔离 fixture；Browser Contract 需要 #1078 immutable production build receipt、一个绑定 source commit/run/lane identity 的 run-scoped fixture namespace 与 frontend/backend runtime
 
 **覆盖场景**：
+
 - Router route/name/path、anonymous/user/admin、permission、guestOnly、redirect、403/404 和 deep link 使用 `createMemoryHistory()`；
 - auth、message、admin workbench、passkey dialog 和 mobile/desktop DOM 分支使用 Vue Test Utils；
 - AEDS mutation、工单、审核、文章发布、cache/audit side effect 使用 API/backend integration；
@@ -413,6 +421,7 @@ Public AOT SSR worker reliability 由 `PublicAotSsrRuntimeStateTests`、`PublicA
 Browser Contract fixture 固定为 `1 session / 1 concurrency`，只准备一个专用 PostgreSQL instance/schema、一个专用 Redis instance/namespace、一个普通 user、一个 admin 和一份 auth/storage manifest。producer 不读取 dynamic worker、live memory/grant 或 PostgreSQL PID headroom，也不逐 worker clone schema；请求其他拓扑、source identity 缺失或 prepare 失败时在读取旧 receipt/启动 Chromium 前 fail closed，禁止回退到共享 live `public` schema。场景只通过正式 fixture API 消费稳定 ID、URL 与 storage state，不直接执行 SQL、Redis 或 Docker。成功、失败、取消和 timeout 共用幂等 cleanup，receipt 分别记录 database/Redis/processes/files cleanup；container labels/ID 与 PID start-time/run identity 均须复核，cleanup failure 保留 recovery state 且不覆盖首个测试失败。完整契约见 [`issue-1149-browser-contract-fixture.md`](testing/issue-1149-browser-contract-fixture.md)。
 
 **运行**：
+
 ```bash
 npm --prefix src/frontend run check:acceptance:auth
 npm --prefix src/frontend run check:acceptance:console
@@ -431,6 +440,7 @@ node --test tests/tools/acceptance-layer-migration.test.mjs
 **触发时机**：nightly，或 UI 组件/样式变更后手动运行 diagnostics
 
 **覆盖内容**：
+
 - 深色模式 / 浅色模式截图比对
 - viewport registry 来自 `tests/frontend/fixtures/ux-viewport-matrix.json`
 - screenshot baseline 视口：`narrow-mobile` 360x780、`mobile` 390x844、`desktop` 1440x960
@@ -438,6 +448,7 @@ node --test tests/tools/acceptance-layer-migration.test.mjs
 - 截图基线版本管理（`test-results/` 目录）
 
 手动复现完整 visual category：
+
 ```bash
 bash tools/test/lanes/browser-diagnostics.sh \
   manual --category visual --workers 1
@@ -454,7 +465,7 @@ bash tools/test/lanes/browser-diagnostics.sh \
 **覆盖场景**：
 
 | 场景 | 测试内容 |
-|------|---------|
+| ------ | --------- |
 | 匿名请求 | 公开端点可访问；私有端点返回 401 |
 | 登录请求 | 有效 JWT 授权成功；过期 Token 返回 401 |
 | Admin 请求 | admin 角色可访问管理端；普通用户返回 403 |
@@ -496,6 +507,7 @@ release browser acceptance 在 Chrome、Firefox、Safari、Edge 分别覆盖匿�
 ### `resilience` — 弹性测试
 
 **覆盖内容**：
+
 - **上传弹性**：分片上传中断后续传、过期上传清理
 - **通知弹性**：慢消费者断开、断线重连游标恢复
 - **停机弹性**：graceful shutdown drain、notification stream close、重启后 public/auth 恢复
@@ -519,6 +531,7 @@ data-scale lanes 必须生成真实、可查询、可清理的 fixture。`tools/
 > 非性能基准，仅验证基础并发稳定性。
 
 **覆盖内容**：
+
 - 文章列表 / 详情并发读（baseline `concurrency=10`、`rounds=6`、`durationMs=30000`，源自 `tests/perf/perf-policy.yml`）
 - Binary 链并发读
 - WebSocket binary notification stream 多连接稳定性（`connections=50`、`durationMs=30000`）
@@ -552,10 +565,12 @@ server `aeds-frame-cost` 证据把 `structuralEvidence` 与 `measuredEvidence` �
 `PodBinaryCodec` batch allocation 证据使用独立 profiler 和 field-derived checker：ArticleList 覆盖 0/1/10/50/100 items、0/2/8 tags、三档字符串长度与 ASCII/CJK/mixed UTF-8 的 135 场景，并逐场比较五个候选的 wire bytes；ArticleDetail 对小正文保留 legacy 路径，只在达到实测阈值后直接写入 UTF-8 blob。backend unit 保留 differential、随机 UTF-8、overflow、pool 异常归还、并发和阈值边界；`static-governance` 只重放确定性的证据契约测试，不在 fast gate 重跑五轮 benchmark。结论只能声明 miss/background rebuild encode 的 Level M 分配与局部延迟，不得外推为 cache-hit QPS。完整复现实验、场景表和回退条件见 [PodBinaryCodec batch allocation evidence](performance-pod-binary-codec-batch.md)。
 
 独立运行真实 BenchmarkDotNet：
+
 ```bash
 cd FsusBlog.Core.Benchmarks
 dotnet run -c Release
 ```
+
 结果保存在 `BenchmarkDotNet.Artifacts/results/`。当前套件覆盖 AEDS/POD encode/decode、raw cache-hit defensive copy 与 readonly fast path、合成 search rebuild/query BM25 路径、Public AOT bundle encode/decode，以及上述 server hot paths；生产调高 runtime tuning 前必须把对应实测基准和 budget comparison 随发布证据保存，不得写“更快”而没有 measurement。
 
 ---
@@ -600,7 +615,7 @@ Chromium/SW/GC binding；验证只接受 key 路径，不把 secret 写入 artif
 `migrationQualification.{scenarioTemplate,timeoutSeconds,expandMigrationId,backfillMigrationId,contractMigrationId}`。
 
 | #1031 场景面 | 必须有的真实覆盖 |
-|---|---|
+| --- | --- |
 | 匿名 | 首页、归档、文章、搜索、static 与公开 AEDS binary；部署连接错误和未标记 5xx 为 0 |
 | 登录 | login、refresh、protected read、代表性 write 与 upload；Cookie jar 不把凭据写入 evidence |
 | admin | health/control；migration bridge/readiness 只在 Test + explicit enable 下使用 `system.config` |
@@ -637,6 +652,7 @@ Release rollout closeout 另外要求 `release-rollout.json` seal 15 stages 与 
 diagnostics failure 只改变该 diagnostics receipt；不得把它写入 Production correctness status，也不得用 Production 通过冒充 diagnostics 已执行。
 
 完成后检查：
+
 ```bash
 curl -fsS http://127.0.0.1:8080/health/ready
 ```
@@ -680,7 +696,7 @@ Benchmark 记录口径：在同一个 runner、同一个提交、同一份 NuGet
 当前本地单轮 build benchmark（2026-06-15，same checkout，warmed NuGet cache after first run）：
 
 | Mode | MSBuild arg | Wall-clock | Exit | Flake signal |
-|---|---:|---:|---:|---|
+| --- | ---: | ---: | ---: | --- |
 | `safe` | `/m:1` | 53s | 0 | none observed in one run |
 | `auto` | `/m` | 12s | 0 | none observed in one run |
 
@@ -771,8 +787,8 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 所有 API 变更必须覆盖以下场景：
 
 | 场景 | 对应测试层 |
-|------|-----------|
-| 匿名公开读（Binary / Wasm）| release, resilience |
+| ------ | ----------- |
+| 匿名公开读（Binary / Wasm） | release, resilience |
 | 作者资产库 admin-only 边界、重建、复用、孤儿清理 | fast, acceptance, resilience |
 | 作者分析 dashboard、搜索关键词/来源路径/404 聚合、RUM ingestion/dashboard/隐私边界 | unit, acceptance, telemetry privacy |
 | 登录用户写操作 | integration, acceptance, security |

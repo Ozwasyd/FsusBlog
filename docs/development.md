@@ -24,7 +24,7 @@ node tools/governance/check-code-intent.mjs
 ## 环境要求
 
 | 工具 | 版本要求 | 用途 |
-|------|---------|------|
+| ------ | --------- | ------ |
 | .NET SDK | 10.0+ | 后端编译与运行 |
 | Node.js | 20 LTS+ | 前端依赖与构建 |
 | npm | 10+ | 前端包管理 |
@@ -130,7 +130,7 @@ dev 模式下，Vite 会通过 `transformIndexHtml` 注入 `public-shell-critica
 ### 常用访问地址
 
 | 地址 | 用途 |
-|------|------|
+| ------ | ------ |
 | `http://127.0.0.1:3000` | Vite 前端开发壳（HMR） |
 | `http://127.0.0.1:7568` | ASP.NET Core API（Debug 本地运行） |
 | `http://127.0.0.1:8080` | 生产构建预览（Release 容器） |
@@ -230,7 +230,7 @@ proxy: {
 ### 开发
 
 | 命令 | 说明 |
-|------|------|
+| ------ | ------ |
 | `npm run generate:public-page-manifest` | 从 `src/shared/Contracts/Outputs/PublicPageContracts.cs` 生成前端 public page manifest |
 | `npm run generate:public-shell-emergency` | 从 `src/assets/public-page.css` 的 `emergency:keep` 区块生成公开页 emergency CSS |
 | `npm run dev` | 启动 Vite 开发服务器（源码入口，适合前端样式与本地 FsusUI HMR） |
@@ -243,7 +243,7 @@ proxy: {
 ### Wasm
 
 | 命令 | 说明 |
-|------|------|
+| ------ | ------ |
 | `npm run ensure:wasm` | 检查并拉取 Wasm 预构建产物 |
 | `npm run build:wasm` | 本地重新编译 Wasm（需 Emscripten） |
 | `npm run deps:wasm-codec` | 更新 Wasm 相关依赖 |
@@ -251,7 +251,7 @@ proxy: {
 ### 静态检查
 
 | 命令 | 说明 |
-|------|------|
+| ------ | ------ |
 | `npm run check:modern-standards` | 验证现代 Web 标准兼容性 |
 | `npm run check:error-code-alignment` | 验证前后端错误码一致性 |
 | `npm run check:security-consistency` | 验证鉴权语义一致性 |
@@ -259,7 +259,7 @@ proxy: {
 ### AOT / SEO
 
 | 命令 | 说明 |
-|------|------|
+| ------ | ------ |
 | `npm run check:aot` | 验证 AOT 契约合规性 |
 | `npm run check:public-seo-smoke` | 公开页 SEO 冒烟测试 |
 | `npm run check:public-hydration` | 公开页 hydration 冒烟 |
@@ -279,7 +279,7 @@ cache explosion、搜索索引陈旧和 hydration routeKey 漂移。`/user/profi
 ### 测试（分层）
 
 | 命令 | 说明 |
-|------|------|
+| ------ | ------ |
 | `npm run test:fast` | 纯单元测试，无外部依赖 |
 | `npm run test:integration` | 集成测试（需 Docker） |
 | `npm run test:ci` | fast + integration |
@@ -296,7 +296,7 @@ cache explosion、搜索索引陈旧和 hydration routeKey 漂移。`/user/profi
 ### 推荐启动配置
 
 | 配置名 | 场景 |
-|--------|------|
+| -------- | ------ |
 | `Debug / Client + Docker` | 最接近生产的调试（推荐） |
 | `Debug / Client + NativeServer` | 更快的 C# 迭代 |
 
