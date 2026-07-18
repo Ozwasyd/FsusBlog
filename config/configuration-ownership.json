@@ -15,6 +15,23 @@
             "pathType": "file"
         },
         {
+            "id": "cmake-presets",
+            "owner": "native-build-tooling",
+            "canonicalPath": "CMakePresets.json",
+            "pathType": "file"
+        },
+        {
+            "id": "backend-configuration-contract",
+            "owner": "backend-configuration-governance",
+            "canonicalPath": "config/application/backend-configuration-contract.json",
+            "pathType": "file",
+            "exclusiveBasename": true,
+            "rejectedPaths": [
+                "backend-configuration-contract.json",
+                "config/backend-configuration-contract.json"
+            ]
+        },
+        {
             "id": "development-governance",
             "owner": "repository-governance",
             "canonicalPath": "config/development",

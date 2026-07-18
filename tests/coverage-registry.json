@@ -3975,14 +3975,19 @@
         },
         {
             "id": "configuration-layout-governance",
-            "description": "Repository configuration has one canonical owner: generic settings under config, framework tool manifests under .config, and project-specific appsettings or launch profiles colocated with their owning project.",
+            "description": "Repository and backend runtime configuration have one canonical owner, semantic contract, environment classification and fail-closed drift gate.",
             "owner": "ServerContractAgent",
             "risk": "high",
             "evidencePaths": [
                 "config/configuration-ownership.json",
+                "config/application/backend-configuration-contract.json",
                 "tools/configuration/check-configuration-layout.mjs",
+                "tools/configuration/check-backend-configuration-contract.mjs",
                 "tests/tools/configuration-layout.test.mjs",
+                "tests/tools/issue-1172-backend-configuration-contract.test.mjs",
+                "tests/backend/Unit/BackendConfigurationContractTests.cs",
                 "docs/configuration-layout.md",
+                "docs/configuration/backend-configuration-reference.generated.md",
                 "docs/architecture/repository-layout.md",
                 ".config/dotnet-tools.json",
                 "config/moderation/regions.yaml",
@@ -3997,8 +4002,8 @@
                 ".gitignore"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject a competing configs root, unapproved root JSON, ownerless config/development or root Properties content, duplicate or missing canonical ownership, stale solution/project includes, non-colocated launch profiles, old Stryker/SLO/moderation paths or ignored canonical Compose launch settings.",
-            "minimumRequirement": "Static governance must execute positive and tamper fixtures for the ownership registry, restore the pinned dotnet tools, resolve every moderation/SLO/mutation/development-governance owner, and keep the minimal development example, production env example and Compose launch profile discoverable at canonical paths.",
+            "failClosedRule": "Reject a competing configs root, unapproved root JSON, duplicate or missing ownership, unknown or dead application keys, unclassified deployment inputs, stale aliases, tracked secret values, contradictory production requiredness, stale generated references, stale solution/project includes, non-colocated launch profiles or ignored canonical Compose launch settings.",
+            "minimumRequirement": "Static governance must execute positive and tamper fixtures for both layout and semantic configuration contracts, classify every tracked backend key and environment input, align production-required settings with startup validation, reject usable repository secrets, and keep generated documentation deterministic.",
             "tierIds": [
                 "static-governance"
             ]

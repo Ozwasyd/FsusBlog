@@ -22,6 +22,7 @@ StaticImplementationDrift() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/chec
 StaticAuthoritativeDevelopmentDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-authoritative-development-docs.mjs"; }
 StaticCodeIntent() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-code-intent.mjs"; }
 StaticAppsettingsAuthority() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-appsettings-authority.mjs"; }
+StaticBackendConfigurationContract() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-backend-configuration-contract.mjs"; }
 StaticCsharpStyle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode changed
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
@@ -41,6 +42,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/issue-1158-csharp-style.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1155-code-intent.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1171-appsettings-authority.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1172-backend-configuration-contract.test.mjs"
     "$ROOT_DIR/tests/tools/configuration-layout.test.mjs"
     "$ROOT_DIR/tests/tools/operations-layout.test.mjs"
     "$ROOT_DIR/tests/tools/deployment-slots.test.mjs"
@@ -165,6 +167,7 @@ RunStaticPrechecksPhase() {
         authoritative-development-docs StaticAuthoritativeDevelopmentDocs \
         code-intent StaticCodeIntent \
         appsettings-authority StaticAppsettingsAuthority \
+        backend-configuration-contract StaticBackendConfigurationContract \
         csharp-style StaticCsharpStyle
 }
 

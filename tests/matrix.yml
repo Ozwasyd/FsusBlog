@@ -1367,6 +1367,11 @@ tiers:
           - config/configuration-ownership.json
           - tests/tools/configuration-layout.test.mjs
           - docs/configuration-layout.md
+          - config/application/backend-configuration-contract.json
+          - tools/configuration/check-backend-configuration-contract.mjs
+          - tests/tools/issue-1172-backend-configuration-contract.test.mjs
+          - tests/backend/Unit/BackendConfigurationContractTests.cs
+          - docs/configuration/backend-configuration-reference.generated.md
           - tools/governance/check-operations-layout.mjs
           - tests/governance/operations-layout.json
           - tests/tools/operations-layout.test.mjs

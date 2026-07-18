@@ -6,7 +6,9 @@ FsusBlog has one generic configuration root: `config/`. Framework-discovered fil
 
 | Configuration | Canonical path | Owner / discovery rule |
 | --- | --- | --- |
+| Native CMake presets | `CMakePresets.json` | Native build tooling; root placement follows CMake discovery |
 | .NET local tools | `.config/dotnet-tools.json` | Standard `dotnet tool restore` discovery from the repository tree |
+| Backend configuration contract | `config/application/backend-configuration-contract.json` | Backend configuration governance; metadata only, never secret values |
 | Development governance manifests | `config/development/**` | Repository governance; authoritative docs and language-style policies |
 | Production SLO | `config/observability/slo.yml` | Operations and observability |
 | Zero-downtime resource policy | `config/deployment/zero-downtime-resource-policy.json` | Operations and deployment qualification |
@@ -21,7 +23,23 @@ FsusBlog has one generic configuration root: `config/`. Framework-discovered fil
 
 `config/configuration-ownership.json` is the machine-readable ownership registry. Directory ownership is recursive only where the registry says so; every file under `config/` and `.config/` must resolve to exactly one registry entry. Operational templates and executable workflows use the separate boundaries documented in [operations layout](operations-layout.md).
 
-Full backend appsettings examples are retired rather than permanent authorities. The shared base, real production overlay, minimal development example and production operator input are defined in [appsettings authority](configuration/appsettings-authority.md); the cross-source semantic contract is owned by #1172.
+Full backend appsettings examples are retired rather than permanent authorities. The shared base, real production overlay, minimal development example and production operator input are defined in [appsettings authority](configuration/appsettings-authority.md). The [generated backend configuration reference](configuration/backend-configuration-reference.generated.md) is derived from the cross-source semantic contract and is documentation, not an operator input template.
+
+## Backend configuration semantics
+
+`config/application/backend-configuration-contract.json` is the only semantic inventory for custom backend keys, tracked environment inputs and mounted files. It binds each setting to an owner, environment scope, source class, secret policy, requiredness, validator, documentation and runtime consumer. ASP.NET Core configuration precedence remains unchanged; the contract detects drift and does not contain runtime values.
+
+Check the repository, emit a machine-readable report, or regenerate the reference with:
+
+```bash
+node tools/configuration/check-backend-configuration-contract.mjs
+node tools/configuration/check-backend-configuration-contract.mjs \
+  --report-json .tmp/configuration/backend-configuration-drift.json
+node tools/configuration/check-backend-configuration-contract.mjs --write-doc
+node --test tests/tools/issue-1172-backend-configuration-contract.test.mjs
+```
+
+The static-governance lane runs the checker and its tamper fixtures. A rollback must revert the contract, generated reference, owner registry and checker together; disabling startup validation is not a rollback path.
 
 ## Runtime and tool discovery
 

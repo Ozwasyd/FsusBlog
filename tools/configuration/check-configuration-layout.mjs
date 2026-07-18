@@ -94,7 +94,10 @@ function checkRootLayout(root, manifest, errors) {
     }
   }
 
-  const allowedRootJson = new Set(ROOT_JSON_ALLOWLIST)
+  const ownedRootJson = (manifest.ownership ?? [])
+    .filter((entry) => entry.pathType === 'file' && !entry.canonicalPath.includes('/') && entry.canonicalPath.endsWith('.json'))
+    .map((entry) => entry.canonicalPath)
+  const allowedRootJson = new Set([...ROOT_JSON_ALLOWLIST, ...ownedRootJson])
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     if (entry.isFile() && entry.name.endsWith('.json') && !allowedRootJson.has(entry.name)) {
       errors.push(`unapproved repository-root configuration JSON: ${entry.name}`)
