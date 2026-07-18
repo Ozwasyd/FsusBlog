@@ -1,5 +1,11 @@
 using System.Reflection;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+using StackExchange.Redis;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -13,16 +19,6 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
-using StackExchange.Redis;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleMutationOutboxClaimLeaseTests
@@ -204,12 +200,12 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
     [Fact]
     public void ClaimLeaseExpandMigration_IsAdditiveAndOnlineCompatible()
     {
-        const string migrationId = "20260715-post-article-mutation-outbox-claim-lease";
+        const string MigrationId = "20260715-post-article-mutation-outbox-claim-lease";
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             new SchemaMigrationRegistry().GetDescriptors(),
-            descriptor => descriptor.MigrationId == migrationId);
+            descriptor => descriptor.MigrationId == MigrationId);
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[migrationId];
+        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[MigrationId];
 
         Assert.True(descriptor.Transactional);
         Assert.Contains("article_mutation_outbox.claim_token:varchar(64) NULL", fingerprint, StringComparison.Ordinal);

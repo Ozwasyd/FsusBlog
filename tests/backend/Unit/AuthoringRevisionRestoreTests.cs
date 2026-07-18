@@ -1,5 +1,10 @@
 using System.Reflection;
 
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -7,21 +12,13 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class AuthoringRevisionRestoreTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static readonly MethodInfo RestoreImportedRevisions = typeof(AuthoringWorkflowService)
+    private static readonly MethodInfo s_restoreImportedRevisions = typeof(AuthoringWorkflowService)
         .GetMethod("RestoreImportedRevisionsAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("RestoreImportedRevisionsAsync should exist.");
 
@@ -50,7 +47,7 @@ public sealed class AuthoringRevisionRestoreTests(PostgresSchemaMigrationFixture
         AuthoringWorkflowService service,
         int articleId,
         ContentExportMetadataResponse metadata)
-        => (Task<int>)RestoreImportedRevisions.Invoke(service, [articleId, metadata, CancellationToken.None])!;
+        => (Task<int>)s_restoreImportedRevisions.Invoke(service, [articleId, metadata, CancellationToken.None])!;
 
     private static ContentExportMetadataResponse CreateMetadata()
         => new(

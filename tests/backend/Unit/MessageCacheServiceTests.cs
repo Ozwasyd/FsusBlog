@@ -1,13 +1,12 @@
 using System.Reflection;
 
+using NSubstitute;
+
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.CoreBridge.Caching;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Services.NotificationStream;
-
-using NSubstitute;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class MessageCacheServiceTests
@@ -64,8 +63,8 @@ public sealed class MessageCacheServiceTests
     public async Task GetOrLoadUserCommentsAsync_UsesVersionedAccountCommentIdentityPrefix()
     {
         var cache = Substitute.For<IUnifiedCache>();
-        const string identity = "account:7:v:UserCommentCursorVersion:0:0:comments:123:20";
-        cache.AcquireSingleFlightAsync(CachePolicyId.UserCommentCursor, identity, Arg.Any<CancellationToken>())
+        const string Identity = "account:7:v:UserCommentCursorVersion:0:0:comments:123:20";
+        cache.AcquireSingleFlightAsync(CachePolicyId.UserCommentCursor, Identity, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IAsyncDisposable>(NullAsyncDisposable.Instance));
         var sut = new CommentCoreQueryCache(cache);
 
@@ -77,7 +76,7 @@ public sealed class MessageCacheServiceTests
 
         await cache.Received(1).SetRawAsync(
             CachePolicyId.UserCommentCursor,
-            identity,
+            Identity,
             Arg.Any<byte[]>(),
             TimeSpan.FromMinutes(5),
             Arg.Any<CancellationToken>());

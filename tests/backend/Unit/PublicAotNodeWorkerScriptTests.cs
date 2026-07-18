@@ -1,14 +1,13 @@
 using System.Reflection;
 
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Tests.Unit;
-using FsusBlog.Shared.Contracts.Outputs;
-
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Tests.Unit;
+using FsusBlog.Shared.Contracts.Outputs;
 namespace FsusBlog.Server.Tests;
 
 public sealed class PublicAotNodeWorkerScriptTests

@@ -3,7 +3,7 @@ namespace FsusBlog.Server.Tests.Unit;
 [Trait("Category", "SecurityStateMachine")]
 public sealed class BackendAuthStateMachineTests
 {
-    private static readonly IReadOnlyDictionary<(AuthState State, AuthEvent Event), AuthState> Transitions =
+    private static readonly IReadOnlyDictionary<(AuthState State, AuthEvent Event), AuthState> s_transitions =
         new Dictionary<(AuthState, AuthEvent), AuthState>
         {
             [(AuthState.Guest, AuthEvent.IssuePowChallenge)] = AuthState.PowChallengeIssued,
@@ -85,7 +85,7 @@ public sealed class BackendAuthStateMachineTests
     }
 
     private static AuthState Apply(AuthState state, AuthEvent authEvent)
-        => Transitions.TryGetValue((state, authEvent), out AuthState next)
+        => s_transitions.TryGetValue((state, authEvent), out AuthState next)
             ? next
             : throw new InvalidOperationException($"Illegal auth transition: {state} -> {authEvent}");
 

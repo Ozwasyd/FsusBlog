@@ -5,21 +5,19 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using NSubstitute;
+
 using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authorization.Infrastructure;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-
-using NSubstitute;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ActiveReleaseFenceContractTests
@@ -279,8 +277,8 @@ public sealed class ActiveReleaseFenceContractTests
             request.Append(Encoding.ASCII.GetString(buffer, 0, read));
         }
 
-        const string body = "{\"accepted\":true,\"status\":\"active\"}";
-        string response = $"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {Encoding.UTF8.GetByteCount(body)}\r\nConnection: close\r\n\r\n{body}";
+        const string Body = "{\"accepted\":true,\"status\":\"active\"}";
+        string response = $"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {Encoding.UTF8.GetByteCount(Body)}\r\nConnection: close\r\n\r\n{Body}";
         await stream.WriteAsync(Encoding.UTF8.GetBytes(response));
     }
 }

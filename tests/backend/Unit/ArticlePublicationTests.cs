@@ -6,7 +6,7 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class ArticlePublicationTests
 {
-    private static readonly DateTime Now = new(2026, 5, 18, 12, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime s_now = new(2026, 5, 18, 12, 0, 0, DateTimeKind.Utc);
 
     [Fact]
     public void IsPubliclyVisible_PublishedArticleWithPastPublishTime_ReturnsTrue()
@@ -14,10 +14,10 @@ public sealed class ArticlePublicationTests
         var article = new Article
         {
             Status = ArticleStatus.Published,
-            PublishedAt = Now.AddMinutes(-1)
+            PublishedAt = s_now.AddMinutes(-1)
         };
 
-        Assert.True(ArticlePublication.IsPubliclyVisible(article, Now));
+        Assert.True(ArticlePublication.IsPubliclyVisible(article, s_now));
     }
 
     [Theory]
@@ -30,11 +30,11 @@ public sealed class ArticlePublicationTests
         var article = new Article
         {
             Status = status,
-            PublishedAt = Now.AddMinutes(-1),
-            ScheduledPublishAt = status == ArticleStatus.Scheduled ? Now.AddMinutes(-1) : null
+            PublishedAt = s_now.AddMinutes(-1),
+            ScheduledPublishAt = status == ArticleStatus.Scheduled ? s_now.AddMinutes(-1) : null
         };
 
-        Assert.False(ArticlePublication.IsPubliclyVisible(article, Now));
+        Assert.False(ArticlePublication.IsPubliclyVisible(article, s_now));
     }
 
     [Fact]
@@ -43,10 +43,10 @@ public sealed class ArticlePublicationTests
         var article = new Article
         {
             Status = ArticleStatus.Published,
-            PublishedAt = Now.AddMinutes(1)
+            PublishedAt = s_now.AddMinutes(1)
         };
 
-        Assert.False(ArticlePublication.IsPubliclyVisible(article, Now));
+        Assert.False(ArticlePublication.IsPubliclyVisible(article, s_now));
     }
 
     [Fact]
@@ -55,11 +55,11 @@ public sealed class ArticlePublicationTests
         var article = new Article
         {
             Status = ArticleStatus.Published,
-            PublishedAt = Now.AddMinutes(-1),
-            ScheduledPublishAt = Now.AddMinutes(1)
+            PublishedAt = s_now.AddMinutes(-1),
+            ScheduledPublishAt = s_now.AddMinutes(1)
         };
 
-        Assert.False(ArticlePublication.IsPubliclyVisible(article, Now));
+        Assert.False(ArticlePublication.IsPubliclyVisible(article, s_now));
     }
 
     [Fact]
@@ -68,11 +68,11 @@ public sealed class ArticlePublicationTests
         var article = new Article
         {
             Status = ArticleStatus.Published,
-            PublishedAt = Now.AddMinutes(-1),
+            PublishedAt = s_now.AddMinutes(-1),
             IsDeleted = true
         };
 
-        Assert.False(ArticlePublication.IsPubliclyVisible(article, Now));
+        Assert.False(ArticlePublication.IsPubliclyVisible(article, s_now));
     }
 
     [Theory]
@@ -94,10 +94,10 @@ public sealed class ArticlePublicationTests
             Id = 42,
             Status = status,
             IsDeleted = isDeleted,
-            PublishedAt = Now.AddMinutes(publishedOffsetMinutes),
-            ScheduledPublishAt = Now.AddMinutes(scheduledOffsetMinutes)
+            PublishedAt = s_now.AddMinutes(publishedOffsetMinutes),
+            ScheduledPublishAt = s_now.AddMinutes(scheduledOffsetMinutes)
         };
 
-        Assert.False(PublicHotArtifactProjector.IsPubliclyVisible(article, Now));
+        Assert.False(PublicHotArtifactProjector.IsPubliclyVisible(article, s_now));
     }
 }

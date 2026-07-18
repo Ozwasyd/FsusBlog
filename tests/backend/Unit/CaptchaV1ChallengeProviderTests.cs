@@ -3,23 +3,22 @@ using System.Net;
 using System.Reflection;
 using System.Text;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CaptchaV1ChallengeProviderTests
 {
-    private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-18T12:00:00Z");
+    private static readonly DateTimeOffset s_baselineNow = DateTimeOffset.Parse("2026-06-18T12:00:00Z");
     private const string SigningKey = "captcha-unit-test-signing-key-with-enough-entropy";
     private const string HashA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string HashB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -266,7 +265,7 @@ public sealed class CaptchaV1ChallengeProviderTests
         var cache = new RecordingOneShotCache();
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var provider = new CaptchaV1ChallengeProvider(cache, persistence, riskSink, CreateConfiguration(), clock);
         return new ProviderFixture(provider, cache, persistence, riskSink, clock);
     }

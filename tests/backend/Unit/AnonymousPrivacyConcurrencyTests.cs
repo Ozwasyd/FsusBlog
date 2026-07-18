@@ -8,41 +8,41 @@ public sealed class AnonymousPrivacyConcurrencyTests
     [Fact]
     public async Task SameNullifierAndScopeConcurrentSubmit_AllowsOnlyPolicyLimit()
     {
-        const int attempts = 24;
-        const int limit = 2;
-        using var barrier = new Barrier(attempts);
-        var limiter = new ScopedNullifierLimiter(limit);
+        const int Attempts = 24;
+        const int Limit = 2;
+        using var barrier = new Barrier(Attempts);
+        var limiter = new ScopedNullifierLimiter(Limit);
 
-        bool[] results = await Task.WhenAll(Enumerable.Range(0, attempts)
+        bool[] results = await Task.WhenAll(Enumerable.Range(0, Attempts)
             .Select(_ => StartBarrierTask(barrier, () => limiter.TryAccept("nullifier-a", "article:42"))));
 
-        Assert.Equal(limit, results.Count(static value => value));
-        Assert.Equal(attempts - limit, results.Count(static value => !value));
+        Assert.Equal(Limit, results.Count(static value => value));
+        Assert.Equal(Attempts - Limit, results.Count(static value => !value));
     }
 
     [Fact]
     public async Task SameTicketConcurrentConsume_SucceedsOnce()
     {
-        const int attempts = 24;
-        using var barrier = new Barrier(attempts);
+        const int Attempts = 24;
+        using var barrier = new Barrier(Attempts);
         var tickets = new SingleUseTicketStore();
         tickets.Add("ticket-1");
 
-        bool[] results = await Task.WhenAll(Enumerable.Range(0, attempts)
+        bool[] results = await Task.WhenAll(Enumerable.Range(0, Attempts)
             .Select(_ => StartBarrierTask(barrier, () => tickets.TryConsume("ticket-1"))));
 
         Assert.Equal(1, results.Count(static value => value));
-        Assert.Equal(attempts - 1, results.Count(static value => !value));
+        Assert.Equal(Attempts - 1, results.Count(static value => !value));
     }
 
     [Fact]
     public async Task RootSnapshotHighFrequencyRead_UsesCachedSnapshot()
     {
-        const int reads = 48;
-        using var barrier = new Barrier(reads);
+        const int Reads = 48;
+        using var barrier = new Barrier(Reads);
         var cache = new RootSnapshotCache();
 
-        string[] snapshots = await Task.WhenAll(Enumerable.Range(0, reads)
+        string[] snapshots = await Task.WhenAll(Enumerable.Range(0, Reads)
             .Select(_ => StartBarrierTask(barrier, cache.GetSnapshot)));
 
         Assert.All(snapshots, snapshot => Assert.Equal("root-v1", snapshot));
@@ -52,26 +52,26 @@ public sealed class AnonymousPrivacyConcurrencyTests
     [Fact]
     public async Task VerifierBoundedConcurrency_DoesNotExceedConfiguredLimit()
     {
-        const int attempts = 32;
-        const int maxConcurrent = 4;
-        using var barrier = new Barrier(attempts);
-        var verifier = new BoundedVerifier(maxConcurrent);
+        const int Attempts = 32;
+        const int MaxConcurrent = 4;
+        using var barrier = new Barrier(Attempts);
+        var verifier = new BoundedVerifier(MaxConcurrent);
 
-        bool[] results = await Task.WhenAll(Enumerable.Range(0, attempts)
+        bool[] results = await Task.WhenAll(Enumerable.Range(0, Attempts)
             .Select(_ => StartBarrierTaskAsync(barrier, () => verifier.VerifyAsync(CancellationToken.None))));
 
         Assert.All(results, Assert.True);
-        Assert.InRange(verifier.MaxObservedConcurrency, 1, maxConcurrent);
+        Assert.InRange(verifier.MaxObservedConcurrency, 1, MaxConcurrent);
     }
 
     [Fact]
     public async Task AnonymousTicketEndpointCheapReject_SkipsExpensiveProofWorkUnderLoad()
     {
-        const int attempts = 32;
-        using var barrier = new Barrier(attempts);
+        const int Attempts = 32;
+        using var barrier = new Barrier(Attempts);
         var endpoint = new CheapRejectAnonymousTicketEndpoint();
 
-        bool[] results = await Task.WhenAll(Enumerable.Range(0, attempts).Select(index =>
+        bool[] results = await Task.WhenAll(Enumerable.Range(0, Attempts).Select(index =>
             StartBarrierTask(barrier, () =>
             {
                 var headers = index % 2 == 0
@@ -88,17 +88,17 @@ public sealed class AnonymousPrivacyConcurrencyTests
     [Fact]
     public async Task CommentSubmitHighConcurrency_CacheInvalidationIsNonBlocking()
     {
-        const int attempts = 24;
-        using var barrier = new Barrier(attempts);
+        const int Attempts = 24;
+        using var barrier = new Barrier(Attempts);
         var dispatcher = new NonBlockingInvalidationDispatcher();
         var submitter = new CommentSubmitter(dispatcher);
 
-        Task<long[]> submissions = Task.WhenAll(Enumerable.Range(0, attempts)
+        Task<long[]> submissions = Task.WhenAll(Enumerable.Range(0, Attempts)
             .Select(_ => StartBarrierTask(barrier, submitter.Submit)));
 
         long[] submittedIds = await submissions.WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.Equal(attempts, submittedIds.Length);
-        Assert.Equal(attempts, dispatcher.PendingInvalidations);
+        Assert.Equal(Attempts, submittedIds.Length);
+        Assert.Equal(Attempts, dispatcher.PendingInvalidations);
 
         dispatcher.CompleteAll();
         await dispatcher.DrainAsync();
@@ -133,21 +133,21 @@ public sealed class AnonymousPrivacyConcurrencyTests
 
     private sealed class ScopedNullifierLimiter(int limit)
     {
-        private readonly object sync = new();
-        private readonly Dictionary<string, int> counts = [];
+        private readonly object _sync = new();
+        private readonly Dictionary<string, int> _counts = [];
 
         public bool TryAccept(string nullifierHash, string scope)
         {
             string key = $"{scope}:{nullifierHash}";
-            lock (sync)
+            lock (_sync)
             {
-                counts.TryGetValue(key, out int count);
+                _counts.TryGetValue(key, out int count);
                 if (count >= limit)
                 {
                     return false;
                 }
 
-                counts[key] = count + 1;
+                _counts[key] = count + 1;
                 return true;
             }
         }
@@ -155,67 +155,67 @@ public sealed class AnonymousPrivacyConcurrencyTests
 
     private sealed class SingleUseTicketStore
     {
-        private readonly ConcurrentDictionary<string, byte> tickets = new(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, byte> _tickets = new(StringComparer.Ordinal);
 
         public void Add(string ticket)
-            => tickets[ticket] = 1;
+            => _tickets[ticket] = 1;
 
         public bool TryConsume(string ticket)
-            => tickets.TryRemove(ticket, out _);
+            => _tickets.TryRemove(ticket, out _);
     }
 
     private sealed class RootSnapshotCache
     {
-        private readonly object sync = new();
-        private string? snapshot;
-        private int loadCount;
+        private readonly object _sync = new();
+        private string? _snapshot;
+        private int _loadCount;
 
-        public int LoadCount => Volatile.Read(ref loadCount);
+        public int LoadCount => Volatile.Read(ref _loadCount);
 
         public string GetSnapshot()
         {
-            string? cached = Volatile.Read(ref snapshot);
+            string? cached = Volatile.Read(ref _snapshot);
             if (cached is not null)
             {
                 return cached;
             }
 
-            lock (sync)
+            lock (_sync)
             {
-                snapshot ??= LoadSnapshot();
-                return snapshot;
+                _snapshot ??= LoadSnapshot();
+                return _snapshot;
             }
         }
 
         private string LoadSnapshot()
         {
-            Interlocked.Increment(ref loadCount);
+            Interlocked.Increment(ref _loadCount);
             return "root-v1";
         }
     }
 
     private sealed class BoundedVerifier(int maxConcurrent)
     {
-        private readonly SemaphoreSlim gate = new(maxConcurrent, maxConcurrent);
-        private int inFlight;
-        private int maxObservedConcurrency;
+        private readonly SemaphoreSlim _gate = new(maxConcurrent, maxConcurrent);
+        private int _inFlight;
+        private int _maxObservedConcurrency;
 
-        public int MaxObservedConcurrency => Volatile.Read(ref maxObservedConcurrency);
+        public int MaxObservedConcurrency => Volatile.Read(ref _maxObservedConcurrency);
 
         public async Task<bool> VerifyAsync(CancellationToken cancellationToken)
         {
-            await gate.WaitAsync(cancellationToken);
+            await _gate.WaitAsync(cancellationToken);
             try
             {
-                int current = Interlocked.Increment(ref inFlight);
+                int current = Interlocked.Increment(ref _inFlight);
                 TrackMax(current);
                 await Task.Delay(15, cancellationToken);
                 return true;
             }
             finally
             {
-                Interlocked.Decrement(ref inFlight);
-                gate.Release();
+                Interlocked.Decrement(ref _inFlight);
+                _gate.Release();
             }
         }
 
@@ -224,23 +224,23 @@ public sealed class AnonymousPrivacyConcurrencyTests
             int previous;
             do
             {
-                previous = Volatile.Read(ref maxObservedConcurrency);
+                previous = Volatile.Read(ref _maxObservedConcurrency);
                 if (current <= previous)
                 {
                     return;
                 }
             }
-            while (Interlocked.CompareExchange(ref maxObservedConcurrency, current, previous) != previous);
+            while (Interlocked.CompareExchange(ref _maxObservedConcurrency, current, previous) != previous);
         }
     }
 
     private sealed class CheapRejectAnonymousTicketEndpoint
     {
-        private int expensiveProofCalls;
-        private int nullifierReservationCalls;
+        private int _expensiveProofCalls;
+        private int _nullifierReservationCalls;
 
-        public int ExpensiveProofCalls => Volatile.Read(ref expensiveProofCalls);
-        public int NullifierReservationCalls => Volatile.Read(ref nullifierReservationCalls);
+        public int ExpensiveProofCalls => Volatile.Read(ref _expensiveProofCalls);
+        public int NullifierReservationCalls => Volatile.Read(ref _nullifierReservationCalls);
 
         public bool TryIssue(IReadOnlyDictionary<string, string> headers)
         {
@@ -249,19 +249,19 @@ public sealed class AnonymousPrivacyConcurrencyTests
                 return false;
             }
 
-            Interlocked.Increment(ref expensiveProofCalls);
-            Interlocked.Increment(ref nullifierReservationCalls);
+            Interlocked.Increment(ref _expensiveProofCalls);
+            Interlocked.Increment(ref _nullifierReservationCalls);
             return true;
         }
     }
 
     private sealed class CommentSubmitter(NonBlockingInvalidationDispatcher dispatcher)
     {
-        private long id;
+        private long _id;
 
         public long Submit()
         {
-            long commentId = Interlocked.Increment(ref id);
+            long commentId = Interlocked.Increment(ref _id);
             dispatcher.Enqueue(commentId);
             return commentId;
         }
@@ -269,25 +269,25 @@ public sealed class AnonymousPrivacyConcurrencyTests
 
     private sealed class NonBlockingInvalidationDispatcher
     {
-        private readonly ConcurrentBag<TaskCompletionSource> invalidations = [];
+        private readonly ConcurrentBag<TaskCompletionSource> _invalidations = [];
 
-        public int PendingInvalidations => invalidations.Count;
+        public int PendingInvalidations => _invalidations.Count;
 
         public void Enqueue(long commentId)
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(commentId);
-            invalidations.Add(new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+            _invalidations.Add(new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
         }
 
         public void CompleteAll()
         {
-            foreach (TaskCompletionSource invalidation in invalidations)
+            foreach (TaskCompletionSource invalidation in _invalidations)
             {
                 invalidation.TrySetResult();
             }
         }
 
         public async Task DrainAsync()
-            => await Task.WhenAll(invalidations.Select(static item => item.Task));
+            => await Task.WhenAll(_invalidations.Select(static item => item.Task));
     }
 }

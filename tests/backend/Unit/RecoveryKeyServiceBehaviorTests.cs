@@ -1,6 +1,11 @@
 using System.Globalization;
 using System.Reflection;
 
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
@@ -8,22 +13,14 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static readonly SemaphoreSlim DatabaseResetLock = new(1, 1);
-    private static string? sharedConnectionString;
+    private static readonly SemaphoreSlim s_databaseResetLock = new(1, 1);
+    private static string? s_sharedConnectionString;
 
     [Fact]
     public async Task VerifyAsync_WithOnlyRecoveryKey_CreatesPendingSessionWithoutPrematurePasskeyRevocation()
@@ -264,20 +261,20 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
 
     private async Task<SqlSugarClient> CreateDbAsync()
     {
-        await DatabaseResetLock.WaitAsync();
+        await s_databaseResetLock.WaitAsync();
         try
         {
             string connectionString;
-            if (sharedConnectionString is null)
+            if (s_sharedConnectionString is null)
             {
                 connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
                 using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
                 CreateTables(setupDb);
-                sharedConnectionString = connectionString;
+                s_sharedConnectionString = connectionString;
             }
             else
             {
-                connectionString = sharedConnectionString;
+                connectionString = s_sharedConnectionString;
             }
 
             await fixture.ExecuteAsync(
@@ -287,7 +284,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         }
         finally
         {
-            DatabaseResetLock.Release();
+            s_databaseResetLock.Release();
         }
     }
 

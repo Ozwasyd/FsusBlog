@@ -1,7 +1,6 @@
-using FsusBlog.Server.Infrastructure.Privacy;
-
 using Microsoft.Extensions.Configuration;
 
+using FsusBlog.Server.Infrastructure.Privacy;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ReadAnalyticsPrivacyPolicyTests

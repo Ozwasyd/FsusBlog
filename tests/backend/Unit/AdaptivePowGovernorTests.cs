@@ -1,9 +1,8 @@
+using Microsoft.Extensions.Configuration;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
-
-using Microsoft.Extensions.Configuration;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 /// <summary>

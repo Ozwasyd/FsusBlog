@@ -3,11 +3,6 @@ using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 
-using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Integrity;
-using FsusBlog.Server.Modules.Endpoints;
-using FsusBlog.Server.Services.Security;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Authorization.Policy;
@@ -19,9 +14,12 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-
 using NSubstitute;
 
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Integrity;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services.Security;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class IntegrityAdminConsoleContractTests

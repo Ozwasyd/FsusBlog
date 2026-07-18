@@ -2,10 +2,9 @@ using System.Buffers;
 using System.IO.Pipelines;
 using System.Reflection;
 
-using FsusBlog.Server.Infrastructure.NotificationStream;
-
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Infrastructure.NotificationStream;
 namespace FsusBlog.Server.Tests;
 
 public sealed class NotificationStreamFramePumpTests
@@ -51,10 +50,10 @@ public sealed class NotificationStreamFramePumpTests
     [Fact]
     public async Task WriteDequeuedFrame_CopiesLargeFrameFromOwnedMemory()
     {
-        const int frameLength = 128 * 1024;
+        const int FrameLength = 128 * 1024;
         var connection = new NotificationStreamConnection("conn-3", "user-3", Array.Empty<string>(), queueCapacity: 8);
-        SharedNotificationStreamFrame frame = CreateFrame(frameLength);
-        var pipe = new Pipe(new PipeOptions(pauseWriterThreshold: frameLength * 2, resumeWriterThreshold: frameLength));
+        SharedNotificationStreamFrame frame = CreateFrame(FrameLength);
+        var pipe = new Pipe(new PipeOptions(pauseWriterThreshold: FrameLength * 2, resumeWriterThreshold: FrameLength));
 
         frame.Retain();
         Assert.True(connection.TryEnqueue(frame));
@@ -64,10 +63,10 @@ public sealed class NotificationStreamFramePumpTests
         await pipe.Writer.FlushAsync();
         ReadResult result = await pipe.Reader.ReadAsync();
 
-        Assert.Equal(frameLength, written);
-        Assert.Equal(frameLength, result.Buffer.Length);
+        Assert.Equal(FrameLength, written);
+        Assert.Equal(FrameLength, result.Buffer.Length);
         Assert.Equal(0, result.Buffer.FirstSpan[0]);
-        Assert.Equal(255, result.Buffer.Slice(frameLength - 1, 1).FirstSpan[0]);
+        Assert.Equal(255, result.Buffer.Slice(FrameLength - 1, 1).FirstSpan[0]);
         Assert.Equal(0, GetPrivateInt(connection, "_queuedFrames"));
         Assert.Equal(1, GetPrivateInt(frame, "_refCount"));
 

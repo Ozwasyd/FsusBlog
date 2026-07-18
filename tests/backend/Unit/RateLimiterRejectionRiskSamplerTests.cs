@@ -2,17 +2,16 @@ using System.Diagnostics;
 using System.Net;
 using System.Security.Claims;
 
-using FsusBlog.Server.Infrastructure.Security;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 
+using FsusBlog.Server.Infrastructure.Security;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RateLimiterRejectionRiskSamplerTests
 {
-    private static readonly DateTimeOffset FixedUtcNow = new(2026, 7, 11, 6, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_fixedUtcNow = new(2026, 7, 11, 6, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public void MatchedAndUnmatchedHighCardinalityRawPaths_CollapseToLogicalRoutes()
@@ -60,16 +59,16 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     [Fact]
     public void CapacityBoundary_DropsNewBucketsButPreservesExistingBucketWriteLimit()
     {
-        const int capacity = 64;
-        const long minute = 1_000;
-        var sampler = CreateSampler(maxTrackedBuckets: capacity);
+        const int Capacity = 64;
+        const long Minute = 1_000;
+        var sampler = CreateSampler(maxTrackedBuckets: Capacity);
         int writes = 0;
         int capacityDrops = 0;
 
         for (int index = 0; index < 10_000; index++)
         {
             RateLimiterRiskSampleDecision decision = sampler.Sample(
-                minute,
+                Minute,
                 $"client-{index}",
                 $"route-{index}");
             if (decision == RateLimiterRiskSampleDecision.WriteRiskSignal)
@@ -78,16 +77,16 @@ public sealed class RateLimiterRejectionRiskSamplerTests
                 capacityDrops++;
         }
 
-        Assert.Equal(capacity, writes);
-        Assert.Equal(10_000 - capacity, capacityDrops);
-        Assert.Equal(RateLimiterRiskSampleDecision.WriteRiskSignal, sampler.Sample(minute, "client-0", "route-0"));
-        Assert.Equal(RateLimiterRiskSampleDecision.WriteRiskSignal, sampler.Sample(minute, "client-0", "route-0"));
-        Assert.Equal(RateLimiterRiskSampleDecision.WriteRiskSignal, sampler.Sample(minute, "client-0", "route-0"));
-        Assert.Equal(RateLimiterRiskSampleDecision.DropWriteLimit, sampler.Sample(minute, "client-0", "route-0"));
+        Assert.Equal(Capacity, writes);
+        Assert.Equal(10_000 - Capacity, capacityDrops);
+        Assert.Equal(RateLimiterRiskSampleDecision.WriteRiskSignal, sampler.Sample(Minute, "client-0", "route-0"));
+        Assert.Equal(RateLimiterRiskSampleDecision.WriteRiskSignal, sampler.Sample(Minute, "client-0", "route-0"));
+        Assert.Equal(RateLimiterRiskSampleDecision.WriteRiskSignal, sampler.Sample(Minute, "client-0", "route-0"));
+        Assert.Equal(RateLimiterRiskSampleDecision.DropWriteLimit, sampler.Sample(Minute, "client-0", "route-0"));
 
         RateLimiterRejectionSamplerSnapshot snapshot = sampler.Snapshot();
-        Assert.Equal(capacity, snapshot.TrackedBucketCount);
-        Assert.Equal(10_000 - capacity, snapshot.CapacityDropCount);
+        Assert.Equal(Capacity, snapshot.TrackedBucketCount);
+        Assert.Equal(10_000 - Capacity, snapshot.CapacityDropCount);
         Assert.Equal(1, snapshot.WriteLimitDropCount);
     }
 
@@ -95,9 +94,9 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     [Trait("Category", "Concurrency")]
     public void CrossMinuteRotation_ReplacesTheWholeWindowOnceUnderConcurrency()
     {
-        const int capacity = 128;
-        var sampler = CreateSampler(maxTrackedBuckets: capacity);
-        for (int index = 0; index < capacity; index++)
+        const int Capacity = 128;
+        var sampler = CreateSampler(maxTrackedBuckets: Capacity);
+        for (int index = 0; index < Capacity; index++)
         {
             Assert.Equal(
                 RateLimiterRiskSampleDecision.WriteRiskSignal,
@@ -120,10 +119,10 @@ public sealed class RateLimiterRejectionRiskSamplerTests
 
         RateLimiterRejectionSamplerSnapshot snapshot = sampler.Snapshot();
         Assert.Equal(2_001, snapshot.WindowMinute);
-        Assert.Equal(capacity, snapshot.TrackedBucketCount);
+        Assert.Equal(Capacity, snapshot.TrackedBucketCount);
         Assert.Equal(2, snapshot.WindowRotationCount);
-        Assert.Equal(capacity, writes);
-        Assert.Equal(20_000 - capacity, capacityDrops);
+        Assert.Equal(Capacity, writes);
+        Assert.Equal(20_000 - Capacity, capacityDrops);
     }
 
     [Fact]
@@ -180,33 +179,33 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     [Trait("Category", "Concurrency")]
     public void SaturatedBucketLookup_P95RemainsStableFrom64To4096TrackedBuckets()
     {
-        const long minute = 4_000;
-        var small = CreateSaturatedSampler(64, minute);
-        var large = CreateSaturatedSampler(4_096, minute);
+        const long Minute = 4_000;
+        var small = CreateSaturatedSampler(64, Minute);
+        var large = CreateSaturatedSampler(4_096, Minute);
         string[] missingSubjects = Enumerable.Range(0, 512)
             .Select(index => $"untracked-client-{index}")
             .ToArray();
 
         for (int warmup = 0; warmup < 8; warmup++)
         {
-            MeasureCapacityDropBatch(small, minute, missingSubjects);
-            MeasureCapacityDropBatch(large, minute, missingSubjects);
+            MeasureCapacityDropBatch(small, Minute, missingSubjects);
+            MeasureCapacityDropBatch(large, Minute, missingSubjects);
         }
 
-        const int batches = 64;
-        double[] smallSamples = new double[batches];
-        double[] largeSamples = new double[batches];
-        for (int batch = 0; batch < batches; batch++)
+        const int Batches = 64;
+        double[] smallSamples = new double[Batches];
+        double[] largeSamples = new double[Batches];
+        for (int batch = 0; batch < Batches; batch++)
         {
             if ((batch & 1) == 0)
             {
-                smallSamples[batch] = MeasureCapacityDropBatch(small, minute, missingSubjects);
-                largeSamples[batch] = MeasureCapacityDropBatch(large, minute, missingSubjects);
+                smallSamples[batch] = MeasureCapacityDropBatch(small, Minute, missingSubjects);
+                largeSamples[batch] = MeasureCapacityDropBatch(large, Minute, missingSubjects);
             }
             else
             {
-                largeSamples[batch] = MeasureCapacityDropBatch(large, minute, missingSubjects);
-                smallSamples[batch] = MeasureCapacityDropBatch(small, minute, missingSubjects);
+                largeSamples[batch] = MeasureCapacityDropBatch(large, Minute, missingSubjects);
+                smallSamples[batch] = MeasureCapacityDropBatch(small, Minute, missingSubjects);
             }
         }
 
@@ -221,7 +220,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     }
 
     private static BoundedRateLimiterRejectionRiskSampler CreateSampler(int maxTrackedBuckets)
-        => new(4, maxTrackedBuckets, new FixedTimeProvider(FixedUtcNow));
+        => new(4, maxTrackedBuckets, new FixedTimeProvider(s_fixedUtcNow));
 
     private static BoundedRateLimiterRejectionRiskSampler CreateSaturatedSampler(int capacity, long minute)
     {

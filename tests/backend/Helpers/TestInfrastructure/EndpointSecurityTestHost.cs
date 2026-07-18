@@ -6,6 +6,19 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using NSubstitute;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -24,26 +37,11 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
-
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
-
-using NSubstitute;
-
 namespace FsusBlog.Server.Tests.TestInfrastructure;
 
 public static class EndpointContractApplication
 {
-    private static readonly Lazy<RouteEndpoint[]> SnapshotEndpoints = new(
+    private static readonly Lazy<RouteEndpoint[]> s_snapshotEndpoints = new(
         BuildEndpointSnapshot,
         LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -59,7 +57,7 @@ public static class EndpointContractApplication
     }
 
     public static EndpointContractSnapshot CreateSnapshot()
-        => new(SnapshotEndpoints.Value);
+        => new(s_snapshotEndpoints.Value);
 
     private static RouteEndpoint[] BuildEndpointSnapshot()
     {
@@ -140,7 +138,7 @@ public static class EndpointContractApplication
 
 public sealed class EndpointContractSnapshot : IEndpointRouteBuilder, IDisposable, IAsyncDisposable
 {
-    private static readonly IServiceProvider EmptyServices = new EmptyServiceProvider();
+    private static readonly IServiceProvider s_emptyServices = new EmptyServiceProvider();
     private readonly ReadOnlyCollection<EndpointDataSource> _dataSources;
 
     internal EndpointContractSnapshot(RouteEndpoint[] endpoints)
@@ -151,7 +149,7 @@ public sealed class EndpointContractSnapshot : IEndpointRouteBuilder, IDisposabl
 
     public ICollection<EndpointDataSource> DataSources => _dataSources;
 
-    public IServiceProvider ServiceProvider => EmptyServices;
+    public IServiceProvider ServiceProvider => s_emptyServices;
 
     public IApplicationBuilder CreateApplicationBuilder()
         => throw new NotSupportedException("Endpoint contract snapshots are immutable.");
@@ -474,10 +472,10 @@ public sealed class EndpointSecurityTestServer : IDisposable
         riskPolicy.CurrentRiskPolicyV2.Returns(SecurityRiskPolicySnapshotV2Adapter.FromLegacy(antiCrawler));
 
         string dataProtectionRoot = CreateDataProtectionRoot();
-        const string dataProtectionCertificatePassword = "endpoint-security-test-certificate-password";
+        const string DataProtectionCertificatePassword = "endpoint-security-test-certificate-password";
         string dataProtectionCertificatePath = CreateDataProtectionCertificate(
             dataProtectionRoot,
-            dataProtectionCertificatePassword);
+            DataProtectionCertificatePassword);
         var webOptions = new WebApplicationOptions { EnvironmentName = Environments.Production };
         WebApplicationBuilder builder = WebApplication.CreateBuilder(webOptions);
         builder.WebHost.UseTestServer();
@@ -497,7 +495,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
                         "key-ring"),
             [DataProtectionKeyProtection.ModeKey] = "Certificate",
             [DataProtectionKeyProtection.CurrentCertificatePathKey] = dataProtectionCertificatePath,
-            [DataProtectionKeyProtection.CurrentCertificatePasswordKey] = dataProtectionCertificatePassword,
+            [DataProtectionKeyProtection.CurrentCertificatePasswordKey] = DataProtectionCertificatePassword,
             ["RateLimiting:AdminPermitLimit"] = options.FixedIpPermitLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["RateLimiting:AdminQueueLimit"] = "0",
             ["Security:Pow:BaseDifficulty"] = "1",

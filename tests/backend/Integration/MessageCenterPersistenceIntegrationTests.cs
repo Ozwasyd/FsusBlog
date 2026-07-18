@@ -1,3 +1,7 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -5,13 +9,6 @@ using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Dependency", "Docker")]

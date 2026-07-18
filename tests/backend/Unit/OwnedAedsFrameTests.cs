@@ -6,13 +6,13 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class OwnedAedsFrameTests
 {
-    private static readonly AedsEncoder Encoder = new();
+    private static readonly AedsEncoder s_encoder = new();
 
     [Fact]
     public void DetachOwnedFrame_PreservesWireBytesAndReportsLogicalAndBackingSizes()
     {
         byte[] payload = Enumerable.Range(0, 37).Select(static value => (byte)value).ToArray();
-        byte[] expected = Encoder.Encode(AedsFrameType.ArticleList, payload);
+        byte[] expected = s_encoder.Encode(AedsFrameType.ArticleList, payload);
         var pool = new TrackingArrayPool(extraCapacity: 29);
         var writer = new AedsFrameBufferWriter(initialCapacity: 32, pool);
         writer.Write(payload);
@@ -161,7 +161,7 @@ public sealed class OwnedAedsFrameTests
         AedsFrameType frameType,
         bool expectedClear)
     {
-        byte[] frame = Encoder.Encode(frameType, [1, 2, 3]);
+        byte[] frame = s_encoder.Encode(frameType, [1, 2, 3]);
         using OwnedAedsFrame owned = OwnedAedsFrame.TakeOwnership(frame, frameType);
 
         owned.Retire();
@@ -193,7 +193,7 @@ public sealed class OwnedAedsFrameTests
     public void Builders_ProduceWireEquivalentPooledAndExactOwners()
     {
         byte[] payload = Enumerable.Range(0, 257).Select(static value => unchecked((byte)value)).ToArray();
-        byte[] expected = Encoder.Encode(AedsFrameType.ArticleDetail, payload);
+        byte[] expected = s_encoder.Encode(AedsFrameType.ArticleDetail, payload);
 
         using OwnedAedsFrame pooled = AedsOwnedFrameBuilder.BuildOwned(
             AedsFrameType.ArticleDetail,

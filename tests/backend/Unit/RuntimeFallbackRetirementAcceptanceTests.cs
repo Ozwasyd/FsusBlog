@@ -3,6 +3,12 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -12,13 +18,6 @@ using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Hosting;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RuntimeFallbackRetirementAcceptanceTests
@@ -39,20 +38,20 @@ public sealed class RuntimeFallbackRetirementAcceptanceTests
     [Fact]
     public void A3_2_SubscriptionRuntimeUsesOnlyCurrentHmacIdentity()
     {
-        const string normalizedEmail = "reader@example.com";
-        const string pepper = "runtime-fallback-retirement-test-pepper-32-bytes-minimum";
+        const string NormalizedEmail = "reader@example.com";
+        const string Pepper = "runtime-fallback-retirement-test-pepper-32-bytes-minimum";
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                [SiteSubscriptionIdentity.EmailHashPepperConfigurationKey] = pepper
+                [SiteSubscriptionIdentity.EmailHashPepperConfigurationKey] = Pepper
             })
             .Build();
         string endpointRuntime = RuntimeMetadataInspection.DescribeType(typeof(SubscriptionEndpoints));
-        string hash = SiteSubscriptionIdentity.HashEmail(normalizedEmail, configuration);
+        string hash = SiteSubscriptionIdentity.HashEmail(NormalizedEmail, configuration);
         string expected = Convert.ToHexStringLower(HMACSHA256.HashData(
-            Encoding.UTF8.GetBytes(pepper),
-            Encoding.UTF8.GetBytes(normalizedEmail)));
-        string legacy = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalizedEmail)));
+            Encoding.UTF8.GetBytes(Pepper),
+            Encoding.UTF8.GetBytes(NormalizedEmail)));
+        string legacy = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(NormalizedEmail)));
 
         Assert.Equal("hmac-v1", SiteSubscriptionIdentity.CurrentHashVersion);
         Assert.Equal(expected, hash);

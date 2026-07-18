@@ -6,6 +6,17 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using SqlSugar;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -25,26 +36,13 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Validation;
-
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authorization.Infrastructure;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static readonly BigInteger CircuitNativeScalarOrder = BigInteger.Parse(
+    private static readonly BigInteger s_circuitNativeScalarOrder = BigInteger.Parse(
         "21888242871839275222246405745257275088548364400416034343698204186575808495617",
         CultureInfo.InvariantCulture);
 
@@ -198,11 +196,11 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             byte[] signature = ManagedCircuitNativeCredentialSigner.Sign(privateKey, publicKey, material);
             BigInteger response = ReadSignatureResponse(signature);
 
-            Assert.InRange(response, BigInteger.One, (CircuitNativeScalarOrder / 2) - BigInteger.One);
+            Assert.InRange(response, BigInteger.One, (s_circuitNativeScalarOrder / 2) - BigInteger.One);
             Assert.True(ManagedCircuitNativeCredentialSigner.Verify(publicKey, material, signature));
 
             byte[] highSVariant = [.. signature];
-            WriteSignatureResponse(CircuitNativeScalarOrder - response, highSVariant);
+            WriteSignatureResponse(s_circuitNativeScalarOrder - response, highSVariant);
             Assert.False(ManagedCircuitNativeCredentialSigner.Verify(publicKey, material, highSVariant));
         }
     }
@@ -1173,7 +1171,7 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
 
     private sealed class CapturingCircuitNativeCredentialIssuer : ICircuitNativeCredentialIssuer
     {
-        private static readonly byte[] Key = "fsus-test-circuit-native-signature-key"u8.ToArray();
+        private static readonly byte[] s_key = "fsus-test-circuit-native-signature-key"u8.ToArray();
 
         public bool IsConfigured => true;
         public string IssuerPublicKeyId { get; init; } = "issuer-key:local";
@@ -1204,14 +1202,14 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
 
         private static byte[] CreateSignature(CircuitNativeCredentialIssueMaterial material)
         {
-            byte[] seed = HMACSHA256.HashData(Key, Canonicalize(material));
+            byte[] seed = HMACSHA256.HashData(s_key, Canonicalize(material));
             byte[] signature = new byte[96];
             for (int offset = 0, counter = 0; offset < signature.Length; counter++)
             {
                 byte[] input = new byte[seed.Length + 1];
                 seed.CopyTo(input, 0);
                 input[^1] = (byte)counter;
-                byte[] block = HMACSHA256.HashData(Key, input);
+                byte[] block = HMACSHA256.HashData(s_key, input);
                 int take = Math.Min(block.Length, signature.Length - offset);
                 block.AsSpan(0, take).CopyTo(signature.AsSpan(offset, take));
                 offset += take;

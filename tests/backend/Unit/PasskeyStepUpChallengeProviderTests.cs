@@ -2,6 +2,10 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -10,16 +14,11 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Security;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PasskeyStepUpChallengeProviderTests
 {
-    private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-18T12:00:00Z");
+    private static readonly DateTimeOffset s_baselineNow = DateTimeOffset.Parse("2026-06-18T12:00:00Z");
     private const string HashA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string HashB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
@@ -176,7 +175,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
     {
         var passkeys = new FakePasskeyService();
         var persistence = new RecordingChallengePersistence();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         return new UserProviderFixture(
             new PasskeyStepUpV1ChallengeProvider(passkeys, persistence, clock),
             passkeys,
@@ -187,7 +186,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
     {
         var admins = new FakeAdminPrincipalService();
         var persistence = new RecordingChallengePersistence();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         return new AdminProviderFixture(
             new AdminPasskeyStepUpV1ChallengeProvider(admins, persistence, clock),
             admins,

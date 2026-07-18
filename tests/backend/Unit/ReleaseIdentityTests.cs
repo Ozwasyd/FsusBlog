@@ -1,7 +1,5 @@
 using System.Text.Json;
 
-using FsusBlog.Server.Infrastructure.Operations;
-
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -9,13 +7,14 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
+using FsusBlog.Server.Infrastructure.Operations;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ReleaseIdentityTests
 {
     private const string ReleaseId = "20260711010101-0123456789ab";
     private const string CommitSha = "0123456789abcdef0123456789abcdef01234567";
-    private static readonly string Digest = $"sha256:{new string('a', 64)}";
+    private static readonly string s_digest = $"sha256:{new string('a', 64)}";
 
     [Fact]
     public void Provider_ReportsExactNonSensitiveReleaseIdentity()
@@ -28,8 +27,8 @@ public sealed class ReleaseIdentityTests
         Assert.Equal(ReleaseId, health.ReleaseId);
         Assert.Equal("candidate", health.ReleaseSlot);
         Assert.Equal(CommitSha, health.CommitSha);
-        Assert.Equal(Digest, health.ImageDigest);
-        Assert.Equal($"ghcr.io/fsusblog/app@{Digest}", health.ImageRef);
+        Assert.Equal(s_digest, health.ImageDigest);
+        Assert.Equal($"ghcr.io/fsusblog/app@{s_digest}", health.ImageRef);
         Assert.Null(health.Error);
     }
 
@@ -80,8 +79,8 @@ public sealed class ReleaseIdentityTests
         Assert.Equal(ReleaseId, release.GetProperty("ReleaseId").GetString());
         Assert.Equal("candidate", release.GetProperty("ReleaseSlot").GetString());
         Assert.Equal(CommitSha, release.GetProperty("CommitSha").GetString());
-        Assert.Equal($"ghcr.io/fsusblog/app@{Digest}", release.GetProperty("ImageRef").GetString());
-        Assert.Equal(Digest, release.GetProperty("ImageDigest").GetString());
+        Assert.Equal($"ghcr.io/fsusblog/app@{s_digest}", release.GetProperty("ImageRef").GetString());
+        Assert.Equal(s_digest, release.GetProperty("ImageDigest").GetString());
     }
 
     [Fact]
@@ -115,7 +114,7 @@ public sealed class ReleaseIdentityTests
         Assert.Contains(ReleaseId, message, StringComparison.Ordinal);
         Assert.Contains("candidate", message, StringComparison.Ordinal);
         Assert.Contains(CommitSha, message, StringComparison.Ordinal);
-        Assert.Contains($"ghcr.io/fsusblog/app@{Digest}", message, StringComparison.Ordinal);
+        Assert.Contains($"ghcr.io/fsusblog/app@{s_digest}", message, StringComparison.Ordinal);
         Assert.DoesNotContain("token", message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("secret", message, StringComparison.OrdinalIgnoreCase);
     }
@@ -141,8 +140,8 @@ public sealed class ReleaseIdentityTests
             ["FSUSBLOG_RELEASE_ID"] = ReleaseId,
             ["FSUSBLOG_RELEASE_SLOT"] = "candidate",
             ["FSUSBLOG_COMMIT_SHA"] = CommitSha,
-            ["FSUSBLOG_IMAGE_DIGEST"] = Digest,
-            ["FSUSBLOG_IMAGE_REF"] = $"ghcr.io/fsusblog/app@{Digest}"
+            ["FSUSBLOG_IMAGE_DIGEST"] = s_digest,
+            ["FSUSBLOG_IMAGE_REF"] = $"ghcr.io/fsusblog/app@{s_digest}"
         };
         if (overrides is not null)
         {

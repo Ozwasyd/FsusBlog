@@ -1,12 +1,11 @@
 using System.Text.Json;
 
+using Microsoft.AspNetCore.WebUtilities;
+
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.AspNetCore.WebUtilities;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class IntegrityProofVerificationTests

@@ -1,15 +1,11 @@
-using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Tests.TestInfrastructure;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-
 using Npgsql;
-
 using NSubstitute;
-
 using SqlSugar;
 
+using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Tests.TestInfrastructure;
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Category", "Integration")]
@@ -21,7 +17,7 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
     private const string Release42 = "20260715090000-generation-42";
     private const string Digest41 = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string Digest42 = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-    private static readonly DateTimeOffset Now = new(2026, 7, 15, 9, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_now = new(2026, 7, 15, 9, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task EnlistedTransaction_BlocksRevokeUntilBusinessCommit()
@@ -133,7 +129,7 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(ActiveReleaseFencedCommitSql.Audit, connection);
-        command.Parameters.AddWithValue("CutoffUtc", Now.AddMinutes(-1).UtcDateTime);
+        command.Parameters.AddWithValue("CutoffUtc", s_now.AddMinutes(-1).UtcDateTime);
         command.Parameters.AddWithValue("BatchSize", 100);
 
         await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
@@ -194,7 +190,7 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
         command.Parameters.AddWithValue("slot", slot);
         command.Parameters.AddWithValue("generation", generation);
         command.Parameters.AddWithValue("digest", digest);
-        command.Parameters.AddWithValue("now", Now.UtcDateTime);
+        command.Parameters.AddWithValue("now", s_now.UtcDateTime);
         Assert.Equal(1, await command.ExecuteNonQueryAsync());
         return connectionString;
     }
@@ -218,7 +214,7 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
             """,
             connection,
             transaction);
-        command.Parameters.AddWithValue("now", Now.UtcDateTime.AddMinutes(1));
+        command.Parameters.AddWithValue("now", s_now.UtcDateTime.AddMinutes(1));
         command.Parameters.AddWithValue("releaseId", releaseId);
         command.Parameters.AddWithValue("generation", generation);
         await command.ExecuteNonQueryAsync();
@@ -255,7 +251,7 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
         command.Parameters.AddWithValue("slot", slot);
         command.Parameters.AddWithValue("generation", generation);
         command.Parameters.AddWithValue("digest", digest);
-        command.Parameters.AddWithValue("now", Now.UtcDateTime.AddMinutes(1));
+        command.Parameters.AddWithValue("now", s_now.UtcDateTime.AddMinutes(1));
         await command.ExecuteNonQueryAsync();
         await transaction.CommitAsync();
     }

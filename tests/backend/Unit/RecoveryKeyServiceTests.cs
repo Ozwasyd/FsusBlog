@@ -2,6 +2,13 @@ using System.Buffers;
 using System.Reflection;
 using System.Security.Cryptography;
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
+using SqlSugar;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
@@ -13,15 +20,6 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Models;
-
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.AspNetCore.Routing;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RecoveryKeyServiceTests
@@ -33,14 +31,14 @@ public sealed class RecoveryKeyServiceTests
         MethodInfo verify = PrivateStaticMethod("VerifyRecoveryKey");
         byte[] pepper = SHA256.HashData("recovery-pepper-a"u8);
         byte[] wrongPepper = SHA256.HashData("recovery-pepper-b"u8);
-        const string recoveryKey = "frk_0123456789abcdef0123456789abcdef_secret-value";
+        const string RecoveryKey = "frk_0123456789abcdef0123456789abcdef_secret-value";
 
-        string storedHash = Assert.IsType<string>(hash.Invoke(null, [recoveryKey, pepper]));
+        string storedHash = Assert.IsType<string>(hash.Invoke(null, [RecoveryKey, pepper]));
 
         Assert.StartsWith("v1$pbkdf2-sha256$600000$", storedHash, StringComparison.Ordinal);
-        Assert.True(Assert.IsType<bool>(verify.Invoke(null, [recoveryKey, storedHash, pepper])));
-        Assert.False(Assert.IsType<bool>(verify.Invoke(null, [recoveryKey, storedHash, wrongPepper])));
-        Assert.DoesNotContain(recoveryKey, storedHash, StringComparison.Ordinal);
+        Assert.True(Assert.IsType<bool>(verify.Invoke(null, [RecoveryKey, storedHash, pepper])));
+        Assert.False(Assert.IsType<bool>(verify.Invoke(null, [RecoveryKey, storedHash, wrongPepper])));
+        Assert.DoesNotContain(RecoveryKey, storedHash, StringComparison.Ordinal);
         Assert.DoesNotContain(typeof(RecoveryKeyService).GetConstructors().SelectMany(static ctor => ctor.GetParameters()),
             static parameter => parameter.ParameterType.Name.Contains("Totp", StringComparison.OrdinalIgnoreCase));
     }
@@ -174,15 +172,15 @@ public sealed class RecoveryKeyServiceTests
     {
         MethodInfo parser = PrivateStaticMethod("TryParseRecoveryKeyLookup");
         byte[] pepper = SHA256.HashData("lookup-pepper"u8);
-        const string lookupId = "0123456789abcdef0123456789abcdef";
-        object?[] arguments = [$"frk_{lookupId}_valid-secret", pepper, null];
+        const string LookupId = "0123456789abcdef0123456789abcdef";
+        object?[] arguments = [$"frk_{LookupId}_valid-secret", pepper, null];
 
         bool parsed = Assert.IsType<bool>(parser.Invoke(null, arguments));
         string lookupHash = Assert.IsType<string>(arguments[2]);
 
         Assert.True(parsed);
         Assert.Matches("^[0-9A-F]{64}$", lookupHash);
-        Assert.DoesNotContain(lookupId, lookupHash, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(LookupId, lookupHash, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(
             [typeof(string), typeof(byte[]), typeof(string).MakeByRefType()],
             parser.GetParameters().Select(static parameter => parameter.ParameterType).ToArray());

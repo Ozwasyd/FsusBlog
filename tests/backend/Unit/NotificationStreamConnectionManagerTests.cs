@@ -1,10 +1,9 @@
 using System.Collections.Concurrent;
 
-using FsusBlog.Server.Infrastructure.NotificationStream;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Infrastructure.NotificationStream;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class NotificationStreamConnectionManagerTests
@@ -62,51 +61,51 @@ public sealed class NotificationStreamConnectionManagerTests
     [Fact]
     public void TryRemoveBucketIfCurrent_DoesNotRemoveReplacedBucket()
     {
-        const string key = "user:42";
+        const string Key = "user:42";
         var oldBucket = new ConnectionIndexBucket();
         var newBucket = new ConnectionIndexBucket();
         newBucket.Add("conn-new");
 
         var index = new ConcurrentDictionary<string, ConnectionIndexBucket>(StringComparer.Ordinal);
-        index[key] = oldBucket;
-        index[key] = newBucket;
+        index[Key] = oldBucket;
+        index[Key] = newBucket;
 
-        bool removed = NotificationStreamConnectionManager.TryRemoveBucketIfCurrent(index, key, oldBucket);
+        bool removed = NotificationStreamConnectionManager.TryRemoveBucketIfCurrent(index, Key, oldBucket);
 
         Assert.False(removed);
-        Assert.True(index.TryGetValue(key, out ConnectionIndexBucket? currentBucket));
+        Assert.True(index.TryGetValue(Key, out ConnectionIndexBucket? currentBucket));
         Assert.Same(newBucket, currentBucket);
     }
 
     [Fact]
     public void TryRemoveBucketIfCurrent_RemovesWhenCurrent()
     {
-        const string key = "user:99";
+        const string Key = "user:99";
         var bucket = new ConnectionIndexBucket();
 
         var index = new ConcurrentDictionary<string, ConnectionIndexBucket>(StringComparer.Ordinal);
-        index[key] = bucket;
+        index[Key] = bucket;
 
-        bool removed = NotificationStreamConnectionManager.TryRemoveBucketIfCurrent(index, key, bucket);
+        bool removed = NotificationStreamConnectionManager.TryRemoveBucketIfCurrent(index, Key, bucket);
 
         Assert.True(removed);
-        Assert.False(index.ContainsKey(key));
+        Assert.False(index.ContainsKey(Key));
     }
 
     [Fact]
     public void TryRemoveBucketIfCurrent_DoesNotRemoveCurrentNonEmptyBucket()
     {
-        const string key = "user:100";
+        const string Key = "user:100";
         var bucket = new ConnectionIndexBucket();
         bucket.Add("conn-new");
 
         var index = new ConcurrentDictionary<string, ConnectionIndexBucket>(StringComparer.Ordinal);
-        index[key] = bucket;
+        index[Key] = bucket;
 
-        bool removed = NotificationStreamConnectionManager.TryRemoveBucketIfCurrent(index, key, bucket);
+        bool removed = NotificationStreamConnectionManager.TryRemoveBucketIfCurrent(index, Key, bucket);
 
         Assert.False(removed);
-        Assert.True(index.TryGetValue(key, out ConnectionIndexBucket? currentBucket));
+        Assert.True(index.TryGetValue(Key, out ConnectionIndexBucket? currentBucket));
         Assert.Same(bucket, currentBucket);
         Assert.Contains("conn-new", currentBucket.Snapshot);
     }
@@ -483,21 +482,21 @@ public class NotificationStreamConnectionManagerIntegrationTests
     [Fact]
     public async Task RegisterPublishRemove_AllowsConcurrentConnections()
     {
-        const int count = 128;
-        var mgr = MakeManager(queueCapacity: 512, maxConnectionsPerIp: count);
+        const int Count = 128;
+        var mgr = MakeManager(queueCapacity: 512, maxConnectionsPerIp: Count);
 
-        await Task.WhenAll(Enumerable.Range(0, count).Select(i =>
+        await Task.WhenAll(Enumerable.Range(0, Count).Select(i =>
             Task.Run(() => mgr.RegisterConnection($"conn-{i}", $"user-{i % 16}", ["group-all"]))));
 
-        Assert.Equal(count, mgr.ConnectionCount);
+        Assert.Equal(Count, mgr.ConnectionCount);
 
         SharedNotificationStreamFrame frame = MakeFrame();
         int delivered = mgr.Publish(frame, new NotificationStreamGroupTarget("group-all"));
         frame.Release();
 
-        Assert.Equal(count, delivered);
+        Assert.Equal(Count, delivered);
 
-        await Task.WhenAll(Enumerable.Range(0, count).Select(i =>
+        await Task.WhenAll(Enumerable.Range(0, Count).Select(i =>
             Task.Run(() => mgr.RemoveConnection($"conn-{i}"))));
 
         Assert.Equal(0, mgr.ConnectionCount);

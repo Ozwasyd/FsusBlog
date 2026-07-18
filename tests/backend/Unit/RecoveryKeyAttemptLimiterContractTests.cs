@@ -3,6 +3,11 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
@@ -10,14 +15,6 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Security")]
@@ -26,12 +23,12 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrationFixture fixture)
 {
     private const string Pepper = "unit-test-recovery-key-pepper-with-enough-entropy";
-    private static readonly DateTimeOffset BaselineNow = new(2026, 7, 11, 8, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_baselineNow = new(2026, 7, 11, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task VerifyAsync_FailedAttemptsEscalateAtThresholdAndRecoverAfterWindowExpiry()
     {
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var cache = new ExpiringAttemptCache(clock);
         RecoveryKeyService service = CreateService(Substitute.For<ISqlSugarClient>(), cache);
 
@@ -49,7 +46,7 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
         Assert.Equal("RECOVERY_KEY_RATE_LIMITED", threshold.Error.Message);
         Assert.Equal(8L, cache.CurrentCount);
 
-        clock.UtcNow = BaselineNow.AddMinutes(10).AddTicks(1);
+        clock.UtcNow = s_baselineNow.AddMinutes(10).AddTicks(1);
         Result<RecoveryKeyVerifyResponseCoreModel> afterExpiry = await VerifyAsync(service, "frk_invalid-shape");
 
         Assert.False(afterExpiry.IsSuccess);
@@ -62,23 +59,23 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
     [Trait("Category", "Concurrency")]
     public async Task VerifyAsync_ConcurrentFailuresUseOneAtomicWindowWithoutLostIncrements()
     {
-        const int concurrentFailures = 32;
-        var clock = new MutableTimeProvider(BaselineNow);
-        var cache = new ExpiringAttemptCache(clock, concurrentFailures);
+        const int ConcurrentFailures = 32;
+        var clock = new MutableTimeProvider(s_baselineNow);
+        var cache = new ExpiringAttemptCache(clock, ConcurrentFailures);
         RecoveryKeyService service = CreateService(Substitute.For<ISqlSugarClient>(), cache);
 
         Result<RecoveryKeyVerifyResponseCoreModel>[] results = await Task.WhenAll(
-            Enumerable.Range(0, concurrentFailures)
+            Enumerable.Range(0, ConcurrentFailures)
                 .Select(_ => VerifyAsync(service, "frk_same-invalid-shape")));
 
         Assert.Equal(7, results.Count(static result => result.Error.Message == "RECOVERY_KEY_INVALID"));
         Assert.Equal(25, results.Count(static result => result.Error.Message == "RECOVERY_KEY_RATE_LIMITED"));
-        Assert.Equal((long)concurrentFailures, cache.CurrentCount);
-        Assert.Equal(concurrentFailures, cache.IncrementCalls);
+        Assert.Equal((long)ConcurrentFailures, cache.CurrentCount);
+        Assert.Equal(ConcurrentFailures, cache.IncrementCalls);
 
         Result<RecoveryKeyVerifyResponseCoreModel> locked = await VerifyAsync(service, "frk_same-invalid-shape");
         Assert.Equal("RECOVERY_KEY_RATE_LIMITED", locked.Error.Message);
-        Assert.Equal(concurrentFailures, cache.IncrementCalls);
+        Assert.Equal(ConcurrentFailures, cache.IncrementCalls);
     }
 
     [Fact]
@@ -86,18 +83,18 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(db, typeof(RecoveryKeyCredential));
-        var cache = new ExpiringAttemptCache(new MutableTimeProvider(BaselineNow));
+        var cache = new ExpiringAttemptCache(new MutableTimeProvider(s_baselineNow));
         RecoveryKeyService service = CreateService(db, cache);
-        const string recoveryKey = "frk_00112233445566778899aabbccddeeff_missingCredential";
+        const string RecoveryKey = "frk_00112233445566778899aabbccddeeff_missingCredential";
 
         for (int attempt = 0; attempt < 8; attempt++)
         {
-            _ = await VerifyAsync(service, recoveryKey);
+            _ = await VerifyAsync(service, RecoveryKey);
         }
 
         await db.Ado.ExecuteCommandAsync("DROP TABLE account_recovery_key;");
 
-        Result<RecoveryKeyVerifyResponseCoreModel> locked = await VerifyAsync(service, recoveryKey);
+        Result<RecoveryKeyVerifyResponseCoreModel> locked = await VerifyAsync(service, RecoveryKey);
         Assert.False(locked.IsSuccess);
         Assert.Equal(ErrorCode.Forbidden, locked.Error.Code);
         Assert.Equal("RECOVERY_KEY_RATE_LIMITED", locked.Error.Message);
@@ -109,24 +106,24 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(db, typeof(RecoveryKeyCredential));
-        var cache = new ExpiringAttemptCache(new MutableTimeProvider(BaselineNow));
+        var cache = new ExpiringAttemptCache(new MutableTimeProvider(s_baselineNow));
         RecoveryKeyService service = CreateService(db, cache);
-        const string existingLookup = "00112233445566778899aabbccddeeff";
-        const string missingLookup = "ffeeddccbbaa99887766554433221100";
-        const string existingKey = "frk_00112233445566778899aabbccddeeff_wrongSecret";
-        const string missingKey = "frk_ffeeddccbbaa99887766554433221100_wrongSecret";
+        const string ExistingLookup = "00112233445566778899aabbccddeeff";
+        const string MissingLookup = "ffeeddccbbaa99887766554433221100";
+        const string ExistingKey = "frk_00112233445566778899aabbccddeeff_wrongSecret";
+        const string MissingKey = "frk_ffeeddccbbaa99887766554433221100_wrongSecret";
 
         await db.Insertable(new RecoveryKeyCredential
         {
             AccountId = 17,
-            LookupIdHash = HashLookup(existingLookup),
+            LookupIdHash = HashLookup(ExistingLookup),
             KeyHash = "invalid-stored-hash",
             KeyVersion = 1,
             CreatedAt = DateTime.UtcNow
         }).ExecuteCommandAsync();
 
-        Result<RecoveryKeyVerifyResponseCoreModel> existing = await VerifyAsync(service, existingKey);
-        Result<RecoveryKeyVerifyResponseCoreModel> missing = await VerifyAsync(service, missingKey);
+        Result<RecoveryKeyVerifyResponseCoreModel> existing = await VerifyAsync(service, ExistingKey);
+        Result<RecoveryKeyVerifyResponseCoreModel> missing = await VerifyAsync(service, MissingKey);
 
         Assert.False(existing.IsSuccess);
         Assert.False(missing.IsSuccess);
@@ -136,8 +133,8 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
         Assert.Equal("RECOVERY_KEY_INVALID", existing.Error.Message);
         Assert.All(cache.ObservedIdentities, identity =>
         {
-            Assert.DoesNotContain(existingLookup, identity, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain(missingLookup, identity, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(ExistingLookup, identity, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(MissingLookup, identity, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("wrongSecret", identity, StringComparison.Ordinal);
         });
     }

@@ -1,16 +1,13 @@
 using System.Collections.Concurrent;
 using System.Text;
 
-using FsusBlog.Server.Infrastructure.Cache;
-
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
-
 using NSubstitute;
-
 using StackExchange.Redis;
 
+using FsusBlog.Server.Infrastructure.Cache;
 namespace FsusBlog.Server.Tests;
 
 public sealed class UnifiedCacheTests
@@ -1110,9 +1107,9 @@ public sealed class UnifiedCacheTests
     {
         var entry = new UnifiedCache.SingleFlightEntry();
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        const int contenders = 64;
-        var acquired = new CountdownEvent(contenders);
-        Task[] holders = Enumerable.Range(0, contenders).Select(async _ =>
+        const int Contenders = 64;
+        var acquired = new CountdownEvent(Contenders);
+        Task[] holders = Enumerable.Range(0, Contenders).Select(async _ =>
         {
             Assert.True(entry.TryAddReference());
             acquired.Signal();

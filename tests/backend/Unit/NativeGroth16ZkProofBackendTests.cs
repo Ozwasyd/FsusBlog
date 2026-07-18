@@ -3,18 +3,16 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Nethermind.MclBindings;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-
-using Nethermind.MclBindings;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [CollectionDefinition(Name, DisableParallelization = true)]
@@ -27,13 +25,13 @@ public sealed class MclGroth16TestCollection
 public sealed class NativeGroth16ZkProofBackendTests
 {
     private const string CircuitId = "fsus.anonymous.comment.v3";
-    private static readonly string CredentialRoot = new('e', 64);
-    private static readonly string RevocationRoot = new('8', 64);
-    private static readonly string IssuerPublicKeyHash = new('f', 64);
+    private static readonly string s_credentialRoot = new('e', 64);
+    private static readonly string s_revocationRoot = new('8', 64);
+    private static readonly string s_issuerPublicKeyHash = new('f', 64);
     private const long CredentialEpoch = 7;
     private const ushort PublicInputLayoutVersion = 4;
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    private static readonly string PolicyHash = new('9', 64);
+    private static readonly string s_policyHash = new('9', 64);
 
     [Fact]
     public async Task NativeGroth16ZkProofBackend_MissingNativeLibraryIsUnavailableAndRejects()
@@ -139,11 +137,11 @@ public sealed class NativeGroth16ZkProofBackendTests
         using MclGroth16VerifierLibrary library = MclGroth16VerifierLibrary.Create();
         Assert.True(library.IsLoaded);
 
-        const int proofHeaderBytes = 10;
+        const int ProofHeaderBytes = 10;
         byte[] nonCanonicalPoints = [.. validProof];
-        Array.Fill(nonCanonicalPoints, byte.MaxValue, proofHeaderBytes, nonCanonicalPoints.Length - proofHeaderBytes);
+        Array.Fill(nonCanonicalPoints, byte.MaxValue, ProofHeaderBytes, nonCanonicalPoints.Length - ProofHeaderBytes);
         byte[] forbiddenZeroPoint = [.. validProof];
-        Array.Clear(forbiddenZeroPoint, proofHeaderBytes, forbiddenZeroPoint.Length - proofHeaderBytes);
+        Array.Clear(forbiddenZeroPoint, ProofHeaderBytes, forbiddenZeroPoint.Length - ProofHeaderBytes);
         List<byte[]> rejectedCorpus =
         [
             [],
@@ -233,11 +231,11 @@ public sealed class NativeGroth16ZkProofBackendTests
             _ = NativeGroth16PublicInputCodec.Encode(request);
         }
 
-        const int iterations = 512;
+        const int Iterations = 512;
         int encodedBytes = 0;
         long before = GC.GetAllocatedBytesForCurrentThread();
         ReadOnlyMemory<byte> encoded = default;
-        for (int index = 0; index < iterations; index++)
+        for (int index = 0; index < Iterations; index++)
         {
             encoded = NativeGroth16PublicInputCodec.Encode(request);
             encodedBytes += encoded.Length;
@@ -247,8 +245,8 @@ public sealed class NativeGroth16ZkProofBackendTests
         Assert.True(MemoryMarshal.TryGetArray(encoded, out ArraySegment<byte> segment));
         Assert.NotNull(segment.Array);
         Assert.True(segment.Count > 0);
-        Assert.Equal(segment.Count * iterations, encodedBytes);
-        Assert.InRange(allocated / iterations, 1, 1024);
+        Assert.Equal(segment.Count * Iterations, encodedBytes);
+        Assert.InRange(allocated / Iterations, 1, 1024);
     }
 
     [Fact]
@@ -485,7 +483,7 @@ public sealed class NativeGroth16ZkProofBackendTests
 
         return new ProductionZkProofVerifier(
             BuildConfiguration(values),
-            new FixedRootReader(CredentialRoot, CredentialEpoch),
+            new FixedRootReader(s_credentialRoot, CredentialEpoch),
             backend,
             logger ?? new CapturingLogger<ProductionZkProofVerifier>());
     }
@@ -513,15 +511,15 @@ public sealed class NativeGroth16ZkProofBackendTests
             VerifyingKeyHash: verifyingKeyHash,
             PublicInputLayoutVersion: PublicInputLayoutVersion,
             NullifierHash: NullifierHash,
-            CredentialRoot: CredentialRoot,
-            PolicyHash: PolicyHash,
+            CredentialRoot: s_credentialRoot,
+            PolicyHash: s_policyHash,
             IsEligible: true,
             MayComment: true,
             RateClass: AnonymousPrivacyContract.CommonRateClass,
             RequiresModeration: false,
             Proof: proof,
-            RevocationRoot: RevocationRoot,
-            IssuerPublicKeyHash: IssuerPublicKeyHash);
+            RevocationRoot: s_revocationRoot,
+            IssuerPublicKeyHash: s_issuerPublicKeyHash);
 
     private static ZkProofVerificationRequest ValidVerificationRequest(byte[] proof, string verifyingKeyHash)
         => new(
@@ -531,15 +529,15 @@ public sealed class NativeGroth16ZkProofBackendTests
             VerifyingKeyHash: verifyingKeyHash,
             PublicInputLayoutVersion: PublicInputLayoutVersion,
             NullifierHash: NullifierHash,
-            CredentialRoot: CredentialRoot,
-            PolicyHash: PolicyHash,
+            CredentialRoot: s_credentialRoot,
+            PolicyHash: s_policyHash,
             IsEligible: true,
             MayComment: true,
             RateClass: AnonymousPrivacyContract.CommonRateClass,
             RequiresModeration: false,
             Proof: proof,
-            RevocationRoot: RevocationRoot,
-            IssuerPublicKeyHash: IssuerPublicKeyHash);
+            RevocationRoot: s_revocationRoot,
+            IssuerPublicKeyHash: s_issuerPublicKeyHash);
 
     private static byte[] ComputeFixtureProof(
         ReadOnlySpan<byte> verifyingKey,
@@ -714,7 +712,7 @@ public sealed class NativeGroth16ZkProofBackendTests
         {
             get;
         } = new(
-            [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, RevocationRoot, IssuerPublicKeyHash, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
+            [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, s_revocationRoot, s_issuerPublicKeyHash, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
             1,
             DateTimeOffset.UtcNow);
 
@@ -726,8 +724,8 @@ public sealed class NativeGroth16ZkProofBackendTests
 
         public bool IsRootAccepted(string rootHash, string revocationRootHash, string issuerPublicKeyHash, long epoch)
             => IsRootAccepted(rootHash, epoch) &&
-                string.Equals(revocationRootHash, RevocationRoot, StringComparison.Ordinal) &&
-                string.Equals(issuerPublicKeyHash, IssuerPublicKeyHash, StringComparison.OrdinalIgnoreCase);
+                string.Equals(revocationRootHash, s_revocationRoot, StringComparison.Ordinal) &&
+                string.Equals(issuerPublicKeyHash, s_issuerPublicKeyHash, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class CapturingLogger<T> : ILogger<T>
@@ -822,10 +820,10 @@ public sealed class NativeGroth16ZkProofBackendTests
     private static unsafe class MclGroth16PairingFixture
     {
         private const int MclBnSnark1 = 4;
-        private static readonly byte[] VerifyingKeyMagic = "FSG16VK1"u8.ToArray();
-        private static readonly byte[] ProofMagic = "FSG16PF1"u8.ToArray();
-        private static readonly object InitializationLock = new();
-        private static bool _initialized;
+        private static readonly byte[] s_verifyingKeyMagic = "FSG16VK1"u8.ToArray();
+        private static readonly byte[] s_proofMagic = "FSG16PF1"u8.ToArray();
+        private static readonly object s_initializationLock = new();
+        private static bool s_initialized;
 
         public static byte[] CreateVerifyingKey()
         {
@@ -840,7 +838,7 @@ public sealed class NativeGroth16ZkProofBackendTests
 
             using var stream = new MemoryStream();
             using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-            writer.Write(VerifyingKeyMagic);
+            writer.Write(s_verifyingKeyMagic);
             writer.Write((ushort)1);
             writer.Write((ushort)1);
             writer.Write((ushort)MclBnSnark1);
@@ -859,7 +857,7 @@ public sealed class NativeGroth16ZkProofBackendTests
         {
             EnsureInitialized();
             ReadOnlySpan<byte> key = verifyingKey;
-            int offset = VerifyingKeyMagic.Length + (sizeof(ushort) * 4);
+            int offset = s_verifyingKeyMagic.Length + (sizeof(ushort) * 4);
             mclBnG1 alpha = DeserializeG1(key.Slice(offset, Mcl.mclBn_getG1ByteSize()));
             offset += Mcl.mclBn_getG1ByteSize();
             mclBnG2 beta = DeserializeG2(key.Slice(offset, Mcl.mclBn_getG2ByteSize()));
@@ -878,7 +876,7 @@ public sealed class NativeGroth16ZkProofBackendTests
 
             using var stream = new MemoryStream();
             using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-            writer.Write(ProofMagic);
+            writer.Write(s_proofMagic);
             writer.Write((ushort)1);
             writer.Write(SerializeG1(ref alpha));
             writer.Write(SerializeG2(ref beta));
@@ -889,21 +887,21 @@ public sealed class NativeGroth16ZkProofBackendTests
 
         private static void EnsureInitialized()
         {
-            if (_initialized)
+            if (s_initialized)
             {
                 return;
             }
 
-            lock (InitializationLock)
+            lock (s_initializationLock)
             {
-                if (_initialized)
+                if (s_initialized)
                 {
                     return;
                 }
 
                 using MclGroth16VerifierLibrary library = MclGroth16VerifierLibrary.Create();
                 Assert.True(library.IsLoaded);
-                _initialized = true;
+                s_initialized = true;
             }
         }
 

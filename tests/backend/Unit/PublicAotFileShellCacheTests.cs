@@ -6,21 +6,18 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Infrastructure.Storage;
-using FsusBlog.Server.Tests.TestInfrastructure;
-using FsusBlog.Shared.Contracts.Outputs;
-
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
-
 using NSubstitute;
-
 using StackExchange.Redis;
 
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
 namespace FsusBlog.Server.Tests;
 
 public sealed class PublicAotFileShellCacheTests
@@ -169,10 +166,10 @@ public sealed class PublicAotFileShellCacheTests
     [Fact]
     public void ToHashForTests_MatchesLegacyUtf8Sha256()
     {
-        const string input = "public:aot:v2:doc:2:article:42";
+        const string Input = "public:aot:v2:doc:2:article:42";
 
-        string actual = PublicAotFileShellCache.ToHashForTests(input);
-        string expected = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(input)));
+        string actual = PublicAotFileShellCache.ToHashForTests(Input);
+        string expected = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(Input)));
 
         Assert.Equal(expected, actual);
     }
@@ -561,7 +558,7 @@ public sealed class PublicAotFileShellCacheTests
     public async Task RemoveByPrefixAsync_RemovesRegistryMatches_AndPublishesOneScopedMessage()
     {
         using CacheFixture fixture = BuildCacheFixture(Environments.Production);
-        const string prefix = "public:aot:v2:doc:2:article:";
+        const string Prefix = "public:aot:v2:doc:2:article:";
         var first = CreateEntry("public:aot:v2:doc:2:article:42");
         var second = CreateEntry("public:aot:v2:doc:2:article:43", "article:43", PublicPageId.ArticleDetail);
         var other = CreateEntry("public:aot:v2:doc:5:about", "about", PublicPageId.About);
@@ -574,14 +571,14 @@ public sealed class PublicAotFileShellCacheTests
             first.CacheKey,
             second.CacheKey);
 
-        await fixture.Cache.RemoveByPrefixAsync(prefix);
+        await fixture.Cache.RemoveByPrefixAsync(Prefix);
 
         Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, first)));
         Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, second)));
         Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, other)));
         await fixture.Subscriber.Received(1).PublishAsync(
             Arg.Any<RedisChannel>(),
-            Arg.Is<RedisValue>(payload => PayloadContains(payload, "\"type\":\"prefix\"") && PayloadContains(payload, prefix)),
+            Arg.Is<RedisValue>(payload => PayloadContains(payload, "\"type\":\"prefix\"") && PayloadContains(payload, Prefix)),
             Arg.Any<CommandFlags>());
         await fixture.Database.Received().SetRemoveAsync(
             Arg.Is<RedisKey>(key => key == (RedisKey)PublicAotCacheRegistry.GlobalRegistryKey),
@@ -601,7 +598,7 @@ public sealed class PublicAotFileShellCacheTests
     public async Task ApplyRemoteInvalidationForTests_Prefix_RemovesSiblingLocalArtifactsWithoutPublishing()
     {
         using CacheFixture fixture = BuildCacheFixture(Environments.Production);
-        const string prefix = "public:aot:v2:doc:2:article:";
+        const string Prefix = "public:aot:v2:doc:2:article:";
         var first = CreateEntry("public:aot:v2:doc:2:article:42");
         var second = CreateEntry("public:aot:v2:doc:2:article:43", "article:43", PublicPageId.ArticleDetail);
         var other = CreateEntry("public:aot:v2:doc:5:about", "about", PublicPageId.About);
@@ -610,7 +607,7 @@ public sealed class PublicAotFileShellCacheTests
         await fixture.Cache.SetAsync(other);
 
         PublicAotBatchInvalidationStats stats = fixture.Cache.ApplyRemoteInvalidationForTests(
-            PublicAotInvalidationMessage.Prefix(prefix));
+            PublicAotInvalidationMessage.Prefix(Prefix));
 
         Assert.Equal(2, stats.InvalidatedKeys);
         Assert.Equal(2, stats.DeletedFiles);
@@ -627,7 +624,7 @@ public sealed class PublicAotFileShellCacheTests
     public async Task RemoveByPrefixAsync_HonorsCancellationBeforeMutation()
     {
         using CacheFixture fixture = BuildCacheFixture(Environments.Production);
-        const string prefix = "public:aot:v2:doc:2:article:";
+        const string Prefix = "public:aot:v2:doc:2:article:";
         var entry = CreateEntry("public:aot:v2:doc:2:article:42");
         await fixture.Cache.SetAsync(entry);
         ConfigureSetScan(
@@ -637,7 +634,7 @@ public sealed class PublicAotFileShellCacheTests
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Cache.RemoveByPrefixAsync(prefix, cts.Token));
+        await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Cache.RemoveByPrefixAsync(Prefix, cts.Token));
 
         Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, entry)));
         await fixture.Subscriber.DidNotReceive().PublishAsync(

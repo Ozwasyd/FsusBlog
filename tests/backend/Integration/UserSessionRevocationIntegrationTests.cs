@@ -3,6 +3,10 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -11,13 +15,6 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Dependency", "Docker")]
@@ -309,10 +306,10 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
 
     private sealed class VersionedSessionValidationCache : IUserSessionValidationCache
     {
-        private readonly ConcurrentDictionary<string, UserSessionValidationCacheState> states = new(StringComparer.Ordinal);
-        private readonly TaskCompletionSource activePublishBlocked = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource releaseActivePublish = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private int blockNextActivePublish;
+        private readonly ConcurrentDictionary<string, UserSessionValidationCacheState> _states = new(StringComparer.Ordinal);
+        private readonly TaskCompletionSource _activePublishBlocked = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseActivePublish = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _blockNextActivePublish;
 
         public int ReadCount
         {
@@ -330,7 +327,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         {
             cancellationToken.ThrowIfCancellationRequested();
             ReadCount++;
-            states.TryGetValue(sessionId, out UserSessionValidationCacheState? state);
+            _states.TryGetValue(sessionId, out UserSessionValidationCacheState? state);
             return Task.FromResult(state);
         }
 
@@ -342,24 +339,24 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
             cancellationToken.ThrowIfCancellationRequested();
             if (!allowOverwrite &&
                 !state.RevokedAtUtc.HasValue &&
-                Interlocked.Exchange(ref blockNextActivePublish, 0) == 1)
+                Interlocked.Exchange(ref _blockNextActivePublish, 0) == 1)
             {
-                activePublishBlocked.TrySetResult();
-                await releaseActivePublish.Task.WaitAsync(cancellationToken);
+                _activePublishBlocked.TrySetResult();
+                await _releaseActivePublish.Task.WaitAsync(cancellationToken);
             }
 
             if (allowOverwrite)
             {
-                states[state.SessionId] = state;
+                _states[state.SessionId] = state;
                 return true;
             }
 
             DatabaseMissPublishCount++;
             while (true)
             {
-                if (!states.TryGetValue(state.SessionId, out UserSessionValidationCacheState? current))
+                if (!_states.TryGetValue(state.SessionId, out UserSessionValidationCacheState? current))
                 {
-                    if (states.TryAdd(state.SessionId, state))
+                    if (_states.TryAdd(state.SessionId, state))
                     {
                         return true;
                     }
@@ -371,7 +368,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
                     return false;
                 }
 
-                if (states.TryUpdate(state.SessionId, state, current))
+                if (_states.TryUpdate(state.SessionId, state, current))
                 {
                     return true;
                 }
@@ -399,19 +396,19 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
             cancellationToken.ThrowIfCancellationRequested();
             foreach (UserSessionValidationCacheState state in values)
             {
-                states.TryRemove(state.SessionId, out _);
+                _states.TryRemove(state.SessionId, out _);
             }
 
             return Task.CompletedTask;
         }
 
         public void BlockNextActivePublish()
-            => Interlocked.Exchange(ref blockNextActivePublish, 1);
+            => Interlocked.Exchange(ref _blockNextActivePublish, 1);
 
         public Task WaitForBlockedActivePublishAsync()
-            => activePublishBlocked.Task;
+            => _activePublishBlocked.Task;
 
         public void ReleaseBlockedActivePublish()
-            => releaseActivePublish.TrySetResult();
+            => _releaseActivePublish.TrySetResult();
     }
 }

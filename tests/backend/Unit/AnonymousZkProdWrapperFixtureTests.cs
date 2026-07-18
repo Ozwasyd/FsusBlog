@@ -1,6 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
@@ -19,16 +26,6 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Validation;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
@@ -39,10 +36,10 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
     private const int OtherArticleId = 43;
     private const long CredentialEpoch = 20260619;
     private const uint CircuitNumericId = 7;
-    private static readonly byte[] CredentialRoot = Enumerable.Repeat((byte)0xC3, 32).ToArray();
-    private static readonly byte[] RevocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
-    private static readonly string IssuerPublicKeyHash = new('f', 64);
-    private static readonly string PolicyHash = AnonymousCommentPolicySnapshotHash.Compute(AnonymousCommentPolicySnapshot.Default with
+    private static readonly byte[] s_credentialRoot = Enumerable.Repeat((byte)0xC3, 32).ToArray();
+    private static readonly byte[] s_revocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
+    private static readonly string s_issuerPublicKeyHash = new('f', 64);
+    private static readonly string s_policyHash = AnonymousCommentPolicySnapshotHash.Compute(AnonymousCommentPolicySnapshot.Default with
     {
         ZkAnonymousEnabled = true
     });
@@ -222,7 +219,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             CommentAuthorModes.ZkAnonymous,
             AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)
         {
-            SnapshotHash = PolicyHash
+            SnapshotHash = s_policyHash
         });
 
     private static IZkAnonymousProofService CreateProofService(
@@ -231,7 +228,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         bool zkProdEnabled = true)
     {
         IConfiguration configuration = BuildConfiguration(temp.VerifyingKeySha256, zkProdEnabled);
-        var rootReader = new FixedRootReader(Hex(CredentialRoot), CredentialEpoch);
+        var rootReader = new FixedRootReader(Hex(s_credentialRoot), CredentialEpoch);
         var backend = new NativeGroth16ZkProofBackend(
             new NativeGroth16ZkProofBackendOptions(
                 temp.NativeLibraryPath,
@@ -291,8 +288,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: temp.VerifyingKeySha256,
             NullifierHash: nullifier,
-            CredentialRoot: CredentialRoot,
-            RevocationRoot: RevocationRoot,
+            CredentialRoot: s_credentialRoot,
+            RevocationRoot: s_revocationRoot,
             IsEligible: true,
             MayComment: true,
             RateClass: AnonymousPrivacyContract.CommonRateClass,
@@ -319,15 +316,15 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             VerifyingKeyHash: verifyingKeyHash,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             NullifierHash: Hex(nullifier),
-            CredentialRoot: Hex(CredentialRoot),
-            PolicyHash: PolicyHash,
+            CredentialRoot: Hex(s_credentialRoot),
+            PolicyHash: s_policyHash,
             IsEligible: true,
             MayComment: true,
             RateClass: AnonymousPrivacyContract.CommonRateClass,
             RequiresModeration: false,
             Proof: ReadOnlyMemory<byte>.Empty,
-            RevocationRoot: Hex(RevocationRoot),
-            IssuerPublicKeyHash: IssuerPublicKeyHash)).ToArray();
+            RevocationRoot: Hex(s_revocationRoot),
+            IssuerPublicKeyHash: s_issuerPublicKeyHash)).ToArray();
 
     private static byte[] ComputeFixtureProof(TempNativeZkFixture temp, int articleId, byte[] nullifier)
     {
@@ -338,15 +335,15 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             VerifyingKeyHash: temp.VerifyingKeySha256,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             NullifierHash: Hex(nullifier),
-            CredentialRoot: Hex(CredentialRoot),
-            PolicyHash: PolicyHash,
+            CredentialRoot: Hex(s_credentialRoot),
+            PolicyHash: s_policyHash,
             IsEligible: true,
             MayComment: true,
             RateClass: AnonymousPrivacyContract.CommonRateClass,
             RequiresModeration: false,
             Proof: ReadOnlyMemory<byte>.Empty,
-            RevocationRoot: Hex(RevocationRoot),
-            IssuerPublicKeyHash: IssuerPublicKeyHash);
+            RevocationRoot: Hex(s_revocationRoot),
+            IssuerPublicKeyHash: s_issuerPublicKeyHash);
         return ComputeFixtureProof(temp.VerifyingKeyBytes, request);
     }
 
@@ -372,9 +369,9 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             VerifierConfigured: true,
             CircuitId: AnonymousPrivacyContract.CircuitId,
             VerifyingKeyHash: temp.VerifyingKeySha256,
-            IssuerPublicKeyHash: IssuerPublicKeyHash,
-            CredentialRoot: CredentialRoot,
-            RevocationRoot: RevocationRoot,
+            IssuerPublicKeyHash: s_issuerPublicKeyHash,
+            CredentialRoot: s_credentialRoot,
+            RevocationRoot: s_revocationRoot,
             CircuitMetadata: Encoding.UTF8.GetBytes("{\"anonymity_sets\":[{\"is_eligible\":true,\"may_comment\":true,\"rate_class\":\"common\",\"requires_moderation\":false,\"size\":20}]}"));
 
     private static IConfiguration BuildConfiguration(string verifyingKeyHash, bool zkProdEnabled = true)
@@ -467,7 +464,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         {
             get;
         } = new(
-            [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, Hex(RevocationRoot), IssuerPublicKeyHash, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
+            [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, Hex(s_revocationRoot), s_issuerPublicKeyHash, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
             1,
             DateTimeOffset.UtcNow);
 
@@ -479,8 +476,8 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
 
         public bool IsRootAccepted(string rootHash, string revocationRootHash, string issuerPublicKeyHash, long epoch)
             => IsRootAccepted(rootHash, epoch) &&
-                string.Equals(revocationRootHash, Hex(RevocationRoot), StringComparison.Ordinal) &&
-                string.Equals(issuerPublicKeyHash, IssuerPublicKeyHash, StringComparison.OrdinalIgnoreCase);
+                string.Equals(revocationRootHash, Hex(s_revocationRoot), StringComparison.Ordinal) &&
+                string.Equals(issuerPublicKeyHash, s_issuerPublicKeyHash, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class RecordingNullifierService : ICommentAnonymousNullifierService
@@ -511,7 +508,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
 
         public string IssuerPublicKeyId => "unit-test-circuit-native-issuer";
 
-        public string IssuerPublicKeyHash => AnonymousZkProdWrapperFixtureTests.IssuerPublicKeyHash;
+        public string IssuerPublicKeyHash => AnonymousZkProdWrapperFixtureTests.s_issuerPublicKeyHash;
 
         public ValueTask<Result<CircuitNativeCredentialIssueResult>> SignAsync(
             CircuitNativeCredentialIssueMaterial material,

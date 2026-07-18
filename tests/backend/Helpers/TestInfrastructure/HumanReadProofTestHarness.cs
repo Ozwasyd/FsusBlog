@@ -1,10 +1,6 @@
 using System.Net;
 using System.Security.Claims;
 
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Services;
-using FsusBlog.Server.Services.VisitLog;
-
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -12,9 +8,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-
 using NSubstitute;
 
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.VisitLog;
 namespace FsusBlog.Server.Tests.TestInfrastructure;
 
 internal sealed class HumanReadProofTestHarness : IAsyncDisposable
@@ -208,12 +206,12 @@ internal sealed class HumanReadProofTestHarness : IAsyncDisposable
         public Task RemoveManyAsync(IReadOnlyList<CacheKeyIdentity> keys, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task RemoveByPrefixAsync(CachePolicyId policyId, string identityPrefix, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task RemoveByPrefixManyAsync(IReadOnlyList<CachePrefixIdentity> prefixes, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => Task.FromResult<IAsyncDisposable>(NullDisposable.Instance);
+        public Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => Task.FromResult<IAsyncDisposable>(NullDisposable.s_instance);
         public string BuildKey(CachePolicyId policyId, string identity, string? version = null) => $"{policyId}:{identity}";
 
         private sealed class NullDisposable : IAsyncDisposable
         {
-            internal static readonly NullDisposable Instance = new();
+            internal static readonly NullDisposable s_instance = new();
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
     }

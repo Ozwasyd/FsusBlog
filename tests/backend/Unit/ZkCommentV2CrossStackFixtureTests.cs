@@ -2,12 +2,11 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 
-using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Collection(MclGroth16TestCollection.Name)]
@@ -16,11 +15,11 @@ public sealed class ZkCommentV2CrossStackFixtureTests
     private const string CircuitId = "fsus.anonymous.comment.v3";
     private const string CredentialRoot = "credential-root-active";
     private const string RevocationRoot = "revocation-root-active";
-    private static readonly string IssuerPublicKeyHash = new('f', 64);
+    private static readonly string s_issuerPublicKeyHash = new('f', 64);
     private const long CredentialEpoch = 7;
     private const ushort PublicInputLayoutVersion = 4;
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    private static readonly string PolicyHash = new('9', 64);
+    private static readonly string s_policyHash = new('9', 64);
 
     [Fact]
     public async Task RepositoryMclPairingFixture_OldLayoutFailsClosedThroughNativeBackend()
@@ -183,14 +182,14 @@ public sealed class ZkCommentV2CrossStackFixtureTests
             PublicInputLayoutVersion: PublicInputLayoutVersion,
             NullifierHash: NullifierHash,
             CredentialRoot: CredentialRoot,
-            PolicyHash: PolicyHash,
+            PolicyHash: s_policyHash,
             IsEligible: true,
             MayComment: true,
             RateClass: AnonymousPrivacyContract.CommonRateClass,
             RequiresModeration: false,
             Proof: proof,
             RevocationRoot: RevocationRoot,
-            IssuerPublicKeyHash: IssuerPublicKeyHash);
+            IssuerPublicKeyHash: s_issuerPublicKeyHash);
 
     private sealed record FixtureManifest(JsonObject Root)
     {

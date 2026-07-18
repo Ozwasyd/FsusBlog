@@ -1,6 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -10,15 +15,6 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using Microsoft.Extensions.Logging.Abstractions;
-
-using Npgsql;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
@@ -30,13 +26,13 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
     [Fact]
     public async Task RefreshTokenAsync_ConcurrentReplayAllowsOneRotationThenRevokesSession()
     {
-        const string rawRefreshToken = "issue-1040-original-refresh-token";
+        const string RawRefreshToken = "issue-1040-original-refresh-token";
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
         int userId = SeedUser(setupDb, mfaEnabled: true);
         string sessionId = $"issue-1040-session-{Guid.NewGuid():N}";
-        SeedSession(setupDb, userId, sessionId, rawRefreshToken);
+        SeedSession(setupDb, userId, sessionId, RawRefreshToken);
 
         var validationCache = Substitute.For<IUserSessionValidationCache>();
         validationCache.PublishAsync(
@@ -64,10 +60,10 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         using var barrier = new Barrier(2);
         Task<(bool Success, TokenResponseDto? Data)> first = StartTogetherAsync(
             barrier,
-            () => firstService.RefreshTokenAsync(rawRefreshToken, sessionId));
+            () => firstService.RefreshTokenAsync(RawRefreshToken, sessionId));
         Task<(bool Success, TokenResponseDto? Data)> second = StartTogetherAsync(
             barrier,
-            () => secondService.RefreshTokenAsync(rawRefreshToken, sessionId));
+            () => secondService.RefreshTokenAsync(RawRefreshToken, sessionId));
         await Task.Delay(TimeSpan.FromMilliseconds(300));
         Assert.False(first.IsCompleted);
         Assert.False(second.IsCompleted);
@@ -87,8 +83,8 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         for (int round = 0; round < 4; round++)
         {
             (bool Success, TokenResponseDto? Data)[] roundResults = await Task.WhenAll(
-                firstService.RefreshTokenAsync(rawRefreshToken, sessionId),
-                secondService.RefreshTokenAsync(rawRefreshToken, sessionId)).WaitAsync(TimeSpan.FromSeconds(30));
+                firstService.RefreshTokenAsync(RawRefreshToken, sessionId),
+                secondService.RefreshTokenAsync(RawRefreshToken, sessionId)).WaitAsync(TimeSpan.FromSeconds(30));
             replayResults.AddRange(roundResults);
         }
 
@@ -114,8 +110,8 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
     [Fact]
     public async Task VerifyMfaOrRecoveryCodeAsync_ConcurrentConsumptionPersistsExactlyOnce()
     {
-        const string oldHashes = "issue-1040-old-recovery-hashes";
-        const string newHashes = "issue-1040-new-recovery-hashes";
+        const string OldHashes = "issue-1040-old-recovery-hashes";
+        const string NewHashes = "issue-1040-new-recovery-hashes";
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
@@ -124,16 +120,16 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         {
             UserId = userId,
             MfaSecretEncrypted = "protected-secret",
-            MfaRecoveryCodesHash = oldHashes,
+            MfaRecoveryCodesHash = OldHashes,
             MfaRecoveryCodesHashVersion = 1,
             UpdatedAtUtc = DateTime.UtcNow
         }).ExecuteCommand();
 
         var totp = Substitute.For<ITotpService>();
-        totp.ConsumeRecoveryCode(oldHashes, "RECOVERY")
+        totp.ConsumeRecoveryCode(OldHashes, "RECOVERY")
             .Returns(new RecoveryCodeConsumeResult(
                 Success: true,
-                UpdatedHashes: newHashes,
+                UpdatedHashes: NewHashes,
                 ConsumedLegacyHash: false,
                 LegacyHashExpired: false,
                 RequiresRecoveryCodeRegeneration: false));
@@ -172,9 +168,9 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         Assert.Single(results, static success => success);
         UserMfaProfile stored = await setupDb.Queryable<UserMfaProfile>()
             .SingleAsync(item => item.UserId == userId);
-        Assert.Equal(newHashes, stored.MfaRecoveryCodesHash);
+        Assert.Equal(NewHashes, stored.MfaRecoveryCodesHash);
         Assert.Equal(TotpService.CurrentRecoveryCodeHashVersion, stored.MfaRecoveryCodesHashVersion);
-        totp.Received(2).ConsumeRecoveryCode(oldHashes, "RECOVERY");
+        totp.Received(2).ConsumeRecoveryCode(OldHashes, "RECOVERY");
     }
 
     [Fact]

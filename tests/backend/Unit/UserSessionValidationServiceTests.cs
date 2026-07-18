@@ -1,17 +1,13 @@
 using System.Security.Claims;
 
+using Microsoft.Extensions.Configuration;
+using NSubstitute;
+using SqlSugar;
+using StackExchange.Redis;
+
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
-
-using Microsoft.Extensions.Configuration;
-
-using NSubstitute;
-
-using SqlSugar;
-
-using StackExchange.Redis;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "SecurityStateMachine")]
@@ -51,14 +47,14 @@ public sealed class UserSessionValidationServiceTests
     [Fact]
     public async Task CachedActiveSession_AllowsRequestWithoutDatabaseRead()
     {
-        const int accountId = 42;
-        const string sessionId = "active-session";
-        var cache = new StubSessionValidationCache(CreateState(sessionId, accountId));
+        const int AccountId = 42;
+        const string SessionId = "active-session";
+        var cache = new StubSessionValidationCache(CreateState(SessionId, AccountId));
         var db = Substitute.For<ISqlSugarClient>();
         var service = new UserSessionValidationService(db, cache);
 
         UserSessionValidationResult result = await service.ValidateAsync(
-            CreatePrincipal(accountId, sessionId),
+            CreatePrincipal(AccountId, SessionId),
             CancellationToken.None);
 
         Assert.True(result.IsValid, result.Reason);
@@ -69,9 +65,9 @@ public sealed class UserSessionValidationServiceTests
     [Fact]
     public async Task CachedRevokedSession_RejectsRequestWithoutDatabaseRead()
     {
-        const int accountId = 42;
-        const string sessionId = "revoked-session";
-        UserSessionValidationCacheState revoked = CreateState(sessionId, accountId) with
+        const int AccountId = 42;
+        const string SessionId = "revoked-session";
+        UserSessionValidationCacheState revoked = CreateState(SessionId, AccountId) with
         {
             RevokedAtUtc = DateTime.UtcNow.AddSeconds(-1)
         };
@@ -80,7 +76,7 @@ public sealed class UserSessionValidationServiceTests
         var service = new UserSessionValidationService(db, cache);
 
         UserSessionValidationResult result = await service.ValidateAsync(
-            CreatePrincipal(accountId, sessionId),
+            CreatePrincipal(AccountId, SessionId),
             CancellationToken.None);
 
         Assert.False(result.IsValid);
@@ -99,12 +95,12 @@ public sealed class UserSessionValidationServiceTests
         string mutation,
         string expectedReason)
     {
-        const int accountId = 42;
-        const string sessionId = "invalid-session-state";
-        UserSessionValidationCacheState state = CreateState(sessionId, accountId);
+        const int AccountId = 42;
+        const string SessionId = "invalid-session-state";
+        UserSessionValidationCacheState state = CreateState(SessionId, AccountId);
         state = mutation switch
         {
-            "owner" => state with { AccountId = accountId + 1 },
+            "owner" => state with { AccountId = AccountId + 1 },
             "idle" => state with { IdleExpiresAtUtc = DateTime.UtcNow.AddSeconds(-1) },
             "absolute" => state with { AbsoluteExpiresAtUtc = DateTime.UtcNow.AddSeconds(-1) },
             "status" => state with { AccountStatus = 2 },
@@ -117,7 +113,7 @@ public sealed class UserSessionValidationServiceTests
         var service = new UserSessionValidationService(db, cache);
 
         UserSessionValidationResult result = await service.ValidateAsync(
-            CreatePrincipal(accountId, sessionId),
+            CreatePrincipal(AccountId, SessionId),
             CancellationToken.None);
 
         Assert.False(result.IsValid);

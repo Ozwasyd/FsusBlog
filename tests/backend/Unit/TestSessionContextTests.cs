@@ -1,10 +1,8 @@
-using FsusBlog.Server.Infrastructure.Testing;
-
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-
 using NSubstitute;
 
+using FsusBlog.Server.Infrastructure.Testing;
 namespace FsusBlog.Tests.Unit;
 
 public sealed class TestSessionContextTests

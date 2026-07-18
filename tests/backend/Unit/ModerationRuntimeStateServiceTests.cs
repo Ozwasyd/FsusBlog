@@ -1,10 +1,9 @@
-using FsusBlog.Server.Models.Moderation;
-using FsusBlog.Server.Services.Moderation;
-
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 
+using FsusBlog.Server.Models.Moderation;
+using FsusBlog.Server.Services.Moderation;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ModerationRuntimeStateServiceTests

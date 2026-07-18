@@ -1,22 +1,21 @@
 using System.Net;
 using System.Text;
 
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Security;
-using FsusBlog.Server.Services.Background;
-using FsusBlog.Server.Services.Security;
-
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Security;
+using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Services.Security;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CrawlerRangeSyncBehaviorTests
 {
-    private static readonly DateTimeOffset StartTime = DateTimeOffset.Parse("2026-07-11T08:00:00Z");
+    private static readonly DateTimeOffset s_startTime = DateTimeOffset.Parse("2026-07-11T08:00:00Z");
 
     [Fact]
     public async Task SynchronizeOnceAsync_FetchesProvidersConcurrentlyAndUsesRemoteThenSnapshotFallback()
@@ -40,7 +39,7 @@ public sealed class CrawlerRangeSyncBehaviorTests
 
             return JsonResponse("66.249.64.0/19");
         });
-        var clock = new ManualTimeProvider(StartTime);
+        var clock = new ManualTimeProvider(s_startTime);
         await using WorkerFixture fixture = CreateFixture(root.Path, handler, clock);
 
         Task<CrawlerRangeSyncResponse> pending = fixture.Worker.SynchronizeOnceAsync();
@@ -73,7 +72,7 @@ public sealed class CrawlerRangeSyncBehaviorTests
         await using WorkerFixture fixture = CreateFixture(
             root.Path,
             handler,
-            new ManualTimeProvider(StartTime),
+            new ManualTimeProvider(s_startTime),
             googleConfig: "203.0.113.0/24",
             bingConfig: "2001:db8::/32");
 
@@ -100,7 +99,7 @@ public sealed class CrawlerRangeSyncBehaviorTests
                 ? "66.249.64.0/19"
                 : "40.77.167.0/24");
         });
-        var clock = new ManualTimeProvider(StartTime);
+        var clock = new ManualTimeProvider(s_startTime);
         await using WorkerFixture fixture = CreateFixture(root.Path, handler, clock);
 
         Task<CrawlerRangeSyncResponse> first = fixture.Worker.SynchronizeOnceAsync();
@@ -116,8 +115,8 @@ public sealed class CrawlerRangeSyncBehaviorTests
 
         Assert.Equal("success", completed.Outcome);
         Assert.False(completed.Status.Running);
-        Assert.Equal(StartTime, completed.Status.LastStartedAt);
-        Assert.Equal(StartTime.AddSeconds(3), completed.Status.LastFinishedAt);
+        Assert.Equal(s_startTime, completed.Status.LastStartedAt);
+        Assert.Equal(s_startTime.AddSeconds(3), completed.Status.LastFinishedAt);
         Assert.Equal(completed.Status.LastFinishedAt, completed.CompletedAtUtc);
         Assert.Equal("success", fixture.Worker.GetStatus().LastOutcome);
     }
@@ -133,7 +132,7 @@ public sealed class CrawlerRangeSyncBehaviorTests
             await Task.Delay(Timeout.InfiniteTimeSpan, token);
             return JsonResponse("66.249.64.0/19");
         });
-        var clock = new ManualTimeProvider(StartTime);
+        var clock = new ManualTimeProvider(s_startTime);
         await using WorkerFixture fixture = CreateFixture(root.Path, handler, clock);
         using var cancellation = new CancellationTokenSource();
 
@@ -146,7 +145,7 @@ public sealed class CrawlerRangeSyncBehaviorTests
         CrawlerRangesAdminStatus status = fixture.Worker.GetStatus();
         Assert.False(status.Running);
         Assert.Equal("canceled", status.LastOutcome);
-        Assert.Equal(StartTime.AddSeconds(5), status.LastFinishedAt);
+        Assert.Equal(s_startTime.AddSeconds(5), status.LastFinishedAt);
     }
 
     [Theory]
@@ -161,7 +160,7 @@ public sealed class CrawlerRangeSyncBehaviorTests
         using var root = new TemporaryDirectory();
         var handler = new DelegateHttpMessageHandler((_, _) =>
             throw new InvalidOperationException("HTTP must not be reached"));
-        var clock = new ManualTimeProvider(StartTime);
+        var clock = new ManualTimeProvider(s_startTime);
         await using WorkerFixture fixture = CreateFixture(
             root.Path,
             handler,
@@ -174,7 +173,7 @@ public sealed class CrawlerRangeSyncBehaviorTests
         CrawlerRangesAdminStatus status = fixture.Worker.GetStatus();
         Assert.False(status.Running);
         Assert.Equal("InvalidOperationException", status.LastOutcome);
-        Assert.Equal(StartTime, status.LastFinishedAt);
+        Assert.Equal(s_startTime, status.LastFinishedAt);
         Assert.Equal(0, handler.CallCount);
     }
 
@@ -270,7 +269,7 @@ public sealed class CrawlerRangeSyncBehaviorTests
             {
                 Google = google,
                 Bing = bing,
-                SavedAt = StartTime.AddDays(-1)
+                SavedAt = s_startTime.AddDays(-1)
             }));
     }
 
@@ -282,7 +281,7 @@ public sealed class CrawlerRangeSyncBehaviorTests
 
     private sealed class FixedPolicyProvider(AntiCrawlerPolicyOptions options) : IAntiCrawlerPolicyProvider
     {
-        public AntiCrawlerPolicySnapshot Current { get; } = new("test", StartTime, "test", "test", options);
+        public AntiCrawlerPolicySnapshot Current { get; } = new("test", s_startTime, "test", "test", options);
     }
 
     private sealed class StubHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory

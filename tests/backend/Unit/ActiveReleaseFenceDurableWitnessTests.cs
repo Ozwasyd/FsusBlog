@@ -1,15 +1,14 @@
-using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Infrastructure.SchemaMigration;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ActiveReleaseFenceDurableWitnessTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 7, 15, 8, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_now = new(2026, 7, 15, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task Read_RestoresRedisAfterTotalLoss_FromDurableWitness()
@@ -81,7 +80,7 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
         ActiveReleaseFenceSnapshot revoked = active with
         {
             Status = ActiveReleaseFenceStatuses.Revoked,
-            RevokedAtUtc = Now.AddMinutes(1)
+            RevokedAtUtc = s_now.AddMinutes(1)
         };
 
         ActiveReleaseFenceSnapshot merged = ActiveReleaseFenceTransitions.Merge(active, revoked);
@@ -121,7 +120,7 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
             current.Slot,
             current.Generation);
 
-        ActiveReleaseFenceOperationResult result = await store.AcquireAsync(request, Now);
+        ActiveReleaseFenceOperationResult result = await store.AcquireAsync(request, s_now);
 
         Assert.True(result.Accepted);
         int sqlWrite = events.IndexOf("sql:acquire:42");
@@ -144,10 +143,10 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
         DurableActiveReleaseFenceStore store = CreateStore(replica, witness, configuration);
         var request = new ActiveReleaseFenceRevokeRequest(current.ReleaseId, current.Slot, current.Generation);
 
-        ActiveReleaseFenceOperationResult paused = await store.RevokeAsync(request, Now);
+        ActiveReleaseFenceOperationResult paused = await store.RevokeAsync(request, s_now);
         ActiveReleaseFenceSnapshot readable = await store.ReadAsync();
         configuration["ActiveReleaseFence:MutationEnabled"] = "true";
-        ActiveReleaseFenceOperationResult resumed = await store.RevokeAsync(request, Now);
+        ActiveReleaseFenceOperationResult resumed = await store.RevokeAsync(request, s_now);
 
         Assert.False(paused.Accepted);
         Assert.Equal("active_release_fence_mutation_paused", paused.ErrorCode);
@@ -192,11 +191,11 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
     [Fact]
     public void Migration_IsAdditiveOnlineExpandWithSingletonConstraints()
     {
-        const string id = "20260715-post-active-release-fence-durable-witness";
+        const string Id = "20260715-post-active-release-fence-durable-witness";
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             new SchemaMigrationRegistry().GetDescriptors(),
-            static item => item.MigrationId == id);
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[id];
+            static item => item.MigrationId == Id);
+        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[Id];
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
@@ -238,7 +237,7 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
             generation % 2 == 0 ? "green" : "blue",
             generation,
             generation % 2 == 0 ? "sha256:bbbb" : "sha256:aaaa",
-            Now.AddMinutes(generation),
+            s_now.AddMinutes(generation),
             null);
 
     private sealed class RecordingReplica(ActiveReleaseFenceSnapshot snapshot, List<string> events)

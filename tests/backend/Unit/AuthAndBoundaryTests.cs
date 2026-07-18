@@ -1,14 +1,13 @@
-using FsusBlog.Core.Common;
-using FsusBlog.Server.Infrastructure.Execution;
-
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Execution;
 namespace FsusBlog.Server.Tests.Unit;
 
 public class BoundaryExecutorTests
 {
-    private static readonly ILogger Logger = NullLogger.Instance;
+    private static readonly ILogger s_logger = NullLogger.Instance;
 
     // Execute (sync)
     [Fact]
@@ -17,7 +16,7 @@ public class BoundaryExecutorTests
         var result = BoundaryExecutor.Execute(
             () => { /* no-op */ },
             ex => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message),
-            Logger, "test-op");
+            s_logger, "test-op");
         Assert.True(result.IsSuccess);
     }
 
@@ -27,7 +26,7 @@ public class BoundaryExecutorTests
         var result = BoundaryExecutor.Execute(
             () => throw new InvalidOperationException("boom"),
             ex => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message),
-            Logger, "test-op");
+            s_logger, "test-op");
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.InfraFailure, result.Error.Code);
     }
@@ -39,7 +38,7 @@ public class BoundaryExecutorTests
             BoundaryExecutor.Execute(
                 () => throw new OperationCanceledException(),
                 ex => ErrorDetail.Create(ErrorCode.InfraFailure, ""),
-                Logger, "op"));
+                s_logger, "op"));
     }
 
     // ExecuteResult (sync)
@@ -49,7 +48,7 @@ public class BoundaryExecutorTests
         var result = BoundaryExecutor.ExecuteResult(
             () => 42,
             ex => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message),
-            Logger, "test-op");
+            s_logger, "test-op");
         Assert.True(result.IsSuccess);
         Assert.Equal(42, result.Value);
     }
@@ -60,7 +59,7 @@ public class BoundaryExecutorTests
         var result = BoundaryExecutor.ExecuteResult<int>(
             () => throw new Exception("fail"),
             ex => ErrorDetail.Create(ErrorCode.Validation, ex.Message),
-            Logger, "test-op");
+            s_logger, "test-op");
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Validation, result.Error.Code);
     }
@@ -72,7 +71,7 @@ public class BoundaryExecutorTests
         var result = await BoundaryExecutor.ExecuteResultAsync(
             () => Task.CompletedTask,
             ex => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message),
-            Logger, "test-op");
+            s_logger, "test-op");
         Assert.True(result.IsSuccess);
     }
 
@@ -82,7 +81,7 @@ public class BoundaryExecutorTests
         var result = await BoundaryExecutor.ExecuteResultAsync(
             () => Task.FromException(new Exception("async fail")),
             ex => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message),
-            Logger, "test-op");
+            s_logger, "test-op");
         Assert.False(result.IsSuccess);
     }
 
@@ -93,7 +92,7 @@ public class BoundaryExecutorTests
         var result = await BoundaryExecutor.ExecuteResultAsync(
             () => Task.FromResult("value"),
             ex => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message),
-            Logger, "test-op");
+            s_logger, "test-op");
         Assert.True(result.IsSuccess);
         Assert.Equal("value", result.Value);
     }
@@ -104,7 +103,7 @@ public class BoundaryExecutorTests
         var result = await BoundaryExecutor.ExecuteResultAsync(
             () => Task.FromException<int>(new Exception("err")),
             ex => ErrorDetail.Create(ErrorCode.InfraFailure, ex.Message),
-            Logger, "test-op");
+            s_logger, "test-op");
         Assert.False(result.IsSuccess);
     }
 
@@ -115,7 +114,7 @@ public class BoundaryExecutorTests
         var result = await BoundaryExecutor.ExecuteValueAsync(
             () => Task.FromResult(99),
             ex => -1,
-            Logger, "test-op");
+            s_logger, "test-op");
         Assert.Equal(99, result);
     }
 
@@ -125,7 +124,7 @@ public class BoundaryExecutorTests
         var result = await BoundaryExecutor.ExecuteValueAsync(
             () => Task.FromException<int>(new Exception("err")),
             ex => -1,
-            Logger, "test-op");
+            s_logger, "test-op");
         Assert.Equal(-1, result);
     }
 
@@ -136,7 +135,7 @@ public class BoundaryExecutorTests
         bool ran = false;
         await BoundaryExecutor.ExecuteAsync(
             () => { ran = true; return Task.CompletedTask; },
-            Logger, "op");
+            s_logger, "op");
         Assert.True(ran);
     }
 
@@ -146,7 +145,7 @@ public class BoundaryExecutorTests
         // ExecuteAsync swallows exceptions
         await BoundaryExecutor.ExecuteAsync(
             () => Task.FromException(new Exception("swallowed")),
-            Logger, "op");
+            s_logger, "op");
         // no exception → test passes
     }
 }

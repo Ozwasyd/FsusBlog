@@ -4,6 +4,10 @@ using System.Text;
 
 using Fido2NetLib;
 using Fido2NetLib.Objects;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
 
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -17,14 +21,6 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Dependency", "Docker")]
@@ -247,8 +243,8 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         int accountId = SeedAccount(db, status: 0, passkeyEnabled: false);
-        const string duplicateCredentialId = "duplicate-database-credential";
-        SeedCredential(db, accountId, duplicateCredentialId, DateTime.UtcNow.AddMinutes(-5));
+        const string DuplicateCredentialId = "duplicate-database-credential";
+        SeedCredential(db, accountId, DuplicateCredentialId, DateTime.UtcNow.AddMinutes(-5));
         var cache = Substitute.For<IUnifiedCache>();
         PasskeyService service = CreateService(db, suppliedCache: cache);
         DateTime issuedAt = DateTime.UtcNow.AddMinutes(-1);
@@ -261,11 +257,11 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
             sessionHash,
             requestHash,
             "challenge-database-exception",
-            Credential(accountId, duplicateCredentialId, DateTime.UtcNow));
+            Credential(accountId, DuplicateCredentialId, DateTime.UtcNow));
 
         Assert.Equal(RecoveryPasskeyRegistrationStatus.RetryableFailure, result.Status);
         Assert.Equal(1, await db.Queryable<PasskeyCredential>()
-            .CountAsync(item => item.CredentialId == duplicateCredentialId));
+            .CountAsync(item => item.CredentialId == DuplicateCredentialId));
         Assert.Equal(0, await db.Queryable<PasskeyCredential>()
             .CountAsync(item => item.RecoverySessionHash == sessionHash));
         Assert.False((await db.Queryable<User>().SingleAsync(item => item.Id == accountId)).PasskeyEnabled);
@@ -323,8 +319,8 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         int accountId = SeedAccount(db, status: 0, passkeyEnabled: false);
-        const string rawToken = "raw-recovery-token-must-never-reach-postgres";
-        string identity = RecoveryKeyService.BuildSessionIdentity(rawToken);
+        const string RawToken = "raw-recovery-token-must-never-reach-postgres";
+        string identity = RecoveryKeyService.BuildSessionIdentity(RawToken);
         var session = new RecoveryKeySession(
             accountId,
             false,
@@ -341,7 +337,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
             AttestationObject = [9, 10, 11],
             Transports = [1, 2],
             FriendlyName = "Raw token chain",
-            MfaProofToken = rawToken
+            MfaProofToken = RawToken
         };
         var cache = Substitute.For<IUnifiedCache>();
         cache.GetStringAsync(
@@ -418,21 +414,21 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
             Substitute.For<IUserSessionValidationCache>());
 
         Result<RecoveryPasskeyBindOutcome> result = await recovery.CompletePasskeyBindAsync(
-            rawToken,
+            RawToken,
             request,
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error.Message);
         var canonical = new ArrayBufferWriter<byte>();
         PodBinaryCodec.WritePasskeyRegisterCompleteRequest(request, canonical);
-        string expectedSessionHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawToken)));
+        string expectedSessionHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(RawToken)));
         string expectedRequestHash = Convert.ToHexString(SHA256.HashData(canonical.WrittenSpan));
         PasskeyCredential stored = await db.Queryable<PasskeyCredential>()
             .SingleAsync(item => item.CredentialId == request.Id);
         Assert.Equal(expectedSessionHash, stored.RecoverySessionHash);
         Assert.Equal(expectedRequestHash, stored.RecoveryRequestHash);
-        Assert.NotEqual(rawToken, stored.RecoverySessionHash);
-        Assert.DoesNotContain(rawToken, stored.RecoveryRequestHash ?? string.Empty, StringComparison.Ordinal);
+        Assert.NotEqual(RawToken, stored.RecoverySessionHash);
+        Assert.DoesNotContain(RawToken, stored.RecoveryRequestHash ?? string.Empty, StringComparison.Ordinal);
         Assert.True((await db.Queryable<User>().SingleAsync(item => item.Id == accountId)).PasskeyEnabled);
     }
 

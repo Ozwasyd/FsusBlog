@@ -1,21 +1,18 @@
 using System.Collections.Concurrent;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Services.Background;
-
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class LogCleanupWorkerBehaviorTests
 {
-    private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-25T12:00:00Z");
+    private static readonly DateTimeOffset s_baselineNow = DateTimeOffset.Parse("2026-06-25T12:00:00Z");
 
     [Fact]
     public async Task RunCleanupAsLeaderAsync_GrantedLeaseUsesInjectedClockForEveryRetentionTarget()
@@ -48,7 +45,7 @@ public sealed class LogCleanupWorkerBehaviorTests
             services,
             NullLogger<LogCleanupService>.Instance,
             lease,
-            new FixedTimeProvider(BaselineNow),
+            new FixedTimeProvider(s_baselineNow),
             Substitute.For<IActiveReleaseTransactionalCommitGuard>(),
             new AllowCurrentReleaseCommitGuard());
 
@@ -57,11 +54,11 @@ public sealed class LogCleanupWorkerBehaviorTests
         Assert.True(ran);
         Assert.Equal("log-cleanup-worker", lease.WorkerName);
         Assert.Equal(1, lease.ActionExecutions);
-        Assert.Equal(BaselineNow.UtcDateTime.AddDays(-14), cutoffs["rum"]);
-        Assert.Equal(BaselineNow.UtcDateTime.AddDays(-90), cutoffs["audit"]);
-        Assert.Equal(BaselineNow.UtcDateTime.AddDays(-30), cutoffs["anonymous-credential-audit"]);
-        Assert.Equal(BaselineNow.UtcDateTime, cutoffs["legacy-security-risk"]);
-        Assert.Equal(BaselineNow.UtcDateTime.AddDays(-30), cutoffs["fenced-commit"]);
+        Assert.Equal(s_baselineNow.UtcDateTime.AddDays(-14), cutoffs["rum"]);
+        Assert.Equal(s_baselineNow.UtcDateTime.AddDays(-90), cutoffs["audit"]);
+        Assert.Equal(s_baselineNow.UtcDateTime.AddDays(-30), cutoffs["anonymous-credential-audit"]);
+        Assert.Equal(s_baselineNow.UtcDateTime, cutoffs["legacy-security-risk"]);
+        Assert.Equal(s_baselineNow.UtcDateTime.AddDays(-30), cutoffs["fenced-commit"]);
         Assert.DoesNotContain("visit", cutoffs.Keys);
         Assert.DoesNotContain("legacy-visit-log-ip", cutoffs.Keys);
     }
@@ -80,7 +77,7 @@ public sealed class LogCleanupWorkerBehaviorTests
 
         int deleted = await LogCleanupService.CleanupVisitLogsAsync(
             db,
-            BaselineNow.UtcDateTime,
+            s_baselineNow.UtcDateTime,
             chunkSize: 1,
             maxChunks: 3,
             delayBetweenChunks: TimeSpan.Zero,
@@ -106,7 +103,7 @@ public sealed class LogCleanupWorkerBehaviorTests
 
         int deleted = await LogCleanupService.CleanupVisitLogsAsync(
                 db,
-                BaselineNow.UtcDateTime,
+                s_baselineNow.UtcDateTime,
                 chunkSize: 1,
                 maxChunks: 10,
                 delayBetweenChunks: TimeSpan.Zero,
@@ -130,7 +127,7 @@ public sealed class LogCleanupWorkerBehaviorTests
 
         int deleted = await LogCleanupService.CleanupVisitLogsAsync(
                 db,
-                BaselineNow.UtcDateTime,
+                s_baselineNow.UtcDateTime,
                 chunkSize: 10,
                 maxChunks: 10,
                 delayBetweenChunks: TimeSpan.Zero,
@@ -149,7 +146,7 @@ public sealed class LogCleanupWorkerBehaviorTests
             services,
             NullLogger<LogCleanupService>.Instance,
             lease,
-            new FixedTimeProvider(BaselineNow),
+            new FixedTimeProvider(s_baselineNow),
             Substitute.For<IActiveReleaseTransactionalCommitGuard>());
 
         bool ran = await worker.RunCleanupAsLeaderAsync(CancellationToken.None);

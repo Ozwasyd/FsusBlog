@@ -1,28 +1,26 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-
-using NSubstitute;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ZkProofVerifierTests
 {
     private const string CircuitId = "fsus.anonymous.comment.v3";
-    private static readonly string VerifyingKeyHash = new('d', 64);
+    private static readonly string s_verifyingKeyHash = new('d', 64);
     private const ushort PublicInputLayoutVersion = 4;
     private const long CredentialEpoch = 7;
-    private static readonly string CredentialRoot = new('e', 64);
-    private static readonly string RevocationRoot = new('8', 64);
-    private static readonly string IssuerPublicKeyHash = new('f', 64);
+    private static readonly string s_credentialRoot = new('e', 64);
+    private static readonly string s_revocationRoot = new('8', 64);
+    private static readonly string s_issuerPublicKeyHash = new('f', 64);
     private const string PublicInputNullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
-    private static readonly string PolicyHash = new('9', 64);
+    private static readonly string s_policyHash = new('9', 64);
 
     [Fact]
     public async Task ZkAnonymousProofService_DisabledByDefaultFailsClosed()
@@ -70,7 +68,7 @@ public sealed class ZkProofVerifierTests
                 ["AnonymousIdentity:ZkProd:VerifierBackend"] = "native_groth16",
                 ["AnonymousIdentity:ZkProd:TrustedSetupVerified"] = "true",
                 ["AnonymousIdentity:ZkProd:CredentialReady"] = "true",
-                ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = VerifyingKeyHash
+                ["AnonymousIdentity:ZkProd:VerifyingKeyHash"] = s_verifyingKeyHash
             }),
             new DisabledZkProofVerifier());
 
@@ -215,7 +213,7 @@ public sealed class ZkProofVerifierTests
         });
         var services = new ServiceCollection();
         services.AddSingleton<IProductionZkProofBackend, AcceptingProductionZkProofBackend>();
-        services.AddSingleton<IAnonymousCredentialRootReader>(new FixedRootReader(CredentialRoot, CredentialEpoch));
+        services.AddSingleton<IAnonymousCredentialRootReader>(new FixedRootReader(s_credentialRoot, CredentialEpoch));
 
         services.AddFsusRuntimeSecurityAndLifecycleServices(configuration);
 
@@ -224,7 +222,7 @@ public sealed class ZkProofVerifierTests
 
         var verifier = new ProductionZkProofVerifier(
             configuration,
-            new FixedRootReader(CredentialRoot, CredentialEpoch),
+            new FixedRootReader(s_credentialRoot, CredentialEpoch),
             new AcceptingProductionZkProofBackend(),
             new CapturingLogger<ProductionZkProofVerifier>());
         Assert.False(verifier.IsConfigured);
@@ -242,10 +240,10 @@ public sealed class ZkProofVerifierTests
         Assert.True(result.Verified);
         Assert.Equal(1, backend.CallCount);
         Assert.Equal(CircuitId, backend.LastRequest.CircuitId);
-        Assert.Equal(VerifyingKeyHash, backend.LastRequest.VerifyingKeyHash);
+        Assert.Equal(s_verifyingKeyHash, backend.LastRequest.VerifyingKeyHash);
         Assert.Equal(PublicInputLayoutVersion, backend.LastRequest.PublicInputLayoutVersion);
-        Assert.Equal(RevocationRoot, backend.LastRequest.RevocationRoot);
-        Assert.Equal(IssuerPublicKeyHash, backend.LastRequest.IssuerPublicKeyHash);
+        Assert.Equal(s_revocationRoot, backend.LastRequest.RevocationRoot);
+        Assert.Equal(s_issuerPublicKeyHash, backend.LastRequest.IssuerPublicKeyHash);
     }
 
     [Theory]
@@ -300,8 +298,8 @@ public sealed class ZkProofVerifierTests
 
         ZkProofVerificationResult result = await verifier.VerifyAsync(ValidRequest() with
         {
-            RevocationRoot = revocationRoot ?? RevocationRoot,
-            IssuerPublicKeyHash = issuerPublicKeyHash ?? IssuerPublicKeyHash
+            RevocationRoot = revocationRoot ?? s_revocationRoot,
+            IssuerPublicKeyHash = issuerPublicKeyHash ?? s_issuerPublicKeyHash
         });
 
         Assert.False(result.Verified);
@@ -447,7 +445,7 @@ public sealed class ZkProofVerifierTests
         {
             ["AnonymousIdentity:ZkVerifier:Enabled"] = "true",
             ["AnonymousIdentity:ZkVerifier:CircuitId"] = CircuitId,
-            ["AnonymousIdentity:ZkVerifier:VerifyingKeyHash"] = VerifyingKeyHash,
+            ["AnonymousIdentity:ZkVerifier:VerifyingKeyHash"] = s_verifyingKeyHash,
             ["AnonymousIdentity:ZkVerifier:PublicInputLayoutVersion"] = PublicInputLayoutVersion.ToString(),
             ["AnonymousIdentity:ZkVerifier:MaxProofBytes"] = "4096",
             ["AnonymousIdentity:ZkVerifier:Backend"] = "unit",
@@ -464,7 +462,7 @@ public sealed class ZkProofVerifierTests
 
         return new ProductionZkProofVerifier(
             BuildConfiguration(values),
-            roots ?? new FixedRootReader(CredentialRoot, CredentialEpoch),
+            roots ?? new FixedRootReader(s_credentialRoot, CredentialEpoch),
             backend ?? new RecordingProductionZkProofBackend(),
             logger ?? new CapturingLogger<ProductionZkProofVerifier>());
     }
@@ -474,18 +472,18 @@ public sealed class ZkProofVerifierTests
             ActionContext: "comment.create",
             Scope: "article:42",
             CircuitId: CircuitId,
-            VerifyingKeyHash: VerifyingKeyHash,
+            VerifyingKeyHash: s_verifyingKeyHash,
             PublicInputLayoutVersion: PublicInputLayoutVersion,
             NullifierHash: PublicInputNullifierHash,
-            CredentialRoot: CredentialRoot,
-            PolicyHash: PolicyHash,
+            CredentialRoot: s_credentialRoot,
+            PolicyHash: s_policyHash,
             IsEligible: true,
             MayComment: true,
             RateClass: AnonymousPrivacyContract.CommonRateClass,
             RequiresModeration: false,
             Proof: [1, 2, 3],
-            RevocationRoot: RevocationRoot,
-            IssuerPublicKeyHash: IssuerPublicKeyHash);
+            RevocationRoot: s_revocationRoot,
+            IssuerPublicKeyHash: s_issuerPublicKeyHash);
 
     private static CommentActorResolveRequest ValidActorResolveRequest()
         => new(
@@ -499,12 +497,12 @@ public sealed class ZkProofVerifierTests
             ZkProof: [1, 2, 3],
             SubmitRegion: "SG",
             NullifierHash: PublicInputNullifierHash,
-            CredentialRoot: CredentialRoot,
+            CredentialRoot: s_credentialRoot,
             CircuitId: CircuitId,
-            VerifyingKeyHash: VerifyingKeyHash,
+            VerifyingKeyHash: s_verifyingKeyHash,
             PublicInputLayoutVersion: PublicInputLayoutVersion,
-            RevocationRoot: RevocationRoot,
-            IssuerPublicKeyHash: IssuerPublicKeyHash);
+            RevocationRoot: s_revocationRoot,
+            IssuerPublicKeyHash: s_issuerPublicKeyHash);
 
     private sealed class RecordingZkVerifier(bool configured, ZkProofVerificationResult result) : IZkProofVerifier
     {
@@ -530,7 +528,7 @@ public sealed class ZkProofVerifierTests
         {
             get;
         } = new(
-            [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, RevocationRoot, IssuerPublicKeyHash, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
+            [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, s_revocationRoot, s_issuerPublicKeyHash, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
             1,
             DateTimeOffset.UtcNow);
 
@@ -543,8 +541,8 @@ public sealed class ZkProofVerifierTests
         public bool IsRootAccepted(string rootHash, string revocationRootHash, string issuerPublicKeyHash, long epoch)
             => epoch == acceptedEpoch &&
                 string.Equals(rootHash, acceptedRoot, StringComparison.Ordinal) &&
-                string.Equals(revocationRootHash, RevocationRoot, StringComparison.Ordinal) &&
-                string.Equals(issuerPublicKeyHash, IssuerPublicKeyHash, StringComparison.OrdinalIgnoreCase);
+                string.Equals(revocationRootHash, s_revocationRoot, StringComparison.Ordinal) &&
+                string.Equals(issuerPublicKeyHash, s_issuerPublicKeyHash, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class CapturingZkProofService(ZkProofVerificationResult result) : IZkAnonymousProofService
@@ -562,7 +560,7 @@ public sealed class ZkProofVerifierTests
         } = AnonymousCommentPolicySnapshot.Default with
         {
             ZkAnonymousEnabled = true,
-            SnapshotHash = PolicyHash
+            SnapshotHash = s_policyHash
         };
 
         public ZkAnonymousPolicySnapshot CurrentZkPolicy

@@ -1,15 +1,14 @@
 using System.Net;
 
-using FsusBlog.Server.Infrastructure.Security;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 
+using FsusBlog.Server.Infrastructure.Security;
 namespace FsusBlog.Server.Tests;
 
 public sealed class ReadProofIngressPrivacyTests
 {
-    private static readonly DateTimeOffset Start = DateTimeOffset.Parse("2026-07-15T10:00:00Z");
+    private static readonly DateTimeOffset s_start = DateTimeOffset.Parse("2026-07-15T10:00:00Z");
 
     [Fact]
     public void CreatePartition_NormalizesIpv4MappedIpv6WithoutRetainingRawAddress()
@@ -69,7 +68,7 @@ public sealed class ReadProofIngressPrivacyTests
                 ["HumanReadProof:Dedup:CurrentKey"] = "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8="
             })
             .Build();
-        time = new MutableTimeProvider(Start);
+        time = new MutableTimeProvider(s_start);
         return new ReadProofRateLimitPartitioner(configuration, time);
     }
 

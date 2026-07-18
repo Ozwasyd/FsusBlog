@@ -5,18 +5,17 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PerceptionChallengeV2E2eTests
@@ -181,13 +180,13 @@ public sealed class PerceptionChallengeV2E2eTests
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         File.WriteAllText(
             outputPath,
-            JsonSerializer.Serialize(evidence, EvidenceJsonOptions) + Environment.NewLine,
+            JsonSerializer.Serialize(evidence, s_evidenceJsonOptions) + Environment.NewLine,
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
-    private static readonly JsonSerializerOptions RenderRecipeJsonOptions = CreateRenderRecipeJsonOptions();
+    private static readonly JsonSerializerOptions s_renderRecipeJsonOptions = CreateRenderRecipeJsonOptions();
 
-    private static readonly JsonSerializerOptions EvidenceJsonOptions = new(JsonSerializerDefaults.Web)
+    private static readonly JsonSerializerOptions s_evidenceJsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
     };
@@ -320,7 +319,7 @@ public sealed class PerceptionChallengeV2E2eTests
         public Dictionary<string, string> RenderAndSolve(PerceptionIssuedChallenge challenge)
         {
             Assert.True(challenge.ProviderPayload.TryGetValue("recipeJson", out string? recipeJson));
-            RenderRecipeV2? recipe = JsonSerializer.Deserialize<RenderRecipeV2>(recipeJson, RenderRecipeJsonOptions);
+            RenderRecipeV2? recipe = JsonSerializer.Deserialize<RenderRecipeV2>(recipeJson, s_renderRecipeJsonOptions);
             Assert.NotNull(recipe);
             Assert.Equal(RenderRecipeV2TaskKind.Character, recipe.TaskKind);
             Assert.Equal("text", recipe.PresentationHints["inputMode"]);

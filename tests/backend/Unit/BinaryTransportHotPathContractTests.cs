@@ -2,15 +2,14 @@ using System.Buffers;
 using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
 
-using FsusBlog.Core.Algorithms;
-using FsusBlog.Server.Infrastructure.Binary;
-using FsusBlog.Server.Infrastructure.Middlewares;
-using FsusBlog.Server.Infrastructure.Observability;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Middlewares;
+using FsusBlog.Server.Infrastructure.Observability;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class BinaryTransportHotPathContractTests

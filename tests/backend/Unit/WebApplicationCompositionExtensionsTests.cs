@@ -3,14 +3,6 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Infrastructure.Spa;
-using FsusBlog.Server.Models.ReadModels;
-using FsusBlog.Server.Tests.TestInfrastructure;
-using FsusBlog.Shared.Contracts.Outputs;
-
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -23,6 +15,13 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
 namespace FsusBlog.Server.Tests;
 
 public sealed class WebApplicationCompositionExtensionsTests
@@ -93,10 +92,10 @@ public sealed class WebApplicationCompositionExtensionsTests
     [Fact]
     public void DevelopmentHtmlCsp_PreservesNonceAndHmrWithoutTrustedTypesEnforcement()
     {
-        const string nonce = "development-nonce";
-        string csp = WebApplicationCompositionExtensions.BuildHtmlCsp(isDevelopment: true, nonce);
+        const string Nonce = "development-nonce";
+        string csp = WebApplicationCompositionExtensions.BuildHtmlCsp(isDevelopment: true, Nonce);
 
-        Assert.Contains($"'nonce-{nonce}'", csp, StringComparison.Ordinal);
+        Assert.Contains($"'nonce-{Nonce}'", csp, StringComparison.Ordinal);
         Assert.Contains("http://127.0.0.1:3000", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("require-trusted-types-for", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("trusted-types vue fsusblog", csp, StringComparison.Ordinal);
@@ -657,13 +656,13 @@ public sealed class WebApplicationCompositionExtensionsTests
     [Fact]
     public async Task PublicAotHtmlFastPath_FallsBackToIdentityWhenCompressedVariantIsMissing()
     {
-        const string html = "<!doctype html><html><body>tiny</body></html>";
+        const string Html = "<!doctype html><html><body>tiny</body></html>";
         PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(
-            html,
+            Html,
             "renderer-v2",
             "frontend-v2",
             minPrecompressedHtmlBytes: 1024);
-        var entry = CreateAotEntry(html, artifact);
+        var entry = CreateAotEntry(Html, artifact);
         DefaultHttpContext context = CreateAotContext("br, gzip");
 
         await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
@@ -671,19 +670,19 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.True(string.IsNullOrEmpty(context.Response.Headers["Content-Encoding"].ToString()));
         Assert.Equal(artifact.ETag, context.Response.Headers["ETag"].ToString());
-        Assert.Equal(Encoding.UTF8.GetBytes(html), ((MemoryStream)context.Response.Body).ToArray());
+        Assert.Equal(Encoding.UTF8.GetBytes(Html), ((MemoryStream)context.Response.Body).ToArray());
     }
 
     [Fact]
     public async Task PublicAotHtmlNonceTemplate_StreamsIdentityWithNoStoreAndNoEntityValidator()
     {
-        const string html = "<html><head></head><body><script type=\"module\"></script></body></html>";
+        const string Html = "<html><head></head><body><script type=\"module\"></script></body></html>";
         PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(
-            html,
+            Html,
             "renderer-v2",
             "frontend-v2",
             minPrecompressedHtmlBytes: 1);
-        var entry = CreateAotEntry(html, artifact);
+        var entry = CreateAotEntry(Html, artifact);
         DefaultHttpContext context = CreateAotContext("br, gzip");
         context.Request.Headers.IfNoneMatch = artifact.ETag;
 
@@ -705,15 +704,15 @@ public sealed class WebApplicationCompositionExtensionsTests
     [Fact]
     public async Task PublicAotHtmlNonceTemplate_HeadComputesHeadersWithoutWritingBody()
     {
-        const string html = "<html><head></head><body><script>head()</script></body></html>";
-        PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(html, "renderer-head", "frontend-head");
+        const string Html = "<html><head></head><body><script>head()</script></body></html>";
+        PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(Html, "renderer-head", "frontend-head");
         DefaultHttpContext context = CreateAotContext("br, gzip");
         context.Request.Method = HttpMethods.Head;
 
         await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(
             context,
             CreateTestEnv(),
-            CreateAotEntry(html, artifact));
+            CreateAotEntry(Html, artifact));
 
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.True(context.Response.ContentLength > artifact.Utf8Bytes.Length);
@@ -725,14 +724,14 @@ public sealed class WebApplicationCompositionExtensionsTests
     [Fact]
     public async Task PublicAotHtmlNonceTemplate_RejectsWhenIdentityIsExplicitlyForbidden()
     {
-        const string html = "<html><head></head><body><script>identity()</script></body></html>";
-        PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(html, "renderer-identity", "frontend-identity");
+        const string Html = "<html><head></head><body><script>identity()</script></body></html>";
+        PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(Html, "renderer-identity", "frontend-identity");
         DefaultHttpContext context = CreateAotContext("br;q=1, gzip;q=1, identity;q=0");
 
         await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(
             context,
             CreateTestEnv(),
-            CreateAotEntry(html, artifact));
+            CreateAotEntry(Html, artifact));
 
         Assert.Equal(StatusCodes.Status406NotAcceptable, context.Response.StatusCode);
         Assert.Equal(0, context.Response.ContentLength);
@@ -773,11 +772,11 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.True(brotliBytes < identityBytes);
         Assert.True(gzipBytes < identityBytes);
 
-        const int samples = 32;
-        long[] elapsedTicks = new long[samples];
+        const int Samples = 32;
+        long[] elapsedTicks = new long[Samples];
         long allocBefore = GC.GetTotalAllocatedBytes(precise: true);
         long totalBytes = 0;
-        for (int i = 0; i < samples; i++)
+        for (int i = 0; i < Samples; i++)
         {
             DefaultHttpContext context = CreateAotContext("br, gzip");
             long started = Stopwatch.GetTimestamp();
@@ -789,7 +788,7 @@ public sealed class WebApplicationCompositionExtensionsTests
         long allocAfter = GC.GetTotalAllocatedBytes(precise: true);
         Assert.True(allocAfter >= allocBefore);
         Assert.True(PercentileTicks(elapsedTicks, 99) >= 0);
-        Assert.Equal(artifact.BrotliBytes.Length * samples, totalBytes);
+        Assert.Equal(artifact.BrotliBytes.Length * Samples, totalBytes);
     }
 
     [Fact]
@@ -1046,7 +1045,7 @@ public sealed class WebApplicationCompositionExtensionsTests
 
     private sealed class StaticAssetTestSite : IDisposable
     {
-        private static readonly Action<StaticFileResponseContext> StaticAssetResponseCallback =
+        private static readonly Action<StaticFileResponseContext> s_staticAssetResponseCallback =
             CreateStaticAssetResponseCallback();
 
         private readonly string _root;
@@ -1066,7 +1065,7 @@ public sealed class WebApplicationCompositionExtensionsTests
             {
                 FileProvider = _fileProvider,
                 ContentTypeProvider = contentTypeProvider,
-                OnPrepareResponse = StaticAssetResponseCallback
+                OnPrepareResponse = s_staticAssetResponseCallback
             });
 
             _middleware = new StaticFileMiddleware(

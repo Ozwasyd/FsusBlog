@@ -2,12 +2,11 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.Extensions.Configuration;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.PublicAot;
-
-using Microsoft.Extensions.Configuration;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AuditTamperEvidenceBehaviorTests
@@ -45,12 +44,12 @@ public sealed class AuditTamperEvidenceBehaviorTests
             ChainId: "20260614",
             PrevHash: "prev");
         byte[] key = Encoding.UTF8.GetBytes(ValidTamperKey);
-        const string canonical = "{\"Source\":\"auth\",\"Type\":\"security\",\"OccurredAtUtc\":\"2026-06-14T12:00:00.0000000Z\",\"Action\":\"auth.test\",\"Outcome\":\"success\",\"Severity\":\"info\",\"ActorType\":\"admin\",\"ActorId\":\"7\",\"ActorRole\":\"admin\",\"TargetType\":\"session\",\"TargetId\":\"42\",\"IsHighValue\":true,\"TraceId\":\"trace\",\"RequestPath\":\"/login\",\"RequestMethod\":\"POST\",\"IpHash\":\"ip\",\"UserAgentHash\":\"ua\",\"SessionIdHash\":\"sid\",\"DeviceFingerprintHash\":\"fp\",\"ReasonCode\":\"risk\",\"EventInfo\":\"event\",\"ContextJson\":\"{\\u0022ok\\u0022:true}\",\"ChainId\":\"20260614\",\"PrevHash\":\"prev\"}";
+        const string Canonical = "{\"Source\":\"auth\",\"Type\":\"security\",\"OccurredAtUtc\":\"2026-06-14T12:00:00.0000000Z\",\"Action\":\"auth.test\",\"Outcome\":\"success\",\"Severity\":\"info\",\"ActorType\":\"admin\",\"ActorId\":\"7\",\"ActorRole\":\"admin\",\"TargetType\":\"session\",\"TargetId\":\"42\",\"IsHighValue\":true,\"TraceId\":\"trace\",\"RequestPath\":\"/login\",\"RequestMethod\":\"POST\",\"IpHash\":\"ip\",\"UserAgentHash\":\"ua\",\"SessionIdHash\":\"sid\",\"DeviceFingerprintHash\":\"fp\",\"ReasonCode\":\"risk\",\"EventInfo\":\"event\",\"ContextJson\":\"{\\u0022ok\\u0022:true}\",\"ChainId\":\"20260614\",\"PrevHash\":\"prev\"}";
 
         AuditTamperEvidenceResult result = AuditTamperEvidence.Sign(record, key);
 
-        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))), result.RecordHash);
-        Assert.Equal(Convert.ToHexStringLower(HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(canonical))), result.RecordMac);
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Canonical))), result.RecordHash);
+        Assert.Equal(Convert.ToHexStringLower(HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(Canonical))), result.RecordMac);
     }
 
     [Fact]

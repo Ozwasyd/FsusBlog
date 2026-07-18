@@ -1,12 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
 
-using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Integrity;
-using FsusBlog.Server.Modules.Endpoints;
-using FsusBlog.Server.Tests.TestInfrastructure;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -15,6 +9,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Integrity;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Tests.TestInfrastructure;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class IntegrityVerificationManifestTests

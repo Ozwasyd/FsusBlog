@@ -1,9 +1,8 @@
 using System.Text.Json;
 
-using FsusBlog.Server.Infrastructure.Audit;
-
 using Microsoft.Extensions.Configuration;
 
+using FsusBlog.Server.Infrastructure.Audit;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AuditFallbackWriterBehaviorTests

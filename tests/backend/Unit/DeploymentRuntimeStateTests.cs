@@ -1,7 +1,3 @@
-using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.NotificationStream;
-using FsusBlog.Server.Infrastructure.Operations;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -15,6 +11,9 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Infrastructure.Operations;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class DeploymentRuntimeStateTests

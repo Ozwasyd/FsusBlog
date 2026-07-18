@@ -1,12 +1,11 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
+using Microsoft.Extensions.Logging;
+
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using Microsoft.Extensions.Logging;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class HumanReadProofSubmissionBehaviorTests
@@ -186,25 +185,25 @@ public sealed class HumanReadProofSubmissionBehaviorTests
     [Fact]
     public async Task SubmitAsync_DedupInfrastructureFailureDropsTheStatisticWithoutRawIpFallback()
     {
-        const string rawIp = "203.0.113.177";
+        const string RawIp = "203.0.113.177";
         var logger = new CollectingLogger<HumanReadProofService>();
         await using var harness = HumanReadProofTestHarness.Create(logger: logger);
         HumanReadChallengeResponse challenge = Assert.IsType<HumanReadChallengeResponse>(
             await harness.Service.CreateChallengeAsync(
-                harness.CreateBrowserContext(remoteIp: rawIp),
+                harness.CreateBrowserContext(remoteIp: RawIp),
                 new HumanReadChallengeRequest("article", "article:42", 42)));
         harness.Time.Advance(TimeSpan.FromSeconds(9));
-        harness.Cache.AcquireException = new InvalidOperationException($"cache endpoint unavailable for {rawIp}");
+        harness.Cache.AcquireException = new InvalidOperationException($"cache endpoint unavailable for {RawIp}");
 
         HumanReadSubmitResponse response = await harness.Service.SubmitAsync(
-            harness.CreateBrowserContext(remoteIp: rawIp),
+            harness.CreateBrowserContext(remoteIp: RawIp),
             new HumanReadSubmitRequest(challenge.Token, "article", "article:42", 42, 9_000));
 
         Assert.False(response.Counted);
         Assert.Equal("dedup_unavailable", response.Status);
         Assert.False(harness.Channel.Reader.TryRead(out _));
         Assert.NotEmpty(logger.Entries);
-        Assert.All(logger.Entries, entry => Assert.DoesNotContain(rawIp, entry, StringComparison.Ordinal));
+        Assert.All(logger.Entries, entry => Assert.DoesNotContain(RawIp, entry, StringComparison.Ordinal));
     }
 
     [Fact]

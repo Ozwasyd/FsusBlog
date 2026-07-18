@@ -1,6 +1,13 @@
 using System.Net;
 using System.Security.Claims;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
@@ -9,14 +16,6 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.Routing.Patterns;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RequiresRiskControlFilterTests
@@ -407,8 +406,8 @@ public sealed class RequiresRiskControlFilterTests
     [Fact]
     public void RequiresPowFilter_DoesNotKeepMvcAttributeOrRegistration()
     {
-        const string legacyTypeName = "FsusBlog.Server.Infrastructure.Filters.RequiresPowAttribute";
-        Assert.Null(typeof(RequiresPowFilter).Assembly.GetType(legacyTypeName, throwOnError: false));
+        const string LegacyTypeName = "FsusBlog.Server.Infrastructure.Filters.RequiresPowAttribute";
+        Assert.Null(typeof(RequiresPowFilter).Assembly.GetType(LegacyTypeName, throwOnError: false));
 
         var services = new ServiceCollection();
         services.AddPowServices();
@@ -424,7 +423,7 @@ public sealed class RequiresRiskControlFilterTests
             typeof(IAsyncActionFilter).IsAssignableFrom(descriptor.ServiceType)
             || (descriptor.ImplementationType is not null
                 && typeof(IAsyncActionFilter).IsAssignableFrom(descriptor.ImplementationType))
-            || string.Equals(descriptor.ServiceType.FullName, legacyTypeName, StringComparison.Ordinal));
+            || string.Equals(descriptor.ServiceType.FullName, LegacyTypeName, StringComparison.Ordinal));
     }
 
     private static FilterFixture CreateFixture(int riskScore, SecurityRiskPolicySnapshotV2? policy = null)

@@ -4,26 +4,23 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+using StackExchange.Redis;
+
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
-using NSubstitute;
-
-using StackExchange.Redis;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PerceptionChallengeV2ServiceTests
 {
-    private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-19T08:00:00Z", CultureInfo.InvariantCulture);
+    private static readonly DateTimeOffset s_baselineNow = DateTimeOffset.Parse("2026-06-19T08:00:00Z", CultureInfo.InvariantCulture);
     private const string HashA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string HashB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
@@ -34,7 +31,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     {
         var taskSource = new FakeTaskSource(CreateTaskMaterial(RenderRecipeV2TaskKind.Character, answer: "K7M2"));
         var protector = new FakeTokenProtector();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = new PerceptionChallengeV2IssueService(taskSource, protector, clock);
 
         PerceptionChallengeV2IssueResult result = await service.IssueAsync(CreateIssueRequest(), CancellationToken.None);
@@ -72,7 +69,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     {
         var taskSource = new FakeTaskSource(CreateTaskMaterial(RenderRecipeV2TaskKind.Character, answer: "K7M2"));
         var protector = new FakeTokenProtector();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = new PerceptionChallengeV2IssueService(taskSource, protector, clock);
         PerceptionChallengeGeneratorDistributionPolicy policy = CreateGeneratorPolicy(
             new PerceptionChallengeGeneratorFamilyPolicy(
@@ -501,9 +498,9 @@ public sealed class PerceptionChallengeV2ServiceTests
             .Returns(Task.FromResult(true));
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var gate = new RedisPerceptionChallengeV2Gate(redis, new DefaultRuntimeKeyScope(), clock);
-        DateTimeOffset expiresAt = BaselineNow.AddMinutes(5);
+        DateTimeOffset expiresAt = s_baselineNow.AddMinutes(5);
 
         PerceptionChallengeV2AttemptGateResult attempt = await gate.RegisterAttemptAsync("challenge-1", expiresAt, 3, CancellationToken.None);
         PerceptionChallengeV2ConsumeResult consume = await gate.TryConsumeOnceAsync("challenge-1", expiresAt, CancellationToken.None);
@@ -542,11 +539,11 @@ public sealed class PerceptionChallengeV2ServiceTests
         var gate = new RedisPerceptionChallengeV2Gate(
             redis,
             new DefaultRuntimeKeyScope(),
-            new MutableTimeProvider(BaselineNow));
+            new MutableTimeProvider(s_baselineNow));
 
         PerceptionChallengeV2AttemptGateResult result = await gate.RegisterAttemptAsync(
             "challenge-script-contract",
-            BaselineNow.AddMinutes(5),
+            s_baselineNow.AddMinutes(5),
             maxAttempts: 3,
             CancellationToken.None);
 
@@ -756,8 +753,8 @@ public sealed class PerceptionChallengeV2ServiceTests
             HashC,
             "risk-policy-v2",
             "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            BaselineNow,
-            BaselineNow.AddMinutes(5),
+            s_baselineNow,
+            s_baselineNow.AddMinutes(5),
             3,
             null,
             null,
@@ -827,7 +824,7 @@ public sealed class PerceptionChallengeV2ServiceTests
         var riskSink = new CapturingRiskSink();
         var taskSource = new FakeTaskSource(CreateTaskMaterial(claims.TaskKind));
         var audit = new RecordingAuditWriter();
-        var service = new PerceptionChallengeV2VerifyService(protector, gate, riskSink, audit, new MutableTimeProvider(BaselineNow));
+        var service = new PerceptionChallengeV2VerifyService(protector, gate, riskSink, audit, new MutableTimeProvider(s_baselineNow));
         return new VerifyFixture(service, protector, gate, riskSink, taskSource, audit);
     }
 

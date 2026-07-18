@@ -1,8 +1,7 @@
-using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Tests.TestInfrastructure;
-
 using SqlSugar;
 
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Tests.TestInfrastructure;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]

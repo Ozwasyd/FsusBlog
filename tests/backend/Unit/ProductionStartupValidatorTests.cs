@@ -1,5 +1,12 @@
 using System.Net;
 
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -12,14 +19,6 @@ using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Tests.Unit;
-
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace FsusBlog.Server.Tests;
 
 public sealed class ProductionStartupValidatorTests
@@ -341,11 +340,11 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("Moderation:RegionPolicy:IpHashKey")]
     public void ValidateCore_RejectsProductionSecuritySecretSharedWithJwtSecret(string key)
     {
-        const string sharedSecret = "shared-jwt-secret-that-must-not-seed-other-security-domains";
+        const string SharedSecret = "shared-jwt-secret-that-must-not-seed-other-security-domains";
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
         {
-            ["Jwt:SecretKey"] = sharedSecret,
-            [key] = sharedSecret
+            ["Jwt:SecretKey"] = SharedSecret,
+            [key] = SharedSecret
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);

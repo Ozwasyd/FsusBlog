@@ -1,14 +1,13 @@
-using FsusBlog.Server.Infrastructure.Audit;
-using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Moderation;
-using FsusBlog.Server.Services.Moderation;
-using FsusBlog.Server.Tests.TestInfrastructure;
-
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Moderation;
+using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Server.Tests.TestInfrastructure;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ModerationRegionCatalogServiceTests

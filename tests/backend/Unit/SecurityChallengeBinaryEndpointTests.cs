@@ -2,6 +2,9 @@ using System.Net;
 using System.Reflection;
 using System.Text.Json;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -13,10 +16,6 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityChallengeBinaryEndpointTests

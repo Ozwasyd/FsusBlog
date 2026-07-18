@@ -1,26 +1,25 @@
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;
 
-using FsusBlog.Core.Algorithms;
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicHotReadSanityTests
 {
-    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-07-15T12:00:00Z");
+    private static readonly DateTimeOffset s_now = DateTimeOffset.Parse("2026-07-15T12:00:00Z");
 
     [Fact]
     public void Publish_RejectsCandidateWhoseSealedPayloadWasTamperedAfterBuild()
     {
         byte[] frame = Frame([1, 2, 3, 4]);
-        PublicHotReadSnapshot candidate = Snapshot(frame, Now);
+        PublicHotReadSnapshot candidate = Snapshot(frame, s_now);
         frame[2] ^= 0xff;
-        var store = Store(new MutableTimeProvider(Now));
+        var store = Store(new MutableTimeProvider(s_now));
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => store.Publish(candidate));
 
@@ -33,11 +32,11 @@ public sealed class PublicHotReadSanityTests
     public async Task Request_TamperedPublishedPayloadFallsBackToCanonicalEndpointPipeline()
     {
         byte[] frame = Frame([1, 2, 3, 4]);
-        var clock = new MutableTimeProvider(Now);
+        var clock = new MutableTimeProvider(s_now);
         PublicHotReadOptions options = SanityOptions();
         var store = new PublicHotReadStore(options: Options.Create(options), timeProvider: clock);
         var counters = new PublicHotReadCounters(Options.Create(options));
-        store.Publish(Snapshot(frame, Now));
+        store.Publish(Snapshot(frame, s_now));
         frame[0] ^= 0xff;
         DefaultHttpContext context = Context("/api/binary/article/42.aeds");
         bool nextCalled = false;
@@ -61,12 +60,12 @@ public sealed class PublicHotReadSanityTests
     [Fact]
     public async Task Request_StaleSnapshotFallsBackWithoutServingOldBytes()
     {
-        var clock = new MutableTimeProvider(Now);
+        var clock = new MutableTimeProvider(s_now);
         PublicHotReadOptions options = SanityOptions();
         options.MaxSnapshotAge = TimeSpan.FromMinutes(1);
         var store = new PublicHotReadStore(options: Options.Create(options), timeProvider: clock);
         var counters = new PublicHotReadCounters(Options.Create(options));
-        store.Publish(Snapshot(Frame([1, 2, 3, 4]), Now));
+        store.Publish(Snapshot(Frame([1, 2, 3, 4]), s_now));
         clock.Advance(TimeSpan.FromMinutes(2));
         DefaultHttpContext context = Context("/api/binary/article/42.aeds");
         bool nextCalled = false;
@@ -90,11 +89,11 @@ public sealed class PublicHotReadSanityTests
     [Fact]
     public void RefreshSchedule_BecomesDueAtHalfOfConfiguredMaximumAge()
     {
-        var clock = new MutableTimeProvider(Now);
+        var clock = new MutableTimeProvider(s_now);
         PublicHotReadOptions options = SanityOptions();
         options.MaxSnapshotAge = TimeSpan.FromMinutes(4);
         var store = new PublicHotReadStore(options: Options.Create(options), timeProvider: clock);
-        store.Publish(Snapshot(Frame([1, 2, 3, 4]), Now));
+        store.Publish(Snapshot(Frame([1, 2, 3, 4]), s_now));
 
         Assert.Equal(TimeSpan.FromMinutes(2), store.SnapshotRefreshInterval);
         Assert.False(store.ShouldRefreshSnapshot());
@@ -111,10 +110,10 @@ public sealed class PublicHotReadSanityTests
         options.MaxRawBytes = 1;
         var store = new PublicHotReadStore(
             options: Options.Create(options),
-            timeProvider: new MutableTimeProvider(Now));
+            timeProvider: new MutableTimeProvider(s_now));
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(
-            () => store.Publish(Snapshot([1, 2, 3, 4], Now)));
+            () => store.Publish(Snapshot([1, 2, 3, 4], s_now)));
 
         Assert.Contains("raw:", error.Message, StringComparison.Ordinal);
         Assert.Same(PublicHotReadSnapshot.Empty, store.Current);
@@ -123,10 +122,10 @@ public sealed class PublicHotReadSanityTests
     [Fact]
     public void Publish_InvalidAedsSchemaFailsClosedEvenWhenPayloadHmacIsValid()
     {
-        var store = Store(new MutableTimeProvider(Now));
+        var store = Store(new MutableTimeProvider(s_now));
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(
-            () => store.Publish(Snapshot([1, 2, 3, 4], Now)));
+            () => store.Publish(Snapshot([1, 2, 3, 4], s_now)));
 
         Assert.Contains("integrity or schema invalid", error.Message, StringComparison.Ordinal);
         Assert.False(store.IsReady);
@@ -135,10 +134,10 @@ public sealed class PublicHotReadSanityTests
     [Fact]
     public void Publish_FutureVisibilityCutoffFailsClosed()
     {
-        var store = Store(new MutableTimeProvider(Now));
+        var store = Store(new MutableTimeProvider(s_now));
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(
-            () => store.Publish(Snapshot(Frame([1]), Now.AddTicks(1))));
+            () => store.Publish(Snapshot(Frame([1]), s_now.AddTicks(1))));
 
         Assert.Contains("cutoff is in the future", error.Message, StringComparison.Ordinal);
         Assert.False(store.IsReady);
@@ -150,9 +149,9 @@ public sealed class PublicHotReadSanityTests
         PublicHotReadOptions options = SanityOptions();
         var store = new PublicHotReadStore(
             options: Options.Create(options),
-            timeProvider: new MutableTimeProvider(Now));
+            timeProvider: new MutableTimeProvider(s_now));
 
-        store.Publish(Snapshot(Frame([1]), Now - options.MaxSnapshotAge));
+        store.Publish(Snapshot(Frame([1]), s_now - options.MaxSnapshotAge));
 
         Assert.True(store.IsReady);
     }
@@ -160,7 +159,7 @@ public sealed class PublicHotReadSanityTests
     [Fact]
     public void Publish_RebindingSealedArtifactToAnotherRouteFailsMetadataHmac()
     {
-        PublicHotReadSnapshot original = Snapshot(Frame([1, 2, 3]), Now);
+        PublicHotReadSnapshot original = Snapshot(Frame([1, 2, 3]), s_now);
         Assert.True(original.TryGetArticle(42, out PublicBinaryArtifact sealedArtifact));
         var rebound = new PublicHotReadSnapshot(
             1,
@@ -169,8 +168,8 @@ public sealed class PublicHotReadSanityTests
             default,
             default,
             FrozenDictionary<string, PublicHtmlArtifact>.Empty,
-            PublicHotReadPublicationEvidence.CreateVerified(1, Now));
-        var store = Store(new MutableTimeProvider(Now));
+            PublicHotReadPublicationEvidence.CreateVerified(1, s_now));
+        var store = Store(new MutableTimeProvider(s_now));
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => store.Publish(rebound));
 
@@ -195,8 +194,8 @@ public sealed class PublicHotReadSanityTests
             options);
         var store = new PublicHotReadStore(
             options: Options.Create(options),
-            timeProvider: new MutableTimeProvider(Now));
-        store.Publish(Snapshot(artifact, Now));
+            timeProvider: new MutableTimeProvider(s_now));
+        store.Publish(Snapshot(artifact, s_now));
         Assert.True(store.Current.TryGetArticle(42, out PublicBinaryArtifact published));
         ReadOnlyMemory<byte> selected = encoding == "br" ? published.BrotliFrame : published.GzipFrame;
         Assert.True(MemoryMarshal.TryGetArray(selected, out ArraySegment<byte> segment));
@@ -230,8 +229,8 @@ public sealed class PublicHotReadSanityTests
         PublicHotReadOptions options = SanityOptions();
         var store = new PublicHotReadStore(
             options: Options.Create(options),
-            timeProvider: new MutableTimeProvider(Now));
-        store.Publish(EmptySnapshot(Now));
+            timeProvider: new MutableTimeProvider(s_now));
+        store.Publish(EmptySnapshot(s_now));
         PublicHtmlArtifact artifact = PublicHotReadHtmlArtifactFactory.FromHtml(
             "<!doctype html><html><head></head><body><script>ok()</script></body></html>",
             "public,max-age=60");
@@ -268,7 +267,7 @@ public sealed class PublicHotReadSanityTests
     public async Task TransitioningArticleTombstoneWinsBeforeFastPathCanReadSnapshot()
     {
         var registry = new PublicArtifactRevocationRegistry();
-        registry.Apply(new PublicArtifactTombstone(42, 7, Now.ToUnixTimeMilliseconds()));
+        registry.Apply(new PublicArtifactTombstone(42, 7, s_now.ToUnixTimeMilliseconds()));
         DefaultHttpContext context = Context("/api/binary/article/42.aeds");
         bool nextCalled = false;
 
@@ -295,10 +294,10 @@ public sealed class PublicHotReadSanityTests
         PublicHotReadOptions options = SanityOptions();
         var store = new PublicHotReadStore(
             options: Options.Create(options),
-            timeProvider: new MutableTimeProvider(Now));
-        store.Publish(Snapshot(oldFrame, Now, version: 1));
+            timeProvider: new MutableTimeProvider(s_now));
+        store.Publish(Snapshot(oldFrame, s_now, version: 1));
         var registry = new PublicArtifactRevocationRegistry();
-        var tombstone = new PublicArtifactTombstone(42, 7, Now.ToUnixTimeMilliseconds(), PurgeConfirmed: true);
+        var tombstone = new PublicArtifactTombstone(42, 7, s_now.ToUnixTimeMilliseconds(), PurgeConfirmed: true);
         registry.Apply(tombstone);
         RequestDelegate pipeline = context => PublicArtifactRevocationMiddleware.TryHandleAsync(
             context,
@@ -316,7 +315,7 @@ public sealed class PublicHotReadSanityTests
         Assert.Equal(StatusCodes.Status410Gone, transitioning.Response.StatusCode);
         Assert.Empty(((MemoryStream)transitioning.Response.Body).ToArray());
 
-        store.Publish(Snapshot(newFrame, Now, version: 2));
+        store.Publish(Snapshot(newFrame, s_now, version: 2));
         registry.Clear(tombstone);
         DefaultHttpContext converged = Context("/api/binary/article/42.aeds");
 

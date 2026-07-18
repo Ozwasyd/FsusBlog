@@ -2,18 +2,17 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-using FsusBlog.Core.Common;
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Infrastructure.Storage;
-using FsusBlog.Server.Models.Dtos;
-using FsusBlog.Server.Services;
-
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Services;
 namespace FsusBlog.Server.Tests;
 
 public sealed class ReleaseStorageLifecycleTests
@@ -244,9 +243,9 @@ public sealed class ReleaseStorageLifecycleTests
         try
         {
             string derivedRoot = Path.Combine(root, "derived");
-            const string releaseId = "release-20260712-concurrent";
-            var firstPublisher = new ReleaseDerivedArtifactPublisher(derivedRoot, releaseId);
-            var secondPublisher = new ReleaseDerivedArtifactPublisher(derivedRoot, releaseId);
+            const string ReleaseId = "release-20260712-concurrent";
+            var firstPublisher = new ReleaseDerivedArtifactPublisher(derivedRoot, ReleaseId);
+            var secondPublisher = new ReleaseDerivedArtifactPublisher(derivedRoot, ReleaseId);
             var first = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
             {
                 ["index.bin"] = Encoding.UTF8.GetBytes("first-index"),
@@ -308,8 +307,8 @@ public sealed class ReleaseStorageLifecycleTests
         try
         {
             string derivedRoot = Path.Combine(root, "derived");
-            const string releaseId = "release-20260712-lock-timeout";
-            var publisher = new ReleaseDerivedArtifactPublisher(derivedRoot, releaseId);
+            const string ReleaseId = "release-20260712-lock-timeout";
+            var publisher = new ReleaseDerivedArtifactPublisher(derivedRoot, ReleaseId);
             var baseline = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal)
             {
                 ["index.bin"] = Encoding.UTF8.GetBytes("baseline-index"),
@@ -334,7 +333,7 @@ public sealed class ReleaseStorageLifecycleTests
             {
                 var blockedPublisher = new ReleaseDerivedArtifactPublisher(
                     derivedRoot,
-                    releaseId,
+                    ReleaseId,
                     TimeSpan.FromMilliseconds(80),
                     TimeSpan.FromMilliseconds(10));
                 await Assert.ThrowsAsync<TimeoutException>(() => blockedPublisher.PublishGenerationAndProjectAsync(
@@ -414,17 +413,17 @@ public sealed class ReleaseStorageLifecycleTests
     public void SearchIndex_UsesReleaseScopedRootAndBrowserUrlWhenDerivedRootIsConfigured()
     {
         string root = Path.Combine(Path.GetTempPath(), "fsusblog-derived-search");
-        const string releaseId = "release-20260711-abcdef";
+        const string ReleaseId = "release-20260711-abcdef";
 
-        string searchRoot = SearchIndexService.ResolveReleaseScopedSearchRoot(root, releaseId);
-        string publicBase = SearchIndexService.ResolveReleaseScopedSearchPublicBase(releaseId);
+        string searchRoot = SearchIndexService.ResolveReleaseScopedSearchRoot(root, ReleaseId);
+        string publicBase = SearchIndexService.ResolveReleaseScopedSearchPublicBase(ReleaseId);
 
-        Assert.Equal(Path.Combine(Path.GetFullPath(root), releaseId, "search"), searchRoot);
-        Assert.Equal($"/release-derived/{releaseId}/search", publicBase);
+        Assert.Equal(Path.Combine(Path.GetFullPath(root), ReleaseId, "search"), searchRoot);
+        Assert.Equal($"/release-derived/{ReleaseId}/search", publicBase);
         Assert.Equal(
-            releaseId,
+            ReleaseId,
             ReleaseDerivedStaticFileExtensions.ResolveReleaseId(
-                new PathString($"/release-derived/{releaseId}/search/index.manifest.aeds")));
+                new PathString($"/release-derived/{ReleaseId}/search/index.manifest.aeds")));
         Assert.Throws<InvalidOperationException>(() => SearchIndexService.ResolveReleaseScopedSearchRoot(root, "../active"));
     }
 
@@ -434,7 +433,7 @@ public sealed class ReleaseStorageLifecycleTests
         string root = CreateTempDirectory();
         try
         {
-            const string releaseId = "release-20260711-public-aot";
+            const string ReleaseId = "release-20260711-public-aot";
             var environment = new TestWebHostEnvironment(root)
             {
                 EnvironmentName = "Production"
@@ -443,10 +442,10 @@ public sealed class ReleaseStorageLifecycleTests
             string cacheRoot = PublicAotFileShellCache.ResolveCacheRootForTests(
                 environment,
                 Path.Combine(root, "derived"),
-                releaseId);
+                ReleaseId);
 
             Assert.Equal(
-                Path.Combine(root, "derived", releaseId, "public-aot"),
+                Path.Combine(root, "derived", ReleaseId, "public-aot"),
                 cacheRoot);
             Assert.Throws<InvalidOperationException>(() => PublicAotFileShellCache.ResolveCacheRootForTests(
                 environment,
@@ -573,10 +572,10 @@ public sealed class ReleaseStorageLifecycleTests
         string root = CreateTempDirectory();
         try
         {
-            const string current = "green-release-instance";
+            const string Current = "green-release-instance";
             string staleDirectory = Path.Combine(root, "retired-release-instance");
             string freshDirectory = Path.Combine(root, "blue-live-instance");
-            Directory.CreateDirectory(Path.Combine(root, current));
+            Directory.CreateDirectory(Path.Combine(root, Current));
             Directory.CreateDirectory(staleDirectory);
             Directory.CreateDirectory(freshDirectory);
             string staleFile = Path.Combine(staleDirectory, "stale.tmp");
@@ -587,13 +586,13 @@ public sealed class ReleaseStorageLifecycleTests
 
             await using UploadCommitTempCleanupLease? lease = await UploadCommitTempCleanupLease.TryAcquireAsync(
                 root,
-                current,
+                Current,
                 TimeSpan.FromMinutes(5));
             Assert.NotNull(lease);
             var guarded = new List<string>();
 
             IReadOnlyList<UploadCommitTempCleanupCandidate> plan = await lease!.ExecuteAsync(
-                current,
+                Current,
                 DateTimeOffset.UtcNow.AddHours(-1),
                 dryRun: false,
                 beforeDelete: (candidate, _) =>

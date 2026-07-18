@@ -4,6 +4,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -28,19 +38,6 @@ using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
@@ -50,7 +47,7 @@ public sealed class AnonymousCommentSubmitTests(
     AnonymousCommentSubmitDatabaseFixture classDatabase)
     : IClassFixture<AnonymousCommentSubmitDatabaseFixture>, IAsyncLifetime
 {
-    private static readonly byte[] Ticket = Enumerable.Range(0, 32).Select(static value => (byte)(value + 1)).ToArray();
+    private static readonly byte[] s_ticket = Enumerable.Range(0, 32).Select(static value => (byte)(value + 1)).ToArray();
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
 
@@ -61,7 +58,7 @@ public sealed class AnonymousCommentSubmitTests(
         CreateTables(db);
         SeedArticle(db, articleId: 42);
         var tickets = new RecordingTicketService();
-        tickets.Add(Ticket, TicketPayload(articleId: 42));
+        tickets.Add(s_ticket, TicketPayload(articleId: 42));
         var nullifiers = new RecordingNullifierService();
         var dispatcher = new RecordingCacheInvalidationDispatcher();
         CommentService service = CreateService(db, tickets, nullifiers, dispatcher);
@@ -85,7 +82,7 @@ public sealed class AnonymousCommentSubmitTests(
                 Encoding.UTF8.GetBytes(NullifierHash))),
             comment.ModerationSubjectHash);
         Assert.Equal(CommentModerationStatus.Approved, comment.ModerationStatus);
-        Assert.DoesNotContain(Convert.ToHexString(Ticket), comment.Content, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(Convert.ToHexString(s_ticket), comment.Content, StringComparison.OrdinalIgnoreCase);
 
         CommentRegionCompliance compliance = Assert.Single(db.Queryable<CommentRegionCompliance>().ToList());
         Assert.Equal(comment.Id, compliance.CommentId);
@@ -168,7 +165,7 @@ public sealed class AnonymousCommentSubmitTests(
         CreateTables(db);
         SeedArticle(db, articleId: 42);
         var tickets = new RecordingTicketService();
-        tickets.Add(Ticket, TicketPayload(articleId: 42));
+        tickets.Add(s_ticket, TicketPayload(articleId: 42));
         CommentService service = CreateService(db, tickets);
 
         Assert.True(await service.CreateStrongAnonymousCommentAsync(CreateRequest(), RegionDecision(), CancellationToken.None));
@@ -185,7 +182,7 @@ public sealed class AnonymousCommentSubmitTests(
         CreateTables(db);
         SeedArticle(db, articleId: 42);
         var tickets = new RecordingTicketService();
-        tickets.Add(Ticket, TicketPayload(articleId: 42, expiresAtUnixMs: DateTimeOffset.UtcNow.AddSeconds(-1).ToUnixTimeMilliseconds()));
+        tickets.Add(s_ticket, TicketPayload(articleId: 42, expiresAtUnixMs: DateTimeOffset.UtcNow.AddSeconds(-1).ToUnixTimeMilliseconds()));
         var nullifiers = new RecordingNullifierService();
         CommentService service = CreateService(db, tickets, nullifiers);
 
@@ -204,7 +201,7 @@ public sealed class AnonymousCommentSubmitTests(
         SeedArticle(db, articleId: 42);
         SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
         var tickets = new RecordingTicketService();
-        tickets.Add(Ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
+        tickets.Add(s_ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
         CommentService service = CreateService(db, tickets);
         AnonymousCommentCreateRequestCoreModel request = CreateRequest(parentId: "101", rootId: "100", replyToCommentId: "100");
 
@@ -222,7 +219,7 @@ public sealed class AnonymousCommentSubmitTests(
         SeedArticle(db, articleId: 42);
         SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
         var tickets = new RecordingTicketService();
-        tickets.Add(Ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
+        tickets.Add(s_ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
         CommentService service = CreateService(db, tickets);
         AnonymousCommentCreateRequestCoreModel request = CreateRequest(parentId: "100", rootId: "100", replyToCommentId: "100");
 
@@ -264,7 +261,7 @@ public sealed class AnonymousCommentSubmitTests(
             WHERE id = @ArticleId;
             """,
             new SugarParameter("@ArticleId", 42)));
-        tickets.Add(Ticket, TicketPayload(articleId: 42));
+        tickets.Add(s_ticket, TicketPayload(articleId: 42));
         var nullifiers = new RecordingNullifierService();
         CommentService service = CreateService(db, tickets, nullifiers);
 
@@ -292,7 +289,7 @@ public sealed class AnonymousCommentSubmitTests(
             """,
             new SugarParameter("@HiddenStatus", (int)CommentModerationStatus.Hidden),
             new SugarParameter("@ParentId", 100L)));
-        tickets.Add(Ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
+        tickets.Add(s_ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
         var nullifiers = new RecordingNullifierService();
         CommentService service = CreateService(db, tickets, nullifiers);
         AnonymousCommentCreateRequestCoreModel request = CreateRequest(parentId: "100", rootId: "100", replyToCommentId: "100");
@@ -701,7 +698,7 @@ public sealed class AnonymousCommentSubmitTests(
             replyToCommentId,
             "article:42",
             "en",
-            [.. Ticket]);
+            [.. s_ticket]);
 
     private static AnonymousCommentTicketPayload TicketPayload(
         int articleId,

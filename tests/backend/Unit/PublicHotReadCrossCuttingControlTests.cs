@@ -4,6 +4,15 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Threading.RateLimiting;
 
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Server.Entities;
@@ -13,23 +22,11 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Modules.Endpoints.Binary;
-
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicHotReadCrossCuttingControlTests
 {
-    private static readonly DateTimeOffset Cutoff = new(2026, 7, 15, 0, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_cutoff = new(2026, 7, 15, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public void StartupCatalog_CoversEveryControlAndExecutesRouteBoundaryProbes()
@@ -238,7 +235,7 @@ public sealed class PublicHotReadCrossCuttingControlTests
     [Fact]
     public async Task RequestPipeline_ArtifactMissRunsRequestAuditContextExactlyOnce()
     {
-        var store = new PublicHotReadStore(timeProvider: new FixedTimeProvider(Cutoff));
+        var store = new PublicHotReadStore(timeProvider: new FixedTimeProvider(s_cutoff));
         store.Publish(VerifiedSnapshot(category: default));
         byte[] canonicalFrame = new AedsEncoder().Encode(
             AedsFrameType.CategoryList,
@@ -291,7 +288,7 @@ public sealed class PublicHotReadCrossCuttingControlTests
         int missLeaseCount = 0;
         PublicHotReadEarlyPipelineState? missState = null;
         var missCanonicalRequests = new ConcurrentQueue<string>();
-        var missStore = new PublicHotReadStore(timeProvider: new FixedTimeProvider(Cutoff));
+        var missStore = new PublicHotReadStore(timeProvider: new FixedTimeProvider(s_cutoff));
         missStore.Publish(VerifiedSnapshot(category: default));
         await using (WebApplication missApp = await CreateRequestPipelineAsync(
             missStore,
@@ -315,7 +312,7 @@ public sealed class PublicHotReadCrossCuttingControlTests
     [Fact]
     public void ProjectorMaterializer_OnlyPublishedDueSourcesEnterFrames()
     {
-        DateTime cutoff = Cutoff.UtcDateTime;
+        DateTime cutoff = s_cutoff.UtcDateTime;
         ArticleDetailReadModel[] candidates =
         [
             Candidate(1, ArticleStatus.Draft),
@@ -341,7 +338,7 @@ public sealed class PublicHotReadCrossCuttingControlTests
             PublicHotArtifactProjector.MaterializeVisibilityCheckedArticleFrames(
                 candidates,
                 cutoff,
-                Cutoff.ToUnixTimeMilliseconds(),
+                s_cutoff.ToUnixTimeMilliseconds(),
                 new PublicHotReadOptions(),
                 new AedsEncoder());
 
@@ -351,14 +348,14 @@ public sealed class PublicHotReadCrossCuttingControlTests
     [Fact]
     public void PublicationEvidence_BindsPublicSourceVisibilityAndVersionFailClosed()
     {
-        long version = Cutoff.ToUnixTimeMilliseconds();
+        long version = s_cutoff.ToUnixTimeMilliseconds();
         PublicHotReadPublicationEvidence evidence =
-            PublicHotReadPublicationEvidence.CreateVerified(version, Cutoff);
+            PublicHotReadPublicationEvidence.CreateVerified(version, s_cutoff);
         Assert.Equal(PublicHotReadPublicationEvidence.PublicSourceVisibility, evidence.SourceVisibility);
         Assert.Equal(version, evidence.SourceVersion);
         Assert.True(evidence.IsVerifiedFor(version));
 
-        var store = new PublicHotReadStore(timeProvider: new FixedTimeProvider(Cutoff));
+        var store = new PublicHotReadStore(timeProvider: new FixedTimeProvider(s_cutoff));
         PublicHotReadSnapshot invalid = new(
             version,
             FrozenDictionary<int, PublicBinaryArtifact>.Empty,
@@ -433,7 +430,7 @@ public sealed class PublicHotReadCrossCuttingControlTests
 
     private static PublicHotReadStore CreateCategoryStore(byte[] payload)
     {
-        long version = Cutoff.ToUnixTimeMilliseconds();
+        long version = s_cutoff.ToUnixTimeMilliseconds();
         var options = new PublicHotReadOptions();
         PublicBinaryArtifact category = PublicHotReadBinaryArtifactFactory.FromPayload(
             new AedsEncoder(),
@@ -442,14 +439,14 @@ public sealed class PublicHotReadCrossCuttingControlTests
             options.CacheControl,
             version,
             options);
-        var store = new PublicHotReadStore(timeProvider: new FixedTimeProvider(Cutoff));
+        var store = new PublicHotReadStore(timeProvider: new FixedTimeProvider(s_cutoff));
         store.Publish(VerifiedSnapshot(category));
         return store;
     }
 
     private static PublicHotReadSnapshot VerifiedSnapshot(PublicBinaryArtifact category)
     {
-        long version = Cutoff.ToUnixTimeMilliseconds();
+        long version = s_cutoff.ToUnixTimeMilliseconds();
         return new(
             version,
             FrozenDictionary<int, PublicBinaryArtifact>.Empty,
@@ -457,7 +454,7 @@ public sealed class PublicHotReadCrossCuttingControlTests
             category,
             default,
             FrozenDictionary<string, PublicHtmlArtifact>.Empty,
-            PublicHotReadPublicationEvidence.CreateVerified(version, Cutoff));
+            PublicHotReadPublicationEvidence.CreateVerified(version, s_cutoff));
     }
 
     private static ArticleDetailReadModel Candidate(
@@ -471,7 +468,7 @@ public sealed class PublicHotReadCrossCuttingControlTests
             Id = id,
             Status = status,
             IsDeleted = isDeleted,
-            PublishedAt = publishedAt ?? Cutoff.UtcDateTime.AddMinutes(-1),
+            PublishedAt = publishedAt ?? s_cutoff.UtcDateTime.AddMinutes(-1),
             ScheduledPublishAt = scheduledPublishAt
         };
 

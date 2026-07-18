@@ -3,19 +3,18 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Services.Security;
-
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Services.Security;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PerceptionSealedTokenServiceTests
 {
-    private static readonly DateTimeOffset BaselineNow = new(2026, 6, 19, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_baselineNow = new(2026, 6, 19, 12, 0, 0, TimeSpan.Zero);
     private const string HashA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string HashB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
@@ -43,7 +42,7 @@ public sealed class PerceptionSealedTokenServiceTests
     [Fact]
     public void SealOpen_RoundTripsPayloadWithConfiguredKeyVersion()
     {
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         IPerceptionSealedTokenService service = CreateService(clock, ("v2", KeyMaterial(2)));
         PerceptionSealedTokenPayload payload = CreatePayload(keyVersion: "v2");
 
@@ -64,7 +63,7 @@ public sealed class PerceptionSealedTokenServiceTests
     [Fact]
     public void Seal_DoesNotExposeAnswerCoordinateOrExpectedStepMaterial()
     {
-        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(BaselineNow), ("v2", KeyMaterial(2)));
+        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(s_baselineNow), ("v2", KeyMaterial(2)));
         PerceptionSealedTokenPayload payload = CreatePayload(keyVersion: "v2");
 
         string token = service.Seal(payload);
@@ -82,7 +81,7 @@ public sealed class PerceptionSealedTokenServiceTests
     [Fact]
     public void Open_RejectsTamperedCiphertext()
     {
-        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(BaselineNow), ("v2", KeyMaterial(2)));
+        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(s_baselineNow), ("v2", KeyMaterial(2)));
         string token = service.Seal(CreatePayload(keyVersion: "v2"));
         string tampered = MutateEnvelope(token, "ciphertext", MutateBase64Url(ReadEnvelopeString(token, "ciphertext")));
 
@@ -96,7 +95,7 @@ public sealed class PerceptionSealedTokenServiceTests
     [Fact]
     public void Open_RejectsTamperedAadField()
     {
-        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(BaselineNow), ("v2", KeyMaterial(2)));
+        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(s_baselineNow), ("v2", KeyMaterial(2)));
         string token = service.Seal(CreatePayload(keyVersion: "v2"));
         string tampered = MutateEnvelope(token, "recipeHashHex", HashA);
 
@@ -110,7 +109,7 @@ public sealed class PerceptionSealedTokenServiceTests
     [Fact]
     public void Open_RejectsCrossActionRouteEnvelopeSwap()
     {
-        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(BaselineNow), ("v2", KeyMaterial(2)));
+        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(s_baselineNow), ("v2", KeyMaterial(2)));
         string token = service.Seal(CreatePayload(keyVersion: "v2"));
         string tampered = MutateEnvelope(
             MutateEnvelope(token, "action", "comment.delete"),
@@ -127,7 +126,7 @@ public sealed class PerceptionSealedTokenServiceTests
     [Fact]
     public void Open_RejectsPayloadOnlyFieldMutation()
     {
-        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(BaselineNow), ("v2", KeyMaterial(2)));
+        IPerceptionSealedTokenService service = CreateService(new MutableTimeProvider(s_baselineNow), ("v2", KeyMaterial(2)));
         string token = service.Seal(CreatePayload(keyVersion: "v2"));
         string tampered = ReencryptPayloadOnlyMutation(token, KeyMaterial(2), payload =>
         {
@@ -144,10 +143,10 @@ public sealed class PerceptionSealedTokenServiceTests
     [Fact]
     public void Open_RejectsExpiredToken()
     {
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         IPerceptionSealedTokenService service = CreateService(clock, ("v2", KeyMaterial(2)));
-        string token = service.Seal(CreatePayload(keyVersion: "v2", expiresAtUnixMs: BaselineNow.AddMinutes(1).ToUnixTimeMilliseconds()));
-        clock.UtcNow = BaselineNow.AddMinutes(2);
+        string token = service.Seal(CreatePayload(keyVersion: "v2", expiresAtUnixMs: s_baselineNow.AddMinutes(1).ToUnixTimeMilliseconds()));
+        clock.UtcNow = s_baselineNow.AddMinutes(2);
 
         PerceptionSealedTokenOpenResult result = service.Open(token);
 
@@ -159,8 +158,8 @@ public sealed class PerceptionSealedTokenServiceTests
     [Fact]
     public void Open_RejectsMissingKeyVersion()
     {
-        IPerceptionSealedTokenService issuer = CreateService(new MutableTimeProvider(BaselineNow), ("v2", KeyMaterial(2)));
-        IPerceptionSealedTokenService verifier = CreateService(new MutableTimeProvider(BaselineNow), ("v1", KeyMaterial(1)));
+        IPerceptionSealedTokenService issuer = CreateService(new MutableTimeProvider(s_baselineNow), ("v2", KeyMaterial(2)));
+        IPerceptionSealedTokenService verifier = CreateService(new MutableTimeProvider(s_baselineNow), ("v1", KeyMaterial(1)));
         string token = issuer.Seal(CreatePayload(keyVersion: "v2"));
 
         PerceptionSealedTokenOpenResult result = verifier.Open(token);
@@ -173,8 +172,8 @@ public sealed class PerceptionSealedTokenServiceTests
     [Fact]
     public void Open_RejectsWrongKeyMaterial()
     {
-        IPerceptionSealedTokenService issuer = CreateService(new MutableTimeProvider(BaselineNow), ("v2", KeyMaterial(2)));
-        IPerceptionSealedTokenService verifier = CreateService(new MutableTimeProvider(BaselineNow), ("v2", KeyMaterial(9)));
+        IPerceptionSealedTokenService issuer = CreateService(new MutableTimeProvider(s_baselineNow), ("v2", KeyMaterial(2)));
+        IPerceptionSealedTokenService verifier = CreateService(new MutableTimeProvider(s_baselineNow), ("v2", KeyMaterial(9)));
         string token = issuer.Seal(CreatePayload(keyVersion: "v2"));
 
         PerceptionSealedTokenOpenResult result = verifier.Open(token);
@@ -188,7 +187,7 @@ public sealed class PerceptionSealedTokenServiceTests
     public void Open_UsesEnvelopeKeyVersionForRotatedKeys()
     {
         IPerceptionSealedTokenService service = CreateService(
-            new MutableTimeProvider(BaselineNow),
+            new MutableTimeProvider(s_baselineNow),
             ("v1", KeyMaterial(1)),
             ("v2", KeyMaterial(2)));
         string tokenV1 = service.Seal(CreatePayload(keyVersion: "v1"));
@@ -235,8 +234,8 @@ public sealed class PerceptionSealedTokenServiceTests
             ExpectedPointHashHex: HashG,
             ToleranceRadiusPx: 8,
             ExpectedStepHashHex: HashH,
-            IssuedAtUnixMs: BaselineNow.ToUnixTimeMilliseconds(),
-            ExpiresAtUnixMs: expiresAtUnixMs ?? BaselineNow.AddMinutes(5).ToUnixTimeMilliseconds(),
+            IssuedAtUnixMs: s_baselineNow.ToUnixTimeMilliseconds(),
+            ExpiresAtUnixMs: expiresAtUnixMs ?? s_baselineNow.AddMinutes(5).ToUnixTimeMilliseconds(),
             MaxAttempts: 3,
             MinSolveDurationMs: 750,
             MaxSolveDurationMs: 60_000,

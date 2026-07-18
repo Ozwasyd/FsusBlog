@@ -1,6 +1,18 @@
 using System.Reflection;
 
 using Fido2NetLib;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using NSubstitute;
+using SqlSugar;
 
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -16,22 +28,6 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AuthorizationAccessControlHardeningTests
@@ -168,10 +164,10 @@ public sealed class AuthorizationAccessControlHardeningTests
     [Fact]
     public async Task NotificationStreamDrill_RequiresSignedTimestampedNonce()
     {
-        const string secret = "notification-drill-secret";
-        const string body = "{\"count\":1}";
+        const string Secret = "notification-drill-secret";
+        const string Body = "{\"count\":1}";
         string timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
-        const string nonce = "0123456789abcdef";
+        const string Nonce = "0123456789abcdef";
         Type endpoints = typeof(NotificationStreamDrillEndpoints);
         string timestampHeader = GetPrivateConstant<string>(endpoints, "DrillTimestampHeader");
         string nonceHeader = GetPrivateConstant<string>(endpoints, "DrillNonceHeader");
@@ -180,11 +176,11 @@ public sealed class AuthorizationAccessControlHardeningTests
         MethodInfo computeSignature = endpoints.GetMethod(
             "ComputeDrillSignature",
             BindingFlags.Static | BindingFlags.NonPublic)!;
-        string signature = (string)computeSignature.Invoke(null, [secret, timestamp, nonce, body])!;
+        string signature = (string)computeSignature.Invoke(null, [Secret, timestamp, Nonce, Body])!;
         var context = new DefaultHttpContext();
-        context.Request.Headers[secretHeader] = secret;
+        context.Request.Headers[secretHeader] = Secret;
         context.Request.Headers[timestampHeader] = timestamp;
-        context.Request.Headers[nonceHeader] = nonce;
+        context.Request.Headers[nonceHeader] = Nonce;
         context.Request.Headers[signatureHeader] = signature;
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
         cache.TryAcquireLeaseAsync(
@@ -200,12 +196,12 @@ public sealed class AuthorizationAccessControlHardeningTests
             BindingFlags.Static | BindingFlags.NonPublic)!;
         bool accepted = await (Task<bool>)validate.Invoke(
             null,
-            [context, cache, secret, body, CancellationToken.None])!;
+            [context, cache, Secret, Body, CancellationToken.None])!;
 
         Assert.True(accepted);
         await cache.Received(1).TryAcquireLeaseAsync(
             CachePolicyId.NotificationStreamDrillNonce,
-            $"{timestamp}:{nonce}",
+            $"{timestamp}:{Nonce}",
             "1",
             TimeSpan.FromSeconds(60),
             CancellationToken.None);
@@ -213,7 +209,7 @@ public sealed class AuthorizationAccessControlHardeningTests
         context.Request.Headers[signatureHeader] = "invalid";
         Assert.False(await (Task<bool>)validate.Invoke(
             null,
-            [context, cache, secret, body, CancellationToken.None])!);
+            [context, cache, Secret, Body, CancellationToken.None])!);
 
         string publish = RuntimeMetadataInspection.DescribeMethods(endpoints, "PublishAsync");
         Assert.Contains("ReadRequestBodyAsync", publish, StringComparison.Ordinal);
@@ -240,8 +236,8 @@ public sealed class AuthorizationAccessControlHardeningTests
     [Fact]
     public void DistributionFeeds_VaryByEncodingCountryAndRegion()
     {
-        const string expected = "Accept-Encoding, CF-IPCountry, X-Fsus-Region";
-        Assert.Equal(expected, GetPrivateConstant<string>(typeof(DistributionEndpoints), "DistributionVaryHeader"));
+        const string Expected = "Accept-Encoding, CF-IPCountry, X-Fsus-Region";
+        Assert.Equal(Expected, GetPrivateConstant<string>(typeof(DistributionEndpoints), "DistributionVaryHeader"));
         var context = new DefaultHttpContext();
         MethodInfo buildResult = typeof(DistributionEndpoints).GetMethod(
             "BuildCachedTextResult",
@@ -250,7 +246,7 @@ public sealed class AuthorizationAccessControlHardeningTests
         IResult result = (IResult)buildResult.Invoke(null, [context, "body", "text/plain"])!;
 
         Assert.NotNull(result);
-        Assert.Equal(expected, context.Response.Headers.Vary.ToString());
+        Assert.Equal(Expected, context.Response.Headers.Vary.ToString());
         Assert.Equal("public, max-age=60, stale-while-revalidate=300", context.Response.Headers.CacheControl.ToString());
     }
 

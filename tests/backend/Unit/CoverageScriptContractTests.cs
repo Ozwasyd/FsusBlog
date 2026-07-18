@@ -7,7 +7,7 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CoverageScriptContractTests
 {
-    private static readonly string[] CoverageScripts =
+    private static readonly string[] s_coverageScripts =
     [
         "tools/coverage/collect-backend-coverage.sh",
         "tools/coverage/collect-frontend-coverage.sh",
@@ -66,5 +66,5 @@ public sealed class CoverageScriptContractTests
     }
 
     public static IEnumerable<object[]> CoverageScriptPaths()
-        => CoverageScripts.Select(static script => new object[] { script });
+        => s_coverageScripts.Select(static script => new object[] { script });
 }

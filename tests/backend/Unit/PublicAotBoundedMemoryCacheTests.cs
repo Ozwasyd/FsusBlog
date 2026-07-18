@@ -4,7 +4,7 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicAotBoundedMemoryCacheTests
 {
-    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-07-15T12:00:00Z");
+    private static readonly DateTimeOffset s_now = DateTimeOffset.Parse("2026-07-15T12:00:00Z");
 
     [Fact]
     public void Limits_ResolveFromVisibleMachineMemoryWhenConfigurationUsesAutoValues()
@@ -21,15 +21,15 @@ public sealed class PublicAotBoundedMemoryCacheTests
     [Fact]
     public void CapacityLimit_EvictsLeastRecentlyUsedEntryAndAccountsResidentBytes()
     {
-        var clock = new MutableTimeProvider(Now);
+        var clock = new MutableTimeProvider(s_now);
         var cache = new PublicAotBoundedMemoryCache(
             new PublicAotMemoryCacheLimits(1_000_000, 250, 2, TimeSpan.FromMinutes(10)),
             clock);
-        cache["a"] = Entry("a", 100, Now.AddMinutes(10));
-        cache["b"] = Entry("b", 100, Now.AddMinutes(10));
+        cache["a"] = Entry("a", 100, s_now.AddMinutes(10));
+        cache["b"] = Entry("b", 100, s_now.AddMinutes(10));
         Assert.True(cache.TryGetValue("a", out _));
 
-        cache["c"] = Entry("c", 100, Now.AddMinutes(10));
+        cache["c"] = Entry("c", 100, s_now.AddMinutes(10));
 
         Assert.True(cache.TryGetValue("a", out _));
         Assert.False(cache.TryGetValue("b", out _));
@@ -43,11 +43,11 @@ public sealed class PublicAotBoundedMemoryCacheTests
     [Fact]
     public void DeadlineLimit_EvictsExpiredEntryWithoutWaitingForArtifactExpiry()
     {
-        var clock = new MutableTimeProvider(Now);
+        var clock = new MutableTimeProvider(s_now);
         var cache = new PublicAotBoundedMemoryCache(
             new PublicAotMemoryCacheLimits(1_000_000, 10_000, 10, TimeSpan.FromMinutes(1)),
             clock);
-        cache["a"] = Entry("a", 100, Now.AddHours(1));
+        cache["a"] = Entry("a", 100, s_now.AddHours(1));
 
         clock.Advance(TimeSpan.FromMinutes(2));
 
@@ -63,9 +63,9 @@ public sealed class PublicAotBoundedMemoryCacheTests
     {
         var cache = new PublicAotBoundedMemoryCache(
             new PublicAotMemoryCacheLimits(1_000_000, 99, 10, TimeSpan.FromMinutes(10)),
-            new MutableTimeProvider(Now));
+            new MutableTimeProvider(s_now));
 
-        cache["large"] = Entry("large", 100, Now.AddMinutes(10));
+        cache["large"] = Entry("large", 100, s_now.AddMinutes(10));
 
         PublicAotMemoryCacheSnapshot snapshot = cache.Snapshot();
         Assert.Equal(0, snapshot.EntryCount);
@@ -82,9 +82,9 @@ public sealed class PublicAotBoundedMemoryCacheTests
             {
                 CacheKey = cacheKey,
                 RouteKey = cacheKey,
-                ExpiresAtUtc = Now.AddHours(1)
+                ExpiresAtUtc = s_now.AddHours(1)
             },
-            Now.AddHours(1),
+            s_now.AddHours(1),
             string.Empty,
             string.Empty,
             0,

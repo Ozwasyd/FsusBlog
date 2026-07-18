@@ -1,6 +1,14 @@
 using System.Reflection;
 using System.Security.Claims;
 
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -10,24 +18,13 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-19T08:00:00Z");
+    private static readonly DateTimeOffset s_baselineNow = DateTimeOffset.Parse("2026-06-19T08:00:00Z");
 
     [Fact]
     public void Migration_CreatesVersionedSecurityPolicySnapshotTable()
@@ -61,7 +58,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient db = CreateDb(connectionString);
         CreateTable(db);
-        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
+        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(s_baselineNow));
 
         SecurityPolicySnapshotRecord first = await service.ActivateAsync(
             SecurityPolicyIds.AntiCrawler,
@@ -97,8 +94,8 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         CreateTable(setupDb);
         using SqlSugarClient firstDb = CreateDb(connectionString);
         using SqlSugarClient secondDb = CreateDb(connectionString);
-        var firstService = new SecurityPolicySnapshotService(firstDb, new StaticTimeProvider(BaselineNow));
-        var secondService = new SecurityPolicySnapshotService(secondDb, new StaticTimeProvider(BaselineNow.AddSeconds(1)));
+        var firstService = new SecurityPolicySnapshotService(firstDb, new StaticTimeProvider(s_baselineNow));
+        var secondService = new SecurityPolicySnapshotService(secondDb, new StaticTimeProvider(s_baselineNow.AddSeconds(1)));
         using var barrier = new Barrier(2);
 
         SecurityPolicySnapshotRecord[] records = await Task.WhenAll(
@@ -145,11 +142,11 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         {
             PolicyId = SecurityPolicyIds.AntiCrawler,
             LastVersion = 0,
-            UpdatedAtUtc = BaselineNow.UtcDateTime
+            UpdatedAtUtc = s_baselineNow.UtcDateTime
         }).ExecuteCommandAsync();
         var sql = new List<string>();
         db.Aop.OnLogExecuting = (statement, _) => sql.Add(statement);
-        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
+        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(s_baselineNow));
 
         SecurityPolicySnapshotRecord record = await service.ActivateAsync(
             SecurityPolicyIds.AntiCrawler,
@@ -180,11 +177,11 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         {
             PolicyId = SecurityPolicyIds.Pow,
             LastVersion = 40,
-            UpdatedAtUtc = BaselineNow.UtcDateTime
+            UpdatedAtUtc = s_baselineNow.UtcDateTime
         }).ExecuteCommandAsync();
         var sql = new List<string>();
         db.Aop.OnLogExecuting = (statement, _) => sql.Add(statement);
-        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
+        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(s_baselineNow));
 
         SecurityPolicySnapshotRecord record = await service.ActivateAsync(
             SecurityPolicyIds.Pow,
@@ -211,7 +208,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         using SqlSugarClient db = CreateDb(connectionString);
         CreateTable(db);
         var audit = new CapturingAuditEventService();
-        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow), audit);
+        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(s_baselineNow), audit);
 
         await service.ActivateAsync(SecurityPolicyIds.Pow, SecuritySystemModes.Observe, CreatePowSnapshot("first", SecuritySystemModes.Observe), 1, "initial", CancellationToken.None);
         await service.ActivateAsync(SecurityPolicyIds.Pow, SecuritySystemModes.Enforce, CreatePowSnapshot("second", SecuritySystemModes.Enforce), 1, "tighten", CancellationToken.None);
@@ -239,10 +236,10 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient db = CreateDb(connectionString);
         CreateTable(db);
-        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
+        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(s_baselineNow));
         await service.ActivateAsync(SecurityPolicyIds.AntiCrawler, SecuritySystemModes.Observe, CreateAntiCrawlerSnapshot("lkg", SecuritySystemModes.Observe), 1, "initial", CancellationToken.None);
         await db.Updateable<SecurityPolicySnapshot>()
-            .SetColumns(item => item.RevokedAtUtc == BaselineNow.AddSeconds(30).UtcDateTime)
+            .SetColumns(item => item.RevokedAtUtc == s_baselineNow.AddSeconds(30).UtcDateTime)
             .Where(static item => item.Version == 1)
             .ExecuteCommandAsync();
         await db.Insertable(new SecurityPolicySnapshot
@@ -252,8 +249,8 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
             Mode = SecuritySystemModes.Enforce,
             Document = "{not-json",
             CreatedByAdminId = 2,
-            CreatedAtUtc = BaselineNow.AddMinutes(1).UtcDateTime,
-            ActivatedAtUtc = BaselineNow.AddMinutes(1).UtcDateTime,
+            CreatedAtUtc = s_baselineNow.AddMinutes(1).UtcDateTime,
+            ActivatedAtUtc = s_baselineNow.AddMinutes(1).UtcDateTime,
             IsLastKnownGood = false,
             Reason = "bad-active"
         }).ExecuteCommandAsync();
@@ -406,7 +403,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     private static AntiCrawlerPolicySnapshot CreateAntiCrawlerSnapshot(string id, string mode)
-        => new(id, BaselineNow, "admin:1", "unit", new AntiCrawlerPolicyOptions(
+        => new(id, s_baselineNow, "admin:1", "unit", new AntiCrawlerPolicyOptions(
             mode,
             PublicReadChallengeEnabled: true,
             SearchCrawlerVerificationEnabled: true,
@@ -440,7 +437,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
             SecurityChallengeReference: "security.pow"));
 
     private static PowPolicySnapshot CreatePowSnapshot(string id, string mode)
-        => new(id, BaselineNow, "admin:1", "unit", new PowPolicyOptions(
+        => new(id, s_baselineNow, "admin:1", "unit", new PowPolicyOptions(
             mode,
             DefaultDifficulty: 4,
             AdaptiveDifficultyEnabled: true,
@@ -462,7 +459,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         return new SecurityRiskPolicySnapshotV2(
             "risk-policy-runtime",
             "risk-policy-v2",
-            BaselineNow,
+            s_baselineNow,
             SecuritySystemModes.Enforce,
             200,
             125,
@@ -476,7 +473,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         => new(
             "perception-runtime",
             "perception-v2",
-            BaselineNow,
+            s_baselineNow,
             "admin:42",
             "runtime",
             null,

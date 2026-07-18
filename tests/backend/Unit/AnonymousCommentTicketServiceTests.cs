@@ -2,6 +2,13 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -16,54 +23,46 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Validation;
-
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AnonymousCommentTicketServiceTests
 {
-    private static readonly byte[] Nullifier = Enumerable.Repeat((byte)0xA1, 32).ToArray();
-    private static readonly byte[] Proof = Enumerable.Repeat((byte)0xB2, 64).ToArray();
-    private static readonly byte[] CredentialRoot = Enumerable.Repeat((byte)0xC3, 32).ToArray();
-    private static readonly byte[] RevocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
-    private static readonly string VerifyingKeyHash = new('e', 64);
-    private static readonly string PolicyHash = new('9', 64);
+    private static readonly byte[] s_nullifier = Enumerable.Repeat((byte)0xA1, 32).ToArray();
+    private static readonly byte[] s_proof = Enumerable.Repeat((byte)0xB2, 64).ToArray();
+    private static readonly byte[] s_credentialRoot = Enumerable.Repeat((byte)0xC3, 32).ToArray();
+    private static readonly byte[] s_revocationRoot = Enumerable.Repeat((byte)0xD4, 32).ToArray();
+    private static readonly string s_verifyingKeyHash = new('e', 64);
+    private static readonly string s_policyHash = new('9', 64);
     private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
-    private static readonly ZkProdPolicySnapshot ReadyZkProdPolicy = new(
+    private static readonly ZkProdPolicySnapshot s_readyZkProdPolicy = new(
         true,
         true,
         true,
         true,
         true,
         string.Empty);
-    private static readonly ZkProdPolicySnapshot DisabledZkProdPolicy = new(
+    private static readonly ZkProdPolicySnapshot s_disabledZkProdPolicy = new(
         false,
         false,
         false,
         true,
         false,
         "disabled");
-    private static readonly byte[] PublicInputs = NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
+    private static readonly byte[] s_publicInputs = NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
         ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
         Scope: "article:42",
         CircuitId: AnonymousPrivacyContract.CircuitId,
-        VerifyingKeyHash: VerifyingKeyHash,
+        VerifyingKeyHash: s_verifyingKeyHash,
         PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
-        NullifierHash: Convert.ToHexStringLower(Nullifier),
-        CredentialRoot: Convert.ToHexStringLower(CredentialRoot),
-        PolicyHash: PolicyHash,
+        NullifierHash: Convert.ToHexStringLower(s_nullifier),
+        CredentialRoot: Convert.ToHexStringLower(s_credentialRoot),
+        PolicyHash: s_policyHash,
         IsEligible: true,
         MayComment: true,
         RateClass: AnonymousPrivacyContract.CommonRateClass,
         RequiresModeration: false,
         Proof: ReadOnlyMemory<byte>.Empty,
-        RevocationRoot: Convert.ToHexStringLower(RevocationRoot),
+        RevocationRoot: Convert.ToHexStringLower(s_revocationRoot),
         IssuerPublicKeyHash: new('f', 64))).ToArray();
 
     [Fact]
@@ -95,7 +94,7 @@ public sealed class AnonymousCommentTicketServiceTests
         Assert.NotNull(consumed.Value);
         Assert.Equal(42, consumed.Value!.ArticleId);
         Assert.Equal("article:42", consumed.Value.Scope);
-        Assert.Equal(Convert.ToHexStringLower(Nullifier), consumed.Value.NullifierHash);
+        Assert.Equal(Convert.ToHexStringLower(s_nullifier), consumed.Value.NullifierHash);
 
         CacheReadResult<AnonymousCommentTicketPayload> replay = await service.ConsumeTicketAsync(result.Response.Ticket, CancellationToken.None);
         Assert.False(replay.Hit);
@@ -104,7 +103,7 @@ public sealed class AnonymousCommentTicketServiceTests
     [Fact]
     public void ModerationSubjectHash_UsesPepperAndIgnoresScope()
     {
-        string nullifierHash = Convert.ToHexStringLower(Nullifier);
+        string nullifierHash = Convert.ToHexStringLower(s_nullifier);
         IConfiguration configuration = BuildConfiguration();
 
         byte[] first = AnonymousCommentTicketService.CreateModerationSubjectHash(nullifierHash, configuration);
@@ -197,7 +196,7 @@ public sealed class AnonymousCommentTicketServiceTests
     [Fact]
     public async Task IssueAsync_UsesPublishedCommentPolicyHashForTicketTranscript()
     {
-        const string publishedPolicyHash = "8888888888888888888888888888888888888888888888888888888888888888";
+        const string PublishedPolicyHash = "8888888888888888888888888888888888888888888888888888888888888888";
         var proof = new RecordingProofService(ZkProofVerificationResult.Success());
         var service = CreateService(
             proofService: proof,
@@ -208,18 +207,18 @@ public sealed class AnonymousCommentTicketServiceTests
                 CommentAuthorModes.ZkAnonymous,
                 AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)
             {
-                SnapshotHash = publishedPolicyHash
+                SnapshotHash = PublishedPolicyHash
             }));
         AnonymousCommentTicketRequestCoreModel request = ValidRequest() with
         {
-            PublicInputs = PublicInputsForPolicy(publishedPolicyHash)
+            PublicInputs = PublicInputsForPolicy(PublishedPolicyHash)
         };
 
         AnonymousCommentTicketIssueResult result = await service.IssueAsync(request, CancellationToken.None);
 
         Assert.True(result.Issued);
         ZkProofVerificationRequest proofRequest = Assert.Single(proof.Requests);
-        Assert.Equal(publishedPolicyHash, proofRequest.PolicyHash);
+        Assert.Equal(PublishedPolicyHash, proofRequest.PolicyHash);
     }
 
     [Theory]
@@ -288,7 +287,7 @@ public sealed class AnonymousCommentTicketServiceTests
     {
         var aeds = new AedsEncoder();
         var service = CreateService();
-        var proofService = new RecordingProofService(ZkProofVerificationResult.Success(), ReadyZkProdPolicy);
+        var proofService = new RecordingProofService(ZkProofVerificationResult.Success(), s_readyZkProdPolicy);
         DefaultHttpContext context = CreateContext(
             aeds,
             AedsFrameType.AnonymousCommentTicketRequest,
@@ -313,7 +312,7 @@ public sealed class AnonymousCommentTicketServiceTests
     {
         var aeds = new AedsEncoder();
         DefaultHttpContext context = CreateContext(aeds, AedsFrameType.CommentCreateV2Request, "not-ticket"u8.ToArray());
-        var proofService = new RecordingProofService(ZkProofVerificationResult.Success(), DisabledZkProdPolicy);
+        var proofService = new RecordingProofService(ZkProofVerificationResult.Success(), s_disabledZkProdPolicy);
 
         BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCommentTicketAsync(
             context,
@@ -386,33 +385,33 @@ public sealed class AnonymousCommentTicketServiceTests
             ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
             Scope: "article:42",
             CircuitId: AnonymousPrivacyContract.CircuitId,
-            VerifyingKeyHash: VerifyingKeyHash,
-            NullifierHash: Nullifier,
-            CredentialRoot: CredentialRoot,
-            RevocationRoot: RevocationRoot,
+            VerifyingKeyHash: s_verifyingKeyHash,
+            NullifierHash: s_nullifier,
+            CredentialRoot: s_credentialRoot,
+            RevocationRoot: s_revocationRoot,
             IsEligible: true,
             MayComment: true,
             RateClass: AnonymousPrivacyContract.CommonRateClass,
             RequiresModeration: false,
-            Groth16Proof: Proof,
-            PublicInputs: PublicInputs);
+            Groth16Proof: s_proof,
+            PublicInputs: s_publicInputs);
 
     private static byte[] PublicInputsForPolicy(string policyHash)
         => NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
             ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
             Scope: "article:42",
             CircuitId: AnonymousPrivacyContract.CircuitId,
-            VerifyingKeyHash: VerifyingKeyHash,
+            VerifyingKeyHash: s_verifyingKeyHash,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
-            NullifierHash: Convert.ToHexStringLower(Nullifier),
-            CredentialRoot: Convert.ToHexStringLower(CredentialRoot),
+            NullifierHash: Convert.ToHexStringLower(s_nullifier),
+            CredentialRoot: Convert.ToHexStringLower(s_credentialRoot),
             PolicyHash: policyHash,
             IsEligible: true,
             MayComment: true,
             RateClass: AnonymousPrivacyContract.CommonRateClass,
             RequiresModeration: false,
             Proof: ReadOnlyMemory<byte>.Empty,
-            RevocationRoot: Convert.ToHexStringLower(RevocationRoot),
+            RevocationRoot: Convert.ToHexStringLower(s_revocationRoot),
             IssuerPublicKeyHash: new('f', 64))).ToArray();
 
     private static AnonymousCredentialRootSnapshotCoreModel CreateRootSnapshot(TimeProvider time)
@@ -425,16 +424,16 @@ public sealed class AnonymousCommentTicketServiceTests
             ZkAnonymousEnabled: true,
             VerifierConfigured: true,
             CircuitId: AnonymousPrivacyContract.CircuitId,
-            VerifyingKeyHash: VerifyingKeyHash,
+            VerifyingKeyHash: s_verifyingKeyHash,
             IssuerPublicKeyHash: new('f', 64),
-            CredentialRoot: CredentialRoot,
-            RevocationRoot: RevocationRoot,
+            CredentialRoot: s_credentialRoot,
+            RevocationRoot: s_revocationRoot,
             CircuitMetadata: Encoding.UTF8.GetBytes("{\"anonymity_sets\":[{\"is_eligible\":true,\"may_comment\":true,\"rate_class\":\"common\",\"requires_moderation\":false,\"size\":20}]}"));
 
     private static byte[] ExpectedModerationSubjectHash()
         => HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(ModerationPepper),
-            Encoding.UTF8.GetBytes(Convert.ToHexStringLower(Nullifier)));
+            Encoding.UTF8.GetBytes(Convert.ToHexStringLower(s_nullifier)));
 
     private static IConfiguration BuildConfiguration()
         => new ConfigurationBuilder()
@@ -517,12 +516,12 @@ public sealed class AnonymousCommentTicketServiceTests
 
         public AnonymousCommentPolicySnapshot CurrentCommentPolicy => new(true, true, true, CommentAuthorModes.ZkAnonymous, ["zh-CN"])
         {
-            SnapshotHash = PolicyHash
+            SnapshotHash = s_policyHash
         };
 
         public ZkAnonymousPolicySnapshot CurrentZkPolicy => new(true, true, "comment.create", []);
 
-        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = zkProdPolicy ?? ReadyZkProdPolicy;
+        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = zkProdPolicy ?? s_readyZkProdPolicy;
 
         public Task<ZkProofVerificationResult> VerifyCommentProofAsync(
             ZkProofVerificationRequest request,

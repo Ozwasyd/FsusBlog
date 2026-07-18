@@ -1,9 +1,8 @@
 using System.Collections.Concurrent;
 
-using FsusBlog.Server.Infrastructure.Cache;
-
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Infrastructure.Cache;
 namespace FsusBlog.Server.Tests;
 
 public sealed class CacheMissCoordinatorTests
@@ -184,7 +183,7 @@ public sealed class CacheMissCoordinatorTests
     [Fact]
     public async Task CoordinateAsync_LeaseTimeout_ReelectsSingleFallbackRebuilder()
     {
-        const int callersCount = 16;
+        const int CallersCount = 16;
         int leaseAttempts = 0;
         var cache = new CoordinatingCache
         {
@@ -192,7 +191,7 @@ public sealed class CacheMissCoordinatorTests
             TryAcquireLeaseHandler = (_, _, _, _, _) =>
             {
                 int attempt = Interlocked.Increment(ref leaseAttempts);
-                return Task.FromResult(attempt == callersCount + 1);
+                return Task.FromResult(attempt == CallersCount + 1);
             }
         };
         var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
@@ -203,7 +202,7 @@ public sealed class CacheMissCoordinatorTests
             TimeSpan.FromMilliseconds(40),
             TimeSpan.FromMilliseconds(5));
 
-        Task<string?>[] callers = Enumerable.Range(0, callersCount)
+        Task<string?>[] callers = Enumerable.Range(0, CallersCount)
             .Select(_ => coordinator.CoordinateAsync(
                 CachePolicyId.ArticleDetail,
                 "timeout-hot:42",
@@ -225,7 +224,7 @@ public sealed class CacheMissCoordinatorTests
 
         Assert.All(results, result => Assert.Equal("fallback-rebuilt", result));
         Assert.Equal(1, rebuildCount);
-        Assert.True(leaseAttempts > callersCount);
+        Assert.True(leaseAttempts > CallersCount);
     }
 
     [Fact]

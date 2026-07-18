@@ -1,17 +1,14 @@
 using System.Data;
 
-using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Services.Background;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-
 using NSubstitute;
-
 using SqlSugar;
 
+using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Services.Background;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ActiveReleaseFencedCommitTests
@@ -182,11 +179,11 @@ public sealed class ActiveReleaseFencedCommitTests
     [Fact]
     public void LedgerMigration_IsAdditiveOnlineExpandWithBoundedAuditIndexes()
     {
-        const string id = "20260715-post-active-release-fenced-commit-ledger";
+        const string Id = "20260715-post-active-release-fenced-commit-ledger";
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             new SchemaMigrationRegistry().GetDescriptors(),
-            static item => item.MigrationId == id);
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[id];
+            static item => item.MigrationId == Id);
+        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[Id];
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);

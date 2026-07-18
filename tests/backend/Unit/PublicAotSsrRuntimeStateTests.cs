@@ -1,7 +1,6 @@
-using FsusBlog.Server.Infrastructure.PublicAot;
-
 using Microsoft.Extensions.Configuration;
 
+using FsusBlog.Server.Infrastructure.PublicAot;
 namespace FsusBlog.Server.Tests;
 
 public sealed class PublicAotSsrRuntimeStateTests

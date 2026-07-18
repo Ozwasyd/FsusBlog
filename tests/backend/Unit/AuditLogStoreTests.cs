@@ -1,16 +1,13 @@
 using System.Globalization;
 using System.Linq.Expressions;
 
+using Microsoft.Extensions.Configuration;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.PublicAot;
-
-using Microsoft.Extensions.Configuration;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public class AuditLogStoreTests

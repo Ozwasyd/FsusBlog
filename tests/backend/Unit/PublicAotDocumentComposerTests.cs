@@ -452,8 +452,8 @@ public sealed class PublicAotDocumentComposerTests
     [Fact]
     public void PreparePublicDocumentTemplate_StripsModuleScripts()
     {
-        const string template = "<html><body><script type=\"module\" src=\"/assets/index.js\"></script></body></html>";
-        string result = PublicAotDocumentComposer.PreparePublicDocumentTemplate(template);
+        const string Template = "<html><body><script type=\"module\" src=\"/assets/index.js\"></script></body></html>";
+        string result = PublicAotDocumentComposer.PreparePublicDocumentTemplate(Template);
         Assert.DoesNotContain("/assets/index.js", result);
     }
 
@@ -552,10 +552,10 @@ public sealed class PublicAotDocumentComposerTests
 
     private static string ExtractJsonLd(string html)
     {
-        const string startMarker = "<script type=\"application/ld+json\" data-fsus-aot-head>";
-        int start = html.IndexOf(startMarker, StringComparison.Ordinal);
+        const string StartMarker = "<script type=\"application/ld+json\" data-fsus-aot-head>";
+        int start = html.IndexOf(StartMarker, StringComparison.Ordinal);
         Assert.True(start >= 0, "missing JSON-LD script");
-        start += startMarker.Length;
+        start += StartMarker.Length;
         int end = html.IndexOf("</script>", start, StringComparison.Ordinal);
         Assert.True(end > start, "malformed JSON-LD script");
         return html[start..end];

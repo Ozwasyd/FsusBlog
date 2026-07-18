@@ -1,25 +1,22 @@
 using System.Text.Json;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static readonly SemaphoreSlim DatabaseResetLock = new(1, 1);
-    private static string? sharedConnectionString;
+    private static readonly SemaphoreSlim s_databaseResetLock = new(1, 1);
+    private static string? s_sharedConnectionString;
 
     [Fact]
     public async Task GetCurrentResponsibilityAsync_PublicPreRevisionArticleReturnsDeterministicLegacyFallback()
@@ -199,20 +196,20 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
 
     private async Task<SqlSugarClient> CreateDatabaseAsync()
     {
-        await DatabaseResetLock.WaitAsync();
+        await s_databaseResetLock.WaitAsync();
         try
         {
             string connectionString;
-            if (sharedConnectionString is null)
+            if (s_sharedConnectionString is null)
             {
                 connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
                 using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
                 CreateTables(setupDb);
-                sharedConnectionString = connectionString;
+                s_sharedConnectionString = connectionString;
             }
             else
             {
-                connectionString = sharedConnectionString;
+                connectionString = s_sharedConnectionString;
             }
 
             await fixture.ExecuteAsync(
@@ -222,7 +219,7 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
         }
         finally
         {
-            DatabaseResetLock.Release();
+            s_databaseResetLock.Release();
         }
     }
 

@@ -1,7 +1,6 @@
-using FsusBlog.Server.Infrastructure.SchemaMigration;
-
 using Microsoft.AspNetCore.Http;
 
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class OnlineSchemaMigrationCompatibilityTests

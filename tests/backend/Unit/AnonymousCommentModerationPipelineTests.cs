@@ -1,6 +1,13 @@
 using System.Reflection;
 using System.Text.Json;
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -14,14 +21,6 @@ using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authorization.Infrastructure;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AnonymousCommentModerationPipelineTests
@@ -331,11 +330,11 @@ public sealed class AnonymousCommentModerationPipelineTests
         MethodInfo hashMethod = typeof(AuthoringEndpoints).GetMethod(
             "HashAuditTargetId",
             BindingFlags.Static | BindingFlags.NonPublic)!;
-        const string rawNullifier = "raw-nullifier-secret";
-        string nullifierTarget = (string)hashMethod.Invoke(null, ["comment_anonymous_nullifier", rawNullifier])!;
+        const string RawNullifier = "raw-nullifier-secret";
+        string nullifierTarget = (string)hashMethod.Invoke(null, ["comment_anonymous_nullifier", RawNullifier])!;
         string credentialTarget = (string)hashMethod.Invoke(null, ["anonymous_credential", "88001"])!;
-        Assert.NotEqual(rawNullifier, nullifierTarget);
-        Assert.DoesNotContain(rawNullifier, nullifierTarget, StringComparison.Ordinal);
+        Assert.NotEqual(RawNullifier, nullifierTarget);
+        Assert.DoesNotContain(RawNullifier, nullifierTarget, StringComparison.Ordinal);
         Assert.NotEqual("88001", credentialTarget);
         Assert.NotEqual(nullifierTarget, credentialTarget);
 

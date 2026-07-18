@@ -3,12 +3,11 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
 
+using SqlSugar;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AccountSubjectHashProjectionTests
@@ -165,16 +164,16 @@ public sealed class AccountSubjectHashProjectionTests
         _ = RuntimeMetadataInspection.DescribeTypeUncachedForBenchmark(type);
         _ = RuntimeMetadataInspection.DescribeType(type);
 
-        const int iterations = 256;
+        const int Iterations = 256;
         var uncached = Stopwatch.StartNew();
-        for (int index = 0; index < iterations; index++)
+        for (int index = 0; index < Iterations; index++)
         {
             GC.KeepAlive(RuntimeMetadataInspection.DescribeTypeUncachedForBenchmark(type));
         }
         uncached.Stop();
 
         var cached = Stopwatch.StartNew();
-        for (int index = 0; index < iterations; index++)
+        for (int index = 0; index < Iterations; index++)
         {
             GC.KeepAlive(RuntimeMetadataInspection.DescribeType(type));
         }
@@ -182,7 +181,7 @@ public sealed class AccountSubjectHashProjectionTests
 
         double speedup = (double)uncached.ElapsedTicks / Math.Max(1, cached.ElapsedTicks);
         Console.WriteLine(
-            $"[runtime-metadata-cache-benchmark] iterations={iterations} uncachedMs={uncached.Elapsed.TotalMilliseconds:F3} cachedMs={cached.Elapsed.TotalMilliseconds:F3} speedup={speedup:F2}x");
+            $"[runtime-metadata-cache-benchmark] iterations={Iterations} uncachedMs={uncached.Elapsed.TotalMilliseconds:F3} cachedMs={cached.Elapsed.TotalMilliseconds:F3} speedup={speedup:F2}x");
         Assert.True(
             cached.ElapsedTicks * 2 < uncached.ElapsedTicks,
             $"Expected cached metadata description to be at least 2x faster; uncached={uncached.Elapsed.TotalMilliseconds:F3}ms cached={cached.Elapsed.TotalMilliseconds:F3}ms.");
@@ -220,23 +219,23 @@ public sealed class AccountSubjectHashProjectionTests
 
 internal static class RuntimeMetadataInspection
 {
-    private static readonly IReadOnlyDictionary<ushort, OpCode> OpCodesByValue = typeof(OpCodes)
+    private static readonly IReadOnlyDictionary<ushort, OpCode> s_opCodesByValue = typeof(OpCodes)
         .GetFields(BindingFlags.Public | BindingFlags.Static)
         .Where(static field => field.FieldType == typeof(OpCode))
         .Select(static field => (OpCode)field.GetValue(null)!)
         .GroupBy(static opCode => unchecked((ushort)opCode.Value))
         .ToDictionary(static group => group.Key, static group => group.First());
 
-    private static readonly ConcurrentDictionary<DescriptionCacheKey, Lazy<string>> StringDescriptions = new();
-    private static readonly ConcurrentDictionary<DescriptionCacheKey, Lazy<string[]>> CandidateDescriptions = new();
-    private static readonly ConcurrentDictionary<DescriptionCacheKey, Lazy<string[][]>> SequenceDescriptions = new();
-    private static readonly ConcurrentDictionary<Type, bool> RuntimeDescriptionCacheability = new();
+    private static readonly ConcurrentDictionary<DescriptionCacheKey, Lazy<string>> s_stringDescriptions = new();
+    private static readonly ConcurrentDictionary<DescriptionCacheKey, Lazy<string[]>> s_candidateDescriptions = new();
+    private static readonly ConcurrentDictionary<DescriptionCacheKey, Lazy<string[][]>> s_sequenceDescriptions = new();
+    private static readonly ConcurrentDictionary<Type, bool> s_runtimeDescriptionCacheability = new();
 
     public static string DescribeType(Type type)
     {
         DescriptionCacheKey key = CreateCacheKey(type, DescriptionOperation.Type, []);
         return GetOrCreate(
-            StringDescriptions,
+            s_stringDescriptions,
             key,
             () => DescribeTypeUncachedForBenchmark(type),
             CanCacheRuntimeDescription(type));
@@ -256,7 +255,7 @@ internal static class RuntimeMetadataInspection
         Assert.Equal(requested.Count, roots.Select(static method => method.Name).Distinct(StringComparer.Ordinal).Count());
         DescriptionCacheKey key = CreateCacheKey(type, DescriptionOperation.Methods, methodNames);
         return GetOrCreate(
-            StringDescriptions,
+            s_stringDescriptions,
             key,
             () => Describe(type, roots, followCallsWithinType: true),
             CanCacheRuntimeDescription(type));
@@ -266,7 +265,7 @@ internal static class RuntimeMetadataInspection
     {
         DescriptionCacheKey key = CreateCacheKey(type, DescriptionOperation.MethodClosureContaining, requiredFacts);
         string[] candidates = GetOrCreate(
-            CandidateDescriptions,
+            s_candidateDescriptions,
             key,
             () => DescribeMethodCandidates(type, followCallsWithinType: true)
                 .Where(shape => requiredFacts.All(fact => shape.Contains(fact, StringComparison.Ordinal)))
@@ -280,7 +279,7 @@ internal static class RuntimeMetadataInspection
     {
         DescriptionCacheKey key = CreateCacheKey(type, DescriptionOperation.DeclaredMethodContaining, requiredFacts);
         string[] candidates = GetOrCreate(
-            CandidateDescriptions,
+            s_candidateDescriptions,
             key,
             () => DescribeMethodCandidates(type, followCallsWithinType: false)
                 .Where(shape => requiredFacts.All(fact => shape.Contains(fact, StringComparison.Ordinal)))
@@ -309,7 +308,7 @@ internal static class RuntimeMetadataInspection
             DescriptionOperation.DeclaredMemberReferenceSequencesContaining,
             requiredFacts);
         string[][] candidates = GetOrCreate(
-            SequenceDescriptions,
+            s_sequenceDescriptions,
             key,
             () => EnumerateTypeTree(type)
                 .SelectMany(static candidate => candidate.GetMethods(AllDeclaredMembers))
@@ -328,7 +327,7 @@ internal static class RuntimeMetadataInspection
     {
         DescriptionCacheKey key = CreateCacheKey(type, DescriptionOperation.DeclaredMethodBodiesContaining, requiredFacts);
         string[] candidates = GetOrCreate(
-            CandidateDescriptions,
+            s_candidateDescriptions,
             key,
             () => EnumerateTypeTree(type)
                 .SelectMany(static candidate => candidate.GetMethods(AllDeclaredMembers))
@@ -341,23 +340,23 @@ internal static class RuntimeMetadataInspection
     }
 
     internal static int CacheEntryCountForType(Type type)
-        => StringDescriptions.Keys.Count(key => key.Type == type)
-           + CandidateDescriptions.Keys.Count(key => key.Type == type)
-           + SequenceDescriptions.Keys.Count(key => key.Type == type);
+        => s_stringDescriptions.Keys.Count(key => key.Type == type)
+           + s_candidateDescriptions.Keys.Count(key => key.Type == type)
+           + s_sequenceDescriptions.Keys.Count(key => key.Type == type);
 
     internal static void ClearCacheEntriesForType(Type type)
     {
-        foreach (DescriptionCacheKey key in StringDescriptions.Keys.Where(key => key.Type == type))
+        foreach (DescriptionCacheKey key in s_stringDescriptions.Keys.Where(key => key.Type == type))
         {
-            StringDescriptions.TryRemove(key, out _);
+            s_stringDescriptions.TryRemove(key, out _);
         }
-        foreach (DescriptionCacheKey key in CandidateDescriptions.Keys.Where(key => key.Type == type))
+        foreach (DescriptionCacheKey key in s_candidateDescriptions.Keys.Where(key => key.Type == type))
         {
-            CandidateDescriptions.TryRemove(key, out _);
+            s_candidateDescriptions.TryRemove(key, out _);
         }
-        foreach (DescriptionCacheKey key in SequenceDescriptions.Keys.Where(key => key.Type == type))
+        foreach (DescriptionCacheKey key in s_sequenceDescriptions.Keys.Where(key => key.Type == type))
         {
-            SequenceDescriptions.TryRemove(key, out _);
+            s_sequenceDescriptions.TryRemove(key, out _);
         }
     }
 
@@ -816,7 +815,7 @@ internal static class RuntimeMetadataInspection
             : DescriptionOperation.DeclaredMethodCandidates;
         DescriptionCacheKey key = CreateCacheKey(type, operation, []);
         return GetOrCreate(
-            CandidateDescriptions,
+            s_candidateDescriptions,
             key,
             () => EnumerateTypeTree(type)
                 .SelectMany(static candidate => candidate.GetMethods(AllDeclaredMembers))
@@ -852,7 +851,7 @@ internal static class RuntimeMetadataInspection
         => $"{member.DeclaringType?.FullName}.{member.Name} {member}";
 
     private static bool CanCacheRuntimeDescription(Type type)
-        => RuntimeDescriptionCacheability.GetOrAdd(type, static inspectedType => EnumerateTypeTree(inspectedType)
+        => s_runtimeDescriptionCacheability.GetOrAdd(type, static inspectedType => EnumerateTypeTree(inspectedType)
             .SelectMany(static candidate => candidate.GetFields(AllDeclaredMembers))
             .Where(static field => field.IsStatic && field.FieldType == typeof(string))
             .All(static field => field.IsLiteral || field.IsInitOnly));
@@ -918,7 +917,7 @@ internal static class RuntimeMetadataInspection
             value = (ushort)(0xfe00 | il[offset++]);
         }
 
-        return OpCodesByValue.TryGetValue(value, out OpCode opCode)
+        return s_opCodesByValue.TryGetValue(value, out OpCode opCode)
             ? opCode
             : throw new InvalidOperationException($"Unknown IL opcode 0x{value:x4}.");
     }

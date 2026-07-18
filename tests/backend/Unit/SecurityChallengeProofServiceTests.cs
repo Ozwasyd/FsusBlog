@@ -1,16 +1,15 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityChallengeProofServiceTests
 {
-    private static readonly DateTimeOffset BaselineNow = new(2026, 6, 18, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_baselineNow = new(2026, 6, 18, 12, 0, 0, TimeSpan.Zero);
     private const string HashA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string HashB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
@@ -52,7 +51,7 @@ public sealed class SecurityChallengeProofServiceTests
     {
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = new SecurityChallengeProofService(cache, persistence, clock);
 
         SecurityChallengeProofMintResult result = await service.MintProofAsync(CreateMintRequest(), CancellationToken.None);
@@ -68,8 +67,8 @@ public sealed class SecurityChallengeProofServiceTests
         Assert.Equal(HashB, result.Claims.ClientIpHash);
         Assert.Equal(HashC, result.Claims.DeviceFpHash);
         Assert.Equal("risk-policy-v2", result.Claims.PolicyVersion);
-        Assert.Equal(BaselineNow, result.Claims.IssuedAt);
-        Assert.Equal(BaselineNow.AddMinutes(5), result.Claims.ExpiresAt);
+        Assert.Equal(s_baselineNow, result.Claims.IssuedAt);
+        Assert.Equal(s_baselineNow.AddMinutes(5), result.Claims.ExpiresAt);
         Assert.False(string.IsNullOrWhiteSpace(result.Claims.Nonce));
         Assert.DoesNotContain("payload", cache.LastStoredJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(result.ProofToken, cache.LastStoredJson, StringComparison.Ordinal);
@@ -81,7 +80,7 @@ public sealed class SecurityChallengeProofServiceTests
     {
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = new SecurityChallengeProofService(cache, persistence, clock);
         SecurityChallengeProofMintResult minted = await service.MintProofAsync(CreateMintRequest(), CancellationToken.None);
 
@@ -115,7 +114,7 @@ public sealed class SecurityChallengeProofServiceTests
     {
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = new SecurityChallengeProofService(cache, persistence, clock);
         SecurityChallengeProofMintResult minted = await service.MintProofAsync(CreateMintRequest(), CancellationToken.None);
         SecurityChallengeProofConsumeRequest request = Mutate(CreateConsumeRequest(minted.ProofToken), field);
@@ -134,10 +133,10 @@ public sealed class SecurityChallengeProofServiceTests
     {
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = new SecurityChallengeProofService(cache, persistence, clock);
         SecurityChallengeProofMintResult minted = await service.MintProofAsync(CreateMintRequest(), CancellationToken.None);
-        clock.UtcNow = BaselineNow.AddMinutes(6);
+        clock.UtcNow = s_baselineNow.AddMinutes(6);
 
         SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(
             CreateConsumeRequest(minted.ProofToken),
@@ -155,7 +154,7 @@ public sealed class SecurityChallengeProofServiceTests
     {
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = new SecurityChallengeProofService(cache, persistence, clock);
 
         SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(
@@ -180,8 +179,8 @@ public sealed class SecurityChallengeProofServiceTests
             HashB,
             HashC,
             "risk-policy-v2",
-            BaselineNow,
-            BaselineNow.AddMinutes(5));
+            s_baselineNow,
+            s_baselineNow.AddMinutes(5));
 
     private static SecurityChallengeProofConsumeRequest CreateConsumeRequest(string proofToken)
         => new(

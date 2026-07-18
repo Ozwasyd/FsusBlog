@@ -1,8 +1,7 @@
-using FsusBlog.Server.Tests.TestInfrastructure;
-using FsusBlog.Shared.Contracts.Outputs;
-
 using Microsoft.AspNetCore.Http;
 
+using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class HumanReadProofRequestBindingTests

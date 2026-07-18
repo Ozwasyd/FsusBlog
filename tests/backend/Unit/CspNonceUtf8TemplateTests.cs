@@ -4,12 +4,11 @@ using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
 
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CspNonceUtf8TemplateTests
@@ -17,17 +16,17 @@ public sealed class CspNonceUtf8TemplateTests
     [Fact]
     public void Compile_MultiSlotUtf8Boundary_PreservesCjkEmojiAndUsesOneNonce()
     {
-        const string html = "<!doctype html><html><head><title>中文🙂</title><style>.示例{color:red}</style></head><body>边界🚀<script>globalThis.ok='好';</script></body></html>";
+        const string Html = "<!doctype html><html><head><title>中文🙂</title><style>.示例{color:red}</style></head><body>边界🚀<script>globalThis.ok='好';</script></body></html>";
         CspNonceUtf8Template template = Assert.IsType<CspNonceUtf8Template>(
-            CspNonceUtf8Template.Compile(html, "release:v1:digest-a"));
+            CspNonceUtf8Template.Compile(Html, "release:v1:digest-a"));
 
-        const string nonce = "Abc_123-safe";
-        byte[] renderedBytes = Render(template, Encoding.UTF8.GetBytes(nonce));
+        const string Nonce = "Abc_123-safe";
+        byte[] renderedBytes = Render(template, Encoding.UTF8.GetBytes(Nonce));
         string rendered = new UTF8Encoding(false, true).GetString(renderedBytes);
 
         Assert.Equal(3, template.SlotCount);
-        Assert.Equal(template.GetRenderedLength(nonce.Length), renderedBytes.Length);
-        Assert.Equal(3, Count(rendered, $"nonce=\"{nonce}\""));
+        Assert.Equal(template.GetRenderedLength(Nonce.Length), renderedBytes.Length);
+        Assert.Equal(3, Count(rendered, $"nonce=\"{Nonce}\""));
         Assert.Contains("中文🙂", rendered, StringComparison.Ordinal);
         Assert.Contains("边界🚀", rendered, StringComparison.Ordinal);
         Assert.DoesNotContain(CspNonceUtf8Template.Placeholder, rendered, StringComparison.Ordinal);
@@ -36,9 +35,9 @@ public sealed class CspNonceUtf8TemplateTests
     [Fact]
     public void Compile_PerRenderNonceIsUniqueWhileEverySlotMatches()
     {
-        const string html = "<html><head></head><body><script></script><style></style></body></html>";
+        const string Html = "<html><head></head><body><script></script><style></style></body></html>";
         CspNonceUtf8Template template = Assert.IsType<CspNonceUtf8Template>(
-            CspNonceUtf8Template.Compile(html, "release:v1:digest-b"));
+            CspNonceUtf8Template.Compile(Html, "release:v1:digest-b"));
 
         string first = Encoding.UTF8.GetString(Render(template, "request_one"u8));
         string second = Encoding.UTF8.GetString(Render(template, "request_two"u8));
@@ -64,9 +63,9 @@ public sealed class CspNonceUtf8TemplateTests
     [Fact]
     public void Compile_QuotedTagBoundaryAndCommentedExecutableText_AreParsedWithoutFalseSlots()
     {
-        const string html = "<!-- > <script>ignored()</script> --><html><head data-probe=\">\"></head><body><script data-json=\"{&quot;x&quot;:&quot;>&quot;}\">real()</script></body></html>";
+        const string Html = "<!-- > <script>ignored()</script> --><html><head data-probe=\">\"></head><body><script data-json=\"{&quot;x&quot;:&quot;>&quot;}\">real()</script></body></html>";
         CspNonceUtf8Template template = Assert.IsType<CspNonceUtf8Template>(
-            CspNonceUtf8Template.Compile(html, "boundary"));
+            CspNonceUtf8Template.Compile(Html, "boundary"));
         string rendered = Encoding.UTF8.GetString(Render(template, "boundary_nonce"u8));
 
         Assert.Equal(2, template.SlotCount);
@@ -77,9 +76,9 @@ public sealed class CspNonceUtf8TemplateTests
     [Fact]
     public void Compile_StaticInlineHashesAreGeneratedAndBoundToArtifactDigest()
     {
-        const string html = "<html><head><style>.a{color:red}</style></head><body><script>globalThis.a=1</script><script src=\"/app.js\"></script></body></html>";
+        const string Html = "<html><head><style>.a{color:red}</style></head><body><script>globalThis.a=1</script><script src=\"/app.js\"></script></body></html>";
         CspNonceUtf8Template template = Assert.IsType<CspNonceUtf8Template>(
-            CspNonceUtf8Template.Compile(html, "renderer:v2:frontend:v3:artifact-digest"));
+            CspNonceUtf8Template.Compile(Html, "renderer:v2:frontend:v3:artifact-digest"));
 
         Assert.Equal("renderer:v2:frontend:v3:artifact-digest", template.ArtifactIdentity);
         Assert.Equal(64, template.TemplateDigest.Length);

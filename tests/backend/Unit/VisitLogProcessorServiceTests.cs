@@ -1,17 +1,14 @@
 using System.Diagnostics;
 using System.Reflection;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Services.VisitLog;
-
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests;
 
 public sealed class VisitLogProcessorServiceTests
@@ -90,11 +87,11 @@ public sealed class VisitLogProcessorServiceTests
     [Fact]
     public void ContributionChannel_AcceptsConcurrentWritersBelowItsBoundedCapacity()
     {
-        const int contributionCount = 20_000;
+        const int ContributionCount = 20_000;
         var channel = new VisitLogChannel();
         int accepted = 0;
 
-        Parallel.For(0, contributionCount, _ =>
+        Parallel.For(0, ContributionCount, _ =>
         {
             if (channel.TryWrite(CreateMessage()))
             {
@@ -102,8 +99,8 @@ public sealed class VisitLogProcessorServiceTests
             }
         });
 
-        Assert.Equal(contributionCount, accepted);
-        Assert.Equal(contributionCount, channel.QueuedCount);
+        Assert.Equal(ContributionCount, accepted);
+        Assert.Equal(ContributionCount, channel.QueuedCount);
         Assert.Equal(0, channel.SaturatedWriteCount);
     }
 

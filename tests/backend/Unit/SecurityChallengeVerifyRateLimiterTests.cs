@@ -1,17 +1,16 @@
 using System.Net;
 using System.Reflection;
 
+using Microsoft.AspNetCore.Http;
+
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
-
-using Microsoft.AspNetCore.Http;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityChallengeVerifyRateLimiterTests
 {
-    private static readonly DateTimeOffset BaselineNow = new(2026, 6, 20, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_baselineNow = new(2026, 6, 20, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task TryAcquireAsync_UsesSharedUnifiedCacheWindowCounterWithoutRawIdentity()
@@ -24,18 +23,18 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
             [typeof(HttpContext), typeof(string), typeof(string), typeof(CancellationToken)])
             ?? throw new Xunit.Sdk.XunitException("TryAcquireAsync signature must match the endpoint contract.");
         var cache = new WindowCounterCache();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         object firstInstance = Activator.CreateInstance(limiterType, cache, new RiskControlContextFactory(), clock)
             ?? throw new Xunit.Sdk.XunitException("Unable to construct first limiter instance.");
         object secondInstance = Activator.CreateInstance(limiterType, cache, new RiskControlContextFactory(), clock)
             ?? throw new Xunit.Sdk.XunitException("Unable to construct second limiter instance.");
-        const string challengeId = "challenge-raw-secret-569";
-        const string action = "auth.login";
+        const string ChallengeId = "challenge-raw-secret-569";
+        const string Action = "auth.login";
 
-        Assert.True(await InvokeAsync(method, firstInstance, CreateContext(), challengeId, action));
-        Assert.True(await InvokeAsync(method, firstInstance, CreateContext(), challengeId, action));
-        Assert.True(await InvokeAsync(method, secondInstance, CreateContext(), challengeId, action));
-        Assert.False(await InvokeAsync(method, secondInstance, CreateContext(), challengeId, action));
+        Assert.True(await InvokeAsync(method, firstInstance, CreateContext(), ChallengeId, Action));
+        Assert.True(await InvokeAsync(method, firstInstance, CreateContext(), ChallengeId, Action));
+        Assert.True(await InvokeAsync(method, secondInstance, CreateContext(), ChallengeId, Action));
+        Assert.False(await InvokeAsync(method, secondInstance, CreateContext(), ChallengeId, Action));
 
         Assert.Equal(4, cache.Calls.Count);
         Assert.All(cache.Calls, call =>
@@ -45,7 +44,7 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
             Assert.StartsWith("verify:", call.Identity, StringComparison.Ordinal);
             Assert.DoesNotContain("198.51.100.17", call.Identity, StringComparison.Ordinal);
             Assert.DoesNotContain("device-raw-secret-569", call.Identity, StringComparison.Ordinal);
-            Assert.DoesNotContain(challengeId, call.Identity, StringComparison.Ordinal);
+            Assert.DoesNotContain(ChallengeId, call.Identity, StringComparison.Ordinal);
         });
         Assert.Single(cache.Identities);
     }
@@ -61,7 +60,7 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
             [typeof(HttpContext), typeof(string), typeof(string), typeof(CancellationToken)])
             ?? throw new Xunit.Sdk.XunitException("TryAcquireAsync signature must match the endpoint contract.");
         var cache = new WindowCounterCache();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         object limiter = Activator.CreateInstance(limiterType, cache, new RiskControlContextFactory(), clock)
             ?? throw new Xunit.Sdk.XunitException("Unable to construct limiter instance.");
 
@@ -69,7 +68,7 @@ public sealed class SecurityChallengeVerifyRateLimiterTests
         Assert.True(await InvokeAsync(method, limiter, CreateContext(), "challenge-1", "public.read"));
         Assert.True(await InvokeAsync(method, limiter, CreateContext(), "challenge-1", "public.read"));
         Assert.False(await InvokeAsync(method, limiter, CreateContext(), "challenge-1", "public.read"));
-        clock.UtcNow = BaselineNow.AddMinutes(1);
+        clock.UtcNow = s_baselineNow.AddMinutes(1);
 
         Assert.False(await InvokeAsync(method, limiter, CreateContext(), "challenge-1", "public.read"));
         Assert.Single(cache.Identities);

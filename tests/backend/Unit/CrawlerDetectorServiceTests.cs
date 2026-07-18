@@ -1,10 +1,9 @@
 using System.Net;
 
-using FsusBlog.Server.Services.Security;
-
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Services.Security;
 namespace FsusBlog.Server.Tests;
 
 public sealed class CrawlerDetectorServiceTests

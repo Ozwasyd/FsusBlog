@@ -1,5 +1,10 @@
 using System.Collections.Concurrent;
 
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
@@ -11,14 +16,6 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Concurrency")]
@@ -32,20 +29,20 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
     [Fact]
     public async Task TryConsumeAsync_SameScopeRaceStopsAtPolicyLimitWithStableState()
     {
-        const int attempts = 12;
-        const int limit = 3;
+        const int Attempts = 12;
+        const int Limit = 3;
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
         {
             PostgresSqlSugarTestClient.InitTables(setupDb, typeof(CommentAnonymousNullifier));
         }
-        using var barrier = new Barrier(attempts);
+        using var barrier = new Barrier(Attempts);
 
-        NullifierReservationResult[] results = await Task.WhenAll(Enumerable.Range(0, attempts)
+        NullifierReservationResult[] results = await Task.WhenAll(Enumerable.Range(0, Attempts)
             .Select(index => StartBarrierTaskAsync(barrier, async () =>
             {
                 using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
-                var service = new CommentAnonymousNullifierService(db, BuildConfiguration(limit));
+                var service = new CommentAnonymousNullifierService(db, BuildConfiguration(Limit));
                 return await service.TryConsumeAsync(
                     NullifierHash,
                     "article:42",
@@ -61,14 +58,14 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             .Where(static item => item.result.Allowed)
             .Select(static item => item.commentId)];
 
-        Assert.Equal(limit, results.Count(static result => result.Allowed));
-        Assert.Equal(attempts - limit, rejected.Length);
+        Assert.Equal(Limit, results.Count(static result => result.Allowed));
+        Assert.Equal(Attempts - Limit, rejected.Length);
         Assert.All(rejected, result =>
         {
             Assert.Equal("scope_limit_exceeded", result.Status);
-            Assert.Equal(limit, result.CurrentUseCount);
+            Assert.Equal(Limit, result.CurrentUseCount);
         });
-        Assert.Equal(limit, row.UseCount);
+        Assert.Equal(Limit, row.UseCount);
         Assert.Contains(row.FirstCommentId!.Value, allowedCommentIds);
         Assert.Contains(row.LastCommentId!.Value, allowedCommentIds);
         Assert.False(row.Blocked);
@@ -77,8 +74,8 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
     [Fact]
     public async Task CreateStrongAnonymousCommentAsync_SameNullifierRaceCommitsOnlyAllowedComments()
     {
-        const int attempts = 8;
-        const int limit = 2;
+        const int Attempts = 8;
+        const int Limit = 2;
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
         {
@@ -86,15 +83,15 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             SeedArticle(setupDb, 42);
         }
         var invalidations = new RecordingCacheInvalidationDispatcher();
-        using var barrier = new Barrier(attempts);
+        using var barrier = new Barrier(Attempts);
 
-        bool[] results = await Task.WhenAll(Enumerable.Range(0, attempts)
+        bool[] results = await Task.WhenAll(Enumerable.Range(0, Attempts)
             .Select(index => StartBarrierTaskAsync(barrier, async () =>
             {
                 using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
                 byte[] ticket = CreateTicket(index);
                 var ticketService = new FixedTicketService(CreateTicketPayload());
-                var nullifierService = new CommentAnonymousNullifierService(db, BuildConfiguration(limit));
+                var nullifierService = new CommentAnonymousNullifierService(db, BuildConfiguration(Limit));
                 CommentService service = CreateCommentService(db, ticketService, nullifierService, invalidations);
                 return await service.CreateStrongAnonymousCommentAsync(
                     CreateCommentRequest(ticket, $"anonymous race {index}"),
@@ -107,20 +104,20 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
         CommentAnonymousNullifier nullifier = Assert.Single(assertDb.Queryable<CommentAnonymousNullifier>().ToList());
         List<CommentRegionCompliance> compliance = assertDb.Queryable<CommentRegionCompliance>().ToList();
 
-        Assert.Equal(limit, results.Count(static result => result));
-        Assert.Equal(attempts - limit, results.Count(static result => !result));
-        Assert.Equal(limit, comments.Count);
-        Assert.Equal(limit, compliance.Count);
+        Assert.Equal(Limit, results.Count(static result => result));
+        Assert.Equal(Attempts - Limit, results.Count(static result => !result));
+        Assert.Equal(Limit, comments.Count);
+        Assert.Equal(Limit, compliance.Count);
         Assert.All(comments, comment =>
         {
             Assert.Equal(NullifierHash, comment.AnonymousNullifierHash);
             Assert.Equal("article:42", comment.AnonymousScope);
             Assert.False(comment.IsDeleted);
         });
-        Assert.Equal(limit, nullifier.UseCount);
+        Assert.Equal(Limit, nullifier.UseCount);
         Assert.Contains(comments, comment => comment.Id == nullifier.FirstCommentId);
         Assert.Contains(comments, comment => comment.Id == nullifier.LastCommentId);
-        Assert.Equal(limit, invalidations.Scopes.Count);
+        Assert.Equal(Limit, invalidations.Scopes.Count);
     }
 
     [Fact]

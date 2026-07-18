@@ -1,16 +1,14 @@
 using System.Security.Claims;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Interfaces;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.DependencyInjection;
-
-using NSubstitute;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class BannedUserMiddlewareIdentityKindTests
@@ -151,7 +149,7 @@ public sealed class BannedUserMiddlewareIdentityKindTests
     [Fact]
     public async Task InvokeAsync_AnonymousAccountUsesAccountSubjectHashForAccountStateCache()
     {
-        const string accountSubjectHash = StableAccountSubjectHash;
+        const string AccountSubjectHash = StableAccountSubjectHash;
         bool nextCalled = false;
         var middleware = new BannedUserMiddleware(context =>
         {
@@ -165,8 +163,8 @@ public sealed class BannedUserMiddlewareIdentityKindTests
         var users = Substitute.For<IUserAccountReader>();
         users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(CreateActiveUser(42)));
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        var first = CreateContext("GET", CreateAnonymousAccount(42, accountSubjectHash));
-        var second = CreateContext("GET", CreateAnonymousAccount(84, accountSubjectHash));
+        var first = CreateContext("GET", CreateAnonymousAccount(42, AccountSubjectHash));
+        var second = CreateContext("GET", CreateAnonymousAccount(84, AccountSubjectHash));
 
         await middleware.InvokeAsync(first, blacklist, users, cache);
         await middleware.InvokeAsync(second, blacklist, users, cache);
@@ -183,7 +181,7 @@ public sealed class BannedUserMiddlewareIdentityKindTests
     [Fact]
     public async Task InvokeAsync_AnonymousAccountUsesAccountSubjectHashForBanLookup()
     {
-        const string accountSubjectHash = StableAccountSubjectHash;
+        const string AccountSubjectHash = StableAccountSubjectHash;
         bool nextCalled = false;
         var middleware = new BannedUserMiddleware(context =>
         {
@@ -192,18 +190,18 @@ public sealed class BannedUserMiddlewareIdentityKindTests
             return Task.CompletedTask;
         });
         var blacklist = Substitute.For<IBlacklistService>();
-        blacklist.GetBanStateAsync(42, accountSubjectHash)
+        blacklist.GetBanStateAsync(42, AccountSubjectHash)
             .Returns(Task.FromResult(new BanStateSnapshot(false, null, null)));
         var users = Substitute.For<IUserAccountReader>();
         users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(CreateActiveUser(42)));
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        var context = CreateContext("POST", CreateAnonymousAccount(42, accountSubjectHash));
+        var context = CreateContext("POST", CreateAnonymousAccount(42, AccountSubjectHash));
 
         await middleware.InvokeAsync(context, blacklist, users, cache);
 
         Assert.True(nextCalled);
         Assert.Equal(StatusCodes.Status204NoContent, context.Response.StatusCode);
-        await blacklist.Received(1).GetBanStateAsync(42, accountSubjectHash);
+        await blacklist.Received(1).GetBanStateAsync(42, AccountSubjectHash);
     }
 
     [Fact]

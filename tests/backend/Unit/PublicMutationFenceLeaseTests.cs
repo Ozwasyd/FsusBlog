@@ -1,12 +1,10 @@
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-
 using NSubstitute;
 
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 namespace FsusBlog.Server.Tests;
 
 [Trait("Dependency", "Docker")]

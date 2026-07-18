@@ -1,14 +1,6 @@
 using System.Net;
 using System.Text.Json.Nodes;
 
-using FsusBlog.Core.Common;
-using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Filters;
-using FsusBlog.Server.Infrastructure.Policies;
-using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
-using FsusBlog.Shared.Contracts.Validation;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -17,7 +9,13 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 
 using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
-
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Validation;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "ApiIntegration")]

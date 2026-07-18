@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
 
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
@@ -9,16 +12,11 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
-
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleEndpointServiceTests
 {
-    private static readonly TimeSpan ConcurrentColdFrameWaitTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan s_concurrentColdFrameWaitTimeout = TimeSpan.FromSeconds(30);
 
     [Fact]
     public async Task GetPublicArtifactBackedDetailAsync_Hit_ReturnsFrameWithoutCoreQuery()
@@ -149,9 +147,9 @@ public sealed class ArticleEndpointServiceTests
     [Fact]
     public async Task GetPageListAsync_ConcurrentColdFrameMiss_CoalescesCoreLoadAndCacheSet()
     {
-        const int callers = 16;
+        const int Callers = 16;
         var core = Substitute.For<IArticleCoreService>();
-        var cache = new CoordinatedArticleFrameCache(callers);
+        var cache = new CoordinatedArticleFrameCache(Callers);
         var service = Create(
             core,
             cache: cache,
@@ -184,7 +182,7 @@ public sealed class ArticleEndpointServiceTests
                 return Result<CorePageResult<ArticleListCoreModel>>.Success(page);
             });
 
-        Task<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>>[] tasks = Enumerable.Range(0, callers)
+        Task<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>>[] tasks = Enumerable.Range(0, Callers)
             .Select(_ => service.GetPageListAsync(
                 1,
                 10,
@@ -196,10 +194,10 @@ public sealed class ArticleEndpointServiceTests
                 canReadPrivate: true))
             .ToArray();
 
-        await cache.InitialColdReadsCompleted.WaitAsync(ConcurrentColdFrameWaitTimeout);
-        await firstCoreLoadStarted.Task.WaitAsync(ConcurrentColdFrameWaitTimeout);
+        await cache.InitialColdReadsCompleted.WaitAsync(s_concurrentColdFrameWaitTimeout);
+        await firstCoreLoadStarted.Task.WaitAsync(s_concurrentColdFrameWaitTimeout);
         releaseCore.SetResult(true);
-        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>[] results = await Task.WhenAll(tasks).WaitAsync(ConcurrentColdFrameWaitTimeout);
+        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>[] results = await Task.WhenAll(tasks).WaitAsync(s_concurrentColdFrameWaitTimeout);
 
         Assert.All(results, result => Assert.True(result.HasCachedFrame));
         Assert.Equal(1, Volatile.Read(ref coreLoads));

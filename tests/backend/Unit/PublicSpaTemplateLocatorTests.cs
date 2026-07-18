@@ -1,9 +1,8 @@
-using FsusBlog.Server.Infrastructure.PublicAot;
-
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 
+using FsusBlog.Server.Infrastructure.PublicAot;
 namespace FsusBlog.Server.Tests;
 
 [Collection(PublicSpaTemplateLocatorTestCollection.Name)]

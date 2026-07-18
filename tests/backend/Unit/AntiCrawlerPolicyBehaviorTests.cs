@@ -1,12 +1,11 @@
 using System.Text.Json;
 
+using Microsoft.Extensions.Configuration;
+
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
-
-using Microsoft.Extensions.Configuration;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AntiCrawlerPolicyBehaviorTests
@@ -46,7 +45,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
 
         Assert.Throws<ArgumentException>(() =>
-            service.UpdateAntiCrawlerOptions(CreateUpdate(GoogleUrl: configured), "test"));
+            service.UpdateAntiCrawlerOptions(CreateUpdate(googleUrl: configured), "test"));
     }
 
     [Theory]
@@ -58,7 +57,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
 
         Assert.Throws<ArgumentException>(() =>
-            service.UpdateAntiCrawlerOptions(CreateUpdate(SnapshotPath: configured), "test"));
+            service.UpdateAntiCrawlerOptions(CreateUpdate(snapshotPath: configured), "test"));
     }
 
     [Fact]
@@ -68,9 +67,9 @@ public sealed class AntiCrawlerPolicyBehaviorTests
 
         AntiCrawlerPolicySnapshot snapshot = service.UpdateAntiCrawlerOptions(
             CreateUpdate(
-                GoogleUrl: "https://developers.google.com/static/search/apis/ipranges/googlebot.json",
-                BingUrl: "https://www.bing.com/toolbox/bingbot.json",
-                SnapshotPath: "crawler/last-known-good.json"),
+                googleUrl: "https://developers.google.com/static/search/apis/ipranges/googlebot.json",
+                bingUrl: "https://www.bing.com/toolbox/bingbot.json",
+                snapshotPath: "crawler/last-known-good.json"),
             "test");
 
         Assert.Equal("https://developers.google.com/static/search/apis/ipranges/googlebot.json", snapshot.Options.GoogleCrawlerRangesUrl);
@@ -104,9 +103,9 @@ public sealed class AntiCrawlerPolicyBehaviorTests
     }
 
     private static AntiCrawlerOptionsUpdateRequest CreateUpdate(
-        string? GoogleUrl = null,
-        string? BingUrl = null,
-        string? SnapshotPath = null)
+        string? googleUrl = null,
+        string? bingUrl = null,
+        string? snapshotPath = null)
         => new(
             Mode: null,
             PublicReadChallengeEnabled: null,
@@ -133,9 +132,9 @@ public sealed class AntiCrawlerPolicyBehaviorTests
             CidrUpdateIntervalMinutes: null,
             CidrInitialDelaySeconds: null,
             CidrMinUpdateIntervalMinutes: null,
-            GoogleCrawlerRangesUrl: GoogleUrl,
-            BingCrawlerRangesUrl: BingUrl,
-            SnapshotPath: SnapshotPath,
+            GoogleCrawlerRangesUrl: googleUrl,
+            BingCrawlerRangesUrl: bingUrl,
+            SnapshotPath: snapshotPath,
             SocialPreviewAllowedPathPrefixes: null,
             BlockedUserAgentKeywords: null,
             Reason: "test");

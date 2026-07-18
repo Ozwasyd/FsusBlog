@@ -1,8 +1,7 @@
-using FsusBlog.Server.Infrastructure.Middlewares;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Infrastructure.Middlewares;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AnonymousGatewayHeaderGuardMiddlewareTests

@@ -2,16 +2,14 @@ using System.Linq.Expressions;
 using System.Security.Cryptography;
 using System.Text;
 
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public class BlacklistServiceTests
@@ -159,12 +157,12 @@ public class BlacklistServiceTests
     [Fact]
     public async Task GetBanStateAsync_ClaimSubjectMismatchWithPhysicalProjectionFailsClosed()
     {
-        const string physicalSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-        const string claimSubjectHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        const string PhysicalSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        const string ClaimSubjectHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
         var cache = Substitute.For<IUnifiedCache>();
         cache.GetStringAsync(
                 CachePolicyId.SecurityBlacklistUser,
-                "account:" + claimSubjectHash,
+                "account:" + ClaimSubjectHash,
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<string?>(null));
         var db = Substitute.For<ISqlSugarClient>();
@@ -172,7 +170,7 @@ public class BlacklistServiceTests
         queryable.InSingleAsync(42).Returns(Task.FromResult(new User
         {
             Id = 42,
-            AccountSubjectHash = physicalSubjectHash,
+            AccountSubjectHash = PhysicalSubjectHash,
             Status = 0,
             RowVersion = "10"
         }));
@@ -180,7 +178,7 @@ public class BlacklistServiceTests
         var service = new BlacklistService(cache, db);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.GetBanStateAsync(42, claimSubjectHash));
+            () => service.GetBanStateAsync(42, ClaimSubjectHash));
 
         await cache.DidNotReceive().TrySetVersionedStringAsync(
             CachePolicyId.SecurityBlacklistUser,

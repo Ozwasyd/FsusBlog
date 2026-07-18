@@ -1,22 +1,20 @@
 using System.IO.Compression;
 using System.Reflection;
 
-using FsusBlog.Server.Infrastructure.Audit;
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Services.Background;
-using FsusBlog.Server.Tests.TestInfrastructure;
-
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-
 using SqlSugar;
 
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Tests.TestInfrastructure;
 namespace FsusBlog.Server.Tests;
 
 public sealed class ServiceCollectionExtensionsTests

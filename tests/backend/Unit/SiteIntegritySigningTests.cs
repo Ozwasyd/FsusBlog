@@ -1,7 +1,6 @@
-using FsusBlog.Server.Infrastructure.Integrity;
-
 using Microsoft.Extensions.Configuration;
 
+using FsusBlog.Server.Infrastructure.Integrity;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SiteIntegritySigningTests

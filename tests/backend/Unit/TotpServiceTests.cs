@@ -3,10 +3,9 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 
-using FsusBlog.Server.Services.Security;
-
 using Microsoft.AspNetCore.DataProtection;
 
+using FsusBlog.Server.Services.Security;
 namespace FsusBlog.Server.Tests.Unit;
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -121,9 +120,9 @@ public class TotpServiceTests
     public void BuildOtpAuthUri_ContainsIssuer()
     {
         var svc = MakeService();
-        const string issuer = "MyBlog";
-        var uri = svc.BuildOtpAuthUri(issuer, "user", "SECRET");
-        Assert.Contains($"issuer={issuer}", uri);
+        const string Issuer = "MyBlog";
+        var uri = svc.BuildOtpAuthUri(Issuer, "user", "SECRET");
+        Assert.Contains($"issuer={Issuer}", uri);
     }
 
     [Fact]
@@ -305,13 +304,13 @@ public class TotpServiceTests
     public void TotpService_SourceUsesInvariantCultureForOtpFormatting()
     {
         byte[] secret = Encoding.ASCII.GetBytes("12345678901234567890");
-        const long timestep = 59 / 30;
+        const long Timestep = 59 / 30;
         string invariant = RunWithCulture(
             CultureInfo.InvariantCulture,
-            () => InvokeComputeTotp(secret, timestep));
+            () => InvokeComputeTotp(secret, Timestep));
         string arabic = RunWithCulture(
             CultureInfo.GetCultureInfo("ar-SA"),
-            () => InvokeComputeTotp(secret, timestep));
+            () => InvokeComputeTotp(secret, Timestep));
 
         Assert.Equal(invariant, arabic);
         Assert.Matches("^[0-9]{6}$", arabic);
@@ -607,19 +606,19 @@ public class TotpServiceTests
     public void ProtectSecret_DoesNotReturnPlaintext()
     {
         var svc = MakeService();
-        const string plain = "mysecret";
-        var protected_ = svc.ProtectSecret(plain);
-        Assert.NotEqual(plain, protected_);
+        const string Plain = "mysecret";
+        var protected_ = svc.ProtectSecret(Plain);
+        Assert.NotEqual(Plain, protected_);
     }
 
     [Fact]
     public void UnprotectSecret_RoundTrip()
     {
         var svc = MakeService();
-        const string plain = "mysecretvalue";
-        var protected_ = svc.ProtectSecret(plain);
+        const string Plain = "mysecretvalue";
+        var protected_ = svc.ProtectSecret(Plain);
         var unprotected = svc.UnprotectSecret(protected_);
-        Assert.Equal(plain, unprotected);
+        Assert.Equal(Plain, unprotected);
     }
 
     [Fact]

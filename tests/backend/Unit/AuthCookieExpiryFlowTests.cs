@@ -9,6 +9,17 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using NSubstitute;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Codecs;
@@ -29,19 +40,6 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
-
-using NSubstitute;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [CollectionDefinition(nameof(AuthCookieExpiryFlowCollection))]
@@ -51,9 +49,9 @@ public sealed class AuthCookieExpiryFlowCollection
 [Collection(nameof(AuthCookieExpiryFlowCollection))]
 public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCookieExpiryFixture fixture)
 {
-    private static readonly DateTimeOffset UserAccessTokenExpiresAtUtc =
+    private static readonly DateTimeOffset s_userAccessTokenExpiresAtUtc =
         DateTimeOffset.FromUnixTimeSeconds(1_956_528_000);
-    private static readonly DateTimeOffset AdminAccessTokenExpiresAtUtc =
+    private static readonly DateTimeOffset s_adminAccessTokenExpiresAtUtc =
         DateTimeOffset.FromUnixTimeSeconds(1_956_531_600);
 
     [Theory]
@@ -74,8 +72,8 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             response.StatusCode);
         Assert.Equal(
             flow is AuthExpiryFlow.AdminBootstrap or AuthExpiryFlow.AdminLogin
-                ? AdminAccessTokenExpiresAtUtc
-                : UserAccessTokenExpiresAtUtc,
+                ? s_adminAccessTokenExpiresAtUtc
+                : s_userAccessTokenExpiresAtUtc,
             ReadCookieExpiry(
                 response,
                 flow is AuthExpiryFlow.AdminBootstrap or AuthExpiryFlow.AdminLogin
@@ -84,7 +82,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
         if (flow == AuthExpiryFlow.LocalAuthFixture)
         {
-            Assert.Equal(AdminAccessTokenExpiresAtUtc, ReadCookieExpiry(response, "AdminAccessToken"));
+            Assert.Equal(s_adminAccessTokenExpiresAtUtc, ReadCookieExpiry(response, "AdminAccessToken"));
         }
     }
 
@@ -316,12 +314,12 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             string adminStorageStatePath = Path.Combine(fixtureDirectory, "admin.storage-state.json");
             WriteStorageState(
                 userStorageStatePath,
-                ("AccessToken", "fixture-user-access", UserAccessTokenExpiresAtUtc),
+                ("AccessToken", "fixture-user-access", s_userAccessTokenExpiresAtUtc),
                 ("RefreshToken", "fixture-user-refresh", null),
                 ("SessionId", "fixture-user-session", null));
             WriteStorageState(
                 adminStorageStatePath,
-                ("AdminAccessToken", "fixture-admin-access", AdminAccessTokenExpiresAtUtc),
+                ("AdminAccessToken", "fixture-admin-access", s_adminAccessTokenExpiresAtUtc),
                 ("AdminSessionId", "fixture-admin-session", null));
 
             LocalAuthFixtureRefreshResult fixtureResult = configuredFixtureResult.Success
@@ -418,10 +416,10 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                     .ToString(CultureInfo.InvariantCulture);
                 var sessionTokens = new SessionTokenResponseDto(
                     $"issued-user-access-{testId}",
-                    UserAccessTokenExpiresAtUtc,
+                    s_userAccessTokenExpiresAtUtc,
                     $"issued-user-refresh-{testId}",
                     $"issued-user-session-{testId}",
-                    DateTime.SpecifyKind(UserAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7), DateTimeKind.Utc));
+                    DateTime.SpecifyKind(s_userAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7), DateTimeKind.Utc));
                 loginWorkflow.CompleteLoginAsync(
                         Arg.Any<int>(),
                         Arg.Any<string>(),
@@ -439,15 +437,15 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                 var refreshTokens = new TokenResponseDto(
                     $"rotated-user-access-{testId}",
                     $"rotated-user-refresh-{testId}",
-                    UserAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7),
+                    s_userAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7),
                     $"rotated-user-session-{testId}",
-                    UserAccessTokenExpiresAtUtc);
+                    s_userAccessTokenExpiresAtUtc);
                 sessions.RefreshTokenWithExpiryAsync(
                         "old-refresh",
                         "old-session",
                         Arg.Any<CancellationToken>())
                     .Returns(Task.FromResult<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)>(
-                        (true, refreshTokens, UserAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7))));
+                        (true, refreshTokens, s_userAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7))));
                 sessions.VerifyRefreshRotationAsync(
                         Arg.Any<string>(),
                         Arg.Any<string>(),
@@ -456,9 +454,9 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
                 var adminTokens = new AdminSessionTokens(
                     $"issued-admin-access-{testId}",
-                    AdminAccessTokenExpiresAtUtc,
+                    s_adminAccessTokenExpiresAtUtc,
                     $"issued-admin-session-{testId}",
-                    AdminAccessTokenExpiresAtUtc.UtcDateTime.AddHours(8));
+                    s_adminAccessTokenExpiresAtUtc.UtcDateTime.AddHours(8));
                 adminPrincipals.CompleteBootstrapPasskeyRegistrationAsync(
                         Arg.Any<string?>(),
                         Arg.Any<PasskeyRegisterCompleteCoreModel>(),
@@ -599,9 +597,9 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
         public Task<HttpResponseMessage> SendLocalFixtureAsync()
         {
-            const string route = "/api/local/auth-fixture/admin";
-            _ = EndpointContractApplication.Find(_app, route, HttpMethods.Get);
-            var request = new HttpRequestMessage(HttpMethod.Get, route);
+            const string Route = "/api/local/auth-fixture/admin";
+            _ = EndpointContractApplication.Find(_app, Route, HttpMethods.Get);
+            var request = new HttpRequestMessage(HttpMethod.Get, Route);
             request.Headers.Add("X-Fsus-Local-Auth-Fixture-Secret", FixtureSecret);
             return _client.SendAsync(request);
         }
@@ -646,9 +644,9 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
         private Task<HttpResponseMessage> SendRefreshAsync()
         {
-            const string route = "/api/binary/auth/refresh-token";
-            _ = EndpointContractApplication.Find(_app, route, HttpMethods.Post);
-            var request = new HttpRequestMessage(HttpMethod.Post, route);
+            const string Route = "/api/binary/auth/refresh-token";
+            _ = EndpointContractApplication.Find(_app, Route, HttpMethods.Post);
+            var request = new HttpRequestMessage(HttpMethod.Post, Route);
             request.Headers.Add("Cookie", "RefreshToken=old-refresh; SessionId=old-session");
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
             return _client.SendAsync(request);

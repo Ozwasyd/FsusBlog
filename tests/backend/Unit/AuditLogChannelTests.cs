@@ -1,11 +1,10 @@
 using System.Threading.Channels;
 
-using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Audit;
-
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 namespace FsusBlog.Server.Tests;
 
 public sealed class AuditLogChannelTests

@@ -1,13 +1,12 @@
 using System.Reflection;
 
+using NSubstitute;
+
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using NSubstitute;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicAotBootstrapProviderTests

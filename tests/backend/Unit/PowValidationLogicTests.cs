@@ -5,6 +5,13 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Security;
@@ -13,14 +20,6 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PowValidationLogicTests
@@ -67,10 +66,10 @@ public sealed class PowValidationLogicTests
     [Fact]
     public async Task ValidateAsync_AcceptsProofBoundToNormalizedClientIp()
     {
-        const string clientIp = "203.0.113.10";
+        const string ClientIp = "203.0.113.10";
         var fixture = CreateFixture();
-        var proof = await CreateEncodedProofAsync(fixture.Service, clientIp);
-        var context = CreatePowContext(clientIp, proof);
+        var proof = await CreateEncodedProofAsync(fixture.Service, ClientIp);
+        var context = CreatePowContext(ClientIp, proof);
 
         IActionResult? result = await PowValidationLogic.ValidateAsync(
             context,
@@ -84,10 +83,10 @@ public sealed class PowValidationLogicTests
     [Fact]
     public async Task ValidateAsync_NormalizesInternalPowExceptionsToUnauthorized()
     {
-        const string clientIp = "203.0.113.10";
+        const string ClientIp = "203.0.113.10";
         var fixture = CreateFixture();
-        string proof = await CreateEncodedProofAsync(fixture.Service, clientIp);
-        var context = CreatePowContext(clientIp, proof);
+        string proof = await CreateEncodedProofAsync(fixture.Service, ClientIp);
+        var context = CreatePowContext(ClientIp, proof);
 
         IActionResult? result = await PowValidationLogic.ValidateAsync(
             context,
@@ -101,10 +100,10 @@ public sealed class PowValidationLogicTests
     [Fact]
     public async Task ValidateAsync_InternalPowExceptionLog_UsesIpHashAndOmitsRawClientIp()
     {
-        const string clientIp = "203.0.113.10";
+        const string ClientIp = "203.0.113.10";
         var fixture = CreateFixture();
-        string proof = await CreateEncodedProofAsync(fixture.Service, clientIp);
-        var context = CreatePowContext(clientIp, proof, new Dictionary<string, string?>
+        string proof = await CreateEncodedProofAsync(fixture.Service, ClientIp);
+        var context = CreatePowContext(ClientIp, proof, new Dictionary<string, string?>
         {
             [VisitLogIpPseudonymizer.CurrentEpochKey] = "4",
             [VisitLogIpPseudonymizer.CurrentKeyKey] = VisitLogIpKey
@@ -119,18 +118,18 @@ public sealed class PowValidationLogicTests
 
         Assert.IsType<UnauthorizedObjectResult>(result);
         string rendered = Assert.Single(logger.Messages);
-        Assert.DoesNotContain(clientIp, rendered, StringComparison.Ordinal);
-        Assert.Contains(ExpectedIpHash(clientIp), rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain(ClientIp, rendered, StringComparison.Ordinal);
+        Assert.Contains(ExpectedIpHash(ClientIp), rendered, StringComparison.Ordinal);
         Assert.Contains("ClientIpHash", rendered, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task ValidateAsync_AccessDeniedLog_UsesIpHashAndOmitsRawClientIp()
     {
-        const string clientIp = "203.0.113.10";
+        const string ClientIp = "203.0.113.10";
         var fixture = CreateFixture();
-        string proof = await CreateEncodedProofAsync(fixture.Service, clientIp);
-        var context = CreatePowContext(clientIp, proof, new Dictionary<string, string?>
+        string proof = await CreateEncodedProofAsync(fixture.Service, ClientIp);
+        var context = CreatePowContext(ClientIp, proof, new Dictionary<string, string?>
         {
             [VisitLogIpPseudonymizer.CurrentEpochKey] = "4",
             [VisitLogIpPseudonymizer.CurrentKeyKey] = VisitLogIpKey
@@ -145,8 +144,8 @@ public sealed class PowValidationLogicTests
 
         Assert.IsType<UnauthorizedObjectResult>(result);
         string rendered = Assert.Single(logger.Messages);
-        Assert.DoesNotContain(clientIp, rendered, StringComparison.Ordinal);
-        Assert.Contains(ExpectedIpHash(clientIp), rendered, StringComparison.Ordinal);
+        Assert.DoesNotContain(ClientIp, rendered, StringComparison.Ordinal);
+        Assert.Contains(ExpectedIpHash(ClientIp), rendered, StringComparison.Ordinal);
         Assert.Contains("ClientIpHash", rendered, StringComparison.Ordinal);
     }
 
@@ -165,7 +164,7 @@ public sealed class PowValidationLogicTests
             || string.Equals(parameter.Name, "ip", StringComparison.OrdinalIgnoreCase));
 
         Assert.Equal("VisitLog:IpPseudonymization", VisitLogIpPseudonymizer.SectionName);
-        const string ip = "203.0.113.44";
+        const string Ip = "203.0.113.44";
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -174,9 +173,9 @@ public sealed class PowValidationLogicTests
             })
             .Build();
         string ipHash = new VisitLogIpPseudonymizer(configuration, false, TimeProvider.System)
-            .PseudonymizeCurrent(VisitLogIpPseudonymScope.SecurityLog, ip, DateTimeOffset.UtcNow).Hash;
+            .PseudonymizeCurrent(VisitLogIpPseudonymScope.SecurityLog, Ip, DateTimeOffset.UtcNow).Hash;
         Assert.Matches("^[0-9a-f]{32}$", ipHash);
-        Assert.DoesNotContain(ip, ipHash, StringComparison.Ordinal);
+        Assert.DoesNotContain(Ip, ipHash, StringComparison.Ordinal);
 
         MethodInfo crawlerHasher = typeof(CrawlerDetectorService).GetMethod(
             "ResolveClientIpHashForLog",
@@ -185,7 +184,7 @@ public sealed class PowValidationLogicTests
             types: [typeof(string), typeof(IConfiguration)],
             modifiers: null)
             ?? throw new InvalidOperationException("Crawler client identity hasher was not found.");
-        Assert.Equal(ipHash, crawlerHasher.Invoke(null, [ip, configuration]));
+        Assert.Equal(ipHash, crawlerHasher.Invoke(null, [Ip, configuration]));
 
         MethodInfo userLoginFailure = typeof(UserService).GetMethod(
             "LogLoginFailure",
@@ -211,9 +210,9 @@ public sealed class PowValidationLogicTests
 
     private static async Task<string> CreateEncodedProofAsync(RedisPowService service, string clientIp)
     {
-        const string browserFingerprint = "unit-browser";
+        const string BrowserFingerprint = "unit-browser";
         var challenge = await service.GenerateChallengeAsync(clientIp);
-        string nonce = SolveNonce(challenge.Salt, browserFingerprint, challenge.Difficulty);
+        string nonce = SolveNonce(challenge.Salt, BrowserFingerprint, challenge.Difficulty);
         var request = new VirtualPowRequest
         {
             PowSalt = challenge.Salt,
@@ -221,7 +220,7 @@ public sealed class PowValidationLogicTests
             Difficulty = challenge.Difficulty,
             PowTimestamp = challenge.Timestamp,
             PowSignature = challenge.Signature,
-            BrowserFp = browserFingerprint
+            BrowserFp = BrowserFingerprint
         };
 
         return EncodeBinaryProof(request);

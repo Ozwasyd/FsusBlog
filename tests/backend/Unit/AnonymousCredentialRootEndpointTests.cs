@@ -1,6 +1,15 @@
 using System.Net;
 using System.Security.Claims;
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using SqlSugar;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -18,22 +27,11 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Validation;
-
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AnonymousCredentialRootEndpointTests
 {
-    private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-18T08:00:00Z");
+    private static readonly DateTimeOffset s_baselineNow = DateTimeOffset.Parse("2026-06-18T08:00:00Z");
 
     [Fact]
     public void Migration_CreatesAnonymousCredentialRootPublicMetadataTable()
@@ -93,7 +91,7 @@ public sealed class AnonymousCredentialRootEndpointTests
     [Fact]
     public async Task RootService_CachesImmutableSnapshotUntilExplicitInvalidation()
     {
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var store = new CountingRootStore(
             CreateRecord(epoch: 100, credentialRoot: [1, 2]),
             CreateRecord(epoch: 101, credentialRoot: [3, 4]));
@@ -112,7 +110,7 @@ public sealed class AnonymousCredentialRootEndpointTests
         Assert.Equal(100, first.Value.CredentialEpoch);
         Assert.Equal(100, cached.Value.CredentialEpoch);
         Assert.Equal(101, refreshed.Value.CredentialEpoch);
-        Assert.Equal(BaselineNow.AddMinutes(90).ToUnixTimeMilliseconds(), first.Value.RootGraceExpiresAtUnixMs);
+        Assert.Equal(s_baselineNow.AddMinutes(90).ToUnixTimeMilliseconds(), first.Value.RootGraceExpiresAtUnixMs);
         Assert.True(first.Value.ZkAnonymousEnabled);
         Assert.True(first.Value.VerifierConfigured);
         Assert.Equal([1, 2], first.Value.CredentialRoot);
@@ -122,7 +120,7 @@ public sealed class AnonymousCredentialRootEndpointTests
     [Fact]
     public async Task RootService_NegativeCachesUnavailableRootForShortTtl()
     {
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var store = new CountingRootStore(null, CreateRecord(epoch: 102, credentialRoot: [9]));
         IAnonymousCredentialRootService service = CreateRootService(store, clock, zkEnabled: true, verifierConfigured: true);
 
@@ -266,17 +264,17 @@ public sealed class AnonymousCredentialRootEndpointTests
             VerifyingKeyHash: "vk-sha256",
             IssuerPublicKeyHash: new string('f', 64),
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
-            CreatedAtUtc: BaselineNow.UtcDateTime,
-            ExpiresAtUtc: BaselineNow.AddMinutes(60).UtcDateTime,
-            GraceExpiresAtUtc: BaselineNow.AddMinutes(90).UtcDateTime,
+            CreatedAtUtc: s_baselineNow.UtcDateTime,
+            ExpiresAtUtc: s_baselineNow.AddMinutes(60).UtcDateTime,
+            GraceExpiresAtUtc: s_baselineNow.AddMinutes(90).UtcDateTime,
             Status: AnonymousCredentialRootStatuses.Active,
             CircuitMetadata: [13, 14]);
 
     private static AnonymousCredentialRootSnapshotCoreModel CreateSnapshot()
         => new(
             CredentialEpoch: 2048,
-            RootExpiresAtUnixMs: BaselineNow.AddMinutes(60).ToUnixTimeMilliseconds(),
-            RootGraceExpiresAtUnixMs: BaselineNow.AddMinutes(90).ToUnixTimeMilliseconds(),
+            RootExpiresAtUnixMs: s_baselineNow.AddMinutes(60).ToUnixTimeMilliseconds(),
+            RootGraceExpiresAtUnixMs: s_baselineNow.AddMinutes(90).ToUnixTimeMilliseconds(),
             CircuitNumericId: 7,
             PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
             ZkAnonymousEnabled: true,

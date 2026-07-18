@@ -2,6 +2,12 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Reflection;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -10,18 +16,11 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PerceptionChallengeProviderTests
 {
-    private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-19T08:00:00Z");
+    private static readonly DateTimeOffset s_baselineNow = DateTimeOffset.Parse("2026-06-19T08:00:00Z");
     private const string HashA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string HashB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
@@ -44,7 +43,7 @@ public sealed class PerceptionChallengeProviderTests
     {
         var services = new ServiceCollection();
         IConfiguration configuration = CreateConfiguration();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         IPerceptionChallengeV2IssueService issueService = CreateIssueService(
             configuration,
             clock,
@@ -115,7 +114,7 @@ public sealed class PerceptionChallengeProviderTests
     public async Task TextTask_VerifyAsync_DelegatesToUnifiedVerifyServiceAndMasksFailureReason()
     {
         IConfiguration configuration = CreateConfiguration();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         IPerceptionChallengeV2IssueService issueService = CreateIssueService(
             configuration,
             clock,
@@ -236,7 +235,7 @@ public sealed class PerceptionChallengeProviderTests
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();
         var gate = new RecordingPerceptionRedisGate();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         IConfiguration configuration = CreateConfiguration();
         IPerceptionChallengeV2IssueService issueService = CreateIssueService(configuration, clock, out IPerceptionChallengeV2TokenProtector tokenProtector);
         var queue = new ChallengeV2AuditEventQueue(
@@ -475,7 +474,7 @@ public sealed class PerceptionChallengeProviderTests
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();
         var gate = new RecordingPerceptionRedisGate();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         IConfiguration configuration = CreateConfiguration();
         IPerceptionChallengeV2IssueService issueService = CreateIssueService(configuration, clock, out IPerceptionChallengeV2TokenProtector tokenProtector);
         var verifyService = new PerceptionChallengeV2VerifyService(
@@ -493,7 +492,7 @@ public sealed class PerceptionChallengeProviderTests
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();
         var gate = new RecordingPerceptionRedisGate();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         IConfiguration configuration = CreateConfiguration();
         IPerceptionChallengeV2IssueService issueService = CreateIssueService(configuration, clock, out IPerceptionChallengeV2TokenProtector tokenProtector);
         var verifyService = new PerceptionChallengeV2VerifyService(
@@ -511,7 +510,7 @@ public sealed class PerceptionChallengeProviderTests
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();
         var gate = new RecordingPerceptionRedisGate();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         IConfiguration configuration = CreateConfiguration(enabled);
         IPerceptionChallengeV2IssueService issueService = CreateIssueService(configuration, clock, out IPerceptionChallengeV2TokenProtector tokenProtector);
         var verifyService = new PerceptionChallengeV2VerifyService(
@@ -553,7 +552,7 @@ public sealed class PerceptionChallengeProviderTests
 
         try
         {
-            return method.Invoke(null, [configuration, new MutableTimeProvider(BaselineNow)])!;
+            return method.Invoke(null, [configuration, new MutableTimeProvider(s_baselineNow)])!;
         }
         catch (TargetInvocationException exception) when (exception.InnerException is not null)
         {
@@ -821,7 +820,7 @@ public sealed class PerceptionChallengeProviderTests
         {
             get; init;
         } =
-            PerceptionChallengeV2VerifyResult.Success(BaselineNow.AddMinutes(5));
+            PerceptionChallengeV2VerifyResult.Success(s_baselineNow.AddMinutes(5));
 
         public Task<PerceptionChallengeV2VerifyResult> VerifyAsync(
             PerceptionChallengeV2VerifyRequest request,

@@ -5,11 +5,6 @@ using System.Diagnostics.Metrics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
-using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
-using FsusBlog.Server.Tests.Unit;
-
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -17,6 +12,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 namespace FsusBlog.Server.Tests;
 
 public sealed class ObservabilityTests
@@ -52,20 +51,20 @@ public sealed class ObservabilityTests
     [Fact]
     public void CacheMetrics_PrecacheTagsAndStripeL1HitsWhileKeepingMissesExact()
     {
-        const string policy = "ArticleHotFrame";
+        const string Policy = "ArticleHotFrame";
         long hitBefore = FsusObservability.GetCacheOperationCounters()
-            .Where(counter => counter.Operation == "get_raw_readonly" && counter.Policy == policy && counter.Layer == "l1" && counter.Result == "hit")
+            .Where(counter => counter.Operation == "get_raw_readonly" && counter.Policy == Policy && counter.Layer == "l1" && counter.Result == "hit")
             .Sum(static counter => counter.Count);
         long missBefore = FsusObservability.GetCacheOperationCounters()
-            .Where(counter => counter.Operation == "get_raw_readonly" && counter.Policy == policy && counter.Layer == "l2" && counter.Result == "miss")
+            .Where(counter => counter.Operation == "get_raw_readonly" && counter.Policy == Policy && counter.Layer == "l2" && counter.Result == "miss")
             .Sum(static counter => counter.Count);
 
-        Parallel.For(0, 1024, _ => FsusObservability.RecordCacheOperation("get_raw_readonly", policy, "l1", "hit", TimeSpan.Zero));
-        FsusObservability.RecordCacheOperation("get_raw_readonly", policy, "l2", "miss", TimeSpan.Zero);
+        Parallel.For(0, 1024, _ => FsusObservability.RecordCacheOperation("get_raw_readonly", Policy, "l1", "hit", TimeSpan.Zero));
+        FsusObservability.RecordCacheOperation("get_raw_readonly", Policy, "l2", "miss", TimeSpan.Zero);
 
         IReadOnlyList<CacheOperationRuntimeCounter> counters = FsusObservability.GetCacheOperationCounters();
-        Assert.Equal(hitBefore + 1024, counters.Single(counter => counter.Operation == "get_raw_readonly" && counter.Policy == policy && counter.Layer == "l1" && counter.Result == "hit").Count);
-        Assert.Equal(missBefore + 1, counters.Single(counter => counter.Operation == "get_raw_readonly" && counter.Policy == policy && counter.Layer == "l2" && counter.Result == "miss").Count);
+        Assert.Equal(hitBefore + 1024, counters.Single(counter => counter.Operation == "get_raw_readonly" && counter.Policy == Policy && counter.Layer == "l1" && counter.Result == "hit").Count);
+        Assert.Equal(missBefore + 1, counters.Single(counter => counter.Operation == "get_raw_readonly" && counter.Policy == Policy && counter.Layer == "l2" && counter.Result == "miss").Count);
         Assert.Equal("striped", FsusObservability.CacheL1CounterMode);
     }
 
@@ -252,17 +251,17 @@ public sealed class ObservabilityTests
         Type observability = typeof(FsusObservability);
         FieldInfo routeCacheField = observability.GetField("RouteKindCache", BindingFlags.NonPublic | BindingFlags.Static)!;
         var routeCache = Assert.IsType<ConcurrentDictionary<string, string>>(routeCacheField.GetValue(null));
-        const string route = "/runtime-cache-probe/42";
-        routeCache.TryRemove(route, out _);
+        const string Route = "/runtime-cache-probe/42";
+        routeCache.TryRemove(Route, out _);
 
-        string first = FsusObservability.ClassifyRoute(route);
+        string first = FsusObservability.ClassifyRoute(Route);
         int countAfterFirst = routeCache.Count;
-        string second = FsusObservability.ClassifyRoute(route);
+        string second = FsusObservability.ClassifyRoute(Route);
 
         Assert.Equal("public", first);
         Assert.Same(first, second);
         Assert.Equal(countAfterFirst, routeCache.Count);
-        Assert.Equal("public", routeCache[route]);
+        Assert.Equal("public", routeCache[Route]);
         MethodInfo classify = observability.GetMethod(nameof(FsusObservability.ClassifyRoute), [typeof(PathString)])!;
         Assert.Contains(ReadCalledMethods(classify), static method => method.Name == "GetOrAdd");
         MethodInfo classifyCore = observability.GetMethod("ClassifyRouteCore", BindingFlags.NonPublic | BindingFlags.Static)!;

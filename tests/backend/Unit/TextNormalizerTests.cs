@@ -1,8 +1,7 @@
-using FsusBlog.Core.Common;
-using FsusBlog.Server.Infrastructure.Helpers.Security;
-
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Helpers.Security;
 namespace FsusBlog.Server.Tests;
 
 public sealed class TextNormalizerTests

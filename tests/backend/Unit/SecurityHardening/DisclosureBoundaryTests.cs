@@ -1,13 +1,6 @@
 using System.Net;
 using System.Text.Json;
 
-using FsusBlog.Core.Algorithms;
-using FsusBlog.Core.Mapping.Codecs;
-using FsusBlog.Server.Infrastructure.Middlewares;
-using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Modules.Endpoints;
-using FsusBlog.Server.Services;
-
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -18,6 +11,12 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Mapping.Codecs;
+using FsusBlog.Server.Infrastructure.Middlewares;
+using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services;
 namespace FsusBlog.Server.Tests.Unit.SecurityHardening;
 
 public sealed class DisclosureBoundaryTests
@@ -25,9 +24,9 @@ public sealed class DisclosureBoundaryTests
     [Fact]
     public async Task ProductionExceptionResponse_DoesNotExposeMessageStackSqlPathOrType()
     {
-        const string secret = "SELECT password FROM account; /srv/fsus/private; Internal.Namespace.SecretType";
+        const string Secret = "SELECT password FROM account; /srv/fsus/private; Internal.Namespace.SecretType";
         var middleware = new GlobalExceptionMiddleware(
-            _ => throw new InvalidOperationException(secret),
+            _ => throw new InvalidOperationException(Secret),
             NullLogger<GlobalExceptionMiddleware>.Instance,
             new TestHostEnvironment(Environments.Production));
         var context = new DefaultHttpContext();
@@ -47,13 +46,13 @@ public sealed class DisclosureBoundaryTests
     [Fact]
     public void StartupValidationReport_ContainsRequirementStateButNotConfiguredSecretValues()
     {
-        const string secretMarker = "raw-secret-marker-must-not-appear";
+        const string SecretMarker = "raw-secret-marker-must-not-appear";
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:SecretKey"] = secretMarker,
-                ["ConnectionStrings:DefaultConnection"] = $"Host=db;Password={secretMarker}",
-                ["ConnectionStrings:Redis"] = $"redis:6379,password={secretMarker}"
+                ["Jwt:SecretKey"] = SecretMarker,
+                ["ConnectionStrings:DefaultConnection"] = $"Host=db;Password={SecretMarker}",
+                ["ConnectionStrings:Redis"] = $"redis:6379,password={SecretMarker}"
             })
             .Build();
 
@@ -62,7 +61,7 @@ public sealed class DisclosureBoundaryTests
             enforceProductionRules: true);
         string observable = JsonSerializer.Serialize(report);
 
-        Assert.DoesNotContain(secretMarker, observable, StringComparison.Ordinal);
+        Assert.DoesNotContain(SecretMarker, observable, StringComparison.Ordinal);
         Assert.Contains("Jwt:SecretKey", observable, StringComparison.Ordinal);
         Assert.DoesNotContain("Password=", observable, StringComparison.OrdinalIgnoreCase);
     }

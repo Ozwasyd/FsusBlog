@@ -9,9 +9,9 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AuditDetachedCheckpointTests
 {
-    private static readonly byte[] AuditHmacKey = Encoding.UTF8.GetBytes(
+    private static readonly byte[] s_auditHmacKey = Encoding.UTF8.GetBytes(
         "unit-test-audit-hmac-key-separated-from-checkpoint-ecdsa-domain");
-    private static readonly DateTimeOffset FirstCheckpointAt = DateTimeOffset.Parse("2026-07-15T08:00:00Z");
+    private static readonly DateTimeOffset s_firstCheckpointAt = DateTimeOffset.Parse("2026-07-15T08:00:00Z");
 
     [Fact]
     public async Task CreateAndVerify_BindsSequenceRangeHeadMerkleAndExportedAnchor()
@@ -20,8 +20,8 @@ public sealed class AuditDetachedCheckpointTests
         List<AuditLog> logs = BuildChain(3);
         var source = new InMemoryAuditRecordSource(logs);
         var transport = new LocalFileAuditCheckpointTransport(temp.Path);
-        AuditCheckpointKeyRecord key = Key("audit-checkpoint-2026-07", 1, FirstCheckpointAt.AddDays(-1));
-        var service = CreateService(source, transport, Registry(key), FirstCheckpointAt);
+        AuditCheckpointKeyRecord key = Key("audit-checkpoint-2026-07", 1, s_firstCheckpointAt.AddDays(-1));
+        var service = CreateService(source, transport, Registry(key), s_firstCheckpointAt);
 
         AuditDetachedCheckpointEnvelope checkpoint = Assert.IsType<AuditDetachedCheckpointEnvelope>(
             await service.CreateNextAsync(100));
@@ -50,8 +50,8 @@ public sealed class AuditDetachedCheckpointTests
         List<AuditLog> logs = BuildChain(4);
         var source = new InMemoryAuditRecordSource(logs);
         var transport = new LocalFileAuditCheckpointTransport(temp.Path);
-        AuditCheckpointKeyRecord key = Key("audit-checkpoint-primary", 1, FirstCheckpointAt.AddDays(-1));
-        await CreateService(source, transport, Registry(key), FirstCheckpointAt).CreateNextAsync(100);
+        AuditCheckpointKeyRecord key = Key("audit-checkpoint-primary", 1, s_firstCheckpointAt.AddDays(-1));
+        await CreateService(source, transport, Registry(key), s_firstCheckpointAt).CreateNextAsync(100);
         var verifier = new AuditDetachedCheckpointVerifier(source, transport, PublicRegistry(key));
 
         logs[1].EventInfo = "database-record-modified";
@@ -72,8 +72,8 @@ public sealed class AuditDetachedCheckpointTests
         List<AuditLog> logs = BuildChain(4);
         var source = new InMemoryAuditRecordSource(logs);
         var transport = new LocalFileAuditCheckpointTransport(temp.Path);
-        AuditCheckpointKeyRecord key = Key("audit-checkpoint-primary", 1, FirstCheckpointAt.AddDays(-1));
-        await CreateService(source, transport, Registry(key), FirstCheckpointAt).CreateNextAsync(100);
+        AuditCheckpointKeyRecord key = Key("audit-checkpoint-primary", 1, s_firstCheckpointAt.AddDays(-1));
+        await CreateService(source, transport, Registry(key), s_firstCheckpointAt).CreateNextAsync(100);
         var verifier = new AuditDetachedCheckpointVerifier(source, transport, PublicRegistry(key));
 
         AuditLog deleted = logs[1];
@@ -94,8 +94,8 @@ public sealed class AuditDetachedCheckpointTests
         List<AuditLog> logs = BuildChain(4);
         var source = new InMemoryAuditRecordSource(logs);
         var transport = new LocalFileAuditCheckpointTransport(temp.Path);
-        AuditCheckpointKeyRecord key = Key("audit-checkpoint-primary", 1, FirstCheckpointAt.AddDays(-1));
-        AuditDetachedCheckpointService service = CreateService(source, transport, Registry(key), FirstCheckpointAt);
+        AuditCheckpointKeyRecord key = Key("audit-checkpoint-primary", 1, s_firstCheckpointAt.AddDays(-1));
+        AuditDetachedCheckpointService service = CreateService(source, transport, Registry(key), s_firstCheckpointAt);
         await service.CreateNextAsync(2);
         await service.CreateNextAsync(2);
         string[] checkpointFiles = Directory.GetFiles(temp.Path, "checkpoint-*.json").Order(StringComparer.Ordinal).ToArray();
@@ -121,7 +121,7 @@ public sealed class AuditDetachedCheckpointTests
         Assert.Equal("checkpoint-file-invalid", (await verifier.VerifyAsync()).Code);
 
         await File.WriteAllBytesAsync(checkpointFiles[0], firstOriginal);
-        AuditCheckpointKeyRecord unrelated = Key(key.KeyId, key.Version, FirstCheckpointAt.AddDays(-1));
+        AuditCheckpointKeyRecord unrelated = Key(key.KeyId, key.Version, s_firstCheckpointAt.AddDays(-1));
         var wrongKeyVerifier = new AuditDetachedCheckpointVerifier(source, transport, PublicRegistry(unrelated));
         Assert.Equal("checkpoint-signature-payload-signature-invalid", (await wrongKeyVerifier.VerifyAsync()).Code);
 
@@ -137,8 +137,8 @@ public sealed class AuditDetachedCheckpointTests
         List<AuditLog> logs = BuildChain(4);
         var source = new InMemoryAuditRecordSource(logs);
         var transport = new LocalFileAuditCheckpointTransport(temp.Path);
-        AuditCheckpointKeyRecord key = Key("audit-checkpoint-primary", 1, FirstCheckpointAt.AddDays(-1));
-        AuditDetachedCheckpointService service = CreateService(source, transport, Registry(key), FirstCheckpointAt);
+        AuditCheckpointKeyRecord key = Key("audit-checkpoint-primary", 1, s_firstCheckpointAt.AddDays(-1));
+        AuditDetachedCheckpointService service = CreateService(source, transport, Registry(key), s_firstCheckpointAt);
         await service.CreateNextAsync(2);
         AuditDetachedCheckpointEnvelope second = Assert.IsType<AuditDetachedCheckpointEnvelope>(await service.CreateNextAsync(2));
         AuditDetachedCheckpointTrustAnchor expected = AuditDetachedCheckpointTrustAnchor.FromEnvelope(second);
@@ -157,10 +157,10 @@ public sealed class AuditDetachedCheckpointTests
     {
         using var temp = new TempDirectory();
         var transport = new LocalFileAuditCheckpointTransport(temp.Path);
-        AuditCheckpointKeyRecord key = Key("audit-checkpoint-primary", 1, FirstCheckpointAt.AddDays(-1));
+        AuditCheckpointKeyRecord key = Key("audit-checkpoint-primary", 1, s_firstCheckpointAt.AddDays(-1));
         AuditCheckpointRecordSet records = AuditCheckpointRecordSetBuilder.Build(BuildChain(2));
         AuditDetachedCheckpointEnvelope envelope = new AuditCheckpointSigningService(Registry(key)).Sign(
-            Manifest(1, null, records, FirstCheckpointAt));
+            Manifest(1, null, records, s_firstCheckpointAt));
 
         Task<Exception?> first = CaptureAsync(() => transport.ExportAsync(envelope));
         Task<Exception?> second = CaptureAsync(() => transport.ExportAsync(envelope));
@@ -180,15 +180,15 @@ public sealed class AuditDetachedCheckpointTests
         List<AuditLog> logs = BuildChain(4);
         var source = new InMemoryAuditRecordSource(logs);
         var transport = new LocalFileAuditCheckpointTransport(temp.Path);
-        AuditCheckpointKeyRecord oldKey = Key("audit-checkpoint-2026-06", 1, FirstCheckpointAt.AddDays(-10));
-        AuditCheckpointKeyRecord newKey = Key("audit-checkpoint-2026-07", 2, FirstCheckpointAt.AddMinutes(1));
+        AuditCheckpointKeyRecord oldKey = Key("audit-checkpoint-2026-06", 1, s_firstCheckpointAt.AddDays(-10));
+        AuditCheckpointKeyRecord newKey = Key("audit-checkpoint-2026-07", 2, s_firstCheckpointAt.AddMinutes(1));
         AuditDetachedCheckpointEnvelope first = Assert.IsType<AuditDetachedCheckpointEnvelope>(
-            await CreateService(source, transport, Registry(oldKey), FirstCheckpointAt).CreateNextAsync(2));
+            await CreateService(source, transport, Registry(oldKey), s_firstCheckpointAt).CreateNextAsync(2));
         AuditCheckpointKeyRegistry rotated = AuditCheckpointKeyRegistry.Create(
             [oldKey.WithoutPrivateKey(), newKey],
             newKey.KeyId);
         AuditDetachedCheckpointEnvelope second = Assert.IsType<AuditDetachedCheckpointEnvelope>(
-            await CreateService(source, transport, rotated, FirstCheckpointAt.AddHours(1)).CreateNextAsync(2));
+            await CreateService(source, transport, rotated, s_firstCheckpointAt.AddHours(1)).CreateNextAsync(2));
         AuditCheckpointKeyRegistry publicOnly = AuditCheckpointKeyRegistry.Create(
             [oldKey.WithoutPrivateKey(), newKey.WithoutPrivateKey()],
             newKey.KeyId);
@@ -233,7 +233,7 @@ public sealed class AuditDetachedCheckpointTests
                     Version = 1,
                     PublicKeyPath = publicPath,
                     PrivateKeyPath = privatePath,
-                    NotBeforeUtc = FirstCheckpointAt.AddDays(-1)
+                    NotBeforeUtc = s_firstCheckpointAt.AddDays(-1)
                 }
             ]
         };
@@ -324,7 +324,7 @@ public sealed class AuditDetachedCheckpointTests
                 ContextJson: $"{{\"index\":{index}}}",
                 ChainId: "20260715",
                 PrevHash: previous);
-            AuditTamperEvidenceResult evidence = AuditTamperEvidence.Sign(record, AuditHmacKey);
+            AuditTamperEvidenceResult evidence = AuditTamperEvidence.Sign(record, s_auditHmacKey);
             logs.Add(ToLog(index, record, evidence));
             previous = evidence.RecordHash;
         }
@@ -343,7 +343,7 @@ public sealed class AuditDetachedCheckpointTests
                 RecordHash = null,
                 RecordMac = null
             };
-            AuditTamperEvidenceResult evidence = AuditTamperEvidence.Sign(record, AuditHmacKey);
+            AuditTamperEvidenceResult evidence = AuditTamperEvidence.Sign(record, s_auditHmacKey);
             log.PrevHash = previous;
             log.RecordHash = evidence.RecordHash;
             log.RecordMac = evidence.RecordMac;

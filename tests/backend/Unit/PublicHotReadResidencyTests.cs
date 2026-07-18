@@ -1,12 +1,11 @@
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;
 
+using Microsoft.Extensions.Options;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-
-using Microsoft.Extensions.Options;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicHotReadResidencyTests

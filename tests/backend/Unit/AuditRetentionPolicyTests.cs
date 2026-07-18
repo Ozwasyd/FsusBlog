@@ -2,18 +2,17 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.Extensions.Configuration;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Services.Background;
-
-using Microsoft.Extensions.Configuration;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AuditRetentionPolicyTests
 {
-    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-07-16T08:00:00Z");
-    private static readonly byte[] AuditHmacKey = Encoding.UTF8.GetBytes(
+    private static readonly DateTimeOffset s_now = DateTimeOffset.Parse("2026-07-16T08:00:00Z");
+    private static readonly byte[] s_auditHmacKey = Encoding.UTF8.GetBytes(
         "audit-retention-test-hmac-key-with-independent-domain");
 
     [Fact]
@@ -88,7 +87,7 @@ public sealed class AuditRetentionPolicyTests
     public async Task RetentionErasure_AnchorsBeforeKeyDestructionAndEvidenceContainsNoIdentity()
     {
         using var temp = new TempDirectory();
-        IConfiguration configuration = CreateCheckpointConfiguration(temp.Path, Now);
+        IConfiguration configuration = CreateCheckpointConfiguration(temp.Path, s_now);
         var keyStore = new MemoryEpochKeyStore();
         var protector = new AuditRetentionPayloadProtector(keyStore);
         AuditRecord protectedRecord = await protector.ProtectAsync(
@@ -96,7 +95,7 @@ public sealed class AuditRetentionPolicyTests
             CancellationToken.None);
         AuditLog row = SignLog(1, protectedRecord);
         Assert.True(AuditRetentionPayloadProtector.TryReadEnvelope(row, out AuditRetentionEnvelope envelope));
-        var service = new AuditRetentionErasureService(configuration, keyStore, new FixedTimeProvider(Now));
+        var service = new AuditRetentionErasureService(configuration, keyStore, new FixedTimeProvider(s_now));
 
         AuditRetentionErasureResult result = await service.AnchorAndDestroyKeysAsync([row], CancellationToken.None);
 
@@ -122,20 +121,20 @@ public sealed class AuditRetentionPolicyTests
     [Fact]
     public void LegalHold_DefaultsOffRequiresApprovalAndExpiryThenCleanupResumes()
     {
-        var time = new MutableTimeProvider(Now);
+        var time = new MutableTimeProvider(s_now);
         var registry = new AuditLegalHoldRegistry(time);
         string action = AuditActionCatalog.SecurityPolicyActivated;
 
-        Assert.False(registry.IsHeld(action, Now));
-        Assert.Throws<ArgumentException>(() => registry.Approve("hold-1", action, "", "approval-1", Now.AddDays(1)));
+        Assert.False(registry.IsHeld(action, s_now));
+        Assert.Throws<ArgumentException>(() => registry.Approve("hold-1", action, "", "approval-1", s_now.AddDays(1)));
         Assert.Throws<ArgumentOutOfRangeException>(() => registry.Approve(
-            "hold-2", action, "incident response", "approval-2", Now.AddDays(31)));
+            "hold-2", action, "incident response", "approval-2", s_now.AddDays(31)));
         Assert.Throws<InvalidOperationException>(() => registry.Approve(
-            "hold-3", AuditActionCatalog.AnonymousCredentialIssued, "incident response", "approval-3", Now.AddDays(1)));
+            "hold-3", AuditActionCatalog.AnonymousCredentialIssued, "incident response", "approval-3", s_now.AddDays(1)));
 
         AuditLegalHold hold = registry.Approve(
-            "hold-4", action, "incident response", "approval-ticket-4", Now.AddDays(2));
-        Assert.True(registry.IsHeld(action, Now.AddDays(1)));
+            "hold-4", action, "incident response", "approval-ticket-4", s_now.AddDays(2));
+        Assert.True(registry.IsHeld(action, s_now.AddDays(1)));
         Assert.False(registry.IsHeld(action, hold.ExpiresAtUtc));
     }
 
@@ -188,7 +187,7 @@ public sealed class AuditRetentionPolicyTests
         => new(
             AuditSourceCatalog.Security,
             AuditTypeCatalog.Security,
-            Now.UtcDateTime,
+            s_now.UtcDateTime,
             "credential issued for account-subject-42",
             Encoding.UTF8.GetBytes("sensitive-context"),
             action,
@@ -217,7 +216,7 @@ public sealed class AuditRetentionPolicyTests
             ChainId = "20260716",
             PrevHash = null
         };
-        AuditTamperEvidenceResult evidence = AuditTamperEvidence.Sign(chained, AuditHmacKey);
+        AuditTamperEvidenceResult evidence = AuditTamperEvidence.Sign(chained, s_auditHmacKey);
         AuditLog log = ToUnsignedLog(id, chained);
         log.ChainId = evidence.ChainId;
         log.RecordHash = evidence.RecordHash;

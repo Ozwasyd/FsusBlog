@@ -1,24 +1,22 @@
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Operations;
-
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
-
 using NSubstitute;
 
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Operations;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ActiveReleaseFenceAvailabilityTests
 {
-    private static readonly DateTimeOffset Baseline = new(2026, 7, 15, 10, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_baseline = new(2026, 7, 15, 10, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task ProductionStartup_UnreachableDurableWitness_FailsBeforeServing()
     {
-        ActiveReleaseFenceRuntimeSnapshot unavailable = Unavailable(Baseline);
+        ActiveReleaseFenceRuntimeSnapshot unavailable = Unavailable(s_baseline);
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
         fence.Current.Returns(unavailable);
         fence.RefreshAsync(true, Arg.Any<CancellationToken>()).Returns(unavailable);
@@ -42,7 +40,7 @@ public sealed class ActiveReleaseFenceAvailabilityTests
     [Fact]
     public async Task ProductionStartup_DurableWitnessReachable_AllowsRedisDegradedRead()
     {
-        ActiveReleaseFenceRuntimeSnapshot reachable = Reachable(Baseline);
+        ActiveReleaseFenceRuntimeSnapshot reachable = Reachable(s_baseline);
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
         fence.Current.Returns(reachable);
         fence.RefreshAsync(true, Arg.Any<CancellationToken>()).Returns(reachable);
@@ -63,8 +61,8 @@ public sealed class ActiveReleaseFenceAvailabilityTests
     [Fact]
     public async Task RefreshWorker_ConfiguredSixFailures_RequestsGracefulProductionShutdown()
     {
-        var clock = new ManualTimeProvider(Baseline);
-        ActiveReleaseFenceRuntimeSnapshot current = Reachable(Baseline);
+        var clock = new ManualTimeProvider(s_baseline);
+        ActiveReleaseFenceRuntimeSnapshot current = Reachable(s_baseline);
         IActiveReleaseFence fence = Substitute.For<IActiveReleaseFence>();
         fence.Current.Returns(_ => current);
         fence.RefreshAsync(true, Arg.Any<CancellationToken>()).Returns(_ =>

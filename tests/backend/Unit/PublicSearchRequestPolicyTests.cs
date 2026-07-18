@@ -1,8 +1,7 @@
-using FsusBlog.Server.Infrastructure.Spa;
-using FsusBlog.Shared.Contracts.Outputs;
-
 using Microsoft.AspNetCore.Http;
 
+using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Shared.Contracts.Outputs;
 namespace FsusBlog.Server.Tests;
 
 public sealed class PublicSearchRequestPolicyTests

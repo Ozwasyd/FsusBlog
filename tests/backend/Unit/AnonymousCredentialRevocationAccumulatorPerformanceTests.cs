@@ -8,7 +8,7 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AnonymousCredentialRevocationAccumulatorPerformanceTests
 {
-    private static readonly string IssuerPublicKeyHash = new('f', 64);
+    private static readonly string s_issuerPublicKeyHash = new('f', 64);
 
     [Fact]
     public void CircuitFriendlyRoot_RuntimeUsesEpochScopedCacheAndBinarySearchNeighbors()
@@ -68,14 +68,14 @@ public sealed class AnonymousCredentialRevocationAccumulatorPerformanceTests
     private static AnonymousCredentialNonMembershipWitness CreateWitness(long epoch, string root, string handle, string[] handles)
     {
         Result<AnonymousCredentialNonMembershipWitness> witness =
-            AnonymousCredentialRevocationAccumulator.CreateNonMembershipWitness(epoch, root, IssuerPublicKeyHash, handle, handles);
+            AnonymousCredentialRevocationAccumulator.CreateNonMembershipWitness(epoch, root, s_issuerPublicKeyHash, handle, handles);
         Assert.True(witness.IsSuccess, witness.Error.Message);
         return witness.Value!;
     }
 
     private static string Root(long epoch, string[] handles)
     {
-        Result<string> root = AnonymousCredentialRevocationAccumulator.TryComputeRoot(epoch, IssuerPublicKeyHash, handles);
+        Result<string> root = AnonymousCredentialRevocationAccumulator.TryComputeRoot(epoch, s_issuerPublicKeyHash, handles);
         Assert.True(root.IsSuccess, root.Error.Message);
         return root.Value!;
     }

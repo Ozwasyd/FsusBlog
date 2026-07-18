@@ -3,12 +3,6 @@ using System.Reflection;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 
-using FsusBlog.Core.Algorithms;
-using FsusBlog.Core.Cache;
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-using FsusBlog.Shared.Contracts.Outputs;
-
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -17,9 +11,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
-
 using NSubstitute;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Shared.Contracts.Outputs;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicHotReadFastPathTests
@@ -1090,8 +1088,8 @@ public sealed class PublicHotReadFastPathTests
         bool expectsTrustedTypes)
     {
         var store = CreateReadyEmptyStore();
-        const string source = "<!doctype html><html><head><style>.ok{color:currentColor}</style></head><body><script id=\"fsus-theme-bootstrap\"></script><main class=\"ok\">ok</main></body></html>";
-        PublicHtmlArtifact html = PublicHotReadHtmlArtifactFactory.FromHtml(source, "public,max-age=60");
+        const string Source = "<!doctype html><html><head><style>.ok{color:currentColor}</style></head><body><script id=\"fsus-theme-bootstrap\"></script><main class=\"ok\">ok</main></body></html>";
+        PublicHtmlArtifact html = PublicHotReadHtmlArtifactFactory.FromHtml(Source, "public,max-age=60");
         Assert.True(html.RequiresCspNonceMutation);
         store.PublishHtml("home", PublicPageId.Home, html);
         var context = CreateContext("/");
@@ -1671,18 +1669,18 @@ public sealed class PublicHotReadFastPathTests
         StringValues acceptEncoding = new("gzip, br");
         StringValues accept = new("application/octet-stream,*/*");
         StringValues ifNoneMatch = new("\"detail\"");
-        const string route = "/api/binary/article/list/home/1/10.aeds";
+        const string Route = "/api/binary/article/list/home/1/10.aeds";
 
         _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
         _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
         _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
-        _ = PublicHotReadFastPath.TryClassifyRouteForTests(route, out _);
+        _ = PublicHotReadFastPath.TryClassifyRouteForTests(Route, out _);
         for (int i = 0; i < 1000; i++)
         {
             _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
             _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
             _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
-            _ = PublicHotReadFastPath.TryClassifyRouteForTests(route, out _);
+            _ = PublicHotReadFastPath.TryClassifyRouteForTests(Route, out _);
         }
 
         long before = GC.GetAllocatedBytesForCurrentThread();
@@ -1693,7 +1691,7 @@ public sealed class PublicHotReadFastPathTests
                 && variant.ContentEncoding == "br"
                 && PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false)
                 && PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"")
-                && PublicHotReadFastPath.TryClassifyRouteForTests(route, out PublicHotReadRoute parsed)
+                && PublicHotReadFastPath.TryClassifyRouteForTests(Route, out PublicHotReadRoute parsed)
                 && parsed.ListKey.Equals(new PublicListKey(PublicListKind.Home, 0, 1, 10));
         }
 
@@ -1709,18 +1707,18 @@ public sealed class PublicHotReadFastPathTests
         StringValues acceptEncoding = new("gzip, br");
         StringValues accept = new("application/octet-stream,*/*");
         StringValues ifNoneMatch = new("\"detail\"");
-        const string route = "/api/binary/article/42.aeds";
+        const string Route = "/api/binary/article/42.aeds";
 
         _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
         _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
         _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
-        _ = PublicHotReadFastPath.TryClassifyRouteForTests(route, out _);
+        _ = PublicHotReadFastPath.TryClassifyRouteForTests(Route, out _);
         for (int i = 0; i < 1000; i++)
         {
             _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
             _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
             _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
-            _ = PublicHotReadFastPath.TryClassifyRouteForTests(route, out _);
+            _ = PublicHotReadFastPath.TryClassifyRouteForTests(Route, out _);
         }
 
         long before = GC.GetAllocatedBytesForCurrentThread();
@@ -1731,7 +1729,7 @@ public sealed class PublicHotReadFastPathTests
                 && variant.ContentEncoding == "br"
                 && PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false)
                 && PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"")
-                && PublicHotReadFastPath.TryClassifyRouteForTests(route, out PublicHotReadRoute parsed)
+                && PublicHotReadFastPath.TryClassifyRouteForTests(Route, out PublicHotReadRoute parsed)
                 && parsed.Kind == PublicHotReadRouteKind.ArticleDetail
                 && parsed.ArticleId == 42;
         }

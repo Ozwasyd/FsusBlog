@@ -92,16 +92,16 @@ public sealed class SearchIndexDeltaCodecTests
 
     private static byte[] BuildShardWithArticleIds(params uint[] articleIds)
     {
-        const uint shardMagic = 0x32534846; // FHS2
-        const uint shardVersion = 3;
-        const int docMetadataSize = 52;
+        const uint ShardMagic = 0x32534846; // FHS2
+        const uint ShardVersion = 3;
+        const int DocMetadataSize = 52;
         int docOffset = 72;
-        int totalLength = docOffset + articleIds.Length * docMetadataSize;
+        int totalLength = docOffset + articleIds.Length * DocMetadataSize;
         byte[] bytes = new byte[totalLength];
         var span = bytes.AsSpan();
 
-        WriteUInt32(span, 0, shardMagic);
-        WriteUInt32(span, 4, shardVersion);
+        WriteUInt32(span, 0, ShardMagic);
+        WriteUInt32(span, 4, ShardVersion);
         WriteUInt32(span, 8, 0);
         WriteUInt32(span, 12, 1);
         WriteUInt32(span, 16, 0);
@@ -121,7 +121,7 @@ public sealed class SearchIndexDeltaCodecTests
 
         for (int index = 0; index < articleIds.Length; index++)
         {
-            BinaryPrimitives.WriteUInt32LittleEndian(span.Slice(docOffset + index * docMetadataSize, sizeof(uint)), articleIds[index]);
+            BinaryPrimitives.WriteUInt32LittleEndian(span.Slice(docOffset + index * DocMetadataSize, sizeof(uint)), articleIds[index]);
         }
 
         return bytes;

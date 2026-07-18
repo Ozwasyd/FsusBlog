@@ -3,6 +3,18 @@ using System.Diagnostics.Metrics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
+
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -16,19 +28,6 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
-
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authorization.Infrastructure;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace FsusBlog.Server.Tests;
 
 public sealed class ProductionHealthTests
@@ -98,18 +97,18 @@ public sealed class ProductionHealthTests
         string root = Path.Combine(Path.GetTempPath(), "fsusblog-release-storage-health-" + Guid.NewGuid().ToString("N"));
         string keyRing = Path.Combine(root, "keyring");
         string assets = Path.Combine(root, "assets");
-        const string releaseId = "release-health-001";
-        const string slot = "green";
+        const string ReleaseId = "release-health-001";
+        const string Slot = "green";
         Directory.CreateDirectory(keyRing);
-        Directory.CreateDirectory(Path.Combine(assets, releaseId));
+        Directory.CreateDirectory(Path.Combine(assets, ReleaseId));
         File.WriteAllText(
-            Path.Combine(assets, releaseId, "asset-manifest.json"),
+            Path.Combine(assets, ReleaseId, "asset-manifest.json"),
             $$"""
             {
               "schema": "fsusblog.release-assets.v1",
-              "releaseId": "{{releaseId}}",
-              "slot": "{{slot}}",
-              "frontendBuildId": "{{releaseId}}",
+              "releaseId": "{{ReleaseId}}",
+              "slot": "{{Slot}}",
+              "frontendBuildId": "{{ReleaseId}}",
               "files": [{ "path": "index.html" }]
             }
             """);
@@ -125,8 +124,8 @@ public sealed class ProductionHealthTests
                 })
                 .Build();
             var identity = new ReleaseIdentitySnapshot(
-                releaseId,
-                slot,
+                ReleaseId,
+                Slot,
                 new string('a', 40),
                 $"registry.example/fsusblog@sha256:{new string('b', 64)}",
                 $"sha256:{new string('b', 64)}",
@@ -160,17 +159,17 @@ public sealed class ProductionHealthTests
         string root = Path.Combine(Path.GetTempPath(), "fsusblog-release-storage-health-" + Guid.NewGuid().ToString("N"));
         string keyRing = Path.Combine(root, "keyring");
         string assets = Path.Combine(root, "assets");
-        const string releaseId = "release-health-002";
+        const string ReleaseId = "release-health-002";
         Directory.CreateDirectory(keyRing);
-        Directory.CreateDirectory(Path.Combine(assets, releaseId));
+        Directory.CreateDirectory(Path.Combine(assets, ReleaseId));
         File.WriteAllText(
-            Path.Combine(assets, releaseId, "asset-manifest.json"),
+            Path.Combine(assets, ReleaseId, "asset-manifest.json"),
             $$"""
             {
               "schema": "fsusblog.release-assets.v1",
-              "releaseId": "{{releaseId}}",
+              "releaseId": "{{ReleaseId}}",
               "slot": "blue",
-              "frontendBuildId": "{{releaseId}}",
+              "frontendBuildId": "{{ReleaseId}}",
               "files": [{ "path": "index.html" }]
             }
             """);
@@ -186,7 +185,7 @@ public sealed class ProductionHealthTests
                 })
                 .Build();
             var identity = new ReleaseIdentitySnapshot(
-                releaseId,
+                ReleaseId,
                 "green",
                 new string('a', 40),
                 $"registry.example/fsusblog@sha256:{new string('b', 64)}",

@@ -3,25 +3,23 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.Extensions.Caching.Memory;
+using SqlSugar;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.Extensions.Caching.Memory;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static readonly SemaphoreSlim DatabaseResetLock = new(1, 1);
-    private static string? sharedConnectionString;
+    private static readonly SemaphoreSlim s_databaseResetLock = new(1, 1);
+    private static string? s_sharedConnectionString;
 
     [Fact]
     public void JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature()
@@ -41,14 +39,14 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     public async Task ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen()
     {
         string connectionString = await CreateConnectionStringAsync();
-        const string token = "active-admin-token";
+        const string Token = "active-admin-token";
         DateTime before = DateTime.UtcNow.AddMinutes(-5);
 
         using SqlSugarClient db = CreateDb(connectionString);
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(token), lastSeenAtUtc: before));
+        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(Token), lastSeenAtUtc: before));
         var service = new AdminSessionValidationService(db);
 
-        AdminSessionValidationResult result = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), token, CancellationToken.None);
+        AdminSessionValidationResult result = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), Token, CancellationToken.None);
 
         Assert.True(result.IsValid, result.Reason);
         AdminSession session = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "sid-1");
@@ -60,11 +58,11 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     public async Task ValidateCurrentSessionAfterTouchConflict_AllowsConcurrentLastSeenUpdate()
     {
         string connectionString = await CreateConnectionStringAsync();
-        const string token = "concurrent-admin-token";
+        const string Token = "concurrent-admin-token";
         DateTime before = DateTime.UtcNow.AddMinutes(-5);
 
         using SqlSugarClient db = CreateDb(connectionString);
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(token), lastSeenAtUtc: before));
+        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(Token), lastSeenAtUtc: before));
         var service = new AdminSessionValidationService(db);
 
         await db.Updateable<AdminSession>()
@@ -76,7 +74,7 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
             service,
             adminId: 1,
             sessionId: "sid-1",
-            currentTokenHash: HashForStorage(token),
+            currentTokenHash: HashForStorage(Token),
             now: DateTime.UtcNow);
 
         Assert.True(result.IsValid, result.Reason);
@@ -135,17 +133,17 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     public async Task ValidateAsync_SecondSnapshotHitDoesNotTouchLastSeenAgain()
     {
         string connectionString = await CreateConnectionStringAsync();
-        const string token = "snapshot-admin-token";
+        const string Token = "snapshot-admin-token";
         DateTime before = DateTime.UtcNow.AddMinutes(-5);
 
         using SqlSugarClient db = CreateDb(connectionString);
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(token), lastSeenAtUtc: before));
+        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(Token), lastSeenAtUtc: before));
         var service = new AdminSessionValidationService(db, cache);
 
-        AdminSessionValidationResult first = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), token, CancellationToken.None);
+        AdminSessionValidationResult first = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), Token, CancellationToken.None);
         AdminSession afterFirst = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "sid-1");
-        AdminSessionValidationResult second = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), token, CancellationToken.None);
+        AdminSessionValidationResult second = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), Token, CancellationToken.None);
         AdminSession afterSecond = await db.Queryable<AdminSession>().SingleAsync(s => s.SessionId == "sid-1");
 
         Assert.True(first.IsValid, first.Reason);
@@ -174,11 +172,11 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     public async Task TouchAdminSessionAsync_StaleRowVersionAfterRevokeDoesNotAdvanceLastSeen()
     {
         string connectionString = await CreateConnectionStringAsync();
-        const string token = "stale-admin-token";
+        const string Token = "stale-admin-token";
         DateTime before = DateTime.UtcNow.AddMinutes(-5);
 
         using SqlSugarClient db = CreateDb(connectionString);
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(token), lastSeenAtUtc: before));
+        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), CreateSession(accessTokenHash: HashForStorage(Token), lastSeenAtUtc: before));
         var service = new AdminSessionValidationService(db);
         object state = await InvokeLoadAdminSessionValidationStateAsync(service, "sid-1");
 
@@ -219,13 +217,13 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     public async Task ValidateAsync_RejectsDisabledPrincipal()
     {
         string connectionString = await CreateConnectionStringAsync();
-        const string token = "disabled-principal-token";
+        const string Token = "disabled-principal-token";
 
         using SqlSugarClient db = CreateDb(connectionString);
-        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Disabled), CreateSession(accessTokenHash: HashForStorage(token)));
+        Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Disabled), CreateSession(accessTokenHash: HashForStorage(Token)));
         var service = new AdminSessionValidationService(db);
 
-        AdminSessionValidationResult result = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), token, CancellationToken.None);
+        AdminSessionValidationResult result = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), Token, CancellationToken.None);
 
         Assert.False(result.IsValid);
         Assert.Equal("admin_principal_inactive", result.Reason);
@@ -240,15 +238,15 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     private async Task AssertRejectedAsync(Action<AdminSession> mutateSession, string expectedReason)
     {
         string connectionString = await CreateConnectionStringAsync();
-        const string token = "admin-token";
+        const string Token = "admin-token";
 
         using SqlSugarClient db = CreateDb(connectionString);
-        AdminSession session = CreateSession(accessTokenHash: HashForStorage(token));
+        AdminSession session = CreateSession(accessTokenHash: HashForStorage(Token));
         mutateSession(session);
         Seed(db, CreatePrincipal(status: AdminPrincipalStatus.Active), session);
         var service = new AdminSessionValidationService(db);
 
-        AdminSessionValidationResult result = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), token, CancellationToken.None);
+        AdminSessionValidationResult result = await service.ValidateAsync(CreateClaimsPrincipal(1, "sid-1"), Token, CancellationToken.None);
 
         Assert.False(result.IsValid);
         Assert.Equal(expectedReason, result.Reason);
@@ -344,20 +342,20 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
 
     private async Task<string> CreateConnectionStringAsync()
     {
-        await DatabaseResetLock.WaitAsync();
+        await s_databaseResetLock.WaitAsync();
         try
         {
             string connectionString;
-            if (sharedConnectionString is null)
+            if (s_sharedConnectionString is null)
             {
                 connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
                 using SqlSugarClient db = CreateDb(connectionString);
                 CreateAdminTables(db);
-                sharedConnectionString = connectionString;
+                s_sharedConnectionString = connectionString;
             }
             else
             {
-                connectionString = sharedConnectionString;
+                connectionString = s_sharedConnectionString;
             }
 
             await fixture.ExecuteAsync(
@@ -367,7 +365,7 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
         }
         finally
         {
-            DatabaseResetLock.Release();
+            s_databaseResetLock.Release();
         }
     }
 

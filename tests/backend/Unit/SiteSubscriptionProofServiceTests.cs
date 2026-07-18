@@ -1,18 +1,17 @@
 using System.Security.Cryptography;
 using System.Text;
 
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Services.Subscriptions;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Services.Subscriptions;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SiteSubscriptionProofServiceTests
 {
-    private static readonly DateTimeOffset BaselineNow = new(2026, 6, 20, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_baselineNow = new(2026, 6, 20, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public void RuntimeServices_RegisterSiteSubscriptionProofService()
@@ -45,7 +44,7 @@ public sealed class SiteSubscriptionProofServiceTests
     public async Task IssueUnsubscribeProofAsync_StoresBoundClaimsWithoutRawEmailOrToken()
     {
         var cache = new MemoryProofCache();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = CreateService(cache, clock);
 
         SiteSubscriptionUnsubscribeProofIssueResult result = await service.IssueUnsubscribeProofAsync(
@@ -60,8 +59,8 @@ public sealed class SiteSubscriptionProofServiceTests
         Assert.Equal(TimeSpan.FromMinutes(15), cache.LastSetTtl);
         Assert.Equal(ExpectedEmailHash("reader@example.com"), result.Claims.EmailHash);
         Assert.Equal("email", result.Claims.Channel);
-        Assert.Equal(BaselineNow, result.Claims.IssuedAt);
-        Assert.Equal(BaselineNow.AddMinutes(15), result.Claims.ExpiresAt);
+        Assert.Equal(s_baselineNow, result.Claims.IssuedAt);
+        Assert.Equal(s_baselineNow.AddMinutes(15), result.Claims.ExpiresAt);
         Assert.False(string.IsNullOrWhiteSpace(result.Claims.Nonce));
         Assert.DoesNotContain("Reader@Example.COM", cache.LastStoredJson, StringComparison.Ordinal);
         Assert.DoesNotContain("reader@example.com", cache.LastStoredJson, StringComparison.Ordinal);
@@ -91,7 +90,7 @@ public sealed class SiteSubscriptionProofServiceTests
     public async Task ConsumeUnsubscribeProofAsync_AcceptsMatchingProofAndRejectsReplay()
     {
         var cache = new MemoryProofCache();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = CreateService(cache, clock);
         SiteSubscriptionUnsubscribeProofIssueResult issued = await service.IssueUnsubscribeProofAsync(
             CreateIssueRequest(),
@@ -115,7 +114,7 @@ public sealed class SiteSubscriptionProofServiceTests
     public async Task ValidateUnsubscribeProofAsync_DoesNotConsumeUntilCommit()
     {
         var cache = new MemoryProofCache();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = CreateService(cache, clock);
         SiteSubscriptionUnsubscribeProofIssueResult issued = await service.IssueUnsubscribeProofAsync(
             CreateIssueRequest(),
@@ -147,7 +146,7 @@ public sealed class SiteSubscriptionProofServiceTests
     public async Task ConsumeUnsubscribeProofAsync_RejectsBindingMismatch(string field, string expectedReason)
     {
         var cache = new MemoryProofCache();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = CreateService(cache, clock);
         SiteSubscriptionUnsubscribeProofIssueResult issued = await service.IssueUnsubscribeProofAsync(
             CreateIssueRequest(),
@@ -171,12 +170,12 @@ public sealed class SiteSubscriptionProofServiceTests
     public async Task ConsumeUnsubscribeProofAsync_RejectsExpiredProofWithoutConsuming()
     {
         var cache = new MemoryProofCache();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var service = CreateService(cache, clock);
         SiteSubscriptionUnsubscribeProofIssueResult issued = await service.IssueUnsubscribeProofAsync(
             CreateIssueRequest(),
             CancellationToken.None);
-        clock.UtcNow = BaselineNow.AddMinutes(16);
+        clock.UtcNow = s_baselineNow.AddMinutes(16);
 
         SiteSubscriptionUnsubscribeProofConsumeResult result = await service.ConsumeUnsubscribeProofAsync(
             CreateConsumeRequest(issued.ProofToken),

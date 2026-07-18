@@ -1,3 +1,7 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Security;
@@ -5,16 +9,11 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Security;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class HumanReadProofV1ChallengeProviderTests
 {
-    private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-18T12:00:00Z");
+    private static readonly DateTimeOffset s_baselineNow = DateTimeOffset.Parse("2026-06-18T12:00:00Z");
     private const string HashA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string HashB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
@@ -121,7 +120,7 @@ public sealed class HumanReadProofV1ChallengeProviderTests
     {
         var proof = new RecordingHumanReadProofService
         {
-            ChallengeResponse = new HumanReadChallengeResponse("token-1", "article", "/article/42", 42, 8000, BaselineNow, BaselineNow.AddMinutes(5)),
+            ChallengeResponse = new HumanReadChallengeResponse("token-1", "article", "/article/42", 42, 8000, s_baselineNow, s_baselineNow.AddMinutes(5)),
             SubmitResponse = new HumanReadSubmitResponse(true, "counted")
         };
         var persistence = new RecordingChallengePersistence();

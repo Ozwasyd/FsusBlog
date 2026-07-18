@@ -1,26 +1,25 @@
 using System.Reflection;
 
-using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Services.Security;
-
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Services.Security;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class MfaChallengeServiceTests
 {
-    private static readonly string UppercaseSubjectHash = new string('A', AccountSubjectHashRequirement.Sha256HexLength);
-    private static readonly string AtomicSubjectHash = new string('b', AccountSubjectHashRequirement.Sha256HexLength);
-    private static readonly string LockedSubjectHash = new string('c', AccountSubjectHashRequirement.Sha256HexLength);
+    private static readonly string s_uppercaseSubjectHash = new string('A', AccountSubjectHashRequirement.Sha256HexLength);
+    private static readonly string s_atomicSubjectHash = new string('b', AccountSubjectHashRequirement.Sha256HexLength);
+    private static readonly string s_lockedSubjectHash = new string('c', AccountSubjectHashRequirement.Sha256HexLength);
 
     [Fact]
     public async Task RecordFailureAsync_SameAccountSubjectHashSharesCounterAcrossAccountIds()
     {
         var cache = new RecordingCounterCache();
         var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
-        const string subjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        const string SubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
         bool locked = false;
         for (int i = 0; i < 10; i++)
@@ -30,7 +29,7 @@ public sealed class MfaChallengeServiceTests
                 {
                     TicketId = string.Concat("ticket-", i.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                     AccountId = i % 2 == 0 ? 42 : 314,
-                    AccountSubjectHash = subjectHash,
+                    AccountSubjectHash = SubjectHash,
                     Type = "action",
                     Action = "passkey.delete"
                 },
@@ -39,7 +38,7 @@ public sealed class MfaChallengeServiceTests
         }
 
         Assert.True(locked);
-        Assert.Equal(10, cache.Counters["fail:subject:" + subjectHash]);
+        Assert.Equal(10, cache.Counters["fail:subject:" + SubjectHash]);
         Assert.DoesNotContain(cache.Counters.Keys, static key => key.StartsWith("fail:user:", StringComparison.Ordinal));
     }
 
@@ -54,14 +53,14 @@ public sealed class MfaChallengeServiceTests
             {
                 TicketId = "ticket-normalized",
                 AccountId = 42,
-                AccountSubjectHash = $" {UppercaseSubjectHash} ",
+                AccountSubjectHash = $" {s_uppercaseSubjectHash} ",
                 Type = "action",
                 Action = "passkey.delete"
             },
             "203.0.113.10",
             "unit-test");
 
-        Assert.Contains("fail:subject:" + UppercaseSubjectHash.ToLowerInvariant(), cache.Counters.Keys);
+        Assert.Contains("fail:subject:" + s_uppercaseSubjectHash.ToLowerInvariant(), cache.Counters.Keys);
         Assert.DoesNotContain(cache.Counters.Keys, static key => key.StartsWith("fail:user:", StringComparison.Ordinal));
     }
 
@@ -76,7 +75,7 @@ public sealed class MfaChallengeServiceTests
             {
                 TicketId = "ticket-atomic",
                 AccountId = 42,
-                AccountSubjectHash = AtomicSubjectHash,
+                AccountSubjectHash = s_atomicSubjectHash,
                 Type = "action",
                 Action = "passkey.delete"
             },
@@ -86,7 +85,7 @@ public sealed class MfaChallengeServiceTests
         string[] batch = Assert.Single(cache.AtomicIncrementBatches);
         TimeSpan ttl = Assert.Single(cache.AtomicIncrementBatchTtls);
         Assert.Equal(
-            ["fail:ticket:ticket-atomic", "fail:subject:" + AtomicSubjectHash],
+            ["fail:ticket:ticket-atomic", "fail:subject:" + s_atomicSubjectHash],
             batch.Take(2).ToArray());
         Assert.StartsWith("fail:ip:", batch[2], StringComparison.Ordinal);
         Assert.Equal(TimeSpan.FromMinutes(10), ttl);
@@ -97,7 +96,7 @@ public sealed class MfaChallengeServiceTests
     public async Task RecordFailureAsync_LockDecisionUsesAtomicSubjectCount()
     {
         var cache = new RecordingCounterCache();
-        cache.Counters["fail:subject:" + LockedSubjectHash] = 9;
+        cache.Counters["fail:subject:" + s_lockedSubjectHash] = 9;
         var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
 
         bool locked = await service.RecordFailureAsync(
@@ -105,7 +104,7 @@ public sealed class MfaChallengeServiceTests
             {
                 TicketId = "ticket-lock",
                 AccountId = 42,
-                AccountSubjectHash = LockedSubjectHash,
+                AccountSubjectHash = s_lockedSubjectHash,
                 Type = "action",
                 Action = "passkey.delete"
             },
@@ -113,7 +112,7 @@ public sealed class MfaChallengeServiceTests
             "unit-test");
 
         Assert.True(locked);
-        Assert.Equal(10, cache.Counters["fail:subject:" + LockedSubjectHash]);
+        Assert.Equal(10, cache.Counters["fail:subject:" + s_lockedSubjectHash]);
         Assert.Contains("ticket-lock", cache.Removed);
     }
 
@@ -166,7 +165,7 @@ public sealed class MfaChallengeServiceTests
         {
             TicketId = "signed-ticket",
             AccountId = 42,
-            AccountSubjectHash = AtomicSubjectHash,
+            AccountSubjectHash = s_atomicSubjectHash,
             Type = "action",
             Action = "passkey.delete"
         };
@@ -193,10 +192,10 @@ public sealed class MfaChallengeServiceTests
     {
         var cache = new RecordingCounterCache();
         var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
-        string first = await service.CreateProofTokenAsync(42, AtomicSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
-        string second = await service.CreateProofTokenAsync(42, AtomicSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
-        string otherSubject = await service.CreateProofTokenAsync(42, LockedSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
-        string otherAction = await service.CreateProofTokenAsync(42, AtomicSubjectHash, "profile.email", TimeSpan.FromMinutes(1));
+        string first = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
+        string second = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
+        string otherSubject = await service.CreateProofTokenAsync(42, s_lockedSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
+        string otherAction = await service.CreateProofTokenAsync(42, s_atomicSubjectHash, "profile.email", TimeSpan.FromMinutes(1));
 
         Assert.NotEqual(first, second);
         Assert.Equal(4, cache.StringWriteIdentities.Distinct(StringComparer.Ordinal).Count());

@@ -4,6 +4,8 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using CoreAedsEncoder = FsusBlog.Core.Algorithms.AedsEncoder;
+using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
@@ -14,15 +16,11 @@ using FsusBlog.Shared;
 using FsusBlog.Shared.Contracts.Envelopes;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Validation;
-
-using CoreAedsEncoder = FsusBlog.Core.Algorithms.AedsEncoder;
-using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
-
 namespace FsusBlog.Server.Tests;
 
 public sealed class AedsProtocolCrossLanguageTests
 {
-    private static readonly Lazy<string> FrontendProtocolRuntimeJson = new(ExecuteFrontendProtocolModule);
+    private static readonly Lazy<string> s_frontendProtocolRuntimeJson = new(ExecuteFrontendProtocolModule);
 
     [Fact]
     public void GeneratedContracts_CoverEveryFrameTypeAndTheExactV2HeaderLayout()
@@ -91,13 +89,13 @@ public sealed class AedsProtocolCrossLanguageTests
     [Fact]
     public void LegacyAdminPasswordResetFrame_IsRetiredAcrossProtocolSurfaces()
     {
-        const string retiredName = "AdminResetUserPasswordRequest";
+        const string RetiredName = "AdminResetUserPasswordRequest";
 
-        Assert.DoesNotContain(retiredName, Enum.GetNames<FsusBlog.Shared.AedsFrameType>());
-        Assert.DoesNotContain(retiredName, Enum.GetNames<CoreFrameType>());
+        Assert.DoesNotContain(RetiredName, Enum.GetNames<FsusBlog.Shared.AedsFrameType>());
+        Assert.DoesNotContain(RetiredName, Enum.GetNames<CoreFrameType>());
 
         using JsonDocument frontend = ReadFrontendProtocolRuntime();
-        Assert.False(frontend.RootElement.GetProperty("frameTypes").TryGetProperty(retiredName, out _));
+        Assert.False(frontend.RootElement.GetProperty("frameTypes").TryGetProperty(RetiredName, out _));
 
         Span<byte> frame = stackalloc byte[AedsFrameHeader.Size];
         System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(frame[0..4], CoreAedsEncoder.Magic);
@@ -724,7 +722,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     private static JsonDocument ReadFrontendProtocolRuntime()
-        => JsonDocument.Parse(FrontendProtocolRuntimeJson.Value);
+        => JsonDocument.Parse(s_frontendProtocolRuntimeJson.Value);
 
     private static string ExecuteFrontendProtocolModule()
     {

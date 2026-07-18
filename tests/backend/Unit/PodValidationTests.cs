@@ -1,11 +1,9 @@
+using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
 using FsusBlog.Shared;
+using SharedFrameType = FsusBlog.Shared.AedsFrameType;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Primitives;
 using FsusBlog.Shared.Contracts.Validation;
-
-using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
-using SharedFrameType = FsusBlog.Shared.AedsFrameType;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 // ──────────────────────────────────────────────────────────────────────────────

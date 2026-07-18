@@ -1,10 +1,9 @@
-using FsusBlog.Server.Infrastructure.Security;
-
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 
+using FsusBlog.Server.Infrastructure.Security;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RiskActionRegistryTests

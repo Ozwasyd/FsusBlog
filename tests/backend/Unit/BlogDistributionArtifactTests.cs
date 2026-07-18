@@ -1,26 +1,23 @@
 using System.Xml.Linq;
 
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static readonly XNamespace SitemapNamespace = "http://www.sitemaps.org/schemas/sitemap/0.9";
+    private static readonly XNamespace s_sitemapNamespace = "http://www.sitemaps.org/schemas/sitemap/0.9";
 
     [Fact]
     public async Task FeedStaysBoundedWhileFinalSitemapContainsEveryPublicCanonicalUrl()
@@ -72,7 +69,7 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
         JsonFeedDocument jsonFeed = await service.BuildJsonFeedAsync();
         string sitemap = await service.BuildSitemapAsync();
         XDocument sitemapDocument = XDocument.Parse(sitemap);
-        string[] locations = sitemapDocument.Descendants(SitemapNamespace + "loc")
+        string[] locations = sitemapDocument.Descendants(s_sitemapNamespace + "loc")
             .Select(static node => node.Value)
             .ToArray();
 
@@ -161,8 +158,8 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
         string emptyFirst = await emptyService.BuildSitemapAsync();
         string emptySecond = await emptyService.BuildSitemapAsync();
         Assert.Equal(emptyFirst, emptySecond);
-        Assert.Equal(StaticPageCount, XDocument.Parse(emptyFirst).Descendants(SitemapNamespace + "url").Count());
-        Assert.Empty(XDocument.Parse(emptyFirst).Descendants(SitemapNamespace + "lastmod"));
+        Assert.Equal(StaticPageCount, XDocument.Parse(emptyFirst).Descendants(s_sitemapNamespace + "url").Count());
+        Assert.Empty(XDocument.Parse(emptyFirst).Descendants(s_sitemapNamespace + "lastmod"));
     }
 
     [Fact]
@@ -175,8 +172,8 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
         XDocument index = XDocument.Parse(root);
         Assert.Equal("sitemapindex", index.Root?.Name.LocalName);
         Assert.Equal(2, pages.Count);
-        Assert.Equal(45_000, XDocument.Parse(pages[0]).Descendants(SitemapNamespace + "url").Count());
-        Assert.Single(XDocument.Parse(pages[1]).Descendants(SitemapNamespace + "url"));
+        Assert.Equal(45_000, XDocument.Parse(pages[0]).Descendants(s_sitemapNamespace + "url").Count());
+        Assert.Single(XDocument.Parse(pages[1]).Descendants(s_sitemapNamespace + "url"));
         Assert.Contains("https://public.example/sitemap/1.xml", root, StringComparison.Ordinal);
         Assert.Contains("https://public.example/sitemap/2.xml", root, StringComparison.Ordinal);
     }
@@ -243,12 +240,12 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
     private static string? ReadLastmod(string sitemap, string location)
     {
         XElement? url = XDocument.Parse(sitemap)
-            .Descendants(SitemapNamespace + "url")
+            .Descendants(s_sitemapNamespace + "url")
             .SingleOrDefault(node => string.Equals(
-                node.Element(SitemapNamespace + "loc")?.Value,
+                node.Element(s_sitemapNamespace + "loc")?.Value,
                 location,
                 StringComparison.Ordinal));
-        return url?.Element(SitemapNamespace + "lastmod")?.Value;
+        return url?.Element(s_sitemapNamespace + "lastmod")?.Value;
     }
 
     private static string ReadFeedModifiedDate(JsonFeedDocument feed, int articleId)

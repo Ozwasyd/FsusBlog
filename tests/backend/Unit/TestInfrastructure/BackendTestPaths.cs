@@ -7,7 +7,7 @@ internal static class BackendTestPaths
 {
     public const string RepositoryRootEnvironmentVariable = "FSUSBLOG_REPO_ROOT";
 
-    private static readonly string[] RequiredRootAnchors =
+    private static readonly string[] s_requiredRootAnchors =
     [
         "FsusBlog.slnx",
         Path.Combine("src", "backend"),
@@ -118,5 +118,5 @@ internal static class BackendTestPaths
         => new(
             "Unable to locate FsusBlog repository root. " +
             $"Checked start paths: {string.Join(", ", checkedStarts.Distinct(StringComparer.Ordinal))}. " +
-            $"Expected anchors at the same root: {string.Join(", ", RequiredRootAnchors)}.");
+            $"Expected anchors at the same root: {string.Join(", ", s_requiredRootAnchors)}.");
 }

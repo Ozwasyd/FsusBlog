@@ -2,6 +2,15 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -14,18 +23,6 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Integration")]
@@ -34,7 +31,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFixture fixture)
 {
     private const string Pepper = "unit-test-subscription-email-hash-pepper-with-enough-entropy";
-    private static readonly DateTimeOffset BaselineNow = new(2026, 7, 11, 9, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_baselineNow = new(2026, 7, 11, 9, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task SubscribeAsync_RepeatedCurrentHmacSubscriptionPersistsOneEnabledRowWithoutLegacyHash()
@@ -85,7 +82,7 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
         IConfiguration configuration = CreateConfiguration();
         await SeedSubscriptionAsync(db, configuration);
         var cache = new MemoryProofCache();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var proofService = new SiteSubscriptionProofService(cache, clock, configuration);
         string proofToken;
 
@@ -98,7 +95,7 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
                 proofToken = (await proofService.IssueUnsubscribeProofAsync(
                     new SiteSubscriptionUnsubscribeProofIssueRequest("reader@example.com", "email", TimeSpan.FromMinutes(15))))
                     .ProofToken;
-                clock.UtcNow = BaselineNow.AddMinutes(16);
+                clock.UtcNow = s_baselineNow.AddMinutes(16);
                 break;
             case "wrong-email":
                 proofToken = (await proofService.IssueUnsubscribeProofAsync(
@@ -137,7 +134,7 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
         IConfiguration configuration = CreateConfiguration();
         await SeedSubscriptionAsync(db, configuration);
         var cache = new MemoryProofCache();
-        var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(s_baselineNow);
         var proofService = new SiteSubscriptionProofService(cache, clock, configuration);
         SiteSubscriptionUnsubscribeProofIssueResult issued = await proofService.IssueUnsubscribeProofAsync(
             new SiteSubscriptionUnsubscribeProofIssueRequest("reader@example.com", "email", TimeSpan.FromMinutes(15)));
@@ -173,7 +170,7 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
         var cache = new MemoryProofCache();
         var proofService = new SiteSubscriptionProofService(
             cache,
-            new MutableTimeProvider(BaselineNow),
+            new MutableTimeProvider(s_baselineNow),
             configuration);
         SiteSubscriptionUnsubscribeProofIssueResult issued = await proofService.IssueUnsubscribeProofAsync(
             new SiteSubscriptionUnsubscribeProofIssueRequest("reader@example.com", "email", TimeSpan.FromMinutes(15)));

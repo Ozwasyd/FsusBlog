@@ -1,11 +1,10 @@
 using System.Net;
 using System.Security.Claims;
 
-using FsusBlog.Server.Infrastructure;
-using FsusBlog.Server.Infrastructure.Audit;
-
 using Microsoft.AspNetCore.Http;
 
+using FsusBlog.Server.Infrastructure;
+using FsusBlog.Server.Infrastructure.Audit;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class HttpHotPathPerformanceContractTests

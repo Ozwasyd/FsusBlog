@@ -1,7 +1,6 @@
-using FsusBlog.Server.Infrastructure.Middlewares;
-
 using Microsoft.AspNetCore.Http;
 
+using FsusBlog.Server.Infrastructure.Middlewares;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class VisitLogMiddlewareTests

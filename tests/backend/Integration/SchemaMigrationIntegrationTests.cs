@@ -3,6 +3,15 @@ using System.Data;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
@@ -20,19 +29,6 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using Npgsql;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests;
 
 [Trait("Category", "Integration")]
@@ -173,14 +169,14 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             Assert.Equal(2, await insert.ExecuteNonQueryAsync());
         }
 
-        const string sql = """
+        const string Sql = """
             SELECT version, aeds_payload, etag, updated_at_utc
             FROM public_article_projection
             WHERE article_id = $1
               AND visible = true
             LIMIT 1;
             """;
-        await using (var command = new NpgsqlCommand(sql, connection))
+        await using (var command = new NpgsqlCommand(Sql, connection))
         {
             command.Parameters.AddWithValue(41);
             await command.PrepareAsync();
@@ -200,7 +196,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             Assert.Equal("\"etag\"", reader.GetString(2));
         }
 
-        await using (var negative = new NpgsqlCommand(sql, connection))
+        await using (var negative = new NpgsqlCommand(Sql, connection))
         {
             negative.Parameters.AddWithValue(42);
             await negative.PrepareAsync();
@@ -684,7 +680,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     [Fact]
     public async Task RunAsync_AcceptsLegacyAuthoringWorkspaceChecksumWhileFinalizingSiteSubscriptionHashes()
     {
-        const string legacyAuthoringWorkspaceChecksum = "6D43EB5F292169C39F022C7EE5F81591DBD28B3F89F83BB42FE75764B3E1DD77";
+        const string LegacyAuthoringWorkspaceChecksum = "6D43EB5F292169C39F022C7EE5F81591DBD28B3F89F83BB42FE75764B3E1DD77";
         string databaseName = await fixture.CreateDatabaseAsync();
         string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
         await fixture.ExecuteAsync(connectionString, $"""
@@ -699,7 +695,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             INSERT INTO {SchemaMigrationRunner.HistoryTableName}(migration_id, checksum, applied_at_utc, app_version, succeeded)
             VALUES (
                 '20260518-post-authoring-workspace-tables',
-                '{legacyAuthoringWorkspaceChecksum}',
+                '{LegacyAuthoringWorkspaceChecksum}',
                 now(),
                 'legacy-fixture',
                 true
@@ -733,7 +729,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             """);
 
         Assert.Equal(0, legacyCount);
-        Assert.Equal(legacyAuthoringWorkspaceChecksum, persistedChecksum);
+        Assert.Equal(LegacyAuthoringWorkspaceChecksum, persistedChecksum);
     }
 
     [Fact]
@@ -2184,7 +2180,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
 
     private sealed class NoopArticleDetailAedsArtifactMaintenanceService : IArticleDetailAedsArtifactMaintenanceService
     {
-        private static readonly ArticleDetailAedsArtifactMaintenanceResult Empty = new(
+        private static readonly ArticleDetailAedsArtifactMaintenanceResult s_empty = new(
             Scanned: 0,
             Rebuilt: 0,
             Removed: 0,
@@ -2192,16 +2188,16 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             Failed: 0);
 
         public Task<ArticleDetailAedsArtifactMaintenanceResult> RecomputeArticleRightsAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(Empty);
+            => Task.FromResult(s_empty);
 
         public Task<ArticleDetailAedsArtifactMaintenanceResult> ClearLegacyPublicArtifactsAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(Empty);
+            => Task.FromResult(s_empty);
 
         public Task<ArticleDetailAedsArtifactMaintenanceResult> RebuildArticleDetailAedsV3Async(
             bool all,
             int? articleId = null,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(Empty);
+            => Task.FromResult(s_empty);
     }
 
     private sealed class SuccessfulArticleDetailProjector : IArticleDetailAedsArtifactProjector

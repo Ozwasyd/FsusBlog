@@ -1,9 +1,8 @@
 using System.Net;
 
-using FsusBlog.Server.Infrastructure.Helpers;
-
 using Microsoft.AspNetCore.Http;
 
+using FsusBlog.Server.Infrastructure.Helpers;
 namespace FsusBlog.Server.Tests;
 
 public sealed class HttpContextExtensionsTests

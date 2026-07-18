@@ -2,12 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Modules.Endpoints;
-using FsusBlog.Server.Services.Distribution;
-
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -18,11 +12,16 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services.Distribution;
 namespace FsusBlog.Server.Tests.SecurityHardening;
 
 public sealed class PublicResponseCompressionPolicyTests
 {
-    private static readonly string Payload = string.Concat(Enumerable.Repeat("public-response-compression-payload-", 256));
+    private static readonly string s_payload = string.Concat(Enumerable.Repeat("public-response-compression-payload-", 256));
 
     [Fact]
     public async Task TestServer_AnonymousExplicitPublicResponseCompressesAndPreservesVary()
@@ -230,7 +229,7 @@ public sealed class PublicResponseCompressionPolicyTests
             {
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
                 context.Response.Headers.CacheControl = "no-store";
-                return Results.Text($"invalid-auth:{value}:{Payload}", "application/json");
+                return Results.Text($"invalid-auth:{value}:{s_payload}", "application/json");
             })
                 .AllowAnonymous()
                 .AllowPublicResponseCompression();
@@ -274,14 +273,14 @@ public sealed class PublicResponseCompressionPolicyTests
             {
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
                 context.Response.Headers.CacheControl = "no-store";
-                return Results.Text($"invalid:{value}:{Payload}", "application/json");
+                return Results.Text($"invalid:{value}:{s_payload}", "application/json");
             })
                 .AllowAnonymous()
                 .AllowPublicResponseCompression();
             app.MapGet("/html-with-nonce", (HttpContext context) =>
             {
                 context.Response.Headers.CacheControl = "public, max-age=60";
-                return Results.Text($"<html><script nonce=\"secret\">{Payload}</script></html>", "text/html");
+                return Results.Text($"<html><script nonce=\"secret\">{s_payload}</script></html>", "text/html");
             })
                 .AllowAnonymous()
                 .AllowPublicResponseCompression();
@@ -334,7 +333,7 @@ public sealed class PublicResponseCompressionPolicyTests
         {
             context.Response.Headers.CacheControl = cacheControl;
             context.Response.Headers.Vary = vary;
-            return Results.Text(Payload, contentType);
+            return Results.Text(s_payload, contentType);
         }
     }
 

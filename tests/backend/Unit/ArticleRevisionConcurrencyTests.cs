@@ -1,5 +1,11 @@
 using System.Reflection;
 
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+using StackExchange.Redis;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -8,16 +14,6 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
-using StackExchange.Redis;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
@@ -27,7 +23,7 @@ public sealed class ArticleRevisionConcurrencyTests(
     ArticleRevisionConcurrencyDatabaseFixture classDatabase)
     : IClassFixture<ArticleRevisionConcurrencyDatabaseFixture>, IAsyncLifetime
 {
-    private static readonly MethodInfo SaveRevisionMethod = typeof(ArticleService)
+    private static readonly MethodInfo s_saveRevisionMethod = typeof(ArticleService)
         .GetMethod("SaveArticleRevisionAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("SaveArticleRevisionAsync should exist.");
 
@@ -413,7 +409,7 @@ public sealed class ArticleRevisionConcurrencyTests(
 
     private static async Task InvokeSaveRevisionAsync(ArticleService service, int articleId, string diffSummary)
     {
-        var task = (Task?)SaveRevisionMethod.Invoke(
+        var task = (Task?)s_saveRevisionMethod.Invoke(
             service,
             [
                 articleId,

@@ -1,17 +1,14 @@
 using System.Collections.Concurrent;
 
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "SecurityStateMachine")]
@@ -20,9 +17,9 @@ public sealed class RecoveryPasskeyCompletionStateTests
     [Fact]
     public async Task AuthenticatorValidationFailure_RestoresPendingSessionAndAllowsRetry()
     {
-        const string token = "recovery-session-authenticator-retry";
+        const string Token = "recovery-session-authenticator-retry";
         var cache = new AtomicRecoveryCache();
-        cache.SeedPending(token, ActiveSession());
+        cache.SeedPending(Token, ActiveSession());
         var passkeys = CreatePasskeysWithoutDurableCompletion();
         int attempt = 0;
         passkeys.CompleteRecoveryRegistrationAsync(
@@ -35,11 +32,11 @@ public sealed class RecoveryPasskeyCompletionStateTests
                 ? RecoveryPasskeyRegistrationResult.ValidationFailed("通行密钥验证失败，请重试")
                 : RecoveryPasskeyRegistrationResult.Completed()));
         RecoveryKeyService service = CreateService(cache.Cache, passkeys);
-        PasskeyRegisterCompleteCoreModel request = Request(token, "authenticator");
+        PasskeyRegisterCompleteCoreModel request = Request(Token, "authenticator");
 
-        Result<RecoveryPasskeyBindOutcome> failed = await service.CompletePasskeyBindAsync(token, request);
-        Result<RecoveryKeySession> pending = await service.GetRecoverySessionAsync(token);
-        Result<RecoveryPasskeyBindOutcome> retried = await service.CompletePasskeyBindAsync(token, request);
+        Result<RecoveryPasskeyBindOutcome> failed = await service.CompletePasskeyBindAsync(Token, request);
+        Result<RecoveryKeySession> pending = await service.GetRecoverySessionAsync(Token);
+        Result<RecoveryPasskeyBindOutcome> retried = await service.CompletePasskeyBindAsync(Token, request);
 
         Assert.False(failed.IsSuccess);
         Assert.Equal(ErrorCode.Validation, failed.Error.Code);
@@ -52,9 +49,9 @@ public sealed class RecoveryPasskeyCompletionStateTests
     [Fact]
     public async Task DatabaseFailure_RestoresPendingSessionAndAllowsSameRequestRetry()
     {
-        const string token = "recovery-session-database-retry";
+        const string Token = "recovery-session-database-retry";
         var cache = new AtomicRecoveryCache();
-        cache.SeedPending(token, ActiveSession());
+        cache.SeedPending(Token, ActiveSession());
         var passkeys = CreatePasskeysWithoutDurableCompletion();
         int attempt = 0;
         passkeys.CompleteRecoveryRegistrationAsync(
@@ -67,10 +64,10 @@ public sealed class RecoveryPasskeyCompletionStateTests
                 ? RecoveryPasskeyRegistrationResult.RetryableFailure()
                 : RecoveryPasskeyRegistrationResult.Completed()));
         RecoveryKeyService service = CreateService(cache.Cache, passkeys);
-        PasskeyRegisterCompleteCoreModel request = Request(token, "database");
+        PasskeyRegisterCompleteCoreModel request = Request(Token, "database");
 
-        Result<RecoveryPasskeyBindOutcome> failed = await service.CompletePasskeyBindAsync(token, request);
-        Result<RecoveryPasskeyBindOutcome> retried = await service.CompletePasskeyBindAsync(token, request);
+        Result<RecoveryPasskeyBindOutcome> failed = await service.CompletePasskeyBindAsync(Token, request);
+        Result<RecoveryPasskeyBindOutcome> retried = await service.CompletePasskeyBindAsync(Token, request);
 
         Assert.False(failed.IsSuccess);
         Assert.Equal(ErrorCode.InfraFailure, failed.Error.Code);
@@ -83,9 +80,9 @@ public sealed class RecoveryPasskeyCompletionStateTests
     [Trait("Category", "Concurrency")]
     public async Task ConcurrentDoubleSubmit_AllowsOnlyOneLogicalCompletion()
     {
-        const string token = "recovery-session-concurrent";
+        const string Token = "recovery-session-concurrent";
         var cache = new AtomicRecoveryCache();
-        cache.SeedPending(token, ActiveSession());
+        cache.SeedPending(Token, ActiveSession());
         var passkeys = CreatePasskeysWithoutDurableCompletion();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -104,11 +101,11 @@ public sealed class RecoveryPasskeyCompletionStateTests
                 return RecoveryPasskeyRegistrationResult.Completed();
             });
         RecoveryKeyService service = CreateService(cache.Cache, passkeys);
-        PasskeyRegisterCompleteCoreModel request = Request(token, "concurrent");
+        PasskeyRegisterCompleteCoreModel request = Request(Token, "concurrent");
 
-        Task<Result<RecoveryPasskeyBindOutcome>> firstTask = service.CompletePasskeyBindAsync(token, request);
+        Task<Result<RecoveryPasskeyBindOutcome>> firstTask = service.CompletePasskeyBindAsync(Token, request);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Result<RecoveryPasskeyBindOutcome> second = await service.CompletePasskeyBindAsync(token, request);
+        Result<RecoveryPasskeyBindOutcome> second = await service.CompletePasskeyBindAsync(Token, request);
         release.TrySetResult();
         Result<RecoveryPasskeyBindOutcome> first = await firstTask;
 
@@ -122,9 +119,9 @@ public sealed class RecoveryPasskeyCompletionStateTests
     [Fact]
     public async Task ResponseLostAfterCommit_ReplayReturnsIdempotentSuccessWithoutSecondMutation()
     {
-        const string token = "recovery-session-response-loss";
+        const string Token = "recovery-session-response-loss";
         var cache = new AtomicRecoveryCache();
-        cache.SeedPending(token, ActiveSession());
+        cache.SeedPending(Token, ActiveSession());
         var passkeys = Substitute.For<IPasskeyService>();
         bool durableCompletion = false;
         int completionCalls = 0;
@@ -148,10 +145,10 @@ public sealed class RecoveryPasskeyCompletionStateTests
                 return Task.FromException<RecoveryPasskeyRegistrationResult>(new IOException("response lost after commit"));
             });
         RecoveryKeyService service = CreateService(cache.Cache, passkeys);
-        PasskeyRegisterCompleteCoreModel request = Request(token, "response-loss");
+        PasskeyRegisterCompleteCoreModel request = Request(Token, "response-loss");
 
-        Result<RecoveryPasskeyBindOutcome> lost = await service.CompletePasskeyBindAsync(token, request);
-        Result<RecoveryPasskeyBindOutcome> replay = await service.CompletePasskeyBindAsync(token, request);
+        Result<RecoveryPasskeyBindOutcome> lost = await service.CompletePasskeyBindAsync(Token, request);
+        Result<RecoveryPasskeyBindOutcome> replay = await service.CompletePasskeyBindAsync(Token, request);
 
         Assert.False(lost.IsSuccess);
         Assert.Equal("RECOVERY_PASSKEY_RETRYABLE", lost.Error.Message);
@@ -163,9 +160,9 @@ public sealed class RecoveryPasskeyCompletionStateTests
     [Fact]
     public async Task CompletedSession_ReplayWithDifferentRequestIsRejected()
     {
-        const string token = "recovery-session-request-binding";
+        const string Token = "recovery-session-request-binding";
         var cache = new AtomicRecoveryCache();
-        cache.SeedPending(token, ActiveSession());
+        cache.SeedPending(Token, ActiveSession());
         var passkeys = Substitute.For<IPasskeyService>();
         string? completedRequestHash = null;
         passkeys.TryResolveRecoveryRegistrationAsync(
@@ -192,10 +189,10 @@ public sealed class RecoveryPasskeyCompletionStateTests
             });
         RecoveryKeyService service = CreateService(cache.Cache, passkeys);
 
-        Assert.True((await service.CompletePasskeyBindAsync(token, Request(token, "first"))).IsSuccess);
+        Assert.True((await service.CompletePasskeyBindAsync(Token, Request(Token, "first"))).IsSuccess);
         Result<RecoveryPasskeyBindOutcome> different = await service.CompletePasskeyBindAsync(
-            token,
-            Request(token, "different"));
+            Token,
+            Request(Token, "different"));
 
         Assert.False(different.IsSuccess);
         Assert.Equal(ErrorCode.Conflict, different.Error.Code);
@@ -205,9 +202,9 @@ public sealed class RecoveryPasskeyCompletionStateTests
     [Fact]
     public async Task ExpiredPendingSession_RejectsWithoutCallingPasskeyMutation()
     {
-        const string token = "recovery-session-expired";
+        const string Token = "recovery-session-expired";
         var cache = new AtomicRecoveryCache();
-        cache.SeedPending(token, new RecoveryKeySession(
+        cache.SeedPending(Token, new RecoveryKeySession(
             42,
             false,
             DateTime.UtcNow.AddMinutes(-20),
@@ -216,8 +213,8 @@ public sealed class RecoveryPasskeyCompletionStateTests
         RecoveryKeyService service = CreateService(cache.Cache, passkeys);
 
         Result<RecoveryPasskeyBindOutcome> result = await service.CompletePasskeyBindAsync(
-            token,
-            Request(token, "expired"));
+            Token,
+            Request(Token, "expired"));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorCode.Unauthorized, result.Error.Code);
@@ -233,10 +230,10 @@ public sealed class RecoveryPasskeyCompletionStateTests
     [Fact]
     public async Task ExpiredCompletingLease_RecoversPendingAndCompletesSameRequestRetry()
     {
-        const string token = "recovery-session-expired-completing";
+        const string Token = "recovery-session-expired-completing";
         var cache = new AtomicRecoveryCache();
         cache.SeedCompleting(
-            token,
+            Token,
             ActiveSession(),
             requestHash: new string('A', 64),
             leaseExpiresAtUtc: DateTime.UtcNow.AddSeconds(-5));
@@ -256,8 +253,8 @@ public sealed class RecoveryPasskeyCompletionStateTests
         RecoveryKeyService service = CreateService(cache.Cache, passkeys);
 
         Result<RecoveryPasskeyBindOutcome> result = await service.CompletePasskeyBindAsync(
-            token,
-            Request(token, "expired-completing-retry"));
+            Token,
+            Request(Token, "expired-completing-retry"));
 
         Assert.True(result.IsSuccess, result.Error.Message);
         Assert.False(result.Value.WasIdempotentReplay);
@@ -316,8 +313,8 @@ public sealed class RecoveryPasskeyCompletionStateTests
 
     private sealed class AtomicRecoveryCache
     {
-        private readonly object sync = new();
-        private readonly ConcurrentDictionary<string, string> strings = new(StringComparer.Ordinal);
+        private readonly object _sync = new();
+        private readonly ConcurrentDictionary<string, string> _strings = new(StringComparer.Ordinal);
 
         public AtomicRecoveryCache()
         {
@@ -326,9 +323,9 @@ public sealed class RecoveryPasskeyCompletionStateTests
                 .Returns(call =>
                 {
                     string key = Key(call.ArgAt<CachePolicyId>(0), call.ArgAt<string>(1));
-                    lock (sync)
+                    lock (_sync)
                     {
-                        return Task.FromResult(strings.TryGetValue(key, out string? value) ? value : null);
+                        return Task.FromResult(_strings.TryGetValue(key, out string? value) ? value : null);
                     }
                 });
             Cache.TrySetStringIfValueAsync(
@@ -344,15 +341,15 @@ public sealed class RecoveryPasskeyCompletionStateTests
                     string key = Key(call.ArgAt<CachePolicyId>(0), call.ArgAt<string>(1));
                     string compareKey = Key(call.ArgAt<CachePolicyId>(0), call.ArgAt<string>(3));
                     string expected = call.ArgAt<string>(4);
-                    lock (sync)
+                    lock (_sync)
                     {
-                        if (!strings.TryGetValue(compareKey, out string? current) ||
+                        if (!_strings.TryGetValue(compareKey, out string? current) ||
                             !string.Equals(current, expected, StringComparison.Ordinal))
                         {
                             return Task.FromResult(false);
                         }
 
-                        strings[key] = call.ArgAt<string>(2);
+                        _strings[key] = call.ArgAt<string>(2);
                         ReplacementCount++;
                         return Task.FromResult(true);
                     }
@@ -361,9 +358,9 @@ public sealed class RecoveryPasskeyCompletionStateTests
                 .Returns(call =>
                 {
                     string key = Key(call.ArgAt<CachePolicyId>(0), call.ArgAt<string>(1));
-                    lock (sync)
+                    lock (_sync)
                     {
-                        strings.TryRemove(key, out _);
+                        _strings.TryRemove(key, out _);
                     }
                     return Task.CompletedTask;
                 });
@@ -382,7 +379,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
         public void SeedPending(string token, RecoveryKeySession session)
         {
             string identity = RecoveryKeyService.BuildSessionIdentity(token);
-            strings[Key(CachePolicyId.SecurityRecoveryKeySession, identity)] =
+            _strings[Key(CachePolicyId.SecurityRecoveryKeySession, identity)] =
                 RecoveryKeyService.EncodeSessionEnvelope(RecoveryKeyService.ToPendingEnvelope(session));
         }
 
@@ -393,7 +390,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
             DateTime leaseExpiresAtUtc)
         {
             string identity = RecoveryKeyService.BuildSessionIdentity(token);
-            strings[Key(CachePolicyId.SecurityRecoveryKeySession, identity)] =
+            _strings[Key(CachePolicyId.SecurityRecoveryKeySession, identity)] =
                 RecoveryKeyService.EncodeSessionEnvelope(new RecoverySessionEnvelope(
                     session,
                     RecoveryPasskeyCompletionState.Completing,

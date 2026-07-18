@@ -110,11 +110,11 @@ public sealed class PublicAotRendererPayloadMapperTests
             }));
 
         IReadOnlyDictionary<string, object?> options = GetOptions(payload);
-        const string expected = "2026-07-17T00:56:33.0000000Z";
+        const string Expected = "2026-07-17T00:56:33.0000000Z";
 
-        Assert.Equal(expected, options["createTime"]);
-        Assert.Equal(expected, options["publishedAt"]);
-        Assert.Equal(expected, options["updatedAt"]);
+        Assert.Equal(Expected, options["createTime"]);
+        Assert.Equal(Expected, options["publishedAt"]);
+        Assert.Equal(Expected, options["updatedAt"]);
     }
 
     [Fact]

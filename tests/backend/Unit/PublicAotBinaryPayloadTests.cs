@@ -34,12 +34,12 @@ public sealed class PublicAotBinaryPayloadTests
     [Fact]
     public void DecimalPayload_RoundTripsWithoutPrecisionOrSignDrift()
     {
-        const decimal scoreWeight = 0.1234567890123456789012345678m;
-        const decimal negativeFloor = -0.0000000000000000000000000001m;
+        const decimal ScoreWeight = 0.1234567890123456789012345678m;
+        const decimal NegativeFloor = -0.0000000000000000000000000001m;
         var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["scoreWeight"] = scoreWeight,
-            ["negativeFloor"] = negativeFloor,
+            ["scoreWeight"] = ScoreWeight,
+            ["negativeFloor"] = NegativeFloor,
             ["nested"] = new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["max"] = decimal.MaxValue
@@ -49,8 +49,8 @@ public sealed class PublicAotBinaryPayloadTests
         byte[] frame = PublicAotBinaryPayload.EncodeObjectFrame(payload);
 
         Assert.True(PublicAotBinaryPayload.TryDecodeObject(frame, out Dictionary<string, object?> decoded));
-        Assert.Equal(scoreWeight, Assert.IsType<decimal>(decoded["scoreWeight"]));
-        Assert.Equal(negativeFloor, Assert.IsType<decimal>(decoded["negativeFloor"]));
+        Assert.Equal(ScoreWeight, Assert.IsType<decimal>(decoded["scoreWeight"]));
+        Assert.Equal(NegativeFloor, Assert.IsType<decimal>(decoded["negativeFloor"]));
         var nested = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(decoded["nested"]);
         Assert.Equal(decimal.MaxValue, Assert.IsType<decimal>(nested["max"]));
     }

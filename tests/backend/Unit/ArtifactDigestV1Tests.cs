@@ -10,27 +10,27 @@ public sealed class ArtifactDigestV1Tests
     [Fact]
     public void ComputeUtf8_PublicAotHtmlDigestChangesWithBytesAndRepeatsStably()
     {
-        const string html = "<!doctype html><html><body><article>PublicAOT</article></body></html>";
+        const string Html = "<!doctype html><html><body><article>PublicAOT</article></body></html>";
 
         ArtifactDigestEntry first = ArtifactDigestV1.ComputeUtf8(
             ArtifactDigestKind.PublicAotHtml,
             "aot:/article/910002",
-            html);
+            Html);
         ArtifactDigestEntry repeat = ArtifactDigestV1.ComputeUtf8(
             ArtifactDigestKind.PublicAotHtml,
             "aot:/article/910002",
-            html);
+            Html);
         ArtifactDigestEntry changed = ArtifactDigestV1.ComputeUtf8(
             ArtifactDigestKind.PublicAotHtml,
             "aot:/article/910002",
-            html.Replace("PublicAOT", "PublicAOT updated", StringComparison.Ordinal));
+            Html.Replace("PublicAOT", "PublicAOT updated", StringComparison.Ordinal));
 
         Assert.Equal(1, ArtifactDigestV1.HashVersion);
         Assert.Equal("fsusblog.integrity.artifact-digest.v1", ArtifactDigestV1.DomainSeparator);
         Assert.Equal("sha256", ArtifactDigestV1.HashAlgorithm);
         Assert.Equal(ArtifactDigestState.Ready, first.State);
         Assert.Equal(64, first.Sha256Hex?.Length);
-        Assert.Equal(Encoding.UTF8.GetByteCount(html), first.Length);
+        Assert.Equal(Encoding.UTF8.GetByteCount(Html), first.Length);
         Assert.Equal(first.Sha256Hex, repeat.Sha256Hex);
         Assert.NotEqual(first.Sha256Hex, changed.Sha256Hex);
     }

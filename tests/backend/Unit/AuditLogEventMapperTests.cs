@@ -1,19 +1,17 @@
 using System.Reflection;
 
-using FsusBlog.Server.Infrastructure.Audit;
-using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Tests.Unit;
-
 using Microsoft.Extensions.Logging;
-
 using Serilog.Events;
 using Serilog.Parsing;
 
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Tests.Unit;
 namespace FsusBlog.Server.Tests;
 
 public sealed class AuditLogEventMapperTests
 {
-    private static readonly MessageTemplateParser TemplateParser = new();
+    private static readonly MessageTemplateParser s_templateParser = new();
 
     [Fact]
     public void Map_UsesExplicitAuditSourceAndType()
@@ -330,7 +328,7 @@ public sealed class AuditLogEventMapperTests
             timestamp,
             level,
             exception,
-            TemplateParser.Parse(message),
+            s_templateParser.Parse(message),
             properties);
 
     private static IReadOnlyDictionary<string, object?> DecodeContext(AuditRecord record)

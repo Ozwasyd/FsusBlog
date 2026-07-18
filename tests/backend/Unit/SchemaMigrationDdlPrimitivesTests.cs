@@ -1,11 +1,9 @@
 using System.Text.Json.Nodes;
 
-using FsusBlog.Server.Infrastructure.SchemaMigration;
-
 using NSubstitute;
-
 using SqlSugar;
 
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SchemaMigrationDdlPrimitivesTests

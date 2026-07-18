@@ -1,8 +1,7 @@
-using FsusBlog.Core.Algorithms;
-using FsusBlog.Server.Modules.Endpoints;
-
 using Microsoft.AspNetCore.Http;
 
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Server.Modules.Endpoints;
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AuthoringNativeAedsEndpointTests

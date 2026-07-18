@@ -1,6 +1,10 @@
 using System.Reflection;
 
 using Fido2NetLib;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -10,14 +14,6 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using SqlSugar;
-
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
@@ -25,19 +21,19 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static readonly MethodInfo TryUpdatePasskeySignCount = typeof(PasskeyService)
+    private static readonly MethodInfo s_tryUpdatePasskeySignCount = typeof(PasskeyService)
         .GetMethod("TryUpdatePasskeySignCountAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("TryUpdatePasskeySignCountAsync should exist.");
 
-    private static readonly MethodInfo LoadAdminPasskeyRowVersion = typeof(AdminPrincipalService)
+    private static readonly MethodInfo s_loadAdminPasskeyRowVersion = typeof(AdminPrincipalService)
         .GetMethod("LoadAdminPasskeyRowVersionAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("LoadAdminPasskeyRowVersionAsync should exist.");
 
-    private static readonly MethodInfo TryUpdateAdminPasskeySignCount = typeof(AdminPrincipalService)
+    private static readonly MethodInfo s_tryUpdateAdminPasskeySignCount = typeof(AdminPrincipalService)
         .GetMethod("TryUpdateAdminPasskeySignCountAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("TryUpdateAdminPasskeySignCountAsync should exist.");
 
-    private static readonly MethodInfo GetOrCreateStablePasskeyUserHandle = typeof(PasskeyService)
+    private static readonly MethodInfo s_getOrCreateStablePasskeyUserHandle = typeof(PasskeyService)
         .GetMethod("GetOrCreateStablePasskeyUserHandleAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("GetOrCreateStablePasskeyUserHandleAsync should exist.");
 
@@ -220,7 +216,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     private static async Task<byte[]> InvokeGetOrCreateStablePasskeyUserHandleAsync(PasskeyService service, User user)
-        => await (Task<byte[]>)GetOrCreateStablePasskeyUserHandle.Invoke(service, [user, CancellationToken.None])!;
+        => await (Task<byte[]>)s_getOrCreateStablePasskeyUserHandle.Invoke(service, [user, CancellationToken.None])!;
 
     private static async Task<bool> InvokeTryUpdatePasskeySignCountAsync(
         PasskeyService service,
@@ -228,12 +224,12 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         long expectedSignCount,
         string rowVersion,
         long newSignCount)
-        => await (Task<bool>)TryUpdatePasskeySignCount.Invoke(
+        => await (Task<bool>)s_tryUpdatePasskeySignCount.Invoke(
             service,
             [id, expectedSignCount, rowVersion, newSignCount, DateTime.UtcNow, CancellationToken.None])!;
 
     private static async Task<string?> InvokeLoadAdminPasskeyRowVersionAsync(AdminPrincipalService service, long id)
-        => await (Task<string?>)LoadAdminPasskeyRowVersion.Invoke(service, [id, CancellationToken.None])!;
+        => await (Task<string?>)s_loadAdminPasskeyRowVersion.Invoke(service, [id, CancellationToken.None])!;
 
     private static async Task<bool> InvokeTryUpdateAdminPasskeySignCountAsync(
         AdminPrincipalService service,
@@ -241,7 +237,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         long expectedSignCount,
         string rowVersion,
         long newSignCount)
-        => await (Task<bool>)TryUpdateAdminPasskeySignCount.Invoke(
+        => await (Task<bool>)s_tryUpdateAdminPasskeySignCount.Invoke(
             service,
             [id, expectedSignCount, rowVersion, newSignCount, DateTime.UtcNow, CancellationToken.None])!;
 
