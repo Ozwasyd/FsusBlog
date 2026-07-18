@@ -117,5 +117,3 @@ public sealed record class CommentDto : ICheckableContent
 
     public string GetTextToCheck() => Content;
 }
-
-public readonly record struct DeleteCommentRequest(string? Reason);

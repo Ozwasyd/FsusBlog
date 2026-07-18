@@ -19,14 +19,6 @@ public sealed record class UploadInitRequestDto
     }
 }
 
-public sealed record class UploadCompleteRequestDto
-{
-    public string? Sha256
-    {
-        get; init;
-    }
-}
-
 internal sealed record class UploadSessionRecord
 {
     public string UploadId { get; init; } = string.Empty;

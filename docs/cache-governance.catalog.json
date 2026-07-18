@@ -399,17 +399,6 @@
             "l2JitterRatio": 0
         },
         {
-            "id": "MessageGlobalVersion",
-            "domain": "msg",
-            "resource": "global-version",
-            "l1Ttl": "TimeSpan.FromMinutes(2)",
-            "l2Ttl": "TimeSpan.FromDays(3)",
-            "negativeTtl": "null",
-            "invalidationTags": [],
-            "securityCritical": false,
-            "l2JitterRatio": 0
-        },
-        {
             "id": "MessageUnread",
             "domain": "msg",
             "resource": "unread",
@@ -802,42 +791,6 @@
     ],
     "httpPolicies": [
         {
-            "method": "ApplyArticleList",
-            "tags": [
-                "ArticleList"
-            ],
-            "varyByQuery": [
-                "page",
-                "size",
-                "keyword",
-                "categoryId",
-                "tagId",
-                "isDeleted",
-                "status"
-            ],
-            "varyByRouteValue": []
-        },
-        {
-            "method": "ApplyHotArticles",
-            "tags": [
-                "HotArticles"
-            ],
-            "varyByQuery": [
-                "size"
-            ],
-            "varyByRouteValue": []
-        },
-        {
-            "method": "ApplyFeaturedArticles",
-            "tags": [
-                "ArticleList"
-            ],
-            "varyByQuery": [
-                "size"
-            ],
-            "varyByRouteValue": []
-        },
-        {
             "method": "ApplySystemSeo",
             "tags": [
                 "Seo"
@@ -861,33 +814,6 @@
             "varyByQuery": [],
             "varyByRouteValue": [
                 "slug"
-            ]
-        },
-        {
-            "method": "ApplyCommentThreads",
-            "tags": [
-                "Comment"
-            ],
-            "varyByQuery": [
-                "cursor",
-                "limit"
-            ],
-            "varyByRouteValue": [
-                "articleId"
-            ]
-        },
-        {
-            "method": "ApplyCommentThreadReplies",
-            "tags": [
-                "Comment"
-            ],
-            "varyByQuery": [
-                "cursor",
-                "limit"
-            ],
-            "varyByRouteValue": [
-                "articleId",
-                "rootId"
             ]
         }
     ]

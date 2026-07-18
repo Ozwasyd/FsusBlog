@@ -93,6 +93,12 @@ Issue #1050 is a follow-on test-governance cleanup, not a new claim about the mi
 
 The same checker keeps HumanRead persistence anonymous by rejecting visit-log user binding and raw visit-IP persistence across the runtime contract paths. `tests/frontend/checks/static/check-historical-residue-fixture.mjs` owns negative fixtures for the retired mixed suite, a source reader inside a replacement behavior suite, user binding, and raw IP, plus a safe replacement-suite fixture. These static rules prevent implementation-string tests from returning; they do not replace the PostgreSQL, worker, queue, proof, privacy, coverage, mutation, timing, or production-fresh evidence required by #1050.
 
+### 2026-07-19 backend cleanup boundary
+
+Issue #1256 removes only repository-proven unreachable Server implementations: the unregistered crawler middleware, the unused Public AOT shell-key facade, unbound Server request DTOs, five unreferenced output-cache builders, and the unread/global-version methods and policy identity with no production caller. The active `SetUnreadAsync` and `RefreshUnreadAsync` paths used by `MessageCenterService` remain unchanged; the three retained HTTP cache builders remain bound to the current system binary endpoints. Explicit `CachePolicyId` values are not renumbered, so removing the retired global-version identity cannot change another cache policy identity.
+
+The cleanup does not remove a Core/Shared public contract, endpoint, AEDS frame, database entity, source-generated serialization registration, or migration descriptor. `tools/check-historical-residue.sh` owns one symbol-level rule over the complete retired-name set, and its fixture proves the rule against representative request, method, and cache-policy residue. This consolidated rule prevents the historical names from returning without pinning implementation text or adding a separate token test for every deleted file.
+
 ## Maintenance workflow
 
 1. Read the affected GitHub issue body and all comments.

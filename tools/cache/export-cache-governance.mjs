@@ -108,7 +108,7 @@ const catalog = {
   httpPolicies: parseHttpPolicies()
 }
 
-const next = `${JSON.stringify(catalog, null, 2)}\n`
+const next = `${JSON.stringify(catalog, null, 4)}\n`
 
 if (check) {
   if (!fs.existsSync(outFile)) {

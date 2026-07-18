@@ -113,15 +113,3 @@ public sealed record class ArticleRightsRequest
     public bool ShowPublicBadge { get; init; } = true;
     public bool ProofBindingEnabled { get; init; } = true;
 }
-
-public sealed record class SearchArticlesRequest
-{
-    public string Keyword { get; init; } = string.Empty;
-}
-
-public readonly record struct ArticleQueryRequest(
-    int Page = 1,
-    int Size = 10,
-    int? CategoryId = null,
-    int? TagId = null,
-    bool IsDeleted = false);

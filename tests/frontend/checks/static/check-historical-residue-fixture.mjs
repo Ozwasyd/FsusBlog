@@ -78,6 +78,18 @@ export const store = useArticleBinaryStore('article-binary')
     }
   },
   {
+    name: 'retired backend cleanup symbols',
+    expected: 'retired backend cleanup symbol residue detected',
+    files: {
+      'src/backend/Infrastructure/Cache/LegacyMessageCache.cs': `
+public sealed record CreateConversationRequest(long RecipientId)
+public sealed record SearchArticlesRequest(string Query)
+public Task DecrementUnreadAsync(long accountId) => Task.CompletedTask;
+public const CachePolicyId Policy = CachePolicyId.MessageGlobalVersion;
+`
+    }
+  },
+  {
     name: 'old author-mode aliases',
     expected: 'old author-mode alias residue detected',
     files: {

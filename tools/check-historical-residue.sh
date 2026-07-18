@@ -181,6 +181,13 @@ RunResidueCheck \
     src/frontend/src tests/frontend/unit docs/api
 
 RunResidueCheck \
+    "retired backend cleanup symbols" \
+    "retired backend cleanup symbol residue detected" \
+    '\b(?:CrawlerAuthMiddleware|PublicAotShellKeyBuilder|CreateConversationRequest|ReplyConversationRequest|AdminConversationStatusRequest|SendSystemMessageRequest|SearchArticlesRequest|ArticleQueryRequest|DeleteCommentRequest|RefreshRequestDto|MfaSetupVerifyRequestDto|MfaChallengeRequestDto|MfaDisableRequestDto|UploadCompleteRequestDto|ApplyArticleList|ApplyHotArticles|ApplyFeaturedArticles|ApplyCommentThreads|ApplyCommentThreadReplies|DecrementUnreadAsync|GetUnreadCountAsync|UpdateGlobalVersionAsync|GetGlobalVersionAsync|ClearUnreadAsync|MessageGlobalVersion)\b' \
+    "" \
+    src/backend
+
+RunResidueCheck \
     "obsolete AOT shell builder names" \
     "obsolete AOT shell builder names detected" \
     'BuildHomeShell|BuildArticleDetailShell|BuildFilterShell|BuildAboutShell|BuildArchiveShell' \

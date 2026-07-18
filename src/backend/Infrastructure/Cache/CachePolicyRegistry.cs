@@ -32,7 +32,6 @@ public sealed class CachePolicyRegistry : ICachePolicyRegistry
             [CachePolicyId.AccountSnapshotVersion] = new(CachePolicyId.AccountSnapshotVersion, "sec", "account-snapshot-version", TimeSpan.FromMinutes(5), TimeSpan.FromDays(7), null, null, true, 0d, false),
             [CachePolicyId.SecurityUserSessionValidation] = new(CachePolicyId.SecurityUserSessionValidation, "sec", "user-session-validation", TimeSpan.Zero, TimeSpan.FromMinutes(2), null, null, true, 0d, false),
             [CachePolicyId.MessageUnread] = new(CachePolicyId.MessageUnread, "msg", "unread", TimeSpan.FromMinutes(2), TimeSpan.FromDays(3), null, null, false, 0d, false),
-            [CachePolicyId.MessageGlobalVersion] = new(CachePolicyId.MessageGlobalVersion, "msg", "global-version", TimeSpan.FromMinutes(2), TimeSpan.FromDays(3), null, null, false, 0d, false),
             [CachePolicyId.PublicAotDocument] = new(CachePolicyId.PublicAotDocument, "public", "aot-doc", TimeSpan.FromMinutes(30), TimeSpan.FromDays(30), null, [CacheTag.Aot]),
             [CachePolicyId.PublicAotRegistry] = new(CachePolicyId.PublicAotRegistry, "public", "aot-registry", TimeSpan.FromMinutes(5), TimeSpan.FromDays(30), null, [CacheTag.Aot], false, 0d, false),
             [CachePolicyId.SecurityBlockedUser] = new(CachePolicyId.SecurityBlockedUser, "sec", "blocked-user", TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(20), null, null, true, 0d, false),

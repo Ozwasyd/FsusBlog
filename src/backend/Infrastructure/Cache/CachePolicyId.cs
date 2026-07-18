@@ -16,7 +16,6 @@ public enum CachePolicyId
     SystemPage = 11,
     AdminStats = 12,
     MessageUnread = 13,
-    MessageGlobalVersion = 14,
     PublicAotDocument = 15,
     PublicAotRegistry = 16,
     SecurityBlockedUser = 17,

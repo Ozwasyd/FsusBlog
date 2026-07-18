@@ -891,7 +891,7 @@ function writeBaseline(violations) {
     files
   }
   fs.mkdirSync(path.dirname(target), { recursive: true })
-  fs.writeFileSync(target, `${JSON.stringify(document, null, 2)}\n`)
+  fs.writeFileSync(target, `${JSON.stringify(document, null, 4)}\n`)
   console.log(`[csharp-style] baseline updated violations=${violations.length} path=${policy.baseline}`)
 }
 

@@ -18,54 +18,6 @@ public sealed record class AdminChangeStatusDto
     }
 }
 
-public readonly record struct RefreshRequestDto(string RefreshToken);
-
-public sealed record class MfaSetupVerifyRequestDto
-{
-    [Required]
-    public required string Code
-    {
-        get; init;
-    }
-}
-
-public sealed record class MfaChallengeRequestDto
-{
-    public string? ChallengeToken
-    {
-        get; init;
-    }
-    public string? Action
-    {
-        get; init;
-    }
-    public string? Code
-    {
-        get; init;
-    }
-    public string? RecoveryCode
-    {
-        get; init;
-    }
-}
-
-public sealed record class MfaDisableRequestDto
-{
-    [Required]
-    public required string Password
-    {
-        get; init;
-    }
-    public string? Code
-    {
-        get; init;
-    }
-    public string? RecoveryCode
-    {
-        get; init;
-    }
-}
-
 public sealed record class DeleteAccountRequestDto
 {
     [Required]

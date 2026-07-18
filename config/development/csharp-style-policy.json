@@ -165,19 +165,6 @@
                 "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
             },
             {
-                "path": "src/backend/Infrastructure/Middlewares/CrawlerAuthMiddleware.cs",
-                "declarations": [
-                    {
-                        "name": "CrawlerAuthMiddleware",
-                        "parameters": [
-                            "_next",
-                            "_detector"
-                        ]
-                    }
-                ],
-                "reason": "Public primary-constructor parameter names are an existing named-argument source contract."
-            },
-            {
                 "path": "src/backend/Infrastructure/Middlewares/GlobalExceptionMiddleware.cs",
                 "declarations": [
                     {
