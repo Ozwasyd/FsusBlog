@@ -189,7 +189,7 @@
             "id": "aeds-wasm-decode",
             "language": "cpp",
             "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
-            "symbol": "decode_frame",
+            "symbol": "DecodeFrame",
             "documentationStyle": "doxygen"
         },
         {
@@ -203,7 +203,7 @@
             "id": "aeds-decoder-target",
             "language": "cmake",
             "path": "src/frontend/wasm/aeds/CMakeLists.txt",
-            "symbol": "add_aeds_decoder",
+            "symbol": "AddAedsDecoder",
             "documentationStyle": "cmake-doc"
         }
     ],

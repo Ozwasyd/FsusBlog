@@ -97,6 +97,10 @@
                 ".cpp",
                 ".hpp"
             ],
+            "specialFiles": [
+                ".clang-format",
+                ".clang-tidy"
+            ],
             "documentationHeading": "## C++"
         },
         {
@@ -115,6 +119,9 @@
             "owner": "ToolingStyleOwner",
             "extensions": [
                 ".sh"
+            ],
+            "specialFiles": [
+                ".shellcheckrc"
             ],
             "documentationHeading": "## Shell"
         },

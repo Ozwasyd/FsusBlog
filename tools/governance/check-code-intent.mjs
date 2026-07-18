@@ -485,6 +485,12 @@ function nextCodeLine(source, comment) {
         .find((line) => line && !line.startsWith('//') && !line.startsWith('/*')) ?? ''
 }
 
+function isCppNamespaceClosingComment(relativePath, source, comment) {
+    if (!['.cpp', '.hpp'].includes(path.extname(relativePath).toLowerCase())) return false
+    const line = source.split(/\r?\n/u)[comment.startLine - 1] ?? ''
+    return /^\s*\}\s*\/\/\s*namespace(?:\s+[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*)?\s*$/u.test(line)
+}
+
 function isRedundantComment(comment, followingLine) {
     const normalized = comment.text
         .replace(/[.`'"<>]/gu, '')
@@ -601,7 +607,7 @@ export function validateCommentPolicy({ path: relativePath, source, registry, sc
         }
 
         if (!scoped) continue
-        if (comment.hasCodeBefore) {
+        if (comment.hasCodeBefore && !isCppNamespaceClosingComment(relativePath, source, comment)) {
             errors.push(`${location} trailing comments are prohibited; place the intent immediately above the code`)
         }
         if (comment.kind === 'block' && comment.endLine - comment.startLine + 1 > maxBlockCommentLines) {

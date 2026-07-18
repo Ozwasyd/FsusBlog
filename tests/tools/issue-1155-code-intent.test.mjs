@@ -49,6 +49,21 @@ test('ownership intent is useful while an ordinary internal helper needs no comm
     }), [])
 })
 
+test('clang-format namespace closing comments are the only governed trailing-comment exception', () => {
+    assert.deepEqual(validateCommentPolicy({
+        path: 'sample/decoder.hpp',
+        source: 'namespace FsusBlog::Aeds {\n} // namespace FsusBlog::Aeds\n',
+        registry,
+        scoped: true
+    }), [])
+    assert.match(validateCommentPolicy({
+        path: 'sample/decoder.hpp',
+        source: 'const int Value = 1; // namespace FsusBlog::Aeds\n',
+        registry,
+        scoped: true
+    }).join('\n'), /trailing comments are prohibited/u)
+})
+
 test('standard intent markers cannot exist outside their registered source path', () => {
     const source = fixture('valid', 'ownership.cs')
     assert.match(validateMarkerRegistration({
