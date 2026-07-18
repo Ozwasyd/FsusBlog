@@ -356,6 +356,15 @@
             ]
         },
         {
+            "id": "frontend-style",
+            "kind": "node-script",
+            "path": "tools/frontend/check-frontend-style.mjs",
+            "invocation": "node tools/frontend/check-frontend-style.mjs --mode changed",
+            "documents": [
+                "docs/development/frontend-style-enforcement.md"
+            ]
+        },
+        {
             "id": "code-intent-governance",
             "kind": "node-script",
             "path": "tools/governance/check-code-intent.mjs",
