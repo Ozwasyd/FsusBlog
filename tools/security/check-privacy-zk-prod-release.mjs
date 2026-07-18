@@ -11,10 +11,10 @@ const DEFAULT_CONFIGS = [
   'src/backend/appsettings.json',
   'src/backend/appsettings.Production.json'
 ]
-const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v2-trusted-setup.manifest.json'
+const DEFAULT_TRUSTED_SETUP = 'security/zk/provenance/comment-v2-trusted-setup.manifest.json'
 const DEFAULT_SMOKE_EVIDENCE = '.tmp/security/privacy-zk-prod-smoke.json'
 const DEFAULT_ROOT_BOOTSTRAP_EVIDENCE = '.tmp/security/anonymous-credential-root-bootstrap.json'
-const DEFAULT_LOCAL_REVIEW = 'security/zk/comment-v2-local-review.manifest.json'
+const DEFAULT_LOCAL_REVIEW = 'security/zk/provenance/comment-v2-local-review.manifest.json'
 const DEFAULT_SUMMARY = '.tmp/security/privacy-zk-prod-release.json'
 const REAL_EVIDENCE_KIND = 'real-groth16-cross-stack'
 const REQUIRED_ARTIFACT_HASHES = [

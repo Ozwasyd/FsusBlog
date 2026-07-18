@@ -125,10 +125,10 @@ The repository asset contract for this decision is:
 - `src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json`
 - `docs/zk/anonymous-comment-v2-circuit.md`
 - `docs/zk/trusted-setup-ceremony.md`
-- `security/zk/comment-v2-circuit.manifest.json`
-- `security/zk/comment-v2-tamper-cases.manifest.json`
-- `security/zk/comment-v2-feasibility.manifest.json`
-- `security/zk/comment-v2-trusted-setup.manifest.json`
+- `security/zk/contracts/comment-v2-circuit.manifest.json`
+- `security/zk/contracts/comment-v2-tamper-cases.manifest.json`
+- `security/zk/contracts/comment-v2-feasibility.manifest.json`
+- `security/zk/provenance/comment-v2-trusted-setup.manifest.json`
 - `config/zk/anonymous-comment-v2-verifying-key.manifest.json`
 
 The handwritten circuit is product source and therefore lives below `src/zk/circuits/`.

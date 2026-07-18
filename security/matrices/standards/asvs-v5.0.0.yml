@@ -1,4 +1,8 @@
+schema: fsusblog.security-matrix.asvs.v1
+family: standards.asvs
 version: asvs-v5.0.0
+owner: ServerContractAgent
+checker: tools/security/check-security-matrices.mjs
 requirements:
   - id: ASVS-1.2.1
     control: security architecture and trust-boundary decisions are documented and testable

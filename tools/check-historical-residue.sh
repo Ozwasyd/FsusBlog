@@ -65,7 +65,7 @@ require_security_literal() {
   local literal="$1"
   local paths=()
   local candidate
-  for candidate in security/privacy-zk-comment-matrix.yml security/zk/comment-v2-tamper-cases.manifest.json; do
+  for candidate in security/matrices/privacy-zk-comment.yml security/zk/contracts/comment-v2-tamper-cases.manifest.json; do
     if [[ -e "$candidate" ]]; then
       paths+=("$candidate")
     fi

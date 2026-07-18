@@ -152,7 +152,7 @@ finalize_privacy_matrix() {
 {
   "schema": "fsusblog.privacy-zk-comment-matrix.v1",
   "status": "ok",
-  "source": "security/privacy-zk-comment-matrix.yml",
+  "source": "security/matrices/privacy-zk-comment.yml",
   "validatedBy": "contract, parallel non-benchmark functional checks, and isolated native verifier P99 benchmark stage receipts"
 }
 JSON

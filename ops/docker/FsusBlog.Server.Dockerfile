@@ -357,6 +357,7 @@ LABEL org.opencontainers.image.version="${FSUSBLOG_RELEASE_ID}" \
       io.fsusblog.runtime.topology-mode="${TOPOLOGY_MODE}"
 
 COPY --from=publish --chown=$APP_UID:$APP_UID /app/publish .
+COPY --chown=$APP_UID:$APP_UID security/zk/contracts/ ./security/zk/contracts/
 COPY --from=frontend-build --chown=$APP_UID:$APP_UID /app/dist ./wwwroot
 COPY --from=frontend-build --chown=$APP_UID:$APP_UID /app ./FsusBlog.ClientRuntime
 
@@ -373,4 +374,5 @@ ENTRYPOINT ["./FsusBlog.Server"]
 FROM base AS debug-final
 WORKDIR /app
 COPY --from=publish-debug --chown=$APP_UID:$APP_UID /app/publish .
+COPY --chown=$APP_UID:$APP_UID security/zk/contracts/ ./security/zk/contracts/
 ENTRYPOINT ["dotnet", "FsusBlog.Server.dll"]

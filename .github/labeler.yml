@@ -52,6 +52,12 @@
           - "src/backend/Infrastructure/Helpers/JwtHelper.cs"
           - "src/backend/Modules/Endpoints/AuthEndpoints.cs"
           - "src/frontend/src/api/auth.ts"
+          - "security/catalog/**"
+          - "security/matrices/**"
+          - "security/policies/**"
+          - "security/zk/contracts/**"
+          - "security/zk/provenance/**"
+          - "security/evidence-contracts/**"
           - "src/frontend/src/views/auth/**"
 
 "area:aeds":

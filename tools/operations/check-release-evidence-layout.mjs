@@ -9,7 +9,7 @@ import { evidenceClassificationErrors } from './evidence-classification.mjs'
 
 const HISTORICAL_ROOT = 'docs/reports/open-source-readiness/v1.1.0-public-preview'
 const HISTORICAL_MANIFEST = `${HISTORICAL_ROOT}/snapshot-manifest.json`
-const MATRIX_PATH = 'security/privacy-zk-comment-matrix.yml'
+const MATRIX_PATH = 'security/matrices/privacy-zk-comment.yml'
 const REQUIRED_MATRIX_CLASSES = [
   'contract',
   'fixture',

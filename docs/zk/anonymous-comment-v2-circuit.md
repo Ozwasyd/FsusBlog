@@ -23,7 +23,7 @@ R1CS IR artifact at
 Groth16 R1CS input lives beside it as `comment_v3_groth16.r1cs`. The old
 v2/layout3 phase transcripts and proving/verifying keys had no supported
 consumer and were deleted; their hashes and deletion disposition remain in
-`security/zk/artifact-ownership.manifest.json`.
+`security/zk/provenance/artifact-ownership.manifest.json`.
 
 Future v3/layout4 ceremony, key and browser delivery artifacts use the
 identity-correct `artifacts/zk/comment-v3-layout4/{ceremony,keys,delivery}`
@@ -53,12 +53,12 @@ The manifest checker enforces that boundary:
 
 | Asset | Path |
 | --- | --- |
-| Circuit manifest | `security/zk/comment-v2-circuit.manifest.json` |
-| Tamper and soundness cases | `security/zk/comment-v2-tamper-cases.manifest.json` |
-| Feasibility and design decision gate | `security/zk/comment-v2-feasibility.manifest.json` |
-| Trusted setup manifest | `security/zk/comment-v2-trusted-setup.manifest.json` |
+| Circuit manifest | `security/zk/contracts/comment-v2-circuit.manifest.json` |
+| Tamper and soundness cases | `security/zk/contracts/comment-v2-tamper-cases.manifest.json` |
+| Feasibility and design decision gate | `security/zk/contracts/comment-v2-feasibility.manifest.json` |
+| Trusted setup manifest | `security/zk/provenance/comment-v2-trusted-setup.manifest.json` |
 | Verifying key config manifest | `config/zk/anonymous-comment-v2-verifying-key.manifest.json` |
-| Artifact ownership and storage policy | `security/zk/artifact-ownership.manifest.json` |
+| Artifact ownership and storage policy | `security/zk/provenance/artifact-ownership.manifest.json` |
 | Circuit source | `src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json` |
 | R1CS IR artifact | `artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs` |
 | Groth16 R1CS ceremony input | `artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs` |
@@ -201,7 +201,7 @@ ceremony, independent audit, or live deployment claim.
 
 ## Soundness Matrix
 
-`security/zk/comment-v2-tamper-cases.manifest.json` is the executable contract
+`security/zk/contracts/comment-v2-tamper-cases.manifest.json` is the executable contract
 for positive and negative cases. It requires at least one reject case for each
 security assertion, including nullifier tamper, scope tamper, root tamper,
 revocation tamper, unsigned policy bucket tamper, issuer-key tamper, layout
@@ -252,7 +252,7 @@ verifying-key artifact hash before ZK-Prod can be enabled.
 
 ## Repository-local cryptographic review
 
-`security/zk/comment-v2-local-review.manifest.json` and
+`security/zk/provenance/comment-v2-local-review.manifest.json` and
 `docs/zk/comment-v2-local-cryptographic-review.md` provide the reproducible
 local review required by the release gate. The manifest binds the circuit
 source/manifest, both R1CS forms, setup manifest, the identity-compatible

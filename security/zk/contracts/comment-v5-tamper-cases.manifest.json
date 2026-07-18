@@ -2,6 +2,9 @@
   "schema": "fsusblog.zk.tamper-cases.v2",
   "circuit_id": "fsus.anonymous.comment.v5",
   "public_input_layout_version": 6,
+  "artifact_class": "tamper-contract",
+  "lifecycle": "active-test-contract",
+  "production_usable": false,
   "valid_case": { "id": "valid-minimal-policy-predicates", "expected": "accept" },
   "tamper_cases": [
     { "id": "tamper-is-eligible", "expected": "reject", "mutates": ["is_eligible", "policy_comparison_witness"] },

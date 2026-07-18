@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const credentialVaultReleasePlanPath = path.join(
   root,
-  'security/privacy/comment-privacy-credential-vault.release-plan.json'
+  'security/evidence-contracts/comment-privacy-credential-vault.release-plan.json'
 )
 
 export const credentialVaultReleasePlan = JSON.parse(fs.readFileSync(credentialVaultReleasePlanPath, 'utf8'))

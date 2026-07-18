@@ -11,7 +11,7 @@ import {
 } from '../../tools/security/zk-local-review.mjs'
 
 const root = path.resolve(import.meta.dirname, '..', '..')
-const committedManifest = path.join(root, 'security/zk/comment-v2-local-review.manifest.json')
+const committedManifest = path.join(root, 'security/zk/provenance/comment-v2-local-review.manifest.json')
 
 test('superseded v3 repository-local review cannot authorize the active v5 source', () => {
   const historical = validateZkLocalReview({

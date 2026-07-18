@@ -30,7 +30,7 @@
       ],
       "evidencePaths": [
         "tests/backend/Unit/SecurityHardening",
-        "security/backend-source-policy.json",
+        "security/policies/backend-source-policy.json",
         "tests/tools/security-source-analyzer.test.mjs",
         "tests/backend/issue-1037-security-hardening-evidence.json",
         "tests/backend/issue-1037-retention-replacements.json"

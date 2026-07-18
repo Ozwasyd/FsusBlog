@@ -34,7 +34,7 @@ node --test tests/security/zk-local-review.test.mjs tests/security/zk-comment-v2
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj --filter 'FullyQualifiedName~ZkProofVerifierTests|FullyQualifiedName~NativeGroth16ZkProofBackendTests|FullyQualifiedName~AnonymousPrivacyConcurrencyTests|FullyQualifiedName~ZkCommentV2CrossStackFixtureTests' -p:TreatWarningsAsErrors=true
 ```
 
-The manifest at `security/zk/comment-v2-local-review.manifest.json` is a source/R1CS-only v2 review contract. It hash-binds this report, circuit source and manifests, both R1CS forms, the identity-compatible cross-stack fixture manifest, verifier/prover source and focused tests. It deliberately does not bind a selected proving or verifying key. A future production release must supply a key-bearing review plus matching trusted-setup and release evidence. Any changed byte invalidates the local review until the report and evidence are reviewed and re-bound.
+The manifest at `security/zk/provenance/comment-v2-local-review.manifest.json` is a source/R1CS-only v2 review contract. It hash-binds this report, circuit source and manifests, both R1CS forms, the identity-compatible cross-stack fixture manifest, verifier/prover source and focused tests. It deliberately does not bind a selected proving or verifying key. A future production release must supply a key-bearing review plus matching trusted-setup and release evidence. Any changed byte invalidates the local review until the report and evidence are reviewed and re-bound.
 
 ## Emergency response
 

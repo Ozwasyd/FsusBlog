@@ -5,7 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v2-trusted-setup.manifest.json'
+const DEFAULT_TRUSTED_SETUP = 'security/zk/provenance/comment-v2-trusted-setup.manifest.json'
 const DEFAULT_VERIFYING_KEY = 'config/zk/anonymous-comment-v2-verifying-key.manifest.json'
 const DEFAULT_EVIDENCE = '.tmp/security/anonymous-credential-root-bootstrap.json'
 const EXPECTED_CIRCUIT_ID = 'fsus.anonymous.comment.v3'

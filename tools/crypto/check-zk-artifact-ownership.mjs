@@ -14,7 +14,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-const defaultManifestPath = 'security/zk/artifact-ownership.manifest.json'
+const defaultManifestPath = 'security/zk/provenance/artifact-ownership.manifest.json'
 const activeArtifactRoot = 'artifacts/zk/comment-v3-layout4'
 const activeCircuitId = 'fsus.anonymous.comment.v3'
 const activeLayoutVersion = 4

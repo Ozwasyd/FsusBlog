@@ -8,11 +8,11 @@ import { spawnSync } from 'node:child_process'
 
 const checker = 'tools/crypto/check-zk-comment-v2-manifests.mjs'
 const builder = 'tools/crypto/build-zk-comment-v2-r1cs.mjs'
-const circuitPath = 'security/zk/comment-v2-circuit.manifest.json'
-const tamperPath = 'security/zk/comment-v2-tamper-cases.manifest.json'
-const setupPath = 'security/zk/comment-v2-trusted-setup.manifest.json'
+const circuitPath = 'security/zk/contracts/comment-v2-circuit.manifest.json'
+const tamperPath = 'security/zk/contracts/comment-v2-tamper-cases.manifest.json'
+const setupPath = 'security/zk/provenance/comment-v2-trusted-setup.manifest.json'
 const configPath = 'config/zk/anonymous-comment-v2-verifying-key.manifest.json'
-const feasibilityPath = 'security/zk/comment-v2-feasibility.manifest.json'
+const feasibilityPath = 'security/zk/contracts/comment-v2-feasibility.manifest.json'
 const requiredMclRuntimeAssets = [
   ['linux-x64', 'runtimes/linux-x64/native/libmcl.so'],
   ['linux-arm64', 'runtimes/linux-arm64/native/libmcl.so'],

@@ -65,7 +65,7 @@ public sealed class PerceptionChallengeV2E2eTests
             "ok",
             532,
             DateTimeOffset.UtcNow.ToString("O"),
-            "security/perception-v2-test-matrix.yml",
+            "security/matrices/perception-v2.yml",
             new PerceptionE2eWorkflow(
                 BusinessFlow,
                 "perceptionTextTaskV2",

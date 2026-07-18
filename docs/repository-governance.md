@@ -7,7 +7,10 @@ FsusBlog v1.1.0 public preview uses GitHub-native repository controls as release
 `src/` is the only canonical product-source root. Handwritten ZK circuit definitions
 live in `src/zk/circuits/`; their generated R1CS/key/ceremony artifacts, security
 manifests, runtime configuration, and test fixtures remain separated under
-`artifacts/zk/`, `security/zk/`, `config/zk/`, and `tests/fixtures/zk/`.
+`artifacts/zk/`, `security/zk/contracts/`, `security/zk/provenance/`, `config/zk/`, and `tests/fixtures/zk/`.
+The complete security ownership catalog is `security/catalog/security-domain.json`; flat files directly under
+`security/` are forbidden, and matrices, policies, ZK contracts, provenance, and static evidence contracts must
+stay in their declared subdomains.
 `node tools/check-repository-source-layout.mjs` enforces the tracked top-level
 inventory and requires an explicit architectural exception for any source domain
 outside `src/`. The complete boundary is documented in

@@ -266,8 +266,8 @@ internal static unsafe class Program
         Directory.CreateDirectory(keysDir);
         Directory.CreateDirectory(deliveryDir);
 
-        string canonicalCircuitManifestPath = Path.Combine(repoRoot, "security", "zk", "comment-v2-circuit.manifest.json");
-        string canonicalTrustedSetupPath = Path.Combine(repoRoot, "security", "zk", "comment-v2-trusted-setup.manifest.json");
+        string canonicalCircuitManifestPath = Path.Combine(repoRoot, "security", "zk", "contracts", "comment-v2-circuit.manifest.json");
+        string canonicalTrustedSetupPath = Path.Combine(repoRoot, "security", "zk", "provenance", "comment-v2-trusted-setup.manifest.json");
         string canonicalConfigPath = Path.Combine(repoRoot, "config", "zk", "anonymous-comment-v2-verifying-key.manifest.json");
         string r1csPath = Path.Combine(repoRoot, "artifacts", "zk", "comment-v3-layout4", "generated", "comment_v3.r1cs");
         string groth16R1csPath = Path.Combine(repoRoot, "artifacts", "zk", "comment-v3-layout4", "generated", "comment_v3_groth16.r1cs");

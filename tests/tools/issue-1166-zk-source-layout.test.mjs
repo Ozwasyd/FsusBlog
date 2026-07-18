@@ -101,8 +101,8 @@ test('path-only migration preserves both circuit source byte hashes and semantic
 })
 
 test('regenerated R1CS and manifests bind the canonical source path without changing readiness', () => {
-  const circuit = readJson(path.join(root, 'security/zk/comment-v2-circuit.manifest.json'))
-  const setup = readJson(path.join(root, 'security/zk/comment-v2-trusted-setup.manifest.json'))
+  const circuit = readJson(path.join(root, 'security/zk/contracts/comment-v2-circuit.manifest.json'))
+  const setup = readJson(path.join(root, 'security/zk/provenance/comment-v2-trusted-setup.manifest.json'))
   const r1csPath = path.join(root, 'artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs')
   const groth16Path = path.join(root, 'artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs')
   const r1cs = readJson(r1csPath)
@@ -124,7 +124,7 @@ test('regenerated R1CS and manifests bind the canonical source path without chan
   assert.equal(setup.production_usable, false)
   assert.equal(setup.ceremony_status, 'not-run')
 
-  const v5Manifest = readJson(path.join(root, 'security/zk/comment-v5-circuit.manifest.json'))
+  const v5Manifest = readJson(path.join(root, 'security/zk/contracts/comment-v5-circuit.manifest.json'))
   assert.equal(v5Manifest.source, 'src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json')
   assert.equal(v5Manifest.source_sha256, v5SourceSha)
   assert.equal(v5Manifest.artifact_status, 'source-only')

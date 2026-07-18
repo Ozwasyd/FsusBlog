@@ -10,9 +10,9 @@ const evidencePath = path.resolve(root, evidenceArg >= 0 ? process.argv[evidence
 const errors = []
 
 const circuit = readJson('src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json')
-const manifest = readJson('security/zk/comment-v5-circuit.manifest.json')
-const setup = readJson('security/zk/comment-v5-trusted-setup.manifest.json')
-const tamper = readJson('security/zk/comment-v5-tamper-cases.manifest.json')
+const manifest = readJson('security/zk/contracts/comment-v5-circuit.manifest.json')
+const setup = readJson('security/zk/provenance/comment-v5-trusted-setup.manifest.json')
+const tamper = readJson('security/zk/contracts/comment-v5-tamper-cases.manifest.json')
 const evidence = assertEvidenceClassification(
   JSON.parse(readFileSync(evidencePath, 'utf8')),
   'fixture',

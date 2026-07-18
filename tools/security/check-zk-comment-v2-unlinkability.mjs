@@ -34,7 +34,7 @@ const EXPECTED_PUBLIC_INPUTS = [
 ]
 
 const args = parseArgs(process.argv.slice(2))
-const manifestPath = resolvePath(process.env.FSUSBLOG_ZK_UNLINKABILITY_MANIFEST, 'security/zk/comment-v5-circuit.manifest.json')
+const manifestPath = resolvePath(process.env.FSUSBLOG_ZK_UNLINKABILITY_MANIFEST, 'security/zk/contracts/comment-v5-circuit.manifest.json')
 const sourcePath = resolvePath(process.env.FSUSBLOG_ZK_UNLINKABILITY_SOURCE, 'src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json')
 const outputPath = resolvePath(args.out, '.tmp/security/comment-v5-unlinkability.json')
 const failures = []

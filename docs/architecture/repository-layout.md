@@ -10,13 +10,23 @@ definition 与 shader、protocol schema、SQL migration 一样，属于可编译
 | --- | --- | --- |
 | Handwritten source | `src/zk/circuits/` | v2/v5 circuit definitions 与同目录说明 |
 | Generated artifacts | `artifacts/zk/` | R1CS、proving/verifying keys、ceremony outputs、Wasm prover bundles |
-| Security manifests | `security/zk/` | source/artifact hashes、trusted-setup state、tamper 与 review contracts |
+| ZK contracts | `security/zk/contracts/` | circuit、tamper 与 feasibility contracts |
+| ZK provenance | `security/zk/provenance/` | source/artifact hashes、trusted-setup state、local review 与 artifact ownership |
 | Runtime configuration | `config/zk/` | active circuit/verifying-key selection 与 fail-closed binding |
 | Test fixtures | `tests/fixtures/zk/` | witnesses、proofs、tamper vectors 与 deterministic fixture manifests |
 | Build/check tooling | `tools/crypto/`, `tools/security/` | compiler、artifact generator 与 semantic validators |
 
 这些目录不可互换：生成产物不能进入 `src/`，runtime config 不能作为 source，
 test fixture 也不能被 production readiness 当作 ceremony evidence。
+
+## Security ownership boundary
+
+`security/` 下禁止散落 root files。矩阵、策略、ZK contract、ZK provenance 与静态
+evidence contract 分别位于 `security/matrices/`、`security/policies/`、
+`security/zk/contracts/`、`security/zk/provenance/` 和
+`security/evidence-contracts/`；总目录位于 `security/catalog/security-domain.json`。
+完整分类、运行时路径和回退约束见
+[`docs/security/security-domain-layout.md`](../security/security-domain-layout.md)。
 
 ## Configuration ownership
 
@@ -64,6 +74,7 @@ documentation、security 或 automation ownership；新增 source-like root 必�
 
 ```sh
 node tools/check-repository-source-layout.mjs
+node tools/security/check-security-domain-layout.mjs
 node tools/crypto/build-zk-comment-v2-r1cs.mjs --check
 node tools/crypto/check-zk-comment-v2-manifests.mjs
 node tools/security/check-zk-comment-v5-manifests.mjs

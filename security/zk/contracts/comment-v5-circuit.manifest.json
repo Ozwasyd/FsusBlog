@@ -2,6 +2,8 @@
   "schema": "fsusblog.zk.circuit-manifest.v2",
   "circuit_id": "fsus.anonymous.comment.v5",
   "public_input_layout_version": 6,
+  "artifact_class": "circuit-contract",
+  "lifecycle": "active-source-contract",
   "proof_system": "Groth16",
   "curve": "bn254",
   "source": "src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json",

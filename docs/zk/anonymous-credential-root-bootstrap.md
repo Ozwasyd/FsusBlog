@@ -10,7 +10,7 @@ verifying key hash.
 Use this process only after the trusted setup and verifying-key manifests have
 real production material:
 
-- `security/zk/comment-v2-trusted-setup.manifest.json` has
+- `security/zk/provenance/comment-v2-trusted-setup.manifest.json` has
   `production_usable=true`, `ceremony_status=verified`, and a real
   `verifying_key_hash`.
 - `config/zk/anonymous-comment-v2-verifying-key.manifest.json` has
@@ -56,7 +56,7 @@ Run the validator/evidence generator:
 ```bash
 node tools/security/bootstrap-anonymous-credential-root.mjs \
   --input /secure/ops/anonymous-root-2026q3.json \
-  --trusted-setup-manifest security/zk/comment-v2-trusted-setup.manifest.json \
+  --trusted-setup-manifest security/zk/provenance/comment-v2-trusted-setup.manifest.json \
   --verifying-key-manifest config/zk/anonymous-comment-v2-verifying-key.manifest.json \
   --evidence .tmp/security/anonymous-credential-root-bootstrap.json
 ```
@@ -81,7 +81,7 @@ service graph:
 ```bash
 dotnet run --project tools/security/AnonymousCredentialRootBootstrap/FsusBlog.AnonymousCredentialRootBootstrap.csproj -- \
   --input /secure/ops/anonymous-root-2026q3.json \
-  --trusted-setup-manifest security/zk/comment-v2-trusted-setup.manifest.json \
+  --trusted-setup-manifest security/zk/provenance/comment-v2-trusted-setup.manifest.json \
   --verifying-key-manifest config/zk/anonymous-comment-v2-verifying-key.manifest.json \
   --db-type postgres \
   --connection-string "$FSUSBLOG_ROOT_BOOTSTRAP_CONNECTION_STRING" \
@@ -105,7 +105,7 @@ Verify after rotate:
 ```bash
 node tools/security/check-privacy-zk-prod-release.mjs \
   --config src/backend/appsettings.Production.json \
-  --trusted-setup-manifest security/zk/comment-v2-trusted-setup.manifest.json \
+  --trusted-setup-manifest security/zk/provenance/comment-v2-trusted-setup.manifest.json \
   --smoke-evidence .tmp/security/privacy-zk-prod-smoke.json \
   --root-bootstrap-evidence .tmp/security/anonymous-credential-root-bootstrap.json \
   --require-enabled

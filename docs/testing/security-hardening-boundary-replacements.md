@@ -29,7 +29,7 @@ storage 前返回；Kestrel 的全局上限仍是外层保护。
 ## 风险与回退
 
 - 路径解析器故障时选择拒绝访问，不回退到只做字符串前缀判断的旧路径。
-- Roslyn policy 只检查 `security/backend-source-policy.json` 中列出的 scope，新增规则须同时
+- Roslyn policy 只检查 `security/policies/backend-source-policy.json` 中列出的 scope，新增规则须同时
   提供 positive/negative fixture，避免用全仓正则制造误报。
 - 如果新边界导致兼容性问题，可按域回退调用点；不得恢复已删除的源码字符串测试。上传
   可保持 Kestrel 外层限制并回退 handler 内显式 `413`，不需要重启其他服务。

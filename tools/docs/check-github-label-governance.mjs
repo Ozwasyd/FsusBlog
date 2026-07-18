@@ -123,6 +123,11 @@ for (const token of [
   'tools/deployment/**',
   '.github/workflows/release-evidence-storage.yml',
   'security/evidence-contracts/**',
+  'security/catalog/**',
+  'security/matrices/**',
+  'security/policies/**',
+  'security/zk/contracts/**',
+  'security/zk/provenance/**',
   'tests/fixtures/evidence/**',
   'docs/reports/open-source-readiness/**',
   'docs/release-evidence-model.md'

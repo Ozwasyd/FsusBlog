@@ -1386,7 +1386,7 @@
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
-        "security/perception-v2-test-matrix.yml",
+        "security/matrices/perception-v2.yml",
         "tools/security/check-security-matrices.mjs",
         "tools/security/check-perception-v2-e2e-evidence.mjs",
         "tools/test/lanes/perception-v2-test-matrix.sh",
@@ -1589,7 +1589,7 @@
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
-        "security/privacy-zk-comment-matrix.yml",
+        "security/matrices/privacy-zk-comment.yml",
         "tools/security/check-security-matrices.mjs",
         "tools/test/lanes/privacy-zk-comment-matrix.sh",
         "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
@@ -2285,7 +2285,7 @@
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
-        "security/risk-control-test-matrix.yml",
+        "security/matrices/risk-control.yml",
         "tools/security/check-security-matrices.mjs",
         "tools/test/lanes/risk-control-test-matrix.sh"
       ],
@@ -3085,7 +3085,7 @@
       "risk": "critical",
       "evidencePaths": [
         "tests/backend/Unit/SecurityHardening",
-        "security/backend-source-policy.json",
+        "security/policies/backend-source-policy.json",
         "tests/tools/security-source-analyzer.test.mjs",
         "tests/backend/issue-1037-security-hardening-evidence.json",
         "tests/backend/issue-1037-retention-replacements.json"
@@ -3729,8 +3729,8 @@
         "tools/test/lanes/privacy-zk-comment-matrix.sh",
         "src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json",
         "src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json",
-        "security/zk/comment-v2-circuit.manifest.json",
-        "security/zk/comment-v5-circuit.manifest.json",
+        "security/zk/contracts/comment-v2-circuit.manifest.json",
+        "security/zk/contracts/comment-v5-circuit.manifest.json",
         "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
         "docs/architecture/repository-layout.md",
         "docs/zk/anonymous-comment-v2-circuit.md"
@@ -3749,12 +3749,13 @@
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
-        "security/zk/artifact-ownership.manifest.json",
+        "security/zk/provenance/artifact-ownership.manifest.json",
         "tools/crypto/check-zk-artifact-ownership.mjs",
         "tests/tools/issue-1168-zk-artifact-ownership.test.mjs",
-        "security/zk/comment-v2-circuit.manifest.json",
-        "security/zk/comment-v2-trusted-setup.manifest.json",
+        "security/zk/contracts/comment-v2-circuit.manifest.json",
+        "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
         "config/zk/anonymous-comment-v2-verifying-key.manifest.json",
+        "ops/docker/FsusBlog.Server.Dockerfile",
         "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
         "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs",
         "tools/crypto/build-zk-comment-v2-r1cs.mjs",
@@ -3786,7 +3787,7 @@
         "tools/operations/collect-release-evidence.sh",
         "tests/tools/issue-1169-release-evidence-model.test.mjs",
         "security/evidence-contracts/release-bundle-storage.json",
-        "security/privacy-zk-comment-matrix.yml",
+        "security/matrices/privacy-zk-comment.yml",
         "tests/fixtures/evidence/anonymous-eligibility-anonymity-set.json",
         ".github/workflows/release-evidence-storage.yml",
         "docs/release-evidence-model.md",
@@ -3798,6 +3799,47 @@
       "minimumRequirement": "Static governance must classify every tracked evidence-like artifact, hash-bind the historical snapshot, validate release ID plus full commit and image identity, seal every bundle member, reject post-seal tampering, and prove failed or blocked closeout cannot leave an index.",
       "tierIds": [
         "static-governance"
+      ]
+    },
+    {
+      "id": "security-domain-structure-governance",
+      "description": "Security matrices, analyzer policies, ZK semantic contracts, ZK provenance, and static evidence contracts have separate declarative owners with fail-closed runtime and hash bindings.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "security/catalog/security-domain.json",
+        "security/matrices/catalog.json",
+        "security/matrices/standards/asvs-v5.0.0.yml",
+        "security/matrices/standards/wstg-v4.2.yml",
+        "security/matrices/authentication/webauthn.yml",
+        "security/matrices/risk-control.yml",
+        "security/matrices/perception-v2.yml",
+        "security/matrices/privacy-zk-comment.yml",
+        "security/policies/backend-source-policy.json",
+        "security/policies/zap-warn-policy.yml",
+        "security/zk/contracts/comment-v2-circuit.manifest.json",
+        "security/zk/contracts/comment-v5-circuit.manifest.json",
+        "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
+        "security/zk/provenance/comment-v2-local-review.manifest.json",
+        "security/zk/provenance/artifact-ownership.manifest.json",
+        "security/evidence-contracts/comment-privacy-credential-vault.release-plan.json",
+        "tools/security/check-security-domain-layout.mjs",
+        "tools/security/check-security-matrices.mjs",
+        "tools/security/check-zap-warn-policy.mjs",
+        "tests/tools/issue-1170-security-domain-layout.test.mjs",
+        "tests/tools/issue-1170-security-matrix-catalog.test.mjs",
+        "src/backend/appsettings.json",
+        "src/backend/appsettings.Production.json",
+        "config/zk/anonymous-comment-v2-verifying-key.manifest.json",
+        "docs/security/security-domain-layout.md",
+        "docs/security/security-matrix-catalog.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject flat or executable security-root files, undeclared ownership, weak policy metadata or path scopes, matrix catalog/schema drift, contract/provenance mixing, stale ZK hashes, legacy canonical paths, runtime circuit selection from provenance, or static contracts claiming fresh release authority.",
+      "minimumRequirement": "Security static and static-governance must execute the catalog-driven matrix checker and aggregate layout fixtures, validate every policy and ZK manifest identity, bind repository and packaged runtime paths, and keep all five security subdomains exact and non-overlapping.",
+      "tierIds": [
+        "static-governance",
+        "security"
       ]
     },
     {

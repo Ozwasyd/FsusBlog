@@ -14,8 +14,8 @@ node tools/crypto/build-zk-comment-v2-r1cs.mjs --check
 ```
 
 The generated artifact is deterministic and hash-bound in
-`security/zk/comment-v2-circuit.manifest.json` and
-`security/zk/comment-v2-trusted-setup.manifest.json`.
+`security/zk/contracts/comment-v2-circuit.manifest.json` and
+`security/zk/provenance/comment-v2-trusted-setup.manifest.json`.
 
 This is not a trusted setup result. Removing the public credential commitment
 invalidated every v2/layout 3 phase-2 artifact; production remains fail-closed

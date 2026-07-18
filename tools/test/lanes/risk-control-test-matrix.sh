@@ -8,7 +8,7 @@ cat > "$ROOT_DIR/.tmp/security/risk-control-test-matrix.json" <<'JSON'
 {
   "schema": "fsusblog.risk-control-test-matrix.v1",
   "status": "ok",
-  "source": "security/risk-control-test-matrix.yml",
+  "source": "security/matrices/risk-control.yml",
   "validatedBy": "tools/security/check-security-matrices.mjs"
 }
 JSON

@@ -1,9 +1,23 @@
 {
-  "schema": "fsusblog.backend-security-source-policy.v1",
+  "schema": "fsusblog.backend-security-source-policy.v2",
+  "policyId": "backend-security-source",
+  "version": "2.0.0",
+  "owner": "ServerContractAgent",
+  "analyzer": {
+    "project": "tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj",
+    "failClosed": true
+  },
+  "documentation": [
+    "docs/security.md",
+    "docs/testing/security-hardening-source-policy.md"
+  ],
   "rules": [
     {
       "id": "FSUSBLOGSEC001",
       "kind": "forbid-random-shared",
+      "severity": "error",
+      "rationale": "Shared non-cryptographic randomness must never protect security state.",
+      "pathScope": "repository-relative-include-globs",
       "include": [
         "src/backend/Services/Security/**/*.cs",
         "src/backend/Infrastructure/Security/**/*.cs"
@@ -12,6 +26,9 @@
     {
       "id": "FSUSBLOGSEC002",
       "kind": "forbid-random-constructor",
+      "severity": "error",
+      "rationale": "Security code must use an injected cryptographic random source.",
+      "pathScope": "repository-relative-include-globs",
       "include": [
         "src/backend/Services/Security/**/*.cs",
         "src/backend/Infrastructure/Security/**/*.cs"
@@ -20,6 +37,9 @@
     {
       "id": "FSUSBLOGSEC003",
       "kind": "require-fixed-time-sensitive-comparison",
+      "severity": "error",
+      "rationale": "Secret and proof material must not be compared with data-dependent string helpers.",
+      "pathScope": "repository-relative-include-globs",
       "include": [
         "src/backend/Services/Security/AnonymousCredentialRevocationAccumulator.cs",
         "src/backend/Services/Security/AnonymousCommentTicketService.cs"
@@ -28,6 +48,9 @@
     {
       "id": "FSUSBLOGSEC004",
       "kind": "forbid-raw-sensitive-log-template",
+      "severity": "error",
+      "rationale": "Security logs must expose only redacted or derived identifiers.",
+      "pathScope": "repository-relative-include-globs",
       "include": [
         "src/backend/Services/Security/**/*.cs",
         "src/backend/Services/HumanReadProofService.cs",
@@ -37,6 +60,9 @@
     {
       "id": "FSUSBLOGSEC005",
       "kind": "forbid-raw-exception-output",
+      "severity": "error",
+      "rationale": "Client and health responses must not reveal runtime exception details.",
+      "pathScope": "repository-relative-include-globs",
       "include": [
         "src/backend/Infrastructure/Middlewares/GlobalExceptionMiddleware.cs",
         "src/backend/Infrastructure/Operations/ProductionHealth.cs",
@@ -47,6 +73,9 @@
     {
       "id": "FSUSBLOGSEC006",
       "kind": "minimum-constant",
+      "severity": "error",
+      "rationale": "Argon2 memory cost must remain above the repository security floor.",
+      "pathScope": "repository-relative-include-globs",
       "include": [
         "src/backend/Services/Security/Argon2idPoSpaceV1ChallengeProvider.cs"
       ],
@@ -56,6 +85,9 @@
     {
       "id": "FSUSBLOGSEC007",
       "kind": "minimum-constant",
+      "severity": "error",
+      "rationale": "Argon2 iteration cost must remain above the repository security floor.",
+      "pathScope": "repository-relative-include-globs",
       "include": [
         "src/backend/Services/Security/Argon2idPoSpaceV1ChallengeProvider.cs"
       ],
@@ -65,6 +97,9 @@
     {
       "id": "FSUSBLOGSEC008",
       "kind": "minimum-constant",
+      "severity": "error",
+      "rationale": "Recovery-key derivation must retain its brute-force resistance floor.",
+      "pathScope": "repository-relative-include-globs",
       "include": [
         "src/backend/Services/Security/RecoveryKeyService.cs"
       ],
@@ -74,6 +109,9 @@
     {
       "id": "FSUSBLOGDATA001",
       "kind": "forbid-literal-data-reader-ordinal",
+      "severity": "error",
+      "rationale": "Named projection columns prevent silent authorization and data-shape drift.",
+      "pathScope": "repository-relative-include-globs",
       "include": [
         "src/backend/Services/**/*.cs"
       ]

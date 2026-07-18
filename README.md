@@ -11,6 +11,7 @@
 | API stability | [docs/api/stability.md](docs/api/stability.md) |
 | Known limitations | [docs/known-limitations.md](docs/known-limitations.md) |
 | Security policy | [SECURITY.md](SECURITY.md) |
+| Security domain ownership | [docs/security/security-domain-layout.md](docs/security/security-domain-layout.md) |
 | Support routing | [SUPPORT.md](SUPPORT.md) |
 | Contributing guide | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Repository governance | [docs/repository-governance.md](docs/repository-governance.md) |
@@ -103,6 +104,7 @@ FsusBlog/
 ├── src/shared/          # 前后端共享契约与二进制协议模型
 ├── src/core/            # 映射、POD 编解码、共享投影逻辑
 ├── src/zk/circuits/     # 手写 ZK circuit 领域源码（生成物仍在 artifacts/zk）
+├── security/             # matrices / policies / ZK contracts / provenance / static evidence contracts
 ├── tests/backend/   # xUnit 单元与集成测试
 ├── benchmarks/core/ # BenchmarkDotNet 性能基准
 ├── docs/                     # 深度文档

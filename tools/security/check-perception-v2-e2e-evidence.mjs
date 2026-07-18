@@ -109,7 +109,7 @@ const releaseEvidence = {
 const matrixSummary = {
   schema: 'fsusblog.perception-v2-test-matrix.v1',
   status: 'ok',
-  source: 'security/perception-v2-test-matrix.yml',
+  source: 'security/matrices/perception-v2.yml',
   validatedBy: [
     'tools/security/check-security-matrices.mjs',
     'dotnet test PerceptionChallengeV2E2eTests',

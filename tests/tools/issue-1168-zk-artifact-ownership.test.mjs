@@ -14,7 +14,7 @@ import test from 'node:test'
 import { validateZkArtifactOwnership } from '../../tools/crypto/check-zk-artifact-ownership.mjs'
 
 const root = path.resolve(import.meta.dirname, '..', '..')
-const manifestPath = path.join(root, 'security/zk/artifact-ownership.manifest.json')
+const manifestPath = path.join(root, 'security/zk/provenance/artifact-ownership.manifest.json')
 const canonicalManifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
 const canonicalTrackedFiles = canonicalManifest.tracked_artifacts.map((artifact) => artifact.path)
 const temporaryRoots = []
@@ -101,7 +101,7 @@ function createFixture() {
     ...manifest.active_consumers.map((consumer) => consumer.path)
   ])
   for (const relativePath of requiredPaths) copy(relativePath, directory)
-  const targetManifest = path.join(directory, 'security/zk/artifact-ownership.manifest.json')
+  const targetManifest = path.join(directory, 'security/zk/provenance/artifact-ownership.manifest.json')
   mkdirSync(path.dirname(targetManifest), { recursive: true })
   writeFileSync(targetManifest, `${JSON.stringify(manifest, null, 2)}\n`)
   return { root: directory, manifest }

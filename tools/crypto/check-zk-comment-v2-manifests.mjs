@@ -12,15 +12,15 @@ const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url))
 const paths = {
   circuit: resolveInputPath(
     process.env.FSUSBLOG_ZK_CIRCUIT_MANIFEST,
-    'security/zk/comment-v2-circuit.manifest.json'
+    'security/zk/contracts/comment-v2-circuit.manifest.json'
   ),
   tamper: resolveInputPath(
     process.env.FSUSBLOG_ZK_TAMPER_MANIFEST,
-    'security/zk/comment-v2-tamper-cases.manifest.json'
+    'security/zk/contracts/comment-v2-tamper-cases.manifest.json'
   ),
   setup: resolveInputPath(
     process.env.FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST,
-    'security/zk/comment-v2-trusted-setup.manifest.json'
+    'security/zk/provenance/comment-v2-trusted-setup.manifest.json'
   ),
   config: resolveInputPath(
     process.env.FSUSBLOG_ZK_VERIFYING_KEY_CONFIG_MANIFEST,
@@ -28,11 +28,11 @@ const paths = {
   ),
   feasibility: resolveInputPath(
     process.env.FSUSBLOG_ZK_FEASIBILITY_MANIFEST,
-    'security/zk/comment-v2-feasibility.manifest.json'
+    'security/zk/contracts/comment-v2-feasibility.manifest.json'
   ),
   localReview: resolveInputPath(
     process.env.FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST,
-    'security/zk/comment-v2-local-review.manifest.json'
+    'security/zk/provenance/comment-v2-local-review.manifest.json'
   )
 }
 
@@ -351,7 +351,7 @@ function checkCircuit(circuit, setup) {
   equals(
     'circuit.artifact_ownership_manifest',
     circuit.artifact_ownership_manifest,
-    'security/zk/artifact-ownership.manifest.json')
+    'security/zk/provenance/artifact-ownership.manifest.json')
   checkCircuitArtifactStatus(circuit, setup)
 
   const publicInputs = names(circuit.public_inputs)
@@ -533,12 +533,12 @@ function checkSetup(setup, circuitHash) {
   equals('setup.schema', setup.schema, 'fsusblog.zk.trusted-setup-manifest.v1')
   equals('setup.circuit_id', setup.circuit_id, expected.circuitId)
   equals('setup.public_input_layout_version', setup.public_input_layout_version, expected.layoutVersion)
-  equals('setup.circuit_manifest_path', setup.circuit_manifest_path, 'security/zk/comment-v2-circuit.manifest.json')
+  equals('setup.circuit_manifest_path', setup.circuit_manifest_path, 'security/zk/contracts/comment-v2-circuit.manifest.json')
   equals('setup.circuit_manifest_sha256', setup.circuit_manifest_sha256, circuitHash)
   equals(
     'setup.local_cryptographic_review_manifest',
     setup.local_cryptographic_review_manifest,
-    'security/zk/comment-v2-local-review.manifest.json')
+    'security/zk/provenance/comment-v2-local-review.manifest.json')
 
   const setupProductionUsable = setup.production_usable === true
   if (!setupProductionUsable && setup.production_usable !== false) {
@@ -681,12 +681,12 @@ function checkConfig(config, setup) {
   equals('config.schema', config.schema, 'fsusblog.zk.verifying-key-config.v1')
   equals('config.circuit_id', config.circuit_id, expected.circuitId)
   equals('config.public_input_layout_version', config.public_input_layout_version, expected.layoutVersion)
-  equals('config.trusted_setup_manifest', config.trusted_setup_manifest, 'security/zk/comment-v2-trusted-setup.manifest.json')
-  equals('config.circuit_manifest', config.circuit_manifest, 'security/zk/comment-v2-circuit.manifest.json')
+  equals('config.trusted_setup_manifest', config.trusted_setup_manifest, 'security/zk/provenance/comment-v2-trusted-setup.manifest.json')
+  equals('config.circuit_manifest', config.circuit_manifest, 'security/zk/contracts/comment-v2-circuit.manifest.json')
   equals(
     'config.local_cryptographic_review_manifest',
     config.local_cryptographic_review_manifest,
-    'security/zk/comment-v2-local-review.manifest.json')
+    'security/zk/provenance/comment-v2-local-review.manifest.json')
   equals('config.verifying_key_path', config.verifying_key_path, setup.artifacts?.verifying_key?.path)
 
   const setupProductionUsable = setup.production_usable === true

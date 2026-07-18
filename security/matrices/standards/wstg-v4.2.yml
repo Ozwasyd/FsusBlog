@@ -1,4 +1,8 @@
+schema: fsusblog.security-matrix.wstg.v1
+family: standards.wstg
 version: wstg-v4.2
+owner: ServerContractAgent
+checker: tools/security/check-security-matrices.mjs
 scenarios:
   - id: WSTG-v42-CONF-05
     scenario: production network exposure and security header verification

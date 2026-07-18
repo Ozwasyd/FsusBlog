@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const project = path.join(repoRoot, 'tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj')
-const policy = path.join(repoRoot, 'security/backend-source-policy.json')
+const policy = path.join(repoRoot, 'security/policies/backend-source-policy.json')
 
 function runAnalyzer(args, extra = []) {
   return spawnSync('dotnet', [

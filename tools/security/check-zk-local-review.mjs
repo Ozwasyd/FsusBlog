@@ -24,11 +24,11 @@ const validation = activeV5Config?.circuit_id === 'fsus.anonymous.comment.v5'
         activeCircuitId: activeV5Config.circuit_id,
         productionAuthorization: false
       }],
-      manifestPath: path.join(root, 'security/zk/comment-v2-local-review.manifest.json')
+      manifestPath: path.join(root, 'security/zk/provenance/comment-v2-local-review.manifest.json')
     }
   : validateZkLocalReview({
       root,
-      manifestPath: args.manifest ?? 'security/zk/comment-v2-local-review.manifest.json',
+      manifestPath: args.manifest ?? 'security/zk/provenance/comment-v2-local-review.manifest.json',
       expectedVerifyingKeyHash: args.verifyingKeyHash ?? process.env.FSUSBLOG_ZK_VERIFYING_KEY_HASH ?? '',
       requireComplete: true
     })

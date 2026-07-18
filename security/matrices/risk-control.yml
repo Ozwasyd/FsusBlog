@@ -1,4 +1,8 @@
+schema: fsusblog.security-matrix.risk-control.v1
+family: project.risk-control
 version: risk-control-test-matrix-v1
+owner: ServerContractAgent
+checker: tools/security/check-security-matrices.mjs
 scenarios:
   - id: RISKCONTROL-DECISION-MODES
     scenario: allow, challenge, step-up, queue, throttle and block decisions are covered by unit tests

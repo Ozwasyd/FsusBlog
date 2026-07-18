@@ -699,7 +699,7 @@ public class VisitLog
 ]
 
 const securityInvariantFixture = {
-  'security/privacy-zk-comment-matrix.yml': `
+  'security/matrices/privacy-zk-comment.yml': `
 requiredCases:
   - tamper-nullifier-scope-root-revocation-reject
 requiredFields:
@@ -708,7 +708,7 @@ requiredFields:
   - tamper-credential-root
   - tamper-revocation-root
 `,
-  'security/zk/comment-v2-tamper-cases.manifest.json': `
+  'security/zk/contracts/comment-v2-tamper-cases.manifest.json': `
 {
   "cases": [
     {

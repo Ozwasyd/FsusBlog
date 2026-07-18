@@ -84,8 +84,8 @@ function asArray(value) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2))
-  const matrixPath = resolvePath(args.matrix ?? 'security/privacy-zk-comment-matrix.yml')
-  const tamperPath = resolvePath(args.tamper ?? 'security/zk/comment-v2-tamper-cases.manifest.json')
+  const matrixPath = resolvePath(args.matrix ?? 'security/matrices/privacy-zk-comment.yml')
+  const tamperPath = resolvePath(args.tamper ?? 'security/zk/contracts/comment-v2-tamper-cases.manifest.json')
   let matrixText = readText(matrixPath)
   const tamper = readJson(tamperPath)
   if (!matrixText.endsWith('\n')) {

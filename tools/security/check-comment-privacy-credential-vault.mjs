@@ -16,7 +16,7 @@ const REQUIRED_FILES = [
   'src/frontend/src/services/serviceWorkerRuntime.ts',
   'src/frontend/public/sw.js',
   'docs/security/comment-privacy-credential-vault.md',
-  'security/privacy/comment-privacy-credential-vault.release-plan.json',
+  'security/evidence-contracts/comment-privacy-credential-vault.release-plan.json',
   'src/frontend/package.json',
   'tools/test/lanes/project-privacy-zk-production.mjs',
   'src/frontend/src/views/user/IdentityCenter.vue',
@@ -93,7 +93,7 @@ export function validateCommentPrivacyCredentialVaultSources(sources) {
   expectSource(REQUIRED_FILES[7], /reason === 'panic'[\s\S]*cacheName\.startsWith\('fsus-'\)/, 'panic purge clears every FsusBlog cache')
   expectSource(REQUIRED_FILES[8], /clearPrivateBrowserStateCaches\(message\.reason\)/, 'service worker receives purge reason')
 
-  const releasePlanFile = 'security/privacy/comment-privacy-credential-vault.release-plan.json'
+  const releasePlanFile = 'security/evidence-contracts/comment-privacy-credential-vault.release-plan.json'
   const packageFile = 'src/frontend/package.json'
   const projectorFile = 'tools/test/lanes/project-privacy-zk-production.mjs'
   let releasePlan

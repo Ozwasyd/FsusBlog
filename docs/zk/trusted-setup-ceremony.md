@@ -12,11 +12,11 @@ Verifier/prover work must read the same manifest paths:
 
 | Purpose | Path |
 | --- | --- |
-| Circuit constraints | `security/zk/comment-v2-circuit.manifest.json` |
-| Trusted setup | `security/zk/comment-v2-trusted-setup.manifest.json` |
+| Circuit constraints | `security/zk/contracts/comment-v2-circuit.manifest.json` |
+| Trusted setup | `security/zk/provenance/comment-v2-trusted-setup.manifest.json` |
 | Runtime verifying-key config | `config/zk/anonymous-comment-v2-verifying-key.manifest.json` |
-| Repository-local review | `security/zk/comment-v2-local-review.manifest.json` |
-| Artifact ownership and storage | `security/zk/artifact-ownership.manifest.json` |
+| Repository-local review | `security/zk/provenance/comment-v2-local-review.manifest.json` |
+| Artifact ownership and storage | `security/zk/provenance/artifact-ownership.manifest.json` |
 | Checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |
 
 The manifest names are stable. Artifact paths inside the setup manifest are the
@@ -118,7 +118,7 @@ and fails if any required native asset is absent; `linux-musl`/Alpine, mobile
 and browser wasm remain outside this native distribution promise.
 
 Production verification must run the commands recorded in
-`security/zk/comment-v2-trusted-setup.manifest.json`, including phase transcript
+`security/zk/provenance/comment-v2-trusted-setup.manifest.json`, including phase transcript
 verification, vk hash recomputation, and proof generation by the final proving
 key verified against the final verifying key.
 

@@ -22,6 +22,11 @@ tests/frontend/ @Ozwasyd
 tools/ @Ozwasyd
 docs/ @Ozwasyd
 security/evidence-contracts/ @Ozwasyd
+security/catalog/ @Ozwasyd
+security/matrices/ @Ozwasyd
+security/policies/ @Ozwasyd
+security/zk/contracts/ @Ozwasyd
+security/zk/provenance/ @Ozwasyd
 tests/fixtures/evidence/ @Ozwasyd
 
 # Security-sensitive areas

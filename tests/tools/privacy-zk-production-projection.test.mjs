@@ -105,7 +105,7 @@ test('projects exact passing privacy coverage from run-bound backend and fronten
       credentialVaultReleasePlan.requiredEvidence.length
     )
     const planDigest = Object.entries(receipt.evidenceDigests)
-      .find(([file]) => file.endsWith('security/privacy/comment-privacy-credential-vault.release-plan.json'))?.[1]
+      .find(([file]) => file.endsWith('security/evidence-contracts/comment-privacy-credential-vault.release-plan.json'))?.[1]
     assert.match(planDigest, /^sha256:[0-9a-f]{64}$/u)
     assert.equal(receipt.smokeStatus, 'expected_unavailable')
     assert.equal(JSON.parse(fs.readFileSync(files.output, 'utf8')).runId, files.runId)

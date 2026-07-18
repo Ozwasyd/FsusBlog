@@ -2,6 +2,9 @@
   "schema": "fsusblog.zk.tamper-cases.v1",
   "circuit_id": "fsus.anonymous.comment.v3",
   "public_input_layout_version": 4,
+  "artifact_class": "tamper-contract",
+  "lifecycle": "active-test-contract",
+  "production_usable": false,
   "valid_case": {
     "id": "valid-comment-v2-witness",
     "expected": "accept",

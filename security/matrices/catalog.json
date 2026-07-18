@@ -1,0 +1,92 @@
+{
+  "schema": "fsusblog.security-matrix-catalog.v1",
+  "version": "1.0.0",
+  "owner": "ServerContractAgent",
+  "checker": "tools/security/check-security-matrices.mjs",
+  "matrices": [
+    {
+      "id": "asvs-v5.0.0",
+      "path": "security/matrices/standards/asvs-v5.0.0.yml",
+      "family": "standards.asvs",
+      "schema": "fsusblog.security-matrix.asvs.v1",
+      "version": "asvs-v5.0.0",
+      "owner": "ServerContractAgent",
+      "checker": "tools/security/check-security-matrices.mjs",
+      "validation": {
+        "entryList": "requirements",
+        "idPattern": "^ASVS-\\d+\\.\\d+\\.\\d+$",
+        "profile": "baseline"
+      }
+    },
+    {
+      "id": "wstg-v4.2",
+      "path": "security/matrices/standards/wstg-v4.2.yml",
+      "family": "standards.wstg",
+      "schema": "fsusblog.security-matrix.wstg.v1",
+      "version": "wstg-v4.2",
+      "owner": "ServerContractAgent",
+      "checker": "tools/security/check-security-matrices.mjs",
+      "validation": {
+        "entryList": "scenarios",
+        "idPattern": "^WSTG-v42-[A-Z]+-\\d+$",
+        "profile": "baseline"
+      }
+    },
+    {
+      "id": "webauthn",
+      "path": "security/matrices/authentication/webauthn.yml",
+      "family": "authentication.webauthn",
+      "schema": "fsusblog.security-matrix.webauthn.v1",
+      "version": "webauthn-matrix-v1",
+      "owner": "ServerContractAgent",
+      "checker": "tools/security/check-security-matrices.mjs",
+      "validation": {
+        "entryList": "scenarios",
+        "idPattern": "^WEBAUTHN-[A-Z-]+$",
+        "profile": "baseline"
+      }
+    },
+    {
+      "id": "risk-control",
+      "path": "security/matrices/risk-control.yml",
+      "family": "project.risk-control",
+      "schema": "fsusblog.security-matrix.risk-control.v1",
+      "version": "risk-control-test-matrix-v1",
+      "owner": "ServerContractAgent",
+      "checker": "tools/security/check-security-matrices.mjs",
+      "validation": {
+        "entryList": "scenarios",
+        "idPattern": "^RISKCONTROL-[A-Z0-9-]+$",
+        "profile": "risk-control"
+      }
+    },
+    {
+      "id": "perception-v2",
+      "path": "security/matrices/perception-v2.yml",
+      "family": "project.perception-v2",
+      "schema": "fsusblog.security-matrix.perception-v2.v1",
+      "version": "perception-v2-test-matrix-v1",
+      "owner": "ServerContractAgent",
+      "checker": "tools/security/check-security-matrices.mjs",
+      "validation": {
+        "entryList": "scenarios",
+        "idPattern": "^PERCEPTION-V2-[A-Z0-9-]+$",
+        "profile": "perception-v2"
+      }
+    },
+    {
+      "id": "privacy-zk-comment",
+      "path": "security/matrices/privacy-zk-comment.yml",
+      "family": "privacy.zk-comment",
+      "schema": "fsusblog.security-matrix.privacy-zk-comment.v1",
+      "version": "privacy-zk-comment-matrix-v1",
+      "owner": "ServerContractAgent",
+      "checker": "tools/security/check-security-matrices.mjs",
+      "validation": {
+        "entryList": "scenarios",
+        "idPattern": "^PRIVACY-ZK-[A-Z0-9-]+$",
+        "profile": "privacy-zk-comment"
+      }
+    }
+  ]
+}

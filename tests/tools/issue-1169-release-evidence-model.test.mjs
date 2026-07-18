@@ -45,7 +45,7 @@ function layoutFixture() {
     'security/evidence-contracts',
     'tests/fixtures/evidence',
     'docs/reports/open-source-readiness/v1.1.0-public-preview',
-    'security/privacy-zk-comment-matrix.yml',
+    'security/matrices/privacy-zk-comment.yml',
     '.github/workflows/release-evidence-storage.yml'
   ]) copyPath(root, fixture, relative)
   return fixture
@@ -108,7 +108,7 @@ test('layout governance reports ambiguous, contradictory, historical, matrix, an
   const readmePath = path.join(fixture, 'docs/reports/open-source-readiness/v1.1.0-public-preview/README.md')
   writeFileSync(readmePath, '# Historical report without warning\n')
 
-  const matrixPath = path.join(fixture, 'security/privacy-zk-comment-matrix.yml')
+  const matrixPath = path.join(fixture, 'security/matrices/privacy-zk-comment.yml')
   const matrix = readFileSync(matrixPath, 'utf8').replace(
     '  fresh-run-evidence:\n',
     '  fresh-run-evidence:\n    - security/evidence-contracts/public-revocation-distribution.json\n'

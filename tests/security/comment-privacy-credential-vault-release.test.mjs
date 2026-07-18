@@ -25,7 +25,7 @@ test('comment privacy credential release gate rejects plaintext IndexedDB regres
 test('comment privacy credential release gate rejects missing production behavior evidence', () => {
   const validation = validateCommentPrivacyCredentialVault()
   const sources = { ...validation.sources }
-  const planFile = 'security/privacy/comment-privacy-credential-vault.release-plan.json'
+  const planFile = 'security/evidence-contracts/comment-privacy-credential-vault.release-plan.json'
   const plan = JSON.parse(sources[planFile])
   plan.requiredEvidence = plan.requiredEvidence.filter(
     evidence => evidence.id !== 'credential-vault-two-tab-purge'

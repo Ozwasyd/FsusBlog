@@ -181,9 +181,9 @@ export function validatePolicy(policy) {
   }
   const bindings = array(zk.jsonSourceBindings)
   const expectedBindingPaths = [
-    'security/zk/comment-v2-circuit.manifest.json',
+    'security/zk/contracts/comment-v2-circuit.manifest.json',
     'artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs',
-    'security/zk/comment-v5-circuit.manifest.json'
+    'security/zk/contracts/comment-v5-circuit.manifest.json'
   ]
   const bindingPaths = bindings.map((entry) => text(entry?.path))
   if (

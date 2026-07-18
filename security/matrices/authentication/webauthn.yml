@@ -1,4 +1,8 @@
+schema: fsusblog.security-matrix.webauthn.v1
+family: authentication.webauthn
 version: webauthn-matrix-v1
+owner: ServerContractAgent
+checker: tools/security/check-security-matrices.mjs
 scenarios:
   - id: WEBAUTHN-RP-ID
     scenario: RP ID must match configured production domain and reject drift

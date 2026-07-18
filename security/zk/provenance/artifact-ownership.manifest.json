@@ -1,5 +1,10 @@
 {
   "schema": "fsusblog.zk.artifact-ownership.v1",
+  "circuit_id": "fsus.anonymous.comment.v3",
+  "public_input_layout_version": 4,
+  "artifact_class": "artifact-ownership-provenance",
+  "lifecycle": "active-provenance-policy",
+  "production_usable": false,
   "controlled_roots": [
     "artifacts/zk",
     "tests/fixtures/zk"
@@ -37,11 +42,11 @@
       "storage_authority": "git",
       "bytes": 8318,
       "sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb",
-      "owner": "security/zk/comment-v2-circuit.manifest.json",
+      "owner": "security/zk/contracts/comment-v2-circuit.manifest.json",
       "generator": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
       "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check",
       "consumers": [
-        "security/zk/comment-v2-trusted-setup.manifest.json",
+        "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
         "tools/crypto/check-zk-comment-v2-manifests.mjs"
       ]
     },
@@ -57,11 +62,11 @@
       "storage_authority": "git",
       "bytes": 2515,
       "sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff",
-      "owner": "security/zk/comment-v2-circuit.manifest.json",
+      "owner": "security/zk/contracts/comment-v2-circuit.manifest.json",
       "generator": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
       "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check",
       "consumers": [
-        "security/zk/comment-v2-trusted-setup.manifest.json",
+        "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
         "tools/security/ZkCommentV2MclFixture/Program.cs"
       ]
     },
@@ -155,7 +160,7 @@
       "lifecycle": "required-before-production",
       "production_usable": false,
       "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/comment-v2-trusted-setup.manifest.json"
+      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
     },
     {
       "path": "artifacts/zk/comment-v3-layout4/ceremony/phase2/comment_v3_ceremony_transcript.json",
@@ -165,7 +170,7 @@
       "lifecycle": "required-before-production",
       "production_usable": false,
       "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/comment-v2-trusted-setup.manifest.json"
+      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
     },
     {
       "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk",
@@ -175,7 +180,7 @@
       "lifecycle": "required-before-production",
       "production_usable": false,
       "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/comment-v2-trusted-setup.manifest.json"
+      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
     },
     {
       "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.bin",
@@ -185,7 +190,7 @@
       "lifecycle": "required-before-production",
       "production_usable": false,
       "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/comment-v2-trusted-setup.manifest.json"
+      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
     },
     {
       "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.json",
@@ -195,7 +200,7 @@
       "lifecycle": "required-before-production",
       "production_usable": false,
       "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/comment-v2-trusted-setup.manifest.json"
+      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
     },
     {
       "path": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_source.tar.gz",
@@ -215,7 +220,7 @@
       "lifecycle": "required-before-production",
       "production_usable": false,
       "storage_authority": "immutable-release-or-oci",
-      "hash_authority": "security/zk/comment-v2-trusted-setup.manifest.json"
+      "hash_authority": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
     }
   ],
   "retired_artifacts": [
@@ -286,8 +291,8 @@
     }
   ],
   "active_manifests": [
-    "security/zk/comment-v2-circuit.manifest.json",
-    "security/zk/comment-v2-trusted-setup.manifest.json",
+    "security/zk/contracts/comment-v2-circuit.manifest.json",
+    "security/zk/provenance/comment-v2-trusted-setup.manifest.json",
     "config/zk/anonymous-comment-v2-verifying-key.manifest.json"
   ],
   "active_consumers": [

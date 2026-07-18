@@ -1,4 +1,8 @@
+schema: fsusblog.security-matrix.privacy-zk-comment.v1
+family: privacy.zk-comment
 version: privacy-zk-comment-matrix-v1
+owner: ServerContractAgent
+checker: tools/security/check-security-matrices.mjs
 evidenceClassRegistry:
   contract:
     - security/evidence-contracts/release-bundle-storage.json
@@ -51,9 +55,9 @@ scenarios:
     localCommands: [check:privacy-zk-contract]
     code:
       - docs/zk/anonymous-comment-v2-circuit.md
-      - security/zk/comment-v2-circuit.manifest.json
-      - security/zk/comment-v2-tamper-cases.manifest.json
-      - security/zk/comment-v2-feasibility.manifest.json
+      - security/zk/contracts/comment-v2-circuit.manifest.json
+      - security/zk/contracts/comment-v2-tamper-cases.manifest.json
+      - security/zk/contracts/comment-v2-feasibility.manifest.json
       - tools/crypto/check-zk-comment-v2-manifests.mjs
       - tools/security/check-zk-comment-v2-unlinkability.mjs
     tests:
@@ -72,7 +76,7 @@ scenarios:
     localCommands: [check:privacy-zk-contract]
     code:
       - docs/zk/trusted-setup-ceremony.md
-      - security/zk/comment-v2-trusted-setup.manifest.json
+      - security/zk/provenance/comment-v2-trusted-setup.manifest.json
       - config/zk/anonymous-comment-v2-verifying-key.manifest.json
       - tools/crypto/check-zk-comment-v2-manifests.mjs
     tests:
@@ -231,7 +235,7 @@ scenarios:
     requiredCases: [constraint-completeness, trusted-setup-provenance, public-input-ordering, native-mcl-binding, subgroup-and-canonical-serialization, nullifier-domain-root-epoch-binding, malformed-noncanonical-proof-corpus, verifier-concurrency-timeout, no-independent-audit-claim]
     localCommands: [check:privacy-zk-local-review, check:privacy-zk-prod-release]
     code:
-      - security/zk/comment-v2-local-review.manifest.json
+      - security/zk/provenance/comment-v2-local-review.manifest.json
       - docs/zk/comment-v2-local-cryptographic-review.md
       - tools/security/zk-local-review.mjs
       - tools/security/check-zk-local-review.mjs

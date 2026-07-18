@@ -20,6 +20,7 @@ internal static class SecuritySourceAnalyzerProgram
         string policyPath = ResolvePath(root, parsed.Policy);
         AnalyzerPolicy policy = JsonSerializer.Deserialize<AnalyzerPolicy>(File.ReadAllText(policyPath), JsonOptions)
             ?? throw new InvalidOperationException("security_source_policy_invalid");
+        ValidatePolicy(policy);
 
         string[] sources = parsed.Sources.Count > 0
             ? parsed.Sources.Select(source => ResolvePath(root, source)).Distinct(StringComparer.Ordinal).ToArray()
@@ -40,6 +41,54 @@ internal static class SecuritySourceAnalyzerProgram
                 .ToArray());
         Console.WriteLine(JsonSerializer.Serialize(report, JsonOptions));
         return Task.FromResult(diagnostics.Count == 0 ? 0 : 1);
+    }
+
+    private static void ValidatePolicy(AnalyzerPolicy policy)
+    {
+        var errors = new List<string>();
+        if (policy.Schema != "fsusblog.backend-security-source-policy.v2")
+        {
+            errors.Add("schema");
+        }
+        if (policy.PolicyId != "backend-security-source" ||
+            !Regex.IsMatch(policy.Version ?? string.Empty, "^[0-9]+\\.[0-9]+\\.[0-9]+$", RegexOptions.CultureInvariant) ||
+            string.IsNullOrWhiteSpace(policy.Owner))
+        {
+            errors.Add("identity");
+        }
+        if (policy.Analyzer?.Project != "tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj" ||
+            policy.Analyzer.FailClosed != true)
+        {
+            errors.Add("analyzer");
+        }
+        if (policy.Documentation is not { Length: >= 2 } || policy.Documentation.Any(string.IsNullOrWhiteSpace))
+        {
+            errors.Add("documentation");
+        }
+        if (policy.Rules is not { Length: > 0 } ||
+            policy.Rules.Select(rule => rule.Id).Distinct(StringComparer.Ordinal).Count() != policy.Rules.Length)
+        {
+            errors.Add("rules");
+        }
+        else
+        {
+            foreach (AnalyzerRule rule in policy.Rules)
+            {
+                if (string.IsNullOrWhiteSpace(rule.Id) || string.IsNullOrWhiteSpace(rule.Kind) ||
+                    rule.Severity != "error" || string.IsNullOrWhiteSpace(rule.Rationale) ||
+                    rule.PathScope != "repository-relative-include-globs" || rule.Include is not { Length: > 0 } ||
+                    rule.Include.Any(pattern => string.IsNullOrWhiteSpace(pattern) ||
+                        Path.IsPathRooted(pattern) || pattern.Contains("..", StringComparison.Ordinal) ||
+                        !pattern.StartsWith("src/backend/", StringComparison.Ordinal)))
+                {
+                    errors.Add($"rule:{rule.Id ?? "<missing>"}");
+                }
+            }
+        }
+        if (errors.Count > 0)
+        {
+            throw new InvalidOperationException($"security_source_policy_invalid:{string.Join(',', errors.Distinct(StringComparer.Ordinal))}");
+        }
     }
 
     private static void AnalyzeSource(
@@ -300,11 +349,23 @@ internal static class SecuritySourceAnalyzerProgram
         => Path.IsPathRooted(value) ? Path.GetFullPath(value) : Path.GetFullPath(Path.Combine(root, value));
 }
 
-internal sealed record AnalyzerPolicy(string Schema, AnalyzerRule[] Rules);
+internal sealed record AnalyzerPolicy(
+    string Schema,
+    string PolicyId,
+    string Version,
+    string Owner,
+    AnalyzerIdentity Analyzer,
+    string[] Documentation,
+    AnalyzerRule[] Rules);
+
+internal sealed record AnalyzerIdentity(string Project, bool FailClosed);
 
 internal sealed record AnalyzerRule(
     string Id,
     string Kind,
+    string Severity,
+    string Rationale,
+    string PathScope,
     string[] Include,
     string? ConstantName = null,
     long? Minimum = null);
@@ -318,7 +379,7 @@ internal sealed record AnalyzerArguments(string Root, string Policy, bool Fixtur
     internal static AnalyzerArguments Parse(string[] args)
     {
         string root = Directory.GetCurrentDirectory();
-        string policy = "security/backend-source-policy.json";
+        string policy = "security/policies/backend-source-policy.json";
         bool fixtureMode = false;
         var sources = new List<string>();
         for (int index = 0; index < args.Length; index++)

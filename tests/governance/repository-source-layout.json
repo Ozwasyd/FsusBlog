@@ -86,7 +86,7 @@
     ],
     "jsonSourceBindings": [
       {
-        "path": "security/zk/comment-v2-circuit.manifest.json",
+        "path": "security/zk/contracts/comment-v2-circuit.manifest.json",
         "pathField": "r1cs_source.path",
         "hashField": "r1cs_source.sha256",
         "sourceId": "anonymous-comment-v2"
@@ -98,7 +98,7 @@
         "sourceId": "anonymous-comment-v2"
       },
       {
-        "path": "security/zk/comment-v5-circuit.manifest.json",
+        "path": "security/zk/contracts/comment-v5-circuit.manifest.json",
         "pathField": "source",
         "hashField": "source_sha256",
         "sourceId": "anonymous-comment-v5"

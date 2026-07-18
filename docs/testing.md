@@ -464,10 +464,10 @@ CSP style-attribute hardening 的 focused gate 包含 `check:security-consistenc
 
 release browser acceptance 在 Chrome、Firefox、Safari、Edge 分别覆盖匿名公开页、登录/account、admin、notification stream 与 binary fetch；页面正常加载期间不得产生意外 CSP violation。测试随后主动插入无 nonce script 与 `style="display:none"`，两者必须被阻止并分别产生 `script-src*`、`style-src-attr` violation。collector smoke 以 CSP media type POST 合法的脱敏 fixture 并期待 `204/no-store`；原始 URL、query 和 source sample 不得进入日志证据。
 | 攻击矩阵 | CSRF 形态、伪造 Cookie/JWT、篡改 PoW、method override、路径穿越、超大 / 畸形 binary payload |
-| ASVS / WSTG 矩阵 | `tools/security/check-security-matrices.mjs` 校验 `security/asvs-v5.0.0-matrix.yml` 与 `security/wstg-v4.2-matrix.yml` 的版本化 ID、代码/测试/证据路径和 owner |
+| ASVS / WSTG 矩阵 | `tools/security/check-security-matrices.mjs` 校验 `security/matrices/standards/asvs-v5.0.0.yml` 与 `security/matrices/standards/wstg-v4.2.yml` 的版本化 ID、代码/测试/证据路径和 owner |
 | 供应链审计 | `tools/security/check-supply-chain-audit.sh` 对 NuGet 和 npm production dependencies 执行 high/critical vulnerability gate |
 | SBOM | `tools/security/generate-sbom.sh` 从 NuGet lock files、`package-lock.json` 和 image digest 生成 CycloneDX 1.5 evidence |
-| ZAP WARN 策略 | `tools/security/check-zap-warn-policy.mjs` 校验 `security/zap-warn-policy.yml`，要求每个 WARN 有 owner、接受理由、修复期限和升级条件 |
+| ZAP WARN 策略 | `tools/security/check-zap-warn-policy.mjs` 校验 `security/policies/zap-warn-policy.yml`，要求每个 WARN 有 owner、接受理由、修复期限和升级条件 |
 | DAST | OWASP ZAP baseline 扫描本地前后端目标；authenticated DAST 在同一次 fresh runtime 中创建专属 user/admin 会话，并对 anonymous、user、admin、author-console 四类上下文执行主动变异请求；任一 5xx、越权成功、认证上下文失效或扫描器错误都会阻断发布 |
 | 本轮本机暴露面 | `tools/security/check-local-runtime-exposure.mjs` 对本次 namespace 的 backend、frontend、release preview 执行真实 HTTP/安全头探针，读取实际 TCP listener，并通过 Docker inspect 确认 PostgreSQL/Redis host binding 仅为 loopback；写入 `.tmp/security/local-runtime-exposure.json`，不得跳过或复用历史结果 |
 | 生产暴露面工具 | `tools/security/test-production-exposure-tools.sh` 用合成 DNS/firewall/live evidence 覆盖 prereq handoff/returned 脚本与 tar/find/xargs 依赖清单、evidence request schema、request `requiredEvidence`/`verificationCommands`/`handoffChecks`、request returned-evidence/returned-handoff verifier 与 closeout 命令、request currentStatus/nextActions/unblockPlan、firewall source sha256 生成/缺失/格式/原始文件摘要不匹配拒绝、handoff request 缺失 firewall source sha256 合同拒绝、status report requiredHosts/delegationDomains、live/DNS readiness `requiredHosts` 与 DNS delegation `delegationDomains` 字符串/数组形态、handoff request/status/manifest 对齐、request/status 域名漂移拒绝、request/status blocker 明细漂移拒绝、request requiredEvidence 路径漂移拒绝、request 缺失 handoff check 拒绝、request 缺失 blocker source 的 unblockPlan 拒绝、request 缺失 returned handoff closeout 命令拒绝、request 顶层 returned verifier 命令漂移拒绝、manifest request firewall source sha256 合同漂移拒绝、manifest request returned closeout command summary 漂移拒绝、manifest request unblockPlan summary 漂移拒绝、manifest blocker 明细漂移拒绝、manifest external exposure valid 漂移拒绝、manifest external exposure 组件状态漂移拒绝、request evidenceFiles 路径漂移拒绝、request/status artifact digest 漂移拒绝、manifest host/domain drift 拒绝、release bundle exposure artifact drift 拒绝、bundle artifact 非标准路径拒绝、manifest sha256 digest 校验、缺失 artifact 残留 digest 拒绝、handoff bundle 导出前校验、exporter 输出目录/tarball 自校验、tarball 解压前路径穿越和非普通 entry 拒绝、summary/operator checklist/returned-evidence manifest/README/校验和/tarball 生成、handoff bundle checker 目录/tarball 验证与篡改 returned manifest/README/artifact digest/symlink/archive path traversal/unsupported entry 拒绝、含 symlink 源 release evidence 导出失败、handoff summary unblockPlan、operator checklist unblockPlan、returned manifest unblockPlan 拒绝、returned handoff closeout 对完整 bundle 的 preflight 校验和篡改 operator checklist fail-closed、direct returned-evidence closeout 对父级 handoff bundle 的 preflight 校验和篡改 operator checklist fail-closed、returned expected manifest source metadata 与 unblockPlan sources/count/key/file/artifact/command 映射拒绝、returned evidence 目录验收与 symlink 拒绝、ok/blocked returned manifest 保留、returned request 与 expected manifest scope 缩窄拒绝、returned evidence 成功 closeout 与 missing expected manifest/blocked/缩窄 request/缩窄 manifest fail-closed、临时 fixture 路径拒绝、manifest request summary、complete closeout 自动生成并刷新 request、verifier、status report、失败写 blocked status report、早期失败仍刷新后续 evidence、成功 closeout 写出 `status=ok` |
@@ -810,6 +810,14 @@ tools/operations/cleanup-retention.sh
 这些检查覆盖文章公开可见性、SEO discovery/JSON-LD、分发版本一致性、schema migration registry、OpenTelemetry collector 开关与无 PII tag 白名单、AI provider 默认关闭、PWA 私有路由不缓存、RUM 不采集私有页与敏感字段、备份/烟测/证据/保留期脚本。这里的 backup restore 与 post-deploy smoke dry-run 只验证脚本调度，会写入 `status=scheduled`，不能作为发布收口证据。完整发布必须回到 `./tools/test.sh production-correctness` 与 `./tools/test.sh coverage-gate`，再由 `./tools/test.sh release-final` 追加唯一 Browser Contract 并生成最终发布凭据；`./tools/test.sh production` 仅作兼容别名保留。
 
 作者 AI 辅助的静态门禁为 `npm --prefix src/frontend run check:author-ai-assist`，覆盖 admin-only endpoint、actor audit、provider review config、编辑器接线和文档同步。后端行为由 `AuthoringWorkflowServiceTests` 覆盖默认 disabled 与 provider-enabled review-blocked 分支。
+
+## Security domain 静态门禁
+
+`node tools/security/check-security-domain-layout.mjs` 先聚合校验安全域目录、policy metadata、
+ZK contract/provenance 分类与 hash bindings、静态 evidence classification、runtime selection 和
+旧 flat path；`node tools/security/check-security-matrices.mjs` 再按 declarative catalog 校验六份
+矩阵。聚焦回归为 `node --test tests/tools/issue-1170-security-domain-layout.test.mjs`。这些检查只证明
+仓库契约自洽，不替代匿名、登录、admin、notification stream 和 binary 的运行时安全测试。
 
 ## Production correctness 风险清单
 

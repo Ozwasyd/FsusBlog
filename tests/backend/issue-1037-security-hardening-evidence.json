@@ -73,7 +73,7 @@
   ],
   "roslynAnalyzer": {
     "project": "tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj",
-    "policy": "security/backend-source-policy.json",
+    "policy": "security/policies/backend-source-policy.json",
     "positiveFixture": "tests/backend/Fixtures/security-source-analysis/positive.cs",
     "negativeFixture": "tests/backend/Fixtures/security-source-analysis/negative.cs",
     "harness": "tests/tools/security-source-analyzer.test.mjs",

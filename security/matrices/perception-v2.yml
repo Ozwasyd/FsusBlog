@@ -1,4 +1,8 @@
+schema: fsusblog.security-matrix.perception-v2.v1
+family: project.perception-v2
 version: perception-v2-test-matrix-v1
+owner: ServerContractAgent
+checker: tools/security/check-security-matrices.mjs
 scenarios:
   - id: PERCEPTION-V2-CONTRACTS
     scenario: AEDS frame, forbidden-fields, recipeHash and sealedToken contracts are covered

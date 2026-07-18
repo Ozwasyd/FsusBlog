@@ -51,11 +51,11 @@ const requiredTamperCases = [
 const failures = []
 
 const files = {
-  circuit: resolveInput('FSUSBLOG_ZK_V5_CIRCUIT_MANIFEST', 'security/zk/comment-v5-circuit.manifest.json'),
+  circuit: resolveInput('FSUSBLOG_ZK_V5_CIRCUIT_MANIFEST', 'security/zk/contracts/comment-v5-circuit.manifest.json'),
   source: resolveInput('FSUSBLOG_ZK_V5_CIRCUIT_SOURCE', 'src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json'),
-  setup: resolveInput('FSUSBLOG_ZK_V5_TRUSTED_SETUP_MANIFEST', 'security/zk/comment-v5-trusted-setup.manifest.json'),
+  setup: resolveInput('FSUSBLOG_ZK_V5_TRUSTED_SETUP_MANIFEST', 'security/zk/provenance/comment-v5-trusted-setup.manifest.json'),
   config: resolveInput('FSUSBLOG_ZK_V5_VERIFYING_KEY_CONFIG', 'config/zk/anonymous-comment-v5-verifying-key.manifest.json'),
-  tamper: resolveInput('FSUSBLOG_ZK_V5_TAMPER_MANIFEST', 'security/zk/comment-v5-tamper-cases.manifest.json')
+  tamper: resolveInput('FSUSBLOG_ZK_V5_TAMPER_MANIFEST', 'security/zk/contracts/comment-v5-tamper-cases.manifest.json')
 }
 
 const circuit = readJson(files.circuit, 'circuit manifest')
@@ -79,7 +79,7 @@ exactArray(source.forbidden_public_inputs, forbiddenPublicInputs, 'source.forbid
 equal(source.domain_separators?.public_input_transcript, transcriptDomain, 'source public-input transcript domain')
 equal(source.domain_separators?.nullifier_prf, `${circuitId}:nullifier:v1`, 'source nullifier domain')
 
-equal(setup.circuit_manifest_path, 'security/zk/comment-v5-circuit.manifest.json', 'setup.circuit_manifest_path')
+equal(setup.circuit_manifest_path, 'security/zk/contracts/comment-v5-circuit.manifest.json', 'setup.circuit_manifest_path')
 equal(setup.ceremony_status, 'not-run', 'setup.ceremony_status')
 equal(setup.production_usable, false, 'setup.production_usable')
 nonEmpty(setup.fail_closed_reason, 'setup.fail_closed_reason')
@@ -90,8 +90,8 @@ for (const [name, artifact] of Object.entries(setup.artifacts ?? {})) {
 }
 
 equal(config.schema, 'fsusblog.zk.verifying-key-config.v2', 'config.schema')
-equal(config.circuit_manifest, 'security/zk/comment-v5-circuit.manifest.json', 'config.circuit_manifest')
-equal(config.trusted_setup_manifest, 'security/zk/comment-v5-trusted-setup.manifest.json', 'config.trusted_setup_manifest')
+equal(config.circuit_manifest, 'security/zk/contracts/comment-v5-circuit.manifest.json', 'config.circuit_manifest')
+equal(config.trusted_setup_manifest, 'security/zk/provenance/comment-v5-trusted-setup.manifest.json', 'config.trusted_setup_manifest')
 equal(config.production_usable, false, 'config.production_usable')
 equal(config.verifying_key_hash, '', 'config.verifying_key_hash')
 

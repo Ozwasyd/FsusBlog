@@ -18,7 +18,7 @@ const endpoints = read('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Com
 const migration = read('src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.CommentAuthorModeRetirement.cs')
 const frontend = read('src/frontend/src/composables/useArticleDetailView.ts')
 const composer = read('src/frontend/src/components/article/ArticleCommentComposer.vue')
-const matrix = read('security/privacy-zk-comment-matrix.yml')
+const matrix = read('security/matrices/privacy-zk-comment.yml')
 
 requireText(policy, 'anonymous_author_mode_retired', 'policy')
 requireText(policy, 'public_opt_in_required', 'policy')

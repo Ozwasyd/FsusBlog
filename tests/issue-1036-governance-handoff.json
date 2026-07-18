@@ -29,7 +29,7 @@
   },
   "activePrivacyEvidenceWiring": [
     "src/frontend/package.json",
-    "security/privacy-zk-comment-matrix.yml",
+    "security/matrices/privacy-zk-comment.yml",
     "tests/matrix.yml",
     "tests/coverage-registry.json",
     "tests/backend/Fixtures/backend-test-requirements.json",

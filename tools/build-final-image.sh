@@ -354,7 +354,7 @@ fi
 [[ "$wasm_artifact_hash" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "wasm artifact hash is invalid"
 
 dockerfile_digest="sha256:$(sha256sum "$ROOT_DIR/ops/docker/FsusBlog.Server.Dockerfile" | awk '{print $1}')"
-zk_local_review_hash="sha256:$(sha256sum "$ROOT_DIR/security/zk/comment-v2-local-review.manifest.json" | awk '{print $1}')"
+zk_local_review_hash="sha256:$(sha256sum "$ROOT_DIR/security/zk/provenance/comment-v2-local-review.manifest.json" | awk '{print $1}')"
 dotnet_version="$(dotnet --version)"
 node_version="$(node --version)"
 docker_version="$(docker version --format '{{.Client.Version}}')"

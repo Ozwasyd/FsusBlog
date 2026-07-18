@@ -6,7 +6,7 @@ import path from 'node:path'
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..')
 const fixtureManifestPath = path.join(repoRoot, 'tests/fixtures/zk/comment-v2/circuit-ir/fixture.manifest.json')
-const tamperManifestPath = path.join(repoRoot, 'security/zk/comment-v2-tamper-cases.manifest.json')
+const tamperManifestPath = path.join(repoRoot, 'security/zk/contracts/comment-v2-tamper-cases.manifest.json')
 
 test('comment v2 circuit IR fixture materializes positive witness and rejects every tamper case', () => {
   assert.ok(existsSync(fixtureManifestPath), 'comment.v2 circuit IR fixture manifest must exist')

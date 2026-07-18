@@ -1,6 +1,16 @@
-version: zap-warn-policy-v1
+schema: fsusblog.zap-warn-policy.v2
+policyId: zap-warn-exceptions
+version: "2.0.0"
+owner: ServerContractAgent
+checker: tools/security/check-zap-warn-policy.mjs
+documentation: docs/security.md
+failClosed: true
 rules:
   - id: "10038"
+    kind: passive-warning-exception
+    severity: warning
+    rationale: Local debug-target CSP noise is governed by stricter release-header checks.
+    pathScope: local-runtime-zap-baseline
     action: WARN
     owner: ServerContractAgent
     status: accepted-debug-target
@@ -9,6 +19,10 @@ rules:
     failWhen: repo-native CSP checks fail or production target emits wildcard script/style directives
 
   - id: "10055"
+    kind: passive-warning-exception
+    severity: warning
+    rationale: Development CSP relaxation is isolated from release targets.
+    pathScope: local-runtime-zap-baseline
     action: WARN
     owner: ServerContractAgent
     status: accepted-debug-target
@@ -17,6 +31,10 @@ rules:
     failWhen: release target has CSP wildcard findings or check-security-headers-cors fails
 
   - id: "10096"
+    kind: passive-warning-exception
+    severity: warning
+    rationale: Generated-asset Unix-like constants are retained for explicit report review.
+    pathScope: generated-assets-in-local-runtime-zap-baseline
     action: WARN
     owner: ServerContractAgent
     status: accepted-artifact-noise

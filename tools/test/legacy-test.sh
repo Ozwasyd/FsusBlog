@@ -1875,6 +1875,7 @@ run_security_static_only() {
   run_parallel "security-static" \
     "network-baseline::\"$ROOT_DIR/tools/security/check-production-network-baseline.sh\"" \
     "supply-chain::\"$ROOT_DIR/tools/security/check-supply-chain-audit.sh\"" \
+    "security-domain::\"$ROOT_DIR/tools/security/check-security-domain-layout.mjs\"" \
     "security-matrices::\"$ROOT_DIR/tools/security/check-security-matrices.mjs\"" \
     "zap-warn-policy::\"$ROOT_DIR/tools/security/check-zap-warn-policy.mjs\"" \
     "sbom::\"$ROOT_DIR/tools/security/generate-sbom.sh\""

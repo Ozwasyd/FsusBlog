@@ -8,7 +8,7 @@ const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url))
 const packageName = 'Nethermind.MclBindings'
 const packageVersion = '1.0.5'
 const packageIdPath = packageName.toLowerCase()
-const feasibilityPath = path.join(root, 'security/zk/comment-v2-feasibility.manifest.json')
+const feasibilityPath = path.join(root, 'security/zk/contracts/comment-v2-feasibility.manifest.json')
 const lockFiles = [
   'src/backend/packages.lock.json',
   'tools/security/ZkCommentV2MclFixture/packages.lock.json'

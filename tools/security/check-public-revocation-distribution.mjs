@@ -80,8 +80,8 @@ for (const file of [
   'docs/api/contracts.md',
   'docs/security/anonymous-revocation-distribution-threat-model.md',
   'docs/security/anonymous-revocation-distribution-runbook.md',
-  'security/privacy-zk-comment-matrix.yml',
-  'security/zk/comment-v2-circuit.manifest.json',
+  'security/matrices/privacy-zk-comment.yml',
+  'security/zk/contracts/comment-v2-circuit.manifest.json',
   'security/evidence-contracts/public-revocation-distribution.json'
 ]) requireText(file, 'revocation')
 

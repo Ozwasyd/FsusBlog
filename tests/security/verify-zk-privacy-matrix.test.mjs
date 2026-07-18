@@ -6,8 +6,8 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 const verifier = 'tools/verify-zk-privacy-matrix.mjs'
-const matrixPath = 'security/privacy-zk-comment-matrix.yml'
-const tamperPath = 'security/zk/comment-v2-tamper-cases.manifest.json'
+const matrixPath = 'security/matrices/privacy-zk-comment.yml'
+const tamperPath = 'security/zk/contracts/comment-v2-tamper-cases.manifest.json'
 
 function runVerifier(args = []) {
   return spawnSync(process.execPath, [verifier, ...args], {

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const project = path.join(root, 'tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj')
-const policy = path.join(root, 'security/backend-source-policy.json')
+const policy = path.join(root, 'security/policies/backend-source-policy.json')
 const migratedSources = [
   'src/backend/Services/ArticleService.cs',
   'src/backend/Services/Authoring/AuthoringWorkflowService.cs',

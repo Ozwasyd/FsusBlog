@@ -103,7 +103,7 @@
       ],
       "primaryFiles": [
         "src/frontend/package.json",
-        "security/privacy-zk-comment-matrix.yml",
+        "security/matrices/privacy-zk-comment.yml",
         "tests/matrix.yml",
         "tests/coverage-registry.json",
         "tests/backend/Fixtures/backend-test-requirements.json",
@@ -138,7 +138,7 @@
         "src/backend/Infrastructure/Security/SecurityRandomSource.cs",
         "src/backend/Infrastructure/Security/SecurityStringComparisons.cs",
         "tests/backend/Unit/SecurityHardening",
-        "security/backend-source-policy.json",
+        "security/policies/backend-source-policy.json",
         "tools/security/FsusBlog.SecuritySourceAnalyzer",
         "tests/backend/Fixtures/security-source-analysis",
         "tests/tools/security-source-analyzer.test.mjs",

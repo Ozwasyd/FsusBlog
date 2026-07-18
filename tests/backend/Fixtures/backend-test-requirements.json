@@ -600,7 +600,7 @@
       "risk": "critical",
       "coverage": "RiskControl decision modes, provider surfaces, proof binding failures, integration surfaces, browser failure modes, performance p99 budgets and fault modes",
       "evidencePaths": [
-        "security/risk-control-test-matrix.yml",
+        "security/matrices/risk-control.yml",
         "tools/security/check-security-matrices.mjs",
         "tools/test/lanes/risk-control-test-matrix.sh"
       ]
@@ -610,7 +610,7 @@
       "risk": "critical",
       "coverage": "perception-sealed@v2 contract-only, provider-only and comment.create E2E runtime gates covering AEAD/O(1) verify, binding mismatch, hot path, Redis gate, async audit, frontend worker/mobile, performance budget and fault-mode matrix",
       "evidencePaths": [
-        "security/perception-v2-test-matrix.yml",
+        "security/matrices/perception-v2.yml",
         "tools/security/check-security-matrices.mjs",
         "tools/security/check-perception-v2-e2e-evidence.mjs",
         "tools/test/lanes/perception-v2-test-matrix.sh",
@@ -627,7 +627,7 @@
       "risk": "critical",
       "coverage": "Privacy/ZK anonymous comment release gate covering credential-free submit, fail-closed proof handling, scoped ticket/nullifier behavior, moderation/log redaction and deterministic high-concurrency pressure cases",
       "evidencePaths": [
-        "security/privacy-zk-comment-matrix.yml",
+        "security/matrices/privacy-zk-comment.yml",
         "tools/security/check-security-matrices.mjs",
         "tools/test/lanes/privacy-zk-comment-matrix.sh",
         "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
