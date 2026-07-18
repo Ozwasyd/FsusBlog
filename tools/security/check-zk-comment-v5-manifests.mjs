@@ -117,9 +117,7 @@ for (const file of [
 
 for (const file of [
   'src/backend/appsettings.json',
-  'src/backend/appsettings.Production.json',
-  'src/backend/appsettings.example.json',
-  'src/backend/appsettings.Production.example.json'
+  'src/backend/appsettings.Production.json'
 ]) {
   const settings = readText(path.join(root, file), file)
   if (!settings.includes(`"CircuitId": "${circuitId}"`)) fail(`${file} must select ${circuitId}`)

@@ -25,9 +25,7 @@ function fixture() {
   cpSync(path.join(root, 'security'), path.join(directory, 'security'), { recursive: true })
   for (const relative of [
     'src/backend/appsettings.json',
-    'src/backend/appsettings.Production.json',
-    'src/backend/appsettings.example.json',
-    'src/backend/appsettings.Production.example.json'
+    'src/backend/appsettings.Production.json'
   ]) {
     const destination = path.join(directory, relative)
     mkdirSync(path.dirname(destination), { recursive: true })

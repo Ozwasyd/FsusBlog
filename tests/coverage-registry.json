@@ -3792,6 +3792,28 @@
       ]
     },
     {
+      "id": "appsettings-authority-governance",
+      "description": "Backend configuration uses one shared runtime base, one real production overlay, one minimal development example and one production operator environment example instead of competing hand-maintained full JSON copies.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tools/configuration/check-appsettings-authority.mjs",
+        "tests/governance/appsettings-authority.json",
+        "tests/tools/issue-1171-appsettings-authority.test.mjs",
+        "docs/configuration/appsettings-authority.md",
+        "src/backend/appsettings.json",
+        "src/backend/appsettings.Production.json",
+        "src/backend/appsettings.Development.example.json",
+        ".env.production.example"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject reintroduced full appsettings examples or the retired env template, redundant or undeclared development leaves, unexpected production sections, non-empty fail-closed values, non-placeholder production example secrets, and consumers that reference a non-canonical operator template.",
+      "minimumRequirement": "Static governance must execute the canonical authority checker and fixture-backed full-example, overlay-duplication, production-secret and legacy-consumer negative cases while retaining all sibling errors and the exact runtime precedence contract.",
+      "tierIds": [
+        "static-governance"
+      ]
+    },
+    {
       "id": "zk-artifact-lifecycle-ownership",
       "description": "Cryptographic artifacts are separated by exact circuit identity, public-input layout and lifecycle; only deterministic small outputs and explicit test fixtures are Git-tracked, while ceremony and delivery material uses immutable SHA-256-addressed storage.",
       "owner": "ServerContractAgent",
@@ -3907,14 +3929,15 @@
         "config/testing/mutation/default.json",
         "config/testing/mutation/critical.json",
         "ops/docker/Properties/launchSettings.json",
-        "src/backend/appsettings.example.json",
-        "src/backend/appsettings.Production.example.json",
+        "config/development/authoritative-development-docs.json",
+        "src/backend/appsettings.Development.example.json",
+        ".env.production.example",
         "README.md",
         ".gitignore"
       ],
       "assertionType": "integration",
-      "failClosedRule": "Reject a competing configs root, unapproved root JSON, ownerless root Properties directory, duplicate or missing canonical ownership, stale solution/project includes, non-colocated launch profiles, old Stryker/SLO/moderation paths or ignored canonical Compose launch settings.",
-      "minimumRequirement": "Static governance must execute positive and tamper fixtures for the ownership registry, restore the pinned dotnet tools, resolve every moderation/SLO/mutation consumer, and keep project-specific example configuration and Compose launch profiles discoverable at their canonical paths.",
+      "failClosedRule": "Reject a competing configs root, unapproved root JSON, ownerless config/development or root Properties content, duplicate or missing canonical ownership, stale solution/project includes, non-colocated launch profiles, old Stryker/SLO/moderation paths or ignored canonical Compose launch settings.",
+      "minimumRequirement": "Static governance must execute positive and tamper fixtures for the ownership registry, restore the pinned dotnet tools, resolve every moderation/SLO/mutation/development-governance owner, and keep the minimal development example, production env example and Compose launch profile discoverable at canonical paths.",
       "tierIds": [
         "static-governance"
       ]

@@ -31,9 +31,11 @@ const files = {
   seedSql: read('tools/dev/demo-seed.sql'),
   compose: read('ops/development/dependencies.compose.yml'),
   env: read('.env.example'),
-  appsettings: read('src/backend/appsettings.example.json'),
   appsettingsDev: read('src/backend/appsettings.Development.example.json'),
-  appsettingsProduction: read('src/backend/appsettings.Production.example.json')
+  appsettingsBase: read('src/backend/appsettings.json'),
+  appsettingsProduction: read('src/backend/appsettings.Production.json'),
+  envProduction: read('.env.production.example'),
+  configurationAuthority: read('docs/configuration/appsettings-authority.md')
 }
 
 for (const token of [
@@ -113,15 +115,24 @@ for (const token of [
 
 for (const [path, source] of Object.entries({
   '.env.example': files.env,
-  'src/backend/appsettings.example.json': files.appsettings,
   'src/backend/appsettings.Development.example.json': files.appsettingsDev
 })) {
   includes(path, source, 'localhost')
   includes(path, source, '127.0.0.1')
 }
 
-includes('src/backend/appsettings.Production.example.json', files.appsettingsProduction, 'replace-with-strong-production-secret')
-includes('src/backend/appsettings.Production.example.json', files.appsettingsProduction, 'https://example.com')
+includes('src/backend/appsettings.json', files.appsettingsBase, '"ConnectionStrings"')
+includes('src/backend/appsettings.Production.json', files.appsettingsProduction, '"SecretKey": ""')
+includes('.env.production.example', files.envProduction, 'Jwt__SecretKey=CHANGE_ME_')
+includes('.env.production.example', files.envProduction, 'DB_PASSWORD=CHANGE_ME_')
+for (const token of [
+  'appsettings.json',
+  'appsettings.Production.json',
+  '.env.production',
+  'command-line'
+]) {
+  includes('docs/configuration/appsettings-authority.md', files.configurationAuthority, token)
+}
 
 if (/(gmail|qq\.com|163\.com|outlook\.com|fsus\.blog|ozwasyd\.com|192\.168\.|10\.0\.|172\.16\.)/i.test(files.seedSql)) {
   errors.push('tools/dev/demo-seed.sql appears to contain real-looking contact, domain, or IP data')

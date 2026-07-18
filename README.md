@@ -163,7 +163,10 @@ cp .env.example .env
 | Known limitations | [docs/known-limitations.md](docs/known-limitations.md) |
 | Example config | `.env.example`, `src/backend/appsettings.Development.example.json` |
 | Configuration ownership | [docs/configuration-layout.md](docs/configuration-layout.md) |
+| Appsettings/operator authority | [docs/configuration/appsettings-authority.md](docs/configuration/appsettings-authority.md) |
 | Operations layout | [docs/operations-layout.md](docs/operations-layout.md) |
+
+Backend 配置按 `src/backend/appsettings.json` < 环境 overlay（Production 为已跟踪的 `appsettings.Production.json`）< `.env.production`/Compose 环境变量 < command-line override 的顺序覆盖。开发者只在需要本机差异时将最小 `appsettings.Development.example.json` 复制为被 Git 忽略的 `appsettings.Development.json`；生产操作者只将 `.env.production.example` 复制为私有 `.env.production`。仓库不维护可复制的完整 appsettings example，也不在示例中保存真实 secret。
 
 停止前后端进程按 `Ctrl+C`；清理本地开发数据库和 Redis volume：
 
@@ -276,6 +279,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/operations.md](docs/operations.md) | 运维手册：发布门控、回滚、备份、事故处置 |
 | [docs/development.md](docs/development.md) | 本地开发环境搭建、常用脚本说明 |
 | [docs/development/coding-conventions.md](docs/development/coding-conventions.md) | C# 母规范的跨语言映射、优先级、外部契约和 generated/vendor/fixture 例外 |
+| [docs/configuration/appsettings-authority.md](docs/configuration/appsettings-authority.md) | appsettings base/overlay、最小开发示例、production operator input 与覆盖优先级 |
 | [docs/development/demo-data.md](docs/development/demo-data.md) | deterministic fictional demo seed data、默认本地账号和重置方法 |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | SDK、Node/npm、PostgreSQL、Redis、端口、AEDS/Wasm、WebAuthn、cookie、migration、AOT 常见故障排查 |
 | [docs/testing.md](docs/testing.md) | 测试 DAG、production-ci-gate、release-closeout-gate 与覆盖场景说明 |

@@ -100,7 +100,7 @@ if (!/"AllowedHosts"\s*:\s*"fsus\.blog;www\.fsus\.blog"/.test(productionSettings
 }
 
 const dockerignore = read('.dockerignore')
-for (const needle of ['.env', '.env.*', '!.env.example', '!.env.production-template']) {
+for (const needle of ['.env', '.env.*', '!.env.example', '!.env.production.example']) {
   if (!dockerignore.split(/\r?\n/).includes(needle)) {
     violations.push(`.dockerignore: missing ${needle}`)
   }

@@ -7,6 +7,7 @@ FsusBlog has one generic configuration root: `config/`. Framework-discovered fil
 | Configuration | Canonical path | Owner / discovery rule |
 |---|---|---|
 | .NET local tools | `.config/dotnet-tools.json` | Standard `dotnet tool restore` discovery from the repository tree |
+| Development governance manifests | `config/development/**` | Repository governance; authoritative docs and language-style policies |
 | Production SLO | `config/observability/slo.yml` | Operations and observability |
 | Zero-downtime resource policy | `config/deployment/zero-downtime-resource-policy.json` | Operations and deployment qualification |
 | Moderation dictionaries and policies | `config/moderation/**` | Backend moderation runtime and server publish output |
@@ -20,7 +21,7 @@ FsusBlog has one generic configuration root: `config/`. Framework-discovered fil
 
 `config/configuration-ownership.json` is the machine-readable ownership registry. Directory ownership is recursive only where the registry says so; every file under `config/` and `.config/` must resolve to exactly one registry entry. Operational templates and executable workflows use the separate boundaries documented in [operations layout](operations-layout.md).
 
-This root-ownership registry does not make full backend appsettings examples permanent authorities. Their lifecycle and the operator-input model are owned by #1171, while the cross-source semantic contract is owned by #1172.
+Full backend appsettings examples are retired rather than permanent authorities. The shared base, real production overlay, minimal development example and production operator input are defined in [appsettings authority](configuration/appsettings-authority.md); the cross-source semantic contract is owned by #1172.
 
 ## Runtime and tool discovery
 

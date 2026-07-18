@@ -116,17 +116,22 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     [Fact]
     public void AnonymousCredentialIssuerConfig_ExplicitlyRejectsBannedAccountsByDefault()
     {
-        foreach (string relativePath in new[]
+        foreach (string[] configurationFiles in new[]
         {
-            "src/backend/appsettings.json",
-            "src/backend/appsettings.example.json",
-            "src/backend/appsettings.Production.json",
-            "src/backend/appsettings.Production.example.json"
+            new[] { "src/backend/appsettings.json" },
+            new[] { "src/backend/appsettings.json", "src/backend/appsettings.Development.example.json" },
+            new[] { "src/backend/appsettings.json", "src/backend/appsettings.Production.json" }
         })
         {
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddJsonFile(BackendTestPaths.FromRoot(relativePath), optional: false, reloadOnChange: false)
-                .Build();
+            var configurationBuilder = new ConfigurationBuilder();
+            foreach (string relativePath in configurationFiles)
+            {
+                configurationBuilder.AddJsonFile(
+                    BackendTestPaths.FromRoot(relativePath),
+                    optional: false,
+                    reloadOnChange: false);
+            }
+            IConfiguration configuration = configurationBuilder.Build();
 
             Assert.False(configuration.GetValue<bool>("AnonymousCredentialIssuer:AllowBannedAccountIssuance"));
             Assert.NotNull(configuration["AnonymousCredentialIssuer:SubjectHashPepper"]);

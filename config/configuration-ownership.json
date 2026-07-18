@@ -15,6 +15,13 @@
       "pathType": "file"
     },
     {
+      "id": "development-governance",
+      "owner": "repository-governance",
+      "canonicalPath": "config/development",
+      "pathType": "directory",
+      "recursive": true
+    },
+    {
       "id": "observability-slo",
       "owner": "operations-observability",
       "canonicalPath": "config/observability/slo.yml",

@@ -194,29 +194,17 @@ dev PostgreSQL / Redis volume 后重新启动。
 
 ## 开发环境配置
 
-### 后端配置（`appsettings.Development.json`）
+### 后端配置 authority
 
-开发环境会自动合并 `appsettings.Development.json`，通常**无需修改**。
-默认值：
+`src/backend/appsettings.json` 是唯一共享 base。开发环境只在确有本机差异时创建被 Git 忽略的 overlay：
 
-```json
-{
-  "RedisOptions": {
-    "Configuration": "localhost:6379",
-    "InstanceName": "MyBlog_"
-  },
-  "Jwt": {
-    "SecretKey": "use-dotnet-user-secrets-or-local-env-at-least-32-chars",
-    "AccessTokenExpiresMinutes": 15
-  },
-  "Fido2": {
-    "ServerDomain": "localhost",
-    "Origins": ["http://localhost:3000", "http://localhost:5173"]
-  }
-}
+```bash
+cp src/backend/appsettings.Development.example.json src/backend/appsettings.Development.json
 ```
 
-> **注意**：共享 `appsettings.json` 不再保存可复用 JWT 密钥。开发环境请使用 `dotnet user-secrets`、本机环境变量或未提交的 local-only 配置提供至少 32 字符的 `Jwt:SecretKey`；生产环境通过 `ProductionStartupValidator` 强制拒绝占位、默认或过短密钥。
+该示例只包含 loopback PostgreSQL/Redis、local auth fixture、insecure local cookie、synthetic release fence 和 localhost browser origin 等 11 个有意覆盖的 leaf；不得把 base 全量复制进去。ASP.NET Core 会按 base < `appsettings.Development.json` < environment variable < command line 合并。
+
+Production 使用已跟踪的 `appsettings.Production.json` 作为真实 fail-closed policy overlay，操作者从 `.env.production.example` 创建私有 `.env.production`。完整生产优先级为 base < Production overlay < `.env.production`/Compose environment < command line；真实 secret 继续由 environment、user-secrets 或 mounted file 提供，不能进入 tracked JSON/example。详见 [appsettings authority](configuration/appsettings-authority.md)。
 
 ### 前端代理配置
 

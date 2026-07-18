@@ -798,6 +798,7 @@ tiers:
       - repository-source-layout-governance
       - csharp-entrypoint-ownership-governance
       - authoritative-development-docs-governance
+      - appsettings-authority-governance
       - zk-artifact-lifecycle-ownership
       - release-evidence-classification-governance
       - security-domain-structure-governance
@@ -893,6 +894,12 @@ tiers:
       - .github/PULL_REQUEST_TEMPLATE.md
       - docs/development.md
       - docs/index.md
+      - tools/configuration/check-appsettings-authority.mjs
+      - tests/governance/appsettings-authority.json
+      - tests/tools/issue-1171-appsettings-authority.test.mjs
+      - docs/configuration/appsettings-authority.md
+      - src/backend/appsettings.Development.example.json
+      - .env.production.example
       - tools/crypto/check-zk-artifact-ownership.mjs
       - security/zk/provenance/artifact-ownership.manifest.json
       - tests/tools/issue-1168-zk-artifact-ownership.test.mjs
@@ -954,8 +961,9 @@ tiers:
       - config/moderation/regions.yaml
       - config/observability/slo.yml
       - ops/docker/Properties/launchSettings.json
-      - src/backend/appsettings.example.json
-      - src/backend/appsettings.Production.example.json
+      - config/development/authoritative-development-docs.json
+      - src/backend/appsettings.Development.example.json
+      - .env.production.example
       - README.md
       - tools/build-native.sh
       - tools/build-final-image.sh

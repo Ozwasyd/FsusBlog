@@ -20,6 +20,7 @@ static_matrix_schema() { run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh
 static_retention() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-retention.mjs"; }
 static_implementation_drift() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-doc-implementation-drift.mjs"; }
 static_authoritative_development_docs() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-authoritative-development-docs.mjs"; }
+static_appsettings_authority() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-appsettings-authority.mjs"; }
 STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/release-manifest.test.mjs"
   "$ROOT_DIR/tests/tools/runtime-publish-profile.test.mjs"
@@ -32,6 +33,7 @@ STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/issue-1170-security-matrix-catalog.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1157-authoritative-development-docs.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1171-appsettings-authority.test.mjs"
   "$ROOT_DIR/tests/tools/configuration-layout.test.mjs"
   "$ROOT_DIR/tests/tools/operations-layout.test.mjs"
   "$ROOT_DIR/tests/tools/deployment-slots.test.mjs"
@@ -152,7 +154,8 @@ run_static_prechecks_phase() {
     matrix-contract static_matrix_contract \
     matrix-schema static_matrix_schema \
     implementation-drift static_implementation_drift \
-    authoritative-development-docs static_authoritative_development_docs
+    authoritative-development-docs static_authoritative_development_docs \
+    appsettings-authority static_appsettings_authority
 }
 
 run_static_concurrent_phase() {

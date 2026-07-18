@@ -80,16 +80,6 @@
       "path": "src/backend/appsettings.Production.json",
       "circuitManifest": "security/zk/contracts/comment-v2-circuit.manifest.json",
       "trustedSetupManifest": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-    },
-    {
-      "path": "src/backend/appsettings.example.json",
-      "circuitManifest": "security/zk/contracts/comment-v2-circuit.manifest.json",
-      "trustedSetupManifest": "security/zk/provenance/comment-v2-trusted-setup.manifest.json"
-    },
-    {
-      "path": "src/backend/appsettings.Production.example.json",
-      "circuitManifest": "security/zk/contracts/comment-v2-circuit.manifest.json",
-      "trustedSetupManifest": "/app/config/zk/comment-v2-trusted-setup.manifest.json"
     }
   ],
   "runtimePackaging": {

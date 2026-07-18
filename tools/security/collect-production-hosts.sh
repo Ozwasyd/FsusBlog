@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ENV_FILE="${FSUSBLOG_PRODUCTION_ENV_FILE:-$ROOT_DIR/.env.production}"
-ENV_TEMPLATE="$ROOT_DIR/.env.production-template"
+ENV_TEMPLATE="$ROOT_DIR/.env.production.example"
 
 fail() {
   printf '[production-hosts] failed\n' >&2

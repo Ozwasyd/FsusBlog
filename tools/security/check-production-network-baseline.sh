@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/ops/docker/docker-compose.production.yml"
 GATEWAY_FILE="$ROOT_DIR/ops/gateway/production-openresty.conf"
 GATEWAY_UPSTREAM_EXAMPLE="$ROOT_DIR/ops/gateway/active-upstream.conf.example"
-ENV_TEMPLATE="$ROOT_DIR/.env.production-template"
+ENV_TEMPLATE="$ROOT_DIR/.env.production.example"
 
 failures=()
 

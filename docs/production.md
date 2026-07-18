@@ -32,7 +32,7 @@ Release identity and container storage paths are runtime wiring, not static valu
 
 ## Required Configuration
 
-Create a private `.env.production` from `.env.production-template` and replace every `CHANGE_ME` value.
+Copy `.env.production.example` to a private `.env.production` and replace every `CHANGE_ME` value. Configuration precedence is `src/backend/appsettings.json` < `src/backend/appsettings.Production.json` < environment variables supplied by `.env.production`/Compose < command-line arguments. Keep real secrets outside tracked JSON and example files; the existing fail-closed startup validation remains authoritative.
 
 Required variables:
 
@@ -297,7 +297,7 @@ active application. A completed Contract writes `rollbackCompatible=false`; afte
 that boundary an old-image gateway rollback is forbidden and recovery is
 backup/forward-fix based.
 
-Do not use `.env.production-template` to start production. It is only safe for `docker compose config` structure checks.
+Do not use `.env.production.example` directly to start production. It is only safe as the source for a private operator-owned `.env.production` and for `docker compose config` structure checks.
 
 The compose file binds Kestrel to `127.0.0.1:${FSUSBLOG_SLOT_PORT}:8080`, resolved to blue `8081` or green `8082` by the slot scripts. Do not use `8081:8080`, `8082:8080` or any wildcard host binding; only the host gateway owns the public entrypoint.
 

@@ -19,7 +19,7 @@ FsusBlog v1.1.0 is a public-preview release for development, evaluation, code re
 
 ## Safe Configuration Examples
 
-The root `.env.example` and the canonical backend examples at `src/backend/appsettings.example.json`, `src/backend/appsettings.Development.example.json`, and `src/backend/appsettings.Production.example.json` use placeholders only. No duplicate appsettings examples are kept at repository root. Replace every `replace-*`, `example.com`, and local demo value before any shared or production deployment.
+Runtime configuration starts from `src/backend/appsettings.json`; Production adds the checked-in `src/backend/appsettings.Production.json` overlay. The only backend example is the minimal development overlay at `src/backend/appsettings.Development.example.json`, while production operators copy `.env.production.example` to a private `.env.production` and replace every `CHANGE_ME` value. The root `.env.example` remains the local-development environment template. Do not recreate standalone full appsettings examples or commit a production env file.
 
 Do not commit copied `.env`, production `appsettings*.json`, database exports, Redis dumps, log bundles, or generated local credentials.
 
