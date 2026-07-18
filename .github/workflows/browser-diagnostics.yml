@@ -67,6 +67,8 @@ jobs:
             - id: receipt
               name: Export immutable receipt identity
               run: |
+                  # Node source is intentionally single-quoted for the shell.
+                  # shellcheck disable=SC2016
                   node --input-type=module -e '
                     import fs from "node:fs";
                     const receipt = JSON.parse(fs.readFileSync(".tmp/ci-production-build/receipt.json", "utf8"));

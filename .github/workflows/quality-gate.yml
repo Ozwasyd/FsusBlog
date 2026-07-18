@@ -164,6 +164,8 @@ jobs:
             - id: receipt
               name: Export immutable receipt identity
               run: |
+                  # Node source is intentionally single-quoted for the shell.
+                  # shellcheck disable=SC2016
                   node --input-type=module -e '
                     import fs from "node:fs";
                     const receipt = JSON.parse(fs.readFileSync(".tmp/ci-production-build/receipt.json", "utf8"));
@@ -789,6 +791,8 @@ jobs:
             - id: contract_receipt
               name: Export Browser Contract receipt identity
               run: |
+                  # Node source is intentionally single-quoted for the shell.
+                  # shellcheck disable=SC2016
                   node --input-type=module -e '
                     import crypto from "node:crypto";
                     import fs from "node:fs";
