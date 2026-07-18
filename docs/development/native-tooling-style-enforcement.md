@@ -13,7 +13,7 @@ Use the changed-file path during development:
 ./tools/lint.sh docs
 ```
 
-Use `--base <ref>` for stacked branches and `--full` for the authoritative repository scan. The full scan reads `config/development/native-tooling-style-baseline.json`: only the exact pre-rule content digest is exempt. Editing a baseline file removes its exemption and makes every reported violation in that file actionable. `--require-tools` additionally fails when a configured external executable is unavailable.
+Use `--base <ref>` for stacked branches and `--full` for the authoritative repository scan. The migration acceptance state requires `config/development/native-tooling-style-baseline.json` to contain no file entries; formatter or lint debt cannot be hidden behind a content digest. `--require-tools` additionally fails when a configured external executable is unavailable.
 
 `./tools/format.sh` writes only selected changed files. It normalizes UTF-8/LF/final-newline/trailing whitespace, delegates C++ to `clang-format`, delegates Shell/CMake when their formatters exist, and pretty-prints JSON without sorting semantic keys. Markdown is never destructively wrapped. `--check` is read-only.
 
@@ -26,9 +26,13 @@ Use `--base <ref>` for stacked branches and `--full` for the authoritative repos
 | Shell | `.editorconfig`, `.shellcheckrc` | 4 spaces, strict mode, PascalCase functions, camelCase locals, quoted expansion, ShellCheck/shfmt adapters |
 | YAML/GitHub Actions | `.yamllint.yml`, `.github/actionlint.yaml` | 4 spaces, duplicate keys, schema/actionlint adapter, preserved action inputs and SHA pins |
 | JSON/JSONC | built-in deterministic parser | UTF-8/LF, 4 spaces, duplicate/NaN/syntax rejection, existing semantic key order |
-| Markdown | `.markdownlint-cli2.jsonc` | heading/fence/link/list checks with no line wrapping |
+| Markdown | `.markdownlint-cli2.jsonc` | heading/fence/table/list/trailing-whitespace checks, fail-closed internal links, schema-bound front matter, no line wrapping |
 
 External executables are optional in the portable developer path because not every host image contains every ecosystem CLI. The built-in deterministic checks still run and aggregate violations. Hermetic CI/toolchain images use `--require-tools` so configured standard adapters cannot silently disappear.
+
+Markdownlint is invoked once for the complete selected file set rather than once per document. Its output is parsed back into individual diagnostics so one run exposes every file/rule failure. Inline Markdown lint suppression is disabled. The only rule override is the exact `.github/PULL_REQUEST_TEMPLATE.md` fragment, which does not own a document-level H1; generated `docs/testing.generated.md` and historical `docs/reports/**` evidence are excluded by exact owner paths, while similarly named hand-written documents remain governed.
+
+Optional Markdown front matter must start with `schema: fsusblog.markdown-document.v1`, use unique non-empty scalar fields, and close before document content. A leading delimiter without that schema fails closed instead of being silently ignored. Inline and reference-style relative links are resolved from the owning document; malformed percent encoding, repository escape and missing targets are reported without aborting the remaining scan.
 
 ## Native build presets
 
@@ -54,6 +58,6 @@ An exception preserves only the boundary spelling. Internal wrappers still retur
 
 ## Migration discipline
 
-No existing module is mechanically reformatted by this issue. Future formatter-only migrations must be isolated from semantic changes, reviewed separately, committed, and only then added by real commit SHA to `.git-blame-ignore-revs`. Placeholder hashes and mixed behavior/format commits are rejected.
+Each formatter-only migration is isolated from semantic changes and recorded by its real commit SHA. The current sequence is native `13e382d6`, JSON `e4cb5b4e`, JSONC `677b4657` / `482035c6`, YAML `e4f192d2`, Shell `4eefccaf`, CMake `cd6926a7`, and Markdown `ba2833d0`. After dependency-ordered integration, those real pure-format commits are added to `.git-blame-ignore-revs`; placeholder hashes and mixed behavior/format commits are rejected.
 
 The positive and aggregate-negative fixtures live under `tests/fixtures/issue-1160-native-tooling-style/`. The focused contract test proves portable fallback behavior, exception boundaries, full-mode digest invalidation, formatter idempotence and wrapper parity.

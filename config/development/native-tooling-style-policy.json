@@ -46,6 +46,7 @@
         "artifacts/**",
         "build/**",
         "docs/reports/**",
+        "docs/testing.generated.md",
         "**/bin/**",
         "**/obj/**",
         "**/dist/**",

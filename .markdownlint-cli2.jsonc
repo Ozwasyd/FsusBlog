@@ -1,21 +1,57 @@
 {
+    "$schema": "https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2/v0.23.1/schema/markdownlint-cli2-config-schema.json",
     "config": {
         "default": true,
+        "MD007": {
+            "indent": 4
+        },
         "MD013": false,
         "MD024": {
             "siblings_only": true
         },
-        "MD033": false,
-        "MD041": false,
+        "MD029": {
+            "style": "ordered"
+        },
         "MD046": {
             "style": "fenced"
+        },
+        "MD060": {
+            "style": "compact"
         }
     },
+    "frontMatter": "^---[ \\t]*\\r?\\nschema:[ \\t]+fsusblog\\.markdown-document\\.v1[ \\t]*\\r?\\n(?:[a-z][a-zA-Z0-9-]*:[^\\r\\n]*\\r?\\n)*---[ \\t]*(?:\\r?\\n|$)",
+    "noInlineConfig": true,
     "globs": [
-        "**/*.md",
-        "!artifacts/**",
-        "!docs/reports/**",
-        "!**/node_modules/**",
-        "!tests/**/fixtures/**"
+        "**/*.md"
+    ],
+    "ignores": [
+        ".tmp/**",
+        "artifacts/**",
+        "build/**",
+        "docs/reports/**",
+        "docs/testing.generated.md",
+        "**/bin/**",
+        "**/dist/**",
+        "**/generated/**",
+        "**/Generated/**",
+        "**/node_modules/**",
+        "**/obj/**",
+        "**/vendor/**",
+        "tools/vcpkg-overlays/**",
+        "tests/**/fixtures/**",
+        "tests/**/Fixtures/**",
+        "src/frontend/public/fixtures/**",
+        "src/frontend/tests/**/fixtures/**"
+    ],
+    "overrides": [
+        {
+            "filter": [
+                ".github/PULL_REQUEST_TEMPLATE.md"
+            ],
+            "config": {
+                "MD041": false
+            },
+            "combine": "merge"
+        }
     ]
 }

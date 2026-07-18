@@ -1597,31 +1597,139 @@ function CheckJson(file, content, argumentsValue)
     }
 }
 
-function CheckMarkdown(file, content, argumentsValue)
+function MarkdownFrontMatterEnd(file, lines)
+{
+    if (lines[0] !== '---')
+    {
+        return 0
+    }
+
+    const closing = lines.findIndex((line, index) => index > 0 && line === '---')
+    if (closing < 0)
+    {
+        AddDiagnostic(file, 1, 'markdown-front-matter', 'front matter is not closed')
+        return lines.length
+    }
+
+    const keys = new Set()
+    for (let index = 1; index < closing; index += 1)
+    {
+        const match = lines[index].match(/^([a-z][a-zA-Z0-9-]*):[ \t]+(.\S|\S.*)$/u)
+        if (!match)
+        {
+            AddDiagnostic(file, index + 1, 'markdown-front-matter', 'front matter uses non-empty scalar key/value fields')
+            continue
+        }
+        const [, key, value] = match
+        if (keys.has(key))
+        {
+            AddDiagnostic(file, index + 1, 'markdown-front-matter', `duplicate front matter key ${key}`)
+        }
+        keys.add(key)
+        if (index === 1 && key !== 'schema')
+        {
+            AddDiagnostic(file, index + 1, 'markdown-front-matter', 'schema must be the first front matter field')
+        }
+        if (key === 'schema' && value.trim() !== 'fsusblog.markdown-document.v1')
+        {
+            AddDiagnostic(file, index + 1, 'markdown-front-matter', 'unsupported Markdown document schema')
+        }
+    }
+    if (!keys.has('schema'))
+    {
+        AddDiagnostic(file, 1, 'markdown-front-matter', 'front matter requires schema fsusblog.markdown-document.v1')
+    }
+    return closing + 1
+}
+
+function MarkdownLinkDestinations(line)
+{
+    const destinations = []
+    const inline = /!?\[[^\]\n]*\]\(\s*(<[^>\n]+>|(?:\\[()]|[^()\s]|\([^()\n]*\))+)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/gu
+    for (const match of line.matchAll(inline))
+    {
+        destinations.push(match[1])
+    }
+    const reference = line.match(/^ {0,3}\[[^\]\n]+\]:\s*(<[^>\n]+>|\S+)/u)
+    if (reference)
+    {
+        destinations.push(reference[1])
+    }
+    return destinations
+}
+
+function CheckMarkdownLink(file, line, destinationValue)
+{
+    let destination = destinationValue.trim().replace(/^<|>$/gu, '')
+    destination = destination.replace(/\\([()])/gu, '$1')
+    if (!destination || /^(?:[a-z][a-z0-9+.-]*:|#|\/|\/\/)/iu.test(destination))
+    {
+        return
+    }
+    const encodedPath = destination.split(/[?#]/u)[0]
+    if (!encodedPath)
+    {
+        return
+    }
+
+    let relative
+    try
+    {
+        relative = decodeURIComponent(encodedPath)
+    }
+    catch
+    {
+        AddDiagnostic(file, line, 'markdown-link', `relative link has invalid percent encoding: ${encodedPath}`)
+        return
+    }
+    if (relative.includes('\\') || relative.includes('\0'))
+    {
+        AddDiagnostic(file, line, 'markdown-link', `relative link uses an invalid path: ${relative}`)
+        return
+    }
+
+    const resolved = path.resolve(root, path.dirname(file), relative)
+    const rootRelative = path.relative(root, resolved)
+    if (rootRelative === '..' || rootRelative.startsWith(`..${path.sep}`) || path.isAbsolute(rootRelative))
+    {
+        AddDiagnostic(file, line, 'markdown-link', `relative link escapes the repository: ${relative}`)
+        return
+    }
+    if (!fs.existsSync(resolved))
+    {
+        AddDiagnostic(file, line, 'markdown-link', `relative link does not exist: ${relative}`)
+    }
+}
+
+function CheckMarkdown(file, content)
 {
     const lines = content.split(/\r?\n/u)
     let inFence = false
     let fenceMarker = ''
+    let fenceLength = 0
     let previousHeading = 0
-    for (let index = 0; index < lines.length; index += 1)
+    const contentStart = MarkdownFrontMatterEnd(file, lines)
+    for (let index = contentStart; index < lines.length; index += 1)
     {
         const line = lines[index]
-        const fence = line.match(/^\s*(`{3,}|~{3,})(.*)$/u)
+        const fence = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u)
         if (fence)
         {
             if (!inFence)
             {
                 inFence = true
                 fenceMarker = fence[1][0]
+                fenceLength = fence[1].length
                 if (!fence[2].trim())
                 {
                     AddDiagnostic(file, index + 1, 'markdown-fence-language', 'opening code fence requires a language')
                 }
             }
-            else if (fence[1][0] === fenceMarker)
+            else if (fence[1][0] === fenceMarker && fence[1].length >= fenceLength && !fence[2].trim())
             {
                 inFence = false
                 fenceMarker = ''
+                fenceLength = 0
             }
             continue
         }
@@ -1644,18 +1752,9 @@ function CheckMarkdown(file, content, argumentsValue)
         {
             AddDiagnostic(file, index + 1, 'markdown-list-indent', 'nested lists use 4-space indentation')
         }
-        for (const match of line.matchAll(/\[[^\]]*\]\(([^)]+)\)/gu))
+        for (const destination of MarkdownLinkDestinations(line))
         {
-            const destination = match[1].trim().replace(/^<|>$/gu, '').split(/\s+["']/u)[0]
-            if (!destination || /^(?:https?:|mailto:|#|\/)/u.test(destination))
-            {
-                continue
-            }
-            const relative = decodeURIComponent(destination.split('#')[0])
-            if (relative && !fs.existsSync(path.resolve(root, path.dirname(file), relative)))
-            {
-                AddDiagnostic(file, index + 1, 'markdown-link', `relative link does not exist: ${relative}`)
-            }
+            CheckMarkdownLink(file, index + 1, destination)
         }
     }
     if (inFence)
@@ -1663,18 +1762,49 @@ function CheckMarkdown(file, content, argumentsValue)
         AddDiagnostic(file, lines.length, 'markdown-fence-balance', 'code fence is not closed')
     }
 
-    const markdownlint = policy.standardTools.markdownLint.command
-    if (IsCommandAvailable(markdownlint))
+}
+
+function CheckMarkdownTool(files, argumentsValue)
+{
+    if (files.length === 0)
     {
-        const result = Run(markdownlint, ['--config', policy.standardTools.markdownLint.configuration, file])
-        if (result.status !== 0)
-        {
-            ToolFailure(file, 'markdownlint', result)
-        }
+        return
     }
-    else if (argumentsValue.requireTools)
+    const markdownlint = policy.standardTools.markdownLint.command
+    if (!IsCommandAvailable(markdownlint))
     {
-        RequireTool(markdownlint, file)
+        if (argumentsValue.requireTools)
+        {
+            RequireTool(markdownlint, policy.standardTools.markdownLint.configuration)
+        }
+        return
+    }
+
+    const result = Run(markdownlint, [
+        '--config',
+        policy.standardTools.markdownLint.configuration,
+        '--no-globs',
+        ...files.map((file) => `:${file}`)
+    ])
+    if (result.status === 0)
+    {
+        return
+    }
+
+    let parsed = 0
+    for (const outputLine of `${result.stderr ?? ''}\n${result.stdout ?? ''}`.split(/\r?\n/u))
+    {
+        const match = outputLine.match(/^(.+\.md):(\d+)(?::\d+)? error (MD\d{3})\S*\s+(.+)$/u)
+        if (!match)
+        {
+            continue
+        }
+        parsed += 1
+        AddDiagnostic(ToPosix(match[1]), Number.parseInt(match[2], 10), `markdownlint-${match[3].toLowerCase()}`, match[4])
+    }
+    if (parsed === 0)
+    {
+        ToolFailure(policy.standardTools.markdownLint.configuration, 'markdownlint', result)
     }
 }
 
@@ -1730,7 +1860,7 @@ function CheckFile(file, argumentsValue)
     }
     else if (extension === '.md')
     {
-        CheckMarkdown(file, content, argumentsValue)
+        CheckMarkdown(file, content)
     }
 }
 
@@ -1778,6 +1908,7 @@ function Main()
     const selected = SelectFiles(argumentsValue, exclusions)
     let checked = 0
     let baselineExempt = 0
+    const checkedMarkdown = []
     for (const file of selected)
     {
         const absolute = path.resolve(root, file)
@@ -1792,7 +1923,12 @@ function Main()
         }
         checked += 1
         CheckFile(file, argumentsValue)
+        if (path.posix.extname(file).toLowerCase() === '.md')
+        {
+            checkedMarkdown.push(file)
+        }
     }
+    CheckMarkdownTool(checkedMarkdown, argumentsValue)
 
     if (diagnostics.length > 0)
     {

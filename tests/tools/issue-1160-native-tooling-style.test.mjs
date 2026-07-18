@@ -111,6 +111,9 @@ test('issue 1160 publishes standard native and tooling configurations with CMake
     const clangTidy = fs.readFileSync(path.join(root, '.clang-tidy'), 'utf8')
     const warnings = fs.readFileSync(path.join(root, 'cmake/FsusWarnings.cmake'), 'utf8')
     const shellcheck = fs.readFileSync(path.join(root, '.shellcheckrc'), 'utf8')
+    const markdownlint = JSON.parse(
+        fs.readFileSync(path.join(root, '.markdownlint-cli2.jsonc'), 'utf8')
+    )
     const formatEntry = fs.readFileSync(path.join(root, 'tools/format.sh'), 'utf8')
     const lintEntry = fs.readFileSync(path.join(root, 'tools/lint.sh'), 'utf8')
     const presets = JSON.parse(fs.readFileSync(path.join(root, 'CMakePresets.json'), 'utf8'))
@@ -132,6 +135,20 @@ test('issue 1160 publishes standard native and tooling configurations with CMake
     assert.match(warnings, /FSUSBLOG_WARNINGS_AS_ERRORS/u)
     assert.match(shellcheck, /external-sources=true/u)
     assert.doesNotMatch(shellcheck, /enable=all/u)
+    assert.match(markdownlint.$schema, /markdownlint-cli2\/v0\.23\.1/u)
+    assert.equal(markdownlint.config.MD007.indent, 4)
+    assert.equal(markdownlint.config.MD013, false)
+    assert.equal(markdownlint.config.MD029.style, 'ordered')
+    assert.equal(markdownlint.noInlineConfig, true)
+    assert.ok(markdownlint.ignores.includes('docs/testing.generated.md'))
+    assert.ok(markdownlint.ignores.includes('docs/reports/**'))
+    assert.deepEqual(markdownlint.overrides, [
+        {
+            filter: ['.github/PULL_REQUEST_TEMPLATE.md'],
+            config: { MD041: false },
+            combine: 'merge'
+        }
+    ])
     assert.match(formatEntry, /--operation format/u)
     assert.match(lintEntry, /native\|scripts\|docs/u)
 
@@ -254,6 +271,27 @@ test('issue 1160 formatter normalizes CRLF JSON and remains idempotent', () =>
     })
 })
 
+test('issue 1160 Markdown formatter preserves natural-language wrapping and remains idempotent', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const paragraph = 'This intentionally long natural-language paragraph remains on one line because repository formatting must not introduce destructive prose wrapping.'
+        WriteFile(
+            fixtureRoot,
+            'sample/Guide.md',
+            `\uFEFF# Fixture guide\r\n\r\n${paragraph}  \r\n\r\n- Root\r\n    - Nested\r\n\r\n`
+        )
+        const first = RunChecker(fixtureRoot, ['sample/Guide.md'], ['--operation', 'format', '--write'])
+        assert.equal(first.status, 0, Output(first))
+        const formatted = fs.readFileSync(path.join(fixtureRoot, 'sample/Guide.md'), 'utf8')
+        assert.equal(formatted, `# Fixture guide\n\n${paragraph}\n\n- Root\n    - Nested\n`)
+
+        const second = RunChecker(fixtureRoot, ['sample/Guide.md'], ['--operation', 'format', '--write'])
+        assert.equal(second.status, 0, Output(second))
+        assert.equal(fs.readFileSync(path.join(fixtureRoot, 'sample/Guide.md'), 'utf8'), formatted)
+    })
+})
+
 test('issue 1160 limits JSON-with-comments syntax to registered configuration contracts', () =>
 {
     WithFixture((fixtureRoot) =>
@@ -318,6 +356,123 @@ test('issue 1160 invokes ShellCheck through its portable automatic rc lookup', (
             fs.readFileSync(shfmtCapture, 'utf8').trim().split('\n'),
             ['-d', '-i', '4', '-ci', 'sample/ScriptStyle.sh']
         )
+    })
+})
+
+test('issue 1160 invokes Markdownlint once for the complete explicit file batch', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        CopyCase(fixtureRoot, 'valid')
+        WriteFile(fixtureRoot, 'sample/SecondGuide.md', '# Second guide\n')
+        const bin = path.join(fixtureRoot, 'bin')
+        const capture = path.join(fixtureRoot, 'markdownlint.args')
+        WriteFile(
+            fixtureRoot,
+            'bin/markdownlint-cli2',
+            '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'%s\\n\' "$@" > "${FSUSBLOG_MARKDOWNLINT_CAPTURE}"\n'
+        )
+        fs.chmodSync(path.join(bin, 'markdownlint-cli2'), 0o755)
+
+        const result = RunChecker(fixtureRoot, ['sample/Guide.md', 'sample/SecondGuide.md'], [], {
+            FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
+            FSUSBLOG_MARKDOWNLINT_CAPTURE: capture,
+            PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}`
+        })
+        assert.equal(result.status, 0, Output(result))
+        assert.deepEqual(fs.readFileSync(capture, 'utf8').trim().split('\n'), [
+            '--config',
+            '.markdownlint-cli2.jsonc',
+            '--no-globs',
+            ':sample/Guide.md',
+            ':sample/SecondGuide.md'
+        ])
+    })
+})
+
+test('issue 1160 aggregates every Markdownlint diagnostic from one batch', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        CopyCase(fixtureRoot, 'valid')
+        WriteFile(fixtureRoot, 'sample/SecondGuide.md', '# Second guide\n')
+        const bin = path.join(fixtureRoot, 'bin')
+        WriteFile(
+            fixtureRoot,
+            'bin/markdownlint-cli2',
+            `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' \
+    'sample/Guide.md:2 error MD012/no-multiple-blanks Multiple consecutive blank lines' \
+    'sample/SecondGuide.md:1:1 error MD041/first-line-h1 First line must be a top-level heading' >&2
+exit 1
+`
+        )
+        fs.chmodSync(path.join(bin, 'markdownlint-cli2'), 0o755)
+
+        const result = RunChecker(fixtureRoot, ['sample/Guide.md', 'sample/SecondGuide.md'], [], {
+            FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
+            PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}`
+        })
+        const output = Output(result)
+        assert.notEqual(result.status, 0)
+        assert.match(output, /sample\/Guide\.md:2 markdownlint-md012:/u)
+        assert.match(output, /sample\/SecondGuide\.md:1 markdownlint-md041:/u)
+        assert.match(output, /violations=2/u)
+    })
+})
+
+test('issue 1160 validates schema-bound front matter and malformed internal links without aborting', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        WriteFile(
+            fixtureRoot,
+            'sample/Guide.md',
+            '---\nschema: fsusblog.markdown-document.v1\ntitle: Fixture guide\n---\n# Fixture guide\n'
+        )
+        const accepted = RunChecker(fixtureRoot, ['sample/Guide.md'])
+        assert.equal(accepted.status, 0, Output(accepted))
+
+        WriteFile(
+            fixtureRoot,
+            'sample/Guide.md',
+            '---\ntitle: Missing schema\ntitle: Duplicate\n---\n# Fixture guide\n\n[bad encoding](%ZZ)\n[missing][contract]\n\n[contract]: missing.json\n'
+        )
+        const rejected = RunChecker(fixtureRoot, ['sample/Guide.md'])
+        const output = Output(rejected)
+        assert.notEqual(rejected.status, 0)
+        assert.match(output, /markdown-front-matter: schema must be the first front matter field/u)
+        assert.match(output, /markdown-front-matter: duplicate front matter key title/u)
+        assert.match(output, /markdown-front-matter: front matter requires schema/u)
+        assert.match(output, /markdown-link: relative link has invalid percent encoding/u)
+        assert.match(output, /markdown-link: relative link does not exist: missing\.json/u)
+    })
+})
+
+test('issue 1160 excludes only registered generated and historical Markdown evidence', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const invalid = '# Guide\n\n[missing](missing.md)\n'
+        WriteFile(fixtureRoot, 'docs/testing.generated.md', invalid)
+        WriteFile(fixtureRoot, 'docs/reports/history.md', invalid)
+        WriteFile(fixtureRoot, 'docs/testing.generated-extra.md', invalid)
+        WriteFile(fixtureRoot, 'docs/report/history.md', invalid)
+
+        const result = RunChecker(fixtureRoot, [
+            'docs/testing.generated.md',
+            'docs/reports/history.md',
+            'docs/testing.generated-extra.md',
+            'docs/report/history.md'
+        ])
+        const output = Output(result)
+        assert.notEqual(result.status, 0)
+        assert.match(output, /selected=2 checked=2 baseline=0/u)
+        assert.match(output, /docs\/testing\.generated-extra\.md/u)
+        assert.match(output, /docs\/report\/history\.md/u)
+        assert.doesNotMatch(output, /docs\/testing\.generated\.md:/u)
+        assert.doesNotMatch(output, /docs\/reports\/history\.md:/u)
     })
 })
 
