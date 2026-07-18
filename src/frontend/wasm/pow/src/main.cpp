@@ -14,19 +14,19 @@
 namespace
 {
 
-constexpr std::size_t kMaxSaltBytes = 256;
-constexpr std::size_t kMaxFingerprintBytes = 512;
-constexpr std::size_t kShortBlockBytes = 128;
-constexpr std::size_t kMaxPowOutputBytes = 11;
-constexpr std::uint32_t kDefaultStep = 1;
+constexpr std::size_t KMaxSaltBytes = 256;
+constexpr std::size_t KMaxFingerprintBytes = 512;
+constexpr std::size_t KShortBlockBytes = 128;
+constexpr std::size_t KMaxPowOutputBytes = 11;
+constexpr std::uint32_t KDefaultStep = 1;
 
-namespace sha256
+namespace Sha256
 {
 
-constexpr std::array<std::uint32_t, 8> kInitialState = {
+constexpr std::array<std::uint32_t, 8> KInitialState = {
     0x6a09e667u, 0xbb67ae85u, 0x3c6ef372u, 0xa54ff53au, 0x510e527fu, 0x9b05688cu, 0x1f83d9abu, 0x5be0cd19u};
 
-constexpr std::array<std::uint32_t, 64> kRoundConstants = {
+constexpr std::array<std::uint32_t, 64> KRoundConstants = {
     0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u, 0x3956c25bu, 0x59f111f1u, 0x923f82a4u, 0xab1c5ed5u,
     0xd807aa98u, 0x12835b01u, 0x243185beu, 0x550c7dc3u, 0x72be5d74u, 0x80deb1feu, 0x9bdc06a7u, 0xc19bf174u,
     0xe49b69c1u, 0xefbe4786u, 0x0fc19dc6u, 0x240ca1ccu, 0x2de92c6fu, 0x4a7484aau, 0x5cb0a9dcu, 0x76f988dau,
@@ -36,58 +36,58 @@ constexpr std::array<std::uint32_t, 64> kRoundConstants = {
     0x19a4c116u, 0x1e376c08u, 0x2748774cu, 0x34b0bcb5u, 0x391c0cb3u, 0x4ed8aa4au, 0x5b9cca4fu, 0x682e6ff3u,
     0x748f82eeu, 0x78a5636fu, 0x84c87814u, 0x8cc70208u, 0x90befffau, 0xa4506cebu, 0xbef9a3f7u, 0xc67178f2u};
 
-[[gnu::always_inline]] inline std::uint32_t load_be32(const std::uint8_t* ptr) noexcept
+[[gnu::always_inline]] inline std::uint32_t LoadBe32(const std::uint8_t* ptr) noexcept
 {
     std::uint32_t value;
     std::memcpy(&value, ptr, sizeof(value));
     return __builtin_bswap32(value);
 }
 
-[[gnu::always_inline]] inline std::uint32_t ch(std::uint32_t x, std::uint32_t y, std::uint32_t z) noexcept
+[[gnu::always_inline]] inline std::uint32_t Ch(std::uint32_t x, std::uint32_t y, std::uint32_t z) noexcept
 {
     return (x & y) ^ (~x & z);
 }
 
-[[gnu::always_inline]] inline std::uint32_t maj(std::uint32_t x, std::uint32_t y, std::uint32_t z) noexcept
+[[gnu::always_inline]] inline std::uint32_t Maj(std::uint32_t x, std::uint32_t y, std::uint32_t z) noexcept
 {
     return (x & y) ^ (x & z) ^ (y & z);
 }
 
-[[gnu::always_inline]] inline std::uint32_t ep0(std::uint32_t x) noexcept
+[[gnu::always_inline]] inline std::uint32_t Ep0(std::uint32_t x) noexcept
 {
     return std::rotr(x, 2) ^ std::rotr(x, 13) ^ std::rotr(x, 22);
 }
 
-[[gnu::always_inline]] inline std::uint32_t ep1(std::uint32_t x) noexcept
+[[gnu::always_inline]] inline std::uint32_t Ep1(std::uint32_t x) noexcept
 {
     return std::rotr(x, 6) ^ std::rotr(x, 11) ^ std::rotr(x, 25);
 }
 
-[[gnu::always_inline]] inline std::uint32_t sig0(std::uint32_t x) noexcept
+[[gnu::always_inline]] inline std::uint32_t Sig0(std::uint32_t x) noexcept
 {
     return std::rotr(x, 7) ^ std::rotr(x, 18) ^ (x >> 3);
 }
 
-[[gnu::always_inline]] inline std::uint32_t sig1(std::uint32_t x) noexcept
+[[gnu::always_inline]] inline std::uint32_t Sig1(std::uint32_t x) noexcept
 {
     return std::rotr(x, 17) ^ std::rotr(x, 19) ^ (x >> 10);
 }
 
-[[gnu::always_inline]] inline void reset_state(std::uint32_t state[8]) noexcept
+[[gnu::always_inline]] inline void ResetState(std::uint32_t state[8]) noexcept
 {
-    std::memcpy(state, kInitialState.data(), kInitialState.size() * sizeof(std::uint32_t));
+    std::memcpy(state, KInitialState.data(), KInitialState.size() * sizeof(std::uint32_t));
 }
 
-[[gnu::always_inline]] inline void transform(std::uint32_t state[8], const std::uint8_t* block) noexcept
+[[gnu::always_inline]] inline void Transform(std::uint32_t state[8], const std::uint8_t* block) noexcept
 {
     std::uint32_t w[64];
     for (int i = 0; i < 16; ++i)
     {
-        w[i] = load_be32(block + (i * 4));
+        w[i] = LoadBe32(block + (static_cast<std::ptrdiff_t>(i) * 4));
     }
     for (int i = 16; i < 64; ++i)
     {
-        w[i] = sig1(w[i - 2]) + w[i - 7] + sig0(w[i - 15]) + w[i - 16];
+        w[i] = Sig1(w[i - 2]) + w[i - 7] + Sig0(w[i - 15]) + w[i - 16];
     }
 
     std::uint32_t a = state[0];
@@ -101,16 +101,16 @@ constexpr std::array<std::uint32_t, 64> kRoundConstants = {
 
     for (int i = 0; i < 64; ++i)
     {
-        const std::uint32_t t1 = h + ep1(e) + ch(e, f, g) + kRoundConstants[i] + w[i];
-        const std::uint32_t t2 = ep0(a) + maj(a, b, c);
+        const std::uint32_t T1 = h + Ep1(e) + Ch(e, f, g) + KRoundConstants[i] + w[i];
+        const std::uint32_t T2 = Ep0(a) + Maj(a, b, c);
         h = g;
         g = f;
         f = e;
-        e = d + t1;
+        e = d + T1;
         d = c;
         c = b;
         b = a;
-        a = t1 + t2;
+        a = T1 + T2;
     }
 
     state[0] += a;
@@ -124,18 +124,18 @@ constexpr std::array<std::uint32_t, 64> kRoundConstants = {
 }
 
 [[gnu::always_inline]] inline void
-digest_blocks(const std::uint8_t* blocks, int block_count, std::uint32_t state[8]) noexcept
+DigestBlocks(const std::uint8_t* blocks, int blockCount, std::uint32_t state[8]) noexcept
 {
-    reset_state(state);
-    transform(state, blocks);
-    if (block_count == 2) [[likely]]
+    ResetState(state);
+    Transform(state, blocks);
+    if (blockCount == 2) [[likely]]
     {
-        transform(state, blocks + 64);
+        Transform(state, blocks + 64);
     }
 }
 
 #ifdef __wasm_simd128__
-namespace simd4
+namespace Simd4
 {
 
 [[gnu::always_inline]] inline v128_t make_word(
@@ -265,46 +265,64 @@ namespace simd4
     }
 }
 
-} // namespace simd4
+} // namespace Simd4
 #endif
 
-} // namespace sha256
+} // namespace Sha256
 
-[[gnu::always_inline]] inline std::size_t bounded_strlen(const char* value, std::size_t max_len) noexcept
+[[gnu::always_inline]] inline std::size_t BoundedStrlen(const char* value, std::size_t maxLen) noexcept
 {
     std::size_t len = 0;
-    while (len <= max_len && value[len] != '\0')
+    while (len <= maxLen && value[len] != '\0')
     {
         ++len;
     }
     return len;
 }
 
-[[gnu::always_inline]] inline std::size_t u32_decimal_length(std::uint32_t value) noexcept
+[[gnu::always_inline]] inline std::size_t U32DecimalLength(std::uint32_t value) noexcept
 {
     if (value >= 1000000000u)
+    {
         return 10;
+    }
     if (value >= 100000000u)
+    {
         return 9;
+    }
     if (value >= 10000000u)
+    {
         return 8;
+    }
     if (value >= 1000000u)
+    {
         return 7;
+    }
     if (value >= 100000u)
+    {
         return 6;
+    }
     if (value >= 10000u)
+    {
         return 5;
+    }
     if (value >= 1000u)
+    {
         return 4;
+    }
     if (value >= 100u)
+    {
         return 3;
+    }
     if (value >= 10u)
+    {
         return 2;
+    }
     return 1;
 }
 
 [[gnu::always_inline]] inline void
-write_u32_decimal(std::uint32_t value, std::uint8_t* output, std::size_t width) noexcept
+WriteU32Decimal(std::uint32_t value, std::uint8_t* output, std::size_t width) noexcept
 {
     for (std::size_t i = width; i > 0; --i)
     {
@@ -313,7 +331,7 @@ write_u32_decimal(std::uint32_t value, std::uint8_t* output, std::size_t width) 
     }
 }
 
-[[gnu::always_inline]] inline void write_be64(std::uint8_t* output, std::uint64_t value) noexcept
+[[gnu::always_inline]] inline void WriteBe64(std::uint8_t* output, std::uint64_t value) noexcept
 {
     output[0] = static_cast<std::uint8_t>(value >> 56);
     output[1] = static_cast<std::uint8_t>(value >> 48);
@@ -325,51 +343,51 @@ write_u32_decimal(std::uint32_t value, std::uint8_t* output, std::size_t width) 
     output[7] = static_cast<std::uint8_t>(value);
 }
 
-[[gnu::always_inline]] inline bool build_short_blocks(const char* salt,
-                                                      std::size_t salt_len,
-                                                      const char* browser_fp,
-                                                      std::size_t browser_fp_len,
-                                                      std::uint32_t nonce,
-                                                      std::uint8_t blocks[kShortBlockBytes],
-                                                      int& block_count) noexcept
+[[gnu::always_inline]] inline bool BuildShortBlocks(const char* salt,
+                                                    std::size_t saltLen,
+                                                    const char* browserFp,
+                                                    std::size_t browserFpLen,
+                                                    std::uint32_t nonce,
+                                                    std::uint8_t blocks[KShortBlockBytes],
+                                                    int& blockCount) noexcept
 {
-    const std::size_t nonce_len = u32_decimal_length(nonce);
-    const std::size_t message_len = salt_len + 1 + nonce_len + 1 + browser_fp_len;
-    if (message_len + 9 > kShortBlockBytes) [[unlikely]]
+    const std::size_t NonceLen = U32DecimalLength(nonce);
+    const std::size_t MessageLen = saltLen + 1 + NonceLen + 1 + browserFpLen;
+    if (MessageLen + 9 > KShortBlockBytes) [[unlikely]]
     {
         return false;
     }
 
-    block_count = message_len <= 55 ? 1 : 2;
-    std::memset(blocks, 0, static_cast<std::size_t>(block_count) * 64);
+    blockCount = MessageLen <= 55 ? 1 : 2;
+    std::memset(blocks, 0, static_cast<std::size_t>(blockCount) * 64);
 
     std::size_t offset = 0;
-    std::memcpy(blocks + offset, salt, salt_len);
-    offset += salt_len;
+    std::memcpy(blocks + offset, salt, saltLen);
+    offset += saltLen;
     blocks[offset++] = static_cast<std::uint8_t>(':');
-    write_u32_decimal(nonce, blocks + offset, nonce_len);
-    offset += nonce_len;
+    WriteU32Decimal(nonce, blocks + offset, NonceLen);
+    offset += NonceLen;
     blocks[offset++] = static_cast<std::uint8_t>(':');
-    std::memcpy(blocks + offset, browser_fp, browser_fp_len);
-    offset += browser_fp_len;
+    std::memcpy(blocks + offset, browserFp, browserFpLen);
+    offset += browserFpLen;
 
     blocks[offset] = 0x80u;
-    write_be64(blocks + (static_cast<std::size_t>(block_count) * 64) - 8, static_cast<std::uint64_t>(message_len) * 8u);
+    WriteBe64(blocks + (static_cast<std::size_t>(blockCount) * 64) - 8, static_cast<std::uint64_t>(MessageLen) * 8u);
     return true;
 }
 
-[[gnu::always_inline]] inline bool meets_difficulty(const std::uint32_t state[8], int difficulty) noexcept
+[[gnu::always_inline]] inline bool MeetsDifficulty(const std::uint32_t state[8], int difficulty) noexcept
 {
     if (difficulty <= 0) [[unlikely]]
     {
         return true;
     }
 
-    const int leading_bits = difficulty;
-    const int full_words = leading_bits / 32;
-    const int remaining_bits = leading_bits % 32;
+    const int LeadingBits = difficulty;
+    const int FullWords = LeadingBits / 32;
+    const int RemainingBits = LeadingBits % 32;
 
-    for (int i = 0; i < full_words; ++i)
+    for (int i = 0; i < FullWords; ++i)
     {
         if (state[i] != 0u)
         {
@@ -377,16 +395,16 @@ write_u32_decimal(std::uint32_t value, std::uint8_t* output, std::size_t width) 
         }
     }
 
-    if (remaining_bits == 0)
+    if (RemainingBits == 0)
     {
         return true;
     }
 
-    const std::uint32_t mask = 0xffffffffu << (32 - remaining_bits);
-    return (state[full_words] & mask) == 0u;
+    const std::uint32_t Mask = 0xFFFFFFFFU << static_cast<unsigned int>(32 - RemainingBits);
+    return (state[FullWords] & Mask) == 0u;
 }
 
-[[gnu::always_inline]] inline bool meets_difficulty_first_word(std::uint32_t state0, int difficulty) noexcept
+[[gnu::always_inline]] inline bool MeetsDifficultyFirstWord(std::uint32_t state0, int difficulty) noexcept
 {
     if (difficulty <= 0) [[unlikely]]
     {
@@ -397,101 +415,102 @@ write_u32_decimal(std::uint32_t value, std::uint8_t* output, std::size_t width) 
         return false;
     }
 
-    const int leading_bits = difficulty;
-    const std::uint32_t mask = leading_bits == 32 ? 0xffffffffu : (0xffffffffu << (32 - leading_bits));
-    return (state0 & mask) == 0u;
+    const int LeadingBits = difficulty;
+    const std::uint32_t Mask =
+        LeadingBits == 32 ? 0xFFFFFFFFU : (0xFFFFFFFFU << static_cast<unsigned int>(32 - LeadingBits));
+    return (state0 & Mask) == 0u;
 }
 
-bool solve_range_scalar(const char* salt,
-                        std::size_t salt_len,
-                        const char* browser_fp,
-                        std::size_t browser_fp_len,
-                        int difficulty,
-                        std::uint32_t start_nonce,
-                        std::uint32_t step,
-                        std::uint32_t& solution) noexcept
+bool SolveRangeScalar(const char* salt,
+                      std::size_t saltLen,
+                      const char* browserFp,
+                      std::size_t browserFpLen,
+                      int difficulty,
+                      std::uint32_t startNonce,
+                      std::uint32_t step,
+                      std::uint32_t& solution) noexcept
 {
-    std::uint8_t blocks[kShortBlockBytes];
+    std::uint8_t blocks[KShortBlockBytes];
     std::uint32_t state[8];
-    std::uint32_t nonce = start_nonce;
+    std::uint32_t nonce = startNonce;
 
     for (;;)
     {
-        int block_count = 0;
-        if (!build_short_blocks(salt, salt_len, browser_fp, browser_fp_len, nonce, blocks, block_count)) [[unlikely]]
+        int blockCount = 0;
+        if (!BuildShortBlocks(salt, saltLen, browserFp, browserFpLen, nonce, blocks, blockCount)) [[unlikely]]
         {
             return false;
         }
 
-        sha256::digest_blocks(blocks, block_count, state);
-        if (meets_difficulty(state, difficulty))
+        Sha256::DigestBlocks(blocks, blockCount, state);
+        if (MeetsDifficulty(state, difficulty))
         {
             solution = nonce;
             return true;
         }
 
-        const std::uint32_t next = nonce + step;
-        if (next < nonce) [[unlikely]]
+        const std::uint32_t Next = nonce + step;
+        if (Next < nonce) [[unlikely]]
         {
             return false;
         }
-        nonce = next;
+        nonce = Next;
     }
 }
 
-bool solve_limited_scalar(const char* salt,
-                          std::size_t salt_len,
-                          const char* browser_fp,
-                          std::size_t browser_fp_len,
-                          int difficulty,
-                          std::uint32_t start_nonce,
-                          std::uint32_t max_attempts,
-                          std::uint32_t& solution) noexcept
+bool SolveLimitedScalar(const char* salt,
+                        std::size_t saltLen,
+                        const char* browserFp,
+                        std::size_t browserFpLen,
+                        int difficulty,
+                        std::uint32_t startNonce,
+                        std::uint32_t maxAttempts,
+                        std::uint32_t& solution) noexcept
 {
-    if (max_attempts == 0u)
+    if (maxAttempts == 0u)
     {
         return false;
     }
 
-    std::uint8_t blocks[kShortBlockBytes];
+    std::uint8_t blocks[KShortBlockBytes];
     std::uint32_t state[8];
-    std::uint32_t nonce = start_nonce;
+    std::uint32_t nonce = startNonce;
 
-    for (std::uint32_t attempt = 0; attempt < max_attempts; ++attempt)
+    for (std::uint32_t attempt = 0; attempt < maxAttempts; ++attempt)
     {
-        int block_count = 0;
-        if (!build_short_blocks(salt, salt_len, browser_fp, browser_fp_len, nonce, blocks, block_count)) [[unlikely]]
+        int blockCount = 0;
+        if (!BuildShortBlocks(salt, saltLen, browserFp, browserFpLen, nonce, blocks, blockCount)) [[unlikely]]
         {
             return false;
         }
 
-        sha256::digest_blocks(blocks, block_count, state);
-        if (meets_difficulty(state, difficulty))
+        Sha256::DigestBlocks(blocks, blockCount, state);
+        if (MeetsDifficulty(state, difficulty))
         {
             solution = nonce;
             return true;
         }
 
-        const std::uint32_t next = nonce + 1u;
-        if (next < nonce) [[unlikely]]
+        const std::uint32_t Next = nonce + 1u;
+        if (Next < nonce) [[unlikely]]
         {
             return false;
         }
-        nonce = next;
+        nonce = Next;
     }
 
     return false;
 }
 
 #ifdef __wasm_simd128__
-bool solve_range_simd4(const char* salt,
-                       std::size_t salt_len,
-                       const char* browser_fp,
-                       std::size_t browser_fp_len,
-                       int difficulty,
-                       std::uint32_t start_nonce,
-                       std::uint32_t step,
-                       std::uint32_t& solution) noexcept
+bool SolveRangeSimd4(const char* salt,
+                     std::size_t salt_len,
+                     const char* browser_fp,
+                     std::size_t browser_fp_len,
+                     int difficulty,
+                     std::uint32_t start_nonce,
+                     std::uint32_t step,
+                     std::uint32_t& solution) noexcept
 {
     if (difficulty > 32) [[unlikely]]
     {
@@ -545,7 +564,7 @@ bool solve_range_simd4(const char* salt,
             return false;
         }
 
-        sha256::simd4::digest_blocks(blocks[0], blocks[1], blocks[2], blocks[3], block_counts[0], state);
+        Sha256::Simd4::digest_blocks(blocks[0], blocks[1], blocks[2], blocks[3], block_counts[0], state);
         const std::uint32_t state0[4] = {static_cast<std::uint32_t>(wasm_i32x4_extract_lane(state[0], 0)),
                                          static_cast<std::uint32_t>(wasm_i32x4_extract_lane(state[0], 1)),
                                          static_cast<std::uint32_t>(wasm_i32x4_extract_lane(state[0], 2)),
@@ -570,14 +589,14 @@ bool solve_range_simd4(const char* salt,
     }
 }
 
-bool solve_limited_simd4(const char* salt,
-                         std::size_t salt_len,
-                         const char* browser_fp,
-                         std::size_t browser_fp_len,
-                         int difficulty,
-                         std::uint32_t start_nonce,
-                         std::uint32_t max_attempts,
-                         std::uint32_t& solution) noexcept
+bool SolveLimitedSimd4(const char* salt,
+                       std::size_t salt_len,
+                       const char* browser_fp,
+                       std::size_t browser_fp_len,
+                       int difficulty,
+                       std::uint32_t start_nonce,
+                       std::uint32_t max_attempts,
+                       std::uint32_t& solution) noexcept
 {
     if (max_attempts == 0u)
     {
@@ -626,7 +645,7 @@ bool solve_limited_simd4(const char* salt,
                 salt, salt_len, browser_fp, browser_fp_len, difficulty, nonce, remaining, solution);
         }
 
-        sha256::simd4::digest_blocks(blocks[0], blocks[1], blocks[2], blocks[3], block_counts[0], state);
+        Sha256::Simd4::digest_blocks(blocks[0], blocks[1], blocks[2], blocks[3], block_counts[0], state);
         const std::uint32_t state0[4] = {static_cast<std::uint32_t>(wasm_i32x4_extract_lane(state[0], 0)),
                                          static_cast<std::uint32_t>(wasm_i32x4_extract_lane(state[0], 1)),
                                          static_cast<std::uint32_t>(wasm_i32x4_extract_lane(state[0], 2)),
@@ -649,94 +668,94 @@ bool solve_limited_simd4(const char* salt,
 }
 #endif
 
-bool validate_inputs(
-    const char* salt, const char* browser_fp, int difficulty, std::size_t& salt_len, std::size_t& fp_len) noexcept
+bool ValidateInputs(
+    const char* salt, const char* browserFp, int difficulty, std::size_t& saltLen, std::size_t& fpLen) noexcept
 {
-    if (salt == nullptr || browser_fp == nullptr)
+    if (salt == nullptr || browserFp == nullptr)
     {
         return false;
     }
     if (difficulty <= 0 || difficulty > 256)
     {
-        salt_len = 0;
-        fp_len = 0;
+        saltLen = 0;
+        fpLen = 0;
         return true;
     }
 
-    salt_len = bounded_strlen(salt, kMaxSaltBytes);
-    fp_len = bounded_strlen(browser_fp, kMaxFingerprintBytes);
-    if (salt_len > kMaxSaltBytes || fp_len > kMaxFingerprintBytes)
+    saltLen = BoundedStrlen(salt, KMaxSaltBytes);
+    fpLen = BoundedStrlen(browserFp, KMaxFingerprintBytes);
+    if (saltLen > KMaxSaltBytes || fpLen > KMaxFingerprintBytes)
     {
         return false;
     }
 
-    const std::size_t worst_message_len = salt_len + 1 + 10 + 1 + fp_len;
-    return worst_message_len + 9 <= kShortBlockBytes;
+    const std::size_t WorstMessageLen = saltLen + 1 + 10 + 1 + fpLen;
+    return WorstMessageLen + 9 <= KShortBlockBytes;
 }
 
-int write_solution(std::uint32_t nonce, char* output, int output_length) noexcept
+int WriteSolution(std::uint32_t nonce, char* output, int outputLength) noexcept
 {
-    const std::size_t nonce_len = u32_decimal_length(nonce);
-    if (output_length <= 0 || nonce_len + 1 > static_cast<std::size_t>(output_length))
+    const std::size_t NonceLen = U32DecimalLength(nonce);
+    if (outputLength <= 0 || NonceLen + 1 > static_cast<std::size_t>(outputLength))
     {
         return -2;
     }
 
-    write_u32_decimal(nonce, reinterpret_cast<std::uint8_t*>(output), nonce_len);
-    output[nonce_len] = '\0';
-    return static_cast<int>(nonce_len);
+    WriteU32Decimal(nonce, reinterpret_cast<std::uint8_t*>(output), NonceLen);
+    output[NonceLen] = '\0';
+    return static_cast<int>(NonceLen);
 }
 
-int solve_pow_range_impl(const char* salt,
-                         const char* browser_fp,
-                         int difficulty,
-                         std::uint32_t start_nonce,
-                         std::uint32_t step,
-                         char* output,
-                         int output_length) noexcept
+int SolvePowRangeImpl(const char* salt,
+                      const char* browserFp,
+                      int difficulty,
+                      std::uint32_t startNonce,
+                      std::uint32_t step,
+                      char* output,
+                      int outputLength) noexcept
 {
-    if (output == nullptr || output_length <= 0)
+    if (output == nullptr || outputLength <= 0)
     {
         return -1;
     }
 
-    std::size_t salt_len = 0;
-    std::size_t fp_len = 0;
-    if (!validate_inputs(salt, browser_fp, difficulty, salt_len, fp_len))
+    std::size_t saltLen = 0;
+    std::size_t fpLen = 0;
+    if (!ValidateInputs(salt, browserFp, difficulty, saltLen, fpLen))
     {
         return -1;
     }
 
     if (difficulty <= 0)
     {
-        return write_solution(0, output, output_length);
+        return WriteSolution(0, output, outputLength);
     }
 
     if (step == 0u)
     {
-        step = kDefaultStep;
+        step = KDefaultStep;
     }
 
     std::uint32_t solution = 0;
 #ifdef __wasm_simd128__
-    const bool solved = solve_range_simd4(salt, salt_len, browser_fp, fp_len, difficulty, start_nonce, step, solution);
+    const bool solved = SolveRangeSimd4(salt, salt_len, browser_fp, fp_len, difficulty, start_nonce, step, solution);
 #else
-    const bool solved = solve_range_scalar(salt, salt_len, browser_fp, fp_len, difficulty, start_nonce, step, solution);
+    const bool Solved = SolveRangeScalar(salt, saltLen, browserFp, fpLen, difficulty, startNonce, step, solution);
 #endif
 
-    if (!solved)
+    if (!Solved)
     {
-        static constexpr char kOverflow[] = "failed_overflow";
-        constexpr std::size_t overflow_len = sizeof(kOverflow);
-        if (overflow_len > static_cast<std::size_t>(output_length))
+        static constexpr char KOverflow[] = "failed_overflow";
+        constexpr std::size_t OverflowLen = sizeof(KOverflow);
+        if (OverflowLen > static_cast<std::size_t>(outputLength))
         {
             return -2;
         }
-        std::memcpy(output, kOverflow, overflow_len);
-        return static_cast<int>(overflow_len - 1);
+        std::memcpy(output, KOverflow, OverflowLen);
+        return static_cast<int>(OverflowLen - 1);
     }
 
-    return write_solution(solution, output, output_length);
+    return WriteSolution(solution, output, outputLength);
 }
 
 } // namespace
@@ -744,62 +763,62 @@ int solve_pow_range_impl(const char* salt,
 extern "C"
 {
     EMSCRIPTEN_KEEPALIVE
-    int solve_pow_c(const char* salt, const char* browser_fp, int difficulty, char* output, int output_length)
+    int solve_pow_c(const char* salt, const char* browserFp, int difficulty, char* output, int outputLength)
     {
-        return solve_pow_range_impl(salt, browser_fp, difficulty, 0u, 1u, output, output_length);
+        return SolvePowRangeImpl(salt, browserFp, difficulty, 0u, 1u, output, outputLength);
     }
 
     EMSCRIPTEN_KEEPALIVE
     int solve_pow_range_c(const char* salt,
-                          const char* browser_fp,
+                          const char* browserFp,
                           int difficulty,
-                          std::uint32_t start_nonce,
+                          std::uint32_t startNonce,
                           std::uint32_t step,
                           char* output,
-                          int output_length)
+                          int outputLength)
     {
-        return solve_pow_range_impl(salt, browser_fp, difficulty, start_nonce, step, output, output_length);
+        return SolvePowRangeImpl(salt, browserFp, difficulty, startNonce, step, output, outputLength);
     }
 
     EMSCRIPTEN_KEEPALIVE
     int solve_pow_limited_c(const char* salt,
-                            const char* browser_fp,
+                            const char* browserFp,
                             int difficulty,
-                            std::uint32_t start_nonce,
-                            std::uint32_t max_attempts,
+                            std::uint32_t startNonce,
+                            std::uint32_t maxAttempts,
                             char* output,
-                            int output_length)
+                            int outputLength)
     {
-        if (output == nullptr || output_length <= 0)
+        if (output == nullptr || outputLength <= 0)
         {
             return -1;
         }
 
-        std::size_t salt_len = 0;
-        std::size_t fp_len = 0;
-        if (!validate_inputs(salt, browser_fp, difficulty, salt_len, fp_len))
+        std::size_t saltLen = 0;
+        std::size_t fpLen = 0;
+        if (!ValidateInputs(salt, browserFp, difficulty, saltLen, fpLen))
         {
             return -1;
         }
 
         if (difficulty <= 0)
         {
-            return write_solution(0, output, output_length);
+            return WriteSolution(0, output, outputLength);
         }
 
         std::uint32_t solution = 0;
 #ifdef __wasm_simd128__
         const bool solved =
-            solve_limited_simd4(salt, salt_len, browser_fp, fp_len, difficulty, start_nonce, max_attempts, solution);
+            SolveLimitedSimd4(salt, salt_len, browser_fp, fp_len, difficulty, start_nonce, max_attempts, solution);
 #else
-        const bool solved =
-            solve_limited_scalar(salt, salt_len, browser_fp, fp_len, difficulty, start_nonce, max_attempts, solution);
+        const bool Solved =
+            SolveLimitedScalar(salt, saltLen, browserFp, fpLen, difficulty, startNonce, maxAttempts, solution);
 #endif
-        if (!solved)
+        if (!Solved)
         {
             return 0;
         }
 
-        return write_solution(solution, output, output_length);
+        return WriteSolution(solution, output, outputLength);
     }
 }

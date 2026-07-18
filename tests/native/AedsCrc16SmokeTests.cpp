@@ -21,6 +21,6 @@ constexpr std::array<std::uint8_t, 9> CheckInput{static_cast<std::uint8_t>('1'),
 int main()
 {
     constexpr std::uint16_t ExpectedCrc16 = 0x4B37U;
-    const std::uint16_t ActualCrc16 = fsusblog::aeds::compute_crc16(CheckInput.data(), CheckInput.size());
+    const std::uint16_t ActualCrc16 = FsusBlog::Aeds::ComputeCrc16(CheckInput.data(), CheckInput.size());
     return ActualCrc16 == ExpectedCrc16 ? 0 : 1;
 }

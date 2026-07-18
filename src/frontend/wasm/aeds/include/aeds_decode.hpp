@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace fsusblog::aeds
+namespace FsusBlog::Aeds
 {
 
 enum class ErrorCode : std::uint8_t
@@ -29,7 +29,7 @@ struct DecodeResult
     const char* error;
 };
 
-const char* to_error_string(ErrorCode error_code);
+const char* ToErrorString(ErrorCode errorCode);
 
 /**
  * Decodes one complete AEDS v2 frame without retaining the caller-owned bytes.
@@ -37,6 +37,6 @@ const char* to_error_string(ErrorCode error_code);
  * The payload pointer is a borrowed view into `frame` and remains valid only
  * while the caller keeps that input buffer alive and unchanged.
  */
-DecodeResult decode_frame(const std::uint8_t* frame, std::size_t frame_len);
+DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen);
 
-}
+} // namespace FsusBlog::Aeds

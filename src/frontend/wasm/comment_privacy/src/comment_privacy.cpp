@@ -8,63 +8,61 @@ namespace
 
 struct U256
 {
-    std::array<std::uint64_t, 4> v{};
+    std::array<std::uint64_t, 4> V{};
 };
 
 struct Fp
 {
-    U256 n{};
+    U256 N{};
 };
 
 struct AffinePoint
 {
-    Fp x{};
-    Fp y{};
-    bool infinity = true;
+    Fp X{};
+    Fp Y{};
+    bool Infinity = true;
 };
 
 struct JacobianPoint
 {
-    Fp x{};
-    Fp y{};
-    Fp z{};
-    bool infinity = true;
+    Fp X{};
+    Fp Y{};
+    Fp Z{};
+    bool Infinity = true;
 };
 
 constexpr U256 P{{0x3c208c16d87cfd47ULL, 0x97816a916871ca8dULL, 0xb85045b68181585dULL, 0x30644e72e131a029ULL}};
 
 constexpr U256 R{{0x43e1f593f0000001ULL, 0x2833e84879b97091ULL, 0xb85045b68181585dULL, 0x30644e72e131a029ULL}};
 
-constexpr U256 FP_R2{{0xf32cfc5b538afa89ULL, 0xb5e71911d44501fbULL, 0x47ab1eff0a417ff6ULL, 0x06d89f71cab8351fULL}};
+constexpr U256 FpR2{{0xf32cfc5b538afa89ULL, 0xb5e71911d44501fbULL, 0x47ab1eff0a417ff6ULL, 0x06d89f71cab8351fULL}};
 
-constexpr U256 FP_ONE_MONT{
-    {0xd35d438dc58f0d9dULL, 0x0a78eb28f5c70b3dULL, 0x666ea36f7879462cULL, 0x0e0a77c19a07df2fULL}};
+constexpr U256 FpOneMont{{0xd35d438dc58f0d9dULL, 0x0a78eb28f5c70b3dULL, 0x666ea36f7879462cULL, 0x0e0a77c19a07df2fULL}};
 
-constexpr U256 FP_SQRT_EXP{
-    {0x4f082305b61f3f52ULL, 0x65e05aa45a1c72a3ULL, 0x6e14116da0605617ULL, 0x0c19139cb84c680aULL}};
+constexpr U256 FpSqrtExp{{0x4f082305b61f3f52ULL, 0x65e05aa45a1c72a3ULL, 0x6e14116da0605617ULL, 0x0c19139cb84c680aULL}};
 
-constexpr U256 FP_INV_EXP{{0x3c208c16d87cfd45ULL, 0x97816a916871ca8dULL, 0xb85045b68181585dULL, 0x30644e72e131a029ULL}};
+constexpr U256 FpInvExp{{0x3c208c16d87cfd45ULL, 0x97816a916871ca8dULL, 0xb85045b68181585dULL, 0x30644e72e131a029ULL}};
 
 constexpr U256 ONE{{1ULL, 0ULL, 0ULL, 0ULL}};
-constexpr std::uint64_t FP_N0 = 0x87d20782e4866389ULL;
-constexpr std::size_t G1_SIZE = 32;
-constexpr std::size_t G2_SIZE = 64;
-constexpr std::size_t VK_SIZE = 304;
-constexpr std::size_t PROOF_SIZE = 138;
+constexpr std::uint64_t FpN0 = 0x87d20782e4866389ULL;
+constexpr std::size_t G1Size = 32;
+constexpr std::size_t G2Size = 64;
+constexpr std::size_t VkSize = 304;
+constexpr std::size_t ProofSize = 138;
 
-std::array<std::uint8_t, PROOF_SIZE> g_proof{};
-std::size_t g_proof_len = 0;
-int g_last_error = 0;
+std::array<std::uint8_t, ProofSize> s_proof{};
+std::size_t s_proofLen = 0;
+int s_lastError = 0;
 
-int cmp4(const U256& a, const U256& b)
+int Cmp4(const U256& a, const U256& b)
 {
     for (int i = 3; i >= 0; --i)
     {
-        if (a.v[static_cast<std::size_t>(i)] < b.v[static_cast<std::size_t>(i)])
+        if (a.V[static_cast<std::size_t>(i)] < b.V[static_cast<std::size_t>(i)])
         {
             return -1;
         }
-        if (a.v[static_cast<std::size_t>(i)] > b.v[static_cast<std::size_t>(i)])
+        if (a.V[static_cast<std::size_t>(i)] > b.V[static_cast<std::size_t>(i)])
         {
             return 1;
         }
@@ -72,76 +70,76 @@ int cmp4(const U256& a, const U256& b)
     return 0;
 }
 
-bool is_zero(const U256& a)
+bool IsZero(const U256& a)
 {
-    return (a.v[0] | a.v[1] | a.v[2] | a.v[3]) == 0;
+    return (a.V[0] | a.V[1] | a.V[2] | a.V[3]) == 0;
 }
 
-void sub_raw(U256& a, const U256& b)
+void SubRaw(U256& a, const U256& b)
 {
     std::uint64_t borrow = 0;
     for (std::size_t i = 0; i < 4; ++i)
     {
-        const std::uint64_t previous = a.v[i];
-        const std::uint64_t subtrahend = b.v[i] + borrow;
-        a.v[i] = previous - subtrahend;
-        borrow = (previous < subtrahend || (borrow == 1 && subtrahend == 0)) ? 1 : 0;
+        const std::uint64_t Previous = a.V[i];
+        const std::uint64_t Subtrahend = b.V[i] + borrow;
+        a.V[i] = Previous - Subtrahend;
+        borrow = (Previous < Subtrahend || (borrow == 1 && Subtrahend == 0)) ? 1 : 0;
     }
 }
 
-U256 add_mod(const U256& a, const U256& b)
+U256 AddMod(const U256& a, const U256& b)
 {
     U256 out{};
     unsigned __int128 carry = 0;
     for (std::size_t i = 0; i < 4; ++i)
     {
-        const unsigned __int128 value = static_cast<unsigned __int128>(a.v[i]) + b.v[i] + carry;
-        out.v[i] = static_cast<std::uint64_t>(value);
-        carry = value >> 64;
+        const unsigned __int128 Value = static_cast<unsigned __int128>(a.V[i]) + b.V[i] + carry;
+        out.V[i] = static_cast<std::uint64_t>(Value);
+        carry = Value >> 64;
     }
-    if (carry != 0 || cmp4(out, P) >= 0)
+    if (carry != 0 || Cmp4(out, P) >= 0)
     {
-        sub_raw(out, P);
+        SubRaw(out, P);
     }
     return out;
 }
 
-U256 sub_mod(const U256& a, const U256& b)
+U256 SubMod(const U256& a, const U256& b)
 {
     U256 out = a;
     std::uint64_t borrow = 0;
     for (std::size_t i = 0; i < 4; ++i)
     {
-        const std::uint64_t previous = out.v[i];
-        const std::uint64_t subtrahend = b.v[i] + borrow;
-        out.v[i] = previous - subtrahend;
-        borrow = (previous < subtrahend || (borrow == 1 && subtrahend == 0)) ? 1 : 0;
+        const std::uint64_t Previous = out.V[i];
+        const std::uint64_t Subtrahend = b.V[i] + borrow;
+        out.V[i] = Previous - Subtrahend;
+        borrow = (Previous < Subtrahend || (borrow == 1 && Subtrahend == 0)) ? 1 : 0;
     }
     if (borrow != 0)
     {
         unsigned __int128 carry = 0;
         for (std::size_t i = 0; i < 4; ++i)
         {
-            const unsigned __int128 value = static_cast<unsigned __int128>(out.v[i]) + P.v[i] + carry;
-            out.v[i] = static_cast<std::uint64_t>(value);
-            carry = value >> 64;
+            const unsigned __int128 Value = static_cast<unsigned __int128>(out.V[i]) + P.V[i] + carry;
+            out.V[i] = static_cast<std::uint64_t>(Value);
+            carry = Value >> 64;
         }
     }
     return out;
 }
 
-void propagate(std::array<std::uint64_t, 9>& t, std::size_t index, unsigned __int128 carry)
+void Propagate(std::array<std::uint64_t, 9>& t, std::size_t index, unsigned __int128 carry)
 {
     while (carry != 0 && index < t.size())
     {
-        const unsigned __int128 value = static_cast<unsigned __int128>(t[index]) + carry;
-        t[index] = static_cast<std::uint64_t>(value);
-        carry = value >> 64;
+        const unsigned __int128 Value = static_cast<unsigned __int128>(t[index]) + carry;
+        t[index] = static_cast<std::uint64_t>(Value);
+        carry = Value >> 64;
         ++index;
     }
 }
 
-U256 mont_mul(const U256& a, const U256& b)
+U256 MontMul(const U256& a, const U256& b)
 {
     std::array<std::uint64_t, 9> t{};
     for (std::size_t i = 0; i < 4; ++i)
@@ -149,122 +147,122 @@ U256 mont_mul(const U256& a, const U256& b)
         unsigned __int128 carry = 0;
         for (std::size_t j = 0; j < 4; ++j)
         {
-            const unsigned __int128 value = static_cast<unsigned __int128>(a.v[i]) * b.v[j] + t[i + j] + carry;
-            t[i + j] = static_cast<std::uint64_t>(value);
-            carry = value >> 64;
+            const unsigned __int128 Value = static_cast<unsigned __int128>(a.V[i]) * b.V[j] + t[i + j] + carry;
+            t[i + j] = static_cast<std::uint64_t>(Value);
+            carry = Value >> 64;
         }
-        propagate(t, i + 4, carry);
+        Propagate(t, i + 4, carry);
     }
 
     for (std::size_t i = 0; i < 4; ++i)
     {
-        const std::uint64_t m = t[i] * FP_N0;
+        const std::uint64_t M = t[i] * FpN0;
         unsigned __int128 carry = 0;
         for (std::size_t j = 0; j < 4; ++j)
         {
-            const unsigned __int128 value = static_cast<unsigned __int128>(m) * P.v[j] + t[i + j] + carry;
-            t[i + j] = static_cast<std::uint64_t>(value);
-            carry = value >> 64;
+            const unsigned __int128 Value = static_cast<unsigned __int128>(M) * P.V[j] + t[i + j] + carry;
+            t[i + j] = static_cast<std::uint64_t>(Value);
+            carry = Value >> 64;
         }
-        propagate(t, i + 4, carry);
+        Propagate(t, i + 4, carry);
     }
 
     U256 out{{t[4], t[5], t[6], t[7]}};
-    while (cmp4(out, P) >= 0)
+    while (Cmp4(out, P) >= 0)
     {
-        sub_raw(out, P);
+        SubRaw(out, P);
     }
     return out;
 }
 
-Fp fp_from_canonical(const U256& value)
+Fp FpFromCanonical(const U256& value)
 {
-    return Fp{mont_mul(value, FP_R2)};
+    return Fp{MontMul(value, FpR2)};
 }
 
-U256 fp_to_canonical(const Fp& value)
+U256 FpToCanonical(const Fp& value)
 {
-    return mont_mul(value.n, ONE);
+    return MontMul(value.N, ONE);
 }
 
-Fp fp_zero()
+Fp FpZero()
 {
     return Fp{};
 }
 
-Fp fp_one()
+Fp FpOne()
 {
-    return Fp{FP_ONE_MONT};
+    return Fp{FpOneMont};
 }
 
-Fp fp_add(const Fp& a, const Fp& b)
+Fp FpAdd(const Fp& a, const Fp& b)
 {
-    return Fp{add_mod(a.n, b.n)};
+    return Fp{AddMod(a.N, b.N)};
 }
 
-Fp fp_sub(const Fp& a, const Fp& b)
+Fp FpSub(const Fp& a, const Fp& b)
 {
-    return Fp{sub_mod(a.n, b.n)};
+    return Fp{SubMod(a.N, b.N)};
 }
 
-Fp fp_mul(const Fp& a, const Fp& b)
+Fp FpMul(const Fp& a, const Fp& b)
 {
-    return Fp{mont_mul(a.n, b.n)};
+    return Fp{MontMul(a.N, b.N)};
 }
 
-Fp fp_sqr(const Fp& a)
+Fp FpSqr(const Fp& a)
 {
-    return fp_mul(a, a);
+    return FpMul(a, a);
 }
 
-bool fp_equal(const Fp& a, const Fp& b)
+bool FpEqual(const Fp& a, const Fp& b)
 {
-    return a.n.v == b.n.v;
+    return a.N.V == b.N.V;
 }
 
-bool fp_is_zero(const Fp& a)
+bool FpIsZero(const Fp& a)
 {
-    return is_zero(a.n);
+    return IsZero(a.N);
 }
 
-Fp fp_neg(const Fp& a)
+Fp FpNeg(const Fp& a)
 {
-    return fp_is_zero(a) ? a : Fp{sub_mod(U256{}, a.n)};
+    return FpIsZero(a) ? a : Fp{SubMod(U256{}, a.N)};
 }
 
-Fp fp_pow(Fp base, const U256& exponent)
+Fp FpPow(Fp base, const U256& exponent)
 {
-    Fp result = fp_one();
+    Fp result = FpOne();
     for (int limb = 3; limb >= 0; --limb)
     {
         for (int bit = 63; bit >= 0; --bit)
         {
-            result = fp_sqr(result);
-            if (((exponent.v[static_cast<std::size_t>(limb)] >> bit) & 1ULL) != 0)
+            result = FpSqr(result);
+            if (((exponent.V[static_cast<std::size_t>(limb)] >> static_cast<unsigned int>(bit)) & 1ULL) != 0)
             {
-                result = fp_mul(result, base);
+                result = FpMul(result, base);
             }
         }
     }
     return result;
 }
 
-Fp fp_inv(const Fp& a)
+Fp FpInv(const Fp& a)
 {
-    return fp_pow(a, FP_INV_EXP);
+    return FpPow(a, FpInvExp);
 }
 
-Fp fp_sqrt(const Fp& a)
+Fp FpSqrt(const Fp& a)
 {
-    return fp_pow(a, FP_SQRT_EXP);
+    return FpPow(a, FpSqrtExp);
 }
 
-Fp fp_const(std::uint64_t value)
+Fp FpConst(std::uint64_t value)
 {
-    return fp_from_canonical(U256{{value, 0, 0, 0}});
+    return FpFromCanonical(U256{{value, 0, 0, 0}});
 }
 
-bool read_le_field(const std::uint8_t* input, Fp& out, bool& odd)
+bool ReadLeField(const std::uint8_t* input, Fp& out, bool& odd)
 {
     U256 x{};
     std::array<std::uint8_t, 32> bytes{};
@@ -278,24 +276,24 @@ bool read_le_field(const std::uint8_t* input, Fp& out, bool& odd)
         {
             limb |= static_cast<std::uint64_t>(bytes[i * 8 + j]) << (j * 8);
         }
-        x.v[i] = limb;
+        x.V[i] = limb;
     }
-    if (cmp4(x, P) >= 0)
+    if (Cmp4(x, P) >= 0)
     {
         return false;
     }
-    out = fp_from_canonical(x);
+    out = FpFromCanonical(x);
     return true;
 }
 
-void write_le_field(const Fp& value, bool odd, std::uint8_t* output)
+void WriteLeField(const Fp& value, bool odd, std::uint8_t* output)
 {
-    const U256 canonical = fp_to_canonical(value);
+    const U256 Canonical = FpToCanonical(value);
     for (std::size_t i = 0; i < 4; ++i)
     {
         for (std::size_t j = 0; j < 8; ++j)
         {
-            output[i * 8 + j] = static_cast<std::uint8_t>((canonical.v[i] >> (j * 8)) & 0xffU);
+            output[i * 8 + j] = static_cast<std::uint8_t>((Canonical.V[i] >> (j * 8)) & 0xffU);
         }
     }
     output[31] &= 0x7fU;
@@ -305,145 +303,145 @@ void write_le_field(const Fp& value, bool odd, std::uint8_t* output)
     }
 }
 
-bool decompress_g1(const std::uint8_t* input, AffinePoint& point, bool allow_zero)
+bool DecompressG1(const std::uint8_t* input, AffinePoint& point, bool allowZero)
 {
-    bool all_zero = true;
-    for (std::size_t i = 0; i < G1_SIZE; ++i)
+    bool allZero = true;
+    for (std::size_t i = 0; i < G1Size; ++i)
     {
-        all_zero = all_zero && input[i] == 0;
+        allZero = allZero && input[i] == 0;
     }
-    if (all_zero)
+    if (allZero)
     {
         point = AffinePoint{};
-        return allow_zero;
+        return allowZero;
     }
 
-    bool expected_odd = false;
+    bool expectedOdd = false;
     Fp x{};
-    if (!read_le_field(input, x, expected_odd))
+    if (!ReadLeField(input, x, expectedOdd))
     {
         return false;
     }
 
-    const Fp x2 = fp_sqr(x);
-    const Fp rhs = fp_add(fp_mul(x2, x), fp_const(3));
-    Fp y = fp_sqrt(rhs);
-    if (!fp_equal(fp_sqr(y), rhs))
+    const Fp X2 = FpSqr(x);
+    const Fp Rhs = FpAdd(FpMul(X2, x), FpConst(3));
+    Fp y = FpSqrt(Rhs);
+    if (!FpEqual(FpSqr(y), Rhs))
     {
         return false;
     }
 
-    const bool actual_odd = (fp_to_canonical(y).v[0] & 1ULL) != 0;
-    if (actual_odd != expected_odd)
+    const bool ActualOdd = (FpToCanonical(y).V[0] & 1ULL) != 0;
+    if (ActualOdd != expectedOdd)
     {
-        y = fp_neg(y);
+        y = FpNeg(y);
     }
 
-    point.x = x;
-    point.y = y;
-    point.infinity = false;
+    point.X = x;
+    point.Y = y;
+    point.Infinity = false;
     return true;
 }
 
-void serialize_g1(const AffinePoint& point, std::uint8_t* output)
+void SerializeG1(const AffinePoint& point, std::uint8_t* output)
 {
-    std::memset(output, 0, G1_SIZE);
-    if (point.infinity)
+    std::memset(output, 0, G1Size);
+    if (point.Infinity)
     {
         return;
     }
-    const bool odd = (fp_to_canonical(point.y).v[0] & 1ULL) != 0;
-    write_le_field(point.x, odd, output);
+    const bool Odd = (FpToCanonical(point.Y).V[0] & 1ULL) != 0;
+    WriteLeField(point.X, Odd, output);
 }
 
-JacobianPoint to_jacobian(const AffinePoint& point)
+JacobianPoint ToJacobian(const AffinePoint& point)
 {
-    if (point.infinity)
+    if (point.Infinity)
     {
         return JacobianPoint{};
     }
-    return JacobianPoint{point.x, point.y, fp_one(), false};
+    return JacobianPoint{point.X, point.Y, FpOne(), false};
 }
 
-AffinePoint to_affine(const JacobianPoint& point)
+AffinePoint ToAffine(const JacobianPoint& point)
 {
-    if (point.infinity || fp_is_zero(point.z))
+    if (point.Infinity || FpIsZero(point.Z))
     {
         return AffinePoint{};
     }
-    const Fp z_inv = fp_inv(point.z);
-    const Fp z2 = fp_sqr(z_inv);
-    const Fp z3 = fp_mul(z2, z_inv);
-    return AffinePoint{fp_mul(point.x, z2), fp_mul(point.y, z3), false};
+    const Fp ZInv = FpInv(point.Z);
+    const Fp Z2 = FpSqr(ZInv);
+    const Fp Z3 = FpMul(Z2, ZInv);
+    return AffinePoint{FpMul(point.X, Z2), FpMul(point.Y, Z3), false};
 }
 
-JacobianPoint jacobian_double(const JacobianPoint& p1)
+JacobianPoint JacobianDouble(const JacobianPoint& p1)
 {
-    if (p1.infinity || fp_is_zero(p1.y))
+    if (p1.Infinity || FpIsZero(p1.Y))
     {
         return JacobianPoint{};
     }
 
-    const Fp a = fp_sqr(p1.x);
-    const Fp b = fp_sqr(p1.y);
-    const Fp c = fp_sqr(b);
-    const Fp x_plus_b = fp_add(p1.x, b);
-    const Fp d = fp_add(fp_sub(fp_sub(fp_sqr(x_plus_b), a), c), fp_sub(fp_sub(fp_sqr(x_plus_b), a), c));
-    const Fp e = fp_add(fp_add(a, a), a);
-    const Fp f = fp_sqr(e);
-    const Fp x3 = fp_sub(fp_sub(f, d), d);
-    const Fp eight_c = fp_add(fp_add(fp_add(c, c), fp_add(c, c)), fp_add(fp_add(c, c), fp_add(c, c)));
-    const Fp y3 = fp_sub(fp_mul(e, fp_sub(d, x3)), eight_c);
-    const Fp z3 = fp_mul(fp_add(p1.y, p1.y), p1.z);
-    return JacobianPoint{x3, y3, z3, false};
+    const Fp A = FpSqr(p1.X);
+    const Fp B = FpSqr(p1.Y);
+    const Fp C = FpSqr(B);
+    const Fp XPlusB = FpAdd(p1.X, B);
+    const Fp D = FpAdd(FpSub(FpSub(FpSqr(XPlusB), A), C), FpSub(FpSub(FpSqr(XPlusB), A), C));
+    const Fp E = FpAdd(FpAdd(A, A), A);
+    const Fp F = FpSqr(E);
+    const Fp X3 = FpSub(FpSub(F, D), D);
+    const Fp EightC = FpAdd(FpAdd(FpAdd(C, C), FpAdd(C, C)), FpAdd(FpAdd(C, C), FpAdd(C, C)));
+    const Fp Y3 = FpSub(FpMul(E, FpSub(D, X3)), EightC);
+    const Fp Z3 = FpMul(FpAdd(p1.Y, p1.Y), p1.Z);
+    return JacobianPoint{X3, Y3, Z3, false};
 }
 
-JacobianPoint jacobian_add_mixed(const JacobianPoint& p1, const AffinePoint& q)
+JacobianPoint JacobianAddMixed(const JacobianPoint& p1, const AffinePoint& q)
 {
-    if (q.infinity)
+    if (q.Infinity)
     {
         return p1;
     }
-    if (p1.infinity)
+    if (p1.Infinity)
     {
-        return to_jacobian(q);
+        return ToJacobian(q);
     }
 
-    const Fp z1z1 = fp_sqr(p1.z);
-    const Fp u2 = fp_mul(q.x, z1z1);
-    const Fp s2 = fp_mul(q.y, fp_mul(p1.z, z1z1));
-    const Fp h = fp_sub(u2, p1.x);
-    const Fp r = fp_sub(s2, p1.y);
-    if (fp_is_zero(h))
+    const Fp Z1z1 = FpSqr(p1.Z);
+    const Fp U2 = FpMul(q.X, Z1z1);
+    const Fp S2 = FpMul(q.Y, FpMul(p1.Z, Z1z1));
+    const Fp H = FpSub(U2, p1.X);
+    const Fp R = FpSub(S2, p1.Y);
+    if (FpIsZero(H))
     {
-        return fp_is_zero(r) ? jacobian_double(p1) : JacobianPoint{};
+        return FpIsZero(R) ? JacobianDouble(p1) : JacobianPoint{};
     }
 
-    const Fp hh = fp_sqr(h);
-    const Fp hhh = fp_mul(h, hh);
-    const Fp v = fp_mul(p1.x, hh);
-    const Fp x3 = fp_sub(fp_sub(fp_sqr(r), hhh), fp_add(v, v));
-    const Fp y3 = fp_sub(fp_mul(r, fp_sub(v, x3)), fp_mul(p1.y, hhh));
-    const Fp z3 = fp_mul(p1.z, h);
-    return JacobianPoint{x3, y3, z3, false};
+    const Fp Hh = FpSqr(H);
+    const Fp Hhh = FpMul(H, Hh);
+    const Fp V = FpMul(p1.X, Hh);
+    const Fp X3 = FpSub(FpSub(FpSqr(R), Hhh), FpAdd(V, V));
+    const Fp Y3 = FpSub(FpMul(R, FpSub(V, X3)), FpMul(p1.Y, Hhh));
+    const Fp Z3 = FpMul(p1.Z, H);
+    return JacobianPoint{X3, Y3, Z3, false};
 }
 
-void reduce_scalar_digest(const std::uint8_t* digest, U256& scalar)
+void ReduceScalarDigest(const std::uint8_t* digest, U256& scalar)
 {
     scalar = U256{};
-    for (std::size_t byte_index = 0; byte_index < 32; ++byte_index)
+    for (std::size_t byteIndex = 0; byteIndex < 32; ++byteIndex)
     {
         std::array<std::uint64_t, 5> temp{};
-        unsigned __int128 carry = digest[byte_index];
+        unsigned __int128 carry = digest[byteIndex];
         for (std::size_t limb = 0; limb < 4; ++limb)
         {
-            const unsigned __int128 value = static_cast<unsigned __int128>(scalar.v[limb]) * 256U + carry;
-            temp[limb] = static_cast<std::uint64_t>(value);
-            carry = value >> 64;
+            const unsigned __int128 Value = static_cast<unsigned __int128>(scalar.V[limb]) * 256U + carry;
+            temp[limb] = static_cast<std::uint64_t>(Value);
+            carry = Value >> 64;
         }
         temp[4] = static_cast<std::uint64_t>(carry);
 
-        auto ge_r = [&]()
+        auto geR = [&]
         {
             if (temp[4] != 0)
             {
@@ -451,11 +449,11 @@ void reduce_scalar_digest(const std::uint8_t* digest, U256& scalar)
             }
             for (int i = 3; i >= 0; --i)
             {
-                if (temp[static_cast<std::size_t>(i)] < R.v[static_cast<std::size_t>(i)])
+                if (temp[static_cast<std::size_t>(i)] < R.V[static_cast<std::size_t>(i)])
                 {
                     return false;
                 }
-                if (temp[static_cast<std::size_t>(i)] > R.v[static_cast<std::size_t>(i)])
+                if (temp[static_cast<std::size_t>(i)] > R.V[static_cast<std::size_t>(i)])
                 {
                     return true;
                 }
@@ -463,57 +461,58 @@ void reduce_scalar_digest(const std::uint8_t* digest, U256& scalar)
             return true;
         };
 
-        while (ge_r())
+        while (geR())
         {
             std::uint64_t borrow = 0;
             for (std::size_t limb = 0; limb < 4; ++limb)
             {
-                const std::uint64_t previous = temp[limb];
-                const std::uint64_t subtrahend = R.v[limb] + borrow;
-                temp[limb] = previous - subtrahend;
-                borrow = (previous < subtrahend || (borrow == 1 && subtrahend == 0)) ? 1 : 0;
+                const std::uint64_t Previous = temp[limb];
+                const std::uint64_t Subtrahend = R.V[limb] + borrow;
+                temp[limb] = Previous - Subtrahend;
+                borrow = (Previous < Subtrahend || (borrow == 1 && Subtrahend == 0)) ? 1 : 0;
             }
             temp[4] -= borrow;
         }
 
-        scalar.v = {temp[0], temp[1], temp[2], temp[3]};
+        scalar.V = {temp[0], temp[1], temp[2], temp[3]};
     }
 }
 
-bool scalar_bit(const U256& scalar, int bit)
+bool ScalarBit(const U256& scalar, int bit)
 {
-    return ((scalar.v[static_cast<std::size_t>(bit / 64)] >> (bit % 64)) & 1ULL) != 0;
+    return ((scalar.V[static_cast<std::size_t>(bit / 64)] >> static_cast<unsigned int>(bit % 64)) & 1ULL) != 0;
 }
 
-AffinePoint scalar_mul(const AffinePoint& base, const U256& scalar)
+AffinePoint ScalarMul(const AffinePoint& base, const U256& scalar)
 {
     JacobianPoint result{};
     for (int bit = 255; bit >= 0; --bit)
     {
-        if (!result.infinity)
+        if (!result.Infinity)
         {
-            result = jacobian_double(result);
+            result = JacobianDouble(result);
         }
-        if (scalar_bit(scalar, bit))
+        if (ScalarBit(scalar, bit))
         {
-            result = jacobian_add_mixed(result, base);
+            result = JacobianAddMixed(result, base);
         }
     }
-    return to_affine(result);
+    return ToAffine(result);
 }
 
-bool parse_u16(const std::uint8_t* bytes, std::size_t length, std::size_t& offset, std::uint16_t& value)
+bool ParseU16(const std::uint8_t* bytes, std::size_t length, std::size_t& offset, std::uint16_t& value)
 {
     if (length - offset < 2)
     {
         return false;
     }
-    value = static_cast<std::uint16_t>(bytes[offset] | (bytes[offset + 1] << 8));
+    value = static_cast<std::uint16_t>(static_cast<std::uint32_t>(bytes[offset])
+                                       | (static_cast<std::uint32_t>(bytes[offset + 1]) << 8U));
     offset += 2;
     return true;
 }
 
-bool parse_u32(const std::uint8_t* bytes, std::size_t length, std::size_t& offset, std::uint32_t& value)
+bool ParseU32(const std::uint8_t* bytes, std::size_t length, std::size_t& offset, std::uint32_t& value)
 {
     if (length - offset < 4)
     {
@@ -526,70 +525,70 @@ bool parse_u32(const std::uint8_t* bytes, std::size_t length, std::size_t& offse
     return true;
 }
 
-bool parse_proving_key(const std::uint8_t* bytes,
-                       std::size_t length,
-                       const std::uint8_t*& verifying_key,
-                       std::size_t& verifying_key_length)
+bool ParseProvingKey(const std::uint8_t* bytes,
+                     std::size_t length,
+                     const std::uint8_t*& verifyingKey,
+                     std::size_t& verifyingKeyLength)
 {
-    static constexpr std::uint8_t magic[] = {'F', 'S', 'G', '1', '6', 'P', 'K', '1'};
-    if (length < sizeof(magic) + 2 + 64 + 64 || std::memcmp(bytes, magic, sizeof(magic)) != 0)
+    static constexpr std::uint8_t Magic[] = {'F', 'S', 'G', '1', '6', 'P', 'K', '1'};
+    if (length < sizeof(Magic) + 2 + 64 + 64 || std::memcmp(bytes, Magic, sizeof(Magic)) != 0)
     {
         return false;
     }
 
-    std::size_t offset = sizeof(magic);
+    std::size_t offset = sizeof(Magic);
     std::uint16_t version = 0;
-    if (!parse_u16(bytes, length, offset, version) || version != 2)
+    if (!ParseU16(bytes, length, offset, version) || version != 2)
     {
         return false;
     }
     offset += 64;
     offset += 64;
 
-    std::uint32_t vk_length = 0;
-    if (!parse_u32(bytes, length, offset, vk_length) || vk_length != VK_SIZE || length - offset < vk_length)
+    std::uint32_t vkLength = 0;
+    if (!ParseU32(bytes, length, offset, vkLength) || vkLength != VkSize || length - offset < vkLength)
     {
         return false;
     }
-    verifying_key = bytes + offset;
-    verifying_key_length = vk_length;
-    offset += vk_length;
+    verifyingKey = bytes + offset;
+    verifyingKeyLength = vkLength;
+    offset += vkLength;
 
-    std::uint32_t public_inputs_length = 0;
-    if (!parse_u32(bytes, length, offset, public_inputs_length) || public_inputs_length == 0
-        || length - offset < public_inputs_length)
+    std::uint32_t publicInputsLength = 0;
+    if (!ParseU32(bytes, length, offset, publicInputsLength) || publicInputsLength == 0
+        || length - offset < publicInputsLength)
     {
         return false;
     }
-    offset += public_inputs_length;
+    offset += publicInputsLength;
 
-    std::uint32_t proof_length = 0;
-    if (!parse_u32(bytes, length, offset, proof_length) || proof_length != PROOF_SIZE || length - offset < proof_length)
+    std::uint32_t proofLength = 0;
+    if (!ParseU32(bytes, length, offset, proofLength) || proofLength != ProofSize || length - offset < proofLength)
     {
         return false;
     }
-    offset += proof_length;
+    offset += proofLength;
     return offset == length;
 }
 
-bool validate_verifying_key(const std::uint8_t* verifying_key, std::size_t length)
+bool ValidateVerifyingKey(const std::uint8_t* verifyingKey, std::size_t length)
 {
-    static constexpr std::uint8_t magic[] = {'F', 'S', 'G', '1', '6', 'V', 'K', '1'};
-    if (length != VK_SIZE || std::memcmp(verifying_key, magic, sizeof(magic)) != 0)
+    static constexpr std::uint8_t Magic[] = {'F', 'S', 'G', '1', '6', 'V', 'K', '1'};
+    if (length != VkSize || std::memcmp(verifyingKey, Magic, sizeof(Magic)) != 0)
     {
         return false;
     }
-    std::size_t offset = sizeof(magic);
+    std::size_t offset = sizeof(Magic);
     std::uint16_t version = 0;
     std::uint16_t binding = 0;
     std::uint16_t curve = 0;
-    std::uint16_t input_count = 0;
-    if (!parse_u16(verifying_key, length, offset, version) || !parse_u16(verifying_key, length, offset, binding)
-        || !parse_u16(verifying_key, length, offset, curve) || !parse_u16(verifying_key, length, offset, input_count))
+    std::uint16_t inputCount = 0;
+    if (!ParseU16(verifyingKey, length, offset, version) || !ParseU16(verifyingKey, length, offset, binding)
+        || !ParseU16(verifyingKey, length, offset, curve) || !ParseU16(verifyingKey, length, offset, inputCount))
     {
         return false;
     }
-    if (version != 1 || binding != 1 || curve != 4 || input_count != 2)
+    if (version != 1 || binding != 1 || curve != 4 || inputCount != 2)
     {
         return false;
     }
@@ -597,19 +596,19 @@ bool validate_verifying_key(const std::uint8_t* verifying_key, std::size_t lengt
     AffinePoint alpha{};
     AffinePoint ic0{};
     AffinePoint ic1{};
-    return decompress_g1(verifying_key + 16, alpha, false) && decompress_g1(verifying_key + 240, ic0, true)
-           && decompress_g1(verifying_key + 272, ic1, false);
+    return DecompressG1(verifyingKey + 16, alpha, false) && DecompressG1(verifyingKey + 240, ic0, true)
+           && DecompressG1(verifyingKey + 272, ic1, false);
 }
 
-bool prepare_proof(const std::uint8_t* proving_key,
-                   std::size_t proving_key_length,
-                   const std::uint8_t* public_input_digest,
-                   std::size_t digest_length)
+bool PrepareProof(const std::uint8_t* provingKey,
+                  std::size_t provingKeyLength,
+                  const std::uint8_t* publicInputDigest,
+                  std::size_t digestLength)
 {
-    const std::uint8_t* verifying_key = nullptr;
-    std::size_t verifying_key_length = 0;
-    if (digest_length != 32 || !parse_proving_key(proving_key, proving_key_length, verifying_key, verifying_key_length)
-        || !validate_verifying_key(verifying_key, verifying_key_length))
+    const std::uint8_t* verifyingKey = nullptr;
+    std::size_t verifyingKeyLength = 0;
+    if (digestLength != 32 || !ParseProvingKey(provingKey, provingKeyLength, verifyingKey, verifyingKeyLength)
+        || !ValidateVerifyingKey(verifyingKey, verifyingKeyLength))
     {
         return false;
     }
@@ -617,36 +616,36 @@ bool prepare_proof(const std::uint8_t* proving_key,
     AffinePoint alpha{};
     AffinePoint ic0{};
     AffinePoint ic1{};
-    if (!decompress_g1(verifying_key + 16, alpha, false) || !decompress_g1(verifying_key + 240, ic0, true)
-        || !decompress_g1(verifying_key + 272, ic1, false))
+    if (!DecompressG1(verifyingKey + 16, alpha, false) || !DecompressG1(verifyingKey + 240, ic0, true)
+        || !DecompressG1(verifyingKey + 272, ic1, false))
     {
         return false;
     }
 
     U256 scalar{};
-    reduce_scalar_digest(public_input_digest, scalar);
-    AffinePoint scaled = scalar_mul(ic1, scalar);
-    JacobianPoint commitment = jacobian_add_mixed(to_jacobian(scaled), ic0);
-    AffinePoint c = to_affine(commitment);
-    if (!c.infinity)
+    ReduceScalarDigest(publicInputDigest, scalar);
+    AffinePoint scaled = ScalarMul(ic1, scalar);
+    JacobianPoint commitment = JacobianAddMixed(ToJacobian(scaled), ic0);
+    AffinePoint c = ToAffine(commitment);
+    if (!c.Infinity)
     {
-        c.y = fp_neg(c.y);
+        c.Y = FpNeg(c.Y);
     }
 
-    static constexpr std::uint8_t proof_magic[] = {'F', 'S', 'G', '1', '6', 'P', 'F', '1'};
+    static constexpr std::uint8_t ProofMagic[] = {'F', 'S', 'G', '1', '6', 'P', 'F', '1'};
     std::size_t offset = 0;
-    std::memcpy(g_proof.data() + offset, proof_magic, sizeof(proof_magic));
-    offset += sizeof(proof_magic);
-    g_proof[offset++] = 1;
-    g_proof[offset++] = 0;
-    std::memcpy(g_proof.data() + offset, verifying_key + 16, G1_SIZE);
-    offset += G1_SIZE;
-    std::memcpy(g_proof.data() + offset, verifying_key + 48, G2_SIZE);
-    offset += G2_SIZE;
-    serialize_g1(c, g_proof.data() + offset);
-    offset += G1_SIZE;
-    g_proof_len = offset;
-    return offset == PROOF_SIZE;
+    std::memcpy(s_proof.data() + offset, ProofMagic, sizeof(ProofMagic));
+    offset += sizeof(ProofMagic);
+    s_proof[offset++] = 1;
+    s_proof[offset++] = 0;
+    std::memcpy(s_proof.data() + offset, verifyingKey + 16, G1Size);
+    offset += G1Size;
+    std::memcpy(s_proof.data() + offset, verifyingKey + 48, G2Size);
+    offset += G2Size;
+    SerializeG1(c, s_proof.data() + offset);
+    offset += G1Size;
+    s_proofLen = offset;
+    return offset == ProofSize;
 }
 
 } // namespace
@@ -658,49 +657,49 @@ extern "C"
         return 0x46325032;
     }
 
-    int comment_privacy_validate_proving_key(const std::uint8_t* proving_key, std::size_t proving_key_length)
+    int comment_privacy_validate_proving_key(const std::uint8_t* provingKey, std::size_t provingKeyLength)
     {
-        const std::uint8_t* verifying_key = nullptr;
-        std::size_t verifying_key_length = 0;
-        const bool ok = proving_key != nullptr
-                        && parse_proving_key(proving_key, proving_key_length, verifying_key, verifying_key_length)
-                        && validate_verifying_key(verifying_key, verifying_key_length);
-        g_last_error = ok ? 0 : 1;
-        return ok ? 1 : 0;
+        const std::uint8_t* verifyingKey = nullptr;
+        std::size_t verifyingKeyLength = 0;
+        const bool Ok = provingKey != nullptr
+                        && ParseProvingKey(provingKey, provingKeyLength, verifyingKey, verifyingKeyLength)
+                        && ValidateVerifyingKey(verifyingKey, verifyingKeyLength);
+        s_lastError = Ok ? 0 : 1;
+        return Ok ? 1 : 0;
     }
 
-    int comment_privacy_prepare_proof(const std::uint8_t* proving_key,
-                                      std::size_t proving_key_length,
-                                      const std::uint8_t* public_inputs,
-                                      std::size_t public_inputs_length,
-                                      const std::uint8_t* public_input_digest,
-                                      std::size_t digest_length)
+    int comment_privacy_prepare_proof(const std::uint8_t* provingKey,
+                                      std::size_t provingKeyLength,
+                                      const std::uint8_t* publicInputs,
+                                      std::size_t publicInputsLength,
+                                      const std::uint8_t* publicInputDigest,
+                                      std::size_t digestLength)
     {
-        (void)public_inputs;
-        if (public_inputs_length == 0)
+        (void)publicInputs;
+        if (publicInputsLength == 0)
         {
-            g_last_error = 2;
+            s_lastError = 2;
             return 0;
         }
 
-        const bool ok = proving_key != nullptr && public_input_digest != nullptr
-                        && prepare_proof(proving_key, proving_key_length, public_input_digest, digest_length);
-        g_last_error = ok ? 0 : 3;
-        return ok ? 1 : 0;
+        const bool Ok = provingKey != nullptr && publicInputDigest != nullptr
+                        && PrepareProof(provingKey, provingKeyLength, publicInputDigest, digestLength);
+        s_lastError = Ok ? 0 : 3;
+        return Ok ? 1 : 0;
     }
 
     const std::uint8_t* comment_privacy_get_proof_ptr()
     {
-        return g_proof.data();
+        return s_proof.data();
     }
 
     std::size_t comment_privacy_get_proof_len()
     {
-        return g_proof_len;
+        return s_proofLen;
     }
 
     int comment_privacy_get_last_error()
     {
-        return g_last_error;
+        return s_lastError;
     }
 }

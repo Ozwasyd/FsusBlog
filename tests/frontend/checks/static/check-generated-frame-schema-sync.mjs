@@ -22,7 +22,7 @@ const cppHeader = readFileSync(cppHeaderPath, 'utf8')
 const protocolFrames = new Map(protocol.frameTypes.map(frame => [frame.name, frame.value]))
 const goldenFrames = new Map(golden.frames.map(frame => [frame.name, frame.value]))
 const cppFrames = new Map(
-  [...cppHeader.matchAll(/^\s{2}([A-Z][A-Za-z0-9]*) = (\d+),$/gmu)]
+  [...cppHeader.matchAll(/^ {4}([A-Z][A-Za-z0-9]*) = (\d+),$/gmu)]
     .map(match => [match[1], Number(match[2])])
 )
 

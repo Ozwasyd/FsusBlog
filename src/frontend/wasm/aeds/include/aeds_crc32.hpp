@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace fsusblog::aeds
+namespace FsusBlog::Aeds
 {
 
-std::uint16_t compute_crc16(const std::uint8_t* data, std::size_t len);
+std::uint16_t ComputeCrc16(const std::uint8_t* data, std::size_t len);
 
-} // namespace fsusblog::aeds
+} // namespace FsusBlog::Aeds

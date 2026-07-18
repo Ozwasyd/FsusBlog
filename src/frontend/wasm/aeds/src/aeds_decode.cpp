@@ -4,40 +4,40 @@
 #include "aeds_frame.hpp"
 #include "pod_views.hpp"
 
-namespace fsusblog::aeds
+namespace FsusBlog::Aeds
 {
 
 namespace
 {
 
-std::uint16_t read_u16_le(const std::uint8_t* data)
+std::uint16_t ReadU16Le(const std::uint8_t* data)
 {
     return static_cast<std::uint16_t>(data[0]) | static_cast<std::uint16_t>(static_cast<std::uint16_t>(data[1]) << 8u);
 }
 
-std::uint32_t read_u32_le(const std::uint8_t* data)
+std::uint32_t ReadU32Le(const std::uint8_t* data)
 {
     return static_cast<std::uint32_t>(data[0]) | (static_cast<std::uint32_t>(data[1]) << 8u)
            | (static_cast<std::uint32_t>(data[2]) << 16u) | (static_cast<std::uint32_t>(data[3]) << 24u);
 }
 
-DecodeResult make_error(ErrorCode error_code)
+DecodeResult MakeError(ErrorCode errorCode)
 {
     DecodeResult result{};
     result.ok = false;
     result.frame_type = static_cast<std::uint16_t>(FrameType::Unknown);
     result.payload_ptr = nullptr;
     result.payload_len = 0;
-    result.error_code = error_code;
-    result.error = to_error_string(error_code);
+    result.error_code = errorCode;
+    result.error = ToErrorString(errorCode);
     return result;
 }
 
 } // namespace
 
-const char* to_error_string(ErrorCode error_code)
+const char* ToErrorString(ErrorCode errorCode)
 {
-    switch (error_code)
+    switch (errorCode)
     {
         case ErrorCode::None:
             return "";
@@ -62,69 +62,69 @@ const char* to_error_string(ErrorCode error_code)
     }
 }
 
-DecodeResult decode_frame(const std::uint8_t* frame, std::size_t frame_len)
+DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
 {
-    if (frame == nullptr || frame_len < kHeaderSize)
+    if (frame == nullptr || frameLen < kHeaderSize)
     {
-        return make_error(ErrorCode::InvalidInput);
+        return MakeError(ErrorCode::InvalidInput);
     }
 
-    const std::uint32_t magic = read_u32_le(frame);
-    const std::uint8_t version = frame[4];
-    const std::uint8_t header_length = frame[5];
-    const std::uint16_t frame_type = read_u16_le(frame + 8);
-    const std::uint32_t payload_length = read_u32_le(frame + 10);
-    const std::uint16_t payload_crc16 = read_u16_le(frame + 14);
+    const std::uint32_t Magic = ReadU32Le(frame);
+    const std::uint8_t Version = frame[4];
+    const std::uint8_t HeaderLength = frame[5];
+    const std::uint16_t FrameType = ReadU16Le(frame + 8);
+    const std::uint32_t PayloadLength = ReadU32Le(frame + 10);
+    const std::uint16_t PayloadCrc16 = ReadU16Le(frame + 14);
 
-    if (magic != kMagic)
+    if (Magic != kMagic)
     {
-        return make_error(ErrorCode::MagicMismatch);
+        return MakeError(ErrorCode::MagicMismatch);
     }
 
-    if (version != kVersion)
+    if (Version != kVersion)
     {
-        return make_error(ErrorCode::VersionMismatch);
+        return MakeError(ErrorCode::VersionMismatch);
     }
 
-    if (header_length != kHeaderSize)
+    if (HeaderLength != kHeaderSize)
     {
-        return make_error(ErrorCode::HeaderLengthMismatch);
+        return MakeError(ErrorCode::HeaderLengthMismatch);
     }
 
-    if (frame_len != static_cast<std::size_t>(payload_length) + kHeaderSize)
+    if (frameLen != static_cast<std::size_t>(PayloadLength) + kHeaderSize)
     {
-        return make_error(ErrorCode::PayloadLengthMismatch);
+        return MakeError(ErrorCode::PayloadLengthMismatch);
     }
 
-    if (!is_known_frame_type(frame_type))
+    if (!IsKnownFrameType(FrameType))
     {
-        return make_error(ErrorCode::FrameTypeUnsupported);
+        return MakeError(ErrorCode::FrameTypeUnsupported);
     }
 
     const std::uint8_t* payload = frame + kHeaderSize;
-    const std::uint16_t payload_crc = compute_crc16(payload, payload_length);
-    if (payload_crc != payload_crc16)
+    const std::uint16_t PayloadCrc = ComputeCrc16(payload, PayloadLength);
+    if (PayloadCrc != PayloadCrc16)
     {
-        return make_error(ErrorCode::PayloadCrcMismatch);
+        return MakeError(ErrorCode::PayloadCrcMismatch);
     }
 
-    if (frame_type == static_cast<std::uint16_t>(FrameType::ArticleDetail))
+    if (FrameType == static_cast<std::uint16_t>(FrameType::ArticleDetail))
     {
-        fsusblog::pod::ParsedArticleDetail parsed{};
-        if (!fsusblog::pod::parse_article_detail_payload(payload, payload_length, &parsed))
+        FsusBlog::Pod::ParsedArticleDetail parsed{};
+        if (!FsusBlog::Pod::ParseArticleDetailPayload(payload, PayloadLength, &parsed))
         {
-            return make_error(ErrorCode::ArticlePayloadInvalid);
+            return MakeError(ErrorCode::ArticlePayloadInvalid);
         }
     }
 
     DecodeResult ok{};
     ok.ok = true;
-    ok.frame_type = frame_type;
+    ok.frame_type = FrameType;
     ok.payload_ptr = payload;
-    ok.payload_len = payload_length;
+    ok.payload_len = PayloadLength;
     ok.error_code = ErrorCode::None;
     ok.error = nullptr;
     return ok;
 }
 
-} // namespace fsusblog::aeds
+} // namespace FsusBlog::Aeds

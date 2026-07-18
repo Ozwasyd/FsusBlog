@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace fsusblog::pod
+namespace FsusBlog::Pod
 {
 
 #pragma pack(push, 1)
@@ -117,8 +117,6 @@ struct ParsedArticleDetail
     std::int32_t payload_len;
 };
 
-bool parse_article_detail_payload(const std::uint8_t* payload,
-                                  std::size_t payload_len,
-                                  ParsedArticleDetail* out_result);
+bool ParseArticleDetailPayload(const std::uint8_t* payload, std::size_t payloadLen, ParsedArticleDetail* outResult);
 
-} // namespace fsusblog::pod
+} // namespace FsusBlog::Pod

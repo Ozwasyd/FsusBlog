@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace fsusblog::aeds
+namespace FsusBlog::Aeds
 {
 
 inline constexpr std::uint32_t kMagic = 0x53444541U; // "AEDS" little-endian
@@ -236,7 +236,7 @@ enum class FrameType : std::uint16_t
     ApiError = 251,
 };
 
-[[nodiscard]] constexpr bool is_known_frame_type(std::uint16_t raw) noexcept
+[[nodiscard]] constexpr bool IsKnownFrameType(std::uint16_t raw) noexcept
 {
     switch (static_cast<FrameType>(raw))
     {
@@ -440,4 +440,4 @@ enum class FrameType : std::uint16_t
     }
 }
 
-} // namespace fsusblog::aeds
+} // namespace FsusBlog::Aeds
