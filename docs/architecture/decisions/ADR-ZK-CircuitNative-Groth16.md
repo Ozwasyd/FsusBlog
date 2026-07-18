@@ -122,6 +122,7 @@ The `comment.v2` Groth16 circuit must constrain:
 
 The repository asset contract for this decision is:
 
+- `src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json`
 - `docs/zk/anonymous-comment-v2-circuit.md`
 - `docs/zk/trusted-setup-ceremony.md`
 - `security/zk/comment-v2-circuit.manifest.json`
@@ -129,6 +130,13 @@ The repository asset contract for this decision is:
 - `security/zk/comment-v2-feasibility.manifest.json`
 - `security/zk/comment-v2-trusted-setup.manifest.json`
 - `config/zk/anonymous-comment-v2-verifying-key.manifest.json`
+
+The handwritten circuit is product source and therefore lives below `src/zk/circuits/`.
+Deterministic R1CS and ceremony/key outputs remain generated artifacts below
+`artifacts/zk/`; integrity and setup state remain in `security/zk/`; runtime key
+selection remains in `config/zk/`; witnesses and tamper vectors remain in
+`tests/fixtures/zk/`. See `docs/architecture/repository-layout.md` for the
+machine-enforced ownership boundary.
 
 The repository now includes self-authored circuit source, deterministic R1CS IR,
 binary Groth16 R1CS, self-written phase transcript placeholders, a placeholder

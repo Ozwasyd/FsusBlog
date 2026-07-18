@@ -25,7 +25,7 @@ test('active v5 manifest set is source-only, fail-closed and cross-stack aligned
 test('active v5 manifest gate rejects reintroduced exact credential attributes', () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'fsus-zk-v5-manifest-'))
   try {
-    const source = JSON.parse(readFileSync(path.join(root, 'circuits/anonymous-comment-v5/comment_v5.circuit.json'), 'utf8'))
+    const source = JSON.parse(readFileSync(path.join(root, 'src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json'), 'utf8'))
     source.public_inputs.push('credential_level')
     const sourcePath = path.join(directory, 'comment-v5-source.json')
     writeFileSync(sourcePath, `${JSON.stringify(source, null, 2)}\n`)

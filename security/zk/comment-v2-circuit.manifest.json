@@ -218,7 +218,7 @@
     "native_verifier_p99_ms_max": 50
   },
   "r1cs_source": {
-    "path": "circuits/anonymous-comment-v2/comment_v2.circuit.json",
+    "path": "src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json",
     "sha256": "5b4ef7c9f7e21290ea5e7a9095a9e80be6f9e6b7ef082900eba34b82dae103f6",
     "builder": "tools/crypto/build-zk-comment-v2-r1cs.mjs",
     "check_command": "node tools/crypto/build-zk-comment-v2-r1cs.mjs --check"
@@ -231,8 +231,8 @@
     "estimated_wasm_prover_p95_ms": 2400
   },
   "artifact_hashes": {
-    "r1cs_sha256": "5b8e9c4183771add8ceac671b62861d84d9c687852742ddfd4a5da703b86d175",
-    "groth16_r1cs_sha256": "79ae10c3f824872d4bf7db78c587b42b890b52f7aabaeec349ab102168781a5a"
+    "r1cs_sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb",
+    "groth16_r1cs_sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff"
   },
   "artifact_paths": {
     "r1cs": "artifacts/zk/comment-v2/comment_v2.r1cs",

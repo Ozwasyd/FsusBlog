@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -51,7 +52,7 @@ const failures = []
 
 const files = {
   circuit: resolveInput('FSUSBLOG_ZK_V5_CIRCUIT_MANIFEST', 'security/zk/comment-v5-circuit.manifest.json'),
-  source: resolveInput('FSUSBLOG_ZK_V5_CIRCUIT_SOURCE', 'circuits/anonymous-comment-v5/comment_v5.circuit.json'),
+  source: resolveInput('FSUSBLOG_ZK_V5_CIRCUIT_SOURCE', 'src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json'),
   setup: resolveInput('FSUSBLOG_ZK_V5_TRUSTED_SETUP_MANIFEST', 'security/zk/comment-v5-trusted-setup.manifest.json'),
   config: resolveInput('FSUSBLOG_ZK_V5_VERIFYING_KEY_CONFIG', 'config/zk/anonymous-comment-v5-verifying-key.manifest.json'),
   tamper: resolveInput('FSUSBLOG_ZK_V5_TAMPER_MANIFEST', 'security/zk/comment-v5-tamper-cases.manifest.json')
@@ -68,7 +69,8 @@ for (const [label, document] of [['circuit', circuit], ['source', source], ['set
   equal(Number(document.public_input_layout_version), layoutVersion, `${label}.public_input_layout_version`)
 }
 
-equal(circuit.source, 'circuits/anonymous-comment-v5/comment_v5.circuit.json', 'circuit.source')
+equal(circuit.source, 'src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json', 'circuit.source')
+equal(circuit.source_sha256, sha256File(files.source), 'circuit.source_sha256')
 equal(circuit.artifact_status, 'source-only', 'circuit.artifact_status')
 equal(circuit.production_usable, false, 'circuit.production_usable')
 exactArray(circuit.public_inputs, publicInputs, 'circuit.public_inputs')
@@ -150,6 +152,15 @@ function readText(file, label) {
     return readFileSync(file, 'utf8')
   } catch (error) {
     fail(`${label} is unavailable: ${error instanceof Error ? error.message : String(error)}`)
+    return ''
+  }
+}
+
+function sha256File(file) {
+  try {
+    return createHash('sha256').update(readFileSync(file)).digest('hex')
+  } catch (error) {
+    fail(`circuit source hash is unavailable: ${error instanceof Error ? error.message : String(error)}`)
     return ''
   }
 }

@@ -38,6 +38,8 @@ export function validateZkLocalReview({
   manifestPath,
   expectedVerifyingKeyHash = '',
   expectedBindings = {},
+  expectedCircuitId = LOCAL_REVIEW_CIRCUIT_ID,
+  expectedLayoutVersion = LOCAL_REVIEW_LAYOUT_VERSION,
   requireComplete = true
 }) {
   const errors = []
@@ -52,11 +54,11 @@ export function validateZkLocalReview({
   if (!manifest) return result(errors, checks, absoluteManifestPath, null)
 
   requireEqual(errors, manifest.schema, LOCAL_REVIEW_SCHEMA, 'review manifest schema')
-  requireEqual(errors, manifest.circuit_id, LOCAL_REVIEW_CIRCUIT_ID, 'review manifest circuit_id')
+  requireEqual(errors, manifest.circuit_id, expectedCircuitId, 'review manifest circuit_id')
   requireEqual(
     errors,
     Number(manifest.public_input_layout_version),
-    LOCAL_REVIEW_LAYOUT_VERSION,
+    Number(expectedLayoutVersion),
     'review manifest public_input_layout_version')
   requireEqual(
     errors,

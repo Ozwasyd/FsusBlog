@@ -33,6 +33,7 @@ src/backend/Infrastructure/Operations/ProductionStartupValidator.cs @Ozwasyd
 src/backend/Services/ @Ozwasyd
 src/frontend/src/api/ @Ozwasyd
 src/frontend/src/bootstrap/ @Ozwasyd
+/src/zk/ @Ozwasyd
 /config/zk/ @Ozwasyd
 /security/ @Ozwasyd
 /ops/docker/ @Ozwasyd

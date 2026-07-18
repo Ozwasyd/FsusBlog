@@ -28,6 +28,7 @@
 | `src/core/Algorithms/` | AEDS 编解码算法核心 |
 | `src/core/Algorithms/AedsFrameType.cs` | 帧类型枚举（权威来源） |
 | `src/core/Algorithms/AEDS_V2_PROTOCOL.md` | 二进制帧协议规格（当前运行时只接受 v2） |
+| `src/zk/circuits/` | 手写 ZK circuit 领域源码（generated artifact 仍在 `artifacts/zk/`） |
 | `src/frontend/src/wasm/` | C++23 解码器源码（include/ + src/） |
 | `src/frontend/src/workers/wasmDecode.worker.ts` | Wasm 解码 Web Worker |
 | `src/frontend/src/wasm/aeds.ts` | C++/TS 胶水层 |

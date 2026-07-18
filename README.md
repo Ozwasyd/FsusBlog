@@ -102,6 +102,7 @@ FsusBlog/
 ├── src/backend/          # ASP.NET Core 10 API、AOT、notification stream、缓存、安全链路
 ├── src/shared/          # 前后端共享契约与二进制协议模型
 ├── src/core/            # 映射、POD 编解码、共享投影逻辑
+├── src/zk/circuits/     # 手写 ZK circuit 领域源码（生成物仍在 artifacts/zk）
 ├── tests/backend/   # xUnit 单元与集成测试
 ├── benchmarks/core/ # BenchmarkDotNet 性能基准
 ├── docs/                     # 深度文档
@@ -278,6 +279,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 | [docs/open-source-readiness.md](docs/open-source-readiness.md) | 开源预览许可证、行为准则、安全配置、secret/history scan、dependency license audit 与 supply-chain audit 证据入口 |
 | [docs/repository-labels.md](docs/repository-labels.md) | GitHub issue / PR label taxonomy、路径 labeler、issue triage 策略 |
 | [docs/repository-governance.md](docs/repository-governance.md) | 默认分支保护、required checks、CodeQL / Scorecard posture checks 与 GitHub Actions 权限策略 |
+| [docs/architecture/repository-layout.md](docs/architecture/repository-layout.md) | product source、ZK artifacts、security manifests、runtime config 与 test fixtures 的 canonical ownership |
 | [SUPPORT.md](SUPPORT.md) | 使用、部署、自托管支持路由；公开 issue 中禁止发布的敏感信息 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献流程、Issue/PR 模板、测试证据与 public-preview 稳定性边界 |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区行为准则和执行路径 |

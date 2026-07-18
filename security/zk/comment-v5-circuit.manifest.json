@@ -4,7 +4,8 @@
   "public_input_layout_version": 6,
   "proof_system": "Groth16",
   "curve": "bn254",
-  "source": "circuits/anonymous-comment-v5/comment_v5.circuit.json",
+  "source": "src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json",
+  "source_sha256": "cdf5510a8df3feddf1ad1c5e760085d38bf7829ce0de813bff196e45acf69278",
   "artifact_status": "source-only",
   "production_usable": false,
   "public_inputs": [

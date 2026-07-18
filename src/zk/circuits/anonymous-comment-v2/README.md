@@ -1,7 +1,9 @@
 # anonymous comment v3 circuit source
 
-This historically named directory contains the self-authored `fsus.anonymous.comment.v3` circuit
-source used to generate the repository R1CS IR artifact.
+This canonical source directory contains the self-authored
+`fsus.anonymous.comment.v3` circuit source used to generate the repository R1CS
+IR artifact. Handwritten circuits live below `src/zk/circuits/`; generated R1CS,
+keys and ceremony outputs remain below `artifacts/zk/`.
 
 The source intentionally uses no GPL circuit code and no external JS packages.
 Run:

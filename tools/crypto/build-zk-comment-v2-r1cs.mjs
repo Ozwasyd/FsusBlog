@@ -5,7 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..'))
-const sourcePath = resolvePath(process.env.FSUSBLOG_ZK_COMMENT_V2_CIRCUIT_SOURCE, 'circuits/anonymous-comment-v2/comment_v2.circuit.json')
+const sourcePath = resolvePath(process.env.FSUSBLOG_ZK_COMMENT_V2_CIRCUIT_SOURCE, 'src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json')
 const outputPath = resolvePath(process.env.FSUSBLOG_ZK_COMMENT_V2_R1CS_OUT, 'artifacts/zk/comment-v2/comment_v2.r1cs')
 const groth16OutputPath = resolvePath(process.env.FSUSBLOG_ZK_COMMENT_V2_GROTH16_R1CS_OUT, 'artifacts/zk/comment-v2/comment_v2_groth16.r1cs')
 const args = new Set(process.argv.slice(2))

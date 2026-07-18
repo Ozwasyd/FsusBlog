@@ -224,7 +224,7 @@
     "verifying_key_hash"
   ],
   "schema": "fsusblog.zk.r1cs-ir.v1",
-  "source_path": "circuits/anonymous-comment-v2/comment_v2.circuit.json",
+  "source_path": "src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json",
   "source_sha256": "5b4ef7c9f7e21290ea5e7a9095a9e80be6f9e6b7ef082900eba34b82dae103f6",
   "tamper_case_bindings": {
     "inject-user-id-public-input": "identity-field-absence",

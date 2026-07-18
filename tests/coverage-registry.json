@@ -3691,6 +3691,32 @@
         "static-governance",
         "production-build-artifacts"
       ]
+    },
+    {
+      "id": "repository-source-layout-governance",
+      "description": "Handwritten source remains under the canonical src tree unless an established top-level engineering domain has an explicit architectural exception; ZK v2/v5 sources are byte-stable, hash-bound and owned by src/zk/circuits.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tools/check-repository-source-layout.mjs",
+        "tests/governance/repository-source-layout.json",
+        "tests/tools/issue-1166-zk-source-layout.test.mjs",
+        "tools/test/lanes/privacy-zk-comment-matrix.sh",
+        "src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json",
+        "src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json",
+        "security/zk/comment-v2-circuit.manifest.json",
+        "security/zk/comment-v5-circuit.manifest.json",
+        "artifacts/zk/comment-v2/comment_v2.r1cs",
+        "docs/architecture/repository-layout.md",
+        "docs/zk/anonymous-comment-v2-circuit.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject a reintroduced top-level circuits root, an undeclared or disguised new source root, unknown classifications, missing architectural exceptions, source hash or manifest binding drift, legacy canonical paths, symlinks, non-regular files or real paths outside the repository.",
+      "minimumRequirement": "Static governance and the privacy ZK matrix must validate the exact v2/v5 source identities, canonical source paths, three source-to-artifact bindings, byte hashes, generated R1CS hashes and fail-closed production readiness.",
+      "tierIds": [
+        "static-governance",
+        "privacy-zk-comment-matrix"
+      ]
     }
   ]
 }

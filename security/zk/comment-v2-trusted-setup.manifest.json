@@ -3,7 +3,7 @@
   "circuit_id": "fsus.anonymous.comment.v3",
   "public_input_layout_version": 4,
   "circuit_manifest_path": "security/zk/comment-v2-circuit.manifest.json",
-  "circuit_manifest_sha256": "f300fdb18a99c69d28b7bd809f35ab6277d762a05e45be18663d5e00d18337c9",
+  "circuit_manifest_sha256": "f501f557c095abb83382365cd107e1c1b4c2c89eca676136ddf84e012b6036a4",
   "local_cryptographic_review_manifest": "security/zk/comment-v2-local-review.manifest.json",
   "ceremony_status": "not-run",
   "production_usable": false,
@@ -42,14 +42,14 @@
   "artifacts": {
     "r1cs": {
       "path": "artifacts/zk/comment-v2/comment_v2.r1cs",
-      "sha256": "5b8e9c4183771add8ceac671b62861d84d9c687852742ddfd4a5da703b86d175",
+      "sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb",
       "status": "required",
       "format": "fsusblog.zk.r1cs-ir.v1",
       "ceremony_input": false
     },
     "groth16_r1cs": {
       "path": "artifacts/zk/comment-v2/comment_v2_groth16.r1cs",
-      "sha256": "79ae10c3f824872d4bf7db78c587b42b890b52f7aabaeec349ab102168781a5a",
+      "sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff",
       "status": "required",
       "format": "rank1cs-binary",
       "ceremony_input": true

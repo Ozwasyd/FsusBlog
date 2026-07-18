@@ -17,7 +17,7 @@ ceremony, browser prover, root rotation and release evidence all pass.
 `comment.v2` replaces the retired `comment.v1` BBS credential boundary with a
 circuit-native issuer signature verified inside the Groth16 circuit. The
 repository now contains the self-authored circuit source at
-`circuits/anonymous-comment-v2/comment_v2.circuit.json` and a deterministic
+`src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json` and a deterministic
 R1CS IR artifact at `artifacts/zk/comment-v2/comment_v2.r1cs`. It also includes
 the binary Groth16 R1CS input for phase-2 setup at
 `artifacts/zk/comment-v2/comment_v2_groth16.r1cs`, self-written phase
@@ -53,7 +53,7 @@ The manifest checker enforces that boundary:
 | Feasibility and design decision gate | `security/zk/comment-v2-feasibility.manifest.json` |
 | Trusted setup manifest | `security/zk/comment-v2-trusted-setup.manifest.json` |
 | Verifying key config manifest | `config/zk/anonymous-comment-v2-verifying-key.manifest.json` |
-| Circuit source | `circuits/anonymous-comment-v2/comment_v2.circuit.json` |
+| Circuit source | `src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json` |
 | R1CS IR artifact | `artifacts/zk/comment-v2/comment_v2.r1cs` |
 | Groth16 R1CS ceremony input | `artifacts/zk/comment-v2/comment_v2_groth16.r1cs` |
 | Final proving key | `artifacts/zk/comment-v2/comment_v2_final.fsg16pk` |

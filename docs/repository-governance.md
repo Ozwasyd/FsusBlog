@@ -2,6 +2,17 @@
 
 FsusBlog v1.1.0 public preview uses GitHub-native repository controls as release safety rails. This page documents the expected default-branch settings; it does not enable branch protection through the API.
 
+## Source ownership
+
+`src/` is the only canonical product-source root. Handwritten ZK circuit definitions
+live in `src/zk/circuits/`; their generated R1CS/key/ceremony artifacts, security
+manifests, runtime configuration, and test fixtures remain separated under
+`artifacts/zk/`, `security/zk/`, `config/zk/`, and `tests/fixtures/zk/`.
+`node tools/check-repository-source-layout.mjs` enforces the tracked top-level
+inventory and requires an explicit architectural exception for any source domain
+outside `src/`. The complete boundary is documented in
+[`architecture/repository-layout.md`](architecture/repository-layout.md).
+
 ## Default Branch Protection
 
 Protect the default branch, currently `master`, and mirror the same rule set if the default branch moves to `main`.

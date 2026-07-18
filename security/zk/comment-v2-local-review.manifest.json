@@ -115,23 +115,23 @@
   "artifact_bindings": {
     "circuit_manifest_sha256": {
       "path": "security/zk/comment-v2-circuit.manifest.json",
-      "sha256": "b638c72f626454d31d2e22b4da29c404901d5a1a12c1e98188d3224663c5cc5f"
+      "sha256": "f501f557c095abb83382365cd107e1c1b4c2c89eca676136ddf84e012b6036a4"
     },
     "circuit_source_sha256": {
-      "path": "circuits/anonymous-comment-v2/comment_v2.circuit.json",
+      "path": "src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json",
       "sha256": "5b4ef7c9f7e21290ea5e7a9095a9e80be6f9e6b7ef082900eba34b82dae103f6"
     },
     "r1cs_sha256": {
       "path": "artifacts/zk/comment-v2/comment_v2.r1cs",
-      "sha256": "5b8e9c4183771add8ceac671b62861d84d9c687852742ddfd4a5da703b86d175"
+      "sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb"
     },
     "groth16_r1cs_sha256": {
       "path": "artifacts/zk/comment-v2/comment_v2_groth16.r1cs",
-      "sha256": "79ae10c3f824872d4bf7db78c587b42b890b52f7aabaeec349ab102168781a5a"
+      "sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff"
     },
     "trusted_setup_manifest_sha256": {
       "path": "security/zk/comment-v2-trusted-setup.manifest.json",
-      "sha256": "e64f18a9b7c15ff17be790b17681a47344193273aa9a7d2aeacb4dd327d07963"
+      "sha256": "26db126bb0f2a515bef4e468df5fa1dfecf55479452a3ef1713aa78ada36611d"
     },
     "proving_key_sha256": {
       "path": "artifacts/zk/comment-v2/comment_v2_final.fsg16pk",
@@ -143,7 +143,7 @@
     },
     "native_verifier_sha256": {
       "path": "src/backend/Services/Security/NativeGroth16ZkProofBackend.cs",
-      "sha256": "98ef062b1db602379937d8f1bbb0d6c6be650c93b54cf11b16015daac499c875"
+      "sha256": "37940c05fd31b0c49f3ac236375840f7ba6ab1f0bc0b3c0be48569c95d672e60"
     },
     "wasm_prover_sha256": {
       "path": "src/frontend/wasm/comment_privacy/src/comment_privacy.cpp",
@@ -153,7 +153,7 @@
   "test_evidence": [
     {
       "path": "tests/security/zk-comment-v2-manifest.test.mjs",
-      "sha256": "7331686f04e49ee5e40895f78534aca82e84d3eeb580c9f5e7556216cb977b25",
+      "sha256": "280c2b84f8891361b58b8bc165dbbd725ba10b98214b18d0d12e4478e5a377ee",
       "command": "node --test tests/security/zk-comment-v2-manifest.test.mjs",
       "covers": ["constraint_completeness", "trusted_setup_provenance", "public_input_ordering", "domain_separation", "root_epoch_binding"]
     },
@@ -171,19 +171,19 @@
     },
     {
       "path": "tests/backend/Unit/ZkCommentV2CrossStackFixtureTests.cs",
-      "sha256": "1430237a9916428c419927a0d02c518f93a86462665f19d9f29edef08687f04b",
+      "sha256": "d6183a4a0bc09ecf59cdde74cd17ef025d715ad442700ef09679cd5b0994293a",
       "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --filter FullyQualifiedName~ZkCommentV2CrossStackFixtureTests -p:TreatWarningsAsErrors=true",
       "covers": ["public_input_ordering", "native_mcl_binding", "independent_implementation_fixture"]
     },
     {
       "path": "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
-      "sha256": "f3b9df77f46d64de64f760dda6615fc232e1925d29b7f1213917226f04e15f68",
+      "sha256": "4fb89ec3174eefd250ee520a49bf67bd3c92079ae6e5e1a2de2d06edb6ebc04b",
       "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --filter FullyQualifiedName~NativeGroth16ZkProofBackendTests -p:TreatWarningsAsErrors=true",
       "covers": ["native_mcl_binding", "side_channel_review", "subgroup_checks", "canonical_serialization", "malformed_proof_fuzz", "non_canonical_field_fuzz", "concurrency_timeout_fuzz"]
     },
     {
       "path": "tests/backend/Unit/ZkProofVerifierTests.cs",
-      "sha256": "daec40d15a9236fa9bef28a6645c5bc0d8cd22037ab2211bb25cb723533bb390",
+      "sha256": "b076dff5eec3d2af04476ad210ff16deb9935992b682a3d3424c274bd1983f9b",
       "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --filter FullyQualifiedName~ZkProofVerifierTests -p:TreatWarningsAsErrors=true",
       "covers": ["public_input_ordering", "domain_separation", "root_epoch_binding", "concurrency_timeout_fuzz"]
     },
@@ -195,19 +195,19 @@
     },
     {
       "path": "tests/backend/Unit/AnonymousZkProdWrapperFixtureTests.cs",
-      "sha256": "2c64478e81f2f45b5952fe9e35e349549fb31b01a3a13f948024cfa2a202714f",
+      "sha256": "ebbb0dd7c79fbb08b2a7860cae3e804b9cf908becdb97a216467dfd54a69bef5",
       "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --filter FullyQualifiedName~AnonymousZkProdWrapperFixtureTests -p:TreatWarningsAsErrors=true",
       "covers": ["domain_separation", "root_epoch_binding", "independent_implementation_fixture"]
     },
     {
       "path": "tests/security/zk-local-review.test.mjs",
-      "sha256": "f34a309ed5a3bd4ce492426bf256b7d7e56328f000f8d0770892f5acef6bde48",
+      "sha256": "edcd5d0abf19f88e28c5273aa5c4f53f31b730243ce4815046741d19818dbbe0",
       "command": "node --test tests/security/zk-local-review.test.mjs",
       "covers": ["trusted_setup_provenance", "side_channel_review", "canonical_serialization"]
     },
     {
       "path": "tests/security/zk-comment-v2-unlinkability.test.mjs",
-      "sha256": "2e862d9e5af3d07e5f3e712b45d71329e1738b2dbdfd67105677ca0af88ac8bc",
+      "sha256": "feb7667fbe057885844c64f9beae81a1132d688b65ff2af7e8c05105ad6c3e94",
       "command": "node --test tests/security/zk-comment-v2-unlinkability.test.mjs",
       "covers": ["presentation_unlinkability", "public_input_ordering", "domain_separation"]
     }

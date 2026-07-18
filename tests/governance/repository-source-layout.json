@@ -1,0 +1,112 @@
+{
+  "schema": "fsusblog.repository-source-layout.v1",
+  "canonicalSourceRoot": "src",
+  "rootDirectories": [
+    {
+      "path": ".github",
+      "classification": "automation"
+    },
+    {
+      "path": "Properties",
+      "classification": "configuration"
+    },
+    {
+      "path": "artifacts",
+      "classification": "generated-artifacts"
+    },
+    {
+      "path": "benchmarks",
+      "classification": "source-exception",
+      "architecturalException": "Benchmark source remains a top-level engineering domain so production code cannot consume it through the canonical src tree."
+    },
+    {
+      "path": "build",
+      "classification": "build-output"
+    },
+    {
+      "path": "config",
+      "classification": "runtime-configuration"
+    },
+    {
+      "path": "configs",
+      "classification": "tool-configuration"
+    },
+    {
+      "path": "deploy",
+      "classification": "deployment-configuration"
+    },
+    {
+      "path": "docs",
+      "classification": "documentation"
+    },
+    {
+      "path": "ops",
+      "classification": "source-exception",
+      "architecturalException": "Operator-owned deployment scripts stay outside application source and are never compiled into the product."
+    },
+    {
+      "path": "release-evidence",
+      "classification": "release-evidence"
+    },
+    {
+      "path": "security",
+      "classification": "security-manifests"
+    },
+    {
+      "path": "src",
+      "classification": "canonical-source"
+    },
+    {
+      "path": "tests",
+      "classification": "source-exception",
+      "architecturalException": "Test source and fixtures remain isolated from product compilation under the conventional top-level tests domain."
+    },
+    {
+      "path": "tools",
+      "classification": "source-exception",
+      "architecturalException": "Repository build and governance tools are executable source but remain outside product source and shipping assemblies."
+    }
+  ],
+  "forbiddenRootSourceDirectories": [
+    "circuits"
+  ],
+  "zk": {
+    "circuitSourceRoot": "src/zk/circuits",
+    "generatedArtifactsRoot": "artifacts/zk",
+    "securityManifestsRoot": "security/zk",
+    "runtimeConfigurationRoot": "config/zk",
+    "testFixturesRoot": "tests/fixtures/zk",
+    "circuitSources": [
+      {
+        "id": "anonymous-comment-v2",
+        "path": "src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json",
+        "sha256": "5b4ef7c9f7e21290ea5e7a9095a9e80be6f9e6b7ef082900eba34b82dae103f6"
+      },
+      {
+        "id": "anonymous-comment-v5",
+        "path": "src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json",
+        "sha256": "cdf5510a8df3feddf1ad1c5e760085d38bf7829ce0de813bff196e45acf69278"
+      }
+    ],
+    "jsonSourceBindings": [
+      {
+        "path": "security/zk/comment-v2-circuit.manifest.json",
+        "pathField": "r1cs_source.path",
+        "hashField": "r1cs_source.sha256",
+        "sourceId": "anonymous-comment-v2"
+      },
+      {
+        "path": "artifacts/zk/comment-v2/comment_v2.r1cs",
+        "pathField": "source_path",
+        "hashField": "source_sha256",
+        "sourceId": "anonymous-comment-v2"
+      },
+      {
+        "path": "security/zk/comment-v5-circuit.manifest.json",
+        "pathField": "source",
+        "hashField": "source_sha256",
+        "sourceId": "anonymous-comment-v5"
+      }
+    ]
+  }
+}

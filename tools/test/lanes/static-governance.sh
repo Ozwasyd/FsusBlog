@@ -24,6 +24,7 @@ STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/runtime-publish-profile.test.mjs"
   "$ROOT_DIR/tests/tools/final-image-toolchain-pin.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1165-wasm-artifact-ownership.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1166-zk-source-layout.test.mjs"
   "$ROOT_DIR/tests/tools/deployment-slots.test.mjs"
   "$ROOT_DIR/tests/tools/gateway-switch.test.mjs"
   "$ROOT_DIR/tests/tools/dead-code-audit-index.test.mjs"

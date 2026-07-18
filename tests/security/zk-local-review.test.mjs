@@ -14,15 +14,25 @@ const root = path.resolve(import.meta.dirname, '..', '..')
 const committedManifest = path.join(root, 'security/zk/comment-v2-local-review.manifest.json')
 
 test('superseded v3 repository-local review cannot authorize the active v5 source', () => {
+  const historical = validateZkLocalReview({
+    root,
+    manifestPath: committedManifest,
+    requireComplete: true
+  })
+  assert.equal(historical.ok, true, historical.errors.join('\n'))
+
   const result = validateZkLocalReview({
     root,
     manifestPath: committedManifest,
+    expectedCircuitId: 'fsus.anonymous.comment.v5',
+    expectedLayoutVersion: 6,
     requireComplete: true
   })
 
   assert.equal(result.ok, false)
   assert.equal(result.status, 'failed')
-  assert.match(result.errors.join('\n'), /SHA-256 does not match the file/)
+  assert.match(result.errors.join('\n'), /circuit_id must equal fsus\.anonymous\.comment\.v5/)
+  assert.match(result.errors.join('\n'), /public_input_layout_version must equal 6/)
   assert.equal(result.manifest.independent_audit_claimed, false)
   assert.equal(result.manifest.production_authorization, false)
 })

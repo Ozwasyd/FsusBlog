@@ -53,6 +53,7 @@ local_dotnet_args() {
 }
 
 run_privacy_matrix_contract() {
+  node "$ROOT_DIR/tools/check-repository-source-layout.mjs"
   node "$ROOT_DIR/tools/verify-zk-privacy-matrix.mjs"
 }
 
