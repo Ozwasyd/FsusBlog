@@ -110,6 +110,7 @@ test('issue 1160 publishes standard native and tooling configurations with CMake
     const clangFormat = fs.readFileSync(path.join(root, '.clang-format'), 'utf8')
     const clangTidy = fs.readFileSync(path.join(root, '.clang-tidy'), 'utf8')
     const warnings = fs.readFileSync(path.join(root, 'cmake/FsusWarnings.cmake'), 'utf8')
+    const shellcheck = fs.readFileSync(path.join(root, '.shellcheckrc'), 'utf8')
     const formatEntry = fs.readFileSync(path.join(root, 'tools/format.sh'), 'utf8')
     const lintEntry = fs.readFileSync(path.join(root, 'tools/lint.sh'), 'utf8')
     const presets = JSON.parse(fs.readFileSync(path.join(root, 'CMakePresets.json'), 'utf8'))
@@ -123,6 +124,8 @@ test('issue 1160 publishes standard native and tooling configurations with CMake
     assert.match(clangTidy, /readability-identifier-naming/u)
     assert.match(warnings, /add_library\(FsusWarnings INTERFACE\)/u)
     assert.match(warnings, /FSUSBLOG_WARNINGS_AS_ERRORS/u)
+    assert.match(shellcheck, /external-sources=true/u)
+    assert.doesNotMatch(shellcheck, /enable=all/u)
     assert.match(formatEntry, /--operation format/u)
     assert.match(lintEntry, /native\|scripts\|docs/u)
 
@@ -258,6 +261,42 @@ test('issue 1160 limits JSON-with-comments syntax to registered configuration co
         const rejected = RunChecker(fixtureRoot, [unregistered])
         assert.notEqual(rejected.status, 0)
         assert.match(Output(rejected), /json-syntax/u)
+    })
+})
+
+test('issue 1160 invokes ShellCheck through its portable automatic rc lookup', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        CopyCase(fixtureRoot, 'valid')
+        const bin = path.join(fixtureRoot, 'bin')
+        const shellcheckCapture = path.join(fixtureRoot, 'shellcheck.args')
+        const shfmtCapture = path.join(fixtureRoot, 'shfmt.args')
+        WriteFile(
+            fixtureRoot,
+            'bin/shellcheck',
+            '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'%s\\n\' "$@" > "${FSUSBLOG_SHELLCHECK_CAPTURE}"\n'
+        )
+        WriteFile(
+            fixtureRoot,
+            'bin/shfmt',
+            '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'%s\\n\' "$@" > "${FSUSBLOG_SHFMT_CAPTURE}"\n'
+        )
+        fs.chmodSync(path.join(bin, 'shellcheck'), 0o755)
+        fs.chmodSync(path.join(bin, 'shfmt'), 0o755)
+
+        const result = RunChecker(fixtureRoot, ['sample/ScriptStyle.sh'], [], {
+            FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
+            FSUSBLOG_SHELLCHECK_CAPTURE: shellcheckCapture,
+            FSUSBLOG_SHFMT_CAPTURE: shfmtCapture,
+            PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}`
+        })
+        assert.equal(result.status, 0, Output(result))
+        assert.equal(fs.readFileSync(shellcheckCapture, 'utf8'), 'sample/ScriptStyle.sh\n')
+        assert.deepEqual(
+            fs.readFileSync(shfmtCapture, 'utf8').trim().split('\n'),
+            ['-d', '-i', '4', '-ci', 'sample/ScriptStyle.sh']
+        )
     })
 })
 

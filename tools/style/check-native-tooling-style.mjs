@@ -464,13 +464,16 @@ function CheckPhysical(file, buffer, content)
     }
 
     const lines = content.split(/\r?\n/u)
+    const shellIgnoredLines = path.posix.extname(file).toLowerCase() === '.sh'
+        ? ShellIgnoredLineIndexes(content)
+        : new Set()
     for (let index = 0; index < lines.length; index += 1)
     {
         if (/\s+$/u.test(lines[index]))
         {
             AddDiagnostic(file, index + 1, 'trailing-whitespace', 'remove trailing whitespace')
         }
-        if (lines[index].includes('\t'))
+        if (lines[index].includes('\t') && !shellIgnoredLines.has(index))
         {
             AddDiagnostic(file, index + 1, 'tab', 'use 4 spaces instead of Tab')
         }
@@ -561,13 +564,146 @@ function LeadingSpaces(line)
     return line.match(/^ */u)?.[0].length ?? 0
 }
 
-function CheckFourSpaceIndent(file, content)
+function ShellIgnoredLineIndexes(content)
+{
+    const lines = content.split(/\r?\n/u)
+    const ignored = new Set()
+    const pendingHeredocs = []
+    let heredoc = null
+    let continuedQuote = null
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1)
+    {
+        const line = lines[lineIndex]
+        if (heredoc)
+        {
+            ignored.add(lineIndex)
+            const candidate = heredoc.stripTabs ? line.replace(/^\t+/u, '') : line
+            if (candidate === heredoc.delimiter)
+            {
+                heredoc = pendingHeredocs.shift() ?? null
+            }
+            continue
+        }
+
+        let quote = continuedQuote
+        if (quote !== null)
+        {
+            ignored.add(lineIndex)
+        }
+        let escaped = false
+        for (let index = 0; index < line.length; index += 1)
+        {
+            const character = line[index]
+            if (quote === "'")
+            {
+                if (character === "'")
+                {
+                    quote = null
+                }
+                continue
+            }
+            if (quote === '"' || quote === '`')
+            {
+                if (escaped)
+                {
+                    escaped = false
+                    continue
+                }
+                if (character === '\\')
+                {
+                    escaped = true
+                    continue
+                }
+                if (character === quote)
+                {
+                    quote = null
+                }
+                continue
+            }
+            if (escaped)
+            {
+                escaped = false
+                continue
+            }
+            if (character === '\\')
+            {
+                escaped = true
+                continue
+            }
+            if (character === '#'
+                && (index === 0 || /\s/u.test(line[index - 1])))
+            {
+                break
+            }
+            if (character === '<' && line[index + 1] === '<' && line[index + 2] !== '<')
+            {
+                let cursor = index + 2
+                let stripTabs = false
+                if (line[cursor] === '-')
+                {
+                    stripTabs = true
+                    cursor += 1
+                }
+                while (/\s/u.test(line[cursor] ?? ''))
+                {
+                    cursor += 1
+                }
+                const delimiterQuote = line[cursor] === "'" || line[cursor] === '"'
+                    ? line[cursor]
+                    : null
+                if (delimiterQuote)
+                {
+                    cursor += 1
+                }
+                else if (line[cursor] === '\\')
+                {
+                    cursor += 1
+                }
+                const start = cursor
+                if (delimiterQuote)
+                {
+                    while (cursor < line.length && line[cursor] !== delimiterQuote)
+                    {
+                        cursor += 1
+                    }
+                }
+                else
+                {
+                    while (/[A-Za-z0-9_]/u.test(line[cursor] ?? ''))
+                    {
+                        cursor += 1
+                    }
+                }
+                const delimiter = line.slice(start, cursor)
+                if (delimiter)
+                {
+                    pendingHeredocs.push({ delimiter, stripTabs })
+                    index = cursor
+                }
+                continue
+            }
+            if (character === "'" || character === '"' || character === '`')
+            {
+                quote = character
+            }
+        }
+        continuedQuote = quote
+        if (continuedQuote === null && pendingHeredocs.length > 0 && !/\\\s*$/u.test(line))
+        {
+            heredoc = pendingHeredocs.shift()
+        }
+    }
+    return ignored
+}
+
+function CheckFourSpaceIndent(file, content, ignoredLines = new Set())
 {
     const lines = content.split(/\r?\n/u)
     for (let index = 0; index < lines.length; index += 1)
     {
         const line = lines[index]
-        if (line.trim() && LeadingSpaces(line) % 4 !== 0)
+        if (!ignoredLines.has(index) && line.trim() && LeadingSpaces(line) % 4 !== 0)
         {
             AddDiagnostic(file, index + 1, 'indent', 'indentation must be a multiple of 4 spaces')
         }
@@ -741,10 +877,88 @@ function CheckCMake(file, content, argumentsValue)
     }
 }
 
+function HasUnsafeShellExpansion(line)
+{
+    const trimmed = line.trim()
+    if (!trimmed
+        || trimmed.startsWith('#')
+        || /^(?:export|readonly|local|declare|typeset)\b/u.test(trimmed)
+        || /^[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\])?\+?=/u.test(trimmed)
+        || /^\[\[.*\]\](?:\s*(?:&&|\|\|).*)?$/u.test(trimmed)
+        || /^\(\(.*\)\)(?:\s*(?:&&|\|\|).*)?$/u.test(trimmed)
+        || /^case\s+/u.test(trimmed))
+    {
+        return false
+    }
+
+    let quote = null
+    let escaped = false
+    for (let index = 0; index < line.length; index += 1)
+    {
+        const character = line[index]
+        if (quote === "'")
+        {
+            if (character === "'")
+            {
+                quote = null
+            }
+            continue
+        }
+        if (quote === '"' || quote === '`')
+        {
+            if (escaped)
+            {
+                escaped = false
+                continue
+            }
+            if (character === '\\')
+            {
+                escaped = true
+                continue
+            }
+            if (character === quote)
+            {
+                quote = null
+            }
+            continue
+        }
+        if (escaped)
+        {
+            escaped = false
+            continue
+        }
+        if (character === '\\')
+        {
+            escaped = true
+            continue
+        }
+        if (character === '#'
+            && (index === 0 || /\s/u.test(line[index - 1])))
+        {
+            break
+        }
+        if (character === "'" || character === '"' || character === '`')
+        {
+            quote = character
+            continue
+        }
+        if (character === '$'
+            && (/[A-Za-z_{(]/u.test(line[index + 1] ?? '')))
+        {
+            return true
+        }
+    }
+    return false
+}
+
 function CheckShell(file, content, argumentsValue)
 {
-    CheckFourSpaceIndent(file, content)
     const lines = content.split(/\r?\n/u)
+    const ignoredLines = ShellIgnoredLineIndexes(content)
+    const shellContent = lines
+        .map((line, index) => ignoredLines.has(index) ? '' : line)
+        .join('\n')
+    CheckFourSpaceIndent(file, content, ignoredLines)
     if (!lines[0]?.startsWith('#!'))
     {
         AddDiagnostic(file, 1, 'shell-shebang', 'shell scripts require an explicit interpreter')
@@ -754,13 +968,17 @@ function CheckShell(file, content, argumentsValue)
     {
         AddDiagnostic(file, 1, 'shell-strict-mode', 'shell scripts require set -euo pipefail')
     }
-    if (/\b(?:mktemp|coproc)\b|(?:^|\s)&\s*(?:#.*)?$/mu.test(content)
-        && !/^\s*trap\s+.+\b(?:EXIT|RETURN)\b/mu.test(content))
+    if (/\b(?:mktemp|coproc)\b|(?:^|\s)&\s*(?:#.*)?$/mu.test(shellContent)
+        && !/^\s*trap\s+.+\b(?:EXIT|RETURN)\b/mu.test(shellContent))
     {
         AddDiagnostic(file, 1, 'shell-cleanup-trap', 'temporary or background resources require an EXIT/RETURN cleanup trap')
     }
     for (let index = 0; index < lines.length; index += 1)
     {
+        if (ignoredLines.has(index))
+        {
+            continue
+        }
         const functionMatch = lines[index].match(/^\s*(?:function\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(?:\(\))?\s*\{/u)
         if (functionMatch && !/^[A-Z][A-Za-z0-9]*$/u.test(functionMatch[1]))
         {
@@ -776,8 +994,7 @@ function CheckShell(file, content, argumentsValue)
         {
             AddDiagnostic(file, index + 1, 'shell-export-name', `${exportMatch[1]} must use UPPER_SNAKE_CASE`)
         }
-        const unsafeExpansion = lines[index].match(/(^|[^'"\\])\$[A-Za-z_][A-Za-z0-9_]*/u)
-        if (unsafeExpansion && !/^\s*(?:#|export\s|readonly\s)/u.test(lines[index]))
+        if (HasUnsafeShellExpansion(lines[index]))
         {
             AddDiagnostic(file, index + 1, 'shell-quote', 'quote variable expansions unless intentional word splitting is documented')
         }
@@ -786,7 +1003,7 @@ function CheckShell(file, content, argumentsValue)
     const shellcheck = policy.standardTools.shellLint.command
     if (IsCommandAvailable(shellcheck))
     {
-        const result = Run(shellcheck, ['--rcfile', policy.standardTools.shellLint.configuration, file])
+        const result = Run(shellcheck, [file])
         if (result.status !== 0)
         {
             ToolFailure(file, 'shellcheck', result)
