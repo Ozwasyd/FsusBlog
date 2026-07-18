@@ -35,9 +35,9 @@ Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake
 
 | C# mother rule | Cross-language mapping |
 | --- | --- |
-| namespace、type、public member、method、local function 使用 `PascalCase` | TS class/type/component 使用 `PascalCase`；Vue component 文件使用 `PascalCase.vue`；C++ public type 使用 `PascalCase` |
+| namespace、type、public member、method、local function 使用 `PascalCase` | TS class/type/component 使用 `PascalCase`；Vue component 文件使用 `PascalCase.vue`；C++ public type 与 Shell function 使用 `PascalCase` |
 | interface 使用 `I` + `PascalCase` | 仅 C# interface 强制 `I`；TS structural type 不机械添加 `I` |
-| parameter/local 使用 `camelCase` | TS/JS/C++ local、Shell local function name 的可表达部分沿用 `camelCase` |
+| parameter/local 使用 `camelCase` | TS/JS/C++ local 与 Shell local variable 使用 `camelCase` |
 | private instance field 使用 `_camelCase` | C# 强制；其他语言在不违背生态和 formatter 时使用 `camelCase` 或私有语法 |
 | private static field 使用 `s_camelCase` | C# 强制；TS/JS static private field 使用语言私有语法并保留 `camelCase` |
 | thread-static field 使用 `t_camelCase` | 只在支持该存储语义的语言中使用；不得把普通异步上下文变量伪装成 thread-static |
@@ -82,7 +82,7 @@ Allman braces 适用于 C# 和仓库手写 C++。TS/JS/Vue、CSS、Shell、CMake
 ## Shell
 
 - POSIX/Bash 语法要求高于 brace 映射；4 spaces，函数和 control block 分行清晰。
-- exported environment variable 使用 `UPPER_SNAKE_CASE`；local variable 使用 `lower_snake_case`，只在已有公共 shell API 要求时保留名称。
+- exported environment variable 使用 `UPPER_SNAKE_CASE`；仓库自有 function 使用 `PascalCase`，local variable 使用 `camelCase`；仅已登记的公共 Shell API 或环境契约保留外部名称。
 - 新脚本使用 fail-closed 参数解析、引用变量展开，并给 cleanup 安装 `trap`。
 
 ## YAML
