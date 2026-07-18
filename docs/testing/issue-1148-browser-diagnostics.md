@@ -25,7 +25,7 @@ bash tools/test/lanes/browser-diagnostics.sh nightly --workers 1
 bash tools/test/lanes/browser-diagnostics.sh manual --category geometry-motion-focus --workers 1
 ```
 
-runner 固定一个显式外层 browser worker、0 retry、串行 category/probe admission，且没有 dynamic inner browser pool。各 lane 必须继续把 Playwright/Vitest 等内层 worker 固定为 1，不能读取 live CPU、free memory 或 load 扩张。runner 按 `run/category/probe` 隔离 namespace、日志、Playwright output 和 artifact snapshot；执行每个 probe 前先删除它在 catalog 声明的 canonical artifact，成功退出后要求每个声明文件非空、声明目录非空，再复制到当前 probe 的 `artifacts/`。缺失、空文件、空目录或 symlink 都按 `infra` fail closed，因此旧 canonical artifact 不能被当前 receipt 接受。每类生成独立 summary，最终 receipt 记录 planned/executed 数、artifact contract、immutable build/source identity、clean/pinned FsusUI source/theme digest 及 `diagnostic`/`infra` failure class。某个 probe 失败不阻止后续独立 probe 收集 evidence，最终统一返回失败。
+runner 固定一个显式外层 browser worker、串行 category/probe admission，且没有 dynamic inner browser pool。默认 crash retry 为 0；只有 #1151 receipt 治理显式启用时，才允许对明确 browser process crash 做一次有限 retry。各 lane 必须继续把 Playwright/Vitest 等内层 worker 固定为 1，不能读取 live CPU、free memory 或 load 扩张。runner 按 `run/category/probe/attempt` 隔离 namespace、日志、Playwright output 和 artifact snapshot；执行每个 probe 前先删除它在 catalog 声明的 canonical artifact，成功退出后要求每个声明文件非空、声明目录非空，再复制到当前 probe 的 `artifacts/`。缺失、空文件、空目录或 symlink 都按 `infra-failure` fail closed，因此旧 canonical artifact 不能被当前 receipt 接受。每类生成独立 summary，最终 receipt 记录 cadence/trigger、browser/viewport/theme/lane、planned/executed/skipped、incomplete reason、crash retry count、每次 attempt 的 test IDs/failure class/artifact、immutable build/source identity、clean/pinned FsusUI source/theme digest。某个 probe 失败不阻止后续独立 probe 收集 evidence，最终统一返回失败。
 
 `.github/workflows/browser-diagnostics.yml` 只有 `schedule` 与 `workflow_dispatch` 触发。它先生产并验证 immutable Production build，再用显式跨私有仓库只读 token checkout 固定 FsusUI commit 到 run-local 路径、安装其 lockfile 依赖并执行本地 `build:theme`，随后校验 clean HEAD 与 source/theme digest，再安装 FsusBlog lockfile 对应的 Chromium/Firefox/WebKit 并运行 diagnostics。该流程不发布 FsusUI、不修改 package version、registry 或 FsusBlog lockfile；FsusBlog 只通过 `FSUSBLOG_LOCAL_FSUSUI_ROOT` alias 消费这份 source/dist。
 
@@ -48,6 +48,6 @@ canonical `.tmp/browser-diagnostics-runtime/geometry-motion-focus/geometry-motio
 
 ## 失败分类与回退
 
-assertion/threshold mismatch 归类为 `diagnostic`，browser launch/crash/OOM/disconnect 与超时归类为 `infra`；两类都使本次 diagnostics receipt 失败并保留 artifact，但 `affectsCorrectness=false`。不得用降低 screenshot threshold、忽略 console/page errors、suite retry 或旧 summary 生成 clean pass。
+assertion/URL/data/visual/threshold mismatch 归类为 `diagnostic`，browser install/launch/crash/OOM/disconnect 与 fixture/bootstrap failure 归类为 `infra-failure`；两类都使本次 diagnostics receipt 失败并保留 artifact，但 `affectsCorrectness=false`。只有明确 crash 可进入有限 retry；重试后通过必须标记 `diagnostic-passed-after-infra-retry`，多个 attempt 在不同测试失败时标记 `unstable-topology`。不得用降低 screenshot threshold、忽略 console/page errors、generic suite retry 或旧 summary 生成 clean pass。完整规则见 [`issue-1151-evidence-governance.md`](issue-1151-evidence-governance.md)。
 
 回退无需重启应用服务：暂停 scheduled/manual diagnostics workflow，或选择单类手动复现即可。普通 correctness DAG 与其轻量 replacement 继续按自身证据给出结论。

@@ -112,6 +112,7 @@ function tierRow(tier) {
     tier.risk,
     tier.cadence,
     tier.requiredFor,
+    tier.evidenceClass ?? 'correctness',
     tierSmartGateMode(tier),
     tier.prDefault === true ? 'yes' : 'no',
     tier.retentionClass ?? '-',
@@ -136,8 +137,8 @@ function tierRow(tier) {
 
 function tableFor(tiers) {
   const lines = [
-    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Smart gate | PR default | Retention | Trigger reason | Resource weights | Cost | Parallelism | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Sharding | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Evidence class | Smart gate | PR default | Retention | Trigger reason | Resource weights | Cost | Parallelism | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Sharding | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of tiers) {
     lines.push(tierRow(tier))
@@ -175,7 +176,7 @@ function ciJobRows(matrix) {
   }
   const jobs = new Map()
   for (const tier of matrix.tiers.filter(isWorkflowTier)) {
-    const job = jobs.get(tier.ciJob) ?? { id: tier.ciJob, tiers: [], timeoutMinutes: 0, shards: 1, requiresPlaywright: 'none', cacheProfile: 'none' }
+    const job = jobs.get(tier.ciJob) ?? { id: tier.ciJob, tiers: [], timeoutMinutes: 0, shards: 1, requiresPlaywright: 'none', cacheProfile: 'none', evidenceClasses: new Set() }
     job.tiers.push(tier)
     job.timeoutMinutes = Math.max(job.timeoutMinutes, Number(tier.timeoutMinutes) || 0)
     job.dynamicShards = job.dynamicShards || tier.shardable === true
@@ -186,12 +187,13 @@ function ciJobRows(matrix) {
     if (tier.requiresPlaywright === 'all') job.requiresPlaywright = 'all'
     else if (tier.requiresPlaywright === 'chromium' && job.requiresPlaywright === 'none') job.requiresPlaywright = 'chromium'
     job.cacheProfile = combineCacheProfile(job.cacheProfile, tier.cacheProfile)
+    job.evidenceClasses.add(tier.evidenceClass ?? (tier.ciJob === 'browser-diagnostics' ? 'diagnostic' : 'correctness'))
     jobs.set(job.id, job)
   }
 
   const lines = [
-    '| CI job | Execution | Local reproduction command | Matrix tiers | Phase | Setup/cache | PW workers | Max timeout | Sharding | Parallelism |',
-    '|---|---|---|---|---:|---|---:|---:|---:|---:|'
+    '| CI job | Execution | Local reproduction command | Matrix tiers | Evidence class | Phase | Setup/cache | PW workers | Max timeout | Sharding | Parallelism |',
+    '|---|---|---|---|---|---:|---|---:|---:|---:|---:|'
   ]
   for (const job of [...jobs.values()].sort((left, right) => left.id.localeCompare(right.id))) {
     lines.push([
@@ -199,6 +201,7 @@ function ciJobRows(matrix) {
       `\`${ciJobExecutionMode(job)}\``,
       `\`${ciJobReproductionCommand(job)}\``,
       job.tiers.map((tier) => `\`${tier.id}\``).join(', '),
+      [...job.evidenceClasses].sort().join(', '),
       String(job.phase ?? 0),
       [
         job.requiresNode ? 'node' : null,

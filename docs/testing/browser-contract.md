@@ -2,6 +2,8 @@
 
 `tests/browser-contract/run.mjs` 是 release-final 唯一的真实浏览器 correctness 探针。它直接使用 Playwright Library 启动 lockfile 对应的 managed Chromium，不经过 Playwright Test worker pool、shard 或 suite retry。
 
+在 evidence 治理中，它的 class 固定为 `browser-contract`，不是普通 `correctness` 或 `diagnostic`。Production Summary 不消费该 receipt；Release Final 缺少成功且 source/build/digest 绑定一致的 receipt 时 fail closed。三类 receipt、infra failure 与迁移 manifest 规则见 [`issue-1151-evidence-governance.md`](issue-1151-evidence-governance.md)。
+
 固定拓扑：
 
 - 1 次 Chromium launch、最多 1 个并发 browser root；

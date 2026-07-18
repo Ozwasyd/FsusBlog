@@ -322,6 +322,18 @@ expectMatrixValidateFailure(
 )
 
 expectMatrixValidateFailure(
+  replaceTierField(matrixSourceText, 'production-correctness', 'evidenceClass', 'diagnostic'),
+  'production-correctness must use requiresPlaywright=none, requiredFor=production, and evidenceClass=correctness',
+  'production correctness evidence must stay authoritative and browserless'
+)
+
+expectMatrixValidateFailure(
+  replaceTierField(matrixSourceText, 'acceptance', 'evidenceClass', 'correctness'),
+  'acceptance.requiresPlaywright=chromium requires evidenceClass=diagnostic',
+  'real browser diagnostics must not be relabeled as correctness'
+)
+
+expectMatrixValidateFailure(
   replaceTierField(matrixSourceText, 'browser-contract', 'resourceClass', 'network'),
   'browser-contract.requiresPlaywright=chromium requires resourceClass=browser',
   'every browser tier must declare the browser resource boundary'
@@ -643,6 +655,7 @@ requireFileIncludes(
   requireCondition(
     production?.requiresPlaywright === 'none'
       && production?.requiredFor === 'production'
+      && production?.evidenceClass === 'correctness'
       && production?.dependsOn?.includes('release-evidence')
       && !production?.dependsOn?.includes('acceptance'),
     'production-correctness must be the browserless production aggregate'
@@ -651,6 +664,7 @@ requireFileIncludes(
     contract?.ciJob === 'browser-contract'
       && contract?.resourceClass === 'browser'
       && contract?.requiresPlaywright === 'chromium'
+      && contract?.evidenceClass === 'browser-contract'
       && contract?.parallelizable === false
       && contract?.timeoutMinutes === 10
       && contract?.selfBootstraps === true,
@@ -659,11 +673,13 @@ requireFileIncludes(
   requireCondition(
     acceptance?.ciJob === 'browser-diagnostics'
       && acceptance?.requiredFor === 'none'
+      && acceptance?.evidenceClass === 'diagnostic'
       && acceptance?.nightlyOnly === true,
     'legacy acceptance must be diagnostics-only'
   )
   requireCondition(
     releaseFinal?.requiresPlaywright === 'none'
+      && releaseFinal?.evidenceClass === 'correctness'
       && releaseFinal?.dependsOn?.includes('production-correctness')
       && releaseFinal?.dependsOn?.includes('browser-contract'),
     'release-final must aggregate browserless correctness and exactly one Browser Contract'

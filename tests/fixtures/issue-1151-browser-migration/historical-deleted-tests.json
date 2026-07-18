@@ -1,0 +1,288 @@
+{
+  "schema": "fsusblog.browser-test-baseline.v1",
+  "sourceCommit": "73c9c087185e69925aa4fee8593feec3f858051c",
+  "scopes": [
+    "tests/frontend/e2e",
+    "tests/tools/runtime-browser-resource-plan.test.mjs",
+    "tests/tools/ux-risk-elastic-pool.test.mjs"
+  ],
+  "recordCount": 69,
+  "records": [
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#audit-log-facet-summary-supports-quick-filter-url-toggle-0c520b6ca5"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#category-tag-settings-users-and-admin-message-center-sup-82a6b25819"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#dashboard-article-write-and-admin-workbench-actions-stay-b1a6a0529b"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#mobile-drawer-write-draft-and-quick-taxonomy-actions-sta-27a23f27fe"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#moderation-workbench-applies-a-real-pending-comment-acti-05fd2be668"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#module-ia-preserves-deep-links-browser-back-local-curren-a6cc980e4e"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#visible-admin-routes-render-cleanly-c3e6ee4f99"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts#keeps-hash-targets-below-the-header-and-closes-the-stick-d88cc1151d"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/auth-flows.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#login-and-register-failures-stay-inline-and-explicit-7761569693"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/auth-flows.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#register-entry-enables-only-after-agreement-and-keeps-st-85e29ffd90"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts#rapid-reversal-and-every-consumer-close-path-converge-on-fb01718fda"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts#ssr-shell-remains-closed-through-hydration-and-reduced-m-a218d39ea8"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-mobile-menu-motion.spec.ts#theme-consumer-menu-uses-fsusui-enter-leave-motion-and-p-08fb4e6ad7"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#home-article-a-article-b-archive-category-tag-home-and-h-460e81e998"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#home-fallback-and-article-social-images-load-with-cohere-22e82c1f6e"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#invalid-public-urls-stay-404-before-hydration-and-get-ma-63cc0a1241"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#legacy-tag-name-redirects-once-to-the-stable-id-canonica-0239e23c59"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#no-javascript-direct-loads-expose-the-same-authoritative-bf11462acd"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#nonce-is-unique-and-production-trusted-types-reject-raw--442c7d0085"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#search-is-server-noindex-bounded-to-one-url-and-stays-no-74a10d8d56"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#trailing-slash-redirects-once-to-the-canonical-path-001e9e869f"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/public-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/release-asset-compatibility.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/release-asset-compatibility.spec.ts#keeps-a-delayed-n-1-page-old-service-worker-cache-and-bo-af9da8c421"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#admin-account-login-does-not-trigger-mfa-and-routes-stay-137fa61845"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#admin-key-routes-render-first-screen-without-runtime-err-7e08ca0395"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#anonymous-routes-stay-stable-c53f6e7785"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#aot-home-click-article-should-navigate-to-article-withou-9fa2a8fe22"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#article-detail-flow-renders-body-comments-and-reading-no-74c0374ffb"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#dev-entry-serves-public-aot-for-public-routes-and-spa-sh-6fd28a726d"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#guest-account-login-does-not-trigger-mfa-and-routes-stay-a2c96217f1"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#protected-redirect-flow-lands-on-requested-page-after-lo-a25fc2ddc1"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#public-aot-route-can-return-home-without-remount-or-hydr-aee9b5dccb"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#public-aot-silently-takes-over-full-app-after-first-inte-394354e37c"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#search-flow-renders-and-allows-sort-switching-without-ru-55d7144778"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/spa-routes.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#user-center-routes-render-key-panels-without-runtime-err-84fcb27128"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#message-center-can-create-a-ticket-and-open-detail-clean-ffcadfa54d"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#passkey-section-is-accessible-and-opens-registration-mod-be56f40ffe"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#profile-session-actions-and-delete-guard-stay-aligned-9113d42b9d"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/acceptance/user-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#visible-user-routes-load-without-runtime-noise-db512e9f8c"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/debug-passkey.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/debug-passkey.spec.ts#passkey-login-button-triggers-authentication-flow-14e1a2b75b"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts#captures-every-route-for-human-layout-review-335062215d"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/resilience/markdown-extreme.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/resilience/markdown-extreme.spec.ts#500k-markdown-latex-mermaid-draft-preview-and-restore-st-96b1ffa3fe"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/security/captcha-challenge.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/security/captcha-challenge.spec.ts#captchav1-worker-exposes-canvas-fallback-and-fails-close-fc1cb79d63"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/security/captcha-challenge.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/security/captcha-challenge.spec.ts#renders-locally-accepts-mobile-safe-input-and-solves-pow-9f665456f5"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/security/perception-v2-worker.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/security/perception-v2-worker.spec.ts#renders-through-a-module-worker-and-uses-offscreencanvas-756a5114a3"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/security/perception-v2-worker.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/security/perception-v2-worker.spec.ts#renders-with-canvas-fallback-and-returns-recoverable-wor-b43a540f11"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/security/pospace-worker.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/security/pospace-worker.spec.ts#returns-unsupported-for-mobile-memory-cap-forced-slow-de-0b95f720f9"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/security/pospace-worker.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/security/pospace-worker.spec.ts#solves-inside-a-worker-without-blocking-the-page-tick-lo-35cdbeb314"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/security/risk-control-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/security/risk-control-console.spec.ts#insufficient-permission-is-represented-by-system-config--7001fead48"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/security/risk-control-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/security/risk-control-console.spec.ts#normal-read-uses-binary-aeds-data-for-active-policy-even-c3825ce18b"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/security/risk-control-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/security/risk-control-console.spec.ts#policy-writes-without-admin-sensitive-proof-are-rejected-4e50a0bf95"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/security/risk-control-console.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/security/risk-control-console.spec.ts#simulator-dry-run-covers-allow-challenge-queue-and-block-0a4835a1cf"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/ux/viewport-boundaries.spec.ts",
+      "sourceTestId": "playwright-dynamic:tests/frontend/e2e/ux/viewport-boundaries.spec.ts"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts#keeps-every-task-actionable-and-the-ledger-compact-8742b31ccb"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/visual/console-visual.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#admin-workbench-pages-stay-visually-stable-31d156d2c9"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/visual/console-visual.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#shows-every-task-the-summary-and-the-migrated-help-actio-36a7ede382"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/visual/console-visual.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/visual/public-visual.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/visual/public-visual.spec.ts#key-public-pages-keep-visual-contract-13c24e5998"
+    },
+    {
+      "sourceFile": "tests/frontend/e2e/visual/public-visual.spec.ts",
+      "sourceTestId": "vitest:tests/frontend/e2e/visual/public-visual.spec.ts#scenario-name-resolves-article-colors-from-the-same-sema-6aaf66ec65"
+    },
+    {
+      "sourceFile": "tests/tools/runtime-browser-resource-plan.test.mjs",
+      "sourceTestId": "node-test:tests/tools/runtime-browser-resource-plan.test.mjs#runtime-ux-explicit-worker-request-remains-an-exact-uppe-6c03397984"
+    },
+    {
+      "sourceFile": "tests/tools/runtime-browser-resource-plan.test.mjs",
+      "sourceTestId": "node-test:tests/tools/runtime-browser-resource-plan.test.mjs#runtime-ux-workers-use-browser-memory-capacity-when-it-e-1f82bb55a2"
+    },
+    {
+      "sourceFile": "tests/tools/ux-risk-elastic-pool.test.mjs",
+      "sourceTestId": "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#persistent-ux-pool-cancellation-destroys-active-workers--6cd70a593d"
+    },
+    {
+      "sourceFile": "tests/tools/ux-risk-elastic-pool.test.mjs",
+      "sourceTestId": "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#persistent-ux-pool-retries-only-a-browser-crash-and-neve-1d9513b14b"
+    },
+    {
+      "sourceFile": "tests/tools/ux-risk-elastic-pool.test.mjs",
+      "sourceTestId": "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#persistent-ux-workers-reuse-one-browser-while-capacity-g-d813d17c69"
+    },
+    {
+      "sourceFile": "tests/tools/ux-risk-elastic-pool.test.mjs",
+      "sourceTestId": "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#production-ux-risk-defaults-to-public-api-persistent-bro-4a7932a532"
+    },
+    {
+      "sourceFile": "tests/tools/ux-risk-elastic-pool.test.mjs",
+      "sourceTestId": "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#ux-execution-group-filtering-leaves-the-complete-risk-pl-6b603740bd"
+    },
+    {
+      "sourceFile": "tests/tools/ux-risk-elastic-pool.test.mjs",
+      "sourceTestId": "node-test:tests/tools/ux-risk-elastic-pool.test.mjs#ux-route-theme-pool-expands-1-to-2-to-4-without-restarti-a51cfcb37e"
+    }
+  ]
+}

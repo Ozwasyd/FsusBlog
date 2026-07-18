@@ -73,12 +73,20 @@ jobs:
     timeout-minutes: 5
     outputs:
       pr_smart_gate_summary: ${{ steps.smart.outputs.pr_smart_gate_summary }}
+      plan_content_digest: ${{ steps.smart.outputs.plan_content_digest }}
+      plan_source_commit: ${{ steps.smart.outputs.plan_source_commit }}
+      plan_source_fingerprint: ${{ steps.smart.outputs.plan_source_fingerprint }}
+      plan_run_id: ${{ steps.smart.outputs.plan_run_id }}
+      plan_run_attempt: ${{ steps.smart.outputs.plan_run_attempt }}
       coverage_backend: ${{ steps.smart.outputs.coverage_backend }}
       coverage_frontend: ${{ steps.smart.outputs.coverage_frontend }}
       coverage_merge_threshold: ${{ steps.smart.outputs.coverage_merge_threshold }}
       integration_runtime: ${{ steps.smart.outputs.integration_runtime }}
+      endpoint_depth_runtime: ${{ steps.smart.outputs.endpoint_depth_runtime }}
+      cross_stack_contract: ${{ steps.smart.outputs.cross_stack_contract }}
       release_public: ${{ steps.smart.outputs.release_public }}
       security_runtime: ${{ steps.smart.outputs.security_runtime }}
+      security_static_fuzz: ${{ steps.smart.outputs.security_static_fuzz }}
       browser_contract: ${{ steps.smart.outputs.browser_contract }}
       resilience_runtime: ${{ steps.smart.outputs.resilience_runtime }}
       load_smoke: ${{ steps.smart.outputs.load_smoke }}
@@ -86,6 +94,7 @@ jobs:
       backend_qps_collectors_matrix: ${{ steps.smart.outputs.backend_qps_collectors_matrix }}
       backend_qps_collectors_max_parallel: ${{ steps.smart.outputs.backend_qps_collectors_max_parallel }}
       backend_qps: ${{ steps.smart.outputs.backend_qps }}
+      perf_regression: ${{ steps.smart.outputs.perf_regression }}
       production_build_artifacts: ${{ steps.smart.outputs.production_build_artifacts }}
       production_build_domains: ${{ steps.smart.outputs.production_build_domains }}
       production_build_domains_json: ${{ steps.smart.outputs.production_build_domains_json }}
@@ -467,7 +476,8 @@ jobs:
   cross-stack-contract:
     name: Cross Stack Contract
     runs-on: ubuntu-latest
-    needs: [fast-frontend-unit, fast-static-governance]
+    needs: [plan-pr-risk, fast-frontend-unit, fast-static-governance]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.cross_stack_contract == 'true'
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -539,7 +549,8 @@ jobs:
   endpoint-depth-runtime:
     name: Endpoint Depth Runtime
     runs-on: ubuntu-latest
-    needs: [production-build-artifacts, integration-runtime]
+    needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.endpoint_depth_runtime == 'true'
     timeout-minutes: 35
     env:
       FSUSBLOG_TEST_NAMESPACE: ci-endpoint-depth-${{ github.run_id }}-${{ github.run_attempt }}
@@ -672,7 +683,8 @@ jobs:
   security-static-fuzz:
     name: Security Static Fuzz
     runs-on: ubuntu-latest
-    needs: frontend-build
+    needs: [plan-pr-risk, frontend-build]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.security_static_fuzz == 'true'
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -754,6 +766,11 @@ jobs:
       # the shared acceptance bootstrap, another Playwright shard, or retries.
       - name: Run the single release Browser Contract
         run: ./tools/test.sh ci-tier browser-contract --no-deps
+      - name: Validate Browser Contract receipt schema
+        env:
+          FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+          FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+        run: node tools/release/test-evidence-receipts-cli.mjs validate-browser-contract .tmp/browser-contract/receipt.json
       - id: contract_receipt
         name: Export Browser Contract receipt identity
         run: |
@@ -948,7 +965,8 @@ jobs:
   perf-regression:
     name: Perf Regression
     runs-on: ubuntu-latest
-    needs: [validate-matrix, production-build-artifacts, frontend-build]
+    needs: [plan-pr-risk, validate-matrix, production-build-artifacts, frontend-build]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.perf_regression == 'true'
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -1086,6 +1104,9 @@ jobs:
       - name: Check required job results
         env:
           QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
+          FSUSBLOG_CI_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+          FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+          FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
         run: node tools/ci/summarize-quality-gate.mjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
@@ -1094,4 +1115,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
           include-hidden-files: true
-          path: .tmp/release-evidence/jobs/**
+          path: |
+            .tmp/release-evidence/jobs/**
+            .tmp/release-evidence/browserless-correctness-receipt.json

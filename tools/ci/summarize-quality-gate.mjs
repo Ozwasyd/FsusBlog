@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -16,6 +17,98 @@ function findFiles(dir, predicate, results = []) {
     else if (predicate(file)) results.push(file)
   }
   return results
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]))
+}
+
+function contentDigest(value) {
+  const { contentDigest: _ignored, ...content } = value
+  return `sha256:${crypto.createHash('sha256').update(JSON.stringify(canonicalize(content))).digest('hex')}`
+}
+
+function normalizeFingerprint(value) {
+  return String(value ?? '').trim().replace(/^sha256:/u, '')
+}
+
+function loadPrSmartGatePlan() {
+  const configured = process.env.FSUSBLOG_CI_PR_SMART_GATE_PLAN
+  const candidates = configured
+    ? [path.resolve(root, configured)]
+    : [
+        path.join(root, '.tmp/pr-plan.json'),
+        path.join(root, '.tmp/release-evidence/pr-smart-gate-summary.json'),
+        ...findFiles(path.join(root, '.tmp/downloaded-artifacts'), (file) => file.endsWith('.json'))
+      ]
+  const matches = []
+  for (const file of [...new Set(candidates)]) {
+    if (!fs.existsSync(file)) continue
+    let plan
+    try {
+      plan = JSON.parse(fs.readFileSync(file, 'utf8'))
+    } catch (error) {
+      if (configured) throw error
+      continue
+    }
+    if (plan.schema !== 'fsusblog.pr-smart-gate.v1') continue
+    if (plan.contentDigest !== contentDigest(plan)) throw new Error('PR smart gate plan content digest mismatch')
+    for (const field of ['selectedTierIds', 'skippedTierIds', 'selectedJobIds', 'skippedJobIds', 'summaryAuthorityJobIds']) {
+      const values = plan[field]
+      const normalized = [...new Set((values ?? []).map(String))].sort()
+      if (!Array.isArray(values) || JSON.stringify(values) !== JSON.stringify(normalized)) {
+        throw new Error(`PR smart gate plan ${field} must be sorted and unique`)
+      }
+    }
+    const expectedCommit = String(process.env.GITHUB_SHA ?? '').trim()
+    const expectedFingerprint = String(process.env.FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT ?? '').trim()
+    const expectedRunId = String(process.env.GITHUB_RUN_ID ?? '').trim()
+    const expectedAttempt = String(process.env.GITHUB_RUN_ATTEMPT ?? '').trim()
+    if (!expectedCommit || !expectedFingerprint || !expectedRunId || !expectedAttempt) {
+      throw new Error('quality gate summary requires current plan source and run identity')
+    }
+    if (plan.sourceState?.commit !== expectedCommit
+      || normalizeFingerprint(plan.sourceState?.worktreeFingerprint) !== normalizeFingerprint(expectedFingerprint)) {
+      throw new Error('PR smart gate plan source identity is stale')
+    }
+    if (String(plan.runId) !== expectedRunId || String(plan.runAttempt) !== expectedAttempt) {
+      throw new Error('PR smart gate plan run identity is stale')
+    }
+    const expectedDigest = String(process.env.FSUSBLOG_CI_PR_PLAN_DIGEST ?? '').trim()
+    if (expectedDigest && plan.contentDigest !== expectedDigest) throw new Error('PR smart gate plan digest does not match producer output')
+    matches.push({ file, plan })
+  }
+  if (matches.length === 0) throw new Error('current PR smart gate plan is required by production summary')
+  if (new Set(matches.map(({ plan }) => plan.contentDigest)).size !== 1) {
+    throw new Error('multiple conflicting PR smart gate plans were discovered')
+  }
+  return matches[0]
+}
+
+function classifyNeedsByPlan(needs, plan) {
+  const needsJobIds = Object.keys(needs).sort()
+  if (JSON.stringify(needsJobIds) !== JSON.stringify(plan.summaryAuthorityJobIds)) {
+    throw new Error('quality gate needs do not exactly match the production-summary authority job projection')
+  }
+  const selected = new Set(plan.selectedJobIds)
+  const skipped = new Set(plan.skippedJobIds)
+  const nonSuccess = []
+  const policyErrors = []
+  for (const [name, value] of Object.entries(needs)) {
+    if (selected.has(name)) {
+      if (value?.result !== 'success') nonSuccess.push([name, value])
+      continue
+    }
+    if (skipped.has(name)) {
+      if (value?.result !== 'skipped') policyErrors.push(`policy-skipped job ${name} unexpectedly ran with ${value?.result ?? 'missing'}`)
+      continue
+    }
+    policyErrors.push(`job ${name} is not declared by the PR smart gate plan`)
+  }
+  if (policyErrors.length > 0) throw new Error(`quality gate needs do not match the PR smart gate plan: ${policyErrors.join('; ')}`)
+  return nonSuccess.sort(([left], [right]) => left.localeCompare(right))
 }
 
 function loadJobSummaries() {
@@ -57,6 +150,13 @@ function loadFlakyEvidence() {
     }
   }
   return evidence.sort((left, right) => `${left.item.suite}:${left.item.test}`.localeCompare(`${right.item.suite}:${right.item.test}`))
+}
+
+function isCorrectnessFlakyEvidence(item) {
+  if (item?.affectsCorrectness === false) return false
+  if (item?.evidenceClass === 'diagnostic' || item?.evidenceClass === 'browser-contract') return false
+  if (item?.evidenceClass === 'infra-failure') return item?.sourceEvidenceClass === 'correctness'
+  return item?.evidenceClass === undefined || item?.evidenceClass === 'correctness'
 }
 
 function latestReleaseManifest() {
@@ -218,8 +318,27 @@ function writeStepSummary(lines) {
   fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`)
 }
 
+function writeBrowserlessCorrectnessReceipt(planFile) {
+  const generator = path.join(root, 'tools/release/test-evidence-receipts-cli.mjs')
+  if (!fs.existsSync(generator)) throw new Error('browserless correctness receipt generator is missing')
+  const result = spawnSync(process.execPath, [generator, 'create-correctness'], {
+    cwd: root,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      FSUSBLOG_CORRECTNESS_SUMMARY_AUTHORITY: 'passed',
+      FSUSBLOG_CI_PR_SMART_GATE_PLAN: planFile
+    }
+  })
+  if (result.status !== 0) {
+    throw new Error((result.stderr || result.stdout || 'browserless correctness receipt generation failed').trim())
+  }
+  return '.tmp/release-evidence/browserless-correctness-receipt.json'
+}
+
 function writeProductionSummary(status, rootFailures = [], rootCause = null, flakyEvidence = [], releaseEvidence = null) {
   const outFile = path.join(root, '.tmp/release-evidence/jobs/production-summary.json')
+  fs.rmSync(path.join(root, '.tmp/release-evidence/browserless-correctness-receipt.json'), { force: true })
   fs.mkdirSync(path.dirname(outFile), { recursive: true })
   const stageDurationsMs = {
     setup: 0,
@@ -230,11 +349,13 @@ function writeProductionSummary(status, rootFailures = [], rootCause = null, fla
     artifact: 0,
     summary: 0
   }
-  fs.writeFileSync(outFile, `${JSON.stringify({
+  const summary = {
     schema: 'fsusblog.ci.job-result.v1',
     jobId: 'production-summary',
     ciJob: 'production-summary',
     tierIds: ['production-correctness'],
+    evidenceClass: 'correctness',
+    affectsCorrectness: true,
     status,
     failureStage: status === 'success' ? null : 'summary',
     rootCause: status === 'success' ? null : (rootCause ?? rootFailures.map((item) => `${item.name}:${item.value.result}`).join(', ')),
@@ -252,13 +373,25 @@ function writeProductionSummary(status, rootFailures = [], rootCause = null, fla
         }))
     },
     releaseEvidence,
-    artifacts: ['.tmp/release-evidence/jobs/production-summary.json'],
+    artifacts: [
+      '.tmp/release-evidence/jobs/production-summary.json',
+      ...(status === 'success' ? ['.tmp/release-evidence/browserless-correctness-receipt.json'] : [])
+    ],
     localReproduction: './tools/test.sh production-correctness --plan-only',
     commit: process.env.GITHUB_SHA ?? 'unknown',
+    sourceState: {
+      commit: process.env.GITHUB_SHA ?? 'unknown',
+      worktreeFingerprint: process.env.FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT ?? null
+    },
+    buildReceiptDigest: process.env.FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST ?? null,
+    prSmartGatePlanDigest: process.env.FSUSBLOG_CI_PR_PLAN_DIGEST ?? null,
     runId: process.env.GITHUB_RUN_ID ?? 'local',
     attempt: process.env.GITHUB_RUN_ATTEMPT ?? '0',
-    generatedAt: new Date().toISOString()
-  }, null, 2)}\n`)
+    generatedAt: new Date().toISOString(),
+    contentDigest: null
+  }
+  summary.contentDigest = contentDigest(summary)
+  fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`)
 }
 
 function main() {
@@ -268,17 +401,19 @@ function main() {
   }
 
   const needs = JSON.parse(rawNeeds)
+  const { file: planFile, plan } = loadPrSmartGatePlan()
   const workflowNeeds = parseWorkflowNeeds(fs.readFileSync(workflowPath, 'utf8'))
   const jobSummaries = loadJobSummaries()
   const flakyEvidence = loadFlakyEvidence()
+    .filter(({ item }) => isCorrectnessFlakyEvidence(item))
   const releaseMode = process.env.FSUSBLOG_PRODUCTION_SUMMARY_REQUIRE_RELEASE_OK === '1'
   const releaseEvidence = inspectReleaseManifest({ requireOk: releaseMode })
   const passedAfterRetry = flakyEvidence.filter(({ item }) => item.finalStatus === 'passed-after-retry')
-  const nonSuccess = Object.entries(needs)
-    .filter(([, value]) => value.result !== 'success')
-    .sort(([left], [right]) => left.localeCompare(right))
+  const nonSuccess = classifyNeedsByPlan(needs, plan)
 
   if (nonSuccess.length === 0 && releaseEvidence.ok) {
+    writeProductionSummary('success', [], null, flakyEvidence, releaseEvidence)
+    writeBrowserlessCorrectnessReceipt(planFile)
     console.log('production summary ok')
     const lines = ['## Quality Gate', '', 'All required jobs completed successfully.']
     lines.push('', '### Release Evidence', `- manifest: ${releaseEvidence.status}`, `- artifact: ${releaseEvidence.file}`)
@@ -293,7 +428,6 @@ function main() {
       }
     }
     writeStepSummary(lines)
-    writeProductionSummary('success', [], null, flakyEvidence, releaseEvidence)
     return
   }
 

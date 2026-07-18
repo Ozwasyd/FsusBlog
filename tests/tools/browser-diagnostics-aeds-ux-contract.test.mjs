@@ -110,10 +110,10 @@ test('CI stage job results classify browser diagnostics without weakening correc
     fs.mkdirSync(scriptDir, { recursive: true })
     const script = path.join(scriptDir, 'run-stage.mjs')
     fs.copyFileSync(path.join(root, 'tools/ci/run-stage.mjs'), script)
-    const run = (job) => spawnSync(process.execPath, [
+    const run = (job, exitCode = 0) => spawnSync(process.execPath, [
       script,
       '--stage', 'install',
-      '--', process.execPath, '-e', 'process.exit(0)'
+      '--', process.execPath, '-e', `process.exit(${exitCode})`
     ], {
       cwd: temp,
       encoding: 'utf8',
@@ -123,13 +123,48 @@ test('CI stage job results classify browser diagnostics without weakening correc
     assert.equal(diagnosticResult.status, 0, diagnosticResult.stderr)
     const diagnostic = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/jobs/browser-diagnostics.json'), 'utf8'))
     assert.equal(diagnostic.evidenceClass, 'diagnostic')
+    assert.equal(diagnostic.sourceEvidenceClass, 'diagnostic')
     assert.equal(diagnostic.affectsCorrectness, false)
+    assert.equal(diagnostic.failureClass, null)
+    assert.match(diagnostic.contentDigest, /^sha256:[a-f0-9]{64}$/u)
+
+    const diagnosticFailure = run('browser-diagnostics', 1)
+    assert.equal(diagnosticFailure.status, 1)
+    const failedDiagnostic = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/jobs/browser-diagnostics.json'), 'utf8'))
+    assert.equal(failedDiagnostic.status, 'failure')
+    assert.equal(failedDiagnostic.evidenceClass, 'diagnostic')
+    assert.equal(failedDiagnostic.sourceEvidenceClass, 'diagnostic')
+    assert.equal(failedDiagnostic.affectsCorrectness, false)
+    assert.equal(failedDiagnostic.failureStage, 'install')
+    assert.equal(failedDiagnostic.failureClass, 'infra-failure')
+    assert.match(failedDiagnostic.contentDigest, /^sha256:[a-f0-9]{64}$/u)
+
+    const browserContractResult = run('browser-contract')
+    assert.equal(browserContractResult.status, 0, browserContractResult.stderr)
+    const browserContract = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/jobs/browser-contract.json'), 'utf8'))
+    assert.equal(browserContract.evidenceClass, 'browser-contract')
+    assert.equal(browserContract.sourceEvidenceClass, 'browser-contract')
+    assert.equal(browserContract.affectsCorrectness, true)
+    assert.equal(browserContract.failureClass, null)
+    assert.match(browserContract.contentDigest, /^sha256:[a-f0-9]{64}$/u)
+
+    const browserContractFailure = run('browser-contract', 1)
+    assert.equal(browserContractFailure.status, 1)
+    const failedBrowserContract = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/jobs/browser-contract.json'), 'utf8'))
+    assert.equal(failedBrowserContract.status, 'failure')
+    assert.equal(failedBrowserContract.evidenceClass, 'browser-contract')
+    assert.equal(failedBrowserContract.sourceEvidenceClass, 'browser-contract')
+    assert.equal(failedBrowserContract.affectsCorrectness, true)
+    assert.equal(failedBrowserContract.failureStage, 'install')
+    assert.equal(failedBrowserContract.failureClass, 'infra-failure')
 
     const correctnessResult = run('correctness-job')
     assert.equal(correctnessResult.status, 0, correctnessResult.stderr)
     const correctness = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/jobs/correctness-job.json'), 'utf8'))
     assert.equal(correctness.evidenceClass, 'correctness')
+    assert.equal(correctness.sourceEvidenceClass, 'correctness')
     assert.equal(correctness.affectsCorrectness, true)
+    assert.equal(correctness.failureClass, null)
   } finally {
     fs.rmSync(temp, { recursive: true, force: true })
   }
@@ -165,17 +200,16 @@ test('flaky evidence writer and release-final checker isolate diagnostics from c
     const diagnosticCheck = spawnSync(process.execPath, [checker, '--release-final'], { cwd: temp, encoding: 'utf8' })
     assert.equal(diagnosticCheck.status, 0, diagnosticCheck.stderr)
 
-    const correctnessResult = writeFailure('acceptance-playwright')
-    assert.notEqual(correctnessResult.status, 0)
-    const correctness = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/flaky/acceptance-playwright.json'), 'utf8'))
-    assert.equal(correctness.evidenceClass, 'correctness')
-    assert.equal(correctness.affectsCorrectness, true)
-    assert.equal(correctness.retryCount, 1)
-    assert.equal(correctness.finalStatus, 'failed-after-retry')
-    assert.equal(correctness.attempts.length, 2)
-    const correctnessCheck = spawnSync(process.execPath, [checker, '--release-final'], { cwd: temp, encoding: 'utf8' })
-    assert.notEqual(correctnessCheck.status, 0)
-    assert.match(correctnessCheck.stderr, /correctness flaky retry\/skip evidence/u)
+    const acceptanceResult = writeFailure('acceptance-playwright')
+    assert.notEqual(acceptanceResult.status, 0)
+    const acceptance = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/flaky/acceptance-playwright.json'), 'utf8'))
+    assert.equal(acceptance.evidenceClass, 'diagnostic')
+    assert.equal(acceptance.affectsCorrectness, false)
+    assert.equal(acceptance.retryCount, 0)
+    assert.equal(acceptance.finalStatus, 'failed-no-retry')
+    assert.equal(acceptance.attempts.length, 1)
+    const acceptanceCheck = spawnSync(process.execPath, [checker, '--release-final'], { cwd: temp, encoding: 'utf8' })
+    assert.equal(acceptanceCheck.status, 0, acceptanceCheck.stderr)
   } finally {
     fs.rmSync(temp, { recursive: true, force: true })
   }

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -7,6 +8,17 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const allowedStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]))
+}
+
+function contentDigest(value) {
+  const { contentDigest: _ignored, ...content } = value
+  return `sha256:${crypto.createHash('sha256').update(JSON.stringify(canonicalize(content))).digest('hex')}`
+}
 
 function usage() {
   console.error('Usage: node tools/ci/run-stage.mjs --stage <stage> [--job <job>] -- <command> [args...]')
@@ -46,11 +58,21 @@ function stageDurations(existing, stage, durationMs) {
   return durations
 }
 
-function evidenceClassification(jobId) {
-  const diagnostic = jobId === 'browser-diagnostics'
+function evidenceClassification(jobId, stage, status) {
+  const sourceEvidenceClass = jobId === 'browser-contract'
+    ? 'browser-contract'
+    : jobId === 'browser-diagnostics'
+      ? 'diagnostic'
+      : 'correctness'
+  const diagnostic = sourceEvidenceClass === 'diagnostic'
+  const browserInfrastructureFailure = status !== 'success'
+    && ['browser-contract', 'browser-diagnostics'].includes(jobId)
+    && ['setup', 'restore', 'install', 'bootstrap'].includes(stage)
   return {
-    evidenceClass: diagnostic ? 'diagnostic' : 'correctness',
-    affectsCorrectness: !diagnostic
+    evidenceClass: sourceEvidenceClass,
+    sourceEvidenceClass,
+    affectsCorrectness: !diagnostic,
+    failureClass: browserInfrastructureFailure ? 'infra-failure' : null
   }
 }
 
@@ -64,15 +86,21 @@ function writeSummary(jobId, stage, status, durationMs, rootCause = null) {
       existing = null
     }
   }
+  const summaryStatus = status === 'success' && existing?.status ? existing.status : status
+  const failureStage = summaryStatus === 'success'
+    ? null
+    : status === 'success' ? (existing?.failureStage ?? stage) : stage
   const summary = {
     schema: 'fsusblog.ci.job-result.v1',
     jobId,
     ciJob: existing?.ciJob ?? jobId,
     tierIds: existing?.tierIds?.length ? existing.tierIds : [jobId],
-    status: status === 'success' && existing?.status ? existing.status : status,
-    ...evidenceClassification(jobId),
-    failureStage: status === 'success' ? (existing?.failureStage ?? null) : stage,
-    rootCause: status === 'success' ? (existing?.rootCause ?? null) : rootCause,
+    status: summaryStatus,
+    ...evidenceClassification(jobId, failureStage ?? stage, summaryStatus),
+    failureStage,
+    rootCause: summaryStatus === 'success'
+      ? null
+      : status === 'success' ? (existing?.rootCause ?? rootCause) : rootCause,
     durationMs: Math.max(0, Number(existing?.durationMs ?? 0)) + Math.max(0, durationMs),
     stageDurationsMs: stageDurations(existing, stage, durationMs),
     artifacts: existing?.artifacts ?? [],
@@ -80,8 +108,10 @@ function writeSummary(jobId, stage, status, durationMs, rootCause = null) {
     commit: process.env.GITHUB_SHA || existing?.commit || 'unknown',
     runId: process.env.GITHUB_RUN_ID ?? existing?.runId ?? 'local',
     attempt: process.env.GITHUB_RUN_ATTEMPT ?? existing?.attempt ?? '0',
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
+    contentDigest: null
   }
+  summary.contentDigest = contentDigest(summary)
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, `${JSON.stringify(summary, null, 2)}\n`)
 }

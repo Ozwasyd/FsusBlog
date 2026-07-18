@@ -22,7 +22,10 @@ const root = path.resolve(import.meta.dirname, '../..')
 const source = {
   commit: 'a'.repeat(40),
   worktreeFingerprint: 'b'.repeat(64),
-  build: { contentDigest: `sha256:${'c'.repeat(64)}` }
+  build: {
+    contentDigest: `sha256:${'c'.repeat(64)}`,
+    sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
+  }
 }
 const localFsusUi = {
   schema: 'fsusblog.browser-diagnostics.local-fsusui-identity.v1',

@@ -9,6 +9,10 @@ import { fileURLToPath } from 'node:url'
 
 import { verifyProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
 import {
+  sealBrowserContractReceipt,
+  validateBrowserContractReceipt
+} from '../../tools/release/test-evidence-receipts.mjs'
+import {
   BrowserContractFailure,
   browserContractScenarios,
   classifyBrowserContractFailure,
@@ -59,6 +63,23 @@ function relative(value) {
 
 function snapshotReceiptEvidence(value) {
   return value === null || value === undefined ? null : JSON.parse(JSON.stringify(value))
+}
+
+async function writeAuditedBrowserContractReceipt(file, receipt) {
+  if (file !== receiptFile) throw new BrowserContractFailure('browser contract receipt target changed during sealing', 'contract')
+  const sealed = sealBrowserContractReceipt(receipt)
+  if (sealed.status !== 'running') {
+    const errors = validateBrowserContractReceipt(sealed, { requireSuccess: false })
+    if (errors.length > 0) {
+      throw new BrowserContractFailure(
+        `browser contract produced an invalid receipt: ${errors.join('; ')}`,
+        'contract',
+        { errors }
+      )
+    }
+  }
+  Object.assign(receipt, sealed)
+  await writeBrowserContractReceipt(receiptFile, receipt)
 }
 
 async function preparePrivateDirectory(directory) {
@@ -235,7 +256,7 @@ async function main() {
     },
     startedAt: new Date(startedAtMs).toISOString()
   })
-  await writeBrowserContractReceipt(receiptFile, runningReceipt)
+  await writeAuditedBrowserContractReceipt(receiptFile, runningReceipt)
   preparedFixture = await prepareSingleBrowserContractFixture({
     env: process.env,
     repoRoot: root,
@@ -413,7 +434,7 @@ async function main() {
     }
     receipt.finishedAt = new Date().toISOString()
     receipt.wallClockMs = Date.now() - startedAtMs
-    await writeBrowserContractReceipt(receiptFile, receipt)
+    await writeAuditedBrowserContractReceipt(receiptFile, receipt)
   }
   if (receipt.status !== 'success') {
     throw Object.assign(new BrowserContractFailure(
@@ -486,7 +507,7 @@ main()
       }
       fallback.finishedAt = new Date().toISOString()
       fallback.wallClockMs = Date.now() - startedAtMs
-      if (outputValidated) await writeBrowserContractReceipt(receiptFile, fallback).catch(() => {})
+      if (outputValidated) await writeAuditedBrowserContractReceipt(receiptFile, fallback).catch(() => {})
     }
     console.error(`[browser-contract] ${classifyBrowserContractFailure(error, { browserDisconnected })} failure: ${error instanceof Error ? error.message : String(error)}`)
     process.exitCode = 1

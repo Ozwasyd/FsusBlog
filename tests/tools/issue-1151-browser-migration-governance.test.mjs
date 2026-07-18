@@ -1,0 +1,128 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import path from 'node:path'
+import test from 'node:test'
+
+import {
+  expandBrowserTestMigrationManifest,
+  historicalDeletedRecords,
+  validateReplacementTargets,
+  validateBrowserTestMigration
+} from '../../tools/check-browser-test-migration.mjs'
+
+const root = path.resolve(import.meta.dirname, '../..')
+const fixture = JSON.parse(readFileSync(
+  path.join(root, 'tests/fixtures/issue-1151-browser-migration/valid-case.json'),
+  'utf8'
+))
+
+function expanded(value = fixture) {
+  return expandBrowserTestMigrationManifest(value.manifest, () => {
+    throw new Error('the focused fixture has no imports')
+  })
+}
+
+function validate(value = fixture, records = expanded(value)) {
+  return validateBrowserTestMigration({
+    manifest: value.manifest,
+    records,
+    acceptanceBaseline: value.acceptanceBaseline,
+    acceptanceReplacements: value.acceptanceReplacements,
+    diagnosticsMigration: value.diagnosticsMigration,
+    historicalDeletedRecords: value.historicalDeletedRecords,
+    currentRecords: value.currentRecords
+  })
+}
+
+test('repository migration manifest resolves every old Browser test identity', () => {
+  const result = spawnSync(process.execPath, [
+    'tools/check-browser-test-migration.mjs',
+    '--root',
+    root
+  ], { cwd: root, encoding: 'utf8' })
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  assert.match(result.stdout, /ok records=71 historicalDeleted=44 diagnosticSources=15/u)
+})
+
+test('frozen history catches a test deleted inside a surviving Browser spec', () => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  const deleted = historicalDeletedRecords(root, manifest)
+  assert.ok(deleted.some((record) => record.sourceTestId
+    === 'vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b'))
+})
+
+test('frozen history also covers removed browser resource and elastic-pool orchestration tests', () => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  const deleted = historicalDeletedRecords(root, manifest)
+  assert.ok(deleted.some((record) => record.sourceFile
+    === 'tests/tools/runtime-browser-resource-plan.test.mjs'))
+  assert.equal(deleted.filter((record) => record.sourceFile
+    === 'tests/tools/ux-risk-elastic-pool.test.mjs').length, 6)
+})
+
+test('every declared replacement target resolves to a current file, test, contract, or diagnostic category', () => {
+  const manifest = JSON.parse(readFileSync(
+    path.join(root, 'tests/governance/browser-test-migration.json'),
+    'utf8'
+  ))
+  const records = expandBrowserTestMigrationManifest(manifest, (relativePath) => JSON.parse(
+    readFileSync(path.join(root, relativePath), 'utf8')
+  ))
+  assert.deepEqual(validateReplacementTargets(root, records), [])
+  records[0].replacementTestIds = ['vitest:tests/frontend/unit/does-not-exist.test.ts#missing']
+  assert.ok(validateReplacementTargets(root, records).some((error) => error.includes('does not exist')))
+})
+
+test('focused fixture accepts correctness, Browser Contract, diagnostics, in-place and approved removal records', () => {
+  assert.equal(expanded().length, 5)
+  assert.deepEqual(validate(), [])
+})
+
+test('an old Browser test cannot disappear without a source-ID mapping', () => {
+  const records = expanded().filter((record) => record.sourceTestId !== 'vitest:tests/frontend/e2e/old.spec.ts#old')
+  const errors = validate(fixture, records)
+  assert.ok(errors.some((error) => error.includes('unmapped Acceptance baseline test')))
+  assert.ok(errors.some((error) => error.includes('deleted since the frozen baseline without a mapping')))
+})
+
+test('a retained diagnostic identity cannot be silently deleted', () => {
+  const value = structuredClone(fixture)
+  value.currentRecords = value.currentRecords.filter(
+    (record) => record.sourceTestId !== 'vitest:tests/frontend/e2e/visual.spec.ts#visual'
+  )
+  const errors = validate(value)
+  assert.ok(errors.some((error) => error.includes('was deleted without changing its migration mapping')))
+  assert.ok(errors.some((error) => error.includes('diagnostics migration source has no active test identity')))
+})
+
+test('replacement none fails closed without an issue-bound reason and approval', () => {
+  const records = expanded()
+  const obsolete = records.find((record) => record.replacementLayer === 'none')
+  obsolete.removalReason = ''
+  obsolete.approval = null
+  const errors = validate(fixture, records)
+  assert.ok(errors.some((error) => error.includes('requires an explicit reason and issue-bound approval')))
+})
+
+test('browser-only risk cannot be declared equivalent to happy-dom', () => {
+  const records = expanded()
+  const visual = records.find((record) => record.sourceTestId === 'vitest:tests/frontend/e2e/visual.spec.ts#visual')
+  visual.replacementTestIds.push('vitest:happy-dom-equivalence')
+  const errors = validate(fixture, records)
+  assert.ok(errors.some((error) => error.includes('cannot claim happy-dom equivalence')))
+})
+
+test('#1146 replacement IDs cannot drift behind the composed authority', () => {
+  const records = expanded()
+  const old = records.find((record) => record.sourceTestId === 'vitest:tests/frontend/e2e/old.spec.ts#old')
+  old.replacementTestIds = ['vitest:tests/frontend/unit/other.test.ts#other']
+  const errors = validate(fixture, records)
+  assert.ok(errors.some((error) => error.includes('replacement IDs drifted from the #1146 retention authority')))
+})

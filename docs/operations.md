@@ -443,6 +443,8 @@ The smoke records automated `verifiedCoverage` for anonymous public pages, feeds
 
 ## Release Evidence
 
+测试证据先按 `correctness`、`browser-contract` 与 `diagnostic` 分层。普通 PR 和 `production-correctness` 必须保持零浏览器；`release-final` 只额外消费一个 source/build/digest 绑定的 Browser Contract receipt；nightly/manual diagnostics 使用独立 receipt、artifact 与 retention，不能改变 Production Summary。浏览器安装/launch/crash/disconnect、runner OOM/PID/FD exhaustion 和 fixture/bootstrap failure 记为 `infra-failure`，不能伪装成产品断言，也不能通过整套自动重试变成 clean pass。操作与回退顺序见 [`testing/issue-1151-evidence-governance.md`](testing/issue-1151-evidence-governance.md)。
+
 Collect machine-readable release evidence after gates and smoke:
 
 ```bash

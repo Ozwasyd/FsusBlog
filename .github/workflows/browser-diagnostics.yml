@@ -148,6 +148,14 @@ jobs:
             args+=(--category "$REQUESTED_CATEGORY")
           fi
           bash tools/test/lanes/browser-diagnostics.sh "$mode" --workers 1 "${args[@]}"
+      - name: Validate diagnostics receipt schema
+        if: always()
+        env:
+          FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+          FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+        run: |
+          receipt="$(node --input-type=module -e 'import fs from "node:fs"; const latest = JSON.parse(fs.readFileSync(".tmp/browser-diagnostics/latest.json", "utf8")); process.stdout.write(latest.receipt)')"
+          node tools/release/test-evidence-receipts-cli.mjs validate-diagnostics "$receipt"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:

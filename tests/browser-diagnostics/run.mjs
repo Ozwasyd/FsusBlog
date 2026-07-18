@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, execFileSync } from 'node:child_process'
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -14,6 +14,10 @@ import {
 } from './catalog.mjs'
 import { resolveLocalFsusUiIdentity } from './local-fsusui-identity.mjs'
 import { verifyProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs'
+import {
+  sealBrowserDiagnosticsReceipt,
+  validateBrowserDiagnosticsReceipt
+} from '../../tools/release/test-evidence-receipts.mjs'
 import { snapshotGitWorktree } from '../../tools/test-matrix/scheduler.mjs'
 import { resolveWorkerTestSession } from '../frontend/support/test-session.mjs'
 
@@ -30,6 +34,17 @@ function parsePositiveInteger(value, label) {
 
 function sanitizeIdentity(value) {
   return String(value).replace(/[^a-zA-Z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '').slice(0, 100) || 'local'
+}
+
+function diagnosticTrigger(mode, env) {
+  const event = String(env.GITHUB_EVENT_NAME ?? '').trim()
+  return {
+    kind: event || (mode === 'nightly' ? 'local-nightly' : 'local-manual'),
+    workflow: String(env.GITHUB_WORKFLOW ?? '').trim() || null,
+    runId: String(env.GITHUB_RUN_ID ?? '').trim() || null,
+    runAttempt: String(env.GITHUB_RUN_ATTEMPT ?? '').trim() || null,
+    ref: String(env.GITHUB_REF ?? '').trim() || null
+  }
 }
 
 export function resolveDiagnosticsOutputRoot(requestedOutputRoot, runId) {
@@ -128,8 +143,11 @@ async function resolveSourceAndBuild(options, env = process.env) {
     commit,
     worktreeFingerprint: snapshot.fingerprint,
     build: {
+      schema: verification.receipt.schema,
       receiptFile: path.relative(root, receiptFile).replaceAll(path.sep, '/'),
       contentDigest: verification.receipt.contentDigest,
+      receiptContentDigest: verification.receipt.contentDigest,
+      sourceState: verification.receipt.sourceState,
       domains: requiredDomains,
       artifactCount: verification.evidence.artifactCount,
       artifactBytes: verification.evidence.artifactBytes,
@@ -207,6 +225,15 @@ function copyArtifacts(artifacts, destination) {
 export function classifyDiagnosticFailure({ timedOut = false, signal = null, output = '', exitCode = 0 }) {
   if (timedOut || signal || infraFailurePattern.test(output)) return 'infra'
   return exitCode === 0 ? null : 'diagnostic'
+}
+
+export function classifyDiagnosticFailureKind({ timedOut = false, signal = null, output = '', exitCode = 0 }) {
+  if (exitCode === 0 && !timedOut && !signal) return null
+  if (timedOut) return 'probe-timeout'
+  if (signal) return 'runner-process-signal'
+  if (/browser (?:closed|crash|disconnect)|target .*closed/iu.test(output)) return 'browser-process-crash'
+  if (infraFailurePattern.test(output)) return 'browser-infrastructure-failure'
+  return 'diagnostic-failure'
 }
 
 export function diagnosticProbeEnvironment({ baseEnvironment, runId, categoryId, probeId, outputDir, workers }) {
@@ -309,6 +336,7 @@ function executeProbe({ probe, env, outputDir, timeoutMinutes, activeChildren })
       resolve({
         status: exitCode === 0 && !signal && !timedOut ? 'success' : 'failure',
         failureClass: classifyDiagnosticFailure({ timedOut, signal, output: outputTail, exitCode }),
+        failureKind: classifyDiagnosticFailureKind({ timedOut, signal, output: outputTail, exitCode }),
         exitCode,
         signal,
         timedOut,
@@ -320,15 +348,178 @@ function executeProbe({ probe, env, outputDir, timeoutMinutes, activeChildren })
   })
 }
 
+function probePlannedDimensions(probe) {
+  return {
+    viewports: [...new Set(probe?.plannedDimensions?.viewports ?? ['1280x800'])].sort(),
+    themes: [...new Set(probe?.plannedDimensions?.themes ?? ['light'])].sort()
+  }
+}
+
+function categoryPlannedDimensions(category) {
+  return {
+    viewports: [...new Set(category.probes.flatMap((probe) => probePlannedDimensions(probe).viewports))].sort(),
+    themes: [...new Set(category.probes.flatMap((probe) => probePlannedDimensions(probe).themes))].sort()
+  }
+}
+
+function diagnosticsDimensions(categories) {
+  const plannedViewports = categories.flatMap((category) => categoryPlannedDimensions(category).viewports)
+  const plannedThemes = categories.flatMap((category) => categoryPlannedDimensions(category).themes)
+  return {
+    browsers: [...new Set(categories.flatMap((category) => category.browsers))].sort(),
+    viewports: [...new Set(plannedViewports)].sort(),
+    themes: [...new Set(plannedThemes)].sort(),
+    lanes: categories.flatMap((category) => category.probes.map((probe) => `${category.id}/${probe.id}`)).sort()
+  }
+}
+
+function diagnosticsPlanCategories(categories) {
+  return categories.map((category) => ({
+    id: category.id,
+    browsers: category.browsers,
+    risk: category.risk,
+    replacements: category.replacements,
+    plannedDimensions: categoryPlannedDimensions(category),
+    plannedProbeIds: category.probes.map((probe) => probe.id).sort(),
+    probes: category.probes.map((probe) => ({
+      id: probe.id,
+      command: probe.command,
+      artifactPaths: probe.artifactPaths,
+      timeoutMinutes: probe.timeoutMinutes,
+      plannedDimensions: probePlannedDimensions(probe)
+    }))
+  }))
+}
+
+function initializationStage(error) {
+  return /(?:build|receipt|artifact|domain)/iu.test(error instanceof Error ? error.message : String(error))
+    ? 'build'
+    : 'source'
+}
+
+function writeDiagnosticsReceipt(outputRoot, runId, receiptInput) {
+  const receipt = sealBrowserDiagnosticsReceipt(receiptInput)
+  const errors = validateBrowserDiagnosticsReceipt(receipt)
+  if (errors.length > 0) throw new Error(`browser diagnostics produced an invalid receipt: ${errors.join('; ')}`)
+  const receiptFile = path.join(outputRoot, 'receipt.json')
+  writeJson(receiptFile, receipt)
+  const latestFile = path.join(root, '.tmp/browser-diagnostics/latest.json')
+  writeJson(latestFile, { runId, receipt: path.relative(root, receiptFile).replaceAll(path.sep, '/') })
+  return { receipt, receiptFile }
+}
+
+function writeInitializationFailure({
+  options,
+  categories,
+  baseEnvironment,
+  resources,
+  startedAtMs,
+  runId,
+  outputRoot,
+  stage,
+  error,
+  source = null,
+  localFsusUi = null
+}) {
+  const message = error instanceof Error ? error.message : String(error)
+  const dimensions = diagnosticsDimensions(categories)
+  const plannedProbeCount = browserDiagnosticProbeCount(categories)
+  const sourceState = source ? { commit: source.commit, worktreeFingerprint: source.worktreeFingerprint } : null
+  const plan = {
+    schema: 'fsusblog.browser-diagnostics-plan.v1',
+    status: 'incomplete',
+    mode: options.mode,
+    cadence: options.mode === 'nightly' ? 'nightly' : 'manual',
+    trigger: diagnosticTrigger(options.mode, baseEnvironment),
+    runId,
+    evidenceClass: 'diagnostic',
+    affectsCorrectness: false,
+    sourceState,
+    build: source?.build ?? null,
+    localFsusUi,
+    resources,
+    dimensions,
+    categories: diagnosticsPlanCategories(categories),
+    plannedCategoryCount: categories.length,
+    plannedProbeCount,
+    incompleteReason: `initialization:${stage}:${message}`
+  }
+  fs.rmSync(outputRoot, { recursive: true, force: true })
+  writeJson(path.join(outputRoot, 'plan.json'), plan)
+  const categoryResults = categories.map((category) => ({
+    id: category.id,
+    browsers: category.browsers,
+    plannedDimensions: categoryPlannedDimensions(category),
+    plannedProbeIds: category.probes.map((probe) => probe.id).sort(),
+    status: 'skipped',
+    incompleteReason: plan.incompleteReason,
+    plannedProbeCount: category.probes.length,
+    executedProbeCount: 0,
+    skippedProbeCount: category.probes.length,
+    failureClasses: ['infra-failure'],
+    probes: []
+  }))
+  const initializationFailure = {
+    stage,
+    failureClass: 'infra-failure',
+    failureKind: 'initialization-failure',
+    name: error instanceof Error ? error.name : 'Error',
+    message
+  }
+  const { receipt, receiptFile } = writeDiagnosticsReceipt(outputRoot, runId, {
+    status: 'incomplete',
+    mode: options.mode,
+    cadence: plan.cadence,
+    trigger: plan.trigger,
+    runId,
+    sourceState,
+    build: source?.build ?? null,
+    localFsusUi,
+    resources,
+    dimensions,
+    plannedCategoryCount: categories.length,
+    executedCategoryCount: 0,
+    plannedProbeCount,
+    executedProbeCount: 0,
+    skippedProbeCount: plannedProbeCount,
+    incompleteReason: plan.incompleteReason,
+    initializationFailure,
+    failureClasses: ['infra-failure'],
+    categories: categoryResults,
+    startedAt: new Date(startedAtMs).toISOString(),
+    finishedAt: new Date().toISOString(),
+    wallClockMs: Date.now() - startedAtMs,
+    createdAt: new Date().toISOString()
+  })
+  return { status: receipt.status, plan, receipt, receiptFile }
+}
+
 export async function runBrowserDiagnostics(options, dependencies = {}) {
+  const startedAtMs = Date.now()
   const categories = dependencies.categories || selectBrowserDiagnostics(options.categoryIds)
   const baseEnvironment = dependencies.env || process.env
   const resources = resolveDiagnosticResourceState({
     env: baseEnvironment,
     requestedWorkers: options.workers
   })
-  const source = dependencies.source || await resolveSourceAndBuild(options, baseEnvironment)
-  const localFsusUi = dependencies.localFsusUi || resolveLocalFsusUiIdentity({ env: baseEnvironment })
+  let source
+  try {
+    const resolveSource = dependencies.resolveSourceAndBuild || resolveSourceAndBuild
+    source = dependencies.source || await resolveSource(options, baseEnvironment)
+  } catch (error) {
+    const runId = sanitizeIdentity(dependencies.runId || baseEnvironment.FSUSBLOG_BROWSER_DIAGNOSTICS_RUN_ID || [
+      options.mode,
+      'initialization',
+      baseEnvironment.GITHUB_RUN_ID || Date.now(),
+      baseEnvironment.GITHUB_RUN_ATTEMPT || process.pid,
+      randomUUID().slice(0, 8)
+    ].join('-'))
+    const outputRoot = resolveDiagnosticsOutputRoot(options.outputRoot, runId)
+    return writeInitializationFailure({
+      options, categories, baseEnvironment, resources, startedAtMs, runId, outputRoot,
+      stage: initializationStage(error), error
+    })
+  }
   const runId = sanitizeIdentity(dependencies.runId || process.env.FSUSBLOG_BROWSER_DIAGNOSTICS_RUN_ID || [
     options.mode,
     source.commit.slice(0, 12),
@@ -337,9 +528,22 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
     randomUUID().slice(0, 8)
   ].join('-'))
   const outputRoot = resolveDiagnosticsOutputRoot(options.outputRoot, runId)
+  let localFsusUi
+  try {
+    const resolveFsusUi = dependencies.resolveLocalFsusUiIdentity || resolveLocalFsusUiIdentity
+    localFsusUi = dependencies.localFsusUi || resolveFsusUi({ env: baseEnvironment })
+  } catch (error) {
+    return writeInitializationFailure({
+      options, categories, baseEnvironment, resources, startedAtMs, runId, outputRoot,
+      stage: 'fsusui', error, source
+    })
+  }
+  const dimensions = diagnosticsDimensions(categories)
   const plan = {
     schema: 'fsusblog.browser-diagnostics-plan.v1',
     mode: options.mode,
+    cadence: options.mode === 'nightly' ? 'nightly' : 'manual',
+    trigger: diagnosticTrigger(options.mode, baseEnvironment),
     runId,
     evidenceClass: 'diagnostic',
     affectsCorrectness: false,
@@ -347,6 +551,7 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
     build: source.build,
     localFsusUi,
     resources,
+    dimensions,
     topology: {
       requestedWorkerLimit: resources.requestedWorkers,
       workerLimit: resources.effectiveWorkers,
@@ -357,18 +562,7 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
       retries: 0,
       categoriesSerial: true
     },
-    categories: categories.map((category) => ({
-      id: category.id,
-      browsers: category.browsers,
-      risk: category.risk,
-      replacements: category.replacements,
-      probes: category.probes.map((probe) => ({
-        id: probe.id,
-        command: probe.command,
-        artifactPaths: probe.artifactPaths,
-        timeoutMinutes: probe.timeoutMinutes
-      }))
-    })),
+    categories: diagnosticsPlanCategories(categories),
     plannedCategoryCount: categories.length,
     plannedProbeCount: browserDiagnosticProbeCount(categories)
   }
@@ -383,6 +577,9 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
   if (resources.status !== 'complete') {
     const categoryResults = categories.map((category) => ({
       id: category.id,
+      browsers: category.browsers,
+      plannedDimensions: categoryPlannedDimensions(category),
+      plannedProbeIds: category.probes.map((probe) => probe.id).sort(),
       status: 'skipped',
       incompleteReason: resources.reason,
       plannedProbeCount: category.probes.length,
@@ -405,17 +602,19 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
         ...categoryResult
       })
     }
-    const receipt = {
-      schema: 'fsusblog.browser-diagnostics-receipt.v1',
+    const { receipt, receiptFile } = writeDiagnosticsReceipt(outputRoot, runId, {
       status: 'incomplete',
       evidenceClass: 'diagnostic',
       affectsCorrectness: false,
       mode: options.mode,
+      cadence: plan.cadence,
+      trigger: plan.trigger,
       runId,
       sourceState: plan.sourceState,
       build: plan.build,
       localFsusUi: plan.localFsusUi,
       resources,
+      dimensions: plan.dimensions,
       topology: plan.topology,
       plannedCategoryCount: plan.plannedCategoryCount,
       executedCategoryCount: 0,
@@ -425,13 +624,11 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
       incompleteReason: resources.reason,
       failureClasses: ['infra'],
       categories: categoryResults,
+      startedAt: new Date(startedAtMs).toISOString(),
+      finishedAt: new Date().toISOString(),
+      wallClockMs: Date.now() - startedAtMs,
       createdAt: new Date().toISOString()
-    }
-    receipt.contentDigest = `sha256:${createHash('sha256').update(JSON.stringify(receipt)).digest('hex')}`
-    const receiptFile = path.join(outputRoot, 'receipt.json')
-    writeJson(receiptFile, receipt)
-    const latestFile = path.join(root, '.tmp/browser-diagnostics/latest.json')
-    writeJson(latestFile, { runId, receipt: path.relative(root, receiptFile).replaceAll(path.sep, '/') })
+    })
     return { status: receipt.status, plan, receipt, receiptFile }
   }
   const activeChildren = new Set()
@@ -478,14 +675,68 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
             ...result,
             status: 'failure',
             failureClass: 'infra',
+            failureKind: 'artifact-contract-incomplete',
             artifactContractError: `successful probe did not materialize declared artifacts: ${artifactContract.missingPaths.join(', ')}`
           }
         }
         const copiedArtifacts = copyArtifacts(declaredArtifacts, path.join(probeOutput, 'artifacts'))
+        const crashRetryCount = Math.max(0, Number(result.crashRetryCount ?? 0))
+        let attempts = Array.isArray(result.attempts) && result.attempts.length > 0
+          ? result.attempts
+          : [{
+              attempt: 1,
+              status: result.status,
+              testIds: [`${category.id}/${probe.id}`],
+              failureClass: result.failureClass ?? null,
+              failureKind: result.status === 'success'
+                ? null
+                : result.failureKind ?? (result.failureClass === 'infra' ? 'browser-infrastructure-failure' : 'diagnostic-failure'),
+              artifacts: [...new Set([result.stdout, result.stderr, ...copiedArtifacts].filter(Boolean))].sort(),
+              exitCode: result.exitCode ?? null,
+              signal: result.signal ?? null,
+              durationMs: result.durationMs ?? null
+            }]
+        attempts = attempts.map((attempt, index) => {
+          const attemptNumber = index + 1
+          const attemptFile = path.join(probeOutput, `attempt-${attemptNumber}.json`)
+          const attemptArtifact = path.relative(root, attemptFile).replaceAll(path.sep, '/')
+          const status = attempt.status
+          const normalized = {
+            ...attempt,
+            attempt: attemptNumber,
+            status,
+            testIds: [...new Set(attempt.testIds ?? [`${category.id}/${probe.id}`])].sort(),
+            failureClass: status === 'success' ? null : attempt.failureClass ?? result.failureClass ?? 'diagnostic',
+            failureKind: status === 'success'
+              ? null
+              : attempt.failureKind ?? result.failureKind ?? (attempt.failureClass === 'infra' ? 'browser-infrastructure-failure' : 'diagnostic-failure'),
+            artifacts: [...new Set([...(attempt.artifacts ?? []), attemptArtifact])].sort()
+          }
+          writeJson(attemptFile, {
+            schema: 'fsusblog.browser-diagnostics-attempt.v1',
+            evidenceClass: 'diagnostic',
+            affectsCorrectness: false,
+            runId,
+            categoryId: category.id,
+            probeId: probe.id,
+            ...normalized
+          })
+          return normalized
+        })
         probeResults.push({
           id: probe.id,
           command: probe.command,
           ...result,
+          status: result.status,
+          finalStatus: attempts.length === 2
+            && attempts[0].failureKind === 'browser-process-crash'
+            && attempts.at(-1)?.status === 'success'
+            ? 'diagnostic-passed-after-infra-retry'
+            : result.status,
+          plannedDimensions: probePlannedDimensions(probe),
+          testIds: [...new Set(attempts.flatMap((attempt) => attempt.testIds ?? []))].sort(),
+          attempts,
+          crashRetryCount,
           artifactContract: {
             ...artifactContract,
             status: artifactContract.missingPaths.length === 0
@@ -494,13 +745,28 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
           },
           copiedArtifacts
         })
+        const requestedCancellation = dependencies.afterProbe?.({
+          categoryId: category.id,
+          probeId: probe.id,
+          result: probeResults.at(-1)
+        })
+        if (requestedCancellation) cancellationSignal ||= String(requestedCancellation)
       }
       const categoryResult = {
         id: category.id,
+        browsers: category.browsers,
+        plannedDimensions: categoryPlannedDimensions(category),
+        plannedProbeIds: category.probes.map((probe) => probe.id).sort(),
         status: cancellationSignal
           ? 'incomplete'
           : probeResults.every((probe) => probe.status === 'success') ? 'success' : 'failure',
-        failureClasses: [...new Set(probeResults.map((probe) => probe.failureClass).filter(Boolean))],
+        failureClasses: [...new Set([
+          ...probeResults.map((probe) => probe.failureClass).filter(Boolean),
+          ...(cancellationSignal ? ['infra'] : [])
+        ])],
+        plannedProbeCount: category.probes.length,
+        executedProbeCount: probeResults.length,
+        skippedProbeCount: category.probes.length - probeResults.length,
         probes: probeResults
       }
       categoryResults.push(categoryResult)
@@ -522,23 +788,56 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
     process.removeListener('SIGTERM', onSigterm)
     terminate('SIGTERM')
   }
+  const recordedCategoryIds = new Set(categoryResults.map((category) => category.id))
+  if (cancellationSignal) {
+    for (const category of categories.filter((candidate) => !recordedCategoryIds.has(candidate.id))) {
+      const categoryResult = {
+        id: category.id,
+        browsers: category.browsers,
+        plannedDimensions: categoryPlannedDimensions(category),
+        plannedProbeIds: category.probes.map((probe) => probe.id).sort(),
+        status: 'skipped',
+        incompleteReason: `cancelled:${cancellationSignal}`,
+        failureClasses: ['infra'],
+        plannedProbeCount: category.probes.length,
+        executedProbeCount: 0,
+        skippedProbeCount: category.probes.length,
+        probes: []
+      }
+      categoryResults.push(categoryResult)
+      writeJson(path.join(outputRoot, 'categories', category.id, 'summary.json'), {
+        schema: 'fsusblog.browser-diagnostics-category.v1',
+        evidenceClass: 'diagnostic',
+        affectsCorrectness: false,
+        runId,
+        mode: options.mode,
+        sourceState: plan.sourceState,
+        build: plan.build,
+        localFsusUi: plan.localFsusUi,
+        resources,
+        ...categoryResult
+      })
+    }
+  }
   const probeResults = categoryResults.flatMap((category) => category.probes)
   const skippedProbeCount = plan.plannedProbeCount - probeResults.length
   const failureClasses = [...new Set(probeResults.map((probe) => probe.failureClass).filter(Boolean))]
   if (cancellationSignal && !failureClasses.includes('infra')) failureClasses.push('infra')
-  const receipt = {
-    schema: 'fsusblog.browser-diagnostics-receipt.v1',
+  const { receipt, receiptFile } = writeDiagnosticsReceipt(outputRoot, runId, {
     status: skippedProbeCount > 0
       ? 'incomplete'
       : probeResults.every((probe) => probe.status === 'success') ? 'success' : 'failure',
     evidenceClass: 'diagnostic',
     affectsCorrectness: false,
     mode: options.mode,
+    cadence: plan.cadence,
+    trigger: plan.trigger,
     runId,
     sourceState: plan.sourceState,
     build: plan.build,
     localFsusUi: plan.localFsusUi,
     resources,
+    dimensions: plan.dimensions,
     topology: plan.topology,
     plannedCategoryCount: plan.plannedCategoryCount,
     executedCategoryCount: categoryResults.length,
@@ -548,13 +847,11 @@ export async function runBrowserDiagnostics(options, dependencies = {}) {
     incompleteReason: cancellationSignal ? `cancelled:${cancellationSignal}` : null,
     failureClasses,
     categories: categoryResults,
+    startedAt: new Date(startedAtMs).toISOString(),
+    finishedAt: new Date().toISOString(),
+    wallClockMs: Date.now() - startedAtMs,
     createdAt: new Date().toISOString()
-  }
-  receipt.contentDigest = `sha256:${createHash('sha256').update(JSON.stringify(receipt)).digest('hex')}`
-  const receiptFile = path.join(outputRoot, 'receipt.json')
-  writeJson(receiptFile, receipt)
-  const latestFile = path.join(root, '.tmp/browser-diagnostics/latest.json')
-  writeJson(latestFile, { runId, receipt: path.relative(root, receiptFile).replaceAll(path.sep, '/') })
+  })
   return { status: receipt.status, plan, receipt, receiptFile }
 }
 

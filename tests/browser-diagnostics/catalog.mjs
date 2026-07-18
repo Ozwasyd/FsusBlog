@@ -1,3 +1,47 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const uxViewportMatrix = JSON.parse(fs.readFileSync(
+  path.join(root, 'tests/frontend/fixtures/ux-viewport-matrix.json'),
+  'utf8'
+))
+
+function plannedDimensions(viewports, themes = ['light']) {
+  return Object.freeze({
+    viewports: Object.freeze([...new Set(viewports)].sort()),
+    themes: Object.freeze([...new Set(themes)].sort())
+  })
+}
+
+const fallbackDimensions = plannedDimensions(['1280x800'])
+const uxModeDimensions = Object.freeze(Object.fromEntries(
+  Object.entries(uxViewportMatrix.modes).map(([mode, config]) => [
+    mode,
+    plannedDimensions(config.viewports, config.themes)
+  ])
+))
+const publicVisualDimensions = plannedDimensions(
+  uxViewportMatrix.viewports.filter((viewport) => viewport.useInPublicVisual).map((viewport) => viewport.name),
+  ['light', 'dark']
+)
+const consoleVisualDimensions = plannedDimensions(
+  [
+    ...uxViewportMatrix.viewports.filter((viewport) => viewport.useInConsoleVisual).map((viewport) => viewport.name),
+    'dashboard-768px-first-fold'
+  ],
+  ['light', 'dark']
+)
+const allVisualDimensions = plannedDimensions(
+  [...publicVisualDimensions.viewports, ...consoleVisualDimensions.viewports],
+  ['light', 'dark']
+)
+const allUxDimensions = plannedDimensions(
+  Object.values(uxModeDimensions).flatMap((dimensions) => dimensions.viewports),
+  Object.values(uxModeDimensions).flatMap((dimensions) => dimensions.themes)
+)
+
 const replacementLayers = Object.freeze({
   visual: [
     'tests/frontend/checks/static/check-visual-density-governance.mjs',
@@ -51,8 +95,14 @@ const replacementLayers = Object.freeze({
   ]
 })
 
-function probe(id, command, artifactPaths = [], timeoutMinutes = 45) {
-  return Object.freeze({ id, command: Object.freeze(command), artifactPaths: Object.freeze(artifactPaths), timeoutMinutes })
+function probe(id, command, artifactPaths = [], timeoutMinutes = 45, dimensions = fallbackDimensions) {
+  return Object.freeze({
+    id,
+    command: Object.freeze(command),
+    artifactPaths: Object.freeze(artifactPaths),
+    timeoutMinutes,
+    plannedDimensions: dimensions
+  })
 }
 
 export const browserDiagnosticCatalog = Object.freeze([
@@ -64,14 +114,14 @@ export const browserDiagnosticCatalog = Object.freeze([
     probes: Object.freeze([
       probe('public', ['bash', 'tools/test/lanes/visual-public-playwright.sh'], [
         '.tmp/visual/public'
-      ]),
+      ], 45, publicVisualDimensions),
       probe('console', ['bash', 'tools/test/lanes/visual-console-playwright.sh'], [
         '.tmp/visual/console'
-      ]),
+      ], 45, consoleVisualDimensions),
       probe('aggregate', ['bash', 'tools/test/lanes/visual-screenshots-aggregate.sh'], [
         '.tmp/visual/summary.json',
         '.tmp/release-evidence/visual-screenshot-summary.json'
-      ], 10)
+      ], 10, allVisualDimensions)
     ])
   }),
   Object.freeze({
@@ -82,18 +132,18 @@ export const browserDiagnosticCatalog = Object.freeze([
     probes: Object.freeze([
       probe('smoke', ['bash', 'tools/test/lanes/ux-viewport-smoke.sh'], [
         '.tmp/ux/viewport-smoke.json'
-      ]),
+      ], 45, uxModeDimensions.smoke),
       probe('visual', ['bash', 'tools/test/lanes/ux-viewport-visual.sh'], [
         '.tmp/ux/viewport-visual.json'
-      ], 60),
+      ], 60, uxModeDimensions.visual),
       probe('boundaries', ['bash', 'tools/test/lanes/ux-viewport-boundaries.sh'], [
         '.tmp/ux/viewport-boundaries.json'
-      ], 90),
+      ], 90, uxModeDimensions.boundaries),
       probe('risk-matrix', ['bash', 'tools/test/lanes/browser-ux-risk-diagnostics.sh'], [
         '.tmp/browser-diagnostics-runtime/ux-risk/summary.json',
         '.tmp/ux/viewport-boundaries.json',
         '.tmp/release-evidence/ux-viewport-summary.json'
-      ], 90)
+      ], 90, allUxDimensions)
     ])
   }),
   Object.freeze({

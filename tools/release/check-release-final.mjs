@@ -7,6 +7,10 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { validateReleaseManifest } from './release-manifest.mjs'
 import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs'
+import {
+  createReleaseFinalTestEvidenceBinding,
+  writeJsonAtomic
+} from './test-evidence-receipts.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 
@@ -48,6 +52,69 @@ function listJsonFiles(dir) {
     }
   }
   return files.sort()
+}
+
+function findReceiptFile(schema, preferredFiles, expectedCommit, { requireExactOne = false } = {}) {
+  const candidates = [
+    ...preferredFiles.filter(Boolean).map((file) => path.resolve(root, file)),
+    ...listJsonFiles(path.join(root, '.tmp/downloaded-artifacts'))
+  ]
+  const matches = []
+  for (const file of [...new Set(candidates)]) {
+    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) continue
+    try {
+      const receipt = readJson(file)
+      if (receipt?.schema !== schema) continue
+      const commit = receipt.sourceState?.commit ?? receipt.releaseCommit ?? null
+      if (expectedCommit && commit !== expectedCommit) continue
+      matches.push({ file, receipt })
+    } catch {
+      // Ignore unrelated JSON artifacts while locating an exact receipt schema.
+    }
+  }
+  if (requireExactOne && matches.length > 1) {
+    throw new Error(`ambiguous ${schema} receipts: ${matches.map(({ file }) => path.relative(root, file)).join(', ')}`)
+  }
+  return matches[0] ?? null
+}
+
+function createTestEvidenceBinding(manifest) {
+  const correctness = findReceiptFile(
+    'fsusblog.browserless-correctness-receipt.v1',
+    [process.env.FSUSBLOG_CORRECTNESS_RECEIPT, '.tmp/release-evidence/browserless-correctness-receipt.json'],
+    manifest.commitSha
+  )
+  if (!correctness) throw new Error('browserless correctness receipt is required')
+
+  const browserContract = findReceiptFile(
+    'fsusblog.browser-contract-receipt.v2',
+    [process.env.FSUSBLOG_BROWSER_CONTRACT_RECEIPT, '.tmp/browser-contract/receipt.json'],
+    manifest.commitSha,
+    { requireExactOne: true }
+  )
+  if (!browserContract) throw new Error('Browser Contract receipt is required; release-final fails closed without it')
+
+  const build = findReceiptFile(
+    'fsusblog.ci-production-build-receipt.v1',
+    [
+      process.env.FSUSBLOG_PRODUCTION_BUILD_RECEIPT,
+      correctness.receipt.build?.receipt,
+      browserContract.receipt.buildBinding?.receipt,
+      '.tmp/ci-production-build/receipt.json'
+    ],
+    manifest.commitSha
+  )
+  if (!build) throw new Error('immutable #1078 production build receipt is required')
+
+  return createReleaseFinalTestEvidenceBinding({
+    commitSha: manifest.commitSha,
+    buildReceipt: build.receipt,
+    buildReceiptPath: path.relative(root, build.file),
+    correctnessReceipt: correctness.receipt,
+    correctnessReceiptPath: correctness.file,
+    browserContractReceipt: browserContract.receipt,
+    browserContractReceiptPath: browserContract.file
+  })
 }
 
 function isFiniteNumber(value) {
@@ -320,6 +387,27 @@ async function runSelfTest() {
   const errors = validateManifest(manifest, manifestFile)
   if (errors.length > 0) fail([`self-test expected pass: ${errors.join('; ')}`])
 
+  const duplicateContractA = path.join(tmp, 'browser-contract-a.json')
+  const duplicateContractB = path.join(tmp, 'browser-contract-b.json')
+  const contractIdentity = {
+    schema: 'fsusblog.browser-contract-receipt.v2',
+    sourceState: { commit, worktreeFingerprint: 'f'.repeat(64) }
+  }
+  fs.writeFileSync(duplicateContractA, `${JSON.stringify(contractIdentity)}\n`)
+  fs.writeFileSync(duplicateContractB, `${JSON.stringify(contractIdentity)}\n`)
+  let ambiguousContractRejected = false
+  try {
+    findReceiptFile(
+      'fsusblog.browser-contract-receipt.v2',
+      [duplicateContractA, duplicateContractB],
+      commit,
+      { requireExactOne: true }
+    )
+  } catch (error) {
+    ambiguousContractRejected = /ambiguous fsusblog\.browser-contract-receipt\.v2 receipts/u.test(error.message)
+  }
+  if (!ambiguousContractRejected) fail(['self-test expected ambiguous Browser Contract receipts to fail closed'])
+
   const visualGateSkipFile = path.join(tmp, 'visual-gate-skip.json')
   const diagnosticVisualGateSkip = {
     schema: 'fsusblog.visual-gate-skip.v1',
@@ -469,6 +557,16 @@ const manifestArg = args.find((arg) => !arg.startsWith('--'))
 const manifestFile = manifestArg ? path.resolve(manifestArg) : latestManifest()
 if (!manifestFile) fail(['manifest path is required or .tmp/release-evidence must contain a manifest'])
 
-const errors = validateManifest(readJson(manifestFile), manifestFile)
+const bindingFile = path.join(root, '.tmp/release-evidence/release-final-test-evidence-binding.json')
+fs.rmSync(bindingFile, { force: true })
+const manifest = readJson(manifestFile)
+const errors = validateManifest(manifest, manifestFile)
+let testEvidenceBinding = null
+try {
+  testEvidenceBinding = createTestEvidenceBinding(manifest)
+} catch (error) {
+  errors.push(`test evidence: ${error instanceof Error ? error.message : String(error)}`)
+}
 if (errors.length > 0) fail(errors)
+writeJsonAtomic(bindingFile, testEvidenceBinding)
 console.log(`[release-final] ok file=${path.relative(root, manifestFile)}`)

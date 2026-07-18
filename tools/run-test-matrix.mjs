@@ -16,6 +16,7 @@ import {
   markCheckpointWallClockTimeout,
   resumeCheckpointEvidence,
   runDag,
+  snapshotGitWorktree,
   tierResourceUnits,
   validateSupersedesRules
 } from './test-matrix/scheduler.mjs'
@@ -65,6 +66,7 @@ const cadenceValues = ['pr', 'push', 'nightly', 'release-manual']
 const requiredForValues = ['fast', 'production', 'release-final', 'none']
 const smartGateModeValues = ['always', 'conditional', 'full-only']
 const retentionClassValues = ['must-keep', 'conditional', 'redundant-candidate', 'obsolete']
+const evidenceClassValues = ['correctness', 'browser-contract', 'diagnostic']
 const executionVariantValues = ['ordinary', 'coverage', 'property', 'model', 'performance', 'runtime']
 const uxViewportTierIds = new Set(['ux-viewport-smoke', 'ux-viewport-visual', 'ux-viewport-boundaries'])
 const aliases = new Map([
@@ -89,6 +91,23 @@ const summaryInvocationId = `${process.env.GITHUB_RUN_ID ?? 'local'}-${process.e
 const ciSummaryAuthorityId = process.env.GITHUB_RUN_ID && process.env.GITHUB_JOB
   ? `gha-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT ?? '1'}-${process.env.GITHUB_JOB}`
   : null
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]))
+}
+
+function contentDigest(value) {
+  const { contentDigest: _ignored, ...content } = value
+  return `sha256:${createHash('sha256').update(JSON.stringify(canonicalize(content))).digest('hex')}`
+}
+
+function sealContentDigest(value) {
+  const sealed = { ...value, contentDigest: null }
+  sealed.contentDigest = contentDigest(sealed)
+  return sealed
+}
 
 const requiredFields = [
   'id',
@@ -522,6 +541,12 @@ function validateMatrix(matrix) {
     if ('retentionClass' in tier && !retentionClassValues.includes(tier.retentionClass)) {
       errors.push(`${tier.id}.retentionClass is invalid: ${tier.retentionClass}`)
     }
+    if ('evidenceClass' in tier && !evidenceClassValues.includes(tier.evidenceClass)) {
+      errors.push(`${tier.id}.evidenceClass is invalid: ${tier.evidenceClass}`)
+    }
+    if (tier.ciJob === 'browser-diagnostics' && tier.evidenceClass !== 'diagnostic') {
+      errors.push(`${tier.id}.ciJob=browser-diagnostics requires explicit evidenceClass=diagnostic`)
+    }
     if (tier.smartGateMode === 'conditional') {
       if (typeof tier.triggerReason !== 'string' || tier.triggerReason.trim().length === 0) {
         errors.push(`${tier.id}.smartGateMode=conditional requires triggerReason`)
@@ -599,6 +624,15 @@ function validateMatrix(matrix) {
     }
     if (!['none', 'chromium', 'all'].includes(tier.requiresPlaywright)) {
       errors.push(`${tier.id}.requiresPlaywright is invalid: ${tier.requiresPlaywright}`)
+    }
+    if (tier.requiresPlaywright !== 'none') {
+      const expectedEvidenceClass = tier.id === 'browser-contract' ? 'browser-contract' : 'diagnostic'
+      if (tier.evidenceClass !== expectedEvidenceClass) {
+        errors.push(`${tier.id}.requiresPlaywright=${tier.requiresPlaywright} requires evidenceClass=${expectedEvidenceClass}`)
+      }
+    }
+    if (tier.evidenceClass === 'browser-contract' && tier.id !== 'browser-contract') {
+      errors.push(`${tier.id}.evidenceClass=browser-contract is reserved for browser-contract`)
     }
     if (tier.requiresPlaywright !== 'none' && tier.resourceClass !== 'browser') {
       errors.push(`${tier.id}.requiresPlaywright=${tier.requiresPlaywright} requires resourceClass=browser`)
@@ -698,8 +732,10 @@ function validateMatrix(matrix) {
   if (!productionCorrectness) {
     errors.push('browserless topology missing production-correctness tier')
   } else {
-    if (productionCorrectness.requiresPlaywright !== 'none' || productionCorrectness.requiredFor !== 'production') {
-      errors.push('production-correctness must use requiresPlaywright=none and requiredFor=production')
+    if (productionCorrectness.requiresPlaywright !== 'none'
+      || productionCorrectness.requiredFor !== 'production'
+      || productionCorrectness.evidenceClass !== 'correctness') {
+      errors.push('production-correctness must use requiresPlaywright=none, requiredFor=production, and evidenceClass=correctness')
     }
     const browserDependencies = [...dependencyClosure('production-correctness')]
       .filter((id) => byId.get(id)?.requiresPlaywright !== 'none')
@@ -719,6 +755,7 @@ function validateMatrix(matrix) {
   } else if (
     browserContract.resourceClass !== 'browser'
     || browserContract.requiresPlaywright !== 'chromium'
+    || browserContract.evidenceClass !== 'browser-contract'
     || browserContract.parallelizable !== false
     || browserContract.timeoutMinutes !== 10
     || browserContract.requiredFor !== 'release-final'
@@ -733,8 +770,8 @@ function validateMatrix(matrix) {
   if (!releaseFinal) {
     errors.push('release topology missing release-final tier')
   } else {
-    if (releaseFinal.requiresPlaywright !== 'none') {
-      errors.push('release-final aggregate must not install or launch Playwright itself')
+    if (releaseFinal.requiresPlaywright !== 'none' || releaseFinal.evidenceClass !== 'correctness') {
+      errors.push('release-final aggregate must use evidenceClass=correctness and must not install or launch Playwright itself')
     }
     if (!(releaseFinal.dependsOn ?? []).includes('production-correctness') || !(releaseFinal.dependsOn ?? []).includes('browser-contract')) {
       errors.push('release-final must depend on production-correctness and browser-contract')
@@ -1106,10 +1143,11 @@ function frontendFastGroupEvidence(tier) {
 }
 
 function jobEvidenceClassification(tier) {
-  const diagnostic = tier.ciJob === 'browser-diagnostics'
+  const evidenceClass = tier.evidenceClass
+    ?? (tier.ciJob === 'browser-diagnostics' ? 'diagnostic' : 'correctness')
   return {
-    evidenceClass: diagnostic ? 'diagnostic' : 'correctness',
-    affectsCorrectness: !diagnostic
+    evidenceClass,
+    affectsCorrectness: evidenceClass === 'correctness'
   }
 }
 
@@ -1134,7 +1172,7 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
   const durationMs = Math.max(0, Number(existing?.durationMs ?? 0)) + deltaMs
   const stage = stageForTier(tier, details)
   const groupEvidence = frontendFastGroupEvidence(tier)
-  const summary = {
+  const summary = sealContentDigest({
     schema: 'fsusblog.ci.job-result.v1',
     jobId,
     ciJob: tier.ciJob,
@@ -1161,7 +1199,7 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
     },
     generatedAt: new Date().toISOString(),
     ...(groupEvidence ?? {})
-  }
+  })
   const outFile = jobSummaryPath(jobId)
   fs.mkdirSync(path.dirname(outFile), { recursive: true })
   fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`)
@@ -2430,6 +2468,7 @@ function listTiers(matrix) {
       `risk=${tier.risk}`,
       `cadence=${tier.cadence}`,
       `requiredFor=${tier.requiredFor}`,
+      `evidenceClass=${tier.evidenceClass ?? 'correctness'}`,
       tier.parallelizable ? 'parallel:machine' : 'serial',
       tier.shardable ? 'shardable:machine' : 'single'
     ]
@@ -2475,6 +2514,7 @@ function buildCiPlan(matrix, format) {
       needs: new Set(),
       artifacts: new Set(),
       evidence: new Set(),
+      evidenceClasses: new Set(),
       requiresNode: false,
       requiresDotnet: false,
       requiresPlaywright: 'none',
@@ -2494,6 +2534,7 @@ function buildCiPlan(matrix, format) {
     job.cacheProfile = combineCacheProfile(job.cacheProfile, tier.cacheProfile)
     for (const artifact of tier.artifacts) job.artifacts.add(artifact)
     for (const evidence of tier.evidence) job.evidence.add(evidence)
+    job.evidenceClasses.add(tier.evidenceClass ?? (tier.ciJob === 'browser-diagnostics' ? 'diagnostic' : 'correctness'))
     jobs.set(tier.ciJob, job)
   }
   const byId = tierMap(matrix)
@@ -2516,6 +2557,7 @@ function buildCiPlan(matrix, format) {
       requiresNode: job.requiresNode,
       requiresDotnet: job.requiresDotnet,
       requiresPlaywright: job.requiresPlaywright,
+      evidenceClasses: [...job.evidenceClasses].sort(),
       playwrightWorkers: [...job.playwrightWorkerValues].sort((left, right) => left - right),
       cacheProfile: job.cacheProfile,
       needs: [...job.needs].sort(),
@@ -2551,6 +2593,45 @@ function parsePrSmartGateOptions(args) {
     else throw new Error(`unknown PR smart gate option: ${arg}`)
   }
   return options
+}
+
+function summaryAuthorityJobIds() {
+  const workflowFile = path.join(root, '.github/workflows/quality-gate.yml')
+  const lines = fs.readFileSync(workflowFile, 'utf8').split(/\r?\n/u)
+  let inSummary = false
+  let collectingNeeds = false
+  const needs = []
+  for (const line of lines) {
+    const jobMatch = line.match(/^  ([A-Za-z0-9_-]+):\s*$/u)
+    if (jobMatch) {
+      if (inSummary) break
+      inSummary = jobMatch[1] === 'production-summary'
+      continue
+    }
+    if (!inSummary) continue
+    const needsMatch = line.match(/^    needs:\s*(.*?)\s*$/u)
+    if (needsMatch) {
+      const inline = needsMatch[1]
+      collectingNeeds = inline === ''
+      if (inline.startsWith('[') && inline.endsWith(']')) {
+        needs.push(...inline.slice(1, -1).split(',').map((value) => value.trim()).filter(Boolean))
+      } else if (inline) {
+        needs.push(inline)
+      }
+      continue
+    }
+    if (collectingNeeds) {
+      const item = line.match(/^      -\s+([A-Za-z0-9_-]+)\s*$/u)
+      if (item) {
+        needs.push(item[1])
+        continue
+      }
+      if (line.trim()) collectingNeeds = false
+    }
+  }
+  const result = [...new Set(needs)].sort()
+  if (result.length === 0) throw new Error('production-summary workflow direct needs are missing')
+  return result
 }
 
 function readChangedFiles(options) {
@@ -2642,7 +2723,7 @@ function retentionReport(matrix) {
   }
 }
 
-function buildPrSmartGatePlan(matrix, options) {
+function buildPrSmartGatePlan(matrix, options, identity) {
   const changedFiles = readChangedFiles(options)
   const fullMode = isFullSmartGateMode(options)
   const selectedTiers = []
@@ -2676,11 +2757,39 @@ function buildPrSmartGatePlan(matrix, options) {
       smartGateMode: mode,
       prDefault: tier.prDefault === true,
       retentionClass: tier.retentionClass ?? null,
+      evidenceClass: tier.evidenceClass ?? 'correctness',
       triggerReason: tier.triggerReason ?? null,
       reason
     }
     if (selected) selectedTiers.push(entry)
     else skippedTiers.push(entry)
+  }
+
+  // Most workflow jobs execute their complete ciJob tier set once any member
+  // is selected. Expand those fixed jobs here so the plan cannot label a tier
+  // skipped while the job's hard-coded steps execute it. These exceptions have
+  // genuine partial execution: dynamic collector matrices and explicit
+  // aggregate command lists.
+  const partialExecutionJobs = new Set([
+    'backend-qps-collectors',
+    'release-evidence',
+    'production-summary',
+    'browser-diagnostics'
+  ])
+  const selectedFixedJobs = new Set(selectedTiers.map((tier) => tier.ciJob)
+    .filter((jobId) => !partialExecutionJobs.has(jobId)))
+  for (let index = skippedTiers.length - 1; index >= 0; index -= 1) {
+    const tier = skippedTiers[index]
+    const declaration = matrix.tiers.find((candidate) => candidate.id === tier.id)
+    if (!selectedFixedJobs.has(tier.ciJob)
+      || declaration?.localOnly === true
+      || declaration?.nightlyOnly === true
+      || declaration?.manualOnly === true) continue
+    skippedTiers.splice(index, 1)
+    selectedTiers.push({
+      ...tier,
+      reason: `selected fixed workflow job ${tier.ciJob} executes its complete tier set`
+    })
   }
 
   const immutableBuildConsumerJobs = new Set([
@@ -2692,7 +2801,10 @@ function buildPrSmartGatePlan(matrix, options) {
     'resilience-runtime',
     'load-smoke',
     'backend-qps-collectors',
-    'perf-regression'
+    'perf-regression',
+    // A passing production-summary always seals a #1078-bound correctness
+    // receipt, even when no changed path selected another runtime consumer.
+    'production-summary'
   ])
   const requiresImmutableBuild = selectedTiers.some(tier => immutableBuildConsumerJobs.has(tier.ciJob))
   if (requiresImmutableBuild && !selectedTiers.some(tier => tier.id === 'production-build-artifacts')) {
@@ -2709,9 +2821,12 @@ function buildPrSmartGatePlan(matrix, options) {
   const selectedJobs = [...new Set(selectedTiers.map((tier) => tier.ciJob))].sort()
   const skippedJobs = [...new Set(skippedTiers.map((tier) => tier.ciJob).filter((job) => !selectedJobs.includes(job)))].sort()
 
-  return {
+  return sealContentDigest({
     schema: 'fsusblog.pr-smart-gate.v1',
     generatedAt: new Date().toISOString(),
+    sourceState: identity.sourceState,
+    runId: identity.runId,
+    runAttempt: identity.runAttempt,
     fullMode,
     eventName: options.eventName,
     baseRef: options.baseRef,
@@ -2719,9 +2834,30 @@ function buildPrSmartGatePlan(matrix, options) {
     selectedTiers,
     skippedTiers,
     selectedTierIds: [...selectedTierIds].sort(),
+    skippedTierIds: skippedTiers.map((tier) => tier.id).sort(),
+    selectedJobIds: selectedJobs,
+    skippedJobIds: skippedJobs,
+    summaryAuthorityJobIds: summaryAuthorityJobIds(),
     selectedJobs,
     skippedJobs,
     retentionReport: retentionReport(matrix)
+  })
+}
+
+async function prSmartGateIdentity() {
+  const commit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? process.env.GITHUB_SHA ?? git(['rev-parse', 'HEAD']) ?? '').trim()
+  if (!/^[a-f0-9]{40}$/u.test(commit)) throw new Error('PR smart gate plan requires a full lowercase source commit SHA')
+  const snapshot = process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+    ? null
+    : await snapshotGitWorktree(root)
+  const worktreeFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? snapshot?.fingerprint ?? '').trim()
+  if (!/^(?:sha256:)?[a-f0-9]{64}$/u.test(worktreeFingerprint)) {
+    throw new Error('PR smart gate plan requires a SHA-256 source fingerprint')
+  }
+  return {
+    sourceState: { commit, worktreeFingerprint },
+    runId: String(process.env.GITHUB_RUN_ID ?? 'local'),
+    runAttempt: String(process.env.GITHUB_RUN_ATTEMPT ?? '0')
   }
 }
 
@@ -2753,6 +2889,11 @@ function writePrSmartGateOutputs(matrix, plan, githubOutputFile) {
   const selectedTierIds = new Set(plan.selectedTierIds)
   const lines = [
     `pr_smart_gate_summary=${relativeToRoot(prSmartGateSummaryFile)}`,
+    `plan_content_digest=${plan.contentDigest}`,
+    `plan_source_commit=${plan.sourceState.commit}`,
+    `plan_source_fingerprint=${plan.sourceState.worktreeFingerprint}`,
+    `plan_run_id=${plan.runId}`,
+    `plan_run_attempt=${plan.runAttempt}`,
     `selected_jobs_json=${JSON.stringify(plan.selectedJobs)}`,
     `skipped_jobs_json=${JSON.stringify(plan.skippedJobs)}`,
     `production_build_domains=${productionBuildDomainsForJobs(plan.selectedJobs).join(',')}`,
@@ -2771,9 +2912,9 @@ function writePrSmartGateOutputs(matrix, plan, githubOutputFile) {
   fs.appendFileSync(abs, `${lines.join('\n')}\n`)
 }
 
-function ciPrPlan(matrix, args) {
+async function ciPrPlan(matrix, args) {
   const options = parsePrSmartGateOptions(args)
-  const plan = buildPrSmartGatePlan(matrix, options)
+  const plan = buildPrSmartGatePlan(matrix, options, await prSmartGateIdentity())
   const defaultOut = options.outFile ?? prSmartGateSummaryFile
   writeTextOutput(`${JSON.stringify(plan, null, 2)}\n`, defaultOut, 'matrix:ci-pr-plan')
   fs.mkdirSync(path.dirname(prSmartGateSummaryFile), { recursive: true })
@@ -2783,7 +2924,7 @@ function ciPrPlan(matrix, args) {
 
 async function ciPrSmart(matrix, args) {
   const options = parsePrSmartGateOptions(args)
-  const plan = buildPrSmartGatePlan(matrix, options)
+  const plan = buildPrSmartGatePlan(matrix, options, await prSmartGateIdentity())
   if (options.planOnly === true) {
     console.log(JSON.stringify(plan, null, 2))
     return
@@ -2867,8 +3008,8 @@ function docs(matrix, outFile) {
     '',
     `Version: \`${matrix.version}\``,
     '',
-    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Smart gate | PR default | Retention | Trigger reason | Resource weights | Cost | Parallelism | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Sharding | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Evidence class | Smart gate | PR default | Retention | Trigger reason | Resource weights | Cost | Parallelism | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Sharding | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of resolveLogicalTierResources(matrix.tiers)) {
     lines.push([
@@ -2879,6 +3020,7 @@ function docs(matrix, outFile) {
       tier.risk,
       tier.cadence,
       tier.requiredFor,
+      tier.evidenceClass ?? 'correctness',
       tierSmartGateMode(tier),
       tier.prDefault === true ? 'yes' : 'no',
       tier.retentionClass ?? '-',
@@ -2943,6 +3085,7 @@ function evidencePlan(matrix, outFile) {
       requiresNode: tier.requiresNode,
       requiresDotnet: tier.requiresDotnet,
       requiresPlaywright: tier.requiresPlaywright,
+      evidenceClass: tier.evidenceClass ?? 'correctness',
       playwrightWorkers: playwrightWorkersForTier(tier),
       cacheProfile: tier.cacheProfile,
       shardable: tier.shardable,
@@ -3190,7 +3333,7 @@ async function main() {
     return
   }
   if (command === 'ci-pr-plan') {
-    ciPrPlan(matrix, args)
+    await ciPrPlan(matrix, args)
     return
   }
   if (command === 'ci-pr-smart') {

@@ -3623,6 +3623,47 @@
         "backend-unit",
         "backend-concurrency"
       ]
+    },
+    {
+      "id": "testing-evidence-governance",
+      "description": "Browserless correctness, the single release Browser Contract, and scheduled/manual diagnostics have separate source-bound receipts, retry semantics, migration coverage and aggregate authority.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+    "evidencePaths": [
+      "tests/governance/browser-test-migration.json",
+      "tests/fixtures/issue-1151-browser-migration/historical-deleted-tests.json",
+      "tools/check-browser-test-migration.mjs",
+      "tools/release/test-evidence-receipts.mjs",
+      "tools/release/test-evidence-receipts-cli.mjs",
+      "tools/ci/summarize-quality-gate.mjs",
+      "tools/ci/run-stage.mjs",
+      "tools/ci/run-flaky-governed.mjs",
+      "tools/ci/check-flaky-evidence.mjs",
+      "tests/flaky.yml",
+      "tests/browser-contract/run.mjs",
+      "tests/browser-diagnostics/catalog.mjs",
+      "tests/browser-diagnostics/run.mjs",
+        "tests/tools/issue-1151-browser-migration-governance.test.mjs",
+        "tests/tools/issue-1151-evidence-governance.test.mjs",
+        "tests/tools/issue-1151-flaky-governance.test.mjs",
+        "tests/tools/issue-1151-receipt-aggregate.test.mjs",
+      "tests/tools/issue-1151-receipt-authority.test.mjs",
+      "tests/tools/issue-1151-receipt-schema.test.mjs",
+      "docs/testing/issue-1151-evidence-governance.md",
+      ".github/workflows/quality-gate.yml",
+      ".github/workflows/browser-diagnostics.yml"
+    ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject an ambiguous browser evidence class, a browser tier in ordinary correctness, missing or source/build-drifted correctness or Browser Contract receipts, Browser Contract retry, non-crash diagnostic retry, collapsed attempt history, unmapped browser-test removal, diagnostics changing correctness, or release-final without exactly one successful Browser Contract binding.",
+      "minimumRequirement": "Machine governance must prove zero browser launches and no Playwright install for production-correctness, immutable source/build identity and zero retries for the single Browser Contract, per-attempt diagnostics with crash-only retry and unstable-topology detection, a complete old-browser-test migration manifest, independent diagnostic retention, and digest-bound release-final receipt aggregation.",
+      "tierIds": [
+        "browser-contract",
+        "browser-diagnostics-nightly",
+        "browser-diagnostics-manual",
+        "release-final-flaky-governance",
+        "release-final",
+        "production-correctness"
+      ]
     }
   ]
 }

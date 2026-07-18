@@ -11,6 +11,7 @@ static_integrity_docs() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/che
 static_dead_code_index() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dead-code-audit-index.mjs"; }
 static_background_services() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-background-service-classification.mjs"; }
 static_suite_convergence() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-suite-convergence.mjs"; }
+static_browser_test_migration() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-browser-test-migration.mjs"; }
 static_backend_governance() { run_tier "static-governance" run_backend_test_governance_only; }
 static_gate_integrity() { run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
 static_flaky_registry() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs"; }
@@ -48,6 +49,12 @@ STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/performance-evidence-summary.test.mjs"
   "$ROOT_DIR/tests/tools/performance-saturation-v2.test.mjs"
   "$ROOT_DIR/tests/tools/browser-diagnostics.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1151-browser-migration-governance.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1151-evidence-governance.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1151-flaky-governance.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1151-receipt-aggregate.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1151-receipt-authority.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1151-receipt-schema.test.mjs"
 )
 static_node_contracts() {
   FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \
@@ -126,6 +133,7 @@ run_static_prechecks_phase() {
     dead-code-index static_dead_code_index \
     background-services static_background_services \
     suite-convergence static_suite_convergence \
+    browser-test-migration static_browser_test_migration \
     backend-governance static_backend_governance \
     gate-integrity static_gate_integrity \
     flaky-registry static_flaky_registry \
