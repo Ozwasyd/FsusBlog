@@ -284,7 +284,7 @@ OTLP export is off by default. Enable it by setting either `Observability:Export
 
 ## SLO Alerts
 
-Production SLO definitions are machine-readable in `config/slo.yml`; `tools/operations/check-slo-definition.mjs` verifies availability, error-rate, p95/p99 latency, WebSocket reconnect success, AOT hit rate, search rebuild success and scheduled publish delay objectives before the release gate proceeds.
+Production SLO definitions are machine-readable in `config/observability/slo.yml`; `tools/operations/check-slo-definition.mjs` verifies availability, error-rate, p95/p99 latency, WebSocket reconnect success, AOT hit rate, search rebuild success and scheduled publish delay objectives before the release gate proceeds.
 
 The release SLO fixture is executable:
 

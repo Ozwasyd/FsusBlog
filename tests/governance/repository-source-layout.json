@@ -7,8 +7,9 @@
       "classification": "automation"
     },
     {
-      "path": "Properties",
-      "classification": "configuration"
+      "path": ".config",
+      "classification": "tool-configuration",
+      "architecturalException": "The .NET SDK requires the repository tool manifest at .config/dotnet-tools.json; it contains configuration only and no product source."
     },
     {
       "path": "artifacts",
@@ -26,10 +27,6 @@
     {
       "path": "config",
       "classification": "runtime-configuration"
-    },
-    {
-      "path": "configs",
-      "classification": "tool-configuration"
     },
     {
       "path": "deploy",

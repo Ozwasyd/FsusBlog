@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const root = path.resolve(path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..'))
-const sloFile = path.join(root, 'config/slo.yml')
+const sloFile = path.join(root, 'config/observability/slo.yml')
 const errors = []
 
 function fail(message) {
@@ -28,10 +28,10 @@ function parseEntries(text) {
 }
 
 if (!fs.existsSync(sloFile)) {
-  fail('missing config/slo.yml')
+  fail('missing config/observability/slo.yml')
 } else {
   const text = fs.readFileSync(sloFile, 'utf8')
-  if (!text.includes('version: fsusblog-slo-v1')) fail('config/slo.yml has invalid version')
+  if (!text.includes('version: fsusblog-slo-v1')) fail('config/observability/slo.yml has invalid version')
   const entries = parseEntries(text)
   const required = [
     'availability',

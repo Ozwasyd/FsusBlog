@@ -20,9 +20,12 @@ const matrixTierCommands = new Map(parseMatrix(matrix).tiers.map((tier) => [tier
 const testSh = readFileSync(resolve(root, 'tools/test.sh'), 'utf8')
 const legacyTest = readFileSync(resolve(root, 'tools/test/legacy-test.sh'), 'utf8')
 const serverProject = readFileSync(resolve(root, 'src/backend/FsusBlog.Server.csproj'), 'utf8')
-const toolManifest = JSON.parse(readFileSync(resolve(root, 'dotnet-tools.json'), 'utf8'))
-const strykerConfig = JSON.parse(readFileSync(resolve(root, 'stryker-config.json'), 'utf8'))
-const criticalStrykerConfigPath = resolve(root, 'stryker-critical-config.json')
+const dotnetToolManifestPath = '.config/dotnet-tools.json'
+const defaultStrykerConfigPath = 'config/testing/mutation/default.json'
+const criticalStrykerConfigRepoPath = 'config/testing/mutation/critical.json'
+const toolManifest = JSON.parse(readFileSync(resolve(root, dotnetToolManifestPath), 'utf8'))
+const strykerConfig = JSON.parse(readFileSync(resolve(root, defaultStrykerConfigPath), 'utf8'))
+const criticalStrykerConfigPath = resolve(root, criticalStrykerConfigRepoPath)
 const criticalStrykerConfig = existsSync(criticalStrykerConfigPath)
   ? JSON.parse(readFileSync(criticalStrykerConfigPath, 'utf8'))
   : {}
@@ -340,14 +343,17 @@ for (const frame of enumValues) {
   }
 }
 
+if (toolManifest.version !== 1 || toolManifest.isRoot !== true) {
+  fail(`${dotnetToolManifestPath} must remain a root .NET local-tool manifest`)
+}
 if (!toolManifest.tools?.['dotnet-stryker']) {
-  fail('dotnet-tools.json lacks dotnet-stryker')
+  fail(`${dotnetToolManifestPath} lacks dotnet-stryker`)
 }
 
 const stryker = strykerConfig['stryker-config'] || {}
 for (const key of ['solution', 'test-case-filter', 'mutate']) {
   if (!stryker[key]) {
-    fail(`stryker-config.json lacks ${key}`)
+    fail(`${defaultStrykerConfigPath} lacks ${key}`)
   }
 }
 if ('project' in stryker) {
@@ -367,6 +373,14 @@ for (const legacyKey of ['threshold-high', 'threshold-low', 'threshold-break', '
 }
 if (!legacyTest.includes('--output "$output_dir"')) {
   fail('backend mutation runner must pass the report output directory through the supported CLI option')
+}
+if (!legacyTest.includes('cd "$ROOT_DIR"\n    run dotnet tool restore')) {
+  fail('backend mutation runner must restore .config/dotnet-tools.json through standard repository-root discovery')
+}
+for (const configPath of [defaultStrykerConfigPath, criticalStrykerConfigRepoPath]) {
+  if (!legacyTest.includes(`$ROOT_DIR/${configPath}`)) {
+    fail(`backend mutation runner must pass the explicit Stryker config path ${configPath}`)
+  }
 }
 if (!legacyTest.includes('export FSUSBLOG_MUTATION_BUILD')) {
   fail('backend mutation runner must export the dedicated MSBuild marker')

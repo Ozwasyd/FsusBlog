@@ -75,7 +75,7 @@ test('current-run authority binds raw report, config, scope, score, and producer
     reportPath: '.tmp/mutation/backend-critical/reports/backend-mutation-critical.json',
     config,
     rawConfig,
-    configPath: 'stryker-critical-config.json',
+    configPath: 'config/testing/mutation/critical.json',
     tierId: 'release-mutation-critical-slice',
     runId: 'release-mutation-critical-slice-2026-07-11',
     sourceState,
@@ -107,7 +107,7 @@ test('current-run authority binds raw report, config, scope, score, and producer
       sha256: createHash('sha256').update(rawReport).digest('hex')
     },
     config: {
-      path: 'stryker-critical-config.json',
+      path: 'config/testing/mutation/critical.json',
       sha256: createHash('sha256').update(rawConfig).digest('hex')
     },
     producer: {

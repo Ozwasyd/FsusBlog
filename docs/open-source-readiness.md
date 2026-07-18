@@ -19,7 +19,7 @@ FsusBlog v1.1.0 is a public-preview release for development, evaluation, code re
 
 ## Safe Configuration Examples
 
-The root `.env.example`, `appsettings.example.json`, and `appsettings.Production.example.json` files use placeholders only. The backend keeps matching copies in `src/backend/` for local ASP.NET Core workflows. Replace every `replace-*`, `example.com`, and local demo value before any shared or production deployment.
+The root `.env.example` and the canonical backend examples at `src/backend/appsettings.example.json`, `src/backend/appsettings.Development.example.json`, and `src/backend/appsettings.Production.example.json` use placeholders only. No duplicate appsettings examples are kept at repository root. Replace every `replace-*`, `example.com`, and local demo value before any shared or production deployment.
 
 Do not commit copied `.env`, production `appsettings*.json`, database exports, Redis dumps, log bundles, or generated local credentials.
 

@@ -18,6 +18,16 @@ definition 与 shader、protocol schema、SQL migration 一样，属于可编译
 这些目录不可互换：生成产物不能进入 `src/`，runtime config 不能作为 source，
 test fixture 也不能被 production readiness 当作 ceremony evidence。
 
+## Configuration ownership
+
+通用运行时、测试和观测配置统一放在 `config/`；只有 .NET framework tool
+manifest 使用 `.config/`。项目专属 `appsettings*.json` 与
+`Properties/launchSettings.json` 必须和拥有它们的 project 共置，Docker Compose
+launch profile 因而位于 `ops/docker/Properties/`。根级 `configs/`、无 root project
+所有者的 `Properties/` 和散落的 JSON 配置均由
+`tools/configuration/check-configuration-layout.mjs` 拒绝。完整 ownership 表见
+[`docs/configuration-layout.md`](../configuration-layout.md)。
+
 Issue #1166 将原 top-level `circuits/` 纯路径迁移到
 `src/zk/circuits/`。v2 与 v5 source bytes 的 SHA-256 保持不变；v2 R1CS
 IR 和 Groth16 binary 因内嵌 `source_path` 合法变化，因此对应 artifact、circuit、
@@ -30,7 +40,8 @@ input/witness layout、constraint count、proof system、curve、ceremony state 
 `src/` 是唯一 canonical product-source root。`benchmarks/`、`tests/`、`tools/`
 和 `ops/` 中包含可执行源码，但分别受 benchmark isolation、test isolation、
 repository tooling 与 operator tooling 的架构例外约束，不进入产品源码或 shipping
-assemblies。其他 top-level 目录必须在
+assemblies。`.config/` 是 .NET tool manifest 所需的 framework root；其他
+top-level 目录必须在
 `tests/governance/repository-source-layout.json` 中声明为 artifact、configuration、
 documentation、security 或 automation ownership；新增 source-like root 必须同时提供
 明确的 `architecturalException`，否则 checker fail closed。

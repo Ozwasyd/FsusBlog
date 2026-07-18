@@ -13,6 +13,29 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ModerationRegionCatalogServiceTests
 {
     [Fact]
+    public void CurrentSnapshot_WithoutOverride_ResolvesCanonicalConfigurationRoot()
+    {
+        string contentRoot = System.IO.Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend");
+        var environment = new TestWebHostEnvironment(contentRoot);
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+        IModerationDictionaryService dictionaryService = new ModerationDictionaryService(
+            environment,
+            configuration,
+            NullLogger<ModerationDictionaryService>.Instance,
+            new AuditLogChannel());
+        var service = new ModerationRegionCatalogService(
+            environment,
+            configuration,
+            dictionaryService,
+            NullLogger<ModerationRegionCatalogService>.Instance);
+
+        ModerationRegionCatalogSnapshot snapshot = service.CurrentSnapshot;
+
+        Assert.Contains(snapshot.Regions, static item => item.RegionCode == RegionCodes.MainlandChina);
+        Assert.Contains(snapshot.PolicyTemplates, static item => item.TemplateId == "global-baseline");
+    }
+
+    [Fact]
     public void CurrentSnapshot_LoadsBuiltInRegionsGroupsAndTemplates()
     {
         using TestRoot root = TestRoot.FromRepoConfig();
@@ -161,7 +184,7 @@ public sealed class ModerationRegionCatalogServiceTests
         public static TestRoot FromRepoConfig()
         {
             string root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "fsus-moderation-region-tests", Guid.NewGuid().ToString("N"));
-            CopyDirectory(System.IO.Path.Combine(BackendTestPaths.RepositoryRoot, "configs", "moderation"), root);
+            CopyDirectory(System.IO.Path.Combine(BackendTestPaths.RepositoryRoot, "config", "moderation"), root);
             return new TestRoot(root);
         }
 

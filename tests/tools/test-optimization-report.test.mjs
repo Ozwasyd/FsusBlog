@@ -140,7 +140,7 @@ function mutationSnapshots(overrides = {}) {
       statuses: { killed: 45 },
       thresholds: { break: 70, high: 85, low: 70 },
       rawReport: { path: '.tmp/mutation/backend-critical/reports/backend-mutation-critical.json', sha256: 'e'.repeat(64) },
-      config: { path: 'stryker-critical-config.json', sha256: 'f'.repeat(64) },
+      config: { path: 'config/testing/mutation/critical.json', sha256: 'f'.repeat(64) },
       producer: {
         runId: 'mutation-fresh',
         sourceState,

@@ -343,9 +343,9 @@ public sealed class ModerationDictionaryService(
 
         string[] candidates =
         [
-            Path.Combine(environment.ContentRootPath, "configs", "moderation"),
-            Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "..", "configs", "moderation")),
-            Path.Combine(AppContext.BaseDirectory, "configs", "moderation")
+            Path.Combine(environment.ContentRootPath, "config", "moderation"),
+            Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", "..", "config", "moderation")),
+            Path.Combine(AppContext.BaseDirectory, "config", "moderation")
         ];
 
         return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];

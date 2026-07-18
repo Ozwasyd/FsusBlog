@@ -25,13 +25,12 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<None Include="..\..\.env" />
 		<!-- 逻辑自洽：这里的 DependentUpon 保持 UI 上的树形结构 -->
 		<None Include="docker-compose.dev.yml">
 			<DependentUpon>docker-compose.yml</DependentUpon>
 		</None>
 		<None Include="docker-compose.yml" />
 		<None Include="..\..\.dockerignore" />
-		<None Include="..\..\src\backend\FsusBlog.Server\Properties\launchSettings.json" />
+		<None Include="Properties\launchSettings.json" />
 	</ItemGroup>
 </Project>

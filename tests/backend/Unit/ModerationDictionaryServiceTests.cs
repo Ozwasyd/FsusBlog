@@ -13,6 +13,25 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class ModerationDictionaryServiceTests
 {
+    [Theory]
+    [InlineData("")]
+    [InlineData("src/backend")]
+    public void CurrentSnapshot_WithoutOverride_ResolvesCanonicalConfigurationRoot(string contentRootRelativePath)
+    {
+        string contentRoot = string.IsNullOrEmpty(contentRootRelativePath)
+            ? BackendTestPaths.RepositoryRoot
+            : System.IO.Path.Combine(BackendTestPaths.RepositoryRoot, contentRootRelativePath);
+        var service = new ModerationDictionaryService(
+            new TestWebHostEnvironment(contentRoot),
+            new ConfigurationBuilder().Build(),
+            NullLogger<ModerationDictionaryService>.Instance);
+
+        ModerationDictionarySnapshot snapshot = service.CurrentSnapshot;
+
+        Assert.Contains("global.advertising", snapshot.Dictionaries.Keys);
+        Assert.Contains(RegionCodes.MainlandChina, snapshot.RegionPolicies.Keys);
+    }
+
     [Fact]
     public void CurrentSnapshot_LoadsYamlDictionariesAndPolicies()
     {
@@ -272,7 +291,7 @@ public sealed class ModerationDictionaryServiceTests
         public static TestRoot FromRepoConfig()
         {
             string root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "fsus-moderation-dictionary-tests", Guid.NewGuid().ToString("N"));
-            CopyDirectory(System.IO.Path.Combine(BackendTestPaths.RepositoryRoot, "configs", "moderation"), root);
+            CopyDirectory(System.IO.Path.Combine(BackendTestPaths.RepositoryRoot, "config", "moderation"), root);
             return new TestRoot(root);
         }
 

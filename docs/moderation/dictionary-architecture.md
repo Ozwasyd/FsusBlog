@@ -16,7 +16,7 @@ Dictionary hits produce `category`, `severity`, `reason`, and redacted evidence 
 ## Files
 
 ```text
-configs/moderation/
+config/moderation/
   regions.yaml
   policy-templates/*.yaml
   dictionaries/

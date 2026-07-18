@@ -796,6 +796,7 @@ tiers:
       - immutable-release-identity
       - wasm-release-artifact-ownership
       - repository-source-layout-governance
+      - configuration-layout-governance
       - runtime-publish-profile-matrix
       - blue-green-slot-orchestration
       - atomic-gateway-switch-rollback
@@ -871,6 +872,19 @@ tiers:
       - tests/governance/repository-source-layout.json
       - tests/tools/issue-1166-zk-source-layout.test.mjs
       - docs/architecture/repository-layout.md
+      - tools/configuration/check-configuration-layout.mjs
+      - config/configuration-ownership.json
+      - tests/tools/configuration-layout.test.mjs
+      - docs/configuration-layout.md
+      - .config/dotnet-tools.json
+      - config/testing/mutation/default.json
+      - config/testing/mutation/critical.json
+      - config/moderation/regions.yaml
+      - config/observability/slo.yml
+      - ops/docker/Properties/launchSettings.json
+      - src/backend/appsettings.example.json
+      - src/backend/appsettings.Production.example.json
+      - README.md
       - tools/build-native.sh
       - tools/build-final-image.sh
       - docs/production.md

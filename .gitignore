@@ -92,9 +92,8 @@ htmlcov/
 .env.production
 !.env.production-template
 launchSettings.json
-!FsusBlog.Server/Properties/launchSettings.json
 !src/backend/Properties/launchSettings.json
-!Properties/launchSettings.json
+!ops/docker/Properties/launchSettings.json
 FsusBlog.Server/appsettings.Development.json
 src/backend/appsettings.Development.json
 

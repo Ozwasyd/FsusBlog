@@ -155,7 +155,8 @@ cp .env.example .env
 | Demo data | [docs/development/demo-data.md](docs/development/demo-data.md) |
 | Troubleshooting | [docs/troubleshooting.md](docs/troubleshooting.md) |
 | Known limitations | [docs/known-limitations.md](docs/known-limitations.md) |
-| Example config | `.env.example`, `appsettings.example.json`, `appsettings.Production.example.json` |
+| Example config | `.env.example`, `src/backend/appsettings.Development.example.json` |
+| Configuration ownership | [docs/configuration-layout.md](docs/configuration-layout.md) |
 
 停止前后端进程按 `Ctrl+C`；清理本地开发数据库和 Redis volume：
 

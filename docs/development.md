@@ -295,7 +295,7 @@ cache explosion、搜索索引陈旧和 hydration routeKey 漂移。`/user/profi
 | `Debug / Client + Docker` | 最接近生产的调试（推荐） |
 | `Debug / Client + NativeServer` | 更快的 C# 迭代 |
 
-`FsusBlog.slnLaunch` 包含上述启动配置定义。
+`FsusBlog.slnLaunch` 包含上述启动配置定义，并仅引用 `FsusBlog.slnx` 中的真实项目路径。后端原生 profile 位于 `src/backend/Properties/launchSettings.json`，Compose profile 由 `ops/docker/docker-compose.dcproj` 所有并位于 `ops/docker/Properties/launchSettings.json`；完整所有权规则见 [configuration layout](configuration-layout.md)。
 默认 F5 入口统一为 `http://127.0.0.1:3000`。
 
 ### 调试技巧

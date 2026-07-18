@@ -292,9 +292,9 @@
         "BACKEND-MUTATION-TESTING"
       ],
       "evidencePaths": [
-        "dotnet-tools.json",
-        "stryker-config.json",
-        "stryker-critical-config.json",
+        ".config/dotnet-tools.json",
+        "config/testing/mutation/default.json",
+        "config/testing/mutation/critical.json",
         "tools/test/check-stryker-report.mjs",
         "tests/backend/Unit/SecurityHardening",
         "tests/backend/issue-1037-security-hardening-evidence.json",
@@ -322,7 +322,7 @@
       "evidencePaths": [
         "tests/backend/Fixtures/backend-test-requirements.json",
         "tools/check-backend-test-governance.mjs",
-        "stryker-config.json"
+        "config/testing/mutation/default.json"
       ]
     }
   ],
@@ -522,8 +522,8 @@
       "risk": "high",
       "coverage": "Stryker.NET config for core/security/binary/cache/authoring/upload/notification stream mutation targets",
       "evidencePaths": [
-        "dotnet-tools.json",
-        "stryker-config.json"
+        ".config/dotnet-tools.json",
+        "config/testing/mutation/default.json"
       ]
     },
     {
@@ -973,7 +973,7 @@
       "coverage": "mutation, high-seed property, stress/capacity, chaos, soak, full Docker integration, backup/restore, fuzz",
       "evidencePaths": [
         "tests/backend/Fixtures/backend-test-requirements.json",
-        "stryker-config.json"
+        "config/testing/mutation/default.json"
       ]
     },
     {

@@ -13,7 +13,7 @@ Release target: v1.1.0-public-preview
 | Contribution guide | OK | `CONTRIBUTING.md` |
 | Code of conduct | OK | `CODE_OF_CONDUCT.md` |
 | Safe local environment example | OK | `.env.example` |
-| Safe app settings examples | OK | `appsettings.example.json`, `appsettings.Production.example.json`, `src/backend/appsettings.example.json`, `src/backend/appsettings.Production.example.json` |
+| Safe app settings examples | OK | `src/backend/appsettings.example.json`, `src/backend/appsettings.Development.example.json`, `src/backend/appsettings.Production.example.json` |
 | Public preview README | OK | `README.md` links status, setup, tests, deploy docs, roadmap, known limits, license, security, conduct, and readiness evidence |
 | Public preview release notes | OK | `docs/releases/v1.1.0-public-preview.md` |
 | Known limitations | OK | `docs/known-limitations.md` |

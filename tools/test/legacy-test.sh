@@ -1304,7 +1304,10 @@ run_backend_mutation_with_config() {
   local working_dir="${4:-$ROOT_DIR}"
   local authority_tier="${5:-}"
   local authority_out="${6:-}"
-  run dotnet tool restore
+  (
+    cd "$ROOT_DIR"
+    run dotnet tool restore
+  )
   run rm -rf "$output_dir"
   local FSUSBLOG_MUTATION_BUILD=1
   export FSUSBLOG_MUTATION_BUILD
@@ -1330,14 +1333,14 @@ run_backend_mutation_with_config() {
 
 run_backend_mutation_only() {
   run_backend_mutation_with_config \
-    "$ROOT_DIR/stryker-config.json" \
+    "$ROOT_DIR/config/testing/mutation/default.json" \
     "$ROOT_DIR/.tmp/mutation/backend" \
     backend-mutation
 }
 
 run_backend_mutation_critical_only() {
   run_backend_mutation_with_config \
-    "$ROOT_DIR/stryker-critical-config.json" \
+    "$ROOT_DIR/config/testing/mutation/critical.json" \
     "$ROOT_DIR/.tmp/mutation/backend-critical" \
     backend-mutation-critical \
     "$ROOT_DIR/src/core" \

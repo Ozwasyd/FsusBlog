@@ -3717,6 +3717,35 @@
         "static-governance",
         "privacy-zk-comment-matrix"
       ]
+    },
+    {
+      "id": "configuration-layout-governance",
+      "description": "Repository configuration has one canonical owner: generic settings under config, framework tool manifests under .config, and project-specific appsettings or launch profiles colocated with their owning project.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "config/configuration-ownership.json",
+        "tools/configuration/check-configuration-layout.mjs",
+        "tests/tools/configuration-layout.test.mjs",
+        "docs/configuration-layout.md",
+        "docs/architecture/repository-layout.md",
+        ".config/dotnet-tools.json",
+        "config/moderation/regions.yaml",
+        "config/observability/slo.yml",
+        "config/testing/mutation/default.json",
+        "config/testing/mutation/critical.json",
+        "ops/docker/Properties/launchSettings.json",
+        "src/backend/appsettings.example.json",
+        "src/backend/appsettings.Production.example.json",
+        "README.md",
+        ".gitignore"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject a competing configs root, unapproved root JSON, ownerless root Properties directory, duplicate or missing canonical ownership, stale solution/project includes, non-colocated launch profiles, old Stryker/SLO/moderation paths or ignored canonical Compose launch settings.",
+      "minimumRequirement": "Static governance must execute positive and tamper fixtures for the ownership registry, restore the pinned dotnet tools, resolve every moderation/SLO/mutation consumer, and keep project-specific example configuration and Compose launch profiles discoverable at their canonical paths.",
+      "tierIds": [
+        "static-governance"
+      ]
     }
   ]
 }
