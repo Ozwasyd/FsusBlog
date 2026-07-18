@@ -13,6 +13,17 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
+/// <summary>Contains the bounded, pseudonymized fields queued for one persisted security-risk event.</summary>
+/// <param name="Id">The stable event identifier.</param><param name="OccurredAtUtc">The UTC time at which the event occurred.</param>
+/// <param name="Source">The subsystem that produced the event.</param><param name="Reason">The normalized risk reason.</param>
+/// <param name="Action">The protected action associated with the event.</param><param name="ScoreDelta">The score contributed by the event.</param>
+/// <param name="TotalScore">The hot-path score observed when the event was created.</param><param name="TtlSeconds">The lifetime of the score contribution in seconds.</param>
+/// <param name="ExpiresAtUtc">The UTC time after which the contribution is inactive.</param><param name="SubjectHash">An optional pseudonymized account subject.</param>
+/// <param name="RouteKey">An optional stable route or action key.</param><param name="ClientIpHash">An optional pseudonymized client network identity.</param>
+/// <param name="DeviceFpHash">An optional pseudonymized device fingerprint.</param><param name="Path">An optional bounded request path.</param>
+/// <param name="Method">An optional HTTP method.</param><param name="UserAgent">An optional bounded user-agent value.</param>
+/// <param name="Detail">Optional bounded diagnostic detail.</param><param name="TraceId">An optional request trace identifier.</param>
+/// <param name="PseudonymEpoch">The key epoch used for stored identity pseudonyms.</param>
 public readonly record struct SecurityRiskEventWrite(
     string Id,
     DateTimeOffset OccurredAtUtc,
@@ -34,6 +45,17 @@ public readonly record struct SecurityRiskEventWrite(
     string? TraceId,
     int PseudonymEpoch = 1);
 
+/// <summary>Represents a persisted security-risk event returned to scoring or administrative queries.</summary>
+/// <param name="Id">The stable event identifier.</param><param name="OccurredAtUtc">The UTC time at which the event occurred.</param>
+/// <param name="Source">The subsystem that produced the event.</param><param name="Reason">The normalized risk reason.</param>
+/// <param name="Action">The protected action associated with the event.</param><param name="ScoreDelta">The score contributed by the event.</param>
+/// <param name="TotalScore">The hot-path score observed when the event was created.</param><param name="TtlSeconds">The lifetime of the score contribution in seconds.</param>
+/// <param name="ExpiresAtUtc">The UTC time after which the contribution is inactive.</param><param name="SubjectHash">An optional pseudonymized account subject.</param>
+/// <param name="RouteKey">An optional stable route or action key.</param><param name="ClientIpHash">An optional pseudonymized client network identity.</param>
+/// <param name="DeviceFpHash">An optional pseudonymized device fingerprint.</param><param name="Path">An optional bounded request path.</param>
+/// <param name="Method">An optional HTTP method.</param><param name="UserAgent">An optional bounded user-agent value.</param>
+/// <param name="Detail">Optional bounded diagnostic detail.</param><param name="TraceId">An optional request trace identifier.</param>
+/// <param name="PseudonymEpoch">The key epoch used for stored identity pseudonyms.</param>
 public readonly record struct SecurityRiskEventRecord(
     string Id,
     DateTimeOffset OccurredAtUtc,
@@ -55,6 +77,12 @@ public readonly record struct SecurityRiskEventRecord(
     string? TraceId,
     int PseudonymEpoch = 1);
 
+/// <summary>Defines bounded filters for reading recent persisted security-risk events.</summary>
+/// <param name="Source">An optional subsystem filter.</param>
+/// <param name="Reason">An optional risk-reason filter.</param>
+/// <param name="Action">An optional protected-action filter.</param>
+/// <param name="SubjectHash">An optional pseudonymized subject filter.</param>
+/// <param name="Limit">The requested maximum result count before store-side clamping.</param>
 public readonly record struct SecurityRiskEventQuery(
     string? Source = null,
     string? Reason = null,
@@ -62,6 +90,13 @@ public readonly record struct SecurityRiskEventQuery(
     string? SubjectHash = null,
     int Limit = 100);
 
+/// <summary>Defines the pseudonymized identity dimensions used to aggregate active risk events.</summary>
+/// <param name="SubjectHash">An optional pseudonymized account subject.</param>
+/// <param name="Action">An optional protected-action filter.</param>
+/// <param name="RouteKey">An optional stable route or action key.</param>
+/// <param name="ClientIpHash">An optional pseudonymized client network identity.</param>
+/// <param name="DeviceFpHash">An optional pseudonymized device fingerprint.</param>
+/// <param name="PseudonymEpoch">An optional key epoch used to isolate pseudonym generations.</param>
 public readonly record struct SecurityRiskScoreQuery(
     string? SubjectHash,
     string? Action,
@@ -70,16 +105,38 @@ public readonly record struct SecurityRiskScoreQuery(
     string? DeviceFpHash,
     int? PseudonymEpoch = null);
 
+/// <summary>Returns an aggregated active risk score and the latest contributing expiry.</summary>
+/// <param name="Score">The non-negative decayed score.</param>
+/// <param name="ExpiresAtUtc">The latest UTC expiry among active contributions, when present.</param>
 public readonly record struct SecurityRiskScoreResult(int Score, DateTimeOffset? ExpiresAtUtc);
 
+/// <summary>Persists and queries pseudonymized security-risk events.</summary>
 public interface ISecurityRiskEventStore
 {
+    /// <summary>Appends one security-risk event.</summary>
+    /// <param name="write">The bounded event to persist.</param>
+    /// <param name="cancellationToken">A token that cancels the write.</param>
+    /// <returns>A task that completes when the event has been persisted.</returns>
     Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default);
 
+    /// <summary>Appends a batch of security-risk events in one store operation.</summary>
+    /// <param name="writes">The bounded events to persist.</param>
+    /// <param name="cancellationToken">A token that cancels the write.</param>
+    /// <returns>A task that completes when the batch has been persisted.</returns>
     Task AppendBatchAsync(IReadOnlyList<SecurityRiskEventWrite> writes, CancellationToken cancellationToken = default);
 
+    /// <summary>Reads recent events matching administrative query filters.</summary>
+    /// <param name="query">The bounded event filters and result limit.</param>
+    /// <param name="cancellationToken">A token that cancels the query.</param>
+    /// <returns>The matching events in reverse occurrence order.</returns>
     Task<IReadOnlyList<SecurityRiskEventRecord>> QueryAsync(SecurityRiskEventQuery query, CancellationToken cancellationToken = default);
 
+    /// <summary>Reads unexpired events that contribute to an aggregate score.</summary>
+    /// <param name="query">The pseudonymized identity dimensions to match.</param>
+    /// <param name="now">The current UTC instant used to exclude expired rows.</param>
+    /// <param name="limit">The requested maximum result count before store-side clamping.</param>
+    /// <param name="cancellationToken">A token that cancels the query.</param>
+    /// <returns>The matching active events in reverse occurrence order.</returns>
     Task<IReadOnlyList<SecurityRiskEventRecord>> ListActiveForScoreAsync(
         SecurityRiskScoreQuery query,
         DateTimeOffset now,
@@ -87,19 +144,34 @@ public interface ISecurityRiskEventStore
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>Aggregates persisted active events into a decayed security-risk score.</summary>
 public interface IRiskScoreEngine
 {
+    /// <summary>Computes the active score for the supplied pseudonymized dimensions.</summary>
+    /// <param name="query">The identity and action dimensions to aggregate.</param>
+    /// <param name="cancellationToken">A token that cancels the aggregation.</param>
+    /// <returns>The decayed score and latest contributing expiry.</returns>
     Task<SecurityRiskScoreResult> ComputeScoreAsync(SecurityRiskScoreQuery query, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Stores normalized security-risk events through the application database abstraction.</summary>
+/// <param name="db">The database client used for event persistence and queries.</param>
 public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEventStore
 {
+    /// <summary>Normalizes and persists one security-risk event.</summary>
+    /// <param name="write">The bounded event to persist.</param>
+    /// <param name="cancellationToken">A token that cancels the write.</param>
+    /// <returns>A task that completes when the event has been persisted.</returns>
     public async Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         await db.Insertable(ToEntity(write)).ExecuteCommandAsync();
     }
 
+    /// <summary>Normalizes and persists a non-empty batch of security-risk events.</summary>
+    /// <param name="writes">The bounded events to persist.</param>
+    /// <param name="cancellationToken">A token that cancels the write.</param>
+    /// <returns>A task that completes when the batch has been persisted.</returns>
     public async Task AppendBatchAsync(
         IReadOnlyList<SecurityRiskEventWrite> writes,
         CancellationToken cancellationToken = default)
@@ -120,6 +192,10 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
         await db.Insertable(entities).ExecuteCommandAsync();
     }
 
+    /// <summary>Queries recent persisted events using bounded administrative filters.</summary>
+    /// <param name="query">The event filters and requested result limit.</param>
+    /// <param name="cancellationToken">A token that cancels the query.</param>
+    /// <returns>The matching events in reverse occurrence order.</returns>
     public async Task<IReadOnlyList<SecurityRiskEventRecord>> QueryAsync(
         SecurityRiskEventQuery query,
         CancellationToken cancellationToken = default)
@@ -158,6 +234,12 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
         return rows.Select(ToRecord).ToArray();
     }
 
+    /// <summary>Queries unexpired events that match the supplied pseudonymized score dimensions.</summary>
+    /// <param name="query">The pseudonymized identity dimensions to match.</param>
+    /// <param name="now">The current UTC instant used to exclude expired rows.</param>
+    /// <param name="limit">The requested maximum result count before store-side clamping.</param>
+    /// <param name="cancellationToken">A token that cancels the query.</param>
+    /// <returns>The matching active events in reverse occurrence order.</returns>
     public async Task<IReadOnlyList<SecurityRiskEventRecord>> ListActiveForScoreAsync(
         SecurityRiskScoreQuery query,
         DateTimeOffset now,
@@ -285,8 +367,15 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
     }
 }
 
+/// <summary>Calculates time-decayed risk scores from persisted active events.</summary>
+/// <param name="store">The event store that supplies active score contributions.</param>
+/// <param name="timeProvider">The clock used to evaluate expiry and decay.</param>
 public sealed class RiskScoreEngine(ISecurityRiskEventStore store, TimeProvider timeProvider) : IRiskScoreEngine
 {
+    /// <summary>Computes a non-negative time-decayed score for the supplied identity dimensions.</summary>
+    /// <param name="query">The pseudonymized identity dimensions to aggregate.</param>
+    /// <param name="cancellationToken">A token that cancels the aggregation.</param>
+    /// <returns>The decayed score and latest contributing expiry.</returns>
     public async Task<SecurityRiskScoreResult> ComputeScoreAsync(
         SecurityRiskScoreQuery query,
         CancellationToken cancellationToken = default)
@@ -318,6 +407,15 @@ public sealed class RiskScoreEngine(ISecurityRiskEventStore store, TimeProvider 
     }
 }
 
+/// <summary>Updates hot-path risk state and queues privacy-bounded events for durable scoring.</summary>
+/// <param name="hotPath">The in-memory and distributed hot-path risk service.</param>
+/// <param name="cache">The unified cache used to read and warm active scores.</param>
+/// <param name="policy">The current administrative security policy provider.</param>
+/// <param name="pseudonymizer">The service that derives epoch-bound identity pseudonyms.</param>
+/// <param name="eventQueue">The bounded queue used for best-effort event persistence.</param>
+/// <param name="scopeFactory">The scope factory used to resolve fallback score engines.</param>
+/// <param name="logger">The logger used for persistence and aggregation failures.</param>
+/// <param name="timeProvider">The clock used for event occurrence and expiry times.</param>
 public sealed class SecurityRiskEventSink(
     CrawlerRiskService hotPath,
     IUnifiedCache cache,
@@ -328,6 +426,10 @@ public sealed class SecurityRiskEventSink(
     ILogger<SecurityRiskEventSink> logger,
     TimeProvider timeProvider) : ISecurityRiskSignalSink, ISecurityRiskScoreReader
 {
+    /// <summary>Applies an observation to hot-path risk state and queues its bounded persisted representation.</summary>
+    /// <param name="signal">The security observation to process.</param>
+    /// <param name="cancellationToken">A token that cancels asynchronous processing.</param>
+    /// <returns>A value task that completes after hot-path processing and queue admission.</returns>
     public async ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
     {
         FsusObservability.RecordSecurityRiskEvent(signal.Source, signal.Reason.ToString(), signal.Action, "received");
@@ -359,6 +461,10 @@ public sealed class SecurityRiskEventSink(
         }
     }
 
+    /// <summary>Gets the active score for the client represented by a request, using persisted fallback when needed.</summary>
+    /// <param name="context">The request context from which the client identity is resolved.</param>
+    /// <param name="cancellationToken">A token that cancels the query.</param>
+    /// <returns>The non-negative active risk score.</returns>
     public async Task<int> GetRiskScoreAsync(HttpContext context, CancellationToken cancellationToken = default)
     {
         string ip = context.GetClientIp();
@@ -392,6 +498,10 @@ public sealed class SecurityRiskEventSink(
         return fallback.Score;
     }
 
+    /// <summary>Gets the active score for an explicit subject, using persisted fallback when needed.</summary>
+    /// <param name="subject">The subject whose score is requested.</param>
+    /// <param name="cancellationToken">A token that cancels the query.</param>
+    /// <returns>The non-negative active risk score.</returns>
     public async Task<int> GetRiskScoreAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(subject.Identity))
@@ -424,6 +534,10 @@ public sealed class SecurityRiskEventSink(
         return fallback.Score;
     }
 
+    /// <summary>Clears hot-path risk state for an explicit subject.</summary>
+    /// <param name="subject">The subject whose score is reset.</param>
+    /// <param name="cancellationToken">A token that cancels the reset operation.</param>
+    /// <returns>A task that completes when the reset has finished.</returns>
     public Task ResetRiskAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default)
         => hotPath.ResetRiskAsync(subject, cancellationToken);
 

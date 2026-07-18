@@ -2,6 +2,7 @@ using FsusBlog.Server.Models.Security;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
+/// <summary>Converts between legacy anti-crawler risk settings and the versioned action-policy model.</summary>
 public static class SecurityRiskPolicySnapshotV2Adapter
 {
     public const string DefaultPolicyVersion = "risk-policy-v2";
@@ -15,6 +16,10 @@ public static class SecurityRiskPolicySnapshotV2Adapter
     private const string MicroInteractionV2ChallengeKind = "perceptionMicroInteractionV2";
     private const string AdminPasskeyStepUpV1ChallengeKind = "adminPasskeyStepUpV1";
 
+    /// <summary>Builds the versioned perception-sealed policy matrix from legacy anti-crawler and proof-of-work settings.</summary>
+    /// <param name="antiCrawler">The authoritative legacy anti-crawler snapshot.</param>
+    /// <param name="pow">An optional proof-of-work snapshot used to derive the proof subsystem mode.</param>
+    /// <returns>A versioned action and subsystem policy snapshot.</returns>
     public static SecurityRiskPolicySnapshotV2 FromLegacy(AntiCrawlerPolicySnapshot antiCrawler, PowPolicySnapshot? pow = null)
     {
         ArgumentNullException.ThrowIfNull(antiCrawler);
@@ -26,35 +31,35 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             [MicroInteractionV2ChallengeKind],
             4,
             "perception_sealed_v2_micro_interaction",
-            AnonymousWriteAllowed: false);
+            anonymousWriteAllowed: false);
         var publicReadPolicy = CreatePerceptionSealedV2Policy(
             RiskActionNames.PublicRead,
             SecurityRiskPolicyOutcomes.Throttle,
             [],
             0,
             "perception_sealed_v2_public_read_throttle",
-            AnonymousWriteAllowed: true);
+            anonymousWriteAllowed: true);
         var commentCreatePolicy = CreatePerceptionSealedV2Policy(
             RiskActionNames.CommentCreate,
             SecurityRiskPolicyOutcomes.Queue,
             [],
             0,
             "perception_sealed_v2_comment_queue",
-            AnonymousWriteAllowed: false);
+            anonymousWriteAllowed: false);
         var authLoginPolicy = CreatePerceptionSealedV2Policy(
             RiskActionNames.AuthLogin,
             SecurityRiskPolicyOutcomes.Throttle,
             [],
             0,
             "perception_sealed_v2_auth_throttle",
-            AnonymousWriteAllowed: false);
+            anonymousWriteAllowed: false);
         var recoveryKeyVerifyPolicy = CreatePerceptionSealedV2Policy(
             RiskActionNames.RecoveryKeyVerify,
             SecurityRiskPolicyOutcomes.Throttle,
             [],
             0,
             "perception_sealed_v2_recovery_throttle",
-            AnonymousWriteAllowed: false,
+            anonymousWriteAllowed: false,
             lowBand: new SecurityRiskDecisionBand(
                 SecurityRiskPolicyOutcomes.Challenge,
                 0,
@@ -68,7 +73,7 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             [Argon2idPoSpaceV1ChallengeKind],
             4,
             "perception_sealed_v2_notification_pospace",
-            AnonymousWriteAllowed: true,
+            anonymousWriteAllowed: true,
             lowBand: new SecurityRiskDecisionBand(
                 SecurityRiskPolicyOutcomes.Challenge,
                 0,
@@ -82,7 +87,7 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             [AdminPasskeyStepUpV1ChallengeKind],
             4,
             "perception_sealed_v2_admin_step_up",
-            AnonymousWriteAllowed: true);
+            anonymousWriteAllowed: true);
         var actionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
         {
             [RiskActionNames.PublicRead] = publicReadPolicy with
@@ -131,6 +136,9 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             subsystemModes);
     }
 
+    /// <summary>Projects a versioned policy into the compatibility thresholds consumed by legacy readers.</summary>
+    /// <param name="snapshot">The versioned policy snapshot to project.</param>
+    /// <returns>A legacy snapshot derived from the public-read action and global limits.</returns>
     public static SecurityRiskPolicySnapshot ToLegacy(SecurityRiskPolicySnapshotV2 snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -154,7 +162,7 @@ public static class SecurityRiskPolicySnapshotV2Adapter
         IReadOnlyList<string> band80ChallengeKinds,
         int band80EscalationLevel,
         string band80Reason,
-        bool AnonymousWriteAllowed,
+        bool anonymousWriteAllowed,
         SecurityRiskDecisionBand? lowBand = null)
         => new(
             actionName,
@@ -162,7 +170,7 @@ public static class SecurityRiskPolicySnapshotV2Adapter
             Sha256PowV1ChallengeKind,
             1,
             null,
-            AnonymousWriteAllowed)
+            anonymousWriteAllowed)
         {
             HardChallengeKinds = [LocalizationV2ChallengeKind, Sha256PowV1ChallengeKind],
             HardChallengeEscalationLevel = 3,

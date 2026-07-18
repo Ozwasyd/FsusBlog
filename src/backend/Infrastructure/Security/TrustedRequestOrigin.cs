@@ -2,8 +2,12 @@ using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
+/// <summary>Validates browser credential requests against configured trusted origin authorities.</summary>
 public static class TrustedRequestOrigin
 {
+    /// <summary>Determines whether a request supplies an allowed absolute HTTP origin or referrer.</summary>
+    /// <param name="context">The request context whose headers and configured origin set are evaluated.</param>
+    /// <returns><see langword="true"/> when an Origin or Referer authority is trusted; otherwise <see langword="false"/>.</returns>
     public static bool RequireTrustedOriginOrReferer(HttpContext context)
     {
         if (TryGetRequestOrigin(context.Request.Headers.Origin, out string origin) ||
@@ -15,6 +19,8 @@ public static class TrustedRequestOrigin
         return false;
     }
 
+    /// <summary>Adds a CSRF origin guard for unsafe requests that carry browser credentials.</summary>
+    /// <param name="app">The application pipeline builder to extend.</param>
     public static void UseFsusCsrfOriginGuard(this IApplicationBuilder app)
     {
         app.Use(async (context, next) =>

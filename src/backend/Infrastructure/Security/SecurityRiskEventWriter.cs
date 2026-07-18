@@ -12,19 +12,31 @@ internal readonly record struct SecurityRiskEventBatchPersistResult(
     int FailedBatches,
     int FallbackSingleInserts);
 
+/// <summary>Configures capacity, batching, and flush latency for asynchronous security-risk persistence.</summary>
 public sealed class SecurityRiskEventWriterOptions
 {
+    /// <summary>Gets the configuration section that binds these writer options.</summary>
     public const string SectionName = "Security:RiskEventWriter";
 
+    /// <summary>Gets or sets the maximum number of events retained by the bounded writer queue.</summary>
+    /// <value>The configured queue capacity before runtime clamping.</value>
     public int Capacity { get; set; } = 20_000;
 
+    /// <summary>Gets or sets the maximum number of events persisted in one batch.</summary>
+    /// <value>The configured batch size before runtime clamping.</value>
     public int BatchSize { get; set; } = 256;
 
+    /// <summary>Gets or sets the maximum batching window in milliseconds.</summary>
+    /// <value>The configured flush window before runtime clamping.</value>
     public int FlushWindowMs { get; set; } = 500;
 }
 
+/// <summary>Captures the current number of queued and dropped security-risk events.</summary>
+/// <param name="QueuedCount">The approximate number of events awaiting persistence.</param>
+/// <param name="DroppedCount">The cumulative number of events rejected by the bounded queue.</param>
 public sealed record SecurityRiskEventWriteQueueSnapshot(long QueuedCount, long DroppedCount);
 
+/// <summary>Provides single-reader admission and accounting for the bounded security-risk event channel.</summary>
 public sealed class SecurityRiskEventWriteQueue
 {
     private readonly Channel<SecurityRiskEventWrite> _channel;
@@ -32,6 +44,9 @@ public sealed class SecurityRiskEventWriteQueue
     private long _queuedCount;
     private long _droppedCount;
 
+    /// <summary>Creates a bounded event queue using the configured capacity and wait-mode backpressure.</summary>
+    /// <param name="options">The writer capacity and batching options.</param>
+    /// <param name="logger">The logger used when queue admission fails.</param>
     public SecurityRiskEventWriteQueue(
         IOptions<SecurityRiskEventWriterOptions> options,
         ILogger<SecurityRiskEventWriteQueue> logger)
@@ -46,8 +61,13 @@ public sealed class SecurityRiskEventWriteQueue
         });
     }
 
+    /// <summary>Gets the channel reader used by the single background persistence worker.</summary>
+    /// <value>The reader for admitted security-risk events.</value>
     public ChannelReader<SecurityRiskEventWrite> Reader => _channel.Reader;
 
+    /// <summary>Attempts to admit an event without waiting for queue capacity.</summary>
+    /// <param name="write">The bounded event to enqueue.</param>
+    /// <returns><see langword="true"/> when the event was admitted; otherwise <see langword="false"/>.</returns>
     public bool TryWrite(SecurityRiskEventWrite write)
     {
         if (!_channel.Writer.TryWrite(write))
@@ -66,6 +86,9 @@ public sealed class SecurityRiskEventWriteQueue
         return true;
     }
 
+    /// <summary>Attempts to remove one event and updates the queue-depth accounting on success.</summary>
+    /// <param name="write">Receives the dequeued event when one is available.</param>
+    /// <returns><see langword="true"/> when an event was read; otherwise <see langword="false"/>.</returns>
     public bool TryRead(out SecurityRiskEventWrite write)
     {
         if (!_channel.Reader.TryRead(out write))
@@ -77,6 +100,8 @@ public sealed class SecurityRiskEventWriteQueue
         return true;
     }
 
+    /// <summary>Reads a lock-free snapshot of queue depth and cumulative drops.</summary>
+    /// <returns>The current queue accounting snapshot.</returns>
     public SecurityRiskEventWriteQueueSnapshot Snapshot()
         => new(
             Volatile.Read(ref _queuedCount),
@@ -97,6 +122,11 @@ public sealed class SecurityRiskEventWriteQueue
     }
 }
 
+/// <summary>Drains queued security-risk events into scoped persistence batches with failure isolation.</summary>
+/// <param name="queue">The bounded queue that supplies events.</param>
+/// <param name="scopeFactory">The scope factory used to resolve the event store.</param>
+/// <param name="options">The batch-size and flush-window configuration.</param>
+/// <param name="logger">The logger used for recoverable persistence failures.</param>
 public sealed class SecurityRiskEventWriterWorker(
     SecurityRiskEventWriteQueue queue,
     IServiceScopeFactory scopeFactory,
@@ -146,6 +176,9 @@ public sealed class SecurityRiskEventWriterWorker(
         await DrainRemainingAsync(drainCts.Token);
     }
 
+    /// <summary>Drains and persists at most one configured batch from the queue.</summary>
+    /// <param name="cancellationToken">A token that cancels the flush operation.</param>
+    /// <returns>The number of events removed from the queue and submitted for persistence.</returns>
     public async Task<int> FlushOnceAsync(CancellationToken cancellationToken)
     {
         var batch = new List<SecurityRiskEventWrite>(_batchSize);

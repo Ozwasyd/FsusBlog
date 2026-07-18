@@ -2,6 +2,7 @@ using FsusBlog.Server.Models.Security;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
+/// <summary>Identifies the security condition that contributed to a request's risk score or challenge decision.</summary>
 public enum SecurityRiskReason
 {
     VerifiedCrawler = 0,
@@ -41,6 +42,7 @@ public enum SecurityRiskReason
     ChallengeSignatureInvalid = 34
 }
 
+/// <summary>Provides stable subsystem identifiers for security-risk telemetry, persistence, and policy routing.</summary>
 public static class SecurityRiskSources
 {
     public const string AntiCrawler = "anti-crawler";
@@ -62,6 +64,18 @@ public static class SecurityRiskSources
     public const string PerceptionMicroInteraction = "perception-micro-interaction";
 }
 
+/// <summary>Describes one security observation to score, retain, and expose through risk telemetry.</summary>
+/// <param name="Context">The request context in which the observation occurred.</param>
+/// <param name="Reason">The classified reason for the observation.</param>
+/// <param name="Score">The score delta contributed by the observation.</param>
+/// <param name="Ttl">The period for which the score contribution remains active.</param>
+/// <param name="Source">The subsystem that produced the observation.</param>
+/// <param name="Action">The protected action associated with the observation.</param>
+/// <param name="Detail">Optional bounded diagnostic detail that does not contain raw identity data.</param>
+/// <param name="SubjectHash">An optional pre-hashed account subject identifier.</param>
+/// <param name="RouteKey">An optional stable route or action key.</param>
+/// <param name="ClientIpHash">An optional pre-hashed client network identifier.</param>
+/// <param name="DeviceFpHash">An optional pre-hashed device fingerprint.</param>
 public sealed record SecurityRiskSignal(
     HttpContext Context,
     SecurityRiskReason Reason,
@@ -75,29 +89,52 @@ public sealed record SecurityRiskSignal(
     string? ClientIpHash = null,
     string? DeviceFpHash = null);
 
+/// <summary>Identifies the subject whose current hot-path risk score is being queried or reset.</summary>
+/// <param name="Identity">The internal identity value used by the hot-path score cache.</param>
 public sealed record SecurityRiskSubject(string Identity);
 
+/// <summary>Accepts security-risk observations for scoring and best-effort persistence.</summary>
 public interface ISecurityRiskSignalSink
 {
+    /// <summary>Adds an observation to the active risk state.</summary>
+    /// <param name="signal">The security observation to process.</param>
+    /// <param name="cancellationToken">A token that cancels asynchronous processing.</param>
+    /// <returns>A value task that completes when hot-path processing has finished.</returns>
     ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Reads and resets active risk scores through the supported subject boundaries.</summary>
 public interface ISecurityRiskScoreReader
 {
+    /// <summary>Gets the active score for an explicit risk subject.</summary>
+    /// <param name="subject">The subject whose score is requested.</param>
+    /// <param name="cancellationToken">A token that cancels the query.</param>
+    /// <returns>The non-negative active risk score.</returns>
     Task<int> GetRiskScoreAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default);
 
+    /// <summary>Gets the active score associated with the client represented by a request.</summary>
+    /// <param name="context">The request context from which the client identity is resolved.</param>
+    /// <param name="cancellationToken">A token that cancels the query.</param>
+    /// <returns>The non-negative active risk score.</returns>
     Task<int> GetRiskScoreAsync(HttpContext context, CancellationToken cancellationToken = default);
 
+    /// <summary>Clears hot-path risk state for an explicit subject.</summary>
+    /// <param name="subject">The subject whose score is reset.</param>
+    /// <param name="cancellationToken">A token that cancels the reset operation.</param>
+    /// <returns>A task that completes when the reset has finished.</returns>
     Task ResetRiskAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Exposes the current legacy and versioned security-risk policy snapshots.</summary>
 public interface ISecurityRiskPolicyProvider
 {
+    /// <summary>Gets the compatibility snapshot used by legacy risk-policy consumers.</summary>
     SecurityRiskPolicySnapshot CurrentRiskPolicy
     {
         get;
     }
 
+    /// <summary>Gets the versioned action and subsystem policy used by current risk decisions.</summary>
     SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2
     {
         get;
