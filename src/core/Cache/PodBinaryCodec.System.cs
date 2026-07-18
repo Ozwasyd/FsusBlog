@@ -9,8 +9,14 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for system contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes the <c>SeoConfig</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSeoConfig(SeoConfigPublicDto dto, IBufferWriter<byte> destination)
     {
         SeoConfigPod pod = CreateSeoConfigPod(dto, out ReadOnlyMemory<byte> payload);
@@ -19,6 +25,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.Span);
     }
 
+    /// <summary>
+    /// Writes the <c>SeoConfig</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSeoConfig(SeoConfigAdminDto dto, IBufferWriter<byte> destination)
         => WriteSeoConfig(new SeoConfigPublicDto
         {
@@ -48,9 +57,15 @@ public static partial class PodBinaryCodec
             LoginIconUrl = dto.LoginIconUrl
         }, destination);
 
+    /// <summary>
+    /// Encodes the <c>SeoConfig</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSeoConfig(SeoConfigPublicDto dto)
         => EncodeToArray(1024, writer => WriteSeoConfig(dto, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SeoConfig</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSeoConfig(ReadOnlyMemory<byte> bytes, out SeoConfigPublicDto dto)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -90,6 +105,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>PageContent</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WritePageContent(PageContentPublicDto dto, IBufferWriter<byte> destination)
     {
         PageContentPod pod = CreatePageContentPod(dto, out ReadOnlyMemory<byte> payload);
@@ -98,9 +116,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.Span);
     }
 
+    /// <summary>
+    /// Encodes the <c>PageContent</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodePageContent(PageContentPublicDto dto)
         => EncodeToArray(512 + (dto.Content?.Length ?? 0), writer => WritePageContent(dto, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>PageContent</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodePageContent(ReadOnlyMemory<byte> bytes, out PageContentPublicDto dto)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -118,6 +142,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>SiteComplianceConfig</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSiteComplianceConfig(SiteComplianceConfigPublicDto dto, IBufferWriter<byte> destination)
     {
         SiteComplianceConfigPod pod = CreateSiteComplianceConfigPod(dto, out ReadOnlyMemory<byte> payload);
@@ -126,9 +153,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.Span);
     }
 
+    /// <summary>
+    /// Encodes the <c>SiteComplianceConfig</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSiteComplianceConfig(SiteComplianceConfigPublicDto dto)
         => EncodeToArray(1536 + (dto.CopyrightText?.Length ?? 0), writer => WriteSiteComplianceConfig(dto, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SiteComplianceConfig</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSiteComplianceConfig(ReadOnlyMemory<byte> bytes, out SiteComplianceConfigPublicDto dto)
     {
         var reader = new BinaryPodReader(bytes.Span);

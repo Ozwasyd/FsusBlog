@@ -8,17 +8,29 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for subscription contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes the <c>SiteSubscriptionRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSiteSubscriptionRequest(SiteSubscriptionBinaryRequest request, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
         writer.WritePod(CreateSiteSubscriptionRequestPod(request));
     }
 
+    /// <summary>
+    /// Encodes the <c>SiteSubscriptionRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSiteSubscriptionRequest(SiteSubscriptionBinaryRequest request)
         => EncodeToArray(Marshal.SizeOf<SiteSubscriptionRequestPod>(), writer => WriteSiteSubscriptionRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SiteSubscriptionRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSiteSubscriptionRequest(ReadOnlyMemory<byte> source, out SiteSubscriptionBinaryRequest request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -34,15 +46,24 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Writes the <c>SiteSubscriptionResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSiteSubscriptionResponse(SiteSubscriptionBinaryResponse response, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
         writer.WritePod(CreateSiteSubscriptionResponsePod(response));
     }
 
+    /// <summary>
+    /// Encodes the <c>SiteSubscriptionResponse</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSiteSubscriptionResponse(SiteSubscriptionBinaryResponse response)
         => EncodeToArray(Marshal.SizeOf<SiteSubscriptionResponsePod>(), writer => WriteSiteSubscriptionResponse(response, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SiteSubscriptionResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSiteSubscriptionResponse(ReadOnlyMemory<byte> source, out SiteSubscriptionBinaryResponse response)
     {
         var reader = new BinaryPodReader(source.Span);

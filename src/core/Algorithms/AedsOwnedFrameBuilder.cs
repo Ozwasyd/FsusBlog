@@ -2,8 +2,14 @@ using System.Buffers;
 
 namespace FsusBlog.Core.Algorithms;
 
+/// <summary>
+/// Creates lifecycle-tracked AEDS frames through pooled or exact-allocation encoding paths.
+/// </summary>
 public static class AedsOwnedFrameBuilder
 {
+    /// <summary>
+    /// Builds a frame in a pooled growable buffer and transfers the rented storage to its owner.
+    /// </summary>
     public static OwnedAedsFrame BuildOwned(
         AedsFrameType frameType,
         Action<IBufferWriter<byte>> writePayload,
@@ -17,6 +23,9 @@ public static class AedsOwnedFrameBuilder
         return writer.DetachOwnedFrame();
     }
 
+    /// <summary>
+    /// Measures the payload and builds an exact-sized managed frame in a second encoding pass.
+    /// </summary>
     public static OwnedAedsFrame BuildExact(
         AedsFrameType frameType,
         Action<IBufferWriter<byte>> writePayload,

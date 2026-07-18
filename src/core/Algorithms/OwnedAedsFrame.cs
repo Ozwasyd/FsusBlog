@@ -38,6 +38,7 @@ public sealed class OwnedAedsFrame : IDisposable
         FrameType = frameType;
     }
 
+    /// <summary>Gets the protocol frame type associated with the owned bytes.</summary>
     public AedsFrameType FrameType
     {
         get;
@@ -55,10 +56,13 @@ public sealed class OwnedAedsFrame : IDisposable
         get;
     }
 
+    /// <summary>Gets whether the backing array must be returned to an array pool.</summary>
     public bool IsPooled => _pool is not null;
 
+    /// <summary>Gets whether the backing array contains data that must be cleared on release.</summary>
     public bool RequiresClear => _requiresClear;
 
+    /// <summary>Gets whether this owner has stopped accepting new read leases.</summary>
     public bool IsRetired
     {
         get
@@ -70,6 +74,7 @@ public sealed class OwnedAedsFrame : IDisposable
         }
     }
 
+    /// <summary>Gets the number of readers currently retaining the backing array.</summary>
     public int ActiveReadLeaseCount
     {
         get
@@ -98,6 +103,9 @@ public sealed class OwnedAedsFrame : IDisposable
         ArrayPool<byte> pool)
         => new(buffer, logicalLength, frameType, pool);
 
+    /// <summary>
+    /// Acquires a read lease or throws when the frame has already been retired.
+    /// </summary>
     public OwnedAedsFrameReadLease AcquireReadLease()
     {
         if (TryAcquireReadLease(out OwnedAedsFrameReadLease? lease))
@@ -110,6 +118,9 @@ public sealed class OwnedAedsFrame : IDisposable
             "The owned AEDS frame has been retired and cannot issue another read lease.");
     }
 
+    /// <summary>
+    /// Attempts to acquire a read lease without reviving a retired frame.
+    /// </summary>
     public bool TryAcquireReadLease(out OwnedAedsFrameReadLease? lease)
     {
         lock (_gate)
@@ -170,6 +181,7 @@ public sealed class OwnedAedsFrame : IDisposable
         return true;
     }
 
+    /// <inheritdoc />
     public void Dispose() => Retire();
 
     private void ReleaseReadLease()
@@ -248,6 +260,7 @@ public sealed class OwnedAedsFrameReadLease : IDisposable
         _memoryManager = new LeaseMemoryManager(buffer, length, releaseOwnerReference);
     }
 
+    /// <summary>Gets the leased frame bytes while this lease remains active.</summary>
     public ReadOnlyMemory<byte> Memory
     {
         get
@@ -258,8 +271,10 @@ public sealed class OwnedAedsFrameReadLease : IDisposable
         }
     }
 
+    /// <summary>Gets the logical frame length exposed by this lease.</summary>
     public int Length => Memory.Length;
 
+    /// <inheritdoc />
     public void Dispose()
     {
         LeaseMemoryManager? manager = Interlocked.Exchange(ref _memoryManager, null);

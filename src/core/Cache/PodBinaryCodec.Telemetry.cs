@@ -9,8 +9,14 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for telemetry contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes the <c>RumMetricBatchRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteRumMetricBatchRequest(RumMetricBatchRequest request, IBufferWriter<byte> destination)
     {
         IReadOnlyList<RumMetricBatchItem> metrics = request.Metrics ?? [];
@@ -84,9 +90,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(blob.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>RumMetricBatchRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeRumMetricBatchRequest(RumMetricBatchRequest request)
         => EncodeToArray(256 + (request.Metrics?.Count ?? 0) * 96, writer => WriteRumMetricBatchRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>RumMetricBatchRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeRumMetricBatchRequest(ReadOnlyMemory<byte> source, out RumMetricBatchRequest request)
     {
         request = new RumMetricBatchRequest(string.Empty, string.Empty, string.Empty, []);
@@ -200,6 +212,9 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Writes the <c>RumMetricIngestResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteRumMetricIngestResponse(RumMetricIngestResponse response, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -211,9 +226,15 @@ public static partial class PodBinaryCodec
         }));
     }
 
+    /// <summary>
+    /// Encodes the <c>RumMetricIngestResponse</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeRumMetricIngestResponse(RumMetricIngestResponse response)
         => EncodeToArray(16, writer => WriteRumMetricIngestResponse(response, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>RumMetricIngestResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeRumMetricIngestResponse(ReadOnlyMemory<byte> source, out RumMetricIngestResponse response)
     {
         var reader = new BinaryPodReader(source.Span);

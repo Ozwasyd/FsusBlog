@@ -7,6 +7,9 @@ namespace FsusBlog.Core.Algorithms;
 /// </summary>
 public static class AedsFrameSensitivity
 {
+    /// <summary>
+    /// Determines whether a frame contains only immutable public response data.
+    /// </summary>
     public static bool IsPublicImmutable(AedsFrameType frameType)
         => frameType is AedsFrameType.ArticleList
             or AedsFrameType.ArticleDetail
@@ -22,6 +25,9 @@ public static class AedsFrameSensitivity
             or AedsFrameType.PublicAotBootstrap
             or AedsFrameType.EmptySuccess;
 
+    /// <summary>
+    /// Determines whether pooled storage must be cleared before it is returned.
+    /// </summary>
     public static bool RequiresClear(AedsFrameType frameType)
         => !IsPublicImmutable(frameType);
 }

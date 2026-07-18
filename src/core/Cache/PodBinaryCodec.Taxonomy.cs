@@ -8,8 +8,14 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for taxonomy contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes the <c>CategoryList</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteCategoryList(IReadOnlyList<CategoryListItemResponse> categories, IBufferWriter<byte> destination)
     {
         var blob = new List<byte>(Math.Max(128, categories.Count * 48));
@@ -30,9 +36,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>CategoryList</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeCategoryList(IReadOnlyList<CategoryListItemResponse> categories)
         => EncodeToArray(64 + categories.Count * 24, writer => WriteCategoryList(categories, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>CategoryList</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeCategoryList(ReadOnlyMemory<byte> source, out List<CategoryListItemResponse> categories)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -64,6 +76,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>TagWithCountList</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteTagWithCountList(IReadOnlyList<TagWithCountDto> tags, IBufferWriter<byte> destination)
     {
         var blob = new List<byte>(Math.Max(128, tags.Count * 48));
@@ -84,9 +99,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>TagWithCountList</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeTagWithCountList(IReadOnlyList<TagWithCountDto> tags)
         => EncodeToArray(64 + tags.Count * 24, writer => WriteTagWithCountList(tags, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>TagWithCountList</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeTagWithCountList(ReadOnlyMemory<byte> source, out List<TagWithCountDto> tags)
     {
         var reader = new BinaryPodReader(source.Span);

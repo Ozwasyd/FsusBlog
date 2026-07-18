@@ -9,27 +9,39 @@ using FsusBlog.Shared.Contracts.Models;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for common contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
-    private static readonly UTF8Encoding StrictUtf8 = new(false, true);
-    private static readonly JsonSerializerOptions AedsJsonPayloadOptions = new(JsonSerializerDefaults.Web);
+    private static readonly UTF8Encoding s_strictUtf8 = new(false, true);
+    private static readonly JsonSerializerOptions s_aedsJsonPayloadOptions = new(JsonSerializerDefaults.Web);
 
     private static string? NullIfEmpty(string value) => value.Length == 0 ? null : value;
 
+    /// <summary>
+    /// Writes the <c>JsonPayload</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteJsonPayload<T>(T value, IBufferWriter<byte> target)
     {
         using var writer = new Utf8JsonWriter(target);
-        JsonSerializer.Serialize(writer, value, AedsJsonPayloadOptions);
+        JsonSerializer.Serialize(writer, value, s_aedsJsonPayloadOptions);
     }
 
+    /// <summary>
+    /// Encodes the <c>JsonPayload</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeJsonPayload<T>(T value)
-        => JsonSerializer.SerializeToUtf8Bytes(value, AedsJsonPayloadOptions);
+        => JsonSerializer.SerializeToUtf8Bytes(value, s_aedsJsonPayloadOptions);
 
+    /// <summary>
+    /// Attempts to decode the <c>JsonPayload</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeJsonPayload<T>(ReadOnlyMemory<byte> source, out T? value)
     {
         try
         {
-            value = JsonSerializer.Deserialize<T>(source.Span, AedsJsonPayloadOptions);
+            value = JsonSerializer.Deserialize<T>(source.Span, s_aedsJsonPayloadOptions);
             return true;
         }
         catch (JsonException)
@@ -39,45 +51,72 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Writes the <c>EmptySuccess</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteEmptySuccess(IBufferWriter<byte> target)
     {
         var writer = new BinaryPodWriter(target);
         writer.WritePod(CreateEmptySuccessPod());
     }
 
+    /// <summary>
+    /// Encodes the <c>EmptySuccess</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeEmptySuccess()
         => EncodeToArray(Marshal.SizeOf<EmptySuccessPod>(), WriteEmptySuccess);
 
+    /// <summary>
+    /// Attempts to decode the <c>EmptySuccess</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeEmptySuccess(ReadOnlyMemory<byte> source, out EmptySuccessPod pod)
     {
         var reader = new BinaryPodReader(source.Span);
         return reader.TryReadPod(out pod) && reader.IsConsumed && pod.Ok == 1;
     }
 
+    /// <summary>
+    /// Writes the <c>MutationId</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteMutationId(long id, IBufferWriter<byte> target)
     {
         var writer = new BinaryPodWriter(target);
         writer.WritePod(CreateMutationIdPod(id));
     }
 
+    /// <summary>
+    /// Encodes the <c>MutationId</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeMutationId(long id)
         => EncodeToArray(Marshal.SizeOf<MutationIdPod>(), writer => WriteMutationId(id, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>MutationId</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeMutationId(ReadOnlyMemory<byte> source, out MutationIdPod pod)
     {
         var reader = new BinaryPodReader(source.Span);
         return reader.TryReadPod(out pod) && reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>NameMutationRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteNameMutationRequest(string name, IBufferWriter<byte> target)
     {
         var writer = new BinaryPodWriter(target);
         writer.WritePod(CreateNameMutationRequestPod(name));
     }
 
+    /// <summary>
+    /// Encodes the <c>NameMutationRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeNameMutationRequest(string name)
         => EncodeToArray(Marshal.SizeOf<NameMutationRequestPod>(), writer => WriteNameMutationRequest(name, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>NameMutationRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeNameMutationRequest(ReadOnlyMemory<byte> source, out string name)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -91,6 +130,9 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Writes the <c>StringMutationRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteStringMutationRequest(string value, IBufferWriter<byte> target)
     {
         var payload = new ArrayBufferWriter<byte>(Math.Max(128, value.Length));
@@ -106,9 +148,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>StringMutationRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeStringMutationRequest(string value)
         => EncodeToArray(128 + value.Length, writer => WriteStringMutationRequest(value, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>StringMutationRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeStringMutationRequest(ReadOnlyMemory<byte> source, out string value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -122,6 +170,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>PasskeyCredentialFriendlyNameUpdateRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WritePasskeyCredentialFriendlyNameUpdateRequest(string friendlyName, IBufferWriter<byte> target)
     {
         var payload = new ArrayBufferWriter<byte>(Math.Max(128, friendlyName.Length));
@@ -137,9 +188,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>PasskeyCredentialFriendlyNameUpdateRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodePasskeyCredentialFriendlyNameUpdateRequest(string friendlyName)
         => EncodeToArray(128 + friendlyName.Length, writer => WritePasskeyCredentialFriendlyNameUpdateRequest(friendlyName, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>PasskeyCredentialFriendlyNameUpdateRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodePasskeyCredentialFriendlyNameUpdateRequest(ReadOnlyMemory<byte> source, out string friendlyName)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -153,24 +210,36 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>ApiError</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteApiError(in ErrorDetail error, IBufferWriter<byte> target, int httpStatus = 0)
     {
         var writer = new BinaryPodWriter(target);
         writer.WritePod(CreateApiErrorPod(error.Normalize(), httpStatus));
     }
 
+    /// <summary>
+    /// Encodes the <c>ApiError</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeApiError(in ErrorDetail error, int httpStatus = 0)
     {
         ErrorDetail copy = error;
         return EncodeToArray(Marshal.SizeOf<ApiErrorPod>(), writer => WriteApiError(copy, writer, httpStatus));
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>ApiError</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeApiError(ReadOnlyMemory<byte> source, out ApiErrorPod pod)
     {
         var reader = new BinaryPodReader(source.Span);
         return reader.TryReadPod(out pod) && reader.IsConsumed && pod.Code != (byte)ErrorCode.None;
     }
 
+    /// <summary>
+    /// Converts an API-error POD into a normalized core error detail.
+    /// </summary>
     public static ErrorDetail ToErrorDetail(in ApiErrorPod pod)
     {
         var code = Enum.IsDefined((ErrorCode)pod.Code) ? (ErrorCode)pod.Code : ErrorCode.Unknown;
@@ -239,7 +308,7 @@ public static partial class PodBinaryCodec
         }
 
         Span<byte> destination = MemoryMarshal.AsBytes(one);
-        Encoder encoder = StrictUtf8.GetEncoder();
+        Encoder encoder = s_strictUtf8.GetEncoder();
         encoder.Convert(value.AsSpan(), destination, flush: true, out _, out _, out _);
         return one[0];
     }

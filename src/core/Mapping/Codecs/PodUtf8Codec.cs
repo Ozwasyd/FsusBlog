@@ -9,10 +9,10 @@ namespace FsusBlog.Core.Mapping.Codecs;
 
 public static class PodUtf8Codec
 {
-    private static readonly UTF8Encoding Utf8 = new(false, true);
+    private static readonly UTF8Encoding s_utf8 = new(false, true);
 
     internal static int GetSliceByteCount(string? value)
-        => Utf8.GetByteCount(value ?? string.Empty);
+        => s_utf8.GetByteCount(value ?? string.Empty);
 
     internal static Utf8SliceRef CreateSliceRef(int offset, int length)
     {
@@ -46,7 +46,7 @@ public static class PodUtf8Codec
         {
             if (text.Length != 0)
             {
-                int actual = Utf8.GetByteCount(text);
+                int actual = s_utf8.GetByteCount(text);
                 if (actual != 0)
                 {
                     throw new InvalidOperationException(
@@ -58,7 +58,7 @@ public static class PodUtf8Codec
         }
 
         Span<byte> target = destination.GetSpan(expectedByteCount)[..expectedByteCount];
-        int written = Utf8.GetBytes(text.AsSpan(), target);
+        int written = s_utf8.GetBytes(text.AsSpan(), target);
         if (written != expectedByteCount)
         {
             target.Clear();
@@ -91,7 +91,7 @@ public static class PodUtf8Codec
     {
         string text = value ?? string.Empty;
         int offset = payload.Count;
-        int byteCount = Utf8.GetByteCount(text);
+        int byteCount = s_utf8.GetByteCount(text);
         if (byteCount > 0)
         {
             payload.EnsureCapacity(offset + byteCount);
@@ -100,7 +100,7 @@ public static class PodUtf8Codec
             try
             {
                 Span<byte> span = CollectionsMarshal.AsSpan(payload).Slice(offset, byteCount);
-                int written = Utf8.GetBytes(text.AsSpan(), span);
+                int written = s_utf8.GetBytes(text.AsSpan(), span);
                 if (written != byteCount)
                 {
                     CollectionsMarshal.SetCount(payload, offset + written);
@@ -121,11 +121,11 @@ public static class PodUtf8Codec
     {
         string text = value ?? string.Empty;
         int offset = payload.WrittenCount;
-        int byteCount = Utf8.GetByteCount(text);
+        int byteCount = s_utf8.GetByteCount(text);
         if (byteCount > 0)
         {
             Span<byte> span = payload.GetSpan(byteCount);
-            int written = Utf8.GetBytes(text.AsSpan(), span);
+            int written = s_utf8.GetBytes(text.AsSpan(), span);
             payload.Advance(written);
         }
 
@@ -144,7 +144,7 @@ public static class PodUtf8Codec
             return string.Empty;
         }
 
-        return Utf8.GetString(payload.Slice(slice.Offset, slice.Length));
+        return s_utf8.GetString(payload.Slice(slice.Offset, slice.Length));
     }
 
     public static string ReadSlice(in Utf8SliceRef slice, byte[] payload)
@@ -162,7 +162,7 @@ public static class PodUtf8Codec
 
         if (!string.IsNullOrEmpty(value))
         {
-            int byteCount = Utf8.GetByteCount(value);
+            int byteCount = s_utf8.GetByteCount(value);
             if (byteCount > bytes.Length)
             {
                 throw new ArgumentException(
@@ -170,7 +170,7 @@ public static class PodUtf8Codec
                     nameof(value));
             }
 
-            _ = Utf8.GetBytes(value.AsSpan(), bytes);
+            _ = s_utf8.GetBytes(value.AsSpan(), bytes);
         }
 
         return one[0];
@@ -182,7 +182,7 @@ public static class PodUtf8Codec
         ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(one);
         int end = bytes.IndexOf((byte)0);
         int length = end >= 0 ? end : bytes.Length;
-        return length == 0 ? string.Empty : Utf8.GetString(bytes[..length]);
+        return length == 0 ? string.Empty : s_utf8.GetString(bytes[..length]);
     }
 
     private static Utf8SliceRef CreateSlice(int offset, int length)

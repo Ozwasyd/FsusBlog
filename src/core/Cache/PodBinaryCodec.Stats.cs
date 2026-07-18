@@ -9,8 +9,14 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for stats contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes the <c>SiteStats</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSiteStats(SiteStatsCoreModel stats, IBufferWriter<byte> destination)
     {
         var blob = new List<byte>(1024);
@@ -53,9 +59,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>SiteStats</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSiteStats(SiteStatsCoreModel stats)
         => EncodeToArray(512 + stats.PopularArticles.Count * 24 + stats.RecentComments.Count * 48 + stats.RegionDistributions.Count * 16, writer => WriteSiteStats(stats, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SiteStats</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSiteStats(ReadOnlyMemory<byte> bytes, out SiteStatsCoreModel stats)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -142,6 +154,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>RecentCommentStats</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteRecentCommentStats(IReadOnlyList<RecentCommentCoreModel> comments, IBufferWriter<byte> destination)
     {
         var blob = new List<byte>(Math.Max(256, comments.Count * 128));
@@ -155,9 +170,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>RecentCommentStats</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeRecentCommentStats(IReadOnlyList<RecentCommentCoreModel> comments)
         => EncodeToArray(64 + comments.Count * 64, writer => WriteRecentCommentStats(comments, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>RecentCommentStats</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeRecentCommentStats(ReadOnlyMemory<byte> bytes, out List<RecentCommentCoreModel> comments)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -182,6 +203,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>RegionStats</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteRegionStats(IReadOnlyList<RegionDistributionCoreModel> regions, IBufferWriter<byte> destination)
     {
         var blob = new List<byte>(Math.Max(128, regions.Count * 32));
@@ -201,9 +225,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>RegionStats</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeRegionStats(IReadOnlyList<RegionDistributionCoreModel> regions)
         => EncodeToArray(64 + regions.Count * 16, writer => WriteRegionStats(regions, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>RegionStats</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeRegionStats(ReadOnlyMemory<byte> bytes, out List<RegionDistributionCoreModel> regions)
     {
         var reader = new BinaryPodReader(bytes.Span);

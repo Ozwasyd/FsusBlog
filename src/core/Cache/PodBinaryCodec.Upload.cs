@@ -8,20 +8,32 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for upload contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes the <c>UploadInit</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteUploadInit(UploadInitDto value, IBufferWriter<byte> target)
     {
         var writer = new BinaryPodWriter(target);
         writer.WritePod(CreateUploadInitPod(value));
     }
 
+    /// <summary>
+    /// Writes the <c>UploadStatus</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteUploadStatus(UploadStatusDto value, IBufferWriter<byte> target)
     {
         var writer = new BinaryPodWriter(target);
         writer.WritePod(CreateUploadStatusPod(value));
     }
 
+    /// <summary>
+    /// Writes the <c>UploadPartMap</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteUploadPartMap(UploadPartMapDto value, IBufferWriter<byte> target)
     {
         var writer = new BinaryPodWriter(target);
@@ -32,60 +44,102 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Writes the <c>UploadPartAck</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteUploadPartAck(UploadPartAckDto value, IBufferWriter<byte> target)
     {
         var writer = new BinaryPodWriter(target);
         writer.WritePod(CreateUploadPartAckPod(value));
     }
 
+    /// <summary>
+    /// Writes the <c>UploadComplete</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteUploadComplete(UploadCompleteDto value, IBufferWriter<byte> target)
     {
         var writer = new BinaryPodWriter(target);
         writer.WritePod(CreateUploadCompletePod(value));
     }
 
+    /// <summary>
+    /// Writes the <c>PowChallenge</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WritePowChallenge(PowChallenge value, IBufferWriter<byte> target)
     {
         var writer = new BinaryPodWriter(target);
         writer.WritePod(CreatePowChallengePod(value));
     }
 
+    /// <summary>
+    /// Writes the <c>UploadInitRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteUploadInitRequest(UploadInitRequestCoreModel value, IBufferWriter<byte> target)
     {
         var writer = new BinaryPodWriter(target);
         writer.WritePod(CreateUploadInitRequestPod(value));
     }
 
+    /// <summary>
+    /// Writes the <c>UploadCompleteRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteUploadCompleteRequest(UploadCompleteRequestCoreModel value, IBufferWriter<byte> target)
     {
         var writer = new BinaryPodWriter(target);
         writer.WritePod(CreateUploadCompleteRequestPod(value));
     }
 
+    /// <summary>
+    /// Encodes the <c>UploadInit</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeUploadInit(UploadInitDto value)
         => EncodeToArray(Marshal.SizeOf<UploadInitPod>(), writer => WriteUploadInit(value, writer));
 
+    /// <summary>
+    /// Encodes the <c>UploadStatus</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeUploadStatus(UploadStatusDto value)
         => EncodeToArray(Marshal.SizeOf<UploadStatusPod>(), writer => WriteUploadStatus(value, writer));
 
+    /// <summary>
+    /// Encodes the <c>UploadPartMap</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeUploadPartMap(UploadPartMapDto value)
         => EncodeToArray(Marshal.SizeOf<UploadPartMapPod>() + value.UploadedRanges.Count * Marshal.SizeOf<UploadPartRangePod>(), writer => WriteUploadPartMap(value, writer));
 
+    /// <summary>
+    /// Encodes the <c>UploadPartAck</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeUploadPartAck(UploadPartAckDto value)
         => EncodeToArray(Marshal.SizeOf<UploadPartAckPod>(), writer => WriteUploadPartAck(value, writer));
 
+    /// <summary>
+    /// Encodes the <c>UploadComplete</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeUploadComplete(UploadCompleteDto value)
         => EncodeToArray(Marshal.SizeOf<UploadCompletePod>(), writer => WriteUploadComplete(value, writer));
 
+    /// <summary>
+    /// Encodes the <c>PowChallenge</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodePowChallenge(PowChallenge value)
         => EncodeToArray(Marshal.SizeOf<PowChallengePod>(), writer => WritePowChallenge(value, writer));
 
+    /// <summary>
+    /// Encodes the <c>UploadInitRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeUploadInitRequest(UploadInitRequestCoreModel value)
         => EncodeToArray(Marshal.SizeOf<UploadInitRequestPod>(), writer => WriteUploadInitRequest(value, writer));
 
+    /// <summary>
+    /// Encodes the <c>UploadCompleteRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeUploadCompleteRequest(UploadCompleteRequestCoreModel value)
         => EncodeToArray(Marshal.SizeOf<UploadCompleteRequestPod>(), writer => WriteUploadCompleteRequest(value, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>UploadInit</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeUploadInit(ReadOnlyMemory<byte> source, out UploadInitDto value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -110,6 +164,9 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>UploadStatus</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeUploadStatus(ReadOnlyMemory<byte> source, out UploadStatusDto value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -134,6 +191,9 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>UploadPartMap</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeUploadPartMap(ReadOnlyMemory<byte> source, out UploadPartMapDto value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -169,6 +229,9 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>UploadPartAck</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeUploadPartAck(ReadOnlyMemory<byte> source, out UploadPartAckDto value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -190,6 +253,9 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>UploadComplete</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeUploadComplete(ReadOnlyMemory<byte> source, out UploadCompleteDto value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -210,6 +276,9 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>PowChallenge</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodePowChallenge(ReadOnlyMemory<byte> source, out PowChallenge value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -227,6 +296,9 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>UploadInitRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeUploadInitRequest(ReadOnlyMemory<byte> source, out UploadInitRequestCoreModel value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -246,6 +318,9 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>UploadCompleteRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeUploadCompleteRequest(ReadOnlyMemory<byte> source, out UploadCompleteRequestCoreModel value)
     {
         var reader = new BinaryPodReader(source.Span);

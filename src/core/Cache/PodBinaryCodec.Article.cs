@@ -12,6 +12,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for article contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
     internal const int ArticlePageStackScratchByteBudget = 4 * 1024;
@@ -40,6 +43,9 @@ public static partial class PodBinaryCodec
     private const int ArticleDetailRightsFlagHasProofUrl = 1 << 9;
     private const int ArticleDetailRightsFlagHasProofStatus = 1 << 10;
 
+    /// <summary>
+    /// Writes the <c>ArticleWriteRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteArticleWriteRequest(ArticleWriteRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(Math.Max(512, request.Title.Length + request.Content.Length + (request.Summary?.Length ?? 0) + (request.CoverImageUrl?.Length ?? 0)));
@@ -86,9 +92,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(rightsPayload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>ArticleWriteRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeArticleWriteRequest(ArticleWriteRequestCoreModel request)
         => EncodeToArray(512 + request.Content.Length + request.TagIds.Count * sizeof(int), writer => WriteArticleWriteRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>ArticleWriteRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeArticleWriteRequest(ReadOnlyMemory<byte> source, out ArticleWriteRequestCoreModel request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -248,6 +260,9 @@ public static partial class PodBinaryCodec
         writtenBytes = checked(writtenBytes + slice.Length);
     }
 
+    /// <summary>
+    /// Writes the <c>ArticlePage</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteArticlePage(CorePageResult<ArticleListCoreModel> page, IBufferWriter<byte> destination)
         => WriteArticlePageWithScratchPolicy(
             page,
@@ -405,9 +420,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>ArticlePage</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeArticlePage(CorePageResult<ArticleListCoreModel> page)
         => EncodeToArray(1024, writer => WriteArticlePage(page, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>ArticlePage</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeArticlePage(ReadOnlyMemory<byte> bytes, out CorePageResult<ArticleListCoreModel> page)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -564,6 +585,9 @@ public static partial class PodBinaryCodec
     private static string FormatArticleListCursor(long unixMs, int id)
         => string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{unixMs}:{id}");
 
+    /// <summary>
+    /// Writes the <c>ArticleDetail</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteArticleDetail(ArticleDetailCoreModel item, IBufferWriter<byte> destination)
     {
         ArgumentNullException.ThrowIfNull(destination);
@@ -791,9 +815,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>ArticleDetail</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeArticleDetail(ArticleDetailCoreModel item)
         => EncodeToArray(2048 + item.Content.Length + item.Tags.Count * 32, writer => WriteArticleDetail(item, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>ArticleDetail</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeArticleDetail(ReadOnlyMemory<byte> bytes, out ArticleDetailCoreModel item)
     {
         ReadOnlySpan<byte> source = bytes.Span;
@@ -919,6 +949,9 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Writes the <c>RelatedReading</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteRelatedReading(RelatedReadingResponse response, IBufferWriter<byte> destination)
     {
         IReadOnlyList<RelatedReadingItem> related = response.Related;
@@ -960,9 +993,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(CollectionsMarshal.AsSpan(blob));
     }
 
+    /// <summary>
+    /// Encodes the <c>RelatedReading</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeRelatedReading(RelatedReadingResponse response)
         => EncodeToArray(256 + response.Related.Count * 128, writer => WriteRelatedReading(response, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>RelatedReading</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeRelatedReading(ReadOnlyMemory<byte> bytes, out RelatedReadingResponse response)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -1341,6 +1380,9 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ProofStatus;
     }
 
+    /// <summary>
+    /// Writes the <c>ArticleSearch</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteArticleSearch(IReadOnlyList<ArticleListCoreModel> items, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -1351,9 +1393,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>ArticleSearch</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeArticleSearch(IReadOnlyList<ArticleListCoreModel> items)
         => EncodeToArray(1024, writer => WriteArticleSearch(items, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>ArticleSearch</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeArticleSearch(ReadOnlyMemory<byte> bytes, out IReadOnlyList<ArticleListCoreModel> items)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -1379,6 +1427,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>PopularArticles</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WritePopularArticles(IReadOnlyList<PopularArticleCoreModel> items, IBufferWriter<byte> destination)
     {
         var blob = new List<byte>(Math.Max(128, items.Count * 64));
@@ -1400,9 +1451,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>PopularArticles</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodePopularArticles(IReadOnlyList<PopularArticleCoreModel> items)
         => EncodeToArray(128 + items.Count * 32, writer => WritePopularArticles(items, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>PopularArticles</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodePopularArticles(ReadOnlyMemory<byte> bytes, out IReadOnlyList<PopularArticleCoreModel> items)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -1429,6 +1486,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>FeaturedArticles</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteFeaturedArticles(IReadOnlyList<FeaturedArticleSummaryDto> items, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -1451,9 +1511,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>FeaturedArticles</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeFeaturedArticles(IReadOnlyList<FeaturedArticleSummaryDto> items)
         => EncodeToArray(512 + items.Count * 512, writer => WriteFeaturedArticles(items, writer));
 
+    /// <summary>
+    /// Writes the <c>FeaturedArticleCoreList</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteFeaturedArticleCoreList(IReadOnlyList<FeaturedArticleCoreModel> items, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -1476,9 +1542,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>FeaturedArticleCoreList</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeFeaturedArticleCoreList(IReadOnlyList<FeaturedArticleCoreModel> items)
         => EncodeToArray(512 + items.Count * 512, writer => WriteFeaturedArticleCoreList(items, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>FeaturedArticleCoreList</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeFeaturedArticleCoreList(ReadOnlyMemory<byte> bytes, out IReadOnlyList<FeaturedArticleCoreModel> items)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -1510,6 +1582,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>FeaturedArticles</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeFeaturedArticles(ReadOnlyMemory<byte> bytes, out IReadOnlyList<FeaturedArticleSummaryDto> items)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -1541,15 +1616,24 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>TrashClearResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteTrashClearResponse(TrashClearResponseDto value, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
         writer.WritePod(CreateTrashClearResponsePod(value.Count));
     }
 
+    /// <summary>
+    /// Encodes the <c>TrashClearResponse</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeTrashClearResponse(TrashClearResponseDto value)
         => EncodeToArray(Marshal.SizeOf<TrashClearResponsePod>(), writer => WriteTrashClearResponse(value, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>TrashClearResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeTrashClearResponse(ReadOnlyMemory<byte> bytes, out TrashClearResponseDto value)
     {
         var reader = new BinaryPodReader(bytes.Span);

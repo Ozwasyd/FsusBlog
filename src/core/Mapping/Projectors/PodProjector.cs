@@ -356,19 +356,24 @@ public static class PodProjector
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableHeader
     {
-        public int Version; public int Count; public int PayloadLength; public int Reserved;
+        public int Version;
+        public int Count;
+        public int PayloadLength;
+        public int Reserved;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableCategoryViewPod
     {
-        public int Id; public Utf8Fixed128 Name;
+        public int Id;
+        public Utf8Fixed128 Name;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableTagPod
     {
-        public int Id; public Utf8Fixed128 Name;
+        public int Id;
+        public Utf8Fixed128 Name;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

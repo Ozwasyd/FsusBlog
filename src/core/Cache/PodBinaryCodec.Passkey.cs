@@ -10,8 +10,14 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for passkey contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes the <c>PasskeyRegisterBegin</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WritePasskeyRegisterBegin(PasskeyRegisterBeginCoreModel value, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(512);
@@ -57,9 +63,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>PasskeyRegisterBegin</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodePasskeyRegisterBegin(PasskeyRegisterBeginCoreModel value)
         => EncodeToArray(512, writer => WritePasskeyRegisterBegin(value, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>PasskeyRegisterBegin</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodePasskeyRegisterBegin(ReadOnlyMemory<byte> source, out PasskeyRegisterBeginCoreModel value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -113,6 +125,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>PasskeyLoginBegin</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WritePasskeyLoginBegin(PasskeyLoginBeginCoreModel value, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -142,9 +157,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>PasskeyLoginBegin</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodePasskeyLoginBegin(PasskeyLoginBeginCoreModel value)
         => EncodeToArray(256, writer => WritePasskeyLoginBegin(value, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>PasskeyLoginBegin</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodePasskeyLoginBegin(ReadOnlyMemory<byte> source, out PasskeyLoginBeginCoreModel value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -173,6 +194,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>PasskeyRegisterCompleteRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WritePasskeyRegisterCompleteRequest(PasskeyRegisterCompleteCoreModel value, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(512);
@@ -200,6 +224,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>PasskeyRegisterCompleteRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodePasskeyRegisterCompleteRequest(ReadOnlyMemory<byte> source, out PasskeyRegisterCompleteCoreModel value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -243,6 +270,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>PasskeyLoginCompleteRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WritePasskeyLoginCompleteRequest(PasskeyLoginCompleteCoreModel value, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(512);
@@ -266,6 +296,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>PasskeyLoginCompleteRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodePasskeyLoginCompleteRequest(ReadOnlyMemory<byte> source, out PasskeyLoginCompleteCoreModel value)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -292,6 +325,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>PasskeyCredentialList</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WritePasskeyCredentialList(IReadOnlyList<PasskeyCredentialSummaryDto> values, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -316,6 +352,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>PasskeyCredentialList</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodePasskeyCredentialList(ReadOnlyMemory<byte> source, out IReadOnlyList<PasskeyCredentialSummaryDto> values)
     {
         var reader = new BinaryPodReader(source.Span);

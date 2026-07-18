@@ -10,6 +10,9 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for notification contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
     private const byte NotificationNull = 0;
@@ -21,6 +24,9 @@ public static partial class PodBinaryCodec
     private const byte NotificationObject = 6;
     private const byte NotificationArray = 7;
 
+    /// <summary>
+    /// Writes the <c>NotificationEvent</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteNotificationEvent<TPayload>(
         long eventId,
         NotificationStreamEventType eventType,
@@ -36,6 +42,9 @@ public static partial class PodBinaryCodec
         writer.WriteValue(payload);
     }
 
+    /// <summary>
+    /// Writes the <c>NotificationHeartbeat</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteNotificationHeartbeat(IBufferWriter<byte> destination)
     {
         using var writer = new NotificationValueWriter(destination);

@@ -2,6 +2,9 @@ using System.Buffers;
 
 namespace FsusBlog.Core.Algorithms;
 
+/// <summary>
+/// Builds one pooled AEDS frame in place and transfers ownership after the header is sealed.
+/// </summary>
 public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
 {
     private readonly ArrayPool<byte> _pool;
@@ -12,6 +15,9 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
     private bool _clearOnReturn = true;
     private AedsFrameType _frameType;
 
+    /// <summary>
+    /// Creates a writer with capacity reserved for both the AEDS header and payload.
+    /// </summary>
     public AedsFrameBufferWriter(int initialCapacity = 1024, ArrayPool<byte>? pool = null)
     {
         _pool = pool ?? ArrayPool<byte>.Shared;
@@ -19,9 +25,13 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         _written = AedsFrameHeader.Size;
     }
 
+    /// <summary>Gets the buffer writer used to append payload bytes.</summary>
     public IBufferWriter<byte> PayloadWriter => this;
+
+    /// <summary>Gets the number of payload bytes written after the reserved header.</summary>
     public int PayloadLength => _written - AedsFrameHeader.Size;
 
+    /// <summary>Gets the sealed frame as a read-only span owned by this writer.</summary>
     public ReadOnlySpan<byte> WrittenFrameSpan
     {
         get
@@ -36,6 +46,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         }
     }
 
+    /// <summary>Gets the sealed frame as read-only memory owned by this writer.</summary>
     public ReadOnlyMemory<byte> WrittenFrame
     {
         get
@@ -50,6 +61,9 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         }
     }
 
+    /// <summary>
+    /// Writes the AEDS header and prevents additional payload writes.
+    /// </summary>
     public void Seal(AedsFrameType frameType, uint flags = 0, ushort version = AedsFrameHeader.CurrentVersion)
     {
         ThrowIfDisposed();
@@ -65,6 +79,9 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         _sealed = true;
     }
 
+    /// <summary>
+    /// Transfers the sealed pooled frame to an independent lifecycle-tracked owner.
+    /// </summary>
     public OwnedAedsFrame DetachOwnedFrame()
     {
         ThrowIfDisposed();
@@ -84,6 +101,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         return ownedFrame;
     }
 
+    /// <inheritdoc />
     public void Advance(int count)
     {
         ThrowIfWritable();
@@ -100,6 +118,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         _written += count;
     }
 
+    /// <inheritdoc />
     public Memory<byte> GetMemory(int sizeHint = 0)
     {
         ThrowIfWritable();
@@ -107,6 +126,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         return _buffer.AsMemory(_written);
     }
 
+    /// <inheritdoc />
     public Span<byte> GetSpan(int sizeHint = 0)
     {
         ThrowIfWritable();
@@ -114,6 +134,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         return _buffer.AsSpan(_written);
     }
 
+    /// <summary>Appends the supplied bytes to the frame payload.</summary>
     public void Write(ReadOnlySpan<byte> value)
     {
         Span<byte> target = GetSpan(value.Length);
@@ -121,6 +142,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         Advance(value.Length);
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)

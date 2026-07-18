@@ -5,10 +5,15 @@ using FsusBlog.Core.Common;
 
 namespace FsusBlog.Core.Algorithms;
 
+/// <summary>
+/// Implements the AEDS v2 frame encoder and validating decoder.
+/// </summary>
 public sealed class AedsEncoder : IAedsEncoder
 {
+    /// <summary>The fixed magic prefix used by every supported AEDS frame.</summary>
     public const uint Magic = AedsFrameHeader.Magic;
 
+    /// <inheritdoc />
     public byte[] Encode(AedsFrameType frameType, ReadOnlySpan<byte> payload, ushort version = AedsFrameHeader.CurrentVersion, uint flags = 0)
     {
         int totalLength = AedsFrameHeader.Size + payload.Length;
@@ -17,6 +22,7 @@ public sealed class AedsEncoder : IAedsEncoder
         return frame;
     }
 
+    /// <inheritdoc />
     public void WriteFrame(AedsFrameType frameType, ReadOnlySpan<byte> payload, IBufferWriter<byte> destination, ushort version = AedsFrameHeader.CurrentVersion, uint flags = 0)
     {
         int totalLength = AedsFrameHeader.Size + payload.Length;
@@ -25,6 +31,7 @@ public sealed class AedsEncoder : IAedsEncoder
         destination.Advance(totalLength);
     }
 
+    /// <inheritdoc />
     public void WriteHeader(AedsFrameType frameType, ReadOnlySpan<byte> payload, IBufferWriter<byte> destination, ushort version = AedsFrameHeader.CurrentVersion, uint flags = 0)
     {
         Span<byte> header = destination.GetSpan(AedsFrameHeader.Size).Slice(0, AedsFrameHeader.Size);
@@ -32,6 +39,7 @@ public sealed class AedsEncoder : IAedsEncoder
         destination.Advance(AedsFrameHeader.Size);
     }
 
+    /// <inheritdoc />
     public Result<AedsDecodeResult> TryDecode(ReadOnlyMemory<byte> frame)
     {
         ReadOnlySpan<byte> frameSpan = frame.Span;

@@ -8,8 +8,14 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for read proof contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes the <c>HumanReadChallengeRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteHumanReadChallengeRequest(HumanReadChallengeRequest request, IBufferWriter<byte> destination)
     {
         var blob = new ArrayBufferWriter<byte>(Math.Max(64, (request.RouteKey?.Length ?? 0) + (request.Scope?.Length ?? 0)));
@@ -26,9 +32,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(blob.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>HumanReadChallengeRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeHumanReadChallengeRequest(HumanReadChallengeRequest request)
         => EncodeToArray(64 + (request.RouteKey?.Length ?? 0) + (request.Scope?.Length ?? 0), writer => WriteHumanReadChallengeRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>HumanReadChallengeRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeHumanReadChallengeRequest(ReadOnlyMemory<byte> source, out HumanReadChallengeRequest request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -47,6 +59,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>HumanReadChallengeResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteHumanReadChallengeResponse(HumanReadChallengeResponse response, IBufferWriter<byte> destination)
     {
         var blob = new ArrayBufferWriter<byte>(Math.Max(128, (response.Token?.Length ?? 0) + (response.Scope?.Length ?? 0) + (response.RouteKey?.Length ?? 0)));
@@ -67,9 +82,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(blob.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>HumanReadChallengeResponse</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeHumanReadChallengeResponse(HumanReadChallengeResponse response)
         => EncodeToArray(128 + (response.Token?.Length ?? 0) + (response.RouteKey?.Length ?? 0), writer => WriteHumanReadChallengeResponse(response, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>HumanReadChallengeResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeHumanReadChallengeResponse(ReadOnlyMemory<byte> source, out HumanReadChallengeResponse response)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -92,6 +113,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>HumanReadSubmitRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteHumanReadSubmitRequest(HumanReadSubmitRequest request, IBufferWriter<byte> destination)
     {
         var blob = new ArrayBufferWriter<byte>(Math.Max(128, (request.Token?.Length ?? 0) + (request.Scope?.Length ?? 0) + (request.RouteKey?.Length ?? 0)));
@@ -110,9 +134,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(blob.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>HumanReadSubmitRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeHumanReadSubmitRequest(HumanReadSubmitRequest request)
         => EncodeToArray(128 + (request.Token?.Length ?? 0) + (request.RouteKey?.Length ?? 0), writer => WriteHumanReadSubmitRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>HumanReadSubmitRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeHumanReadSubmitRequest(ReadOnlyMemory<byte> source, out HumanReadSubmitRequest request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -133,6 +163,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>HumanReadSubmitResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteHumanReadSubmitResponse(HumanReadSubmitResponse response, IBufferWriter<byte> destination)
     {
         var blob = new ArrayBufferWriter<byte>(Math.Max(32, response.Status?.Length ?? 0));
@@ -147,9 +180,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(blob.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>HumanReadSubmitResponse</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeHumanReadSubmitResponse(HumanReadSubmitResponse response)
         => EncodeToArray(32 + (response.Status?.Length ?? 0), writer => WriteHumanReadSubmitResponse(response, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>HumanReadSubmitResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeHumanReadSubmitResponse(ReadOnlyMemory<byte> source, out HumanReadSubmitResponse response)
     {
         var reader = new BinaryPodReader(source.Span);

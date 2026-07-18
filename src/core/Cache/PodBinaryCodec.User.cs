@@ -10,10 +10,16 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for user contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
     private const string DefaultIdentityKind = "anonymous_account";
 
+    /// <summary>
+    /// Writes the <c>AuthLoginFlow</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAuthLoginFlow(AuthLoginFlowDto flow, IBufferWriter<byte> destination)
     {
         string identityKind = NormalizeIdentityKind(flow.IdentityKind);
@@ -37,9 +43,15 @@ public static partial class PodBinaryCodec
         writer.WritePod(CastUserPod<MutableAuthLoginFlowPod, AuthLoginFlowPod>(mutable));
     }
 
+    /// <summary>
+    /// Encodes the <c>AuthLoginFlow</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAuthLoginFlow(AuthLoginFlowDto flow)
         => EncodeToArray(Marshal.SizeOf<AuthLoginFlowPod>(), writer => WriteAuthLoginFlow(flow, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AuthLoginFlow</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAuthLoginFlow(ReadOnlyMemory<byte> source, out AuthLoginFlowDto flow)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -62,6 +74,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>CurrentUserSnapshot</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteCurrentUserSnapshot(CurrentUserSnapshotDto snapshot, IBufferWriter<byte> destination)
     {
         string identityKind = NormalizeIdentityKind(snapshot.IdentityKind);
@@ -82,9 +97,15 @@ public static partial class PodBinaryCodec
         writer.WritePod(CastUserPod<MutableCurrentUserSnapshotPod, CurrentUserSnapshotPod>(mutable));
     }
 
+    /// <summary>
+    /// Encodes the <c>CurrentUserSnapshot</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeCurrentUserSnapshot(CurrentUserSnapshotDto snapshot)
         => EncodeToArray(Marshal.SizeOf<CurrentUserSnapshotPod>(), writer => WriteCurrentUserSnapshot(snapshot, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>CurrentUserSnapshot</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeCurrentUserSnapshot(ReadOnlyMemory<byte> source, out CurrentUserSnapshotDto snapshot)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -105,6 +126,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>IdentityAccountSnapshot</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteIdentityAccountSnapshot(IdentityAccountSnapshotCoreModel snapshot, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -141,9 +165,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>IdentityAccountSnapshot</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeIdentityAccountSnapshot(IdentityAccountSnapshotCoreModel snapshot)
         => EncodeToArray(Marshal.SizeOf<IdentityAccountSnapshotPod>() + 256, writer => WriteIdentityAccountSnapshot(snapshot, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>IdentityAccountSnapshot</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeIdentityAccountSnapshot(ReadOnlyMemory<byte> source, out IdentityAccountSnapshotCoreModel snapshot)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -178,6 +208,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>UserSessions</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteUserSessions(IReadOnlyList<UserSessionSummaryDto> sessions, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -199,9 +232,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>UserSessions</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeUserSessions(IReadOnlyList<UserSessionSummaryDto> sessions)
         => EncodeToArray(sizeof(int) + sessions.Count * Marshal.SizeOf<UserSessionSummaryPod>(), writer => WriteUserSessions(sessions, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>UserSessions</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeUserSessions(ReadOnlyMemory<byte> source, out IReadOnlyList<UserSessionSummaryDto> sessions)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -236,6 +275,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AdminSessions</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAdminSessions(IReadOnlyList<AdminSessionSummaryDto> sessions, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -260,9 +302,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>AdminSessions</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAdminSessions(IReadOnlyList<AdminSessionSummaryDto> sessions)
         => EncodeToArray(sizeof(int) + sessions.Count * Marshal.SizeOf<AdminSessionSummaryPod>(), writer => WriteAdminSessions(sessions, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AdminSessions</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAdminSessions(ReadOnlyMemory<byte> source, out IReadOnlyList<AdminSessionSummaryDto> sessions)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -300,6 +348,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>MfaSetupStart</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteMfaSetupStart(MfaSetupStartDto dto, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(512);
@@ -319,6 +370,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>MfaSetupStart</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeMfaSetupStart(ReadOnlyMemory<byte> source, out MfaSetupStartDto dto)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -337,6 +391,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>MfaSetupVerify</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteMfaSetupVerify(MfaSetupVerifyDto dto, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -355,9 +412,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>MfaSetupVerify</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeMfaSetupVerify(MfaSetupVerifyDto dto)
         => EncodeToArray(8 + dto.RecoveryCodes.Count * Marshal.SizeOf<MfaRecoveryCodePod>(), writer => WriteMfaSetupVerify(dto, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>MfaSetupVerify</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeMfaSetupVerify(ReadOnlyMemory<byte> source, out MfaSetupVerifyDto dto)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -383,6 +446,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>MfaProfile</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteMfaProfile(MfaProfileDto dto, IBufferWriter<byte> destination)
     {
         var mutable = new MutableMfaProfilePod
@@ -396,6 +462,9 @@ public static partial class PodBinaryCodec
         writer.WritePod(CastUserPod<MutableMfaProfilePod, MfaProfilePod>(mutable));
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>MfaProfile</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeMfaProfile(ReadOnlyMemory<byte> source, out MfaProfileDto dto)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -409,6 +478,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>MfaChallengeResult</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteMfaChallengeResult(MfaChallengeResultDto dto, IBufferWriter<byte> destination)
     {
         string identityKind = dto.User.HasValue ? NormalizeIdentityKind(dto.User.Value.IdentityKind) : string.Empty;
@@ -428,6 +500,9 @@ public static partial class PodBinaryCodec
         writer.WritePod(CastUserPod<MutableMfaChallengeResultPod, MfaChallengeResultPod>(mutable));
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>MfaChallengeResult</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeMfaChallengeResult(ReadOnlyMemory<byte> source, out MfaChallengeResultDto dto)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -454,6 +529,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>MfaPasswordProofRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteMfaPasswordProofRequest(MfaPasswordProofRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -468,9 +546,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>MfaPasswordProofRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeMfaPasswordProofRequest(MfaPasswordProofRequestCoreModel request)
         => EncodeToArray(256, writer => WriteMfaPasswordProofRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>MfaPasswordProofRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeMfaPasswordProofRequest(ReadOnlyMemory<byte> source, out MfaPasswordProofRequestCoreModel request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -487,6 +571,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>MfaChallengeVerifyRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteMfaChallengeVerifyRequest(MfaChallengeVerifyRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -502,9 +589,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>MfaChallengeVerifyRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeMfaChallengeVerifyRequest(MfaChallengeVerifyRequestCoreModel request)
         => EncodeToArray(256, writer => WriteMfaChallengeVerifyRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>MfaChallengeVerifyRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeMfaChallengeVerifyRequest(ReadOnlyMemory<byte> source, out MfaChallengeVerifyRequestCoreModel request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -522,6 +615,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>RecoveryKeyCreateResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteRecoveryKeyCreateResponse(RecoveryKeyCreateResponseCoreModel response, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(128);
@@ -538,6 +634,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>RecoveryKeyCreateResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeRecoveryKeyCreateResponse(ReadOnlyMemory<byte> source, out RecoveryKeyCreateResponseCoreModel response)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -554,6 +653,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>RecoveryKeyVerifyRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteRecoveryKeyVerifyRequest(RecoveryKeyVerifyRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(128);
@@ -570,6 +672,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>RecoveryKeyVerifyRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeRecoveryKeyVerifyRequest(ReadOnlyMemory<byte> source, out RecoveryKeyVerifyRequestCoreModel request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -589,6 +694,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>RecoveryKeyVerifyResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteRecoveryKeyVerifyResponse(RecoveryKeyVerifyResponseCoreModel response, IBufferWriter<byte> destination)
     {
         var mutable = new MutableRecoveryKeyVerifyResponsePod
@@ -603,6 +711,9 @@ public static partial class PodBinaryCodec
         writer.WritePod(CastUserPod<MutableRecoveryKeyVerifyResponsePod, RecoveryKeyVerifyResponsePod>(mutable));
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>RecoveryKeyVerifyResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeRecoveryKeyVerifyResponse(ReadOnlyMemory<byte> source, out RecoveryKeyVerifyResponseCoreModel response)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -625,6 +736,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AuthAnonymousBootstrapRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAuthAnonymousBootstrapRequest(AuthAnonymousBootstrapRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(64);
@@ -643,9 +757,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>AuthAnonymousBootstrapRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAuthAnonymousBootstrapRequest(AuthAnonymousBootstrapRequestCoreModel request)
         => EncodeToArray(96, writer => WriteAuthAnonymousBootstrapRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AuthAnonymousBootstrapRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAuthAnonymousBootstrapRequest(ReadOnlyMemory<byte> source, out AuthAnonymousBootstrapRequestCoreModel request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -664,6 +784,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AuthDeleteAccountRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAuthDeleteAccountRequest(AuthDeleteAccountRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -677,9 +800,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>AuthDeleteAccountRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAuthDeleteAccountRequest(AuthDeleteAccountRequestCoreModel request)
         => EncodeToArray(256, writer => WriteAuthDeleteAccountRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AuthDeleteAccountRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAuthDeleteAccountRequest(ReadOnlyMemory<byte> source, out AuthDeleteAccountRequestCoreModel request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -694,6 +823,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AdminUserPage</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAdminUserPage(AdminUserPageContract page, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -727,9 +859,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>AdminUserPage</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAdminUserPage(AdminUserPageContract page)
         => EncodeToArray(8 + page.Items.Count * Marshal.SizeOf<UserListItemPod>(), writer => WriteAdminUserPage(page, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AdminUserPage</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAdminUserPage(ReadOnlyMemory<byte> source, out AdminUserPageContract page)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -772,6 +910,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AdminChangeUserStatusRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAdminChangeUserStatusRequest(AdminChangeUserStatusRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -787,9 +928,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>AdminChangeUserStatusRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAdminChangeUserStatusRequest(AdminChangeUserStatusRequestCoreModel request)
         => EncodeToArray(128 + (request.Reason?.Length ?? 0), writer => WriteAdminChangeUserStatusRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AdminChangeUserStatusRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAdminChangeUserStatusRequest(ReadOnlyMemory<byte> source, out AdminChangeUserStatusRequestCoreModel request)
     {
         var reader = new BinaryPodReader(source.Span);

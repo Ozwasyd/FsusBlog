@@ -9,8 +9,14 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for message contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes the <c>ConversationList</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteConversationList(PageResponse<ConversationListItemResponse> page, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(1024);
@@ -41,9 +47,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>ConversationList</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeConversationList(PageResponse<ConversationListItemResponse> page)
         => EncodeToArray(1024 + page.Items.Count * Marshal.SizeOf<ConversationListItemPod>(), writer => WriteConversationList(page, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>ConversationList</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeConversationList(ReadOnlyMemory<byte> source, out PageResponse<ConversationListItemResponse> page)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -96,6 +108,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>ConversationDetail</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteConversationDetail(ConversationDetailResponse detail, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(1024);
@@ -121,9 +136,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>ConversationDetail</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeConversationDetail(ConversationDetailResponse detail)
         => EncodeToArray(1024 + detail.Messages.Count * Marshal.SizeOf<ConversationMessagePod>(), writer => WriteConversationDetail(detail, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>ConversationDetail</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeConversationDetail(ReadOnlyMemory<byte> source, out ConversationDetailResponse detail)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -175,6 +196,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>ConversationMessage</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteConversationMessage(ConversationMessageResponse message, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(512);
@@ -183,9 +207,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>ConversationMessage</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeConversationMessage(ConversationMessageResponse message)
         => EncodeToArray(512, writer => WriteConversationMessage(message, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>ConversationMessage</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeConversationMessage(ReadOnlyMemory<byte> source, out ConversationMessageResponse message)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -199,6 +229,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>ConversationCreateRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteConversationCreateRequest(ConversationCreateRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -212,9 +245,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>ConversationCreateRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeConversationCreateRequest(ConversationCreateRequestCoreModel request)
         => EncodeToArray(256, writer => WriteConversationCreateRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>ConversationCreateRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeConversationCreateRequest(ReadOnlyMemory<byte> source, out ConversationCreateRequestCoreModel request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -230,6 +269,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>ConversationStatusRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteConversationStatusRequest(ConversationStatusValue status, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -237,9 +279,15 @@ public static partial class PodBinaryCodec
             new MutableConversationStatusRequestPod { Status = (int)status }));
     }
 
+    /// <summary>
+    /// Encodes the <c>ConversationStatusRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeConversationStatusRequest(ConversationStatusValue status)
         => EncodeToArray(Marshal.SizeOf<ConversationStatusRequestPod>(), writer => WriteConversationStatusRequest(status, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>ConversationStatusRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeConversationStatusRequest(ReadOnlyMemory<byte> source, out ConversationStatusValue status)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -253,6 +301,9 @@ public static partial class PodBinaryCodec
         return true;
     }
 
+    /// <summary>
+    /// Writes the <c>SystemMessageRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSystemMessageRequest(SystemMessageRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -271,9 +322,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>SystemMessageRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSystemMessageRequest(SystemMessageRequestCoreModel request)
         => EncodeToArray(256, writer => WriteSystemMessageRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SystemMessageRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSystemMessageRequest(ReadOnlyMemory<byte> source, out SystemMessageRequestCoreModel request)
     {
         var reader = new BinaryPodReader(source.Span);

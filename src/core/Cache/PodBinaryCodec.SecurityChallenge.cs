@@ -8,8 +8,14 @@ using FsusBlog.Shared.Contracts.Security;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for security challenge contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
+    /// <summary>
+    /// Writes the <c>SecurityChallengeAssignment</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSecurityChallengeAssignment(SecurityChallengeAssignment assignment, IBufferWriter<byte> destination)
     {
         SecurityChallengeValidationResult validation = SecurityChallengeContracts.ValidateAssignment(assignment);
@@ -22,9 +28,15 @@ public static partial class PodBinaryCodec
         writer.WritePod(CreateSecurityChallengeAssignmentPod(assignment));
     }
 
+    /// <summary>
+    /// Encodes the <c>SecurityChallengeAssignment</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSecurityChallengeAssignment(SecurityChallengeAssignment assignment)
         => EncodeToArray(Marshal.SizeOf<SecurityChallengeAssignmentPod>(), writer => WriteSecurityChallengeAssignment(assignment, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SecurityChallengeAssignment</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSecurityChallengeAssignment(
         ReadOnlyMemory<byte> source,
         out SecurityChallengeAssignment assignment,
@@ -41,6 +53,9 @@ public static partial class PodBinaryCodec
         return SecurityChallengeContracts.ValidateAssignment(assignment, expectedKind).IsValid;
     }
 
+    /// <summary>
+    /// Writes the <c>SecurityChallengeEnvelope</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSecurityChallengeEnvelope(SecurityChallengeEnvelope envelope, IBufferWriter<byte> destination)
     {
         SecurityChallengeValidationResult validation = SecurityChallengeContracts.ValidateEnvelope(envelope);
@@ -62,11 +77,17 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>SecurityChallengeEnvelope</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSecurityChallengeEnvelope(SecurityChallengeEnvelope envelope)
         => EncodeToArray(
             Marshal.SizeOf<SecurityChallengeEnvelopePod>() + envelope.Assignments.Count * Marshal.SizeOf<SecurityChallengeAssignmentPod>(),
             writer => WriteSecurityChallengeEnvelope(envelope, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SecurityChallengeEnvelope</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSecurityChallengeEnvelope(ReadOnlyMemory<byte> source, out SecurityChallengeEnvelope envelope)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -102,6 +123,9 @@ public static partial class PodBinaryCodec
         return SecurityChallengeContracts.ValidateEnvelope(envelope).IsValid;
     }
 
+    /// <summary>
+    /// Writes the <c>SecurityChallengeIssueRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSecurityChallengeIssueRequest(SecurityChallengeIssueBinaryRequest request, IBufferWriter<byte> destination)
     {
         var blob = new ArrayBufferWriter<byte>(Math.Max(
@@ -123,11 +147,17 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(blob.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>SecurityChallengeIssueRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSecurityChallengeIssueRequest(SecurityChallengeIssueBinaryRequest request)
         => EncodeToArray(
             128 + (request.Action?.Length ?? 0) + (request.RouteKey?.Length ?? 0) + (request.DeviceFingerprint?.Length ?? 0) + (request.AttributesJson?.Length ?? 0),
             writer => WriteSecurityChallengeIssueRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SecurityChallengeIssueRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSecurityChallengeIssueRequest(ReadOnlyMemory<byte> source, out SecurityChallengeIssueBinaryRequest request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -146,6 +176,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>SecurityChallengeVerifyRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSecurityChallengeVerifyRequest(SecurityChallengeVerifyBinaryRequest request, IBufferWriter<byte> destination)
     {
         var blob = new ArrayBufferWriter<byte>(Math.Max(
@@ -168,11 +201,17 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(blob.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>SecurityChallengeVerifyRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSecurityChallengeVerifyRequest(SecurityChallengeVerifyBinaryRequest request)
         => EncodeToArray(
             128 + (request.ChallengeId?.Length ?? 0) + (request.Action?.Length ?? 0) + (request.RouteKey?.Length ?? 0) + (request.ProviderPayloadJson?.Length ?? 0),
             writer => WriteSecurityChallengeVerifyRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SecurityChallengeVerifyRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSecurityChallengeVerifyRequest(ReadOnlyMemory<byte> source, out SecurityChallengeVerifyBinaryRequest request)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -192,6 +231,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>SecurityChallengeIssueResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSecurityChallengeIssueResponse(SecurityChallengeIssueBinaryResponse response, IBufferWriter<byte> destination)
     {
         IReadOnlyList<SecurityChallengeAssignment> assignments = response.Envelope?.Assignments ?? [];
@@ -251,6 +293,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(blob.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>SecurityChallengeIssueResponse</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSecurityChallengeIssueResponse(SecurityChallengeIssueBinaryResponse response)
         => EncodeToArray(
             Marshal.SizeOf<SecurityChallengeIssueResponsePod>() +
@@ -259,6 +304,9 @@ public static partial class PodBinaryCodec
             ((response.ProviderPayloads?.Sum(static item => item.PayloadJson?.Length ?? 0)) ?? 0),
             writer => WriteSecurityChallengeIssueResponse(response, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SecurityChallengeIssueResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSecurityChallengeIssueResponse(ReadOnlyMemory<byte> source, out SecurityChallengeIssueBinaryResponse response)
     {
         var reader = new BinaryPodReader(source.Span);
@@ -323,6 +371,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed && (envelope is null || SecurityChallengeContracts.ValidateEnvelope(envelope).IsValid);
     }
 
+    /// <summary>
+    /// Writes the <c>SecurityChallengeVerifyResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteSecurityChallengeVerifyResponse(SecurityChallengeVerifyBinaryResponse response, IBufferWriter<byte> destination)
     {
         var blob = new ArrayBufferWriter<byte>(Math.Max(128, (response.ProofToken?.Length ?? 0) + (response.Reason?.Length ?? 0)));
@@ -342,11 +393,17 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(blob.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>SecurityChallengeVerifyResponse</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeSecurityChallengeVerifyResponse(SecurityChallengeVerifyBinaryResponse response)
         => EncodeToArray(
             Marshal.SizeOf<SecurityChallengeVerifyResponsePod>() + (response.ProofToken?.Length ?? 0) + (response.Reason?.Length ?? 0),
             writer => WriteSecurityChallengeVerifyResponse(response, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>SecurityChallengeVerifyResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeSecurityChallengeVerifyResponse(ReadOnlyMemory<byte> source, out SecurityChallengeVerifyBinaryResponse response)
     {
         var reader = new BinaryPodReader(source.Span);

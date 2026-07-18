@@ -12,6 +12,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for shared contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
     private static void WriteArticleListItem(ref BinaryPodWriter writer, ArticleListCoreModel item)

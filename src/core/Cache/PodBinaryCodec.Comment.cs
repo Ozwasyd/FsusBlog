@@ -12,6 +12,9 @@ using FsusBlog.Shared.Contracts.Validation;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>
+/// Provides binary serialization and decoding operations for comment contracts.
+/// </summary>
 public static partial class PodBinaryCodec
 {
     private const int AnonymousPrivacyMaxPayloadBytes = 16 * 1024;
@@ -22,6 +25,9 @@ public static partial class PodBinaryCodec
     private const int CommentMinMaxUtf8Bytes = 1024;
     private const int CommentHardMaxUtf8Bytes = 12288;
 
+    /// <summary>
+    /// Writes the <c>CommentPolicySnapshot</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteCommentPolicySnapshot(CommentPolicySnapshotCoreModel snapshot, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(128);
@@ -48,9 +54,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>CommentPolicySnapshot</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeCommentPolicySnapshot(CommentPolicySnapshotCoreModel snapshot)
         => EncodeToArray(Marshal.SizeOf<CommentPolicySnapshotPod>() + 128, writer => WriteCommentPolicySnapshot(snapshot, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>CommentPolicySnapshot</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeCommentPolicySnapshot(ReadOnlyMemory<byte> bytes, out CommentPolicySnapshotCoreModel snapshot)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -90,6 +102,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>CommentPolicyUpdateRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteCommentPolicyUpdateRequest(CommentPolicyUpdateRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(128);
@@ -116,9 +131,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>CommentPolicyUpdateRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeCommentPolicyUpdateRequest(CommentPolicyUpdateRequestCoreModel request)
         => EncodeToArray(Marshal.SizeOf<CommentPolicyUpdateRequestPod>() + 128, writer => WriteCommentPolicyUpdateRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>CommentPolicyUpdateRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeCommentPolicyUpdateRequest(ReadOnlyMemory<byte> bytes, out CommentPolicyUpdateRequestCoreModel request)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -155,6 +176,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>CommentCreateV2Request</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteCommentCreateV2Request(CommentCreateV2RequestCoreModel request, IBufferWriter<byte> destination)
     {
         CommentCreateV2RequestPod pod = CreateCommentCreateV2RequestPod(request, out ReadOnlyMemory<byte> payload);
@@ -163,9 +187,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.Span);
     }
 
+    /// <summary>
+    /// Encodes the <c>CommentCreateV2Request</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeCommentCreateV2Request(CommentCreateV2RequestCoreModel request)
         => EncodeToArray(640 + (request.Content?.Length ?? 0) + (request.ZkProof?.Length ?? 0), writer => WriteCommentCreateV2Request(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>CommentCreateV2Request</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeCommentCreateV2Request(ReadOnlyMemory<byte> bytes, out CommentCreateV2RequestCoreModel request)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -198,6 +228,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AnonymousCredentialIssueRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAnonymousCredentialIssueRequest(AnonymousCredentialIssueRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(512 + (request.CredentialRequest?.Length ?? 0));
@@ -218,9 +251,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>AnonymousCredentialIssueRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAnonymousCredentialIssueRequest(AnonymousCredentialIssueRequestCoreModel request)
         => EncodeToArray(Marshal.SizeOf<AnonymousCredentialIssueRequestPod>() + 512 + (request.CredentialRequest?.Length ?? 0), writer => WriteAnonymousCredentialIssueRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AnonymousCredentialIssueRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAnonymousCredentialIssueRequest(ReadOnlyMemory<byte> bytes, out AnonymousCredentialIssueRequestCoreModel request)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -259,6 +298,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AnonymousCredentialIssueResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAnonymousCredentialIssueResponse(AnonymousCredentialIssueResponseCoreModel response, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(512 + (response.IssuerSignature?.Length ?? 0));
@@ -280,9 +322,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>AnonymousCredentialIssueResponse</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAnonymousCredentialIssueResponse(AnonymousCredentialIssueResponseCoreModel response)
         => EncodeToArray(Marshal.SizeOf<AnonymousCredentialIssueResponsePod>() + 512 + (response.IssuerSignature?.Length ?? 0), writer => WriteAnonymousCredentialIssueResponse(response, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AnonymousCredentialIssueResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAnonymousCredentialIssueResponse(ReadOnlyMemory<byte> bytes, out AnonymousCredentialIssueResponseCoreModel response)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -322,6 +370,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>BlindCredentialIssuerMetadata</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteBlindCredentialIssuerMetadata(
         BlindCredentialIssuerMetadataCoreModel metadata,
         IBufferWriter<byte> destination)
@@ -346,6 +397,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>BlindCredentialIssuerMetadata</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeBlindCredentialIssuerMetadata(
         ReadOnlyMemory<byte> bytes,
         out BlindCredentialIssuerMetadataCoreModel metadata)
@@ -389,6 +443,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>BlindCredentialIssueRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteBlindCredentialIssueRequest(
         BlindCredentialIssueRequestCoreModel request,
         IBufferWriter<byte> destination)
@@ -411,6 +468,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>BlindCredentialIssueRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeBlindCredentialIssueRequest(
         ReadOnlyMemory<byte> bytes,
         out BlindCredentialIssueRequestCoreModel request)
@@ -448,6 +508,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>BlindCredentialIssueResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteBlindCredentialIssueResponse(
         BlindCredentialIssueResponseCoreModel response,
         IBufferWriter<byte> destination)
@@ -471,6 +534,9 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Attempts to decode the <c>BlindCredentialIssueResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeBlindCredentialIssueResponse(
         ReadOnlyMemory<byte> bytes,
         out BlindCredentialIssueResponseCoreModel response)
@@ -509,6 +575,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AnonymousCredentialRootSnapshot</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAnonymousCredentialRootSnapshot(AnonymousCredentialRootSnapshotCoreModel snapshot, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(1024 + (snapshot.CircuitMetadata?.Length ?? 0));
@@ -534,9 +603,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>AnonymousCredentialRootSnapshot</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAnonymousCredentialRootSnapshot(AnonymousCredentialRootSnapshotCoreModel snapshot)
         => EncodeToArray(Marshal.SizeOf<AnonymousCredentialRootSnapshotPod>() + 1024 + (snapshot.CircuitMetadata?.Length ?? 0), writer => WriteAnonymousCredentialRootSnapshot(snapshot, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AnonymousCredentialRootSnapshot</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAnonymousCredentialRootSnapshot(ReadOnlyMemory<byte> bytes, out AnonymousCredentialRootSnapshotCoreModel snapshot)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -587,6 +662,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AnonymousCredentialRevocationArtifact</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAnonymousCredentialRevocationArtifact(
         AnonymousCredentialRevocationArtifactCoreModel artifact,
         IBufferWriter<byte> destination)
@@ -617,12 +695,18 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>AnonymousCredentialRevocationArtifact</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAnonymousCredentialRevocationArtifact(
         AnonymousCredentialRevocationArtifactCoreModel artifact)
         => EncodeToArray(
             Marshal.SizeOf<AnonymousCredentialRevocationArtifactPod>() + 512 + (artifact.EntryHashes?.Length ?? 0),
             writer => WriteAnonymousCredentialRevocationArtifact(artifact, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AnonymousCredentialRevocationArtifact</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAnonymousCredentialRevocationArtifact(
         ReadOnlyMemory<byte> bytes,
         out AnonymousCredentialRevocationArtifactCoreModel artifact)
@@ -680,6 +764,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AnonymousCommentTicketRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAnonymousCommentTicketRequest(AnonymousCommentTicketRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(
@@ -722,11 +809,17 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>AnonymousCommentTicketRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAnonymousCommentTicketRequest(AnonymousCommentTicketRequestCoreModel request)
         => EncodeToArray(
             Marshal.SizeOf<AnonymousCommentTicketRequestPod>() + 1024 + (request.Groth16Proof?.Length ?? 0) + (request.PublicInputs?.Length ?? 0),
             writer => WriteAnonymousCommentTicketRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AnonymousCommentTicketRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAnonymousCommentTicketRequest(ReadOnlyMemory<byte> bytes, out AnonymousCommentTicketRequestCoreModel request)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -796,6 +889,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AnonymousCommentTicketResponse</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAnonymousCommentTicketResponse(AnonymousCommentTicketResponseCoreModel response, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(512 + (response.Ticket?.Length ?? 0));
@@ -815,9 +911,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>AnonymousCommentTicketResponse</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAnonymousCommentTicketResponse(AnonymousCommentTicketResponseCoreModel response)
         => EncodeToArray(Marshal.SizeOf<AnonymousCommentTicketResponsePod>() + 512 + (response.Ticket?.Length ?? 0), writer => WriteAnonymousCommentTicketResponse(response, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AnonymousCommentTicketResponse</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAnonymousCommentTicketResponse(ReadOnlyMemory<byte> bytes, out AnonymousCommentTicketResponseCoreModel response)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -853,6 +955,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AnonymousCommentCreateRequest</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAnonymousCommentCreateRequest(AnonymousCommentCreateRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(512 + (request.Content?.Length ?? 0) + (request.Ticket?.Length ?? 0));
@@ -880,9 +985,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>AnonymousCommentCreateRequest</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAnonymousCommentCreateRequest(AnonymousCommentCreateRequestCoreModel request)
         => EncodeToArray(Marshal.SizeOf<AnonymousCommentCreateRequestPod>() + 512 + (request.Content?.Length ?? 0) + (request.Ticket?.Length ?? 0), writer => WriteAnonymousCommentCreateRequest(request, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AnonymousCommentCreateRequest</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAnonymousCommentCreateRequest(ReadOnlyMemory<byte> bytes, out AnonymousCommentCreateRequestCoreModel request)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -923,6 +1034,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>AnonymousPrivacyStateSnapshot</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteAnonymousPrivacyStateSnapshot(AnonymousPrivacyStateSnapshotCoreModel snapshot, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(256);
@@ -948,9 +1062,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>AnonymousPrivacyStateSnapshot</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeAnonymousPrivacyStateSnapshot(AnonymousPrivacyStateSnapshotCoreModel snapshot)
         => EncodeToArray(Marshal.SizeOf<AnonymousPrivacyStateSnapshotPod>() + 256, writer => WriteAnonymousPrivacyStateSnapshot(snapshot, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>AnonymousPrivacyStateSnapshot</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeAnonymousPrivacyStateSnapshot(ReadOnlyMemory<byte> bytes, out AnonymousPrivacyStateSnapshotCoreModel snapshot)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -996,6 +1116,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>CommentAuthorView</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteCommentAuthorView(CommentAuthorViewCoreModel author, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(128);
@@ -1015,9 +1138,15 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
     }
 
+    /// <summary>
+    /// Encodes the <c>CommentAuthorView</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeCommentAuthorView(CommentAuthorViewCoreModel author)
         => EncodeToArray(Marshal.SizeOf<CommentAuthorViewPod>() + 128, writer => WriteCommentAuthorView(author, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>CommentAuthorView</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeCommentAuthorView(ReadOnlyMemory<byte> bytes, out CommentAuthorViewCoreModel author)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -1039,6 +1168,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>CommentCursor</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteCommentCursor(CoreCursorResult<CommentQueryCoreModel> cursor, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -1054,9 +1186,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>CommentCursor</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeCommentCursor(CoreCursorResult<CommentQueryCoreModel> cursor)
         => EncodeToArray(512 + cursor.Data.Count * 256, writer => WriteCommentCursor(cursor, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>CommentCursor</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeCommentCursor(ReadOnlyMemory<byte> bytes, out CoreCursorResult<CommentQueryCoreModel> cursor)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -1089,6 +1227,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>UserCommentCursor</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteUserCommentCursor(CoreCursorResult<UserCommentCoreModel> cursor, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -1116,9 +1257,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>UserCommentCursor</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeUserCommentCursor(CoreCursorResult<UserCommentCoreModel> cursor)
         => EncodeToArray(512 + cursor.Data.Count * 384, writer => WriteUserCommentCursor(cursor, writer));
 
+    /// <summary>
+    /// Attempts to decode the <c>UserCommentCursor</c> contract from a binary payload.
+    /// </summary>
     public static bool TryDecodeUserCommentCursor(ReadOnlyMemory<byte> bytes, out CoreCursorResult<UserCommentCoreModel> cursor)
     {
         var reader = new BinaryPodReader(bytes.Span);
@@ -1169,6 +1316,9 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the <c>CommentThreadCursor</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteCommentThreadCursor(CursorResponse<CommentThreadItemDto> cursor, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -1208,9 +1358,15 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>CommentThreadCursor</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeCommentThreadCursor(CursorResponse<CommentThreadItemDto> cursor)
         => EncodeToArray(1024 + cursor.Data.Count * 512, writer => WriteCommentThreadCursor(cursor, writer));
 
+    /// <summary>
+    /// Writes the <c>CommentReplyCursor</c> contract to the supplied binary destination.
+    /// </summary>
     public static void WriteCommentReplyCursor(long rootId, CursorResponse<CommentReplyItemDto> cursor, IBufferWriter<byte> destination)
     {
         var writer = new BinaryPodWriter(destination);
@@ -1239,6 +1395,9 @@ public static partial class PodBinaryCodec
         }
     }
 
+    /// <summary>
+    /// Encodes the <c>CommentReplyCursor</c> contract into a new binary payload.
+    /// </summary>
     public static byte[] EncodeCommentReplyCursor(long rootId, CursorResponse<CommentReplyItemDto> cursor)
         => EncodeToArray(512 + cursor.Data.Count * 320, writer => WriteCommentReplyCursor(rootId, cursor, writer));
 
