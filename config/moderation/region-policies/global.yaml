@@ -2,32 +2,32 @@ region: GLOBAL
 version: GLOBAL-v2026-06
 inherits:
 dictionaries:
-  - global.advertising
-  - global.contact-lead
-  - global.scam
-  - global.spam-repeat
-  - global.malicious-link
-  - global.html-risk
-  - global.porn-baseline
+    - global.advertising
+    - global.contact-lead
+    - global.scam
+    - global.spam-repeat
+    - global.malicious-link
+    - global.html-risk
+    - global.porn-baseline
 rules:
-  - category: advertising
-    submit_action: manual_review
-    display_action: manual_review_no_public_display
-  - category: contact_lead
-    submit_action: manual_review
-    display_action: manual_review_no_public_display
-  - category: scam
-    submit_action: manual_review_no_public_display
-    display_action: geo_block
-  - category: spam_repeat
-    submit_action: manual_review
-    display_action: manual_review_no_public_display
-  - category: malicious_link
-    submit_action: manual_review_no_public_display
-    display_action: geo_block
-  - category: html_risk
-    submit_action: manual_review_no_public_display
-    display_action: geo_block
-  - category: pornographic
-    submit_action: manual_review_no_public_display
-    display_action: manual_review_no_public_display
+    - category: advertising
+      submit_action: manual_review
+      display_action: manual_review_no_public_display
+    - category: contact_lead
+      submit_action: manual_review
+      display_action: manual_review_no_public_display
+    - category: scam
+      submit_action: manual_review_no_public_display
+      display_action: geo_block
+    - category: spam_repeat
+      submit_action: manual_review
+      display_action: manual_review_no_public_display
+    - category: malicious_link
+      submit_action: manual_review_no_public_display
+      display_action: geo_block
+    - category: html_risk
+      submit_action: manual_review_no_public_display
+      display_action: geo_block
+    - category: pornographic
+      submit_action: manual_review_no_public_display
+      display_action: manual_review_no_public_display

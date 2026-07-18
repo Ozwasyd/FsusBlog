@@ -1,35 +1,35 @@
 region: CN-MAINLAND
 version: CN-MAINLAND-v2026-06
 inherits:
-  - GLOBAL
+    - GLOBAL
 dictionaries:
-  - cn-mainland.political-sensitive
-  - cn-mainland.porn-strict
-  - cn-mainland.public-order
-  - cn-mainland.national-security
-  - cn-mainland.gambling
+    - cn-mainland.political-sensitive
+    - cn-mainland.porn-strict
+    - cn-mainland.public-order
+    - cn-mainland.national-security
+    - cn-mainland.gambling
 rules:
-  - category: advertising
-    submit_action: manual_review_no_public_display
-    display_action: manual_review_no_public_display
-  - category: political_sensitive
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: pornographic
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: sexual_explicit
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: sexual_suggestion_high
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: public_order_risk
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: national_security_risk
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: gambling
-    submit_action: reject_submit
-    display_action: geo_block
+    - category: advertising
+      submit_action: manual_review_no_public_display
+      display_action: manual_review_no_public_display
+    - category: political_sensitive
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: pornographic
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: sexual_explicit
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: sexual_suggestion_high
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: public_order_risk
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: national_security_risk
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: gambling
+      submit_action: reject_submit
+      display_action: geo_block

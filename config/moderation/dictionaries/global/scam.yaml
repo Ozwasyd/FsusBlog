@@ -9,8 +9,8 @@ source: internal_review
 reviewed_by: engineering-preset
 updated_at: 2026-06-01T00:00:00Z
 terms:
-  - value: scam_risk
-    aliases: [诈骗引流]
-    severity: high
-    reason: scam
-    evidence_policy: show_category_only
+    - value: scam_risk
+      aliases: [诈骗引流]
+      severity: high
+      reason: scam
+      evidence_policy: show_category_only

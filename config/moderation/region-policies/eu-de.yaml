@@ -1,10 +1,10 @@
 region: EU-DE
 version: EU-DE-v2026-06
 inherits:
-  - EU
+    - EU
 dictionaries:
-  - de.nazi-symbols
+    - de.nazi-symbols
 rules:
-  - category: hate_speech
-    submit_action: reject_submit
-    display_action: geo_block
+    - category: hate_speech
+      submit_action: reject_submit
+      display_action: geo_block

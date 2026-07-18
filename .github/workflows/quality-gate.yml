@@ -1,1120 +1,1141 @@
 name: Quality Gate
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
-      - master
-  workflow_dispatch:
+    pull_request:
+    push:
+        branches:
+            - main
+            - master
+    workflow_dispatch:
 
 permissions:
-  contents: read
-  packages: read
+    contents: read
+    packages: read
 
 concurrency:
-  group: quality-gate-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    group: quality-gate-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 
 env:
-  DOTNET_NOLOGO: 'true'
-  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
-  FSUSBLOG_REPO_ROOT: ${{ github.workspace }}
-  GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+    DOTNET_NOLOGO: "true"
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+    FSUSBLOG_REPO_ROOT: ${{ github.workspace }}
+    GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
 
 jobs:
-  validate-matrix:
-    name: Validate Test Matrix
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    env:
-      FSUSBLOG_TEST_RUN_ID: quality-gate-validate-${{ github.run_id }}-${{ github.run_attempt }}
-    outputs:
-      backend_qps_collectors_matrix: ${{ steps.backend_qps_collectors_matrix.outputs.matrix }}
-      backend_qps_collectors_max_parallel: ${{ steps.backend_qps_collectors_matrix.outputs.max_parallel }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - run: tools/test/run-matrix-governance-once.sh validate-matrix
-      - run: node tools/test/check-physical-execution-consumer-evidence.mjs .tmp/physical-execution-projections/validate-matrix-matrix-governance.json
-      - run: node tools/moderation/provider-conformance.mjs --provider schema-only
-      - run: node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json
-      - run: node tools/check-workflow-matrix-sync.mjs .tmp/ci-plan.json .github/workflows/quality-gate.yml
-      - id: backend_qps_collectors_matrix
-        run: node tools/run-test-matrix.mjs ci-job-matrix backend-qps-collectors --github-output "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: validate-matrix
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/ci-plan.json
-            .tmp/gate-logs/preflight.json
-            .tmp/physical-execution-projections/validate-matrix-matrix-governance.json
-            .tmp/physical-executions/**
-            .tmp/release-evidence/jobs/**
-            .tmp/release-evidence/test-plan.json
-            .tmp/docs/browser-contract-matrix.json
-            .tmp/docs/fast-backend-matrix.json
-            .tmp/docs/fast-frontend-unit-matrix.json
-            .tmp/docs/generated-testing-docs.json
-            docs/testing.generated.md
-
-  plan-pr-risk:
-    name: Plan PR Smart Gate
-    runs-on: ubuntu-latest
-    needs: validate-matrix
-    timeout-minutes: 5
-    outputs:
-      pr_smart_gate_summary: ${{ steps.smart.outputs.pr_smart_gate_summary }}
-      plan_content_digest: ${{ steps.smart.outputs.plan_content_digest }}
-      plan_source_commit: ${{ steps.smart.outputs.plan_source_commit }}
-      plan_source_fingerprint: ${{ steps.smart.outputs.plan_source_fingerprint }}
-      plan_run_id: ${{ steps.smart.outputs.plan_run_id }}
-      plan_run_attempt: ${{ steps.smart.outputs.plan_run_attempt }}
-      coverage_backend: ${{ steps.smart.outputs.coverage_backend }}
-      coverage_frontend: ${{ steps.smart.outputs.coverage_frontend }}
-      coverage_merge_threshold: ${{ steps.smart.outputs.coverage_merge_threshold }}
-      integration_runtime: ${{ steps.smart.outputs.integration_runtime }}
-      endpoint_depth_runtime: ${{ steps.smart.outputs.endpoint_depth_runtime }}
-      cross_stack_contract: ${{ steps.smart.outputs.cross_stack_contract }}
-      release_public: ${{ steps.smart.outputs.release_public }}
-      security_runtime: ${{ steps.smart.outputs.security_runtime }}
-      security_static_fuzz: ${{ steps.smart.outputs.security_static_fuzz }}
-      browser_contract: ${{ steps.smart.outputs.browser_contract }}
-      resilience_runtime: ${{ steps.smart.outputs.resilience_runtime }}
-      load_smoke: ${{ steps.smart.outputs.load_smoke }}
-      backend_qps_collectors: ${{ steps.smart.outputs.backend_qps_collectors }}
-      backend_qps_collectors_matrix: ${{ steps.smart.outputs.backend_qps_collectors_matrix }}
-      backend_qps_collectors_max_parallel: ${{ steps.smart.outputs.backend_qps_collectors_max_parallel }}
-      backend_qps: ${{ steps.smart.outputs.backend_qps }}
-      perf_regression: ${{ steps.smart.outputs.perf_regression }}
-      production_build_artifacts: ${{ steps.smart.outputs.production_build_artifacts }}
-      production_build_domains: ${{ steps.smart.outputs.production_build_domains }}
-      production_build_domains_json: ${{ steps.smart.outputs.production_build_domains_json }}
-      production_summary: ${{ steps.smart.outputs.production_summary }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - name: Collect changed files
-        run: |
-          mkdir -p .tmp
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            git diff --name-only "${{ github.event.pull_request.base.sha }}...${{ github.sha }}" > .tmp/pr-changed-files.txt
-          else
-            : > .tmp/pr-changed-files.txt
-          fi
-      - id: smart
-        run: |
-          node tools/run-test-matrix.mjs ci-pr-plan \
-            --changed-files .tmp/pr-changed-files.txt \
-            --event-name "${{ github.event_name }}" \
-            --base-ref "${{ github.event.pull_request.base.sha || 'origin/master' }}" \
-            --out .tmp/pr-plan.json \
-            --github-output "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: pr-smart-gate
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/pr-plan.json
-            .tmp/pr-changed-files.txt
-            .tmp/release-evidence/pr-smart-gate-summary.json
-
-  production-build-artifacts:
-    name: Immutable Production Build Artifacts
-    runs-on: ubuntu-latest
-    needs: [validate-matrix, plan-pr-risk]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_build_artifacts == 'true'
-    timeout-minutes: 35
-    outputs:
-      source_fingerprint: ${{ steps.receipt.outputs.source_fingerprint }}
-      receipt_digest: ${{ steps.receipt.outputs.receipt_digest }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh ci-tier production-build-artifacts --no-deps
+    validate-matrix:
+        name: Validate Test Matrix
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
         env:
-          FSUSBLOG_CI_PRODUCTION_BUILD_DOMAINS: ${{ needs.plan-pr-risk.outputs.production_build_domains }}
-      - id: receipt
-        name: Export immutable receipt identity
-        run: |
-          node --input-type=module -e '
-            import fs from "node:fs";
-            const receipt = JSON.parse(fs.readFileSync(".tmp/ci-production-build/receipt.json", "utf8"));
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `source_fingerprint=${receipt.sourceState.worktreeFingerprint}\nreceipt_digest=${receipt.contentDigest}\n`);
-          '
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: production-build-artifacts
-          if-no-files-found: error
-          retention-days: 3
-          compression-level: 6
-          include-hidden-files: true
-          path: |
-            .tmp/ci-production-build/**
+            FSUSBLOG_TEST_RUN_ID: quality-gate-validate-${{ github.run_id }}-${{ github.run_attempt }}
+        outputs:
+            backend_qps_collectors_matrix: ${{ steps.backend_qps_collectors_matrix.outputs.matrix }}
+            backend_qps_collectors_max_parallel: ${{ steps.backend_qps_collectors_matrix.outputs.max_parallel }}
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - run: tools/test/run-matrix-governance-once.sh validate-matrix
+            - run: node tools/test/check-physical-execution-consumer-evidence.mjs .tmp/physical-execution-projections/validate-matrix-matrix-governance.json
+            - run: node tools/moderation/provider-conformance.mjs --provider schema-only
+            - run: node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json
+            - run: node tools/check-workflow-matrix-sync.mjs .tmp/ci-plan.json .github/workflows/quality-gate.yml
+            - id: backend_qps_collectors_matrix
+              run: node tools/run-test-matrix.mjs ci-job-matrix backend-qps-collectors --github-output "$GITHUB_OUTPUT"
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: validate-matrix
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/ci-plan.json
+                      .tmp/gate-logs/preflight.json
+                      .tmp/physical-execution-projections/validate-matrix-matrix-governance.json
+                      .tmp/physical-executions/**
+                      .tmp/release-evidence/jobs/**
+                      .tmp/release-evidence/test-plan.json
+                      .tmp/docs/browser-contract-matrix.json
+                      .tmp/docs/fast-backend-matrix.json
+                      .tmp/docs/fast-frontend-unit-matrix.json
+                      .tmp/docs/generated-testing-docs.json
+                      docs/testing.generated.md
 
-  coverage-merge-threshold:
-    name: Coverage Merge Threshold
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, fast-backend, fast-frontend-unit]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_merge_threshold == 'true'
-    timeout-minutes: 90
-    env:
-      FSUSBLOG_COVERAGE_LINE_THRESHOLD: '35'
-      FSUSBLOG_COVERAGE_BRANCH_THRESHOLD: '20'
-      FSUSBLOG_COVERAGE_METHOD_THRESHOLD: '30'
-      FSUSBLOG_BACKEND_COVERAGE_LINE_THRESHOLD: '75'
-      FSUSBLOG_BACKEND_COVERAGE_BRANCH_THRESHOLD: '55'
-      FSUSBLOG_BACKEND_COVERAGE_METHOD_THRESHOLD: '95'
-      FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD: '35'
-      FSUSBLOG_FRONTEND_COVERAGE_BRANCH_THRESHOLD: '20'
-      FSUSBLOG_FRONTEND_COVERAGE_FUNCTION_THRESHOLD: '30'
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: fast-backend
-          path: .tmp
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: fast-frontend-unit
-          path: .
-      - run: ./tools/test.sh coverage-merge --no-deps
-      - run: ./tools/test.sh coverage-threshold --no-deps
-      - run: ./tools/test.sh coverage-gate --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: coverage-merge-threshold
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/coverage/**
-            .tmp/release-evidence/jobs/**
+    plan-pr-risk:
+        name: Plan PR Smart Gate
+        runs-on: ubuntu-latest
+        needs: validate-matrix
+        timeout-minutes: 5
+        outputs:
+            pr_smart_gate_summary: ${{ steps.smart.outputs.pr_smart_gate_summary }}
+            plan_content_digest: ${{ steps.smart.outputs.plan_content_digest }}
+            plan_source_commit: ${{ steps.smart.outputs.plan_source_commit }}
+            plan_source_fingerprint: ${{ steps.smart.outputs.plan_source_fingerprint }}
+            plan_run_id: ${{ steps.smart.outputs.plan_run_id }}
+            plan_run_attempt: ${{ steps.smart.outputs.plan_run_attempt }}
+            coverage_backend: ${{ steps.smart.outputs.coverage_backend }}
+            coverage_frontend: ${{ steps.smart.outputs.coverage_frontend }}
+            coverage_merge_threshold: ${{ steps.smart.outputs.coverage_merge_threshold }}
+            integration_runtime: ${{ steps.smart.outputs.integration_runtime }}
+            endpoint_depth_runtime: ${{ steps.smart.outputs.endpoint_depth_runtime }}
+            cross_stack_contract: ${{ steps.smart.outputs.cross_stack_contract }}
+            release_public: ${{ steps.smart.outputs.release_public }}
+            security_runtime: ${{ steps.smart.outputs.security_runtime }}
+            security_static_fuzz: ${{ steps.smart.outputs.security_static_fuzz }}
+            browser_contract: ${{ steps.smart.outputs.browser_contract }}
+            resilience_runtime: ${{ steps.smart.outputs.resilience_runtime }}
+            load_smoke: ${{ steps.smart.outputs.load_smoke }}
+            backend_qps_collectors: ${{ steps.smart.outputs.backend_qps_collectors }}
+            backend_qps_collectors_matrix: ${{ steps.smart.outputs.backend_qps_collectors_matrix }}
+            backend_qps_collectors_max_parallel: ${{ steps.smart.outputs.backend_qps_collectors_max_parallel }}
+            backend_qps: ${{ steps.smart.outputs.backend_qps }}
+            perf_regression: ${{ steps.smart.outputs.perf_regression }}
+            production_build_artifacts: ${{ steps.smart.outputs.production_build_artifacts }}
+            production_build_domains: ${{ steps.smart.outputs.production_build_domains }}
+            production_build_domains_json: ${{ steps.smart.outputs.production_build_domains_json }}
+            production_summary: ${{ steps.smart.outputs.production_summary }}
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - name: Collect changed files
+              run: |
+                  mkdir -p .tmp
+                  if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+                    git diff --name-only "${{ github.event.pull_request.base.sha }}...${{ github.sha }}" > .tmp/pr-changed-files.txt
+                  else
+                    : > .tmp/pr-changed-files.txt
+                  fi
+            - id: smart
+              run: |
+                  node tools/run-test-matrix.mjs ci-pr-plan \
+                    --changed-files .tmp/pr-changed-files.txt \
+                    --event-name "${{ github.event_name }}" \
+                    --base-ref "${{ github.event.pull_request.base.sha || 'origin/master' }}" \
+                    --out .tmp/pr-plan.json \
+                    --github-output "$GITHUB_OUTPUT"
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: pr-smart-gate
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/pr-plan.json
+                      .tmp/pr-changed-files.txt
+                      .tmp/release-evidence/pr-smart-gate-summary.json
 
-  fast-backend:
-    name: Fast Backend DAG
-    runs-on: ubuntu-latest
-    needs: validate-matrix
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - run: ./tools/test.sh ci-job fast-backend --fresh
+    production-build-artifacts:
+        name: Immutable Production Build Artifacts
+        runs-on: ubuntu-latest
+        needs: [validate-matrix, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_build_artifacts == 'true'
+        timeout-minutes: 35
+        outputs:
+            source_fingerprint: ${{ steps.receipt.outputs.source_fingerprint }}
+            receipt_digest: ${{ steps.receipt.outputs.receipt_digest }}
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: ./tools/test.sh ci-tier production-build-artifacts --no-deps
+              env:
+                  FSUSBLOG_CI_PRODUCTION_BUILD_DOMAINS: ${{ needs.plan-pr-risk.outputs.production_build_domains }}
+            - id: receipt
+              name: Export immutable receipt identity
+              run: |
+                  node --input-type=module -e '
+                    import fs from "node:fs";
+                    const receipt = JSON.parse(fs.readFileSync(".tmp/ci-production-build/receipt.json", "utf8"));
+                    fs.appendFileSync(process.env.GITHUB_OUTPUT, `source_fingerprint=${receipt.sourceState.worktreeFingerprint}\nreceipt_digest=${receipt.contentDigest}\n`);
+                  '
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: production-build-artifacts
+                  if-no-files-found: error
+                  retention-days: 3
+                  compression-level: 6
+                  include-hidden-files: true
+                  path: |
+                      .tmp/ci-production-build/**
+
+    coverage-merge-threshold:
+        name: Coverage Merge Threshold
+        runs-on: ubuntu-latest
+        needs: [plan-pr-risk, fast-backend, fast-frontend-unit]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_merge_threshold == 'true'
+        timeout-minutes: 90
         env:
-          FSUSBLOG_BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || 'origin/master' }}
-          FSUSBLOG_DOTNET_BUILD_PARALLELISM: ${{ vars.FSUSBLOG_DOTNET_BUILD_PARALLELISM || 'safe' }}
-          FSUSBLOG_TEST_SELECTION: full
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: fast-backend
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/backend-build-governance/**
-            .tmp/backend-unit/**
-            .tmp/backend-fast/**
-            .tmp/backend-api-integration/**
-            .tmp/backend-auth-state-machine/**
-            .tmp/backend-concurrency/**
-            .tmp/backend-golden/**
-            .tmp/backend-property/**
-            .tmp/coverage/backend/**
-            .tmp/coverage/backend-merged/**
-            .tmp/release-evidence/integrity-proof-verification.json
-            .tmp/release-evidence/jobs/**
+            FSUSBLOG_COVERAGE_LINE_THRESHOLD: "35"
+            FSUSBLOG_COVERAGE_BRANCH_THRESHOLD: "20"
+            FSUSBLOG_COVERAGE_METHOD_THRESHOLD: "30"
+            FSUSBLOG_BACKEND_COVERAGE_LINE_THRESHOLD: "75"
+            FSUSBLOG_BACKEND_COVERAGE_BRANCH_THRESHOLD: "55"
+            FSUSBLOG_BACKEND_COVERAGE_METHOD_THRESHOLD: "95"
+            FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD: "35"
+            FSUSBLOG_FRONTEND_COVERAGE_BRANCH_THRESHOLD: "20"
+            FSUSBLOG_FRONTEND_COVERAGE_FUNCTION_THRESHOLD: "30"
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: fast-backend
+                  path: .tmp
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: fast-frontend-unit
+                  path: .
+            - run: ./tools/test.sh coverage-merge --no-deps
+            - run: ./tools/test.sh coverage-threshold --no-deps
+            - run: ./tools/test.sh coverage-gate --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: coverage-merge-threshold
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/coverage/**
+                      .tmp/release-evidence/jobs/**
 
-  frontend-build:
-    name: Frontend Build
-    runs-on: ubuntu-latest
-    needs: validate-matrix
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh ci-tier frontend-build --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: frontend-build
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/frontend/**
-            .tmp/release-evidence/jobs/**
-            src/frontend/dist/**
-            src/backend/wwwroot/**
+    fast-backend:
+        name: Fast Backend DAG
+        runs-on: ubuntu-latest
+        needs: validate-matrix
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - run: ./tools/test.sh ci-job fast-backend --fresh
+              env:
+                  FSUSBLOG_BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || 'origin/master' }}
+                  FSUSBLOG_DOTNET_BUILD_PARALLELISM: ${{ vars.FSUSBLOG_DOTNET_BUILD_PARALLELISM || 'safe' }}
+                  FSUSBLOG_TEST_SELECTION: full
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: fast-backend
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/backend-build-governance/**
+                      .tmp/backend-unit/**
+                      .tmp/backend-fast/**
+                      .tmp/backend-api-integration/**
+                      .tmp/backend-auth-state-machine/**
+                      .tmp/backend-concurrency/**
+                      .tmp/backend-golden/**
+                      .tmp/backend-property/**
+                      .tmp/coverage/backend/**
+                      .tmp/coverage/backend-merged/**
+                      .tmp/release-evidence/integrity-proof-verification.json
+                      .tmp/release-evidence/jobs/**
 
-  fast-frontend-unit:
-    name: Fast Frontend Unit DAG
-    runs-on: ubuntu-latest
-    needs: validate-matrix
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh ci-job fast-frontend-unit --fresh
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: fast-frontend-unit
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            src/frontend/coverage/**
-            src/frontend/test-results/**
-            .tmp/coverage/frontend/**
-            .tmp/frontend/**
-            .tmp/test-results/vitest/**
-            .tmp/ux/viewport-plan-progress.json
-            .tmp/release-evidence/jobs/**
+    frontend-build:
+        name: Frontend Build
+        runs-on: ubuntu-latest
+        needs: validate-matrix
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: ./tools/test.sh ci-tier frontend-build --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: frontend-build
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/frontend/**
+                      .tmp/release-evidence/jobs/**
+                      src/frontend/dist/**
+                      src/backend/wwwroot/**
 
-  frontend-runtime-contracts:
-    name: Frontend Runtime Contracts
-    runs-on: ubuntu-latest
-    needs: validate-matrix
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh ci-tier frontend-runtime-contracts --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: frontend-runtime-contracts
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/frontend/**
-            .tmp/release-evidence/jobs/**
+    fast-frontend-unit:
+        name: Fast Frontend Unit DAG
+        runs-on: ubuntu-latest
+        needs: validate-matrix
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: ./tools/test.sh ci-job fast-frontend-unit --fresh
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: fast-frontend-unit
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      src/frontend/coverage/**
+                      src/frontend/test-results/**
+                      .tmp/coverage/frontend/**
+                      .tmp/frontend/**
+                      .tmp/test-results/vitest/**
+                      .tmp/ux/viewport-plan-progress.json
+                      .tmp/release-evidence/jobs/**
 
-  frontend-static-governance:
-    name: Frontend Static Governance
-    runs-on: ubuntu-latest
-    needs: [validate-matrix, frontend-build]
-    timeout-minutes: 20
-    env:
-      FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          repository: Ozwasyd/FsusUI
-          ref: b967712bcb9dfc13babd49006451a46e2dcc4771
-          token: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
-          persist-credentials: false
-          path: .tmp/local-fsusui
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: frontend-build
-          path: .
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh ci-tier frontend-static-governance --no-deps
-      - name: Run browserless frontend structure budgets
-        run: ./tools/test.sh ci-tier frontend-render-structure --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: frontend-static-governance
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/frontend/**
-            .tmp/release-evidence/frontend-render-structure-summary.json
-            .tmp/release-evidence/jobs/**
+    frontend-runtime-contracts:
+        name: Frontend Runtime Contracts
+        runs-on: ubuntu-latest
+        needs: validate-matrix
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: ./tools/test.sh ci-tier frontend-runtime-contracts --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: frontend-runtime-contracts
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/frontend/**
+                      .tmp/release-evidence/jobs/**
 
-  fast-static-governance:
-    name: Fast Static Governance
-    runs-on: ubuntu-latest
-    needs: validate-matrix
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - run: node tools/db/migration-doc-lint.mjs
-      - run: ./tools/test.sh static-governance --no-deps
-      - run: ./tools/test.sh public-hydration-fast --no-deps
-      - run: ./tools/test.sh backend-test-governance --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: fast-static-governance
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/gate-logs/**
-            .tmp/docs/**
-            .tmp/backend-test-governance/**
-            .tmp/release-evidence/test-plan.json
-            .tmp/release-evidence/doc-sync-summary.json
-            .tmp/release-evidence/test-retention-audit.json
-            .tmp/release-evidence/public-hydration-matrix-fast-summary.json
-            .tmp/release-evidence/jobs/**
-            .tmp/release-evidence/flaky/**
-
-  fast-summary:
-    name: Fast Summary
-    runs-on: ubuntu-latest
-    needs: [fast-backend, frontend-build, fast-frontend-unit, frontend-runtime-contracts, frontend-static-governance, fast-static-governance]
-    timeout-minutes: 50
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: fast-backend
-          path: .tmp
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: frontend-build
-          path: .
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: fast-frontend-unit
-          path: .
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: frontend-runtime-contracts
-          path: .tmp
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: frontend-static-governance
-          path: .tmp
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: fast-static-governance
-          path: .tmp
-      - name: Aggregate fast evidence
+    frontend-static-governance:
+        name: Frontend Static Governance
+        runs-on: ubuntu-latest
+        needs: [validate-matrix, frontend-build]
+        timeout-minutes: 20
         env:
-          QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
-        run: node tools/run-test-matrix.mjs aggregate fast-summary
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: fast-summary
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/backend-fast/**
-            .tmp/gate-logs/**
-            .tmp/frontend/**
-            .tmp/release-evidence/jobs/**
-            src/frontend/coverage/**
-            src/frontend/dist/**
+            FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  repository: Ozwasyd/FsusUI
+                  ref: b967712bcb9dfc13babd49006451a46e2dcc4771
+                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN }}
+                  persist-credentials: false
+                  path: .tmp/local-fsusui
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: frontend-build
+                  path: .
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: ./tools/test.sh ci-tier frontend-static-governance --no-deps
+            - name: Run browserless frontend structure budgets
+              run: ./tools/test.sh ci-tier frontend-render-structure --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: frontend-static-governance
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/frontend/**
+                      .tmp/release-evidence/frontend-render-structure-summary.json
+                      .tmp/release-evidence/jobs/**
 
-  cross-stack-contract:
-    name: Cross Stack Contract
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, fast-frontend-unit, fast-static-governance]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.cross_stack_contract == 'true'
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh cross-stack-contract --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: cross-stack-contract
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/release-evidence/jobs/**
-            src/frontend/src/generated/fsusBinaryRoutes.ts
-            src/shared/Contracts/Validation/fsusblog.openapi.json
-            tests/frontend/fixtures/cross-stack-contract-matrix.generated.json
-            tests/frontend/fixtures/cross-stack-contract-matrix.json
+    fast-static-governance:
+        name: Fast Static Governance
+        runs-on: ubuntu-latest
+        needs: validate-matrix
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - run: node tools/db/migration-doc-lint.mjs
+            - run: ./tools/test.sh static-governance --no-deps
+            - run: ./tools/test.sh public-hydration-fast --no-deps
+            - run: ./tools/test.sh backend-test-governance --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: fast-static-governance
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/gate-logs/**
+                      .tmp/docs/**
+                      .tmp/backend-test-governance/**
+                      .tmp/release-evidence/test-plan.json
+                      .tmp/release-evidence/doc-sync-summary.json
+                      .tmp/release-evidence/test-retention-audit.json
+                      .tmp/release-evidence/public-hydration-matrix-fast-summary.json
+                      .tmp/release-evidence/jobs/**
+                      .tmp/release-evidence/flaky/**
 
-  integration-runtime:
-    name: Integration Runtime
-    runs-on: ubuntu-latest
-    needs: [validate-matrix, plan-pr-risk, production-build-artifacts, fast-backend, fast-frontend-unit]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.integration_runtime == 'true'
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: integration-runtime
-      - run: ./tools/test.sh integration
-      - run: ./tools/test.sh ci-tier rights-v3-test-matrix --no-deps
-      - run: ./tools/test.sh data-scale-xs --no-deps
-      - run: ./tools/test.sh data-scale-s --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: integration-runtime
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/acceptance/**
-            .tmp/runtime/integration.json
-            .tmp/scale/**
-            .tmp/release-evidence/rights-v3-test-matrix.json
-            .tmp/release-evidence/jobs/**
+    fast-summary:
+        name: Fast Summary
+        runs-on: ubuntu-latest
+        needs:
+            [
+                fast-backend,
+                frontend-build,
+                fast-frontend-unit,
+                frontend-runtime-contracts,
+                frontend-static-governance,
+                fast-static-governance,
+            ]
+        timeout-minutes: 50
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: fast-backend
+                  path: .tmp
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: frontend-build
+                  path: .
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: fast-frontend-unit
+                  path: .
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: frontend-runtime-contracts
+                  path: .tmp
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: frontend-static-governance
+                  path: .tmp
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: fast-static-governance
+                  path: .tmp
+            - name: Aggregate fast evidence
+              env:
+                  QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
+              run: node tools/run-test-matrix.mjs aggregate fast-summary
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: fast-summary
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/backend-fast/**
+                      .tmp/gate-logs/**
+                      .tmp/frontend/**
+                      .tmp/release-evidence/jobs/**
+                      src/frontend/coverage/**
+                      src/frontend/dist/**
 
-  endpoint-depth-runtime:
-    name: Endpoint Depth Runtime
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.endpoint_depth_runtime == 'true'
-    timeout-minutes: 35
-    env:
-      FSUSBLOG_TEST_NAMESPACE: ci-endpoint-depth-${{ github.run_id }}-${{ github.run_attempt }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: endpoint-depth-runtime
-      - run: ./tools/test.sh bootstrap --no-deps
-      - run: ./tools/test.sh endpoint-depth --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: endpoint-depth-runtime
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/contracts/endpoint-depth-matrix.json
-            .tmp/release-evidence/endpoint-depth-summary.json
-            .tmp/release-evidence/jobs/**
+    cross-stack-contract:
+        name: Cross Stack Contract
+        runs-on: ubuntu-latest
+        needs: [plan-pr-risk, fast-frontend-unit, fast-static-governance]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.cross_stack_contract == 'true'
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - run: ./tools/test.sh cross-stack-contract --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: cross-stack-contract
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/release-evidence/jobs/**
+                      src/frontend/src/generated/fsusBinaryRoutes.ts
+                      src/shared/Contracts/Validation/fsusblog.openapi.json
+                      tests/frontend/fixtures/cross-stack-contract-matrix.generated.json
+                      tests/frontend/fixtures/cross-stack-contract-matrix.json
 
-  release-public:
-    name: Release Public
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.release_public == 'true'
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: release-public
-      - run: ./tools/test.sh release
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: release-public
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/acceptance/*.log
-            .tmp/release-evidence/public-hydration-detector-summary.json
-            .tmp/release-evidence/public-hydration-clock-matrix-summary.json
-            .tmp/release-evidence/public-hydration-browser-env-summary.json
-            .tmp/release-evidence/public-hydration-payload-fixture-summary.json
-            .tmp/release-evidence/public-hydration-dom-diff-summary.json
-            .tmp/release-evidence/public-hydration-sidecar-summary.json
-            .tmp/release-evidence/public-hydration-matrix-summary.json
-            .tmp/release-evidence/jobs/**
+    integration-runtime:
+        name: Integration Runtime
+        runs-on: ubuntu-latest
+        needs:
+            [
+                validate-matrix,
+                plan-pr-risk,
+                production-build-artifacts,
+                fast-backend,
+                fast-frontend-unit,
+            ]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.integration_runtime == 'true'
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - uses: ./.github/actions/consume-production-build
+              with:
+                  source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  consumer-job: integration-runtime
+            - run: ./tools/test.sh integration
+            - run: ./tools/test.sh ci-tier rights-v3-test-matrix --no-deps
+            - run: ./tools/test.sh data-scale-xs --no-deps
+            - run: ./tools/test.sh data-scale-s --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: integration-runtime
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/acceptance/**
+                      .tmp/runtime/integration.json
+                      .tmp/scale/**
+                      .tmp/release-evidence/rights-v3-test-matrix.json
+                      .tmp/release-evidence/jobs/**
 
-  security-runtime:
-    name: Security Runtime
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.security_runtime == 'true'
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: security-runtime
-      - run: node tools/verify-matrix-identity-kinds.mjs
-      - run: ./tools/test.sh security
-      - run: ./tools/test.sh security-authenticated-dast --no-deps
-      - run: ./tools/test.sh csrf-browser-matrix --no-deps
-      - run: ./tools/test.sh risk-control-test-matrix --no-deps
-      - run: ./tools/test.sh perception-v2-test-matrix --no-deps
-      - run: node tools/verify-zk-privacy-matrix.mjs
-      - run: ./tools/test.sh privacy-zk-comment-matrix --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: security-runtime
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/release-evidence/security-depth-summary.json
-            .tmp/release-evidence/perception-v2-release-evidence.json
-            .tmp/release-evidence/jobs/**
-            .tmp/security/**
-
-  security-static-fuzz:
-    name: Security Static Fuzz
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, frontend-build]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.security_static_fuzz == 'true'
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: frontend-build
-          path: .
-      - run: ./tools/test.sh wasm-fuzz-regression --no-deps
-      - run: ./tools/test.sh contract-fuzz --no-deps
-      - run: ./tools/test.sh perception-v2-redteam-pr --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: security-static-fuzz
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/fuzz/**
-            .tmp/security/perception-v2/**
-            .tmp/release-evidence/fuzz-seeds.json
-            .tmp/release-evidence/jobs/**
-
-  # This is the only correctness/release browser job. workflow_dispatch is the
-  # explicit release-final entry; ordinary PRs select it only for browser-boundary changes.
-  # The matrix smart gate owns the bootstrap/public-renderer/router/auth/worker/PWA path list.
-  browser-contract:
-    name: Browser Contract
-    runs-on: ubuntu-latest
-    needs: [validate-matrix, plan-pr-risk, production-build-artifacts]
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
-      (github.event_name == 'pull_request' && needs.plan-pr-risk.outputs.browser_contract == 'true')
-    timeout-minutes: 10
-    outputs:
-      source_fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-      production_receipt_digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-      browser_contract_receipt_digest: ${{ steps.contract_receipt.outputs.receipt_digest }}
-    env:
-      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
-      FSUSBLOG_BROWSER_CONTRACT_SESSIONS: '1'
-      FSUSBLOG_BROWSER_CONTRACT_CONCURRENCY: '1'
-      FSUSBLOG_BROWSER_CONTRACT_TIMEOUT: 7m
-      FSUSBLOG_BROWSER_CONTRACT_RUN_ID: browser-contract-${{ github.run_id }}-${{ github.run_attempt }}
-      FSUSBLOG_BROWSER_CONTRACT_OUTPUT: ${{ github.workspace }}/.tmp/browser-contract
-      FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT: ${{ github.workspace }}/.tmp/downloaded-production-build/receipt.json
-      FSUSBLOG_TEST_SOURCE_COMMIT: ${{ github.sha }}
-      FSUSBLOG_TEST_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browser-contract-chromium-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: browser-contract
-      # The fixture provider owns its dedicated runtime lifecycle. Do not add
-      # the shared acceptance bootstrap, another Playwright shard, or retries.
-      - name: Run the single release Browser Contract
-        run: ./tools/test.sh ci-tier browser-contract --no-deps
-      - name: Validate Browser Contract receipt schema
+    endpoint-depth-runtime:
+        name: Endpoint Depth Runtime
+        runs-on: ubuntu-latest
+        needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.endpoint_depth_runtime == 'true'
+        timeout-minutes: 35
         env:
-          FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-        run: node tools/release/test-evidence-receipts-cli.mjs validate-browser-contract .tmp/browser-contract/receipt.json
-      - id: contract_receipt
-        name: Export Browser Contract receipt identity
-        run: |
-          node --input-type=module -e '
-            import crypto from "node:crypto";
-            import fs from "node:fs";
-            const file = ".tmp/browser-contract/receipt.json";
-            const bytes = fs.readFileSync(file);
-            const receipt = JSON.parse(bytes);
-            if (receipt.schema !== "fsusblog.browser-contract-receipt.v2") throw new Error(`unexpected Browser Contract receipt schema: ${receipt.schema}`);
-            if (receipt.status !== "success") throw new Error(`Browser Contract receipt is not successful: ${receipt.status}`);
-            if (receipt.sourceState?.commit !== process.env.GITHUB_SHA) throw new Error("Browser Contract receipt commit mismatch");
-            if (receipt.sourceState?.worktreeFingerprint !== process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT) throw new Error("Browser Contract receipt fingerprint mismatch");
-            if (receipt.build?.receiptContentDigest !== process.env.PRODUCTION_RECEIPT_DIGEST) throw new Error("Browser Contract build receipt digest mismatch");
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `receipt_digest=sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}\n`);
-          '
+            FSUSBLOG_TEST_NAMESPACE: ci-endpoint-depth-${{ github.run_id }}-${{ github.run_attempt }}
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - uses: ./.github/actions/consume-production-build
+              with:
+                  source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  consumer-job: endpoint-depth-runtime
+            - run: ./tools/test.sh bootstrap --no-deps
+            - run: ./tools/test.sh endpoint-depth --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: endpoint-depth-runtime
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/contracts/endpoint-depth-matrix.json
+                      .tmp/release-evidence/endpoint-depth-summary.json
+                      .tmp/release-evidence/jobs/**
+
+    release-public:
+        name: Release Public
+        runs-on: ubuntu-latest
+        needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.release_public == 'true'
+        timeout-minutes: 25
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - uses: ./.github/actions/consume-production-build
+              with:
+                  source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  consumer-job: release-public
+            - run: ./tools/test.sh release
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: release-public
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/acceptance/*.log
+                      .tmp/release-evidence/public-hydration-detector-summary.json
+                      .tmp/release-evidence/public-hydration-clock-matrix-summary.json
+                      .tmp/release-evidence/public-hydration-browser-env-summary.json
+                      .tmp/release-evidence/public-hydration-payload-fixture-summary.json
+                      .tmp/release-evidence/public-hydration-dom-diff-summary.json
+                      .tmp/release-evidence/public-hydration-sidecar-summary.json
+                      .tmp/release-evidence/public-hydration-matrix-summary.json
+                      .tmp/release-evidence/jobs/**
+
+    security-runtime:
+        name: Security Runtime
+        runs-on: ubuntu-latest
+        needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.security_runtime == 'true'
+        timeout-minutes: 40
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - uses: ./.github/actions/consume-production-build
+              with:
+                  source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  consumer-job: security-runtime
+            - run: node tools/verify-matrix-identity-kinds.mjs
+            - run: ./tools/test.sh security
+            - run: ./tools/test.sh security-authenticated-dast --no-deps
+            - run: ./tools/test.sh csrf-browser-matrix --no-deps
+            - run: ./tools/test.sh risk-control-test-matrix --no-deps
+            - run: ./tools/test.sh perception-v2-test-matrix --no-deps
+            - run: node tools/verify-zk-privacy-matrix.mjs
+            - run: ./tools/test.sh privacy-zk-comment-matrix --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: security-runtime
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/release-evidence/security-depth-summary.json
+                      .tmp/release-evidence/perception-v2-release-evidence.json
+                      .tmp/release-evidence/jobs/**
+                      .tmp/security/**
+
+    security-static-fuzz:
+        name: Security Static Fuzz
+        runs-on: ubuntu-latest
+        needs: [plan-pr-risk, frontend-build]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.security_static_fuzz == 'true'
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: frontend-build
+                  path: .
+            - run: ./tools/test.sh wasm-fuzz-regression --no-deps
+            - run: ./tools/test.sh contract-fuzz --no-deps
+            - run: ./tools/test.sh perception-v2-redteam-pr --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: security-static-fuzz
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/fuzz/**
+                      .tmp/security/perception-v2/**
+                      .tmp/release-evidence/fuzz-seeds.json
+                      .tmp/release-evidence/jobs/**
+
+    # This is the only correctness/release browser job. workflow_dispatch is the
+    # explicit release-final entry; ordinary PRs select it only for browser-boundary changes.
+    # The matrix smart gate owns the bootstrap/public-renderer/router/auth/worker/PWA path list.
+    browser-contract:
+        name: Browser Contract
+        runs-on: ubuntu-latest
+        needs: [validate-matrix, plan-pr-risk, production-build-artifacts]
+        if: >-
+            github.event_name == 'workflow_dispatch' ||
+            (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+            (github.event_name == 'pull_request' && needs.plan-pr-risk.outputs.browser_contract == 'true')
+        timeout-minutes: 10
+        outputs:
+            source_fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+            production_receipt_digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+            browser_contract_receipt_digest: ${{ steps.contract_receipt.outputs.receipt_digest }}
         env:
-          PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: browser-contract-${{ github.run_id }}-${{ github.run_attempt }}
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          # fixtures/** and runs/** may retain authentication material for
-          # local cleanup/debug recovery and must never cross the runner
-          # artifact boundary. The receipt contains only sealed identities,
-          # classifications and relative evidence paths.
-          path: |
-            .tmp/browser-contract/receipt.json
-            .tmp/release-evidence/jobs/**
+            FSUSBLOG_PLAYWRIGHT_WORKERS: "1"
+            FSUSBLOG_BROWSER_CONTRACT_SESSIONS: "1"
+            FSUSBLOG_BROWSER_CONTRACT_CONCURRENCY: "1"
+            FSUSBLOG_BROWSER_CONTRACT_TIMEOUT: 7m
+            FSUSBLOG_BROWSER_CONTRACT_RUN_ID: browser-contract-${{ github.run_id }}-${{ github.run_attempt }}
+            FSUSBLOG_BROWSER_CONTRACT_OUTPUT: ${{ github.workspace }}/.tmp/browser-contract
+            FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT: ${{ github.workspace }}/.tmp/downloaded-production-build/receipt.json
+            FSUSBLOG_TEST_SOURCE_COMMIT: ${{ github.sha }}
+            FSUSBLOG_TEST_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.cache/ms-playwright
+                  key: playwright-browser-contract-chromium-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
+            - uses: ./.github/actions/consume-production-build
+              with:
+                  source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  consumer-job: browser-contract
+            # The fixture provider owns its dedicated runtime lifecycle. Do not add
+            # the shared acceptance bootstrap, another Playwright shard, or retries.
+            - name: Run the single release Browser Contract
+              run: ./tools/test.sh ci-tier browser-contract --no-deps
+            - name: Validate Browser Contract receipt schema
+              env:
+                  FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+              run: node tools/release/test-evidence-receipts-cli.mjs validate-browser-contract .tmp/browser-contract/receipt.json
+            - id: contract_receipt
+              name: Export Browser Contract receipt identity
+              run: |
+                  node --input-type=module -e '
+                    import crypto from "node:crypto";
+                    import fs from "node:fs";
+                    const file = ".tmp/browser-contract/receipt.json";
+                    const bytes = fs.readFileSync(file);
+                    const receipt = JSON.parse(bytes);
+                    if (receipt.schema !== "fsusblog.browser-contract-receipt.v2") throw new Error(`unexpected Browser Contract receipt schema: ${receipt.schema}`);
+                    if (receipt.status !== "success") throw new Error(`Browser Contract receipt is not successful: ${receipt.status}`);
+                    if (receipt.sourceState?.commit !== process.env.GITHUB_SHA) throw new Error("Browser Contract receipt commit mismatch");
+                    if (receipt.sourceState?.worktreeFingerprint !== process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT) throw new Error("Browser Contract receipt fingerprint mismatch");
+                    if (receipt.build?.receiptContentDigest !== process.env.PRODUCTION_RECEIPT_DIGEST) throw new Error("Browser Contract build receipt digest mismatch");
+                    fs.appendFileSync(process.env.GITHUB_OUTPUT, `receipt_digest=sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}\n`);
+                  '
+              env:
+                  PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: browser-contract-${{ github.run_id }}-${{ github.run_attempt }}
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  # fixtures/** and runs/** may retain authentication material for
+                  # local cleanup/debug recovery and must never cross the runner
+                  # artifact boundary. The receipt contains only sealed identities,
+                  # classifications and relative evidence paths.
+                  path: |
+                      .tmp/browser-contract/receipt.json
+                      .tmp/release-evidence/jobs/**
 
-  resilience-runtime:
-    name: Resilience Runtime
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.resilience_runtime == 'true'
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: resilience-runtime
-      - run: ./tools/test.sh resilience
-      - run: ./tools/test.sh fault-injection --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: resilience-runtime
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/fault-injection/**
-            .tmp/runtime/resilience.json
-            .tmp/release-evidence/aot-cache-resilience-summary.json
-            .tmp/release-evidence/jobs/**
+    resilience-runtime:
+        name: Resilience Runtime
+        runs-on: ubuntu-latest
+        needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.resilience_runtime == 'true'
+        timeout-minutes: 35
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - uses: ./.github/actions/consume-production-build
+              with:
+                  source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  consumer-job: resilience-runtime
+            - run: ./tools/test.sh resilience
+            - run: ./tools/test.sh fault-injection --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: resilience-runtime
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/fault-injection/**
+                      .tmp/runtime/resilience.json
+                      .tmp/release-evidence/aot-cache-resilience-summary.json
+                      .tmp/release-evidence/jobs/**
 
-  load-smoke:
-    name: Load Smoke
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.load_smoke == 'true'
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: load-smoke
-      - run: ./tools/test.sh load
-      - run: ./tools/test.sh load-baseline --no-deps
-      - run: ./tools/test.sh load-peak --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: load-smoke
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/perf/**
-            .tmp/release-evidence/jobs/**
+    load-smoke:
+        name: Load Smoke
+        runs-on: ubuntu-latest
+        needs: [plan-pr-risk, production-build-artifacts, integration-runtime]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.load_smoke == 'true'
+        timeout-minutes: 35
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - uses: ./.github/actions/consume-production-build
+              with:
+                  source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  consumer-job: load-smoke
+            - run: ./tools/test.sh load
+            - run: ./tools/test.sh load-baseline --no-deps
+            - run: ./tools/test.sh load-peak --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: load-smoke
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/perf/**
+                      .tmp/release-evidence/jobs/**
 
-  backend-qps-collectors:
-    name: Backend QPS Collector ${{ matrix.shard_id }}
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, production-build-artifacts]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps_collectors == 'true'
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      max-parallel: ${{ fromJson(needs.plan-pr-risk.outputs.backend_qps_collectors_max_parallel) }}
-      matrix: ${{ fromJson(needs.plan-pr-risk.outputs.backend_qps_collectors_matrix) }}
-    env:
-      FSUSBLOG_TEST_NAMESPACE: ci-backend-qps-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: backend-qps-${{ matrix.tier }}
-      - run: ./tools/test.sh bootstrap --no-deps
-      - run: ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps
+    backend-qps-collectors:
+        name: Backend QPS Collector ${{ matrix.shard_id }}
+        runs-on: ubuntu-latest
+        needs: [plan-pr-risk, production-build-artifacts]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps_collectors == 'true'
+        timeout-minutes: 45
+        strategy:
+            fail-fast: false
+            max-parallel: ${{ fromJson(needs.plan-pr-risk.outputs.backend_qps_collectors_max_parallel) }}
+            matrix: ${{ fromJson(needs.plan-pr-risk.outputs.backend_qps_collectors_matrix) }}
         env:
-          FSUSBLOG_CI_JOB_ID: ${{ matrix.artifact_name }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: ${{ matrix.artifact_name }}
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/perf/backend-qps/**
-            .tmp/release-evidence/jobs/**
+            FSUSBLOG_TEST_NAMESPACE: ci-backend-qps-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - uses: ./.github/actions/consume-production-build
+              with:
+                  source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  consumer-job: backend-qps-${{ matrix.tier }}
+            - run: ./tools/test.sh bootstrap --no-deps
+            - run: ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps
+              env:
+                  FSUSBLOG_CI_JOB_ID: ${{ matrix.artifact_name }}
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: ${{ matrix.artifact_name }}
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/perf/backend-qps/**
+                      .tmp/release-evidence/jobs/**
 
-  backend-qps:
-    name: Backend QPS Aggregate
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, integration-runtime, backend-qps-collectors]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps == 'true'
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          pattern: backend-qps-collectors-*
-          path: .tmp
-          merge-multiple: true
-      - run: ./tools/test.sh ci-tier backend-qps --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: backend-qps
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/perf/backend-qps/**
-            .tmp/release-evidence/backend-qps-summary.json
-            .tmp/release-evidence/backend-qps-runtime-sequential-summary.json
-            .tmp/release-evidence/jobs/**
+    backend-qps:
+        name: Backend QPS Aggregate
+        runs-on: ubuntu-latest
+        needs: [plan-pr-risk, integration-runtime, backend-qps-collectors]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps == 'true'
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  pattern: backend-qps-collectors-*
+                  path: .tmp
+                  merge-multiple: true
+            - run: ./tools/test.sh ci-tier backend-qps --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: backend-qps
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/perf/backend-qps/**
+                      .tmp/release-evidence/backend-qps-summary.json
+                      .tmp/release-evidence/backend-qps-runtime-sequential-summary.json
+                      .tmp/release-evidence/jobs/**
 
-  perf-regression:
-    name: Perf Regression
-    runs-on: ubuntu-latest
-    needs: [plan-pr-risk, validate-matrix, production-build-artifacts, frontend-build]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.perf_regression == 'true'
-    timeout-minutes: 35
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: ./.github/actions/consume-production-build
-        with:
-          source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-          consumer-job: perf-regression
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: frontend-build
-          path: .
-      - name: AEDS frame and browserless decode budget
-        run: ./tools/test.sh aeds-frame-cost --no-deps
-      - run: ./tools/test.sh aeds-compression-profile --no-deps
-      - run: ./tools/test.sh backend-perf --no-deps
-      - run: ./tools/test.sh backend-benchmark-regression --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: perf-regression
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/backend-perf/**
-            .tmp/perf/aeds-frame-cost/**
-            .tmp/perf/aeds-compression-profile/**
-            .tmp/perf/public-hot-read-residency-profile/summary.json
-            .tmp/perf/release-summaries/backend-benchmark-regression.json
-            .tmp/frontend/aeds-decode-budget/summary.json
-            .tmp/release-evidence/aeds-frame-cost-summary.json
-            .tmp/release-evidence/aeds-compression-profile-summary.json
-            .tmp/release-evidence/aeds-decode-budget-summary.json
-            .tmp/release-evidence/public-hot-read-residency-profile.json
-            .tmp/release-evidence/jobs/**
-            BenchmarkDotNet.Artifacts/results/**
+    perf-regression:
+        name: Perf Regression
+        runs-on: ubuntu-latest
+        needs:
+            [
+                plan-pr-risk,
+                validate-matrix,
+                production-build-artifacts,
+                frontend-build,
+            ]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.perf_regression == 'true'
+        timeout-minutes: 35
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+                  cache: npm
+                  cache-dependency-path: src/frontend/package-lock.json
+            - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+            - uses: ./.github/actions/consume-production-build
+              with:
+                  source-fingerprint: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+                  consumer-job: perf-regression
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: frontend-build
+                  path: .
+            - name: AEDS frame and browserless decode budget
+              run: ./tools/test.sh aeds-frame-cost --no-deps
+            - run: ./tools/test.sh aeds-compression-profile --no-deps
+            - run: ./tools/test.sh backend-perf --no-deps
+            - run: ./tools/test.sh backend-benchmark-regression --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: perf-regression
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/backend-perf/**
+                      .tmp/perf/aeds-frame-cost/**
+                      .tmp/perf/aeds-compression-profile/**
+                      .tmp/perf/public-hot-read-residency-profile/summary.json
+                      .tmp/perf/release-summaries/backend-benchmark-regression.json
+                      .tmp/frontend/aeds-decode-budget/summary.json
+                      .tmp/release-evidence/aeds-frame-cost-summary.json
+                      .tmp/release-evidence/aeds-compression-profile-summary.json
+                      .tmp/release-evidence/aeds-decode-budget-summary.json
+                      .tmp/release-evidence/public-hot-read-residency-profile.json
+                      .tmp/release-evidence/jobs/**
+                      BenchmarkDotNet.Artifacts/results/**
 
-  release-evidence:
-    name: Release Evidence
-    runs-on: ubuntu-latest
-    needs:
-      - coverage-merge-threshold
-      - fast-backend
-      - frontend-build
-      - fast-frontend-unit
-      - frontend-runtime-contracts
-      - frontend-static-governance
-      - fast-static-governance
-      - fast-summary
-      - cross-stack-contract
-      - endpoint-depth-runtime
-      - integration-runtime
-      - release-public
-      - security-runtime
-      - security-static-fuzz
-      - resilience-runtime
-      - load-smoke
-      - backend-qps
-      - perf-regression
-    if: always()
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          path: .tmp/downloaded-artifacts
-      - run: ./tools/test.sh data-scale-evidence-summary --no-deps
-      - run: ./tools/test.sh performance-evidence-summary --no-deps
-      - run: ./tools/test.sh release-evidence --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+    release-evidence:
+        name: Release Evidence
+        runs-on: ubuntu-latest
+        needs:
+            - coverage-merge-threshold
+            - fast-backend
+            - frontend-build
+            - fast-frontend-unit
+            - frontend-runtime-contracts
+            - frontend-static-governance
+            - fast-static-governance
+            - fast-summary
+            - cross-stack-contract
+            - endpoint-depth-runtime
+            - integration-runtime
+            - release-public
+            - security-runtime
+            - security-static-fuzz
+            - resilience-runtime
+            - load-smoke
+            - backend-qps
+            - perf-regression
         if: always()
-        with:
-          name: release-evidence
-          if-no-files-found: ignore
-          retention-days: 30
-          include-hidden-files: true
-          path: |
-            .tmp/release-evidence/**
-            .tmp/physical-execution-projections/release-evidence-plan-matrix-governance.json
-            .tmp/perf/release-summaries/performance-saturation-v2.json
+        timeout-minutes: 10
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  path: .tmp/downloaded-artifacts
+            - run: ./tools/test.sh data-scale-evidence-summary --no-deps
+            - run: ./tools/test.sh performance-evidence-summary --no-deps
+            - run: ./tools/test.sh release-evidence --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: release-evidence
+                  if-no-files-found: ignore
+                  retention-days: 30
+                  include-hidden-files: true
+                  path: |
+                      .tmp/release-evidence/**
+                      .tmp/physical-execution-projections/release-evidence-plan-matrix-governance.json
+                      .tmp/perf/release-summaries/performance-saturation-v2.json
 
-  production-summary:
-    name: Production Summary
-    runs-on: ubuntu-latest
-    needs:
-      - plan-pr-risk
-      - validate-matrix
-      - production-build-artifacts
-      - coverage-merge-threshold
-      - fast-backend
-      - frontend-build
-      - fast-frontend-unit
-      - frontend-runtime-contracts
-      - frontend-static-governance
-      - fast-static-governance
-      - fast-summary
-      - cross-stack-contract
-      - endpoint-depth-runtime
-      - integration-runtime
-      - release-public
-      - security-runtime
-      - security-static-fuzz
-      - resilience-runtime
-      - load-smoke
-      - backend-qps
-      - perf-regression
-      - release-evidence
-    if: always() && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true')
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          path: .tmp/downloaded-artifacts
-      - name: Check required job results
-        env:
-          QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
-          FSUSBLOG_CI_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
-          FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
-          FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
-        run: node tools/ci/summarize-quality-gate.mjs
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: production-summary
-          if-no-files-found: ignore
-          retention-days: 14
-          include-hidden-files: true
-          path: |
-            .tmp/release-evidence/jobs/**
-            .tmp/release-evidence/browserless-correctness-receipt.json
+    production-summary:
+        name: Production Summary
+        runs-on: ubuntu-latest
+        needs:
+            - plan-pr-risk
+            - validate-matrix
+            - production-build-artifacts
+            - coverage-merge-threshold
+            - fast-backend
+            - frontend-build
+            - fast-frontend-unit
+            - frontend-runtime-contracts
+            - frontend-static-governance
+            - fast-static-governance
+            - fast-summary
+            - cross-stack-contract
+            - endpoint-depth-runtime
+            - integration-runtime
+            - release-public
+            - security-runtime
+            - security-static-fuzz
+            - resilience-runtime
+            - load-smoke
+            - backend-qps
+            - perf-regression
+            - release-evidence
+        if: always() && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true')
+        timeout-minutes: 120
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  path: .tmp/downloaded-artifacts
+            - name: Check required job results
+              env:
+                  QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
+                  FSUSBLOG_CI_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+                  FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
+                  FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
+              run: node tools/ci/summarize-quality-gate.mjs
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: production-summary
+                  if-no-files-found: ignore
+                  retention-days: 14
+                  include-hidden-files: true
+                  path: |
+                      .tmp/release-evidence/jobs/**
+                      .tmp/release-evidence/browserless-correctness-receipt.json

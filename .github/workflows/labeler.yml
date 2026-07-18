@@ -1,25 +1,25 @@
 name: Pull Request Labeler
 
 on:
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
+    pull_request_target:
+        types:
+            - opened
+            - synchronize
+            - reopened
+            - ready_for_review
 
 permissions:
-  contents: read
-  pull-requests: write
+    contents: read
+    pull-requests: write
 
 jobs:
-  label:
-    name: Label changed paths
-    runs-on: ubuntu-latest
-    steps:
-      - name: Apply path labels
-        uses: actions/labeler@f27b608878404679385c85cfa523b85ccb86e213 # v6
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          configuration-path: .github/labeler.yml
-          sync-labels: true
+    label:
+        name: Label changed paths
+        runs-on: ubuntu-latest
+        steps:
+            - name: Apply path labels
+              uses: actions/labeler@f27b608878404679385c85cfa523b85ccb86e213 # v6
+              with:
+                  repo-token: ${{ secrets.GITHUB_TOKEN }}
+                  configuration-path: .github/labeler.yml
+                  sync-labels: true

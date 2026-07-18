@@ -4,116 +4,116 @@ version: asvs-v5.0.0
 owner: ServerContractAgent
 checker: tools/security/check-security-matrices.mjs
 requirements:
-  - id: ASVS-1.2.1
-    control: security architecture and trust-boundary decisions are documented and testable
-    owner: ServerContractAgent
-    status: automated
-    code:
-      - docs/security.md
-      - docs/architecture.md
-      - src/backend/Program.cs
-    tests:
-      - tests/backend/Unit/EndpointPolicyContractTests.cs
-      - tests/frontend/checks/static/check-security-consistency.mjs
-    evidence:
-      - .tmp/security/attack-matrix.json
+    - id: ASVS-1.2.1
+      control: security architecture and trust-boundary decisions are documented and testable
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - docs/security.md
+          - docs/architecture.md
+          - src/backend/Program.cs
+      tests:
+          - tests/backend/Unit/EndpointPolicyContractTests.cs
+          - tests/frontend/checks/static/check-security-consistency.mjs
+      evidence:
+          - .tmp/security/attack-matrix.json
 
-  - id: ASVS-2.1.1
-    control: authentication requests preserve PoW, JWT and session security boundaries
-    owner: ServerContractAgent
-    status: automated
-    code:
-      - src/backend/Infrastructure/Auth
-      - src/backend/Infrastructure/Helpers/JwtHelper.cs
-      - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
-    tests:
-      - tests/backend/Unit/JwtHelperTests.cs
-      - tests/backend/Unit/AuthCookieServiceSecurityTests.cs
-      - tests/frontend/checks/runtime/auth-session-smoke.mjs
-    evidence:
-      - .tmp/security/attack-matrix.json
+    - id: ASVS-2.1.1
+      control: authentication requests preserve PoW, JWT and session security boundaries
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Infrastructure/Auth
+          - src/backend/Infrastructure/Helpers/JwtHelper.cs
+          - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
+      tests:
+          - tests/backend/Unit/JwtHelperTests.cs
+          - tests/backend/Unit/AuthCookieServiceSecurityTests.cs
+          - tests/frontend/checks/runtime/auth-session-smoke.mjs
+      evidence:
+          - .tmp/security/attack-matrix.json
 
-  - id: ASVS-2.8.1
-    control: WebAuthn and passkey flows validate RP, origin, challenge and credential state
-    owner: ServerContractAgent
-    status: automated
-    code:
-      - src/backend/Infrastructure/Auth
-      - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
-    tests:
-      - tests/backend/Unit/PasskeyServiceTests.cs
-      - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
-    evidence:
-      - .tmp/security/attack-matrix.json
+    - id: ASVS-2.8.1
+      control: WebAuthn and passkey flows validate RP, origin, challenge and credential state
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Infrastructure/Auth
+          - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
+      tests:
+          - tests/backend/Unit/PasskeyServiceTests.cs
+          - tests/frontend/checks/security/check-auth-passkey-smoke.mjs
+      evidence:
+          - .tmp/security/attack-matrix.json
 
-  - id: ASVS-4.1.1
-    control: authorization is enforced for user, author and admin routes
-    owner: ServerContractAgent
-    status: automated
-    code:
-      - src/backend/Modules/Endpoints
-      - src/backend/Infrastructure/Filters/BannedUserMiddleware.cs
-    tests:
-      - tests/backend/Unit/EndpointPolicyContractTests.cs
-      - tests/frontend/checks/security/check-permission-matrix.mjs
-    evidence:
-      - .tmp/security/permission-matrix.json
+    - id: ASVS-4.1.1
+      control: authorization is enforced for user, author and admin routes
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Modules/Endpoints
+          - src/backend/Infrastructure/Filters/BannedUserMiddleware.cs
+      tests:
+          - tests/backend/Unit/EndpointPolicyContractTests.cs
+          - tests/frontend/checks/security/check-permission-matrix.mjs
+      evidence:
+          - .tmp/security/permission-matrix.json
 
-  - id: ASVS-5.1.3
-    control: input validation and normalized error handling protect JSON and binary API paths
-    owner: ServerContractAgent
-    status: automated
-    code:
-      - src/backend/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs
-      - src/shared/Contracts/Validation/PodSizeCatalog.cs
-      - src/core/Algorithms/AedsDecoderValidator.cs
-    tests:
-      - tests/backend/Unit/PodValidationTests.cs
-      - tests/backend/Unit/AedsEncoderTests.cs
-      - tests/frontend/checks/runtime/binary-contract-smoke.mjs
-    evidence:
-      - .tmp/security/attack-matrix.json
+    - id: ASVS-5.1.3
+      control: input validation and normalized error handling protect JSON and binary API paths
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs
+          - src/shared/Contracts/Validation/PodSizeCatalog.cs
+          - src/core/Algorithms/AedsDecoderValidator.cs
+      tests:
+          - tests/backend/Unit/PodValidationTests.cs
+          - tests/backend/Unit/AedsEncoderTests.cs
+          - tests/frontend/checks/runtime/binary-contract-smoke.mjs
+      evidence:
+          - .tmp/security/attack-matrix.json
 
-  - id: ASVS-7.1.1
-    control: audit, telemetry and trace evidence exclude secrets and private payloads
-    owner: ServerContractAgent
-    status: automated
-    code:
-      - src/backend/Infrastructure/Observability
-      - src/backend/Infrastructure/Audit
-      - src/frontend/src/services/telemetryService.ts
-    tests:
-      - tests/backend/Unit/ObservabilityTests.cs
-      - tests/backend/Unit/AuditAndNormalizerTests.cs
-      - tests/frontend/checks/static/check-telemetry-privacy.mjs
-      - tests/frontend/checks/static/check-subscription-privacy.mjs
-    evidence:
-      - .tmp/security/attack-matrix.json
+    - id: ASVS-7.1.1
+      control: audit, telemetry and trace evidence exclude secrets and private payloads
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Infrastructure/Observability
+          - src/backend/Infrastructure/Audit
+          - src/frontend/src/services/telemetryService.ts
+      tests:
+          - tests/backend/Unit/ObservabilityTests.cs
+          - tests/backend/Unit/AuditAndNormalizerTests.cs
+          - tests/frontend/checks/static/check-telemetry-privacy.mjs
+          - tests/frontend/checks/static/check-subscription-privacy.mjs
+      evidence:
+          - .tmp/security/attack-matrix.json
 
-  - id: ASVS-9.1.1
-    control: TLS, reverse-proxy trust and production exposure evidence are fail-closed
-    owner: ServerContractAgent
-    status: automated
-    code:
-      - src/backend/Infrastructure/Operations/ProductionStartupValidator.cs
-      - tools/security/check-production-network-baseline.sh
-      - tools/security/check-production-exposure-live.sh
-    tests:
-      - tests/backend/Unit/ProductionStartupValidatorTests.cs
-      - tests/backend/Unit/ProductionHealthTests.cs
-      - tools/security/test-production-exposure-tools.sh
-    evidence:
-      - .tmp/security/production-exposure-status.json
+    - id: ASVS-9.1.1
+      control: TLS, reverse-proxy trust and production exposure evidence are fail-closed
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - src/backend/Infrastructure/Operations/ProductionStartupValidator.cs
+          - tools/security/check-production-network-baseline.sh
+          - tools/security/check-production-exposure-live.sh
+      tests:
+          - tests/backend/Unit/ProductionStartupValidatorTests.cs
+          - tests/backend/Unit/ProductionHealthTests.cs
+          - tools/security/test-production-exposure-tools.sh
+      evidence:
+          - .tmp/security/production-exposure-status.json
 
-  - id: ASVS-14.2.1
-    control: dependency and package vulnerability audits block high-risk releases
-    owner: ServerContractAgent
-    status: automated
-    code:
-      - tools/security/check-supply-chain-audit.sh
-      - src/frontend/package-lock.json
-      - FsusBlog.slnx
-    tests:
-      - tools/security/check-supply-chain-audit.sh
-    evidence:
-      - .tmp/security/supply-chain/summary.json
+    - id: ASVS-14.2.1
+      control: dependency and package vulnerability audits block high-risk releases
+      owner: ServerContractAgent
+      status: automated
+      code:
+          - tools/security/check-supply-chain-audit.sh
+          - src/frontend/package-lock.json
+          - FsusBlog.slnx
+      tests:
+          - tools/security/check-supply-chain-audit.sh
+      evidence:
+          - .tmp/security/supply-chain/summary.json

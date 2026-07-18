@@ -5,34 +5,34 @@ defaultAllowedRetries: 0
 defaultRetryOn: never
 defaultClassification: regression
 executionPolicies:
-  - suite: browser-contract
-    evidenceClass: browser-contract
-    allowedRetries: 0
-    retryOn: never
-    classification: regression
-  - suite: browser-diagnostics
-    evidenceClass: diagnostic
-    allowedRetries: 1
-    retryOn: browser-process-crash
-    classification: unknown-flaky
-  - suite: acceptance-playwright
-    evidenceClass: diagnostic
-    allowedRetries: 1
-    retryOn: browser-process-crash
-    classification: unknown-flaky
-  - suite: visual-playwright
-    evidenceClass: diagnostic
-    allowedRetries: 1
-    retryOn: browser-process-crash
-    classification: unknown-flaky
-  - suite: ux-viewport-smoke
-    evidenceClass: diagnostic
-    allowedRetries: 1
-    retryOn: browser-process-crash
-    classification: unknown-flaky
-  - suite: cross-browser-smoke
-    evidenceClass: diagnostic
-    allowedRetries: 1
-    retryOn: browser-process-crash
-    classification: unknown-flaky
+    - suite: browser-contract
+      evidenceClass: browser-contract
+      allowedRetries: 0
+      retryOn: never
+      classification: regression
+    - suite: browser-diagnostics
+      evidenceClass: diagnostic
+      allowedRetries: 1
+      retryOn: browser-process-crash
+      classification: unknown-flaky
+    - suite: acceptance-playwright
+      evidenceClass: diagnostic
+      allowedRetries: 1
+      retryOn: browser-process-crash
+      classification: unknown-flaky
+    - suite: visual-playwright
+      evidenceClass: diagnostic
+      allowedRetries: 1
+      retryOn: browser-process-crash
+      classification: unknown-flaky
+    - suite: ux-viewport-smoke
+      evidenceClass: diagnostic
+      allowedRetries: 1
+      retryOn: browser-process-crash
+      classification: unknown-flaky
+    - suite: cross-browser-smoke
+      evidenceClass: diagnostic
+      allowedRetries: 1
+      retryOn: browser-process-crash
+      classification: unknown-flaky
 entries: []

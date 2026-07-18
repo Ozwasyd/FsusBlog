@@ -9,8 +9,8 @@ source: internal_review
 reviewed_by: engineering-preset
 updated_at: 2026-06-01T00:00:00Z
 terms:
-  - value: "<script"
-    aliases: [onerror=, javascript:]
-    severity: high
-    reason: html_risk
-    evidence_policy: show_category_only
+    - value: "<script"
+      aliases: [onerror=, javascript:]
+      severity: high
+      reason: html_risk
+      evidence_policy: show_category_only

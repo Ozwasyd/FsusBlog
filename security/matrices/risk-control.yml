@@ -4,136 +4,159 @@ version: risk-control-test-matrix-v1
 owner: ServerContractAgent
 checker: tools/security/check-security-matrices.mjs
 scenarios:
-  - id: RISKCONTROL-DECISION-MODES
-    scenario: allow, challenge, step-up, queue, throttle and block decisions are covered by unit tests
-    owner: ServerContractAgent
-    status: automated
-    requiredDecisions: [allow, challenge, step-up, queue, throttle, block]
-    code:
-      - src/backend/Infrastructure/Security/RiskDecisionService.cs
-      - src/backend/Infrastructure/Filters/RequiresRiskControlFilter.cs
-    tests:
-      - tests/backend/Unit/RiskDecisionServiceTests.cs
-      - tests/backend/Unit/RequiresRiskControlFilterTests.cs
-      - tests/backend/Unit/CommentRiskActionFilterTests.cs
-    evidence:
-      - .tmp/security/risk-control-test-matrix.json
+    - id: RISKCONTROL-DECISION-MODES
+      scenario: allow, challenge, step-up, queue, throttle and block decisions are covered by unit tests
+      owner: ServerContractAgent
+      status: automated
+      requiredDecisions: [allow, challenge, step-up, queue, throttle, block]
+      code:
+          - src/backend/Infrastructure/Security/RiskDecisionService.cs
+          - src/backend/Infrastructure/Filters/RequiresRiskControlFilter.cs
+      tests:
+          - tests/backend/Unit/RiskDecisionServiceTests.cs
+          - tests/backend/Unit/RequiresRiskControlFilterTests.cs
+          - tests/backend/Unit/CommentRiskActionFilterTests.cs
+      evidence:
+          - .tmp/security/risk-control-test-matrix.json
 
-  - id: RISKCONTROL-PROVIDER-SURFACES
-    scenario: PoW, Captcha, PoSpace, HumanReadProof, Passkey and AdminStepUp challenge providers stay represented
-    owner: ServerContractAgent
-    status: automated
-    requiredProviders: [sha256PowV1, captchaV1, argon2idPoSpaceV1, humanReadProofV1, passkeyStepUpV1, adminPasskeyStepUpV1]
-    code:
-      - src/shared/Contracts/Security/SecurityChallengeContracts.cs
-      - src/backend/Services/Security/SecurityChallengeOrchestrator.cs
-      - src/backend/Services/Security/Sha256PowChallengeProvider.cs
-      - src/backend/Services/Security/CaptchaV1ChallengeProvider.cs
-      - src/backend/Services/Security/Argon2idPoSpaceV1ChallengeProvider.cs
-      - src/backend/Services/Security/HumanReadProofV1ChallengeProvider.cs
-      - src/backend/Services/Security/PasskeyService.cs
-      - src/backend/Services/Security/AdminPrincipalService.cs
-    tests:
-      - tests/backend/Unit/SecurityChallengeContractTests.cs
-      - tests/backend/Unit/Sha256PowChallengeProviderTests.cs
-      - tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs
-      - tests/backend/Unit/Argon2idPoSpaceV1ChallengeProviderTests.cs
-      - tests/backend/Unit/HumanReadProofV1ChallengeProviderTests.cs
-      - tests/backend/Unit/PasskeyServiceTests.cs
-      - tests/backend/Unit/AdminMfaStepUpSecurityTests.cs
-    evidence:
-      - .tmp/security/risk-control-test-matrix.json
+    - id: RISKCONTROL-PROVIDER-SURFACES
+      scenario: PoW, Captcha, PoSpace, HumanReadProof, Passkey and AdminStepUp challenge providers stay represented
+      owner: ServerContractAgent
+      status: automated
+      requiredProviders:
+          [
+              sha256PowV1,
+              captchaV1,
+              argon2idPoSpaceV1,
+              humanReadProofV1,
+              passkeyStepUpV1,
+              adminPasskeyStepUpV1,
+          ]
+      code:
+          - src/shared/Contracts/Security/SecurityChallengeContracts.cs
+          - src/backend/Services/Security/SecurityChallengeOrchestrator.cs
+          - src/backend/Services/Security/Sha256PowChallengeProvider.cs
+          - src/backend/Services/Security/CaptchaV1ChallengeProvider.cs
+          - src/backend/Services/Security/Argon2idPoSpaceV1ChallengeProvider.cs
+          - src/backend/Services/Security/HumanReadProofV1ChallengeProvider.cs
+          - src/backend/Services/Security/PasskeyService.cs
+          - src/backend/Services/Security/AdminPrincipalService.cs
+      tests:
+          - tests/backend/Unit/SecurityChallengeContractTests.cs
+          - tests/backend/Unit/Sha256PowChallengeProviderTests.cs
+          - tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs
+          - tests/backend/Unit/Argon2idPoSpaceV1ChallengeProviderTests.cs
+          - tests/backend/Unit/HumanReadProofV1ChallengeProviderTests.cs
+          - tests/backend/Unit/PasskeyServiceTests.cs
+          - tests/backend/Unit/AdminMfaStepUpSecurityTests.cs
+      evidence:
+          - .tmp/security/risk-control-test-matrix.json
 
-  - id: RISKCONTROL-PROOF-BINDING
-    scenario: replay, expired, action mismatch, route mismatch and device mismatch proof failures are covered
-    owner: ServerContractAgent
-    status: automated
-    requiredFailures: [replay, expired, action-mismatch, route-mismatch, device-mismatch]
-    code:
-      - src/backend/Services/Security/SecurityChallengeProofService.cs
-      - src/backend/Infrastructure/Filters/RequiresRiskControlFilter.cs
-    tests:
-      - tests/backend/Unit/SecurityChallengeProofServiceTests.cs
-      - tests/backend/Unit/RequiresRiskControlFilterTests.cs
-      - tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs
-    evidence:
-      - .tmp/security/risk-control-test-matrix.json
+    - id: RISKCONTROL-PROOF-BINDING
+      scenario: replay, expired, action mismatch, route mismatch and device mismatch proof failures are covered
+      owner: ServerContractAgent
+      status: automated
+      requiredFailures:
+          [replay, expired, action-mismatch, route-mismatch, device-mismatch]
+      code:
+          - src/backend/Services/Security/SecurityChallengeProofService.cs
+          - src/backend/Infrastructure/Filters/RequiresRiskControlFilter.cs
+      tests:
+          - tests/backend/Unit/SecurityChallengeProofServiceTests.cs
+          - tests/backend/Unit/RequiresRiskControlFilterTests.cs
+          - tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs
+      evidence:
+          - .tmp/security/risk-control-test-matrix.json
 
-  - id: RISKCONTROL-INTEGRATION-SURFACES
-    scenario: auth, comment, public-read, notification stream and admin policy integration surfaces are mapped
-    owner: ServerContractAgent
-    status: automated
-    requiredSurfaces: [auth, comment, public-read, notification, admin-policy]
-    code:
-      - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
-      - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs
-      - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs
-      - src/backend/Infrastructure/Filters/RiskAwarePublicReadFilter.cs
-      - src/backend/Infrastructure/NotificationStream/NotificationStreamHandshakeService.cs
-      - src/backend/Modules/Endpoints/SecurityEndpoints.cs
-    tests:
-      - tests/backend/Unit/AuthRiskControlEndpointContractTests.cs
-      - tests/backend/Unit/CommentRiskActionFilterTests.cs
-      - tests/backend/Unit/NotificationStreamBoundaryTests.cs
-      - tests/backend/Unit/RiskControlSimulatorContractTests.cs
-      - tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs
-    evidence:
-      - .tmp/security/risk-control-test-matrix.json
+    - id: RISKCONTROL-INTEGRATION-SURFACES
+      scenario: auth, comment, public-read, notification stream and admin policy integration surfaces are mapped
+      owner: ServerContractAgent
+      status: automated
+      requiredSurfaces: [auth, comment, public-read, notification, admin-policy]
+      code:
+          - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
+          - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs
+          - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs
+          - src/backend/Infrastructure/Filters/RiskAwarePublicReadFilter.cs
+          - src/backend/Infrastructure/NotificationStream/NotificationStreamHandshakeService.cs
+          - src/backend/Modules/Endpoints/SecurityEndpoints.cs
+      tests:
+          - tests/backend/Unit/AuthRiskControlEndpointContractTests.cs
+          - tests/backend/Unit/CommentRiskActionFilterTests.cs
+          - tests/backend/Unit/NotificationStreamBoundaryTests.cs
+          - tests/backend/Unit/RiskControlSimulatorContractTests.cs
+          - tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs
+      evidence:
+          - .tmp/security/risk-control-test-matrix.json
 
-  - id: RISKCONTROL-E2E-FAILURE-MODES
-    scenario: desktop, mobile, WASM failure, Canvas fallback, worker failure and slow-device browser cases are tracked
-    owner: InteropGlueAgent
-    status: automated
-    requiredBrowserModes: [desktop, mobile, wasm-failure, canvas-fallback, worker-failure, slow-device]
-    code:
-      - src/frontend/src/security
-      - src/frontend/src/workers
-      - src/frontend/src/workers/security
-    tests:
-      - tests/frontend/e2e/security/risk-control-console.spec.ts
-      - tests/frontend/e2e/security/captcha-challenge.spec.ts
-      - tests/frontend/e2e/security/pospace-worker.spec.ts
-    evidence:
-      - src/frontend/test-results/playwright/security
+    - id: RISKCONTROL-E2E-FAILURE-MODES
+      scenario: desktop, mobile, WASM failure, Canvas fallback, worker failure and slow-device browser cases are tracked
+      owner: InteropGlueAgent
+      status: automated
+      requiredBrowserModes:
+          [
+              desktop,
+              mobile,
+              wasm-failure,
+              canvas-fallback,
+              worker-failure,
+              slow-device,
+          ]
+      code:
+          - src/frontend/src/security
+          - src/frontend/src/workers
+          - src/frontend/src/workers/security
+      tests:
+          - tests/frontend/e2e/security/risk-control-console.spec.ts
+          - tests/frontend/e2e/security/captcha-challenge.spec.ts
+          - tests/frontend/e2e/security/pospace-worker.spec.ts
+      evidence:
+          - src/frontend/test-results/playwright/security
 
-  - id: RISKCONTROL-PERFORMANCE-BUDGETS
-    scenario: decision, PoW verify, Captcha verify and proof consume p99 budgets are declared and fail closed
-    owner: ServerContractAgent
-    status: automated
-    performanceBudgetP99Ms:
-      decisionP99Ms: 5
-      powVerifyP99Ms: 50
-      captchaVerifyP99Ms: 75
-      proofConsumeP99Ms: 15
-    code:
-      - src/backend/Infrastructure/Security/RiskDecisionService.cs
-      - src/backend/Services/Security/Sha256PowChallengeProvider.cs
-      - src/backend/Services/Security/CaptchaV1ChallengeProvider.cs
-      - src/backend/Services/Security/SecurityChallengeProofService.cs
-      - tools/test/lanes/backend-qps.sh
-    tests:
-      - tests/backend/Unit/RiskDecisionServiceTests.cs
-      - tests/backend/Unit/Sha256PowChallengeProviderTests.cs
-      - tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs
-      - tests/backend/Unit/SecurityChallengeProofServiceTests.cs
-    evidence:
-      - .tmp/perf/risk-control/summary.json
-      - .tmp/perf/backend-qps/risk-filter.json
+    - id: RISKCONTROL-PERFORMANCE-BUDGETS
+      scenario: decision, PoW verify, Captcha verify and proof consume p99 budgets are declared and fail closed
+      owner: ServerContractAgent
+      status: automated
+      performanceBudgetP99Ms:
+          decisionP99Ms: 5
+          powVerifyP99Ms: 50
+          captchaVerifyP99Ms: 75
+          proofConsumeP99Ms: 15
+      code:
+          - src/backend/Infrastructure/Security/RiskDecisionService.cs
+          - src/backend/Services/Security/Sha256PowChallengeProvider.cs
+          - src/backend/Services/Security/CaptchaV1ChallengeProvider.cs
+          - src/backend/Services/Security/SecurityChallengeProofService.cs
+          - tools/test/lanes/backend-qps.sh
+      tests:
+          - tests/backend/Unit/RiskDecisionServiceTests.cs
+          - tests/backend/Unit/Sha256PowChallengeProviderTests.cs
+          - tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs
+          - tests/backend/Unit/SecurityChallengeProofServiceTests.cs
+      evidence:
+          - .tmp/perf/risk-control/summary.json
+          - .tmp/perf/backend-qps/risk-filter.json
 
-  - id: RISKCONTROL-FAULT-MODES
-    scenario: Redis unavailable, Postgres slow write, provider missing and policy load failure are covered
-    owner: ServerContractAgent
-    status: automated
-    requiredFaults: [redis-unavailable, postgres-slow-write, provider-missing, policy-load-failure]
-    code:
-      - src/backend/Infrastructure/Operations/ProductionHealth.cs
-      - src/backend/Infrastructure/Security/SecurityRiskEventPersistence.cs
-      - src/backend/Services/Security/SecurityChallengeOrchestrator.cs
-      - src/backend/Services/Security/SecurityPolicySnapshotService.cs
-    tests:
-      - tests/backend/Unit/ProductionHealthTests.cs
-      - tests/backend/Unit/SecurityRiskEventPersistenceTests.cs
-      - tests/backend/Unit/SecurityChallengeOrchestratorTests.cs
-      - tests/backend/Unit/SecurityPolicySnapshotPersistenceTests.cs
-    evidence:
-      - .tmp/security/risk-control-test-matrix.json
+    - id: RISKCONTROL-FAULT-MODES
+      scenario: Redis unavailable, Postgres slow write, provider missing and policy load failure are covered
+      owner: ServerContractAgent
+      status: automated
+      requiredFaults:
+          [
+              redis-unavailable,
+              postgres-slow-write,
+              provider-missing,
+              policy-load-failure,
+          ]
+      code:
+          - src/backend/Infrastructure/Operations/ProductionHealth.cs
+          - src/backend/Infrastructure/Security/SecurityRiskEventPersistence.cs
+          - src/backend/Services/Security/SecurityChallengeOrchestrator.cs
+          - src/backend/Services/Security/SecurityPolicySnapshotService.cs
+      tests:
+          - tests/backend/Unit/ProductionHealthTests.cs
+          - tests/backend/Unit/SecurityRiskEventPersistenceTests.cs
+          - tests/backend/Unit/SecurityChallengeOrchestratorTests.cs
+          - tests/backend/Unit/SecurityPolicySnapshotPersistenceTests.cs
+      evidence:
+          - .tmp/security/risk-control-test-matrix.json

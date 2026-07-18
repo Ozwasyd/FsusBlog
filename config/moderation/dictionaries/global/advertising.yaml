@@ -9,13 +9,13 @@ source: internal_review
 reviewed_by: engineering-preset
 updated_at: 2026-06-01T00:00:00Z
 terms:
-  - value: 私聊赚钱
-    aliases: [带你赚钱, 日入过千]
-    severity: high
-    reason: advertising
-    evidence_policy: show_category_only
-  - value: 广告关键词
-    aliases: [推广关键词]
-    severity: medium
-    reason: advertising
-    evidence_policy: show_category_only
+    - value: 私聊赚钱
+      aliases: [带你赚钱, 日入过千]
+      severity: high
+      reason: advertising
+      evidence_policy: show_category_only
+    - value: 广告关键词
+      aliases: [推广关键词]
+      severity: medium
+      reason: advertising
+      evidence_policy: show_category_only

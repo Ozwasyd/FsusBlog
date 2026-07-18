@@ -1,9 +1,9 @@
 region: US
 version: US-v2026-06
 inherits:
-  - GLOBAL
+    - GLOBAL
 dictionaries:
 rules:
-  - category: advertising
-    submit_action: allow
-    display_action: allow
+    - category: advertising
+      submit_action: allow
+      display_action: allow

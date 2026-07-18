@@ -1,60 +1,67 @@
 name: Governance / process report
 description: Report public-preview policy, test gate, release evidence, contribution workflow, or issue/PR process drift.
 title: "[Governance] "
-labels: ["type:maintenance", "area:github", "risk:public-preview-policy", "status:triage", "evidence:needs-docs"]
+labels:
+    [
+        "type:maintenance",
+        "area:github",
+        "risk:public-preview-policy",
+        "status:triage",
+        "evidence:needs-docs",
+    ]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Do not report security vulnerabilities here. Use `SECURITY.md` and GitHub private vulnerability reporting.
-        This form is for process and routing issues only. Remove secrets, tokens, private domains, real IPs, real emails, production logs, and vulnerability details before posting publicly.
-  - type: dropdown
-    id: governance-area
-    attributes:
-      label: Governance area
-      options:
-        - Public-preview policy gap
-        - Test gate or quality gate drift
-        - Release evidence drift
-        - Contribution workflow issue
-        - Issue or PR process problem
-        - Security-report routing process issue without vulnerability details
-        - Other
-    validations:
-      required: true
-  - type: textarea
-    id: current-process
-    attributes:
-      label: Current process or policy
-      description: Link the file, workflow, checklist, issue form, PR template, or command that appears wrong.
-    validations:
-      required: true
-  - type: textarea
-    id: gap
-    attributes:
-      label: Observed gap or drift
-      description: Describe the mismatch without posting vulnerability details or private deployment data.
-    validations:
-      required: true
-  - type: textarea
-    id: expected-process
-    attributes:
-      label: Expected process or correction
-    validations:
-      required: true
-  - type: textarea
-    id: release-impact
-    attributes:
-      label: Release, test, or public-preview impact
-      description: State whether this affects release evidence, required checks, docs, or maintainer routing.
-    validations:
-      required: true
-  - type: checkboxes
-    id: confirmation
-    attributes:
-      label: Public report confirmation
-      options:
-        - label: This is not a security vulnerability report and does not include vulnerability details.
+    - type: markdown
+      attributes:
+          value: |
+              Do not report security vulnerabilities here. Use `SECURITY.md` and GitHub private vulnerability reporting.
+              This form is for process and routing issues only. Remove secrets, tokens, private domains, real IPs, real emails, production logs, and vulnerability details before posting publicly.
+    - type: dropdown
+      id: governance-area
+      attributes:
+          label: Governance area
+          options:
+              - Public-preview policy gap
+              - Test gate or quality gate drift
+              - Release evidence drift
+              - Contribution workflow issue
+              - Issue or PR process problem
+              - Security-report routing process issue without vulnerability details
+              - Other
+      validations:
           required: true
-        - label: I removed secrets, tokens, private domains, real IP addresses, real emails, production logs, and private deployment details.
+    - type: textarea
+      id: current-process
+      attributes:
+          label: Current process or policy
+          description: Link the file, workflow, checklist, issue form, PR template, or command that appears wrong.
+      validations:
           required: true
+    - type: textarea
+      id: gap
+      attributes:
+          label: Observed gap or drift
+          description: Describe the mismatch without posting vulnerability details or private deployment data.
+      validations:
+          required: true
+    - type: textarea
+      id: expected-process
+      attributes:
+          label: Expected process or correction
+      validations:
+          required: true
+    - type: textarea
+      id: release-impact
+      attributes:
+          label: Release, test, or public-preview impact
+          description: State whether this affects release evidence, required checks, docs, or maintainer routing.
+      validations:
+          required: true
+    - type: checkboxes
+      id: confirmation
+      attributes:
+          label: Public report confirmation
+          options:
+              - label: This is not a security vulnerability report and does not include vulnerability details.
+                required: true
+              - label: I removed secrets, tokens, private domains, real IP addresses, real emails, production logs, and private deployment details.
+                required: true

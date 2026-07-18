@@ -9,8 +9,8 @@ source: internal_review
 reviewed_by: engineering-preset
 updated_at: 2026-06-01T00:00:00Z
 terms:
-  - value: spam_repeat
-    aliases: [重复刷屏]
-    severity: medium
-    reason: spam_repeat
-    evidence_policy: show_category_only
+    - value: spam_repeat
+      aliases: [重复刷屏]
+      severity: medium
+      reason: spam_repeat
+      evidence_policy: show_category_only

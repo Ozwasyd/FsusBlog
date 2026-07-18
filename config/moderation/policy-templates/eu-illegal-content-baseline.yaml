@@ -11,15 +11,15 @@ is_enabled: true
 not_legal_advice: true
 description: EU illegal content engineering preset. Not legal advice; operator review required.
 rules:
-  - category: hate_speech
-    submit_action: manual_review_no_public_display
-    display_action: geo_block
-  - category: terrorism_extremism
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: child_safety
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: illegal_discrimination
-    submit_action: manual_review_no_public_display
-    display_action: geo_block
+    - category: hate_speech
+      submit_action: manual_review_no_public_display
+      display_action: geo_block
+    - category: terrorism_extremism
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: child_safety
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: illegal_discrimination
+      submit_action: manual_review_no_public_display
+      display_action: geo_block

@@ -10,8 +10,8 @@ source: internal_review
 reviewed_by: engineering-preset
 updated_at: 2026-06-01T00:00:00Z
 terms:
-  - value: hate_speech
-    aliases: []
-    severity: high
-    reason: eu_hate_speech
-    evidence_policy: show_category_only
+    - value: hate_speech
+      aliases: []
+      severity: high
+      reason: eu_hate_speech
+      evidence_policy: show_category_only

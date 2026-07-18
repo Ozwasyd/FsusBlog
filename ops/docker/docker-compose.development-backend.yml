@@ -1,26 +1,36 @@
 # Development runs only the backend in Compose; Vite owns the host-side frontend process.
 services:
-  fsusblog.server:
-    image: mcr.microsoft.com/dotnet/sdk:10.0
-    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - DOTNET_USE_POLLING_FILE_WATCHER=1
-      - DOTNET_WATCH_SUPPRESS_BROWSER_REFRESH=1
-      - HOME=/tmp/fsusblog-dev
-      - DOTNET_CLI_HOME=/tmp/fsusblog-dev
-      - NUGET_PACKAGES=/tmp/fsusblog-dev/.nuget/packages
-      - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev
-      - ConnectionStrings__Redis=host.docker.internal:6379,abortConnect=false,connectTimeout=10000
-      - RedisOptions__Configuration=host.docker.internal:6379,abortConnect=false,connectTimeout=10000
-      - CORS_ALLOWED_HOSTS=http://localhost:3000,http://127.0.0.1:3000
-      - Seo__BaseUrl=http://127.0.0.1:3000
-    volumes:
-      - ../../:/workspace
-      - ~/.aspnet/https:/https:ro
-    working_dir: /workspace/src/backend
-    command: ["dotnet", "watch", "--non-interactive", "run", "--project", "FsusBlog.Server.csproj", "--urls", "http://0.0.0.0:7568"]
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    ports:
-      - "7568:7568"
+    fsusblog.server:
+        image: mcr.microsoft.com/dotnet/sdk:10.0
+        user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+        environment:
+            - ASPNETCORE_ENVIRONMENT=Development
+            - DOTNET_USE_POLLING_FILE_WATCHER=1
+            - DOTNET_WATCH_SUPPRESS_BROWSER_REFRESH=1
+            - HOME=/tmp/fsusblog-dev
+            - DOTNET_CLI_HOME=/tmp/fsusblog-dev
+            - NUGET_PACKAGES=/tmp/fsusblog-dev/.nuget/packages
+            - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev
+            - ConnectionStrings__Redis=host.docker.internal:6379,abortConnect=false,connectTimeout=10000
+            - RedisOptions__Configuration=host.docker.internal:6379,abortConnect=false,connectTimeout=10000
+            - CORS_ALLOWED_HOSTS=http://localhost:3000,http://127.0.0.1:3000
+            - Seo__BaseUrl=http://127.0.0.1:3000
+        volumes:
+            - ../../:/workspace
+            - ~/.aspnet/https:/https:ro
+        working_dir: /workspace/src/backend
+        command:
+            [
+                "dotnet",
+                "watch",
+                "--non-interactive",
+                "run",
+                "--project",
+                "FsusBlog.Server.csproj",
+                "--urls",
+                "http://0.0.0.0:7568",
+            ]
+        extra_hosts:
+            - host.docker.internal:host-gateway
+        ports:
+            - "7568:7568"

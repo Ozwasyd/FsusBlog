@@ -1,134 +1,134 @@
 "area:github":
-  - changed-files:
-      - any-glob-to-any-file:
-          - ".github/**"
+    - changed-files:
+          - any-glob-to-any-file:
+                - ".github/**"
 
 "area:ci":
-  - changed-files:
-      - any-glob-to-any-file:
-          - ".github/workflows/**"
-          - "tests/matrix.yml"
-          - "tools/test/**"
-          - "tools/ci/**"
+    - changed-files:
+          - any-glob-to-any-file:
+                - ".github/workflows/**"
+                - "tests/matrix.yml"
+                - "tools/test/**"
+                - "tools/ci/**"
 
 "area:backend":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "src/backend/**"
-          - "tests/backend/**"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "src/backend/**"
+                - "tests/backend/**"
 
 "area:api":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "src/backend/Modules/Endpoints/**"
-          - "docs/api/**"
-          - "docs/api.md"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "src/backend/Modules/Endpoints/**"
+                - "docs/api/**"
+                - "docs/api.md"
 
 "area:frontend":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "src/frontend/**"
-          - "tests/frontend/**"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "src/frontend/**"
+                - "tests/frontend/**"
 
 "area:public-site":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "src/frontend/src/components/public/**"
-          - "src/frontend/src/public-renderers/**"
-          - "src/frontend/src/bootstrap/publicShell.ts"
-          - "src/backend/Infrastructure/PublicAot/**"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "src/frontend/src/components/public/**"
+                - "src/frontend/src/public-renderers/**"
+                - "src/frontend/src/bootstrap/publicShell.ts"
+                - "src/backend/Infrastructure/PublicAot/**"
 
 "area:admin":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "src/frontend/src/views/admin/**"
-          - "src/frontend/src/components/admin/**"
-          - "src/backend/Modules/Endpoints/AuthoringEndpoints.cs"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "src/frontend/src/views/admin/**"
+                - "src/frontend/src/components/admin/**"
+                - "src/backend/Modules/Endpoints/AuthoringEndpoints.cs"
 
 "area:auth":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "src/backend/Infrastructure/Auth/**"
-          - "src/backend/Infrastructure/Helpers/JwtHelper.cs"
-          - "src/backend/Modules/Endpoints/AuthEndpoints.cs"
-          - "src/frontend/src/api/auth.ts"
-          - "security/catalog/**"
-          - "security/matrices/**"
-          - "security/policies/**"
-          - "security/zk/contracts/**"
-          - "security/zk/provenance/**"
-          - "security/evidence-contracts/**"
-          - "src/frontend/src/views/auth/**"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "src/backend/Infrastructure/Auth/**"
+                - "src/backend/Infrastructure/Helpers/JwtHelper.cs"
+                - "src/backend/Modules/Endpoints/AuthEndpoints.cs"
+                - "src/frontend/src/api/auth.ts"
+                - "security/catalog/**"
+                - "security/matrices/**"
+                - "security/policies/**"
+                - "security/zk/contracts/**"
+                - "security/zk/provenance/**"
+                - "security/evidence-contracts/**"
+                - "src/frontend/src/views/auth/**"
 
 "area:aeds":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "src/core/Algorithms/**"
-          - "src/frontend/wasm/**"
-          - "src/frontend/src/workers/wasmDecode.worker.ts"
-          - "src/shared/Contracts/Validation/aeds-protocol.json"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "src/core/Algorithms/**"
+                - "src/frontend/wasm/**"
+                - "src/frontend/src/workers/wasmDecode.worker.ts"
+                - "src/shared/Contracts/Validation/aeds-protocol.json"
 
 "area:contracts":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "src/shared/**"
-          - "tools/contracts/**"
-          - "docs/api/contracts.md"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "src/shared/**"
+                - "tools/contracts/**"
+                - "docs/api/contracts.md"
 
 "area:database":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "src/backend/Infrastructure/Persistence/**"
-          - "src/backend/Data/**"
-          - "tools/db/**"
-          - "**/*Migration*.cs"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "src/backend/Infrastructure/Persistence/**"
+                - "src/backend/Data/**"
+                - "tools/db/**"
+                - "**/*Migration*.cs"
 
 "area:deployment":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "ops/**"
-          - "config/deployment/**"
-          - "tools/deployment/**"
-          - "docker-compose*.yml"
-          - ".env.example"
-          - "appsettings*.json"
-          - "docs/production.md"
-          - "docs/troubleshooting.md"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "ops/**"
+                - "config/deployment/**"
+                - "tools/deployment/**"
+                - "docker-compose*.yml"
+                - ".env.example"
+                - "appsettings*.json"
+                - "docs/production.md"
+                - "docs/troubleshooting.md"
 
 "area:docs":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "docs/**"
-          - "README.md"
-          - "CONTRIBUTING.md"
-          - "SUPPORT.md"
-          - "SECURITY.md"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "docs/**"
+                - "README.md"
+                - "CONTRIBUTING.md"
+                - "SUPPORT.md"
+                - "SECURITY.md"
 
 "area:tooling":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "tools/**"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "tools/**"
 
 "risk:public-preview-policy":
-  - changed-files:
-      - any-glob-to-any-file:
-          - ".github/workflows/release-evidence-storage.yml"
-          - "security/evidence-contracts/**"
-          - "tests/fixtures/evidence/**"
-          - "docs/reports/open-source-readiness/**"
-          - "docs/release-evidence-model.md"
-          - "docs/open-source-readiness.md"
-          - "docs/known-limitations.md"
-          - "docs/releases/**"
+    - changed-files:
+          - any-glob-to-any-file:
+                - ".github/workflows/release-evidence-storage.yml"
+                - "security/evidence-contracts/**"
+                - "tests/fixtures/evidence/**"
+                - "docs/reports/open-source-readiness/**"
+                - "docs/release-evidence-model.md"
+                - "docs/open-source-readiness.md"
+                - "docs/known-limitations.md"
+                - "docs/releases/**"
 
 "risk:security-sensitive":
-  - changed-files:
-      - any-glob-to-any-file:
-          - "SECURITY.md"
-          - "src/backend/Infrastructure/Auth/**"
-          - "src/backend/Infrastructure/Helpers/JwtHelper.cs"
-          - "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs"
-          - "src/backend/Infrastructure/Operations/ProductionStartupValidator.cs"
-          - "src/backend/Modules/Endpoints/AuthEndpoints.cs"
-          - "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"
-          - "src/frontend/src/api/auth.ts"
+    - changed-files:
+          - any-glob-to-any-file:
+                - "SECURITY.md"
+                - "src/backend/Infrastructure/Auth/**"
+                - "src/backend/Infrastructure/Helpers/JwtHelper.cs"
+                - "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs"
+                - "src/backend/Infrastructure/Operations/ProductionStartupValidator.cs"
+                - "src/backend/Modules/Endpoints/AuthEndpoints.cs"
+                - "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"
+                - "src/frontend/src/api/auth.ts"

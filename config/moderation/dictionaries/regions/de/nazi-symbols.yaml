@@ -10,8 +10,8 @@ source: internal_review
 reviewed_by: engineering-preset
 updated_at: 2026-06-01T00:00:00Z
 terms:
-  - value: de_hate_symbol
-    aliases: []
-    severity: critical
-    reason: de_hate_symbol
-    evidence_policy: redact
+    - value: de_hate_symbol
+      aliases: []
+      severity: critical
+      reason: de_hate_symbol
+      evidence_policy: redact

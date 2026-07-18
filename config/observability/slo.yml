@@ -1,70 +1,70 @@
 version: fsusblog-slo-v1
 slos:
-  - id: availability
-    objective: 99.9
-    window: 30d
-    source: /health/ready
-    alert: ready_degraded
+    - id: availability
+      objective: 99.9
+      window: 30d
+      source: /health/ready
+      alert: ready_degraded
 
-  - id: error-rate
-    objective: 0.1
-    unit: percent
-    window: 5m
-    source: http.server.request.duration
-    alert: ready_degraded
+    - id: error-rate
+      objective: 0.1
+      unit: percent
+      window: 5m
+      source: http.server.request.duration
+      alert: ready_degraded
 
-  - id: http-p95-latency
-    objective: 750
-    unit: ms
-    window: 5m
-    source: http.server.request.duration
-    alert: ready_degraded
+    - id: http-p95-latency
+      objective: 750
+      unit: ms
+      window: 5m
+      source: http.server.request.duration
+      alert: ready_degraded
 
-  - id: http-p99-latency
-    objective: 1500
-    unit: ms
-    window: 5m
-    source: http.server.request.duration
-    alert: ready_degraded
+    - id: http-p99-latency
+      objective: 1500
+      unit: ms
+      window: 5m
+      source: http.server.request.duration
+      alert: ready_degraded
 
-  - id: notification-stream-reconnect-success-rate
-    objective: 99.5
-    unit: percent
-    window: 15m
-    source: FsusBlog.NotificationStream
-    alert: notification_stream_disconnect_spike
+    - id: notification-stream-reconnect-success-rate
+      objective: 99.5
+      unit: percent
+      window: 15m
+      source: FsusBlog.NotificationStream
+      alert: notification_stream_disconnect_spike
 
-  - id: aot-hit-rate
-    objective: 95
-    unit: percent
-    window: 1h
-    source: PublicAOT
-    alert: aot_backfill_failed
+    - id: aot-hit-rate
+      objective: 95
+      unit: percent
+      window: 1h
+      source: PublicAOT
+      alert: aot_backfill_failed
 
-  - id: search-rebuild-success-rate
-    objective: 99
-    unit: percent
-    window: 24h
-    source: SearchIndexService
-    alert: search_rebuild_failed
+    - id: search-rebuild-success-rate
+      objective: 99
+      unit: percent
+      window: 24h
+      source: SearchIndexService
+      alert: search_rebuild_failed
 
-  - id: scheduled-publish-delay
-    objective: 60
-    unit: seconds
-    window: 15m
-    source: /health/ready runtime.scheduledPublish
-    alert: ready_degraded
+    - id: scheduled-publish-delay
+      objective: 60
+      unit: seconds
+      window: 15m
+      source: /health/ready runtime.scheduledPublish
+      alert: ready_degraded
 
-  - id: redis-prefix-registry-fallback
-    objective: 0
-    unit: events
-    window: 5m
-    source: fsus.cache.operation.count{operation=remove_prefix,result=~registry_missing_scan_.*}
-    alert: cache_registry_missing_scan
+    - id: redis-prefix-registry-fallback
+      objective: 0
+      unit: events
+      window: 5m
+      source: fsus.cache.operation.count{operation=remove_prefix,result=~registry_missing_scan_.*}
+      alert: cache_registry_missing_scan
 
-  - id: public-hot-read-sensitive-bypass
-    objective: 0
-    unit: events
-    window: 5m
-    source: fsus.hotread.classifier.sensitive_bypass
-    alert: public_hot_read_sensitive_bypass
+    - id: public-hot-read-sensitive-bypass
+      objective: 0
+      unit: events
+      window: 5m
+      source: fsus.hotread.classifier.sensitive_bypass
+      alert: public_hot_read_sensitive_bypass

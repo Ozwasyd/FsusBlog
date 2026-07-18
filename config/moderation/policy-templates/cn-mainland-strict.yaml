@@ -11,21 +11,21 @@ is_enabled: true
 not_legal_advice: true
 description: CN-MAINLAND engineering preset. Applies only to CN-MAINLAND submit/viewer regions.
 rules:
-  - category: political_sensitive
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: national_security_risk
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: public_order_risk
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: pornographic
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: sexual_explicit
-    submit_action: reject_submit
-    display_action: geo_block
-  - category: sexual_suggestion_high
-    submit_action: reject_submit
-    display_action: geo_block
+    - category: political_sensitive
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: national_security_risk
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: public_order_risk
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: pornographic
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: sexual_explicit
+      submit_action: reject_submit
+      display_action: geo_block
+    - category: sexual_suggestion_high
+      submit_action: reject_submit
+      display_action: geo_block
