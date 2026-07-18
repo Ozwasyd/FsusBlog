@@ -57,6 +57,11 @@ if (args.Contains("--public-hot-read-residency-profile", StringComparer.Ordinal)
     return PublicHotReadResidencyProfiler.Run(args);
 }
 
+if (args.Contains("--pod-binary-codec-batch-profile", StringComparer.Ordinal))
+{
+    return PodBinaryCodecBatchProfiler.Run(args);
+}
+
 var benchmarkJob = string.Equals(
     Environment.GetEnvironmentVariable("FSUSBLOG_BENCHMARK_IN_PROCESS_NO_EMIT"),
     "1",

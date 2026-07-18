@@ -547,6 +547,8 @@ CI 的 file-only checks 与 app-stack checks 必须分阶段：`cross-stack-cont
 
 server `aeds-frame-cost` 证据把 `structuralEvidence` 与 `measuredEvidence` 分开：copy count/bytes 明确标记为由旧双缓冲写路径和 `payload.Length` 推导的结构事实，不得伪装成硬件 counter；allocation、mean、p50/p95、方差与逐轮样本才是机器实测。实测必须在同一 Release benchmark/Core artifact set、同一 runtime/CPU/OS/GC/affinity 与同一 commit 上至少执行五轮，且 before/after 逐轮交替顺序；门禁使用 round mean 与 round p95 的中位数控制单个 scheduler outlier，同时保留 pooled arithmetic mean/p95、逐轮值和方差供诊断。`tests/perf/perf-policy.yml::aedsFrameCost` 是轮数、warmup、样本数、代表性场景及相对/绝对噪声带的唯一来源；`ArticleList10/50/100`、`ArticleDetailLarge`、`CommentCursor`、`ConversationDetail`、`PublicAotBootstrap` 全部受 allocation、mean、p95 门禁，`EmptySuccess` 只作 static-preencoded reference，`ApiError` 使用独立 tiny noise band。缺 identity、非 Release artifact、dirty source 或样本不足只能得到 `blocked/structural-only`；任一实测回退都使 overall `regressed`，不能被结构性 copy reduction 改写为 improved。完整 schema、结论表与排障见 [AEDS frame-cost evidence gate](testing/issue-1152-aeds-frame-cost-evidence.md)。
 
+`PodBinaryCodec` batch allocation 证据使用独立 profiler 和 field-derived checker：ArticleList 覆盖 0/1/10/50/100 items、0/2/8 tags、三档字符串长度与 ASCII/CJK/mixed UTF-8 的 135 场景，并逐场比较五个候选的 wire bytes；ArticleDetail 对小正文保留 legacy 路径，只在达到实测阈值后直接写入 UTF-8 blob。backend unit 保留 differential、随机 UTF-8、overflow、pool 异常归还、并发和阈值边界；`static-governance` 只重放确定性的证据契约测试，不在 fast gate 重跑五轮 benchmark。结论只能声明 miss/background rebuild encode 的 Level M 分配与局部延迟，不得外推为 cache-hit QPS。完整复现实验、场景表和回退条件见 [PodBinaryCodec batch allocation evidence](performance-pod-binary-codec-batch.md)。
+
 独立运行真实 BenchmarkDotNet：
 ```bash
 cd FsusBlog.Core.Benchmarks

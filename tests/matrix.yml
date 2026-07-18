@@ -540,11 +540,13 @@ tiers:
       - backend-anonymous-identity-behavior
       - backend-risk-control-behavior
       - backend-projection-serialization-behavior
+      - pod-binary-codec-batch-allocation
     artifacts: [.tmp/backend-unit]
     evidence:
       - .tmp/backend-unit/summary.json
       - tests/backend/Fixtures/backend-test-requirements.json
       - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
+      - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
       - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
       - tests/backend/Unit/UserSecurityStepUpServiceTests.cs
       - tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs
@@ -822,6 +824,7 @@ tiers:
       - test-tool-artifact-behavior
       - frontend-source-locking-convergence
       - backend-operations-readiness-behavior
+      - pod-binary-codec-batch-allocation
     artifacts: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, .tmp/release-evidence/flaky/registry.json, .tmp/docs/integrity-proof-docs.json]
     evidence:
       - .tmp/gate-logs
@@ -1065,6 +1068,11 @@ tiers:
       - tools/perf/build-performance-saturation-v2.mjs
       - tests/issue-1048-retention-replacements.json
       - tests/frontend/checks/static/check-frontend-test-governance.mjs
+      - tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs
+      - tools/operations/check-pod-binary-codec-batch-evidence.mjs
+      - tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs
+      - benchmarks/core/PodBinaryCodecBatchProfiler.cs
+      - docs/performance-pod-binary-codec-batch.md
     ciJob: fast-static-governance
     localOnly: false
     nightlyOnly: false

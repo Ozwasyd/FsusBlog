@@ -10,6 +10,64 @@ public static class PodUtf8Codec
 {
     private static readonly UTF8Encoding Utf8 = new(false, true);
 
+    internal static int GetSliceByteCount(string? value)
+        => Utf8.GetByteCount(value ?? string.Empty);
+
+    internal static Utf8SliceRef CreateSliceRef(int offset, int length)
+    {
+        if (offset < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset));
+        }
+
+        if (length < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(length));
+        }
+
+        _ = checked(offset + length);
+        return CreateSlice(offset, length);
+    }
+
+    internal static void WriteSliceBytes(
+        string? value,
+        IBufferWriter<byte> destination,
+        int expectedByteCount)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        if (expectedByteCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(expectedByteCount));
+        }
+
+        string text = value ?? string.Empty;
+        if (expectedByteCount == 0)
+        {
+            if (text.Length != 0)
+            {
+                int actual = Utf8.GetByteCount(text);
+                if (actual != 0)
+                {
+                    throw new InvalidOperationException(
+                        $"UTF-8 slice length changed between planning and writing: expected 0, wrote {actual}.");
+                }
+            }
+
+            return;
+        }
+
+        Span<byte> target = destination.GetSpan(expectedByteCount)[..expectedByteCount];
+        int written = Utf8.GetBytes(text.AsSpan(), target);
+        if (written != expectedByteCount)
+        {
+            target.Clear();
+            throw new InvalidOperationException(
+                $"UTF-8 slice length changed between planning and writing: expected {expectedByteCount}, wrote {written}.");
+        }
+
+        destination.Advance(written);
+    }
+
     public static Utf8Fixed32 ToFixed32(string? value) => EncodeFixed<Utf8Fixed32>(value);
 
     public static Utf8Fixed64 ToFixed64(string? value) => EncodeFixed<Utf8Fixed64>(value);

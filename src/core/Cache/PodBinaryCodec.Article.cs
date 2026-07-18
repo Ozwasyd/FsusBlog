@@ -13,6 +13,8 @@ namespace FsusBlog.Core.Cache;
 
 public static partial class PodBinaryCodec
 {
+    internal const int ArticlePageStackScratchByteBudget = 4 * 1024;
+    internal const int ArticleDetailDirectCharThreshold = 8 * 1024;
     private const int ArticlePageCursorEnvelopeMagic = 0x41535046; // FSPA
     private const int ArticlePageCursorEnvelopeVersion = 1;
     private const uint ArticleDetailV3PayloadMagic = 0x41524433; // ARD3
@@ -222,62 +224,183 @@ public static partial class PodBinaryCodec
         return value.Length == 0 ? null : value;
     }
 
-    public static void WriteArticlePage(CorePageResult<ArticleListCoreModel> page, IBufferWriter<byte> destination)
+    private static Utf8SliceRef PlanUtf8Slice(string? value, ref int nextOffset)
     {
-        var blob = new List<byte>(Math.Max(256, page.Items.Count * 128));
-        var tagRecords = new List<(int Id, Utf8SliceRef Name)>();
-        var itemRecords = new List<(ArticleListCoreModel Item, Utf8SliceRef CategoryName, Utf8SliceRef Title, Utf8SliceRef Summary, int TagStart, int TagCount)>(page.Items.Count);
-        foreach (ArticleListCoreModel item in page.Items)
+        int length = PodUtf8Codec.GetSliceByteCount(value);
+        Utf8SliceRef slice = PodUtf8Codec.CreateSliceRef(nextOffset, length);
+        nextOffset = checked(nextOffset + length);
+        return slice;
+    }
+
+    private static void WritePlannedUtf8Slice(
+        string? value,
+        in Utf8SliceRef slice,
+        IBufferWriter<byte> destination,
+        ref int writtenBytes)
+    {
+        if (slice.Offset != writtenBytes)
         {
-            int tagStart = tagRecords.Count;
+            throw new InvalidOperationException("UTF-8 blob plan is not contiguous.");
+        }
+
+        PodUtf8Codec.WriteSliceBytes(value, destination, slice.Length);
+        writtenBytes = checked(writtenBytes + slice.Length);
+    }
+
+    public static void WriteArticlePage(CorePageResult<ArticleListCoreModel> page, IBufferWriter<byte> destination)
+        => WriteArticlePageWithScratchPolicy(
+            page,
+            destination,
+            ArticlePageStackScratchByteBudget,
+            ArrayPool<ArticlePageItemSlicePlan>.Shared,
+            ArrayPool<Utf8SliceRef>.Shared);
+
+    internal static void WriteArticlePageWithScratchPolicy(
+        CorePageResult<ArticleListCoreModel> page,
+        IBufferWriter<byte> destination,
+        int stackScratchByteBudget,
+        ArrayPool<ArticlePageItemSlicePlan> itemPlanPool,
+        ArrayPool<Utf8SliceRef> tagSlicePool)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(itemPlanPool);
+        ArgumentNullException.ThrowIfNull(tagSlicePool);
+        if (stackScratchByteBudget < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(stackScratchByteBudget));
+        }
+
+        int itemCount = page.Items.Count;
+        int tagRecordCount = 0;
+        int blobLength = 0;
+        for (int itemIndex = 0; itemIndex < itemCount; itemIndex++)
+        {
+            ArticleListCoreModel item = page.Items[itemIndex];
+            tagRecordCount = checked(tagRecordCount + item.Tags.Count);
             foreach (TagCoreModel tag in item.Tags)
             {
-                tagRecords.Add((tag.Id, PodUtf8Codec.AppendSlice(tag.Name, blob)));
+                blobLength = checked(blobLength + PodUtf8Codec.GetSliceByteCount(tag.Name));
             }
 
-            itemRecords.Add((
-                item,
-                PodUtf8Codec.AppendSlice(item.Category.Name, blob),
-                PodUtf8Codec.AppendSlice(item.Title, blob),
-                PodUtf8Codec.AppendSlice(item.Summary ?? string.Empty, blob),
-                tagStart,
-                item.Tags.Count));
+            blobLength = checked(blobLength + PodUtf8Codec.GetSliceByteCount(item.Category.Name));
+            blobLength = checked(blobLength + PodUtf8Codec.GetSliceByteCount(item.Title));
+            blobLength = checked(blobLength + PodUtf8Codec.GetSliceByteCount(item.Summary));
         }
 
-        var writer = new BinaryPodWriter(destination);
-        writer.WriteInt32(ArticlePageCursorEnvelopeMagic);
-        writer.WriteInt32(ArticlePageCursorEnvelopeVersion);
-        writer.WriteInt64(ParseArticleListCursorUnixMs(page.NextCursor));
-        writer.WriteByte(page.HasMore ? (byte)1 : (byte)0);
-        writer.WriteInt32(page.Total);
-        writer.WriteInt32(page.Items.Count);
-        writer.WriteInt32(tagRecords.Count);
-        writer.WriteBytes(CollectionsMarshal.AsSpan(blob));
-
-        foreach (var record in itemRecords)
+        int itemScratchBytes = checked(itemCount * Unsafe.SizeOf<ArticlePageItemSlicePlan>());
+        int tagScratchBytes = checked(tagRecordCount * Unsafe.SizeOf<Utf8SliceRef>());
+        bool useStackScratch = checked(itemScratchBytes + tagScratchBytes) <= stackScratchByteBudget;
+        ArticlePageItemSlicePlan[]? rentedItemPlans = null;
+        Utf8SliceRef[]? rentedTagSlices = null;
+        try
         {
-            writer.WriteInt32(record.Item.Id);
-            writer.WriteInt32(record.Item.Views);
-            writer.WriteInt64(PodTimeCodec.ToUnixMs(record.Item.CreateTime));
-            writer.WriteInt32(record.Item.Category.Id);
-            writer.WriteSliceRef(record.CategoryName);
-            writer.WriteSliceRef(record.Title);
-            writer.WriteSliceRef(record.Summary);
-            writer.WriteInt32(record.TagStart);
-            writer.WriteInt32(record.TagCount);
-            writer.WriteByte(record.Item.IsDeleted == true ? (byte)1 : (byte)0);
-            writer.WriteByte(record.Item.IsDeleted.HasValue ? (byte)1 : (byte)0);
-            writer.WriteByte(0);
-            writer.WriteByte(0);
-            writer.WriteInt32(record.Item.Status);
-            writer.WriteInt64(ToUnixMsOrZero(record.Item.ScheduledPublishAt));
-            writer.WriteInt64(ToUnixMsOrZero(record.Item.PublishedAt));
+            Span<ArticlePageItemSlicePlan> itemPlans = useStackScratch
+                ? stackalloc ArticlePageItemSlicePlan[itemCount]
+                : (rentedItemPlans = itemPlanPool.Rent(itemCount)).AsSpan(0, itemCount);
+            Span<Utf8SliceRef> tagSlices = useStackScratch
+                ? stackalloc Utf8SliceRef[tagRecordCount]
+                : (rentedTagSlices = tagSlicePool.Rent(tagRecordCount)).AsSpan(0, tagRecordCount);
+
+            var writer = new BinaryPodWriter(destination);
+            writer.WriteInt32(ArticlePageCursorEnvelopeMagic);
+            writer.WriteInt32(ArticlePageCursorEnvelopeVersion);
+            writer.WriteInt64(ParseArticleListCursorUnixMs(page.NextCursor));
+            writer.WriteByte(page.HasMore ? (byte)1 : (byte)0);
+            writer.WriteInt32(page.Total);
+            writer.WriteInt32(itemCount);
+            writer.WriteInt32(tagRecordCount);
+            writer.WriteInt32(blobLength);
+
+            int blobOffset = 0;
+            int tagIndex = 0;
+            for (int itemIndex = 0; itemIndex < itemCount; itemIndex++)
+            {
+                ArticleListCoreModel item = page.Items[itemIndex];
+                int tagStart = tagIndex;
+                foreach (TagCoreModel tag in item.Tags)
+                {
+                    int length = PodUtf8Codec.GetSliceByteCount(tag.Name);
+                    tagSlices[tagIndex++] = PodUtf8Codec.CreateSliceRef(blobOffset, length);
+                    PodUtf8Codec.WriteSliceBytes(tag.Name, destination, length);
+                    blobOffset = checked(blobOffset + length);
+                }
+
+                int categoryLength = PodUtf8Codec.GetSliceByteCount(item.Category.Name);
+                Utf8SliceRef categoryName = PodUtf8Codec.CreateSliceRef(blobOffset, categoryLength);
+                PodUtf8Codec.WriteSliceBytes(item.Category.Name, destination, categoryLength);
+                blobOffset = checked(blobOffset + categoryLength);
+
+                int titleLength = PodUtf8Codec.GetSliceByteCount(item.Title);
+                Utf8SliceRef title = PodUtf8Codec.CreateSliceRef(blobOffset, titleLength);
+                PodUtf8Codec.WriteSliceBytes(item.Title, destination, titleLength);
+                blobOffset = checked(blobOffset + titleLength);
+
+                int summaryLength = PodUtf8Codec.GetSliceByteCount(item.Summary);
+                Utf8SliceRef summary = PodUtf8Codec.CreateSliceRef(blobOffset, summaryLength);
+                PodUtf8Codec.WriteSliceBytes(item.Summary, destination, summaryLength);
+                blobOffset = checked(blobOffset + summaryLength);
+
+                itemPlans[itemIndex] = new ArticlePageItemSlicePlan(
+                    categoryName,
+                    title,
+                    summary,
+                    tagStart,
+                    item.Tags.Count);
+            }
+
+            if (blobOffset != blobLength || tagIndex != tagRecordCount)
+            {
+                throw new InvalidOperationException("Article page codec input changed while its UTF-8 blob was being written.");
+            }
+
+            for (int itemIndex = 0; itemIndex < itemCount; itemIndex++)
+            {
+                ArticleListCoreModel item = page.Items[itemIndex];
+                ArticlePageItemSlicePlan plan = itemPlans[itemIndex];
+                writer.WriteInt32(item.Id);
+                writer.WriteInt32(item.Views);
+                writer.WriteInt64(PodTimeCodec.ToUnixMs(item.CreateTime));
+                writer.WriteInt32(item.Category.Id);
+                writer.WriteSliceRef(plan.CategoryName);
+                writer.WriteSliceRef(plan.Title);
+                writer.WriteSliceRef(plan.Summary);
+                writer.WriteInt32(plan.TagStart);
+                writer.WriteInt32(plan.TagCount);
+                writer.WriteByte(item.IsDeleted == true ? (byte)1 : (byte)0);
+                writer.WriteByte(item.IsDeleted.HasValue ? (byte)1 : (byte)0);
+                writer.WriteByte(0);
+                writer.WriteByte(0);
+                writer.WriteInt32(item.Status);
+                writer.WriteInt64(ToUnixMsOrZero(item.ScheduledPublishAt));
+                writer.WriteInt64(ToUnixMsOrZero(item.PublishedAt));
+            }
+
+            tagIndex = 0;
+            for (int itemIndex = 0; itemIndex < itemCount; itemIndex++)
+            {
+                foreach (TagCoreModel tag in page.Items[itemIndex].Tags)
+                {
+                    writer.WriteInt32(tag.Id);
+                    writer.WriteSliceRef(tagSlices[tagIndex++]);
+                }
+            }
+
+            if (tagIndex != tagRecordCount)
+            {
+                throw new InvalidOperationException("Article page tag collection changed while records were being written.");
+            }
         }
-
-        foreach (var tag in tagRecords)
+        finally
         {
-            writer.WriteInt32(tag.Id);
-            writer.WriteSliceRef(tag.Name);
+            if (rentedItemPlans is not null)
+            {
+                itemPlanPool.Return(rentedItemPlans, clearArray: false);
+            }
+
+            if (rentedTagSlices is not null)
+            {
+                tagSlicePool.Return(rentedTagSlices, clearArray: false);
+            }
         }
     }
 
@@ -442,7 +565,144 @@ public static partial class PodBinaryCodec
 
     public static void WriteArticleDetail(ArticleDetailCoreModel item, IBufferWriter<byte> destination)
     {
-        var blob = new List<byte>(Math.Max(512, item.Content.Length + item.Title.Length + (item.Summary?.Length ?? 0) + (item.CoverImageUrl?.Length ?? 0)));
+        ArgumentNullException.ThrowIfNull(destination);
+        if (item.Content.Length < ArticleDetailDirectCharThreshold)
+        {
+            WriteArticleDetailWithLists(item, destination);
+            return;
+        }
+
+        int plannedBlobLength = 0;
+        ArticleRightsCoreModel rights = item.Rights;
+        var article = new MutableArticleDetailV4RecordPod
+        {
+            Id = item.Id,
+            Views = item.Views,
+            CreateTimeUnixMs = PodTimeCodec.ToUnixMs(item.CreateTime),
+            CategoryId = item.Category.Id,
+            Status = item.Status,
+            ScheduledPublishAtUnixMs = ToUnixMsOrZero(item.ScheduledPublishAt),
+            PublishedAtUnixMs = ToUnixMsOrZero(item.PublishedAt),
+            UpdatedAtUnixMs = ToUnixMsOrZero(item.UpdatedAt),
+            IsDeleted = item.IsDeleted ? (byte)1 : (byte)0,
+            Title = PlanUtf8Slice(item.Title, ref plannedBlobLength),
+            Content = PlanUtf8Slice(item.Content, ref plannedBlobLength),
+            Summary = PlanUtf8Slice(item.Summary, ref plannedBlobLength),
+            CoverImageUrl = PlanUtf8Slice(item.CoverImageUrl, ref plannedBlobLength),
+            CategoryName = PlanUtf8Slice(item.Category.Name, ref plannedBlobLength)
+        };
+
+        int tagBlobOffset = plannedBlobLength;
+        foreach (TagCoreModel tag in item.Tags)
+        {
+            plannedBlobLength = checked(plannedBlobLength + PodUtf8Codec.GetSliceByteCount(tag.Name));
+        }
+
+        int rightsBlobOffset = plannedBlobLength;
+        var rightsRecord = new MutableArticleRightsV3RecordPod
+        {
+            SnapshotId = rights.SnapshotId,
+            ArticleRevisionId = rights.ArticleRevisionId,
+            RevisionNo = rights.RevisionNo,
+            Flags = BuildArticleDetailRightsFlags(rights),
+            CopyrightYear = rights.CopyrightYear.GetValueOrDefault(),
+            MaxExcerptChars = rights.MaxExcerptChars,
+            LicenseType = PlanUtf8Slice(rights.LicenseType, ref plannedBlobLength),
+            CopyrightHolder = PlanUtf8Slice(rights.CopyrightHolder, ref plannedBlobLength),
+            RightsStatement = PlanUtf8Slice(rights.RightsStatement, ref plannedBlobLength),
+            AttributionTemplate = PlanUtf8Slice(rights.AttributionTemplate, ref plannedBlobLength),
+            CopyPolicy = PlanUtf8Slice(rights.CopyPolicy, ref plannedBlobLength),
+            CanonicalUrl = PlanUtf8Slice(rights.CanonicalUrl, ref plannedBlobLength),
+            PolicyHash = PlanUtf8Slice(rights.PolicyHash, ref plannedBlobLength),
+            ContentCanonicalHash = PlanUtf8Slice(rights.ContentCanonicalHash, ref plannedBlobLength),
+            ProofUrl = PlanUtf8Slice(rights.ProofUrl, ref plannedBlobLength),
+            ProofStatus = PlanUtf8Slice(rights.ProofStatus, ref plannedBlobLength)
+        };
+
+        int headerSize = Unsafe.SizeOf<ArticleDetailV4HeaderPod>();
+        int articleRecordSize = Unsafe.SizeOf<ArticleDetailV4RecordPod>();
+        int tagRecordSize = Unsafe.SizeOf<ArticleDetailTagV3RecordPod>();
+        int rightsRecordSize = Unsafe.SizeOf<ArticleRightsV3RecordPod>();
+        int articleOffset = headerSize;
+        int tagOffset = articleOffset + articleRecordSize;
+        int rightsOffset = tagOffset + item.Tags.Count * tagRecordSize;
+        int blobOffset = rightsOffset + rightsRecordSize;
+        var header = new MutableArticleDetailV4HeaderPod
+        {
+            Magic = ArticleDetailV4PayloadMagic,
+            Version = ArticleDetailV4PayloadVersion,
+            Flags = 0,
+            ArticleRecordOffset = articleOffset,
+            ArticleRecordLength = articleRecordSize,
+            TagOffset = tagOffset,
+            TagCount = item.Tags.Count,
+            RightsRecordOffset = rightsOffset,
+            RightsRecordLength = rightsRecordSize,
+            BlobOffset = blobOffset,
+            BlobLength = plannedBlobLength
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(Cast<MutableArticleDetailV4HeaderPod, ArticleDetailV4HeaderPod>(header));
+        writer.WritePod(Cast<MutableArticleDetailV4RecordPod, ArticleDetailV4RecordPod>(article));
+        int nextTagOffset = tagBlobOffset;
+        foreach (TagCoreModel tag in item.Tags)
+        {
+            int length = PodUtf8Codec.GetSliceByteCount(tag.Name);
+            var mutableTag = new MutableArticleDetailTagV3RecordPod
+            {
+                Id = tag.Id,
+                Name = PodUtf8Codec.CreateSliceRef(nextTagOffset, length)
+            };
+            writer.WritePod(Cast<MutableArticleDetailTagV3RecordPod, ArticleDetailTagV3RecordPod>(mutableTag));
+            nextTagOffset = checked(nextTagOffset + length);
+        }
+
+        if (nextTagOffset != rightsBlobOffset)
+        {
+            throw new InvalidOperationException("Article detail tag collection changed while records were being written.");
+        }
+
+        writer.WritePod(Cast<MutableArticleRightsV3RecordPod, ArticleRightsV3RecordPod>(rightsRecord));
+
+        int writtenBlobBytes = 0;
+        WritePlannedUtf8Slice(item.Title, article.Title, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(item.Content, article.Content, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(item.Summary, article.Summary, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(item.CoverImageUrl, article.CoverImageUrl, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(item.Category.Name, article.CategoryName, destination, ref writtenBlobBytes);
+        foreach (TagCoreModel tag in item.Tags)
+        {
+            int length = PodUtf8Codec.GetSliceByteCount(tag.Name);
+            Utf8SliceRef tagSlice = PodUtf8Codec.CreateSliceRef(writtenBlobBytes, length);
+            WritePlannedUtf8Slice(tag.Name, tagSlice, destination, ref writtenBlobBytes);
+        }
+
+        WritePlannedUtf8Slice(rights.LicenseType, rightsRecord.LicenseType, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(rights.CopyrightHolder, rightsRecord.CopyrightHolder, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(rights.RightsStatement, rightsRecord.RightsStatement, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(rights.AttributionTemplate, rightsRecord.AttributionTemplate, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(rights.CopyPolicy, rightsRecord.CopyPolicy, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(rights.CanonicalUrl, rightsRecord.CanonicalUrl, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(rights.PolicyHash, rightsRecord.PolicyHash, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(rights.ContentCanonicalHash, rightsRecord.ContentCanonicalHash, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(rights.ProofUrl, rightsRecord.ProofUrl, destination, ref writtenBlobBytes);
+        WritePlannedUtf8Slice(rights.ProofStatus, rightsRecord.ProofStatus, destination, ref writtenBlobBytes);
+
+        if (writtenBlobBytes != plannedBlobLength)
+        {
+            throw new InvalidOperationException("Article detail UTF-8 blob length changed while it was being written.");
+        }
+    }
+
+    private static void WriteArticleDetailWithLists(ArticleDetailCoreModel item, IBufferWriter<byte> destination)
+    {
+        var blob = new List<byte>(Math.Max(
+            512,
+            item.Content.Length
+            + item.Title.Length
+            + (item.Summary?.Length ?? 0)
+            + (item.CoverImageUrl?.Length ?? 0)));
         ArticleRightsCoreModel rights = item.Rights;
         var article = new MutableArticleDetailV4RecordPod
         {
@@ -457,11 +717,10 @@ public static partial class PodBinaryCodec
             IsDeleted = item.IsDeleted ? (byte)1 : (byte)0,
             Title = PodUtf8Codec.AppendSlice(item.Title, blob),
             Content = PodUtf8Codec.AppendSlice(item.Content, blob),
-            Summary = PodUtf8Codec.AppendSlice(item.Summary ?? string.Empty, blob),
-            CoverImageUrl = PodUtf8Codec.AppendSlice(item.CoverImageUrl ?? string.Empty, blob),
+            Summary = PodUtf8Codec.AppendSlice(item.Summary, blob),
+            CoverImageUrl = PodUtf8Codec.AppendSlice(item.CoverImageUrl, blob),
             CategoryName = PodUtf8Codec.AppendSlice(item.Category.Name, blob)
         };
-
         var tags = new List<ArticleDetailTagV3RecordPod>(item.Tags.Count);
         foreach (TagCoreModel tag in item.Tags)
         {
@@ -482,17 +741,16 @@ public static partial class PodBinaryCodec
             CopyrightYear = rights.CopyrightYear.GetValueOrDefault(),
             MaxExcerptChars = rights.MaxExcerptChars,
             LicenseType = PodUtf8Codec.AppendSlice(rights.LicenseType, blob),
-            CopyrightHolder = PodUtf8Codec.AppendSlice(rights.CopyrightHolder ?? string.Empty, blob),
-            RightsStatement = PodUtf8Codec.AppendSlice(rights.RightsStatement ?? string.Empty, blob),
-            AttributionTemplate = PodUtf8Codec.AppendSlice(rights.AttributionTemplate ?? string.Empty, blob),
+            CopyrightHolder = PodUtf8Codec.AppendSlice(rights.CopyrightHolder, blob),
+            RightsStatement = PodUtf8Codec.AppendSlice(rights.RightsStatement, blob),
+            AttributionTemplate = PodUtf8Codec.AppendSlice(rights.AttributionTemplate, blob),
             CopyPolicy = PodUtf8Codec.AppendSlice(rights.CopyPolicy, blob),
-            CanonicalUrl = PodUtf8Codec.AppendSlice(rights.CanonicalUrl ?? string.Empty, blob),
+            CanonicalUrl = PodUtf8Codec.AppendSlice(rights.CanonicalUrl, blob),
             PolicyHash = PodUtf8Codec.AppendSlice(rights.PolicyHash, blob),
             ContentCanonicalHash = PodUtf8Codec.AppendSlice(rights.ContentCanonicalHash, blob),
-            ProofUrl = PodUtf8Codec.AppendSlice(rights.ProofUrl ?? string.Empty, blob),
-            ProofStatus = PodUtf8Codec.AppendSlice(rights.ProofStatus ?? string.Empty, blob)
+            ProofUrl = PodUtf8Codec.AppendSlice(rights.ProofUrl, blob),
+            ProofStatus = PodUtf8Codec.AppendSlice(rights.ProofStatus, blob)
         };
-
         int headerSize = Unsafe.SizeOf<ArticleDetailV4HeaderPod>();
         int articleRecordSize = Unsafe.SizeOf<ArticleDetailV4RecordPod>();
         int tagRecordSize = Unsafe.SizeOf<ArticleDetailTagV3RecordPod>();
@@ -982,6 +1240,13 @@ public static partial class PodBinaryCodec
         Utf8SliceRef Summary,
         Utf8SliceRef CoverImageUrl,
         Utf8SliceRef CategoryName);
+
+    internal readonly record struct ArticlePageItemSlicePlan(
+        Utf8SliceRef CategoryName,
+        Utf8SliceRef Title,
+        Utf8SliceRef Summary,
+        int TagStart,
+        int TagCount);
 
     private static long ToUnixMsOrZero(DateTime? value)
         => value.HasValue ? PodTimeCodec.ToUnixMs(value.Value) : 0;

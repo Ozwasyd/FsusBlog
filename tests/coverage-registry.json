@@ -298,6 +298,26 @@
       ]
     },
     {
+      "id": "pod-binary-codec-batch-allocation",
+      "description": "PodBinaryCodec batch encoding keeps byte-for-byte wire parity while selecting only measured ArticlePage and adaptive ArticleDetail allocation reductions; lower-value codec families remain audited without mechanical rewrites.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs",
+        "tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs",
+        "tools/operations/check-pod-binary-codec-batch-evidence.mjs",
+        "benchmarks/core/PodBinaryCodecBatchProfiler.cs",
+        "docs/performance-pod-binary-codec-batch.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "The focused backend and static-governance evidence must reject byte drift, missing scenario families, invalid pool lifetime handling, field-derived conclusion drift, small-page regressions outside the declared noise band, and any cache-hit throughput claim.",
+      "minimumRequirement": "Evidence must cover the 135-scenario ArticleList matrix, five implementation candidates, byte parity, randomized UTF-8 and boundary failures, pool exception and concurrency paths, five alternating rounds, representative medium and large allocation reduction, and an adaptive ArticleDetail threshold that preserves the legacy tiny path.",
+      "tierIds": [
+        "backend-unit",
+        "static-governance"
+      ]
+    },
+    {
       "id": "aeds-wasm-browser-diagnostics",
       "description": "Supported browsers diagnose AEDS speed selection, basic fallback, transferable Worker decode, long-task pressure and duplicate download/decode behavior independently from correctness.",
       "owner": "InteropGlueAgent",
