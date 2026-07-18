@@ -15,7 +15,7 @@ FIXTURE_DIR="$ROOT_DIR/.tmp/fixtures/$NS_SLUG"
 mkdir -p "$TMP_DIR"
 mkdir -p "$ENV_DIR" "$FIXTURE_DIR"
 
-find_free_port() {
+FindFreePort() {
     local start="${1:-20000}"
     local end="${2:-55000}"
     local port
@@ -48,11 +48,11 @@ if [[ -f "$ENV_FILE" ]]; then
     done <"$ENV_FILE"
 fi
 
-POSTGRES_PORT="${FSUSBLOG_POSTGRES_PORT:-$(find_free_port 20000 21999)}"
-REDIS_PORT="${FSUSBLOG_REDIS_PORT:-$(find_free_port 22000 23999)}"
-DEBUG_BACKEND_PORT="${FSUSBLOG_DEBUG_BACKEND_PORT:-$(find_free_port 24000 25999)}"
-DEBUG_FRONTEND_PORT="${FSUSBLOG_DEBUG_FRONTEND_PORT:-$(find_free_port 26000 27999)}"
-RELEASE_PREVIEW_PORT="${FSUSBLOG_RELEASE_PREVIEW_PORT:-$(find_free_port 28000 29999)}"
+POSTGRES_PORT="${FSUSBLOG_POSTGRES_PORT:-$(FindFreePort 20000 21999)}"
+REDIS_PORT="${FSUSBLOG_REDIS_PORT:-$(FindFreePort 22000 23999)}"
+DEBUG_BACKEND_PORT="${FSUSBLOG_DEBUG_BACKEND_PORT:-$(FindFreePort 24000 25999)}"
+DEBUG_FRONTEND_PORT="${FSUSBLOG_DEBUG_FRONTEND_PORT:-$(FindFreePort 26000 27999)}"
+RELEASE_PREVIEW_PORT="${FSUSBLOG_RELEASE_PREVIEW_PORT:-$(FindFreePort 28000 29999)}"
 
 DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:${DEBUG_FRONTEND_PORT}}"
 DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:${DEBUG_BACKEND_PORT}}"
@@ -139,7 +139,7 @@ if [[ "${FSUSBLOG_RUNTIME_NO_BUILD:-0}" == "1" && -z "$PUBLIC_AOT_SSR_WORKER_SCR
     PUBLIC_AOT_SSR_WORKER_SCRIPT='./dist/server/server-public-ssr.bundle.mjs'
 fi
 
-write_env_file() {
+WriteEnvFile() {
     cat >"$ENV_FILE" <<EOF
 FSUSBLOG_TEST_NAMESPACE=$FSUSBLOG_TEST_NAMESPACE
 FSUSBLOG_POSTGRES_PORT=$POSTGRES_PORT
@@ -211,11 +211,11 @@ AuthCookies__AllowInsecureTransportCookies=true
 EOF
 }
 
-log() {
+Log() {
     printf '[acceptance:bootstrap] %s\n' "$1"
 }
 
-repository_relative_path() {
+RepositoryRelativePath() {
     "${FSUSBLOG_NODE:-node}" - "$ROOT_DIR" "$1" <<'NODE'
 const path = require('node:path')
 const root = path.resolve(process.argv[2])
@@ -227,29 +227,29 @@ process.stdout.write(path.relative(root, target).replaceAll(path.sep, '/'))
 NODE
 }
 
-materialize_ci_production_build() {
-    local artifact_root="${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}"
-    if [[ -z "$artifact_root" ]]; then
+MaterializeCiProductionBuild() {
+    local artifactRoot="${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}"
+    if [[ -z "$artifactRoot" ]]; then
         return
     fi
-    local receipt_file="$artifact_root/receipt.json"
-    if [[ ! -f "$receipt_file" ]]; then
-        log "immutable CI production receipt is missing: $receipt_file"
+    local receiptFile="$artifactRoot/receipt.json"
+    if [[ ! -f "$receiptFile" ]]; then
+        Log "immutable CI production receipt is missing: $receiptFile"
         return 1
     fi
     local -a domains=()
     mapfile -t domains < <(
-        "${FSUSBLOG_NODE:-node}" - "$receipt_file" <<'NODE'
+        "${FSUSBLOG_NODE:-node}" - "$receiptFile" <<'NODE'
 const fs = require('node:fs')
 const receipt = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
 if (!Array.isArray(receipt.domains) || receipt.domains.length === 0) throw new Error('CI production receipt has no domains')
 for (const domain of receipt.domains) process.stdout.write(`${domain.name}\n`)
 NODE
     )
-    local -a materialize_args=(
+    local -a materializeArgs=(
         materialize
         --root "$ROOT_DIR"
-        --artifact-root "$artifact_root"
+        --artifact-root "$artifactRoot"
         --destination-root "$ROOT_DIR"
         --expected-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?FSUSBLOG_TEST_SOURCE_COMMIT is required for CI artifact materialization}"
         --expected-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?FSUSBLOG_TEST_SOURCE_FINGERPRINT is required for CI artifact materialization}"
@@ -262,28 +262,28 @@ NODE
     for domain in "${domains[@]}"; do
         case "$domain" in
             backend-runtime)
-                materialize_args+=(--map "backend-runtime=$(repository_relative_path "$(dirname "${FSUSBLOG_BACKEND_SERVER_DLL:?FSUSBLOG_BACKEND_SERVER_DLL is required}")")")
+                materializeArgs+=(--map "backend-runtime=$(RepositoryRelativePath "$(dirname "${FSUSBLOG_BACKEND_SERVER_DLL:?FSUSBLOG_BACKEND_SERVER_DLL is required}")")")
                 ;;
             test-runtime)
-                materialize_args+=(--map "test-runtime=$(repository_relative_path "${FSUSBLOG_BACKEND_TEST_BIN_DIR:?FSUSBLOG_BACKEND_TEST_BIN_DIR is required}")")
+                materializeArgs+=(--map "test-runtime=$(RepositoryRelativePath "${FSUSBLOG_BACKEND_TEST_BIN_DIR:?FSUSBLOG_BACKEND_TEST_BIN_DIR is required}")")
                 ;;
             frontend-dist)
-                materialize_args+=(--map "frontend-dist=$(repository_relative_path "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}")")
-                materialize_args+=(--map "frontend-dist=$(repository_relative_path "$SERVER_WWWROOT_DIR")")
+                materializeArgs+=(--map "frontend-dist=$(RepositoryRelativePath "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}")")
+                materializeArgs+=(--map "frontend-dist=$(RepositoryRelativePath "$SERVER_WWWROOT_DIR")")
                 ;;
             wasm)
-                materialize_args+=(--map "wasm=$(repository_relative_path "${FSUSBLOG_FRONTEND_WASM_ROOT:?FSUSBLOG_FRONTEND_WASM_ROOT is required}")")
+                materializeArgs+=(--map "wasm=$(RepositoryRelativePath "${FSUSBLOG_FRONTEND_WASM_ROOT:?FSUSBLOG_FRONTEND_WASM_ROOT is required}")")
                 ;;
             generated-contracts)
-                materialize_args+=(--map "generated-contracts=$(repository_relative_path "${FSUSBLOG_GENERATED_OUTPUT_ROOT:?FSUSBLOG_GENERATED_OUTPUT_ROOT is required}")/ci-contracts")
+                materializeArgs+=(--map "generated-contracts=$(RepositoryRelativePath "${FSUSBLOG_GENERATED_OUTPUT_ROOT:?FSUSBLOG_GENERATED_OUTPUT_ROOT is required}")/ci-contracts")
                 ;;
             *)
-                log "immutable CI production receipt has unsupported domain: $domain"
+                Log "immutable CI production receipt has unsupported domain: $domain"
                 return 1
                 ;;
         esac
     done
-    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/production-build-artifacts-cli.mjs" "${materialize_args[@]}" >/dev/null
+    "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/production-build-artifacts-cli.mjs" "${materializeArgs[@]}" >/dev/null
     FSUSBLOG_RUNTIME_NO_BUILD=1
     FSUSBLOG_RUNTIME_CONFIGURATION=Release
     if [[ -z "$PUBLIC_AOT_SSR_WORKER_SCRIPT" ]]; then
@@ -295,10 +295,10 @@ NODE
         printf '%s' "${domains[*]}"
     )"
     export FSUSBLOG_CI_PRODUCTION_DOMAINS
-    log "materialized verified immutable CI production domains into run-bound build root: $FSUSBLOG_CI_PRODUCTION_DOMAINS"
+    Log "materialized verified immutable CI production domains into run-bound build root: $FSUSBLOG_CI_PRODUCTION_DOMAINS"
 }
 
-materialize_ci_production_build
+MaterializeCiProductionBuild
 if [[ -z "$PUBLIC_AOT_SSR_CLIENT_ROOT" &&
     -n "${FSUSBLOG_FRONTEND_DIST_ROOT:-}" &&
     -f "$FSUSBLOG_FRONTEND_DIST_ROOT/server/server-public-ssr.bundle.mjs" &&
@@ -306,9 +306,9 @@ if [[ -z "$PUBLIC_AOT_SSR_CLIENT_ROOT" &&
     PUBLIC_AOT_SSR_CLIENT_ROOT="$FSUSBLOG_FRONTEND_DIST_ROOT"
     PUBLIC_AOT_SSR_WORKER_SCRIPT='./server/server-public-ssr.bundle.mjs'
 fi
-write_env_file
+WriteEnvFile
 
-ci_production_has_domain() {
+CiProductionHasDomain() {
     local expected="$1"
     if [[ -z "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
         return 0
@@ -318,7 +318,7 @@ ci_production_has_domain() {
 
 EXECUTION_STARTED_AT_MS="$(date +%s%3N)"
 DEDICATED_RUNTIME_EXECUTION_BUDGET_CAP_MS=240000
-resolve_execution_budget_ms() {
+ResolveExecutionBudgetMs() {
     local inherited="${FSUSBLOG_STEP_DEADLINE_MS:-${FSUSBLOG_BUNDLE_DEADLINE_MS:-}}"
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
         if [[ -z "$inherited" ]]; then
@@ -364,36 +364,36 @@ resolve_execution_budget_ms() {
     )
 }
 
-EXECUTION_BUDGET_MS="$(resolve_execution_budget_ms)"
+EXECUTION_BUDGET_MS="$(ResolveExecutionBudgetMs)"
 EXECUTION_DEADLINE_AT_MS=$((EXECUTION_STARTED_AT_MS + EXECUTION_BUDGET_MS))
 READINESS_PHASES_REMAINING=1
 READINESS_DEADLINE_AT_MS="$EXECUTION_DEADLINE_AT_MS"
 
-allocate_readiness_deadline() {
+AllocateReadinessDeadline() {
     local label="$1"
-    local now remaining phase_budget
+    local now remaining phaseBudget
     now="$(date +%s%3N)"
     remaining=$((EXECUTION_DEADLINE_AT_MS - now))
     if ((remaining <= 0)); then
-        log "$label has no remaining execution deadline"
+        Log "$label has no remaining execution deadline"
         return 1
     fi
     if ((READINESS_PHASES_REMAINING < 1)); then
         READINESS_PHASES_REMAINING=1
     fi
-    phase_budget=$(((remaining + READINESS_PHASES_REMAINING - 1) / READINESS_PHASES_REMAINING))
-    READINESS_DEADLINE_AT_MS=$((now + phase_budget))
+    phaseBudget=$(((remaining + READINESS_PHASES_REMAINING - 1) / READINESS_PHASES_REMAINING))
+    READINESS_DEADLINE_AT_MS=$((now + phaseBudget))
     READINESS_PHASES_REMAINING=$((READINESS_PHASES_REMAINING - 1))
-    log "$label readiness budget=${phase_budget}ms remaining-execution=${remaining}ms"
+    Log "$label readiness budget=${phaseBudget}ms remaining-execution=${remaining}ms"
 }
 
-resolve_bootstrap_parallel_workers() {
-    local job_count="$1"
+ResolveBootstrapParallelWorkers() {
+    local jobCount="$1"
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
         printf '1\n'
         return 0
     fi
-    FSUSBLOG_COMMAND_MANIFEST_WORKERS="$job_count" \
+    FSUSBLOG_COMMAND_MANIFEST_WORKERS="$jobCount" \
         "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" <<'NODE'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
@@ -407,7 +407,7 @@ process.stdout.write(String(Math.max(1, Math.min(jobCount, capacity.maxParallel)
 NODE
 }
 
-resolve_bootstrap_child_environment() {
+ResolveBootstrapChildEnvironment() {
     local workers="$1"
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
         printf '%s\n' \
@@ -488,64 +488,64 @@ for (const key of [
 NODE
 }
 
-run_bootstrap_parallel() {
+RunBootstrapParallel() {
     local group="$1"
-    local readiness_deadline="$2"
+    local readinessDeadline="$2"
     shift 2
     if (($# == 0 || $# % 2 != 0)); then
-        log "$group requires label/function pairs"
+        Log "$group requires label/function pairs"
         return 2
     fi
 
     local total=$(($# / 2))
-    local worker_cap
-    worker_cap="$(resolve_bootstrap_parallel_workers "$total")"
-    local status_dir="$TMP_DIR/parallel-$(printf '%s' "$group" | tr -cs 'A-Za-z0-9_.-' '-')-$$-$RANDOM"
+    local workerCap
+    workerCap="$(ResolveBootstrapParallelWorkers "$total")"
+    local statusDir="$TMP_DIR/parallel-$(printf '%s' "$group" | tr -cs 'A-Za-z0-9_.-' '-')-$$-$RANDOM"
     local -a labels=()
     local -a commands=()
-    local -a status_files=()
-    local -a child_pids=()
+    local -a statusFiles=()
+    local -a childPids=()
     local -a observed=()
-    mkdir -p "$status_dir"
+    mkdir -p "$statusDir"
 
     while (($# > 0)); do
         local label="$1"
         local command="$2"
         shift 2
         if ! declare -F "$command" >/dev/null; then
-            rm -rf "$status_dir"
-            log "$group job $label references unknown function $command"
+            rm -rf "$statusDir"
+            Log "$group job $label references unknown function $command"
             return 2
         fi
         labels+=("$label")
         commands+=("$command")
-        status_files+=("$status_dir/${#labels[@]}.status")
+        statusFiles+=("$statusDir/${#labels[@]}.status")
     done
 
-    log "$group start jobs=$total workers=$worker_cap"
+    Log "$group start jobs=$total workers=$workerCap"
     local next=0
     local active=0
     local completed=0
     while ((next < total || active > 0)); do
-        local next_worker_cap
-        next_worker_cap="$(resolve_bootstrap_parallel_workers "$total")"
-        if [[ "$next_worker_cap" != "$worker_cap" ]]; then
-            log "$group capacity update workers=$worker_cap->$next_worker_cap active=$active"
-            worker_cap="$next_worker_cap"
+        local nextWorkerCap
+        nextWorkerCap="$(ResolveBootstrapParallelWorkers "$total")"
+        if [[ "$nextWorkerCap" != "$workerCap" ]]; then
+            Log "$group capacity update workers=$workerCap->$nextWorkerCap active=$active"
+            workerCap="$nextWorkerCap"
         fi
-        local wave_child_env_file=''
-        local wave_child_env_status=0
-        if ((next < total && active < worker_cap)); then
-            wave_child_env_file="$status_dir/wave-$next-$worker_cap.env"
-            if resolve_bootstrap_child_environment "$worker_cap" >"$wave_child_env_file"; then
+        local waveChildEnvFile=''
+        local waveChildEnvStatus=0
+        if ((next < total && active < workerCap)); then
+            waveChildEnvFile="$statusDir/wave-$next-$workerCap.env"
+            if ResolveBootstrapChildEnvironment "$workerCap" >"$waveChildEnvFile"; then
                 :
             else
-                wave_child_env_status=$?
+                waveChildEnvStatus=$?
             fi
         fi
-        while ((next < total && active < worker_cap)); do
+        while ((next < total && active < workerCap)); do
             local index="$next"
-            if ((wave_child_env_status == 0)); then
+            if ((waveChildEnvStatus == 0)); then
                 (
                     set +e
                     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
@@ -555,19 +555,19 @@ run_bootstrap_parallel() {
                     fi
                     while IFS='=' read -r key value; do
                         [[ -n "$key" ]] && export "$key=$value"
-                    done <"$wave_child_env_file"
-                    ("${commands[$index]}" "$readiness_deadline")
-                    local child_status=$?
-                    local pending_status="${status_files[$index]}.pending-$BASHPID"
-                    printf '%s\n' "$child_status" >"$pending_status"
-                    mv "$pending_status" "${status_files[$index]}"
+                    done <"$waveChildEnvFile"
+                    ("${commands[$index]}" "$readinessDeadline")
+                    local childStatus=$?
+                    local pendingStatus="${statusFiles[$index]}.pending-$BASHPID"
+                    printf '%s\n' "$childStatus" >"$pendingStatus"
+                    mv "$pendingStatus" "${statusFiles[$index]}"
                     exit 0
                 ) &
-                child_pids[$index]="$!"
+                childPids[$index]="$!"
             else
-                log "$group job ${labels[$index]} could not resolve its child resource grant"
-                printf '%s\n' "$wave_child_env_status" >"${status_files[$index]}"
-                child_pids[$index]=''
+                Log "$group job ${labels[$index]} could not resolve its child resource grant"
+                printf '%s\n' "$waveChildEnvStatus" >"${statusFiles[$index]}"
+                childPids[$index]=''
             fi
             observed[$index]=0
             next=$((next + 1))
@@ -576,11 +576,11 @@ run_bootstrap_parallel() {
         local progressed=0
         local index
         for ((index = 0; index < next; index += 1)); do
-            if [[ "${observed[$index]:-0}" == "1" || ! -f "${status_files[$index]}" ]]; then
+            if [[ "${observed[$index]:-0}" == "1" || ! -f "${statusFiles[$index]}" ]]; then
                 continue
             fi
-            if [[ -n "${child_pids[$index]:-}" ]]; then
-                wait "${child_pids[$index]}" >/dev/null 2>&1 || true
+            if [[ -n "${childPids[$index]:-}" ]]; then
+                wait "${childPids[$index]}" >/dev/null 2>&1 || true
             fi
             observed[$index]=1
             active=$((active - 1))
@@ -588,41 +588,41 @@ run_bootstrap_parallel() {
             progressed=1
         done
         if ((completed < total && progressed == 0)); then
-            sleep_within_deadline "$readiness_deadline" 100 || true
+            SleepWithinDeadline "$readinessDeadline" 100 || true
         fi
     done
 
     local -a failures=()
     local index
     for ((index = 0; index < total; index += 1)); do
-        local child_status
-        if [[ -f "${status_files[$index]}" ]]; then
-            read -r child_status <"${status_files[$index]}"
+        local childStatus
+        if [[ -f "${statusFiles[$index]}" ]]; then
+            read -r childStatus <"${statusFiles[$index]}"
         else
-            child_status=125
+            childStatus=125
         fi
-        if [[ "$child_status" != "0" ]]; then
-            failures+=("${labels[$index]} (exit ${child_status})")
+        if [[ "$childStatus" != "0" ]]; then
+            failures+=("${labels[$index]} (exit ${childStatus})")
         fi
     done
-    rm -rf "$status_dir"
+    rm -rf "$statusDir"
 
     if ((${#failures[@]} > 0)); then
         printf '[acceptance:bootstrap] %s failed in %d independent job(s):\n' "$group" "${#failures[@]}" >&2
         printf '  - %s\n' "${failures[@]}" >&2
         return 1
     fi
-    log "$group ready"
+    Log "$group ready"
 }
 
-read_pid_file() {
-    local pid_file="$1"
-    if [[ -f "$pid_file" ]]; then
-        cat "$pid_file" 2>/dev/null || true
+ReadPidFile() {
+    local pidFile="$1"
+    if [[ -f "$pidFile" ]]; then
+        cat "$pidFile" 2>/dev/null || true
     fi
 }
 
-runtime_process_role() {
+RuntimeProcessRole() {
     case "$(basename "$1")" in
         backend.pid) printf 'backend\n' ;;
         dev-server.pid) printf 'debug-frontend\n' ;;
@@ -631,39 +631,39 @@ runtime_process_role() {
     esac
 }
 
-runtime_identity_file() {
-    local pid_file="$1"
-    printf '%s.identity.json\n' "${pid_file%.pid}"
+RuntimeIdentityFile() {
+    local pidFile="$1"
+    printf '%s.identity.json\n' "${pidFile%.pid}"
 }
 
-write_runtime_pid_file() {
-    local pid_file="$1"
+WriteRuntimePidFile() {
+    local pidFile="$1"
     local pid="$2"
-    local pending="${pid_file}.pending-$$-${RANDOM}"
+    local pending="${pidFile}.pending-$$-${RANDOM}"
     (
         umask 077
         printf '%s\n' "$pid" >"$pending"
     )
     chmod 0600 "$pending"
-    mv -fT -- "$pending" "$pid_file"
-    chmod 0600 "$pid_file"
+    mv -fT -- "$pending" "$pidFile"
+    chmod 0600 "$pidFile"
 }
 
-write_runtime_process_identity() {
-    local pid_file="$1"
+WriteRuntimeProcessIdentity() {
+    local pidFile="$1"
     local pid="$2"
     local role="$3"
-    local readiness_deadline_at_ms="${4:-$EXECUTION_DEADLINE_AT_MS}"
-    local identity_file
-    identity_file="$(runtime_identity_file "$pid_file")"
+    local readinessDeadlineAtMs="${4:-$EXECUTION_DEADLINE_AT_MS}"
+    local identityFile
+    identityFile="$(RuntimeIdentityFile "$pidFile")"
     FSUSBLOG_RUNTIME_IDENTITY_PID="$pid" \
         FSUSBLOG_RUNTIME_IDENTITY_RUN_ID="${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}" \
         FSUSBLOG_RUNTIME_IDENTITY_NAMESPACE="$NS_SLUG" \
         FSUSBLOG_RUNTIME_IDENTITY_ROLE="$role" \
         FSUSBLOG_RUNTIME_IDENTITY_DEDICATED="${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" \
         FSUSBLOG_RUNTIME_IDENTITY_PREPARATION_ID="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}" \
-        FSUSBLOG_RUNTIME_IDENTITY_FILE="$identity_file" \
-        FSUSBLOG_RUNTIME_IDENTITY_DEADLINE_AT_MS="$readiness_deadline_at_ms" \
+        FSUSBLOG_RUNTIME_IDENTITY_FILE="$identityFile" \
+        FSUSBLOG_RUNTIME_IDENTITY_DEADLINE_AT_MS="$readinessDeadlineAtMs" \
         "${FSUSBLOG_NODE:-node}" <<'NODE'
 const fs = require('node:fs')
 const path = require('node:path')
@@ -752,29 +752,29 @@ fs.chmodSync(file, 0o600)
 NODE
 }
 
-sleep_within_deadline() {
-    local deadline_at_ms="$1"
-    local poll_interval_ms="$2"
-    local now remaining sleep_ms
+SleepWithinDeadline() {
+    local deadlineAtMs="$1"
+    local pollIntervalMs="$2"
+    local now remaining sleepMs
     now="$(date +%s%3N)"
-    remaining=$((deadline_at_ms - now))
+    remaining=$((deadlineAtMs - now))
     if ((remaining <= 0)); then
         return 1
     fi
-    sleep_ms="$poll_interval_ms"
-    if ((sleep_ms > remaining)); then
-        sleep_ms="$remaining"
+    sleepMs="$pollIntervalMs"
+    if ((sleepMs > remaining)); then
+        sleepMs="$remaining"
     fi
-    sleep "$(printf '%d.%03d' $((sleep_ms / 1000)) $((sleep_ms % 1000)))"
+    sleep "$(printf '%d.%03d' $((sleepMs / 1000)) $((sleepMs % 1000)))"
 }
 
-kill_pid_if_running() {
+KillPidIfRunning() {
     local pid="$1"
-    local termination_deadline_at_ms="${2:-$EXECUTION_DEADLINE_AT_MS}"
+    local terminationDeadlineAtMs="${2:-$EXECUTION_DEADLINE_AT_MS}"
     if [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1; then
         kill "$pid" >/dev/null 2>&1 || true
         while kill -0 "$pid" >/dev/null 2>&1; do
-            if ! sleep_within_deadline "$termination_deadline_at_ms" 500; then
+            if ! SleepWithinDeadline "$terminationDeadlineAtMs" 500; then
                 break
             fi
         done
@@ -784,26 +784,26 @@ kill_pid_if_running() {
     fi
 }
 
-find_port_pid() {
+FindPortPid() {
     local port="$1"
     ss -ltnp "( sport = :${port} )" 2>/dev/null | awk -F'pid=' 'NR>1 {split($2, a, /[,)]/); if (a[1] != "") {print a[1]; exit}}'
 }
 
-port_is_listening() {
+PortIsListening() {
     local port="$1"
     ss -H -ltn "( sport = :${port} )" 2>/dev/null | awk 'NR == 1 { found = 1 } END { exit found ? 0 : 1 }'
 }
 
-dedicated_runtime_process_binding_matches() {
-    local pid_file="$1"
+DedicatedRuntimeProcessBindingMatches() {
+    local pidFile="$1"
     local role="$2"
-    local observed_pid="$3"
-    local identity_file
-    identity_file="$(runtime_identity_file "$pid_file")"
+    local observedPid="$3"
+    local identityFile
+    identityFile="$(RuntimeIdentityFile "$pidFile")"
 
-    FSUSBLOG_RUNTIME_BINDING_PID_FILE="$pid_file" \
-        FSUSBLOG_RUNTIME_BINDING_IDENTITY_FILE="$identity_file" \
-        FSUSBLOG_RUNTIME_BINDING_OBSERVED_PID="$observed_pid" \
+    FSUSBLOG_RUNTIME_BINDING_PID_FILE="$pidFile" \
+        FSUSBLOG_RUNTIME_BINDING_IDENTITY_FILE="$identityFile" \
+        FSUSBLOG_RUNTIME_BINDING_OBSERVED_PID="$observedPid" \
         FSUSBLOG_RUNTIME_BINDING_RUN_ID="${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}" \
         FSUSBLOG_RUNTIME_BINDING_NAMESPACE="$NS_SLUG" \
         FSUSBLOG_RUNTIME_BINDING_ROLE="$role" \
@@ -907,173 +907,173 @@ try {
 NODE
 }
 
-admit_dedicated_runtime_port() {
+AdmitDedicatedRuntimePort() {
     local role="$1"
     local label="$2"
-    local pid_file="$3"
+    local pidFile="$3"
     local port="$4"
     local reachable="${5:-0}"
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" != "1" ]]; then
         return 0
     fi
     if [[ -z "${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}" ]]; then
-        log "$label dedicated runtime preparation identity is missing; refusing runtime admission"
+        Log "$label dedicated runtime preparation identity is missing; refusing runtime admission"
         return 1
     fi
 
-    local managed_pid observed_pid listening=0
-    managed_pid="$(read_pid_file "$pid_file")"
-    if port_is_listening "$port"; then
+    local managedPid observedPid listening=0
+    managedPid="$(ReadPidFile "$pidFile")"
+    if PortIsListening "$port"; then
         listening=1
     fi
-    observed_pid="$(find_port_pid "$port")"
+    observedPid="$(FindPortPid "$port")"
 
-    if [[ -n "$managed_pid" && ! "$managed_pid" =~ ^[0-9]+$ ]]; then
-        log "$label dedicated runtime pid sidecar is malformed; refusing runtime admission"
+    if [[ -n "$managedPid" && ! "$managedPid" =~ ^[0-9]+$ ]]; then
+        Log "$label dedicated runtime pid sidecar is malformed; refusing runtime admission"
         return 1
     fi
-    if [[ -n "$managed_pid" ]] && kill -0 "$managed_pid" >/dev/null 2>&1 &&
-        ! dedicated_runtime_process_binding_matches "$pid_file" "$role" "$managed_pid"; then
-        log "$label pid $managed_pid is not owned by this dedicated preparation; refusing reuse or termination"
+    if [[ -n "$managedPid" ]] && kill -0 "$managedPid" >/dev/null 2>&1 &&
+        ! DedicatedRuntimeProcessBindingMatches "$pidFile" "$role" "$managedPid"; then
+        Log "$label pid $managedPid is not owned by this dedicated preparation; refusing reuse or termination"
         return 1
     fi
-    if [[ -n "$observed_pid" ]] &&
-        ! dedicated_runtime_process_binding_matches "$pid_file" "$role" "$observed_pid"; then
-        log "$label port $port listener pid $observed_pid is not owned by this dedicated preparation; refusing reuse or termination"
+    if [[ -n "$observedPid" ]] &&
+        ! DedicatedRuntimeProcessBindingMatches "$pidFile" "$role" "$observedPid"; then
+        Log "$label port $port listener pid $observedPid is not owned by this dedicated preparation; refusing reuse or termination"
         return 1
     fi
-    if ((listening == 1)) && [[ -z "$observed_pid" ]]; then
-        log "$label port $port is listening without an inspectable owned pid; refusing runtime admission"
+    if ((listening == 1)) && [[ -z "$observedPid" ]]; then
+        Log "$label port $port is listening without an inspectable owned pid; refusing runtime admission"
         return 1
     fi
-    if [[ "$reachable" == "1" && ("$listening" != "1" || -z "$observed_pid") ]]; then
-        log "$label is reachable without an inspectable owned listener sidecar; refusing reuse"
+    if [[ "$reachable" == "1" && ("$listening" != "1" || -z "$observedPid") ]]; then
+        Log "$label is reachable without an inspectable owned listener sidecar; refusing reuse"
         return 1
     fi
 }
 
-runtime_process_group_exists() {
-    local process_group_id="$1"
-    kill -0 -- "-$process_group_id" >/dev/null 2>&1
+RuntimeProcessGroupExists() {
+    local processGroupId="$1"
+    kill -0 -- "-$processGroupId" >/dev/null 2>&1
 }
 
-signal_runtime_process_group() {
+SignalRuntimeProcessGroup() {
     local signal="$1"
-    local process_group_id="$2"
-    kill "-$signal" -- "-$process_group_id" >/dev/null 2>&1
+    local processGroupId="$2"
+    kill "-$signal" -- "-$processGroupId" >/dev/null 2>&1
 }
 
-terminate_dedicated_runtime_process_group() {
+TerminateDedicatedRuntimeProcessGroup() {
     local role="$1"
-    local pid_file="$2"
-    local observed_pid="$3"
-    local termination_deadline_at_ms="$4"
-    local process_group_id
-    process_group_id="$(read_pid_file "$pid_file")"
-    if ! dedicated_runtime_process_binding_matches "$pid_file" "$role" "$observed_pid"; then
+    local pidFile="$2"
+    local observedPid="$3"
+    local terminationDeadlineAtMs="$4"
+    local processGroupId
+    processGroupId="$(ReadPidFile "$pidFile")"
+    if ! DedicatedRuntimeProcessBindingMatches "$pidFile" "$role" "$observedPid"; then
         return 1
     fi
-    if ! runtime_process_group_exists "$process_group_id"; then
+    if ! RuntimeProcessGroupExists "$processGroupId"; then
         return 0
     fi
-    if ! signal_runtime_process_group TERM "$process_group_id"; then
-        log "$role dedicated runtime process group $process_group_id refused SIGTERM"
+    if ! SignalRuntimeProcessGroup TERM "$processGroupId"; then
+        Log "$role dedicated runtime process group $processGroupId refused SIGTERM"
         return 1
     fi
-    while runtime_process_group_exists "$process_group_id"; do
-        if ! sleep_within_deadline "$termination_deadline_at_ms" 250; then
+    while RuntimeProcessGroupExists "$processGroupId"; do
+        if ! SleepWithinDeadline "$terminationDeadlineAtMs" 250; then
             break
         fi
     done
-    if ! runtime_process_group_exists "$process_group_id"; then
+    if ! RuntimeProcessGroupExists "$processGroupId"; then
         return 0
     fi
-    if ! dedicated_runtime_process_binding_matches "$pid_file" "$role" "$process_group_id"; then
-        log "$role dedicated runtime identity changed before SIGKILL; refusing further termination"
+    if ! DedicatedRuntimeProcessBindingMatches "$pidFile" "$role" "$processGroupId"; then
+        Log "$role dedicated runtime identity changed before SIGKILL; refusing further termination"
         return 1
     fi
-    signal_runtime_process_group KILL "$process_group_id" || return 1
-    ! runtime_process_group_exists "$process_group_id"
+    SignalRuntimeProcessGroup KILL "$processGroupId" || return 1
+    ! RuntimeProcessGroupExists "$processGroupId"
 }
 
-kill_runtime_pid_if_owned() {
+KillRuntimePidIfOwned() {
     local role="$1"
-    local pid_file="$2"
+    local pidFile="$2"
     local pid="$3"
-    local termination_deadline_at_ms="${4:-$EXECUTION_DEADLINE_AT_MS}"
+    local terminationDeadlineAtMs="${4:-$EXECUTION_DEADLINE_AT_MS}"
     if [[ -z "$pid" ]] || ! kill -0 "$pid" >/dev/null 2>&1; then
         return 0
     fi
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" != "1" ]]; then
-        kill_pid_if_running "$pid" "$termination_deadline_at_ms"
+        KillPidIfRunning "$pid" "$terminationDeadlineAtMs"
         return
     fi
-    if ! terminate_dedicated_runtime_process_group \
-        "$role" "$pid_file" "$pid" "$termination_deadline_at_ms"; then
-        log "$role pid $pid is not safely bound to this dedicated preparation; refusing termination"
+    if ! TerminateDedicatedRuntimeProcessGroup \
+        "$role" "$pidFile" "$pid" "$terminationDeadlineAtMs"; then
+        Log "$role pid $pid is not safely bound to this dedicated preparation; refusing termination"
         return 1
     fi
 }
 
-assert_dedicated_runtime_port_available() {
+AssertDedicatedRuntimePortAvailable() {
     local label="$1"
     local port="$2"
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" != "1" ]]; then
         return 0
     fi
-    if port_is_listening "$port"; then
+    if PortIsListening "$port"; then
         local pid
-        pid="$(find_port_pid "$port")"
-        log "$label port $port was claimed before managed spawn (pid ${pid:-uninspectable}); refusing to race or terminate it"
+        pid="$(FindPortPid "$port")"
+        Log "$label port $port was claimed before managed spawn (pid ${pid:-uninspectable}); refusing to race or terminate it"
         return 1
     fi
 }
 
-wait_for_port_release() {
+WaitForPortRelease() {
     local port="$1"
-    local release_deadline_at_ms="${2:-$EXECUTION_DEADLINE_AT_MS}"
+    local releaseDeadlineAtMs="${2:-$EXECUTION_DEADLINE_AT_MS}"
     local pid
     while true; do
         if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
-            if ! port_is_listening "$port"; then
+            if ! PortIsListening "$port"; then
                 return 0
             fi
         else
-            pid="$(find_port_pid "$port")"
+            pid="$(FindPortPid "$port")"
             if [[ -z "$pid" ]]; then
                 return 0
             fi
         fi
-        if ! sleep_within_deadline "$release_deadline_at_ms" 250; then
+        if ! SleepWithinDeadline "$releaseDeadlineAtMs" 250; then
             break
         fi
     done
 
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
-        if port_is_listening "$port"; then
-            pid="$(find_port_pid "$port")"
-            log "dedicated runtime port $port is still held by pid ${pid:-uninspectable}; refusing blind termination"
+        if PortIsListening "$port"; then
+            pid="$(FindPortPid "$port")"
+            Log "dedicated runtime port $port is still held by pid ${pid:-uninspectable}; refusing blind termination"
             return 1
         fi
         return 0
     fi
-    pid="$(find_port_pid "$port")"
+    pid="$(FindPortPid "$port")"
     if [[ -n "$pid" ]]; then
-        kill_pid_if_running "$pid" "$release_deadline_at_ms"
+        KillPidIfRunning "$pid" "$releaseDeadlineAtMs"
     fi
 }
 
-probe_url() {
+ProbeUrl() {
     local url="$1"
     curl -fsS --max-time 5 "$url" >/dev/null 2>&1
 }
 
-probe_binary_url() {
+ProbeBinaryUrl() {
     local url="$1"
     curl -fsS --max-time 5 -H 'Accept: application/octet-stream' "$url" >/dev/null 2>&1
 }
 
-probe_notification_drill_url() {
+ProbeNotificationDrillUrl() {
     curl -fsS --max-time 5 \
         -X POST \
         -H 'Accept: application/json' \
@@ -1083,11 +1083,11 @@ probe_notification_drill_url() {
         "$DEBUG_BACKEND_URL/_fsus/testing/notification-stream/publish" >/dev/null 2>&1
 }
 
-can_reuse_processes() {
+CanReuseProcesses() {
     [[ "${FORCE_BOOTSTRAP:-0}" != "1" ]]
 }
 
-hash_release_inputs() {
+HashReleaseInputs() {
     (
         cd "$ROOT_DIR"
         {
@@ -1110,12 +1110,12 @@ hash_release_inputs() {
     )
 }
 
-hash_backend_inputs() {
-    local worker_path=""
-    local bundle_path=""
+HashBackendInputs() {
+    local workerPath=""
+    local bundlePath=""
     if [[ -n "$PUBLIC_AOT_SSR_CLIENT_ROOT" && -n "$PUBLIC_AOT_SSR_WORKER_SCRIPT" ]]; then
-        worker_path="$PUBLIC_AOT_SSR_CLIENT_ROOT/${PUBLIC_AOT_SSR_WORKER_SCRIPT#./}"
-        bundle_path="$PUBLIC_AOT_SSR_CLIENT_ROOT/server/public-ssr.mjs"
+        workerPath="$PUBLIC_AOT_SSR_CLIENT_ROOT/${PUBLIC_AOT_SSR_WORKER_SCRIPT#./}"
+        bundlePath="$PUBLIC_AOT_SSR_CLIENT_ROOT/server/public-ssr.mjs"
     fi
 
     {
@@ -1144,7 +1144,7 @@ hash_backend_inputs() {
             )
         fi
 
-        for file in "${FSUSBLOG_BACKEND_SERVER_DLL:-}" "$worker_path" "$bundle_path"; do
+        for file in "${FSUSBLOG_BACKEND_SERVER_DLL:-}" "$workerPath" "$bundlePath"; do
             if [[ -n "$file" && -f "$file" ]]; then
                 sha256sum "$file"
             elif [[ -n "$file" ]]; then
@@ -1154,116 +1154,116 @@ hash_backend_inputs() {
     } | sha256sum | awk '{print $1}'
 }
 
-wait_for_url() {
+WaitForUrl() {
     local label="$1"
     local url="$2"
-    local deadline_at_ms="$3"
+    local deadlineAtMs="$3"
 
-    while (($(date +%s%3N) < deadline_at_ms)); do
-        if probe_url "$url"; then
+    while (($(date +%s%3N) < deadlineAtMs)); do
+        if ProbeUrl "$url"; then
             return 0
         fi
         sleep 1
     done
 
-    log "$label did not become ready at $url"
+    Log "$label did not become ready at $url"
     return 1
 }
 
-wait_for_binary_url() {
+WaitForBinaryUrl() {
     local label="$1"
     local url="$2"
-    local deadline_at_ms="$3"
+    local deadlineAtMs="$3"
 
-    while (($(date +%s%3N) < deadline_at_ms)); do
-        if probe_binary_url "$url"; then
+    while (($(date +%s%3N) < deadlineAtMs)); do
+        if ProbeBinaryUrl "$url"; then
             return 0
         fi
         sleep 1
     done
 
-    log "$label did not become ready at $url"
+    Log "$label did not become ready at $url"
     return 1
 }
 
-wait_for_managed_binary_url() {
+WaitForManagedBinaryUrl() {
     local label="$1"
     local url="$2"
-    local deadline_at_ms="$3"
+    local deadlineAtMs="$3"
     local pid="$4"
-    local log_file="$5"
+    local logFile="$5"
 
-    while (($(date +%s%3N) < deadline_at_ms)); do
-        if probe_binary_url "$url"; then
+    while (($(date +%s%3N) < deadlineAtMs)); do
+        if ProbeBinaryUrl "$url"; then
             return 0
         fi
         if ! kill -0 "$pid" >/dev/null 2>&1; then
-            log "$label process exited before becoming ready at $url"
-            tail -20 "$log_file" >&2 || true
+            Log "$label process exited before becoming ready at $url"
+            tail -20 "$logFile" >&2 || true
             return 1
         fi
-        if ! sleep_within_deadline "$deadline_at_ms" 250; then
+        if ! SleepWithinDeadline "$deadlineAtMs" 250; then
             break
         fi
     done
 
-    log "$label did not become ready at $url"
+    Log "$label did not become ready at $url"
     return 1
 }
 
 DOCKER_RESOURCE_ARGS=()
-build_docker_resource_args() {
+BuildDockerResourceArgs() {
     local cpu="${FSUSBLOG_DOCKER_CPU_UNITS:-}"
-    local memory_high="${FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES:-}"
-    local memory_max="${FSUSBLOG_DOCKER_MEMORY_MAX_BYTES:-}"
-    local pids_max="${FSUSBLOG_DOCKER_PIDS_MAX:-}"
-    local run_identity="${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}"
-    local bundle_identity="${FSUSBLOG_PHYSICAL_BUNDLE_ID:-standalone}"
-    local step_identity="${FSUSBLOG_STEP_ID:-bootstrap}"
-    local preparation_identity="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}"
+    local memoryHigh="${FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES:-}"
+    local memoryMax="${FSUSBLOG_DOCKER_MEMORY_MAX_BYTES:-}"
+    local pidsMax="${FSUSBLOG_DOCKER_PIDS_MAX:-}"
+    local runIdentity="${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}"
+    local bundleIdentity="${FSUSBLOG_PHYSICAL_BUNDLE_ID:-standalone}"
+    local stepIdentity="${FSUSBLOG_STEP_ID:-bootstrap}"
+    local preparationIdentity="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}"
     DOCKER_RESOURCE_ARGS=(
-        --label "io.fsusblog.test.run-id=$run_identity"
-        --label "io.fsusblog.test.bundle-id=$bundle_identity"
-        --label "io.fsusblog.test.step-id=$step_identity"
+        --label "io.fsusblog.test.run-id=$runIdentity"
+        --label "io.fsusblog.test.bundle-id=$bundleIdentity"
+        --label "io.fsusblog.test.step-id=$stepIdentity"
         --label "io.fsusblog.test.namespace=$NS_SLUG"
     )
-    if [[ -n "$preparation_identity" ]]; then
-        DOCKER_RESOURCE_ARGS+=(--label "io.fsusblog.test.preparation-id=$preparation_identity")
+    if [[ -n "$preparationIdentity" ]]; then
+        DOCKER_RESOURCE_ARGS+=(--label "io.fsusblog.test.preparation-id=$preparationIdentity")
     fi
-    if [[ -z "$cpu$memory_high$memory_max$pids_max" ]]; then
+    if [[ -z "$cpu$memoryHigh$memoryMax$pidsMax" ]]; then
         return 0
     fi
-    if [[ ! "$cpu" =~ ^[0-9]+([.][0-9]+)?$ || ! "$memory_high" =~ ^[0-9]+$ ||
-        ! "$memory_max" =~ ^[0-9]+$ || ! "$pids_max" =~ ^[0-9]+$ ]]; then
-        log 'Docker resource enforcement requires positive CPU, memory high/max, and pids values'
+    if [[ ! "$cpu" =~ ^[0-9]+([.][0-9]+)?$ || ! "$memoryHigh" =~ ^[0-9]+$ ||
+        ! "$memoryMax" =~ ^[0-9]+$ || ! "$pidsMax" =~ ^[0-9]+$ ]]; then
+        Log 'Docker resource enforcement requires positive CPU, memory high/max, and pids values'
         return 1
     fi
-    if [[ "$cpu" =~ ^0+([.]0+)?$ ]] || ((memory_high <= 0 || memory_max < memory_high || pids_max <= 0)); then
-        log 'Docker resource enforcement grant is outside its valid CPU, memory, or pids envelope'
+    if [[ "$cpu" =~ ^0+([.]0+)?$ ]] || ((memoryHigh <= 0 || memoryMax < memoryHigh || pidsMax <= 0)); then
+        Log 'Docker resource enforcement grant is outside its valid CPU, memory, or pids envelope'
         return 1
     fi
     DOCKER_RESOURCE_ARGS+=(
         --cpus "$cpu"
-        --memory-reservation "$memory_high"
-        --memory "$memory_max"
-        --pids-limit "$pids_max"
+        --memory-reservation "$memoryHigh"
+        --memory "$memoryMax"
+        --pids-limit "$pidsMax"
     )
     DOCKER_RESOURCE_ARGS+=(
         --label "io.fsusblog.test.cpu-units=$cpu"
-        --label "io.fsusblog.test.memory-high-bytes=$memory_high"
-        --label "io.fsusblog.test.memory-max-bytes=$memory_max"
-        --label "io.fsusblog.test.pids-max=$pids_max"
+        --label "io.fsusblog.test.memory-high-bytes=$memoryHigh"
+        --label "io.fsusblog.test.memory-max-bytes=$memoryMax"
+        --label "io.fsusblog.test.pids-max=$pidsMax"
     )
 }
 
-update_existing_container_resources() {
+UpdateExistingContainerResources() {
     local container="$1"
     local cpu="${FSUSBLOG_DOCKER_CPU_UNITS:-}"
-    local memory_high="${FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES:-}"
-    local memory_max="${FSUSBLOG_DOCKER_MEMORY_MAX_BYTES:-}"
-    local pids_max="${FSUSBLOG_DOCKER_PIDS_MAX:-}"
-    build_docker_resource_args
-    if [[ -z "$cpu$memory_high$memory_max$pids_max" ]]; then
+    local memoryHigh="${FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES:-}"
+    local memoryMax="${FSUSBLOG_DOCKER_MEMORY_MAX_BYTES:-}"
+    local pidsMax="${FSUSBLOG_DOCKER_PIDS_MAX:-}"
+    BuildDockerResourceArgs
+    if [[ -z "$cpu$memoryHigh$memoryMax$pidsMax" ]]; then
         return 0
     fi
     docker update \
@@ -1274,7 +1274,7 @@ update_existing_container_resources() {
         "$container" >/dev/null
 }
 
-container_resource_binding_matches() {
+ContainerResourceBindingMatches() {
     local container="$1"
     if [[ -z "${FSUSBLOG_TEST_RUN_ID:-}" ]]; then
         [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" != "1" ]]
@@ -1284,57 +1284,57 @@ container_resource_binding_matches() {
         (-z "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" || -z "${FSUSBLOG_STEP_ID:-}") ]]; then
         return 1
     fi
-    local bundle_identity="${FSUSBLOG_PHYSICAL_BUNDLE_ID:-standalone}"
-    local step_identity="${FSUSBLOG_STEP_ID:-bootstrap}"
-    local preparation_identity="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}"
+    local bundleIdentity="${FSUSBLOG_PHYSICAL_BUNDLE_ID:-standalone}"
+    local stepIdentity="${FSUSBLOG_STEP_ID:-bootstrap}"
+    local preparationIdentity="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}"
     local binding
     binding="$(docker inspect --format '{{index .Config.Labels "io.fsusblog.test.run-id"}}|{{index .Config.Labels "io.fsusblog.test.bundle-id"}}|{{index .Config.Labels "io.fsusblog.test.step-id"}}|{{index .Config.Labels "io.fsusblog.test.namespace"}}|{{with index .Config.Labels "io.fsusblog.test.preparation-id"}}{{.}}{{end}}' "$container" 2>/dev/null || true)"
-    [[ "$binding" == "${FSUSBLOG_TEST_RUN_ID}|${bundle_identity}|${step_identity}|${NS_SLUG}|${preparation_identity}" ]]
+    [[ "$binding" == "${FSUSBLOG_TEST_RUN_ID}|${bundleIdentity}|${stepIdentity}|${NS_SLUG}|${preparationIdentity}" ]]
 }
 
-assert_dedicated_container_binding() {
+AssertDedicatedContainerBinding() {
     local container="$1"
     local service="$2"
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" != "1" ]]; then
         return 0
     fi
     if docker ps -a --format '{{.Names}}' | grep -qx "$container" &&
-        ! container_resource_binding_matches "$container"; then
-        log "refusing to reuse, remove, or recreate $service container with mismatched dedicated-runtime ownership: $container"
+        ! ContainerResourceBindingMatches "$container"; then
+        Log "refusing to reuse, remove, or recreate $service container with mismatched dedicated-runtime ownership: $container"
         return 1
     fi
 }
 
-ensure_postgres() {
-    local readiness_deadline="${1:-}"
-    if [[ -z "$readiness_deadline" ]]; then
-        allocate_readiness_deadline 'postgres'
-        readiness_deadline="$READINESS_DEADLINE_AT_MS"
+EnsurePostgres() {
+    local readinessDeadline="${1:-}"
+    if [[ -z "$readinessDeadline" ]]; then
+        AllocateReadinessDeadline 'postgres'
+        readinessDeadline="$READINESS_DEADLINE_AT_MS"
     fi
-    assert_dedicated_container_binding "$POSTGRES_CONTAINER" postgres || return 1
+    AssertDedicatedContainerBinding "$POSTGRES_CONTAINER" postgres || return 1
     if docker exec "$POSTGRES_CONTAINER" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1 &&
-        container_resource_binding_matches "$POSTGRES_CONTAINER"; then
-        log 'postgres already ready'
+        ContainerResourceBindingMatches "$POSTGRES_CONTAINER"; then
+        Log 'postgres already ready'
         return
     fi
 
     if docker ps -a --format '{{.Names}}' | grep -qx "$POSTGRES_CONTAINER" &&
-        container_resource_binding_matches "$POSTGRES_CONTAINER"; then
-        log 'starting existing postgres container'
-        update_existing_container_resources "$POSTGRES_CONTAINER"
+        ContainerResourceBindingMatches "$POSTGRES_CONTAINER"; then
+        Log 'starting existing postgres container'
+        UpdateExistingContainerResources "$POSTGRES_CONTAINER"
         docker start "$POSTGRES_CONTAINER" >/dev/null
     else
         if docker ps -a --format '{{.Names}}' | grep -qx "$POSTGRES_CONTAINER"; then
             if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
-                log "refusing to remove or recreate postgres container during dedicated runtime: $POSTGRES_CONTAINER"
+                Log "refusing to remove or recreate postgres container during dedicated runtime: $POSTGRES_CONTAINER"
                 return 1
             fi
-            log 'recreating postgres container with current run/bundle/step resource identity'
+            Log 'recreating postgres container with current run/bundle/step resource identity'
             docker rm -f -v "$POSTGRES_CONTAINER" >/dev/null
         fi
-        log 'creating postgres container'
-        build_docker_resource_args
-        docker run -d \
+        Log 'creating postgres container'
+        BuildDockerResourceArgs
+        docker Run -d \
             "${DOCKER_RESOURCE_ARGS[@]}" \
             --name "$POSTGRES_CONTAINER" \
             -e POSTGRES_USER=fsusblog \
@@ -1344,416 +1344,416 @@ ensure_postgres() {
             postgres:16-alpine >/dev/null
     fi
 
-    while (($(date +%s%3N) < readiness_deadline)); do
+    while (($(date +%s%3N) < readinessDeadline)); do
         if docker exec "$POSTGRES_CONTAINER" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
             return
         fi
         sleep 1
     done
 
-    log 'postgres failed to become ready'
+    Log 'postgres failed to become ready'
     exit 1
 }
 
-ensure_redis() {
-    local readiness_deadline="${1:-}"
-    if [[ -z "$readiness_deadline" ]]; then
-        allocate_readiness_deadline 'redis'
-        readiness_deadline="$READINESS_DEADLINE_AT_MS"
+EnsureRedis() {
+    local readinessDeadline="${1:-}"
+    if [[ -z "$readinessDeadline" ]]; then
+        AllocateReadinessDeadline 'redis'
+        readinessDeadline="$READINESS_DEADLINE_AT_MS"
     fi
-    assert_dedicated_container_binding "$REDIS_CONTAINER" redis || return 1
+    AssertDedicatedContainerBinding "$REDIS_CONTAINER" redis || return 1
     if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1 &&
-        container_resource_binding_matches "$REDIS_CONTAINER"; then
-        log 'redis already ready'
+        ContainerResourceBindingMatches "$REDIS_CONTAINER"; then
+        Log 'redis already ready'
         return
     fi
 
     if docker ps -a --format '{{.Names}}' | grep -qx "$REDIS_CONTAINER" &&
-        container_resource_binding_matches "$REDIS_CONTAINER"; then
-        log 'starting existing redis container'
-        update_existing_container_resources "$REDIS_CONTAINER"
+        ContainerResourceBindingMatches "$REDIS_CONTAINER"; then
+        Log 'starting existing redis container'
+        UpdateExistingContainerResources "$REDIS_CONTAINER"
         docker start "$REDIS_CONTAINER" >/dev/null
     else
         if docker ps -a --format '{{.Names}}' | grep -qx "$REDIS_CONTAINER"; then
             if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
-                log "refusing to remove or recreate redis container during dedicated runtime: $REDIS_CONTAINER"
+                Log "refusing to remove or recreate redis container during dedicated runtime: $REDIS_CONTAINER"
                 return 1
             fi
-            log 'recreating redis container with current run/bundle/step resource identity'
+            Log 'recreating redis container with current run/bundle/step resource identity'
             docker rm -f -v "$REDIS_CONTAINER" >/dev/null
         fi
-        log 'creating redis container'
-        build_docker_resource_args
-        docker run -d "${DOCKER_RESOURCE_ARGS[@]}" --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" redis:7-alpine >/dev/null
+        Log 'creating redis container'
+        BuildDockerResourceArgs
+        docker Run -d "${DOCKER_RESOURCE_ARGS[@]}" --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" redis:7-alpine >/dev/null
     fi
 
-    while (($(date +%s%3N) < readiness_deadline)); do
+    while (($(date +%s%3N) < readinessDeadline)); do
         if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
             return
         fi
         sleep 1
     done
 
-    log 'redis failed to become ready'
+    Log 'redis failed to become ready'
     exit 1
 }
 
-refresh_fixture_service_generation() {
-    local postgres_identity redis_identity
-    postgres_identity="$(docker inspect --format '{{.Id}}|{{.Created}}' "$POSTGRES_CONTAINER")"
-    redis_identity="$(docker inspect --format '{{.Id}}|{{.Created}}' "$REDIS_CONTAINER")"
-    FSUSBLOG_FIXTURE_SERVICE_GENERATION="$(printf '%s\n%s\n' "$postgres_identity" "$redis_identity" | sha256sum | awk '{print $1}')"
+RefreshFixtureServiceGeneration() {
+    local postgresIdentity redisIdentity
+    postgresIdentity="$(docker inspect --format '{{.Id}}|{{.Created}}' "$POSTGRES_CONTAINER")"
+    redisIdentity="$(docker inspect --format '{{.Id}}|{{.Created}}' "$REDIS_CONTAINER")"
+    FSUSBLOG_FIXTURE_SERVICE_GENERATION="$(printf '%s\n%s\n' "$postgresIdentity" "$redisIdentity" | sha256sum | awk '{print $1}')"
     export FSUSBLOG_FIXTURE_SERVICE_GENERATION
-    write_env_file
+    WriteEnvFile
 }
 
-reset_security_test_state() {
+ResetSecurityTestState() {
     if [[ "$RESET_SECURITY_TEST_STATE" == "0" ]]; then
         return
     fi
 
     local deleted
-    local risk_deleted
-    risk_deleted="$(docker exec "$POSTGRES_CONTAINER" psql -U fsusblog -d fsusblog -Atqc "WITH deleted AS (DELETE FROM security_risk_event WHERE expires_at_utc > (now() AT TIME ZONE 'utc') RETURNING 1) SELECT count(*) FROM deleted;" 2>/dev/null || true)"
-    risk_deleted="${risk_deleted:-0}"
-    if [[ "$risk_deleted" =~ ^[0-9]+$ ]] && ((risk_deleted > 0)); then
-        log "reset active persisted security risk events: ${risk_deleted}"
+    local riskDeleted
+    riskDeleted="$(docker exec "$POSTGRES_CONTAINER" psql -U fsusblog -d fsusblog -Atqc "WITH deleted AS (DELETE FROM security_risk_event WHERE expires_at_utc > (now() AT TIME ZONE 'utc') RETURNING 1) SELECT count(*) FROM deleted;" 2>/dev/null || true)"
+    riskDeleted="${riskDeleted:-0}"
+    if [[ "$riskDeleted" =~ ^[0-9]+$ ]] && ((riskDeleted > 0)); then
+        Log "reset active persisted security risk events: ${riskDeleted}"
         FORCE_BOOTSTRAP=1
     fi
 
     deleted="$(docker exec "$REDIS_CONTAINER" sh -c "{ redis-cli --scan --pattern '*${NS_SLUG}*fsus:sec:pow-risk:*'; redis-cli --scan --pattern 'fsus:sec:pow-risk:*'; } | sort -u | xargs -r redis-cli DEL" 2>/dev/null || true)"
     deleted="${deleted:-0}"
     if [[ "$deleted" =~ ^[0-9]+$ ]] && ((deleted > 0)); then
-        log "reset local security PoW risk keys: ${deleted}"
+        Log "reset local security PoW risk keys: ${deleted}"
         FORCE_BOOTSTRAP=1
     fi
 }
 
 MANAGED_BACKEND_SHARED_DEBUG_BUILD_REQUIRED=0
 
-configure_managed_backend_runtime_reader() {
-    local runtime_configuration="${FSUSBLOG_RUNTIME_CONFIGURATION:-}"
-    local requested_no_build="${FSUSBLOG_RUNTIME_NO_BUILD:-0}"
+ConfigureManagedBackendRuntimeReader() {
+    local runtimeConfiguration="${FSUSBLOG_RUNTIME_CONFIGURATION:-}"
+    local requestedNoBuild="${FSUSBLOG_RUNTIME_NO_BUILD:-0}"
 
-    if [[ -z "$runtime_configuration" ]]; then
-        if [[ "$requested_no_build" == "1" ]]; then
-            runtime_configuration="Release"
+    if [[ -z "$runtimeConfiguration" ]]; then
+        if [[ "$requestedNoBuild" == "1" ]]; then
+            runtimeConfiguration="Release"
         else
-            runtime_configuration="Debug"
+            runtimeConfiguration="Debug"
         fi
     fi
-    case "$runtime_configuration" in
+    case "$runtimeConfiguration" in
         Debug)
             MANAGED_BACKEND_SHARED_DEBUG_BUILD_REQUIRED=1
             ;;
         Release)
-            if [[ "$requested_no_build" != "1" ]]; then
-                log 'managed Release backend requires a prebuilt runtime and FSUSBLOG_RUNTIME_NO_BUILD=1'
+            if [[ "$requestedNoBuild" != "1" ]]; then
+                Log 'managed Release backend requires a prebuilt runtime and FSUSBLOG_RUNTIME_NO_BUILD=1'
                 return 2
             fi
             ;;
         *)
-            log 'FSUSBLOG_RUNTIME_CONFIGURATION must be Debug or Release'
+            Log 'FSUSBLOG_RUNTIME_CONFIGURATION must be Debug or Release'
             return 2
             ;;
     esac
 
     # Runtime processes are readers. Debug is produced once through the same
     # run-once key as backend test consumers; Release must arrive prebuilt.
-    FSUSBLOG_RUNTIME_CONFIGURATION="$runtime_configuration"
+    FSUSBLOG_RUNTIME_CONFIGURATION="$runtimeConfiguration"
     FSUSBLOG_RUNTIME_NO_BUILD=1
     export FSUSBLOG_RUNTIME_CONFIGURATION FSUSBLOG_RUNTIME_NO_BUILD
-    write_env_file
+    WriteEnvFile
 }
 
-ensure_managed_backend_shared_debug_build() {
+EnsureManagedBackendSharedDebugBuild() {
     if [[ "$MANAGED_BACKEND_SHARED_DEBUG_BUILD_REQUIRED" != "1" ]]; then
         return
     fi
-    log 'preparing managed Debug backend through the shared backend build producer'
+    Log 'preparing managed Debug backend through the shared backend build producer'
     (
         source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
-        FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build
+        FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild
     )
 }
 
-ensure_backend() {
-    local pid_file="$TMP_DIR/backend.pid"
-    local log_file="$TMP_DIR/backend.log"
-    local fingerprint_file="$TMP_DIR/backend-inputs.sha"
-    local managed_pid
-    local existing_pid
-    local next_fingerprint
-    local current_fingerprint=""
-    local backend_reachable=0
-    local readiness_deadline="${1:-}"
-    if [[ -z "$readiness_deadline" ]]; then
-        allocate_readiness_deadline 'debug backend'
-        readiness_deadline="$READINESS_DEADLINE_AT_MS"
+EnsureBackend() {
+    local pidFile="$TMP_DIR/backend.pid"
+    local logFile="$TMP_DIR/backend.log"
+    local fingerprintFile="$TMP_DIR/backend-inputs.sha"
+    local managedPid
+    local existingPid
+    local nextFingerprint
+    local currentFingerprint=""
+    local backendReachable=0
+    local readinessDeadline="${1:-}"
+    if [[ -z "$readinessDeadline" ]]; then
+        AllocateReadinessDeadline 'debug backend'
+        readinessDeadline="$READINESS_DEADLINE_AT_MS"
     fi
     if [[ "${FSUSBLOG_RUNTIME_NO_BUILD:-0}" != "1" ]]; then
-        log 'managed backend startup is read-only and requires FSUSBLOG_RUNTIME_NO_BUILD=1'
+        Log 'managed backend startup is read-only and requires FSUSBLOG_RUNTIME_NO_BUILD=1'
         return 2
     fi
-    local runtime_configuration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}"
-    case "$runtime_configuration" in
+    local runtimeConfiguration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}"
+    case "$runtimeConfiguration" in
         Debug | Release) ;;
         *)
-            log 'FSUSBLOG_RUNTIME_CONFIGURATION must be Debug or Release'
+            Log 'FSUSBLOG_RUNTIME_CONFIGURATION must be Debug or Release'
             return 2
             ;;
     esac
-    local runtime_args="-c $runtime_configuration --no-build --no-restore"
+    local runtimeArgs="-c $runtimeConfiguration --no-build --no-restore"
 
-    managed_pid="$(read_pid_file "$pid_file")"
-    existing_pid="$(find_port_pid "$DEBUG_BACKEND_PORT")"
-    if probe_binary_url "$DEBUG_BACKEND_URL/api/binary/system/seo"; then
-        backend_reachable=1
+    managedPid="$(ReadPidFile "$pidFile")"
+    existingPid="$(FindPortPid "$DEBUG_BACKEND_PORT")"
+    if ProbeBinaryUrl "$DEBUG_BACKEND_URL/api/binary/system/seo"; then
+        backendReachable=1
     fi
-    admit_dedicated_runtime_port \
-        backend 'debug backend' "$pid_file" "$DEBUG_BACKEND_PORT" "$backend_reachable" || return 1
-    next_fingerprint="$(hash_backend_inputs)"
-    if [[ -f "$fingerprint_file" ]]; then
-        current_fingerprint="$(cat "$fingerprint_file" 2>/dev/null || true)"
+    AdmitDedicatedRuntimePort \
+        backend 'debug backend' "$pidFile" "$DEBUG_BACKEND_PORT" "$backendReachable" || return 1
+    nextFingerprint="$(HashBackendInputs)"
+    if [[ -f "$fingerprintFile" ]]; then
+        currentFingerprint="$(cat "$fingerprintFile" 2>/dev/null || true)"
     fi
 
-    if can_reuse_processes &&
-        [[ "$current_fingerprint" == "$next_fingerprint" ]] &&
-        [[ "$backend_reachable" == "1" ]] &&
-        probe_binary_url "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" &&
-        probe_notification_drill_url; then
-        log 'debug backend already healthy; reusing existing process'
+    if CanReuseProcesses &&
+        [[ "$currentFingerprint" == "$nextFingerprint" ]] &&
+        [[ "$backendReachable" == "1" ]] &&
+        ProbeBinaryUrl "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" &&
+        ProbeNotificationDrillUrl; then
+        Log 'debug backend already healthy; reusing existing process'
         return
     fi
 
-    rm -f "$fingerprint_file"
+    rm -f "$fingerprintFile"
 
-    if [[ -n "$managed_pid" ]] && kill -0 "$managed_pid" >/dev/null 2>&1; then
-        log "restarting managed backend process on ${DEBUG_BACKEND_PORT} (pid ${managed_pid})"
-    elif [[ -n "$existing_pid" ]]; then
-        log "restarting unmanaged backend process on ${DEBUG_BACKEND_PORT} (pid ${existing_pid})"
+    if [[ -n "$managedPid" ]] && kill -0 "$managedPid" >/dev/null 2>&1; then
+        Log "restarting managed backend process on ${DEBUG_BACKEND_PORT} (pid ${managedPid})"
+    elif [[ -n "$existingPid" ]]; then
+        Log "restarting unmanaged backend process on ${DEBUG_BACKEND_PORT} (pid ${existingPid})"
     fi
 
-    existing_pid="$(find_port_pid "$DEBUG_BACKEND_PORT")"
-    kill_runtime_pid_if_owned backend "$pid_file" "$existing_pid" "$readiness_deadline" || return 1
-    kill_runtime_pid_if_owned backend "$pid_file" "$managed_pid" "$readiness_deadline" || return 1
-    wait_for_port_release "$DEBUG_BACKEND_PORT" "$readiness_deadline" || return 1
+    existingPid="$(FindPortPid "$DEBUG_BACKEND_PORT")"
+    KillRuntimePidIfOwned backend "$pidFile" "$existingPid" "$readinessDeadline" || return 1
+    KillRuntimePidIfOwned backend "$pidFile" "$managedPid" "$readinessDeadline" || return 1
+    WaitForPortRelease "$DEBUG_BACKEND_PORT" "$readinessDeadline" || return 1
 
-    log "starting managed ${runtime_configuration,,} backend"
+    Log "starting managed ${runtimeConfiguration,,} backend"
     local -x Testing__EnforceProductionCsp=true
     local -x PublicAot__SsrClientRoot="$PUBLIC_AOT_SSR_CLIENT_ROOT"
-    assert_dedicated_runtime_port_available 'debug backend' "$DEBUG_BACKEND_PORT" || return 1
+    AssertDedicatedRuntimePortAvailable 'debug backend' "$DEBUG_BACKEND_PORT" || return 1
     FSUSBLOG_TEST_RUN_ID="${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}" \
         FSUSBLOG_TEST_NAMESPACE="$NS_SLUG" \
         FSUSBLOG_RUNTIME_ROLE=backend \
-        FSUSBLOG_RUNTIME_CONFIGURATION="$runtime_configuration" \
+        FSUSBLOG_RUNTIME_CONFIGURATION="$runtimeConfiguration" \
         FSUSBLOG_RUNTIME_NO_BUILD=1 \
         FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME="${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" \
         FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}" \
-        nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") FSUSBLOG_NOTIFICATION_DRILL_SECRET=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") NotificationStream__DrillSecret=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") Jwt__KeyVersion=$(printf '%q' "$JWT_KEY_VERSION") Jwt__SecretKey=$(printf '%q' "$JWT_SECRET") Jwt__Issuer=$(printf '%q' "$JWT_ISSUER") Jwt__Audience=$(printf '%q' "$JWT_AUDIENCE") Jwt__AccessTokenExpiresMinutes=$(printf '%q' "$JWT_ACCESS_TOKEN_EXPIRES_MINUTES") Security__Pow__SigningKey=$(printf '%q' "$POW_SIGNING_KEY") Security__Pow__BaseDifficulty=$(printf '%q' "$POW_BASE_DIFFICULTY") Security__Pow__MaxDifficulty=$(printf '%q' "$POW_MAX_DIFFICULTY") Security__CaptchaV1__SigningKey=$(printf '%q' "$CAPTCHA_SIGNING_KEY") Security__PerceptionSealedToken__CurrentKeyVersion=dev Security__PerceptionSealedToken__Keys__dev=$(printf '%q' "$PERCEPTION_SEALED_TOKEN_KEY") Security__RecoveryKeyPepper=$(printf '%q' "$RECOVERY_KEY_PEPPER") MfaChallenge__TicketSigningKey=$(printf '%q' "$MFA_TICKET_SIGNING_KEY") VisitLog__IpPseudonymization__CurrentEpoch=$(printf '%q' "$VISIT_LOG_IP_KEY_EPOCH") VisitLog__IpPseudonymization__CurrentKey=$(printf '%q' "$VISIT_LOG_IP_KEY") Moderation__Pepper=$(printf '%q' "$MODERATION_PEPPER") Moderation__RegionPolicy__IpHashKey=$(printf '%q' "$MODERATION_REGION_IP_HASH_KEY") Subscription__EmailHashPepper=$(printf '%q' "$SUBSCRIPTION_EMAIL_HASH_PEPPER") AnonymousCredentialIssuer__IssuerPublicKeyId=local-acceptance-issuer AnonymousCredentialIssuer__SubjectHashPepper=$(printf '%q' "$ANONYMOUS_SUBJECT_HASH_PEPPER") AnonymousCredentialRoot__AttestationKey=$(printf '%q' "$ANONYMOUS_ROOT_ATTESTATION_KEY") AnonymousCredentialRoot__AttestationKeyId=local-acceptance-root AnonymousIdentity__NullifierPepper=$(printf '%q' "$ANONYMOUS_NULLIFIER_PEPPER") FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$(printf '%q' "$ANONYMOUS_IDENTITY_MODE") Security__RiskControl__PublicReadChallenge__Enabled=$(printf '%q' "$RISK_PUBLIC_READ_CHALLENGE_ENABLED") RateLimiting__PublicReadPermitLimit=$(printf '%q' "$PUBLIC_READ_PERMIT_LIMIT") RateLimiting__PublicReadQueueLimit=$(printf '%q' "$PUBLIC_READ_QUEUE_LIMIT") NotificationStream__MaxConnectionsPerAccount=$(printf '%q' "$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT") PublicAot__BackfillConcurrency=$(printf '%q' "$PUBLIC_AOT_BACKFILL_CONCURRENCY") PublicAot__SsrWorkerCount=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_COUNT") PublicAot__SsrWorkerScript=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_SCRIPT") ActiveReleaseFence__AllowSyntheticLocalFence=true RuntimeTuning__ThreadPool__Enabled=true RuntimeTuning__ThreadPool__MinThreadsPerCpu=$(printf '%q' "$RUNTIME_THREADPOOL_MIN_THREADS_PER_CPU") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") AuthCookies__AllowInsecureTransportCookies=true && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile $runtime_args" >"$log_file" 2>&1 </dev/null &
-    local started_pid=$!
-    write_runtime_pid_file "$pid_file" "$started_pid"
-    if ! write_runtime_process_identity "$pid_file" "$started_pid" backend "$readiness_deadline"; then
-        kill_pid_if_running "$started_pid" "$readiness_deadline"
-        rm -f "$pid_file" "$(runtime_identity_file "$pid_file")"
+        nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") FSUSBLOG_NOTIFICATION_DRILL_SECRET=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") NotificationStream__DrillSecret=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") Jwt__KeyVersion=$(printf '%q' "$JWT_KEY_VERSION") Jwt__SecretKey=$(printf '%q' "$JWT_SECRET") Jwt__Issuer=$(printf '%q' "$JWT_ISSUER") Jwt__Audience=$(printf '%q' "$JWT_AUDIENCE") Jwt__AccessTokenExpiresMinutes=$(printf '%q' "$JWT_ACCESS_TOKEN_EXPIRES_MINUTES") Security__Pow__SigningKey=$(printf '%q' "$POW_SIGNING_KEY") Security__Pow__BaseDifficulty=$(printf '%q' "$POW_BASE_DIFFICULTY") Security__Pow__MaxDifficulty=$(printf '%q' "$POW_MAX_DIFFICULTY") Security__CaptchaV1__SigningKey=$(printf '%q' "$CAPTCHA_SIGNING_KEY") Security__PerceptionSealedToken__CurrentKeyVersion=dev Security__PerceptionSealedToken__Keys__dev=$(printf '%q' "$PERCEPTION_SEALED_TOKEN_KEY") Security__RecoveryKeyPepper=$(printf '%q' "$RECOVERY_KEY_PEPPER") MfaChallenge__TicketSigningKey=$(printf '%q' "$MFA_TICKET_SIGNING_KEY") VisitLog__IpPseudonymization__CurrentEpoch=$(printf '%q' "$VISIT_LOG_IP_KEY_EPOCH") VisitLog__IpPseudonymization__CurrentKey=$(printf '%q' "$VISIT_LOG_IP_KEY") Moderation__Pepper=$(printf '%q' "$MODERATION_PEPPER") Moderation__RegionPolicy__IpHashKey=$(printf '%q' "$MODERATION_REGION_IP_HASH_KEY") Subscription__EmailHashPepper=$(printf '%q' "$SUBSCRIPTION_EMAIL_HASH_PEPPER") AnonymousCredentialIssuer__IssuerPublicKeyId=local-acceptance-issuer AnonymousCredentialIssuer__SubjectHashPepper=$(printf '%q' "$ANONYMOUS_SUBJECT_HASH_PEPPER") AnonymousCredentialRoot__AttestationKey=$(printf '%q' "$ANONYMOUS_ROOT_ATTESTATION_KEY") AnonymousCredentialRoot__AttestationKeyId=local-acceptance-root AnonymousIdentity__NullifierPepper=$(printf '%q' "$ANONYMOUS_NULLIFIER_PEPPER") FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$(printf '%q' "$ANONYMOUS_IDENTITY_MODE") Security__RiskControl__PublicReadChallenge__Enabled=$(printf '%q' "$RISK_PUBLIC_READ_CHALLENGE_ENABLED") RateLimiting__PublicReadPermitLimit=$(printf '%q' "$PUBLIC_READ_PERMIT_LIMIT") RateLimiting__PublicReadQueueLimit=$(printf '%q' "$PUBLIC_READ_QUEUE_LIMIT") NotificationStream__MaxConnectionsPerAccount=$(printf '%q' "$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT") PublicAot__BackfillConcurrency=$(printf '%q' "$PUBLIC_AOT_BACKFILL_CONCURRENCY") PublicAot__SsrWorkerCount=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_COUNT") PublicAot__SsrWorkerScript=$(printf '%q' "$PUBLIC_AOT_SSR_WORKER_SCRIPT") ActiveReleaseFence__AllowSyntheticLocalFence=true RuntimeTuning__ThreadPool__Enabled=true RuntimeTuning__ThreadPool__MinThreadsPerCpu=$(printf '%q' "$RUNTIME_THREADPOOL_MIN_THREADS_PER_CPU") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") AuthCookies__AllowInsecureTransportCookies=true && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile $runtimeArgs" >"$logFile" 2>&1 </dev/null &
+    local startedPid=$!
+    WriteRuntimePidFile "$pidFile" "$startedPid"
+    if ! WriteRuntimeProcessIdentity "$pidFile" "$startedPid" backend "$readinessDeadline"; then
+        KillPidIfRunning "$startedPid" "$readinessDeadline"
+        rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         return 1
     fi
 
-    if ! wait_for_managed_binary_url 'debug backend' "$DEBUG_BACKEND_URL/api/binary/system/seo" "$readiness_deadline" "$started_pid" "$log_file"; then
-        if kill_runtime_pid_if_owned backend "$pid_file" "$started_pid" "$readiness_deadline"; then
-            rm -f "$pid_file" "$(runtime_identity_file "$pid_file")"
+    if ! WaitForManagedBinaryUrl 'debug backend' "$DEBUG_BACKEND_URL/api/binary/system/seo" "$readinessDeadline" "$startedPid" "$logFile"; then
+        if KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline"; then
+            rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         fi
         return 1
     fi
-    if ! wait_for_managed_binary_url 'pow challenge' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" "$readiness_deadline" "$started_pid" "$log_file"; then
-        if kill_runtime_pid_if_owned backend "$pid_file" "$started_pid" "$readiness_deadline"; then
-            rm -f "$pid_file" "$(runtime_identity_file "$pid_file")"
+    if ! WaitForManagedBinaryUrl 'pow challenge' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" "$readinessDeadline" "$startedPid" "$logFile"; then
+        if KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline"; then
+            rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         fi
         return 1
     fi
-    if ! admit_dedicated_runtime_port backend 'debug backend' "$pid_file" "$DEBUG_BACKEND_PORT" 1; then
-        if kill_runtime_pid_if_owned backend "$pid_file" "$started_pid" "$readiness_deadline"; then
-            rm -f "$pid_file" "$(runtime_identity_file "$pid_file")"
+    if ! AdmitDedicatedRuntimePort backend 'debug backend' "$pidFile" "$DEBUG_BACKEND_PORT" 1; then
+        if KillRuntimePidIfOwned backend "$pidFile" "$startedPid" "$readinessDeadline"; then
+            rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         fi
         return 1
     fi
-    printf '%s\n' "$next_fingerprint" >"$fingerprint_file"
+    printf '%s\n' "$nextFingerprint" >"$fingerprintFile"
 }
 
-start_background_if_needed() {
+StartBackgroundIfNeeded() {
     local label="$1"
     local url="$2"
     local port="$3"
-    local pid_file="$4"
-    local log_file="$5"
-    local readiness_deadline="$6"
+    local pidFile="$4"
+    local logFile="$5"
+    local readinessDeadline="$6"
     shift 6
     local -a cmd=("$@")
-    local escaped_cmd=""
-    local escaped_client_dir=""
+    local escapedCmd=""
+    local escapedClientDir=""
     local role
     local reachable=0
 
-    role="$(runtime_process_role "$pid_file")" || return 2
+    role="$(RuntimeProcessRole "$pidFile")" || return 2
 
-    printf -v escaped_cmd '%q ' "${cmd[@]}"
-    printf -v escaped_client_dir '%q' "$CLIENT_DIR"
+    printf -v escapedCmd '%q ' "${cmd[@]}"
+    printf -v escapedClientDir '%q' "$CLIENT_DIR"
 
-    if probe_url "$url"; then
+    if ProbeUrl "$url"; then
         reachable=1
     fi
-    admit_dedicated_runtime_port "$role" "$label" "$pid_file" "$port" "$reachable" || return 1
+    AdmitDedicatedRuntimePort "$role" "$label" "$pidFile" "$port" "$reachable" || return 1
     if [[ "$reachable" == "1" ]]; then
-        log "$label already reachable"
+        Log "$label already reachable"
         return
     fi
 
-    if [[ -f "$pid_file" ]]; then
+    if [[ -f "$pidFile" ]]; then
         local pid
-        pid="$(cat "$pid_file" 2>/dev/null || true)"
+        pid="$(cat "$pidFile" 2>/dev/null || true)"
         if [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1; then
-            log "$label process already running with pid $pid"
-            if ! wait_for_url "$label" "$url" "$readiness_deadline"; then
+            Log "$label process already running with pid $pid"
+            if ! WaitForUrl "$label" "$url" "$readinessDeadline"; then
                 return 1
             fi
-            admit_dedicated_runtime_port "$role" "$label" "$pid_file" "$port" 1
+            AdmitDedicatedRuntimePort "$role" "$label" "$pidFile" "$port" 1
             return
         fi
     fi
 
-    assert_dedicated_runtime_port_available "$label" "$port" || return 1
-    log "starting $label"
+    AssertDedicatedRuntimePortAvailable "$label" "$port" || return 1
+    Log "starting $label"
     FSUSBLOG_TEST_RUN_ID="${FSUSBLOG_TEST_RUN_ID:-direct-$NS_SLUG}" \
         FSUSBLOG_TEST_NAMESPACE="$NS_SLUG" \
         FSUSBLOG_RUNTIME_ROLE="$role" \
         FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME="${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" \
         FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID="${FSUSBLOG_BROWSER_CONTRACT_PREPARATION_ID:-}" \
-        nohup setsid bash -lc "cd ${escaped_client_dir} && exec ${escaped_cmd}" >"$log_file" 2>&1 </dev/null &
-    local started_pid=$!
-    write_runtime_pid_file "$pid_file" "$started_pid"
-    if ! write_runtime_process_identity "$pid_file" "$started_pid" "$role" "$readiness_deadline"; then
-        kill_pid_if_running "$started_pid" "$readiness_deadline"
-        rm -f "$pid_file" "$(runtime_identity_file "$pid_file")"
+        nohup setsid bash -lc "cd ${escapedClientDir} && exec ${escapedCmd}" >"$logFile" 2>&1 </dev/null &
+    local startedPid=$!
+    WriteRuntimePidFile "$pidFile" "$startedPid"
+    if ! WriteRuntimeProcessIdentity "$pidFile" "$startedPid" "$role" "$readinessDeadline"; then
+        KillPidIfRunning "$startedPid" "$readinessDeadline"
+        rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
         return 1
     fi
 
-    while (($(date +%s%3N) < readiness_deadline)); do
-        if probe_url "$url"; then
-            if admit_dedicated_runtime_port "$role" "$label" "$pid_file" "$port" 1; then
+    while (($(date +%s%3N) < readinessDeadline)); do
+        if ProbeUrl "$url"; then
+            if AdmitDedicatedRuntimePort "$role" "$label" "$pidFile" "$port" 1; then
                 return 0
             fi
-            if kill_runtime_pid_if_owned "$role" "$pid_file" "$started_pid" "$readiness_deadline"; then
-                rm -f "$pid_file" "$(runtime_identity_file "$pid_file")"
+            if KillRuntimePidIfOwned "$role" "$pidFile" "$startedPid" "$readinessDeadline"; then
+                rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
             fi
             return 1
         fi
-        if ! kill -0 "$started_pid" >/dev/null 2>&1; then
-            log "$label process exited before becoming ready at $url"
-            tail -20 "$log_file" >&2 || true
-            rm -f "$pid_file" "$(runtime_identity_file "$pid_file")"
+        if ! kill -0 "$startedPid" >/dev/null 2>&1; then
+            Log "$label process exited before becoming ready at $url"
+            tail -20 "$logFile" >&2 || true
+            rm -f "$pidFile" "$(RuntimeIdentityFile "$pidFile")"
             return 1
         fi
         sleep 1
     done
 
-    log "$label did not become ready at $url"
+    Log "$label did not become ready at $url"
     return 1
 }
 
-ensure_debug_frontend() {
-    local pid_file="$TMP_DIR/dev-server.pid"
-    local managed_pid
-    local existing_pid
-    local debug_reachable=0
-    local readiness_deadline="${1:-}"
-    if [[ -z "$readiness_deadline" ]]; then
-        allocate_readiness_deadline 'debug frontend'
-        readiness_deadline="$READINESS_DEADLINE_AT_MS"
+EnsureDebugFrontend() {
+    local pidFile="$TMP_DIR/dev-server.pid"
+    local managedPid
+    local existingPid
+    local debugReachable=0
+    local readinessDeadline="${1:-}"
+    if [[ -z "$readinessDeadline" ]]; then
+        AllocateReadinessDeadline 'debug frontend'
+        readinessDeadline="$READINESS_DEADLINE_AT_MS"
     fi
-    managed_pid="$(read_pid_file "$pid_file")"
-    existing_pid="$(find_port_pid "$DEBUG_FRONTEND_PORT")"
-    if probe_url "$DEBUG_FRONTEND_URL/"; then
-        debug_reachable=1
+    managedPid="$(ReadPidFile "$pidFile")"
+    existingPid="$(FindPortPid "$DEBUG_FRONTEND_PORT")"
+    if ProbeUrl "$DEBUG_FRONTEND_URL/"; then
+        debugReachable=1
     fi
-    admit_dedicated_runtime_port \
-        debug-frontend 'debug frontend' "$pid_file" "$DEBUG_FRONTEND_PORT" "$debug_reachable" || return 1
-    if can_reuse_processes && [[ "$debug_reachable" == "1" ]]; then
-        log 'debug frontend already healthy; reusing existing process'
+    AdmitDedicatedRuntimePort \
+        debug-frontend 'debug frontend' "$pidFile" "$DEBUG_FRONTEND_PORT" "$debugReachable" || return 1
+    if CanReuseProcesses && [[ "$debugReachable" == "1" ]]; then
+        Log 'debug frontend already healthy; reusing existing process'
         return
     fi
 
-    existing_pid="$(find_port_pid "$DEBUG_FRONTEND_PORT")"
-    kill_runtime_pid_if_owned debug-frontend "$pid_file" "$existing_pid" "$readiness_deadline" || return 1
-    kill_runtime_pid_if_owned debug-frontend "$pid_file" "$managed_pid" "$readiness_deadline" || return 1
-    wait_for_port_release "$DEBUG_FRONTEND_PORT" "$readiness_deadline" || return 1
+    existingPid="$(FindPortPid "$DEBUG_FRONTEND_PORT")"
+    KillRuntimePidIfOwned debug-frontend "$pidFile" "$existingPid" "$readinessDeadline" || return 1
+    KillRuntimePidIfOwned debug-frontend "$pidFile" "$managedPid" "$readinessDeadline" || return 1
+    WaitForPortRelease "$DEBUG_FRONTEND_PORT" "$readinessDeadline" || return 1
     if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
-        start_background_if_needed \
+        StartBackgroundIfNeeded \
             'debug frontend from immutable production dist' \
             "$DEBUG_FRONTEND_URL/" \
             "$DEBUG_FRONTEND_PORT" \
-            "$pid_file" \
+            "$pidFile" \
             "$TMP_DIR/dev-server.log" \
-            "$readiness_deadline" \
+            "$readinessDeadline" \
             env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite preview --host 127.0.0.1 --port "$DEBUG_FRONTEND_PORT" --strictPort
     else
-        start_background_if_needed \
+        StartBackgroundIfNeeded \
             'debug frontend' \
             "$DEBUG_FRONTEND_URL/" \
             "$DEBUG_FRONTEND_PORT" \
-            "$pid_file" \
+            "$pidFile" \
             "$TMP_DIR/dev-server.log" \
-            "$readiness_deadline" \
+            "$readinessDeadline" \
             env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite --host 127.0.0.1 --port "$DEBUG_FRONTEND_PORT" --strictPort
     fi
 }
 
-ensure_release_preview() {
-    local pid_file="$TMP_DIR/preview.pid"
-    local fingerprint_file="$TMP_DIR/release-inputs.sha"
-    local managed_pid
-    local existing_pid
-    local next_fingerprint
-    local current_fingerprint=""
-    local run_bound_build="false"
-    local release_reachable=0
-    local readiness_deadline="${1:-}"
-    if [[ -z "$readiness_deadline" ]]; then
-        allocate_readiness_deadline 'release preview'
-        readiness_deadline="$READINESS_DEADLINE_AT_MS"
+EnsureReleasePreview() {
+    local pidFile="$TMP_DIR/preview.pid"
+    local fingerprintFile="$TMP_DIR/release-inputs.sha"
+    local managedPid
+    local existingPid
+    local nextFingerprint
+    local currentFingerprint=""
+    local runBoundBuild="false"
+    local releaseReachable=0
+    local readinessDeadline="${1:-}"
+    if [[ -z "$readinessDeadline" ]]; then
+        AllocateReadinessDeadline 'release preview'
+        readinessDeadline="$READINESS_DEADLINE_AT_MS"
     fi
-    managed_pid="$(read_pid_file "$pid_file")"
-    existing_pid="$(find_port_pid "$RELEASE_PREVIEW_PORT")"
-    if probe_url "$RELEASE_PREVIEW_URL/"; then
-        release_reachable=1
+    managedPid="$(ReadPidFile "$pidFile")"
+    existingPid="$(FindPortPid "$RELEASE_PREVIEW_PORT")"
+    if ProbeUrl "$RELEASE_PREVIEW_URL/"; then
+        releaseReachable=1
     fi
-    admit_dedicated_runtime_port \
-        release-preview 'release preview' "$pid_file" "$RELEASE_PREVIEW_PORT" "$release_reachable" || return 1
+    AdmitDedicatedRuntimePort \
+        release-preview 'release preview' "$pidFile" "$RELEASE_PREVIEW_PORT" "$releaseReachable" || return 1
 
     if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
-        run_bound_build="true"
-        log 'using receipt-verified CI frontend dist; local production readiness marker is not required'
+        runBoundBuild="true"
+        Log 'using receipt-verified CI frontend dist; local production readiness marker is not required'
     elif [[ -n "${FSUSBLOG_TEST_RUN_ID:-}" &&
         -f "$ROOT_DIR/.tmp/test-runs/$FSUSBLOG_TEST_RUN_ID/frontend-build-ready.json" ]]; then
         FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
             FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
             "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ux/release-preview-readiness.mjs" validate-build
-        run_bound_build="true"
+        runBoundBuild="true"
         rm -f "$ROOT_DIR/.tmp/test-runs/$FSUSBLOG_TEST_RUN_ID/release-preview-ready.json"
     fi
 
-    next_fingerprint="$(hash_release_inputs)"
-    if [[ -f "$fingerprint_file" ]]; then
-        current_fingerprint="$(cat "$fingerprint_file" 2>/dev/null || true)"
+    nextFingerprint="$(HashReleaseInputs)"
+    if [[ -f "$fingerprintFile" ]]; then
+        currentFingerprint="$(cat "$fingerprintFile" 2>/dev/null || true)"
     fi
 
-    if can_reuse_processes &&
-        [[ "$current_fingerprint" == "$next_fingerprint" ]] &&
+    if CanReuseProcesses &&
+        [[ "$currentFingerprint" == "$nextFingerprint" ]] &&
         [[ -f "$CLIENT_DIR/dist/index.html" ]] &&
         [[ -f "$SERVER_WWWROOT_DIR/index.html" ]] &&
-        [[ "$release_reachable" == "1" ]]; then
-        log 'release preview already healthy with matching fingerprint; reusing existing process'
-        if [[ "$run_bound_build" == "true" && -z "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
-            wait_for_binary_url 'release preview namespace API' "$RELEASE_PREVIEW_URL/api/binary/system/seo" "$readiness_deadline"
+        [[ "$releaseReachable" == "1" ]]; then
+        Log 'release preview already healthy with matching fingerprint; reusing existing process'
+        if [[ "$runBoundBuild" == "true" && -z "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
+            WaitForBinaryUrl 'release preview namespace API' "$RELEASE_PREVIEW_URL/api/binary/system/seo" "$readinessDeadline"
             FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
                 FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
                 FSUSBLOG_TEST_NAMESPACE="$FSUSBLOG_TEST_NAMESPACE" \
@@ -1764,48 +1764,48 @@ ensure_release_preview() {
         return
     fi
 
-    if [[ "$run_bound_build" == "true" ]]; then
+    if [[ "$runBoundBuild" == "true" ]]; then
         if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
-            log 'reusing receipt-verified immutable CI frontend release bundle'
+            Log 'reusing receipt-verified immutable CI frontend release bundle'
         else
-            log 'reusing digest-verified frontend release bundle produced by this build-static scheduler run'
+            Log 'reusing digest-verified frontend release bundle produced by this build-static scheduler run'
         fi
     else
-        log 'building release preview bundle through the shared frontend run-once key'
+        Log 'building release preview bundle through the shared frontend run-once key'
         (
             export VITE_API_BASE_URL="$DEBUG_BACKEND_URL"
             export FSUSBLOG_TEST_NAMESPACE
             source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
-            ensure_wasm_once
-            run_frontend_fast_build_group
+            EnsureWasmOnce
+            RunFrontendFastBuildGroup
         )
     fi
-    printf '%s\n' "$next_fingerprint" >"$fingerprint_file"
+    printf '%s\n' "$nextFingerprint" >"$fingerprintFile"
 
-    release_reachable=0
-    if probe_url "$RELEASE_PREVIEW_URL/"; then
-        release_reachable=1
+    releaseReachable=0
+    if ProbeUrl "$RELEASE_PREVIEW_URL/"; then
+        releaseReachable=1
     fi
-    admit_dedicated_runtime_port \
-        release-preview 'release preview' "$pid_file" "$RELEASE_PREVIEW_PORT" "$release_reachable" || return 1
-    managed_pid="$(read_pid_file "$pid_file")"
-    existing_pid="$(find_port_pid "$RELEASE_PREVIEW_PORT")"
-    kill_runtime_pid_if_owned release-preview "$pid_file" "$existing_pid" "$readiness_deadline" || return 1
-    kill_runtime_pid_if_owned release-preview "$pid_file" "$managed_pid" "$readiness_deadline" || return 1
-    wait_for_port_release "$RELEASE_PREVIEW_PORT" "$readiness_deadline" || return 1
+    AdmitDedicatedRuntimePort \
+        release-preview 'release preview' "$pidFile" "$RELEASE_PREVIEW_PORT" "$releaseReachable" || return 1
+    managedPid="$(ReadPidFile "$pidFile")"
+    existingPid="$(FindPortPid "$RELEASE_PREVIEW_PORT")"
+    KillRuntimePidIfOwned release-preview "$pidFile" "$existingPid" "$readinessDeadline" || return 1
+    KillRuntimePidIfOwned release-preview "$pidFile" "$managedPid" "$readinessDeadline" || return 1
+    WaitForPortRelease "$RELEASE_PREVIEW_PORT" "$readinessDeadline" || return 1
 
-    start_background_if_needed \
+    StartBackgroundIfNeeded \
         'release preview' \
         "$RELEASE_PREVIEW_URL/" \
         "$RELEASE_PREVIEW_PORT" \
-        "$pid_file" \
+        "$pidFile" \
         "$TMP_DIR/preview.log" \
-        "$readiness_deadline" \
+        "$readinessDeadline" \
         env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" VITE_PUBLIC_SHELL_PROXY=1 \
         npm exec -- vite preview --host 127.0.0.1 --port "$RELEASE_PREVIEW_PORT" --strictPort
 
-    if [[ "$run_bound_build" == "true" && -z "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
-        wait_for_binary_url 'release preview namespace API' "$RELEASE_PREVIEW_URL/api/binary/system/seo" "$readiness_deadline"
+    if [[ "$runBoundBuild" == "true" && -z "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
+        WaitForBinaryUrl 'release preview namespace API' "$RELEASE_PREVIEW_URL/api/binary/system/seo" "$readinessDeadline"
         FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
             FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
             FSUSBLOG_TEST_NAMESPACE="$FSUSBLOG_TEST_NAMESPACE" \
@@ -1815,15 +1815,15 @@ ensure_release_preview() {
     fi
 }
 
-refresh_acceptance_cache_after_fixtures() {
+RefreshAcceptanceCacheAfterFixtures() {
     if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
         docker exec "$REDIS_CONTAINER" redis-cli FLUSHDB >/dev/null
-        log 'refreshed acceptance redis cache after fixture seeding'
+        Log 'refreshed acceptance redis cache after fixture seeding'
     fi
 }
 
-prepare_fixtures() {
-    log 'preparing auth users and playwright fixtures'
+PrepareFixtures() {
+    Log 'preparing auth users and playwright fixtures'
     (
         export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
         export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
@@ -1845,87 +1845,87 @@ prepare_fixtures() {
         # run-once keys, output contracts and database rows. Seed them together
         # after backend readiness, then flush Redis only after both writes settle.
         if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" == "1" ]]; then
-            prepare_auth_fixtures_once
-            prepare_public_fixtures_once
+            PrepareAuthFixturesOnce
+            PreparePublicFixturesOnce
         else
             local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
             local -x FSUSBLOG_PARALLEL_WORKLOAD=scheduler-admitted
-            run_parallel "bootstrap-runtime-fixtures" \
-                "auth-fixtures::prepare_auth_fixtures_once" \
-                "public-fixtures::prepare_public_fixtures_once"
+            RunParallel "bootstrap-runtime-fixtures" \
+                "auth-fixtures::PrepareAuthFixturesOnce" \
+                "public-fixtures::PreparePublicFixturesOnce"
         fi
-        refresh_acceptance_cache_after_fixtures
+        RefreshAcceptanceCacheAfterFixtures
     )
 }
 
-current_pow_difficulty() {
+CurrentPowDifficulty() {
     (
         cd "$ROOT_DIR"
         FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" "${FSUSBLOG_NODE:-node}" --input-type=module -e "import { fetchChallenge } from './tests/frontend/support/auth-helpers.mjs'; const challenge = await fetchChallenge(5000); console.log(challenge.difficulty ?? challenge.Difficulty ?? 999);"
     )
 }
 
-wait_for_pow_ready() {
-    local max_difficulty="$POW_READY_MAX_DIFFICULTY"
+WaitForPowReady() {
+    local maxDifficulty="$POW_READY_MAX_DIFFICULTY"
     local difficulty=""
 
     while (($(date +%s%3N) < EXECUTION_DEADLINE_AT_MS)); do
-        difficulty="$(current_pow_difficulty 2>/dev/null || true)"
-        if [[ "$difficulty" =~ ^[0-9]+$ ]] && ((difficulty <= max_difficulty)); then
-            log "pow difficulty ready: ${difficulty}"
+        difficulty="$(CurrentPowDifficulty 2>/dev/null || true)"
+        if [[ "$difficulty" =~ ^[0-9]+$ ]] && ((difficulty <= maxDifficulty)); then
+            Log "pow difficulty ready: ${difficulty}"
             return 0
         fi
 
         sleep 1
     done
 
-    log "pow difficulty did not settle below ${max_difficulty}; last=${difficulty:-unknown}"
+    Log "pow difficulty did not settle below ${maxDifficulty}; last=${difficulty:-unknown}"
     return 1
 }
 
-main() {
+Main() {
     if [[ "${1:-}" == "--prepare-env-only" ]]; then
         printf '[acceptance:bootstrap] prepared namespace environment: %s\n' "$ENV_FILE"
         return
     fi
     command -v docker >/dev/null 2>&1 || {
-        log 'docker is required'
+        Log 'docker is required'
         exit 1
     }
     if [[ "${1:-}" == "--services-only" ]]; then
         READINESS_PHASES_REMAINING=1
     else
         READINESS_PHASES_REMAINING=2
-        configure_managed_backend_runtime_reader
+        ConfigureManagedBackendRuntimeReader
     fi
     mkdir -p "$SERVER_WWWROOT_DIR"
-    allocate_readiness_deadline 'database services'
+    AllocateReadinessDeadline 'database services'
     if [[ "${1:-}" == "--services-only" ]]; then
-        run_bootstrap_parallel 'database services' "$READINESS_DEADLINE_AT_MS" \
-            postgres ensure_postgres \
-            redis ensure_redis
+        RunBootstrapParallel 'database services' "$READINESS_DEADLINE_AT_MS" \
+            postgres EnsurePostgres \
+            redis EnsureRedis
     else
-        run_bootstrap_parallel 'database services and backend producer' "$READINESS_DEADLINE_AT_MS" \
-            postgres ensure_postgres \
-            redis ensure_redis \
-            backend-debug-build ensure_managed_backend_shared_debug_build
+        RunBootstrapParallel 'database services and backend producer' "$READINESS_DEADLINE_AT_MS" \
+            postgres EnsurePostgres \
+            redis EnsureRedis \
+            backend-debug-build EnsureManagedBackendSharedDebugBuild
     fi
-    refresh_fixture_service_generation
+    RefreshFixtureServiceGeneration
     if [[ "${1:-}" == "--services-only" ]]; then
-        log 'postgres and redis ready'
+        Log 'postgres and redis ready'
         return
     fi
-    reset_security_test_state
-    allocate_readiness_deadline 'runtime applications'
-    local -a runtime_applications=(debug-backend ensure_backend)
-    if ci_production_has_domain frontend-dist; then
-        runtime_applications+=(release-preview ensure_release_preview debug-frontend ensure_debug_frontend)
+    ResetSecurityTestState
+    AllocateReadinessDeadline 'runtime applications'
+    local -a runtimeApplications=(debug-backend EnsureBackend)
+    if CiProductionHasDomain frontend-dist; then
+        runtimeApplications+=(release-preview EnsureReleasePreview debug-frontend EnsureDebugFrontend)
     fi
-    run_bootstrap_parallel 'runtime applications' "$READINESS_DEADLINE_AT_MS" "${runtime_applications[@]}"
-    wait_for_pow_ready
-    prepare_fixtures
-    if ci_production_has_domain frontend-dist; then
-        wait_for_url \
+    RunBootstrapParallel 'runtime applications' "$READINESS_DEADLINE_AT_MS" "${runtimeApplications[@]}"
+    WaitForPowReady
+    PrepareFixtures
+    if CiProductionHasDomain frontend-dist; then
+        WaitForUrl \
             'release preview public home after fixture seeding' \
             "$RELEASE_PREVIEW_URL/" \
             "$EXECUTION_DEADLINE_AT_MS"
@@ -1939,21 +1939,21 @@ main() {
         --arg redis "$REDIS_CONTAINER" \
         '{namespace: $namespace, backendUrl: $backend, frontendUrl: $frontend, previewUrl: $preview, containers: {postgres: $postgres, redis: $redis}, generatedAt: now | todate}' \
         >"$FIXTURE_DIR/manifest.json"
-    wait_for_binary_url 'seo probe' "$DEBUG_BACKEND_URL/api/binary/system/seo" "$EXECUTION_DEADLINE_AT_MS"
-    wait_for_binary_url 'pow challenge probe' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" "$EXECUTION_DEADLINE_AT_MS"
+    WaitForBinaryUrl 'seo probe' "$DEBUG_BACKEND_URL/api/binary/system/seo" "$EXECUTION_DEADLINE_AT_MS"
+    WaitForBinaryUrl 'pow challenge probe' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" "$EXECUTION_DEADLINE_AT_MS"
     if [[ "${FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME:-0}" != "1" &&
         -n "${FSUSBLOG_TEST_RUN_ID:-}" &&
         -n "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" ]]; then
-        FSUSBLOG_RESIDENT_BACKEND_PID="$(find_port_pid "$DEBUG_BACKEND_PORT")" \
-        FSUSBLOG_RESIDENT_FRONTEND_PID="$(find_port_pid "$DEBUG_FRONTEND_PORT")" \
-        FSUSBLOG_RESIDENT_PREVIEW_PID="$(find_port_pid "$RELEASE_PREVIEW_PORT")" \
+        FSUSBLOG_RESIDENT_BACKEND_PID="$(FindPortPid "$DEBUG_BACKEND_PORT")" \
+        FSUSBLOG_RESIDENT_FRONTEND_PID="$(FindPortPid "$DEBUG_FRONTEND_PORT")" \
+        FSUSBLOG_RESIDENT_PREVIEW_PID="$(FindPortPid "$RELEASE_PREVIEW_PORT")" \
         FSUSBLOG_POSTGRES_CONTAINER_NAME="$POSTGRES_CONTAINER" \
         FSUSBLOG_REDIS_CONTAINER_NAME="$REDIS_CONTAINER" \
             "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-matrix/resident-resource-leases-cli.mjs" publish
     fi
-    log 'acceptance environment ready'
+    Log 'acceptance environment ready'
 }
 
 if [[ "${FSUSBLOG_BOOTSTRAP_SOURCE_ONLY:-0}" != "1" ]]; then
-    main "$@"
+    Main "$@"
 fi

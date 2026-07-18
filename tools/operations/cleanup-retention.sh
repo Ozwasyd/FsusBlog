@@ -30,7 +30,7 @@ asset_deleted=0
 asset_protected=0
 asset_reference_mode="not_configured"
 
-normalize_asset_reference() {
+NormalizeAssetReference() {
     local value="$1"
     [[ -n "$value" ]] || return 0
     value="${value%%[?#]*}"
@@ -46,7 +46,7 @@ normalize_asset_reference() {
     printf '%s\n' "$value"
 }
 
-load_referenced_assets() {
+LoadReferencedAssets() {
     if [[ -z "$REFERENCED_ASSETS_FILE" ]]; then
         return
     fi
@@ -69,28 +69,28 @@ load_referenced_assets() {
         empty
       end
     ' "$REFERENCED_ASSETS_FILE" | while IFS= read -r value; do
-            normalize_asset_reference "$value"
+            NormalizeAssetReference "$value"
         done | sort -u >"$REFERENCES_TMP"
     else
         while IFS= read -r value; do
-            normalize_asset_reference "$value"
+            NormalizeAssetReference "$value"
         done <"$REFERENCED_ASSETS_FILE" | sort -u >"$REFERENCES_TMP"
     fi
 }
 
-is_referenced_asset() {
-    local file_path="$1"
-    local relative_url
-    if [[ "$file_path" == "$WEBROOT_DIR/"* ]]; then
-        relative_url="/${file_path#"$WEBROOT_DIR"/}"
+IsReferencedAsset() {
+    local filePath="$1"
+    local relativeUrl
+    if [[ "$filePath" == "$WEBROOT_DIR/"* ]]; then
+        relativeUrl="/${filePath#"$WEBROOT_DIR"/}"
     else
-        relative_url="/uploads/illustration/${file_path##*/}"
+        relativeUrl="/uploads/illustration/${filePath##*/}"
     fi
-    relative_url="${relative_url//\/\//\/}"
-    grep -Fxq "$relative_url" "$REFERENCES_TMP" || grep -Fxq "$file_path" "$REFERENCES_TMP"
+    relativeUrl="${relativeUrl//\/\//\/}"
+    grep -Fxq "$relativeUrl" "$REFERENCES_TMP" || grep -Fxq "$filePath" "$REFERENCES_TMP"
 }
 
-load_referenced_assets
+LoadReferencedAssets
 
 for dir in "${!days[@]}"; do
     [[ -d "$dir" ]] || continue
@@ -118,7 +118,7 @@ if [[ "$SCAN_UPLOAD_ASSETS" == "1" ]]; then
     ((scanned += 1))
     while IFS= read -r asset_path; do
         ((asset_candidates += 1))
-        if is_referenced_asset "$asset_path"; then
+        if IsReferencedAsset "$asset_path"; then
             ((asset_protected += 1))
             continue
         fi

@@ -15,7 +15,7 @@ failures=()
 notes=()
 evidence_rows=()
 
-target_for_host() {
+TargetForHost() {
     local host="$1"
     if [[ -z "${FSUSBLOG_LIVE_TARGETS:-}" ]]; then
         printf '%s\n' "$host"
@@ -32,7 +32,7 @@ target_for_host() {
     done | head -n 1
 }
 
-record_result() {
+RecordResult() {
     local host="$1"
     local target="$2"
     local check="$3"
@@ -41,17 +41,17 @@ record_result() {
     evidence_rows+=("$host"$'\t'"$target"$'\t'"$check"$'\t'"$status"$'\t'"$detail")
 }
 
-resolve_host() {
+ResolveHost() {
     local host="$1"
     getent ahosts "$host" 2>/dev/null | awk '{print $1}' | sort -u | paste -sd ',' - || true
 }
 
-probe_public_dns() {
+ProbePublicDns() {
     local host="$1"
     local target="$2"
 
     if ! command -v dig >/dev/null 2>&1; then
-        record_result "$host" "$target" dns/public skipped "dig is not installed"
+        RecordResult "$host" "$target" dns/public skipped "dig is not installed"
         return
     fi
 
@@ -63,58 +63,58 @@ probe_public_dns() {
             answers="$(awk 'BEGIN { ORS=";" } /^[^;]/ && NF >= 5 { print $0 }' <<<"$output")"
             answers="${answers%;}"
             if [[ -n "$answers" ]]; then
-                record_result "$host" "$target" "dns/$resolver/$rrtype" ok "$answers"
+                RecordResult "$host" "$target" "dns/$resolver/$rrtype" ok "$answers"
             else
-                record_result "$host" "$target" "dns/$resolver/$rrtype" failed "status=${status:-unknown}; no answer"
+                RecordResult "$host" "$target" "dns/$resolver/$rrtype" failed "status=${status:-unknown}; no answer"
             fi
         done
     done
 }
 
-tcp_probe() {
+TcpProbe() {
     local target="$1"
     local port="$2"
     timeout "$CONNECT_TIMEOUT" bash -c "</dev/tcp/$target/$port" >/dev/null 2>&1
 }
 
-check_https() {
+CheckHttps() {
     local host="$1"
     local target="$2"
     local headers
-    local -a curl_args=(
+    local -a curlArgs=(
         -I
         --connect-timeout "$CONNECT_TIMEOUT"
         --max-time "$((CONNECT_TIMEOUT * 2))"
         -sS
     )
     if [[ "$target" != "$host" ]]; then
-        curl_args+=(--connect-to "$host:443:$target:443")
+        curlArgs+=(--connect-to "$host:443:$target:443")
     fi
 
-    if ! headers="$(curl "${curl_args[@]}" "https://$host/" 2>&1)"; then
+    if ! headers="$(curl "${curlArgs[@]}" "https://$host/" 2>&1)"; then
         failures+=("$host: HTTPS request failed: $headers")
-        record_result "$host" "$target" https failed "$headers"
+        RecordResult "$host" "$target" https failed "$headers"
         return
     fi
 
     if ! grep -Eqi '^HTTP/[0-9.]+[[:space:]]+[123][0-9]{2}' <<<"$headers"; then
         failures+=("$host: HTTPS did not return 1xx/2xx/3xx status")
-        record_result "$host" "$target" https failed "HTTPS did not return 1xx/2xx/3xx status"
+        RecordResult "$host" "$target" https failed "HTTPS did not return 1xx/2xx/3xx status"
     else
-        local status_line
-        status_line="$(grep -Ei '^HTTP/[0-9.]+[[:space:]]+[0-9]{3}' <<<"$headers" | tail -n 1)"
-        record_result "$host" "$target" https ok "$status_line"
+        local statusLine
+        statusLine="$(grep -Ei '^HTTP/[0-9.]+[[:space:]]+[0-9]{3}' <<<"$headers" | tail -n 1)"
+        RecordResult "$host" "$target" https ok "$statusLine"
     fi
 
     if ! grep -Eqi '^strict-transport-security:' <<<"$headers"; then
         failures+=("$host: missing Strict-Transport-Security header")
-        record_result "$host" "$target" hsts failed "missing Strict-Transport-Security header"
+        RecordResult "$host" "$target" hsts failed "missing Strict-Transport-Security header"
         return
     fi
 
     local hsts
     hsts="$(grep -Ei '^strict-transport-security:' <<<"$headers" | head -n 1)"
-    record_result "$host" "$target" hsts ok "$hsts"
+    RecordResult "$host" "$target" hsts ok "$hsts"
     if grep -Eqi 'includeSubDomains' <<<"$hsts"; then
         notes+=("$host: HSTS already includes includeSubDomains")
     else
@@ -122,7 +122,7 @@ check_https() {
     fi
 }
 
-write_evidence() {
+WriteEvidence() {
     [[ -n "$EVIDENCE_FILE" ]] || return 0
     mkdir -p "$(dirname "$EVIDENCE_FILE")"
 
@@ -157,7 +157,7 @@ write_evidence() {
     rm -f "$tmp"
 }
 
-trap write_evidence EXIT
+trap WriteEvidence EXIT
 
 mapfile -t hosts < <("$ROOT_DIR/tools/security/collect-production-hosts.sh")
 if ((${#hosts[@]} > 0)); then
@@ -165,45 +165,45 @@ if ((${#hosts[@]} > 0)); then
 fi
 if ((${#hosts[@]} == 0)); then
     failures+=("no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values")
-    record_result "-" "-" hosts failed "no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values"
+    RecordResult "-" "-" hosts failed "no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values"
 fi
 
 for host in "${hosts[@]}"; do
-    target="$(target_for_host "$host")"
+    target="$(TargetForHost "$host")"
     target="${target:-$host}"
 
-    probe_public_dns "$host" "$target"
+    ProbePublicDns "$host" "$target"
 
-    resolved_addresses="$(resolve_host "$host")"
+    resolved_addresses="$(ResolveHost "$host")"
     if [[ -z "$resolved_addresses" ]]; then
         failures+=("$host: DNS does not resolve from this network")
-        record_result "$host" "$target" dns failed "DNS does not resolve from this network"
+        RecordResult "$host" "$target" dns failed "DNS does not resolve from this network"
         if [[ "$target" == "$host" ]]; then
             continue
         fi
     else
-        record_result "$host" "$target" dns ok "$resolved_addresses"
+        RecordResult "$host" "$target" dns ok "$resolved_addresses"
     fi
 
     for port in $REQUIRED_OPEN_PORTS; do
-        if ! tcp_probe "$target" "$port"; then
+        if ! TcpProbe "$target" "$port"; then
             failures+=("$host: required public port $port is not reachable")
-            record_result "$host" "$target" "tcp/$port" failed "required public port $port is not reachable"
+            RecordResult "$host" "$target" "tcp/$port" failed "required public port $port is not reachable"
         else
-            record_result "$host" "$target" "tcp/$port" ok "required public port $port is reachable"
+            RecordResult "$host" "$target" "tcp/$port" ok "required public port $port is reachable"
         fi
     done
 
     for port in $FORBIDDEN_PUBLIC_PORTS; do
-        if tcp_probe "$target" "$port"; then
+        if TcpProbe "$target" "$port"; then
             failures+=("$host: forbidden public port $port is reachable")
-            record_result "$host" "$target" "tcp/$port" failed "forbidden public port $port is reachable"
+            RecordResult "$host" "$target" "tcp/$port" failed "forbidden public port $port is reachable"
         else
-            record_result "$host" "$target" "tcp/$port" ok "forbidden public port $port is not reachable"
+            RecordResult "$host" "$target" "tcp/$port" ok "forbidden public port $port is not reachable"
         fi
     done
 
-    check_https "$host" "$target"
+    CheckHttps "$host" "$target"
 done
 
 if ((${#failures[@]} > 0)); then

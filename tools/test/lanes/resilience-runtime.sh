@@ -2,4 +2,4 @@
 set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
-run_tier "resilience" run_resilience_only
+RunTier "resilience" RunResilienceOnly

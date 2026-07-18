@@ -149,7 +149,7 @@ NODE
     exit 0
 fi
 
-FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build
+FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild
 dotnet_args=(--no-build --no-restore)
 FSUSBLOG_REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/build-with-data-env.sh" dotnet test \
     "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \

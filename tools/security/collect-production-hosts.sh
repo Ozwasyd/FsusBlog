@@ -5,13 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ENV_FILE="${FSUSBLOG_PRODUCTION_ENV_FILE:-$ROOT_DIR/.env.production}"
 ENV_TEMPLATE="$ROOT_DIR/.env.production.example"
 
-fail() {
+Fail() {
     printf '[production-hosts] failed\n' >&2
     printf -- '- %s\n' "$1" >&2
     exit 1
 }
 
-read_env_value() {
+ReadEnvValue() {
     local key="$1"
     local source=""
     if [[ -f "$ENV_FILE" ]]; then
@@ -24,7 +24,7 @@ read_env_value() {
     grep -E "^${key}=" "$source" | tail -n 1 | cut -d= -f2- || true
 }
 
-read_env_values_prefix() {
+ReadEnvValuesPrefix() {
     local prefix="$1"
     local source=""
     if [[ -f "$ENV_FILE" ]]; then
@@ -37,7 +37,7 @@ read_env_values_prefix() {
     grep -E "^${prefix}" "$source" | cut -d= -f2- || true
 }
 
-trim_value() {
+TrimValue() {
     local value="$1"
     value="${value#"${value%%[![:space:]]*}"}"
     value="${value%"${value##*[![:space:]]}"}"
@@ -48,9 +48,9 @@ trim_value() {
     printf '%s\n' "$value"
 }
 
-host_from_url() {
+HostFromUrl() {
     local value
-    value="$(trim_value "$1")"
+    value="$(TrimValue "$1")"
     [[ -n "$value" ]] || return 0
     value="${value#http://}"
     value="${value#https://}"
@@ -59,67 +59,67 @@ host_from_url() {
     printf '%s\n' "$value"
 }
 
-normalize_host() {
+NormalizeHost() {
     local raw="$1"
     local host
-    host="$(host_from_url "$raw")"
-    host="$(trim_value "$host")"
+    host="$(HostFromUrl "$raw")"
+    host="$(TrimValue "$host")"
     host="${host%.}"
     host="${host,,}"
     [[ -n "$host" ]] || return 0
 
     if [[ "$host" == "*" || "$host" == *"*"* ]]; then
-        fail "production host must not be a wildcard: $raw"
+        Fail "production host must not be a wildcard: $raw"
     fi
     if [[ "$host" == "localhost" || "$host" == *.localhost ]]; then
-        fail "production host must not be localhost: $raw"
+        Fail "production host must not be localhost: $raw"
     fi
     if [[ "$host" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ || "$host" == *:* || "$host" == "["* || "$host" == *"]"* ]]; then
-        fail "production host must be a DNS hostname, not an IP literal: $raw"
+        Fail "production host must be a DNS hostname, not an IP literal: $raw"
     fi
     if [[ ! "$host" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]; then
-        fail "invalid production DNS hostname: $raw"
+        Fail "invalid production DNS hostname: $raw"
     fi
 
     printf '%s\n' "$host"
 }
 
-collect_hosts() {
+CollectHosts() {
     if [[ -n "${FSUSBLOG_LIVE_HOSTS:-}" ]]; then
         tr ',;' '\n' <<<"$FSUSBLOG_LIVE_HOSTS"
         return
     fi
 
-    local site_base cors_hosts app_hosts seo_base fido_domain fido_origins
-    site_base="$(read_env_value SITE_BASEURL)"
-    cors_hosts="$(read_env_value CORS_ALLOWED_HOSTS)"
-    app_hosts="$(read_env_value APP_ALLOWED_HOSTS)"
-    seo_base="$(read_env_value Seo__BaseUrl)"
-    fido_domain="$(read_env_value FIDO2_SERVER_DOMAIN)"
-    [[ -n "$fido_domain" ]] || fido_domain="$(read_env_value Fido2__ServerDomain)"
-    fido_origins="$(read_env_value FIDO2_ORIGINS)"
+    local siteBase corsHosts appHosts seoBase fidoDomain fidoOrigins
+    siteBase="$(ReadEnvValue SITE_BASEURL)"
+    corsHosts="$(ReadEnvValue CORS_ALLOWED_HOSTS)"
+    appHosts="$(ReadEnvValue APP_ALLOWED_HOSTS)"
+    seoBase="$(ReadEnvValue Seo__BaseUrl)"
+    fidoDomain="$(ReadEnvValue FIDO2_SERVER_DOMAIN)"
+    [[ -n "$fidoDomain" ]] || fidoDomain="$(ReadEnvValue Fido2__ServerDomain)"
+    fidoOrigins="$(ReadEnvValue FIDO2_ORIGINS)"
 
-    [[ -n "$site_base" ]] && host_from_url "$site_base"
-    [[ -n "$seo_base" ]] && host_from_url "$seo_base"
-    [[ -n "$fido_domain" ]] && host_from_url "$fido_domain"
-    if [[ -n "$cors_hosts" ]]; then
-        tr ',' '\n' <<<"$cors_hosts" | while read -r origin; do
-            [[ -n "$origin" ]] && host_from_url "$origin"
+    [[ -n "$siteBase" ]] && HostFromUrl "$siteBase"
+    [[ -n "$seoBase" ]] && HostFromUrl "$seoBase"
+    [[ -n "$fidoDomain" ]] && HostFromUrl "$fidoDomain"
+    if [[ -n "$corsHosts" ]]; then
+        tr ',' '\n' <<<"$corsHosts" | while read -r origin; do
+            [[ -n "$origin" ]] && HostFromUrl "$origin"
         done
     fi
-    if [[ -n "$app_hosts" ]]; then
-        tr ';,' '\n' <<<"$app_hosts"
+    if [[ -n "$appHosts" ]]; then
+        tr ';,' '\n' <<<"$appHosts"
     fi
-    if [[ -n "$fido_origins" ]]; then
-        tr ';,' '\n' <<<"$fido_origins" | while read -r origin; do
-            [[ -n "$origin" ]] && host_from_url "$origin"
+    if [[ -n "$fidoOrigins" ]]; then
+        tr ';,' '\n' <<<"$fidoOrigins" | while read -r origin; do
+            [[ -n "$origin" ]] && HostFromUrl "$origin"
         done
     fi
-    read_env_values_prefix 'Fido2__Origins__' | while read -r origin; do
-        [[ -n "$origin" ]] && host_from_url "$origin"
+    ReadEnvValuesPrefix 'Fido2__Origins__' | while read -r origin; do
+        [[ -n "$origin" ]] && HostFromUrl "$origin"
     done
 }
 
-collect_hosts | while read -r candidate; do
-    normalize_host "$candidate"
+CollectHosts | while read -r candidate; do
+    NormalizeHost "$candidate"
 done | sort -u

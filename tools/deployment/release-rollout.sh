@@ -79,7 +79,7 @@ ASSET_COMPATIBILITY_PID_FILE=""
 declare -A STAGE_STDOUTS=()
 declare -A STAGE_EVIDENCE=()
 
-usage() {
+Usage() {
     cat <<'USAGE'
 Usage: tools/deployment/release-rollout.sh --release-manifest <file> [options]
 
@@ -120,11 +120,11 @@ the active slot is never stopped by generic cleanup or an abnormal script exit.
 USAGE
 }
 
-rollout_log() {
+RolloutLog() {
     printf '[release-rollout] %s\n' "$1"
 }
 
-rollout_fail() {
+RolloutFail() {
     printf '[release-rollout] fatal: %s\n' "$1" >&2
     exit "${2:-1}"
 }
@@ -132,132 +132,132 @@ rollout_fail() {
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --release-manifest)
-            [[ $# -ge 2 ]] || rollout_fail "--release-manifest requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--release-manifest requires a path"
             RELEASE_MANIFEST="$2"
             shift 2
             ;;
         --env-file)
-            [[ $# -ge 2 ]] || rollout_fail "--env-file requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--env-file requires a path"
             PRODUCTION_ENV_FILE="$2"
             shift 2
             ;;
         --slot-state-file)
-            [[ $# -ge 2 ]] || rollout_fail "--slot-state-file requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--slot-state-file requires a path"
             SLOT_STATE_FILE="$2"
             shift 2
             ;;
         --rollout-state-file)
-            [[ $# -ge 2 ]] || rollout_fail "--rollout-state-file requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--rollout-state-file requires a path"
             ROLLOUT_STATE_FILE="$2"
             shift 2
             ;;
         --rollout-id)
-            [[ $# -ge 2 ]] || rollout_fail "--rollout-id requires a value"
+            [[ $# -ge 2 ]] || RolloutFail "--rollout-id requires a value"
             REQUESTED_ROLLOUT_ID="$2"
             shift 2
             ;;
         --evidence-root)
-            [[ $# -ge 2 ]] || rollout_fail "--evidence-root requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--evidence-root requires a path"
             ROLLOUT_EVIDENCE_ROOT="$2"
             shift 2
             ;;
         --backup-restore-evidence)
-            [[ $# -ge 2 ]] || rollout_fail "--backup-restore-evidence requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--backup-restore-evidence requires a path"
             BACKUP_RESTORE_EVIDENCE="$2"
             shift 2
             ;;
         --migration-server-dll)
-            [[ $# -ge 2 ]] || rollout_fail "--migration-server-dll requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--migration-server-dll requires a path"
             MIGRATION_SERVER_DLL="$2"
             shift 2
             ;;
         --traffic-scenario)
-            [[ $# -ge 2 ]] || rollout_fail "--traffic-scenario requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--traffic-scenario requires a path"
             TRAFFIC_SCENARIO="$2"
             shift 2
             ;;
         --traffic-binding-key-file)
-            [[ $# -ge 2 ]] || rollout_fail "--traffic-binding-key-file requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--traffic-binding-key-file requires a path"
             TRAFFIC_BINDING_KEY_FILE="$2"
             shift 2
             ;;
         --notification-auth-storage-state)
-            [[ $# -ge 2 ]] || rollout_fail "--notification-auth-storage-state requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--notification-auth-storage-state requires a path"
             NOTIFICATION_AUTH_STORAGE_STATE="$2"
             shift 2
             ;;
         --notification-resync-scenario)
-            [[ $# -ge 2 ]] || rollout_fail "--notification-resync-scenario requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--notification-resync-scenario requires a path"
             NOTIFICATION_RESYNC_SCENARIO="$2"
             shift 2
             ;;
         --notification-evidence)
-            [[ $# -ge 2 ]] || rollout_fail "--notification-evidence requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--notification-evidence requires a path"
             NOTIFICATION_EVIDENCE="$2"
             shift 2
             ;;
         --asset-compatibility-evidence)
-            [[ $# -ge 2 ]] || rollout_fail "--asset-compatibility-evidence requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--asset-compatibility-evidence requires a path"
             ASSET_COMPATIBILITY_EVIDENCE="$2"
             shift 2
             ;;
         --asset-compatibility-scenario)
-            [[ $# -ge 2 ]] || rollout_fail "--asset-compatibility-scenario requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--asset-compatibility-scenario requires a path"
             ASSET_COMPATIBILITY_SCENARIO="$2"
             shift 2
             ;;
         --asset-browser-binding-key-file)
-            [[ $# -ge 2 ]] || rollout_fail "--asset-browser-binding-key-file requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--asset-browser-binding-key-file requires a path"
             ASSET_BROWSER_BINDING_KEY_FILE="$2"
             shift 2
             ;;
         --worker-reconciliation-evidence)
-            [[ $# -ge 2 ]] || rollout_fail "--worker-reconciliation-evidence requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--worker-reconciliation-evidence requires a path"
             WORKER_RECONCILIATION_EVIDENCE="$2"
             shift 2
             ;;
         --worker-ledger)
-            [[ $# -ge 2 ]] || rollout_fail "--worker-ledger requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--worker-ledger requires a path"
             WORKER_EVENT_LEDGER="$2"
             shift 2
             ;;
         --resource-budget-evidence)
-            [[ $# -ge 2 ]] || rollout_fail "--resource-budget-evidence requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--resource-budget-evidence requires a path"
             RESOURCE_BUDGET_EVIDENCE="$2"
             shift 2
             ;;
         --fault-injection-evidence)
-            [[ $# -ge 2 ]] || rollout_fail "--fault-injection-evidence requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--fault-injection-evidence requires a path"
             FAULT_INJECTION_EVIDENCE="$2"
             shift 2
             ;;
         --public-url)
-            [[ $# -ge 2 ]] || rollout_fail "--public-url requires a URL"
+            [[ $# -ge 2 ]] || RolloutFail "--public-url requires a URL"
             PUBLIC_PROBE_URL="$2"
             shift 2
             ;;
         --admin-header-file)
-            [[ $# -ge 2 ]] || rollout_fail "--admin-header-file requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--admin-header-file requires a path"
             ADMIN_HEADER_FILE="$2"
             shift 2
             ;;
         --control-origin)
-            [[ $# -ge 2 ]] || rollout_fail "--control-origin requires an origin"
+            [[ $# -ge 2 ]] || RolloutFail "--control-origin requires an origin"
             CONTROL_ORIGIN="$2"
             shift 2
             ;;
         --asset-store)
-            [[ $# -ge 2 ]] || rollout_fail "--asset-store requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--asset-store requires a path"
             ASSET_STORE="$2"
             shift 2
             ;;
         --retention-state)
-            [[ $# -ge 2 ]] || rollout_fail "--retention-state requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--retention-state requires a path"
             RETENTION_STATE="$2"
             shift 2
             ;;
         --operator-note)
-            [[ $# -ge 2 ]] || rollout_fail "--operator-note requires a path"
+            [[ $# -ge 2 ]] || RolloutFail "--operator-note requires a path"
             OPERATOR_NOTE_FILE="$2"
             OPERATOR_NOTE_EXPLICIT=1
             shift 2
@@ -279,39 +279,39 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -h | --help)
-            usage
+            Usage
             exit 0
             ;;
-        *) rollout_fail "unknown argument: $1" ;;
+        *) RolloutFail "unknown argument: $1" ;;
     esac
 done
 
-[[ -n "$RELEASE_MANIFEST" ]] || rollout_fail "--release-manifest is required"
-[[ -f "$RELEASE_MANIFEST" ]] || rollout_fail "release manifest not found: $RELEASE_MANIFEST"
-[[ "$NO_SWITCH" == "0" || "$ROLLBACK" == "0" ]] || rollout_fail "--no-switch and --rollback are mutually exclusive"
-[[ "$DRY_RUN" == "0" || "$RESUME" == "0" ]] || rollout_fail "--dry-run cannot resume mutable state"
+[[ -n "$RELEASE_MANIFEST" ]] || RolloutFail "--release-manifest is required"
+[[ -f "$RELEASE_MANIFEST" ]] || RolloutFail "release manifest not found: $RELEASE_MANIFEST"
+[[ "$NO_SWITCH" == "0" || "$ROLLBACK" == "0" ]] || RolloutFail "--no-switch and --rollback are mutually exclusive"
+[[ "$DRY_RUN" == "0" || "$RESUME" == "0" ]] || RolloutFail "--dry-run cannot resume mutable state"
 [[ -z "$REQUESTED_ROLLOUT_ID" || "$REQUESTED_ROLLOUT_ID" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{7,127}$ ]] ||
-    rollout_fail "--rollout-id is invalid"
+    RolloutFail "--rollout-id is invalid"
 [[ "$PUBLIC_PROBE_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/health/ready$ ]] ||
     { [[ "${FSUSBLOG_GATEWAY_ALLOW_HTTP_PROBE:-0}" == "1" && "$PUBLIC_PROBE_URL" =~ ^http://(127\.0\.0\.1|localhost)(:[0-9]{1,5})?/health/ready$ ]] ||
-        rollout_fail "public URL must be an explicit HTTPS /health/ready URL"; }
+        RolloutFail "public URL must be an explicit HTTPS /health/ready URL"; }
 PUBLIC_BASE_URL="${PUBLIC_PROBE_URL%/health/ready}"
 [[ -n "$CONTROL_ORIGIN" ]] || CONTROL_ORIGIN="$PUBLIC_BASE_URL"
 
 for command in awk curl date flock jq node realpath stat tr; do
-    slot_require_command "$command"
+    SlotRequireCommand "$command"
 done
 
-read_initial_state() {
+ReadInitialState() {
     local state
     if [[ "$RESUME" == "1" ]]; then
-        [[ -n "$ROLLOUT_STATE_FILE" ]] || rollout_fail "--resume requires an explicit --rollout-state-file"
-        [[ -f "$ROLLOUT_STATE_FILE" ]] || rollout_fail "--resume state is missing: $ROLLOUT_STATE_FILE"
+        [[ -n "$ROLLOUT_STATE_FILE" ]] || RolloutFail "--resume requires an explicit --rollout-state-file"
+        [[ -f "$ROLLOUT_STATE_FILE" ]] || RolloutFail "--resume state is missing: $ROLLOUT_STATE_FILE"
         state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")" ||
-            rollout_fail "unable to read durable rollout state"
+            RolloutFail "unable to read durable rollout state"
         ROLLOUT_ID="$(jq -r '.rolloutId' <<<"$state")"
         [[ -z "$REQUESTED_ROLLOUT_ID" || "$REQUESTED_ROLLOUT_ID" == "$ROLLOUT_ID" ]] ||
-            rollout_fail "--rollout-id does not match the durable resume state"
+            RolloutFail "--rollout-id does not match the durable resume state"
         SOURCE_SLOT="$(jq -r '.source.slot' <<<"$state")"
         SOURCE_RELEASE="$(jq -r '.source.releaseId' <<<"$state")"
         SOURCE_DIGEST="$(jq -r '.source.imageDigest' <<<"$state")"
@@ -321,56 +321,56 @@ read_initial_state() {
         TARGET_DIGEST="$(jq -r '.target.imageDigest' <<<"$state")"
         TARGET_GENERATION="$(jq -r '.target.runtimeGeneration' <<<"$state")"
         [[ "$(jq -r '.kind' <<<"$state")" == "rollback" ]] && ROLLBACK=1
-        slot_require "$SOURCE_SLOT"
-        slot_require "$TARGET_SLOT"
+        SlotRequire "$SOURCE_SLOT"
+        SlotRequire "$TARGET_SLOT"
         node "$ROOT_DIR/tools/release/check-release-manifest.mjs" \
             --manifest "$RELEASE_MANIFEST" --slot "$TARGET_SLOT" \
             --release-id "$TARGET_RELEASE" --image-digest "$TARGET_DIGEST" >/dev/null ||
-            rollout_fail "resume manifest does not match the durable rollout target"
-        configure_rollout_paths
+            RolloutFail "resume manifest does not match the durable rollout target"
+        ConfigureRolloutPaths
         return
     fi
 
-    state="$(slot_state_read)" || rollout_fail "unable to read durable slot state"
-    [[ "$(jq -r '.status' <<<"$state")" == "stable" ]] || rollout_fail "gateway state is not stable; recover it before rollout"
+    state="$(SlotStateRead)" || RolloutFail "unable to read durable slot state"
+    [[ "$(jq -r '.status' <<<"$state")" == "stable" ]] || RolloutFail "gateway state is not stable; recover it before rollout"
     SOURCE_SLOT="$(jq -r '.activeSlot // ""' <<<"$state")"
     SOURCE_RELEASE="$(jq -r '.activeReleaseId // ""' <<<"$state")"
     SOURCE_DIGEST="$(jq -r '.activeImageDigest // ""' <<<"$state")"
     SOURCE_GENERATION="$(jq -r --arg slot "$SOURCE_SLOT" '.slots[$slot].deploymentGeneration // 0' <<<"$state")"
-    slot_require "$SOURCE_SLOT"
-    [[ "$SOURCE_RELEASE" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]] || rollout_fail "active release identity is invalid"
-    [[ "$SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || rollout_fail "active image digest is invalid"
-    [[ "$SOURCE_GENERATION" =~ ^[0-9]+$ && "$SOURCE_GENERATION" -ge 1 ]] || rollout_fail "active runtime generation is invalid"
+    SlotRequire "$SOURCE_SLOT"
+    [[ "$SOURCE_RELEASE" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]] || RolloutFail "active release identity is invalid"
+    [[ "$SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || RolloutFail "active image digest is invalid"
+    [[ "$SOURCE_GENERATION" =~ ^[0-9]+$ && "$SOURCE_GENERATION" -ge 1 ]] || RolloutFail "active runtime generation is invalid"
 
     if [[ "$ROLLBACK" == "1" ]]; then
         TARGET_SLOT="$(jq -r '.previousSlot // ""' <<<"$state")"
     else
         TARGET_SLOT="$([[ "$SOURCE_SLOT" == "blue" ]] && printf green || printf blue)"
     fi
-    slot_require "$TARGET_SLOT"
+    SlotRequire "$TARGET_SLOT"
 
-    local manifest_result
-    manifest_result="$(node "$ROOT_DIR/tools/release/check-release-manifest.mjs" \
+    local manifestResult
+    manifestResult="$(node "$ROOT_DIR/tools/release/check-release-manifest.mjs" \
         --manifest "$RELEASE_MANIFEST" --slot "$TARGET_SLOT")" ||
-        rollout_fail "release manifest validation failed"
-    TARGET_RELEASE="$(jq -r '.releaseId' <<<"$manifest_result")"
-    TARGET_DIGEST="$(jq -r '.imageDigest' <<<"$manifest_result")"
-    [[ "$TARGET_RELEASE" != "$SOURCE_RELEASE" ]] || rollout_fail "target release must differ from active release"
-    [[ "$TARGET_DIGEST" != "$SOURCE_DIGEST" ]] || rollout_fail "target digest must differ from active digest"
+        RolloutFail "release manifest validation failed"
+    TARGET_RELEASE="$(jq -r '.releaseId' <<<"$manifestResult")"
+    TARGET_DIGEST="$(jq -r '.imageDigest' <<<"$manifestResult")"
+    [[ "$TARGET_RELEASE" != "$SOURCE_RELEASE" ]] || RolloutFail "target release must differ from active release"
+    [[ "$TARGET_DIGEST" != "$SOURCE_DIGEST" ]] || RolloutFail "target digest must differ from active digest"
     if [[ "$ROLLBACK" == "1" ]]; then
         [[ "$(jq -r '.previousReleaseId' <<<"$state")" == "$TARGET_RELEASE" &&
         "$(jq -r '.previousImageDigest' <<<"$state")" == "$TARGET_DIGEST" ]] ||
-            rollout_fail "rollback manifest does not exactly match the durable previous release"
+            RolloutFail "rollback manifest does not exactly match the durable previous release"
     fi
 
     ROLLOUT_ID="${REQUESTED_ROLLOUT_ID:-$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf deploy)-${TARGET_RELEASE}}"
     [[ -n "$ROLLOUT_STATE_FILE" ]] || ROLLOUT_STATE_FILE="$ROLLOUT_EVIDENCE_ROOT/$ROLLOUT_ID/state.json"
-    configure_rollout_paths
+    ConfigureRolloutPaths
 }
 
-configure_rollout_paths() {
-    SOURCE_PORT="$(slot_port "$SOURCE_SLOT")"
-    TARGET_PORT="$(slot_port "$TARGET_SLOT")"
+ConfigureRolloutPaths() {
+    SOURCE_PORT="$(SlotPort "$SOURCE_SLOT")"
+    TARGET_PORT="$(SlotPort "$TARGET_SLOT")"
     EVIDENCE_DIR="$ROLLOUT_EVIDENCE_ROOT/$ROLLOUT_ID/evidence"
     TRAFFIC_SNAPSHOT="$EVIDENCE_DIR/public-traffic.snapshot.json"
     TRAFFIC_FINAL="$EVIDENCE_DIR/public-traffic.json"
@@ -402,30 +402,30 @@ configure_rollout_paths() {
     [[ -n "$OPERATOR_NOTE_FILE" ]] || OPERATOR_NOTE_FILE="$EVIDENCE_DIR/operator-note.json"
 }
 
-adopt_probe_pid() {
-    local pid_file="$1" expected_script="$2" expected_anchor="$3" pid command_line
-    [[ -f "$pid_file" ]] || return 1
-    pid="$(<"$pid_file")"
+AdoptProbePid() {
+    local pidFile="$1" expectedScript="$2" expectedAnchor="$3" pid commandLine
+    [[ -f "$pidFile" ]] || return 1
+    pid="$(<"$pidFile")"
     [[ "$pid" =~ ^[0-9]+$ && -r "/proc/$pid/cmdline" ]] || {
-        rm -f "$pid_file"
+        rm -f "$pidFile"
         return 1
     }
-    command_line="$(tr '\0' '\n' <"/proc/$pid/cmdline")"
-    [[ "$command_line" == *"$expected_script"* && "$command_line" == *"$expected_anchor"* ]] ||
+    commandLine="$(tr '\0' '\n' <"/proc/$pid/cmdline")"
+    [[ "$commandLine" == *"$expectedScript"* && "$commandLine" == *"$expectedAnchor"* ]] ||
         {
-            rm -f "$pid_file"
+            rm -f "$pidFile"
             return 1
         }
     printf '%s\n' "$pid"
 }
 
-record_probe_pid() {
-    local pid_file="$1" pid="$2" temporary="${1}.tmp-$$"
+RecordProbePid() {
+    local pidFile="$1" pid="$2" temporary="${1}.tmp-$$"
     printf '%s\n' "$pid" >"$temporary"
-    mv -f "$temporary" "$pid_file"
+    mv -f "$temporary" "$pidFile"
 }
 
-final_probe_artifact_matches() {
+FinalProbeArtifactMatches() {
     local file="$1" schema="$2"
     [[ -f "$file" ]] || return 1
     jq -e --arg schema "$schema" --arg rolloutId "$ROLLOUT_ID" '
@@ -436,7 +436,7 @@ final_probe_artifact_matches() {
   ' "$file" >/dev/null 2>&1
 }
 
-traffic_probe_artifact_matches() {
+TrafficProbeArtifactMatches() {
     local file="$1"
     [[ -f "$file" && -f "$TRAFFIC_SCENARIO" && -f "$TRAFFIC_BINDING_KEY_FILE" ]] || return 1
     node "$ROOT_DIR/tools/deployment/release-traffic-evidence-verify.mjs" \
@@ -446,7 +446,7 @@ traffic_probe_artifact_matches() {
         --rollout-id "$ROLLOUT_ID" >/dev/null 2>&1
 }
 
-asset_compatibility_artifact_matches() {
+AssetCompatibilityArtifactMatches() {
     local file="$1"
     [[ -f "$file" && -f "$ASSET_COMPATIBILITY_SCENARIO" && -f "$ASSET_BROWSER_BINDING_KEY_FILE" ]] || return 1
     node "$ROOT_DIR/tools/deployment/release-asset-compatibility-evidence-verify.mjs" \
@@ -456,7 +456,7 @@ asset_compatibility_artifact_matches() {
         --rollout-id "$ROLLOUT_ID" >/dev/null 2>&1
 }
 
-notification_probe_artifact_matches() {
+NotificationProbeArtifactMatches() {
     local file="$1"
     [[ -f "$file" ]] || return 1
     jq -e --arg rolloutId "$ROLLOUT_ID" '
@@ -479,76 +479,76 @@ notification_probe_artifact_matches() {
   ' "$file" >/dev/null 2>&1
 }
 
-continuous_probe_artifacts_ready() {
-    traffic_probe_artifact_matches "$TRAFFIC_FINAL" &&
-        notification_probe_artifact_matches "$NOTIFICATION_EVIDENCE" &&
-        final_probe_artifact_matches "$RESOURCE_BUDGET_EVIDENCE" "fsusblog.release-resource-budget-evidence.v1"
+ContinuousProbeArtifactsReady() {
+    TrafficProbeArtifactMatches "$TRAFFIC_FINAL" &&
+        NotificationProbeArtifactMatches "$NOTIFICATION_EVIDENCE" &&
+        FinalProbeArtifactMatches "$RESOURCE_BUDGET_EVIDENCE" "fsusblog.release-resource-budget-evidence.v1"
 }
 
-require_continuous_probe_artifacts() {
-    continuous_probe_artifacts_ready ||
-        rollout_fail "final traffic, notification and resource evidence must be successful and bound to rollout $ROLLOUT_ID before source stop"
+RequireContinuousProbeArtifacts() {
+    ContinuousProbeArtifactsReady ||
+        RolloutFail "final traffic, notification and resource evidence must be successful and bound to rollout $ROLLOUT_ID before source stop"
 }
 
-rollout_stage_completed() {
+RolloutStageCompleted() {
     local stage="$1"
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE" |
         jq -e --arg stage "$stage" '.completedStages | index($stage) != null' >/dev/null
 }
 
-rehearsal_stage_hold() {
+RehearsalStageHold() {
     local stage="$1" requested="${FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_STAGE:-}"
     [[ -n "$requested" && "$requested" == "$stage" ]] || return 0
     [[ "${FSUSBLOG_ROLLOUT_REHEARSAL:-0}" == "1" &&
         "${ASPNETCORE_ENVIRONMENT:-}" == "Test" &&
         "${FSUSBLOG_GATEWAY_ALLOW_HTTP_PROBE:-0}" == "1" ]] ||
-        rollout_fail "rehearsal stage hold is permitted only in the explicit Test loopback rehearsal"
-    local ready_file="${FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_READY_FILE:-}"
-    local release_file="${FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_RELEASE_FILE:-}"
-    local timeout_seconds="${FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_TIMEOUT_SECONDS:-120}"
-    [[ -n "$ready_file" && -n "$release_file" ]] || rollout_fail "rehearsal stage hold requires ready and release files"
-    [[ "$timeout_seconds" =~ ^[0-9]+$ && "$timeout_seconds" -ge 1 && "$timeout_seconds" -le 300 ]] ||
-        rollout_fail "rehearsal stage hold timeout must be 1..300 seconds"
-    ready_file="$(realpath -m "$ready_file")"
-    release_file="$(realpath -m "$release_file")"
-    local rehearsal_root="$(realpath -m "$ROOT_DIR/.tmp")"
-    local controlled_path
-    for controlled_path in "$ROLLOUT_STATE_FILE" "$EVIDENCE_DIR" "$ready_file" "$release_file"; do
-        [[ "$controlled_path" == "$rehearsal_root/"* ]] ||
-            rollout_fail "rehearsal stage hold paths must stay under repository .tmp"
+        RolloutFail "rehearsal stage hold is permitted only in the explicit Test loopback rehearsal"
+    local readyFile="${FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_READY_FILE:-}"
+    local releaseFile="${FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_RELEASE_FILE:-}"
+    local timeoutSeconds="${FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_TIMEOUT_SECONDS:-120}"
+    [[ -n "$readyFile" && -n "$releaseFile" ]] || RolloutFail "rehearsal stage hold requires ready and release files"
+    [[ "$timeoutSeconds" =~ ^[0-9]+$ && "$timeoutSeconds" -ge 1 && "$timeoutSeconds" -le 300 ]] ||
+        RolloutFail "rehearsal stage hold timeout must be 1..300 seconds"
+    readyFile="$(realpath -m "$readyFile")"
+    releaseFile="$(realpath -m "$releaseFile")"
+    local rehearsalRoot="$(realpath -m "$ROOT_DIR/.tmp")"
+    local controlledPath
+    for controlledPath in "$ROLLOUT_STATE_FILE" "$EVIDENCE_DIR" "$readyFile" "$releaseFile"; do
+        [[ "$controlledPath" == "$rehearsalRoot/"* ]] ||
+            RolloutFail "rehearsal stage hold paths must stay under repository .tmp"
     done
-    mkdir -p "$(dirname "$ready_file")" "$(dirname "$release_file")"
-    rm -f "$ready_file" "$release_file"
-    local temporary="${ready_file}.tmp-$$"
+    mkdir -p "$(dirname "$readyFile")" "$(dirname "$releaseFile")"
+    rm -f "$readyFile" "$releaseFile"
+    local temporary="${readyFile}.tmp-$$"
     jq -n --arg rolloutId "$ROLLOUT_ID" --arg stage "$stage" --arg readyAtUtc "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)" '
     {schema:"fsusblog.release-rollout-rehearsal-stage-hold.v1",status:"ready",rolloutId:$rolloutId,stage:$stage,readyAtUtc:$readyAtUtc,errors:[]}
   ' >"$temporary"
-    mv -f "$temporary" "$ready_file"
-    local deadline=$((SECONDS + timeout_seconds))
+    mv -f "$temporary" "$readyFile"
+    local deadline=$((SECONDS + timeoutSeconds))
     while true; do
-        if [[ -f "$release_file" ]] && jq -e --arg rolloutId "$ROLLOUT_ID" --arg stage "$stage" '
+        if [[ -f "$releaseFile" ]] && jq -e --arg rolloutId "$ROLLOUT_ID" --arg stage "$stage" '
       .schema == "fsusblog.release-rollout-rehearsal-stage-release.v1"
       and .rolloutId == $rolloutId and .stage == $stage and .release == true
-    ' "$release_file" >/dev/null 2>&1; then
-            rm -f "$ready_file" "$release_file"
+    ' "$releaseFile" >/dev/null 2>&1; then
+            rm -f "$readyFile" "$releaseFile"
             return 0
         fi
-        ((SECONDS < deadline)) || rollout_fail "rehearsal stage hold timed out for $stage"
+        ((SECONDS < deadline)) || RolloutFail "rehearsal stage hold timed out for $stage"
         sleep 0.01
     done
 }
 
-wait_for_adopted_probe() {
-    local pid="$1" timeout_seconds="${FSUSBLOG_ROLLOUT_PROBE_STOP_TIMEOUT_SECONDS:-900}" deadline
-    [[ "$timeout_seconds" =~ ^[0-9]+$ && "$timeout_seconds" -ge 1 && "$timeout_seconds" -le 1800 ]] || return 1
-    deadline=$((SECONDS + timeout_seconds))
+WaitForAdoptedProbe() {
+    local pid="$1" timeoutSeconds="${FSUSBLOG_ROLLOUT_PROBE_STOP_TIMEOUT_SECONDS:-900}" deadline
+    [[ "$timeoutSeconds" =~ ^[0-9]+$ && "$timeoutSeconds" -ge 1 && "$timeoutSeconds" -le 1800 ]] || return 1
+    deadline=$((SECONDS + timeoutSeconds))
     while kill -0 "$pid" >/dev/null 2>&1; do
         ((SECONDS < deadline)) || return 1
         sleep 0.1
     done
 }
 
-slot_port() {
+SlotPort() {
     local slot="$1"
     if [[ "$slot" == "blue" ]]; then
         printf '%s\n' "${FSUSBLOG_BLUE_PORT:-8081}"
@@ -557,10 +557,10 @@ slot_port() {
     fi
 }
 
-print_dry_run() {
-    local state planned_generation
-    state="$(slot_state_read)"
-    planned_generation="$(($(jq -r '.runtimeGeneration' <<<"$state") + 1))"
+PrintDryRun() {
+    local state plannedGeneration
+    state="$(SlotStateRead)"
+    plannedGeneration="$(($(jq -r '.runtimeGeneration' <<<"$state") + 1))"
     jq -cn \
         --arg rolloutId "$ROLLOUT_ID" \
         --arg kind "$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf deploy)" \
@@ -569,7 +569,7 @@ print_dry_run() {
         --arg targetSlot "$TARGET_SLOT" --arg targetRelease "$TARGET_RELEASE" --arg targetDigest "$TARGET_DIGEST" \
         --arg stateFile "$ROLLOUT_STATE_FILE" \
         --argjson sourceGeneration "$SOURCE_GENERATION" \
-        --argjson targetGeneration "$planned_generation" \
+        --argjson targetGeneration "$plannedGeneration" \
         --argjson noSwitch "$([[ "$NO_SWITCH" == "1" ]] && printf true || printf false)" \
         --argjson stages "$(printf '%s\n' manifest-validate capacity-preflight backup-restore-gate expand-migration candidate-start candidate-readiness asset-materialize candidate-smoke compatibility-smoke gateway-switch active-fence public-verify source-drain source-stop release-evidence | jq -R . | jq -s .)" '
     {
@@ -587,7 +587,7 @@ print_dry_run() {
     }'
 }
 
-require_runtime_inputs() {
+RequireRuntimeInputs() {
     for entry in \
         "backup restore evidence:$BACKUP_RESTORE_EVIDENCE" \
         "migration server DLL:$MIGRATION_SERVER_DLL" \
@@ -596,19 +596,19 @@ require_runtime_inputs() {
         "asset compatibility scenario:$ASSET_COMPATIBILITY_SCENARIO" \
         "asset browser binding key:$ASSET_BROWSER_BINDING_KEY_FILE"; do
         local label="${entry%%:*}" file="${entry#*:}"
-        [[ -f "$file" ]] || rollout_fail "$label is required and must exist: ${file:-<empty>}"
+        [[ -f "$file" ]] || RolloutFail "$label is required and must exist: ${file:-<empty>}"
     done
-    [[ -f "$PRODUCTION_ENV_FILE" ]] || rollout_fail "production env file is missing: $PRODUCTION_ENV_FILE"
-    [[ -f "$ADMIN_HEADER_FILE" ]] || rollout_fail "deployment admin header file is missing"
+    [[ -f "$PRODUCTION_ENV_FILE" ]] || RolloutFail "production env file is missing: $PRODUCTION_ENV_FILE"
+    [[ -f "$ADMIN_HEADER_FILE" ]] || RolloutFail "deployment admin header file is missing"
     local mode
     mode="$(stat -c '%a' "$ADMIN_HEADER_FILE")"
-    [[ "$mode" == "400" || "$mode" == "600" ]] || rollout_fail "deployment admin header file must have mode 0400 or 0600"
-    [[ ! -L "$TRAFFIC_BINDING_KEY_FILE" ]] || rollout_fail "traffic binding key must not be a symbolic link"
+    [[ "$mode" == "400" || "$mode" == "600" ]] || RolloutFail "deployment admin header file must have mode 0400 or 0600"
+    [[ ! -L "$TRAFFIC_BINDING_KEY_FILE" ]] || RolloutFail "traffic binding key must not be a symbolic link"
     mode="$(stat -c '%a' "$TRAFFIC_BINDING_KEY_FILE")"
-    [[ "$mode" == "400" || "$mode" == "600" ]] || rollout_fail "traffic binding key must have mode 0400 or 0600"
-    [[ ! -L "$ASSET_BROWSER_BINDING_KEY_FILE" ]] || rollout_fail "asset browser binding key must not be a symbolic link"
+    [[ "$mode" == "400" || "$mode" == "600" ]] || RolloutFail "traffic binding key must have mode 0400 or 0600"
+    [[ ! -L "$ASSET_BROWSER_BINDING_KEY_FILE" ]] || RolloutFail "asset browser binding key must not be a symbolic link"
     mode="$(stat -c '%a' "$ASSET_BROWSER_BINDING_KEY_FILE")"
-    [[ "$mode" == "400" || "$mode" == "600" ]] || rollout_fail "asset browser binding key must have mode 0400 or 0600"
+    [[ "$mode" == "400" || "$mode" == "600" ]] || RolloutFail "asset browser binding key must have mode 0400 or 0600"
     jq -e '
     .schema == "fsusblog.release-traffic-scenario.v1"
     and (.sessionChains | type == "array" and length > 0)
@@ -620,98 +620,98 @@ require_runtime_inputs() {
     and any(.requests[]?; .holdAcrossGatewaySwitch.requireTargetResponse == true)
     and any(.requests[]?; (.responseAssertions.aeds.frameTypes | type == "array" and length > 0))
   ' "$TRAFFIC_SCENARIO" >/dev/null ||
-        rollout_fail "traffic scenario must require session, AEDS, gateway hold, release identity and HMAC evidence"
+        RolloutFail "traffic scenario must require session, AEDS, gateway hold, release identity and HMAC evidence"
     if [[ -n "$NOTIFICATION_AUTH_STORAGE_STATE" ]]; then
-        [[ -f "$NOTIFICATION_AUTH_STORAGE_STATE" ]] || rollout_fail "notification auth storage state is missing"
+        [[ -f "$NOTIFICATION_AUTH_STORAGE_STATE" ]] || RolloutFail "notification auth storage state is missing"
         mode="$(stat -c '%a' "$NOTIFICATION_AUTH_STORAGE_STATE")"
-        [[ "$mode" == "400" || "$mode" == "600" ]] || rollout_fail "notification auth storage state must have mode 0400 or 0600"
-        [[ -f "$NOTIFICATION_RESYNC_SCENARIO" ]] || rollout_fail "notification full-state resync scenario is required"
+        [[ "$mode" == "400" || "$mode" == "600" ]] || RolloutFail "notification auth storage state must have mode 0400 or 0600"
+        [[ -f "$NOTIFICATION_RESYNC_SCENARIO" ]] || RolloutFail "notification full-state resync scenario is required"
     fi
     if [[ -n "$ASSET_COMPATIBILITY_SCENARIO" ]]; then
-        [[ -f "$ASSET_COMPATIBILITY_SCENARIO" ]] || rollout_fail "asset compatibility scenario is missing"
-        local asset_identity_ok
-        asset_identity_ok="$(jq -r --arg source "$SOURCE_RELEASE" --arg target "$TARGET_RELEASE" '
+        [[ -f "$ASSET_COMPATIBILITY_SCENARIO" ]] || RolloutFail "asset compatibility scenario is missing"
+        local assetIdentityOk
+        assetIdentityOk="$(jq -r --arg source "$SOURCE_RELEASE" --arg target "$TARGET_RELEASE" '
       .schema == "fsusblog.release-asset-compatibility-scenario.v1"
       and .oldReleaseId == $source
       and .newReleaseId == $target
       and (.drillId | type == "string" and test("^[0-9A-Za-z][0-9A-Za-z._:-]{0,127}$"))
       and .browser.required == true
     ' "$ASSET_COMPATIBILITY_SCENARIO" 2>/dev/null || printf false)"
-        [[ "$asset_identity_ok" == "true" ]] || rollout_fail "asset compatibility scenario is not bound to the exact source/target releases"
+        [[ "$assetIdentityOk" == "true" ]] || RolloutFail "asset compatibility scenario is not bound to the exact source/target releases"
     fi
     mkdir -p "$ASSET_STORE/releases"
     chmod 0755 "$ASSET_STORE" "$ASSET_STORE/releases"
     [[ -n "$RETENTION_STATE" ]] || RETENTION_STATE="$ASSET_STORE/retention-state.json"
 }
 
-recover_interrupted_stage() {
-    local state stage attempt stdout_file stderr_file evidence_file started_at completed_at evidence_status
+RecoverInterruptedStage() {
+    local state stage attempt stdoutFile stderrFile evidenceFile startedAt completedAt evidenceStatus
     state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")"
     stage="$(jq -r '.currentStage // ""' <<<"$state")"
     [[ -n "$stage" ]] || return 0
     attempt="$(jq -r --arg stage "$stage" '[.stages[] | select(.stage == $stage)] | length' <<<"$state")"
-    stdout_file="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stdout"
-    stderr_file="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stderr"
-    evidence_file="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.json"
+    stdoutFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stdout"
+    stderrFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stderr"
+    evidenceFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.json"
 
-    if [[ -f "$evidence_file" ]]; then
-        evidence_status="$(jq -r --arg rolloutId "$ROLLOUT_ID" --arg stage "$stage" '
+    if [[ -f "$evidenceFile" ]]; then
+        evidenceStatus="$(jq -r --arg rolloutId "$ROLLOUT_ID" --arg stage "$stage" '
       if .schema == "fsusblog.release-rollout-stage-evidence.v1"
         and .rolloutId == $rolloutId and .stage == $stage and (.status == "ok" or .status == "failed")
       then .status else "invalid" end
-    ' "$evidence_file" 2>/dev/null || printf invalid)"
-        completed_at="$(jq -r '.completedAtUtc // empty' "$evidence_file" 2>/dev/null || true)"
-        case "$evidence_status" in
+    ' "$evidenceFile" 2>/dev/null || printf invalid)"
+        completedAt="$(jq -r '.completedAtUtc // empty' "$evidenceFile" 2>/dev/null || true)"
+        case "$evidenceStatus" in
             ok)
                 node "$ROOT_DIR/tools/deployment/rollout-state.mjs" complete-stage \
-                    --state "$ROLLOUT_STATE_FILE" --stage "$stage" --evidence "$evidence_file" --at "$completed_at" >/dev/null
-                rollout_log "resume recovered completed stage=$stage from immutable evidence"
+                    --state "$ROLLOUT_STATE_FILE" --stage "$stage" --evidence "$evidenceFile" --at "$completedAt" >/dev/null
+                RolloutLog "resume recovered completed stage=$stage from immutable evidence"
                 return 0
                 ;;
             failed)
                 node "$ROOT_DIR/tools/deployment/rollout-state.mjs" fail-stage \
                     --state "$ROLLOUT_STATE_FILE" --stage "$stage" --error interrupted_stage_failed \
-                    --evidence "$evidence_file" --at "$completed_at" >/dev/null
+                    --evidence "$evidenceFile" --at "$completedAt" >/dev/null
                 return 0
                 ;;
-            *) rollout_fail "interrupted stage evidence is present but invalid: $evidence_file" ;;
+            *) RolloutFail "interrupted stage evidence is present but invalid: $evidenceFile" ;;
         esac
     fi
 
-    : >>"$stdout_file"
-    : >>"$stderr_file"
-    started_at="$(jq -r '.stages[-1].startedAtUtc' <<<"$state")"
-    completed_at="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
-    printf '[release-rollout] prior orchestrator disappeared before stage completion was durably recorded\n' >>"$stderr_file"
+    : >>"$stdoutFile"
+    : >>"$stderrFile"
+    startedAt="$(jq -r '.stages[-1].startedAtUtc' <<<"$state")"
+    completedAt="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+    printf '[release-rollout] prior orchestrator disappeared before stage completion was durably recorded\n' >>"$stderrFile"
     node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" stage \
         --state "$ROLLOUT_STATE_FILE" --stage "$stage" --status failed --exit-code 130 \
-        --command-id host-interruption --started-at "$started_at" --completed-at "$completed_at" \
-        --stdout "$stdout_file" --stderr "$stderr_file" --out "$evidence_file" >/dev/null
+        --command-id host-interruption --started-at "$startedAt" --completed-at "$completedAt" \
+        --stdout "$stdoutFile" --stderr "$stderrFile" --out "$evidenceFile" >/dev/null
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" fail-stage \
         --state "$ROLLOUT_STATE_FILE" --stage "$stage" --error host_interruption \
-        --evidence "$evidence_file" --at "$completed_at" >/dev/null
-    rollout_log "resume converted interrupted stage=$stage into durable recovery evidence"
+        --evidence "$evidenceFile" --at "$completedAt" >/dev/null
+    RolloutLog "resume converted interrupted stage=$stage into durable recovery evidence"
 }
 
-create_or_resume_state() {
+CreateOrResumeState() {
     mkdir -p "$EVIDENCE_DIR/commands" "$EVIDENCE_DIR/recoveries"
     if [[ "$RESUME" == "1" ]]; then
-        [[ -f "$ROLLOUT_STATE_FILE" ]] || rollout_fail "--resume state is missing: $ROLLOUT_STATE_FILE"
+        [[ -f "$ROLLOUT_STATE_FILE" ]] || RolloutFail "--resume state is missing: $ROLLOUT_STATE_FILE"
         local state
         state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")"
         [[ "$(jq -r --arg id "$ROLLOUT_ID" --arg target "$TARGET_RELEASE" '.rolloutId == $id and .target.releaseId == $target' <<<"$state")" == "true" ]] ||
-            rollout_fail "resume state does not match the requested rollout"
+            RolloutFail "resume state does not match the requested rollout"
         TARGET_GENERATION="$(jq -r '.target.runtimeGeneration' <<<"$state")"
-        recover_interrupted_stage
+        RecoverInterruptedStage
         state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")"
         case "$(jq -r '.status' <<<"$state")" in
-            completed | candidate_ready | rolled_back | aborted) rollout_fail "rollout state is already terminal" ;;
+            completed | candidate_ready | rolled_back | aborted) RolloutFail "rollout state is already terminal" ;;
             recovery_required)
-                recover_pending_state
+                RecoverPendingState
                 state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")"
                 case "$(jq -r '.status' <<<"$state")" in
                     rolled_back | aborted)
-                        rollout_log "status=$(jq -r '.status' <<<"$state") rollout=$ROLLOUT_ID; start a new rollout for another attempt"
+                        RolloutLog "status=$(jq -r '.status' <<<"$state") rollout=$ROLLOUT_ID; start a new rollout for another attempt"
                         exit 92
                         ;;
                 esac
@@ -719,11 +719,11 @@ create_or_resume_state() {
         esac
         return
     fi
-    [[ ! -e "$ROLLOUT_STATE_FILE" ]] || rollout_fail "rollout state already exists; use --resume"
+    [[ ! -e "$ROLLOUT_STATE_FILE" ]] || RolloutFail "rollout state already exists; use --resume"
     local reservation
     reservation="$(node "$ROOT_DIR/tools/deployment/slot-state.mjs" reserve-generation \
         --state "$SLOT_STATE_FILE" --slot "$TARGET_SLOT")" ||
-        rollout_fail "unable to reserve target runtime generation"
+        RolloutFail "unable to reserve target runtime generation"
     TARGET_GENERATION="$(jq -r '.generation' <<<"$reservation")"
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" create \
         --state "$ROLLOUT_STATE_FILE" \
@@ -735,15 +735,15 @@ create_or_resume_state() {
         >/dev/null
 }
 
-start_public_traffic() {
+StartPublicTraffic() {
     [[ -n "$TRAFFIC_PID" ]] && return
-    if traffic_probe_artifact_matches "$TRAFFIC_FINAL"; then
-        rollout_log "reusing immutable final public traffic evidence for rollout=$ROLLOUT_ID"
+    if TrafficProbeArtifactMatches "$TRAFFIC_FINAL"; then
+        RolloutLog "reusing immutable final public traffic evidence for rollout=$ROLLOUT_ID"
         return 0
     fi
-    if TRAFFIC_PID="$(adopt_probe_pid "$TRAFFIC_PID_FILE" release-traffic-probe.mjs "$ROLLOUT_STATE_FILE")"; then
+    if TRAFFIC_PID="$(AdoptProbePid "$TRAFFIC_PID_FILE" release-traffic-probe.mjs "$ROLLOUT_STATE_FILE")"; then
         TRAFFIC_ADOPTED=1
-        rollout_log "adopted continuous public traffic probe pid=$TRAFFIC_PID"
+        RolloutLog "adopted continuous public traffic probe pid=$TRAFFIC_PID"
         return
     fi
     TRAFFIC_PID=""
@@ -765,15 +765,15 @@ start_public_traffic() {
         2>"$EVIDENCE_DIR/public-traffic.process.stderr" 9>&- &
     TRAFFIC_PID=$!
     TRAFFIC_ADOPTED=0
-    record_probe_pid "$TRAFFIC_PID_FILE" "$TRAFFIC_PID"
+    RecordProbePid "$TRAFFIC_PID_FILE" "$TRAFFIC_PID"
 }
 
-stop_public_traffic() {
+StopPublicTraffic() {
     [[ -n "$TRAFFIC_PID" ]] || return 0
     : >"$TRAFFIC_STOP_FILE"
     local status=0
     if [[ "$TRAFFIC_ADOPTED" == "1" ]]; then
-        wait_for_adopted_probe "$TRAFFIC_PID" || status=$?
+        WaitForAdoptedProbe "$TRAFFIC_PID" || status=$?
     else
         wait "$TRAFFIC_PID" || status=$?
     fi
@@ -783,17 +783,17 @@ stop_public_traffic() {
     return "$status"
 }
 
-start_resource_probe() {
+StartResourceProbe() {
     [[ -n "$RESOURCE_PID" ]] && return
-    if final_probe_artifact_matches "$RESOURCE_BUDGET_EVIDENCE" "fsusblog.release-resource-budget-evidence.v1" &&
-        traffic_probe_artifact_matches "$TRAFFIC_FINAL" &&
-        notification_probe_artifact_matches "$NOTIFICATION_EVIDENCE"; then
-        rollout_log "reusing immutable final resource evidence for rollout=$ROLLOUT_ID"
+    if FinalProbeArtifactMatches "$RESOURCE_BUDGET_EVIDENCE" "fsusblog.release-resource-budget-evidence.v1" &&
+        TrafficProbeArtifactMatches "$TRAFFIC_FINAL" &&
+        NotificationProbeArtifactMatches "$NOTIFICATION_EVIDENCE"; then
+        RolloutLog "reusing immutable final resource evidence for rollout=$ROLLOUT_ID"
         return 0
     fi
-    if RESOURCE_PID="$(adopt_probe_pid "$RESOURCE_PID_FILE" release-resource-probe.mjs "$ROLLOUT_STATE_FILE")"; then
+    if RESOURCE_PID="$(AdoptProbePid "$RESOURCE_PID_FILE" release-resource-probe.mjs "$ROLLOUT_STATE_FILE")"; then
         RESOURCE_ADOPTED=1
-        rollout_log "adopted resource probe pid=$RESOURCE_PID"
+        RolloutLog "adopted resource probe pid=$RESOURCE_PID"
         return
     fi
     RESOURCE_PID=""
@@ -813,15 +813,15 @@ start_resource_probe() {
         2>"$EVIDENCE_DIR/resource-budget.process.stderr" 9>&- &
     RESOURCE_PID=$!
     RESOURCE_ADOPTED=0
-    record_probe_pid "$RESOURCE_PID_FILE" "$RESOURCE_PID"
+    RecordProbePid "$RESOURCE_PID_FILE" "$RESOURCE_PID"
 }
 
-stop_resource_probe() {
+StopResourceProbe() {
     [[ -n "$RESOURCE_PID" ]] || return 0
     : >"$RESOURCE_STOP_FILE"
     local status=0
     if [[ "$RESOURCE_ADOPTED" == "1" ]]; then
-        wait_for_adopted_probe "$RESOURCE_PID" || status=$?
+        WaitForAdoptedProbe "$RESOURCE_PID" || status=$?
     else
         wait "$RESOURCE_PID" || status=$?
     fi
@@ -831,16 +831,16 @@ stop_resource_probe() {
     return "$status"
 }
 
-start_notification_probe() {
-    if notification_probe_artifact_matches "$NOTIFICATION_EVIDENCE"; then
-        rollout_log "reusing immutable final notification evidence for rollout=$ROLLOUT_ID"
+StartNotificationProbe() {
+    if NotificationProbeArtifactMatches "$NOTIFICATION_EVIDENCE"; then
+        RolloutLog "reusing immutable final notification evidence for rollout=$ROLLOUT_ID"
         return 0
     fi
     [[ -n "$NOTIFICATION_AUTH_STORAGE_STATE" ]] || return 0
     [[ -n "$NOTIFICATION_PID" ]] && return 0
-    if NOTIFICATION_PID="$(adopt_probe_pid "$NOTIFICATION_PID_FILE" release-notification-probe.mjs "$ROLLOUT_STATE_FILE")"; then
+    if NOTIFICATION_PID="$(AdoptProbePid "$NOTIFICATION_PID_FILE" release-notification-probe.mjs "$ROLLOUT_STATE_FILE")"; then
         NOTIFICATION_ADOPTED=1
-        rollout_log "adopted notification stream probe pid=$NOTIFICATION_PID"
+        RolloutLog "adopted notification stream probe pid=$NOTIFICATION_PID"
         return
     fi
     NOTIFICATION_PID=""
@@ -857,15 +857,15 @@ start_notification_probe() {
         2>"$EVIDENCE_DIR/notification-stream.process.stderr" 9>&- &
     NOTIFICATION_PID=$!
     NOTIFICATION_ADOPTED=0
-    record_probe_pid "$NOTIFICATION_PID_FILE" "$NOTIFICATION_PID"
+    RecordProbePid "$NOTIFICATION_PID_FILE" "$NOTIFICATION_PID"
 }
 
-stop_notification_probe() {
+StopNotificationProbe() {
     [[ -n "$NOTIFICATION_PID" ]] || return 0
     : >"$NOTIFICATION_STOP_FILE"
     local status=0
     if [[ "$NOTIFICATION_ADOPTED" == "1" ]]; then
-        wait_for_adopted_probe "$NOTIFICATION_PID" || status=$?
+        WaitForAdoptedProbe "$NOTIFICATION_PID" || status=$?
     else
         wait "$NOTIFICATION_PID" || status=$?
     fi
@@ -875,15 +875,15 @@ stop_notification_probe() {
     return "$status"
 }
 
-start_asset_compatibility_probe() {
+StartAssetCompatibilityProbe() {
     [[ -n "$ASSET_COMPATIBILITY_SCENARIO" ]] || return 0
-    if asset_compatibility_artifact_matches "$ASSET_COMPATIBILITY_EVIDENCE"; then
+    if AssetCompatibilityArtifactMatches "$ASSET_COMPATIBILITY_EVIDENCE"; then
         return 0
     fi
     [[ -z "$ASSET_COMPATIBILITY_PID" ]] || return 0
-    if ASSET_COMPATIBILITY_PID="$(adopt_probe_pid "$ASSET_COMPATIBILITY_PID_FILE" release-asset-compatibility-probe.mjs "$ASSET_COMPATIBILITY_EVIDENCE")"; then
+    if ASSET_COMPATIBILITY_PID="$(AdoptProbePid "$ASSET_COMPATIBILITY_PID_FILE" release-asset-compatibility-probe.mjs "$ASSET_COMPATIBILITY_EVIDENCE")"; then
         ASSET_COMPATIBILITY_ADOPTED=1
-        rollout_log "adopted asset compatibility probe pid=$ASSET_COMPATIBILITY_PID"
+        RolloutLog "adopted asset compatibility probe pid=$ASSET_COMPATIBILITY_PID"
         return
     fi
     ASSET_COMPATIBILITY_PID=""
@@ -905,14 +905,14 @@ start_asset_compatibility_probe() {
         2>"$EVIDENCE_DIR/asset-compatibility.process.stderr" 9>&- &
     ASSET_COMPATIBILITY_PID=$!
     ASSET_COMPATIBILITY_ADOPTED=0
-    record_probe_pid "$ASSET_COMPATIBILITY_PID_FILE" "$ASSET_COMPATIBILITY_PID"
+    RecordProbePid "$ASSET_COMPATIBILITY_PID_FILE" "$ASSET_COMPATIBILITY_PID"
 }
 
-cancel_asset_compatibility_probe() {
+CancelAssetCompatibilityProbe() {
     [[ -n "$ASSET_COMPATIBILITY_PID" ]] || return 0
     kill -TERM "$ASSET_COMPATIBILITY_PID" >/dev/null 2>&1 || true
     if [[ "$ASSET_COMPATIBILITY_ADOPTED" == "1" ]]; then
-        wait_for_adopted_probe "$ASSET_COMPATIBILITY_PID" >/dev/null 2>&1 || true
+        WaitForAdoptedProbe "$ASSET_COMPATIBILITY_PID" >/dev/null 2>&1 || true
     else
         wait "$ASSET_COMPATIBILITY_PID" >/dev/null 2>&1 || true
     fi
@@ -921,15 +921,15 @@ cancel_asset_compatibility_probe() {
     rm -f "$ASSET_COMPATIBILITY_PID_FILE"
 }
 
-wait_for_asset_checkpoint() {
+WaitForAssetCheckpoint() {
     [[ -n "$ASSET_COMPATIBILITY_PID" ]] || return 0
-    local timeout_seconds="${FSUSBLOG_ASSET_CHECKPOINT_TIMEOUT_SECONDS:-120}" deadline
-    [[ "$timeout_seconds" =~ ^[0-9]+$ && "$timeout_seconds" -ge 1 && "$timeout_seconds" -le 900 ]] ||
+    local timeoutSeconds="${FSUSBLOG_ASSET_CHECKPOINT_TIMEOUT_SECONDS:-120}" deadline
+    [[ "$timeoutSeconds" =~ ^[0-9]+$ && "$timeoutSeconds" -ge 1 && "$timeoutSeconds" -le 900 ]] ||
         {
             printf '[release-rollout] asset checkpoint timeout must be 1..900 seconds\n' >&2
             return 1
         }
-    deadline=$((SECONDS + timeout_seconds))
+    deadline=$((SECONDS + timeoutSeconds))
     while [[ ! -f "$ASSET_COMPATIBILITY_READY_FILE" ]]; do
         kill -0 "$ASSET_COMPATIBILITY_PID" >/dev/null 2>&1 ||
             {
@@ -947,29 +947,29 @@ wait_for_asset_checkpoint() {
   ' "$ASSET_COMPATIBILITY_READY_FILE" >/dev/null
 }
 
-write_asset_compatibility_signal() {
-    local file="$1" stage="$2" drill_id temporary
-    drill_id="$(jq -r '.drillId' "$ASSET_COMPATIBILITY_SCENARIO")"
+WriteAssetCompatibilitySignal() {
+    local file="$1" stage="$2" drillId temporary
+    drillId="$(jq -r '.drillId' "$ASSET_COMPATIBILITY_SCENARIO")"
     temporary="${file}.tmp-$$"
-    jq -n --arg drillId "$drill_id" --arg stage "$stage" \
+    jq -n --arg drillId "$drillId" --arg stage "$stage" \
         --arg observedAtUtc "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)" '
     {schema:"fsusblog.release-asset-compatibility-signal.v1",drillId:$drillId,stage:$stage,observedAtUtc:$observedAtUtc}
   ' >"$temporary"
     mv -f "$temporary" "$file"
 }
 
-complete_asset_compatibility_probe() {
+CompleteAssetCompatibilityProbe() {
     [[ -n "$ASSET_COMPATIBILITY_PID" ]] || return 0
-    wait_for_asset_checkpoint
-    write_asset_compatibility_signal "$ASSET_COMPATIBILITY_SWITCH_FILE" switched
+    WaitForAssetCheckpoint
+    WriteAssetCompatibilitySignal "$ASSET_COMPATIBILITY_SWITCH_FILE" switched
     node "$ROOT_DIR/tools/storage/gc-release-assets.mjs" --apply \
         --store "$ASSET_STORE" --state "$RETENTION_STATE" --out "$ASSET_COMPATIBILITY_GC_EVIDENCE" >/dev/null
     jq -e '.schema == "fsusblog.release-assets.gc-evidence.v1" and .status == "ok" and .dryRun == false' \
         "$ASSET_COMPATIBILITY_GC_EVIDENCE" >/dev/null
-    write_asset_compatibility_signal "$ASSET_COMPATIBILITY_GC_FILE" gc-complete
+    WriteAssetCompatibilitySignal "$ASSET_COMPATIBILITY_GC_FILE" gc-complete
     local status=0
     if [[ "$ASSET_COMPATIBILITY_ADOPTED" == "1" ]]; then
-        wait_for_adopted_probe "$ASSET_COMPATIBILITY_PID" || status=$?
+        WaitForAdoptedProbe "$ASSET_COMPATIBILITY_PID" || status=$?
     else
         wait "$ASSET_COMPATIBILITY_PID" || status=$?
     fi
@@ -977,10 +977,10 @@ complete_asset_compatibility_probe() {
     ASSET_COMPATIBILITY_ADOPTED=0
     rm -f "$ASSET_COMPATIBILITY_PID_FILE"
     [[ "$status" == "0" ]] || return "$status"
-    asset_compatibility_artifact_matches "$ASSET_COMPATIBILITY_EVIDENCE"
+    AssetCompatibilityArtifactMatches "$ASSET_COMPATIBILITY_EVIDENCE"
 }
 
-ensure_background_probes_alive() {
+EnsureBackgroundProbesAlive() {
     [[ -z "$TRAFFIC_PID" || -e "/proc/$TRAFFIC_PID" ]] || {
         printf '[release-rollout] continuous public traffic probe exited before switch\n' >&2
         return 1
@@ -999,31 +999,31 @@ ensure_background_probes_alive() {
     }
 }
 
-cleanup_background_probes() {
+CleanupBackgroundProbes() {
     [[ "$PRESERVE_BACKGROUND_PROBES_ON_EXIT" == "0" ]] || return 0
-    stop_public_traffic >/dev/null 2>&1 || true
-    stop_resource_probe >/dev/null 2>&1 || true
-    stop_notification_probe >/dev/null 2>&1 || true
-    cancel_asset_compatibility_probe >/dev/null 2>&1 || true
+    StopPublicTraffic >/dev/null 2>&1 || true
+    StopResourceProbe >/dev/null 2>&1 || true
+    StopNotificationProbe >/dev/null 2>&1 || true
+    CancelAssetCompatibilityProbe >/dev/null 2>&1 || true
 }
 
-current_stage() {
+CurrentStage() {
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE" | jq -r '.currentStage // ""'
 }
 
-wait_for_traffic_baseline() {
-    local minimum="${FSUSBLOG_ROLLOUT_MIN_BASELINE_REQUESTS:-96}" timeout_seconds="${FSUSBLOG_ROLLOUT_BASELINE_TIMEOUT_SECONDS:-120}" deadline
+WaitForTrafficBaseline() {
+    local minimum="${FSUSBLOG_ROLLOUT_MIN_BASELINE_REQUESTS:-96}" timeoutSeconds="${FSUSBLOG_ROLLOUT_BASELINE_TIMEOUT_SECONDS:-120}" deadline
     [[ "$minimum" =~ ^[0-9]+$ && "$minimum" -ge 12 && "$minimum" -le 100000 ]] ||
         {
             printf '[release-rollout] minimum baseline requests must be 12..100000\n' >&2
             return 1
         }
-    [[ "$timeout_seconds" =~ ^[0-9]+$ && "$timeout_seconds" -ge 1 && "$timeout_seconds" -le 900 ]] ||
+    [[ "$timeoutSeconds" =~ ^[0-9]+$ && "$timeoutSeconds" -ge 1 && "$timeoutSeconds" -le 900 ]] ||
         {
             printf '[release-rollout] baseline timeout must be 1..900 seconds\n' >&2
             return 1
         }
-    deadline=$((SECONDS + timeout_seconds))
+    deadline=$((SECONDS + timeoutSeconds))
     while true; do
         [[ -n "$TRAFFIC_PID" ]] && kill -0 "$TRAFFIC_PID" >/dev/null 2>&1 || return 1
         if [[ -f "$TRAFFIC_SNAPSHOT" ]] && jq -e --argjson minimum "$minimum" '
@@ -1038,39 +1038,39 @@ wait_for_traffic_baseline() {
     done
 }
 
-wait_for_worker_ledger() {
-    local timeout_seconds="${FSUSBLOG_WORKER_LEDGER_TIMEOUT_SECONDS:-300}" deadline
+WaitForWorkerLedger() {
+    local timeoutSeconds="${FSUSBLOG_WORKER_LEDGER_TIMEOUT_SECONDS:-300}" deadline
     [[ -n "$WORKER_EVENT_LEDGER" ]] || return 1
-    [[ "$timeout_seconds" =~ ^[0-9]+$ && "$timeout_seconds" -ge 1 && "$timeout_seconds" -le 1800 ]] || return 1
-    deadline=$((SECONDS + timeout_seconds))
+    [[ "$timeoutSeconds" =~ ^[0-9]+$ && "$timeoutSeconds" -ge 1 && "$timeoutSeconds" -le 1800 ]] || return 1
+    deadline=$((SECONDS + timeoutSeconds))
     while [[ ! -f "$WORKER_EVENT_LEDGER" ]]; do
         ((SECONDS < deadline)) || return 1
         sleep 0.1
     done
 }
 
-interrupt_rollout() {
-    local signal="$1" stage state attempt stdout_file stderr_file evidence_file started_at completed_at
+InterruptRollout() {
+    local signal="$1" stage state attempt stdoutFile stderrFile evidenceFile startedAt completedAt
     state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE" 2>/dev/null || true)"
     stage="$(jq -r '.currentStage // ""' <<<"$state" 2>/dev/null || true)"
     if [[ -n "$stage" ]]; then
         attempt="$(jq -r --arg stage "$stage" '[.stages[] | select(.stage == $stage)] | length' <<<"$state")"
-        stdout_file="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stdout"
-        stderr_file="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stderr"
-        evidence_file="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.json"
-        if [[ ! -f "$evidence_file" ]]; then
-            : >>"$stdout_file"
-            : >>"$stderr_file"
-            started_at="$(jq -r '.stages[-1].startedAtUtc' <<<"$state")"
-            completed_at="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
-            printf '[release-rollout] orchestrator interrupted by %s\n' "$signal" >>"$stderr_file"
+        stdoutFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stdout"
+        stderrFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stderr"
+        evidenceFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.json"
+        if [[ ! -f "$evidenceFile" ]]; then
+            : >>"$stdoutFile"
+            : >>"$stderrFile"
+            startedAt="$(jq -r '.stages[-1].startedAtUtc' <<<"$state")"
+            completedAt="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+            printf '[release-rollout] orchestrator interrupted by %s\n' "$signal" >>"$stderrFile"
             node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" stage \
                 --state "$ROLLOUT_STATE_FILE" --stage "$stage" --status failed --exit-code 130 \
-                --command-id "signal-${signal}" --started-at "$started_at" --completed-at "$completed_at" \
-                --stdout "$stdout_file" --stderr "$stderr_file" --out "$evidence_file" >/dev/null 2>&1 || true
+                --command-id "signal-${signal}" --started-at "$startedAt" --completed-at "$completedAt" \
+                --stdout "$stdoutFile" --stderr "$stderrFile" --out "$evidenceFile" >/dev/null 2>&1 || true
             node "$ROOT_DIR/tools/deployment/rollout-state.mjs" fail-stage \
                 --state "$ROLLOUT_STATE_FILE" --stage "$stage" --error "script_interrupted_${signal}" \
-                --evidence "$evidence_file" --at "$completed_at" >/dev/null 2>&1 || true
+                --evidence "$evidenceFile" --at "$completedAt" >/dev/null 2>&1 || true
         fi
     fi
     PRESERVE_BACKGROUND_PROBES_ON_EXIT=1
@@ -1078,71 +1078,71 @@ interrupt_rollout() {
     exit 130
 }
 
-trap 'interrupt_rollout INT' INT
-trap 'interrupt_rollout TERM' TERM
-trap 'interrupt_rollout HUP' HUP
-trap 'cleanup_background_probes' EXIT
+trap 'InterruptRollout INT' INT
+trap 'InterruptRollout TERM' TERM
+trap 'InterruptRollout HUP' HUP
+trap 'CleanupBackgroundProbes' EXIT
 
-run_stage() {
-    local stage="$1" command_id="$2"
+RunStage() {
+    local stage="$1" commandId="$2"
     shift 2
-    local state completed attempt started completed_at stdout_file stderr_file evidence_file exit_code=0 evidence_exit=0
+    local state completed attempt started completedAt stdoutFile stderrFile evidenceFile exitCode=0 evidenceExit=0
     state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")"
     completed="$(jq -r --arg stage "$stage" '.completedStages | index($stage) != null' <<<"$state")"
     if [[ "$completed" == "true" ]]; then
-        rollout_log "resume skip completed stage=$stage"
+        RolloutLog "resume skip completed stage=$stage"
         return 0
     fi
-    [[ "$(jq -r '.status' <<<"$state")" != "recovery_required" ]] || rollout_fail "stage=$stage cannot run before recovery"
+    [[ "$(jq -r '.status' <<<"$state")" != "recovery_required" ]] || RolloutFail "stage=$stage cannot run before recovery"
     attempt="$(($(jq -r --arg stage "$stage" '[.stages[] | select(.stage == $stage)] | length' <<<"$state") + 1))"
-    stdout_file="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stdout"
-    stderr_file="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stderr"
-    evidence_file="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.json"
+    stdoutFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stdout"
+    stderrFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stderr"
+    evidenceFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.json"
     started="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" start-stage \
         --state "$ROLLOUT_STATE_FILE" --stage "$stage" --at "$started" >/dev/null
-    rollout_log "stage=$stage status=running"
-    rehearsal_stage_hold "$stage"
+    RolloutLog "stage=$stage status=running"
+    RehearsalStageHold "$stage"
     set +e
-    "$@" >"$stdout_file" 2>"$stderr_file"
-    exit_code=$?
+    "$@" >"$stdoutFile" 2>"$stderrFile"
+    exitCode=$?
     set -e
-    completed_at="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+    completedAt="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
     set +e
     node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" stage \
         --state "$ROLLOUT_STATE_FILE" --stage "$stage" \
-        --status "$([[ "$exit_code" == "0" ]] && printf ok || printf failed)" \
-        --exit-code "$exit_code" --command-id "$command_id" \
-        --started-at "$started" --completed-at "$completed_at" \
-        --stdout "$stdout_file" --stderr "$stderr_file" --out "$evidence_file" \
+        --status "$([[ "$exitCode" == "0" ]] && printf ok || printf failed)" \
+        --exit-code "$exitCode" --command-id "$commandId" \
+        --started-at "$started" --completed-at "$completedAt" \
+        --stdout "$stdoutFile" --stderr "$stderrFile" --out "$evidenceFile" \
         >/dev/null
-    evidence_exit=$?
+    evidenceExit=$?
     set -e
-    if [[ "$evidence_exit" != "0" ]]; then
-        exit_code=70
-        printf '[release-rollout] stage evidence write failed for %s\n' "$stage" >>"$stderr_file"
+    if [[ "$evidenceExit" != "0" ]]; then
+        exitCode=70
+        printf '[release-rollout] stage evidence write failed for %s\n' "$stage" >>"$stderrFile"
     fi
-    STAGE_STDOUTS["$stage"]="$stdout_file"
-    STAGE_EVIDENCE["$stage"]="$evidence_file"
-    if [[ "$exit_code" == "0" ]]; then
+    STAGE_STDOUTS["$stage"]="$stdoutFile"
+    STAGE_EVIDENCE["$stage"]="$evidenceFile"
+    if [[ "$exitCode" == "0" ]]; then
         node "$ROOT_DIR/tools/deployment/rollout-state.mjs" complete-stage \
-            --state "$ROLLOUT_STATE_FILE" --stage "$stage" --evidence "$evidence_file" --at "$completed_at" >/dev/null
-        rollout_log "stage=$stage status=ok evidence=$evidence_file"
+            --state "$ROLLOUT_STATE_FILE" --stage "$stage" --evidence "$evidenceFile" --at "$completedAt" >/dev/null
+        RolloutLog "stage=$stage status=ok evidence=$evidenceFile"
         return 0
     fi
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" fail-stage \
-        --state "$ROLLOUT_STATE_FILE" --stage "$stage" --error "stage_failed_${exit_code}" \
-        --evidence "$evidence_file" --at "$completed_at" >/dev/null
-    rollout_log "stage=$stage status=failed exit=$exit_code evidence=$evidence_file"
-    recover_pending_state || true
+        --state "$ROLLOUT_STATE_FILE" --stage "$stage" --error "stage_failed_${exitCode}" \
+        --evidence "$evidenceFile" --at "$completedAt" >/dev/null
+    RolloutLog "stage=$stage status=failed exit=$exitCode evidence=$evidenceFile"
+    RecoverPendingState || true
     if [[ "$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE" | jq -r '.status')" == "running" ]]; then
         PRESERVE_BACKGROUND_PROBES_ON_EXIT=1
-        rollout_log "continuous probes preserved for --resume"
+        RolloutLog "continuous probes preserved for --resume"
     fi
-    exit "$((20 + $(stage_index "$stage")))"
+    exit "$((20 + $(StageIndex "$stage")))"
 }
 
-stage_index() {
+StageIndex() {
     local wanted="$1" index=0 stage
     for stage in manifest-validate capacity-preflight backup-restore-gate expand-migration candidate-start candidate-readiness asset-materialize candidate-smoke compatibility-smoke gateway-switch active-fence public-verify source-drain source-stop release-evidence; do
         [[ "$stage" == "$wanted" ]] && {
@@ -1154,19 +1154,19 @@ stage_index() {
     printf '79\n'
 }
 
-recover_pending_state() {
-    local state action failed_stage recovery_file recovery_stdout recovery_stderr status=0
+RecoverPendingState() {
+    local state action failedStage recoveryFile recoveryStdout recoveryStderr status=0
     state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")"
     [[ "$(jq -r '.status' <<<"$state")" == "recovery_required" ]] || return 0
     action="$(jq -r '.recovery.action' <<<"$state")"
-    failed_stage="$(jq -r '.recovery.failedStage' <<<"$state")"
-    recovery_file="$EVIDENCE_DIR/recoveries/${failed_stage}.${action}.json"
-    recovery_stdout="$EVIDENCE_DIR/recoveries/${failed_stage}.${action}.stdout"
-    recovery_stderr="$EVIDENCE_DIR/recoveries/${failed_stage}.${action}.stderr"
+    failedStage="$(jq -r '.recovery.failedStage' <<<"$state")"
+    recoveryFile="$EVIDENCE_DIR/recoveries/${failedStage}.${action}.json"
+    recoveryStdout="$EVIDENCE_DIR/recoveries/${failedStage}.${action}.stdout"
+    recoveryStderr="$EVIDENCE_DIR/recoveries/${failedStage}.${action}.stderr"
     case "$action" in
         preserve-source-stop-candidate)
             set +e
-            "$ROOT_DIR/tools/deployment/slot-stop.sh" --slot "$TARGET_SLOT" --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE" >"$recovery_stdout" 2>"$recovery_stderr"
+            "$ROOT_DIR/tools/deployment/slot-stop.sh" --slot "$TARGET_SLOT" --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE" >"$recoveryStdout" 2>"$recoveryStderr"
             status=$?
             set -e
             ;;
@@ -1175,7 +1175,7 @@ recover_pending_state() {
             "$ROOT_DIR/tools/deployment/gateway-recover.sh" \
                 --state-file "$SLOT_STATE_FILE" --public-url "$PUBLIC_PROBE_URL" \
                 --admin-header-file "$ADMIN_HEADER_FILE" --control-origin "$CONTROL_ORIGIN" \
-                >"$recovery_stdout" 2>"$recovery_stderr"
+                >"$recoveryStdout" 2>"$recoveryStderr"
             status=$?
             set -e
             ;;
@@ -1185,99 +1185,99 @@ recover_pending_state() {
                 --rollout-state "$ROLLOUT_STATE_FILE" --slot-state "$SLOT_STATE_FILE" \
                 --env-file "$PRODUCTION_ENV_FILE" --source-manifest "${FSUSBLOG_ROLLOUT_SOURCE_MANIFEST:-}" \
                 --public-url "$PUBLIC_PROBE_URL" --admin-header-file "$ADMIN_HEADER_FILE" --control-origin "$CONTROL_ORIGIN" \
-                --out "$recovery_file" >"$recovery_stdout" 2>"$recovery_stderr"
+                --out "$recoveryFile" >"$recoveryStdout" 2>"$recoveryStderr"
             status=$?
             set -e
             if [[ "$status" == "0" ]]; then
                 node "$ROOT_DIR/tools/deployment/rollout-state.mjs" complete-recovery \
-                    --state "$ROLLOUT_STATE_FILE" --action "$action" --evidence "$recovery_file" --terminal-status rolled_back >/dev/null
+                    --state "$ROLLOUT_STATE_FILE" --action "$action" --evidence "$recoveryFile" --terminal-status rolled_back >/dev/null
                 return 0
             fi
             ;;
         resume-source-drain | resume-release-evidence)
-            jq -cn --arg action "$action" --arg failedStage "$failed_stage" \
-                '{schema:"fsusblog.release-rollout-recovery.v1",status:"ok",action:$action,failedStage:$failedStage,idempotentRetryRequired:true}' >"$recovery_file"
+            jq -cn --arg action "$action" --arg failedStage "$failedStage" \
+                '{schema:"fsusblog.release-rollout-recovery.v1",status:"ok",action:$action,failedStage:$failedStage,idempotentRetryRequired:true}' >"$recoveryFile"
             status=0
             ;;
         retain-source-report-cleanup-blocker | manual-contract-recovery)
-            rollout_log "recovery action=$action requires explicit operator resolution; old container is retained"
+            RolloutLog "recovery action=$action requires explicit operator resolution; old container is retained"
             return 90
             ;;
-        *) rollout_fail "unknown recovery action: $action" ;;
+        *) RolloutFail "unknown recovery action: $action" ;;
     esac
     if [[ "$status" == "0" ]]; then
-        if [[ ! -f "$recovery_file" ]]; then
-            jq -cn --arg action "$action" --arg failedStage "$failed_stage" \
-                --arg stdout "$recovery_stdout" --arg stderr "$recovery_stderr" \
-                '{schema:"fsusblog.release-rollout-recovery.v1",status:"ok",action:$action,failedStage:$failedStage,stdout:$stdout,stderr:$stderr}' >"$recovery_file"
+        if [[ ! -f "$recoveryFile" ]]; then
+            jq -cn --arg action "$action" --arg failedStage "$failedStage" \
+                --arg stdout "$recoveryStdout" --arg stderr "$recoveryStderr" \
+                '{schema:"fsusblog.release-rollout-recovery.v1",status:"ok",action:$action,failedStage:$failedStage,stdout:$stdout,stderr:$stderr}' >"$recoveryFile"
         fi
         node "$ROOT_DIR/tools/deployment/rollout-state.mjs" complete-recovery \
-            --state "$ROLLOUT_STATE_FILE" --action "$action" --evidence "$recovery_file" >/dev/null
-        rollout_log "recovery action=$action status=ok evidence=$recovery_file"
+            --state "$ROLLOUT_STATE_FILE" --action "$action" --evidence "$recoveryFile" >/dev/null
+        RolloutLog "recovery action=$action status=ok evidence=$recoveryFile"
         return 0
     fi
-    [[ -f "$recovery_file" ]] || jq -cn --arg action "$action" --arg failedStage "$failed_stage" --argjson exitCode "$status" \
-        '{schema:"fsusblog.release-rollout-recovery.v1",status:"failed",action:$action,failedStage:$failedStage,exitCode:$exitCode}' >"$recovery_file"
+    [[ -f "$recoveryFile" ]] || jq -cn --arg action "$action" --arg failedStage "$failedStage" --argjson exitCode "$status" \
+        '{schema:"fsusblog.release-rollout-recovery.v1",status:"failed",action:$action,failedStage:$failedStage,exitCode:$exitCode}' >"$recoveryFile"
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" fail-recovery \
-        --state "$ROLLOUT_STATE_FILE" --action "$action" --evidence "$recovery_file" --error "recovery_failed_${status}" >/dev/null || true
-    rollout_log "recovery action=$action status=failed; active slot was not stopped"
+        --state "$ROLLOUT_STATE_FILE" --action "$action" --evidence "$recoveryFile" --error "recovery_failed_${status}" >/dev/null || true
+    RolloutLog "recovery action=$action status=failed; active slot was not stopped"
     return 91
 }
 
-stage_manifest_validate() {
+StageManifestValidate() {
     node "$ROOT_DIR/tools/release/check-release-manifest.mjs" \
         --manifest "$RELEASE_MANIFEST" --slot "$TARGET_SLOT" --release-id "$TARGET_RELEASE" --image-digest "$TARGET_DIGEST"
 }
 
-stage_capacity_preflight() {
+StageCapacityPreflight() {
     "$ROOT_DIR/tools/deployment/slot-preflight.sh" \
         --slot "$TARGET_SLOT" --release-manifest "$RELEASE_MANIFEST" \
         --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE"
 }
 
-stage_backup_restore_gate() {
+StageBackupRestoreGate() {
     node "$ROOT_DIR/tools/deployment/release-rollout-gate.mjs" backup-restore \
         --input "$BACKUP_RESTORE_EVIDENCE" \
         --max-age-seconds "${FSUSBLOG_BACKUP_RESTORE_MAX_AGE_SECONDS:-604800}" \
         --out "$EVIDENCE_DIR/backup-restore-gate.json"
 }
 
-stage_expand_migration() {
-    local migration_output="$EVIDENCE_DIR/migration-expand.json"
+StageExpandMigration() {
+    local migrationOutput="$EVIDENCE_DIR/migration-expand.json"
     if [[ "$ROLLBACK" == "1" ]]; then
-        jq -cn '{schema:"fsusblog.online-migration-rollout.v1",status:"ok",phase:"expand",action:"not-required-for-rollback",contractApplied:false,errors:[]}' >"$migration_output"
+        jq -cn '{schema:"fsusblog.online-migration-rollout.v1",status:"ok",phase:"expand",action:"not-required-for-rollback",contractApplied:false,errors:[]}' >"$migrationOutput"
     else
         "$ROOT_DIR/tools/db/run-online-migrations.sh" \
             --server-dll "$MIGRATION_SERVER_DLL" --release-manifest "$RELEASE_MANIFEST" \
-            --env-file "$PRODUCTION_ENV_FILE" --phase expand >"$migration_output"
+            --env-file "$PRODUCTION_ENV_FILE" --phase expand >"$migrationOutput"
     fi
     jq -e '
     type == "object"
     and (.status == "ok" or .status == "pass" or .status == "completed")
     and (.phase == "expand")
     and ((.errors // []) | type == "array" and length == 0)
-  ' "$migration_output" >/dev/null
-    cat "$migration_output"
-    wait_for_traffic_baseline
+  ' "$migrationOutput" >/dev/null
+    cat "$migrationOutput"
+    WaitForTrafficBaseline
 }
 
-stage_candidate_start() {
+StageCandidateStart() {
     "$ROOT_DIR/tools/deployment/slot-start.sh" \
         --slot "$TARGET_SLOT" --release-manifest "$RELEASE_MANIFEST" \
         --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE" \
         --deployment-generation "$TARGET_GENERATION"
 }
 
-stage_candidate_readiness() {
-    local status_file="$EVIDENCE_DIR/candidate-status.json"
-    "$ROOT_DIR/tools/deployment/slot-status.sh" --slot "$TARGET_SLOT" --state-file "$SLOT_STATE_FILE" >"$status_file"
+StageCandidateReadiness() {
+    local statusFile="$EVIDENCE_DIR/candidate-status.json"
+    "$ROOT_DIR/tools/deployment/slot-status.sh" --slot "$TARGET_SLOT" --state-file "$SLOT_STATE_FILE" >"$statusFile"
     node "$ROOT_DIR/tools/deployment/release-rollout-gate.mjs" candidate-readiness \
-        --input "$status_file" --slot "$TARGET_SLOT" --release "$TARGET_RELEASE" \
+        --input "$statusFile" --slot "$TARGET_SLOT" --release "$TARGET_RELEASE" \
         --digest "$TARGET_DIGEST" --generation "$TARGET_GENERATION" \
         --out "$EVIDENCE_DIR/candidate-readiness-gate.json"
 }
 
-stage_asset_materialize() {
+StageAssetMaterialize() {
     node "$ROOT_DIR/tools/storage/materialize-release-assets.mjs" \
         --release-manifest "$RELEASE_MANIFEST" --slot "$TARGET_SLOT" \
         --store "$ASSET_STORE" --out "$EVIDENCE_DIR/asset-materialization.json"
@@ -1291,7 +1291,7 @@ stage_asset_materialize() {
         --out "$EVIDENCE_DIR/retained-assets-before-switch.json"
 }
 
-verify_public_aot_warm_evidence() {
+VerifyPublicAotWarmEvidence() {
     node "$ROOT_DIR/tools/frontend/verify-public-aot-warm-evidence.mjs" \
         --report "$EVIDENCE_DIR/public-aot-warm.json" --require-scope all \
         --expected-release "$TARGET_RELEASE" --expected-slot "$TARGET_SLOT" \
@@ -1299,41 +1299,41 @@ verify_public_aot_warm_evidence() {
         --max-age-seconds "${FSUSBLOG_PUBLIC_AOT_WARM_EVIDENCE_MAX_AGE_SECONDS:-900}"
 }
 
-stage_candidate_smoke() {
-    local stop_file="$EVIDENCE_DIR/candidate-smoke.stop"
-    local public_aot_report="$EVIDENCE_DIR/public-aot-warm.json"
+StageCandidateSmoke() {
+    local stopFile="$EVIDENCE_DIR/candidate-smoke.stop"
+    local publicAotReport="$EVIDENCE_DIR/public-aot-warm.json"
     FSUSBLOG_BASE_URL="http://127.0.0.1:$TARGET_PORT" \
         FSUSBLOG_SYNC_PUBLIC_AOT_SIDECARS_TO_DIST=0 \
         node "$ROOT_DIR/tools/frontend/warm-public-aot-cache.mjs" \
-        --scope all --fail-fast --report "$public_aot_report" \
+        --scope all --fail-fast --report "$publicAotReport" \
         --expected-release "$TARGET_RELEASE" --expected-slot "$TARGET_SLOT" \
         --expected-public-origin "$PUBLIC_PROBE_URL"
-    verify_public_aot_warm_evidence
+    VerifyPublicAotWarmEvidence
     FSUSBLOG_GATEWAY_ALLOW_HTTP_PROBE=1 node "$ROOT_DIR/tools/deployment/release-traffic-probe.mjs" \
         --base-url "http://127.0.0.1:$TARGET_PORT" \
         --scenario "$TRAFFIC_SCENARIO" --rollout-state "$ROLLOUT_STATE_FILE" \
         --snapshot "$EVIDENCE_DIR/candidate-smoke.snapshot.json" \
-        --out "$EVIDENCE_DIR/candidate-smoke.json" --stop-file "$stop_file" \
+        --out "$EVIDENCE_DIR/candidate-smoke.json" --stop-file "$stopFile" \
         --binding-key-file "$TRAFFIC_BINDING_KEY_FILE" --probe-mode candidate-direct \
         --concurrency "${FSUSBLOG_CANDIDATE_SMOKE_CONCURRENCY:-4}" --rounds 1 --expect-releases target
 }
 
-stage_compatibility_smoke() {
-    local previous_release
-    previous_release="$(slot_state_read | jq -r '.previousReleaseId // .activeReleaseId')"
+StageCompatibilitySmoke() {
+    local previousRelease
+    previousRelease="$(SlotStateRead | jq -r '.previousReleaseId // .activeReleaseId')"
     node "$ROOT_DIR/tools/storage/check-release-compatibility.mjs" \
-        --candidate "$TARGET_RELEASE" --active "$SOURCE_RELEASE" --previous "$previous_release" \
+        --candidate "$TARGET_RELEASE" --active "$SOURCE_RELEASE" --previous "$previousRelease" \
         --store "$ASSET_STORE" --state "$RETENTION_STATE" --out "$EVIDENCE_DIR/compatibility-matrix.json" \
         >/dev/null
     node "$ROOT_DIR/tools/deployment/release-rollout-gate.mjs" compatibility \
         --input "$EVIDENCE_DIR/compatibility-matrix.json" --out "$EVIDENCE_DIR/compatibility-gate.json"
 }
 
-stage_gateway_switch() {
-    verify_public_aot_warm_evidence
-    wait_for_traffic_baseline
-    wait_for_asset_checkpoint
-    ensure_background_probes_alive
+StageGatewaySwitch() {
+    VerifyPublicAotWarmEvidence
+    WaitForTrafficBaseline
+    WaitForAssetCheckpoint
+    EnsureBackgroundProbesAlive
     "$ROOT_DIR/tools/deployment/gateway-switch.sh" \
         --to "$TARGET_SLOT" --release "$TARGET_RELEASE" --image-digest "$TARGET_DIGEST" \
         --kind "$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf switch)" \
@@ -1342,14 +1342,14 @@ stage_gateway_switch() {
         --defer-source-drain --rollout-state-file "$ROLLOUT_STATE_FILE"
 }
 
-mark_gateway_switch() {
+MarkGatewaySwitch() {
     local generation
-    generation="$(slot_state_read | jq -r '.switchGeneration')"
+    generation="$(SlotStateRead | jq -r '.switchGeneration')"
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" mark-switch \
         --state "$ROLLOUT_STATE_FILE" --generation "$generation" >/dev/null
 }
 
-stage_active_fence() {
+StageActiveFence() {
     node "$ROOT_DIR/tools/deployment/active-release-fence.mjs" acquire \
         --port "$TARGET_PORT" --release "$TARGET_RELEASE" --slot "$TARGET_SLOT" \
         --generation "$TARGET_GENERATION" --digest "$TARGET_DIGEST" \
@@ -1368,15 +1368,15 @@ stage_active_fence() {
         --out "$EVIDENCE_DIR/active-release-fence-verified.json"
 }
 
-stage_public_verify() {
-    complete_asset_compatibility_probe
+StagePublicVerify() {
+    CompleteAssetCompatibilityProbe
     node "$ROOT_DIR/tools/deployment/release-rollout-gate.mjs" traffic-checkpoint \
         --input "$TRAFFIC_SNAPSHOT" --target-release "$TARGET_RELEASE" \
         --min-requests "${FSUSBLOG_ROLLOUT_MIN_PUBLIC_REQUESTS:-100}" \
         --out "$EVIDENCE_DIR/public-traffic-checkpoint.json"
 }
 
-stage_source_drain() {
+StageSourceDrain() {
     node "$ROOT_DIR/tools/deployment/notification-stream-restart.mjs" restart \
         --port "$SOURCE_PORT" --release "$SOURCE_RELEASE" --slot "$SOURCE_SLOT" --generation "$SOURCE_GENERATION" \
         --reason deployment_drain --admin-header-file "$ADMIN_HEADER_FILE" --origin "$CONTROL_ORIGIN" \
@@ -1399,29 +1399,29 @@ stage_source_drain() {
         --fence-verify "$EVIDENCE_DIR/active-release-fence-verified.json" \
         --traffic-checkpoint "$EVIDENCE_DIR/public-traffic-checkpoint.json" \
         --out "$TARGET_HEALTH_EVIDENCE"
-    wait_for_worker_ledger
+    WaitForWorkerLedger
     node "$ROOT_DIR/tools/deployment/release-worker-reconciliation.mjs" \
         --mode normal --rollout-state "$ROLLOUT_STATE_FILE" \
         --ledger "$WORKER_EVENT_LEDGER" \
         --source-drain "$EVIDENCE_DIR/source-drain-gate.json" \
         --target-health "$TARGET_HEALTH_EVIDENCE" \
         --out "$WORKER_RECONCILIATION_EVIDENCE"
-    stop_public_traffic
-    stop_notification_probe
-    stop_resource_probe
-    require_continuous_probe_artifacts
+    StopPublicTraffic
+    StopNotificationProbe
+    StopResourceProbe
+    RequireContinuousProbeArtifacts
     node "$ROOT_DIR/tools/storage/prepare-release-retention.mjs" complete-drain \
         --rollout-state "$ROLLOUT_STATE_FILE" --slot-state "$SLOT_STATE_FILE" \
         --store "$ASSET_STORE" --state "$RETENTION_STATE" \
         --out "$EVIDENCE_DIR/asset-retention-drain-complete.json"
 }
 
-stage_source_stop() {
+StageSourceStop() {
     "$ROOT_DIR/tools/deployment/slot-stop.sh" \
         --slot "$SOURCE_SLOT" --env-file "$PRODUCTION_ENV_FILE" --state-file "$SLOT_STATE_FILE"
 }
 
-artifact_args() {
+ArtifactArgs() {
     printf '%s\n' \
         --artifact "publicTraffic=$TRAFFIC_FINAL" \
         --artifact "notificationStream=$NOTIFICATION_EVIDENCE" \
@@ -1431,7 +1431,7 @@ artifact_args() {
         --artifact "faultInjection=$FAULT_INJECTION_EVIDENCE"
 }
 
-ensure_operator_note() {
+EnsureOperatorNote() {
     if [[ -f "$OPERATOR_NOTE_FILE" ]]; then
         jq -e --arg rolloutId "$ROLLOUT_ID" '
       .schema == "fsusblog.release-rollout-operator-note.v1"
@@ -1440,10 +1440,10 @@ ensure_operator_note() {
       and (.note | type == "string" and length <= 4000)
       and (.errors | type == "array" and length == 0)
     ' "$OPERATOR_NOTE_FILE" >/dev/null ||
-            rollout_fail "operator note is not a valid structured note for rollout $ROLLOUT_ID"
+            RolloutFail "operator note is not a valid structured note for rollout $ROLLOUT_ID"
         return 0
     fi
-    [[ "$OPERATOR_NOTE_EXPLICIT" == "0" ]] || rollout_fail "explicit operator note file is missing: $OPERATOR_NOTE_FILE"
+    [[ "$OPERATOR_NOTE_EXPLICIT" == "0" ]] || RolloutFail "explicit operator note file is missing: $OPERATOR_NOTE_FILE"
     local temporary="${OPERATOR_NOTE_FILE}.tmp-$$"
     mkdir -p "$(dirname "$OPERATOR_NOTE_FILE")"
     jq -n --arg rolloutId "$ROLLOUT_ID" --arg createdAtUtc "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)" '
@@ -1460,9 +1460,9 @@ ensure_operator_note() {
     mv -f "$temporary" "$OPERATOR_NOTE_FILE"
 }
 
-auxiliary_args() {
-    local gateway_evidence
-    gateway_evidence="${FSUSBLOG_GATEWAY_EVIDENCE_DIR:-/var/lib/fsusblog/deployment/evidence}/latest.json"
+AuxiliaryArgs() {
+    local gatewayEvidence
+    gatewayEvidence="${FSUSBLOG_GATEWAY_EVIDENCE_DIR:-/var/lib/fsusblog/deployment/evidence}/latest.json"
     printf '%s\n' \
         --auxiliary "releaseManifest=$RELEASE_MANIFEST" \
         --auxiliary "backupRestoreGate=$EVIDENCE_DIR/backup-restore-gate.json" \
@@ -1474,7 +1474,7 @@ auxiliary_args() {
         --auxiliary "publicAotWarm=$EVIDENCE_DIR/public-aot-warm.json" \
         --auxiliary "candidateSmoke=$EVIDENCE_DIR/candidate-smoke.json" \
         --auxiliary "compatibilityMatrix=$EVIDENCE_DIR/compatibility-matrix.json" \
-        --auxiliary "gatewayTransition=$gateway_evidence" \
+        --auxiliary "gatewayTransition=$gatewayEvidence" \
         --auxiliary "activeFenceAcquire=$EVIDENCE_DIR/active-release-fence.json" \
         --auxiliary "activeFenceSourceRevoke=$EVIDENCE_DIR/active-release-fence-source-revoke.json" \
         --auxiliary "activeFenceVerify=$EVIDENCE_DIR/active-release-fence-verified.json" \
@@ -1486,28 +1486,28 @@ auxiliary_args() {
         --auxiliary "operatorNote=$OPERATOR_NOTE_FILE"
 }
 
-stage_release_evidence() {
-    require_continuous_probe_artifacts
-    ensure_operator_note
+StageReleaseEvidence() {
+    RequireContinuousProbeArtifacts
+    EnsureOperatorNote
     local -a args=()
-    mapfile -t args < <(artifact_args)
+    mapfile -t args < <(ArtifactArgs)
     local -a auxiliary=()
-    mapfile -t auxiliary < <(auxiliary_args)
+    mapfile -t auxiliary < <(AuxiliaryArgs)
     args+=("${auxiliary[@]}")
     node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" preseal \
         --state "$ROLLOUT_STATE_FILE" --out "$PRESEAL_EVIDENCE" --replace "${args[@]}"
 }
 
-finalize_rollout() {
-    ensure_operator_note
+FinalizeRollout() {
+    EnsureOperatorNote
     local -a args=()
-    mapfile -t args < <(artifact_args)
+    mapfile -t args < <(ArtifactArgs)
     local -a auxiliary=()
-    mapfile -t auxiliary < <(auxiliary_args)
+    mapfile -t auxiliary < <(AuxiliaryArgs)
     args+=("${auxiliary[@]}")
     if [[ -f "$FINAL_EVIDENCE" ]]; then
         [[ "$(jq -r --arg rolloutId "$ROLLOUT_ID" '.rolloutId == $rolloutId' "$FINAL_EVIDENCE" 2>/dev/null || printf false)" == "true" ]] ||
-            rollout_fail "existing final evidence belongs to another rollout"
+            RolloutFail "existing final evidence belongs to another rollout"
     else
         node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" finalize \
             --state "$ROLLOUT_STATE_FILE" --out "$FINAL_EVIDENCE" "${args[@]}" >/dev/null
@@ -1515,59 +1515,59 @@ finalize_rollout() {
     node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" verify --evidence "$FINAL_EVIDENCE" >/dev/null
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" complete \
         --state "$ROLLOUT_STATE_FILE" --evidence "$FINAL_EVIDENCE" >/dev/null
-    rollout_log "status=completed rollout=$ROLLOUT_ID evidence=$FINAL_EVIDENCE"
+    RolloutLog "status=completed rollout=$ROLLOUT_ID evidence=$FINAL_EVIDENCE"
 }
 
-slot_acquire_deployment_lock
+SlotAcquireDeploymentLock
 export FSUSBLOG_DEPLOYMENT_LOCK_FD="${FSUSBLOG_DEPLOYMENT_LOCK_FD:-9}"
 export FSUSBLOG_ROLLOUT_ENTRY=1
-read_initial_state
+ReadInitialState
 if [[ "$DRY_RUN" == "1" ]]; then
-    print_dry_run
+    PrintDryRun
     exit 0
 fi
 
-require_runtime_inputs
+RequireRuntimeInputs
 export FSUSBLOG_RELEASE_ASSET_STORE="$ASSET_STORE"
-create_or_resume_state
-if rollout_stage_completed source-drain; then
-    require_continuous_probe_artifacts
+CreateOrResumeState
+if RolloutStageCompleted source-drain; then
+    RequireContinuousProbeArtifacts
 else
-    start_public_traffic
-    start_notification_probe
-    start_resource_probe
+    StartPublicTraffic
+    StartNotificationProbe
+    StartResourceProbe
 fi
-start_asset_compatibility_probe
+StartAssetCompatibilityProbe
 
-run_stage manifest-validate immutable-manifest stage_manifest_validate
-run_stage capacity-preflight host-capacity stage_capacity_preflight
-run_stage backup-restore-gate backup-restore-evidence stage_backup_restore_gate
-run_stage expand-migration online-expand stage_expand_migration
-run_stage candidate-start isolated-candidate stage_candidate_start
-run_stage candidate-readiness release-aware-readiness stage_candidate_readiness
-run_stage asset-materialize immutable-assets stage_asset_materialize
-run_stage candidate-smoke direct-candidate-smoke stage_candidate_smoke
-run_stage compatibility-smoke n-nminus1-compatibility stage_compatibility_smoke
+RunStage manifest-validate immutable-manifest StageManifestValidate
+RunStage capacity-preflight host-capacity StageCapacityPreflight
+RunStage backup-restore-gate backup-restore-evidence StageBackupRestoreGate
+RunStage expand-migration online-expand StageExpandMigration
+RunStage candidate-start isolated-candidate StageCandidateStart
+RunStage candidate-readiness release-aware-readiness StageCandidateReadiness
+RunStage asset-materialize immutable-assets StageAssetMaterialize
+RunStage candidate-smoke direct-candidate-smoke StageCandidateSmoke
+RunStage compatibility-smoke n-nminus1-compatibility StageCompatibilitySmoke
 
 if [[ "$NO_SWITCH" == "1" ]]; then
-    stop_public_traffic || true
-    stop_notification_probe || true
-    stop_resource_probe || true
-    cancel_asset_compatibility_probe || true
+    StopPublicTraffic || true
+    StopNotificationProbe || true
+    StopResourceProbe || true
+    CancelAssetCompatibilityProbe || true
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" candidate-only --state "$ROLLOUT_STATE_FILE" >/dev/null
-    rollout_log "status=candidate_ready rollout=$ROLLOUT_ID state=$ROLLOUT_STATE_FILE"
+    RolloutLog "status=candidate_ready rollout=$ROLLOUT_ID state=$ROLLOUT_STATE_FILE"
     exit 0
 fi
 
 for file in "$NOTIFICATION_EVIDENCE" "$ASSET_COMPATIBILITY_EVIDENCE" "$WORKER_EVENT_LEDGER" "$WORKER_RECONCILIATION_EVIDENCE" "$RESOURCE_BUDGET_EVIDENCE" "$FAULT_INJECTION_EVIDENCE"; do
-    [[ -n "$file" ]] || rollout_fail "a required final evidence output/input path was not configured before traffic switch"
+    [[ -n "$file" ]] || RolloutFail "a required final evidence output/input path was not configured before traffic switch"
 done
 
-run_stage gateway-switch atomic-gateway-switch stage_gateway_switch
-mark_gateway_switch
-run_stage active-fence active-release-cas stage_active_fence
-run_stage public-verify continuous-public-traffic stage_public_verify
-run_stage source-drain graceful-source-drain stage_source_drain
-run_stage source-stop retained-source-stop stage_source_stop
-run_stage release-evidence immutable-release-evidence stage_release_evidence
-finalize_rollout
+RunStage gateway-switch atomic-gateway-switch StageGatewaySwitch
+MarkGatewaySwitch
+RunStage active-fence active-release-cas StageActiveFence
+RunStage public-verify continuous-public-traffic StagePublicVerify
+RunStage source-drain graceful-source-drain StageSourceDrain
+RunStage source-stop retained-source-stop StageSourceStop
+RunStage release-evidence immutable-release-evidence StageReleaseEvidence
+FinalizeRollout

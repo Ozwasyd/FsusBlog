@@ -6,14 +6,14 @@ OUTPUT_FILE="${FSUSBLOG_FIREWALL_POLICY_EVIDENCE:-$ROOT_DIR/.tmp/security/produc
 VERIFY_SCRIPT="$ROOT_DIR/tools/security/verify-production-firewall-policy-evidence.sh"
 HOSTS_SOURCE="${FSUSBLOG_FIREWALL_POLICY_REQUIRED_HOSTS:-${FSUSBLOG_LIVE_HOSTS:-}}"
 
-fail() {
+Fail() {
     printf '[host-firewall-policy-collector] failed\n' >&2
     printf -- '- %s\n' "$1" >&2
     exit 1
 }
 
 if ! command -v jq >/dev/null 2>&1; then
-    fail 'jq is required to write firewall policy evidence'
+    Fail 'jq is required to write firewall policy evidence'
 fi
 
 if [[ -z "$HOSTS_SOURCE" ]]; then
@@ -21,26 +21,26 @@ if [[ -z "$HOSTS_SOURCE" ]]; then
 fi
 HOSTS_SOURCE="$(tr ',;' '  ' <<<"$HOSTS_SOURCE" | xargs || true)"
 if [[ -z "$HOSTS_SOURCE" ]]; then
-    fail 'no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values'
+    Fail 'no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values'
 fi
 
-read_ufw_status() {
+ReadUfwStatus() {
     if [[ -n "${FSUSBLOG_UFW_STATUS_FILE:-}" ]]; then
         if [[ ! -f "$FSUSBLOG_UFW_STATUS_FILE" ]]; then
-            fail "missing FSUSBLOG_UFW_STATUS_FILE: $FSUSBLOG_UFW_STATUS_FILE"
+            Fail "missing FSUSBLOG_UFW_STATUS_FILE: $FSUSBLOG_UFW_STATUS_FILE"
         fi
         cat "$FSUSBLOG_UFW_STATUS_FILE"
         return
     fi
 
     if ! command -v ufw >/dev/null 2>&1; then
-        fail 'ufw is not installed; provide a normalized cloud/security-group export or run this on a UFW-managed production host'
+        Fail 'ufw is not installed; provide a normalized cloud/security-group export or run this on a UFW-managed production host'
     fi
 
     ufw status 2>&1
 }
 
-normalize_source() {
+NormalizeSource() {
     local source="$1"
     case "$source" in
         "Anywhere")
@@ -68,7 +68,7 @@ normalize_source() {
     esac
 }
 
-is_private_source() {
+IsPrivateSource() {
     local source="$1"
     [[ "$source" =~ ^10\. ]] && return 0
     [[ "$source" =~ ^192\.168\. ]] && return 0
@@ -78,7 +78,7 @@ is_private_source() {
     return 1
 }
 
-source_type_for_ssh() {
+SourceTypeForSsh() {
     local source="$1"
 
     if [[ -n "${FSUSBLOG_FIREWALL_SSH_SOURCE_TYPES:-}" ]]; then
@@ -93,7 +93,7 @@ source_type_for_ssh() {
         done < <(tr ',;' '\n' <<<"$FSUSBLOG_FIREWALL_SSH_SOURCE_TYPES")
     fi
 
-    if is_private_source "$source"; then
+    if IsPrivateSource "$source"; then
         printf 'private-management-network\n'
         return 0
     fi
@@ -106,9 +106,9 @@ source_type_for_ssh() {
     return 1
 }
 
-status_output="$(read_ufw_status)"
+status_output="$(ReadUfwStatus)"
 if ! grep -Eqi '^Status:[[:space:]]+active' <<<"$status_output"; then
-    fail 'UFW status is not active; normalized evidence must come from an active firewall export'
+    Fail 'UFW status is not active; normalized evidence must come from an active firewall export'
 fi
 if [[ -n "${FSUSBLOG_UFW_STATUS_FILE:-}" ]]; then
     SOURCE_SHA256="$(sha256sum "$FSUSBLOG_UFW_STATUS_FILE" | awk '{print $1}')"
@@ -151,11 +151,11 @@ while IFS= read -r raw_line; do
         continue
     fi
 
-    source="$(normalize_source "$source_field")"
+    source="$(NormalizeSource "$source_field")"
     source_type=""
     if [[ "$from_port" == "22" && "$to_port" == "22" ]]; then
-        if ! source_type="$(source_type_for_ssh "$source")"; then
-            fail "cannot infer sourceType for SSH source $source; set FSUSBLOG_FIREWALL_SSH_SOURCE_TYPE or FSUSBLOG_FIREWALL_SSH_SOURCE_TYPES"
+        if ! source_type="$(SourceTypeForSsh "$source")"; then
+            Fail "cannot infer sourceType for SSH source $source; set FSUSBLOG_FIREWALL_SSH_SOURCE_TYPE or FSUSBLOG_FIREWALL_SSH_SOURCE_TYPES"
         fi
     fi
 
@@ -178,7 +178,7 @@ while IFS= read -r raw_line; do
 done <<<"$status_output"
 
 if [[ ! -s "$rules_file" ]]; then
-    fail 'no supported UFW allow rules were found; expected explicit tcp/80 and tcp/443 rules'
+    Fail 'no supported UFW allow rules were found; expected explicit tcp/80 and tcp/443 rules'
 fi
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"

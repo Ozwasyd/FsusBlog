@@ -5,14 +5,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/ops/development/dependencies.compose.yml"
 SEED_SQL="$ROOT_DIR/tools/dev/demo-seed.sql"
 
-need_cmd() {
+NeedCmd() {
     if ! command -v "$1" >/dev/null 2>&1; then
         echo "[seed-demo] missing required command: $1" >&2
         exit 1
     fi
 }
 
-need_cmd docker
+NeedCmd docker
 
 DB_NAME="${FSUSBLOG_DEV_POSTGRES_DB:-fsusblog}"
 DB_USER="${FSUSBLOG_DEV_POSTGRES_USER:-fsusblog}"

@@ -47,10 +47,10 @@ fi
 ARCHIVE_NAME="cmake-${CMAKE_VERSION}-linux-${ARCHIVE_ARCH}.tar.gz"
 ARCHIVE_URL="https://cmake.org/files/v4.3/${ARCHIVE_NAME}"
 WORK_DIR="$(mktemp -d "${CACHE_ROOT}/cmake/.${CMAKE_VERSION}.install.XXXXXX")"
-cleanup() {
+Cleanup() {
     rm -rf "${WORK_DIR}"
 }
-trap cleanup EXIT
+trap Cleanup EXIT
 
 echo "[ensure-cmake] installing pinned CMake ${CMAKE_VERSION} into dependency cache" >&2
 curl -fsSL --retry 3 --retry-delay 1 "${ARCHIVE_URL}" -o "${WORK_DIR}/${ARCHIVE_NAME}"

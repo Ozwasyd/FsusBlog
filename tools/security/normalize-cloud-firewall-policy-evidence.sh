@@ -8,23 +8,23 @@ VERIFY_SCRIPT="$ROOT_DIR/tools/security/verify-production-firewall-policy-eviden
 FORMAT="${FSUSBLOG_CLOUD_FIREWALL_FORMAT:-auto}"
 HOSTS_SOURCE="${FSUSBLOG_FIREWALL_POLICY_REQUIRED_HOSTS:-${FSUSBLOG_LIVE_HOSTS:-}}"
 
-fail() {
+Fail() {
     printf '[cloud-firewall-policy-normalizer] failed\n' >&2
     printf -- '- %s\n' "$1" >&2
     exit 1
 }
 
 if [[ -z "$SOURCE_FILE" ]]; then
-    fail 'missing source file; pass a cloud firewall export path or set FSUSBLOG_CLOUD_FIREWALL_SOURCE'
+    Fail 'missing source file; pass a cloud firewall export path or set FSUSBLOG_CLOUD_FIREWALL_SOURCE'
 fi
 if [[ ! -f "$SOURCE_FILE" ]]; then
-    fail "missing source file: $SOURCE_FILE"
+    Fail "missing source file: $SOURCE_FILE"
 fi
 if ! command -v jq >/dev/null 2>&1; then
-    fail 'jq is required to normalize cloud firewall evidence'
+    Fail 'jq is required to normalize cloud firewall evidence'
 fi
 if ! jq empty "$SOURCE_FILE" >/dev/null 2>&1; then
-    fail "source file is not valid JSON: $SOURCE_FILE"
+    Fail "source file is not valid JSON: $SOURCE_FILE"
 fi
 
 if [[ -z "$HOSTS_SOURCE" ]]; then
@@ -32,7 +32,7 @@ if [[ -z "$HOSTS_SOURCE" ]]; then
 fi
 HOSTS_SOURCE="$(tr ',;' '  ' <<<"$HOSTS_SOURCE" | xargs || true)"
 if [[ -z "$HOSTS_SOURCE" ]]; then
-    fail 'no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values'
+    Fail 'no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values'
 fi
 SOURCE_SHA256="$(sha256sum "$SOURCE_FILE" | awk '{print $1}')"
 
@@ -40,11 +40,11 @@ if [[ "$FORMAT" == "auto" ]]; then
     if jq -e '(.SecurityGroups | type) == "array"' "$SOURCE_FILE" >/dev/null 2>&1; then
         FORMAT="aws-security-groups"
     else
-        fail 'could not auto-detect cloud firewall export format; set FSUSBLOG_CLOUD_FIREWALL_FORMAT=aws-security-groups'
+        Fail 'could not auto-detect cloud firewall export format; set FSUSBLOG_CLOUD_FIREWALL_FORMAT=aws-security-groups'
     fi
 fi
 
-normalize_source() {
+NormalizeSource() {
     local source="$1"
     case "$source" in
         "0.0.0.0/0" | "::/0")
@@ -56,7 +56,7 @@ normalize_source() {
     esac
 }
 
-is_private_source() {
+IsPrivateSource() {
     local source="$1"
     [[ "$source" =~ ^10\. ]] && return 0
     [[ "$source" =~ ^192\.168\. ]] && return 0
@@ -66,21 +66,21 @@ is_private_source() {
     return 1
 }
 
-covers_ssh() {
+CoversSsh() {
     local protocol="$1"
-    local from_port="$2"
-    local to_port="$3"
+    local fromPort="$2"
+    local toPort="$3"
 
     [[ "$protocol" == "-1" || "$protocol" == "all" || "$protocol" == "*" ]] && return 0
     [[ "$protocol" != "tcp" ]] && return 1
-    [[ -z "$from_port" && -z "$to_port" ]] && return 1
+    [[ -z "$fromPort" && -z "$toPort" ]] && return 1
 
-    local low="${from_port:-22}"
-    local high="${to_port:-$low}"
+    local low="${fromPort:-22}"
+    local high="${toPort:-$low}"
     ((low <= 22 && high >= 22))
 }
 
-source_type_for_ssh() {
+SourceTypeForSsh() {
     local source="$1"
 
     if [[ -n "${FSUSBLOG_FIREWALL_SSH_SOURCE_TYPES:-}" ]]; then
@@ -95,7 +95,7 @@ source_type_for_ssh() {
         done < <(tr ',;' '\n' <<<"$FSUSBLOG_FIREWALL_SSH_SOURCE_TYPES")
     fi
 
-    if is_private_source "$source"; then
+    if IsPrivateSource "$source"; then
         printf 'private-management-network\n'
         return 0
     fi
@@ -113,20 +113,20 @@ trap 'rm -f "$rules_file"' EXIT
 
 case "$FORMAT" in
     aws-security-groups)
-        while IFS=$'\t' read -r protocol from_port to_port source; do
+        while IFS=$'\t' read -r protocol fromPort toPort source; do
             [[ -n "${protocol:-}" && -n "${source:-}" ]] || continue
-            source="$(normalize_source "$source")"
+            source="$(NormalizeSource "$source")"
             source_type=""
-            if covers_ssh "$protocol" "${from_port:-}" "${to_port:-}"; then
-                if ! source_type="$(source_type_for_ssh "$source")"; then
-                    fail "cannot infer sourceType for SSH source $source; set FSUSBLOG_FIREWALL_SSH_SOURCE_TYPE or FSUSBLOG_FIREWALL_SSH_SOURCE_TYPES"
+            if CoversSsh "$protocol" "${fromPort:-}" "${toPort:-}"; then
+                if ! source_type="$(SourceTypeForSsh "$source")"; then
+                    Fail "cannot infer sourceType for SSH source $source; set FSUSBLOG_FIREWALL_SSH_SOURCE_TYPE or FSUSBLOG_FIREWALL_SSH_SOURCE_TYPES"
                 fi
             fi
 
             jq -c -n \
                 --arg protocol "$protocol" \
-                --arg fromPort "${from_port:-}" \
-                --arg toPort "${to_port:-}" \
+                --arg fromPort "${fromPort:-}" \
+                --arg toPort "${toPort:-}" \
                 --arg source "$source" \
                 --arg sourceType "$source_type" \
                 '
@@ -167,12 +167,12 @@ case "$FORMAT" in
         )
         ;;
     *)
-        fail "unsupported cloud firewall export format: $FORMAT"
+        Fail "unsupported cloud firewall export format: $FORMAT"
         ;;
 esac
 
 if [[ ! -s "$rules_file" ]]; then
-    fail "no ingress CIDR rules were found in $SOURCE_FILE"
+    Fail "no ingress CIDR rules were found in $SOURCE_FILE"
 fi
 
 mkdir -p "$(dirname "$OUTPUT_FILE")"

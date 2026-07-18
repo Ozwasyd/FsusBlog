@@ -7,23 +7,23 @@ TMP_DIR="${ROOT_DIR}/build/artifacts/.wasm-release-tmp"
 CLIENT_DIR="${ROOT_DIR}/src/frontend"
 MANIFEST_PATH="${ARTIFACT_DIR}/wasm-manifest.aeds"
 
-log() {
+Log() {
     printf '[build-wasm-artifact] %s\n' "$1"
 }
 
-require_command() {
+RequireCommand() {
     if ! command -v "$1" >/dev/null 2>&1; then
         printf '[build-wasm-artifact] fatal: missing required command: %s\n' "$1" >&2
         exit 1
     fi
 }
 
-require_command docker
-require_command node
+RequireCommand docker
+RequireCommand node
 
 node "${ROOT_DIR}/tools/check-wasm-artifact-ownership.mjs"
 
-log "building wasm artifact target"
+Log "building wasm artifact target"
 rm -rf "${TMP_DIR}"
 mkdir -p "${TMP_DIR}"
 DOCKER_BUILDKIT=1 docker build \
@@ -33,13 +33,13 @@ DOCKER_BUILDKIT=1 docker build \
     --output "type=local,dest=${TMP_DIR}" \
     "${ROOT_DIR}"
 
-log "refreshing artifact directory ${ARTIFACT_DIR}"
+Log "refreshing artifact directory ${ARTIFACT_DIR}"
 rm -rf "${ARTIFACT_DIR}"
 mkdir -p "${ARTIFACT_DIR}"
 find "${TMP_DIR}" -maxdepth 1 -type f -exec mv {} "${ARTIFACT_DIR}/" \;
 rm -rf "${TMP_DIR}"
 
-log "verifying artifact contract"
+Log "verifying artifact contract"
 ARTIFACT_DIR="${ARTIFACT_DIR}" MANIFEST_PATH="${MANIFEST_PATH}" CLIENT_DIR="${CLIENT_DIR}" node <<'EOF'
 const fs = require('node:fs');
 const path = require('node:path');
@@ -176,4 +176,4 @@ EOF
 
 node "${ROOT_DIR}/tools/check-wasm-artifact-ownership.mjs" --require-generated --artifact-dir "${ARTIFACT_DIR}"
 
-log "artifact ready at ${ARTIFACT_DIR}"
+Log "artifact ready at ${ARTIFACT_DIR}"

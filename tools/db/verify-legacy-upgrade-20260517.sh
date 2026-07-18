@@ -7,16 +7,16 @@ DUMP_PATH="${FSUS_LEGACY_20260517_DUMP_GZ:-$ROOT_DIR/.tmp/db_blog_20260517000000
 WORK_DIR="${FSUS_LEGACY_20260517_WORK_DIR:-$ROOT_DIR/.tmp/legacy-20260517-upgrade}"
 DECOMPRESSED_DUMP="$WORK_DIR/db_blog_20260517000000fjyfe.pgcustom"
 
-require_command() {
+RequireCommand() {
     if ! command -v "$1" >/dev/null 2>&1; then
         echo "missing required command: $1" >&2
         exit 1
     fi
 }
 
-require_command gzip
-require_command docker
-require_command dotnet
+RequireCommand gzip
+RequireCommand docker
+RequireCommand dotnet
 
 if [[ ! -f "$DUMP_PATH" ]]; then
     echo "legacy dump not found: $DUMP_PATH" >&2

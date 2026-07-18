@@ -5,11 +5,11 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 
 STAGE_DIR="$ROOT_DIR/.tmp/security/privacy-zk-comment-matrix-stages"
 
-write_stage_receipt() {
+WriteStageReceipt() {
     local stage="$1"
-    local validated_by="$2"
+    local validatedBy="$2"
     mkdir -p "$STAGE_DIR"
-    STAGE_NAME="$stage" STAGE_VALIDATED_BY="$validated_by" node --input-type=module - "$STAGE_DIR/$stage.json" <<'NODE'
+    STAGE_NAME="$stage" STAGE_VALIDATED_BY="$validatedBy" node --input-type=module - "$STAGE_DIR/$stage.json" <<'NODE'
 import fs from 'node:fs'
 import process from 'node:process'
 
@@ -27,10 +27,10 @@ fs.renameSync(pending, output)
 NODE
 }
 
-require_stage_receipt() {
+RequireStageReceipt() {
     local stage="$1"
     local receipt="$STAGE_DIR/$stage.json"
-    [[ -s "$receipt" ]] || fail "privacy-zk stage receipt missing: $stage"
+    [[ -s "$receipt" ]] || Fail "privacy-zk stage receipt missing: $stage"
     EXPECTED_STAGE="$stage" node --input-type=module - "$receipt" <<'NODE'
 import fs from 'node:fs'
 import process from 'node:process'
@@ -48,105 +48,105 @@ if (expectedRunId && receipt.runId !== expectedRunId) {
 NODE
 }
 
-local_dotnet_args() {
+LocalDotnetArgs() {
     PRIVACY_DOTNET_ARGS=(-- --no-build --no-restore)
 }
 
-run_privacy_matrix_contract() {
+RunPrivacyMatrixContract() {
     node "$ROOT_DIR/tools/check-repository-source-layout.mjs"
     node "$ROOT_DIR/tools/verify-zk-privacy-matrix.mjs"
 }
 
-run_privacy_prebuild_contract() {
-    FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build || return $?
+RunPrivacyPrebuildContract() {
+    FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild || return $?
     FSUSBLOG_ZK_MCL_NO_BUILD=1 \
-        npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-contract:prebuild
+        npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-contract:prebuild
 }
 
-run_privacy_postbuild_contract() {
-    npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-contract:postbuild
+RunPrivacyPostbuildContract() {
+    npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-contract:postbuild
 }
 
-run_privacy_backend_functional() {
-    configure_dotnet_test_processors || return $?
-    FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release ensure_backend_filtered_build || return $?
-    local_dotnet_args
-    npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-backend-functional "${PRIVACY_DOTNET_ARGS[@]}"
+RunPrivacyBackendFunctional() {
+    ConfigureDotnetTestProcessors || return $?
+    FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release EnsureBackendFilteredBuild || return $?
+    LocalDotnetArgs
+    npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-backend-functional "${PRIVACY_DOTNET_ARGS[@]}"
 }
 
-run_privacy_benchmark() {
-    configure_dotnet_test_processors || return $?
-    FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release ensure_backend_filtered_build || return $?
-    local_dotnet_args
+RunPrivacyBenchmark() {
+    ConfigureDotnetTestProcessors || return $?
+    FSUSBLOG_BACKEND_TEST_CONFIGURATION=Release EnsureBackendFilteredBuild || return $?
+    LocalDotnetArgs
     FSUSBLOG_RUN_PERFORMANCE_TESTS=1 \
-        npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-benchmark "${PRIVACY_DOTNET_ARGS[@]}"
+        npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-benchmark "${PRIVACY_DOTNET_ARGS[@]}"
 }
 
-run_privacy_frontend() {
-    npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-frontend
+RunPrivacyFrontend() {
+    npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-frontend
 }
 
-run_privacy_prod_smoke() {
-    npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk-prod-smoke
+RunPrivacyProdSmoke() {
+    npm --prefix "$ROOT_DIR/src/frontend" Run check:privacy-zk-prod-smoke
 }
 
-run_contract_prebuild_stage() {
+RunContractPrebuildStage() {
     rm -rf "$STAGE_DIR"
     LANE_FAILURES=()
     # This stage has no dependency on generated frontend output. Starting it with
     # the frontend build moves the MCL fixture work off the build critical path.
-    run_collect privacy-matrix-contract run_privacy_matrix_contract
-    run_collect privacy-prebuild-contract run_privacy_prebuild_contract
-    finish_collect
-    write_stage_receipt contract-prebuild 'privacy matrix, circuit, MCL fixture and repository contract checks'
+    RunCollect privacy-matrix-contract RunPrivacyMatrixContract
+    RunCollect privacy-prebuild-contract RunPrivacyPrebuildContract
+    FinishCollect
+    WriteStageReceipt contract-prebuild 'privacy matrix, circuit, MCL fixture and repository contract checks'
 }
 
-run_contract_postbuild_stage() {
-    require_stage_receipt contract-prebuild
+RunContractPostbuildStage() {
+    RequireStageReceipt contract-prebuild
     LANE_FAILURES=()
     # Only the generated public/wasm prover manifest and its browser-to-MCL proof
     # path remain after frontend-build-ready.
-    run_collect privacy-postbuild-contract run_privacy_postbuild_contract
-    finish_collect
-    write_stage_receipt contract 'generated prover manifest and browser-to-MCL contract check'
+    RunCollect privacy-postbuild-contract RunPrivacyPostbuildContract
+    FinishCollect
+    WriteStageReceipt contract 'generated prover manifest and browser-to-MCL contract check'
 }
 
-run_contract_stage() {
-    run_contract_prebuild_stage
-    run_contract_postbuild_stage
+RunContractStage() {
+    RunContractPrebuildStage
+    RunContractPostbuildStage
 }
 
-run_functional_stage() {
-    require_stage_receipt contract
+RunFunctionalStage() {
+    RequireStageReceipt contract
     LANE_FAILURES=()
     # These branches do not contain a benchmark. They may share the dynamically
     # granted CPU/memory budget with other non-exclusive frontend work.
-    run_collect_parallel privacy-zk-functional \
-        backend-functional run_privacy_backend_functional \
-        frontend run_privacy_frontend \
-        prod-smoke run_privacy_prod_smoke
-    finish_collect
-    write_stage_receipt functional 'parallel backend-functional, frontend and production-smoke checks'
+    RunCollectParallel privacy-zk-functional \
+        backend-functional RunPrivacyBackendFunctional \
+        frontend RunPrivacyFrontend \
+        prod-smoke RunPrivacyProdSmoke
+    FinishCollect
+    WriteStageReceipt functional 'parallel backend-functional, frontend and production-smoke checks'
 }
 
-run_projected_functional_stage() {
-    require_stage_receipt contract
-    run_privacy_prod_smoke
+RunProjectedFunctionalStage() {
+    RequireStageReceipt contract
+    RunPrivacyProdSmoke
     node "$ROOT_DIR/tools/test/lanes/project-privacy-zk-production.mjs"
 }
 
-run_benchmark_stage() {
-    require_stage_receipt contract
+RunBenchmarkStage() {
+    RequireStageReceipt contract
     LANE_FAILURES=()
-    run_collect privacy-zk-native-p99 run_privacy_benchmark
-    finish_collect
-    write_stage_receipt benchmark 'ZkCommentV2CrossStackFixture native verifier P99 test'
+    RunCollect privacy-zk-native-p99 RunPrivacyBenchmark
+    FinishCollect
+    WriteStageReceipt benchmark 'ZkCommentV2CrossStackFixture native verifier P99 test'
 }
 
-finalize_privacy_matrix() {
-    require_stage_receipt contract
-    require_stage_receipt functional
-    require_stage_receipt benchmark
+FinalizePrivacyMatrix() {
+    RequireStageReceipt contract
+    RequireStageReceipt functional
+    RequireStageReceipt benchmark
     mkdir -p "$ROOT_DIR/.tmp/security"
     cat >"$ROOT_DIR/.tmp/security/privacy-zk-comment-matrix.json" <<'JSON'
 {
@@ -160,33 +160,33 @@ JSON
 
 case "${1:-all}" in
     contract-prebuild)
-        run_contract_prebuild_stage
+        RunContractPrebuildStage
         ;;
     contract-postbuild)
-        run_contract_postbuild_stage
+        RunContractPostbuildStage
         ;;
     contract)
-        run_contract_stage
+        RunContractStage
         ;;
     functional)
-        run_functional_stage
+        RunFunctionalStage
         ;;
     project-functional)
-        run_projected_functional_stage
+        RunProjectedFunctionalStage
         ;;
     benchmark)
-        run_benchmark_stage
+        RunBenchmarkStage
         ;;
     finalize)
-        finalize_privacy_matrix
+        FinalizePrivacyMatrix
         ;;
     all)
-        run_contract_stage
-        run_functional_stage
-        run_benchmark_stage
-        finalize_privacy_matrix
+        RunContractStage
+        RunFunctionalStage
+        RunBenchmarkStage
+        FinalizePrivacyMatrix
         ;;
     *)
-        fail "usage: privacy-zk-comment-matrix.sh [all|contract-prebuild|contract-postbuild|contract|functional|project-functional|benchmark|finalize]"
+        Fail "usage: privacy-zk-comment-matrix.sh [all|contract-prebuild|contract-postbuild|contract|functional|project-functional|benchmark|finalize]"
         ;;
 esac

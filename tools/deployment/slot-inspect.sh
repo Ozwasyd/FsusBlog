@@ -7,27 +7,27 @@ SLOT=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --slot)
-            [[ $# -ge 2 ]] || slot_fail "--slot requires a value"
+            [[ $# -ge 2 ]] || SlotFail "--slot requires a value"
             SLOT="$2"
             shift 2
             ;;
         --state-file)
-            [[ $# -ge 2 ]] || slot_fail "--state-file requires a value"
+            [[ $# -ge 2 ]] || SlotFail "--state-file requires a value"
             SLOT_STATE_FILE="$2"
             shift 2
             ;;
-        *) slot_fail "unknown argument: $1" ;;
+        *) SlotFail "unknown argument: $1" ;;
     esac
 done
 
-slot_require "$SLOT"
-slot_require_command curl
-slot_require_command docker
-slot_require_command jq
-slot_require_command node
-slot_configure "$SLOT"
+SlotRequire "$SLOT"
+SlotRequireCommand curl
+SlotRequireCommand docker
+SlotRequireCommand jq
+SlotRequireCommand node
+SlotConfigure "$SLOT"
 
-persisted="$(slot_state_read --slot "$SLOT")"
+persisted="$(SlotStateRead --slot "$SLOT")"
 if ! raw="$(docker inspect "$FSUSBLOG_CONTAINER_NAME" 2>/dev/null)"; then
     jq -cn \
         --arg slot "$SLOT" \

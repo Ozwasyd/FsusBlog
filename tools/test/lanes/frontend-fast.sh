@@ -2,4 +2,4 @@
 set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
-run_tier "frontend-fast" run_fast_frontend_lane
+RunTier "frontend-fast" RunFastFrontendLane

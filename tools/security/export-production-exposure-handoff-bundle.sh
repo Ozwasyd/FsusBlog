@@ -7,36 +7,36 @@ BUNDLE_CHECK_SCRIPT="$ROOT_DIR/tools/security/check-production-exposure-handoff-
 MANIFEST_FILE="${1:-${FSUSBLOG_RELEASE_EVIDENCE_MANIFEST:-}}"
 OUT_ROOT="${FSUSBLOG_PRODUCTION_EXPOSURE_HANDOFF_ROOT:-$ROOT_DIR/.tmp/security/production-exposure-handoff}"
 
-fail() {
+Fail() {
     printf '[production-exposure-handoff-bundle] failed\n' >&2
     printf -- '- %s\n' "$1" >&2
     exit 1
 }
 
-json_value() {
+JsonValue() {
     local file="$1"
     local expr="$2"
     jq -r "$expr" "$file" 2>/dev/null || true
 }
 
 if [[ -z "$MANIFEST_FILE" ]]; then
-    fail 'missing release evidence manifest path'
+    Fail 'missing release evidence manifest path'
 fi
 
 if [[ ! -f "$MANIFEST_FILE" ]]; then
-    fail "release evidence manifest does not exist: $MANIFEST_FILE"
+    Fail "release evidence manifest does not exist: $MANIFEST_FILE"
 fi
 
 manifest_dir="$(cd "$(dirname "$MANIFEST_FILE")" && pwd)"
 manifest_file_abs="$manifest_dir/$(basename "$MANIFEST_FILE")"
-release_stamp="$(json_value "$manifest_file_abs" '.releaseStamp // empty')"
+release_stamp="$(JsonValue "$manifest_file_abs" '.releaseStamp // empty')"
 if [[ -z "$release_stamp" ]]; then
     release_stamp="$(basename "$manifest_dir")"
 fi
 
 OUT_DIR="${FSUSBLOG_PRODUCTION_EXPOSURE_HANDOFF_DIR:-$OUT_ROOT/$release_stamp}"
 if [[ -e "$OUT_DIR" ]]; then
-    fail "handoff output already exists: $OUT_DIR"
+    Fail "handoff output already exists: $OUT_DIR"
 fi
 
 "$HANDOFF_CHECK_SCRIPT" "$manifest_file_abs" >/dev/null
@@ -45,7 +45,7 @@ mkdir -p "$OUT_DIR/release-evidence"
 cp -a "$manifest_dir/." "$OUT_DIR/release-evidence/"
 cp "$manifest_file_abs" "$OUT_DIR/release-evidence/manifest.json"
 
-request_artifact="$(json_value "$manifest_file_abs" '.artifacts.productionExposureRequest // empty')"
+request_artifact="$(JsonValue "$manifest_file_abs" '.artifacts.productionExposureRequest // empty')"
 request_file="/dev/null"
 if [[ -n "$request_artifact" && -f "$manifest_dir/$request_artifact" ]]; then
     request_file="$manifest_dir/$request_artifact"
@@ -53,12 +53,12 @@ fi
 manifest_sha256="$(sha256sum "$manifest_file_abs" | awk '{print $1}')"
 request_sha256="$(sha256sum "$request_file" | awk '{print $1}')"
 
-blocker_count="$(json_value "$manifest_file_abs" '.evidenceSummary.externalExposure.request.blockerCount // (.evidenceSummary.externalExposure.blockers // [] | length)')"
-blocker_sources="$(json_value "$manifest_file_abs" '(.evidenceSummary.externalExposure.request.blockerSources // [] | join(", "))')"
-required_hosts="$(json_value "$manifest_file_abs" '(.evidenceSummary.externalExposure.request.requiredHosts // [] | join(", "))')"
-delegation_domains="$(json_value "$manifest_file_abs" '(.evidenceSummary.externalExposure.request.delegationDomains // [] | join(", "))')"
-manifest_status="$(json_value "$manifest_file_abs" '.status // "unknown"')"
-external_status="$(json_value "$manifest_file_abs" '.evidenceSummary.externalExposure.status // "unknown"')"
+blocker_count="$(JsonValue "$manifest_file_abs" '.evidenceSummary.externalExposure.request.blockerCount // (.evidenceSummary.externalExposure.blockers // [] | length)')"
+blocker_sources="$(JsonValue "$manifest_file_abs" '(.evidenceSummary.externalExposure.request.blockerSources // [] | join(", "))')"
+required_hosts="$(JsonValue "$manifest_file_abs" '(.evidenceSummary.externalExposure.request.requiredHosts // [] | join(", "))')"
+delegation_domains="$(JsonValue "$manifest_file_abs" '(.evidenceSummary.externalExposure.request.delegationDomains // [] | join(", "))')"
+manifest_status="$(JsonValue "$manifest_file_abs" '.status // "unknown"')"
+external_status="$(JsonValue "$manifest_file_abs" '.evidenceSummary.externalExposure.status // "unknown"')"
 
 jq -n \
     --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -243,7 +243,7 @@ EOF
 
 tar_file="$OUT_DIR.tar.gz"
 if [[ -e "$tar_file" || -e "$tar_file.sha256" ]]; then
-    fail "handoff archive already exists: $tar_file"
+    Fail "handoff archive already exists: $tar_file"
 fi
 
 tar -czf "$tar_file" -C "$(dirname "$OUT_DIR")" "$(basename "$OUT_DIR")"

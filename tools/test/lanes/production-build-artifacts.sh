@@ -25,7 +25,7 @@ case "$REUSE_BUILD_OUTPUTS" in
         ;;
 esac
 
-has_domain() {
+HasDomain() {
     local expected="$1"
     local domain
     for domain in "${DOMAIN_LIST[@]}"; do
@@ -50,14 +50,14 @@ for domain in "${DOMAIN_LIST[@]}"; do
     esac
 done
 
-require_file() {
+RequireFile() {
     if [[ ! -f "$1" ]]; then
         printf '[production-build-artifacts] required build output is missing: %s\n' "$1" >&2
         exit 1
     fi
 }
 
-copy_directory() {
+CopyDirectory() {
     local source="$1"
     local destination="$2"
     if [[ ! -d "$source" ]]; then
@@ -71,39 +71,39 @@ copy_directory() {
 rm -rf "$ARTIFACT_ROOT"
 mkdir -p "$PAYLOAD_ROOT"
 
-if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { has_domain backend-runtime || has_domain test-runtime; }; then
+if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { HasDomain backend-runtime || HasDomain test-runtime; }; then
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet restore "$ROOT_DIR/FsusBlog.slnx" -v minimal /p:NuGetAudit=false
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/src/backend/FsusBlog.Server.csproj" \
         -c Release --no-restore --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
 fi
-if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && has_domain test-runtime; then
+if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && HasDomain test-runtime; then
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
         -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
 fi
-if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { has_domain frontend-dist || has_domain wasm; }; then
+if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { HasDomain frontend-dist || HasDomain wasm; }; then
     npm --prefix "$ROOT_DIR/src/frontend" run ensure:wasm
 fi
-if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && has_domain frontend-dist; then
+if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && HasDomain frontend-dist; then
     FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC=1 npm --prefix "$ROOT_DIR/src/frontend" run build:release
 fi
 
-if has_domain backend-runtime; then
-    require_file "${FSUSBLOG_BACKEND_SERVER_DLL:?FSUSBLOG_BACKEND_SERVER_DLL is required}"
-    copy_directory "$(dirname "$FSUSBLOG_BACKEND_SERVER_DLL")" "$PAYLOAD_ROOT/backend-runtime"
+if HasDomain backend-runtime; then
+    RequireFile "${FSUSBLOG_BACKEND_SERVER_DLL:?FSUSBLOG_BACKEND_SERVER_DLL is required}"
+    CopyDirectory "$(dirname "$FSUSBLOG_BACKEND_SERVER_DLL")" "$PAYLOAD_ROOT/backend-runtime"
 fi
-if has_domain test-runtime; then
-    require_file "${FSUSBLOG_BACKEND_TEST_DLL:?FSUSBLOG_BACKEND_TEST_DLL is required}"
-    copy_directory "$(dirname "$FSUSBLOG_BACKEND_TEST_DLL")" "$PAYLOAD_ROOT/test-runtime"
+if HasDomain test-runtime; then
+    RequireFile "${FSUSBLOG_BACKEND_TEST_DLL:?FSUSBLOG_BACKEND_TEST_DLL is required}"
+    CopyDirectory "$(dirname "$FSUSBLOG_BACKEND_TEST_DLL")" "$PAYLOAD_ROOT/test-runtime"
 fi
-if has_domain frontend-dist; then
-    copy_directory "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}" "$PAYLOAD_ROOT/frontend-dist"
+if HasDomain frontend-dist; then
+    CopyDirectory "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}" "$PAYLOAD_ROOT/frontend-dist"
 fi
-if has_domain wasm; then
+if HasDomain wasm; then
     WASM_SOURCE="${FSUSBLOG_FRONTEND_WASM_ROOT:-$ROOT_DIR/src/frontend/public/wasm}"
-    copy_directory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"
+    CopyDirectory "$WASM_SOURCE" "$PAYLOAD_ROOT/wasm"
     (
         cd "$PAYLOAD_ROOT/wasm"
         find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\0' | sort -z | xargs -0 sha256sum >SHA256SUMS
@@ -112,7 +112,7 @@ if has_domain wasm; then
         --require-generated \
         --artifact-dir "$PAYLOAD_ROOT/wasm"
 fi
-if has_domain generated-contracts; then
+if HasDomain generated-contracts; then
     mkdir -p "$PAYLOAD_ROOT/generated-contracts"
     cp "$ROOT_DIR/src/shared/Contracts/Validation/fsusblog.openapi.json" "$PAYLOAD_ROOT/generated-contracts/"
     cp "$ROOT_DIR/src/frontend/src/generated/fsusBinaryRoutes.ts" "$PAYLOAD_ROOT/generated-contracts/"
@@ -151,7 +151,7 @@ CREATE_ARGS=(
     --input tools/test/run-with-dotnet-release-build-lock.sh
     --input tools/test/lanes/production-build-artifacts.sh
 )
-if has_domain backend-runtime || has_domain test-runtime; then
+if HasDomain backend-runtime || HasDomain test-runtime; then
     CREATE_ARGS+=(
         --input src/backend/FsusBlog.Server.csproj
         --input src/backend/packages.lock.json
@@ -161,16 +161,16 @@ if has_domain backend-runtime || has_domain test-runtime; then
         --input src/shared/packages.lock.json
     )
 fi
-if has_domain test-runtime; then
+if HasDomain test-runtime; then
     CREATE_ARGS+=(--input tests/backend/FsusBlog.Server.Tests.csproj --input tests/backend/packages.lock.json)
 fi
-if has_domain frontend-dist || has_domain wasm; then
+if HasDomain frontend-dist || HasDomain wasm; then
     CREATE_ARGS+=(
         --input src/frontend/package.json
         --input src/frontend/package-lock.json
     )
 fi
-if has_domain frontend-dist; then
+if HasDomain frontend-dist; then
     CREATE_ARGS+=(
         --input tools/frontend/build.mjs
         --input src/frontend/vite.config.ts
@@ -179,7 +179,7 @@ if has_domain frontend-dist; then
         --input src/frontend/tsconfig.node.json
     )
 fi
-if has_domain wasm; then
+if HasDomain wasm; then
     CREATE_ARGS+=(
         --input src/frontend/wasm/build.sh
         --input src/frontend/wasm/CMakeLists.txt

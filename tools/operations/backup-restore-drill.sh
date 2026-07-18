@@ -37,20 +37,20 @@ restore_finished_at=0
 
 mkdir -p "$OUT_DIR"
 
-log() {
+Log() {
     printf '[backup-restore-drill] %s\n' "$1"
 }
 
-add_check() {
+AddCheck() {
     checks+=("$1:$2")
 }
 
-add_blocker() {
+AddBlocker() {
     status="blocked"
     blockers+=("$1")
 }
 
-cleanup() {
+Cleanup() {
     rm -f "$WORK_DIR/site-package.plaintext.tar.gz"
     if [[ -n "$backend_pid" ]] && kill -0 "$backend_pid" >/dev/null 2>&1; then
         kill "$backend_pid" >/dev/null 2>&1 || true
@@ -63,7 +63,7 @@ cleanup() {
     fi
 }
 
-archive_is_safe() {
+ArchiveIsSafe() {
     local archive="$1"
     local entry
     tar -tzf "$archive" >/dev/null 2>&1 || return 1
@@ -81,9 +81,9 @@ archive_is_safe() {
     return 0
 }
 
-trap cleanup EXIT
+trap Cleanup EXIT
 
-json_string_array() {
+JsonStringArray() {
     if (("$#" == 0)); then
         printf '[]'
         return
@@ -92,37 +92,37 @@ json_string_array() {
     printf '%s\n' "$@" | jq -R . | jq -s .
 }
 
-write_report() {
-    local checks_json blockers_json generated_at rpo_seconds rto_seconds
-    generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    checks_json="$(json_string_array "${checks[@]}")"
-    blockers_json="$(json_string_array "${blockers[@]}")"
-    rpo_seconds=null
-    rto_seconds=null
+WriteReport() {
+    local checksJson blockersJson generatedAt rpoSeconds rtoSeconds
+    generatedAt="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    checksJson="$(JsonStringArray "${checks[@]}")"
+    blockersJson="$(JsonStringArray "${blockers[@]}")"
+    rpoSeconds=null
+    rtoSeconds=null
 
     if [[ -n "$POSTGRES_BACKUP" && -e "$POSTGRES_BACKUP" ]]; then
-        local backup_mtime
-        backup_mtime="$(stat -c %Y "$POSTGRES_BACKUP" 2>/dev/null || true)"
-        if [[ -n "$backup_mtime" ]]; then
-            rpo_seconds=$(($(date -u +%s) - backup_mtime))
+        local backupMtime
+        backupMtime="$(stat -c %Y "$POSTGRES_BACKUP" 2>/dev/null || true)"
+        if [[ -n "$backupMtime" ]]; then
+            rpoSeconds=$(($(date -u +%s) - backupMtime))
         fi
     fi
 
     if ((restore_started_at > 0 && restore_finished_at >= restore_started_at)); then
-        rto_seconds=$((restore_finished_at - restore_started_at))
+        rtoSeconds=$((restore_finished_at - restore_started_at))
     fi
 
     jq -n \
         --arg status "$status" \
         --arg mode "$MODE" \
-        --arg generatedAt "$generated_at" \
+        --arg generatedAt "$generatedAt" \
         --arg runId "$RUN_ID" \
         --arg workDir "$WORK_DIR" \
         --arg baseUrl "$BASE_URL" \
-        --argjson checks "$checks_json" \
-        --argjson blockers "$blockers_json" \
-        --argjson rpoSeconds "$rpo_seconds" \
-        --argjson rtoSeconds "$rto_seconds" \
+        --argjson checks "$checksJson" \
+        --argjson blockers "$blockersJson" \
+        --argjson rpoSeconds "$rpoSeconds" \
+        --argjson rtoSeconds "$rtoSeconds" \
         '{
       status: $status,
       mode: $mode,
@@ -138,10 +138,10 @@ write_report() {
       blockers: $blockers
     }' >"$OUT_FILE"
 
-    log "wrote $OUT_FILE"
+    Log "wrote $OUT_FILE"
 }
 
-write_restore_manifest() {
+WriteRestoreManifest() {
     jq -n \
         --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         --arg runId "$RUN_ID" \
@@ -170,14 +170,14 @@ write_restore_manifest() {
       }
     }' >"$RESTORE_MANIFEST_FILE"
 
-    add_check "restore-manifest" "written"
+    AddCheck "restore-manifest" "written"
 }
 
-append_residue_result() {
+AppendResidueResult() {
     local file="$1"
     local category="$2"
     local severity="$3"
-    local status_value="$4"
+    local statusValue="$4"
     local hits="$5"
     local sample="$6"
 
@@ -186,7 +186,7 @@ append_residue_result() {
     jq \
         --arg category "$category" \
         --arg severity "$severity" \
-        --arg status "$status_value" \
+        --arg status "$statusValue" \
         --arg sample "$sample" \
         --argjson hits "$hits" \
         '.checks += [{
@@ -199,7 +199,7 @@ append_residue_result() {
     mv "$tmp" "$file"
 }
 
-scan_path_for_residue() {
+ScanPathForResidue() {
     local report="$1"
     local category="$2"
     local severity="$3"
@@ -208,30 +208,30 @@ scan_path_for_residue() {
     local pattern="$*"
 
     if [[ ! -e "$path" ]]; then
-        append_residue_result "$report" "$category" "$severity" "skipped" 0 "path-missing:$path"
+        AppendResidueResult "$report" "$category" "$severity" "skipped" 0 "path-missing:$path"
         return 0
     fi
 
-    local matches hit_count sample
+    local matches hitCount sample
     matches="$(grep -RInaE "$pattern" "$path" 2>/dev/null || true)"
     if [[ -z "$matches" ]]; then
-        append_residue_result "$report" "$category" "$severity" "ok" 0 ""
+        AppendResidueResult "$report" "$category" "$severity" "ok" 0 ""
         return 0
     fi
 
-    hit_count="$(printf '%s\n' "$matches" | wc -l | tr -d ' ')"
+    hitCount="$(printf '%s\n' "$matches" | wc -l | tr -d ' ')"
     sample="$(printf '%s\n' "$matches" | head -1)"
-    append_residue_result "$report" "$category" "$severity" "blocked" "$hit_count" "$sample"
+    AppendResidueResult "$report" "$category" "$severity" "blocked" "$hitCount" "$sample"
     if [[ "$severity" == "P0" ]]; then
         return 1
     fi
     return 0
 }
 
-scan_postgres_for_residue() {
+ScanPostgresForResidue() {
     local report="$1"
     if ! docker ps --format '{{.Names}}' | grep -Fx "$postgres_container" >/dev/null 2>&1; then
-        append_residue_result "$report" "postgres" "P0" "skipped" 0 "postgres-container-not-running"
+        AppendResidueResult "$report" "postgres" "P0" "skipped" 0 "postgres-container-not-running"
         return 0
     fi
 
@@ -259,35 +259,35 @@ SELECT sample FROM retired_read_event_tables
 LIMIT 20;"
     result="$(docker exec "$postgres_container" psql -U fsusblog -d fsusblog -At -c "$sql" 2>/dev/null || true)"
     if [[ -z "$result" ]]; then
-        append_residue_result "$report" "postgres" "P0" "ok" 0 ""
+        AppendResidueResult "$report" "postgres" "P0" "ok" 0 ""
         return 0
     fi
 
     hits="$(printf '%s\n' "$result" | wc -l | tr -d ' ')"
-    append_residue_result "$report" "postgres" "P0" "blocked" "$hits" "$(printf '%s\n' "$result" | head -1)"
+    AppendResidueResult "$report" "postgres" "P0" "blocked" "$hits" "$(printf '%s\n' "$result" | head -1)"
     return 1
 }
 
-scan_redis_for_residue() {
+ScanRedisForResidue() {
     local report="$1"
     if ! docker ps --format '{{.Names}}' | grep -Fx "$redis_container" >/dev/null 2>&1; then
-        append_residue_result "$report" "redis" "P0" "skipped" 0 "redis-container-not-running"
+        AppendResidueResult "$report" "redis" "P0" "skipped" 0 "redis-container-not-running"
         return 0
     fi
 
     local keys hits
     keys="$(docker exec "$redis_container" redis-cli --scan 2>/dev/null | grep -E '(^|:)(user|username|email|password|role|session:user|auth:user)(:|$)' || true)"
     if [[ -z "$keys" ]]; then
-        append_residue_result "$report" "redis" "P0" "ok" 0 ""
+        AppendResidueResult "$report" "redis" "P0" "ok" 0 ""
         return 0
     fi
 
     hits="$(printf '%s\n' "$keys" | wc -l | tr -d ' ')"
-    append_residue_result "$report" "redis" "P0" "blocked" "$hits" "$(printf '%s\n' "$keys" | head -1)"
+    AppendResidueResult "$report" "redis" "P0" "blocked" "$hits" "$(printf '%s\n' "$keys" | head -1)"
     return 1
 }
 
-finalize_residue_report() {
+FinalizeResidueReport() {
     local report="$1"
     local tmp
     tmp="${report}.tmp"
@@ -298,7 +298,7 @@ finalize_residue_report() {
     mv "$tmp" "$report"
 }
 
-run_anonymous_residue_gate() {
+RunAnonymousResidueGate() {
     local report="$RESIDUE_REPORT_FILE"
     jq -n \
         --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -307,53 +307,53 @@ run_anonymous_residue_gate() {
         '{status:"ok", generatedAt:$generatedAt, runId:$runId, mode:$mode, checks:[], summary:{totalChecks:0, blockers:0, warnings:0}}' >"$report"
 
     if [[ "$MODE" == "dry-run" ]]; then
-        append_residue_result "$report" "postgres" "P0" "planned" 0 "retired sys_visit_log/sys_user.lastloginip/legacy user fields"
-        append_residue_result "$report" "redis" "P0" "planned" 0 "legacy user/session/cache key prefixes"
-        append_residue_result "$report" "search" "P0" "planned" 0 "public search documents must not expose userId/username/email/ip"
-        append_residue_result "$report" "aot-static" "P0" "planned" 0 "AOT/static artifacts must not expose legacy account fields"
-        append_residue_result "$report" "uploads-manifest" "P1" "planned" 0 "uploads manifests must not use legacy user directories"
-        finalize_residue_report "$report"
-        add_check "anonymous-residue-gate" "planned"
+        AppendResidueResult "$report" "postgres" "P0" "planned" 0 "retired sys_visit_log/sys_user.lastloginip/legacy user fields"
+        AppendResidueResult "$report" "redis" "P0" "planned" 0 "legacy user/session/cache key prefixes"
+        AppendResidueResult "$report" "search" "P0" "planned" 0 "public search documents must not expose userId/username/email/ip"
+        AppendResidueResult "$report" "aot-static" "P0" "planned" 0 "AOT/static artifacts must not expose legacy account fields"
+        AppendResidueResult "$report" "uploads-manifest" "P1" "planned" 0 "uploads manifests must not use legacy user directories"
+        FinalizeResidueReport "$report"
+        AddCheck "anonymous-residue-gate" "planned"
         return 0
     fi
 
     local blocked=0
-    scan_postgres_for_residue "$report" || blocked=1
-    scan_redis_for_residue "$report" || blocked=1
-    scan_path_for_residue "$report" "search" "P0" "$WORK_DIR/webroot/search" '\b(userId|username|userName|email|ip|replyToUserId)\b' || blocked=1
-    scan_path_for_residue "$report" "aot-static" "P0" "$WORK_DIR/webroot/aot-cache" '\b(userId|username|userName|email|ip|replyToUserId)\b' || blocked=1
-    scan_path_for_residue "$report" "uploads-manifest" "P1" "$WORK_DIR/webroot/uploads" '(^|/)(user|username|email|legacy-user)[-_]?[0-9A-Za-z]*' || true
+    ScanPostgresForResidue "$report" || blocked=1
+    ScanRedisForResidue "$report" || blocked=1
+    ScanPathForResidue "$report" "search" "P0" "$WORK_DIR/webroot/search" '\b(userId|username|userName|email|ip|replyToUserId)\b' || blocked=1
+    ScanPathForResidue "$report" "aot-static" "P0" "$WORK_DIR/webroot/aot-cache" '\b(userId|username|userName|email|ip|replyToUserId)\b' || blocked=1
+    ScanPathForResidue "$report" "uploads-manifest" "P1" "$WORK_DIR/webroot/uploads" '(^|/)(user|username|email|legacy-user)[-_]?[0-9A-Za-z]*' || true
     (
         cd "$ROOT_DIR"
         FSUSBLOG_HISTORICAL_RESIDUE_ROOT="$ROOT_DIR" bash tools/check-historical-residue.sh >/dev/null
     ) || blocked=1
-    append_residue_result "$report" "repository-static-residue" "P0" "$([[ "$blocked" == "0" ]] && printf ok || printf blocked)" "$blocked" "tools/check-historical-residue.sh"
-    finalize_residue_report "$report"
+    AppendResidueResult "$report" "repository-static-residue" "P0" "$([[ "$blocked" == "0" ]] && printf ok || printf blocked)" "$blocked" "tools/check-historical-residue.sh"
+    FinalizeResidueReport "$report"
 
     if [[ "$blocked" != "0" ]]; then
-        add_blocker "anonymous-residue-gate-blocked:$report"
+        AddBlocker "anonymous-residue-gate-blocked:$report"
         return 1
     fi
 
-    add_check "anonymous-residue-gate" "ok"
+    AddCheck "anonymous-residue-gate" "ok"
 }
 
-require_command() {
-    command -v "$1" >/dev/null 2>&1 || add_blocker "command-missing:$1"
+RequireCommand() {
+    command -v "$1" >/dev/null 2>&1 || AddBlocker "command-missing:$1"
 }
 
-require_backup() {
+RequireBackup() {
     local value="$1"
     local label="$2"
     if [[ -z "$value" || ! -r "$value" ]]; then
-        add_blocker "${label}-backup-missing"
+        AddBlocker "${label}-backup-missing"
         return
     fi
 
-    add_check "${label}-backup" "present"
+    AddCheck "${label}-backup" "present"
 }
 
-copy_tree() {
+CopyTree() {
     local source="$1"
     local target="$2"
     mkdir -p "$target"
@@ -370,12 +370,12 @@ copy_tree() {
             tar -xf "$source" -C "$target"
             ;;
         *)
-            add_blocker "unsupported-file-backup:${source##*/}"
+            AddBlocker "unsupported-file-backup:${source##*/}"
             ;;
     esac
 }
 
-normalize_restored_child_dir() {
+NormalizeRestoredChildDir() {
     local parent="$1"
     local child="$2"
     local target="$parent/$child"
@@ -387,7 +387,7 @@ normalize_restored_child_dir() {
     fi
 }
 
-wait_for_postgres() {
+WaitForPostgres() {
     for ((i = 0; i < 60; i += 1)); do
         if docker exec "$postgres_container" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
             return 0
@@ -397,7 +397,7 @@ wait_for_postgres() {
     return 1
 }
 
-wait_for_redis() {
+WaitForRedis() {
     for ((i = 0; i < 60; i += 1)); do
         if docker exec "$redis_container" redis-cli ping >/dev/null 2>&1; then
             return 0
@@ -407,11 +407,11 @@ wait_for_redis() {
     return 1
 }
 
-container_ip() {
+ContainerIp() {
     docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1"
 }
 
-restore_postgres() {
+RestorePostgres() {
     docker run -d \
         --name "$postgres_container" \
         -e POSTGRES_USER=fsusblog \
@@ -419,8 +419,8 @@ restore_postgres() {
         -e POSTGRES_DB=fsusblog \
         postgres:16-alpine >/dev/null
 
-    wait_for_postgres || {
-        add_blocker "postgres-restore-container-not-ready"
+    WaitForPostgres || {
+        AddBlocker "postgres-restore-container-not-ready"
         return
     }
 
@@ -436,161 +436,161 @@ restore_postgres() {
             ;;
     esac
 
-    add_check "postgres-restore" "ok"
+    AddCheck "postgres-restore" "ok"
 }
 
-restore_redis() {
-    local redis_data="$WORK_DIR/redis-data"
-    mkdir -p "$redis_data"
+RestoreRedis() {
+    local redisData="$WORK_DIR/redis-data"
+    mkdir -p "$redisData"
 
     if [[ -d "$REDIS_BACKUP" ]]; then
-        copy_tree "$REDIS_BACKUP" "$redis_data"
+        CopyTree "$REDIS_BACKUP" "$redisData"
     else
-        cp "$REDIS_BACKUP" "$redis_data/dump.rdb"
+        cp "$REDIS_BACKUP" "$redisData/dump.rdb"
     fi
 
-    chmod -R a+rwX "$redis_data"
+    chmod -R a+rwX "$redisData"
     docker run -d \
         --name "$redis_container" \
-        -v "$redis_data:/data" \
+        -v "$redisData:/data" \
         redis:7-alpine redis-server --save "" --appendonly no >/dev/null
 
-    wait_for_redis || {
-        add_blocker "redis-restore-container-not-ready"
+    WaitForRedis || {
+        AddBlocker "redis-restore-container-not-ready"
         return
     }
 
-    add_check "redis-restore" "ok"
+    AddCheck "redis-restore" "ok"
 }
 
-restore_webroot_artifacts() {
-    local source_webroot="${FSUSBLOG_WEB_ROOT:-$ROOT_DIR/src/backend/wwwroot}"
-    local restored_webroot="$WORK_DIR/webroot"
+RestoreWebrootArtifacts() {
+    local sourceWebroot="${FSUSBLOG_WEB_ROOT:-$ROOT_DIR/src/backend/wwwroot}"
+    local restoredWebroot="$WORK_DIR/webroot"
 
-    if [[ ! -d "$source_webroot" ]]; then
-        add_blocker "source-webroot-missing"
+    if [[ ! -d "$sourceWebroot" ]]; then
+        AddBlocker "source-webroot-missing"
         return
     fi
 
-    mkdir -p "$restored_webroot"
-    (cd "$source_webroot" && tar -cf - .) | (cd "$restored_webroot" && tar -xf -)
-    rm -rf "$restored_webroot/uploads" "$restored_webroot/aot-cache" "$restored_webroot/search"
+    mkdir -p "$restoredWebroot"
+    (cd "$sourceWebroot" && tar -cf - .) | (cd "$restoredWebroot" && tar -xf -)
+    rm -rf "$restoredWebroot/uploads" "$restoredWebroot/aot-cache" "$restoredWebroot/search"
 
-    copy_tree "$UPLOADS_BACKUP" "$restored_webroot/uploads"
-    copy_tree "$AOT_BACKUP" "$restored_webroot/aot-cache"
-    copy_tree "$SEARCH_BACKUP" "$restored_webroot/search"
+    CopyTree "$UPLOADS_BACKUP" "$restoredWebroot/uploads"
+    CopyTree "$AOT_BACKUP" "$restoredWebroot/aot-cache"
+    CopyTree "$SEARCH_BACKUP" "$restoredWebroot/search"
 
-    normalize_restored_child_dir "$restored_webroot" "uploads"
-    normalize_restored_child_dir "$restored_webroot" "aot-cache"
-    normalize_restored_child_dir "$restored_webroot" "search"
+    NormalizeRestoredChildDir "$restoredWebroot" "uploads"
+    NormalizeRestoredChildDir "$restoredWebroot" "aot-cache"
+    NormalizeRestoredChildDir "$restoredWebroot" "search"
 
-    [[ -d "$restored_webroot/uploads" ]] || add_blocker "uploads-restore-missing"
-    [[ -d "$restored_webroot/aot-cache" ]] || add_blocker "aot-restore-missing"
-    [[ -f "$restored_webroot/search/index.manifest.aeds" ]] || add_blocker "search-manifest-restore-missing"
-    add_check "webroot-artifact-restore" "ok"
+    [[ -d "$restoredWebroot/uploads" ]] || AddBlocker "uploads-restore-missing"
+    [[ -d "$restoredWebroot/aot-cache" ]] || AddBlocker "aot-restore-missing"
+    [[ -f "$restoredWebroot/search/index.manifest.aeds" ]] || AddBlocker "search-manifest-restore-missing"
+    AddCheck "webroot-artifact-restore" "ok"
 }
 
-prepare_site_backup_package() {
+PrepareSiteBackupPackage() {
     if [[ -z "$SITE_BACKUP_PACKAGE" ]]; then
         return
     fi
 
     if [[ ! -r "$SITE_BACKUP_PACKAGE" ]]; then
-        add_blocker "site-backup-package-missing"
+        AddBlocker "site-backup-package-missing"
         return
     fi
 
-    local package_dir="$WORK_DIR/site-package"
-    local decrypted_package="$WORK_DIR/site-package.plaintext.tar.gz"
-    mkdir -p "$package_dir"
+    local packageDir="$WORK_DIR/site-package"
+    local decryptedPackage="$WORK_DIR/site-package.plaintext.tar.gz"
+    mkdir -p "$packageDir"
     if [[ -z "$BACKUP_IDENTITY_FILE" || ! -r "$BACKUP_IDENTITY_FILE" ]]; then
-        add_blocker "site-backup-identity-missing"
+        AddBlocker "site-backup-identity-missing"
         return
     fi
-    local decrypt_args=(
+    local decryptArgs=(
         decrypt
         --input "$SITE_BACKUP_PACKAGE"
-        --output "$decrypted_package"
+        --output "$decryptedPackage"
         --identity "$BACKUP_IDENTITY_FILE"
     )
     if [[ -n "$BACKUP_IDENTITY_PASSPHRASE_FILE" ]]; then
-        decrypt_args+=(--passphrase-file "$BACKUP_IDENTITY_PASSPHRASE_FILE")
+        decryptArgs+=(--passphrase-file "$BACKUP_IDENTITY_PASSPHRASE_FILE")
     fi
-    local envelope_info recipient_key_id
-    if ! envelope_info="$(node "$BACKUP_ENVELOPE_TOOL" "${decrypt_args[@]}")"; then
-        add_blocker "site-backup-envelope-invalid"
+    local envelopeInfo recipientKeyId
+    if ! envelopeInfo="$(node "$BACKUP_ENVELOPE_TOOL" "${decryptArgs[@]}")"; then
+        AddBlocker "site-backup-envelope-invalid"
         return
     fi
-    recipient_key_id="$(jq -r '.recipientKeyId // empty' <<<"$envelope_info")"
-    if ! archive_is_safe "$decrypted_package"; then
-        add_blocker "site-backup-archive-unsafe"
-        rm -f "$decrypted_package"
+    recipientKeyId="$(jq -r '.recipientKeyId // empty' <<<"$envelopeInfo")"
+    if ! ArchiveIsSafe "$decryptedPackage"; then
+        AddBlocker "site-backup-archive-unsafe"
+        rm -f "$decryptedPackage"
         return
     fi
-    tar --no-same-owner --no-same-permissions -xzf "$decrypted_package" -C "$package_dir"
-    rm -f "$decrypted_package"
+    tar --no-same-owner --no-same-permissions -xzf "$decryptedPackage" -C "$packageDir"
+    rm -f "$decryptedPackage"
 
-    if ! jq -e --arg recipientKeyId "$recipient_key_id" \
+    if ! jq -e --arg recipientKeyId "$recipientKeyId" \
         '.kind == "fsusblog-site-backup"
       and .version == 2
       and .envelope.recipientKeyId == $recipientKeyId
       and .dataProtection.encryptedAtRest == true
       and .dataProtection.plaintextMasterKeyPresent == false
       and .dataProtection.encryptedKeyCount >= 2' \
-        "$package_dir/manifest.json" >/dev/null; then
-        add_blocker "site-backup-key-generation-manifest-invalid"
+        "$packageDir/manifest.json" >/dev/null; then
+        AddBlocker "site-backup-key-generation-manifest-invalid"
         return
     fi
 
-    local label artifact expected_digest actual_digest
+    local label artifact expectedDigest actualDigest
     for label in database uploads dataProtectionKeyRing configRedacted aotCache searchIndex; do
-        artifact="$(jq -r --arg label "$label" '.artifacts[$label] // empty' "$package_dir/manifest.json")"
-        expected_digest="$(jq -r --arg label "$label" '.artifactDigests[$label] // empty' "$package_dir/manifest.json")"
-        if [[ -z "$artifact" || "$artifact" == */* || ! "$expected_digest" =~ ^[0-9a-f]{64}$ || ! -f "$package_dir/$artifact" ]]; then
-            add_blocker "site-backup-artifact-invalid:$label"
+        artifact="$(jq -r --arg label "$label" '.artifacts[$label] // empty' "$packageDir/manifest.json")"
+        expectedDigest="$(jq -r --arg label "$label" '.artifactDigests[$label] // empty' "$packageDir/manifest.json")"
+        if [[ -z "$artifact" || "$artifact" == */* || ! "$expectedDigest" =~ ^[0-9a-f]{64}$ || ! -f "$packageDir/$artifact" ]]; then
+            AddBlocker "site-backup-artifact-invalid:$label"
             return
         fi
-        actual_digest="$(sha256sum "$package_dir/$artifact" | awk '{print $1}')"
-        if [[ "$actual_digest" != "$expected_digest" ]]; then
-            add_blocker "site-backup-artifact-digest-mismatch:$label"
+        actualDigest="$(sha256sum "$packageDir/$artifact" | awk '{print $1}')"
+        if [[ "$actualDigest" != "$expectedDigest" ]]; then
+            AddBlocker "site-backup-artifact-digest-mismatch:$label"
             return
         fi
     done
 
-    local keyring_dir="$WORK_DIR/data-protection-keyring"
-    mkdir -p "$keyring_dir"
-    if ! archive_is_safe "$package_dir/data-protection-keyring.tar.gz"; then
-        add_blocker "site-backup-keyring-archive-unsafe"
+    local keyringDir="$WORK_DIR/data-protection-keyring"
+    mkdir -p "$keyringDir"
+    if ! ArchiveIsSafe "$packageDir/data-protection-keyring.tar.gz"; then
+        AddBlocker "site-backup-keyring-archive-unsafe"
         return
     fi
-    tar -xzf "$package_dir/data-protection-keyring.tar.gz" -C "$keyring_dir"
-    local key_file generation_count=0
-    while IFS= read -r -d '' key_file; do
-        generation_count=$((generation_count + 1))
-        if ! grep -q 'encryptedSecret' "$key_file" || grep -Eq '<masterKey([[:space:]>])' "$key_file"; then
-            add_blocker "site-backup-key-generation-plaintext-or-invalid"
+    tar -xzf "$packageDir/data-protection-keyring.tar.gz" -C "$keyringDir"
+    local keyFile generationCount=0
+    while IFS= read -r -d '' keyFile; do
+        generationCount=$((generationCount + 1))
+        if ! grep -q 'encryptedSecret' "$keyFile" || grep -Eq '<masterKey([[:space:]>])' "$keyFile"; then
+            AddBlocker "site-backup-key-generation-plaintext-or-invalid"
             return
         fi
-    done < <(find "$keyring_dir" -maxdepth 1 -type f -name 'key-*.xml' -print0)
-    if [[ "$generation_count" != "$(jq -r '.dataProtection.encryptedKeyCount' "$package_dir/manifest.json")" ]]; then
-        add_blocker "site-backup-key-generation-count-mismatch"
+    done < <(find "$keyringDir" -maxdepth 1 -type f -name 'key-*.xml' -print0)
+    if [[ "$generationCount" != "$(jq -r '.dataProtection.encryptedKeyCount' "$packageDir/manifest.json")" ]]; then
+        AddBlocker "site-backup-key-generation-count-mismatch"
         return
     fi
 
-    DATA_PROTECTION_KEYRING_BACKUP="$package_dir/data-protection-keyring.tar.gz"
-    POSTGRES_BACKUP="${POSTGRES_BACKUP:-$package_dir/database.dump}"
+    DATA_PROTECTION_KEYRING_BACKUP="$packageDir/data-protection-keyring.tar.gz"
+    POSTGRES_BACKUP="${POSTGRES_BACKUP:-$packageDir/database.dump}"
     if [[ -z "$REDIS_BACKUP" ]]; then
-        mkdir -p "$package_dir/redis-empty"
-        REDIS_BACKUP="$package_dir/redis-empty"
+        mkdir -p "$packageDir/redis-empty"
+        REDIS_BACKUP="$packageDir/redis-empty"
     fi
-    UPLOADS_BACKUP="${UPLOADS_BACKUP:-$package_dir/uploads.tar.gz}"
-    AOT_BACKUP="${AOT_BACKUP:-$package_dir/aot-cache.tar.gz}"
-    SEARCH_BACKUP="${SEARCH_BACKUP:-$package_dir/search.tar.gz}"
-    add_check "site-backup-package" "authenticated-unpacked"
-    add_check "data-protection-current-previous-generations" "$generation_count"
+    UPLOADS_BACKUP="${UPLOADS_BACKUP:-$packageDir/uploads.tar.gz}"
+    AOT_BACKUP="${AOT_BACKUP:-$packageDir/aot-cache.tar.gz}"
+    SEARCH_BACKUP="${SEARCH_BACKUP:-$packageDir/search.tar.gz}"
+    AddCheck "site-backup-package" "authenticated-unpacked"
+    AddCheck "data-protection-current-previous-generations" "$generationCount"
 }
 
-wait_for_url() {
+WaitForUrl() {
     local label="$1"
     local url="$2"
     local header="${3:-}"
@@ -605,16 +605,16 @@ wait_for_url() {
         sleep 1
     done
 
-    add_blocker "${label}-not-ready"
+    AddBlocker "${label}-not-ready"
     return 1
 }
 
-start_restored_backend() {
-    local pg_ip redis_ip
-    pg_ip="$(container_ip "$postgres_container")"
-    redis_ip="$(container_ip "$redis_container")"
-    [[ -n "$pg_ip" ]] || add_blocker "postgres-container-ip-missing"
-    [[ -n "$redis_ip" ]] || add_blocker "redis-container-ip-missing"
+StartRestoredBackend() {
+    local pgIp redisIp
+    pgIp="$(ContainerIp "$postgres_container")"
+    redisIp="$(ContainerIp "$redis_container")"
+    [[ -n "$pgIp" ]] || AddBlocker "postgres-container-ip-missing"
+    [[ -n "$redisIp" ]] || AddBlocker "redis-container-ip-missing"
     ((${#blockers[@]} == 0)) || return
 
     (
@@ -623,9 +623,9 @@ start_restored_backend() {
             ASPNETCORE_ENVIRONMENT=Development \
             ASPNETCORE_URLS="$BASE_URL" \
             ASPNETCORE_WEBROOT="$WORK_DIR/webroot" \
-            ConnectionStrings__DefaultConnection="Host=${pg_ip};Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Pooling=false" \
-            ConnectionStrings__Redis="${redis_ip}:6379,abortConnect=false,connectTimeout=5000" \
-            RedisOptions__Configuration="${redis_ip}:6379,abortConnect=false,connectTimeout=5000" \
+            ConnectionStrings__DefaultConnection="Host=${pgIp};Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Pooling=false" \
+            ConnectionStrings__Redis="${redisIp}:6379,abortConnect=false,connectTimeout=5000" \
+            RedisOptions__Configuration="${redisIp}:6379,abortConnect=false,connectTimeout=5000" \
             RedisOptions__InstanceName="FsusBlog_Drill_${RUN_ID}_" \
             Seo__BaseUrl="$BASE_URL" \
             CORS_ALLOWED_HOSTS="$BASE_URL" \
@@ -633,26 +633,26 @@ start_restored_backend() {
     ) >"$WORK_DIR/backend.log" 2>&1 &
     backend_pid="$!"
 
-    wait_for_url "restored-backend-live" "$BASE_URL/health/live" || return
-    wait_for_url "restored-backend-pow" "$BASE_URL/api/binary/auth/pow-challenge" "Accept: application/octet-stream" || return
-    add_check "restored-backend-start" "ok"
+    WaitForUrl "restored-backend-live" "$BASE_URL/health/live" || return
+    WaitForUrl "restored-backend-pow" "$BASE_URL/api/binary/auth/pow-challenge" "Accept: application/octet-stream" || return
+    AddCheck "restored-backend-start" "ok"
 }
 
-run_smoke_checks() {
-    wait_for_url "public-page" "$BASE_URL/" || return
-    add_check "public-page" "ok"
+RunSmokeChecks() {
+    WaitForUrl "public-page" "$BASE_URL/" || return
+    AddCheck "public-page" "ok"
 
-    wait_for_url "binary-api" "$BASE_URL/api/binary/article/list/home/1/5.aeds" "Accept: application/octet-stream" || return
-    add_check "binary-api" "ok"
+    WaitForUrl "binary-api" "$BASE_URL/api/binary/article/list/home/1/5.aeds" "Accept: application/octet-stream" || return
+    AddCheck "binary-api" "ok"
 
-    wait_for_url "search-index" "$BASE_URL/search/index.manifest.aeds" || return
-    add_check "search-index" "ok"
+    WaitForUrl "search-index" "$BASE_URL/search/index.manifest.aeds" || return
+    AddCheck "search-index" "ok"
 
     (
         cd "$ROOT_DIR"
         FSUSBLOG_BASE_URL="$BASE_URL" npm --prefix src/frontend run check:notification-stream-live >/dev/null
     )
-    add_check "notification-stream-live" "ok"
+    AddCheck "notification-stream-live" "ok"
 
     (
         cd "$ROOT_DIR"
@@ -663,10 +663,10 @@ run_smoke_checks() {
         FSUSBLOG_BASE_URL="$BASE_URL" \
             node --input-type=module -e "import { loginWithPow } from './tests/frontend/support/auth-helpers.mjs'; await loginWithPow(process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin', process.env.FSUSBLOG_ADMIN_PASSWORD || 'BinaryAdminPass123!', false, 'backup-restore-drill');"
     )
-    add_check "admin-login" "ok"
+    AddCheck "admin-login" "ok"
 }
 
-run_dry_run() {
+RunDryRun() {
     status="scheduled"
     checks=(
         "postgres:planned"
@@ -682,58 +682,58 @@ run_dry_run() {
         "restore-manifest:planned"
         "anonymous-residue-gate:planned"
     )
-    write_restore_manifest
-    run_anonymous_residue_gate
+    WriteRestoreManifest
+    RunAnonymousResidueGate
 }
 
-run_real() {
-    require_command docker
-    require_command dotnet
-    require_command curl
-    require_command jq
-    require_command npm
-    require_command node
-    require_command sha256sum
-    prepare_site_backup_package
-    require_backup "$POSTGRES_BACKUP" "postgres"
-    require_backup "$REDIS_BACKUP" "redis"
-    require_backup "$UPLOADS_BACKUP" "uploads"
-    require_backup "$AOT_BACKUP" "aot"
-    require_backup "$SEARCH_BACKUP" "search"
+RunReal() {
+    RequireCommand docker
+    RequireCommand dotnet
+    RequireCommand curl
+    RequireCommand jq
+    RequireCommand npm
+    RequireCommand node
+    RequireCommand sha256sum
+    PrepareSiteBackupPackage
+    RequireBackup "$POSTGRES_BACKUP" "postgres"
+    RequireBackup "$REDIS_BACKUP" "redis"
+    RequireBackup "$UPLOADS_BACKUP" "uploads"
+    RequireBackup "$AOT_BACKUP" "aot"
+    RequireBackup "$SEARCH_BACKUP" "search"
 
     if ((${#blockers[@]} > 0)); then
         return
     fi
 
     mkdir -p "$WORK_DIR"
-    write_restore_manifest
+    WriteRestoreManifest
     restore_started_at="$(date -u +%s)"
-    restore_postgres
-    restore_redis
-    restore_webroot_artifacts
+    RestorePostgres
+    RestoreRedis
+    RestoreWebrootArtifacts
 
     if ((${#blockers[@]} == 0 && RESTORE_STACK == 1)); then
-        start_restored_backend
-        run_smoke_checks
+        StartRestoredBackend
+        RunSmokeChecks
     elif [[ "$RESTORE_STACK" != "1" ]]; then
-        add_blocker "runtime-smoke-disabled"
+        AddBlocker "runtime-smoke-disabled"
     fi
 
-    run_anonymous_residue_gate || true
+    RunAnonymousResidueGate || true
     restore_finished_at="$(date -u +%s)"
 }
 
 case "$MODE" in
     dry-run)
-        run_dry_run
+        RunDryRun
         ;;
     real)
-        run_real
+        RunReal
         ;;
     *)
-        add_blocker "unsupported-mode:$MODE"
+        AddBlocker "unsupported-mode:$MODE"
         ;;
 esac
 
-write_report
+WriteReport
 [[ "$status" == "ok" || "$status" == "scheduled" ]]

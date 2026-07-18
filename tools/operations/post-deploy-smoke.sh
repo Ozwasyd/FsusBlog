@@ -30,7 +30,7 @@ manual_checklist=(
     "passkey-mfa"
 )
 
-json_array() {
+JsonArray() {
     if (("$#" == 0)); then
         printf '[]'
         return
@@ -67,9 +67,9 @@ for path in "${paths[@]}"; do
     fi
 done
 
-verified_coverage_json="$(json_array "${verified_coverage[@]}")"
-manual_checklist_json="$(json_array "${manual_checklist[@]}")"
-blockers_json="$(json_array "${blockers[@]}")"
+verified_coverage_json="$(JsonArray "${verified_coverage[@]}")"
+manual_checklist_json="$(JsonArray "${manual_checklist[@]}")"
+blockers_json="$(JsonArray "${blockers[@]}")"
 
 jq -n \
     --arg status "$status" \

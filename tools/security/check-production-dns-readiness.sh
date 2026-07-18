@@ -10,7 +10,7 @@ failures=()
 evidence_rows=()
 REQUIRED_HOSTS=""
 
-record_result() {
+RecordResult() {
     local host="$1"
     local check="$2"
     local status="$3"
@@ -18,7 +18,7 @@ record_result() {
     evidence_rows+=("$host"$'\t'"$check"$'\t'"$status"$'\t'"$detail")
 }
 
-fixture_public_dns() {
+FixturePublicDns() {
     local host="$1"
     local resolver="$2"
     local rrtype="$3"
@@ -34,7 +34,7 @@ fixture_public_dns() {
         "$FSUSBLOG_DNS_READINESS_FIXTURE"
 }
 
-fixture_local_dns() {
+FixtureLocalDns() {
     local host="$1"
 
     [[ -n "${FSUSBLOG_DNS_READINESS_LOCAL_FIXTURE:-}" ]] || return 1
@@ -46,24 +46,24 @@ fixture_local_dns() {
         "$FSUSBLOG_DNS_READINESS_LOCAL_FIXTURE"
 }
 
-probe_public_dns() {
+ProbePublicDns() {
     local host="$1"
-    local resolver rrtype output status answers fixture_row
+    local resolver rrtype output status answers fixtureRow
 
     if ! command -v dig >/dev/null 2>&1; then
-        record_result "$host" dns/public skipped "dig is not installed"
+        RecordResult "$host" dns/public skipped "dig is not installed"
         failures+=("$host: dig is required for public DNS readiness")
         return
     fi
 
     for resolver in $DNS_RESOLVERS; do
-        local resolver_ok=0
+        local resolverOk=0
         for rrtype in A AAAA; do
-            if fixture_row="$(fixture_public_dns "$host" "$resolver" "$rrtype" 2>/dev/null)"; then
-                status="${fixture_row%%$'\t'*}"
-                answers="${fixture_row#*$'\t'}"
-                record_result "$host" "dns/$resolver/$rrtype" "$status" "$answers"
-                [[ "$status" == "ok" ]] && resolver_ok=1
+            if fixtureRow="$(FixturePublicDns "$host" "$resolver" "$rrtype" 2>/dev/null)"; then
+                status="${fixtureRow%%$'\t'*}"
+                answers="${fixtureRow#*$'\t'}"
+                RecordResult "$host" "dns/$resolver/$rrtype" "$status" "$answers"
+                [[ "$status" == "ok" ]] && resolverOk=1
                 continue
             fi
 
@@ -72,41 +72,41 @@ probe_public_dns() {
             answers="$(awk 'BEGIN { ORS=";" } /^[^;]/ && NF >= 5 { print $0 }' <<<"$output")"
             answers="${answers%;}"
             if [[ -n "$answers" ]]; then
-                record_result "$host" "dns/$resolver/$rrtype" ok "$answers"
-                resolver_ok=1
+                RecordResult "$host" "dns/$resolver/$rrtype" ok "$answers"
+                resolverOk=1
             else
-                record_result "$host" "dns/$resolver/$rrtype" failed "status=${status:-unknown}; no answer"
+                RecordResult "$host" "dns/$resolver/$rrtype" failed "status=${status:-unknown}; no answer"
             fi
         done
 
-        if ((resolver_ok == 0)); then
+        if ((resolverOk == 0)); then
             failures+=("$host: public DNS resolver $resolver has no A/AAAA answer")
         fi
     done
 }
 
-probe_local_dns() {
+ProbeLocalDns() {
     local host="$1"
-    local fixture_row status detail resolved_addresses
+    local fixtureRow status detail resolvedAddresses
 
-    if fixture_row="$(fixture_local_dns "$host" 2>/dev/null)"; then
-        status="${fixture_row%%$'\t'*}"
-        detail="${fixture_row#*$'\t'}"
-        record_result "$host" dns "$status" "$detail"
+    if fixtureRow="$(FixtureLocalDns "$host" 2>/dev/null)"; then
+        status="${fixtureRow%%$'\t'*}"
+        detail="${fixtureRow#*$'\t'}"
+        RecordResult "$host" dns "$status" "$detail"
         [[ "$status" == "ok" ]] || failures+=("$host: local resolver DNS check is not ok")
         return
     fi
 
-    resolved_addresses="$(getent ahosts "$host" 2>/dev/null | awk '{print $1}' | sort -u | paste -sd ',' - || true)"
-    if [[ -z "$resolved_addresses" ]]; then
-        record_result "$host" dns failed "DNS does not resolve from this network"
+    resolvedAddresses="$(getent ahosts "$host" 2>/dev/null | awk '{print $1}' | sort -u | paste -sd ',' - || true)"
+    if [[ -z "$resolvedAddresses" ]]; then
+        RecordResult "$host" dns failed "DNS does not resolve from this network"
         failures+=("$host: local resolver DNS check is not ok")
     else
-        record_result "$host" dns ok "$resolved_addresses"
+        RecordResult "$host" dns ok "$resolvedAddresses"
     fi
 }
 
-write_evidence() {
+WriteEvidence() {
     mkdir -p "$(dirname "$EVIDENCE_FILE")"
 
     local tmp
@@ -133,7 +133,7 @@ write_evidence() {
     rm -f "$tmp"
 }
 
-trap write_evidence EXIT
+trap WriteEvidence EXIT
 
 mapfile -t hosts < <("$ROOT_DIR/tools/security/collect-production-hosts.sh")
 if ((${#hosts[@]} > 0)); then
@@ -141,12 +141,12 @@ if ((${#hosts[@]} > 0)); then
 fi
 if ((${#hosts[@]} == 0)); then
     failures+=("no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values")
-    record_result "-" hosts failed "no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values"
+    RecordResult "-" hosts failed "no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values"
 fi
 
 for host in "${hosts[@]}"; do
-    probe_public_dns "$host"
-    probe_local_dns "$host"
+    ProbePublicDns "$host"
+    ProbeLocalDns "$host"
 done
 
 if ((${#failures[@]} > 0)); then

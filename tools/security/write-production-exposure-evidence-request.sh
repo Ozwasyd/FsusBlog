@@ -12,19 +12,19 @@ DNS_DELEGATION_FILE="${FSUSBLOG_DNS_DELEGATION_EVIDENCE:-$ROOT_DIR/.tmp/security
 LIVE_EVIDENCE_FILE="${FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE:-$ROOT_DIR/.tmp/security/production-exposure-live.json}"
 STATUS_FILE="${FSUSBLOG_PRODUCTION_EXPOSURE_STATUS:-$ROOT_DIR/.tmp/security/production-exposure-status.json}"
 
-fail() {
+Fail() {
     printf '[production-exposure-evidence-request] failed\n' >&2
     printf -- '- %s\n' "$1" >&2
     exit 1
 }
 
-domain_from_host() {
+DomainFromHost() {
     awk -F '.' '
     NF >= 2 { print $(NF - 1) "." $NF }
   ' <<<"$1"
 }
 
-status_summary_json() {
+StatusSummaryJson() {
     if [[ ! -f "$STATUS_FILE" ]]; then
         jq -n -c --arg sourceFile "$STATUS_FILE" '{
       sourceFile: $sourceFile,
@@ -53,15 +53,15 @@ status_summary_json() {
 
 mapfile -t hosts < <("$ROOT_DIR/tools/security/collect-production-hosts.sh")
 if ((${#hosts[@]} == 0)); then
-    fail 'no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values'
+    Fail 'no production hosts found; set FSUSBLOG_LIVE_HOSTS or production env values'
 fi
 
 host_words="$(printf '%s\n' "${hosts[@]}" | paste -sd ' ' -)"
 domain_words="$(printf '%s\n' "${hosts[@]}" | while read -r host; do
     [[ -n "$host" ]] || continue
-    domain_from_host "$host"
+    DomainFromHost "$host"
 done | sort -u | paste -sd ' ' -)"
-status_summary="$(status_summary_json)"
+status_summary="$(StatusSummaryJson)"
 
 mkdir -p "$(dirname "$OUT_FILE")"
 

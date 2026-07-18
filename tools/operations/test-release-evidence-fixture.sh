@@ -26,7 +26,7 @@ TRACKED_TMP_FILES=(
     ".tmp/frontend/dom-depth-static.json"
 )
 
-preserve_tracked_tmp_files() {
+PreserveTrackedTmpFiles() {
     local relative
     for relative in "${TRACKED_TMP_FILES[@]}"; do
         if [[ -f "$ROOT_DIR/$relative" ]]; then
@@ -39,7 +39,7 @@ preserve_tracked_tmp_files() {
     done
 }
 
-restore_tracked_tmp_files() {
+RestoreTrackedTmpFiles() {
     local relative
     for relative in "${TRACKED_TMP_FILES[@]}"; do
         if [[ -f "$RESTORE_DIR/$relative" ]]; then
@@ -52,8 +52,8 @@ restore_tracked_tmp_files() {
     rm -rf "$TMP_ROOT"
 }
 
-trap restore_tracked_tmp_files EXIT
-preserve_tracked_tmp_files
+trap RestoreTrackedTmpFiles EXIT
+PreserveTrackedTmpFiles
 
 SECURITY_DIR="$TMP_ROOT/security"
 OPERATIONS_DIR="$TMP_ROOT/operations"

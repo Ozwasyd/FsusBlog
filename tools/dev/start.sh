@@ -10,7 +10,7 @@ SEED_DEMO=0
 INSTALL_DEPS=1
 CLEANUP=0
 
-usage() {
+Usage() {
     cat <<'USAGE'
 Usage: tools/dev/start.sh [--seed-demo] [--no-install] [--cleanup]
 
@@ -32,18 +32,18 @@ for arg in "$@"; do
         --no-install) INSTALL_DEPS=0 ;;
         --cleanup) CLEANUP=1 ;;
         -h | --help)
-            usage
+            Usage
             exit 0
             ;;
         *)
             echo "[dev-start] unknown argument: $arg" >&2
-            usage >&2
+            Usage >&2
             exit 2
             ;;
     esac
 done
 
-need_cmd() {
+NeedCmd() {
     if ! command -v "$1" >/dev/null 2>&1; then
         echo "[dev-start] missing required command: $1" >&2
         echo "[dev-start] install prerequisites from docs/development.md and retry." >&2
@@ -51,10 +51,10 @@ need_cmd() {
     fi
 }
 
-need_cmd docker
-need_cmd dotnet
-need_cmd node
-need_cmd npm
+NeedCmd docker
+NeedCmd dotnet
+NeedCmd node
+NeedCmd npm
 
 if [[ "$CLEANUP" == "1" ]]; then
     docker compose -f "$COMPOSE_FILE" down -v
@@ -177,11 +177,11 @@ export AuthCookies__AllowInsecureTransportCookies="true"
 
 backend_pid=""
 frontend_pid=""
-cleanup_children() {
+CleanupChildren() {
     if [[ -n "$frontend_pid" ]]; then kill "$frontend_pid" >/dev/null 2>&1 || true; fi
     if [[ -n "$backend_pid" ]]; then kill "$backend_pid" >/dev/null 2>&1 || true; fi
 }
-trap cleanup_children EXIT INT TERM
+trap CleanupChildren EXIT INT TERM
 
 echo "[dev-start] starting backend on http://127.0.0.1:7568 ..."
 dotnet run --project "$BACKEND_PROJECT" --no-launch-profile --urls "http://127.0.0.1:7568" &

@@ -22,11 +22,11 @@ checks=()
 blockers=()
 status="ok"
 
-cleanup() {
+Cleanup() {
     rm -f "$DECRYPTED_PACKAGE"
 }
 
-trap cleanup EXIT
+trap Cleanup EXIT
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -50,20 +50,20 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-log() {
+Log() {
     printf '[restore-site] %s\n' "$1"
 }
 
-add_check() {
+AddCheck() {
     checks+=("$1:$2")
 }
 
-add_blocker() {
+AddBlocker() {
     status="blocked"
     blockers+=("$1")
 }
 
-json_string_array() {
+JsonStringArray() {
     if (("$#" == 0)); then
         printf '[]'
         return
@@ -72,11 +72,11 @@ json_string_array() {
     printf '%s\n' "$@" | jq -R . | jq -s .
 }
 
-write_report() {
+WriteReport() {
     mkdir -p "$(dirname "$REPORT_PATH")"
-    local checks_json blockers_json
-    checks_json="$(json_string_array "${checks[@]}")"
-    blockers_json="$(json_string_array "${blockers[@]}")"
+    local checksJson blockersJson
+    checksJson="$(JsonStringArray "${checks[@]}")"
+    blockersJson="$(JsonStringArray "${blockers[@]}")"
     jq -n \
         --arg status "$status" \
         --arg runId "$RUN_ID" \
@@ -85,8 +85,8 @@ write_report() {
         --arg envelopeFormat "fsusblog-site-backup-envelope-v1" \
         --arg recipientKeyId "$RECIPIENT_KEY_ID" \
         --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        --argjson checks "$checks_json" \
-        --argjson blockers "$blockers_json" \
+        --argjson checks "$checksJson" \
+        --argjson blockers "$blockersJson" \
         '{
       status:$status,
       runId:$runId,
@@ -98,21 +98,21 @@ write_report() {
       blockers:$blockers
     }' \
         >"$REPORT_PATH"
-    log "wrote $REPORT_PATH"
+    Log "wrote $REPORT_PATH"
 }
 
-require_command() {
-    command -v "$1" >/dev/null 2>&1 || add_blocker "command-missing:$1"
+RequireCommand() {
+    command -v "$1" >/dev/null 2>&1 || AddBlocker "command-missing:$1"
 }
 
-trim() {
+Trim() {
     local value="$1"
     value="${value#"${value%%[![:space:]]*}"}"
     value="${value%"${value##*[![:space:]]}"}"
     printf '%s' "$value"
 }
 
-normalize_connection_key() {
+NormalizeConnectionKey() {
     local key
     key="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -d ' _-')"
     case "$key" in
@@ -125,11 +125,11 @@ normalize_connection_key() {
     esac
 }
 
-assign_connection_part() {
-    local raw_key="$1" raw_value="$2"
+AssignConnectionPart() {
+    local rawKey="$1" rawValue="$2"
     local key value
-    key="$(normalize_connection_key "$(trim "$raw_key")")"
-    value="$(trim "$raw_value")"
+    key="$(NormalizeConnectionKey "$(Trim "$rawKey")")"
+    value="$(Trim "$rawValue")"
     value="${value%\"}"
     value="${value#\"}"
     value="${value%\'}"
@@ -144,7 +144,7 @@ assign_connection_part() {
     esac
 }
 
-parse_key_value_connection() {
+ParseKeyValueConnection() {
     local conn="$1" separator="$2"
     local normalized part key value
     if [[ "$separator" == ";" ]]; then
@@ -155,20 +155,20 @@ parse_key_value_connection() {
     fi
 
     while IFS= read -r part; do
-        [[ -n "$(trim "$part")" && "$part" == *"="* ]] || continue
+        [[ -n "$(Trim "$part")" && "$part" == *"="* ]] || continue
         key="${part%%=*}"
         value="${part#*=}"
-        assign_connection_part "$key" "$value"
+        AssignConnectionPart "$key" "$value"
     done <<<"$normalized"
 }
 
-parse_url_connection() {
+ParseUrlConnection() {
     local conn="$1"
-    local without_scheme authority path userinfo hostport
-    without_scheme="${conn#*://}"
-    without_scheme="${without_scheme%%\?*}"
-    authority="${without_scheme%%/*}"
-    path="${without_scheme#*/}"
+    local withoutScheme authority path userinfo hostport
+    withoutScheme="${conn#*://}"
+    withoutScheme="${withoutScheme%%\?*}"
+    authority="${withoutScheme%%/*}"
+    path="${withoutScheme#*/}"
 
     if [[ "$authority" == *"@"* ]]; then
         userinfo="${authority%@*}"
@@ -188,12 +188,12 @@ parse_url_connection() {
         PG_CONN_HOST="$hostport"
     fi
 
-    if [[ -n "$path" && "$path" != "$without_scheme" ]]; then
+    if [[ -n "$path" && "$path" != "$withoutScheme" ]]; then
         PG_CONN_DB="${path%%/*}"
     fi
 }
 
-parse_postgres_connection() {
+ParsePostgresConnection() {
     local conn="$1"
     PG_CONN_HOST=""
     PG_CONN_PORT="5432"
@@ -203,59 +203,59 @@ parse_postgres_connection() {
 
     case "$conn" in
         postgres://* | postgresql://*)
-            parse_url_connection "$conn"
+            ParseUrlConnection "$conn"
             ;;
         *";"*)
-            parse_key_value_connection "$conn" ";"
+            ParseKeyValueConnection "$conn" ";"
             ;;
         *)
-            parse_key_value_connection "$conn" " "
+            ParseKeyValueConnection "$conn" " "
             ;;
     esac
 
     [[ -n "$PG_CONN_HOST" && -n "$PG_CONN_DB" && -n "$PG_CONN_USER" ]]
 }
 
-restore_database() {
+RestoreDatabase() {
     local dump="$RESTORE_ROOT/package/database.dump"
     local conn="${FSUSBLOG_POSTGRES_URL:-${DATABASE_URL:-${ConnectionStrings__DefaultConnection:-}}}"
     if [[ ! -r "$dump" ]]; then
-        add_blocker "database-dump-missing"
+        AddBlocker "database-dump-missing"
         return
     fi
     if [[ -z "$conn" ]]; then
-        add_blocker "database-connection-missing"
+        AddBlocker "database-connection-missing"
         return
     fi
 
-    parse_postgres_connection "$conn" || {
-        add_blocker "database-connection-invalid"
+    ParsePostgresConnection "$conn" || {
+        AddBlocker "database-connection-invalid"
         return
     }
     PGPASSWORD="$PG_CONN_PASSWORD" pg_restore -h "$PG_CONN_HOST" -p "${PG_CONN_PORT:-5432}" -U "$PG_CONN_USER" -d "$PG_CONN_DB" --clean --if-exists "$dump"
 
-    add_check "database" "restored"
+    AddCheck "database" "restored"
 }
 
-restore_tree() {
+RestoreTree() {
     local archive="$1" target="$2" label="$3"
     if [[ ! -r "$archive" ]]; then
-        add_blocker "${label}-archive-missing"
+        AddBlocker "${label}-archive-missing"
         return
     fi
 
     mkdir -p "$target"
     tar -xzf "$archive" -C "$target"
-    add_check "$label" "restored"
+    AddCheck "$label" "restored"
 }
 
-decrypt_package() {
+DecryptPackage() {
     if [[ -z "$IDENTITY_FILE" || ! -r "$IDENTITY_FILE" ]]; then
-        add_blocker "backup-envelope-identity-missing"
+        AddBlocker "backup-envelope-identity-missing"
         return
     fi
 
-    local decrypt_args=(
+    local decryptArgs=(
         decrypt
         --input "$BACKUP_PACKAGE"
         --output "$DECRYPTED_PACKAGE"
@@ -263,28 +263,28 @@ decrypt_package() {
     )
     if [[ -n "$IDENTITY_PASSPHRASE_FILE" ]]; then
         if [[ ! -r "$IDENTITY_PASSPHRASE_FILE" ]]; then
-            add_blocker "backup-envelope-identity-passphrase-missing"
+            AddBlocker "backup-envelope-identity-passphrase-missing"
             return
         fi
-        decrypt_args+=(--passphrase-file "$IDENTITY_PASSPHRASE_FILE")
+        decryptArgs+=(--passphrase-file "$IDENTITY_PASSPHRASE_FILE")
     fi
 
-    local envelope_info
-    if ! envelope_info="$(node "$ENVELOPE_TOOL" "${decrypt_args[@]}")"; then
-        add_blocker "backup-envelope-authentication-or-decryption-failed"
+    local envelopeInfo
+    if ! envelopeInfo="$(node "$ENVELOPE_TOOL" "${decryptArgs[@]}")"; then
+        AddBlocker "backup-envelope-authentication-or-decryption-failed"
         rm -f "$DECRYPTED_PACKAGE"
         return
     fi
-    RECIPIENT_KEY_ID="$(jq -r '.recipientKeyId // empty' <<<"$envelope_info")"
+    RECIPIENT_KEY_ID="$(jq -r '.recipientKeyId // empty' <<<"$envelopeInfo")"
     if [[ -z "$RECIPIENT_KEY_ID" ]]; then
-        add_blocker "backup-envelope-metadata-invalid"
+        AddBlocker "backup-envelope-metadata-invalid"
         rm -f "$DECRYPTED_PACKAGE"
         return
     fi
-    add_check "site-package-envelope" "authenticated"
+    AddCheck "site-package-envelope" "authenticated"
 }
 
-archive_is_safe() {
+ArchiveIsSafe() {
     local archive="$1"
     local entry
     tar -tzf "$archive" >/dev/null 2>&1 || return 1
@@ -302,7 +302,7 @@ archive_is_safe() {
     return 0
 }
 
-verify_package_manifest() {
+VerifyPackageManifest() {
     local manifest="$RESTORE_ROOT/package/manifest.json"
     if ! jq -e \
         --arg recipientKeyId "$RECIPIENT_KEY_ID" \
@@ -316,7 +316,7 @@ verify_package_manifest() {
       and .dataProtection.plaintextMasterKeyPresent == false
       and (.dataProtection.encryptedKeyCount | type) == "number"
       and .dataProtection.encryptedKeyCount > 0' "$manifest" >/dev/null; then
-        add_blocker "backup-manifest-invalid"
+        AddBlocker "backup-manifest-invalid"
         return
     fi
 
@@ -325,88 +325,88 @@ verify_package_manifest() {
         artifact="$(jq -r --arg label "$label" '.artifacts[$label] // empty' "$manifest")"
         digest="$(jq -r --arg label "$label" '.artifactDigests[$label] // empty' "$manifest")"
         if [[ -z "$artifact" || "$artifact" == */* || ! "$digest" =~ ^[0-9a-f]{64}$ || ! -f "$RESTORE_ROOT/package/$artifact" ]]; then
-            add_blocker "backup-manifest-artifact-invalid:$label"
+            AddBlocker "backup-manifest-artifact-invalid:$label"
             return
         fi
         actual="$(sha256sum "$RESTORE_ROOT/package/$artifact" | awk '{print $1}')"
         if [[ "$actual" != "$digest" ]]; then
-            add_blocker "backup-manifest-digest-mismatch:$label"
+            AddBlocker "backup-manifest-digest-mismatch:$label"
             return
         fi
     done
 
-    local keyring_verify="$RESTORE_ROOT/keyring-verify"
-    mkdir -p "$keyring_verify"
-    if ! archive_is_safe "$RESTORE_ROOT/package/data-protection-keyring.tar.gz"; then
-        add_blocker "data-protection-keyring-archive-unsafe"
+    local keyringVerify="$RESTORE_ROOT/keyring-verify"
+    mkdir -p "$keyringVerify"
+    if ! ArchiveIsSafe "$RESTORE_ROOT/package/data-protection-keyring.tar.gz"; then
+        AddBlocker "data-protection-keyring-archive-unsafe"
         return
     fi
-    tar -xzf "$RESTORE_ROOT/package/data-protection-keyring.tar.gz" -C "$keyring_verify"
-    local key_file key_count=0
-    while IFS= read -r -d '' key_file; do
-        key_count=$((key_count + 1))
-        if ! grep -q 'encryptedSecret' "$key_file" || grep -Eq '<masterKey([[:space:]>])' "$key_file"; then
-            add_blocker "data-protection-keyring-plaintext-or-invalid"
+    tar -xzf "$RESTORE_ROOT/package/data-protection-keyring.tar.gz" -C "$keyringVerify"
+    local keyFile keyCount=0
+    while IFS= read -r -d '' keyFile; do
+        keyCount=$((keyCount + 1))
+        if ! grep -q 'encryptedSecret' "$keyFile" || grep -Eq '<masterKey([[:space:]>])' "$keyFile"; then
+            AddBlocker "data-protection-keyring-plaintext-or-invalid"
             return
         fi
-    done < <(find "$keyring_verify" -maxdepth 1 -type f -name 'key-*.xml' -print0)
-    if [[ "$key_count" != "$(jq -r '.dataProtection.encryptedKeyCount' "$manifest")" ]]; then
-        add_blocker "data-protection-keyring-generation-count-mismatch"
+    done < <(find "$keyringVerify" -maxdepth 1 -type f -name 'key-*.xml' -print0)
+    if [[ "$keyCount" != "$(jq -r '.dataProtection.encryptedKeyCount' "$manifest")" ]]; then
+        AddBlocker "data-protection-keyring-generation-count-mismatch"
         return
     fi
-    rm -rf "$keyring_verify"
-    add_check "backup-manifest" "verified"
-    add_check "data-protection-key-generations" "$key_count"
+    rm -rf "$keyringVerify"
+    AddCheck "backup-manifest" "verified"
+    AddCheck "data-protection-key-generations" "$keyCount"
 }
 
-main() {
+Main() {
     mkdir -p "$RESTORE_ROOT/package"
-    require_command jq
-    require_command tar
-    require_command pg_restore
-    require_command node
-    require_command sha256sum
+    RequireCommand jq
+    RequireCommand tar
+    RequireCommand pg_restore
+    RequireCommand node
+    RequireCommand sha256sum
 
     if [[ -z "$BACKUP_PACKAGE" || ! -r "$BACKUP_PACKAGE" ]]; then
-        add_blocker "backup-package-missing"
+        AddBlocker "backup-package-missing"
     elif (("${#blockers[@]}" == 0)); then
-        decrypt_package
+        DecryptPackage
     fi
 
     if (("${#blockers[@]}" == 0)); then
-        if ! archive_is_safe "$DECRYPTED_PACKAGE"; then
-            add_blocker "backup-package-archive-unsafe"
+        if ! ArchiveIsSafe "$DECRYPTED_PACKAGE"; then
+            AddBlocker "backup-package-archive-unsafe"
         else
             tar --no-same-owner --no-same-permissions -xzf "$DECRYPTED_PACKAGE" -C "$RESTORE_ROOT/package"
             rm -f "$DECRYPTED_PACKAGE"
-            add_check "site-package" "authenticated-extracted"
-            verify_package_manifest
+            AddCheck "site-package" "authenticated-extracted"
+            VerifyPackageManifest
         fi
     fi
 
     if [[ "$DRY_RUN" == "1" ]]; then
-        add_check "database" "planned"
-        add_check "uploads" "planned"
-        add_check "data-protection-keyring" "planned"
-        write_report
+        AddCheck "database" "planned"
+        AddCheck "uploads" "planned"
+        AddCheck "data-protection-keyring" "planned"
+        WriteReport
         [[ "$status" == "ok" ]]
         return
     fi
 
     if [[ "$CONFIRM" != "1" ]]; then
-        add_blocker "restore-confirmation-required"
+        AddBlocker "restore-confirmation-required"
     fi
 
     if (("${#blockers[@]}" == 0)); then
-        restore_database
-        restore_tree "$RESTORE_ROOT/package/uploads.tar.gz" "$UPLOADS_DIR" "uploads"
-        restore_tree "$RESTORE_ROOT/package/data-protection-keyring.tar.gz" "$KEYRING_DIR" "data-protection-keyring"
-        restore_tree "$RESTORE_ROOT/package/aot-cache.tar.gz" "$WEB_ROOT/aot-cache" "aot-cache"
-        restore_tree "$RESTORE_ROOT/package/search.tar.gz" "$WEB_ROOT/search" "search"
+        RestoreDatabase
+        RestoreTree "$RESTORE_ROOT/package/uploads.tar.gz" "$UPLOADS_DIR" "uploads"
+        RestoreTree "$RESTORE_ROOT/package/data-protection-keyring.tar.gz" "$KEYRING_DIR" "data-protection-keyring"
+        RestoreTree "$RESTORE_ROOT/package/aot-cache.tar.gz" "$WEB_ROOT/aot-cache" "aot-cache"
+        RestoreTree "$RESTORE_ROOT/package/search.tar.gz" "$WEB_ROOT/search" "search"
     fi
 
-    write_report
+    WriteReport
     [[ "$status" == "ok" ]]
 }
 
-main "$@"
+Main "$@"

@@ -11,33 +11,33 @@ SUMMARY_DIR="$COVERAGE_ROOT/backend-merged"
 SUMMARY_FILE="$SUMMARY_DIR/Summary.json"
 EXPECTED_RESULT_LANES=(ordinary special-api-integration special-auth-state-machine special-concurrency special-property special-golden)
 
-prune_vstest_serialized_attachment_copies() {
-    local lane_dir="$1"
-    local serialized_dir serialized_cobertura serialized_json primary_cobertura primary_json
-    local -a serialized_cobertura_files serialized_json_files
+PruneVstestSerializedAttachmentCopies() {
+    local laneDir="$1"
+    local serializedDir serializedCobertura serializedJson primaryCobertura primaryJson
+    local -a serializedCoberturaFiles serializedJsonFiles
 
-    while IFS= read -r -d '' serialized_dir; do
-        mapfile -d '' serialized_cobertura_files < <(find "$serialized_dir" -type f -name 'coverage.cobertura.xml' -print0)
-        mapfile -d '' serialized_json_files < <(find "$serialized_dir" -type f -name 'coverage.json' -print0)
-        if [[ "${#serialized_cobertura_files[@]}" != "1" || "${#serialized_json_files[@]}" != "1" ]]; then
+    while IFS= read -r -d '' serializedDir; do
+        mapfile -d '' serializedCoberturaFiles < <(find "$serializedDir" -type f -name 'coverage.cobertura.xml' -print0)
+        mapfile -d '' serializedJsonFiles < <(find "$serializedDir" -type f -name 'coverage.json' -print0)
+        if [[ "${#serializedCoberturaFiles[@]}" != "1" || "${#serializedJsonFiles[@]}" != "1" ]]; then
             continue
         fi
 
-        serialized_cobertura="${serialized_cobertura_files[0]}"
-        serialized_json="${serialized_json_files[0]}"
-        while IFS= read -r -d '' primary_cobertura; do
-            if [[ "$primary_cobertura" == "$serialized_dir"/* ]]; then
+        serializedCobertura="${serializedCoberturaFiles[0]}"
+        serializedJson="${serializedJsonFiles[0]}"
+        while IFS= read -r -d '' primaryCobertura; do
+            if [[ "$primaryCobertura" == "$serializedDir"/* ]]; then
                 continue
             fi
-            primary_json="$(dirname "$primary_cobertura")/coverage.json"
-            if [[ -f "$primary_json" ]] &&
-                cmp -s "$serialized_cobertura" "$primary_cobertura" &&
-                cmp -s "$serialized_json" "$primary_json"; then
-                rm -rf "$serialized_dir"
+            primaryJson="$(dirname "$primaryCobertura")/coverage.json"
+            if [[ -f "$primaryJson" ]] &&
+                cmp -s "$serializedCobertura" "$primaryCobertura" &&
+                cmp -s "$serializedJson" "$primaryJson"; then
+                rm -rf "$serializedDir"
                 break
             fi
-        done < <(find "$lane_dir" -type f -name 'coverage.cobertura.xml' -print0)
-    done < <(find "$lane_dir" -mindepth 1 -maxdepth 1 -type d -name '_ser*' -print0)
+        done < <(find "$laneDir" -type f -name 'coverage.cobertura.xml' -print0)
+    done < <(find "$laneDir" -mindepth 1 -maxdepth 1 -type d -name '_ser*' -print0)
 }
 
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -60,8 +60,8 @@ if [[ "${FSUSBLOG_COVERAGE_SKIP_TESTS:-0}" != "1" ]]; then
     # Reuse the exact build namespace/fingerprint used by backend-build-governance.
     # Standalone coverage still builds when the shared artifact is absent or stale.
     source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
-    ensure_backend_filtered_build
-    configure_dotnet_test_processors
+    EnsureBackendFilteredBuild
+    ConfigureDotnetTestProcessors
     dotnet test "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
         -c Debug \
         --no-build \
@@ -91,16 +91,16 @@ while IFS= read -r -d '' candidate; do
 done < <(find "$RESULTS_DIR" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
 
 for lane in "${EXPECTED_RESULT_LANES[@]}"; do
-    lane_dir="$RESULTS_DIR/$lane"
+    laneDir="$RESULTS_DIR/$lane"
     cobertura_count=0
     json_count=0
-    if [[ -d "$lane_dir" ]]; then
+    if [[ -d "$laneDir" ]]; then
         # VSTest copies collector attachments into a top-level _ser* transport
         # directory after the run. Remove only byte-identical copies; independent
         # or divergent reports remain visible to the exact-one fail-closed check.
-        prune_vstest_serialized_attachment_copies "$lane_dir"
-        cobertura_count="$(find "$lane_dir" -type f -name 'coverage.cobertura.xml' | wc -l)"
-        json_count="$(find "$lane_dir" -type f -name 'coverage.json' | wc -l)"
+        PruneVstestSerializedAttachmentCopies "$laneDir"
+        cobertura_count="$(find "$laneDir" -type f -name 'coverage.cobertura.xml' | wc -l)"
+        json_count="$(find "$laneDir" -type f -name 'coverage.json' | wc -l)"
     fi
     if [[ "$cobertura_count" != "1" || "$json_count" != "1" ]]; then
         printf '[coverage:backend] %s must contain exactly one Cobertura and one Coverlet JSON report (got cobertura=%s json=%s)\n' \

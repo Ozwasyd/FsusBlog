@@ -13,90 +13,90 @@ ALLOW_TEMP_EVIDENCE="${FSUSBLOG_ALLOW_TEMP_EVIDENCE:-0}"
 
 failures=()
 
-add_failure() {
+AddFailure() {
     failures+=("$1")
 }
 
-json_value() {
+JsonValue() {
     local file="$1"
     local expr="$2"
     jq -r "$expr" "$file" 2>/dev/null || true
 }
 
-manifest_artifact() {
+ManifestArtifact() {
     local key="$1"
     jq -r --arg key "$key" '
     .artifacts[$key] | if type == "string" then . else "" end
   ' "$MANIFEST_FILE" 2>/dev/null || true
 }
 
-manifest_digest_algorithm() {
+ManifestDigestAlgorithm() {
     local key="$1"
     jq -r --arg key "$key" '.artifactDigests[$key].algorithm // ""' "$MANIFEST_FILE" 2>/dev/null || true
 }
 
-manifest_digest_value() {
+ManifestDigestValue() {
     local key="$1"
     jq -r --arg key "$key" '.artifactDigests[$key].value // ""' "$MANIFEST_FILE" 2>/dev/null || true
 }
 
-check_artifact_digest() {
+CheckArtifactDigest() {
     local label="$1"
     local key="$2"
-    local artifact_file="$3"
-    local digest_algorithm digest_value actual_digest
+    local artifactFile="$3"
+    local digestAlgorithm digestValue actualDigest
 
-    digest_algorithm="$(manifest_digest_algorithm "$key")"
-    digest_value="$(manifest_digest_value "$key")"
-    if [[ "$digest_algorithm" != "sha256" || -z "$digest_value" ]]; then
-        add_failure "manifest is missing sha256 digest for $label"
+    digestAlgorithm="$(ManifestDigestAlgorithm "$key")"
+    digestValue="$(ManifestDigestValue "$key")"
+    if [[ "$digestAlgorithm" != "sha256" || -z "$digestValue" ]]; then
+        AddFailure "manifest is missing sha256 digest for $label"
         return
     fi
 
-    actual_digest="$(sha256sum "$artifact_file" | awk '{print $1}')"
-    if [[ "$digest_value" != "$actual_digest" ]]; then
-        add_failure "manifest sha256 digest for $label does not match bundled artifact"
+    actualDigest="$(sha256sum "$artifactFile" | awk '{print $1}')"
+    if [[ "$digestValue" != "$actualDigest" ]]; then
+        AddFailure "manifest sha256 digest for $label does not match bundled artifact"
     fi
 }
 
-check_bundled_artifact() {
+CheckBundledArtifact() {
     local label="$1"
     local key="$2"
-    local source_file="$3"
-    local expected_artifact="$4"
-    local artifact artifact_file digest_algorithm digest_value
+    local sourceFile="$3"
+    local expectedArtifact="$4"
+    local artifact artifactFile digestAlgorithm digestValue
 
-    artifact="$(manifest_artifact "$key")"
+    artifact="$(ManifestArtifact "$key")"
     if [[ -z "$artifact" ]]; then
-        if [[ -e "$source_file" ]]; then
-            add_failure "manifest does not index $label even though source file exists: $source_file"
+        if [[ -e "$sourceFile" ]]; then
+            AddFailure "manifest does not index $label even though source file exists: $sourceFile"
         fi
-        digest_algorithm="$(manifest_digest_algorithm "$key")"
-        digest_value="$(manifest_digest_value "$key")"
-        if [[ -n "$digest_algorithm" || -n "$digest_value" ]]; then
-            add_failure "manifest has digest for missing $label"
+        digestAlgorithm="$(ManifestDigestAlgorithm "$key")"
+        digestValue="$(ManifestDigestValue "$key")"
+        if [[ -n "$digestAlgorithm" || -n "$digestValue" ]]; then
+            AddFailure "manifest has digest for missing $label"
         fi
         return
     fi
 
-    if [[ "$artifact" != "$expected_artifact" ]]; then
-        add_failure "manifest indexes unexpected artifact for $label: $artifact"
+    if [[ "$artifact" != "$expectedArtifact" ]]; then
+        AddFailure "manifest indexes unexpected artifact for $label: $artifact"
         return
     fi
 
-    artifact_file="$manifest_dir/$artifact"
-    if [[ ! -f "$artifact_file" ]]; then
-        add_failure "manifest bundle is missing $label: $artifact"
-    elif [[ ! -f "$source_file" ]]; then
-        add_failure "source file for bundled $label is missing: $source_file"
-    elif ! cmp -s "$source_file" "$artifact_file"; then
-        add_failure "manifest bundled $label does not match configured source file"
+    artifactFile="$manifest_dir/$artifact"
+    if [[ ! -f "$artifactFile" ]]; then
+        AddFailure "manifest bundle is missing $label: $artifact"
+    elif [[ ! -f "$sourceFile" ]]; then
+        AddFailure "source file for bundled $label is missing: $sourceFile"
+    elif ! cmp -s "$sourceFile" "$artifactFile"; then
+        AddFailure "manifest bundled $label does not match configured source file"
     else
-        check_artifact_digest "$label" "$key" "$artifact_file"
+        CheckArtifactDigest "$label" "$key" "$artifactFile"
     fi
 }
 
-result_status_for_file() {
+ResultStatusForFile() {
     local file="$1"
     if [[ ! -f "$file" ]]; then
         printf 'missing'
@@ -114,7 +114,7 @@ result_status_for_file() {
   ' "$file" 2>/dev/null || printf 'invalid'
 }
 
-firewall_policy_status_for_file() {
+FirewallPolicyStatusForFile() {
     local file="$1"
     if [[ -f "$file" ]]; then
         printf 'present'
@@ -123,31 +123,31 @@ firewall_policy_status_for_file() {
     fi
 }
 
-check_manifest_external_status() {
+CheckManifestExternalStatus() {
     local label="$1"
     local key="$2"
     local expected="$3"
     local actual
 
-    actual="$(json_value "$MANIFEST_FILE" ".evidenceSummary.externalExposure.$key // \"\"")"
+    actual="$(JsonValue "$MANIFEST_FILE" ".evidenceSummary.externalExposure.$key // \"\"")"
     if [[ "$actual" != "$expected" ]]; then
-        add_failure "manifest externalExposure.$key ($actual) does not match $label status ($expected)"
+        AddFailure "manifest externalExposure.$key ($actual) does not match $label status ($expected)"
     fi
 }
 
-check_request_evidence_path() {
+CheckRequestEvidencePath() {
     local label="$1"
     local key="$2"
     local expected="$3"
     local actual
 
-    actual="$(json_value "$REQUEST_FILE" ".evidenceFiles.$key // \"\"")"
+    actual="$(JsonValue "$REQUEST_FILE" ".evidenceFiles.$key // \"\"")"
     if [[ "$actual" != "$expected" ]]; then
-        add_failure "request $label path ($actual) does not match configured source file ($expected)"
+        AddFailure "request $label path ($actual) does not match configured source file ($expected)"
     fi
 }
 
-check_request_handoff_schema() {
+CheckRequestHandoffSchema() {
     if ! jq -e '
     . as $request
     | ($request.requiredEvidence // []) as $required
@@ -172,7 +172,7 @@ check_request_handoff_schema() {
     )
     and ($request.firewallPolicyRequirements.rawSourceSha256Required == true)
   ' "$REQUEST_FILE" >/dev/null 2>&1; then
-        add_failure "request requiredEvidence must cover every production exposure evidence file with standard artifact names and firewall source sha256 requirements"
+        AddFailure "request requiredEvidence must cover every production exposure evidence file with standard artifact names and firewall source sha256 requirements"
     fi
 
     if ! jq -e '
@@ -189,69 +189,69 @@ check_request_handoff_schema() {
     and .returnedHandoffCloseoutCommand == "tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>"
     and .releaseEvidenceCommand == "tools/operations/collect-release-evidence.sh"
   ' "$REQUEST_FILE" >/dev/null 2>&1; then
-        add_failure "request verificationCommands, closeout command fields and handoffChecks must describe direct, returned-evidence, returned-handoff and release evidence verification"
+        AddFailure "request verificationCommands, closeout command fields and handoffChecks must describe direct, returned-evidence, returned-handoff and release evidence verification"
     fi
 }
 
 if [[ ! -f "$REQUEST_FILE" ]]; then
-    add_failure "missing production exposure request file: $REQUEST_FILE"
+    AddFailure "missing production exposure request file: $REQUEST_FILE"
 fi
 
 if [[ ! -f "$STATUS_FILE" ]]; then
-    add_failure "missing production exposure status file: $STATUS_FILE"
+    AddFailure "missing production exposure status file: $STATUS_FILE"
 fi
 
 if [[ -n "$MANIFEST_FILE" && ! -f "$MANIFEST_FILE" ]]; then
-    add_failure "missing release evidence manifest file: $MANIFEST_FILE"
+    AddFailure "missing release evidence manifest file: $MANIFEST_FILE"
 fi
 
 if ((${#failures[@]} == 0)); then
     if ! jq -e '.status == "awaiting-external-evidence"' "$REQUEST_FILE" >/dev/null 2>&1; then
-        add_failure "request status must be awaiting-external-evidence"
+        AddFailure "request status must be awaiting-external-evidence"
     fi
 
     if ! jq -e '.requiredHosts | type == "array" and length > 0' "$REQUEST_FILE" >/dev/null 2>&1; then
-        add_failure "request requiredHosts must be a non-empty array"
+        AddFailure "request requiredHosts must be a non-empty array"
     fi
 
     if ! jq -e '.delegationDomains | type == "array" and length > 0' "$REQUEST_FILE" >/dev/null 2>&1; then
-        add_failure "request delegationDomains must be a non-empty array"
+        AddFailure "request delegationDomains must be a non-empty array"
     fi
 
-    request_status="$(json_value "$REQUEST_FILE" '.currentStatus.status // ""')"
-    status_status="$(json_value "$STATUS_FILE" '.status // ""')"
+    request_status="$(JsonValue "$REQUEST_FILE" '.currentStatus.status // ""')"
+    status_status="$(JsonValue "$STATUS_FILE" '.status // ""')"
     if [[ "$request_status" != "$status_status" ]]; then
-        add_failure "request currentStatus.status ($request_status) does not match status report ($status_status)"
+        AddFailure "request currentStatus.status ($request_status) does not match status report ($status_status)"
     fi
 
-    request_count="$(json_value "$REQUEST_FILE" '.currentStatus.blockerCount // 0')"
-    status_count="$(json_value "$STATUS_FILE" '.blockers // [] | length')"
+    request_count="$(JsonValue "$REQUEST_FILE" '.currentStatus.blockerCount // 0')"
+    status_count="$(JsonValue "$STATUS_FILE" '.blockers // [] | length')"
     if [[ "$request_count" != "$status_count" ]]; then
-        add_failure "request blockerCount ($request_count) does not match status blockers ($status_count)"
+        AddFailure "request blockerCount ($request_count) does not match status blockers ($status_count)"
     fi
 
     if ! jq -e --slurpfile status "$STATUS_FILE" '
     (.currentStatus.blockerSources // [] | sort) == ($status[0].blockers // [] | map(.source) | unique | sort)
   ' "$REQUEST_FILE" >/dev/null 2>&1; then
-        add_failure "request blockerSources do not match status report blocker sources"
+        AddFailure "request blockerSources do not match status report blocker sources"
     fi
 
     if ! jq -e --slurpfile status "$STATUS_FILE" '
     (.currentStatus.blockers // []) == ($status[0].blockers // [])
   ' "$REQUEST_FILE" >/dev/null 2>&1; then
-        add_failure "request blockers do not match status report blockers"
+        AddFailure "request blockers do not match status report blockers"
     fi
 
     if ! jq -e --slurpfile status "$STATUS_FILE" '
     (.requiredHosts // [] | sort) == ($status[0].requiredHosts // [] | sort)
   ' "$REQUEST_FILE" >/dev/null 2>&1; then
-        add_failure "request requiredHosts do not match status report requiredHosts"
+        AddFailure "request requiredHosts do not match status report requiredHosts"
     fi
 
     if ! jq -e --slurpfile status "$STATUS_FILE" '
     (.delegationDomains // [] | sort) == ($status[0].delegationDomains // [] | sort)
   ' "$REQUEST_FILE" >/dev/null 2>&1; then
-        add_failure "request delegationDomains do not match status report delegationDomains"
+        AddFailure "request delegationDomains do not match status report delegationDomains"
     fi
 
     if ! jq -e '
@@ -259,7 +259,7 @@ if ((${#failures[@]} == 0)); then
     | (.nextActions // [] | map(.source)) as $actions
     | all($sources[]?; . as $source | $actions | index($source) != null)
   ' "$REQUEST_FILE" >/dev/null 2>&1; then
-        add_failure "request nextActions must cover every blocker source"
+        AddFailure "request nextActions must cover every blocker source"
     fi
 
     if ! jq -e '
@@ -269,65 +269,65 @@ if ((${#failures[@]} == 0)); then
     and all(.unblockPlan[]?; (.blockerCount // 0) > 0 and (.artifactNames // [] | length) > 0 and (.commands // [] | length) > 0)
     and (if (.currentStatus.status // "") == "missing" then any(.unblockPlan[]?; .source == "status-report") else true end)
   ' "$REQUEST_FILE" >/dev/null 2>&1; then
-        add_failure "request unblockPlan must cover every blocker source with artifact names, commands and blocker counts"
+        AddFailure "request unblockPlan must cover every blocker source with artifact names, commands and blocker counts"
     fi
 
-    check_request_evidence_path "firewallPolicy" firewallPolicy "$FIREWALL_POLICY_FILE"
-    check_request_evidence_path "dnsReadiness" dnsReadiness "$DNS_READINESS_FILE"
-    check_request_evidence_path "dnsDelegation" dnsDelegation "$DNS_DELEGATION_FILE"
-    check_request_evidence_path "liveExposure" liveExposure "$LIVE_EVIDENCE_FILE"
-    check_request_evidence_path "statusReport" statusReport "$STATUS_FILE"
-    check_request_handoff_schema
+    CheckRequestEvidencePath "firewallPolicy" firewallPolicy "$FIREWALL_POLICY_FILE"
+    CheckRequestEvidencePath "dnsReadiness" dnsReadiness "$DNS_READINESS_FILE"
+    CheckRequestEvidencePath "dnsDelegation" dnsDelegation "$DNS_DELEGATION_FILE"
+    CheckRequestEvidencePath "liveExposure" liveExposure "$LIVE_EVIDENCE_FILE"
+    CheckRequestEvidencePath "statusReport" statusReport "$STATUS_FILE"
+    CheckRequestHandoffSchema
 
     if [[ "$ALLOW_TEMP_EVIDENCE" != "1" ]]; then
         if jq -e '.evidenceFiles | to_entries[]? | select(.value | startswith("/tmp/tmp"))' "$REQUEST_FILE" >/dev/null 2>&1; then
-            add_failure "request evidenceFiles contain /tmp/tmp paths; rerun real closeout to refresh production artifacts"
+            AddFailure "request evidenceFiles contain /tmp/tmp paths; rerun real closeout to refresh production artifacts"
         fi
     fi
 fi
 
 if [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" && -f "$REQUEST_FILE" ]]; then
     manifest_dir="$(cd "$(dirname "$MANIFEST_FILE")" && pwd)"
-    bundled_request_artifact="$(manifest_artifact productionExposureRequest)"
-    bundled_status_artifact="$(manifest_artifact productionExposureStatus)"
+    bundled_request_artifact="$(ManifestArtifact productionExposureRequest)"
+    bundled_status_artifact="$(ManifestArtifact productionExposureStatus)"
     bundled_request_file=""
     bundled_status_file=""
 
     if ! jq -e '.artifacts.productionExposureRequest == "production-exposure-evidence-request.json"' "$MANIFEST_FILE" >/dev/null 2>&1; then
-        add_failure "manifest does not index production-exposure-evidence-request.json"
+        AddFailure "manifest does not index production-exposure-evidence-request.json"
     else
         bundled_request_file="$manifest_dir/$bundled_request_artifact"
         if [[ ! -f "$bundled_request_file" ]]; then
-            add_failure "manifest bundle is missing production-exposure-evidence-request.json"
+            AddFailure "manifest bundle is missing production-exposure-evidence-request.json"
         elif ! cmp -s "$REQUEST_FILE" "$bundled_request_file"; then
-            add_failure "manifest bundled request does not match configured request file"
+            AddFailure "manifest bundled request does not match configured request file"
         else
-            check_artifact_digest "production exposure request" productionExposureRequest "$bundled_request_file"
+            CheckArtifactDigest "production exposure request" productionExposureRequest "$bundled_request_file"
         fi
     fi
 
     if ! jq -e '.artifacts.productionExposureStatus == "production-exposure-status.json"' "$MANIFEST_FILE" >/dev/null 2>&1; then
-        add_failure "manifest does not index production-exposure-status.json"
+        AddFailure "manifest does not index production-exposure-status.json"
     else
         bundled_status_file="$manifest_dir/$bundled_status_artifact"
         if [[ ! -f "$bundled_status_file" ]]; then
-            add_failure "manifest bundle is missing production-exposure-status.json"
+            AddFailure "manifest bundle is missing production-exposure-status.json"
         elif ! cmp -s "$STATUS_FILE" "$bundled_status_file"; then
-            add_failure "manifest bundled status does not match configured status file"
+            AddFailure "manifest bundled status does not match configured status file"
         else
-            check_artifact_digest "production exposure status" productionExposureStatus "$bundled_status_file"
+            CheckArtifactDigest "production exposure status" productionExposureStatus "$bundled_status_file"
         fi
     fi
 
-    check_bundled_artifact "production exposure live evidence" productionExposureLive "$LIVE_EVIDENCE_FILE" production-exposure-live.json
-    check_bundled_artifact "DNS readiness evidence" dnsReadiness "$DNS_READINESS_FILE" production-dns-readiness.json
-    check_bundled_artifact "DNS delegation evidence" dnsDelegation "$DNS_DELEGATION_FILE" production-dns-delegation.json
-    check_bundled_artifact "firewall policy evidence" firewallPolicy "$FIREWALL_POLICY_FILE" production-firewall-policy.json
+    CheckBundledArtifact "production exposure live evidence" productionExposureLive "$LIVE_EVIDENCE_FILE" production-exposure-live.json
+    CheckBundledArtifact "DNS readiness evidence" dnsReadiness "$DNS_READINESS_FILE" production-dns-readiness.json
+    CheckBundledArtifact "DNS delegation evidence" dnsDelegation "$DNS_DELEGATION_FILE" production-dns-delegation.json
+    CheckBundledArtifact "firewall policy evidence" firewallPolicy "$FIREWALL_POLICY_FILE" production-firewall-policy.json
 
-    check_manifest_external_status "production exposure live evidence" liveExposure "$(result_status_for_file "$LIVE_EVIDENCE_FILE")"
-    check_manifest_external_status "DNS readiness evidence" dnsReadiness "$(result_status_for_file "$DNS_READINESS_FILE")"
-    check_manifest_external_status "DNS delegation evidence" dnsDelegation "$(result_status_for_file "$DNS_DELEGATION_FILE")"
-    check_manifest_external_status "firewall policy evidence" firewallPolicy "$(firewall_policy_status_for_file "$FIREWALL_POLICY_FILE")"
+    CheckManifestExternalStatus "production exposure live evidence" liveExposure "$(ResultStatusForFile "$LIVE_EVIDENCE_FILE")"
+    CheckManifestExternalStatus "DNS readiness evidence" dnsReadiness "$(ResultStatusForFile "$DNS_READINESS_FILE")"
+    CheckManifestExternalStatus "DNS delegation evidence" dnsDelegation "$(ResultStatusForFile "$DNS_DELEGATION_FILE")"
+    CheckManifestExternalStatus "firewall policy evidence" firewallPolicy "$(FirewallPolicyStatusForFile "$FIREWALL_POLICY_FILE")"
 
     summary_request_file="$REQUEST_FILE"
     summary_status_file="$STATUS_FILE"
@@ -380,7 +380,7 @@ if [[ -n "$MANIFEST_FILE" && -f "$MANIFEST_FILE" && -f "$REQUEST_FILE" ]]; then
     and (.evidenceSummary.externalExposure.request.closeoutCommands.returnedHandoffCloseout // null) == ($request[0].returnedHandoffCloseoutCommand // null)
     and (.evidenceSummary.externalExposure.request.closeoutCommands.releaseEvidence // null) == ($request[0].releaseEvidenceCommand // null)
   ' "$MANIFEST_FILE" >/dev/null 2>&1; then
-        add_failure "manifest request summary does not match status report and request package"
+        AddFailure "manifest request summary does not match status report and request package"
     fi
 fi
 

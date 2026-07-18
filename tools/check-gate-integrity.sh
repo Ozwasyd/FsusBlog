@@ -3,25 +3,25 @@ set -euo pipefail
 
 ROOT_DIR="${FSUSBLOG_GATE_INTEGRITY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
-run_self_test() {
-    local temp_dir
-    temp_dir="$(mktemp -d)"
-    trap 'rm -rf "$temp_dir"' RETURN
+RunSelfTest() {
+    local tempDir
+    tempDir="$(mktemp -d)"
+    trap 'rm -rf "$tempDir"' RETURN
 
     mkdir -p \
-        "$temp_dir/.github/workflows" \
-        "$temp_dir/docs" \
-        "$temp_dir/src/frontend" \
-        "$temp_dir/tests/backend" \
-        "$temp_dir/tests" \
-        "$temp_dir/tools/ci" \
-        "$temp_dir/tools/test/lanes" \
-        "$temp_dir/tools/coverage"
+        "$tempDir/.github/workflows" \
+        "$tempDir/docs" \
+        "$tempDir/src/frontend" \
+        "$tempDir/tests/backend" \
+        "$tempDir/tests" \
+        "$tempDir/tools/ci" \
+        "$tempDir/tools/test/lanes" \
+        "$tempDir/tools/coverage"
 
-    touch "$temp_dir/tests/backend/FsusBlog.Server.Tests.csproj"
-    touch "$temp_dir/src/frontend/package-lock.json"
+    touch "$tempDir/tests/backend/FsusBlog.Server.Tests.csproj"
+    touch "$tempDir/src/frontend/package-lock.json"
 
-    cat >"$temp_dir/tools/test.sh" <<'EOF'
+    cat >"$tempDir/tools/test.sh" <<'EOF'
 #!/usr/bin/env bash
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 case "${1:-}" in
@@ -32,47 +32,47 @@ esac
 exec node "$ROOT_DIR/tools/run-test-matrix.mjs" run "$@"
 EOF
 
-    cat >"$temp_dir/tools/run-test-matrix.mjs" <<'EOF'
+    cat >"$tempDir/tools/run-test-matrix.mjs" <<'EOF'
 #!/usr/bin/env node
 console.log('[matrix] ok')
 EOF
 
-    cat >"$temp_dir/tools/ci/summarize-quality-gate.mjs" <<'EOF'
+    cat >"$tempDir/tools/ci/summarize-quality-gate.mjs" <<'EOF'
 #!/usr/bin/env node
 console.log('production summary ok')
 EOF
 
-    cat >"$temp_dir/tools/ci/check-job-summaries.mjs" <<'EOF'
+    cat >"$tempDir/tools/ci/check-job-summaries.mjs" <<'EOF'
 #!/usr/bin/env node
 console.log('[job-summary-check] ok')
 EOF
 
-    cat >"$temp_dir/tools/ci/run-stage.mjs" <<'EOF'
+    cat >"$tempDir/tools/ci/run-stage.mjs" <<'EOF'
 #!/usr/bin/env node
 console.log('[ci-stage] ok')
 EOF
 
-    cat >"$temp_dir/tools/ci/check-flaky-registry.mjs" <<'EOF'
+    cat >"$tempDir/tools/ci/check-flaky-registry.mjs" <<'EOF'
 #!/usr/bin/env node
 console.log('[flaky-registry] ok')
 EOF
 
-    cat >"$temp_dir/tools/ci/check-flaky-evidence.mjs" <<'EOF'
+    cat >"$tempDir/tools/ci/check-flaky-evidence.mjs" <<'EOF'
 #!/usr/bin/env node
 console.log('[flaky-evidence] ok')
 EOF
 
-    cat >"$temp_dir/tools/ci/run-flaky-governed.mjs" <<'EOF'
+    cat >"$tempDir/tools/ci/run-flaky-governed.mjs" <<'EOF'
 #!/usr/bin/env node
 console.log('[flaky] ok')
 EOF
 
-    cat >"$temp_dir/tools/test/legacy-test.sh" <<'EOF'
+    cat >"$tempDir/tools/test/legacy-test.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
 
-    cat >"$temp_dir/tests/matrix.yml" <<'EOF'
+    cat >"$tempDir/tests/matrix.yml" <<'EOF'
 version: fsusblog-test-matrix-v2
 tiers:
   - id: fast
@@ -91,49 +91,49 @@ tiers:
     command: tools/test/lanes/noop.sh
 EOF
 
-    cat >"$temp_dir/tests/matrix.schema.json" <<'EOF'
+    cat >"$tempDir/tests/matrix.schema.json" <<'EOF'
 {}
 EOF
 
-    cat >"$temp_dir/tests/flaky.yml" <<'EOF'
+    cat >"$tempDir/tests/flaky.yml" <<'EOF'
 version: fsusblog-flaky-v1
 entries: []
 EOF
 
-    cat >"$temp_dir/tools/ok.sh" <<'EOF'
+    cat >"$tempDir/tools/ok.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
 
-    cat >"$temp_dir/tools/check-gate-integrity.sh" <<'EOF'
+    cat >"$tempDir/tools/check-gate-integrity.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
 
     for file in \
-        "$temp_dir/tools/test.sh" \
-        "$temp_dir/tools/run-test-matrix.mjs" \
-        "$temp_dir/tools/ci/summarize-quality-gate.mjs" \
-        "$temp_dir/tools/ci/check-job-summaries.mjs" \
-        "$temp_dir/tools/ci/run-stage.mjs" \
-        "$temp_dir/tools/ci/check-flaky-registry.mjs" \
-        "$temp_dir/tools/ci/check-flaky-evidence.mjs" \
-        "$temp_dir/tools/ci/run-flaky-governed.mjs" \
-        "$temp_dir/tools/test/legacy-test.sh" \
-        "$temp_dir/tools/ok.sh" \
-        "$temp_dir/tools/check-gate-integrity.sh" \
-        "$temp_dir/tools/test/lanes/noop.sh" \
-        "$temp_dir/tools/test/lanes/coverage-threshold.sh" \
-        "$temp_dir/tools/coverage/collect-backend-coverage.sh" \
-        "$temp_dir/tools/coverage/collect-frontend-coverage.sh" \
-        "$temp_dir/tools/coverage/merge-coverage.sh" \
-        "$temp_dir/tools/coverage/check-scope-snapshot.sh" \
-        "$temp_dir/tools/coverage/check-threshold.sh"; do
+        "$tempDir/tools/test.sh" \
+        "$tempDir/tools/run-test-matrix.mjs" \
+        "$tempDir/tools/ci/summarize-quality-gate.mjs" \
+        "$tempDir/tools/ci/check-job-summaries.mjs" \
+        "$tempDir/tools/ci/run-stage.mjs" \
+        "$tempDir/tools/ci/check-flaky-registry.mjs" \
+        "$tempDir/tools/ci/check-flaky-evidence.mjs" \
+        "$tempDir/tools/ci/run-flaky-governed.mjs" \
+        "$tempDir/tools/test/legacy-test.sh" \
+        "$tempDir/tools/ok.sh" \
+        "$tempDir/tools/check-gate-integrity.sh" \
+        "$tempDir/tools/test/lanes/noop.sh" \
+        "$tempDir/tools/test/lanes/coverage-threshold.sh" \
+        "$tempDir/tools/coverage/collect-backend-coverage.sh" \
+        "$tempDir/tools/coverage/collect-frontend-coverage.sh" \
+        "$tempDir/tools/coverage/merge-coverage.sh" \
+        "$tempDir/tools/coverage/check-scope-snapshot.sh" \
+        "$tempDir/tools/coverage/check-threshold.sh"; do
         [[ -f "$file" ]] || printf '#!/usr/bin/env bash\nexit 0\n' >"$file"
         chmod +x "$file"
     done
 
-    cat >"$temp_dir/src/frontend/package.json" <<'EOF'
+    cat >"$tempDir/src/frontend/package.json" <<'EOF'
 {
   "scripts": {
     "test:production": "bash ../../tools/test.sh production",
@@ -142,10 +142,10 @@ EOF
 }
 EOF
 
-    mkdir -p "$temp_dir/tests/frontend/checks"
-    touch "$temp_dir/tests/frontend/checks/fixture.mjs"
+    mkdir -p "$tempDir/tests/frontend/checks"
+    touch "$tempDir/tests/frontend/checks/fixture.mjs"
 
-    cat >"$temp_dir/.github/workflows/quality-gate.yml" <<'EOF'
+    cat >"$tempDir/.github/workflows/quality-gate.yml" <<'EOF'
 name: Quality Gate
 on:
   pull_request:
@@ -174,40 +174,40 @@ jobs:
       - run: node tools/ci/summarize-quality-gate.mjs
 EOF
 
-    cat >"$temp_dir/README.md" <<'EOF'
+    cat >"$tempDir/README.md" <<'EOF'
 Quality Gate runs on pull requests, pushes to main and master, and manual dispatch.
 See tests/backend/TESTING.md.
 EOF
-    cat >"$temp_dir/docs/testing.md" <<'EOF'
+    cat >"$tempDir/docs/testing.md" <<'EOF'
 Quality Gate runs on pull_request, main and master push, and workflow_dispatch.
 EOF
-    cat >"$temp_dir/docs/operations.md" <<'EOF'
+    cat >"$tempDir/docs/operations.md" <<'EOF'
 Quality Gate runs on pull requests, pushes to main and master, and manual dispatch.
 EOF
-    cat >"$temp_dir/tests/backend/TESTING.md" <<'EOF'
+    cat >"$tempDir/tests/backend/TESTING.md" <<'EOF'
 Quality Gate runs on pull_request, main and master push, and workflow_dispatch.
 EOF
 
-    FSUSBLOG_GATE_INTEGRITY_ROOT="$temp_dir" "$0" >/dev/null
+    FSUSBLOG_GATE_INTEGRITY_ROOT="$tempDir" "$0" >/dev/null
 
-    rm "$temp_dir/tools/ok.sh"
-    if FSUSBLOG_GATE_INTEGRITY_ROOT="$temp_dir" "$0" >/tmp/fsusblog-gate-integrity-missing.log 2>&1; then
+    rm "$tempDir/tools/ok.sh"
+    if FSUSBLOG_GATE_INTEGRITY_ROOT="$tempDir" "$0" >/tmp/fsusblog-gate-integrity-missing.log 2>&1; then
         echo "[gate-integrity:self-test] expected missing-file fixture to fail" >&2
         return 1
     fi
     grep -q "missing path" /tmp/fsusblog-gate-integrity-missing.log
 
-    printf '#!/usr/bin/env bash\nexit 0\n' >"$temp_dir/tools/ok.sh"
-    chmod 0644 "$temp_dir/tools/ok.sh"
-    if FSUSBLOG_GATE_INTEGRITY_ROOT="$temp_dir" "$0" >/tmp/fsusblog-gate-integrity-perm.log 2>&1; then
+    printf '#!/usr/bin/env bash\nexit 0\n' >"$tempDir/tools/ok.sh"
+    chmod 0644 "$tempDir/tools/ok.sh"
+    if FSUSBLOG_GATE_INTEGRITY_ROOT="$tempDir" "$0" >/tmp/fsusblog-gate-integrity-perm.log 2>&1; then
         echo "[gate-integrity:self-test] expected permission fixture to fail" >&2
         return 1
     fi
     grep -q "not executable" /tmp/fsusblog-gate-integrity-perm.log
-    chmod +x "$temp_dir/tools/ok.sh"
+    chmod +x "$tempDir/tools/ok.sh"
 
-    printf 'See tests/server/FsusBlog.Server.Tests/TESTING.md.\n' >"$temp_dir/README.md"
-    if FSUSBLOG_GATE_INTEGRITY_ROOT="$temp_dir" "$0" >/tmp/fsusblog-gate-integrity-drift.log 2>&1; then
+    printf 'See tests/server/FsusBlog.Server.Tests/TESTING.md.\n' >"$tempDir/README.md"
+    if FSUSBLOG_GATE_INTEGRITY_ROOT="$tempDir" "$0" >/tmp/fsusblog-gate-integrity-drift.log 2>&1; then
         echo "[gate-integrity:self-test] expected path-drift fixture to fail" >&2
         return 1
     fi
@@ -217,7 +217,7 @@ EOF
 }
 
 if [[ "${1:-}" == "--self-test" ]]; then
-    run_self_test
+    RunSelfTest
     exit 0
 fi
 
@@ -304,8 +304,8 @@ function scanToolsTest() {
   const text = readRequired(source);
   addRootVarRefs(text, source);
   addRefsFromText(text, source);
-  for (const line of text.split(/\r?\n/).filter((value) => value.includes('run_in_client'))) {
-    addRefsFromText(line, `${source}:run_in_client`, 'src/frontend');
+  for (const line of text.split(/\r?\n/).filter((value) => value.includes('RunInClient'))) {
+    addRefsFromText(line, `${source}:RunInClient`, 'src/frontend');
   }
 
   for (const needle of [

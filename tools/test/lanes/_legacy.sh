@@ -8,7 +8,7 @@ source "$ROOT_DIR/tools/test/legacy-test.sh"
 
 LANE_FAILURES=()
 
-run_collect() {
+RunCollect() {
     local label="$1"
     shift
     if "$@"; then
@@ -20,7 +20,7 @@ run_collect() {
     return 0
 }
 
-resolve_collect_child_environment() {
+ResolveCollectChildEnvironment() {
     local workers="$1"
     FSUSBLOG_COLLECT_WORKERS="$workers" \
         "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" <<'NODE'
@@ -56,9 +56,9 @@ for (const key of [
 NODE
 }
 
-resolve_collect_parallel_workers() {
-    local job_count="$1"
-    FSUSBLOG_COMMAND_MANIFEST_WORKERS="$job_count" \
+ResolveCollectParallelWorkers() {
+    local jobCount="$1"
+    FSUSBLOG_COMMAND_MANIFEST_WORKERS="$jobCount" \
         "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" <<'NODE'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
@@ -69,17 +69,17 @@ process.stdout.write(String(capacity.maxParallel))
 NODE
 }
 
-write_collect_live_grant_evidence() {
+WriteCollectLiveGrantEvidence() {
     local group="$1"
-    local status_dir="$2"
-    local final_status="$3"
-    local evidence_file="${FSUSBLOG_COLLECT_LIVE_GRANT_EVIDENCE_FILE:-}"
-    if [[ -z "$evidence_file" ]]; then
-        local run_slug
-        run_slug="$(namespace_slug "${FSUSBLOG_TEST_RUN_ID:-direct}")"
-        evidence_file="$ROOT_DIR/.tmp/test-results/live-grant/$run_slug/collect-$(namespace_slug "$group").json"
+    local statusDir="$2"
+    local finalStatus="$3"
+    local evidenceFile="${FSUSBLOG_COLLECT_LIVE_GRANT_EVIDENCE_FILE:-}"
+    if [[ -z "$evidenceFile" ]]; then
+        local runSlug
+        runSlug="$(NamespaceSlug "${FSUSBLOG_TEST_RUN_ID:-direct}")"
+        evidenceFile="$ROOT_DIR/.tmp/test-results/live-grant/$runSlug/collect-$(NamespaceSlug "$group").json"
     fi
-    "${FSUSBLOG_NODE:-node}" --input-type=module - "$status_dir" "$evidence_file" "$group" "$final_status" <<'NODE'
+    "${FSUSBLOG_NODE:-node}" --input-type=module - "$statusDir" "$evidenceFile" "$group" "$finalStatus" <<'NODE'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -134,7 +134,7 @@ fs.renameSync(temporary, outputFile)
 NODE
 }
 
-run_collect_parallel() {
+RunCollectParallel() {
     local group="$1"
     shift
     if (($# == 0 || $# % 2 != 0)); then
@@ -143,101 +143,101 @@ run_collect_parallel() {
     fi
 
     local total=$(($# / 2))
-    local worker_cap
-    worker_cap="$(resolve_collect_parallel_workers "$total")"
-    local status_dir="$ROOT_DIR/.tmp/parallel-status/$(namespace_slug "$group")-$$-$RANDOM"
+    local workerCap
+    workerCap="$(ResolveCollectParallelWorkers "$total")"
+    local statusDir="$ROOT_DIR/.tmp/parallel-status/$(NamespaceSlug "$group")-$$-$RANDOM"
     local -a labels=()
     local -a commands=()
-    local -a status_files=()
-    local -a child_pids=()
+    local -a statusFiles=()
+    local -a childPids=()
     local -a observed=()
-    mkdir -p "$status_dir"
-    : >"$status_dir/plan.tsv"
-    : >"$status_dir/grant-history.tsv"
-    : >"$status_dir/blocked.tsv"
+    mkdir -p "$statusDir"
+    : >"$statusDir/plan.tsv"
+    : >"$statusDir/grant-history.tsv"
+    : >"$statusDir/blocked.tsv"
 
     while (($# > 0)); do
         local label="$1"
         local command="$2"
         shift 2
         if ! declare -F "$command" >/dev/null; then
-            rm -rf "$status_dir"
+            rm -rf "$statusDir"
             printf '[lane] %s job %s references unknown function %s\n' "$group" "$label" "$command" >&2
             return 2
         fi
         labels+=("$label")
         commands+=("$command")
-        status_files+=("$status_dir/${#labels[@]}-$(namespace_slug "$label").status")
-        printf '%s\t%s\n' "$((${#labels[@]} - 1))" "$label" >>"$status_dir/plan.tsv"
+        statusFiles+=("$statusDir/${#labels[@]}-$(NamespaceSlug "$label").status")
+        printf '%s\t%s\n' "$((${#labels[@]} - 1))" "$label" >>"$statusDir/plan.tsv"
     done
 
-    log "collect group start: $group ($total jobs, workers=$worker_cap)"
-    printf '%s\t%s\n' "$(date +%s%3N)" "$worker_cap" >>"$status_dir/grant-history.tsv"
+    Log "collect group start: $group ($total jobs, workers=$workerCap)"
+    printf '%s\t%s\n' "$(date +%s%3N)" "$workerCap" >>"$statusDir/grant-history.tsv"
     local next=0
     local active=0
     local completed=0
-    trap 'for child_pid in "${child_pids[@]:-}"; do kill "$child_pid" >/dev/null 2>&1 || true; done; write_collect_live_grant_evidence "$group" "$status_dir" cancelled; exit 130' INT TERM
-    local blocked_signature=''
+    trap 'for child_pid in "${childPids[@]:-}"; do kill "$child_pid" >/dev/null 2>&1 || true; done; WriteCollectLiveGrantEvidence "$group" "$statusDir" cancelled; exit 130' INT TERM
+    local blockedSignature=''
     while ((completed < total)); do
-        local next_worker_cap
-        next_worker_cap="$(resolve_collect_parallel_workers "$total")"
-        if [[ "$next_worker_cap" != "$worker_cap" ]]; then
-            log "collect capacity update: $group (workers=$worker_cap->$next_worker_cap active=$active)"
-            worker_cap="$next_worker_cap"
-            printf '%s\t%s\n' "$(date +%s%3N)" "$worker_cap" >>"$status_dir/grant-history.tsv"
+        local nextWorkerCap
+        nextWorkerCap="$(ResolveCollectParallelWorkers "$total")"
+        if [[ "$nextWorkerCap" != "$workerCap" ]]; then
+            Log "collect capacity update: $group (workers=$workerCap->$nextWorkerCap active=$active)"
+            workerCap="$nextWorkerCap"
+            printf '%s\t%s\n' "$(date +%s%3N)" "$workerCap" >>"$statusDir/grant-history.tsv"
         fi
-        local child_env_file=''
-        if ((next < total && active < worker_cap)); then
-            child_env_file="$status_dir/wave-$next-$worker_cap.env"
-            resolve_collect_child_environment "$worker_cap" >"$child_env_file"
+        local childEnvFile=''
+        if ((next < total && active < workerCap)); then
+            childEnvFile="$statusDir/wave-$next-$workerCap.env"
+            ResolveCollectChildEnvironment "$workerCap" >"$childEnvFile"
         fi
-        while ((next < total && active < worker_cap)); do
+        while ((next < total && active < workerCap)); do
             local index="$next"
             (
                 set +e
                 while IFS='=' read -r key value; do
                     [[ -n "$key" ]] && export "$key=$value"
-                done <"$child_env_file"
-                local admitted_at_ms
-                admitted_at_ms="$(date +%s%3N)"
-                log "collect start: ${labels[$index]}"
+                done <"$childEnvFile"
+                local admittedAtMs
+                admittedAtMs="$(date +%s%3N)"
+                Log "collect start: ${labels[$index]}"
                 ("${commands[$index]}")
-                local child_status=$?
-                if ((child_status == 0)); then
-                    log "collect done: ${labels[$index]}"
+                local childStatus=$?
+                if ((childStatus == 0)); then
+                    Log "collect done: ${labels[$index]}"
                 else
-                    log "collect failed: ${labels[$index]} (exit $child_status)"
+                    Log "collect failed: ${labels[$index]} (exit $childStatus)"
                 fi
-                local finished_at_ms
-                finished_at_ms="$(date +%s%3N)"
-                local pending_status="${status_files[$index]}.pending-$BASHPID"
+                local finishedAtMs
+                finishedAtMs="$(date +%s%3N)"
+                local pendingStatus="${statusFiles[$index]}.pending-$BASHPID"
                 printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
-                    "$child_status" "$admitted_at_ms" "$finished_at_ms" \
+                    "$childStatus" "$admittedAtMs" "$finishedAtMs" \
                     "${FSUSBLOG_STEP_CPU_BUDGET:-0}" "${FSUSBLOG_STEP_MEMORY_GIB:-0}" \
-                    "${FSUSBLOG_COMMAND_MANIFEST_WORKERS:-0}" >"$pending_status"
-                mv "$pending_status" "${status_files[$index]}"
+                    "${FSUSBLOG_COMMAND_MANIFEST_WORKERS:-0}" >"$pendingStatus"
+                mv "$pendingStatus" "${statusFiles[$index]}"
                 exit 0
             ) &
-            child_pids[$index]="$!"
+            childPids[$index]="$!"
             observed[$index]=0
             next=$((next + 1))
             active=$((active + 1))
-            blocked_signature=''
+            blockedSignature=''
         done
-        if ((next < total && active >= worker_cap)); then
-            local next_blocked_signature="$next:$active:$worker_cap"
-            if [[ "$next_blocked_signature" != "$blocked_signature" ]]; then
-                blocked_signature="$next_blocked_signature"
-                printf '%s\t%s\t%s\t%s\n' "$(date +%s%3N)" "$next" "$active" "$worker_cap" >>"$status_dir/blocked.tsv"
+        if ((next < total && active >= workerCap)); then
+            local nextBlockedSignature="$next:$active:$workerCap"
+            if [[ "$nextBlockedSignature" != "$blockedSignature" ]]; then
+                blockedSignature="$nextBlockedSignature"
+                printf '%s\t%s\t%s\t%s\n' "$(date +%s%3N)" "$next" "$active" "$workerCap" >>"$statusDir/blocked.tsv"
             fi
         fi
         local progressed=0
         local index
         for ((index = 0; index < next; index += 1)); do
-            if [[ "${observed[$index]:-0}" == "1" || ! -f "${status_files[$index]}" ]]; then
+            if [[ "${observed[$index]:-0}" == "1" || ! -f "${statusFiles[$index]}" ]]; then
                 continue
             fi
-            wait "${child_pids[$index]}" >/dev/null 2>&1 || true
+            wait "${childPids[$index]}" >/dev/null 2>&1 || true
             observed[$index]=1
             active=$((active - 1))
             completed=$((completed + 1))
@@ -250,28 +250,28 @@ run_collect_parallel() {
     trap - INT TERM
 
     local index
-    local group_failed=0
+    local groupFailed=0
     for ((index = 0; index < total; index += 1)); do
-        local child_status
-        if [[ -f "${status_files[$index]}" ]]; then
-            IFS=$'\t' read -r child_status _ <"${status_files[$index]}"
+        local childStatus
+        if [[ -f "${statusFiles[$index]}" ]]; then
+            IFS=$'\t' read -r childStatus _ <"${statusFiles[$index]}"
         else
-            child_status=125
+            childStatus=125
         fi
-        if [[ "$child_status" != "0" ]]; then
-            group_failed=1
-            LANE_FAILURES+=("${labels[$index]} (exit ${child_status})")
+        if [[ "$childStatus" != "0" ]]; then
+            groupFailed=1
+            LANE_FAILURES+=("${labels[$index]} (exit ${childStatus})")
         fi
     done
-    local final_status='success'
-    if ((group_failed == 1)); then final_status='failure'; fi
-    write_collect_live_grant_evidence "$group" "$status_dir" "$final_status"
-    rm -rf "$status_dir"
-    log "collect group done: $group"
+    local finalStatus='success'
+    if ((groupFailed == 1)); then finalStatus='failure'; fi
+    WriteCollectLiveGrantEvidence "$group" "$statusDir" "$finalStatus"
+    rm -rf "$statusDir"
+    Log "collect group done: $group"
     return 0
 }
 
-finish_collect() {
+FinishCollect() {
     if ((${#LANE_FAILURES[@]} == 0)); then
         return 0
     fi

@@ -7,11 +7,11 @@ BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
 export FSUSBLOG_REPO_ROOT="${FSUSBLOG_REPO_ROOT:-$ROOT_DIR}"
 BASE_REF="${FSUSBLOG_BASE_REF:-origin/main}"
 
-log() {
+Log() {
     printf '[dotnet:affected] %s\n' "$1"
 }
 
-resolve_base() {
+ResolveBase() {
     if git -C "$ROOT_DIR" rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
         git -C "$ROOT_DIR" merge-base "$BASE_REF" HEAD
         return
@@ -20,7 +20,7 @@ resolve_base() {
     git -C "$ROOT_DIR" rev-parse HEAD
 }
 
-collect_changed_files() {
+CollectChangedFiles() {
     local base="$1"
     {
         git -C "$ROOT_DIR" diff --name-only "$base"...HEAD
@@ -29,12 +29,12 @@ collect_changed_files() {
     } | awk 'NF' | sort -u
 }
 
-base_ref="$(resolve_base)"
-log "selection=affected base=$base_ref"
-mapfile -t changed_files < <(collect_changed_files "$base_ref")
+base_ref="$(ResolveBase)"
+Log "selection=affected base=$base_ref"
+mapfile -t changed_files < <(CollectChangedFiles "$base_ref")
 
 if ((${#changed_files[@]} == 0)); then
-    log "selection=affected effective=skip reason=no-changed-files"
+    Log "selection=affected effective=skip reason=no-changed-files"
     exit 0
 fi
 
@@ -55,13 +55,13 @@ for file in "${changed_files[@]}"; do
 done
 
 if ((requires_full == 0)); then
-    log "selection=affected effective=skip reason=non-backend-changes changed=${#changed_files[@]}"
+    Log "selection=affected effective=skip reason=non-backend-changes changed=${#changed_files[@]}"
     exit 0
 fi
 
 if ((auth_security_sensitive == 1)); then
-    log "selection=affected effective=full reason=auth-security-sensitive changed=${#changed_files[@]}"
+    Log "selection=affected effective=full reason=auth-security-sensitive changed=${#changed_files[@]}"
 else
-    log "selection=affected effective=full reason=backend-shared-core-or-tests changed=${#changed_files[@]}"
+    Log "selection=affected effective=full reason=backend-shared-core-or-tests changed=${#changed_files[@]}"
 fi
 "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --no-build --filter "Category!=Integration"

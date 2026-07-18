@@ -43,15 +43,15 @@ SOAK_DIR="${FSUSBLOG_SOAK_EVIDENCE_DIR:-$ROOT_DIR/.tmp/soak}"
 FUZZ_DIR="${FSUSBLOG_FUZZ_EVIDENCE_DIR:-$ROOT_DIR/.tmp/fuzz}"
 mkdir -p "$OUT_DIR"
 
-restore_downloaded_artifacts() {
+RestoreDownloadedArtifacts() {
     bash "$ROOT_DIR/tools/operations/restore-downloaded-artifacts.sh" \
         "$ROOT_DIR/.tmp/downloaded-artifacts" \
         "$ROOT_DIR/.tmp"
 }
 
-restore_downloaded_artifacts
+RestoreDownloadedArtifacts
 
-copy_if_present() {
+CopyIfPresent() {
     local src="$1"
     local name="$2"
     if [[ -e "$src" ]]; then
@@ -62,11 +62,11 @@ copy_if_present() {
     fi
 }
 
-artifact_digest_json() {
-    local artifact_json="$1"
+ArtifactDigestJson() {
+    local artifactJson="$1"
     local artifact path digest
 
-    artifact="$(jq -r '.' <<<"$artifact_json" 2>/dev/null || true)"
+    artifact="$(jq -r '.' <<<"$artifactJson" 2>/dev/null || true)"
     if [[ -z "$artifact" || "$artifact" == "null" ]]; then
         printf 'null'
         return
@@ -85,7 +85,7 @@ artifact_digest_json() {
   }'
 }
 
-json_status_or_missing() {
+JsonStatusOrMissing() {
     local file="$1"
     if [[ ! -f "$file" ]]; then
         printf 'missing'
@@ -95,7 +95,7 @@ json_status_or_missing() {
     jq -r '.status // "present"' "$file" 2>/dev/null || printf 'invalid'
 }
 
-semantic_status_or_missing() {
+SemanticStatusOrMissing() {
     local file="$1"
     local predicate="$2"
     if [[ ! -f "$file" ]]; then
@@ -115,8 +115,8 @@ semantic_status_or_missing() {
   ' "$file" 2>/dev/null || printf 'invalid'
 }
 
-backup_restore_status_or_missing() {
-    semantic_status_or_missing "$1" '
+BackupRestoreStatusOrMissing() {
+    SemanticStatusOrMissing "$1" '
     (.status == "ok")
     and (.mode == "real")
     and (.timings.rpoSeconds != null)
@@ -135,8 +135,8 @@ backup_restore_status_or_missing() {
   '
 }
 
-post_deploy_smoke_status_or_missing() {
-    semantic_status_or_missing "$1" '
+PostDeploySmokeStatusOrMissing() {
+    SemanticStatusOrMissing "$1" '
     (.status == "ok")
     and (.dryRun == false)
     and ((.blockers // []) | length == 0)
@@ -153,8 +153,8 @@ post_deploy_smoke_status_or_missing() {
   '
 }
 
-gateway_transition_status_or_missing() {
-    semantic_status_or_missing "$1" '
+GatewayTransitionStatusOrMissing() {
+    SemanticStatusOrMissing "$1" '
     (.status == "ok")
     and (.generation | type == "number" and . >= 1)
     and (.durationMs | type == "number" and . >= 0)
@@ -288,7 +288,7 @@ gateway_transition_status_or_missing() {
   '
 }
 
-release_rollout_status_or_missing() {
+ReleaseRolloutStatusOrMissing() {
     local file="$1"
     if [[ ! -f "$file" ]]; then
         printf 'missing'
@@ -316,8 +316,8 @@ release_rollout_status_or_missing() {
     jq -r 'if .status == "pass" then "invalid" else (.status // "invalid") end' "$file" 2>/dev/null || printf 'invalid'
 }
 
-authenticated_dast_status_or_missing() {
-    semantic_status_or_missing "$1" '
+AuthenticatedDastStatusOrMissing() {
+    SemanticStatusOrMissing "$1" '
     . as $root
     | (.schema == "fsusblog.security.authenticated-dast.v1")
     and (.status == "ok")
@@ -341,8 +341,8 @@ authenticated_dast_status_or_missing() {
   '
 }
 
-local_runtime_exposure_status_or_missing() {
-    semantic_status_or_missing "$1" '
+LocalRuntimeExposureStatusOrMissing() {
+    SemanticStatusOrMissing "$1" '
     (.schema == "fsusblog.security.local-runtime-exposure.v1")
     and (.status == "ok")
     and (.executionSource == "fresh-loopback-runtime")
@@ -358,8 +358,8 @@ local_runtime_exposure_status_or_missing() {
   '
 }
 
-wasm_fuzz_status_or_missing() {
-    semantic_status_or_missing "$1" '
+WasmFuzzStatusOrMissing() {
+    SemanticStatusOrMissing "$1" '
     (.status == "ok")
     and (.executionSource == "fresh-wasm-runtime")
     and ((.seedsRun // 0) | type == "number" and . > 0 and floor == .)
@@ -375,8 +375,8 @@ wasm_fuzz_status_or_missing() {
   '
 }
 
-fault_injection_status_or_missing() {
-    semantic_status_or_missing "$1" '
+FaultInjectionStatusOrMissing() {
+    SemanticStatusOrMissing "$1" '
     (.status == "ok")
     and ((.caseCount // 0) > 0)
     and ((.cases // []) | length > 0)
@@ -462,8 +462,8 @@ fault_injection_status_or_missing() {
   '
 }
 
-short_soak_status_or_missing() {
-    semantic_status_or_missing "$1" '
+ShortSoakStatusOrMissing() {
+    SemanticStatusOrMissing "$1" '
     (.status == "ok")
     and (.mode == "short")
     and (.executionMode == "runtime")
@@ -480,7 +480,7 @@ short_soak_status_or_missing() {
   '
 }
 
-result_status_or_missing() {
+ResultStatusOrMissing() {
     local file="$1"
     if [[ ! -f "$file" ]]; then
         printf 'missing'
@@ -498,7 +498,7 @@ result_status_or_missing() {
   ' "$file" 2>/dev/null || printf 'invalid'
 }
 
-zap_status_or_missing() {
+ZapStatusOrMissing() {
     local dir="$1"
     if [[ ! -d "$dir" ]]; then
         printf 'missing'
@@ -513,7 +513,7 @@ zap_status_or_missing() {
     printf 'invalid'
 }
 
-blockers_json_or_empty() {
+BlockersJsonOrEmpty() {
     local file="$1"
     if [[ ! -f "$file" ]]; then
         printf '[]'
@@ -523,7 +523,7 @@ blockers_json_or_empty() {
     jq -c '.blockers // []' "$file" 2>/dev/null || printf '[]'
 }
 
-slo_critical_count_or_zero() {
+SloCriticalCountOrZero() {
     local file="$1"
     if [[ ! -f "$file" ]]; then
         printf '0'
@@ -533,7 +533,7 @@ slo_critical_count_or_zero() {
     jq -r '[.alerts[]? | select(.severity == "critical" and ((.status // "firing") == "firing"))] | length' "$file" 2>/dev/null || printf '0'
 }
 
-request_summary_json() {
+RequestSummaryJson() {
     local file="$SECURITY_DIR/production-exposure-evidence-request.json"
     if [[ ! -f "$file" ]]; then
         jq -n '{status: "missing", currentStatus: null, blockerSources: [], nextActionSources: [], nextActionCount: 0, unblockPlanSources: [], unblockPlanCount: 0, requiredHosts: [], delegationDomains: [], requiredEvidenceKeys: [], requiredEvidenceCount: 0, firewallSourceSha256Required: false, rawSourceSha256Required: false, handoffCheckCount: 0, verificationCommandNames: [], verificationCommandCount: 0, returnedCloseoutCommandCount: 0, closeoutCommands: {finalCloseout: null, returnedEvidenceVerifier: null, returnedEvidenceCloseout: null, returnedHandoffCloseout: null, releaseEvidence: null}}'
@@ -585,29 +585,29 @@ request_summary_json() {
 	  }' "$file" 2>/dev/null || jq -n '{status: "invalid", currentStatus: null, blockerSources: [], nextActionSources: [], nextActionCount: 0, unblockPlanSources: [], unblockPlanCount: 0, requiredHosts: [], delegationDomains: [], requiredEvidenceKeys: [], requiredEvidenceCount: 0, firewallSourceSha256Required: false, rawSourceSha256Required: false, handoffCheckCount: 0, verificationCommandNames: [], verificationCommandCount: 0, returnedCloseoutCommandCount: 0, closeoutCommands: {finalCloseout: null, returnedEvidenceVerifier: null, returnedEvidenceCloseout: null, returnedHandoffCloseout: null, releaseEvidence: null}}'
 }
 
-coverage_summary_json() {
+CoverageSummaryJson() {
     local merged="$COVERAGE_DIR/merged/Summary.json"
     local backend="$COVERAGE_DIR/backend-merged/Summary.json"
     local frontend="$COVERAGE_DIR/frontend/Summary.json"
-    local merged_input="$merged"
-    local backend_input="$backend"
-    local frontend_input="$frontend"
+    local mergedInput="$merged"
+    local backendInput="$backend"
+    local frontendInput="$frontend"
 
     if [[ ! -f "$merged" && ! -f "$backend" && ! -f "$frontend" ]]; then
         jq -n '{status: "missing", merged: null, backend: null, frontend: null}'
         return
     fi
-    [[ -f "$merged_input" ]] || merged_input="/dev/null"
-    [[ -f "$backend_input" ]] || backend_input="/dev/null"
-    [[ -f "$frontend_input" ]] || frontend_input="/dev/null"
+    [[ -f "$mergedInput" ]] || mergedInput="/dev/null"
+    [[ -f "$backendInput" ]] || backendInput="/dev/null"
+    [[ -f "$frontendInput" ]] || frontendInput="/dev/null"
 
     jq -n \
         --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
         --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
         --arg profileDigest "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" \
-        --slurpfile merged "$merged_input" \
-        --slurpfile backend "$backend_input" \
-        --slurpfile frontend "$frontend_input" '
+        --slurpfile merged "$mergedInput" \
+        --slurpfile backend "$backendInput" \
+        --slurpfile frontend "$frontendInput" '
       def summary($value):
         if ($value | length) == 0 then null
         else {
@@ -640,29 +640,29 @@ coverage_summary_json() {
     ' 2>/dev/null || jq -n '{status: "invalid", merged: null, backend: null, frontend: null}'
 }
 
-runtime_tuning_json() {
-    local cache_l1_counter_mode public_hot_read_counter_mode
-    local benchmark_evidence runtime_matrix_evidence
-    cache_l1_counter_mode="$(awk -F'"' '/CacheL1CounterMode =/ { print $2; exit }' "$ROOT_DIR/src/backend/Infrastructure/Observability/FsusObservability.cs")"
-    public_hot_read_counter_mode="$(awk -F'"' '
+RuntimeTuningJson() {
+    local cacheL1CounterMode publicHotReadCounterMode
+    local benchmarkEvidence runtimeMatrixEvidence
+    cacheL1CounterMode="$(awk -F'"' '/CacheL1CounterMode =/ { print $2; exit }' "$ROOT_DIR/src/backend/Infrastructure/Observability/FsusObservability.cs")"
+    publicHotReadCounterMode="$(awk -F'"' '
     /"PublicHotRead"[[:space:]]*:/ { in_public_hot_read = 1; next }
     in_public_hot_read && /"CounterMode"[[:space:]]*:/ { print $4; exit }
     in_public_hot_read && /^[[:space:]]*}/ { exit }
   ' "$ROOT_DIR/src/backend/appsettings.Production.json")"
-    cache_l1_counter_mode="${cache_l1_counter_mode:-unknown}"
-    public_hot_read_counter_mode="${public_hot_read_counter_mode:-unknown}"
-    benchmark_evidence="$(jq -r '.' <<<"${PERF_ARTIFACT:-null}")"
-    runtime_matrix_evidence="$(jq -r '.' <<<"${RUNTIME_MATRIX_ARTIFACT:-null}")"
+    cacheL1CounterMode="${cacheL1CounterMode:-unknown}"
+    publicHotReadCounterMode="${publicHotReadCounterMode:-unknown}"
+    benchmarkEvidence="$(jq -r '.' <<<"${PERF_ARTIFACT:-null}")"
+    runtimeMatrixEvidence="$(jq -r '.' <<<"${RUNTIME_MATRIX_ARTIFACT:-null}")"
     jq -n \
         --arg readyToRun "${DOTNET_ReadyToRun:-}" \
         --arg quickJitForLoops "${DOTNET_TC_QuickJitForLoops:-}" \
         --arg tieredPgo "${DOTNET_TieredPGO:-}" \
         --arg minWorkerThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS:-}" \
         --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
-        --arg cacheL1CounterMode "$cache_l1_counter_mode" \
-        --arg publicHotReadCounterMode "$public_hot_read_counter_mode" \
-        --arg benchmarkEvidence "$benchmark_evidence" \
-        --arg runtimeMatrixEvidence "$runtime_matrix_evidence" \
+        --arg cacheL1CounterMode "$cacheL1CounterMode" \
+        --arg publicHotReadCounterMode "$publicHotReadCounterMode" \
+        --arg benchmarkEvidence "$benchmarkEvidence" \
+        --arg runtimeMatrixEvidence "$runtimeMatrixEvidence" \
         --arg runtimeMatrixStatus "${RUNTIME_MATRIX_STATUS_VALUE:-missing}" \
         --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
         --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
@@ -692,25 +692,25 @@ runtime_tuning_json() {
     }'
 }
 
-PRODUCTION_STATUS="$(copy_if_present "$SECURITY_DIR/production-exposure-status.json" production-exposure-status.json)"
-PRODUCTION_REQUEST="$(copy_if_present "$SECURITY_DIR/production-exposure-evidence-request.json" production-exposure-evidence-request.json)"
-PRODUCTION_LIVE="$(copy_if_present "$SECURITY_DIR/production-exposure-live.json" production-exposure-live.json)"
-FIREWALL_POLICY="$(copy_if_present "$SECURITY_DIR/production-firewall-policy.json" production-firewall-policy.json)"
-DNS_READY="$(copy_if_present "$SECURITY_DIR/production-dns-readiness.json" production-dns-readiness.json)"
-DNS_DELEGATION="$(copy_if_present "$SECURITY_DIR/production-dns-delegation.json" production-dns-delegation.json)"
-ATTACK_MATRIX="$(copy_if_present "$SECURITY_DIR/attack-matrix.json" attack-matrix.json)"
-PERMISSION_MATRIX="$(copy_if_present "$SECURITY_DIR/permission-matrix.json" permission-matrix.json)"
-LOCAL_RUNTIME_EXPOSURE="$(copy_if_present "$SECURITY_DIR/local-runtime-exposure.json" local-runtime-exposure.json)"
-ZAP="$(copy_if_present "$SECURITY_DIR/zap" zap)"
-SUPPLY_CHAIN="$(copy_if_present "$SECURITY_DIR/supply-chain" supply-chain)"
-SBOM="$(copy_if_present "$SECURITY_DIR/sbom" sbom)"
-SECURITY_MATRICES="$(copy_if_present "$ROOT_DIR/security" security-matrices)"
-RESTORE_DRILL="$(copy_if_present "$OPERATIONS_DIR/backup-restore-drill.json" backup-restore-drill.json)"
-SMOKE="$(copy_if_present "$OPERATIONS_DIR/post-deploy-smoke.json" post-deploy-smoke.json)"
+PRODUCTION_STATUS="$(CopyIfPresent "$SECURITY_DIR/production-exposure-status.json" production-exposure-status.json)"
+PRODUCTION_REQUEST="$(CopyIfPresent "$SECURITY_DIR/production-exposure-evidence-request.json" production-exposure-evidence-request.json)"
+PRODUCTION_LIVE="$(CopyIfPresent "$SECURITY_DIR/production-exposure-live.json" production-exposure-live.json)"
+FIREWALL_POLICY="$(CopyIfPresent "$SECURITY_DIR/production-firewall-policy.json" production-firewall-policy.json)"
+DNS_READY="$(CopyIfPresent "$SECURITY_DIR/production-dns-readiness.json" production-dns-readiness.json)"
+DNS_DELEGATION="$(CopyIfPresent "$SECURITY_DIR/production-dns-delegation.json" production-dns-delegation.json)"
+ATTACK_MATRIX="$(CopyIfPresent "$SECURITY_DIR/attack-matrix.json" attack-matrix.json)"
+PERMISSION_MATRIX="$(CopyIfPresent "$SECURITY_DIR/permission-matrix.json" permission-matrix.json)"
+LOCAL_RUNTIME_EXPOSURE="$(CopyIfPresent "$SECURITY_DIR/local-runtime-exposure.json" local-runtime-exposure.json)"
+ZAP="$(CopyIfPresent "$SECURITY_DIR/zap" zap)"
+SUPPLY_CHAIN="$(CopyIfPresent "$SECURITY_DIR/supply-chain" supply-chain)"
+SBOM="$(CopyIfPresent "$SECURITY_DIR/sbom" sbom)"
+SECURITY_MATRICES="$(CopyIfPresent "$ROOT_DIR/security" security-matrices)"
+RESTORE_DRILL="$(CopyIfPresent "$OPERATIONS_DIR/backup-restore-drill.json" backup-restore-drill.json)"
+SMOKE="$(CopyIfPresent "$OPERATIONS_DIR/post-deploy-smoke.json" post-deploy-smoke.json)"
 GATEWAY_TRANSITION_SOURCE="${FSUSBLOG_GATEWAY_TRANSITION_EVIDENCE:-/var/lib/fsusblog/deployment/evidence/latest.json}"
-GATEWAY_TRANSITION="$(copy_if_present "$GATEWAY_TRANSITION_SOURCE" gateway-transition.json)"
+GATEWAY_TRANSITION="$(CopyIfPresent "$GATEWAY_TRANSITION_SOURCE" gateway-transition.json)"
 RELEASE_ROLLOUT_SOURCE="${FSUSBLOG_RELEASE_ROLLOUT_EVIDENCE:-$OPERATIONS_DIR/release-rollout.json}"
-RELEASE_ROLLOUT="$(copy_if_present "$RELEASE_ROLLOUT_SOURCE" release-rollout.json)"
+RELEASE_ROLLOUT="$(CopyIfPresent "$RELEASE_ROLLOUT_SOURCE" release-rollout.json)"
 if [[ -f "$RELEASE_ROLLOUT_SOURCE" ]]; then
     node "$ROOT_DIR/tools/operations/collect-release-rollout-bundle.mjs" \
         --input "$RELEASE_ROLLOUT_SOURCE" \
@@ -719,10 +719,10 @@ if [[ -f "$RELEASE_ROLLOUT_SOURCE" ]]; then
 else
     RELEASE_ROLLOUT_BUNDLE='null'
 fi
-SLO_ALERTS="$(copy_if_present "$OPERATIONS_DIR/slo-alert-fixture.json" slo-alert-fixture.json)"
-RETENTION_CLEANUP="$(copy_if_present "$OPERATIONS_DIR/retention-cleanup.json" retention-cleanup.json)"
-COVERAGE_ARTIFACT="$(copy_if_present "$COVERAGE_DIR" coverage)"
-PERF_ARTIFACT="$(copy_if_present "$PERF_DIR" perf)"
+SLO_ALERTS="$(CopyIfPresent "$OPERATIONS_DIR/slo-alert-fixture.json" slo-alert-fixture.json)"
+RETENTION_CLEANUP="$(CopyIfPresent "$OPERATIONS_DIR/retention-cleanup.json" retention-cleanup.json)"
+COVERAGE_ARTIFACT="$(CopyIfPresent "$COVERAGE_DIR" coverage)"
+PERF_ARTIFACT="$(CopyIfPresent "$PERF_DIR" perf)"
 RUNTIME_MATRIX_SOURCE="${FSUSBLOG_RUNTIME_MATRIX_EVIDENCE:-}"
 RUNTIME_MATRIX_ARTIFACT="null"
 RUNTIME_MATRIX_STATUS_VALUE="missing"
@@ -754,79 +754,79 @@ if [[ -n "$RUNTIME_MATRIX_SOURCE" ]]; then
         --expected-profile-id "$FSUSBLOG_RUNTIME_PROFILE_ID" \
         --expected-profile-manifest-digest "$FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST" \
         --expected-profile-digest "$FSUSBLOG_RUNTIME_PROFILE_DIGEST" >/dev/null
-    RUNTIME_MATRIX_ARTIFACT="$(copy_if_present "$RUNTIME_MATRIX_SOURCE" runtime-publish-matrix.json)"
+    RUNTIME_MATRIX_ARTIFACT="$(CopyIfPresent "$RUNTIME_MATRIX_SOURCE" runtime-publish-matrix.json)"
     RUNTIME_MATRIX_STATUS_VALUE="ok"
 fi
-TEST_PLAN_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/test-plan.json" test-plan.json)"
-JOB_SUMMARIES="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/jobs" job-summaries)"
-ENDPOINT_DEPTH_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/endpoint-depth-summary.json" endpoint-depth-summary.json)"
-DATA_SCALE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/data-scale-summary.json" data-scale-summary.json)"
-PERF_SUMMARY_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/perf-summary.json" perf-summary.json)"
-PERFORMANCE_SATURATION_V2="$(copy_if_present "$ROOT_DIR/.tmp/perf/release-summaries/performance-saturation-v2.json" performance-saturation-v2.json)"
-SECURITY_DEPTH_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/security-depth-summary.json" security-depth-summary.json)"
-FUZZ_SEEDS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/fuzz-seeds.json" fuzz-seeds.json)"
-BUSINESS_STATE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/playwright-business-state-summary.json" playwright-business-state-summary.json)"
-AOT_CACHE_RESILIENCE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json" aot-cache-resilience-summary.json)"
-HYDRATION_LONG_SMOKE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/hydration-long-smoke-summary.json" hydration-long-smoke-summary.json)"
-PUBLIC_HYDRATION_DETECTOR_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-detector-summary.json" public-hydration-detector-summary.json)"
-PUBLIC_HYDRATION_CLOCK_MATRIX_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-clock-matrix-summary.json" public-hydration-clock-matrix-summary.json)"
-PUBLIC_HYDRATION_BROWSER_ENV_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-browser-env-summary.json" public-hydration-browser-env-summary.json)"
-PUBLIC_HYDRATION_PAYLOAD_FIXTURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-payload-fixture-summary.json" public-hydration-payload-fixture-summary.json)"
-PUBLIC_HYDRATION_DOM_DIFF_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-dom-diff-summary.json" public-hydration-dom-diff-summary.json)"
-PUBLIC_HYDRATION_SIDECAR_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-sidecar-summary.json" public-hydration-sidecar-summary.json)"
-PUBLIC_HYDRATION_MATRIX_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-matrix-summary.json" public-hydration-matrix-summary.json)"
-UX_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/ux" ux)"
-UX_VIEWPORT_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
-FRONTEND_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
-FRONTEND_RENDER_STRUCTURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-structure-summary.json" frontend-render-structure-summary.json)"
-PUBLISH_ARTIFACTS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json" publish-artifacts-summary.json)"
-BACKEND_QPS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json" backend-qps-summary.json)"
-MEMORY_LEAK_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/memory-leak-summary.json" memory-leak-summary.json)"
-OPEN_HANDLE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/open-handle-summary.json" open-handle-summary.json)"
-AEDS_FRAME_COST_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json" aeds-frame-cost-summary.json)"
-AEDS_COMPRESSION_PROFILE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json" aeds-compression-profile-summary.json)"
-AEDS_DECODE_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-decode-budget-summary.json" aeds-decode-budget-summary.json)"
-AEDS_WASM_BROWSER_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-wasm-browser-summary.json" aeds-wasm-browser-summary.json)"
-DOC_SYNC_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json" doc-sync-summary.json)"
-DOM_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/dom-budget.json" dom-budget.json)"
-ROUTE_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/route-render-pressure.json" route-render-pressure.json)"
-MARKDOWN_RENDER_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json" markdown-render-budget.json)"
-AEDS_DECODE_BUDGET_FRONTEND_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/aeds-decode-budget/summary.json" aeds-decode-budget-frontend-summary.json)"
-AEDS_WASM_BROWSER_FRONTEND_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/aeds-wasm-browser/summary.json" aeds-wasm-browser-frontend-summary.json)"
-DOM_DEPTH_STATIC_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/dom-depth-static.json" dom-depth-static.json)"
-FAULT_ARTIFACT="$(copy_if_present "$FAULT_DIR" fault-injection)"
-SOAK_ARTIFACT="$(copy_if_present "$SOAK_DIR" soak)"
-FUZZ_ARTIFACT="$(copy_if_present "$FUZZ_DIR" fuzz)"
-AUTHENTICATED_DAST="$(copy_if_present "$SECURITY_DIR/authenticated-dast" authenticated-dast)"
-GATE_LOGS="$(copy_if_present "$GATE_LOG_DIR" gate-logs)"
-VISUAL_GATE_SKIP="$(copy_if_present "$GATE_LOG_DIR/visual-gate-skip.json" visual-gate-skip.json)"
-RUNTIME_TUNING_SUMMARY="$(runtime_tuning_json)"
+TEST_PLAN_ARTIFACT="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/test-plan.json" test-plan.json)"
+JOB_SUMMARIES="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/jobs" job-summaries)"
+ENDPOINT_DEPTH_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/endpoint-depth-summary.json" endpoint-depth-summary.json)"
+DATA_SCALE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/data-scale-summary.json" data-scale-summary.json)"
+PERF_SUMMARY_ARTIFACT="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/perf-summary.json" perf-summary.json)"
+PERFORMANCE_SATURATION_V2="$(CopyIfPresent "$ROOT_DIR/.tmp/perf/release-summaries/performance-saturation-v2.json" performance-saturation-v2.json)"
+SECURITY_DEPTH_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/security-depth-summary.json" security-depth-summary.json)"
+FUZZ_SEEDS_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/fuzz-seeds.json" fuzz-seeds.json)"
+BUSINESS_STATE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/playwright-business-state-summary.json" playwright-business-state-summary.json)"
+AOT_CACHE_RESILIENCE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json" aot-cache-resilience-summary.json)"
+HYDRATION_LONG_SMOKE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/hydration-long-smoke-summary.json" hydration-long-smoke-summary.json)"
+PUBLIC_HYDRATION_DETECTOR_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/public-hydration-detector-summary.json" public-hydration-detector-summary.json)"
+PUBLIC_HYDRATION_CLOCK_MATRIX_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/public-hydration-clock-matrix-summary.json" public-hydration-clock-matrix-summary.json)"
+PUBLIC_HYDRATION_BROWSER_ENV_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/public-hydration-browser-env-summary.json" public-hydration-browser-env-summary.json)"
+PUBLIC_HYDRATION_PAYLOAD_FIXTURE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/public-hydration-payload-fixture-summary.json" public-hydration-payload-fixture-summary.json)"
+PUBLIC_HYDRATION_DOM_DIFF_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/public-hydration-dom-diff-summary.json" public-hydration-dom-diff-summary.json)"
+PUBLIC_HYDRATION_SIDECAR_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/public-hydration-sidecar-summary.json" public-hydration-sidecar-summary.json)"
+PUBLIC_HYDRATION_MATRIX_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/public-hydration-matrix-summary.json" public-hydration-matrix-summary.json)"
+UX_ARTIFACT="$(CopyIfPresent "$ROOT_DIR/.tmp/ux" ux)"
+UX_VIEWPORT_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
+FRONTEND_RENDER_PRESSURE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
+FRONTEND_RENDER_STRUCTURE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/frontend-render-structure-summary.json" frontend-render-structure-summary.json)"
+PUBLISH_ARTIFACTS_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json" publish-artifacts-summary.json)"
+BACKEND_QPS_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json" backend-qps-summary.json)"
+MEMORY_LEAK_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/memory-leak-summary.json" memory-leak-summary.json)"
+OPEN_HANDLE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/open-handle-summary.json" open-handle-summary.json)"
+AEDS_FRAME_COST_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json" aeds-frame-cost-summary.json)"
+AEDS_COMPRESSION_PROFILE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json" aeds-compression-profile-summary.json)"
+AEDS_DECODE_BUDGET_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/aeds-decode-budget-summary.json" aeds-decode-budget-summary.json)"
+AEDS_WASM_BROWSER_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/aeds-wasm-browser-summary.json" aeds-wasm-browser-summary.json)"
+DOC_SYNC_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json" doc-sync-summary.json)"
+DOM_BUDGET_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/frontend/dom-budget.json" dom-budget.json)"
+ROUTE_RENDER_PRESSURE_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/frontend/route-render-pressure.json" route-render-pressure.json)"
+MARKDOWN_RENDER_BUDGET_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json" markdown-render-budget.json)"
+AEDS_DECODE_BUDGET_FRONTEND_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/frontend/aeds-decode-budget/summary.json" aeds-decode-budget-frontend-summary.json)"
+AEDS_WASM_BROWSER_FRONTEND_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/frontend/aeds-wasm-browser/summary.json" aeds-wasm-browser-frontend-summary.json)"
+DOM_DEPTH_STATIC_SUMMARY="$(CopyIfPresent "$ROOT_DIR/.tmp/frontend/dom-depth-static.json" dom-depth-static.json)"
+FAULT_ARTIFACT="$(CopyIfPresent "$FAULT_DIR" fault-injection)"
+SOAK_ARTIFACT="$(CopyIfPresent "$SOAK_DIR" soak)"
+FUZZ_ARTIFACT="$(CopyIfPresent "$FUZZ_DIR" fuzz)"
+AUTHENTICATED_DAST="$(CopyIfPresent "$SECURITY_DIR/authenticated-dast" authenticated-dast)"
+GATE_LOGS="$(CopyIfPresent "$GATE_LOG_DIR" gate-logs)"
+VISUAL_GATE_SKIP="$(CopyIfPresent "$GATE_LOG_DIR/visual-gate-skip.json" visual-gate-skip.json)"
+RUNTIME_TUNING_SUMMARY="$(RuntimeTuningJson)"
 
-PRODUCTION_STATUS_DIGEST="$(artifact_digest_json "$PRODUCTION_STATUS")"
-PRODUCTION_REQUEST_DIGEST="$(artifact_digest_json "$PRODUCTION_REQUEST")"
-PRODUCTION_LIVE_DIGEST="$(artifact_digest_json "$PRODUCTION_LIVE")"
-FIREWALL_POLICY_DIGEST="$(artifact_digest_json "$FIREWALL_POLICY")"
-DNS_READY_DIGEST="$(artifact_digest_json "$DNS_READY")"
-DNS_DELEGATION_DIGEST="$(artifact_digest_json "$DNS_DELEGATION")"
-RELEASE_ROLLOUT_DIGEST="$(artifact_digest_json "$RELEASE_ROLLOUT")"
-RUNTIME_MATRIX_DIGEST="$(artifact_digest_json "$RUNTIME_MATRIX_ARTIFACT")"
+PRODUCTION_STATUS_DIGEST="$(ArtifactDigestJson "$PRODUCTION_STATUS")"
+PRODUCTION_REQUEST_DIGEST="$(ArtifactDigestJson "$PRODUCTION_REQUEST")"
+PRODUCTION_LIVE_DIGEST="$(ArtifactDigestJson "$PRODUCTION_LIVE")"
+FIREWALL_POLICY_DIGEST="$(ArtifactDigestJson "$FIREWALL_POLICY")"
+DNS_READY_DIGEST="$(ArtifactDigestJson "$DNS_READY")"
+DNS_DELEGATION_DIGEST="$(ArtifactDigestJson "$DNS_DELEGATION")"
+RELEASE_ROLLOUT_DIGEST="$(ArtifactDigestJson "$RELEASE_ROLLOUT")"
+RUNTIME_MATRIX_DIGEST="$(ArtifactDigestJson "$RUNTIME_MATRIX_ARTIFACT")"
 
-PRODUCTION_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/production-exposure-status.json")"
-LIVE_STATUS_VALUE="$(result_status_or_missing "$SECURITY_DIR/production-exposure-live.json")"
-DNS_READY_STATUS_VALUE="$(result_status_or_missing "$SECURITY_DIR/production-dns-readiness.json")"
-DNS_DELEGATION_STATUS_VALUE="$(result_status_or_missing "$SECURITY_DIR/production-dns-delegation.json")"
+PRODUCTION_STATUS_VALUE="$(JsonStatusOrMissing "$SECURITY_DIR/production-exposure-status.json")"
+LIVE_STATUS_VALUE="$(ResultStatusOrMissing "$SECURITY_DIR/production-exposure-live.json")"
+DNS_READY_STATUS_VALUE="$(ResultStatusOrMissing "$SECURITY_DIR/production-dns-readiness.json")"
+DNS_DELEGATION_STATUS_VALUE="$(ResultStatusOrMissing "$SECURITY_DIR/production-dns-delegation.json")"
 FIREWALL_POLICY_STATUS_VALUE="$([[ "$FIREWALL_POLICY" == "null" ]] && printf 'missing' || printf 'present')"
-ATTACK_MATRIX_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/attack-matrix.json")"
-PERMISSION_MATRIX_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/permission-matrix.json")"
-SUPPLY_CHAIN_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/supply-chain/summary.json")"
-SBOM_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/sbom/summary.json")"
-BACKUP_RESTORE_STATUS_VALUE="$(backup_restore_status_or_missing "$OPERATIONS_DIR/backup-restore-drill.json")"
-POST_DEPLOY_SMOKE_STATUS_VALUE="$(post_deploy_smoke_status_or_missing "$OPERATIONS_DIR/post-deploy-smoke.json")"
-GATEWAY_TRANSITION_STATUS_VALUE="$(gateway_transition_status_or_missing "$GATEWAY_TRANSITION_SOURCE")"
-RELEASE_ROLLOUT_STATUS_VALUE="$(release_rollout_status_or_missing "$RELEASE_ROLLOUT_SOURCE")"
-SLO_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/slo-alert-fixture.json")"
-SLO_CRITICAL_COUNT="$(slo_critical_count_or_zero "$OPERATIONS_DIR/slo-alert-fixture.json")"
-RETENTION_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/retention-cleanup.json")"
+ATTACK_MATRIX_STATUS_VALUE="$(JsonStatusOrMissing "$SECURITY_DIR/attack-matrix.json")"
+PERMISSION_MATRIX_STATUS_VALUE="$(JsonStatusOrMissing "$SECURITY_DIR/permission-matrix.json")"
+SUPPLY_CHAIN_STATUS_VALUE="$(JsonStatusOrMissing "$SECURITY_DIR/supply-chain/summary.json")"
+SBOM_STATUS_VALUE="$(JsonStatusOrMissing "$SECURITY_DIR/sbom/summary.json")"
+BACKUP_RESTORE_STATUS_VALUE="$(BackupRestoreStatusOrMissing "$OPERATIONS_DIR/backup-restore-drill.json")"
+POST_DEPLOY_SMOKE_STATUS_VALUE="$(PostDeploySmokeStatusOrMissing "$OPERATIONS_DIR/post-deploy-smoke.json")"
+GATEWAY_TRANSITION_STATUS_VALUE="$(GatewayTransitionStatusOrMissing "$GATEWAY_TRANSITION_SOURCE")"
+RELEASE_ROLLOUT_STATUS_VALUE="$(ReleaseRolloutStatusOrMissing "$RELEASE_ROLLOUT_SOURCE")"
+SLO_STATUS_VALUE="$(JsonStatusOrMissing "$OPERATIONS_DIR/slo-alert-fixture.json")"
+SLO_CRITICAL_COUNT="$(SloCriticalCountOrZero "$OPERATIONS_DIR/slo-alert-fixture.json")"
+RETENTION_STATUS_VALUE="$(JsonStatusOrMissing "$OPERATIONS_DIR/retention-cleanup.json")"
 IMAGE_DIGEST_VALUE="${FSUSBLOG_IMAGE_DIGEST:-unknown}"
 IMAGE_DIGEST_STATUS="$([[ "$IMAGE_DIGEST_VALUE" == "unknown" || -z "$IMAGE_DIGEST_VALUE" ]] && printf 'missing' || printf 'present')"
 RELEASE_MANIFEST_FILE="${FSUSBLOG_RELEASE_MANIFEST:-}"
@@ -853,36 +853,36 @@ if [[ -n "$RELEASE_MANIFEST_FILE" && -f "$RELEASE_MANIFEST_FILE" ]]; then
         RELEASE_IDENTITY_MANIFEST='{"status":"failed"}'
     fi
 fi
-EXTERNAL_BLOCKERS="$(blockers_json_or_empty "$SECURITY_DIR/production-exposure-status.json")"
-REQUEST_SUMMARY="$(request_summary_json)"
-COVERAGE_SUMMARY="$(coverage_summary_json)"
+EXTERNAL_BLOCKERS="$(BlockersJsonOrEmpty "$SECURITY_DIR/production-exposure-status.json")"
+REQUEST_SUMMARY="$(RequestSummaryJson)"
+COVERAGE_SUMMARY="$(CoverageSummaryJson)"
 COVERAGE_STATUS_VALUE="$(jq -r '.status // "missing"' <<<"$COVERAGE_SUMMARY" 2>/dev/null || printf 'invalid')"
-ZAP_STATUS_VALUE="$(zap_status_or_missing "$SECURITY_DIR/zap")"
-FAULT_STATUS_VALUE="$(fault_injection_status_or_missing "$FAULT_DIR/summary.json")"
-SOAK_STATUS_VALUE="$(short_soak_status_or_missing "$SOAK_DIR/short/summary.json")"
-AUTHENTICATED_DAST_STATUS_VALUE="$(authenticated_dast_status_or_missing "$SECURITY_DIR/authenticated-dast/summary.json")"
-LOCAL_RUNTIME_EXPOSURE_STATUS_VALUE="$(local_runtime_exposure_status_or_missing "$SECURITY_DIR/local-runtime-exposure.json")"
-WASM_FUZZ_STATUS_VALUE="$(wasm_fuzz_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
-UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
-FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
-FRONTEND_RENDER_STRUCTURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-structure-summary.json")"
-PUBLISH_ARTIFACTS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json")"
-BACKEND_QPS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json")"
-MEMORY_LEAK_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/memory-leak-summary.json")"
-OPEN_HANDLE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/open-handle-summary.json")"
-AOT_CACHE_RESILIENCE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json")"
-AEDS_FRAME_COST_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json")"
-AEDS_COMPRESSION_PROFILE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json")"
-AEDS_DECODE_BUDGET_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-decode-budget-summary.json")"
-AEDS_WASM_BROWSER_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-wasm-browser-summary.json")"
-DOC_SYNC_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json")"
-PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-detector-summary.json")"
-PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-clock-matrix-summary.json")"
-PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-browser-env-summary.json")"
-PUBLIC_HYDRATION_PAYLOAD_FIXTURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-payload-fixture-summary.json")"
-PUBLIC_HYDRATION_DOM_DIFF_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-dom-diff-summary.json")"
-PUBLIC_HYDRATION_SIDECAR_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-sidecar-summary.json")"
-PUBLIC_HYDRATION_MATRIX_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-matrix-summary.json")"
+ZAP_STATUS_VALUE="$(ZapStatusOrMissing "$SECURITY_DIR/zap")"
+FAULT_STATUS_VALUE="$(FaultInjectionStatusOrMissing "$FAULT_DIR/summary.json")"
+SOAK_STATUS_VALUE="$(ShortSoakStatusOrMissing "$SOAK_DIR/short/summary.json")"
+AUTHENTICATED_DAST_STATUS_VALUE="$(AuthenticatedDastStatusOrMissing "$SECURITY_DIR/authenticated-dast/summary.json")"
+LOCAL_RUNTIME_EXPOSURE_STATUS_VALUE="$(LocalRuntimeExposureStatusOrMissing "$SECURITY_DIR/local-runtime-exposure.json")"
+WASM_FUZZ_STATUS_VALUE="$(WasmFuzzStatusOrMissing "$FUZZ_DIR/wasm/summary.json")"
+UX_VIEWPORT_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
+FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
+FRONTEND_RENDER_STRUCTURE_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/frontend-render-structure-summary.json")"
+PUBLISH_ARTIFACTS_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json")"
+BACKEND_QPS_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json")"
+MEMORY_LEAK_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/memory-leak-summary.json")"
+OPEN_HANDLE_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/open-handle-summary.json")"
+AOT_CACHE_RESILIENCE_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/aot-cache-resilience-summary.json")"
+AEDS_FRAME_COST_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json")"
+AEDS_COMPRESSION_PROFILE_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json")"
+AEDS_DECODE_BUDGET_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/aeds-decode-budget-summary.json")"
+AEDS_WASM_BROWSER_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/aeds-wasm-browser-summary.json")"
+DOC_SYNC_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json")"
+PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/public-hydration-detector-summary.json")"
+PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/public-hydration-clock-matrix-summary.json")"
+PUBLIC_HYDRATION_BROWSER_ENV_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/public-hydration-browser-env-summary.json")"
+PUBLIC_HYDRATION_PAYLOAD_FIXTURE_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/public-hydration-payload-fixture-summary.json")"
+PUBLIC_HYDRATION_DOM_DIFF_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/public-hydration-dom-diff-summary.json")"
+PUBLIC_HYDRATION_SIDECAR_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/public-hydration-sidecar-summary.json")"
+PUBLIC_HYDRATION_MATRIX_STATUS_VALUE="$(JsonStatusOrMissing "$ROOT_DIR/.tmp/release-evidence/public-hydration-matrix-summary.json")"
 
 MANIFEST_STATUS="collected-ok"
 if [[ "$PRODUCTION_STATUS_VALUE" != "ok" ||

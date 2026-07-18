@@ -4,8 +4,8 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 
 CURRENT_TIER="cross-browser-smoke"
-log "tier=cross-browser-smoke | requires release preview=$RELEASE_PREVIEW_URL"
-require_release_preview
+Log "tier=cross-browser-smoke | requires release preview=$RELEASE_PREVIEW_URL"
+RequireReleasePreview
 
 previous_playwright_browsers="${FSUSBLOG_PLAYWRIGHT_BROWSERS-}"
 previous_playwright_base_url="${PLAYWRIGHT_BASE_URL-}"
@@ -33,8 +33,8 @@ if [[ -d "$ROOT_DIR/.tmp/playwright-system-deps/root/usr/lib/x86_64-linux-gnu" ]
     export LD_LIBRARY_PATH="$ROOT_DIR/.tmp/playwright-system-deps/root/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 
-reset_security_runtime_state "pre cross-browser smoke"
-run_in_client npm run check:cross-browser:smoke
+ResetSecurityRuntimeState "pre cross-browser smoke"
+RunInClient npm Run check:cross-browser:smoke
 
 if [[ -n "$previous_playwright_browsers" ]]; then
     export FSUSBLOG_PLAYWRIGHT_BROWSERS="$previous_playwright_browsers"

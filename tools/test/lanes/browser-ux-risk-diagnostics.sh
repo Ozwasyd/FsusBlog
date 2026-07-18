@@ -15,8 +15,8 @@ if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS_WORKERS:-1}" != "1" ||
     exit 2
 fi
 
-require_debug_stack
-require_release_preview
+RequireDebugStack
+RequireReleasePreview
 
 export FSUSBLOG_BROWSER_DIAGNOSTICS=1
 export FSUSBLOG_BROWSER_DIAGNOSTICS_WORKERS=1

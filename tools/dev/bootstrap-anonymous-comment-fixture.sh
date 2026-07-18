@@ -6,16 +6,16 @@ COMPOSE_FILE="$ROOT_DIR/ops/development/dependencies.compose.yml"
 BOOTSTRAP_PROJECT="$ROOT_DIR/tools/security/AnonymousCredentialRootBootstrap/FsusBlog.AnonymousCredentialRootBootstrap.csproj"
 FIXTURE_DIR="${FSUSBLOG_DEV_ANONYMOUS_COMMENT_FIXTURE_DIR:-$ROOT_DIR/.tmp/dev-anonymous-comment-fixture}"
 
-need_cmd() {
+NeedCmd() {
     if ! command -v "$1" >/dev/null 2>&1; then
         echo "[anonymous-comment-fixture] missing required command: $1" >&2
         exit 1
     fi
 }
 
-need_cmd docker
-need_cmd dotnet
-need_cmd shasum
+NeedCmd docker
+NeedCmd dotnet
+NeedCmd shasum
 
 DB_NAME="${FSUSBLOG_DEV_POSTGRES_DB:-fsusblog}"
 DB_USER="${FSUSBLOG_DEV_POSTGRES_USER:-fsusblog}"

@@ -28,7 +28,7 @@ ARCHIVE_EXIT_CODE=''
 
 mkdir -p "$EVIDENCE_ROOT" "$CANONICAL_EVIDENCE_ROOT"
 
-stop_harness() {
+StopHarness() {
     if [[ -n "$HARNESS_PID" ]] && kill -0 "$HARNESS_PID" >/dev/null 2>&1; then
         kill "$HARNESS_PID" >/dev/null 2>&1 || true
         wait "$HARNESS_PID" >/dev/null 2>&1 || true
@@ -36,7 +36,7 @@ stop_harness() {
     HARNESS_PID=''
 }
 
-write_summary() {
+WriteSummary() {
     env \
         FSUSBLOG_GEOMETRY_SUMMARY_FILE="$SUMMARY_FILE" \
         FSUSBLOG_GEOMETRY_ISOLATED_STATUS="$ISOLATED_STATUS" \
@@ -83,21 +83,21 @@ write_summary() {
     ' >/dev/null 2>&1
 }
 
-cleanup() {
-    local exit_code=$?
-    local summary_exit_code=0
+Cleanup() {
+    local exitCode=$?
+    local summaryExitCode=0
     trap - EXIT INT TERM ERR
-    stop_harness
-    write_summary || summary_exit_code=$?
-    if ((summary_exit_code != 0)); then
+    StopHarness
+    WriteSummary || summaryExitCode=$?
+    if ((summaryExitCode != 0)); then
         printf '[browser-geometry-motion-diagnostics] infra-failure: unable to write canonical summary %s\n' "$SUMMARY_FILE" >&2
-        if ((exit_code == 0)); then
-            exit_code=$summary_exit_code
+        if ((exitCode == 0)); then
+            exitCode=$summaryExitCode
         fi
     fi
-    exit "$exit_code"
+    exit "$exitCode"
 }
-trap cleanup EXIT
+trap Cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
@@ -143,7 +143,7 @@ done
 
 if ((HARNESS_READY == 1)); then
     set +e
-    run_in_client env -u NO_COLOR \
+    RunInClient env -u NO_COLOR \
         PLAYWRIGHT_BASE_URL="$HARNESS_URL" \
         FSUSBLOG_PUBLIC_BASE_URL="$HARNESS_URL" \
         PLAYWRIGHT_OUTPUT_DIR="$EVIDENCE_ROOT/playwright/isolated-public-shell" \
@@ -165,19 +165,19 @@ else
     ISOLATED_EXIT_CODE=1
     printf '[browser-geometry-motion-diagnostics] infra-failure: isolated harness failed to start; see %s\n' "$HARNESS_LOG" >&2
 fi
-stop_harness
+StopHarness
 
 printf '[browser-geometry-motion-diagnostics] release-preview integration: archive sticky/hash geometry\n'
 PREVIEW_EXIT_CODE=0
-if (require_release_preview); then
+if (RequireReleasePreview); then
     export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
     export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
     export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
     set +e
-    run_in_client npm run ensure:wasm
+    RunInClient npm run ensure:wasm
     ENSURE_WASM_EXIT_CODE=$?
     if ((ENSURE_WASM_EXIT_CODE == 0)); then
-        run_in_client env -u NO_COLOR \
+        RunInClient env -u NO_COLOR \
             PLAYWRIGHT_OUTPUT_DIR="$EVIDENCE_ROOT/playwright/archive-integration" \
             NODE_PATH=./node_modules \
             npx playwright test \

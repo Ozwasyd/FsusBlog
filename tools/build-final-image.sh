@@ -39,46 +39,46 @@ NODE_VERSION="${FSUSBLOG_NODE_VERSION:-24.17.0}"
 NODE_MUSL_DIGEST="${FSUSBLOG_NODE_MUSL_DIGEST:-sha256:7c70d1235c0b4c2bc9eeed5393d19f1bbdde6885ba0d58ba62bb385d7b0f3ff1}"
 NODE_GLIBC_DIGEST="${FSUSBLOG_NODE_GLIBC_DIGEST:-sha256:862263c612aa437e3037674b85419622a9d93bff80aa1eee5398dfe686375532}"
 
-log() {
+Log() {
     printf '[build-final-image] %s\n' "$1"
 }
 
-fail() {
+Fail() {
     printf '[build-final-image] fatal: %s\n' "$1" >&2
     exit 1
 }
 
-require_command() {
-    command -v "$1" >/dev/null 2>&1 || fail "missing required command: $1"
+RequireCommand() {
+    command -v "$1" >/dev/null 2>&1 || Fail "missing required command: $1"
 }
 
-require_command docker
-require_command git
-require_command node
-[[ -n "${GITHUB_PACKAGES_TOKEN:-}" ]] || fail "GITHUB_PACKAGES_TOKEN is required"
-[[ "$TARGET" == "final" ]] || fail "production release manifest only supports Docker target final"
+RequireCommand docker
+RequireCommand git
+RequireCommand node
+[[ -n "${GITHUB_PACKAGES_TOKEN:-}" ]] || Fail "GITHUB_PACKAGES_TOKEN is required"
+[[ "$TARGET" == "final" ]] || Fail "production release manifest only supports Docker target final"
 [[ "$IMAGE_REPOSITORY" =~ ^[a-z0-9]+([._/-][a-z0-9]+)*(:[0-9]+(/[a-z0-9]+([._/-][a-z0-9]+)*)?)?$ ]] ||
-    fail "FSUSBLOG_FINAL_IMAGE_REPOSITORY must be an untagged lowercase repository"
+    Fail "FSUSBLOG_FINAL_IMAGE_REPOSITORY must be an untagged lowercase repository"
 if [[ "$PUSH_IMAGE" == "$LOCAL_ONLY" ]]; then
-    fail "set exactly one of FSUSBLOG_FINAL_PUSH=1 or FSUSBLOG_FINAL_LOCAL_ONLY=1"
+    Fail "set exactly one of FSUSBLOG_FINAL_PUSH=1 or FSUSBLOG_FINAL_LOCAL_ONLY=1"
 fi
 dotnet_override_count=0
 for override_name in "${DOTNET_PIN_ENV_NAMES[@]}"; do
     [[ -v "$override_name" ]] && dotnet_override_count=$((dotnet_override_count + 1))
 done
 ((dotnet_override_count == 0 || dotnet_override_count == ${#DOTNET_PIN_ENV_NAMES[@]})) ||
-    fail "FSUSBLOG_DOTNET_* servicing overrides must replace the complete version and digest set together"
+    Fail "FSUSBLOG_DOTNET_* servicing overrides must replace the complete version and digest set together"
 node_override_count=0
 for override_name in "${NODE_PIN_ENV_NAMES[@]}"; do
     [[ -v "$override_name" ]] && node_override_count=$((node_override_count + 1))
 done
 ((node_override_count == 0 || node_override_count == ${#NODE_PIN_ENV_NAMES[@]})) ||
-    fail "FSUSBLOG_NODE_* servicing overrides must replace the version and digest set together"
-[[ "$DOTNET_RUNTIME_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "FSUSBLOG_DOTNET_RUNTIME_VERSION must be a stable three-part version"
-[[ "$DOTNET_SDK_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "FSUSBLOG_DOTNET_SDK_VERSION must be a stable three-part version"
-[[ "$NODE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "FSUSBLOG_NODE_VERSION must be a stable three-part version"
+    Fail "FSUSBLOG_NODE_* servicing overrides must replace the version and digest set together"
+[[ "$DOTNET_RUNTIME_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || Fail "FSUSBLOG_DOTNET_RUNTIME_VERSION must be a stable three-part version"
+[[ "$DOTNET_SDK_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || Fail "FSUSBLOG_DOTNET_SDK_VERSION must be a stable three-part version"
+[[ "$NODE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || Fail "FSUSBLOG_NODE_VERSION must be a stable three-part version"
 runtime_band="${DOTNET_RUNTIME_VERSION%.*}"
-[[ "$DOTNET_SDK_VERSION" == "$runtime_band."* ]] || fail "the .NET runtime and SDK pins must use the same major.minor band"
+[[ "$DOTNET_SDK_VERSION" == "$runtime_band."* ]] || Fail "the .NET runtime and SDK pins must use the same major.minor band"
 for digest_name in \
     DOTNET_ASPNET_MUSL_DIGEST \
     DOTNET_ASPNET_GLIBC_DIGEST \
@@ -87,24 +87,24 @@ for digest_name in \
     NODE_MUSL_DIGEST \
     NODE_GLIBC_DIGEST; do
     digest_value="${!digest_name}"
-    [[ "$digest_value" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "$digest_name must be a lowercase sha256 manifest digest"
+    [[ "$digest_value" =~ ^sha256:[0-9a-f]{64}$ ]] || Fail "$digest_name must be a lowercase sha256 manifest digest"
 done
 
 if [[ -z "$COMMIT_SHA" ]]; then
     COMMIT_SHA="$(git -C "$ROOT_DIR" rev-parse HEAD)"
 fi
 COMMIT_SHA="${COMMIT_SHA,,}"
-[[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "FSUSBLOG_COMMIT_SHA must be a full lowercase Git SHA"
+[[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || Fail "FSUSBLOG_COMMIT_SHA must be a full lowercase Git SHA"
 if [[ -z "$RELEASE_ID" ]]; then
     RELEASE_ID="$(date -u +%Y%m%d%H%M%S)-${COMMIT_SHA:0:12}"
 fi
-[[ "$RELEASE_ID" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]] || fail "FSUSBLOG_RELEASE_ID is invalid"
+[[ "$RELEASE_ID" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]] || Fail "FSUSBLOG_RELEASE_ID is invalid"
 
 mapfile -t runtime_profile_fields < <(node "$ROOT_DIR/tools/runtime-profiles/resolve-runtime-publish-profile.mjs" \
     --manifest "$RUNTIME_PROFILE_MANIFEST" \
     --profile "$RUNTIME_PROFILE_ID" \
-    --format lines) || fail "unable to resolve runtime publish profile"
-[[ "${#runtime_profile_fields[@]}" -eq 17 ]] || fail "runtime profile resolver returned incomplete fields"
+    --format lines) || Fail "unable to resolve runtime publish profile"
+[[ "${#runtime_profile_fields[@]}" -eq 17 ]] || Fail "runtime profile resolver returned incomplete fields"
 RUNTIME_PROFILE_ID="${runtime_profile_fields[0]}"
 RUNTIME_PROFILE_MANIFEST_DIGEST="${runtime_profile_fields[1]}"
 RUNTIME_PROFILE_DIGEST="${runtime_profile_fields[2]}"
@@ -122,12 +122,12 @@ GC_HEAP_HARD_LIMIT_PERCENT="${runtime_profile_fields[13]}"
 THREAD_POOL_MODE="${runtime_profile_fields[14]}"
 THREAD_POOL_MIN_THREADS_PER_CPU="${runtime_profile_fields[15]}"
 TOPOLOGY_MODE="${runtime_profile_fields[16]}"
-[[ "$NATIVE_AOT" == "false" ]] || fail "NativeAOT is a conditional narrow prototype; the full final-image path rejects it until feature and security parity evidence passes"
-log "selected runtime profile $RUNTIME_PROFILE_ID ($RUNTIME_PROFILE_DIGEST)"
+[[ "$NATIVE_AOT" == "false" ]] || Fail "NativeAOT is a conditional narrow prototype; the full final-image path rejects it until feature and security parity evidence passes"
+Log "selected runtime profile $RUNTIME_PROFILE_ID ($RUNTIME_PROFILE_DIGEST)"
 
 case "$RUNTIME_BASE_FLAVOR" in
     musl)
-        [[ "$TARGET_RUNTIME" == "linux-musl-x64" ]] || fail "musl runtime profile must target linux-musl-x64"
+        [[ "$TARGET_RUNTIME" == "linux-musl-x64" ]] || Fail "musl runtime profile must target linux-musl-x64"
         EXPECTED_RUNTIME_BASE_IMAGE="mcr.microsoft.com/dotnet/aspnet:${DOTNET_RUNTIME_VERSION}-alpine3.23@${DOTNET_ASPNET_MUSL_DIGEST}"
         EXPECTED_RUNTIME_BASE_DIGEST="$DOTNET_ASPNET_MUSL_DIGEST"
         EXPECTED_SDK_IMAGE="mcr.microsoft.com/dotnet/sdk:${DOTNET_SDK_VERSION}-alpine3.23@${DOTNET_SDK_MUSL_DIGEST}"
@@ -136,7 +136,7 @@ case "$RUNTIME_BASE_FLAVOR" in
         EXPECTED_NODE_IMAGE_DIGEST="$NODE_MUSL_DIGEST"
         ;;
     glibc)
-        [[ "$TARGET_RUNTIME" == "linux-x64" ]] || fail "glibc runtime profile must target linux-x64"
+        [[ "$TARGET_RUNTIME" == "linux-x64" ]] || Fail "glibc runtime profile must target linux-x64"
         EXPECTED_RUNTIME_BASE_IMAGE="mcr.microsoft.com/dotnet/aspnet:${DOTNET_RUNTIME_VERSION}-noble@${DOTNET_ASPNET_GLIBC_DIGEST}"
         EXPECTED_RUNTIME_BASE_DIGEST="$DOTNET_ASPNET_GLIBC_DIGEST"
         EXPECTED_SDK_IMAGE="mcr.microsoft.com/dotnet/sdk:${DOTNET_SDK_VERSION}-noble@${DOTNET_SDK_GLIBC_DIGEST}"
@@ -144,9 +144,9 @@ case "$RUNTIME_BASE_FLAVOR" in
         EXPECTED_NODE_IMAGE="node:${NODE_VERSION}-bookworm-slim@${NODE_GLIBC_DIGEST}"
         EXPECTED_NODE_IMAGE_DIGEST="$NODE_GLIBC_DIGEST"
         ;;
-    *) fail "unsupported runtime base flavor: $RUNTIME_BASE_FLAVOR" ;;
+    *) Fail "unsupported runtime base flavor: $RUNTIME_BASE_FLAVOR" ;;
 esac
-log "pinned .NET runtime $DOTNET_RUNTIME_VERSION, SDK $DOTNET_SDK_VERSION and Node $NODE_VERSION for $RUNTIME_BASE_FLAVOR"
+Log "pinned .NET runtime $DOTNET_RUNTIME_VERSION, SDK $DOTNET_SDK_VERSION and Node $NODE_VERSION for $RUNTIME_BASE_FLAVOR"
 
 if [[ "$LOCAL_ONLY" == "1" && -n "${FSUSBLOG_FINAL_IMAGE_TAG:-}" ]]; then
     IMAGE_TAG="$FSUSBLOG_FINAL_IMAGE_TAG"
@@ -154,21 +154,21 @@ else
     IMAGE_TAG="${IMAGE_REPOSITORY}:${RELEASE_ID}"
 fi
 if [[ "$PUSH_IMAGE" == "1" && "$IMAGE_TAG" != "${IMAGE_REPOSITORY}:${RELEASE_ID}" ]]; then
-    fail "production image tag must equal imageRepository:releaseId"
+    Fail "production image tag must equal imageRepository:releaseId"
 fi
 case "$IMAGE_TAG" in
-    *:latest | *:final-current | fsusblogapp | *:@*) fail "mutable or malformed image reference is forbidden: $IMAGE_TAG" ;;
+    *:latest | *:final-current | fsusblogapp | *:@*) Fail "mutable or malformed image reference is forbidden: $IMAGE_TAG" ;;
 esac
 
 case "${USE_LOCAL_FSUSUI_RAW,,}" in
     1 | true | yes | on)
         USE_LOCAL_FSUSUI=1
-        [[ -n "$LOCAL_FSUSUI_ROOT" ]] || fail "FSUSBLOG_LOCAL_FSUSUI_ROOT is required when local FsusUI consumption is enabled"
-        [[ -f "$LOCAL_FSUSUI_ROOT/vue/packages/element-plus/index.ts" ]] || fail "local FsusUI source is missing vue/packages/element-plus/index.ts"
+        [[ -n "$LOCAL_FSUSUI_ROOT" ]] || Fail "FSUSBLOG_LOCAL_FSUSUI_ROOT is required when local FsusUI consumption is enabled"
+        [[ -f "$LOCAL_FSUSUI_ROOT/vue/packages/element-plus/index.ts" ]] || Fail "local FsusUI source is missing vue/packages/element-plus/index.ts"
         FSUSUI_CONTEXT_DIR="$(cd "$LOCAL_FSUSUI_ROOT" && pwd -P)"
-        [[ -z "$(git -C "$FSUSUI_CONTEXT_DIR" status --porcelain)" ]] || fail "local FsusUI source must be a clean Git worktree"
+        [[ -z "$(git -C "$FSUSUI_CONTEXT_DIR" status --porcelain)" ]] || Fail "local FsusUI source must be a clean Git worktree"
         FSUSUI_COMMIT_SHA="$(git -C "$FSUSUI_CONTEXT_DIR" rev-parse HEAD)"
-        [[ "$FSUSUI_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "local FsusUI source must resolve to a full lowercase Git SHA"
+        [[ "$FSUSUI_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || Fail "local FsusUI source must resolve to a full lowercase Git SHA"
         FSUSUI_SOURCE="local-git-alias"
         ;;
     0 | false | no | off | '')
@@ -176,27 +176,27 @@ case "${USE_LOCAL_FSUSUI_RAW,,}" in
         FSUSUI_EMPTY_CONTEXT="$(mktemp -d)"
         FSUSUI_CONTEXT_DIR="$FSUSUI_EMPTY_CONTEXT"
         ;;
-    *) fail "FSUSBLOG_USE_LOCAL_FSUSUI must be a boolean" ;;
+    *) Fail "FSUSBLOG_USE_LOCAL_FSUSUI must be a boolean" ;;
 esac
 
-cleanup_local_context() {
+CleanupLocalContext() {
     if [[ -n "$FSUSUI_EMPTY_CONTEXT" ]]; then
         rm -rf "$FSUSUI_EMPTY_CONTEXT"
     fi
 }
-trap cleanup_local_context EXIT
+trap CleanupLocalContext EXIT
 
 if [[ "${FSUSBLOG_FINAL_SKIP_WASM:-0}" == "1" ]]; then
-    log "resume with an existing generated wasm artifact package by FSUSBLOG_FINAL_SKIP_WASM=1"
+    Log "resume with an existing generated wasm artifact package by FSUSBLOG_FINAL_SKIP_WASM=1"
     node "$ROOT_DIR/tools/check-wasm-artifact-ownership.mjs" \
         --require-generated \
         --artifact-dir "$ROOT_DIR/build/artifacts/wasm-release"
 else
-    log "building wasm artifact package"
+    Log "building wasm artifact package"
     "$ROOT_DIR/tools/build-wasm-artifact.sh"
 fi
 
-log "building immutable image $IMAGE_TAG for release $RELEASE_ID"
+Log "building immutable image $IMAGE_TAG for release $RELEASE_ID"
 DOCKER_BUILDKIT=1 docker build \
     --pull \
     --network host \
@@ -240,7 +240,7 @@ DOCKER_BUILDKIT=1 docker build \
     --secret id=github_packages_token,env=GITHUB_PACKAGES_TOKEN \
     "$ROOT_DIR"
 
-image_inspect_json="$(docker image inspect "$IMAGE_TAG")" || fail "unable to inspect built image $IMAGE_TAG"
+image_inspect_json="$(docker image inspect "$IMAGE_TAG")" || Fail "unable to inspect built image $IMAGE_TAG"
 image_id="$({
     FSUSBLOG_EXPECTED_DOTNET_RUNTIME_VERSION="$DOTNET_RUNTIME_VERSION" \
         FSUSBLOG_EXPECTED_DOTNET_SDK_VERSION="$DOTNET_SDK_VERSION" \
@@ -312,46 +312,46 @@ image_id="$({
     if (!/^sha256:[0-9a-f]{64}$/.test(image.Id ?? "")) process.exit(22);
     process.stdout.write(image.Id);
   ' <<<"$image_inspect_json"
-} 2> >(cat >&2))" || fail "built image toolchain identity is invalid"
+} 2> >(cat >&2))" || Fail "built image toolchain identity is invalid"
 node_contract="$(docker run --rm --entrypoint sh "$IMAGE_TAG" -c 'set -eu; node --version; if command -v npm >/dev/null 2>&1; then exit 64; fi')" ||
-    fail "built image must provide pinned Node and exclude npm"
+    Fail "built image must provide pinned Node and exclude npm"
 [[ "$node_contract" == "v$NODE_VERSION" ]] ||
-    fail "built image Node version mismatch: expected=v$NODE_VERSION actual=$node_contract"
-log "verified image toolchain identity: runtime=$DOTNET_RUNTIME_VERSION sdk=$DOTNET_SDK_VERSION node=$NODE_VERSION base=$EXPECTED_RUNTIME_BASE_DIGEST"
+    Fail "built image Node version mismatch: expected=v$NODE_VERSION actual=$node_contract"
+Log "verified image toolchain identity: runtime=$DOTNET_RUNTIME_VERSION sdk=$DOTNET_SDK_VERSION node=$NODE_VERSION base=$EXPECTED_RUNTIME_BASE_DIGEST"
 
 if [[ "$LOCAL_ONLY" == "1" ]]; then
-    log "local-only image ready: $IMAGE_TAG ($image_id); no deployable release manifest was emitted"
+    Log "local-only image ready: $IMAGE_TAG ($image_id); no deployable release manifest was emitted"
     exit 0
 fi
 
-require_command awk
-require_command dotnet
-require_command sha256sum
-log "pushing immutable image $IMAGE_TAG"
+RequireCommand awk
+RequireCommand dotnet
+RequireCommand sha256sum
+Log "pushing immutable image $IMAGE_TAG"
 docker push "$IMAGE_TAG"
 repo_digest="$(docker image inspect "$IMAGE_TAG" --format '{{range .RepoDigests}}{{println .}}{{end}}' | awk -v repo="$IMAGE_REPOSITORY" 'index($0, repo "@sha256:") == 1 { print; exit }')"
-[[ "$repo_digest" == "${IMAGE_REPOSITORY}@sha256:"* ]] || fail "registry digest missing after push"
+[[ "$repo_digest" == "${IMAGE_REPOSITORY}@sha256:"* ]] || Fail "registry digest missing after push"
 image_digest="${repo_digest#*@}"
-[[ "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "registry returned an invalid image digest"
+[[ "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]] || Fail "registry returned an invalid image digest"
 
-hash_image_file() {
+HashImageFile() {
     local file="$1"
     local digest
     digest="$(docker run --rm --entrypoint sh "$IMAGE_TAG" -c "test -f '$file' && sha256sum '$file'" | awk '{print $1}')"
-    [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || fail "unable to hash image artifact $file"
+    [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || Fail "unable to hash image artifact $file"
     printf 'sha256:%s\n' "$digest"
 }
 
 frontend_manifest_hash="${FSUSBLOG_FRONTEND_MANIFEST_HASH:-}"
 wasm_artifact_hash="${FSUSBLOG_WASM_ARTIFACT_HASH:-}"
 if [[ -z "$frontend_manifest_hash" ]]; then
-    frontend_manifest_hash="$(hash_image_file /app/wwwroot/.vite/manifest.json)"
+    frontend_manifest_hash="$(HashImageFile /app/wwwroot/.vite/manifest.json)"
 fi
 if [[ -z "$wasm_artifact_hash" ]]; then
-    wasm_artifact_hash="$(hash_image_file /app/wwwroot/wasm/SHA256SUMS)"
+    wasm_artifact_hash="$(HashImageFile /app/wwwroot/wasm/SHA256SUMS)"
 fi
-[[ "$frontend_manifest_hash" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "frontend manifest hash is invalid"
-[[ "$wasm_artifact_hash" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "wasm artifact hash is invalid"
+[[ "$frontend_manifest_hash" =~ ^sha256:[0-9a-f]{64}$ ]] || Fail "frontend manifest hash is invalid"
+[[ "$wasm_artifact_hash" =~ ^sha256:[0-9a-f]{64}$ ]] || Fail "wasm artifact hash is invalid"
 
 dockerfile_digest="sha256:$(sha256sum "$ROOT_DIR/ops/docker/FsusBlog.Server.Dockerfile" | awk '{print $1}')"
 zk_local_review_hash="sha256:$(sha256sum "$ROOT_DIR/security/zk/provenance/comment-v2-local-review.manifest.json" | awk '{print $1}')"
@@ -393,5 +393,5 @@ node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
     --thread-pool-mode "$THREAD_POOL_MODE" \
     --topology-mode "$TOPOLOGY_MODE"
 
-log "release manifest ready: $manifest_file"
-log "immutable image ready: $repo_digest"
+Log "release manifest ready: $manifest_file"
+Log "immutable image ready: $repo_digest"

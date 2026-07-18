@@ -4,5 +4,5 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 NODE_BIN="${NODE_BIN:-node}"
 
-FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug ensure_backend_filtered_build
+FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild
 exec "$NODE_BIN" "$ROOT_DIR/tools/integrity/verify-proof-fixtures.mjs" "$@"

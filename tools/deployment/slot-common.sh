@@ -7,51 +7,51 @@ PRODUCTION_ENV_FILE="${FSUSBLOG_PRODUCTION_ENV_FILE:-$ROOT_DIR/.env.production}"
 COMPOSE_FILE="${FSUSBLOG_PRODUCTION_COMPOSE_FILE:-$ROOT_DIR/ops/docker/docker-compose.production.yml}"
 DEPLOYMENT_LOCK_FILE="${FSUSBLOG_DEPLOYMENT_LOCK_FILE:-/var/lock/fsusblog-deployment.lock}"
 
-slot_log() {
+SlotLog() {
     printf '[deployment-slot] %s\n' "$1"
 }
 
-slot_fail() {
+SlotFail() {
     printf '[deployment-slot] fatal: %s\n' "$1" >&2
     exit 1
 }
 
-slot_require_command() {
-    command -v "$1" >/dev/null 2>&1 || slot_fail "missing required command: $1"
+SlotRequireCommand() {
+    command -v "$1" >/dev/null 2>&1 || SlotFail "missing required command: $1"
 }
 
-slot_require() {
+SlotRequire() {
     case "${1:-}" in
         blue | green) ;;
-        *) slot_fail "slot must be blue or green" ;;
+        *) SlotFail "slot must be blue or green" ;;
     esac
 }
 
-slot_acquire_deployment_lock() {
-    slot_require_command flock
-    local inherited_fd="${FSUSBLOG_DEPLOYMENT_LOCK_FD:-}"
-    if [[ -n "$inherited_fd" ]]; then
-        [[ "$inherited_fd" =~ ^[0-9]+$ && -e "/proc/$$/fd/$inherited_fd" ]] ||
-            slot_fail "inherited deployment lock descriptor is invalid"
-        slot_require_command readlink
-        local inherited_path expected_path
-        inherited_path="$(readlink -f "/proc/$$/fd/$inherited_fd")"
-        expected_path="$(readlink -f "$DEPLOYMENT_LOCK_FILE")"
-        [[ "$inherited_path" == "$expected_path" ]] ||
-            slot_fail "inherited deployment lock descriptor targets the wrong file"
-        flock -n "$inherited_fd" ||
-            slot_fail "inherited deployment lock is not held"
+SlotAcquireDeploymentLock() {
+    SlotRequireCommand flock
+    local inheritedFd="${FSUSBLOG_DEPLOYMENT_LOCK_FD:-}"
+    if [[ -n "$inheritedFd" ]]; then
+        [[ "$inheritedFd" =~ ^[0-9]+$ && -e "/proc/$$/fd/$inheritedFd" ]] ||
+            SlotFail "inherited deployment lock descriptor is invalid"
+        SlotRequireCommand readlink
+        local inheritedPath expectedPath
+        inheritedPath="$(readlink -f "/proc/$$/fd/$inheritedFd")"
+        expectedPath="$(readlink -f "$DEPLOYMENT_LOCK_FILE")"
+        [[ "$inheritedPath" == "$expectedPath" ]] ||
+            SlotFail "inherited deployment lock descriptor targets the wrong file"
+        flock -n "$inheritedFd" ||
+            SlotFail "inherited deployment lock is not held"
         return
     fi
     mkdir -p "$(dirname "$DEPLOYMENT_LOCK_FILE")"
     exec 9>"$DEPLOYMENT_LOCK_FILE"
-    flock -n 9 || slot_fail "another deployment or gateway transition holds $DEPLOYMENT_LOCK_FILE"
+    flock -n 9 || SlotFail "another deployment or gateway transition holds $DEPLOYMENT_LOCK_FILE"
 }
 
-slot_env_value() {
+SlotEnvValue() {
     local key="$1"
     local file="${2:-$PRODUCTION_ENV_FILE}"
-    [[ -f "$file" ]] || slot_fail "production env file not found: $file"
+    [[ -f "$file" ]] || SlotFail "production env file not found: $file"
     local value
     value="$(awk -v wanted="$key" '
     /^[[:space:]]*(#|$)/ { next }
@@ -74,14 +74,14 @@ slot_env_value() {
         value="${value:1:${#value}-2}"
     fi
     [[ -n "$value" && "$value" != *CHANGE_ME* && "$value" != *TODO* && "$value" != *placeholder* ]] ||
-        slot_fail "$key must be an explicit non-placeholder value in $file"
+        SlotFail "$key must be an explicit non-placeholder value in $file"
     printf '%s\n' "$value"
 }
 
-slot_env_optional_value() {
+SlotEnvOptionalValue() {
     local key="$1"
     local file="${2:-$PRODUCTION_ENV_FILE}"
-    [[ -f "$file" ]] || slot_fail "production env file not found: $file"
+    [[ -f "$file" ]] || SlotFail "production env file not found: $file"
     local value
     value="$(awk -v wanted="$key" '
     /^[[:space:]]*(#|$)/ { next }
@@ -106,7 +106,7 @@ slot_env_optional_value() {
     printf '%s\n' "$value"
 }
 
-slot_duration_seconds() {
+SlotDurationSeconds() {
     local value="$1"
     if [[ "$value" =~ ^([0-9]+)$ ]]; then
         printf '%s\n' "${BASH_REMATCH[1]}"
@@ -121,17 +121,17 @@ slot_duration_seconds() {
     fi
 }
 
-slot_configure() {
+SlotConfigure() {
     local slot="$1"
-    local blue_port="${FSUSBLOG_BLUE_PORT:-8081}"
-    local green_port="${FSUSBLOG_GREEN_PORT:-8082}"
-    slot_require "$slot"
-    [[ "$blue_port" =~ ^[0-9]+$ && "$blue_port" -ge 1 && "$blue_port" -le 65535 ]] || slot_fail "FSUSBLOG_BLUE_PORT is invalid"
-    [[ "$green_port" =~ ^[0-9]+$ && "$green_port" -ge 1 && "$green_port" -le 65535 ]] || slot_fail "FSUSBLOG_GREEN_PORT is invalid"
-    [[ "$blue_port" != "$green_port" ]] || slot_fail "blue and green ports must be different"
+    local bluePort="${FSUSBLOG_BLUE_PORT:-8081}"
+    local greenPort="${FSUSBLOG_GREEN_PORT:-8082}"
+    SlotRequire "$slot"
+    [[ "$bluePort" =~ ^[0-9]+$ && "$bluePort" -ge 1 && "$bluePort" -le 65535 ]] || SlotFail "FSUSBLOG_BLUE_PORT is invalid"
+    [[ "$greenPort" =~ ^[0-9]+$ && "$greenPort" -ge 1 && "$greenPort" -le 65535 ]] || SlotFail "FSUSBLOG_GREEN_PORT is invalid"
+    [[ "$bluePort" != "$greenPort" ]] || SlotFail "blue and green ports must be different"
 
     export FSUSBLOG_RELEASE_SLOT="$slot"
-    export FSUSBLOG_SLOT_PORT="$([[ "$slot" == "blue" ]] && printf '%s' "$blue_port" || printf '%s' "$green_port")"
+    export FSUSBLOG_SLOT_PORT="$([[ "$slot" == "blue" ]] && printf '%s' "$bluePort" || printf '%s' "$greenPort")"
     export FSUSBLOG_COMPOSE_PROJECT_NAME="fsusblog-$slot"
     export FSUSBLOG_CONTAINER_NAME="fsus-app-$slot"
     export FSUSBLOG_SLOT_AOT_CACHE_VOLUME="fsusblog-aot-cache-$slot"
@@ -139,18 +139,18 @@ slot_configure() {
     export FSUSBLOG_SLOT_DATA_VOLUME="fsusblog-data-$slot"
 }
 
-slot_load_manifest() {
+SlotLoadManifest() {
     local manifest="$1"
     local slot="$2"
-    [[ -f "$manifest" ]] || slot_fail "release manifest not found: $manifest"
+    [[ -f "$manifest" ]] || SlotFail "release manifest not found: $manifest"
     local output
     output="$(node "$ROOT_DIR/tools/release/check-release-manifest.mjs" \
         --manifest "$manifest" \
         --slot "$slot" \
-        --format lines)" || slot_fail "release manifest validation failed"
+        --format lines)" || SlotFail "release manifest validation failed"
     local -a fields=()
     mapfile -t fields <<<"$output"
-    [[ "${#fields[@]}" -eq 8 ]] || slot_fail "release manifest validator returned incomplete fields"
+    [[ "${#fields[@]}" -eq 8 ]] || SlotFail "release manifest validator returned incomplete fields"
     export FSUSBLOG_RELEASE_ID="${fields[0]}"
     export FSUSBLOG_COMMIT_SHA="${fields[1]}"
     export FSUSBLOG_RELEASE_SLOT="${fields[2]}"
@@ -161,11 +161,11 @@ slot_load_manifest() {
     export FSUSBLOG_ZK_LOCAL_REVIEW_SHA256="${fields[7]}"
 }
 
-slot_state_read() {
+SlotStateRead() {
     node "$ROOT_DIR/tools/deployment/slot-state.mjs" read --state "$SLOT_STATE_FILE" "$@"
 }
 
-slot_state_record_failure() {
+SlotStateRecordFailure() {
     local slot="$1"
     local operation="$2"
     local message="$3"
@@ -174,7 +174,7 @@ slot_state_record_failure() {
     node "$ROOT_DIR/tools/deployment/slot-state.mjs" "${args[@]}" >/dev/null
 }
 
-slot_compose() {
+SlotCompose() {
     docker compose \
         --env-file "$PRODUCTION_ENV_FILE" \
         -f "$COMPOSE_FILE" \
@@ -182,7 +182,7 @@ slot_compose() {
         "$@"
 }
 
-slot_port_listening() {
+SlotPortListening() {
     local port="$1"
     ss -H -ltn 2>/dev/null | awk -v suffix=":$port" '$4 ~ suffix "$" { found=1 } END { exit(found ? 0 : 1) }'
 }

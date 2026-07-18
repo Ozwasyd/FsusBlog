@@ -13,7 +13,7 @@ export FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE="$EVIDENCE_FILE"
 export FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$FIREWALL_POLICY_FILE"
 export FSUSBLOG_PRODUCTION_EXPOSURE_STATUS="$STATUS_FILE"
 
-fail() {
+Fail() {
     printf '[production-exposure-closeout] failed\n' >&2
     printf -- '- %s\n' "$1" >&2
     exit 1
@@ -36,7 +36,7 @@ fi
 "$VERIFY_SCRIPT" "$EVIDENCE_FILE" >/dev/null
 "$STATUS_SCRIPT" >/dev/null
 
-[[ -f "$STATUS_FILE" ]] || fail "missing production exposure status report: $STATUS_FILE"
+[[ -f "$STATUS_FILE" ]] || Fail "missing production exposure status report: $STATUS_FILE"
 
 if ! jq -e '.status == "ok"' "$STATUS_FILE" >/dev/null 2>&1; then
     printf '[production-exposure-closeout] failed\n' >&2

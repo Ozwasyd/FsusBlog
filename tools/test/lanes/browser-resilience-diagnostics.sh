@@ -14,15 +14,15 @@ if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS_WORKERS:-1}" != "1" ||
     exit 2
 fi
 
-require_debug_stack
-require_release_preview
-reset_security_runtime_state "pre browser resilience diagnostics"
+RequireDebugStack
+RequireReleasePreview
+ResetSecurityRuntimeState "pre browser resilience diagnostics"
 export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
 export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
 export FSUSBLOG_PLAYWRIGHT_MANAGED_ONLY=1
 export FSUSBLOG_HTTP_TIMEOUT_MS="$RESILIENCE_HTTP_TIMEOUT_MS"
-prepare_runtime_fixtures_once
-run_in_client npm run check:resilience:runtime
+PrepareRuntimeFixturesOnce
+RunInClient npm run check:resilience:runtime
 
 mkdir -p "$ROOT_DIR/.tmp/browser-diagnostics-runtime/resilience"
 node -e 'require("node:fs").writeFileSync(process.argv[1], JSON.stringify({schema:"fsusblog.browser-diagnostic-marker.v1",category:"resilience",status:"success",evidenceClass:"diagnostic",affectsCorrectness:false,executionBoundary:"real-browser-resilience",createdAt:new Date().toISOString()}, null, 2) + "\n")' \

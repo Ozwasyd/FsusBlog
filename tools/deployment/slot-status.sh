@@ -7,35 +7,35 @@ SLOT=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --slot)
-            [[ $# -ge 2 ]] || slot_fail "--slot requires a value"
+            [[ $# -ge 2 ]] || SlotFail "--slot requires a value"
             SLOT="$2"
             shift 2
             ;;
         --state-file)
-            [[ $# -ge 2 ]] || slot_fail "--state-file requires a value"
+            [[ $# -ge 2 ]] || SlotFail "--state-file requires a value"
             SLOT_STATE_FILE="$2"
             shift 2
             ;;
-        *) slot_fail "unknown argument: $1" ;;
+        *) SlotFail "unknown argument: $1" ;;
     esac
 done
 
-slot_require_command jq
-slot_require_command node
-state="$(slot_state_read)"
+SlotRequireCommand jq
+SlotRequireCommand node
+state="$(SlotStateRead)"
 
-inspect_one() {
+InspectOne() {
     "$ROOT_DIR/tools/deployment/slot-inspect.sh" --slot "$1" --state-file "$SLOT_STATE_FILE"
 }
 
 if [[ -n "$SLOT" ]]; then
-    slot_require "$SLOT"
-    inspect_one "$SLOT"
+    SlotRequire "$SLOT"
+    InspectOne "$SLOT"
     exit 0
 fi
 
-blue="$(inspect_one blue)"
-green="$(inspect_one green)"
+blue="$(InspectOne blue)"
+green="$(InspectOne green)"
 jq -cn \
     --argjson state "$state" \
     --argjson blue "$blue" \

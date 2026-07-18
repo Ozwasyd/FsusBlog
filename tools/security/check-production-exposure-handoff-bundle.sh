@@ -8,216 +8,216 @@ BUNDLE_DIR=""
 
 failures=()
 
-cleanup() {
+Cleanup() {
     if [[ -n "$WORK_DIR" && -d "$WORK_DIR" ]]; then
         rm -rf "$WORK_DIR"
     fi
 }
-trap cleanup EXIT
+trap Cleanup EXIT
 
-add_failure() {
+AddFailure() {
     failures+=("$1")
 }
 
-require_file() {
+RequireFile() {
     local file="$1"
     local label="$2"
-    [[ -f "$file" ]] || add_failure "missing $label: $file"
+    [[ -f "$file" ]] || AddFailure "missing $label: $file"
 }
 
-require_contains() {
+RequireContains() {
     local file="$1"
     local label="$2"
     local needle="$3"
 
     if [[ -f "$file" ]] && ! grep -Fq "$needle" "$file"; then
-        add_failure "$label does not contain required text: $needle"
+        AddFailure "$label does not contain required text: $needle"
     fi
 }
 
-reject_symlinks() {
+RejectSymlinks() {
     local dir="$1"
     local label="$2"
-    local symlink_path
+    local symlinkPath
 
-    symlink_path="$(find "$dir" -type l -print -quit 2>/dev/null || true)"
-    if [[ -n "$symlink_path" ]]; then
-        add_failure "$label contains a symlink: ${symlink_path#$dir/}"
+    symlinkPath="$(find "$dir" -type l -print -quit 2>/dev/null || true)"
+    if [[ -n "$symlinkPath" ]]; then
+        AddFailure "$label contains a symlink: ${symlinkPath#$dir/}"
     fi
 }
 
-check_archive_checksum() {
+CheckArchiveChecksum() {
     local archive="$1"
-    local checksum_file="$archive.sha256"
-    local expected_digest actual_digest
+    local checksumFile="$archive.sha256"
+    local expectedDigest actualDigest
 
-    expected_digest="$(awk 'NF >= 1 { print $1; exit }' "$checksum_file" 2>/dev/null || true)"
-    expected_digest="${expected_digest,,}"
-    if [[ ! "$expected_digest" =~ ^[0-9a-f]{64}$ ]]; then
-        add_failure "handoff bundle archive checksum file does not contain a valid sha256 digest: $checksum_file"
+    expectedDigest="$(awk 'NF >= 1 { print $1; exit }' "$checksumFile" 2>/dev/null || true)"
+    expectedDigest="${expectedDigest,,}"
+    if [[ ! "$expectedDigest" =~ ^[0-9a-f]{64}$ ]]; then
+        AddFailure "handoff bundle archive checksum file does not contain a valid sha256 digest: $checksumFile"
         return
     fi
 
-    actual_digest="$(sha256sum "$archive" | awk '{print $1}')"
-    if [[ "$expected_digest" != "$actual_digest" ]]; then
-        add_failure "handoff bundle archive checksum verification failed: $checksum_file"
+    actualDigest="$(sha256sum "$archive" | awk '{print $1}')"
+    if [[ "$expectedDigest" != "$actualDigest" ]]; then
+        AddFailure "handoff bundle archive checksum verification failed: $checksumFile"
     fi
 }
 
-validate_archive_members() {
+ValidateArchiveMembers() {
     local archive="$1"
-    local archive_listing archive_members archive_member entry_type
-    local top_level=""
+    local archiveListing archiveMembers archiveMember entryType
+    local topLevel=""
 
-    if ! archive_members="$(tar -tzf "$archive" 2>/dev/null)"; then
-        add_failure "handoff bundle archive member list could not be read: $archive"
+    if ! archiveMembers="$(tar -tzf "$archive" 2>/dev/null)"; then
+        AddFailure "handoff bundle archive member list could not be read: $archive"
         return
     fi
 
-    if [[ -z "$archive_members" ]]; then
-        add_failure "handoff bundle archive is empty: $archive"
+    if [[ -z "$archiveMembers" ]]; then
+        AddFailure "handoff bundle archive is empty: $archive"
         return
     fi
 
-    if ! archive_listing="$(tar -tvzf "$archive" 2>/dev/null)"; then
-        add_failure "handoff bundle archive member metadata could not be read: $archive"
+    if ! archiveListing="$(tar -tvzf "$archive" 2>/dev/null)"; then
+        AddFailure "handoff bundle archive member metadata could not be read: $archive"
         return
     fi
 
-    while IFS= read -r archive_member; do
-        [[ -n "$archive_member" ]] || continue
-        entry_type="${archive_member:0:1}"
-        case "$entry_type" in
+    while IFS= read -r archiveMember; do
+        [[ -n "$archiveMember" ]] || continue
+        entryType="${archiveMember:0:1}"
+        case "$entryType" in
             - | d) ;;
             *)
-                add_failure "handoff bundle archive contains unsupported member type: $entry_type"
+                AddFailure "handoff bundle archive contains unsupported member type: $entryType"
                 return
                 ;;
         esac
-    done <<<"$archive_listing"
+    done <<<"$archiveListing"
 
-    while IFS= read -r archive_member; do
-        [[ -n "$archive_member" ]] || continue
-        if [[ "$archive_member" == /* ||
-            "$archive_member" == "." ||
-            "$archive_member" == ".." ||
-            "$archive_member" == ../* ||
-            "$archive_member" == */../* ||
-            "$archive_member" == */.. ]]; then
-            add_failure "handoff bundle archive contains unsafe member path: $archive_member"
+    while IFS= read -r archiveMember; do
+        [[ -n "$archiveMember" ]] || continue
+        if [[ "$archiveMember" == /* ||
+            "$archiveMember" == "." ||
+            "$archiveMember" == ".." ||
+            "$archiveMember" == ../* ||
+            "$archiveMember" == */../* ||
+            "$archiveMember" == */.. ]]; then
+            AddFailure "handoff bundle archive contains unsafe member path: $archiveMember"
             return
         fi
-        if [[ "$archive_member" != */* ]]; then
-            add_failure "handoff bundle archive member is not under a top-level directory: $archive_member"
+        if [[ "$archiveMember" != */* ]]; then
+            AddFailure "handoff bundle archive member is not under a top-level directory: $archiveMember"
             return
         fi
-        if [[ -z "$top_level" ]]; then
-            top_level="${archive_member%%/*}"
-        elif [[ "${archive_member%%/*}" != "$top_level" ]]; then
-            add_failure "handoff bundle archive must contain exactly one top-level directory"
+        if [[ -z "$topLevel" ]]; then
+            topLevel="${archiveMember%%/*}"
+        elif [[ "${archiveMember%%/*}" != "$topLevel" ]]; then
+            AddFailure "handoff bundle archive must contain exactly one top-level directory"
             return
         fi
-    done <<<"$archive_members"
+    done <<<"$archiveMembers"
 }
 
-json_value() {
+JsonValue() {
     local file="$1"
     local expr="$2"
     jq -r "$expr" "$file" 2>/dev/null || true
 }
 
-manifest_artifact() {
+ManifestArtifact() {
     local key="$1"
     jq -r --arg key "$key" '
     .artifacts[$key] | if type == "string" then . else "" end
   ' "$MANIFEST_FILE" 2>/dev/null || true
 }
 
-manifest_digest_algorithm() {
+ManifestDigestAlgorithm() {
     local key="$1"
-    json_value "$MANIFEST_FILE" ".artifactDigests.$key.algorithm // \"\""
+    JsonValue "$MANIFEST_FILE" ".artifactDigests.$key.algorithm // \"\""
 }
 
-manifest_digest_value() {
+ManifestDigestValue() {
     local key="$1"
-    json_value "$MANIFEST_FILE" ".artifactDigests.$key.value // \"\""
+    JsonValue "$MANIFEST_FILE" ".artifactDigests.$key.value // \"\""
 }
 
-check_manifest_artifact_digest() {
+CheckManifestArtifactDigest() {
     local key="$1"
     local label="$2"
-    local expected_artifact="$3"
-    local artifact artifact_file digest_algorithm digest_value actual_digest
+    local expectedArtifact="$3"
+    local artifact artifactFile digestAlgorithm digestValue actualDigest
 
-    artifact="$(manifest_artifact "$key")"
-    digest_algorithm="$(manifest_digest_algorithm "$key")"
-    digest_value="$(manifest_digest_value "$key")"
+    artifact="$(ManifestArtifact "$key")"
+    digestAlgorithm="$(ManifestDigestAlgorithm "$key")"
+    digestValue="$(ManifestDigestValue "$key")"
 
     if [[ -z "$artifact" ]]; then
-        if [[ -n "$digest_algorithm" || -n "$digest_value" ]]; then
-            add_failure "manifest has digest for missing $label"
+        if [[ -n "$digestAlgorithm" || -n "$digestValue" ]]; then
+            AddFailure "manifest has digest for missing $label"
         fi
         return
     fi
 
-    if [[ "$artifact" != "$expected_artifact" ]]; then
-        add_failure "manifest indexes unexpected artifact for $label: $artifact"
+    if [[ "$artifact" != "$expectedArtifact" ]]; then
+        AddFailure "manifest indexes unexpected artifact for $label: $artifact"
         return
     fi
 
-    artifact_file="$RELEASE_DIR/$artifact"
-    if [[ ! -f "$artifact_file" ]]; then
-        add_failure "manifest indexes missing bundled $label: $artifact"
+    artifactFile="$RELEASE_DIR/$artifact"
+    if [[ ! -f "$artifactFile" ]]; then
+        AddFailure "manifest indexes missing bundled $label: $artifact"
         return
     fi
 
-    if [[ "$digest_algorithm" != "sha256" || ! "$digest_value" =~ ^[0-9a-f]{64}$ ]]; then
-        add_failure "manifest is missing a valid sha256 digest for $label"
+    if [[ "$digestAlgorithm" != "sha256" || ! "$digestValue" =~ ^[0-9a-f]{64}$ ]]; then
+        AddFailure "manifest is missing a valid sha256 digest for $label"
         return
     fi
 
-    actual_digest="$(sha256sum "$artifact_file" | awk '{print $1}')"
-    if [[ "$digest_value" != "$actual_digest" ]]; then
-        add_failure "manifest sha256 digest for $label does not match bundled artifact"
+    actualDigest="$(sha256sum "$artifactFile" | awk '{print $1}')"
+    if [[ "$digestValue" != "$actualDigest" ]]; then
+        AddFailure "manifest sha256 digest for $label does not match bundled artifact"
     fi
 }
 
 if [[ -z "$INPUT_PATH" ]]; then
-    add_failure 'missing handoff bundle directory'
+    AddFailure 'missing handoff bundle directory'
 elif [[ -d "$INPUT_PATH" ]]; then
     if [[ -L "$INPUT_PATH" ]]; then
-        add_failure "handoff bundle directory must not be a symlink: $INPUT_PATH"
+        AddFailure "handoff bundle directory must not be a symlink: $INPUT_PATH"
     else
         BUNDLE_DIR="$INPUT_PATH"
     fi
 elif [[ -f "$INPUT_PATH" ]]; then
     if [[ "$INPUT_PATH" != *.tar.gz ]]; then
-        add_failure "handoff bundle file must be a .tar.gz archive: $INPUT_PATH"
+        AddFailure "handoff bundle file must be a .tar.gz archive: $INPUT_PATH"
     elif [[ ! -f "$INPUT_PATH.sha256" ]]; then
-        add_failure "handoff bundle archive checksum file is missing: $INPUT_PATH.sha256"
+        AddFailure "handoff bundle archive checksum file is missing: $INPUT_PATH.sha256"
     else
-        check_archive_checksum "$INPUT_PATH"
+        CheckArchiveChecksum "$INPUT_PATH"
         if ((${#failures[@]} == 0)); then
-            validate_archive_members "$INPUT_PATH"
+            ValidateArchiveMembers "$INPUT_PATH"
         fi
         if ((${#failures[@]} == 0)); then
             WORK_DIR="$(mktemp -d)"
             tar -xzf "$INPUT_PATH" -C "$WORK_DIR"
             mapfile -t extracted_dirs < <(find "$WORK_DIR" -mindepth 1 -maxdepth 1 -type d | sort)
             if ((${#extracted_dirs[@]} != 1)); then
-                add_failure "handoff bundle archive must contain exactly one top-level directory"
+                AddFailure "handoff bundle archive must contain exactly one top-level directory"
             else
                 BUNDLE_DIR="${extracted_dirs[0]}"
             fi
         fi
     fi
 else
-    add_failure "handoff bundle path does not exist: $INPUT_PATH"
+    AddFailure "handoff bundle path does not exist: $INPUT_PATH"
 fi
 
 if ((${#failures[@]} == 0)); then
     BUNDLE_DIR="$(cd "$BUNDLE_DIR" && pwd)"
-    reject_symlinks "$BUNDLE_DIR" 'handoff bundle'
+    RejectSymlinks "$BUNDLE_DIR" 'handoff bundle'
 fi
 
 if ((${#failures[@]} == 0)); then
@@ -236,18 +236,18 @@ if ((${#failures[@]} == 0)); then
     RETURNED_README_FILE="$BUNDLE_DIR/returned-evidence/README.md"
     SHA_FILE="$BUNDLE_DIR/SHA256SUMS"
 
-    require_file "$MANIFEST_FILE" 'release manifest'
-    require_file "$REQUEST_FILE" 'production exposure request'
-    require_file "$STATUS_FILE" 'production exposure status'
-    require_file "$LIVE_FILE" 'live exposure evidence'
-    require_file "$DNS_READINESS_FILE" 'DNS readiness evidence'
-    require_file "$DNS_DELEGATION_FILE" 'DNS delegation evidence'
-    require_file "$SUMMARY_FILE" 'handoff summary'
-    require_file "$CHECKLIST_FILE" 'operator checklist'
-    require_file "$ROOT_README_FILE" 'handoff README'
-    require_file "$RETURNED_MANIFEST_FILE" 'returned evidence manifest'
-    require_file "$RETURNED_README_FILE" 'returned evidence README'
-    require_file "$SHA_FILE" 'SHA256SUMS'
+    RequireFile "$MANIFEST_FILE" 'release manifest'
+    RequireFile "$REQUEST_FILE" 'production exposure request'
+    RequireFile "$STATUS_FILE" 'production exposure status'
+    RequireFile "$LIVE_FILE" 'live exposure evidence'
+    RequireFile "$DNS_READINESS_FILE" 'DNS readiness evidence'
+    RequireFile "$DNS_DELEGATION_FILE" 'DNS delegation evidence'
+    RequireFile "$SUMMARY_FILE" 'handoff summary'
+    RequireFile "$CHECKLIST_FILE" 'operator checklist'
+    RequireFile "$ROOT_README_FILE" 'handoff README'
+    RequireFile "$RETURNED_MANIFEST_FILE" 'returned evidence manifest'
+    RequireFile "$RETURNED_README_FILE" 'returned evidence README'
+    RequireFile "$SHA_FILE" 'SHA256SUMS'
 fi
 
 if ((${#failures[@]} == 0)); then
@@ -255,17 +255,17 @@ if ((${#failures[@]} == 0)); then
         cd "$BUNDLE_DIR"
         sha256sum -c SHA256SUMS >/dev/null
     ); then
-        add_failure 'handoff bundle SHA256SUMS verification failed'
+        AddFailure 'handoff bundle SHA256SUMS verification failed'
     fi
 fi
 
 if ((${#failures[@]} == 0)); then
-    check_manifest_artifact_digest productionExposureRequest 'production exposure request' production-exposure-evidence-request.json
-    check_manifest_artifact_digest productionExposureStatus 'production exposure status' production-exposure-status.json
-    check_manifest_artifact_digest productionExposureLive 'live exposure evidence' production-exposure-live.json
-    check_manifest_artifact_digest dnsReadiness 'DNS readiness evidence' production-dns-readiness.json
-    check_manifest_artifact_digest dnsDelegation 'DNS delegation evidence' production-dns-delegation.json
-    check_manifest_artifact_digest firewallPolicy 'firewall policy evidence' production-firewall-policy.json
+    CheckManifestArtifactDigest productionExposureRequest 'production exposure request' production-exposure-evidence-request.json
+    CheckManifestArtifactDigest productionExposureStatus 'production exposure status' production-exposure-status.json
+    CheckManifestArtifactDigest productionExposureLive 'live exposure evidence' production-exposure-live.json
+    CheckManifestArtifactDigest dnsReadiness 'DNS readiness evidence' production-dns-readiness.json
+    CheckManifestArtifactDigest dnsDelegation 'DNS delegation evidence' production-dns-delegation.json
+    CheckManifestArtifactDigest firewallPolicy 'firewall policy evidence' production-firewall-policy.json
 
     if ! jq -e --slurpfile request "$REQUEST_FILE" --slurpfile status "$STATUS_FILE" '
     def returned_closeout_command_count($request):
@@ -303,7 +303,7 @@ if ((${#failures[@]} == 0)); then
     and (.evidenceSummary.externalExposure.request.closeoutCommands.returnedHandoffCloseout // null) == ($request[0].returnedHandoffCloseoutCommand // null)
     and (.evidenceSummary.externalExposure.request.closeoutCommands.releaseEvidence // null) == ($request[0].releaseEvidenceCommand // null)
   ' "$MANIFEST_FILE" >/dev/null 2>&1; then
-        add_failure 'release manifest external exposure summary does not match bundled request/status'
+        AddFailure 'release manifest external exposure summary does not match bundled request/status'
     fi
 
     if ! jq -e --slurpfile request "$REQUEST_FILE" '
@@ -322,7 +322,7 @@ if ((${#failures[@]} == 0)); then
     and any(.verificationCommands[]?; .name == "handoff-check")
     and any(.handoffChecks[]?; .id == "request-status-manifest-alignment")
   ' "$SUMMARY_FILE" >/dev/null 2>&1; then
-        add_failure 'handoff summary does not preserve verified request and closeout metadata'
+        AddFailure 'handoff summary does not preserve verified request and closeout metadata'
     fi
 
     if ! jq -e --slurpfile request "$REQUEST_FILE" '
@@ -352,7 +352,7 @@ if ((${#failures[@]} == 0)); then
     and (.handoffCloseoutCommand // null) == ($request[0].returnedHandoffCloseoutCommand // null)
     and (.closeoutRule // null) == ($request[0].closeoutRule // null)
   ' "$CHECKLIST_FILE" >/dev/null 2>&1; then
-        add_failure 'operator checklist does not match bundled request unblock plan and closeout commands'
+        AddFailure 'operator checklist does not match bundled request unblock plan and closeout commands'
     fi
 
     bundled_manifest_sha256="$(sha256sum "$MANIFEST_FILE" | awk '{print $1}')"
@@ -387,7 +387,7 @@ if ((${#failures[@]} == 0)); then
     and (.closeoutCommand | contains("complete-production-exposure-from-returned-evidence.sh"))
     and (.handoffCloseoutCommand | contains("complete-production-exposure-from-returned-handoff-bundle.sh"))
   ' "$RETURNED_MANIFEST_FILE" >/dev/null 2>&1; then
-        add_failure 'returned evidence manifest does not match handoff summary scope or closeout requirements'
+        AddFailure 'returned evidence manifest does not match handoff summary scope or closeout requirements'
     fi
 
     for readme_token in \
@@ -395,7 +395,7 @@ if ((${#failures[@]} == 0)); then
         'operator-checklist.json' \
         'returned-evidence/' \
         'This is not a passing production closeout signal'; do
-        require_contains "$ROOT_README_FILE" 'handoff README' "$readme_token"
+        RequireContains "$ROOT_README_FILE" 'handoff README' "$readme_token"
     done
 
     for readme_token in \
@@ -406,7 +406,7 @@ if ((${#failures[@]} == 0)); then
         'tools/security/verify-production-exposure-returned-evidence.sh <returned-evidence-dir>' \
         'tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>' \
         'tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>'; do
-        require_contains "$RETURNED_README_FILE" 'returned evidence README' "$readme_token"
+        RequireContains "$RETURNED_README_FILE" 'returned evidence README' "$readme_token"
     done
 fi
 

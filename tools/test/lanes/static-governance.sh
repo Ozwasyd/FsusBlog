@@ -3,28 +3,28 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 
-static_evidence_plan() { run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-evidence-plan; }
-static_aeds_policy() { run "$ROOT_DIR/tools/check-aeds-only-policy.sh"; }
-static_community_workflow() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-community-workflow.mjs"; }
-static_label_governance() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-github-label-governance.mjs"; }
-static_integrity_docs() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-integrity-proof-docs.mjs"; }
-static_dead_code_index() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dead-code-audit-index.mjs"; }
-static_background_services() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-background-service-classification.mjs"; }
-static_suite_convergence() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-suite-convergence.mjs"; }
-static_browser_test_migration() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-browser-test-migration.mjs"; }
-static_backend_governance() { run_tier "static-governance" run_backend_test_governance_only; }
-static_gate_integrity() { run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
-static_flaky_registry() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs"; }
-static_matrix_contract() { run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-matrix-contract; }
-static_matrix_schema() { run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-matrix-schema; }
-static_retention() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-retention.mjs"; }
-static_implementation_drift() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-doc-implementation-drift.mjs"; }
-static_authoritative_development_docs() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-authoritative-development-docs.mjs"; }
-static_code_intent() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-code-intent.mjs"; }
-static_appsettings_authority() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-appsettings-authority.mjs"; }
-static_csharp_style() {
-    run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode changed
-    run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
+StaticEvidencePlan() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-evidence-plan; }
+StaticAedsPolicy() { Run "$ROOT_DIR/tools/check-aeds-only-policy.sh"; }
+StaticCommunityWorkflow() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-community-workflow.mjs"; }
+StaticLabelGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-github-label-governance.mjs"; }
+StaticIntegrityDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-integrity-proof-docs.mjs"; }
+StaticDeadCodeIndex() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-dead-code-audit-index.mjs"; }
+StaticBackgroundServices() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-background-service-classification.mjs"; }
+StaticSuiteConvergence() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-suite-convergence.mjs"; }
+StaticBrowserTestMigration() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-browser-test-migration.mjs"; }
+StaticBackendGovernance() { RunTier "static-governance" RunBackendTestGovernanceOnly; }
+StaticGateIntegrity() { Run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
+StaticFlakyRegistry() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs"; }
+StaticMatrixContract() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-matrix-contract; }
+StaticMatrixSchema() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-matrix-schema; }
+StaticRetention() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-retention.mjs"; }
+StaticImplementationDrift() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-doc-implementation-drift.mjs"; }
+StaticAuthoritativeDevelopmentDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-authoritative-development-docs.mjs"; }
+StaticCodeIntent() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-code-intent.mjs"; }
+StaticAppsettingsAuthority() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-appsettings-authority.mjs"; }
+StaticCsharpStyle() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode changed
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
 }
 STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/release-manifest.test.mjs"
@@ -78,9 +78,9 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs"
 )
-static_node_contracts() {
+StaticNodeContracts() {
     FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \
-        run "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" "$ROOT_DIR/tests/tools/zero-downtime-rehearsal.test.mjs" <<'NODE'
+        Run "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" "$ROOT_DIR/tests/tools/zero-downtime-rehearsal.test.mjs" <<'NODE'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 
@@ -145,59 +145,59 @@ NODE
 # Every concurrent-phase writer owns a distinct artifact path and none reads
 # Vitest's live report directory. Retention intentionally stays post-Vitest
 # because it scans .tmp/test-results/vitest and must never observe partial JSON.
-run_static_prechecks_phase() {
-    run_collect_parallel static-governance-prechecks \
-        evidence-plan static_evidence_plan \
-        aeds-policy static_aeds_policy \
-        community-workflow static_community_workflow \
-        label-governance static_label_governance \
-        integrity-docs static_integrity_docs \
-        dead-code-index static_dead_code_index \
-        background-services static_background_services \
-        suite-convergence static_suite_convergence \
-        browser-test-migration static_browser_test_migration \
-        backend-governance static_backend_governance \
-        gate-integrity static_gate_integrity \
-        flaky-registry static_flaky_registry \
-        matrix-contract static_matrix_contract \
-        matrix-schema static_matrix_schema \
-        implementation-drift static_implementation_drift \
-        authoritative-development-docs static_authoritative_development_docs \
-        code-intent static_code_intent \
-        appsettings-authority static_appsettings_authority \
-        csharp-style static_csharp_style
+RunStaticPrechecksPhase() {
+    RunCollectParallel static-governance-prechecks \
+        evidence-plan StaticEvidencePlan \
+        aeds-policy StaticAedsPolicy \
+        community-workflow StaticCommunityWorkflow \
+        label-governance StaticLabelGovernance \
+        integrity-docs StaticIntegrityDocs \
+        dead-code-index StaticDeadCodeIndex \
+        background-services StaticBackgroundServices \
+        suite-convergence StaticSuiteConvergence \
+        browser-test-migration StaticBrowserTestMigration \
+        backend-governance StaticBackendGovernance \
+        gate-integrity StaticGateIntegrity \
+        flaky-registry StaticFlakyRegistry \
+        matrix-contract StaticMatrixContract \
+        matrix-schema StaticMatrixSchema \
+        implementation-drift StaticImplementationDrift \
+        authoritative-development-docs StaticAuthoritativeDevelopmentDocs \
+        code-intent StaticCodeIntent \
+        appsettings-authority StaticAppsettingsAuthority \
+        csharp-style StaticCsharpStyle
 }
 
-run_static_concurrent_phase() {
-    run_static_prechecks_phase
-    run_static_node_contracts_phase
+RunStaticConcurrentPhase() {
+    RunStaticPrechecksPhase
+    RunStaticNodeContractsPhase
 }
 
-run_static_node_contracts_phase() {
-    run_collect node-contracts static_node_contracts
+RunStaticNodeContractsPhase() {
+    RunCollect node-contracts StaticNodeContracts
 }
 
-run_static_post_vitest_phase() {
-    run_collect retention static_retention
+RunStaticPostVitestPhase() {
+    RunCollect retention StaticRetention
 }
 
 STATIC_GOVERNANCE_PHASE="${FSUSBLOG_STATIC_GOVERNANCE_PHASE:-${1:-all}}"
 case "$STATIC_GOVERNANCE_PHASE" in
     concurrent-prechecks)
-        run_static_prechecks_phase
+        RunStaticPrechecksPhase
         ;;
     concurrent)
-        run_static_concurrent_phase
+        RunStaticConcurrentPhase
         ;;
     post-vitest)
-        run_static_post_vitest_phase
+        RunStaticPostVitestPhase
         ;;
     node-contracts)
-        run_static_node_contracts_phase
+        RunStaticNodeContractsPhase
         ;;
     all)
-        run_static_concurrent_phase
-        run_static_post_vitest_phase
+        RunStaticConcurrentPhase
+        RunStaticPostVitestPhase
         ;;
     *)
         printf '[lane] unknown static governance phase: %s (expected concurrent-prechecks, concurrent, post-vitest, node-contracts, or all)\n' \
@@ -205,4 +205,4 @@ case "$STATIC_GOVERNANCE_PHASE" in
         exit 2
         ;;
 esac
-finish_collect
+FinishCollect

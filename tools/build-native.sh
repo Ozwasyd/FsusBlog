@@ -10,18 +10,18 @@ RUNTIME_PROFILE_MANIFEST="${FSUSBLOG_RUNTIME_PROFILE_MANIFEST:-${ROOT_DIR}/tools
 BUILD_CONFIGURATION="${FSUSBLOG_NATIVE_CONFIGURATION:-Release}"
 BUILD_CONFIGURATION_LOWER="$(printf '%s' "${BUILD_CONFIGURATION}" | tr '[:upper:]' '[:lower:]')"
 
-log() {
+Log() {
     printf '[build-native] %s\n' "$1"
 }
 
-require_command() {
+RequireCommand() {
     if ! command -v "$1" >/dev/null 2>&1; then
         printf '[build-native] fatal: missing required command: %s\n' "$1" >&2
         exit 1
     fi
 }
 
-require_non_empty_env() {
+RequireNonEmptyEnv() {
     local name="$1"
     if [[ -z "${!name:-}" ]]; then
         printf '[build-native] fatal: %s is required for GitHub Packages restore\n' "$name" >&2
@@ -29,10 +29,10 @@ require_non_empty_env() {
     fi
 }
 
-require_command npm
-require_command dotnet
-require_command node
-require_non_empty_env GITHUB_PACKAGES_TOKEN
+RequireCommand npm
+RequireCommand dotnet
+RequireCommand node
+RequireNonEmptyEnv GITHUB_PACKAGES_TOKEN
 
 mapfile -t runtime_profile_fields < <(node "${ROOT_DIR}/tools/runtime-profiles/resolve-runtime-publish-profile.mjs" \
     --manifest "${RUNTIME_PROFILE_MANIFEST}" \
@@ -57,23 +57,23 @@ NATIVE_AOT="${runtime_profile_fields[10]}"
 OUTPUT_DIR="${ROOT_DIR}/build/native/${RUNTIME_PROFILE_ID}/${TARGET_RUNTIME}/${BUILD_CONFIGURATION_LOWER}"
 ZK_NATIVE_ARTIFACT_DIR="${FSUSBLOG_ZK_NATIVE_ARTIFACT_DIR:-${ROOT_DIR}/build/artifacts/native-zk/${TARGET_RUNTIME}}"
 
-log "cleaning ${OUTPUT_DIR}"
+Log "cleaning ${OUTPUT_DIR}"
 rm -rf "${OUTPUT_DIR}"
 mkdir -p "${OUTPUT_DIR}"
 
-log "installing client dependencies"
+Log "installing client dependencies"
 (
     cd "${CLIENT_DIR}"
     npm ci --no-audit --progress=false
 )
 
-log "building client release assets"
+Log "building client release assets"
 (
     cd "${CLIENT_DIR}"
     npm run build:release
 )
 
-log "publishing server profile ${RUNTIME_PROFILE_ID} (${TARGET_RUNTIME})"
+Log "publishing server profile ${RUNTIME_PROFILE_ID} (${TARGET_RUNTIME})"
 dotnet publish "${SERVER_PROJ}" \
     -c "${BUILD_CONFIGURATION}" \
     -r "${TARGET_RUNTIME}" \
@@ -89,23 +89,23 @@ dotnet publish "${SERVER_PROJ}" \
     /p:PublishReadyToRun="${PUBLISH_READY_TO_RUN}" \
     /p:ReadyToRunUseCrossgen2="${PUBLISH_READY_TO_RUN}"
 
-log "syncing frontend dist into wwwroot"
+Log "syncing frontend dist into wwwroot"
 rm -rf "${OUTPUT_DIR}/wwwroot"
 mkdir -p "${OUTPUT_DIR}/wwwroot"
 cp -a "${FRONTEND_DIST_DIR}/." "${OUTPUT_DIR}/wwwroot/"
 
 if [[ -d "${ZK_NATIVE_ARTIFACT_DIR}" ]]; then
-    log "syncing ZK native artifacts from ${ZK_NATIVE_ARTIFACT_DIR}"
+    Log "syncing ZK native artifacts from ${ZK_NATIVE_ARTIFACT_DIR}"
     rm -rf "${OUTPUT_DIR}/native/zk"
     mkdir -p "${OUTPUT_DIR}/native/zk"
     cp -a "${ZK_NATIVE_ARTIFACT_DIR}/." "${OUTPUT_DIR}/native/zk/"
 else
-    log "ZK native artifacts not found; native Groth16 verifier will remain fail-closed"
+    Log "ZK native artifacts not found; native Groth16 verifier will remain fail-closed"
 fi
 
-log "packaging client runtime for Node SSR worker"
+Log "packaging client runtime for Node SSR worker"
 rm -rf "${OUTPUT_DIR}/FsusBlog.ClientRuntime"
 mkdir -p "${OUTPUT_DIR}/FsusBlog.ClientRuntime"
 cp -a "${CLIENT_DIR}/." "${OUTPUT_DIR}/FsusBlog.ClientRuntime/"
 
-log "native release ready at ${OUTPUT_DIR}"
+Log "native release ready at ${OUTPUT_DIR}"

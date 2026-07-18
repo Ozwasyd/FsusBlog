@@ -30,35 +30,35 @@ COUNTERS_PID=""
 TRACE_PID=""
 DIAGNOSTIC_SOCKET=""
 
-log() {
+Log() {
     printf '[perf] %s\n' "$1"
 }
 
-fail() {
+Fail() {
     printf '[perf] error: %s\n' "$1" >&2
     exit 1
 }
 
-require_command() {
-    command -v "$1" >/dev/null 2>&1 || fail "$1 is required"
+RequireCommand() {
+    command -v "$1" >/dev/null 2>&1 || Fail "$1 is required"
 }
 
-format_seconds_duration() {
+FormatSecondsDuration() {
     local seconds="$1"
     if ! [[ "$seconds" =~ ^[0-9]+$ ]] || ((seconds <= 0)); then
-        fail "duration must be a positive integer number of seconds: $seconds"
+        Fail "duration must be a positive integer number of seconds: $seconds"
     fi
 
     local hours=$((seconds / 3600))
     local minutes=$(((seconds % 3600) / 60))
-    local remaining_seconds=$((seconds % 60))
-    printf '00:%02d:%02d:%02d' "$hours" "$minutes" "$remaining_seconds"
+    local remainingSeconds=$((seconds % 60))
+    printf '00:%02d:%02d:%02d' "$hours" "$minutes" "$remainingSeconds"
 }
 
-COUNTERS_DURATION="$(format_seconds_duration "$COUNTERS_SECONDS")"
-TRACE_DURATION="$(format_seconds_duration "$TRACE_SECONDS")"
+COUNTERS_DURATION="$(FormatSecondsDuration "$COUNTERS_SECONDS")"
+TRACE_DURATION="$(FormatSecondsDuration "$TRACE_SECONDS")"
 
-read_secret_token() {
+ReadSecretToken() {
     if [[ -n "${GITHUB_PACKAGES_TOKEN:-}" ]]; then
         GH_TOKEN="$GITHUB_PACKAGES_TOKEN"
         return
@@ -66,11 +66,11 @@ read_secret_token() {
 
     GH_TOKEN="$(gh auth token)"
     if [[ -z "$GH_TOKEN" ]]; then
-        fail "gh auth token returned an empty token"
+        Fail "gh auth token returned an empty token"
     fi
 }
 
-cleanup_container() {
+CleanupContainer() {
     if [[ "$RUN_CLEANUP" == "1" ]]; then
         return
     fi
@@ -78,11 +78,11 @@ cleanup_container() {
     docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 }
 
-remove_existing_container() {
+RemoveExistingContainer() {
     docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 }
 
-cleanup_background_tools() {
+CleanupBackgroundTools() {
     if [[ -n "$COUNTERS_PID" ]]; then
         kill "$COUNTERS_PID" >/dev/null 2>&1 || true
     fi
@@ -92,56 +92,56 @@ cleanup_background_tools() {
     fi
 }
 
-on_exit() {
+OnExit() {
     local status=$?
-    cleanup_background_tools
-    cleanup_container
+    CleanupBackgroundTools
+    CleanupContainer
     if [[ $status -ne 0 ]]; then
         docker logs "$CONTAINER_NAME" >"$OUT_DIR/container-final.log" 2>&1 || true
-        log "failed; artifacts preserved in $OUT_DIR"
+        Log "failed; artifacts preserved in $OUT_DIR"
     fi
 }
 
-wait_for_url() {
+WaitForUrl() {
     local label="$1"
     local url="$2"
     local attempts="${3:-90}"
 
     for ((i = 0; i < attempts; i += 1)); do
         if curl -fsS --max-time 3 -A "$PERF_USER_AGENT" "$url" >/dev/null 2>&1; then
-            log "$label ready: $url"
+            Log "$label ready: $url"
             return 0
         fi
         sleep 1
     done
 
-    fail "$label did not become ready: $url"
+    Fail "$label did not become ready: $url"
 }
 
-wait_for_binary_url() {
+WaitForBinaryUrl() {
     local label="$1"
     local url="$2"
     local attempts="${3:-90}"
 
     for ((i = 0; i < attempts; i += 1)); do
         if curl -fsS --max-time 3 -A "$PERF_USER_AGENT" -H 'Accept: application/octet-stream' "$url" >/dev/null 2>&1; then
-            log "$label ready: $url"
+            Log "$label ready: $url"
             return 0
         fi
         sleep 1
     done
 
-    fail "$label did not become ready: $url"
+    Fail "$label did not become ready: $url"
 }
 
-build_image() {
+BuildImage() {
     if [[ "$RUN_BUILD" == "1" ]]; then
-        log "skip Docker image build by FSUSBLOG_PERF_SKIP_BUILD=1"
+        Log "skip Docker image build by FSUSBLOG_PERF_SKIP_BUILD=1"
         return
     fi
 
-    read_secret_token
-    log "building Docker final image through repo release path: $IMAGE_TAG"
+    ReadSecretToken
+    Log "building Docker final image through repo release path: $IMAGE_TAG"
     GITHUB_PACKAGES_TOKEN="$GH_TOKEN" \
         FSUSBLOG_FINAL_LOCAL_ONLY=1 \
         FSUSBLOG_FINAL_IMAGE_TAG="$IMAGE_TAG" \
@@ -150,25 +150,25 @@ build_image() {
         >"$OUT_DIR/docker-build.log" 2>&1
 }
 
-start_diagnostics() {
+StartDiagnostics() {
     if [[ -z "$DIAGNOSTIC_SOCKET" ]]; then
-        fail "diagnostic socket was not discovered"
+        Fail "diagnostic socket was not discovered"
     fi
 
-    local diagnostic_port="$DIAGNOSTIC_SOCKET,connect"
+    local diagnosticPort="$DIAGNOSTIC_SOCKET,connect"
 
-    log "starting dotnet-counters for ${COUNTERS_SECONDS}s"
+    Log "starting dotnet-counters for ${COUNTERS_SECONDS}s"
     dotnet-counters monitor \
-        --diagnostic-port "$diagnostic_port" \
+        --diagnostic-port "$diagnosticPort" \
         --refresh-interval 1 \
         --duration "$COUNTERS_DURATION" \
         --counters System.Runtime,Microsoft.AspNetCore.Hosting,Microsoft.AspNetCore.Server.Kestrel,FsusBlog.Server,FsusBlog.NotificationStream \
         >"$OUT_DIR/dotnet-counters.log" 2>&1 &
     COUNTERS_PID="$!"
 
-    log "starting dotnet-trace for ${TRACE_SECONDS}s"
+    Log "starting dotnet-trace for ${TRACE_SECONDS}s"
     dotnet-trace collect \
-        --diagnostic-port "$diagnostic_port" \
+        --diagnostic-port "$diagnosticPort" \
         --duration "$TRACE_DURATION" \
         --profile dotnet-sampled-thread-time,dotnet-common \
         --format Speedscope \
@@ -177,7 +177,7 @@ start_diagnostics() {
     TRACE_PID="$!"
 }
 
-wait_for_diagnostic_socket() {
+WaitForDiagnosticSocket() {
     local attempts="${1:-30}"
 
     for ((i = 0; i < attempts; i += 1)); do
@@ -185,25 +185,25 @@ wait_for_diagnostic_socket() {
         socket="$(find "$DIAG_DIR" -maxdepth 1 -type s -name 'dotnet-diagnostic-*-socket' -print -quit 2>/dev/null || true)"
         if [[ -n "$socket" ]]; then
             DIAGNOSTIC_SOCKET="$socket"
-            log "diagnostic socket ready: $DIAGNOSTIC_SOCKET"
+            Log "diagnostic socket ready: $DIAGNOSTIC_SOCKET"
             return 0
         fi
         sleep 1
     done
 
-    fail "diagnostic socket did not become ready in $DIAG_DIR"
+    Fail "diagnostic socket did not become ready in $DIAG_DIR"
 }
 
-prepare_runtime_writable_overlays() {
+PrepareRuntimeWritableOverlays() {
     mkdir -p "$DIAG_DIR/aot-cache"
     mkdir -p "$DIAG_DIR/data"
     mkdir -p "$DIAG_DIR/upload-sessions"
     rm -rf "$DIAG_DIR/search"
     mkdir -p "$DIAG_DIR/search"
-    local seed_container
-    seed_container="$(docker create "$IMAGE_TAG")"
-    docker cp "$seed_container:/app/wwwroot/search/." "$DIAG_DIR/search/" >/dev/null 2>&1 || true
-    docker rm "$seed_container" >/dev/null 2>&1 || true
+    local seedContainer
+    seedContainer="$(docker create "$IMAGE_TAG")"
+    docker cp "$seedContainer:/app/wwwroot/search/." "$DIAG_DIR/search/" >/dev/null 2>&1 || true
+    docker rm "$seedContainer" >/dev/null 2>&1 || true
     touch "$DIAG_DIR/auto-imports.d.ts" "$DIAG_DIR/components.d.ts"
     chmod 0777 "$DIAG_DIR/aot-cache"
     chmod -R u+rwX,go+rwX "$DIAG_DIR/data"
@@ -212,13 +212,13 @@ prepare_runtime_writable_overlays() {
     chmod 0666 "$DIAG_DIR/auto-imports.d.ts" "$DIAG_DIR/components.d.ts"
 }
 
-start_container() {
-    remove_existing_container
-    log "starting container $CONTAINER_NAME on $BASE_URL"
-    prepare_runtime_writable_overlays
-    local test_session_env_args=()
+StartContainer() {
+    RemoveExistingContainer
+    Log "starting container $CONTAINER_NAME on $BASE_URL"
+    PrepareRuntimeWritableOverlays
+    local testSessionEnvArgs=()
     if [[ "$USE_TEST_SESSION_FOR_READS" == "1" ]]; then
-        test_session_env_args=(-e FSUSBLOG_TEST_SESSION_ISOLATION=1)
+        testSessionEnvArgs=(-e FSUSBLOG_TEST_SESSION_ISOLATION=1)
     fi
 
     docker run -d \
@@ -241,7 +241,7 @@ start_container() {
         -e HOME=/diag \
         -e TMPDIR=/diag \
         -e FSUSBLOG_DATA_ROOT=/diag/data \
-        "${test_session_env_args[@]}" \
+        "${testSessionEnvArgs[@]}" \
         -e ConnectionStrings__DefaultConnection="${FSUSBLOG_PERF_POSTGRES:-Host=host.docker.internal;Port=5432;Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Pooling=true;Minimum Pool Size=5;Maximum Pool Size=100;No Reset On Close=true}" \
         -e ConnectionStrings__Redis="${FSUSBLOG_PERF_REDIS:-host.docker.internal:6379,abortConnect=false,connectTimeout=5000}" \
         -e RedisOptions__Configuration="${FSUSBLOG_PERF_REDIS:-host.docker.internal:6379,abortConnect=false,connectTimeout=5000}" \
@@ -262,13 +262,13 @@ start_container() {
     docker logs -f "$CONTAINER_NAME" >"$OUT_DIR/container.log" 2>&1 &
 }
 
-run_wrk() {
+RunWrk() {
     local name="$1"
     local url="$2"
     local accept="$3"
     local output="$OUT_DIR/wrk-$name.log"
 
-    log "wrk $name: $url"
+    Log "wrk $name: $url"
     wrk \
         -t"$WRK_THREADS" \
         -c"$WRK_CONNECTIONS" \
@@ -280,7 +280,7 @@ run_wrk() {
         >"$output" 2>&1
 }
 
-discover_article_id() {
+DiscoverArticleId() {
     FSUSBLOG_BASE_URL="$BASE_URL" FSUSBLOG_TEST_SESSION_ID="$TEST_SESSION_ID" node --input-type=module - <<'NODE'
 import { readAedsResponse } from './tests/frontend/support/aeds-envelope.mjs'
 
@@ -303,53 +303,53 @@ console.log(items[0].id)
 NODE
 }
 
-run_load_checks() {
-    local test_session_env=()
+RunLoadChecks() {
+    local testSessionEnv=()
     if [[ "$USE_TEST_SESSION_FOR_READS" == "1" ]]; then
-        test_session_env=(FSUSBLOG_TEST_SESSION_ID="$TEST_SESSION_ID")
+        testSessionEnv=(FSUSBLOG_TEST_SESSION_ID="$TEST_SESSION_ID")
     fi
 
-    log "running existing public/api load gate"
+    Log "running existing public/api load gate"
     (
         cd "$CLIENT_DIR"
         env \
             FSUSBLOG_BASE_URL="$BASE_URL" \
             FSUSBLOG_PUBLIC_BASE_URL="$BASE_URL" \
             FSUSBLOG_HTTP_TIMEOUT_MS="${FSUSBLOG_HTTP_TIMEOUT_MS:-10000}" \
-            "${test_session_env[@]}" \
+            "${testSessionEnv[@]}" \
             npm run check:load:public-api
     ) >"$OUT_DIR/check-load-public-api.log" 2>&1
 
-    log "running notification stream pressure gate"
+    Log "running notification stream pressure gate"
     (
         cd "$CLIENT_DIR"
         env \
             FSUSBLOG_BASE_URL="$BASE_URL" \
             FSUSBLOG_HTTP_TIMEOUT_MS="${FSUSBLOG_HTTP_TIMEOUT_MS:-10000}" \
-            "${test_session_env[@]}" \
+            "${testSessionEnv[@]}" \
             npm run check:load:notification-stream-pressure
     ) >"$OUT_DIR/check-notification-stream-pressure.log" 2>&1
 }
 
-run_http_baseline() {
-    local article_id
-    article_id="$(discover_article_id)"
-    printf '%s\n' "$article_id" >"$OUT_DIR/article-id.txt"
+RunHttpBaseline() {
+    local articleId
+    articleId="$(DiscoverArticleId)"
+    printf '%s\n' "$articleId" >"$OUT_DIR/article-id.txt"
 
-    run_wrk public-home "$BASE_URL/" "text/html"
-    run_wrk search-manifest "$BASE_URL/search/index.manifest.aeds" "application/octet-stream"
-    run_wrk binary-system-seo "$BASE_URL/api/binary/system/seo" "application/octet-stream"
-    run_wrk binary-pow-challenge "$BASE_URL/api/binary/auth/pow-challenge" "application/octet-stream"
-    run_wrk binary-article-list "$BASE_URL/api/binary/article/list/home/1/10.aeds" "application/octet-stream"
-    run_wrk binary-article-detail "$BASE_URL/api/binary/article/$article_id.aeds" "application/octet-stream"
-    run_wrk binary-article-hot-l0 "$BASE_URL/api/binary/article/hot/10.aeds" "application/octet-stream"
-    run_wrk binary-article-featured-l0 "$BASE_URL/api/binary/article/featured/4.aeds" "application/octet-stream"
-    run_wrk binary-category-l0 "$BASE_URL/api/binary/category.aeds" "application/octet-stream"
-    run_wrk binary-tag-l0 "$BASE_URL/api/binary/tag.aeds" "application/octet-stream"
-    run_wrk binary-comment-list "$BASE_URL/api/binary/comment/$article_id?limit=10" "application/octet-stream"
+    RunWrk public-home "$BASE_URL/" "text/html"
+    RunWrk search-manifest "$BASE_URL/search/index.manifest.aeds" "application/octet-stream"
+    RunWrk binary-system-seo "$BASE_URL/api/binary/system/seo" "application/octet-stream"
+    RunWrk binary-pow-challenge "$BASE_URL/api/binary/auth/pow-challenge" "application/octet-stream"
+    RunWrk binary-article-list "$BASE_URL/api/binary/article/list/home/1/10.aeds" "application/octet-stream"
+    RunWrk binary-article-detail "$BASE_URL/api/binary/article/$articleId.aeds" "application/octet-stream"
+    RunWrk binary-article-hot-l0 "$BASE_URL/api/binary/article/hot/10.aeds" "application/octet-stream"
+    RunWrk binary-article-featured-l0 "$BASE_URL/api/binary/article/featured/4.aeds" "application/octet-stream"
+    RunWrk binary-category-l0 "$BASE_URL/api/binary/category.aeds" "application/octet-stream"
+    RunWrk binary-tag-l0 "$BASE_URL/api/binary/tag.aeds" "application/octet-stream"
+    RunWrk binary-comment-list "$BASE_URL/api/binary/comment/$articleId?limit=10" "application/octet-stream"
 }
 
-write_summary() {
+WriteSummary() {
     docker stats "$CONTAINER_NAME" --no-stream >"$OUT_DIR/docker-stats.txt" 2>&1 || true
     docker inspect "$CONTAINER_NAME" >"$OUT_DIR/docker-inspect.json" 2>&1 || true
     docker logs "$CONTAINER_NAME" >"$OUT_DIR/container-final.log" 2>&1 || true
@@ -481,41 +481,41 @@ writeFileSync(join(outDir, 'summary.json'), JSON.stringify({
 NODE
 }
 
-main() {
-    COUNTERS_DURATION="$(format_seconds_duration "$COUNTERS_SECONDS")"
-    TRACE_DURATION="$(format_seconds_duration "$TRACE_SECONDS")"
+Main() {
+    COUNTERS_DURATION="$(FormatSecondsDuration "$COUNTERS_SECONDS")"
+    TRACE_DURATION="$(FormatSecondsDuration "$TRACE_SECONDS")"
     mkdir -p "$DIAG_DIR"
     chmod 0777 "$DIAG_DIR"
 
-    require_command docker
-    require_command gh
-    require_command wrk
-    require_command node
-    require_command npm
-    require_command curl
-    require_command dotnet-counters
-    require_command dotnet-trace
+    RequireCommand docker
+    RequireCommand gh
+    RequireCommand wrk
+    RequireCommand node
+    RequireCommand npm
+    RequireCommand curl
+    RequireCommand dotnet-counters
+    RequireCommand dotnet-trace
 
-    trap on_exit EXIT
+    trap OnExit EXIT
 
-    build_image
-    start_container
-    wait_for_url "health live" "$BASE_URL/health/live" 120
-    wait_for_url "health ready" "$BASE_URL/health/ready" 120
-    wait_for_binary_url "binary seo" "$BASE_URL/api/binary/system/seo" 120
-    wait_for_diagnostic_socket 30
-    start_diagnostics
-    run_load_checks
-    run_http_baseline
+    BuildImage
+    StartContainer
+    WaitForUrl "health live" "$BASE_URL/health/live" 120
+    WaitForUrl "health ready" "$BASE_URL/health/ready" 120
+    WaitForBinaryUrl "binary seo" "$BASE_URL/api/binary/system/seo" 120
+    WaitForDiagnosticSocket 30
+    StartDiagnostics
+    RunLoadChecks
+    RunHttpBaseline
 
     wait "$COUNTERS_PID" || true
     wait "$TRACE_PID" || true
     COUNTERS_PID=""
     TRACE_PID=""
 
-    write_summary
-    log "artifacts: $OUT_DIR"
-    log "summary: $OUT_DIR/summary.json"
+    WriteSummary
+    Log "artifacts: $OUT_DIR"
+    Log "summary: $OUT_DIR/summary.json"
 }
 
-main "$@"
+Main "$@"
