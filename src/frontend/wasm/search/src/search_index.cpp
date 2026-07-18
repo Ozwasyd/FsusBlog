@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -215,7 +216,8 @@ std::uint16_t ReadU16(const std::uint8_t*& cursor, const std::uint8_t* end)
         return 0;
     }
 
-    std::uint16_t value = static_cast<std::uint16_t>(cursor[0]) | (static_cast<std::uint16_t>(cursor[1]) << 8);
+    std::uint16_t value = static_cast<std::uint16_t>(static_cast<std::uint32_t>(cursor[0])
+                                                     | (static_cast<std::uint32_t>(cursor[1]) << 8U));
     cursor += 2;
     return value;
 }
@@ -228,13 +230,13 @@ std::int64_t ReadI64(const std::uint8_t*& cursor, const std::uint8_t* end)
         return 0;
     }
 
-    std::int64_t value = 0;
-    for (int i = 0; i < 8; ++i)
+    std::uint64_t raw = 0;
+    for (std::uint32_t index = 0; index < 8U; ++index)
     {
-        value |= static_cast<std::int64_t>(cursor[i]) << (8 * i);
+        raw |= static_cast<std::uint64_t>(cursor[index]) << (8U * index);
     }
     cursor += 8;
-    return value;
+    return std::bit_cast<std::int64_t>(raw);
 }
 
 float ReadF32(const std::uint8_t*& cursor, const std::uint8_t* end)
@@ -264,8 +266,8 @@ std::string ReadString(const std::uint8_t* start, const std::uint8_t* end, std::
 std::uint32_t ReadVint(const std::uint8_t*& cursor, const std::uint8_t* end)
 {
     std::uint32_t value = 0;
-    int shift = 0;
-    while (cursor < end && shift <= 28)
+    std::uint32_t shift = 0;
+    while (cursor < end && shift <= 28U)
     {
         const std::uint8_t Byte = *cursor++;
         value |= static_cast<std::uint32_t>(Byte & 0x7Fu) << shift;
@@ -283,18 +285,18 @@ std::uint32_t ReadVint(const std::uint8_t*& cursor, const std::uint8_t* end)
 std::uint32_t MurmurHash3(std::string_view source)
 {
     const auto* data = reinterpret_cast<const std::uint8_t*>(source.data());
-    const int Length = static_cast<int>(source.size());
-    const int RoundedEnd = Length & ~0x3;
+    const std::size_t Length = source.size();
+    const std::size_t RoundedEnd = Length & ~std::size_t{3};
     std::uint32_t h1 = 0;
 
     constexpr std::uint32_t C1 = 0xcc9e2d51u;
     constexpr std::uint32_t C2 = 0x1b873593u;
 
-    for (int i = 0; i < RoundedEnd; i += 4)
+    for (std::size_t index = 0; index < RoundedEnd; index += 4U)
     {
-        std::uint32_t k1 = static_cast<std::uint32_t>(data[i]) | (static_cast<std::uint32_t>(data[i + 1]) << 8)
-                           | (static_cast<std::uint32_t>(data[i + 2]) << 16)
-                           | (static_cast<std::uint32_t>(data[i + 3]) << 24);
+        std::uint32_t k1 = static_cast<std::uint32_t>(data[index]) | (static_cast<std::uint32_t>(data[index + 1]) << 8)
+                           | (static_cast<std::uint32_t>(data[index + 2]) << 16)
+                           | (static_cast<std::uint32_t>(data[index + 3]) << 24);
 
         k1 *= C1;
         k1 = (k1 << 15) | (k1 >> 17);
@@ -306,7 +308,7 @@ std::uint32_t MurmurHash3(std::string_view source)
     }
 
     std::uint32_t k1 = 0;
-    switch (Length & 3)
+    switch (Length & std::size_t{3})
     {
         case 3:
             k1 ^= static_cast<std::uint32_t>(data[RoundedEnd + 2]) << 16;
@@ -384,7 +386,7 @@ std::vector<std::uint32_t> TokenizeQueryHashes(std::string query)
 {
     std::vector<std::uint32_t> hashes;
     std::string asciiBuffer;
-    auto flushAscii = [&]()
+    auto flushAscii = [&]
     {
         if (!asciiBuffer.empty())
         {
@@ -477,8 +479,8 @@ double ComputeHotScore(const SearchDoc& doc, std::int64_t nowMs)
 
 void WriteU16(std::string& target, std::uint16_t value)
 {
-    target.push_back(static_cast<char>(value & 0xFFu));
-    target.push_back(static_cast<char>((value >> 8) & 0xFFu));
+    target.push_back(static_cast<char>(static_cast<std::uint32_t>(value) & 0xFFu));
+    target.push_back(static_cast<char>((static_cast<std::uint32_t>(value) >> 8U) & 0xFFu));
 }
 
 void WriteU32(std::string& target, std::uint32_t value)
@@ -504,9 +506,10 @@ void PatchU32(std::string& target, std::size_t offset, std::uint32_t value)
 
 void WriteI64(std::string& target, std::int64_t value)
 {
-    for (int shift = 0; shift < 64; shift += 8)
+    const std::uint64_t Bits = std::bit_cast<std::uint64_t>(value);
+    for (std::uint32_t shift = 0; shift < 64U; shift += 8U)
     {
-        target.push_back(static_cast<char>((static_cast<std::uint64_t>(value) >> shift) & 0xFFu));
+        target.push_back(static_cast<char>((Bits >> shift) & 0xFFu));
     }
 }
 

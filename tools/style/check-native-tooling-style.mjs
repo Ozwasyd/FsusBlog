@@ -25,6 +25,7 @@ let baseline = new Map()
 let jsonWithCommentsPatterns = []
 const diagnostics = []
 let compileCommandDatabases = null
+const compilerDriverFlags = new Map()
 
 function ParseArguments(argv)
 {
@@ -533,7 +534,7 @@ function LoadCompileCommandDatabases()
             const files = new Set(entries.map((entry) => path.isAbsolute(entry.file)
                 ? path.resolve(entry.file)
                 : path.resolve(entry.directory ?? directory, entry.file)))
-            compileCommandDatabases.push({ directory, files })
+            compileCommandDatabases.push({ directory, files, entries })
         }
         catch (error)
         {
@@ -546,7 +547,64 @@ function LoadCompileCommandDatabases()
 function FindCompileCommandDatabase(file)
 {
     const absolute = path.resolve(root, file)
-    return LoadCompileCommandDatabases().find((database) => database.files.has(absolute)) ?? null
+    const database = LoadCompileCommandDatabases().find((candidate) => candidate.files.has(absolute)) ?? null
+    if (!database)
+    {
+        return null
+    }
+    const entry = database.entries.find((candidate) =>
+    {
+        const candidateFile = path.isAbsolute(candidate.file)
+            ? path.resolve(candidate.file)
+            : path.resolve(candidate.directory ?? database.directory, candidate.file)
+        return candidateFile === absolute
+    })
+    return { ...database, entry }
+}
+
+function IsCppTranslationUnit(file)
+{
+    return new Set(['.c', '.cc', '.cpp', '.cxx']).has(path.posix.extname(file).toLowerCase())
+}
+
+function CompileCommandExecutable(entry)
+{
+    if (Array.isArray(entry?.arguments) && entry.arguments.length > 0)
+    {
+        return entry.arguments[0]
+    }
+    const match = entry?.command?.trim().match(/^(?:"([^"]+)"|'([^']+)'|([^\s]+))/u)
+    return match?.[1] ?? match?.[2] ?? match?.[3] ?? null
+}
+
+function ClangTidyDriverArguments(compileDatabase)
+{
+    const compiler = CompileCommandExecutable(compileDatabase.entry)
+    if (!compiler || !/^(?:em\+\+|emcc)(?:\.bat)?$/iu.test(path.basename(compiler)))
+    {
+        return []
+    }
+    if (!compilerDriverFlags.has(compiler))
+    {
+        const result = Run(compiler, ['--cflags'])
+        const output = result.status === 0 ? result.stdout.trim() : ''
+        const target = output.match(/(?:^|\s)-target\s+([^\s]+)/u)?.[1]
+            ?? output.match(/(?:^|\s)--target=([^\s]+)/u)?.[1]
+        const sysroot = output.match(/(?:^|\s)--sysroot=([^\s]+)/u)?.[1]
+        const argumentsList = []
+        if (target)
+        {
+            argumentsList.push(`--extra-arg-before=--target=${target}`)
+        }
+        if (sysroot)
+        {
+            argumentsList.push(`--extra-arg-before=--sysroot=${sysroot}`)
+            argumentsList.push(`--extra-arg-before=-isystem${sysroot}/include/fakesdl`)
+            argumentsList.push(`--extra-arg-before=-isystem${sysroot}/include/compat`)
+        }
+        compilerDriverFlags.set(compiler, argumentsList)
+    }
+    return compilerDriverFlags.get(compiler)
 }
 
 function RequireTool(name, file)
@@ -710,6 +768,105 @@ function CheckFourSpaceIndent(file, content, ignoredLines = new Set())
     }
 }
 
+function CheckCppFallbackIndent(file, content)
+{
+    const lines = content.split(/\r?\n/u)
+    const state = {
+        blockComment: false,
+        parenDepth: 0,
+        bracketDepth: 0,
+        initializerDepth: 0
+    }
+    for (let index = 0; index < lines.length; index += 1)
+    {
+        const line = lines[index]
+        const trimmed = line.trim()
+        const continuation = state.blockComment
+            || state.parenDepth > 0
+            || state.bracketDepth > 0
+            || state.initializerDepth > 0
+            || /^\*/u.test(trimmed)
+            || /^\/\*/u.test(trimmed)
+            || /^(?:\|\||&&|[|?:+*/%.,-])/u.test(trimmed)
+        if (trimmed && !continuation && LeadingSpaces(line) % 4 !== 0)
+        {
+            AddDiagnostic(file, index + 1, 'indent', 'C++ base indentation must be a multiple of 4 spaces')
+        }
+
+        let quote = null
+        let escaped = false
+        for (let cursor = 0; cursor < line.length; cursor += 1)
+        {
+            const character = line[cursor]
+            const next = line[cursor + 1]
+            if (state.blockComment)
+            {
+                if (character === '*' && next === '/')
+                {
+                    state.blockComment = false
+                    cursor += 1
+                }
+                continue
+            }
+            if (quote)
+            {
+                if (escaped)
+                {
+                    escaped = false
+                }
+                else if (character === '\\')
+                {
+                    escaped = true
+                }
+                else if (character === quote)
+                {
+                    quote = null
+                }
+                continue
+            }
+            if (character === '/' && next === '*')
+            {
+                state.blockComment = true
+                cursor += 1
+                continue
+            }
+            if (character === '/' && next === '/')
+            {
+                break
+            }
+            if (character === '"' || character === "'")
+            {
+                quote = character
+                continue
+            }
+            if (character === '(')
+            {
+                state.parenDepth += 1
+            }
+            else if (character === ')')
+            {
+                state.parenDepth = Math.max(0, state.parenDepth - 1)
+            }
+            else if (character === '[')
+            {
+                state.bracketDepth += 1
+            }
+            else if (character === ']')
+            {
+                state.bracketDepth = Math.max(0, state.bracketDepth - 1)
+            }
+            else if (character === '{' && trimmed !== '{')
+            {
+                state.initializerDepth += 1
+            }
+            else if (character === '}' && state.initializerDepth > 0)
+            {
+                state.initializerDepth -= 1
+            }
+        }
+    }
+}
+
 function CheckCMakeIndent(file, content)
 {
     const commandLine = /^\s*(?:[A-Za-z_][A-Za-z0-9_]*\s*\(|else\s*\(|elseif\s*\(|endif\s*\(|endfunction\s*\(|endmacro\s*\(|endforeach\s*\(|endwhile\s*\()/iu
@@ -743,7 +900,7 @@ function CheckCpp(file, content, argumentsValue)
         {
             RequireTool(clangFormat, file)
         }
-        CheckFourSpaceIndent(file, content)
+        CheckCppFallbackIndent(file, content)
         const lines = content.split(/\r?\n/u)
         for (let index = 0; index < lines.length; index += 1)
         {
@@ -826,6 +983,10 @@ function CheckCpp(file, content, argumentsValue)
     {
         return
     }
+    if (!IsCppTranslationUnit(file))
+    {
+        return
+    }
     const clangTidy = policy.standardTools.cppLint.command
     if (!IsCommandAvailable(clangTidy))
     {
@@ -844,7 +1005,13 @@ function CheckCpp(file, content, argumentsValue)
         }
         return
     }
-    const tidyResult = Run(clangTidy, ['--quiet', '-p', compileDatabase.directory, file])
+    const tidyResult = Run(clangTidy, [
+        '--quiet',
+        '-p',
+        compileDatabase.directory,
+        file,
+        ...ClangTidyDriverArguments(compileDatabase)
+    ])
     if (tidyResult.status !== 0 || /(?:warning|error):/u.test(`${tidyResult.stdout}\n${tidyResult.stderr}`))
     {
         ToolFailure(file, 'clang-tidy', tidyResult)

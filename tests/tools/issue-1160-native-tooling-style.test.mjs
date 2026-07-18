@@ -359,6 +359,120 @@ test('issue 1160 invokes ShellCheck through its portable automatic rc lookup', (
     })
 })
 
+test('issue 1160 formats headers directly and reserves clang-tidy compile commands for translation units', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const bin = path.join(fixtureRoot, 'bin')
+        const tidyCapture = path.join(fixtureRoot, 'clang-tidy.args')
+        WriteFile(
+            fixtureRoot,
+            'sample/Header.hpp',
+            '#pragma once\n\nnamespace Sample\n{\nstruct Header\n{\n    int value;\n};\n} // namespace Sample\n'
+        )
+        WriteFile(fixtureRoot, 'bin/clang-format', '#!/usr/bin/env bash\nset -euo pipefail\n')
+        WriteFile(
+            fixtureRoot,
+            'bin/clang-tidy',
+            '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'%s\\n\' "$@" > "${FSUSBLOG_CLANG_TIDY_CAPTURE}"\n'
+        )
+        fs.chmodSync(path.join(bin, 'clang-format'), 0o755)
+        fs.chmodSync(path.join(bin, 'clang-tidy'), 0o755)
+
+        const result = RunChecker(fixtureRoot, ['sample/Header.hpp'], [
+            '--domain', 'native',
+            '--require-tools'
+        ], {
+            FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
+            FSUSBLOG_CLANG_TIDY_CAPTURE: tidyCapture,
+            PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}`
+        })
+        assert.equal(result.status, 0, Output(result))
+        assert.equal(fs.existsSync(tidyCapture), false)
+    })
+})
+
+test('issue 1160 derives clang-tidy target and sysroot from the active Emscripten compiler', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const bin = path.join(fixtureRoot, 'bin')
+        const source = path.join(fixtureRoot, 'sample/Native.cpp')
+        const tidyCapture = path.join(fixtureRoot, 'clang-tidy.args')
+        WriteFile(fixtureRoot, 'sample/Native.cpp', 'int ResolveValue()\n{\n    return 1;\n}\n')
+        WriteFile(fixtureRoot, 'bin/clang-format', '#!/usr/bin/env bash\nset -euo pipefail\n')
+        WriteFile(
+            fixtureRoot,
+            'bin/em++',
+            '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'%s\\n\' \'-target wasm32-unknown-emscripten --sysroot=/dynamic/emscripten/sysroot\'\n'
+        )
+        WriteFile(
+            fixtureRoot,
+            'bin/clang-tidy',
+            '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'%s\\n\' "$@" > "${FSUSBLOG_CLANG_TIDY_CAPTURE}"\n'
+        )
+        for (const executable of ['clang-format', 'clang-tidy', 'em++'])
+        {
+            fs.chmodSync(path.join(bin, executable), 0o755)
+        }
+        WriteFile(
+            fixtureRoot,
+            '.tmp/cmake/native-basic/compile_commands.json',
+            `${JSON.stringify([{
+                directory: fixtureRoot,
+                file: source,
+                arguments: [path.join(bin, 'em++'), '-c', source]
+            }], null, 4)}\n`
+        )
+
+        const result = RunChecker(fixtureRoot, ['sample/Native.cpp'], [
+            '--domain', 'native',
+            '--require-tools'
+        ], {
+            FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
+            FSUSBLOG_CLANG_TIDY_CAPTURE: tidyCapture,
+            PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}`
+        })
+        assert.equal(result.status, 0, Output(result))
+        const argumentsList = fs.readFileSync(tidyCapture, 'utf8').trim().split('\n')
+        assert.ok(argumentsList.includes('--extra-arg-before=--target=wasm32-unknown-emscripten'))
+        assert.ok(argumentsList.includes('--extra-arg-before=--sysroot=/dynamic/emscripten/sysroot'))
+        assert.ok(argumentsList.includes('--extra-arg-before=-isystem/dynamic/emscripten/sysroot/include/fakesdl'))
+        assert.ok(argumentsList.includes('--extra-arg-before=-isystem/dynamic/emscripten/sysroot/include/compat'))
+    })
+})
+
+test('issue 1160 portable C++ fallback accepts formatter continuations but rejects block indentation debt', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const valid = `namespace Sample
+{
+/**
+ * Intent remains aligned by clang-format.
+ */
+int ResolveValue(
+                 int first,
+                 int second)
+{
+    const int Values[]{first,
+                       second};
+    return Values[0];
+}
+}
+`
+        WriteFile(fixtureRoot, 'sample/Continuation.cpp', valid)
+        const environment = { FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '1' }
+        const accepted = RunChecker(fixtureRoot, ['sample/Continuation.cpp'], ['--domain', 'native'], environment)
+        assert.equal(accepted.status, 0, Output(accepted))
+
+        WriteFile(fixtureRoot, 'sample/Continuation.cpp', valid.replace('    return Values[0];', '  return Values[0];'))
+        const rejected = RunChecker(fixtureRoot, ['sample/Continuation.cpp'], ['--domain', 'native'], environment)
+        assert.notEqual(rejected.status, 0)
+        assert.match(Output(rejected), /C\+\+ base indentation must be a multiple of 4 spaces/u)
+    })
+})
+
 test('issue 1160 invokes Markdownlint once for the complete explicit file batch', () =>
 {
     WithFixture((fixtureRoot) =>
