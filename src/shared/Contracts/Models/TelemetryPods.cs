@@ -4,6 +4,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RumMetricBatchRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RumMetricBatchRequestPod
 {
@@ -15,6 +18,9 @@ public readonly struct RumMetricBatchRequestPod
     public readonly Utf8SliceRef AotSource;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RumMetricItem</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RumMetricItemPod
 {
@@ -28,6 +34,9 @@ public readonly struct RumMetricItemPod
     public readonly Utf8SliceRef Name;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RumMetricValue</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RumMetricValuePod
 {
@@ -35,6 +44,9 @@ public readonly struct RumMetricValuePod
     public readonly Utf8SliceRef Key;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RumMetricDimension</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RumMetricDimensionPod
 {
@@ -42,6 +54,9 @@ public readonly struct RumMetricDimensionPod
     public readonly Utf8SliceRef Value;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RumMetricIngestResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RumMetricIngestResponsePod
 {

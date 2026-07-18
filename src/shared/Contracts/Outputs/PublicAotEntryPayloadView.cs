@@ -127,14 +127,14 @@ internal sealed class PublicAotEntryPayloadView
 
     private static ushort Crc16(ReadOnlySpan<byte> data)
     {
-        const ushort polynomial = 0xA001;
+        const ushort Polynomial = 0xA001;
         ushort crc = 0xFFFF;
         for (int i = 0; i < data.Length; i++)
         {
             crc ^= data[i];
             for (int bit = 0; bit < 8; bit++)
             {
-                crc = (ushort)(((crc & 1) != 0) ? ((crc >> 1) ^ polynomial) : (crc >> 1));
+                crc = (ushort)(((crc & 1) != 0) ? ((crc >> 1) ^ Polynomial) : (crc >> 1));
             }
         }
 
@@ -152,7 +152,13 @@ internal sealed class PublicAotEntryPayloadView
             _offset = 0;
         }
 
-        internal int Remaining => _source.Length - _offset;
+        internal int Remaining
+        {
+            get
+            {
+                return _source.Length - _offset;
+            }
+        }
 
         internal bool TryReadValue(out object? value)
         {
@@ -347,16 +353,16 @@ internal sealed class PublicAotEntryPayloadView
                 return false;
             }
 
-            const int signMask = unchecked((int)0x80000000);
-            const int scaleMask = 0x00FF0000;
-            int reservedBits = flags & ~(signMask | scaleMask);
+            const int SignMask = unchecked((int)0x80000000);
+            const int ScaleMask = 0x00FF0000;
+            int reservedBits = flags & ~(SignMask | ScaleMask);
             byte scale = (byte)((flags >> 16) & 0xFF);
             if (reservedBits != 0 || scale > 28)
             {
                 return false;
             }
 
-            bool isNegative = (flags & signMask) != 0;
+            bool isNegative = (flags & SignMask) != 0;
             value = new decimal(lo, mid, hi, isNegative, scale);
             return true;
         }

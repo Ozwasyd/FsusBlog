@@ -1,5 +1,8 @@
 namespace FsusBlog.Shared.Contracts.Security;
 
+/// <summary>
+/// Enumerates security-protocol values represented by <c>PerceptionSealedTaskKind</c>.
+/// </summary>
 public enum PerceptionSealedTaskKind : byte
 {
     Unknown = 0,
@@ -8,6 +11,9 @@ public enum PerceptionSealedTaskKind : byte
     MicroInteraction = 3
 }
 
+/// <summary>
+/// Enumerates security-protocol values represented by <c>PerceptionSealedResultPayloadKind</c>.
+/// </summary>
 public enum PerceptionSealedResultPayloadKind : byte
 {
     Unknown = 0,
@@ -16,6 +22,9 @@ public enum PerceptionSealedResultPayloadKind : byte
     Steps = 3
 }
 
+/// <summary>
+/// Defines the security transport contract represented by <c>PerceptionSealedChallengeV2</c>.
+/// </summary>
 public sealed record class PerceptionSealedChallengeV2(
     SecurityChallengeAssignment Assignment,
     string Algorithm,
@@ -31,6 +40,9 @@ public sealed record class PerceptionSealedChallengeV2(
     long IssuedAtUnixMs,
     long ExpiresAtUnixMs);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>PerceptionSealedResultV2</c>.
+/// </summary>
 public sealed record class PerceptionSealedResultV2(
     SecurityChallengeAssignment Assignment,
     string Algorithm,
@@ -43,11 +55,17 @@ public sealed record class PerceptionSealedResultV2(
     long IssuedAtUnixMs,
     long ExpiresAtUnixMs);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>PerceptionSealedContractValidationResult</c>.
+/// </summary>
 public sealed record PerceptionSealedContractValidationResult(bool IsValid, string ErrorCode)
 {
     public static PerceptionSealedContractValidationResult Valid { get; } = new(true, string.Empty);
 }
 
+/// <summary>
+/// Provides canonical validation and serialization rules for the <c>PerceptionSealedChallengeV2Contracts</c> security contract family.
+/// </summary>
 public static class PerceptionSealedChallengeV2Contracts
 {
     public const string Algorithm = "fsu.challenge/perception-sealed@v2";

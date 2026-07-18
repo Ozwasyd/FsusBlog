@@ -5,6 +5,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PopularArticle</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PopularArticlePod
 {
@@ -13,6 +16,9 @@ public readonly struct PopularArticlePod
     public readonly Utf8Fixed256 Title;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RecentComment</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RecentCommentPod
 {
@@ -25,6 +31,9 @@ public readonly struct RecentCommentPod
     public readonly Utf8SliceRef Content;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RegionDistribution</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RegionDistributionPod
 {
@@ -32,6 +41,9 @@ public readonly struct RegionDistributionPod
     public readonly Utf8Fixed128 Region;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>SiteStats</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SiteStatsPod
 {

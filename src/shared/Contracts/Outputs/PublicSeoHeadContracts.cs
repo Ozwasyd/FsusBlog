@@ -4,12 +4,18 @@ using System.Text;
 
 namespace FsusBlog.Shared.Contracts.Outputs;
 
+/// <summary>
+/// Provides canonical construction rules for public SEO head metadata.
+/// </summary>
 public static class PublicSeoHeadContract
 {
     public const string Schema = "fsusblog.public-seo-head";
     public const int Version = 1;
 }
 
+/// <summary>
+/// Defines the API output contract represented by <c>PublicSeoOpenGraphModel</c>.
+/// </summary>
 public sealed record class PublicSeoOpenGraphModel
 {
     public string Title { get; init; } = string.Empty;
@@ -23,6 +29,9 @@ public sealed record class PublicSeoOpenGraphModel
     }
 }
 
+/// <summary>
+/// Defines the API output contract represented by <c>PublicSeoTwitterCardModel</c>.
+/// </summary>
 public sealed record class PublicSeoTwitterCardModel
 {
     public string Card { get; init; } = "summary_large_image";

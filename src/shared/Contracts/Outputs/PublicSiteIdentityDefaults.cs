@@ -1,5 +1,8 @@
 namespace FsusBlog.Shared.Contracts.Outputs;
 
+/// <summary>
+/// Provides canonical fallback identity values for public site output.
+/// </summary>
 public static class PublicSiteIdentityDefaults
 {
     public const string SiteTitle = "Fsu's Blog";

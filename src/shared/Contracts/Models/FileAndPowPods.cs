@@ -4,6 +4,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>FileUploadOutput</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct FileUploadOutputPod
 {
@@ -12,6 +15,9 @@ public readonly struct FileUploadOutputPod
     public readonly Utf8Fixed128 Message;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UploadInit</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UploadInitPod
 {
@@ -26,6 +32,9 @@ public readonly struct UploadInitPod
     public readonly Utf8Fixed128 UploadToken;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UploadStatus</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UploadStatusPod
 {
@@ -40,6 +49,9 @@ public readonly struct UploadStatusPod
     public readonly long ExpiresAtUnixMs;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UploadPartMap</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UploadPartMapPod
 {
@@ -48,6 +60,9 @@ public readonly struct UploadPartMapPod
     public readonly int Reserved0;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UploadPartRange</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UploadPartRangePod
 {
@@ -55,6 +70,9 @@ public readonly struct UploadPartRangePod
     public readonly int End;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UploadPartAck</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UploadPartAckPod
 {
@@ -66,6 +84,9 @@ public readonly struct UploadPartAckPod
     public readonly int UploadedPartCount;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UploadComplete</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UploadCompletePod
 {
@@ -76,6 +97,9 @@ public readonly struct UploadCompletePod
     public readonly long TotalBytes;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UploadInitRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UploadInitRequestPod
 {
@@ -87,12 +111,18 @@ public readonly struct UploadInitRequestPod
     public readonly Utf8Fixed64 Sha256;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UploadCompleteRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UploadCompleteRequestPod
 {
     public readonly Utf8Fixed64 Sha256;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PowChallenge</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PowChallengePod
 {

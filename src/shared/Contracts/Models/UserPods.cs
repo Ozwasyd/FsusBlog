@@ -5,6 +5,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>TokenResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct TokenResponsePod
 {
@@ -12,6 +15,9 @@ public readonly struct TokenResponsePod
     public readonly Utf8Fixed512 RefreshToken;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>LoginResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct LoginResponsePod
 {
@@ -20,6 +26,9 @@ public readonly struct LoginResponsePod
     public readonly Utf8Fixed32 ReservedIdentity;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AuthLoginFlow</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AuthLoginFlowPod
 {
@@ -33,6 +42,9 @@ public readonly struct AuthLoginFlowPod
     public readonly Utf8Fixed64 ChallengeToken;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CurrentUserSnapshot</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CurrentUserSnapshotPod
 {
@@ -47,6 +59,9 @@ public readonly struct CurrentUserSnapshotPod
     public readonly Utf8Fixed256 BanReason;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>IdentityAccountSnapshot</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct IdentityAccountSnapshotPod
 {
@@ -70,6 +85,9 @@ public readonly struct IdentityAccountSnapshotPod
     public readonly Utf8SliceRef BanReason;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UserSessionSummary</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UserSessionSummaryPod
 {
@@ -83,6 +101,9 @@ public readonly struct UserSessionSummaryPod
     public readonly Utf8Fixed128 DeviceLabel;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AdminSessionSummary</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AdminSessionSummaryPod
 {
@@ -99,6 +120,9 @@ public readonly struct AdminSessionSummaryPod
     public readonly Utf8Fixed128 UserAgent;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>MfaSetupStart</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MfaSetupStartPod
 {
@@ -111,6 +135,9 @@ public readonly struct MfaSetupStartPod
     public readonly Utf8SliceRef Account;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>MfaSetupVerify</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MfaSetupVerifyPod
 {
@@ -120,12 +147,18 @@ public readonly struct MfaSetupVerifyPod
     public readonly int RecoveryCodeCount;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>MfaRecoveryCode</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MfaRecoveryCodePod
 {
     public readonly Utf8Fixed64 Code;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>MfaProfile</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MfaProfilePod
 {
@@ -135,6 +168,9 @@ public readonly struct MfaProfilePod
     public readonly ushort Reserved;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>MfaChallengeResult</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MfaChallengeResultPod
 {
@@ -149,6 +185,9 @@ public readonly struct MfaChallengeResultPod
     public readonly Utf8Fixed128 ProofToken;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>MfaPasswordProofRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MfaPasswordProofRequestPod
 {
@@ -157,6 +196,9 @@ public readonly struct MfaPasswordProofRequestPod
     public readonly Utf8SliceRef RecoveryCode;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>MfaChallengeVerifyRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MfaChallengeVerifyRequestPod
 {
@@ -166,6 +208,9 @@ public readonly struct MfaChallengeVerifyRequestPod
     public readonly Utf8SliceRef RecoveryCode;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RecoveryKeyCreateResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RecoveryKeyCreateResponsePod
 {
@@ -175,6 +220,9 @@ public readonly struct RecoveryKeyCreateResponsePod
     public readonly Utf8SliceRef RecoveryKey;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RecoveryKeyVerifyRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RecoveryKeyVerifyRequestPod
 {
@@ -184,6 +232,9 @@ public readonly struct RecoveryKeyVerifyRequestPod
     public readonly Utf8SliceRef RecoveryKey;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>RecoveryKeyVerifyResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct RecoveryKeyVerifyResponsePod
 {
@@ -193,6 +244,9 @@ public readonly struct RecoveryKeyVerifyResponsePod
     public readonly Utf8Fixed128 RecoverySessionToken;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AuthAnonymousBootstrapRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AuthAnonymousBootstrapRequestPod
 {
@@ -202,12 +256,18 @@ public readonly struct AuthAnonymousBootstrapRequestPod
     public readonly Utf8SliceRef PublicHandle;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AuthDeleteAccountRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AuthDeleteAccountRequestPod
 {
     public readonly Utf8SliceRef ConfirmText;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UserListItem</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UserListItemPod
 {
@@ -231,12 +291,18 @@ public readonly struct UserListItemPod
     public readonly ushort Reserved3;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UserListPage</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UserListPagePod
 {
     public readonly PagedPodEnvelope Envelope;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AdminChangeUserStatusRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AdminChangeUserStatusRequestPod
 {
@@ -245,6 +311,9 @@ public readonly struct AdminChangeUserStatusRequestPod
     public readonly Utf8SliceRef Reason;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PasskeyPublicKeyCredentialParam</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PasskeyPublicKeyCredentialParamPod
 {
@@ -252,6 +321,9 @@ public readonly struct PasskeyPublicKeyCredentialParamPod
     public readonly int Alg;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PasskeyCredentialDescriptor</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PasskeyCredentialDescriptorPod
 {
@@ -260,6 +332,9 @@ public readonly struct PasskeyCredentialDescriptorPod
     public readonly Utf8SliceRef Id;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PasskeyRegisterBegin</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PasskeyRegisterBeginPod
 {
@@ -282,6 +357,9 @@ public readonly struct PasskeyRegisterBeginPod
     public readonly Utf8SliceRef Challenge;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PasskeyLoginBegin</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PasskeyLoginBeginPod
 {
@@ -294,6 +372,9 @@ public readonly struct PasskeyLoginBeginPod
     public readonly Utf8SliceRef Challenge;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PasskeyRegisterCompleteRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PasskeyRegisterCompleteRequestPod
 {
@@ -310,6 +391,9 @@ public readonly struct PasskeyRegisterCompleteRequestPod
     public readonly Utf8SliceRef MfaProofToken;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PasskeyLoginCompleteRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PasskeyLoginCompleteRequestPod
 {
@@ -326,6 +410,9 @@ public readonly struct PasskeyLoginCompleteRequestPod
     public readonly Utf8SliceRef UserHandle;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PasskeyCredentialSummary</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PasskeyCredentialSummaryPod
 {

@@ -2,6 +2,9 @@ using System.Runtime.InteropServices;
 
 namespace FsusBlog.Shared.Contracts.Envelopes;
 
+/// <summary>
+/// Defines the fixed-layout header shared by every binary POD envelope.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PodEnvelopeHeader
 {
@@ -11,6 +14,9 @@ public readonly struct PodEnvelopeHeader
     public readonly int Reserved;
 }
 
+/// <summary>
+/// Defines fixed-layout pagination metadata for a binary POD page.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PageEnvelope
 {
@@ -18,6 +24,9 @@ public readonly struct PageEnvelope
     public readonly int Count;
 }
 
+/// <summary>
+/// Defines fixed-layout cursor metadata for a binary POD page.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CursorEnvelope
 {
@@ -28,6 +37,9 @@ public readonly struct CursorEnvelope
     public readonly byte Reserved2;
 }
 
+/// <summary>
+/// Combines page metadata with a contiguous fixed-layout POD payload.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PagedPodEnvelope
 {
@@ -35,6 +47,9 @@ public readonly struct PagedPodEnvelope
     public readonly PageEnvelope Page;
 }
 
+/// <summary>
+/// Combines cursor metadata with a contiguous fixed-layout POD payload.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CursorPodEnvelope
 {

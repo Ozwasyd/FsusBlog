@@ -6,6 +6,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Validation;
 
+/// <summary>
+/// Validates fixed-layout POD sizes against the canonical wire catalog.
+/// </summary>
 public static class PodContractValidation
 {
     public static bool AreAllPodModelsReferenceFree()

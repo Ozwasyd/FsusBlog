@@ -4,6 +4,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>SeoConfig</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SeoConfigPod
 {
@@ -33,6 +36,9 @@ public readonly struct SeoConfigPod
     public readonly Utf8Fixed256 LoginIconUrl;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PageContent</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PageContentPod
 {
@@ -40,6 +46,9 @@ public readonly struct PageContentPod
     public readonly Utf8SliceRef Content;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>SiteComplianceConfig</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SiteComplianceConfigPod
 {

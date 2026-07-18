@@ -5,6 +5,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>MessageInbox</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MessageInboxPod
 {
@@ -19,6 +22,9 @@ public readonly struct MessageInboxPod
     public readonly Utf8SliceRef Content;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentPush</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentPushPod
 {
@@ -40,6 +46,9 @@ public readonly struct CommentPushPod
     public readonly Utf8SliceRef ReplyToAuthor;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentAddedNotify</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentAddedNotifyPod
 {
@@ -49,6 +58,9 @@ public readonly struct CommentAddedNotifyPod
     public readonly CommentPushPod Comment;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>GlobalNoticePayload</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct GlobalNoticePayloadPod
 {
@@ -57,12 +69,18 @@ public readonly struct GlobalNoticePayloadPod
     public readonly Utf8Fixed256 Title;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>MessageRevokedPayload</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MessageRevokedPayloadPod
 {
     public readonly Utf8Fixed64 MessageId;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AccountStatusPayload</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AccountStatusPayloadPod
 {
@@ -74,6 +92,9 @@ public readonly struct AccountStatusPayloadPod
     public readonly ushort Reserved1;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>NoticePayload</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct NoticePayloadPod
 {
@@ -82,6 +103,9 @@ public readonly struct NoticePayloadPod
     public readonly Utf8Fixed256 Title;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentRemovedPayload</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentRemovedPayloadPod
 {
@@ -91,12 +115,18 @@ public readonly struct CommentRemovedPayloadPod
     public readonly Utf8Fixed64 CommentId;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>MessageInboxList</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct MessageInboxListPod
 {
     public readonly PagedPodEnvelope Envelope;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ConversationMessagePreview</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct ConversationMessagePreviewPod
 {
@@ -109,6 +139,9 @@ public readonly struct ConversationMessagePreviewPod
     public readonly Utf8SliceRef BodyPreview;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ConversationListItem</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct ConversationListItemPod
 {
@@ -125,6 +158,9 @@ public readonly struct ConversationListItemPod
     public readonly ConversationMessagePreviewPod LastMessage;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ConversationMessage</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct ConversationMessagePod
 {
@@ -139,6 +175,9 @@ public readonly struct ConversationMessagePod
     public readonly Utf8SliceRef Body;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ConversationDetail</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct ConversationDetailPod
 {
@@ -152,6 +191,9 @@ public readonly struct ConversationDetailPod
     public readonly Utf8SliceRef Subject;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ConversationCreateRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct ConversationCreateRequestPod
 {
@@ -159,12 +201,18 @@ public readonly struct ConversationCreateRequestPod
     public readonly Utf8SliceRef Body;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ConversationStatusRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct ConversationStatusRequestPod
 {
     public readonly int Status;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>SystemMessageRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SystemMessageRequestPod
 {

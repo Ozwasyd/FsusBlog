@@ -4,6 +4,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>HumanReadChallengeRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct HumanReadChallengeRequestPod
 {
@@ -15,6 +18,9 @@ public readonly struct HumanReadChallengeRequestPod
     public readonly Utf8SliceRef RouteKey;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>HumanReadChallengeResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct HumanReadChallengeResponsePod
 {
@@ -30,6 +36,9 @@ public readonly struct HumanReadChallengeResponsePod
     public readonly Utf8SliceRef RouteKey;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>HumanReadSubmitRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct HumanReadSubmitRequestPod
 {
@@ -43,6 +52,9 @@ public readonly struct HumanReadSubmitRequestPod
     public readonly Utf8SliceRef RouteKey;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>HumanReadSubmitResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct HumanReadSubmitResponsePod
 {

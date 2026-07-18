@@ -7,6 +7,9 @@ using System.Text.Json.Serialization;
 
 namespace FsusBlog.Shared.Contracts.Security;
 
+/// <summary>
+/// Enumerates security-protocol values represented by <c>RenderRecipeV2TaskKind</c>.
+/// </summary>
 public enum RenderRecipeV2TaskKind : byte
 {
     Unknown = 0,
@@ -15,12 +18,18 @@ public enum RenderRecipeV2TaskKind : byte
     MicroInteraction = 3
 }
 
+/// <summary>
+/// Defines the security transport contract represented by <c>RenderRecipeV2</c>.
+/// </summary>
 public sealed record class RenderRecipeV2(
     string Schema,
     RenderRecipeV2TaskKind TaskKind,
     IReadOnlyList<RenderRecipeV2Layer> Layers,
     IReadOnlyDictionary<string, string> PresentationHints);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>RenderRecipeV2Layer</c>.
+/// </summary>
 public sealed record class RenderRecipeV2Layer(
     string LayerId,
     double Opacity,
@@ -29,6 +38,9 @@ public sealed record class RenderRecipeV2Layer(
     IReadOnlyList<RenderWarpFieldV2> WarpFields,
     IReadOnlyList<RenderOccluderV2> Occluders);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>RenderStrokeSegmentV2</c>.
+/// </summary>
 public sealed record class RenderStrokeSegmentV2(
     string SegmentId,
     string Brush,
@@ -36,18 +48,27 @@ public sealed record class RenderStrokeSegmentV2(
     double Width,
     IReadOnlyList<RenderPointV2> Points);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>RenderNoiseFieldV2</c>.
+/// </summary>
 public sealed record class RenderNoiseFieldV2(
     string FieldId,
     string SeedHex,
     double Intensity,
     double Scale);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>RenderWarpFieldV2</c>.
+/// </summary>
 public sealed record class RenderWarpFieldV2(
     string FieldId,
     string SeedHex,
     double Amplitude,
     double Frequency);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>RenderOccluderV2</c>.
+/// </summary>
 public sealed record class RenderOccluderV2(
     string OccluderId,
     string Shape,
@@ -58,12 +79,21 @@ public sealed record class RenderOccluderV2(
     double RotationDegrees,
     string ColorRgba);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>RenderPointV2</c>.
+/// </summary>
 public readonly record struct RenderPointV2(double X, double Y);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>RenderRecipeV2IssuePayload</c>.
+/// </summary>
 public sealed record class RenderRecipeV2IssuePayload(
     RenderRecipeV2 Recipe,
     string RecipeHashHex);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>RenderRecipeV2ValidationResult</c>.
+/// </summary>
 public sealed record RenderRecipeV2ValidationResult(bool IsValid, string ErrorCode, string RecipeHashHex)
 {
     public static RenderRecipeV2ValidationResult Valid(string recipeHashHex)
@@ -73,6 +103,9 @@ public sealed record RenderRecipeV2ValidationResult(bool IsValid, string ErrorCo
         => new(false, errorCode, string.Empty);
 }
 
+/// <summary>
+/// Provides canonical validation and serialization rules for the <c>RenderRecipeV2Contracts</c> security contract family.
+/// </summary>
 public static class RenderRecipeV2Contracts
 {
     public const string Schema = "fsus.challenge.render-recipe@v2";
@@ -81,9 +114,9 @@ public static class RenderRecipeV2Contracts
     private const int MaxPrimitivesPerLayer = 64;
     private const int MaxPointsPerStroke = 128;
 
-    private static readonly JsonSerializerOptions JsonOptions = CreateJsonOptions();
+    private static readonly JsonSerializerOptions s_jsonOptions = CreateJsonOptions();
 
-    private static readonly HashSet<string> AllowedPresentationHints = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> s_allowedPresentationHints = new(StringComparer.Ordinal)
     {
         "canvasWidth",
         "canvasHeight",
@@ -95,7 +128,7 @@ public static class RenderRecipeV2Contracts
         "reducedMotionVariant"
     };
 
-    private static readonly HashSet<string> AllowedBrushes = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> s_allowedBrushes = new(StringComparer.Ordinal)
     {
         "round",
         "square",
@@ -103,7 +136,7 @@ public static class RenderRecipeV2Contracts
         "texture"
     };
 
-    private static readonly HashSet<string> AllowedOccluderShapes = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> s_allowedOccluderShapes = new(StringComparer.Ordinal)
     {
         "rect",
         "ellipse",
@@ -119,7 +152,7 @@ public static class RenderRecipeV2Contracts
             return RenderRecipeV2ValidationResult.Invalid("recipe_missing");
         }
 
-        string recipeJson = JsonSerializer.Serialize(recipe, JsonOptions);
+        string recipeJson = JsonSerializer.Serialize(recipe, s_jsonOptions);
         return ValidateRecipeJson(recipeJson, expectedRecipeHashHex);
     }
 
@@ -195,7 +228,7 @@ public static class RenderRecipeV2Contracts
     {
         ArgumentNullException.ThrowIfNull(recipe);
 
-        string recipeJson = JsonSerializer.Serialize(recipe, JsonOptions);
+        string recipeJson = JsonSerializer.Serialize(recipe, s_jsonOptions);
         return ComputeRecipeHashHex(recipeJson);
     }
 
@@ -317,7 +350,7 @@ public static class RenderRecipeV2Contracts
                 !TryGetString(stroke, "segmentId", out string segmentId) ||
                 !IsSafeToken(segmentId) ||
                 !TryGetString(stroke, "brush", out string brush) ||
-                !AllowedBrushes.Contains(brush) ||
+                !s_allowedBrushes.Contains(brush) ||
                 !TryGetString(stroke, "colorRgba", out string colorRgba) ||
                 !IsColorRgba(colorRgba) ||
                 !TryGetDouble(stroke, "width", out double width) ||
@@ -418,7 +451,7 @@ public static class RenderRecipeV2Contracts
                 !TryGetString(occluder, "occluderId", out string occluderId) ||
                 !IsSafeToken(occluderId) ||
                 !TryGetString(occluder, "shape", out string shape) ||
-                !AllowedOccluderShapes.Contains(shape) ||
+                !s_allowedOccluderShapes.Contains(shape) ||
                 !TryGetString(occluder, "colorRgba", out string colorRgba) ||
                 !IsColorRgba(colorRgba) ||
                 !TryGetDouble(occluder, "x", out double x) ||
@@ -450,7 +483,7 @@ public static class RenderRecipeV2Contracts
 
         foreach (JsonProperty property in hints.EnumerateObject())
         {
-            if (!AllowedPresentationHints.Contains(property.Name) ||
+            if (!s_allowedPresentationHints.Contains(property.Name) ||
                 property.Value.ValueKind != JsonValueKind.String ||
                 string.IsNullOrWhiteSpace(property.Value.GetString()) ||
                 property.Value.GetString()!.Length > 64)

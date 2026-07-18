@@ -1,5 +1,8 @@
 namespace FsusBlog.Shared.Contracts.Outputs;
 
+/// <summary>
+/// Provides canonical markers and validation rules for public AOT shell output.
+/// </summary>
 public static class PublicAotShellContractRules
 {
     private const string RendererVersionPrefix = "public-app-ssr@";
@@ -112,16 +115,16 @@ public static class PublicAotShellContractRules
 
     private static string NormalizePaginatedFixedRouteKey(string fixedRouteKey, string routeKey)
     {
-        const string marker = ":page:";
-        int markerIndex = routeKey.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        const string Marker = ":page:";
+        int markerIndex = routeKey.LastIndexOf(Marker, StringComparison.OrdinalIgnoreCase);
         if (markerIndex <= 0
-            || !int.TryParse(routeKey.AsSpan(markerIndex + marker.Length), out int page)
+            || !int.TryParse(routeKey.AsSpan(markerIndex + Marker.Length), out int page)
             || page <= 1)
         {
             return fixedRouteKey;
         }
 
-        return string.Concat(fixedRouteKey, marker, page.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return string.Concat(fixedRouteKey, Marker, page.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
     public static string NormalizeHtml(string html, int? articleId)

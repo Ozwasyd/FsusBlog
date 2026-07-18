@@ -1,5 +1,8 @@
 namespace FsusBlog.Shared.Contracts.Validation;
 
+/// <summary>
+/// Provides canonical privacy limits and identifiers for anonymous contracts.
+/// </summary>
 public static class AnonymousPrivacyContract
 {
     public const string CircuitId = "fsus.anonymous.comment.v5";
@@ -39,6 +42,9 @@ public static class AnonymousPrivacyContract
     public const string UnknownRateClass = "unknown";
 }
 
+/// <summary>
+/// Provides the canonical RFC 9474 blind-credential profile identifiers.
+/// </summary>
 public static class Rfc9474BlindCredentialProfile
 {
     public const string SchemeId = "rfc9474-rsabssa-sha384-pss-randomized-3072";

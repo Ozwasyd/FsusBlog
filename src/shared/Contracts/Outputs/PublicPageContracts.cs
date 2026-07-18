@@ -2,6 +2,9 @@ using System.Collections.Frozen;
 
 namespace FsusBlog.Shared.Contracts.Outputs;
 
+/// <summary>
+/// Enumerates stable wire values represented by the <c>PublicPageId</c> contract.
+/// </summary>
 public enum PublicPageId
 {
     Home = 1,
@@ -15,6 +18,9 @@ public enum PublicPageId
     Copyright = 9
 }
 
+/// <summary>
+/// Defines the API output contract represented by <c>PublicPageDescriptor</c>.
+/// </summary>
 public readonly record struct PublicPageDescriptor(
     PublicPageId Id,
     string CanonicalSlug,
@@ -25,6 +31,9 @@ public readonly record struct PublicPageDescriptor(
     string FallbackBehavior
 );
 
+/// <summary>
+/// Maps public routes to their stable page and route identities.
+/// </summary>
 public static class PublicRouteIdentityRegistry
 {
     public const string PublicAotShellFallback = "public-aot-shell";
@@ -43,6 +52,9 @@ public static class PublicRouteIdentityRegistry
     public const string TagNameBucket = "tag-name";
 }
 
+/// <summary>
+/// Defines canonical route normalization rules for public search pages.
+/// </summary>
 public static class PublicSearchRoutePolicy
 {
     public const int MaxKeywordChars = 128;
@@ -53,6 +65,9 @@ public static class PublicSearchRoutePolicy
     public const string HotSort = "hot";
 }
 
+/// <summary>
+/// Defines the API output contract represented by <c>PublicAotShellEntryContract</c>.
+/// </summary>
 public sealed record class PublicAotShellEntryContract
 {
     public PublicPageId PageId
@@ -91,12 +106,18 @@ public sealed record class PublicAotShellEntryContract
     }
 }
 
+/// <summary>
+/// Defines the API output contract represented by <c>PublicAotShellBundleContract</c>.
+/// </summary>
 public sealed record class PublicAotShellBundleContract
 {
     public List<PublicAotShellEntryContract> Entries { get; init; } = [];
     public DateTimeOffset GeneratedAtUtc { get; init; } = DateTimeOffset.UtcNow;
 }
 
+/// <summary>
+/// Provides the canonical descriptors for supported public pages.
+/// </summary>
 public static class PublicPageRegistry
 {
     public static readonly PublicPageDescriptor Home = new(
@@ -193,14 +214,14 @@ public static class PublicPageRegistry
         Copyright
     ];
 
-    private static readonly FrozenDictionary<PublicPageId, PublicPageDescriptor> ById =
+    private static readonly FrozenDictionary<PublicPageId, PublicPageDescriptor> s_byId =
         All.ToFrozenDictionary(static descriptor => descriptor.Id);
 
     public static PublicPageDescriptor GetRequired(PublicPageId pageId)
-        => ById.TryGetValue(pageId, out PublicPageDescriptor descriptor)
+        => s_byId.TryGetValue(pageId, out PublicPageDescriptor descriptor)
             ? descriptor
             : Home;
 
     public static bool TryGet(PublicPageId pageId, out PublicPageDescriptor descriptor)
-        => ById.TryGetValue(pageId, out descriptor);
+        => s_byId.TryGetValue(pageId, out descriptor);
 }

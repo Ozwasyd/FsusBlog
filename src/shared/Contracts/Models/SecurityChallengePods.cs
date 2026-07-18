@@ -4,6 +4,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>SecurityChallengeAssignment</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SecurityChallengeAssignmentPod
 {
@@ -23,6 +26,9 @@ public readonly struct SecurityChallengeAssignmentPod
     public readonly Utf8Fixed64 DeviceFpHash;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>SecurityChallengeEnvelope</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SecurityChallengeEnvelopePod
 {
@@ -31,6 +37,9 @@ public readonly struct SecurityChallengeEnvelopePod
     public readonly Utf8Fixed64 PolicyVersion;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>SecurityChallengeIssueRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SecurityChallengeIssueRequestPod
 {
@@ -40,6 +49,9 @@ public readonly struct SecurityChallengeIssueRequestPod
     public readonly Utf8SliceRef AttributesJson;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>SecurityChallengeVerifyRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SecurityChallengeVerifyRequestPod
 {
@@ -52,6 +64,9 @@ public readonly struct SecurityChallengeVerifyRequestPod
     public readonly Utf8SliceRef ProviderPayloadJson;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>SecurityChallengeIssueResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SecurityChallengeIssueResponsePod
 {
@@ -66,6 +81,9 @@ public readonly struct SecurityChallengeIssueResponsePod
     public readonly Utf8Fixed64 PolicyVersion;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>SecurityChallengeProviderPayload</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SecurityChallengeProviderPayloadPod
 {
@@ -73,6 +91,9 @@ public readonly struct SecurityChallengeProviderPayloadPod
     public readonly Utf8SliceRef PayloadJson;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>SecurityChallengeVerifyResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct SecurityChallengeVerifyResponsePod
 {
@@ -86,6 +107,9 @@ public readonly struct SecurityChallengeVerifyResponsePod
     public readonly Utf8SliceRef Reason;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PerceptionSealedChallengeV2</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PerceptionSealedChallengeV2Pod
 {
@@ -106,6 +130,9 @@ public readonly struct PerceptionSealedChallengeV2Pod
     public readonly Utf8SliceRef Variant;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>PerceptionSealedResultV2</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PerceptionSealedResultV2Pod
 {

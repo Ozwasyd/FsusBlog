@@ -2,6 +2,9 @@ using System.Globalization;
 
 namespace FsusBlog.Shared.Contracts.NotificationStream;
 
+/// <summary>
+/// Defines the notification-stream transport contract represented by <c>NotificationStreamCursor</c>.
+/// </summary>
 public readonly record struct NotificationStreamCursor(long Value)
 {
     public static NotificationStreamCursor Empty => new(0);
@@ -23,6 +26,9 @@ public readonly record struct NotificationStreamCursor(long Value)
     }
 }
 
+/// <summary>
+/// Enumerates notification-stream wire values represented by <c>NotificationStreamEventType</c>.
+/// </summary>
 public enum NotificationStreamEventType : short
 {
     NoticeReceived = 1,
@@ -43,4 +49,7 @@ public enum NotificationStreamEventType : short
     SessionRevoked = 16
 }
 
+/// <summary>
+/// Defines the notification-stream transport contract represented by <c>NotificationStreamEnvelopeV2</c>.
+/// </summary>
 public readonly record struct NotificationStreamEnvelopeV2<TPayload>(long Id, NotificationStreamEventType Type, long Ts, TPayload Payload);

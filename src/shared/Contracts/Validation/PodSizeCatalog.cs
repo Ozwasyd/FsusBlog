@@ -4,6 +4,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Validation;
 
+/// <summary>
+/// Provides canonical byte sizes for fixed-layout POD wire contracts.
+/// </summary>
 public static class PodSizeCatalog
 {
     public static readonly int Utf8Fixed32 = PodContractValidation.SizeOf<Utf8Fixed32>();

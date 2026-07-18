@@ -1,5 +1,8 @@
 namespace FsusBlog.Shared.Contracts.Security;
 
+/// <summary>
+/// Enumerates security-protocol values represented by <c>SecurityChallengeKind</c>.
+/// </summary>
 public enum SecurityChallengeKind : byte
 {
     Unknown = 0,
@@ -18,6 +21,9 @@ public enum SecurityChallengeKind : byte
     PerceptionTextTaskV2 = 13
 }
 
+/// <summary>
+/// Defines the security transport contract represented by <c>SecurityChallengeAssignment</c>.
+/// </summary>
 public sealed record class SecurityChallengeAssignment(
     string ChallengeId,
     string Traceparent,
@@ -32,11 +38,17 @@ public sealed record class SecurityChallengeAssignment(
     long IssuedAtUnixMs,
     long ExpiresAtUnixMs);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>SecurityChallengeEnvelope</c>.
+/// </summary>
 public sealed record class SecurityChallengeEnvelope(
     string EnvelopeId,
     string PolicyVersion,
     IReadOnlyList<SecurityChallengeAssignment> Assignments);
 
+/// <summary>
+/// Enumerates security-protocol values represented by <c>SecurityChallengeDecisionKind</c>.
+/// </summary>
 public enum SecurityChallengeDecisionKind : byte
 {
     Unknown = 0,
@@ -48,12 +60,18 @@ public enum SecurityChallengeDecisionKind : byte
     Block = 6
 }
 
+/// <summary>
+/// Defines the security transport contract represented by <c>SecurityChallengeIssueBinaryRequest</c>.
+/// </summary>
 public sealed record class SecurityChallengeIssueBinaryRequest(
     string Action,
     string RouteKey,
     string DeviceFingerprint,
     string AttributesJson);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>SecurityChallengeVerifyBinaryRequest</c>.
+/// </summary>
 public sealed record class SecurityChallengeVerifyBinaryRequest(
     string ChallengeId,
     SecurityChallengeKind Kind,
@@ -61,10 +79,16 @@ public sealed record class SecurityChallengeVerifyBinaryRequest(
     string RouteKey,
     string ProviderPayloadJson);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>SecurityChallengeProviderPayload</c>.
+/// </summary>
 public sealed record class SecurityChallengeProviderPayload(
     string ChallengeId,
     string PayloadJson);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>SecurityChallengeIssueBinaryResponse</c>.
+/// </summary>
 public sealed record class SecurityChallengeIssueBinaryResponse(
     SecurityChallengeDecisionKind Decision,
     int RiskScore,
@@ -75,6 +99,9 @@ public sealed record class SecurityChallengeIssueBinaryResponse(
     SecurityChallengeEnvelope? Envelope,
     IReadOnlyList<SecurityChallengeProviderPayload> ProviderPayloads);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>SecurityChallengeVerifyBinaryResponse</c>.
+/// </summary>
 public sealed record class SecurityChallengeVerifyBinaryResponse(
     bool Verified,
     string ChallengeId,
@@ -84,11 +111,17 @@ public sealed record class SecurityChallengeVerifyBinaryResponse(
     string Reason,
     int RetryAfterMs);
 
+/// <summary>
+/// Defines the security transport contract represented by <c>SecurityChallengeValidationResult</c>.
+/// </summary>
 public sealed record SecurityChallengeValidationResult(bool IsValid, string ErrorCode)
 {
     public static SecurityChallengeValidationResult Valid { get; } = new(true, string.Empty);
 }
 
+/// <summary>
+/// Provides canonical validation and serialization rules for the <c>SecurityChallengeContracts</c> security contract family.
+/// </summary>
 public static class SecurityChallengeContracts
 {
     public const int MaxAssignmentsPerEnvelope = 8;

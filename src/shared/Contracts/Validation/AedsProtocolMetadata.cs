@@ -4,6 +4,9 @@ using FsusBlog.Shared;
 
 namespace FsusBlog.Shared.Contracts.Validation;
 
+/// <summary>
+/// Provides canonical AEDS frame identifiers and protocol metadata.
+/// </summary>
 public static class AedsProtocolMetadata
 {
     public const int SchemaVersion = 1;

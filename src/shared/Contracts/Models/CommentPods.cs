@@ -5,6 +5,9 @@ using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentItem</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentItemPod
 {
@@ -13,6 +16,9 @@ public readonly struct CommentItemPod
     public readonly Utf8SliceRef Content;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>UserComment</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct UserCommentPod
 {
@@ -32,6 +38,9 @@ public readonly struct UserCommentPod
     public readonly Utf8Fixed64 ModerationStatusLabel;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentPolicySnapshot</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentPolicySnapshotPod
 {
@@ -51,6 +60,9 @@ public readonly struct CommentPolicySnapshotPod
     public readonly Utf8SliceRef ZkProdUnavailableReason;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentPolicyUpdateRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentPolicyUpdateRequestPod
 {
@@ -69,6 +81,9 @@ public readonly struct CommentPolicyUpdateRequestPod
     public readonly Utf8SliceRef SupportedDisplayLanguages;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentCreateV2Request</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentCreateV2RequestPod
 {
@@ -91,6 +106,9 @@ public readonly struct CommentCreateV2RequestPod
     public readonly Utf8SliceRef Content;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AnonymousCredentialIssueRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AnonymousCredentialIssueRequestPod
 {
@@ -104,6 +122,9 @@ public readonly struct AnonymousCredentialIssueRequestPod
     public readonly Utf8SliceRef ClientNonce;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AnonymousCredentialIssueResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AnonymousCredentialIssueResponsePod
 {
@@ -118,6 +139,9 @@ public readonly struct AnonymousCredentialIssueResponsePod
     public readonly Utf8SliceRef IssuerSignature;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>BlindCredentialIssuerMetadata</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct BlindCredentialIssuerMetadataPod
 {
@@ -134,6 +158,9 @@ public readonly struct BlindCredentialIssuerMetadataPod
     public readonly Utf8SliceRef SubjectPublicKeyInfo;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>BlindCredentialIssueRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct BlindCredentialIssueRequestPod
 {
@@ -148,6 +175,9 @@ public readonly struct BlindCredentialIssueRequestPod
     public readonly Utf8SliceRef BlindedMessage;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>BlindCredentialIssueResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct BlindCredentialIssueResponsePod
 {
@@ -163,6 +193,9 @@ public readonly struct BlindCredentialIssueResponsePod
     public readonly Utf8SliceRef BlindSignature;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AnonymousCredentialRootSnapshot</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AnonymousCredentialRootSnapshotPod
 {
@@ -181,6 +214,9 @@ public readonly struct AnonymousCredentialRootSnapshotPod
     public readonly Utf8SliceRef CircuitMetadata;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AnonymousCredentialRevocationArtifact</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AnonymousCredentialRevocationArtifactPod
 {
@@ -200,6 +236,9 @@ public readonly struct AnonymousCredentialRevocationArtifactPod
     public readonly Utf8SliceRef EntryHashes;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AnonymousCommentTicketRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AnonymousCommentTicketRequestPod
 {
@@ -227,6 +266,9 @@ public readonly struct AnonymousCommentTicketRequestPod
     public readonly Utf8SliceRef PublicInputs;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AnonymousCommentTicketResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AnonymousCommentTicketResponsePod
 {
@@ -239,6 +281,9 @@ public readonly struct AnonymousCommentTicketResponsePod
     public readonly Utf8SliceRef ModerationSubjectHash;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AnonymousCommentCreateRequest</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AnonymousCommentCreateRequestPod
 {
@@ -256,6 +301,9 @@ public readonly struct AnonymousCommentCreateRequestPod
     public readonly Utf8SliceRef Content;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>AnonymousPrivacyStateSnapshot</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct AnonymousPrivacyStateSnapshotPod
 {
@@ -274,6 +322,9 @@ public readonly struct AnonymousPrivacyStateSnapshotPod
     public readonly Utf8SliceRef CredentialLevel;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentAuthorView</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentAuthorViewPod
 {
@@ -286,12 +337,18 @@ public readonly struct CommentAuthorViewPod
     public readonly Utf8SliceRef ScopeLabel;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentListResponse</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentListResponsePod
 {
     public readonly CursorPodEnvelope Envelope;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentThreadItem</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentThreadItemPod
 {
@@ -312,6 +369,9 @@ public readonly struct CommentThreadItemPod
     public readonly ushort Reserved2;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentReplyPreviewItem</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentReplyPreviewItemPod
 {
@@ -323,6 +383,9 @@ public readonly struct CommentReplyPreviewItemPod
     public readonly Utf8SliceRef Content;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentReplyItem</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentReplyItemPod
 {
@@ -339,6 +402,9 @@ public readonly struct CommentReplyItemPod
     public readonly Utf8SliceRef Content;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentThreadCursor</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentThreadCursorPod
 {
@@ -347,6 +413,9 @@ public readonly struct CommentThreadCursorPod
     public readonly int Reserved;
 }
 
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>CommentReplyCursor</c> wire contract.
+/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct CommentReplyCursorPod
 {

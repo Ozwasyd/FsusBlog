@@ -1,7 +1,13 @@
 namespace FsusBlog.Shared.Contracts.AuthSystem;
 
+/// <summary>
+/// Defines the authentication and system transport contract represented by <c>TokenPairContract</c>.
+/// </summary>
 public readonly record struct TokenPairContract(string AccessToken, string RefreshToken);
 
+/// <summary>
+/// Defines the authentication and system transport contract represented by <c>AccountSnapshotContract</c>.
+/// </summary>
 public readonly record struct AccountSnapshotContract(
     int AccountId,
     string IdentityKind,
@@ -14,6 +20,9 @@ public readonly record struct AccountSnapshotContract(
     int Status,
     DateTime? DeletedAt);
 
+/// <summary>
+/// Defines the authentication and system transport contract represented by <c>AdminAccountListItemContract</c>.
+/// </summary>
 public readonly record struct AdminAccountListItemContract(
     int AccountId,
     string IdentityKind,
@@ -27,6 +36,9 @@ public readonly record struct AdminAccountListItemContract(
     DateTime CreateTime,
     DateTime? DeletedAt);
 
+/// <summary>
+/// Defines the authentication and system transport contract represented by <c>AdminUserPageContract</c>.
+/// </summary>
 public sealed record class AdminUserPageContract
 {
     public int Total
@@ -36,6 +48,9 @@ public sealed record class AdminUserPageContract
     public List<AdminAccountListItemContract> Items { get; init; } = [];
 }
 
+/// <summary>
+/// Defines the authentication and system transport contract represented by <c>SeoConfigContract</c>.
+/// </summary>
 public readonly record struct SeoConfigContract(
     string Title,
     string Description,
@@ -62,6 +77,9 @@ public readonly record struct SeoConfigContract(
     string LoginLogoUrl,
     string LoginIconUrl);
 
+/// <summary>
+/// Defines the authentication and system transport contract represented by <c>SiteComplianceConfigContract</c>.
+/// </summary>
 public readonly record struct SiteComplianceConfigContract(
     bool Enabled,
     string RegionMode,
@@ -78,4 +96,7 @@ public readonly record struct SiteComplianceConfigContract(
     string OperatorName,
     string ContactEmail);
 
+/// <summary>
+/// Defines the authentication and system transport contract represented by <c>PageContentContract</c>.
+/// </summary>
 public readonly record struct PageContentContract(string? Slug, string? Content);
