@@ -8,4 +8,6 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Verify fixture
-              run: ./tools/format.sh --check
+              run: |
+                  ./tools/format.sh --check
+                  ./tools/lint.sh scripts

@@ -816,25 +816,46 @@ function CheckYaml(file, content, argumentsValue)
 {
     const levels = new Map()
     const lines = content.split(/\r?\n/u)
-    const sequenceIndents = new Set()
+    const activeSequenceIndents = new Set()
+    let blockScalarIndent = null
     for (let index = 0; index < lines.length; index += 1)
     {
         const raw = lines[index]
         const indentation = LeadingSpaces(raw)
         const text = raw.trim()
-        if (!text || text.startsWith('#') || text === '---' || text === '...')
+        if (!text)
         {
             continue
         }
-        if (indentation % 4 !== 0)
+
+        if (blockScalarIndent !== null)
         {
-            const alignedSequenceMapping = indentation >= 6
-                && indentation % 4 === 2
-                && sequenceIndents.has(indentation - 2)
-            if (!alignedSequenceMapping)
+            if (indentation > blockScalarIndent)
             {
-                AddDiagnostic(file, index + 1, 'indent', 'YAML indentation must use 4-space levels')
+                continue
             }
+            blockScalarIndent = null
+        }
+
+        if (text.startsWith('#') || text === '---' || text === '...')
+        {
+            continue
+        }
+
+        const sequenceItem = /^-(?:\s|$)/u.test(text)
+        for (const sequenceIndent of [...activeSequenceIndents])
+        {
+            if (sequenceIndent > indentation || (sequenceIndent === indentation && !sequenceItem))
+            {
+                activeSequenceIndents.delete(sequenceIndent)
+            }
+        }
+        const insideSequenceMapping = [...activeSequenceIndents]
+            .some((sequenceIndent) => sequenceIndent < indentation)
+        const alignedSequenceMapping = indentation % 4 === 2 && insideSequenceMapping
+        if (indentation % 4 !== 0 && !alignedSequenceMapping)
+        {
+            AddDiagnostic(file, index + 1, 'indent', 'YAML mapping levels use 4 spaces; sequence mapping continuations retain the syntax-required 2-space offset')
         }
         for (const level of [...levels.keys()])
         {
@@ -843,10 +864,10 @@ function CheckYaml(file, content, argumentsValue)
                 levels.delete(level)
             }
         }
-        if (text.startsWith('- '))
+        if (sequenceItem)
         {
             levels.delete(indentation)
-            sequenceIndents.add(indentation)
+            activeSequenceIndents.add(indentation)
         }
         const keyMatch = text.match(/^(?:-\s+)?([^#'"{}[\],][^:]*):(?:\s|$)/u)
         if (!keyMatch)
@@ -861,6 +882,11 @@ function CheckYaml(file, content, argumentsValue)
         }
         keys.add(key)
         levels.set(indentation, keys)
+
+        if (/(?:^-(?:\s+)|:\s*)[|>](?:[1-9][+-]?|[+-][1-9]?)?(?:\s+#.*)?$/u.test(text))
+        {
+            blockScalarIndent = indentation
+        }
     }
 
     const yamllint = policy.standardTools.yamlLint.command

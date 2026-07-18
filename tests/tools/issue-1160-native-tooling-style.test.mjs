@@ -169,6 +169,7 @@ test('issue 1160 aggregates all negative fixture categories before failing', () 
             'shell-local-name',
             'shell-export-name',
             'shell-quote',
+            'indent',
             'yaml-duplicate-key',
             'json-duplicate-key',
             'json-format',
