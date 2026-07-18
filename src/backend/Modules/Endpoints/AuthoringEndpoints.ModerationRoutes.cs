@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -17,7 +19,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Core.Common;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints;
@@ -944,7 +946,10 @@ public static partial class AuthoringEndpoints
                     ["banUser"] = request.BanUser
                 }), cancellationToken);
             return moderated
-                ? Ok(context, aeds, new { moderated })
+                ? Ok(context, aeds, new
+                {
+                    moderated
+                })
                 : AedsJsonResults.NotFound(aeds, "comment_not_found");
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate)

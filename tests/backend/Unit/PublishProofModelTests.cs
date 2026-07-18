@@ -1,9 +1,11 @@
 using System.Reflection;
 using System.Text;
+
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -126,8 +128,14 @@ public sealed class PublishProofModelTests
     [Fact]
     public void NotPublicArticleCannotGenerateReadyPublicProof()
     {
-        PublishProofInput archived = ReadyProof() with { PublicationState = PublishProofPublicationState.Archived };
-        PublishProofInput deleted = ReadyProof() with { PublicationState = PublishProofPublicationState.Deleted };
+        PublishProofInput archived = ReadyProof() with
+        {
+            PublicationState = PublishProofPublicationState.Archived
+        };
+        PublishProofInput deleted = ReadyProof() with
+        {
+            PublicationState = PublishProofPublicationState.Deleted
+        };
 
         Assert.Equal(PublishProofStatus.NotPublic, PublishProofReadiness.Evaluate(archived, []).Status);
         Assert.Equal(PublishProofStatus.NotPublic, PublishProofReadiness.Evaluate(deleted, []).Status);

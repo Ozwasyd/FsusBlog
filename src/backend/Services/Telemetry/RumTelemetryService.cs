@@ -3,11 +3,13 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Channels;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Telemetry;
@@ -112,7 +114,10 @@ public sealed class RumTelemetryService(RumTelemetryChannel channel) : IRumTelem
             return Task.FromResult(new RumMetricIngestResponse(false, 0, rejected));
         }
 
-        RumTelemetryEnqueueResult enqueue = channel.TryEnqueue(request with { Metrics = acceptedItems });
+        RumTelemetryEnqueueResult enqueue = channel.TryEnqueue(request with
+        {
+            Metrics = acceptedItems
+        });
         if (!enqueue.Accepted)
         {
             return Task.FromResult(new RumMetricIngestResponse(false, 0, rejected + acceptedItems.Count));

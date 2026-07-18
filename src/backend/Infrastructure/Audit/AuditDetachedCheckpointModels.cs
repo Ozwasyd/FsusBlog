@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Common;
+
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
@@ -93,13 +95,22 @@ public sealed record AuditCheckpointKeyRecord(
     }
 
     public AuditCheckpointKeyRecord WithoutPrivateKey()
-        => this with { PrivateKeyPkcs8Base64Url = null };
+        => this with
+        {
+            PrivateKeyPkcs8Base64Url = null
+        };
 
     public AuditCheckpointKeyRecord WithRevokedAt(DateTimeOffset value)
-        => this with { RevokedAtUtc = value.ToUniversalTime() };
+        => this with
+        {
+            RevokedAtUtc = value.ToUniversalTime()
+        };
 
     public AuditCheckpointKeyRecord WithCompromisedAt(DateTimeOffset value)
-        => this with { CompromisedAtUtc = value.ToUniversalTime() };
+        => this with
+        {
+            CompromisedAtUtc = value.ToUniversalTime()
+        };
 }
 
 public sealed class AuditCheckpointKeyRegistry
@@ -119,9 +130,15 @@ public sealed class AuditCheckpointKeyRegistry
             .ToArray();
     }
 
-    public string CurrentKeyId { get; }
+    public string CurrentKeyId
+    {
+        get;
+    }
 
-    public IReadOnlyList<AuditCheckpointKeyRecord> PublicKeys { get; }
+    public IReadOnlyList<AuditCheckpointKeyRecord> PublicKeys
+    {
+        get;
+    }
 
     public static AuditCheckpointKeyRegistry Create(
         IEnumerable<AuditCheckpointKeyRecord> keys,

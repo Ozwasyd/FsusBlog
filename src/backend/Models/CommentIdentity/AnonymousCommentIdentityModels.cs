@@ -21,12 +21,18 @@ public sealed record AnonymousCommentPolicySnapshot(
 {
     public string SnapshotHash { get; init; } = string.Empty;
     public string ChangedBy { get; init; } = "configuration";
-    public string? Reason { get; init; }
+    public string? Reason
+    {
+        get; init;
+    }
     public DateTime UpdatedAtUtc { get; init; } = DateTime.UtcNow;
 
     public static readonly IReadOnlyList<string> DefaultDisplayLanguages = ["zh-CN", "en"];
 
-    public static AnonymousCommentPolicySnapshot Default { get; } = new(
+    public static AnonymousCommentPolicySnapshot Default
+    {
+        get;
+    } = new(
         AnonymousCommentsEnabled: true,
         PublicCommentsEnabled: true,
         ZkAnonymousEnabled: false,

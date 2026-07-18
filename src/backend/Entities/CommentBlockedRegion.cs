@@ -7,7 +7,10 @@ namespace FsusBlog.Server.Entities;
 public sealed class CommentBlockedRegion
 {
     [SugarColumn(ColumnName = "comment_id", IsPrimaryKey = true)]
-    public long CommentId { get; set; }
+    public long CommentId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "region_code", Length = 64, IsPrimaryKey = true)]
     public string RegionCode { get; set; } = string.Empty;

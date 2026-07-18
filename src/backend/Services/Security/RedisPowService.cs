@@ -1,13 +1,15 @@
-﻿using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Dtos;
 using System.Buffers.Text;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Dtos;
+
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Services;
@@ -66,7 +68,8 @@ public class RedisPowService : IPowService
         }
 
         // 2. 算力验算 (纯 C# SHA-NI 硬件加速)
-        if (!CheckWorkloadWithSpan(req)) return false;
+        if (!CheckWorkloadWithSpan(req))
+            return false;
 
         // 3. Redis-backed consume-once protection: the same normalized proof can be accepted only once.
         return await TryConsumeProofOnceAsync(req, clientIp, signatureHash).ConfigureAwait(false);
@@ -96,7 +99,8 @@ public class RedisPowService : IPowService
     private bool BasicValidate(IPowRequest req, string ip, string bindingContext, byte[] signatureHash)
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        if (!IsTimestampWithinWindow(req.PowTimestamp, now)) return false;
+        if (!IsTimestampWithinWindow(req.PowTimestamp, now))
+            return false;
 
         string normalizedIp = NormalizeIp(ip);
         Span<byte> buffer = stackalloc byte[256];
@@ -192,11 +196,16 @@ public class RedisPowService : IPowService
         Span<byte> dataBuffer = stackalloc byte[1024];
         int offset = 0;
 
-        if (!TryWriteUtf8(req.PowSalt, dataBuffer, ref offset)) return false;
-        if (!TryWriteByte((byte)':', dataBuffer, ref offset)) return false;
-        if (!TryWriteUtf8(req.PowNonce, dataBuffer, ref offset)) return false;
-        if (!TryWriteByte((byte)':', dataBuffer, ref offset)) return false;
-        if (!TryWriteUtf8(req.BrowserFp, dataBuffer, ref offset)) return false;
+        if (!TryWriteUtf8(req.PowSalt, dataBuffer, ref offset))
+            return false;
+        if (!TryWriteByte((byte)':', dataBuffer, ref offset))
+            return false;
+        if (!TryWriteUtf8(req.PowNonce, dataBuffer, ref offset))
+            return false;
+        if (!TryWriteByte((byte)':', dataBuffer, ref offset))
+            return false;
+        if (!TryWriteUtf8(req.BrowserFp, dataBuffer, ref offset))
+            return false;
 
         Span<byte> hashResult = stackalloc byte[32];
 
@@ -228,7 +237,8 @@ public class RedisPowService : IPowService
 
     private static bool TryWriteUtf8(string value, Span<byte> destination, ref int offset)
     {
-        if (string.IsNullOrEmpty(value)) return true;
+        if (string.IsNullOrEmpty(value))
+            return true;
         int byteCount = Encoding.UTF8.GetByteCount(value);
         if (byteCount > destination.Length - offset)
         {

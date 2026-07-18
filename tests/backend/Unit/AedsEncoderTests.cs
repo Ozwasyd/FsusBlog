@@ -1,8 +1,10 @@
 using System.Buffers;
 using System.Buffers.Binary;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Results;
+
 using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -480,7 +482,8 @@ public sealed class AedsEncoderTests
     {
         var validator = new AedsDecoderValidator(_enc);
         byte[] payload = new byte[4096];
-        for (int i = 0; i < payload.Length; i++) payload[i] = (byte)(i & 0xFF);
+        for (int i = 0; i < payload.Length; i++)
+            payload[i] = (byte)(i & 0xFF);
 
         Result result = validator.ValidateRoundTrip(AedsFrameType.ArticleDetail, payload);
 

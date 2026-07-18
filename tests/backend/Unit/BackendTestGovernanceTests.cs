@@ -1,9 +1,11 @@
 using System.Text.Json.Nodes;
+
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Routing;

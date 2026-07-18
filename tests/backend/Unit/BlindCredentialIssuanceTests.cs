@@ -1,7 +1,9 @@
 using System.Numerics;
+using System.Reflection;
 using System.Security.Cryptography;
-using FsusBlog.Core.Common;
+
 using FsusBlog.Core.Cache;
+using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -11,12 +13,12 @@ using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Validation;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
-using System.Reflection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -151,11 +153,20 @@ public sealed class BlindCredentialIssuanceTests
 
         Assert.True(BlindCredentialIssuanceService.RequestMatchesRoot(request, signer, root));
         Assert.False(BlindCredentialIssuanceService.RequestMatchesRoot(
-            request with { CredentialEpoch = 43 }, signer, root));
+            request with
+            {
+                CredentialEpoch = 43
+            }, signer, root));
         Assert.False(BlindCredentialIssuanceService.RequestMatchesRoot(
-            request, signer, root with { IssuerPublicKeyHash = new string('0', 64) }));
+            request, signer, root with
+            {
+                IssuerPublicKeyHash = new string('0', 64)
+            }));
         Assert.False(BlindCredentialIssuanceService.RequestMatchesRoot(
-            request, signer, root with { VerifierConfigured = false }));
+            request, signer, root with
+            {
+                VerifierConfigured = false
+            }));
     }
 
     [Fact]
@@ -288,10 +299,22 @@ public sealed class BlindCredentialIssuanceTests
             Configuration = BuildConfiguration(publicKeyHash);
         }
 
-        public string Root { get; }
-        public RSA Rsa { get; }
-        public string PublicKeyHash { get; }
-        public IConfiguration Configuration { get; }
+        public string Root
+        {
+            get;
+        }
+        public RSA Rsa
+        {
+            get;
+        }
+        public string PublicKeyHash
+        {
+            get;
+        }
+        public IConfiguration Configuration
+        {
+            get;
+        }
 
         public static BlindSignerFixture Create()
         {

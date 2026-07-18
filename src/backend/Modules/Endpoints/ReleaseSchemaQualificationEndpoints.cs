@@ -1,6 +1,8 @@
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+
 using Microsoft.AspNetCore.Mvc;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints;
@@ -43,7 +45,10 @@ public static class ReleaseSchemaQualificationEndpoints
     {
         if (!TryNormalizeWrite(request, out string operationId, out int sequence))
         {
-            return Results.BadRequest(new { code = "schema_qualification_write_invalid" });
+            return Results.BadRequest(new
+            {
+                code = "schema_qualification_write_invalid"
+            });
         }
 
         cancellationToken.ThrowIfCancellationRequested();

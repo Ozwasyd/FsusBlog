@@ -1,4 +1,5 @@
 using System.Diagnostics;
+
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;

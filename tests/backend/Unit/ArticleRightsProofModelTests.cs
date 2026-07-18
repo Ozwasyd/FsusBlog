@@ -1,8 +1,10 @@
 using System.Reflection;
+
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -93,7 +95,10 @@ public sealed class ArticleRightsProofModelTests
             contentHashReady: true,
             publishProofReady: false);
         ArticleRightsProofReadiness archived = ArticleRightsProofReadiness.Evaluate(
-            ReadyProof() with { PublicationState = PublishProofPublicationState.Archived },
+            ReadyProof() with
+            {
+                PublicationState = PublishProofPublicationState.Archived
+            },
             rightsSnapshotAvailable: true,
             contentHashReady: true,
             publishProofReady: true);

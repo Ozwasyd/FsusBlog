@@ -1,8 +1,11 @@
 using System.Reflection;
+
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Tests.Unit;
+
 using Microsoft.Extensions.Logging;
+
 using Serilog.Events;
 using Serilog.Parsing;
 

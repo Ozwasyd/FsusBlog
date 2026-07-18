@@ -1,7 +1,8 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Text;
+
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -11,6 +12,7 @@ using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -206,7 +208,8 @@ public sealed class RuntimeFallbackRetirementAcceptanceTests
         byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
         for (int offset = 0; offset <= il.Length - 5; offset++)
         {
-            if (il[offset] is not (0x28 or 0x6F)) continue;
+            if (il[offset] is not (0x28 or 0x6F))
+                continue;
             MethodBase? called = null;
             try
             {
@@ -215,7 +218,8 @@ public sealed class RuntimeFallbackRetirementAcceptanceTests
             catch (ArgumentException)
             {
             }
-            if (called is not null) yield return called;
+            if (called is not null)
+                yield return called;
         }
     }
 

@@ -1,4 +1,7 @@
-﻿using FsusBlog.Server.Entities;
+using System.Data;
+using System.Data.Common;
+
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -6,9 +9,8 @@ using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
+
 using SqlSugar;
-using System.Data;
-using System.Data.Common;
 
 namespace FsusBlog.Server.Services;
 
@@ -123,50 +125,50 @@ public partial class StatsService(
     private async Task<AdminStatsOverviewDto> LoadAdminStatsOverviewFromDbAsync(CancellationToken cancellationToken)
     {
         LogStatsCalculationStarted();
-            var articleCountQuery = _db.Queryable<Article>()
-                .Select(a => new
-                {
-                    Total = SqlFunc.AggregateCount(a.Id),
-                    Trash = SqlFunc.AggregateSum(SqlFunc.IIF(a.IsDeleted, 1, 0))
-                });
-            int totalArticles = 0;
-            int trashCount = 0;
-            var articleCountSql = articleCountQuery.ToSql();
-            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(articleCountSql.Key, articleCountSql.Value))
+        var articleCountQuery = _db.Queryable<Article>()
+            .Select(a => new
             {
-                if (await reader.ReadAsync(cancellationToken))
-                {
-                    totalArticles = reader.IsNull("Total") ? 0 : (int)reader.ReadInt64("Total");
-                    trashCount = reader.IsNull("Trash") ? 0 : (int)reader.ReadInt64("Trash");
-                }
-            }
-
-            int totalComments = await _db.Queryable<Comment>().CountAsync();
-
-            var popularQuery = _db.Queryable<Article>()
-                .OrderByDescending(a => a.Views)
-                .Take(5)
-                .Select(a => new { a.Id, a.Title, a.Views });
-
-            var popularSql = popularQuery.ToSql();
-            var popularArticles = new List<PopularArticleStatItemDto>(5);
-
-            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(popularSql.Key, popularSql.Value))
+                Total = SqlFunc.AggregateCount(a.Id),
+                Trash = SqlFunc.AggregateSum(SqlFunc.IIF(a.IsDeleted, 1, 0))
+            });
+        int totalArticles = 0;
+        int trashCount = 0;
+        var articleCountSql = articleCountQuery.ToSql();
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(articleCountSql.Key, articleCountSql.Value))
+        {
+            if (await reader.ReadAsync(cancellationToken))
             {
-                int fId = reader.GetOrdinal("Id");
-                int fTitle = reader.GetOrdinal("Title");
-                int fViews = reader.GetOrdinal("Views");
-
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    popularArticles.Add(new PopularArticleStatItemDto(
-                        reader.GetInt32(fId),
-                        reader.GetString(fTitle),
-                        reader.GetInt32(fViews)));
-                }
+                totalArticles = reader.IsNull("Total") ? 0 : (int)reader.ReadInt64("Total");
+                trashCount = reader.IsNull("Trash") ? 0 : (int)reader.ReadInt64("Trash");
             }
+        }
 
-            const string readStatsSql = """
+        int totalComments = await _db.Queryable<Comment>().CountAsync();
+
+        var popularQuery = _db.Queryable<Article>()
+            .OrderByDescending(a => a.Views)
+            .Take(5)
+            .Select(a => new { a.Id, a.Title, a.Views });
+
+        var popularSql = popularQuery.ToSql();
+        var popularArticles = new List<PopularArticleStatItemDto>(5);
+
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(popularSql.Key, popularSql.Value))
+        {
+            int fId = reader.GetOrdinal("Id");
+            int fTitle = reader.GetOrdinal("Title");
+            int fViews = reader.GetOrdinal("Views");
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                popularArticles.Add(new PopularArticleStatItemDto(
+                    reader.GetInt32(fId),
+                    reader.GetString(fTitle),
+                    reader.GetInt32(fViews)));
+            }
+        }
+
+        const string readStatsSql = """
                 SELECT
                     COALESCE((SELECT SUM(total_reads)::bigint FROM daily_read_stats), 0)::bigint AS "TotalReads",
                     COALESCE((SELECT SUM(human_verified_reads)::bigint FROM daily_read_stats), 0)::bigint AS "HumanVerifiedReads",
@@ -175,40 +177,40 @@ public partial class StatsService(
                     COALESCE((SELECT SUM(read_count)::bigint FROM event_type_read_stats WHERE event_type = 'site_read'), 0)::bigint AS "SiteReads";
                 """;
 
-            int totalReads = 0;
-            int humanVerifiedReads = 0;
-            int uniqueViewerKeyEstimate = 0;
-            int articleReads = 0;
-            int siteReads = 0;
+        int totalReads = 0;
+        int humanVerifiedReads = 0;
+        int uniqueViewerKeyEstimate = 0;
+        int articleReads = 0;
+        int siteReads = 0;
 
-            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(readStatsSql))
+        using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(readStatsSql))
+        {
+            if (await reader.ReadAsync(cancellationToken))
             {
-                if (await reader.ReadAsync(cancellationToken))
-                {
-                    totalReads = reader.IsNull("TotalReads") ? 0 : (int)reader.ReadInt64("TotalReads");
-                    humanVerifiedReads = reader.IsNull("HumanVerifiedReads") ? 0 : (int)reader.ReadInt64("HumanVerifiedReads");
-                    uniqueViewerKeyEstimate = reader.IsNull("UniqueViewerKeyEstimate") ? 0 : (int)reader.ReadInt64("UniqueViewerKeyEstimate");
-                    articleReads = reader.IsNull("ArticleReads") ? 0 : (int)reader.ReadInt64("ArticleReads");
-                    siteReads = reader.IsNull("SiteReads") ? 0 : (int)reader.ReadInt64("SiteReads");
-                }
+                totalReads = reader.IsNull("TotalReads") ? 0 : (int)reader.ReadInt64("TotalReads");
+                humanVerifiedReads = reader.IsNull("HumanVerifiedReads") ? 0 : (int)reader.ReadInt64("HumanVerifiedReads");
+                uniqueViewerKeyEstimate = reader.IsNull("UniqueViewerKeyEstimate") ? 0 : (int)reader.ReadInt64("UniqueViewerKeyEstimate");
+                articleReads = reader.IsNull("ArticleReads") ? 0 : (int)reader.ReadInt64("ArticleReads");
+                siteReads = reader.IsNull("SiteReads") ? 0 : (int)reader.ReadInt64("SiteReads");
             }
+        }
 
-            var result = new AdminStatsOverviewDto
+        var result = new AdminStatsOverviewDto
+        {
+            Summary = new StatsSummaryDto
             {
-                Summary = new StatsSummaryDto
-                {
-                    TotalArticles = totalArticles,
-                    TotalComments = totalComments,
-                    TrashCount = trashCount,
-                    TotalReads = totalReads,
-                    HumanVerifiedReads = humanVerifiedReads,
-                    UniqueViewerKeyEstimate = uniqueViewerKeyEstimate,
-                    ArticleReads = articleReads,
-                    SiteReads = siteReads
-                },
-                PopularArticles = popularArticles,
-            };
-            return result;
+                TotalArticles = totalArticles,
+                TotalComments = totalComments,
+                TrashCount = trashCount,
+                TotalReads = totalReads,
+                HumanVerifiedReads = humanVerifiedReads,
+                UniqueViewerKeyEstimate = uniqueViewerKeyEstimate,
+                ArticleReads = articleReads,
+                SiteReads = siteReads
+            },
+            PopularArticles = popularArticles,
+        };
+        return result;
     }
 
     internal async Task<List<RecentCommentStatItemDto>> LoadRecentCommentsAsync(CancellationToken cancellationToken)

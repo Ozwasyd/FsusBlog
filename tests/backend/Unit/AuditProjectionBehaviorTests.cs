@@ -1,8 +1,10 @@
 using System.Security.Claims;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Modules.Endpoints;
+
 using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Tests;
@@ -14,9 +16,18 @@ public sealed class AuditProjectionBehaviorTests
     {
         DateTime occurredAt = new(2026, 7, 11, 10, 0, 0, DateTimeKind.Utc);
         var ordinary = new AuditRecord(AuditSourceCatalog.Request, AuditTypeCatalog.Business, occurredAt, "ordinary", null);
-        var security = ordinary with { Type = AuditTypeCatalog.Security };
-        var critical = ordinary with { Severity = AuditSeverityCatalog.Critical };
-        var highValue = ordinary with { IsHighValue = true };
+        var security = ordinary with
+        {
+            Type = AuditTypeCatalog.Security
+        };
+        var critical = ordinary with
+        {
+            Severity = AuditSeverityCatalog.Critical
+        };
+        var highValue = ordinary with
+        {
+            IsHighValue = true
+        };
 
         Assert.False(ordinary.RequiresDurableWrite);
         Assert.True(security.RequiresDurableWrite);

@@ -51,23 +51,47 @@ public sealed class CspNonceUtf8Template
             + (hashIndexBytes >= 85_000 ? hashIndexBytes : 0);
     }
 
-    public string ArtifactIdentity { get; }
+    public string ArtifactIdentity
+    {
+        get;
+    }
 
-    public string TemplateDigest { get; }
+    public string TemplateDigest
+    {
+        get;
+    }
 
     public int SlotCount => _slotOffsets.Length;
 
-    public int LengthWithoutNonce { get; }
+    public int LengthWithoutNonce
+    {
+        get;
+    }
 
-    public long ResidentBytes { get; }
+    public long ResidentBytes
+    {
+        get;
+    }
 
-    public int ResidentArrayCount { get; }
+    public int ResidentArrayCount
+    {
+        get;
+    }
 
-    public int ResidentObjectCount { get; }
+    public int ResidentObjectCount
+    {
+        get;
+    }
 
-    public int LohEligibleArrayCount { get; }
+    public int LohEligibleArrayCount
+    {
+        get;
+    }
 
-    public long LohEligibleArrayBytes { get; }
+    public long LohEligibleArrayBytes
+    {
+        get;
+    }
 
     public IReadOnlyList<string> StaticInlineSha256Sources => _staticInlineSha256Sources;
 

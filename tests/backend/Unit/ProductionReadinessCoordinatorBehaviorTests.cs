@@ -1,5 +1,5 @@
-using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Operations;
 
 namespace FsusBlog.Server.Tests.Unit;
 

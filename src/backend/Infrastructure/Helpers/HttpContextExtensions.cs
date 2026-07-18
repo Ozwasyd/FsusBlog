@@ -1,5 +1,6 @@
-﻿using System.Net;
+using System.Net;
 using System.Runtime.CompilerServices;
+
 using FsusBlog.Server.Infrastructure;
 
 namespace FsusBlog.Server.Infrastructure.Helpers;

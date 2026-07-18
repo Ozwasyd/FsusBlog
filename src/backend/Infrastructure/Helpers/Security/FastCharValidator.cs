@@ -1,7 +1,7 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.Helpers.Security;
@@ -19,7 +19,8 @@ public static class FastCharValidator
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsOnlyChineseAndAlpha(ReadOnlySpan<char> span)
     {
-        if (span.IsEmpty) return false;
+        if (span.IsEmpty)
+            return false;
 
         int length = span.Length;
         int i = 0;
@@ -63,7 +64,8 @@ public static class FastCharValidator
                 int val = rune.Value;
                 bool isAlpha = (uint)((val | 0x20) - 'a') <= (uint)('z' - 'a');
                 bool isChinese = val >= 0x4E00 && val <= 0x9FA5;
-                if (!isAlpha && !isChinese) return false;
+                if (!isAlpha && !isChinese)
+                    return false;
             }
         }
 
@@ -76,7 +78,8 @@ public static class FastCharValidator
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsPublicHandle(ReadOnlySpan<char> span)
     {
-        if (span.IsEmpty) return false;
+        if (span.IsEmpty)
+            return false;
 
         int length = span.Length;
         int i = 0;
@@ -120,7 +123,8 @@ public static class FastCharValidator
                 bool isDigit = (uint)(val - '0') <= 9;
                 bool isHash = val == '#';
                 bool isChinese = val >= 0x4E00 && val <= 0x9FA5;
-                if (!isAlpha && !isDigit && !isHash && !isChinese) return false;
+                if (!isAlpha && !isDigit && !isHash && !isChinese)
+                    return false;
             }
         }
 
@@ -134,7 +138,8 @@ public static class FastCharValidator
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsAlphaNumericHyphen(ReadOnlySpan<char> span)
     {
-        if (span.IsEmpty) return false;
+        if (span.IsEmpty)
+            return false;
 
         int length = span.Length;
         int i = 0;
@@ -177,7 +182,8 @@ public static class FastCharValidator
         {
             char c = span[i];
             bool isAlphaNum = (uint)((c | 0x20) - 'a') <= (uint)('z' - 'a') || (uint)(c - '0') <= 9;
-            if (!isAlphaNum && c != '-') return false;
+            if (!isAlphaNum && c != '-')
+                return false;
         }
 
         return true;

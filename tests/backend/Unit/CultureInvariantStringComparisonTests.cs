@@ -1,4 +1,5 @@
 using System.Reflection;
+
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;

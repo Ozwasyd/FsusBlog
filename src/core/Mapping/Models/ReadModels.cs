@@ -323,8 +323,14 @@ public sealed record class PasskeyRegisterCompleteCoreModel
     public byte[] ClientDataBytes { get; init; } = [];
     public byte[] AttestationObject { get; init; } = [];
     public IReadOnlyList<int> Transports { get; init; } = [];
-    public string? FriendlyName { get; init; }
-    public string? MfaProofToken { get; init; }
+    public string? FriendlyName
+    {
+        get; init;
+    }
+    public string? MfaProofToken
+    {
+        get; init;
+    }
 }
 
 public readonly record struct PasskeyCredentialDescriptorCoreModel(
@@ -337,12 +343,30 @@ public readonly record struct PasskeyPublicKeyCredentialParamCoreModel(int Type,
 public sealed record class PasskeyRegisterBeginCoreModel
 {
     public string SessionKey { get; init; } = string.Empty;
-    public ulong Timeout { get; init; }
-    public int Attestation { get; init; }
-    public int ResidentKey { get; init; }
-    public int UserVerification { get; init; }
-    public int? AuthenticatorAttachment { get; init; }
-    public bool RequireResidentKey { get; init; }
+    public ulong Timeout
+    {
+        get; init;
+    }
+    public int Attestation
+    {
+        get; init;
+    }
+    public int ResidentKey
+    {
+        get; init;
+    }
+    public int UserVerification
+    {
+        get; init;
+    }
+    public int? AuthenticatorAttachment
+    {
+        get; init;
+    }
+    public bool RequireResidentKey
+    {
+        get; init;
+    }
     public string RpId { get; init; } = string.Empty;
     public string RpName { get; init; } = string.Empty;
     public string AccountName { get; init; } = string.Empty;
@@ -356,9 +380,15 @@ public sealed record class PasskeyRegisterBeginCoreModel
 public sealed record class PasskeyLoginBeginCoreModel
 {
     public string ChallengeToken { get; init; } = string.Empty;
-    public ulong Timeout { get; init; }
+    public ulong Timeout
+    {
+        get; init;
+    }
     public string RpId { get; init; } = string.Empty;
-    public int? UserVerification { get; init; }
+    public int? UserVerification
+    {
+        get; init;
+    }
     public byte[] Challenge { get; init; } = [];
     public IReadOnlyList<PasskeyCredentialDescriptorCoreModel> AllowCredentials { get; init; } = [];
 }
@@ -371,8 +401,14 @@ public sealed record class PasskeyLoginCompleteCoreModel
     public byte[] ClientDataBytes { get; init; } = [];
     public byte[] AuthenticatorData { get; init; } = [];
     public byte[] Signature { get; init; } = [];
-    public byte[]? UserHandle { get; init; }
-    public bool RememberMe { get; init; }
+    public byte[]? UserHandle
+    {
+        get; init;
+    }
+    public bool RememberMe
+    {
+        get; init;
+    }
 }
 
 public readonly record struct ArticleRightsRequestCoreModel(

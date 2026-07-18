@@ -1,10 +1,12 @@
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
-using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -93,7 +95,10 @@ public sealed class ZkProofVerifierTests
             }),
             verifier);
 
-        ZkProofVerificationResult missing = await service.VerifyCommentProofAsync(ValidRequest() with { Proof = [] });
+        ZkProofVerificationResult missing = await service.VerifyCommentProofAsync(ValidRequest() with
+        {
+            Proof = []
+        });
         ZkProofVerificationResult invalid = await service.VerifyCommentProofAsync(ValidRequest());
 
         Assert.False(missing.Verified);
@@ -114,8 +119,14 @@ public sealed class ZkProofVerifierTests
             }),
             verifier);
 
-        ZkProofVerificationResult missingNullifier = await service.VerifyCommentProofAsync(ValidRequest() with { NullifierHash = string.Empty });
-        ZkProofVerificationResult missingRoot = await service.VerifyCommentProofAsync(ValidRequest() with { CredentialRoot = string.Empty });
+        ZkProofVerificationResult missingNullifier = await service.VerifyCommentProofAsync(ValidRequest() with
+        {
+            NullifierHash = string.Empty
+        });
+        ZkProofVerificationResult missingRoot = await service.VerifyCommentProofAsync(ValidRequest() with
+        {
+            CredentialRoot = string.Empty
+        });
 
         Assert.False(missingNullifier.Verified);
         Assert.False(missingRoot.Verified);
@@ -351,7 +362,10 @@ public sealed class ZkProofVerifierTests
                 ["AnonymousIdentity:ZkVerifier:MaxProofBytes"] = "4"
             });
 
-        ZkProofVerificationResult result = await verifier.VerifyAsync(ValidRequest() with { Proof = [1, 2, 3, 4, 5] });
+        ZkProofVerificationResult result = await verifier.VerifyAsync(ValidRequest() with
+        {
+            Proof = [1, 2, 3, 4, 5]
+        });
 
         Assert.False(result.Verified);
         Assert.Equal(ZkProofVerificationStatuses.InvalidProof, result.Status);
@@ -408,7 +422,10 @@ public sealed class ZkProofVerifierTests
             backend: new RecordingProductionZkProofBackend(ProductionZkProofBackendResult.Rejected(PublicInputNullifierHash)),
             logger: logger);
 
-        _ = await verifier.VerifyAsync(ValidRequest() with { NullifierHash = PublicInputNullifierHash });
+        _ = await verifier.VerifyAsync(ValidRequest() with
+        {
+            NullifierHash = PublicInputNullifierHash
+        });
 
         string logs = string.Join('\n', logger.Messages);
         Assert.NotEmpty(logger.Messages);
@@ -491,7 +508,10 @@ public sealed class ZkProofVerifierTests
 
     private sealed class RecordingZkVerifier(bool configured, ZkProofVerificationResult result) : IZkProofVerifier
     {
-        public int CallCount { get; private set; }
+        public int CallCount
+        {
+            get; private set;
+        }
 
         public bool IsConfigured { get; } = configured;
 
@@ -506,7 +526,10 @@ public sealed class ZkProofVerifierTests
 
     private sealed class FixedRootReader(string acceptedRoot, long acceptedEpoch) : IAnonymousCredentialRootReader
     {
-        public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot { get; } = new(
+        public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot
+        {
+            get;
+        } = new(
             [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, RevocationRoot, IssuerPublicKeyHash, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
             1,
             DateTimeOffset.UtcNow);
@@ -526,23 +549,35 @@ public sealed class ZkProofVerifierTests
 
     private sealed class CapturingZkProofService(ZkProofVerificationResult result) : IZkAnonymousProofService
     {
-        public int CallCount { get; private set; }
+        public int CallCount
+        {
+            get; private set;
+        }
 
         public ZkProofVerificationRequest LastRequest { get; private set; } = null!;
 
-        public AnonymousCommentPolicySnapshot CurrentCommentPolicy { get; } = AnonymousCommentPolicySnapshot.Default with
+        public AnonymousCommentPolicySnapshot CurrentCommentPolicy
+        {
+            get;
+        } = AnonymousCommentPolicySnapshot.Default with
         {
             ZkAnonymousEnabled = true,
             SnapshotHash = PolicyHash
         };
 
-        public ZkAnonymousPolicySnapshot CurrentZkPolicy { get; } = new(
+        public ZkAnonymousPolicySnapshot CurrentZkPolicy
+        {
+            get;
+        } = new(
             true,
             true,
             "comment.create",
             []);
 
-        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = new(
+        public ZkProdPolicySnapshot CurrentZkProdPolicy
+        {
+            get;
+        } = new(
             false,
             false,
             false,
@@ -576,9 +611,15 @@ public sealed class ZkProofVerifierTests
     {
         private readonly ProductionZkProofBackendResult _result = result ?? ProductionZkProofBackendResult.Accepted();
 
-        public int CallCount { get; private set; }
+        public int CallCount
+        {
+            get; private set;
+        }
 
-        public ProductionZkProofBackendRequest LastRequest { get; private set; }
+        public ProductionZkProofBackendRequest LastRequest
+        {
+            get; private set;
+        }
 
         public bool IsAvailable(string backendName)
             => string.Equals(backendName, "unit", StringComparison.Ordinal);
@@ -595,7 +636,10 @@ public sealed class ZkProofVerifierTests
 
     private sealed class BlockingProductionZkProofBackend : IProductionZkProofBackend
     {
-        public bool WasCanceled { get; private set; }
+        public bool WasCanceled
+        {
+            get; private set;
+        }
 
         public bool IsAvailable(string backendName)
             => string.Equals(backendName, "unit", StringComparison.Ordinal);

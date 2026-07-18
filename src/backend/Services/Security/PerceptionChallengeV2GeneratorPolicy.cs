@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Server.Models.Security;
 
 namespace FsusBlog.Server.Services.Security;
@@ -15,7 +16,10 @@ public static class PerceptionChallengeV2GeneratorFamilyRegistry
     public const string TopologyCut = "topology-cut";
     public const string LocalizationField = "localization-field";
 
-    public static IReadOnlySet<string> SupportedFamilies { get; } = new HashSet<string>(StringComparer.Ordinal)
+    public static IReadOnlySet<string> SupportedFamilies
+    {
+        get;
+    } = new HashSet<string>(StringComparer.Ordinal)
     {
         TextStroke,
         SplineField,
@@ -317,7 +321,10 @@ public static class PerceptionChallengeV2GeneratorSelector
 
     private interface IWeightedCandidate
     {
-        int Weight { get; }
+        int Weight
+        {
+            get;
+        }
     }
 
     private sealed record WeightedFamily(

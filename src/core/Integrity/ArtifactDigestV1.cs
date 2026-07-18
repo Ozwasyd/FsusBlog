@@ -209,7 +209,10 @@ public static class ArtifactDigestV1
 
         if (StringComparer.Ordinal.Equals(expected, actual.Sha256Hex))
         {
-            return actual with { ExpectedSha256Hex = expected };
+            return actual with
+            {
+                ExpectedSha256Hex = expected
+            };
         }
 
         return actual with

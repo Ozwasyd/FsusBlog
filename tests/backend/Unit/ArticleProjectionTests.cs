@@ -212,7 +212,10 @@ public sealed class ArticleProjectionTests
             Total = 1
         }).Items);
 
-        Assert.Equal(expected with { Tags = actual.Tags }, actual);
+        Assert.Equal(expected with
+        {
+            Tags = actual.Tags
+        }, actual);
         Assert.Equal(expected.Tags, actual.Tags);
     }
 

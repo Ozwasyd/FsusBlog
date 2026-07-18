@@ -1,13 +1,15 @@
-using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using System.Runtime.InteropServices;
+
 using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
+
 using Microsoft.Extensions.Options;
-using System.Runtime.InteropServices;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 

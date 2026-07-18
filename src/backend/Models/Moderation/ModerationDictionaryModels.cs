@@ -61,7 +61,10 @@ public sealed record ModerationDictionarySnapshot(
     string Checksum,
     DateTime CreatedAtUtc)
 {
-    public static ModerationDictionarySnapshot Empty { get; } = new(
+    public static ModerationDictionarySnapshot Empty
+    {
+        get;
+    } = new(
         "moderation-dictionary-empty",
         "empty",
         new Dictionary<string, ModerationDictionaryDefinition>(StringComparer.Ordinal),

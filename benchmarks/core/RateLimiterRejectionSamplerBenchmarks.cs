@@ -1,4 +1,5 @@
 using BenchmarkDotNet.Attributes;
+
 using FsusBlog.Server.Infrastructure.Security;
 
 [MemoryDiagnoser]
@@ -10,7 +11,10 @@ public class RateLimiterRejectionSamplerBenchmarks
     private int _nextSubject;
 
     [Params(64, 4096)]
-    public int TrackedBucketCount { get; set; }
+    public int TrackedBucketCount
+    {
+        get; set;
+    }
 
     [GlobalSetup]
     public void Setup()

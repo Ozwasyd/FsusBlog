@@ -1,11 +1,14 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Services.Background;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests;

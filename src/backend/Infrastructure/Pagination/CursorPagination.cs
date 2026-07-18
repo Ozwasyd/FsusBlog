@@ -1,7 +1,9 @@
-using FsusBlog.Core.Mapping.Models;
-using Microsoft.AspNetCore.Http;
 using System.Globalization;
+
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Shared.Contracts.Outputs;
+
+using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Infrastructure.Pagination;
 
@@ -31,15 +33,27 @@ public sealed record CursorEnvelope<TCursor, TItem>
     where TCursor : struct
 {
     public List<TItem> Data { get; init; } = [];
-    public TCursor? NextCursor { get; init; }
-    public bool HasMore { get; init; }
+    public TCursor? NextCursor
+    {
+        get; init;
+    }
+    public bool HasMore
+    {
+        get; init;
+    }
 }
 
 public sealed record CursorWindow<TItem>
 {
     public List<TItem> Data { get; init; } = [];
-    public string? NextCursor { get; init; }
-    public bool HasMore { get; init; }
+    public string? NextCursor
+    {
+        get; init;
+    }
+    public bool HasMore
+    {
+        get; init;
+    }
 }
 
 public interface ICursorCodec<TCursor>

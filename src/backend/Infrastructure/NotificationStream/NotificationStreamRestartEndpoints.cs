@@ -1,6 +1,8 @@
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
+
 using Microsoft.AspNetCore.Mvc;
+
 using HttpResults = Microsoft.AspNetCore.Http.Results;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
@@ -49,6 +51,11 @@ public static class NotificationStreamRestartEndpoints
 
     private static IResult TrustedHostRequired()
         => HttpResults.Json(
-            new { accepted = false, status = "rejected", errorCode = "trusted_host_required" },
+            new
+            {
+                accepted = false,
+                status = "rejected",
+                errorCode = "trusted_host_required"
+            },
             statusCode: StatusCodes.Status403Forbidden);
 }

@@ -1,11 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
 using FsusBlog.Core.Common;
-using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
+
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -388,7 +390,10 @@ public sealed class ReleaseStorageLifecycleTests
                 await File.ReadAllBytesAsync(storedManifestPath))!;
             await File.WriteAllBytesAsync(
                 storedManifestPath,
-                JsonSerializer.SerializeToUtf8Bytes(stored with { ReleaseId = "other-release" }));
+                JsonSerializer.SerializeToUtf8Bytes(stored with
+                {
+                    ReleaseId = "other-release"
+                }));
 
             await Assert.ThrowsAsync<InvalidOperationException>(() => publisher.ReactivateGenerationAsync(
                 "search",

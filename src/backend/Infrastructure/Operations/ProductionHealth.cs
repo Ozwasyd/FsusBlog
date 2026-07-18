@@ -1,26 +1,30 @@
 using System.Diagnostics;
 using System.Text.Json;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
-using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-using FsusBlog.Server.Infrastructure.NotificationStream;
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
+
 using Npgsql;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
@@ -32,7 +36,10 @@ public sealed record ProductionHealthReport(
 
 public interface IProductionHealthCheck
 {
-    string Status { get; }
+    string Status
+    {
+        get;
+    }
 }
 
 public sealed record ProductionDependencyHealthCheck(
@@ -282,8 +289,14 @@ public sealed record RuntimeHealthSnapshot(
     PublicHotReadRuntimeSnapshot? PublicHotRead,
     AuditLogRuntimeSnapshot? AuditLog) : IProductionHealthCheck
 {
-    public DbConcurrencyGateDiagnostics? DbGateClasses { get; init; }
-    public PublicArticleProjectionRuntimeSnapshot? PublicArticleProjection { get; init; }
+    public DbConcurrencyGateDiagnostics? DbGateClasses
+    {
+        get; init;
+    }
+    public PublicArticleProjectionRuntimeSnapshot? PublicArticleProjection
+    {
+        get; init;
+    }
 }
 
 public static class ProductionLivenessProbe
@@ -862,7 +875,10 @@ public sealed class ProductionReadinessProbe(
 
 public interface IConfigurationHealthSnapshot
 {
-    ProductionConfigurationHealthCheck Current { get; }
+    ProductionConfigurationHealthCheck Current
+    {
+        get;
+    }
 
     void Refresh();
 }

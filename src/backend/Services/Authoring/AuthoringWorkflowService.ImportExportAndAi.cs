@@ -1,9 +1,11 @@
-using System.Net;
 using System.Data.Common;
+using System.Globalization;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -13,12 +15,12 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
-using System.Globalization;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;
@@ -221,9 +223,12 @@ public sealed partial class AuthoringWorkflowService
     {
         string value = content ?? string.Empty;
         var tags = new List<string>(3);
-        if (value.Contains("AOT", StringComparison.OrdinalIgnoreCase)) tags.Add("AOT");
-        if (value.Contains("WASM", StringComparison.OrdinalIgnoreCase)) tags.Add("Wasm");
-        if (value.Contains("security", StringComparison.OrdinalIgnoreCase) || value.Contains("安全", StringComparison.OrdinalIgnoreCase)) tags.Add("安全");
+        if (value.Contains("AOT", StringComparison.OrdinalIgnoreCase))
+            tags.Add("AOT");
+        if (value.Contains("WASM", StringComparison.OrdinalIgnoreCase))
+            tags.Add("Wasm");
+        if (value.Contains("security", StringComparison.OrdinalIgnoreCase) || value.Contains("安全", StringComparison.OrdinalIgnoreCase))
+            tags.Add("安全");
         return tags.Count == 0 ? ["写作"] : tags;
     }
 
@@ -328,7 +333,8 @@ fsusMetadataJson: {encodedMetadata}
                 foreach (string line in frontmatter.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
                     int separator = line.IndexOf(':');
-                    if (separator <= 0) continue;
+                    if (separator <= 0)
+                        continue;
                     string key = line[..separator].Trim();
                     string value = line[(separator + 1)..].Trim();
                     values[key] = value;
@@ -339,11 +345,16 @@ fsusMetadataJson: {encodedMetadata}
                     metadata = TryDecodeExportMetadata(encodedMetadata);
                 }
 
-                if (values.TryGetValue("title", out string? rawTitle) && !string.IsNullOrWhiteSpace(rawTitle)) title = rawTitle;
-                if (values.TryGetValue("summary", out string? rawSummary)) summary = TextHelpers.NormalizeNullable(rawSummary, 512);
-                if (values.TryGetValue("cover", out string? rawCover)) cover = TextHelpers.NormalizeNullable(rawCover, 512);
-                if (values.TryGetValue("categoryId", out string? rawCategory) && int.TryParse(rawCategory, out int parsedCategory)) categoryId = Math.Max(1, parsedCategory);
-                if (values.TryGetValue("status", out string? rawStatus) && int.TryParse(rawStatus, out int parsedStatus) && ArticleStatusProjection.IsDefined(parsedStatus)) status = (ArticleStatus)parsedStatus;
+                if (values.TryGetValue("title", out string? rawTitle) && !string.IsNullOrWhiteSpace(rawTitle))
+                    title = rawTitle;
+                if (values.TryGetValue("summary", out string? rawSummary))
+                    summary = TextHelpers.NormalizeNullable(rawSummary, 512);
+                if (values.TryGetValue("cover", out string? rawCover))
+                    cover = TextHelpers.NormalizeNullable(rawCover, 512);
+                if (values.TryGetValue("categoryId", out string? rawCategory) && int.TryParse(rawCategory, out int parsedCategory))
+                    categoryId = Math.Max(1, parsedCategory);
+                if (values.TryGetValue("status", out string? rawStatus) && int.TryParse(rawStatus, out int parsedStatus) && ArticleStatusProjection.IsDefined(parsedStatus))
+                    status = (ArticleStatus)parsedStatus;
                 if (values.TryGetValue("scheduledPublishAt", out string? rawScheduled)
                     && DateTime.TryParse(
                         rawScheduled,
@@ -353,7 +364,8 @@ fsusMetadataJson: {encodedMetadata}
                 {
                     scheduledPublishAt = parsedScheduled;
                 }
-                if (values.TryGetValue("tagIds", out string? rawTagIds)) tagIds = ParseTagIds(rawTagIds);
+                if (values.TryGetValue("tagIds", out string? rawTagIds))
+                    tagIds = ParseTagIds(rawTagIds);
             }
         }
 

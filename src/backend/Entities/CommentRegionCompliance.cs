@@ -9,34 +9,55 @@ namespace FsusBlog.Server.Entities;
 public sealed class CommentRegionCompliance
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "comment_id")]
-    public long CommentId { get; set; }
+    public long CommentId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "submit_region", Length = 64)]
     public string SubmitRegion { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "submit_region_confidence")]
-    public double SubmitRegionConfidence { get; set; }
+    public double SubmitRegionConfidence
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "region_provider", Length = 64)]
     public string RegionProvider { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "submit_ip_hash", Length = 64, IsNullable = true)]
-    public string? SubmitIpHash { get; set; }
+    public string? SubmitIpHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "policy_version", Length = 64)]
     public string PolicyVersion { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "can_publish")]
-    public bool CanPublish { get; set; }
+    public bool CanPublish
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "requires_manual_review")]
-    public bool RequiresManualReview { get; set; }
+    public bool RequiresManualReview
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "hide_until_reviewed")]
-    public bool HideUntilReviewed { get; set; }
+    public bool HideUntilReviewed
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "blocked_regions", ColumnDataType = "text")]
     public string BlockedRegions { get; set; } = string.Empty;
@@ -45,10 +66,16 @@ public sealed class CommentRegionCompliance
     public string RiskLabels { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "decision_reason", Length = 256, IsNullable = true)]
-    public string? DecisionReason { get; set; }
+    public string? DecisionReason
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "rule_hits_json", ColumnDataType = "text", IsNullable = true)]
-    public string? RuleHitsJson { get; set; }
+    public string? RuleHitsJson
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+
 using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Shared.Contracts.Models;

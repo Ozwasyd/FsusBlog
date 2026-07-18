@@ -1,27 +1,30 @@
-﻿using FsusBlog.Core.Common;
-using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Audit;
-using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Infrastructure.Helpers.Security;
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Execution;
-using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.Dtos;
-using FsusBlog.Server.Models.Responses;
-using SqlSugar;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using FsusBlog.Shared.Contracts.Outputs;
+
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Helpers.Security;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Responses;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.Outputs;
+
 using Npgsql;
-using System.Diagnostics;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Services;
 
@@ -58,8 +61,10 @@ public partial class UserService(
     private static string NormalizePublicHandleToken(string input)
     {
         var span = input.AsSpan().Trim();
-        if (span.IsEmpty) return string.Empty;
-        if (span.Length > MaxPublicHandleLength) span = span[..MaxPublicHandleLength];
+        if (span.IsEmpty)
+            return string.Empty;
+        if (span.Length > MaxPublicHandleLength)
+            span = span[..MaxPublicHandleLength];
         return string.Create(span.Length, span, static (dst, src) => src.ToLowerInvariant(dst));
     }
 
@@ -407,7 +412,8 @@ public partial class UserService(
     public async Task<bool> RevokeRefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(refreshToken)) return false;
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            return false;
 
         string hash = HashToken(refreshToken);
         DateTime revokedAt = DateTime.UtcNow;
@@ -660,20 +666,23 @@ public partial class UserService(
         }
 
         var user = await LoadAdminStatusTargetAsync(dto.AccountId);
-        if (user == null) return (false, "用户不存在");
+        if (user == null)
+            return (false, "用户不存在");
         if (string.Equals(user.IdentityKind, AnonymousIdentityRuntime.AdminPrincipalKind, StringComparison.Ordinal))
         {
             return (false, "管理员主体不通过普通账号状态接口治理");
         }
 
-        if (user.Status == UserStatusDeleted || user.DeletedAt.HasValue) return (false, "已注销账户不可变更状态");
+        if (user.Status == UserStatusDeleted || user.DeletedAt.HasValue)
+            return (false, "已注销账户不可变更状态");
 
         string? effectiveReason = dto.Status == 1 ? (dto.Reason ?? "违反社区规定") : null;
 
         if (!await TryUpdateAdminStatusAsync(user, dto.Status, effectiveReason))
         {
             var current = await LoadAdminStatusTargetAsync(dto.AccountId);
-            if (current == null) return (false, "用户不存在");
+            if (current == null)
+                return (false, "用户不存在");
             if (string.Equals(current.IdentityKind, AnonymousIdentityRuntime.AdminPrincipalKind, StringComparison.Ordinal))
             {
                 return (false, "管理员主体不通过普通账号状态接口治理");
@@ -927,10 +936,22 @@ public partial class UserService(
     private sealed record UserSessionSummaryRow
     {
         public string SessionId { get; init; } = string.Empty;
-        public string? DeviceFingerprint { get; init; }
-        public string? UserAgent { get; init; }
-        public DateTime? LastSeenAt { get; init; }
-        public bool MfaVerified { get; init; }
+        public string? DeviceFingerprint
+        {
+            get; init;
+        }
+        public string? UserAgent
+        {
+            get; init;
+        }
+        public DateTime? LastSeenAt
+        {
+            get; init;
+        }
+        public bool MfaVerified
+        {
+            get; init;
+        }
     }
 
     private static string BuildDeviceLabel(string? userAgent, string? fingerprint)

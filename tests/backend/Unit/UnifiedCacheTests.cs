@@ -1,10 +1,14 @@
 using System.Collections.Concurrent;
-using FsusBlog.Server.Infrastructure.Cache;
 using System.Text;
+
+using FsusBlog.Server.Infrastructure.Cache;
+
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Primitives;
+
 using NSubstitute;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests;
@@ -1159,7 +1163,10 @@ public sealed class UnifiedCacheTests
 
     private sealed class CountingRuntimeKeyScope(string prefix, string scopeToken) : IRuntimeKeyScope
     {
-        public int PrefixKeyCalls { get; private set; }
+        public int PrefixKeyCalls
+        {
+            get; private set;
+        }
         public string ScopeToken => scopeToken;
 
         public string PrefixKey(string key)
@@ -1181,8 +1188,14 @@ public sealed class UnifiedCacheTests
 
     private sealed class RemoveTrackingMemoryCache : IMemoryCache
     {
-        public bool Removed { get; private set; }
-        public object? RemovedKey { get; private set; }
+        public bool Removed
+        {
+            get; private set;
+        }
+        public object? RemovedKey
+        {
+            get; private set;
+        }
         public List<object> RemovedKeys { get; } = [];
         public List<object> CreatedKeys { get; } = [];
 
@@ -1213,14 +1226,32 @@ public sealed class UnifiedCacheTests
     private sealed class TestCacheEntry(object key) : ICacheEntry
     {
         public object Key { get; } = key;
-        public object? Value { get; set; }
-        public DateTimeOffset? AbsoluteExpiration { get; set; }
-        public TimeSpan? AbsoluteExpirationRelativeToNow { get; set; }
-        public TimeSpan? SlidingExpiration { get; set; }
+        public object? Value
+        {
+            get; set;
+        }
+        public DateTimeOffset? AbsoluteExpiration
+        {
+            get; set;
+        }
+        public TimeSpan? AbsoluteExpirationRelativeToNow
+        {
+            get; set;
+        }
+        public TimeSpan? SlidingExpiration
+        {
+            get; set;
+        }
         public IList<IChangeToken> ExpirationTokens { get; } = new List<IChangeToken>();
         public IList<PostEvictionCallbackRegistration> PostEvictionCallbacks { get; } = new List<PostEvictionCallbackRegistration>();
-        public CacheItemPriority Priority { get; set; }
-        public long? Size { get; set; }
+        public CacheItemPriority Priority
+        {
+            get; set;
+        }
+        public long? Size
+        {
+            get; set;
+        }
 
         public void Dispose()
         {

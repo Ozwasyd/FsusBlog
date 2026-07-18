@@ -9,11 +9,17 @@ namespace FsusBlog.Server.Entities;
 public class PasskeyCredential
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
-    public int Id { get; set; }
+    public int Id
+    {
+        get; set;
+    }
 
     /// <summary>所属匿名账号 ID</summary>
     [SugarColumn(ColumnName = "account_id", IsNullable = false)]
-    public int AccountId { get; set; }
+    public int AccountId
+    {
+        get; set;
+    }
 
     /// <summary>WebAuthn CredentialId (Base64Url 编码后存储为文本)</summary>
     [SugarColumn(Length = 512, IsNullable = false)]
@@ -25,14 +31,23 @@ public class PasskeyCredential
 
     /// <summary>签名计数，防重放</summary>
     [SugarColumn(DefaultValue = "0")]
-    public long SignCount { get; set; }
+    public long SignCount
+    {
+        get; set;
+    }
 
     [SugarColumn(IsIgnore = true)]
-    public string? RowVersion { get; set; }
+    public string? RowVersion
+    {
+        get; set;
+    }
 
     /// <summary>用户自定义设备名称</summary>
     [SugarColumn(Length = 64, IsNullable = true)]
-    public string? DeviceFriendlyName { get; set; }
+    public string? DeviceFriendlyName
+    {
+        get; set;
+    }
 
     /// <summary>Authenticator AAGUID</summary>
     [SugarColumn(Length = 36, IsNullable = false)]
@@ -40,15 +55,24 @@ public class PasskeyCredential
 
     /// <summary>传输协议列表 (逗号分隔，如 "usb,nfc")</summary>
     [SugarColumn(Length = 128, IsNullable = true)]
-    public string? Transports { get; set; }
+    public string? Transports
+    {
+        get; set;
+    }
 
     /// <summary>凭证是否支持备份（可同步到多设备）</summary>
     [SugarColumn(DefaultValue = "false")]
-    public bool BackupEligible { get; set; }
+    public bool BackupEligible
+    {
+        get; set;
+    }
 
     /// <summary>当前凭证是否已备份（跨设备同步）</summary>
     [SugarColumn(DefaultValue = "false")]
-    public bool BackupState { get; set; }
+    public bool BackupState
+    {
+        get; set;
+    }
 
     /// <summary>
     /// SHA-256 of the recovery-session token that created this credential.
@@ -56,19 +80,28 @@ public class PasskeyCredential
     /// idempotency marker for response-loss and concurrent completion retries.
     /// </summary>
     [SugarColumn(ColumnName = "recovery_session_hash", Length = 64, IsNullable = true)]
-    public string? RecoverySessionHash { get; set; }
+    public string? RecoverySessionHash
+    {
+        get; set;
+    }
 
     /// <summary>
     /// SHA-256 of the canonical recovery Passkey completion request. It binds an
     /// idempotent replay to the exact WebAuthn response that originally completed.
     /// </summary>
     [SugarColumn(ColumnName = "recovery_request_hash", Length = 64, IsNullable = true)]
-    public string? RecoveryRequestHash { get; set; }
+    public string? RecoveryRequestHash
+    {
+        get; set;
+    }
 
     /// <summary>创建时间</summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>上次使用时间</summary>
     [SugarColumn(IsNullable = true)]
-    public DateTime? LastUsedAt { get; set; }
+    public DateTime? LastUsedAt
+    {
+        get; set;
+    }
 }

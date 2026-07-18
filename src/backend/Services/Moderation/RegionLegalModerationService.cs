@@ -1,10 +1,11 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using FsusBlog.Server.Interfaces;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Moderation;
 
 namespace FsusBlog.Server.Services.Moderation;

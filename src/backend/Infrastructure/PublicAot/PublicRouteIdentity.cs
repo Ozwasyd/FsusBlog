@@ -1,6 +1,8 @@
-using Microsoft.AspNetCore.Http;
-using FsusBlog.Shared.Contracts.Outputs;
 using System.Globalization;
+
+using FsusBlog.Shared.Contracts.Outputs;
+
+using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 

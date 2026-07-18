@@ -17,7 +17,10 @@ public sealed record class PublicSeoOpenGraphModel
     public string Type { get; init; } = "website";
     public string Url { get; init; } = string.Empty;
     public string Locale { get; init; } = "zh_CN";
-    public string? ImageUrl { get; init; }
+    public string? ImageUrl
+    {
+        get; init;
+    }
 }
 
 public sealed record class PublicSeoTwitterCardModel
@@ -25,7 +28,10 @@ public sealed record class PublicSeoTwitterCardModel
     public string Card { get; init; } = "summary_large_image";
     public string Title { get; init; } = string.Empty;
     public string Description { get; init; } = string.Empty;
-    public string? ImageUrl { get; init; }
+    public string? ImageUrl
+    {
+        get; init;
+    }
 }
 
 /// <summary>
@@ -48,13 +54,28 @@ public sealed record class PublicSeoHeadModel
     public PublicSeoOpenGraphModel OpenGraph { get; init; } = new();
     public PublicSeoTwitterCardModel Twitter { get; init; } = new();
     public string JsonLdGraph { get; init; } = string.Empty;
-    public DateTimeOffset? ArticlePublishedAtUtc { get; init; }
-    public DateTimeOffset? ArticleModifiedAtUtc { get; init; }
-    public string? ArticleAuthor { get; init; }
-    public string? ArticleImageUrl { get; init; }
+    public DateTimeOffset? ArticlePublishedAtUtc
+    {
+        get; init;
+    }
+    public DateTimeOffset? ArticleModifiedAtUtc
+    {
+        get; init;
+    }
+    public string? ArticleAuthor
+    {
+        get; init;
+    }
+    public string? ArticleImageUrl
+    {
+        get; init;
+    }
 
     public PublicSeoHeadModel WithComputedDigest()
-        => this with { Digest = ComputeDigest(this) };
+        => this with
+        {
+            Digest = ComputeDigest(this)
+        };
 
     public bool HasValidContractAndDigest()
     {

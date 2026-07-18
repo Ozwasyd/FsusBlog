@@ -1,7 +1,9 @@
 using System.Collections.Immutable;
+
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
+
 using AnalyzerUnderTest = FsusBlog.DiLifetimeAnalyzer.DiLifetimeAnalyzer;
 
 namespace FsusBlog.Server.Tests;

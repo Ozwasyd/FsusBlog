@@ -464,10 +464,16 @@ public sealed class PublicAotSsrRuntimeState
     {
         public PublicPageKind Kind { get; } = kind;
         public string RouteKey { get; } = routeKey;
-        public int FailureCount { get; private set; }
+        public int FailureCount
+        {
+            get; private set;
+        }
         public PublicAotSsrFailureClass LastFailureClass { get; private set; } = PublicAotSsrFailureClass.Unknown;
         public string LastFailureReason { get; private set; } = string.Empty;
-        public DateTimeOffset? QuarantinedUntilUtc { get; set; }
+        public DateTimeOffset? QuarantinedUntilUtc
+        {
+            get; set;
+        }
 
         public void RecordFailure(PublicAotSsrFailureClass failureClass, string message)
         {

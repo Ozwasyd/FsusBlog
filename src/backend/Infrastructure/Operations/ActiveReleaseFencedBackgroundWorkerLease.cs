@@ -5,7 +5,10 @@ namespace FsusBlog.Server.Infrastructure.Operations;
 
 public interface IActiveReleaseExecutionContextAccessor
 {
-    ActiveReleaseExecutionTicket? Current { get; }
+    ActiveReleaseExecutionTicket? Current
+    {
+        get;
+    }
 
     IDisposable Push(ActiveReleaseExecutionTicket ticket);
 }

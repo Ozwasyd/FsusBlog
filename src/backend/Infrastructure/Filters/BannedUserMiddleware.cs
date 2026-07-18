@@ -1,11 +1,13 @@
-﻿using FsusBlog.Server.Infrastructure.Results;
+using System.Security.Claims;
+
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Caching.Memory;
-using System.Security.Claims;
 
 namespace FsusBlog.Server.Infrastructure.Filters;
 

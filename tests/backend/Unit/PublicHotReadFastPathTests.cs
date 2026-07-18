@@ -1,9 +1,14 @@
 using System.Collections.Frozen;
+using System.Reflection;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -12,10 +17,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+
 using NSubstitute;
-using System.Reflection;
-using System.Security.Claims;
-using System.Threading.RateLimiting;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -1753,7 +1756,8 @@ public sealed class PublicHotReadFastPathTests
         byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
         for (int offset = 0; offset <= il.Length - 5; offset++)
         {
-            if (il[offset] is not (0x28 or 0x6F)) continue;
+            if (il[offset] is not (0x28 or 0x6F))
+                continue;
             MethodBase? called = null;
             try
             {
@@ -1762,7 +1766,8 @@ public sealed class PublicHotReadFastPathTests
             catch (ArgumentException)
             {
             }
-            if (called is not null) yield return called;
+            if (called is not null)
+                yield return called;
         }
     }
 

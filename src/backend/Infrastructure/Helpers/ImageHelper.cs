@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
 
@@ -84,7 +84,8 @@ public static partial class ImageHelper
 
     public static List<string> ExtractIllustrationUrls(string content)
     {
-        if (string.IsNullOrWhiteSpace(content)) return [];
+        if (string.IsNullOrWhiteSpace(content))
+            return [];
 
         var uniquePhysicalPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var span = content.AsSpan();
@@ -93,7 +94,8 @@ public static partial class ImageHelper
         {
             // 彻底消灭原有的 match.Value 分配
             var matchSpan = span.Slice(match.Index, match.Length).Trim();
-            if (matchSpan.IsEmpty) continue;
+            if (matchSpan.IsEmpty)
+                continue;
 
             var relativeSpan = matchSpan.TrimStart('/');
 
@@ -120,7 +122,8 @@ public static partial class ImageHelper
 
     public static List<IllustrationReference> ExtractIllustrationReferences(string content)
     {
-        if (string.IsNullOrWhiteSpace(content)) return [];
+        if (string.IsNullOrWhiteSpace(content))
+            return [];
 
         var references = new Dictionary<string, IllustrationReference>(StringComparer.OrdinalIgnoreCase);
         ReadOnlySpan<char> span = content.AsSpan();
@@ -185,7 +188,8 @@ public static partial class ImageHelper
 
     public static string? GetFirstIllustration(string content)
     {
-        if (string.IsNullOrWhiteSpace(content)) return null;
+        if (string.IsNullOrWhiteSpace(content))
+            return null;
 
         // 核心优化：使用 EnumerateMatches 替代 Match。
         // 如果没有匹配项，它的开销为绝对的 0（没有实例化任何 Match 对象体系）。

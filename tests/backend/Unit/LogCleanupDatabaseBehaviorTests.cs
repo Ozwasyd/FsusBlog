@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;

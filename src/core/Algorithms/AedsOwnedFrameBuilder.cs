@@ -83,7 +83,10 @@ public static class AedsOwnedFrameBuilder
             _scratch = _pool.Rent(Math.Max(1, initialCapacity));
         }
 
-        public int WrittenCount { get; private set; }
+        public int WrittenCount
+        {
+            get; private set;
+        }
 
         public void Advance(int count)
         {
@@ -152,7 +155,10 @@ public static class AedsOwnedFrameBuilder
     {
         private int _available;
 
-        public int WrittenCount { get; private set; }
+        public int WrittenCount
+        {
+            get; private set;
+        }
 
         public void Advance(int count)
         {

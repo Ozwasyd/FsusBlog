@@ -1,9 +1,12 @@
 using System.Reflection;
+
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -28,7 +31,10 @@ public sealed class TransparencyLogTests
         TransparencyLogEntryRecord first = BuildEntry(1, 1001, null, "payload-a");
         TransparencyLogEntryRecord second = BuildEntry(2, 1002, first.EntryHash, "payload-b");
         TransparencyLogEntryRecord third = BuildEntry(3, 1003, second.EntryHash, "payload-c");
-        TransparencyLogEntryRecord mutatedSecond = second with { EntryPayloadHash = HashPayload("payload-b-mutated") };
+        TransparencyLogEntryRecord mutatedSecond = second with
+        {
+            EntryPayloadHash = HashPayload("payload-b-mutated")
+        };
 
         Assert.Equal("seq-gap", TransparencyLogChainVerifier.Verify([first, third]).ErrorCode);
         Assert.Equal("entry-hash-mismatch", TransparencyLogChainVerifier.Verify([first, mutatedSecond, third]).ErrorCode);

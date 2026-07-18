@@ -147,10 +147,18 @@ public static class SystemProjection
             model.ContactEmail);
 
     public static PageContentPublicDto ToPublicDto(PageContentReadModel model)
-        => new() { Slug = model.Slug, Content = model.Content };
+        => new()
+        {
+            Slug = model.Slug,
+            Content = model.Content
+        };
 
     public static PageContentAdminDto ToAdminDto(PageContentReadModel model)
-        => new() { Slug = model.Slug, Content = model.Content };
+        => new()
+        {
+            Slug = model.Slug,
+            Content = model.Content
+        };
 
     public static PageContentContract ToContract(PageContentReadModel model)
         => new(model.Slug, model.Content);

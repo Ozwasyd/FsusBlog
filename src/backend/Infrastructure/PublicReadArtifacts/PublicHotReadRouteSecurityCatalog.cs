@@ -154,7 +154,10 @@ public readonly record struct PublicHotReadPublicationEvidence(
             FuturePublicationExcluded: true);
 
     internal PublicHotReadPublicationEvidence WithSourceVersion(long sourceVersion)
-        => this with { SourceVersion = sourceVersion };
+        => this with
+        {
+            SourceVersion = sourceVersion
+        };
 
     internal bool IsVerifiedFor(long snapshotVersion)
         => snapshotVersion > 0

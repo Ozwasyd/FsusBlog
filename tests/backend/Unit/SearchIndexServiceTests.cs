@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
+
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Tests.Unit;
@@ -309,10 +310,12 @@ public sealed class SearchIndexServiceTests
         // Verify by round-tripping: tokenize text containing those codepoints
         // For direct testing: use reflection to access the inner class method
         var type = typeof(SearchIndexService).GetNestedType("SearchDictionaryReader", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        if (type == null) return; // Nested class may not be accessible
+        if (type == null)
+            return; // Nested class may not be accessible
 
         var method = type.GetMethod("GetUtf8ScalarLength", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
-        if (method == null) return;
+        if (method == null)
+            return;
 
         int actual = (int)method.Invoke(null, [inputByte])!;
         Assert.Equal(expected, actual);
@@ -695,7 +698,8 @@ public sealed class SearchIndexServiceTests
         byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
         for (int offset = 0; offset <= il.Length - 5; offset++)
         {
-            if (il[offset] is not (0x28 or 0x6F)) continue;
+            if (il[offset] is not (0x28 or 0x6F))
+                continue;
             MethodBase? called = null;
             try
             {
@@ -707,7 +711,8 @@ public sealed class SearchIndexServiceTests
             catch (ArgumentException)
             {
             }
-            if (called is not null) yield return (offset, called);
+            if (called is not null)
+                yield return (offset, called);
         }
     }
 
@@ -718,8 +723,10 @@ public sealed class SearchIndexServiceTests
     public void ComputeIdf_ReturnsExpected(int docCount, int df, bool expectPositive)
     {
         float result = InvokePrivateStatic<float>("ComputeIdf", [(object)docCount, df]);
-        if (expectPositive) Assert.True(result > 0f);
-        else Assert.Equal(0f, result);
+        if (expectPositive)
+            Assert.True(result > 0f);
+        else
+            Assert.Equal(0f, result);
     }
 
     [Theory]

@@ -1,10 +1,12 @@
 using System.Reflection;
 using System.Text.Json;
+
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -214,7 +216,10 @@ public sealed class IntegrityVerificationManifestTests
             JsonSerializer.Serialize(publicVerifier.Registry.PublicKeys),
             StringComparison.Ordinal);
         SiteIntegritySignatureVerificationResult tampered = publicVerifier.Verify(
-            payload with { DigestSha256Hex = new string('e', 64) },
+            payload with
+            {
+                DigestSha256Hex = new string('e', 64)
+            },
             signature);
         Assert.False(tampered.Accepted);
         Assert.Equal("payload-signature-invalid", tampered.Code);

@@ -1,6 +1,7 @@
-using System.Diagnostics;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
 using System.Reflection;
+
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -9,13 +10,16 @@ using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit.SecurityHardening;
@@ -211,7 +215,10 @@ public sealed class InputLimitBoundaryTests
 
     private sealed class RecordingScopeFactory : IServiceScopeFactory
     {
-        internal int CreateScopeCalls { get; private set; }
+        internal int CreateScopeCalls
+        {
+            get; private set;
+        }
 
         public IServiceScope CreateScope()
         {

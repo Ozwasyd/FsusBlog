@@ -1,11 +1,15 @@
 using System.Buffers;
 using System.Collections.Concurrent;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Results;
+
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -396,7 +400,10 @@ public sealed class OwnedFrameCacheTests
         private readonly ConcurrentDictionary<byte[], bool> _cleared = new(ReferenceEqualityComparer.Instance);
         private int _returnCount;
 
-        internal byte[]? LastRentedBuffer { get; private set; }
+        internal byte[]? LastRentedBuffer
+        {
+            get; private set;
+        }
         internal int ReturnCount => Volatile.Read(ref _returnCount);
 
         public override byte[] Rent(int minimumLength)
@@ -563,7 +570,8 @@ public sealed class OwnedFrameResponseResultTests
         public override byte[] Rent(int minimumLength) => new byte[Math.Max(1, minimumLength)];
         public override void Return(byte[] array, bool clearArray = false)
         {
-            if (clearArray) Array.Clear(array);
+            if (clearArray)
+                Array.Clear(array);
             Assert.Equal(1, Interlocked.Increment(ref _returnCount));
         }
     }

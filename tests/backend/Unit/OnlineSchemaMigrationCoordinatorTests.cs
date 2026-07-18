@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -345,7 +346,10 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
     private sealed class RecordingStateStore(OnlineSchemaDatabaseSnapshot snapshot)
         : IOnlineSchemaMigrationStateStore
     {
-        public bool EnsureControlTablesCalled { get; private set; }
+        public bool EnsureControlTablesCalled
+        {
+            get; private set;
+        }
 
         public List<OnlineSchemaBackfillSnapshot> BackfillWrites { get; } = [];
 
@@ -383,9 +387,15 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
 
     private sealed class RecordingMigrationLock : ISchemaMigrationLock
     {
-        public int AcquireCount { get; private set; }
+        public int AcquireCount
+        {
+            get; private set;
+        }
 
-        public int DisposeCount { get; private set; }
+        public int DisposeCount
+        {
+            get; private set;
+        }
 
         public Task<IAsyncDisposable> AcquireAsync(CancellationToken cancellationToken)
         {
@@ -423,7 +433,10 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
 
         public List<string?> ResumeTokens { get; } = [];
 
-        public bool Verified { get; private set; }
+        public bool Verified
+        {
+            get; private set;
+        }
 
         public Task<OnlineSchemaBackfillBatchResult> ExecuteBatchAsync(
             string? resumeToken,
@@ -447,11 +460,20 @@ public sealed class OnlineSchemaMigrationCoordinatorTests
 
     private sealed class RecordingCoordinator : IOnlineSchemaMigrationCoordinator
     {
-        public required OnlineSchemaCompatibilityReport CheckReport { get; init; }
+        public required OnlineSchemaCompatibilityReport CheckReport
+        {
+            get; init;
+        }
 
-        public int CheckCalls { get; private set; }
+        public int CheckCalls
+        {
+            get; private set;
+        }
 
-        public int ExecuteCalls { get; private set; }
+        public int ExecuteCalls
+        {
+            get; private set;
+        }
 
         public Task<OnlineSchemaCompatibilityReport> CheckAsync(
             string releaseId,

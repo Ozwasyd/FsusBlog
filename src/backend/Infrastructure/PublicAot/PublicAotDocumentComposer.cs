@@ -1,13 +1,14 @@
-using FsusBlog.Core.Algorithms;
-using FsusBlog.Core.Common;
-using FsusBlog.Server.Infrastructure.Spa;
-using FsusBlog.Shared.Contracts.Outputs;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
@@ -28,9 +29,15 @@ internal sealed record class PublicAotDocumentModel(
 {
     public FullAppTakeoverAssetSet FullAppTakeover { get; init; } = FullAppTakeoverAssetSet.Empty;
 
-    public PublicAotArticleSeoMetadata? ArticleSeo { get; init; }
+    public PublicAotArticleSeoMetadata? ArticleSeo
+    {
+        get; init;
+    }
 
-    public PublicSeoHeadModel? SeoHead { get; init; }
+    public PublicSeoHeadModel? SeoHead
+    {
+        get; init;
+    }
 }
 
 internal sealed record class PublicAotArticleSeoMetadata(
@@ -87,7 +94,10 @@ internal static class PublicAotDocumentComposer
         string? imageUrl = NullIfEmpty(ResolveSocialImageUrl(siteRoot, articleSeo?.ImageUrl, defaultImageUrl));
         PublicAotArticleSeoMetadata? normalizedArticleSeo = articleSeo is null
             ? null
-            : articleSeo with { ImageUrl = imageUrl ?? string.Empty };
+            : articleSeo with
+            {
+                ImageUrl = imageUrl ?? string.Empty
+            };
         string jsonLd = BuildJsonLd(kind, title, fullTitle, siteTitle, description, canonicalUrl, siteRoot, normalizedArticleSeo);
         var model = new PublicSeoHeadModel
         {
@@ -335,7 +345,8 @@ internal static class PublicAotDocumentComposer
         writer.WriteString("@type", "Person");
         writer.WriteString("name", author.Name);
         string? profileUrl = NormalizePublicAuthorUrl(author.ProfileUrl);
-        if (profileUrl is not null) writer.WriteString("url", profileUrl);
+        if (profileUrl is not null)
+            writer.WriteString("url", profileUrl);
         writer.WriteEndObject();
     }
 

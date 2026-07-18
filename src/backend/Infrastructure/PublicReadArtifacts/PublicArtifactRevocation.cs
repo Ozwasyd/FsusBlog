@@ -3,15 +3,21 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.Cache;
+
 using Microsoft.Extensions.Options;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 
 public sealed class PublicArtifactRevocationOptions
 {
-    public bool CdnPurgeEnabled { get; set; }
+    public bool CdnPurgeEnabled
+    {
+        get; set;
+    }
     public string CdnProvider { get; set; } = "Generic";
     public string CdnPurgeEndpoint { get; set; } = string.Empty;
     public string CdnPurgeBearerToken { get; set; } = string.Empty;
@@ -302,7 +308,10 @@ public sealed class RedisPublicArtifactRevocationStateStore(
             return tombstone;
         }
 
-        PublicArtifactTombstone committed = tombstone with { TransitionPending = false };
+        PublicArtifactTombstone committed = tombstone with
+        {
+            TransitionPending = false
+        };
         RedisResult result = await _database.ScriptEvaluateAsync(
                 CompareAndSet,
                 new
@@ -340,7 +349,10 @@ public sealed class RedisPublicArtifactRevocationStateStore(
             return persisted;
         }
 
-        PublicArtifactTombstone confirmed = persisted with { PurgeConfirmed = true };
+        PublicArtifactTombstone confirmed = persisted with
+        {
+            PurgeConfirmed = true
+        };
         RedisResult updated = await _database.ScriptEvaluateAsync(
                 CompareAndSet,
                 new
@@ -445,7 +457,10 @@ public sealed class HttpPublicArtifactCdnPurger(
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
         {
             Content = cloudflare
-                ? JsonContent.Create(new { purge_everything = true })
+                ? JsonContent.Create(new
+                {
+                    purge_everything = true
+                })
                 : JsonContent.Create(payload)
         };
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -465,7 +480,10 @@ public sealed class HttpPublicArtifactCdnPurger(
 
 public interface IPublicArtifactRevocationCoordinator
 {
-    long CurrentGeneration { get; }
+    long CurrentGeneration
+    {
+        get;
+    }
     Task BeginArticleMutationFenceAsync(int articleId, CancellationToken cancellationToken = default);
     Task BeginGlobalMutationFenceAsync(CancellationToken cancellationToken = default);
     Task<bool> RecoverPendingMutationFenceAsync(

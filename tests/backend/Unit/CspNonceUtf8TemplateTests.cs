@@ -3,8 +3,10 @@ using System.Collections.Frozen;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Text;
+
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
 
@@ -277,7 +279,9 @@ public sealed class CspNonceUtf8TemplateTests
     {
         public Stream Stream => Stream.Null;
         public PipeWriter Writer => writer;
-        public void DisableBuffering() { }
+        public void DisableBuffering()
+        {
+        }
         public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SendFileAsync(string path, long offset, long? count, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
@@ -286,8 +290,14 @@ public sealed class CspNonceUtf8TemplateTests
 
     private sealed class CountingPipeWriter(PipeWriter inner) : PipeWriter
     {
-        public int AdvanceCalls { get; private set; }
-        public int FlushCalls { get; private set; }
+        public int AdvanceCalls
+        {
+            get; private set;
+        }
+        public int FlushCalls
+        {
+            get; private set;
+        }
 
         public override void Advance(int bytes)
         {

@@ -1,6 +1,7 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Moderation;
+
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;

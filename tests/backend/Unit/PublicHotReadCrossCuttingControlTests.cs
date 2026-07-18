@@ -3,6 +3,7 @@ using System.Collections.Frozen;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Threading.RateLimiting;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Server.Entities;
@@ -12,13 +13,16 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Modules.Endpoints.Binary;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -84,7 +88,10 @@ public sealed class PublicHotReadCrossCuttingControlTests
             endpoints));
 
         PublicHotReadRoutePolicy[] relaxedPolicies = [.. policies];
-        relaxedPolicies[0] = relaxedPolicies[0] with { RequiresAnonymousRequest = false };
+        relaxedPolicies[0] = relaxedPolicies[0] with
+        {
+            RequiresAnonymousRequest = false
+        };
         Assert.Throws<InvalidOperationException>(() => PublicHotReadCrossCuttingControlCatalog.ValidateOrThrow(
             applicationStages,
             endpointStages,
@@ -97,7 +104,10 @@ public sealed class PublicHotReadCrossCuttingControlTests
             original.Metadata.GetMetadata<PublicFastPathRouteMetadata>());
         object[] tamperedMetadata = original.Metadata
             .Where(static item => item is not PublicFastPathRouteMetadata)
-            .Append(metadata with { RequiresSafeMethod = false })
+            .Append(metadata with
+            {
+                RequiresSafeMethod = false
+            })
             .ToArray();
         endpoints[0] = new Endpoint(
             original.RequestDelegate ?? throw new InvalidOperationException("synthetic endpoint delegate missing"),
@@ -356,7 +366,10 @@ public sealed class PublicHotReadCrossCuttingControlTests
             default,
             default,
             FrozenDictionary<string, PublicHtmlArtifact>.Empty,
-            evidence with { SourceVisibility = "private" });
+            evidence with
+            {
+                SourceVisibility = "private"
+            });
 
         Assert.Throws<InvalidOperationException>(() => store.Publish(invalid));
         Assert.False(store.IsReady);

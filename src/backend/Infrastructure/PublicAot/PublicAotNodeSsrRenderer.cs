@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -530,9 +531,18 @@ public sealed class PublicAotNodeSsrRenderer(
 
     private sealed class RendererCommandResponse
     {
-        public bool Ok { get; init; }
-        public PublicAotShellEntryContract? Entry { get; init; }
-        public string? Error { get; init; }
+        public bool Ok
+        {
+            get; init;
+        }
+        public PublicAotShellEntryContract? Entry
+        {
+            get; init;
+        }
+        public string? Error
+        {
+            get; init;
+        }
     }
 
     private sealed record SsrWorkerOptions(

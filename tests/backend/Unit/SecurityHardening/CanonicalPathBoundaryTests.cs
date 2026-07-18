@@ -1,6 +1,7 @@
+using System.Reflection;
+
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Modules.Endpoints;
-using System.Reflection;
 
 namespace FsusBlog.Server.Tests.Unit.SecurityHardening;
 
@@ -110,7 +111,10 @@ public sealed class CanonicalPathBoundaryTests
     {
         private PathSandbox(string root) => Root = root;
 
-        internal string Root { get; }
+        internal string Root
+        {
+            get;
+        }
 
         internal static PathSandbox Create()
         {

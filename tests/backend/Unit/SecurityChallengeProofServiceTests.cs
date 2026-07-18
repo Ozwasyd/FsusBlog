@@ -1,7 +1,8 @@
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -212,8 +213,14 @@ public sealed class SecurityChallengeProofServiceTests
     {
         private readonly Dictionary<string, byte[]> _values = new(StringComparer.Ordinal);
 
-        public CachePolicyId LastSetPolicyId { get; private set; }
-        public TimeSpan? LastSetTtl { get; private set; }
+        public CachePolicyId LastSetPolicyId
+        {
+            get; private set;
+        }
+        public TimeSpan? LastSetTtl
+        {
+            get; private set;
+        }
         public string LastStoredJson { get; private set; } = string.Empty;
 
         public Task SetRawAsync(CachePolicyId policyId, string identity, byte[] value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)

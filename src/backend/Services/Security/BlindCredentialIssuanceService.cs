@@ -1,10 +1,12 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Shared.Contracts.Validation;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
@@ -202,8 +204,14 @@ public sealed class BlindCredentialIssuanceService(
 
     private sealed class BlindCredentialEligibilityRow
     {
-        public int Status { get; set; }
-        public DateTime? DeletedAt { get; set; }
+        public int Status
+        {
+            get; set;
+        }
+        public DateTime? DeletedAt
+        {
+            get; set;
+        }
         public string AnonymousCredentialLevel { get; set; } = string.Empty;
         public string AnonymousCredentialStatus { get; set; } = string.Empty;
     }

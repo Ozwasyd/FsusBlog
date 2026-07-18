@@ -1,4 +1,4 @@
-﻿using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Services.Security;
 
 namespace FsusBlog.Server.Infrastructure.Middlewares;

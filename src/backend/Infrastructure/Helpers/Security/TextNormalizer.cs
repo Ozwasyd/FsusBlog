@@ -1,6 +1,7 @@
-﻿using FsusBlog.Core.Common;
-using FsusBlog.Server.Infrastructure.Execution;
 using System.Text;
+
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Execution;
 
 namespace FsusBlog.Server.Infrastructure.Helpers.Security;
 
@@ -279,6 +280,9 @@ public static class TextNormalizer
     private sealed class PhraseNode
     {
         public Dictionary<char, PhraseNode> Children { get; } = [];
-        public string? Replacement { get; set; }
+        public string? Replacement
+        {
+            get; set;
+        }
     }
 }

@@ -1,5 +1,6 @@
-using FsusBlog.Server.Infrastructure.Helpers;
 using System.Security.Claims;
+
+using FsusBlog.Server.Infrastructure.Helpers;
 
 namespace FsusBlog.Server.Tests.Unit;
 

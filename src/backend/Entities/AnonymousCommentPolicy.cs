@@ -15,7 +15,10 @@ public sealed class AnonymousCommentPolicy
     public bool PublicCommentsEnabled { get; set; } = true;
 
     [SugarColumn(ColumnName = "zk_anonymous_enabled")]
-    public bool ZkAnonymousEnabled { get; set; }
+    public bool ZkAnonymousEnabled
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "default_author_mode", Length = 32)]
     public string DefaultAuthorMode { get; set; } = "zk_anonymous";
@@ -33,7 +36,10 @@ public sealed class AnonymousCommentPolicy
     public string SnapshotHash { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "updated_reason", Length = 256, IsNullable = true)]
-    public string? UpdatedReason { get; set; }
+    public string? UpdatedReason
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "changed_by", Length = 64)]
     public string ChangedBy { get; set; } = "system";
@@ -42,5 +48,8 @@ public sealed class AnonymousCommentPolicy
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "updated_by_admin_id", IsNullable = true)]
-    public long? UpdatedByAdminId { get; set; }
+    public long? UpdatedByAdminId
+    {
+        get; set;
+    }
 }

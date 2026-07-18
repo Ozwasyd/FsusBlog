@@ -14,7 +14,10 @@ namespace FsusBlog.Server.Entities;
 public sealed class AuditLog
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "source", Length = 64)]
     public string Source { get; set; } = string.Empty;
@@ -23,25 +26,43 @@ public sealed class AuditLog
     public string Type { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "occurred_at_utc")]
-    public DateTime OccurredAtUtc { get; set; }
+    public DateTime OccurredAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "actor_type", Length = 32, IsNullable = true)]
-    public string? ActorType { get; set; }
+    public string? ActorType
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "actor_id", Length = 64, IsNullable = true)]
-    public string? ActorId { get; set; }
+    public string? ActorId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "actor_role", Length = 32, IsNullable = true)]
-    public string? ActorRole { get; set; }
+    public string? ActorRole
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "action", Length = 96)]
     public string Action { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "target_type", Length = 64, IsNullable = true)]
-    public string? TargetType { get; set; }
+    public string? TargetType
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "target_id", Length = 128, IsNullable = true)]
-    public string? TargetId { get; set; }
+    public string? TargetId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "outcome", Length = 32)]
     public string Outcome { get; set; } = string.Empty;
@@ -50,52 +71,97 @@ public sealed class AuditLog
     public string Severity { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "is_high_value")]
-    public bool IsHighValue { get; set; }
+    public bool IsHighValue
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "trace_id", Length = 128, IsNullable = true)]
-    public string? TraceId { get; set; }
+    public string? TraceId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "request_path", Length = 256, IsNullable = true)]
-    public string? RequestPath { get; set; }
+    public string? RequestPath
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "request_method", Length = 16, IsNullable = true)]
-    public string? RequestMethod { get; set; }
+    public string? RequestMethod
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "ip_hash", Length = 64, IsNullable = true)]
-    public string? IpHash { get; set; }
+    public string? IpHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "user_agent_hash", Length = 64, IsNullable = true)]
-    public string? UserAgentHash { get; set; }
+    public string? UserAgentHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "session_id_hash", Length = 64, IsNullable = true)]
-    public string? SessionIdHash { get; set; }
+    public string? SessionIdHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "device_fingerprint_hash", Length = 64, IsNullable = true)]
-    public string? DeviceFingerprintHash { get; set; }
+    public string? DeviceFingerprintHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "reason_code", Length = 64, IsNullable = true)]
-    public string? ReasonCode { get; set; }
+    public string? ReasonCode
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "event_info", ColumnDataType = "text")]
     public string EventInfo { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "context_payload", ColumnDataType = "bytea", IsNullable = true)]
-    public byte[]? ContextPayload { get; set; }
+    public byte[]? ContextPayload
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "context_json", ColumnDataType = "text", IsNullable = true)]
-    public string? ContextJson { get; set; }
+    public string? ContextJson
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "chain_id", Length = 32, IsNullable = true)]
-    public string? ChainId { get; set; }
+    public string? ChainId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "prev_hash", Length = 64, IsNullable = true)]
-    public string? PrevHash { get; set; }
+    public string? PrevHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "record_hash", Length = 64, IsNullable = true)]
-    public string? RecordHash { get; set; }
+    public string? RecordHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "record_mac", Length = 64, IsNullable = true)]
-    public string? RecordMac { get; set; }
+    public string? RecordMac
+    {
+        get; set;
+    }
 }
 
 [SugarTable("frontend_rum_metric")]
@@ -105,7 +171,10 @@ public sealed class AuditLog
 public sealed class FrontendRumMetric
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "name", Length = 64)]
     public string Name { get; set; } = string.Empty;
@@ -117,13 +186,19 @@ public sealed class FrontendRumMetric
     public string AotSource { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "value", IsNullable = true)]
-    public double? Value { get; set; }
+    public double? Value
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "metrics_json", ColumnDataType = "text")]
     public string MetricsJson { get; set; } = "{}";
 
     [SugarColumn(ColumnName = "occurred_at_utc")]
-    public DateTime OccurredAtUtc { get; set; }
+    public DateTime OccurredAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

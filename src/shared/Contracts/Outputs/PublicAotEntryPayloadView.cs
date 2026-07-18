@@ -29,13 +29,22 @@ internal sealed class PublicAotEntryPayloadView
         Islands = islands;
     }
 
-    public IReadOnlyDictionary<string, object?> Bootstrap { get; }
+    public IReadOnlyDictionary<string, object?> Bootstrap
+    {
+        get;
+    }
 
-    public IReadOnlyDictionary<string, object?> Hydration { get; }
+    public IReadOnlyDictionary<string, object?> Hydration
+    {
+        get;
+    }
 
     public bool HasIslands => Islands is not null;
 
-    public IReadOnlyDictionary<string, object?>? Islands { get; }
+    public IReadOnlyDictionary<string, object?>? Islands
+    {
+        get;
+    }
 
     public static bool TryCreate(PublicAotShellEntryContract entry, out PublicAotEntryPayloadView? view, out string error)
     {

@@ -1,18 +1,20 @@
-﻿using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Auth;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authorization.Infrastructure;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Security;
+
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 
 namespace FsusBlog.Server.Infrastructure.Helpers;
 
@@ -25,7 +27,10 @@ public class JwtSettings
     public string Audience { get; set; } = string.Empty;
     public int AccessTokenExpiresMinutes { get; set; } = 15;
     public int RotationWindowDays { get; set; } = 30;
-    public DateTimeOffset? LegacyNoKidAcceptUntilUtc { get; set; }
+    public DateTimeOffset? LegacyNoKidAcceptUntilUtc
+    {
+        get; set;
+    }
     public List<JwtPreviousKeySettings> PreviousKeys { get; set; } = [];
 }
 
@@ -33,7 +38,10 @@ public sealed class JwtPreviousKeySettings
 {
     public string Version { get; set; } = string.Empty;
     public string Key { get; set; } = string.Empty;
-    public DateTimeOffset AcceptUntilUtc { get; set; }
+    public DateTimeOffset AcceptUntilUtc
+    {
+        get; set;
+    }
 }
 
 public readonly record struct IssuedAccessToken(string Token, DateTimeOffset ExpiresAtUtc)

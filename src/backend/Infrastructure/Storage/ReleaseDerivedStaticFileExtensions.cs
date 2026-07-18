@@ -1,5 +1,5 @@
-using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Extensions.FileProviders;
 
 namespace FsusBlog.Server.Infrastructure.Storage;
 

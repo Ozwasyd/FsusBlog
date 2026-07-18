@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+
 using Npgsql;
 
 namespace FsusBlog.Server.Infrastructure.Execution;
@@ -89,10 +90,22 @@ internal sealed class DbConcurrencyGateOptions
         Workloads = workloads;
     }
 
-    public bool LegacySharedGate { get; }
-    public int MainPoolCapacity { get; }
-    public int PublicProjectionPoolCapacity { get; }
-    public IReadOnlyDictionary<DbWorkloadClass, DbWorkloadGateOptions> Workloads { get; }
+    public bool LegacySharedGate
+    {
+        get;
+    }
+    public int MainPoolCapacity
+    {
+        get;
+    }
+    public int PublicProjectionPoolCapacity
+    {
+        get;
+    }
+    public IReadOnlyDictionary<DbWorkloadClass, DbWorkloadGateOptions> Workloads
+    {
+        get;
+    }
 
     public static DbConcurrencyGateOptions FromConfiguration(IConfiguration configuration)
     {

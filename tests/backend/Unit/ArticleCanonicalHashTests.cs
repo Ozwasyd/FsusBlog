@@ -58,8 +58,14 @@ public sealed class ArticleCanonicalHashTests
     [Fact]
     public void ComputeHash_TagIdsAreSetCanonicalized()
     {
-        ArticleCanonicalInput first = Baseline() with { TagIds = [9, 2, 5, 2] };
-        ArticleCanonicalInput second = Baseline() with { TagIds = [5, 9, 2] };
+        ArticleCanonicalInput first = Baseline() with
+        {
+            TagIds = [9, 2, 5, 2]
+        };
+        ArticleCanonicalInput second = Baseline() with
+        {
+            TagIds = [5, 9, 2]
+        };
 
         string firstPayload = ArticleCanonicalHashV1.BuildPayloadUtf8(first);
         string secondPayload = ArticleCanonicalHashV1.BuildPayloadUtf8(second);
@@ -91,8 +97,14 @@ public sealed class ArticleCanonicalHashTests
     [Fact]
     public void BuildPayload_NullAndEmptyStringRemainDistinct()
     {
-        ArticleCanonicalInput nullSummary = Baseline() with { Summary = null };
-        ArticleCanonicalInput emptySummary = Baseline() with { Summary = string.Empty };
+        ArticleCanonicalInput nullSummary = Baseline() with
+        {
+            Summary = null
+        };
+        ArticleCanonicalInput emptySummary = Baseline() with
+        {
+            Summary = string.Empty
+        };
 
         string nullPayload = ArticleCanonicalHashV1.BuildPayloadUtf8(nullSummary);
         string emptyPayload = ArticleCanonicalHashV1.BuildPayloadUtf8(emptySummary);

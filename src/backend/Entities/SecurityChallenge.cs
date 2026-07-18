@@ -10,7 +10,10 @@ namespace FsusBlog.Server.Entities;
 public sealed class SecurityChallenge
 {
     [SugarColumn(ColumnName = "id", IsPrimaryKey = true, IsIdentity = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "challenge_id", Length = 64)]
     public string ChallengeId { get; set; } = string.Empty;
@@ -46,22 +49,37 @@ public sealed class SecurityChallenge
     public string PayloadHash { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "trace_id", Length = 64, IsNullable = true)]
-    public string? TraceId { get; set; }
+    public string? TraceId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "traceparent", Length = 128, IsNullable = true)]
-    public string? Traceparent { get; set; }
+    public string? Traceparent
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "issued_at_utc")]
     public DateTime IssuedAtUtc { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "expires_at_utc")]
-    public DateTime ExpiresAtUtc { get; set; }
+    public DateTime ExpiresAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "verified_at_utc", IsNullable = true)]
-    public DateTime? VerifiedAtUtc { get; set; }
+    public DateTime? VerifiedAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revoked_at_utc", IsNullable = true)]
-    public DateTime? RevokedAtUtc { get; set; }
+    public DateTime? RevokedAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
@@ -77,7 +95,10 @@ public sealed class SecurityChallenge
 public sealed class SecurityChallengeAttempt
 {
     [SugarColumn(ColumnName = "id", IsPrimaryKey = true, IsIdentity = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "attempt_id", Length = 64)]
     public string AttemptId { get; set; } = string.Empty;
@@ -89,22 +110,40 @@ public sealed class SecurityChallengeAttempt
     public string Outcome { get; set; } = SecurityChallengeAttemptOutcomes.Failed;
 
     [SugarColumn(ColumnName = "reason", Length = 128, IsNullable = true)]
-    public string? Reason { get; set; }
+    public string? Reason
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "payload_hash", Length = 64, IsNullable = true)]
-    public string? PayloadHash { get; set; }
+    public string? PayloadHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "client_ip_hash", Length = 64, IsNullable = true)]
-    public string? ClientIpHash { get; set; }
+    public string? ClientIpHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "device_fp_hash", Length = 64, IsNullable = true)]
-    public string? DeviceFpHash { get; set; }
+    public string? DeviceFpHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "trace_id", Length = 64, IsNullable = true)]
-    public string? TraceId { get; set; }
+    public string? TraceId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "traceparent", Length = 128, IsNullable = true)]
-    public string? Traceparent { get; set; }
+    public string? Traceparent
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "attempted_at_utc")]
     public DateTime AttemptedAtUtc { get; set; } = DateTime.UtcNow;

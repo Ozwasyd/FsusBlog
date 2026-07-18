@@ -1,7 +1,9 @@
 using System.Reflection;
-using FsusBlog.Server.Infrastructure.Cache;
+
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -219,7 +221,10 @@ public sealed class MfaChallengeServiceTests
         public List<string[]> AtomicIncrementBatches { get; } = [];
         public List<TimeSpan> AtomicIncrementBatchTtls { get; } = [];
         public List<string> StringWriteIdentities { get; } = [];
-        public int SingleIncrementCalls { get; private set; }
+        public int SingleIncrementCalls
+        {
+            get; private set;
+        }
 
         public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
             => Task.FromResult(new CacheReadResult<T>(false, default));

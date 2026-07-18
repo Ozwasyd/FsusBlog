@@ -1,4 +1,5 @@
 using System.Diagnostics.Metrics;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Models.Moderation;
@@ -180,8 +181,14 @@ public sealed class RegionLegalModerationServiceTests
             null,
             RegionCodes.Global);
 
-        public int MatchCallCount { get; private set; }
-        public int MatchAllCallCount { get; private set; }
+        public int MatchCallCount
+        {
+            get; private set;
+        }
+        public int MatchAllCallCount
+        {
+            get; private set;
+        }
 
         public ModerationDictionarySnapshot CurrentSnapshot => ModerationDictionarySnapshot.Empty;
         public string? LastError => null;

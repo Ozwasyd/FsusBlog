@@ -1,4 +1,5 @@
 using System.Buffers;
+
 using FsusBlog.Core.Algorithms;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -253,9 +254,18 @@ public sealed class OwnedAedsFrameTests
         private readonly object _gate = new();
         private byte[]? _outstanding;
 
-        public byte[]? LastRentedBuffer { get; private set; }
-        public int ReturnCount { get; private set; }
-        public bool LastClearArray { get; private set; }
+        public byte[]? LastRentedBuffer
+        {
+            get; private set;
+        }
+        public int ReturnCount
+        {
+            get; private set;
+        }
+        public bool LastClearArray
+        {
+            get; private set;
+        }
 
         public override byte[] Rent(int minimumLength)
         {

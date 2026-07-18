@@ -5,8 +5,11 @@ using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Integration;

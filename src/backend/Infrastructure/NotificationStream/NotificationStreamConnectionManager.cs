@@ -1,5 +1,6 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Threading.Channels;
+
 using FsusBlog.Server.Infrastructure.Operations;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
@@ -482,13 +483,25 @@ public sealed class NotificationStreamConnection
         Touch();
     }
 
-    public string ConnectionId { get; }
+    public string ConnectionId
+    {
+        get;
+    }
 
-    public string? UserId { get; }
+    public string? UserId
+    {
+        get;
+    }
 
-    internal string IpQuotaKey { get; }
+    internal string IpQuotaKey
+    {
+        get;
+    }
 
-    internal string AccountQuotaKey { get; }
+    internal string AccountQuotaKey
+    {
+        get;
+    }
 
     public IReadOnlySet<string> Groups => _groups;
 

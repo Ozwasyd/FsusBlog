@@ -9,13 +9,22 @@ namespace FsusBlog.Server.Entities;
 public sealed class AdminAuditLog
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true)]
-    public long? AdminPrincipalId { get; set; }
+    public long? AdminPrincipalId
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true, Length = 64)]
-    public string? AdminSessionId { get; set; }
+    public string? AdminSessionId
+    {
+        get; set;
+    }
 
     [SugarColumn(Length = 96)]
     public string Action { get; set; } = string.Empty;
@@ -24,19 +33,34 @@ public sealed class AdminAuditLog
     public string Outcome { get; set; } = string.Empty;
 
     [SugarColumn(IsNullable = true, Length = 64)]
-    public string? TargetType { get; set; }
+    public string? TargetType
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true, Length = 128)]
-    public string? TargetId { get; set; }
+    public string? TargetId
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true, Length = 64)]
-    public string? IpHash { get; set; }
+    public string? IpHash
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true, Length = 64)]
-    public string? UserAgentHash { get; set; }
+    public string? UserAgentHash
+    {
+        get; set;
+    }
 
     [SugarColumn(DefaultValue = "false")]
-    public bool IsHighImpact { get; set; }
+    public bool IsHighImpact
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnDataType = "text")]
     public string MetadataJson { get; set; } = "{}";

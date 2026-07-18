@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -27,14 +28,17 @@ using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
-using Microsoft.AspNetCore.Http;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -887,7 +891,10 @@ public sealed class AnonymousCommentSubmitTests(
     {
         private readonly Dictionary<string, AnonymousCommentTicketPayload> _payloads = new(StringComparer.Ordinal);
 
-        public int ConsumeAttempts { get; private set; }
+        public int ConsumeAttempts
+        {
+            get; private set;
+        }
 
         public void Add(byte[] ticket, AnonymousCommentTicketPayload payload)
             => _payloads[AnonymousCommentTicketService.HashTicket(ticket)] = payload;
@@ -970,11 +977,20 @@ public sealed class AnonymousCommentSubmitTests(
 
     private sealed class CapturingCommentEndpointService : ICommentEndpointService
     {
-        public AnonymousCommentCreateRequestCoreModel Request { get; private set; }
+        public AnonymousCommentCreateRequestCoreModel Request
+        {
+            get; private set;
+        }
 
-        public RegionModerationDecision? RegionDecision { get; private set; }
+        public RegionModerationDecision? RegionDecision
+        {
+            get; private set;
+        }
 
-        public int AnonymousCreateCalls { get; private set; }
+        public int AnonymousCreateCalls
+        {
+            get; private set;
+        }
 
         public Task<bool> CreateStrongAnonymousCommentAsync(
             AnonymousCommentCreateRequestCoreModel request,
@@ -1074,7 +1090,10 @@ public sealed class AnonymousCommentSubmitTests(
 
     private sealed class FixedZkAnonymousProofService(ZkProdPolicySnapshot policy) : IZkAnonymousProofService
     {
-        public AnonymousCommentPolicySnapshot CurrentCommentPolicy { get; } = AnonymousCommentPolicySnapshot.Default with
+        public AnonymousCommentPolicySnapshot CurrentCommentPolicy
+        {
+            get;
+        } = AnonymousCommentPolicySnapshot.Default with
         {
             ZkAnonymousEnabled = true
         };

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 
@@ -6,15 +7,27 @@ namespace FsusBlog.Server.Infrastructure.Testing;
 
 public interface ITestSessionContext
 {
-    bool IsActive { get; }
-    string? SessionId { get; }
-    string? SchemaName { get; }
+    bool IsActive
+    {
+        get;
+    }
+    string? SessionId
+    {
+        get;
+    }
+    string? SchemaName
+    {
+        get;
+    }
     string PrefixKey(string key);
 }
 
 public interface ITestSessionKeyScope
 {
-    string? SessionId { get; }
+    string? SessionId
+    {
+        get;
+    }
     string PrefixKey(string key);
     IDisposable BeginScope(string? sessionId);
 }

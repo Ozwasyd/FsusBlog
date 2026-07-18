@@ -1,14 +1,18 @@
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.Extensions.Logging;
 
 namespace FsusBlog.Server.Services.Security;
 
 public interface ISecurityChallengeProvider
 {
-    string Kind { get; }
+    string Kind
+    {
+        get;
+    }
 
     // Provider IssueAsync must persist the challenge before returning a successful assignment.
     // SecurityChallengeOrchestrator only builds the client envelope after every provider succeeds.
@@ -37,11 +41,20 @@ public sealed record SecurityChallengeProviderIssueRequest(
     int EscalationLevel,
     string Traceparent)
 {
-    public int RiskScore { get; init; }
+    public int RiskScore
+    {
+        get; init;
+    }
 
-    public int EffectiveRiskScore { get; init; }
+    public int EffectiveRiskScore
+    {
+        get; init;
+    }
 
-    public PerceptionChallengeGeneratorDistributionPolicy GeneratorDistributionPolicy { get; init; } =
+    public PerceptionChallengeGeneratorDistributionPolicy GeneratorDistributionPolicy
+    {
+        get; init;
+    } =
         PerceptionChallengeGeneratorDistributionPolicy.Default;
 }
 

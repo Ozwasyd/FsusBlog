@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -23,6 +24,7 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -34,6 +36,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.TestInfrastructure;
@@ -167,16 +170,25 @@ public sealed class EndpointContractSnapshot : IEndpointRouteBuilder, IDisposabl
 
 public sealed class EndpointSecurityTestServerOptions
 {
-    public bool AccountBanned { get; init; }
+    public bool AccountBanned
+    {
+        get; init;
+    }
 
     public int FixedIpPermitLimit { get; init; } = 100;
 
     public RiskDecisionKind RiskDecision { get; init; } = RiskDecisionKind.Challenge;
 
-    public Func<string, bool> AdminStepUpProofValidator { get; init; } =
+    public Func<string, bool> AdminStepUpProofValidator
+    {
+        get; init;
+    } =
         static proof => string.Equals(proof, "admin-proof-valid", StringComparison.Ordinal);
 
-    public Func<string, SecurityChallengeProofConsumeResult> RiskProofConsumer { get; init; } =
+    public Func<string, SecurityChallengeProofConsumeResult> RiskProofConsumer
+    {
+        get; init;
+    } =
         static proof => proof switch
         {
             "risk-proof-valid" => SecurityChallengeProofConsumeResult.Success(CreateProofClaims()),
@@ -246,31 +258,70 @@ public sealed class EndpointSecurityTestServer : IDisposable
         RiskDecision = riskDecision;
     }
 
-    public IAdminPrincipalService AdminPrincipals { get; }
+    public IAdminPrincipalService AdminPrincipals
+    {
+        get;
+    }
 
-    public IArticleEndpointService Articles { get; }
+    public IArticleEndpointService Articles
+    {
+        get;
+    }
 
-    public IAuditEventService AuditEvents { get; }
+    public IAuditEventService AuditEvents
+    {
+        get;
+    }
 
-    public IUserSessionCommandService Sessions { get; }
+    public IUserSessionCommandService Sessions
+    {
+        get;
+    }
 
-    public IPasskeyService Passkeys { get; }
+    public IPasskeyService Passkeys
+    {
+        get;
+    }
 
-    public IPowService Pow { get; }
+    public IPowService Pow
+    {
+        get;
+    }
 
-    public ISecurityChallengeProofService RiskProofs { get; }
+    public ISecurityChallengeProofService RiskProofs
+    {
+        get;
+    }
 
-    public ISecurityRiskScoreReader RiskScores { get; }
+    public ISecurityRiskScoreReader RiskScores
+    {
+        get;
+    }
 
-    public CapturingEndpointRiskSink RiskSink { get; }
+    public CapturingEndpointRiskSink RiskSink
+    {
+        get;
+    }
 
-    public IBlacklistService Blacklist { get; }
+    public IBlacklistService Blacklist
+    {
+        get;
+    }
 
-    public IUserAccountReader Users { get; }
+    public IUserAccountReader Users
+    {
+        get;
+    }
 
-    public IUnifiedCache Cache { get; }
+    public IUnifiedCache Cache
+    {
+        get;
+    }
 
-    public IRiskDecisionService RiskDecision { get; }
+    public IRiskDecisionService RiskDecision
+    {
+        get;
+    }
 
     public IReadOnlyList<string> IssuedClientIps
     {
@@ -433,26 +484,26 @@ public sealed class EndpointSecurityTestServer : IDisposable
         builder.Configuration.Sources.Clear();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
-                    ["CORS_ALLOWED_HOSTS"] = "https://console.example.test",
-                    ["ASPNETCORE_ENVIRONMENT"] = "Production",
-                    ["Jwt:SecretKey"] = "endpoint-security-test-secret-key-at-least-32-bytes",
-                    ["Jwt:Issuer"] = "FsusBlogEndpointSecurityTests",
-                    ["Jwt:Audience"] = "FsusBlogEndpointSecurityTests",
-                    ["ConnectionStrings:Redis"] = "127.0.0.1:6379,abortConnect=false",
-                    ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Port=5432;Database=fsusblog_endpoint_security;Username=test;Password=test",
-                    ["DataProtection:ApplicationName"] = ReleaseStorageLayout.RequiredDataProtectionApplicationName,
-                    ["DataProtection:KeyRingPath"] = Path.Combine(
+            ["CORS_ALLOWED_HOSTS"] = "https://console.example.test",
+            ["ASPNETCORE_ENVIRONMENT"] = "Production",
+            ["Jwt:SecretKey"] = "endpoint-security-test-secret-key-at-least-32-bytes",
+            ["Jwt:Issuer"] = "FsusBlogEndpointSecurityTests",
+            ["Jwt:Audience"] = "FsusBlogEndpointSecurityTests",
+            ["ConnectionStrings:Redis"] = "127.0.0.1:6379,abortConnect=false",
+            ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Port=5432;Database=fsusblog_endpoint_security;Username=test;Password=test",
+            ["DataProtection:ApplicationName"] = ReleaseStorageLayout.RequiredDataProtectionApplicationName,
+            ["DataProtection:KeyRingPath"] = Path.Combine(
                         dataProtectionRoot,
                         "key-ring"),
-                    [DataProtectionKeyProtection.ModeKey] = "Certificate",
-                    [DataProtectionKeyProtection.CurrentCertificatePathKey] = dataProtectionCertificatePath,
-                    [DataProtectionKeyProtection.CurrentCertificatePasswordKey] = dataProtectionCertificatePassword,
-                    ["RateLimiting:AdminPermitLimit"] = options.FixedIpPermitLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    ["RateLimiting:AdminQueueLimit"] = "0",
-                    ["Security:Pow:BaseDifficulty"] = "1",
-                    ["Security:Pow:MaxDifficulty"] = "1",
-                    ["Security:IpHashKey"] = "endpoint-security-test-key",
-                    ["Moderation:Pepper"] = "endpoint-security-moderation-pepper-at-least-32-bytes"
+            [DataProtectionKeyProtection.ModeKey] = "Certificate",
+            [DataProtectionKeyProtection.CurrentCertificatePathKey] = dataProtectionCertificatePath,
+            [DataProtectionKeyProtection.CurrentCertificatePasswordKey] = dataProtectionCertificatePassword,
+            ["RateLimiting:AdminPermitLimit"] = options.FixedIpPermitLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["RateLimiting:AdminQueueLimit"] = "0",
+            ["Security:Pow:BaseDifficulty"] = "1",
+            ["Security:Pow:MaxDifficulty"] = "1",
+            ["Security:IpHashKey"] = "endpoint-security-test-key",
+            ["Moderation:Pepper"] = "endpoint-security-moderation-pepper-at-least-32-bytes"
         });
         builder.Services.AddLogging();
         builder.Services.AddRouting();

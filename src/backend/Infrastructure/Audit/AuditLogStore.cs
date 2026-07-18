@@ -1,10 +1,12 @@
-using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Observability;
-using SqlSugar;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Observability;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
 
@@ -209,7 +211,10 @@ public sealed class AuditLogStore(
     private static AuditRecord EnsureContextJson(AuditRecord record)
         => record.ContextJson is not null || record.ContextPayload is not { Length: > 0 }
             ? record
-            : record with { ContextJson = AuditContextJsonSerializer.Serialize(record.ContextPayload) };
+            : record with
+            {
+                ContextJson = AuditContextJsonSerializer.Serialize(record.ContextPayload)
+            };
 
     private async Task<string?> ResolveChainTailAsync(string chainId, CancellationToken cancellationToken)
     {

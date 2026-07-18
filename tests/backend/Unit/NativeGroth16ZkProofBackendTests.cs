@@ -2,14 +2,17 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
 using Nethermind.MclBindings;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -73,10 +76,16 @@ public sealed class NativeGroth16ZkProofBackendTests
         ProductionZkProofBackendRequest validRequest = ValidBackendRequest([], temp.VerifyingKeySha256);
         byte[] validProof = ComputeFixtureProof(temp.VerifyingKeyBytes, validRequest);
 
-        ProductionZkProofBackendResult accepted = await backend.VerifyAsync(validRequest with { Proof = validProof });
+        ProductionZkProofBackendResult accepted = await backend.VerifyAsync(validRequest with
+        {
+            Proof = validProof
+        });
         byte[] tamperedProof = [.. validProof];
         tamperedProof[0] ^= 0xff;
-        ProductionZkProofBackendResult rejected = await backend.VerifyAsync(validRequest with { Proof = tamperedProof });
+        ProductionZkProofBackendResult rejected = await backend.VerifyAsync(validRequest with
+        {
+            Proof = tamperedProof
+        });
 
         Assert.True(backend.IsAvailable(ZkProdOptions.NativeGroth16Backend));
         Assert.False(backend.IsAvailable("unit"));
@@ -96,10 +105,16 @@ public sealed class NativeGroth16ZkProofBackendTests
             NativeGroth16PublicInputCodec.Encode(validRequest).Span);
         var backend = CreateFixtureBackend(temp, MclGroth16VerifierLibrary.Create());
 
-        ProductionZkProofBackendResult accepted = await backend.VerifyAsync(validRequest with { Proof = validProof });
+        ProductionZkProofBackendResult accepted = await backend.VerifyAsync(validRequest with
+        {
+            Proof = validProof
+        });
         byte[] tamperedProof = [.. validProof];
         tamperedProof[^1] ^= 0x01;
-        ProductionZkProofBackendResult rejectedProof = await backend.VerifyAsync(validRequest with { Proof = tamperedProof });
+        ProductionZkProofBackendResult rejectedProof = await backend.VerifyAsync(validRequest with
+        {
+            Proof = tamperedProof
+        });
         ProductionZkProofBackendResult rejectedPublicInputs = await backend.VerifyAsync(
             validRequest with
             {
@@ -200,7 +215,10 @@ public sealed class NativeGroth16ZkProofBackendTests
             verifyingKey,
             NativeGroth16PublicInputCodec.Encode(request).Span);
 
-        ProductionZkProofBackendResult result = await backend.VerifyAsync(request with { Proof = proof });
+        ProductionZkProofBackendResult result = await backend.VerifyAsync(request with
+        {
+            Proof = proof
+        });
 
         Assert.True(backend.IsAvailable(ZkProdOptions.NativeGroth16Backend));
         Assert.True(result.Verified);
@@ -250,12 +268,18 @@ public sealed class NativeGroth16ZkProofBackendTests
             NativeGroth16PublicInputCodec.Encode(request).Span);
         var backend = CreateFixtureBackend(temp, MclGroth16VerifierLibrary.Create());
 
-        _ = await backend.VerifyAsync(request with { Proof = proof });
+        _ = await backend.VerifyAsync(request with
+        {
+            Proof = proof
+        });
         double[] elapsedMs = new double[32];
         for (int index = 0; index < elapsedMs.Length; index++)
         {
             long started = Stopwatch.GetTimestamp();
-            ProductionZkProofBackendResult result = await backend.VerifyAsync(request with { Proof = proof });
+            ProductionZkProofBackendResult result = await backend.VerifyAsync(request with
+            {
+                Proof = proof
+            });
             elapsedMs[index] = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
             Assert.True(result.Verified);
         }
@@ -535,13 +559,25 @@ public sealed class NativeGroth16ZkProofBackendTests
 
         public bool IsLoaded { get; init; } = true;
 
-        public bool AcceptAnyProof { get; init; }
+        public bool AcceptAnyProof
+        {
+            get; init;
+        }
 
-        public bool ThrowOnVerify { get; init; }
+        public bool ThrowOnVerify
+        {
+            get; init;
+        }
 
-        public TimeSpan Delay { get; init; }
+        public TimeSpan Delay
+        {
+            get; init;
+        }
 
-        public int CallCount { get; private set; }
+        public int CallCount
+        {
+            get; private set;
+        }
 
         public int MaxInFlight => Volatile.Read(ref _maxInFlight);
 
@@ -674,7 +710,10 @@ public sealed class NativeGroth16ZkProofBackendTests
 
     private sealed class FixedRootReader(string acceptedRoot, long acceptedEpoch) : IAnonymousCredentialRootReader
     {
-        public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot { get; } = new(
+        public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot
+        {
+            get;
+        } = new(
             [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, RevocationRoot, IssuerPublicKeyHash, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
             1,
             DateTimeOffset.UtcNow);
@@ -729,15 +768,30 @@ public sealed class NativeGroth16ZkProofBackendTests
             File.WriteAllBytes(VerifyingKeyPath, verifyingKeyBytes);
         }
 
-        public string DirectoryPath { get; }
+        public string DirectoryPath
+        {
+            get;
+        }
 
-        public string VerifyingKeyPath { get; }
+        public string VerifyingKeyPath
+        {
+            get;
+        }
 
-        public string NativeLibraryPath { get; }
+        public string NativeLibraryPath
+        {
+            get;
+        }
 
-        public byte[] VerifyingKeyBytes { get; }
+        public byte[] VerifyingKeyBytes
+        {
+            get;
+        }
 
-        public string VerifyingKeySha256 { get; }
+        public string VerifyingKeySha256
+        {
+            get;
+        }
 
         public static TempNativeZkFixture Create()
             => new(

@@ -1,7 +1,8 @@
-using System.Collections.Frozen;
 using System.Buffers;
-using System.Diagnostics;
+using System.Collections.Frozen;
 using System.Data.Common;
+using System.Diagnostics;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
@@ -13,7 +14,9 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.Extensions.Options;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -1184,7 +1187,10 @@ public sealed class PublicHotArtifactProjector(
         for (int i = 0; i < items.Count; i++)
         {
             ArticleListItemReadModel item = items[i];
-            items[i] = item with { Tags = tagMap.TryGetValue(item.Id, out var tags) ? tags : [] };
+            items[i] = item with
+            {
+                Tags = tagMap.TryGetValue(item.Id, out var tags) ? tags : []
+            };
         }
     }
 

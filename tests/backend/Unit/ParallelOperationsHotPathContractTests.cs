@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Execution;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -20,7 +21,8 @@ public sealed class ParallelOperationsHotPathContractTests
                 $"parallel-{index}",
                 async _ =>
                 {
-                    if (Interlocked.Increment(ref started) == 4) allStarted.TrySetResult();
+                    if (Interlocked.Increment(ref started) == 4)
+                        allStarted.TrySetResult();
                     await release.Task;
                     return index;
                 },

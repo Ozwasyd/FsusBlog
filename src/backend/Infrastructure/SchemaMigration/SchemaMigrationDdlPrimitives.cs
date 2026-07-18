@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -18,7 +19,10 @@ public readonly record struct SchemaIdentifier
 
     private SchemaIdentifier(string value) => Value = value;
 
-    public string Value { get; }
+    public string Value
+    {
+        get;
+    }
 
     public static SchemaIdentifier Parse(string value, string parameterName)
     {
@@ -43,7 +47,10 @@ public sealed record SchemaColumnDefinition
 
     private SchemaColumnDefinition(string value) => Value = value;
 
-    public string Value { get; }
+    public string Value
+    {
+        get;
+    }
 
     public static SchemaColumnDefinition Parse(string value, string parameterName)
     {
@@ -87,7 +94,10 @@ public sealed record SchemaMigrationCommand(string Sql, bool IsDdl);
 
 public interface ISchemaDdlProvider
 {
-    SchemaDdlDialect Dialect { get; }
+    SchemaDdlDialect Dialect
+    {
+        get;
+    }
 
     string EnsureTable(SchemaIdentifier table, string createTableTemplate);
     string EnsureColumn(SchemaIdentifier table, SchemaIdentifier column, SchemaColumnDefinition definition);

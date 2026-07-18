@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Reflection;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -9,6 +10,7 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -815,7 +817,10 @@ public sealed class PerceptionChallengeProviderTests
     {
         public List<PerceptionChallengeV2VerifyRequest> Requests { get; } = [];
 
-        public PerceptionChallengeV2VerifyResult Result { get; init; } =
+        public PerceptionChallengeV2VerifyResult Result
+        {
+            get; init;
+        } =
             PerceptionChallengeV2VerifyResult.Success(BaselineNow.AddMinutes(5));
 
         public Task<PerceptionChallengeV2VerifyResult> VerifyAsync(

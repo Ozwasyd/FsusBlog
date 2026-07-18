@@ -4,8 +4,9 @@ using System.Collections;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
-using FsusBlog.Shared.Contracts.Outputs;
+
 using FsusBlog.Shared.Contracts.NotificationStream;
+using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Core.Cache;
 
@@ -539,6 +540,8 @@ public static partial class PodBinaryCodec
                 ? value
                 : string.Concat(char.ToLowerInvariant(value[0]), value[1..]);
 
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
     }
 }

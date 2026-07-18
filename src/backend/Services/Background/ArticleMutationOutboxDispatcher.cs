@@ -1,4 +1,5 @@
 using System.Data.Common;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -6,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Background;
@@ -941,16 +943,28 @@ public sealed class ArticleMutationOutboxDispatcher(
 
     private sealed class ArticleAotCategoryRow
     {
-        public int ArticleId { get; set; }
+        public int ArticleId
+        {
+            get; set;
+        }
 
-        public int CategoryId { get; set; }
+        public int CategoryId
+        {
+            get; set;
+        }
     }
 
     private sealed class ArticleAotTagRow
     {
-        public int ArticleId { get; set; }
+        public int ArticleId
+        {
+            get; set;
+        }
 
-        public int TagId { get; set; }
+        public int TagId
+        {
+            get; set;
+        }
     }
 
     private sealed class ArticleMutationOutboxClaimLostException(long outboxId)

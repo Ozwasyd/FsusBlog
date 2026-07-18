@@ -1,29 +1,32 @@
-using FsusBlog.Core.Common;
-using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Execution;
-using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Infrastructure.Storage;
-using FsusBlog.Server.Infrastructure.NotificationStream;
-using FsusBlog.Server.Interfaces;
-using FsusBlog.Shared.Contracts.NotificationStream;
-using SqlSugar;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO.MemoryMappedFiles;
-using Microsoft.Win32.SafeHandles;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Shared.Contracts.NotificationStream;
+
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Diagnostics;
+using Microsoft.Win32.SafeHandles;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Services;
 
@@ -56,48 +59,111 @@ public sealed partial class SearchIndexService
 
     private sealed record SearchSourceArticle
     {
-        public int Id { get; init; }
+        public int Id
+        {
+            get; init;
+        }
         public string Title { get; init; } = string.Empty;
         public string Summary { get; init; } = string.Empty;
         public string Body { get; init; } = string.Empty;
-        public int CategoryId { get; init; }
+        public int CategoryId
+        {
+            get; init;
+        }
         public string CategoryName { get; init; } = string.Empty;
         public List<SearchTagItem> Tags { get; init; } = [];
-        public int Views { get; init; }
-        public int CommentCount { get; init; }
-        public DateTime CreateTime { get; init; }
-        public int DocLength { get; init; }
+        public int Views
+        {
+            get; init;
+        }
+        public int CommentCount
+        {
+            get; init;
+        }
+        public DateTime CreateTime
+        {
+            get; init;
+        }
+        public int DocLength
+        {
+            get; init;
+        }
     }
 
     private sealed record SearchArticleRow
     {
-        public int Id { get; init; }
-        public string? Title { get; init; }
-        public string? Summary { get; init; }
-        public int CategoryId { get; init; }
-        public string? CategoryName { get; init; }
-        public int Views { get; init; }
-        public DateTime CreateTime { get; init; }
+        public int Id
+        {
+            get; init;
+        }
+        public string? Title
+        {
+            get; init;
+        }
+        public string? Summary
+        {
+            get; init;
+        }
+        public int CategoryId
+        {
+            get; init;
+        }
+        public string? CategoryName
+        {
+            get; init;
+        }
+        public int Views
+        {
+            get; init;
+        }
+        public DateTime CreateTime
+        {
+            get; init;
+        }
     }
 
     private sealed record SearchTagRow
     {
-        public int ArticleId { get; init; }
-        public int TagId { get; init; }
-        public string? TagName { get; init; }
+        public int ArticleId
+        {
+            get; init;
+        }
+        public int TagId
+        {
+            get; init;
+        }
+        public string? TagName
+        {
+            get; init;
+        }
     }
 
     private sealed record SearchCommentCountRow
     {
-        public int ArticleId { get; init; }
-        public int Count { get; init; }
+        public int ArticleId
+        {
+            get; init;
+        }
+        public int Count
+        {
+            get; init;
+        }
     }
 
     private sealed record SearchArticleResultRow
     {
-        public int Id { get; init; }
-        public string? Title { get; init; }
-        public string? Summary { get; init; }
+        public int Id
+        {
+            get; init;
+        }
+        public string? Title
+        {
+            get; init;
+        }
+        public string? Summary
+        {
+            get; init;
+        }
     }
 
     private sealed record SearchTagItem(int Id, string Name);
@@ -181,9 +247,18 @@ public sealed partial class SearchIndexService
         private bool _hasFingerprint;
         private ulong _fingerprint;
 
-        public int DocumentFrequency { get; set; }
-        public bool Stopword { get; set; }
-        public bool KeepPositions { get; set; }
+        public int DocumentFrequency
+        {
+            get; set;
+        }
+        public bool Stopword
+        {
+            get; set;
+        }
+        public bool KeepPositions
+        {
+            get; set;
+        }
         public Dictionary<int, PostingAccumulator> Postings { get; } = [];
 
         public void VerifyFingerprint(SearchToken token)
@@ -204,10 +279,22 @@ public sealed partial class SearchIndexService
 
     private sealed class PostingAccumulator
     {
-        public int ArticleId { get; init; }
-        public int TitleTfRaw { get; set; }
-        public int MetaTfRaw { get; set; }
-        public int BodyTfRaw { get; set; }
+        public int ArticleId
+        {
+            get; init;
+        }
+        public int TitleTfRaw
+        {
+            get; set;
+        }
+        public int MetaTfRaw
+        {
+            get; set;
+        }
+        public int BodyTfRaw
+        {
+            get; set;
+        }
         public List<SearchPositionEntry> Positions { get; } = [];
 
         public SearchPostingEntry Build(bool keepPositions)

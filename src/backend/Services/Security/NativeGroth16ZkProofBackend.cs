@@ -1,9 +1,11 @@
 using System.Buffers.Binary;
-using System.Security.Cryptography;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+
 using Nethermind.MclBindings;
 
 namespace FsusBlog.Server.Services.Security;
@@ -216,7 +218,10 @@ internal readonly record struct NativeGroth16VerifierCallResult(bool Verified, s
 
 internal interface INativeGroth16VerifierLibrary : IDisposable
 {
-    bool IsLoaded { get; }
+    bool IsLoaded
+    {
+        get;
+    }
 
     NativeGroth16VerifierCallResult Verify(
         ReadOnlySpan<byte> verifyingKey,
@@ -310,7 +315,10 @@ internal sealed unsafe class MclGroth16VerifierLibrary : INativeGroth16VerifierL
         IsLoaded = available;
     }
 
-    public bool IsLoaded { get; }
+    public bool IsLoaded
+    {
+        get;
+    }
 
     public static MclGroth16VerifierLibrary Create()
         => new(EnsureInitialized());

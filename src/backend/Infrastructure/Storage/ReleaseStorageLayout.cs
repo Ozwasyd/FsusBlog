@@ -91,13 +91,25 @@ public sealed class ReleaseStorageLayout
         EnsureDisjointRoots(Paths);
     }
 
-    public string ReleaseId { get; }
+    public string ReleaseId
+    {
+        get;
+    }
 
-    public string Slot { get; }
+    public string Slot
+    {
+        get;
+    }
 
-    public string InstanceId { get; }
+    public string InstanceId
+    {
+        get;
+    }
 
-    public ReleaseStoragePaths Paths { get; }
+    public ReleaseStoragePaths Paths
+    {
+        get;
+    }
 
     public string GetReleaseDerivedPath(string kind)
     {

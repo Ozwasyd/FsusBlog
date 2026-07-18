@@ -3,6 +3,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Services.NotificationStream;

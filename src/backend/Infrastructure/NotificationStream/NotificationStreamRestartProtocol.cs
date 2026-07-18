@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+
 using FsusBlog.Server.Infrastructure.Operations;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
@@ -134,7 +135,11 @@ public sealed class NotificationStreamRestartCoordinator(
         {
             if (_snapshot is { Requested: true } existing)
             {
-                return existing with { Idempotent = true, Status = "already-requested" };
+                return existing with
+                {
+                    Idempotent = true,
+                    Status = "already-requested"
+                };
             }
 
             DateTimeOffset now = timeProvider.GetUtcNow();

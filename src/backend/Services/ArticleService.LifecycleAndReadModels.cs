@@ -1,4 +1,9 @@
-﻿using FsusBlog.Core.Integrity;
+using System.Data;
+using System.Data.Common;
+using System.Runtime.CompilerServices;
+using System.Text;
+
+using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -12,12 +17,10 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
+
 using SqlSugar;
+
 using StackExchange.Redis;
-using System.Data;
-using System.Data.Common;
-using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace FsusBlog.Server.Services;
 
@@ -137,15 +140,18 @@ public partial class ArticleService
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
         ct.ThrowIfCancellationRequested();
         ArticleMutationState? state = await LoadArticleMutationStateAsync(id, isDeleted: true);
-        if (state is null) return false;
+        if (state is null)
+            return false;
         var article = await _db.Queryable<Article>().ClearFilter().InSingleAsync(id);
-        if (article == null || !article.IsDeleted) return false;
+        if (article == null || !article.IsDeleted)
+            return false;
         ct.ThrowIfCancellationRequested();
         article.Content = await _db.Queryable<ArticleBody>().Where(it => it.ArticleId == id).Select(it => it.MarkdownContent).FirstAsync() ?? string.Empty;
         ct.ThrowIfCancellationRequested();
         var imageUrls = ImageHelper.ExtractIllustrationUrls(article.Content);
 
-        var result = await _db.Ado.UseTranAsync(async () => {
+        var result = await _db.Ado.UseTranAsync(async () =>
+        {
             bool locked = await LockDeletedArticleForMutationAsync(id, state.RowVersion);
             if (!locked)
             {
@@ -190,7 +196,8 @@ public partial class ArticleService
         List<int> tagIds = [];
         Dictionary<int, string> trashedBodyMap = new();
         ct.ThrowIfCancellationRequested();
-        var result = await _db.Ado.UseTranAsync(async () => {
+        var result = await _db.Ado.UseTranAsync(async () =>
+        {
             List<TrashArticleRow> lockedTrashArticles = await LoadTrashArticlesForUpdateAsync(ct);
             if (lockedTrashArticles.Count == 0)
             {

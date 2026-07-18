@@ -4,8 +4,14 @@ namespace FsusBlog.Server.Interfaces;
 
 public interface IModerationRegionCatalogService
 {
-    ModerationRegionCatalogSnapshot CurrentSnapshot { get; }
-    string? LastError { get; }
+    ModerationRegionCatalogSnapshot CurrentSnapshot
+    {
+        get;
+    }
+    string? LastError
+    {
+        get;
+    }
     ModerationRegionCatalogSnapshot GetRuntimeSnapshot();
     ModerationEffectivePolicyPreview PreviewEffectivePolicy(
         string regionCode,

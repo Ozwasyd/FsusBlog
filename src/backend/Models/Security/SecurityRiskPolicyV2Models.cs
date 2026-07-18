@@ -32,7 +32,10 @@ public sealed record PerceptionChallengeGeneratorVariantPolicy(
     int Weight,
     bool Enabled)
 {
-    public int RedTeamPenaltyPercent { get; init; }
+    public int RedTeamPenaltyPercent
+    {
+        get; init;
+    }
 }
 
 public sealed record PerceptionChallengeGeneratorFamilyPolicy(
@@ -41,14 +44,20 @@ public sealed record PerceptionChallengeGeneratorFamilyPolicy(
     bool Enabled,
     IReadOnlyList<PerceptionChallengeGeneratorVariantPolicy> Variants)
 {
-    public int RedTeamPenaltyPercent { get; init; }
+    public int RedTeamPenaltyPercent
+    {
+        get; init;
+    }
 }
 
 public sealed record PerceptionChallengeGeneratorOverride(
     IReadOnlyDictionary<string, int> FamilyWeights,
     IReadOnlyDictionary<string, IReadOnlyDictionary<string, int>> VariantWeights)
 {
-    public static PerceptionChallengeGeneratorOverride Empty { get; } = new(
+    public static PerceptionChallengeGeneratorOverride Empty
+    {
+        get;
+    } = new(
         new Dictionary<string, int>(StringComparer.Ordinal),
         new Dictionary<string, IReadOnlyDictionary<string, int>>(StringComparer.Ordinal));
 }
@@ -63,12 +72,18 @@ public sealed record PerceptionChallengeGeneratorDistributionPolicy(
     string PolicyId,
     IReadOnlyList<PerceptionChallengeGeneratorFamilyPolicy> Families)
 {
-    public IReadOnlyDictionary<string, PerceptionChallengeGeneratorOverride> ActionOverrides { get; init; } =
+    public IReadOnlyDictionary<string, PerceptionChallengeGeneratorOverride> ActionOverrides
+    {
+        get; init;
+    } =
         new Dictionary<string, PerceptionChallengeGeneratorOverride>(StringComparer.Ordinal);
 
     public IReadOnlyList<PerceptionChallengeGeneratorRiskOverride> RiskOverrides { get; init; } = [];
 
-    public static PerceptionChallengeGeneratorDistributionPolicy Default { get; } = new(
+    public static PerceptionChallengeGeneratorDistributionPolicy Default
+    {
+        get;
+    } = new(
         "perception-generator-default",
         [
             new PerceptionChallengeGeneratorFamilyPolicy(
@@ -163,7 +178,10 @@ public sealed record SecurityRiskPolicySnapshotV2(
     IReadOnlyDictionary<string, SecurityRiskActionPolicy> ActionOverrides,
     IReadOnlyDictionary<string, string> SubsystemModes)
 {
-    public PerceptionChallengeGeneratorDistributionPolicy PerceptionGeneratorPolicy { get; init; } =
+    public PerceptionChallengeGeneratorDistributionPolicy PerceptionGeneratorPolicy
+    {
+        get; init;
+    } =
         PerceptionChallengeGeneratorDistributionPolicy.Default;
 
     public SecurityRiskActionPolicy ResolveActionPolicy(string? actionName)
@@ -174,7 +192,10 @@ public sealed record SecurityRiskPolicySnapshotV2(
             return actionPolicy;
         }
 
-        return DefaultAction with { ActionName = normalizedAction };
+        return DefaultAction with
+        {
+            ActionName = normalizedAction
+        };
     }
 
     public bool RequiresRiskScoreLookup(string? actionName)

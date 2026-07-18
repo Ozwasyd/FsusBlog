@@ -19,7 +19,10 @@ public static class ReleaseIdentityResponseHeaders
 
 public interface IReleaseIdentityProvider
 {
-    ReleaseIdentitySnapshot Current { get; }
+    ReleaseIdentitySnapshot Current
+    {
+        get;
+    }
 
     ProductionReleaseIdentityHealthCheck CreateHealthCheck(bool requireConfigured);
 }

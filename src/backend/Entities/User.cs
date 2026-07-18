@@ -1,4 +1,5 @@
-﻿using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Auth;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Entities;
@@ -11,10 +12,16 @@ namespace FsusBlog.Server.Entities;
 public class User
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
-    public int Id { get; set; }
+    public int Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "public_handle", Length = 64, IsNullable = true)]
-    public string? PublicHandle { get; set; }
+    public string? PublicHandle
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "identity_kind", Length = 32, DefaultValue = "'anonymous_account'")]
     public string IdentityKind { get; set; } = AnonymousIdentityRuntime.AnonymousAccountKind;
@@ -25,19 +32,34 @@ public class User
     /// boundaries and the startup invariant gate reject accounts that were not backfilled.
     /// </summary>
     [SugarColumn(ColumnName = "account_subject_hash", Length = 64, IsNullable = true)]
-    public string? AccountSubjectHash { get; set; }
+    public string? AccountSubjectHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "passkey_enabled", DefaultValue = "false")]
-    public bool PasskeyEnabled { get; set; }
+    public bool PasskeyEnabled
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "passkey_user_handle", Length = 128, IsNullable = true)]
-    public string? PasskeyUserHandle { get; set; }
+    public string? PasskeyUserHandle
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "recovery_enabled", DefaultValue = "false")]
-    public bool RecoveryEnabled { get; set; }
+    public bool RecoveryEnabled
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "privacy_initialized_at", IsNullable = true)]
-    public DateTime? PrivacyInitializedAt { get; set; }
+    public DateTime? PrivacyInitializedAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "anonymous_credential_level", Length = 32, DefaultValue = "'basic'")]
     public string AnonymousCredentialLevel { get; set; } = "basic";
@@ -51,13 +73,19 @@ public class User
     /// 账号状态 (0:正常 1:封禁受限 2:已注销)
     /// </summary>
     [SugarColumn(DefaultValue = "0")]
-    public int Status { get; set; }
+    public int Status
+    {
+        get; set;
+    }
 
     /// <summary>
     /// 处罚原因 (告知用户利益用)
     /// </summary>
     [SugarColumn(IsNullable = true, Length = 500)]
-    public string? BanReason { get; set; }
+    public string? BanReason
+    {
+        get; set;
+    }
 
     /// <summary>
     /// 注册时间 (审计用)
@@ -69,26 +97,41 @@ public class User
     /// 是否启用 TOTP MFA
     /// </summary>
     [SugarColumn(DefaultValue = "false")]
-    public bool MfaEnabled { get; set; }
+    public bool MfaEnabled
+    {
+        get; set;
+    }
 
     /// <summary>
     /// 风险标记位
     /// </summary>
     [SugarColumn(DefaultValue = "0")]
-    public int RiskFlags { get; set; }
+    public int RiskFlags
+    {
+        get; set;
+    }
 
     /// <summary>
     /// 注销时间
     /// </summary>
     [SugarColumn(IsNullable = true, ColumnName = "deleted_at")]
-    public DateTime? DeletedAt { get; set; }
+    public DateTime? DeletedAt
+    {
+        get; set;
+    }
 
     /// <summary>
     /// 注销原因
     /// </summary>
     [SugarColumn(IsNullable = true, Length = 256, ColumnName = "deleted_reason")]
-    public string? DeletedReason { get; set; }
+    public string? DeletedReason
+    {
+        get; set;
+    }
 
     [SugarColumn(IsIgnore = true)]
-    public string? RowVersion { get; set; }
+    public string? RowVersion
+    {
+        get; set;
+    }
 }

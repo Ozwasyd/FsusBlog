@@ -1,8 +1,9 @@
-using System.Collections.Frozen;
 using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
+
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 
@@ -463,7 +464,10 @@ public static class FsusObservability
             }
         }
 
-        public TagList Tags { get; }
+        public TagList Tags
+        {
+            get;
+        }
 
         public long Count
         {

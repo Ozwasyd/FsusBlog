@@ -1,6 +1,7 @@
 using System.Net;
 using System.Reflection;
 using System.Text.Json;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -12,6 +13,7 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -659,11 +661,20 @@ public sealed class SecurityChallengeBinaryEndpointTests
 
     private sealed class FakeChallengeOrchestrator : ISecurityChallengeOrchestrator
     {
-        public SecurityChallengeOrchestrationIssueRequest? LastIssueRequest { get; private set; }
+        public SecurityChallengeOrchestrationIssueRequest? LastIssueRequest
+        {
+            get; private set;
+        }
 
-        public SecurityChallengeOrchestrationVerifyRequest? LastVerifyRequest { get; private set; }
+        public SecurityChallengeOrchestrationVerifyRequest? LastVerifyRequest
+        {
+            get; private set;
+        }
 
-        public int VerifyCallCount { get; private set; }
+        public int VerifyCallCount
+        {
+            get; private set;
+        }
 
         public SecurityChallengeOrchestrationIssueResult IssueResult { get; set; } = SecurityChallengeOrchestrationIssueResult.Failed("provider_missing");
 

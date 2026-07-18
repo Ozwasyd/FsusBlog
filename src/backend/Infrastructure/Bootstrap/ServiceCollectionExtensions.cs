@@ -1,8 +1,6 @@
 using System.IO.Compression;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.ResponseCompression;
+
 using FsusBlog.Core.DependencyInjection;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
@@ -15,7 +13,11 @@ using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Moderation;
+
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 

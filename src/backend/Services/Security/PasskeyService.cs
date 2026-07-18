@@ -1,22 +1,25 @@
+using System.Buffers.Binary;
+using System.Buffers.Text;
+using System.Data.Common;
+using System.Diagnostics;
+using System.Security.Cryptography;
+
 using Fido2NetLib;
 using Fido2NetLib.Exceptions;
 using Fido2NetLib.Objects;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Shared.Contracts.NotificationStream;
-using System.Diagnostics;
-using System.Buffers.Binary;
-using System.Buffers.Text;
-using System.Data.Common;
-using System.Security.Cryptography;
-using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
@@ -1269,7 +1272,8 @@ public sealed class PasskeyService(
     {
         cancellationToken.ThrowIfCancellationRequested();
         string trimmed = (name ?? string.Empty).Trim();
-        if (trimmed.Length > 64) trimmed = trimmed[..64];
+        if (trimmed.Length > 64)
+            trimmed = trimmed[..64];
 
         int updated = await db.Updateable<PasskeyCredential>()
             .Where(c => c.Id == credId && c.AccountId == accountId)

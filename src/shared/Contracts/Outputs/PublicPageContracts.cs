@@ -55,16 +55,40 @@ public static class PublicSearchRoutePolicy
 
 public sealed record class PublicAotShellEntryContract
 {
-    public PublicPageId PageId { get; init; }
+    public PublicPageId PageId
+    {
+        get; init;
+    }
     public string RouteKey { get; init; } = string.Empty;
     public string Html { get; init; } = string.Empty;
-    public int? ArticleId { get; init; }
-    public string? BootstrapPayload { get; init; }
-    public string? HydrationPropsPayload { get; init; }
-    public string? RendererVersion { get; init; }
-    public string? IslandsPayload { get; init; }
-    public string? Title { get; init; }
-    public string? BaseUrl { get; init; }
+    public int? ArticleId
+    {
+        get; init;
+    }
+    public string? BootstrapPayload
+    {
+        get; init;
+    }
+    public string? HydrationPropsPayload
+    {
+        get; init;
+    }
+    public string? RendererVersion
+    {
+        get; init;
+    }
+    public string? IslandsPayload
+    {
+        get; init;
+    }
+    public string? Title
+    {
+        get; init;
+    }
+    public string? BaseUrl
+    {
+        get; init;
+    }
 }
 
 public sealed record class PublicAotShellBundleContract

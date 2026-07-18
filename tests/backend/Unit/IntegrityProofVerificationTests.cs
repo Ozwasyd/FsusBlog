@@ -1,8 +1,10 @@
 using System.Text.Json;
+
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -173,11 +175,17 @@ public sealed class IntegrityProofVerificationTests
             },
             "keyId-tamper" => bundle with
             {
-                PublishProofSignature = bundle.PublishProofSignature with { KeyId = "missing-key" }
+                PublishProofSignature = bundle.PublishProofSignature with
+                {
+                    KeyId = "missing-key"
+                }
             },
             "algorithm-mismatch" => bundle with
             {
-                PublishProofSignature = bundle.PublishProofSignature with { Algorithm = "RSA_PSS_SHA256" }
+                PublishProofSignature = bundle.PublishProofSignature with
+                {
+                    Algorithm = "RSA_PSS_SHA256"
+                }
             },
             "log-deletion" => bundle with { TransparencyLog = bundle.TransparencyLog.Skip(1).ToArray() },
             "log-reorder" => bundle with { TransparencyLog = bundle.TransparencyLog.Reverse().ToArray() },

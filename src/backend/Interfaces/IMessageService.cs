@@ -1,6 +1,6 @@
-﻿using FsusBlog.Core.Common;
-using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Core.Common;
 using FsusBlog.Shared.Contracts.NotificationStream;
+using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Interfaces;
 

@@ -48,7 +48,10 @@ public class PublicAotShellContractRulesTests
     public void TryValidate_InvalidPageId_ReturnsFalse()
     {
         var entry = MakeEntry();
-        entry = entry with { PageId = (PublicPageId)999 };
+        entry = entry with
+        {
+            PageId = (PublicPageId)999
+        };
         bool ok = PublicAotShellContractRules.TryValidateEntry(entry, out _, out _, out var err);
         Assert.False(ok);
         Assert.Contains("页面类型非法", err);

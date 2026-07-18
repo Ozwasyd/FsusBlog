@@ -1,7 +1,8 @@
-﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Helpers.Initializer;
@@ -86,11 +87,20 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
 
     private sealed class BannedUserCacheRow
     {
-        public int Id { get; init; }
+        public int Id
+        {
+            get; init;
+        }
 
-        public string? AccountSubjectHash { get; init; }
+        public string? AccountSubjectHash
+        {
+            get; init;
+        }
 
-        public string? BanReason { get; init; }
+        public string? BanReason
+        {
+            get; init;
+        }
 
         public string RequiredAccountSubjectHash
             => AccountSubjectHashRequirement.Require(AccountSubjectHash, "blacklist-cache-initializer");

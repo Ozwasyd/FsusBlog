@@ -1,5 +1,6 @@
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Tests.Unit;

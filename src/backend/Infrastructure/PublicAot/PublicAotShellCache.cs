@@ -1,5 +1,7 @@
 using System.Linq;
+
 using FsusBlog.Server.Infrastructure.Cache;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;

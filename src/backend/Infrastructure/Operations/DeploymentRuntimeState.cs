@@ -1,4 +1,5 @@
 using System.Net;
+
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -10,7 +11,9 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Server.Services.VisitLog;
+
 using Microsoft.AspNetCore.Mvc;
+
 using HttpResults = Microsoft.AspNetCore.Http.Results;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
@@ -379,7 +382,10 @@ public sealed class DeploymentRuntimeState
         {
             DeploymentDrainSnapshot drain = components is null
                 ? _drain
-                : _drain with { Components = components };
+                : _drain with
+                {
+                    Components = components
+                };
             return new DeploymentRuntimeSnapshot(
                 _releaseIdentity.ReleaseId,
                 _releaseIdentity.ReleaseSlot,
@@ -542,7 +548,10 @@ public sealed class DeploymentDrainCoordinator(
         {
             EnsureDrainTask(timeout);
         }
-        return result with { Snapshot = CreateSnapshot() };
+        return result with
+        {
+            Snapshot = CreateSnapshot()
+        };
     }
 
     public async Task<bool> DrainForHostStopAsync(CancellationToken cancellationToken)
@@ -769,7 +778,11 @@ public sealed class DeploymentRequestTrackingMiddleware(RequestDelegate next)
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             context.Response.Headers.RetryAfter = "5";
             context.Response.Headers.CacheControl = "no-store";
-            await context.Response.WriteAsJsonAsync(new { status = "draining", retryable = true }, context.RequestAborted);
+            await context.Response.WriteAsJsonAsync(new
+            {
+                status = "draining",
+                retryable = true
+            }, context.RequestAborted);
             return;
         }
 
@@ -797,7 +810,11 @@ public static class DeploymentControlEndpoints
         {
             if (!IsTrustedHostControl(context))
             {
-                return HttpResults.Json(new { status = "rejected", errorCode = "trusted_host_required" }, statusCode: StatusCodes.Status403Forbidden);
+                return HttpResults.Json(new
+                {
+                    status = "rejected",
+                    errorCode = "trusted_host_required"
+                }, statusCode: StatusCodes.Status403Forbidden);
             }
             return HttpResults.Json(deployment.CreateSnapshot());
         })
@@ -813,7 +830,11 @@ public static class DeploymentControlEndpoints
         {
             if (!IsTrustedHostControl(context))
             {
-                return HttpResults.Json(new { status = "rejected", errorCode = "trusted_host_required" }, statusCode: StatusCodes.Status403Forbidden);
+                return HttpResults.Json(new
+                {
+                    status = "rejected",
+                    errorCode = "trusted_host_required"
+                }, statusCode: StatusCodes.Status403Forbidden);
             }
             DeploymentTransitionResult result = deployment.Activate(request);
             await RecordTransitionAuditAsync(context, auditEvents, "activate", result, cancellationToken);
@@ -831,7 +852,11 @@ public static class DeploymentControlEndpoints
         {
             if (!IsTrustedHostControl(context))
             {
-                return HttpResults.Json(new { status = "rejected", errorCode = "trusted_host_required" }, statusCode: StatusCodes.Status403Forbidden);
+                return HttpResults.Json(new
+                {
+                    status = "rejected",
+                    errorCode = "trusted_host_required"
+                }, statusCode: StatusCodes.Status403Forbidden);
             }
             DeploymentTransitionResult result = deployment.BeginDrain(request);
             await RecordTransitionAuditAsync(context, auditEvents, "drain", result, cancellationToken);

@@ -8,19 +8,28 @@ namespace FsusBlog.Server.Entities;
 public sealed class AdminPrincipal
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(Length = 64)]
     public string Handle { get; set; } = string.Empty;
 
     [SugarColumn(Length = 96, IsNullable = true)]
-    public string? DisplayName { get; set; }
+    public string? DisplayName
+    {
+        get; set;
+    }
 
     [SugarColumn(Length = 32)]
     public string Status { get; set; } = AdminPrincipalStatus.Active;
 
     [SugarColumn(DefaultValue = "false")]
-    public bool IsRoot { get; set; }
+    public bool IsRoot
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnDataType = "text")]
     public string Permissions { get; set; } = string.Empty;
@@ -28,16 +37,28 @@ public sealed class AdminPrincipal
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(IsNullable = true)]
-    public DateTime? LastLoginAtUtc { get; set; }
+    public DateTime? LastLoginAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(DefaultValue = "false")]
-    public bool TotpEnabled { get; set; }
+    public bool TotpEnabled
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true, ColumnDataType = "text")]
-    public string? TotpSecretEncrypted { get; set; }
+    public string? TotpSecretEncrypted
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true)]
-    public DateTime? TotpVerifiedAtUtc { get; set; }
+    public DateTime? TotpVerifiedAtUtc
+    {
+        get; set;
+    }
 }
 
 public static class AdminPrincipalStatus

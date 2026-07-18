@@ -1,16 +1,19 @@
 using System.Reflection;
 using System.Text.Json;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -108,21 +111,21 @@ public sealed class AnonymousGovernanceAdminEndpointTests(PostgresSchemaMigratio
             UpdatedAtUtc = DateTime.Parse("2026-06-19T02:00:00Z").ToUniversalTime()
         }).ExecuteCommand();
 
-            var service = new AnonymousGovernanceService(db, new EmptyRootService());
+        var service = new AnonymousGovernanceService(db, new EmptyRootService());
 
-            AnonymousGovernanceNullifierListResponse response = await service.ListNullifiersAsync(CancellationToken.None);
+        AnonymousGovernanceNullifierListResponse response = await service.ListNullifiersAsync(CancellationToken.None);
 
-            AnonymousGovernanceNullifierRow row = Assert.Single(response.Items);
-            Assert.Equal("article:42", row.Scope);
-            Assert.Equal("blocked", row.Status);
-            Assert.Equal(2, row.UseCount);
-            Assert.Equal("01234567...89abcdef", row.MaskedHash);
-            Assert.Equal("0123456789abcdef0123456789abcdef", row.NullifierHash);
+        AnonymousGovernanceNullifierRow row = Assert.Single(response.Items);
+        Assert.Equal("article:42", row.Scope);
+        Assert.Equal("blocked", row.Status);
+        Assert.Equal(2, row.UseCount);
+        Assert.Equal("01234567...89abcdef", row.MaskedHash);
+        Assert.Equal("0123456789abcdef0123456789abcdef", row.NullifierHash);
 
-            string json = JsonSerializer.Serialize(row);
-            Assert.DoesNotContain("user", json, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("credentialCommitment", json, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("proof", json, StringComparison.OrdinalIgnoreCase);
+        string json = JsonSerializer.Serialize(row);
+        Assert.DoesNotContain("user", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("credentialCommitment", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("proof", json, StringComparison.OrdinalIgnoreCase);
     }
 
     private static int CountOccurrences(string value, string needle)

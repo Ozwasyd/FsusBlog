@@ -1,4 +1,4 @@
-﻿namespace FsusBlog.Server.Interfaces;
+namespace FsusBlog.Server.Interfaces;
 
 /// <summary>
 /// 敏感内容可检阅契约

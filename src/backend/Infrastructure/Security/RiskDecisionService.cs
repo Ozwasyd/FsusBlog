@@ -25,7 +25,10 @@ public sealed record RiskDecision(
     string PolicyVersion,
     IReadOnlyList<string> Reasons)
 {
-    public PerceptionChallengeGeneratorDistributionPolicy PerceptionGeneratorPolicy { get; init; } =
+    public PerceptionChallengeGeneratorDistributionPolicy PerceptionGeneratorPolicy
+    {
+        get; init;
+    } =
         PerceptionChallengeGeneratorDistributionPolicy.Default;
 }
 

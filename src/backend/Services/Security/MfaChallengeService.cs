@@ -1,11 +1,12 @@
-using System.Buffers.Binary;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using FsusBlog.Server.Infrastructure.Cache;
+
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 
@@ -13,13 +14,34 @@ namespace FsusBlog.Server.Services.Security;
 
 public sealed record class MfaChallengeTicket
 {
-    public required string TicketId { get; init; }
-    public required int AccountId { get; init; }
-    public required string AccountSubjectHash { get; init; }
-    public required string Type { get; init; } // login | action
-    public required string Action { get; init; }
-    public bool RememberMe { get; init; }
-    public bool RiskTriggered { get; init; }
+    public required string TicketId
+    {
+        get; init;
+    }
+    public required int AccountId
+    {
+        get; init;
+    }
+    public required string AccountSubjectHash
+    {
+        get; init;
+    }
+    public required string Type
+    {
+        get; init;
+    } // login | action
+    public required string Action
+    {
+        get; init;
+    }
+    public bool RememberMe
+    {
+        get; init;
+    }
+    public bool RiskTriggered
+    {
+        get; init;
+    }
     public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
 }
 

@@ -1,6 +1,7 @@
-﻿using System.Globalization;
-using System.Security.Claims;
+using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Security.Claims;
+
 using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Auth;
 

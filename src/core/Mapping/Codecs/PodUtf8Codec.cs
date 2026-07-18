@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+
 using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Core.Mapping.Codecs;
@@ -186,7 +187,11 @@ public static class PodUtf8Codec
 
     private static Utf8SliceRef CreateSlice(int offset, int length)
     {
-        MutableSlice temp = new() { Offset = offset, Length = length };
+        MutableSlice temp = new()
+        {
+            Offset = offset,
+            Length = length
+        };
         Span<MutableSlice> source = stackalloc MutableSlice[1];
         source[0] = temp;
         ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(source);

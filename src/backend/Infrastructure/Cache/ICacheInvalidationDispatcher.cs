@@ -1,4 +1,5 @@
 using System.Globalization;
+
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Services.Security;
 
@@ -29,7 +30,10 @@ public interface IHotStatsInvalidationCoalescer
 
 public interface IHotArticlesCacheVersionProvider
 {
-    long CurrentHotArticlesVersion { get; }
+    long CurrentHotArticlesVersion
+    {
+        get;
+    }
     string BuildVersionedHotArticlesIdentity(string identity);
 }
 

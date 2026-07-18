@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -335,10 +336,25 @@ public sealed class DiLifetimeAnalyzer : DiagnosticAnalyzer
             FactoryDependencies = factoryDependencies;
         }
 
-        public ITypeSymbol ServiceType { get; }
-        public ITypeSymbol ImplementationType { get; }
-        public Lifetime Lifetime { get; }
-        public Location Location { get; }
-        public ImmutableArray<ITypeSymbol> FactoryDependencies { get; }
+        public ITypeSymbol ServiceType
+        {
+            get;
+        }
+        public ITypeSymbol ImplementationType
+        {
+            get;
+        }
+        public Lifetime Lifetime
+        {
+            get;
+        }
+        public Location Location
+        {
+            get;
+        }
+        public ImmutableArray<ITypeSymbol> FactoryDependencies
+        {
+            get;
+        }
     }
 }

@@ -1,4 +1,5 @@
 using BenchmarkDotNet.Attributes;
+
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 
 [MemoryDiagnoser]
@@ -10,7 +11,10 @@ public class CompositeAcBenchmarks
     private string _completedRuleHit = string.Empty;
 
     [Params(128, 1024, 4096)]
-    public int CompositeRuleCount { get; set; }
+    public int CompositeRuleCount
+    {
+        get; set;
+    }
 
     [GlobalSetup]
     public void Setup()

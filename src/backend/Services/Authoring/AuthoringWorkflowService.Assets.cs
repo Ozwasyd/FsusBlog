@@ -1,9 +1,11 @@
-using System.Net;
 using System.Data.Common;
+using System.Globalization;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -13,12 +15,12 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
-using System.Globalization;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;
@@ -515,9 +517,15 @@ public sealed partial class AuthoringWorkflowService
     private sealed class AssetReferenceAggregate(string url, int sourceArticleId)
     {
         public string Url { get; } = url;
-        public string? AltText { get; set; }
+        public string? AltText
+        {
+            get; set;
+        }
         public int SourceArticleId { get; } = sourceArticleId;
-        public int ReferenceCount { get; set; }
+        public int ReferenceCount
+        {
+            get; set;
+        }
     }
 
     private sealed record AssetArticleReferenceRow(

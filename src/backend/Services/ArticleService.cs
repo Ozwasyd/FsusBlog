@@ -1,4 +1,9 @@
-﻿using FsusBlog.Core.Integrity;
+using System.Data;
+using System.Data.Common;
+using System.Runtime.CompilerServices;
+using System.Text;
+
+using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -12,12 +17,10 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
+
 using SqlSugar;
+
 using StackExchange.Redis;
-using System.Data;
-using System.Data.Common;
-using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace FsusBlog.Server.Services;
 
@@ -310,7 +313,10 @@ public partial class ArticleService(
             return article;
         }
 
-        return article with { Views = (int)Math.Round(projectedViews.Value, MidpointRounding.AwayFromZero) };
+        return article with
+        {
+            Views = (int)Math.Round(projectedViews.Value, MidpointRounding.AwayFromZero)
+        };
     }
 
     private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(
@@ -630,7 +636,8 @@ public partial class ArticleService(
                 fenceEstablished = true;
             }
 
-            var result = await _db.Ado.UseTranAsync(async () => {
+            var result = await _db.Ado.UseTranAsync(async () =>
+            {
                 int id = await _db.Insertable(article).ExecuteReturnIdentityAsync();
                 await _db.Insertable(new ArticleBody { ArticleId = id, MarkdownContent = content, UpdatedAt = DateTime.UtcNow }).ExecuteCommandAsync();
                 if (tagIds.Count > 0)

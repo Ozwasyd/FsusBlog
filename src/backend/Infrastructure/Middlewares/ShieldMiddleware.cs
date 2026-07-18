@@ -1,4 +1,5 @@
-﻿using System.Buffers;
+using System.Buffers;
+
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
@@ -164,10 +165,14 @@ public class ShieldMiddleware(
 
     private static string ResolveSearchCrawlerProvider(string userAgent)
     {
-        if (userAgent.Contains("Google", StringComparison.OrdinalIgnoreCase)) return "google";
-        if (userAgent.Contains("bing", StringComparison.OrdinalIgnoreCase) || userAgent.Contains("msnbot", StringComparison.OrdinalIgnoreCase)) return "bing";
-        if (userAgent.Contains("Baidu", StringComparison.OrdinalIgnoreCase)) return "baidu";
-        if (userAgent.Contains("Sogou", StringComparison.OrdinalIgnoreCase)) return "sogou";
+        if (userAgent.Contains("Google", StringComparison.OrdinalIgnoreCase))
+            return "google";
+        if (userAgent.Contains("bing", StringComparison.OrdinalIgnoreCase) || userAgent.Contains("msnbot", StringComparison.OrdinalIgnoreCase))
+            return "bing";
+        if (userAgent.Contains("Baidu", StringComparison.OrdinalIgnoreCase))
+            return "baidu";
+        if (userAgent.Contains("Sogou", StringComparison.OrdinalIgnoreCase))
+            return "sogou";
         return "search";
     }
 

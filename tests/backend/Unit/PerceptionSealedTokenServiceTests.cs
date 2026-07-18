@@ -1,9 +1,11 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Security.Cryptography;
+
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,7 +55,10 @@ public sealed class PerceptionSealedTokenServiceTests
         Assert.Equal("ok", result.Reason);
         Assert.NotNull(result.Payload);
         Assert.Matches("^[0-9a-f]{64}$", result.Payload.PayloadBindingHashHex);
-        Assert.Equal(payload, result.Payload! with { PayloadBindingHashHex = string.Empty });
+        Assert.Equal(payload, result.Payload! with
+        {
+            PayloadBindingHashHex = string.Empty
+        });
     }
 
     [Fact]

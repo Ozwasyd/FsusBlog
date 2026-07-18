@@ -93,7 +93,13 @@ public interface ISecurityRiskScoreReader
 
 public interface ISecurityRiskPolicyProvider
 {
-    SecurityRiskPolicySnapshot CurrentRiskPolicy { get; }
+    SecurityRiskPolicySnapshot CurrentRiskPolicy
+    {
+        get;
+    }
 
-    SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 { get; }
+    SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2
+    {
+        get;
+    }
 }

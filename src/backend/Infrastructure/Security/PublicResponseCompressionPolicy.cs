@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Observability;
+
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.ResponseCompression;

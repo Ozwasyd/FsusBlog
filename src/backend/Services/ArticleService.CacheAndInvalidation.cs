@@ -1,4 +1,9 @@
-﻿using FsusBlog.Core.Integrity;
+using System.Data;
+using System.Data.Common;
+using System.Runtime.CompilerServices;
+using System.Text;
+
+using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -12,12 +17,10 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
+
 using SqlSugar;
+
 using StackExchange.Redis;
-using System.Data;
-using System.Data.Common;
-using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace FsusBlog.Server.Services;
 
@@ -233,7 +236,10 @@ public partial class ArticleService
 
         ArticleListItemReadModel articlePreview = preview;
         IReadOnlyList<TagReadModel> tags = await LoadArticleTagsAsync(id, Ct);
-        return ArticleProjection.ToResponse(articlePreview with { Tags = tags });
+        return ArticleProjection.ToResponse(articlePreview with
+        {
+            Tags = tags
+        });
     }
 
     private static List<int> MergeIds(IEnumerable<int> left, IEnumerable<int> right)
@@ -261,7 +267,8 @@ public partial class ArticleService
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string NormalizeText(string? value, int maxLen)
     {
-        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
         var trimmed = value.Trim();
         return trimmed.Length > maxLen ? trimmed[..maxLen] : trimmed;
     }
@@ -356,7 +363,10 @@ public partial class ArticleService
         for (int i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            items[i] = item with { Tags = tagMap.TryGetValue(item.Id, out var tags) ? tags : ArticleReadModelCollections.EmptyTags };
+            items[i] = item with
+            {
+                Tags = tagMap.TryGetValue(item.Id, out var tags) ? tags : ArticleReadModelCollections.EmptyTags
+            };
         }
     }
 
@@ -407,12 +417,15 @@ public partial class ArticleService
     // 写入时绝对安全的摘要生成：防御 C# 字符串切片由于 UTF-16 代理对断裂引发的 Emoji 碎裂乱码。[MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string GenerateSafeSummary(string? content)
     {
-        if (string.IsNullOrWhiteSpace(content)) return string.Empty;
-        if (content.Length <= 200) return content;
+        if (string.IsNullOrWhiteSpace(content))
+            return string.Empty;
+        if (content.Length <= 200)
+            return content;
 
         int len = 200;
         // 如果截断点切在了一个 4 字节 Emoji (HighSurrogate) 的头上，主动退让 1 字符，保持语义闭环
-        if (char.IsHighSurrogate(content[len - 1])) len--;
+        if (char.IsHighSurrogate(content[len - 1]))
+            len--;
 
         return content[..len];
     }

@@ -1,22 +1,24 @@
-using FsusBlog.Server.Infrastructure.Auth;
+using System.Net;
+
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Tests.Unit;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Net;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -1101,7 +1103,10 @@ public sealed class ProductionStartupValidatorTests
                 : AnonymousCredentialRootRuntimeSnapshot.Empty;
         }
 
-        public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot { get; }
+        public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot
+        {
+            get;
+        }
 
         public Task RefreshAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 

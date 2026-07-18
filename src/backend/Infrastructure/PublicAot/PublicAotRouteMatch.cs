@@ -12,7 +12,10 @@ public sealed record class PublicAotRouteMatch(
 {
     public int Page { get; init; } = 1;
 
-    public bool RequiresPaginationRedirect { get; init; }
+    public bool RequiresPaginationRedirect
+    {
+        get; init;
+    }
 
     public string CanonicalPathAndQuery => string.Concat(CanonicalPath, QueryString);
 }

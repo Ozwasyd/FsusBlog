@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Security.Claims;
+
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -9,6 +10,7 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.RateLimiting;
@@ -18,6 +20,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -269,7 +272,10 @@ public sealed class AntiCrawlerPipelineTests
 
     private sealed class FixedPolicyProvider(AntiCrawlerPolicyOptions options) : IAntiCrawlerPolicyProvider
     {
-        public AntiCrawlerPolicySnapshot Current { get; } = new(
+        public AntiCrawlerPolicySnapshot Current
+        {
+            get;
+        } = new(
             "test",
             DateTimeOffset.Parse("2026-07-11T08:00:00Z"),
             "test",

@@ -1,8 +1,9 @@
-using System.Globalization;
-using System.Diagnostics;
 using System.Data.Common;
+using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -10,7 +11,9 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.Extensions.Caching.Memory;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Distribution;
@@ -540,18 +543,36 @@ public sealed class BlogDistributionService(
 
     private sealed class DistributionArticleRow
     {
-        public int Id { get; init; }
+        public int Id
+        {
+            get; init;
+        }
         public string Title { get; init; } = string.Empty;
-        public string? Summary { get; init; }
-        public string? CoverImageUrl { get; init; }
-        public DateTime PublishedAt { get; init; }
-        public DateTime ModifiedAt { get; init; }
+        public string? Summary
+        {
+            get; init;
+        }
+        public string? CoverImageUrl
+        {
+            get; init;
+        }
+        public DateTime PublishedAt
+        {
+            get; init;
+        }
+        public DateTime ModifiedAt
+        {
+            get; init;
+        }
     }
 
     private sealed class SitemapStaticPageRow
     {
         public string Slug { get; init; } = string.Empty;
-        public DateTime UpdatedAt { get; init; }
+        public DateTime UpdatedAt
+        {
+            get; init;
+        }
     }
 
     private sealed record SitemapArtifactSet(

@@ -4,9 +4,15 @@ namespace FsusBlog.Core.Common;
 
 public readonly struct Result
 {
-    public bool IsSuccess { get; }
+    public bool IsSuccess
+    {
+        get;
+    }
     public bool IsFailure => !IsSuccess;
-    public ErrorDetail Error { get; }
+    public ErrorDetail Error
+    {
+        get;
+    }
 
     private Result(bool isSuccess, ErrorDetail error)
     {
@@ -29,10 +35,19 @@ public readonly struct Result
 
 public readonly struct Result<T>
 {
-    public bool IsSuccess { get; }
+    public bool IsSuccess
+    {
+        get;
+    }
     public bool IsFailure => !IsSuccess;
-    public T? Value { get; }
-    public ErrorDetail Error { get; }
+    public T? Value
+    {
+        get;
+    }
+    public ErrorDetail Error
+    {
+        get;
+    }
 
     private Result(bool isSuccess, T? value, ErrorDetail error)
     {

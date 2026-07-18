@@ -1,16 +1,22 @@
-using FsusBlog.Server.Infrastructure.Operations;
+using System.Collections.Frozen;
+using System.Diagnostics.Metrics;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -22,10 +28,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Collections.Frozen;
-using System.Diagnostics.Metrics;
-using System.Reflection;
-using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests;
 
@@ -927,7 +929,8 @@ public sealed class ProductionHealthTests
         byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
         for (int offset = 0; offset <= il.Length - 5; offset++)
         {
-            if (il[offset] is not (0x28 or 0x6F)) continue;
+            if (il[offset] is not (0x28 or 0x6F))
+                continue;
             MethodBase? called = null;
             try
             {
@@ -936,7 +939,8 @@ public sealed class ProductionHealthTests
             catch (ArgumentException)
             {
             }
-            if (called is not null) yield return called;
+            if (called is not null)
+                yield return called;
         }
     }
 }

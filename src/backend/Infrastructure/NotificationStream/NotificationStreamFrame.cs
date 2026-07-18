@@ -19,7 +19,10 @@ public sealed class SharedNotificationStreamFrame
         _refCount = 1;
     }
 
-    public int Length { get; }
+    public int Length
+    {
+        get;
+    }
 
     public ReadOnlyMemory<byte> Memory => _buffer.AsMemory(0, Length);
 

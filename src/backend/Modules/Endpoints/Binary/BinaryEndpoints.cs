@@ -1,3 +1,6 @@
+using System.Buffers;
+using System.Data.Common;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -6,15 +9,15 @@ using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models;
@@ -23,9 +26,8 @@ using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
-using System.Buffers;
-using System.Data.Common;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
@@ -71,17 +73,17 @@ public static partial class BinaryEndpoints
 
     private static UploadStatusDto CreateAbortedUploadStatus(string uploadId)
         => new()
-            {
-                UploadId = uploadId,
-                Status = "aborted",
-                TotalBytes = 0,
-                UploadedBytes = 0,
-                ChunkSize = 0,
-                TotalParts = 0,
-                UploadedPartCount = 0,
-                NextPartHint = 0,
-                ExpiresAt = DateTime.UtcNow
-            };
+        {
+            UploadId = uploadId,
+            Status = "aborted",
+            TotalBytes = 0,
+            UploadedBytes = 0,
+            ChunkSize = 0,
+            TotalParts = 0,
+            UploadedPartCount = 0,
+            NextPartHint = 0,
+            ExpiresAt = DateTime.UtcNow
+        };
 
     private static bool IsBinaryContentType(string? contentType)
         => contentType?.StartsWith(BinaryContentType, StringComparison.OrdinalIgnoreCase) == true;

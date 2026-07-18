@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
+
 using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.VisitLog;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -197,7 +199,10 @@ public sealed class BackgroundWorkerLeaseTests
         private readonly TaskCompletionSource<bool> _renewalObserved = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _renewalCount;
 
-        public bool ThrowOnAcquire { get; init; }
+        public bool ThrowOnAcquire
+        {
+            get; init;
+        }
 
         public Task RenewalObserved => _renewalObserved.Task;
 

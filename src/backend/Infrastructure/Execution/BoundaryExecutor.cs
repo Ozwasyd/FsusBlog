@@ -1,5 +1,6 @@
-using FsusBlog.Core.Common;
 using System.Diagnostics;
+
+using FsusBlog.Core.Common;
 
 namespace FsusBlog.Server.Infrastructure.Execution;
 

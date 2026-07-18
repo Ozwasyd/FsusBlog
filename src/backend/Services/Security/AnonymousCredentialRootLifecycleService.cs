@@ -1,21 +1,27 @@
+using System.Security.Cryptography;
+using System.Text;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Security.Cryptography;
-using System.Text;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
 
 public interface IAnonymousCredentialRootReader
 {
-    AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot { get; }
+    AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot
+    {
+        get;
+    }
 
     Task RefreshAsync(CancellationToken cancellationToken = default);
 
@@ -93,7 +99,10 @@ public sealed record AnonymousCredentialRootRuntimeSnapshot(
     {
     }
 
-    public static AnonymousCredentialRootRuntimeSnapshot Empty { get; } = new(
+    public static AnonymousCredentialRootRuntimeSnapshot Empty
+    {
+        get;
+    } = new(
         [],
         0,
         DateTimeOffset.UnixEpoch,

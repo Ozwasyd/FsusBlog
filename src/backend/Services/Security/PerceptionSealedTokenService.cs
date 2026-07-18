@@ -2,7 +2,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using FsusBlog.Server.Infrastructure.Helpers;
+
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 
@@ -50,11 +52,20 @@ public sealed record class PerceptionSealedTokenPayload(
     string KeyVersion,
     string PolicyVersion)
 {
-    public double? ExpectedX { get; init; }
+    public double? ExpectedX
+    {
+        get; init;
+    }
 
-    public double? ExpectedY { get; init; }
+    public double? ExpectedY
+    {
+        get; init;
+    }
 
-    public double? CoordinateTolerance { get; init; }
+    public double? CoordinateTolerance
+    {
+        get; init;
+    }
 
     public string PayloadBindingHashHex { get; init; } = string.Empty;
 }
@@ -98,7 +109,10 @@ public sealed class PerceptionSealedTokenService(
             payload,
             currentOptions.CurrentKeyVersion,
             allowCurrentKeyVersionFallback: true);
-        normalized = normalized with { PayloadBindingHashHex = ComputePayloadBindingHash(normalized) };
+        normalized = normalized with
+        {
+            PayloadBindingHashHex = ComputePayloadBindingHash(normalized)
+        };
         byte[] key = ResolveKeyOrThrow(currentOptions, normalized.KeyVersion);
 
         byte[] nonce = RandomNumberGenerator.GetBytes(NonceByteCount);
@@ -388,7 +402,10 @@ public sealed class PerceptionSealedTokenService(
     private static string ComputePayloadBindingHash(PerceptionSealedTokenPayload payload)
     {
         byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(
-            payload with { PayloadBindingHashHex = string.Empty },
+            payload with
+            {
+                PayloadBindingHashHex = string.Empty
+            },
             JsonOptions);
         return Sha256Hex(bytes);
     }

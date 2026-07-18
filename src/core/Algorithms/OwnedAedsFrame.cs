@@ -38,13 +38,22 @@ public sealed class OwnedAedsFrame : IDisposable
         FrameType = frameType;
     }
 
-    public AedsFrameType FrameType { get; }
+    public AedsFrameType FrameType
+    {
+        get;
+    }
 
     /// <summary>The number of bytes that belong to the encoded frame.</summary>
-    public int LogicalLength { get; }
+    public int LogicalLength
+    {
+        get;
+    }
 
     /// <summary>The full backing-buffer capacity that counts toward resident memory.</summary>
-    public int Capacity { get; }
+    public int Capacity
+    {
+        get;
+    }
 
     public bool IsPooled => _pool is not null;
 

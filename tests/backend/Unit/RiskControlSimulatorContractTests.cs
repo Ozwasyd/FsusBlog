@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
+
 using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -126,8 +127,14 @@ public sealed class RiskControlSimulatorContractTests
     private sealed class RecordingRiskScoreReader(int riskScore) : ISecurityRiskScoreReader
     {
         public List<string> SubjectReads { get; } = [];
-        public int ContextReads { get; private set; }
-        public int ResetCalls { get; private set; }
+        public int ContextReads
+        {
+            get; private set;
+        }
+        public int ResetCalls
+        {
+            get; private set;
+        }
 
         public Task<int> GetRiskScoreAsync(SecurityRiskSubject subject, CancellationToken cancellationToken = default)
         {

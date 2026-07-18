@@ -1,14 +1,15 @@
-﻿using FsusBlog.Core.Common;
+using System.Buffers;
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
+using System.Runtime.InteropServices;
+using System.Threading.Channels;
+
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Moderation;
-using System.Buffers;
-using System.Collections.Frozen;
-using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
-using System.Threading.Channels;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -84,7 +85,8 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         _logger = logger;
         _moderationDictionaryService = moderationDictionaryService;
         _dictDirectory = Path.Combine(env.ContentRootPath, "Dictionaries");
-        if (!Directory.Exists(_dictDirectory)) Directory.CreateDirectory(_dictDirectory);
+        if (!Directory.Exists(_dictDirectory))
+            Directory.CreateDirectory(_dictDirectory);
 
         _sensitiveFilePath = Path.Combine(_dictDirectory, "SensitiveWords.txt");
         _adFilePath = Path.Combine(_dictDirectory, "AdWords.txt");
@@ -131,7 +133,8 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
 
     private static void EnsureFileExists(string path)
     {
-        if (!File.Exists(path)) File.WriteAllText(path, string.Empty);
+        if (!File.Exists(path))
+            File.WriteAllText(path, string.Empty);
     }
 
     private void OnFileChanged(object sender, FileSystemEventArgs e)
@@ -141,11 +144,13 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
             return;
         }
 
-        if (string.IsNullOrEmpty(e.Name)) return;
+        if (string.IsNullOrEmpty(e.Name))
+            return;
 
         if (!_lastReloadTimes.TryAdd(e.Name, DateTime.UtcNow))
         {
-            if ((DateTime.UtcNow - _lastReloadTimes[e.Name]).TotalSeconds < 5) return;
+            if ((DateTime.UtcNow - _lastReloadTimes[e.Name]).TotalSeconds < 5)
+                return;
         }
         _lastReloadTimes[e.Name] = DateTime.UtcNow;
 
@@ -223,7 +228,8 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
 
     public ContentValidationResult ValidateContent(string text)
     {
-        if (string.IsNullOrWhiteSpace(text)) return new ContentValidationResult(true, "ok", string.Empty);
+        if (string.IsNullOrWhiteSpace(text))
+            return new ContentValidationResult(true, "ok", string.Empty);
         if (text.Length > MaxValidationTextChars)
         {
             return new ContentValidationResult(false, "content_too_large", "内容长度超过安全检查上限");
@@ -248,7 +254,8 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         }
         finally
         {
-            if (rentedBuffer != null) ArrayPool<char>.Shared.Return(rentedBuffer);
+            if (rentedBuffer != null)
+                ArrayPool<char>.Shared.Return(rentedBuffer);
         }
     }
 
@@ -669,7 +676,8 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
 
     private static string[] NormalizeKeywords(string[] keywords)
     {
-        if (keywords.Length == 0) return [];
+        if (keywords.Length == 0)
+            return [];
 
         // 终极优化：计算最大长度，一次性租借缓冲区，消除循环中的池抖动
         int maxLength = 0;
@@ -699,7 +707,8 @@ public partial class ContentFilterService : IContentFilterService, IDisposable
         }
         finally
         {
-            if (rentedBuffer != null) ArrayPool<char>.Shared.Return(rentedBuffer);
+            if (rentedBuffer != null)
+                ArrayPool<char>.Shared.Return(rentedBuffer);
         }
     }
 

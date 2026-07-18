@@ -1,10 +1,11 @@
-﻿using System.Collections.Concurrent;
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -743,7 +744,10 @@ public sealed partial class FileService : IFileService
         bool Found,
         Result<UploadCompleteDto> Result)
     {
-        public static CommittedUploadResolution NotFound { get; }
+        public static CommittedUploadResolution NotFound
+        {
+            get;
+        }
             = new(false, default);
     }
 
@@ -1216,7 +1220,10 @@ public sealed partial class FileService : IFileService
         string tempPath = Path.Combine(
             manifestDirectory,
             $"{Path.GetFileName(manifestPath)}.{Path.GetRandomFileName()}.tmp");
-        UploadSessionRecord normalizedRecord = record with { UploadId = normalizedUploadId };
+        UploadSessionRecord normalizedRecord = record with
+        {
+            UploadId = normalizedUploadId
+        };
         byte[] payload = EncodeSession(normalizedRecord);
         try
         {

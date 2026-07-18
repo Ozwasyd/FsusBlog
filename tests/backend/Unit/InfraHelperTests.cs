@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -22,11 +23,13 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.NotificationStream;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.VisitLog;
+using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+
 using NSubstitute;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -587,13 +590,34 @@ public class BackgroundWorkflowSourceTests
             }
         }
 
-        public string Root { get; }
-        public string OutputDirectory { get; }
-        public string SqlCapture { get; }
-        public string NodeInvocationCapture { get; }
-        public string ArtifactEnvironmentCapture { get; }
-        private string DockerPath { get; }
-        private string NodePath { get; }
+        public string Root
+        {
+            get;
+        }
+        public string OutputDirectory
+        {
+            get;
+        }
+        public string SqlCapture
+        {
+            get;
+        }
+        public string NodeInvocationCapture
+        {
+            get;
+        }
+        public string ArtifactEnvironmentCapture
+        {
+            get;
+        }
+        private string DockerPath
+        {
+            get;
+        }
+        private string NodePath
+        {
+            get;
+        }
 
         public static DataScaleToolFixture Create()
             => new(Directory.CreateTempSubdirectory("fsus-data-scale-tools-").FullName);

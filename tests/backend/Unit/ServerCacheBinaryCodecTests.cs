@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Models.ReadModels;
@@ -59,7 +60,10 @@ public sealed class ServerCacheBinaryCodecTests
     public void ArticleDetail_V4RoundTrip_PreservesUpdatedAtAndRightsSnapshot()
     {
         DateTime updatedAt = new(2026, 6, 27, 9, 30, 0, DateTimeKind.Utc);
-        ArticleDetailReadModel detail = CreateDetail() with { UpdatedAt = updatedAt };
+        ArticleDetailReadModel detail = CreateDetail() with
+        {
+            UpdatedAt = updatedAt
+        };
 
         byte[] payload = ServerCacheBinaryCodec.EncodeArticleDetail(detail);
         (bool success, ArticleDetailReadModel? decoded) = ServerCacheBinaryCodec.DecodeArticleDetail(payload);
@@ -93,7 +97,10 @@ public sealed class ServerCacheBinaryCodecTests
     [Fact]
     public void ArticleDetail_V3CachePayload_RemainsReadableWithoutUpdatedAt()
     {
-        byte[] v4 = ServerCacheBinaryCodec.EncodeArticleDetail(CreateDetail() with { UpdatedAt = null });
+        byte[] v4 = ServerCacheBinaryCodec.EncodeArticleDetail(CreateDetail() with
+        {
+            UpdatedAt = null
+        });
         byte[] snapshotMarker = BitConverter.GetBytes(901L);
         int rightsOffset = v4.AsSpan().IndexOf(snapshotMarker);
         Assert.True(rightsOffset > 8);

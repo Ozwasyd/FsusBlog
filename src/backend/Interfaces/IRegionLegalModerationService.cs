@@ -1,5 +1,5 @@
-using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Models.Moderation;
 
 namespace FsusBlog.Server.Interfaces;
 

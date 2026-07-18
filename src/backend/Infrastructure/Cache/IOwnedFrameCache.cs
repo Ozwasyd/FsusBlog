@@ -15,9 +15,15 @@ public readonly record struct OwnedFrameCacheReadResult
         Lease = lease;
     }
 
-    public bool Hit { get; }
+    public bool Hit
+    {
+        get;
+    }
 
-    public OwnedAedsFrameReadLease? Lease { get; }
+    public OwnedAedsFrameReadLease? Lease
+    {
+        get;
+    }
 }
 
 /// <summary>

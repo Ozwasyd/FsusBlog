@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -13,13 +14,16 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Subscriptions;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -302,7 +306,10 @@ public sealed class SubscriptionEndpointsContractTests(PostgresSchemaMigrationFi
     {
         private readonly Dictionary<string, byte[]> _values = new(StringComparer.Ordinal);
 
-        public int ConsumeCalls { get; private set; }
+        public int ConsumeCalls
+        {
+            get; private set;
+        }
 
         public Task SetRawAsync(
             CachePolicyId policyId,

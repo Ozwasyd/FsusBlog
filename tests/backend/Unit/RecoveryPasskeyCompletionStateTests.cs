@@ -1,11 +1,15 @@
 using System.Collections.Concurrent;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -365,9 +369,15 @@ public sealed class RecoveryPasskeyCompletionStateTests
                 });
         }
 
-        public IUnifiedCache Cache { get; }
+        public IUnifiedCache Cache
+        {
+            get;
+        }
 
-        public int ReplacementCount { get; private set; }
+        public int ReplacementCount
+        {
+            get; private set;
+        }
 
         public void SeedPending(string token, RecoveryKeySession session)
         {

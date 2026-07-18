@@ -1,4 +1,4 @@
-﻿using SqlSugar;
+using SqlSugar;
 
 namespace FsusBlog.Server.Entities;
 
@@ -33,31 +33,52 @@ public enum MessageSenderType
 public sealed class MessageConversation
 {
     [SugarColumn(IsPrimaryKey = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(Length = 160)]
     public string Subject { get; set; } = string.Empty;
 
     [SugarColumn(IsNullable = true)]
-    public int? InitiatorAccountId { get; set; }
+    public int? InitiatorAccountId
+    {
+        get; set;
+    }
 
     public ConversationStatus Status { get; set; } = ConversationStatus.Open;
 
-    public bool IsSystemSource { get; set; }
+    public bool IsSystemSource
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true)]
-    public long? SourceMessageId { get; set; }
+    public long? SourceMessageId
+    {
+        get; set;
+    }
 
     public MessageSenderType CreatedByType { get; set; } = MessageSenderType.System;
 
     [SugarColumn(IsNullable = true)]
-    public int? CreatedByAccountId { get; set; }
+    public int? CreatedByAccountId
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true)]
-    public long? CreatedByAdminPrincipalId { get; set; }
+    public long? CreatedByAdminPrincipalId
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true, Length = 64)]
-    public string? CreatedByAdminSessionId { get; set; }
+    public string? CreatedByAdminSessionId
+    {
+        get; set;
+    }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -66,7 +87,10 @@ public sealed class MessageConversation
     public DateTime LastMessageAt { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(IsIgnore = true)]
-    public string? RowVersion { get; set; }
+    public string? RowVersion
+    {
+        get; set;
+    }
 }
 
 [SugarTable("msg_message")]
@@ -74,28 +98,49 @@ public sealed class MessageConversation
 public sealed class ConversationMessage
 {
     [SugarColumn(IsPrimaryKey = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
-    public long ConversationId { get; set; }
+    public long ConversationId
+    {
+        get; set;
+    }
 
     public MessageSenderType SenderType { get; set; } = MessageSenderType.System;
 
     [SugarColumn(IsNullable = true)]
-    public int? SenderAccountId { get; set; }
+    public int? SenderAccountId
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true)]
-    public long? SenderAdminPrincipalId { get; set; }
+    public long? SenderAdminPrincipalId
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true, Length = 64)]
-    public string? SenderAdminSessionId { get; set; }
+    public string? SenderAdminSessionId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnDataType = "text")]
     public string Body { get; set; } = string.Empty;
 
     [SugarColumn(IsNullable = true, ColumnDataType = "text")]
-    public string? AttachmentsMeta { get; set; }
+    public string? AttachmentsMeta
+    {
+        get; set;
+    }
 
-    public bool IsInternalNote { get; set; }
+    public bool IsInternalNote
+    {
+        get; set;
+    }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
@@ -106,20 +151,38 @@ public sealed class ConversationMessage
 public sealed class ConversationParticipantState
 {
     [SugarColumn(IsPrimaryKey = true)]
-    public long ConversationId { get; set; }
+    public long ConversationId
+    {
+        get; set;
+    }
 
     [SugarColumn(IsPrimaryKey = true)]
-    public int AccountId { get; set; }
+    public int AccountId
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true)]
-    public long? LastReadMessageId { get; set; }
+    public long? LastReadMessageId
+    {
+        get; set;
+    }
 
-    public int UnreadCount { get; set; }
+    public int UnreadCount
+    {
+        get; set;
+    }
 
-    public bool Muted { get; set; }
+    public bool Muted
+    {
+        get; set;
+    }
 
     [SugarColumn(IsNullable = true)]
-    public DateTime? LastReadAt { get; set; }
+    public DateTime? LastReadAt
+    {
+        get; set;
+    }
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

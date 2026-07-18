@@ -10,7 +10,10 @@ namespace FsusBlog.Server.Entities;
 public sealed class AnonymousCredentialRoot
 {
     [SugarColumn(IsPrimaryKey = true, ColumnName = "epoch")]
-    public long Epoch { get; set; }
+    public long Epoch
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "root_hash", Length = 128)]
     public string RootHash { get; set; } = string.Empty;
@@ -22,7 +25,10 @@ public sealed class AnonymousCredentialRoot
     public string CircuitId { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "circuit_numeric_id")]
-    public int CircuitNumericId { get; set; }
+    public int CircuitNumericId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "verifying_key_hash", Length = 128)]
     public string VerifyingKeyHash { get; set; } = string.Empty;
@@ -31,10 +37,16 @@ public sealed class AnonymousCredentialRoot
     public string IssuerPublicKeyHash { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "public_input_layout_version")]
-    public int PublicInputLayoutVersion { get; set; }
+    public int PublicInputLayoutVersion
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "circuit_metadata", ColumnDataType = "text", IsNullable = true)]
-    public string? CircuitMetadata { get; set; }
+    public string? CircuitMetadata
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "root_attestation", Length = 128)]
     public string RootAttestation { get; set; } = string.Empty;
@@ -46,16 +58,28 @@ public sealed class AnonymousCredentialRoot
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "activated_at_utc", IsNullable = true)]
-    public DateTime? ActivatedAtUtc { get; set; }
+    public DateTime? ActivatedAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "expires_at_utc")]
-    public DateTime ExpiresAtUtc { get; set; }
+    public DateTime ExpiresAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "root_grace_expires_at_utc")]
-    public DateTime GraceExpiresAtUtc { get; set; }
+    public DateTime GraceExpiresAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revoked_at_utc", IsNullable = true)]
-    public DateTime? RevokedAtUtc { get; set; }
+    public DateTime? RevokedAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "updated_at_utc")]
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
@@ -64,7 +88,10 @@ public sealed class AnonymousCredentialRoot
     public string Status { get; set; } = AnonymousCredentialRootStatuses.Active;
 
     [SugarColumn(ColumnName = "revoke_reason", Length = 128, IsNullable = true)]
-    public string? RevokeReason { get; set; }
+    public string? RevokeReason
+    {
+        get; set;
+    }
 }
 
 public static class AnonymousCredentialRootStatuses

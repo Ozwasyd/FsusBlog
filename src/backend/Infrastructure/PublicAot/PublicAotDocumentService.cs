@@ -1,15 +1,17 @@
-using System.Net;
 using System.Collections.Concurrent;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+
 using FsusBlog.Core.Common;
-using FsusBlog.Server.Infrastructure.Spa;
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Helpers;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -491,7 +493,8 @@ public sealed class PublicAotDocumentService(
                 .Where(static author => author.Name.Length > 0)
                 .Take(8)
                 .ToArray();
-            if (authors.Length > 0) return authors;
+            if (authors.Length > 0)
+                return authors;
         }
 
         return string.IsNullOrWhiteSpace(fallbackAuthor)

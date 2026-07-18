@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
@@ -9,9 +10,12 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -242,7 +246,10 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
                     counter = new CounterWindow(0, timeProvider.GetUtcNow().Add(ttl));
                 }
 
-                counter = counter with { Value = counter.Value + value };
+                counter = counter with
+                {
+                    Value = counter.Value + value
+                };
                 _counters[key] = counter;
                 return Task.FromResult(counter.Value);
             }

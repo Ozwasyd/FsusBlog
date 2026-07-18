@@ -1,18 +1,23 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
 
 public interface IAnonymousCommentPolicyService
 {
-    AnonymousCommentPolicySnapshot Current { get; }
+    AnonymousCommentPolicySnapshot Current
+    {
+        get;
+    }
 
     Task<AnonymousCommentPolicySnapshot> GetCurrentAsync(CancellationToken cancellationToken = default);
 
@@ -368,7 +373,10 @@ public sealed class AnonymousCommentPolicyService(
             hash = AnonymousCommentPolicySnapshotHash.Compute(prepared);
         }
 
-        return prepared with { SnapshotHash = hash };
+        return prepared with
+        {
+            SnapshotHash = hash
+        };
     }
 
     private static string NormalizeAuthorMode(string? value, string fallback)

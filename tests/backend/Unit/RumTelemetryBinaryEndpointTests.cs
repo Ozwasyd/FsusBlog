@@ -8,6 +8,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -115,7 +116,10 @@ public sealed class RumTelemetryBinaryEndpointTests
 
     private sealed class FakeRumTelemetryService : IRumTelemetryService
     {
-        public RumMetricBatchRequest? BatchRequest { get; private set; }
+        public RumMetricBatchRequest? BatchRequest
+        {
+            get; private set;
+        }
         public RumMetricIngestResponse BatchResponse { get; init; } = new(false, 0, 1);
 
         public Task<RumMetricIngestResponse> IngestAsync(RumMetricRequest request, CancellationToken cancellationToken = default)
@@ -132,7 +136,10 @@ public sealed class RumTelemetryBinaryEndpointTests
         AedsFrameType expectedFrameType,
         BinaryRequestPayload payload) : IBinaryEndpointRequestContext
     {
-        public int? MaxFrameBytes { get; private set; }
+        public int? MaxFrameBytes
+        {
+            get; private set;
+        }
 
         public Task<BinaryRequestPayload> ReadFrameAsync(
             HttpContext httpContext,

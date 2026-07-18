@@ -1,8 +1,10 @@
 using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;

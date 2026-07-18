@@ -515,15 +515,18 @@ public class ModernAcAutomaton
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsValidChar(char c)
     {
-        if ((uint)(c - '0') <= 9 || (uint)(c - 'a') <= 25 || (uint)(c - 'A') <= 25) return true;
-        if (c >= 0x4E00) return true;
+        if ((uint)(c - '0') <= 9 || (uint)(c - 'a') <= 25 || (uint)(c - 'A') <= 25)
+            return true;
+        if (c >= 0x4E00)
+            return true;
         return false;
     }
 
     [SkipLocalsInit]
     public bool ContainsAny(ReadOnlySpan<char> text)
     {
-        if (_check.Length <= RootState || text.IsEmpty) return false;
+        if (_check.Length <= RootState || text.IsEmpty)
+            return false;
 
         int bitMapLength = (_totalWordCount + 31) >> 5;
         uint[]? rentedMap = null;
@@ -574,7 +577,8 @@ public class ModernAcAutomaton
             for (int i = 0; i < text.Length; i++)
             {
                 char c = Unsafe.Add(ref textRef, i);
-                if (!IsValidChar(c)) continue;
+                if (!IsValidChar(c))
+                    continue;
 
                 int alphabetId = Unsafe.Add(ref alphabetRef, c);
                 if (alphabetId == 0)

@@ -1,7 +1,9 @@
+using System.Collections.Concurrent;
+
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+
 using Microsoft.Extensions.DependencyInjection;
-using System.Collections.Concurrent;
 
 namespace FsusBlog.Server.Services;
 

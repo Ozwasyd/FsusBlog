@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
@@ -10,9 +11,11 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.VisitLog;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -348,7 +351,8 @@ public sealed class PublicContentInvalidationFlowTests
         byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
         for (int offset = 0; offset <= il.Length - 5; offset++)
         {
-            if (il[offset] is not (0x28 or 0x6F)) continue;
+            if (il[offset] is not (0x28 or 0x6F))
+                continue;
             MethodBase? called = null;
             try
             {
@@ -360,7 +364,8 @@ public sealed class PublicContentInvalidationFlowTests
             catch (ArgumentException)
             {
             }
-            if (called is not null) yield return (offset, called);
+            if (called is not null)
+                yield return (offset, called);
         }
     }
 }

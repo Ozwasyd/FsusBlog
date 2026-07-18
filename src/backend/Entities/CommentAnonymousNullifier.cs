@@ -8,7 +8,10 @@ namespace FsusBlog.Server.Entities;
 public sealed class CommentAnonymousNullifier
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "nullifier_hash", Length = 128)]
     public string NullifierHash { get; set; } = string.Empty;
@@ -17,19 +20,34 @@ public sealed class CommentAnonymousNullifier
     public string Scope { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "use_count")]
-    public int UseCount { get; set; }
+    public int UseCount
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "first_comment_id", IsNullable = true)]
-    public long? FirstCommentId { get; set; }
+    public long? FirstCommentId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "last_comment_id", IsNullable = true)]
-    public long? LastCommentId { get; set; }
+    public long? LastCommentId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "blocked")]
-    public bool Blocked { get; set; }
+    public bool Blocked
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "block_reason", Length = 256, IsNullable = true)]
-    public string? BlockReason { get; set; }
+    public string? BlockReason
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

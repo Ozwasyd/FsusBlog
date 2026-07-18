@@ -93,11 +93,16 @@ public static class PerceptionSealedChallengeV2Contracts
             return common;
         }
 
-        if (!IsBase64(challenge.RenderRecipeBase64)) return Invalid("render_recipe_invalid");
-        if (!IsGridDimension(challenge.GridWidth)) return Invalid("grid_width_invalid");
-        if (!IsGridDimension(challenge.GridHeight)) return Invalid("grid_height_invalid");
-        if (!IsSafeToken(challenge.Family)) return Invalid("family_invalid");
-        if (!IsSafeToken(challenge.Variant)) return Invalid("variant_invalid");
+        if (!IsBase64(challenge.RenderRecipeBase64))
+            return Invalid("render_recipe_invalid");
+        if (!IsGridDimension(challenge.GridWidth))
+            return Invalid("grid_width_invalid");
+        if (!IsGridDimension(challenge.GridHeight))
+            return Invalid("grid_height_invalid");
+        if (!IsSafeToken(challenge.Family))
+            return Invalid("family_invalid");
+        if (!IsSafeToken(challenge.Variant))
+            return Invalid("variant_invalid");
 
         return PerceptionSealedContractValidationResult.Valid;
     }
@@ -123,8 +128,10 @@ public static class PerceptionSealedChallengeV2Contracts
             return common;
         }
 
-        if (!IsExpectedPayloadKind(result.TaskKind, result.PayloadKind)) return Invalid("payload_kind_mismatch");
-        if (!IsBase64(result.ResponsePayloadBase64)) return Invalid("response_payload_invalid");
+        if (!IsExpectedPayloadKind(result.TaskKind, result.PayloadKind))
+            return Invalid("payload_kind_mismatch");
+        if (!IsBase64(result.ResponsePayloadBase64))
+            return Invalid("response_payload_invalid");
 
         return PerceptionSealedContractValidationResult.Valid;
     }
@@ -139,17 +146,24 @@ public static class PerceptionSealedChallengeV2Contracts
         long issuedAtUnixMs,
         long expiresAtUnixMs)
     {
-        if (!string.Equals(algorithm, Algorithm, StringComparison.Ordinal)) return Invalid("algorithm_invalid");
-        if (taskKind == PerceptionSealedTaskKind.Unknown) return Invalid("task_kind_invalid");
+        if (!string.Equals(algorithm, Algorithm, StringComparison.Ordinal))
+            return Invalid("algorithm_invalid");
+        if (taskKind == PerceptionSealedTaskKind.Unknown)
+            return Invalid("task_kind_invalid");
 
         SecurityChallengeKind expectedKind = ToChallengeKind(taskKind);
         SecurityChallengeValidationResult assignmentResult = SecurityChallengeContracts.ValidateAssignment(assignment, expectedKind);
-        if (!assignmentResult.IsValid) return Invalid(assignmentResult.ErrorCode);
+        if (!assignmentResult.IsValid)
+            return Invalid(assignmentResult.ErrorCode);
 
-        if (!IsSha256Hex(recipeHashHex)) return Invalid("recipe_hash_invalid");
-        if (!IsBase64(sealedTokenBase64)) return Invalid("sealed_token_invalid");
-        if (!IsSha256Hex(signatureHex)) return Invalid("signature_invalid");
-        if (expiresAtUnixMs <= issuedAtUnixMs) return Invalid("expires_at_invalid");
+        if (!IsSha256Hex(recipeHashHex))
+            return Invalid("recipe_hash_invalid");
+        if (!IsBase64(sealedTokenBase64))
+            return Invalid("sealed_token_invalid");
+        if (!IsSha256Hex(signatureHex))
+            return Invalid("signature_invalid");
+        if (expiresAtUnixMs <= issuedAtUnixMs)
+            return Invalid("expires_at_invalid");
         if (assignment!.IssuedAtUnixMs != issuedAtUnixMs || assignment.ExpiresAtUnixMs != expiresAtUnixMs)
         {
             return Invalid("assignment_time_mismatch");

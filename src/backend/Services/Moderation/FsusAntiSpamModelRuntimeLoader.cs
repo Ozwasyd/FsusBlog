@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.Moderation;
@@ -345,84 +346,147 @@ public static class FsusAntiSpamModelRuntimeLoader
     private sealed class RuntimeManifest
     {
         [JsonPropertyName("runtime_format")]
-        public string? RuntimeFormat { get; set; }
+        public string? RuntimeFormat
+        {
+            get; set;
+        }
 
         [JsonPropertyName("model_profile")]
-        public string? ModelProfile { get; set; }
+        public string? ModelProfile
+        {
+            get; set;
+        }
 
         [JsonPropertyName("source")]
-        public string? Source { get; set; }
+        public string? Source
+        {
+            get; set;
+        }
 
         [JsonPropertyName("channel")]
-        public string? Channel { get; set; }
+        public string? Channel
+        {
+            get; set;
+        }
 
         [JsonPropertyName("artifacts")]
-        public Dictionary<string, string>? Artifacts { get; set; }
+        public Dictionary<string, string>? Artifacts
+        {
+            get; set;
+        }
     }
 
     private sealed class RuntimeConfig
     {
         [JsonPropertyName("runtime_format")]
-        public string? RuntimeFormat { get; set; }
+        public string? RuntimeFormat
+        {
+            get; set;
+        }
 
         [JsonPropertyName("contract_version")]
-        public string? ContractVersion { get; set; }
+        public string? ContractVersion
+        {
+            get; set;
+        }
 
         [JsonPropertyName("model_profile")]
-        public string? ModelProfile { get; set; }
+        public string? ModelProfile
+        {
+            get; set;
+        }
     }
 
     private sealed class WeightFile
     {
         [JsonPropertyName("tokens")]
-        public List<TokenWeightDto>? Tokens { get; set; }
+        public List<TokenWeightDto>? Tokens
+        {
+            get; set;
+        }
     }
 
     private sealed class TokenWeightDto
     {
         [JsonPropertyName("token")]
-        public string? Token { get; set; }
+        public string? Token
+        {
+            get; set;
+        }
 
         [JsonPropertyName("category")]
-        public string? Category { get; set; }
+        public string? Category
+        {
+            get; set;
+        }
 
         [JsonPropertyName("weight")]
-        public int Weight { get; set; }
+        public int Weight
+        {
+            get; set;
+        }
 
         [JsonPropertyName("reason")]
-        public string? Reason { get; set; }
+        public string? Reason
+        {
+            get; set;
+        }
     }
 
     private sealed class ThresholdPolicy
     {
         [JsonPropertyName("profiles")]
-        public Dictionary<string, ThresholdProfileDto>? Profiles { get; set; }
+        public Dictionary<string, ThresholdProfileDto>? Profiles
+        {
+            get; set;
+        }
     }
 
     private sealed class ThresholdProfileDto
     {
         [JsonPropertyName("suspicious")]
-        public double Suspicious { get; set; }
+        public double Suspicious
+        {
+            get; set;
+        }
 
         [JsonPropertyName("risky")]
-        public double Risky { get; set; }
+        public double Risky
+        {
+            get; set;
+        }
 
         [JsonPropertyName("blocked_candidate")]
-        public double BlockedCandidate { get; set; }
+        public double BlockedCandidate
+        {
+            get; set;
+        }
     }
 
     private sealed class TestVector
     {
         [JsonPropertyName("text")]
-        public string? Text { get; set; }
+        public string? Text
+        {
+            get; set;
+        }
 
         [JsonPropertyName("threshold_profile")]
-        public string? ThresholdProfile { get; set; }
+        public string? ThresholdProfile
+        {
+            get; set;
+        }
 
         [JsonPropertyName("expected_label")]
-        public string? ExpectedLabel { get; set; }
+        public string? ExpectedLabel
+        {
+            get; set;
+        }
 
         [JsonPropertyName("expected_primary_reason")]
-        public string? ExpectedPrimaryReason { get; set; }
+        public string? ExpectedPrimaryReason
+        {
+            get; set;
+        }
     }
 }

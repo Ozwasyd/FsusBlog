@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
@@ -18,11 +19,14 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Validation;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -459,7 +463,10 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
 
     private sealed class FixedRootReader(string acceptedRoot, long acceptedEpoch) : IAnonymousCredentialRootReader
     {
-        public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot { get; } = new(
+        public AnonymousCredentialRootRuntimeSnapshot CurrentSnapshot
+        {
+            get;
+        } = new(
             [new AnonymousCredentialAcceptedRoot(acceptedEpoch, acceptedRoot, Hex(RevocationRoot), IssuerPublicKeyHash, AnonymousCredentialRootStatuses.Active, DateTimeOffset.UtcNow.AddHours(1))],
             1,
             DateTimeOffset.UtcNow);
@@ -648,7 +655,10 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
     {
         public bool IsLoaded => true;
 
-        public int CallCount { get; private set; }
+        public int CallCount
+        {
+            get; private set;
+        }
 
         public NativeGroth16VerifierCallResult Verify(
             ReadOnlySpan<byte> verifyingKey,
@@ -704,15 +714,30 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             File.WriteAllBytes(VerifyingKeyPath, verifyingKeyBytes);
         }
 
-        public string DirectoryPath { get; }
+        public string DirectoryPath
+        {
+            get;
+        }
 
-        public string VerifyingKeyPath { get; }
+        public string VerifyingKeyPath
+        {
+            get;
+        }
 
-        public string NativeLibraryPath { get; }
+        public string NativeLibraryPath
+        {
+            get;
+        }
 
-        public byte[] VerifyingKeyBytes { get; }
+        public byte[] VerifyingKeyBytes
+        {
+            get;
+        }
 
-        public string VerifyingKeySha256 { get; }
+        public string VerifyingKeySha256
+        {
+            get;
+        }
 
         public static TempNativeZkFixture Create()
             => new(

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;

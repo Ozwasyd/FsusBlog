@@ -128,15 +128,27 @@ public sealed record PublicArticlePageSnapshot(
 {
     public string CoverImageUrl { get; init; } = string.Empty;
 
-    public DateTime? PublishedAt { get; init; }
+    public DateTime? PublishedAt
+    {
+        get; init;
+    }
 
-    public DateTime? UpdatedAt { get; init; }
+    public DateTime? UpdatedAt
+    {
+        get; init;
+    }
 
     public IReadOnlyList<PublicAotResponsiblePersonSnapshot> Authors { get; init; } = [];
 
-    public PublicAotResponsiblePersonSnapshot? Reviewer { get; init; }
+    public PublicAotResponsiblePersonSnapshot? Reviewer
+    {
+        get; init;
+    }
 
-    public ArticleResponsibilityManifestResponse? Responsibility { get; init; }
+    public ArticleResponsibilityManifestResponse? Responsibility
+    {
+        get; init;
+    }
 }
 
 public sealed record PublicFilterPageSnapshot(

@@ -1,9 +1,11 @@
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Services.Background;
+
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -210,7 +212,11 @@ public sealed class AuditRetentionPolicyTests
 
     private static AuditLog SignLog(long id, AuditRecord record)
     {
-        AuditRecord chained = record with { ChainId = "20260716", PrevHash = null };
+        AuditRecord chained = record with
+        {
+            ChainId = "20260716",
+            PrevHash = null
+        };
         AuditTamperEvidenceResult evidence = AuditTamperEvidence.Sign(chained, AuditHmacKey);
         AuditLog log = ToUnsignedLog(id, chained);
         log.ChainId = evidence.ChainId;
@@ -337,7 +343,10 @@ public sealed class AuditRetentionPolicyTests
             Directory.CreateDirectory(Path);
         }
 
-        public string Path { get; }
+        public string Path
+        {
+            get;
+        }
 
         public void Dispose()
         {

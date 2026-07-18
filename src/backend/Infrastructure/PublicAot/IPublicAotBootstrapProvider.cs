@@ -4,7 +4,10 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public interface IPublicAotBootstrapProvider
 {
-    PublicPageKind Kind { get; }
+    PublicPageKind Kind
+    {
+        get;
+    }
 
     Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(
         PublicAotRouteMatch match,

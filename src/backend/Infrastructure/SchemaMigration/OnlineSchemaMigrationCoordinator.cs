@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using Microsoft.Extensions.DependencyInjection.Extensions;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -14,7 +16,10 @@ public sealed record OnlineSchemaBackfillBatchResult(
 
 public interface IOnlineSchemaBackfillHandler
 {
-    string MigrationId { get; }
+    string MigrationId
+    {
+        get;
+    }
 
     Task<OnlineSchemaBackfillBatchResult> ExecuteBatchAsync(
         string? resumeToken,
@@ -735,7 +740,10 @@ public sealed class OnlineSchemaMigrationCommandHost(
                 : await ReadContractEvidenceAsync(command.EvidencePath, cancellationToken).ConfigureAwait(false);
             if (evidence is not null && command.ConfirmDestructive)
             {
-                evidence = evidence with { DestructiveChangeConfirmed = true };
+                evidence = evidence with
+                {
+                    DestructiveChangeConfirmed = true
+                };
             }
 
             logger.LogInformation(
@@ -764,7 +772,11 @@ public sealed class OnlineSchemaMigrationCommandHost(
         {
             logger.LogError(exception, "Schema command failed closed.");
             await WriteJsonAsync(
-                new { status = "failed", code = StableCode(exception.Message) },
+                new
+                {
+                    status = "failed",
+                    code = StableCode(exception.Message)
+                },
                 cancellationToken).ConfigureAwait(false);
             return 1;
         }

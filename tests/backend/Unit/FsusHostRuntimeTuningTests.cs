@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.Bootstrap;
-using Microsoft.Extensions.Configuration;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
 

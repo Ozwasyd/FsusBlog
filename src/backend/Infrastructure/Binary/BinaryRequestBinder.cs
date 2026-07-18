@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -335,10 +336,19 @@ internal readonly record struct BinaryRequestPayload : IDisposable
         _lease = lease;
     }
 
-    public bool IsSuccess { get; }
+    public bool IsSuccess
+    {
+        get;
+    }
     public ReadOnlyMemory<byte> Payload => _lease?.Memory ?? _payload;
-    public ErrorDetail Error { get; }
-    public AedsFrameType FrameType { get; }
+    public ErrorDetail Error
+    {
+        get;
+    }
+    public AedsFrameType FrameType
+    {
+        get;
+    }
 
     public static BinaryRequestPayload Success(ReadOnlyMemory<byte> payload, AedsFrameType frameType = AedsFrameType.Unknown)
         => new(true, payload, ErrorDetail.None, frameType);

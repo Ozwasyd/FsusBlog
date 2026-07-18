@@ -1,16 +1,18 @@
 using System.Net;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Logging.Abstractions;
+
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Core.Common;
+
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -442,7 +444,8 @@ public sealed class ShieldMiddlewareTests
     {
         var g = new AdaptivePowGovernor(new NullUnifiedCache());
         // Push RPS above 1000 to trigger WAR_MODE_DIFFICULTY = 7
-        for (int i = 0; i < 1001; i++) g.RecordInboundRequest();
+        for (int i = 0; i < 1001; i++)
+            g.RecordInboundRequest();
         return g;
     }
 
@@ -480,7 +483,10 @@ public sealed class ShieldMiddlewareTests
         public Task RemoveByPrefixManyAsync(IReadOnlyList<CachePrefixIdentity> prefixes, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<IAsyncDisposable> AcquireSingleFlightAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => Task.FromResult<IAsyncDisposable>(NullDisposable.Instance);
         public string BuildKey(CachePolicyId policyId, string identity, string? version = null) => $"{policyId}:{identity}";
-        private sealed class NullDisposable : IAsyncDisposable { public static readonly NullDisposable Instance = new(); public ValueTask DisposeAsync() => ValueTask.CompletedTask; }
+        private sealed class NullDisposable : IAsyncDisposable
+        {
+            public static readonly NullDisposable Instance = new(); public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
     }
 
     private sealed class NullSecurityRiskSink : ISecurityRiskSignalSink
@@ -542,6 +548,9 @@ public sealed class ShieldMiddlewareTests
                 "security.pow"));
         }
 
-        public AntiCrawlerPolicySnapshot Current { get; }
+        public AntiCrawlerPolicySnapshot Current
+        {
+            get;
+        }
     }
 }

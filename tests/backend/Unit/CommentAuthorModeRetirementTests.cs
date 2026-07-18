@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;

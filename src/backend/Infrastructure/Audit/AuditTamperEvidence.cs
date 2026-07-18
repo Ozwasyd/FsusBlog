@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
 using FsusBlog.Server.Entities;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
@@ -59,7 +60,11 @@ internal static class AuditTamperEvidence
         }
 
         AuditRecord record = FromLog(log);
-        AuditTamperEvidenceResult evidence = Sign(record with { RecordHash = null, RecordMac = null }, key);
+        AuditTamperEvidenceResult evidence = Sign(record with
+        {
+            RecordHash = null,
+            RecordMac = null
+        }, key);
         if (!FixedTimeEqualsHexSha256(log.RecordHash, evidence.RecordHash))
         {
             return false;
@@ -73,7 +78,11 @@ internal static class AuditTamperEvidence
     internal static string ComputeRecordHash(AuditLog log)
     {
         ArgumentNullException.ThrowIfNull(log);
-        AuditRecord record = FromLog(log) with { RecordHash = null, RecordMac = null };
+        AuditRecord record = FromLog(log) with
+        {
+            RecordHash = null,
+            RecordMac = null
+        };
         return Sign(record, key: null).RecordHash;
     }
 

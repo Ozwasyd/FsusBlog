@@ -2,7 +2,9 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
 using FsusBlog.Server.Entities;
+
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
@@ -176,7 +178,10 @@ public sealed class AuditRetentionErasureService(
             BuildEvidenceBytes(unsigned),
             HashAlgorithmName.SHA256,
             DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        return unsigned with { SignatureBase64Url = WebEncoders.Base64UrlEncode(signature) };
+        return unsigned with
+        {
+            SignatureBase64Url = WebEncoders.Base64UrlEncode(signature)
+        };
     }
 
     private static byte[] BuildEvidenceBytes(AuditKeyDestructionEvidence evidence)

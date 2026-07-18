@@ -1,18 +1,20 @@
-﻿using FsusBlog.Core.Common;
+using System.Data.Common;
+using System.Runtime.InteropServices;
+using System.Text;
+
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Models.ReadModels;
-using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Models.Requests;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
-using System.Data.Common;
-using System.Runtime.InteropServices;
-using System.Text;
 
 namespace FsusBlog.Server.Services;
 
@@ -301,7 +303,8 @@ public partial class SystemService(
     public async Task<PageContentReadModel> GetPageContentAsync(string slug)
     {
         slug = NormalizeSlug(slug);
-        if (slug.Length == 0) return new PageContentReadModel();
+        if (slug.Length == 0)
+            return new PageContentReadModel();
 
         string content = await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.SystemPage,
@@ -361,7 +364,8 @@ public partial class SystemService(
     public async Task<bool> UpdatePageContentAsync(UpdatePageContentRequest dto)
     {
         var slug = NormalizeSlug(dto.Slug);
-        if (slug.Length == 0) return false;
+        if (slug.Length == 0)
+            return false;
 
         // 1. 获取影响行数
         int affectedRows = await _db.Storageable(new PageContent
@@ -372,7 +376,8 @@ public partial class SystemService(
         }).ExecuteCommandAsync();
 
         // 2. 物理防线：0 行受影响代表更新失败，直接抛出异常，阻断 200 OK 响应
-        if (affectedRows <= 0) return false;
+        if (affectedRows <= 0)
+            return false;
 
         // 3. 落盘成功后，立即以 O(1) 物理驱逐旧缓存
         await _cacheInvalidationDispatcher.InvalidateSystemPageAsync(slug);

@@ -5,12 +5,14 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Services.Security;
@@ -708,8 +710,10 @@ public sealed class DefaultPerceptionChallengeV2TaskSource(IConfiguration config
             double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double x) &&
             double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double y))
         {
-            if (x > 1) x /= CanvasWidth;
-            if (y > 1) y /= CanvasHeight;
+            if (x > 1)
+                x /= CanvasWidth;
+            if (y > 1)
+                y /= CanvasHeight;
             return (Math.Clamp(x, 0d, 1d), Math.Clamp(y, 0d, 1d));
         }
 
@@ -764,7 +768,10 @@ public abstract class PerceptionChallengeV2ProviderBase(
 
         SecurityChallengeAssignment assignment = issued.Assignment.Kind == challengeKind
             ? issued.Assignment
-            : issued.Assignment with { Kind = challengeKind };
+            : issued.Assignment with
+            {
+                Kind = challengeKind
+            };
 
         IReadOnlyDictionary<string, string> providerPayload = ToProviderPayload(issued.Payload);
         FsusObservability.RecordSecurityChallengeV2Issued(

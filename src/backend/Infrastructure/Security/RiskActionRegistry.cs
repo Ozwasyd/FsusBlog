@@ -37,15 +37,30 @@ public sealed record RiskAction
         }
     }
 
-    public string Name { get; }
+    public string Name
+    {
+        get;
+    }
 
-    public string Description { get; }
+    public string Description
+    {
+        get;
+    }
 
-    public string Owner { get; }
+    public string Owner
+    {
+        get;
+    }
 
-    public bool RequiresRouteKey { get; }
+    public bool RequiresRouteKey
+    {
+        get;
+    }
 
-    public string? DefaultRouteKey { get; }
+    public string? DefaultRouteKey
+    {
+        get;
+    }
 
     private static string NormalizeRequired(string value, string name)
     {

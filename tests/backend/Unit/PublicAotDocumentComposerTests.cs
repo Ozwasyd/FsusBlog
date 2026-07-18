@@ -1,6 +1,7 @@
+using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
-using System.Text.Json;
 
 namespace FsusBlog.Server.Tests;
 
@@ -58,7 +59,10 @@ public sealed class PublicAotDocumentComposerTests
         Assert.Equal(PublicSeoHeadContract.Schema, model.Schema);
         Assert.Equal(PublicSeoHeadContract.Version, model.Version);
         Assert.True(model.HasValidContractAndDigest());
-        Assert.False((model with { Description = "tampered" }).HasValidContractAndDigest());
+        Assert.False((model with
+        {
+            Description = "tampered"
+        }).HasValidContractAndDigest());
         Assert.Contains("name=\"robots\"", html);
         Assert.Contains("data-fsus-seo-head-model", html);
         Assert.Contains(model.Digest, html);
@@ -505,7 +509,7 @@ public sealed class PublicAotDocumentComposerTests
             string.Empty,
             string.Empty));
 
-            Assert.Contains("<title data-fsus-aot-head>Public title - Blog</title>", html);
+        Assert.Contains("<title data-fsus-aot-head>Public title - Blog</title>", html);
         Assert.Contains("<body class=\"source-body\" data-fsusblog-public-first-paint=\"true\" data-fsusblog-public-shell=\"true\">", html);
         string normalizedHtml = html.Replace("\r\n", "\n", StringComparison.Ordinal);
         Assert.Contains("<div id=\"app\">\n    <main>shell</main>\n</div>", normalizedHtml);

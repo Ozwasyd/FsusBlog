@@ -1,4 +1,4 @@
-﻿using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Interfaces;
 
 namespace FsusBlog.Server.Models.Dtos;
 
@@ -11,11 +11,17 @@ public sealed class VirtualPowRequest : IPowRequest
 
     public string PowNonce { get; set; } = string.Empty;
 
-    public int Difficulty { get; set; }
+    public int Difficulty
+    {
+        get; set;
+    }
 
     public string BrowserFp { get; set; } = string.Empty;
 
-    public long PowTimestamp { get; set; }
+    public long PowTimestamp
+    {
+        get; set;
+    }
 
     public string PowSignature { get; set; } = string.Empty;
 }

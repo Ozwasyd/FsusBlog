@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.PublicAot;
 
 internal static class CspNonceTemplateProfiler

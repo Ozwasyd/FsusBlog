@@ -82,7 +82,8 @@ public class PooledByteBufferWriterTests
         // Write more than initial capacity to trigger buffer growth
         using var w = new PooledByteBufferWriter(16);
         byte[] large = new byte[1024];
-        for (int i = 0; i < 1024; i++) large[i] = (byte)(i & 0xFF);
+        for (int i = 0; i < 1024; i++)
+            large[i] = (byte)(i & 0xFF);
         w.Write(large);
 
         Assert.Equal(1024, w.WrittenCount);

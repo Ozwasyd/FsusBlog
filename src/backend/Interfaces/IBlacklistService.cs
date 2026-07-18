@@ -1,4 +1,4 @@
-﻿namespace FsusBlog.Server.Interfaces;
+namespace FsusBlog.Server.Interfaces;
 
 public readonly record struct BanStateSnapshot(bool IsBanned, string? ReasonCode, string? Message);
 

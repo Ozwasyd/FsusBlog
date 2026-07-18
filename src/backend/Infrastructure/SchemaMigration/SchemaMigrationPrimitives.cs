@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -12,13 +13,34 @@ public enum SchemaMigrationPhase
 
 public interface ISchemaMigrationDescriptor
 {
-    string MigrationId { get; }
-    string Description { get; }
-    SchemaMigrationPhase Phase { get; }
-    bool Transactional { get; }
-    IReadOnlyList<SchemaMigrationStep> Steps { get; }
-    string Checksum { get; }
-    IReadOnlySet<string> AcceptedChecksums { get; }
+    string MigrationId
+    {
+        get;
+    }
+    string Description
+    {
+        get;
+    }
+    SchemaMigrationPhase Phase
+    {
+        get;
+    }
+    bool Transactional
+    {
+        get;
+    }
+    IReadOnlyList<SchemaMigrationStep> Steps
+    {
+        get;
+    }
+    string Checksum
+    {
+        get;
+    }
+    IReadOnlySet<string> AcceptedChecksums
+    {
+        get;
+    }
 }
 
 public sealed record SchemaMigrationDescriptor(
@@ -30,7 +52,10 @@ public sealed record SchemaMigrationDescriptor(
     IReadOnlyCollection<string>? CompatibleChecksums = null) : ISchemaMigrationDescriptor
 {
     public string Checksum { get; } = ComputeChecksum(MigrationId, Description, Phase, Transactional, Steps);
-    public IReadOnlySet<string> AcceptedChecksums { get; } = BuildAcceptedChecksums(
+    public IReadOnlySet<string> AcceptedChecksums
+    {
+        get;
+    } = BuildAcceptedChecksums(
         ComputeChecksum(MigrationId, Description, Phase, Transactional, Steps),
         CompatibleChecksums);
 
@@ -89,8 +114,14 @@ public sealed record SchemaMigrationDescriptor(
 
 public abstract record SchemaMigrationStep
 {
-    internal abstract string Kind { get; }
-    internal abstract string Fingerprint { get; }
+    internal abstract string Kind
+    {
+        get;
+    }
+    internal abstract string Fingerprint
+    {
+        get;
+    }
     internal abstract SchemaMigrationCommand? BuildCommand(ISchemaDdlProvider ddl);
 
     internal virtual Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)

@@ -1,3 +1,5 @@
+using System.Reflection;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -5,12 +7,14 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+
 using NSubstitute;
+
 using SqlSugar;
-using System.Reflection;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -85,38 +89,38 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
 
-            var clock = new MutableTimeProvider(BaselineNow);
-            await using ServiceProvider provider = BuildProvider(connectionString, clock, Substitute.For<IAnonymousCredentialRootService>());
-            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
-            var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+        var clock = new MutableTimeProvider(BaselineNow);
+        await using ServiceProvider provider = BuildProvider(connectionString, clock, Substitute.For<IAnonymousCredentialRootService>());
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
 
-            Result<AnonymousCredentialRootRecord> first = await writer.RotateAsync(CreateRotation(epoch: 100, rootHash: "aa01", graceMinutes: 70), CancellationToken.None);
-            Result<AnonymousCredentialRootRecord> second = await writer.RotateAsync(CreateRotation(epoch: 101, rootHash: "bb02", graceMinutes: 120), CancellationToken.None);
-            await reader.RefreshAsync(CancellationToken.None);
+        Result<AnonymousCredentialRootRecord> first = await writer.RotateAsync(CreateRotation(epoch: 100, rootHash: "aa01", graceMinutes: 70), CancellationToken.None);
+        Result<AnonymousCredentialRootRecord> second = await writer.RotateAsync(CreateRotation(epoch: 101, rootHash: "bb02", graceMinutes: 120), CancellationToken.None);
+        await reader.RefreshAsync(CancellationToken.None);
 
-            Assert.True(first.IsSuccess, first.Error.Message);
-            Assert.True(second.IsSuccess, second.Error.Message);
-            Assert.False(reader.IsRootAccepted("aa01", 100));
-            Assert.False(reader.IsRootAccepted("aa01", RevocationRoot(100), IssuerPublicKeyHash, 100));
-            Assert.False(reader.IsRootAccepted("aa01", RevocationRoot(101), IssuerPublicKeyHash, 100));
-            Assert.False(reader.IsRootAccepted("aa01", RevocationRoot(100), new string('e', 64), 100));
-            Assert.False(reader.IsRootAccepted("bb02", RevocationRoot(101), IssuerPublicKeyHash, 101));
-            Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
+        Assert.True(first.IsSuccess, first.Error.Message);
+        Assert.True(second.IsSuccess, second.Error.Message);
+        Assert.False(reader.IsRootAccepted("aa01", 100));
+        Assert.False(reader.IsRootAccepted("aa01", RevocationRoot(100), IssuerPublicKeyHash, 100));
+        Assert.False(reader.IsRootAccepted("aa01", RevocationRoot(101), IssuerPublicKeyHash, 100));
+        Assert.False(reader.IsRootAccepted("aa01", RevocationRoot(100), new string('e', 64), 100));
+        Assert.False(reader.IsRootAccepted("bb02", RevocationRoot(101), IssuerPublicKeyHash, 101));
+        Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
 
-            using SqlSugarClient verifyDb = CreateDb(connectionString);
-            Assert.Equal(1, await verifyDb.Queryable<AnonymousCredentialRoot>()
-                .Where(static item => item.Status == AnonymousCredentialRootStatuses.Active)
-                .CountAsync());
-            AnonymousCredentialRoot grace = await verifyDb.Queryable<AnonymousCredentialRoot>()
-                .Where(static item => item.Epoch == 100)
-                .FirstAsync();
-            Assert.Equal(AnonymousCredentialRootStatuses.Grace, grace.Status);
+        using SqlSugarClient verifyDb = CreateDb(connectionString);
+        Assert.Equal(1, await verifyDb.Queryable<AnonymousCredentialRoot>()
+            .Where(static item => item.Status == AnonymousCredentialRootStatuses.Active)
+            .CountAsync());
+        AnonymousCredentialRoot grace = await verifyDb.Queryable<AnonymousCredentialRoot>()
+            .Where(static item => item.Epoch == 100)
+            .FirstAsync();
+        Assert.Equal(AnonymousCredentialRootStatuses.Grace, grace.Status);
 
-            clock.Advance(TimeSpan.FromMinutes(71));
-            await reader.RefreshAsync(CancellationToken.None);
+        clock.Advance(TimeSpan.FromMinutes(71));
+        await reader.RefreshAsync(CancellationToken.None);
 
-            Assert.False(reader.IsRootAccepted("aa01", 100));
-            Assert.False(reader.IsRootAccepted("bb02", RevocationRoot(101), IssuerPublicKeyHash, 101));
+        Assert.False(reader.IsRootAccepted("aa01", 100));
+        Assert.False(reader.IsRootAccepted("bb02", RevocationRoot(101), IssuerPublicKeyHash, 101));
     }
 
     [Fact]
@@ -124,15 +128,15 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient setup = CreateDb(connectionString);
-            SeedRoot(setup, epoch: 150, rootHash: "ee05", status: AnonymousCredentialRootStatuses.Active, graceMinutes: 120);
+        SeedRoot(setup, epoch: 150, rootHash: "ee05", status: AnonymousCredentialRootStatuses.Active, graceMinutes: 120);
 
-            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
-            var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+        await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+        var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
 
-            await reader.RefreshAsync(CancellationToken.None);
+        await reader.RefreshAsync(CancellationToken.None);
 
-            Assert.False(reader.IsRootAccepted("ee05", RevocationRoot(150), IssuerPublicKeyHash, 150));
-            Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
+        Assert.False(reader.IsRootAccepted("ee05", RevocationRoot(150), IssuerPublicKeyHash, 150));
+        Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
     }
 
     [Fact]
@@ -140,22 +144,22 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient setup = CreateDb(connectionString);
-            SeedRoot(
-                setup,
-                epoch: 160,
-                rootHash: "ee07",
-                status: AnonymousCredentialRootStatuses.Active,
-                graceMinutes: 120,
-                circuitMetadata: LegacyRevocationAccumulatorMetadata);
+        SeedRoot(
+            setup,
+            epoch: 160,
+            rootHash: "ee07",
+            status: AnonymousCredentialRootStatuses.Active,
+            graceMinutes: 120,
+            circuitMetadata: LegacyRevocationAccumulatorMetadata);
 
-            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
-            var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+        await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+        var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
 
-            await reader.RefreshAsync(CancellationToken.None);
+        await reader.RefreshAsync(CancellationToken.None);
 
-            Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
-            Assert.False(reader.IsRootAccepted("ee07", 160));
-            Assert.False(reader.IsRootAccepted("ee07", RevocationRoot(160), IssuerPublicKeyHash, 160));
+        Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
+        Assert.False(reader.IsRootAccepted("ee07", 160));
+        Assert.False(reader.IsRootAccepted("ee07", RevocationRoot(160), IssuerPublicKeyHash, 160));
     }
 
     [Fact]
@@ -163,21 +167,21 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient setup = CreateDb(connectionString);
-            SeedRoot(
-                setup,
-                epoch: 162,
-                rootHash: "ee09",
-                status: AnonymousCredentialRootStatuses.Active,
-                graceMinutes: 120,
-                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata);
+        SeedRoot(
+            setup,
+            epoch: 162,
+            rootHash: "ee09",
+            status: AnonymousCredentialRootStatuses.Active,
+            graceMinutes: 120,
+            circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata);
 
-            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
-            var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+        await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+        var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
 
-            await reader.RefreshAsync(CancellationToken.None);
+        await reader.RefreshAsync(CancellationToken.None);
 
-            Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
-            Assert.False(reader.IsRootAccepted("ee09", CircuitFriendlyRevocationRoot(162), IssuerPublicKeyHash, 162));
+        Assert.Empty(reader.CurrentSnapshot.AcceptedRoots);
+        Assert.False(reader.IsRootAccepted("ee09", CircuitFriendlyRevocationRoot(162), IssuerPublicKeyHash, 162));
     }
 
     [Fact]
@@ -185,33 +189,33 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient setup = CreateDb(connectionString);
-            SeedRoot(
-                setup,
-                epoch: 166,
-                rootHash: "ee13",
-                status: AnonymousCredentialRootStatuses.Active,
-                graceMinutes: 120,
-                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata);
-            var store = new AnonymousCredentialRootStore(setup, BuildRootAttestationConfiguration());
+        SeedRoot(
+            setup,
+            epoch: 166,
+            rootHash: "ee13",
+            status: AnonymousCredentialRootStatuses.Active,
+            graceMinutes: 120,
+            circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata);
+        var store = new AnonymousCredentialRootStore(setup, BuildRootAttestationConfiguration());
 
-            AnonymousCredentialRootRecord? unattested = await store.GetCurrentAsync(BaselineNow, CancellationToken.None);
+        AnonymousCredentialRootRecord? unattested = await store.GetCurrentAsync(BaselineNow, CancellationToken.None);
 
-            Assert.Null(unattested);
+        Assert.Null(unattested);
 
-            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
-            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
-            string attestedRevocationRoot = CircuitFriendlyRevocationRoot(167);
-            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
-                epoch: 167,
-                rootHash: "ee14",
-                revocationRootHash: attestedRevocationRoot,
-                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
+        await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        string attestedRevocationRoot = CircuitFriendlyRevocationRoot(167);
+        Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
+            epoch: 167,
+            rootHash: "ee14",
+            revocationRootHash: attestedRevocationRoot,
+            circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
 
-            Assert.True(rotated.IsSuccess, rotated.Error.Message);
-            AnonymousCredentialRootRecord? attested = await store.GetCurrentAsync(BaselineNow, CancellationToken.None);
-            Assert.NotNull(attested);
-            Assert.Equal(167, attested.Value.CredentialEpoch);
-            Assert.Equal("ee14", attested.Value.RootHash);
+        Assert.True(rotated.IsSuccess, rotated.Error.Message);
+        AnonymousCredentialRootRecord? attested = await store.GetCurrentAsync(BaselineNow, CancellationToken.None);
+        Assert.NotNull(attested);
+        Assert.Equal(167, attested.Value.CredentialEpoch);
+        Assert.Equal("ee14", attested.Value.RootHash);
     }
 
     [Fact]
@@ -219,35 +223,35 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
 
-            var clock = new MutableTimeProvider(BaselineNow);
-            await using ServiceProvider provider = BuildProvider(connectionString, clock, Substitute.For<IAnonymousCredentialRootService>());
-            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
-            var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
-            string firstRoot = CircuitFriendlyRevocationRoot(163);
-            string secondRoot = CircuitFriendlyRevocationRoot(164);
+        var clock = new MutableTimeProvider(BaselineNow);
+        await using ServiceProvider provider = BuildProvider(connectionString, clock, Substitute.For<IAnonymousCredentialRootService>());
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+        string firstRoot = CircuitFriendlyRevocationRoot(163);
+        string secondRoot = CircuitFriendlyRevocationRoot(164);
 
-            Result<AnonymousCredentialRootRecord> first = await writer.RotateAsync(CreateRotation(
-                epoch: 163,
-                rootHash: "ee10",
-                revocationRootHash: firstRoot,
-                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
-            clock.Advance(TimeSpan.FromSeconds(10));
-            Result<AnonymousCredentialRootRecord> second = await writer.RotateAsync(CreateRotation(
-                epoch: 164,
-                rootHash: "ee11",
-                revocationRootHash: secondRoot,
-                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
+        Result<AnonymousCredentialRootRecord> first = await writer.RotateAsync(CreateRotation(
+            epoch: 163,
+            rootHash: "ee10",
+            revocationRootHash: firstRoot,
+            circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
+        clock.Advance(TimeSpan.FromSeconds(10));
+        Result<AnonymousCredentialRootRecord> second = await writer.RotateAsync(CreateRotation(
+            epoch: 164,
+            rootHash: "ee11",
+            revocationRootHash: secondRoot,
+            circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
 
-            Assert.True(first.IsSuccess, first.Error.Message);
-            Assert.True(second.IsSuccess, second.Error.Message);
-            Assert.True(reader.IsRootAccepted("ee10", firstRoot, IssuerPublicKeyHash, 163));
-            Assert.True(reader.IsRootAccepted("ee11", secondRoot, IssuerPublicKeyHash, 164));
+        Assert.True(first.IsSuccess, first.Error.Message);
+        Assert.True(second.IsSuccess, second.Error.Message);
+        Assert.True(reader.IsRootAccepted("ee10", firstRoot, IssuerPublicKeyHash, 163));
+        Assert.True(reader.IsRootAccepted("ee11", secondRoot, IssuerPublicKeyHash, 164));
 
-            clock.Advance(TimeSpan.FromSeconds(301));
-            await reader.RefreshAsync(CancellationToken.None);
+        clock.Advance(TimeSpan.FromSeconds(301));
+        await reader.RefreshAsync(CancellationToken.None);
 
-            Assert.False(reader.IsRootAccepted("ee10", firstRoot, IssuerPublicKeyHash, 163));
-            Assert.True(reader.IsRootAccepted("ee11", secondRoot, IssuerPublicKeyHash, 164));
+        Assert.False(reader.IsRootAccepted("ee10", firstRoot, IssuerPublicKeyHash, 163));
+        Assert.True(reader.IsRootAccepted("ee11", secondRoot, IssuerPublicKeyHash, 164));
     }
 
     [Fact]
@@ -255,16 +259,16 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
 
-            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
-            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
 
-            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
-                epoch: 161,
-                rootHash: "ee08",
-                circuitMetadata: LegacyRevocationAccumulatorMarkedProductionReadyMetadata), CancellationToken.None);
+        Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
+            epoch: 161,
+            rootHash: "ee08",
+            circuitMetadata: LegacyRevocationAccumulatorMarkedProductionReadyMetadata), CancellationToken.None);
 
-            Assert.True(rotated.IsFailure);
-            Assert.Equal("anonymous_credential_revocation_accumulator_not_production_ready", rotated.Error.Message);
+        Assert.True(rotated.IsFailure);
+        Assert.Equal("anonymous_credential_revocation_accumulator_not_production_ready", rotated.Error.Message);
     }
 
     [Fact]
@@ -340,55 +344,55 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
 
-            var rootCache = Substitute.For<IAnonymousCredentialRootService>();
-            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), rootCache);
-            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
-            var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
-            var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
-            string emptyRoot = CircuitFriendlyRevocationRoot(171);
-            string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:171:unit");
-            string revokedRoot = CircuitFriendlyRevocationRoot(171, handleHash);
+        var rootCache = Substitute.For<IAnonymousCredentialRootService>();
+        await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), rootCache);
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        var reader = provider.GetRequiredService<IAnonymousCredentialRootReader>();
+        var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
+        string emptyRoot = CircuitFriendlyRevocationRoot(171);
+        string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:171:unit");
+        string revokedRoot = CircuitFriendlyRevocationRoot(171, handleHash);
 
-            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
-                epoch: 171,
-                rootHash: "ff01",
-                revocationRootHash: emptyRoot,
-                circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
+        Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
+            epoch: 171,
+            rootHash: "ff01",
+            revocationRootHash: emptyRoot,
+            circuitMetadata: CircuitFriendlyRevocationAccumulatorMetadata), CancellationToken.None);
 
-            Assert.True(rotated.IsSuccess, rotated.Error.Message);
-            AnonymousCredentialAcceptedRoot accepted = Assert.Single(reader.CurrentSnapshot.AcceptedRoots);
-            Assert.Equal(171, accepted.Epoch);
-            Assert.Equal("ff01", accepted.RootHash);
-            Assert.Equal(emptyRoot, accepted.RevocationRootHash);
-            Assert.Equal(IssuerPublicKeyHash, accepted.IssuerPublicKeyHash);
-            Assert.Equal(AnonymousCredentialRootStatuses.Active, accepted.Status);
-            Assert.True(accepted.GraceExpiresAtUtc > BaselineNow);
-            Assert.True(reader.IsRootAccepted("ff01", emptyRoot, IssuerPublicKeyHash, 171));
-            using (SqlSugarClient attestationDb = CreateDb(connectionString))
-            {
-                AnonymousCredentialRoot storedRoot = await attestationDb.Queryable<AnonymousCredentialRoot>()
-                    .Where(static item => item.Epoch == 171)
-                    .FirstAsync();
-                Assert.False(string.IsNullOrWhiteSpace(storedRoot.RootAttestation));
-                Assert.Equal("local-test-root-attestation", storedRoot.RootAttestationKeyId);
-            }
-
-            Result revoked = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
-                Epoch: 171,
-                RevocationHandleHash: handleHash,
-                RevocationRootHash: revokedRoot,
-                Reason: "abuse",
-                ActorId: "admin:7"), CancellationToken.None);
-
-            Assert.True(revoked.IsSuccess, revoked.Error.Message);
-            Assert.True(reader.IsRootAccepted("ff01", revokedRoot, IssuerPublicKeyHash, 171));
-            rootCache.Received(2).Invalidate();
-
-            using SqlSugarClient verifyDb = CreateDb(connectionString);
-            AnonymousCredentialRoot root = await verifyDb.Queryable<AnonymousCredentialRoot>()
+        Assert.True(rotated.IsSuccess, rotated.Error.Message);
+        AnonymousCredentialAcceptedRoot accepted = Assert.Single(reader.CurrentSnapshot.AcceptedRoots);
+        Assert.Equal(171, accepted.Epoch);
+        Assert.Equal("ff01", accepted.RootHash);
+        Assert.Equal(emptyRoot, accepted.RevocationRootHash);
+        Assert.Equal(IssuerPublicKeyHash, accepted.IssuerPublicKeyHash);
+        Assert.Equal(AnonymousCredentialRootStatuses.Active, accepted.Status);
+        Assert.True(accepted.GraceExpiresAtUtc > BaselineNow);
+        Assert.True(reader.IsRootAccepted("ff01", emptyRoot, IssuerPublicKeyHash, 171));
+        using (SqlSugarClient attestationDb = CreateDb(connectionString))
+        {
+            AnonymousCredentialRoot storedRoot = await attestationDb.Queryable<AnonymousCredentialRoot>()
                 .Where(static item => item.Epoch == 171)
                 .FirstAsync();
-            Assert.Equal(revokedRoot, root.RevocationRootHash);
+            Assert.False(string.IsNullOrWhiteSpace(storedRoot.RootAttestation));
+            Assert.Equal("local-test-root-attestation", storedRoot.RootAttestationKeyId);
+        }
+
+        Result revoked = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
+            Epoch: 171,
+            RevocationHandleHash: handleHash,
+            RevocationRootHash: revokedRoot,
+            Reason: "abuse",
+            ActorId: "admin:7"), CancellationToken.None);
+
+        Assert.True(revoked.IsSuccess, revoked.Error.Message);
+        Assert.True(reader.IsRootAccepted("ff01", revokedRoot, IssuerPublicKeyHash, 171));
+        rootCache.Received(2).Invalidate();
+
+        using SqlSugarClient verifyDb = CreateDb(connectionString);
+        AnonymousCredentialRoot root = await verifyDb.Queryable<AnonymousCredentialRoot>()
+            .Where(static item => item.Epoch == 171)
+            .FirstAsync();
+        Assert.Equal(revokedRoot, root.RevocationRootHash);
     }
 
     [Fact]
@@ -396,42 +400,42 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
 
-            var rootCache = Substitute.For<IAnonymousCredentialRootService>();
-            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), rootCache);
-            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
-            var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
-            var audit = provider.GetRequiredService<CapturingAuditEventService>();
+        var rootCache = Substitute.For<IAnonymousCredentialRootService>();
+        await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), rootCache);
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
+        var audit = provider.GetRequiredService<CapturingAuditEventService>();
 
-            string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:200:unit");
-            string nextRoot = RevocationRoot(200, handleHash);
-            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(epoch: 200, rootHash: "cc03"), CancellationToken.None);
-            Result revoked = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
-                Epoch: 200,
-                RevocationHandleHash: handleHash,
-                RevocationRootHash: nextRoot,
-                Reason: "abuse",
-                ActorId: "admin:7"), CancellationToken.None);
+        string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:200:unit");
+        string nextRoot = RevocationRoot(200, handleHash);
+        Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(epoch: 200, rootHash: "cc03"), CancellationToken.None);
+        Result revoked = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
+            Epoch: 200,
+            RevocationHandleHash: handleHash,
+            RevocationRootHash: nextRoot,
+            Reason: "abuse",
+            ActorId: "admin:7"), CancellationToken.None);
 
-            Assert.True(rotated.IsSuccess, rotated.Error.Message);
-            Assert.True(revoked.IsSuccess, revoked.Error.Message);
-            rootCache.Received(2).Invalidate();
+        Assert.True(rotated.IsSuccess, rotated.Error.Message);
+        Assert.True(revoked.IsSuccess, revoked.Error.Message);
+        rootCache.Received(2).Invalidate();
 
-            using SqlSugarClient verifyDb = CreateDb(connectionString);
-            AnonymousCredentialRoot root = await verifyDb.Queryable<AnonymousCredentialRoot>()
-                .Where(static item => item.Epoch == 200)
-                .FirstAsync();
-            AnonymousCredentialRevocation row = Assert.Single(await verifyDb.Queryable<AnonymousCredentialRevocation>().ToListAsync());
-            Assert.Equal(nextRoot, root.RevocationRootHash);
-            Assert.Equal(handleHash, row.RevocationHandleHash);
-            Assert.Equal(2, audit.Events.Count);
-            Assert.All(audit.Events, static item => Assert.True(item.IsHighValue));
-            string auditText = string.Join('|', audit.Events.SelectMany(static item =>
-                item.Context?.Select(static pair => $"{pair.Key}:{pair.Value}") ?? []));
-            Assert.DoesNotContain(handleHash, auditText, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("userId", auditText, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("42", auditText, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("secret", auditText, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("witness", auditText, StringComparison.OrdinalIgnoreCase);
+        using SqlSugarClient verifyDb = CreateDb(connectionString);
+        AnonymousCredentialRoot root = await verifyDb.Queryable<AnonymousCredentialRoot>()
+            .Where(static item => item.Epoch == 200)
+            .FirstAsync();
+        AnonymousCredentialRevocation row = Assert.Single(await verifyDb.Queryable<AnonymousCredentialRevocation>().ToListAsync());
+        Assert.Equal(nextRoot, root.RevocationRootHash);
+        Assert.Equal(handleHash, row.RevocationHandleHash);
+        Assert.Equal(2, audit.Events.Count);
+        Assert.All(audit.Events, static item => Assert.True(item.IsHighValue));
+        string auditText = string.Join('|', audit.Events.SelectMany(static item =>
+            item.Context?.Select(static pair => $"{pair.Key}:{pair.Value}") ?? []));
+        Assert.DoesNotContain(handleHash, auditText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("userId", auditText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("42", auditText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("secret", auditText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("witness", auditText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -439,52 +443,52 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
 
-            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
-            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
-            var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
+        await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
 
-            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(epoch: 201, rootHash: "dd05"), CancellationToken.None);
-            string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:201:unit");
-            Result mismatchedRoot = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
-                Epoch: 201,
-                RevocationHandleHash: handleHash,
-                RevocationRootHash: new string('0', 64)), CancellationToken.None);
-            Result rawUserHandle = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
-                Epoch: 201,
-                RevocationHandleHash: "42",
-                RevocationRootHash: new string('1', 64)), CancellationToken.None);
+        Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(epoch: 201, rootHash: "dd05"), CancellationToken.None);
+        string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:201:unit");
+        Result mismatchedRoot = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
+            Epoch: 201,
+            RevocationHandleHash: handleHash,
+            RevocationRootHash: new string('0', 64)), CancellationToken.None);
+        Result rawUserHandle = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
+            Epoch: 201,
+            RevocationHandleHash: "42",
+            RevocationRootHash: new string('1', 64)), CancellationToken.None);
 
-            Assert.True(rotated.IsSuccess, rotated.Error.Message);
-            Assert.True(mismatchedRoot.IsFailure);
-            Assert.Equal("anonymous_credential_revocation_root_mismatch", mismatchedRoot.Error.Message);
-            Assert.True(rawUserHandle.IsFailure);
-            Assert.Equal("anonymous_credential_revocation_invalid", rawUserHandle.Error.Message);
+        Assert.True(rotated.IsSuccess, rotated.Error.Message);
+        Assert.True(mismatchedRoot.IsFailure);
+        Assert.Equal("anonymous_credential_revocation_root_mismatch", mismatchedRoot.Error.Message);
+        Assert.True(rawUserHandle.IsFailure);
+        Assert.Equal("anonymous_credential_revocation_invalid", rawUserHandle.Error.Message);
 
-            using SqlSugarClient verifyDb = CreateDb(connectionString);
-            Assert.Empty(await verifyDb.Queryable<AnonymousCredentialRevocation>().ToListAsync());
+        using SqlSugarClient verifyDb = CreateDb(connectionString);
+        Assert.Empty(await verifyDb.Queryable<AnonymousCredentialRevocation>().ToListAsync());
     }
 
     [Fact]
     public async Task Revocation_GraceExpiredRootFailsClosed()
     {
         string connectionString = await CreateConnectionStringAsync();
-            var clock = new MutableTimeProvider(BaselineNow);
+        var clock = new MutableTimeProvider(BaselineNow);
 
-            await using ServiceProvider provider = BuildProvider(connectionString, clock, Substitute.For<IAnonymousCredentialRootService>());
-            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
-            var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
+        await using ServiceProvider provider = BuildProvider(connectionString, clock, Substitute.For<IAnonymousCredentialRootService>());
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        var revocations = provider.GetRequiredService<IAnonymousCredentialRevocationService>();
 
-            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(epoch: 202, rootHash: "ee06", graceMinutes: 65), CancellationToken.None);
-            clock.Advance(TimeSpan.FromMinutes(66));
-            string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:202:unit");
-            Result revoked = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
-                Epoch: 202,
-                RevocationHandleHash: handleHash,
-                RevocationRootHash: RevocationRoot(202, handleHash)), CancellationToken.None);
+        Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(epoch: 202, rootHash: "ee06", graceMinutes: 65), CancellationToken.None);
+        clock.Advance(TimeSpan.FromMinutes(66));
+        string handleHash = AnonymousCredentialRevocationAccumulator.DeriveHandleHash(IssuerPublicKeyHash, "credential:202:unit");
+        Result revoked = await revocations.RevokeAsync(new AnonymousCredentialRevocationRequest(
+            Epoch: 202,
+            RevocationHandleHash: handleHash,
+            RevocationRootHash: RevocationRoot(202, handleHash)), CancellationToken.None);
 
-            Assert.True(rotated.IsSuccess, rotated.Error.Message);
-            Assert.True(revoked.IsFailure);
-            Assert.Equal("anonymous_credential_root_not_found", revoked.Error.Message);
+        Assert.True(rotated.IsSuccess, rotated.Error.Message);
+        Assert.True(revoked.IsFailure);
+        Assert.Equal("anonymous_credential_root_not_found", revoked.Error.Message);
     }
 
     [Fact]
@@ -541,16 +545,16 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
 
-            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
-            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
 
-            Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
-                epoch: 165,
-                rootHash: "ee12",
-                circuitMetadata: CircuitFriendlyWrongDepthRevocationAccumulatorMetadata), CancellationToken.None);
+        Result<AnonymousCredentialRootRecord> rotated = await writer.RotateAsync(CreateRotation(
+            epoch: 165,
+            rootHash: "ee12",
+            circuitMetadata: CircuitFriendlyWrongDepthRevocationAccumulatorMetadata), CancellationToken.None);
 
-            Assert.True(rotated.IsFailure);
-            Assert.Equal("anonymous_credential_revocation_accumulator_not_production_ready", rotated.Error.Message);
+        Assert.True(rotated.IsFailure);
+        Assert.Equal("anonymous_credential_revocation_accumulator_not_production_ready", rotated.Error.Message);
     }
 
     [Fact]
@@ -558,21 +562,21 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
 
-            await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
-            var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
-            AnonymousCredentialRootRotationRequest request = CreateRotation(epoch: 300, rootHash: "dd04");
+        await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
+        var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
+        AnonymousCredentialRootRotationRequest request = CreateRotation(epoch: 300, rootHash: "dd04");
 
-            Result<AnonymousCredentialRootRecord>[] results = await Task.WhenAll(
-                writer.RotateAsync(request, CancellationToken.None),
-                writer.RotateAsync(request, CancellationToken.None));
+        Result<AnonymousCredentialRootRecord>[] results = await Task.WhenAll(
+            writer.RotateAsync(request, CancellationToken.None),
+            writer.RotateAsync(request, CancellationToken.None));
 
-            Assert.Equal(1, results.Count(static item => item.IsSuccess));
-            Assert.Equal(1, results.Count(static item => item.IsFailure && item.Error.Code == ErrorCode.Conflict));
+        Assert.Equal(1, results.Count(static item => item.IsSuccess));
+        Assert.Equal(1, results.Count(static item => item.IsFailure && item.Error.Code == ErrorCode.Conflict));
 
-            using SqlSugarClient verifyDb = CreateDb(connectionString);
-            Assert.Equal(1, await verifyDb.Queryable<AnonymousCredentialRoot>()
-                .Where(static item => item.Status == AnonymousCredentialRootStatuses.Active)
-                .CountAsync());
+        using SqlSugarClient verifyDb = CreateDb(connectionString);
+        Assert.Equal(1, await verifyDb.Queryable<AnonymousCredentialRoot>()
+            .Where(static item => item.Status == AnonymousCredentialRootStatuses.Active)
+            .CountAsync());
     }
 
     private const string LegacyRevocationAccumulatorMetadata =
@@ -739,7 +743,10 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
 
         public Task RecordHighValueAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
         {
-            Events.Add(auditEvent with { IsHighValue = true });
+            Events.Add(auditEvent with
+            {
+                IsHighValue = true
+            });
             return Task.CompletedTask;
         }
     }

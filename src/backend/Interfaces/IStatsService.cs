@@ -1,4 +1,4 @@
-﻿using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Interfaces;
 

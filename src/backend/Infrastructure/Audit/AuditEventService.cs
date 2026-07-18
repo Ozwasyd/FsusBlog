@@ -57,7 +57,10 @@ public sealed class AuditEventService(
     }
 
     public Task RecordHighValueAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
-        => PersistCriticalAsync(BuildRecord(auditEvent with { IsHighValue = true }), cancellationToken);
+        => PersistCriticalAsync(BuildRecord(auditEvent with
+        {
+            IsHighValue = true
+        }), cancellationToken);
 
     private async Task PersistCriticalAsync(AuditRecord record, CancellationToken cancellationToken)
     {

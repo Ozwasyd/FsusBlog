@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+
 using FsusBlog.Server.Infrastructure.Cache;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.Server.Tests;
@@ -276,10 +278,16 @@ public sealed class CacheMissCoordinatorTests
     {
         private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
 
-        public Func<CachePolicyId, string, string, TimeSpan, CancellationToken, Task<bool>> TryAcquireLeaseHandler { get; init; }
+        public Func<CachePolicyId, string, string, TimeSpan, CancellationToken, Task<bool>> TryAcquireLeaseHandler
+        {
+            get; init;
+        }
             = static (_, _, _, _, _) => Task.FromResult(false);
 
-        public bool DisableLocalSingleFlight { get; init; }
+        public bool DisableLocalSingleFlight
+        {
+            get; init;
+        }
 
         public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();

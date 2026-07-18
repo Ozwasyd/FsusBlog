@@ -497,7 +497,10 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             if (band.MinScore < earlyRejectThreshold && band.MaxScore >= earlyRejectThreshold)
             {
                 int max = Math.Max(band.MinScore, earlyRejectThreshold - 1);
-                bands.Add(band with { MaxScore = max });
+                bands.Add(band with
+                {
+                    MaxScore = max
+                });
                 continue;
             }
 
@@ -1317,24 +1320,24 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     private static string NormalizeMatchType(string? value)
         => (TextHelpers.LowerTrimmed(value) ?? "user-agent") switch
-            {
-                "ip" => "ip",
-                "path" => "path",
-                "method" => "method",
-                "ua" => "user-agent",
-                "useragent" => "user-agent",
-                _ => "user-agent"
-            };
+        {
+            "ip" => "ip",
+            "path" => "path",
+            "method" => "method",
+            "ua" => "user-agent",
+            "useragent" => "user-agent",
+            _ => "user-agent"
+        };
 
     private static string NormalizeRuleAction(string? value)
         => (TextHelpers.LowerTrimmed(value) ?? "observe") switch
-            {
-                "allow" => "allow",
-                "block" => "block",
-                "require_challenge" => "require_challenge",
-                "challenge" => "require_challenge",
-                _ => "observe"
-            };
+        {
+            "allow" => "allow",
+            "block" => "block",
+            "require_challenge" => "require_challenge",
+            "challenge" => "require_challenge",
+            _ => "observe"
+        };
 
     private static string NormalizeName(string? value, string fallback)
     {

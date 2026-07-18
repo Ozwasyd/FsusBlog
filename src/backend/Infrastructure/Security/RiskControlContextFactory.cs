@@ -2,8 +2,10 @@ using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
@@ -48,7 +50,10 @@ public sealed record RiskControlContext(
     bool VerifiedCrawler,
     bool SocialPreviewBot)
 {
-    public bool DevelopmentLocalBypass { get; init; }
+    public bool DevelopmentLocalBypass
+    {
+        get; init;
+    }
 }
 
 public sealed record RiskControlActorContext(

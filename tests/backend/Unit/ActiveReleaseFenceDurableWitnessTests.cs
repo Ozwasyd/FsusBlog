@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -60,7 +61,10 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
     [Fact]
     public async Task Read_SameGenerationDifferentIdentity_FailsClosed()
     {
-        var replica = new RecordingReplica(Snapshot(42) with { ReleaseId = "other-release" }, []);
+        var replica = new RecordingReplica(Snapshot(42) with
+        {
+            ReleaseId = "other-release"
+        }, []);
         var witness = new RecordingWitness(Snapshot(42), []);
         DurableActiveReleaseFenceStore store = CreateStore(replica, witness);
 
@@ -89,7 +93,10 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
     [Fact]
     public void Merge_InvalidWitnessSnapshot_FailsClosed()
     {
-        ActiveReleaseFenceSnapshot invalid = Snapshot(42) with { Generation = 0 };
+        ActiveReleaseFenceSnapshot invalid = Snapshot(42) with
+        {
+            Generation = 0
+        };
 
         ActiveReleaseFenceStoreException error = Assert.Throws<ActiveReleaseFenceStoreException>(
             () => ActiveReleaseFenceTransitions.Merge(Snapshot(41), invalid));

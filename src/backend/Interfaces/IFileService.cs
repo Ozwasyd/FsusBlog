@@ -1,4 +1,4 @@
-﻿using FsusBlog.Core.Common;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Shared.Contracts.Outputs;
 

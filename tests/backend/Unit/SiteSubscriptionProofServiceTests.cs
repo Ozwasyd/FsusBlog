@@ -1,8 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Subscriptions;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -220,8 +222,14 @@ public sealed class SiteSubscriptionProofServiceTests
     {
         private readonly Dictionary<string, byte[]> _values = new(StringComparer.Ordinal);
 
-        public CachePolicyId LastSetPolicyId { get; private set; }
-        public TimeSpan? LastSetTtl { get; private set; }
+        public CachePolicyId LastSetPolicyId
+        {
+            get; private set;
+        }
+        public TimeSpan? LastSetTtl
+        {
+            get; private set;
+        }
         public string LastSetIdentity { get; private set; } = string.Empty;
         public string LastStoredJson { get; private set; } = string.Empty;
 

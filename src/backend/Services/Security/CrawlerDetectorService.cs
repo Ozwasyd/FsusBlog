@@ -1,9 +1,11 @@
-﻿using FsusBlog.Server.Infrastructure.Security;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
+
+using FsusBlog.Server.Infrastructure.Security;
+
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -66,10 +68,12 @@ public class CrawlerDetectorService(
 
         string normalizedUserAgent = NormalizeCrawlerUserAgent(userAgent);
 
-        if (!IPAddress.TryParse(ipStr, out var ip)) return false;
+        if (!IPAddress.TryParse(ipStr, out var ip))
+            return false;
 
         // 统一归一化：将可能被框架映射为 IPv6 的 IPv4 地址还原，防止位运算错位
-        if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
+        if (ip.IsIPv4MappedToIPv6)
+            ip = ip.MapToIPv4();
 
         // 1. 极速 CIDR 内存前缀树匹配 (O(1) 复杂度，纳秒级无 IO)
         if (normalizedUserAgent.Contains("googlebot", StringComparison.Ordinal))
@@ -285,7 +289,8 @@ public class IpRadixTree
 
     public void Add(IPAddress ip, int prefixLength)
     {
-        if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
+        if (ip.IsIPv4MappedToIPv6)
+            ip = ip.MapToIPv4();
 
         if (ip.AddressFamily == AddressFamily.InterNetwork)
         {
@@ -329,7 +334,8 @@ public class IpRadixTree
 
     public bool Contains(IPAddress ip)
     {
-        if (ip.IsIPv4MappedToIPv6) ip = ip.MapToIPv4();
+        if (ip.IsIPv4MappedToIPv6)
+            ip = ip.MapToIPv4();
         EnsureSealed();
         if (ip.AddressFamily == AddressFamily.InterNetwork)
         {
@@ -455,7 +461,10 @@ public class IpRadixTree
             bool overlapsOrTouches = current.End == uint.MaxValue || next.Start <= current.End + 1u;
             if (overlapsOrTouches)
             {
-                intervals[write] = current with { End = Math.Max(current.End, next.End) };
+                intervals[write] = current with
+                {
+                    End = Math.Max(current.End, next.End)
+                };
                 continue;
             }
 
@@ -480,7 +489,10 @@ public class IpRadixTree
             bool overlapsOrTouches = current.End == UInt128.MaxValue || next.Start <= current.End + (UInt128)1u;
             if (overlapsOrTouches)
             {
-                intervals[write] = current with { End = current.End >= next.End ? current.End : next.End };
+                intervals[write] = current with
+                {
+                    End = current.End >= next.End ? current.End : next.End
+                };
                 continue;
             }
 

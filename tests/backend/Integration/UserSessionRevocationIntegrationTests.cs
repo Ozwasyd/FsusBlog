@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -10,8 +11,11 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Integration;
@@ -310,9 +314,15 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         private readonly TaskCompletionSource releaseActivePublish = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int blockNextActivePublish;
 
-        public int ReadCount { get; private set; }
+        public int ReadCount
+        {
+            get; private set;
+        }
 
-        public int DatabaseMissPublishCount { get; private set; }
+        public int DatabaseMissPublishCount
+        {
+            get; private set;
+        }
 
         public Task<UserSessionValidationCacheState?> ReadAsync(
             string sessionId,

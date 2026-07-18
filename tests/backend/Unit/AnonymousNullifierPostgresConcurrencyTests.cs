@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
@@ -10,9 +11,12 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -370,7 +374,10 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
 
     private sealed class ConsumeThenFailNullifierService(ICommentAnonymousNullifierService inner) : ICommentAnonymousNullifierService
     {
-        public int ConsumeAttempts { get; private set; }
+        public int ConsumeAttempts
+        {
+            get; private set;
+        }
 
         public Task<NullifierReservationResult> PrecheckAsync(string nullifierHash, string scope, CancellationToken cancellationToken = default)
             => inner.PrecheckAsync(nullifierHash, scope, cancellationToken);

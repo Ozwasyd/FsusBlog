@@ -5,9 +5,18 @@ namespace FsusBlog.Server.Interfaces;
 
 public interface IAntiSpamModerationScorer
 {
-    string ProviderName { get; }
-    string ModelName { get; }
-    string ContractVersion { get; }
+    string ProviderName
+    {
+        get;
+    }
+    string ModelName
+    {
+        get;
+    }
+    string ContractVersion
+    {
+        get;
+    }
     Task<AntiSpamModerationResult> ScoreAsync(AntiSpamModerationRequest request, CancellationToken cancellationToken);
 }
 

@@ -1,10 +1,12 @@
 using System.Reflection;
 using System.Text.Json;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -65,7 +67,11 @@ public sealed class HumanReadProofPersistencePrivacyTests(PostgresSchemaMigratio
         Assert.Equal(ReadDwellBuckets.Under10Seconds, dwell.DwellBucket);
         Assert.Equal(20, dwell.ReadCount);
 
-        string persistedJson = JsonSerializer.Serialize(new { articles, dwell });
+        string persistedJson = JsonSerializer.Serialize(new
+        {
+            articles,
+            dwell
+        });
         Assert.DoesNotContain("424242", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("article:", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("Viewer", persistedJson, StringComparison.OrdinalIgnoreCase);

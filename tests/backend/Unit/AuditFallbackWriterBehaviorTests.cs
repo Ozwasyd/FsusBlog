@@ -1,5 +1,7 @@
 using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.Audit;
+
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;

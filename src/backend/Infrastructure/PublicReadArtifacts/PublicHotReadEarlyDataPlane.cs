@@ -1,6 +1,7 @@
-using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
+
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
@@ -78,22 +79,46 @@ internal sealed class PublicHotReadRequestFeature
         ClassificationCount = classificationCount;
     }
 
-    internal PublicHotReadRoute Route { get; }
+    internal PublicHotReadRoute Route
+    {
+        get;
+    }
     internal PublicHotReadRouteKind RouteKind => Route.Kind;
     internal int ArticleId => Route.ArticleId;
     internal PublicListKey ListKey => Route.ListKey;
     internal string HtmlRouteKey => Route.HtmlRouteKey;
-    internal bool Classified { get; }
-    internal bool RejectedPath { get; }
-    internal PublicHotReadArtifactMediaKind MediaKind { get; }
+    internal bool Classified
+    {
+        get;
+    }
+    internal bool RejectedPath
+    {
+        get;
+    }
+    internal PublicHotReadArtifactMediaKind MediaKind
+    {
+        get;
+    }
     internal bool IsHtml => MediaKind == PublicHotReadArtifactMediaKind.Html;
-    internal bool FallbackToEndpoint { get; }
-    internal string RiskRouteKey { get; }
-    internal PublicHotReadRoutePolicy RoutePolicy { get; }
+    internal bool FallbackToEndpoint
+    {
+        get;
+    }
+    internal string RiskRouteKey
+    {
+        get;
+    }
+    internal PublicHotReadRoutePolicy RoutePolicy
+    {
+        get;
+    }
     internal string RoutePolicyId => RoutePolicy.PolicyId;
     internal bool RequiresVisibilityEvidence => RoutePolicy.RequiresVisibilityEvidence;
     internal bool RequiresSecurityGate => RoutePolicy.RequiresSecurityGate;
-    internal int ClassificationCount { get; }
+    internal int ClassificationCount
+    {
+        get;
+    }
 }
 
 internal sealed class PublicHotReadEarlyPipelineState
@@ -103,11 +128,26 @@ internal sealed class PublicHotReadEarlyPipelineState
         SyntheticEndpoint = syntheticEndpoint;
     }
 
-    internal Endpoint SyntheticEndpoint { get; }
-    internal bool RateLimitEvaluated { get; private set; }
-    internal int RequestAuditContextExecutionCount { get; private set; }
-    internal int EndpointRequestAuditContextSkipCount { get; private set; }
-    internal int EndpointRateLimiterSkipCount { get; private set; }
+    internal Endpoint SyntheticEndpoint
+    {
+        get;
+    }
+    internal bool RateLimitEvaluated
+    {
+        get; private set;
+    }
+    internal int RequestAuditContextExecutionCount
+    {
+        get; private set;
+    }
+    internal int EndpointRequestAuditContextSkipCount
+    {
+        get; private set;
+    }
+    internal int EndpointRateLimiterSkipCount
+    {
+        get; private set;
+    }
     internal bool RequestAuditContextEvaluated => RequestAuditContextExecutionCount == 1;
 
     internal void MarkRateLimitEvaluated()

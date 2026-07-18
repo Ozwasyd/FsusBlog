@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -17,7 +19,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Core.Common;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints;
@@ -398,7 +400,8 @@ public static partial class AuthoringEndpoints
             ["requestedPiiMode"] = NormalizePiiMode(requestedPiiMode),
             ["sensitiveFieldsRead"] = disclosureMode == AuditDisclosureMode.Investigation,
             ["hasAuditInvestigationPermission"] = context is not null && HasAuditInvestigationPermission(context)
-            , ["investigationPurpose"] = disclosureMode == AuditDisclosureMode.Investigation
+            ,
+            ["investigationPurpose"] = disclosureMode == AuditDisclosureMode.Investigation
                 ? investigationPurpose?.Trim()
                 : null
         };
@@ -441,7 +444,11 @@ public static partial class AuthoringEndpoints
         CancellationToken cancellationToken)
         => disclosureMode == AuditDisclosureMode.Investigation
             ? auditEvents.RecordHighValueAsync(
-                auditEvent with { IsHighValue = true, Severity = AuditSeverityCatalog.Warning },
+                auditEvent with
+                {
+                    IsHighValue = true,
+                    Severity = AuditSeverityCatalog.Warning
+                },
                 cancellationToken)
             : auditEvents.RecordAsync(auditEvent, cancellationToken);
 
@@ -946,48 +953,111 @@ public static partial class AuthoringEndpoints
 
     private sealed record TaxonomyNameRow
     {
-        public int Id { get; init; }
-        public string? Name { get; init; }
+        public int Id
+        {
+            get; init;
+        }
+        public string? Name
+        {
+            get; init;
+        }
     }
 
     private sealed record TaxonomyCountRow
     {
-        public int Id { get; init; }
-        public int Count { get; init; }
+        public int Id
+        {
+            get; init;
+        }
+        public int Count
+        {
+            get; init;
+        }
     }
 
     private sealed record TaxonomyStatusCountRow
     {
-        public int Id { get; init; }
-        public ArticleStatus Status { get; init; }
-        public int Count { get; init; }
+        public int Id
+        {
+            get; init;
+        }
+        public ArticleStatus Status
+        {
+            get; init;
+        }
+        public int Count
+        {
+            get; init;
+        }
     }
 
     private sealed record ModerationReplaySourceRow
     {
-        public long CommentId { get; init; }
-        public int ArticleId { get; init; }
-        public int? UserId { get; init; }
+        public long CommentId
+        {
+            get; init;
+        }
+        public int ArticleId
+        {
+            get; init;
+        }
+        public int? UserId
+        {
+            get; init;
+        }
         public string Content { get; init; } = string.Empty;
         public string SubmitRegion { get; init; } = RegionCodes.Unknown;
-        public double SubmitRegionConfidence { get; init; }
+        public double SubmitRegionConfidence
+        {
+            get; init;
+        }
         public string RegionProvider { get; init; } = "unknown";
-        public string? SubmitIpHash { get; init; }
+        public string? SubmitIpHash
+        {
+            get; init;
+        }
         public string PolicyVersion { get; init; } = string.Empty;
-        public bool CanPublish { get; init; }
-        public bool RequiresManualReview { get; init; }
-        public bool HideUntilReviewed { get; init; }
+        public bool CanPublish
+        {
+            get; init;
+        }
+        public bool RequiresManualReview
+        {
+            get; init;
+        }
+        public bool HideUntilReviewed
+        {
+            get; init;
+        }
         public string BlockedRegions { get; init; } = string.Empty;
         public string RiskLabels { get; init; } = string.Empty;
-        public string? DecisionReason { get; init; }
-        public string? RuleHitsJson { get; init; }
-        public DateTime CreatedAtUtc { get; init; }
-        public DateTime UpdatedAtUtc { get; init; }
+        public string? DecisionReason
+        {
+            get; init;
+        }
+        public string? RuleHitsJson
+        {
+            get; init;
+        }
+        public DateTime CreatedAtUtc
+        {
+            get; init;
+        }
+        public DateTime UpdatedAtUtc
+        {
+            get; init;
+        }
     }
 
     private sealed record ModerationModelErrorRow
     {
-        public string? ErrorCode { get; init; }
-        public DateTime CreatedAtUtc { get; init; }
+        public string? ErrorCode
+        {
+            get; init;
+        }
+        public DateTime CreatedAtUtc
+        {
+            get; init;
+        }
     }
 }

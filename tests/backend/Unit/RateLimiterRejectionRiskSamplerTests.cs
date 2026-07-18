@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Net;
 using System.Security.Claims;
+
 using FsusBlog.Server.Infrastructure.Security;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
@@ -26,8 +28,10 @@ public sealed class RateLimiterRejectionRiskSamplerTests
         {
             matched.Request.Path = $"/article/{index}";
             unmatched.Request.Path = $"/missing/{index}";
-            if (sampler.Sample(matched) == RateLimiterRiskSampleDecision.WriteRiskSignal) matchedWrites++;
-            if (sampler.Sample(unmatched) == RateLimiterRiskSampleDecision.WriteRiskSignal) unmatchedWrites++;
+            if (sampler.Sample(matched) == RateLimiterRiskSampleDecision.WriteRiskSignal)
+                matchedWrites++;
+            if (sampler.Sample(unmatched) == RateLimiterRiskSampleDecision.WriteRiskSignal)
+                unmatchedWrites++;
         }
 
         Assert.Equal("GET|/article/{id:long}", RateLimiterRejectionRouteIdentity.Resolve(matched));
@@ -68,8 +72,10 @@ public sealed class RateLimiterRejectionRiskSamplerTests
                 minute,
                 $"client-{index}",
                 $"route-{index}");
-            if (decision == RateLimiterRiskSampleDecision.WriteRiskSignal) writes++;
-            if (decision == RateLimiterRiskSampleDecision.DropCapacity) capacityDrops++;
+            if (decision == RateLimiterRiskSampleDecision.WriteRiskSignal)
+                writes++;
+            if (decision == RateLimiterRiskSampleDecision.DropCapacity)
+                capacityDrops++;
         }
 
         Assert.Equal(capacity, writes);
@@ -106,8 +112,10 @@ public sealed class RateLimiterRejectionRiskSamplerTests
                 2_001,
                 $"new-client-{index}",
                 "route");
-            if (decision == RateLimiterRiskSampleDecision.WriteRiskSignal) Interlocked.Increment(ref writes);
-            if (decision == RateLimiterRiskSampleDecision.DropCapacity) Interlocked.Increment(ref capacityDrops);
+            if (decision == RateLimiterRiskSampleDecision.WriteRiskSignal)
+                Interlocked.Increment(ref writes);
+            if (decision == RateLimiterRiskSampleDecision.DropCapacity)
+                Interlocked.Increment(ref capacityDrops);
         });
 
         RateLimiterRejectionSamplerSnapshot snapshot = sampler.Snapshot();
@@ -129,8 +137,10 @@ public sealed class RateLimiterRejectionRiskSamplerTests
         Parallel.For(0, 20_000, _ =>
         {
             RateLimiterRiskSampleDecision decision = sampler.Sample(3_000, "same-client", "same-route");
-            if (decision == RateLimiterRiskSampleDecision.WriteRiskSignal) Interlocked.Increment(ref writes);
-            if (decision == RateLimiterRiskSampleDecision.DropWriteLimit) Interlocked.Increment(ref writeLimitDrops);
+            if (decision == RateLimiterRiskSampleDecision.WriteRiskSignal)
+                Interlocked.Increment(ref writes);
+            if (decision == RateLimiterRiskSampleDecision.DropWriteLimit)
+                Interlocked.Increment(ref writeLimitDrops);
         });
 
         RateLimiterRejectionSamplerSnapshot snapshot = sampler.Snapshot();

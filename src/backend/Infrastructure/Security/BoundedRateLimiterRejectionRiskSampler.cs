@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Server.Infrastructure.Helpers;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
@@ -202,7 +204,10 @@ internal sealed class BoundedRateLimiterRejectionRiskSampler
     {
         public long Minute { get; } = minute;
 
-        public ConcurrentDictionary<SamplerBucketKey, int> BucketCounts { get; } = new(
+        public ConcurrentDictionary<SamplerBucketKey, int> BucketCounts
+        {
+            get;
+        } = new(
             Math.Min(Environment.ProcessorCount, capacity),
             capacity);
 
@@ -233,13 +238,20 @@ internal static class RateLimiterRejectionRouteIdentity
 
     private static string NormalizeMethod(string method)
     {
-        if (HttpMethods.IsGet(method)) return "GET";
-        if (HttpMethods.IsHead(method)) return "HEAD";
-        if (HttpMethods.IsPost(method)) return "POST";
-        if (HttpMethods.IsPut(method)) return "PUT";
-        if (HttpMethods.IsPatch(method)) return "PATCH";
-        if (HttpMethods.IsDelete(method)) return "DELETE";
-        if (HttpMethods.IsOptions(method)) return "OPTIONS";
+        if (HttpMethods.IsGet(method))
+            return "GET";
+        if (HttpMethods.IsHead(method))
+            return "HEAD";
+        if (HttpMethods.IsPost(method))
+            return "POST";
+        if (HttpMethods.IsPut(method))
+            return "PUT";
+        if (HttpMethods.IsPatch(method))
+            return "PATCH";
+        if (HttpMethods.IsDelete(method))
+            return "DELETE";
+        if (HttpMethods.IsOptions(method))
+            return "OPTIONS";
         return "OTHER";
     }
 

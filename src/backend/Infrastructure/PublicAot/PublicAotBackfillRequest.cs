@@ -8,6 +8,12 @@ public sealed record class PublicAotBackfillRequest(
     string CacheKey)
 {
     public string PagePrefixKey { get; init; } = string.Empty;
-    public long ScheduledInvalidationVersion { get; init; }
-    public string? TestSessionId { get; init; }
+    public long ScheduledInvalidationVersion
+    {
+        get; init;
+    }
+    public string? TestSessionId
+    {
+        get; init;
+    }
 }

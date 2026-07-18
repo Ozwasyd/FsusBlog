@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Diagnostics;
 using System.Globalization;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -8,8 +9,9 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.NotificationStream;
+using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.NotificationStream;
@@ -1395,19 +1397,43 @@ public sealed class MessageCenterService(
 
     private sealed class AccountConversationRow
     {
-        public long ConversationId { get; set; }
+        public long ConversationId
+        {
+            get; set;
+        }
         public string Subject { get; set; } = string.Empty;
-        public ConversationStatus Status { get; set; }
-        public bool IsSystemSource { get; set; }
-        public int UnreadCount { get; set; }
-        public DateTime LastMessageAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
+        public ConversationStatus Status
+        {
+            get; set;
+        }
+        public bool IsSystemSource
+        {
+            get; set;
+        }
+        public int UnreadCount
+        {
+            get; set;
+        }
+        public DateTime LastMessageAt
+        {
+            get; set;
+        }
+        public DateTime UpdatedAt
+        {
+            get; set;
+        }
     }
 
     private sealed class UnreadRow
     {
-        public long ConversationId { get; set; }
-        public int UnreadCount { get; set; }
+        public long ConversationId
+        {
+            get; set;
+        }
+        public int UnreadCount
+        {
+            get; set;
+        }
     }
 
     private sealed record ParticipantMessageFanoutPayload(
@@ -1417,7 +1443,13 @@ public sealed class MessageCenterService(
 
     private sealed class AccountUnreadRow
     {
-        public int AccountId { get; set; }
-        public int UnreadCount { get; set; }
+        public int AccountId
+        {
+            get; set;
+        }
+        public int UnreadCount
+        {
+            get; set;
+        }
     }
 }

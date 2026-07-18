@@ -2,6 +2,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Server.Infrastructure.Middlewares;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
@@ -243,13 +244,23 @@ public sealed class GlobalExceptionMiddlewareTests
     private sealed class FakeResponseFeature : IHttpResponseFeature
     {
         public int StatusCode { get; set; } = 200;
-        public string? ReasonPhrase { get; set; }
+        public string? ReasonPhrase
+        {
+            get; set;
+        }
         public IHeaderDictionary Headers { get; set; } = new HeaderDictionary();
         public Stream Body { get; set; } = Stream.Null;
-        public bool HasStarted { get; set; }
+        public bool HasStarted
+        {
+            get; set;
+        }
 
-        public void OnCompleted(Func<object, Task> callback, object state) { }
-        public void OnStarting(Func<object, Task> callback, object state) { }
+        public void OnCompleted(Func<object, Task> callback, object state)
+        {
+        }
+        public void OnStarting(Func<object, Task> callback, object state)
+        {
+        }
     }
 
     private static string DecodeApiErrorMessage(MemoryStream responseBody)

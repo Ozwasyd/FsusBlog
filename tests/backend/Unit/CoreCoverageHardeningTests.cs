@@ -1,12 +1,14 @@
 using System.Buffers;
 using System.Data;
 using System.Data.Common;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.DependencyInjection;
 using FsusBlog.Core.Mapping.Readers;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Implementations;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -213,6 +215,9 @@ public sealed class CoreCoverageHardeningTests
             => DecodeResult;
 
         public static FakeEncoder Success(AedsDecodeResult value)
-            => new() { DecodeResult = Result<AedsDecodeResult>.Success(value) };
+            => new()
+            {
+                DecodeResult = Result<AedsDecodeResult>.Success(value)
+            };
     }
 }

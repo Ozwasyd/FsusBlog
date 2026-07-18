@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 
@@ -8,7 +9,10 @@ public sealed class AuditDetachedCheckpointRuntimeOptions
 {
     public const string SectionName = "Audit:DetachedCheckpoint";
 
-    public bool Enabled { get; set; }
+    public bool Enabled
+    {
+        get; set;
+    }
     public string DirectoryName { get; set; } = "audit-checkpoints";
     public int IntervalSeconds { get; set; } = 300;
     public int MaxRecords { get; set; } = 1_000;
@@ -19,13 +23,28 @@ public sealed class AuditDetachedCheckpointRuntimeOptions
 public sealed class AuditDetachedCheckpointRuntimeKeyOptions
 {
     public string KeyId { get; set; } = string.Empty;
-    public int Version { get; set; }
+    public int Version
+    {
+        get; set;
+    }
     public string PublicKeyPath { get; set; } = string.Empty;
     public string PrivateKeyPath { get; set; } = string.Empty;
-    public DateTimeOffset? NotBeforeUtc { get; set; }
-    public DateTimeOffset? NotAfterUtc { get; set; }
-    public DateTimeOffset? RevokedAtUtc { get; set; }
-    public DateTimeOffset? CompromisedAtUtc { get; set; }
+    public DateTimeOffset? NotBeforeUtc
+    {
+        get; set;
+    }
+    public DateTimeOffset? NotAfterUtc
+    {
+        get; set;
+    }
+    public DateTimeOffset? RevokedAtUtc
+    {
+        get; set;
+    }
+    public DateTimeOffset? CompromisedAtUtc
+    {
+        get; set;
+    }
 }
 
 public static class AuditDetachedCheckpointRuntimeConfiguration

@@ -1,29 +1,32 @@
-using FsusBlog.Core.Common;
-using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Execution;
-using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Infrastructure.Storage;
-using FsusBlog.Server.Infrastructure.NotificationStream;
-using FsusBlog.Server.Interfaces;
-using FsusBlog.Shared.Contracts.NotificationStream;
-using SqlSugar;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO.MemoryMappedFiles;
-using Microsoft.Win32.SafeHandles;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Shared.Contracts.NotificationStream;
+
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Diagnostics;
+using Microsoft.Win32.SafeHandles;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Services;
 
@@ -381,7 +384,10 @@ public sealed partial class SearchIndexService
         private readonly FrozenDictionary<int, SearchRuntimeDocument> _documentsById;
         private readonly ISearchDictionaryLookup _queryDictionary;
 
-        public long EstimatedMemoryBytes { get; }
+        public long EstimatedMemoryBytes
+        {
+            get;
+        }
 
         public SearchRuntimeSnapshot(
             FrozenDictionary<uint, SearchRuntimePosting[]> postingsByHash,

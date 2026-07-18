@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Threading.Channels;
+
 using FsusBlog.Server.Infrastructure.Observability;
+
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.Security;
@@ -262,7 +264,10 @@ public sealed class SecurityRiskEventWriterWorker(
                 batch,
                 cancellationToken).ConfigureAwait(false);
             LogPersistFailure(ex, batch);
-            return fallback with { FailedBatches = fallback.FailedBatches + 1 };
+            return fallback with
+            {
+                FailedBatches = fallback.FailedBatches + 1
+            };
         }
     }
 

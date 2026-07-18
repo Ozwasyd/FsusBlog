@@ -1,19 +1,22 @@
-using FsusBlog.Server.Infrastructure.PublicAot;
+using System.Net;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
-using System.Net;
 
 namespace FsusBlog.Server.Tests;
 
@@ -553,7 +556,10 @@ public sealed class PublicAotShellServiceTests
     [Fact]
     public async Task RenderClassifiedAsync_NonCanonicalPagination_RedirectsBeforeCacheOrBackfill()
     {
-        var match = HomeMatch() with { RequiresPaginationRedirect = true };
+        var match = HomeMatch() with
+        {
+            RequiresPaginationRedirect = true
+        };
         var cache = new RecordingAotCache();
         var scheduler = new RecordingBackfillScheduler();
         PublicAotShellService sut = CreateService(match, cache, scheduler);
@@ -569,7 +575,10 @@ public sealed class PublicAotShellServiceTests
     [Fact]
     public async Task RenderClassifiedAsync_DevelopmentLoopbackFixtureQuery_PreservesClientFixtureActivation()
     {
-        var match = HomeMatch() with { RequiresPaginationRedirect = true };
+        var match = HomeMatch() with
+        {
+            RequiresPaginationRedirect = true
+        };
         string cacheKey = CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey);
         var cache = new RecordingAotCache
         {
@@ -821,8 +830,14 @@ public sealed class PublicAotShellServiceTests
 
     private sealed class RecordingAotCache : IPublicAotShellCache
     {
-        public PublicAotCacheEntry? Entry { get; init; }
-        public Exception? TryGetException { get; init; }
+        public PublicAotCacheEntry? Entry
+        {
+            get; init;
+        }
+        public Exception? TryGetException
+        {
+            get; init;
+        }
         public Dictionary<string, PublicAotCacheEntry> EntriesByKey { get; } = new(StringComparer.Ordinal);
         public List<string> RequestedKeys { get; } = [];
         public List<string> RemovedKeys { get; } = [];

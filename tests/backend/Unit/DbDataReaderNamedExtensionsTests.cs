@@ -1,4 +1,5 @@
 using System.Data;
+
 using FsusBlog.Server.Infrastructure.Data;
 
 namespace FsusBlog.Server.Tests.Unit;

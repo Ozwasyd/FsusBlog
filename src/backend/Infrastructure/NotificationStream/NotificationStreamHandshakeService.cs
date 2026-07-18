@@ -1,18 +1,20 @@
 using System.Collections.Frozen;
+using System.Diagnostics;
 using System.Security.Claims;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
-using System.Diagnostics;
-using FsusBlog.Server.Infrastructure.Operations;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
@@ -35,11 +37,20 @@ internal sealed record NotificationStreamHandshakeResult
         ErrorCode = errorCode;
     }
 
-    public NotificationStreamHandshake? Handshake { get; }
+    public NotificationStreamHandshake? Handshake
+    {
+        get;
+    }
 
-    public int StatusCode { get; }
+    public int StatusCode
+    {
+        get;
+    }
 
-    public string? ErrorCode { get; }
+    public string? ErrorCode
+    {
+        get;
+    }
 
     public bool IsSuccess => Handshake is not null;
 

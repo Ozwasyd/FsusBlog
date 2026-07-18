@@ -1,4 +1,5 @@
 using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Integrity;
@@ -55,14 +56,22 @@ public static class AdminIntegrityConsoleEndpoints
             catch (KeyNotFoundException)
             {
                 return Results.Json(
-                    new { code = "integrity_proof_not_found", message = "Publish proof not found." },
+                    new
+                    {
+                        code = "integrity_proof_not_found",
+                        message = "Publish proof not found."
+                    },
                     IntegrityVerificationJson.Options,
                     statusCode: StatusCodes.Status404NotFound);
             }
             catch (InvalidOperationException ex)
             {
                 return Results.Json(
-                    new { code = "integrity_proof_retry_rejected", message = ex.Message },
+                    new
+                    {
+                        code = "integrity_proof_retry_rejected",
+                        message = ex.Message
+                    },
                     IntegrityVerificationJson.Options,
                     statusCode: StatusCodes.Status409Conflict);
             }
@@ -86,7 +95,11 @@ public static class AdminIntegrityConsoleEndpoints
         if (!TrustedRequestOrigin.RequireTrustedOriginOrReferer(context))
         {
             return Results.Json(
-                new { code = "origin_not_allowed", message = "Request origin is not trusted." },
+                new
+                {
+                    code = "origin_not_allowed",
+                    message = "Request origin is not trusted."
+                },
                 IntegrityVerificationJson.Options,
                 statusCode: StatusCodes.Status403Forbidden);
         }
@@ -103,7 +116,11 @@ public static class AdminIntegrityConsoleEndpoints
                 cancellationToken))
         {
             return Results.Json(
-                new { code = "mfa_proof_required", message = "Admin step-up proof is required." },
+                new
+                {
+                    code = "mfa_proof_required",
+                    message = "Admin step-up proof is required."
+                },
                 IntegrityVerificationJson.Options,
                 statusCode: StatusCodes.Status428PreconditionRequired);
         }

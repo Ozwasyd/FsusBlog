@@ -1,8 +1,10 @@
-using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.Extensions.Configuration;
+
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;

@@ -1,14 +1,17 @@
 using System.Data.Common;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.Extensions.Caching.Memory;
+
 using SqlSugar;
-using System.Text.Json;
 
 namespace FsusBlog.Server.Services.Distribution;
 
@@ -434,10 +437,14 @@ public sealed class RelatedReadingService(
         for (int mask = 0; mask < reasons.Length; mask++)
         {
             var values = new List<string>(4);
-            if ((mask & 1) != 0) values.Add("同分类");
-            if ((mask & 2) != 0) values.Add("共同标签");
-            if ((mask & 4) != 0) values.Add("全文关键词");
-            if ((mask & 8) != 0) values.Add("发布时间接近");
+            if ((mask & 1) != 0)
+                values.Add("同分类");
+            if ((mask & 2) != 0)
+                values.Add("共同标签");
+            if ((mask & 4) != 0)
+                values.Add("全文关键词");
+            if ((mask & 8) != 0)
+                values.Add("发布时间接近");
             reasons[mask] = values.Count == 0 ? "近期发布" : string.Join(" / ", values);
         }
 
@@ -531,12 +538,27 @@ public sealed class RelatedReadingService(
 
     private sealed class RelatedArticleRow
     {
-        public int Id { get; init; }
+        public int Id
+        {
+            get; init;
+        }
         public string Title { get; init; } = string.Empty;
-        public string? Summary { get; init; }
-        public DateTime CreateTime { get; init; }
-        public DateTime? PublishedAt { get; init; }
-        public int CategoryId { get; init; }
+        public string? Summary
+        {
+            get; init;
+        }
+        public DateTime CreateTime
+        {
+            get; init;
+        }
+        public DateTime? PublishedAt
+        {
+            get; init;
+        }
+        public int CategoryId
+        {
+            get; init;
+        }
         public DateTime SortTime => PublishedAt ?? CreateTime;
     }
 

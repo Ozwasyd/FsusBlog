@@ -1,9 +1,11 @@
-using System.Net;
 using System.Data.Common;
+using System.Globalization;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -13,12 +15,12 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
-using System.Globalization;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;
@@ -923,68 +925,230 @@ public sealed partial class AuthoringWorkflowService
 
     private sealed class CommentModerationQueueRow
     {
-        public long Id { get; set; }
-        public int ArticleId { get; set; }
-        public string? ArticleTitle { get; set; }
-        public int? UserId { get; set; }
-        public string? AuthorMode { get; set; }
-        public string? PublicHandle { get; set; }
-        public string? AnonymousDisplayName { get; set; }
-        public string? AnonymousDisplayLanguage { get; set; }
-        public string? ModerationSubjectHash { get; set; }
-        public string? AnonymousNullifierHash { get; set; }
-        public string? AnonymousScope { get; set; }
-        public string? RateClass { get; set; }
-        public bool? RequiresModeration { get; set; }
+        public long Id
+        {
+            get; set;
+        }
+        public int ArticleId
+        {
+            get; set;
+        }
+        public string? ArticleTitle
+        {
+            get; set;
+        }
+        public int? UserId
+        {
+            get; set;
+        }
+        public string? AuthorMode
+        {
+            get; set;
+        }
+        public string? PublicHandle
+        {
+            get; set;
+        }
+        public string? AnonymousDisplayName
+        {
+            get; set;
+        }
+        public string? AnonymousDisplayLanguage
+        {
+            get; set;
+        }
+        public string? ModerationSubjectHash
+        {
+            get; set;
+        }
+        public string? AnonymousNullifierHash
+        {
+            get; set;
+        }
+        public string? AnonymousScope
+        {
+            get; set;
+        }
+        public string? RateClass
+        {
+            get; set;
+        }
+        public bool? RequiresModeration
+        {
+            get; set;
+        }
         public string Content { get; set; } = string.Empty;
-        public DateTime CreateTime { get; set; }
-        public CommentModerationStatus Status { get; set; }
-        public string? Reason { get; set; }
-        public long? ModeratedByAdminPrincipalId { get; set; }
-        public DateTime? ModeratedAt { get; set; }
-        public long RegionComplianceId { get; set; }
-        public string? SubmitRegion { get; set; }
-        public double SubmitRegionConfidence { get; set; }
-        public string? BlockedRegions { get; set; }
-        public string? RegionPolicyVersion { get; set; }
-        public string? RegionDecisionReason { get; set; }
-        public string? RegionRiskLabels { get; set; }
-        public bool RegionCanPublish { get; set; }
-        public bool RegionRequiresManualReview { get; set; }
-        public bool RegionHideUntilReviewed { get; set; }
-        public bool NullifierKnown { get; set; }
-        public bool NullifierBlocked { get; set; }
-        public int? NullifierUseCount { get; set; }
+        public DateTime CreateTime
+        {
+            get; set;
+        }
+        public CommentModerationStatus Status
+        {
+            get; set;
+        }
+        public string? Reason
+        {
+            get; set;
+        }
+        public long? ModeratedByAdminPrincipalId
+        {
+            get; set;
+        }
+        public DateTime? ModeratedAt
+        {
+            get; set;
+        }
+        public long RegionComplianceId
+        {
+            get; set;
+        }
+        public string? SubmitRegion
+        {
+            get; set;
+        }
+        public double SubmitRegionConfidence
+        {
+            get; set;
+        }
+        public string? BlockedRegions
+        {
+            get; set;
+        }
+        public string? RegionPolicyVersion
+        {
+            get; set;
+        }
+        public string? RegionDecisionReason
+        {
+            get; set;
+        }
+        public string? RegionRiskLabels
+        {
+            get; set;
+        }
+        public bool RegionCanPublish
+        {
+            get; set;
+        }
+        public bool RegionRequiresManualReview
+        {
+            get; set;
+        }
+        public bool RegionHideUntilReviewed
+        {
+            get; set;
+        }
+        public bool NullifierKnown
+        {
+            get; set;
+        }
+        public bool NullifierBlocked
+        {
+            get; set;
+        }
+        public int? NullifierUseCount
+        {
+            get; set;
+        }
         public IReadOnlyList<CommentModerationModelSignalResponse> ModelSignals { get; set; } = [];
     }
 
     private sealed class CommentModerationStateRow
     {
-        public long Id { get; init; }
-        public int ArticleId { get; init; }
-        public string? ArticleTitle { get; init; }
-        public int? UserId { get; init; }
+        public long Id
+        {
+            get; init;
+        }
+        public int ArticleId
+        {
+            get; init;
+        }
+        public string? ArticleTitle
+        {
+            get; init;
+        }
+        public int? UserId
+        {
+            get; init;
+        }
         public string AuthorDisplayName { get; set; } = "匿名用户";
-        public string? AuthorMode { get; set; }
-        public string? PublicHandle { get; set; }
-        public string? AnonymousDisplayName { get; set; }
-        public string? AnonymousDisplayLanguage { get; set; }
-        public string? AnonymousScope { get; set; }
+        public string? AuthorMode
+        {
+            get; set;
+        }
+        public string? PublicHandle
+        {
+            get; set;
+        }
+        public string? AnonymousDisplayName
+        {
+            get; set;
+        }
+        public string? AnonymousDisplayLanguage
+        {
+            get; set;
+        }
+        public string? AnonymousScope
+        {
+            get; set;
+        }
         public string Content { get; init; } = string.Empty;
-        public DateTime CreateTime { get; init; }
-        public long? ParentId { get; init; }
-        public long? RootId { get; init; }
-        public int? ReplyToUserId { get; init; }
-        public string? ReplyToAuthorDisplayName { get; set; }
-        public string? ReplyToAuthorMode { get; set; }
-        public string? ReplyToPublicHandle { get; set; }
-        public string? ReplyToAnonymousDisplayName { get; set; }
-        public string? ReplyToAnonymousDisplayLanguage { get; set; }
-        public long? ReplyToCommentId { get; init; }
-        public int Depth { get; init; }
-        public CommentModerationStatus Status { get; init; }
-        public long RegionComplianceId { get; init; }
-        public bool RegionCanPublish { get; init; }
+        public DateTime CreateTime
+        {
+            get; init;
+        }
+        public long? ParentId
+        {
+            get; init;
+        }
+        public long? RootId
+        {
+            get; init;
+        }
+        public int? ReplyToUserId
+        {
+            get; init;
+        }
+        public string? ReplyToAuthorDisplayName
+        {
+            get; set;
+        }
+        public string? ReplyToAuthorMode
+        {
+            get; set;
+        }
+        public string? ReplyToPublicHandle
+        {
+            get; set;
+        }
+        public string? ReplyToAnonymousDisplayName
+        {
+            get; set;
+        }
+        public string? ReplyToAnonymousDisplayLanguage
+        {
+            get; set;
+        }
+        public long? ReplyToCommentId
+        {
+            get; init;
+        }
+        public int Depth
+        {
+            get; init;
+        }
+        public CommentModerationStatus Status
+        {
+            get; init;
+        }
+        public long RegionComplianceId
+        {
+            get; init;
+        }
+        public bool RegionCanPublish
+        {
+            get; init;
+        }
     }
 
 }

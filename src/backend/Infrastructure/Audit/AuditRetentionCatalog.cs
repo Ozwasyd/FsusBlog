@@ -122,7 +122,10 @@ public static class AuditRetentionCatalog
 
     private static readonly IReadOnlyDictionary<string, AuditRetentionPolicy> Policies = BuildPolicies();
 
-    public static IReadOnlyCollection<AuditRetentionPolicy> All { get; } = Policies.Values
+    public static IReadOnlyCollection<AuditRetentionPolicy> All
+    {
+        get;
+    } = Policies.Values
         .OrderBy(static policy => policy.Action, StringComparer.Ordinal)
         .ToArray();
 
@@ -200,7 +203,10 @@ public static class AuditRetentionStorageContract
     private static readonly TimeSpan MaximumAge = AuditRetentionCatalog.All
         .Max(static policy => policy.MaxFullRecordAge);
 
-    public static IReadOnlyList<AuditRetentionStoragePolicy> All { get; } =
+    public static IReadOnlyList<AuditRetentionStoragePolicy> All
+    {
+        get;
+    } =
     [
         new("database", MaximumAge, ControlledByApplication: true, RequiresOperatorAttestation: false),
         new("local-fallback", MaximumAge, ControlledByApplication: true, RequiresOperatorAttestation: false),

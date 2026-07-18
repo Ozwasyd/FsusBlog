@@ -1,10 +1,14 @@
 using System.Collections.Concurrent;
+
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Services.Background;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -157,11 +161,16 @@ public sealed class LogCleanupWorkerBehaviorTests
 
     private static string ResolveTarget(string sql)
     {
-        if (sql.Contains("frontend_rum_metric", StringComparison.Ordinal)) return "rum";
-        if (sql.Contains("sys_audit_log", StringComparison.Ordinal)) return "audit";
-        if (sql.Contains("anonymous_credential_issuance_audit", StringComparison.Ordinal)) return "anonymous-credential-audit";
-        if (sql.Contains("security_risk_event", StringComparison.Ordinal)) return "legacy-security-risk";
-        if (sql.Contains("sys_fenced_commit", StringComparison.Ordinal)) return "fenced-commit";
+        if (sql.Contains("frontend_rum_metric", StringComparison.Ordinal))
+            return "rum";
+        if (sql.Contains("sys_audit_log", StringComparison.Ordinal))
+            return "audit";
+        if (sql.Contains("anonymous_credential_issuance_audit", StringComparison.Ordinal))
+            return "anonymous-credential-audit";
+        if (sql.Contains("security_risk_event", StringComparison.Ordinal))
+            return "legacy-security-risk";
+        if (sql.Contains("sys_fenced_commit", StringComparison.Ordinal))
+            return "fenced-commit";
         throw new Xunit.Sdk.XunitException("Unknown cleanup target.");
     }
 
@@ -183,8 +192,14 @@ public sealed class LogCleanupWorkerBehaviorTests
 
     private sealed class RecordingLease(bool allowRun) : IBackgroundWorkerLease
     {
-        public string? WorkerName { get; private set; }
-        public int ActionExecutions { get; private set; }
+        public string? WorkerName
+        {
+            get; private set;
+        }
+        public int ActionExecutions
+        {
+            get; private set;
+        }
 
         public async Task<bool> TryRunAsLeaderAsync(
             string workerName,

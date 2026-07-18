@@ -2,7 +2,9 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Common;
+
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Infrastructure.Integrity;
@@ -89,16 +91,28 @@ public sealed record SiteSigningKeyRecord(
     }
 
     public SiteSigningKeyRecord WithoutPrivateKey()
-        => this with { PrivateKeyPkcs8Base64Url = null };
+        => this with
+        {
+            PrivateKeyPkcs8Base64Url = null
+        };
 
     public SiteSigningKeyRecord WithRevokedAt(DateTimeOffset revokedAtUtc)
-        => this with { RevokedAtUtc = revokedAtUtc.ToUniversalTime() };
+        => this with
+        {
+            RevokedAtUtc = revokedAtUtc.ToUniversalTime()
+        };
 
     public SiteSigningKeyRecord WithCompromisedAt(DateTimeOffset compromisedAtUtc)
-        => this with { CompromisedAtUtc = compromisedAtUtc.ToUniversalTime() };
+        => this with
+        {
+            CompromisedAtUtc = compromisedAtUtc.ToUniversalTime()
+        };
 
     public SiteSigningKeyRecord WithNotAfter(DateTimeOffset notAfterUtc)
-        => this with { NotAfterUtc = notAfterUtc.ToUniversalTime() };
+        => this with
+        {
+            NotAfterUtc = notAfterUtc.ToUniversalTime()
+        };
 }
 
 public sealed class SiteSigningKeyRegistry
@@ -118,9 +132,15 @@ public sealed class SiteSigningKeyRegistry
                 .ThenBy(static key => key.KeyId, StringComparer.Ordinal)]);
     }
 
-    public string CurrentKeyId { get; }
+    public string CurrentKeyId
+    {
+        get;
+    }
 
-    public IReadOnlyList<SiteSigningKeyMetadata> PublicKeys { get; }
+    public IReadOnlyList<SiteSigningKeyMetadata> PublicKeys
+    {
+        get;
+    }
 
     public static SiteSigningKeyRegistry Create(
         IEnumerable<SiteSigningKeyRecord> keys,
@@ -335,8 +355,14 @@ public sealed class SiteIntegritySigningUnavailableException : InvalidOperationE
         Reason = reason;
     }
 
-    public string KeyId { get; }
-    public string Reason { get; }
+    public string KeyId
+    {
+        get;
+    }
+    public string Reason
+    {
+        get;
+    }
 
     public static SiteIntegritySigningUnavailableException ForKey(
         string keyId,

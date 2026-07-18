@@ -1,10 +1,13 @@
 using System.Globalization;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Services;
+
 using Microsoft.Extensions.Configuration;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Integrity;
@@ -262,7 +265,10 @@ public sealed class IntegrityProofScheduler(
             failureCode = "rights-proof-binding-disabled";
         }
 
-        ArticleRightsProofInput finalized = proof with { ProofStatus = status };
+        ArticleRightsProofInput finalized = proof with
+        {
+            ProofStatus = status
+        };
         if (status == PublishProofStatus.Ready)
         {
             try
@@ -273,7 +279,10 @@ public sealed class IntegrityProofScheduler(
             {
                 status = PublishProofStatus.Failed;
                 failureCode = $"signing-{ex.Reason}";
-                finalized = finalized with { ProofStatus = status };
+                finalized = finalized with
+                {
+                    ProofStatus = status
+                };
             }
         }
 

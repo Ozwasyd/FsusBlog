@@ -3,16 +3,20 @@ using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
 using NSubstitute;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -848,8 +852,14 @@ public sealed class PerceptionChallengeV2ServiceTests
 
     private sealed class FakeTokenProtector : IPerceptionChallengeV2TokenProtector
     {
-        public PerceptionChallengeV2TokenClaims? LastSealClaims { get; private set; }
-        public PerceptionChallengeV2TokenClaims? ClaimsToUnseal { get; init; }
+        public PerceptionChallengeV2TokenClaims? LastSealClaims
+        {
+            get; private set;
+        }
+        public PerceptionChallengeV2TokenClaims? ClaimsToUnseal
+        {
+            get; init;
+        }
 
         public Task<PerceptionChallengeV2SealResult> SealAsync(PerceptionChallengeV2TokenClaims claims, CancellationToken cancellationToken = default)
         {

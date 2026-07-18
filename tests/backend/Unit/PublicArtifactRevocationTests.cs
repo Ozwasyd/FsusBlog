@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 
@@ -99,7 +101,10 @@ public sealed class PublicArtifactRevocationTests
         await coordinator.RevokeArticleAsync(42);
 
         Assert.True(registry.TryGet(42, out PublicArtifactTombstone active));
-        Assert.Equal(tombstone with { PurgeConfirmed = true }, active);
+        Assert.Equal(tombstone with
+        {
+            PurgeConfirmed = true
+        }, active);
         Assert.Equal(tombstone, Assert.Single(purger.Purged));
         Assert.Equal(2, state.Published.Count);
         Assert.False(state.Published[0].PurgeConfirmed);
@@ -122,7 +127,10 @@ public sealed class PublicArtifactRevocationTests
         await coordinator.CompleteRebuildAsync([42], coordinator.CurrentGeneration);
 
         Assert.False(registry.TryGet(42, out _));
-        Assert.Equal(tombstone with { PurgeConfirmed = true }, Assert.Single(state.Cleared));
+        Assert.Equal(tombstone with
+        {
+            PurgeConfirmed = true
+        }, Assert.Single(state.Cleared));
         Assert.DoesNotContain(state.Published, static message => message.Action == "clear");
         DefaultHttpContext rebuilt = CreateContext("/api/binary/article/42.aeds");
         bool rebuiltSnapshotReached = false;
@@ -277,7 +285,11 @@ public sealed class PublicArtifactRevocationTests
             100,
             PurgeConfirmed: true,
             TransitionPending: true);
-        var newer = stale with { Generation = 27, RevokedAtUnixMilliseconds = 200 };
+        var newer = stale with
+        {
+            Generation = 27,
+            RevokedAtUnixMilliseconds = 200
+        };
         var state = new FakeStateStore(newer);
         var registry = new PublicArtifactRevocationRegistry();
         registry.Apply(newer);
@@ -394,7 +406,10 @@ public sealed class PublicArtifactRevocationTests
 
         public Task<PublicArtifactTombstone> RevokeArticleAsync(int articleId, CancellationToken cancellationToken)
         {
-            _current = _current with { ArticleId = articleId };
+            _current = _current with
+            {
+                ArticleId = articleId
+            };
             return Task.FromResult(_current);
         }
 
@@ -407,7 +422,10 @@ public sealed class PublicArtifactRevocationTests
                 return Task.FromResult<PublicArtifactTombstone?>(null);
             }
 
-            _current = value with { TransitionPending = false };
+            _current = value with
+            {
+                TransitionPending = false
+            };
             return Task.FromResult<PublicArtifactTombstone?>(_current);
         }
 
@@ -418,7 +436,10 @@ public sealed class PublicArtifactRevocationTests
             PublicArtifactTombstone value,
             CancellationToken cancellationToken)
         {
-            _current = value with { PurgeConfirmed = true };
+            _current = value with
+            {
+                PurgeConfirmed = true
+            };
             return Task.FromResult(_current);
         }
 

@@ -15,7 +15,10 @@ public readonly record struct VisitLogIpPseudonym(string Hash, int KeyEpoch, int
 
 public interface IVisitLogIpPseudonymizer
 {
-    int CurrentEpoch { get; }
+    int CurrentEpoch
+    {
+        get;
+    }
 
     VisitLogIpPseudonym PseudonymizeCurrent(
         VisitLogIpPseudonymScope scope,

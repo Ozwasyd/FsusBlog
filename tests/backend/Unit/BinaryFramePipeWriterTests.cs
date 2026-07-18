@@ -1,7 +1,9 @@
 using System.Buffers;
 using System.IO.Pipelines;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Results;
+
 using Microsoft.AspNetCore.Http.Features;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -106,7 +108,9 @@ public sealed class BinaryFramePipeWriterTests
     {
         public Stream Stream => Stream.Null;
         public PipeWriter Writer => writer;
-        public void DisableBuffering() { }
+        public void DisableBuffering()
+        {
+        }
         public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SendFileAsync(string path, long offset, long? count, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
@@ -117,10 +121,22 @@ public sealed class BinaryFramePipeWriterTests
     {
         private int _advancedSinceFlush;
 
-        public int WriteAsyncCalls { get; private set; }
-        public int FlushCalls { get; private set; }
-        public int BufferedWriteCommits { get; private set; }
-        public int AdvanceCalls { get; private set; }
+        public int WriteAsyncCalls
+        {
+            get; private set;
+        }
+        public int FlushCalls
+        {
+            get; private set;
+        }
+        public int BufferedWriteCommits
+        {
+            get; private set;
+        }
+        public int AdvanceCalls
+        {
+            get; private set;
+        }
 
         public override void Advance(int bytes)
         {

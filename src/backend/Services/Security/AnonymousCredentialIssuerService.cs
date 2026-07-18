@@ -1,13 +1,16 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Shared.Contracts.Validation;
+
 using Microsoft.Extensions.Logging;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
@@ -36,9 +39,18 @@ public readonly record struct AnonymousCredentialIssuanceAuditWrite(
 
 public interface ICircuitNativeCredentialIssuer
 {
-    bool IsConfigured { get; }
-    string IssuerPublicKeyId { get; }
-    string IssuerPublicKeyHash { get; }
+    bool IsConfigured
+    {
+        get;
+    }
+    string IssuerPublicKeyId
+    {
+        get;
+    }
+    string IssuerPublicKeyHash
+    {
+        get;
+    }
 
     ValueTask<Result<CircuitNativeCredentialIssueResult>> SignAsync(
         CircuitNativeCredentialIssueMaterial material,
@@ -128,7 +140,10 @@ public sealed class ProductionCircuitNativeCredentialIssuer : ICircuitNativeCred
 
     public bool IsConfigured => _status.CanIssueCredentials;
 
-    public string IssuerPublicKeyId { get; }
+    public string IssuerPublicKeyId
+    {
+        get;
+    }
 
     public string IssuerPublicKeyHash => _status.IssuerPublicKeyHash.Length > 0
         ? _status.IssuerPublicKeyHash
@@ -686,9 +701,18 @@ public sealed class AnonymousCredentialIssuerService(
 
     private sealed class AnonymousCredentialEligibilityRow
     {
-        public int Id { get; set; }
-        public int Status { get; set; }
-        public DateTime? DeletedAt { get; set; }
+        public int Id
+        {
+            get; set;
+        }
+        public int Status
+        {
+            get; set;
+        }
+        public DateTime? DeletedAt
+        {
+            get; set;
+        }
         public string AnonymousCredentialLevel { get; set; } = AnonymousCredentialLevels.Basic;
         public string AnonymousCredentialStatus { get; set; } = AnonymousCredentialStatuses.Active;
     }

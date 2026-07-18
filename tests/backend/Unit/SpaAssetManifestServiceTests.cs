@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;

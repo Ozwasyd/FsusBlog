@@ -15,6 +15,7 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -260,8 +261,13 @@ public sealed class CommentRiskActionFilterTests
         public override bool CanSeek => false;
         public override bool CanWrite => false;
         public override long Length => throw new NotSupportedException();
-        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
-        public override void Flush() { }
+        public override long Position
+        {
+            get => throw new NotSupportedException(); set => throw new NotSupportedException();
+        }
+        public override void Flush()
+        {
+        }
         public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
             => _inner.ReadAsync(buffer, cancellationToken);
@@ -272,7 +278,8 @@ public sealed class CommentRiskActionFilterTests
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
         protected override void Dispose(bool disposing)
         {
-            if (disposing) _inner.Dispose();
+            if (disposing)
+                _inner.Dispose();
             base.Dispose(disposing);
         }
     }
@@ -284,8 +291,13 @@ public sealed class CommentRiskActionFilterTests
         public override bool CanSeek => false;
         public override bool CanWrite => false;
         public override long Length => throw new NotSupportedException();
-        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
-        public override void Flush() { }
+        public override long Position
+        {
+            get => throw new NotSupportedException(); set => throw new NotSupportedException();
+        }
+        public override void Flush()
+        {
+        }
         public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
@@ -306,13 +318,21 @@ public sealed class CommentRiskActionFilterTests
 
     private sealed class ThrowOnReadStream : Stream
     {
-        public int ReadCount { get; private set; }
+        public int ReadCount
+        {
+            get; private set;
+        }
         public override bool CanRead => true;
         public override bool CanSeek => false;
         public override bool CanWrite => false;
         public override long Length => throw new NotSupportedException();
-        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
-        public override void Flush() { }
+        public override long Position
+        {
+            get => throw new NotSupportedException(); set => throw new NotSupportedException();
+        }
+        public override void Flush()
+        {
+        }
         public override int Read(byte[] buffer, int offset, int count)
         {
             ReadCount++;
@@ -330,8 +350,14 @@ public sealed class CommentRiskActionFilterTests
 
     private sealed class CapturingCommentEndpointService : ICommentEndpointService
     {
-        public int CreateCalls { get; private set; }
-        public RegionModerationDecision? RegionDecision { get; private set; }
+        public int CreateCalls
+        {
+            get; private set;
+        }
+        public RegionModerationDecision? RegionDecision
+        {
+            get; private set;
+        }
 
         public Task<bool> CreateStrongAnonymousCommentAsync(
             AnonymousCommentCreateRequestCoreModel request,
@@ -354,7 +380,9 @@ public sealed class CommentRiskActionFilterTests
     private sealed class AllowingContentFilter : IContentFilterService
     {
         public ContentValidationResult ValidateContent(string text) => new(true, "ok", "ok");
-        public void ReloadKeywords() { }
+        public void ReloadKeywords()
+        {
+        }
     }
 
     private sealed class FixedClientRegionResolver : IClientRegionResolver

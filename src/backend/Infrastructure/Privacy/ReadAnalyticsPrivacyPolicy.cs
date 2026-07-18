@@ -16,7 +16,10 @@ public sealed record ReadAnalyticsPrivacyBudget(
 
 public interface IReadAnalyticsPrivacyPolicy
 {
-    ReadAnalyticsPrivacyBudget Budget { get; }
+    ReadAnalyticsPrivacyBudget Budget
+    {
+        get;
+    }
 
     IReadOnlyList<ReadAggregateCount> Protect(
         string releaseScope,
@@ -59,7 +62,10 @@ public sealed class ReadAnalyticsPrivacyPolicy : IReadAnalyticsPrivacyPolicy
         Budget = new ReadAnalyticsPrivacyBudget(k, epsilon, dailyLimit, scheduled, ReleaseScopes);
     }
 
-    public ReadAnalyticsPrivacyBudget Budget { get; }
+    public ReadAnalyticsPrivacyBudget Budget
+    {
+        get;
+    }
 
     public IReadOnlyList<ReadAggregateCount> Protect(
         string releaseScope,

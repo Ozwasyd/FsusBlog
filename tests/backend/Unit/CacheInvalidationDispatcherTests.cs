@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
+
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Services.Security;
+
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;

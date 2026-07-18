@@ -3,6 +3,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Security;
 using FsusBlog.Shared.Contracts.Validation;
+
 using SharedFrameType = FsusBlog.Shared.AedsFrameType;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -87,8 +88,14 @@ public sealed class SecurityChallengeContractTests
     public void ValidateAssignment_CaptchaAcceptsUuidV4OrV7_NonCaptchaRequiresUuidV7()
     {
         string uuidV4 = Guid.NewGuid().ToString("D");
-        SecurityChallengeAssignment captcha = CreateAssignment(SecurityChallengeKind.CaptchaV1) with { ChallengeId = uuidV4 };
-        SecurityChallengeAssignment pow = CreateAssignment(SecurityChallengeKind.Sha256PowV1) with { ChallengeId = uuidV4 };
+        SecurityChallengeAssignment captcha = CreateAssignment(SecurityChallengeKind.CaptchaV1) with
+        {
+            ChallengeId = uuidV4
+        };
+        SecurityChallengeAssignment pow = CreateAssignment(SecurityChallengeKind.Sha256PowV1) with
+        {
+            ChallengeId = uuidV4
+        };
 
         Assert.True(SecurityChallengeContracts.ValidateAssignment(captcha).IsValid);
         SecurityChallengeValidationResult powResult = SecurityChallengeContracts.ValidateAssignment(pow);

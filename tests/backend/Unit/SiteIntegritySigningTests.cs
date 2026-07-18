@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Integrity;
+
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -21,7 +22,10 @@ public sealed class SiteIntegritySigningTests
 
         SiteIntegritySignatureVerificationResult accepted = service.Verify(payload, signature);
         SiteIntegritySignatureVerificationResult tampered = service.Verify(
-            payload with { Fields = new Dictionary<string, string>(payload.Fields) { ["artifactDigest"] = new string('b', 64) } },
+            payload with
+            {
+                Fields = new Dictionary<string, string>(payload.Fields) { ["artifactDigest"] = new string('b', 64) }
+            },
             signature);
 
         Assert.True(accepted.Accepted);
@@ -47,10 +51,16 @@ public sealed class SiteIntegritySigningTests
 
         SiteIntegritySignatureVerificationResult unknownKey = service.Verify(
             payload,
-            signature with { KeyId = "unknown-key" });
+            signature with
+            {
+                KeyId = "unknown-key"
+            });
         SiteIntegritySignatureVerificationResult algorithmMismatch = service.Verify(
             payload,
-            signature with { Algorithm = "RSA_PSS_SHA256" });
+            signature with
+            {
+                Algorithm = "RSA_PSS_SHA256"
+            });
 
         Assert.False(unknownKey.Accepted);
         Assert.Equal("unknown-key", unknownKey.Code);

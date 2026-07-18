@@ -1,5 +1,6 @@
-using FsusBlog.Shared.Contracts.Primitives;
 using System.Text;
+
+using FsusBlog.Shared.Contracts.Primitives;
 
 namespace FsusBlog.Server.Tests.Unit;
 

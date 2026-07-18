@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
-using FsusBlog.Core.Common;
+
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -8,7 +9,9 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;

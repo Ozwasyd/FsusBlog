@@ -1,9 +1,11 @@
 using System.Diagnostics;
+
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
+
 using Microsoft.Extensions.Caching.Memory;
 
 namespace FsusBlog.Server.Infrastructure.Security;

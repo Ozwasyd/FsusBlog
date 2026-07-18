@@ -133,41 +133,41 @@ internal static class PublicHotReadCrossCuttingControlCatalog
             switch (control.Coverage)
             {
                 case PublicHotReadControlCoverage.GlobalBeforeBranch:
-                {
-                    int globalIndex = IndexOfExactlyOnce(
-                        applicationStages,
-                        Require(control.GlobalStageId, control, nameof(control.GlobalStageId)),
-                        "application");
-                    if (globalIndex >= classifierIndex
-                        || control.EarlyStageId is not null
-                        || control.EndpointStageId is not null
-                        || control.DoubleExecutionGuardId is not null
-                        || control.NotApplicableEvidenceId is not null)
                     {
-                        throw Invalid(control, "global control must run exactly once before the early branch");
+                        int globalIndex = IndexOfExactlyOnce(
+                            applicationStages,
+                            Require(control.GlobalStageId, control, nameof(control.GlobalStageId)),
+                            "application");
+                        if (globalIndex >= classifierIndex
+                            || control.EarlyStageId is not null
+                            || control.EndpointStageId is not null
+                            || control.DoubleExecutionGuardId is not null
+                            || control.NotApplicableEvidenceId is not null)
+                        {
+                            throw Invalid(control, "global control must run exactly once before the early branch");
+                        }
+                        break;
                     }
-                    break;
-                }
                 case PublicHotReadControlCoverage.EarlyReplayed:
-                {
-                    int earlyIndex = IndexOfExactlyOnce(
-                        applicationStages,
-                        Require(control.EarlyStageId, control, nameof(control.EarlyStageId)),
-                        "application");
-                    _ = IndexOfExactlyOnce(
-                        endpointStages,
-                        Require(control.EndpointStageId, control, nameof(control.EndpointStageId)),
-                        "endpoint");
-                    if (earlyIndex <= classifierIndex
-                        || earlyIndex >= writerIndex
-                        || string.IsNullOrWhiteSpace(control.DoubleExecutionGuardId)
-                        || control.GlobalStageId is not null
-                        || control.NotApplicableEvidenceId is not null)
                     {
-                        throw Invalid(control, "replayed control must have early/canonical stages and a double-execution guard");
+                        int earlyIndex = IndexOfExactlyOnce(
+                            applicationStages,
+                            Require(control.EarlyStageId, control, nameof(control.EarlyStageId)),
+                            "application");
+                        _ = IndexOfExactlyOnce(
+                            endpointStages,
+                            Require(control.EndpointStageId, control, nameof(control.EndpointStageId)),
+                            "endpoint");
+                        if (earlyIndex <= classifierIndex
+                            || earlyIndex >= writerIndex
+                            || string.IsNullOrWhiteSpace(control.DoubleExecutionGuardId)
+                            || control.GlobalStageId is not null
+                            || control.NotApplicableEvidenceId is not null)
+                        {
+                            throw Invalid(control, "replayed control must have early/canonical stages and a double-execution guard");
+                        }
+                        break;
                     }
-                    break;
-                }
                 case PublicHotReadControlCoverage.EndpointOnlyNotApplicable:
                     _ = IndexOfExactlyOnce(
                         endpointStages,

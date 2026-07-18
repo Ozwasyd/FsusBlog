@@ -80,7 +80,8 @@ internal static class PublicSpaTemplateLocator
     internal static string ResolveAssetPath(IWebHostEnvironment env, string prefix, string extension)
     {
         string assetsRoot = Path.Combine(env.WebRootPath ?? string.Empty, "assets");
-        if (!Directory.Exists(assetsRoot)) return string.Empty;
+        if (!Directory.Exists(assetsRoot))
+            return string.Empty;
 
         string cacheKey = string.Concat(Path.GetFullPath(assetsRoot), '|', prefix, '|', extension);
         return _assetPathCache.GetOrAdd(cacheKey, _ => ResolveAssetPathUncached(assetsRoot, prefix, extension));
@@ -156,7 +157,10 @@ internal static class PublicSpaTemplateLocator
 
     private sealed record TemplateSnapshot(string Path, DateTime LastWriteTimeUtc, byte[] Bytes, string AssetVersion)
     {
-        public static TemplateSnapshot Minimal { get; } = new(
+        public static TemplateSnapshot Minimal
+        {
+            get;
+        } = new(
             string.Empty,
             DateTime.MinValue,
             MinimalIndexTemplateBytes,

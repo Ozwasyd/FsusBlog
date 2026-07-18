@@ -1,29 +1,32 @@
-using FsusBlog.Core.Common;
-using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Execution;
-using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Infrastructure.Storage;
-using FsusBlog.Server.Infrastructure.NotificationStream;
-using FsusBlog.Server.Interfaces;
-using FsusBlog.Shared.Contracts.NotificationStream;
-using SqlSugar;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO.MemoryMappedFiles;
-using Microsoft.Win32.SafeHandles;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Shared.Contracts.NotificationStream;
+
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Diagnostics;
+using Microsoft.Win32.SafeHandles;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Services;
 
@@ -101,60 +104,60 @@ public sealed partial class SearchIndexService(
                 FsusObservability.SetTag(activity, "fsus.search.mode", "query");
                 try
                 {
-                if (string.IsNullOrWhiteSpace(keyword))
-                {
-                    result = "empty_keyword";
-                    return [];
-                }
-
-                string normalizedKeyword = keyword.Trim();
-                if (normalizedKeyword.Length > MaxSearchKeywordChars)
-                {
-                    result = "keyword_too_long";
-                    return [];
-                }
-
-                SearchRuntimeSnapshot? runtimeSnapshot = _runtimeSnapshot;
-                if (runtimeSnapshot is not null)
-                {
-                    return runtimeSnapshot.Search(normalizedKeyword);
-                }
-
-                string fallbackKeyword = NormalizeKeywordForFallback(normalizedKeyword);
-                await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-                ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-                DateTime now = DateTime.UtcNow;
-                var rows = await db.Queryable<Article>()
-                    .Where(article =>
-                        !article.IsDeleted
-                        && article.Status == ArticleStatus.Published
-                        && (article.PublishedAt == null || article.PublishedAt <= now)
-                        && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now)
-                        && (article.Title.ToLower().Contains(fallbackKeyword)
-                            || (article.Summary != null && article.Summary.ToLower().Contains(fallbackKeyword))))
-                    .OrderByDescending(article => article.Views)
-                    .OrderByDescending(article => article.CreateTime)
-                    .Take(200)
-                    .Select(article => new SearchArticleResultRow
+                    if (string.IsNullOrWhiteSpace(keyword))
                     {
-                        Id = article.Id,
-                        Title = article.Title,
-                        Summary = article.Summary
-                    })
-                    .ToListAsync();
+                        result = "empty_keyword";
+                        return [];
+                    }
 
-                var results = new List<Article>(rows.Count);
-                foreach (SearchArticleResultRow row in rows)
-                {
-                    results.Add(new Article
+                    string normalizedKeyword = keyword.Trim();
+                    if (normalizedKeyword.Length > MaxSearchKeywordChars)
                     {
-                        Id = row.Id,
-                        Title = row.Title ?? string.Empty,
-                        Content = BuildServerSearchSnippet(normalizedKeyword, row.Title, row.Summary, body: null)
-                    });
-                }
+                        result = "keyword_too_long";
+                        return [];
+                    }
 
-                return results;
+                    SearchRuntimeSnapshot? runtimeSnapshot = _runtimeSnapshot;
+                    if (runtimeSnapshot is not null)
+                    {
+                        return runtimeSnapshot.Search(normalizedKeyword);
+                    }
+
+                    string fallbackKeyword = NormalizeKeywordForFallback(normalizedKeyword);
+                    await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+                    ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+                    DateTime now = DateTime.UtcNow;
+                    var rows = await db.Queryable<Article>()
+                        .Where(article =>
+                            !article.IsDeleted
+                            && article.Status == ArticleStatus.Published
+                            && (article.PublishedAt == null || article.PublishedAt <= now)
+                            && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now)
+                            && (article.Title.ToLower().Contains(fallbackKeyword)
+                                || (article.Summary != null && article.Summary.ToLower().Contains(fallbackKeyword))))
+                        .OrderByDescending(article => article.Views)
+                        .OrderByDescending(article => article.CreateTime)
+                        .Take(200)
+                        .Select(article => new SearchArticleResultRow
+                        {
+                            Id = article.Id,
+                            Title = article.Title,
+                            Summary = article.Summary
+                        })
+                        .ToListAsync();
+
+                    var results = new List<Article>(rows.Count);
+                    foreach (SearchArticleResultRow row in rows)
+                    {
+                        results.Add(new Article
+                        {
+                            Id = row.Id,
+                            Title = row.Title ?? string.Empty,
+                            Content = BuildServerSearchSnippet(normalizedKeyword, row.Title, row.Summary, body: null)
+                        });
+                    }
+
+                    return results;
                 }
                 catch
                 {
@@ -244,27 +247,27 @@ public sealed partial class SearchIndexService(
                 FsusObservability.SetTag(activity, "fsus.search.mode", "rebuild");
                 try
                 {
-                await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-                ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
+                    await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+                    ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
 
-                List<SearchSourceArticle> articles = await LoadArticlesAsync(db);
-                string root = ResolveSearchRoot();
-                string dictionariesDirectory = Path.Combine(root, SearchDictionaryDirectory);
-                Directory.CreateDirectory(dictionariesDirectory);
+                    List<SearchSourceArticle> articles = await LoadArticlesAsync(db);
+                    string root = ResolveSearchRoot();
+                    string dictionariesDirectory = Path.Combine(root, SearchDictionaryDirectory);
+                    Directory.CreateDirectory(dictionariesDirectory);
 
-                string lexiconPath = Path.Combine(dictionariesDirectory, SearchLexiconBinaryFileName);
-                SearchDictionaryCompiler.CompileIfNeeded(
-                    Path.Combine(environment.ContentRootPath, SearchLexiconSourceDirectory),
-                    lexiconPath,
-                    logger);
+                    string lexiconPath = Path.Combine(dictionariesDirectory, SearchLexiconBinaryFileName);
+                    SearchDictionaryCompiler.CompileIfNeeded(
+                        Path.Combine(environment.ContentRootPath, SearchLexiconSourceDirectory),
+                        lexiconPath,
+                        logger);
 
-                using var dictionary = SearchDictionaryRuntime.Open(lexiconPath);
+                    using var dictionary = SearchDictionaryRuntime.Open(lexiconPath);
 
-                SearchBuildArtifacts artifacts = BuildArtifacts(articles, dictionary);
-                SearchRuntimeSnapshot runtimeSnapshot = SearchRuntimeSnapshot.Build(articles, dictionary);
-                _runtimeSnapshot = runtimeSnapshot;
-                FsusObservability.RecordSearchRuntimeSnapshotMemory(runtimeSnapshot.EstimatedMemoryBytes, "full");
-                await PublishArtifactsAsync(root, artifacts, upsertArticleIds, deletedArticleIds);
+                    SearchBuildArtifacts artifacts = BuildArtifacts(articles, dictionary);
+                    SearchRuntimeSnapshot runtimeSnapshot = SearchRuntimeSnapshot.Build(articles, dictionary);
+                    _runtimeSnapshot = runtimeSnapshot;
+                    FsusObservability.RecordSearchRuntimeSnapshotMemory(runtimeSnapshot.EstimatedMemoryBytes, "full");
+                    await PublishArtifactsAsync(root, artifacts, upsertArticleIds, deletedArticleIds);
                 }
                 catch
                 {

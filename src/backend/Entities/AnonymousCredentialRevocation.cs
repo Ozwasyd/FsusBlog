@@ -7,10 +7,16 @@ namespace FsusBlog.Server.Entities;
 public sealed class AnonymousCredentialRevocation
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "epoch")]
-    public long Epoch { get; set; }
+    public long Epoch
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "root_hash", Length = 128)]
     public string RootHash { get; set; } = string.Empty;
@@ -22,10 +28,16 @@ public sealed class AnonymousCredentialRevocation
     public string RevocationRootHash { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "reason", Length = 128, IsNullable = true)]
-    public string? Reason { get; set; }
+    public string? Reason
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "actor_id", Length = 128, IsNullable = true)]
-    public string? ActorId { get; set; }
+    public string? ActorId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revoked_at_utc")]
     public DateTime RevokedAtUtc { get; set; } = DateTime.UtcNow;

@@ -1,5 +1,7 @@
 using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.Helpers;
+
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Services.Security;
@@ -9,18 +11,42 @@ public sealed class ZkProdOptions
     public const string SectionName = "AnonymousIdentity:ZkProd";
     public const string NativeGroth16Backend = "native_groth16";
 
-    public bool Enabled { get; init; }
+    public bool Enabled
+    {
+        get; init;
+    }
     public bool RequireNativeVerifier { get; init; } = true;
     public bool RequireCredential { get; init; } = true;
     public bool RequireTrustedSetupVerified { get; init; } = true;
-    public bool AllowDevVerifier { get; init; }
-    public bool FallbackToLegacyAnonymous { get; init; }
+    public bool AllowDevVerifier
+    {
+        get; init;
+    }
+    public bool FallbackToLegacyAnonymous
+    {
+        get; init;
+    }
     public string VerifierBackend { get; init; } = NativeGroth16Backend;
-    public string? VerifyingKeyHash { get; init; }
-    public string? TrustedSetupManifestPath { get; init; }
-    public string? VerifyingKeyManifestPath { get; init; }
-    public bool TrustedSetupVerified { get; init; }
-    public bool CredentialReady { get; init; }
+    public string? VerifyingKeyHash
+    {
+        get; init;
+    }
+    public string? TrustedSetupManifestPath
+    {
+        get; init;
+    }
+    public string? VerifyingKeyManifestPath
+    {
+        get; init;
+    }
+    public bool TrustedSetupVerified
+    {
+        get; init;
+    }
+    public bool CredentialReady
+    {
+        get; init;
+    }
 
     public static ZkProdOptions FromConfiguration(IConfiguration configuration)
     {

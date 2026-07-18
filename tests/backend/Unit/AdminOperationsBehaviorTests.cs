@@ -1,6 +1,7 @@
-using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Models.Dtos;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.Server.Tests.Unit;

@@ -15,7 +15,10 @@ public readonly record struct SecurityRiskPseudonym(string Hash, int Epoch);
 
 public interface ISecurityRiskPseudonymizer
 {
-    int CurrentEpoch { get; }
+    int CurrentEpoch
+    {
+        get;
+    }
 
     SecurityRiskPseudonym PseudonymizeCurrent(SecurityRiskIdentityDomain domain, string value);
 

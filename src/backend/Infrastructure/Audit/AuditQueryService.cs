@@ -1,11 +1,14 @@
-using System.Globalization;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Models.Dtos;
+
 using Microsoft.AspNetCore.WebUtilities;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
@@ -126,7 +129,10 @@ public sealed class AuditQueryService(
             && cached.ExpiresAtUtc > now)
         {
             FsusObservability.RecordAuditSummaryCacheHit(auditSummaryCacheHit: true);
-            return cached.Response with { Runtime = ToRuntimeResponse(_runtimeState.Snapshot()) };
+            return cached.Response with
+            {
+                Runtime = ToRuntimeResponse(_runtimeState.Snapshot())
+            };
         }
 
         if (cached is not null)
@@ -451,7 +457,10 @@ public sealed class AuditQueryService(
     private sealed class AuditFacetRow
     {
         public string Value { get; set; } = string.Empty;
-        public int Count { get; set; }
+        public int Count
+        {
+            get; set;
+        }
     }
 
     internal readonly record struct AuditLogCursor(DateTime OccurredAtUtc, long Id);

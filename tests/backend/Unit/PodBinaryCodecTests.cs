@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -17,7 +18,9 @@ using FsusBlog.Shared.Contracts.AuthSystem;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Validation;
+
 using Microsoft.AspNetCore.Http;
+
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -899,7 +902,10 @@ public class PodBinaryCodecTests
         byte[] trailing = [.. encoded, 0xff];
         Assert.False(PodBinaryCodec.TryDecodeAnonymousCommentCreateRequest(trailing, out _));
 
-        var oversizedTicket = create with { Ticket = new byte[20 * 1024] };
+        var oversizedTicket = create with
+        {
+            Ticket = new byte[20 * 1024]
+        };
         byte[] oversizedEncoded = PodBinaryCodec.EncodeAnonymousCommentCreateRequest(oversizedTicket);
         Assert.False(PodBinaryCodec.TryDecodeAnonymousCommentCreateRequest(oversizedEncoded, out _));
 
@@ -1026,7 +1032,11 @@ public class PodBinaryCodecTests
         Assert.Equal("limited", decoded.BanReason);
         Assert.Equal(deletedAt, decoded.DeletedAt);
 
-        byte[] hiddenHandle = PodBinaryCodec.EncodeIdentityAccountSnapshot(snapshot with { PublicHandle = null, TotpStepUpEnabled = null });
+        byte[] hiddenHandle = PodBinaryCodec.EncodeIdentityAccountSnapshot(snapshot with
+        {
+            PublicHandle = null,
+            TotpStepUpEnabled = null
+        });
         Assert.True(PodBinaryCodec.TryDecodeIdentityAccountSnapshot(hiddenHandle, out var hiddenDecoded));
         Assert.Null(hiddenDecoded.PublicHandle);
         Assert.Null(hiddenDecoded.TotpStepUpEnabled);

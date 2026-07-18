@@ -1,4 +1,5 @@
 using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.Observability;
 
 namespace FsusBlog.Server.Modules.Endpoints;

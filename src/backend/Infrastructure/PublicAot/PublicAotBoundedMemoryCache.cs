@@ -5,9 +5,18 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public sealed class PublicAotFileShellCacheOptions
 {
-    public long MaxMemoryCacheBytes { get; set; }
-    public int MaxMemoryCacheEntries { get; set; }
-    public TimeSpan MemoryCacheEntryDeadline { get; set; }
+    public long MaxMemoryCacheBytes
+    {
+        get; set;
+    }
+    public int MaxMemoryCacheEntries
+    {
+        get; set;
+    }
+    public TimeSpan MemoryCacheEntryDeadline
+    {
+        get; set;
+    }
 }
 
 internal readonly record struct PublicAotMemoryCacheLimits(
@@ -94,7 +103,10 @@ internal sealed class PublicAotBoundedMemoryCache
         _timeProvider = timeProvider;
     }
 
-    internal PublicAotMemoryCacheLimits Limits { get; }
+    internal PublicAotMemoryCacheLimits Limits
+    {
+        get;
+    }
 
     internal PublicAotMemoryCacheEntry this[string cacheKey]
     {
@@ -187,7 +199,10 @@ internal sealed class PublicAotBoundedMemoryCache
             DateTimeOffset hardDeadline = now + Limits.EntryDeadline;
             if (entry.CacheDeadlineUtc > hardDeadline)
             {
-                entry = entry with { CacheDeadlineUtc = hardDeadline };
+                entry = entry with
+                {
+                    CacheDeadlineUtc = hardDeadline
+                };
             }
             _entries[cacheKey] = entry;
             _residentBytes = checked(_residentBytes + Math.Max(0, entry.SizeBytes));

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Moderation;
@@ -34,7 +35,10 @@ public sealed class ModerationRegionCatalogService(
     public string? LastError => Volatile.Read(ref _lastError);
 
     public ModerationRegionCatalogSnapshot GetRuntimeSnapshot()
-        => CurrentSnapshot with { LastError = LastError };
+        => CurrentSnapshot with
+        {
+            LastError = LastError
+        };
 
     public ModerationEffectivePolicyPreview PreviewEffectivePolicy(
         string regionCode,

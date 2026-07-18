@@ -10,10 +10,16 @@ namespace FsusBlog.Server.Entities;
 public sealed class CommentModerationSignal
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "comment_id")]
-    public long CommentId { get; set; }
+    public long CommentId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "provider", Length = 64)]
     public string Provider { get; set; } = string.Empty;
@@ -31,37 +37,67 @@ public sealed class CommentModerationSignal
     public string Severity { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "confidence")]
-    public double Confidence { get; set; }
+    public double Confidence
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "primary_reason", Length = 128, IsNullable = true)]
-    public string? PrimaryReason { get; set; }
+    public string? PrimaryReason
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "needs_second_round")]
-    public bool NeedsSecondRound { get; set; }
+    public bool NeedsSecondRound
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "risk_categories", ColumnDataType = "text", IsNullable = true)]
-    public string? RiskCategories { get; set; }
+    public string? RiskCategories
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "evidence_json", ColumnDataType = "text", IsNullable = true)]
-    public string? EvidenceJson { get; set; }
+    public string? EvidenceJson
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "raw_reason", ColumnDataType = "text", IsNullable = true)]
-    public string? RawReason { get; set; }
+    public string? RawReason
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "latency_ms")]
-    public int LatencyMs { get; set; }
+    public int LatencyMs
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "status", Length = 32)]
     public string Status { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "error_code", Length = 64, IsNullable = true)]
-    public string? ErrorCode { get; set; }
+    public string? ErrorCode
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "threshold_profile", Length = 128, IsNullable = true)]
-    public string? ThresholdProfile { get; set; }
+    public string? ThresholdProfile
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "metadata_json", ColumnDataType = "text", IsNullable = true)]
-    public string? MetadataJson { get; set; }
+    public string? MetadataJson
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "created_at_utc")]
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

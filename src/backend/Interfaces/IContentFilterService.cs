@@ -1,4 +1,4 @@
-﻿namespace FsusBlog.Server.Interfaces;
+namespace FsusBlog.Server.Interfaces;
 
 public readonly record struct ContentValidationResult(bool IsValid, string ReasonCode, string Message);
 

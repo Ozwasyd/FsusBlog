@@ -8,9 +8,15 @@ namespace FsusBlog.Server.Entities;
 public sealed class AdminPasskeyCredential
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
-    public long AdminPrincipalId { get; set; }
+    public long AdminPrincipalId
+    {
+        get; set;
+    }
 
     [SugarColumn(Length = 512)]
     public string CredentialId { get; set; } = string.Empty;
@@ -22,25 +28,43 @@ public sealed class AdminPasskeyCredential
     public string PublicKey { get; set; } = string.Empty;
 
     [SugarColumn(DefaultValue = "0")]
-    public long SignCount { get; set; }
+    public long SignCount
+    {
+        get; set;
+    }
 
     [SugarColumn(Length = 64, IsNullable = true)]
-    public string? DeviceFriendlyName { get; set; }
+    public string? DeviceFriendlyName
+    {
+        get; set;
+    }
 
     [SugarColumn(Length = 36)]
     public string AaGuid { get; set; } = string.Empty;
 
     [SugarColumn(Length = 128, IsNullable = true)]
-    public string? Transports { get; set; }
+    public string? Transports
+    {
+        get; set;
+    }
 
     [SugarColumn(DefaultValue = "false")]
-    public bool BackupEligible { get; set; }
+    public bool BackupEligible
+    {
+        get; set;
+    }
 
     [SugarColumn(DefaultValue = "false")]
-    public bool BackupState { get; set; }
+    public bool BackupState
+    {
+        get; set;
+    }
 
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(IsNullable = true)]
-    public DateTime? LastUsedAtUtc { get; set; }
+    public DateTime? LastUsedAtUtc
+    {
+        get; set;
+    }
 }

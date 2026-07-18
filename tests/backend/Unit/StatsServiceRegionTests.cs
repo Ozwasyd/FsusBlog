@@ -1,4 +1,5 @@
 using System.Reflection;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -6,9 +7,12 @@ using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -179,9 +183,18 @@ public sealed class StatsServiceRegionTests(PostgresSchemaMigrationFixture fixtu
 
     private sealed class RecordingCacheMissCoordinator(AdminStatsOverviewDto result) : ICacheMissCoordinator
     {
-        public CachePolicyId? PolicyId { get; private set; }
-        public string? Identity { get; private set; }
-        public string? Operation { get; private set; }
+        public CachePolicyId? PolicyId
+        {
+            get; private set;
+        }
+        public string? Identity
+        {
+            get; private set;
+        }
+        public string? Operation
+        {
+            get; private set;
+        }
 
         public Task<T?> CoordinateAsync<T>(
             CachePolicyId policyId,

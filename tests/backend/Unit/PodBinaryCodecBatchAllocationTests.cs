@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Core.Mapping.Models;
@@ -99,7 +100,10 @@ public sealed class PodBinaryCodecBatchAllocationTests
             1,
             2,
             new TextProfile("invalid", "title", "summary", "category"));
-        ArticleListCoreModel invalidItem = validPage.Items[0] with { Title = "\uD800" };
+        ArticleListCoreModel invalidItem = validPage.Items[0] with
+        {
+            Title = "\uD800"
+        };
         CorePageResult<ArticleListCoreModel> page = validPage with
         {
             Items = new[] { invalidItem }
@@ -299,9 +303,18 @@ public sealed class PodBinaryCodecBatchAllocationTests
 
     private sealed class TrackingArrayPool<T> : ArrayPool<T>
     {
-        public int RentCount { get; private set; }
-        public int ReturnCount { get; private set; }
-        public bool LastClearArray { get; private set; }
+        public int RentCount
+        {
+            get; private set;
+        }
+        public int ReturnCount
+        {
+            get; private set;
+        }
+        public bool LastClearArray
+        {
+            get; private set;
+        }
 
         public override T[] Rent(int minimumLength)
         {
@@ -322,8 +335,14 @@ public sealed class PodBinaryCodecBatchAllocationTests
 
     private sealed class ThrowingArrayPool<T> : ArrayPool<T>
     {
-        public int RentCount { get; private set; }
-        public int ReturnCount { get; private set; }
+        public int RentCount
+        {
+            get; private set;
+        }
+        public int ReturnCount
+        {
+            get; private set;
+        }
 
         public override T[] Rent(int minimumLength)
         {
@@ -523,17 +542,28 @@ public sealed class PodBinaryCodecBatchAllocationTests
         private static int BuildRightsFlags(ArticleRightsCoreModel rights)
         {
             int flags = 0;
-            if (rights.Enabled) flags |= RightsFlagEnabled;
-            if (rights.AllowCodeCopy) flags |= RightsFlagAllowCodeCopy;
-            if (rights.ShowPublicBadge) flags |= RightsFlagShowPublicBadge;
-            if (rights.ProofBindingEnabled) flags |= RightsFlagProofBindingEnabled;
-            if (rights.CopyrightYear.HasValue) flags |= RightsFlagHasCopyrightYear;
-            if (!string.IsNullOrEmpty(rights.CopyrightHolder)) flags |= RightsFlagHasCopyrightHolder;
-            if (!string.IsNullOrEmpty(rights.RightsStatement)) flags |= RightsFlagHasRightsStatement;
-            if (!string.IsNullOrEmpty(rights.AttributionTemplate)) flags |= RightsFlagHasAttributionTemplate;
-            if (!string.IsNullOrEmpty(rights.CanonicalUrl)) flags |= RightsFlagHasCanonicalUrl;
-            if (!string.IsNullOrEmpty(rights.ProofUrl)) flags |= RightsFlagHasProofUrl;
-            if (!string.IsNullOrEmpty(rights.ProofStatus)) flags |= RightsFlagHasProofStatus;
+            if (rights.Enabled)
+                flags |= RightsFlagEnabled;
+            if (rights.AllowCodeCopy)
+                flags |= RightsFlagAllowCodeCopy;
+            if (rights.ShowPublicBadge)
+                flags |= RightsFlagShowPublicBadge;
+            if (rights.ProofBindingEnabled)
+                flags |= RightsFlagProofBindingEnabled;
+            if (rights.CopyrightYear.HasValue)
+                flags |= RightsFlagHasCopyrightYear;
+            if (!string.IsNullOrEmpty(rights.CopyrightHolder))
+                flags |= RightsFlagHasCopyrightHolder;
+            if (!string.IsNullOrEmpty(rights.RightsStatement))
+                flags |= RightsFlagHasRightsStatement;
+            if (!string.IsNullOrEmpty(rights.AttributionTemplate))
+                flags |= RightsFlagHasAttributionTemplate;
+            if (!string.IsNullOrEmpty(rights.CanonicalUrl))
+                flags |= RightsFlagHasCanonicalUrl;
+            if (!string.IsNullOrEmpty(rights.ProofUrl))
+                flags |= RightsFlagHasProofUrl;
+            if (!string.IsNullOrEmpty(rights.ProofStatus))
+                flags |= RightsFlagHasProofStatus;
             return flags;
         }
 

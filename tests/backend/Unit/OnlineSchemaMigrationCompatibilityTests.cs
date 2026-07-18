@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+
 using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -151,9 +152,18 @@ public sealed class OnlineSchemaMigrationCompatibilityTests
             DateTimeOffset.UtcNow,
             "20260712-release",
             true);
-        OnlineSchemaMigrationHistorySnapshot duplicate = mismatch with { MigrationId = "20260712-pre-duplicate" };
-        OnlineSchemaMigrationHistorySnapshot duplicateAgain = duplicate with { AppliedAtUtc = DateTimeOffset.UtcNow.AddMinutes(1) };
-        OnlineSchemaMigrationHistorySnapshot unknown = mismatch with { MigrationId = "20260712-pre-unknown" };
+        OnlineSchemaMigrationHistorySnapshot duplicate = mismatch with
+        {
+            MigrationId = "20260712-pre-duplicate"
+        };
+        OnlineSchemaMigrationHistorySnapshot duplicateAgain = duplicate with
+        {
+            AppliedAtUtc = DateTimeOffset.UtcNow.AddMinutes(1)
+        };
+        OnlineSchemaMigrationHistorySnapshot unknown = mismatch with
+        {
+            MigrationId = "20260712-pre-unknown"
+        };
         var database = new OnlineSchemaDatabaseSnapshot(
             true,
             "20260712-schema",

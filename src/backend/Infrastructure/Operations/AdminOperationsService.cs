@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Diagnostics;
 using System.Reflection;
 using System.Text;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -17,6 +18,7 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
@@ -311,36 +313,36 @@ public sealed class AdminOperationsService(
                     cacheInvalidationDispatcher.InvalidateSeoAsync(cancellationToken));
                 return ActionResult(action, "ok", "output/cache tags invalidated");
             case "recompute-article-rights":
-            {
-                ArticleDetailAedsArtifactMaintenanceResult result =
-                    await articleDetailAedsMaintenance.RecomputeArticleRightsAsync(cancellationToken);
-                return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
-            }
+                {
+                    ArticleDetailAedsArtifactMaintenanceResult result =
+                        await articleDetailAedsMaintenance.RecomputeArticleRightsAsync(cancellationToken);
+                    return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
+                }
             case "rebuild-article-detail-aeds-v3":
-            {
-                bool all = request.ArticleId is not > 0;
-                ArticleDetailAedsArtifactMaintenanceResult result =
-                    await articleDetailAedsMaintenance.RebuildArticleDetailAedsV3Async(all, request.ArticleId, cancellationToken);
-                return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
-            }
+                {
+                    bool all = request.ArticleId is not > 0;
+                    ArticleDetailAedsArtifactMaintenanceResult result =
+                        await articleDetailAedsMaintenance.RebuildArticleDetailAedsV3Async(all, request.ArticleId, cancellationToken);
+                    return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
+                }
             case PublicArticleProjectionAdminActions.Status:
-            {
-                PublicArticleProjectionBackfillState state =
-                    await articleDetailAedsMaintenance.GetPublicProjectionBackfillStateAsync(cancellationToken);
-                return ActionResult(
-                    action,
-                    state.State,
-                    $"lastArticleId={state.LastArticleId}, ratePerSecond={state.RatePerSecond}, rebuilt={state.RebuiltCount}, failed={state.FailedCount}, updatedAt={state.UpdatedAtUtc:O}");
-            }
+                {
+                    PublicArticleProjectionBackfillState state =
+                        await articleDetailAedsMaintenance.GetPublicProjectionBackfillStateAsync(cancellationToken);
+                    return ActionResult(
+                        action,
+                        state.State,
+                        $"lastArticleId={state.LastArticleId}, ratePerSecond={state.RatePerSecond}, rebuilt={state.RebuiltCount}, failed={state.FailedCount}, updatedAt={state.UpdatedAtUtc:O}");
+                }
             case PublicArticleProjectionAdminActions.Pause:
                 await articleDetailAedsMaintenance.PausePublicProjectionBackfillAsync(cancellationToken);
                 return ActionResult(action, "paused", "public article projection backfill paused at the durable watermark");
             case PublicArticleProjectionAdminActions.Resume:
-            {
-                ArticleDetailAedsArtifactMaintenanceResult result =
-                    await articleDetailAedsMaintenance.ResumePublicProjectionBackfillAsync(cancellationToken);
-                return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
-            }
+                {
+                    ArticleDetailAedsArtifactMaintenanceResult result =
+                        await articleDetailAedsMaintenance.ResumePublicProjectionBackfillAsync(cancellationToken);
+                    return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
+                }
             case "sitemap-feed-refresh":
                 await cacheInvalidationDispatcher.InvalidateSeoAsync(cancellationToken);
                 return ActionResult(action, "ok", "feed/sitemap cache invalidated");
@@ -460,7 +462,10 @@ public sealed class AdminOperationsService(
             .Select(static group =>
             {
                 RecentOpsErrorResponse latest = group.OrderByDescending(static item => item.OccurredAt).First();
-                return latest with { Count = group.Sum(static item => Math.Max(1, item.Count)) };
+                return latest with
+                {
+                    Count = group.Sum(static item => Math.Max(1, item.Count))
+                };
             })
             .OrderByDescending(static item => item.OccurredAt)
             .Take(maxItems)
@@ -1476,72 +1481,129 @@ public sealed class AdminOperationsService(
 
     private sealed class IntegrityArticleRow
     {
-        public int Id { get; init; }
+        public int Id
+        {
+            get; init;
+        }
 
-        public int CategoryId { get; init; }
+        public int CategoryId
+        {
+            get; init;
+        }
 
-        public ArticleStatus Status { get; init; }
+        public ArticleStatus Status
+        {
+            get; init;
+        }
     }
 
     private sealed class IntegrityArticleBodyRow
     {
-        public int ArticleId { get; init; }
+        public int ArticleId
+        {
+            get; init;
+        }
     }
 
     private sealed class IntegrityArticleRevisionRow
     {
-        public int ArticleId { get; init; }
+        public int ArticleId
+        {
+            get; init;
+        }
     }
 
     private sealed class IntegrityCategoryRow
     {
-        public int Id { get; init; }
+        public int Id
+        {
+            get; init;
+        }
     }
 
     private sealed class IntegrityTagRow
     {
-        public int Id { get; init; }
+        public int Id
+        {
+            get; init;
+        }
     }
 
     private sealed class IntegrityArticleTagRow
     {
-        public int ArticleId { get; init; }
+        public int ArticleId
+        {
+            get; init;
+        }
 
-        public int TagId { get; init; }
+        public int TagId
+        {
+            get; init;
+        }
     }
 
     private sealed class IntegrityCommentRow
     {
-        public long Id { get; init; }
+        public long Id
+        {
+            get; init;
+        }
 
-        public int ArticleId { get; init; }
+        public int ArticleId
+        {
+            get; init;
+        }
 
-        public long? ParentId { get; init; }
+        public long? ParentId
+        {
+            get; init;
+        }
 
-        public long? RootId { get; init; }
+        public long? RootId
+        {
+            get; init;
+        }
     }
 
     private sealed class IntegrityUserRow
     {
-        public int Id { get; init; }
+        public int Id
+        {
+            get; init;
+        }
 
-        public int Status { get; init; }
+        public int Status
+        {
+            get; init;
+        }
 
-        public DateTime? DeletedAt { get; init; }
+        public DateTime? DeletedAt
+        {
+            get; init;
+        }
     }
 
     private sealed class IntegritySessionRow
     {
         public string SessionId { get; init; } = string.Empty;
 
-        public int UserId { get; init; }
+        public int UserId
+        {
+            get; init;
+        }
 
-        public DateTime? RevokedAt { get; init; }
+        public DateTime? RevokedAt
+        {
+            get; init;
+        }
     }
 
     private sealed class IntegrityAssetRow
     {
-        public long Id { get; init; }
+        public long Id
+        {
+            get; init;
+        }
 
         public string Url { get; init; } = string.Empty;
     }
@@ -1549,7 +1611,10 @@ public sealed class AdminOperationsService(
 
 internal sealed class RecentOpsErrorAuditRow
 {
-    public DateTime OccurredAtUtc { get; init; }
+    public DateTime OccurredAtUtc
+    {
+        get; init;
+    }
 
     public string Severity { get; init; } = string.Empty;
 

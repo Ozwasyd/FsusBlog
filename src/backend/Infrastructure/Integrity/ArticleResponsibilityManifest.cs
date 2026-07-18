@@ -1,7 +1,9 @@
-using System.Text.Json;
 using System.Net;
+using System.Text.Json;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicAot;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Integrity;
@@ -283,8 +285,12 @@ public sealed class ArticleResponsibilityManifestService(
 
     private static T? Deserialize<T>(string? json)
     {
-        if (string.IsNullOrWhiteSpace(json)) return default;
-        try { return JsonSerializer.Deserialize<T>(json, JsonOptions); }
+        if (string.IsNullOrWhiteSpace(json))
+            return default;
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, JsonOptions);
+        }
         catch (JsonException) { return default; }
     }
 
@@ -349,7 +355,8 @@ public sealed class ArticleResponsibilityAuthoringService(
         ArticleRevision? revision = await db.Queryable<ArticleRevision>()
             .Where(it => it.ArticleId == articleId && it.Id == articleRevisionId)
             .FirstAsync(cancellationToken);
-        if (revision is null) return null;
+        if (revision is null)
+            return null;
 
         IReadOnlyList<Models.Dtos.PrepublishIssue> issues = ArticleResponsibilityGovernance.Evaluate(draft);
         if (issues.Any(static issue => string.Equals(issue.Severity, "error", StringComparison.OrdinalIgnoreCase)))

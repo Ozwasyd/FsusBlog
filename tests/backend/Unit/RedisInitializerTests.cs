@@ -1,9 +1,12 @@
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Unit;

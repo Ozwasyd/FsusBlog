@@ -9,13 +9,19 @@ namespace FsusBlog.Server.Entities;
 public sealed class AnonymousCredentialIssuanceAudit
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "subject_hash", Length = 64)]
     public string SubjectHash { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "epoch")]
-    public long Epoch { get; set; }
+    public long Epoch
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "status", Length = 32)]
     public string Status { get; set; } = AnonymousCredentialIssuanceStatuses.Issued;

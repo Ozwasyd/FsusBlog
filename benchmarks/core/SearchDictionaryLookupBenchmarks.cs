@@ -1,4 +1,5 @@
 using System.Text;
+
 using BenchmarkDotNet.Attributes;
 
 [MemoryDiagnoser]
@@ -10,7 +11,10 @@ public class SearchDictionaryLookupBenchmarks
     private TrieLookup _trie = null!;
 
     [Params(128, 1024, 8192)]
-    public int DictionarySize { get; set; }
+    public int DictionarySize
+    {
+        get; set;
+    }
 
     [GlobalSetup]
     public void Setup()
@@ -226,7 +230,10 @@ public class SearchDictionaryLookupBenchmarks
         private sealed class TrieBuildNode
         {
             public SortedDictionary<uint, int> Children { get; } = [];
-            public uint? TerminalEntryIndex { get; set; }
+            public uint? TerminalEntryIndex
+            {
+                get; set;
+            }
         }
 
         private readonly record struct TrieNode(uint FirstEdgeIndex, uint EdgeCount, uint TerminalEntryIndex);

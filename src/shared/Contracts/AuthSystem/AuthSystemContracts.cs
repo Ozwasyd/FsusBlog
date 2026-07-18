@@ -29,7 +29,10 @@ public readonly record struct AdminAccountListItemContract(
 
 public sealed record class AdminUserPageContract
 {
-    public int Total { get; init; }
+    public int Total
+    {
+        get; init;
+    }
     public List<AdminAccountListItemContract> Items { get; init; } = [];
 }
 

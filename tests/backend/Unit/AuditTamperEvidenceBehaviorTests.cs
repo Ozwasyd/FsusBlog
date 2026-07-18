@@ -1,9 +1,11 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.PublicAot;
+
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -129,8 +131,14 @@ public sealed class AuditTamperEvidenceBehaviorTests
     {
         byte[] key = Encoding.UTF8.GetBytes(ValidTamperKey);
 
-        AuditTamperEvidenceResult first = AuditTamperEvidence.Sign(BuildTamperRecord() with { PrevHash = "head-a" }, key);
-        AuditTamperEvidenceResult second = AuditTamperEvidence.Sign(BuildTamperRecord() with { PrevHash = "head-b" }, key);
+        AuditTamperEvidenceResult first = AuditTamperEvidence.Sign(BuildTamperRecord() with
+        {
+            PrevHash = "head-a"
+        }, key);
+        AuditTamperEvidenceResult second = AuditTamperEvidence.Sign(BuildTamperRecord() with
+        {
+            PrevHash = "head-b"
+        }, key);
 
         Assert.NotEqual(first.RecordHash, second.RecordHash);
         Assert.NotEqual(first.RecordMac, second.RecordMac);

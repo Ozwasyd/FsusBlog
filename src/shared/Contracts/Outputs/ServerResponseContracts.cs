@@ -21,32 +21,83 @@ public readonly record struct PasskeyCredentialSummaryDto(
 public sealed record class PageResponse<T>
 {
     public List<T> Items { get; init; } = [];
-    public int Total { get; init; }
-    public string? NextCursor { get; init; }
-    public bool HasMore { get; init; }
+    public int Total
+    {
+        get; init;
+    }
+    public string? NextCursor
+    {
+        get; init;
+    }
+    public bool HasMore
+    {
+        get; init;
+    }
 }
 
 public sealed record class CursorResponse<T>
 {
     public List<T> Data { get; init; } = [];
-    public string? NextCursor { get; init; }
-    public bool HasMore { get; init; }
+    public string? NextCursor
+    {
+        get; init;
+    }
+    public bool HasMore
+    {
+        get; init;
+    }
 }
 
 public record struct ArticleListItemResponse
 {
-    public int Id { get; set; }
-    public string Title { get; set; }
-    public string? Summary { get; set; }
-    public string? CoverImageUrl { get; set; }
-    public int Views { get; set; }
-    public DateTime CreateTime { get; set; }
-    public ArticleCategoryView Category { get; set; }
-    public List<TagDto> Tags { get; set; }
-    public bool? IsDeleted { get; set; }
-    public int Status { get; set; }
-    public DateTime? ScheduledPublishAt { get; set; }
-    public DateTime? PublishedAt { get; set; }
+    public int Id
+    {
+        get; set;
+    }
+    public string Title
+    {
+        get; set;
+    }
+    public string? Summary
+    {
+        get; set;
+    }
+    public string? CoverImageUrl
+    {
+        get; set;
+    }
+    public int Views
+    {
+        get; set;
+    }
+    public DateTime CreateTime
+    {
+        get; set;
+    }
+    public ArticleCategoryView Category
+    {
+        get; set;
+    }
+    public List<TagDto> Tags
+    {
+        get; set;
+    }
+    public bool? IsDeleted
+    {
+        get; set;
+    }
+    public int Status
+    {
+        get; set;
+    }
+    public DateTime? ScheduledPublishAt
+    {
+        get; set;
+    }
+    public DateTime? PublishedAt
+    {
+        get; set;
+    }
 
     public ArticleListItemResponse()
     {
@@ -58,28 +109,82 @@ public record struct ArticleListItemResponse
 
 public record struct CategoryListItemResponse
 {
-    public int Id { get; set; }
-    public required string Name { get; set; }
-    public int ArticleCount { get; set; }
+    public int Id
+    {
+        get; set;
+    }
+    public required string Name
+    {
+        get; set;
+    }
+    public int ArticleCount
+    {
+        get; set;
+    }
 }
 
 public record struct ArticleDetailResponse
 {
-    public int Id { get; set; }
-    public string Title { get; set; }
-    public string Content { get; set; }
-    public string? Summary { get; set; }
-    public string? CoverImageUrl { get; set; }
-    public int Views { get; set; }
-    public DateTime CreateTime { get; set; }
-    public ArticleCategoryView Category { get; set; }
-    public List<TagDto> Tags { get; set; }
-    public bool IsDeleted { get; set; }
-    public int Status { get; set; }
-    public DateTime? ScheduledPublishAt { get; set; }
-    public DateTime? PublishedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-    public ArticleRightsResponse Rights { get; set; }
+    public int Id
+    {
+        get; set;
+    }
+    public string Title
+    {
+        get; set;
+    }
+    public string Content
+    {
+        get; set;
+    }
+    public string? Summary
+    {
+        get; set;
+    }
+    public string? CoverImageUrl
+    {
+        get; set;
+    }
+    public int Views
+    {
+        get; set;
+    }
+    public DateTime CreateTime
+    {
+        get; set;
+    }
+    public ArticleCategoryView Category
+    {
+        get; set;
+    }
+    public List<TagDto> Tags
+    {
+        get; set;
+    }
+    public bool IsDeleted
+    {
+        get; set;
+    }
+    public int Status
+    {
+        get; set;
+    }
+    public DateTime? ScheduledPublishAt
+    {
+        get; set;
+    }
+    public DateTime? PublishedAt
+    {
+        get; set;
+    }
+    public DateTime? UpdatedAt
+    {
+        get; set;
+    }
+    public ArticleRightsResponse Rights
+    {
+        get; set;
+    }
 
     public ArticleDetailResponse()
     {
@@ -93,25 +198,82 @@ public record struct ArticleDetailResponse
 
 public record struct ArticleRightsResponse
 {
-    public long SnapshotId { get; set; }
-    public long ArticleRevisionId { get; set; }
-    public int RevisionNo { get; set; }
-    public bool Enabled { get; set; }
-    public string LicenseType { get; set; }
-    public string? CopyrightHolder { get; set; }
-    public int? CopyrightYear { get; set; }
-    public string? RightsStatement { get; set; }
-    public string? AttributionTemplate { get; set; }
-    public string CopyPolicy { get; set; }
-    public int MaxExcerptChars { get; set; }
-    public bool AllowCodeCopy { get; set; }
-    public bool ShowPublicBadge { get; set; }
-    public bool ProofBindingEnabled { get; set; }
-    public string? CanonicalUrl { get; set; }
-    public string PolicyHash { get; set; }
-    public string ContentCanonicalHash { get; set; }
-    public string? ProofUrl { get; set; }
-    public string? ProofStatus { get; set; }
+    public long SnapshotId
+    {
+        get; set;
+    }
+    public long ArticleRevisionId
+    {
+        get; set;
+    }
+    public int RevisionNo
+    {
+        get; set;
+    }
+    public bool Enabled
+    {
+        get; set;
+    }
+    public string LicenseType
+    {
+        get; set;
+    }
+    public string? CopyrightHolder
+    {
+        get; set;
+    }
+    public int? CopyrightYear
+    {
+        get; set;
+    }
+    public string? RightsStatement
+    {
+        get; set;
+    }
+    public string? AttributionTemplate
+    {
+        get; set;
+    }
+    public string CopyPolicy
+    {
+        get; set;
+    }
+    public int MaxExcerptChars
+    {
+        get; set;
+    }
+    public bool AllowCodeCopy
+    {
+        get; set;
+    }
+    public bool ShowPublicBadge
+    {
+        get; set;
+    }
+    public bool ProofBindingEnabled
+    {
+        get; set;
+    }
+    public string? CanonicalUrl
+    {
+        get; set;
+    }
+    public string PolicyHash
+    {
+        get; set;
+    }
+    public string ContentCanonicalHash
+    {
+        get; set;
+    }
+    public string? ProofUrl
+    {
+        get; set;
+    }
+    public string? ProofStatus
+    {
+        get; set;
+    }
 
     public ArticleRightsResponse()
     {
@@ -205,19 +367,58 @@ public sealed record class SiteSubscriptionBinaryResponse(
 
 public record struct UserCommentResponse
 {
-    public long Id { get; init; }
-    public string Content { get; init; }
-    public DateTime CreateTime { get; init; }
-    public int ArticleId { get; init; }
-    public string ArticleTitle { get; init; }
-    public long? RootId { get; init; }
-    public CommentAuthorViewDto Author { get; init; }
-    public CommentAuthorViewDto? ReplyToAuthor { get; init; }
-    public int ModerationStatus { get; init; }
-    public string ModerationStatusLabel { get; init; }
-    public string VisibilityState { get; init; }
-    public string VisibilityReasonCode { get; init; }
-    public bool IsPubliclyVisible { get; init; }
+    public long Id
+    {
+        get; init;
+    }
+    public string Content
+    {
+        get; init;
+    }
+    public DateTime CreateTime
+    {
+        get; init;
+    }
+    public int ArticleId
+    {
+        get; init;
+    }
+    public string ArticleTitle
+    {
+        get; init;
+    }
+    public long? RootId
+    {
+        get; init;
+    }
+    public CommentAuthorViewDto Author
+    {
+        get; init;
+    }
+    public CommentAuthorViewDto? ReplyToAuthor
+    {
+        get; init;
+    }
+    public int ModerationStatus
+    {
+        get; init;
+    }
+    public string ModerationStatusLabel
+    {
+        get; init;
+    }
+    public string VisibilityState
+    {
+        get; init;
+    }
+    public string VisibilityReasonCode
+    {
+        get; init;
+    }
+    public bool IsPubliclyVisible
+    {
+        get; init;
+    }
 
     public UserCommentResponse()
     {
@@ -407,10 +608,16 @@ public sealed record class SeoConfigAdminDto
 
 public record class SiteComplianceConfigPublicDto
 {
-    public bool Enabled { get; init; }
+    public bool Enabled
+    {
+        get; init;
+    }
     public string RegionMode { get; init; } = "global";
     public string CopyrightOwner { get; init; } = string.Empty;
-    public int? CopyrightStartYear { get; init; }
+    public int? CopyrightStartYear
+    {
+        get; init;
+    }
     public string CopyrightText { get; init; } = string.Empty;
     public string ContentLicenseName { get; init; } = string.Empty;
     public string ContentLicenseUrl { get; init; } = string.Empty;
@@ -427,14 +634,26 @@ public sealed record class SiteComplianceConfigAdminDto : SiteComplianceConfigPu
 
 public sealed record class PageContentPublicDto
 {
-    public string? Slug { get; init; }
-    public string? Content { get; init; }
+    public string? Slug
+    {
+        get; init;
+    }
+    public string? Content
+    {
+        get; init;
+    }
 }
 
 public sealed record class PageContentAdminDto
 {
-    public string? Slug { get; init; }
-    public string? Content { get; init; }
+    public string? Slug
+    {
+        get; init;
+    }
+    public string? Content
+    {
+        get; init;
+    }
 }
 
 public readonly record struct CommentItemDto(string Id, string Content, DateTime CreateTime, CommentAuthorViewDto Author);
@@ -484,14 +703,38 @@ public readonly record struct CommentDeleteQueryResult(int UserId, int ArticleId
 
 public sealed record class StatsSummaryDto
 {
-    public int TotalArticles { get; init; }
-    public int TotalComments { get; init; }
-    public int TrashCount { get; init; }
-    public int TotalReads { get; init; }
-    public int HumanVerifiedReads { get; init; }
-    public int UniqueViewerKeyEstimate { get; init; }
-    public int ArticleReads { get; init; }
-    public int SiteReads { get; init; }
+    public int TotalArticles
+    {
+        get; init;
+    }
+    public int TotalComments
+    {
+        get; init;
+    }
+    public int TrashCount
+    {
+        get; init;
+    }
+    public int TotalReads
+    {
+        get; init;
+    }
+    public int HumanVerifiedReads
+    {
+        get; init;
+    }
+    public int UniqueViewerKeyEstimate
+    {
+        get; init;
+    }
+    public int ArticleReads
+    {
+        get; init;
+    }
+    public int SiteReads
+    {
+        get; init;
+    }
 }
 
 public sealed record class AdminStatsOverviewDto
@@ -564,20 +807,44 @@ public sealed record class ConversationListItemResponse
     public string ConversationId { get; init; } = string.Empty;
     public string Subject { get; init; } = string.Empty;
     public ConversationStatusValue Status { get; init; } = ConversationStatusValue.Open;
-    public bool IsSystemSource { get; init; }
-    public bool CanReply { get; init; }
-    public int UnreadCount { get; init; }
-    public DateTime LastMessageAt { get; init; }
-    public DateTime UpdatedAt { get; init; }
-    public ConversationMessagePreviewResponse? LastMessage { get; init; }
+    public bool IsSystemSource
+    {
+        get; init;
+    }
+    public bool CanReply
+    {
+        get; init;
+    }
+    public int UnreadCount
+    {
+        get; init;
+    }
+    public DateTime LastMessageAt
+    {
+        get; init;
+    }
+    public DateTime UpdatedAt
+    {
+        get; init;
+    }
+    public ConversationMessagePreviewResponse? LastMessage
+    {
+        get; init;
+    }
 }
 
 public sealed record class ConversationMessagePreviewResponse
 {
     public ConversationSenderValue SenderType { get; init; } = ConversationSenderValue.System;
-    public string? SenderName { get; init; }
+    public string? SenderName
+    {
+        get; init;
+    }
     public string BodyPreview { get; init; } = string.Empty;
-    public DateTime CreatedAt { get; init; }
+    public DateTime CreatedAt
+    {
+        get; init;
+    }
 }
 
 public sealed record class ConversationMessageResponse
@@ -585,9 +852,15 @@ public sealed record class ConversationMessageResponse
     public string MessageId { get; init; } = string.Empty;
     public string ConversationId { get; init; } = string.Empty;
     public ConversationSenderValue SenderType { get; init; } = ConversationSenderValue.System;
-    public string? SenderName { get; init; }
+    public string? SenderName
+    {
+        get; init;
+    }
     public string Body { get; init; } = string.Empty;
-    public DateTime CreatedAt { get; init; }
+    public DateTime CreatedAt
+    {
+        get; init;
+    }
 }
 
 public sealed record class ConversationDetailResponse
@@ -595,43 +868,94 @@ public sealed record class ConversationDetailResponse
     public string ConversationId { get; init; } = string.Empty;
     public string Subject { get; init; } = string.Empty;
     public ConversationStatusValue Status { get; init; } = ConversationStatusValue.Open;
-    public bool IsSystemSource { get; init; }
-    public bool CanReply { get; init; }
-    public int UnreadCount { get; init; }
-    public DateTime LastMessageAt { get; init; }
+    public bool IsSystemSource
+    {
+        get; init;
+    }
+    public bool CanReply
+    {
+        get; init;
+    }
+    public int UnreadCount
+    {
+        get; init;
+    }
+    public DateTime LastMessageAt
+    {
+        get; init;
+    }
     public List<ConversationMessageResponse> Messages { get; init; } = [];
 }
 
 public readonly record struct CommentPushDto
 {
-    public string Id { get; init; }
+    public string Id
+    {
+        get; init;
+    }
 
-    public string Content { get; init; }
+    public string Content
+    {
+        get; init;
+    }
 
-    public DateTime CreateTime { get; init; }
+    public DateTime CreateTime
+    {
+        get; init;
+    }
 
-    public CommentAuthorViewDto Author { get; init; }
+    public CommentAuthorViewDto Author
+    {
+        get; init;
+    }
 
-    public string? ParentId { get; init; }
+    public string? ParentId
+    {
+        get; init;
+    }
 
-    public string? RootId { get; init; }
+    public string? RootId
+    {
+        get; init;
+    }
 
-    public CommentAuthorViewDto? ReplyToAuthor { get; init; }
+    public CommentAuthorViewDto? ReplyToAuthor
+    {
+        get; init;
+    }
 
-    public string? ReplyToCommentId { get; init; }
+    public string? ReplyToCommentId
+    {
+        get; init;
+    }
 
-    public int Depth { get; init; }
+    public int Depth
+    {
+        get; init;
+    }
 
-    public bool IsDeleted { get; init; }
+    public bool IsDeleted
+    {
+        get; init;
+    }
 }
 
 public readonly record struct CommentAddedNotifyDto
 {
-    public int ArticleId { get; init; }
+    public int ArticleId
+    {
+        get; init;
+    }
 
-    public CommentPushDto Comment { get; init; }
+    public CommentPushDto Comment
+    {
+        get; init;
+    }
 
-    public DateTime Time { get; init; }
+    public DateTime Time
+    {
+        get; init;
+    }
 }
 
 public readonly record struct GlobalNoticePayload(string id, string title, DateTime time);
@@ -652,12 +976,26 @@ public readonly record struct CommentRemovedPayload(
 
 public record struct FileUploadResult
 {
-    public bool Success { get; set; }
+    public bool Success
+    {
+        get; set;
+    }
     public string Message { get; set; } = string.Empty;
-    public string? RelativeUrl { get; set; }
-    public string? Url { get; set; }
-    public string? PhysicalPath { get; set; }
-    public FileUploadResult() { }
+    public string? RelativeUrl
+    {
+        get; set;
+    }
+    public string? Url
+    {
+        get; set;
+    }
+    public string? PhysicalPath
+    {
+        get; set;
+    }
+    public FileUploadResult()
+    {
+    }
 }
 
 public readonly record struct FileUploadOutputDto(string Url, string RelativeUrl, string Message);
@@ -667,10 +1005,22 @@ public sealed record class UploadInitDto
     public string FileName { get; init; } = string.Empty;
     public string MimeType { get; init; } = string.Empty;
     public string TargetFormat { get; init; } = string.Empty;
-    public long TotalBytes { get; init; }
-    public int ChunkSize { get; init; }
-    public int TotalParts { get; init; }
-    public DateTime ExpiresAt { get; init; }
+    public long TotalBytes
+    {
+        get; init;
+    }
+    public int ChunkSize
+    {
+        get; init;
+    }
+    public int TotalParts
+    {
+        get; init;
+    }
+    public DateTime ExpiresAt
+    {
+        get; init;
+    }
     public string UploadToken { get; init; } = string.Empty;
 }
 
@@ -678,13 +1028,34 @@ public sealed record class UploadStatusDto
 {
     public string UploadId { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
-    public long TotalBytes { get; init; }
-    public long UploadedBytes { get; init; }
-    public int ChunkSize { get; init; }
-    public int TotalParts { get; init; }
-    public int UploadedPartCount { get; init; }
-    public int NextPartHint { get; init; }
-    public DateTime ExpiresAt { get; init; }
+    public long TotalBytes
+    {
+        get; init;
+    }
+    public long UploadedBytes
+    {
+        get; init;
+    }
+    public int ChunkSize
+    {
+        get; init;
+    }
+    public int TotalParts
+    {
+        get; init;
+    }
+    public int UploadedPartCount
+    {
+        get; init;
+    }
+    public int NextPartHint
+    {
+        get; init;
+    }
+    public DateTime ExpiresAt
+    {
+        get; init;
+    }
 }
 
 public readonly record struct UploadPartRangeDto(int Start, int End);
@@ -698,11 +1069,26 @@ public sealed record class UploadPartMapDto
 public sealed record class UploadPartAckDto
 {
     public string UploadId { get; init; } = string.Empty;
-    public int PartNumber { get; init; }
-    public long Offset { get; init; }
-    public int Size { get; init; }
-    public long UploadedBytes { get; init; }
-    public int UploadedPartCount { get; init; }
+    public int PartNumber
+    {
+        get; init;
+    }
+    public long Offset
+    {
+        get; init;
+    }
+    public int Size
+    {
+        get; init;
+    }
+    public long UploadedBytes
+    {
+        get; init;
+    }
+    public int UploadedPartCount
+    {
+        get; init;
+    }
 }
 
 public sealed record class UploadCompleteDto
@@ -711,7 +1097,10 @@ public sealed record class UploadCompleteDto
     public string Url { get; init; } = string.Empty;
     public string RelativeUrl { get; init; } = string.Empty;
     public string MimeType { get; init; } = string.Empty;
-    public long TotalBytes { get; init; }
+    public long TotalBytes
+    {
+        get; init;
+    }
 }
 
 public readonly record struct PowChallenge(
@@ -730,7 +1119,10 @@ public readonly record struct MfaSetupStartDto(
 
 public sealed record class MfaSetupVerifyDto
 {
-    public bool Enabled { get; init; }
+    public bool Enabled
+    {
+        get; init;
+    }
     public List<string> RecoveryCodes { get; init; } = [];
 }
 

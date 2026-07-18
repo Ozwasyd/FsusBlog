@@ -9,10 +9,16 @@ namespace FsusBlog.Server.Entities;
 public sealed class AnonymousCredential
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "account_id", IsNullable = true)]
-    public int? AccountId { get; set; }
+    public int? AccountId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "account_binding_hash", Length = 128)]
     public string AccountBindingHash { get; set; } = string.Empty;
@@ -30,7 +36,10 @@ public sealed class AnonymousCredential
     public DateTime IssuedAtUtc { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "revoked_at_utc", IsNullable = true)]
-    public DateTime? RevokedAtUtc { get; set; }
+    public DateTime? RevokedAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "metadata_json", ColumnDataType = "text")]
     public string MetadataJson { get; set; } = "{}";

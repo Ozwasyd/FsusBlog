@@ -5,8 +5,14 @@ namespace FsusBlog.Server.Interfaces;
 
 public interface IModerationDictionaryService
 {
-    ModerationDictionarySnapshot CurrentSnapshot { get; }
-    string? LastError { get; }
+    ModerationDictionarySnapshot CurrentSnapshot
+    {
+        get;
+    }
+    string? LastError
+    {
+        get;
+    }
     IReadOnlyList<ModerationDictionaryMatch> Match(string content, string region);
     IReadOnlyList<ModerationDictionaryMatch> MatchAll(string content);
     IReadOnlyList<ModerationDictionaryMatch> FilterMatchesForRegion(IReadOnlyList<ModerationDictionaryMatch> matches, string region);

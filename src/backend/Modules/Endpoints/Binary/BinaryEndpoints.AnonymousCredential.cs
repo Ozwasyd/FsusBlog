@@ -1,3 +1,7 @@
+using System.Diagnostics;
+using System.Globalization;
+using System.Security.Claims;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -13,9 +17,6 @@ using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Validation;
-using System.Globalization;
-using System.Security.Claims;
-using System.Diagnostics;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 

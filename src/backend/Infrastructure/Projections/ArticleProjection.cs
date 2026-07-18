@@ -67,7 +67,12 @@ public static class ArticleProjection
     public static TagDto ToTagResponse(TagReadModel tag) => new(tag.Id, tag.Name);
 
     public static CategoryListItemResponse ToCategoryResponse(int id, string name, int articleCount)
-        => new() { Id = id, Name = name, ArticleCount = articleCount };
+        => new()
+        {
+            Id = id,
+            Name = name,
+            ArticleCount = articleCount
+        };
 
     public static PageResponse<ArticleListItemResponse> ToResponsePage(ArticleListPageReadModel page)
     {

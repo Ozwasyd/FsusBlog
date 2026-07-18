@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
@@ -15,6 +16,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints;
@@ -709,9 +711,15 @@ public static class SecurityEndpoints
             }
 
             bool deleted = policy.DeleteRule(id);
-            await RecordSecurityAuditAsync(context, auditEvents, "admin.security.anti_crawler.rule_deleted", "管理员删除反爬虫规则", "anti_crawler_rule", id, deleted ? "deleted" : "not_found", new { deleted }, cancellationToken);
+            await RecordSecurityAuditAsync(context, auditEvents, "admin.security.anti_crawler.rule_deleted", "管理员删除反爬虫规则", "anti_crawler_rule", id, deleted ? "deleted" : "not_found", new
+            {
+                deleted
+            }, cancellationToken);
             return deleted
-                ? Ok(context, aeds, new { deleted })
+                ? Ok(context, aeds, new
+                {
+                    deleted
+                })
                 : AedsJsonResults.NotFound(aeds, "anti_crawler_rule_not_found");
         }).RequireRateLimiting("fixed_ip");
 
@@ -1120,9 +1128,15 @@ public static class SecurityEndpoints
             }
 
             bool deleted = policy.DeleteEntry(listType, id);
-            await RecordSecurityAuditAsync(context, auditEvents, $"admin.security.anti_crawler.{listType}list_deleted", $"管理员删除反爬虫{listType}list", $"anti_crawler_{listType}list", id, deleted ? "deleted" : "not_found", new { deleted }, cancellationToken);
+            await RecordSecurityAuditAsync(context, auditEvents, $"admin.security.anti_crawler.{listType}list_deleted", $"管理员删除反爬虫{listType}list", $"anti_crawler_{listType}list", id, deleted ? "deleted" : "not_found", new
+            {
+                deleted
+            }, cancellationToken);
             return deleted
-                ? Ok(context, aeds, new { deleted })
+                ? Ok(context, aeds, new
+                {
+                    deleted
+                })
                 : AedsJsonResults.NotFound(aeds, "anti_crawler_list_entry_not_found");
         }).RequireRateLimiting("fixed_ip");
     }

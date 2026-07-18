@@ -1,4 +1,5 @@
 using System.Linq;
+
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;

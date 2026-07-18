@@ -1,18 +1,20 @@
-using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Globalization;
 using System.Threading.Channels;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Integrity;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -389,7 +391,10 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
         if (!string.Equals(state.State, "running", StringComparison.Ordinal))
         {
             await SetPublicProjectionBackfillStateAsync("running", cancellationToken).ConfigureAwait(false);
-            state = state with { State = "running" };
+            state = state with
+            {
+                State = "running"
+            };
         }
 
         int lastArticleId = state.LastArticleId;

@@ -1,4 +1,4 @@
-﻿using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;

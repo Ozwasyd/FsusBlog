@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -17,7 +19,7 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Core.Common;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Modules.Endpoints;
@@ -68,7 +70,10 @@ public static partial class AuthoringEndpoints
             CancellationToken cancellationToken) =>
         {
             bool discarded = await service.DiscardDraftAsync(ResolveRequiredAdminPrincipalId(context), draftKey, cancellationToken);
-            return Ok(context, aeds, new { discarded });
+            return Ok(context, aeds, new
+            {
+                discarded
+            });
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
@@ -165,7 +170,10 @@ public static partial class AuthoringEndpoints
 
             bool rolledBack = await service.RollbackRevisionAsync(ResolveRequiredAdminPrincipalId(context), articleId, revisionId, cancellationToken);
             return rolledBack
-                ? Ok(context, aeds, new { rolledBack })
+                ? Ok(context, aeds, new
+                {
+                    rolledBack
+                })
                 : AedsJsonResults.NotFound(aeds, "revision_not_found");
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);

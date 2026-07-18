@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
@@ -38,7 +39,10 @@ public sealed record AuditCheckpointRecord(
             canonicalRecordHash,
             contextPayloadHash,
             SnapshotHash: string.Empty);
-        return unsigned with { SnapshotHash = AuditCheckpointRecordCanonicalizer.ComputeSnapshotHash(unsigned) };
+        return unsigned with
+        {
+            SnapshotHash = AuditCheckpointRecordCanonicalizer.ComputeSnapshotHash(unsigned)
+        };
     }
 
     private static string NormalizeHash(string value)

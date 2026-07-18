@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
+
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -9,6 +10,7 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -293,9 +295,18 @@ public sealed class PasskeyStepUpChallengeProviderTests
 
     private sealed class FakePasskeyService : IPasskeyService
     {
-        public int BeginStepUpAccountId { get; private set; }
-        public int CompleteStepUpAccountId { get; private set; }
-        public PasskeyLoginCompleteCoreModel? CompleteStepUpRequest { get; private set; }
+        public int BeginStepUpAccountId
+        {
+            get; private set;
+        }
+        public int CompleteStepUpAccountId
+        {
+            get; private set;
+        }
+        public PasskeyLoginCompleteCoreModel? CompleteStepUpRequest
+        {
+            get; private set;
+        }
 
         public Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(int accountId, CancellationToken cancellationToken = default)
         {
@@ -338,12 +349,30 @@ public sealed class PasskeyStepUpChallengeProviderTests
 
     private sealed class FakeAdminPrincipalService : IAdminPrincipalService
     {
-        public long BeginStepUpAdminId { get; private set; }
-        public string? BeginStepUpSessionId { get; private set; }
-        public long VerifyOnlyAdminId { get; private set; }
-        public string? VerifyOnlySessionId { get; private set; }
-        public int CompleteStepUpCalls { get; private set; }
-        public int CreateProofCalls { get; private set; }
+        public long BeginStepUpAdminId
+        {
+            get; private set;
+        }
+        public string? BeginStepUpSessionId
+        {
+            get; private set;
+        }
+        public long VerifyOnlyAdminId
+        {
+            get; private set;
+        }
+        public string? VerifyOnlySessionId
+        {
+            get; private set;
+        }
+        public int CompleteStepUpCalls
+        {
+            get; private set;
+        }
+        public int CreateProofCalls
+        {
+            get; private set;
+        }
 
         public Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAdminStepUpAssertionAsync(long adminPrincipalId, string adminSessionId, CancellationToken cancellationToken = default)
         {

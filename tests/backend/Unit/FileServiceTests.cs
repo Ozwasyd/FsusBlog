@@ -1,18 +1,20 @@
-using System.Reflection;
 using System.Globalization;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Tests.Unit;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -327,7 +329,10 @@ public sealed class FileServiceTests
             Assert.True(upload.IsSuccess);
 
             string manifestPath = GetManifestPath(root, init.Value.UploadId);
-            UploadSessionRecord persistedWithStaleBytes = (await ReadManifestAsync(root, init.Value.UploadId)) with { UploadedBytes = 0 };
+            UploadSessionRecord persistedWithStaleBytes = (await ReadManifestAsync(root, init.Value.UploadId)) with
+            {
+                UploadedBytes = 0
+            };
             await WriteManifestAsync(manifestPath, persistedWithStaleBytes);
 
             Result<UploadStatusDto> status = await service.GetUploadStatusAsync(init.Value.UploadId);
@@ -635,8 +640,11 @@ public sealed class FileServiceTests
             var svc = CreateService(root);
             var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
             {
-                FileName = "   ", MimeType = "image/png", TargetFormat = "png",
-                TotalBytes = 100, ChunkSize = 100
+                FileName = "   ",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = 100,
+                ChunkSize = 100
             });
             Assert.False(result.IsSuccess);
         }
@@ -652,8 +660,11 @@ public sealed class FileServiceTests
             var svc = CreateService(root);
             var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
             {
-                FileName = "test.png", MimeType = "image/png", TargetFormat = "png",
-                TotalBytes = 0, ChunkSize = 100
+                FileName = "test.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = 0,
+                ChunkSize = 100
             });
             Assert.False(result.IsSuccess);
         }
@@ -669,8 +680,11 @@ public sealed class FileServiceTests
             var svc = CreateService(root);
             var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
             {
-                FileName = "test.exe", MimeType = "application/octet-stream", TargetFormat = "exe",
-                TotalBytes = 100, ChunkSize = 100
+                FileName = "test.exe",
+                MimeType = "application/octet-stream",
+                TargetFormat = "exe",
+                TotalBytes = 100,
+                ChunkSize = 100
             });
             Assert.False(result.IsSuccess);
         }
@@ -686,8 +700,11 @@ public sealed class FileServiceTests
             var svc = CreateService(root);
             var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
             {
-                FileName = "photo.avif", MimeType = "image/avif", TargetFormat = "avif",
-                TotalBytes = 100, ChunkSize = 100
+                FileName = "photo.avif",
+                MimeType = "image/avif",
+                TargetFormat = "avif",
+                TotalBytes = 100,
+                ChunkSize = 100
             });
             Assert.False(result.IsSuccess);
         }
@@ -703,8 +720,11 @@ public sealed class FileServiceTests
             var svc = CreateService(root);
             var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
             {
-                FileName = "test.png", MimeType = "image/jpeg", TargetFormat = "png",
-                TotalBytes = 100, ChunkSize = 100
+                FileName = "test.png",
+                MimeType = "image/jpeg",
+                TargetFormat = "png",
+                TotalBytes = 100,
+                ChunkSize = 100
             });
             Assert.False(result.IsSuccess);
         }
@@ -720,8 +740,11 @@ public sealed class FileServiceTests
             var svc = CreateService(root);
             var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
             {
-                FileName = "photo.webp", MimeType = "image/webp", TargetFormat = "webp",
-                TotalBytes = 200, ChunkSize = 200
+                FileName = "photo.webp",
+                MimeType = "image/webp",
+                TargetFormat = "webp",
+                TotalBytes = 200,
+                ChunkSize = 200
             });
             Assert.True(result.IsSuccess);
         }
@@ -737,8 +760,11 @@ public sealed class FileServiceTests
             var svc = CreateService(root);
             var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
             {
-                FileName = "photo.jpg", MimeType = "image/jpeg", TargetFormat = "jpg",
-                TotalBytes = 200, ChunkSize = 200
+                FileName = "photo.jpg",
+                MimeType = "image/jpeg",
+                TargetFormat = "jpg",
+                TotalBytes = 200,
+                ChunkSize = 200
             });
             Assert.True(result.IsSuccess);
         }
@@ -754,8 +780,11 @@ public sealed class FileServiceTests
             var svc = CreateService(root);
             var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
             {
-                FileName = "favicon.ico", MimeType = "image/x-icon", TargetFormat = "ico",
-                TotalBytes = 200, ChunkSize = 200
+                FileName = "favicon.ico",
+                MimeType = "image/x-icon",
+                TargetFormat = "ico",
+                TotalBytes = 200,
+                ChunkSize = 200
             });
             Assert.True(result.IsSuccess);
         }
@@ -1074,8 +1103,11 @@ public sealed class FileServiceTests
             byte[] payload = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
             var init = await svc.InitUploadSessionAsync(new UploadInitRequestDto
             {
-                FileName = "test.png", MimeType = "image/png", TargetFormat = "png",
-                TotalBytes = payload.Length, ChunkSize = payload.Length
+                FileName = "test.png",
+                MimeType = "image/png",
+                TargetFormat = "png",
+                TotalBytes = payload.Length,
+                ChunkSize = payload.Length
             });
             Assert.True(init.IsSuccess);
             string correctSha256 = Convert.ToHexStringLower(SHA256.HashData(payload));

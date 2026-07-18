@@ -1,4 +1,5 @@
 using System.Text.Json;
+
 using FsusBlog.Shared.Contracts.Validation;
 
 namespace FsusBlog.Server.Services.Security;

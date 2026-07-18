@@ -1,4 +1,4 @@
-﻿using FsusBlog.Server.Entities;
+using FsusBlog.Server.Entities;
 
 namespace FsusBlog.Server.Interfaces;
 

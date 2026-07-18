@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 
@@ -112,7 +113,10 @@ public sealed class AuditDetachedCheckpointTests
             checkpointFiles[0],
             AuditDetachedCheckpointPackageCodec.Serialize(parsed with
             {
-                Signature = parsed.Signature with { SignatureBase64Url = changedSignature }
+                Signature = parsed.Signature with
+                {
+                    SignatureBase64Url = changedSignature
+                }
             }));
         Assert.Equal("checkpoint-file-invalid", (await verifier.VerifyAsync()).Code);
 
@@ -386,7 +390,10 @@ public sealed class AuditDetachedCheckpointTests
 
     private sealed class InMemoryAuditRecordSource(List<AuditLog> records) : IAuditCheckpointRecordSource
     {
-        public bool ReverseRange { get; set; }
+        public bool ReverseRange
+        {
+            get; set;
+        }
 
         public Task<IReadOnlyList<AuditLog>> ReadAfterAsync(
             long afterRecordId,
@@ -424,7 +431,10 @@ public sealed class AuditDetachedCheckpointTests
             Directory.CreateDirectory(Path);
         }
 
-        public string Path { get; }
+        public string Path
+        {
+            get;
+        }
 
         public void Dispose()
         {

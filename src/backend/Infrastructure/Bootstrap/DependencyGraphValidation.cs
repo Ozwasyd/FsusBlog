@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics.Metrics;
 using System.Reflection;
+
 using FsusBlog.Server.Infrastructure.Observability;
+
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
@@ -15,7 +17,10 @@ public sealed record DependencyGraphRuntimeSnapshot(
     int OpaqueFactoryCount,
     IReadOnlyList<string> CaptiveDependencies)
 {
-    public static DependencyGraphRuntimeSnapshot Empty { get; } = new(
+    public static DependencyGraphRuntimeSnapshot Empty
+    {
+        get;
+    } = new(
         0,
         0,
         0,

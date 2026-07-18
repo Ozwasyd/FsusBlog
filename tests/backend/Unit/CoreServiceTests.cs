@@ -1,10 +1,11 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Core.Services.Implementations;
-using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -81,11 +82,20 @@ public class ArticleCoreServiceTests
     {
         var detail = new ArticleDetailCoreModel
         {
-            Id = 1, Title = "T", Content = "C", Summary = null,
-            Views = 0, WordCount = 1, EstimatedReadingMinutes = 1,
-            ShowReadingNotice = false, CreateTime = DateTime.UtcNow,
-            Category = new(1, "Cat"), Tags = [], CategoryId = 1,
-            IsDeleted = false, Pod = default
+            Id = 1,
+            Title = "T",
+            Content = "C",
+            Summary = null,
+            Views = 0,
+            WordCount = 1,
+            EstimatedReadingMinutes = 1,
+            ShowReadingNotice = false,
+            CreateTime = DateTime.UtcNow,
+            Category = new(1, "Cat"),
+            Tags = [],
+            CategoryId = 1,
+            IsDeleted = false,
+            Pod = default
         };
         _gw.GetByIdAsync(1).Returns(detail);
         var result = await Svc().GetByIdAsync(1);

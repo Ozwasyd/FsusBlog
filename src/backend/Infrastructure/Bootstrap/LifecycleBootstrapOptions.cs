@@ -4,5 +4,8 @@ public sealed class LifecycleBootstrapOptions
 {
     public const string SectionName = "Lifecycle";
 
-    public bool ClearAotDiskCacheOnStartup { get; init; }
+    public bool ClearAotDiskCacheOnStartup
+    {
+        get; init;
+    }
 }

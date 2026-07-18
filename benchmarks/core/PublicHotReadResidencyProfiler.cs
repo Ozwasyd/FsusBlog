@@ -1,8 +1,10 @@
 using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Text.Json;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+
 using Microsoft.Extensions.Options;
 
 internal static class PublicHotReadResidencyProfiler
@@ -195,9 +197,12 @@ internal static class PublicHotReadResidencyProfiler
             if (admitted.ContainsKey(id))
             {
                 hits++;
-                if (segment < 8) hotHits++;
-                else if (segment == 8) recentHits++;
-                else randomHits++;
+                if (segment < 8)
+                    hotHits++;
+                else if (segment == 8)
+                    recentHits++;
+                else
+                    randomHits++;
             }
         }
         return new SyntheticHitMeasurement(hits, hotHits, recentHits, randomHits);
@@ -221,7 +226,13 @@ internal static class PublicHotReadResidencyProfiler
     }
 
     private static object Gate(bool passed, double actual, double threshold, bool minimum = false)
-        => new { passed, actual, threshold, comparison = minimum ? ">=" : "<=" };
+        => new
+        {
+            passed,
+            actual,
+            threshold,
+            comparison = minimum ? ">=" : "<="
+        };
 
     private static string? ReadOption(string[] args, string name)
     {

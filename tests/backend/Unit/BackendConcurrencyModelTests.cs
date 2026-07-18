@@ -125,7 +125,10 @@ public sealed class BackendConcurrencyModelTests
 
         public string State { get; private set; } = "uploading";
 
-        public int FinalizationCount { get; private set; }
+        public int FinalizationCount
+        {
+            get; private set;
+        }
 
         public bool TryComplete()
         {

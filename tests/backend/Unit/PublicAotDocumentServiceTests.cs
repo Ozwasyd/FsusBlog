@@ -1,3 +1,6 @@
+using System.Reflection;
+using System.Security.Cryptography;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Spa;
@@ -6,6 +9,7 @@ using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -13,8 +17,6 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Reflection;
-using System.Security.Cryptography;
 
 namespace FsusBlog.Server.Tests;
 
@@ -602,11 +604,11 @@ public sealed class PublicAotDocumentServiceTests
                     [],
                     "prod-manifest",
                     UsesSourceAssets: false)
-                {
-                    FullAppTakeover = new FullAppTakeoverAssetSet(
+            {
+                FullAppTakeover = new FullAppTakeoverAssetSet(
                         ["/assets/full-app-core-prod.js"],
                         ["/assets/route-admin-moderation-prod.css"])
-                };
+            };
         }
 
         public string GetFrontendAssetVersion(HttpContext? context = null)
@@ -653,7 +655,10 @@ public sealed class PublicAotDocumentServiceTests
 
     private sealed class RecordingLogger<T> : ILogger<T>
     {
-        public Exception? LastException { get; private set; }
+        public Exception? LastException
+        {
+            get; private set;
+        }
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 

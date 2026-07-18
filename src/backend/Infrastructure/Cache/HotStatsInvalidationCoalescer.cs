@@ -1,5 +1,6 @@
-using FsusBlog.Server.Infrastructure.Observability;
 using System.Globalization;
+
+using FsusBlog.Server.Infrastructure.Observability;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
 
@@ -74,7 +75,10 @@ public sealed class HotStatsInvalidationCoalescer(
         {
             lock (_gate)
             {
-                _snapshot = _snapshot with { StatsDirtyCount = Math.Max(_snapshot.StatsDirtyCount, sharedDirtyCount.Value) };
+                _snapshot = _snapshot with
+                {
+                    StatsDirtyCount = Math.Max(_snapshot.StatsDirtyCount, sharedDirtyCount.Value)
+                };
             }
         }
 
@@ -104,7 +108,10 @@ public sealed class HotStatsInvalidationCoalescer(
         {
             lock (_gate)
             {
-                _snapshot = _snapshot with { HotArticlesDirtyCount = Math.Max(_snapshot.HotArticlesDirtyCount, sharedDirtyCount.Value) };
+                _snapshot = _snapshot with
+                {
+                    HotArticlesDirtyCount = Math.Max(_snapshot.HotArticlesDirtyCount, sharedDirtyCount.Value)
+                };
             }
         }
 
@@ -260,7 +267,10 @@ public sealed class HotStatsInvalidationCoalescer(
                 _pendingStatsDirtyCount = 0;
                 _pendingStatsReason = null;
                 _statsFirstDirtyAt = null;
-                _snapshot = _snapshot with { StatsDirty = false };
+                _snapshot = _snapshot with
+                {
+                    StatsDirty = false
+                };
             }
 
             if (flushHotArticles)
@@ -268,7 +278,10 @@ public sealed class HotStatsInvalidationCoalescer(
                 _pendingHotArticlesDirtyCount = 0;
                 _pendingHotArticlesReason = null;
                 _hotArticlesFirstDirtyAt = null;
-                _snapshot = _snapshot with { HotArticlesDirty = false };
+                _snapshot = _snapshot with
+                {
+                    HotArticlesDirty = false
+                };
             }
 
             return pending;

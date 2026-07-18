@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -17,6 +18,7 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Validation;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -24,6 +26,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -334,7 +337,10 @@ public sealed class AnonymousCredentialRootEndpointTests
 
     private sealed class CapturingRootService(Result<AnonymousCredentialRootSnapshotCoreModel> result) : IAnonymousCredentialRootService
     {
-        public int CallCount { get; private set; }
+        public int CallCount
+        {
+            get; private set;
+        }
 
         public Task<Result<AnonymousCredentialRootSnapshotCoreModel>> GetCurrentSnapshotAsync(CancellationToken cancellationToken = default)
         {
@@ -351,7 +357,10 @@ public sealed class AnonymousCredentialRootEndpointTests
     {
         private readonly Queue<AnonymousCredentialRootRecord?> _records = new(records);
 
-        public int CallCount { get; private set; }
+        public int CallCount
+        {
+            get; private set;
+        }
         public int CallCountBeforeInvalidate => Math.Min(CallCount, 1);
 
         public Task<AnonymousCredentialRootRecord?> GetCurrentAsync(DateTimeOffset now, CancellationToken cancellationToken = default)

@@ -1,8 +1,10 @@
 using System.Reflection;
+
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -28,7 +30,10 @@ public sealed class MerkleCheckpointTests
         MerkleInclusionProof proof = MerkleCheckpointBuilder.BuildInclusionProof(checkpoint, seq: 3);
 
         Assert.True(MerkleCheckpointVerifier.VerifyInclusion(checkpoint.RootHash, proof));
-        Assert.False(MerkleCheckpointVerifier.VerifyInclusion(checkpoint.RootHash, proof with { LeafHash = Hash("tampered-leaf") }));
+        Assert.False(MerkleCheckpointVerifier.VerifyInclusion(checkpoint.RootHash, proof with
+        {
+            LeafHash = Hash("tampered-leaf")
+        }));
         Assert.False(MerkleCheckpointVerifier.VerifyInclusion(Hash("tampered-root"), proof));
         Assert.False(MerkleCheckpointVerifier.VerifyInclusion(checkpoint.RootHash, proof with
         {
@@ -69,7 +74,10 @@ public sealed class MerkleCheckpointTests
         SiteIntegritySignature signature = signer.Sign(MerkleCheckpointSigning.BuildSigningPayload(manifest));
 
         Assert.True(signer.Verify(MerkleCheckpointSigning.BuildSigningPayload(manifest), signature).Accepted);
-        Assert.False(signer.Verify(MerkleCheckpointSigning.BuildSigningPayload(manifest with { RootHash = Hash("tampered-root") }), signature).Accepted);
+        Assert.False(signer.Verify(MerkleCheckpointSigning.BuildSigningPayload(manifest with
+        {
+            RootHash = Hash("tampered-root")
+        }), signature).Accepted);
     }
 
     [Fact]

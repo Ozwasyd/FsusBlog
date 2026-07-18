@@ -1,3 +1,5 @@
+using System.Net;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -5,8 +7,8 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.Extensions.Hosting;
-using System.Net;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
@@ -365,7 +367,10 @@ public sealed class PublicAotShellService(
             Html = normalizedHtml
         };
         string frontendAssetVersion = assetManifest.GetFrontendAssetVersion(context);
-        PublicAotRouteMatch navigationMatch = match with { RouteKey = normalizedRouteKey };
+        PublicAotRouteMatch navigationMatch = match with
+        {
+            RouteKey = normalizedRouteKey
+        };
         Result<PublicSeoHeadModel> seoHead = await documentService.BuildSeoHeadModelAsync(
             normalizedEntry,
             cancellationToken);
@@ -570,7 +575,10 @@ public sealed class PublicAotShellService(
         }
 
         return Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Success((
-            match with { RouteKey = normalizedRouteKey },
+            match with
+            {
+                RouteKey = normalizedRouteKey
+            },
             document.Value!,
             normalizedEntry.RendererVersion ?? PublicRendererVersion));
     }

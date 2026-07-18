@@ -1,6 +1,8 @@
-﻿using FsusBlog.Server.Infrastructure.Cache;
-using Microsoft.Extensions.Configuration;
 using System.Runtime.CompilerServices;
+
+using FsusBlog.Server.Infrastructure.Cache;
+
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
@@ -45,10 +47,22 @@ public sealed class AdaptivePowGovernor
     // 采用引用类型包装缓存节点，确保引用的原子级更新，防止多线程结构体撕裂 (Struct Tearing)
     private sealed class RiskCacheEntry
     {
-        public required string Ip { get; init; }
-        public required uint Hash { get; init; }
-        public required int Score { get; init; }
-        public required long ExpireAt { get; init; }
+        public required string Ip
+        {
+            get; init;
+        }
+        public required uint Hash
+        {
+            get; init;
+        }
+        public required int Score
+        {
+            get; init;
+        }
+        public required long ExpireAt
+        {
+            get; init;
+        }
     }
 
     public AdaptivePowGovernor(IUnifiedCache cache, IConfiguration? configuration = null)
@@ -167,9 +181,12 @@ public sealed class AdaptivePowGovernor
         int ewmaRps = Volatile.Read(ref _rpsEwmaScaled) / EWMA_SCALE;
         int rps = Math.Max(currentRps, ewmaRps);
 
-        if (rps > 1000) return Math.Min(WAR_MODE_DIFFICULTY, _maxDifficulty);
-        if (rps > 300) return Math.Min(HIGH_LOAD_DIFFICULTY, _maxDifficulty);
-        if (rps > 100) return Math.Min(ELEVATED_DIFFICULTY, _maxDifficulty);
+        if (rps > 1000)
+            return Math.Min(WAR_MODE_DIFFICULTY, _maxDifficulty);
+        if (rps > 300)
+            return Math.Min(HIGH_LOAD_DIFFICULTY, _maxDifficulty);
+        if (rps > 100)
+            return Math.Min(ELEVATED_DIFFICULTY, _maxDifficulty);
 
         return _baseDifficulty;
     }

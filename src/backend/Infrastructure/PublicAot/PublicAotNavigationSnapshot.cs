@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -9,19 +10,58 @@ public sealed record PublicAotNavigationSnapshot
     public const string EnvelopeKind = "public-navigation-snapshot";
     public const string MediaType = "application/vnd.fsus.aeds";
 
-    public required string PageKind { get; init; }
-    public required PublicPageId PageId { get; init; }
-    public required string RouteKey { get; init; }
-    public required string Path { get; init; }
-    public required string QueryString { get; init; }
-    public required string CanonicalPath { get; init; }
-    public required string RendererVersion { get; init; }
-    public required string FrontendAssetVersion { get; init; }
-    public required string BootstrapPayload { get; init; }
-    public required string HydrationPropsPayload { get; init; }
-    public required PublicSeoHeadModel SeoHead { get; init; }
-    public required string PayloadHash { get; init; }
-    public required DateTimeOffset GeneratedAtUtc { get; init; }
+    public required string PageKind
+    {
+        get; init;
+    }
+    public required PublicPageId PageId
+    {
+        get; init;
+    }
+    public required string RouteKey
+    {
+        get; init;
+    }
+    public required string Path
+    {
+        get; init;
+    }
+    public required string QueryString
+    {
+        get; init;
+    }
+    public required string CanonicalPath
+    {
+        get; init;
+    }
+    public required string RendererVersion
+    {
+        get; init;
+    }
+    public required string FrontendAssetVersion
+    {
+        get; init;
+    }
+    public required string BootstrapPayload
+    {
+        get; init;
+    }
+    public required string HydrationPropsPayload
+    {
+        get; init;
+    }
+    public required PublicSeoHeadModel SeoHead
+    {
+        get; init;
+    }
+    public required string PayloadHash
+    {
+        get; init;
+    }
+    public required DateTimeOffset GeneratedAtUtc
+    {
+        get; init;
+    }
 
     public static PublicAotNavigationSnapshot Create(
         PublicAotRouteMatch match,

@@ -29,9 +29,15 @@ public sealed record ReleaseDrainRunResult(
 
 public interface IReleaseDrainParticipant
 {
-    string Name { get; }
+    string Name
+    {
+        get;
+    }
 
-    TimeSpan MaxDrain { get; }
+    TimeSpan MaxDrain
+    {
+        get;
+    }
 
     ReleaseDrainParticipantSnapshot Snapshot();
 
@@ -83,13 +89,21 @@ public sealed class ReleaseDrainParticipantRegistry(
         {
             logger.LogWarning("release-drain-participant-timeout {Participant}", participant.Name);
             ReleaseDrainParticipantSnapshot snapshot = participant.Snapshot();
-            return snapshot with { Status = "timed-out", ErrorCode = "drain_timeout" };
+            return snapshot with
+            {
+                Status = "timed-out",
+                ErrorCode = "drain_timeout"
+            };
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "release-drain-participant-failed {Participant}", participant.Name);
             ReleaseDrainParticipantSnapshot snapshot = participant.Snapshot();
-            return snapshot with { Status = "failed", ErrorCode = "drain_failed" };
+            return snapshot with
+            {
+                Status = "failed",
+                ErrorCode = "drain_failed"
+            };
         }
     }
 }
@@ -189,13 +203,25 @@ public sealed class NotificationStreamReleaseDrainParticipant(
 
 public abstract class PollingReleaseDrainParticipant(TimeProvider timeProvider) : IReleaseDrainParticipant
 {
-    public abstract string Name { get; }
+    public abstract string Name
+    {
+        get;
+    }
 
-    public abstract TimeSpan MaxDrain { get; }
+    public abstract TimeSpan MaxDrain
+    {
+        get;
+    }
 
-    protected abstract string Classification { get; }
+    protected abstract string Classification
+    {
+        get;
+    }
 
-    protected abstract string ReplaySource { get; }
+    protected abstract string ReplaySource
+    {
+        get;
+    }
 
     protected abstract long ReadPendingCount();
 

@@ -33,10 +33,16 @@ public sealed record class SeoConfigReadModel
 
 public sealed record class SiteComplianceConfigReadModel
 {
-    public bool Enabled { get; init; }
+    public bool Enabled
+    {
+        get; init;
+    }
     public string RegionMode { get; init; } = "global";
     public string CopyrightOwner { get; init; } = string.Empty;
-    public int? CopyrightStartYear { get; init; }
+    public int? CopyrightStartYear
+    {
+        get; init;
+    }
     public string CopyrightText { get; init; } = string.Empty;
     public string ContentLicenseName { get; init; } = string.Empty;
     public string ContentLicenseUrl { get; init; } = string.Empty;
@@ -51,6 +57,12 @@ public sealed record class SiteComplianceConfigReadModel
 
 public sealed record class PageContentReadModel
 {
-    public string? Slug { get; init; }
-    public string? Content { get; init; }
+    public string? Slug
+    {
+        get; init;
+    }
+    public string? Content
+    {
+        get; init;
+    }
 }

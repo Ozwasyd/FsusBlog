@@ -173,29 +173,46 @@ public static class SecurityChallengeContracts
             return Invalid("assignment_missing");
         }
 
-        if (IsMissing(assignment.ChallengeId)) return Invalid("challenge_id_missing");
-        if (IsMissing(assignment.Traceparent)) return Invalid("traceparent_missing");
-        if (IsMissing(assignment.TenantId)) return Invalid("tenant_id_missing");
-        if (assignment.Kind == SecurityChallengeKind.Unknown || !IsSupportedKind(assignment.Kind)) return Invalid("kind_invalid");
-        if (expectedKind.HasValue && assignment.Kind != expectedKind.Value) return Invalid("kind_mismatch");
-        if (assignment.EscalationLevel < 0) return Invalid("escalation_level_invalid");
-        if (IsMissing(assignment.Action)) return Invalid("action_missing");
-        if (IsMissing(assignment.RouteKey)) return Invalid("route_key_missing");
-        if (!IsSha256Hex(assignment.SubjectHash)) return Invalid("subject_hash_invalid");
-        if (!IsSha256Hex(assignment.ClientIpHash)) return Invalid("client_ip_hash_invalid");
-        if (!IsSha256Hex(assignment.DeviceFpHash)) return Invalid("device_fp_hash_invalid");
-        if (!IsCompatibleChallengeId(assignment.Kind, assignment.ChallengeId)) return Invalid("challenge_id_invalid");
-        if (assignment.ExpiresAtUnixMs <= assignment.IssuedAtUnixMs) return Invalid("expires_at_invalid");
+        if (IsMissing(assignment.ChallengeId))
+            return Invalid("challenge_id_missing");
+        if (IsMissing(assignment.Traceparent))
+            return Invalid("traceparent_missing");
+        if (IsMissing(assignment.TenantId))
+            return Invalid("tenant_id_missing");
+        if (assignment.Kind == SecurityChallengeKind.Unknown || !IsSupportedKind(assignment.Kind))
+            return Invalid("kind_invalid");
+        if (expectedKind.HasValue && assignment.Kind != expectedKind.Value)
+            return Invalid("kind_mismatch");
+        if (assignment.EscalationLevel < 0)
+            return Invalid("escalation_level_invalid");
+        if (IsMissing(assignment.Action))
+            return Invalid("action_missing");
+        if (IsMissing(assignment.RouteKey))
+            return Invalid("route_key_missing");
+        if (!IsSha256Hex(assignment.SubjectHash))
+            return Invalid("subject_hash_invalid");
+        if (!IsSha256Hex(assignment.ClientIpHash))
+            return Invalid("client_ip_hash_invalid");
+        if (!IsSha256Hex(assignment.DeviceFpHash))
+            return Invalid("device_fp_hash_invalid");
+        if (!IsCompatibleChallengeId(assignment.Kind, assignment.ChallengeId))
+            return Invalid("challenge_id_invalid");
+        if (assignment.ExpiresAtUnixMs <= assignment.IssuedAtUnixMs)
+            return Invalid("expires_at_invalid");
 
         return SecurityChallengeValidationResult.Valid;
     }
 
     public static SecurityChallengeValidationResult ValidateEnvelope(SecurityChallengeEnvelope? envelope)
     {
-        if (envelope is null) return Invalid("envelope_missing");
-        if (IsMissing(envelope.EnvelopeId)) return Invalid("envelope_id_missing");
-        if (IsMissing(envelope.PolicyVersion)) return Invalid("policy_version_missing");
-        if (envelope.Assignments.Count is <= 0 or > MaxAssignmentsPerEnvelope) return Invalid("assignment_count_invalid");
+        if (envelope is null)
+            return Invalid("envelope_missing");
+        if (IsMissing(envelope.EnvelopeId))
+            return Invalid("envelope_id_missing");
+        if (IsMissing(envelope.PolicyVersion))
+            return Invalid("policy_version_missing");
+        if (envelope.Assignments.Count is <= 0 or > MaxAssignmentsPerEnvelope)
+            return Invalid("assignment_count_invalid");
 
         foreach (SecurityChallengeAssignment assignment in envelope.Assignments)
         {

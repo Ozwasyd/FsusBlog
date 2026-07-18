@@ -1,10 +1,15 @@
 using System.Security.Claims;
+
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.Extensions.Configuration;
+
 using NSubstitute;
+
 using SqlSugar;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -277,7 +282,10 @@ public sealed class UserSessionValidationServiceTests
     private sealed class StubSessionValidationCache(UserSessionValidationCacheState? state)
         : IUserSessionValidationCache
     {
-        public int ReadCount { get; private set; }
+        public int ReadCount
+        {
+            get; private set;
+        }
 
         public Task<UserSessionValidationCacheState?> ReadAsync(
             string sessionId,

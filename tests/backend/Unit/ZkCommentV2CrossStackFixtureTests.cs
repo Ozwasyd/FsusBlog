@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
+
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -41,7 +43,10 @@ public sealed class ZkCommentV2CrossStackFixtureTests
         ProductionZkProofBackendResult accepted = await backend.VerifyAsync(request);
         byte[] tamperedProof = [.. proof];
         tamperedProof[^1] ^= 0x01;
-        ProductionZkProofBackendResult rejectedProof = await backend.VerifyAsync(request with { Proof = tamperedProof });
+        ProductionZkProofBackendResult rejectedProof = await backend.VerifyAsync(request with
+        {
+            Proof = tamperedProof
+        });
         ProductionZkProofBackendResult[] rejectedTamper =
         [
             rejectedProof,

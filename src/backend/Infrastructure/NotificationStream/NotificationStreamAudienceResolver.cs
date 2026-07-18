@@ -1,4 +1,5 @@
 using System.Security.Claims;
+
 using FsusBlog.Server.Infrastructure.Helpers;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;

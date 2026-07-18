@@ -9,13 +9,22 @@ namespace FsusBlog.Server.Entities;
 public class RecoveryKeyCredential
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
-    public int Id { get; set; }
+    public int Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "account_id")]
-    public int AccountId { get; set; }
+    public int AccountId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "lookup_id_hash", IsNullable = true, ColumnDataType = "text")]
-    public string? LookupIdHash { get; set; }
+    public string? LookupIdHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "key_hash", IsNullable = false, ColumnDataType = "text")]
     public string KeyHash { get; set; } = string.Empty;
@@ -27,8 +36,14 @@ public class RecoveryKeyCredential
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "used_at", IsNullable = true)]
-    public DateTime? UsedAt { get; set; }
+    public DateTime? UsedAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revoked_at", IsNullable = true)]
-    public DateTime? RevokedAt { get; set; }
+    public DateTime? RevokedAt
+    {
+        get; set;
+    }
 }

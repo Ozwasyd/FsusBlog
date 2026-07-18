@@ -1,6 +1,8 @@
 using System.Threading.Channels;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -119,9 +121,15 @@ public sealed class AuditLogChannelTests
     {
         public List<AdminAuditLog[]> Batches { get; } = [];
 
-        public int AttemptCount { get; private set; }
+        public int AttemptCount
+        {
+            get; private set;
+        }
 
-        public bool FailNextWrite { get; set; }
+        public bool FailNextWrite
+        {
+            get; set;
+        }
 
         public Task WriteBatchAsync(IReadOnlyList<AdminAuditLog> audits, CancellationToken cancellationToken)
         {

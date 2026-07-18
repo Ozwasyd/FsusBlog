@@ -1,10 +1,12 @@
 using System.Buffers;
 using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
@@ -317,8 +319,14 @@ public sealed class BinaryTransportHotPathContractTests
         private readonly object _sync = new();
         private readonly HashSet<byte[]> _outstanding = new(ReferenceEqualityComparer.Instance);
 
-        public int RentCount { get; private set; }
-        public int ReturnCount { get; private set; }
+        public int RentCount
+        {
+            get; private set;
+        }
+        public int ReturnCount
+        {
+            get; private set;
+        }
         public int OutstandingCount
         {
             get
@@ -372,7 +380,10 @@ public sealed class BinaryTransportHotPathContractTests
         private int _offset;
         private int _segment;
 
-        public int ReadCount { get; private set; }
+        public int ReadCount
+        {
+            get; private set;
+        }
         public override bool CanRead => true;
         public override bool CanSeek => false;
         public override bool CanWrite => false;
@@ -419,7 +430,9 @@ public sealed class BinaryTransportHotPathContractTests
             return Task.FromResult(Read(buffer.AsSpan(offset, count)));
         }
 
-        public override void Flush() { }
+        public override void Flush()
+        {
+        }
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
@@ -427,10 +440,16 @@ public sealed class BinaryTransportHotPathContractTests
 
     private sealed class CancelableBlockingReadStream : Stream
     {
-        public TaskCompletionSource ReadStarted { get; } =
+        public TaskCompletionSource ReadStarted
+        {
+            get;
+        } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public bool CancellationObserved { get; private set; }
+        public bool CancellationObserved
+        {
+            get; private set;
+        }
         public override bool CanRead => true;
         public override bool CanSeek => false;
         public override bool CanWrite => false;
@@ -466,7 +485,9 @@ public sealed class BinaryTransportHotPathContractTests
             => await ReadAsync(buffer.AsMemory(offset, count), cancellationToken);
 
         public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-        public override void Flush() { }
+        public override void Flush()
+        {
+        }
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
@@ -476,7 +497,10 @@ public sealed class BinaryTransportHotPathContractTests
     {
         private int _offset;
 
-        public TaskCompletionSource BlockedReadStarted { get; } =
+        public TaskCompletionSource BlockedReadStarted
+        {
+            get;
+        } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public override bool CanRead => true;
@@ -514,7 +538,9 @@ public sealed class BinaryTransportHotPathContractTests
             => ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
 
         public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-        public override void Flush() { }
+        public override void Flush()
+        {
+        }
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();

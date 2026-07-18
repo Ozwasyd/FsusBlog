@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Codecs;
@@ -364,17 +365,28 @@ internal static partial class PodBinaryCodecBatchProfiler
     private static int BuildRightsFlags(ArticleRightsCoreModel rights)
     {
         int flags = 0;
-        if (rights.Enabled) flags |= RightsFlagEnabled;
-        if (rights.AllowCodeCopy) flags |= RightsFlagAllowCodeCopy;
-        if (rights.ShowPublicBadge) flags |= RightsFlagShowPublicBadge;
-        if (rights.ProofBindingEnabled) flags |= RightsFlagProofBindingEnabled;
-        if (rights.CopyrightYear.HasValue) flags |= RightsFlagHasCopyrightYear;
-        if (!string.IsNullOrEmpty(rights.CopyrightHolder)) flags |= RightsFlagHasCopyrightHolder;
-        if (!string.IsNullOrEmpty(rights.RightsStatement)) flags |= RightsFlagHasRightsStatement;
-        if (!string.IsNullOrEmpty(rights.AttributionTemplate)) flags |= RightsFlagHasAttributionTemplate;
-        if (!string.IsNullOrEmpty(rights.CanonicalUrl)) flags |= RightsFlagHasCanonicalUrl;
-        if (!string.IsNullOrEmpty(rights.ProofUrl)) flags |= RightsFlagHasProofUrl;
-        if (!string.IsNullOrEmpty(rights.ProofStatus)) flags |= RightsFlagHasProofStatus;
+        if (rights.Enabled)
+            flags |= RightsFlagEnabled;
+        if (rights.AllowCodeCopy)
+            flags |= RightsFlagAllowCodeCopy;
+        if (rights.ShowPublicBadge)
+            flags |= RightsFlagShowPublicBadge;
+        if (rights.ProofBindingEnabled)
+            flags |= RightsFlagProofBindingEnabled;
+        if (rights.CopyrightYear.HasValue)
+            flags |= RightsFlagHasCopyrightYear;
+        if (!string.IsNullOrEmpty(rights.CopyrightHolder))
+            flags |= RightsFlagHasCopyrightHolder;
+        if (!string.IsNullOrEmpty(rights.RightsStatement))
+            flags |= RightsFlagHasRightsStatement;
+        if (!string.IsNullOrEmpty(rights.AttributionTemplate))
+            flags |= RightsFlagHasAttributionTemplate;
+        if (!string.IsNullOrEmpty(rights.CanonicalUrl))
+            flags |= RightsFlagHasCanonicalUrl;
+        if (!string.IsNullOrEmpty(rights.ProofUrl))
+            flags |= RightsFlagHasProofUrl;
+        if (!string.IsNullOrEmpty(rights.ProofStatus))
+            flags |= RightsFlagHasProofStatus;
         return flags;
     }
 

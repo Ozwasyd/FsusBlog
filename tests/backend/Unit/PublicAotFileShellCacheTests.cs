@@ -1,21 +1,25 @@
-using System.Text;
 using System.Buffers.Binary;
 using System.Diagnostics.Metrics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Storage;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using StackExchange.Redis;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -371,7 +375,10 @@ public sealed class PublicAotFileShellCacheTests
             await File.ReadAllBytesAsync(firstGenerationManifestPath))!;
         await File.WriteAllBytesAsync(
             firstGenerationManifestPath,
-            JsonSerializer.SerializeToUtf8Bytes(stored with { ReleaseId = "other-release" }));
+            JsonSerializer.SerializeToUtf8Bytes(stored with
+            {
+                ReleaseId = "other-release"
+            }));
         await Assert.ThrowsAsync<InvalidOperationException>(() => publisher.ReactivateArtifactAsync(
             "public-aot",
             firstRelativePath,
@@ -770,7 +777,8 @@ public sealed class PublicAotFileShellCacheTests
         byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
         for (int offset = 0; offset <= il.Length - 5; offset++)
         {
-            if (il[offset] is not (0x28 or 0x6F)) continue;
+            if (il[offset] is not (0x28 or 0x6F))
+                continue;
             MethodBase? called = null;
             try
             {
@@ -782,7 +790,8 @@ public sealed class PublicAotFileShellCacheTests
             catch (ArgumentException)
             {
             }
-            if (called is not null) yield return called;
+            if (called is not null)
+                yield return called;
         }
     }
 
@@ -796,7 +805,8 @@ public sealed class PublicAotFileShellCacheTests
             byte[] il = runtimeMethod.GetMethodBody()?.GetILAsByteArray() ?? [];
             for (int offset = 0; offset <= il.Length - 5; offset++)
             {
-                if (il[offset] != 0x72) continue;
+                if (il[offset] != 0x72)
+                    continue;
                 string? literal = null;
                 try
                 {
@@ -805,7 +815,8 @@ public sealed class PublicAotFileShellCacheTests
                 catch (ArgumentException)
                 {
                 }
-                if (literal is not null) yield return literal;
+                if (literal is not null)
+                    yield return literal;
             }
         }
     }
@@ -950,8 +961,14 @@ public sealed class PublicAotFileShellCacheTests
         public TempDirectory Temp { get; } = new();
         public IDatabase Database { get; } = Substitute.For<IDatabase>();
         public ISubscriber Subscriber { get; } = Substitute.For<ISubscriber>();
-        public PublicAotFileShellCache Cache { get; }
-        public string CacheRoot { get; }
+        public PublicAotFileShellCache Cache
+        {
+            get;
+        }
+        public string CacheRoot
+        {
+            get;
+        }
 
         public CacheFixture(string environmentName)
         {

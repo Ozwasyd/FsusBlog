@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Background;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -116,7 +117,10 @@ public sealed class UploadSessionCleanupWorkerBehaviorTests
     private sealed class RecordingLease : IBackgroundWorkerLease
     {
         public bool AllowRun { get; set; } = true;
-        public int Attempts { get; private set; }
+        public int Attempts
+        {
+            get; private set;
+        }
 
         public async Task<bool> TryRunAsLeaderAsync(
             string workerName,

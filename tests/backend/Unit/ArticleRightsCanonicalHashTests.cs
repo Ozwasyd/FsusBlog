@@ -74,8 +74,14 @@ public sealed class ArticleRightsCanonicalHashTests
     [Fact]
     public void BuildPayload_NullAndEmptyOptionalStringsRemainDistinct()
     {
-        ArticleRightsCanonicalInput nullHolder = Baseline() with { CopyrightHolder = null };
-        ArticleRightsCanonicalInput emptyHolder = Baseline() with { CopyrightHolder = string.Empty };
+        ArticleRightsCanonicalInput nullHolder = Baseline() with
+        {
+            CopyrightHolder = null
+        };
+        ArticleRightsCanonicalInput emptyHolder = Baseline() with
+        {
+            CopyrightHolder = string.Empty
+        };
 
         string nullPayload = ArticleRightsCanonicalPayloadV1.BuildPayloadUtf8(nullHolder);
         string emptyPayload = ArticleRightsCanonicalPayloadV1.BuildPayloadUtf8(emptyHolder);

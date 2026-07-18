@@ -1,4 +1,5 @@
 using System.Diagnostics;
+
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Infrastructure.Observability;

@@ -1,5 +1,6 @@
-using Microsoft.AspNetCore.Http;
 using FsusBlog.Core.Common;
+
+using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 

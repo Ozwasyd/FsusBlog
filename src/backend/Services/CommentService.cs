@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -19,7 +20,9 @@ using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.Extensions.Configuration;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services;
@@ -1838,58 +1841,175 @@ ORDER BY x.root_id, x.id;
 
     private sealed record ThreadRootRow
     {
-        public long Id { get; init; }
-        public int ArticleId { get; init; }
+        public long Id
+        {
+            get; init;
+        }
+        public int ArticleId
+        {
+            get; init;
+        }
         public string Content { get; init; } = string.Empty;
-        public DateTime CreateTime { get; init; }
+        public DateTime CreateTime
+        {
+            get; init;
+        }
         public string AuthorDisplayName { get; init; } = string.Empty;
-        public string? AuthorMode { get; init; }
-        public string? AnonymousDisplayLanguage { get; init; }
-        public string? AnonymousScope { get; init; }
-        public int Depth { get; init; }
-        public bool IsDeleted { get; init; }
+        public string? AuthorMode
+        {
+            get; init;
+        }
+        public string? AnonymousDisplayLanguage
+        {
+            get; init;
+        }
+        public string? AnonymousScope
+        {
+            get; init;
+        }
+        public int Depth
+        {
+            get; init;
+        }
+        public bool IsDeleted
+        {
+            get; init;
+        }
     }
 
     private sealed record ReplyRow
     {
-        public long Id { get; init; }
-        public long? ParentId { get; init; }
-        public long? RootId { get; init; }
-        public long? ReplyToCommentId { get; init; }
+        public long Id
+        {
+            get; init;
+        }
+        public long? ParentId
+        {
+            get; init;
+        }
+        public long? RootId
+        {
+            get; init;
+        }
+        public long? ReplyToCommentId
+        {
+            get; init;
+        }
         public string Content { get; init; } = string.Empty;
-        public DateTime CreateTime { get; init; }
+        public DateTime CreateTime
+        {
+            get; init;
+        }
         public string AuthorDisplayName { get; init; } = string.Empty;
-        public string? AuthorMode { get; init; }
-        public string? AnonymousDisplayLanguage { get; init; }
-        public string? AnonymousScope { get; init; }
-        public string? ReplyToDisplayName { get; init; }
-        public string? ReplyToAuthorMode { get; init; }
-        public string? ReplyToAnonymousDisplayLanguage { get; init; }
-        public string? ReplyToAnonymousScope { get; init; }
-        public int Depth { get; init; }
-        public bool IsDeleted { get; init; }
+        public string? AuthorMode
+        {
+            get; init;
+        }
+        public string? AnonymousDisplayLanguage
+        {
+            get; init;
+        }
+        public string? AnonymousScope
+        {
+            get; init;
+        }
+        public string? ReplyToDisplayName
+        {
+            get; init;
+        }
+        public string? ReplyToAuthorMode
+        {
+            get; init;
+        }
+        public string? ReplyToAnonymousDisplayLanguage
+        {
+            get; init;
+        }
+        public string? ReplyToAnonymousScope
+        {
+            get; init;
+        }
+        public int Depth
+        {
+            get; init;
+        }
+        public bool IsDeleted
+        {
+            get; init;
+        }
     }
 
     private sealed record UserCommentRow
     {
-        public long Id { get; init; }
+        public long Id
+        {
+            get; init;
+        }
         public string Content { get; init; } = string.Empty;
-        public DateTime CreateTime { get; init; }
-        public bool IsDeleted { get; init; }
+        public DateTime CreateTime
+        {
+            get; init;
+        }
+        public bool IsDeleted
+        {
+            get; init;
+        }
         public CommentModerationStatus ModerationStatus { get; init; } = CommentModerationStatus.Approved;
-        public string? BlockedRegions { get; init; }
-        public long? RootId { get; init; }
-        public int ArticleId { get; init; }
-        public string? ArticleTitle { get; init; }
-        public long? ReplyToCommentId { get; init; }
-        public string? AuthorMode { get; init; }
-        public string? PublicHandle { get; init; }
-        public string? AnonymousDisplayName { get; init; }
-        public string? AnonymousDisplayLanguage { get; init; }
-        public string? AnonymousScope { get; init; }
-        public string? ReplyToAuthorMode { get; init; }
-        public string? ReplyToPublicHandle { get; init; }
-        public string? ReplyToAnonymousDisplayName { get; init; }
-        public string? ReplyToAnonymousDisplayLanguage { get; init; }
+        public string? BlockedRegions
+        {
+            get; init;
+        }
+        public long? RootId
+        {
+            get; init;
+        }
+        public int ArticleId
+        {
+            get; init;
+        }
+        public string? ArticleTitle
+        {
+            get; init;
+        }
+        public long? ReplyToCommentId
+        {
+            get; init;
+        }
+        public string? AuthorMode
+        {
+            get; init;
+        }
+        public string? PublicHandle
+        {
+            get; init;
+        }
+        public string? AnonymousDisplayName
+        {
+            get; init;
+        }
+        public string? AnonymousDisplayLanguage
+        {
+            get; init;
+        }
+        public string? AnonymousScope
+        {
+            get; init;
+        }
+        public string? ReplyToAuthorMode
+        {
+            get; init;
+        }
+        public string? ReplyToPublicHandle
+        {
+            get; init;
+        }
+        public string? ReplyToAnonymousDisplayName
+        {
+            get; init;
+        }
+        public string? ReplyToAnonymousDisplayLanguage
+        {
+            get; init;
+        }
     }
 }

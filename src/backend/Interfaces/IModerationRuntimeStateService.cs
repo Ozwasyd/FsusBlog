@@ -5,9 +5,18 @@ namespace FsusBlog.Server.Interfaces;
 
 public interface IModerationRuntimeStateService
 {
-    ModerationRuntimeSnapshot Current { get; }
-    bool IsModelEnabled { get; }
-    ModerationModelRuntimeSnapshot CurrentModel { get; }
+    ModerationRuntimeSnapshot Current
+    {
+        get;
+    }
+    bool IsModelEnabled
+    {
+        get;
+    }
+    ModerationModelRuntimeSnapshot CurrentModel
+    {
+        get;
+    }
     bool IsDictionaryEnabled(string dictionaryId);
     string GetGlobalState();
     string GetRegionState(string region);

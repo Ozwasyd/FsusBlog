@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -181,7 +182,10 @@ public sealed class SecurityChallengeOrchestratorTests
     {
         public string Kind { get; } = kind;
 
-        public SecurityChallengeProviderIssueResult? IssueResult { get; init; }
+        public SecurityChallengeProviderIssueResult? IssueResult
+        {
+            get; init;
+        }
 
         public SecurityChallengeProviderVerifyResult VerifyResult { get; init; } = SecurityChallengeProviderVerifyResult.Success(DateTimeOffset.UtcNow.AddMinutes(5));
 
@@ -216,9 +220,15 @@ public sealed class SecurityChallengeOrchestratorTests
 
     private sealed class MintingProofService : ISecurityChallengeProofService
     {
-        public bool ThrowOnMint { get; init; }
+        public bool ThrowOnMint
+        {
+            get; init;
+        }
 
-        public SecurityChallengeProofMintRequest? LastMintRequest { get; private set; }
+        public SecurityChallengeProofMintRequest? LastMintRequest
+        {
+            get; private set;
+        }
 
         public Task<SecurityChallengeProofMintResult> MintProofAsync(SecurityChallengeProofMintRequest request, CancellationToken cancellationToken = default)
         {

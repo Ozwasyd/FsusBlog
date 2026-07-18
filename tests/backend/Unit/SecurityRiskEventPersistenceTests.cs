@@ -1,22 +1,26 @@
+using System.Diagnostics.Metrics;
 using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using System.Diagnostics.Metrics;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -650,8 +654,14 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     private sealed class RecordingRiskEventStore : ISecurityRiskEventStore
     {
         public List<SecurityRiskEventWrite> Writes { get; } = [];
-        public int BatchAppendCount { get; private set; }
-        public int SingleAppendCount { get; private set; }
+        public int BatchAppendCount
+        {
+            get; private set;
+        }
+        public int SingleAppendCount
+        {
+            get; private set;
+        }
 
         public Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
         {
@@ -677,7 +687,10 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     private sealed class BatchFailingRiskEventStore : ISecurityRiskEventStore
     {
         public List<SecurityRiskEventWrite> SingleWrites { get; } = [];
-        public int BatchAppendCount { get; private set; }
+        public int BatchAppendCount
+        {
+            get; private set;
+        }
 
         public Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
         {

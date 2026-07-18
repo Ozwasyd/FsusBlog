@@ -1,8 +1,10 @@
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -487,7 +489,8 @@ public sealed class PublicHotReadResidencyTests
                     || (!artifact.Frame.Span.SequenceEqual(firstBytes)
                         && !artifact.Frame.Span.SequenceEqual(secondBytes)))
                 {
-                    lock (failureGate) failures.Add("partial-frame");
+                    lock (failureGate)
+                        failures.Add("partial-frame");
                 }
             }
         });

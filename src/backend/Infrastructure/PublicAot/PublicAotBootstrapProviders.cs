@@ -1,12 +1,14 @@
 using System.Data.Common;
+
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Integrity;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -83,7 +85,10 @@ public sealed class AotSeoConfigSnapshot(IServiceScopeFactory scopeFactory) : IA
 
 public abstract class PublicAotBootstrapProviderBase(IAotSeoConfigSnapshot seoConfigSnapshot) : IPublicAotBootstrapProvider
 {
-    public abstract PublicPageKind Kind { get; }
+    public abstract PublicPageKind Kind
+    {
+        get;
+    }
 
     public abstract Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(
         PublicAotRouteMatch match,
@@ -458,16 +463,40 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
 
     private sealed class ArticleDetailAotProjection
     {
-        public int Id { get; init; }
+        public int Id
+        {
+            get; init;
+        }
         public string Title { get; init; } = string.Empty;
         public string Content { get; set; } = string.Empty;
-        public string? Summary { get; set; }
-        public string? CoverImageUrl { get; set; }
-        public int Views { get; init; }
-        public DateTime CreateTime { get; init; }
-        public DateTime? PublishedAt { get; init; }
-        public DateTime? UpdatedAt { get; init; }
-        public int CategoryId { get; init; }
+        public string? Summary
+        {
+            get; set;
+        }
+        public string? CoverImageUrl
+        {
+            get; set;
+        }
+        public int Views
+        {
+            get; init;
+        }
+        public DateTime CreateTime
+        {
+            get; init;
+        }
+        public DateTime? PublishedAt
+        {
+            get; init;
+        }
+        public DateTime? UpdatedAt
+        {
+            get; init;
+        }
+        public int CategoryId
+        {
+            get; init;
+        }
         public string CategoryName { get; set; } = string.Empty;
         public string AuthorName { get; set; } = string.Empty;
         public IReadOnlyList<PublicAotArticleTagSnapshot> Tags { get; set; } = [];
@@ -476,7 +505,10 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
 
     private sealed class ArticleTagAotProjection
     {
-        public int Id { get; init; }
+        public int Id
+        {
+            get; init;
+        }
         public string Name { get; init; } = string.Empty;
     }
 }
@@ -699,8 +731,14 @@ public sealed class PublicAotArchiveBootstrapProvider(
 
     private sealed class ArchiveArticleAotProjection
     {
-        public int Id { get; init; }
+        public int Id
+        {
+            get; init;
+        }
         public string Title { get; init; } = string.Empty;
-        public DateTime CreateTime { get; init; }
+        public DateTime CreateTime
+        {
+            get; init;
+        }
     }
 }

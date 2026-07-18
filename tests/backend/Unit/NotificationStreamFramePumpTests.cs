@@ -1,7 +1,9 @@
 using System.Buffers;
 using System.IO.Pipelines;
 using System.Reflection;
+
 using FsusBlog.Server.Infrastructure.NotificationStream;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.Server.Tests;
@@ -101,11 +103,17 @@ public sealed class NotificationStreamFramePumpTests
 
     private sealed class ThrowingPipeWriter : PipeWriter
     {
-        public override void Advance(int bytes) { }
+        public override void Advance(int bytes)
+        {
+        }
 
-        public override void CancelPendingFlush() { }
+        public override void CancelPendingFlush()
+        {
+        }
 
-        public override void Complete(Exception? exception = null) { }
+        public override void Complete(Exception? exception = null)
+        {
+        }
 
         public override ValueTask CompleteAsync(Exception? exception = null) => ValueTask.CompletedTask;
 

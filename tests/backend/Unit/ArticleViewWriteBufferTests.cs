@@ -1,4 +1,5 @@
 using FsusBlog.Server.Services;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -67,7 +68,10 @@ public sealed class ArticleViewWriteBufferTests
     {
         public List<Dictionary<int, int>> Batches { get; } = [];
 
-        public bool ThrowOnFlush { get; set; }
+        public bool ThrowOnFlush
+        {
+            get; set;
+        }
 
         public ValueTask<IReadOnlySet<int>> FlushArticleViewsAsync(
             IReadOnlyDictionary<int, int> articleCounts,
@@ -85,7 +89,10 @@ public sealed class ArticleViewWriteBufferTests
 
     private sealed class RecordingArticleViewWriteBuffer : IArticleViewWriteBuffer
     {
-        public int FlushCount { get; private set; }
+        public int FlushCount
+        {
+            get; private set;
+        }
 
         public ValueTask EnqueueAsync(int articleId, int delta = 1, CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;

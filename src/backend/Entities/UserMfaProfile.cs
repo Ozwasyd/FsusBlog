@@ -7,31 +7,58 @@ namespace FsusBlog.Server.Entities;
 public class UserMfaProfile
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "user_id")]
-    public int UserId { get; set; }
+    public int UserId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "mfa_secret_encrypted", IsNullable = true, ColumnDataType = "text")]
-    public string? MfaSecretEncrypted { get; set; }
+    public string? MfaSecretEncrypted
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "mfa_pending_secret_encrypted", IsNullable = true, ColumnDataType = "text")]
-    public string? MfaPendingSecretEncrypted { get; set; }
+    public string? MfaPendingSecretEncrypted
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "mfa_pending_created_at", IsNullable = true)]
-    public DateTime? MfaPendingCreatedAt { get; set; }
+    public DateTime? MfaPendingCreatedAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "mfa_verified_at", IsNullable = true)]
-    public DateTime? MfaVerifiedAt { get; set; }
+    public DateTime? MfaVerifiedAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "mfa_recovery_codes_hash", IsNullable = true, ColumnDataType = "text")]
-    public string? MfaRecoveryCodesHash { get; set; }
+    public string? MfaRecoveryCodesHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "last_totp_step", IsNullable = true)]
-    public long? LastTotpStep { get; set; }
+    public long? LastTotpStep
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "last_totp_used_at_utc", IsNullable = true)]
-    public DateTime? LastTotpUsedAtUtc { get; set; }
+    public DateTime? LastTotpUsedAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "hash_version")]
     public short MfaRecoveryCodesHashVersion { get; set; } = 1;

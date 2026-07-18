@@ -1,15 +1,16 @@
 using System.Buffers.Binary;
 using System.Diagnostics.Metrics;
+using System.Net.WebSockets;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
-using System.Net.WebSockets;
 using System.Text;
+
 using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Security;
@@ -18,8 +19,9 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.NotificationStream;
-using Microsoft.AspNetCore.Hosting;
+
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
@@ -29,7 +31,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -687,7 +691,8 @@ public class NotificationStreamBoundaryTests
             2,
             new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed),
             128);
-        foreach (SharedNotificationStreamFrame frame in replay.Frames) frame.Release();
+        foreach (SharedNotificationStreamFrame frame in replay.Frames)
+            frame.Release();
 
         batch.Received(1).Execute();
         Assert.Contains("fsus.notification_stream.replay_redis_commands", measurements);
@@ -1128,7 +1133,8 @@ public class NotificationStreamBoundaryTests
         byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
         for (int offset = 0; offset <= il.Length - 5; offset++)
         {
-            if (il[offset] is not (0x28 or 0x6F)) continue;
+            if (il[offset] is not (0x28 or 0x6F))
+                continue;
             MethodBase? called = null;
             try
             {
@@ -1140,7 +1146,8 @@ public class NotificationStreamBoundaryTests
             catch (ArgumentException)
             {
             }
-            if (called is not null) yield return (offset, called);
+            if (called is not null)
+                yield return (offset, called);
         }
     }
 }

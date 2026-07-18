@@ -2,8 +2,10 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+
 using HttpResults = Microsoft.AspNetCore.Http.Results;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
@@ -170,6 +172,11 @@ public static class ActiveReleaseFenceEndpoints
 
     private static IResult TrustedHostRequired()
         => HttpResults.Json(
-            new { accepted = false, status = "rejected", errorCode = "trusted_host_required" },
+            new
+            {
+                accepted = false,
+                status = "rejected",
+                errorCode = "trusted_host_required"
+            },
             statusCode: StatusCodes.Status403Forbidden);
 }

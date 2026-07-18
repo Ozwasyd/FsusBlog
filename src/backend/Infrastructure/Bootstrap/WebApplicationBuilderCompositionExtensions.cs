@@ -1,11 +1,14 @@
-using FsusBlog.Server.Infrastructure.Audit;
-using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Services;
-using Microsoft.AspNetCore.HttpOverrides;
-using Serilog;
 using System.Runtime;
 using System.Runtime.InteropServices;
+
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Services;
+
+using Microsoft.AspNetCore.HttpOverrides;
+
+using Serilog;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -120,7 +123,8 @@ internal static class FsusHostRuntimeTuning
         foreach (string name in names)
         {
             string? value = Environment.GetEnvironmentVariable(name);
-            if (!string.IsNullOrWhiteSpace(value)) return value;
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
         }
 
         return null;
@@ -134,7 +138,8 @@ internal static class FsusHostRuntimeTuning
         string? fallback)
     {
         string? observed = Environment.GetEnvironmentVariable(dotnetEnvironmentKey);
-        if (string.IsNullOrWhiteSpace(observed)) observed = Environment.GetEnvironmentVariable(compatibilityEnvironmentKey);
+        if (string.IsNullOrWhiteSpace(observed))
+            observed = Environment.GetEnvironmentVariable(compatibilityEnvironmentKey);
         return string.IsNullOrWhiteSpace(observed)
             ? ResolveOptionalValue(section, configurationKey, fallback)
             : observed;

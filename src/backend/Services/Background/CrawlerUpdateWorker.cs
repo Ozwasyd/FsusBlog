@@ -1,12 +1,13 @@
-﻿using FsusBlog.Server.Infrastructure.Execution;
+using System.Net;
+using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
-using System.Net;
-using System.Text.Json;
 
 namespace FsusBlog.Server.Services.Background;
 
@@ -438,11 +439,16 @@ public class CrawlerUpdateWorker(
 
     private static string ResolveSource(string googleSource, string bingSource)
     {
-        if (googleSource == "remote" && bingSource == "remote") return "remote";
-        if (googleSource == "empty" && bingSource == "empty") return "empty";
-        if (googleSource == bingSource) return googleSource;
-        if (googleSource == "remote" || bingSource == "remote") return "remote";
-        if (googleSource == "cache" || bingSource == "cache") return "cache";
+        if (googleSource == "remote" && bingSource == "remote")
+            return "remote";
+        if (googleSource == "empty" && bingSource == "empty")
+            return "empty";
+        if (googleSource == bingSource)
+            return googleSource;
+        if (googleSource == "remote" || bingSource == "remote")
+            return "remote";
+        if (googleSource == "cache" || bingSource == "cache")
+            return "cache";
         return "config";
     }
 

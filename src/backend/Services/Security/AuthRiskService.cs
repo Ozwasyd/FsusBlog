@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
@@ -101,9 +102,21 @@ public sealed class AuthRiskService(ISqlSugarClient db) : IAuthRiskService
 
     private sealed record AuthRiskSessionSample
     {
-        public string? DeviceFingerprint { get; init; }
-        public string? LastIp { get; init; }
-        public string? UserAgent { get; init; }
-        public DateTime CreatedAt { get; init; }
+        public string? DeviceFingerprint
+        {
+            get; init;
+        }
+        public string? LastIp
+        {
+            get; init;
+        }
+        public string? UserAgent
+        {
+            get; init;
+        }
+        public DateTime CreatedAt
+        {
+            get; init;
+        }
     }
 }

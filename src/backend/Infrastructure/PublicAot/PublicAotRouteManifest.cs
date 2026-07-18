@@ -1,5 +1,6 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -303,14 +304,26 @@ public sealed class PublicAotRouteManifestProvider(
 
     private sealed class ArticleRouteProjection
     {
-        public int Id { get; set; }
-        public int CategoryId { get; set; }
-        public DateTime CreateTime { get; set; }
+        public int Id
+        {
+            get; set;
+        }
+        public int CategoryId
+        {
+            get; set;
+        }
+        public DateTime CreateTime
+        {
+            get; set;
+        }
     }
 
     private sealed class TagNameProjection
     {
-        public int Id { get; set; }
+        public int Id
+        {
+            get; set;
+        }
         public string Name { get; set; } = string.Empty;
     }
 }

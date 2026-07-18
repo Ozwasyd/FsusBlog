@@ -1,19 +1,22 @@
+using System.Security.Cryptography;
+using System.Text;
+
 using FsusBlog.Core.Common;
-using FsusBlog.Server.Infrastructure.Bootstrap;
-using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Privacy;
 using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Entities;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
+
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
+
 using StackExchange.Redis;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
 
@@ -189,7 +192,10 @@ public static class ProductionStartupValidator
         Value(ActiveReleaseFenceAvailabilityPolicy.StaleThresholdKey)
     ];
 
-    public static ProductionStartupValidationSchema CurrentSchema { get; } = new(
+    public static ProductionStartupValidationSchema CurrentSchema
+    {
+        get;
+    } = new(
         SchemaVersion,
         RequiredSettings.Select(static rule => rule.Key).ToArray(),
         DefaultJwtSecretHashes);

@@ -6,14 +6,20 @@ public sealed class BlindCredentialRuntimeOptions
 {
     public const string SectionName = "AnonymousCredentialIssuer:BlindRsa";
 
-    public bool Enabled { get; set; }
+    public bool Enabled
+    {
+        get; set;
+    }
     public int TimeoutMs { get; set; } = 2_000;
     public int MinimumResponseMilliseconds { get; set; } = 2_500;
 }
 
 public interface IBlindCredentialRuntimeGate
 {
-    bool IsEnabled { get; }
+    bool IsEnabled
+    {
+        get;
+    }
     TimeSpan GetEnvelopeDelay(TimeSpan elapsed);
 }
 

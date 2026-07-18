@@ -1,9 +1,11 @@
 using System.Globalization;
 using System.Net;
 using System.Numerics;
+using System.Reflection;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -14,15 +16,16 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Validation;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -32,8 +35,8 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using SqlSugar;
-using System.Reflection;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -165,7 +168,10 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             Assert.True(ManagedCircuitNativeCredentialSigner.Verify(publicKey, material, issued.Value.IssuerSignature));
             Assert.False(ManagedCircuitNativeCredentialSigner.Verify(
                 publicKey,
-                material with { CredentialEpoch = material.CredentialEpoch + 1 },
+                material with
+                {
+                    CredentialEpoch = material.CredentialEpoch + 1
+                },
                 issued.Value.IssuerSignature));
             byte[] tamperedSignature = [.. issued.Value.IssuerSignature];
             tamperedSignature[^1] ^= 0x80;
@@ -466,7 +472,10 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         Result<AnonymousCredentialIssueResponseCoreModel> first = await service.IssueAsync(42, request, "trace-1", CancellationToken.None);
         Result<AnonymousCredentialIssueResponseCoreModel> second = await service.IssueAsync(
             42,
-            request with { ClientNonce = Encoding.UTF8.GetBytes("another-client-nonce") },
+            request with
+            {
+                ClientNonce = Encoding.UTF8.GetBytes("another-client-nonce")
+            },
             "trace-2",
             CancellationToken.None);
 
@@ -1154,7 +1163,10 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
 
         public Task RecordHighValueAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
         {
-            Events.Add(auditEvent with { IsHighValue = true });
+            Events.Add(auditEvent with
+            {
+                IsHighValue = true
+            });
             return Task.CompletedTask;
         }
     }
@@ -1166,7 +1178,10 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         public bool IsConfigured => true;
         public string IssuerPublicKeyId { get; init; } = "issuer-key:local";
         public string IssuerPublicKeyHash => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(IssuerPublicKeyId)));
-        public bool ForceVerifyFailure { get; init; }
+        public bool ForceVerifyFailure
+        {
+            get; init;
+        }
         public List<CircuitNativeCredentialIssueMaterial> Requests { get; } = [];
 
         public ValueTask<Result<CircuitNativeCredentialIssueResult>> SignAsync(
@@ -1174,7 +1189,10 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var captured = material with { CredentialRequest = [.. material.CredentialRequest] };
+            var captured = material with
+            {
+                CredentialRequest = [.. material.CredentialRequest]
+            };
             Requests.Add(captured);
             return ValueTask.FromResult(Result<CircuitNativeCredentialIssueResult>.Success(new CircuitNativeCredentialIssueResult(
                 IssuerPublicKeyId,
@@ -1220,10 +1238,22 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
 
     private sealed class CapturingIssuerService : IAnonymousCredentialIssuerService
     {
-        public int UserId { get; private set; }
-        public int CallCount { get; private set; }
-        public AnonymousCredentialIssueRequestCoreModel Request { get; private set; }
-        public Result<AnonymousCredentialIssueResponseCoreModel> Result { get; init; } =
+        public int UserId
+        {
+            get; private set;
+        }
+        public int CallCount
+        {
+            get; private set;
+        }
+        public AnonymousCredentialIssueRequestCoreModel Request
+        {
+            get; private set;
+        }
+        public Result<AnonymousCredentialIssueResponseCoreModel> Result
+        {
+            get; init;
+        } =
             Result<AnonymousCredentialIssueResponseCoreModel>.Failure(ErrorCode.Forbidden, "issuer_not_configured");
 
         public Task<Result<AnonymousCredentialIssueResponseCoreModel>> IssueAsync(
@@ -1254,7 +1284,10 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         AedsFrameType expectedFrameType,
         BinaryRequestPayload payload) : IBinaryEndpointRequestContext
     {
-        public int? MaxFrameBytes { get; private set; }
+        public int? MaxFrameBytes
+        {
+            get; private set;
+        }
 
         public Task<BinaryRequestPayload> ReadFrameAsync(
             HttpContext httpContext,

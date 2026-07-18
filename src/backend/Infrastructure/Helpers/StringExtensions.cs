@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Infrastructure.Helpers;
 
@@ -16,7 +16,8 @@ public static class StringExtensions
     public static string ToTitleCase(this string? input)
     {
         // 使用 IsNullOrEmpty 性能略高于 IsNullOrWhiteSpace，且足以防御越界
-        if (string.IsNullOrEmpty(input)) return string.Empty;
+        if (string.IsNullOrEmpty(input))
+            return string.Empty;
 
         // 使用 .NET 高性能 API 直接操作内存缓冲区，仅分配最终字符串一次
         return string.Create(input.Length, input, (span, state) =>
@@ -39,11 +40,13 @@ public static class StringExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string FirstCharToUpper(this string? input)
     {
-        if (string.IsNullOrEmpty(input)) return string.Empty;
+        if (string.IsNullOrEmpty(input))
+            return string.Empty;
 
         // 核心优化 1：快速路径 (Fast Path)
         // 如果首字母已经是大写，直接返回原字符串引用，实现绝对的零内存分配和零处理时间
-        if (char.IsUpper(input[0])) return input;
+        if (char.IsUpper(input[0]))
+            return input;
 
         // 核心优化 2：彻底消灭 Substring 和拼接分配
         // 原代码会产生两个托管堆对象。改用 string.Create 结合 Span.CopyTo 直接进行底层内存复制
@@ -65,7 +68,8 @@ public static class StringExtensions
     public static string Truncate(this string? value, int maxLength, string suffix = "...")
     {
         // 增加安全防御：如果要求截断的长度小于等于 0，直接返回空
-        if (string.IsNullOrEmpty(value) || maxLength <= 0) return string.Empty;
+        if (string.IsNullOrEmpty(value) || maxLength <= 0)
+            return string.Empty;
 
         // 注：string.Concat(ReadOnlySpan<char>, ReadOnlySpan<char>) 在 .NET 8+ 底层是
         // 经过高度定制和 SIMD 优化的，它会精确计算长度并执行单次 fast-path 内存复制，

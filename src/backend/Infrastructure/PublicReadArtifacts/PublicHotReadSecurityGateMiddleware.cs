@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;

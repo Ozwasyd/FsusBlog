@@ -13,7 +13,10 @@ public sealed record DestructiveMigrationProof(
 
 public interface IDestructiveSchemaMigrationStep
 {
-    DestructiveMigrationProof Proof { get; }
+    DestructiveMigrationProof Proof
+    {
+        get;
+    }
 }
 
 public static partial class DestructiveMigrationProofs

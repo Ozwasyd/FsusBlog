@@ -1,4 +1,4 @@
-﻿using SqlSugar;
+using SqlSugar;
 
 namespace FsusBlog.Server.Entities;
 
@@ -8,10 +8,16 @@ namespace FsusBlog.Server.Entities;
 public class ArticleTag
 {
     [SugarColumn(IsPrimaryKey = true)] // 联合主键 part 1
-    public int ArticleId { get; set; }
+    public int ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(IsPrimaryKey = true)] // 联合主键 part 2
-    public int TagId { get; set; }
+    public int TagId
+    {
+        get; set;
+    }
 }
 
 /// <summary>
@@ -26,26 +32,41 @@ public class Article
 {
     // PostgreSQL 自增主键
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public int Id { get; set; }
+    public int Id
+    {
+        get; set;
+    }
 
     [SugarColumn(Length = 256)]
     public string Title { get; set; } = null!;
 
     // 摘要
     [SugarColumn(Length = 512, IsNullable = true)]
-    public string? Summary { get; set; }
+    public string? Summary
+    {
+        get; set;
+    }
 
     // 头图
     [SugarColumn(Length = 512, IsNullable = true)]
-    public string? CoverImageUrl { get; set; }
+    public string? CoverImageUrl
+    {
+        get; set;
+    }
 
     // 1. 分类 (多对一: Article -> Category)
-    public int CategoryId { get; set; }
+    public int CategoryId
+    {
+        get; set;
+    }
 
     // 导航属性: 不映射到数据库字段，查询时自动填充
     [SugarColumn(IsIgnore = true)]
     [Navigate(NavigateType.OneToOne, nameof(CategoryId))]
-    public Category? Category { get; set; }
+    public Category? Category
+    {
+        get; set;
+    }
 
     // 2. 标签 (多对多: Article <-> Tag)
     // 导航属性: 通过中间表 ArticleTag 关联
@@ -65,23 +86,41 @@ public class Article
     public ArticleStatus Status { get; set; } = ArticleStatus.Published;
 
     [SugarColumn(ColumnName = "scheduled_publish_at", IsNullable = true)]
-    public DateTime? ScheduledPublishAt { get; set; }
+    public DateTime? ScheduledPublishAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "published_at", IsNullable = true)]
-    public DateTime? PublishedAt { get; set; }
+    public DateTime? PublishedAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "archived_at", IsNullable = true)]
-    public DateTime? ArchivedAt { get; set; }
+    public DateTime? ArchivedAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "deleted_at", IsNullable = true)]
-    public DateTime? DeletedAt { get; set; }
+    public DateTime? DeletedAt
+    {
+        get; set;
+    }
 
     // 逻辑删除
     [SugarColumn(IsNullable = false, DefaultValue = "false")]
-    public bool IsDeleted { get; set; }
+    public bool IsDeleted
+    {
+        get; set;
+    }
 
     [SugarColumn(IsIgnore = true)]
-    public string? RowVersion { get; set; }
+    public string? RowVersion
+    {
+        get; set;
+    }
 }
 
 public enum ArticleStatus
@@ -119,7 +158,10 @@ public static class ArticlePublication
 public class ArticleBody
 {
     [SugarColumn(IsPrimaryKey = true, ColumnName = "article_id")]
-    public int ArticleId { get; set; }
+    public int ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "markdown_content", ColumnDataType = "text")]
     public string MarkdownContent { get; set; } = string.Empty;
@@ -133,13 +175,22 @@ public class ArticleBody
 public class ArticleDraft
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "owner_admin_principal_id")]
-    public long OwnerAdminPrincipalId { get; set; }
+    public long OwnerAdminPrincipalId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_id", IsNullable = true)]
-    public int? ArticleId { get; set; }
+    public int? ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "draft_key", Length = 96)]
     public string DraftKey { get; set; } = string.Empty;
@@ -148,12 +199,21 @@ public class ArticleDraft
     public string Title { get; set; } = string.Empty;
 
     [SugarColumn(Length = 512, IsNullable = true)]
-    public string? Summary { get; set; }
+    public string? Summary
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "cover_image_url", Length = 512, IsNullable = true)]
-    public string? CoverImageUrl { get; set; }
+    public string? CoverImageUrl
+    {
+        get; set;
+    }
 
-    public int CategoryId { get; set; }
+    public int CategoryId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "tag_ids", ColumnDataType = "text")]
     public string TagIds { get; set; } = string.Empty;
@@ -165,13 +225,22 @@ public class ArticleDraft
     public ArticleStatus Status { get; set; } = ArticleStatus.Published;
 
     [SugarColumn(ColumnName = "scheduled_publish_at", IsNullable = true)]
-    public DateTime? ScheduledPublishAt { get; set; }
+    public DateTime? ScheduledPublishAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "rights_json", ColumnDataType = "text", IsNullable = true)]
-    public string? RightsJson { get; set; }
+    public string? RightsJson
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "client_revision", Length = 64, IsNullable = true)]
-    public string? ClientRevision { get; set; }
+    public string? ClientRevision
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -186,24 +255,42 @@ public class ArticleDraft
 public class ArticleRevision
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_id")]
-    public int ArticleId { get; set; }
+    public int ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revision_no")]
-    public int RevisionNo { get; set; }
+    public int RevisionNo
+    {
+        get; set;
+    }
 
     [SugarColumn(Length = 256)]
     public string Title { get; set; } = string.Empty;
 
     [SugarColumn(Length = 512, IsNullable = true)]
-    public string? Summary { get; set; }
+    public string? Summary
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "cover_image_url", Length = 512, IsNullable = true)]
-    public string? CoverImageUrl { get; set; }
+    public string? CoverImageUrl
+    {
+        get; set;
+    }
 
-    public int CategoryId { get; set; }
+    public int CategoryId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "tag_ids", ColumnDataType = "text")]
     public string TagIds { get; set; } = string.Empty;
@@ -215,7 +302,10 @@ public class ArticleRevision
     public string DiffSummary { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "created_by_admin_principal_id")]
-    public long CreatedByAdminPrincipalId { get; set; }
+    public long CreatedByAdminPrincipalId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -231,16 +321,28 @@ public class ArticleRevision
 public class ArticleResponsibilitySnapshot
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_id")]
-    public int ArticleId { get; set; }
+    public int ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_revision_id")]
-    public long ArticleRevisionId { get; set; }
+    public long ArticleRevisionId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revision_no")]
-    public int RevisionNo { get; set; }
+    public int RevisionNo
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "inherit_site_author")]
     public bool InheritSiteAuthor { get; set; } = true;
@@ -249,34 +351,61 @@ public class ArticleResponsibilitySnapshot
     public string AuthorsJson { get; set; } = "[]";
 
     [SugarColumn(ColumnName = "reviewer_json", ColumnDataType = "text", IsNullable = true)]
-    public string? ReviewerJson { get; set; }
+    public string? ReviewerJson
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "sources_json", ColumnDataType = "text")]
     public string SourcesJson { get; set; } = "[]";
 
     [SugarColumn(ColumnName = "update_summary", Length = 512, IsNullable = true)]
-    public string? UpdateSummary { get; set; }
+    public string? UpdateSummary
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "update_reason", Length = 512, IsNullable = true)]
-    public string? UpdateReason { get; set; }
+    public string? UpdateReason
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "effective_at", IsNullable = true)]
-    public DateTime? EffectiveAt { get; set; }
+    public DateTime? EffectiveAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "conclusion_impact", Length = 32, IsNullable = true)]
-    public string? ConclusionImpact { get; set; }
+    public string? ConclusionImpact
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "methodology", ColumnDataType = "text", IsNullable = true)]
-    public string? Methodology { get; set; }
+    public string? Methodology
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "applicability", ColumnDataType = "text", IsNullable = true)]
-    public string? Applicability { get; set; }
+    public string? Applicability
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "limitations", ColumnDataType = "text", IsNullable = true)]
-    public string? Limitations { get; set; }
+    public string? Limitations
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "responsible_person_confirmed")]
-    public bool ResponsiblePersonConfirmed { get; set; }
+    public bool ResponsiblePersonConfirmed
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -287,10 +416,16 @@ public class ArticleResponsibilitySnapshot
 public class ArticleRightsPolicy
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_id")]
-    public int ArticleId { get; set; }
+    public int ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "enabled", IsNullable = false, DefaultValue = "true")]
     public bool Enabled { get; set; } = true;
@@ -299,16 +434,28 @@ public class ArticleRightsPolicy
     public string LicenseType { get; set; } = "all-rights-reserved";
 
     [SugarColumn(ColumnName = "copyright_holder", Length = 256, IsNullable = true)]
-    public string? CopyrightHolder { get; set; }
+    public string? CopyrightHolder
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "copyright_year", IsNullable = true)]
-    public int? CopyrightYear { get; set; }
+    public int? CopyrightYear
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "rights_statement", ColumnDataType = "text", IsNullable = true)]
-    public string? RightsStatement { get; set; }
+    public string? RightsStatement
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "attribution_template", ColumnDataType = "text", IsNullable = true)]
-    public string? AttributionTemplate { get; set; }
+    public string? AttributionTemplate
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "copy_policy", Length = 48)]
     public string CopyPolicy { get; set; } = "append-attribution";
@@ -339,19 +486,34 @@ public class ArticleRightsPolicy
 public class ArticleRightsSnapshot
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_id")]
-    public int ArticleId { get; set; }
+    public int ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_revision_id")]
-    public long ArticleRevisionId { get; set; }
+    public long ArticleRevisionId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revision_no")]
-    public int RevisionNo { get; set; }
+    public int RevisionNo
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_rights_policy_id")]
-    public long ArticleRightsPolicyId { get; set; }
+    public long ArticleRightsPolicyId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "enabled", IsNullable = false, DefaultValue = "true")]
     public bool Enabled { get; set; } = true;
@@ -360,16 +522,28 @@ public class ArticleRightsSnapshot
     public string LicenseType { get; set; } = "all-rights-reserved";
 
     [SugarColumn(ColumnName = "copyright_holder", Length = 256, IsNullable = true)]
-    public string? CopyrightHolder { get; set; }
+    public string? CopyrightHolder
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "copyright_year", IsNullable = true)]
-    public int? CopyrightYear { get; set; }
+    public int? CopyrightYear
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "rights_statement", ColumnDataType = "text", IsNullable = true)]
-    public string? RightsStatement { get; set; }
+    public string? RightsStatement
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "attribution_template", ColumnDataType = "text", IsNullable = true)]
-    public string? AttributionTemplate { get; set; }
+    public string? AttributionTemplate
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "copy_policy", Length = 48)]
     public string CopyPolicy { get; set; } = "append-attribution";
@@ -387,7 +561,10 @@ public class ArticleRightsSnapshot
     public bool ProofBindingEnabled { get; set; } = true;
 
     [SugarColumn(ColumnName = "canonical_url", Length = 512, IsNullable = true)]
-    public string? CanonicalUrl { get; set; }
+    public string? CanonicalUrl
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "policy_hash", Length = 96)]
     public string PolicyHash { get; set; } = "rights-v3:policy-hash:recompute";
@@ -407,7 +584,10 @@ public class ArticleRightsSnapshot
 public class ArticleRightsProof
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "proof_version")]
     public int ProofVersion { get; set; } = 1;
@@ -416,19 +596,34 @@ public class ArticleRightsProof
     public int SignaturePayloadVersion { get; set; } = 1;
 
     [SugarColumn(ColumnName = "article_id")]
-    public int ArticleId { get; set; }
+    public int ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_revision_id")]
-    public long ArticleRevisionId { get; set; }
+    public long ArticleRevisionId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revision_no")]
-    public int RevisionNo { get; set; }
+    public int RevisionNo
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_rights_snapshot_id")]
-    public long ArticleRightsSnapshotId { get; set; }
+    public long ArticleRightsSnapshotId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "publish_proof_id", IsNullable = true)]
-    public long? PublishProofId { get; set; }
+    public long? PublishProofId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "idempotency_key", Length = 160)]
     public string IdempotencyKey { get; set; } = string.Empty;
@@ -443,28 +638,52 @@ public class ArticleRightsProof
     public string ProofStatus { get; set; } = "pending";
 
     [SugarColumn(ColumnName = "signing_key_id", Length = 128, IsNullable = true)]
-    public string? SigningKeyId { get; set; }
+    public string? SigningKeyId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "signing_key_version", IsNullable = true)]
-    public int? SigningKeyVersion { get; set; }
+    public int? SigningKeyVersion
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "signing_algorithm", Length = 32, IsNullable = true)]
-    public string? SigningAlgorithm { get; set; }
+    public string? SigningAlgorithm
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "signature", Length = 256, IsNullable = true)]
-    public string? SignatureBase64Url { get; set; }
+    public string? SignatureBase64Url
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "failure_code", Length = 64, IsNullable = true)]
-    public string? FailureCode { get; set; }
+    public string? FailureCode
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "failure_detail", Length = 512, IsNullable = true)]
-    public string? FailureDetail { get; set; }
+    public string? FailureDetail
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "transparency_log_entry_id", IsNullable = true)]
-    public long? TransparencyLogEntryId { get; set; }
+    public long? TransparencyLogEntryId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "transparency_log_entry_hash", Length = 64, IsNullable = true)]
-    public string? TransparencyLogEntryHash { get; set; }
+    public string? TransparencyLogEntryHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -480,7 +699,10 @@ public class ArticleRightsProof
 public class ArticlePublishProof
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "proof_version")]
     public int ProofVersion { get; set; } = 1;
@@ -489,13 +711,22 @@ public class ArticlePublishProof
     public int SignaturePayloadVersion { get; set; } = 1;
 
     [SugarColumn(ColumnName = "article_id")]
-    public int ArticleId { get; set; }
+    public int ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_revision_id")]
-    public long ArticleRevisionId { get; set; }
+    public long ArticleRevisionId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revision_no")]
-    public int RevisionNo { get; set; }
+    public int RevisionNo
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "idempotency_key", Length = 128)]
     public string IdempotencyKey { get; set; } = string.Empty;
@@ -519,34 +750,61 @@ public class ArticlePublishProof
     public string FeedHash { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "published_at")]
-    public DateTime PublishedAt { get; set; }
+    public DateTime PublishedAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "proof_status", Length = 24)]
     public string ProofStatus { get; set; } = "pending";
 
     [SugarColumn(ColumnName = "signing_key_id", Length = 128, IsNullable = true)]
-    public string? SigningKeyId { get; set; }
+    public string? SigningKeyId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "signing_key_version", IsNullable = true)]
-    public int? SigningKeyVersion { get; set; }
+    public int? SigningKeyVersion
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "signing_algorithm", Length = 32, IsNullable = true)]
-    public string? SigningAlgorithm { get; set; }
+    public string? SigningAlgorithm
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "signature", Length = 256, IsNullable = true)]
-    public string? SignatureBase64Url { get; set; }
+    public string? SignatureBase64Url
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "failure_code", Length = 64, IsNullable = true)]
-    public string? FailureCode { get; set; }
+    public string? FailureCode
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "failure_detail", Length = 512, IsNullable = true)]
-    public string? FailureDetail { get; set; }
+    public string? FailureDetail
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "transparency_log_entry_id", IsNullable = true)]
-    public long? TransparencyLogEntryId { get; set; }
+    public long? TransparencyLogEntryId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "transparency_log_entry_hash", Length = 64, IsNullable = true)]
-    public string? TransparencyLogEntryHash { get; set; }
+    public string? TransparencyLogEntryHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -555,7 +813,10 @@ public class ArticlePublishProof
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "superseded_at", IsNullable = true)]
-    public DateTime? SupersededAt { get; set; }
+    public DateTime? SupersededAt
+    {
+        get; set;
+    }
 }
 
 [SugarTable("integrity_transparency_log")]
@@ -567,25 +828,43 @@ public class ArticlePublishProof
 public class IntegrityTransparencyLogEntry
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "seq")]
-    public long Seq { get; set; }
+    public long Seq
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "entry_type", Length = 32)]
     public string EntryType { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "proof_id", IsNullable = true)]
-    public long? ProofId { get; set; }
+    public long? ProofId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_id", IsNullable = true)]
-    public int? ArticleId { get; set; }
+    public int? ArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "article_revision_id", IsNullable = true)]
-    public long? ArticleRevisionId { get; set; }
+    public long? ArticleRevisionId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "revision_no", IsNullable = true)]
-    public int? RevisionNo { get; set; }
+    public int? RevisionNo
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "entry_payload_hash", Length = 64)]
     public string EntryPayloadHash { get; set; } = string.Empty;
@@ -600,10 +879,16 @@ public class IntegrityTransparencyLogEntry
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "signing_key_id", Length = 128, IsNullable = true)]
-    public string? SigningKeyId { get; set; }
+    public string? SigningKeyId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "signature", Length = 256, IsNullable = true)]
-    public string? SignatureBase64Url { get; set; }
+    public string? SignatureBase64Url
+    {
+        get; set;
+    }
 }
 
 [SugarTable("integrity_merkle_checkpoint")]
@@ -614,7 +899,10 @@ public class IntegrityTransparencyLogEntry
 public class IntegrityMerkleCheckpoint
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "checkpoint_kind", Length = 24)]
     public string CheckpointKind { get; set; } = string.Empty;
@@ -623,19 +911,31 @@ public class IntegrityMerkleCheckpoint
     public string ScopeKey { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "from_seq")]
-    public long FromSeq { get; set; }
+    public long FromSeq
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "to_seq")]
-    public long ToSeq { get; set; }
+    public long ToSeq
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "entry_count")]
-    public int EntryCount { get; set; }
+    public int EntryCount
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "root_hash", Length = 64)]
     public string RootHash { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "log_head_seq")]
-    public long LogHeadSeq { get; set; }
+    public long LogHeadSeq
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "log_head_hash", Length = 64)]
     public string LogHeadHash { get; set; } = string.Empty;
@@ -666,7 +966,10 @@ public class IntegrityMerkleCheckpoint
 public class ArticleMutationOutboxEvent
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "event_id", Length = 36)]
     public string EventId { get; set; } = Guid.NewGuid().ToString("N");
@@ -675,7 +978,10 @@ public class ArticleMutationOutboxEvent
     public string AggregateType { get; set; } = "article";
 
     [SugarColumn(ColumnName = "aggregate_id")]
-    public int AggregateId { get; set; }
+    public int AggregateId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "event_type", Length = 64)]
     public string EventType { get; set; } = string.Empty;
@@ -687,7 +993,10 @@ public class ArticleMutationOutboxEvent
     public string Status { get; set; } = "pending";
 
     [SugarColumn(ColumnName = "retry_count")]
-    public int RetryCount { get; set; }
+    public int RetryCount
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "next_retry_at")]
     public DateTime NextRetryAt { get; set; } = DateTime.UtcNow;
@@ -696,25 +1005,46 @@ public class ArticleMutationOutboxEvent
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "processed_at", IsNullable = true)]
-    public DateTime? ProcessedAt { get; set; }
+    public DateTime? ProcessedAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "last_error", Length = 1024, IsNullable = true)]
-    public string? LastError { get; set; }
+    public string? LastError
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "claim_token", Length = 64, IsNullable = true)]
-    public string? ClaimToken { get; set; }
+    public string? ClaimToken
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "claimed_by", Length = 128, IsNullable = true)]
-    public string? ClaimedBy { get; set; }
+    public string? ClaimedBy
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "claimed_at", IsNullable = true)]
-    public DateTime? ClaimedAt { get; set; }
+    public DateTime? ClaimedAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "heartbeat_at", IsNullable = true)]
-    public DateTime? HeartbeatAt { get; set; }
+    public DateTime? HeartbeatAt
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "claim_expires_at", IsNullable = true)]
-    public DateTime? ClaimExpiresAt { get; set; }
+    public DateTime? ClaimExpiresAt
+    {
+        get; set;
+    }
 }
 
 [SugarTable("article_mutation_outbox_edge")]
@@ -729,10 +1059,16 @@ public class ArticleMutationOutboxEvent
 public class ArticleMutationOutboxEdge
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "outbox_event_id")]
-    public long OutboxEventId { get; set; }
+    public long OutboxEventId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "edge_name", Length = 64)]
     public string EdgeName { get; set; } = string.Empty;
@@ -741,16 +1077,25 @@ public class ArticleMutationOutboxEdge
     public string Status { get; set; } = ArticleMutationOutboxEdgeStatus.Pending;
 
     [SugarColumn(ColumnName = "attempt_count")]
-    public int AttemptCount { get; set; }
+    public int AttemptCount
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "last_error", Length = 1024, IsNullable = true)]
-    public string? LastError { get; set; }
+    public string? LastError
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "delivery_key", Length = 64, IsNullable = true)]
-    public string? DeliveryKey { get; set; }
+    public string? DeliveryKey
+    {
+        get; set;
+    }
 }
 
 public static class ArticleMutationOutboxEdgeStatus
@@ -765,28 +1110,49 @@ public static class ArticleMutationOutboxEdgeStatus
 public class AssetLibraryItem
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "url", Length = 512)]
     public string Url { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "alt_text", Length = 256, IsNullable = true)]
-    public string? AltText { get; set; }
+    public string? AltText
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "source_article_id", IsNullable = true)]
-    public int? SourceArticleId { get; set; }
+    public int? SourceArticleId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "width", IsNullable = true)]
-    public int? Width { get; set; }
+    public int? Width
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "height", IsNullable = true)]
-    public int? Height { get; set; }
+    public int? Height
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "sha256", Length = 64, IsNullable = true)]
-    public string? Sha256 { get; set; }
+    public string? Sha256
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "reference_count")]
-    public int ReferenceCount { get; set; }
+    public int ReferenceCount
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -800,7 +1166,10 @@ public class AssetLibraryItem
 public class SiteSubscription
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
-    public long Id { get; set; }
+    public long Id
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "email_hash", Length = 64)]
     public string EmailHash { get; set; } = string.Empty;
@@ -818,5 +1187,8 @@ public class SiteSubscription
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [SugarColumn(ColumnName = "unsubscribed_at", IsNullable = true)]
-    public DateTime? UnsubscribedAt { get; set; }
+    public DateTime? UnsubscribedAt
+    {
+        get; set;
+    }
 }

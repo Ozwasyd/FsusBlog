@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+
 using FsusBlog.Core.Common;
 
 namespace FsusBlog.Server.Services.Security;
@@ -72,7 +73,10 @@ public static class AnonymousCredentialRevocationAccumulator
     public const string CircuitFriendlyNonMembershipAlgorithmId = "circuit-friendly-non-membership.v1";
     public const string RevocationAccumulatorMetadataProperty = "revocationAccumulator";
 
-    public static AnonymousCredentialRevocationAccumulatorProfile LegacySha256Profile { get; } = new(
+    public static AnonymousCredentialRevocationAccumulatorProfile LegacySha256Profile
+    {
+        get;
+    } = new(
         AnonymousCredentialRevocationAccumulatorAlgorithm.LegacySha256HashTreeV1,
                 LegacySha256HashTreeAlgorithmId,
                 ProductionZkReady: false,

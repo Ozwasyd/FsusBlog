@@ -5,6 +5,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -167,9 +168,18 @@ public sealed class HumanReadProofV1ChallengeProviderTests
 
     private sealed class RecordingHumanReadProofService : IHumanReadProofService
     {
-        public HumanReadChallengeRequest? ChallengeRequest { get; private set; }
-        public HumanReadChallengeResponse? ChallengeResponse { get; init; }
-        public HumanReadSubmitRequest? SubmitRequest { get; private set; }
+        public HumanReadChallengeRequest? ChallengeRequest
+        {
+            get; private set;
+        }
+        public HumanReadChallengeResponse? ChallengeResponse
+        {
+            get; init;
+        }
+        public HumanReadSubmitRequest? SubmitRequest
+        {
+            get; private set;
+        }
         public HumanReadSubmitResponse SubmitResponse { get; init; } = new(false, "proof_invalid");
 
         public ValueTask<HumanReadChallengeResponse?> CreateChallengeAsync(

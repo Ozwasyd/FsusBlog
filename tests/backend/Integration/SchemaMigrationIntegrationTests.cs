@@ -1,31 +1,36 @@
 using System.Buffers.Binary;
+using System.Data;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Integrity;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Operations;
-using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Testing;
-using FsusBlog.Server.Entities;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using NSubstitute;
+
 using Npgsql;
-using System.Runtime.CompilerServices;
-using System.Data;
-using System.Text.Json;
+
+using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests;

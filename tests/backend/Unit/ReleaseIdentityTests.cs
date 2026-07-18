@@ -1,11 +1,13 @@
+using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.Operations;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -144,7 +146,8 @@ public sealed class ReleaseIdentityTests
         };
         if (overrides is not null)
         {
-            foreach ((string key, string? value) in overrides) values[key] = value;
+            foreach ((string key, string? value) in overrides)
+                values[key] = value;
         }
         return new ConfigurationBuilder().AddInMemoryCollection(values).Build();
     }

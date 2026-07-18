@@ -4,12 +4,14 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -221,7 +223,10 @@ public sealed class PerceptionChallengeV2E2eTests
 
         public List<CommentCreateRecord> CreatedComments { get; } = [];
 
-        public int DrainedAuditEventCount { get; private set; }
+        public int DrainedAuditEventCount
+        {
+            get; private set;
+        }
 
         public ChallengeV2AuditEventQueueSnapshot AuditSnapshot => _auditQueue.Snapshot();
 

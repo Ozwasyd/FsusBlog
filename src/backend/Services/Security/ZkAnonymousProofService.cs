@@ -1,12 +1,16 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.CommentIdentity;
+
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Services.Security;
 
 public interface IZkProofVerifier
 {
-    bool IsConfigured { get; }
+    bool IsConfigured
+    {
+        get;
+    }
 
     Task<ZkProofVerificationResult> VerifyAsync(
         ZkProofVerificationRequest request,
@@ -15,11 +19,20 @@ public interface IZkProofVerifier
 
 public interface IZkAnonymousProofService
 {
-    AnonymousCommentPolicySnapshot CurrentCommentPolicy { get; }
+    AnonymousCommentPolicySnapshot CurrentCommentPolicy
+    {
+        get;
+    }
 
-    ZkAnonymousPolicySnapshot CurrentZkPolicy { get; }
+    ZkAnonymousPolicySnapshot CurrentZkPolicy
+    {
+        get;
+    }
 
-    ZkProdPolicySnapshot CurrentZkProdPolicy { get; }
+    ZkProdPolicySnapshot CurrentZkProdPolicy
+    {
+        get;
+    }
 
     Task<ZkProofVerificationResult> VerifyCommentProofAsync(
         ZkProofVerificationRequest request,

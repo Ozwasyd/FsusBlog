@@ -15,7 +15,10 @@ public sealed class SecurityRiskEvent
     public string Id { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "occurred_at_utc")]
-    public DateTime OccurredAtUtc { get; set; }
+    public DateTime OccurredAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "source", Length = 64)]
     public string Source { get; set; } = string.Empty;
@@ -27,44 +30,86 @@ public sealed class SecurityRiskEvent
     public string Action { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "score_delta")]
-    public int ScoreDelta { get; set; }
+    public int ScoreDelta
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "total_score")]
-    public int TotalScore { get; set; }
+    public int TotalScore
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "ttl_seconds")]
-    public int TtlSeconds { get; set; }
+    public int TtlSeconds
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "expires_at_utc")]
-    public DateTime ExpiresAtUtc { get; set; }
+    public DateTime ExpiresAtUtc
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "subject_hash", Length = 64, IsNullable = true)]
-    public string? SubjectHash { get; set; }
+    public string? SubjectHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "route_key", Length = 160, IsNullable = true)]
-    public string? RouteKey { get; set; }
+    public string? RouteKey
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "client_ip_hash", Length = 64, IsNullable = true)]
-    public string? ClientIpHash { get; set; }
+    public string? ClientIpHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "device_fp_hash", Length = 64, IsNullable = true)]
-    public string? DeviceFpHash { get; set; }
+    public string? DeviceFpHash
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "path", Length = 256, IsNullable = true)]
-    public string? Path { get; set; }
+    public string? Path
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "method", Length = 16, IsNullable = true)]
-    public string? Method { get; set; }
+    public string? Method
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "user_agent", Length = 256, IsNullable = true)]
-    public string? UserAgent { get; set; }
+    public string? UserAgent
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "detail", Length = 256, IsNullable = true)]
-    public string? Detail { get; set; }
+    public string? Detail
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "trace_id", Length = 64, IsNullable = true)]
-    public string? TraceId { get; set; }
+    public string? TraceId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "pseudonym_epoch", DefaultValue = "0")]
-    public int PseudonymEpoch { get; set; }
+    public int PseudonymEpoch
+    {
+        get; set;
+    }
 }

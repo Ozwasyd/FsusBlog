@@ -1,7 +1,8 @@
+using System.Text.Json;
+
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Distribution;
-using System.Text.Json;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 

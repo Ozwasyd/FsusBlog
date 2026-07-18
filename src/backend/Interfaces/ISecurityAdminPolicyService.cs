@@ -6,12 +6,18 @@ namespace FsusBlog.Server.Interfaces;
 
 public interface IAntiCrawlerPolicyProvider
 {
-    AntiCrawlerPolicySnapshot Current { get; }
+    AntiCrawlerPolicySnapshot Current
+    {
+        get;
+    }
 }
 
 public interface IPowPolicyProvider
 {
-    PowPolicySnapshot CurrentPow { get; }
+    PowPolicySnapshot CurrentPow
+    {
+        get;
+    }
 }
 
 public interface ICrawlerRangeSyncService
@@ -26,7 +32,10 @@ public interface ISecurityAdminPolicyService :
     IPowPolicyProvider,
     ISecurityRiskPolicyProvider
 {
-    PerceptionSealedV2PolicySnapshot CurrentPerceptionSealedV2 { get; }
+    PerceptionSealedV2PolicySnapshot CurrentPerceptionSealedV2
+    {
+        get;
+    }
 
     SecurityOverviewResponse BuildSecurityOverview(CrawlerRangeStatus ranges, CrawlerRangesAdminStatus syncStatus);
 

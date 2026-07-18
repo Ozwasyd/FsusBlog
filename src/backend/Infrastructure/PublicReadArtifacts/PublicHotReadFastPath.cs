@@ -1,5 +1,5 @@
-using System.Collections.Frozen;
 using System.Buffers.Binary;
+using System.Collections.Frozen;
 using System.Diagnostics.Metrics;
 using System.IO.Compression;
 using System.IO.Pipelines;
@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -14,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -131,17 +133,47 @@ public sealed class PublicHotReadOptions
     /// Maximum resident artifact bytes. Zero selects an automatic budget from
     /// the runtime's current total available managed-memory limit.
     /// </summary>
-    public long MaxResidentBytes { get; set; }
-    public long MaxRawBytes { get; set; }
-    public long MaxCompressedBytes { get; set; }
-    public long MaxHtmlBytes { get; set; }
-    public long MaxSnapshotOverlapBytes { get; set; }
-    public int MaxRetiringSnapshots { get; set; }
-    public long MaxRetiringBytes { get; set; }
-    public TimeSpan RetiringSnapshotDeadline { get; set; }
+    public long MaxResidentBytes
+    {
+        get; set;
+    }
+    public long MaxRawBytes
+    {
+        get; set;
+    }
+    public long MaxCompressedBytes
+    {
+        get; set;
+    }
+    public long MaxHtmlBytes
+    {
+        get; set;
+    }
+    public long MaxSnapshotOverlapBytes
+    {
+        get; set;
+    }
+    public int MaxRetiringSnapshots
+    {
+        get; set;
+    }
+    public long MaxRetiringBytes
+    {
+        get; set;
+    }
+    public TimeSpan RetiringSnapshotDeadline
+    {
+        get; set;
+    }
     public TimeSpan MaxSnapshotAge { get; set; } = TimeSpan.FromMinutes(5);
-    public long MaxArticleResidentBytes { get; set; }
-    public int MaxArtifactObjects { get; set; }
+    public long MaxArticleResidentBytes
+    {
+        get; set;
+    }
+    public int MaxArtifactObjects
+    {
+        get; set;
+    }
     public int ArticleAdmissionRecentPercent { get; set; } = 40;
     public bool EnablePrecompressedBinaryVariants { get; set; } = true;
     public int MinPrecompressedFrameBytes { get; set; } = 256;
@@ -149,8 +181,14 @@ public sealed class PublicHotReadOptions
     public int ExpectedBrotliClientSharePercent { get; set; } = 80;
     public int ExpectedGzipClientSharePercent { get; set; } = 15;
     public int MinResidentVariantClientSharePercent { get; set; } = 5;
-    public bool FailOpenWhenNotReady { get; set; }
-    public bool EnableDiagnosticHeaders { get; set; }
+    public bool FailOpenWhenNotReady
+    {
+        get; set;
+    }
+    public bool EnableDiagnosticHeaders
+    {
+        get; set;
+    }
 }
 
 public sealed record PublicHotReadRuntimeSnapshot(
@@ -304,12 +342,24 @@ public sealed class PublicHotReadSnapshot
             _htmlRemovedPaths);
     }
 
-    public long Version { get; }
-    public PublicHotReadPublicationEvidence PublicationEvidence { get; }
+    public long Version
+    {
+        get;
+    }
+    public PublicHotReadPublicationEvidence PublicationEvidence
+    {
+        get;
+    }
 
     public int ArticleFrameCount => _articleFramesById.Count;
-    public int PublicArticleCount { get; }
-    public int ArticleFrameLimit { get; }
+    public int PublicArticleCount
+    {
+        get;
+    }
+    public int ArticleFrameLimit
+    {
+        get;
+    }
     public bool ArticleFrameLimitExceeded => ArticleFrameLimit > 0 && PublicArticleCount > ArticleFrameLimit;
     public int ListFrameCount => _listFrames.Count;
     public bool CategoryFrameReady => !_categoryFrame.Frame.IsEmpty;

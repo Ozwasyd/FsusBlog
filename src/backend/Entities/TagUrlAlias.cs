@@ -10,7 +10,10 @@ public sealed class TagUrlAlias
     public string NormalizedName { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "tag_id")]
-    public int TagId { get; set; }
+    public int TagId
+    {
+        get; set;
+    }
 
     [SugarColumn(ColumnName = "original_name", Length = 128)]
     public string OriginalName { get; set; } = string.Empty;

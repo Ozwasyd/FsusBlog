@@ -27,7 +27,10 @@ public readonly record struct ErrorDetail(
     public ErrorDetail WithTraceId(string? traceId)
         => string.IsNullOrWhiteSpace(traceId) || !string.IsNullOrWhiteSpace(TraceId)
             ? this
-            : this with { TraceId = traceId };
+            : this with
+            {
+                TraceId = traceId
+            };
 
     public ErrorDetail Normalize()
         => this with

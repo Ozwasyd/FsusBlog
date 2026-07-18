@@ -1,8 +1,9 @@
+using System.Diagnostics.Metrics;
+
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
-using System.Diagnostics.Metrics;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -46,7 +47,10 @@ public sealed class RiskDecisionServiceTests
     public void Decide_DevelopmentLocalBypass_AllowsRiskControl()
     {
         RiskDecision decision = _service.Decide(
-            CreateContext(RiskActionNames.PublicRead) with { DevelopmentLocalBypass = true },
+            CreateContext(RiskActionNames.PublicRead) with
+            {
+                DevelopmentLocalBypass = true
+            },
             CreatePolicy(SecuritySystemModes.Enforce),
             100);
 

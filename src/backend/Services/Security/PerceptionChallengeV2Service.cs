@@ -1,12 +1,14 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Shared.Contracts.Security;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Services.Security;
@@ -129,11 +131,20 @@ public sealed record PerceptionChallengeV2IssueRequest(
     string Traceparent,
     RenderRecipeV2TaskKind TaskKind)
 {
-    public int RiskScore { get; init; }
+    public int RiskScore
+    {
+        get; init;
+    }
 
-    public int EffectiveRiskScore { get; init; }
+    public int EffectiveRiskScore
+    {
+        get; init;
+    }
 
-    public PerceptionChallengeGeneratorDistributionPolicy GeneratorDistributionPolicy { get; init; } =
+    public PerceptionChallengeGeneratorDistributionPolicy GeneratorDistributionPolicy
+    {
+        get; init;
+    } =
         PerceptionChallengeGeneratorDistributionPolicy.Default;
 }
 
@@ -158,7 +169,10 @@ public sealed record PerceptionChallengeV2TaskSourceRequest(
 {
     public string Family { get; init; } = PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke;
 
-    public string Variant { get; init; } =
+    public string Variant
+    {
+        get; init;
+    } =
         PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke);
 }
 
@@ -195,7 +209,10 @@ public sealed record PerceptionChallengeV2TokenClaims(
 {
     public string Family { get; init; } = PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke;
 
-    public string Variant { get; init; } =
+    public string Variant
+    {
+        get; init;
+    } =
         PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke);
 }
 
@@ -212,7 +229,10 @@ public sealed record PerceptionChallengeV2IssuePayload(
 {
     public string Family { get; init; } = PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke;
 
-    public string Variant { get; init; } =
+    public string Variant
+    {
+        get; init;
+    } =
         PerceptionChallengeV2GeneratorFamilyRegistry.DefaultVariant(PerceptionChallengeV2GeneratorFamilyRegistry.TextStroke);
 }
 
@@ -609,17 +629,28 @@ public sealed class PerceptionChallengeV2VerifyService(
         PerceptionChallengeV2VerifyPayload payload,
         PerceptionChallengeV2TokenClaims claims)
     {
-        if (!FixedEquals(payload.KeyVersion, claims.KeyVersion)) return "key_version_mismatch";
-        if (payload.TaskKind != claims.TaskKind) return "task_kind_mismatch";
-        if (!FixedEquals(request.ChallengeId, claims.ChallengeId)) return "challenge_id_mismatch";
-        if (!FixedEquals(request.Action, claims.Action)) return "action_mismatch";
-        if (!FixedEquals(request.RouteKey, claims.RouteKey)) return "route_key_mismatch";
-        if (!FixedEquals(request.SubjectHash, claims.SubjectHash)) return "subject_hash_mismatch";
-        if (!FixedEquals(request.ClientIpHash, claims.ClientIpHash)) return "client_ip_hash_mismatch";
-        if (!FixedEquals(request.DeviceFpHash, claims.DeviceFpHash)) return "device_fp_hash_mismatch";
-        if (!FixedEquals(request.PolicyVersion, claims.PolicyVersion)) return "policy_version_mismatch";
-        if (!PerceptionChallengeV2Hashing.FixedTimeEqualsHex(payload.RecipeHashHex, claims.RecipeHashHex)) return "recipe_hash_mismatch";
-        if (!FixedEquals(payload.Algorithm, claims.Algorithm)) return "algorithm_mismatch";
+        if (!FixedEquals(payload.KeyVersion, claims.KeyVersion))
+            return "key_version_mismatch";
+        if (payload.TaskKind != claims.TaskKind)
+            return "task_kind_mismatch";
+        if (!FixedEquals(request.ChallengeId, claims.ChallengeId))
+            return "challenge_id_mismatch";
+        if (!FixedEquals(request.Action, claims.Action))
+            return "action_mismatch";
+        if (!FixedEquals(request.RouteKey, claims.RouteKey))
+            return "route_key_mismatch";
+        if (!FixedEquals(request.SubjectHash, claims.SubjectHash))
+            return "subject_hash_mismatch";
+        if (!FixedEquals(request.ClientIpHash, claims.ClientIpHash))
+            return "client_ip_hash_mismatch";
+        if (!FixedEquals(request.DeviceFpHash, claims.DeviceFpHash))
+            return "device_fp_hash_mismatch";
+        if (!FixedEquals(request.PolicyVersion, claims.PolicyVersion))
+            return "policy_version_mismatch";
+        if (!PerceptionChallengeV2Hashing.FixedTimeEqualsHex(payload.RecipeHashHex, claims.RecipeHashHex))
+            return "recipe_hash_mismatch";
+        if (!FixedEquals(payload.Algorithm, claims.Algorithm))
+            return "algorithm_mismatch";
         return null;
     }
 
@@ -709,8 +740,10 @@ public sealed class PerceptionChallengeV2VerifyService(
             return false;
         }
 
-        if (x > 1) x /= 320d;
-        if (y > 1) y /= 180d;
+        if (x > 1)
+            x /= 320d;
+        if (y > 1)
+            y /= 180d;
 
         double dx = x - expectedX;
         double dy = y - expectedY;

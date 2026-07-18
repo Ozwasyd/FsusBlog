@@ -1,3 +1,6 @@
+using System.Reflection;
+using System.Security.Claims;
+
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -7,15 +10,16 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
-using System.Reflection;
-using System.Security.Claims;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -57,32 +61,32 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient db = CreateDb(connectionString);
         CreateTable(db);
-            var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
+        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
 
-            SecurityPolicySnapshotRecord first = await service.ActivateAsync(
-                SecurityPolicyIds.AntiCrawler,
-                SecuritySystemModes.Observe,
-                CreateAntiCrawlerSnapshot("first", SecuritySystemModes.Observe),
-                createdByAdminId: 7,
-                reason: "initial",
-                CancellationToken.None);
-            SecurityPolicySnapshotRecord second = await service.ActivateAsync(
-                SecurityPolicyIds.AntiCrawler,
-                SecuritySystemModes.Enforce,
-                CreateAntiCrawlerSnapshot("second", SecuritySystemModes.Enforce),
-                createdByAdminId: 7,
-                reason: "tighten",
-                CancellationToken.None);
+        SecurityPolicySnapshotRecord first = await service.ActivateAsync(
+            SecurityPolicyIds.AntiCrawler,
+            SecuritySystemModes.Observe,
+            CreateAntiCrawlerSnapshot("first", SecuritySystemModes.Observe),
+            createdByAdminId: 7,
+            reason: "initial",
+            CancellationToken.None);
+        SecurityPolicySnapshotRecord second = await service.ActivateAsync(
+            SecurityPolicyIds.AntiCrawler,
+            SecuritySystemModes.Enforce,
+            CreateAntiCrawlerSnapshot("second", SecuritySystemModes.Enforce),
+            createdByAdminId: 7,
+            reason: "tighten",
+            CancellationToken.None);
 
-            Assert.Equal(1, first.Version);
-            Assert.Equal(2, second.Version);
-            List<SecurityPolicySnapshot> rows = await db.Queryable<SecurityPolicySnapshot>()
-                .OrderBy(static item => item.Version)
-                .ToListAsync();
-            Assert.Equal(2, rows.Count);
-            Assert.NotNull(rows[0].RevokedAtUtc);
-            Assert.Null(rows[1].RevokedAtUtc);
-            Assert.NotEqual(rows[0].Document, rows[1].Document);
+        Assert.Equal(1, first.Version);
+        Assert.Equal(2, second.Version);
+        List<SecurityPolicySnapshot> rows = await db.Queryable<SecurityPolicySnapshot>()
+            .OrderBy(static item => item.Version)
+            .ToListAsync();
+        Assert.Equal(2, rows.Count);
+        Assert.NotNull(rows[0].RevokedAtUtc);
+        Assert.Null(rows[1].RevokedAtUtc);
+        Assert.NotEqual(rows[0].Document, rows[1].Document);
     }
 
     [Fact]
@@ -206,27 +210,27 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient db = CreateDb(connectionString);
         CreateTable(db);
-            var audit = new CapturingAuditEventService();
-            var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow), audit);
+        var audit = new CapturingAuditEventService();
+        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow), audit);
 
-            await service.ActivateAsync(SecurityPolicyIds.Pow, SecuritySystemModes.Observe, CreatePowSnapshot("first", SecuritySystemModes.Observe), 1, "initial", CancellationToken.None);
-            await service.ActivateAsync(SecurityPolicyIds.Pow, SecuritySystemModes.Enforce, CreatePowSnapshot("second", SecuritySystemModes.Enforce), 1, "tighten", CancellationToken.None);
+        await service.ActivateAsync(SecurityPolicyIds.Pow, SecuritySystemModes.Observe, CreatePowSnapshot("first", SecuritySystemModes.Observe), 1, "initial", CancellationToken.None);
+        await service.ActivateAsync(SecurityPolicyIds.Pow, SecuritySystemModes.Enforce, CreatePowSnapshot("second", SecuritySystemModes.Enforce), 1, "tighten", CancellationToken.None);
 
-            SecurityPolicyRollbackResult<PowPolicySnapshot> rollback = await service.RollbackAsync<PowPolicySnapshot>(
-                SecurityPolicyIds.Pow,
-                targetVersion: 1,
-                createdByAdminId: 2,
-                reason: "rollback",
-                CancellationToken.None);
+        SecurityPolicyRollbackResult<PowPolicySnapshot> rollback = await service.RollbackAsync<PowPolicySnapshot>(
+            SecurityPolicyIds.Pow,
+            targetVersion: 1,
+            createdByAdminId: 2,
+            reason: "rollback",
+            CancellationToken.None);
 
-            Assert.True(rollback.Success, rollback.Reason);
-            Assert.Equal(3, rollback.Record?.Version);
-            Assert.NotNull(rollback.Document);
-            Assert.Equal(SecuritySystemModes.Observe, rollback.Document!.Options.Mode);
-            Assert.Equal(3, await db.Queryable<SecurityPolicySnapshot>().CountAsync());
-            AuditEvent auditEvent = Assert.Single(audit.Events, static item => item.Action == AuditActionCatalog.SecurityPolicyRolledBack);
-            Assert.Equal("security_policy_snapshot", auditEvent.TargetType);
-            Assert.Equal("rollback", auditEvent.ReasonCode);
+        Assert.True(rollback.Success, rollback.Reason);
+        Assert.Equal(3, rollback.Record?.Version);
+        Assert.NotNull(rollback.Document);
+        Assert.Equal(SecuritySystemModes.Observe, rollback.Document!.Options.Mode);
+        Assert.Equal(3, await db.Queryable<SecurityPolicySnapshot>().CountAsync());
+        AuditEvent auditEvent = Assert.Single(audit.Events, static item => item.Action == AuditActionCatalog.SecurityPolicyRolledBack);
+        Assert.Equal("security_policy_snapshot", auditEvent.TargetType);
+        Assert.Equal("rollback", auditEvent.ReasonCode);
     }
 
     [Fact]
@@ -235,34 +239,34 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient db = CreateDb(connectionString);
         CreateTable(db);
-            var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
-            await service.ActivateAsync(SecurityPolicyIds.AntiCrawler, SecuritySystemModes.Observe, CreateAntiCrawlerSnapshot("lkg", SecuritySystemModes.Observe), 1, "initial", CancellationToken.None);
-            await db.Updateable<SecurityPolicySnapshot>()
-                .SetColumns(item => item.RevokedAtUtc == BaselineNow.AddSeconds(30).UtcDateTime)
-                .Where(static item => item.Version == 1)
-                .ExecuteCommandAsync();
-            await db.Insertable(new SecurityPolicySnapshot
-            {
-                PolicyId = SecurityPolicyIds.AntiCrawler,
-                Version = 2,
-                Mode = SecuritySystemModes.Enforce,
-                Document = "{not-json",
-                CreatedByAdminId = 2,
-                CreatedAtUtc = BaselineNow.AddMinutes(1).UtcDateTime,
-                ActivatedAtUtc = BaselineNow.AddMinutes(1).UtcDateTime,
-                IsLastKnownGood = false,
-                Reason = "bad-active"
-            }).ExecuteCommandAsync();
+        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
+        await service.ActivateAsync(SecurityPolicyIds.AntiCrawler, SecuritySystemModes.Observe, CreateAntiCrawlerSnapshot("lkg", SecuritySystemModes.Observe), 1, "initial", CancellationToken.None);
+        await db.Updateable<SecurityPolicySnapshot>()
+            .SetColumns(item => item.RevokedAtUtc == BaselineNow.AddSeconds(30).UtcDateTime)
+            .Where(static item => item.Version == 1)
+            .ExecuteCommandAsync();
+        await db.Insertable(new SecurityPolicySnapshot
+        {
+            PolicyId = SecurityPolicyIds.AntiCrawler,
+            Version = 2,
+            Mode = SecuritySystemModes.Enforce,
+            Document = "{not-json",
+            CreatedByAdminId = 2,
+            CreatedAtUtc = BaselineNow.AddMinutes(1).UtcDateTime,
+            ActivatedAtUtc = BaselineNow.AddMinutes(1).UtcDateTime,
+            IsLastKnownGood = false,
+            Reason = "bad-active"
+        }).ExecuteCommandAsync();
 
-            SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot> loaded = await service.LoadActiveOrLastKnownGoodAsync<AntiCrawlerPolicySnapshot>(
-                SecurityPolicyIds.AntiCrawler,
-                CancellationToken.None);
+        SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot> loaded = await service.LoadActiveOrLastKnownGoodAsync<AntiCrawlerPolicySnapshot>(
+            SecurityPolicyIds.AntiCrawler,
+            CancellationToken.None);
 
-            Assert.True(loaded.Success, loaded.Reason);
-            Assert.True(loaded.UsedLastKnownGood);
-            Assert.NotNull(loaded.Document);
-            Assert.Equal(SecuritySystemModes.Observe, loaded.Document!.Options.Mode);
-            Assert.Equal(1, loaded.Record?.Version);
+        Assert.True(loaded.Success, loaded.Reason);
+        Assert.True(loaded.UsedLastKnownGood);
+        Assert.NotNull(loaded.Document);
+        Assert.Equal(SecuritySystemModes.Observe, loaded.Document!.Options.Mode);
+        Assert.Equal(1, loaded.Record?.Version);
     }
 
     [Fact]
@@ -525,7 +529,10 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     private sealed class ConcurrencyTrackingSnapshotService : ISecurityPolicySnapshotService
     {
         private int _activeLoads;
-        public int MaxConcurrentLoads { get; private set; }
+        public int MaxConcurrentLoads
+        {
+            get; private set;
+        }
         public List<string> PolicyIds { get; } = [];
 
         public Task<SecurityPolicySnapshotRecord> ActivateAsync<T>(
@@ -576,7 +583,10 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
 
         public Task RecordHighValueAsync(AuditEvent auditEvent, CancellationToken cancellationToken = default)
         {
-            Events.Add(auditEvent with { IsHighValue = true });
+            Events.Add(auditEvent with
+            {
+                IsHighValue = true
+            });
             return Task.CompletedTask;
         }
     }
