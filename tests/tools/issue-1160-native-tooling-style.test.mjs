@@ -229,6 +229,37 @@ test('issue 1160 formatter normalizes CRLF JSON and remains idempotent', () =>
     })
 })
 
+test('issue 1160 limits JSON-with-comments syntax to registered configuration contracts', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const jsonWithComments = `{
+    // Host configuration comment.
+    "enabled": true,
+}
+`
+        const registered = 'src/backend/appsettings.json'
+        WriteFile(fixtureRoot, registered, jsonWithComments)
+        const accepted = RunChecker(fixtureRoot, [registered])
+        assert.equal(accepted.status, 0, Output(accepted))
+
+        WriteFile(fixtureRoot, registered, jsonWithComments.replaceAll('    ', '  '))
+        const formatted = RunChecker(fixtureRoot, [registered], ['--operation', 'format', '--write'])
+        assert.equal(formatted.status, 0, Output(formatted))
+        const formattedSource = fs.readFileSync(path.join(fixtureRoot, registered), 'utf8')
+        assert.match(formattedSource, /^    \/\/ Host configuration comment\.$/mu)
+        const idempotent = RunChecker(fixtureRoot, [registered], ['--operation', 'format', '--write'])
+        assert.equal(idempotent.status, 0, Output(idempotent))
+        assert.equal(fs.readFileSync(path.join(fixtureRoot, registered), 'utf8'), formattedSource)
+
+        const unregistered = 'sample/contract.json'
+        WriteFile(fixtureRoot, unregistered, jsonWithComments)
+        const rejected = RunChecker(fixtureRoot, [unregistered])
+        assert.notEqual(rejected.status, 0)
+        assert.match(Output(rejected), /json-syntax/u)
+    })
+})
+
 test('issue 1160 full mode invalidates an exact-content legacy baseline after an edit', () =>
 {
     WithFixture((fixtureRoot) =>

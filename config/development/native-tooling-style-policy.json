@@ -63,6 +63,12 @@
         "**/yarn.lock",
         "**/*.min.*"
     ],
+    "jsonWithCommentsPaths": [
+        "src/backend/appsettings.json",
+        "src/backend/appsettings.Production.json",
+        "src/frontend/tsconfig.app.json",
+        "src/frontend/tsconfig.node.json"
+    ],
     "standardTools": {
         "cppFormat": {
             "command": "clang-format",

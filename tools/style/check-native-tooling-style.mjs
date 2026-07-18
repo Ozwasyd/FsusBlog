@@ -22,6 +22,7 @@ let policy = null
 let policyPath = null
 let exceptionRegistry = null
 let baseline = new Map()
+let jsonWithCommentsPatterns = []
 const diagnostics = []
 let compileCommandDatabases = null
 
@@ -1208,9 +1209,83 @@ function FindDuplicateJsonKeys(content)
     return duplicates
 }
 
+function FormatJsonWithComments(content)
+{
+    let depth = 0
+    let inBlockComment = false
+    const output = []
+    for (const rawLine of NormalizeText(content).split('\n'))
+    {
+        const text = rawLine.trimStart()
+        if (!text)
+        {
+            output.push('')
+            continue
+        }
+
+        const closesContainer = !inBlockComment && /^[}\]]/u.test(text)
+        output.push(`${' '.repeat(Math.max(0, depth - (closesContainer ? 1 : 0)) * 4)}${text}`)
+
+        let inString = false
+        let escaped = false
+        for (let index = 0; index < text.length; index += 1)
+        {
+            const character = text[index]
+            const next = text[index + 1]
+            if (inBlockComment)
+            {
+                if (character === '*' && next === '/')
+                {
+                    inBlockComment = false
+                    index += 1
+                }
+                continue
+            }
+            if (inString)
+            {
+                if (escaped)
+                {
+                    escaped = false
+                }
+                else if (character === '\\')
+                {
+                    escaped = true
+                }
+                else if (character === '"')
+                {
+                    inString = false
+                }
+                continue
+            }
+            if (character === '"')
+            {
+                inString = true
+            }
+            else if (character === '/' && next === '/')
+            {
+                break
+            }
+            else if (character === '/' && next === '*')
+            {
+                inBlockComment = true
+                index += 1
+            }
+            else if (character === '{' || character === '[')
+            {
+                depth += 1
+            }
+            else if (character === '}' || character === ']')
+            {
+                depth = Math.max(0, depth - 1)
+            }
+        }
+    }
+    return `${output.join('\n').replace(/\n+$/u, '')}\n`
+}
+
 function CheckJson(file, content, argumentsValue)
 {
-    const jsonc = file.endsWith('.jsonc')
+    const jsonc = file.endsWith('.jsonc') || MatchesAny(file, jsonWithCommentsPatterns)
     const normalizedSource = jsonc ? NormalizeJsonc(content) : content
     try
     {
@@ -1258,7 +1333,12 @@ function CheckJson(file, content, argumentsValue)
     }
     else
     {
-        CheckFourSpaceIndent(file, content)
+        const formatted = FormatJsonWithComments(content)
+        if (argumentsValue.write && formatted !== content)
+        {
+            fs.writeFileSync(path.join(root, file), formatted)
+        }
+        CheckFourSpaceIndent(file, argumentsValue.write ? formatted : content)
     }
 }
 
@@ -1425,6 +1505,7 @@ function Main()
     }
 
     const exclusions = CompilePatterns(policy.excludedPaths)
+    jsonWithCommentsPatterns = CompilePatterns(policy.jsonWithCommentsPaths ?? [])
     LoadExceptionRegistry()
     if (argumentsValue.updateBaseline)
     {
