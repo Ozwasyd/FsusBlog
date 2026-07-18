@@ -34,6 +34,7 @@ function expectMatches(source, pattern, message) {
 
 const motionCss = read('src/frontend/src/assets/motion.css')
 const markdownCss = read('src/frontend/src/assets/markdown.css')
+const navigationProgressCss = read('src/frontend/src/assets/navigation-progress.css')
 const indexHtml = read('src/frontend/index.html')
 const packageJson = JSON.parse(read('src/frontend/package.json'))
 const publicPageCss = read('src/frontend/src/assets/public-page.css')
@@ -77,6 +78,22 @@ for (const token of [
 ]) {
   expectIncludes(motionCss, token, 'motion.css')
 }
+
+expectIncludes(
+  navigationProgressCss,
+  'background: var(--fsusblog-color-primary, var(--fsus-scholarly-blue, #2a599c));',
+  'navigation-progress.css scholarly fallback'
+)
+expectNotMatches(
+  navigationProgressCss,
+  /#409eff|#409EFF/,
+  'navigation-progress.css must not fall back to saturated Element Plus blue'
+)
+expectNotMatches(
+  navigationProgressCss,
+  /#nprogress \.peg\s*\{[^}]*box-shadow:/s,
+  'navigation-progress.css peg must not use a decorative glow'
+)
 
 for (const token of [
   'loader-document-placeholder',
