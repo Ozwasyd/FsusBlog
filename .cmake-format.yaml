@@ -11,6 +11,7 @@ format:
 markup:
     enable_markup: true
     first_comment_is_literal: false
+    literal_comment_pattern: "^#?\\s*(Contract|Input|Output|Failure):"
     canonicalize_hashrulers: true
 lint:
     disabled_codes: []
