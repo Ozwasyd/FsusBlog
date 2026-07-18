@@ -73,6 +73,13 @@ public sealed class GoodType
 
     public int Value => _value;
 
+    public string Name { get; set; } = string.Empty;
+
+    public int MutableValue
+    {
+        get; private set;
+    }
+
     public int ReadValue(int amount)
     {
         foreach (GoodType item in Array.Empty<GoodType>())
@@ -96,6 +103,67 @@ test('issue 1158 accepts Microsoft-style C# through the changed-file gate', () =
     const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/GoodType.cs'])
     assert.equal(result.status, 0, output(result))
     assert.match(result.stdout, /\[csharp-style\] ok files=1 violations=0 new=0/u)
+  })
+})
+
+test('issue 1158 accepts Roslyn expression braces and multiline verbatim content', () => {
+  withFixture((fixtureRoot) => {
+    writeFixture(
+      fixtureRoot,
+      'src/sample/ExpressionBraces.cs',
+      `namespace Fixture;
+
+public sealed record ExpressionBraces(string Name)
+{
+    public string Render()
+    {
+        object payload = new
+        {
+            Name
+        };
+        if (payload is { } present)
+        {
+            _ = present;
+        }
+        ExpressionBraces normalized = this with
+        {
+            Name = Name.Trim()
+        };
+        return @"if (ready) {
+  run();
+}" + normalized.Name;
+    }
+}
+
+public sealed record MultiLineRecord(
+    string DisplayName,
+    int ItemCount);
+`
+    )
+    const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/ExpressionBraces.cs'])
+    assert.equal(result.status, 0, output(result))
+  })
+})
+
+test('issue 1158 enforces System-first import order without inventing product namespace groups', () => {
+  withFixture((fixtureRoot) => {
+    writeFixture(
+      fixtureRoot,
+      'src/sample/ImportOrder.cs',
+      `using Vendor;
+using System;
+using FsusBlog;
+
+namespace Fixture;
+
+public sealed class ImportOrder
+{
+}
+`
+    )
+    const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/ImportOrder.cs'])
+    assert.notEqual(result.status, 0)
+    assert.match(output(result), / using-order:/u)
   })
 })
 
@@ -155,6 +223,30 @@ public sealed class UndocumentedContract
     const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/shared/Contracts/UndocumentedContract.cs'])
     assert.notEqual(result.status, 0)
     assert.match(output(result), / xml-documentation:/u)
+  })
+})
+
+test('issue 1158 rejects empty XML summaries and undocumented public codec members', () => {
+  withFixture((fixtureRoot) => {
+    writeFixture(
+      fixtureRoot,
+      'src/core/Algorithms/UndocumentedCodec.cs',
+      `namespace Fixture;
+
+/// <summary></summary>
+public sealed class UndocumentedCodec
+{
+    public int Decode(int value)
+    {
+        return value;
+    }
+}
+`
+    )
+    const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/core/Algorithms/UndocumentedCodec.cs'])
+    assert.notEqual(result.status, 0)
+    const matches = output(result).match(/ xml-documentation:/gu) ?? []
+    assert.equal(matches.length, 2, output(result))
   })
 })
 

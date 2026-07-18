@@ -49,6 +49,14 @@
       "src/backend/Infrastructure/Security/**",
       "src/backend/Infrastructure/Privacy/**"
     ],
+    "memberScopes": [
+      "src/core/Algorithms/**",
+      "src/core/Cache/PodBinaryCodec*.cs",
+      "tools/architecture/**",
+      "src/backend/Infrastructure/Auth/**",
+      "src/backend/Infrastructure/Security/**",
+      "src/backend/Infrastructure/Privacy/**"
+    ],
     "declarationAccessibilities": ["public"],
     "excludeModifiers": ["override"]
   },

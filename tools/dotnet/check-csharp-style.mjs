@@ -154,6 +154,7 @@ function makeViolation(file, line, rule, evidence, message) {
 
 function stripStringsAndComments(lines) {
   let inBlockComment = false
+  let inVerbatimString = false
   let rawQuoteCount = 0
   return lines.map((line) => {
     let output = ''
@@ -169,6 +170,17 @@ function stripStringsAndComments(lines) {
           index = close + rawQuoteCount
           rawQuoteCount = 0
         }
+        continue
+      }
+      if (inVerbatimString) {
+        if (line.startsWith('""', index)) {
+          output += '  '
+          index += 2
+          continue
+        }
+        output += ' '
+        if (line[index] === '"') inVerbatimString = false
+        index += 1
         continue
       }
       if (inBlockComment) {
@@ -207,6 +219,7 @@ function stripStringsAndComments(lines) {
         const verbatim = line.slice(index, index + prefixLength).includes('@')
         output += ' '.repeat(prefixLength)
         index += prefixLength
+        let closed = false
         while (index < line.length) {
           if (verbatim && line.startsWith('""', index)) {
             output += '  '
@@ -216,6 +229,7 @@ function stripStringsAndComments(lines) {
           if (line[index] === '"') {
             output += ' '
             index += 1
+            closed = true
             break
           }
           if (!verbatim && line[index] === '\\' && index + 1 < line.length) {
@@ -226,6 +240,7 @@ function stripStringsAndComments(lines) {
           output += ' '
           index += 1
         }
+        if (verbatim && !closed) inVerbatimString = true
         continue
       }
       if (line[index] === "'") {
@@ -261,20 +276,69 @@ function isCamelCase(value) {
   return /^[a-z][A-Za-z0-9]*$/u.test(value) && !value.includes('__')
 }
 
-function hasXmlDoc(lines, declarationIndex) {
+// Roslyn intentionally keeps automatic accessors compact even when
+// csharp_new_line_before_open_brace=all and
+// csharp_preserve_single_line_statements=false. Treat those declarations as a
+// single property declaration, not as an inline block or multiple statements.
+function isAutoPropertyAccessorLine(value) {
+  const accessor = String.raw`(?:(?:public|protected|private|internal)\s+)?(?:get|set|init)\s*;`
+  const accessors = String.raw`(?:${accessor}\s*)+`
+  return new RegExp(
+    String.raw`^(?:[^{};]+\{\s*)?${accessors}(?:\}\s*(?:=\s*.+;)?\s*)?$`,
+    'u'
+  ).test(value)
+}
+
+function hasInlineBlockOpeningBrace(value) {
+  const braceIndex = value.indexOf('{')
+  if (braceIndex < 0 || value === '{') return false
+  const prefix = value.slice(0, braceIndex).trimEnd()
+  if (!prefix) return false
+
+  if (/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\b/u.test(prefix)) {
+    return true
+  }
+  if (/^(?:if|else\s+if|for|foreach|while|switch|lock|using|fixed|catch)\b/u.test(prefix) && prefix.endsWith(')')) {
+    return true
+  }
+  if (/^(?:else|try|finally|do|unsafe|checked|unchecked)\b/u.test(prefix) || /^[}]\s*(?:else|catch|finally)\b/u.test(prefix)) {
+    return true
+  }
+  if (/^(?:(?:public|protected|private|internal)\s+)?(?:get|set|init|add|remove)\b/u.test(prefix)) {
+    return true
+  }
+  if (/=>\s*$/u.test(prefix) || parseMethodDeclaration(prefix)) return true
+
+  return /^(?:(?:public|protected|private|internal|static|virtual|abstract|sealed|override|readonly|required|unsafe|new|partial|extern)\s+)+[A-Za-z_][\w<>,.?\[\]\s]*\s+(?:this\s*\[[^\]]+\]|[A-Za-z_]\w*)$/u.test(prefix)
+}
+
+function isStructuralIndentLine(value) {
+  return /^(?:public|protected|private|internal|file|namespace|class|struct|record|interface|enum|delegate|if|else|for|foreach|while|switch|case|default|try|catch|finally|do|lock|using|fixed|return|throw|break|continue)\b/u.test(value)
+    || /^[{}]$/u.test(value)
+}
+
+function hasMeaningfulXmlDoc(lines, declarationIndex) {
+  const documentation = []
   let sawAttribute = false
   for (let index = declarationIndex - 1; index >= 0 && declarationIndex - index <= 16; index -= 1) {
     const trimmed = lines[index].trim()
     if (!trimmed) continue
-    if (trimmed.startsWith('///')) return true
+    if (trimmed.startsWith('///')) {
+      documentation.unshift(trimmed.slice(3).trim())
+      continue
+    }
     if (trimmed.startsWith('[') || trimmed.endsWith(']') || sawAttribute) {
       sawAttribute = true
       if (trimmed.startsWith('[')) sawAttribute = false
       continue
     }
-    return false
+    break
   }
-  return false
+  const xml = documentation.join(' ')
+  if (/<inheritdoc\b/iu.test(xml)) return true
+  const summary = xml.match(/<summary\b[^>]*>([\s\S]*?)<\/summary>/iu)?.[1] ?? ''
+  const text = summary.replace(/<[^>]+>/gu, ' ').replace(/&[A-Za-z0-9#]+;/gu, ' ').replace(/\s+/gu, ' ').trim()
+  return text.length >= 3
 }
 
 function isXmlDocScope(file, scopePatterns) {
@@ -333,7 +397,7 @@ function parseMethodDeclaration(trimmed) {
   return null
 }
 
-function checkFile(file, xmlScopePatterns) {
+function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns) {
   const absolute = path.join(root, file)
   const violations = []
   if (!fs.existsSync(absolute)) {
@@ -353,6 +417,7 @@ function checkFile(file, xmlScopePatterns) {
   let namespaceSeen = false
   const usings = []
   const xmlScope = isXmlDocScope(file, xmlScopePatterns)
+  const xmlMemberScope = isXmlDocScope(file, xmlMemberScopePatterns)
 
   for (let index = 0; index < lines.length; index += 1) {
     const lineNumber = index + 1
@@ -362,14 +427,15 @@ function checkFile(file, xmlScopePatterns) {
     if (/\t/u.test(raw)) violations.push(makeViolation(file, lineNumber, 'tab', raw, 'Tab indentation is forbidden'))
     if (/[ \t]+$/u.test(raw)) violations.push(makeViolation(file, lineNumber, 'trailing-whitespace', raw, 'trailing whitespace is forbidden'))
     const indent = raw.match(/^ */u)?.[0].length ?? 0
-    if (trimmed && !trimmed.startsWith('#') && indent % 4 !== 0) {
+    if (trimmed && !trimmed.startsWith('#') && indent % 4 !== 0 && isStructuralIndentLine(trimmed)) {
       violations.push(makeViolation(file, lineNumber, 'indent', raw, `indentation ${indent} is not a 4-space multiple`))
     }
-    if (trimmed.includes('{') && trimmed !== '{') {
+    const autoPropertyAccessorLine = isAutoPropertyAccessorLine(trimmed)
+    if (hasInlineBlockOpeningBrace(trimmed) && !autoPropertyAccessorLine) {
       violations.push(makeViolation(file, lineNumber, 'allman-brace', code, 'opening brace must be on its own line'))
     }
     const semicolons = [...trimmed.matchAll(/;/gu)].length
-    if (semicolons > 1 && !/^for\s*\(/u.test(trimmed)) {
+    if (semicolons > 1 && !/^for\s*\(/u.test(trimmed) && !autoPropertyAccessorLine) {
       violations.push(makeViolation(file, lineNumber, 'one-statement', code, 'only one statement is allowed per line'))
     }
     if (!trimmed.includes('(') && /^(?:const\s+)?[A-Za-z_][\w<>,.?\[\]]*\s+[A-Za-z_]\w*\s*,\s*[A-Za-z_]\w*/u.test(trimmed)) {
@@ -377,12 +443,12 @@ function checkFile(file, xmlScopePatterns) {
     }
 
     if (/^namespace\b/u.test(trimmed)) namespaceSeen = true
-    const usingMatch = trimmed.match(/^using\s+(?:static\s+)?(?:[A-Za-z_]\w*\s*=\s*)?([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*;/u)
+    const usingMatch = trimmed.match(/^using\s+(?:(static)\s+)?(?:([A-Za-z_]\w*)\s*=\s*)?([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*;/u)
     if (usingMatch) {
       if (namespaceSeen) violations.push(makeViolation(file, lineNumber, 'using-placement', code, 'using directives must be outside namespace'))
-      const namespace = usingMatch[1]
-      const group = namespace === 'System' || namespace.startsWith('System.') ? 0 : (namespace === 'FsusBlog' || namespace.startsWith('FsusBlog.') ? 2 : 1)
-      usings.push({ line: lineNumber, namespace, group })
+      const [, staticImport, alias, namespace] = usingMatch
+      const group = alias ? 3 : (staticImport ? 2 : (namespace === 'System' || namespace.startsWith('System.') ? 0 : 1))
+      usings.push({ line: lineNumber, namespace, sortKey: alias ?? namespace, group })
     }
 
     for (const identifier of trimmed.matchAll(/\b[A-Za-z_]\w*__\w*\b/gu)) {
@@ -430,7 +496,9 @@ function checkFile(file, xmlScopePatterns) {
       }
     }
 
-    const localMatch = trimmed.match(/^(?:var|[A-Za-z_][\w<>,.?\[\]]*)\s+([A-Za-z_]\w*)\s*=/u)
+    const localMatch = !trimmed.startsWith('using ') && trimmed.endsWith(';') && !trimmed.endsWith(');')
+      ? trimmed.match(/^(?:var|[A-Za-z_][\w<>,.?\[\]]*)\s+([A-Za-z_]\w*)\s*=/u)
+      : null
     if (localMatch && !isCamelCase(localMatch[1])) {
       violations.push(makeViolation(file, lineNumber, 'local-name', localMatch[1], 'local must use camelCase'))
     }
@@ -447,10 +515,10 @@ function checkFile(file, xmlScopePatterns) {
     // top-level types and their direct members so a public field inside a
     // private nested scratch type is not mistaken for a public API surface.
     if (xmlScope && indent <= 4 && /^public\s+/u.test(trimmed) && !/\boverride\b/u.test(trimmed)) {
-      const declaration = /\b(?:class|struct|record|interface|enum|delegate)\b/u.test(trimmed)
-        || /\b[A-Za-z_]\w*\s*\(/u.test(trimmed)
+      const typeDeclaration = /\b(?:class|struct|record|interface|enum|delegate)\b/u.test(trimmed)
+      const memberDeclaration = /\b[A-Za-z_]\w*\s*\(/u.test(trimmed)
         || /\b[A-Za-z_]\w*\s*(?:=>|\{|;)/u.test(trimmed)
-      if (declaration && !hasXmlDoc(lines, index)) {
+      if ((typeDeclaration || (xmlMemberScope && memberDeclaration)) && !hasMeaningfulXmlDoc(lines, index)) {
         violations.push(makeViolation(file, lineNumber, 'xml-documentation', trimmed, 'public contract declaration requires meaningful XML documentation'))
       }
     }
@@ -459,8 +527,8 @@ function checkFile(file, xmlScopePatterns) {
   for (let index = 1; index < usings.length; index += 1) {
     const previous = usings[index - 1]
     const current = usings[index]
-    if (current.group < previous.group || (current.group === previous.group && current.namespace.localeCompare(previous.namespace) < 0)) {
-      violations.push(makeViolation(file, current.line, 'using-order', current.namespace, 'using directives must be System, third-party, FsusBlog and sorted within a group'))
+    if (current.group < previous.group || (current.group === previous.group && current.sortKey.localeCompare(previous.sortKey) < 0)) {
+      violations.push(makeViolation(file, current.line, 'using-order', current.namespace, 'using directives must place System first and sort namespaces within a group'))
     }
     if (current.group !== previous.group && lines[current.line - 2]?.trim() !== '') {
       violations.push(makeViolation(file, current.line, 'using-group', current.namespace, 'using groups must be separated by one blank line'))
@@ -543,6 +611,7 @@ function validatePolicy() {
   if (policy.minimumDotnetMajor !== 10) fail('minimumDotnetMajor must be 10')
   if (!Array.isArray(policy.excludedPaths) || policy.excludedPaths.length === 0) fail('excludedPaths must be non-empty')
   if (!Array.isArray(policy.xmlDocumentation?.scopes) || policy.xmlDocumentation.scopes.length === 0) fail('xmlDocumentation.scopes must be non-empty')
+  if (!Array.isArray(policy.xmlDocumentation?.memberScopes) || policy.xmlDocumentation.memberScopes.length === 0) fail('xmlDocumentation.memberScopes must be non-empty')
   for (const required of ['_', 's_', 't_']) {
     const values = Object.values(policy.naming ?? {})
     if (!values.includes(required)) fail(`naming policy is missing required prefix ${required}`)
@@ -562,8 +631,9 @@ function main() {
 
   const exclusions = (policy.excludedPaths ?? []).map(globToRegExp)
   const xmlScopes = (policy.xmlDocumentation?.scopes ?? []).map(globToRegExp)
+  const xmlMemberScopes = (policy.xmlDocumentation?.memberScopes ?? []).map(globToRegExp)
   const files = selectFiles(args).filter((file) => file.endsWith('.cs') && !isExcluded(file, exclusions))
-  const violations = files.flatMap((file) => checkFile(file, xmlScopes))
+  const violations = files.flatMap((file) => checkFile(file, xmlScopes, xmlMemberScopes))
     .sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line || left.rule.localeCompare(right.rule))
 
   if (args.updateBaseline) {

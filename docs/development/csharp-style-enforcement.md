@@ -44,7 +44,9 @@ dotnet format whitespace FsusBlog.slnx --verify-no-changes --no-restore
 dotnet format style FsusBlog.slnx --severity warn --exclude-diagnostics IDE1006 --verify-no-changes --no-restore
 ```
 
-`IDE1006` remains controlled by the repository naming checker and the transparent baseline because automatic rename fixes can change public API, AEDS, database and security contracts. After the mechanical migration the baseline contains 11,582 explicitly classified naming, XML-documentation and text-policy findings across 992 C# files; this is migration debt, not a clean-style claim. The Fast Static Governance lane calls the changed-file gate on every change, while the baseline-aware full scan remains the repository-wide authority during staged cleanup.
+`IDE1006` remains controlled by the repository naming checker and the transparent baseline because automatic rename fixes can change public API, AEDS, database and security contracts. The generated baseline file is the only authority for the current remaining count; documentation must not copy a number that becomes stale after each module migration. It is migration debt, not a clean-style claim, and #1158 is not complete until `strict-full` reports zero. The Fast Static Governance lane calls the changed-file gate on every change, while the baseline-aware full scan remains the repository-wide authority during cleanup.
+
+The text checker deliberately covers only syntax it can classify without contradicting Roslyn. Roslyn remains authoritative for continuation alignment, object and collection initializers, property patterns, compact automatic accessors, alias/static import groups, and content inside C# string literals. XML documentation is required for public types in every declared contract scope and for public members only in the narrower protocol, codec, analyzer, authentication, security and privacy member scopes; this avoids manufacturing empty comments for every self-describing POD field.
 
 ## Naming and external contracts
 
