@@ -1,9 +1,9 @@
 {
   "schema": "fsusblog.csharp-style-baseline.v1",
-  "generatedFrom": "b8e609052c0ae9d3ed6482e7b7b88c5b56febf44",
+  "generatedFrom": "609aa6823a2a9abb266861d45f4bba79884fe6fc",
   "policySha256": "8136621ee38d963898748c1a10f0d60db8b47ee9121663a835e645c2bcc2f55a",
-  "violationCount": 5027,
-  "fileCount": 587,
+  "violationCount": 4702,
+  "fileCount": 562,
   "files": [
     {
       "path": "benchmarks/core/AedsCacheMissFrameProfiler.cs",
@@ -1740,52 +1740,6 @@
       }
     },
     {
-      "path": "src/core/Algorithms/AedsCrc16.cs",
-      "sourceSha256": "62011c6b6d3eb9d2e20ea1cda20b462e9b7c14c58a8cdaf298fee78cd3171971",
-      "violationCount": 3,
-      "violationDigest": "1424ef3f8115d2a77f1a4dd653863304c054640eb66d0a0a8a0b8b1fb457789e",
-      "rules": {
-        "private-static-field-name": 1,
-        "xml-documentation": 2
-      }
-    },
-    {
-      "path": "src/core/Algorithms/AedsDecoderValidator.cs",
-      "sourceSha256": "b456223e9042a0e02d916349d4e5bc8d79e1def162d03ffe1839aaf28d6565f5",
-      "violationCount": 2,
-      "violationDigest": "17adb7608dde1358db7aac1818c7b704e7178378fb7d57cd9533adb5b3e197bc",
-      "rules": {
-        "xml-documentation": 2
-      }
-    },
-    {
-      "path": "src/core/Algorithms/AedsEncoder.cs",
-      "sourceSha256": "ca648e9c50d5e29d2dbd07b40914b034af29a4a8aab03b32857919517d78b2ef",
-      "violationCount": 6,
-      "violationDigest": "1b7d3c9a9af6dd783a07bad7dde9dab0ebba2429b19ed4a3bc35c3bd19b6cc25",
-      "rules": {
-        "xml-documentation": 6
-      }
-    },
-    {
-      "path": "src/core/Algorithms/AedsFrameBufferWriter.cs",
-      "sourceSha256": "58c8cb5fe92badaf2fc2f88f2b11ae9c1b1f6b36934fabf4a8feb87d6caa4124",
-      "violationCount": 11,
-      "violationDigest": "545b705bec85ffb936100b1961e97af64ead72d412f66d60ec5d66d4818084a5",
-      "rules": {
-        "xml-documentation": 11
-      }
-    },
-    {
-      "path": "src/core/Algorithms/AedsFrameSensitivity.cs",
-      "sourceSha256": "85f43301e728dd322ce3c8c99cb700abbc2847cafabd3f3001126d7a76e6bc42",
-      "violationCount": 2,
-      "violationDigest": "e5c9d2342ea0972ab3901fb1aaadc4714b645ab5b50b0613990e092acbdfd2cc",
-      "rules": {
-        "xml-documentation": 2
-      }
-    },
-    {
       "path": "src/core/Algorithms/AedsFrameType.cs",
       "sourceSha256": "396b95b0d9f58caa77ffad02e947341a7fc3b0f390d7d84d5fdc499237ef842f",
       "violationCount": 1,
@@ -1795,193 +1749,12 @@
       }
     },
     {
-      "path": "src/core/Algorithms/AedsOwnedFrameBuilder.cs",
-      "sourceSha256": "508f17caf924443e51ffd122139cb1861349a81e7e1fa889226347fa4d90d8a3",
-      "violationCount": 3,
-      "violationDigest": "c0dc655c42d3a046ea0af25b84a869937445db9152fbf00a62d301932f88d8cf",
-      "rules": {
-        "xml-documentation": 3
-      }
-    },
-    {
-      "path": "src/core/Algorithms/IAedsEncoder.cs",
-      "sourceSha256": "c07d07679758687bb14de46c8ad7f7d654d7f1a5589ccbfc17514da244c437d2",
-      "violationCount": 2,
-      "violationDigest": "f84d9bf947b9701fbb24fc60c7406e99aee98947c86a191b0c4e86c83c314097",
-      "rules": {
-        "xml-documentation": 2
-      }
-    },
-    {
-      "path": "src/core/Algorithms/OwnedAedsFrame.cs",
-      "sourceSha256": "9de8b3ff5384cf47ba4b062dc8f2df5b7a8007cf6227d7db7aa996c5e13f76bd",
-      "violationCount": 7,
-      "violationDigest": "a71255f2901fbb998bea940b9545ae86318fd34e43e3eaa40c2790aa9735cc6e",
-      "rules": {
-        "xml-documentation": 7
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.Article.cs",
-      "sourceSha256": "64917af11aa4d629f28f49711ce979d4f050ffad65e40cf0b1213ae70afe3a76",
-      "violationCount": 28,
-      "violationDigest": "38d3c4f1322d8e55ac594a37924709f0c823b3096d5ae4e122ce1fb0c40da208",
-      "rules": {
-        "xml-documentation": 28
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.Comment.cs",
-      "sourceSha256": "15398ef5791377c77dbe55b66e02fb7d763e75dce6b0315e359b3fb75ddae94c",
-      "violationCount": 53,
-      "violationDigest": "5637a90f2532389303635de3da7d673d0f2e0e4b432c1430497e84d241bf2ceb",
-      "rules": {
-        "xml-documentation": 53
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.Common.cs",
-      "sourceSha256": "0427461774b1aea10a7837a0dd50a043d208aca10aa61f64a11fbe6c93cbe945",
-      "violationCount": 22,
-      "violationDigest": "1d9e72af40a3b83ea821c2b48c08823df941979d12231c9de574a654189d5869",
-      "rules": {
-        "private-static-field-name": 2,
-        "xml-documentation": 20
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.cs",
-      "sourceSha256": "99457f5083aa94282546b1763287efd8885a176e3334c987d28627c7014f5e43",
+      "path": "src/core/DependencyInjection/CoreServiceCollectionExtensions.cs",
+      "sourceSha256": "1919a47759ae9088f53066c56dd612c7402bb9e6e4dcc0c70cc783f8ef056f49",
       "violationCount": 1,
-      "violationDigest": "1f29a6e11cbcd99dc6c485b45559eb42a3f304187ea80e57df8497e8341fac37",
+      "violationDigest": "a3269e590d93a7895af8bd5852baf4356bd5b3941399d15b6aa008b0ea6d959f",
       "rules": {
-        "xml-documentation": 1
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.Message.cs",
-      "sourceSha256": "78e23568e1105573587ca7e9656ef624e4284696bf59f5e37c5e00c6156c7ab7",
-      "violationCount": 19,
-      "violationDigest": "c444aa1c5e556b4773f986561ea53911f32b82c2b21961e28436be15d879da34",
-      "rules": {
-        "xml-documentation": 19
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.Notification.cs",
-      "sourceSha256": "59652e44897a9e68652d8d39f59d5100e17546b8befd60e518ab0c5d3690b890",
-      "violationCount": 2,
-      "violationDigest": "b646dd321862019574f5dea182358763494cd7e964b3bbfa19d2ac7cbcc83e81",
-      "rules": {
-        "xml-documentation": 2
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.Passkey.cs",
-      "sourceSha256": "5410b7a4d2d6351a01038f503779224c0acde70db8dd44d199f9e7e238266653",
-      "violationCount": 13,
-      "violationDigest": "451cf39cb1fa6433f1e254825624f97f8366dad16f15c7ead1eecaecd11c0c46",
-      "rules": {
-        "xml-documentation": 13
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.ReadProof.cs",
-      "sourceSha256": "8b7693c259a8acf3d7c11000f99a781eea494be0651f5de1dfd7b267a19af17a",
-      "violationCount": 13,
-      "violationDigest": "5fc6710ec1509c9f2bd44141bf79f5dba90b658d76d1e21ef159f4a18a9a412d",
-      "rules": {
-        "xml-documentation": 13
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.SecurityChallenge.cs",
-      "sourceSha256": "8005d6369807adfaff923b371a2ac7dcbf29a0e2ce9fe746a965724c5e6b29d2",
-      "violationCount": 19,
-      "violationDigest": "46e4d04012abbc491449c0843b81a8f490acdb3930ef09214d4f922f0ae95bb2",
-      "rules": {
-        "xml-documentation": 19
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.Stats.cs",
-      "sourceSha256": "5a4218213cfcb867ab772aa12b268330f520a7193ffe875875116255b5581347",
-      "violationCount": 10,
-      "violationDigest": "f0d962b9d31fa058a4d2230a040f84aa810162d53579c64c40af081afac87195",
-      "rules": {
-        "xml-documentation": 10
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.Subscription.cs",
-      "sourceSha256": "00906f9101cda95c79b1b49ac13cab869b9955eafde06d07ca6a16be9babf6b3",
-      "violationCount": 7,
-      "violationDigest": "c706cb579b34d4401174d669ad4c9b959b980f2e63643fe05c4153674c07bab3",
-      "rules": {
-        "xml-documentation": 7
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.System.cs",
-      "sourceSha256": "c458bb6c83f1d9cb42f812260fa3a235b810ffafc29de25ee264ed15a510505f",
-      "violationCount": 11,
-      "violationDigest": "b3bbdfba3eba7ca3653db9814b22a338e5baf90099f1a5492eb114cabb53b552",
-      "rules": {
-        "xml-documentation": 11
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.Taxonomy.cs",
-      "sourceSha256": "9a97279b9d37a16389715f1c71ec34e9f35229b48ca6e6fdf62e747f1669c810",
-      "violationCount": 7,
-      "violationDigest": "49f19c4ed296f6b78d2450a7e9a8d15b3521fb6fa7a616fc5b5bca5d827ecfa5",
-      "rules": {
-        "xml-documentation": 7
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.Telemetry.cs",
-      "sourceSha256": "b21a2031aae3ef112593f5ce2e3373b310db3b5cc050f51b6fccb9782f1fef9f",
-      "violationCount": 7,
-      "violationDigest": "a50352a98fc22510fd5131fdf60b5c90c8708a09c4e5d899b3c78beb823ed426",
-      "rules": {
-        "xml-documentation": 7
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.Upload.cs",
-      "sourceSha256": "ad749eeebce2ce0ef6ccbe88276761a7279b8ae4584bd0d17889aa1bfd28881f",
-      "violationCount": 25,
-      "violationDigest": "c26d7488988d3bfe852dddb1412f6c145743db932d1b1acf248ae5cc112538d3",
-      "rules": {
-        "xml-documentation": 25
-      }
-    },
-    {
-      "path": "src/core/Cache/PodBinaryCodec.User.cs",
-      "sourceSha256": "2297ac47325a216c7465edc16fd8a030a7bfb3554465a68c860cb8b894ca2345",
-      "violationCount": 49,
-      "violationDigest": "e032a32be382f227fe6d97718335ad67452fc5c43fed94e36ebd226cbd6909cc",
-      "rules": {
-        "xml-documentation": 49
-      }
-    },
-    {
-      "path": "src/core/Mapping/Codecs/PodUtf8Codec.cs",
-      "sourceSha256": "df98830774c21f8fe1450bc2833a081f8410edaba360a540a0a5bc61cc9273d0",
-      "violationCount": 1,
-      "violationDigest": "7943353937f17ebe73767f3d964d3be9a3be652b4e71088e671c1b5948653f1d",
-      "rules": {
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "src/core/Mapping/Projectors/PodProjector.cs",
-      "sourceSha256": "729bca315394f2ac37f2257af41ee2769f6fc2d85875a949fb99a157949c3cf4",
-      "violationCount": 3,
-      "violationDigest": "77a9ea979dd2d46ee9125def4221a22840faa4d28268ecf8db959109e7cab955",
-      "rules": {
-        "one-statement": 3
+        "using-order": 1
       }
     },
     {
