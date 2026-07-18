@@ -681,6 +681,47 @@ test('issue 1160 full mode invalidates an exact-content legacy baseline after an
     })
 })
 
+test('issue 1160 records the same reachable pure-format revisions in docs and blame metadata', () =>
+{
+    const blameIgnore = fs.readFileSync(path.join(root, '.git-blame-ignore-revs'), 'utf8')
+    const issueBlock = blameIgnore
+        .split('# Native/tooling pure mechanical format migrations for #1160.')[1]
+        ?.split(/\n# /u)[0] ?? ''
+    const blameRevisions = [...issueBlock.matchAll(/\b[0-9a-f]{40}\b/gu)]
+        .map((match) => match[0])
+
+    const guide = fs.readFileSync(
+        path.join(root, 'docs/development/native-tooling-style-enforcement.md'),
+        'utf8'
+    )
+    const migrationSection = guide.match(
+        /## Migration discipline([\s\S]*?)The same exact SHA set is registered/u
+    )?.[1] ?? ''
+    const documentedRevisions = [...migrationSection.matchAll(/\b[0-9a-f]{40}\b/gu)]
+        .map((match) => match[0])
+
+    assert.ok(blameRevisions.length > 0, 'missing issue 1160 blame-ignore revisions')
+    assert.equal(new Set(blameRevisions).size, blameRevisions.length)
+    assert.equal(new Set(documentedRevisions).size, documentedRevisions.length)
+    assert.deepEqual([...documentedRevisions].sort(), [...blameRevisions].sort())
+
+    for (const revision of blameRevisions)
+    {
+        const ancestor = spawnSync('git', ['merge-base', '--is-ancestor', revision, 'HEAD'], {
+            cwd: root,
+            encoding: 'utf8'
+        })
+        assert.equal(ancestor.status, 0, `unreachable issue 1160 revision: ${revision}`)
+
+        const subject = spawnSync('git', ['show', '-s', '--format=%s', revision], {
+            cwd: root,
+            encoding: 'utf8'
+        })
+        assert.equal(subject.status, 0, Output(subject))
+        assert.match(subject.stdout.trim(), /^style\([^)]+\):/u)
+    }
+})
+
 test('issue 1160 unified wrappers preserve the checker result for each domain', () =>
 {
     WithFixture((fixtureRoot) =>

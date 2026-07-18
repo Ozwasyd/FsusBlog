@@ -639,18 +639,21 @@ public sealed class BadName
   })
 })
 
-test('issue 1158 blame ignore contains only reviewed mechanical C# commits', () => {
+test('issue 1158 blame ignore preserves its reviewed mechanical C# commits', () => {
   const lines = readFileSync(path.join(root, '.git-blame-ignore-revs'), 'utf8')
     .split(/\r?\n/u)
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith('#'))
-  assert.deepEqual(lines, [
+  const reviewedRevisions = [
     '892489472e27c85d277fb98c2c35969851294b58',
     'b5c116cd54e7a0a86fd243059502a3e23f364074',
     '4839b4e1bc9f8c181fad14889414c729cba3108c'
-  ])
+  ]
+  for (const revision of reviewedRevisions) {
+    assert.ok(lines.includes(revision), `missing issue 1158 blame-ignore revision: ${revision}`)
+  }
 
-  for (const revision of lines) {
+  for (const revision of reviewedRevisions) {
     const commit = spawnSync('git', ['cat-file', '-e', `${revision}^{commit}`], {
       cwd: root,
       encoding: 'utf8'
