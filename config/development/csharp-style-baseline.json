@@ -1,46 +1,10 @@
 {
   "schema": "fsusblog.csharp-style-baseline.v1",
-  "generatedFrom": "4839b4e1bc9f8c181fad14889414c729cba3108c",
+  "generatedFrom": "6271acd9b7a8ce18b082295cf5398443c3e5dc17",
   "policySha256": "ae81fef8370c63d3ad8fbdfba702ead1ce9a1829f84222a0339b4b9e1f570503",
-  "violationCount": 988,
-  "fileCount": 196,
+  "violationCount": 835,
+  "fileCount": 171,
   "files": [
-    {
-      "path": "benchmarks/core/AedsCacheMissFrameProfiler.cs",
-      "sourceSha256": "faeec8de389c9cfe4295a5cd74d20835e91807fcacdf3f56324b38db4f8b1dc5",
-      "violationCount": 1,
-      "violationDigest": "6d53705e6976aa647c39193b9edf2631b5fbd7aeb0c8505b59ed98f9f83f5190",
-      "rules": {
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "benchmarks/core/ContentFilterBenchmarks.cs",
-      "sourceSha256": "a0683a28c4b7f409664d1254221e4c7f9c2e64185cc86aa2789c1da1da6d4084",
-      "violationCount": 4,
-      "violationDigest": "c25ffd1f40630b8cee089345cbc62cfea8bf8822d5d5eae1f9adf93e31e23739",
-      "rules": {
-        "private-static-field-name": 4
-      }
-    },
-    {
-      "path": "benchmarks/core/ServerHotPathBenchmarks.cs",
-      "sourceSha256": "7d4e41af33b4442cdae232daecb5059e39ee496fe52bd62faa1dc6c14c251901",
-      "violationCount": 1,
-      "violationDigest": "79676dae414ac7954ab0da72f4b2d3ee15b57f3902836dd0bf6967ff1db08d71",
-      "rules": {
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "src/backend/Infrastructure/Audit/AdminAuditLogChannel.cs",
-      "sourceSha256": "d1ee96e987a58ba0e72c5f00bf91b3f42f584bac993ceed35376315209adf91e",
-      "violationCount": 1,
-      "violationDigest": "11bb73eb856d7a6b3a9a46516e4f523cfc293059d710a09c0133a388d255eb67",
-      "rules": {
-        "private-field-name": 1
-      }
-    },
     {
       "path": "src/backend/Infrastructure/Audit/AdminAuditLogWriterWorker.cs",
       "sourceSha256": "93ae2b288021db3384142e13c757eb4144ef2d57e5f96a6c764f3bb4a3a00094",
@@ -361,10 +325,9 @@
     {
       "path": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
       "sourceSha256": "650e6699237663c903b62cad974be74d479cb34b042b8b2344facf68a818f01d",
-      "violationCount": 3,
-      "violationDigest": "96fbc44031a79267b6ae450718ed221f08d4cbd6708f526e0a2f88335f1ab1d2",
+      "violationCount": 2,
+      "violationDigest": "45a1ed2290108297b64c57f274558808b0b05a66e20df0e9cb99ec134fbe9aef",
       "rules": {
-        "method-name": 1,
         "private-static-field-name": 2
       }
     },
@@ -424,30 +387,12 @@
       }
     },
     {
-      "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamFrame.cs",
-      "sourceSha256": "b5a48210cc55d8a29103acce41404049a2e136a7fbf35c59c4430cfd379663a4",
-      "violationCount": 1,
-      "violationDigest": "af3c95d5ec6c8308d56b8aa044976c43805d171815f56a463035bf0371b50956",
-      "rules": {
-        "private-field-name": 1
-      }
-    },
-    {
       "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamHandshakeService.cs",
       "sourceSha256": "63c4ad5b68d52b0d70c06cf0aa03d1495091ebc34327f099bb0be8c5da9a1c27",
       "violationCount": 1,
       "violationDigest": "45c654971e8d448e1c93f83fa51b8bdca1d0939d8637f9950103b92d607c4490",
       "rules": {
         "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "src/backend/Infrastructure/NotificationStream/NotificationStreamLocalFanoutQueue.cs",
-      "sourceSha256": "a88b98b2cfa6004390086f34deb94904e93e02d5c421ed0c5210fced832f114e",
-      "violationCount": 1,
-      "violationDigest": "1e435efb7fe17854aab6621ef7959f3ffda46e64c11aaae2d50a1db980eca726",
-      "rules": {
-        "private-field-name": 1
       }
     },
     {
@@ -496,31 +441,20 @@
       }
     },
     {
-      "path": "src/backend/Infrastructure/Operations/ActiveReleaseFenceHosting.cs",
-      "sourceSha256": "c3932a8c2a5c3e014433cdd628cc5371b318de9b5489bfd7a72df785ab3d0eee",
-      "violationCount": 1,
-      "violationDigest": "7cee427c9116e0736234ecac1a1776fb03796bf8ab9b180d244a692aec45d95c",
-      "rules": {
-        "local-name": 1
-      }
-    },
-    {
       "path": "src/backend/Infrastructure/Operations/DeploymentRuntimeState.cs",
       "sourceSha256": "ce41983725d83e100ae6ab1e030ae93383604ae18be0d8b94e5927a85764f24c",
-      "violationCount": 2,
-      "violationDigest": "8b59ea38b05dea381bb53232fd7df522c0972b02a0bd1b9fb0f00e4a5420174d",
+      "violationCount": 1,
+      "violationDigest": "ae953a10832d676de15c1f07fc89250aa8bad42211dbb9cd309a693b2719770d",
       "rules": {
-        "allman-brace": 1,
-        "local-name": 1
+        "allman-brace": 1
       }
     },
     {
       "path": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
       "sourceSha256": "5726101a8e8df961872761a682fa58c8ac5e793c8b05bc0e5a34d9ed8cba36f1",
-      "violationCount": 7,
-      "violationDigest": "cab0f494c4897c0ab6db5dada087ecec895b7d2b2f6e9816ab347616e7c844a6",
+      "violationCount": 2,
+      "violationDigest": "ff0ce15feef52f68fc9dd801174ddb1fa257d1f6176c7297678712f7d3366c7e",
       "rules": {
-        "local-name": 5,
         "private-static-field-name": 2
       }
     },
@@ -555,29 +489,10 @@
     {
       "path": "src/backend/Infrastructure/PublicAot/CspNonceUtf8Template.cs",
       "sourceSha256": "9fd1803cd8c6f89499a1e8adf6b7d6d5cda7ca94c5a92f1ec8a9bc71c9b7cba2",
-      "violationCount": 2,
-      "violationDigest": "21bed1236d3edfbfdb6d9c8a08264816063096387302abc14015e22849c01a9e",
-      "rules": {
-        "private-field-name": 1,
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "src/backend/Infrastructure/PublicAot/PublicAotBackfillScheduler.cs",
-      "sourceSha256": "486e7261b14f590700036ebcb1199bffd9be61380955e2086dde89e06fcff920",
-      "violationCount": 3,
-      "violationDigest": "d0998afbc9347062040415fd3dd9d852c5a40254836e2875e2a237ce2188cc10",
-      "rules": {
-        "private-field-name": 3
-      }
-    },
-    {
-      "path": "src/backend/Infrastructure/PublicAot/PublicAotBinaryPayload.cs",
-      "sourceSha256": "9eb6734c94714f289cad7dd54883ad96c65dab0fa8603da098e2477c43c5a855",
       "violationCount": 1,
-      "violationDigest": "657b276e0fb152326d1ed0ff078ada9be1ad766226d12496057ee3dd6fa6b20b",
+      "violationDigest": "e4d3417f66fb3854139ee230df1115e55444150f84283a53b13b4ec620441d9b",
       "rules": {
-        "private-field-name": 1
+        "private-static-field-name": 1
       }
     },
     {
@@ -637,17 +552,8 @@
     {
       "path": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
       "sourceSha256": "68de50e2af6185b6d72831e38a217375a649925b79fc55f10126bf5b4c6384b3",
-      "violationCount": 3,
-      "violationDigest": "fc1feeea0ee04b014fdaf2721f82f3bfc74397d4b6e2202ed9a2a5bf396be6e6",
-      "rules": {
-        "private-field-name": 3
-      }
-    },
-    {
-      "path": "src/backend/Infrastructure/PublicAot/PublicAotInvalidationTracker.cs",
-      "sourceSha256": "ea07e3e4ef988c8c7a48cdcd312ab5792af41e6d5f2a74f0c32d8377c1177ea8",
       "violationCount": 1,
-      "violationDigest": "e6473217a0be4e84dcdde8b689826005b343337483a51a34bceba3793c89bb6e",
+      "violationDigest": "f5b28d296c7c473add929b0c5bb30c7221e6e2a1a6a2cd628b07bda572e18648",
       "rules": {
         "private-field-name": 1
       }
@@ -655,19 +561,10 @@
     {
       "path": "src/backend/Infrastructure/PublicAot/PublicAotPageCatalog.cs",
       "sourceSha256": "f332f906c464d0d78f5825b74f062541b896e5482b1fe034c5282ba48050029d",
-      "violationCount": 10,
-      "violationDigest": "5dd3f54108303ccefff05da0144a8995835ba63d97b86806e0421896b688c8df",
+      "violationCount": 1,
+      "violationDigest": "48635df649373efdfa13dea3d8b159fd395b60a3a564c567477bd946fd599dd8",
       "rules": {
-        "private-static-field-name": 10
-      }
-    },
-    {
-      "path": "src/backend/Infrastructure/PublicAot/PublicAotPageDescriptor.cs",
-      "sourceSha256": "39aafc7504ee43b0c4bdfe6687795b229144c95fdf0c1cac55e85793a42f35a3",
-      "violationCount": 6,
-      "violationDigest": "6dc1d6f8d6f7941ddbfaedac5eca432b1d41d2c076850d8f14bd7863dab94ecc",
-      "rules": {
-        "private-field-name": 6
+        "private-static-field-name": 1
       }
     },
     {
@@ -710,10 +607,9 @@
     {
       "path": "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs",
       "sourceSha256": "ca98ab0615780c8419c6c339b86c9691eac077b60c5db76d91e07bca04714fa0",
-      "violationCount": 2,
-      "violationDigest": "548eeaa06ee64675ad8b87d90cb71772fff22db6f0c61a591306f5b85d302659",
+      "violationCount": 1,
+      "violationDigest": "b6ed2e073a6ea58fdb5674a01fbf5cc934d6d55d208e513977ab8512eb3e5300",
       "rules": {
-        "private-field-name": 1,
         "private-static-field-name": 1
       }
     },
@@ -738,31 +634,29 @@
     {
       "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs",
       "sourceSha256": "69f7b8ec9d50602999b5cd91c5b21b395b3d2ebd5e04c2de5778eca22d0363cb",
-      "violationCount": 3,
-      "violationDigest": "2d2fb32ea71bfea06dd3263a0e777bbe4e646fffc8299d4f347e04710396c825",
+      "violationCount": 2,
+      "violationDigest": "694e36357472b9f972c9688d88d5fb87250c79f27f9f44c04cf35891940b7f56",
       "rules": {
         "flags-enum-name": 1,
-        "private-field-name": 1,
         "private-static-field-name": 1
       }
     },
     {
       "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadCrossCuttingControlCatalog.cs",
       "sourceSha256": "8d1b12b258180143ba9706773f7ca9007766690a401b838f8a1a35f8b563b0ed",
-      "violationCount": 4,
-      "violationDigest": "c78c3657b4d4e738b7504e48391051792af42fb1a3bb31d9d41818e801c517f7",
+      "violationCount": 3,
+      "violationDigest": "d0be73acd1cfb9cc7df38645d996f9a2f92902a697a4899da6f8bfb0602f4b6f",
       "rules": {
-        "private-static-field-name": 4
+        "private-static-field-name": 3
       }
     },
     {
       "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs",
       "sourceSha256": "d7ccb34296197c26e8aae06fc4c6c7e7f5e88f08496ecd5491482c1c46825893",
-      "violationCount": 20,
-      "violationDigest": "66ce121946bea54729602b9d3c1202fe5e10381dbfa5e6a186a2a9fc3387fcff",
+      "violationCount": 10,
+      "violationDigest": "5bd0e0153973e0bd4a8185b69e8afaa5b01f145a06cfa1e9725311af85c9a1e0",
       "rules": {
-        "private-field-name": 9,
-        "private-static-field-name": 11
+        "private-static-field-name": 10
       }
     },
     {
@@ -804,10 +698,10 @@
     {
       "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadRouteSecurityCatalog.cs",
       "sourceSha256": "46d37b22ecbc0b22d15395eacfa46cb2eb70859b451fd58dbdf4d45898ecf873",
-      "violationCount": 4,
-      "violationDigest": "073aa210f815fba5c30e3bbb5c4c1115f3099751127010f8b1ddae4b6d8e432d",
+      "violationCount": 2,
+      "violationDigest": "b510b551a644e848fb710cf18ea2159b11316b2b687db4b353e1c26a4af5b3b7",
       "rules": {
-        "private-static-field-name": 4
+        "private-static-field-name": 2
       }
     },
     {
@@ -1080,10 +974,10 @@
     {
       "path": "src/backend/Infrastructure/Storage/ReleaseDerivedArtifactPublisher.cs",
       "sourceSha256": "580de1a6c4104b5a8bdd5e594226e627e144ddbbbfd96669bf091a969c8a5e53",
-      "violationCount": 4,
-      "violationDigest": "dbb78ffd51a6a7b47ab2551e69e52cc38a61d4877ea73b1a11abdec1b40c050c",
+      "violationCount": 2,
+      "violationDigest": "421d7a81f2bc7055136ffbbda88b062ce0080e73a34d74f315479dbc713bd231",
       "rules": {
-        "private-static-field-name": 4
+        "private-static-field-name": 2
       }
     },
     {
@@ -1169,15 +1063,6 @@
       }
     },
     {
-      "path": "src/backend/Services/ArticleService.cs",
-      "sourceSha256": "4cc72c72da317b0fd4ec2bc77e5c9e46c08664e75bdd3f4742348da48c5e815c",
-      "violationCount": 1,
-      "violationDigest": "4414b8cfecac0a60e7501f1da0ce34eb742ed426297c0d2496606c9519053870",
-      "rules": {
-        "private-field-name": 1
-      }
-    },
-    {
       "path": "src/backend/Services/ArticleViewWriteBuffer.cs",
       "sourceSha256": "cc98f4a5ea5ffbc39fc1ee43b444b1f2c45949e405a42ab4b3727230c8b9fe58",
       "violationCount": 1,
@@ -1225,10 +1110,9 @@
     {
       "path": "src/backend/Services/Background/PublicAotBackfillWorker.cs",
       "sourceSha256": "3ea7fd2039675e02469c1fb3a3ba9f769800a66d0a324a5a8ffe52a85fbd124f",
-      "violationCount": 2,
-      "violationDigest": "a4faffc3f3d4ab3ea3dc1d8f06cf8fc6cf8e2ebd5912f7f3c14f725bf70802d9",
+      "violationCount": 1,
+      "violationDigest": "f9d97cd508bc48be544ffd5d78de3c3a5420b1ddad9246c6027d5a35341b1d2d",
       "rules": {
-        "private-field-name": 1,
         "private-static-field-name": 1
       }
     },
@@ -1244,10 +1128,9 @@
     {
       "path": "src/backend/Services/Background/UploadSessionCleanupWorker.cs",
       "sourceSha256": "c216288450253e446df5c082d1ec74ed72e7557e4f57a48c6b91873c501c157e",
-      "violationCount": 4,
-      "violationDigest": "89481d32a9d5352e378cc0696cdffc38400af6d55005621a1a289b58c9aa00d5",
+      "violationCount": 2,
+      "violationDigest": "c872bfb8c5f5bd33a0b6aa3b179a9f1fdc53846b0504abdc81c09cdac50ca218",
       "rules": {
-        "private-field-name": 2,
         "private-static-field-name": 2
       }
     },
@@ -1678,129 +1561,6 @@
       "violationDigest": "341f84dba570cb1bd2db87743ef4de9ab98833a46dcca7a401e2e9e5c2afc9fb",
       "rules": {
         "private-static-field-name": 2
-      }
-    },
-    {
-      "path": "tests/backend/Unit/AuthAndBoundaryTests.cs",
-      "sourceSha256": "e544efcc7d16f478dc5f291b1ae0bf9b4b519b1272b99e7329ea3a5eb2f30094",
-      "violationCount": 3,
-      "violationDigest": "b65315707461c42f633e03e2569744511666e05a0487ec2c367b79021fddb838",
-      "rules": {
-        "allman-brace": 2,
-        "one-statement": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/CommentRiskActionFilterTests.cs",
-      "sourceSha256": "c5b4434af558fa2f12d89482a2519ee5354eb45416166729a8c62435de604681",
-      "violationCount": 3,
-      "violationDigest": "aa00a9a7f406e431ad1ce046f5252bd00d04d4cae2a7718fe0850f3129978ff6",
-      "rules": {
-        "one-statement": 3
-      }
-    },
-    {
-      "path": "tests/backend/Unit/CoreAndCodecTests.cs",
-      "sourceSha256": "408005e659fb32713044a105c38c7ee2893f8e6d00228f7616bf68bafd55ed58",
-      "violationCount": 4,
-      "violationDigest": "bf70d4da089d964bb7b9284286f3f83752c510a33e8d8e97739c9535c6691ed1",
-      "rules": {
-        "allman-brace": 2,
-        "one-statement": 2
-      }
-    },
-    {
-      "path": "tests/backend/Unit/FileServiceTests.cs",
-      "sourceSha256": "f83425959841399b6171f7e9b5628415c18eda489bbccc453db62d45194aa3c5",
-      "violationCount": 21,
-      "violationDigest": "badbbbe9629d7461fc7da7dc9cb290ba457cd0e1271f53fcd91d981885c3fd07",
-      "rules": {
-        "allman-brace": 21
-      }
-    },
-    {
-      "path": "tests/backend/Unit/OwnedFrameCacheTests.cs",
-      "sourceSha256": "b28ebcfea9dc4b788fa30b963ea02b1856862f2e38c0e42e5c1ac7740223d989",
-      "violationCount": 2,
-      "violationDigest": "fcd2f788f64db05790b15274fa4203e42e7312f4098461ed6c5210045c4121e4",
-      "rules": {
-        "private-field-name": 2
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicAotInvalidationTrackerTests.cs",
-      "sourceSha256": "09cd2e63fa59263429f07b92f7b3dff795b7b1cde89bfc239600904365dab3ad",
-      "violationCount": 1,
-      "violationDigest": "4bd61fa9b50a5d2a18d48ee8e5814bcfe86a64a0f2b38a786f9ec6ea4f59dc9a",
-      "rules": {
-        "allman-brace": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicAotRouteManifestTests.cs",
-      "sourceSha256": "72c21833949c728431196847a0f565754a784022a0bd76d94a5583917d77c70b",
-      "violationCount": 1,
-      "violationDigest": "02ce56d037874f089ce0ec46557d9bdb2c3fb67eee8b4eb57cfc15a124c432d5",
-      "rules": {
-        "allman-brace": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ResultExtensionsTests.cs",
-      "sourceSha256": "1a7b70867478b71a1f5799e44ae555675af520c6a9d1310b0439f07603cd98dc",
-      "violationCount": 2,
-      "violationDigest": "02ece164dcb7b594eac46507f871507f1ef3b8648302ad00e07e1e8f50b33a1e",
-      "rules": {
-        "allman-brace": 1,
-        "one-statement": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ShieldMiddlewareTests.cs",
-      "sourceSha256": "0652ad35d86d7d341168f345df2814008c8773fa6296daa70269f152f8feb345",
-      "violationCount": 45,
-      "violationDigest": "f4f5c4906547fbdfca89d446d375d7a64fe9166309e07053fc55020f653d2604",
-      "rules": {
-        "allman-brace": 22,
-        "one-statement": 23
-      }
-    },
-    {
-      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/DiLifetimeAnalyzer.cs",
-      "sourceSha256": "555fcacab27688f888eb744584f162283992e27bd384dbd4b777c9a1f1802c99",
-      "violationCount": 2,
-      "violationDigest": "3e776d43e7225abc3ece638afe039bc265360dda6f0b1e85827d32d3b1bb935d",
-      "rules": {
-        "private-static-field-name": 1,
-        "xml-documentation": 1
-      }
-    },
-    {
-      "path": "tools/security/AnonymousCredentialRootBootstrap/Program.cs",
-      "sourceSha256": "83a067343e34c7c0b649583a2971348677e1145a7f747baad626daab6f843c0c",
-      "violationCount": 1,
-      "violationDigest": "4a1e7cd84e695b425bc48bb4c9ad617b42c8d70c7e4138d676116a3a206591a2",
-      "rules": {
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "tools/security/FsusBlog.SecuritySourceAnalyzer/Program.cs",
-      "sourceSha256": "7a26bb4a8da78a4d91e8dca7f84d2406b61497c54c2f39ba7ccf9b1342b1dd53",
-      "violationCount": 2,
-      "violationDigest": "a2a11a45d39506f8a7b0bdeebdf662e5be1af9eba1e1507f026f9a953af22c8e",
-      "rules": {
-        "private-static-field-name": 2
-      }
-    },
-    {
-      "path": "tools/security/ZkCommentV2MclFixture/Program.cs",
-      "sourceSha256": "51a9556c00cea9a2ce014a61150385777366997835824fe3bc664ebd47deb81e",
-      "violationCount": 5,
-      "violationDigest": "f49f83bbb039ec25d2268c4a7aa8dd3cd6c3438ad2bfbc0109d2b4e63f422b3a",
-      "rules": {
-        "indent": 2,
-        "private-static-field-name": 3
       }
     }
   ]

@@ -426,6 +426,7 @@ function splitTopLevelParameters(value) {
 function parseMethodDeclaration(trimmed) {
   if (!/^(?:public|protected|private|internal)\s+/u.test(trimmed)) return null
   if (/\b(?:class|struct|record|interface|enum|delegate)\b/u.test(trimmed)) return null
+  if (/\boperator\b/u.test(trimmed)) return null
   const nonMethodNames = new Set([
     'public', 'protected', 'private', 'internal', 'file', 'new', 'static', 'abstract',
     'virtual', 'sealed', 'override', 'readonly', 'unsafe', 'required', 'volatile',
@@ -513,7 +514,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
       violations.push(makeViolation(file, lineNumber, 'type-name', typeMatch[1], 'type must use PascalCase'))
     }
 
-    const fieldMatch = trimmed.match(/^(?<access>public|protected|private|internal)\s+(?<modifiers>(?:(?:static|readonly|volatile|const|unsafe|required|new)\s+)*)(?<type>[A-Za-z_][\w<>,.?\[\]]*)\s+(?<name>[A-Za-z_]\w*)\s*(?<terminator>=|;|=>|\{)/u)
+    const fieldMatch = trimmed.match(/^(?<access>public|protected|private|internal)\s+(?<modifiers>(?:(?:static|readonly|volatile|const|unsafe|required|new)\s+)*)(?<type>[A-Za-z_][\w<>,.?\[\]]*)\s+(?<name>[A-Za-z_]\w*)\s*(?<terminator>=>|=|;|\{)/u)
     if (fieldMatch?.groups) {
       const { access, modifiers, name, terminator } = fieldMatch.groups
       const threadStatic = lines.slice(Math.max(0, index - 4), index).some((candidate) => candidate.includes('[ThreadStatic]'))
@@ -547,7 +548,8 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
       }
     }
 
-    const localMatch = !trimmed.startsWith('using ') && trimmed.endsWith(';') && !trimmed.endsWith(');')
+    const closesPrimaryConstructor = /\)\s*(?::[^;]+)?;\s*$/u.test(trimmed)
+    const localMatch = !trimmed.startsWith('using ') && trimmed.endsWith(';') && !closesPrimaryConstructor
       ? trimmed.match(/^(?:var|[A-Za-z_][\w<>,.?\[\]]*)\s+([A-Za-z_]\w*)\s*=/u)
       : null
     if (localMatch && !isCamelCase(localMatch[1])) {

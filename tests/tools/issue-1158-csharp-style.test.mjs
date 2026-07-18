@@ -80,6 +80,10 @@ public sealed class GoodType
         get; private set;
     }
 
+    internal static int CurrentValue => 0;
+
+    internal int InstanceValue => _value;
+
     public int ReadValue(int amount)
     {
         foreach (GoodType item in Array.Empty<GoodType>())
@@ -137,7 +141,17 @@ public sealed record ExpressionBraces(string Name)
 
 public sealed record MultiLineRecord(
     string DisplayName,
-    int ItemCount);
+    int ItemCount,
+    string? Error = null) : IRecordContract;
+
+public interface IRecordContract
+{
+}
+
+public readonly record struct StringWrapper(string Value)
+{
+    public static implicit operator string(StringWrapper value) => value.Value;
+}
 `
     )
     const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/ExpressionBraces.cs'])
