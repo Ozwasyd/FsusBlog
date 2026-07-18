@@ -7,15 +7,14 @@ if(MSVC)
 else()
     target_compile_options(
         FsusWarnings
-        INTERFACE
-            -Wall
-            -Wextra
-            -Wpedantic
-            -Wconversion
-            -Wsign-conversion
-            -Wshadow
-            -Wformat=2
-            -Wundef
+        INTERFACE -Wall
+                  -Wextra
+                  -Wpedantic
+                  -Wconversion
+                  -Wsign-conversion
+                  -Wshadow
+                  -Wformat=2
+                  -Wundef
     )
 endif()
 
@@ -39,8 +38,8 @@ function(FsusEnableProjectWarnings targetName)
     if(FSUSBLOG_ENABLE_CLANG_TIDY AND NOT warningOptions_NO_CLANG_TIDY)
         find_program(clangTidyExecutable NAMES clang-tidy REQUIRED)
         set_property(
-            TARGET "${targetName}"
-            PROPERTY CXX_CLANG_TIDY "${clangTidyExecutable};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy"
+            TARGET "${targetName}" PROPERTY CXX_CLANG_TIDY
+                                            "${clangTidyExecutable};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy"
         )
     endif()
 endfunction()

@@ -9,11 +9,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_definitions(__DEFINED_max_align_t)
 
 if(NOT EMSCRIPTEN)
-  message(FATAL_ERROR "FsusBlog.Client/wasm must be built with emcmake/emcc.")
+    message(FATAL_ERROR "FsusBlog.Client/wasm must be built with emcmake/emcc.")
 endif()
 
 if(NOT DEFINED FSUSBLOG_WASM_OUTPUT_DIR)
-  set(FSUSBLOG_WASM_OUTPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../public/wasm")
+    set(FSUSBLOG_WASM_OUTPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../public/wasm")
 endif()
 file(MAKE_DIRECTORY "${FSUSBLOG_WASM_OUTPUT_DIR}")
 
@@ -24,8 +24,5 @@ add_subdirectory(comment_privacy)
 
 option(FSUSBLOG_WASM_IMAGE_CODEC_ENABLE "Build the image codec wasm module" ON)
 if(FSUSBLOG_WASM_IMAGE_CODEC_ENABLE)
-  add_subdirectory(
-    "${CMAKE_CURRENT_SOURCE_DIR}/image_codec"
-    "${CMAKE_CURRENT_BINARY_DIR}/image_codec"
-  )
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/image_codec" "${CMAKE_CURRENT_BINARY_DIR}/image_codec")
 endif()

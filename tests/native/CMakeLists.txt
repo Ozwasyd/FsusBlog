@@ -1,13 +1,5 @@
-add_library(
-    FsusAedsCrc16
-    STATIC
-    "${PROJECT_SOURCE_DIR}/src/frontend/wasm/aeds/src/aeds_crc32.cpp"
-)
-target_include_directories(
-    FsusAedsCrc16
-    PUBLIC
-        "${PROJECT_SOURCE_DIR}/src/frontend/wasm/aeds/include"
-)
+add_library(FsusAedsCrc16 STATIC "${PROJECT_SOURCE_DIR}/src/frontend/wasm/aeds/src/aeds_crc32.cpp")
+target_include_directories(FsusAedsCrc16 PUBLIC "${PROJECT_SOURCE_DIR}/src/frontend/wasm/aeds/include")
 FsusEnableProjectWarnings(FsusAedsCrc16 NO_CLANG_TIDY)
 FsusEnableSanitizers(FsusAedsCrc16)
 
@@ -23,16 +15,8 @@ if(FSUSBLOG_ENABLE_FUZZING)
         message(FATAL_ERROR "FSUSBLOG_ENABLE_FUZZING requires Clang")
     endif()
 
-    add_library(
-        FsusAedsCrc16Fuzz
-        STATIC
-        "${PROJECT_SOURCE_DIR}/src/frontend/wasm/aeds/src/aeds_crc32.cpp"
-    )
-    target_include_directories(
-        FsusAedsCrc16Fuzz
-        PUBLIC
-            "${PROJECT_SOURCE_DIR}/src/frontend/wasm/aeds/include"
-    )
+    add_library(FsusAedsCrc16Fuzz STATIC "${PROJECT_SOURCE_DIR}/src/frontend/wasm/aeds/src/aeds_crc32.cpp")
+    target_include_directories(FsusAedsCrc16Fuzz PUBLIC "${PROJECT_SOURCE_DIR}/src/frontend/wasm/aeds/include")
     target_compile_options(FsusAedsCrc16Fuzz PRIVATE -fsanitize=fuzzer-no-link,address,undefined)
     FsusEnableProjectWarnings(FsusAedsCrc16Fuzz NO_CLANG_TIDY)
 

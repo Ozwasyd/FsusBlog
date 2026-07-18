@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.10)
 project(FsusPowEngine CXX)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -18,18 +18,15 @@ add_executable(FsusPowEngine ${SOURCES})
 # 显式包含 Emscripten 系统头文件
 target_include_directories(FsusPowEngine SYSTEM PRIVATE ${EMSCRIPTEN_SYSROOT}/include)
 
-target_compile_options(FsusPowEngine PRIVATE
-    "-O3"
-    "-fno-exceptions"
-    "-fno-rtti"
-    "-fomit-frame-pointer"
-    "-fvisibility=hidden"
+target_compile_options(
+    FsusPowEngine PRIVATE "-O3" "-fno-exceptions" "-fno-rtti" "-fomit-frame-pointer" "-fvisibility=hidden"
 )
 
-set_target_properties(FsusPowEngine PROPERTIES
-    OUTPUT_NAME "fsus_pow"
-    RUNTIME_OUTPUT_DIRECTORY "${FSUSBLOG_WASM_OUTPUT_DIR}"
-    SUFFIX ".js"
+set_target_properties(
+    FsusPowEngine
+    PROPERTIES OUTPUT_NAME "fsus_pow"
+               RUNTIME_OUTPUT_DIRECTORY "${FSUSBLOG_WASM_OUTPUT_DIR}"
+               SUFFIX ".js"
 )
 
 option(WASM_SIMD "Enable WebAssembly SIMD128 instructions" OFF)
@@ -56,7 +53,9 @@ else()
     set_target_properties(FsusPowEngine PROPERTIES OUTPUT_NAME "fsus_pow_basic")
 endif()
 
-target_link_options(FsusPowEngine PRIVATE
+target_link_options(
+    FsusPowEngine
+    PRIVATE
     "-O3"
     "-flto"
     "-sWASM=1"
