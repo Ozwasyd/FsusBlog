@@ -50,7 +50,7 @@ test('local entrypoints expose the four issue 1150 commands explicitly', () => {
   const script = read('tools/test.sh')
   assert.match(
     script,
-    /production-correctness\|browser-contract\|browser-diagnostics\|release-final[\s\S]*?run "\$tier"/u
+    /production-correctness\s*\|\s*browser-contract\s*\|\s*browser-diagnostics\s*\|\s*release-final[\s\S]*?run "\$tier"/u
   )
 
   for (const id of ['production-correctness', 'browser-contract', 'browser-diagnostics', 'release-final']) {
@@ -367,6 +367,6 @@ test('legacy correctness functions do not hide browser launches', () => {
     assert.match(production, new RegExp(`run_tier "${stage}"`))
   }
 
-  assert.match(legacy, /run_cross_stack_contract_only\(\) \{\n  local phase="\$\{1:-static\}"/u)
+  assert.match(legacy, /run_cross_stack_contract_only\(\) \{\n\s+local phase="\$\{1:-static\}"/u)
   assert.equal(requireTier('cross-stack-contract').command, 'tools/test/legacy-test.sh cross-stack-contract static')
 })

@@ -943,7 +943,7 @@ function HasUnsafeShellExpansion(line)
             continue
         }
         if (character === '$'
-            && (/[A-Za-z_{(]/u.test(line[index + 1] ?? '')))
+            && (/[A-Za-z_{]/u.test(line[index + 1] ?? '')))
         {
             return true
         }
@@ -958,12 +958,14 @@ function CheckShell(file, content, argumentsValue)
     const shellContent = lines
         .map((line, index) => ignoredLines.has(index) ? '' : line)
         .join('\n')
+    const dotnetConfigurationEnvironment = ExceptionApplies('dotnet-configuration-environment', file)
     CheckFourSpaceIndent(file, content, ignoredLines)
     if (!lines[0]?.startsWith('#!'))
     {
         AddDiagnostic(file, 1, 'shell-shebang', 'shell scripts require an explicit interpreter')
     }
-    const strictLine = lines.findIndex((line) => /^set -euo pipefail(?:\s|$)/u.test(line.trim()))
+    const strictLine = lines.findIndex((line) =>
+        /^set -(?=[A-Za-z]*e)(?=[A-Za-z]*u)(?=[A-Za-z]*o)[A-Za-z]+ pipefail(?:\s|$)/u.test(line.trim()))
     if (strictLine < 0)
     {
         AddDiagnostic(file, 1, 'shell-strict-mode', 'shell scripts require set -euo pipefail')
@@ -989,8 +991,12 @@ function CheckShell(file, content, argumentsValue)
         {
             AddDiagnostic(file, index + 1, 'shell-local-name', `${localMatch[1]} must use camelCase`)
         }
-        const exportMatch = lines[index].match(/\bexport\s+([A-Za-z_][A-Za-z0-9_]*)/u)
-        if (exportMatch && !/^[A-Z][A-Z0-9_]*$/u.test(exportMatch[1]))
+        const exportMatch = lines[index].match(/^\s*export\s+([A-Za-z_][A-Za-z0-9_]*)/u)
+        const registeredDotnetKey = dotnetConfigurationEnvironment
+            && /^[A-Za-z][A-Za-z0-9]*(?:__[A-Za-z0-9]+)+$/u.test(exportMatch?.[1] ?? '')
+        if (exportMatch
+            && !/^[A-Z][A-Z0-9_]*$/u.test(exportMatch[1])
+            && !registeredDotnetKey)
         {
             AddDiagnostic(file, index + 1, 'shell-export-name', `${exportMatch[1]} must use UPPER_SNAKE_CASE`)
         }

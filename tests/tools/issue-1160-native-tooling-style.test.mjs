@@ -300,6 +300,62 @@ test('issue 1160 invokes ShellCheck through its portable automatic rc lookup', (
     })
 })
 
+test('issue 1160 preserves registered ASP.NET environment keys without accepting internal leakage', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const source = `#!/usr/bin/env bash
+set -euo pipefail
+
+export ConnectionStrings__DefaultConnection="fixture"
+`
+        WriteFile(fixtureRoot, 'tools/Fixture.sh', source)
+        const registered = RunChecker(fixtureRoot, ['tools/Fixture.sh'])
+        assert.equal(registered.status, 0, Output(registered))
+
+        WriteFile(fixtureRoot, 'sample/ScriptStyle.sh', source)
+        const unregistered = RunChecker(fixtureRoot, ['sample/ScriptStyle.sh'])
+        assert.notEqual(unregistered.status, 0)
+        assert.match(Output(unregistered), /shell-export-name/u)
+
+        WriteFile(
+            fixtureRoot,
+            'tools/Fixture.sh',
+            `${source}\nUseValue()\n{\n    local ConnectionStrings__DefaultConnection="fixture"\n}\n`
+        )
+        const internalLeak = RunChecker(fixtureRoot, ['tools/Fixture.sh'])
+        assert.notEqual(internalLeak.status, 0)
+        assert.match(Output(internalLeak), /shell-local-name/u)
+    })
+})
+
+test('issue 1160 does not confuse command substitution with an unquoted variable expansion', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const safe = `#!/usr/bin/env bash
+set -euo pipefail
+
+PrintValue()
+{
+    printf '%s\\n' "$(printf '%s' fixture)"
+}
+`
+        WriteFile(fixtureRoot, 'sample/ScriptStyle.sh', safe)
+        const accepted = RunChecker(fixtureRoot, ['sample/ScriptStyle.sh'])
+        assert.equal(accepted.status, 0, Output(accepted))
+
+        WriteFile(
+            fixtureRoot,
+            'sample/ScriptStyle.sh',
+            safe.replace('"$(printf \'%s\' fixture)"', '"$(printf \'%s\' fixture)" $unsafeValue')
+        )
+        const rejected = RunChecker(fixtureRoot, ['sample/ScriptStyle.sh'])
+        assert.notEqual(rejected.status, 0)
+        assert.match(Output(rejected), /shell-quote/u)
+    })
+})
+
 test('issue 1160 full mode invalidates an exact-content legacy baseline after an edit', () =>
 {
     WithFixture((fixtureRoot) =>

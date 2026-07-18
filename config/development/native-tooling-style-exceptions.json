@@ -12,6 +12,7 @@
         "generated-native",
         "environment-variable",
         "shell-environment-variable",
+        "dotnet-configuration-environment",
         "cmake-cache-environment",
         "github-actions-schema",
         "json-wire-key",
@@ -118,6 +119,25 @@
                 "internal": "FSUSBLOG_TEST_PROFILE"
             },
             "reason": "Exported shell variables retain process-level spelling; local aliases use camelCase."
+        },
+        {
+            "id": "dotnet-configuration-environment",
+            "authorityExceptionId": "environment-variable",
+            "paths": [
+                "tools/**/*.sh"
+            ],
+            "externalPattern": "^[A-Za-z][A-Za-z0-9]*(?:__[A-Za-z0-9]+)+$",
+            "internalPattern": "^[a-z][A-Za-z0-9]*$",
+            "adapterRequired": true,
+            "positive": {
+                "external": "ConnectionStrings__DefaultConnection",
+                "internal": "defaultConnection"
+            },
+            "negative": {
+                "external": "ConnectionStrings__DefaultConnection",
+                "internal": "ConnectionStrings__DefaultConnection"
+            },
+            "reason": "ASP.NET Core maps double-underscore process environment keys to caller-visible configuration paths."
         },
         {
             "id": "cmake-cache-environment",
