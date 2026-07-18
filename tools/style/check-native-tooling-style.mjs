@@ -769,7 +769,13 @@ function CheckCpp(file, content, argumentsValue)
         const functionMatch = statement
             ? null
             : line.match(/^\s*(?:(?:extern\s+"C"|static|inline|constexpr|consteval|constinit|const|unsigned|signed|void|bool|int|char|auto|std::[A-Za-z0-9_:<>]+|[A-Za-z_][A-Za-z0-9_:<>]*)\s+)+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*\(/u)
-        if (!generated && functionMatch && functionMatch[1] !== 'main' && !/^[A-Z][A-Za-z0-9]*$/u.test(functionMatch[1]))
+        const implementationLocalInitialization = /\.(?:c|cc|cpp|cxx)$/u.test(file)
+            && trimmed.endsWith(';')
+        if (!generated
+            && functionMatch
+            && !implementationLocalInitialization
+            && functionMatch[1] !== 'main'
+            && !/^[A-Z][A-Za-z0-9]*$/u.test(functionMatch[1]))
         {
             const externalAllowed = abiAdapter
                 && externalDeclaration

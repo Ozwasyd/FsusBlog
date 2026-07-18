@@ -122,6 +122,12 @@ test('issue 1160 publishes standard native and tooling configurations with CMake
     assert.match(clangFormat, /BreakBeforeBraces: Allman/u)
     assert.match(clangFormat, /IncludeBlocks: Regroup/u)
     assert.match(clangTidy, /readability-identifier-naming/u)
+    assert.match(clangTidy, /cppcoreguidelines-slicing/u)
+    assert.match(clangTidy, /modernize-use-nullptr/u)
+    assert.match(clangTidy, /performance-unnecessary-value-param/u)
+    assert.doesNotMatch(clangTidy, /bugprone-\*/u)
+    assert.match(clangTidy, /GlobalVariablePrefix: 's_'/u)
+    assert.match(clangTidy, /GlobalVariableIgnoredRegexp: '\^t_/u)
     assert.match(warnings, /add_library\(FsusWarnings INTERFACE\)/u)
     assert.match(warnings, /FSUSBLOG_WARNINGS_AS_ERRORS/u)
     assert.match(shellcheck, /external-sources=true/u)
@@ -210,6 +216,21 @@ test('issue 1160 preserves registered C ABI spelling but rejects leakage into in
         const internalResult = RunChecker(fixtureRoot, ['src/frontend/wasm/aeds/src/Internal.cpp'])
         assert.notEqual(internalResult.status, 0)
         assert.match(Output(internalResult), /cpp-function-name: decode_io_buffer/u)
+    })
+})
+
+test('issue 1160 does not classify direct-initialized C++ locals as functions', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        WriteFile(
+            fixtureRoot,
+            'src/frontend/wasm/aeds/src/Internal.cpp',
+            'int BuildValues()\n{\n    std::vector<int> values(4);\n    return static_cast<int>(values.size());\n}\n'
+        )
+        const result = RunChecker(fixtureRoot, ['src/frontend/wasm/aeds/src/Internal.cpp'])
+        assert.equal(result.status, 0, Output(result))
+        assert.doesNotMatch(Output(result), /cpp-function-name: values/u)
     })
 })
 
