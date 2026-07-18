@@ -38,14 +38,14 @@ function createFixture() {
   }
 
   write(root, 'src/frontend/FsusBlog.Client.esproj', '<Project />\n')
-  write(root, 'ops/docker/docker-compose.yml')
-  write(root, 'ops/docker/docker-compose.dev.yml')
+  write(root, 'ops/docker/docker-compose.production.yml')
+  write(root, 'ops/docker/docker-compose.development-backend.yml')
   write(root, '.dockerignore')
   write(root, 'ops/docker/docker-compose.dcproj', `
 <Project>
   <ItemGroup>
-    <None Include="docker-compose.yml" />
-    <None Include="docker-compose.dev.yml" />
+    <None Include="docker-compose.production.yml" />
+    <None Include="docker-compose.development-backend.yml" />
     <None Include="..\\..\\.dockerignore" />
     <None Include="Properties\\launchSettings.json" />
   </ItemGroup>

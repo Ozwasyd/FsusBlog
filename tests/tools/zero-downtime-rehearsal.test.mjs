@@ -391,7 +391,7 @@ function createFixture(t, { continuationOnly = false } = {}) {
   writeJson(path.join(root, 'notification-resync.json'), {
     schema: 'fsusblog.release-notification-resync-scenario.v1'
   })
-  writeJson(path.join(root, 'deploy/zero-downtime-resource-policy.json'), {
+  writeJson(path.join(root, 'config/deployment/zero-downtime-resource-policy.json'), {
     schema: 'fsusblog.zero-downtime-resource-policy.v1',
     minimumSupported: { cpuCores: 4, memoryMiB: 6144, freeDiskMiB: 10240 },
     budgets: { dualSlotCpuPercent: 300 },

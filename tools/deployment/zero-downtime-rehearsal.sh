@@ -14,7 +14,7 @@ WORKER_DRILL_SCRIPT="$SCRIPT_DIR/release-worker-drill.mjs"
 WORKER_RECONCILIATION_SCRIPT="$SCRIPT_DIR/release-worker-reconciliation.mjs"
 MIGRATION_QUALIFICATION_SCRIPT="$SCRIPT_DIR/release-migration-qualification.mjs"
 ROLLOUT_STATE_SCRIPT="$SCRIPT_DIR/rollout-state.mjs"
-RESOURCE_POLICY="$ROOT_DIR/deploy/zero-downtime-resource-policy.json"
+RESOURCE_POLICY="$ROOT_DIR/config/deployment/zero-downtime-resource-policy.json"
 
 PLAN_FILE=""
 MODE="all"

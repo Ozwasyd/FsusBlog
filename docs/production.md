@@ -196,7 +196,7 @@ This records existing truth; it does not switch gateway traffic.
 
 The normal release path reaches this protocol only through stage 10 of `release-rollout.sh`. The direct commands below document first adoption, diagnosis and the rollout-owned recovery primitive; do not use `gateway-switch.sh` as a second production rollout entry.
 
-Install `deploy/production-openresty.conf` as the complete host configuration and let it include `/etc/openresty/fsusblog/active-upstream.conf`. The include is not operator-authored text: initialize it exactly once from the already verified active slot, then validate the complete configuration before reload:
+Install `ops/gateway/production-openresty.conf` as the complete host configuration and let it include `/etc/openresty/fsusblog/active-upstream.conf`. The include is not operator-authored text: initialize it exactly once from the already verified active slot, then validate the complete configuration before reload:
 
 ```bash
 node tools/deployment/gateway-control.mjs initialize \
@@ -244,7 +244,7 @@ For `switching` or `rollback_required`, recovery compares the durable pending so
 
 Every switch, rollback and recovery writes a mode-0600 JSON record plus `latest.json` under `FSUSBLOG_GATEWAY_EVIDENCE_DIR`. `tools/operations/collect-release-evidence.sh` requires that evidence to be semantically successful and to match the release manifest's final slot, release ID and image digest. A normal transition additionally records sanitized source-before, target-before, target-after-activation and source-after-drain snapshots; closeout requires target activation and a complete, non-timed-out source drain. Evidence contains identities, bounded counters, booleans, timing, failure stage and recovery action, not credentials, request data or the complete OpenResty configuration.
 
-The certified zero-downtime host floor is defined by `deploy/zero-downtime-resource-policy.json`: **4 CPU cores, 6144 MiB total memory and 10240 MiB free disk**. During overlap the two app slots together must stay within 360% CPU and 4608 MiB memory, temporary disk within 8192 MiB, and the probe must capture at least 10 dual-slot samples. The same evidence enforces OpenResty reload <= 2 seconds, drain <= 60 seconds, notification reconnect <= 5 seconds, and active-traffic P95/P99 impact <= 25%/35%. A 2C/2G host is supported only as a legacy single-slot profile; it is not certified to run overlapping Blue/Green instances or claim zero downtime.
+The certified zero-downtime host floor is defined by `config/deployment/zero-downtime-resource-policy.json`: **4 CPU cores, 6144 MiB total memory and 10240 MiB free disk**. During overlap the two app slots together must stay within 360% CPU and 4608 MiB memory, temporary disk within 8192 MiB, and the probe must capture at least 10 dual-slot samples. The same evidence enforces OpenResty reload <= 2 seconds, drain <= 60 seconds, notification reconnect <= 5 seconds, and active-traffic P95/P99 impact <= 25%/35%. A 2C/2G host is supported only as a legacy single-slot profile; it is not certified to run overlapping Blue/Green instances or claim zero downtime.
 
 `slot-preflight.sh` retains lower configurable pull/start guards (`FSUSBLOG_SLOT_MIN_AVAILABLE_MEMORY_MB`、`FSUSBLOG_SLOT_MIN_FREE_DISK_MB`、`FSUSBLOG_SLOT_IMAGE_PULL_RESERVE_MB`) so diagnostics fail before touching the active slot, but those knobs do not lower the zero-downtime certification floor. `release-resource-probe.mjs` is the final authority for the rollout evidence. Per-slot Compose limits remain configurable through `FSUSBLOG_SLOT_MEMORY_LIMIT`、`FSUSBLOG_SLOT_MEMORY_RESERVATION`、`FSUSBLOG_SLOT_CPU_LIMIT` and `FSUSBLOG_SLOT_CPU_RESERVATION`; lowering them must not be used to turn a 2C/2G overlap into a passing release.
 
@@ -445,7 +445,7 @@ Toolchain pins are part of the release input. The Docker wasm builder pins Emscr
 
 The host gateway must:
 
-- use `deploy/production-openresty.conf` as the production baseline,
+- use `ops/gateway/production-openresty.conf` as the production baseline,
 - load exactly one controlled `server 127.0.0.1:8081;` or `server 127.0.0.1:8082;` from `/etc/openresty/fsusblog/active-upstream.conf`; never place an arbitrary host/port or a fixed `127.0.0.1:8080` server in the main config,
 - reject unknown Host values with the default server,
 - terminate TLS and forward `X-Forwarded-*` headers only from the configured trusted proxy path,

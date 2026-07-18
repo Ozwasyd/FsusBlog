@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-COMPOSE_FILE="$ROOT_DIR/deploy/dev/docker-compose.yml"
+COMPOSE_FILE="$ROOT_DIR/ops/development/dependencies.compose.yml"
 FRONTEND_DIR="$ROOT_DIR/src/frontend"
 BACKEND_PROJECT="$ROOT_DIR/src/backend/FsusBlog.Server.csproj"
 
@@ -15,7 +15,7 @@ usage() {
 Usage: tools/dev/start.sh [--seed-demo] [--no-install] [--cleanup]
 
 Starts the public-preview development stack:
-  - PostgreSQL and Redis through deploy/dev/docker-compose.yml
+  - PostgreSQL and Redis through ops/development/dependencies.compose.yml
   - ASP.NET Core backend on http://127.0.0.1:7568
   - Vite frontend on http://127.0.0.1:3000
 

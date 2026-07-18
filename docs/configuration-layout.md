@@ -8,6 +8,7 @@ FsusBlog has one generic configuration root: `config/`. Framework-discovered fil
 |---|---|---|
 | .NET local tools | `.config/dotnet-tools.json` | Standard `dotnet tool restore` discovery from the repository tree |
 | Production SLO | `config/observability/slo.yml` | Operations and observability |
+| Zero-downtime resource policy | `config/deployment/zero-downtime-resource-policy.json` | Operations and deployment qualification |
 | Moderation dictionaries and policies | `config/moderation/**` | Backend moderation runtime and server publish output |
 | Default mutation policy | `config/testing/mutation/default.json` | Full backend Stryker lane |
 | Critical mutation policy | `config/testing/mutation/critical.json` | Release-critical Stryker lane |
@@ -17,7 +18,7 @@ FsusBlog has one generic configuration root: `config/`. Framework-discovered fil
 | Backend launch profile | `src/backend/Properties/launchSettings.json` | `src/backend/FsusBlog.Server.csproj` |
 | Docker Compose launch profile | `ops/docker/Properties/launchSettings.json` | `ops/docker/docker-compose.dcproj` |
 
-`config/configuration-ownership.json` is the machine-readable ownership registry. Directory ownership is recursive only where the registry says so; every file under `config/` and `.config/` must resolve to exactly one registry entry.
+`config/configuration-ownership.json` is the machine-readable ownership registry. Directory ownership is recursive only where the registry says so; every file under `config/` and `.config/` must resolve to exactly one registry entry. Operational templates and executable workflows use the separate boundaries documented in [operations layout](operations-layout.md).
 
 This root-ownership registry does not make full backend appsettings examples permanent authorities. Their lifecycle and the operator-input model are owned by #1171, while the cross-source semantic contract is owned by #1172.
 

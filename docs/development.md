@@ -84,7 +84,7 @@ Demo seed 详情见 [development/demo-data.md](development/demo-data.md)。
 一键入口不可用时，可先启动本地依赖：
 
 ```bash
-docker compose -f deploy/dev/docker-compose.yml up -d postgres redis
+docker compose -f ops/development/dependencies.compose.yml up -d postgres redis
 ```
 
 随后启动 ASP.NET Core 后端：
@@ -323,9 +323,9 @@ npm ci
 
 ```bash
 # 确认 Docker 容器已启动
-docker compose -f docker-compose.dev.yml ps
+docker compose -f ops/development/dependencies.compose.yml ps
 # 重启 Redis
-docker compose -f docker-compose.dev.yml restart redis
+docker compose -f ops/development/dependencies.compose.yml restart redis
 ```
 
 ### Wasm 解码失败

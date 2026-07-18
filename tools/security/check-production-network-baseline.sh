@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-COMPOSE_FILE="$ROOT_DIR/ops/docker/docker-compose.yml"
-GATEWAY_FILE="$ROOT_DIR/deploy/production-openresty.conf"
-GATEWAY_UPSTREAM_EXAMPLE="$ROOT_DIR/deploy/active-upstream.conf.example"
+COMPOSE_FILE="$ROOT_DIR/ops/docker/docker-compose.production.yml"
+GATEWAY_FILE="$ROOT_DIR/ops/gateway/production-openresty.conf"
+GATEWAY_UPSTREAM_EXAMPLE="$ROOT_DIR/ops/gateway/active-upstream.conf.example"
 ENV_TEMPLATE="$ROOT_DIR/.env.production-template"
 
 failures=()
@@ -83,7 +83,7 @@ if [[ -f "$GATEWAY_UPSTREAM_EXAMPLE" ]]; then
   require_pattern "$GATEWAY_UPSTREAM_EXAMPLE" '^server[[:space:]]+127\.0\.0\.1:808[12];$' 'single controlled blue/green loopback server'
   reject_pattern "$GATEWAY_UPSTREAM_EXAMPLE" 'server[[:space:]]+(0\.0\.0\.0|::|10\.|172\.|192\.168\.|[A-Za-z])' 'non-loopback or hostname upstream'
   if [[ "$(wc -l < "$GATEWAY_UPSTREAM_EXAMPLE")" -ne 1 ]]; then
-    failures+=("deploy/active-upstream.conf.example: must contain exactly one generated server line")
+    failures+=("ops/gateway/active-upstream.conf.example: must contain exactly one generated server line")
   fi
 fi
 

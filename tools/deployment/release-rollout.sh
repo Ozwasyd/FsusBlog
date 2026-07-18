@@ -676,7 +676,7 @@ start_resource_probe() {
   node "$ROOT_DIR/tools/deployment/release-resource-probe.mjs" \
     --rollout-state "$ROLLOUT_STATE_FILE" \
     --source-container "fsus-app-$SOURCE_SLOT" --target-container "fsus-app-$TARGET_SLOT" \
-    --policy "$ROOT_DIR/deploy/zero-downtime-resource-policy.json" \
+    --policy "$ROOT_DIR/config/deployment/zero-downtime-resource-policy.json" \
     --snapshot "$RESOURCE_SNAPSHOT" --out "$RESOURCE_BUDGET_EVIDENCE" --stop-file "$RESOURCE_STOP_FILE" \
     --disk-path "${FSUSBLOG_ROLLOUT_DISK_PATH:-/var/lib/docker}" \
     --gateway-evidence "${FSUSBLOG_GATEWAY_EVIDENCE_DIR:-/var/lib/fsusblog/deployment/evidence}/latest.json" \

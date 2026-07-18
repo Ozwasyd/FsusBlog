@@ -152,19 +152,19 @@ if (/localStorage\.setItem\(key,\s*encodePublicAotPayload\(snapshot\)\)/.test(ad
   violations.push('src/frontend/src/composables/useAdminArticleWrite.ts: article draft body must not be persisted to localStorage')
 }
 
-const openResty = readRepoFile('deploy/production-openresty.conf')
+const openResty = readRepoFile('ops/gateway/production-openresty.conf')
 for (const header of ['Content-Security-Policy', 'Cross-Origin-Opener-Policy', 'Cross-Origin-Embedder-Policy', 'Cross-Origin-Resource-Policy']) {
   if (!openResty.includes(header)) {
-    violations.push(`deploy/production-openresty.conf: missing ${header} response header`)
+    violations.push(`ops/gateway/production-openresty.conf: missing ${header} response header`)
   }
 }
 for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog fsusblog-spa-entry;']) {
   if (!openResty.includes(token)) {
-    violations.push(`deploy/production-openresty.conf: production CSP must include ${token}`)
+    violations.push(`ops/gateway/production-openresty.conf: production CSP must include ${token}`)
   }
 }
 if (/trusted-types\s+(?:\*|default)|allow-duplicates/.test(openResty)) {
-  violations.push('deploy/production-openresty.conf: Trusted Types CSP must not allow wildcard, default, or duplicate policies')
+  violations.push('ops/gateway/production-openresty.conf: Trusted Types CSP must not allow wildcard, default, or duplicate policies')
 }
 
 const viteConfig = readRepoFile('src/frontend/vite.config.ts')

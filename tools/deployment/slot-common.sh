@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SLOT_STATE_FILE="${FSUSBLOG_SLOT_STATE_FILE:-/var/lib/fsusblog/deployment/slots.json}"
 PRODUCTION_ENV_FILE="${FSUSBLOG_PRODUCTION_ENV_FILE:-$ROOT_DIR/.env.production}"
-COMPOSE_FILE="${FSUSBLOG_PRODUCTION_COMPOSE_FILE:-$ROOT_DIR/ops/docker/docker-compose.yml}"
+COMPOSE_FILE="${FSUSBLOG_PRODUCTION_COMPOSE_FILE:-$ROOT_DIR/ops/docker/docker-compose.production.yml}"
 DEPLOYMENT_LOCK_FILE="${FSUSBLOG_DEPLOYMENT_LOCK_FILE:-/var/lock/fsusblog-deployment.lock}"
 
 slot_log() {

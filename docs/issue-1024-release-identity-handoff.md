@@ -7,7 +7,7 @@ This file maps landed code to the issue contract without asserting that an image
 - `tools/release/release-manifest.mjs` defines the release manifest schema and rejects malformed release IDs, mutable tags, digest/tag mismatches and incomplete frontend/Wasm/ZK-local-review/toolchain identity.
 - `tools/build-final-image.sh` requires exactly one local-only or push mode. It accepts an explicit `FSUSBLOG_RELEASE_ID`, or generates `<UTC timestamp>-<12-char commit>` when the value is absent; both paths pass the same safe immutable-ID validation. It tags the immutable release, resolves a registry digest for pushed candidates and writes `build/releases/<release-id>/release-manifest.json` atomically.
 - `tools/deploy-production.sh` requires a release manifest in production, validates the exact release/slot/image reference, pulls `repository@sha256:...`, verifies pulled digest and OCI labels, and uses Compose `--no-build`. Dry-run reports release, slot, digest and rollback target.
-- `ops/docker/docker-compose.yml` consumes the same immutable image reference and injects release ID, slot, commit, digest and runtime generation into labels and environment.
+- `ops/docker/docker-compose.production.yml` consumes the same immutable image reference and injects release ID, slot, commit, digest and runtime generation into labels and environment.
 - `ReleaseIdentityProvider` fails closed for incomplete production identity, writes non-secret startup identity, contributes protected readiness detail and emits only release ID/slot response headers for gateway verification.
 
 ## Direct test owners

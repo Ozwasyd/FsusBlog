@@ -45,14 +45,14 @@ Likely cause: the dev PostgreSQL container is not running, port `5432` is occupi
 How to verify:
 
 ```bash
-docker compose -f deploy/dev/docker-compose.yml ps
+docker compose -f ops/development/dependencies.compose.yml ps
 docker exec fsusblog-dev-postgres pg_isready -U fsusblog -d fsusblog
 ```
 
 Fix: free port `5432`, set `FSUSBLOG_DEV_POSTGRES_PORT` to another local port, or restart the dev dependencies:
 
 ```bash
-docker compose -f deploy/dev/docker-compose.yml up -d postgres
+docker compose -f ops/development/dependencies.compose.yml up -d postgres
 ```
 
 Relevant logs: backend console logs and `docker logs fsusblog-dev-postgres`.
@@ -66,14 +66,14 @@ Likely cause: Redis is not running, port `6379` is occupied, or the Redis connec
 How to verify:
 
 ```bash
-docker compose -f deploy/dev/docker-compose.yml ps
+docker compose -f ops/development/dependencies.compose.yml ps
 docker exec fsusblog-dev-redis redis-cli ping
 ```
 
 Fix: free port `6379`, set `FSUSBLOG_DEV_REDIS_PORT`, or restart Redis:
 
 ```bash
-docker compose -f deploy/dev/docker-compose.yml up -d redis
+docker compose -f ops/development/dependencies.compose.yml up -d redis
 ```
 
 Relevant logs: backend console logs and `docker logs fsusblog-dev-redis`.
@@ -213,7 +213,7 @@ How to verify:
 
 ```bash
 git status --short
-docker compose -f deploy/dev/docker-compose.yml ps
+docker compose -f ops/development/dependencies.compose.yml ps
 ```
 
 Fix: keep the repo in a normal writable workspace, avoid running package managers as root, reset disposable dev volumes when needed, and use WSL2/Linux paths for Docker-heavy workflows on Windows.

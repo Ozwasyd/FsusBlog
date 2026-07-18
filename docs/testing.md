@@ -339,7 +339,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 
 **前置条件**：
 ```bash
-docker compose -f docker-compose.dev.yml up -d
+docker compose -f ops/development/dependencies.compose.yml up -d
 # 等待 /health/ready 通过
 ```
 

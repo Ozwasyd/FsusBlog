@@ -73,4 +73,4 @@ To remove local development containers and volumes:
 ./tools/dev/start.sh --cleanup
 ```
 
-This deletes the local PostgreSQL and Redis Docker volumes created by `deploy/dev/docker-compose.yml`.
+This deletes the local PostgreSQL and Redis Docker volumes created by `ops/development/dependencies.compose.yml`.

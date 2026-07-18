@@ -120,9 +120,13 @@ FsusBlog/
 │       ├── contracts.md      # 请求 / 响应契约完整文档
 │       ├── quick-reference.md # 路由速查表
 │       └── schemas-and-errors.md # 错误码与二进制结构
-├── tools/                    # 构建、测试、部署脚本
-├── docker-compose.yml        # 生产编排
-└── docker-compose.dev.yml    # 本地开发编排
+├── ops/                      # 运维模板的唯一顶层根
+│   ├── docker/               # 生产编排与后端容器调试覆盖
+│   ├── development/          # PostgreSQL / Redis 本地依赖
+│   ├── gateway/              # OpenResty / Nginx 网关模板
+│   └── privacy/              # 隐私运维模板
+├── config/deployment/        # 部署策略配置（非可执行脚本）
+└── tools/                    # 构建、测试与可执行部署/运维脚本
 ```
 
 ## 本地开发
@@ -157,6 +161,7 @@ cp .env.example .env
 | Known limitations | [docs/known-limitations.md](docs/known-limitations.md) |
 | Example config | `.env.example`, `src/backend/appsettings.Development.example.json` |
 | Configuration ownership | [docs/configuration-layout.md](docs/configuration-layout.md) |
+| Operations layout | [docs/operations-layout.md](docs/operations-layout.md) |
 
 停止前后端进程按 `Ctrl+C`；清理本地开发数据库和 Redis volume：
 
@@ -182,7 +187,7 @@ export GITHUB_PACKAGES_TOKEN=your_github_packages_token
 一键入口不可用时，可以拆开执行：
 
 ```bash
-docker compose -f deploy/dev/docker-compose.yml up -d postgres redis
+docker compose -f ops/development/dependencies.compose.yml up -d postgres redis
 dotnet run --project src/backend/FsusBlog.Server.csproj --urls http://127.0.0.1:7568
 ```
 

@@ -21,10 +21,15 @@
       <Build />
     </Project>
     <Project Path="tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj" />
-    <File Path="ops/docker/docker-compose.yml" />
-    <File Path="ops/docker/docker-compose.dev.yml" />
-    <File Path="ops/docker/docker-compose.local-proxy.yml" />
+    <File Path="ops/docker/docker-compose.production.yml" />
+    <File Path="ops/docker/docker-compose.development-backend.yml" />
+    <File Path="ops/docker/docker-compose.zero-downtime.yml" />
     <File Path="ops/docker/FsusBlog.Server.Dockerfile" />
+    <File Path="ops/development/dependencies.compose.yml" />
+    <File Path="ops/gateway/production-openresty.conf" />
+    <File Path="ops/gateway/active-upstream.conf.example" />
+    <File Path="ops/gateway/zero-downtime-openresty.conf.template" />
+    <File Path="config/deployment/zero-downtime-resource-policy.json" />
   </Folder>
   <Folder Name="/Docs/">
     <File Path="docs/architecture.md" />

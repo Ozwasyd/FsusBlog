@@ -6,3 +6,5 @@
 - [Article Rights Canonical Hash](integrity/article-rights-canonical-hash.md) - Rights V3 canonical policy hash contract.
 - [Article Rights Proof](integrity/article-rights-proof.md) - public proof binding for rights snapshots, publish proofs, and transparency log entries.
 - [Public Layout Rules](public-layout-rules.md) - FsusBlog public-site consumer layout, material, motion, reading surface, and commit review rules.
+- [Configuration Layout](configuration-layout.md) - canonical configuration roots and project ownership.
+- [Operations Infrastructure Layout](operations-layout.md) - single `ops/` hierarchy, deployment policy boundary, and executable workflow ownership.

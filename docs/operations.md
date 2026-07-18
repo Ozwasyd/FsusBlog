@@ -75,7 +75,7 @@ Runtime profile qualification seals container-visible CPU/memory identity plus p
 
 生产发布、显式回滚和中断恢复都从 `tools/deployment/release-rollout.sh` 进入。除一次性空状态 bootstrap 与故障诊断外，不直接调用 `slot-start.sh`、`gateway-switch.sh` 或 `deploy-production.sh`。先运行 `slot-status.sh` 确认 durable state 为 `stable` 且 `activeStateConsistent=true`，再选择 CI 生成且 registry 仍保留的 immutable manifest。
 
-零停机资格下限来自 `deploy/zero-downtime-resource-policy.json`：4 CPU cores、6144 MiB total memory、10240 MiB free disk。双槽合计预算是 360% CPU / 4608 MiB memory，临时磁盘 8192 MiB，并至少采集 10 个 overlap samples。2C/2G 只允许单槽运行，不能执行 overlap 或宣称零停机；`slot-preflight.sh` 的较低 pull/start guard 也不能替代这一资格门禁。
+零停机资格下限来自 `config/deployment/zero-downtime-resource-policy.json`：4 CPU cores、6144 MiB total memory、10240 MiB free disk。双槽合计预算是 360% CPU / 4608 MiB memory，临时磁盘 8192 MiB，并至少采集 10 个 overlap samples。2C/2G 只允许单槽运行，不能执行 overlap 或宣称零停机；`slot-preflight.sh` 的较低 pull/start guard 也不能替代这一资格门禁。
 
 把 exactly one `Authorization: Bearer ...` 或 `Cookie: ...` header 保存到 root-readable mode-0400/0600 regular non-symlink file。认证 storage state 同样必须为 0400/0600；secret 不得进入命令行、证据、issue comment 或 shell trace。
 

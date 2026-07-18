@@ -28,6 +28,15 @@ launch profile 因而位于 `ops/docker/Properties/`。根级 `configs/`、无 r
 `tools/configuration/check-configuration-layout.mjs` 拒绝。完整 ownership 表见
 [`docs/configuration-layout.md`](../configuration-layout.md)。
 
+## Operations ownership
+
+运维模板只有一个 top-level root：`ops/`。生产容器/Compose、开发依赖、gateway
+模板和 privacy 运维示例分别由 `ops/docker/`、`ops/development/`、
+`ops/gateway/`、`ops/privacy/` 拥有。零停机资源阈值是配置而不是模板，位于
+`config/deployment/`；可执行部署与通用运维流程继续位于 `tools/deployment/` 和
+`tools/operations/`。完整路径表、历史 local-proxy 删除决策和回退边界见
+[`docs/operations-layout.md`](../operations-layout.md)。
+
 Issue #1166 将原 top-level `circuits/` 纯路径迁移到
 `src/zk/circuits/`。v2 与 v5 source bytes 的 SHA-256 保持不变；v2 R1CS
 IR 和 Groth16 binary 因内嵌 `source_path` 合法变化，因此对应 artifact、circuit、

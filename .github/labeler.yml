@@ -80,7 +80,9 @@
 "area:deployment":
   - changed-files:
       - any-glob-to-any-file:
-          - "deploy/**"
+          - "ops/**"
+          - "config/deployment/**"
+          - "tools/deployment/**"
           - "docker-compose*.yml"
           - ".env.example"
           - "appsettings*.json"

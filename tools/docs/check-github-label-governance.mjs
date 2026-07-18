@@ -118,6 +118,9 @@ for (const token of [
   'src/shared/**',
   'docs/**',
   'tools/**',
+  'ops/**',
+  'config/deployment/**',
+  'tools/deployment/**',
   'release-evidence/**'
 ]) {
   requireIncludes('.github/labeler.yml', labeler, token)

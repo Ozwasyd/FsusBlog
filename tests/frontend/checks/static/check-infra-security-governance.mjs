@@ -14,7 +14,7 @@ function requireContains(file, needle, message) {
   }
 }
 
-const openResty = read('deploy/production-openresty.conf')
+const openResty = read('ops/gateway/production-openresty.conf')
 
 function parseLimitRequestZones(source) {
   const zones = new Map()
@@ -38,7 +38,7 @@ function parseLocationBlocks(source) {
       cursor += 1
     }
     if (depth !== 0) {
-      violations.push(`deploy/production-openresty.conf: unterminated location ${match[1]}`)
+      violations.push(`ops/gateway/production-openresty.conf: unterminated location ${match[1]}`)
       continue
     }
     locations.set(match[1].trim(), source.slice(bodyStart, cursor - 1))
@@ -59,7 +59,7 @@ for (const [zone, expectedRate] of [
 ]) {
   const parsed = limitZones.get(zone)
   if (!parsed || parsed.rate !== expectedRate) {
-    violations.push(`deploy/production-openresty.conf: ${zone} must declare rate=${expectedRate}`)
+    violations.push(`ops/gateway/production-openresty.conf: ${zone} must declare rate=${expectedRate}`)
   }
 }
 
@@ -72,7 +72,7 @@ for (const [selector, expectedZone] of [
   const block = locationBlocks.get(selector)
   const limit = block ? parseLimitRequest(block) : null
   if (!limit || limit.zone !== expectedZone || limit.burst <= 0) {
-    violations.push(`deploy/production-openresty.conf: location ${selector} must use ${expectedZone} with a positive burst`)
+    violations.push(`ops/gateway/production-openresty.conf: location ${selector} must use ${expectedZone} with a positive burst`)
   }
 }
 
@@ -90,7 +90,7 @@ for (const needle of [
   'X-Permitted-Cross-Domain-Policies "none"'
 ]) {
   if (!openResty.includes(needle)) {
-    violations.push(`deploy/production-openresty.conf: missing ${needle}`)
+    violations.push(`ops/gateway/production-openresty.conf: missing ${needle}`)
   }
 }
 
@@ -110,8 +110,8 @@ const codeowners = read('.github/CODEOWNERS')
 for (const needle of [
   '/config/zk/ @Ozwasyd',
   '/security/ @Ozwasyd',
-  '/ops/docker/ @Ozwasyd',
-  '/deploy/ @Ozwasyd',
+  '/ops/ @Ozwasyd',
+  '/config/deployment/ @Ozwasyd',
   '/src/backend/Infrastructure/PublicAot/ @Ozwasyd'
 ]) {
   if (!codeowners.includes(needle)) {
@@ -123,7 +123,7 @@ const dockerfile = read('ops/docker/FsusBlog.Server.Dockerfile')
 if (!dockerfile.includes('git -c advice.detachedHead=false checkout --detach "${VCPKG_COMMIT}"')) {
   violations.push('ops/docker/FsusBlog.Server.Dockerfile: vcpkg checkout must detach exactly at the pinned commit')
 }
-if (!dockerfile.includes('sha256sum -c public/wasm/SHA256SUMS')) {
+if (!dockerfile.includes('(cd public/wasm && sha256sum -c SHA256SUMS)')) {
   violations.push('ops/docker/FsusBlog.Server.Dockerfile: wasm artifacts must be checksum-verified in the frontend build stage')
 }
 

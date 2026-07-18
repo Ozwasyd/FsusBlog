@@ -13,7 +13,7 @@
         "tests/backend/Unit/FsusHostRuntimeTuningTests.cs",
         "ops/docker/FsusBlog.Server.Dockerfile",
         "src/backend/FsusBlog.Server.csproj",
-        "ops/docker/docker-compose.yml",
+        "ops/docker/docker-compose.production.yml",
         "docs/issue-1025-blue-green-slots-handoff.md"
       ],
       "assertionType": "integration",
@@ -34,12 +34,37 @@
         "tools/deployment/gateway-switch.sh",
         "tools/deployment/gateway-rollback.sh",
         "tools/deployment/gateway-recover.sh",
-        "deploy/production-openresty.conf",
+        "ops/gateway/production-openresty.conf",
         "docs/issue-1026-gateway-switch-handoff.md"
       ],
       "assertionType": "integration",
       "failClosedRule": "The static-governance lane must fail if an unready or mismatched release can receive traffic, a config/reload failure changes the durable active release, concurrent transitions bypass the host lock, public release headers disagree, or recovery guesses an unknown slot.",
       "minimumRequirement": "Behavior evidence must cover blue-to-green switch and rollback under sustained requests, exact loopback-only generation, pre/post release probes, staged and active config validation, reload restoration, durable generation commits, lock contention, interrupted-transition diagnosis/recovery and mismatched rollback rejection.",
+      "tierIds": [
+        "static-governance"
+      ]
+    },
+    {
+      "id": "operations-layout-governance",
+      "description": "Operational templates use one owned ops hierarchy, deployment policy remains under config/deployment, executable workflows remain under tools, and the unsupported historical local proxy cannot return.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tools/governance/check-operations-layout.mjs",
+        "tests/governance/operations-layout.json",
+        "tests/tools/operations-layout.test.mjs",
+        "docs/operations-layout.md",
+        "ops/docker/docker-compose.production.yml",
+        "ops/docker/docker-compose.development-backend.yml",
+        "ops/development/dependencies.compose.yml",
+        "ops/gateway/production-openresty.conf",
+        "config/deployment/zero-downtime-resource-policy.json",
+        ".github/CODEOWNERS",
+        ".github/labeler.yml"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "The static-governance lane must reject a top-level deploy root, an unowned ops domain, misplaced Compose/Dockerfile/gateway/policy assets, stale consumers, an unapproved cross-root Compose mount, incomplete ownership or labeling, and either retired local-proxy file.",
+      "minimumRequirement": "Evidence must cover canonical acceptance plus multi-error rejection fixtures for competing roots, unowned domains, misplaced infrastructure, stale references, cross-root mounts, ownership/label coverage and historical local-proxy retirement.",
       "tierIds": [
         "static-governance"
       ]

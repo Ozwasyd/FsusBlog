@@ -365,7 +365,7 @@ test('slot preflight enforces target image runtime contract without touching act
 })
 
 test('production Compose keeps fixed slots on distinct loopback ports with shared and isolated volumes', () => {
-  const compose = fs.readFileSync(path.join(root, 'ops/docker/docker-compose.yml'), 'utf8')
+  const compose = fs.readFileSync(path.join(root, 'ops/docker/docker-compose.production.yml'), 'utf8')
   assert.match(compose, /container_name: \$\{FSUSBLOG_CONTAINER_NAME:\?/u)
   assert.match(compose, /127\.0\.0\.1:\$\{FSUSBLOG_SLOT_PORT:\?[^}]+\}:8080/u)
   assert.match(compose, /FSUSBLOG_SHARED_UPLOADS_VOLUME/u)

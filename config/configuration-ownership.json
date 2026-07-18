@@ -24,6 +24,15 @@
       ]
     },
     {
+      "id": "zero-downtime-resource-policy",
+      "owner": "operations-deployment",
+      "canonicalPath": "config/deployment/zero-downtime-resource-policy.json",
+      "pathType": "file",
+      "rejectedPaths": [
+        "deploy/zero-downtime-resource-policy.json"
+      ]
+    },
+    {
       "id": "moderation-policy-tree",
       "owner": "backend-moderation",
       "canonicalPath": "config/moderation",

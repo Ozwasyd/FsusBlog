@@ -27,7 +27,7 @@ const REQUIRED_FILES = [
   'src/frontend/src/utils/safeHtml.ts',
   'src/frontend/src/privacy/commentPrivacyWasmProver.ts',
   'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
-  'deploy/production-openresty.conf',
+  'ops/gateway/production-openresty.conf',
   'src/frontend/src/components/ui/MarkdownRenderer.vue',
   'src/frontend/vite.config.ts'
 ]
@@ -184,7 +184,7 @@ export function validateCommentPrivacyCredentialVaultSources(sources) {
   expectSource('src/frontend/vite.config.ts', /build:\s*\{[\s\S]*?modulePreload:\s*false/, 'Vite runtime modulepreload injection stays disabled under production Trusted Types')
   for (const cspFile of [
     'src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs',
-    'deploy/production-openresty.conf'
+    'ops/gateway/production-openresty.conf'
   ]) {
     expectSource(cspFile, /require-trusted-types-for 'script'; trusted-types vue fsusblog fsusblog-spa-entry;/, 'production CSP enforces exact Vue, app, and fixed SPA entry Trusted Types policies')
     rejectSource(cspFile, /trusted-types\s+(?:\*|default)|allow-duplicates/, 'production CSP must not allow wildcard, default, or duplicate Trusted Types policies')

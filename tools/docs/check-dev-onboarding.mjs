@@ -29,7 +29,7 @@ const files = {
   start: read('tools/dev/start.sh'),
   seed: read('tools/dev/seed-demo-data.sh'),
   seedSql: read('tools/dev/demo-seed.sql'),
-  compose: read('deploy/dev/docker-compose.yml'),
+  compose: read('ops/development/dependencies.compose.yml'),
   env: read('.env.example'),
   appsettings: read('src/backend/appsettings.example.json'),
   appsettingsDev: read('src/backend/appsettings.Development.example.json'),
@@ -52,7 +52,7 @@ for (const token of [
   'backend',
   'frontend',
   '--seed-demo',
-  'deploy/dev/docker-compose.yml'
+  'ops/development/dependencies.compose.yml'
 ]) {
   includes('tools/dev/start.sh', files.start, token)
 }
@@ -108,7 +108,7 @@ for (const token of [
   'fsusblog-dev-postgres',
   'fsusblog-dev-redis'
 ]) {
-  includes('deploy/dev/docker-compose.yml', files.compose, token)
+  includes('ops/development/dependencies.compose.yml', files.compose, token)
 }
 
 for (const [path, source] of Object.entries({

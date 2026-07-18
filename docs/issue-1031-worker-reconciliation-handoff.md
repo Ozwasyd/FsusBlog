@@ -240,7 +240,7 @@ node tools/deployment/release-worker-reconciliation.mjs \
   --rollout-state <qualification-rollout-state.json> \
   --ledger <qualification-worker-ledger.json> \
   --qualification-control <qualification-control.json> \
-  --resource-policy deploy/zero-downtime-resource-policy.json \
+  --resource-policy config/deployment/zero-downtime-resource-policy.json \
   --target-health <qualification-target-health.json> \
   [--normal-rollout-state <completed-fresh-normal-rollout-state.json>] \
   --out <worker-qualification-reconciliation.json>

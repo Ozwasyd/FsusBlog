@@ -29,10 +29,6 @@
       "classification": "runtime-configuration"
     },
     {
-      "path": "deploy",
-      "classification": "deployment-configuration"
-    },
-    {
       "path": "docs",
       "classification": "documentation"
     },
@@ -65,7 +61,8 @@
     }
   ],
   "forbiddenRootSourceDirectories": [
-    "circuits"
+    "circuits",
+    "deploy"
   ],
   "zk": {
     "circuitSourceRoot": "src/zk/circuits",

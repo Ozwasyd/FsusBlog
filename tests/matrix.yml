@@ -798,6 +798,7 @@ tiers:
       - repository-source-layout-governance
       - zk-artifact-lifecycle-ownership
       - configuration-layout-governance
+      - operations-layout-governance
       - runtime-publish-profile-matrix
       - blue-green-slot-orchestration
       - atomic-gateway-switch-rollback
@@ -836,7 +837,7 @@ tiers:
       - tests/tools/gateway-switch.test.mjs
       - tests/tools/deployment-slots.test.mjs
       - tools/deployment/slot-preflight.sh
-      - ops/docker/docker-compose.yml
+      - ops/docker/docker-compose.production.yml
       - tools/deployment/image-runtime-contract.sh
       - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
       - ops/docker/FsusBlog.Server.Dockerfile
@@ -881,6 +882,17 @@ tiers:
       - config/configuration-ownership.json
       - tests/tools/configuration-layout.test.mjs
       - docs/configuration-layout.md
+      - tools/governance/check-operations-layout.mjs
+      - tests/governance/operations-layout.json
+      - tests/tools/operations-layout.test.mjs
+      - docs/operations-layout.md
+      - ops/docker/docker-compose.development-backend.yml
+      - ops/development/dependencies.compose.yml
+      - ops/gateway/active-upstream.conf.example
+      - ops/gateway/zero-downtime-openresty.conf.template
+      - config/deployment/zero-downtime-resource-policy.json
+      - .github/CODEOWNERS
+      - .github/labeler.yml
       - .config/dotnet-tools.json
       - config/testing/mutation/default.json
       - config/testing/mutation/critical.json
@@ -906,7 +918,7 @@ tiers:
       - tools/deployment/gateway-switch.sh
       - tools/deployment/gateway-rollback.sh
       - tools/deployment/gateway-recover.sh
-      - deploy/production-openresty.conf
+      - ops/gateway/production-openresty.conf
       - src/backend/Infrastructure/Storage/ReleaseDerivedArtifactPublisher.cs
       - src/backend/Services/SearchIndexService.cs
       - src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs

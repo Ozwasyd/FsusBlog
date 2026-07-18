@@ -36,5 +36,5 @@ src/frontend/src/bootstrap/ @Ozwasyd
 /src/zk/ @Ozwasyd
 /config/zk/ @Ozwasyd
 /security/ @Ozwasyd
-/ops/docker/ @Ozwasyd
-/deploy/ @Ozwasyd
+/ops/ @Ozwasyd
+/config/deployment/ @Ozwasyd

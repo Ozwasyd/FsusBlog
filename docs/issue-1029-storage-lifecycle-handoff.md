@@ -5,7 +5,7 @@ The storage lifecycle implementation is now wired through the production writers
 ## Completed production composition
 
 1. `ops/docker/FsusBlog.Server.Dockerfile` injects the immutable release identity into the frontend build as `VITE_FSUSBLOG_BUILD_ID`.
-2. `ops/docker/docker-compose.yml` mounts the append-only release asset store read-only and mounts the shared release-derived volume. `WebApplicationCompositionExtensions.UseReleaseScopedStaticAssets` installs `UseFsusReleaseAssets` and `UseFsusReleaseDerivedArtifacts` before the SPA fallback.
+2. `ops/docker/docker-compose.production.yml` mounts the append-only release asset store read-only and mounts the shared release-derived volume. `WebApplicationCompositionExtensions.UseReleaseScopedStaticAssets` installs `UseFsusReleaseAssets` and `UseFsusReleaseDerivedArtifacts` before the SPA fallback.
 3. `ProductionHealth` reports the shared DataProtection probe and validates the materialized asset manifest without exposing key material.
 4. `tools/deployment/release-rollout.sh` materializes release assets, persists retention state, and blocks traffic switching on retained-asset verification.
 5. `FileService` uses the upload commit guard and `UploadCommitTempCleanupLease` from the existing cleanup cycle.

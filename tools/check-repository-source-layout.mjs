@@ -31,7 +31,6 @@ const establishedRootDirectories = new Set([
   'build',
   'config',
   'configs',
-  'deploy',
   'docs',
   'ops',
   'release-evidence',

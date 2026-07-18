@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-COMPOSE_FILE="$ROOT_DIR/deploy/dev/docker-compose.yml"
+COMPOSE_FILE="$ROOT_DIR/ops/development/dependencies.compose.yml"
 SEED_SQL="$ROOT_DIR/tools/dev/demo-seed.sql"
 
 need_cmd() {

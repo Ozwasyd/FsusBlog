@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-COMPOSE_FILE="$ROOT_DIR/deploy/dev/docker-compose.yml"
+COMPOSE_FILE="$ROOT_DIR/ops/development/dependencies.compose.yml"
 BOOTSTRAP_PROJECT="$ROOT_DIR/tools/security/AnonymousCredentialRootBootstrap/FsusBlog.AnonymousCredentialRootBootstrap.csproj"
 FIXTURE_DIR="${FSUSBLOG_DEV_ANONYMOUS_COMMENT_FIXTURE_DIR:-$ROOT_DIR/.tmp/dev-anonymous-comment-fixture}"
 

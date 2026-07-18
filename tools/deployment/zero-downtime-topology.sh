@@ -76,7 +76,7 @@ case "$ACTION" in
       -e "s|@@GATEWAY_DIR@@|$gateway_dir|g" \
       -e "s|@@ACTIVE_UPSTREAM@@|$active_upstream|g" \
       -e "s|@@PUBLIC_PORT@@|$PUBLIC_PORT|g" \
-      "$ROOT_DIR/deploy/zero-downtime-openresty.conf.template" >"$gateway_config"
+      "$ROOT_DIR/ops/gateway/zero-downtime-openresty.conf.template" >"$gateway_config"
     docker network inspect fsus-infra-network >/dev/null 2>&1 || docker network create fsus-infra-network >/dev/null
     for volume in \
       "$(slot_env_value FSUSBLOG_SHARED_UPLOADS_VOLUME "$PRODUCTION_ENV_FILE")" \
