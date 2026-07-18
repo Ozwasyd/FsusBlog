@@ -3,7 +3,7 @@
   "circuit_id": "fsus.anonymous.comment.v3",
   "public_input_layout_version": 4,
   "circuit_manifest_path": "security/zk/comment-v2-circuit.manifest.json",
-  "circuit_manifest_sha256": "f501f557c095abb83382365cd107e1c1b4c2c89eca676136ddf84e012b6036a4",
+  "circuit_manifest_sha256": "85f9797bcb82b9e34b44d3271ceca20d9a578c31db56283037c6aecf4d58cfd6",
   "local_cryptographic_review_manifest": "security/zk/comment-v2-local-review.manifest.json",
   "ceremony_status": "not-run",
   "production_usable": false,
@@ -27,50 +27,50 @@
     "curve": "bn254",
     "status": "required",
     "minimum_contributions": 3,
-    "transcript_path": "artifacts/zk/comment-v2/phase1/powers_of_tau_final.fsptau",
+    "transcript_path": "artifacts/zk/comment-v3-layout4/ceremony/phase1/powers_of_tau_final.fsptau",
     "transcript_sha256": "",
-    "verification_command": "dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v2/phase1/powers_of_tau_final.fsptau"
+    "verification_command": "dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/ceremony/phase1/powers_of_tau_final.fsptau"
   },
   "phase2": {
     "protocol": "FsusBlog self-written Groth16 circuit-specific setup",
     "status": "required",
     "minimum_contributions": 3,
-    "transcript_path": "artifacts/zk/comment-v3/phase2/comment_v3_ceremony_transcript.json",
+    "transcript_path": "artifacts/zk/comment-v3-layout4/ceremony/phase2/comment_v3_ceremony_transcript.json",
     "transcript_sha256": "",
-    "verification_command": "dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v2/comment_v2_groth16.r1cs artifacts/zk/comment-v3/comment_v3_final.fsg16pk"
+    "verification_command": "dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk"
   },
   "artifacts": {
     "r1cs": {
-      "path": "artifacts/zk/comment-v2/comment_v2.r1cs",
+      "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
       "sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb",
       "status": "required",
       "format": "fsusblog.zk.r1cs-ir.v1",
       "ceremony_input": false
     },
     "groth16_r1cs": {
-      "path": "artifacts/zk/comment-v2/comment_v2_groth16.r1cs",
+      "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs",
       "sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff",
       "status": "required",
       "format": "rank1cs-binary",
       "ceremony_input": true
     },
     "proving_key": {
-      "path": "artifacts/zk/comment-v3/comment_v3_final.fsg16pk",
+      "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk",
       "sha256": "",
       "status": "required"
     },
     "verifying_key": {
-      "path": "artifacts/zk/comment-v3/comment_v3_verifying_key.bin",
+      "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.bin",
       "sha256": "",
       "status": "required"
     },
     "verifying_key_json": {
-      "path": "artifacts/zk/comment-v3/comment_v3_verifying_key.json",
+      "path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.json",
       "sha256": "",
       "status": "required"
     },
     "wasm_prover_bundle": {
-      "path": "artifacts/zk/comment-v3/comment_v3_prover_wasm.tar.gz",
+      "path": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz",
       "sha256": "",
       "status": "required"
     }

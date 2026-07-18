@@ -20,6 +20,10 @@ test('superseded v3 repository-local review cannot authorize the active v5 sourc
     requireComplete: true
   })
   assert.equal(historical.ok, true, historical.errors.join('\n'))
+  assert.equal(historical.manifest.schema, 'fsusblog.zk.local-cryptographic-review.v2')
+  assert.equal(historical.manifest.artifact_scope, 'source-and-r1cs')
+  assert.equal(historical.manifest.active_key_material, false)
+  assert.equal(historical.checks[0].verifyingKeyHash, '')
 
   const result = validateZkLocalReview({
     root,

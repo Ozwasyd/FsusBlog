@@ -202,7 +202,7 @@ test('comment v3 browser wasm prover bundle requires a fresh setup before cross-
       fixtureProject,
       '--',
       '--verify-proof',
-      'artifacts/zk/comment-v2/comment_v2_verifying_key.bin',
+      'tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.vk',
       publicInputsPath,
       proofPath
     ], {

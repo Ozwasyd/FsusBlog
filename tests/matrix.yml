@@ -796,6 +796,7 @@ tiers:
       - immutable-release-identity
       - wasm-release-artifact-ownership
       - repository-source-layout-governance
+      - zk-artifact-lifecycle-ownership
       - configuration-layout-governance
       - runtime-publish-profile-matrix
       - blue-green-slot-orchestration
@@ -872,6 +873,10 @@ tiers:
       - tests/governance/repository-source-layout.json
       - tests/tools/issue-1166-zk-source-layout.test.mjs
       - docs/architecture/repository-layout.md
+      - tools/crypto/check-zk-artifact-ownership.mjs
+      - security/zk/artifact-ownership.manifest.json
+      - tests/tools/issue-1168-zk-artifact-ownership.test.mjs
+      - docs/zk/trusted-setup-ceremony.md
       - tools/configuration/check-configuration-layout.mjs
       - config/configuration-ownership.json
       - tests/tools/configuration-layout.test.mjs
@@ -3562,9 +3567,9 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: production
-    coverage: [privacy-zk-comment-matrix, backend-human-read-proof-behavior, backend-anonymous-identity-behavior, repository-source-layout-governance]
+    coverage: [privacy-zk-comment-matrix, backend-human-read-proof-behavior, backend-anonymous-identity-behavior, repository-source-layout-governance, zk-artifact-lifecycle-ownership]
     artifacts: [.tmp/security/privacy-zk-comment-matrix.json]
-    evidence: [security/privacy-zk-comment-matrix.yml, tools/security/check-security-matrices.mjs, tools/test/lanes/privacy-zk-comment-matrix.sh, tools/check-repository-source-layout.mjs, tests/governance/repository-source-layout.json, tests/tools/issue-1166-zk-source-layout.test.mjs, docs/architecture/repository-layout.md, src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json, src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json, security/zk/comment-v2-circuit.manifest.json, security/zk/comment-v5-circuit.manifest.json, artifacts/zk/comment-v2/comment_v2.r1cs, docs/zk/anonymous-comment-v2-circuit.md, tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs, tests/backend/Unit/ActorResolverBehaviorTests.cs, tests/backend/Unit/AnonymousCommentPolicyTests.cs, tests/backend/Unit/AnonymousIdentitySerializationTests.cs, tests/backend/Unit/ZkProofVerifierTests.cs, tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts, tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts, tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts, tests/frontend/unit/components/ArticleCommentComposer.test.ts, tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs, docs/testing/issue-1045-anonymous-identity-behavior-handoff.md]
+    evidence: [security/privacy-zk-comment-matrix.yml, tools/security/check-security-matrices.mjs, tools/test/lanes/privacy-zk-comment-matrix.sh, tools/check-repository-source-layout.mjs, tests/governance/repository-source-layout.json, tests/tools/issue-1166-zk-source-layout.test.mjs, tools/crypto/check-zk-artifact-ownership.mjs, security/zk/artifact-ownership.manifest.json, tests/tools/issue-1168-zk-artifact-ownership.test.mjs, docs/architecture/repository-layout.md, src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json, src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json, security/zk/comment-v2-circuit.manifest.json, security/zk/comment-v2-trusted-setup.manifest.json, security/zk/comment-v5-circuit.manifest.json, config/zk/anonymous-comment-v2-verifying-key.manifest.json, artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs, artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs, tools/crypto/build-zk-comment-v2-r1cs.mjs, tools/security/ZkCommentV2MclFixture/Program.cs, src/frontend/wasm/build.sh, docs/zk/anonymous-comment-v2-circuit.md, docs/zk/trusted-setup-ceremony.md, tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs, tests/backend/Unit/ActorResolverBehaviorTests.cs, tests/backend/Unit/AnonymousCommentPolicyTests.cs, tests/backend/Unit/AnonymousIdentitySerializationTests.cs, tests/backend/Unit/ZkProofVerifierTests.cs, tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts, tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts, tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts, tests/frontend/unit/components/ArticleCommentComposer.test.ts, tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs, docs/testing/issue-1045-anonymous-identity-behavior-handoff.md]
     ciJob: security-runtime
     localOnly: false
     nightlyOnly: false

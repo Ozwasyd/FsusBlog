@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateZkLocalReview } from '../security/zk-local-review.mjs'
+import { validateZkArtifactOwnership } from './check-zk-artifact-ownership.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..'))
 
@@ -347,6 +348,10 @@ function checkCircuit(circuit, setup) {
   equals('circuit.proof_system', circuit.proof_system, expected.proofSystem)
   equals('circuit.credential_scheme', circuit.credential_scheme, expected.credentialScheme)
   equals('circuit.action_context', circuit.action_context, expected.actionContext)
+  equals(
+    'circuit.artifact_ownership_manifest',
+    circuit.artifact_ownership_manifest,
+    'security/zk/artifact-ownership.manifest.json')
   checkCircuitArtifactStatus(circuit, setup)
 
   const publicInputs = names(circuit.public_inputs)
@@ -894,6 +899,9 @@ checkTamperManifest(tamper)
 checkSetup(setup, circuitHash)
 checkConfig(config, setup)
 checkFeasibility(feasibility, circuit)
+for (const error of validateZkArtifactOwnership({ root })) {
+  fail(`artifact ownership: ${error}`)
+}
 for (const error of localReview.errors) {
   fail(`local cryptographic review: ${error}`)
 }

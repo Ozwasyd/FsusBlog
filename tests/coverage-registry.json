@@ -3694,7 +3694,7 @@
     },
     {
       "id": "repository-source-layout-governance",
-      "description": "Handwritten source remains under the canonical src tree unless an established top-level engineering domain has an explicit architectural exception; ZK v2/v5 sources are byte-stable, hash-bound and owned by src/zk/circuits.",
+      "description": "Handwritten source remains under the canonical src tree unless an established top-level engineering domain has an explicit architectural exception; ZK v3/v5 sources are byte-stable, hash-bound and owned by src/zk/circuits.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
@@ -3706,13 +3706,43 @@
         "src/zk/circuits/anonymous-comment-v5/comment_v5.circuit.json",
         "security/zk/comment-v2-circuit.manifest.json",
         "security/zk/comment-v5-circuit.manifest.json",
-        "artifacts/zk/comment-v2/comment_v2.r1cs",
+        "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
         "docs/architecture/repository-layout.md",
         "docs/zk/anonymous-comment-v2-circuit.md"
       ],
       "assertionType": "integration",
       "failClosedRule": "Reject a reintroduced top-level circuits root, an undeclared or disguised new source root, unknown classifications, missing architectural exceptions, source hash or manifest binding drift, legacy canonical paths, symlinks, non-regular files or real paths outside the repository.",
-      "minimumRequirement": "Static governance and the privacy ZK matrix must validate the exact v2/v5 source identities, canonical source paths, three source-to-artifact bindings, byte hashes, generated R1CS hashes and fail-closed production readiness.",
+      "minimumRequirement": "Static governance and the privacy ZK matrix must validate the exact v3/v5 source identities, canonical source paths, three source-to-artifact bindings, byte hashes, generated R1CS hashes and fail-closed production readiness.",
+      "tierIds": [
+        "static-governance",
+        "privacy-zk-comment-matrix"
+      ]
+    },
+    {
+      "id": "zk-artifact-lifecycle-ownership",
+      "description": "Cryptographic artifacts are separated by exact circuit identity, public-input layout and lifecycle; only deterministic small outputs and explicit test fixtures are Git-tracked, while ceremony and delivery material uses immutable SHA-256-addressed storage.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "security/zk/artifact-ownership.manifest.json",
+        "tools/crypto/check-zk-artifact-ownership.mjs",
+        "tests/tools/issue-1168-zk-artifact-ownership.test.mjs",
+        "security/zk/comment-v2-circuit.manifest.json",
+        "security/zk/comment-v2-trusted-setup.manifest.json",
+        "config/zk/anonymous-comment-v2-verifying-key.manifest.json",
+        "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
+        "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs",
+        "tools/crypto/build-zk-comment-v2-r1cs.mjs",
+        "tools/security/ZkCommentV2MclFixture/Program.cs",
+        "src/frontend/wasm/build.sh",
+        "ops/docker/FsusBlog.Server.Dockerfile",
+        "docs/zk/anonymous-comment-v2-circuit.md",
+        "docs/zk/trusted-setup-ceremony.md",
+        ".gitignore"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject mixed circuit identities or layouts, an active manifest or consumer selecting retired v2/layout3 material, unowned tracked cryptographic binaries, hash or byte drift, Git-tracked ceremony/delivery outputs, reintroduced retired files, missing immutable storage authority, or any production-usable claim without matching setup and release evidence.",
+      "minimumRequirement": "Static governance and the privacy ZK prebuild contract must reproduce both v3/layout4 R1CS forms, validate every tracked binary owner/hash/lifecycle, exercise positive and aggregate negative fixtures, and keep phase transcripts, proving/verifying keys and prover bundles absent from ordinary Git until matching immutable evidence exists.",
       "tierIds": [
         "static-governance",
         "privacy-zk-comment-matrix"

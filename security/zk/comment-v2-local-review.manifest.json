@@ -1,23 +1,25 @@
 {
-  "schema": "fsusblog.zk.local-cryptographic-review.v1",
+  "schema": "fsusblog.zk.local-cryptographic-review.v2",
   "circuit_id": "fsus.anonymous.comment.v3",
   "public_input_layout_version": 4,
   "status": "complete",
   "review_complete": true,
+  "artifact_scope": "source-and-r1cs",
+  "active_key_material": false,
   "assurance_model": "repository-local-reproducible-review",
   "independent_audit_claimed": false,
   "external_evidence_required": false,
   "production_authorization": false,
   "limitations": [
     "This is a repository-owned review and is not an independent or third-party audit.",
-    "The checked-in setup and key artifacts remain deterministic non-production fixtures.",
-    "The v3/v4 circuit migration invalidates the previously reviewed phase-2 key; its hash is retained only as historical local evidence and is not selected by runtime configuration.",
+    "The review binds deterministic source, R1CS, verifier/prover code and an explicitly test-only cross-stack fixture; no active ceremony or key material is present.",
+    "The v3/v4 circuit migration invalidated the previously reviewed v2/layout3 phase-2 material, which has been deleted because it had no supported consumer.",
     "No live deployment transcript or external side-channel measurement is claimed."
   ],
-  "verifying_key_hash": "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c",
+  "verifying_key_hash": "",
   "report": {
     "path": "docs/zk/comment-v2-local-cryptographic-review.md",
-    "sha256": "149fbe59c40e8714e4bc115711e20adcbd0bca2d099b00596fd6ec08e3f2aef6"
+    "sha256": "326e873f82fa1da1ca582c2eb2449c9005f637d7a5eeaaf2a1b110e87b697a9a"
   },
   "required_scope": [
     "constraint_completeness",
@@ -115,31 +117,31 @@
   "artifact_bindings": {
     "circuit_manifest_sha256": {
       "path": "security/zk/comment-v2-circuit.manifest.json",
-      "sha256": "f501f557c095abb83382365cd107e1c1b4c2c89eca676136ddf84e012b6036a4"
+      "sha256": "85f9797bcb82b9e34b44d3271ceca20d9a578c31db56283037c6aecf4d58cfd6"
     },
     "circuit_source_sha256": {
       "path": "src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json",
       "sha256": "5b4ef7c9f7e21290ea5e7a9095a9e80be6f9e6b7ef082900eba34b82dae103f6"
     },
     "r1cs_sha256": {
-      "path": "artifacts/zk/comment-v2/comment_v2.r1cs",
+      "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
       "sha256": "6d858bd4d55c9ffd8386f755fb8dfcd96612b6dcfe272ebbc550166ddc2c69fb"
     },
     "groth16_r1cs_sha256": {
-      "path": "artifacts/zk/comment-v2/comment_v2_groth16.r1cs",
+      "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs",
       "sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff"
     },
     "trusted_setup_manifest_sha256": {
       "path": "security/zk/comment-v2-trusted-setup.manifest.json",
-      "sha256": "26db126bb0f2a515bef4e468df5fa1dfecf55479452a3ef1713aa78ada36611d"
+      "sha256": "1657baadb3f47f7cd60561a56735e878e630e9ec77c32730d3ca3da6b1aff24b"
     },
-    "proving_key_sha256": {
-      "path": "artifacts/zk/comment-v2/comment_v2_final.fsg16pk",
-      "sha256": "96a270d9cd625e805ecfb6eefd675b78ae92d104d7af961ce803022b48567ec3"
+    "artifact_ownership_manifest_sha256": {
+      "path": "security/zk/artifact-ownership.manifest.json",
+      "sha256": "ce4a273c1a19d2bc770c0e3050dc1419ee1a8be49a03c27b4ec936a72730ca9f"
     },
-    "verifying_key_sha256": {
-      "path": "artifacts/zk/comment-v2/comment_v2_verifying_key.bin",
-      "sha256": "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c"
+    "cross_stack_fixture_manifest_sha256": {
+      "path": "tests/fixtures/zk/comment-v2/mcl-pairing/fixture.manifest.json",
+      "sha256": "340768cc11216cb28ffdf719aeb6a5ccda3904aa089d1f3c466a2b0f912f44f4"
     },
     "native_verifier_sha256": {
       "path": "src/backend/Services/Security/NativeGroth16ZkProofBackend.cs",
@@ -153,7 +155,7 @@
   "test_evidence": [
     {
       "path": "tests/security/zk-comment-v2-manifest.test.mjs",
-      "sha256": "280c2b84f8891361b58b8bc165dbbd725ba10b98214b18d0d12e4478e5a377ee",
+      "sha256": "c7d42b6eb40cc62a460e903c92c29c926a4af37b5e0cc5cddd7f03919faa2589",
       "command": "node --test tests/security/zk-comment-v2-manifest.test.mjs",
       "covers": ["constraint_completeness", "trusted_setup_provenance", "public_input_ordering", "domain_separation", "root_epoch_binding"]
     },
@@ -165,7 +167,7 @@
     },
     {
       "path": "tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
-      "sha256": "3734d13cff27b52a7f376aeb3137fbeb9342fbd370c28774e7afa46f33c464d6",
+      "sha256": "ae06848876c35cf9a6073a69535337d8b277726eb590f0d89a309bc31e3375fb",
       "command": "node --test tests/security/zk-comment-v2-cross-stack-fixture.test.mjs",
       "covers": ["public_input_ordering", "native_mcl_binding", "independent_implementation_fixture"]
     },
@@ -201,7 +203,7 @@
     },
     {
       "path": "tests/security/zk-local-review.test.mjs",
-      "sha256": "edcd5d0abf19f88e28c5273aa5c4f53f31b730243ce4815046741d19818dbbe0",
+      "sha256": "390f7dbaee22f891bc38ca880ade150c11ab9ef90ce0d9a90c78a6a716265c1a",
       "command": "node --test tests/security/zk-local-review.test.mjs",
       "covers": ["trusted_setup_provenance", "side_channel_review", "canonical_serialization"]
     },

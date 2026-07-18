@@ -16,6 +16,7 @@ Verifier/prover work must read the same manifest paths:
 | Trusted setup | `security/zk/comment-v2-trusted-setup.manifest.json` |
 | Runtime verifying-key config | `config/zk/anonymous-comment-v2-verifying-key.manifest.json` |
 | Repository-local review | `security/zk/comment-v2-local-review.manifest.json` |
+| Artifact ownership and storage | `security/zk/artifact-ownership.manifest.json` |
 | Checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |
 
 The manifest names are stable. Artifact paths inside the setup manifest are the
@@ -28,7 +29,7 @@ in the trusted setup manifest before the ceremony starts.
 
 ## Ceremony Requirements
 
-The checked-in self-written setup provides:
+A production ceremony must provide:
 
 1. A verified Powers of Tau phase-1 transcript for the selected curve.
 2. A circuit-specific Groth16 phase-2 transcript for
@@ -44,6 +45,12 @@ The checked-in self-written setup provides:
 
 The verifier must reject a proof if the public input layout version, circuit id,
 or verifying key hash differs from the active root/config snapshot.
+
+The repository currently provides only the two deterministic v3/layout4 R1CS
+inputs. Phase transcripts, proving/verifying keys and delivery bundles are not
+checked into ordinary Git. Their storage authority is immutable release or OCI
+artifact storage, addressed by SHA-256 and bound to the trusted-setup and
+release-evidence manifests.
 
 ## Committed Artifact State
 
@@ -82,6 +89,7 @@ Current static verification:
 
 ```bash
 node tools/crypto/check-zk-comment-v2-manifests.mjs
+node tools/crypto/check-zk-artifact-ownership.mjs
 node tools/security/check-zk-local-review.mjs
 node tools/security/check-mcl-platform-assets.mjs
 npm --prefix src/frontend run build:wasm
@@ -91,6 +99,7 @@ node --test tests/security/zk-comment-v2-circuit-fixture.test.mjs
 node --test tests/security/zk-comment-v2-cross-stack-fixture.test.mjs
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj --filter FullyQualifiedName~ZkCommentV2CrossStackFixtureTests
 node --test tests/security/zk-comment-v2-manifest.test.mjs
+node --test tests/tools/issue-1168-zk-artifact-ownership.test.mjs
 node tools/security/check-security-matrices.mjs
 ```
 

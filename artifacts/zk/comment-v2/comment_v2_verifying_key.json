@@ -1,9 +1,0 @@
-{
-  "schema": "fsusblog.zk.comment-v2.verifying-key-json.v1",
-  "circuit_id": "fsus.anonymous.comment.v2",
-  "public_input_layout_version": 3,
-  "format": "FSG16VK1",
-  "public_input_binding": "sha256(canonical-public-input-transcript)-\u003Ebn254-fr",
-  "sha256": "27ea8a04e27eb66a5b61aab2251762a372bb3f39217c896bc5ad850fd859143c",
-  "bytes_base64": "RlNHMTZWSzEBAAEABAACAJcwR60nyZNykfm1H\u002B30R\u002BpsRmtpevaZYWo2V\u002BJzPDwNOcnk/VfjyBXXfmX\u002BCECSX0kDiKpICmcHtxX968xHZAeZ/f4o56hF9QV1ddqqPHsFgZf\u002BcRtFNDqH5vZgi/obn3JMMFGb7SioAA3wS31czGMGShLV/\u002BsWDLqKunOtm/AFiEx6IdwWLpfPOheQedIFuuVMSQ8tnex4ITysjvqKPBdyTDBRm\u002B0oqAAN8Et9XMxjBkoS1f/rFgy6irpzrZvwBYhMeiHcFi6XzzoXkHnSBbrlTEkPLZ3seCE8rI76ijwXAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD05srb18S4SjZ4ToCmIL3PisAHHGlApK3QQJHk2jEkJQ=="
-}

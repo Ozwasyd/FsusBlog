@@ -122,9 +122,11 @@ RUN bash -lc 'set -euo pipefail; \
   export VCPKG_ROOT="/opt/vcpkg"; \
   bash /work/tools/frontend/install-wasm-codec-deps.sh'
 
-COPY artifacts/zk/comment-v2/comment_v2_final.fsg16pk /artifacts/zk/comment-v2/comment_v2_final.fsg16pk
+ARG COMMENT_PRIVACY_PROVER_KEY_PATH=artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk
+COPY ${COMMENT_PRIVACY_PROVER_KEY_PATH} /artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk
 COPY src/frontend/ /work/FsusBlog.Client/
 ENV FSUSBLOG_FRONTEND_WASM_ROOT=/work/FsusBlog.Client/public/wasm
+ENV FSUSBLOG_COMMENT_PROVER_KEY=/artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk
 
 RUN --mount=type=cache,id=fsusblog-wasm-dependency,target=/.tmp/dependency-cache,sharing=locked \
     --mount=type=cache,id=fsusblog-emscripten,target=/.cache/emscripten,sharing=locked \

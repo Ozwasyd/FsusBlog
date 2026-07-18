@@ -63,7 +63,7 @@ test('layout policy rejects undeclared source roots and unreasoned source except
 
   const missingBinding = structuredClone(policy)
   missingBinding.zk.jsonSourceBindings.pop()
-  assert.ok(validatePolicy(missingBinding).some((error) => error.includes('must cover the canonical v2 manifest')))
+  assert.ok(validatePolicy(missingBinding).some((error) => error.includes('must cover the canonical v3/layout4 manifest')))
 })
 
 test('canonical repository files reject symlink and non-regular-file ownership escapes', (t) => {
@@ -103,8 +103,8 @@ test('path-only migration preserves both circuit source byte hashes and semantic
 test('regenerated R1CS and manifests bind the canonical source path without changing readiness', () => {
   const circuit = readJson(path.join(root, 'security/zk/comment-v2-circuit.manifest.json'))
   const setup = readJson(path.join(root, 'security/zk/comment-v2-trusted-setup.manifest.json'))
-  const r1csPath = path.join(root, 'artifacts/zk/comment-v2/comment_v2.r1cs')
-  const groth16Path = path.join(root, 'artifacts/zk/comment-v2/comment_v2_groth16.r1cs')
+  const r1csPath = path.join(root, 'artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs')
+  const groth16Path = path.join(root, 'artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs')
   const r1cs = readJson(r1csPath)
   const groth16 = readGroth16Payload(groth16Path)
 

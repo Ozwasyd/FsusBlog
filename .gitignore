@@ -204,6 +204,9 @@ artifacts/zk/**/*.bak
 artifacts/zk/**/*.tar.gz
 artifacts/zk/**/tmp/
 artifacts/zk/**/.tmp/
+artifacts/zk/comment-v3-layout4/ceremony/
+artifacts/zk/comment-v3-layout4/keys/
+artifacts/zk/comment-v3-layout4/delivery/
 
 # Local audit reports
 artifacts/dead-code-audit-report.md

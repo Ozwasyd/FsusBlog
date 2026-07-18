@@ -159,8 +159,11 @@ assert.match(buildSource, /command -v cmake/u,
 assert.match(buildSource, /COMMENT_PRIVACY_PROVER_KEY/u,
   'the wasm build must validate its proving-key input before starting expensive compilation');
 assert.match(serverDockerfileSource,
-  /COPY artifacts\/zk\/comment-v2\/comment_v2_final\.fsg16pk \/artifacts\/zk\/comment-v2\/comment_v2_final\.fsg16pk/u,
-  'the isolated wasm builder must receive the repository-level proving-key input at the path expected by build.sh');
+  /ARG COMMENT_PRIVACY_PROVER_KEY_PATH=artifacts\/zk\/comment-v3-layout4\/keys\/comment_v3_final\.fsg16pk/u,
+  'the isolated wasm builder must require an identity-correct proving-key input');
+assert.match(serverDockerfileSource,
+  /COPY \$\{COMMENT_PRIVACY_PROVER_KEY_PATH\} \/artifacts\/zk\/comment-v3-layout4\/keys\/comment_v3_final\.fsg16pk/u,
+  'the isolated wasm builder must never copy a retired proving key');
 assert.match(serverDockerfileSource,
   /ENV FSUSBLOG_FRONTEND_WASM_ROOT=\/work\/FsusBlog\.Client\/public\/wasm/u,
   'manifest tools in the isolated wasm builder must receive the explicit frontend output root');

@@ -184,7 +184,7 @@ export function validatePolicy(policy) {
   const bindings = array(zk.jsonSourceBindings)
   const expectedBindingPaths = [
     'security/zk/comment-v2-circuit.manifest.json',
-    'artifacts/zk/comment-v2/comment_v2.r1cs',
+    'artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs',
     'security/zk/comment-v5-circuit.manifest.json'
   ]
   const bindingPaths = bindings.map((entry) => text(entry?.path))
@@ -193,7 +193,7 @@ export function validatePolicy(policy) {
     new Set(bindingPaths).size !== bindings.length ||
     expectedBindingPaths.some((bindingPath) => !bindingPaths.includes(bindingPath))
   ) {
-    errors.push('ZK jsonSourceBindings must cover the canonical v2 manifest, v2 R1CS and v5 manifest')
+    errors.push('ZK jsonSourceBindings must cover the canonical v3/layout4 manifest and R1CS plus the v5 manifest')
   }
   for (const binding of bindings) {
     if (!sourceIds.includes(text(binding?.sourceId))) errors.push(`source binding ${binding?.path || '<missing>'} references an unknown sourceId`)

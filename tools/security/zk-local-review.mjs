@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 export const LOCAL_REVIEW_SCHEMA = 'fsusblog.zk.local-cryptographic-review.v1'
+export const SOURCE_ONLY_LOCAL_REVIEW_SCHEMA = 'fsusblog.zk.local-cryptographic-review.v2'
 export const LOCAL_REVIEW_CIRCUIT_ID = 'fsus.anonymous.comment.v3'
 export const LOCAL_REVIEW_LAYOUT_VERSION = 4
 export const REQUIRED_LOCAL_REVIEW_SCOPE = Object.freeze([
@@ -32,6 +33,17 @@ export const REQUIRED_LOCAL_ARTIFACT_BINDINGS = Object.freeze([
   'native_verifier_sha256',
   'wasm_prover_sha256'
 ])
+export const SOURCE_ONLY_LOCAL_ARTIFACT_BINDINGS = Object.freeze([
+  'circuit_manifest_sha256',
+  'circuit_source_sha256',
+  'r1cs_sha256',
+  'groth16_r1cs_sha256',
+  'trusted_setup_manifest_sha256',
+  'artifact_ownership_manifest_sha256',
+  'cross_stack_fixture_manifest_sha256',
+  'native_verifier_sha256',
+  'wasm_prover_sha256'
+])
 
 export function validateZkLocalReview({
   root,
@@ -53,7 +65,10 @@ export function validateZkLocalReview({
   const manifest = readJson(absoluteManifestPath, errors, 'local cryptographic review manifest')
   if (!manifest) return result(errors, checks, absoluteManifestPath, null)
 
-  requireEqual(errors, manifest.schema, LOCAL_REVIEW_SCHEMA, 'review manifest schema')
+  const sourceOnlyReview = manifest.schema === SOURCE_ONLY_LOCAL_REVIEW_SCHEMA
+  if (!sourceOnlyReview && manifest.schema !== LOCAL_REVIEW_SCHEMA) {
+    errors.push(`review manifest schema must equal ${LOCAL_REVIEW_SCHEMA} or ${SOURCE_ONLY_LOCAL_REVIEW_SCHEMA}`)
+  }
   requireEqual(errors, manifest.circuit_id, expectedCircuitId, 'review manifest circuit_id')
   requireEqual(
     errors,
@@ -86,9 +101,16 @@ export function validateZkLocalReview({
   }
 
   const verifyingKeyHash = lower(manifest.verifying_key_hash)
-  requireSha256(errors, verifyingKeyHash, 'review manifest verifying_key_hash')
-  if (expectedVerifyingKeyHash && verifyingKeyHash !== lower(expectedVerifyingKeyHash)) {
-    errors.push('local review verifying_key_hash does not match the selected verifying key')
+  if (sourceOnlyReview) {
+    requireEqual(errors, manifest.artifact_scope, 'source-and-r1cs', 'source-only review artifact_scope')
+    requireEqual(errors, manifest.active_key_material, false, 'source-only review active_key_material')
+    if (verifyingKeyHash) errors.push('source-only local review must not bind a selected verifying key')
+    if (expectedVerifyingKeyHash) errors.push('source-only local review cannot satisfy a selected verifying-key requirement')
+  } else {
+    requireSha256(errors, verifyingKeyHash, 'review manifest verifying_key_hash')
+    if (expectedVerifyingKeyHash && verifyingKeyHash !== lower(expectedVerifyingKeyHash)) {
+      errors.push('local review verifying_key_hash does not match the selected verifying key')
+    }
   }
 
   requireExactStringSet(
@@ -103,7 +125,13 @@ export function validateZkLocalReview({
     errors)
   validateFindings(manifest.findings, errors)
   validateReport(root, manifest.report, errors)
-  validateArtifactBindings(root, manifest.artifact_bindings, expectedBindings, verifyingKeyHash, errors)
+  validateArtifactBindings(
+    root,
+    manifest.artifact_bindings,
+    expectedBindings,
+    verifyingKeyHash,
+    sourceOnlyReview,
+    errors)
   validateTestEvidence(root, manifest.test_evidence, errors)
 
   checks.push({
@@ -175,9 +203,12 @@ function validateReport(root, value, errors) {
   }
 }
 
-function validateArtifactBindings(root, value, expectedBindings, verifyingKeyHash, errors) {
+function validateArtifactBindings(root, value, expectedBindings, verifyingKeyHash, sourceOnlyReview, errors) {
   const bindings = object(value)
-  for (const key of REQUIRED_LOCAL_ARTIFACT_BINDINGS) {
+  const requiredBindings = sourceOnlyReview
+    ? SOURCE_ONLY_LOCAL_ARTIFACT_BINDINGS
+    : REQUIRED_LOCAL_ARTIFACT_BINDINGS
+  for (const key of requiredBindings) {
     const binding = object(bindings[key])
     const file = readBoundRepoFile(root, binding.path, binding.sha256, errors, `artifact binding ${key}`)
     const actual = file ? sha256(file.bytes) : lower(binding.sha256)
@@ -185,11 +216,11 @@ function validateArtifactBindings(root, value, expectedBindings, verifyingKeyHas
     if (expected && actual !== expected) {
       errors.push(`artifact binding ${key} does not match release evidence`)
     }
-    if (key === 'verifying_key_sha256' && actual !== verifyingKeyHash) {
+    if (!sourceOnlyReview && key === 'verifying_key_sha256' && actual !== verifyingKeyHash) {
       errors.push('artifact binding verifying_key_sha256 must match review verifying_key_hash')
     }
   }
-  if (Object.keys(bindings).length !== REQUIRED_LOCAL_ARTIFACT_BINDINGS.length) {
+  if (Object.keys(bindings).length !== requiredBindings.length) {
     errors.push('artifact_bindings must contain the exact required local artifacts')
   }
 }

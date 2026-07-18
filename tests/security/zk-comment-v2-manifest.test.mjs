@@ -231,8 +231,8 @@ test('comment v2 circuit source and generated R1CS artifact are hash-bound', () 
   assert.match(groth16R1cs.sha256, /^[a-f0-9]{64}$/u)
   assert.ok(existsSync(groth16R1cs.path), `${groth16R1cs.path} must exist`)
   assert.equal(sha256File(groth16R1cs.path), groth16R1cs.sha256)
-  assert.match(setup.phase2.verification_command, /comment_v2_groth16\.r1cs/)
-  assert.doesNotMatch(setup.phase2.verification_command, /comment_v2\.r1cs/)
+  assert.match(setup.phase2.verification_command, /comment_v3_groth16\.r1cs/)
+  assert.doesNotMatch(setup.phase2.verification_command, /comment_v3\.r1cs/)
 
   assert.ok(existsSync(source.path), `${source.path} must exist`)
   assert.ok(existsSync(r1cs.path), `${r1cs.path} must exist`)
@@ -375,12 +375,12 @@ test('checker accepts self-written verified setup when all artifacts are hash-bo
       documents.setup.phase1.status = 'verified'
       documents.setup.phase1.transcript_path = artifacts.phase1.relative
       documents.setup.phase1.transcript_sha256 = artifacts.phase1.sha256
-      documents.setup.phase1.verification_command = 'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v2/phase1/powers_of_tau_final.fsptau'
+      documents.setup.phase1.verification_command = 'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/ceremony/phase1/powers_of_tau_final.fsptau'
       documents.setup.phase2.protocol = 'FsusBlog self-written Groth16 circuit-specific setup'
       documents.setup.phase2.status = 'verified'
       documents.setup.phase2.transcript_path = artifacts.phase2.relative
       documents.setup.phase2.transcript_sha256 = artifacts.phase2.sha256
-      documents.setup.phase2.verification_command = 'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v2/comment_v2_groth16.r1cs artifacts/zk/comment-v2/comment_v2_final.fsg16pk'
+      documents.setup.phase2.verification_command = 'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk'
 
       for (const artifact of Object.values(documents.setup.artifacts)) {
         artifact.status = 'required'
@@ -410,7 +410,7 @@ test('checker accepts self-written verified setup when all artifacts are hash-bo
 test('checker fails if phase2 ceremony uses the deterministic R1CS IR artifact', () => {
   const result = withTempManifests((documents) => {
     documents.setup.phase2.verification_command =
-      'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v2/comment_v2.r1cs artifacts/zk/comment-v2/comment_v2_final.fsg16pk'
+      'dotnet run --project tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj -- --verify-setup artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk'
   })
 
   assert.notEqual(result.status, 0)

@@ -17,7 +17,7 @@ STAGE_BASIC_DIR="${STAGE_DIR}/wasm-basic"
 STAGE_RELAXED_POW_DIR="${STAGE_DIR}/wasm-pow-relaxed"
 STAGE_THREADS_POW_DIR="${STAGE_DIR}/wasm-pow-threads"
 BUILD_IMAGE_CODEC="${FSUSBLOG_WASM_IMAGE_CODEC_ENABLE:-ON}"
-COMMENT_PRIVACY_PROVER_KEY="${FSUSBLOG_COMMENT_PROVER_KEY:-${ROOT_DIR}/../../artifacts/zk/comment-v2/comment_v2_final.fsg16pk}"
+COMMENT_PRIVACY_PROVER_KEY="${FSUSBLOG_COMMENT_PROVER_KEY:-${ROOT_DIR}/../../artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk}"
 
 detect_cpu_count() {
   local detected=""
@@ -513,7 +513,7 @@ if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUIL
 fi
 
 node "${ROOT_DIR}/../../tools/frontend/write-comment-privacy-prover-manifest.mjs"
-PROVER_BUNDLE="${FSUSBLOG_COMMENT_PROVER_BUNDLE:-${ROOT_DIR}/../../artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz}"
+PROVER_BUNDLE="${FSUSBLOG_COMMENT_PROVER_BUNDLE:-${ROOT_DIR}/../../artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz}"
 mkdir -p "$(dirname "${PROVER_BUNDLE}")"
 PROVER_BUNDLE_TAR="${PROVER_BUNDLE}.tmp-$$.tar"
 tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode=0644 \

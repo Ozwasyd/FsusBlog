@@ -7,7 +7,7 @@
   "local_cryptographic_review_manifest": "security/zk/comment-v2-local-review.manifest.json",
   "artifact_status": "setup-required",
   "production_usable": false,
-  "verifying_key_path": "artifacts/zk/comment-v3/comment_v3_verifying_key.bin",
+  "verifying_key_path": "artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.bin",
   "verifying_key_hash": "",
   "hash_algorithm": "sha256(canonical_verifying_key_bytes)",
   "runtime_config_keys": {

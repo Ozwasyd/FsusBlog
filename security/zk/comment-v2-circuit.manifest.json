@@ -7,6 +7,7 @@
   "credential_scheme": "circuit-native-credential-v2",
   "artifact_status": "source-and-r1cs",
   "production_usable": false,
+  "artifact_ownership_manifest": "security/zk/artifact-ownership.manifest.json",
   "action_context": "comment.create",
   "domain_separators": {
     "nullifier_prf": "fsus.anonymous.comment.v3:nullifier:v1",
@@ -235,9 +236,9 @@
     "groth16_r1cs_sha256": "82cfb5d5aab5a058a0a2b270696c4ab0ffff504db020c2bb7d9107511975f1ff"
   },
   "artifact_paths": {
-    "r1cs": "artifacts/zk/comment-v2/comment_v2.r1cs",
-    "wasm": "artifacts/zk/comment-v2/comment_v2.wasm",
-    "symbol": "artifacts/zk/comment-v2/comment_v2.sym",
-    "source_archive": "artifacts/zk/comment-v2/comment_v2_source.tar.gz"
+    "r1cs": "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
+    "wasm": "artifacts/zk/comment-v3-layout4/generated/comment_v3.wasm",
+    "symbol": "artifacts/zk/comment-v3-layout4/generated/comment_v3.sym",
+    "source_archive": "artifacts/zk/comment-v3-layout4/delivery/comment_v3_source.tar.gz"
   }
 }

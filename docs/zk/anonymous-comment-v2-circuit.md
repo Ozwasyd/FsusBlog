@@ -12,18 +12,23 @@ verifying key and transcript is invalid for this contract. The v3 setup
 manifest is deliberately `not-run` and ZK-Prod remains fail-closed until a new
 ceremony, browser prover, root rotation and release evidence all pass.
 
-## Issue #551 production circuit status
+## Historical comment.v2 implementation status
 
 `comment.v2` replaces the retired `comment.v1` BBS credential boundary with a
 circuit-native issuer signature verified inside the Groth16 circuit. The
 repository now contains the self-authored circuit source at
 `src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json` and a deterministic
-R1CS IR artifact at `artifacts/zk/comment-v2/comment_v2.r1cs`. It also includes
-the binary Groth16 R1CS input for phase-2 setup at
-`artifacts/zk/comment-v2/comment_v2_groth16.r1cs`, self-written phase
-transcripts, `comment_v2_final.fsg16pk`, `comment_v2_verifying_key.bin`, and
-the browser prover bundle recorded by
-`artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz`.
+R1CS IR artifact at
+`artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs`. The binary
+Groth16 R1CS input lives beside it as `comment_v3_groth16.r1cs`. The old
+v2/layout3 phase transcripts and proving/verifying keys had no supported
+consumer and were deleted; their hashes and deletion disposition remain in
+`security/zk/artifact-ownership.manifest.json`.
+
+Future v3/layout4 ceremony, key and browser delivery artifacts use the
+identity-correct `artifacts/zk/comment-v3-layout4/{ceremony,keys,delivery}`
+namespaces. They are deliberately absent from Git and must arrive through an
+immutable release or OCI artifact bound by SHA-256 and same-release evidence.
 
 The manifest checker enforces that boundary:
 
@@ -53,12 +58,13 @@ The manifest checker enforces that boundary:
 | Feasibility and design decision gate | `security/zk/comment-v2-feasibility.manifest.json` |
 | Trusted setup manifest | `security/zk/comment-v2-trusted-setup.manifest.json` |
 | Verifying key config manifest | `config/zk/anonymous-comment-v2-verifying-key.manifest.json` |
+| Artifact ownership and storage policy | `security/zk/artifact-ownership.manifest.json` |
 | Circuit source | `src/zk/circuits/anonymous-comment-v2/comment_v2.circuit.json` |
-| R1CS IR artifact | `artifacts/zk/comment-v2/comment_v2.r1cs` |
-| Groth16 R1CS ceremony input | `artifacts/zk/comment-v2/comment_v2_groth16.r1cs` |
-| Final proving key | `artifacts/zk/comment-v2/comment_v2_final.fsg16pk` |
-| Canonical verifying key | `artifacts/zk/comment-v2/comment_v2_verifying_key.bin` |
-| Browser prover bundle | `artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz` |
+| R1CS IR artifact | `artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs` |
+| Groth16 R1CS ceremony input | `artifacts/zk/comment-v3-layout4/generated/comment_v3_groth16.r1cs` |
+| Final proving key, external until ceremony | `artifacts/zk/comment-v3-layout4/keys/comment_v3_final.fsg16pk` |
+| Canonical verifying key, external until ceremony | `artifacts/zk/comment-v3-layout4/keys/comment_v3_verifying_key.bin` |
+| Browser prover bundle, external until release | `artifacts/zk/comment-v3-layout4/delivery/comment_v3_prover_wasm.tar.gz` |
 | Public browser prover manifest | `src/frontend/public/wasm/comment-privacy-prover.manifest.json` |
 | R1CS IR builder | `tools/crypto/build-zk-comment-v2-r1cs.mjs` |
 | Static checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |
@@ -249,17 +255,20 @@ verifying-key artifact hash before ZK-Prod can be enabled.
 `security/zk/comment-v2-local-review.manifest.json` and
 `docs/zk/comment-v2-local-cryptographic-review.md` provide the reproducible
 local review required by the release gate. The manifest binds the circuit
-source/manifest, both R1CS forms, setup manifest, proving/verifying keys, native verifier,
-Wasm prover and focused test sources. The immutable release also binds the complete
-local-review manifest hash. It requires positive/tamper fixtures,
+source/manifest, both R1CS forms, setup manifest, the identity-compatible
+cross-stack fixture manifest, native verifier, Wasm prover and focused test
+sources. It explicitly binds no active proving or verifying key. A future
+production review must use the key-bearing v1 review contract and matching
+release evidence. The immutable release also binds the complete local-review
+manifest hash. It requires positive/tamper fixtures,
 malformed and non-canonical proof rejection, subgroup checks, domain/root/epoch
 binding, bounded concurrency and timeout fail-closed evidence.
 
 This evidence deliberately sets `independent_audit_claimed=false`,
 `external_evidence_required=false` and `production_authorization=false`. It is
 not an external audit and cannot replace the trusted-setup, issuer, root or real
-cross-stack gates. Run `node tools/security/check-zk-local-review.mjs` after any
-bound file changes.
+cross-stack gates. Run `node tools/crypto/check-zk-artifact-ownership.mjs` and
+`node tools/security/check-zk-local-review.mjs` after any bound file changes.
 
 ## Budgets
 

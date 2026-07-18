@@ -254,23 +254,29 @@ internal static unsafe class Program
     private static void WriteProductionArtifacts(string[] args, string repoRoot)
     {
         string outputDir = ResolveProductionOutputDirectory(args, repoRoot);
-        string artifactDir = Path.Combine(outputDir, "artifacts", "zk", "comment-v2");
-        string phase1Dir = Path.Combine(artifactDir, "phase1");
-        string phase2Dir = Path.Combine(artifactDir, "phase2");
+        string artifactDir = Path.Combine(outputDir, "artifacts", "zk", "comment-v3-layout4");
+        string generatedDir = Path.Combine(artifactDir, "generated");
+        string phase1Dir = Path.Combine(artifactDir, "ceremony", "phase1");
+        string phase2Dir = Path.Combine(artifactDir, "ceremony", "phase2");
+        string keysDir = Path.Combine(artifactDir, "keys");
+        string deliveryDir = Path.Combine(artifactDir, "delivery");
+        Directory.CreateDirectory(generatedDir);
         Directory.CreateDirectory(phase1Dir);
         Directory.CreateDirectory(phase2Dir);
+        Directory.CreateDirectory(keysDir);
+        Directory.CreateDirectory(deliveryDir);
 
         string canonicalCircuitManifestPath = Path.Combine(repoRoot, "security", "zk", "comment-v2-circuit.manifest.json");
         string canonicalTrustedSetupPath = Path.Combine(repoRoot, "security", "zk", "comment-v2-trusted-setup.manifest.json");
         string canonicalConfigPath = Path.Combine(repoRoot, "config", "zk", "anonymous-comment-v2-verifying-key.manifest.json");
-        string r1csPath = Path.Combine(repoRoot, "artifacts", "zk", "comment-v2", "comment_v2.r1cs");
-        string groth16R1csPath = Path.Combine(repoRoot, "artifacts", "zk", "comment-v2", "comment_v2_groth16.r1cs");
+        string r1csPath = Path.Combine(repoRoot, "artifacts", "zk", "comment-v3-layout4", "generated", "comment_v3.r1cs");
+        string groth16R1csPath = Path.Combine(repoRoot, "artifacts", "zk", "comment-v3-layout4", "generated", "comment_v3_groth16.r1cs");
         string phase1Path = Path.Combine(phase1Dir, "powers_of_tau_final.fsptau");
-        string phase2Path = Path.Combine(phase2Dir, "comment_v2_ceremony_transcript.json");
-        string provingKeyPath = Path.Combine(artifactDir, "comment_v2_final.fsg16pk");
-        string verifyingKeyPath = Path.Combine(artifactDir, "comment_v2_verifying_key.bin");
-        string verifyingKeyJsonPath = Path.Combine(artifactDir, "comment_v2_verifying_key.json");
-        string wasmBundlePath = Path.Combine(artifactDir, "comment_v2_prover_wasm.tar.gz");
+        string phase2Path = Path.Combine(phase2Dir, "comment_v3_ceremony_transcript.json");
+        string provingKeyPath = Path.Combine(keysDir, "comment_v3_final.fsg16pk");
+        string verifyingKeyPath = Path.Combine(keysDir, "comment_v3_verifying_key.bin");
+        string verifyingKeyJsonPath = Path.Combine(keysDir, "comment_v3_verifying_key.json");
+        string wasmBundlePath = Path.Combine(deliveryDir, "comment_v3_prover_wasm.tar.gz");
         string setupOutPath = Path.Combine(outputDir, "comment-v2-trusted-setup.manifest.json");
         string configOutPath = Path.Combine(outputDir, "anonymous-comment-v2-verifying-key.manifest.json");
 

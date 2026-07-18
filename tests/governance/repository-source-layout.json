@@ -93,7 +93,7 @@
         "sourceId": "anonymous-comment-v2"
       },
       {
-        "path": "artifacts/zk/comment-v2/comment_v2.r1cs",
+        "path": "artifacts/zk/comment-v3-layout4/generated/comment_v3.r1cs",
         "pathField": "source_path",
         "hashField": "source_sha256",
         "sourceId": "anonymous-comment-v2"
