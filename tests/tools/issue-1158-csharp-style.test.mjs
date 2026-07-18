@@ -167,6 +167,67 @@ public sealed class ImportOrder
   })
 })
 
+test('issue 1158 fixes imports into the same System-first order enforced by the gate', () => {
+  withFixture((fixtureRoot) => {
+    const relativePath = 'src/sample/ImportFix.cs'
+    writeFixture(
+      fixtureRoot,
+      relativePath,
+      `using Vendor;
+using System.Text;
+using FsusBlog;
+using System;
+
+namespace Fixture;
+
+public sealed class ImportFix
+{
+}
+`
+    )
+    const result = runChecker(fixtureRoot, ['--mode', 'full', '--fix', '--file', relativePath])
+    assert.equal(result.status, 0, output(result))
+    assert.equal(
+      readFileSync(path.join(fixtureRoot, relativePath), 'utf8'),
+      `using System;
+using System.Text;
+
+using FsusBlog;
+using Vendor;
+
+namespace Fixture;
+
+public sealed class ImportFix
+{
+}
+`
+    )
+  })
+})
+
+test('issue 1158 preserves single scenario separators only for test and benchmark method identifiers', () => {
+  withFixture((fixtureRoot) => {
+    const source = `namespace Fixture;
+
+public sealed class ScenarioNames
+{
+    public void ReadAsync_MissingItem_ReturnsNull()
+    {
+    }
+}
+`
+    writeFixture(fixtureRoot, 'tests/backend/Unit/ScenarioNames.cs', source)
+    writeFixture(fixtureRoot, 'src/sample/ScenarioNames.cs', source)
+
+    const allowed = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'tests/backend/Unit/ScenarioNames.cs'])
+    assert.equal(allowed.status, 0, output(allowed))
+
+    const rejected = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/sample/ScenarioNames.cs'])
+    assert.notEqual(rejected.status, 0)
+    assert.match(output(rejected), / method-name:/u)
+  })
+})
+
 test('issue 1158 aggregates tabs braces indentation using naming and line-ending failures', () => {
   withFixture((fixtureRoot) => {
     writeFixture(
@@ -198,7 +259,12 @@ test('issue 1158 aggregates tabs braces indentation using naming and line-ending
 test('issue 1158 excludes explicitly generated C# files', () => {
   withFixture((fixtureRoot) => {
     writeFixture(fixtureRoot, 'src/generated/Bad.generated.cs', 'public class bad_type {\t}\r\n')
-    const result = runChecker(fixtureRoot, ['--mode', 'changed', '--file', 'src/generated/Bad.generated.cs'])
+    writeFixture(fixtureRoot, 'src/core/Algorithms/AedsFrameType.cs', 'public class bad_type {\t}\r\n')
+    const result = runChecker(fixtureRoot, [
+      '--mode', 'changed',
+      '--file', 'src/generated/Bad.generated.cs',
+      '--file', 'src/core/Algorithms/AedsFrameType.cs'
+    ])
     assert.equal(result.status, 0, output(result))
     assert.match(result.stdout, /ok files=0 violations=0 new=0/u)
   })

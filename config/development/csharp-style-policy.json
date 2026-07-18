@@ -19,6 +19,7 @@
     "**/*.g.cs",
     "**/*.generated.cs",
     "**/*.designer.cs",
+    "src/core/Algorithms/AedsFrameType.cs",
     "artifacts/**",
     "**/vendor/**",
     "tools/vcpkg-overlays/**",
@@ -32,6 +33,10 @@
     "privateStaticFieldPrefix": "s_",
     "threadStaticFieldPrefix": "t_",
     "forbidConsecutiveUnderscores": true,
+    "pascalCaseSeparatorScopes": [
+      "tests/**/*.cs",
+      "benchmarks/**/*.cs"
+    ],
     "externalContractAttributes": [
       "JsonPropertyName",
       "JsonProperty",

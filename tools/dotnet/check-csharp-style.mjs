@@ -32,6 +32,10 @@ function parseArgs(argv) {
       parsed.updateBaseline = true
       continue
     }
+    if (argument === '--fix') {
+      parsed.fix = true
+      continue
+    }
     if (!['--root', '--policy', '--mode', '--base', '--file'].includes(argument)) {
       throw new Error(`unknown argument ${argument}`)
     }
@@ -276,6 +280,10 @@ function isCamelCase(value) {
   return /^[a-z][A-Za-z0-9]*$/u.test(value) && !value.includes('__')
 }
 
+function isSegmentedPascalCase(value) {
+  return /^[A-Z][A-Za-z0-9]*(?:_[A-Z][A-Za-z0-9]*)+$/u.test(value) && !value.includes('__')
+}
+
 // Roslyn intentionally keeps automatic accessors compact even when
 // csharp_new_line_before_open_brace=all and
 // csharp_preserve_single_line_statements=false. Treat those declarations as a
@@ -314,7 +322,41 @@ function hasInlineBlockOpeningBrace(value) {
 
 function isStructuralIndentLine(value) {
   return /^(?:public|protected|private|internal|file|namespace|class|struct|record|interface|enum|delegate|if|else|for|foreach|while|switch|case|default|try|catch|finally|do|lock|using|fixed|return|throw|break|continue)\b/u.test(value)
-    || /^[{}]$/u.test(value)
+}
+
+function parseUsingDirective(value) {
+  const match = value.trim().match(/^using\s+(?:(static)\s+)?(?:([A-Za-z_]\w*)\s*=\s*)?([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*;/u)
+  if (!match) return null
+  const [, staticImport, alias, namespace] = match
+  const group = alias ? 3 : (staticImport ? 2 : (namespace === 'System' || namespace.startsWith('System.') ? 0 : 1))
+  return { namespace, sortKey: alias ?? namespace, group, rendered: value.trim() }
+}
+
+function normalizeUsingDirectives(file) {
+  const absolute = path.join(root, file)
+  const text = fs.readFileSync(absolute, 'utf8')
+  const lines = text.split('\n')
+  const indexes = []
+  for (let index = 0; index < lines.length; index += 1) {
+    if (parseUsingDirective(lines[index])) indexes.push(index)
+  }
+  if (indexes.length < 2) return false
+  const first = indexes[0]
+  const last = indexes.at(-1)
+  if (lines.slice(first, last + 1).some((line) => line.trim() && !parseUsingDirective(line))) return false
+
+  const directives = indexes.map((index) => parseUsingDirective(lines[index]))
+    .sort((left, right) => left.group - right.group || left.sortKey.localeCompare(right.sortKey))
+  const replacement = []
+  for (let index = 0; index < directives.length; index += 1) {
+    if (index > 0 && directives[index].group !== directives[index - 1].group) replacement.push('')
+    replacement.push(directives[index].rendered)
+  }
+  const current = lines.slice(first, last + 1)
+  if (current.join('\n') === replacement.join('\n')) return false
+  lines.splice(first, last - first + 1, ...replacement)
+  fs.writeFileSync(absolute, lines.join('\n'))
+  return true
 }
 
 function hasMeaningfulXmlDoc(lines, declarationIndex) {
@@ -397,7 +439,7 @@ function parseMethodDeclaration(trimmed) {
   return null
 }
 
-function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns) {
+function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMethodScopePatterns) {
   const absolute = path.join(root, file)
   const violations = []
   if (!fs.existsSync(absolute)) {
@@ -418,6 +460,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns) {
   const usings = []
   const xmlScope = isXmlDocScope(file, xmlScopePatterns)
   const xmlMemberScope = isXmlDocScope(file, xmlMemberScopePatterns)
+  const segmentedMethodNames = isXmlDocScope(file, segmentedMethodScopePatterns)
 
   for (let index = 0; index < lines.length; index += 1) {
     const lineNumber = index + 1
@@ -443,12 +486,10 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns) {
     }
 
     if (/^namespace\b/u.test(trimmed)) namespaceSeen = true
-    const usingMatch = trimmed.match(/^using\s+(?:(static)\s+)?(?:([A-Za-z_]\w*)\s*=\s*)?([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*;/u)
-    if (usingMatch) {
+    const usingDirective = parseUsingDirective(trimmed)
+    if (usingDirective) {
       if (namespaceSeen) violations.push(makeViolation(file, lineNumber, 'using-placement', code, 'using directives must be outside namespace'))
-      const [, staticImport, alias, namespace] = usingMatch
-      const group = alias ? 3 : (staticImport ? 2 : (namespace === 'System' || namespace.startsWith('System.') ? 0 : 1))
-      usings.push({ line: lineNumber, namespace, sortKey: alias ?? namespace, group })
+      usings.push({ line: lineNumber, ...usingDirective })
     }
 
     for (const identifier of trimmed.matchAll(/\b[A-Za-z_]\w*__\w*\b/gu)) {
@@ -487,7 +528,9 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns) {
     const method = parseMethodDeclaration(trimmed)
     if (method) {
       const methodName = method.name
-      if (!isPascalCase(methodName)) violations.push(makeViolation(file, lineNumber, 'method-name', methodName, 'method/local function must use PascalCase'))
+      if (!isPascalCase(methodName) && !(segmentedMethodNames && isSegmentedPascalCase(methodName))) {
+        violations.push(makeViolation(file, lineNumber, 'method-name', methodName, 'method/local function must use PascalCase; scenario separators are allowed only in declared test/benchmark scopes'))
+      }
       for (const parameter of method.parameters) {
         const parameterName = parameter.replace(/\s*=.*$/u, '').match(/([A-Za-z_]\w*)\s*$/u)?.[1]
         if (parameterName && !isCamelCase(parameterName)) {
@@ -612,6 +655,7 @@ function validatePolicy() {
   if (!Array.isArray(policy.excludedPaths) || policy.excludedPaths.length === 0) fail('excludedPaths must be non-empty')
   if (!Array.isArray(policy.xmlDocumentation?.scopes) || policy.xmlDocumentation.scopes.length === 0) fail('xmlDocumentation.scopes must be non-empty')
   if (!Array.isArray(policy.xmlDocumentation?.memberScopes) || policy.xmlDocumentation.memberScopes.length === 0) fail('xmlDocumentation.memberScopes must be non-empty')
+  if (!Array.isArray(policy.naming?.pascalCaseSeparatorScopes) || policy.naming.pascalCaseSeparatorScopes.length === 0) fail('naming.pascalCaseSeparatorScopes must be non-empty')
   for (const required of ['_', 's_', 't_']) {
     const values = Object.values(policy.naming ?? {})
     if (!values.includes(required)) fail(`naming policy is missing required prefix ${required}`)
@@ -632,8 +676,13 @@ function main() {
   const exclusions = (policy.excludedPaths ?? []).map(globToRegExp)
   const xmlScopes = (policy.xmlDocumentation?.scopes ?? []).map(globToRegExp)
   const xmlMemberScopes = (policy.xmlDocumentation?.memberScopes ?? []).map(globToRegExp)
+  const segmentedMethodScopes = (policy.naming?.pascalCaseSeparatorScopes ?? []).map(globToRegExp)
   const files = selectFiles(args).filter((file) => file.endsWith('.cs') && !isExcluded(file, exclusions))
-  const violations = files.flatMap((file) => checkFile(file, xmlScopes, xmlMemberScopes))
+  if (args.fix) {
+    const fixed = files.filter((file) => normalizeUsingDirectives(file)).length
+    console.log(`[csharp-style] fixed using directives files=${fixed}`)
+  }
+  const violations = files.flatMap((file) => checkFile(file, xmlScopes, xmlMemberScopes, segmentedMethodScopes))
     .sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line || left.rule.localeCompare(right.rule))
 
   if (args.updateBaseline) {

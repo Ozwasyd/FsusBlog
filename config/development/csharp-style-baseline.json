@@ -1,9 +1,9 @@
 {
   "schema": "fsusblog.csharp-style-baseline.v1",
-  "generatedFrom": "609aa6823a2a9abb266861d45f4bba79884fe6fc",
-  "policySha256": "8136621ee38d963898748c1a10f0d60db8b47ee9121663a835e645c2bcc2f55a",
-  "violationCount": 4702,
-  "fileCount": 562,
+  "generatedFrom": "2027c3af4b90821bff056318b98dbf4fb47fb9c6",
+  "policySha256": "ae81fef8370c63d3ad8fbdfba702ead1ce9a1829f84222a0339b4b9e1f570503",
+  "violationCount": 1601,
+  "fileCount": 494,
   "files": [
     {
       "path": "benchmarks/core/AedsCacheMissFrameProfiler.cs",
@@ -24,22 +24,11 @@
       }
     },
     {
-      "path": "benchmarks/core/Program.cs",
-      "sourceSha256": "3b62daea84281bac3cb800bc72e0c2cfd8913026b0023befa7f52ec9b9d0b97d",
-      "violationCount": 16,
-      "violationDigest": "17de25aee06b477aefb1588bdd849a5b78e2c121688ab5d30b92337a0e5f1166",
-      "rules": {
-        "indent": 1,
-        "method-name": 15
-      }
-    },
-    {
       "path": "benchmarks/core/ServerHotPathBenchmarks.cs",
       "sourceSha256": "7d4e41af33b4442cdae232daecb5059e39ee496fe52bd62faa1dc6c14c251901",
-      "violationCount": 29,
-      "violationDigest": "57f5ced733a5ba79d7cab6c7cfa3a50417d61ccccd84cb00043597e68d02d464",
+      "violationCount": 1,
+      "violationDigest": "79676dae414ac7954ab0da72f4b2d3ee15b57f3902836dd0bf6967ff1db08d71",
       "rules": {
-        "method-name": 28,
         "private-static-field-name": 1
       }
     },
@@ -376,15 +365,6 @@
       "violationDigest": "640a11e73b9f23ac2911a02e52b90905e0abe5d0d46ff15db179a47d0f02c19f",
       "rules": {
         "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "src/backend/Infrastructure/Helpers/Initializer/CacheInitializer.cs",
-      "sourceSha256": "a0d363b0dba90f80c041f02d5e04a553c373299e4b85fd479133be69ed94159e",
-      "violationCount": 1,
-      "violationDigest": "5c98518e942d48bc2528b37c725c4b8ddd7a1705876d9801160f153095037cb3",
-      "rules": {
-        "indent": 1
       }
     },
     {
@@ -1293,10 +1273,9 @@
     {
       "path": "src/backend/Services/Background/ScheduledPublishWorker.cs",
       "sourceSha256": "a788a13ff825d8c8b33e44be7446d008f5aa0139f02474180f17144097bccec0",
-      "violationCount": 2,
-      "violationDigest": "87bbb5b35d2c6083f0aff44aeafb76e4104439ca93c27a2a2d2be03b0ea1bf83",
+      "violationCount": 1,
+      "violationDigest": "27ce36d3627e7ebb217ee131c2d1dac38caed85942d926ff1c85c8ff2e37fe33",
       "rules": {
-        "indent": 1,
         "private-static-field-name": 1
       }
     },
@@ -1740,24 +1719,6 @@
       }
     },
     {
-      "path": "src/core/Algorithms/AedsFrameType.cs",
-      "sourceSha256": "396b95b0d9f58caa77ffad02e947341a7fc3b0f390d7d84d5fdc499237ef842f",
-      "violationCount": 1,
-      "violationDigest": "7c970bdb3caf368ef595169994f3497423879cc529c4719ac4257f5d9d8c84fd",
-      "rules": {
-        "xml-documentation": 1
-      }
-    },
-    {
-      "path": "src/core/DependencyInjection/CoreServiceCollectionExtensions.cs",
-      "sourceSha256": "1919a47759ae9088f53066c56dd612c7402bb9e6e4dcc0c70cc783f8ef056f49",
-      "violationCount": 1,
-      "violationDigest": "a3269e590d93a7895af8bd5852baf4356bd5b3941399d15b6aa008b0ea6d959f",
-      "rules": {
-        "using-order": 1
-      }
-    },
-    {
       "path": "src/shared/Contracts/AuthSystem/AuthSystemContracts.cs",
       "sourceSha256": "900cb500892462b13529831634234c744b9fd7aa9983516d32d1956f486f387e",
       "violationCount": 7,
@@ -2030,3119 +1991,2482 @@
     },
     {
       "path": "tests/backend/Helpers/TestInfrastructure/EndpointSecurityTestHost.cs",
-      "sourceSha256": "43f07b316b6c97cb003d4bf5c28ea61d192ba4bb3d21563a841973cb0356cc76",
-      "violationCount": 2,
-      "violationDigest": "6282a16e1326a449037819ed31ed3e75d46576d07723d8e449d41537e44dde1b",
+      "sourceSha256": "fe1277f4e4b7addcdcfdd060245263dfd002f7e7b372d7dec08fb99790916b02",
+      "violationCount": 1,
+      "violationDigest": "6a7660354e3d8e58857f3f54eb21b25035b8194a85a38b2470ceafec14ec7ce5",
       "rules": {
-        "private-static-field-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Helpers/TestInfrastructure/HumanReadProofTestHarness.cs",
-      "sourceSha256": "770443901a056725d47130cf92ed02b1e075603d7d4da2dc7b1d938d315c2d5b",
+      "sourceSha256": "c92df48e589cd1c7a623e8cc9e53985c053024bcb151e1d8cbb60a4ab9c01568",
       "violationCount": 1,
-      "violationDigest": "8fa65e4e198a6bcbe71572754351e72ab51ba9a42d061c9a550095885df6197b",
+      "violationDigest": "53c7583dc9a71d217b7a344ffb61afc143d96feb448635c229728355887db37f",
       "rules": {
-        "private-static-field-name": 1
+        "using-order": 1
+      }
+    },
+    {
+      "path": "tests/backend/Helpers/TestInfrastructure/PostgresSqlSugarTestClient.cs",
+      "sourceSha256": "2ef15bb7f0466810c2e496380e58f674288566bbfe8043d685f2712ea6984f34",
+      "violationCount": 2,
+      "violationDigest": "9968ab7b60710557dbc80310b970a04517e194f0118ac348f4ee22d8c13b1666",
+      "rules": {
+        "using-group": 1,
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
-      "sourceSha256": "099614983b850bbbf74d21cb28613b42cda4afba23beee9c70c16691a6278bbc",
-      "violationCount": 4,
-      "violationDigest": "f413cba2b02bb7804d8e56b7402d56bed590515a6be49952dd3bea235ace67b7",
+      "sourceSha256": "46aca9d0929b71b097282f54084144a0e6f84e2185f18cb5361423ece5ea0a57",
+      "violationCount": 1,
+      "violationDigest": "6cb62ca5a971687d078d404c899b96fbfdcc330c8292fe740282eead9d2d8826",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Integration/ActiveReleaseFencedCommitIntegrationTests.cs",
-      "sourceSha256": "e7a8fb55b52ea22deb7fd7d18a96abc28d51217ae20ad640d700f06fe783ced9",
-      "violationCount": 4,
-      "violationDigest": "61fb1675989a85f02d1eb554c9b33fa38b826cade3bf223b240ba591120adc80",
+      "sourceSha256": "fd9bbdc478a621377a95d445cc49137769bee7058a4e62fa8d73d1084ff2cd51",
+      "violationCount": 1,
+      "violationDigest": "8fbded59310455616ef51dde319ba668cc95308141a516cd76c11a0fc934bc93",
       "rules": {
-        "method-name": 3,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Integration/AnonymousCommentPolicyPersistenceTests.cs",
-      "sourceSha256": "20d3fb833bfa6c4440be2f1de311be57f30d5ca7a3fbdabff966ae15a116509b",
+      "sourceSha256": "4f76a4c07a00becdf8b7b5bcf217bf75f237f575788ed9c04b3f116016c50d23",
       "violationCount": 1,
-      "violationDigest": "af0b49a298df717c0904c6d19dcd5e479cab36c770d4095d3632a3e0a010930a",
+      "violationDigest": "71e7429f132c9dcced332fcb24aeddc95fea5d7d39e6959f9c43fa419335697b",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Integration/CoreRuntimeIntegrationTests.cs",
-      "sourceSha256": "a315bbf0e058c6ba2a95f736c1589d0c1e157bf8074ca30395c8a6be2eb38c35",
-      "violationCount": 2,
-      "violationDigest": "f4bf23889544ad9882b428713490f2d69ffa1fa15fe938c505f5f11f133fd7bc",
+      "sourceSha256": "27d1e7357956214dfca6336a19cc330580031d3edbc3b92a70e73737be31e227",
+      "violationCount": 1,
+      "violationDigest": "9c0ff22d96d64d31ae13a57bab0ac89ed78983f966a861d29312e549980d0489",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs",
-      "sourceSha256": "f755d1556e6205ceb1d5feeb62fc7ee794606ae1563d1ec6af0dff64aa0b791e",
+      "sourceSha256": "60bba5e88bd72c0ecfe1bb4f5f3131cf62999ad304e0e6fed875cf2989fee6ae",
       "violationCount": 1,
-      "violationDigest": "42322e991d26c636c3bb54f09e408930d79224e941317eb666fc6c3c111d8675",
+      "violationDigest": "d1e62528ab41a9436784c7ff949ffa516e19590e549b688f5b202cd4f8b9eea7",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Integration/PasskeyCounterRollbackIntegrationTests.cs",
-      "sourceSha256": "9873c43e55e7dc9312493609b8d88d076e4a7cb9f65c3432cd35499f28d2dbdb",
-      "violationCount": 3,
-      "violationDigest": "57e057be0b0a8436ab9800ab384130b53d954c6a070fa0f9de13352eeb3ed5f1",
+      "sourceSha256": "41235d9083ab0147db11106c095cc6f45df2fccb695f62b9fa0c423069e0d3d5",
+      "violationCount": 1,
+      "violationDigest": "7965693176345c28a041066179013504e34618e7eee0bd8852eaf986c5f71884",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
-      "sourceSha256": "90b42923cd73c6b835649be988acf66579c65defa3840192c0b3f439d5c55606",
-      "violationCount": 8,
-      "violationDigest": "2799fab4ee8f9e6797b7f8d65469caa75da948e823aa9afb79b13c86d61379c0",
+      "sourceSha256": "e6df958108f75755699bd7324993e43d82a2eba4c478e5eb1ff26887a7644662",
+      "violationCount": 1,
+      "violationDigest": "41f3188434621be3149286dbdd532713d0ff78213148fec0554deb007e723030",
       "rules": {
-        "method-name": 8
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
-      "sourceSha256": "8284f6d179a85b376cf6c7ff4851e5f2637baff970e608c4c2760ad98ed6d066",
-      "violationCount": 35,
-      "violationDigest": "51e251f5936a3560aa15c885aab62aa34cb5115ec318eac1b8fcdaabcd7aeb78",
+      "sourceSha256": "7923a2ff6f7db804bf73f652ca263497b9fda4b89608e4cffcc8708608b9841b",
+      "violationCount": 1,
+      "violationDigest": "707f331a72a698dca350dff3188b5f9a217fc7ea38ddf47d2eac73b7964fffab",
       "rules": {
-        "method-name": 34,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Integration/TaxonomyProjectionPersistenceTests.cs",
-      "sourceSha256": "676afadd3659998e7276b7df87093ec537afe5e2f40b9f4d5d1a7f4b9ba126f9",
-      "violationCount": 2,
-      "violationDigest": "12a57c421a2396ad517a1f301e57a09d110bdfe1c16780103c8160196cd01b4f",
+      "sourceSha256": "99846fcb067f94a3cf6a63513f1bd8fe0ded270201a00d868d3278e2d8330cf6",
+      "violationCount": 1,
+      "violationDigest": "0aea0c787ec3f2039ffba35f5901c2e8c9341007b8a434fa7d5458b0ebdf9883",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
-      "sourceSha256": "2469885d3f682f4074afe990cf833e432d871c1385f6c66ec5a1593ee53475cc",
-      "violationCount": 10,
-      "violationDigest": "9f5e578d26f9924bf61a165d91b8278bc27f91307c1242060ec02e0025d410e3",
+      "sourceSha256": "3c242882d59148a8e340508f9e0e348ba57f34889ebccf1e7dc38cf54a0cccc3",
+      "violationCount": 1,
+      "violationDigest": "80eef6048721a3fc3f6bc523d772d1a79798b9d07f48f098f2a9d39a1cd5ee01",
       "rules": {
-        "method-name": 7,
-        "private-field-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AccountSubjectHashProjectionTests.cs",
-      "sourceSha256": "6e3b8cca4410b5e8da1989503212f9eb02296426d3469839c8a07f3d849b35e9",
-      "violationCount": 9,
-      "violationDigest": "5dde341d9f90660072e3416eb1015e168153e37b5ae4af2501247ea6147bb9bd",
+      "sourceSha256": "78c30a9ec30683b121a2f51793d39ad5626caf4296b3525717245a9ba72f8657",
+      "violationCount": 1,
+      "violationDigest": "310295132c9aaacc5f174084eba3c53de4ffce893e8d457164980725578c5ed5",
       "rules": {
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ActiveReleaseFenceAvailabilityTests.cs",
-      "sourceSha256": "7f0b424acfdade8932b6ad29b07d2422b7e2944fdc386f07ae535d3155598db9",
-      "violationCount": 8,
-      "violationDigest": "047cd6af18ee769055dec4a4106ddb9e9fa0863061612fdb8ff3ed0d5db2ce5f",
+      "sourceSha256": "adb0ff584bdf288fd2d19d0b9f201036a49538d304553fd22bbd525b4c780a08",
+      "violationCount": 1,
+      "violationDigest": "bfee5cf9e767a175a8575088904e8d3cb32aa4be588c167cd4c3316fe4ade786",
       "rules": {
-        "method-name": 7,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ActiveReleaseFenceContractTests.cs",
-      "sourceSha256": "97f067993cb1287cd14c89642fe6b1ade662b2bbb62791187a39f88326765a75",
-      "violationCount": 7,
-      "violationDigest": "b481b5d5eb42f1a9f0f057b2e075ca8e998307a7f05b49e0bc2289627dfb9667",
+      "sourceSha256": "9bfda397de0a787cd7a92b3ef7cadafd6189ef03a2f1604638f0feba72b88c75",
+      "violationCount": 1,
+      "violationDigest": "b503671494ab2d150995735dc633b4f4dfd518fb243796adb030497d291e6556",
       "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ActiveReleaseFencedCommitTests.cs",
-      "sourceSha256": "6a9efd72f1d9688737ad58a2599c6e0754387e7a6258bd89555f10465481a178",
-      "violationCount": 10,
-      "violationDigest": "4c6db7518e5d2a6d00a486db133d5bad45772e69d93637a266dd811c687240ac",
+      "sourceSha256": "aa556ecfdfb309c74689fc213f966364044a5edfac835437e40b06cf4454b193",
+      "violationCount": 1,
+      "violationDigest": "7b4ce245fef5ba44e932aeff0dd06b6fc8e2d086ddea841af23671600de75386",
       "rules": {
-        "indent": 1,
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ActiveReleaseFenceDurableWitnessTests.cs",
-      "sourceSha256": "58f15aa65a03d01738539fc80dda1d4a975b1566c6ca254fd3b23fe25e1a5f90",
-      "violationCount": 13,
-      "violationDigest": "2947b06e815654a99d6acd8aef9b8fac49d2d5f6490239608db7439c2cc97c9b",
+      "sourceSha256": "0fb244e6268cc532f9a0061b124638f208098a4db47c8eb1afd291d41ca84d1f",
+      "violationCount": 1,
+      "violationDigest": "86df3201728c427491cef5c26682adf855c65e6b04cf601dcf5a1438bcba0ba6",
       "rules": {
-        "method-name": 12,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ActorResolverBehaviorTests.cs",
-      "sourceSha256": "d2c7cd06315cf84479ee77079b3e6b52dd7f844cf79447a126aad8c626454c74",
-      "violationCount": 4,
-      "violationDigest": "8ee8ce5844e9ba0ee443f573dcc052af68e2b67311f08c29f521519d9b45980e",
+      "sourceSha256": "2c33dc279f44fb28fba6b0ad769f0441ef9a2f65632db3da55560492c1ea36ad",
+      "violationCount": 1,
+      "violationDigest": "848bf1986dc0b3b17756a6a5ed2429c7ecb38b882fea8d963a54204b30fdbf54",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AdaptivePowGovernorTests.cs",
-      "sourceSha256": "eed500d424f30e81a41e1db0e98c3dc0091be9b2feaf515f22ef166268f2b02b",
-      "violationCount": 15,
-      "violationDigest": "cbc71a45d521cf05756dbde2236d822f39afd531a6f67c00030f09f9ab1106c8",
+      "sourceSha256": "4e24f80735a61edc31a15f25edbf9e41144bd2339e3bfd14e975f99eeaa76baa",
+      "violationCount": 1,
+      "violationDigest": "33f6fe2f4c4bc936f5e5de042960438c7eab5719a7283bf7b787f85ee44368b6",
       "rules": {
-        "method-name": 15
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs",
-      "sourceSha256": "2e4f8cadbd01d8acfda58718aba46db37307ec60ca7c3a4644c298944b7db3f7",
-      "violationCount": 4,
-      "violationDigest": "4907e5ed69e5573cc67db24dddcc2872354abc286223998fa25c32e7c3f0dbae",
+      "sourceSha256": "732b2ec6896e6d98851b219387c7c09ed135d6da009da881e6b93e2c738ef2ec",
+      "violationCount": 1,
+      "violationDigest": "f2c46da086e08a46f20a5ae9c6f3b72836f57c46f6ff9e727b26628f1c702021",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AdminConsistencyContractTests.cs",
-      "sourceSha256": "724af64d61ba52d6873a2d5e3075709b1b30ec584fb4cb4a936654d67e3e16b8",
-      "violationCount": 5,
-      "violationDigest": "68e6126a37ebc5da82ca8376ab3a376e1a4e3261356b40dac19d94cffac1e740",
+      "sourceSha256": "1508eebecc18d4ca9eceba9dc13a2c606d6edf3db194e03b909ac1b56fc6bcba",
+      "violationCount": 1,
+      "violationDigest": "6f9dbb205a332ee796154371b8c9e451e9ede503650ce43d4e9ed4259069f368",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AdminMfaStepUpSecurityTests.cs",
-      "sourceSha256": "85428d0effae3468eed49bbd4ede5a70cbc792fe700cbfdc04b488d96057c5d0",
-      "violationCount": 11,
-      "violationDigest": "ee6fc5a274cb80f7040671a2faa430e6f90351c84a8c2b8767ccea43464bbca9",
+      "sourceSha256": "623451fe2fa3908c3e7405118f15c2c12c5d20144a4ee609a058f5eed7389ee9",
+      "violationCount": 1,
+      "violationDigest": "32d9edd654bd540766afebbe60d7a018202c1211db684aeebc34b1f31d5f997a",
       "rules": {
-        "method-name": 11
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AdminOperationsBehaviorTests.cs",
-      "sourceSha256": "80b54fd39026e4c8c088ba522654049efe2cd6743bb622e55526f1ab77869976",
-      "violationCount": 2,
-      "violationDigest": "c774d2fe5112f3f499603c107888cf7fbcaf8e112dafe96f4622a06873f0f6ab",
+      "sourceSha256": "7e822b8276c50a3ab1040218e623b47f8299ba51ffdc6716082ae8cbd9e722f9",
+      "violationCount": 1,
+      "violationDigest": "ff1a662415ddfc24f34af230bea272eb035891f528b18dc5036a7faa7d999590",
       "rules": {
-        "method-name": 2
-      }
-    },
-    {
-      "path": "tests/backend/Unit/AdminOperationsRecentErrorsTests.cs",
-      "sourceSha256": "4f43e79859052e3a4a8918caa93a464d7b7f6650c2d0db82fa6b92918bc790e3",
-      "violationCount": 3,
-      "violationDigest": "b27d3dd6837a48b97a044690203ab8dead69c5d5888d6bac1baf46bd7ad97e5c",
-      "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
-      "sourceSha256": "08ccadc10fae0702b50332969fe21f0549071ac94eaa04f8c780645883cf4159",
-      "violationCount": 3,
-      "violationDigest": "0ad12a516bda37f205b48e44ff76eac991896f82eda4ef9a166ebdc65e32321d",
+      "sourceSha256": "3e339f299b8614f0531b808be5484cba74cd636e0e3d898c179888a39a86fb2c",
+      "violationCount": 1,
+      "violationDigest": "5264f498437582443bc6991340e56a48f5d9b3a605d6cd38aaf325ab287441d4",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AdminSessionManagementTests.cs",
-      "sourceSha256": "6fde2ae69a4d284588b818262f3e646c0d2129853c5405f59b055d16781df48a",
-      "violationCount": 9,
-      "violationDigest": "d546073c305c6e2acc17134c8b0884060376d1ab6eda5cf90c9d436f69067ef1",
+      "sourceSha256": "f6b788626cb63ec02c20509869def0289878be45af777b6e5a01441bb9caf352",
+      "violationCount": 1,
+      "violationDigest": "be377cd29e6c1bb178227b0890a06d06e88b825c40f11e759882d57122c82a76",
       "rules": {
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
-      "sourceSha256": "fb28179f833c6245035a4046c8c3b04f180d924a2a726c1f82c326f7a6035ac7",
-      "violationCount": 14,
-      "violationDigest": "ba6d348218aa4bbaedf25f51796fd94268541ddf2ef4a77b0622383d7877ce8f",
+      "sourceSha256": "7212e1132883945fa9f8f13ee327786e3fd4fe1f0d51f043b1c7ffca397d0659",
+      "violationCount": 1,
+      "violationDigest": "f81f0e3beae764e1ada49c74839eca1710d24118d12c353d98307e9e0c00638d",
       "rules": {
-        "method-name": 12,
-        "private-static-field-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AdminStatsOwnedFrameTests.cs",
-      "sourceSha256": "79600eeee3305a3db78a47e6c583a9a0f83dd8ea5ef20c377cd65e955b36f62f",
-      "violationCount": 4,
-      "violationDigest": "8b2e90dbb32f5331203a116255687be45ad83c2decc359fec81cff9aeb72c02a",
+      "sourceSha256": "47539326f1f527ad6aaf19f6720114d4032c41e5fa37b2cffeda54fbb2eb0657",
+      "violationCount": 1,
+      "violationDigest": "fdbaeea17ec7ed0d20634db7eea3c55e2bb95897147f44de61fca89c1801e102",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AedsEncoderTests.cs",
-      "sourceSha256": "2f33a404ed1749daaa682ef12d7c0de4965cc11891487ac0cac2ff66f6f5cbcb",
-      "violationCount": 37,
-      "violationDigest": "0fc1753f6c61246d3e2557426fd4ce7b7884fa7c8a4126b195b84fee709b1165",
+      "sourceSha256": "7d2b16202b88a63c905ac7027bafeb79b20581266e70d9aa6bb0e83b29378b74",
+      "violationCount": 1,
+      "violationDigest": "a07ec222cae3b6f1ec66bcad6fcb6a0cfb648b73c2388944eaaeb4debe7b582c",
       "rules": {
-        "method-name": 37
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AedsFrameNamingTests.cs",
-      "sourceSha256": "1b3da869d8be5006417cca90a14e1ceb84e43574583a9aee978e64f2237e6b30",
-      "violationCount": 2,
-      "violationDigest": "db7b9414662a6879ab7b4accb82ac5fb81f7574f5b557339ff43b522d133842d",
+      "sourceSha256": "f09629df9014679b56fc5e25cf3baf0194436bf9183b55c5bab8e12d0b87e649",
+      "violationCount": 5,
+      "violationDigest": "88b24dd3d901160d86d45f7146c966f7680647be93aca4b4e4793b1bc52d4cef",
       "rules": {
-        "method-name": 2
+        "using-group": 3,
+        "using-order": 2
       }
     },
     {
       "path": "tests/backend/Unit/AedsProtocolCrossLanguageTests.cs",
-      "sourceSha256": "903ba9a5391e306b36e041c284472711b6f4c0cc98e0dd79f3abb43d839bac6b",
-      "violationCount": 35,
-      "violationDigest": "20a5eadce9e3cd5f38dca8f901f3f17b033da8b18fd5d852f1acdaf7ce821be2",
+      "sourceSha256": "5baa4893d56d14892386334258b114957dd26f578cb225626a0c78b882bdc089",
+      "violationCount": 2,
+      "violationDigest": "d73c959a3b3af0d6c33fe84e46b24a0ffe2018407420166629a0ea8d3b222fa6",
       "rules": {
-        "method-name": 34,
-        "private-static-field-name": 1
+        "using-group": 1,
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymitySetPolicyTests.cs",
-      "sourceSha256": "a75e2e85376567cf0fd8ead2bfd7fbb06dbd56584387c7e8bb8f6f13052492fd",
-      "violationCount": 4,
-      "violationDigest": "701b141501dc5a6b46807b0c343d51113a748a9babeaf25b7b57fde1c82a528f",
+      "sourceSha256": "bc8a56e31286e4804870500778ca45a64fac2c588367dd55576e59ee04806b99",
+      "violationCount": 1,
+      "violationDigest": "041aeb16593cbec2d50b995020d8227ef8b8a5334662db55a8a08053c0819050",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs",
-      "sourceSha256": "d9e38a4d1e982231847bdd932b069546fefb206fb59c70913136bbf2a68af029",
-      "violationCount": 11,
-      "violationDigest": "c6f737e7720d566655c5718c351d9e1e9bc56c178f7c430c6a6aa224a6c021f7",
+      "sourceSha256": "4373d9e6edc84fef90786ade3bbc09d515522fd2d6f7dc8b4a139fcee79524a2",
+      "violationCount": 1,
+      "violationDigest": "fc04fee090a2f8418403cb844c0bd3e2a45694f2e52baf62685e61c2be7337d9",
       "rules": {
-        "method-name": 11
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousCommentPolicyTests.cs",
-      "sourceSha256": "cf8cac3c4be78a36a4c8c5fc910d9328544bd5fea6295d4ef1e5c0fa29d81872",
-      "violationCount": 7,
-      "violationDigest": "cba06ced60ee0baed364ecc81e7522b82f44a663ed6c2c76a1b17cb6b18ad821",
+      "sourceSha256": "dab4f035d85a2ec6fc241045c020f84c066a9ff101736674cee80ceb4c91fcc4",
+      "violationCount": 1,
+      "violationDigest": "13aac3ca1d75d13b102493a45d49cd1d7aa55a1dab161c6544898fa07529ae50",
       "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousCommentSubmitTests.cs",
-      "sourceSha256": "0b2f95f0c3e557f9b6fff6f84706a0e68c1ce9c24376591def58d773f890079b",
-      "violationCount": 24,
-      "violationDigest": "dde0d6d0f800af71a4b44e2ef11b67c6df20ac1c7b80dd48fde51075a4f89150",
+      "sourceSha256": "65ed617452160f833aad1ff9b0e29d19e85cde5209e2bc1f023d8b4ee559562a",
+      "violationCount": 1,
+      "violationDigest": "bf4f17457516afde5c28943a2a78d91fdd35f797227d7851060dbe043595e1fc",
       "rules": {
-        "method-name": 23,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousCommentTicketServiceTests.cs",
-      "sourceSha256": "dc4c110a4ed3e1990e4ad15dea18b9a5539177249ff8d0ee34f18fd8dc839aac",
-      "violationCount": 23,
-      "violationDigest": "f29b0bb0f64c9488a76d8eae6576ad5f7fc7faa74cffc98748c5aecf34a56ca7",
+      "sourceSha256": "812a2b5bf23ac1b9c14322150efb3a79e8344174c659e8b0e9c9412105363c4f",
+      "violationCount": 1,
+      "violationDigest": "4df78e5dea0cb3901db9c3191bca91a1cf64b9f76d76e1c49b12378ea242fd40",
       "rules": {
-        "method-name": 14,
-        "private-static-field-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousCredentialIssuerTests.cs",
-      "sourceSha256": "c55304cf3d383766819e3a5699f8ce02692f9541e2b81cb463d37ad16a6b1a98",
-      "violationCount": 34,
-      "violationDigest": "1fbf8ed0a8719746e7493adfc83a880f098c4c5526f503acc056956e38b76abb",
+      "sourceSha256": "df2591eb1cac3682fef2729918bfc03246118d83122b88e161abfd0f97ab3436",
+      "violationCount": 1,
+      "violationDigest": "8e0e766ebe2b9d029ede2ec76d5f12ecc3ac2634234bb4a96bb56d032c0eccfa",
       "rules": {
-        "method-name": 32,
-        "private-static-field-name": 2
-      }
-    },
-    {
-      "path": "tests/backend/Unit/AnonymousCredentialRevocationAccumulatorPerformanceTests.cs",
-      "sourceSha256": "fd9fc86c97cf6f1aebafee78e5fec2a1b8356573ffca449af784970765d1159a",
-      "violationCount": 3,
-      "violationDigest": "0193afbb8f4d1bdf53f8f5c36a378eb42406e029697b5abbfd53a4bc3bc80319",
-      "rules": {
-        "method-name": 2,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousCredentialRevocationArtifactServiceTests.cs",
-      "sourceSha256": "9f2b525ff19542bcbcc6c37ff9008abb3f3b4897481cab8290cc3ce3e969ab66",
-      "violationCount": 5,
-      "violationDigest": "4d93fb4e3e25e2678ca66922806404c38ccdac68983fb55f8d492eff88f938da",
+      "sourceSha256": "9225fbca68edb8cb17e7c45d6a21d2237f473767d7f1a4829b3eaddcd5185f71",
+      "violationCount": 2,
+      "violationDigest": "94b79745ec6895e6e90c55ec4d8234d25cf635a3887528d727ab96f4cc21ef11",
       "rules": {
-        "method-name": 1,
         "one-declaration": 1,
-        "private-static-field-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousCredentialRootEndpointTests.cs",
-      "sourceSha256": "94b897a6119df268f685acf62a3738eaf70db22c26ddd681e98b4533c3e946da",
-      "violationCount": 9,
-      "violationDigest": "b98c0a18045d0b4a5487e435f0ca186be5eb20d2c984d22097b4146df18b58ea",
+      "sourceSha256": "6cda4e36e7b102dc9ce8394dd4a0351241b1c187584c56c2efba4242fe94b820",
+      "violationCount": 1,
+      "violationDigest": "851eb017c7c325de1961279adf44a21076668922bbc0c254b127cb67987151ab",
       "rules": {
-        "method-name": 8,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs",
-      "sourceSha256": "66a15df6aa1fe6a9266e5c19f3ecb5ce37e37c0e77eb1f1b39250bdcddab75b3",
-      "violationCount": 24,
-      "violationDigest": "ce9fc303f506c9b95477df4958271abb4710c9e64e7770d655ee66e23599a2d0",
+      "sourceSha256": "d9c5b7ccbcdf3908d9807895a92e6f50752e322895c467e757225b687934e12d",
+      "violationCount": 1,
+      "violationDigest": "0e28e108835b68930d44cc6a369d2112a6cfe7164fa55ea6a93cf28fa1f76128",
       "rules": {
-        "method-name": 20,
-        "private-static-field-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousGatewayHeaderGuardMiddlewareTests.cs",
-      "sourceSha256": "4768b243530920d16bced9f8a2ff2543c14e4e7da792e1bc81cc63ff419c6363",
-      "violationCount": 3,
-      "violationDigest": "e6d4294a9f2c1172f3f32f72c468f7490d45419b381e99c3ef6a13c014d7bd5e",
+      "sourceSha256": "cc2f649acd450b82ee2959735716edda93adbae6c94eae9c23631ebdcd8da193",
+      "violationCount": 1,
+      "violationDigest": "c75c44492679ea6751611e6fe4968bcfa02b01256238fe8c3ab3e9abdd3c4861",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousGovernanceAdminEndpointTests.cs",
-      "sourceSha256": "19d14702d3fa2f67fb3c49c84c30d8b913e533acc29073ec883095dac3f992d5",
-      "violationCount": 3,
-      "violationDigest": "b4864f2678b3ee90a33dad07a66afc1cad379df2ec6a23268dd13274a4401549",
+      "sourceSha256": "1ef84ce31ccdb56f28090febb5bc3b98611d5b9dedd6012e7ac90fbc57eb08fc",
+      "violationCount": 1,
+      "violationDigest": "9ddf422fca5a3338e68ec767d69d8ccaaa90864b51d6b4e6b6991a1ddc8a21c4",
       "rules": {
-        "method-name": 3
-      }
-    },
-    {
-      "path": "tests/backend/Unit/AnonymousIdentitySerializationTests.cs",
-      "sourceSha256": "7380d27275def552c93f418167d4366a7e4f8cc818610c359d37544f18251732",
-      "violationCount": 5,
-      "violationDigest": "bf82177349680b6d8ec52ac38357ea3e7b6fdc7dfe4557cb0ec67513faae14bc",
-      "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
-      "sourceSha256": "87521121c70d96f8b4233cdf36aa6cf21a58ecc645b5f7c2b445f07290cba0ed",
-      "violationCount": 4,
-      "violationDigest": "15e678401db16154d99a87dbfbd83418fd71974588106c82a0ead9ae8368f8d1",
+      "sourceSha256": "93ea3ea50250bddbb0ba2190af3031c2b77782ab3adc647669d59ca7d2a5ad30",
+      "violationCount": 1,
+      "violationDigest": "89636312196dd5d9b3cf5a91a4fc71add6a625f17a59cd2613e5ad4bdd7e6ed8",
       "rules": {
-        "method-name": 4
-      }
-    },
-    {
-      "path": "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
-      "sourceSha256": "e54eaeac770553a00194616796e262f37d20f2130182a4e6a55991882c1c88ed",
-      "violationCount": 17,
-      "violationDigest": "bec5c2ce3dddd44a4ae0f398406f3e040f780adf49e4630081d163d110ebab5a",
-      "rules": {
-        "method-name": 6,
-        "private-field-name": 11
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AnonymousZkProdWrapperFixtureTests.cs",
-      "sourceSha256": "d3732241b368b7d8b64cfa98a68218c10792ed40e8dfea7853c5915a70a44c58",
-      "violationCount": 9,
-      "violationDigest": "1a0f942877f9f52cdbbd594d1ef88ae28e72a59a5dd1e61e03560d076874251d",
+      "sourceSha256": "db7efdae2512f1c61aa8d9d27f93e753a96b12558420608339f1c0e116fbfe0d",
+      "violationCount": 1,
+      "violationDigest": "879c28459f4ab507975a88c5082c4a327a16bf7117c95240b634d20ad91c03f8",
       "rules": {
-        "method-name": 5,
-        "private-static-field-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AntiCrawlerPipelineTests.cs",
-      "sourceSha256": "a5fed492e64862e994f5f79fcf1dc09ef3c0045172966cbe10face657aac1321",
-      "violationCount": 5,
-      "violationDigest": "8e3dcf21bea39198767a3698aa70c62893665dda04053f1cca417deb4876e89c",
+      "sourceSha256": "dc81bc7b6aab740c2c653622bbe3d4c87f56e27f02ff379a828cda82154b8dc7",
+      "violationCount": 1,
+      "violationDigest": "e9396115afd95d3be6b6aa617a88e95dc788e2fabea7aedb3644859b917e177d",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AntiCrawlerPolicyBehaviorTests.cs",
-      "sourceSha256": "9d03dbcf7e8c9c3e1c6ad96dbc9beddee103bda0f2e901e23f02a391b6fa00de",
-      "violationCount": 5,
-      "violationDigest": "baa96bf15fd3fd793341679b7af50db038f6e66f962f6e7974346058dcbaa1f6",
+      "sourceSha256": "3148ac69698334712722ad1e5259091dfc2846babfdb0a186dfd074c4fe21a94",
+      "violationCount": 1,
+      "violationDigest": "afc780b8db080cce3e8f7d738391c4c80a724115de24a70d256eab4a83d244b7",
       "rules": {
-        "method-name": 5
-      }
-    },
-    {
-      "path": "tests/backend/Unit/AntiSpamModerationServiceTests.cs",
-      "sourceSha256": "90e8384b1b989f635299f5a1d5a9502737bd058efc09808be6a4f064454efbe4",
-      "violationCount": 4,
-      "violationDigest": "11b6238f9a8787344289c2b61d896fe00247f3b4d6c70e5fe4a9aa17b4c925d8",
-      "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ArchitectureMaintainabilityBehaviorTests.cs",
-      "sourceSha256": "84838e09020a7b7f79cee438972df670d426106275781740bcd5a75b4f63d0e2",
-      "violationCount": 3,
-      "violationDigest": "eba0ebbd50f0e62d6a043c44725d6d893ffbc8f5e429e702f59870ae1c281520",
+      "sourceSha256": "caddc362c46c768ce9cee5cea4841d244b5797f12d3f38d340b95a38fa85f8b4",
+      "violationCount": 1,
+      "violationDigest": "983ebab7877b37ef2c354d988c720ddc37721c54f33a0cd90b8ae697b2aa825d",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/Argon2idPoSpaceV1ChallengeProviderTests.cs",
-      "sourceSha256": "e039e83296f98393d22298e8b0e714b9ff31e4c391ae32c25da55f1e0da13228",
-      "violationCount": 7,
-      "violationDigest": "904848fbc5b296b1c37aefcd359d3e4ecabcce3c9ef0b89b61f62d66ca62f2ca",
+      "sourceSha256": "363acec083383c177276412f4e8cbbe3cd4f816368cf3eb8fcf3c30c5238b32b",
+      "violationCount": 1,
+      "violationDigest": "8b44c18ae473c7440079d6550263e9006155a2a1a466c02fb85182774e33818f",
       "rules": {
-        "method-name": 7
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ArticleCanonicalHashTests.cs",
-      "sourceSha256": "b546f6a165dc499b99370b9cff510e82afa233b8b4e75f9482235c6b5284a5f6",
-      "violationCount": 6,
-      "violationDigest": "24894d3fff1e12f8de0dddb2e6317221dcb268e1bc9f554f380f3e2b34b2de10",
-      "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ArticleCoreQueryCacheBehaviorTests.cs",
-      "sourceSha256": "ed86cbd78eeb052ff0e3bd46e90e417dfb8eab24634366d8d2901f1168abff80",
-      "violationCount": 4,
-      "violationDigest": "56cf70138cd7f50cb3efd5c61ced895e060add953ff61a0ff6c20f71e980e1ff",
+      "sourceSha256": "066642bf0341512ed48a9788366987bbfb4fc0de08365035a542f1c6ca1d8167",
+      "violationCount": 1,
+      "violationDigest": "f286b215b65a970a6936bc2d466f1c4e7a41333c45588e7b074677d837d2596b",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
-      "sourceSha256": "b53c218111b059fc3297ebfc7acd0769325ae61457ff323e5e040a538122192a",
-      "violationCount": 6,
-      "violationDigest": "bffe469f53e368964724eae1ac8dc8f1a736b2b1f6b337d837cb73529ee23c78",
+      "sourceSha256": "f256371a756996eb234a2d64ce21857cd4011d6043e510234ba4599a4da5d32a",
+      "violationCount": 1,
+      "violationDigest": "4f1ac4eecdf0d3376165007b3d15ee9286c2f83d5d81b7bf14b2b04cea3b07af",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs",
-      "sourceSha256": "61da9f4624cae5d7cf1460816a87893e730af4d85f3e2537a9c38f57a88bc38a",
-      "violationCount": 7,
-      "violationDigest": "6d56cac9ebed84759f32337fdea890d778ffd67c59225298b19dc1b44511675b",
+      "sourceSha256": "f20bc23700ea9a461c599ed9b4e2c30ccfd14d0013eca360c3911044e7ada9e5",
+      "violationCount": 1,
+      "violationDigest": "23c874d5f59cac4b188a50cfd7bd47a1e65753de003ef65d87e1f2ad9ed101d8",
       "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ArticleEndpointServiceTests.cs",
-      "sourceSha256": "abe660fd51b1248cc43de8f5017944fa08d94021c020d7f2ad030ee8fd05def1",
-      "violationCount": 11,
-      "violationDigest": "3fd83ff2418e229f952537ddfaea28b7f5bad680792f9560dabe7e8f658bf7fa",
+      "sourceSha256": "1cc028305dfbb03ce957a04c4b4500913768ec64d261695aa2fccb1878bd3e1c",
+      "violationCount": 1,
+      "violationDigest": "9eebcaf25d483f74f8bca40e8cdfc5bf82fb9bd8efe47492653816bb1f44c9a8",
       "rules": {
-        "method-name": 10,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ArticleMutationOutboxClaimLeaseTests.cs",
-      "sourceSha256": "8c689e78646ad729c1c9542fb8384792b2360e8bf8d77c04133d41568fcc94ee",
-      "violationCount": 6,
-      "violationDigest": "6ab9dee207910b71543a079952862ff761923fd9b6ab24ec982509b69def4cf5",
+      "sourceSha256": "f671ebbcc5574b9e5b70d4532a36174fe196ce3ba0c18733e1e4b96767b924cd",
+      "violationCount": 1,
+      "violationDigest": "01d8802ea7c83c46abbff4aff679b2b0bae000a83720fa61f3c0dd7542340bfe",
       "rules": {
-        "method-name": 6
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ArticleProjectionTests.cs",
-      "sourceSha256": "7952f44f3597452c2a844c62cd20a1decbf248fa5543ab007f94072c147c9f96",
-      "violationCount": 14,
-      "violationDigest": "9fda215eb846574bf27fb614878b55caefc677e94f22b40ee4b842728804498b",
-      "rules": {
-        "method-name": 14
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ArticlePublicationTests.cs",
-      "sourceSha256": "e46cf385e0975520fbd62ad7975dff8ec6570b9409dbef906d649004f060caa7",
-      "violationCount": 6,
-      "violationDigest": "3a53a0fbd3b4bae31c8815dbcf679ef4a9ba3aecd6cc8ae2ef6897f352e54f52",
-      "rules": {
-        "method-name": 5,
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ArticleResponsibilityGovernanceTests.cs",
-      "sourceSha256": "978319de7be09ccaf3bc68704731a276d74a2e07cfde062121721796a6950538",
-      "violationCount": 8,
-      "violationDigest": "5d9f3d2345ff56dd033a105c3e555985f583acbc645c74b7f99b201fb55704a9",
-      "rules": {
-        "method-name": 8
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ArticleRevisionConcurrencyTests.cs",
-      "sourceSha256": "0adffde0324e7cd5496e6454023d8ce769467d7fe56dcdd7249a9f142156b16d",
-      "violationCount": 11,
-      "violationDigest": "89074c5ce89ab6b80df051a243cbd2c8b055ba1c9e6c964bb870fd72bec3f8f3",
+      "sourceSha256": "1554e1d8c8ce13e9315ddce65c02a2b1b2f39ff731919bf981a0b84d1830cc11",
+      "violationCount": 1,
+      "violationDigest": "2d50078c7f65cebb0c7ac6c3a7335e1ceda0f1699f53612653ebd0f2f3345fc1",
       "rules": {
-        "method-name": 10,
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ArticleRightsCanonicalHashTests.cs",
-      "sourceSha256": "fd4b1d0806effb85a1cbbf488db23b5baff263a65a4c1e91305dd0843d87704c",
-      "violationCount": 6,
-      "violationDigest": "28df9790ad6ff38d4998905cde09d2d2cfeff32ccea1dd9c6362f095610cc621",
-      "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ArticleRightsProofModelTests.cs",
-      "sourceSha256": "6b1d19b5bbdde023ac48d6324906cc4f9a1ce53fff16ce2459b6cf831ef9beb9",
-      "violationCount": 5,
-      "violationDigest": "5ebe9ba1630a4748060240bcf054b265ce96891b09b3a9eb6e3b6e5085d517ab",
+      "sourceSha256": "5c26f5cd5cf9847dc4b9a91a1a0b3f085028a02a52cb0a69f8f94d6072d45908",
+      "violationCount": 1,
+      "violationDigest": "7ce1ff1d98c82790ffc55dd41327dc85c764397e930dad3ddada89a0851a6584",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ArticleRightsWritePathTests.cs",
-      "sourceSha256": "05fce1c6332a81496988408d219ea24a5bb01f38821bea93173e7d6b0f8daef0",
-      "violationCount": 6,
-      "violationDigest": "bfd0cd3f424983cce7c6d109e8bc8d51ad4cf00f31d79d491c86e2579a5d4380",
+      "sourceSha256": "212f16ca2f4e676f1508cb1d52377feccb57b560b12db3e2200557018f7ffb4b",
+      "violationCount": 1,
+      "violationDigest": "08262b1fad4e1c638ceb4ce31360039571cdb69dade0e376801bb6d8880414f9",
       "rules": {
-        "method-name": 6
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ArticleServiceTests.cs",
-      "sourceSha256": "e45846af90194c90c771f5f1b30f22ccf624fed5046146c84bbddc46c5472d05",
-      "violationCount": 25,
-      "violationDigest": "5ea65d60f72620d4867ac445d1ead7a98afa5b44146b05c27cf7ad6b8455938c",
-      "rules": {
-        "method-name": 25
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
-      "sourceSha256": "923130596a153023e67de53592565163437a37cbaf6338b26369de7b68fa0829",
-      "violationCount": 40,
-      "violationDigest": "37772e830e89d365e96edb8f5ddc0bd05a76d48d4783b3de3dcde89fd4be9950",
+      "sourceSha256": "26c65f968e2155a4a7d58fb8bae79b4f633a4f2dc84dab5cf7b4677cb6549e9a",
+      "violationCount": 1,
+      "violationDigest": "03a001ea7283e6e5ebb6ac67bf3badc18d58b66e099833a7b6ca64512f08cf24",
       "rules": {
-        "method-name": 40
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ArticleViewWriteBufferTests.cs",
-      "sourceSha256": "e41a3338b89d35a5528bdab348c85685133bc540bf7c430ce9dd216aa55830c6",
-      "violationCount": 3,
-      "violationDigest": "5073d4d4810d2cbfd6840b8f6e07966c01115cc42f9f9fce636dffdc166d22c1",
+      "sourceSha256": "47d342cc753092406b5ef7a1fd39ff257c4ced8179224494b1fd2184d1cb4fa9",
+      "violationCount": 1,
+      "violationDigest": "152d8b896774fd4adb20165df1b3b5d5c099b3d29d452af66301eeda8ba6937d",
       "rules": {
-        "method-name": 3
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ArtifactDigestV1Tests.cs",
-      "sourceSha256": "123d6ce9966751d5bc2cd808eaecc69be3c7c316c2d14808f41020f8585ce7d0",
-      "violationCount": 8,
-      "violationDigest": "85d3fe0e90c245ffc29c0e47a60409edf55112c2127e2f43ed6f69effd296dbd",
-      "rules": {
-        "method-name": 8
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuditAndNormalizerTests.cs",
-      "sourceSha256": "b7c7a5936710f58632c7b8079c46ad58f1e318305dee095f65b28ba7a11e727a",
-      "violationCount": 22,
-      "violationDigest": "0e54a01ed41581b2b7702bf776908b90840db729512402cdab053f0148b14db8",
+      "sourceSha256": "1249d134dd2d6ed491e22b70bb03fac2e73c06143b7d03509a38917ce9909adb",
+      "violationCount": 1,
+      "violationDigest": "f230a5bf530424db7ec178fa9c63169081cf6d3edd49180bffb76bc1578a7f9a",
       "rules": {
-        "method-name": 22
-      }
-    },
-    {
-      "path": "tests/backend/Unit/AuditDetachedCheckpointTests.cs",
-      "sourceSha256": "957be7ab535788caf8a5f21931add9756ebe5cac1542c69528fd60e87e61b211",
-      "violationCount": 11,
-      "violationDigest": "208273c58830338e70924862a531ab173183c93cab9679e0713a26ca6554faa0",
-      "rules": {
-        "method-name": 9,
-        "private-static-field-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs",
-      "sourceSha256": "6c741b2ffb3b2d98875df5be08b6624e38998655fa8f51c9bfadb412f642488b",
+      "sourceSha256": "9831ec3fb23ebb40f5138b13bd923be9690789e89320d3edc7e75e3590acd664",
       "violationCount": 1,
-      "violationDigest": "f9811f25fd9b14a04bfdd71f4980615547adebe0cacc97160116a31425df4f4a",
+      "violationDigest": "c9b34fc6948520a11909f93493a792d6b560a7fb8076a00562c6aefc41db3ded",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuditLogChannelTests.cs",
-      "sourceSha256": "f3f02df461422be09aab54f9646560a6b7b375763af4ebb8adb23e10789e518e",
-      "violationCount": 4,
-      "violationDigest": "dde4a6915947134daf2aff98924a5aead4a14795b90d6d0f433c72ca5e4824ad",
+      "sourceSha256": "3f8f888cb077e3875ece90af468325ca015d8ef8b215891742f673f82d97b5c2",
+      "violationCount": 1,
+      "violationDigest": "909967287cf434f03939061b0580c9359413b53067a987ba56062cf7b7b505ad",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuditLogEventMapperTests.cs",
-      "sourceSha256": "207e524a1a13d0763373c7d33e898f8683eebce192d72dae97fe7be8b6d8932f",
-      "violationCount": 13,
-      "violationDigest": "5b55d2d02a737d60be918fa4cac0aa051655e41774900c15feeeea9bcc674e5c",
+      "sourceSha256": "291b1b149077c5225391e01107d5d436bf0c2c4c6535d2502792b16446bf4eb8",
+      "violationCount": 1,
+      "violationDigest": "752651b5c808c4ff8a5b81773d27a186b3523f7ebaca05881512c8b2cca540aa",
       "rules": {
-        "method-name": 12,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuditLogStoreTests.cs",
-      "sourceSha256": "4be9521682cf2110523ebb18875f678e0a6b6f26dc1abaead3b42bd8042ab13c",
-      "violationCount": 7,
-      "violationDigest": "25fa25c66d0101fbc20085d9cdbbe4feed183f9179b43533761185d04c107bdb",
+      "sourceSha256": "069eb3cd702d10afec92872199c44bb8be8ba5ecdbebc0c93410201f9175157e",
+      "violationCount": 1,
+      "violationDigest": "d35f38138d62bb365a5622ddb80c7c2533f284eed1e5461afdce3877174c37c4",
       "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuditLogWriterWorkerTests.cs",
-      "sourceSha256": "2c7b700acc432cc5d89dfe2bfd48c76b4f405ff4a5275c2c0919d7c725e132bf",
-      "violationCount": 4,
-      "violationDigest": "dbc48e617d12a8f530c1ccaa8d7d5b60fa8687a7e3e022df6f530f6fdf36eee8",
+      "sourceSha256": "9f724b4df933cc6b0cba4e223c234e73e6197b8012cdb1b4e836d881f122f281",
+      "violationCount": 1,
+      "violationDigest": "7f44e282e69fa66c2ad108822d177035ac56baea775e26653045a1ce6578df4c",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuditProjectionBehaviorTests.cs",
-      "sourceSha256": "d8f688c47ce20b25c57156d207330e3fac4ceac1b64c324a236267749e07fcd6",
-      "violationCount": 7,
-      "violationDigest": "0ed94751f04d1ab847bdae9ee84ca7a0149976d3f3141b42385fd1a8c1eb4153",
+      "sourceSha256": "46a4607a539483ce7dfff9945b3ab19581ad14f308016463c7a840edfc47cb38",
+      "violationCount": 1,
+      "violationDigest": "1a3a8794b4e8b7858e07fba1367c90a71a9d169d013cbeeba1982095f3dd94e6",
       "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuditRetentionPolicyTests.cs",
-      "sourceSha256": "d3bf507abd7e5fcca333e4686bbf5993e45b86ebb45cbc66c0e028a1a6f66504",
-      "violationCount": 9,
-      "violationDigest": "2800ec59d909b051e7fe16a1e3a27253e4f500eb5688934d5843980b80ce4476",
+      "sourceSha256": "99fb4e676a53770d07acc79e84a9b1928d4c988b1a8c0713697696ad0787cef4",
+      "violationCount": 1,
+      "violationDigest": "7117b33b1d3922a28014cea00cf6cffcf340554c0c62553b0e7ccce118b36042",
       "rules": {
-        "method-name": 7,
-        "private-static-field-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs",
-      "sourceSha256": "dafb719361b927673a35f830f4ed354308e36107bcea9e5bc2085a84192fc324",
-      "violationCount": 8,
-      "violationDigest": "b016b12af99817bf58085144d4e40e75498315869363c8afe9f1b52f5a8a1e71",
+      "sourceSha256": "c4025d3a359df7417290d17ba6fa3aebd8395723660d4771bcf16cb2c7b7dfd3",
+      "violationCount": 1,
+      "violationDigest": "0330c643009acd38f0543a923e1af859f73e5081c11f3e637b3020d0fd492d38",
       "rules": {
-        "method-name": 8
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthAndBoundaryTests.cs",
-      "sourceSha256": "71508e09de2d8f399e370beb902d91a208195b96b311795db24d6c0ecb159d30",
-      "violationCount": 17,
-      "violationDigest": "da0488528a12dee0cb0f1083692a9366018b80638c52bc819098fd71b35da0b3",
+      "sourceSha256": "7a440b6c6a9560168f9848b477fce90cb2eda5dc332cc591e469a40adfcd9b4c",
+      "violationCount": 4,
+      "violationDigest": "97028d6f59c8d7683c291706bbfa8bbf68d067b4c0ced782b79124306e2452a6",
       "rules": {
         "allman-brace": 2,
-        "method-name": 13,
         "one-statement": 1,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
-      "sourceSha256": "3ac2d4237397cf34dcb9733c53243e21975c522bdbffff57e872556487c306da",
-      "violationCount": 5,
-      "violationDigest": "7e92e9affe288455f3592db2a5e730cf0c574b8874f42d817d00f443c891d932",
+      "sourceSha256": "8212d59caa4b6ed0b3b36ada802b39bf27ee2028edf306001ba797515b473fc0",
+      "violationCount": 1,
+      "violationDigest": "e18cbda74035f5c8a5f7ea159706679dd00e817864a0acb67ba2b4c1add5c7e4",
       "rules": {
-        "method-name": 3,
-        "private-static-field-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthCookieServiceSecurityTests.cs",
-      "sourceSha256": "edd39133471a3afc3498bef2ad54161bb209a4577fd0d08ca643207d62b274ae",
-      "violationCount": 12,
-      "violationDigest": "5a075369d954f6c8cf14a9370e2e8d75224a8f36814fe6dfc8ba400c0c15958c",
+      "sourceSha256": "3b2505b8cfa48e70ca33ba4c3a08c838aaa86ac41a5eaa927fefa6cf7a5d5417",
+      "violationCount": 1,
+      "violationDigest": "8a17cd64e7123462749633d7dd4f163b072627758ff15601063154c42f319c83",
       "rules": {
-        "method-name": 12
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthoringAssetLibraryRebuildTests.cs",
-      "sourceSha256": "51332df6d670269a0c7af5c1186d0935dd24999bb925edb50599961a153cc0b2",
-      "violationCount": 2,
-      "violationDigest": "4c54015943476c87b197e90edf7ae80dd08cceb50ddd6d531373ad0e0a058b29",
+      "sourceSha256": "62eea5c791bce7e6671e03e09bcdb60fe3165d49d235a7befa7eba7b2a7353bd",
+      "violationCount": 1,
+      "violationDigest": "e56cd1222dbe54785c5aefdaf12b4c9e33fef5d15883a7a881ebc42c08d666f6",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthoringBulkModerationTransactionTests.cs",
-      "sourceSha256": "08d634076edfcb74e06edb75f201c5ceeb14b764fa5789e601963218931f27ca",
-      "violationCount": 2,
-      "violationDigest": "6a1088341861502756d73d0758baf848074661111e1436a4992825196da2f8b3",
+      "sourceSha256": "6b1632afd04ee3845fa55dd268a9804d79662ea5b30cb2f42ace8da7aa6cb7e6",
+      "violationCount": 1,
+      "violationDigest": "b6e0c6d73407081f0b02c03c580b8c738dc874db11393f43ef85ad7c75f1f873",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthoringDraftConcurrencyTests.cs",
-      "sourceSha256": "747562bad6fec5e1efe417826c3b4420fc91ff25ea754aa0794229875f74e9e2",
-      "violationCount": 2,
-      "violationDigest": "f733a2b213b052e7bdc56f906aa59d9fbe00854c5bd77e0a18cd630d9776cb07",
+      "sourceSha256": "495f1788c441992829c31070b01d553ce18c4b8c2a528a632bcd044747539b13",
+      "violationCount": 1,
+      "violationDigest": "ed1481190c96f89431af2350fedd32519c2f5bbb5ee14ebae9db7e2ab0e6c146",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthoringNativeAedsEndpointTests.cs",
-      "sourceSha256": "34ed5565a4f0cf6e88280bd2e9189722fe417b81095a5adef3e2d37fd52dea32",
-      "violationCount": 2,
-      "violationDigest": "4b652fde0603299b4f68f679dfaeeafb78e3f4ac681396ffcebe495523ec65a2",
+      "sourceSha256": "44efbc7ca7324908d43dc2a5fc5c7d3899870f57f22392000fa5aa193709789a",
+      "violationCount": 1,
+      "violationDigest": "3f3f45636efa4442bb8df642c9afa9e69aefdf89f09305dc9ead124ea245f944",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthoringRevisionRestoreTests.cs",
-      "sourceSha256": "06e8d8aa26188377d777291a7a39db3bd1f8272254d9af82da443708ddafc1af",
-      "violationCount": 2,
-      "violationDigest": "d871d0cb5966c7cabec53b843fcce163468720b0a38cd18c24c9a8f8119ffd99",
+      "sourceSha256": "e2edd54bef5edc24b706117fe445d9862704cc18da8a34b598dfea0889149dd8",
+      "violationCount": 1,
+      "violationDigest": "52ce6f5619a00ffe04e81db000941d38b2e74996855e7d5c28902f7ee619dd41",
       "rules": {
-        "method-name": 1,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs",
-      "sourceSha256": "93d0cb551f7d5e6a6c0321cfe7a139f83d35a6d2420a78c26f2d4ff5062a7cdb",
-      "violationCount": 3,
-      "violationDigest": "b25df58c42ba33a58f6478c23f0573c00d300ad721201dfae3b21d9ee3035fa6",
+      "sourceSha256": "ef94debb8beb7f59e6ef07044e7f539d155fc3c0bb81615a553067da505729e0",
+      "violationCount": 1,
+      "violationDigest": "6c83817166694f5feb8ddb8a0e5158898292ebe724a68d82c2ccdd5f33f51f59",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthoringWorkflowServiceTests.cs",
-      "sourceSha256": "fd1065d079305041995324f0f49ab1059c98a5625ebd4386d56b4607bbf44a52",
-      "violationCount": 27,
-      "violationDigest": "aee7deefc43c79f5da9803b487df856cf82de345ddb8254e35f80da02fa5ddeb",
+      "sourceSha256": "f431cff839f22cb8d48637934301d8e08e551b2672e800d9889bc7c1123e39d0",
+      "violationCount": 1,
+      "violationDigest": "94faaaad9ba196100399e4a7ffb1cb688786d3f92b79f3c625df5ba479f49a82",
       "rules": {
-        "method-name": 27
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthorizationAccessControlHardeningTests.cs",
-      "sourceSha256": "0d9a8b8d2f2e4b5873f540e31880cc26ddd55034ff7d701b9bce0ae773bce81a",
-      "violationCount": 10,
-      "violationDigest": "81042f684c2c90445649fe9ba836f5d36dbb5a12c29f47b79edf06bf2e93e6f3",
+      "sourceSha256": "07e5a7a281f93ad70ec1ebd299d9ec43935e80f3543def7f9ecc866a30785cdd",
+      "violationCount": 1,
+      "violationDigest": "110c2917c41d125c670c815e47ecb3c3c59352e9863afb0835c7308f150f2a89",
       "rules": {
-        "method-name": 10
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
-      "sourceSha256": "cde433c526ddf0be0b2db25a226e46031c925987677116274a5f1dff04e775bd",
-      "violationCount": 6,
-      "violationDigest": "4ffbfea7a38e41bcf4017ad27e5c891e8679c7dff10ed49fc9d3adbf468bcafe",
+      "sourceSha256": "ab5d28e1c8b25394853feede01c329bbccce6cb9bc896cb1d7167a6d3545d318",
+      "violationCount": 1,
+      "violationDigest": "2b27d2f477a2c2ad10e973b3fe1fe8df899dcd9aa5dbf738b709ae63538a78c1",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/AuthSecurityHardeningTests.cs",
-      "sourceSha256": "b23dffb937074b74bc135787d59708a7958310962d0d9cc35f7dd08bcab44ea0",
-      "violationCount": 11,
-      "violationDigest": "973a6f1690332f46833863429ef9df191713ca98dd0b2324b83fc7b241a321d2",
+      "sourceSha256": "997f30ef41c9a3ff78e4bbda7bd6bd08cb393fa9f995c6091db189378aa46ade",
+      "violationCount": 1,
+      "violationDigest": "6a7dfe008ddc8a5f21b7fd7e876fba64502166c15331eabe114fb6c81bc78447",
       "rules": {
-        "method-name": 11
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
-      "sourceSha256": "2c0120340c9a226eff727fd582da4dbdb2c1300bb6dc7c326fcf0bfeb8464db5",
-      "violationCount": 7,
-      "violationDigest": "2a8289f7a38b8d963ef5c0bb170ebc18d41490046a1df057b53fbf8eeafcf192",
+      "sourceSha256": "0ac616aab24652d98020f6f6b3c3dc9d23a15c4923cbec173c36c40e32406434",
+      "violationCount": 2,
+      "violationDigest": "c9155eb04878476ef0643c80a2f550320056ef3e144c99186ca5380ec35514cc",
       "rules": {
-        "method-name": 7
-      }
-    },
-    {
-      "path": "tests/backend/Unit/BackendAuthStateMachineTests.cs",
-      "sourceSha256": "3142a45ead4641cfc7f1c3d6e7846048f56da09a1f1bb2721f74a918f1fa1ba8",
-      "violationCount": 5,
-      "violationDigest": "6ecc2a18d6edcac83f09c8129832ec93948a48e578a1fadd4a9cad3a6a5446dd",
-      "rules": {
-        "method-name": 5
-      }
-    },
-    {
-      "path": "tests/backend/Unit/BackendConcurrencyModelTests.cs",
-      "sourceSha256": "2458b090dee03708cbbd2b83a3cb22248c41180e0497a6e95d1550444342dbd6",
-      "violationCount": 4,
-      "violationDigest": "9ad60d02d3ddf0be155ba2b88a08a55d6f2facfe0c132da71beaeedc1f3e196f",
-      "rules": {
-        "method-name": 4
-      }
-    },
-    {
-      "path": "tests/backend/Unit/BackendGoldenCatalogTests.cs",
-      "sourceSha256": "da587524bd30be5411d30b61f5c4b34344483d99badd00447a90702a12f89c6e",
-      "violationCount": 5,
-      "violationDigest": "b3802e200db8cc46e9ebb4d0d2d288dff387b7a6cf81d5dcb284b92f1e4f6fa9",
-      "rules": {
-        "method-name": 5
-      }
-    },
-    {
-      "path": "tests/backend/Unit/BackendPropertyTests.cs",
-      "sourceSha256": "02999542e636f9f1672fe169013758a1f097946efd2087caf3b811a624102540",
-      "violationCount": 5,
-      "violationDigest": "bc7862212f3d8efdec8723fb03c08cd77ca2f4c5d7ead8b470f6b18463c2fda8",
-      "rules": {
-        "method-name": 5
+        "using-group": 1,
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/BackendTestGovernanceTests.cs",
-      "sourceSha256": "f18eeb1a7881f69a9c9f9444a639d35599c14e098fb65d6516ac3fab2af07a11",
-      "violationCount": 3,
-      "violationDigest": "be851ae695053d257f4ac2a161098343ef0a6d6d9b17e3fc88aaa8a1f2306faf",
+      "sourceSha256": "c9ea328933290564910d17866653a9fddccf33eb277decba0f125906d8429422",
+      "violationCount": 1,
+      "violationDigest": "598f6e09987e97caf4545cb7897a80544e4c68b716b40db65216cb0ef5d805db",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/BackgroundTaskExecutorTests.cs",
-      "sourceSha256": "6c30ca01767c8da94a59eb5c0828420a8d20f1cc246ec4ca2265f1a0e2e852a5",
+      "sourceSha256": "e0d4a7975050324a0dd03f50eda3b23dff1ca7167c692036d8a7ac08129e04e5",
       "violationCount": 1,
-      "violationDigest": "e057810ca37dc24b17ab5b56dccd461bdfdea2b9f9dec44f999791cabf19eaa5",
+      "violationDigest": "e9d51e2da5da2eea8b802f9cc47ff7ecdfca04d67f1bfaf4a6da2068221e2144",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/BackgroundWorkerLeaseTests.cs",
-      "sourceSha256": "293242833614489edcc06d10b1d54c24114c8bd8c536fe895c5c4c85a221269a",
-      "violationCount": 6,
-      "violationDigest": "08681564c38487177385697d46b1bb0c895ddedcbdb5fcb9b00dc1cd75d74e10",
+      "sourceSha256": "912f915f25e3bfcbebb0216001a92b35faaac7c213b31ed6a2bede30488648fd",
+      "violationCount": 1,
+      "violationDigest": "fa490694c0249afb84a052b72d42bc8c9ea2b36b94e912e970e785ac423ba466",
       "rules": {
-        "method-name": 6
-      }
-    },
-    {
-      "path": "tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs",
-      "sourceSha256": "eb25f18ea9bf011df0a7e6ec6a3cc9190891db2fd0a7db8e2827a9ccb51c70e7",
-      "violationCount": 4,
-      "violationDigest": "9ac951005c2ed4fabb758aadbeeb248c4092132b63301e2c233831041440ce8c",
-      "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs",
-      "sourceSha256": "c5eb5720b8e6720a39d38de67f7c76d3542267162f4228aa5434f278fbfffaf0",
-      "violationCount": 9,
-      "violationDigest": "7967dff51c327f782e22739d58060fa4a16a3077d20ed2c8cfaaff9c27dc2028",
+      "sourceSha256": "14523acbafa1a69c2100bbbabcf472ed4dc8e4616d020c15d15e5c8eca50e88b",
+      "violationCount": 1,
+      "violationDigest": "a93f2e4ed3d3653d34b0018abea202e4ee06dc6b0ff32472aed9308af1e690cc",
       "rules": {
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/BinaryFramePipeWriterTests.cs",
-      "sourceSha256": "becc816516dfbaf201c4432d0b1e63275d7549a31ae6bc990a5a0e58050bea79",
-      "violationCount": 3,
-      "violationDigest": "bec6deca11980aaec05eb792973cfe8dd20aa72db0075f40bd7dff268a3f67e6",
+      "sourceSha256": "dc33dbc2805b7634085ebf6b0ba3f8b21a3be1c6b51cded5392669bf56f2ea9b",
+      "violationCount": 1,
+      "violationDigest": "12178f818b88b14d19e5444233c96a3285700b6ae8580cbfa533ce0eceedf914",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/BinaryTransportHotPathContractTests.cs",
-      "sourceSha256": "f1065395f7114f9b473b118b98830709465c0fb9bd553994f722c679c0026f9d",
-      "violationCount": 10,
-      "violationDigest": "b9ad497fe7f50f0541cc0c22739ada8f01f58ddfd165d0bcbdcc7c83296adbc8",
+      "sourceSha256": "6d060a2761e718a7effc4de7c67ebf32dd80b2a361dac4a3e8a9e4d1ab1bd6cb",
+      "violationCount": 1,
+      "violationDigest": "e7bea14c1b06ca43a634e28715a8a60df5ec85cb4ddd76ad264804932a10b148",
       "rules": {
-        "method-name": 10
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/BlacklistServiceTests.cs",
-      "sourceSha256": "c2e0767ba58323bed11297a65c9266609840d7ea21f912f226aa3ae6e707511d",
-      "violationCount": 9,
-      "violationDigest": "10f4b2d8a288e9f8d1bbdc6b20c7540e15874b8a0e0ac3e88e410f29e183a51a",
+      "sourceSha256": "1507fd95e502251319577b2e5266a849edc0c135cb8fea4b6ffd346506ca2364",
+      "violationCount": 1,
+      "violationDigest": "d352873ce02b251ceaa900e6373bd945d628321d7ae82bd00cbc3dd908ca551a",
       "rules": {
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/BlindCredentialIssuanceTests.cs",
-      "sourceSha256": "cf8e1260885aa5bb3bd3d1fcc58b1506d4231decf197bf6f79b859aa9efde571",
-      "violationCount": 9,
-      "violationDigest": "47b04851582175668e97b3ce296e48a51f41e608ad906cf857fdc2986c519615",
+      "sourceSha256": "45e296b941957a29b5fcee5bf2eb5355fc4d181387dd5281b506a42b9d056b36",
+      "violationCount": 3,
+      "violationDigest": "25a6954e64c71c35294e65d9212ef77d446a32f8d6d38177cf8e5af2625cec9b",
       "rules": {
-        "method-name": 7,
-        "one-declaration": 2
+        "one-declaration": 2,
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/BlogDistributionArtifactTests.cs",
-      "sourceSha256": "bf1c3ba0f7f377434a5f60684dd71cae294c6068c86e69db956109070bd5c251",
+      "sourceSha256": "c9d2bb4b6fb1563b83fd1478fdd55b4f5683bc0c5e6fa43470e9c0261c59ee42",
       "violationCount": 1,
-      "violationDigest": "4e113eae86ac678b18fea7eccf7fabf45184ee401536a91e7bdf874092b1057a",
+      "violationDigest": "835518981f9064e3d2f7038d527542dca6a4298c03473d3b90d659c0a9ef6043",
       "rules": {
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/BlogDistributionServiceTests.cs",
-      "sourceSha256": "7d7be27cc917028035ffc84ac9bed9f852e54c7220b5d8501f02b584b1f7c772",
-      "violationCount": 2,
-      "violationDigest": "b9837724c7483cf805c8d4dc0eaadd0d68c2ef79aae7befceb756fb0a98c2df9",
-      "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CacheInvalidationDispatcherTests.cs",
-      "sourceSha256": "80d0207b417029d006ac6df75c5015ef7d6733bc3d2db904871d880f1b992f80",
-      "violationCount": 8,
-      "violationDigest": "cfeca6a3bb3188db8f251676d71f8349807a66c434ca6a791263179348cdde54",
+      "sourceSha256": "821f7074f3601cf1ba0956fe15291add393aa27b3a756729936c5d0910867390",
+      "violationCount": 1,
+      "violationDigest": "7125bcf8183d437a05244db89142989f093db8819c7e464a49dcf59142502cf2",
       "rules": {
-        "method-name": 8
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CacheMissCoordinatorTests.cs",
-      "sourceSha256": "d73eca28fafac4a55eeb47508e61c0f15e21c2e0c6609c8f5c1a478e3927e818",
-      "violationCount": 7,
-      "violationDigest": "8ff7b410f4d368a396caced6cc1415b60594446a6ed5ab9720793f95d7a37fee",
+      "sourceSha256": "92c7a0c6e01350d1e66ea21752540a1b536776898356466b86c7238c20d31d17",
+      "violationCount": 1,
+      "violationDigest": "ee1f57b06c7f344b5e41389c6d6a2201f7fa08623a82961c95526fd68cf1f8b8",
       "rules": {
-        "method-name": 7
-      }
-    },
-    {
-      "path": "tests/backend/Unit/CachePolicyTests.cs",
-      "sourceSha256": "50c29b27ff157e43f583176a271075a74abb88541c71c07a6613c46cd60e9f5b",
-      "violationCount": 12,
-      "violationDigest": "a0ca3bd01ee3ea89f854db67808abec2c7ae5aac332432a3f71644090864a1ff",
-      "rules": {
-        "method-name": 12
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs",
-      "sourceSha256": "ff49fa8476437c4441ee017789d67d9923bfd7313af87514babbe4cf6678253d",
-      "violationCount": 12,
-      "violationDigest": "7afe7f638b6a87639ab92f52c3f73a2b19f9484a1e7542ff70fe127508ed9fe1",
+      "sourceSha256": "417f2a9c1dd1a37aafe8a01d40c86ca633c3dec0bf5b076210f1ffd88ee12e33",
+      "violationCount": 1,
+      "violationDigest": "331507c5418f115faeb77a862003e3605c0d64ea11a37230162fdb4f2a3debe4",
       "rules": {
-        "method-name": 11,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ChallengeV2EventWriterTests.cs",
-      "sourceSha256": "fb75ac3c5a3506d84a88c38f2de6c93b093f4ed10d6ff30aaab1e2e5ecf15ac5",
-      "violationCount": 3,
-      "violationDigest": "debdc5b9d799eb026083927539328c2e0b80112a00008e9a4485a2aa058a6e59",
+      "sourceSha256": "5e1c94266697fe831209a34a14a69df7118c766847c8d74e6dff2c903890a9d4",
+      "violationCount": 1,
+      "violationDigest": "db88e1663268f2b91979f3c750ed3fb05dfa915d948780fd19df32f555f1344b",
       "rules": {
-        "method-name": 3
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ClaimsAndApiResponseTests.cs",
-      "sourceSha256": "fbafc58c851c53de8ede83a8f085fc1a63f49c655b9dc83b360a189ea7c74cdd",
-      "violationCount": 16,
-      "violationDigest": "baa58083c347adefe4e7abb0789c19f26e1b6fbb110df6a811fdcf828bf1f00e",
-      "rules": {
-        "method-name": 16
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CommentAuthorModeRetirementTests.cs",
-      "sourceSha256": "6f398912d1873bc6839b8cf5c92351447a28cbe4e16c59ef75a7c3a542a11be5",
-      "violationCount": 3,
-      "violationDigest": "b716f6827d7347563130b48ab77fb697ff1f39a2ec5b0b55f80fda6d81f2f06b",
+      "sourceSha256": "95479799ac102e8145ba92bfddf911ac8ab99d8cdf839222c40148f3dd10691a",
+      "violationCount": 1,
+      "violationDigest": "a97c67e7fc9345a4d28f0a15cda2117adc717cdaf2f2247a033f0557f901d651",
       "rules": {
-        "method-name": 3
-      }
-    },
-    {
-      "path": "tests/backend/Unit/CommentMarkdownPolicyTests.cs",
-      "sourceSha256": "300386f042ea3d9a71a6d2640bd6aa8a1e4abfd36f0dd0e34402b12c9feb0138",
-      "violationCount": 3,
-      "violationDigest": "a199998e7476b0cf37ba1ebbac6ae00bf0a985e68cfef69afb6e630a93d6dec3",
-      "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CommentModerationDispositionPolicyTests.cs",
-      "sourceSha256": "ce51de87e36dfe9ba9eebfedde1f0409aabb48605fd39a595a4aeb347cb1179b",
-      "violationCount": 7,
-      "violationDigest": "191380c76a8bbcaf5b2057a1df8fc64b920d44a4a37a4a7eeb3c389e2a4ed24e",
+      "sourceSha256": "09b54a3f6e403d13fe9d1b1b21ccda430bdd41cd60734c0c591598ef201ab83d",
+      "violationCount": 1,
+      "violationDigest": "556c520b6723e455bd43443a6ce518e49fef9b95930eb319218fc2b71079c7e0",
       "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
-      "sourceSha256": "7c7c676ba38f7429ef37019c2314b62c9951b9cf349c1c828f886d9e12a672de",
-      "violationCount": 5,
-      "violationDigest": "c7b4e0ff496cd47ab717b1ce46252cedc146b67d675d9b762c663cf15a35fc15",
+      "sourceSha256": "90b16bac3e59a83f9e165bf98fa75852caeec018bd7fb046bf435895f9e75aab",
+      "violationCount": 1,
+      "violationDigest": "3f2c554a7f92be97fa08c55ec42d2907047c69a2bf19fd22704cf38e7bad4719",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CommentRiskActionFilterTests.cs",
-      "sourceSha256": "ecd65d6fd6a5cfffa55c5b85001990a96a050f71de39296059d01f967561a65a",
-      "violationCount": 9,
-      "violationDigest": "cf74557e604021054a753116adafd772ed447e88e667660dd95bacb2c2d2327a",
+      "sourceSha256": "b3345a7eb510f164c89574b5976906d2171c4224610d3f3b00a36be839a5d9dd",
+      "violationCount": 4,
+      "violationDigest": "1d3f9f27cf4e0d6ddffd3546684d4f95029324e23cfa85b07456d1ecda87e72e",
       "rules": {
-        "method-name": 6,
-        "one-statement": 3
+        "one-statement": 3,
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CommentSecurityHardeningTests.cs",
-      "sourceSha256": "b81b55e58283fff7f2715817c592bcdd61e59e0348f1eb4ffb661b462205e6e7",
-      "violationCount": 16,
-      "violationDigest": "4b6c42e904e4e4324197dcc8042d1624d9eaf9aae591e061a0bcb9e1c0bcc36b",
+      "sourceSha256": "8efe6c22370f38a1a5eadf771a1e413508c6a5986fa00dedfa098193aade4d03",
+      "violationCount": 1,
+      "violationDigest": "638b81ce5419255d38cb43d3debea2ce18c685e8a4bc1093c854e8264a5d2ab9",
       "rules": {
-        "method-name": 16
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CommentServiceValidationTests.cs",
-      "sourceSha256": "5e4dcf0608fcc95a64482f1338aca5ffa90a64924cd9292f4e16919770402b46",
-      "violationCount": 30,
-      "violationDigest": "e22b7af9b6b7159dddb0dadecd3348fb0aa6b3b4f1d3acdd68886f8867033bc1",
+      "sourceSha256": "e995673801c700bf258a6f9a4dad998e1b1dce6672c7e4ca7c8aa628407591ee",
+      "violationCount": 1,
+      "violationDigest": "caf4a64254217c05a37e3467e100682a7f7096fbfa35925bb6ed26fb6d331880",
       "rules": {
-        "method-name": 30
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ContentFilterServiceTests.cs",
-      "sourceSha256": "865683a70068440c9f0cf7c156ae4806ef3332c4c90f5608d379a866bd8117f9",
-      "violationCount": 15,
-      "violationDigest": "50d3931eed44ebbd94122c45483aeab3959e8ff187d5da1ec2911561aa01d682",
+      "sourceSha256": "5bd2fe4f9bb4312ef7795ea63543191ca92a7b8d47deda089034c8eddc5ba542",
+      "violationCount": 1,
+      "violationDigest": "f7fdef8cc89786e0ac17ab9b34328effb25a00db038a56e0cf600ca392170a81",
       "rules": {
-        "method-name": 15
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CoreAndCodecTests.cs",
-      "sourceSha256": "6af599675b1b3e220017885a598bb93623f5cf7dedd55e0a3c50bffd238b3410",
-      "violationCount": 27,
-      "violationDigest": "5ef452b6ba102f8a5d77035ef471f9c10e7dd6224e3e7a942d3a083a61c4719b",
+      "sourceSha256": "408005e659fb32713044a105c38c7ee2893f8e6d00228f7616bf68bafd55ed58",
+      "violationCount": 4,
+      "violationDigest": "bf70d4da089d964bb7b9284286f3f83752c510a33e8d8e97739c9535c6691ed1",
       "rules": {
         "allman-brace": 2,
-        "method-name": 21,
-        "one-statement": 2,
-        "private-static-field-name": 2
+        "one-statement": 2
       }
     },
     {
       "path": "tests/backend/Unit/CoreCoverageHardeningTests.cs",
-      "sourceSha256": "d4587dbd013fe83db0706419f5892e0066e5056565eb93a2b45b9257c35f4f94",
-      "violationCount": 9,
-      "violationDigest": "7baaf407911189131184c8d43ba2ef8f3bda3a925e8714e56ff779c4c8f1e1b5",
+      "sourceSha256": "e77bfaf7a0f641b45ae7e6136b11eac2c326e0ec536073e0ddf622b8b517cab6",
+      "violationCount": 1,
+      "violationDigest": "a160ed0b880a3c045dcb5ea18056603e8933f7163e87799fba78cc6f2ca04f5a",
       "rules": {
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CoreServiceTests.cs",
-      "sourceSha256": "93e2f6a1481b60b646714f717bdada6161ecc77709223f4009514728a20c1acd",
-      "violationCount": 50,
-      "violationDigest": "f75938a1961b064ad16b75a336593727115945e18cdee5b55aa26ec162ebe2a7",
+      "sourceSha256": "483e1ddcea9612cb3ae7352a799788227f3a51a642b63c6f6910e4d899399ee7",
+      "violationCount": 1,
+      "violationDigest": "ed3f9c95733692803171dc8cdaa435baf19f2ea70218867e111c6459a5bab4d2",
       "rules": {
-        "method-name": 50
-      }
-    },
-    {
-      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
-      "sourceSha256": "07cfd5c530e17709a6b6fbe2dcc27434392ec6c8900b5c279d1cd034fb80fadc",
-      "violationCount": 3,
-      "violationDigest": "e669a9f3e6ade70f1ac99639e8f26464e6b193576040ec2c6c59a2ea3296f476",
-      "rules": {
-        "method-name": 2,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CrawlerDetectorServiceTests.cs",
-      "sourceSha256": "154d76f6e07778f9fc044f06aa4f00f4da4a6b14711f4be32944b9d54c297ea7",
-      "violationCount": 2,
-      "violationDigest": "81420f9ce7a8863d70ae4e10be9a9b08a00e22b0063776570399ab4f180a9d4f",
+      "sourceSha256": "83f1e72d32bc7008fd302f0baf30ef15a9703f4e9ae198765a4f44395efcc2f2",
+      "violationCount": 1,
+      "violationDigest": "4d9bd4818e22bcd85350b79d4f5efd181780181ecfa3ff08fc43b575c717955e",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs",
-      "sourceSha256": "3b8a258d847991b2cac4c33d90997b4e781decdff95afd3179ab65eb3ee1169d",
-      "violationCount": 6,
-      "violationDigest": "1f8122b7105c8abac4b00922a915412ee421889957a03ad5168ca65b2b3e6864",
+      "sourceSha256": "e415c35e853bbce7437b6ea1f00e2ec9c9ea5919409833c6f9474592ab10a4e6",
+      "violationCount": 2,
+      "violationDigest": "77d847a8056904d3fbea84232b9064e83fd1a95adf0d736d1375e87c2f8deb98",
       "rules": {
-        "method-name": 4,
         "one-declaration": 1,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CrawlerRiskServiceRiskReductionTests.cs",
-      "sourceSha256": "d6bc0bfc6061857624f936ef3e66b72457dda00e5ac29ce32fba06778b27050d",
-      "violationCount": 3,
-      "violationDigest": "8f138f5590001240402baf523e8c5d7795740975438876944be99c32e246617e",
+      "sourceSha256": "7021a4ba71f2c921b1c3a087f54e94eea757de31a709d1733ded7b97c92eb54e",
+      "violationCount": 1,
+      "violationDigest": "1a1a9c73b247ed495f5743135af9107dfb9ddae440b7e2b7912684c1113448e4",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CspNonceUtf8TemplateTests.cs",
-      "sourceSha256": "de59d2b3f9b636366f6da9adbb4a06e2d9becac7f406cad88def75cabef560e6",
-      "violationCount": 12,
-      "violationDigest": "3f1dc2077d4280fe82650799dcc9c96d0cb04b60d66662cf374d59b2d67601e0",
+      "sourceSha256": "7625057152e476f5501d5009495a676a5a49fe766277587321e885c945ad0d06",
+      "violationCount": 1,
+      "violationDigest": "1661c7745568e3e15ea83bf9f523d9a9b3424515f77fabb45f45608adf3ac2c4",
       "rules": {
-        "method-name": 12
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/CspReportEndpointsTests.cs",
-      "sourceSha256": "36893b76d7f654564c4bf125a143decaf8a7e47151e7926cfb1ccfc039a610cb",
-      "violationCount": 3,
-      "violationDigest": "38eabe9d4f4ca91d89a789b3c823d2cf025b5bbb187aea875a189a1ddbae8084",
-      "rules": {
-        "method-name": 3
-      }
-    },
-    {
-      "path": "tests/backend/Unit/CultureInvariantStringComparisonTests.cs",
-      "sourceSha256": "d1e5b1f1e25b83a3a83fc2236c577b98d8cb24d327b5a68c205fd0b84b74c7c1",
+      "sourceSha256": "78ff7971754d43a7c7a599a6b74830c4bb9fabd3b5f5429800a744e29890971d",
       "violationCount": 1,
-      "violationDigest": "a09d1ea7a68e5b74c878fd3409367ad0cb24bf90e2051958f96d3f2b497a906b",
+      "violationDigest": "69735523c8f67adfb5497ca79188eb6d67fea6f14566fe40f940f01fabbbbcce",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/DataProtectionKeyProtectionTests.cs",
-      "sourceSha256": "06c19c376900a78d4fa29d6c41ee1b234b957475772b0641f2bba1d2c1db800d",
-      "violationCount": 4,
-      "violationDigest": "99bfee2b607f41c856f428a172a82c3abe4a57c9be5a5727b8a2b323cace9e90",
+      "sourceSha256": "6c30eb5c537400fc73af4075dd7042bcc06da71128cabb09cad12c341550f55c",
+      "violationCount": 1,
+      "violationDigest": "7542f0714e8144c69a86b28589ebd988c05d2a444b8b4c20118603d5fbb2760c",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/DbConcurrencyGateTests.cs",
-      "sourceSha256": "8a07518a68c0ac6a1eafd86b07892ad07c8ec5fd8532135111c415e62a9f4dfb",
-      "violationCount": 4,
-      "violationDigest": "167ea603f6f7f3e3ea0638574fa9573b45c0f8fdc8384cb97b1a386c3586c3cc",
+      "sourceSha256": "65e03c1b7e69e4a8cf3307a16bd1310413c8a9eafc6d509bb32eab9090ab24e3",
+      "violationCount": 1,
+      "violationDigest": "443355d4c30f09891d7bb6e715efb9a74071b0e271f0da8843dc7ccafd757015",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/DependencyGraphValidationTests.cs",
-      "sourceSha256": "b361ea28745e714beadb2d924e39e40590e8cfc6787d3047a635fde8a543a33a",
-      "violationCount": 8,
-      "violationDigest": "08a7ced7f39f6f4f0e1a37316b6b53141ce13d07e11d659569ffff72d6236ca5",
+      "sourceSha256": "95e9d9015a4c2c9a7426319c6a6d768f3d5fab9f2c5b0b234fbdfe04a0fb446f",
+      "violationCount": 1,
+      "violationDigest": "03f74ec00ed0c6eb741598d6b6c9d07b1b6a276dbc3d6531b4fdc2708bcd52c8",
       "rules": {
-        "method-name": 8
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/DeploymentRuntimeStateTests.cs",
-      "sourceSha256": "43d053966f30599379e304a96593ac97855b84193752b59fbbc5c286d553e7fc",
-      "violationCount": 10,
-      "violationDigest": "5ce41b8441f451a0766f64f4cc87306f4d16476bedadf43f023fe10c7fa827ea",
+      "sourceSha256": "ba77b26df6ca4d8b48feb83f910001738d0a1619da0196049806619ba5860c8d",
+      "violationCount": 1,
+      "violationDigest": "a6fb9c78627811b11d04614191e7fd7c683fb54d726488a7d32ccffb0a863cbf",
       "rules": {
-        "method-name": 10
-      }
-    },
-    {
-      "path": "tests/backend/Unit/DestructiveMigrationProofTests.cs",
-      "sourceSha256": "2d14e21a5c38aa74d160257ce8a3c95739a128a6a0607f6c769423a7add377e3",
-      "violationCount": 5,
-      "violationDigest": "0462057ec0abb82c0c949f2fdd74a1702a4aa4272366176e405d7b98d32b3569",
-      "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/DevSeedSqlContractTests.cs",
-      "sourceSha256": "6f1430a5debbe1d6bd4f2133df586867eaeda8986e9da5ad2a5da809710d7c23",
+      "sourceSha256": "c27704ef19f7da6c2e87b519ecc591ea17ef4103c96bbf8a4ea98c3cfe301aaf",
       "violationCount": 1,
-      "violationDigest": "a7ce54ff96341953314b06f62265450208d159ff870d43229e423237e45d7614",
+      "violationDigest": "d4e89e86f412c121d0369c3130153f02335a0205c5c1c9f6a2e926765d787b5f",
       "rules": {
-        "method-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/DiLifetimeAnalyzerTests.cs",
-      "sourceSha256": "ca43201d8a9748dc9c04d231ff6ba5cad212187137eced793fb3db923f9c0b0d",
-      "violationCount": 4,
-      "violationDigest": "b7dabc8643fff4f27e9064f679cd8636bdcf880c5b34707ab48c7fafc4d5d3d2",
-      "rules": {
-        "method-name": 3,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
-      "sourceSha256": "41b5ae660a8c76e5f7c32533d4b6f7517deb5efede1ca5283cdb694f0a68a2f8",
-      "violationCount": 7,
-      "violationDigest": "e0c252c1890e8dea1ec86090d61993ed1b685266c87944ef1f1fe9966ecf3e96",
+      "sourceSha256": "e43a7c8fde25257962414dc54e7d4babb23ca5164816c3c8412c66941434b16f",
+      "violationCount": 1,
+      "violationDigest": "d72eeec9485bff27db9a7756a5c0b4883b1183acc0a39b75c7229b297eb9d979",
       "rules": {
-        "method-name": 7
-      }
-    },
-    {
-      "path": "tests/backend/Unit/FastCharValidatorTests.cs",
-      "sourceSha256": "6fd5b240a5af62c3b996e1b05c6dd0c2ed4ca8e4274d3f746a4174993e7fc1ae",
-      "violationCount": 8,
-      "violationDigest": "32392eca69331da0f82bd577ec6b933352bf8e8a246390fbc886b65e8f96927e",
-      "rules": {
-        "method-name": 8
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/FileServiceTests.cs",
-      "sourceSha256": "37523f0999febfd1f35c1132b5b7b04c1bcbac5de684e2e5b27467fc067e902d",
-      "violationCount": 78,
-      "violationDigest": "47ccbd0884af0ae63f0f94e3e2045065ec5812b130f34f26d3ee83aaa135eced",
+      "sourceSha256": "790f4bfa16067481738f62b8def9a515dc30207a01b50d64bfec3bd0aac9c52a",
+      "violationCount": 22,
+      "violationDigest": "aa9509ef514b7b5ebe3cae3349121bb48f613cf4149a9e4a318f7c1d46843d53",
       "rules": {
         "allman-brace": 21,
-        "method-name": 57
-      }
-    },
-    {
-      "path": "tests/backend/Unit/FsusAntiSpamModelRuntimeLoaderTests.cs",
-      "sourceSha256": "96f45ccc868ce157842aa639f3dfa0883002cfff8560f99b2658d19e88495ad1",
-      "violationCount": 7,
-      "violationDigest": "6766341456fc7673812fe9680355366ce30bfe5a11904662e55eeb48d3fff765",
-      "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/FsusHostRuntimeTuningTests.cs",
-      "sourceSha256": "3ef1d88fb84db5669e26fd4a6f331a44837aa5d396e35332b8ecf4cc661094ff",
-      "violationCount": 6,
-      "violationDigest": "b409ebdd5eef9ce819e1f145ab96f6df335d33941b978c58028e0083b40fdd10",
+      "sourceSha256": "51f4a3a03d57a9acb1950213b4872285bc20561c94262b3eab58bd4d6fbbcb7f",
+      "violationCount": 1,
+      "violationDigest": "0ecf6d4a75a870889cdfd1a6e2dccbded919c3534bf7748d54a120a2c9544b3b",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/GlobalExceptionMiddlewareTests.cs",
-      "sourceSha256": "1815e0052f72593fbb94c69460fb357246368eb640b3293ceb06da52562ce4c4",
-      "violationCount": 12,
-      "violationDigest": "1a436d58a07fcd7d006eafe5d041e2074ce3f3c88ababf785be41a9d1fcea542",
+      "sourceSha256": "0862d9e84c340408955203850e968e663e2b2d2d9c37fd2bd0558c244e9fb608",
+      "violationCount": 1,
+      "violationDigest": "7373bb1a044e79201b038ff0ec491c723a4574632e66e21c464a7d016eabc08e",
       "rules": {
-        "method-name": 12
-      }
-    },
-    {
-      "path": "tests/backend/Unit/HelperUtilsTests.cs",
-      "sourceSha256": "e4a617b8fe1539694de587bbebc63d3651b661be8ebe663358be85f102962635",
-      "violationCount": 19,
-      "violationDigest": "9969121e01eb2525c9c423d13dbd929d152dbcc148f6a2d6b626b1cdcaee212b",
-      "rules": {
-        "method-name": 19
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/HotStatsInvalidationCoalescerTests.cs",
-      "sourceSha256": "367b1dabe570ac19825003665d65188eb584afdab0bf0156788ac4eef5dcf725",
-      "violationCount": 5,
-      "violationDigest": "056c3da4a7eed718a6b139345e6feda0cf2969c98d4c681112f985d773ea3097",
+      "sourceSha256": "34ffd4eac45b0461c14d0c456478b3a2f337cdf4ded62551e0899bf4b10798e1",
+      "violationCount": 1,
+      "violationDigest": "cc41bc62c88bed02e86ea7b3361daf1da29790679186e4da8a7b676df8b0455d",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/HttpContextExtensionsTests.cs",
-      "sourceSha256": "cbf5c529860d5caa4353e09850cfb564aca8e4007a328b72ce277069565be91d",
-      "violationCount": 3,
-      "violationDigest": "0ff51a1db96e5b81347f691ca562360d1c03cde982ad5547169605fef7d3df33",
+      "sourceSha256": "300c811a243b1e2207dbcfa2735ec94475b23243ba87fd7a92e7251eea5ba887",
+      "violationCount": 1,
+      "violationDigest": "ee1ff1ac23b391d0b7890017f8b89fe14e2ed0c6bc6adf72109b053400b9f498",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/HttpHotPathPerformanceContractTests.cs",
-      "sourceSha256": "9fd26bf9b45d1f1324009f73d4236377f472eefe1f0e640bd750cc3c3bdefe62",
-      "violationCount": 2,
-      "violationDigest": "9e1b08b1f09aa646a110f3dea180da46dccbd1819c32d31f0bb797f86824d311",
+      "sourceSha256": "e6329a7a2d7d2ca500fcf6eb647e5b4e2e9c75ba85bcf77ad960328c68c17c3c",
+      "violationCount": 1,
+      "violationDigest": "5edfacfb983229344690ee204b34266be94268469c040932cdb1fe04f8a44539",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs",
-      "sourceSha256": "11306bf7aa1735b4ec6bee6b422476b667e301031009b10b915849a88f2f74ba",
-      "violationCount": 2,
-      "violationDigest": "def138aab0642691e3f4b779942c8f7e95f9e942654d9e378f5b5532c2f12873",
+      "sourceSha256": "cd466629cf0d22771ed237b072fb20e40f952a1ae01ed58e56bb16942fc1295f",
+      "violationCount": 1,
+      "violationDigest": "dc3f736a4cfd7e402553f2d61b26f5a2564e1bb0155ba453f61fb4492afc45f4",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/HumanReadProofRequestBindingTests.cs",
-      "sourceSha256": "a0f66bbfd6e4030861f70b663ec68bcf318988dc2903f532453281a377329787",
-      "violationCount": 4,
-      "violationDigest": "90140829ba139ea7f1a329596548ec7c5ed7c8c2915c3788ae9fac48904066b7",
+      "sourceSha256": "97077b6467d0a29eb3021bd7be0454428e4b5a298e4a7c0f2cd251e32722b17b",
+      "violationCount": 1,
+      "violationDigest": "ae2de0fd34684ddead9dadec74c2a5a01fdc27818738da496462b3aac6a23ac6",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs",
-      "sourceSha256": "d2240cc42c5739fa369e448f84f48fce4fbcc185a4e8e227bd2dbe7f74b81b6e",
-      "violationCount": 10,
-      "violationDigest": "2145105bb6fbfe5a6aeb05ee651b283c4bc56c742adc698129da11eb46b98133",
+      "sourceSha256": "68d9c2326842ba06425a951258d8f0ee8c63f2161e58eb6541ee1fc0ca065d26",
+      "violationCount": 1,
+      "violationDigest": "ff20a0f693a300e751c07bf142a7e33ee7bebaf201b518013110350e767a955d",
       "rules": {
-        "method-name": 10
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/HumanReadProofV1ChallengeProviderTests.cs",
-      "sourceSha256": "38e99932b1ca55fbb23eb6f827f8588ccb223a23a75a9b41dc06e9b66ed345a8",
-      "violationCount": 6,
-      "violationDigest": "500e2a7f6b6471a1a9ffc3b4e4eebcbf8e168199115a6798dda53c3167997e91",
+      "sourceSha256": "d966d7863b87201e6ad21f03031f5aac18b22148d4ccbceec9abd4becd64de7f",
+      "violationCount": 1,
+      "violationDigest": "8198cf852dd7ce57996f9f1e118cc0a49ec9b7fdb7494b3cf6398eac86dda7ca",
       "rules": {
-        "method-name": 5,
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/IgnoreRulesTests.cs",
-      "sourceSha256": "594c12248d526992c68642bf7d7387f559f84aaba7e555e706349ec919816917",
-      "violationCount": 2,
-      "violationDigest": "1bd68a3c86dbc3914c7f2f09a31bca0a3463965962fb29aff51f3c1d1baf8fd4",
-      "rules": {
-        "method-name": 2
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ImageHelperTests.cs",
-      "sourceSha256": "c0e5b3c3a54edb8bc3478848634e2cf347b0e71f32a21301d5b56f064dccf8a2",
-      "violationCount": 28,
-      "violationDigest": "ebf0a4542f2a1b86b191ad6793ace5db702128481fce16d7255488fcf058355e",
-      "rules": {
-        "method-name": 28
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/InfraHelperTests.cs",
-      "sourceSha256": "428a543879603c4e4b5fac5fd2ae55888aad2f95cf3db2072400e6549e94dd43",
-      "violationCount": 30,
-      "violationDigest": "7b1ac413ceb64a8c4340822b3dd78cf65c164ff02132d70ac98d918cbe96d368",
+      "sourceSha256": "30cf41936d568187257c1c0e5c6631f730162e517289a17ee29a88de41b0664a",
+      "violationCount": 1,
+      "violationDigest": "33a156a38a67a773cfe7ecd7464b13d7ec08457401bcd71e32087a4cf4d04273",
       "rules": {
-        "method-name": 30
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs",
-      "sourceSha256": "f714dbb2861e39eb372dac15c18a8099ba97bc8b25b4f99eeaf80498d4f94327",
-      "violationCount": 3,
-      "violationDigest": "bbe07357b5edc303780e96f6e7fb387e4382e9e4afe6a370b86fd11946b5b6bb",
+      "sourceSha256": "69b3dba108b33b2552640f8e90c3de62efac9a46da326209d9ff5ee3cc153808",
+      "violationCount": 1,
+      "violationDigest": "71cb27b22e6d58a54492b1e082fbbe52a5e2db74e09a7bd2ad1118732e0de93b",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/IntegrityAdminConsoleServiceTests.cs",
-      "sourceSha256": "bc2fb9639ef3908fac38cd0b9fd8ddf4f5214a88e1ed037620ef058a51897855",
-      "violationCount": 2,
-      "violationDigest": "a0aa6cac7286ac77eb08bcb0a203c2825ba41299be4288d3102315bb00fdc9ca",
-      "rules": {
-        "method-name": 2
-      }
-    },
-    {
-      "path": "tests/backend/Unit/IntegrityProofPipelineTests.cs",
-      "sourceSha256": "722a807ee47846f968c76b915c5b4615251a4f111a2bc97c44451b6383e35cf3",
-      "violationCount": 7,
-      "violationDigest": "02be733961c4b667179c545554eaf479524d95d0649a3b7504e04e7ea66049db",
-      "rules": {
-        "method-name": 7
-      }
-    },
-    {
-      "path": "tests/backend/Unit/IntegrityProofVerificationMatrixTests.cs",
-      "sourceSha256": "dc9ccd828d06b7e980b4e0fdf3629d805bcd846f17120baa5e2b2cad7afbefbd",
+      "sourceSha256": "4cc72bffb1b65b4051053320959ec9347019a06b7a1b302e8bc78c177a87143c",
       "violationCount": 1,
-      "violationDigest": "12af92d38ce77990ba48130c535de000df90d65e0445e7261a586dca12f1aded",
+      "violationDigest": "fda5f3f3a13b88443d376a497b4e3ac198a05966ad87cfad95ee84f32fbfaa00",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/IntegrityProofVerificationTests.cs",
-      "sourceSha256": "a5826892d95140b13210b5de799a965f4d630ec6f65f7c2bbbdd1bd3a48f9c7a",
-      "violationCount": 3,
-      "violationDigest": "8c1b95e5dfdd1f23e053c88387b22e856fc7a4b901b248651bc27e33e3bb0102",
+      "sourceSha256": "7575cfa72230bf404c9c2412a52e0e5fae1ce06339129c64c19457bf71056b59",
+      "violationCount": 1,
+      "violationDigest": "0d38dcab04a9a461e89828757b5d6249978d2c96e46335e7ac6a66b044016247",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/IntegrityVerificationManifestServiceTests.cs",
-      "sourceSha256": "4cac4033d83ab6a19cf138f444347f06a1f97fb354e4c10a045458983d5e0fa5",
-      "violationCount": 10,
-      "violationDigest": "73c986fc02bcb0a91b5e6f2b9232e35c137ec40690a7ba41361694911e3aa50d",
+      "sourceSha256": "69c0dbd974b5c3e0f2c7fdbde4d92049610fa6ffb6a63c1afd8ee8733aca536d",
+      "violationCount": 1,
+      "violationDigest": "314662c6e686c8798bdbd2bed50a16dfa16c0e6641fe8555c16a7d2655cbfd61",
       "rules": {
-        "method-name": 8,
-        "private-static-field-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/IntegrityVerificationManifestTests.cs",
-      "sourceSha256": "bd063a4098f7b8c1127a2384b06c9299080aa6a5eff60a513467d0f0864ce11e",
-      "violationCount": 6,
-      "violationDigest": "b84af819cb572dccb7a1fa54a563dd10cccf74892e9f6d75ccd3efd66e8fb5ff",
+      "sourceSha256": "2907abef06bc0f7ef7e743b7e492f7dcae7a94fc0800151e318548d76d70ff42",
+      "violationCount": 1,
+      "violationDigest": "0277074fee6ada0a3fbdb45eac00d91231ad52ad5f5f94ebc163ed54ca3375c7",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/JwtHelperTests.cs",
-      "sourceSha256": "1e2a514d2834ea4a10362cf5e6c9a37ff53d2c8727b3c3989bd951e65582c7af",
-      "violationCount": 25,
-      "violationDigest": "709831acef4d6b24bc2f0663aa6bb592c3dc2a03838330e510fa598c05b379d3",
+      "sourceSha256": "2d23c4c6a32c86991a41b1784ad3cdde4474e0392b685dafcadd77fb95095d05",
+      "violationCount": 1,
+      "violationDigest": "a5c70e4349f374931434bee2c59797c0cf2b059021e875be5234805b197a24d9",
       "rules": {
-        "method-name": 25
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
-      "sourceSha256": "24b3c75a00c1b7e6bae9253d741aa5fa8d72a239cafc6e475b31c19914af66af",
-      "violationCount": 9,
-      "violationDigest": "66257267c3a68689880ff6027d6560f249a7f4990eeae366de23738685efcc8c",
+      "sourceSha256": "e9c4b562d8866bfba7c97e0a6d57020fb8022008b8a5ecfc78010819d096f652",
+      "violationCount": 1,
+      "violationDigest": "1bda0c752ae72ca2962cdf863937a1b19d1fac0e7198e528a22e76192ace2f0b",
       "rules": {
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/LogCleanupDatabaseBehaviorTests.cs",
-      "sourceSha256": "eea212a4676144f4118762129a8d2fe0b3707cd93f800cbaf89a70aee8c82d9b",
-      "violationCount": 4,
-      "violationDigest": "72e22ecf30f09dbfd3f7d78780645b4944f055f2b41454712cc6044bc76538ea",
+      "sourceSha256": "bab054b8abf68ea1685cc428addd9a6f49768650010e02e3282be80ebe9c6573",
+      "violationCount": 1,
+      "violationDigest": "289f22a37c2b20ed1124dcd01c4f94ca0aa3dd23d955786ac6ba4383b9638186",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs",
-      "sourceSha256": "ee535dfadf950928b01bd3975e75eca4bfc1e03fcec44a8f40bbd4ea32f134c1",
-      "violationCount": 6,
-      "violationDigest": "49cb856b6641b716ab7726b28c2df1679aac528108ebeb49c11c413484e309e0",
+      "sourceSha256": "b4c87e1e2b93e36c7ffa5d9f1355e836022e2166ce4788273f32457058f3da68",
+      "violationCount": 1,
+      "violationDigest": "46cd5047270d26e49162f363b9eedd0dbb1f80fa654284ccdd066b0d8b38cb2e",
       "rules": {
-        "method-name": 5,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/MerkleCheckpointTests.cs",
-      "sourceSha256": "7503c18109835347270263e63a8ae3539863e37c706a0d8267189518b4c20758",
-      "violationCount": 6,
-      "violationDigest": "5f912f3f4a31166148296f83a2203197ad7a7603627e850379e3df1b713aa9c6",
+      "sourceSha256": "29d805f69b8ebb258ea5918c8eff0bcd9610e795a22fdade541a90c38b992a03",
+      "violationCount": 1,
+      "violationDigest": "45623734446d0edb46cb691c7c2c1ca214447a7a9227c2a8ee767abc1d457f21",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/MessageCacheServiceTests.cs",
-      "sourceSha256": "3d96e88b60c6f91ab01b63e0f69a4624652eca5d3385e7e418574f3d1bca31ee",
-      "violationCount": 5,
-      "violationDigest": "a9fedbd052dc4e6ba6feded2464b4de93e1d9bb1ee7e88cc9979e9eddd3f16fc",
+      "sourceSha256": "3568196ad13e9665da220cbb1ad268d50d74bc0b5bdb347bb487a19b2afeb4e4",
+      "violationCount": 1,
+      "violationDigest": "2b6a29dc549a38a247064cd5ade5c31c7cf44ad0fedb52ef2ba3c61c5819cd6a",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/MessageCenterServiceTests.cs",
-      "sourceSha256": "a661dd97d20e8725875f517c72290dd3571fb366496551021a0dc23f72e1b14d",
-      "violationCount": 23,
-      "violationDigest": "f1d919f4ccb55771853f4f6808298d31e40dda35532caf887eea98c3276db2e8",
+      "sourceSha256": "2c5e8f8580abc936827aa33667d28e2fc11dfe3f17bf41b7a9201e169d682781",
+      "violationCount": 1,
+      "violationDigest": "9458b6587982cfccbd9881face2809990ff2943bc1a6dc2df34b461712793680",
       "rules": {
-        "method-name": 23
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/MfaChallengeServiceTests.cs",
-      "sourceSha256": "7caa050aba7d3f1a0d098569064dbf854d92042682500073e2c7257268e6e3f6",
-      "violationCount": 11,
-      "violationDigest": "df1101464c4cf69ce6f6fa48f2a7d95659705134d7afa08596d5135eda468624",
+      "sourceSha256": "069818a731dbc382838f6001045a4fbb68f053172dd27451c808c2f09e858bbd",
+      "violationCount": 1,
+      "violationDigest": "83cce422287c6c231353da9fb23adc2513a1dca0e154ae7c8792c8f87101261e",
       "rules": {
-        "method-name": 8,
-        "private-static-field-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ModerationConsoleContractTests.cs",
-      "sourceSha256": "31e909c71d466d9f60168370cdd5173670441e89184e9f3766e1a94c9eaa2a42",
-      "violationCount": 4,
-      "violationDigest": "494368a413f7c20297d66539db1692aa1435c8308cfbe7506be383cd64c52ea5",
+      "sourceSha256": "747ec8a213b49432d230aa175e11b7ab539ac7c9339df4ad17db7d1ce203cd30",
+      "violationCount": 1,
+      "violationDigest": "24a3b24a534787b8cf88a414e7131ae38fba52b31bee8eafcb20c49f39a6a458",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ModerationDictionaryServiceTests.cs",
-      "sourceSha256": "a0c46577a62893763ccfafb866833997171d4f3baacead0633e669662666a572",
-      "violationCount": 11,
-      "violationDigest": "861c90be301f19f78be000ce75e6552c8d9a888c26ca04e8e3506e42e8030d3e",
+      "sourceSha256": "58f22a23028315533fb1b4b09a1bbd9294d07a18c4a5b5a02f771a185d715b9a",
+      "violationCount": 1,
+      "violationDigest": "16d026a14961df65f2b6e721dbace9c3d1f9751b1eb8adc228ff7cb1a434f71a",
       "rules": {
-        "method-name": 11
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ModerationRegionCatalogServiceTests.cs",
-      "sourceSha256": "3fbf7d0b1d9ed9719704daa17e35dac9199decd5d5b4270326d2b0220f9a92c8",
-      "violationCount": 5,
-      "violationDigest": "2ba173fd431a05b526e0b3ef97adcd13cf89b71dec6d90984698f071e7a046ee",
+      "sourceSha256": "839acbee5f9e7a97519a2745a31d8c68d8a14737f9f352b550695ec7ae7dac0e",
+      "violationCount": 1,
+      "violationDigest": "3c2c9a2cb2bf43267cfc25f28dc8f21d905bc66b25b58389ef774be87b51493f",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ModerationRuntimeStateServiceTests.cs",
-      "sourceSha256": "88d49d251f3ada3a69c9e79cf92046a43e9873eb0a481f07c9998b40b79e26c8",
-      "violationCount": 9,
-      "violationDigest": "a5b00fad268ca858cbfddc244c9e007e62789fd7567342b75e67bc553d6afcb2",
+      "sourceSha256": "9370447f52ca31f6ae02b25df11f447ddd9b7631a1ff24723dd68685b7abf861",
+      "violationCount": 1,
+      "violationDigest": "18c8249dc0b9cabd1b7545be9b067023a0335af9df12a0405b9e514abcc587f9",
       "rules": {
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs",
-      "sourceSha256": "42c5190d435a05b5b2e2944f66bba2a2466b204a093d12bff33979e6fba8bb08",
-      "violationCount": 23,
-      "violationDigest": "eb182a2a9b8a31b000710f8039b14ebad1654cd8d0010102e2f343cc84379b94",
+      "sourceSha256": "ecdbd82c4c7112743299e6e2b150f88499fa647417c14ce1aad0af3d821d727e",
+      "violationCount": 1,
+      "violationDigest": "0f2e8c72b7c9d93630e08b0e8e32a8ed244ae3450ccb3559b0ffbecae4d27892",
       "rules": {
-        "method-name": 15,
-        "private-static-field-name": 8
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/NotificationStreamBoundaryTests.cs",
-      "sourceSha256": "4b827d1574535245fc6dd6b3b6702db1d9824edb0915a038bd28a4047c76ac5b",
-      "violationCount": 28,
-      "violationDigest": "ee6324af7088c82bfa32d2f0fa28c3ae982c60d93a5faae4544868ebec246790",
+      "sourceSha256": "2d997202a524d7779a582820a48e4967de832d13e68f8fc3958294546390836c",
+      "violationCount": 1,
+      "violationDigest": "46fd0e428863440da02f281d9009e5a876c96c4a99d255d2b555c7f3b62d3044",
       "rules": {
-        "method-name": 28
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/NotificationStreamConnectionManagerTests.cs",
-      "sourceSha256": "02e1f424c65716d6d061f455757a61ef454d8c3c2490fd339f8188d1647a8ded",
-      "violationCount": 49,
-      "violationDigest": "5932d787f1c36720654252edbaf2f14f9433c961f70642a200bde3c11e77247f",
+      "sourceSha256": "2e784611ed60ac1edee1e5174df81ecfa7c58d59b922795d139863ea4dcf06d9",
+      "violationCount": 1,
+      "violationDigest": "7b0f44128be2a2beed94026bfca0c74a077699eb3e8ae4a5c290c6716adaca92",
       "rules": {
-        "method-name": 49
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/NotificationStreamFramePumpTests.cs",
-      "sourceSha256": "573c2b2b4da18a2e782d3621291bd5aba448b4c1acf30eb6af1cf23effda72d8",
-      "violationCount": 3,
-      "violationDigest": "48b922c434705f8a53bf19453be38704852468723a0a86c804783ba9692532e2",
+      "sourceSha256": "b077978bacfa95dede247fb4f65ab008e3e2aff256fcfe6d08a2fcc66587e029",
+      "violationCount": 1,
+      "violationDigest": "c54d9d01585ba4bde0f6d73c78f3503e156880cea6ed111fe70e8847c93d2c33",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ObservabilityTests.cs",
-      "sourceSha256": "c222858d72b81644a4e4aa47326fba1700ff2b8c90313a20c38c63de931ab74d",
-      "violationCount": 14,
-      "violationDigest": "7015b9c0ae1966645cfe6c936176f58d6545b1ef93c2582bb961311c7b97e50d",
+      "sourceSha256": "14b9c16e4b37ec969f099b908bc33752f227538f3fcb7d8d13c11102702eced9",
+      "violationCount": 1,
+      "violationDigest": "783d2730f755ffe23351c732168275fc64d5b26a663946a4a7ee0bff341d3ed9",
       "rules": {
-        "method-name": 14
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs",
-      "sourceSha256": "3156f858f770233785c63b211ba1f8e2e3b5634f9186d33d4e9d1535c5a0ce3a",
-      "violationCount": 6,
-      "violationDigest": "08a703b7f2c9f8ff0e5f0a07382eeaa4bc3dc8d38d05c77cbd02cd2e9a2b9087",
+      "sourceSha256": "dca51caf0eda975fdf116927d2ff9eba313820d17a00a48d69f3b1b2789af9c2",
+      "violationCount": 1,
+      "violationDigest": "a07abbe960ac94bc49dba11bfbaa2258db9da754edcd969d8d1329d986335876",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
-      "sourceSha256": "5ad215f2a9c13e885073a89fa36a813489fe1aab3242330d7f284dbda7c9bbfd",
-      "violationCount": 6,
-      "violationDigest": "66fe0641e718ab4abe28e2742cc8b939cec00e34dfb364c73a5b4934ad165853",
+      "sourceSha256": "d0fc4884d90b238037e097d9151fece88a44b6c0bbbcb68e713ecb504ef74198",
+      "violationCount": 1,
+      "violationDigest": "71e38d05d8b9e7758b66088dd00a470cfd1c39bcde868faae257c716d418edda",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs",
-      "sourceSha256": "ad2f21feb1b9e2f7572118c6f1166979231085aa03e707700ff4bf37c6d26e99",
-      "violationCount": 8,
-      "violationDigest": "71e955a6a7bd4733dad4ee61a4953f1c45885a5776c1650d2f0e32c2dc43d265",
+      "sourceSha256": "af2a71e341614e1b4f44d6dcaec77bbfa9644f154c01e642e9af65d4b9643d21",
+      "violationCount": 1,
+      "violationDigest": "080ef55adb300547b59826fa4c87e3c8f447e850dcd49f340e6f2efa52f9b3ca",
       "rules": {
-        "method-name": 8
-      }
-    },
-    {
-      "path": "tests/backend/Unit/OwnedAedsFrameTests.cs",
-      "sourceSha256": "3fed91b0366f9bf6cd8dc8ce35f546bc6038884fd3d9f47cdd0189978e5f382c",
-      "violationCount": 10,
-      "violationDigest": "744cbd42e72608ab716ca3fa8a03e2a9f0c2d81e00d75cefa28acde7b49bc6c0",
-      "rules": {
-        "method-name": 9,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/OwnedFrameCacheTests.cs",
-      "sourceSha256": "113e9a247cd1dcadebf768bf23a090280b063f88d269d9f4645caf9de7145804",
-      "violationCount": 17,
-      "violationDigest": "dd3ae1ceaf5360438c3b32334fcffe9b3120286e05a9f5c57ca0cf6e1ab08af4",
+      "sourceSha256": "8042da7f5f83ae3c8c9c75b7e6e2f7785caab0216e0726c1882abe274389f517",
+      "violationCount": 3,
+      "violationDigest": "5ceb90cf16e286b6bed7ecacf91032189c82078d506194e9ceb5affd06707175",
       "rules": {
-        "method-name": 15,
-        "private-field-name": 2
+        "private-field-name": 2,
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PaginationAndProjectionTests.cs",
-      "sourceSha256": "d8ec070ed836fee5a11a9aa67eb758dce930123a7460d5665300419230671226",
-      "violationCount": 33,
-      "violationDigest": "570544b9b87fbd5418fcfbac29d49ea7ab73bdd73de55f00dd60b394d9497bc7",
+      "sourceSha256": "ce90bd16fd8d725bc4c9850e9c71891d2bb4c7dba35c1dfbe89aa4ae7dbe73c4",
+      "violationCount": 1,
+      "violationDigest": "3eb84d09f928edf80da32065f48680ca545b39c5462db0b93a553577e64e0f17",
       "rules": {
-        "method-name": 33
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ParallelOperationsHotPathContractTests.cs",
-      "sourceSha256": "1b6cc8632eacc0a72cd662c8eecbf2e3f9b0adda655e128bd30ea5575ffa8412",
-      "violationCount": 3,
-      "violationDigest": "21d40c09b63e99f1537acfd5e446007e80dcf669a65f7f092aa43b9700625dbd",
+      "sourceSha256": "1ecf211bcfc08719eef78336677be5e5b6aa81691ac48dfebafe0bd5a4b1b6cd",
+      "violationCount": 1,
+      "violationDigest": "1f1e0a4214d77af1933251eaf409b51a78610321f187f594228e32afc349dba9",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PasskeyServiceTests.cs",
-      "sourceSha256": "6ac676516abf79d523f114a4109db8e57b40ab3f58fe1a1c4752a9b81a187ce2",
-      "violationCount": 5,
-      "violationDigest": "46ad1940ec1134fda01b47f640219bd29ffd0d0fc3b3e77f3226c1f3e9c94fda",
+      "sourceSha256": "2fecae135e1d9558b83b02e3560a9d3713668af1c0f7f170b5883b1d7a376769",
+      "violationCount": 1,
+      "violationDigest": "d9eccb27ab4f4c8d077133cf943e576eb5cabdd33e8cae25678d6c9397fee283",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PasskeySignCountConcurrencyTests.cs",
-      "sourceSha256": "0db12ce3c0ad1becaeb2f8831372e53ac77365cc71eab01e138e090afb3523be",
-      "violationCount": 8,
-      "violationDigest": "67a700a31aff84d4987dcf21c7d3f686fc376f664a1c38d4667f1f0defba3dc1",
+      "sourceSha256": "56085f3f1325f5577d5ef6efa4cf80b599124bc4ed604f352896aa159b4a9a1d",
+      "violationCount": 1,
+      "violationDigest": "c99351210dc74cae7614a8c6b7bdf8940dd9ec007d09ba41b9da82b8c19ab7e3",
       "rules": {
-        "method-name": 4,
-        "private-static-field-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PasskeyStepUpChallengeProviderTests.cs",
-      "sourceSha256": "8105f26531b6f2058f5f4a7e2ecf705c6f0401c2853d814c56e8f2d722958016",
-      "violationCount": 9,
-      "violationDigest": "38810bad69e7b564c9d5fd09a316af3801bcb262a8fbe8f00a36476ec291bf50",
+      "sourceSha256": "7f4fca87b0ab2b69a26fee920357ed3ed40f0c05ea095da786bd7a5abef896e2",
+      "violationCount": 1,
+      "violationDigest": "3b4f0ab8a892db50872973277aba602700f9afc5b060bcf92ec7003819249bd3",
       "rules": {
-        "method-name": 8,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PerceptionChallengeProviderTests.cs",
-      "sourceSha256": "9604ba7a65c4819fa9d48a667fcfc6eab567473f64cec1bced45d6f6dcdc7c84",
-      "violationCount": 20,
-      "violationDigest": "541290ea570a170d05d6b32d7b67ecca5c835c82eef389983963717a18fc4e39",
+      "sourceSha256": "cfbc4a51f0671821cddaac216e77e27df5b7e4badc8e08c00222ab4cd38ebdf2",
+      "violationCount": 1,
+      "violationDigest": "9474c2f7e9a55d9f4d34b3c2226603559b4dfb9a736db764dc3da6ca0dffbb9b",
       "rules": {
-        "method-name": 19,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PerceptionChallengeV2E2eTests.cs",
-      "sourceSha256": "d3cd5ec97c5bebb92b6ffee7df0f8bc36c179e9e0647d658b86608ab57c4fa3a",
-      "violationCount": 4,
-      "violationDigest": "d6735bcf55a9b0e50627f624d0e18810ea43863447ab62f46e508950c0079ab4",
+      "sourceSha256": "055961977c05ec9b989b5f1cfa5b09794a636c3a3cabb56ae11827fa53ec5bb1",
+      "violationCount": 1,
+      "violationDigest": "d4063daad8b52b3012cddb9233d6eec3a2ef8fa0f05432c30d6bc9a562d5eb04",
       "rules": {
-        "method-name": 2,
-        "private-static-field-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs",
-      "sourceSha256": "523f1eb53a12be908f964f9c989dc307b9e661148bd45f283501b61bfefdadb6",
-      "violationCount": 16,
-      "violationDigest": "c47c784436717b16264a69c51e7366fe3377a9fc2ea74ced64e91a0c6e6fc5f1",
+      "sourceSha256": "d225845e9fbd797f4fd3ae2573802978b218757d60a97ed8ab91c763be233b4c",
+      "violationCount": 1,
+      "violationDigest": "a9a39c726c23d068792ca45099f3b577815642b91416539792277ccb0f945e21",
       "rules": {
-        "method-name": 15,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PerceptionSealedTokenServiceTests.cs",
-      "sourceSha256": "161b8377eda48f353faf9cd89b0c918c89088031a17f622725e1b8903de071f2",
-      "violationCount": 12,
-      "violationDigest": "9c3969b7a9c6420df6018029628d0fe2cc582545e229ad0bd74a52e149f46c09",
+      "sourceSha256": "d2c83987b604b1da8d61e81929d474639130f7e54c4c98aad6d82dd78eb737ad",
+      "violationCount": 1,
+      "violationDigest": "c0c2dd0d44ecc86991e23d23c76225da1fcfce1d95533c1f9a3a7e42a0cbea83",
       "rules": {
-        "method-name": 11,
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PodBinaryCodecBatchAllocationTests.cs",
-      "sourceSha256": "75ca51ded7fb0601beb76dc53390e3ca90084307bad8257b3b831691cb69303e",
-      "violationCount": 9,
-      "violationDigest": "0042c40172e42b769c270aabe90b43d6b543b6a5e9d6e16e49dc52c048289576",
-      "rules": {
-        "indent": 1,
-        "method-name": 8
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PodBinaryCodecTests.cs",
-      "sourceSha256": "565a557a801b11765adb8d33064ca99041754b2005f4ff75d34e1d99de92f63b",
-      "violationCount": 103,
-      "violationDigest": "2ade963a54e83ccb02bffd4c9e56f7d937d362b1073a722b21c5f9a9aea6c10a",
+      "sourceSha256": "dc7ad8137bed17dfc551683211e2103c4eb4cf2550832b75c33efce2488d5021",
+      "violationCount": 4,
+      "violationDigest": "4884ed2b15e04094b7515c42fcfefb5845d42ba065dd97111e6bcd89b1b45621",
       "rules": {
-        "method-name": 100,
-        "one-declaration": 3
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PodProjectorTests.cs",
-      "sourceSha256": "2d10a715fe1e5d52c304b1fe81741177990615ca8120f1b0a566cf1cd657d043",
-      "violationCount": 24,
-      "violationDigest": "fdef4ed56b5f9464cf906e629bb19be6a05d8ec46723ffb2c2a88b088040ade8",
-      "rules": {
-        "method-name": 24
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PodTimeCodecAndCacheKeyTests.cs",
-      "sourceSha256": "67aa5ea3f7beecfb8bdb27b7e56a5191b9715cb7622613f238df367414c614e7",
-      "violationCount": 21,
-      "violationDigest": "64ddb35d550ae7ee47b03dd9e41aa24c668b0257b977d3d9f92a5554ab95f98c",
-      "rules": {
-        "method-name": 21
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PodUtf8CodecTests.cs",
-      "sourceSha256": "ddc5bab9e446f9a8a2551ab01e2f301b73985e415827d8206936d9049366c1ed",
-      "violationCount": 7,
-      "violationDigest": "00ad84d85bcccd0ca7210e8b92e0e59dc2be90f2912cc20d733d1c5cc612c859",
-      "rules": {
-        "method-name": 7
+        "one-declaration": 3,
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PodValidationTests.cs",
-      "sourceSha256": "73e8bb69a7c41434ad098c1bb6597b2cbbb20d39609c57f713e3e0d007ec1466",
-      "violationCount": 11,
-      "violationDigest": "e1eac3f0e226860a186afa8cbd6b9d94da4b9c67707c09dfdfb17b0f111cbff6",
+      "sourceSha256": "a44f000a7726c41bd329ba17b58207a67e03e70a6aa3956e1f127c4cad2dcf8d",
+      "violationCount": 5,
+      "violationDigest": "0c638a553790c7c54b9d9f13756d1da7ac9d20a7406d6b78e0f542aba98e00c3",
       "rules": {
-        "method-name": 11
+        "using-group": 3,
+        "using-order": 2
       }
     },
     {
       "path": "tests/backend/Unit/PowValidationLogicTests.cs",
-      "sourceSha256": "5fb147a715b39998334af1fd6030b5f3e0696b7e6bc45a053dd90039e39aeeef",
-      "violationCount": 6,
-      "violationDigest": "26841a88fe315e83ca62401e6a9abbadf50a549036fcf3d536408df6ed5e3936",
+      "sourceSha256": "dae19c4a17048a30753c6a512218ba7c769857f16f734bae497b2e99a5b4bd03",
+      "violationCount": 1,
+      "violationDigest": "2be0c96b8b1c659954adf81d95db46af875458e696beb972f0a0b3cd26766b25",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ProductionHealthTests.cs",
-      "sourceSha256": "f9c411b92e78720af55234b5280a8c34e751efa527d4e5c9d2883c2f70f6a1a4",
-      "violationCount": 17,
-      "violationDigest": "7c0f741fbea03e3ae346be47523f28b84583631884e44be18f7a1264d856f1f8",
+      "sourceSha256": "212426f8e36155858f8e8e0ce2c271129dab21f1b72f9270a913871400beffb1",
+      "violationCount": 1,
+      "violationDigest": "7409155b99836bc8e64c21b2c15687a92f225fe25bb4faf63572ef8366002116",
       "rules": {
-        "method-name": 17
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs",
-      "sourceSha256": "da79d082df5d02aab3420a51af41987b304730257319cfa08f9e149684d545f4",
-      "violationCount": 3,
-      "violationDigest": "ab2a98f6f383b238b1f5520d7b486e23ff9bf74acaee30a9054e50aaa385abd1",
-      "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ProductionStartupValidatorTests.cs",
-      "sourceSha256": "7d7202eb8461250b92529947c0bc8357e05650516f3304b7b378cd8d475a8931",
-      "violationCount": 42,
-      "violationDigest": "971bdaeac8ae8a3ea37fc8aa939d9d842d8f707d759f9f2bd028991938b4c351",
+      "sourceSha256": "efd74e995eb2899ac8e735f3ec1361050aa22d61b7f5ca9a9c1e7cb9ae2bb34f",
+      "violationCount": 1,
+      "violationDigest": "326a36b5ab380864ff9dacf79cdf23f176864fa5c376e34b7ab9ca4e4c979aa4",
       "rules": {
-        "method-name": 42
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicAotBackfillSchedulerTests.cs",
-      "sourceSha256": "5a6f179d46aca43e78039cb0a7ec9a0bb85560e095f5cc52b7a55c0683de955b",
-      "violationCount": 9,
-      "violationDigest": "0fb3dcc3eaf0833622776e209d95afa1556516563e592b0fc2be929137aa9763",
+      "sourceSha256": "9a343f143a5b26a5e9a495c638b586411e8c0b4a93213ee2a688ccd2cd023048",
+      "violationCount": 1,
+      "violationDigest": "03873e7782ba3f4e0954308ef6b58f351bc8092e869ff8ebb72c7623b64a6a01",
       "rules": {
-        "method-name": 9
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicAotBinaryPayloadTests.cs",
-      "sourceSha256": "fe50fe7389988b6c816ce68d04a9f166c63dcb97748c0e1ba9f6ae66919157a3",
-      "violationCount": 4,
-      "violationDigest": "91e4c90c6e957b98e2c554590400fc94686aad5d66f6f4a04182fbe7b9cdcd26",
-      "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicAotBootstrapProviderTests.cs",
-      "sourceSha256": "d2750b0504faf70ecd5a4f44d8fc56e8b772cf128c737f96bfb901f9b0cce350",
-      "violationCount": 10,
-      "violationDigest": "56c78354a0166a7a4f4550b6ae2cbc252712bfaf624965f8324a786bf9614401",
+      "sourceSha256": "9a8be01518939ffe712566c30168b41ec200804bba27c7578e17bca44ddda08e",
+      "violationCount": 1,
+      "violationDigest": "feaa730af0b330238d06b2a996f05337bc31802dcb4415686be5e5192bb9b69a",
       "rules": {
-        "method-name": 10
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicAotBoundedMemoryCacheTests.cs",
-      "sourceSha256": "b3e016be3d25677a620c5f0ef41a287d9f81194aa2643aebb166817f5cb746eb",
-      "violationCount": 5,
-      "violationDigest": "8246bb8e829a971e7262bc9da69f2b215e754d6735b2b6ed91faabd0b9a1f882",
-      "rules": {
-        "method-name": 4,
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicAotCacheRegistryTests.cs",
-      "sourceSha256": "c9618578f4a437f50d78668f0b838f38c22337a1974749d739b4e7bf066a8816",
-      "violationCount": 5,
-      "violationDigest": "e84ca9aa5395970c401aa4dabcd74a7cefc1095ee2e52f21845a82008ddf6555",
-      "rules": {
-        "method-name": 5
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicAotContractTests.cs",
-      "sourceSha256": "82ebd5c6690b2a1ae32d443a0815ae2ae29469c28f46042e73b5f26b63ffb212",
-      "violationCount": 6,
-      "violationDigest": "63bddf4b50fb64ba4118ae9dac95aeb02fba2c821e038ba8f43e10e596e7ad62",
-      "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicAotDocumentComposerTests.cs",
-      "sourceSha256": "ce7ae9794e4eaa48f6c6cb99cddf27fe2e3d894da785bfc49a71b201fafab8e3",
-      "violationCount": 31,
-      "violationDigest": "6b9b3530c3a2ae5a755b281e5b782a28c58d6a73a94ad426a531f04e96fee089",
+      "sourceSha256": "00e012aaefef8d28eb0c0e5abbaab6e91a925a5e9c6452994186a60fd12c2b5b",
+      "violationCount": 1,
+      "violationDigest": "53aac36ae01974b77b12741eccb75171416de66f8e638a4f0dd03766021745eb",
       "rules": {
-        "method-name": 30,
         "one-declaration": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicAotDocumentServiceTests.cs",
-      "sourceSha256": "9cb6e24e448f1317a765faac5595a6d37a50284722cc768845e54a51807aef48",
-      "violationCount": 9,
-      "violationDigest": "463039a4fa4495a68bd3ecf46094a5fab05be011e1b7fe347b16b91f98714835",
+      "sourceSha256": "7cc8eb9532048d141c65b0f732131da880be822ab18c4a6b7c39896932fc7cb5",
+      "violationCount": 1,
+      "violationDigest": "59938b0c909b27edc2c129e882303b764c6c9e782f402c3c370eab3f1a26a28d",
       "rules": {
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicAotFileShellCacheTests.cs",
-      "sourceSha256": "0d8077db8fb5360ee2153ce3c4da884a219376b760f709998ae19c259e345820",
-      "violationCount": 23,
-      "violationDigest": "7d72fb91eefd3bde6972d4574e983d86adad74cad34650e8d2f98a3ef44a1cb7",
+      "sourceSha256": "c9af48b83caa1689166a20c96b3be5510923a49d7e812708176eee61f5d3eb75",
+      "violationCount": 1,
+      "violationDigest": "88fc493a4268c95b88eb611eccadf1107ff33fe1ee3f518c5f4ca9a862aa9fc5",
       "rules": {
-        "method-name": 23
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicAotInvalidationTrackerTests.cs",
-      "sourceSha256": "1118454a0a73c5742c7d3294ae9ec65ef7100a60744d051f3e3bda0c31862d00",
-      "violationCount": 8,
-      "violationDigest": "b4848dacf19038eb953606a0cc58215c7ab20fa00bfa8bceb9f274ca2c6b9293",
+      "sourceSha256": "c9fc0f19615d53631176dcccd630b9546a6f1b6a2d530f6a2a8f3d4f4d0963fb",
+      "violationCount": 2,
+      "violationDigest": "4f6144fd83e60363e3defd2d6082066ce102423f9204fd8bd7a168523254c74e",
       "rules": {
         "allman-brace": 1,
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicAotNodeWorkerScriptTests.cs",
-      "sourceSha256": "125123df2d877ca32c41999c15efb754fcfe0b92050f2d630255183169ddd5bf",
-      "violationCount": 6,
-      "violationDigest": "a564e0cd7abf874e72a1c982c43188d6a0cc2daeb0afd595f90f26478db6f229",
+      "sourceSha256": "d49cfd9e7b437da1aa9e16fdec88dc717ad38c0c0cf5be5fc33bd29ff6b6e364",
+      "violationCount": 1,
+      "violationDigest": "62ceaab4abb1fa2c826180915a2af7b372900107244712f6bf048fe24a9bfed7",
       "rules": {
-        "method-name": 6
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicAotPageCatalogTests.cs",
-      "sourceSha256": "fba211ba896314c0c6f4205524128c2939f6d4fd998f3d30371a6766d780acc7",
-      "violationCount": 3,
-      "violationDigest": "5772322d834f8c33221aed0b4e9abc01dc8e471a57ad276ab5e4e066df3cc841",
-      "rules": {
-        "method-name": 3
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicAotRendererPayloadMapperTests.cs",
-      "sourceSha256": "f25c1245b3bf8c76f10de7ed276e589f2963390ac8f8a92e346f14b1eadc7f6e",
-      "violationCount": 5,
-      "violationDigest": "f74c13015534ebe416fd895a7ae0d6ded01c8ce5877589934d2c77b4fbcd247b",
-      "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicAotRouteManifestTests.cs",
-      "sourceSha256": "79f64b4baf68a8fb1fa3dbd5bb240d09b9fab8c5534e98a20328b5f1ef07d4af",
-      "violationCount": 5,
-      "violationDigest": "830c30cb0c138b99dcf299185eff96cbe1bfc2332fca3721ebfe6b75da8755ad",
+      "sourceSha256": "7841563b09f67b4c23c3fb966a325bb12e739140eb749c68aec420ed20e1992f",
+      "violationCount": 2,
+      "violationDigest": "f6e17514d66ad21641fc7efbe12ce22e39984d368da6125b80a3ed7a6ecb87a0",
       "rules": {
         "allman-brace": 1,
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicAotRouteRegistryTests.cs",
-      "sourceSha256": "7eb15b5081cc0c3c9c18f2529e9775b5d9ab234204de6a377145df2eaef611e1",
-      "violationCount": 3,
-      "violationDigest": "19e7a618a76376540851b30ef3bc541b22b34dd125ad4fa4394922b21fb1d8be",
+      "sourceSha256": "feaee0dead02df82dd509aa86cb392322c6c3b09aeb8053d4c0e37e9d084f4e7",
+      "violationCount": 1,
+      "violationDigest": "23c91e34ed7b9700b3fce31499cf83b213092b0fce820db0f7386fcf069368ee",
       "rules": {
-        "method-name": 3
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicAotShellContractRulesTests.cs",
-      "sourceSha256": "6ff5ab2761d6a4a4f36d5f596f03acb537a5cfeefe57b3b35fb4793723c912a8",
-      "violationCount": 26,
-      "violationDigest": "f0e9ee1d6227a973b10d5c4d5a5fd463c1421910c5f16473b57422b9b1be046b",
-      "rules": {
-        "method-name": 26
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicAotShellServiceTests.cs",
-      "sourceSha256": "6b6458d01b4fb2dd5d736b9c7bd0f7950e3177e0cc32c35cfeaf5b98785eba9f",
-      "violationCount": 25,
-      "violationDigest": "e10a1f3259e64f06a85da3b90befadea358e541d6ae1ec373122789da6877120",
+      "sourceSha256": "f27f8ab0995b06b4d7638256750cb05f9b8f7e7df16fea1b79b78bc8a5f44f8c",
+      "violationCount": 1,
+      "violationDigest": "9e458be2f3a1ad8a473eabc1d8792cfc6c95ae457a9766eead78b4250c84baf9",
       "rules": {
-        "method-name": 25
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicAotSsrRuntimeStateTests.cs",
-      "sourceSha256": "4fd28aef6a73eba6f00ac84b41dd345ef1c80ffd75272b0a6334cc5cbe7b82f9",
-      "violationCount": 4,
-      "violationDigest": "623ef2191dbbde78823b9f1bd3b4ec23facc9a175a6436fda2cea93e79aee341",
+      "sourceSha256": "9876ae8829a087d14280c53e33f63fbb37c319f77039792c009f44b3627bc724",
+      "violationCount": 1,
+      "violationDigest": "148486f4f4a5b0908cc959b91c7a97fdf48dc111161b9120853260ea22bca994",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicArticleProjectionContractTests.cs",
-      "sourceSha256": "797c70f82bc4a546e102878d5050313444fa05ddc9e08a8d482fca3cadc00653",
-      "violationCount": 6,
-      "violationDigest": "72723d00dc0473904466361ee03639d118ad083629c9a686a38d60d32a095c3d",
+      "sourceSha256": "101217c8a4d6d6a00aa45bff943a12972787946da56258069ba80f3402f2a70c",
+      "violationCount": 1,
+      "violationDigest": "5c604d26b142ee89268a08f7dbda69be1142f1fba479115e6c772255fba9ccef",
       "rules": {
-        "method-name": 6
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicArtifactDigestEntriesTests.cs",
-      "sourceSha256": "40481132d9f3da72a1b91871dcbc5fa149e70cf6e856f52baee2de8098519c11",
-      "violationCount": 4,
-      "violationDigest": "b7d172dca8de9d65566b88106a170881ccfe14348bb8f97292e3a27bedce39fc",
-      "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicArtifactRevocationTests.cs",
-      "sourceSha256": "d928a5e08249e6a2f4b2a44a4cc18238f3252b72b343a9eedc93e09cbd4dc5aa",
-      "violationCount": 14,
-      "violationDigest": "8de89e0ccc9ce9aaba638478a2b967f69e409fbde4f960d51ebee08a803f5788",
+      "sourceSha256": "1c078ccea54c65e68f944828fedb81888d8a0f65c3166f5f195661a42c05c6cc",
+      "violationCount": 2,
+      "violationDigest": "db52018672f5ed13f3f23866356b4fd4c70738f12d5c821c3eacd53aec204dcd",
       "rules": {
-        "method-name": 13,
-        "one-declaration": 1
+        "one-declaration": 1,
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicContentInvalidationFlowTests.cs",
-      "sourceSha256": "24ee03144046722f9638e0717cb2498baa7e8084ab3ed06f9cae31ea32b0852b",
-      "violationCount": 15,
-      "violationDigest": "b2e1a6ab03495a4104f409c6b8e952d9c7d67010d6ceff80a4c86a9074bd9cba",
+      "sourceSha256": "25cdeb178fc91f3b3f530b785f8b5cd04206035854a8f8f08b4688cfde35bcbc",
+      "violationCount": 1,
+      "violationDigest": "77f03be64be837f0923fc69f6356334f7032d494d3776cca2ca0e8de84f0b306",
       "rules": {
-        "method-name": 15
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicHotReadCrossCuttingControlTests.cs",
-      "sourceSha256": "cc6f1b5a50c1e6d30270c178ee5d8f4d7c0996787009fc9abaac6569f60e27e6",
-      "violationCount": 10,
-      "violationDigest": "d4e70026dde75f5e62cde95faca563ad907106e30bcadf354ca1b4a067c27e2b",
+      "sourceSha256": "e629a0bcab0b2518e85af343289c686559e67fb61e0d13f20a18aab2302e16f3",
+      "violationCount": 1,
+      "violationDigest": "fcff83a2a81aff1585e0d28ffbde815fc805ec4f83960ecb33d062ef0b86d9fc",
       "rules": {
-        "method-name": 9,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicHotReadFastPathTests.cs",
-      "sourceSha256": "a047f0270b893a8f8c9e84956b543d9dec16e3e216f52e6241b0d3c5d85a1b54",
-      "violationCount": 66,
-      "violationDigest": "3e192b591aaa5d016ad80962b878ca9212aa4d2163a6cfd73e0e653df8f8578c",
+      "sourceSha256": "ef865ba2feb9300361acfbfddae4d270fb1101de090d7b99b9b89a835397a845",
+      "violationCount": 1,
+      "violationDigest": "7698d537a09b2736ca4ca0c1840f17e6178817b2f1f92f4b04b1a6f90e2e5b27",
       "rules": {
-        "method-name": 66
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicHotReadResidencyTests.cs",
-      "sourceSha256": "843c91137c1f79a738d54c2451dceee5bc1a759ecf125561aac6f1c72bb24331",
-      "violationCount": 18,
-      "violationDigest": "0f9c51fbcc4033f245265b86706045270075511fc6a66664d0e700b6413af9a9",
+      "sourceSha256": "c0091124a921fe0bedf0aa34a83c253687c7a84d9497ebd438cdc55701872ecb",
+      "violationCount": 1,
+      "violationDigest": "56a59895c28f12fbd8225c5899b099561e49cc25dfffafdfa756c07ee69fa629",
       "rules": {
-        "method-name": 18
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicHotReadSanityTests.cs",
-      "sourceSha256": "5e4f5673a91c95f9b9c9c12204453340b636688bdd9c4a9ce96e507e1a4ce63e",
-      "violationCount": 13,
-      "violationDigest": "2ff84a2cd5784a5eff7da39903ea5c29a383dd2178108259f6695cf62330df97",
+      "sourceSha256": "3c5ac06ae827f28ecf8a0ed9cb0232bd61a1f9b67855ebb0aebfc303de296e94",
+      "violationCount": 1,
+      "violationDigest": "32a37802672d9e673957b0cb628cb982397d1d361878e6126e842a249f0b7fe5",
       "rules": {
-        "method-name": 12,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicHotReadSecurityGateTests.cs",
-      "sourceSha256": "1b5f217509ce9854280df9943cb83b1490c4d8dccebabe54f2c4e91385946db2",
-      "violationCount": 6,
-      "violationDigest": "798d59e2a0d003fa3847a695560380d5a935ddedeb8c77f56d2d98dafde61d5a",
+      "sourceSha256": "ffc32f3c5eea3a9c7185f5c21f0b43044afdefd701bdb014a2112dfa65451bfc",
+      "violationCount": 1,
+      "violationDigest": "1bbc2d703d1c078f389532c7cdedefbfc423b9275fa856351af1fdf371fa8ff3",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicMutationFenceLeaseTests.cs",
-      "sourceSha256": "8aee3afb772aa2000f9858a7a316a67e1d82b5c0287fb0d79a43d3f8c9a78c3d",
-      "violationCount": 2,
-      "violationDigest": "2e6a423e125e2026fa1f31b0abdbab505d751d74d406bc7dfb61e4a5ae8552a5",
+      "sourceSha256": "eee463cf78cbd75881e166bb19a151bbc54f0cf5d148d637dd12d91f7c847266",
+      "violationCount": 1,
+      "violationDigest": "260b7d3148c5d734736f4829f7cb77ee0925d5bd341aed885872f11d6c123d1f",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicNavigationSnapshotEndpointTests.cs",
-      "sourceSha256": "457783cda8da333f7542ab58e5d064230b9c34a2b111705e899c3bd995585a7c",
+      "sourceSha256": "51e7e6e053c096607e8659e61e814cc51c1ac63321d42a9e89325105a825a99a",
       "violationCount": 1,
-      "violationDigest": "19e2563758a75392fdb4d6e72f1cd0fc4e622ca3f08857ad3ee6a58f9ed41dc1",
+      "violationDigest": "5fbebd7815c69434a614df0016d37983c3f14ab1c602fa83a3ff9aac09402a9d",
       "rules": {
-        "method-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicOriginPolicyTests.cs",
-      "sourceSha256": "ec4983412826568d034b9361c1dfaf97fb037e1079fee8c8a4a7a7dee5134fe1",
-      "violationCount": 3,
-      "violationDigest": "98a744c6662619a73e02813a83ee67e0e3a1bb28d3ac964230e8bce3a8106e83",
-      "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicRouteIdentityTests.cs",
-      "sourceSha256": "09e83719da0e5dd28df29a49ee83b5c3b27c10e607ed351dd1e8c84e1b2a5cfc",
-      "violationCount": 5,
-      "violationDigest": "dcd459d2fb113fc8f3cc24b1b869722bfe9c964a49317c0d9cc470f067d339fe",
+      "sourceSha256": "02cb093500b6136af4dc15f0fe758a766d18880b2d6cf3bbd19da1d0b1748f94",
+      "violationCount": 1,
+      "violationDigest": "bff2bc62ebc5ec45857226711a4d01cd03646909d9008e103798ba11fb59bb5c",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicSearchRequestPolicyTests.cs",
-      "sourceSha256": "ffe5bee75fba2fe65e8d8b091a09cea0c0e7c010d1b3a5dc1a03b0fefa835123",
-      "violationCount": 5,
-      "violationDigest": "cee1e302a896abedb74a100429e92beb2487eb6d705c308f26fa5550a773cd3e",
-      "rules": {
-        "method-name": 5
-      }
-    },
-    {
-      "path": "tests/backend/Unit/PublicSiteIdentityDefaultsTests.cs",
-      "sourceSha256": "dc60b190ef75ee5114cf0715b2695aa0d0923596ecf674862764c31dcd155fe3",
+      "sourceSha256": "339ad61a644ae4f0b3d6b8ea0b0679aacdf2e2b386415af26d411736146d4c19",
       "violationCount": 1,
-      "violationDigest": "a81631bbdfbee5753df6cf368c38ffa6b8ffd0c30f67c1b92eec50c3fda5d476",
+      "violationDigest": "bf1e6f03cc640f04fafab00ff3e60c8b6a4a40a32b9f064195f45e9df6171add",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublicSpaTemplateLocatorTests.cs",
-      "sourceSha256": "78e699ce98798c0a4017b2c1f0a4290275fa2a6d879d64c27e889907bb3e70df",
-      "violationCount": 4,
-      "violationDigest": "06d68cd93db32770ff9c273e1a5750f32f0966c8dd25c9c0e87d097665bffba7",
+      "sourceSha256": "2ac897c977272894bb9615280cbf017fa8877ee731e4b78ba7480b498647446b",
+      "violationCount": 1,
+      "violationDigest": "5d0f24917154b352a4192206c17e00bf1ce249e1259f9be43ab81a17a4a10ab4",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/PublishProofModelTests.cs",
-      "sourceSha256": "61607de34b7cf4cd88894ab9ae398851a16860cdd27364edcd2babbf3bc6539d",
-      "violationCount": 6,
-      "violationDigest": "328969d12b6ab6adae0e45e3ad3a7c2e9ab446a6e72f09acf24399b081d3c6f7",
+      "sourceSha256": "ed32a869802f96418f6264b62deb41f29f2d94f4b80ea3526026e0acb9db64a0",
+      "violationCount": 1,
+      "violationDigest": "325d8753d739b124559f3a481195f711c64519b46627bfa256ee8be485afbe32",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
-      "sourceSha256": "4e981b390012b6084d15a682d0d56e05b041db5298d5af6a26e6cc5f2039ff67",
-      "violationCount": 8,
-      "violationDigest": "ba97b6277ebaddc7fc237983722ee371f4ef67b7d97591ad43d3649c64c73f85",
+      "sourceSha256": "be08f3800db5832da60b48e24c3a5dbf8cc427e0b923b062ba399b63a68a3b1e",
+      "violationCount": 1,
+      "violationDigest": "509bf468c34170885229a2a0b70c9b61f2247b2942dd7dc22df895d32bd338a2",
       "rules": {
-        "method-name": 7,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ReadAnalyticsPrivacyPolicyTests.cs",
-      "sourceSha256": "0ec23652ba529c6d9e3df8f2a063dbf567703bb1a0496f6dbc3074044b6e9783",
-      "violationCount": 3,
-      "violationDigest": "e2f88fb76fe2e00abf5141e9678e2b58156af1f2027c751d10843f4b391faa8c",
+      "sourceSha256": "c3ad0b145a7e82cda5cbfa396a6901e6333db11e6dc87de193c51dc8a4a9837c",
+      "violationCount": 1,
+      "violationDigest": "92a4776ac0b30b743b397552a8b2f62b84623ab0eb9e1de34a7fc657d0be9d06",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ReadEventRetirementMigrationDatabaseTests.cs",
-      "sourceSha256": "e0d5c248c541132bdfd23dec711d74c6c1b3d349477144c403e41d9ad202f134",
+      "sourceSha256": "695f81454d2b4d839afbca46cdc17a59dc02529592c64902e0f64c02b3b31761",
       "violationCount": 1,
-      "violationDigest": "636aea3ad4206fde0834ea559e5a3aa3c8422dbf390a311ddc78ed64fbdd5d51",
+      "violationDigest": "48d93183908100c913694f2c4d86aace47a7f0f4d7e34104ff8d537935b995e4",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ReadProofBinaryEndpointTests.cs",
-      "sourceSha256": "a2b4af49b2747f6017055b4906966be1f1ae43ad173c0894724733244b335178",
-      "violationCount": 6,
-      "violationDigest": "5214930fb9b9962c95c3e991c498442c80d4534bdc4197c2e8c1a2248978ad79",
+      "sourceSha256": "8462b621300c2f88a6347cfda0b4fb2d870683d220ebf5def50ab48d89990c5d",
+      "violationCount": 1,
+      "violationDigest": "b9ae056739c324ba50f52ede8a20795d59b945f6f1f2ac87c37fd62c50f8f5b0",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ReadProofIngressPrivacyTests.cs",
-      "sourceSha256": "3994dfba65c81f301ef7e0af2b33205586c0d33b38d6b59f544cb49f78c97887",
-      "violationCount": 4,
-      "violationDigest": "3ad20bb93242039c7f4933ac97ee0b2fe2ee5aef97170e1b9bc0ee425371979d",
+      "sourceSha256": "2b20f188b1bdf2b1d5669eb5f522f1bba26b133d75434ec904fbeb66b6abcb63",
+      "violationCount": 1,
+      "violationDigest": "4f7cb39adf8a561114cb7fe8911a782a66b8036dfb53478d14f7142a559ff01f",
       "rules": {
-        "method-name": 3,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
-      "sourceSha256": "62669f2a07634efe9aaf98aa6331ca4b7745fb618142aab73de4fa87b189dcfb",
-      "violationCount": 5,
-      "violationDigest": "c507d85437511d3002d1881e320709ccdbff51928a87f302c2a4faec677faf58",
+      "sourceSha256": "b7c228436cab3c24b927b83ac4e99380fdb3fdd5508424fe4df488cda51db524",
+      "violationCount": 1,
+      "violationDigest": "cb85cbf734047d270810ea27491f69baf8121435f0486e81db2ae804d171c586",
       "rules": {
-        "method-name": 4,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs",
-      "sourceSha256": "e967e4859f8bfc83d7600d1bc3b113dd676a1d13636e74129d1bc95ddd85e3a2",
-      "violationCount": 8,
-      "violationDigest": "b05804c797d639e311542a5602c60307de1d61037f6609114d725c7ba5fabcdc",
+      "sourceSha256": "a7b64d962f94f8135e8ee63d94807992694c13785bd20957100455c2a107ff81",
+      "violationCount": 1,
+      "violationDigest": "c86a13e1329758b3e6fb2b8261189e8a1b51c3163e2179c3e048fb98434d4f09",
       "rules": {
-        "method-name": 6,
-        "private-static-field-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RecoveryKeyServiceTests.cs",
-      "sourceSha256": "a5ffe3e6095f523aa13b5845bf045b9e0a4da776a54d0b0d367a8b25b3ac96e6",
-      "violationCount": 12,
-      "violationDigest": "93bf6e0a0d87d9f00d7bca5b72f6c86a5ce5342967e073f570de91e40ec9a857",
+      "sourceSha256": "0fb5a2732053d5e38a63ad93d15142e8a7e8d07b16ba47d758e092613b4ae33f",
+      "violationCount": 1,
+      "violationDigest": "f96bfcb63cdeb6cfb0edb0961922cd44923c2b9ffdebf8e6c5904f6d4ebdaa18",
       "rules": {
-        "method-name": 12
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs",
-      "sourceSha256": "6fd80d75646489a05ed703a5c3b33aac836281e26ef2432b7de41c7597529fa3",
+      "sourceSha256": "2d04236fdb173f6a6a03b09a8cae5e7dfabc2b525d5e8dc210965b3781d5872f",
       "violationCount": 1,
-      "violationDigest": "9c1bf0b20e43d917d201cbc50d86443ab193de0d078afc880748b0f90784308f",
+      "violationDigest": "971871109017d4ac531b5b4ac5a5386660708c39167a79a46ebec9be3e6de900",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
-      "sourceSha256": "d60fe52f3747d9a099ace65ee4bcc3e67a5d5c2f80ef9fe0085ca4ed25008510",
-      "violationCount": 9,
-      "violationDigest": "b8cdf902e605fe3fde8fabfd01d83dbacfd9a9e1aaf476d1cc66a8dbebf6bb97",
+      "sourceSha256": "92b396ebcdb164f01d0e33de36bf9eb509aa2b6101421084b160eba026b3e209",
+      "violationCount": 1,
+      "violationDigest": "a37b0ef49411ecf27d9ef2e7210bf86f85ae84d0e938b72d87aa5d264d179e69",
       "rules": {
-        "method-name": 8,
-        "private-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RedisInitializerTests.cs",
-      "sourceSha256": "5c61c844d356209c31af9f69ea4917951b4bc33c843e3ec31ef4c07d9228f4bf",
-      "violationCount": 3,
-      "violationDigest": "ac286c6768f3081603339f2b3613bd3de1a995ecfcec7691e28c9b409c31ef19",
+      "sourceSha256": "f3d8f46df51eecc187989b8f5d8268fa33a686479d4ff1f35baca794a16510d1",
+      "violationCount": 1,
+      "violationDigest": "082ffc0a00a7edaa75072888aec2b66a249e55c7760d88b35b6f61f7a6013154",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RedisPowServiceTests.cs",
-      "sourceSha256": "3962cae97fce42a583f1d4a16fbb1f770287b744a1f35fe3e9db67cde9f898d5",
-      "violationCount": 10,
-      "violationDigest": "979d1a5e41ffbcd9c9dee952091e368e9082f7ad6f937ddee03a88f334e23ef5",
+      "sourceSha256": "64261b03af0dd5d13267e0835a2f449f028ed5a4eaad599fd0730ac0b26390b1",
+      "violationCount": 1,
+      "violationDigest": "7e8dbd3d39869040a6e874d0dd7dd804bb571c2e5675785a73f9ed27587ce351",
       "rules": {
-        "method-name": 10
-      }
-    },
-    {
-      "path": "tests/backend/Unit/RegionLegalModerationServiceTests.cs",
-      "sourceSha256": "1714e6d8f53f3e0d1a3ba01711d01e2c381e90acb463bf34b243fefccadbcc56",
-      "violationCount": 7,
-      "violationDigest": "97c9fcc21d79108a4537d4ee31cb081a9f64385e44811c661321bf0f79513c9d",
-      "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RejectIdentifiedPrincipalFilterTests.cs",
-      "sourceSha256": "3d8c1f99b13b50a4866d3de2287babf4a681ade5af45ef69b3c105f5c9c99489",
-      "violationCount": 7,
-      "violationDigest": "e749f752b65a59cb317770a1456801c04c5c92d099356650fac594d23825f0a0",
+      "sourceSha256": "1ea6673c6c643ed11bda2084eee963ed824709669b258032d4608e6a4a167e07",
+      "violationCount": 1,
+      "violationDigest": "78d9dd0dd3719310e87d174c371711a52b0de5406d0d8638aa81a8670dac099c",
       "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RelatedReadingServiceTests.cs",
-      "sourceSha256": "2f9a7dc7e461f9edb8082a5992523e55ad9861dc06cf715ca18321173731cdca",
-      "violationCount": 3,
-      "violationDigest": "e5b82ea97f6511cfd421d3d299d1c4829206fba7fb05451cbb3d414113d546a7",
+      "sourceSha256": "0fb90d14491e2f1f4c2909c9b459afb076a375e02af9d9ab116fee616eae34dc",
+      "violationCount": 1,
+      "violationDigest": "f0a2f85bbbe97727ff0779c35aaae229760b840daa0f6b9ef5ee8378fcc466d1",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ReleaseIdentityTests.cs",
-      "sourceSha256": "83e12839f10b851efd13ae0e799a006b6eced1ca6171ce913b5b74758d790f6c",
-      "violationCount": 8,
-      "violationDigest": "c62690ed20c6ce758ff3ab9d60e6c93f2402f7d808568c45f8ef6059442ea779",
-      "rules": {
-        "method-name": 7,
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ReleaseSchemaQualificationEndpointsTests.cs",
-      "sourceSha256": "22ed49fce18bc2cb23bdcafb6500a6a235fd4023ef0c70c3f77b746630604abf",
+      "sourceSha256": "016a333ccf2086f854d6893b1fbe2d6f4aecf119895c0c3247cc3f276c834e09",
       "violationCount": 1,
-      "violationDigest": "7f34c93d6afd718bea4355125accb638061699d28e948aa3ad3eea8053969808",
+      "violationDigest": "fc051bca51e4c03fbbef70f49b922a90bf03cee432dea739b5d3195d851a6295",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
-      "sourceSha256": "20ed5cae1c73b4d31c501c6e48abbe0350797107ff77b3a8ddcefca4c794dda4",
-      "violationCount": 17,
-      "violationDigest": "99e9489dbfd87dcdaba2ddc72e7bbf7e7fbc424c41a4a2da6e34982c45293d54",
+      "sourceSha256": "5ebb29aefda1a2e7764fb8ce50035c532458e5b78c0454edec2eba1655eb9bf7",
+      "violationCount": 1,
+      "violationDigest": "8a9d7235e3c3c33a51bc4b8c60b7231dd0929c8f6602b7f7a832d40a0345aa6f",
       "rules": {
-        "method-name": 17
-      }
-    },
-    {
-      "path": "tests/backend/Unit/RenderRecipeV2ContractTests.cs",
-      "sourceSha256": "79d51167907730dd588fd15bf651f0e616cfe50155d1a52fa8d59a8a65f15d0f",
-      "violationCount": 4,
-      "violationDigest": "cf73b4374b07534ee076cc53a26add65f8780d35675b2c4111c3d4870b0afe51",
-      "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RequestAuditContextMiddlewareTests.cs",
-      "sourceSha256": "5f0696a0c495659650389cc85d4dc8f5fd791b3797398940324b64b8933cdca4",
-      "violationCount": 6,
-      "violationDigest": "babb279edce27e9dd24bb97ebcd03f08c0b1e3ca1c0d02a9a1bd3631ea2ce073",
+      "sourceSha256": "661be32dc4fa441fb232a9029fda30a468803a9222650d30fcc390ae26d393d1",
+      "violationCount": 1,
+      "violationDigest": "b312a75193f2f4d9dc33180d708b85238aa9665878a2a3aae32aaf1f79825cf0",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RequiresRiskControlFilterTests.cs",
-      "sourceSha256": "6ba8c3b4ccd5fce7a07562f233841fd97ac6ddc7a8979b0985aae633f5bc2445",
-      "violationCount": 14,
-      "violationDigest": "6c1bdb44061abf1ce40ff28a49b0ffd7cbc185bda4d62d3294e6aa910ee6ec69",
+      "sourceSha256": "3c3ae4dedcd8425a6ffffa69cdead3a20302119cd039c8266766be50be186ffd",
+      "violationCount": 1,
+      "violationDigest": "99779d0beca57e55adb38d0352b460936de4c4f925d6a64287b6a290f50f3269",
       "rules": {
-        "method-name": 14
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ResultExtensionsTests.cs",
       "sourceSha256": "1a7b70867478b71a1f5799e44ae555675af520c6a9d1310b0439f07603cd98dc",
-      "violationCount": 33,
-      "violationDigest": "150564527394ade8292e036ea006867c8c14646ee2b073f6fda6839dae4ad04d",
+      "violationCount": 2,
+      "violationDigest": "02ece164dcb7b594eac46507f871507f1ef3b8648302ad00e07e1e8f50b33a1e",
       "rules": {
         "allman-brace": 1,
-        "method-name": 31,
         "one-statement": 1
       }
     },
     {
       "path": "tests/backend/Unit/RiskActionRegistryTests.cs",
-      "sourceSha256": "57632518e0c04a15d40c6463da65f012f2401cec6f5553ea155d360f2584c014",
-      "violationCount": 6,
-      "violationDigest": "86ae3321bfceeb0ce706e540e3a94faf053b7acf2224230d9e5f087fdbbf6439",
+      "sourceSha256": "8bcf8797f36242b8e4364e050a36bd6fbdd2337b1af31568296d27ffa053d24b",
+      "violationCount": 1,
+      "violationDigest": "ede90eb77989d4c99a769af0970731347fdbd69ccbce9ca3357dc6dabd1a132e",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RiskControlContextFactoryTests.cs",
-      "sourceSha256": "a01caf5074277d020b5a59a8573495d0510d83367ce3d861477d6928a2b721a7",
-      "violationCount": 13,
-      "violationDigest": "a1ba23c7bf90140ff557ee3699d2cbbcbaff1ae70fb540cca5f78695427996ae",
+      "sourceSha256": "b921d18265ff669ebc7f7a77bb47c3c46eac26a3f58064d7d10e5b06d1ea1ae6",
+      "violationCount": 1,
+      "violationDigest": "188c33d082616a920d186aafa678fabc2086089c37cd22d5bdefd8172b078307",
       "rules": {
-        "method-name": 13
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RiskControlSimulatorContractTests.cs",
-      "sourceSha256": "501b0b81a7ca81e50d42ed349850a17383105d1f3aecef2495ed0c4abff58220",
+      "sourceSha256": "61ba2d091e5a1e8e714550d8b9222d97a8250c6581c95b74cfb63c4f31011132",
       "violationCount": 1,
-      "violationDigest": "786c6a6d43d16339add916f69da9226970244da7a278a04ce464d321ee54ef62",
+      "violationDigest": "7d6d725393fe5c3336ed8f3e7951505e799d4ae6bdd5523d7050016a0a97136f",
       "rules": {
-        "method-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/RiskDecisionServiceTests.cs",
-      "sourceSha256": "c2a687f7529c82333d520e0ed472d038d10a9893838ed52acf0d68f3872838fe",
-      "violationCount": 20,
-      "violationDigest": "fde9cb3fbb1cfbc3ee72bfd37fe745b5a776219964a7f145677ae795886e06eb",
-      "rules": {
-        "method-name": 20
-      }
-    },
-    {
-      "path": "tests/backend/Unit/RoundingConsistencyTests.cs",
-      "sourceSha256": "004702d53c42affec93c477b7162a99a431d2aecfcfbc76ea223a9c60ad220b8",
-      "violationCount": 2,
-      "violationDigest": "0d47e9287596addc639411f810413c40de0012af450d07f5767b41c0870117a3",
-      "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RumTelemetryBinaryEndpointTests.cs",
-      "sourceSha256": "033dbc43aa93c28fcafb0f83b9cf3093de4de15e526046c55587768dc86eead7",
-      "violationCount": 3,
-      "violationDigest": "d3110ad9496d220463066f2e351d5cc9c162e9d0fecb50aae0fab7dd55511cd1",
+      "sourceSha256": "af9f1799a72024620c67469184507ef8c3b2ee8ff911ac413af9a8060ecd6175",
+      "violationCount": 1,
+      "violationDigest": "0b55b8437013505f78378f4091c8d687f027af7cb427c87a5195f2c48db615bc",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RumTelemetryServiceTests.cs",
-      "sourceSha256": "932a5ff47ed2bf6109d805ff5439ed8f879e22e5ae0ad3fe68e1a49285ec11ef",
-      "violationCount": 6,
-      "violationDigest": "518ad77ce8be6c8a0966aa84a262b79a776456a8743a33d95abad902fcdbf644",
+      "sourceSha256": "ce078a598281de33d26037646165f064e6847d1d161a9ef508120686591f89e2",
+      "violationCount": 1,
+      "violationDigest": "ae3a95bb12396e0467992e75c872617208e9a1199c61d20b5c6e530482e9721b",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",
-      "sourceSha256": "05d1de808652b4a26dfe31eb58490e70189c677088096f379433beecb4650c09",
+      "sourceSha256": "4c43368b6ad487993e06a158f3c53fce6b0489ffa948877652e14874d7ed281b",
       "violationCount": 7,
-      "violationDigest": "843c2b123fe0a3a0710f5641e561fffbde15b4c4fabdd089b87a523b043c44fa",
+      "violationDigest": "91fe38caad7d3926aa88fc222dbf3b5845465c3508819de96ae05c7e46cd1453",
       "rules": {
-        "method-name": 7
+        "method-name": 6,
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ScheduledPublishWorkerTests.cs",
-      "sourceSha256": "2c58324e8366bef8ba15086c5bc7d6685b321eda96d458ca27d1f5f9af4238ea",
-      "violationCount": 5,
-      "violationDigest": "37e325c49cb94d3a515ee767eb141e55faafe9edb030ffe5ad031e0f0b338e77",
+      "sourceSha256": "b800a48538782051727d07cdb01409834bd92a7c27e35b5649aa72382b3e4174",
+      "violationCount": 1,
+      "violationDigest": "9087fd3f56689d74c6ad80b1650efe6eadc709a5a297fea83f4d972f56e204cd",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SchemaMigrationDdlPrimitivesTests.cs",
-      "sourceSha256": "ee466184336473ed9f4d1819a122112bb0e1af1efde477ea8e92b47139c77718",
-      "violationCount": 9,
-      "violationDigest": "f203fd993f49eb15eb36f6d871e81c5ad4d72e92777e1c85c4bf3575e2584f47",
+      "sourceSha256": "acca9c4c4f61e9763e7c804f26786671733d6cb0f57cfce8a772f61db9e55a69",
+      "violationCount": 1,
+      "violationDigest": "f666f9c3aa8fe4702c10d40ae1b23e96057c3561bb45684d4c61cc074f26f2fb",
       "rules": {
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SchemaMigrationRegistryTests.cs",
-      "sourceSha256": "1c0ec829f39923e61e3818fea56c617521f12a87afeb227b60498c8583bc4fda",
-      "violationCount": 31,
-      "violationDigest": "a249ff7170da559250e288dcf4bc3f2148e9c611c0a7c82da4dd515b0ef38635",
-      "rules": {
-        "method-name": 31
-      }
-    },
-    {
-      "path": "tests/backend/Unit/SchemaModelInspectorTests.cs",
-      "sourceSha256": "733b0ab38018502995f21ec664571925780d9a939cf18c5bf96423add8ec9efa",
+      "sourceSha256": "1a0b4b030d1a7f12a8103c8d42ef60b6c9c8c3c8bfbf3921a9f3e50fa2c6a241",
       "violationCount": 1,
-      "violationDigest": "9c0e7d7f6fae349bc7b46d480d417f5be2cf4e0b4215e400231e7eb29c13b26a",
+      "violationDigest": "35aa529f409b8d05e5fa79d83e7c09ca9ad57204857d3b57f230050b38fd8521",
       "rules": {
-        "method-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/SearchIndexDeltaCodecTests.cs",
-      "sourceSha256": "cdde2c86e61c6cc0c78194a495dab923a77844d523c7922b4191442e1cc17857",
-      "violationCount": 3,
-      "violationDigest": "34f5198387018ed1504ee68f2f3e6c7b5bb16cc0df3c9e700bb428c5e8cf42b5",
-      "rules": {
-        "method-name": 3
-      }
-    },
-    {
-      "path": "tests/backend/Unit/SearchIndexServiceTests.cs",
-      "sourceSha256": "0dbe29e7bae31fb9404048f3b20d594550b548aabc8464f2212f6428d70df07a",
-      "violationCount": 37,
-      "violationDigest": "eef77af99b84f01e6f1a626a331011f5d2fa98c2fee2f42668b05ef6f8cdba8e",
-      "rules": {
-        "method-name": 37
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs",
-      "sourceSha256": "bc2f3fb965d4b6cc635a854275f1ab10af0cf47ab1c273ba806902f6b1a684d6",
-      "violationCount": 13,
-      "violationDigest": "c768dbed8960f7c4eed88c1e33b4f7d2e0432ab06ba8f425288fb184db693e63",
+      "sourceSha256": "7b05455302978ad6d1515854f556206498d67e8af9aefd05fe9de2aab165be50",
+      "violationCount": 1,
+      "violationDigest": "f7517b9106629b08b41869e1879a45e20939f26db4bbfac004df87b57b3fe0c6",
       "rules": {
-        "method-name": 13
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityChallengeContractTests.cs",
-      "sourceSha256": "6cef08062cb06fbaf5067edea6bf9726ba7eb1c6033b4d715dc65f56de5a0ad8",
-      "violationCount": 12,
-      "violationDigest": "f7b0a5e46b2b63106dd5f92a09563351a431d69d7d613c4369747020f00a3264",
+      "sourceSha256": "f224eb805577716b52b81f6c1d861da26cc6ea86dd2061713ba66fa2e0975b38",
+      "violationCount": 3,
+      "violationDigest": "77d0b9988399308c3d0b3e78ab6e9d32d7534d79ef56977043817efc8058f31c",
       "rules": {
-        "method-name": 12
+        "using-group": 2,
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityChallengeOrchestratorTests.cs",
-      "sourceSha256": "71d043295773308c9c3d3ef6743d7d0a9056e8b0bf5abd19efa244d764978d02",
-      "violationCount": 6,
-      "violationDigest": "990188032cfc44aedfb041679df982de79cc983e5cbcae08e6b24cf152480903",
+      "sourceSha256": "c0f56fed8161620c9cde3c62c37148c07706ac72e26a12c963cd91eb9a786a9c",
+      "violationCount": 1,
+      "violationDigest": "4108642c4cc935400044fff70af91fffa31e9cc10f775202b4f7e4c3e567d4b4",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
-      "sourceSha256": "861c9a8c9ee5c2b3dbfbc1439fa6e0ba5d7d8f815c9ec7e51ecdbc0a721cb8b8",
-      "violationCount": 9,
-      "violationDigest": "e72241270607ae9cab8917c5177f530df405b1189c9363b165e7f32ff8bef5a0",
+      "sourceSha256": "70688f8d85711a92e681db54c4d4258c7c6c765dd97e399ae52f0ba22cfe799a",
+      "violationCount": 1,
+      "violationDigest": "a0499492212e422636428cea81bad21f9fde3b11f738060429c2fb490bfac873",
       "rules": {
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityChallengeProofServiceTests.cs",
-      "sourceSha256": "eefd477889734382f7df1df538710ca3da18268a5345753f7eadd282e85c7805",
-      "violationCount": 9,
-      "violationDigest": "6f75448be57c36555e57038b786a5115e68b527b8ea1ef071c862385145e17ac",
+      "sourceSha256": "4b052b202a1eb27a168dd8bff05687f073101a11e42dcc77fd712f12f38c11e2",
+      "violationCount": 1,
+      "violationDigest": "d6f1cb253da42fd011c450eb670290fa22a10626b72b9012b389f6ead7d22f45",
       "rules": {
-        "method-name": 8,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityChallengeVerifyRateLimiterTests.cs",
-      "sourceSha256": "4d8bc5c9eb01b0cc895202135b9fb075909ae409ddd57a4e47f67da3127ef3fe",
-      "violationCount": 4,
-      "violationDigest": "3bfe9568c32e765436e3894fe16f1768f331bd0d60e8e04c9886bb3f85b6bf71",
+      "sourceSha256": "4c7f5982a9b802e6e7ed23929fc6d5a8e7b860d35e9d6468d9bbc72769e515ad",
+      "violationCount": 1,
+      "violationDigest": "503e3da9efa3ea9cb8367197e93b61b9f9e9800bcf0c437f92cb5f0bd56cf55d",
       "rules": {
-        "method-name": 3,
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/SecurityHardening/CanonicalPathBoundaryTests.cs",
-      "sourceSha256": "b3e99fe11cae9b23a255ff045bb782159f8c6b28dbfd39d50e192b772e34de60",
-      "violationCount": 5,
-      "violationDigest": "9e86b51ea974d0262fcd1727a91f43b6f05c1745de4ba51516fa4bbcb87052f6",
-      "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs",
-      "sourceSha256": "651cba73d4b0c711433f46e02306835045645876b9901ebf0d2f70029af90aca",
-      "violationCount": 2,
-      "violationDigest": "dba7292457a6e8141bcb3fd88dbc9b12ad707ac681e2e1d2a1e77aa6eb566394",
+      "sourceSha256": "27f27b796688488a5cba5fc1dfe25de7af5bd72ee2b243a8f6b8760eee976352",
+      "violationCount": 1,
+      "violationDigest": "dbd7d0454735c9003b5052a2fa7cb3fd87a877ee7ee696cd02da5242669dbfad",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs",
-      "sourceSha256": "6e7e6c6789e3c855c80e365ed141ff9161e519a3ee6204d4ce24b65bae7bf5a0",
-      "violationCount": 4,
-      "violationDigest": "6cfbe8d782cc0feb486423589463d9b6da09652fb3dc11b9dd76de4de953e08f",
+      "sourceSha256": "5c821cd5c6fc5302defb9a22c8e9e832790ee3122ce1b2f0af2f285bb0cc9c0e",
+      "violationCount": 1,
+      "violationDigest": "606d03d6d3f6a3852e60be2f00a01c13b28805c77659a4fc9863609497a1935e",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityHardening/InputLimitBoundaryTests.cs",
-      "sourceSha256": "5513a5e899729e8cd3334c9e4b20ca17d5c31b2d08bcd8b9e738475450be8ce9",
-      "violationCount": 7,
-      "violationDigest": "6857d9d0b087a2d24334656c7082a6ea094f6dc650d1c8920e6dc4915bcf2724",
+      "sourceSha256": "df01e11121e167425df6f4cbe63ac3e275ad524401f9c1009c395535ea2972ac",
+      "violationCount": 1,
+      "violationDigest": "9c2cdd2f7b3f9b91e052cedbe0332942dff207e4d7cd9d5bdcdb62703f9f1cc8",
       "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityHardening/PublicResponseCompressionPolicyTests.cs",
-      "sourceSha256": "03f6eb6de5838e881f9a137ab3d3ac2df20173c0e67661bff1f3b06539e6146d",
-      "violationCount": 11,
-      "violationDigest": "6a76dbd328c7fa4cd6783f3a77a5faa352721883d679eb0b1f535f2afd7f25dd",
+      "sourceSha256": "107c733bd87bd1173ec10abf26d318bb244964aeec63750bbef747bdfc2fe76d",
+      "violationCount": 1,
+      "violationDigest": "1170b733fc9f103438dc777d8855f5f03b1865fbf73d78a341981d5bda9353b1",
       "rules": {
-        "method-name": 10,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityHardening/UploadBoundaryTests.cs",
-      "sourceSha256": "b9c31567caf5f49fd488587f5a045c58674f39efc8232740b5fcf0f92afb4f91",
-      "violationCount": 6,
-      "violationDigest": "42afed4ff6e0d22516c6755bd5e365b9492a6099fdfd673eac1eea4093dafee1",
+      "sourceSha256": "026f8c526c10dd78422ce02f899821fcde8b6cc310b360489321ffce131ed374",
+      "violationCount": 1,
+      "violationDigest": "f8f4f42d1741847a3a5513f181263a01b01f893978079759665e308c80f1fc0e",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityModerationHotPathContractTests.cs",
-      "sourceSha256": "6f10a843216e23bd8bb0ddfb430184d2194a47f425145e81c15806bd9fc3358d",
-      "violationCount": 3,
-      "violationDigest": "6f5cb172fb00fe16057944bbcdaf349dc2342ee8a8c7e239d117a128c9675f8a",
+      "sourceSha256": "945f4cbdfb88a96663b2a834a2c4e1825aa109a656c1c5b550ce5927dc7a3f15",
+      "violationCount": 1,
+      "violationDigest": "3d19828335aafd7f2a58bbefbae7b0433c254c2bcacd81ee1e16006961ea02ab",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityNativeAedsEndpointTests.cs",
-      "sourceSha256": "92d9e7edeb35211a225763aa2957ac1517319a4d48fe458ab7334923e64b233b",
-      "violationCount": 3,
-      "violationDigest": "f7ec2e8fd04a23b6bbb5ee604e3e9ce527e6d72479f47c2b8f98e390951971af",
+      "sourceSha256": "95e60fe8da07c3d36da1820a86caf572fcb63ca7827012a1303100adea7c89a5",
+      "violationCount": 1,
+      "violationDigest": "80338e33a5294c9df91a545041a8b54fc47b3628dd5e122a626c30552b8f3d9d",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityPolicySnapshotPersistenceTests.cs",
-      "sourceSha256": "c637c2d0e55b6474c91e91e7efbe5d5033ace156ec0dfac02689ed00063e9d2d",
-      "violationCount": 12,
-      "violationDigest": "f03bef638d304049e64c25de13285148333f30badf1853a9ed429805dad68a92",
+      "sourceSha256": "5386be875e09e2bd760d6ca3151a872569eee01b4c6e85840fb3240e4493d164",
+      "violationCount": 1,
+      "violationDigest": "cb8992c62a285d72794e99942f3e51ff6e675a28be7694507b7588dc2773170e",
       "rules": {
-        "method-name": 11,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityRiskEventPersistenceTests.cs",
-      "sourceSha256": "1d601ac9a9c46da243a21c2b6b5c31d7f07fa09f3268c0dd02d76de9b0d146f2",
-      "violationCount": 15,
-      "violationDigest": "03c19d89402d0354a9548f9e6cb28383541f85d17c2dd76abe58f945608057d2",
+      "sourceSha256": "ac5a597f533c476c575bdc7b7aebf51e4a844a50464c7f2ed25b67ef7fdfe5ef",
+      "violationCount": 1,
+      "violationDigest": "46c1cb05f9c27faa76b85fd0f2238dce47d14e52884ccc1eb870da7d2089e508",
       "rules": {
-        "method-name": 12,
-        "private-static-field-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityRiskPolicySnapshotV2Tests.cs",
-      "sourceSha256": "10670fec079f77b5fca1fd16bffa3a628c34200535496bacd95f4c6d6349a474",
-      "violationCount": 19,
-      "violationDigest": "f6187c3dd3e5d2cb3cb9d43d96ba18d409d9b6a6ebce0e0f9d8f5d0daebbe360",
+      "sourceSha256": "932094e434f7ff06bfd661203a8018550a865c72410bd63357ba5c92f0aee7e9",
+      "violationCount": 1,
+      "violationDigest": "de5b6b6563e930c9818ee03fd039f05f1e2ddcd4dd3fc0fe916dfec4aba13cec",
       "rules": {
-        "method-name": 19
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityRiskPseudonymizerTests.cs",
-      "sourceSha256": "41e045342a419088eba23e4c51e9897bdf57a1d9b51cd3122af52e769b49201d",
-      "violationCount": 9,
-      "violationDigest": "175471e7e7f2575c34b27f8ae3dd81c5318b776692ac8464f7d81a8670644434",
+      "sourceSha256": "1b67bee615bea1abad398a81ba9692fbf5af61911c1d5e76dafcfbeeeb552faf",
+      "violationCount": 1,
+      "violationDigest": "4bcc69b64fa722a269a5f0ed2499c29631fce8bb08c3964c05c18f5a170af381",
       "rules": {
-        "method-name": 6,
-        "private-static-field-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityRiskTaxonomyTests.cs",
-      "sourceSha256": "f55778822db11883da5b68c8ff932a82a145e6138c390c406b732436a44f3867",
-      "violationCount": 4,
-      "violationDigest": "b25b4005e00b85a5c3e0c45ffbb1bfc8bf38c99788bf8c1580423cce5813af0c",
+      "sourceSha256": "a64fa576e0561e0e56e482f9868ad84d5e9889d6a39e7fd09af56c6b67494264",
+      "violationCount": 1,
+      "violationDigest": "a71a8947a7ceb3132698708264884134fe55d6d121abb40cdfdd29fa0dd685f6",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SecurityServiceTests.cs",
-      "sourceSha256": "7d25b6435b5e616623b9f2a0d0dd14df29024adda149e16c747f0f8c00694a38",
-      "violationCount": 32,
-      "violationDigest": "a7a5c6282f3d3f9d3017b82c5d34d37656c2c21f0dea3bbce7bd64840f4d1c2e",
+      "sourceSha256": "1acfbb7d6f52add8501bafa227b19908c24a467e93689acfe56ad6cfed3407e3",
+      "violationCount": 1,
+      "violationDigest": "6e50b244355b30f5412771b1bf82b0a4bb03f36bc0ddc7bd968baa8bcc36a2a4",
       "rules": {
-        "method-name": 32
-      }
-    },
-    {
-      "path": "tests/backend/Unit/ServerCacheBinaryCodecTests.cs",
-      "sourceSha256": "7c5a46b8b5ca22da046dc2544b39afa10446b0e187b605e732e801598422aa7b",
-      "violationCount": 4,
-      "violationDigest": "f7828e99360b5b8b9b944e79031c50b79df5b7eaec000bace5b10b99b7c99ecd",
-      "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ServiceCollectionExtensionsTests.cs",
-      "sourceSha256": "17972f6e93f524dbaecbda002b93300b1d90f8a0b1ea3de9280fa5f3b06c8969",
-      "violationCount": 7,
-      "violationDigest": "c47d0ca7940e03421449608b50cca51f0da271e9571102e15ff36c9ccc3cbbce",
+      "sourceSha256": "f1c3fe57c8a3cc4063cf8684e8691b2dcbea645285cbcb4d4a4587fd0103f0e5",
+      "violationCount": 1,
+      "violationDigest": "71b93a0312eea799fd190f40a93ceaddc3e7adb5f38450f553f9e68e06e36302",
       "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/Sha256PowChallengeProviderTests.cs",
-      "sourceSha256": "69796cf3eb00e51989196b2203e80e444021084b5eb20c6ad08c8a6d07a828cc",
-      "violationCount": 6,
-      "violationDigest": "31e8d8bd31342d6c5d32b808cb54f0ddac240e022644feebc566cf1e9d04fd22",
+      "sourceSha256": "610c8195889887481b1f01e9739aaa2f1ce0d86d8c3456f5c81028e3ec88b36f",
+      "violationCount": 1,
+      "violationDigest": "40414a64886caac16000eb74bfc11d90039eea02896c4da42c627c00d4ff5374",
       "rules": {
-        "method-name": 6
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ShieldMiddlewareTests.cs",
-      "sourceSha256": "c1790506ed7f95c81815073148800f7694a826f6ae8abc34beabecefcc2453c8",
-      "violationCount": 68,
-      "violationDigest": "727e4748acd851e747cbeb1facff47a5d31722081c76229d8a199a4dcdd57d64",
+      "sourceSha256": "e0417ae00d11908e706d2875c98336700c764d5531b0a3bc6e05bb70b9d004e1",
+      "violationCount": 46,
+      "violationDigest": "a6e78f76a3e23f67a350c685aaf66140c43ff4e81ff169e3c5004deb191e497a",
       "rules": {
         "allman-brace": 22,
-        "method-name": 23,
-        "one-statement": 23
+        "one-statement": 23,
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SiteIntegritySigningTests.cs",
-      "sourceSha256": "f86e7f933914564b8e2e2bab6ede418b8a33fcfe4da5357693b23e62ba20fa3c",
-      "violationCount": 7,
-      "violationDigest": "ab7a0c224c4bf39901461ded7454ae3d326bfcbaade0507b7d44e49429e5be15",
+      "sourceSha256": "06bc715b735d163955146198dd4aabf96ed15fe671918e166c07af9a3a3daab6",
+      "violationCount": 1,
+      "violationDigest": "1fe03c8dd83b3c49f0fe5003692db5d6f69347143fba8567bc40e8d1a93ea547",
       "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SiteSubscriptionProofServiceTests.cs",
-      "sourceSha256": "6d06fb3c8752715ed0b1afd3da7c2d96184cde0d5e18ae1642cfc8d74d7840eb",
-      "violationCount": 9,
-      "violationDigest": "6e137372530b974ebba2196572925ae79a9497e00cffd4211b5d2b9721e4612b",
+      "sourceSha256": "a131117168986f083ec5e083cd8f71075498ce18b6e7e87b0493d1a9ebb9f5ea",
+      "violationCount": 1,
+      "violationDigest": "4f0725c69ff310fce31e2a7c1461d1810f0845daedacaae0d152c86d2432b969",
       "rules": {
-        "method-name": 8,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SpaAssetManifestServiceTests.cs",
-      "sourceSha256": "f20e0470aa54897b80416b6a6d28f12ff5e304d1943c36ab2c97680741fedc15",
-      "violationCount": 7,
-      "violationDigest": "77ce3436b2fb32ec5df8b65d3a0239295bec041630f3ac50e578928f8c532002",
+      "sourceSha256": "7b5d5580a2f90f1bb92da4897c6cae0e7bdfebb966139df2ca7fa7d1c6afff2f",
+      "violationCount": 1,
+      "violationDigest": "1b36aae0013be7eca4cba85592baa37d75a8d6065ef6384fd5a30654fda3ea00",
       "rules": {
-        "method-name": 7
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SqlSugarInitializerTests.cs",
-      "sourceSha256": "59cda3408d215f20c91c0fc305eb2389223ccc29da1b6c8231dfd5e4a853cff5",
-      "violationCount": 5,
-      "violationDigest": "42320068712e348fb42a62df49467dd30c4abbc1b21c0aa1d25db191dad6144a",
+      "sourceSha256": "7d06ec18f074c4a01c2436c6d50a1b94e447e0f228427272d6540015757b856e",
+      "violationCount": 1,
+      "violationDigest": "99b21964fed58a8de26ff29b0724d100d2dcf89af5ca96cc21d22357c39236ff",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/StatsPerformanceContractTests.cs",
-      "sourceSha256": "754412c61d2a4979262bb24508f2e13ea06d10e47a27d28695532d517dec7858",
+      "sourceSha256": "dca5f4c259dddc314b45001df27d931e1f26c2cebc7e173a4da469881b7d30ed",
       "violationCount": 1,
-      "violationDigest": "9beb35c186a079823a0c8c48c6c7dc59eff1c546b0dfefb2e067a10b96ea0154",
+      "violationDigest": "efeba4c1da50c31ce81a66112ee2aad373a4a28af66f31d1b3ea5b74b7ad5435",
       "rules": {
-        "method-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/StatsRecentCommentPrivacyBehaviorTests.cs",
-      "sourceSha256": "51ee9549512aa0f9f7587e33fdb23c0d1fccf0d9fa428f25879e2ee4ddb3055f",
-      "violationCount": 2,
-      "violationDigest": "755c910ebfc3c1223983781141c59780425c19dd6ac3f0fec1fd81070a905a0e",
-      "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/StatsServiceRegionTests.cs",
-      "sourceSha256": "29a9b9fd005eb8fdb4429e7895ab5163eec286615b94fcc925c8fd5db74242c4",
-      "violationCount": 5,
-      "violationDigest": "e017fef7d1949d3947c89d8c952272d66df11ac2ef9a3e95b39c6672b5630592",
+      "sourceSha256": "11c8b42fa0ca7daaa1aaa48c489b8a673a025a6ae446fbabd184f95b4683b0f3",
+      "violationCount": 1,
+      "violationDigest": "7ffd0207e601dedab0f829f348fcebdc16f1c2f5dde9cdf0e0f70bfc3e42428e",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
-      "sourceSha256": "06d6a0ea35c59c9bb722f343e87df132973c1e71b9687d67e35f2d8ed365960e",
-      "violationCount": 5,
-      "violationDigest": "bdf5cb52c36330fa5607e7ebed614e820b79b132a95d324b07f75ab0452ce83a",
+      "sourceSha256": "11f3ade46c11e863fa28d2fb1470399b49d2056e8ea9a114815ef90dfe5d254d",
+      "violationCount": 1,
+      "violationDigest": "6b998394354136b8b6bebaf6f07e50fccf0a6fe596d6e13a23e0d80b252dc548",
       "rules": {
-        "method-name": 4,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/SystemServiceTests.cs",
-      "sourceSha256": "4328f371ed6ce809e4d0990d724a893c1764f9efef8a1e4c343fbff832f71d38",
+      "sourceSha256": "cc64552322ccdd6355fd9fcdd0fc37c6f0beb0d9405533b4d3fc4cce8e38dfbd",
       "violationCount": 1,
-      "violationDigest": "5f12ac32bbd73746badcb2fb72c83778ed0f470da1f49bac10f99398a8fe220b",
+      "violationDigest": "f504c96f1b0cf918031b3b606c50c5368d6518302e0251d0fa5c2739c487133c",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/TaxonomyProjectionTests.cs",
-      "sourceSha256": "8b379668fce36ed4e1a399c189870881ab58139df51bd3b873f24dc914c8d126",
+      "sourceSha256": "63143a3e772547ca3a7dc866d33c67e66ab0dd24a5ffa48fbbc178bcb06a6a48",
       "violationCount": 1,
-      "violationDigest": "5041f8365f4ade16f25572b63c4e2465bb25b7047b3b9180b661056200ffd553",
+      "violationDigest": "96f1d4af8fbd599b9f975aad3b01a28a6fb6bfcdd0358ecb18f18eb37942735c",
       "rules": {
-        "method-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/TestInfrastructure/BackendTestPaths.cs",
-      "sourceSha256": "d5480731fc9a983b279ce4f4b8a2342bfac61cdfd427f90b5152769558e44afb",
-      "violationCount": 1,
-      "violationDigest": "415e8951dd987e49bb372848d0da890871f81738cfb7644ff20a21c30fbed41f",
-      "rules": {
-        "private-static-field-name": 1
-      }
-    },
-    {
-      "path": "tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs",
-      "sourceSha256": "5799ee118d6d880c30df5af7d9b0cd615a439848d136d74b5b7732b3219950d5",
-      "violationCount": 4,
-      "violationDigest": "2c384784915cd8dae9118ec2c025e2025be506c33354b71f39be8f5a5dbcb525",
-      "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/TestSessionContextTests.cs",
-      "sourceSha256": "e3565522b331132923a74fe0c4c74e9b1ae234852b3c8319bc3e67e723ba4d1b",
-      "violationCount": 3,
-      "violationDigest": "d11efb7fe79959221618996dab71314c0362110357ad3d4baf66f62533e397f9",
+      "sourceSha256": "34f8a44dc9bf02e67b80eec532121a886aa278122deaad91f2992d6c2b2c1c5a",
+      "violationCount": 1,
+      "violationDigest": "4e70e06869afffca19f5816aed6b9495112a2087b57ff0d3bb9020536cea5300",
       "rules": {
-        "method-name": 3
-      }
-    },
-    {
-      "path": "tests/backend/Unit/TextHelpersTests.cs",
-      "sourceSha256": "30da0788b9e9255ffdc0c998dcef921c198dcaf1cdb759c600502726a747cb03",
-      "violationCount": 10,
-      "violationDigest": "024a665676cc053eaaf02a143814d318fb8ec15dfd6492379edb08c76c902503",
-      "rules": {
-        "method-name": 10
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/TextNormalizerTests.cs",
-      "sourceSha256": "cf35b5db102d906421d9b7fd4aade542f1e437ebe52a8aefe3754780baab8607",
-      "violationCount": 2,
-      "violationDigest": "f0311ea5a5827ad126771c73d7254948340afda58b9ae0dc702ecbebb0ad2ef2",
+      "sourceSha256": "2d2cd50557addcb48e65b77cbc7a2d9a08b2c8b6fb4ca9f84bd60a376abfe669",
+      "violationCount": 1,
+      "violationDigest": "b93f07c24bcd6777207460ca3b915417b0d44cc269ee3484719f8152ef10338a",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/TotpServiceTests.cs",
-      "sourceSha256": "35e6d4c6107a09df7050f52cbd0cd87443e9a84724c818deea585e48b1e3a724",
-      "violationCount": 56,
-      "violationDigest": "b3d3accc92fb93c2eb3a333cf58c441d7f660fac9f75f3286c335955bc0a1d14",
+      "sourceSha256": "b7c00256b5a562acfecef9d5a8edf46bf18b62f7aa240bea61118359b4540edf",
+      "violationCount": 1,
+      "violationDigest": "f84f7f3db397b694cf3cf6f1710056d12720c30e85aa192eae7b635ebc40dca7",
       "rules": {
-        "method-name": 56
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/TransactionSideEffectGuardTests.cs",
-      "sourceSha256": "06b1dcc619047660be0dd17138bb916b527cedd616cbd1c899ba9b28e282415a",
-      "violationCount": 2,
-      "violationDigest": "0abc801018076155706502c366481168984ed039613736c9dc78f7323d2825ac",
+      "sourceSha256": "f6e6a761a8405190a7ddfe758f0449f243d4923c223931d23593ece454adffb2",
+      "violationCount": 1,
+      "violationDigest": "0097cda055bbdfd3519e6e7d3eedf6aa74d900009b28b4889a3354f709d3ce61",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/TransparencyLogTests.cs",
-      "sourceSha256": "d95e57b05a726b5fef13be6a9270a0274bc54d3bae4c4152f6063f3f36c135da",
-      "violationCount": 5,
-      "violationDigest": "c1bc89cd2ac05c9f2702a60ec590bd1e42156c55e872a0d6517f10e8b8400556",
+      "sourceSha256": "6b12707b7b571d8ccdee4ea13af04102ad8a40bc5d0724fb9c23a18ccddfeb5f",
+      "violationCount": 1,
+      "violationDigest": "944b6d54b687990a417083cba293e7d44f58457370512c0a64830f7248c03e27",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/UnifiedCacheTests.cs",
-      "sourceSha256": "3d2db6a2fc2e0cff3df6a10b69be7fdeba17a47e9154acac7dbde6dd26047415",
-      "violationCount": 46,
-      "violationDigest": "c0e22adc4e6d9490a13e97e5a3ba51f41dc4177f148f8015af379f033555f237",
+      "sourceSha256": "7151b6a9eebadedcd4ec77df07a02a56568ffdf9fd2c6ca125300479240a199a",
+      "violationCount": 1,
+      "violationDigest": "6d3f72822e4c85506866ba4f0191c9f86d2501c9ce35a8b83ac1fa29676e4386",
       "rules": {
-        "method-name": 46
-      }
-    },
-    {
-      "path": "tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs",
-      "sourceSha256": "06c29a0f1206f727ef6f053e1b46f02d95479bdd2e897f543917f6e950793eb9",
-      "violationCount": 3,
-      "violationDigest": "9c1ade3dcbdf01d4f34f80d7f3eeb9e1ff091b970ea1fc4cdc7ec5485cce01eb",
-      "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs",
-      "sourceSha256": "93882179d2c3b04b5c8af0e4ccd3175b7c7d8afb8970ee042324b869184c0906",
-      "violationCount": 4,
-      "violationDigest": "889f1bae32b295dfe600994fb5084e1833a354adb7daa5538c5297e1f07812d7",
+      "sourceSha256": "df224123dec19804ee4526ec5c585774d005a5dbfb99c93a1af90041399145e4",
+      "violationCount": 1,
+      "violationDigest": "fe6ecdaedb8de34b04416ec034ef393991dc8def1fb0aaf590f8868cf6ea3f5f",
       "rules": {
-        "method-name": 4
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
-      "sourceSha256": "67d7b4dc0d3fb3bfaad4ae36e150fa1cf72d976aac8b8d1e26dc2b6e657b5b0f",
-      "violationCount": 3,
-      "violationDigest": "54ba5cf64e55bc7906b1f7d68a99c2da916580019289db25980be0d8bbca9754",
+      "sourceSha256": "ed05997ece1a5e2fb6af2705e310927160583bdb8f0cf49bd8562399fd4f7b9f",
+      "violationCount": 1,
+      "violationDigest": "753c9fdf09959b1fa688dffba08a7f8bc1b8ac02649fe2cbc203dbcdf7284e97",
       "rules": {
-        "method-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/UserCoreServiceTests.cs",
-      "sourceSha256": "193a88a30759cf6e551dd1ea506348228aa393cbac3c1e092cb7801608300d2b",
-      "violationCount": 11,
-      "violationDigest": "7cf3c92c697e47057c821a81db1c89a49da4e25984170176de75f4e55b1835f5",
+      "sourceSha256": "7c9944a0b76c31a9ba16f18469653fb6b5f7feffd883b594f4651a07897053b1",
+      "violationCount": 1,
+      "violationDigest": "d50c74f922343b883c90ff66d1db7edc2cb681c4f9b119d34bda5ccebcb13d53",
       "rules": {
-        "method-name": 11
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/UserPublicHandleConcurrencyTests.cs",
-      "sourceSha256": "db9d4d297e83d4f1f4457423a9b200aee330dd6790ddb2745235ecc5e28f2a5b",
-      "violationCount": 2,
-      "violationDigest": "23d0850e1f7fc91eb42d6940f1911bae0378d9212ff07b7436f68ea3348f8a49",
+      "sourceSha256": "9b9c86dad2e09b3535f8d06cafab643ddcd7a8b112ce5b034363e92200a8274a",
+      "violationCount": 1,
+      "violationDigest": "9d892768319019441bb6e535decaf082332e76a95daa58418fe4ed6cdcc4b9be",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/UserSecurityStepUpServiceTests.cs",
-      "sourceSha256": "acc3d5feba12e945f1b10f6aadae7516427cc2b40cb5fe123da45f5a8bbb094c",
-      "violationCount": 8,
-      "violationDigest": "e5c7813c739244babb038371a4bfb6ad3e08017ef4baa146866e8c89138b777d",
+      "sourceSha256": "691e2e40618b0e4316c4fcc490a9b69672f317454f2d2c354c087616e3ffb627",
+      "violationCount": 1,
+      "violationDigest": "b4b7a1f838806f469f50ce3f07fedcfac28d98e34e152984f9fcaecff331ad4b",
       "rules": {
-        "method-name": 8
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/UserServiceValidationTests.cs",
-      "sourceSha256": "47113b121f907a6471f6315da56e81329572307a2e518d8272ac0b0f6726b21d",
-      "violationCount": 51,
-      "violationDigest": "ff66402eb42b66a5906ee8ac90852816d76dd091ab04b79bb79aa0945b34900d",
+      "sourceSha256": "3970606516dfc14b6deee28e99d059d38f449ffe3c6bff3e5ac170f170772644",
+      "violationCount": 1,
+      "violationDigest": "82a8719581bbfa3f498d68efafa2a5953632befb7bb3035a08028c14f6769fb3",
       "rules": {
-        "method-name": 51
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/UserSessionJwtAuthenticationTests.cs",
-      "sourceSha256": "aa5b03a692fa2960a85a980a9615722cf2f9e8699acb9b86f53776984313ee32",
-      "violationCount": 5,
-      "violationDigest": "b6814183fd2e93de88474fab7592b5cc58fb9b31584f20887910a1429c271ad2",
+      "sourceSha256": "30e30a5989e4b00402152f954feb0570dfda60b3523795508fe3450f566aee06",
+      "violationCount": 1,
+      "violationDigest": "59719bffe3cca297ec6cd92fd905edd6a89a98d83e6c494db94a6cb69662c8c8",
       "rules": {
-        "method-name": 5
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/UserSessionLoginConcurrencyTests.cs",
-      "sourceSha256": "5fe9fbe1b28f27a59de5c35b1b46aba99854acda79bfcb68375f78d3c09fe054",
+      "sourceSha256": "02810f9a347aa7fe8f491e81b86ca1c358e2c09079487353ca19e88bfad372dd",
       "violationCount": 1,
-      "violationDigest": "407f64fe257828da1d3095773044a306d8eab201f76317047758ced387a72aa0",
+      "violationDigest": "9b4d338620acb753b60ff71564e1715ceed3a1719b05a34ee3b9cbfc497049a3",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/UserSessionMappedBoundaryTests.cs",
-      "sourceSha256": "f3e814f666812bf38d398642dd914c6b29da4912dc0d613fc0f1c4384d871b60",
-      "violationCount": 2,
-      "violationDigest": "dd4dbc61dc48adf459633f059058b10983a82911b05a1e5946d7f5bdcac8454b",
+      "sourceSha256": "03366111d904db4e16d8db425e86f07b6cf680ad61853216642657840a944c79",
+      "violationCount": 1,
+      "violationDigest": "aa29041b866c5081cf8fb81aab7cc1ebc40d61f995258780178c172434bd98d9",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/UserSessionValidationServiceTests.cs",
-      "sourceSha256": "1ee8b809aebe4b73aea69ec8d03fe3e10f7d722290e0a853332ce31d0cd7bd2a",
-      "violationCount": 8,
-      "violationDigest": "07ffaa14e1734e6f7cd09eb655277e519ebcb4e691ab184caff03412246a77ff",
+      "sourceSha256": "6357a1c6c69ecbc3658d083401864867f44304d8d592a02a40d01964f6858d88",
+      "violationCount": 1,
+      "violationDigest": "9bf8354b78d1ce352a528d6d62c3388de1e5c4c88d83dfffd84725587ccb9129",
       "rules": {
-        "method-name": 8
-      }
-    },
-    {
-      "path": "tests/backend/Unit/Utf8CodecExtendedTests.cs",
-      "sourceSha256": "d11413cca4560079382e8288378b524926e12cd5f7e9b2524390e107d5037a39",
-      "violationCount": 9,
-      "violationDigest": "cdb65004eb44593f165d5f7355841b16f9c7a3db2a1258714b89a797eb2cbfd3",
-      "rules": {
-        "method-name": 9
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/VisitLogIpPseudonymizerTests.cs",
-      "sourceSha256": "21f8b95ff1b27a9d0ca6ec502e39283ebad9624045878f5ffb6089cd39e94b9e",
-      "violationCount": 8,
-      "violationDigest": "a5907f2c152ff783c5fe05f5f61220680d889ec75aa055273a58624ba7b300ff",
+      "sourceSha256": "4b9f10bd053b900e375748b26399a7cc25cc29adadac0ef0bc5480614ad72718",
+      "violationCount": 1,
+      "violationDigest": "e64f378fe1e28c89903594f426822f966a790e766a1e7c1dea094ce87232caba",
       "rules": {
-        "method-name": 5,
-        "private-static-field-name": 3
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/VisitLogIpPseudonymMigrationDatabaseTests.cs",
-      "sourceSha256": "601b177ce3975d4043bfa4c63b6f7e7643880ed2958cde1a85b52de4ebb73aa7",
-      "violationCount": 2,
-      "violationDigest": "09e2addecab88366436b39d817198c2cc68e011b5ae4c3e2a01b9dae6e3b4c15",
+      "sourceSha256": "8b0fb773ef6c36d94e59564c71d736edffdb58ab04d6c38fca371b6c799a2827",
+      "violationCount": 1,
+      "violationDigest": "b0c637a61d32f4b58d3225f9cb22e0f267c4765153344179dc57f66817450822",
       "rules": {
-        "method-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/VisitLogMiddlewareTests.cs",
-      "sourceSha256": "5ad04130b8903ee7d99fe79225d933b978fd64772f3bf62e231ff69ab263242a",
+      "sourceSha256": "2cefb331374fb7d5370f9dcb3f287f6cb29f1c32b57552637f79c815336564d4",
       "violationCount": 1,
-      "violationDigest": "2d02580cf0eba1b311ede3bd4544f25b4e9088d29814de2a3a57aa67492b66ee",
+      "violationDigest": "2a8ae5cfa0b43874dcfd7b9079cdbc10d6ffd39fc0bdbc4675dc483feb0025d1",
       "rules": {
-        "method-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/VisitLogProcessorServiceTests.cs",
-      "sourceSha256": "390bbae065d8bf194e7d08a3ca3670dd72603d7b989f2e4a892e0e37149dd0b1",
-      "violationCount": 8,
-      "violationDigest": "80bb553f33f56f98906ac8a0f299c63275b0b86cfb85ace49be6919d6911a026",
+      "sourceSha256": "40b947c781260cd9e8ce69dcd842c3eca4b60d2839f4cb8cfed1b69cb6c0e224",
+      "violationCount": 1,
+      "violationDigest": "8c0409cc1c01b8c179ac2df6d31fa6cb2dc4acfb5f74e8fc2f7304aaaa6e70ff",
       "rules": {
-        "method-name": 8
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/WebApplicationCompositionExtensionsTests.cs",
-      "sourceSha256": "4472684c697ca2a134a0702ae5fb42fa0ac15a93a6de16b9e0f4d7d7b2e94fb6",
-      "violationCount": 45,
-      "violationDigest": "e4eedd68b41bb891e50fdd6d903cb9357569462902d166b7b8584d09e8b952b0",
+      "sourceSha256": "50b3bc1df83ac050fac3e60e43d600ff4bc77114fbf87b3e3475d69bd3d7e0f9",
+      "violationCount": 1,
+      "violationDigest": "0bcae6df43e3498f8dec7b126ecdef48a24f764d8bf80b9a44c68f2d41edff96",
       "rules": {
-        "method-name": 44,
-        "private-static-field-name": 1
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ZkCommentV2CrossStackFixtureTests.cs",
-      "sourceSha256": "d93a676c988aae39f35a13aebac010448bd56299ab09ecce24dbb4e4b56da9aa",
-      "violationCount": 5,
-      "violationDigest": "d3a10fe42d21b78c589ed63c2a61f04874ec53b8c18021b3eecb7020bc8d7701",
+      "sourceSha256": "06a8766e68fce0cc68fc08b0d4008ade9bd5d430ca6bd2bf2c14cedd57255c34",
+      "violationCount": 1,
+      "violationDigest": "926ae80817b8eee8de478f0cf7ecba39df38d34fea7735df5facab7d2022630e",
       "rules": {
-        "method-name": 3,
-        "private-static-field-name": 2
+        "using-order": 1
       }
     },
     {
       "path": "tests/backend/Unit/ZkProofVerifierTests.cs",
-      "sourceSha256": "843b1c1985ab053eae943b36e19fb15bed29f18a428d13df82d29d154da98792",
-      "violationCount": 22,
-      "violationDigest": "f75719e59668381f2b37e663be274cb704ec0af1c1ea0821e9fee45ae59c7c51",
+      "sourceSha256": "70dbe61df5b369eec87a986d8d3dc58920ece697fcfe8e8483112cbfd53ad23d",
+      "violationCount": 1,
+      "violationDigest": "73cb72293f8ff59bdeabde50f55f414aab69a8ac11d8026b6569bf68294aaa6e",
       "rules": {
-        "method-name": 17,
-        "private-static-field-name": 5
+        "using-order": 1
       }
     },
     {

@@ -7,6 +7,7 @@
 - Root `.editorconfig` fixes UTF-8 without BOM, LF, final newline, trailing whitespace, 4-space indentation, Allman braces, `using` placement/order/groups and Microsoft .NET naming rules.
 - `Directory.Build.props` enables the built-in .NET analyzers and build-time code-style enforcement. IDE0055 and IDE1006 are warnings during the migration; compiler, security and reliability diagnostics keep their existing severities.
 - Generated, vendor, lock, minified and intentional fixture paths are explicitly excluded. A tool may not infer a new exclusion from a filename or a failing diagnostic.
+- The tracked generator output `src/core/Algorithms/AedsFrameType.cs` is an explicit exclusion; its source generator and protocol parity tests remain the authority for that file.
 - `config/development/csharp-style-policy.json` defines the CLI modes, documented public-API scopes and narrow exclusions. `config/development/csharp-style-baseline.json` records existing debt by file content digest; it is not a statement that the debt is acceptable.
 
 Run the changed-file gate while developing:
@@ -22,6 +23,12 @@ node tools/dotnet/check-csharp-style.mjs --mode changed --base origin/master
 ```
 
 The checker aggregates physical format, `using`, naming and XML-documentation violations before failing. It also invokes Roslyn-backed `dotnet format whitespace` and `dotnet format style` for selected files, so IDE, CLI and CI consume the same `.editorconfig`.
+
+Import normalization has an explicit fix path. It writes only the leading `using` region, placing ordinary `System` imports first, sorting all other ordinary namespaces alphabetically, then grouping static and alias directives:
+
+```bash
+node tools/dotnet/check-csharp-style.mjs --mode full --fix
+```
 
 ## Full-repository modes
 
@@ -50,7 +57,7 @@ The text checker deliberately covers only syntax it can classify without contrad
 
 ## Naming and external contracts
 
-C# identifiers follow the repository mapping: PascalCase types/members/methods/local functions, `I` + PascalCase interfaces, camelCase parameters/locals, `_camelCase` instance fields, `s_camelCase` static fields, `t_camelCase` thread-static fields and PascalCase constants. Non-flags enums are singular; flags enums are plural; internal identifiers cannot contain consecutive underscores.
+C# identifiers follow the repository mapping: PascalCase types/members/methods/local functions, `I` + PascalCase interfaces, camelCase parameters/locals, `_camelCase` instance fields, `s_camelCase` static fields, `t_camelCase` thread-static fields and PascalCase constants. Test and benchmark methods may retain a single underscore between PascalCase scenario segments because those names are test/evidence identifiers accepted by Roslyn; production methods do not receive that exception, and consecutive underscores remain forbidden everywhere. Non-flags enums are singular and flags enums are plural.
 
 External spelling is preserved at the boundary instead of leaking into C# identifiers. For example, `[JsonPropertyName("user_id")] public string UserId` keeps the wire key while retaining a PascalCase property. The same adapter rule applies to ORM columns, HTTP headers, Redis keys, environment variables and ABI symbols. A rename that changes an API, AEDS, database or security contract is a semantic change and is never part of formatting migration.
 
@@ -63,7 +70,7 @@ The gate requires meaningful XML documentation for public declarations in shared
 1. Land the rules, checker and transparent baseline without changing application logic.
 2. After all active C# feature work has landed, run the formatter and commit only its mechanical output.
 3. Review that commit for semantic changes, then add its real commit SHA to `.git-blame-ignore-revs` in a follow-up commit.
-4. Regenerate the baseline with `node tools/dotnet/check-csharp-style.mjs --mode full --update-baseline`; each later module migration must reduce it, and the long-term target is an empty strict-full result.
+4. Regenerate the baseline with `node tools/dotnet/check-csharp-style.mjs --mode full --update-baseline`; each later module migration must reduce it, and #1158 closes only after the baseline is empty and strict-full succeeds.
 5. Fix naming and documentation debt by module in reviewable commits; never mix broad renames with the mechanical format commit.
 
 No placeholder SHA is accepted in `.git-blame-ignore-revs`. A formatting commit is ignored only after it exists and has been reviewed as purely mechanical.
