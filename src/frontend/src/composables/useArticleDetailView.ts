@@ -1,6 +1,6 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getRelatedReading, type ArticleDetailResponse, type RelatedReadingResponse } from '@/api/article'
+import { getArticleById, getRelatedReading, type ArticleDetailResponse, type RelatedReadingResponse } from '@/api/article'
 import { toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap'
 import {
   createAnonymousComment,
@@ -13,7 +13,6 @@ import {
   type CommentPolicySnapshot
 } from '@/api/comment'
 import { useUserStore } from '@/store/user'
-import { useArticleBinaryStore } from '@/store/article'
 import type MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import { toast } from '@/fsusui/feedback'
 import { usePow } from '@/composables/usePow'
@@ -99,7 +98,6 @@ export function useArticleDetailView() {
   const notificationStreamStore = useNotificationStreamStore()
   const { bootstrap: initialBootstrap } = consumePublicPageSeed('ArticleDetail', { fullPath: route?.fullPath })
   const userStore = useUserStore()
-  const articleStore = useArticleBinaryStore()
   const powProvider = usePow()
   const initialRouteId = Number(route.params.id)
   const initialBootstrapArticle = initialBootstrap?.article &&
@@ -398,7 +396,7 @@ export function useArticleDetailView() {
     const action = async (): Promise<void> => {
       try {
         const response = await articleLoadTask.run(
-          async (signal) => await articleStore.fetchArticleById(id, signal)
+          async (signal) => await getArticleById(id, { signal })
         )
         if (!lifecycle.isActive() || resolveActiveRouteId() !== id) {
           return

@@ -29,6 +29,8 @@
 
 旧文本业务 API 不再注册；`/api/**` 非 binary 业务路径统一返回 `ApiError` AEDS frame。客户端不得把解码失败回退为文本 API 请求。例外只限 [AEDS-only policy](aeds-only-policy.md) 登记的标准协议、健康探针和工具入口。通知 preflight 失败返回 AEDS `ApiError` frame，不再返回 JSON error envelope；`/api/read-proof/**`、`/api/public/articles/{id}/related`、`/api/telemetry/rum`、`/api/subscriptions`、`/api/author/**` 与 `/api/admin/security/**` 旧 JSON 入口已移除。
 
+前端的文章读取与登录后私有 API 固定消费当前 AEDS binary contract，不提供用户可切换的 transport 状态，也不把 transport 选择写入 `localStorage` 或 `sessionStorage`。排障能力只能作为 `import.meta.env.DEV` 明确守卫的开发构建内存态观测，不得改变 API 路径、请求 frame、凭据策略或生产 bundle 行为。
+
 Integrity verification sidecars under `/integrity/**` are public JSON manifests, not runtime business APIs and not `/api/binary/**` fallback. Publish proof and Rights V3 proof routes only read persisted proof rows, signing metadata, and transparency log pointers; they do not generate proofs on request and must not expose admin principal id, IP address, user agent, session id, device id, private drafts, comments, private messages, tokens, private keys, or failure details.
 
 HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提供，包含 method/path/status/content-type/security 与 `x-fsus-*` 扩展；AEDS payload、frame 编号、POD schema 和 golden fixture 仍由 `aeds-protocol.json`、POD 契约和 fixture 负责。

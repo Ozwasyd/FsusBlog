@@ -67,6 +67,17 @@ export const retiredPage = 'About.vue'
     }
   },
   {
+    name: 'retired persisted binary transport toggle',
+    expected: 'retired persisted binary transport toggle residue detected',
+    files: {
+      'src/frontend/src/store/article.ts': `
+export const persistedTransportKey = ['fsus', 'transport', 'binary'].join('.')
+export const useBinary = readBinaryFlag(persistedTransportKey)
+export const store = useArticleBinaryStore('article-binary')
+`
+    }
+  },
+  {
     name: 'old author-mode aliases',
     expected: 'old author-mode alias residue detected',
     files: {

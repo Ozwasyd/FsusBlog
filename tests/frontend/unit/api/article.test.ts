@@ -97,6 +97,22 @@ describe('article API (binary)', () => {
     })
   })
 
+  it('getArticleById forwards AbortSignal to the binary transport', async () => {
+    const controller = new AbortController()
+
+    await getArticleById(42, { signal: controller.signal })
+
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryRoute: expect.objectContaining({
+        operationId: 'binary_get_article_id_aeds',
+        params: { id: 42 }
+      }),
+      frameType: FrameType.ArticleDetail,
+      requestOptions: expect.objectContaining({ credentials: 'omit' }),
+      signal: controller.signal
+    }))
+  })
+
   it('getHotArticles calls requestBinaryOnly with size param', async () => {
     await getHotArticles(5)
     expectBinaryRoute('binary_get_article_hot_size_aeds', FrameType.ArticleHot, {

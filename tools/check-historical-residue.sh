@@ -174,6 +174,13 @@ RunResidueCheck \
     src/frontend/src
 
 RunResidueCheck \
+    "retired persisted binary transport toggle" \
+    "retired persisted binary transport toggle residue detected" \
+    'fsus[.]transport[.]binary|\b(?:useArticleBinaryStore|readBinaryFlag|useBinary)\b|["'\'']article-binary["'\'']' \
+    "" \
+    src/frontend/src tests/frontend/unit docs/api
+
+RunResidueCheck \
     "obsolete AOT shell builder names" \
     "obsolete AOT shell builder names detected" \
     'BuildHomeShell|BuildArticleDetailShell|BuildFilterShell|BuildAboutShell|BuildArchiveShell' \
