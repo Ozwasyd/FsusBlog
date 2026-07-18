@@ -5,7 +5,7 @@
   font-size: 1rem;
   line-height: 1.8;
   letter-spacing: 0.015em;
-  text-align: justify;
+  text-align: left;
   font-weight: 400;
   word-break: break-word;
   overflow-wrap: break-word;
@@ -30,7 +30,6 @@
 .markdown-body p {
   margin-top: 0;
   margin-bottom: 0.6em;
-  text-indent: 2em;
 }
 
 /* FsusUI's renderer applies task-surface paragraph defaults directly to
@@ -38,7 +37,7 @@
    at the consumer boundary without changing the shared component defaults. */
 .markdown-body .markdown-renderer__text {
   letter-spacing: 0.015em;
-  text-align: justify;
+  text-align: left;
 }
 
 .markdown-body p:empty {
