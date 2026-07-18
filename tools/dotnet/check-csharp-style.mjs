@@ -281,7 +281,7 @@ function isCamelCase(value) {
 }
 
 function isSegmentedPascalCase(value) {
-  return /^[A-Z][A-Za-z0-9]*(?:_[A-Z][A-Za-z0-9]*)+$/u.test(value) && !value.includes('__')
+  return /^[A-Z][A-Za-z0-9]*(?:_(?:[A-Z][A-Za-z0-9]*|[0-9]+))+$/u.test(value) && !value.includes('__')
 }
 
 // Roslyn intentionally keeps automatic accessors compact even when
@@ -328,8 +328,16 @@ function parseUsingDirective(value) {
   const match = value.trim().match(/^using\s+(?:(static)\s+)?(?:([A-Za-z_]\w*)\s*=\s*)?([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*;/u)
   if (!match) return null
   const [, staticImport, alias, namespace] = match
-  const group = alias ? 3 : (staticImport ? 2 : (namespace === 'System' || namespace.startsWith('System.') ? 0 : 1))
-  return { namespace, sortKey: alias ?? namespace, group, rendered: value.trim() }
+  const rootNamespace = namespace.split('.')[0]
+  const rank = alias ? 3 : (staticImport ? 2 : (rootNamespace === 'System' ? 0 : 1))
+  const groupKey = alias ? 'alias' : (staticImport ? `static:${rootNamespace}` : rootNamespace)
+  return { namespace, sortKey: alias ?? namespace, rank, groupKey, rendered: value.trim() }
+}
+
+function compareUsingDirectives(left, right) {
+  return left.rank - right.rank
+    || left.groupKey.localeCompare(right.groupKey)
+    || left.sortKey.localeCompare(right.sortKey)
 }
 
 function normalizeUsingDirectives(file) {
@@ -346,10 +354,10 @@ function normalizeUsingDirectives(file) {
   if (lines.slice(first, last + 1).some((line) => line.trim() && !parseUsingDirective(line))) return false
 
   const directives = indexes.map((index) => parseUsingDirective(lines[index]))
-    .sort((left, right) => left.group - right.group || left.sortKey.localeCompare(right.sortKey))
+    .sort(compareUsingDirectives)
   const replacement = []
   for (let index = 0; index < directives.length; index += 1) {
-    if (index > 0 && directives[index].group !== directives[index - 1].group) replacement.push('')
+    if (index > 0 && directives[index].groupKey !== directives[index - 1].groupKey) replacement.push('')
     replacement.push(directives[index].rendered)
   }
   const current = lines.slice(first, last + 1)
@@ -481,7 +489,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
     if (semicolons > 1 && !/^for\s*\(/u.test(trimmed) && !autoPropertyAccessorLine) {
       violations.push(makeViolation(file, lineNumber, 'one-statement', code, 'only one statement is allowed per line'))
     }
-    if (!trimmed.includes('(') && /^(?:const\s+)?[A-Za-z_][\w<>,.?\[\]]*\s+[A-Za-z_]\w*\s*,\s*[A-Za-z_]\w*/u.test(trimmed)) {
+    if (trimmed.endsWith(';') && !trimmed.endsWith(');') && !trimmed.includes('(') && /^(?:const\s+)?[A-Za-z_][\w<>,.?\[\]]*\s+[A-Za-z_]\w*\s*,\s*[A-Za-z_]\w*/u.test(trimmed)) {
       violations.push(makeViolation(file, lineNumber, 'one-declaration', code, 'only one declaration is allowed per line'))
     }
 
@@ -570,11 +578,15 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
   for (let index = 1; index < usings.length; index += 1) {
     const previous = usings[index - 1]
     const current = usings[index]
-    if (current.group < previous.group || (current.group === previous.group && current.sortKey.localeCompare(previous.sortKey) < 0)) {
+    if (compareUsingDirectives(current, previous) < 0) {
       violations.push(makeViolation(file, current.line, 'using-order', current.namespace, 'using directives must place System first and sort namespaces within a group'))
     }
-    if (current.group !== previous.group && lines[current.line - 2]?.trim() !== '') {
+    const separated = lines[current.line - 2]?.trim() === ''
+    if (current.groupKey !== previous.groupKey && !separated) {
       violations.push(makeViolation(file, current.line, 'using-group', current.namespace, 'using groups must be separated by one blank line'))
+    }
+    if (current.groupKey === previous.groupKey && separated) {
+      violations.push(makeViolation(file, current.line, 'using-group', current.namespace, 'using directives from the same root namespace must stay in one group'))
     }
   }
   return violations

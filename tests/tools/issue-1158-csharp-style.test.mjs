@@ -145,7 +145,7 @@ public sealed record MultiLineRecord(
   })
 })
 
-test('issue 1158 enforces System-first import order without inventing product namespace groups', () => {
+test('issue 1158 enforces System-first import order across root namespace groups', () => {
   withFixture((fixtureRoot) => {
     writeFixture(
       fixtureRoot,
@@ -193,6 +193,7 @@ public sealed class ImportFix
 using System.Text;
 
 using FsusBlog;
+
 using Vendor;
 
 namespace Fixture;
@@ -211,7 +212,7 @@ test('issue 1158 preserves single scenario separators only for test and benchmar
 
 public sealed class ScenarioNames
 {
-    public void ReadAsync_MissingItem_ReturnsNull()
+    public void ReadAsync_3_MissingItem_ReturnsNull()
     {
     }
 }
@@ -404,25 +405,31 @@ public sealed class BadName
   })
 })
 
-test('issue 1158 blame ignore contains the reviewed mechanical C# commit', () => {
+test('issue 1158 blame ignore contains only reviewed mechanical C# commits', () => {
   const lines = readFileSync(path.join(root, '.git-blame-ignore-revs'), 'utf8')
     .split(/\r?\n/u)
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith('#'))
-  assert.deepEqual(lines, ['892489472e27c85d277fb98c2c35969851294b58'])
+  assert.deepEqual(lines, [
+    '892489472e27c85d277fb98c2c35969851294b58',
+    'b5c116cd54e7a0a86fd243059502a3e23f364074',
+    '4839b4e1bc9f8c181fad14889414c729cba3108c'
+  ])
 
-  const commit = spawnSync('git', ['cat-file', '-e', `${lines[0]}^{commit}`], {
-    cwd: root,
-    encoding: 'utf8'
-  })
-  assert.equal(commit.status, 0, output(commit))
+  for (const revision of lines) {
+    const commit = spawnSync('git', ['cat-file', '-e', `${revision}^{commit}`], {
+      cwd: root,
+      encoding: 'utf8'
+    })
+    assert.equal(commit.status, 0, output(commit))
 
-  const names = spawnSync('git', ['diff-tree', '--no-commit-id', '--name-only', '-r', lines[0]], {
-    cwd: root,
-    encoding: 'utf8'
-  })
-  assert.equal(names.status, 0, output(names))
-  const changed = names.stdout.split(/\r?\n/u).filter(Boolean)
-  assert.ok(changed.length > 0)
-  assert.ok(changed.every((file) => file.endsWith('.cs')), names.stdout)
+    const names = spawnSync('git', ['diff-tree', '--no-commit-id', '--name-only', '-r', revision], {
+      cwd: root,
+      encoding: 'utf8'
+    })
+    assert.equal(names.status, 0, output(names))
+    const changed = names.stdout.split(/\r?\n/u).filter(Boolean)
+    assert.ok(changed.length > 0)
+    assert.ok(changed.every((file) => file.endsWith('.cs')), names.stdout)
+  }
 })

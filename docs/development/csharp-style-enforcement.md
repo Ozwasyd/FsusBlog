@@ -24,7 +24,7 @@ node tools/dotnet/check-csharp-style.mjs --mode changed --base origin/master
 
 The checker aggregates physical format, `using`, naming and XML-documentation violations before failing. It also invokes Roslyn-backed `dotnet format whitespace` and `dotnet format style` for selected files, so IDE, CLI and CI consume the same `.editorconfig`.
 
-Import normalization has an explicit fix path. It writes only the leading `using` region, placing ordinary `System` imports first, sorting all other ordinary namespaces alphabetically, then grouping static and alias directives:
+Import normalization has an explicit fix path. It writes only the leading `using` region, places the `System` root group first, sorts the remaining root namespace groups and their directives alphabetically, then groups static and alias directives. This mirrors Roslyn's separate-import-groups formatting instead of inventing a product-specific order:
 
 ```bash
 node tools/dotnet/check-csharp-style.mjs --mode full --fix
@@ -44,7 +44,7 @@ An unchanged file may carry only the exact debt captured for its current content
 node tools/dotnet/check-csharp-style.mjs --mode strict-full
 ```
 
-The reviewed mechanical migration is commit `892489472e27c85d277fb98c2c35969851294b58`. It formats 762 solution-owned C# files with .NET 10 whitespace and import ordering only; generated, vendor and fixture sources remain excluded. The repeatable Microsoft formatter proofs are:
+The reviewed mechanical migrations are `892489472e27c85d277fb98c2c35969851294b58` (the initial .NET 10 whitespace/import pass across 762 solution-owned C# files), `b5c116cd54e7a0a86fd243059502a3e23f364074` (deterministic import sorting across 461 C# files), and `4839b4e1bc9f8c181fad14889414c729cba3108c` (Roslyn-compatible root-namespace group separation across 455 C# files). All contain only C# formatting changes and are registered in `.git-blame-ignore-revs`; generated, vendor and fixture sources remain excluded. The repeatable Microsoft formatter proofs are:
 
 ```bash
 dotnet format whitespace FsusBlog.slnx --verify-no-changes --no-restore
