@@ -2,7 +2,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import {
+  finalizeAedsFrameCostSummary,
+  readAedsFrameCostPolicy,
+  stageAedsFrameCostArtifacts,
+  validateAedsFrameCostSummary
+} from './aeds-frame-cost-evidence.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
@@ -12,6 +19,40 @@ const requiredGracefulShutdownFaultCases = ['graceful-shutdown']
 const requiredDiskArtifactFaultCases = ['disk-artifact-storage-write-failure']
 const requiredExtendedObservabilityCategories = ['managedRuntime', 'threadOrConnection', 'storageOrCacheLatency']
 const perfPolicyRelativeFile = 'tests/perf/perf-policy.yml'
+
+function optionValue(name, fallback = null) {
+  const index = process.argv.indexOf(name)
+  return index >= 0 && index + 1 < process.argv.length ? process.argv[index + 1] : fallback
+}
+
+function expectedEvidenceCommit() {
+  const explicit = optionValue('--expected-commit')
+  if (explicit) return explicit.trim().toLowerCase()
+  for (const name of ['FSUSBLOG_EVIDENCE_COMMIT_SHA', 'FSUSBLOG_TEST_SOURCE_COMMIT', 'GITHUB_SHA']) {
+    const value = process.env[name]?.trim().toLowerCase()
+    if (value) return value
+  }
+  return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim().toLowerCase()
+}
+
+function aedsFrameCostPolicy() {
+  const policyFile = path.resolve(root, optionValue('--policy', perfPolicyRelativeFile))
+  return readAedsFrameCostPolicy(policyFile, perfPolicyRelativeFile)
+}
+
+function aedsArtifactContext({ allowDownloaded = false } = {}) {
+  const artifactRoot = path.resolve(optionValue('--artifact-root', root))
+  const directResolver = (relativePath) => {
+    const candidate = path.resolve(artifactRoot, relativePath)
+    return fs.existsSync(candidate) ? candidate : null
+  }
+  return {
+    artifactRoot,
+    resolveArtifactPath: allowDownloaded && artifactRoot === root
+      ? (relativePath) => findEvidenceFile(relativePath)
+      : directResolver
+  }
+}
 
 function readJson(relativePath, optional = false) {
   const file = findEvidenceFile(relativePath)
@@ -708,23 +749,11 @@ function validateAedsFrameCost() {
   const summary = readJson('.tmp/perf/aeds-frame-cost/summary.json', true)
     ?? readJson('.tmp/release-evidence/aeds-frame-cost-summary.json', true)
   if (!summary) return
-  assert(summary.status === 'ok', 'aeds-frame-cost.status must be ok')
-  assert(summary.measurementSource === 'local-aeds-frame-cost-profiler', 'aeds-frame-cost.measurementSource must be local profiler')
-  assert(Array.isArray(summary.results) && summary.results.length >= 10, 'aeds-frame-cost.results must cover required frame types')
-  const scenarios = new Set(summary.results.map((item) => item.scenario))
-  for (const required of ['EmptySuccess', 'ApiError', 'ArticleList10', 'ArticleList50', 'ArticleList100', 'ArticleDetailLarge', 'CommentCursor', 'ConversationDetail', 'UploadStatus', 'PublicAotBootstrap']) {
-    assert(scenarios.has(required), `aeds-frame-cost.results missing ${required}`)
-  }
-  assert(summary.results.some((item) => item.serverCopyBytesBefore > item.serverCopyBytesAfter), 'aeds-frame-cost must prove copy bytes decreased')
-  for (const result of summary.results) {
-    const label = `aeds-frame-cost:${result.scenario}`
-    positiveNumber(result.rawFrameBytes, `${label}.rawFrameBytes`)
-    positiveNumber(result.serverEncodeMs, `${label}.serverEncodeMs`)
-    positiveNumber(result.serverEncodeP95Ms, `${label}.serverEncodeP95Ms`)
-    positiveNumber(result.serverCrcMs, `${label}.serverCrcMs`)
-    assert(Number.isFinite(result.serverCopyBytesAfter) && result.serverCopyBytesAfter >= 0, `${label}.serverCopyBytesAfter must be >= 0`)
-    assert(Number.isFinite(result.allocBytesPerRequestAfter) && result.allocBytesPerRequestAfter >= 0, `${label}.allocBytesPerRequestAfter must be >= 0`)
-  }
+  validateAedsFrameCostSummary(summary, aedsFrameCostPolicy(), expectedEvidenceCommit(), {
+    requireAuthoritative: true,
+    requireReleaseArtifacts: false,
+    ...aedsArtifactContext({ allowDownloaded: true })
+  })
 }
 
 function validateAedsCompressionProfile() {
@@ -857,6 +886,36 @@ function selfTestRuntimeProbe() {
 }
 
 function main() {
+  if (process.argv[2] === '--finalize-aeds-frame-cost') {
+    const input = process.argv[3]
+    const output = process.argv[4]
+    assert(typeof input === 'string' && input.length > 0, '--finalize-aeds-frame-cost requires an input JSON file')
+    assert(typeof output === 'string' && output.length > 0, '--finalize-aeds-frame-cost requires an output JSON file')
+    const raw = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), input), 'utf8'))
+    const artifacts = aedsArtifactContext()
+    const staged = stageAedsFrameCostArtifacts(raw, artifacts.artifactRoot)
+    const finalized = finalizeAedsFrameCostSummary(staged, aedsFrameCostPolicy(), expectedEvidenceCommit(), {
+      ...artifacts,
+      requireReleaseArtifacts: true
+    })
+    const outputFile = path.resolve(process.cwd(), output)
+    fs.mkdirSync(path.dirname(outputFile), { recursive: true })
+    fs.writeFileSync(outputFile, `${JSON.stringify(finalized, null, 2)}\n`)
+    console.log(`[evidence-metrics] finalized AEDS frame-cost ${finalized.overallConclusion} -> ${outputFile}`)
+    return
+  }
+  if (process.argv[2] === '--validate-aeds-frame-cost') {
+    const input = process.argv[3]
+    assert(typeof input === 'string' && input.length > 0, '--validate-aeds-frame-cost requires a JSON file')
+    const summary = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), input), 'utf8'))
+    validateAedsFrameCostSummary(summary, aedsFrameCostPolicy(), expectedEvidenceCommit(), {
+      requireAuthoritative: !process.argv.includes('--allow-non-authoritative'),
+      requireReleaseArtifacts: !process.argv.includes('--allow-artifact-snapshot'),
+      ...aedsArtifactContext({ allowDownloaded: process.argv.includes('--allow-artifact-snapshot') })
+    })
+    console.log(`[evidence-metrics] AEDS frame-cost ${summary.overallConclusion} validated`)
+    return
+  }
   if (process.argv[2] === '--validate-runtime-probe') {
     const input = process.argv[3]
     assert(typeof input === 'string' && input.length > 0, '--validate-runtime-probe requires a JSON file')

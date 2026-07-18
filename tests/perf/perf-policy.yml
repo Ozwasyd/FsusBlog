@@ -44,6 +44,30 @@ notificationPressure:
 regressionThresholds:
   nightlyPercent: 5
   releasePercent: 10
+aedsFrameCost:
+  schema: fsusblog.aeds-frame-cost-policy.v1
+  minimumRounds: 5
+  minimumWarmupIterations: 5
+  minimumIterationsPerRound: 30
+  authoritativeMeanAggregation: median-of-round-means
+  authoritativeP95Aggregation: median-of-round-p95
+  requiredRepresentativeScenarios: [ArticleList10, ArticleList50, ArticleList100, ArticleDetailLarge, CommentCursor, ConversationDetail, PublicAotBootstrap]
+  staticPreencodedScenarios: [EmptySuccess]
+  tinyDynamicScenarios: [ApiError]
+  representative:
+    maxP95RegressionPercent: 12
+    maxP95RegressionMs: 0.004
+    maxMeanRegressionPercent: 10
+    maxMeanRegressionMs: 0.002
+    maxAllocationRegressionPercent: 0
+    maxAllocationIncreaseBytes: 0
+  tiny:
+    maxP95RegressionPercent: 35
+    maxP95RegressionMs: 0.008
+    maxMeanRegressionPercent: 30
+    maxMeanRegressionMs: 0.004
+    maxAllocationRegressionPercent: 5
+    maxAllocationIncreaseBytes: 64
 temporaryExceptions: []
 saturationEvidence:
   schema: fsusblog.performance-saturation.v2

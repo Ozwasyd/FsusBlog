@@ -240,16 +240,18 @@
     },
     {
       "id": "aeds-single-buffer-copy-crc-cost",
-      "description": "AEDS Single Buffer Copy Crc Cost is covered by performance summaries that exercise the named behavior.",
+      "description": "AEDS single-buffer structural copy reduction and authoritative raw-sample allocation/mean/p95 measurements are bound to the measured Release benchmark/Core artifact set and independently policy-gated.",
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
         ".tmp/perf/aeds-frame-cost/summary.json",
+        ".tmp/perf/aeds-frame-cost/artifacts/benchmark/FsusBlog.Core.Benchmarks.dll",
+        ".tmp/perf/aeds-frame-cost/artifacts/core/FsusBlog.Core.dll",
         ".tmp/release-evidence/aeds-frame-cost-summary.json"
       ],
-      "assertionType": "static",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
+      "assertionType": "perf",
+      "failClosedRule": "The AEDS frame-cost lane and semantic validator reject stale or mismatched benchmark/Core artifacts, non-authoritative evidence, raw-sample/aggregate disagreement, policy-exceeding allocation/mean/p95 regressions, and conclusions that contradict their fields.",
+      "minimumRequirement": "All required representative dynamic frames must reduce structurally derived copy count/bytes and pass the centralized multi-round allocation, mean, and p95 policy on one hash-bound Release benchmark/Core artifact set with retained raw samples; static/tiny frames cannot stand in for that conclusion.",
       "tierIds": [
         "aeds-frame-cost"
       ]

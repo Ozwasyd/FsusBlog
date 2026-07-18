@@ -2743,7 +2743,7 @@ tiers:
     cpuWeight: 4
     memoryWeight: 2
     minCpuUnits: 1
-    cacheInputs: [Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tests/frontend/checks/perf/check-aeds-decode-budget.mjs, tools/build-with-data-env.sh, tools/test/run-once.mjs, tools/test/ensure-benchmark-release-build.sh, tools/test/run-with-dotnet-release-build-lock.sh, tools/test/lanes/aeds-frame-cost.sh]
+    cacheInputs: [Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tests/perf/perf-policy.yml, tests/frontend/checks/perf/check-aeds-decode-budget.mjs, tools/operations/aeds-frame-cost-evidence.mjs, tools/operations/check-evidence-metrics.mjs, tools/build-with-data-env.sh, tools/test/run-once.mjs, tools/test/ensure-benchmark-release-build.sh, tools/test/run-with-dotnet-release-build-lock.sh, tools/test/lanes/aeds-frame-cost.sh]
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: true
@@ -2756,8 +2756,8 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [aeds-single-buffer-copy-crc-cost, aeds-wasm-tier-cross-stack]
-    artifacts: [.tmp/perf/aeds-frame-cost/summary.json, .tmp/release-evidence/aeds-frame-cost-summary.json, .tmp/frontend/aeds-decode-budget/summary.json, .tmp/release-evidence/aeds-decode-budget-summary.json]
-    evidence: [.tmp/perf/aeds-frame-cost/summary.json, .tmp/release-evidence/aeds-frame-cost-summary.json, .tmp/frontend/aeds-decode-budget/summary.json, .tmp/release-evidence/aeds-decode-budget-summary.json]
+    artifacts: [.tmp/perf/aeds-frame-cost/summary.json, .tmp/perf/aeds-frame-cost/artifacts/benchmark/FsusBlog.Core.Benchmarks.dll, .tmp/perf/aeds-frame-cost/artifacts/core/FsusBlog.Core.dll, .tmp/release-evidence/aeds-frame-cost-summary.json, .tmp/frontend/aeds-decode-budget/summary.json, .tmp/release-evidence/aeds-decode-budget-summary.json]
+    evidence: [.tmp/perf/aeds-frame-cost/summary.json, .tmp/perf/aeds-frame-cost/artifacts/benchmark/FsusBlog.Core.Benchmarks.dll, .tmp/perf/aeds-frame-cost/artifacts/core/FsusBlog.Core.dll, .tmp/release-evidence/aeds-frame-cost-summary.json, .tmp/frontend/aeds-decode-budget/summary.json, .tmp/release-evidence/aeds-decode-budget-summary.json]
     ciJob: perf-regression
     localOnly: false
     nightlyOnly: false

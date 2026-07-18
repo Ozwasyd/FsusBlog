@@ -2,6 +2,9 @@ using System.Buffers;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Net.Http.Headers;
+using System.Reflection;
+using System.Runtime;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -320,68 +323,212 @@ internal static class AedsFrameCostProfiler
     {
         string outFile = ProfilerSupport.OptionValue(args, "--out", ".tmp/perf/aeds-frame-cost/summary.json");
         int iterations = Math.Max(10, ProfilerSupport.IntOptionValue(args, "--iterations", 80));
+        int warmupIterations = Math.Max(1, ProfilerSupport.IntOptionValue(args, "--warmup-iterations", 8));
+        int roundCount = Math.Max(1, ProfilerSupport.IntOptionValue(args, "--rounds", 5));
+        string commitSha = ProfilerSupport.OptionValue(args, "--commit-sha", string.Empty).Trim().ToLowerInvariant();
+        string repoRoot = Path.GetFullPath(ProfilerSupport.OptionValue(args, "--repo-root", Directory.GetCurrentDirectory()));
+        var authorityBlockedReasons = ProfilerSupport.OptionValues(args, "--authority-blocked-reason").ToList();
+        string? cpuIdentity = ProfilerSupport.ReadCpuIdentity();
+        string? affinity = ProfilerSupport.ReadProcessorAffinity();
+        string assemblyPath = Assembly.GetExecutingAssembly().Location;
+        string coreAssemblyPath = typeof(AedsEncoder).Assembly.Location;
+        AedsArtifactIdentity[] artifacts =
+        [
+            ProfilerSupport.ArtifactIdentity("benchmark", repoRoot, assemblyPath),
+            ProfilerSupport.ArtifactIdentity("core", repoRoot, coreAssemblyPath)
+        ];
+        string artifactSetCanonical = JsonSerializer.Serialize(artifacts
+            .OrderBy(static artifact => artifact.Id, StringComparer.Ordinal)
+            .Select(static artifact => new
+            {
+                id = artifact.Id,
+                path = artifact.Path,
+                bytes = artifact.Bytes,
+                sha256 = artifact.Sha256
+            }));
+        string artifactSetDigest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(artifactSetCanonical))).ToLowerInvariant();
+#if DEBUG
+        const string buildConfiguration = "Debug";
+#else
+        const string buildConfiguration = "Release";
+#endif
+
+        if (!ProfilerSupport.IsCommitSha(commitSha))
+        {
+            authorityBlockedReasons.Add("missing-or-invalid-commit-sha");
+        }
+        if (string.IsNullOrWhiteSpace(cpuIdentity))
+        {
+            authorityBlockedReasons.Add("cpu-identity-unavailable");
+        }
+        if (string.IsNullOrWhiteSpace(affinity))
+        {
+            authorityBlockedReasons.Add("processor-affinity-unavailable");
+        }
+        if (!string.Equals(buildConfiguration, "Release", StringComparison.Ordinal))
+        {
+            authorityBlockedReasons.Add("non-release-artifact");
+        }
+
         var encoder = new AedsEncoder();
-        var results = new List<object>();
+        var structuralResults = new List<object>();
+        var measuredResults = new List<object>();
 
         foreach (var scenario in ProfilerSupport.BuildFrameScenarios(includeTinyFrames: true))
         {
-            ProfileMeasurement twoBuffer = ProfilerSupport.Measure(iterations, () =>
+            int MeasureTwoBuffer()
             {
                 var payload = new ArrayBufferWriter<byte>(Math.Max(1, scenario.Payload.Length));
                 payload.Write(scenario.Payload);
                 var frame = new ArrayBufferWriter<byte>(payload.WrittenCount + AedsFrameHeader.Size);
                 encoder.WriteFrame(scenario.FrameType, payload.WrittenSpan, frame);
                 return frame.WrittenCount;
-            });
+            }
 
-            ProfileMeasurement singleBuffer = ProfilerSupport.Measure(iterations, () =>
+            int MeasureSingleBuffer()
             {
                 using var frame = new AedsFrameBufferWriter(Math.Max(256, scenario.Payload.Length + AedsFrameHeader.Size));
                 frame.PayloadWriter.Write(scenario.Payload);
                 frame.Seal(scenario.FrameType);
                 return frame.WrittenFrame.Length;
-            });
+            }
 
-            ProfileMeasurement crc = ProfilerSupport.Measure(iterations, () => AedsCrc16.Compute(scenario.Payload));
+            var twoBufferRounds = new List<ProfileMeasurement>(roundCount);
+            var singleBufferRounds = new List<ProfileMeasurement>(roundCount);
+            var crcRounds = new List<ProfileMeasurement>(roundCount);
+            for (int round = 0; round < roundCount; round++)
+            {
+                // Alternate the order to avoid consistently assigning process warm-up or scheduler
+                // drift to one implementation.
+                if (round % 2 == 0)
+                {
+                    twoBufferRounds.Add(ProfilerSupport.Measure(iterations, warmupIterations, MeasureTwoBuffer));
+                    singleBufferRounds.Add(ProfilerSupport.Measure(iterations, warmupIterations, MeasureSingleBuffer));
+                }
+                else
+                {
+                    singleBufferRounds.Add(ProfilerSupport.Measure(iterations, warmupIterations, MeasureSingleBuffer));
+                    twoBufferRounds.Add(ProfilerSupport.Measure(iterations, warmupIterations, MeasureTwoBuffer));
+                }
+                crcRounds.Add(ProfilerSupport.Measure(iterations, warmupIterations, () => AedsCrc16.Compute(scenario.Payload)));
+            }
 
-            results.Add(new
+            ProfileAggregate twoBuffer = ProfilerSupport.Aggregate(twoBufferRounds);
+            ProfileAggregate singleBuffer = ProfilerSupport.Aggregate(singleBufferRounds);
+            ProfileAggregate crc = ProfilerSupport.Aggregate(crcRounds);
+
+            structuralResults.Add(new
             {
                 scenario = scenario.Name,
                 frameType = scenario.FrameType.ToString(),
+                pathGroup = scenario.PathGroup,
                 itemCount = scenario.ItemCount,
-                variant = "single-buffer",
+                rawPayloadBytes = scenario.Payload.Length,
+                copyCountBefore = scenario.Payload.Length == 0 ? 0 : 1,
+                copyCountAfter = 0,
+                copyBytesBefore = scenario.Payload.Length,
+                copyBytesAfter = 0,
+                derivation = scenario.Payload.Length == 0
+                    ? "static/pre-encoded frame has no dynamic payload copy"
+                    : "old path materializes payload then copies payload.Length bytes into the frame; the reserved-header writer seals in place",
+                counterKind = "implementation-derived-payload-length",
+                hardwareCounter = false
+            });
+
+            measuredResults.Add(new
+            {
+                scenario = scenario.Name,
+                frameType = scenario.FrameType.ToString(),
+                pathGroup = scenario.PathGroup,
+                itemCount = scenario.ItemCount,
                 rawPayloadBytes = scenario.Payload.Length,
                 rawFrameBytes = singleBuffer.LastValue,
-                serverEncodeMs = singleBuffer.AverageMs,
-                serverEncodeP95Ms = singleBuffer.P95Ms,
-                serverCrcMs = crc.AverageMs,
-                serverCrcP95Ms = crc.P95Ms,
-                serverCopyBytes = 0,
-                serverCopyBytesBefore = scenario.Payload.Length,
-                serverCopyBytesAfter = 0,
-                dynamicResponseCopiesPerRequestBefore = scenario.Payload.Length == 0 ? 0 : 1,
-                dynamicResponseCopiesPerRequestAfter = 0,
-                allocBytesPerRequestBefore = twoBuffer.AllocatedBytesPerIteration,
-                allocBytesPerRequestAfter = singleBuffer.AllocatedBytesPerIteration,
-                beforeP95Ms = twoBuffer.P95Ms,
-                afterP95Ms = singleBuffer.P95Ms,
-                p95DeltaMs = singleBuffer.P95Ms - twoBuffer.P95Ms
+                before = ProfilerSupport.ToEvidence(twoBuffer, twoBufferRounds),
+                after = ProfilerSupport.ToEvidence(singleBuffer, singleBufferRounds),
+                crc = ProfilerSupport.ToEvidence(crc, crcRounds),
+                variability = new
+                {
+                    beforeP95RangeMs = ProfilerSupport.RoundMetric(twoBuffer.P95MaxMs - twoBuffer.P95MinMs),
+                    afterP95RangeMs = ProfilerSupport.RoundMetric(singleBuffer.P95MaxMs - singleBuffer.P95MinMs),
+                    beforeCoefficientOfVariation = twoBuffer.CoefficientOfVariation,
+                    afterCoefficientOfVariation = singleBuffer.CoefficientOfVariation
+                }
             });
         }
 
         var summary = new
         {
-            status = "ok",
+            schema = "fsusblog.aeds-frame-cost.raw.v2",
+            status = "raw",
+            conclusionsFinalized = false,
             generatedAt = DateTimeOffset.UtcNow,
             measurementSource = "local-aeds-frame-cost-profiler",
-            iterations,
+            source = new
+            {
+                commitSha,
+                buildConfiguration,
+                artifactSet = new
+                {
+                    schema = "fsusblog.aeds-frame-cost-artifact-set.v1",
+                    digest = $"sha256:{artifactSetDigest}",
+                    artifacts = artifacts.Select(static artifact => new
+                    {
+                        id = artifact.Id,
+                        path = artifact.Path,
+                        bytes = artifact.Bytes,
+                        sha256 = artifact.Sha256
+                    }).ToArray()
+                }
+            },
             implementation = new
             {
                 dynamicWriter = nameof(AedsFrameBufferWriter),
                 oldPath = "payload-buffer-then-AedsEncoder.WriteFrame",
                 newPath = "reserved-header-single-pooled-frame-buffer"
             },
-            results
+            structuralEvidence = new
+            {
+                evidenceKind = "executable-implementation-derivation",
+                copyBytesCounterKind = "payload-length-derived-not-hardware-counter",
+                results = structuralResults
+            },
+            measuredEvidence = new
+            {
+                evidenceKind = "same-process-release-artifact-multi-round",
+                authority = new
+                {
+                    authoritative = authorityBlockedReasons.Count == 0,
+                    blockedReasons = authorityBlockedReasons.Distinct(StringComparer.Ordinal).Order().ToArray()
+                },
+                environment = new
+                {
+                    machineName = Environment.MachineName,
+                    cpu = cpuIdentity,
+                    os = RuntimeInformation.OSDescription,
+                    osArchitecture = RuntimeInformation.OSArchitecture.ToString(),
+                    processArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
+                    processorCount = Environment.ProcessorCount,
+                    runtime = RuntimeInformation.FrameworkDescription,
+                    runtimeVersion = Environment.Version.ToString(),
+                    gc = new
+                    {
+                        server = GCSettings.IsServerGC,
+                        latencyMode = GCSettings.LatencyMode.ToString()
+                    },
+                    affinity
+                },
+                method = new
+                {
+                    warmupIterations,
+                    iterationsPerRound = iterations,
+                    roundCount,
+                    sampleCountPerVariant = iterations * roundCount,
+                    ordering = "alternating-before-after-by-round",
+                    authoritativeMeanAggregation = "median-of-round-means",
+                    authoritativeP95Aggregation = "median-of-round-p95"
+                },
+                results = measuredResults
+            }
         };
 
         ProfilerSupport.WriteJson(outFile, summary);
@@ -450,26 +597,30 @@ internal static class ProfilerSupport
         var scenarios = new List<AedsFrameScenario>();
         if (includeTinyFrames)
         {
-            scenarios.Add(new("EmptySuccess", AedsFrameType.EmptySuccess, [], 0));
-            scenarios.Add(new("ApiError", AedsFrameType.ApiError, Payload("ApiError", 768, 1), 1));
+            scenarios.Add(new("EmptySuccess", AedsFrameType.EmptySuccess, [], 0, "static-preencoded"));
+            scenarios.Add(new("ApiError", AedsFrameType.ApiError, Payload("ApiError", 768, 1), 1, "tiny-dynamic"));
         }
 
-        scenarios.Add(new("ArticleList10", AedsFrameType.ArticleList, ArticleListPayload(10), 10));
-        scenarios.Add(new("ArticleList50", AedsFrameType.ArticleList, ArticleListPayload(50), 50));
-        scenarios.Add(new("ArticleList100", AedsFrameType.ArticleList, ArticleListPayload(100), 100));
-        scenarios.Add(new("ArticleDetailSmall", AedsFrameType.ArticleDetail, Payload("ArticleDetailSmall", 12 * 1024, 1), 1));
-        scenarios.Add(new("ArticleDetailMedium", AedsFrameType.ArticleDetail, Payload("ArticleDetailMedium", 80 * 1024, 1), 1));
-        scenarios.Add(new("ArticleDetailLarge", AedsFrameType.ArticleDetail, Payload("ArticleDetailLarge", 320 * 1024, 1), 1));
-        scenarios.Add(new("CommentCursor", AedsFrameType.CommentArticleCursor, RepeatedRows("CommentCursor", 40, 256), 40));
-        scenarios.Add(new("ConversationDetail", AedsFrameType.ConversationDetail, RepeatedRows("ConversationDetail", 64, 512), 64));
-        scenarios.Add(new("UploadStatus", AedsFrameType.UploadStatus, Payload("UploadStatus", 2 * 1024, 1), 1));
-        scenarios.Add(new("PublicAotBootstrap", AedsFrameType.PublicAotBootstrap, Payload("PublicAotBootstrap", 96 * 1024, 1), 1));
+        scenarios.Add(new("ArticleList10", AedsFrameType.ArticleList, ArticleListPayload(10), 10, "representative-dynamic"));
+        scenarios.Add(new("ArticleList50", AedsFrameType.ArticleList, ArticleListPayload(50), 50, "representative-dynamic"));
+        scenarios.Add(new("ArticleList100", AedsFrameType.ArticleList, ArticleListPayload(100), 100, "representative-dynamic"));
+        scenarios.Add(new("ArticleDetailSmall", AedsFrameType.ArticleDetail, Payload("ArticleDetailSmall", 12 * 1024, 1), 1, "supplemental-dynamic"));
+        scenarios.Add(new("ArticleDetailMedium", AedsFrameType.ArticleDetail, Payload("ArticleDetailMedium", 80 * 1024, 1), 1, "supplemental-dynamic"));
+        scenarios.Add(new("ArticleDetailLarge", AedsFrameType.ArticleDetail, Payload("ArticleDetailLarge", 320 * 1024, 1), 1, "representative-dynamic"));
+        scenarios.Add(new("CommentCursor", AedsFrameType.CommentArticleCursor, RepeatedRows("CommentCursor", 40, 256), 40, "representative-dynamic"));
+        scenarios.Add(new("ConversationDetail", AedsFrameType.ConversationDetail, RepeatedRows("ConversationDetail", 64, 512), 64, "representative-dynamic"));
+        scenarios.Add(new("UploadStatus", AedsFrameType.UploadStatus, Payload("UploadStatus", 2 * 1024, 1), 1, "supplemental-dynamic"));
+        scenarios.Add(new("PublicAotBootstrap", AedsFrameType.PublicAotBootstrap, Payload("PublicAotBootstrap", 96 * 1024, 1), 1, "representative-dynamic"));
         return scenarios;
     }
 
-    public static ProfileMeasurement Measure(int iterations, Func<int> action)
+    public static ProfileMeasurement Measure(int iterations, int warmupIterations, Func<int> action)
     {
-        _ = action();
+        for (int i = 0; i < warmupIterations; i++)
+        {
+            _ = action();
+        }
+
         var samples = new double[iterations];
         long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
         int lastValue = 0;
@@ -481,12 +632,185 @@ internal static class ProfilerSupport
         }
 
         long allocatedAfter = GC.GetAllocatedBytesForCurrentThread();
-        Array.Sort(samples);
+        double[] orderedSamples = samples.Order().ToArray();
+        long allocatedBytesTotal = Math.Max(0, allocatedAfter - allocatedBefore);
         return new ProfileMeasurement(
-            AverageMs: Math.Round(samples.Average(), 6),
-            P95Ms: Math.Round(samples[Math.Min(samples.Length - 1, (int)Math.Ceiling(samples.Length * 0.95d) - 1)], 6),
-            AllocatedBytesPerIteration: Math.Max(0, (allocatedAfter - allocatedBefore) / Math.Max(1, iterations)),
-            LastValue: lastValue);
+            AverageMs: RoundMetric(ArithmeticMean(samples)),
+            P50Ms: Percentile(orderedSamples, 0.50d),
+            P95Ms: Percentile(orderedSamples, 0.95d),
+            StandardDeviationMs: StandardDeviation(samples),
+            AllocatedBytesTotal: allocatedBytesTotal,
+            AllocatedBytesPerIteration: allocatedBytesTotal / Math.Max(1, iterations),
+            LastValue: lastValue,
+            Samples: samples);
+    }
+
+    public static ProfileAggregate Aggregate(IReadOnlyList<ProfileMeasurement> rounds)
+    {
+        double[] samples = rounds.SelectMany(static round => round.Samples).ToArray();
+        double[] orderedSamples = samples.Order().ToArray();
+        double[] roundMeans = rounds.Select(static round => round.AverageMs).Order().ToArray();
+        double[] roundP95s = rounds.Select(static round => round.P95Ms).Order().ToArray();
+        long[] allocations = rounds.Select(static round => round.AllocatedBytesPerIteration).Order().ToArray();
+        double arithmeticMean = ArithmeticMean(samples);
+        double standardDeviation = StandardDeviationRaw(samples);
+        return new ProfileAggregate(
+            AverageMs: roundMeans[roundMeans.Length / 2],
+            ArithmeticMeanMs: RoundMetric(arithmeticMean),
+            P50Ms: Percentile(orderedSamples, 0.50d),
+            P95Ms: roundP95s[roundP95s.Length / 2],
+            PooledP95Ms: Percentile(orderedSamples, 0.95d),
+            StandardDeviationMs: RoundMetric(standardDeviation),
+            CoefficientOfVariation: arithmeticMean > 0 ? RoundMetric(standardDeviation / arithmeticMean) : 0,
+            AllocatedBytesPerIteration: allocations[allocations.Length / 2],
+            AllocationMinBytes: allocations[0],
+            AllocationMaxBytes: allocations[^1],
+            P95MinMs: rounds.Min(static round => round.P95Ms),
+            P95MaxMs: rounds.Max(static round => round.P95Ms),
+            LastValue: rounds[^1].LastValue,
+            SampleCount: samples.Length);
+    }
+
+    public static object ToEvidence(ProfileAggregate aggregate, IReadOnlyList<ProfileMeasurement> rounds)
+        => new
+        {
+            meanMs = aggregate.AverageMs,
+            arithmeticMeanMs = aggregate.ArithmeticMeanMs,
+            meanAggregation = "median-of-round-means",
+            p50Ms = aggregate.P50Ms,
+            p95Ms = aggregate.P95Ms,
+            pooledP95Ms = aggregate.PooledP95Ms,
+            p95Aggregation = "median-of-round-p95",
+            standardDeviationMs = aggregate.StandardDeviationMs,
+            allocationBytesPerRequest = aggregate.AllocatedBytesPerIteration,
+            sampleCount = aggregate.SampleCount,
+            rounds = rounds.Select((round, index) => new
+            {
+                round = index + 1,
+                meanMs = round.AverageMs,
+                p50Ms = round.P50Ms,
+                p95Ms = round.P95Ms,
+                standardDeviationMs = round.StandardDeviationMs,
+                sampleCount = round.Samples.Length,
+                samplesMs = round.Samples,
+                allocatedBytesTotal = round.AllocatedBytesTotal,
+                allocationBytesPerRequest = round.AllocatedBytesPerIteration
+            }).ToArray(),
+            allocationRangeBytes = new
+            {
+                min = aggregate.AllocationMinBytes,
+                max = aggregate.AllocationMaxBytes
+            }
+        };
+
+    public static IReadOnlyList<string> OptionValues(string[] args, string name)
+    {
+        var values = new List<string>();
+        for (int index = 0; index + 1 < args.Length; index++)
+        {
+            if (string.Equals(args[index], name, StringComparison.Ordinal))
+            {
+                values.Add(args[index + 1]);
+                index++;
+            }
+        }
+        return values;
+    }
+
+    public static bool IsCommitSha(string value)
+        => value.Length == 40 && value.All(static character => char.IsAsciiHexDigit(character));
+
+    public static AedsArtifactIdentity ArtifactIdentity(string id, string repoRoot, string artifactPath)
+    {
+        string fullRoot = Path.GetFullPath(repoRoot);
+        string fullPath = Path.GetFullPath(artifactPath);
+        string relativePath = Path.GetRelativePath(fullRoot, fullPath).Replace(Path.DirectorySeparatorChar, '/');
+        if (relativePath == ".." || relativePath.StartsWith("../", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"AEDS frame-cost artifact {fullPath} is outside repo root {fullRoot}");
+        }
+        byte[] bytes = File.ReadAllBytes(fullPath);
+        return new AedsArtifactIdentity(
+            id,
+            relativePath,
+            bytes.LongLength,
+            $"sha256:{Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant()}");
+    }
+
+    public static string? ReadCpuIdentity()
+    {
+        if (OperatingSystem.IsLinux() && File.Exists("/proc/cpuinfo"))
+        {
+            string? model = File.ReadLines("/proc/cpuinfo")
+                .FirstOrDefault(static line => line.StartsWith("model name", StringComparison.OrdinalIgnoreCase));
+            if (model is not null)
+            {
+                int separator = model.IndexOf(':', StringComparison.Ordinal);
+                if (separator >= 0)
+                {
+                    return model[(separator + 1)..].Trim();
+                }
+            }
+        }
+        return Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER");
+    }
+
+    public static string? ReadProcessorAffinity()
+    {
+        if (OperatingSystem.IsLinux() && File.Exists("/proc/self/status"))
+        {
+            string? value = File.ReadLines("/proc/self/status")
+                .FirstOrDefault(static line => line.StartsWith("Cpus_allowed_list:", StringComparison.Ordinal));
+            return value?.Split(':', 2)[1].Trim();
+        }
+
+        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsWindows())
+        {
+            return null;
+        }
+
+        try
+        {
+            using Process process = Process.GetCurrentProcess();
+            return $"0x{process.ProcessorAffinity.ToInt64():x}";
+        }
+        catch (Exception exception) when (exception is PlatformNotSupportedException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private const double MetricScale = 1_000_000d;
+
+    public static double RoundMetric(double value)
+        => Math.Floor(value * MetricScale + 0.5d) / MetricScale;
+
+    private static double Percentile(IReadOnlyList<double> sortedSamples, double percentile)
+        => RoundMetric(sortedSamples[Math.Min(sortedSamples.Count - 1, (int)Math.Ceiling(sortedSamples.Count * percentile) - 1)]);
+
+    private static double StandardDeviation(IReadOnlyList<double> samples)
+        => RoundMetric(StandardDeviationRaw(samples));
+
+    private static double ArithmeticMean(IReadOnlyList<double> samples)
+    {
+        double total = 0;
+        for (int index = 0; index < samples.Count; index++)
+        {
+            total += samples[index];
+        }
+        return total / samples.Count;
+    }
+
+    private static double StandardDeviationRaw(IReadOnlyList<double> samples)
+    {
+        double average = ArithmeticMean(samples);
+        double squaredDifferenceTotal = 0;
+        for (int index = 0; index < samples.Count; index++)
+        {
+            double difference = samples[index] - average;
+            squaredDifferenceTotal += difference * difference;
+        }
+        return Math.Sqrt(squaredDifferenceTotal / samples.Count);
     }
 
     public static byte[] CompressBrotli(byte[] bytes)
@@ -568,9 +892,35 @@ internal static class ProfilerSupport
     }
 }
 
-internal readonly record struct AedsFrameScenario(string Name, AedsFrameType FrameType, byte[] Payload, int ItemCount);
+internal readonly record struct AedsFrameScenario(string Name, AedsFrameType FrameType, byte[] Payload, int ItemCount, string PathGroup);
 
-internal readonly record struct ProfileMeasurement(double AverageMs, double P95Ms, long AllocatedBytesPerIteration, int LastValue);
+internal readonly record struct ProfileMeasurement(
+    double AverageMs,
+    double P50Ms,
+    double P95Ms,
+    double StandardDeviationMs,
+    long AllocatedBytesTotal,
+    long AllocatedBytesPerIteration,
+    int LastValue,
+    double[] Samples);
+
+internal readonly record struct ProfileAggregate(
+    double AverageMs,
+    double ArithmeticMeanMs,
+    double P50Ms,
+    double P95Ms,
+    double PooledP95Ms,
+    double StandardDeviationMs,
+    double CoefficientOfVariation,
+    long AllocatedBytesPerIteration,
+    long AllocationMinBytes,
+    long AllocationMaxBytes,
+    double P95MinMs,
+    double P95MaxMs,
+    int LastValue,
+    int SampleCount);
+
+internal readonly record struct AedsArtifactIdentity(string Id, string Path, long Bytes, string Sha256);
 
 internal static class ContractVerifier
 {

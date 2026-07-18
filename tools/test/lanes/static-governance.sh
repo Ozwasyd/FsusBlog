@@ -55,6 +55,7 @@ STATIC_NODE_CONTRACT_FILES=(
   "$ROOT_DIR/tests/tools/issue-1151-receipt-aggregate.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1151-receipt-authority.test.mjs"
   "$ROOT_DIR/tests/tools/issue-1151-receipt-schema.test.mjs"
+  "$ROOT_DIR/tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs"
 )
 static_node_contracts() {
   FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \
