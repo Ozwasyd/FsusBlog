@@ -5,6 +5,7 @@ import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { parseMatrix } from './test-matrix/parse-matrix.mjs'
 import {
   auditTestRecords,
   buildRetentionCatalogSnapshot,
@@ -53,77 +54,6 @@ function parseArgs(argv) {
     }
   }
   return options
-}
-
-function parseValue(raw) {
-  const value = String(raw ?? '').trim()
-  if (value === '[]') return []
-  if (value.startsWith('[') && value.endsWith(']')) {
-    const inner = value.slice(1, -1).trim()
-    if (inner === '') return []
-    return inner.split(',').map((item) => parseValue(item))
-  }
-  if (value === 'true') return true
-  if (value === 'false') return false
-  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value)
-  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-    return value.slice(1, -1)
-  }
-  return value
-}
-
-function parseMatrix(text) {
-  const matrix = { tiers: [] }
-  let current = null
-  let currentListField = null
-  let inTiers = false
-
-  for (const rawLine of text.split(/\r?\n/)) {
-    const withoutComment = rawLine.replace(/\s+#.*$/, '')
-    if (!withoutComment.trim()) continue
-
-    const topMatch = withoutComment.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (topMatch && !rawLine.startsWith(' ')) {
-      if (topMatch[1] === 'tiers') {
-        inTiers = true
-        current = null
-        currentListField = null
-        continue
-      }
-      matrix[topMatch[1]] = parseValue(topMatch[2])
-      continue
-    }
-
-    if (!inTiers) continue
-
-    const itemMatch = withoutComment.match(/^\s{2}-\s+([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (itemMatch) {
-      current = {}
-      currentListField = null
-      matrix.tiers.push(current)
-      current[itemMatch[1]] = parseValue(itemMatch[2])
-      continue
-    }
-
-    const fieldMatch = withoutComment.match(/^\s{4}([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (fieldMatch && current) {
-      const [, key, value] = fieldMatch
-      if (value === '') {
-        current[key] = []
-        currentListField = key
-      } else {
-        current[key] = parseValue(value)
-        currentListField = null
-      }
-      continue
-    }
-    const listItemMatch = withoutComment.match(/^\s{6}-\s+(.*?)\s*$/)
-    if (listItemMatch && current && currentListField) {
-      current[currentListField].push(parseValue(listItemMatch[1]))
-    }
-  }
-
-  return matrix
 }
 
 function toRepoPath(absolutePath) {

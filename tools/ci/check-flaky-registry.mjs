@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { parseYamlDocument } from '../yaml/parse-document.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const registryPath = path.join(root, 'tests/flaky.yml')
@@ -10,53 +11,9 @@ const summaryPath = path.join(root, '.tmp/release-evidence/flaky/registry.json')
 const allowedModes = new Set(['retry-and-report', 'allow-failure-but-report', 'skip-with-evidence'])
 const allowedClassifications = new Set(['known-flaky', 'unknown-flaky', 'infra-transient', 'benchmark-noise'])
 
-function parseValue(raw) {
-  const value = String(raw ?? '').trim()
-  if (value === '[]') return []
-  if (/^-?\d+$/u.test(value)) return Number(value)
-  if (value === 'true') return true
-  if (value === 'false') return false
-  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-    return value.slice(1, -1)
-  }
-  return value
-}
-
 function parseRegistry(text) {
-  const registry = { entries: [] }
-  let inEntries = false
-  let current = null
-
-  for (const rawLine of text.split(/\r?\n/u)) {
-    const line = rawLine.replace(/\s+#.*$/u, '')
-    if (!line.trim()) continue
-
-    const top = line.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/u)
-    if (top && !rawLine.startsWith(' ')) {
-      const [, key, value] = top
-      if (key === 'entries') {
-        inEntries = true
-        registry.entries = Array.isArray(parseValue(value)) ? parseValue(value) : []
-        current = null
-      } else {
-        registry[key] = parseValue(value)
-        inEntries = false
-      }
-      continue
-    }
-
-    if (!inEntries) continue
-    const item = line.match(/^\s{2}-\s+([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/u)
-    if (item) {
-      current = {}
-      registry.entries.push(current)
-      current[item[1]] = parseValue(item[2])
-      continue
-    }
-    const field = line.match(/^\s{4}([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/u)
-    if (field && current) current[field[1]] = parseValue(field[2])
-  }
-
+  const registry = parseYamlDocument(text, { source: 'tests/flaky.yml' })
+  if (registry.entries == null) registry.entries = []
   return registry
 }
 

@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseYamlDocument } from './yaml/parse-document.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const negativeInvariantIdPattern = /^tamper-[a-z0-9]+(?:-[a-z0-9]+)*-reject$/u
@@ -61,18 +62,13 @@ function readJson(file) {
 }
 
 function extractMatrixRequiredCases(yaml) {
+  const document = parseYamlDocument(yaml, { source: 'privacy ZK matrix' })
+  const scenarios = Array.isArray(document.scenarios) ? document.scenarios : []
   const required = new Set()
-  const requiredCasesLine = /^\s*requiredCases:\s*\[(?<items>[^\]]*)\]\s*$/u
-  for (const line of yaml.split(/\r?\n/u)) {
-    const match = requiredCasesLine.exec(line)
-    if (!match) {
-      continue
-    }
-    for (const item of match.groups.items.split(',')) {
-      const id = item.trim().replace(/^['"]|['"]$/gu, '')
-      if (negativeInvariantIdPattern.test(id)) {
-        required.add(id)
-      }
+  for (const scenario of scenarios) {
+    for (const item of Array.isArray(scenario?.requiredCases) ? scenario.requiredCases : []) {
+      const id = String(item).trim()
+      if (negativeInvariantIdPattern.test(id)) required.add(id)
     }
   }
   return [...required]

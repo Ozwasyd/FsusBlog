@@ -4,6 +4,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { parseYamlDocument } from '../yaml/parse-document.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const policyPath = path.join(root, 'tests/flaky.yml')
@@ -55,41 +56,19 @@ function parseArgs(args) {
   return { ...options, command }
 }
 
-function parseScalar(value) {
-  const trimmed = String(value ?? '').trim().replace(/^['"]|['"]$/gu, '')
-  if (/^\d+$/u.test(trimmed)) return Number(trimmed)
-  return trimmed
-}
-
 function parseExecutionPolicy(text) {
-  const defaults = { ...safeFallbackPolicy }
-  const suites = new Map()
-  let inPolicies = false
-  let current = null
-
-  for (const rawLine of text.split(/\r?\n/u)) {
-    const line = rawLine.replace(/\s+#.*$/u, '')
-    if (!line.trim()) continue
-    const top = line.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/u)
-    if (top && !/^\s/u.test(rawLine)) {
-      inPolicies = top[1] === 'executionPolicies'
-      current = null
-      if (top[1] === 'defaultEvidenceClass') defaults.evidenceClass = parseScalar(top[2])
-      if (top[1] === 'defaultAllowedRetries') defaults.allowedRetries = parseScalar(top[2])
-      if (top[1] === 'defaultRetryOn') defaults.retryOn = parseScalar(top[2])
-      if (top[1] === 'defaultClassification') defaults.classification = parseScalar(top[2])
-      continue
-    }
-    if (!inPolicies) continue
-    const item = line.match(/^\s{2}-\s+suite:\s*(.*?)\s*$/u)
-    if (item) {
-      current = { suite: parseScalar(item[1]) }
-      suites.set(current.suite, current)
-      continue
-    }
-    const field = line.match(/^\s{4}([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/u)
-    if (field && current) current[field[1]] = parseScalar(field[2])
+  const document = parseYamlDocument(text, { source: 'tests/flaky.yml' })
+  const defaults = {
+    evidenceClass: document.defaultEvidenceClass ?? safeFallbackPolicy.evidenceClass,
+    allowedRetries: document.defaultAllowedRetries ?? safeFallbackPolicy.allowedRetries,
+    retryOn: document.defaultRetryOn ?? safeFallbackPolicy.retryOn,
+    classification: document.defaultClassification ?? safeFallbackPolicy.classification
   }
+  const suites = new Map(
+    (Array.isArray(document.executionPolicies) ? document.executionPolicies : [])
+      .filter((policy) => typeof policy?.suite === 'string')
+      .map((policy) => [policy.suite, policy])
+  )
   return { defaults, suites }
 }
 

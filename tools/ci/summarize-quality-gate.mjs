@@ -5,6 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { parseWorkflowJobNeeds } from '../yaml/workflow-structure.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const workflowPath = path.join(root, '.github/workflows/quality-gate.yml')
@@ -229,60 +230,6 @@ function inspectReleaseManifest({ requireOk }) {
   }
 }
 
-function parseInlineList(value) {
-  const trimmed = value.trim()
-  if (!trimmed) return []
-  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-    const inner = trimmed.slice(1, -1).trim()
-    if (!inner) return []
-    return inner.split(',').map((item) => item.trim()).filter(Boolean)
-  }
-  return [trimmed]
-}
-
-function parseWorkflowNeeds(text) {
-  const jobs = new Map()
-  let inJobs = false
-  let currentJob = null
-  let collectingNeeds = null
-
-  for (const rawLine of text.split(/\r?\n/)) {
-    if (/^jobs:\s*$/.test(rawLine)) {
-      inJobs = true
-      continue
-    }
-    if (!inJobs) continue
-
-    const jobMatch = rawLine.match(/^  ([A-Za-z0-9_-]+):\s*$/)
-    if (jobMatch) {
-      currentJob = jobMatch[1]
-      collectingNeeds = null
-      jobs.set(currentJob, new Set())
-      continue
-    }
-    if (!currentJob) continue
-
-    const needsMatch = rawLine.match(/^    needs:\s*(.*?)\s*$/)
-    if (needsMatch) {
-      const value = needsMatch[1]
-      collectingNeeds = value === '' ? currentJob : null
-      for (const need of parseInlineList(value)) jobs.get(currentJob).add(need)
-      continue
-    }
-
-    if (collectingNeeds === currentJob) {
-      const itemMatch = rawLine.match(/^      -\s+([A-Za-z0-9_-]+)\s*$/)
-      if (itemMatch) {
-        jobs.get(currentJob).add(itemMatch[1])
-        continue
-      }
-      if (!/^\s*$/.test(rawLine)) collectingNeeds = null
-    }
-  }
-
-  return jobs
-}
-
 function dependencyDepth(job, workflowNeeds, seen = new Set()) {
   if (seen.has(job)) return 0
   seen.add(job)
@@ -402,7 +349,9 @@ function main() {
 
   const needs = JSON.parse(rawNeeds)
   const { file: planFile, plan } = loadPrSmartGatePlan()
-  const workflowNeeds = parseWorkflowNeeds(fs.readFileSync(workflowPath, 'utf8'))
+  const workflowNeeds = parseWorkflowJobNeeds(fs.readFileSync(workflowPath, 'utf8'), {
+    source: '.github/workflows/quality-gate.yml'
+  })
   const jobSummaries = loadJobSummaries()
   const flakyEvidence = loadFlakyEvidence()
     .filter(({ item }) => isCorrectnessFlakyEvidence(item))

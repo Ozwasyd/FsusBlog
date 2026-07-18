@@ -31,6 +31,7 @@ import {
   validateLocalProfiles
 } from './test-matrix/local-profile.mjs'
 import { parseMatrix } from './test-matrix/parse-matrix.mjs'
+import { parseWorkflowJobNeeds } from './yaml/workflow-structure.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
 import { cleanupLocalRuntime, cleanupStaleLocalRuntimes } from './test-matrix/local-runtime-cleanup.mjs'
 import { cleanupOrphanDotnetBuildServers } from './test-matrix/dotnet-build-server-cleanup.mjs'
@@ -2597,39 +2598,10 @@ function parsePrSmartGateOptions(args) {
 
 function summaryAuthorityJobIds() {
   const workflowFile = path.join(root, '.github/workflows/quality-gate.yml')
-  const lines = fs.readFileSync(workflowFile, 'utf8').split(/\r?\n/u)
-  let inSummary = false
-  let collectingNeeds = false
-  const needs = []
-  for (const line of lines) {
-    const jobMatch = line.match(/^  ([A-Za-z0-9_-]+):\s*$/u)
-    if (jobMatch) {
-      if (inSummary) break
-      inSummary = jobMatch[1] === 'production-summary'
-      continue
-    }
-    if (!inSummary) continue
-    const needsMatch = line.match(/^    needs:\s*(.*?)\s*$/u)
-    if (needsMatch) {
-      const inline = needsMatch[1]
-      collectingNeeds = inline === ''
-      if (inline.startsWith('[') && inline.endsWith(']')) {
-        needs.push(...inline.slice(1, -1).split(',').map((value) => value.trim()).filter(Boolean))
-      } else if (inline) {
-        needs.push(inline)
-      }
-      continue
-    }
-    if (collectingNeeds) {
-      const item = line.match(/^      -\s+([A-Za-z0-9_-]+)\s*$/u)
-      if (item) {
-        needs.push(item[1])
-        continue
-      }
-      if (line.trim()) collectingNeeds = false
-    }
-  }
-  const result = [...new Set(needs)].sort()
+  const workflowNeeds = parseWorkflowJobNeeds(fs.readFileSync(workflowFile, 'utf8'), {
+    source: '.github/workflows/quality-gate.yml'
+  })
+  const result = [...(workflowNeeds.get('production-summary') ?? [])].sort()
   if (result.length === 0) throw new Error('production-summary workflow direct needs are missing')
   return result
 }

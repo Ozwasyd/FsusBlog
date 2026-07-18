@@ -6,6 +6,8 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { evidenceClassificationErrors } from './evidence-classification.mjs'
+import { parseYamlDocument } from '../yaml/parse-document.mjs'
+import { workflowSectionKeys } from '../yaml/workflow-structure.mjs'
 
 const HISTORICAL_ROOT = 'docs/reports/open-source-readiness/v1.1.0-public-preview'
 const HISTORICAL_MANIFEST = `${HISTORICAL_ROOT}/snapshot-manifest.json`
@@ -133,7 +135,8 @@ function checkStaticEvidence(root, errors) {
     ]) {
       if (!workflow.includes(token)) errors.push(`${workflowPath}: missing ${token}`)
     }
-    if (/\n\s{2}(?:push|pull_request|schedule|workflow_dispatch):/u.test(workflow)) {
+    const automaticTriggers = workflowSectionKeys(workflow, 'on', { source: workflowPath })
+    if (['push', 'pull_request', 'schedule', 'workflow_dispatch'].some((trigger) => automaticTriggers.has(trigger))) {
       errors.push(`${workflowPath}: storage authority must be reusable only and never auto-publish`)
     }
   }
@@ -191,37 +194,25 @@ function checkHistoricalSnapshot(root, errors) {
   }
 }
 
-function parseEvidenceClassRegistry(source) {
-  const registry = new Map()
-  const lines = source.split(/\r?\n/u)
-  let inRegistry = false
-  let currentClass = null
-  for (const line of lines) {
-    if (line === 'evidenceClassRegistry:') {
-      inRegistry = true
-      continue
-    }
-    if (!inRegistry) continue
-    if (/^[^\s#]/u.test(line)) break
-    const classMatch = line.match(/^  ([a-z-]+):\s*$/u)
-    if (classMatch) {
-      currentClass = classMatch[1]
-      registry.set(currentClass, [])
-      continue
-    }
-    const pathMatch = line.match(/^    - (.+?)\s*$/u)
-    if (pathMatch && currentClass) registry.get(currentClass).push(pathMatch[1])
-  }
-  return registry
-}
-
 function checkMatrixClassification(root, errors) {
   const matrixFile = path.join(root, MATRIX_PATH)
   if (!fs.existsSync(matrixFile)) {
     errors.push(`missing evidence-class matrix: ${MATRIX_PATH}`)
     return
   }
-  const registry = parseEvidenceClassRegistry(fs.readFileSync(matrixFile, 'utf8'))
+  let document
+  try {
+    document = parseYamlDocument(fs.readFileSync(matrixFile, 'utf8'), { source: MATRIX_PATH })
+  } catch (error) {
+    errors.push(`${MATRIX_PATH}: invalid YAML: ${error.message}`)
+    return
+  }
+  const registry = new Map(
+    Object.entries(document.evidenceClassRegistry ?? {}).map(([key, values]) => [
+      key,
+      Array.isArray(values) ? values.map(String) : []
+    ])
+  )
   for (const evidenceClass of REQUIRED_MATRIX_CLASSES) {
     if (!Array.isArray(registry.get(evidenceClass)) || registry.get(evidenceClass).length === 0) {
       errors.push(`${MATRIX_PATH}: evidenceClassRegistry.${evidenceClass} must not be empty`)

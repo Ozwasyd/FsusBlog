@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
 import path from 'node:path'
+import { parseYamlDocument } from '../yaml/parse-document.mjs'
 
 const root = path.resolve(path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..'))
 const sloFile = path.join(root, 'config/observability/slo.yml')
@@ -10,29 +11,23 @@ function fail(message) {
   errors.push(`[slo-definition] ${message}`)
 }
 
-function parseEntries(text) {
-  const entries = []
-  let current = null
-  for (const line of text.split(/\r?\n/)) {
-    const idMatch = line.match(/^\s*-\s+id:\s+(.+?)\s*$/)
-    if (idMatch) {
-      current = { id: idMatch[1], fields: new Map([['id', idMatch[1]]]) }
-      entries.push(current)
-      continue
-    }
-    if (!current) continue
-    const fieldMatch = line.match(/^\s{4}([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (fieldMatch) current.fields.set(fieldMatch[1], fieldMatch[2])
-  }
-  return entries
-}
-
 if (!fs.existsSync(sloFile)) {
   fail('missing config/observability/slo.yml')
 } else {
   const text = fs.readFileSync(sloFile, 'utf8')
   if (!text.includes('version: fsusblog-slo-v1')) fail('config/observability/slo.yml has invalid version')
-  const entries = parseEntries(text)
+  let document = {}
+  try {
+    document = parseYamlDocument(text, { source: 'config/observability/slo.yml' })
+  } catch (error) {
+    fail(`config/observability/slo.yml is invalid YAML: ${error.message}`)
+  }
+  const entries = Array.isArray(document.slos)
+    ? document.slos.map((entry) => ({
+        id: String(entry?.id ?? ''),
+        fields: new Map(Object.entries(entry ?? {}).map(([key, value]) => [key, String(value)]))
+      }))
+    : []
   const required = [
     'availability',
     'error-rate',

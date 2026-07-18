@@ -8,6 +8,8 @@ import { parseMatrix } from './test-matrix/parse-matrix.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixSourceText = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
+const structuredMatrix = parseMatrix(matrixSourceText)
+const structuredTiers = new Map(structuredMatrix.tiers.map((tier) => [tier.id, tier]))
 
 function requireFileIncludes(file, expected, message) {
   const text = fs.readFileSync(path.join(root, file), 'utf8')
@@ -37,8 +39,7 @@ function readJsonFile(file) {
 }
 
 function validateStructuredToolWiring() {
-  const matrix = parseMatrix(matrixSourceText)
-  const tiers = new Map(matrix.tiers.map((tier) => [tier.id, tier]))
+  const tiers = structuredTiers
   const requireTierDependencies = (tierId, expected) => {
     const tier = tiers.get(tierId)
     requireCondition(Boolean(tier), `structured matrix is missing tier ${tierId}`)
@@ -116,36 +117,146 @@ function runTestSh(args) {
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+}
+
+function locateTier(matrixText, tierId) {
+  const lines = matrixText.split('\n')
+  const idPattern = new RegExp(`^(\\s*)-\\s+id:\\s+${escapeRegExp(tierId)}\\s*(?:#.*)?$`, 'u')
+  const start = lines.findIndex((line) => idPattern.test(line))
+  if (start < 0) {
+    console.error(`[test-matrix] missing ${tierId} in matrix fixture`)
+    process.exit(1)
+  }
+  const indent = lines[start].match(/^(\s*)/u)?.[1].length ?? 0
+  let end = start + 1
+  while (end < lines.length) {
+    if (!lines[end].trim()) {
+      end += 1
+      continue
+    }
+    const nextIndent = lines[end].match(/^(\s*)/u)?.[1].length ?? 0
+    if (nextIndent <= indent) break
+    end += 1
+  }
+  return { lines, start, end, fieldIndent: indent + 2 }
+}
+
 function replaceTierField(matrixText, tierId, field, value) {
-  const fieldPattern = new RegExp(`(  - id: ${tierId}\\n[\\s\\S]*?\\n    ${field}: )[^\\n]+`)
-  if (!fieldPattern.test(matrixText)) {
+  const tier = locateTier(matrixText, tierId)
+  const fieldPattern = new RegExp(`^\\s{${tier.fieldIndent}}${escapeRegExp(field)}:\\s*.*$`, 'u')
+  const fieldIndex = tier.lines.findIndex((line, index) => index > tier.start && index < tier.end && fieldPattern.test(line))
+  if (fieldIndex < 0) {
     console.error(`[test-matrix] missing ${tierId}.${field} in matrix fixture`)
     process.exit(1)
   }
-  return matrixText.replace(fieldPattern, `$1${value}`)
+  let fieldEnd = fieldIndex + 1
+  while (fieldEnd < tier.end && tier.lines[fieldEnd].trim()) {
+    const indent = tier.lines[fieldEnd].match(/^(\s*)/u)?.[1].length ?? 0
+    if (indent <= tier.fieldIndent) break
+    fieldEnd += 1
+  }
+  tier.lines.splice(
+    fieldIndex,
+    fieldEnd - fieldIndex,
+    `${' '.repeat(tier.fieldIndent)}${field}: ${value}`
+  )
+  return tier.lines.join('\n')
 }
 
 function setTierBooleanField(matrixText, tierId, field, value) {
-  const tierPattern = new RegExp(`(  - id: ${tierId}\\n[\\s\\S]*?)(\\n  - id: |\\n$)`)
-  const match = matrixText.match(tierPattern)
-  if (!match) {
-    console.error(`[test-matrix] missing ${tierId} in matrix fixture`)
+  const tier = locateTier(matrixText, tierId)
+  const fieldPattern = new RegExp(`^\\s{${tier.fieldIndent}}${escapeRegExp(field)}:\\s*.*$`, 'u')
+  const fieldIndex = tier.lines.findIndex((line, index) => index > tier.start && index < tier.end && fieldPattern.test(line))
+  if (fieldIndex >= 0) {
+    tier.lines[fieldIndex] = `${' '.repeat(tier.fieldIndent)}${field}: ${value}`
+    return tier.lines.join('\n')
+  }
+  const anchorPattern = new RegExp(`^\\s{${tier.fieldIndent}}requiresBootstrap:\\s*.*$`, 'u')
+  const anchorIndex = tier.lines.findIndex((line, index) => index > tier.start && index < tier.end && anchorPattern.test(line))
+  if (anchorIndex < 0) {
+    console.error(`[test-matrix] missing ${tierId}.requiresBootstrap insertion anchor in matrix fixture`)
     process.exit(1)
   }
-  const tierText = match[1]
-  const updatedTierText = new RegExp(`\\n    ${field}: `).test(tierText)
-    ? tierText.replace(new RegExp(`(\\n    ${field}: )[^\\n]+`), `$1${value}`)
-    : tierText.replace(/(\n    requiresBootstrap: [^\n]+)/, `$1\n    ${field}: ${value}`)
-  return matrixText.replace(tierText, updatedTierText)
+  tier.lines.splice(anchorIndex + 1, 0, `${' '.repeat(tier.fieldIndent)}${field}: ${value}`)
+  return tier.lines.join('\n')
 }
 
 function removeTier(matrixText, tierId) {
-  const tierPattern = new RegExp(`\\n  - id: ${tierId}\\n[\\s\\S]*?(?=\\n  - id: |\\n*$)`)
-  if (!tierPattern.test(matrixText)) {
-    console.error(`[test-matrix] missing ${tierId} in matrix fixture`)
+  const tier = locateTier(matrixText, tierId)
+  tier.lines.splice(tier.start, tier.end - tier.start)
+  return tier.lines.join('\n')
+}
+
+function removeTierField(matrixText, tierId, field) {
+  const tier = locateTier(matrixText, tierId)
+  const fieldPattern = new RegExp(`^\\s{${tier.fieldIndent}}${escapeRegExp(field)}:\\s*.*$`, 'u')
+  const fieldIndex = tier.lines.findIndex((line, index) => index > tier.start && index < tier.end && fieldPattern.test(line))
+  if (fieldIndex < 0) {
+    console.error(`[test-matrix] missing ${tierId}.${field} in matrix fixture`)
     process.exit(1)
   }
-  return matrixText.replace(tierPattern, '')
+  tier.lines.splice(fieldIndex, 1)
+  return tier.lines.join('\n')
+}
+
+function locateWorkflowJob(workflowText, jobId) {
+  const lines = workflowText.split('\n')
+  const jobsIndex = lines.findIndex((line) => /^jobs:\s*$/u.test(line))
+  if (jobsIndex < 0) throw new Error('workflow fixture is missing jobs')
+  const jobsIndent = lines[jobsIndex].match(/^(\s*)/u)?.[1].length ?? 0
+  const jobPattern = new RegExp(`^(\\s*)${escapeRegExp(jobId)}:\\s*$`, 'u')
+  const start = lines.findIndex((line, index) => index > jobsIndex && jobPattern.test(line))
+  if (start < 0) throw new Error(`workflow fixture is missing job ${jobId}`)
+  const jobIndent = lines[start].match(/^(\s*)/u)?.[1].length ?? 0
+  if (jobIndent <= jobsIndent) throw new Error(`workflow job ${jobId} is not nested under jobs`)
+  let end = start + 1
+  while (end < lines.length) {
+    if (!lines[end].trim()) {
+      end += 1
+      continue
+    }
+    const indent = lines[end].match(/^(\s*)/u)?.[1].length ?? 0
+    if (indent <= jobIndent) break
+    end += 1
+  }
+  const directIndents = lines.slice(start + 1, end)
+    .filter((line) => /^\s*[A-Za-z0-9_-]+:/u.test(line))
+    .map((line) => line.match(/^(\s*)/u)?.[1].length ?? 0)
+    .filter((indent) => indent > jobIndent)
+  const fieldIndent = Math.min(...directIndents)
+  if (!Number.isFinite(fieldIndent)) throw new Error(`workflow job ${jobId} has no fields`)
+  return { lines, start, end, jobIndent, fieldIndent }
+}
+
+function replaceWorkflowJobField(workflowText, jobId, field, value) {
+  const job = locateWorkflowJob(workflowText, jobId)
+  const pattern = new RegExp(`^\\s{${job.fieldIndent}}${escapeRegExp(field)}:\\s*.*$`, 'u')
+  const index = job.lines.findIndex((line, lineIndex) => lineIndex > job.start && lineIndex < job.end && pattern.test(line))
+  if (index < 0) throw new Error(`workflow job ${jobId} is missing ${field}`)
+  job.lines[index] = `${' '.repeat(job.fieldIndent)}${field}: ${value}`
+  return job.lines.join('\n')
+}
+
+function mutateWorkflowJob(workflowText, jobId, transform) {
+  const job = locateWorkflowJob(workflowText, jobId)
+  const source = job.lines.slice(job.start, job.end).join('\n')
+  const updated = transform(source, job)
+  job.lines.splice(job.start, job.end - job.start, ...updated.split('\n'))
+  return job.lines.join('\n')
+}
+
+function appendWorkflowNeed(workflowText, jobId, need) {
+  return mutateWorkflowJob(workflowText, jobId, (source, job) => {
+    const lines = source.split('\n')
+    const pattern = new RegExp(`^\\s{${job.fieldIndent}}needs:\\s*$`, 'u')
+    const index = lines.findIndex((line) => pattern.test(line))
+    if (index < 0) throw new Error(`workflow job ${jobId} does not use block needs`)
+    const childIndent = job.fieldIndent + (job.fieldIndent - job.jobIndent)
+    lines.splice(index + 1, 0, `${' '.repeat(childIndent)}- ${need}`)
+    return lines.join('\n')
+  })
 }
 
 function writeTempMatrix(matrixText) {
@@ -246,47 +357,28 @@ expectWorkflowSyncFailure(
 )
 
 expectWorkflowTextFailure(
-  (workflow) => workflow.replace(
-    '  fast-backend:\n    name: Fast Backend DAG\n    runs-on: ubuntu-latest\n    needs: validate-matrix',
-    '  fast-backend:\n    name: Fast Backend DAG\n    runs-on: ubuntu-latest\n    needs: [validate-matrix, missing-workflow-job]'
-  ),
+  (workflow) => replaceWorkflowJobField(workflow, 'fast-backend', 'needs', '[validate-matrix, missing-workflow-job]'),
   'workflow job fast-backend needs undefined workflow job: missing-workflow-job',
   'workflow sync must reject undefined GitHub Actions needs before workflow load time'
 )
 
 expectWorkflowTextFailure(
-  (workflow) => {
-    const start = workflow.indexOf('  fast-backend:\n')
-    const end = workflow.indexOf('\n  fast-frontend-unit:\n', start)
-    const job = workflow.slice(start, end).replace(
-      '      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6\n',
-      '      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6\n      - run: npm --prefix src/frontend exec -- playwright install chromium\n'
-    )
-    return `${workflow.slice(0, start)}${job}${workflow.slice(end)}`
-  },
+  (workflow) => mutateWorkflowJob(workflow, 'fast-backend', (job) => job.replace(
+    /^(\s*)- uses: actions\/checkout@[^\n]+$/mu,
+    '$&\n$1- run: npm --prefix src/frontend exec -- playwright install chromium'
+  )),
   'browserless workflow job fast-backend must not install Playwright browsers',
   'workflow sync must reject hidden browser installation in a browserless job'
 )
 
 expectWorkflowTextFailure(
-  (workflow) => {
-    const start = workflow.indexOf('  browser-contract:\n')
-    const end = workflow.indexOf('\n  resilience-runtime:\n', start)
-    const job = workflow.slice(start, end).replace('    timeout-minutes: 10\n', '    timeout-minutes: 11\n')
-    return `${workflow.slice(0, start)}${job}${workflow.slice(end)}`
-  },
+  (workflow) => replaceWorkflowJobField(workflow, 'browser-contract', 'timeout-minutes', '11'),
   'workflow job browser-contract timeout-minutes 11 does not match ci-plan 10',
   'workflow sync must reject Browser Contract timeout drift'
 )
 
 expectWorkflowTextFailure(
-  (workflow) => {
-    const start = workflow.indexOf('  production-summary:\n')
-    return `${workflow.slice(0, start)}${workflow.slice(start).replace(
-      '    needs:\n',
-      '    needs:\n      - browser-contract\n'
-    )}`
-  },
+  (workflow) => appendWorkflowNeed(workflow, 'production-summary', 'browser-contract'),
   'production-summary must remain browserless and must not wait for browser-contract',
   'workflow sync must reject Browser Contract as a production summary dependency'
 )
@@ -298,7 +390,7 @@ expectWorkflowSyncFailure(
 )
 
 expectMatrixValidateFailure(
-  matrixSourceText.replace(/\n    cadence: [^\n]+\n/, '\n'),
+  removeTierField(matrixSourceText, 'validate-matrix', 'cadence'),
   'validate-matrix missing cadence',
   'validate must require explicit cadence metadata'
 )
@@ -685,11 +777,15 @@ requireFileIncludes(
     'release-final must aggregate browserless correctness and exactly one Browser Contract'
   )
 }
-requireFileIncludes(
-  '.github/workflows/quality-gate.yml',
-  '  browser-contract:\n    name: Browser Contract',
+{
+  const workflowText = fs.readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8')
+  const browserJob = locateWorkflowJob(workflowText, 'browser-contract')
+  const browserJobText = browserJob.lines.slice(browserJob.start, browserJob.end).join('\n')
+  requireCondition(
+    /^\s*name:\s*Browser Contract\s*$/mu.test(browserJobText),
   'quality gate must expose one explicit Browser Contract job'
-)
+  )
+}
 requireFileExcludes(
   '.github/workflows/quality-gate.yml',
   'acceptance_playwright_matrix',
@@ -700,14 +796,21 @@ requireFileExcludes(
   'acceptance_playwright_max_parallel',
   'ordinary quality gate must not consume acceptance Playwright shard concurrency'
 )
-requireFileIncludes(
-  'tests/matrix.yml',
-  'id: ux-viewport-smoke\n    owner: InteropGlueAgent\n    command: tools/test/lanes/ux-viewport-smoke.sh',
+requireCondition(
+  structuredTiers.get('ux-viewport-smoke')?.owner === 'InteropGlueAgent'
+    && structuredTiers.get('ux-viewport-smoke')?.command === 'tools/test/lanes/ux-viewport-smoke.sh',
   'ux-viewport-smoke tier must stay in the browser lane policy'
 )
-requireFileIncludes(
-  'tests/matrix.yml',
-  'coverage: [ux-viewport-boundary, responsive-layout, content-boundary]\n    artifacts: [.tmp/ux/viewport-smoke.json, .tmp/release-evidence/ux-viewport-summary.json, src/frontend/test-results/playwright/ux-viewport-smoke]',
+requireCondition(
+  JSON.stringify(structuredTiers.get('ux-viewport-smoke')?.coverage) === JSON.stringify([
+    'ux-viewport-boundary',
+    'responsive-layout',
+    'content-boundary'
+  ]) && JSON.stringify(structuredTiers.get('ux-viewport-smoke')?.artifacts) === JSON.stringify([
+    '.tmp/ux/viewport-smoke.json',
+    '.tmp/release-evidence/ux-viewport-summary.json',
+    'src/frontend/test-results/playwright/ux-viewport-smoke'
+  ]),
   'ux-viewport-smoke artifacts must remain stable across shards'
 )
 requireFileExcludes(
@@ -816,29 +919,34 @@ requireFileIncludes(
   'Browser lane scaling policy',
   'docs/testing.md must document browser lane shard/worker scaling policy and evidence'
 )
-requireFileIncludes(
-  'tests/matrix.yml',
-  'id: visual-public\n    owner: InteropGlueAgent\n    command: tools/test/lanes/visual-public-playwright.sh',
+requireCondition(
+  structuredTiers.get('visual-public')?.owner === 'InteropGlueAgent'
+    && structuredTiers.get('visual-public')?.command === 'tools/test/lanes/visual-public-playwright.sh',
   'public screenshot checks must run as a separate matrix tier'
 )
-requireFileIncludes(
-  'tests/matrix.yml',
-  'id: visual-console\n    owner: InteropGlueAgent\n    command: tools/test/lanes/visual-console-playwright.sh',
+requireCondition(
+  structuredTiers.get('visual-console')?.owner === 'InteropGlueAgent'
+    && structuredTiers.get('visual-console')?.command === 'tools/test/lanes/visual-console-playwright.sh',
   'console screenshot checks must run as a separate matrix tier'
 )
-requireFileIncludes(
-  'tests/matrix.yml',
-  'id: visual\n    owner: InteropGlueAgent\n    command: tools/test/lanes/visual-screenshots-aggregate.sh\n    dependsOn: [visual-public, visual-console]',
+requireCondition(
+  structuredTiers.get('visual')?.owner === 'InteropGlueAgent'
+    && structuredTiers.get('visual')?.command === 'tools/test/lanes/visual-screenshots-aggregate.sh'
+    && JSON.stringify(structuredTiers.get('visual')?.dependsOn) === JSON.stringify(['visual-public', 'visual-console']),
   'visual screenshot checks must have a final aggregate tier'
 )
-requireFileIncludes(
-  'tests/matrix.yml',
-  'artifacts: [.tmp/visual/public, src/frontend/test-results/playwright/visual-public]',
+requireCondition(
+  JSON.stringify(structuredTiers.get('visual-public')?.artifacts) === JSON.stringify([
+    '.tmp/visual/public',
+    'src/frontend/test-results/playwright/visual-public'
+  ]),
   'public screenshot artifacts must use isolated output paths'
 )
-requireFileIncludes(
-  'tests/matrix.yml',
-  'artifacts: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console]',
+requireCondition(
+  JSON.stringify(structuredTiers.get('visual-console')?.artifacts) === JSON.stringify([
+    '.tmp/visual/console',
+    'src/frontend/test-results/playwright/visual-console'
+  ]),
   'console screenshot artifacts must use isolated output paths'
 )
 for (const forbidden of [

@@ -4,6 +4,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { parseMatrix } from './test-matrix/parse-matrix.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const defaultPlanPath = path.join(root, '.tmp/ci-plan.json')
@@ -13,63 +14,6 @@ const matrixPath = process.env.FSUSBLOG_MATRIX_FILE
   : path.join(root, 'tests/matrix.yml')
 const requiredActorDimensionPrefixes = ['anonymous-account-', 'admin-principal-']
 const requiredIdentityKindDimensions = ['identity-kind-anonymous-account', 'identity-kind-admin-principal']
-
-function parseValue(raw) {
-  const value = String(raw ?? '').trim()
-  if (value === '[]') return []
-  if (value.startsWith('[') && value.endsWith(']')) {
-    const inner = value.slice(1, -1).trim()
-    if (inner === '') return []
-    return inner.split(',').map((item) => parseValue(item))
-  }
-  if (value === 'true') return true
-  if (value === 'false') return false
-  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value)
-  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-    return value.slice(1, -1)
-  }
-  return value
-}
-
-function parseMatrix(text) {
-  const matrix = { tiers: [] }
-  let current = null
-  let inTiers = false
-
-  for (const rawLine of text.split(/\r?\n/)) {
-    const withoutComment = rawLine.replace(/\s+#.*$/, '')
-    if (!withoutComment.trim()) continue
-
-    const topMatch = withoutComment.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (topMatch && !rawLine.startsWith(' ')) {
-      const [, key, value] = topMatch
-      if (key === 'tiers') {
-        inTiers = true
-        current = null
-        continue
-      }
-      matrix[key] = parseValue(value)
-      continue
-    }
-
-    if (!inTiers) continue
-
-    const itemMatch = withoutComment.match(/^\s{2}-\s+([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (itemMatch) {
-      current = {}
-      matrix.tiers.push(current)
-      current[itemMatch[1]] = parseValue(itemMatch[2])
-      continue
-    }
-
-    const fieldMatch = withoutComment.match(/^\s{4}([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (fieldMatch && current) {
-      current[fieldMatch[1]] = parseValue(fieldMatch[2])
-    }
-  }
-
-  return matrix
-}
 
 function loadPlan(planPath) {
   if (fs.existsSync(planPath)) {
@@ -171,7 +115,7 @@ function annotateWorkflowJob(job) {
 function workflowHasGlobalPlaywrightWorkers(text) {
   const jobsIndex = text.search(/^jobs:\s*$/m)
   const header = jobsIndex >= 0 ? text.slice(0, jobsIndex) : text
-  return /^env:\s*$[\s\S]*?^  FSUSBLOG_PLAYWRIGHT_WORKERS:/m.test(header)
+  return /^env:\s*$[\s\S]*?^\s+FSUSBLOG_PLAYWRIGHT_WORKERS:/m.test(header)
 }
 
 function validateMatrixCoverageDimensions(tiers, errors) {
@@ -199,21 +143,28 @@ function validateMatrixCoverageDimensions(tiers, errors) {
 function parseWorkflow(text) {
   const jobs = new Map()
   let inJobs = false
+  let jobsIndent = null
+  let jobIndent = null
+  let jobFieldIndent = null
   let currentJob = null
   let collectingNeeds = null
   let collectingPath = null
   let collectingRun = null
 
   for (const rawLine of text.split(/\r?\n/)) {
-    if (/^jobs:\s*$/.test(rawLine)) {
+    const indent = rawLine.match(/^(\s*)/u)?.[1].length ?? 0
+    if (/^jobs:\s*$/u.test(rawLine)) {
       inJobs = true
+      jobsIndent = indent
       continue
     }
     if (!inJobs) continue
 
-    const jobMatch = rawLine.match(/^  ([A-Za-z0-9_-]+):\s*$/)
-    if (jobMatch) {
-      currentJob = jobMatch[1]
+    const mappingMatch = rawLine.match(/^\s*([A-Za-z0-9_-]+):\s*(.*?)\s*$/u)
+    if (jobIndent == null && mappingMatch && indent > jobsIndent) jobIndent = indent
+    if (mappingMatch && indent === jobIndent && mappingMatch[2] === '') {
+      currentJob = mappingMatch[1]
+      jobFieldIndent = null
       collectingNeeds = null
       collectingPath = null
       collectingRun = null
@@ -222,6 +173,9 @@ function parseWorkflow(text) {
     }
     if (!currentJob) continue
     jobs.get(currentJob).lines.push(rawLine)
+    if (jobFieldIndent == null && mappingMatch && indent > jobIndent && !rawLine.trimStart().startsWith('-')) {
+      jobFieldIndent = indent
+    }
 
     const pathMatch = rawLine.match(/^(\s*)path:\s*(.*?)\s*$/)
     if (pathMatch) {
@@ -232,7 +186,6 @@ function parseWorkflow(text) {
     }
 
     if (collectingPath?.job === currentJob) {
-      const indent = rawLine.match(/^(\s*)/)?.[1].length ?? 0
       if (rawLine.trim() === '') continue
       if (indent > collectingPath.indent) {
         jobs.get(currentJob).uploadPaths.add(rawLine.trim())
@@ -242,7 +195,6 @@ function parseWorkflow(text) {
     }
 
     if (collectingRun?.job === currentJob) {
-      const indent = rawLine.match(/^(\s*)/)?.[1].length ?? 0
       if (rawLine.trim() === '') continue
       if (indent > collectingRun.indent) {
         jobs.get(currentJob).runs.push(rawLine.trim())
@@ -251,8 +203,8 @@ function parseWorkflow(text) {
       collectingRun = null
     }
 
-    const timeoutMatch = rawLine.match(/^    timeout-minutes:\s*(\d+)\s*$/)
-    if (timeoutMatch) {
+    const timeoutMatch = rawLine.match(/^\s*timeout-minutes:\s*(\d+)\s*$/u)
+    if (timeoutMatch && indent === jobFieldIndent) {
       jobs.get(currentJob).timeoutMinutes = Number(timeoutMatch[1])
       continue
     }
@@ -268,23 +220,38 @@ function parseWorkflow(text) {
       continue
     }
 
-    const needsMatch = rawLine.match(/^    needs:\s*(.*?)\s*$/)
-    if (needsMatch) {
+    const needsMatch = rawLine.match(/^\s*needs:\s*(.*?)\s*$/u)
+    if (needsMatch && indent === jobFieldIndent) {
       const value = needsMatch[1]
-      collectingNeeds = value === '' ? currentJob : null
+      collectingNeeds = value === '' ? { job: currentJob, indent, flow: false } : null
       for (const need of parseInlineList(value)) {
         jobs.get(currentJob).needs.add(need)
       }
       continue
     }
 
-    if (collectingNeeds === currentJob) {
-      const itemMatch = rawLine.match(/^      -\s+([A-Za-z0-9_-]+)\s*$/)
-      if (itemMatch) {
+    if (collectingNeeds?.job === currentJob) {
+      if (rawLine.trim() === '') continue
+      if (indent <= collectingNeeds.indent) {
+        collectingNeeds = null
+      } else if (rawLine.trim() === '[') {
+        collectingNeeds.flow = true
+        continue
+      } else if (collectingNeeds.flow && rawLine.trim() === ']') {
+        collectingNeeds = null
+        continue
+      } else if (collectingNeeds.flow) {
+        for (const need of rawLine.trim().replace(/,$/u, '').split(',').map((item) => item.trim()).filter(Boolean)) {
+          jobs.get(currentJob).needs.add(need)
+        }
+        continue
+      }
+      const itemMatch = rawLine.match(/^\s*-\s+([A-Za-z0-9_-]+)\s*$/u)
+      if (itemMatch && indent > collectingNeeds.indent) {
         jobs.get(currentJob).needs.add(itemMatch[1])
         continue
       }
-      if (!/^\s*$/.test(rawLine)) {
+      if (collectingNeeds && !/^\s*$/u.test(rawLine)) {
         collectingNeeds = null
       }
     }

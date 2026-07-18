@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
 import path from 'node:path'
+import { parseYamlDocument } from '../yaml/parse-document.mjs'
 
 const root = path.resolve(path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..'))
 const configFile = process.env.FSUSBLOG_ZAP_CONFIG || path.join(root, 'tools/security/zap-baseline.conf')
@@ -11,41 +12,28 @@ function fail(message) {
   errors.push(`[zap-policy] ${message}`)
 }
 
-function parseWarnPolicy(text) {
-  const entries = new Map()
-  let current = null
-  for (const line of text.split(/\r?\n/)) {
-    const idMatch = line.match(/^\s*-\s+id:\s+"?([^"\s]+)"?\s*$/)
-    if (idMatch) {
-      current = { id: idMatch[1], fields: new Map() }
-      entries.set(current.id, current)
-      continue
-    }
-    if (!current) continue
-    const fieldMatch = line.match(/^\s{4}([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (fieldMatch) {
-      current.fields.set(fieldMatch[1], fieldMatch[2].replace(/^"|"$/g, ''))
-    }
-  }
-  return entries
-}
-
-function parseMetadata(text) {
-  const metadata = new Map()
-  for (const line of text.split(/\r?\n/)) {
-    const match = line.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (match) metadata.set(match[1], match[2].replace(/^"|"$/g, ''))
-  }
-  return metadata
-}
-
 if (!fs.existsSync(configFile)) fail(`missing ZAP config: ${configFile}`)
 if (!fs.existsSync(policyFile)) fail(`missing ZAP WARN policy: ${policyFile}`)
 
 const configText = fs.existsSync(configFile) ? fs.readFileSync(configFile, 'utf8') : ''
 const policyText = fs.existsSync(policyFile) ? fs.readFileSync(policyFile, 'utf8') : ''
-const policies = parseWarnPolicy(policyText)
-const metadata = parseMetadata(policyText)
+let policyDocument = {}
+try {
+  policyDocument = parseYamlDocument(policyText, { source: 'security/policies/zap-warn-policy.yml' })
+} catch (error) {
+  fail(`invalid WARN policy YAML: ${error.message}`)
+}
+const policies = new Map(
+  (Array.isArray(policyDocument.rules) ? policyDocument.rules : []).map((rule) => [
+    String(rule?.id ?? ''),
+    { id: String(rule?.id ?? ''), fields: new Map(Object.entries(rule ?? {}).map(([key, value]) => [key, String(value)])) }
+  ])
+)
+const metadata = new Map(
+  Object.entries(policyDocument)
+    .filter(([, value]) => value == null || typeof value !== 'object')
+    .map(([key, value]) => [key, String(value)])
+)
 const warnIds = []
 const failIds = new Set()
 

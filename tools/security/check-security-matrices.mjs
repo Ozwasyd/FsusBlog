@@ -2,6 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseYamlDocument } from '../yaml/parse-document.mjs'
 
 const scriptPath = fileURLToPath(import.meta.url)
 const defaultRoot = path.resolve(path.join(path.dirname(scriptPath), '..', '..'))
@@ -19,44 +20,21 @@ function repoPathExists(value) {
   return fs.existsSync(path.join(root, value))
 }
 
-function parseEntries(text) {
-  const lines = text.split(/\r?\n/)
-  const entries = []
-  let current = null
-  let currentSection = null
-
-  for (const line of lines) {
-    const idMatch = line.match(/^\s*-\s+id:\s+(.+?)\s*$/)
-    if (idMatch) {
-      current = {
-        id: idMatch[1].trim(),
-        fields: new Set(['id']),
-        paths: []
+function parseEntries(document, listKey) {
+  const records = document[listKey]
+  if (!Array.isArray(records)) return []
+  return records.map((record) => {
+    const fields = record && typeof record === 'object' && !Array.isArray(record)
+      ? new Set(Object.keys(record))
+      : new Set()
+    const paths = []
+    for (const section of ['code', 'tests', 'evidence']) {
+      for (const value of Array.isArray(record?.[section]) ? record[section] : []) {
+        paths.push({ section, value: String(value).trim() })
       }
-      entries.push(current)
-      currentSection = null
-      continue
     }
-
-    if (!current) continue
-
-    const fieldMatch = line.match(/^\s{4}([A-Za-z][A-Za-z0-9_-]*):/)
-    if (fieldMatch) {
-      current.fields.add(fieldMatch[1])
-      currentSection = fieldMatch[1]
-      continue
-    }
-
-    const pathMatch = line.match(/^\s{6}-\s+(.+?)\s*$/)
-    if (pathMatch && ['code', 'tests', 'evidence'].includes(currentSection)) {
-      current.paths.push({
-        section: currentSection,
-        value: pathMatch[1].trim()
-      })
-    }
-  }
-
-  return entries
+    return { id: String(record?.id ?? '').trim(), fields, paths }
+  })
 }
 
 function verifyRiskControlMatrix(text) {
@@ -411,13 +389,11 @@ function readCatalog(file) {
   }
 }
 
-function parseTopLevelMetadata(text) {
+function parseTopLevelMetadata(document) {
   const metadata = new Map()
-  for (const line of text.split(/\r?\n/)) {
-    const match = line.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (!match) continue
-    const value = match[2].replace(/^(?:"(.*)"|'(.*)')$/, '$1$2')
-    metadata.set(match[1], value)
+  for (const [key, value] of Object.entries(document)) {
+    if (value == null || typeof value === 'object') continue
+    metadata.set(key, String(value))
   }
   return metadata
 }
@@ -524,7 +500,14 @@ function verifyMatrix(check) {
   }
 
   const text = fs.readFileSync(absolute, 'utf8')
-  const metadata = parseTopLevelMetadata(text)
+  let document
+  try {
+    document = parseYamlDocument(text, { source: check.path })
+  } catch (error) {
+    fail(`${check.path} is invalid YAML: ${error.message}`)
+    return
+  }
+  const metadata = parseTopLevelMetadata(document)
   for (const field of ['schema', 'family', 'version', 'owner', 'checker']) {
     if (metadata.get(field) !== check[field]) {
       fail(`${check.path} ${field}=${String(metadata.get(field))} does not match catalog value ${String(check[field])}`)
@@ -532,12 +515,11 @@ function verifyMatrix(check) {
   }
 
   const listKey = check.validation.entryList
-  const escapedListKey = listKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  if (!new RegExp(`^${escapedListKey}:\\s*$`, 'm').test(text)) {
+  if (!Object.hasOwn(document, listKey)) {
     fail(`${check.path} is missing ${listKey}`)
   }
 
-  const entries = parseEntries(text)
+  const entries = parseEntries(document, listKey)
   if (entries.length === 0) {
     fail(`${check.path} has no entries`)
     return
