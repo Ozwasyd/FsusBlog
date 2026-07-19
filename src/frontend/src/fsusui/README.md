@@ -6,20 +6,37 @@
 
 ## Adapter API
 
-The mandatory adapter surface is:
+Every boundary file has one primary responsibility. A mixed file is classified by
+the behavior it adds beyond its package re-exports.
 
-- `index.ts`: barrel for the stable adapter API.
-- `appContext.ts`: app-level FsusUI injection keys.
-- `feedback.ts`: programmatic message, confirm, loading and toast helpers.
-- `dialog.ts`: modal dialog runtime boundary; Blog-owned dialog shells consume it for placement, scroll and footer behavior.
-- `icons.ts`: icon package re-export boundary.
-- `markdown.ts`: markdown runtime and feature activation boundary.
-- `motion.ts`: FsusUI motion runtime boundary plus Blog-owned surface presets.
-- `primitiveAdapters.ts`: Blog primitive variants to FsusUI semantic variants.
-- `renderPipeline.ts`: render-pipeline contract adapter.
-- `result.ts`: FsusUI result envelope helpers.
-- `publicShell.ts`: exports the alias-resolved `ElPublicShell` component plus the stable `inline | menu | bottom | none` mobile-navigation contract. `PublicBlogLayoutShell` consumes that adapter and selects `menu` explicitly; the workspace alias is source consumption, not an npm publication.
-- `theme.ts`: FsusUI public theme-mode contract re-export. It must import `ThemeMode`, `ResolvedTheme`, `themeModes`, `normalizeThemeMode`, `syncThemeMode` and the test helpers from `@ozwasyd/element-plus/theme` instead of declaring Blog-local equivalents.
+| Classification | Files | Responsibility |
+| --- | --- | --- |
+| Type-preserving re-export | `dangerZone.ts`, `dataList.ts`, `icons.ts`, `keyValueGrid.ts`, `kpiGroup.ts`, `metricPrimitives.ts`, `sectionHeader.ts`, `sectionNav.ts`, `segmentedControl.ts`, `settingsSection.ts`, `siteHeader.ts`, `theme.ts`, `typedConfirmField.ts` | Rename public package exports without widening component props, slots or emits. |
+| Runtime adapter | `appContext.ts`, `feedback.ts`, `markdown.ts`, `motion.ts`, `result.ts` | Own package runtime setup or invocation that cannot be represented by a re-export alone. |
+| Semantic policy adapter | `blogMotion.ts`, `dialog.ts`, `pageHeader.ts`, `primitiveAdapters.ts`, `publicShell.ts`, `renderPipeline.ts` | Map an explicit Blog policy to a public FsusUI contract without duplicating package markup or CSS. |
+| Barrel | `index.ts` | Publish the stable Blog-side adapter surface; it contains no implementation. |
+
+Type-preserving component adapters must use named re-exports. `as Component`,
+namespace casts and one-line wrapper components erase package prop, slot and emit
+types and are forbidden. Runtime adapters are allowed only when they install a
+provider, activate a package runtime, invoke a programmatic API or translate a
+real FsusBlog policy. Semantic adapters may choose policy values, but must not
+copy generic FsusUI DOM, styles or internal BEM selectors into Blog code.
+
+`pageHeader.ts` owns the Blog-specific `AccountPageHeader`. Its
+`FsusUiPageHeader` export is a compatibility alias for the page migration tracked
+by #1304; it is not an FsusUI implementation and new call sites must use the
+Blog-owned name.
+
+`publicShell.ts` re-exports the alias-resolved `ElPublicShell` component and
+defines the stable `inline | menu | bottom | none` mobile-navigation policy.
+`PublicBlogLayoutShell` selects `menu` explicitly; workspace alias resolution is
+source consumption, not an npm publication.
+
+`theme.ts` re-exports the FsusUI public theme-mode contract. It must import
+`ThemeMode`, `ResolvedTheme`, `themeModes`, `normalizeThemeMode`, `syncThemeMode`
+and test helpers from `@ozwasyd/element-plus/theme` instead of declaring local
+equivalents.
 
 `motion.ts` owns the auditable Blog-side motion boundary: it re-exports the FsusUI runtime (`FsuMotion`, `vMotion`, `useScrollReveal`, `runMotion`, motion types) and keeps Blog-owned surface mappings such as `FsusBlogMotionSurface` and `fsusBlogMotionPresets`. `blogMotion.ts` remains as a compatibility re-export for existing call sites. `FsusPerceptionChallenge` and the perception-challenge types come from `@ozwasyd/element-plus/perception-challenge`. Add new adapters to `index.ts` only when they are intended as general Blog adapter API; otherwise import them explicitly from call sites.
 
@@ -33,11 +50,17 @@ These files should depend on `@/fsusui/*` adapters instead of package internals.
 
 Direct `@ozwasyd/element-plus` imports outside `fsusui/` need a narrow reason:
 
-- bootstrap or public shell composition that must install/provide an FsusUI root component, such as `src/frontend/src/bootstrap/fullApp.ts` and `src/frontend/src/public-renderers/scaffold.ts`;
 - type-only form/upload contracts in composables, such as `FormInstance` and `UploadRequestOptions`;
+- the existing app-shell and article motion integration in `App.vue`, `bootstrap/fullApp.ts`, `ArticleImageLightbox.vue`, `useArticleImageLightbox.ts` and `useCodeBlockCopy.ts`;
+- the existing perception-challenge integration in `FsusSecurityChallenge.vue` and `securityPerceptionChallengeFlow.ts`;
+- the existing markdown editor package component in `MarkdownTextEditor.vue`;
 - tests and fixtures that intentionally assert or violate the boundary.
 
-New runtime imports should normally be added to a named `fsusui/` adapter first, then consumed through that adapter.
+These runtime exceptions are an explicit frozen allowlist, not precedent for new
+imports. New runtime imports must be added to a named `fsusui/` adapter first,
+then consumed through that adapter. Consumer code must not expose `.el-*`
+internal BEM selectors as its public API; existing selector debt is frozen by
+the checker allowlist.
 
 ## Theme Runtime Split
 
@@ -47,4 +70,4 @@ New runtime imports should normally be added to a named `fsusui/` adapter first,
 
 ## Enforcement
 
-`tests/frontend/checks/static/check-fsusui-boundary.mjs` enforces this contract by checking deep imports, programmatic API ownership, internal selectors, markdown feature ownership, the theme adapter source and the mandatory adapter files.
+`tests/frontend/checks/static/check-fsusui-boundary.mjs` enforces this contract by checking deep imports, runtime-import ownership, type-preserving component exports, misleading local `FsusUi*` implementations, programmatic API ownership, internal selectors, markdown feature ownership, the theme adapter source and the mandatory adapter files. It checks architectural outcomes rather than requiring a particular dynamic-component rendering pattern.

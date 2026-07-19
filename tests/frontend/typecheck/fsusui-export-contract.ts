@@ -1,8 +1,24 @@
 import {
   ElButton,
+  ElDangerZone,
+  ElDestructiveActionPanel,
+  ElDistributionBarRow,
+  ElDistributionList,
   ElEmptyState,
+  ElFormSection,
+  ElKeyValueGrid,
+  ElKeyValueItem,
+  ElKpiGroup,
   ElMarkdownEditor,
+  ElMetricItem,
+  ElMetricList,
+  ElRiskNotice,
+  ElSectionHeader,
+  ElSectionNav,
+  ElSegmentedControl,
+  ElSettingsSection,
   ElSiteHeader,
+  ElTypedConfirmField,
   FsusPerceptionChallenge,
   FsusTextTaskChallenge,
   FsuMotion,
@@ -22,8 +38,60 @@ import {
   type PerceptionChallengeVerifyResult,
 } from '@ozwasyd/element-plus'
 import { themeModes, type ThemeMode } from '@ozwasyd/element-plus/theme'
+import {
+  FsusUiDangerZone,
+  FsusUiDestructiveActionPanel,
+  FsusUiFormSection,
+  FsusUiRiskNotice,
+} from '../../../src/frontend/src/fsusui/dangerZone'
+import {
+  FsusUiKeyValueGrid,
+  FsusUiKeyValueItem,
+} from '../../../src/frontend/src/fsusui/keyValueGrid'
+import { FsusUiKpiGroup } from '../../../src/frontend/src/fsusui/kpiGroup'
+import {
+  FsusUiDistributionBarRow,
+  FsusUiDistributionList,
+  FsusUiEmptyState,
+  FsusUiMetricItem,
+  FsusUiMetricList,
+} from '../../../src/frontend/src/fsusui/metricPrimitives'
+import { FsusUiSectionHeader } from '../../../src/frontend/src/fsusui/sectionHeader'
+import { FsusUiSectionNav } from '../../../src/frontend/src/fsusui/sectionNav'
+import { FsusUiSegmentedControl } from '../../../src/frontend/src/fsusui/segmentedControl'
+import { FsusUiSettingsSection } from '../../../src/frontend/src/fsusui/settingsSection'
+import { FsusUiSiteHeader } from '../../../src/frontend/src/fsusui/siteHeader'
+import { FsusUiTypedConfirmField } from '../../../src/frontend/src/fsusui/typedConfirmField'
 
 import type { Component } from 'vue'
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends
+  (<Value>() => Value extends Right ? 1 : 2)
+    ? true
+    : false
+type Expect<Value extends true> = Value
+
+type TypePreservingAdapterContract = [
+  Expect<Equal<typeof FsusUiDangerZone, typeof ElDangerZone>>,
+  Expect<Equal<typeof FsusUiDestructiveActionPanel, typeof ElDestructiveActionPanel>>,
+  Expect<Equal<typeof FsusUiDistributionBarRow, typeof ElDistributionBarRow>>,
+  Expect<Equal<typeof FsusUiDistributionList, typeof ElDistributionList>>,
+  Expect<Equal<typeof FsusUiEmptyState, typeof ElEmptyState>>,
+  Expect<Equal<typeof FsusUiFormSection, typeof ElFormSection>>,
+  Expect<Equal<typeof FsusUiKeyValueGrid, typeof ElKeyValueGrid>>,
+  Expect<Equal<typeof FsusUiKeyValueItem, typeof ElKeyValueItem>>,
+  Expect<Equal<typeof FsusUiKpiGroup, typeof ElKpiGroup>>,
+  Expect<Equal<typeof FsusUiMetricItem, typeof ElMetricItem>>,
+  Expect<Equal<typeof FsusUiMetricList, typeof ElMetricList>>,
+  Expect<Equal<typeof FsusUiRiskNotice, typeof ElRiskNotice>>,
+  Expect<Equal<typeof FsusUiSectionHeader, typeof ElSectionHeader>>,
+  Expect<Equal<typeof FsusUiSectionNav, typeof ElSectionNav>>,
+  Expect<Equal<typeof FsusUiSegmentedControl, typeof ElSegmentedControl>>,
+  Expect<Equal<typeof FsusUiSettingsSection, typeof ElSettingsSection>>,
+  Expect<Equal<typeof FsusUiSiteHeader, typeof ElSiteHeader>>,
+  Expect<Equal<typeof FsusUiTypedConfirmField, typeof ElTypedConfirmField>>,
+]
 
 const componentExports: Component[] = [
   ElButton,
@@ -105,4 +173,6 @@ export const fsusUiExportContract = {
   perceptionSubmitPayload,
   runMotion,
   themeMode,
-}
+} satisfies Record<string, unknown>
+
+export type { TypePreservingAdapterContract }

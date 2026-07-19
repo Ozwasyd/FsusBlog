@@ -1,19 +1,15 @@
-import {
-  ElPublicShell,
-  type PublicShellMobileNavMode,
-} from '@ozwasyd/element-plus'
-import type { Component } from 'vue'
+import type { PublicShellMobileNavMode } from '@ozwasyd/element-plus';
 
 /** Consumer boundary for the alias-resolved FsusUI PublicShell contract. */
-export const FsusUiPublicShell = ElPublicShell as Component
+export { ElPublicShell as FsusUiPublicShell } from '@ozwasyd/element-plus';
 
 export const FSUSUI_PUBLIC_SHELL_MOBILE_NAV_MODES = [
-  'inline',
-  'menu',
-  'bottom',
-  'none'
-] as const satisfies readonly PublicShellMobileNavMode[]
+    'inline',
+    'menu',
+    'bottom',
+    'none'
+] as const satisfies readonly PublicShellMobileNavMode[];
 
-export type FsusUiPublicShellMobileNavMode = PublicShellMobileNavMode
+export type FsusUiPublicShellMobileNavMode = PublicShellMobileNavMode;
 
-export const FSUSBLOG_PUBLIC_MOBILE_NAV_MODE = 'menu' satisfies FsusUiPublicShellMobileNavMode
+export const FSUSBLOG_PUBLIC_MOBILE_NAV_MODE = 'menu' as const;
