@@ -11,11 +11,20 @@ const emergencyShellPath = resolve(repoRoot, 'src/frontend/public/public-shell-e
 const layoutRulesPath = resolve(repoRoot, 'docs/public-layout-rules.md')
 const markdownPath = resolve(sourceRoot, 'assets/markdown.css')
 const commentListPath = resolve(sourceRoot, 'components/article/ArticleCommentsVirtualList.vue')
+const identityCenterPath = resolve(sourceRoot, 'views/user/IdentityCenter.vue')
+const accountShellPath = resolve(sourceRoot, 'assets/account-shell.css')
 const sourceExtensions = new Set(['.css', '.scss', '.vue', '.ts', '.tsx', '.js', '.jsx'])
 const excludedDirectories = new Set(['generated'])
 const forbiddenDeclarationPattern = /font-size\s*:\s*(0?\.[6-9][0-9]*(?:rem|em)|(?:11|13)px)(?:\s*!important)?\s*;/gu
 const errors = []
 let scannedFileCount = 0
+
+function expectRuleFontSize(source, path, label, rulePattern, expectedSize) {
+  const ruleBody = rulePattern.exec(source)?.groups?.body ?? ''
+  if (ruleBody.length === 0 || !new RegExp(`font-size\\s*:\\s*${expectedSize.replace('.', '\\.')};`, 'u').test(ruleBody)) {
+    errors.push(`${relativePath(path)}: ${label} must keep font-size ${expectedSize}`)
+  }
+}
 
 function collectSourceFiles(directory) {
   const files = []
@@ -62,6 +71,30 @@ const commentList = readFileSync(commentListPath, 'utf8')
 if (!/\.fsus-comment__reply-target,\s*\n\.fsus-comment__time\s*\{[^}]*font-size:\s*14px;[^}]*line-height:\s*1\.4;/su.test(commentList)) {
   errors.push('src/frontend/src/components/article/ArticleCommentsVirtualList.vue: comment time metadata must keep the 14px/1.4 contract')
 }
+
+const identityCenter = readFileSync(identityCenterPath, 'utf8')
+for (const [label, rulePattern, expectedSize] of [
+  ['status value', /\.identity-status-card strong\s*\{(?<body>[^}]*)\}/u, '16px'],
+  ['status description', /\.identity-status-card p,\s*\.identity-copy-block p\s*\{(?<body>[^}]*)\}/u, '12px'],
+  ['status label', /\.identity-status-label\s*\{(?<body>[^}]*)\}/u, '12px'],
+  ['summary list', /\.identity-summary-list,\s*\.identity-state-row\s*\{(?<body>[^}]*)\}/u, '14px'],
+  ['summary term', /\.identity-summary-list dt\s*\{(?<body>[^}]*)\}/u, '12px'],
+  ['summary detail', /\.identity-summary-list dt\s*\{[^}]*\}\s*\.identity-summary-list dd\s*\{(?<body>[^}]*)\}/u, '14px'],
+  ['policy item', /\.identity-policy-item\s*\{(?<body>[^}]*)\}/u, '14px'],
+  ['loading, empty, and error states', /\.identity-loading-state,\s*\.identity-empty-state,\s*\.identity-error-state\s*\{(?<body>[^}]*)\}/u, '14px'],
+  ['secret value', /\.identity-secret-panel code\s*\{(?<body>[^}]*)\}/u, '14px']
+]) {
+  expectRuleFontSize(identityCenter, identityCenterPath, label, rulePattern, expectedSize)
+}
+
+const accountShell = readFileSync(accountShellPath, 'utf8')
+expectRuleFontSize(
+  accountShell,
+  accountShellPath,
+  'account section eyebrow',
+  /\.account-section-eyebrow\s*\{(?<body>[^}]*)\}/u,
+  '12px'
+)
 
 const layoutRules = readFileSync(layoutRulesPath, 'utf8')
 for (const requiredText of [
