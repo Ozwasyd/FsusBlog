@@ -7,6 +7,7 @@ import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { useViewTask } from '@/composables/useViewTask'
 import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { resolveSafeRedirectTarget } from '@/security/privateNavigationPolicy'
+import { usePostAuthCommit } from '@/composables/usePostAuthCommit'
 
 const getErrorText = (error: unknown): string => {
   const normalized = toAppError(error, '登录服务暂不可用，请稍后再试')
@@ -55,14 +56,14 @@ const getErrorText = (error: unknown): string => {
   }
 }
 
-const wait = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms))
 const POST_AUTH_NOTIFICATION_DELAY_MS = 5000
 type MfaMode = 'totp' | 'recovery'
 
 export function useAuthLogin() {
   const router = useRouter()
   const route = useRoute()
-  const { userStore, siteStore, syncAuthPhase, markSessionActive, setRiskPhase, ensureUserInfo } = useSessionBootstrap()
+  const { userStore, siteStore, setRiskPhase } = useSessionBootstrap()
+  const { commitPostAuthSession } = usePostAuthCommit()
   const { initNotification } = useNotification()
   const verifyTask = useViewTask()
   const loading = computed(() => verifyTask.loading.value)
@@ -76,22 +77,6 @@ export function useAuthLogin() {
   let verifySubmitting = false
 
   const isProcessing = computed(() => loading.value)
-
-  const confirmSessionReady = async (): Promise<boolean> => {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      await ensureUserInfo(true)
-      syncAuthPhase()
-
-      if (userStore.isLoggedIn) {
-        markSessionActive()
-        return true
-      }
-
-      await wait(120)
-    }
-
-    return false
-  }
 
   const handleMfaVerify = async (): Promise<void> => {
     errorMessage.value = ''
@@ -135,7 +120,7 @@ export function useAuthLogin() {
         throw createAppError(AppErrorCode.ProtocolFailure, 'MFA_VERIFY_FAILED')
       }
 
-      if (!await confirmSessionReady()) {
+      if (!await commitPostAuthSession()) {
         errorMessage.value = '登录状态同步失败，请重新登录'
         return
       }

@@ -76,16 +76,20 @@ export const useUserStore = defineStore('user', () => {
         }
     }
 
-    const invalidateIdentityCache = () => {
+    const cancelUserInfoRequest = () => {
         identityGeneration += 1
         abortController?.abort()
         abortController = null
         fetchPromise = null
+        isLoading.value = false
+    }
+
+    const invalidateIdentityCache = () => {
+        cancelUserInfoRequest()
         userInfo.value = null
         accountState.value = 'unknown'
         lastVerifiedAt.value = 0
         lastFetchedAt.value = 0
-        isLoading.value = false
     }
 
     const setLogoutBroadcast = (publisher: (() => void) | null): void => {
@@ -99,8 +103,7 @@ export const useUserStore = defineStore('user', () => {
         }
 
         if (force && abortController) {
-            abortController.abort()
-            fetchPromise = null
+            cancelUserInfoRequest()
         }
 
         if (fetchPromise) return fetchPromise
@@ -214,6 +217,7 @@ export const useUserStore = defineStore('user', () => {
         markGuest,
         markAuthenticated,
         invalidateGuestCache,
+        cancelUserInfoRequest,
         invalidateIdentityCache,
         setLogoutBroadcast,
         fetchUserInfo,

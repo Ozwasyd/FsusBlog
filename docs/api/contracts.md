@@ -556,6 +556,8 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 
 ### `IdentityAccountSnapshot`（当前匿名账号容器，`GET /api/binary/auth/me`）
 
+Passkey complete、MFA verify 与匿名 bootstrap 的成功响应只表示服务端已尝试建立 Cookie session；浏览器必须通过共享 post-auth commit 强制读取本端点，并在确认 `IdentityAccountSnapshot` 已提交为当前 tab 的 authenticated state 后，才允许广播 login 或导航到私有路由。该读取必须绕过 fresh guest 负缓存；重复 commit 由单调 generation 取最新结果，组件卸载会取消在途读取，失败或取消不得把响应中的用户片段、bootstrap 完成或 Cookie 推断成已登录。
+
 ```json
 {
   "accountId": 42,

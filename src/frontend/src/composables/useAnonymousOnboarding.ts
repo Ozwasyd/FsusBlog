@@ -8,6 +8,7 @@ import { toAppError } from '@/utils/appError'
 import { PUBLIC_HANDLE_CONSTRAINT, validatePublicHandle } from '@/utils/contentFilter'
 import { toast } from '@/fsusui/feedback'
 import { resolveSafeRedirectTarget } from '@/security/privateNavigationPolicy'
+import { usePostAuthCommit } from '@/composables/usePostAuthCommit'
 
 type AnonymousOnboardingStep = 'account' | 'recovery' | 'passkey' | 'complete'
 
@@ -22,7 +23,8 @@ const getErrorText = (error: unknown, fallback: string): string => {
 export function useAnonymousOnboarding() {
   const route = useRoute()
   const router = useRouter()
-  const { siteStore, userStore, ensureUserInfo, syncAuthPhase, markSessionActive } = useSessionBootstrap()
+  const { siteStore } = useSessionBootstrap()
+  const { commitPostAuthSession } = usePostAuthCommit()
   const { fetchPasskeys } = usePasskeyManagement()
 
   const publicHandle = ref('')
@@ -92,12 +94,11 @@ export function useAnonymousOnboarding() {
         publicHandle: handle || undefined,
         acceptedGuidelines: isAgreed.value
       })
-      await ensureUserInfo(true)
-      syncAuthPhase()
-      if (userStore.isLoggedIn) {
-        markSessionActive()
-        authBroadcastRuntime.broadcastLogin()
+      if (!await commitPostAuthSession()) {
+        localError.value = '账号已创建，但登录状态同步失败。请重新登录。'
+        return
       }
+      authBroadcastRuntime.broadcastLogin()
 
       const response = await createRecoveryKey()
       recoveryKeyPlaintext.value = response.recoveryKey

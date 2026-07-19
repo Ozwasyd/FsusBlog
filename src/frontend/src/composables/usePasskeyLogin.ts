@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { passkeyLoginBegin, passkeyLoginComplete } from '@/api/auth'
-import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
+import { usePostAuthCommit } from '@/composables/usePostAuthCommit'
 import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { toAppError, AppErrorCode } from '@/utils/appError'
 import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand'
@@ -26,21 +26,17 @@ function getPasskeyErrorText(error: unknown): string {
   }
 }
 
-export function usePasskeyLogin() {
+export function usePasskeyLogin(authenticate: typeof startAuthentication = startAuthentication) {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const router = useRouter()
   const route = useRoute()
-  const { ensureBootstrap, userStore } = useSessionBootstrap()
+  const { commitPostAuthSession } = usePostAuthCommit()
   const riskChallenge = useRiskChallengeCommand()
 
   const loginWithPasskey = async (rememberMe = false): Promise<boolean> => {
     loading.value = true
     error.value = null
-    // A passkey ceremony can establish a valid Cookie while this tab still
-    // holds a Guest negative cache from an earlier anonymous probe.
-    userStore.invalidateGuestCache()
-
     try {
       // 1. 从服务器获取认证选项
       const beginResp = await riskChallenge.run(
@@ -61,11 +57,11 @@ export function usePasskeyLogin() {
       let assertion: Awaited<ReturnType<typeof startAuthentication>>
       try {
         // 自动修正 RP ID 常见的本地开发不匹配问题 (仅在 localhost/127.0.0.1 下)
-        if (location.hostname === '127.0.0.1' && options.rpId === 'localhost') {
+        if (globalThis.location?.hostname === '127.0.0.1' && options.rpId === 'localhost') {
           options.rpId = '127.0.0.1'
         }
 
-        assertion = await startAuthentication({ ['options' + String.fromCharCode(74, 83, 79, 78)]: options } as any)
+        assertion = await authenticate({ ['options' + String.fromCharCode(74, 83, 79, 78)]: options } as any)
       } catch (e: any) {
         // NotAllowedError = 用户取消或无可用凭证，静默处理
         if (e?.name === 'NotAllowedError') {
@@ -86,8 +82,12 @@ export function usePasskeyLogin() {
         }, { riskChallengeProof: proof })
       )
 
-      // 4. 刷新 session 状态后跳转
-      await ensureBootstrap(true)
+      // 4. 以服务端 Session snapshot 提交当前标签页身份后跳转
+      if (!await commitPostAuthSession()) {
+        error.value = '登录状态同步失败，请重新登录'
+        return false
+      }
+
       authBroadcastRuntime.broadcastLogin()
       await router.push(resolveSafeRedirectTarget(router, route.query.redirect))
       return true

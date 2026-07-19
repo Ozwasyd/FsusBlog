@@ -217,6 +217,23 @@ describe('useUserStore', () => {
     expect(store.userInfo).toBeNull()
   })
 
+  it('cancelUserInfoRequest prevents an obsolete Session snapshot from committing', async () => {
+    let resolveRequest!: (value: ReturnType<typeof anonymousUser>) => void
+    mockGetMe.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveRequest = resolve as typeof resolveRequest
+    }) as never)
+    const store = useUserStore()
+
+    const pending = store.fetchUserInfo(true)
+    store.cancelUserInfoRequest()
+    resolveRequest(anonymousUser(42))
+    await pending
+
+    expect(store.accountState).toBe('unknown')
+    expect(store.userInfo).toBeNull()
+    expect(store.isLoading).toBe(false)
+  })
+
   it('legacy persisted isAuthChecked without accountState migrates to unknown', async () => {
     localStorage.setItem('fsus_user_storage', JSON.stringify({ isAuthChecked: true }))
     const store = useUserStore()
