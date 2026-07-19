@@ -21,6 +21,9 @@ import {
     type SecurityChallengeContext,
     type SecurityChallengeProofLease
 } from '@/security/challenge-client'
+import { createPoSpaceChallengeExecutor } from '@/services/securityPoSpaceChallengeExecutor'
+import { createPoSpaceUnsupportedReissueAttributes } from '@/services/securityPoSpaceRuntime'
+import { poSpaceV1Contract } from '@/generated/poSpaceV1Contract'
 
 const currentMode = ref<'auth' | 'guest' | ''>('')
 const isInitializing = ref(false)
@@ -35,6 +38,8 @@ let initNotificationPromise: Promise<void> | null = null
 let pendingInitMode: 'auth' | 'guest' | '' = ''
 let articleCreatedToastTimer: ReturnType<typeof setTimeout> | null = null
 let pendingArticleCreatedIds: number[] = []
+let notificationPoSpaceExecutor: ReturnType<typeof createPoSpaceChallengeExecutor> | null = null
+let notificationPoSpaceUnsupportedReissues = 0
 
 const POW_STORAGE_KEY = 'notification_stream_guest_pow'
 const NOTIFICATION_SUBSCRIBE_ACTION = 'notification.subscribe'
@@ -77,6 +82,11 @@ function disposeNotificationBindings(): void {
     notificationStreamRuntime.onHandshakeFailure = undefined
     notificationStreamRuntime.onReconnectSuccess = undefined
     bindingsInitialized = false
+}
+
+function disposeNotificationChallengeExecution(): void {
+    notificationPoSpaceExecutor?.dispose()
+    notificationPoSpaceExecutor = null
 }
 
 function scheduleArticleCreatedToast(articleId: number, router: ReturnType<typeof useRouter>): void {
@@ -159,63 +169,107 @@ export function useNotification() {
         if (!forceRefresh) {
             const reserved = notificationChallengeClient.reserveProof(context)
             if (reserved) {
+                notificationPoSpaceUnsupportedReissues = 0
                 return reserved
             }
         } else {
+            disposeNotificationChallengeExecution()
             notificationChallengeClient.clearProof(context)
         }
 
-        const issue = forceRefresh
+        let issue = forceRefresh
             ? await notificationChallengeClient.refresh(context)
             : await notificationChallengeClient.issue(context)
 
-        if (issue.status === 'verified' && issue.proof) {
-            return notificationChallengeClient.reserveProof(context) ?? 'unavailable'
+        while (true) {
+            if (issue.status === 'verified' && issue.proof) {
+                notificationPoSpaceUnsupportedReissues = 0
+                return notificationChallengeClient.reserveProof(context) ?? 'unavailable'
+            }
+
+            if (issue.status === 'allow') {
+                notificationPoSpaceUnsupportedReissues = 0
+                return 'allow'
+            }
+
+            if (issue.status !== 'challenge' || !issue.assignment || !issue.providerPayload) {
+                return 'unavailable'
+            }
+
+            if (issue.capability?.headlessHost === 'notification-sha256-pow') {
+                const payload = issue.providerPayload.payload
+                const salt = payload.salt?.trim()
+                const signature = payload.signature?.trim()
+                const difficulty = Number(payload.difficulty)
+                const timestamp = Number(payload.timestamp)
+                if (!salt || !signature || !Number.isFinite(difficulty) || !Number.isFinite(timestamp)) {
+                    return 'unavailable'
+                }
+
+                prewarm()
+                const browserFp = getBrowserFp()
+                const { nonce } = await calculate(salt, browserFp, difficulty)
+                const proof = encodeBinaryPowProofHeader({
+                    salt,
+                    nonce,
+                    timestamp,
+                    difficulty,
+                    signature,
+                    browserFp
+                })
+                const verified = await notificationChallengeClient.verify(context, {
+                    challengeId: issue.assignment.challengeId,
+                    kind: issue.assignment.kind,
+                    action: NOTIFICATION_SUBSCRIBE_ACTION,
+                    routeKey: NOTIFICATION_SUBSCRIBE_ROUTE_KEY,
+                    providerPayload: { proof }
+                })
+
+                return verified.status === 'verified' && verified.proof
+                    ? notificationChallengeClient.reserveProof(context) ?? 'unavailable'
+                    : 'unavailable'
+            }
+
+            if (issue.capability?.headlessHost !== 'notification-pospace') {
+                return 'unavailable'
+            }
+            const policyVersion = issue.response?.policyVersion?.trim()
+            if (!policyVersion) {
+                return 'unavailable'
+            }
+
+            notificationPoSpaceExecutor ??= createPoSpaceChallengeExecutor({
+                client: notificationChallengeClient
+            })
+            const result = await notificationPoSpaceExecutor.execute({
+                context,
+                assignment: issue.assignment,
+                providerPayload: issue.providerPayload,
+                policyVersion
+            })
+            if (result.status === 'verified') {
+                notificationPoSpaceUnsupportedReissues = 0
+                return notificationChallengeClient.reserveProof(context) ?? 'unavailable'
+            }
+            if (result.status !== 'unsupported'
+                || notificationPoSpaceUnsupportedReissues >= poSpaceV1Contract.maxUnsupportedReissues) {
+                return 'unavailable'
+            }
+
+            notificationPoSpaceUnsupportedReissues += 1
+            const reissueContext: SecurityChallengeContext = {
+                ...context,
+                attributes: {
+                    ...context.attributes,
+                    ...createPoSpaceUnsupportedReissueAttributes(
+                        issue.assignment,
+                        result.reason,
+                        notificationPoSpaceUnsupportedReissues
+                    )
+                }
+            }
+            issue = await notificationChallengeClient.refresh(reissueContext)
         }
-
-        if (issue.status === 'allow') {
-            return 'allow'
-        }
-
-        if (
-            issue.status !== 'challenge' ||
-            issue.capability?.headlessHost !== 'notification-sha256-pow' ||
-            !issue.providerPayload
-        ) {
-            return 'unavailable'
-        }
-
-        const payload = issue.providerPayload.payload
-        const salt = payload.salt?.trim()
-        const signature = payload.signature?.trim()
-        const difficulty = Number(payload.difficulty)
-        const timestamp = Number(payload.timestamp)
-        if (!salt || !signature || !Number.isFinite(difficulty) || !Number.isFinite(timestamp)) {
-            return 'unavailable'
-        }
-
-        prewarm()
-        const browserFp = getBrowserFp()
-        const { nonce } = await calculate(salt, browserFp, difficulty)
-        const proof = encodeBinaryPowProofHeader({
-            salt,
-            nonce,
-            timestamp,
-            difficulty,
-            signature,
-            browserFp
-        })
-        const verified = await notificationChallengeClient.verify(context, {
-            challengeId: issue.assignment.challengeId,
-            kind: issue.assignment.kind,
-            action: NOTIFICATION_SUBSCRIBE_ACTION,
-            routeKey: NOTIFICATION_SUBSCRIBE_ROUTE_KEY,
-            providerPayload: { proof }
-        })
-
-        return verified.status === 'verified' && verified.proof
-            ? notificationChallengeClient.reserveProof(context) ?? 'unavailable'
-            : 'unavailable'
     }
 
     const handleAccountStatusChange = (data: AccountStatusPayload): void => {
@@ -384,6 +438,8 @@ export function useNotification() {
 
     const stopNotification = async (clearCursor = false): Promise<void> => {
         clearReauthRetryTimer()
+        disposeNotificationChallengeExecution()
+        notificationPoSpaceUnsupportedReissues = 0
         pendingInitMode = ''
         initNotificationPromise = null
         await notificationStreamRuntime.stop(clearCursor)
@@ -415,6 +471,10 @@ export function useNotification() {
             ensureBindings()
 
             try {
+                if (mode === 'guest') {
+                    disposeNotificationChallengeExecution()
+                    notificationPoSpaceUnsupportedReissues = 0
+                }
                 if (notificationStreamRuntime.isConnected()) {
                     await notificationStreamRuntime.stop()
                 }

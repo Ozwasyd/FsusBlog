@@ -95,7 +95,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
-    public async Task IssueAsync_ProviderOnlyPoSpace_FailsBeforeCallingPlaceholderExecutor()
+    public async Task IssueAsync_ProviderOnlyPoSpace_ReachesRegisteredProvider()
     {
         var provider = new FakeChallengeProvider("argon2idPoSpaceV1");
         var riskSink = new CapturingRiskSink();
@@ -105,10 +105,10 @@ public sealed class SecurityChallengeOrchestratorTests
             CreateIssueRequest(["argon2idPoSpaceV1"]),
             CancellationToken.None);
 
-        Assert.False(result.Succeeded);
-        Assert.Equal("executor_unavailable", result.Reason);
-        Assert.Equal(0, provider.IssueCalls);
-        Assert.Equal("capability_unavailable:argon2idPoSpaceV1:executor_unavailable", Assert.Single(riskSink.Signals).Detail);
+        Assert.True(result.Succeeded, result.Reason);
+        Assert.Equal(1, provider.IssueCalls);
+        Assert.Equal(SecurityChallengeKind.Argon2IdPoSpaceV1, Assert.Single(result.Envelope!.Assignments).Kind);
+        Assert.Empty(riskSink.Signals);
     }
 
     [Fact]

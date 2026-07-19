@@ -33,13 +33,16 @@ assert.equal(frontendVersion, backendVersion, 'frontend and backend capability m
 assert.doesNotMatch(frontendRegistry, /deviceFingerprint|proofToken|subjectHash|clientIpHash|userId|adminId/, 'capability manifest must stay low information')
 assert.match(challengeHost, /capability\?\.uiHost === 'captcha'/, 'captcha UI must dispatch from registry capability')
 assert.match(challengeHost, /capability\?\.uiHost === 'perception'/, 'perception UI must dispatch from registry capability')
-assert.doesNotMatch(challengeHost, /FsusPowChallenge|FsusPoSpaceChallenge|FsusPasskeyStepUpChallenge/, 'placeholder hosts must not be production dispatch targets')
+assert.match(challengeHost, /capability\?\.uiHost === 'pospace'/, 'PoSpace UI must dispatch from registry capability')
+assert.doesNotMatch(challengeHost, /FsusPowChallenge|FsusPasskeyStepUpChallenge/, 'placeholder hosts must not be production dispatch targets')
 assert.match(notificationHost, /executionMode:\s*'headless'/, 'notification executor must resolve through the shared headless registry')
-assert.match(notificationHost, /issue\.capability\?\.headlessHost !== 'notification-sha256-pow'/, 'notification executor must dispatch from registry capability')
+assert.match(notificationHost, /notification-sha256-pow/, 'notification PoW executor must dispatch from registry capability')
+assert.match(notificationHost, /notification-pospace/, 'notification PoSpace executor must dispatch from registry capability')
 assert.doesNotMatch(notificationHost, /SecurityChallengeKind\./, 'notification business flow must not shadow the server kind policy')
 assert.match(frontendRegistry, /import\('@\/components\/security\/FsusCaptchaChallenge\.vue'\)/, 'captcha executor factory must load a production implementation')
 assert.match(frontendRegistry, /import\('@\/services\/securityPerceptionChallengeFlow'\)/, 'perception executor factory must load a production implementation')
 assert.match(frontendRegistry, /import\('@\/composables\/usePow'\)/, 'headless PoW executor factory must load a production implementation')
+assert.match(frontendRegistry, /import\('@\/services\/securityPoSpaceChallengeExecutor'\)/, 'PoSpace executor factory must load the shared production implementation')
 for (const column of ['Provider', 'Executor', 'UI Host', 'Headless Host', 'Policy']) {
   assert.match(adminReadiness, new RegExp(`>${column}<`), `admin readiness must show ${column} separately`)
 }

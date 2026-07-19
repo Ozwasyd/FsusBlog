@@ -33,14 +33,14 @@ public sealed record SecurityChallengeCapabilityResolution(
 /// </summary>
 public static class SecurityChallengeCapabilityCatalog
 {
-    public const string ManifestVersion = "2026.07.19.1";
+    public const string ManifestVersion = "2026.07.19.2";
     public const string NotificationSubscribeAction = "notification.subscribe";
 
     public static readonly IReadOnlyList<SecurityChallengeCapability> All =
     [
         Entry(SecurityChallengeKind.Unknown, false, false, false, false, false, false, false),
         Entry(SecurityChallengeKind.Sha256PowV1, true, true, false, true, false, true, false, NotificationSubscribeAction),
-        Entry(SecurityChallengeKind.Argon2IdPoSpaceV1, true, true, false, false, false, false, false),
+        Entry(SecurityChallengeKind.Argon2IdPoSpaceV1, true, true, true, true, true, true, true, "*"),
         Entry(SecurityChallengeKind.CaptchaV1, true, true, true, false, true, false, false, "*"),
         Entry(SecurityChallengeKind.HumanReadProofV1, true, true, false, false, false, false, false),
         Entry(SecurityChallengeKind.PasskeyStepUpV1, true, true, false, false, false, false, false),

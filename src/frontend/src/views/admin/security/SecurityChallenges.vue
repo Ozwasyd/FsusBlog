@@ -101,7 +101,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, shallowRef } from 'vue'
-import { getSecurityChallengeMetrics, type SecurityChallengeMetricsResponse } from '@/api/security'
+import {
+  getRiskControlOptions,
+  getSecurityChallengeMetrics,
+  type SecurityChallengeMetricsResponse,
+  type SecurityRiskPolicySnapshotV2
+} from '@/api/security'
 import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
@@ -113,13 +118,14 @@ import {
 
 const loading = shallowRef(false)
 const metricsState = shallowRef<SecurityChallengeMetricsResponse | null>(null)
+const policyState = shallowRef<SecurityRiskPolicySnapshotV2 | null>(null)
 
 const successRate = computed(() => metricsState.value?.successRate ?? 0)
 const failureRate = computed(() => metricsState.value?.failureRate ?? 0)
 const kindBreakdown = computed(() => metricsState.value?.kindBreakdown ?? [])
 const recentAttempts = computed(() => metricsState.value?.recentAttempts ?? [])
 const capabilityManifestVersion = SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
-const capabilityRows = securityChallengeCapabilityManifest
+const capabilityRows = computed(() => securityChallengeCapabilityManifest
   .filter((item) => item.kindKnown)
   .map((item) => {
     const executorAvailable = item.executorFactory !== null
@@ -128,16 +134,32 @@ const capabilityRows = securityChallengeCapabilityManifest
     const eligibleSurfaces = item.providerAvailable && executorAvailable && (uiHostAvailable || headlessHostAvailable)
       ? item.surfaces.join(', ')
       : ''
+    const subsystem = challengeSubsystemByWireName[item.wireName]
+    const policyMode = subsystem ? policyState.value?.subsystemModes[subsystem] : undefined
     return {
       wireName: item.wireName,
       providerAvailable: item.providerAvailable,
       executorAvailable,
       uiHostAvailable,
       headlessHostAvailable,
-      policyLabel: eligibleSurfaces ? `仅 ${eligibleSurfaces}` : '不可启用',
+      policyLabel: !eligibleSurfaces
+        ? '不可启用'
+        : policyMode
+          ? policyMode
+          : '按动作策略',
       surfaces: item.surfaces.length > 0 ? item.surfaces.join(', ') : '-'
     }
-  })
+  }))
+
+const challengeSubsystemByWireName: Readonly<Record<string, string>> = Object.freeze({
+  sha256PowV1: 'pow',
+  argon2idPoSpaceV1: 'pospace',
+  captchaV1: 'captcha',
+  perceptionTextTaskV2: 'perception-text-task',
+  perceptionCharacterV2: 'perception-text-task',
+  perceptionLocalizationV2: 'perception-localization',
+  perceptionMicroInteractionV2: 'perception-micro-interaction'
+})
 
 const statusLabel = (available: boolean): string => available ? '可用' : '不可用'
 
@@ -168,7 +190,12 @@ const headerMetrics = computed<AdminStatusMatrixItem[]>(() => [
 const loadMetrics = async (): Promise<void> => {
   loading.value = true
   try {
-    metricsState.value = await getSecurityChallengeMetrics()
+    const [metrics, policy] = await Promise.all([
+      getSecurityChallengeMetrics(),
+      getRiskControlOptions()
+    ])
+    metricsState.value = metrics
+    policyState.value = policy
   } catch (error) {
     showErrorToast(error, '验证任务状态加载失败')
   } finally {

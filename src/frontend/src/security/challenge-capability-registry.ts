@@ -4,16 +4,17 @@ import {
 } from '@/contracts/binaryApi'
 import { securityChallengeKindWireName } from './challenge-kind-wire'
 
-export const SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION = '2026.07.19.1'
+export const SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION = '2026.07.19.2'
 
 export type ChallengeExecutionMode = 'ui' | 'headless'
-export type ChallengeUiHost = 'captcha' | 'perception'
-export type ChallengeHeadlessHost = 'notification-sha256-pow'
+export type ChallengeUiHost = 'captcha' | 'perception' | 'pospace'
+export type ChallengeHeadlessHost = 'notification-sha256-pow' | 'notification-pospace'
+export type ChallengeExecutorMode = ChallengeExecutionMode | 'universal'
 export type ChallengeKindGroup = 'captcha' | 'pow' | 'pospace' | 'passkey' | 'perception' | 'unsupported'
 
 export interface ChallengeExecutorRegistration {
   readonly id: string
-  readonly mode: ChallengeExecutionMode
+  readonly mode: ChallengeExecutorMode
   readonly loadExecutor: () => Promise<unknown>
 }
 
@@ -45,13 +46,13 @@ export interface ResolveChallengeCapabilityOptions {
   readonly providerAvailable?: boolean
 }
 
-const executor = (id: string, mode: ChallengeExecutionMode, loadExecutor: () => Promise<unknown>) =>
+const executor = (id: string, mode: ChallengeExecutorMode, loadExecutor: () => Promise<unknown>) =>
   (): ChallengeExecutorRegistration => Object.freeze({ id, mode, loadExecutor })
 
 const registrations = [
   registration(SecurityChallengeKind.Unknown, 'unsupported', false, false, null, null, null, false, []),
   registration(SecurityChallengeKind.Sha256PowV1, 'pow', true, true, executor('notification-sha256-pow-v1', 'headless', () => import('@/composables/usePow')), null, 'notification-sha256-pow', false, ['notification.subscribe']),
-  registration(SecurityChallengeKind.Argon2IdPoSpaceV1, 'pospace', true, true, null, null, null, false, []),
+  registration(SecurityChallengeKind.Argon2IdPoSpaceV1, 'pospace', true, true, executor('pospace-v1', 'universal', () => import('@/services/securityPoSpaceChallengeExecutor')), 'pospace', 'notification-pospace', true, ['*']),
   registration(SecurityChallengeKind.CaptchaV1, 'captcha', true, true, executor('captcha-v1', 'ui', () => import('@/components/security/FsusCaptchaChallenge.vue')), 'captcha', null, false, ['*']),
   registration(SecurityChallengeKind.HumanReadProofV1, 'pow', true, true, null, null, null, false, []),
   registration(SecurityChallengeKind.PasskeyStepUpV1, 'passkey', true, true, null, null, null, false, []),
@@ -85,7 +86,7 @@ export function resolveChallengeCapability(
     || options.manifestVersion === SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
   const providerAvailable = options.providerAvailable ?? registration.providerAvailable
   const executorRegistration = registration.executorFactory?.() ?? null
-  const executorAvailable = executorRegistration?.mode === mode
+  const executorAvailable = executorRegistration?.mode === mode || executorRegistration?.mode === 'universal'
   const surfaceAvailable = registration.surfaces.includes('*') || registration.surfaces.includes(options.action)
   const hostAvailable = surfaceAvailable && (mode === 'ui' ? registration.uiHost !== null : registration.headlessHost !== null)
   const policyEligible = registration.kindKnown

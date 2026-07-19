@@ -40,8 +40,9 @@ assert.match(reissue, /RevokeOriginalAsync/)
 assert.match(reissue, /TryRevokeIssuedAsync/)
 assert.match(endpoint, /PoSpaceUnsupportedReissueParser\.TryParse/)
 assert.match(endpoint, /IPoSpaceUnsupportedReissueService/)
-assert.match(backendCapabilities, /Entry\(SecurityChallengeKind\.Argon2IdPoSpaceV1, true, true, false, false, false, false, false\)/)
-assert.match(frontendCapabilities, /registration\(SecurityChallengeKind\.Argon2IdPoSpaceV1, 'pospace', true, true, null, null, null, false, \[\]\)/)
+assert.match(backendCapabilities, /Entry\(SecurityChallengeKind\.Argon2IdPoSpaceV1, true, true, true, true, true, true, true, "\*"\)/)
+assert.match(frontendCapabilities, /registration\(SecurityChallengeKind\.Argon2IdPoSpaceV1, 'pospace', true, true, executor\('pospace-v1', 'universal'/)
+assert.match(frontendCapabilities, /'pospace', 'notification-pospace', true, \['\*'\]/)
 
 for (const forbidden of ["memoryKib: '1024'", "memoryKib: '8192'", "iterations: '1'"]) {
   assert.doesNotMatch(frontendTests, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))

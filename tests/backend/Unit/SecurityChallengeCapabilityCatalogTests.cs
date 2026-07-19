@@ -38,10 +38,16 @@ public sealed class SecurityChallengeCapabilityCatalogTests
             SecurityChallengeExecutionMode.Ui);
         Assert.True(poSpace.Capability.KindKnown);
         Assert.True(poSpace.ProviderAvailable);
-        Assert.False(poSpace.ExecutorAvailable);
-        Assert.False(poSpace.HostAvailable);
-        Assert.False(poSpace.PolicyEligible);
-        Assert.Equal("executor_unavailable", poSpace.UnavailableReason);
+        Assert.True(poSpace.ExecutorAvailable);
+        Assert.True(poSpace.HostAvailable);
+        Assert.True(poSpace.PolicyEligible);
+        Assert.Null(poSpace.UnavailableReason);
+
+        SecurityChallengeCapabilityResolution headlessPoSpace = SecurityChallengeCapabilityCatalog.Resolve(
+            SecurityChallengeKind.Argon2IdPoSpaceV1,
+            SecurityChallengeCapabilityCatalog.NotificationSubscribeAction,
+            SecurityChallengeExecutionMode.Headless);
+        Assert.True(headlessPoSpace.PolicyEligible);
     }
 
     [Fact]
@@ -68,7 +74,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
     }
 
     [Fact]
-    public void PolicyService_RejectsPoSpaceUntilExecutorAndHostAreRegistered()
+    public void PolicyService_AllowsPoSpaceAfterExecutorAndHostsAreRegistered()
     {
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
         var request = new RiskControlPolicyUpdateRequest(
@@ -81,7 +87,7 @@ public sealed class SecurityChallengeCapabilityCatalogTests
             StrictRiskMultiplierPercent: null,
             Reason: "test");
 
-        ArgumentException error = Assert.Throws<ArgumentException>(() => service.UpdateRiskControlPolicy(request, "test"));
-        Assert.Contains("executor_unavailable", error.Message, StringComparison.Ordinal);
+        SecurityRiskPolicySnapshotV2 updated = service.UpdateRiskControlPolicy(request, "test");
+        Assert.Equal(SecuritySystemModes.Enforce, updated.SubsystemModes[SecurityRiskSources.PoSpace]);
     }
 }

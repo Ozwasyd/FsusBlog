@@ -130,13 +130,14 @@ describe('security challenge client and proof store', () => {
     expect(getChallengeKindGroup(SecurityChallengeKind.PasskeyStepUpV1)).toBe('passkey')
   })
 
-  it('fails closed for missing executor, missing host and incompatible manifest while executing supported captcha', async () => {
-    const unavailable = await createSecurityChallengeClient({
+  it('routes PoSpace through its shared executor while failing closed for missing host and incompatible manifests', async () => {
+    const poSpace = await createSecurityChallengeClient({
       issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse(SecurityChallengeKind.Argon2IdPoSpaceV1)),
       now: () => 1000
     }).issue(context)
-    expect(unavailable.status).toBe('unsupported')
-    expect(unavailable.reason).toBe('security_challenge_executor_unavailable')
+    expect(poSpace.status).toBe('challenge')
+    expect(poSpace.capability?.executorFactory?.().mode).toBe('universal')
+    expect(poSpace.capability?.uiHost).toBe('pospace')
 
     const hostMissing = await createSecurityChallengeClient({
       issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse(SecurityChallengeKind.Sha256PowV1)),
@@ -164,7 +165,7 @@ describe('security challenge client and proof store', () => {
     const expected = [
       [SecurityChallengeKind.Unknown, false, false, false, false, false],
       [SecurityChallengeKind.Sha256PowV1, true, true, false, false, false],
-      [SecurityChallengeKind.Argon2IdPoSpaceV1, true, true, false, false, false],
+      [SecurityChallengeKind.Argon2IdPoSpaceV1, true, true, true, true, true],
       [SecurityChallengeKind.CaptchaV1, true, true, true, true, true],
       [SecurityChallengeKind.HumanReadProofV1, true, true, false, false, false],
       [SecurityChallengeKind.PasskeyStepUpV1, true, true, false, false, false],
