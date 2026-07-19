@@ -1,4 +1,5 @@
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -43,6 +44,11 @@ public interface IMessageRealtimePublisher
     Task PushCommentAddAsync(CommentAddedNotifyDto payload);
     Task PushCacheControlAsync(CacheControlPayload payload);
     Task PushArticleChangedAsync(ArticleNoticeDto payload, string? idempotencyKey = null);
+}
+
+public interface IMessageMutationOutboxDelivery
+{
+    Task DeliverAsync(MessageMutationOutbox delivery, CancellationToken cancellationToken);
 }
 
 public readonly record struct AdminQueueConsistencyReport(

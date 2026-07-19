@@ -153,6 +153,13 @@ public static class FsusObservability
     private static readonly Counter<long> s_articleOutboxClaimLost = s_meter.CreateCounter<long>("fsus.article_outbox.claim_lost.count");
     private static readonly Counter<long> s_articleOutboxHeartbeat = s_meter.CreateCounter<long>("fsus.article_outbox.heartbeat.count");
     private static readonly Histogram<long> s_articleOutboxStuckClaims = s_meter.CreateHistogram<long>("fsus.article_outbox.stuck_claims");
+    private static readonly Counter<long> s_messageOutboxClaimed = s_meter.CreateCounter<long>("fsus.message_outbox.claimed.count");
+    private static readonly Counter<long> s_messageOutboxProcessed = s_meter.CreateCounter<long>("fsus.message_outbox.processed.count");
+    private static readonly Counter<long> s_messageOutboxFailed = s_meter.CreateCounter<long>("fsus.message_outbox.failed.count");
+    private static readonly Histogram<long> s_messageOutboxBacklog = s_meter.CreateHistogram<long>("fsus.message_outbox.backlog");
+    private static readonly Histogram<long> s_messageOutboxFailureBacklog = s_meter.CreateHistogram<long>("fsus.message_outbox.failure_backlog");
+    private static readonly Histogram<long> s_messageOutboxPoison = s_meter.CreateHistogram<long>("fsus.message_outbox.poison");
+    private static readonly Histogram<long> s_messageOutboxStuckClaims = s_meter.CreateHistogram<long>("fsus.message_outbox.stuck_claims");
     private static readonly Counter<long> s_readAggregateFlushCounter = s_meter.CreateCounter<long>("fsus.read_aggregate.flush.count");
     private static readonly Counter<long> s_hotArticlesDirtyCounter = s_meter.CreateCounter<long>("fsus.cache.hot_articles.dirty.count");
     private static readonly Counter<long> s_hotArticlesFlushCounter = s_meter.CreateCounter<long>("fsus.cache.hot_articles.flush.count");
@@ -991,6 +998,21 @@ public static class FsusObservability
         {
             s_readAggregateFlushCounter.Add(count);
         }
+    }
+
+    public static void RecordMessageOutboxBatch(long claimed, long processed, long failed)
+    {
+        s_messageOutboxClaimed.Add(claimed);
+        s_messageOutboxProcessed.Add(processed);
+        s_messageOutboxFailed.Add(failed);
+    }
+
+    public static void RecordMessageOutboxState(long backlog, long failed, long poison, long stuck)
+    {
+        s_messageOutboxBacklog.Record(backlog);
+        s_messageOutboxFailureBacklog.Record(failed);
+        s_messageOutboxPoison.Record(poison);
+        s_messageOutboxStuckClaims.Record(stuck);
     }
 
     public static void RecordHotStatsInvalidation(string kind, string operation, string reason, long count)

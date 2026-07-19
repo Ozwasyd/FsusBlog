@@ -168,6 +168,7 @@ public sealed class BackgroundWorkerLeaseTests
     public static TheoryData<Type, string> LeasedWorkerTypes => new()
     {
         { typeof(ArticleMutationOutboxDispatcher), "article-mutation-outbox-dispatcher" },
+        { typeof(MessageMutationOutboxWorker), "message-mutation-outbox-worker" },
         { typeof(LogCleanupService), "log-cleanup-worker" },
         { typeof(ScheduledPublishWorker), "scheduled-publish-worker" },
         { typeof(UploadSessionCleanupWorker), "upload-session-cleanup-worker" },

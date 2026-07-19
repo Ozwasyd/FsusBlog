@@ -25,7 +25,7 @@ namespace FsusBlog.Server.Tests.Integration;
 public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public async Task CreateAccountTicketAsync_CommitsConversationMessageParticipantAndNotifications()
+    public async Task CreateAccountTicketAsync_CommitsConversationMessageParticipantAndOutboxAtomically()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(
@@ -34,7 +34,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
-            typeof(AdminConversationQueueState));
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
 
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
         cache.IncrementAsync(
@@ -95,18 +96,14 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Assert.Equal(1, adminQueue.UnreadCount);
         Assert.Equal(1, adminQueue.Version);
 
-        await cache.Received(1).TrySetStringIfValueAsync(
-            CachePolicyId.MessageUnread,
-            "account:42",
-            "0",
-            "account:42:refresh-version",
-            "1",
-            null,
-            Arg.Any<CancellationToken>());
-        Assert.Equal(
-            3,
-            notifications.ReceivedCalls().Count(call =>
-                call.GetMethodInfo().Name.StartsWith("Publish", StringComparison.Ordinal)));
+        await cache.DidNotReceiveWithAnyArgs().TrySetStringIfValueAsync(default, default!, default!, default!, default!, default, default);
+        Assert.Empty(notifications.ReceivedCalls());
+        List<MessageMutationOutbox> outbox = await db.Queryable<MessageMutationOutbox>().OrderBy(it => it.Id).ToListAsync();
+        Assert.Equal(3, outbox.Count);
+        Assert.All(outbox, item => Assert.Equal(MessageMutationOutboxStatus.Pending, item.Status));
+        Assert.All(outbox, item => Assert.Contains($":{conversation.Id}:", item.DeliveryKey, StringComparison.Ordinal));
+        Assert.Equal(3, outbox.Select(static item => item.DeliveryKey).Distinct(StringComparer.Ordinal).Count());
+        Assert.Contains(outbox, static item => item.EventKind == MessageMutationOutboxEventKinds.MessageAppend && item.AudienceKind == MessageMutationOutboxAudiences.Admins);
     }
 
     [Fact]
@@ -119,7 +116,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
-            typeof(AdminConversationQueueState));
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
         IUnifiedCache cache = CreatePermissiveUnifiedCache();
         IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
         MessageCenterService service = CreateService(db, cache, notifications);
@@ -149,6 +147,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             "admin reply",
             new AdminMessageActor(7, "admin-session-7"));
         Assert.True(adminReply.IsSuccess, adminReply.Error.Message);
+        long adminReplyMessageId = long.Parse(adminReply.Value!.MessageId);
         queue = Assert.IsType<AdminConversationQueueState>(
             await db.Queryable<AdminConversationQueueState>().InSingleAsync(conversationId));
         Assert.Equal(0, queue.UnreadCount);
@@ -161,9 +160,10 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Result<ConversationMessageResponse> accountReply = await service.ReplyAsAccountAsync(
             42,
             conversationId,
-            long.Parse(adminReply.Value!.MessageId),
+            adminReplyMessageId,
             "account follows up");
         Assert.True(accountReply.IsSuccess, accountReply.Error.Message);
+        long accountReplyMessageId = long.Parse(accountReply.Value!.MessageId);
         queue = Assert.IsType<AdminConversationQueueState>(
             await db.Queryable<AdminConversationQueueState>().InSingleAsync(conversationId));
         Assert.Equal(1, queue.UnreadCount);
@@ -180,6 +180,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             AdminMessageActor.System);
         Assert.True(systemMessage.IsSuccess, systemMessage.Error.Message);
         long systemConversationId = long.Parse(systemMessage.Value!.ConversationId);
+        long systemMessageId = long.Parse(Assert.Single(systemMessage.Value.Messages).MessageId);
         AdminConversationQueueState systemQueue = Assert.IsType<AdminConversationQueueState>(
             await db.Queryable<AdminConversationQueueState>().InSingleAsync(systemConversationId));
         Assert.Equal(0, systemQueue.UnreadCount);
@@ -188,6 +189,32 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         unreadItem = Assert.Single(unread.Items);
         Assert.Equal(conversationId.ToString(), unreadItem.ConversationId);
         Assert.Equal(1, unreadItem.UnreadCount);
+
+        List<MessageMutationOutbox> deliveries = await db.Queryable<MessageMutationOutbox>().ToListAsync();
+        Assert.Contains(
+            deliveries,
+            item => item.MessageId == adminReplyMessageId
+                && item.EventKind == MessageMutationOutboxEventKinds.MessageAppend
+                && item.AudienceKind == MessageMutationOutboxAudiences.Account
+                && item.TargetAccountId == 42);
+        Assert.Contains(
+            deliveries,
+            item => item.MessageId == accountReplyMessageId
+                && item.EventKind == MessageMutationOutboxEventKinds.ReadUpdated
+                && item.AudienceKind == MessageMutationOutboxAudiences.Account
+                && item.TargetAccountId == 42);
+        Assert.Contains(
+            deliveries,
+            item => item.MessageId == accountReplyMessageId
+                && item.EventKind == MessageMutationOutboxEventKinds.MessageAppend
+                && item.AudienceKind == MessageMutationOutboxAudiences.Admins);
+        Assert.Contains(
+            deliveries,
+            item => item.MessageId == systemMessageId
+                && item.EventKind == MessageMutationOutboxEventKinds.MessageAppend
+                && item.AudienceKind == MessageMutationOutboxAudiences.Account
+                && item.TargetAccountId == 42);
+        Assert.Equal(deliveries.Count, deliveries.Select(static item => item.DeliveryKey).Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]
@@ -200,7 +227,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
-            typeof(AdminConversationQueueState));
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
         int accountId = await db.Insertable(new User
         {
             Status = 1,
@@ -252,6 +280,11 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Assert.Equal(adminDetail.Messages.Select(static message => message.SenderName), detailRoundTrip.Messages.Select(static message => message.SenderName));
         Assert.Equal(adminDetail.Messages.Select(static message => message.Body), detailRoundTrip.Messages.Select(static message => message.Body));
 
+        MessageMutationOutbox adminUpsert = Assert.IsType<MessageMutationOutbox>(
+            await db.Queryable<MessageMutationOutbox>()
+                .Where(item => item.AudienceKind == MessageMutationOutboxAudiences.Admins && item.EventKind == MessageMutationOutboxEventKinds.ConversationUpsert)
+                .FirstAsync());
+        await service.DeliverAsync(adminUpsert, CancellationToken.None);
         var upsertCall = notifications.ReceivedCalls().Last(call =>
             call.GetMethodInfo().Name == nameof(IMessageNotificationStreamPort.PublishToAdminUsersAsync) &&
             Equals(call.GetArguments()[0], NotificationStreamEventType.InboxConversationUpsert));
@@ -276,7 +309,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
-            typeof(AdminConversationQueueState));
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
         IUnifiedCache cache = CreatePermissiveUnifiedCache();
         IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
         MessageCenterService setupService = CreateService(setup, cache, notifications);
@@ -313,7 +347,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
-            typeof(AdminConversationQueueState));
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
         const long ConversationId = 8_800;
         DateTime now = DateTime.UtcNow;
         await db.Insertable(new MessageConversation
@@ -412,7 +447,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
-            typeof(AdminConversationQueueState));
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
         IUnifiedCache cache = CreatePermissiveUnifiedCache();
         IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
         MessageCenterService setupService = CreateService(setup, cache, notifications);
@@ -456,6 +492,19 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             ConversationStatusValue.Open,
             new AdminMessageActor(7, "admin-session-7"));
         Assert.True(reopened.IsSuccess, reopened.Error.Message);
+        List<MessageMutationOutbox> statusDeliveries = await setup.Queryable<MessageMutationOutbox>()
+            .Where(item => item.ConversationId == conversationId)
+            .ToListAsync();
+        Assert.Contains(
+            statusDeliveries,
+            item => item.EventKind == MessageMutationOutboxEventKinds.ConversationStatus
+                && item.AudienceKind == MessageMutationOutboxAudiences.Account
+                && item.TargetAccountId == 42);
+        Assert.Contains(
+            statusDeliveries,
+            item => item.EventKind == MessageMutationOutboxEventKinds.ConversationUpsert
+                && item.AudienceKind == MessageMutationOutboxAudiences.Admins
+                && item.MessageId == null);
         Result<ConversationMessageResponse> accepted = await replyService.ReplyAsAdminAsync(
             conversationId,
             "accepted after reopen",
@@ -474,7 +523,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
-            typeof(AdminConversationQueueState));
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
         MessageCenterService service = CreateService(
             db,
             CreatePermissiveUnifiedCache(),
@@ -516,7 +566,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
-            typeof(AdminConversationQueueState));
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
         IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
         MessageCenterService service = CreateService(db, CreatePermissiveUnifiedCache(), notifications);
         Result<ConversationDetailResponse> created = await service.CreateAccountTicketAsync(42, "rollback", "first");
@@ -566,7 +617,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
-            typeof(AdminConversationQueueState));
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
 
         const int AccountId = 42;
         const long ConversationId = 1000;
@@ -652,6 +704,11 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
                 .FirstAsync());
         Assert.Equal(SnapshotMessageId, participant.LastReadMessageId);
         Assert.Equal(1, participant.UnreadCount);
+        MessageMutationOutbox readDelivery = Assert.IsType<MessageMutationOutbox>(
+            await setup.Queryable<MessageMutationOutbox>()
+                .Where(item => item.EventKind == MessageMutationOutboxEventKinds.ReadUpdated && item.ReadThroughMessageId == SnapshotMessageId)
+                .FirstAsync());
+        await first.DeliverAsync(readDelivery, CancellationToken.None);
         await notifications.Received(1).PublishToUserAsync(
             NotificationStreamEventType.InboxReadUpdated,
             AccountId,
@@ -659,7 +716,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
                 payload.ConversationId == ConversationId.ToString()
                 && payload.LastReadMessageId == SnapshotMessageId.ToString()
                 && payload.ConversationUnreadCount == 1),
-            "inbox-read-updated");
+            "inbox-read-updated",
+            readDelivery.DeliveryKey);
 
         Result regressed = await first.MarkConversationReadAsync(AccountId, ConversationId, AccountMessageId);
         Assert.False(regressed.IsSuccess);
@@ -719,7 +777,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
-            typeof(AdminConversationQueueState));
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
 
         const int AccountId = 42;
         const long ConversationId = 9_000;
@@ -829,7 +888,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
-            typeof(AdminConversationQueueState));
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox));
 
         const int AccountId = 42;
         const int ConversationCount = 105;

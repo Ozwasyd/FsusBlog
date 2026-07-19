@@ -161,6 +161,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddScoped<IMessageCommandService>(sp => sp.GetRequiredService<MessageCenterService>());
         services.AddScoped<IMessageRealtimePublisher>(sp => sp.GetRequiredService<MessageCenterService>());
         services.AddScoped<IMessageAdminQueueMaintenance>(sp => sp.GetRequiredService<MessageCenterService>());
+        services.AddScoped<IMessageMutationOutboxDelivery>(sp => sp.GetRequiredService<MessageCenterService>());
         return services;
     }
 
@@ -283,8 +284,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
             services.AddHostedService<RumTelemetryFlushWorker>();
         }
         services.AddSingleton<ScheduledPublishRuntimeState>();
+        services.AddSingleton<MessageMutationOutboxRuntimeState>();
         if (!OpenApiExportMode.IsEnabled())
         {
+            services.AddHostedService<MessageMutationOutboxWorker>();
             services.AddHostedService<ScheduledPublishWorker>();
         }
         return services;

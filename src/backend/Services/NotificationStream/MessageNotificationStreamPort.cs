@@ -6,7 +6,12 @@ namespace FsusBlog.Server.Services.NotificationStream;
 
 public interface IMessageNotificationStreamPort
 {
-    Task PublishToUserAsync<TPayload>(NotificationStreamEventType eventType, long accountId, TPayload payload, string operation);
+    Task PublishToUserAsync<TPayload>(
+        NotificationStreamEventType eventType,
+        long accountId,
+        TPayload payload,
+        string operation,
+        string? idempotencyKey = null);
 
     Task PublishToContentFeedAsync<TPayload>(
         NotificationStreamEventType eventType,
@@ -14,15 +19,24 @@ public interface IMessageNotificationStreamPort
         string operation,
         string? idempotencyKey = null);
 
-    Task PublishToAdminUsersAsync<TPayload>(NotificationStreamEventType eventType, TPayload payload, string operation);
+    Task PublishToAdminUsersAsync<TPayload>(
+        NotificationStreamEventType eventType,
+        TPayload payload,
+        string operation,
+        string? idempotencyKey = null);
 }
 
 internal sealed class MessageNotificationStreamPort(
     INotificationStreamPublisher notificationStreamPublisher,
     ILogger<MessageNotificationStreamPort> logger) : IMessageNotificationStreamPort
 {
-    public Task PublishToUserAsync<TPayload>(NotificationStreamEventType eventType, long accountId, TPayload payload, string operation)
-        => PublishOrLogAsync(eventType, payload, new NotificationStreamUserTarget(accountId.ToString()), operation);
+    public Task PublishToUserAsync<TPayload>(
+        NotificationStreamEventType eventType,
+        long accountId,
+        TPayload payload,
+        string operation,
+        string? idempotencyKey = null)
+        => PublishOrLogAsync(eventType, payload, new NotificationStreamUserTarget(accountId.ToString()), operation, idempotencyKey);
 
     public Task PublishToContentFeedAsync<TPayload>(
         NotificationStreamEventType eventType,
@@ -36,8 +50,17 @@ internal sealed class MessageNotificationStreamPort(
             operation,
             idempotencyKey);
 
-    public Task PublishToAdminUsersAsync<TPayload>(NotificationStreamEventType eventType, TPayload payload, string operation)
-        => PublishOrLogAsync(eventType, payload, new NotificationStreamGroupTarget(NotificationStreamTargetCollections.AdminUsers), operation);
+    public Task PublishToAdminUsersAsync<TPayload>(
+        NotificationStreamEventType eventType,
+        TPayload payload,
+        string operation,
+        string? idempotencyKey = null)
+        => PublishOrLogAsync(
+            eventType,
+            payload,
+            new NotificationStreamGroupTarget(NotificationStreamTargetCollections.AdminUsers),
+            operation,
+            idempotencyKey);
 
     private async Task PublishOrLogAsync<TPayload>(
         NotificationStreamEventType eventType,

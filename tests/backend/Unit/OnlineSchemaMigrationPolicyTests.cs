@@ -52,6 +52,18 @@ public sealed class OnlineSchemaMigrationPolicyTests
             metadata[AccountSubjectHashOnlineBackfillHandler.BackfillMigrationId];
         OnlineSchemaMigrationMetadata articleAssetReferences =
             metadata[ArticleAssetReferenceMigrationDefinitions.MigrationId];
+        OnlineSchemaMigrationMetadata articlePublicationCoordinates =
+            metadata["20260719-pre-article-publication-coordinates"];
+        OnlineSchemaMigrationMetadata articlePublicationConsistency =
+            metadata["20260719-post-article-publication-consistency"];
+        OnlineSchemaMigrationMetadata commentModerationEvent =
+            metadata["20260719-post-comment-moderation-event"];
+        OnlineSchemaMigrationMetadata messageAdminQueue =
+            metadata["20260719-post-message-admin-queue-state"];
+        OnlineSchemaMigrationMetadata messageMutationOutbox =
+            metadata[MessageMutationOutboxMigrationDefinitions.MigrationId];
+        OnlineSchemaMigrationMetadata userSessionMultiDevice =
+            metadata[UserSessionMultiDeviceMigrationDefinitions.MigrationId];
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, passkeyExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, publicArticleProjectionExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleOutboxClaimLeaseExpand.Phase);
@@ -66,10 +78,18 @@ public sealed class OnlineSchemaMigrationPolicyTests
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, subjectExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Backfill, subjectBackfill.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleAssetReferences.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articlePublicationCoordinates.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articlePublicationConsistency.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, commentModerationEvent.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, messageAdminQueue.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, messageMutationOutbox.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Contract, userSessionMultiDevice.Phase);
+        Assert.True(userSessionMultiDevice.Destructive);
+        Assert.False(userSessionMultiDevice.LegacyBootstrapOnly);
         Assert.Equal(AccountSubjectHashBackfillStep.BatchSize, subjectBackfill.BatchSize);
         Assert.Equal("last_account_id", subjectBackfill.ResumeTokenName);
         Assert.Equal(OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint, subjectBackfill.RollbackMode);
-        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, anonymousEligibilityPredicateExpand, subjectExpand, subjectBackfill, articleAssetReferences }, classification =>
+        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, anonymousEligibilityPredicateExpand, subjectExpand, subjectBackfill, articleAssetReferences, articlePublicationCoordinates, articlePublicationConsistency, commentModerationEvent, messageAdminQueue, messageMutationOutbox }, classification =>
         {
             Assert.False(classification.LegacyBootstrapOnly);
             Assert.False(classification.Destructive);
@@ -87,7 +107,13 @@ public sealed class OnlineSchemaMigrationPolicyTests
             anonymousEligibilityPredicateExpand.MigrationId,
             subjectExpand.MigrationId,
             subjectBackfill.MigrationId,
-            articleAssetReferences.MigrationId
+            articleAssetReferences.MigrationId,
+            articlePublicationCoordinates.MigrationId,
+            articlePublicationConsistency.MigrationId,
+            commentModerationEvent.MigrationId,
+            messageAdminQueue.MigrationId,
+            messageMutationOutbox.MigrationId,
+            userSessionMultiDevice.MigrationId
         };
         Assert.All(metadata.Values.Where(classification =>
             !onlineIds.Contains(classification.MigrationId)), classification =>

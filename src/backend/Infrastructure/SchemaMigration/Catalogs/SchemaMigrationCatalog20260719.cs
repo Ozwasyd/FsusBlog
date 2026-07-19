@@ -26,6 +26,7 @@ internal static class SchemaMigrationCatalog20260719
                 ArticlePublicationMigrationDefinitions.BuildArticlePublicationConsistencyViewMigration(),
                 CommentModerationEventMigrationDefinitions.BuildCommentModerationEventMigration(),
                 MessageAdminQueueMigrationDefinitions.BuildAdminQueueStateMigration(),
+                MessageMutationOutboxMigrationDefinitions.BuildMigration(),
                 UserSessionMultiDeviceMigrationDefinitions.BuildUserSessionMultiDeviceMigration()
             ]);
 }

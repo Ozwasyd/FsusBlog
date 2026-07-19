@@ -1067,10 +1067,23 @@ principal/session 或其它资料。`senderName` 由 viewer 决定：账号端�
 
 账号与 admin 回复复用同一事务状态屏障：先锁定 `msg_conversation` 并在锁内重新校验
 status，`closed` 返回 `409`，只能由独立 status mutation 显式重开；随后在同一事务内写入
-`msg_message`、推进 `lastMessageAt/updatedAt`、更新对侧 unread 投影并形成 delivery event。
-任一阶段失败都回滚，事件只允许在提交成功后投递 notification stream。回复状态前置条件
+`msg_message`、推进 `lastMessageAt/updatedAt`、更新对侧 unread 投影并写入
+`message_mutation_outbox` delivery event。创建会话、账号/admin 回复、系统消息、显式已读和
+状态变更都遵循同一事务边界；任一阶段失败都回滚。提交后的本地 worker 才能 claim event
+并投递 notification stream，投递失败不得撤销已提交消息或 unread 状态。回复状态前置条件
 不使用 `xmin`；会话不存在返回 `404`，锁后状态冲突返回 `409`，基础设施失败返回 `503`。
 重复提交在 idempotency 契约落地前仍是两条独立消息，但每次事务的 unread/activity 必须一致。
+
+每条 outbox event 为每个目标保存稳定 `deliveryKey`；键绑定已提交的 message ID、read cursor
+或 status mutation coordinate，并由 Redis notification backlog 复用同一 event ID。worker 使用
+`pending -> processing -> processed/poison` 状态、claim token、短 lease 和指数退避；进程在提交后
+或 publish 后退出时，过期 claim 会被重新领取，重复消费仍传递相同 delivery key。运行时指标
+`fsus.message_outbox.backlog`、`failure_backlog`、`poison` 与 `stuck_claims` 仅暴露低基数计数，
+不记录消息正文、账号身份或 delivery key。
+
+`MessageMutationOutbox:Enabled=false` 可通过配置 reload 在不重启进程的情况下暂停 claim 和
+投递；消息写入及 outbox 持久化继续，pending event 不丢弃。修复 notification/Redis 后重新启用
+即可从数据库重放。这是实时交付的降级开关，不允许回退为事务提交后直接 best-effort 发布。
 
 `Messages:ReplyWritesEnabled=false` 可通过配置 reload 同时让账号与 admin reply 端点返回
 `503 message_reply_writes_disabled`，无需重启；它不关闭读取、status mutation 或显式重开，

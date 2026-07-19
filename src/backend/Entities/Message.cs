@@ -224,3 +224,118 @@ public sealed class AdminConversationQueueState
         get; set;
     } = DateTime.UtcNow;
 }
+
+[SugarTable("message_mutation_outbox")]
+[SugarIndex("ux_message_mutation_outbox_delivery_key", nameof(DeliveryKey), OrderByType.Asc, true)]
+[SugarIndex("idx_message_mutation_outbox_pending", nameof(Status), OrderByType.Asc, nameof(NextAttemptAt), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
+[SugarIndex("idx_message_mutation_outbox_claim", nameof(Status), OrderByType.Asc, nameof(LeaseExpiresAt), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
+public sealed class MessageMutationOutbox
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
+    public long Id
+    {
+        get; set;
+    }
+
+    [SugarColumn(Length = 160)]
+    public string DeliveryKey { get; set; } = string.Empty;
+
+    [SugarColumn(Length = 48)]
+    public string EventKind { get; set; } = string.Empty;
+
+    [SugarColumn(Length = 16)]
+    public string AudienceKind { get; set; } = string.Empty;
+
+    [SugarColumn(IsNullable = true)]
+    public int? TargetAccountId
+    {
+        get; set;
+    }
+
+    public long ConversationId
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true)]
+    public long? MessageId
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true)]
+    public long? ReadThroughMessageId
+    {
+        get; set;
+    }
+
+    [SugarColumn(Length = 24)]
+    public string Status { get; set; } = MessageMutationOutboxStatus.Pending;
+
+    public int AttemptCount
+    {
+        get; set;
+    }
+
+    public DateTime NextAttemptAt { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(Length = 64, IsNullable = true)]
+    public string? ClaimToken
+    {
+        get; set;
+    }
+
+    [SugarColumn(Length = 128, IsNullable = true)]
+    public string? ClaimedBy
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true)]
+    public DateTime? ClaimedAt
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true)]
+    public DateTime? LeaseExpiresAt
+    {
+        get; set;
+    }
+
+    [SugarColumn(Length = 1024, IsNullable = true)]
+    public string? LastError
+    {
+        get; set;
+    }
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(IsNullable = true)]
+    public DateTime? ProcessedAt
+    {
+        get; set;
+    }
+}
+
+public static class MessageMutationOutboxStatus
+{
+    public const string Pending = "pending";
+    public const string Processing = "processing";
+    public const string Processed = "processed";
+    public const string Poison = "poison";
+}
+
+public static class MessageMutationOutboxEventKinds
+{
+    public const string ConversationUpsert = "conversation-upsert";
+    public const string MessageAppend = "message-append";
+    public const string ReadUpdated = "read-updated";
+    public const string ConversationStatus = "conversation-status";
+}
+
+public static class MessageMutationOutboxAudiences
+{
+    public const string Account = "account";
+    public const string Admins = "admins";
+}

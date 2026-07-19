@@ -458,6 +458,70 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            "20260719-post-comment-moderation-event",
+            new OnlineSchemaMigrationMetadata(
+                "20260719-post-comment-moderation-event",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260719-comment-moderation-event",
+                ContractAfterRelease: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write"
+                ]));
+
+        result.Add(
+            "20260719-post-message-admin-queue-state",
+            new OnlineSchemaMigrationMetadata(
+                "20260719-post-message-admin-queue-state",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260719-message-admin-queue-state",
+                ContractAfterRelease: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write"
+                ]));
+
+        result.Add(
+            MessageMutationOutboxMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                MessageMutationOutboxMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260719-message-mutation-outbox",
+                ContractAfterRelease: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "message_outbox_claim_lease"
+                ]));
+
+        result.Add(
             UserSessionMultiDeviceMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 UserSessionMultiDeviceMigrationDefinitions.MigrationId,

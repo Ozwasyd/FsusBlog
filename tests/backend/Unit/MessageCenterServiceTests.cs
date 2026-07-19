@@ -324,12 +324,12 @@ public sealed class MessageCenterServiceTests
         string method = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
             typeof(MessageCenterService),
             "UseTranAsync",
-            "TransactionSideEffectGuard.CanPublishAfterCommit",
-            "PublishReadUpdatedAsync");
+            "TransactionSideEffectGuard.CanPublishAfterCommit");
         string transaction = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
             typeof(MessageCenterService),
             "LoadReplyParticipantForUpdateAsync",
-            "AdvanceParticipantReadThroughAsync");
+            "AdvanceParticipantReadThroughAsync",
+            "EnqueueMessageDeliveriesAsync");
         string lockSql = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
             typeof(MessageCenterService),
             "FOR UPDATE",
@@ -341,6 +341,8 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
         Assert.Contains("LoadReplyParticipantForUpdateAsync", transaction, StringComparison.Ordinal);
         Assert.Contains("AdvanceParticipantReadThroughAsync", transaction, StringComparison.Ordinal);
+        Assert.Contains("EnqueueMessageDeliveriesAsync", transaction, StringComparison.Ordinal);
+        Assert.DoesNotContain("PublishReadUpdatedAsync", method, StringComparison.Ordinal);
         Assert.Contains("FOR UPDATE", lockSql, StringComparison.Ordinal);
         Assert.Contains("message.id > @ReadThroughMessageId", updateSql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("message.isinternalnote = false", updateSql, StringComparison.OrdinalIgnoreCase);
@@ -348,7 +350,6 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("RETURNING state.unreadcount", updateSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("MAX(id)", updateSql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("TransactionSideEffectGuard.CanPublishAfterCommit", method, StringComparison.Ordinal);
-        Assert.Contains("PublishReadUpdatedAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("SqlFunc.Subqueryable", transaction, StringComparison.Ordinal);
         Assert.DoesNotContain("Queryable<ConversationMessage>", transaction, StringComparison.Ordinal);
         Assert.DoesNotContain("OrderByDescending", transaction, StringComparison.Ordinal);
@@ -435,7 +436,11 @@ public sealed class MessageCenterServiceTests
 
         Assert.Contains("LoadConversationStatusUpdateStateAsync", method, StringComparison.Ordinal);
         Assert.Contains("TryUpdateConversationStatusAsync", method, StringComparison.Ordinal);
-        Assert.Contains("会话状态已被其他管理员修改", method, StringComparison.Ordinal);
+        Assert.Contains("EnqueueMessageDeliveriesAsync", method, StringComparison.Ordinal);
+        Assert.Contains(
+            "会话状态已被其他管理员修改",
+            RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)),
+            StringComparison.Ordinal);
         Assert.Contains("xmin::text AS row_version", load, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AND status = @ExpectedStatus", update, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AND xmin::text = @RowVersion", update, StringComparison.OrdinalIgnoreCase);

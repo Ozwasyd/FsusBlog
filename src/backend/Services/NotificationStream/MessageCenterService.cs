@@ -22,7 +22,7 @@ public sealed class MessageCenterService(
     MessageCacheService cache,
     IMessageNotificationStreamPort notificationStreamPort,
     IConfiguration configuration,
-    ILogger<MessageCenterService> logger) : IMessageQueryService, IMessageCommandService, IMessageRealtimePublisher, IMessageAdminQueueMaintenance
+    ILogger<MessageCenterService> logger) : IMessageQueryService, IMessageCommandService, IMessageRealtimePublisher, IMessageAdminQueueMaintenance, IMessageMutationOutboxDelivery
 {
     private const int MaxSubjectLength = 160;
     private const int MaxBodyLength = 4000;
@@ -473,6 +473,10 @@ public sealed class MessageCenterService(
                 Version = 1,
                 UpdatedAt = now
             }).ExecuteCommandAsync();
+            await EnqueueMessageDeliveriesAsync(
+                CreateDelivery(messageId, MessageMutationOutboxEventKinds.ConversationUpsert, MessageMutationOutboxAudiences.Account, accountId, conversationId, messageId, null),
+                CreateDelivery(messageId, MessageMutationOutboxEventKinds.MessageAppend, MessageMutationOutboxAudiences.Admins, null, conversationId, messageId, null),
+                CreateDelivery(messageId, MessageMutationOutboxEventKinds.ConversationUpsert, MessageMutationOutboxAudiences.Admins, null, conversationId, messageId, null));
         });
 
         if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-create-account-ticket"))
@@ -486,14 +490,6 @@ public sealed class MessageCenterService(
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "会话创建后读取失败");
         }
 
-        int totalUnread = await RefreshUnreadCacheAsync(accountId);
-        ConversationMessageResponse? adminMessage = await BuildMessageResponseAsync(conversationId, messageId, MessageViewer.Admin);
-        await Task.WhenAll(
-            PublishConversationUpsertAsync(accountId, detail),
-            adminMessage is null
-                ? Task.CompletedTask
-                : PublishMessageAppendAsync(detail.ConversationId, adminMessage, conversationUnreadCount: 0, totalUnread: totalUnread),
-            PublishConversationUpsertToAdminsAsync(conversationId));
         return Result<ConversationDetailResponse>.Success(detail);
     }
 
@@ -529,17 +525,6 @@ public sealed class MessageCenterService(
             return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
         }
 
-        int totalUnread = await RefreshUnreadCacheAsync(accountId);
-        ConversationMessageResponse? adminMessage = await BuildMessageResponseAsync(
-            conversationId,
-            writeOutcome.DeliveryEvent.MessageId,
-            MessageViewer.Admin);
-        await Task.WhenAll(
-            PublishReadUpdatedAsync(accountId, conversationId, readThroughMessageId, writeOutcome.UnreadCount, totalUnread),
-            adminMessage is null
-                ? Task.CompletedTask
-                : PublishMessageAppendAsync(conversationId.ToString(), adminMessage, writeOutcome.UnreadCount, totalUnread),
-            PublishConversationUpsertToAdminsAsync(conversationId));
         FsusObservability.RecordMessageCenterReply("account", FsusObservability.GetElapsed(startedAt));
         return Result<ConversationMessageResponse>.Success(message);
     }
@@ -628,6 +613,8 @@ public sealed class MessageCenterService(
                 await EnsureAdminQueueStateAsync(command.ConversationId, now);
                 await RefreshParticipantsUnreadAfterAdminReplyAsync(command.ConversationId, now);
             }
+
+            await EnqueueReplyDeliveriesAsync(command, messageId);
 
             outcome = ReplyWriteOutcome.Succeeded(
                 unreadCount,
@@ -862,6 +849,17 @@ public sealed class MessageCenterService(
             }
 
             ReadAdvanceResult advanced = await AdvanceParticipantReadThroughAsync(participant, readThroughMessageId, now);
+            if (advanced.Outcome == ReadAdvanceOutcome.Accepted)
+            {
+                await EnqueueMessageDeliveriesAsync(CreateDelivery(
+                    readThroughMessageId,
+                    MessageMutationOutboxEventKinds.ReadUpdated,
+                    MessageMutationOutboxAudiences.Account,
+                    accountId,
+                    conversationId,
+                    null,
+                    readThroughMessageId));
+            }
             return new MarkConversationReadResult(advanced.Outcome, readThroughMessageId, advanced.UnreadCount);
         });
 
@@ -884,8 +882,6 @@ public sealed class MessageCenterService(
             return Result.Failure(ErrorCode.Conflict, "已读位置不能后退");
         }
 
-        int totalUnread = await RefreshUnreadCacheAsync(accountId);
-        await PublishReadUpdatedAsync(accountId, conversationId, readResult.LastMessageId, readResult.UnreadCount, totalUnread);
         return Result.Success();
     }
 
@@ -918,45 +914,78 @@ public sealed class MessageCenterService(
             return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
         }
 
-        var participants = await db.Queryable<ConversationParticipantState>()
-            .Where(it => it.ConversationId == conversationId)
-            .ToListAsync();
-        await PublishParticipantMessageFanoutAsync(conversationId, message, participants);
-        await PublishConversationUpsertToAdminsAsync(conversationId);
         return Result<ConversationMessageResponse>.Success(message);
     }
 
     public async Task<Result> UpdateConversationStatusAsync(long conversationId, ConversationStatusValue status, AdminMessageActor adminActor)
     {
-        var now = DateTime.UtcNow;
-        ConversationStatusUpdateState? currentState = await LoadConversationStatusUpdateStateAsync(conversationId);
-        if (currentState is null)
+        DateTime now = DateTime.UtcNow;
+        ConversationStatusWriteOutcome outcome = ConversationStatusWriteOutcome.NotFound;
+        var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            return Result.Failure(ErrorCode.NotFound, "会话不存在");
+            ConversationStatusUpdateState? currentState = await LoadConversationStatusUpdateStateAsync(conversationId);
+            if (currentState is null)
+            {
+                return;
+            }
+
+            int affected = await TryUpdateConversationStatusAsync(conversationId, status, currentState, now);
+            if (affected <= 0)
+            {
+                outcome = ConversationStatusWriteOutcome.Conflict;
+                return;
+            }
+
+            List<int> participants = await db.Queryable<ConversationParticipantState>()
+                .Where(it => it.ConversationId == conversationId)
+                .Select(it => it.AccountId)
+                .ToListAsync();
+            var deliveries = new List<MessageMutationOutbox>(participants.Count + 1);
+            long mutationCoordinate = now.Ticks;
+            for (int i = 0; i < participants.Count; i++)
+            {
+                deliveries.Add(CreateDelivery(
+                    mutationCoordinate,
+                    MessageMutationOutboxEventKinds.ConversationStatus,
+                    MessageMutationOutboxAudiences.Account,
+                    participants[i],
+                    conversationId,
+                    null,
+                    null));
+            }
+            deliveries.Add(CreateDelivery(
+                mutationCoordinate,
+                MessageMutationOutboxEventKinds.ConversationUpsert,
+                MessageMutationOutboxAudiences.Admins,
+                null,
+                conversationId,
+                null,
+                null));
+            await EnqueueMessageDeliveriesAsync(deliveries.ToArray());
+            outcome = ConversationStatusWriteOutcome.Succeeded;
+        });
+        if (!transaction.IsSuccess)
+        {
+            logger.LogError(transaction.ErrorException, "Message status transaction failed. ConversationId: {ConversationId}", conversationId);
+            return Result.Failure(ErrorCode.InfraFailure, "会话状态更新失败");
         }
 
-        int affected = await TryUpdateConversationStatusAsync(conversationId, status, currentState, now);
-        if (affected <= 0)
+        return outcome switch
         {
-            return Result.Failure(ErrorCode.Conflict, "会话状态已被其他管理员修改");
-        }
-
-        var participants = await db.Queryable<ConversationParticipantState>()
-            .Where(it => it.ConversationId == conversationId)
-            .Select(it => it.AccountId)
-            .ToListAsync();
-        var publishTasks = new List<Task>(participants.Count + 1);
-        for (int i = 0; i < participants.Count; i++)
-        {
-            publishTasks.Add(PublishConversationClosedAsync(participants[i], conversationId, status));
-        }
-
-        publishTasks.Add(PublishConversationUpsertToAdminsAsync(conversationId));
-        await Task.WhenAll(publishTasks);
-        return Result.Success();
+            ConversationStatusWriteOutcome.NotFound => Result.Failure(ErrorCode.NotFound, "会话不存在"),
+            ConversationStatusWriteOutcome.Conflict => Result.Failure(ErrorCode.Conflict, "会话状态已被其他管理员修改"),
+            _ => Result.Success()
+        };
     }
 
     private sealed record ConversationStatusUpdateState(ConversationStatus Status, string RowVersion);
+
+    private enum ConversationStatusWriteOutcome
+    {
+        NotFound,
+        Conflict,
+        Succeeded
+    }
 
     private async Task<ConversationStatusUpdateState?> LoadConversationStatusUpdateStateAsync(long conversationId)
     {
@@ -1059,6 +1088,10 @@ public sealed class MessageCenterService(
                 Version = 1,
                 UpdatedAt = now
             }).ExecuteCommandAsync();
+            await EnqueueMessageDeliveriesAsync(
+                CreateDelivery(messageId, MessageMutationOutboxEventKinds.ConversationUpsert, MessageMutationOutboxAudiences.Account, target, conversationId, messageId, null),
+                CreateDelivery(messageId, MessageMutationOutboxEventKinds.MessageAppend, MessageMutationOutboxAudiences.Account, target, conversationId, messageId, null),
+                CreateDelivery(messageId, MessageMutationOutboxEventKinds.ConversationUpsert, MessageMutationOutboxAudiences.Admins, null, conversationId, messageId, null));
         });
 
         if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-send-system-message"))
@@ -1066,16 +1099,12 @@ public sealed class MessageCenterService(
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "系统消息创建失败");
         }
 
-        int totalUnread = await RefreshUnreadCacheAsync(target);
         var detail = await GetAccountConversationDetailAsync(target, conversationId);
         if (detail is null)
         {
             return Result<ConversationDetailResponse>.Failure(ErrorCode.InfraFailure, "系统消息创建后读取失败");
         }
 
-        await Task.WhenAll(
-            PublishAccountConversationUpsertThenMessageAppendAsync(target, detail, totalUnread),
-            PublishConversationUpsertToAdminsAsync(conversationId));
         return Result<ConversationDetailResponse>.Success(detail);
     }
 
@@ -1441,6 +1470,233 @@ public sealed class MessageCenterService(
         return (await BuildAdminConversationListAsync(rows)).FirstOrDefault();
     }
 
+    private async Task EnqueueReplyDeliveriesAsync(ReplyWriteCommand command, long messageId)
+    {
+        var deliveries = new List<MessageMutationOutbox>();
+        if (command.SenderType == MessageSenderType.Account)
+        {
+            int accountId = command.SenderAccountId!.Value;
+            deliveries.Add(CreateDelivery(
+                messageId,
+                MessageMutationOutboxEventKinds.ReadUpdated,
+                MessageMutationOutboxAudiences.Account,
+                accountId,
+                command.ConversationId,
+                messageId,
+                command.ReadThroughMessageId));
+            deliveries.Add(CreateDelivery(
+                messageId,
+                MessageMutationOutboxEventKinds.MessageAppend,
+                MessageMutationOutboxAudiences.Admins,
+                null,
+                command.ConversationId,
+                messageId,
+                null));
+        }
+        else
+        {
+            List<int> participants = await db.Queryable<ConversationParticipantState>()
+                .Where(it => it.ConversationId == command.ConversationId)
+                .Select(it => it.AccountId)
+                .ToListAsync();
+            for (int i = 0; i < participants.Count; i++)
+            {
+                deliveries.Add(CreateDelivery(
+                    messageId,
+                    MessageMutationOutboxEventKinds.ConversationUpsert,
+                    MessageMutationOutboxAudiences.Account,
+                    participants[i],
+                    command.ConversationId,
+                    messageId,
+                    null));
+                deliveries.Add(CreateDelivery(
+                    messageId,
+                    MessageMutationOutboxEventKinds.MessageAppend,
+                    MessageMutationOutboxAudiences.Account,
+                    participants[i],
+                    command.ConversationId,
+                    messageId,
+                    null));
+            }
+        }
+
+        deliveries.Add(CreateDelivery(
+            messageId,
+            MessageMutationOutboxEventKinds.ConversationUpsert,
+            MessageMutationOutboxAudiences.Admins,
+            null,
+            command.ConversationId,
+            messageId,
+            null));
+        await EnqueueMessageDeliveriesAsync(deliveries.ToArray());
+    }
+
+    private async Task EnqueueMessageDeliveriesAsync(params MessageMutationOutbox[] deliveries)
+    {
+        for (int i = 0; i < deliveries.Length; i++)
+        {
+            MessageMutationOutbox delivery = deliveries[i];
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT INTO message_mutation_outbox(
+                    deliverykey, eventkind, audiencekind, targetaccountid, conversationid,
+                    messageid, readthroughmessageid, status, attemptcount, nextattemptat, createdat)
+                VALUES(
+                    @DeliveryKey, @EventKind, @AudienceKind, CAST(@TargetAccountId AS integer), @ConversationId,
+                    CAST(@MessageId AS bigint), CAST(@ReadThroughMessageId AS bigint), @Status, 0, @NextAttemptAt, @CreatedAt)
+                ON CONFLICT (deliverykey) DO NOTHING;
+                """,
+                new SugarParameter("@DeliveryKey", delivery.DeliveryKey),
+                new SugarParameter("@EventKind", delivery.EventKind),
+                new SugarParameter("@AudienceKind", delivery.AudienceKind),
+                new SugarParameter("@TargetAccountId", (object?)delivery.TargetAccountId ?? DBNull.Value),
+                new SugarParameter("@ConversationId", delivery.ConversationId),
+                new SugarParameter("@MessageId", (object?)delivery.MessageId ?? DBNull.Value),
+                new SugarParameter("@ReadThroughMessageId", (object?)delivery.ReadThroughMessageId ?? DBNull.Value),
+                new SugarParameter("@Status", delivery.Status),
+                new SugarParameter("@NextAttemptAt", delivery.NextAttemptAt),
+                new SugarParameter("@CreatedAt", delivery.CreatedAt));
+        }
+    }
+
+    private static MessageMutationOutbox CreateDelivery(
+        long mutationCoordinate,
+        string eventKind,
+        string audienceKind,
+        int? targetAccountId,
+        long conversationId,
+        long? messageId,
+        long? readThroughMessageId)
+    {
+        DateTime now = DateTime.UtcNow;
+        string target = targetAccountId?.ToString(CultureInfo.InvariantCulture) ?? "group";
+        return new MessageMutationOutbox
+        {
+            DeliveryKey = $"message:{conversationId.ToString(CultureInfo.InvariantCulture)}:{mutationCoordinate.ToString(CultureInfo.InvariantCulture)}:{audienceKind}:{target}:{eventKind}",
+            EventKind = eventKind,
+            AudienceKind = audienceKind,
+            TargetAccountId = targetAccountId,
+            ConversationId = conversationId,
+            MessageId = messageId,
+            ReadThroughMessageId = readThroughMessageId,
+            Status = MessageMutationOutboxStatus.Pending,
+            NextAttemptAt = now,
+            CreatedAt = now
+        };
+    }
+
+    public async Task DeliverAsync(MessageMutationOutbox delivery, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (delivery.AudienceKind == MessageMutationOutboxAudiences.Account && !delivery.TargetAccountId.HasValue)
+        {
+            throw new InvalidOperationException("Message outbox account delivery is missing its target.");
+        }
+
+        switch (delivery.EventKind)
+        {
+            case MessageMutationOutboxEventKinds.ConversationUpsert:
+                if (delivery.AudienceKind == MessageMutationOutboxAudiences.Admins)
+                {
+                    await PublishConversationUpsertToAdminsAsync(delivery.ConversationId, delivery.DeliveryKey);
+                    return;
+                }
+
+                int accountId = delivery.TargetAccountId!.Value;
+                ConversationListItemResponse? accountItem = await BuildConversationListItemForAccountAsync(accountId, delivery.ConversationId);
+                if (accountItem is null)
+                {
+                    throw new InvalidOperationException("Message outbox conversation projection is missing.");
+                }
+                int conversationTotalUnread = await RefreshUnreadCacheAsync(accountId);
+                await PublishConversationUpsertAsync(accountId, accountItem, conversationTotalUnread, delivery.DeliveryKey);
+                return;
+
+            case MessageMutationOutboxEventKinds.MessageAppend:
+                if (!delivery.MessageId.HasValue)
+                {
+                    throw new InvalidOperationException("Message outbox append is missing its message coordinate.");
+                }
+                MessageViewer viewer = delivery.AudienceKind == MessageMutationOutboxAudiences.Admins
+                    ? MessageViewer.Admin
+                    : MessageViewer.Account;
+                ConversationMessageResponse? message = await BuildMessageResponseAsync(
+                    delivery.ConversationId,
+                    delivery.MessageId.Value,
+                    viewer);
+                if (message is null)
+                {
+                    throw new InvalidOperationException("Message outbox append projection is missing.");
+                }
+                if (delivery.AudienceKind == MessageMutationOutboxAudiences.Admins)
+                {
+                    int adminUnread = await LoadAdminQueueUnreadCountAsync(delivery.ConversationId);
+                    await PublishMessageAppendAsync(
+                        delivery.ConversationId.ToString(CultureInfo.InvariantCulture),
+                        message,
+                        adminUnread,
+                        null,
+                        null,
+                        delivery.DeliveryKey);
+                    return;
+                }
+
+                int messageTarget = delivery.TargetAccountId!.Value;
+                ConversationParticipantState? participant = await db.Queryable<ConversationParticipantState>()
+                    .Where(it => it.ConversationId == delivery.ConversationId && it.AccountId == messageTarget)
+                    .FirstAsync();
+                if (participant is null)
+                {
+                    throw new InvalidOperationException("Message outbox participant projection is missing.");
+                }
+                int messageTotalUnread = await RefreshUnreadCacheAsync(messageTarget);
+                await PublishMessageAppendAsync(
+                    delivery.ConversationId.ToString(CultureInfo.InvariantCulture),
+                    message,
+                    participant.UnreadCount,
+                    messageTotalUnread,
+                    messageTarget,
+                    delivery.DeliveryKey);
+                return;
+
+            case MessageMutationOutboxEventKinds.ReadUpdated:
+                int readTarget = delivery.TargetAccountId!.Value;
+                ConversationParticipantState? readState = await db.Queryable<ConversationParticipantState>()
+                    .Where(it => it.ConversationId == delivery.ConversationId && it.AccountId == readTarget)
+                    .FirstAsync();
+                if (readState is null)
+                {
+                    throw new InvalidOperationException("Message outbox read projection is missing.");
+                }
+                int readTotalUnread = await RefreshUnreadCacheAsync(readTarget);
+                await PublishReadUpdatedAsync(
+                    readTarget,
+                    delivery.ConversationId,
+                    readState.LastReadMessageId,
+                    readState.UnreadCount,
+                    readTotalUnread,
+                    delivery.DeliveryKey);
+                return;
+
+            case MessageMutationOutboxEventKinds.ConversationStatus:
+                int statusTarget = delivery.TargetAccountId!.Value;
+                MessageConversation? conversation = await db.Queryable<MessageConversation>().InSingleAsync(delivery.ConversationId);
+                if (conversation is null)
+                {
+                    throw new InvalidOperationException("Message outbox status projection is missing.");
+                }
+                await PublishConversationClosedAsync(
+                    statusTarget,
+                    delivery.ConversationId,
+                    ToStatusValue(conversation.Status),
+                    delivery.DeliveryKey);
+                return;
+
+            default:
+                throw new InvalidOperationException($"Unsupported message outbox event kind: {delivery.EventKind}");
+        }
+    }
+
     private async Task PublishConversationUpsertAsync(int accountId, ConversationDetailResponse detail, int? totalUnread = null)
     {
         var summary = new ConversationListItemResponse
@@ -1458,14 +1714,19 @@ public sealed class MessageCenterService(
         await PublishConversationUpsertAsync(accountId, summary, totalUnread);
     }
 
-    private Task PublishConversationUpsertAsync(int accountId, ConversationListItemResponse summary, int? totalUnread = null)
+    private Task PublishConversationUpsertAsync(
+        int accountId,
+        ConversationListItemResponse summary,
+        int? totalUnread = null,
+        string? idempotencyKey = null)
         => notificationStreamPort.PublishToUserAsync(
             NotificationStreamEventType.InboxConversationUpsert,
             accountId,
             new InboxConversationUpsertPayload(summary, totalUnread, DateTime.UtcNow),
-            "inbox-conversation-upsert");
+            "inbox-conversation-upsert",
+            idempotencyKey);
 
-    private async Task PublishConversationUpsertToAdminsAsync(long conversationId)
+    private async Task PublishConversationUpsertToAdminsAsync(long conversationId, string? idempotencyKey = null)
     {
         if (!IsAdminAccountProjectionEnabled())
         {
@@ -1475,6 +1736,10 @@ public sealed class MessageCenterService(
         AdminConversationListItemResponse? summary = await BuildAdminConversationListItemAsync(conversationId);
         if (summary is null)
         {
+            if (!string.IsNullOrWhiteSpace(idempotencyKey))
+            {
+                throw new InvalidOperationException("Admin conversation projection is missing.");
+            }
             logger.LogWarning("Admin conversation projection missing. ConversationId: {ConversationId}", conversationId);
             return;
         }
@@ -1482,33 +1747,52 @@ public sealed class MessageCenterService(
         await notificationStreamPort.PublishToAdminUsersAsync(
             NotificationStreamEventType.InboxConversationUpsert,
             new InboxConversationUpsertPayload(summary, null, DateTime.UtcNow),
-            "admin-conversation-upsert");
+            "admin-conversation-upsert",
+            idempotencyKey);
     }
 
-    private Task PublishMessageAppendAsync(string conversationId, ConversationMessageResponse message, int? conversationUnreadCount = null, int? totalUnread = null, int? targetAccountId = null)
+    private Task PublishMessageAppendAsync(
+        string conversationId,
+        ConversationMessageResponse message,
+        int? conversationUnreadCount = null,
+        int? totalUnread = null,
+        int? targetAccountId = null,
+        string? idempotencyKey = null)
     {
         var payload = new InboxMessageAppendPayload(conversationId, message, conversationUnreadCount, totalUnread, DateTime.UtcNow);
         if (targetAccountId.HasValue)
         {
-            return notificationStreamPort.PublishToUserAsync(NotificationStreamEventType.InboxMessageAppend, targetAccountId.Value, payload, "inbox-message-append-user");
+            return notificationStreamPort.PublishToUserAsync(NotificationStreamEventType.InboxMessageAppend, targetAccountId.Value, payload, "inbox-message-append-user", idempotencyKey);
         }
 
-        return notificationStreamPort.PublishToAdminUsersAsync(NotificationStreamEventType.InboxMessageAppend, payload, "inbox-message-append-admin");
+        return notificationStreamPort.PublishToAdminUsersAsync(NotificationStreamEventType.InboxMessageAppend, payload, "inbox-message-append-admin", idempotencyKey);
     }
 
-    private Task PublishReadUpdatedAsync(int accountId, long conversationId, long? lastReadMessageId, int conversationUnreadCount, int? totalUnread)
+    private Task PublishReadUpdatedAsync(
+        int accountId,
+        long conversationId,
+        long? lastReadMessageId,
+        int conversationUnreadCount,
+        int? totalUnread,
+        string? idempotencyKey = null)
         => notificationStreamPort.PublishToUserAsync(
             NotificationStreamEventType.InboxReadUpdated,
             accountId,
             new InboxReadUpdatedPayload(conversationId.ToString(), lastReadMessageId?.ToString(), conversationUnreadCount, totalUnread, DateTime.UtcNow),
-            "inbox-read-updated");
+            "inbox-read-updated",
+            idempotencyKey);
 
-    private Task PublishConversationClosedAsync(int accountId, long conversationId, ConversationStatusValue status)
+    private Task PublishConversationClosedAsync(
+        int accountId,
+        long conversationId,
+        ConversationStatusValue status,
+        string? idempotencyKey = null)
         => notificationStreamPort.PublishToUserAsync(
             NotificationStreamEventType.InboxConversationClosed,
             accountId,
             new InboxConversationClosedPayload(conversationId.ToString(), status, DateTime.UtcNow),
-            "inbox-conversation-closed");
+            "inbox-conversation-closed",
+            idempotencyKey);
 
     private Task PublishConversationClosedToAdminsAsync(long conversationId, ConversationStatusValue status)
         => notificationStreamPort.PublishToAdminUsersAsync(
