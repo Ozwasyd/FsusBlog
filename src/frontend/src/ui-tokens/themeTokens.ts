@@ -34,7 +34,7 @@ export const themeTokens: ThemeTokenContract = {
   },
   articleDetail: {
     header: `mb-3 sm:mb-4 pb-3 sm:pb-4 border-b ${lineBorder}`,
-    title: `text-3xl sm:text-4xl lg:text-5xl font-bold ${textHeading} leading-[1.05] tracking-normal mb-8 sm:mb-10`,
+    title: `text-xl sm:text-2xl lg:text-3xl font-bold ${textHeading} leading-[1.05] tracking-normal mb-8 sm:mb-10`,
     metaRow: `flex flex-wrap items-center gap-6 ${metadataText}`,
     metaSeparator: `${textSubtle}`,
     categoryLink: `inline-flex min-h-9 items-center px-1 ${textMuted} ${primaryHover} ${colorTransition} outline-none ${focusRing}`,

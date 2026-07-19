@@ -219,6 +219,11 @@ function contrastRatio(foreground, background) {
 }
 
 function checkPublicTypographyContract() {
+  const publicComponentsRoot = path.join(repoRoot, 'src/frontend/src/components/public')
+  const publicDisplayScaleFiles = [
+    ...walk(publicComponentsRoot),
+    themeTokensPath
+  ]
   const readableSourceFiles = [
     ...publicEditorialRoots.flatMap((dir) => walk(dir)),
     ...walk(publicRenderersRoot),
@@ -227,6 +232,30 @@ function checkPublicTypographyContract() {
     themeTokensPath
   ]
   const forbiddenReadableScale = /text-\[(?:9|10|11)px\]|font-size:\s*(?:0?\.625|0?\.6875|0?\.71875)rem\s*;/
+
+  for (const file of publicDisplayScaleFiles) {
+    const source = read(file)
+    const oversizedDisplay = /\btext-(?:4xl|5xl)\b/g
+    for (const match of source.matchAll(oversizedDisplay)) {
+      fail(
+        file,
+        lineNumberFromSource(source, match.index ?? 0),
+        'public display typography must stay within the 20/24/30px title scale'
+      )
+    }
+
+    for (const match of source.matchAll(/<h1\b[^>]*>/gs)) {
+      const heading = match[0]
+      const headingClasses = new Set((/\bclass="([^"]*)"/s.exec(heading)?.[1] ?? '').split(/\s+/))
+      if (!['text-2xl', 'sm:text-3xl', 'font-bold'].every((className) => headingClasses.has(className))) {
+        fail(
+          file,
+          lineNumberFromSource(source, match.index ?? 0),
+          'public page H1 must use the 24/30px text-2xl sm:text-3xl scale and loaded font-bold weight'
+        )
+      }
+    }
+  }
 
   for (const file of readableSourceFiles) {
     const lines = read(file).split(/\r?\n/)
@@ -269,6 +298,11 @@ function checkPublicTypographyContract() {
     themeTokensPath,
     /title: `ui-article-title text-xl sm:text-2xl lg:text-3xl[\s\S]*?leading-\[1\.1\] sm:leading-\[1\.05\]/,
     'public display titles must retain the 20/24/30px display role scale'
+  )
+  assertContains(
+    themeTokensPath,
+    /articleDetail:\s*\{[\s\S]*?title: `text-xl sm:text-2xl lg:text-3xl font-bold[^`]*leading-\[1\.05\]/,
+    'hydrated article detail titles must match the AOT 20/24/30px display scale and loaded 700 weight'
   )
   assertContains(
     themeTokensPath,
@@ -341,6 +375,8 @@ function checkPublicTypographyContract() {
     [publicShellEmergencyCssPath, publicShellEmergencyCss]
   ]) {
     assertContains(file, /#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.25rem;[\s\S]*?line-height:\s*1\.1;/, 'AOT title must match the 20px display typography baseline')
+    assertContains(file, /@media \(min-width: 640px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.5rem;[\s\S]*?line-height:\s*1\.05;/, 'AOT title must match the 24px display typography breakpoint')
+    assertContains(file, /@media \(min-width: 1024px\)\s*\{[\s\S]*?#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.875rem;/, 'AOT title must match the 30px display typography breakpoint')
     assertContains(file, /#fsus-aot-shell \.ui-article-summary\s*\{[\s\S]*?font-size:\s*1rem;[\s\S]*?line-height:\s*1\.8;/, 'AOT summary must match the 16px reading typography baseline')
     assertContains(file, /#fsus-aot-shell \.ui-article-meta[\s\S]*?font-size:\s*0\.75rem;[\s\S]*?line-height:\s*1rem;/, 'AOT metadata must match the 12px readable metadata baseline')
     if (source.includes('font-size: 1.35rem;') || source.includes('font-size: .96rem;')) {
@@ -352,6 +388,11 @@ function checkPublicTypographyContract() {
     publicLayoutRulesPath,
     /### 公开排版角色[\s\S]*?display[\s\S]*?reading[\s\S]*?metadata/,
     'public layout rules must document display, reading, and metadata typography roles'
+  )
+  assertContains(
+    publicLayoutRulesPath,
+    /公共内容页 H1 使用 24\/30px[\s\S]*?禁止使用 `text-4xl`、`text-5xl`/,
+    'public layout rules must document the bounded H1 scale and oversized utility ban'
   )
 }
 

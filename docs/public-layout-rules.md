@@ -66,7 +66,8 @@ Glass material 只允许用于以下 surface：
 
 ### 公开排版角色
 
-- `display`：文章标题和页面标题使用 20/24/30px 档位，标题行高与首屏 AOT fallback 保持一致。
+- `display`：文章列表与详情标题统一使用 20/24/30px 档位；hydration 的 `text-xl sm:text-2xl lg:text-3xl` 必须与首屏 AOT fallback 的 `1.25rem/1.5rem/1.875rem` 保持一致。公共内容页 H1 使用 24/30px（`text-2xl sm:text-3xl`），不扩张到 36/48px。
+- `src/frontend/src/ui-tokens/` 与 `src/frontend/src/components/public/` 禁止使用 `text-4xl`、`text-5xl`，防止详情标题或公共页面 H1 重新越出 display 档位。
 - `reading`：正文、摘要和引用使用 16px 或 18px 档位；Markdown 段落只保留一条权威规则。
 - `metadata`：日期、分类、状态、阅读量和操作文案使用 12px 或 14px 档位，不能以装饰性微缩文字承载信息。
 - `--text-decorative` 与 `--fsusblog-text-decorative` 只用于分隔点、列表 marker 等无语义装饰；日期、分类、状态和操作必须使用达到 AA 的 `muted` 或 `tertiary` token。

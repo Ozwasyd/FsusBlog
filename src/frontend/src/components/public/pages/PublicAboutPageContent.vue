@@ -26,7 +26,7 @@
 
   <PublicReadingPageFrame v-else-if="!error" as="article">
     <header class="mb-14 border-b border-[var(--fsusblog-panel-border)] pb-10 sm:mb-20 sm:pb-12">
-      <h1 class="mb-6 text-3xl font-bold leading-[1.15] tracking-normal text-[var(--fsusblog-text-heading)] sm:text-4xl">
+      <h1 class="mb-6 text-2xl font-bold leading-[1.15] tracking-normal text-[var(--fsusblog-text-heading)] sm:text-3xl">
         {{ view.header.title }}
       </h1>
 
