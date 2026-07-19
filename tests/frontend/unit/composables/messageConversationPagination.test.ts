@@ -22,6 +22,7 @@ vi.mock('@/api/message', () => ({
   messageApi: {
     getAccountConversations: vi.fn(),
     getAccountConversationDetail: vi.fn(),
+    getAccountConversationDelta: vi.fn(),
     markConversationRead: vi.fn(),
     createAccountConversation: vi.fn(),
     replyAccountConversation: vi.fn(),
@@ -122,6 +123,18 @@ describe('message conversation cursor pagination', () => {
       lastMessageAt: '2026-07-19T12:00:00Z',
       messages: []
     })
+    vi.mocked(messageApi.getAccountConversationDelta).mockResolvedValue({
+      conversationId: '3',
+      readSnapshotMessageId: '30',
+      subject: 'conversation-3',
+      status: 0,
+      isSystemSource: false,
+      canReply: true,
+      unreadCount: 0,
+      lastMessageAt: '2026-07-19T12:00:00Z',
+      messages: []
+    })
+    vi.mocked(messageApi.markConversationRead).mockResolvedValue(null)
     vi.mocked(messageApi.adminGetConversationDetail).mockResolvedValue({
       conversationId: '30',
       readSnapshotMessageId: '300',
@@ -290,5 +303,101 @@ describe('message conversation cursor pagination', () => {
     expect(inbox.detail.value?.messages.map((item) => item.messageId)).toEqual(['1', '50', '51', '52', '1001'])
     expect(inbox.detail.value?.readSnapshotMessageId).toBe('52')
     expect(inbox.detail.value?.hasOlder).toBe(false)
+  })
+
+  it('keeps the newest selection when an older detail request resolves late', async () => {
+    vi.mocked(messageApi.getAccountConversations).mockResolvedValue({
+      items: [
+        conversation('3', '2026-07-19T12:00:00Z'),
+        conversation('4', '2026-07-19T11:00:00Z'),
+        conversation('5', '2026-07-19T10:00:00Z')
+      ],
+      total: 3,
+      nextCursor: null,
+      hasMore: false
+    })
+    const late = Promise.withResolvers<Awaited<ReturnType<typeof messageApi.getAccountConversationDetail>>>()
+    vi.mocked(messageApi.getAccountConversationDetail)
+      .mockResolvedValueOnce({
+        conversationId: '3', readSnapshotMessageId: '30', subject: 'three', status: 0,
+        isSystemSource: false, canReply: true, unreadCount: 0,
+        lastMessageAt: '2026-07-19T12:00:00Z', messages: [threadMessage('30')]
+      })
+      .mockReturnValueOnce(late.promise)
+      .mockResolvedValueOnce({
+        conversationId: '5', readSnapshotMessageId: '50', subject: 'five', status: 0,
+        isSystemSource: false, canReply: true, unreadCount: 0,
+        lastMessageAt: '2026-07-19T12:00:50Z', messages: [{ ...threadMessage('50'), conversationId: '5' }]
+      })
+
+    const inbox = mountInbox()
+    await flushPromises()
+    const slowSelection = inbox.selectConversation('4')
+    await flushPromises()
+    await inbox.selectConversation('5')
+    late.resolve({
+      conversationId: '4', readSnapshotMessageId: '40', subject: 'four', status: 0,
+      isSystemSource: false, canReply: true, unreadCount: 0,
+      lastMessageAt: '2026-07-19T12:00:40Z', messages: [{ ...threadMessage('40'), conversationId: '4' }]
+    })
+    await slowSelection
+    await flushPromises()
+
+    expect(inbox.selectedConversationId.value).toBe('5')
+    expect(inbox.detail.value?.conversationId).toBe('5')
+    expect(inbox.detail.value?.messages.map((item) => item.messageId)).toEqual(['50'])
+    const slowConfig = vi.mocked(messageApi.getAccountConversationDetail).mock.calls[1]?.[2]
+    expect(slowConfig?.signal?.aborted).toBe(true)
+  })
+
+  it('rebuilds replay misses from the last message and rejects out-of-order patches', async () => {
+    vi.mocked(messageApi.getAccountConversations).mockImplementation(async (size) => ({
+      items: [conversation('3', '2026-07-19T12:00:12Z')],
+      total: 1,
+      nextCursor: null,
+      hasMore: false
+    }))
+    vi.mocked(messageApi.getAccountConversationDetail).mockResolvedValue({
+      conversationId: '3', readSnapshotMessageId: '10', subject: 'three', status: 0,
+      isSystemSource: false, canReply: true, unreadCount: 2,
+      lastMessageAt: '2026-07-19T12:00:10Z', messages: [threadMessage('10')]
+    })
+    vi.mocked(messageApi.getAccountConversationDelta).mockResolvedValue({
+      conversationId: '3', readSnapshotMessageId: '12', subject: 'three', status: 0,
+      isSystemSource: false, canReply: true, unreadCount: 2,
+      lastMessageAt: '2026-07-19T12:00:12Z', messages: [threadMessage('11'), threadMessage('12')],
+      previousCursor: null, hasOlder: false
+    })
+
+    const inbox = mountInbox()
+    await flushPromises()
+    inboxStore.inboxBatch = [{ module: 'inbox', kind: 'reconnected', replayMissed: true }]
+    inboxStore.inboxRevision += 1
+    await flushPromises()
+
+    expect(messageApi.getAccountConversationDelta).toHaveBeenCalledWith('3', '10', expect.objectContaining({
+      signal: expect.any(AbortSignal)
+    }))
+    expect(messageApi.getAccountConversations).toHaveBeenCalledWith(50, 'all', null)
+    expect(inbox.detail.value?.messages.map((item) => item.messageId)).toEqual(['10', '11', '12'])
+    expect(messageApi.markConversationRead).toHaveBeenCalledWith('3', '12', expect.any(Object))
+
+    inboxStore.inboxBatch = [{
+      module: 'inbox', kind: 'message-append', eventId: 15,
+      payload: { conversationId: '3', message: threadMessage('15'), conversationUnreadCount: 1, totalUnread: 1 }
+    }]
+    inboxStore.inboxRevision += 1
+    await flushPromises()
+    inboxStore.inboxBatch = [{
+      module: 'inbox', kind: 'message-append', eventId: 14,
+      payload: { conversationId: '3', message: threadMessage('14'), conversationUnreadCount: 9, totalUnread: 9 }
+    }]
+    inboxStore.inboxRevision += 1
+    await flushPromises()
+
+    expect(inbox.detail.value?.messages.map((item) => item.messageId)).toEqual(['10', '11', '12', '14', '15'])
+    expect(inbox.detail.value?.unreadCount).toBe(1)
+    expect(inbox.conversations.value[0]?.lastMessage?.bodyPreview).toBe('15')
+    expect(inbox.conversations.value[0]?.unreadCount).toBe(1)
   })
 })

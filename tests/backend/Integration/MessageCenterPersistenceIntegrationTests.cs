@@ -1495,6 +1495,28 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Assert.Equal(FirstMessageId.ToString(), loaded[0].MessageId);
         Assert.Equal((FirstMessageId + MessageCount - 1).ToString(), loaded[^1].MessageId);
         Assert.DoesNotContain(loaded, message => message.Body is "internal-only" or "arrived-after-first-page");
+
+        const long LastKnownMessageId = FirstMessageId + 900;
+        var recovered = new List<ConversationMessageResponse>();
+        ConversationDetailResponse delta;
+        long afterMessageId = LastKnownMessageId;
+        do
+        {
+            delta = Assert.IsType<ConversationDetailResponse>(
+                await service.GetAccountConversationDeltaAsync(AccountId, ConversationId, afterMessageId));
+            recovered.AddRange(delta.Messages);
+            if (delta.HasOlder)
+            {
+                afterMessageId = long.Parse(Assert.IsType<string>(delta.PreviousCursor));
+            }
+        }
+        while (delta.HasOlder);
+
+        Assert.Equal(105, recovered.Count);
+        Assert.Equal(105, recovered.Select(message => message.MessageId).Distinct().Count());
+        Assert.Equal((LastKnownMessageId + 1).ToString(), recovered[0].MessageId);
+        Assert.Equal("200000", recovered[^1].MessageId);
+        Assert.DoesNotContain(recovered, message => message.Body == "internal-only");
     }
 
     [Fact]

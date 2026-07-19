@@ -261,6 +261,7 @@
 | ------ | ------ | ------ |
 | GET | `/api/binary/messages/conversations?size=20&filter={filter}&cursor={nextCursor}` | 当前用户对话列表；`lastMessageAt + conversationId` 稳定游标，首屏省略 cursor |
 | GET | `/api/binary/messages/conversations/{id}?beforeMessageId={previousCursor}` | `ConversationDetailV3(204)`；最新 50 条或向前一页，返回 `previousCursor/hasOlder/readSnapshotMessageId` |
+| GET | `/api/binary/messages/conversations/{id}?afterMessageId={lastKnownMessageId}` | `ConversationDetailV3(204)`；replay miss 后按 ID 升序补齐差量；与 `beforeMessageId` 互斥，`hasOlder/previousCursor` 表示后续差量页 |
 | POST | `/api/binary/messages/conversations` | 发起新对话；必需 `X-Fsus-Client-Mutation-Id`；响应 `ConversationDetailV2(203)` 与 `idempotencyReplay` |
 | POST | `/api/binary/messages/conversations/{id}/reply` | 必需 `X-Fsus-Client-Mutation-Id`；`AccountConversationReplyRequest(202)` 正文 + 显式 `readThroughMessageId`；响应保留首次 message ID |
 | POST | `/api/binary/messages/conversations/{id}/read` | `ConversationReadRequest(201)`；精确推进已读游标，不读取当前 `MAX(id)` |

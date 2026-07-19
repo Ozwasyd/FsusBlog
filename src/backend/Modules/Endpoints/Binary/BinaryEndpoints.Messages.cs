@@ -70,6 +70,7 @@ public static partial class BinaryEndpoints
         group.MapGet("/messages/conversations/{id:long}", static async Task<BinaryFrameResult> (
             long id,
             long? beforeMessageId,
+            long? afterMessageId,
             IMessageQueryService query,
             AccountPrincipalContext account,
             IConfiguration configuration,
@@ -82,12 +83,14 @@ public static partial class BinaryEndpoints
                     aeds,
                     StatusCodes.Status503ServiceUnavailable);
             }
-            if (beforeMessageId <= 0)
+            if (beforeMessageId <= 0 || afterMessageId <= 0 || (beforeMessageId.HasValue && afterMessageId.HasValue))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "消息游标非法"), aeds);
             }
 
-            var detail = await query.GetAccountConversationDetailAsync(account.AccountId, id, beforeMessageId);
+            var detail = afterMessageId.HasValue
+                ? await query.GetAccountConversationDeltaAsync(account.AccountId, id, afterMessageId.Value)
+                : await query.GetAccountConversationDetailAsync(account.AccountId, id, beforeMessageId);
             return detail is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
                 : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV3, writer => PodBinaryCodec.WriteConversationDetailV3(detail, writer));

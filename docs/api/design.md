@@ -158,6 +158,13 @@ reload-capable `Messages:AdminAccountProjectionEnabled=false` 可在不重启进
 notification stream 新消息与历史页并发到达时不得互相覆盖。账号端任何页面都不得返回
 internal note。
 
+账号 inbox 在 notification stream 报告 replay miss 后，以当前详情最后已知 message ID 作为
+`afterMessageId` 读取差量；差量分页沿响应游标继续，直到数据库权威快照追平。重连恢复同时
+刷新会话列表和总未读。详情请求必须绑定 selection generation/AbortSignal，HTTP 返回时合并
+比请求更新的实时消息、read cursor 和 status patch，不得整对象覆盖。message ID、read cursor、
+事件 ID/时间和 `lastMessageAt` 分别作为对应投影的可比较版本，较旧 patch 只能被去重，不能使
+状态回退。
+
 `ConversationDetailV3` 同时返回本次可见结果的 `readSnapshotMessageId`。账号侧 mark-read 必须提交 `ConversationReadRequest` 的
 `readThroughMessageId`；账号回复必须提交 `AccountConversationReplyRequest`，同时携带
 正文与该显式读取位置。服务端不得在 mark-read 或回复事务中用数据库当前

@@ -249,6 +249,8 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("Messages:StatusMutationsEnabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("message_status_mutations_disabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("beforeMessageId", endpoints, StringComparison.Ordinal);
+        Assert.Contains("afterMessageId", endpoints, StringComparison.Ordinal);
+        Assert.Contains("GetAccountConversationDeltaAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("ConversationDetailV3", endpoints, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("ReplyAsAccountAsync", endpoints, StringComparison.Ordinal);

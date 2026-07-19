@@ -5,6 +5,7 @@ import {
   type ConversationDetailResponse,
   type ConversationFilter,
   type ConversationListItemResponse,
+  type ConversationMessageResponse,
   type ConversationMessagePreviewResponse,
   type InboxConversationStatusChangedPayload,
   type InboxConversationUpsertPayload,
@@ -17,7 +18,7 @@ import { useNotificationStreamStore } from '@/store/notificationStream'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { compareConversationByLastMessage, mergeConversationPages } from '@/composables/messageConversationPagination'
-import { mergeConversationMessagePages } from '@/composables/messageThreadPagination'
+import { compareMessageId, mergeConversationMessagePages } from '@/composables/messageThreadPagination'
 
 const PAGE_SIZE = 20
 const FILTERS: readonly ConversationFilter[] = ['all', 'unread', 'system', 'open', 'pending', 'closed']
@@ -45,6 +46,27 @@ const toConversationListItem = (detail: ConversationDetailResponse): Conversatio
 }
 
 const normalizeFilter = (value: ConversationFilter): ConversationFilter => value
+
+const latestMessageId = (value: ConversationDetailResponse | null): string | null =>
+  value?.messages[value.messages.length - 1]?.messageId ?? value?.readSnapshotMessageId ?? null
+
+const newerMessageId = (left: string, right: string): string =>
+  compareMessageId(left, right) >= 0 ? left : right
+
+const newerTimestamp = (left: string, right: string): string =>
+  (Date.parse(left) || 0) >= (Date.parse(right) || 0) ? left : right
+
+const isAbortError = (error: unknown): boolean =>
+  error instanceof DOMException && error.name === 'AbortError'
+
+type InboxPatchVersion = Readonly<{ eventId?: number, time?: number }>
+
+const isOlderPatchVersion = (incoming: InboxPatchVersion | undefined, current: InboxPatchVersion | null): boolean => {
+  if (!incoming || !current) return false
+  if (incoming.eventId !== undefined && current.eventId !== undefined) return incoming.eventId < current.eventId
+  if (incoming.time !== undefined && current.time !== undefined) return incoming.time < current.time
+  return false
+}
 
 const upsertConversationListItem = (
   items: readonly ConversationListItemResponse[],
@@ -110,6 +132,16 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
   const createSubject = ref('')
   const createBody = ref('')
   let syncingRoute = false
+  let detailRequestController: AbortController | null = null
+  let detailRequestGeneration = 0
+  let selectionGeneration = 0
+  let detailPatchRevision = 0
+  let unreadPatchRevision = 0
+  let unreadPatchVersion: InboxPatchVersion | null = null
+  let replayReconcileGeneration = 0
+  const highestPatchedMessageId = new Map<string, string>()
+  const lastReadCursor = new Map<string, string>()
+  const lastStatusTime = new Map<string, number>()
 
   const hasSelection = computed(() => selectedConversationId.value.length > 0)
   const hasCurrentReplyDraft = computed(() => Boolean(selectedConversationId.value && replyBody.value.trim()))
@@ -174,8 +206,9 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
 
     if (!silent) loading.value = true
     try {
+      const selectionBeforeRefresh = selectedConversationId.value
       const data = await messageApi.getAccountConversations(PAGE_SIZE, normalizeFilter(filter.value))
-      if (preserveLoaded && loadedPageCount.value > 1) {
+      if (preserveLoaded) {
         conversations.value = mergeConversationPages(conversations.value, data.items || [])
       } else {
         conversations.value = mergeConversationPages([], data.items || [])
@@ -195,6 +228,10 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
       }
       if (selectedConversationId.value) {
         loadReplyDraft(selectedConversationId.value)
+      }
+      if (selectedConversationId.value !== selectionBeforeRefresh) {
+        selectionGeneration += 1
+        detailRequestController?.abort()
       }
     } catch (error) {
       if (!silent) {
@@ -245,23 +282,152 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
       return true
     }
 
+    detailRequestController?.abort()
+    const controller = new AbortController()
+    detailRequestController = controller
+    const generation = ++detailRequestGeneration
+    const patchRevisionAtStart = detailPatchRevision
     loadingDetail.value = true
     try {
-      const payload = await messageApi.getAccountConversationDetail(conversationId)
-      detail.value = payload
-      if (markRead && payload.unreadCount > 0) {
-        await messageApi.markConversationRead(conversationId, payload.readSnapshotMessageId)
+      const payload = await messageApi.getAccountConversationDetail(conversationId, null, { signal: controller.signal })
+      if (controller.signal.aborted || generation !== detailRequestGeneration || selectedConversationId.value !== conversationId) {
+        return false
+      }
+
+      const current = detail.value?.conversationId === conversationId ? detail.value : null
+      if (current && detailPatchRevision !== patchRevisionAtStart) {
+        const currentReadSnapshot = current.readSnapshotMessageId || payload.readSnapshotMessageId
+        detail.value = {
+          ...payload,
+          ...current,
+          readSnapshotMessageId: newerMessageId(currentReadSnapshot, payload.readSnapshotMessageId),
+          lastMessageAt: newerTimestamp(current.lastMessageAt, payload.lastMessageAt),
+          messages: mergeConversationMessagePages(payload.messages, current.messages)
+        }
+      } else {
+        detail.value = payload
+      }
+
+      const readSnapshotMessageId = detail.value.readSnapshotMessageId
+      const knownRead = lastReadCursor.get(conversationId)
+      lastReadCursor.set(conversationId, knownRead ? newerMessageId(knownRead, readSnapshotMessageId) : readSnapshotMessageId)
+      if (markRead && detail.value.unreadCount > 0) {
+        await messageApi.markConversationRead(conversationId, readSnapshotMessageId, { signal: controller.signal })
       }
     } catch (error) {
-      if (!silent) {
+      if (!controller.signal.aborted && !isAbortError(error) && !silent) {
         showErrorToast(error, '消息详情加载失败')
       }
       return false
     } finally {
-      loadingDetail.value = false
+      if (generation === detailRequestGeneration) {
+        loadingDetail.value = false
+      }
     }
 
     return true
+  }
+
+  const refreshUnreadFromAuthority = async (reconcileGeneration: number): Promise<void> => {
+    const patchRevisionAtStart = unreadPatchRevision
+    let cursor: string | null = null
+    let total = 0
+    const seenCursors = new Set<string>()
+    do {
+      const page = await messageApi.getAccountConversations(50, 'all', cursor)
+      if (reconcileGeneration !== replayReconcileGeneration || !isEnabled()) return
+      total += (page.items ?? []).reduce((sum, item) => sum + Math.max(0, item.unreadCount), 0)
+      const next = page.hasMore ? page.nextCursor ?? null : null
+      if (!next || seenCursors.has(next)) {
+        cursor = null
+      } else {
+        seenCursors.add(next)
+        cursor = next
+      }
+    } while (cursor)
+
+    if (patchRevisionAtStart === unreadPatchRevision) {
+      unreadCount.value = total
+      unreadPatchVersion = { time: Date.now() }
+    }
+  }
+
+  const loadMissedMessages = async (
+    conversationId: string,
+    afterMessageId: string | null,
+    reconcileGeneration: number
+  ): Promise<boolean> => {
+    if (!afterMessageId) {
+      return loadDetail(conversationId, true, true)
+    }
+
+    detailRequestController?.abort()
+    const controller = new AbortController()
+    detailRequestController = controller
+    const generation = ++detailRequestGeneration
+    const patchRevisionAtStart = detailPatchRevision
+    let cursor = afterMessageId
+    let authoritative: ConversationDetailResponse | null = null
+    let recovered: ConversationMessageResponse[] = []
+    const seenCursors = new Set<string>([cursor])
+    loadingDetail.value = true
+
+    try {
+      do {
+        const page = await messageApi.getAccountConversationDelta(conversationId, cursor, { signal: controller.signal })
+        if (controller.signal.aborted || generation !== detailRequestGeneration ||
+          reconcileGeneration !== replayReconcileGeneration || selectedConversationId.value !== conversationId) {
+          return false
+        }
+        authoritative = page
+        recovered = mergeConversationMessagePages(recovered, page.messages)
+        const nextCursor = page.previousCursor ?? page.readSnapshotMessageId
+        if (!page.hasOlder || !nextCursor || compareMessageId(nextCursor, cursor) <= 0 || seenCursors.has(nextCursor)) {
+          break
+        }
+        seenCursors.add(nextCursor)
+        cursor = nextCursor
+      } while (true)
+
+      if (!authoritative) return false
+      const current = detail.value?.conversationId === conversationId ? detail.value : null
+      const currentMessages = current?.messages ?? []
+      const mergedMessages = mergeConversationMessagePages(currentMessages, recovered)
+      const currentReadSnapshot = current?.readSnapshotMessageId ?? afterMessageId
+      const readSnapshotMessageId = newerMessageId(currentReadSnapshot, authoritative.readSnapshotMessageId)
+      detail.value = detailPatchRevision === patchRevisionAtStart || !current
+        ? { ...authoritative, readSnapshotMessageId, messages: mergedMessages }
+        : {
+            ...authoritative,
+            ...current,
+            readSnapshotMessageId,
+            lastMessageAt: newerTimestamp(current.lastMessageAt, authoritative.lastMessageAt),
+            messages: mergedMessages
+          }
+      lastReadCursor.set(conversationId, readSnapshotMessageId)
+      if (detail.value.unreadCount > 0) {
+        await messageApi.markConversationRead(conversationId, readSnapshotMessageId, { signal: controller.signal })
+      }
+      return true
+    } catch (error) {
+      if (!controller.signal.aborted && !isAbortError(error)) {
+        showErrorToast(error, '消息重连恢复失败')
+      }
+      return false
+    } finally {
+      if (generation === detailRequestGeneration) loadingDetail.value = false
+    }
+  }
+
+  const reconcileAfterReplayMiss = async (): Promise<void> => {
+    const reconcileGeneration = ++replayReconcileGeneration
+    const conversationId = selectedConversationId.value
+    const afterMessageId = latestMessageId(detail.value)
+    await Promise.allSettled([
+      refreshList(true, true),
+      refreshUnreadFromAuthority(reconcileGeneration),
+      conversationId ? loadMissedMessages(conversationId, afterMessageId, reconcileGeneration) : Promise.resolve(false)
+    ])
   }
 
   const loadOlderMessages = async (): Promise<boolean> => {
@@ -297,9 +463,12 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
   const performSelectConversation = async (conversationId: string): Promise<boolean> => {
     if (!conversationId) return false
     saveCurrentReplyDraft()
+    const generation = ++selectionGeneration
+    detailRequestController?.abort()
     selectedConversationId.value = conversationId
     loadReplyDraft(conversationId)
     await syncQueryToRoute()
+    if (generation !== selectionGeneration || selectedConversationId.value !== conversationId) return false
     await loadDetail(conversationId)
     return true
   }
@@ -373,6 +542,8 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
       })
       createSubject.value = ''
       createBody.value = ''
+      selectionGeneration += 1
+      detailRequestController?.abort()
       selectedConversationId.value = created.conversationId
       loadReplyDraft(created.conversationId)
       detail.value = created
@@ -388,7 +559,15 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     }
   }
 
-  const applyConversationUpsertPatch = (payload: InboxConversationUpsertPayload): void => {
+  const applyTotalUnread = (value: number | null | undefined, version?: InboxPatchVersion): void => {
+    if (value === undefined || value === null) return
+    if (isOlderPatchVersion(version, unreadPatchVersion)) return
+    if (version) unreadPatchVersion = version
+    unreadPatchRevision += 1
+    unreadCount.value = Math.max(0, Number(value))
+  }
+
+  const applyConversationUpsertPatch = (payload: InboxConversationUpsertPayload, version?: InboxPatchVersion): void => {
     const item = payload.conversation
     if (!item?.conversationId) return
 
@@ -396,20 +575,26 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     const index = list.findIndex((it) => it.conversationId === item.conversationId)
     let nextItem = item
     if (index >= 0) {
+      if (compareConversationByLastMessage(item, list[index]!) > 0) {
+        applyTotalUnread(payload.totalUnread, version)
+        return
+      }
       nextItem = { ...list[index]!, ...item }
     }
     conversations.value = upsertConversationListItem(list, nextItem)
 
-    if (payload.totalUnread !== undefined && payload.totalUnread !== null) {
-      unreadCount.value = Math.max(0, Number(payload.totalUnread))
-    }
+    applyTotalUnread(payload.totalUnread, version)
   }
 
-  const applyMessageAppendPatch = (payload: InboxMessageAppendPayload): void => {
+  const applyMessageAppendPatch = (payload: InboxMessageAppendPayload, version?: InboxPatchVersion): void => {
     if (!payload?.conversationId || !payload.message) return
+    const priorMessageId = highestPatchedMessageId.get(payload.conversationId)
+    const isNewestPatch = !priorMessageId || compareMessageId(payload.message.messageId, priorMessageId) >= 0
+    if (isNewestPatch) highestPatchedMessageId.set(payload.conversationId, payload.message.messageId)
     const list = conversations.value.slice()
     const index = list.findIndex((it) => it.conversationId === payload.conversationId)
-    if (index >= 0) {
+    if (index >= 0 && isNewestPatch &&
+      (Date.parse(payload.message.createdAt) || 0) >= (Date.parse(list[index]!.lastMessageAt) || 0)) {
       const current = list[index]!
       list[index] = {
         ...current,
@@ -423,21 +608,28 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     }
 
     if (detail.value && detail.value.conversationId === payload.conversationId) {
+      detailPatchRevision += 1
+      const currentLatestMessageId = latestMessageId(detail.value)
+      const advancesDetail = !currentLatestMessageId || compareMessageId(payload.message.messageId, currentLatestMessageId) >= 0
       detail.value = {
         ...detail.value,
         messages: mergeConversationMessagePages(detail.value.messages, [payload.message]),
-        unreadCount: payload.conversationUnreadCount ?? detail.value.unreadCount,
-        lastMessageAt: payload.message.createdAt
+        unreadCount: advancesDetail ? payload.conversationUnreadCount ?? detail.value.unreadCount : detail.value.unreadCount,
+        lastMessageAt: advancesDetail
+          ? newerTimestamp(payload.message.createdAt, detail.value.lastMessageAt)
+          : detail.value.lastMessageAt
       }
     }
 
-    if (payload.totalUnread !== undefined && payload.totalUnread !== null) {
-      unreadCount.value = Math.max(0, Number(payload.totalUnread))
-    }
+    if (isNewestPatch) applyTotalUnread(payload.totalUnread, version)
   }
 
-  const applyReadPatch = (payload: InboxReadUpdatedPayload): void => {
+  const applyReadPatch = (payload: InboxReadUpdatedPayload, version?: InboxPatchVersion): void => {
     if (!payload?.conversationId) return
+    const incomingCursor = payload.lastReadMessageId ?? null
+    const knownCursor = lastReadCursor.get(payload.conversationId)
+    if (incomingCursor && knownCursor && compareMessageId(incomingCursor, knownCursor) < 0) return
+    if (incomingCursor) lastReadCursor.set(payload.conversationId, incomingCursor)
     const list = conversations.value.slice()
     const index = list.findIndex((it) => it.conversationId === payload.conversationId)
     if (index >= 0) {
@@ -449,52 +641,71 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     }
 
     if (detail.value && detail.value.conversationId === payload.conversationId) {
+      detailPatchRevision += 1
       detail.value = {
         ...detail.value,
+        readSnapshotMessageId: incomingCursor
+          ? newerMessageId(detail.value.readSnapshotMessageId, incomingCursor)
+          : detail.value.readSnapshotMessageId,
         unreadCount: Math.max(0, payload.conversationUnreadCount)
       }
     }
 
-    if (payload.totalUnread !== undefined && payload.totalUnread !== null) {
-      unreadCount.value = Math.max(0, Number(payload.totalUnread))
-    }
+    applyTotalUnread(payload.totalUnread, version)
   }
 
   const applyStatusChangedPatch = (payload: InboxConversationStatusChangedPayload): void => {
     if (!payload?.conversationId) return
+    const timestamp = Date.parse(payload.time) || 0
+    const previousTimestamp = lastStatusTime.get(payload.conversationId) ?? Number.NEGATIVE_INFINITY
+    if (timestamp < previousTimestamp) return
     const list = conversations.value.slice()
     const index = list.findIndex((it) => it.conversationId === payload.conversationId)
+    if (index >= 0 && timestamp > 0 && timestamp < (Date.parse(list[index]!.updatedAt) || 0)) return
+    lastStatusTime.set(payload.conversationId, timestamp)
     if (index >= 0) {
       list[index] = { ...list[index]!, status: payload.status, canReply: payload.status !== 2 }
       conversations.value = list
     }
     if (detail.value && detail.value.conversationId === payload.conversationId) {
+      detailPatchRevision += 1
       detail.value = { ...detail.value, status: payload.status, canReply: payload.status !== 2 }
     }
   }
 
   const consumeInboxPatches = (patches: readonly NotificationStreamInboxRenderPatch[]): void => {
     for (const patch of patches) {
+      const payloadTime = typeof patch.payload === 'object' && patch.payload && 'time' in patch.payload
+        ? Date.parse(String(patch.payload.time ?? '')) || undefined
+        : undefined
+      const version: InboxPatchVersion = {
+        eventId: patch.eventId,
+        time: patch.ts ?? payloadTime
+      }
       switch (patch.kind) {
         case 'conversation-upsert':
-          applyConversationUpsertPatch(patch.payload as InboxConversationUpsertPayload)
+          applyConversationUpsertPatch(patch.payload as InboxConversationUpsertPayload, version)
           break
         case 'message-append':
-          applyMessageAppendPatch(patch.payload as InboxMessageAppendPayload)
+          applyMessageAppendPatch(patch.payload as InboxMessageAppendPayload, version)
           break
         case 'read-updated':
-          applyReadPatch(patch.payload as InboxReadUpdatedPayload)
+          applyReadPatch(patch.payload as InboxReadUpdatedPayload, version)
           break
         case 'conversation-status-changed':
           applyStatusChangedPatch(patch.payload as InboxConversationStatusChangedPayload)
           break
         case 'unread-count':
           if (typeof patch.payload === 'number') {
-            unreadCount.value = patch.payload
+            applyTotalUnread(patch.payload, version)
           }
           break
         case 'reconnected':
-          void refreshList(true, true)
+          if (patch.replayMissed) {
+            void reconcileAfterReplayMiss()
+          } else {
+            void refreshList(true, true)
+          }
           break
       }
     }
@@ -556,6 +767,8 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
 
       resetInboxState(detail, selectedConversationId, conversations, replyBody, createSubject, createBody)
       resetPagination()
+      selectionGeneration += 1
+      detailRequestController?.abort()
     }
   )
 
@@ -573,7 +786,11 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
   })
 
   onUnmounted(() => {
-    // no-op
+    detailRequestController?.abort()
+    detailRequestController = null
+    detailRequestGeneration += 1
+    selectionGeneration += 1
+    replayReconcileGeneration += 1
   })
 
   return {

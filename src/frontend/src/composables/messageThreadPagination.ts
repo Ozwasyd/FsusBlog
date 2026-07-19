@@ -10,7 +10,7 @@ export function mergeConversationMessagePages(
   return [...byId.values()].sort((left, right) => compareMessageId(left.messageId, right.messageId))
 }
 
-function compareMessageId(left: string, right: string): number {
+export function compareMessageId(left: string, right: string): number {
   if (/^\d+$/u.test(left) && /^\d+$/u.test(right)) {
     if (left.length !== right.length) return left.length - right.length
   }

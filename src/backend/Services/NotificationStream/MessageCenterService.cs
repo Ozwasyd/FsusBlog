@@ -103,6 +103,47 @@ public sealed class MessageCenterService(
         };
     }
 
+    public async Task<ConversationDetailResponse?> GetAccountConversationDeltaAsync(
+        int accountId,
+        long conversationId,
+        long afterMessageId)
+    {
+        var participant = await db.Queryable<ConversationParticipantState>()
+            .Where(it => it.AccountId == accountId && it.ConversationId == conversationId)
+            .FirstAsync();
+        if (participant is null)
+        {
+            return null;
+        }
+
+        var conversation = await db.Queryable<MessageConversation>().InSingleAsync(conversationId);
+        if (conversation is null)
+        {
+            return null;
+        }
+
+        ConversationMessagePage page = await LoadConversationMessageDeltaPageAsync(
+            conversationId,
+            afterMessageId,
+            MessageViewer.Account);
+        return new ConversationDetailResponse
+        {
+            ConversationId = conversation.Id.ToString(),
+            ReadSnapshotMessageId = page.Messages.Count > 0
+                ? page.Messages[^1].MessageId
+                : afterMessageId.ToString(CultureInfo.InvariantCulture),
+            PreviousCursor = page.PreviousCursor,
+            HasOlder = page.HasOlder,
+            Subject = conversation.Subject,
+            Status = ToStatusValue(conversation.Status),
+            IsSystemSource = conversation.IsSystemSource,
+            CanReply = conversation.Status != ConversationStatus.Closed,
+            UnreadCount = participant.UnreadCount,
+            LastMessageAt = conversation.LastMessageAt,
+            Messages = page.Messages
+        };
+    }
+
     public async Task<PageResponse<AdminConversationListItemResponse>> GetAdminConversationsAsync(
         int size,
         string? filter,
@@ -1986,6 +2027,29 @@ public sealed class MessageCenterService(
         List<ConversationMessageResponse> messages = await MapMessagesAsync(rows, viewer);
         string? previousCursor = hasOlder && rows.Count > 0 ? rows[0].Id.ToString() : null;
         return new ConversationMessagePage(messages, previousCursor, hasOlder);
+    }
+
+    private async Task<ConversationMessagePage> LoadConversationMessageDeltaPageAsync(
+        long conversationId,
+        long afterMessageId,
+        MessageViewer viewer)
+    {
+        var rows = await db.Queryable<ConversationMessage>()
+            .Where(it => it.ConversationId == conversationId && !it.IsInternalNote && it.Id > afterMessageId)
+            .OrderBy(it => it.Id, OrderByType.Asc)
+            .Take(ConversationDetailPageSize + 1)
+            .ToListAsync();
+        bool hasMore = rows.Count > ConversationDetailPageSize;
+        if (hasMore)
+        {
+            rows.RemoveAt(rows.Count - 1);
+        }
+
+        List<ConversationMessageResponse> messages = await MapMessagesAsync(rows, viewer);
+        string? continuationCursor = hasMore && rows.Count > 0
+            ? rows[^1].Id.ToString(CultureInfo.InvariantCulture)
+            : null;
+        return new ConversationMessagePage(messages, continuationCursor, hasMore);
     }
 
     private async Task<Dictionary<long, ConversationMessagePreviewResponse>> LoadLastMessageMapAsync(

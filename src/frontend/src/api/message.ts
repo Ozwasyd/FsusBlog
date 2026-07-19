@@ -112,6 +112,19 @@ export const messageApi = {
     })
   },
 
+  getAccountConversationDelta(conversationId: string | number, afterMessageId: string, config?: ApiRequestConfig) {
+    const query = new URLSearchParams({ afterMessageId })
+    return requestBinaryOnly<ConversationDetailResponse>({
+      binaryRoute: {
+        operationId: 'binary_get_messages_conversations_id_long',
+        params: { id: conversationId },
+        query
+      },
+      frameType: FrameType.ConversationDetailV3,
+      signal: config?.signal as AbortSignal | undefined
+    })
+  },
+
   createAccountConversation(data: CreateConversationRequest, config?: ApiRequestConfig) {
     const identity = resolveStableIdentity(`account-create:${data.subject}\u001f${data.body}`, data.clientMutationId)
     return settleStableIdentity(identity, requestBinaryOnly<ConversationDetailResponse>({

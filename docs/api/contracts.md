@@ -1101,6 +1101,18 @@ CAS 更新。并发管理员请求中只有一个转换生效；后到请求若�
 `id < beforeMessageId`，按 ID 升序返回，边界不得重复。分页期间插入的新消息不会进入旧页；
 前端按 message ID 合并实时 patch 与历史页。账号视图在所有页都排除 internal note。
 
+notification stream 重连报告 `replayMissed=true` 时，当前账号会话使用最后已知的可见
+message ID 调用同一路径并传 `afterMessageId={lastKnownMessageId}`。服务端严格读取
+`id > afterMessageId` 的非 internal 消息，按 ID 升序每页返回最多 50 条；差量超过一页时，
+`hasOlder=true` 表示仍有后续差量，`previousCursor` 在该模式下承载下一次
+`afterMessageId`。`beforeMessageId` 与 `afterMessageId` 互斥。客户端循环差量页、按 message
+ID 去重后才推进 read cursor；旧 selection 的 HTTP 响应不得覆盖新 selection 或已到达的实时
+patch。列表、当前详情和总未读同时从数据库读取状态重新收敛。
+
+reload-capable `Messages:ThreadPaginationEnabled=false` 可在不重启进程的情况下同时停止历史页
+和重连差量读取并返回 `503 message_thread_pagination_disabled`；notification stream 与现有消息
+收发不受影响。修复后可直接重新启用，不得退回文本 API 或使用缓存值覆盖数据库快照。
+
 `readSnapshotMessageId` 是该响应页中最后一条非 internal、对账号可见的消息 ID。账号读取
 后使用 `ConversationReadRequest` (`201`) 调用
 `POST /api/binary/messages/conversations/{id}/read`：

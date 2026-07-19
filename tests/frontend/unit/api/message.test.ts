@@ -124,6 +124,22 @@ describe('message API binary transport', () => {
     expect(queryToString(mockBinary.mock.calls[0][0].binaryRoute?.query)).toBe('beforeMessageId=123')
   })
 
+  it('loads reconnect deltas with afterMessageId and a caller abort signal', async () => {
+    const controller = new AbortController()
+    await messageApi.getAccountConversationDelta(7, '456', { signal: controller.signal })
+
+    expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
+      binaryRoute: expect.objectContaining({
+        operationId: 'binary_get_messages_conversations_id_long',
+        params: { id: 7 },
+        query: expect.any(URLSearchParams)
+      }),
+      frameType: FrameType.ConversationDetailV3,
+      signal: controller.signal
+    }))
+    expect(queryToString(mockBinary.mock.calls[0][0].binaryRoute?.query)).toBe('afterMessageId=456')
+  })
+
   it('uses binary admin message endpoints', async () => {
     await messageApi.adminGetConversations(50, 'closed', 'admin-cursor')
     await messageApi.adminGetConversationDetail(9, '321')
