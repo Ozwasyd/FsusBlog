@@ -10,6 +10,8 @@ using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
+using Npgsql;
+
 using NSubstitute;
 
 using SqlSugar;
@@ -315,6 +317,157 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Assert.Equal(0, report.MissingStateCount);
         Assert.Equal(0, report.MismatchedUnreadCount);
         Assert.Equal(0, report.InvalidReadCursorCount);
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task AdminReply_WaitsForConcurrentCloseAndRequiresExplicitReopen()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            setup,
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState));
+        IUnifiedCache cache = CreatePermissiveUnifiedCache();
+        IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
+        MessageCenterService setupService = CreateService(setup, cache, notifications);
+        Result<ConversationDetailResponse> created = await setupService.CreateAccountTicketAsync(42, "close barrier", "first");
+        Assert.True(created.IsSuccess, created.Error.Message);
+        long conversationId = long.Parse(created.Value!.ConversationId);
+        notifications.ClearReceivedCalls();
+
+        await using var closeConnection = new NpgsqlConnection(connectionString);
+        await closeConnection.OpenAsync();
+        await using NpgsqlTransaction closeTransaction = await closeConnection.BeginTransactionAsync();
+        await using (var closeCommand = new NpgsqlCommand(
+            "UPDATE msg_conversation SET status = @status, updatedat = @now WHERE id = @id;",
+            closeConnection,
+            closeTransaction))
+        {
+            closeCommand.Parameters.AddWithValue("status", (int)ConversationStatus.Closed);
+            closeCommand.Parameters.AddWithValue("now", DateTime.UtcNow);
+            closeCommand.Parameters.AddWithValue("id", conversationId);
+            Assert.Equal(1, await closeCommand.ExecuteNonQueryAsync());
+        }
+
+        using SqlSugarClient replyDb = PostgresSqlSugarTestClient.Create(connectionString);
+        MessageCenterService replyService = CreateService(replyDb, cache, notifications);
+        Task<Result<ConversationMessageResponse>> blockedReply = replyService.ReplyAsAdminAsync(
+            conversationId,
+            "must not cross close",
+            new AdminMessageActor(7, "admin-session-7"));
+        await closeTransaction.CommitAsync();
+
+        Result<ConversationMessageResponse> closed = await blockedReply;
+        Assert.False(closed.IsSuccess);
+        Assert.Equal(ErrorCode.Conflict, closed.Error.Code);
+        Assert.Equal(1, await setup.Queryable<ConversationMessage>().CountAsync());
+        Assert.DoesNotContain(
+            notifications.ReceivedCalls(),
+            call => call.GetMethodInfo().Name == nameof(IMessageNotificationStreamPort.PublishToUserAsync));
+
+        Result reopened = await setupService.UpdateConversationStatusAsync(
+            conversationId,
+            ConversationStatusValue.Open,
+            new AdminMessageActor(7, "admin-session-7"));
+        Assert.True(reopened.IsSuccess, reopened.Error.Message);
+        Result<ConversationMessageResponse> accepted = await replyService.ReplyAsAdminAsync(
+            conversationId,
+            "accepted after reopen",
+            new AdminMessageActor(7, "admin-session-7"));
+        Assert.True(accepted.IsSuccess, accepted.Error.Message);
+        Assert.Equal(2, await setup.Queryable<ConversationMessage>().CountAsync());
+    }
+
+    [Fact]
+    public async Task AdminReply_RepeatedSubmissionCommitsDistinctMessagesWithoutUnreadDrift()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState));
+        MessageCenterService service = CreateService(
+            db,
+            CreatePermissiveUnifiedCache(),
+            Substitute.For<IMessageNotificationStreamPort>());
+        Result<ConversationDetailResponse> created = await service.CreateAccountTicketAsync(42, "repeat", "first");
+        Assert.True(created.IsSuccess, created.Error.Message);
+        long conversationId = long.Parse(created.Value!.ConversationId);
+
+        Result<ConversationMessageResponse> first = await service.ReplyAsAdminAsync(
+            conversationId,
+            "same request body",
+            new AdminMessageActor(7, "admin-session-7"));
+        Result<ConversationMessageResponse> second = await service.ReplyAsAdminAsync(
+            conversationId,
+            "same request body",
+            new AdminMessageActor(7, "admin-session-7"));
+
+        Assert.True(first.IsSuccess, first.Error.Message);
+        Assert.True(second.IsSuccess, second.Error.Message);
+        Assert.NotEqual(first.Value!.MessageId, second.Value!.MessageId);
+        Assert.Equal(3, await db.Queryable<ConversationMessage>().CountAsync());
+        ConversationParticipantState participant = Assert.IsType<ConversationParticipantState>(
+            await db.Queryable<ConversationParticipantState>()
+                .Where(state => state.ConversationId == conversationId && state.AccountId == 42)
+                .FirstAsync());
+        Assert.Equal(2, participant.UnreadCount);
+        AdminConversationQueueState adminQueue = Assert.IsType<AdminConversationQueueState>(
+            await db.Queryable<AdminConversationQueueState>().InSingleAsync(conversationId));
+        Assert.Equal(1, adminQueue.UnreadCount);
+    }
+
+    [Fact]
+    public async Task AccountReply_InfrastructureFailureRollsBackMessageActivityReadStateAndDelivery()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState));
+        IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
+        MessageCenterService service = CreateService(db, CreatePermissiveUnifiedCache(), notifications);
+        Result<ConversationDetailResponse> created = await service.CreateAccountTicketAsync(42, "rollback", "first");
+        Assert.True(created.IsSuccess, created.Error.Message);
+        long conversationId = long.Parse(created.Value!.ConversationId);
+        long readThroughMessageId = long.Parse(Assert.Single(created.Value.Messages).MessageId);
+        MessageConversation before = Assert.IsType<MessageConversation>(
+            await db.Queryable<MessageConversation>().InSingleAsync(conversationId));
+        ConversationParticipantState participantBefore = Assert.IsType<ConversationParticipantState>(
+            await db.Queryable<ConversationParticipantState>()
+                .Where(state => state.ConversationId == conversationId && state.AccountId == 42)
+                .FirstAsync());
+        notifications.ClearReceivedCalls();
+        await db.Ado.ExecuteCommandAsync("DROP TABLE msg_admin_queue_state;");
+
+        Result<ConversationMessageResponse> failed = await service.ReplyAsAccountAsync(
+            42,
+            conversationId,
+            readThroughMessageId,
+            "must roll back");
+
+        Assert.False(failed.IsSuccess);
+        Assert.Equal(ErrorCode.InfraFailure, failed.Error.Code);
+        Assert.Equal(1, await db.Queryable<ConversationMessage>().CountAsync());
+        MessageConversation after = Assert.IsType<MessageConversation>(
+            await db.Queryable<MessageConversation>().InSingleAsync(conversationId));
+        Assert.Equal(before.LastMessageAt, after.LastMessageAt);
+        Assert.Equal(before.UpdatedAt, after.UpdatedAt);
+        ConversationParticipantState participantAfter = Assert.IsType<ConversationParticipantState>(
+            await db.Queryable<ConversationParticipantState>()
+                .Where(state => state.ConversationId == conversationId && state.AccountId == 42)
+                .FirstAsync());
+        Assert.Equal(participantBefore.LastReadMessageId, participantAfter.LastReadMessageId);
+        Assert.Equal(participantBefore.UnreadCount, participantAfter.UnreadCount);
+        Assert.Empty(notifications.ReceivedCalls());
     }
 
     [Fact]

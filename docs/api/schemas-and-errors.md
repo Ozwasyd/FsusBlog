@@ -329,6 +329,11 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 admin 读取 `msg_admin_queue_state`；公共/账号 frame 不暴露 admin queue version、admin session
 或管理主体标识。admin queue 动态关闭时使用 `ApiError(251)` details
 `message_admin_queue_projection_disabled`。
+
+账号与 admin 回复在同一事务屏障内锁定会话、校验 status、插入消息、更新 activity/unread，
+并且只在提交成功后发布 delivery event。会话不存在返回 `404`；closed 或锁后状态冲突返回
+`409`；事务基础设施失败返回 `503`。动态关闭 `Messages:ReplyWritesEnabled` 时两个 reply
+端点固定返回 `503` + `message_reply_writes_disabled`，读取和显式重开仍可使用。
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |

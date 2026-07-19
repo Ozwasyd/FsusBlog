@@ -157,6 +157,16 @@ note 既不能作为读取目标，也不能推进或增加账号未读。旧 `C
 `503 message_read_cursor_disabled`；详情和列表继续可读。降级不得恢复无 body
 mark-read、事务时点 `MAX(id)` 或“账号回复即读完当前数据库”的旧语义。
 
+账号与 admin 回复共用一条 PostgreSQL 事务写内核。事务先以 `FOR UPDATE` 锁定会话并
+重新校验状态；`closed` 会话固定拒绝回复，只有显式状态变更回到 `open/pending` 后才能
+继续。消息插入、会话 activity、对侧 unread 投影和本次 delivery event 必须全部成功才
+提交；delivery event 仅在事务提交后发布，回滚时不得向 notification stream 暴露幽灵消息。
+回复不以 PostgreSQL `xmin` 作为前置条件；状态锁与预期状态更新冲突返回 `409`。
+
+reload-capable `Messages:ReplyWritesEnabled=false` 可在不重启进程的情况下同时暂停账号与
+admin 回复，固定返回 `503 message_reply_writes_disabled`。列表、详情、状态变更和显式重开
+仍可用；恢复前应处理数据库故障并核验投影一致性，不得降级为非事务写入。
+
 详情分页可通过 reload-capable `Messages:ThreadPaginationEnabled=false` 在不重启进程的
 情况下暂停账号与 admin 详情读取，并返回固定 `503 message_thread_pagination_disabled`。
 该降级只阻止详情读取，不恢复全量查询、浏览器本地假分页或文本 API fallback。

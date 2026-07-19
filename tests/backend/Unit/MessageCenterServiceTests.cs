@@ -177,6 +177,8 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("message_thread_pagination_disabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("Messages:AdminQueueProjectionEnabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("message_admin_queue_projection_disabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("Messages:ReplyWritesEnabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("message_reply_writes_disabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("beforeMessageId", endpoints, StringComparison.Ordinal);
         Assert.Contains("ConversationDetailV3", endpoints, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", endpoints, StringComparison.Ordinal);
@@ -348,16 +350,17 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
-    public void ReplyAsAccountAsync_RuntimeUsesTransactionalClosedConversationWriteBarrier()
+    public void AccountAndAdminReplies_ReuseTransactionalClosedConversationWriteBarrier()
     {
-        string method = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+        string writeKernel = RuntimeMetadataInspection.DescribeMethods(
             typeof(MessageCenterService),
-            "LoadReplyLocksForUpdateAsync",
-            "AdvanceParticipantReadThroughAsync");
-        string combinedLock = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            "WriteReplyAsync");
+        string account = RuntimeMetadataInspection.DescribeMethods(
             typeof(MessageCenterService),
-            "WITH locked_conversation AS",
-            "locked_participant AS");
+            nameof(MessageCenterService.ReplyAsAccountAsync));
+        string admin = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            nameof(MessageCenterService.ReplyAsAdminAsync));
         string conversationLock = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
             typeof(MessageCenterService),
             "FROM msg_conversation",
@@ -371,34 +374,40 @@ public sealed class MessageCenterServiceTests
             "lastreadmessageid = @ReadThroughMessageId",
             "message.isinternalnote = false");
 
-        Assert.Contains("LoadReplyLocksForUpdateAsync", method, StringComparison.Ordinal);
-        Assert.Contains("AdvanceParticipantReadThroughAsync", method, StringComparison.Ordinal);
-        Assert.Contains("locked_conversation AS", combinedLock, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("locked_participant AS", combinedLock, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("WriteReplyAsync", account, StringComparison.Ordinal);
+        Assert.Contains("WriteReplyAsync", admin, StringComparison.Ordinal);
+        Assert.Contains("LoadReplyConversationForUpdateAsync", writeKernel, StringComparison.Ordinal);
+        Assert.Contains("LoadReplyParticipantForUpdateAsync", writeKernel, StringComparison.Ordinal);
+        Assert.Contains("AdvanceParticipantReadThroughAsync", writeKernel, StringComparison.Ordinal);
+        Assert.Contains("UseTranAsync", writeKernel, StringComparison.Ordinal);
         Assert.Contains("FOR UPDATE", conversationLock, StringComparison.Ordinal);
         Assert.Contains("FOR UPDATE", participantLock, StringComparison.Ordinal);
-        Assert.Contains("status <> @ClosedStatus", RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("status = @ExpectedStatus", writeKernel, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("xmin", writeKernel, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("lastreadmessageid = @ReadThroughMessageId", participantUpdate, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("message.isinternalnote = false", participantUpdate, StringComparison.OrdinalIgnoreCase);
-        Type readOutcome = typeof(MessageCenterService).GetNestedType("ReadAdvanceOutcome", BindingFlags.NonPublic)!;
-        Assert.Contains("Forbidden", Enum.GetNames(readOutcome));
-        Assert.Contains("Closed", Enum.GetNames(readOutcome));
-        Assert.Contains("TargetNotVisible", Enum.GetNames(readOutcome));
-        Assert.Contains("CursorRegression", Enum.GetNames(readOutcome));
+        Type replyOutcome = typeof(MessageCenterService).GetNestedType("ReplyWriteStatus", BindingFlags.NonPublic)!;
+        Assert.Contains("NotFound", Enum.GetNames(replyOutcome));
+        Assert.Contains("Closed", Enum.GetNames(replyOutcome));
+        Assert.Contains("Conflict", Enum.GetNames(replyOutcome));
+        Assert.Contains("InfraFailure", Enum.GetNames(replyOutcome));
         string outcomeMap = RuntimeMetadataInspection.DescribeMethods(
             typeof(MessageCenterService),
-            "MapReplyAccountWriteOutcome");
+            "MapReplyWriteOutcome");
         Assert.Contains("已读位置不能后退", outcomeMap, StringComparison.Ordinal);
         Assert.Contains("已读位置不属于可见会话消息", outcomeMap, StringComparison.Ordinal);
+        Assert.Contains("会话已关闭", outcomeMap, StringComparison.Ordinal);
+        Assert.Contains("回复写入失败", outcomeMap, StringComparison.Ordinal);
+        Assert.Contains("ReplyDeliveryEvent", RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)), StringComparison.Ordinal);
 
         IReadOnlyList<string> writeOrder = RuntimeMetadataInspection.DescribeDeclaredMemberReferencesInOrderContaining(
             typeof(MessageCenterService),
-            "LoadReplyLocksForUpdateAsync",
+            "LoadReplyConversationForUpdateAsync",
             "Insertable");
         Assert.True(
-            FindReference(writeOrder, "LoadReplyLocksForUpdateAsync") <
+            FindReference(writeOrder, "LoadReplyConversationForUpdateAsync") <
             FindReference(writeOrder, "Insertable"),
-            "The locked conversation recheck must run before inserting the account reply.");
+            "The locked conversation recheck must run before inserting either reply kind.");
     }
 
     [Fact]
@@ -471,7 +480,7 @@ public sealed class MessageCenterServiceTests
             nameof(MessageCenterService.GetAdminConversationsAsync));
         string reply = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
             typeof(MessageCenterService),
-            "LoadReplyLocksForUpdateAsync",
+            "LoadReplyConversationForUpdateAsync",
             "AdvanceParticipantReadThroughAsync");
         string lastMessageMap = RuntimeMetadataInspection.DescribeMethods(
             typeof(MessageCenterService),
@@ -493,9 +502,9 @@ public sealed class MessageCenterServiceTests
         Assert.DoesNotContain("SqlFunc.AggregateMax", lastMessageMap, StringComparison.Ordinal);
         Assert.DoesNotContain("Enumerable.Contains", lastMessageMap, StringComparison.Ordinal);
 
-        Assert.Contains("LoadReplyLocksForUpdateAsync", reply, StringComparison.Ordinal);
-        Assert.Contains("WITH locked_conversation AS", RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)), StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("locked_participant AS", RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("LoadReplyConversationForUpdateAsync", reply, StringComparison.Ordinal);
+        Assert.Contains("LoadReplyParticipantForUpdateAsync", reply, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("List.Sort", mapMessages, StringComparison.Ordinal);
 
         Assert.Contains("RecordMessageCenterList", accountList, StringComparison.Ordinal);

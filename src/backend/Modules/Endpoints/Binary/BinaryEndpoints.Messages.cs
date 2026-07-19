@@ -129,6 +129,14 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            if (!IsMessageReplyWritesEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_reply_writes_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
             if (!IsPreciseMessageReadCursorEnabled(configuration))
             {
                 return BinaryResults.FromError(
@@ -269,9 +277,18 @@ public static partial class BinaryEndpoints
             long id,
             HttpContext httpContext,
             IMessageCommandService command,
+            IConfiguration configuration,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            if (!IsMessageReplyWritesEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_reply_writes_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
             if (!TryResolveAdminMessageActor(httpContext, out AdminMessageActor adminActor))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
@@ -386,4 +403,7 @@ public static partial class BinaryEndpoints
 
     private static bool IsAdminQueueProjectionEnabled(IConfiguration configuration)
         => configuration.GetValue<bool?>("Messages:AdminQueueProjectionEnabled") ?? true;
+
+    private static bool IsMessageReplyWritesEnabled(IConfiguration configuration)
+        => configuration.GetValue<bool?>("Messages:ReplyWritesEnabled") ?? true;
 }

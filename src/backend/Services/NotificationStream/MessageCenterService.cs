@@ -489,73 +489,20 @@ public sealed class MessageCenterService(
             return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, "内容不能为空");
         }
 
-        long messageId = SnowFlakeSingle.Instance.NextId();
-        DateTime now = DateTime.UtcNow;
-        ReplyAccountWriteOutcome writeOutcome = ReplyAccountWriteOutcome.NotFound;
-        var tran = await db.Ado.UseTranAsync(async () =>
+        ReplyWriteOutcome writeOutcome = await WriteReplyAsync(new ReplyWriteCommand(
+            conversationId,
+            normalizedBody,
+            MessageSenderType.Account,
+            accountId,
+            null,
+            null,
+            readThroughMessageId));
+        if (writeOutcome.Status != ReplyWriteStatus.Succeeded)
         {
-            ReplyLocks? locks = await LoadReplyLocksForUpdateAsync(conversationId, accountId);
-            ReplyConversationLock? conversation = locks?.Conversation;
-            if (conversation is null)
-            {
-                writeOutcome = ReplyAccountWriteOutcome.NotFound;
-                return;
-            }
-
-            if (conversation.Status == ConversationStatus.Closed)
-            {
-                writeOutcome = ReplyAccountWriteOutcome.Closed;
-                return;
-            }
-
-            ReplyParticipantLock? participant = locks?.Participant;
-            if (participant is null)
-            {
-                writeOutcome = ReplyAccountWriteOutcome.Forbidden;
-                return;
-            }
-
-            ReadAdvanceResult readAdvance = await AdvanceParticipantReadThroughAsync(participant, readThroughMessageId, now);
-            if (readAdvance.Outcome != ReadAdvanceOutcome.Accepted)
-            {
-                writeOutcome = readAdvance.Outcome == ReadAdvanceOutcome.CursorRegression
-                    ? ReplyAccountWriteOutcome.CursorRegression
-                    : ReplyAccountWriteOutcome.ReadTargetNotVisible;
-                return;
-            }
-
-            bool conversationUpdated = await TryUpdateReplyConversationActivityAsync(conversationId, now);
-            if (!conversationUpdated)
-            {
-                writeOutcome = ReplyAccountWriteOutcome.Closed;
-                return;
-            }
-
-            await db.Insertable(new ConversationMessage
-            {
-                Id = messageId,
-                ConversationId = conversationId,
-                SenderType = MessageSenderType.Account,
-                SenderAccountId = accountId,
-                Body = normalizedBody,
-                CreatedAt = now
-            }).ExecuteCommandAsync();
-
-            await IncrementAdminQueueUnreadAsync(conversationId, now);
-
-            writeOutcome = new ReplyAccountWriteOutcome(ReadAdvanceOutcome.Accepted, readAdvance.UnreadCount);
-        });
-
-        if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-reply-account"))
-        {
-            return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
-        }
-        if (writeOutcome.Outcome != ReadAdvanceOutcome.Accepted)
-        {
-            return MapReplyAccountWriteOutcome(writeOutcome);
+            return MapReplyWriteOutcome(writeOutcome);
         }
 
-        var message = await BuildMessageResponseAsync(conversationId, messageId);
+        var message = await BuildMessageResponseAsync(conversationId, writeOutcome.DeliveryEvent.MessageId);
         if (message is null)
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
@@ -570,52 +517,135 @@ public sealed class MessageCenterService(
         return Result<ConversationMessageResponse>.Success(message);
     }
 
-    private async Task<ReplyLocks?> LoadReplyLocksForUpdateAsync(long conversationId, int accountId)
+    private async Task<ReplyWriteOutcome> WriteReplyAsync(ReplyWriteCommand command)
     {
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            """
-            WITH locked_conversation AS (
-                SELECT id,
-                       status
-                FROM msg_conversation
-                WHERE id = @ConversationId
-                FOR UPDATE
-            ),
-            locked_participant AS (
-                SELECT conversationid,
-                       accountid,
-                       lastreadmessageid
-                FROM msg_participant_state
-                WHERE conversationid = @ConversationId
-                  AND accountid = @AccountId
-                FOR UPDATE
-            )
-            SELECT c.id,
-                   c.status,
-                   p.conversationid,
-                   p.accountid,
-                   p.lastreadmessageid
-            FROM locked_conversation c
-            LEFT JOIN locked_participant p ON true;
-            """,
-            new SugarParameter("@ConversationId", conversationId),
-            new SugarParameter("@AccountId", accountId));
-        if (!await reader.ReadAsync())
+        DateTime now = DateTime.UtcNow;
+        long messageId = SnowFlakeSingle.Instance.NextId();
+        ReplyWriteOutcome outcome = ReplyWriteOutcome.NotFound;
+        var transaction = await db.Ado.UseTranAsync(async () =>
         {
-            return null;
+            ReplyConversationLock? conversation = await LoadReplyConversationForUpdateAsync(command.ConversationId);
+            if (conversation is null)
+            {
+                outcome = ReplyWriteOutcome.NotFound;
+                return;
+            }
+
+            if (conversation.Status == ConversationStatus.Closed)
+            {
+                outcome = ReplyWriteOutcome.Closed;
+                return;
+            }
+
+            int unreadCount = 0;
+            if (command.SenderType == MessageSenderType.Account)
+            {
+                ReplyParticipantLock? participant = await LoadReplyParticipantForUpdateAsync(
+                    command.ConversationId,
+                    command.SenderAccountId!.Value);
+                if (participant is null)
+                {
+                    outcome = ReplyWriteOutcome.Forbidden;
+                    return;
+                }
+
+                ReadAdvanceResult readAdvance = await AdvanceParticipantReadThroughAsync(
+                    participant,
+                    command.ReadThroughMessageId!.Value,
+                    now);
+                if (readAdvance.Outcome != ReadAdvanceOutcome.Accepted)
+                {
+                    outcome = readAdvance.Outcome == ReadAdvanceOutcome.CursorRegression
+                        ? ReplyWriteOutcome.CursorRegression
+                        : ReplyWriteOutcome.ReadTargetNotVisible;
+                    return;
+                }
+
+                unreadCount = readAdvance.UnreadCount;
+            }
+
+            await db.Insertable(new ConversationMessage
+            {
+                Id = messageId,
+                ConversationId = command.ConversationId,
+                SenderType = command.SenderType,
+                SenderAccountId = command.SenderAccountId,
+                SenderAdminPrincipalId = command.SenderAdminPrincipalId,
+                SenderAdminSessionId = command.SenderAdminSessionId,
+                Body = command.Body,
+                CreatedAt = now
+            }).ExecuteCommandAsync();
+
+            int conversationUpdated = await db.Ado.ExecuteCommandAsync(
+                """
+                UPDATE msg_conversation
+                SET updatedat = @Now,
+                    lastmessageat = @Now
+                WHERE id = @ConversationId
+                  AND status = @ExpectedStatus;
+                """,
+                new SugarParameter("@ConversationId", command.ConversationId),
+                new SugarParameter("@ExpectedStatus", (int)conversation.Status),
+                new SugarParameter("@Now", now));
+            if (conversationUpdated != 1)
+            {
+                throw new ReplyWriteConflictException();
+            }
+
+            if (command.SenderType == MessageSenderType.Account)
+            {
+                await IncrementAdminQueueUnreadAsync(command.ConversationId, now);
+            }
+            else
+            {
+                await EnsureAdminQueueStateAsync(command.ConversationId, now);
+                await RefreshParticipantsUnreadAfterAdminReplyAsync(command.ConversationId, now);
+            }
+
+            outcome = ReplyWriteOutcome.Succeeded(
+                unreadCount,
+                new ReplyDeliveryEvent(command.ConversationId, messageId, command.SenderType, now));
+        });
+
+        if (transaction.IsSuccess)
+        {
+            return outcome;
         }
 
-        var conversation = new ReplyConversationLock(
-            reader.ReadInt64("id"),
-            (ConversationStatus)reader.ReadInt32("status"));
-        ReplyParticipantLock? participant = reader.IsNull("conversationid")
-            ? null
-            : new ReplyParticipantLock(
-                reader.ReadInt64("conversationid"),
-                reader.ReadInt32("accountid"),
-                reader.IsNull("lastreadmessageid") ? null : reader.ReadInt64("lastreadmessageid"));
-        return new ReplyLocks(conversation, participant);
+        if (transaction.ErrorException is ReplyWriteConflictException)
+        {
+            return ReplyWriteOutcome.Conflict;
+        }
+
+        logger.LogError(
+            transaction.ErrorException,
+            "Message reply transaction failed. ConversationId: {ConversationId} | SenderType: {SenderType}",
+            command.ConversationId,
+            command.SenderType);
+        return ReplyWriteOutcome.InfraFailure;
     }
+
+    private Task<int> RefreshParticipantsUnreadAfterAdminReplyAsync(long conversationId, DateTime now)
+        => db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE msg_participant_state state
+            SET unreadcount = (
+                    SELECT COUNT(*)::integer
+                    FROM msg_message message
+                    WHERE message.conversationid = state.conversationid
+                      AND message.id > COALESCE(state.lastreadmessageid, 0)
+                      AND message.isinternalnote = false
+                      AND NOT (
+                          message.sendertype = @AccountSenderType
+                          AND message.senderaccountid = state.accountid
+                      )
+                ),
+                updatedat = @Now
+            WHERE state.conversationid = @ConversationId;
+            """,
+            new SugarParameter("@ConversationId", conversationId),
+            new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
+            new SugarParameter("@Now", now));
 
     private async Task<ReplyConversationLock?> LoadReplyConversationForUpdateAsync(long conversationId)
     {
@@ -661,22 +691,6 @@ public sealed class MessageCenterService(
             reader.ReadInt64("conversationid"),
             reader.ReadInt32("accountid"),
             reader.IsNull("lastreadmessageid") ? null : reader.ReadInt64("lastreadmessageid"));
-    }
-
-    private async Task<bool> TryUpdateReplyConversationActivityAsync(long conversationId, DateTime now)
-    {
-        int updated = await db.Ado.ExecuteCommandAsync(
-            """
-            UPDATE msg_conversation
-            SET updatedat = @Now,
-                lastmessageat = @Now
-            WHERE id = @ConversationId
-              AND status <> @ClosedStatus;
-            """,
-            new SugarParameter("@ConversationId", conversationId),
-            new SugarParameter("@Now", now),
-            new SugarParameter("@ClosedStatus", (int)ConversationStatus.Closed));
-        return updated > 0;
     }
 
     private async Task<ReadAdvanceResult> AdvanceParticipantReadThroughAsync(
@@ -734,13 +748,15 @@ public sealed class MessageCenterService(
         return new ReadAdvanceResult(ReadAdvanceOutcome.Accepted, reader.ReadInt32("unreadcount"));
     }
 
-    private static Result<ConversationMessageResponse> MapReplyAccountWriteOutcome(ReplyAccountWriteOutcome outcome)
-        => outcome.Outcome switch
+    private static Result<ConversationMessageResponse> MapReplyWriteOutcome(ReplyWriteOutcome outcome)
+        => outcome.Status switch
         {
-            ReadAdvanceOutcome.Forbidden => Result<ConversationMessageResponse>.Failure(ErrorCode.Forbidden, "无权访问该会话"),
-            ReadAdvanceOutcome.Closed => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "会话已关闭"),
-            ReadAdvanceOutcome.CursorRegression => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "已读位置不能后退"),
-            ReadAdvanceOutcome.TargetNotVisible => Result<ConversationMessageResponse>.Failure(ErrorCode.NotFound, "已读位置不属于可见会话消息"),
+            ReplyWriteStatus.Forbidden => Result<ConversationMessageResponse>.Failure(ErrorCode.Forbidden, "无权访问该会话"),
+            ReplyWriteStatus.Closed => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "会话已关闭"),
+            ReplyWriteStatus.Conflict => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "会话状态冲突"),
+            ReplyWriteStatus.CursorRegression => Result<ConversationMessageResponse>.Failure(ErrorCode.Conflict, "已读位置不能后退"),
+            ReplyWriteStatus.ReadTargetNotVisible => Result<ConversationMessageResponse>.Failure(ErrorCode.NotFound, "已读位置不属于可见会话消息"),
+            ReplyWriteStatus.InfraFailure => Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败"),
             _ => Result<ConversationMessageResponse>.Failure(ErrorCode.NotFound, "会话不存在")
         };
 
@@ -756,20 +772,56 @@ public sealed class MessageCenterService(
 
     private readonly record struct ReadAdvanceResult(ReadAdvanceOutcome Outcome, int UnreadCount);
 
-    private readonly record struct ReplyAccountWriteOutcome(ReadAdvanceOutcome Outcome, int UnreadCount)
+    private enum ReplyWriteStatus
     {
-        public static ReplyAccountWriteOutcome NotFound => new(ReadAdvanceOutcome.NotFound, 0);
-        public static ReplyAccountWriteOutcome Forbidden => new(ReadAdvanceOutcome.Forbidden, 0);
-        public static ReplyAccountWriteOutcome Closed => new(ReadAdvanceOutcome.Closed, 0);
-        public static ReplyAccountWriteOutcome ReadTargetNotVisible => new(ReadAdvanceOutcome.TargetNotVisible, 0);
-        public static ReplyAccountWriteOutcome CursorRegression => new(ReadAdvanceOutcome.CursorRegression, 0);
+        NotFound,
+        Forbidden,
+        Closed,
+        Conflict,
+        CursorRegression,
+        ReadTargetNotVisible,
+        InfraFailure,
+        Succeeded
+    }
+
+    private readonly record struct ReplyWriteCommand(
+        long ConversationId,
+        string Body,
+        MessageSenderType SenderType,
+        int? SenderAccountId,
+        long? SenderAdminPrincipalId,
+        string? SenderAdminSessionId,
+        long? ReadThroughMessageId);
+
+    private readonly record struct ReplyDeliveryEvent(
+        long ConversationId,
+        long MessageId,
+        MessageSenderType SenderType,
+        DateTime CreatedAt);
+
+    private readonly record struct ReplyWriteOutcome(
+        ReplyWriteStatus Status,
+        int UnreadCount,
+        ReplyDeliveryEvent DeliveryEvent)
+    {
+        public static ReplyWriteOutcome NotFound => new(ReplyWriteStatus.NotFound, 0, default);
+        public static ReplyWriteOutcome Forbidden => new(ReplyWriteStatus.Forbidden, 0, default);
+        public static ReplyWriteOutcome Closed => new(ReplyWriteStatus.Closed, 0, default);
+        public static ReplyWriteOutcome Conflict => new(ReplyWriteStatus.Conflict, 0, default);
+        public static ReplyWriteOutcome CursorRegression => new(ReplyWriteStatus.CursorRegression, 0, default);
+        public static ReplyWriteOutcome ReadTargetNotVisible => new(ReplyWriteStatus.ReadTargetNotVisible, 0, default);
+        public static ReplyWriteOutcome InfraFailure => new(ReplyWriteStatus.InfraFailure, 0, default);
+        public static ReplyWriteOutcome Succeeded(int unreadCount, ReplyDeliveryEvent deliveryEvent)
+            => new(ReplyWriteStatus.Succeeded, unreadCount, deliveryEvent);
+    }
+
+    private sealed class ReplyWriteConflictException : Exception
+    {
     }
 
     private sealed record ReplyConversationLock(long Id, ConversationStatus Status);
 
     private sealed record ReplyParticipantLock(long ConversationId, int AccountId, long? LastReadMessageId);
-
-    private sealed record ReplyLocks(ReplyConversationLock Conversation, ReplyParticipantLock? Participant);
 
     public async Task<Result> MarkConversationReadAsync(int accountId, long conversationId, long readThroughMessageId)
     {
@@ -814,68 +866,26 @@ public sealed class MessageCenterService(
 
     public async Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, AdminMessageActor adminActor)
     {
-        var conversation = await db.Queryable<MessageConversation>().InSingleAsync(conversationId);
-        if (conversation is null)
-        {
-            return Result<ConversationMessageResponse>.Failure(ErrorCode.NotFound, "会话不存在");
-        }
-
         string normalizedBody = NormalizeBody(body);
         if (normalizedBody.Length == 0)
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.Validation, "内容不能为空");
         }
 
-        long messageId = SnowFlakeSingle.Instance.NextId();
-        DateTime now = DateTime.UtcNow;
-        var tran = await db.Ado.UseTranAsync(async () =>
+        ReplyWriteOutcome writeOutcome = await WriteReplyAsync(new ReplyWriteCommand(
+            conversationId,
+            normalizedBody,
+            MessageSenderType.Admin,
+            null,
+            adminActor.AdminPrincipalId,
+            adminActor.AdminSessionId,
+            null));
+        if (writeOutcome.Status != ReplyWriteStatus.Succeeded)
         {
-            await db.Insertable(new ConversationMessage
-            {
-                Id = messageId,
-                ConversationId = conversationId,
-                SenderType = MessageSenderType.Admin,
-                SenderAdminPrincipalId = adminActor.AdminPrincipalId,
-                SenderAdminSessionId = adminActor.AdminSessionId,
-                Body = normalizedBody,
-                CreatedAt = now
-            }).ExecuteCommandAsync();
-
-            await EnsureAdminQueueStateAsync(conversationId, now);
-
-            await db.Updateable<MessageConversation>()
-                .SetColumns(it => new MessageConversation { UpdatedAt = now, LastMessageAt = now })
-                .Where(it => it.Id == conversationId)
-                .ExecuteCommandAsync();
-
-            await db.Ado.ExecuteCommandAsync(
-                """
-                UPDATE msg_participant_state state
-                SET unreadcount = (
-                        SELECT COUNT(*)::integer
-                        FROM msg_message message
-                        WHERE message.conversationid = state.conversationid
-                          AND message.id > COALESCE(state.lastreadmessageid, 0)
-                          AND message.isinternalnote = false
-                          AND NOT (
-                              message.sendertype = @AccountSenderType
-                              AND message.senderaccountid = state.accountid
-                          )
-                    ),
-                    updatedat = @Now
-                WHERE state.conversationid = @ConversationId;
-                """,
-                new SugarParameter("@ConversationId", conversationId),
-                new SugarParameter("@AccountSenderType", (int)MessageSenderType.Account),
-                new SugarParameter("@Now", now));
-        });
-
-        if (!TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "message-center-reply-admin"))
-        {
-            return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
+            return MapReplyWriteOutcome(writeOutcome);
         }
 
-        var message = await BuildMessageResponseAsync(conversationId, messageId);
+        var message = await BuildMessageResponseAsync(conversationId, writeOutcome.DeliveryEvent.MessageId);
         if (message is null)
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");

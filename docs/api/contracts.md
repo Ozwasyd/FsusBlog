@@ -1052,6 +1052,17 @@ conversation 保存 `lastReadMessageId/unreadCount/lastReadAt/version`：账号�
 账号 mark-read/reply 返回 `503 message_read_cursor_disabled`，保留详情/list/admin
 读取；不得以旧无游标 request、当前 `MAX(id)` 或 JSON/text fallback 降级。
 
+账号与 admin 回复复用同一事务状态屏障：先锁定 `msg_conversation` 并在锁内重新校验
+status，`closed` 返回 `409`，只能由独立 status mutation 显式重开；随后在同一事务内写入
+`msg_message`、推进 `lastMessageAt/updatedAt`、更新对侧 unread 投影并形成 delivery event。
+任一阶段失败都回滚，事件只允许在提交成功后投递 notification stream。回复状态前置条件
+不使用 `xmin`；会话不存在返回 `404`，锁后状态冲突返回 `409`，基础设施失败返回 `503`。
+重复提交在 idempotency 契约落地前仍是两条独立消息，但每次事务的 unread/activity 必须一致。
+
+`Messages:ReplyWritesEnabled=false` 可通过配置 reload 同时让账号与 admin reply 端点返回
+`503 message_reply_writes_disabled`，无需重启；它不关闭读取、status mutation 或显式重开，
+也不允许回退为拆分事务或先通知后提交。
+
 ---
 
 ## 通知 WebSocket 契约
