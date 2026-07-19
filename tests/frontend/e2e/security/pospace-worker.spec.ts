@@ -1,28 +1,18 @@
 import { expect, test } from '@playwright/test'
 import { DESKTOP_VIEWPORT, MOBILE_VIEWPORT } from '../../support/playwright/acceptance-shared'
+import vector from '../../../fixtures/security/pospace-v1-vector.json' with { type: 'json' }
 
 const providerPayload = {
-  algorithm: 'fsu.pospace/argon2id@v1',
-  saltHex: '000102030405060708090a0b0c0d0e0f',
-  memoryKib: '1024',
-  iterations: '1',
-  lanes: '1',
-  targetDurationMs: '100'
+  ...vector.providerPayload
 }
 
 const mobileHeavyPayload = {
   ...providerPayload,
-  memoryKib: '16384'
+  memoryKib: '19456'
 }
 
 const assignment = {
-  challengeId: '01900000-0000-7000-8000-000000000000',
-  action: 'auth.login',
-  routeKey: 'auth.login',
-  subjectHash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-  clientIpHash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-  deviceFpHash: 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
-  policyVersion: 'risk-policy-v2'
+  ...vector.assignment
 }
 
 test.describe('Argon2idPoSpaceV1 worker harness', () => {
@@ -30,7 +20,7 @@ test.describe('Argon2idPoSpaceV1 worker harness', () => {
 
   test('solves inside a worker without blocking the page tick loop', async ({ page }) => {
     await page.goto('/login', { waitUntil: 'domcontentloaded' })
-    const result = await page.evaluate(async ({ payload, assignment }) => {
+    const result = await page.evaluate(async ({ payload, assignment, vector }) => {
       const modulePath = '/src/services/securityPoSpaceClient.ts'
       const { createPoSpaceWorkerClient } = await import(/* @vite-ignore */ modulePath)
       const client = createPoSpaceWorkerClient(30_000)
@@ -41,7 +31,7 @@ test.describe('Argon2idPoSpaceV1 worker harness', () => {
 
       try {
         const solved = await client.solve(assignment, payload, {
-          nonceHex: '00112233445566778899aabbccddeeff',
+          nonceHex: vector.nonceHex,
           hints: {
             hardwareConcurrency: 4,
             deviceMemoryGb: 8,
@@ -57,13 +47,13 @@ test.describe('Argon2idPoSpaceV1 worker harness', () => {
         window.clearInterval(interval)
         client.dispose()
       }
-    }, { payload: providerPayload, assignment })
+    }, { payload: providerPayload, assignment, vector })
 
     expect(result.solved.ok).toBe(true)
     expect(result.ticks).toBeGreaterThan(0)
     if (result.solved.ok) {
-      expect(result.solved.proofHex).toMatch(/^[0-9a-f]{64}$/)
-      expect(result.solved.nonceHex).toBe('00112233445566778899aabbccddeeff')
+      expect(result.solved.proofHex).toBe(vector.expectedProofHex)
+      expect(result.solved.nonceHex).toBe(vector.nonceHex)
     }
   })
 })
@@ -73,13 +63,13 @@ test.describe('Argon2idPoSpaceV1 mobile and failure gates', () => {
 
   test('returns unsupported for mobile memory cap, forced slow device, and worker failure', async ({ page }) => {
     await page.goto('/login', { waitUntil: 'domcontentloaded' })
-    const result = await page.evaluate(async ({ heavyPayload, payload, assignment }) => {
+    const result = await page.evaluate(async ({ heavyPayload, payload, assignment, nonceHex }) => {
       const modulePath = '/src/services/securityPoSpaceClient.ts'
       const { createPoSpaceWorkerClient } = await import(/* @vite-ignore */ modulePath)
       const client = createPoSpaceWorkerClient(30_000)
       try {
         const mobileCap = await client.solve(assignment, heavyPayload, {
-          nonceHex: '00112233445566778899aabbccddeeff',
+          nonceHex,
           hints: {
             hardwareConcurrency: 6,
             deviceMemoryGb: 8,
@@ -87,7 +77,7 @@ test.describe('Argon2idPoSpaceV1 mobile and failure gates', () => {
           }
         })
         const slowDevice = await client.solve(assignment, payload, {
-          nonceHex: '00112233445566778899aabbccddeeff',
+          nonceHex,
           hints: {
             hardwareConcurrency: 4,
             deviceMemoryGb: 8,
@@ -108,7 +98,7 @@ test.describe('Argon2idPoSpaceV1 mobile and failure gates', () => {
       } finally {
         client.dispose()
       }
-    }, { heavyPayload: mobileHeavyPayload, payload: providerPayload, assignment })
+    }, { heavyPayload: mobileHeavyPayload, payload: providerPayload, assignment, nonceHex: vector.nonceHex })
 
     expect(result.mobileCap.ok).toBe(false)
     if (!result.mobileCap.ok) {

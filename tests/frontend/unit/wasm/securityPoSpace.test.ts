@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import vector from '../../../fixtures/security/pospace-v1-vector.json'
 import {
+  createPoSpaceUnsupportedReissueAttributes,
   createPoSpaceVerifyPayload,
   detectPoSpaceCapability,
   parsePoSpaceAssignment,
@@ -8,22 +10,11 @@ import {
 } from '@/services/securityPoSpaceRuntime'
 
 const providerPayload = {
-  algorithm: 'fsu.pospace/argon2id@v1',
-  saltHex: '000102030405060708090a0b0c0d0e0f',
-  memoryKib: '1024',
-  iterations: '1',
-  lanes: '1',
-  targetDurationMs: '100'
+  ...vector.providerPayload
 }
 
 const assignment = {
-  challengeId: '01900000-0000-7000-8000-000000000000',
-  action: 'auth.login',
-  routeKey: 'auth.login',
-  subjectHash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-  clientIpHash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-  deviceFpHash: 'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
-  policyVersion: 'risk-policy-v2'
+  ...vector.assignment
 }
 
 describe('Argon2idPoSpaceV1 frontend runtime', () => {
@@ -36,7 +27,7 @@ describe('Argon2idPoSpaceV1 frontend runtime', () => {
       userAgent: 'Mozilla/5.0 (X11; Linux x86_64)'
     })
 
-    expect(parsed.memoryKib).toBe(1024)
+    expect(parsed.memoryKib).toBe(19456)
     expect(capability).toMatchObject({
       supported: true,
       reason: 'supported',
@@ -48,7 +39,7 @@ describe('Argon2idPoSpaceV1 frontend runtime', () => {
   it('caps mobile memory and returns unsupported instead of attempting compute', () => {
     const parsed = parsePoSpacePayload({
       ...providerPayload,
-      memoryKib: '16384'
+      memoryKib: '19456'
     })
     const capability = detectPoSpaceCapability(parsed, {
       workerAvailable: true,
@@ -59,13 +50,24 @@ describe('Argon2idPoSpaceV1 frontend runtime', () => {
 
     expect(capability.supported).toBe(false)
     expect(capability.reason).toBe('mobile_memory_cap')
-    expect(capability.maxAllowedMemoryKib).toBe(8192)
+    expect(capability.maxAllowedMemoryKib).toBe(0)
+  })
+
+  it.each([
+    [{ workerAvailable: false, hardwareConcurrency: 4, deviceMemoryGb: 8 }, 'worker_unavailable', 65536],
+    [{ workerAvailable: true, hardwareConcurrency: 4, deviceMemoryGb: 2 }, 'memory_tier_cap', 0]
+  ] as const)('rejects fake capability %o with low-cardinality reason %s', (hints, reason, maxAllowedMemoryKib) => {
+    const capability = detectPoSpaceCapability(parsePoSpacePayload(providerPayload), hints)
+
+    expect(capability.supported).toBe(false)
+    expect(capability.reason).toBe(reason)
+    expect(capability.maxAllowedMemoryKib).toBe(maxAllowedMemoryKib)
   })
 
   it('derives deterministic Argon2id proof fields for a fixed nonce', async () => {
     const parsedPayload = parsePoSpacePayload(providerPayload)
     const parsedAssignment = parsePoSpaceAssignment(assignment)
-    const nonceHex = '00112233445566778899aabbccddeeff'
+    const nonceHex = vector.nonceHex
 
     const first = await solvePoSpaceProof(parsedAssignment, parsedPayload, {
       nonceHex,
@@ -84,14 +86,54 @@ describe('Argon2idPoSpaceV1 frontend runtime', () => {
     expect(second.ok).toBe(true)
     if (first.ok && second.ok) {
       expect(first.nonceHex).toBe(nonceHex)
-      expect(first.proofHex).toMatch(/^[0-9a-f]{64}$/)
+      expect(first.proofHex).toBe(vector.expectedProofHex)
       expect(second.proofHex).toBe(first.proofHex)
-      expect(createPoSpaceVerifyPayload(providerPayload, first.nonceHex, first.proofHex)).toMatchObject({
-        nonceHex,
-        proofHex: first.proofHex,
-        memoryKib: '1024'
-      })
+      expect(createPoSpaceVerifyPayload(providerPayload, first.nonceHex, first.proofHex))
+        .toEqual(vector.verifyPayload)
     }
+  })
+
+  it.each([
+    ['memoryKib', '19455'],
+    ['memoryKib', '65537'],
+    ['iterations', '1'],
+    ['iterations', '7'],
+    ['lanes', '0'],
+    ['lanes', '5'],
+    ['targetDurationMs', '99'],
+    ['targetDurationMs', '5001'],
+    ['memoryKib', '019456'],
+    ['iterations', '+2'],
+    ['lanes', '1.0'],
+    ['targetDurationMs', '-1'],
+    ['memoryKib', '9007199254740992']
+  ])('rejects non-canonical or out-of-range %s=%s without clamping', (field, value) => {
+    expect(() => parsePoSpacePayload({ ...providerPayload, [field]: value }))
+      .toThrow()
+  })
+
+  it('accepts the exact shared parameter boundaries', () => {
+    expect(parsePoSpacePayload({
+      ...providerPayload,
+      memoryKib: '65536',
+      iterations: '6',
+      lanes: '4',
+      targetDurationMs: '5000'
+    })).toMatchObject({ memoryKib: 65536, iterations: 6, lanes: 4, targetDurationMs: 5000 })
+  })
+
+  it('serializes a bounded low-cardinality unsupported reissue request', () => {
+    expect(createPoSpaceUnsupportedReissueAttributes(assignment, 'memory_tier_cap', 1)).toEqual({
+      unsupportedAssignment: {
+        challengeId: assignment.challengeId,
+        kind: 'argon2idPoSpaceV1',
+        action: assignment.action,
+        routeKey: assignment.routeKey,
+        reason: 'memory_tier_cap',
+        reissueCount: 1
+      }
+    })
+    expect(() => createPoSpaceUnsupportedReissueAttributes(assignment, 'slow_device', 3)).toThrow()
   })
 
   it('reports slow devices as unsupported with an explicit reason', async () => {

@@ -113,6 +113,52 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    public async Task IssueAsync_PoSpaceUnsupportedAttributes_UsesServerReissueDecisionOverBinaryContract()
+    {
+        var aeds = new AedsEncoder();
+        string originalChallengeId = SecurityChallengeContracts.CreateChallengeId();
+        string attributesJson = JsonSerializer.Serialize(new
+        {
+            unsupportedAssignment = new
+            {
+                challengeId = originalChallengeId,
+                kind = Argon2idPoSpaceV1ChallengeProvider.WireKind,
+                action = RiskActionNames.PublicRead,
+                routeKey = "article:42",
+                reason = "memory_tier_cap",
+                reissueCount = 1
+            }
+        });
+        var request = new SecurityChallengeIssueBinaryRequest(
+            RiskActionNames.PublicRead,
+            "article:42",
+            "device-123456",
+            attributesJson);
+        var context = CreateContext(
+            AedsFrameType.SecurityChallengeIssueRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeSecurityChallengeIssueRequest(request)));
+        var reissue = new FakePoSpaceUnsupportedReissueService();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleSecurityChallengeIssueAsync(
+            context,
+            aeds,
+            new FixedRiskScoreReader(50),
+            new FixedRiskPolicyProvider(CreatePolicy(Argon2idPoSpaceV1ChallengeProvider.WireKind)),
+            new RiskControlContextFactory(),
+            new RiskDecisionService(),
+            new FakeChallengeOrchestrator(),
+            new NullRiskSink(),
+            CancellationToken.None,
+            reissue);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeIssueResponse(decoded.Payload, out SecurityChallengeIssueBinaryResponse response));
+        Assert.Equal(SecurityChallengeDecisionKind.Allow, response.Decision);
+        Assert.Equal(originalChallengeId, reissue.LastRequest?.ChallengeId);
+        Assert.Equal("memory_tier_cap", reissue.LastRequest?.Reason);
+    }
+
+    [Fact]
     public async Task VerifyAsync_AcceptedProviderProof_ReturnsProofTokenFrame()
     {
         var aeds = new AedsEncoder();
@@ -624,6 +670,30 @@ public sealed class SecurityChallengeBinaryEndpointTests
     {
         public ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;
+    }
+
+    private sealed class FakePoSpaceUnsupportedReissueService : IPoSpaceUnsupportedReissueService
+    {
+        public PoSpaceUnsupportedReissueRequest? LastRequest
+        {
+            get; private set;
+        }
+
+        public Task<PoSpaceUnsupportedReissueResult> ReissueAsync(
+            PoSpaceUnsupportedReissueRequest request,
+            RiskDecision currentDecision,
+            SecurityRiskPolicySnapshotV2 currentPolicy,
+            CancellationToken cancellationToken = default)
+        {
+            LastRequest = request;
+            RiskDecision replacement = currentDecision with
+            {
+                Kind = RiskDecisionKind.Allow,
+                RequiredChallenges = [],
+                Reasons = [.. currentDecision.Reasons, "pospace_unsupported_current_policy"]
+            };
+            return Task.FromResult(PoSpaceUnsupportedReissueResult.Success(replacement, "pospace_unsupported_policy_changed"));
+        }
     }
 
     private sealed class CapturingRiskSink : ISecurityRiskSignalSink

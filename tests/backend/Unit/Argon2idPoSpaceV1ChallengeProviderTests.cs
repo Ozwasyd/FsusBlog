@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
@@ -7,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
 
 using Microsoft.AspNetCore.Http;
@@ -34,6 +36,12 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
             static item => item.ServiceType == typeof(ISecurityChallengeProvider)
                 && item.ImplementationType == typeof(Argon2idPoSpaceV1ChallengeProvider));
         Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
+        Assert.Contains(services, static item => item.ServiceType == typeof(IPoSpaceUnsupportedAssignmentStore)
+            && item.ImplementationType == typeof(SqlPoSpaceUnsupportedAssignmentStore)
+            && item.Lifetime == ServiceLifetime.Scoped);
+        Assert.Contains(services, static item => item.ServiceType == typeof(IPoSpaceUnsupportedReissueService)
+            && item.ImplementationType == typeof(PoSpaceUnsupportedReissueService)
+            && item.Lifetime == ServiceLifetime.Scoped);
     }
 
     [Fact]
@@ -102,6 +110,70 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     }
 
     [Fact]
+    public async Task IssueAsync_AcceptsExactMaximumParameters()
+    {
+        ProviderFixture fixture = CreateFixture(
+            SecuritySystemModes.Enforce,
+            memoryKib: 65_536,
+            iterations: 6,
+            lanes: 4,
+            targetDurationMs: 5_000);
+
+        SecurityChallengeProviderIssueResult result = await fixture.Provider.IssueAsync(CreateIssueRequest(), CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Reason);
+        Assert.Equal("65536", result.ProviderPayload["memoryKib"]);
+        Assert.Equal("6", result.ProviderPayload["iterations"]);
+        Assert.Equal("4", result.ProviderPayload["lanes"]);
+        Assert.Equal("5000", result.ProviderPayload["targetDurationMs"]);
+    }
+
+    [Theory]
+    [InlineData("MemoryKib", "019456")]
+    [InlineData("MemoryKib", "+19456")]
+    [InlineData("Iterations", "2.0")]
+    [InlineData("Lanes", " 1")]
+    [InlineData("TargetDurationMs", "NaN")]
+    [InlineData("TargetDurationMs", "2147483648")]
+    public async Task IssueAsync_RejectsNonCanonicalConfiguredDecimals(string key, string value)
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Security:PoSpaceV1:Mode"] = SecuritySystemModes.Enforce,
+                [$"Security:PoSpaceV1:{key}"] = value
+            })
+            .Build();
+        ProviderFixture fixture = CreateFixture(configuration);
+
+        SecurityChallengeProviderIssueResult result = await fixture.Provider.IssueAsync(CreateIssueRequest(), CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("pospace_parameters_invalid", result.Reason);
+        Assert.Empty(fixture.Persistence.Issues);
+    }
+
+    [Fact]
+    public async Task IssueAsync_MissingParameters_UsesLegalGeneratedDefaults()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Security:PoSpaceV1:Mode"] = SecuritySystemModes.Enforce
+            })
+            .Build();
+        ProviderFixture fixture = CreateFixture(configuration);
+
+        SecurityChallengeProviderIssueResult result = await fixture.Provider.IssueAsync(CreateIssueRequest(), CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.Reason);
+        Assert.Equal("19456", result.ProviderPayload["memoryKib"]);
+        Assert.Equal("2", result.ProviderPayload["iterations"]);
+        Assert.Equal("1", result.ProviderPayload["lanes"]);
+        Assert.Equal("750", result.ProviderPayload["targetDurationMs"]);
+    }
+
+    [Fact]
     public async Task IssueAsync_MobileUserAgentAboveMobileMemoryLimit_FailsClosed()
     {
         ProviderFixture fixture = CreateFixture(mode: SecuritySystemModes.Enforce, memoryKib: 19_456);
@@ -111,7 +183,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
-        Assert.Equal("pospace_mobile_memory_limit", result.Reason);
+        Assert.Equal("pospace_mobile_unsupported", result.Reason);
         Assert.Empty(fixture.Persistence.Issues);
     }
 
@@ -139,6 +211,51 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
         Assert.Equal(2, fixture.Persistence.Attempts.Count);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, fixture.Persistence.Attempts[0].Outcome);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Replayed, fixture.Persistence.Attempts[1].Outcome);
+    }
+
+    [Fact]
+    public async Task FixedVector_FrontendProofIsAcceptedAndReplayFailsClosed()
+    {
+        JsonObject vector = BackendTestPaths.ReadJsonFromRoot("tests", "fixtures", "security", "pospace-v1-vector.json");
+        JsonObject assignment = vector["assignment"]!.AsObject();
+        JsonObject providerPayload = vector["providerPayload"]!.AsObject();
+        JsonObject verifyPayload = vector["verifyPayload"]!.AsObject();
+        string AssignmentValue(string name) => assignment[name]!.GetValue<string>();
+        var payload = providerPayload.ToDictionary(
+            static item => item.Key,
+            static item => item.Value!.GetValue<string>(),
+            StringComparer.Ordinal);
+        var request = new SecurityChallengeProviderVerifyRequest(
+            CreateContext(),
+            Argon2idPoSpaceV1ChallengeProvider.WireKind,
+            AssignmentValue("challengeId"),
+            AssignmentValue("action"),
+            AssignmentValue("routeKey"),
+            AssignmentValue("subjectHash"),
+            AssignmentValue("clientIpHash"),
+            AssignmentValue("deviceFpHash"),
+            AssignmentValue("policyVersion"),
+            payload);
+
+        string proofHex = await Argon2idPoSpaceV1ChallengeProvider.ComputeProofHexAsync(
+            request,
+            vector["nonceHex"]!.GetValue<string>(),
+            CancellationToken.None);
+
+        Assert.Equal(vector["expectedProofHex"]!.GetValue<string>(), proofHex);
+        ProviderFixture fixture = CreateFixture(SecuritySystemModes.Enforce);
+        fixture.Cache.Strings.TryAdd($"{CachePolicyId.SecurityPoSpaceChallenge}:{request.ChallengeId}", "vector");
+        SecurityChallengeProviderVerifyRequest verifyRequest = request with
+        {
+            ProviderPayload = verifyPayload.ToDictionary(
+                static item => item.Key,
+                static item => item.Value!.GetValue<string>(),
+                StringComparer.Ordinal)
+        };
+        SecurityChallengeProviderVerifyResult accepted = await fixture.Provider.VerifyAsync(verifyRequest, CancellationToken.None);
+        SecurityChallengeProviderVerifyResult replay = await fixture.Provider.VerifyAsync(verifyRequest, CancellationToken.None);
+        Assert.True(accepted.Succeeded, accepted.Reason);
+        Assert.Equal("pospace_replayed", replay.Reason);
     }
 
     [Fact]
@@ -179,6 +296,11 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
                 ["Security:PoSpaceV1:TargetDurationMs"] = targetDurationMs.ToString()
             })
             .Build();
+        return CreateFixture(configuration);
+    }
+
+    private static ProviderFixture CreateFixture(IConfiguration configuration)
+    {
         var cache = new RecordingCache();
         var persistence = new RecordingChallengePersistence();
         var riskSink = new CapturingRiskSink();

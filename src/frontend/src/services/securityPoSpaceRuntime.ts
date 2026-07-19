@@ -1,21 +1,12 @@
 import { argon2idAsync } from '@noble/hashes/argon2.js'
 import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { AppErrorCode, createAppError } from '@/utils/appError'
+import {
+  poSpaceV1Contract,
+  type PoSpaceUnsupportedReason
+} from '@/generated/poSpaceV1Contract'
 
-export const POSPACE_ALGORITHM = 'fsu.pospace/argon2id@v1'
-
-const MIN_MEMORY_KIB = 1024
-const MAX_MEMORY_KIB = 65_536
-const MOBILE_MAX_MEMORY_KIB = 8192
-const LOW_MEMORY_MAX_MEMORY_KIB = 8192
-const MIN_ITERATIONS = 1
-const MAX_ITERATIONS = 6
-const MIN_LANES = 1
-const MAX_LANES = 4
-const MIN_TARGET_DURATION_MS = 100
-const MAX_TARGET_DURATION_MS = 5000
-const NONCE_BYTES = 16
-const PROOF_BYTES = 32
+export const POSPACE_ALGORITHM = poSpaceV1Contract.algorithm
 
 export interface PoSpaceProviderPayload {
   algorithm: string
@@ -40,7 +31,7 @@ export type PoSpaceMemoryTier = 'unknown' | 'low' | 'standard' | 'high'
 
 export interface PoSpaceCapabilitySnapshot {
   supported: boolean
-  reason: string
+  reason: 'supported' | PoSpaceUnsupportedReason
   memoryTier: PoSpaceMemoryTier
   hardwareConcurrency: number
   mobileHint: boolean
@@ -73,7 +64,7 @@ export type PoSpaceSolveResult =
   | {
       ok: false
       unsupported: true
-      reason: string
+      reason: PoSpaceUnsupportedReason
       capability: PoSpaceCapabilitySnapshot
     }
 
@@ -124,13 +115,13 @@ export function detectPoSpaceCapability(
   const deviceMemoryGb = hints.deviceMemoryGb ?? nav?.deviceMemory
   const memoryTier = resolveMemoryTier(deviceMemoryGb)
   const maxAllowedMemoryKib = mobileHint
-    ? MOBILE_MAX_MEMORY_KIB
+    ? 0
     : memoryTier === 'low'
-      ? LOW_MEMORY_MAX_MEMORY_KIB
-      : MAX_MEMORY_KIB
+      ? 0
+      : poSpaceV1Contract.memoryKib.max
 
   let supported = true
-  let reason = 'supported'
+  let reason: PoSpaceCapabilitySnapshot['reason'] = 'supported'
   if (!workerAvailable) {
     supported = false
     reason = 'worker_unavailable'
@@ -164,6 +155,9 @@ export async function solvePoSpaceProof(
     workerAvailable: options.workerAvailable ?? true
   })
   if (!capability.supported) {
+    if (capability.reason === 'supported') {
+      throw createAppError(AppErrorCode.InfraFailure, 'pospace_capability_state_invalid')
+    }
     return {
       ok: false,
       unsupported: true,
@@ -172,13 +166,13 @@ export async function solvePoSpaceProof(
     }
   }
 
-  const nonceHex = options.nonceHex ? requireHex(options.nonceHex, NONCE_BYTES, 'nonceHex') : createNonceHex()
+  const nonceHex = options.nonceHex ? requireHex(options.nonceHex, poSpaceV1Contract.nonceBytes, 'nonceHex') : createNonceHex()
   const startedAt = nowMs()
   const proofBytes = await argon2idAsync(createMaterial(assignment, payload, nonceHex), hexToBytes(payload.saltHex), {
     t: payload.iterations,
     m: payload.memoryKib,
     p: payload.lanes,
-    dkLen: PROOF_BYTES,
+    dkLen: poSpaceV1Contract.proofBytes,
     asyncTick: 10,
     maxmem: payload.memoryKib * 1024 + 1024 * 1024
   })
@@ -204,14 +198,38 @@ export function createPoSpaceVerifyPayload(
     iterations: parsed.iterations.toString(),
     lanes: parsed.lanes.toString(),
     targetDurationMs: parsed.targetDurationMs.toString(),
-    nonceHex: requireHex(nonceHex, NONCE_BYTES, 'nonceHex'),
-    proofHex: requireHex(proofHex, PROOF_BYTES, 'proofHex')
+    nonceHex: requireHex(nonceHex, poSpaceV1Contract.nonceBytes, 'nonceHex'),
+    proofHex: requireHex(proofHex, poSpaceV1Contract.proofBytes, 'proofHex')
+  }
+}
+
+export function createPoSpaceUnsupportedReissueAttributes(
+  assignment: Pick<PoSpaceAssignmentContext, 'challengeId' | 'action' | 'routeKey'>,
+  reason: PoSpaceUnsupportedReason,
+  reissueCount: number
+): Record<string, unknown> {
+  if (!poSpaceV1Contract.unsupportedReasons.includes(reason)
+    || !Number.isSafeInteger(reissueCount)
+    || reissueCount < 1
+    || reissueCount > poSpaceV1Contract.maxUnsupportedReissues) {
+    throw createAppError(AppErrorCode.Validation, 'pospace_unsupported_reissue_invalid')
+  }
+
+  return {
+    unsupportedAssignment: {
+      challengeId: requireString(assignment.challengeId, 'challengeId'),
+      kind: 'argon2idPoSpaceV1',
+      action: requireString(assignment.action, 'action'),
+      routeKey: requireString(assignment.routeKey, 'routeKey'),
+      reason,
+      reissueCount
+    }
   }
 }
 
 function createMaterial(assignment: PoSpaceAssignmentContext, payload: PoSpaceProviderPayload, nonceHex: string): Uint8Array {
   return utf8ToBytes([
-    'fsu.pospace.argon2id.v1',
+    poSpaceV1Contract.materialDomain,
     assignment.challengeId,
     assignment.action,
     assignment.routeKey,
@@ -225,10 +243,10 @@ function createMaterial(assignment: PoSpaceAssignmentContext, payload: PoSpacePr
 }
 
 function isValidParameters(payload: PoSpaceProviderPayload): boolean {
-  return payload.memoryKib >= MIN_MEMORY_KIB && payload.memoryKib <= MAX_MEMORY_KIB
-    && payload.iterations >= MIN_ITERATIONS && payload.iterations <= MAX_ITERATIONS
-    && payload.lanes >= MIN_LANES && payload.lanes <= MAX_LANES
-    && payload.targetDurationMs >= MIN_TARGET_DURATION_MS && payload.targetDurationMs <= MAX_TARGET_DURATION_MS
+  return payload.memoryKib >= poSpaceV1Contract.memoryKib.min && payload.memoryKib <= poSpaceV1Contract.memoryKib.max
+    && payload.iterations >= poSpaceV1Contract.iterations.min && payload.iterations <= poSpaceV1Contract.iterations.max
+    && payload.lanes >= poSpaceV1Contract.lanes.min && payload.lanes <= poSpaceV1Contract.lanes.max
+    && payload.targetDurationMs >= poSpaceV1Contract.targetDurationMs.min && payload.targetDurationMs <= poSpaceV1Contract.targetDurationMs.max
 }
 
 function resolveMemoryTier(deviceMemoryGb?: number): PoSpaceMemoryTier {
@@ -242,7 +260,7 @@ function resolveMemoryTier(deviceMemoryGb?: number): PoSpaceMemoryTier {
 }
 
 function createNonceHex(): string {
-  const nonce = new Uint8Array(NONCE_BYTES)
+  const nonce = new Uint8Array(poSpaceV1Contract.nonceBytes)
   if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
     throw createAppError(AppErrorCode.InfraFailure, 'pospace_crypto_unavailable')
   }
@@ -259,8 +277,12 @@ function requireString(value: unknown, field: string): string {
 }
 
 function requireInteger(value: unknown, field: string): number {
-  const parsed = Number.parseInt(String(value ?? ''), 10)
-  if (!Number.isSafeInteger(parsed)) {
+  const canonical = String(value ?? '')
+  if (!/^(?:0|[1-9][0-9]*)$/.test(canonical)) {
+    throw createAppError(AppErrorCode.Validation, `pospace_${field}_invalid`)
+  }
+  const parsed = Number(canonical)
+  if (!Number.isSafeInteger(parsed) || String(parsed) !== canonical) {
     throw createAppError(AppErrorCode.Validation, `pospace_${field}_invalid`)
   }
   return parsed

@@ -22,21 +22,9 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
     TimeProvider timeProvider) : ISecurityChallengeProvider
 {
     public const string WireKind = "argon2idPoSpaceV1";
-    public const string Algorithm = "fsu.pospace/argon2id@v1";
+    public const string Algorithm = PoSpaceV1Contract.Algorithm;
 
     private const int ChallengeTtlSeconds = 300;
-    private const int SaltBytes = 16;
-    private const int NonceBytes = 16;
-    private const int ProofBytes = 32;
-    private const int MinMemoryKib = 19_456;
-    private const int MaxMemoryKib = 65_536;
-    private const int MobileMaxMemoryKib = 8192;
-    private const int MinIterations = 2;
-    private const int MaxIterations = 6;
-    private const int MinLanes = 1;
-    private const int MaxLanes = 4;
-    private const int MinTargetDurationMs = 100;
-    private const int MaxTargetDurationMs = 5000;
     private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
 
     public string Kind => WireKind;
@@ -57,9 +45,9 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
             return SecurityChallengeProviderIssueResult.Failed("pospace_parameters_invalid");
         }
 
-        if (IsMobileUserAgent(request.Context.Request.Headers.UserAgent.ToString()) && options.MemoryKib > MobileMaxMemoryKib)
+        if (IsMobileUserAgent(request.Context.Request.Headers.UserAgent.ToString()))
         {
-            return SecurityChallengeProviderIssueResult.Failed("pospace_mobile_memory_limit");
+            return SecurityChallengeProviderIssueResult.Failed("pospace_mobile_unsupported");
         }
 
         DateTimeOffset issuedAt = timeProvider.GetUtcNow();
@@ -68,7 +56,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
         var payload = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["algorithm"] = Algorithm,
-            ["saltHex"] = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(SaltBytes)),
+            ["saltHex"] = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(PoSpaceV1Contract.SaltBytes)),
             ["memoryKib"] = options.MemoryKib.ToString(CultureInfo.InvariantCulture),
             ["iterations"] = options.Iterations.ToString(CultureInfo.InvariantCulture),
             ["lanes"] = options.Lanes.ToString(CultureInfo.InvariantCulture),
@@ -153,14 +141,14 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
         CancellationToken cancellationToken)
     {
         if (!TryParseChallengeParameters(request.ProviderPayload, out PoSpaceChallengeParameters parameters)
-            || !IsHex(nonceHex, NonceBytes))
+            || !IsHex(nonceHex, PoSpaceV1Contract.NonceBytes))
         {
             throw new InvalidOperationException("PoSpace proof parameters are invalid.");
         }
 
         byte[] salt = Convert.FromHexString(parameters.SaltHex);
         byte[] material = Encoding.UTF8.GetBytes(string.Join('\n',
-            "fsu.pospace.argon2id.v1",
+            PoSpaceV1Contract.MaterialDomain,
             request.ChallengeId,
             request.Action,
             request.RouteKey,
@@ -180,7 +168,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
                 Iterations = parameters.Iterations,
                 DegreeOfParallelism = parameters.Lanes
             };
-            return Convert.ToHexStringLower(argon.GetBytes(ProofBytes));
+            return Convert.ToHexStringLower(argon.GetBytes(PoSpaceV1Contract.ProofBytes));
         }, cancellationToken);
     }
 
@@ -190,8 +178,8 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
         if (!TryParseChallengeParameters(payload, out PoSpaceChallengeParameters parameters)
             || !payload.TryGetValue("nonceHex", out string? nonceHex)
             || !payload.TryGetValue("proofHex", out string? proofHex)
-            || !IsHex(nonceHex, NonceBytes)
-            || !IsHex(proofHex, ProofBytes))
+            || !IsHex(nonceHex, PoSpaceV1Contract.NonceBytes)
+            || !IsHex(proofHex, PoSpaceV1Contract.ProofBytes))
         {
             return false;
         }
@@ -221,11 +209,11 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
             || !payload.TryGetValue("iterations", out string? iterationsValue)
             || !payload.TryGetValue("lanes", out string? lanesValue)
             || !payload.TryGetValue("targetDurationMs", out string? targetDurationValue)
-            || !IsHex(saltHex, SaltBytes)
-            || !int.TryParse(memoryValue, NumberStyles.None, CultureInfo.InvariantCulture, out int memoryKib)
-            || !int.TryParse(iterationsValue, NumberStyles.None, CultureInfo.InvariantCulture, out int iterations)
-            || !int.TryParse(lanesValue, NumberStyles.None, CultureInfo.InvariantCulture, out int lanes)
-            || !int.TryParse(targetDurationValue, NumberStyles.None, CultureInfo.InvariantCulture, out int targetDurationMs))
+            || !IsHex(saltHex, PoSpaceV1Contract.SaltBytes)
+            || !TryParseCanonicalDecimal(memoryValue, out int memoryKib)
+            || !TryParseCanonicalDecimal(iterationsValue, out int iterations)
+            || !TryParseCanonicalDecimal(lanesValue, out int lanes)
+            || !TryParseCanonicalDecimal(targetDurationValue, out int targetDurationMs))
         {
             return false;
         }
@@ -293,21 +281,37 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
     private static PoSpaceOptions ResolveOptions(IConfiguration source)
         => new(
             SecuritySystemModes.Normalize(source["Security:PoSpaceV1:Mode"]),
-            ReadInt(source, "MemoryKib", 8192),
-            ReadInt(source, "Iterations", 2),
-            ReadInt(source, "Lanes", 1),
-            ReadInt(source, "TargetDurationMs", 750));
+            ReadInt(source, "MemoryKib", PoSpaceV1Contract.DefaultMemoryKib),
+            ReadInt(source, "Iterations", PoSpaceV1Contract.DefaultIterations),
+            ReadInt(source, "Lanes", PoSpaceV1Contract.DefaultLanes),
+            ReadInt(source, "TargetDurationMs", PoSpaceV1Contract.DefaultTargetDurationMs));
 
     private static int ReadInt(IConfiguration source, string key, int fallback)
-        => int.TryParse(source[$"Security:PoSpaceV1:{key}"], NumberStyles.None, CultureInfo.InvariantCulture, out int value)
+    {
+        string? configured = source[$"Security:PoSpaceV1:{key}"];
+        if (configured is null)
+        {
+            return fallback;
+        }
+
+        return TryParseCanonicalDecimal(configured, out int value)
             ? value
-            : fallback;
+            : int.MinValue;
+    }
 
     private static bool IsValidOptions(PoSpaceOptions options)
-        => options.MemoryKib is >= MinMemoryKib and <= MaxMemoryKib
-            && options.Iterations is >= MinIterations and <= MaxIterations
-            && options.Lanes is >= MinLanes and <= MaxLanes
-            && options.TargetDurationMs is >= MinTargetDurationMs and <= MaxTargetDurationMs;
+        => options.MemoryKib is >= PoSpaceV1Contract.MinMemoryKib and <= PoSpaceV1Contract.MaxMemoryKib
+            && options.Iterations is >= PoSpaceV1Contract.MinIterations and <= PoSpaceV1Contract.MaxIterations
+            && options.Lanes is >= PoSpaceV1Contract.MinLanes and <= PoSpaceV1Contract.MaxLanes
+            && options.TargetDurationMs is >= PoSpaceV1Contract.MinTargetDurationMs and <= PoSpaceV1Contract.MaxTargetDurationMs;
+
+    private static bool TryParseCanonicalDecimal(string? value, out int parsed)
+    {
+        parsed = 0;
+        return value is not null
+            && int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out parsed)
+            && string.Equals(value, parsed.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+    }
 
     private static bool IsMobileUserAgent(string userAgent)
     {

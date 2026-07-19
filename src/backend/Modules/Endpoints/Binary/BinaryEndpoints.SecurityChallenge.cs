@@ -37,6 +37,7 @@ public static partial class BinaryEndpoints
             IRiskControlContextFactory riskContextFactory,
             IRiskDecisionService riskDecisionService,
             ISecurityChallengeOrchestrator challengeOrchestrator,
+            IPoSpaceUnsupportedReissueService poSpaceUnsupportedReissueService,
             ISecurityRiskSignalSink riskSignalSink,
             CancellationToken cancellationToken) =>
             await HandleSecurityChallengeIssueAsync(
@@ -48,7 +49,8 @@ public static partial class BinaryEndpoints
                 riskDecisionService,
                 challengeOrchestrator,
                 riskSignalSink,
-                cancellationToken))
+                cancellationToken,
+                poSpaceUnsupportedReissueService))
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip")
         .RequireNoStoreResponse();
@@ -85,7 +87,8 @@ public static partial class BinaryEndpoints
         IRiskDecisionService riskDecisionService,
         ISecurityChallengeOrchestrator challengeOrchestrator,
         ISecurityRiskSignalSink riskSignalSink,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IPoSpaceUnsupportedReissueService? poSpaceUnsupportedReissueService = null)
     {
         if (!AcceptsBinaryResponse(httpContext.Request))
         {
@@ -126,6 +129,40 @@ public static partial class BinaryEndpoints
         int riskScore = await riskScoreReader.GetRiskScoreAsync(httpContext, cancellationToken);
         SecurityRiskPolicySnapshotV2 policy = riskPolicyProvider.CurrentRiskPolicyV2;
         RiskDecision decision = riskDecisionService.Decide(riskContext, policy, riskScore);
+        RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContext);
+        if (!PoSpaceUnsupportedReissueParser.TryParse(
+                request.AttributesJson,
+                action,
+                routeKey,
+                binding,
+                httpContext,
+                out PoSpaceUnsupportedReissueRequest? unsupportedReissue,
+                out bool malformedReissue))
+        {
+            string error = malformedReissue
+                ? "security_challenge_unsupported_reissue_invalid"
+                : "security_challenge_unsupported_reissue_rejected";
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, error), aeds);
+        }
+
+        if (unsupportedReissue is not null)
+        {
+            if (poSpaceUnsupportedReissueService is null)
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "security_challenge_unsupported_reissue_unavailable"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
+            PoSpaceUnsupportedReissueResult reissued = await poSpaceUnsupportedReissueService.ReissueAsync(
+                unsupportedReissue,
+                decision,
+                policy,
+                cancellationToken);
+            decision = reissued.Decision;
+        }
+
         if (DecisionRequiresCaptcha(decision))
         {
             await RecordCaptchaRequiredAsync(httpContext, riskSignalSink, decision, cancellationToken);
@@ -145,7 +182,6 @@ public static partial class BinaryEndpoints
             return BinaryResults.Frame(aeds, AedsFrameType.SecurityChallengeIssueResponse, writer => PodBinaryCodec.WriteSecurityChallengeIssueResponse(response, writer));
         }
 
-        RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContext);
         SecurityChallengeOrchestrationIssueResult issued = await challengeOrchestrator.IssueAsync(
             new SecurityChallengeOrchestrationIssueRequest(
                 httpContext,
