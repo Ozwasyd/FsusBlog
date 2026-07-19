@@ -38,6 +38,7 @@ import type { NotificationStreamArticleRenderPatch, NotificationStreamCommentRen
 import { isPublicReadHydrationSuppressed } from '@/services/publicReadHydrationGuard'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 import { useNotificationStreamStore } from '@/store/notificationStream'
+import { isStrongAnonymousCommentAvailable } from '@/policies/commentPolicy'
 import {
   getCommentPrivacyRuntime,
   type CommentPrivacyPreparedTicket,
@@ -80,14 +81,6 @@ type ReplyTarget = {
   author: CommentAuthorView
   depth: number
 } | null
-
-type ZkProdCommentPolicySnapshot = CommentPolicySnapshot & {
-  zkProdEnabled?: boolean
-  zkProdNativeVerifierConfigured?: boolean
-  zkProdTrustedSetupVerified?: boolean
-  zkProdCredentialRootReady?: boolean
-  zkProdUnavailableReason?: string
-}
 
 const COMMENT_SUMMARY_LIMIT = 48
 const COMMENT_CREATE_CHALLENGE_ACTION = 'comment.create'
@@ -342,17 +335,9 @@ export function useArticleDetailView() {
     })
     commentMaxChars.value = commentPolicy.maxChars
     commentMaxUtf8Bytes.value = commentPolicy.maxUtf8Bytes
-    commentPolicySnapshotHash.value = policy.snapshotHash ?? ''
-    const zkPolicy = policy as ZkProdCommentPolicySnapshot
-    const zkProdAvailable = zkPolicy.zkProdEnabled === undefined
-      ? true
-      : zkPolicy.zkProdEnabled &&
-        zkPolicy.zkProdNativeVerifierConfigured === true &&
-        zkPolicy.zkProdTrustedSetupVerified === true &&
-        zkPolicy.zkProdCredentialRootReady === true &&
-        (zkPolicy.zkProdUnavailableReason?.length ?? 0) === 0
+    commentPolicySnapshotHash.value = policy.snapshotHash
     const wasZkAnonymousEnabled = zkAnonymousEnabled.value
-    zkAnonymousEnabled.value = policy.zkAnonymousEnabled && zkProdAvailable
+    zkAnonymousEnabled.value = isStrongAnonymousCommentAvailable(policy)
     if (wasZkAnonymousEnabled && !zkAnonymousEnabled.value) {
       void clearPrivateBrowserState('feature-disabled')
     }

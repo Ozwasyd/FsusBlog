@@ -7,12 +7,17 @@ import type {
   BlindCredentialIssueResponse,
   AnonymousPrivacyStateSnapshot,
   CommentAuthorMode,
-  CommentPolicySnapshot,
   CommentReplyItem,
   CommentThreadItem,
   CursorResponse,
   UserCommentResponse
 } from '@/contracts/binaryApi';
+import {
+  CommentPolicyContractVersion,
+  type CommentPolicySnapshot,
+  type DecodedCommentPolicySnapshot
+} from '@/contracts/commentPolicy';
+import { finalizeCommentPolicySnapshot } from '@/policies/commentPolicy';
 import { resolveCommentAuthorView } from '@/utils/commentAuthorView';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { BinaryReader, readByte, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readBlobText, readSliceRef, readSliceText } from '@/codecs/binary/reader';
@@ -36,6 +41,7 @@ const REVOCATION_ARTIFACT_MAX_PAYLOAD_BYTES = 4 * 1024 * 1024;
 const decoder = new TextDecoder();
 
 type CommentPolicySnapshotLayout = {
+  contractVersion: CommentPolicyContractVersion;
   podSize: number;
   commentMaxCharsOffset?: number;
   commentMaxUtf8BytesOffset?: number;
@@ -45,6 +51,7 @@ type CommentPolicySnapshotLayout = {
 };
 
 const COMMENT_POLICY_SNAPSHOT_PACKED_LAYOUT: CommentPolicySnapshotLayout = {
+  contractVersion: CommentPolicyContractVersion.Current,
   podSize: COMMENT_POLICY_SNAPSHOT_POD_SIZE,
   commentMaxCharsOffset: 9,
   commentMaxUtf8BytesOffset: 13,
@@ -54,6 +61,7 @@ const COMMENT_POLICY_SNAPSHOT_PACKED_LAYOUT: CommentPolicySnapshotLayout = {
 };
 
 const COMMENT_POLICY_SNAPSHOT_LEGACY_PADDED_LAYOUT: CommentPolicySnapshotLayout = {
+  contractVersion: CommentPolicyContractVersion.LegacyPadded,
   podSize: 48,
   commentMaxCharsOffset: 12,
   commentMaxUtf8BytesOffset: 16,
@@ -63,6 +71,7 @@ const COMMENT_POLICY_SNAPSHOT_LEGACY_PADDED_LAYOUT: CommentPolicySnapshotLayout 
 };
 
 const COMMENT_POLICY_SNAPSHOT_LEGACY_NO_LIMITS_LAYOUT: CommentPolicySnapshotLayout = {
+  contractVersion: CommentPolicyContractVersion.LegacyWithoutLimits,
   podSize: 33,
   supportedDisplayLanguagesOffset: 9,
   snapshotHashOffset: 17,
@@ -110,7 +119,8 @@ function tryMapCommentPolicySnapshotFromLayout(payload: Uint8Array, layout: Comm
 
   const pod = payload.subarray(0, layout.podSize);
   const blob = payload.subarray(layout.podSize + 4, expectedLength);
-  return {
+  const decoded: DecodedCommentPolicySnapshot = {
+    contractVersion: layout.contractVersion,
     anonymousCommentsEnabled: readBooleanByte(pod, 0, 'comment_policy_snapshot_anonymous_flag_invalid'),
     publicCommentsEnabled: readBooleanByte(pod, 1, 'comment_policy_snapshot_public_flag_invalid'),
     zkAnonymousEnabled: readBooleanByte(pod, 2, 'comment_policy_snapshot_zk_flag_invalid'),
@@ -129,6 +139,7 @@ function tryMapCommentPolicySnapshotFromLayout(payload: Uint8Array, layout: Comm
     snapshotHash: readSliceText(blob, readSliceRef(pod, layout.snapshotHashOffset)),
     zkProdUnavailableReason: readSliceText(blob, readSliceRef(pod, layout.unavailableReasonOffset))
   };
+  return finalizeCommentPolicySnapshot(decoded);
 }
 
 export function mapAnonymousCredentialIssueResponseFromPayload(payload: Uint8Array): AnonymousCredentialIssueResponse {

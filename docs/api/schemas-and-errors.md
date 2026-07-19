@@ -300,7 +300,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 161 | `RecoveryKeyVerifyResponse` | `RecoveryKeyVerifyResponsePod` | Recovery Key 验证成功响应；只返回 recovery session token 与过期时间 |
 | 162 | `RecoveryKeySessionRequest` | `StringMutationRequestPod` | Recovery session token 请求体；用于 Passkey recovery begin |
 | 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | `GET /api/binary/auth/me`；匿名身份 account id、identity kind、public handle、Passkey/Recovery/TOTP/anonymous credential 和状态字段；不暴露 internalUserId |
-| 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、ZK-Prod readiness、默认 author mode、语言列表、策略 snapshot hash |
+| 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、完整 ZK-Prod 原始位与受控 unavailable reason、默认 author mode、语言列表、策略 snapshot hash；前端 41-byte layout 映射 client contract v3，旧/损坏 layout 一律 `contract_invalid` |
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
 | 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 登录态 public 新评论；必须 explicit opt-in。旧 `anonymous` 返回 `anonymous_author_mode_retired` 且零业务写，`zk_anonymous` 返回 `anonymous_ticket_required`；legacy scope/proof 槽只保留 wire layout |
 | 167 | `CommentAuthorView` | `CommentAuthorViewPod` | 评论作者展示投影；评论 cursor 必须显式携带，客户端不得从 legacy identity string 伪造匿名/公开显示名 |

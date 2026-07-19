@@ -14,6 +14,11 @@ import {
   issueAnonymousCommentTicket
 } from '@/api/comment'
 import { createCommentPrivacyAdapter } from '@/privacy/commentPrivacyAdapter'
+import {
+  CommentPolicyContractVersion,
+  CommentPolicyReadiness,
+  type CommentPolicySnapshot
+} from '@/contracts/commentPolicy'
 
 const rootSnapshot = {
   credentialEpoch: 20260619,
@@ -30,13 +35,23 @@ const rootSnapshot = {
   verifierConfigured: true
 }
 const policySnapshot = {
+  contractVersion: CommentPolicyContractVersion.Current,
   anonymousCommentsEnabled: true,
   publicCommentsEnabled: true,
   zkAnonymousEnabled: true,
   defaultAuthorMode: 'zk_anonymous',
+  zkProdEnabled: true,
+  zkProdNativeVerifierConfigured: true,
+  zkProdTrustedSetupVerified: true,
+  zkProdCredentialRequired: true,
+  zkProdCredentialRootReady: true,
+  commentMaxChars: 1000,
+  commentMaxUtf8Bytes: 4096,
   supportedDisplayLanguages: ['zh-CN', 'en'],
-  snapshotHash: '9'.repeat(64)
-}
+  snapshotHash: '9'.repeat(64),
+  zkProdUnavailableReason: '',
+  zkProdReadiness: CommentPolicyReadiness.Ready
+} satisfies CommentPolicySnapshot
 
 describe('commentPrivacyAdapter', () => {
   beforeEach(() => {
@@ -46,7 +61,7 @@ describe('commentPrivacyAdapter', () => {
       ...rootSnapshot,
       circuitMetadata: new Uint8Array([7, 8])
     } as never)
-    vi.mocked(getCommentPolicySnapshot).mockResolvedValue(policySnapshot as never)
+    vi.mocked(getCommentPolicySnapshot).mockResolvedValue(policySnapshot)
     vi.mocked(issueAnonymousCommentTicket).mockResolvedValue({
       ticketExpiresAtUnixMs: Date.now() + 30_000,
       ticket: new Uint8Array([21, 22]),
@@ -139,5 +154,25 @@ describe('commentPrivacyAdapter', () => {
       publicInputs: new Uint8Array([14, 15])
     }), { signal, credentials: 'omit' })
     expect(ticket.ok).toBe(true)
+  })
+
+  it('does not prepare metadata when backend policy readiness is unavailable', async () => {
+    vi.mocked(getCommentPolicySnapshot).mockResolvedValue({
+      ...policySnapshot,
+      zkProdNativeVerifierConfigured: false,
+      zkProdUnavailableReason: 'native_verifier_unavailable',
+      zkProdReadiness: CommentPolicyReadiness.VerifierMissing
+    })
+    const adapter = createCommentPrivacyAdapter()
+
+    await expect(adapter.loadPrivacyMetadata({
+      scope: 'article:42',
+      articleId: 42,
+      signal: new AbortController().signal
+    })).resolves.toEqual({
+      ok: false,
+      reason: 'comment_privacy_metadata_unavailable'
+    })
+    expect(issueAnonymousCommentTicket).not.toHaveBeenCalled()
   })
 })

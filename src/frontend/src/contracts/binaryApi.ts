@@ -242,6 +242,13 @@ export type CommentAuthorMode = 'public' | 'zk_anonymous'
 export type CommentAuthorViewMode = CommentAuthorMode | 'legacy_server_visible_pseudonymous'
 export type CommentDisplayLanguage = 'zh-CN' | 'en'
 
+export type {
+  CommentPolicyContractVersion,
+  CommentPolicyReadiness,
+  CommentPolicySnapshot,
+  ZkProdUnavailableReason
+} from './commentPolicy'
+
 export interface CommentAuthorView {
   mode: CommentAuthorViewMode
   displayName: string
@@ -286,23 +293,6 @@ export interface AnonymousCommentSubmitTicket {
 export type PublicCommentCreateInput = Omit<CommentCreateV2Dto, 'authorMode' | 'publicSendExplicitlySelected'> & {
   authorMode?: CommentAuthorMode | null
   publicSendExplicitlySelected?: boolean | null
-}
-
-export interface CommentPolicySnapshot {
-  anonymousCommentsEnabled: boolean
-  publicCommentsEnabled: boolean
-  zkAnonymousEnabled: boolean
-  defaultAuthorMode: CommentAuthorMode
-  supportedDisplayLanguages: string[]
-  snapshotHash: string
-  commentMaxChars: number
-  commentMaxUtf8Bytes: number
-  zkProdEnabled?: boolean
-  zkProdNativeVerifierConfigured?: boolean
-  zkProdTrustedSetupVerified?: boolean
-  zkProdCredentialRequired?: boolean
-  zkProdCredentialRootReady?: boolean
-  zkProdUnavailableReason?: string
 }
 
 export interface AnonymousCredentialIssueResponse {

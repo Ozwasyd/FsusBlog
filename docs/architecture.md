@@ -480,6 +480,8 @@ Binary 文章列表缓存使用 `core:v4:{public|admin}:...:{status}` 身份隔�
 
 强匿名评论的 nullifier 防重放分为两段：ticket issue 只在 proof 校验后读取 `comment_anonymous_nullifier` 做 blocked/scope-limit 预检查，不预留或递增使用次数；submit 在 `CommentService` 的评论写事务内调用 nullifier consume，用单条 SQL 完成 missing row 插入、blocked/limit 判定、`use_count` 原子递增和 `first_comment_id`/`last_comment_id` 绑定。consume 拒绝时抛出匿名 nullifier rejection 并回滚评论、地区合规和 blocked-region 写入，保留并发 submit 下的单次消费语义，同时减少 issue + submit 重复 DB 往返。
 
+评论策略在前端保持 `backend CommentPolicySnapshotPod -> binary comment adapter -> contracts/commentPolicy.ts -> API/composable/privacy adapter` 单向依赖。contract 层维护与后端 POD 字段集合相同的 wire field catalog，静态测试同时比较后端 struct、前端 catalog 和业务层禁用规则；后端增加字段或前端 Decoder 漏映射都会使验证失败。当前 41-byte packed layout 是 client contract version 3，历史 layout 只经显式 mapper 得到 `contract_invalid`，不允许业务层维护平行的窄接口或 optional readiness escape hatch。运行时关闭沿用 reloadable ZK-Prod/anonymous-comments gate，无需重启，也不改变 binary frame number、notification stream 或 admin 路径。
+
 blind RSA issuer 私钥是匿名凭证签发根密钥，不属于 web asset、上传资产或备份下载面。`AnonymousCredentialIssuer:BlindRsa:PrivateKeyPath` 只接受本机 PKCS#8 DER，必须位于非 `wwwroot`、非 `uploads`、非 `backups` 路径且 Unix mode 不宽于 `0600`。进程启动时一次装载并清零读取 buffer；运行时通过 reload-aware `BlindRsa:Enabled` gate 热关闭 metadata 与私钥操作。无需重启的回退是设置该值为 `false`；热开启和密钥轮换需要新进程加载并先完成 SPKI/root hash 协调。
 
 预览输出带 `data-preview-only=true` 和 `data-markdown-renderer=server-preview`，只走 admin JSON API，不写 PublicAOT cache，不进入 feed/search/sitemap。订阅表只保存 email hash 与 channel，避免把站点更新订阅扩展成社交关系链。

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
+import { CommentPolicyContractVersion, CommentPolicyReadiness } from '@/contracts/commentPolicy'
 import { decodeBinaryFramePayload } from '@/composition/binaryDecoderRegistry'
 import { ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE } from '@/adapters/binary/types'
 
@@ -176,6 +177,7 @@ describe('decodeBinaryFramePayload', () => {
 
   it('maps CommentPolicySnapshot for composer author-mode controls', () => {
     expect(decodeBinaryFramePayload(FrameType.CommentPolicySnapshot, commentPolicyPayload('zh-CN\nen'))).toEqual({
+      contractVersion: CommentPolicyContractVersion.Current,
       anonymousCommentsEnabled: true,
       publicCommentsEnabled: true,
       zkAnonymousEnabled: true,
@@ -189,7 +191,8 @@ describe('decodeBinaryFramePayload', () => {
       zkProdTrustedSetupVerified: false,
       zkProdCredentialRequired: false,
       zkProdCredentialRootReady: false,
-      zkProdUnavailableReason: ''
+      zkProdUnavailableReason: 'contract_invalid',
+      zkProdReadiness: CommentPolicyReadiness.ContractInvalid
     })
   })
 

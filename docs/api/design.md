@@ -75,6 +75,8 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 
 强匿名评论 ticket 是匿名评论写入前的无登录态准入边界：`POST /api/binary/comment/anonymous-ticket` 只接受 `AnonymousCommentTicketRequest` AEDS frame，必须 `AllowAnonymous`、`public_read` 限流并拒绝任何 Cookie/session/Authorization 污染。服务端先做 article/scope/hash/reply context/frame 大小等廉价校验，再使用当前 root snapshot 和 `IZkAnonymousProofService` 预验证 proof；通过后只返回一次 opaque ticket，缓存层只保存 ticket hash 对应的短 TTL 二进制 payload，并以 consume-once 语义交给 `POST /api/binary/comment/anonymous`。匿名 submit 只接受 `AnonymousCommentCreateRequest`，同样拒绝登录态污染；成功后写入 `comment.user_id = null`、`author_mode = zk_anonymous`、`reply_to_user_id = null`、匿名治理字段、地区合规记录和 `Approved` 初始状态，不把 ticket/proof/credential 原文写入评论。模型风险处置发生在写入后；强匿名评论无账号收件人，自动隐藏时只写审核/审计信号，不伪造站内信。公开评论读取只能从评论行作者快照生成展示名：匿名/强匿名使用 `anonymous_display_name` 或匿名兜底，public send 使用 `public_handle` 或未署名兜底，不能回退 `sys_user.username`。回复展示只能通过 `reply_to_comment_id` 指向的评论作者快照生成，不依赖 `reply_to_user_id` 或 `sys_user` join 还原匿名作者。ticket 端点不得写评论正文、不得建立 user id 到 nullifier/credential 的映射，也不得把 proof 失败细节返回给客户端。
 
+评论策略 Decoder 是强匿名入口的前端安全边界。API wrapper、ArticleDetail、隐私 metadata adapter、mock 与 fixture 必须消费 contract 层同一个完整类型；业务层不得扩展 optional ZK-Prod 字段、强制 cast 或把缺失值解释为可用。Decoder 根据精确 POD layout 生成显式 client contract version，并把服务端受控 reason 与原始 readiness 位归一化为单一低基数状态。只有 `ready` 可以启用强匿名入口；任一 legacy/unknown/malformed/contradictory 状态都 fail closed，保留公开读取与用户显式选择的 public 评论能力，但绝不自动改写本次强匿名提交方式。
+
 ---
 
 ## URL 命名约定

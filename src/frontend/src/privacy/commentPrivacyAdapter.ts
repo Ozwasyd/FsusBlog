@@ -4,6 +4,7 @@ import {
   getCommentPolicySnapshot,
   issueAnonymousCommentTicket
 } from '@/api/comment'
+import { isStrongAnonymousCommentAvailable } from '@/policies/commentPolicy'
 import {
   createCommentPrivacyCredentialProvider,
   type CommentPrivacyCredentialProvider
@@ -55,7 +56,10 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
           return { ok: false, reason: 'comment_privacy_metadata_aborted' }
         }
 
-        if (!root.zkAnonymousEnabled || !root.verifierConfigured || root.rootExpiresAtUnixMs <= Date.now()) {
+        if (!isStrongAnonymousCommentAvailable(policy) ||
+          !root.zkAnonymousEnabled ||
+          !root.verifierConfigured ||
+          root.rootExpiresAtUnixMs <= Date.now()) {
           return { ok: false, reason: 'comment_privacy_metadata_unavailable' }
         }
 
