@@ -59,7 +59,7 @@
     />
 
     <FsusPoSpaceChallenge
-      v-else-if="String(capability?.uiHost) === 'pospace' && assignment && providerPayload"
+      v-else-if="capability?.uiHost === 'pospace' && assignment && providerPayload"
       ref="poSpaceHost"
       :assignment="assignment"
       :provider-payload="providerPayload"

@@ -27,7 +27,7 @@ const assignment = (kind: SecurityChallengeKind): SecurityChallengeAssignment =>
 
 describe('FsusSecurityChallenge capability dispatch', () => {
   it('renders a controlled unavailable state instead of placeholder or permanent pending UI', async () => {
-    const kind = SecurityChallengeKind.Argon2IdPoSpaceV1
+    const kind = SecurityChallengeKind.PasskeyStepUpV1
     const capability = resolveChallengeCapability(kind, { action: 'comment.create', mode: 'ui' })
     const client = fakeClient({
       status: 'unsupported',
