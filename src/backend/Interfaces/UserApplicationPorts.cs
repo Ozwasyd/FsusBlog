@@ -52,8 +52,6 @@ public interface IUserLoginWorkflowService
         CancellationToken cancellationToken = default);
 
     Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent, CancellationToken cancellationToken = default);
-
-    Task<bool> VerifyMfaOrRecoveryCodeAsync(int userId, string? code, string? recoveryCode, bool persistRecoveryConsumption, CancellationToken cancellationToken = default);
 }
 
 public interface IUserProfileCommandService
@@ -106,6 +104,16 @@ public interface IUserMfaCommandService
         string? code,
         string? recoveryCode,
         bool stepUpVerified = false);
+}
+
+public interface IUserMfaVerificationService
+{
+    Task<bool> VerifyMfaOrRecoveryCodeAsync(
+        int userId,
+        string? code,
+        string? recoveryCode,
+        bool persistRecoveryConsumption,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IUserAdminModerationService

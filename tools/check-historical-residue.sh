@@ -346,7 +346,7 @@ RunResidueCheck \
     "legacy password auth runtime residue detected" \
     '\b(?:LoginDto|RegisterDto|UpdatePasswordDto)\b|\bRegisterAsync[(][^;\n]*(?:RegisterDto|username|password)|\bLoginAsync[(][^;\n]*(?:LoginDto|username|password)|\bGetByUsernameAsync\b|\bUpdatePasswordAsync[(][^;\n]*|\bAuthUpdatePasswordRequest\b|/auth/update-password\b|\bupdatePassword\b|\bencodeAuthUpdatePasswordRequest\b' \
     "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
-    src/backend/Models/Dtos/UserDto.cs src/backend/Interfaces/IUserAuthService.cs src/backend/Interfaces/IUserService.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Security/UserSecurityStepUpService.cs src/backend/Infrastructure/CoreBridge src/core/Services src/frontend/src/api/auth.ts src/frontend/src/views/auth src/frontend/src/composables/useAuthLogin.ts
+    src/backend/Models/Dtos/UserDto.cs src/backend/Interfaces/IUserService.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Security/UserSecurityStepUpService.cs src/backend/Infrastructure/CoreBridge src/core/Services src/frontend/src/api/auth.ts src/frontend/src/views/auth src/frontend/src/composables/useAuthLogin.ts
 
 RunResidueCheck \
     "legacy admin username lookup runtime path" \

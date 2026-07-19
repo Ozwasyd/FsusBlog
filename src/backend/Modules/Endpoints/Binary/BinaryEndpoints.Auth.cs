@@ -977,6 +977,7 @@ public static partial class BinaryEndpoints
         group.MapPost("/auth/mfa/challenge", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserLoginWorkflowService loginWorkflow,
+            IUserMfaVerificationService mfaVerification,
             IMfaChallengeService challengeService,
             IWebHostEnvironment env,
             AuthCookieService authCookieService,
@@ -1001,7 +1002,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "MFA_CHALLENGE_EXPIRED"), aeds);
             }
 
-            bool verified = await loginWorkflow.VerifyMfaOrRecoveryCodeAsync(ticket.AccountId, request.Code, request.RecoveryCode, persistRecoveryConsumption: true, cancellationToken: cancellationToken);
+            bool verified = await mfaVerification.VerifyMfaOrRecoveryCodeAsync(ticket.AccountId, request.Code, request.RecoveryCode, persistRecoveryConsumption: true, cancellationToken: cancellationToken);
             if (!verified)
             {
                 bool locked = await challengeService.RecordFailureAsync(

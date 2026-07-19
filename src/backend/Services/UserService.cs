@@ -1,11 +1,5 @@
-using System.Data;
 using System.Data.Common;
-using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
 
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
@@ -13,16 +7,11 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
-using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
-using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
-using FsusBlog.Server.Models.Responses;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
-
-using Npgsql;
 
 using SqlSugar;
 
@@ -36,42 +25,10 @@ namespace FsusBlog.Server.Services;
 public partial class UserService(
     ISqlSugarClient _db,
     ILogger<UserService> _logger,
-    IJwtHelper _jwtHelper,
     ICacheCounterStore _cacheCounters,
-    ITotpService _totpService,
-    IAuthRiskService _authRiskService,
-    IUserSessionValidationCache _userSessionValidationCache) : IUserAuthService
+    ITotpService _totpService) : IUserMfaCommandService, IUserMfaVerificationService
 #pragma warning restore IDE1006
 {
-    private const int UserStatusNormal = 0;
-    private const int UserStatusBanned = 1;
-    private const int UserStatusDeleted = 2;
-    private const int MinPublicHandleLength = 3;
-    private const int MaxPublicHandleLength = 20;
-    private const int MaxIpLength = 64;
-    private const int UserSessionLoginLockNamespace = 833064;
-    private static readonly TimeSpan s_standardSessionIdleTtl = TimeSpan.FromDays(7);
-    private static readonly TimeSpan s_rememberMeSessionIdleTtl = TimeSpan.FromDays(30);
-    private static readonly TimeSpan s_standardSessionAbsoluteTtl = TimeSpan.FromDays(30);
-    private static readonly TimeSpan s_rememberMeSessionAbsoluteTtl = TimeSpan.FromDays(90);
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string NormalizePublicHandleToken(string input)
-    {
-        var span = input.AsSpan().Trim();
-        if (span.IsEmpty)
-            return string.Empty;
-        if (span.Length > MaxPublicHandleLength)
-            span = span[..MaxPublicHandleLength];
-        return string.Create(span.Length, span, static (dst, src) => src.ToLowerInvariant(dst));
-    }
-
-    private static TimeSpan ResolveIdleSessionTtl(bool rememberMe)
-        => rememberMe ? s_rememberMeSessionIdleTtl : s_standardSessionIdleTtl;
-
-    private static TimeSpan ResolveAbsoluteSessionTtl(bool rememberMe)
-        => rememberMe ? s_rememberMeSessionAbsoluteTtl : s_standardSessionAbsoluteTtl;
-
     private async Task<UserMfaProfile?> GetUserMfaProfileAsync(int userId)
         => await _db.Queryable<UserMfaProfile>()
             .Where(profile => profile.UserId == userId)
@@ -130,291 +87,8 @@ public partial class UserService(
     private static object DbValue(DateTime? value)
         => value.HasValue ? value.Value : DBNull.Value;
 
-    private static (bool Success, string? PublicHandle, string Message) NormalizePublicHandle(string? publicHandle)
-    {
-        if (string.IsNullOrWhiteSpace(publicHandle))
-        {
-            return (true, null, string.Empty);
-        }
-
-        string normalized = NormalizePublicHandleToken(publicHandle);
-        if (normalized.Length < MinPublicHandleLength || normalized.Length > MaxPublicHandleLength)
-        {
-            return (false, null, $"公开称呼长度必须在 {MinPublicHandleLength}-{MaxPublicHandleLength} 个字符之间");
-        }
-
-        if (!FastCharValidator.IsPublicHandle(normalized))
-        {
-            return (false, null, "公开称呼允许中文、英文字母、数字和 #");
-        }
-
-        return (true, normalized, string.Empty);
-    }
-
-    public async Task<(bool Success, string Message, User? User)> BootstrapAnonymousAccountAsync(string? publicHandle)
-    {
-        if (!AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled())
-        {
-            return (false, "匿名账号初始化仅在匿名身份模式下可用", null);
-        }
-
-        var handle = NormalizePublicHandle(publicHandle);
-        if (!handle.Success)
-        {
-            return (false, handle.Message, null);
-        }
-
-        if (handle.PublicHandle is { Length: > 0 } normalizedHandle &&
-            await _db.Queryable<User>().AnyAsync(u => u.PublicHandle == normalizedHandle))
-        {
-            return (false, "公开称呼已被占用", null);
-        }
-
-        DateTime now = DateTime.UtcNow;
-        for (int attempt = 0; attempt < 3; attempt++)
-        {
-            var newUser = new User
-            {
-                PublicHandle = handle.PublicHandle,
-                IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
-                PasskeyEnabled = false,
-                RecoveryEnabled = false,
-                PrivacyInitializedAt = now,
-                AnonymousCredentialLevel = "basic",
-                AnonymousCredentialStatus = "active",
-                CreateTime = now,
-                Status = UserStatusNormal
-            };
-
-            Result<int> insertResult = await BoundaryExecutor.ExecuteResultAsync(
-                () => InsertAnonymousAccountWithSubjectAsync(newUser),
-                ex => ex.Message.Contains("23505", StringComparison.OrdinalIgnoreCase)
-                      || ex.Message.Contains("Unique", StringComparison.OrdinalIgnoreCase)
-                    ? ErrorDetail.Create(ErrorCode.Conflict, "匿名账号初始化冲突，请重试")
-                    : ErrorDetail.Create(ErrorCode.InfraFailure, "匿名账号初始化失败，请稍后重试"),
-                _logger,
-                "anonymous-account-bootstrap");
-
-            if (insertResult.IsSuccess && insertResult.Value > 0)
-            {
-                newUser.Id = insertResult.Value;
-                return (true, "匿名账号已初始化", newUser);
-            }
-
-            if (insertResult.Error.Code != ErrorCode.Conflict || handle.PublicHandle is { Length: > 0 })
-            {
-                return (false, insertResult.Error.Message, null);
-            }
-        }
-
-        return (false, "匿名账号初始化冲突，请重试", null);
-    }
-
-    private async Task<int> InsertAnonymousAccountWithSubjectAsync(User user)
-    {
-        user.AccountSubjectHash = string.IsNullOrWhiteSpace(user.PublicHandle)
-            ? AccountSubjectHasher.Create(
-                user.IdentityKind,
-                string.Concat("bootstrap:", Convert.ToHexString(RandomNumberGenerator.GetBytes(32))))
-            : AccountSubjectHasher.Create(user);
-
-        int accountId = 0;
-        var transaction = await _db.Ado.UseTranAsync(async () =>
-        {
-            accountId = await _db.Insertable(user).ExecuteReturnIdentityAsync().ConfigureAwait(false);
-            if (accountId <= 0)
-            {
-                throw new InvalidOperationException("Anonymous account insert did not return an identity.");
-            }
-
-            user.Id = accountId;
-            string finalSubjectHash = AccountSubjectHasher.Create(user);
-            if (!string.Equals(user.AccountSubjectHash, finalSubjectHash, StringComparison.Ordinal))
-            {
-                int updated = await _db.Ado.ExecuteCommandAsync(
-                    """
-                    UPDATE sys_user
-                    SET account_subject_hash = @AccountSubjectHash
-                    WHERE id = @AccountId;
-                    """,
-                    new SugarParameter("@AccountSubjectHash", finalSubjectHash),
-                    new SugarParameter("@AccountId", accountId)).ConfigureAwait(false);
-                if (updated != 1)
-                {
-                    throw new InvalidOperationException("Anonymous account subject projection was not persisted.");
-                }
-
-                user.AccountSubjectHash = finalSubjectHash;
-            }
-        }).ConfigureAwait(false);
-
-        if (!transaction.IsSuccess)
-        {
-            throw transaction.ErrorException
-                ?? new InvalidOperationException("Anonymous account creation transaction failed.");
-        }
-
-        return accountId;
-    }
-
-    public async Task<User?> GetByIdAsync(int id) => await _db.Queryable<User>().InSingleAsync(id);
-
     private Task InvalidateAccountSnapshotAsync(int userId, CancellationToken cancellationToken = default)
         => AccountSnapshotCacheInvalidator.BumpVersionAsync(_cacheCounters, userId, cancellationToken);
-
-
-
-
-    public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync(
-        User user,
-        string clientIp,
-        string? deviceFingerprint,
-        string? userAgent,
-        bool mfaVerified,
-        bool rememberMe)
-    {
-        if (user.Status == UserStatusDeleted || user.DeletedAt.HasValue)
-        {
-            return (false, "账户已注销", null, null);
-        }
-
-        if (user.Status == UserStatusBanned)
-        {
-            string accountSubject = AccountSubjectHashRequirement.Require(user.AccountSubjectHash, "login-restriction-audit");
-            using var _ = AuditLogScope.Push(
-                AuditSourceCatalog.Auth,
-                AuditTypeCatalog.Security,
-                new KeyValuePair<string, object?>("AuditAction", "login.restricted"),
-                new KeyValuePair<string, object?>("AccountSubjectHash", accountSubject));
-            LogBannedAccountLogin(accountSubject);
-        }
-
-        string refreshToken = _jwtHelper.GenerateRefreshToken();
-        string refreshTokenHash = HashToken(refreshToken);
-        string sessionId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        IssuedAccessToken accessToken = _jwtHelper.GenerateAccessToken(user, sessionId, mfaVerified);
-        DateTime now = DateTime.UtcNow;
-        DateTime idleExpiresAt = now.Add(ResolveIdleSessionTtl(rememberMe));
-        DateTime absoluteExpiresAt = now.Add(ResolveAbsoluteSessionTtl(rememberMe));
-
-        var session = new UserSession
-        {
-            SessionId = sessionId,
-            UserId = user.Id,
-            RefreshTokenHash = refreshTokenHash,
-            DeviceFingerprint = string.IsNullOrWhiteSpace(deviceFingerprint) ? null : deviceFingerprint,
-            LastIp = clientIp,
-            UserAgent = Truncate(userAgent, 512),
-            CreatedAt = now,
-            LastSeenAt = now,
-            IdleExpiresAt = idleExpiresAt,
-            AbsoluteExpiresAt = absoluteExpiresAt,
-            MfaVerified = mfaVerified,
-            RememberMe = rememberMe
-        };
-
-        long transactionStarted = Stopwatch.GetTimestamp();
-        int replacedSessionCount = 0;
-        List<UserSessionValidationCacheState> replacedSessions = [];
-        bool publicationAttempted = false;
-        var tran = await _db.Ado.UseTranAsync(async () =>
-        {
-            await AcquireUserSessionLoginLockAsync(user.Id);
-
-            replacedSessionCount = await RevokeActiveUserSessionsForLoginAsync(user.Id, now, replacedSessions);
-
-            await _db.Insertable(session).ExecuteCommandAsync();
-
-            publicationAttempted = replacedSessions.Count > 0;
-            await _userSessionValidationCache.PublishManyAsync(replacedSessions, allowOverwrite: true);
-        });
-        FsusObservability.RecordLoginSessionReplacement(
-            replacedSessionCount,
-            sessionRevokeCommandCount: tran.IsSuccess ? 1 : 0,
-            Stopwatch.GetElapsedTime(transactionStarted));
-        if (!tran.IsSuccess)
-        {
-            if (publicationAttempted)
-            {
-                await BestEffortInvalidateRevocationSnapshotsAsync(replacedSessions);
-            }
-
-            _logger.LogError(tran.ErrorException, "User session login transaction failed for account {AccountId}", user.Id);
-            return (false, "登录失败，请重试", null, null);
-        }
-
-        return (true, "登录成功", new SessionTokenResponseDto(
-            accessToken.Token,
-            accessToken.ExpiresAtUtc,
-            refreshToken,
-            session.SessionId,
-            idleExpiresAt), user);
-    }
-
-    private async Task<int> RevokeActiveUserSessionsForLoginAsync(
-        int userId,
-        DateTime revokedAt,
-        List<UserSessionValidationCacheState> revokedSessions)
-    {
-        int count = 0;
-        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-            """
-            UPDATE sys_user_session
-            SET revokedat = @RevokedAt,
-                revokereason = 'login_replaced'
-            WHERE userid = @UserId
-              AND revokedat IS NULL
-            RETURNING sessionid,
-                      userid,
-                      revokedat,
-                      idleexpiresat,
-                      absoluteexpiresat,
-                      xmin::text AS row_version;
-            """,
-            new SugarParameter("@UserId", userId),
-            new SugarParameter("@RevokedAt", revokedAt));
-
-        while (await reader.ReadAsync())
-        {
-            revokedSessions.Add(ReadRevokedSessionValidationState(reader));
-            count++;
-        }
-
-        return count;
-    }
-
-    private async Task AcquireUserSessionLoginLockAsync(int userId)
-    {
-        if (_db.CurrentConnectionConfig?.DbType != SqlSugar.DbType.PostgreSQL)
-        {
-            return;
-        }
-
-        await _db.Ado.ExecuteCommandAsync(
-            "SELECT pg_advisory_xact_lock(@LockNamespace, @UserId);",
-            new SugarParameter("@LockNamespace", UserSessionLoginLockNamespace),
-            new SugarParameter("@UserId", userId));
-    }
-
-    private static UserSessionValidationCacheState ReadRevokedSessionValidationState(DbDataReader reader)
-        => new(
-            reader.ReadString("sessionid"),
-            reader.ReadInt32("userid"),
-            AsUtc(reader.ReadDateTime("revokedat")),
-            AsUtc(reader.ReadDateTime("idleexpiresat")),
-            AsUtc(reader.ReadDateTime("absoluteexpiresat")),
-            reader.ReadString("row_version"),
-            UserStatusNormal,
-            null,
-            AnonymousIdentityRuntime.AnonymousAccountKind);
-
-    private static DateTime AsUtc(DateTime value)
-        => value.Kind switch
-        {
-            DateTimeKind.Utc => value,
-            DateTimeKind.Local => value.ToUniversalTime(),
-            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
-        };
 
     public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(
         int userId,
@@ -466,26 +140,6 @@ public partial class UserService(
             new KeyValuePair<string, object?>("Rebind", user.MfaEnabled));
 
         return (true, new MfaSetupStartDto(user.MfaEnabled, secret, otpAuthUrl, issuer, account), "MFA_SETUP_STARTED");
-    }
-
-    private async Task BestEffortInvalidateRevocationSnapshotsAsync(
-        IReadOnlyList<UserSessionValidationCacheState> revokedSessions)
-    {
-        try
-        {
-            await _userSessionValidationCache.InvalidateManyAsync(
-                revokedSessions,
-                CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            // A failed cleanup leaves a revoked snapshot behind. That may deny a session
-            // whose database transaction rolled back, but it cannot authorize a revoked one.
-            _logger.LogWarning(
-                ex,
-                "Failed to clean up {SessionCount} pre-commit user-session revocation snapshots",
-                revokedSessions.Count);
-        }
     }
 
     public async Task<MfaProfileDto?> GetMfaProfileAsync(int userId)
@@ -755,6 +409,19 @@ public partial class UserService(
         return reader.ReadBoolean("mfa_enabled");
     }
 
+    public async Task<bool> VerifyMfaOrRecoveryCodeAsync(
+        int userId,
+        string? code,
+        string? recoveryCode,
+        bool persistRecoveryConsumption,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        User? user = await _db.Queryable<User>().InSingleAsync(userId);
+        return user is not null
+            && await VerifyMfaOrRecoveryCodeAsync(user, code, recoveryCode, persistRecoveryConsumption);
+    }
+
     public async Task<bool> VerifyMfaOrRecoveryCodeAsync(User user, string? code, string? recoveryCode, bool persistRecoveryConsumption)
     {
         UserMfaProfile? profile = await GetUserMfaProfileAsync(user.Id);
@@ -871,60 +538,7 @@ public partial class UserService(
         return updated > 0;
     }
 
-    public Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent)
-        => _authRiskService.EvaluateLoginRiskAsync(userId, clientIp, deviceFingerprint, userAgent);
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string BuildMfaAccountLabel(User user)
         => $"FsusBlog:account:{user.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
-
-    private static string NormalizeClientIp(string? ip)
-    {
-        if (string.IsNullOrWhiteSpace(ip))
-        {
-            return string.Empty;
-        }
-
-        var value = ip.Trim();
-        return value.Length > MaxIpLength ? value[..MaxIpLength] : value;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string HashToken(string token)
-    {
-        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
-        return Convert.ToHexString(hash);
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string? Truncate(string? input, int maxLen)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return null;
-        }
-
-        return input.Length <= maxLen ? input : input[..maxLen];
-    }
-
-    [LoggerMessage(EventId = 1, Level = LogLevel.Warning, Message = "匿名账号初始化竞态冲突 | AccountSubject: {AccountSubject}")]
-    private partial void LogRegistrationConflict(string accountSubject);
-
-    [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "登录验证未通过 | AccountSubject: {AccountSubject} | ClientIpHash: {ClientIpHash}")]
-    private partial void LogLoginFailure(string accountSubject, string clientIpHash);
-
-    [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "封禁账号登录 | AccountSubject: {AccountSubject}")]
-    private partial void LogBannedAccountLogin(string accountSubject);
-
-    [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "续期失败 | 凭证失效")]
-    private partial void LogTokenRefreshFailure();
-
-    [LoggerMessage(EventId = 5, Level = LogLevel.Information, Message = "受限账号执行令牌续期 | AccountSubject: {AccountSubject} | 状态: 只读模式")]
-    private partial void LogBannedAccountTokenRefresh(string accountSubject);
-
-    [LoggerMessage(EventId = 6, Level = LogLevel.Error, Message = "后台异步消息推送失败")]
-    private partial void LogBackgroundTaskError(Exception ex);
-
-    [LoggerMessage(EventId = 7, Level = LogLevel.Warning, Message = "检测到刷新令牌重放 | SessionId: {SessionId} | UserId: {UserId}")]
-    private partial void LogRefreshTokenReuseDetected(string sessionId, int userId);
 }

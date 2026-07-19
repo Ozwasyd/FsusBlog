@@ -50,12 +50,23 @@ public class UserServiceValidationTests
         return new UserService(
             _db: db,
             _logger: NullLogger<UserService>.Instance,
-            _jwtHelper: jwtHelper,
             _cacheCounters: Substitute.For<ICacheCounterStore>(),
-            _totpService: totpService,
-            _authRiskService: Substitute.For<IAuthRiskService>(),
-            _userSessionValidationCache: sessionValidationCache ?? Substitute.For<IUserSessionValidationCache>());
+            _totpService: totpService);
     }
+
+    private static AnonymousAccountBootstrapService BuildBootstrapService(ISqlSugarClient db)
+        => new(db, NullLogger<AnonymousAccountBootstrapService>.Instance);
+
+    private static UserLoginWorkflowService BuildLoginService(
+        ISqlSugarClient db,
+        IJwtHelper jwt,
+        IUserSessionValidationCache? sessionValidationCache = null)
+        => new(
+            db,
+            NullLogger<UserLoginWorkflowService>.Instance,
+            jwt,
+            sessionValidationCache ?? Substitute.For<IUserSessionValidationCache>(),
+            Substitute.For<IAuthRiskService>());
 
     private static UserProfileCommandService BuildProfileService(
         ISqlSugarClient? db = null,
@@ -134,14 +145,14 @@ public class UserServiceValidationTests
         var insertable = Substitute.For<IInsertable<User>>();
         db.Insertable(Arg.Do<User>(user => inserted = user)).Returns(insertable);
         insertable.ExecuteReturnIdentityAsync().Returns(Task.FromResult(42));
-        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+        var svc = BuildBootstrapService(db);
 
-        var (success, message, user) = await svc.BootstrapAnonymousAccountAsync("QuietReader");
+        var (success, message, user) = await svc.BootstrapAsync("QuietReader");
 
         Assert.True(success, message);
         Assert.NotNull(inserted);
         Assert.NotNull(user);
-        Assert.Equal(42, user!.Id);
+        Assert.Equal(42, user!.Value.Id);
         Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, inserted.IdentityKind);
         Assert.Equal("quietreader", inserted.PublicHandle);
         Assert.NotNull(inserted.PrivacyInitializedAt);
@@ -168,14 +179,14 @@ public class UserServiceValidationTests
         var insertable = Substitute.For<IInsertable<User>>();
         db.Insertable(Arg.Do<User>(user => inserted = user)).Returns(insertable);
         insertable.ExecuteReturnIdentityAsync().Returns(Task.FromResult(42));
-        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+        var svc = BuildBootstrapService(db);
 
-        var (success, message, user) = await svc.BootstrapAnonymousAccountAsync(null);
+        var (success, message, user) = await svc.BootstrapAsync(null);
 
         Assert.True(success, message);
         Assert.NotNull(inserted);
         Assert.NotNull(user);
-        Assert.Equal(AccountSubjectHasher.Create(user!), user!.AccountSubjectHash);
+        Assert.Equal(inserted!.AccountSubjectHash, user!.Value.AccountSubjectHash);
         await ado.Received(1).ExecuteCommandAsync(
             Arg.Is<string>(sql => sql.Contains("account_subject_hash", StringComparison.Ordinal)),
             Arg.Any<SugarParameter[]>());
@@ -1081,7 +1092,7 @@ public class UserServiceValidationTests
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>())
             .Returns(new IssuedAccessToken("access-token", accessTokenExpiresAtUtc));
         var persistence = ConfigureLoginPersistence(db);
-        var svc = BuildService(db, jwt);
+        var svc = BuildLoginService(db, jwt);
         var bannedUser = new User
         {
             Id = 42,
@@ -1121,7 +1132,7 @@ public class UserServiceValidationTests
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>())
             .Returns(new IssuedAccessToken("access-token", accessTokenExpiresAtUtc));
         var persistence = ConfigureLoginPersistence(db);
-        var svc = BuildService(db, jwt);
+        var svc = BuildLoginService(db, jwt);
         var user = new User { Id = 7, Status = 0 };
 
         var (success, message, data, userEntity) = await svc.CompleteLoginAsync(
@@ -1207,11 +1218,7 @@ public class UserServiceValidationTests
             .Returns(new IssuedAccessToken("new-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
         var measurements = new ConcurrentBag<(string Name, double Value)>();
         using MeterListener listener = ListenToFsusMeasurements(measurements);
-        var service = BuildService(
-            db,
-            jwt,
-            Substitute.For<ITotpService>(),
-            sessionValidationCache: cache);
+        var service = BuildLoginService(db, jwt, cache);
 
         var result = await service.CompleteLoginAsync(
             new User { Id = 42, Status = 0, IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind },
@@ -1272,11 +1279,7 @@ public class UserServiceValidationTests
         jwt.GenerateRefreshToken().Returns("discarded-refresh-token");
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), false)
             .Returns(new IssuedAccessToken("discarded-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
-        var service = BuildService(
-            db,
-            jwt,
-            Substitute.For<ITotpService>(),
-            sessionValidationCache: cache);
+        var service = BuildLoginService(db, jwt, cache);
 
         var result = await service.CompleteLoginAsync(
             new User { Id = 42, Status = 0 },
@@ -1357,11 +1360,7 @@ public class UserServiceValidationTests
         jwt.GenerateRefreshToken().Returns("discarded-refresh-token");
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), false)
             .Returns(new IssuedAccessToken("discarded-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
-        var service = BuildService(
-            db,
-            jwt,
-            Substitute.For<ITotpService>(),
-            sessionValidationCache: cache);
+        var service = BuildLoginService(db, jwt, cache);
 
         var result = await service.CompleteLoginAsync(
             new User { Id = 42, Status = 0 },
@@ -1540,25 +1539,21 @@ public class UserServiceValidationTests
     public async Task LoggerMessages_CompiledMetadataAndRuntimeRequireStableAccountSubject()
     {
         AssertLoggerMessageMetadata(
+            typeof(AnonymousAccountBootstrapService),
             "LogRegistrationConflict",
             1,
             LogLevel.Warning,
             "匿名账号初始化竞态冲突 | AccountSubject: {AccountSubject}",
             ("accountSubject", typeof(string)));
         AssertLoggerMessageMetadata(
-            "LogLoginFailure",
-            2,
-            LogLevel.Information,
-            "登录验证未通过 | AccountSubject: {AccountSubject} | ClientIpHash: {ClientIpHash}",
-            ("accountSubject", typeof(string)),
-            ("clientIpHash", typeof(string)));
-        AssertLoggerMessageMetadata(
+            typeof(UserLoginWorkflowService),
             "LogBannedAccountLogin",
             3,
             LogLevel.Information,
-            "封禁账号登录 | AccountSubject: {AccountSubject}",
+            "受限账号登录 | AccountSubject: {AccountSubject} | 状态: 只读模式",
             ("accountSubject", typeof(string)));
         AssertLoggerMessageMetadata(
+            typeof(UserSessionCommandService),
             "LogBannedAccountTokenRefresh",
             5,
             LogLevel.Information,
@@ -1569,7 +1564,7 @@ public class UserServiceValidationTests
         Assert.Null(typeof(UserService).GetMethod("LogBannedUserTokenRefresh", BindingFlags.Instance | BindingFlags.NonPublic));
 
         var jwt = Substitute.For<IJwtHelper>();
-        var service = BuildService(Substitute.For<ISqlSugarClient>(), jwt);
+        var service = BuildLoginService(Substitute.For<ISqlSugarClient>(), jwt);
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.CompleteLoginAsync(
                 new User
@@ -1589,9 +1584,9 @@ public class UserServiceValidationTests
 
     // ── Private static helpers via reflection ─────────────────────────────────
 
-    private static T InvokePrivateStatic<T>(string methodName, object?[] args)
+    private static T InvokePrivateStatic<T>(Type declaringType, string methodName, object?[] args)
     {
-        var method = typeof(UserService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
+        var method = declaringType.GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
         return (T)method.Invoke(null, args)!;
     }
 
@@ -1629,7 +1624,7 @@ public class UserServiceValidationTests
     [InlineData("   ", "")]
     public void NormalizePublicHandleToken_TrimsAndLowercases(string input, string expected)
     {
-        var result = InvokePrivateStatic<string>("NormalizePublicHandleToken", [input]);
+        var result = InvokePrivateStatic<string>(typeof(AnonymousAccountBootstrapService), "NormalizePublicHandleToken", [input]);
         Assert.Equal(expected, result);
     }
 
@@ -1637,19 +1632,8 @@ public class UserServiceValidationTests
     public void NormalizePublicHandleToken_TruncatesAtMaxLength()
     {
         string longName = new string('a', 200);
-        var result = InvokePrivateStatic<string>("NormalizePublicHandleToken", [longName]);
+        var result = InvokePrivateStatic<string>(typeof(AnonymousAccountBootstrapService), "NormalizePublicHandleToken", [longName]);
         Assert.Equal(20, result.Length);
-    }
-
-    [Theory]
-    [InlineData("192.168.1.1", "192.168.1.1")]
-    [InlineData("  127.0.0.1  ", "127.0.0.1")]
-    [InlineData("", "")]
-    [InlineData(null, "")]
-    public void NormalizeClientIp_TrimsInput(string? input, string expected)
-    {
-        var result = InvokePrivateStatic<string>("NormalizeClientIp", [input]);
-        Assert.Equal(expected, result);
     }
 
     [Theory]
@@ -1659,7 +1643,7 @@ public class UserServiceValidationTests
     [InlineData("", null)]
     public void Truncate_CutsAtMaxLen(string? input, string? expected)
     {
-        var result = InvokePrivateStatic<string?>("Truncate", [input, 4]);
+        var result = InvokePrivateStatic<string?>(typeof(UserLoginWorkflowService), "Truncate", [input, 4]);
         Assert.Equal(expected, result);
     }
 
@@ -1788,6 +1772,7 @@ public class UserServiceValidationTests
     }
 
     private static void AssertLoggerMessageMetadata(
+        Type declaringType,
         string methodName,
         int eventId,
         LogLevel level,
@@ -1795,7 +1780,7 @@ public class UserServiceValidationTests
         params (string Name, Type Type)[] expectedParameters)
     {
         MethodInfo method = Assert.IsAssignableFrom<MethodInfo>(
-            typeof(UserService).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic));
+            declaringType.GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic));
         LoggerMessageAttribute attribute = Assert.Single(method.GetCustomAttributes<LoggerMessageAttribute>());
         Assert.Equal(eventId, attribute.EventId);
         Assert.Equal(level, attribute.Level);

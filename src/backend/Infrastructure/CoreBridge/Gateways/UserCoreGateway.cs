@@ -9,14 +9,14 @@ using FsusBlog.Shared.Contracts.AuthSystem;
 namespace FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 
 public sealed class UserCoreGateway(
-    UserService service,
+    IUserAccountReader accounts,
     IUserSessionCommandService sessions,
     IUserAdminModerationService admin) : IUserCoreGateway
 {
     public async Task<AccountSnapshotContract?> GetByIdAsync(int id)
     {
-        var user = await service.GetByIdAsync(id);
-        return user is null ? null : ToAccountSnapshot(user);
+        UserAccountSnapshot? user = await accounts.GetAccountByIdAsync(id);
+        return user is null ? null : ToAccountSnapshot(user.Value);
     }
 
     public async Task<(bool Success, TokenPairContract? Data)> RefreshTokenAsync(string refreshToken)
@@ -68,7 +68,7 @@ public sealed class UserCoreGateway(
     public Task<(bool Success, string Message)> AdminChangeStatusAsync(int userId, int status, string? reason)
         => admin.AdminChangeStatusAsync(new AdminChangeStatusDto { AccountId = userId, Status = status, Reason = reason });
 
-    private static AccountSnapshotContract ToAccountSnapshot(User user)
+    private static AccountSnapshotContract ToAccountSnapshot(UserAccountSnapshot user)
         => new(
             AccountId: user.Id,
             IdentityKind: user.IdentityKind,

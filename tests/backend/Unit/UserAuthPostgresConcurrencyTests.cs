@@ -258,11 +258,8 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         return new UserService(
             _db: db,
             _logger: NullLogger<UserService>.Instance,
-            _jwtHelper: jwt,
             _cacheCounters: Substitute.For<ICacheCounterStore>(),
-            _totpService: totp ?? Substitute.For<ITotpService>(),
-            _authRiskService: Substitute.For<IAuthRiskService>(),
-            _userSessionValidationCache: validationCache);
+            _totpService: totp ?? Substitute.For<ITotpService>());
     }
 
     private static UserSessionCommandService CreateSessionService(

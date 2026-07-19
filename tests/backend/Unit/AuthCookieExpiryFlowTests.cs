@@ -332,6 +332,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             IAnonymousAccountBootstrapService anonymousBootstrap =
                 Substitute.For<IAnonymousAccountBootstrapService>();
             IUserLoginWorkflowService loginWorkflow = Substitute.For<IUserLoginWorkflowService>();
+            IUserMfaVerificationService mfaVerification = Substitute.For<IUserMfaVerificationService>();
             IUserSessionCommandService sessions = Substitute.For<IUserSessionCommandService>();
             IMfaChallengeService mfaChallenges = Substitute.For<IMfaChallengeService>();
             IPasskeyService passkeys = Substitute.For<IPasskeyService>();
@@ -358,7 +359,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
                     Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<(bool Success, string Message, UserAccountSnapshot? User)>(
                     (true, "ok", account)));
-            loginWorkflow.VerifyMfaOrRecoveryCodeAsync(
+            mfaVerification.VerifyMfaOrRecoveryCodeAsync(
                     Arg.Any<int>(),
                     Arg.Any<string?>(),
                     Arg.Any<string?>(),
@@ -404,6 +405,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             {
                 anonymousBootstrap.ClearReceivedCalls();
                 loginWorkflow.ClearReceivedCalls();
+                mfaVerification.ClearReceivedCalls();
                 sessions.ClearReceivedCalls();
                 mfaChallenges.ClearReceivedCalls();
                 passkeys.ClearReceivedCalls();
@@ -518,6 +520,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
             builder.Services.AddSingleton<AuthBinaryApplicationFacade>();
             builder.Services.AddSingleton(anonymousBootstrap);
             builder.Services.AddSingleton(loginWorkflow);
+            builder.Services.AddSingleton(mfaVerification);
             builder.Services.AddSingleton(sessions);
             builder.Services.AddSingleton(mfaChallenges);
             builder.Services.AddSingleton(passkeys);

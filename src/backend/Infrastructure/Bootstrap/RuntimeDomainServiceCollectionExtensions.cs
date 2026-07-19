@@ -68,13 +68,13 @@ internal static class RuntimeDomainServiceCollectionExtensions
     {
         services.AddScoped<UserService>();
         services.AddScoped<AuthBinaryApplicationFacade>();
-        services.AddScoped<IUserAuthService>(sp => sp.GetRequiredService<UserService>());
         services.AddScoped<IUserAccountReader, UserAccountReader>();
         services.AddScoped<IAnonymousAccountBootstrapService, AnonymousAccountBootstrapService>();
         services.AddScoped<IUserLoginWorkflowService, UserLoginWorkflowService>();
         services.AddScoped<IUserProfileCommandService, UserProfileCommandService>();
         services.AddScoped<IUserSessionCommandService, UserSessionCommandService>();
-        services.AddScoped<IUserMfaCommandService, UserMfaCommandService>();
+        services.AddScoped<IUserMfaCommandService>(sp => sp.GetRequiredService<UserService>());
+        services.AddScoped<IUserMfaVerificationService>(sp => sp.GetRequiredService<UserService>());
         services.AddScoped<IUserAdminModerationService, UserAdminModerationService>();
         return services;
     }

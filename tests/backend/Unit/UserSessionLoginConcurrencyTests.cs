@@ -22,7 +22,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(db, typeof(UserSession));
-        UserService service = CreateService(db);
+        UserLoginWorkflowService service = CreateService(db);
         var user = new User { Id = 42, Status = 0 };
 
         var first = await service.CompleteLoginAsync(
@@ -55,7 +55,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         Assert.Equal("login_replaced", revoked.RevokeReason);
     }
 
-    private static UserService CreateService(ISqlSugarClient db)
+    private static UserLoginWorkflowService CreateService(ISqlSugarClient db)
     {
         var jwt = Substitute.For<IJwtHelper>();
         int refreshCounter = 0;
@@ -63,13 +63,11 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns(
             new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
 
-        return new UserService(
-            _db: db,
-            _logger: NullLogger<UserService>.Instance,
-            _jwtHelper: jwt,
-            _cacheCounters: Substitute.For<ICacheCounterStore>(),
-            _totpService: Substitute.For<ITotpService>(),
-            _authRiskService: Substitute.For<IAuthRiskService>(),
-            _userSessionValidationCache: Substitute.For<IUserSessionValidationCache>());
+        return new UserLoginWorkflowService(
+            db,
+            NullLogger<UserLoginWorkflowService>.Instance,
+            jwt,
+            Substitute.For<IUserSessionValidationCache>(),
+            Substitute.For<IAuthRiskService>());
     }
 }

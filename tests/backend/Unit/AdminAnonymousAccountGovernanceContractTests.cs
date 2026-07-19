@@ -243,11 +243,8 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
         => new(
             _db: db,
             _logger: NullLogger<UserService>.Instance,
-            _jwtHelper: Substitute.For<IJwtHelper>(),
             _cacheCounters: Substitute.For<ICacheCounterStore>(),
-            _totpService: Substitute.For<ITotpService>(),
-            _authRiskService: Substitute.For<IAuthRiskService>(),
-            _userSessionValidationCache: Substitute.For<IUserSessionValidationCache>());
+            _totpService: Substitute.For<ITotpService>());
 
     private static UserAdminModerationService CreateAdminService(ISqlSugarClient db)
         => new(
