@@ -20,6 +20,7 @@ using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
+using FsusBlog.Core.Services.Abstractions;
 
 using SqlSugar;
 
@@ -27,7 +28,7 @@ namespace FsusBlog.Server.Services.Authoring;
 
 public sealed partial class AuthoringWorkflowService(
     ISqlSugarClient db,
-    IArticleService articleService,
+    IArticleCoreService articleService,
     IContentFilterService contentFilter,
     IBlacklistService blacklistService,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,

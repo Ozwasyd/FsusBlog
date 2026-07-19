@@ -1,6 +1,9 @@
 using System.Data.Common;
 
 using FsusBlog.Core.Common;
+using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -152,10 +155,27 @@ public abstract class PublicAotBootstrapProviderBase(IAotSeoConfigSnapshot seoCo
 
     protected static PublicAotHotArticleSnapshot ToHotArticleSnapshot(PopularArticleSummaryDto item)
         => new(item.Id, item.Title, item.Views);
+
+    protected static PublicAotArticleSummarySnapshot ToArticleSummarySnapshot(ArticleListCoreModel item)
+        => new(
+            item.Id,
+            item.Title,
+            item.Summary ?? item.Snippet ?? string.Empty,
+            item.Views,
+            item.CreateTime,
+            new PublicAotArticleCategorySnapshot(item.Category.Id, item.Category.Name),
+            item.Tags.Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name)).ToArray());
+
+    protected static PublicAotFeaturedArticleSnapshot ToFeaturedArticleSnapshot(FeaturedArticleCoreModel item)
+        => new(item.Id, item.Title, item.CoverImageUrl, item.Views, item.CreateTime,
+            new PublicAotArticleCategorySnapshot(item.Category.Id, item.Category.Name));
+
+    protected static PublicAotHotArticleSnapshot ToHotArticleSnapshot(PopularArticleCoreModel item)
+        => new(item.Id, item.Title, item.Views);
 }
 
 public sealed class PublicAotHomeBootstrapProvider(
-    IArticleService articleService,
+    IArticleCoreService articleService,
     IAotSeoConfigSnapshot seoConfigSnapshot) : PublicAotBootstrapProviderBase(seoConfigSnapshot)
 {
     public override PublicPageKind Kind => PublicPageKind.Home;
@@ -171,13 +191,22 @@ public sealed class PublicAotHomeBootstrapProvider(
             pageIndex = Math.Max(1, match.Page);
         }
         PublicAotSeoSnapshot seo = await LoadSeoSnapshotAsync();
-        ArticleListPageReadModel page = await articleService.GetPageListAsync(pageIndex, PageSize, null, null, false, cancellationToken: cancellationToken);
+        var pageResult = await articleService.GetPageListAsync(
+            new ArticlePageQuery(pageIndex, PageSize, null, null, false),
+            cancellationToken);
+        if (!pageResult.IsSuccess)
+        {
+            return Result<PublicPageSnapshot>.Failure(pageResult.Error.Code, pageResult.Error.Message);
+        }
+        CorePageResult<ArticleListCoreModel> page = pageResult.Value;
         if (IsPageOutOfRange(pageIndex, PageSize, page.Total))
         {
             return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_page_out_of_range");
         }
-        List<FeaturedArticleSummaryDto> featuredArticles = await articleService.GetFeaturedArticlesAsync(FeaturedSize, cancellationToken);
-        List<PopularArticleSummaryDto> hotArticles = await articleService.GetHotArticlesAsync(HotSize, cancellationToken);
+        var featuredResult = await articleService.GetFeaturedArticlesAsync(new ArticleCountQuery(FeaturedSize), cancellationToken);
+        var hotResult = await articleService.GetHotArticlesAsync(new ArticleCountQuery(HotSize), cancellationToken);
+        IReadOnlyList<FeaturedArticleCoreModel> featuredArticles = featuredResult.IsSuccess && featuredResult.Value is not null ? featuredResult.Value : [];
+        IReadOnlyList<PopularArticleCoreModel> hotArticles = hotResult.IsSuccess && hotResult.Value is not null ? hotResult.Value : [];
 
         return Result<PublicPageSnapshot>.Success(new PublicHomePageSnapshot(
             seo,
@@ -514,7 +543,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
 }
 
 public sealed class PublicAotFilterBootstrapProvider(
-    IArticleService articleService,
+    IArticleCoreService articleService,
     IAotSeoConfigSnapshot seoConfigSnapshot,
     ISqlSugarClient db) : PublicAotBootstrapProviderBase(seoConfigSnapshot)
 {
@@ -535,15 +564,16 @@ public sealed class PublicAotFilterBootstrapProvider(
         }
 
         Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
-        Task<ArticleListPageReadModel> pageTask = articleService.GetPageListAsync(
-            pageIndex,
-            PageSize,
-            identity.CategoryId,
-            identity.TagId,
-            false,
-            cancellationToken: cancellationToken);
+        Task<Result<CorePageResult<ArticleListCoreModel>>> pageTask = articleService.GetPageListAsync(
+            new ArticlePageQuery(pageIndex, PageSize, identity.CategoryId, identity.TagId, false),
+            cancellationToken);
         PublicAotSeoSnapshot seo = await seoTask;
-        ArticleListPageReadModel page = await pageTask;
+        Result<CorePageResult<ArticleListCoreModel>> pageResult = await pageTask;
+        if (!pageResult.IsSuccess)
+        {
+            return Result<PublicPageSnapshot>.Failure(pageResult.Error.Code, pageResult.Error.Message);
+        }
+        CorePageResult<ArticleListCoreModel> page = pageResult.Value;
         if (!PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey)
             && pageIndex > Math.Max(1, (int)Math.Ceiling(page.Total / (double)PageSize)))
         {

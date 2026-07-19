@@ -3,20 +3,17 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.ReadModels;
-using FsusBlog.Server.Models.Requests;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Services;
 
 public sealed class ArticleEndpointService(
     IArticleCoreService core,
-    IArticleService articles,
     IUnifiedCache cache,
     IOwnedFrameCache ownedFrameCache,
     ICacheMissCoordinator cacheMissCoordinator,
@@ -80,17 +77,9 @@ public sealed class ArticleEndpointService(
             {
                 token.ThrowIfCancellationRequested();
                 Result<CorePageResult<ArticleListCoreModel>> result = ShouldBypassCoreArticleListCacheForPublicFrame(isDeleted, canReadDeleted, status, canReadPrivate)
-                    ? await LoadPublicArticleListFrameSourceAsync(page, size, categoryId, tagId, normalizedKeyword, token)
+                    ? await LoadPublicArticleListFrameSourceAsync(page, size, categoryId, tagId, normalizedKeyword, version, token)
                     : await core.GetPageListAsync(
-                        page,
-                        size,
-                        categoryId,
-                        tagId,
-                        isDeleted,
-                        status,
-                        canReadPrivate,
-                        normalizedKeyword,
-                        version,
+                        new ArticlePageQuery(page, size, categoryId, tagId, isDeleted, status, canReadPrivate, normalizedKeyword, version),
                         token);
                 if (!result.IsSuccess)
                 {
@@ -129,7 +118,7 @@ public sealed class ArticleEndpointService(
         int id,
         bool canReadPrivate = false,
         CancellationToken cancellationToken = default)
-        => core.GetByIdAsync(id, canReadPrivate, cancellationToken);
+        => core.GetByIdAsync(new ArticleDetailQuery(id, canReadPrivate), cancellationToken);
 
     public async Task<ArticleDetailArtifactPayload> GetPublicArtifactBackedDetailAsync(
         int id,
@@ -170,7 +159,7 @@ public sealed class ArticleEndpointService(
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        Result<IReadOnlyList<PopularArticleCoreModel>> result = await core.GetHotArticlesAsync(count, cancellationToken);
+        Result<IReadOnlyList<PopularArticleCoreModel>> result = await core.GetHotArticlesAsync(new ArticleCountQuery(count), cancellationToken);
         if (!result.IsSuccess || result.Value is null)
         {
             return new(default, result);
@@ -204,44 +193,58 @@ public sealed class ArticleEndpointService(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        List<FeaturedArticleSummaryDto> featured = await articles.GetFeaturedArticlesAsync(count, cancellationToken);
-        return Result<IReadOnlyList<FeaturedArticleSummaryDto>>.Success(featured);
+        Result<IReadOnlyList<FeaturedArticleCoreModel>> result = await core.GetFeaturedArticlesAsync(new ArticleCountQuery(count), cancellationToken);
+        if (!result.IsSuccess || result.Value is null)
+        {
+            return Result<IReadOnlyList<FeaturedArticleSummaryDto>>.Failure(result.Error.Code, result.Error.Message);
+        }
+
+        return Result<IReadOnlyList<FeaturedArticleSummaryDto>>.Success(result.Value.Select(static item =>
+            new FeaturedArticleSummaryDto(
+                item.Id,
+                item.Title,
+                item.CoverImageUrl,
+                item.Views,
+                item.CreateTime,
+                new ArticleCategoryView(item.Category.Id, item.Category.Name))).ToArray());
     }
 
-    public Task<int> CreateAsync(ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
+    public async Task<int> CreateAsync(ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return articles.CreateAsync(ToCreateRequest(request), cancellationToken);
+        Result<int> result = await core.CreateAsync(new CreateArticleCommand(request), cancellationToken);
+        return result.IsSuccess ? result.Value : 0;
     }
 
-    public Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
+    public async Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel request, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return articles.UpdateAsync(id, ToUpdateRequest(request), cancellationToken);
+        return (await core.UpdateAsync(new UpdateArticleCommand(id, request), cancellationToken)).IsSuccess;
     }
 
-    public Task<int> ClearTrashAsync(CancellationToken cancellationToken = default)
+    public async Task<int> ClearTrashAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return articles.ClearTrashAsync(cancellationToken);
+        Result<int> result = await core.ClearTrashAsync(cancellationToken);
+        return result.IsSuccess ? result.Value : 0;
     }
 
-    public Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return articles.DeleteAsync(id, cancellationToken);
+        return (await core.DeleteAsync(new ArticleIdCommand(id), cancellationToken)).IsSuccess;
     }
 
-    public Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return articles.RestoreAsync(id, cancellationToken);
+        return (await core.RestoreAsync(new ArticleIdCommand(id), cancellationToken)).IsSuccess;
     }
 
-    public Task<bool> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<bool> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return articles.PermanentlyDeleteArticleAsync(id, cancellationToken);
+        return (await core.PermanentlyDeleteArticleAsync(new ArticleIdCommand(id), cancellationToken)).IsSuccess;
     }
 
     private async ValueTask<long> GetArticleListCacheVersionAsync(CancellationToken cancellationToken)
@@ -256,39 +259,26 @@ public sealed class ArticleEndpointService(
         int? categoryId,
         int? tagId,
         string keyword,
+        long listCacheVersion,
         CancellationToken cancellationToken)
     {
-        ArticleListPageReadModel source = await articles.GetPageListAsync(
-            page,
-            size,
-            categoryId,
-            tagId,
-            isDeleted: false,
-            status: null,
-            includePrivate: false,
-            keyword,
+        return await core.GetPageListAsync(
+            new ArticlePageQuery(
+                page,
+                size,
+                categoryId,
+                tagId,
+                IsDeleted: false,
+                Status: null,
+                IncludePrivate: false,
+                keyword,
+                ListCacheVersion: listCacheVersion,
+                UseSourceCache: false),
             cancellationToken);
-        return Result<CorePageResult<ArticleListCoreModel>>.Success(
-            new CorePageResult<ArticleListCoreModel>(
-                ToCoreListModels(source.Items),
-                source.Total,
-                source.NextCursor,
-                source.HasMore));
     }
 
     private static bool ShouldBypassCoreArticleListCacheForPublicFrame(bool isDeleted, bool canReadDeleted, int? status, bool canReadPrivate)
         => !isDeleted && !canReadDeleted && status is null && !canReadPrivate;
-
-    private static List<ArticleListCoreModel> ToCoreListModels(IReadOnlyList<ArticleListItemReadModel> source)
-    {
-        var items = new List<ArticleListCoreModel>(source.Count);
-        for (int i = 0; i < source.Count; i++)
-        {
-            items.Add(ArticleProjection.ToCoreListModel(source[i]));
-        }
-
-        return items;
-    }
 
     private static string BuildArticleListCacheIdentity(long version, int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status, bool includePrivate, string keyword)
         => $"core:v4:{(includePrivate ? "admin" : "public")}:{version}:{page}:{size}:{categoryId ?? 0}:{tagId ?? 0}:{(isDeleted ? 1 : 0)}:{status ?? -1}:{keyword}";
@@ -299,74 +289,4 @@ public sealed class ArticleEndpointService(
     private string BuildArticleHotCacheIdentity(int count)
         => hotArticlesVersionProvider.BuildVersionedHotArticlesIdentity($"core:v2:{count}");
 
-    private static CreateArticleRequest ToCreateRequest(ArticleWriteRequestCoreModel request)
-        => new()
-        {
-            Title = request.Title,
-            Content = request.Content,
-            Summary = request.Summary,
-            CoverImageUrl = request.CoverImageUrl,
-            CategoryId = request.CategoryId,
-            TagIds = CopyTagIds(request.TagIds),
-            Status = ToArticleStatus(request.Status),
-            ScheduledPublishAt = request.ScheduledPublishAt,
-            Rights = ToRightsRequest(request.Rights)
-        };
-
-    private static UpdateArticleRequest ToUpdateRequest(ArticleWriteRequestCoreModel request)
-        => new()
-        {
-            Title = request.Title,
-            Content = request.Content,
-            Summary = request.Summary,
-            CoverImageUrl = request.CoverImageUrl,
-            CategoryId = request.CategoryId,
-            TagIds = CopyTagIds(request.TagIds),
-            Status = ToArticleStatus(request.Status),
-            ScheduledPublishAt = request.ScheduledPublishAt,
-            Rights = ToRightsRequest(request.Rights)
-        };
-
-    private static ArticleRightsRequest? ToRightsRequest(ArticleRightsRequestCoreModel? request)
-    {
-        if (!request.HasValue)
-        {
-            return null;
-        }
-
-        ArticleRightsRequest value = new()
-        {
-            Enabled = request.Value.Enabled,
-            LicenseType = request.Value.LicenseType,
-            CopyrightHolder = request.Value.CopyrightHolder,
-            CopyrightYear = request.Value.CopyrightYear,
-            RightsStatement = request.Value.RightsStatement,
-            AttributionTemplate = request.Value.AttributionTemplate,
-            CopyPolicy = request.Value.CopyPolicy,
-            MaxExcerptChars = request.Value.MaxExcerptChars,
-            AllowCodeCopy = request.Value.AllowCodeCopy,
-            ShowPublicBadge = request.Value.ShowPublicBadge,
-            ProofBindingEnabled = request.Value.ProofBindingEnabled
-        };
-        return value;
-    }
-
-    private static ArticleStatus ToArticleStatus(int status)
-        => ArticleStatusProjection.Normalize(status);
-
-    private static List<int>? CopyTagIds(IReadOnlyList<int> tagIds)
-    {
-        if (tagIds.Count == 0)
-        {
-            return null;
-        }
-
-        var copy = new List<int>(tagIds.Count);
-        for (int i = 0; i < tagIds.Count; i++)
-        {
-            copy.Add(tagIds[i]);
-        }
-
-        return copy;
-    }
 }

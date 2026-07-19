@@ -125,8 +125,8 @@ case "$MODE" in
         route="visit-log:view-count-flush"
         checks=(batch-core-gateway batch-adapter-no-single-loop batch-db-values-update)
         RequireToken "src/core/Services/Gateways/IArticleCoreGateway.cs" "IncreaseViewCountsAsync("
-        RequireToken "src/backend/Infrastructure/CoreBridge/Adapters/ArticleServiceCoreAdapter.cs" "core.IncreaseViewCountsAsync"
-        RejectToken "src/backend/Infrastructure/CoreBridge/Adapters/ArticleServiceCoreAdapter.cs" "for (int i = 0; i < count; i++)"
+        RequireToken "src/backend/Services/ArticleService.CorePort.cs" "IncreaseViewCountsAsync(command.ArticleCounts"
+        RejectToken "src/backend/Services/ArticleService.CorePort.cs" "for (int i = 0; i < count; i++)"
         RequireToken "src/backend/Services/ArticleService.cs" "FROM (VALUES"
         RequireToken "src/backend/Services/ArticleService.cs" "IBatch redisBatch = _redis.CreateBatch()"
         ;;
@@ -143,7 +143,7 @@ case "$MODE" in
         RequireToken "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs" "s_statsDebounce"
         RequireToken "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs" "FlushPendingAsync"
         RequireToken "src/backend/Services/ArticleEndpointService.cs" "BuildVersionedHotArticlesIdentity"
-        RequireToken "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "BuildVersionedHotArticlesIdentity"
+        RequireToken "src/backend/Infrastructure/Cache/ArticleCacheOwnershipCatalog.cs" "no writer after Core bridge cache removal"
         RequireToken "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "PublishNextHotArticlesVersion"
         RejectToken "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "RemoveByPrefixAsync(CachePolicyId.ArticleHot, string.Empty"
         RejectToken "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "RemoveByPrefixAsync(CachePolicyId.ArticleHotFrame, string.Empty"
@@ -186,12 +186,13 @@ case "$MODE" in
     cache-miss-singleflight)
         traffic_mode="db-miss"
         checks=(detail-singleflight search-singleflight hot-singleflight featured-singleflight)
-        RequireToken "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "AcquireSingleFlightAsync(CachePolicyId.ArticleDetail"
+        RequireToken "src/backend/Services/ArticleService.cs" "CachePolicyId.ArticleDetail"
+        RequireToken "src/backend/Services/ArticleService.cs" "_cacheMissCoordinator.CoordinateAsync("
         RequireToken "src/backend/Services/ArticleService.LifecycleAndReadModels.cs" "_cacheMissCoordinator.CoordinateAsync("
         RequireToken "src/backend/Services/ArticleService.LifecycleAndReadModels.cs" "CachePolicyId.ArticleSearch"
         RequireToken "src/backend/Services/ArticleService.LifecycleAndReadModels.cs" "\"article-search\""
-        RequireToken "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "AcquireSingleFlightAsync(CachePolicyId.ArticleHot"
-        RequireToken "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "AcquireSingleFlightAsync(CachePolicyId.TopArticles"
+        RequireToken "src/backend/Services/ArticleService.LifecycleAndReadModels.cs" "CachePolicyId.TopArticles"
+        RequireToken "src/backend/Services/ArticleService.LifecycleAndReadModels.cs" "\"article-hot-seed\""
         ;;
     risk-filter)
         route="public_read:risk-filter"

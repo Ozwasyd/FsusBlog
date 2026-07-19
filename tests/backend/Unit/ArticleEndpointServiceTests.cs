@@ -4,10 +4,10 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
-using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -110,15 +110,7 @@ public sealed class ArticleEndpointServiceTests
                 Arg.Any<CancellationToken>())
             .Returns(default(OwnedFrameCacheReadResult));
         core.GetPageListAsync(
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<int?>(),
-                Arg.Any<int?>(),
-                Arg.Any<bool>(),
-                Arg.Any<int?>(),
-                Arg.Any<bool>(),
-                Arg.Any<string?>(),
-                Arg.Any<long?>(),
+                Arg.Any<ArticlePageQuery>(),
                 Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
@@ -162,15 +154,7 @@ public sealed class ArticleEndpointServiceTests
         int coreLoads = 0;
 
         core.GetPageListAsync(
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<int?>(),
-                Arg.Any<int?>(),
-                Arg.Any<bool>(),
-                Arg.Any<int?>(),
-                Arg.Any<bool>(),
-                Arg.Any<string?>(),
-                Arg.Any<long?>(),
+                Arg.Any<ArticlePageQuery>(),
                 Arg.Any<CancellationToken>())
             .Returns(async _ =>
             {
@@ -211,20 +195,13 @@ public sealed class ArticleEndpointServiceTests
     }
 
     [Fact]
-    public async Task GetPageListAsync_PublicFrameMiss_UsesServiceDtoProjectionWithoutCoreListCache()
+    public async Task GetPageListAsync_PublicFrameMiss_UsesUncachedCoreQuery()
     {
         var core = Substitute.For<IArticleCoreService>();
-        var articles = Substitute.For<IArticleService>();
         var cache = Substitute.For<IUnifiedCache>();
         var ownedFrameCache = CreateOwnedFrameCacheSubstitute();
-        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache, articles: articles);
-        var page = new ArticleListPageReadModel
-        {
-            Items = [],
-            Total = 0,
-            NextCursor = "next",
-            HasMore = true
-        };
+        var service = Create(core, cache: cache, ownedFrameCache: ownedFrameCache);
+        var page = new CorePageResult<ArticleListCoreModel>([], 0, "next", true);
 
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>())
             .Returns("9");
@@ -234,17 +211,10 @@ public sealed class ArticleEndpointServiceTests
                 AedsFrameType.ArticleList,
                 Arg.Any<CancellationToken>())
             .Returns(default(OwnedFrameCacheReadResult));
-        articles.GetPageListAsync(
-                Arg.Any<int>(),
-                Arg.Any<int>(),
-                Arg.Any<int?>(),
-                Arg.Any<int?>(),
-                Arg.Any<bool>(),
-                Arg.Any<int?>(),
-                Arg.Any<bool>(),
-                Arg.Any<string>(),
+        core.GetPageListAsync(
+                Arg.Is<ArticlePageQuery>(query => !query.UseSourceCache && query.Keyword == "fsus"),
                 Arg.Any<CancellationToken>())
-            .Returns(page);
+            .Returns(Result<CorePageResult<ArticleListCoreModel>>.Success(page));
 
         ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>> result = await service.GetPageListAsync(
             1,
@@ -261,16 +231,13 @@ public sealed class ArticleEndpointServiceTests
         Assert.True(result.HasCachedFrame);
         Assert.Equal("next", result.Result.Value.NextCursor);
         Assert.True(result.Result.Value.HasMore);
-        await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default, default, default, default);
-        await articles.Received(1).GetPageListAsync(
-            1,
-            10,
-            null,
-            null,
-            false,
-            null,
-            false,
-            "fsus",
+        await core.Received(1).GetPageListAsync(
+            Arg.Is<ArticlePageQuery>(query =>
+                query.Page == 1
+                && query.Size == 10
+                && query.Keyword == "fsus"
+                && query.ListCacheVersion == 9
+                && !query.UseSourceCache),
             Arg.Any<CancellationToken>());
         await ownedFrameCache.Received(1).SetOwnedFrameAsync(
             CachePolicyId.ArticleListFrame,
@@ -382,7 +349,6 @@ public sealed class ArticleEndpointServiceTests
         IArticleDetailAedsArtifactBackfillScheduler? scheduler = null,
         IUnifiedCache? cache = null,
         IOwnedFrameCache? ownedFrameCache = null,
-        IArticleService? articles = null,
         ICacheMissCoordinator? cacheMissCoordinator = null,
         IPublicArticleProjectionStore? projection = null)
     {
@@ -394,7 +360,6 @@ public sealed class ArticleEndpointServiceTests
 
         return new ArticleEndpointService(
             core,
-            articles ?? Substitute.For<IArticleService>(),
             cache,
             ownedFrameCache,
             cacheMissCoordinator ?? new PassthroughCacheMissCoordinator(),

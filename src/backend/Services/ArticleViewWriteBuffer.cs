@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 
+using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 
@@ -100,7 +102,7 @@ public sealed class ArticleViewWriteBuffer(
 }
 
 public sealed class ArticleServiceViewFlushSink(
-    ArticleService articleService,
+    IArticleCoreService articleService,
     IHotStatsInvalidationCoalescer hotStatsInvalidation,
     PublicHotArtifactUpdateQueue publicHotUpdates,
     ILogger<ArticleServiceViewFlushSink> logger) : IArticleViewFlushSink
@@ -109,9 +111,12 @@ public sealed class ArticleServiceViewFlushSink(
         IReadOnlyDictionary<int, int> articleCounts,
         CancellationToken cancellationToken = default)
     {
-        IReadOnlySet<int> updatedArticleIds = await articleService
-            .IncreaseViewCountsAsync(articleCounts, cancellationToken)
+        var result = await articleService
+            .IncreaseViewCountsAsync(new ArticleViewCountBatchCommand(articleCounts), cancellationToken)
             .ConfigureAwait(false);
+        IReadOnlySet<int> updatedArticleIds = result.IsSuccess && result.Value is not null
+            ? result.Value
+            : new HashSet<int>();
         if (updatedArticleIds.Count == 0)
         {
             return updatedArticleIds;

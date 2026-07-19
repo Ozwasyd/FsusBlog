@@ -274,7 +274,7 @@ public partial class ArticleService
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static List<int> NormalizeTagIds(List<int>? tagIds)
+    private static List<int> NormalizeTagIds(IReadOnlyList<int>? tagIds)
     {
         if (tagIds == null || tagIds.Count == 0)
         {

@@ -37,7 +37,7 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
         AssertRegistration<PublicHotReadCounters, PublicHotReadCounters>(services, ServiceLifetime.Singleton);
 
         Assert.True(typeof(ISearchIndexService).IsAssignableFrom(typeof(SearchIndexService)));
-        Assert.True(typeof(IArticleService).IsAssignableFrom(typeof(ArticleService)));
+        Assert.True(typeof(FsusBlog.Core.Services.Gateways.IArticleCoreGateway).IsAssignableFrom(typeof(ArticleService)));
     }
 
     [Fact]

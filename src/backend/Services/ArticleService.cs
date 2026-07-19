@@ -4,6 +4,8 @@ using System.Runtime.CompilerServices;
 using System.Text;
 
 using FsusBlog.Core.Integrity;
+using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -16,7 +18,6 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
-using FsusBlog.Server.Models.Requests;
 
 using SqlSugar;
 
@@ -43,7 +44,7 @@ public partial class ArticleService(
     IPublicAotInvalidationService _publicAotInvalidationService,
     ICacheInvalidationDispatcher _cacheInvalidationDispatcher,
     IArticleMutationSideEffectCoordinator _mutationSideEffects,
-    IArticleViewWriteBuffer _viewWriteBuffer) : IArticleService
+    IArticleViewWriteBuffer _viewWriteBuffer) : IArticleCoreGateway
 #pragma warning restore IDE1006
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId);
@@ -595,7 +596,7 @@ public partial class ArticleService(
         return content;
     }
 
-    public async Task<int> CreateAsync(CreateArticleRequest dto, CancellationToken cancellationToken = default)
+    public async Task<int> CreateAsync(ArticleWriteRequestCoreModel dto, CancellationToken cancellationToken = default)
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
         ct.ThrowIfCancellationRequested();
@@ -607,7 +608,7 @@ public partial class ArticleService(
         var safeSummary = string.IsNullOrWhiteSpace(summary) ? GenerateSafeSummary(content) : summary;
         ArticleRightsWriteModel rights = NormalizeArticleRights(dto.Rights);
         DateTime now = DateTime.UtcNow;
-        ArticleStatus status = NormalizeWriteStatus(dto.Status, dto.ScheduledPublishAt, now);
+        ArticleStatus status = NormalizeWriteStatus(ArticleStatusProjection.Normalize(dto.Status), dto.ScheduledPublishAt, now);
         var article = new Article
         {
             Title = title,
@@ -992,7 +993,7 @@ public partial class ArticleService(
         return reader.ReadInt64("id");
     }
 
-    private static ArticleRightsWriteModel NormalizeArticleRights(ArticleRightsRequest? request)
+    private static ArticleRightsWriteModel NormalizeArticleRights(ArticleRightsRequestCoreModel? request)
     {
         if (request is null)
         {
@@ -1010,23 +1011,24 @@ public partial class ArticleService(
                 ProofBindingEnabled: true);
         }
 
-        if (request.MaxExcerptChars < 0)
+        ArticleRightsRequestCoreModel value = request.Value;
+        if (value.MaxExcerptChars < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(request.MaxExcerptChars), request.MaxExcerptChars, "MaxExcerptChars cannot be negative.");
+            throw new ArgumentOutOfRangeException(nameof(value.MaxExcerptChars), value.MaxExcerptChars, "MaxExcerptChars cannot be negative.");
         }
 
         return new ArticleRightsWriteModel(
-            Enabled: request.Enabled,
-            LicenseType: NormalizeRightsToken(request.LicenseType, "all-rights-reserved", 48),
-            CopyrightHolder: NormalizeOptionalRightsText(request.CopyrightHolder, 256),
-            CopyrightYear: request.CopyrightYear,
-            RightsStatement: NormalizeOptionalRightsText(request.RightsStatement, 4000),
-            AttributionTemplate: NormalizeOptionalRightsText(request.AttributionTemplate, 4000),
-            CopyPolicy: NormalizeRightsToken(request.CopyPolicy, "append-attribution", 48),
-            MaxExcerptChars: request.MaxExcerptChars,
-            AllowCodeCopy: request.AllowCodeCopy,
-            ShowPublicBadge: request.ShowPublicBadge,
-            ProofBindingEnabled: request.ProofBindingEnabled);
+            Enabled: value.Enabled,
+            LicenseType: NormalizeRightsToken(value.LicenseType, "all-rights-reserved", 48),
+            CopyrightHolder: NormalizeOptionalRightsText(value.CopyrightHolder, 256),
+            CopyrightYear: value.CopyrightYear,
+            RightsStatement: NormalizeOptionalRightsText(value.RightsStatement, 4000),
+            AttributionTemplate: NormalizeOptionalRightsText(value.AttributionTemplate, 4000),
+            CopyPolicy: NormalizeRightsToken(value.CopyPolicy, "append-attribution", 48),
+            MaxExcerptChars: value.MaxExcerptChars,
+            AllowCodeCopy: value.AllowCodeCopy,
+            ShowPublicBadge: value.ShowPublicBadge,
+            ProofBindingEnabled: value.ProofBindingEnabled);
     }
 
     private static string? NormalizeOptionalRightsText(string? value, int maxLength)
@@ -1062,7 +1064,7 @@ public partial class ArticleService(
             CreatedAt = DateTime.UtcNow
         }).ExecuteCommandAsync();
 
-    public async Task<bool> UpdateAsync(int id, UpdateArticleRequest dto, CancellationToken cancellationToken = default)
+    public async Task<bool> UpdateAsync(int id, ArticleWriteRequestCoreModel dto, CancellationToken cancellationToken = default)
     {
         CancellationToken ct = ResolveCancellationToken(cancellationToken);
         ct.ThrowIfCancellationRequested();
@@ -1080,12 +1082,13 @@ public partial class ArticleService(
         var safeSummary = string.IsNullOrWhiteSpace(summary) ? GenerateSafeSummary(content) : summary;
         ArticleRightsWriteModel rights = NormalizeArticleRights(dto.Rights);
         DateTime now = DateTime.UtcNow;
-        if (dto.Status == ArticleStatus.Deleted)
+        ArticleStatus requestedStatus = ArticleStatusProjection.Normalize(dto.Status);
+        if (requestedStatus == ArticleStatus.Deleted)
         {
             return false;
         }
 
-        ArticleStatus status = NormalizeWriteStatus(dto.Status, dto.ScheduledPublishAt, now);
+        ArticleStatus status = NormalizeWriteStatus(requestedStatus, dto.ScheduledPublishAt, now);
         DateTime? scheduledPublishAt = status == ArticleStatus.Scheduled ? dto.ScheduledPublishAt : null;
         DateTime? publishedAt = state.PublishedAt ?? (status == ArticleStatus.Published ? now : null);
         DateTime? archivedAt = status == ArticleStatus.Archived ? now : null;

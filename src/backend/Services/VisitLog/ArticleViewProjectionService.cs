@@ -1,3 +1,5 @@
+using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
@@ -10,7 +12,7 @@ public interface IArticleViewProjectionService
 }
 
 public sealed class ArticleViewProjectionService(
-    IArticleService articleService,
+    IArticleCoreService articleService,
     ICacheInvalidationDispatcher dispatcher,
     IHotStatsInvalidationCoalescer hotStatsInvalidation,
     PublicHotArtifactUpdateQueue publicHotUpdates,
@@ -25,9 +27,12 @@ public sealed class ArticleViewProjectionService(
             return;
         }
 
-        IReadOnlySet<int> updatedArticleIds = await articleService
-            .IncreaseViewCountsAsync(articleCounts, cancellationToken)
+        var result = await articleService
+            .IncreaseViewCountsAsync(new ArticleViewCountBatchCommand(articleCounts), cancellationToken)
             .ConfigureAwait(false);
+        IReadOnlySet<int> updatedArticleIds = result.IsSuccess && result.Value is not null
+            ? result.Value
+            : new HashSet<int>();
         if (updatedArticleIds.Count == 0)
         {
             return;

@@ -186,16 +186,17 @@ public sealed partial class AuthoringWorkflowService
             return false;
         }
 
-        bool updated = await articleService.UpdateAsync(articleId, new UpdateArticleRequest
-        {
-            Title = revision.Title,
-            Content = revision.MarkdownContent,
-            Summary = revision.Summary,
-            CoverImageUrl = revision.CoverImageUrl,
-            CategoryId = revision.CategoryId,
-            TagIds = ParseTagIds(revision.TagIds),
-            Status = ArticleStatus.Published
-        });
+        var updateResult = await articleService.UpdateAsync(new FsusBlog.Core.Services.Articles.UpdateArticleCommand(
+            articleId,
+            new FsusBlog.Core.Mapping.Models.ArticleWriteRequestCoreModel(
+                revision.Title,
+                revision.MarkdownContent,
+                revision.Summary,
+                revision.CoverImageUrl,
+                revision.CategoryId,
+                ParseTagIds(revision.TagIds),
+                (int)ArticleStatus.Published)));
+        bool updated = updateResult.IsSuccess;
         if (updated)
         {
             WriteAudit(AuditSourceCatalog.Article, "article-revision-rollback", actorAdminPrincipalId, $"{articleId}:{revisionId}");

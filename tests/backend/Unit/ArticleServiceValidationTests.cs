@@ -296,7 +296,7 @@ public class ArticleServiceValidationTests
         Assert.Contains("article_detail_aeds_rights_missing", method, StringComparison.Ordinal);
         Assert.Contains("IArticleDetailAedsArtifactStore.RemoveAsync", method, StringComparison.Ordinal);
         Assert.Contains("InvalidOperationException", method, StringComparison.Ordinal);
-        Assert.Contains("PodBinaryCodec.EncodeArticleDetail", method, StringComparison.Ordinal);
+        Assert.Contains("PodBinaryCodec.WriteArticleDetail", method, StringComparison.Ordinal);
     }
 
     [Fact]

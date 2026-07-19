@@ -122,17 +122,17 @@ public sealed partial class AuthoringWorkflowService
         ArticleStatus status = request.Publish
             ? ArticleStatus.Published
             : parsed.Status ?? ArticleStatus.Draft;
-        int articleId = await articleService.CreateAsync(new CreateArticleRequest
-        {
-            Title = parsed.Title,
-            Content = parsed.Content,
-            Summary = parsed.Summary,
-            CoverImageUrl = parsed.Cover,
-            CategoryId = parsed.CategoryId,
-            TagIds = [.. parsed.TagIds],
-            Status = status,
-            ScheduledPublishAt = status == ArticleStatus.Scheduled ? parsed.ScheduledPublishAt : null
-        });
+        var createResult = await articleService.CreateAsync(new FsusBlog.Core.Services.Articles.CreateArticleCommand(
+            new FsusBlog.Core.Mapping.Models.ArticleWriteRequestCoreModel(
+                parsed.Title,
+                parsed.Content,
+                parsed.Summary,
+                parsed.Cover,
+                parsed.CategoryId,
+                [.. parsed.TagIds],
+                (int)status,
+                status == ArticleStatus.Scheduled ? parsed.ScheduledPublishAt : null)));
+        int articleId = createResult.IsSuccess ? createResult.Value : 0;
         int restoredRevisionCount = articleId > 0 && request.PreserveRevisions
             ? await RestoreImportedRevisionsAsync(articleId, parsed.Metadata, cancellationToken)
             : 0;

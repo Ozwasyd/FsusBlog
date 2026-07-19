@@ -1,22 +1,21 @@
 using FsusBlog.Core.Mapping.Models;
+using FsusBlog.Core.Services.Articles;
 
 namespace FsusBlog.Core.Services.Gateways;
 
 public interface IArticleCoreGateway
 {
-    Task<CorePageResult<ArticleListCoreModel>> GetPageListAsync(int page, int size, int? categoryId, int? tagId, bool isDeleted, int? status = null, bool includePrivate = false, string? keyword = null, long? listCacheVersion = null, CancellationToken cancellationToken = default);
-    Task<ArticleDetailCoreModel?> GetByIdAsync(int id, bool includePrivate = false, CancellationToken cancellationToken = default);
-    Task<int> CreateAsync(string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null, CancellationToken cancellationToken = default);
-    Task<bool> UpdateAsync(int id, string title, string content, string? summary, string? coverImageUrl, int categoryId, IReadOnlyList<int> tagIds, int status = 2, DateTime? scheduledPublishAt = null, CancellationToken cancellationToken = default);
-    Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default);
-    Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default);
-    Task<bool> PermanentlyDeleteArticleAsync(int id, CancellationToken cancellationToken = default);
+    Task<CorePageResult<ArticleListCoreModel>> GetPageListAsync(ArticlePageQuery query, CancellationToken cancellationToken = default);
+    Task<ArticleDetailCoreModel?> GetByIdAsync(ArticleDetailQuery query, CancellationToken cancellationToken = default);
+    Task<int> CreateAsync(CreateArticleCommand command, CancellationToken cancellationToken = default);
+    Task<bool> UpdateAsync(UpdateArticleCommand command, CancellationToken cancellationToken = default);
+    Task<bool> DeleteAsync(ArticleIdCommand command, CancellationToken cancellationToken = default);
+    Task<bool> RestoreAsync(ArticleIdCommand command, CancellationToken cancellationToken = default);
+    Task<bool> PermanentlyDeleteArticleAsync(ArticleIdCommand command, CancellationToken cancellationToken = default);
     Task<int> ClearTrashAsync(CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<ArticleListCoreModel>> SearchArticlesAsync(string keyword, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<PopularArticleCoreModel>> GetHotArticlesAsync(int count, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<FeaturedArticleCoreModel>> GetFeaturedArticlesAsync(int count, CancellationToken cancellationToken = default);
-    ValueTask IncreaseViewCountAsync(int id);
-    ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync(
-        IReadOnlyDictionary<int, int> articleCounts,
-        CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ArticleListCoreModel>> SearchArticlesAsync(ArticleSearchQuery query, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PopularArticleCoreModel>> GetHotArticlesAsync(ArticleCountQuery query, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<FeaturedArticleCoreModel>> GetFeaturedArticlesAsync(ArticleCountQuery query, CancellationToken cancellationToken = default);
+    ValueTask IncreaseViewCountAsync(ArticleViewCountCommand command, CancellationToken cancellationToken = default);
+    ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync(ArticleViewCountBatchCommand command, CancellationToken cancellationToken = default);
 }

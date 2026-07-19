@@ -17,9 +17,9 @@ public static class ArticleCacheOwnershipCatalog
         {
             [CachePolicyId.ArticleList] = new(
                 CachePolicyId.ArticleList,
-                "ArticleService / internal DTO readers",
-                "admin JSON compatibility and non-binary service consumers",
-                "ArticleService.GetPageListAsync and internal Core bridge callers",
+                "ArticleService infrastructure port",
+                "IArticleCoreService query handlers",
+                "ArticleService.GetPageListAsync when ArticlePageQuery.UseSourceCache is true",
                 "ArticleListVersion increment; ArticleList tag output invalidation",
                 "short-lived DTO/Core cache; public binary frame path bypasses it on cold miss"),
             [CachePolicyId.ArticleListFrame] = new(
@@ -31,9 +31,9 @@ public static class ArticleCacheOwnershipCatalog
                 "primary public binary cache for encoded list responses"),
             [CachePolicyId.ArticleDetail] = new(
                 CachePolicyId.ArticleDetail,
-                "ArticleService / Core bridge",
+                "ArticleService infrastructure port",
                 "internal detail readers and private/admin detail paths",
-                "ArticleService.GetByIdAsync and ArticleCoreQueryCache.GetOrLoadByIdAsync",
+                "ArticleService.GetByIdAsync",
                 "CacheInvalidationDispatcher article detail key removal",
                 "DTO/Core cache only; public detail prefers AEDS artifact/frame"),
             [CachePolicyId.ArticleDetailFrame] = new(
@@ -45,11 +45,11 @@ public static class ArticleCacheOwnershipCatalog
                 "primary public detail binary artifact cache"),
             [CachePolicyId.ArticleHot] = new(
                 CachePolicyId.ArticleHot,
-                "ArticleCoreQueryCache",
-                "internal hot article Core consumers",
-                "ArticleCoreQueryCache.GetOrLoadHotArticlesAsync",
+                "retired",
+                "none; hot source ownership is TopArticles and binary ownership is ArticleHotFrame",
+                "no writer after Core bridge cache removal",
                 "HotArticles version identity and hot article invalidation",
-                "Core cache for non-frame consumers"),
+                "reserved policy id; no DTO cache ownership"),
             [CachePolicyId.ArticleHotFrame] = new(
                 CachePolicyId.ArticleHotFrame,
                 "ArticleEndpointService",
@@ -63,6 +63,6 @@ public static class ArticleCacheOwnershipCatalog
                 "search readers after keyword governance",
                 "ArticleService.SearchArticlesAsync",
                 "ArticleSearchVersion identity and search index version increment",
-                "single search cache owner; Core bridge search is pass-through")
+                "single search cache owner; Core handler is pass-through")
         }.ToFrozenDictionary();
 }

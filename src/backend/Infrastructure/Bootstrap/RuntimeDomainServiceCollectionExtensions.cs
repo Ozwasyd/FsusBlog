@@ -85,7 +85,6 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddSingleton<RumTelemetryChannel>();
         services.AddScoped<RumTelemetryService>();
         services.AddScoped<IRumTelemetryService>(sp => sp.GetRequiredService<RumTelemetryService>());
-        services.AddScoped<ArticleCoreQueryCache>();
         services.AddScoped<CommentCoreQueryCache>();
         services.AddScoped<StatsCoreQueryCache>();
         services.AddScoped<IHumanReadProofService, HumanReadProofService>();
@@ -95,13 +94,12 @@ internal static class RuntimeDomainServiceCollectionExtensions
 
     private static IServiceCollection AddCoreBridgeServices(this IServiceCollection services)
     {
-        services.AddScoped<FsusBlog.Core.Services.Gateways.IArticleCoreGateway, ArticleCoreGateway>();
+        services.AddScoped<FsusBlog.Core.Services.Gateways.IArticleCoreGateway>(sp => sp.GetRequiredService<ArticleService>());
         services.AddScoped<FsusBlog.Core.Services.Gateways.ICommentCoreGateway, CommentCoreGateway>();
         services.AddScoped<FsusBlog.Core.Services.Gateways.IUserCoreGateway, UserCoreGateway>();
         services.AddScoped<FsusBlog.Core.Services.Gateways.ISystemCoreGateway, SystemCoreGateway>();
         services.AddScoped<FsusBlog.Core.Services.Gateways.IStatsCoreGateway, StatsCoreGateway>();
 
-        services.AddScoped<IArticleService, ArticleServiceCoreAdapter>();
         services.AddScoped<ICommentService, CommentServiceCoreAdapter>();
         services.AddScoped<IUserService, UserServiceCoreAdapter>();
         services.AddScoped<ISystemService, SystemServiceCoreAdapter>();
