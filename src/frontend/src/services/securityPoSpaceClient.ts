@@ -1,6 +1,7 @@
 import { AppErrorCode, createAppError } from '@/utils/appError'
 import { toTrustedApplicationWorkerScriptUrl } from '@/security/trustedTypesRuntime'
 import poSpaceWorkerUrl from '@/workers/security/pospace.worker.ts?worker&url'
+import type { PoSpaceUnsupportedReason } from '@/generated/poSpaceV1Contract'
 import type { PoSpaceCapabilitySnapshot } from './securityPoSpaceRuntime'
 
 export interface PoSpaceAssignmentRequest {
@@ -32,7 +33,7 @@ export interface PoSpaceWorkerSolveSuccess {
 export interface PoSpaceWorkerUnsupported {
   ok: false
   unsupported: true
-  reason: string
+  reason: PoSpaceUnsupportedReason
   capability: PoSpaceCapabilitySnapshot
 }
 
@@ -72,7 +73,7 @@ type PoSpaceWorkerResponse =
       requestId: number
       ok: false
       unsupported: true
-      reason: string
+      reason: PoSpaceUnsupportedReason
       capability: PoSpaceCapabilitySnapshot
     }
   | {
