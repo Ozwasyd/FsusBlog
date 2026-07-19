@@ -25,9 +25,13 @@
       :mobile-nav-mode="PUBLIC_MOBILE_NAV_MODE"
       :mobile-nav-label="layoutCopy.navAriaLabel"
       :mobile-nav-menu-label="layoutCopy.mobileNavMenuLabel"
+      desktop-search-mode="trigger"
+      :desktop-search-trigger-label="layoutCopy.searchTriggerLabel"
       mobile-search-mode="trigger"
       :mobile-search-trigger-label="layoutCopy.searchTriggerLabel"
       :mobile-search-cancel-label="layoutCopy.searchCancelLabel"
+      :auth-label="resolvedAuthLabel"
+      :auth-href="resolvedAuthHref"
       :show-search="true"
       :search-action="PUBLIC_ROUTE_PATHS.search"
       search-name="q"
@@ -69,64 +73,8 @@
         <template v-else>{{ shellIdentity.siteTitle }}</template>
       </template>
 
-      <template #desktop-search>
-        <div
-          ref="desktopSearchContainerRef"
-          class="public-chrome-search public-chrome-search--desktop"
-          @keydown.esc="handleDesktopSearchEscape"
-        >
-          <a
-            ref="desktopSearchTriggerRef"
-            :href="PUBLIC_ROUTE_PATHS.search"
-            class="public-chrome-action public-chrome-search__trigger"
-            :aria-label="layoutCopy.searchAriaLabel"
-            :aria-expanded="desktopSearchExpanded"
-            :aria-controls="desktopSearchPanelId"
-            @click="handleDesktopSearchTrigger"
-          >
-            {{ layoutCopy.searchTriggerLabel }}
-          </a>
-          <Transition name="public-chrome-search-panel">
-            <div
-              v-if="desktopSearchExpanded"
-              :id="desktopSearchPanelId"
-              ref="desktopSearchPanelRef"
-              class="public-chrome-search__panel"
-            >
-              <form
-                class="el-public-shell__search el-public-shell__search--desktop-trigger"
-                :action="PUBLIC_ROUTE_PATHS.search"
-                method="get"
-                role="search"
-                @submit="handleSearchSubmit"
-              >
-                <el-input
-                  :model-value="searchQuery"
-                  :placeholder="searchPlaceholder"
-                  :label="layoutCopy.searchAriaLabel"
-                  size="small"
-                  class="fsusblog-public-search-input"
-                  clearable
-                  @focus="emit('search-focus')"
-                  @input="handleSearchInput"
-                  @keydown.enter="handleSearchEnter"
-                />
-                <input type="hidden" name="q" :value="searchQuery" />
-              </form>
-            </div>
-          </Transition>
-        </div>
-      </template>
-
       <template #desktop-actions>
         <ThemeModeToggle visibility="desktop" variant="menu-button" />
-        <a
-          :href="resolvedAuthHref"
-          class="el-public-shell__action-link el-public-shell__auth-link el-public-shell__auth-link--desktop"
-          data-public-nav="auth"
-        >
-          {{ resolvedAuthLabel }}
-        </a>
       </template>
 
       <template #mobile-menu-actions>
@@ -140,13 +88,6 @@
             variant="menu-button"
             :labels="PUBLIC_THEME_MODE_LABELS"
           />
-          <a
-            :href="resolvedAuthHref"
-            class="el-public-shell__action-link el-public-shell__auth-link el-public-shell__auth-link--mobile"
-            data-public-nav="auth"
-          >
-            {{ resolvedAuthLabel }}
-          </a>
         </div>
       </template>
 
@@ -171,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue'
 import { usePublicStickyGeometry } from '@/components/public/usePublicStickyGeometry'
@@ -279,11 +220,6 @@ const siteDescriptionText = computed(() =>
 )
 const compliance = computed(() => props.compliance ?? null)
 const searchQuery = ref(props.initialSearchQuery)
-const desktopSearchExpanded = ref(false)
-const desktopSearchPanelId = 'public-shell-desktop-search'
-const desktopSearchContainerRef = ref<HTMLElement>()
-const desktopSearchPanelRef = ref<HTMLElement>()
-const desktopSearchTriggerRef = ref<HTMLAnchorElement>()
 const shellRootRef = ref<HTMLElement>()
 const clientRuntimeEnabled = ref(false)
 let hydrationObserver: MutationObserver | null = null
@@ -388,79 +324,6 @@ function handleSearch(query: string): void {
   emit('search', query)
 }
 
-function submitSearch(event: Event): void {
-  if (!props.spaSearch) {
-    return
-  }
-
-  event.preventDefault()
-  const query = searchQuery.value.trim()
-  if (!query) {
-    return
-  }
-
-  handleSearch(query)
-}
-
-function handleSearchSubmit(event: Event): void {
-  submitSearch(event)
-}
-
-function handleSearchEnter(event: Event | KeyboardEvent): void {
-  submitSearch(event)
-}
-
-async function focusDesktopSearchInput(): Promise<void> {
-  await nextTick()
-  desktopSearchPanelRef.value?.querySelector<HTMLInputElement>('input')?.focus()
-}
-
-async function focusDesktopSearchTrigger(): Promise<void> {
-  await nextTick()
-  desktopSearchTriggerRef.value?.focus()
-}
-
-function closeDesktopSearch(restoreFocus = false): void {
-  desktopSearchExpanded.value = false
-  if (restoreFocus) {
-    void focusDesktopSearchTrigger()
-  }
-}
-
-function handleDesktopSearchTrigger(event: MouseEvent): void {
-  if (isModifiedClick(event)) {
-    return
-  }
-
-  event.preventDefault()
-  desktopSearchExpanded.value = !desktopSearchExpanded.value
-  if (desktopSearchExpanded.value) {
-    void focusDesktopSearchInput()
-  } else {
-    void focusDesktopSearchTrigger()
-  }
-}
-
-function handleDesktopSearchEscape(event: KeyboardEvent): void {
-  if (!desktopSearchExpanded.value) {
-    return
-  }
-
-  event.preventDefault()
-  event.stopPropagation()
-  closeDesktopSearch(true)
-}
-
-function handleDocumentPointerDown(event: PointerEvent): void {
-  if (!desktopSearchExpanded.value || !(event.target instanceof Node)) {
-    return
-  }
-
-  if (!desktopSearchContainerRef.value?.contains(event.target)) {
-    closeDesktopSearch(false)
-  }
-}
-
 function enableRuntimeAfterHydration(): void {
   if (props.showRuntime || clientRuntimeEnabled.value) {
     return
@@ -498,13 +361,11 @@ watch(
 
 onMounted(() => {
   enableRuntimeAfterHydration()
-  document.addEventListener('pointerdown', handleDocumentPointerDown)
 })
 
 onBeforeUnmount(() => {
   hydrationObserver?.disconnect()
   hydrationObserver = null
-  document.removeEventListener('pointerdown', handleDocumentPointerDown)
 })
 </script>
 
@@ -513,56 +374,11 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.public-chrome-action:hover,
-.public-chrome-action:focus-visible {
-  color: var(--fsusblog-text-primary);
-}
-
-.public-chrome-action:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-  outline: none;
-}
-
-.public-chrome-search {
-  position: relative;
-}
-
-.public-chrome-search__panel {
-  position: absolute;
-  inset-block-start: calc(100% + 8px);
-  inset-inline-end: 0;
-  z-index: 60;
-  width: min(22rem, calc(100vw - 32px));
-  padding: var(--fsusblog-public-overlay-padding);
-  border: 1px solid var(--fsusblog-panel-border);
-  border-radius: var(--fsusblog-public-overlay-radius);
-  background: var(--fsusblog-panel-bg);
-  box-shadow: var(--fsusblog-public-overlay-shadow);
-  box-sizing: border-box;
-}
-
-.public-chrome-search-panel-enter-active,
-.public-chrome-search-panel-leave-active {
-  transition: opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.public-chrome-search-panel-enter-from,
-.public-chrome-search-panel-leave-to {
-  opacity: 0;
-}
-
 .fsusblog-public-mobile-menu-utilities {
   display: flex;
   min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .public-chrome-search-panel-enter-active,
-  .public-chrome-search-panel-leave-active {
-    transition-duration: 1ms;
-  }
 }
 </style>

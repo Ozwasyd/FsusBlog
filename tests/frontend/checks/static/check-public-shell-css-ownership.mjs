@@ -116,24 +116,35 @@ expectMatches(
 )
 
 for (const token of [
-  'padding: var(--fsusblog-public-overlay-padding);',
-  'border-radius: var(--fsusblog-public-overlay-radius);',
-  'box-shadow: var(--fsusblog-public-overlay-shadow);',
-  '.public-chrome-action:focus-visible',
-  'box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);',
-  '.public-chrome-search-panel-enter-active',
-  'transition-duration: 1ms;',
+  'desktop-search-mode="trigger"',
+  ':desktop-search-trigger-label="layoutCopy.searchTriggerLabel"',
+  ':auth-label="resolvedAuthLabel"',
+  ':auth-href="resolvedAuthHref"',
+  ':search-action="PUBLIC_ROUTE_PATHS.search"',
+  ':search-query="searchQuery"',
+  ':spa-search="spaSearch"',
+  '@update:search-query="handleSearchInput"',
+  '@search="handleSearch"',
 ]) {
-  expectIncludes(componentPath, componentStyle, token, `enhanced search component is missing ${token}`)
+  expectIncludes(componentPath, component, token, `PublicShell delegation contract is missing ${token}`)
 }
 
-for (const token of [
-  ':aria-expanded="desktopSearchExpanded"',
-  '@keydown.esc="handleDesktopSearchEscape"',
-  'desktopSearchPanelRef.value?.querySelector<HTMLInputElement>(\'input\')?.focus()',
-  'desktopSearchTriggerRef.value?.focus()',
+for (const pattern of [
+  /<template\s+#desktop-search>/u,
+  /desktopSearchExpanded/u,
+  /desktopSearch(?:Container|Panel|Trigger)Ref/u,
+  /handleDesktopSearch(?:Trigger|Escape)/u,
+  /handleDocumentPointerDown/u,
+  /document\.(?:add|remove)EventListener\(['"]pointerdown['"]/u,
+  /public-chrome-search-panel/u,
+  /el-public-shell__auth-link/u,
 ]) {
-  expectIncludes(componentPath, component, token, `desktop search interaction contract is missing ${token}`)
+  expectNotMatches(
+    componentPath,
+    component,
+    pattern,
+    `Blog-owned shell must not retain delegated search/auth behavior: ${pattern}`,
+  )
 }
 
 expectIncludes(foundationPath, foundation, 'emergency:keep-start', 'foundation must own the emergency source block')
