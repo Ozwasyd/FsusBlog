@@ -114,6 +114,8 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 
 触控目标档位按表面语义收口：desktop public header 控件最小命中区为 `40px`，mobile header 控件最小命中区为 `44px`；identity 用户操作使用 44px 档；admin 紧凑操作不得低于 40px。移动横屏与窄高视口只能减少外部间距，不能把命中区域降回 36px / `2.25rem`。`check:visual-density-governance` 必须扫描 `src/frontend/src` 并阻止这两个旧 `min-height` 孤值回流。
 
+`AccountLayout` 顶栏的主站、主题、账号菜单和移动导航动作使用同一密度链：desktop 消费 `--fsus-control-height-compact`（40px），mobile 与窄高布局消费 `--fsus-control-height`（44px）。持久主题入口使用 FsusUI `ThemeModeToggle` 的 `menu-button` 变体；所有动作保留常驻 1px 边界以避免 open/closed 状态切换引发布局位移，并通过 `aria-expanded`、2px inset focus ring 与 forced-colors outline 区分键盘焦点和打开态。
+
 ### 公共壳层 CSS 所有权
 
 公共壳层的三层职责固定如下，AOT、hydration 和 SPA takeover 不得通过后加载覆盖切换视觉真值：

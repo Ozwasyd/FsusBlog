@@ -17,7 +17,7 @@ type CommandHandler = (command: unknown) => void
 const commandKey: InjectionKey<CommandHandler> = Symbol('account-menu-command')
 
 const ElDropdownStub = defineComponent({
-  emits: ['command'],
+  emits: ['command', 'visible-change'],
   setup(_, { emit, slots }) {
     provide(commandKey, (command) => emit('command', command))
     return () => h('div', [slots.default?.(), slots.dropdown?.()])
@@ -50,6 +50,7 @@ const ElDropdownItemStub = defineComponent({
 
 type MenuProps = {
   canManage: boolean
+  compact?: boolean
   currentArea: 'self' | 'manage'
   isLoggingOut: boolean
 }
@@ -88,6 +89,9 @@ describe('AccountHeaderMenu', () => {
 
     expect(wrapper.get('[aria-label="打开账号菜单"]').attributes('aria-haspopup')).toBe('menu')
     expect(wrapper.get('[aria-label="打开账号菜单"]').attributes('aria-expanded')).toBe('false')
+    wrapper.findComponent(ElDropdownStub).vm.$emit('visible-change', true)
+    await nextTick()
+    expect(wrapper.get('[aria-label="打开账号菜单"]').attributes('aria-expanded')).toBe('true')
     expect(wrapper.get('[role="menu"]').attributes('aria-label')).toBe('打开账号菜单')
     expect(wrapper.get('[role="menu"]').text()).toContain('账户中心')
     expect(wrapper.get('[role="menu"]').text()).toContain('使用规范')
@@ -126,5 +130,14 @@ describe('AccountHeaderMenu', () => {
     expect(logout.element.disabled).toBe(true)
     await logout.trigger('click')
     expect(wrapper.emitted('logout')).toBeUndefined()
+  })
+
+  it('marks the icon-only mobile trigger for the default touch density', async () => {
+    const { wrapper } = await mountMenu({ compact: true })
+    const trigger = wrapper.get('[aria-label="打开账号菜单"]')
+
+    expect(trigger.classes()).toContain('account-header-menu__trigger--touch')
+    expect(trigger.text()).toContain('账号')
+    expect(trigger.get('span').classes()).toContain('sr-only')
   })
 })
