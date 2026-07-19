@@ -68,6 +68,10 @@ Glass material 只允许用于以下 surface：
 
 弱层级通过 `muted`、`tertiary`、`--fsusblog-text-decorative` 等颜色角色表达，不用未加载的轻字重模拟；标题需要强调时使用 `700`，metadata 与操作强调使用 `500`，正文默认为 `400`。AOT 首帧、hydration 与 SPA takeover 必须消费相同白名单，避免阶段切换时出现合成字形跳变。
 
+### 等宽字体栈
+
+Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace`。`JetBrains Mono` 的 `400`/`500`/`700` 由 `src/frontend/src/bootstrap/nonCriticalResources.ts` 加载；consumer 不得消费未注册的 `--fsus-font-family-mono`，也不得为同页审计内容维护第二套 system mono fallback。`check:foundation-token-governance` 同时校验全局禁用 token 与两处字体栈逐字一致。
+
 ### 公开排版角色
 
 - `display`：文章列表与详情标题统一使用 20/24/30px 档位；hydration 的 `text-xl sm:text-2xl lg:text-3xl` 必须与首屏 AOT fallback 的 `1.25rem/1.5rem/1.875rem` 保持一致。公共内容页 H1 使用 24/30px（`text-2xl sm:text-3xl`），不扩张到 36/48px。

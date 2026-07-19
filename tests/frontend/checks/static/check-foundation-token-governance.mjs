@@ -17,8 +17,10 @@ const legacyFsusBackdropSaturate = `--fsus-${'backdrop-saturate'}`
 const legacyFsusBackdropBlurSoft = `--fsus-${'backdrop-blur-soft'}`
 const legacyTabularNumsVar = `var(--${'tabular-nums'})`
 const legacyFsusFontMonoVar = `var(--fsus-${'font-mono'})`
+const unregisteredFsusFontFamilyMono = `--fsus-${'font-family-mono'}`
 const legacyElementPrimaryBlue = `#${'409eff'}`
 const legacyWarmBrownFallback = `#${'4A453C'}`
+const canonicalCodeMonoStack = "font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;"
 
 function read(path) {
   return readFileSync(resolve(repoRoot, path), 'utf8')
@@ -49,6 +51,7 @@ const motionPath = 'src/frontend/src/assets/motion.css'
 const tailwindPath = 'src/frontend/src/assets/tailwind.css'
 const markdownPath = 'src/frontend/src/assets/markdown.css'
 const accountShellPath = 'src/frontend/src/assets/account-shell.css'
+const moderationAuditPath = 'src/frontend/src/views/admin/moderation/ModerationAudit.vue'
 const messagesPath = 'src/frontend/src/components/user/messages/MessagesConversationList.vue'
 const identityPath = 'src/frontend/src/views/user/IdentityCenter.vue'
 const dashboardPopularPath = 'src/frontend/src/components/admin/DashboardPopularArticles.vue'
@@ -61,6 +64,7 @@ const motion = read(motionPath)
 const tailwind = read(tailwindPath)
 const markdown = read(markdownPath)
 const accountShell = read(accountShellPath)
+const moderationAudit = read(moderationAuditPath)
 const messages = read(messagesPath)
 const identity = read(identityPath)
 const dashboardPopular = read(dashboardPopularPath)
@@ -71,6 +75,7 @@ for (const path of walk('src/frontend/src')) {
   const source = read(path)
   expectNotIncludes(path, source.toLowerCase(), legacyElementPrimaryBlue, 'Element Plus primary-blue fallback')
   expectNotIncludes(path, source, legacyWarmBrownFallback, 'warm-brown interaction fallback')
+  expectNotIncludes(path, source, unregisteredFsusFontFamilyMono, 'unregistered FsusUI mono-font alias')
 }
 
 for (const [path, source] of [
@@ -141,6 +146,8 @@ expectIncludes(
   tailwind,
   '--font-mono: "JetBrains Mono", \'PingFang SC\', \'Microsoft YaHei\', "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Helvetica Neue", Arial, monospace;'
 )
+expectIncludes(markdownPath, markdown, canonicalCodeMonoStack, 'canonical Markdown code font stack')
+expectIncludes(moderationAuditPath, moderationAudit, canonicalCodeMonoStack, 'canonical moderation audit code font stack')
 
 expectNotIncludes(messagesPath, messages, legacyTabularNumsVar)
 expectIncludes(messagesPath, messages, 'font-variant-numeric: tabular-nums;')
