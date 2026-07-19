@@ -673,7 +673,7 @@ test('issue 1158 blame ignore preserves its reviewed mechanical C# commits', () 
 
 test('issue 1158 Fast Static Governance runs both changed and full C# gates', () => {
   const lane = readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8')
-  const implementation = lane.match(/static_csharp_style\(\) \{([\s\S]*?)\n\}/u)?.[1] ?? ''
+  const implementation = lane.match(/StaticCsharpStyle\(\) \{([\s\S]*?)\n\}/u)?.[1] ?? ''
   assert.match(implementation, /check-csharp-style\.mjs" --mode changed/u)
   assert.match(implementation, /check-csharp-style\.mjs" --mode full/u)
 })

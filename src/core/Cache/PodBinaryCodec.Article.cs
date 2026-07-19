@@ -29,7 +29,8 @@ public static partial class PodBinaryCodec
     private const int ArticleDetailV4PayloadVersion = 4;
     private const uint ArticleDetailV5PayloadMagic = 0x41524435;
     private const int ArticleDetailV5PayloadVersion = 5;
-    private const int ArticleSearchV4PayloadMagic = 0x34534146; // FAS4
+    // COMPATIBILITY: The wire prefix is ASCII FAS4 in little-endian storage order.
+    private const int ArticleSearchV4PayloadMagic = 0x34534146;
     private const int ArticleSearchV4PayloadVersion = 4;
     private const int ArticleWriteRequestVersion = 3;
     private const int RightsFlagEnabled = 1 << 0;

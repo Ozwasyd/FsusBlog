@@ -3,7 +3,7 @@
     "generatedBy": "tools/governance/check-rule-platform.mjs --write-registry",
     "inventory": {
         "packageScriptCount": 190,
-        "implementationCount": 326
+        "implementationCount": 327
     },
     "rules": [
         {
@@ -11657,6 +11657,36 @@
                 "mode": "delegated-implementation",
                 "implementation": "tools/security/check-comment-author-mode-retirement.mjs",
                 "executionKey": "governance:file:tools/security/check-comment-author-mode-retirement.mjs",
+                "receiptCompatible": true
+            },
+            "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."
+        },
+        {
+            "id": "Implementation.ToolsSecurityCheckCommentDraftPrivacyMjs",
+            "externalId": "tools/security/check-comment-draft-privacy.mjs",
+            "symbol": "CheckToolsSecurityCheckCommentDraftPrivacy",
+            "owner": "SecurityGovernanceOwner",
+            "category": "security-privacy",
+            "engine": "text",
+            "sourceScopes": [
+                "tools/security/check-comment-draft-privacy.mjs",
+                "security/**",
+                "src/backend/**",
+                "src/frontend/src/privacy/**",
+                "tests/security/**"
+            ],
+            "severity": "error",
+            "fixable": false,
+            "changedFileSafe": true,
+            "dependencies": [],
+            "testFixtures": [
+                "tests/tools/issue-1162-rule-platform.test.mjs"
+            ],
+            "documentation": "docs/development/custom-rule-platform.md",
+            "execution": {
+                "mode": "delegated-implementation",
+                "implementation": "tools/security/check-comment-draft-privacy.mjs",
+                "executionKey": "governance:file:tools/security/check-comment-draft-privacy.mjs",
                 "receiptCompatible": true
             },
             "textRationale": "Legacy domain rule has no stable compiler or public AST API yet; formatting false-positive and false-negative behavior is locked by its registered fixture while migration remains explicit."

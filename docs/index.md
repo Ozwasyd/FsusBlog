@@ -221,6 +221,16 @@
 - [Before 1365x768 Light Desktop Open](assets/screenshots/issue-1306/before-1365x768-light-desktop-open.png) - owner `frontend`; issues #1306
 - [Before 390x844 Dark Mobile Menu Open](assets/screenshots/issue-1306/before-390x844-dark-mobile-menu-open.png) - owner `frontend`; issues #1306
 - [Before 390x844 Light Mobile Menu Open](assets/screenshots/issue-1306/before-390x844-light-mobile-menu-open.png) - owner `frontend`; issues #1306
+- [After 1365x768 Dark Desktop Open](assets/screenshots/issue-1307/after-1365x768-dark-desktop-open.png) - owner `frontend`; issues #1307
+- [After 1365x768 Light Desktop Closed](assets/screenshots/issue-1307/after-1365x768-light-desktop-closed.png) - owner `frontend`; issues #1307
+- [After 1365x768 Light Desktop Open](assets/screenshots/issue-1307/after-1365x768-light-desktop-open.png) - owner `frontend`; issues #1307
+- [After 390x844 Dark Mobile Menu Open](assets/screenshots/issue-1307/after-390x844-dark-mobile-menu-open.png) - owner `frontend`; issues #1307
+- [After 390x844 Light Mobile Menu Open](assets/screenshots/issue-1307/after-390x844-light-mobile-menu-open.png) - owner `frontend`; issues #1307
+- [Before 1365x768 Dark Desktop Open](assets/screenshots/issue-1307/before-1365x768-dark-desktop-open.png) - owner `frontend`; issues #1307
+- [Before 1365x768 Light Desktop Closed](assets/screenshots/issue-1307/before-1365x768-light-desktop-closed.png) - owner `frontend`; issues #1307
+- [Before 1365x768 Light Desktop Open](assets/screenshots/issue-1307/before-1365x768-light-desktop-open.png) - owner `frontend`; issues #1307
+- [Before 390x844 Dark Mobile Menu Open](assets/screenshots/issue-1307/before-390x844-dark-mobile-menu-open.png) - owner `frontend`; issues #1307
+- [Before 390x844 Light Mobile Menu Open](assets/screenshots/issue-1307/before-390x844-light-mobile-menu-open.png) - owner `frontend`; issues #1307
 - [IntegrityProof Developer Implementation Notes](integrity/implementation-notes.md) - owner `backend`
 - [Issue #1013 runtime fallback retirement handoff](issue-1013-runtime-fallback-retirement-handoff.md) - owner `governance`; issues #1013
 - [Issue #1014 identity retirement handoff](issue-1014-identity-retirement-handoff.md) - owner `governance`; issues #1014
@@ -258,6 +268,8 @@
 - [Issue #1293 account integer typography](issue-1293-account-integer-typography.md) - owner `governance`; issues #1293
 - [Issue #1294 document Markdown layout](issue-1294-document-markdown-layout.md) - owner `governance`; issues #1294
 - [Issue #1306 PublicShell auth/search delegation handoff](issue-1306-public-shell-delegation-handoff.md) - owner `governance`; issues #1306
+- [Issue #1307 PublicShell CSS ownership handoff](issue-1307-public-shell-css-ownership-handoff.md) - owner `governance`; issues #1307
+- [Issue #1309 account frame handoff](issue-1309-account-frame-handoff.md) - owner `governance`; issues #1309
 - [Issue #1311 account header action handoff](issue-1311-account-header-actions.md) - owner `governance`; issues #1311
 - [A3-1 Upload session root-sweep retirement](releases/issue-1013-a3-1-upload-session-root-sweep.md) - owner `release`; issues #1013
 - [A3-2 Site-subscription HMAC cutover](releases/issue-1013-a3-2-subscription-hmac-cutover.md) - owner `release`; issues #1013

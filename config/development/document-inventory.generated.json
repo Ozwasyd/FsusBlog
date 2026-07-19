@@ -823,6 +823,156 @@
             "producer": null
         },
         {
+            "path": "docs/assets/screenshots/issue-1307/after-1365x768-dark-desktop-open.png",
+            "title": "After 1365x768 Dark Desktop Open",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1307
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1307/after-1365x768-light-desktop-closed.png",
+            "title": "After 1365x768 Light Desktop Closed",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1307
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1307/after-1365x768-light-desktop-open.png",
+            "title": "After 1365x768 Light Desktop Open",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1307
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1307/after-390x844-dark-mobile-menu-open.png",
+            "title": "After 390x844 Dark Mobile Menu Open",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1307
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1307/after-390x844-light-mobile-menu-open.png",
+            "title": "After 390x844 Light Mobile Menu Open",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1307
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1307/before-1365x768-dark-desktop-open.png",
+            "title": "Before 1365x768 Dark Desktop Open",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1307
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1307/before-1365x768-light-desktop-closed.png",
+            "title": "Before 1365x768 Light Desktop Closed",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1307
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1307/before-1365x768-light-desktop-open.png",
+            "title": "Before 1365x768 Light Desktop Open",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1307
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1307/before-390x844-dark-mobile-menu-open.png",
+            "title": "Before 390x844 Dark Mobile Menu Open",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1307
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/assets/screenshots/issue-1307/before-390x844-light-mobile-menu-open.png",
+            "title": "Before 390x844 Light Mobile Menu Open",
+            "kind": "asset",
+            "status": "historical",
+            "owner": "frontend",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1307
+            ],
+            "producer": null
+        },
+        {
             "path": "docs/assets/screenshots/operations-status.png",
             "title": "Operations Status",
             "kind": "asset",
@@ -1971,6 +2121,36 @@
             "supersededBy": null,
             "relatedIssues": [
                 1306
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/issue-1307-public-shell-css-ownership-handoff.md",
+            "title": "Issue #1307 PublicShell CSS ownership handoff",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "governance",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1307
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/issue-1309-account-frame-handoff.md",
+            "title": "Issue #1309 account frame handoff",
+            "kind": "markdown",
+            "status": "historical",
+            "owner": "governance",
+            "sourceOfTruth": false,
+            "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1309
             ],
             "producer": null
         },
