@@ -33,14 +33,14 @@ public sealed class AuthoringWorkflowServiceTests
                 typeof(AuthoringEndpoints),
                 "ResolveRequiredAdminPrincipalId");
         Assert.Contains(attributionHandlers, static handler =>
-            handler.Any(reference => reference.Contains(nameof(AuthoringWorkflowService.SaveDraftAsync), StringComparison.Ordinal)));
+            handler.Any(reference => reference.Contains(nameof(AuthoringDraftLifecycleService.SaveDraftAsync), StringComparison.Ordinal)));
         Assert.Contains(attributionHandlers, static handler =>
-            handler.Any(reference => reference.Contains(nameof(AuthoringWorkflowService.RollbackRevisionAsync), StringComparison.Ordinal)));
+            handler.Any(reference => reference.Contains(nameof(AuthoringDraftLifecycleService.RollbackRevisionAsync), StringComparison.Ordinal)));
         Assert.All(attributionHandlers, static handler =>
             Assert.DoesNotContain(handler, reference => reference.Contains("GetUserId", StringComparison.Ordinal)));
 
-        MethodInfo saveDraft = typeof(AuthoringWorkflowService).GetMethod(nameof(AuthoringWorkflowService.SaveDraftAsync))!;
-        MethodInfo rollback = typeof(AuthoringWorkflowService).GetMethod(nameof(AuthoringWorkflowService.RollbackRevisionAsync))!;
+        MethodInfo saveDraft = typeof(AuthoringDraftLifecycleService).GetMethod(nameof(AuthoringDraftLifecycleService.SaveDraftAsync))!;
+        MethodInfo rollback = typeof(AuthoringDraftLifecycleService).GetMethod(nameof(AuthoringDraftLifecycleService.RollbackRevisionAsync))!;
         Assert.Contains(saveDraft.GetParameters(), static parameter =>
             parameter.Name == "ownerAdminPrincipalId" && parameter.ParameterType == typeof(long));
         Assert.Contains(rollback.GetParameters(), static parameter =>
@@ -57,8 +57,8 @@ public sealed class AuthoringWorkflowServiceTests
     public void SaveDraftAsync_RuntimeUsesAtomicUpsert()
     {
         string method = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
-            nameof(AuthoringWorkflowService.SaveDraftAsync));
+            typeof(AuthoringDraftLifecycleService),
+            nameof(AuthoringDraftLifecycleService.SaveDraftAsync));
 
         Assert.Contains("ON CONFLICT (owner_admin_principal_id, draft_key) DO UPDATE", method, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Queryable<ArticleDraft>()", method, StringComparison.Ordinal);
@@ -74,9 +74,9 @@ public sealed class AuthoringWorkflowServiceTests
         AssertColumn<ArticleDraft>(nameof(ArticleDraft.RightsJson), "rights_json");
 
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
-            nameof(AuthoringWorkflowService.SaveDraftAsync),
-            nameof(AuthoringWorkflowService.GetDraftAsync),
+            typeof(AuthoringDraftLifecycleService),
+            nameof(AuthoringDraftLifecycleService.SaveDraftAsync),
+            nameof(AuthoringDraftLifecycleService.GetDraftAsync),
             "NormalizeDraftRights",
             "SerializeDraftRights",
             "DeserializeDraftRights");
@@ -91,7 +91,7 @@ public sealed class AuthoringWorkflowServiceTests
     public void RebuildAssetLibraryAsync_RuntimeUsesTransactionAndLocks()
     {
         string method = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringAssetLibraryService),
             "RebuildAssetLibraryAsync");
 
         Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
@@ -104,10 +104,10 @@ public sealed class AuthoringWorkflowServiceTests
     {
         IReadOnlyList<IReadOnlyList<string>> reindex = RuntimeMetadataInspection
             .DescribeDeclaredMemberReferenceSequencesContaining(
-                typeof(AuthoringWorkflowService),
+                typeof(AuthoringAssetLibraryService),
                 "ReindexArticleAssetsAsync");
         string articleScoped = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringAssetLibraryService),
             "ReindexArticleAssetsAsync",
             "EnsureAssetArticleReferenceStoreAsync");
 
@@ -122,7 +122,7 @@ public sealed class AuthoringWorkflowServiceTests
     public void BanModerationUsersAsync_RuntimeUsesXminPredicateAndTransaction()
     {
         string method = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringModerationWorkflowService),
             "BanModerationUsersAsync");
 
         Assert.Equal(typeof(string), typeof(User).GetProperty("RowVersion")!.PropertyType);
@@ -137,7 +137,7 @@ public sealed class AuthoringWorkflowServiceTests
     public void RestoreImportedRevisionsAsync_RuntimeUsesTransactionAndArticleLock()
     {
         string method = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringContentTransferService),
             "RestoreImportedRevisionsAsync");
 
         Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
@@ -150,8 +150,8 @@ public sealed class AuthoringWorkflowServiceTests
     public void ModerateCommentsAsync_RuntimeUsesSharedTransactionBeforeSideEffects()
     {
         string method = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
-            nameof(AuthoringWorkflowService.ModerateCommentsAsync));
+            typeof(AuthoringModerationWorkflowService),
+            nameof(AuthoringModerationWorkflowService.ModerateCommentsAsync));
 
         Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
         Assert.Contains("InvalidateModeratedCommentAsync", method, StringComparison.Ordinal);
@@ -163,7 +163,7 @@ public sealed class AuthoringWorkflowServiceTests
     public void ModerateCommentsAsync_RuntimeKeepsSideEffectsOutsideTransaction()
     {
         string transactionBody = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringModerationWorkflowService),
             "Updateable",
             "Comment moderation bulk update conflicted.");
         Assert.DoesNotContain("InvalidateModeratedCommentAsync", transactionBody, StringComparison.Ordinal);
@@ -177,10 +177,10 @@ public sealed class AuthoringWorkflowServiceTests
     {
         IReadOnlyList<IReadOnlyList<string>> backup = RuntimeMetadataInspection
             .DescribeDeclaredMemberReferenceSequencesContaining(
-                typeof(AuthoringWorkflowService),
+                typeof(AuthoringContentTransferService),
                 "LoadContentBackupArticlesAsync");
         string batch = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringContentTransferService),
             "LoadContentBackupArticlesAsync");
 
         Assert.All(backup, static references =>
@@ -196,8 +196,8 @@ public sealed class AuthoringWorkflowServiceTests
     public void GetAnalyticsAsync_RuntimeReadsPrivacyPreservingRollupsInsteadOfRawWindows()
     {
         string method = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
-            nameof(AuthoringWorkflowService.GetAnalyticsAsync),
+            typeof(AuthoringAnalyticsReadService),
+            nameof(AuthoringAnalyticsReadService.GetAnalyticsAsync),
             "LoadArticleStatusCountsAsync",
             "LoadAuthorReadRollupAsync",
             "LoadAuthorAotRollupAsync",
@@ -227,11 +227,11 @@ public sealed class AuthoringWorkflowServiceTests
     public void ModerationQueue_RuntimeLoadsLatestSignalAndCountsWithSingleAggregates()
     {
         string queue = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
-            nameof(AuthoringWorkflowService.ListCommentModerationQueueAsync),
+            typeof(AuthoringModerationWorkflowService),
+            nameof(AuthoringModerationWorkflowService.ListCommentModerationQueueAsync),
             "LoadCommentModerationQueueCountsAsync");
         string signals = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringModerationWorkflowService),
             "LoadLatestModelSignalsAsync");
 
         Assert.Contains("LoadCommentModerationQueueCountsAsync", queue, StringComparison.Ordinal);
@@ -271,7 +271,7 @@ public sealed class AuthoringWorkflowServiceTests
     public void RumMetricSummaries_RuntimeUsesAverageAndSortedPercentileSamples()
     {
         string method = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringAnalyticsReadService),
             "BuildRumMetricSummaries",
             "Percentile");
         Assert.Contains("Enumerable.Average", method, StringComparison.Ordinal);
@@ -291,13 +291,13 @@ public sealed class AuthoringWorkflowServiceTests
         Assert.DoesNotContain("CreatedByAdminPrincipalId", exportProperties);
 
         string exportBuilder = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringContentTransferService),
             "BuildExportMetadata");
         Assert.DoesNotContain("get_CreatedByUserId", exportBuilder, StringComparison.Ordinal);
         Assert.DoesNotContain("get_CreatedByAdminPrincipalId", exportBuilder, StringComparison.Ordinal);
 
         string revisionRestore = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringContentTransferService),
             "RestoreImportedRevisionsAsync");
         Assert.DoesNotContain("get_CreatedByUserId", revisionRestore, StringComparison.Ordinal);
         Assert.DoesNotContain("get_CreatedByAdminPrincipalId", revisionRestore, StringComparison.Ordinal);
@@ -308,15 +308,15 @@ public sealed class AuthoringWorkflowServiceTests
     public void CommentModerationIdentityProjection_RuntimeAvoidsLegacyAccountFallbacks()
     {
         string moderationQueue = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
-            nameof(AuthoringWorkflowService.ListCommentModerationQueueAsync),
+            typeof(AuthoringModerationWorkflowService),
+            nameof(AuthoringModerationWorkflowService.ListCommentModerationQueueAsync),
             "ToCommentModerationItem",
             "ResolveModerationAuthorDisplayName");
         string displayName = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringModerationWorkflowService),
             "ResolveCommentModerationDisplayName");
         string hydration = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringModerationWorkflowService),
             "HydrateCommentModerationDisplayNames");
 
         Assert.DoesNotContain("FsusBlog.Server.Entities.User", moderationQueue, StringComparison.Ordinal);
@@ -338,22 +338,22 @@ public sealed class AuthoringWorkflowServiceTests
                 typeof(AuthoringEndpoints),
                 "ResolveRequiredAdminPrincipalId");
         Assert.Contains(attributionHandlers, static handler =>
-            handler.Any(reference => reference.Contains(nameof(AuthoringWorkflowService.ModerateCommentAsync), StringComparison.Ordinal)));
+            handler.Any(reference => reference.Contains(nameof(AuthoringModerationWorkflowService.ModerateCommentAsync), StringComparison.Ordinal)));
         Assert.Contains(attributionHandlers, static handler =>
-            handler.Any(reference => reference.Contains(nameof(AuthoringWorkflowService.ModerateCommentsAsync), StringComparison.Ordinal)));
+            handler.Any(reference => reference.Contains(nameof(AuthoringModerationWorkflowService.ModerateCommentsAsync), StringComparison.Ordinal)));
         Assert.All(
             attributionHandlers.Where(static handler => handler.Any(reference =>
-                reference.Contains(nameof(AuthoringWorkflowService.ModerateCommentAsync), StringComparison.Ordinal)
-                || reference.Contains(nameof(AuthoringWorkflowService.ModerateCommentsAsync), StringComparison.Ordinal))),
+                reference.Contains(nameof(AuthoringModerationWorkflowService.ModerateCommentAsync), StringComparison.Ordinal)
+                || reference.Contains(nameof(AuthoringModerationWorkflowService.ModerateCommentsAsync), StringComparison.Ordinal))),
             static handler => Assert.DoesNotContain(handler, reference => reference.Contains("GetUserId", StringComparison.Ordinal)));
 
         foreach (string methodName in new[]
         {
-            nameof(AuthoringWorkflowService.ModerateCommentAsync),
-            nameof(AuthoringWorkflowService.ModerateCommentsAsync)
+            nameof(AuthoringModerationWorkflowService.ModerateCommentAsync),
+            nameof(AuthoringModerationWorkflowService.ModerateCommentsAsync)
         })
         {
-            MethodInfo method = typeof(AuthoringWorkflowService).GetMethod(methodName)!;
+            MethodInfo method = typeof(AuthoringModerationWorkflowService).GetMethod(methodName)!;
             Assert.Contains(method.GetParameters(), static parameter =>
                 parameter.Name == "actorAdminPrincipalId" && parameter.ParameterType == typeof(long));
         }
@@ -372,7 +372,7 @@ public sealed class AuthoringWorkflowServiceTests
     [Fact]
     public void GenerateAiAssist_DefaultConfiguration_DoesNotEnableExternalProviderOrTitleCandidates()
     {
-        AuthoringWorkflowService service = BuildService();
+        AuthoringContentTransferService service = BuildContentTransferService();
 
         AiAssistResponse response = service.GenerateAiAssist(new AiAssistRequest(
             "AOT 安全实践",
@@ -393,7 +393,7 @@ public sealed class AuthoringWorkflowServiceTests
     [Fact]
     public void GenerateAiAssist_ExternalProviderRequiresReviewAndWritesAudit()
     {
-        AuthoringWorkflowService service = BuildService(out AuditLogChannel auditLogChannel, config: new Dictionary<string, string?>
+        AuthoringContentTransferService service = BuildContentTransferService(out AuditLogChannel auditLogChannel, config: new Dictionary<string, string?>
         {
             ["Authoring:AiAssist:Enabled"] = "true",
             ["Authoring:AiAssist:Provider"] = "external",
@@ -424,7 +424,7 @@ public sealed class AuthoringWorkflowServiceTests
     [Fact]
     public void RunPrepublishCheck_DangerousHtml_BlocksPublish()
     {
-        AuthoringWorkflowService service = BuildService();
+        AuthoringDraftLifecycleService service = BuildDraftService();
 
         PrepublishCheckResponse response = service.RunPrepublishCheck(
             "Title",
@@ -439,7 +439,7 @@ public sealed class AuthoringWorkflowServiceTests
     [Fact]
     public void RunPrepublishCheck_SeoMetadataWarningsAndInvalidCover_AreReported()
     {
-        AuthoringWorkflowService service = BuildService();
+        AuthoringDraftLifecycleService service = BuildDraftService();
         string longTitle = new('T', 61);
         string longSummary = new('S', 181);
 
@@ -458,7 +458,7 @@ public sealed class AuthoringWorkflowServiceTests
     [Fact]
     public void RunPrepublishCheck_ContentQualityIssues_BlockAndWarn()
     {
-        AuthoringWorkflowService service = BuildService();
+        AuthoringDraftLifecycleService service = BuildDraftService();
 
         PrepublishCheckResponse response = service.RunPrepublishCheck(
             "Title",
@@ -486,7 +486,7 @@ const value = 1;
     [Fact]
     public void RunPrepublishCheck_WarningOverrideReason_WritesAudit()
     {
-        AuthoringWorkflowService service = BuildService(out AuditLogChannel auditLogChannel);
+        AuthoringDraftLifecycleService service = BuildDraftService(out AuditLogChannel auditLogChannel);
 
         PrepublishCheckResponse response = service.RunPrepublishCheck(
             "Title",
@@ -518,7 +518,7 @@ const value = 1;
                 ? new ContentValidationResult(false, "sensitive_term_detected", "blocked")
                 : new ContentValidationResult(true, "ok", string.Empty);
         });
-        AuthoringWorkflowService service = BuildService(out _, contentFilter);
+        AuthoringModerationWorkflowService service = BuildModerationService(contentFilter);
 
         IReadOnlyList<string> reasons = service.DetectCommentHitReasons(
             "<script>alert(1)</script> badword https://a.test https://b.test https://c.test aaaaaaaa",
@@ -534,7 +534,7 @@ const value = 1;
     [Fact]
     public void DetectCommentHitReasons_DefaultsToManualReview()
     {
-        AuthoringWorkflowService service = BuildService();
+        AuthoringModerationWorkflowService service = BuildModerationService();
 
         IReadOnlyList<string> reasons = service.DetectCommentHitReasons("普通评论", null);
 
@@ -576,8 +576,8 @@ const value = 1;
                     scheduledAt)
             ]);
 
-        string markdown = AuthoringWorkflowService.BuildArticleExportMarkdown(article, "# Body", metadata);
-        var parsed = AuthoringWorkflowService.ParseFrontmatter(markdown);
+        string markdown = AuthoringContentTransferService.BuildArticleExportMarkdown(article, "# Body", metadata);
+        var parsed = AuthoringContentTransferService.ParseFrontmatter(markdown);
 
         Assert.Contains("fsusFormat: content-export-v1", markdown, StringComparison.Ordinal);
         Assert.Equal("Exported Article", parsed.Title);
@@ -640,7 +640,7 @@ fsusMetadataJson: {encodedMetadata}
 # Legacy
 """;
 
-        var parsed = AuthoringWorkflowService.ParseFrontmatter(markdown);
+        var parsed = AuthoringContentTransferService.ParseFrontmatter(markdown);
 
         Assert.NotNull(parsed.Metadata);
         ContentRevisionExportResponse revision = Assert.Single(parsed.Metadata!.Revisions);
@@ -653,7 +653,7 @@ fsusMetadataJson: {encodedMetadata}
     [Fact]
     public async Task PreviewAsync_RendersMarkdownLikeHtmlAndEscapesExecutableHtml()
     {
-        AuthoringWorkflowService service = BuildService();
+        AuthoringDraftLifecycleService service = BuildDraftService();
 
         ArticlePreviewResponse response = await service.PreviewAsync(new ServerDraftSaveRequest(
             "fsus:article-draft:create",
@@ -694,15 +694,15 @@ const value = "<script>alert(1)</script>";
         Assert.Contains(response.Issues, static issue => issue.Code == "dangerous_html");
     }
 
-    private static AuthoringWorkflowService BuildService()
-        => BuildService(out _);
+    private static AuthoringDraftLifecycleService BuildDraftService()
+        => BuildDraftService(out _);
 
     private static RumMetricAuditContext CreateRumMetric(string name, double value)
         => new(name, "article", "server", value, [], DateTime.UnixEpoch);
 
     private static IReadOnlyList<AuthorRumMetricResponse> InvokeBuildRumMetricSummaries(IEnumerable<RumMetricAuditContext> values)
     {
-        MethodInfo? method = typeof(AuthoringWorkflowService).GetMethod(
+        MethodInfo? method = typeof(AuthoringAnalyticsReadService).GetMethod(
             "BuildRumMetricSummaries",
             BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
@@ -718,10 +718,9 @@ const value = "<script>alert(1)</script>";
         Assert.Equal(expectedColumn, mapping.ColumnName);
     }
 
-    private static AuthoringWorkflowService BuildService(
+    private static AuthoringDraftLifecycleService BuildDraftService(
         out AuditLogChannel auditLogChannel,
-        IContentFilterService? contentFilterOverride = null,
-        IReadOnlyDictionary<string, string?>? config = null)
+        IContentFilterService? contentFilterOverride = null)
     {
         var contentFilter = contentFilterOverride ?? Substitute.For<IContentFilterService>();
         if (contentFilterOverride is null)
@@ -730,20 +729,52 @@ const value = "<script>alert(1)</script>";
                 .Returns(new ContentValidationResult(true, string.Empty, string.Empty));
         }
 
+        auditLogChannel = new AuditLogChannel();
+        return new AuthoringDraftLifecycleService(
+            Substitute.For<ISqlSugarClient>(),
+            Substitute.For<FsusBlog.Core.Services.Abstractions.IArticleCoreService>(),
+            contentFilter,
+            new AuthoringAuditWriter(auditLogChannel));
+    }
+
+    private static AuthoringContentTransferService BuildContentTransferService()
+        => BuildContentTransferService(out _);
+
+    private static AuthoringContentTransferService BuildContentTransferService(
+        out AuditLogChannel auditLogChannel,
+        IReadOnlyDictionary<string, string?>? config = null)
+    {
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(config ?? new Dictionary<string, string?>())
             .Build();
-
-        return new AuthoringWorkflowService(
+        AuthoringDraftLifecycleService prepublish = BuildDraftService(out auditLogChannel);
+        var audit = new AuthoringAuditWriter(auditLogChannel);
+        return new AuthoringContentTransferService(
             Substitute.For<ISqlSugarClient>(),
-            Substitute.For<IArticleService>(),
+            Substitute.For<FsusBlog.Core.Services.Abstractions.IArticleCoreService>(),
+            configuration,
+            prepublish,
+            audit,
+            Substitute.For<ILogger<AuthoringContentTransferService>>());
+    }
+
+    private static AuthoringModerationWorkflowService BuildModerationService(IContentFilterService? contentFilterOverride = null)
+    {
+        var contentFilter = contentFilterOverride ?? Substitute.For<IContentFilterService>();
+        if (contentFilterOverride is null)
+        {
+            contentFilter.ValidateContent(Arg.Any<string>())
+                .Returns(new ContentValidationResult(true, string.Empty, string.Empty));
+        }
+
+        return new AuthoringModerationWorkflowService(
+            Substitute.For<ISqlSugarClient>(),
             contentFilter,
             Substitute.For<IBlacklistService>(),
             Substitute.For<ICacheInvalidationDispatcher>(),
             Substitute.For<IMessageRealtimePublisher>(),
             Substitute.For<IMessageCommandService>(),
-            auditLogChannel = new AuditLogChannel(),
-            configuration,
-            Substitute.For<ILogger<AuthoringWorkflowService>>());
+            new AuthoringAuditWriter(new AuditLogChannel()),
+            Substitute.For<ILogger<AuthoringModerationWorkflowService>>());
     }
 }

@@ -195,7 +195,7 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         SeedArticle(db, 42);
         var invalidations = new RecordingCacheInvalidationDispatcher();
         IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
-        AuthoringWorkflowService service = CreateAuthoringService(db, invalidations, realtime);
+        AuthoringModerationWorkflowService service = CreateAuthoringService(db, invalidations, realtime);
         CommentModerationStatus[] states = Enum.GetValues<CommentModerationStatus>();
         int index = 0;
         int allowedCount = 0;
@@ -257,7 +257,7 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
             new RegionLegalModerationService(),
             configuration: new ConfigurationBuilder().Build());
 
-    private static AuthoringWorkflowService CreateAuthoringService(
+    private static AuthoringModerationWorkflowService CreateAuthoringService(
         SqlSugarClient db,
         ICacheInvalidationDispatcher invalidations,
         IMessageRealtimePublisher realtime)
@@ -265,17 +265,15 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         var contentFilter = Substitute.For<IContentFilterService>();
         contentFilter.ValidateContent(Arg.Any<string>())
             .Returns(new ContentValidationResult(true, string.Empty, string.Empty));
-        return new AuthoringWorkflowService(
+        return new AuthoringModerationWorkflowService(
             db,
-            Substitute.For<IArticleService>(),
             contentFilter,
             Substitute.For<IBlacklistService>(),
             invalidations,
             realtime,
             Substitute.For<IMessageCommandService>(),
-            new AuditLogChannel(),
-            new ConfigurationBuilder().Build(),
-            Substitute.For<ILogger<AuthoringWorkflowService>>());
+            new AuthoringAuditWriter(new AuditLogChannel()),
+            Substitute.For<ILogger<AuthoringModerationWorkflowService>>());
     }
 
     private static void SeedUser(SqlSugarClient db, int userId)

@@ -21,7 +21,11 @@ public sealed class CultureInvariantStringComparisonTests
             typeof(SystemService),
             typeof(ModerationDictionaryService),
             typeof(ModerationRegionCatalogService),
-            typeof(AuthoringWorkflowService)
+            typeof(AuthoringAnalyticsReadService),
+            typeof(AuthoringAssetLibraryService),
+            typeof(AuthoringDraftLifecycleService),
+            typeof(AuthoringContentTransferService),
+            typeof(AuthoringModerationWorkflowService)
         ];
 
         foreach (Type type in types)

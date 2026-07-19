@@ -1,9 +1,7 @@
 using System.Reflection;
 
+using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Audit;
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -20,7 +18,7 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class AuthoringRevisionRestoreTests(PostgresSchemaMigrationFixture fixture)
 {
-    private static readonly MethodInfo s_restoreImportedRevisions = typeof(AuthoringWorkflowService)
+    private static readonly MethodInfo s_restoreImportedRevisions = typeof(AuthoringContentTransferService)
         .GetMethod("RestoreImportedRevisionsAsync", BindingFlags.Instance | BindingFlags.NonPublic)
         ?? throw new InvalidOperationException("RestoreImportedRevisionsAsync should exist.");
 
@@ -32,7 +30,7 @@ public sealed class AuthoringRevisionRestoreTests(PostgresSchemaMigrationFixture
         SeedArticle(db, 42);
         SeedRevision(db, 42, revisionNo: 1, title: "Original");
         InstallFailingImportedRevisionTrigger(db);
-        AuthoringWorkflowService service = CreateService(db);
+        AuthoringContentTransferService service = CreateService(db);
 
         await Assert.ThrowsAnyAsync<Exception>(() => InvokeRestoreImportedRevisionsAsync(service, 42, CreateMetadata()));
 
@@ -46,7 +44,7 @@ public sealed class AuthoringRevisionRestoreTests(PostgresSchemaMigrationFixture
     }
 
     private static Task<int> InvokeRestoreImportedRevisionsAsync(
-        AuthoringWorkflowService service,
+        AuthoringContentTransferService service,
         int articleId,
         ContentExportMetadataResponse metadata)
         => (Task<int>)s_restoreImportedRevisions.Invoke(service, [articleId, metadata, CancellationToken.None])!;
@@ -128,21 +126,12 @@ public sealed class AuthoringRevisionRestoreTests(PostgresSchemaMigrationFixture
             EXECUTE FUNCTION fail_imported_revision_insert();
             """);
 
-    private static AuthoringWorkflowService CreateService(SqlSugarClient db)
-    {
-        var contentFilter = Substitute.For<IContentFilterService>();
-        contentFilter.ValidateContent(Arg.Any<string>())
-            .Returns(new ContentValidationResult(true, string.Empty, string.Empty));
-        return new AuthoringWorkflowService(
+    private static AuthoringContentTransferService CreateService(SqlSugarClient db)
+        => new(
             db,
-            Substitute.For<IArticleService>(),
-            contentFilter,
-            Substitute.For<IBlacklistService>(),
-            Substitute.For<ICacheInvalidationDispatcher>(),
-            Substitute.For<IMessageRealtimePublisher>(),
-            Substitute.For<IMessageCommandService>(),
-            new AuditLogChannel(),
+            Substitute.For<IArticleCoreService>(),
             new ConfigurationBuilder().Build(),
-            Substitute.For<ILogger<AuthoringWorkflowService>>());
-    }
+            Substitute.For<IAuthoringPrepublishPolicy>(),
+            Substitute.For<IAuthoringAuditWriter>(),
+            Substitute.For<ILogger<AuthoringContentTransferService>>());
 }

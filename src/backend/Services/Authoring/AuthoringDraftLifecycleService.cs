@@ -25,12 +25,20 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;
 
-public sealed partial class AuthoringWorkflowService
+public sealed class AuthoringDraftLifecycleService(
+    ISqlSugarClient db,
+    FsusBlog.Core.Services.Abstractions.IArticleCoreService articleService,
+    IContentFilterService contentFilter,
+    IAuthoringAuditWriter auditWriter) : IAuthoringDraftLifecycle, IAuthoringPrepublishPolicy
 {
+    private const int MaxDraftKeyLength = 96;
+    private const int PreviewLength = 24_000;
+    private const int WarningOverrideReasonLength = 180;
+    private static readonly JsonSerializerOptions s_draftRightsJsonOptions = new(JsonSerializerDefaults.Web);
     public async Task<ServerDraftResponse> SaveDraftAsync(long ownerAdminPrincipalId, ServerDraftSaveRequest request, CancellationToken cancellationToken = default)
     {
         string draftKey = NormalizeDraftKey(request.DraftKey, request.ArticleId);
-        string tagIds = string.Join(',', NormalizeTagIds(request.TagIds));
+        string tagIds = string.Join(',', AuthoringNormalization.NormalizeTagIds(request.TagIds));
         ArticleRightsRequest rights = NormalizeDraftRights(request.Rights);
         DateTime now = DateTime.UtcNow;
         var draft = new ArticleDraft
@@ -38,12 +46,12 @@ public sealed partial class AuthoringWorkflowService
             OwnerAdminPrincipalId = ownerAdminPrincipalId,
             DraftKey = draftKey,
             ArticleId = request.ArticleId,
-            Title = Normalize(request.Title, 256),
+            Title = AuthoringNormalization.Normalize(request.Title, 256),
             Summary = TextHelpers.NormalizeNullable(request.Summary, 512),
             CoverImageUrl = TextHelpers.NormalizeNullable(request.CoverImageUrl, 512),
             CategoryId = Math.Max(0, request.CategoryId),
             TagIds = tagIds,
-            MarkdownContent = Normalize(request.Content, 200_000),
+            MarkdownContent = AuthoringNormalization.Normalize(request.Content, 200_000),
             Status = NormalizeArticleStatus(request.Status),
             RightsJson = SerializeDraftRights(rights),
             ClientRevision = TextHelpers.NormalizeNullable(request.ClientRevision, 64),
@@ -54,7 +62,7 @@ public sealed partial class AuthoringWorkflowService
 
         await UpsertDraftAsync(draft, cancellationToken);
 
-        WriteAudit(AuditSourceCatalog.Article, "server-draft-save", ownerAdminPrincipalId, draftKey);
+        auditWriter.Write(AuditSourceCatalog.Article, "server-draft-save", ownerAdminPrincipalId, draftKey);
         return ToDraftResponse(draft);
     }
 
@@ -111,18 +119,18 @@ public sealed partial class AuthoringWorkflowService
                 updated_at = EXCLUDED.updated_at;
             """,
             new SugarParameter("@OwnerAdminPrincipalId", draft.OwnerAdminPrincipalId),
-            new SugarParameter("@ArticleId", DbValue(draft.ArticleId)),
+            new SugarParameter("@ArticleId", AuthoringNormalization.DbValue(draft.ArticleId)),
             new SugarParameter("@DraftKey", draft.DraftKey),
             new SugarParameter("@Title", draft.Title),
-            new SugarParameter("@Summary", DbValue(draft.Summary)),
-            new SugarParameter("@CoverImageUrl", DbValue(draft.CoverImageUrl)),
+            new SugarParameter("@Summary", AuthoringNormalization.DbValue(draft.Summary)),
+            new SugarParameter("@CoverImageUrl", AuthoringNormalization.DbValue(draft.CoverImageUrl)),
             new SugarParameter("@CategoryId", draft.CategoryId),
             new SugarParameter("@TagIds", draft.TagIds),
             new SugarParameter("@MarkdownContent", draft.MarkdownContent),
-            new SugarParameter("@ClientRevision", DbValue(draft.ClientRevision)),
+            new SugarParameter("@ClientRevision", AuthoringNormalization.DbValue(draft.ClientRevision)),
             new SugarParameter("@Status", (int)draft.Status),
-            new SugarParameter("@ScheduledPublishAt", DbValue(draft.ScheduledPublishAt)),
-            new SugarParameter("@RightsJson", DbValue(draft.RightsJson)),
+            new SugarParameter("@ScheduledPublishAt", AuthoringNormalization.DbValue(draft.ScheduledPublishAt)),
+            new SugarParameter("@RightsJson", AuthoringNormalization.DbValue(draft.RightsJson)),
             new SugarParameter("@CreatedAt", draft.CreatedAt),
             new SugarParameter("@UpdatedAt", draft.UpdatedAt));
     }
@@ -144,7 +152,7 @@ public sealed partial class AuthoringWorkflowService
             .ExecuteCommandAsync(cancellationToken);
         if (count > 0)
         {
-            WriteAudit(AuditSourceCatalog.Article, "server-draft-discard", ownerAdminPrincipalId, normalized);
+            auditWriter.Write(AuditSourceCatalog.Article, "server-draft-discard", ownerAdminPrincipalId, normalized);
         }
 
         return count > 0;
@@ -194,12 +202,12 @@ public sealed partial class AuthoringWorkflowService
                 revision.Summary,
                 revision.CoverImageUrl,
                 revision.CategoryId,
-                ParseTagIds(revision.TagIds),
+                AuthoringNormalization.ParseTagIds(revision.TagIds),
                 (int)ArticleStatus.Published)));
         bool updated = updateResult.IsSuccess;
         if (updated)
         {
-            WriteAudit(AuditSourceCatalog.Article, "article-revision-rollback", actorAdminPrincipalId, $"{articleId}:{revisionId}");
+            auditWriter.Write(AuditSourceCatalog.Article, "article-revision-rollback", actorAdminPrincipalId, $"{articleId}:{revisionId}");
         }
 
         return updated;
@@ -289,7 +297,7 @@ public sealed partial class AuthoringWorkflowService
             draft.Summary,
             draft.CoverImageUrl,
             draft.CategoryId,
-            ParseTagIds(draft.TagIds),
+            AuthoringNormalization.ParseTagIds(draft.TagIds),
             draft.ClientRevision,
             (int)draft.Status,
             draft.ScheduledPublishAt,
@@ -306,7 +314,7 @@ public sealed partial class AuthoringWorkflowService
             revision.Summary,
             revision.CoverImageUrl,
             revision.CategoryId,
-            ParseTagIds(revision.TagIds),
+            AuthoringNormalization.ParseTagIds(revision.TagIds),
             revision.DiffSummary,
             revision.CreatedByAdminPrincipalId.ToString(CultureInfo.InvariantCulture),
             revision.CreatedAt);
@@ -560,7 +568,7 @@ public sealed partial class AuthoringWorkflowService
             return;
         }
 
-        string reason = Normalize(warningOverrideReason, WarningOverrideReasonLength);
+        string reason = AuthoringNormalization.Normalize(warningOverrideReason, WarningOverrideReasonLength);
         if (reason.Length < 8)
         {
             return;
@@ -569,7 +577,7 @@ public sealed partial class AuthoringWorkflowService
         string target = articleId is > 0
             ? $"article:{articleId.Value}"
             : $"draft:{NormalizeDraftKey(draftKey, null)}";
-        WriteAudit(AuditSourceCatalog.Article, "prepublish-warning-override", actorUserId.Value, $"{target};warnings={string.Join(',', warnings)};reason={reason}");
+        auditWriter.Write(AuditSourceCatalog.Article, "prepublish-warning-override", actorUserId.Value, $"{target};warnings={string.Join(',', warnings)};reason={reason}");
     }
 
 
@@ -589,12 +597,6 @@ public sealed partial class AuthoringWorkflowService
         string fallback = articleId is > 0 ? $"edit:{articleId.Value}" : "create";
         string value = string.IsNullOrWhiteSpace(raw) ? fallback : raw.Trim();
         return value.Length > MaxDraftKeyLength ? value[..MaxDraftKeyLength] : value;
-    }
-
-    private static string Normalize(string? raw, int maxLength)
-    {
-        string value = TextHelpers.TrimOrEmpty(raw);
-        return value.Length > maxLength ? value[..maxLength] : value;
     }
 
     private static ArticleRightsRequest NormalizeDraftRights(ArticleRightsRequest? request)
@@ -637,7 +639,7 @@ public sealed partial class AuthoringWorkflowService
 
     private static string NormalizeDraftRightsToken(string? value, string fallback)
     {
-        string normalized = Normalize(value, 48);
+        string normalized = AuthoringNormalization.Normalize(value, 48);
         return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
     }
 
@@ -661,30 +663,6 @@ public sealed partial class AuthoringWorkflowService
         }
     }
 
-    private static object DbValue(string? value)
-        => string.IsNullOrWhiteSpace(value) ? DBNull.Value : value;
-
-    private static object DbValue(int? value)
-        => value.HasValue ? value.Value : DBNull.Value;
-
-    private static object DbValue(DateTime? value)
-        => value.HasValue ? value.Value : DBNull.Value;
-
-
-    private static List<int> NormalizeTagIds(IEnumerable<int>? tagIds)
-        => tagIds is null
-            ? []
-            : tagIds.Where(static id => id > 0).Distinct().OrderBy(static id => id).Take(32).ToList();
-
-    private static List<int> ParseTagIds(string? raw)
-        => string.IsNullOrWhiteSpace(raw)
-            ? []
-            : raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(static item => int.TryParse(item, out int id) ? id : 0)
-                .Where(static id => id > 0)
-                .Distinct()
-                .ToList();
-
     private static ArticleStatus NormalizeArticleStatus(int? raw)
     {
         return raw is (int)ArticleStatus.Draft
@@ -695,10 +673,6 @@ public sealed partial class AuthoringWorkflowService
             ? (ArticleStatus)raw.Value
             : ArticleStatus.Published;
     }
-
-    private static string HashText(string text)
-        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
-
 
     private static string RenderPreviewMarkdown(string markdown)
     {

@@ -315,8 +315,8 @@ public sealed class AnonymousCommentModerationPipelineTests
             static property => string.Equals(property, "userId", StringComparison.Ordinal));
 
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
-            nameof(AuthoringWorkflowService.ListCommentModerationQueueAsync),
+            typeof(AuthoringModerationWorkflowService),
+            nameof(AuthoringModerationWorkflowService.ListCommentModerationQueueAsync),
             "LoadAnonymousNullifierSummariesAsync");
         Assert.Contains("get_AnonymousDisplayName", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("LoadAnonymousNullifierSummariesAsync", runtimeShape, StringComparison.Ordinal);

@@ -25,8 +25,9 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;
 
-public sealed partial class AuthoringWorkflowService
+public sealed class AuthoringAssetLibraryService(ISqlSugarClient db) : IAuthoringAssetQuery, IAuthoringAssetCommands
 {
+    private static int s_assetArticleReferenceStoreEnsured;
     public async Task<IReadOnlyList<AssetLibraryItemResponse>> ReindexAssetsAsync(int articleId, CancellationToken cancellationToken = default)
     {
         bool articleExists = await db.Queryable<Article>()
@@ -277,7 +278,7 @@ public sealed partial class AuthoringWorkflowService
             """,
             new SugarParameter("@Url", asset.Url),
             new SugarParameter("@ArticleId", asset.SourceArticleId),
-            new SugarParameter("@AltText", DbValue(asset.AltText)),
+            new SugarParameter("@AltText", AuthoringNormalization.DbValue(asset.AltText)),
             new SugarParameter("@ReferenceCount", asset.ReferenceCount),
             new SugarParameter("@UpdatedAtUtc", now)).ConfigureAwait(false);
     }
@@ -390,9 +391,9 @@ public sealed partial class AuthoringWorkflowService
                 (@Url, @AltText, @SourceArticleId, @Sha256, @ReferenceCount, @Now, @Now);
             """,
             new SugarParameter("@Url", asset.Url),
-            new SugarParameter("@AltText", DbValue(asset.AltText)),
+            new SugarParameter("@AltText", AuthoringNormalization.DbValue(asset.AltText)),
             new SugarParameter("@SourceArticleId", asset.SourceArticleId),
-            new SugarParameter("@Sha256", HashText(asset.Url)),
+            new SugarParameter("@Sha256", AuthoringNormalization.HashText(asset.Url)),
             new SugarParameter("@ReferenceCount", asset.ReferenceCount),
             new SugarParameter("@Now", now));
     }
@@ -411,9 +412,9 @@ public sealed partial class AuthoringWorkflowService
             WHERE id = @Id;
             """,
             new SugarParameter("@Id", existing.Id),
-            new SugarParameter("@AltText", DbValue(asset.AltText)),
+            new SugarParameter("@AltText", AuthoringNormalization.DbValue(asset.AltText)),
             new SugarParameter("@SourceArticleId", asset.SourceArticleId),
-            new SugarParameter("@Sha256", HashText(asset.Url)),
+            new SugarParameter("@Sha256", AuthoringNormalization.HashText(asset.Url)),
             new SugarParameter("@ReferenceCount", asset.ReferenceCount),
             new SugarParameter("@UpdatedAt", now));
     }

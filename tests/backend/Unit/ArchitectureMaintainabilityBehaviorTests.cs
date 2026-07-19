@@ -31,7 +31,16 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
 
         AssertRegistration<ISearchIndexService, SearchIndexService>(services, ServiceLifetime.Singleton);
         AssertRegistration<ArticleService, ArticleService>(services, ServiceLifetime.Scoped);
-        AssertRegistration<AuthoringWorkflowService, AuthoringWorkflowService>(services, ServiceLifetime.Scoped);
+        AssertFactoryRegistration<IAuthoringAnalyticsReader>(services, ServiceLifetime.Scoped);
+        AssertFactoryRegistration<IAuthoringAssetQuery>(services, ServiceLifetime.Scoped);
+        AssertFactoryRegistration<IAuthoringAssetCommands>(services, ServiceLifetime.Scoped);
+        AssertFactoryRegistration<IAuthoringDraftLifecycle>(services, ServiceLifetime.Scoped);
+        AssertFactoryRegistration<IAuthoringPrepublishPolicy>(services, ServiceLifetime.Scoped);
+        AssertFactoryRegistration<IAuthoringContentExport>(services, ServiceLifetime.Scoped);
+        AssertFactoryRegistration<IAuthoringContentImport>(services, ServiceLifetime.Scoped);
+        AssertFactoryRegistration<IAuthoringAiAssist>(services, ServiceLifetime.Scoped);
+        AssertFactoryRegistration<IAuthoringModerationQueue>(services, ServiceLifetime.Scoped);
+        AssertFactoryRegistration<IAuthoringModerationCommands>(services, ServiceLifetime.Scoped);
         AssertRegistration<ISchemaMigrationRegistry, SchemaMigrationRegistry>(services, ServiceLifetime.Singleton);
         AssertRegistration<PublicHotReadStore, PublicHotReadStore>(services, ServiceLifetime.Singleton);
         AssertRegistration<PublicHotReadCounters, PublicHotReadCounters>(services, ServiceLifetime.Singleton);
@@ -41,10 +50,23 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
     }
 
     [Fact]
-    public void AuthoringWorkflow_PublicCapabilitySurface_RemainsStableAcrossPartialFiles()
+    public void AuthoringUseCases_AreSplitIntoNarrowEndpointPorts()
     {
-        string[] methodNames = typeof(AuthoringWorkflowService)
-            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+        Type[] ports =
+        [
+            typeof(IAuthoringAnalyticsReader),
+            typeof(IAuthoringAssetQuery),
+            typeof(IAuthoringAssetCommands),
+            typeof(IAuthoringDraftLifecycle),
+            typeof(IAuthoringPrepublishPolicy),
+            typeof(IAuthoringContentExport),
+            typeof(IAuthoringContentImport),
+            typeof(IAuthoringAiAssist),
+            typeof(IAuthoringModerationQueue),
+            typeof(IAuthoringModerationCommands)
+        ];
+        string[] methodNames = ports
+            .SelectMany(static port => port.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
             .Where(static method => !method.IsSpecialName)
             .Select(static method => method.Name)
             .Order(StringComparer.Ordinal)
@@ -73,6 +95,36 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
             "RunPrepublishCheck",
             "SaveDraftAsync"
         ], methodNames);
+
+        string backendRoot = BackendTestPaths.FromRoot("src/backend");
+        string[] productionFiles = Directory.GetFiles(backendRoot, "*.cs", SearchOption.AllDirectories);
+        Assert.DoesNotContain(productionFiles, path => File.ReadAllText(path).Contains("AuthoringWorkflowService", StringComparison.Ordinal));
+        string endpoints = string.Join('\n', productionFiles
+            .Where(static path => Path.GetFileName(path).StartsWith("AuthoringEndpoints", StringComparison.Ordinal))
+            .Select(File.ReadAllText));
+        Assert.DoesNotContain("AuthoringAnalyticsReadService service", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthoringAssetLibraryService service", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthoringDraftLifecycleService service", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthoringContentTransferService service", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthoringModerationWorkflowService service", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("IServiceProvider", string.Join('\n', productionFiles
+            .Where(static path => path.Contains("/Services/Authoring/", StringComparison.Ordinal))
+            .Select(File.ReadAllText)), StringComparison.Ordinal);
+
+        var implementations = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [nameof(AuthoringAnalyticsReadService)] = File.ReadAllText(Path.Combine(backendRoot, "Services/Authoring/AuthoringAnalyticsReadService.cs")),
+            [nameof(AuthoringAssetLibraryService)] = File.ReadAllText(Path.Combine(backendRoot, "Services/Authoring/AuthoringAssetLibraryService.cs")),
+            [nameof(AuthoringDraftLifecycleService)] = File.ReadAllText(Path.Combine(backendRoot, "Services/Authoring/AuthoringDraftLifecycleService.cs")),
+            [nameof(AuthoringContentTransferService)] = File.ReadAllText(Path.Combine(backendRoot, "Services/Authoring/AuthoringContentTransferService.cs")),
+            [nameof(AuthoringModerationWorkflowService)] = File.ReadAllText(Path.Combine(backendRoot, "Services/Authoring/AuthoringModerationWorkflowService.cs"))
+        };
+        foreach ((string owner, string source) in implementations)
+        {
+            Assert.DoesNotContain(
+                implementations.Keys.Where(candidate => !string.Equals(candidate, owner, StringComparison.Ordinal)),
+                source.Contains);
+        }
     }
 
     [Fact]
@@ -137,6 +189,16 @@ public sealed partial class ArchitectureMaintainabilityBehaviorTests
             static item => item.ServiceType == typeof(TService)
                 && (item.ImplementationType == typeof(TImplementation)
                     || (typeof(TService) == typeof(TImplementation) && item.ImplementationType == typeof(TService))));
+        Assert.Equal(expectedLifetime, descriptor.Lifetime);
+    }
+
+    private static void AssertFactoryRegistration<TService>(
+        IServiceCollection services,
+        ServiceLifetime expectedLifetime)
+    {
+        ServiceDescriptor descriptor = Assert.Single(
+            services,
+            static item => item.ServiceType == typeof(TService) && item.ImplementationFactory is not null);
         Assert.Equal(expectedLifetime, descriptor.Lifetime);
     }
 

@@ -126,7 +126,7 @@ public sealed class CommentSecurityHardeningTests
     public void CommentModerationQueue_IncludesOnlyBorderlineModelHiddenCommentsInPendingReviewSource()
     {
         string queue = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
-            typeof(AuthoringWorkflowService),
+            typeof(AuthoringModerationWorkflowService),
             "model_policy:model_risk_borderline_review",
             "BuildCommentModerationQueuePredicate");
 
@@ -195,7 +195,7 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains(nameof(CommentBlockedRegion), service, StringComparison.Ordinal);
         Assert.Contains("comment_blocked_region br", service, StringComparison.Ordinal);
 
-        string authoring = RuntimeMetadataInspection.DescribeType(typeof(AuthoringWorkflowService));
+        string authoring = RuntimeMetadataInspection.DescribeType(typeof(AuthoringModerationWorkflowService));
         Assert.Contains("IsRegionApprovalAllowed", authoring, StringComparison.Ordinal);
         Assert.Contains("get_RegionCanPublish", authoring, StringComparison.Ordinal);
         Assert.Contains("RegionLegalModerationService.DeserializeRegions", authoring, StringComparison.Ordinal);
@@ -357,9 +357,9 @@ public sealed class CommentSecurityHardeningTests
     public void CommentModerationService_UsesCasStateMachineAndRealtimePush()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
-            nameof(AuthoringWorkflowService.ModerateCommentAsync),
-            nameof(AuthoringWorkflowService.ModerateCommentsAsync));
+            typeof(AuthoringModerationWorkflowService),
+            nameof(AuthoringModerationWorkflowService.ModerateCommentAsync),
+            nameof(AuthoringModerationWorkflowService.ModerateCommentsAsync));
 
         Assert.Contains("IsAllowedModerationTransition", runtimeShape);
         Assert.Contains("Comment.get_ModerationStatus", runtimeShape);
@@ -369,7 +369,7 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("CommentCacheInvalidationScope", runtimeShape);
         Assert.Contains("SendAccountTransactionalNoticeAsync", runtimeShape);
 
-        MethodInfo transition = typeof(AuthoringWorkflowService).GetMethod(
+        MethodInfo transition = typeof(AuthoringModerationWorkflowService).GetMethod(
             "IsAllowedModerationTransition",
             BindingFlags.Static | BindingFlags.NonPublic)!;
         Assert.True((bool)transition.Invoke(null, [CommentModerationStatus.Pending, CommentModerationStatus.Approved])!);

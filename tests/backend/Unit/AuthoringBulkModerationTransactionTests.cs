@@ -30,7 +30,7 @@ public sealed class AuthoringBulkModerationTransactionTests(PostgresSchemaMigrat
         SeedPendingComment(db, 101, 42);
         InstallFailingSecondModerationTrigger(db);
         var dispatcher = new RecordingInvalidationDispatcher(db);
-        AuthoringWorkflowService service = CreateService(db, dispatcher);
+        AuthoringModerationWorkflowService service = CreateService(db, dispatcher);
 
         await Assert.ThrowsAnyAsync<Exception>(() => service.ModerateCommentsAsync(
             7,
@@ -55,7 +55,7 @@ public sealed class AuthoringBulkModerationTransactionTests(PostgresSchemaMigrat
         SeedPendingComment(db, 100, 42);
         SeedPendingComment(db, 101, 42);
         var dispatcher = new RecordingInvalidationDispatcher(db);
-        AuthoringWorkflowService service = CreateService(db, dispatcher);
+        AuthoringModerationWorkflowService service = CreateService(db, dispatcher);
 
         CommentModerationBulkResponse response = await service.ModerateCommentsAsync(
             7,
@@ -122,22 +122,20 @@ public sealed class AuthoringBulkModerationTransactionTests(PostgresSchemaMigrat
             EXECUTE FUNCTION fail_second_comment_moderation();
             """);
 
-    private static AuthoringWorkflowService CreateService(SqlSugarClient db, ICacheInvalidationDispatcher dispatcher)
+    private static AuthoringModerationWorkflowService CreateService(SqlSugarClient db, ICacheInvalidationDispatcher dispatcher)
     {
         var contentFilter = Substitute.For<IContentFilterService>();
         contentFilter.ValidateContent(Arg.Any<string>())
             .Returns(new ContentValidationResult(true, string.Empty, string.Empty));
-        return new AuthoringWorkflowService(
+        return new AuthoringModerationWorkflowService(
             db,
-            Substitute.For<IArticleService>(),
             contentFilter,
             Substitute.For<IBlacklistService>(),
             dispatcher,
             Substitute.For<IMessageRealtimePublisher>(),
             Substitute.For<IMessageCommandService>(),
-            new AuditLogChannel(),
-            new ConfigurationBuilder().Build(),
-            Substitute.For<ILogger<AuthoringWorkflowService>>());
+            new AuthoringAuditWriter(new AuditLogChannel()),
+            Substitute.For<ILogger<AuthoringModerationWorkflowService>>());
     }
 
     private sealed class RecordingInvalidationDispatcher(SqlSugarClient db) : ICacheInvalidationDispatcher

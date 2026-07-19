@@ -367,7 +367,7 @@ RunResidueCheck \
     "legacy sys_user identity field residue detected" \
     '\bsys_user[.](username|password|role|last_username_update_time|lastusernameupdatetime)\b|\bpublic[[:space:]]+string[?]?[[:space:]]+(Username|Password|Role)\b|\bLastUsernameUpdateTime\b|\b(user|u|ru)[.](Username|Role)\b|Role[[:space:]]*(==|!=)[[:space:]]*"admin"|Role[.]Equals[(]"admin"|Username[[:space:]]*[{][[:space:]]*get[;][[:space:]]*init[;][[:space:]]*[}]' \
     "$IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX" \
-    src/backend/Entities/User.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Services/Security/PasskeyService.cs src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs src/backend/Infrastructure/SchemaMigration/Definitions
+    src/backend/Entities/User.cs src/backend/Interfaces/UserApplicationPorts.cs src/backend/Services/UserService.cs src/backend/Services/UserService.Ports.cs src/backend/Services/Authoring src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Services/Security/PasskeyService.cs src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs src/backend/Infrastructure/SchemaMigration/Definitions
 
 RunAppsettingsIdentityResidueCheck
 
@@ -467,21 +467,21 @@ RunResidueCheck \
     "legacy authoring user attribution residue detected" \
     'SaveDraftAsync[(]\s*context[.]GetUserId[(][)]|GetDraftAsync[(]\s*context[.]GetUserId[(][)]|DiscardDraftAsync[(]\s*context[.]GetUserId[(][)]|RollbackRevisionAsync[(]\s*context[.]GetUserId[(][)]|OwnerUserId|owner_user_id|CreatedByUserId|created_by_user_id|createdByUserId' \
     '^(src/backend/Infrastructure/SchemaMigration/Definitions/[^/]+MigrationDefinitions[.]cs)$' \
-    src/backend/Modules/Endpoints/AuthoringEndpoints.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Services/ArticleService.cs src/backend/Entities/Article.cs src/backend/Models/Dtos/AuthoringDtos.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Infrastructure/SchemaMigration/Definitions src/frontend/src/api/authoring.ts src/frontend/src/components/admin/article/ArticleRevisionPanel.vue
+    src/backend/Modules/Endpoints/AuthoringEndpoints.cs src/backend/Services/Authoring src/backend/Services/ArticleService.cs src/backend/Entities/Article.cs src/backend/Models/Dtos/AuthoringDtos.cs src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs src/backend/Infrastructure/SchemaMigration/Definitions src/frontend/src/api/authoring.ts src/frontend/src/components/admin/article/ArticleRevisionPanel.vue
 
 RunResidueCheck \
     "legacy comment moderation account display fallback" \
     "legacy comment moderation account display fallback residue detected" \
     'Queryable<Comment,\s*Article,\s*User|JoinType[.]Left,\s*c[.]UserId\s*==\s*u[.]Id|JoinType[.]Left,\s*c[.]ReplyToUserId\s*==\s*ru[.]Id|u[.]PublicHandle|ru[.]PublicHandle|u[.]Username|ru[.]Username|row[.]UserName|comment[.]userName|cleanText[(]item[.]userName[)]|accountSearchText' \
     "" \
-    src/backend/Services/Authoring/AuthoringWorkflowService.cs src/frontend/src/components/admin/DashboardCommentModerationPanel.vue src/frontend/src/composables/useCommentModerationQueue.ts
+    src/backend/Services/Authoring src/frontend/src/components/admin/DashboardCommentModerationPanel.vue src/frontend/src/composables/useCommentModerationQueue.ts
 
 RunResidueCheck \
     "legacy comment moderation user attribution" \
     "legacy comment moderation user attribution residue detected" \
     'ModerateCommentAsync[(]\s*int\s+actorUserId|ModerateCommentsAsync[(][^)]*int\s+actorUserId|ModeratedByUserId|moderatedByUserId|moderated_by_user_id|ModeratedByUserId\s*==\s*actorUserId|ModerateCommentAsync[(]\s*context[.]GetUserId[(][)]|ModerateCommentsAsync[(]\s*context[.]GetUserId[(][)]' \
     '^(src/backend/Infrastructure/SchemaMigration/Definitions/[^/]+MigrationDefinitions[.]cs|tests/backend/Integration/SchemaMigrationIntegrationTests[.]cs)$' \
-    src/backend/Entities/Comment.cs src/backend/Services/Authoring/AuthoringWorkflowService.cs src/backend/Modules/Endpoints/AuthoringEndpoints.cs src/backend/Models/Dtos/AuthoringDtos.cs src/backend/Infrastructure/SchemaMigration/Definitions src/frontend/src/api/authoring.ts src/frontend/src/composables/useCommentModerationQueue.ts src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue tests/backend/Integration/SchemaMigrationIntegrationTests.cs
+    src/backend/Entities/Comment.cs src/backend/Services/Authoring src/backend/Modules/Endpoints/AuthoringEndpoints.cs src/backend/Models/Dtos/AuthoringDtos.cs src/backend/Infrastructure/SchemaMigration/Definitions src/frontend/src/api/authoring.ts src/frontend/src/composables/useCommentModerationQueue.ts src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue tests/backend/Integration/SchemaMigrationIntegrationTests.cs
 
 RunResidueCheck \
     "legacy anonymous credential user commitment binding" \

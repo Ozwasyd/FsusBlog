@@ -25,7 +25,13 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;
 
-public sealed partial class AuthoringWorkflowService
+public sealed class AuthoringContentTransferService(
+    ISqlSugarClient db,
+    FsusBlog.Core.Services.Abstractions.IArticleCoreService articleService,
+    IConfiguration configuration,
+    IAuthoringPrepublishPolicy prepublishPolicy,
+    IAuthoringAuditWriter auditWriter,
+    ILogger<AuthoringContentTransferService> logger) : IAuthoringContentExport, IAuthoringContentImport, IAuthoringAiAssist
 {
     public async Task<ContentExportResponse?> ExportArticleAsync(int articleId, CancellationToken cancellationToken = default)
     {
@@ -152,9 +158,9 @@ public sealed partial class AuthoringWorkflowService
         string providerMode = ResolveAiAssistProviderMode(enabled, provider, allowExternal, externalReviewed);
         string operation = NormalizeAiAssistOperation(request.Operation);
         string clean = ImageHelper.StripMarkdown(request.Content ?? string.Empty, 240);
-        IReadOnlyList<PrepublishIssue> issues = RunPrepublishCheck(request.Title, request.Content ?? string.Empty, clean, null).Issues;
+        IReadOnlyList<PrepublishIssue> issues = prepublishPolicy.RunPrepublishCheck(request.Title, request.Content ?? string.Empty, clean, null).Issues;
         string auditTarget = $"operation={operation};provider={provider};mode={providerMode};externalAllowed={externalProviderAllowed};locale={TextHelpers.NormalizeNullable(request.Locale, 24) ?? "default"}";
-        WriteAudit(AuditSourceCatalog.Article, "author-ai-assist", actorUserId, auditTarget);
+        auditWriter.Write(AuditSourceCatalog.Article, "author-ai-assist", actorUserId, auditTarget);
         return new AiAssistResponse(
             enabled,
             providerMode,
@@ -173,13 +179,13 @@ public sealed partial class AuthoringWorkflowService
 
     private static string NormalizeAiAssistProvider(string? raw)
     {
-        string value = Normalize(raw, 32).ToLowerInvariant();
+        string value = AuthoringNormalization.Normalize(raw, 32).ToLowerInvariant();
         return value.Length == 0 ? "local" : value;
     }
 
     private static string NormalizeAiAssistOperation(string? raw)
     {
-        string value = Normalize(raw, 48).ToLowerInvariant();
+        string value = AuthoringNormalization.Normalize(raw, 48).ToLowerInvariant();
         return value.Length == 0 ? "summary-tags-structure" : value;
     }
 
@@ -257,7 +263,7 @@ public sealed partial class AuthoringWorkflowService
                 revision.Summary,
                 revision.CoverImageUrl,
                 revision.CategoryId,
-                ParseTagIds(revision.TagIds),
+                AuthoringNormalization.ParseTagIds(revision.TagIds),
                 revision.DiffSummary,
                 revision.CreatedAt)).ToArray());
 
@@ -365,7 +371,7 @@ fsusMetadataJson: {encodedMetadata}
                     scheduledPublishAt = parsedScheduled;
                 }
                 if (values.TryGetValue("tagIds", out string? rawTagIds))
-                    tagIds = ParseTagIds(rawTagIds);
+                    tagIds = AuthoringNormalization.ParseTagIds(rawTagIds);
             }
         }
 
@@ -394,13 +400,13 @@ fsusMetadataJson: {encodedMetadata}
             {
                 ArticleId = articleId,
                 RevisionNo = Math.Max(1, revision.RevisionNo),
-                Title = Normalize(revision.Title, 256),
+                Title = AuthoringNormalization.Normalize(revision.Title, 256),
                 Summary = TextHelpers.NormalizeNullable(revision.Summary, 512),
                 CoverImageUrl = TextHelpers.NormalizeNullable(revision.CoverImageUrl, 512),
                 CategoryId = Math.Max(1, revision.CategoryId),
-                TagIds = string.Join(',', NormalizeTagIds(revision.TagIds)),
-                MarkdownContent = Normalize(revision.Content, 200_000),
-                DiffSummary = Normalize(revision.DiffSummary, 512),
+                TagIds = string.Join(',', AuthoringNormalization.NormalizeTagIds(revision.TagIds)),
+                MarkdownContent = AuthoringNormalization.Normalize(revision.Content, 200_000),
+                DiffSummary = AuthoringNormalization.Normalize(revision.DiffSummary, 512),
                 CreatedByAdminPrincipalId = 0,
                 CreatedAt = revision.CreatedAt == default ? DateTime.UtcNow : revision.CreatedAt
             })
@@ -441,12 +447,6 @@ fsusMetadataJson: {encodedMetadata}
     {
         string value = (raw ?? string.Empty).Replace("\r", " ", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal).Trim();
         return value.Length > 512 ? value[..512] : value;
-    }
-
-    private void WriteAudit(string source, string eventInfo, long actorAdminPrincipalId, string target)
-    {
-        byte[] payload = Encoding.UTF8.GetBytes($"actor={actorAdminPrincipalId};target={target}");
-        auditLogChannel.TryWrite(new AuditRecord(source, AuditTypeCatalog.Business, DateTime.UtcNow, eventInfo, payload));
     }
 
     internal readonly record struct ParsedFrontmatter(

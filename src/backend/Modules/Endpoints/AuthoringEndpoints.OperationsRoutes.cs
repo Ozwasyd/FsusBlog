@@ -31,7 +31,7 @@ public static partial class AuthoringEndpoints
         group.MapGet("/content/export", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringContentExport service,
             IAdminPrincipalService adminPrincipals,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
@@ -66,7 +66,7 @@ public static partial class AuthoringEndpoints
             HttpContext context,
             IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
-            AuthoringWorkflowService service,
+            IAuthoringContentExport service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
@@ -97,7 +97,7 @@ public static partial class AuthoringEndpoints
             HttpContext context,
             IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
-            AuthoringWorkflowService service,
+            IAuthoringContentImport service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
@@ -472,7 +472,7 @@ public static partial class AuthoringEndpoints
         group.MapPost("/ai-assist", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringAiAssist service,
             CancellationToken cancellationToken) =>
         {
             var parsed = await ReadRequestAsync<AiAssistRequest>(

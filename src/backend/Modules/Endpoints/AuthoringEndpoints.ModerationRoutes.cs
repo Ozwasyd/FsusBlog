@@ -839,7 +839,7 @@ public static partial class AuthoringEndpoints
             IAedsEncoder aeds,
             int? status,
             int? limit,
-            AuthoringWorkflowService service,
+            IAuthoringModerationQueue service,
             CancellationToken cancellationToken) =>
         {
             if (!TryResolveModerationStatus(status, out CommentModerationStatus? resolvedStatus))
@@ -857,7 +857,7 @@ public static partial class AuthoringEndpoints
             HttpContext context,
             IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
-            AuthoringWorkflowService service,
+            IAuthoringModerationCommands service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
@@ -908,7 +908,7 @@ public static partial class AuthoringEndpoints
             HttpContext context,
             IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
-            AuthoringWorkflowService service,
+            IAuthoringModerationCommands service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {

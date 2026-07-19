@@ -455,11 +455,11 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 ## 单作者内容生命周期约定
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。高价值审计定义见 [`../security.md#审计级别`](../security.md#审计级别)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。高价值审计定义见 [`../security.md#审计级别`](../security.md#审计级别)。
 
 ### 文章状态枚举
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)。
 
 文章状态的单一语义如下；AEDS `ArticleList` record 中的 `status:int32` 必须按此表解释，公开读链只承认 `Published` 且已到发布时间的数据。
 
@@ -485,19 +485,19 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 ### 预览
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)。
 
 私有预览走 `/api/binary/author/preview`，由服务端把草稿 Markdown 渲染成带 `data-preview-only=true`、`data-markdown-renderer=server-preview` 的 AOT-like HTML，前端只放进 sandboxed iframe，不进入公开路由或缓存。
 
 ### 草稿与本地缓存
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。
 
 服务端草稿以 `ownerAdminPrincipalId + draftKey` 隔离并持久化正文、分类标签、发布状态、定时发布时间、Rights V3 `rights` 策略和 `clientRevision`；该 owner 来自 independent admin principal 的 `admin_id`，不复用普通匿名账号 `sys_user.id`。浏览器 localStorage 的 AEDS payload（`fsus:article-draft:create` / `fsus:article-draft:edit:{id}`）只能保存 schema、保存时间、来源文章、编辑标记和 `clientRevision`，不得保存标题、摘要、正文、封面、分类标签、发布状态或 rights。刷新/跨设备恢复只接受 admin-authenticated server draft；若服务端暂不可用，页面只能提示当前内存中的更改尚未同步，不能把 metadata 当作可恢复草稿覆盖表单。旧的完整或残缺 localStorage snapshot 必须在读取时拒绝并删除。
 
 ### 修订与回滚
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。
 
 文章修订历史必须通过 admin-only API 读取摘要和单条正文详情：`GET /api/binary/author/articles/{articleId}/revisions` 与 `GET /api/binary/author/articles/{articleId}/revisions/{revisionId}`。响应只暴露 `createdByAdminPrincipalId`，不暴露旧 `createdByUserId`。回滚使用 `POST /api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback`，服务层复用正式文章更新/失效链路写入新修订、刷新 AOT/search/feed/binary cache 并写审计；仓内不存在 issue 中提到的单数 article update 猜测路径，文档不得引用该旧猜测路径。编辑器只在作者工作台内比较当前表单与历史版本，回滚不得直接写表。
 
@@ -505,7 +505,7 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 ### 运维与危险操作
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AdminOperationsService.cs`](../../src/backend/Infrastructure/Operations/AdminOperationsService.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AdminOperationsService.cs`](../../src/backend/Infrastructure/Operations/AdminOperationsService.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)。
 
 DI lifetime graph 不属于公开读取面。组合根在 `builder.Build()` 前 fail closed 校验 captive dependency；仅既有 admin-only `/api/binary/author/ops/health` 在 `services` 中追加 `dependency-graph` 汇总计数，不新增公开端点、frame 或字段布局，也不向匿名/登录账号/notification stream 暴露类型名和依赖路径。候选版本若因新规则拒绝启动，保持当前 active slot 服务即可回退；不得热关闭 `ValidateScopes`，PublicHotRead、binary 与 notification stream 的运行契约不受影响。
 
@@ -513,7 +513,7 @@ DI lifetime graph 不属于公开读取面。组合根在 `builder.Build()` 前 
 
 ### SEO 预览
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)。
 
 SEO 预览是作者工作台内的发布前质量门，不是新路由模型：当前公开 canonical 仍由 `SeoConfigContract.baseUrl + /article/{id}` 生成，新文章落库前使用 draft-preview 占位。编辑器必须展示搜索结果和分享卡片预览，并在发布/定时发布前调用 `/api/binary/author/prepublish-check`；错误项阻断，摘要/封面/标题长度、图片 alt、超大 Markdown 或未知站内链接等 warning 只能在作者填写跳过理由后继续提交，理由由服务端写入审计。
 
@@ -525,7 +525,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 ### 资产库
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`useImageUploadRuntime.ts`](../../src/frontend/src/composables/useImageUploadRuntime.ts)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)、[`useImageUploadRuntime.ts`](../../src/frontend/src/composables/useImageUploadRuntime.ts)。
 
 资产库是作者工作台内的复用索引，不是公开文件浏览 API。索引只记录 `/uploads/illustration/*` 的正文图片和文章封面、alt text、来源文章、hash 与引用计数；重建操作先把失去引用的行标成 `referenceCount=0`，作者确认后再通过孤儿清理删除资产库记录。孤儿清理不删除上传文件本体；物理删除必须通过独立的文件删除动作和二次确认完成。
 
@@ -533,7 +533,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 ### 评论治理
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`RegionLegalModerationService.cs`](../../src/backend/Services/Moderation/RegionLegalModerationService.cs)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)、[`RegionLegalModerationService.cs`](../../src/backend/Services/Moderation/RegionLegalModerationService.cs)。
 
 评论治理是公开讨论区前置安全门禁：新评论先完成长度、受限 Markdown、地区 `can_publish=false` 等硬拒绝校验；通过后默认写入 `Approved` 并进入公开评论线程，公开评论线程和回复游标仍只读取 `Approved` 且按 viewer IP 解析出的地区查询 `comment_blocked_region` lookup 行过滤。提交时服务端按 request IP 解析 submit region；submit region 违法时直接拒绝，合法但部分 viewer region 不可展示时写入 `comment_region_compliance.blocked_regions` 及规范化 `comment_blocked_region(comment_id, region_code)`。`CN-MAINLAND` 严格策略只作用于 `CN-MAINLAND` 提交者或浏览者，不因 `CN-HK`、`CN-MO`、`CN-TW` 或 `GREATER_CHINA` 分组自动外溢；submit region 未知时记录人工复核和地区原因，但不因地区未知默认隐藏，viewer region 未知时对存在任意 blocked region lookup 行的评论采用保守隐藏。模型审核在写入后执行：模型命中风险会自动把评论置为 `Hidden`，有账号归属的评论发送“评论审核提醒”站内信且不造成封禁、限流、信誉扣分或匿名凭证处理；风险命中且置信度低于边界阈值的隐藏评论进入人工审核队列。作者工作台通过 `/api/binary/author/comments/moderation` 读取待审、已拒绝、已隐藏和已通过队列，展示敏感词、HTML 风险、密集链接、重复刷屏、人工原因、模型信号和地区策略结果；匿名评论还展示 author mode、display language、moderation subject hash、scope、credential level 和 reputation/account-age bucket，不反查真实账号身份，也不在 `CommentModerationItemResponse` 暴露真实 `userId` / `userName`。审核队列、审核通过实时推送和回复站内通知复用同一个评论快照展示名投影：public 只看 `public_handle`，匿名/强匿名只看 `anonymous_display_name` 与匿名兜底；reply-to 名称来自 `reply_to_comment_id` 指向的父评论快照，不能通过 `user_id` / `reply_to_user_id` join `sys_user`。普通评论审核队列、单条审核和批量审核均要求 `comment.moderate`，单条或批量审核还写入审计并清理评论游标缓存。审核状态只允许 `Pending -> Approved|Rejected|Hidden`、`Approved -> Rejected|Hidden`、`Rejected -> Approved|Hidden`、`Hidden -> Approved|Rejected`；自迁移和任何回到 `Pending` 的迁移均拒绝，所有写入以旧状态做 CAS，只有成功的状态变化才能产生审计、缓存失效或实时通知。误判恢复只需要把评论重新置为 `Approved`，但 `can_publish=false` 的发布地违法评论不得被管理员放行；拒绝/隐藏时可选择联动封禁非 admin 用户。匿名治理动作使用独立 admin permission：策略开关走 `/api/binary/author/moderation/anonymous-comment-policy`，治理后台状态、nullifier 列表、nullifier 封禁和凭证撤销走 `/api/binary/admin/anonymous-governance/**`；审核队列保留快捷封禁/撤销入口。所有匿名治理写入和后台读取均要求 admin Passkey step-up，并写入脱敏高价值审计；匿名治理权限不替代 `comment.moderate`。
 
@@ -574,7 +574,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 ### 导入导出
 
-代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。
+代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringUseCasePorts.cs`](../../src/backend/Services/Authoring/AuthoringUseCasePorts.cs)。
 
 内容导入导出是作者工作台的恢复工具，不是匿名下载 API。单篇导出必须是 Markdown + frontmatter，frontmatter 同时保留可读字段和 `fsusMetadataJson` 机器元数据；全站内容包只是这些单篇导出的 JSON 聚合。导入默认按 metadata 恢复 draft/scheduled/published/archived 状态、分类、标签、封面和 revision 记录；只有作者显式传 `publish=true` 时才强制上线。
 

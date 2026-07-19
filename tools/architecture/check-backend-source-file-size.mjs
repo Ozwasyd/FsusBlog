@@ -25,8 +25,16 @@ const components = [
   },
   {
     id: 'authoring-workflow',
-    roots: ['src/backend/Services/Authoring/AuthoringWorkflowService.cs'],
-    minimumFiles: 6
+    roots: [
+      'src/backend/Services/Authoring/AuthoringAnalyticsReadService.cs',
+      'src/backend/Services/Authoring/AuthoringAssetLibraryService.cs',
+      'src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs',
+      'src/backend/Services/Authoring/AuthoringContentTransferService.cs',
+      'src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs',
+      'src/backend/Services/Authoring/AuthoringPolicies.cs',
+      'src/backend/Services/Authoring/AuthoringUseCasePorts.cs'
+    ],
+    minimumFiles: 7
   },
   {
     id: 'authoring-endpoints',

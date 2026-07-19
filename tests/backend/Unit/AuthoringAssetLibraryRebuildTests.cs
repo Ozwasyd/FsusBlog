@@ -1,14 +1,6 @@
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Audit;
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-
-using NSubstitute;
 
 using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
@@ -26,8 +18,8 @@ public sealed class AuthoringAssetLibraryRebuildTests(PostgresSchemaMigrationFix
         SeedArticleWithBody(setupDb, 42, "![Active](/uploads/illustration/active.png)");
         using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
-        AuthoringWorkflowService firstService = CreateService(firstDb);
-        AuthoringWorkflowService secondService = CreateService(secondDb);
+        AuthoringAssetLibraryService firstService = CreateService(firstDb);
+        AuthoringAssetLibraryService secondService = CreateService(secondDb);
         using var barrier = new Barrier(2);
 
         await Task.WhenAll(
@@ -49,7 +41,7 @@ public sealed class AuthoringAssetLibraryRebuildTests(PostgresSchemaMigrationFix
         SeedArticleWithBody(db, 42, "![Active](/uploads/illustration/active.png)");
         SeedAsset(db, "/uploads/illustration/orphan.png", referenceCount: 7);
         InstallFailingActiveAssetInsertTrigger(db);
-        AuthoringWorkflowService service = CreateService(db);
+        AuthoringAssetLibraryService service = CreateService(db);
 
         await Assert.ThrowsAnyAsync<Exception>(() => service.ReindexAssetsAsync(42, CancellationToken.None));
 
@@ -135,23 +127,8 @@ public sealed class AuthoringAssetLibraryRebuildTests(PostgresSchemaMigrationFix
             EXECUTE FUNCTION fail_active_asset_insert();
             """);
 
-    private static AuthoringWorkflowService CreateService(SqlSugarClient db)
-    {
-        var contentFilter = Substitute.For<IContentFilterService>();
-        contentFilter.ValidateContent(Arg.Any<string>())
-            .Returns(new ContentValidationResult(true, string.Empty, string.Empty));
-        return new AuthoringWorkflowService(
-            db,
-            Substitute.For<IArticleService>(),
-            contentFilter,
-            Substitute.For<IBlacklistService>(),
-            Substitute.For<ICacheInvalidationDispatcher>(),
-            Substitute.For<IMessageRealtimePublisher>(),
-            Substitute.For<IMessageCommandService>(),
-            new AuditLogChannel(),
-            new ConfigurationBuilder().Build(),
-            Substitute.For<ILogger<AuthoringWorkflowService>>());
-    }
+    private static AuthoringAssetLibraryService CreateService(SqlSugarClient db)
+        => new(db);
 
     private static Task<T> StartBarrierTaskAsync<T>(Barrier barrier, Func<Task<T>> action)
         => Task.Factory.StartNew(

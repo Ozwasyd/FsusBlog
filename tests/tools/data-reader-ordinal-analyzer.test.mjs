@@ -9,7 +9,10 @@ const project = path.join(root, 'tools/security/FsusBlog.SecuritySourceAnalyzer/
 const policy = path.join(root, 'security/policies/backend-source-policy.json')
 const migratedSources = [
   'src/backend/Services/ArticleService.cs',
-  'src/backend/Services/Authoring/AuthoringWorkflowService.cs',
+  'src/backend/Services/Authoring/AuthoringAnalyticsReadService.cs',
+  'src/backend/Services/Authoring/AuthoringAssetLibraryService.cs',
+  'src/backend/Services/Authoring/AuthoringContentTransferService.cs',
+  'src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs',
   'src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs',
   'src/backend/Services/Background/ScheduledPublishWorker.cs',
   'src/backend/Services/CommentService.cs',

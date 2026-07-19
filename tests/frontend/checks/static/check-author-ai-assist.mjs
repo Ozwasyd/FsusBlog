@@ -15,8 +15,14 @@ function assert(condition, message) {
   }
 }
 
-const endpoint = read('src/backend/Modules/Endpoints/AuthoringEndpoints.cs')
-const service = read('src/backend/Services/Authoring/AuthoringWorkflowService.cs')
+const endpoint = [
+  read('src/backend/Modules/Endpoints/AuthoringEndpoints.cs'),
+  read('src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs')
+].join('\n')
+const service = [
+  read('src/backend/Services/Authoring/AuthoringContentTransferService.cs'),
+  read('src/backend/Services/Authoring/AuthoringPolicies.cs')
+].join('\n')
 const dtos = read('src/backend/Models/Dtos/AuthoringDtos.cs')
 const api = read('src/frontend/src/api/authoring.ts')
 const composable = read('src/frontend/src/composables/useAdminArticleWrite.ts')
@@ -30,7 +36,7 @@ assert(dtos.includes('AiAssistResponse') && dtos.includes('ExternalProviderAllow
 assert(service.includes('Authoring:AiAssist:Enabled'), 'AI assist must read explicit enable config')
 assert(service.includes('Authoring:AiAssist:AllowExternalProvider'), 'AI assist must gate external provider config')
 assert(service.includes('Authoring:AiAssist:ExternalProviderReviewed'), 'AI assist must require external provider review config')
-assert(service.includes('WriteAudit(AuditSourceCatalog.Article, "author-ai-assist"'), 'AI assist must write audit records')
+assert(service.includes('auditWriter.Write(AuditSourceCatalog.Article, "author-ai-assist"'), 'AI assist must write audit records')
 assert(!service.includes('HttpClient'), 'AI assist service must not directly send unpublished drafts to an external HTTP provider')
 assert(api.includes("const BINARY_API_PREFIX = '/api/binary'") && api.includes('binaryUrl: `${BINARY_API_PREFIX}/author${path}`'), 'frontend authoring API must route through the binary author bridge')
 assert(api.includes('generateAiAssist') && api.includes("requestAuthoringBinary<AiAssistResponse>('/ai-assist'"), 'frontend API must call admin AI assist endpoint')

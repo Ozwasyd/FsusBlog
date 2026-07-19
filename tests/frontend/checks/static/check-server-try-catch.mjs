@@ -59,7 +59,7 @@ const defaultWhitelist = [
   'src/backend/Services/ArticleMutationSideEffects.cs',
   'src/backend/Services/ArticleService.cs',
   'src/backend/Services/ArticleViewWriteBuffer.cs',
-  'src/backend/Services/Authoring/AuthoringWorkflowService.cs',
+  'src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs',
   'src/backend/Services/FileService.cs',
   'src/backend/Services/HumanReadProofService.cs',
   'src/backend/Services/Moderation/',

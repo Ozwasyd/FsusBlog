@@ -211,7 +211,16 @@ public sealed class ModerationConsoleContractTests
         builder.Services.AddSingleton(auditEvents);
         builder.Services.AddSingleton(invalidation);
         builder.Services.AddSingleton(runtimeState ?? Substitute.For<IModerationRuntimeStateService>());
-        builder.Services.AddSingleton<AuthoringWorkflowService>(_ => null!);
+        builder.Services.AddSingleton(Substitute.For<IAuthoringAnalyticsReader>());
+        builder.Services.AddSingleton(Substitute.For<IAuthoringAssetQuery>());
+        builder.Services.AddSingleton(Substitute.For<IAuthoringAssetCommands>());
+        builder.Services.AddSingleton(Substitute.For<IAuthoringDraftLifecycle>());
+        builder.Services.AddSingleton(Substitute.For<IAuthoringPrepublishPolicy>());
+        builder.Services.AddSingleton(Substitute.For<IAuthoringContentExport>());
+        builder.Services.AddSingleton(Substitute.For<IAuthoringContentImport>());
+        builder.Services.AddSingleton(Substitute.For<IAuthoringAiAssist>());
+        builder.Services.AddSingleton(Substitute.For<IAuthoringModerationQueue>());
+        builder.Services.AddSingleton(Substitute.For<IAuthoringModerationCommands>());
         builder.Services.AddSingleton<AdminOperationsService>(_ => null!);
         builder.Services.AddSingleton<AuditQueryService>(_ => null!);
         builder.Services.AddSingleton(Substitute.For<IAnonymousCommentPolicyService>());

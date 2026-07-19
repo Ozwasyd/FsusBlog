@@ -37,7 +37,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         SeedPublicPendingComment(setupDb, 100, 42, 7);
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
         var blacklist = new RecordingBlacklistService();
-        AuthoringWorkflowService service = CreateService(serviceDb, blacklist);
+        AuthoringModerationWorkflowService service = CreateService(serviceDb, blacklist);
 
         await using var holder = new NpgsqlConnection(connectionString);
         await holder.OpenAsync();
@@ -205,22 +205,20 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             Depth = 0
         }).ExecuteCommand();
 
-    private static AuthoringWorkflowService CreateService(SqlSugarClient db, IBlacklistService blacklist)
+    private static AuthoringModerationWorkflowService CreateService(SqlSugarClient db, IBlacklistService blacklist)
     {
         var contentFilter = Substitute.For<IContentFilterService>();
         contentFilter.ValidateContent(Arg.Any<string>())
             .Returns(new ContentValidationResult(true, string.Empty, string.Empty));
-        return new AuthoringWorkflowService(
+        return new AuthoringModerationWorkflowService(
             db,
-            Substitute.For<IArticleService>(),
             contentFilter,
             blacklist,
             Substitute.For<ICacheInvalidationDispatcher>(),
             Substitute.For<IMessageRealtimePublisher>(),
             Substitute.For<IMessageCommandService>(),
-            new AuditLogChannel(),
-            new ConfigurationBuilder().Build(),
-            Substitute.For<ILogger<AuthoringWorkflowService>>());
+            new AuthoringAuditWriter(new AuditLogChannel()),
+            Substitute.For<ILogger<AuthoringModerationWorkflowService>>());
     }
 
     private static UserService CreateUserService(SqlSugarClient db, IBlacklistService blacklist)

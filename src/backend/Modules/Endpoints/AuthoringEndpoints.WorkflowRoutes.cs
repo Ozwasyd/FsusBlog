@@ -31,7 +31,7 @@ public static partial class AuthoringEndpoints
         group.MapPost("/drafts", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringDraftLifecycle service,
             CancellationToken cancellationToken) =>
         {
             var parsed = await ReadRequestAsync<ServerDraftSaveRequest>(
@@ -54,7 +54,7 @@ public static partial class AuthoringEndpoints
             string draftKey,
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringDraftLifecycle service,
             CancellationToken cancellationToken) =>
         {
             ServerDraftResponse? draft = await service.GetDraftAsync(ResolveRequiredAdminPrincipalId(context), draftKey, cancellationToken);
@@ -66,7 +66,7 @@ public static partial class AuthoringEndpoints
             string draftKey,
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringDraftLifecycle service,
             CancellationToken cancellationToken) =>
         {
             bool discarded = await service.DiscardDraftAsync(ResolveRequiredAdminPrincipalId(context), draftKey, cancellationToken);
@@ -80,7 +80,7 @@ public static partial class AuthoringEndpoints
         group.MapPost("/preview", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringDraftLifecycle service,
             CancellationToken cancellationToken) =>
         {
             var parsed = await ReadRequestAsync<ServerDraftSaveRequest>(
@@ -97,7 +97,7 @@ public static partial class AuthoringEndpoints
         group.MapPost("/prepublish-check", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringPrepublishPolicy service,
             CancellationToken cancellationToken) =>
         {
             var parsed = await ReadRequestAsync<ServerDraftSaveRequest>(
@@ -130,7 +130,7 @@ public static partial class AuthoringEndpoints
             int articleId,
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringDraftLifecycle service,
             CancellationToken cancellationToken) =>
         {
             IReadOnlyList<ArticleRevisionSummaryResponse> revisions = await service.GetRevisionsAsync(articleId, cancellationToken);
@@ -143,7 +143,7 @@ public static partial class AuthoringEndpoints
             long revisionId,
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringDraftLifecycle service,
             CancellationToken cancellationToken) =>
         {
             ArticleRevisionDetailResponse? revision = await service.GetRevisionAsync(articleId, revisionId, cancellationToken);
@@ -159,7 +159,7 @@ public static partial class AuthoringEndpoints
             HttpContext context,
             IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
-            AuthoringWorkflowService service,
+            IAuthoringDraftLifecycle service,
             CancellationToken cancellationToken) =>
         {
             IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
@@ -211,7 +211,7 @@ public static partial class AuthoringEndpoints
             int articleId,
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringAssetCommands service,
             CancellationToken cancellationToken) =>
         {
             IReadOnlyList<AssetLibraryItemResponse> assets = await service.ReindexAssetsAsync(articleId, cancellationToken);
@@ -222,7 +222,7 @@ public static partial class AuthoringEndpoints
         group.MapGet("/assets", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringAssetQuery service,
             CancellationToken cancellationToken) =>
             Ok(context, aeds, await service.ListAssetsAsync(cancellationToken)))
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
@@ -230,7 +230,7 @@ public static partial class AuthoringEndpoints
         group.MapDelete("/assets/orphans", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringAssetCommands service,
             CancellationToken cancellationToken) =>
             Ok(context, aeds, await service.CleanupOrphanAssetsAsync(cancellationToken)))
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
@@ -254,7 +254,7 @@ public static partial class AuthoringEndpoints
         group.MapGet("/analytics", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AuthoringWorkflowService service,
+            IAuthoringAnalyticsReader service,
             CancellationToken cancellationToken) =>
             Ok(context, aeds, await service.GetAnalyticsAsync(cancellationToken)))
         .RequireAdminPermission(AdminPermissions.ArticleWrite);

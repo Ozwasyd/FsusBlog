@@ -9,8 +9,12 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const generatedPath = path.join(root, 'docs/schema-migrations/data-reader-projections.json')
 const literalOrdinal = /\b[A-Za-z_][A-Za-z0-9_]*\.(?:Get(?:Boolean|Byte|Char|DateTime|Decimal|Double|FieldValue|Float|Guid|Int16|Int32|Int64|String|Value)|IsDBNull)\(\s*[0-9]+\s*\)/gu
 const migratedServices = [
+  'src/backend/Services/ArticleService.CacheAndInvalidation.cs',
+  'src/backend/Services/ArticleService.LifecycleAndReadModels.cs',
   'src/backend/Services/ArticleService.cs',
-  'src/backend/Services/Authoring/AuthoringWorkflowService.cs',
+  'src/backend/Services/Authoring/AuthoringAnalyticsReadService.cs',
+  'src/backend/Services/Authoring/AuthoringAssetLibraryService.cs',
+  'src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs',
   'src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs',
   'src/backend/Services/Background/ScheduledPublishWorker.cs',
   'src/backend/Services/CommentService.cs',
@@ -27,7 +31,7 @@ const migratedServices = [
   'src/backend/Services/UserService.cs',
 ]
 
-test('generated projection schema is current and covers all 16 migrated services', async () => {
+test('generated projection schema is current and covers all 20 migrated services', async () => {
   const generated = spawnSync('node', ['tools/schema/generate-data-reader-projection-schema.mjs'], {
     cwd: root,
     encoding: 'utf8',
@@ -37,8 +41,8 @@ test('generated projection schema is current and covers all 16 migrated services
   assert.equal(generated.stdout, committed)
 
   const schema = JSON.parse(committed)
-  assert.equal(schema.sourceFileCount, 16)
-  assert.equal(schema.projections.length, 16)
+  assert.equal(schema.sourceFileCount, 20)
+  assert.equal(schema.projections.length, 20)
   assert.deepEqual(schema.projections.map(projection => projection.path), migratedServices)
   assert.ok(schema.projections.every(projection => projection.columns.length > 0))
   assert.ok(schema.projections.every(projection => projection.columns.every(column => column.accessors.length > 0)))

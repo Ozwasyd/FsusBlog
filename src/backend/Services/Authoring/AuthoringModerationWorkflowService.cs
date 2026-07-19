@@ -25,8 +25,17 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;
 
-public sealed partial class AuthoringWorkflowService
+public sealed class AuthoringModerationWorkflowService(
+    ISqlSugarClient db,
+    IContentFilterService contentFilter,
+    IBlacklistService blacklistService,
+    ICacheInvalidationDispatcher cacheInvalidationDispatcher,
+    IMessageRealtimePublisher messageRealtimePublisher,
+    IMessageCommandService messageCommandService,
+    IAuthoringAuditWriter auditWriter,
+    ILogger<AuthoringModerationWorkflowService> logger) : IAuthoringModerationQueue, IAuthoringModerationCommands
 {
+    private const string ModelRiskBorderlineReviewReason = "model_policy:model_risk_borderline_review";
     public async Task<CommentModerationQueueResponse> ListCommentModerationQueueAsync(
         CommentModerationStatus? status = null,
         int limit = 50,
@@ -169,7 +178,7 @@ public sealed partial class AuthoringWorkflowService
                 : 0;
             await InvalidateModeratedCommentAsync(current, request.Status, cancellationToken);
             await PublishModerationRealtimeAsync(current, request.Status, moderatedAt);
-            WriteAudit(
+            auditWriter.Write(
                 AuditSourceCatalog.Comment,
                 "comment-moderation",
                 actorAdminPrincipalId,
@@ -267,7 +276,7 @@ public sealed partial class AuthoringWorkflowService
                 .GroupBy(static row => row.Status)
                 .OrderBy(static group => group.Key)
                 .Select(group => $"{(int)group.Key}->{(int)request.Status}:{group.Count()}"));
-            WriteAudit(
+            auditWriter.Write(
                 AuditSourceCatalog.Comment,
                 "comment-moderation-bulk",
                 actorAdminPrincipalId,
@@ -298,7 +307,7 @@ public sealed partial class AuthoringWorkflowService
             IsModelAutoModerated(row),
             ResolveModerationActor(row),
             [.. DetectCommentHitReasons(row.Content, row.Reason)
-                .Concat(ParseCommaList(row.RegionRiskLabels).Select(static label => $"region:{label}"))
+                .Concat(AuthoringNormalization.ParseCommaList(row.RegionRiskLabels).Select(static label => $"region:{label}"))
                 .Concat(row.ModelSignals.SelectMany(static signal => signal.RiskCategories.Select(static category => $"model:{category}")))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(static label => label, StringComparer.OrdinalIgnoreCase)],
@@ -577,7 +586,7 @@ public sealed partial class AuthoringWorkflowService
             signal.Severity,
             signal.PrimaryReason,
             signal.NeedsSecondRound,
-            ParseCommaList(signal.RiskCategories),
+            AuthoringNormalization.ParseCommaList(signal.RiskCategories),
             signal.EvidenceJson,
             signal.RawReason,
             Math.Max(0, signal.LatencyMs),

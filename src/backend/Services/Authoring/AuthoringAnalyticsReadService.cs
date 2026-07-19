@@ -25,7 +25,7 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;
 
-public sealed partial class AuthoringWorkflowService
+public sealed class AuthoringAnalyticsReadService(ISqlSugarClient db) : IAuthoringAnalyticsReader
 {
     public async Task<AuthorAnalyticsResponse> GetAnalyticsAsync(CancellationToken cancellationToken = default)
     {
@@ -155,13 +155,6 @@ public sealed partial class AuthoringWorkflowService
         return rows;
     }
 
-
-    private static IReadOnlyList<string> ParseCommaList(string? value)
-        => (value ?? string.Empty)
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(static item => item, StringComparer.Ordinal)
-            .ToArray();
 
     private static IReadOnlyList<AuthorAnalyticsMetricResponse> BuildRankedMetrics(IEnumerable<string?> values)
         => values
