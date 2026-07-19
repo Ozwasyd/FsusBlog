@@ -44,6 +44,7 @@ const publicShellCriticalCssPath = path.join(repoRoot, 'src/frontend/src/assets/
 const publicShellEmergencyCssPath = path.join(repoRoot, 'src/frontend/public/public-shell-emergency.css')
 const mainCssPath = path.join(repoRoot, 'src/frontend/src/assets/main.css')
 const markdownCssPath = path.join(repoRoot, 'src/frontend/src/assets/markdown.css')
+const markdownRendererPath = path.join(repoRoot, 'src/frontend/src/components/ui/MarkdownRenderer.vue')
 const publicLayoutRulesPath = path.join(repoRoot, 'docs/public-layout-rules.md')
 const publicRenderersRoot = path.join(repoRoot, 'src/frontend/src/public-renderers')
 const commentDetailViewContractPath = path.join(repoRoot, 'src/frontend/src/view-contracts/commentDetail.ts')
@@ -381,6 +382,31 @@ function checkPublicTypographyContract() {
     markdownCssPath,
     /\.markdown-body\s*\{[\s\S]*?font-size:\s*1rem;[\s\S]*?line-height:\s*1\.8;/,
     'Markdown reading body must use the 16px/1.8 canonical reading scale'
+  )
+  assertContains(
+    markdownRendererPath,
+    /:class="\{ 'markdown-body--document': props\.mode === 'about' \}"/,
+    'MarkdownRenderer about mode must opt into document typography'
+  )
+  assertContains(
+    markdownCssPath,
+    /\.markdown-body--document\s*\{[^}]*text-align:\s*left;[^}]*letter-spacing:\s*normal;[^}]*text-autospace:\s*normal;/,
+    'document Markdown must use left alignment and natural character spacing'
+  )
+  assertContains(
+    markdownCssPath,
+    /\.markdown-body--document \.markdown-renderer__text\s*\{[^}]*text-align:\s*left;[^}]*letter-spacing:\s*normal;/,
+    'document Markdown must override the nested renderer text spacing'
+  )
+  assertContains(
+    markdownCssPath,
+    /\.markdown-body--document p\s*\{[^}]*text-indent:\s*0;/,
+    'document Markdown paragraphs must keep legal clauses flush left'
+  )
+  assertContains(
+    markdownCssPath,
+    /\.markdown-body--document ul,\s*\.markdown-body--document ol\s*\{[^}]*margin:\s*1\.5rem 0;[^}]*padding-left:\s*1\.5em;/,
+    'document Markdown lists must align their marker column with the document edge'
   )
 
   assertContains(

@@ -1,5 +1,9 @@
 <template>
-  <div class="blog-markdown-renderer markdown-body safe-inline-wrap" data-fsus-surface="reading">
+  <div
+    class="blog-markdown-renderer markdown-body safe-inline-wrap"
+    :class="{ 'markdown-body--document': props.mode === 'about' }"
+    data-fsus-surface="reading"
+  >
     <el-markdown-renderer
       ref="rendererRef"
       :content="props.content"

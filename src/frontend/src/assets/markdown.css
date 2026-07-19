@@ -488,3 +488,25 @@
     transition: none;
   }
 }
+
+/* Legal and policy pages use document typography instead of article prose. */
+.markdown-body--document {
+  text-align: left;
+  letter-spacing: normal;
+  text-autospace: normal;
+}
+
+.markdown-body--document .markdown-renderer__text {
+  text-align: left;
+  letter-spacing: normal;
+}
+
+.markdown-body--document p {
+  text-indent: 0;
+}
+
+.markdown-body--document ul,
+.markdown-body--document ol {
+  margin: 1.5rem 0;
+  padding-left: 1.5em;
+}
