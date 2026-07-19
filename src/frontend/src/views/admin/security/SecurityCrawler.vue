@@ -22,7 +22,7 @@
       >
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
-            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行策略</div>
+            <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行策略</div>
             <div class="mt-2 text-lg font-bold text-[var(--fsusblog-text-primary)]">反爬虫运行模式</div>
           </div>
           <div class="flex gap-2">
@@ -67,7 +67,7 @@
       >
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
-            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">CIDR 来源</div>
+            <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">CIDR 来源</div>
             <div class="mt-2 text-lg font-bold text-[var(--fsusblog-text-primary)]">{{ ranges?.source ?? '-' }}</div>
           </div>
           <el-button type="primary" :loading="syncing" @click="syncRanges">手动同步</el-button>
@@ -79,7 +79,7 @@
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险事件</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险事件</div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full min-w-full md:min-w-[52rem] text-left text-[12px]">
@@ -110,7 +110,7 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险快照</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险快照</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div
@@ -137,7 +137,7 @@
       <div v-for="list in listPanels" :key="list.type" class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
-            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ list.title }}</div>
+            <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ list.title }}</div>
           </div>
           <el-button @click="addListEntry(list.type)">新增</el-button>
         </div>
@@ -157,7 +157,7 @@
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,0.72fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">规则</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">规则</div>
           <el-button @click="addRule">新增规则</el-button>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
@@ -173,7 +173,7 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略模拟器</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略模拟器</div>
         </div>
         <div class="space-y-4 p-5">
           <el-input v-model="simulation.ip" placeholder="IP" />

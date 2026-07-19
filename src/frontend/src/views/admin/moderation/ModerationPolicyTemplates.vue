@@ -40,7 +40,7 @@
               </div>
               <dl class="grid gap-3">
                 <div v-for="item in templateRows(row)" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-4">
-                  <dt class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</dt>
+                  <dt class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</dt>
                   <dd class="mt-2 break-all text-[12px] font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</dd>
                 </div>
               </dl>
@@ -49,7 +49,7 @@
         </el-table-column>
         <el-table-column label="模板" min-width="240">
           <template #default="{ row }: { row: ModerationPolicyTemplateDefinition }">
-            <span :title="row.templateId" class="font-semibold text-[var(--fsusblog-text-primary)]">{{ formatTemplateName(row.templateId) }}</span>
+            <span :title="row.templateId" class="font-medium text-[var(--fsusblog-text-primary)]">{{ formatTemplateName(row.templateId) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="作用范围" width="130">

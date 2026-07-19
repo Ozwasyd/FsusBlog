@@ -30,7 +30,7 @@
 
       <div>
         <div class="mb-2 flex items-center justify-between gap-3">
-          <div class="text-xs font-semibold text-[var(--fsusblog-text-secondary)] normal-case tracking-normal">{{ copy.manualKeyLabel }}</div>
+          <div class="text-xs font-medium text-[var(--fsusblog-text-secondary)] normal-case tracking-normal">{{ copy.manualKeyLabel }}</div>
           <el-button
             v-if="secret"
             size="small"
@@ -70,7 +70,7 @@
       </div>
 
       <div v-else>
-        <div class="text-xs font-semibold text-[var(--fsusblog-text-secondary)] mb-2">{{ copy.recoveryCodesTitle }}</div>
+        <div class="text-xs font-medium text-[var(--fsusblog-text-secondary)] mb-2">{{ copy.recoveryCodesTitle }}</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div
             v-for="code in recoveryCodes"

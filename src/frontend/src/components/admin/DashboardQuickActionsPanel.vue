@@ -10,7 +10,7 @@
     <div class="p-6 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)]/50">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">回收站状态</p>
+          <p class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">回收站状态</p>
           <p class="mt-3 text-2xl font-bold text-[var(--fsusblog-text-primary)] tabular-nums tracking-normal">{{ trashCount }}</p>
           <p class="mt-3 text-[11px] leading-relaxed text-[var(--fsusblog-text-tertiary)] max-w-xs">
             {{ trashCount > 0 ? '当前存在待恢复或待清理稿件，建议优先处理。' : '当前没有待处理的下线稿件。' }}

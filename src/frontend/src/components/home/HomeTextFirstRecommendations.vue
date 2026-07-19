@@ -29,14 +29,14 @@
             @click="navigate"
             @keydown.space.prevent="navigate()"
           >
-            <span class="mt-1 flex-none text-xs leading-4 tabular-nums font-semibold text-[var(--fsusblog-text-subtle)] group-hover:text-[var(--fsusblog-color-primary)]">
+            <span class="mt-1 flex-none text-xs leading-4 tabular-nums font-medium text-[var(--fsusblog-text-subtle)] group-hover:text-[var(--fsusblog-color-primary)]">
               {{ (index + 1).toString().padStart(2, '0') }}
             </span>
             <span class="min-w-0">
               <span class="block text-sm font-bold leading-snug text-[var(--fsusblog-text-primary)] transition-colors group-hover:text-[var(--fsusblog-color-primary)]">
                 {{ article.title }}
               </span>
-              <span class="mt-2 block text-xs leading-4 tabular-nums font-semibold normal-case text-[var(--fsusblog-text-muted)]">
+              <span class="mt-2 block text-xs leading-4 tabular-nums font-medium normal-case text-[var(--fsusblog-text-muted)]">
                 {{ formatViews(article.views) }} {{ copy.viewsUnit }}
               </span>
             </span>

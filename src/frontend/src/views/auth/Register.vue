@@ -5,7 +5,7 @@
         aria-labelledby="register-title"
       >
         <header class="mb-8 sm:mb-10">
-          <h1 id="register-title" class="text-3xl font-extrabold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl">
+          <h1 id="register-title" class="text-3xl font-bold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl">
             {{ copy.title }}
           </h1>
           <p class="mt-3 max-w-sm text-sm leading-7 text-[var(--fsusblog-text-secondary)]">
@@ -20,7 +20,7 @@
             aria-labelledby="anonymous-account-title"
           >
             <div>
-              <h2 id="anonymous-account-title" class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">
+              <h2 id="anonymous-account-title" class="text-sm font-medium text-[var(--fsusblog-text-primary)]">
                 {{ copy.publicHandleHeading }}
               </h2>
               <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
@@ -29,7 +29,7 @@
             </div>
 
             <div class="relative group">
-              <label for="public-handle" class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]">
+              <label for="public-handle" class="mb-2 block text-xs font-medium text-[var(--fsusblog-text-secondary)]">
                 {{ copy.publicHandleLabel }}
               </label>
               <el-input
@@ -48,7 +48,7 @@
                 v-if="publicHandleHint"
                 id="public-handle-hint"
                 aria-live="polite"
-                class="mt-2 text-xs font-semibold text-[var(--fsusblog-color-error)] animate-in fade-in slide-in-from-top-1"
+                class="mt-2 text-xs font-medium text-[var(--fsusblog-color-error)] animate-in fade-in slide-in-from-top-1"
               >
                 {{ publicHandleHint }}
               </p>
@@ -96,7 +96,7 @@
             aria-labelledby="recovery-key-title"
           >
             <div>
-              <h2 id="recovery-key-title" class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">
+              <h2 id="recovery-key-title" class="text-sm font-medium text-[var(--fsusblog-text-primary)]">
                 {{ copy.recoveryKeyTitle }}
               </h2>
               <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
@@ -108,7 +108,7 @@
               class="rounded-[var(--fsus-radius-panel)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)] p-4"
               aria-live="polite"
             >
-              <p class="mb-2 text-[11px] font-semibold text-[var(--fsusblog-text-muted)]">
+              <p class="mb-2 text-[11px] font-medium text-[var(--fsusblog-text-muted)]">
                 {{ copy.recoveryKeyVersionPrefix }}{{ recoveryKeyVersion }}
               </p>
               <code class="block break-all font-mono text-sm leading-7 text-[var(--fsusblog-text-primary)]">
@@ -147,7 +147,7 @@
             aria-labelledby="anonymous-complete-title"
           >
             <div class="rounded-[var(--fsus-radius-panel)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)] px-5 py-4">
-              <h2 id="anonymous-complete-title" class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">
+              <h2 id="anonymous-complete-title" class="text-sm font-medium text-[var(--fsusblog-text-primary)]">
                 {{ copy.passkeyBoundTitle }}
               </h2>
               <p class="mt-2 text-xs leading-6 text-[var(--fsusblog-text-muted)]">
@@ -164,7 +164,7 @@
             id="register-error"
             role="alert"
             aria-live="polite"
-            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-semibold text-[var(--fsusblog-color-error)] animate-in fade-in"
+            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-medium text-[var(--fsusblog-color-error)] animate-in fade-in"
           >
             {{ localError }}
           </div>
@@ -173,11 +173,11 @@
         <footer class="mt-10 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-[var(--fsusblog-panel-border)] pt-5">
           <div class="flex min-w-0 items-center gap-3">
             <span class="text-xs font-medium text-[var(--fsusblog-text-muted)]">{{ copy.hasAccountLabel }}</span>
-            <router-link to="/login" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-primary)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
+            <router-link to="/login" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-medium text-[var(--fsusblog-text-primary)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
               {{ copy.loginLink }}
             </router-link>
           </div>
-          <router-link to="/" class="ml-auto rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
+          <router-link to="/" class="ml-auto rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-medium text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
             {{ copy.cancelLink }}
           </router-link>
         </footer>

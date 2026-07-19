@@ -15,14 +15,14 @@
     <section class="grid gap-8 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行状态</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行状态</div>
         </div>
         <AdminStatusMatrix :items="statusRows" density="compact" aria-label="Captcha 运行状态" />
       </div>
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">最近尝试</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">最近尝试</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="attempt in attempts" :key="attempt.attemptId" class="grid gap-3 p-5 md:grid-cols-[1fr_auto]">

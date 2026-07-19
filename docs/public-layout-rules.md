@@ -58,6 +58,12 @@ Glass material 只允许用于以下 surface：
 
 公开布局字号使用 12/14/16/18/20px 步进。禁止新增 `0.62rem` 到 `0.95rem` 的任意小数字号；需要紧凑信息时优先使用 12px、14px 与清晰行高。
 
+### 字重白名单
+
+公开布局与管理端共用同一字重契约：只允许真实加载的 `400`、`500`、`700`。CSS `font-weight` 必须使用这三个数值；utility class 只允许对应的 `font-normal`、`font-medium`、`font-bold`。不得使用 `100`/`200`/`300`/`600`/`800`/`900`、对应的 `font-thin`/`font-extralight`/`font-light`/`font-semibold`/`font-extrabold`/`font-black`，也不得依赖浏览器合成缺失的粗体或细体。
+
+弱层级通过 `muted`、`tertiary`、`--fsusblog-text-decorative` 等颜色角色表达，不用未加载的轻字重模拟；标题需要强调时使用 `700`，metadata 与操作强调使用 `500`，正文默认为 `400`。AOT 首帧、hydration 与 SPA takeover 必须消费相同白名单，避免阶段切换时出现合成字形跳变。
+
 ### 公开排版角色
 
 - `display`：文章标题和页面标题使用 20/24/30px 档位，标题行高与首屏 AOT fallback 保持一致。

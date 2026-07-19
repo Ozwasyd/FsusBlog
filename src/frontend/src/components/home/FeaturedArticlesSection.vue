@@ -8,7 +8,7 @@
     :aria-label="!article && loading ? copy.leadLoadingLabel : undefined"
   >
     <header class="mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3">
-      <div class="text-xs tabular-nums font-semibold normal-case text-[var(--fsusblog-text-muted)]">
+      <div class="text-xs tabular-nums font-medium normal-case text-[var(--fsusblog-text-muted)]">
         {{ copy.leadEyebrow }}
       </div>
     </header>
@@ -73,7 +73,7 @@
 
           <div :class="hasCover ? '' : 'max-w-3xl'">
             <div class="mb-4 flex flex-wrap items-center gap-3">
-              <span class="text-xs tabular-nums font-semibold normal-case text-[var(--fsusblog-text-primary)]">
+              <span class="text-xs tabular-nums font-medium normal-case text-[var(--fsusblog-text-primary)]">
                 {{ article.category.name }}
               </span>
               <span class="h-px w-8 bg-[var(--fsusblog-panel-border)]" aria-hidden="true" />

@@ -88,7 +88,7 @@
             <div class="w-12 h-12 rounded-[var(--fsus-radius-panel)] bg-[var(--fsusblog-text-primary)] flex items-center justify-center">
               <Check class="w-6 h-6 text-[var(--fsusblog-page-bg)]" aria-hidden="true" />
             </div>
-            <p class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">{{ copy.successTitle }}</p>
+            <p class="text-sm font-medium text-[var(--fsusblog-text-primary)]">{{ copy.successTitle }}</p>
             <p class="text-[12px] text-[var(--fsusblog-text-muted)]">{{ copy.successHint }}</p>
           </div>
         </template>

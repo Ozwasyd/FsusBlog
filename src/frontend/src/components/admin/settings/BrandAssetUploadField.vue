@@ -36,7 +36,7 @@
             v-if="canShowPreview"
             class="image-replace-overlay absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center"
           >
-            <span class="text-xs font-semibold normal-case tracking-normal">点击更换</span>
+            <span class="text-xs font-medium normal-case tracking-normal">点击更换</span>
           </div>
         </div>
       </el-upload>

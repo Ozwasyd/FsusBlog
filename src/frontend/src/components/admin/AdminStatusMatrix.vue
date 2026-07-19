@@ -155,7 +155,7 @@ const emit = defineEmits<{
   margin-left: auto;
   color: var(--fsusblog-text-subtle);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .admin-status-matrix__value {
@@ -163,7 +163,7 @@ const emit = defineEmits<{
   margin-top: 6px;
   color: var(--fsusblog-text-primary);
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -173,7 +173,7 @@ const emit = defineEmits<{
   max-width: 100%;
   margin-top: 0;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.35;
   text-align: end;
 }

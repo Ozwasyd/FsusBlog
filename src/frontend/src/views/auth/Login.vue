@@ -5,7 +5,7 @@
         aria-labelledby="login-title"
       >
         <header class="mb-8 sm:mb-10">
-          <h1 id="login-title" class="text-3xl font-extrabold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl">
+          <h1 id="login-title" class="text-3xl font-bold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl">
             {{ copy.title }}
           </h1>
           <p class="mt-3 max-w-sm text-sm leading-7 text-[var(--fsusblog-text-secondary)]">
@@ -58,7 +58,7 @@
             v-if="passkeyError"
             role="alert"
             aria-live="polite"
-            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-semibold text-[var(--fsusblog-color-error)] animate-in fade-in slide-in-from-top-1"
+            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-medium text-[var(--fsusblog-color-error)] animate-in fade-in slide-in-from-top-1"
           >
             {{ passkeyError }}
             <p class="mt-2 text-xs leading-6">
@@ -68,7 +68,7 @@
 
           <router-link
             to="/recover"
-            class="inline-flex min-h-9 items-center rounded-[var(--fsus-radius-control)] px-1 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
+            class="inline-flex min-h-9 items-center rounded-[var(--fsus-radius-control)] px-1 text-sm font-medium text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
             :class="focusRingClass"
           >
             {{ copy.recoverLink }}
@@ -77,7 +77,7 @@
 
         <form v-else class="space-y-6" novalidate aria-labelledby="mfa-title" @submit.prevent="handleMfaVerify">
           <div class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)] px-5 py-4">
-            <p id="mfa-title" class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">{{ copy.mfaRequiredTitle }}</p>
+            <p id="mfa-title" class="text-sm font-medium text-[var(--fsusblog-text-primary)]">{{ copy.mfaRequiredTitle }}</p>
             <p class="mt-1 text-sm leading-7 text-[var(--fsusblog-text-secondary)]">
               {{ copy.mfaRequiredHint }}
             </p>
@@ -89,7 +89,7 @@
           </el-radio-group>
 
           <div v-if="mfaMode === 'totp'" class="relative group">
-            <label for="mfa-code" class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]">
+            <label for="mfa-code" class="mb-2 block text-xs font-medium text-[var(--fsusblog-text-secondary)]">
               {{ copy.mfaCodeLabel }}
             </label>
             <el-input
@@ -107,7 +107,7 @@
           </div>
 
           <div v-else class="relative group">
-            <label for="mfa-recovery" class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]">
+            <label for="mfa-recovery" class="mb-2 block text-xs font-medium text-[var(--fsusblog-text-secondary)]">
               {{ copy.mfaRecoveryLabel }}
             </label>
             <el-input
@@ -128,7 +128,7 @@
             id="mfa-error"
             role="alert"
             aria-live="polite"
-            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-semibold text-[var(--fsusblog-color-error)]"
+            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-medium text-[var(--fsusblog-color-error)]"
           >
             {{ errorMessage }}
           </div>
@@ -145,10 +145,10 @@
         </form>
 
         <footer class="mt-10 flex items-center justify-between border-t border-[var(--fsusblog-panel-border)] pt-6">
-          <router-link to="/register" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
+          <router-link to="/register" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-medium text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
             {{ copy.registerLink }}
           </router-link>
-          <router-link to="/" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
+          <router-link to="/" class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-medium text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none" :class="focusRingClass">
             {{ copy.cancelLink }}
           </router-link>
         </footer>

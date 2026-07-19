@@ -82,7 +82,7 @@
           class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)] px-10 py-16 text-center"
           aria-label="文章正文为空"
         >
-          <p class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+          <p class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
             这篇文章目前还没有正文内容
           </p>
         </div>
@@ -209,7 +209,7 @@
     >
       <h2
         id="comments"
-        class="mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3 text-xs font-semibold leading-5 normal-case text-[var(--fsusblog-text-muted)]"
+        class="mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3 text-xs font-medium leading-5 normal-case text-[var(--fsusblog-text-muted)]"
       >
         读者评论
       </h2>

@@ -256,7 +256,7 @@ const handleLogout = async () => {
 @reference "@/assets/main.css";
 
 .account-header-link {
-  @apply inline-flex min-h-9 items-center justify-center rounded-[var(--fsus-radius-control-small)] px-2 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex min-h-9 items-center justify-center rounded-[var(--fsus-radius-control-small)] px-2 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .account-header-link--mobile {

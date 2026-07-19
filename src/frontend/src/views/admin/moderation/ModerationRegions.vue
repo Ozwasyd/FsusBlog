@@ -223,7 +223,7 @@
       >
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
           <div
-            class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
+            class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
           >
             继承链
           </div>
@@ -260,7 +260,7 @@
         >
           <div>
             <div
-              class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
+              class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
             >
               生效规则
             </div>
@@ -805,7 +805,7 @@ watch(
 .moderation-regions-mobile-title {
   color: var(--fsusblog-text-primary);
   font-size: 14px;
-  font-weight: 720;
+  font-weight: 700;
   line-height: 1.15;
 }
 
@@ -816,7 +816,7 @@ watch(
 .moderation-regions-mobile-meta {
   color: var(--fsusblog-text-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.2;
 }
 
@@ -899,7 +899,7 @@ watch(
   overflow: hidden;
   color: var(--fsusblog-text-primary);
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 700;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -909,7 +909,7 @@ watch(
   overflow: visible;
   color: var(--fsusblog-text-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.35;
   white-space: normal;
 }
@@ -931,7 +931,7 @@ watch(
 .moderation-regions-rule-action dt {
   color: var(--fsusblog-text-muted);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -941,7 +941,7 @@ watch(
   overflow: visible;
   color: var(--fsusblog-text-primary);
   font-size: 13px;
-  font-weight: 720;
+  font-weight: 700;
   line-height: 1.3;
   white-space: normal;
 }

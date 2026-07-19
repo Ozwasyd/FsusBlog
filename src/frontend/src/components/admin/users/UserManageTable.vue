@@ -31,7 +31,7 @@
                 <span class="truncate text-sm font-bold text-[var(--fsusblog-text-primary)]">
                   {{ row.displayHandle }}
                 </span>
-                <span class="bg-[var(--fsusblog-panel-bg-soft)] px-2 py-0.5 text-xs font-semibold italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+                <span class="bg-[var(--fsusblog-panel-bg-soft)] px-2 py-0.5 text-xs font-medium italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
                   {{ row.identityKindLabel }}
                 </span>
               </div>
@@ -63,7 +63,7 @@
             >
               {{ row.status === 0 ? '封禁' : '解封' }}
             </el-button>
-            <span v-else class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+            <span v-else class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
               已注销账户
             </span>
           </div>
@@ -121,7 +121,7 @@
 
                   <span
                     v-else-if="column.key === 'identityKind'"
-                    class="text-xs font-semibold italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
+                    class="text-xs font-medium italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
                   >
                     {{ (rowData as UserListViewItem).identityKindLabel }}
                   </span>
@@ -140,7 +140,7 @@
 
                   <span v-else-if="column.key === 'status'" class="inline-flex flex-col items-center justify-center">
                     <span class="mb-1 h-1 w-1 rounded-[var(--fsus-radius-control-small)]" :class="(rowData as UserListViewItem).statusDotClass" aria-hidden="true" />
-                    <span class="text-xs font-semibold normal-case tracking-normal" :class="(rowData as UserListViewItem).statusClass">
+                    <span class="text-xs font-medium normal-case tracking-normal" :class="(rowData as UserListViewItem).statusClass">
                       {{ (rowData as UserListViewItem).statusText }}
                     </span>
                   </span>
@@ -163,7 +163,7 @@
                   </div>
                   <span
                     v-else-if="column.key === 'actions'"
-                    class="pr-4 text-xs font-semibold italic normal-case tracking-normal text-[var(--fsusblog-text-subtle)]"
+                    class="pr-4 text-xs font-medium italic normal-case tracking-normal text-[var(--fsusblog-text-subtle)]"
                   >
                     已注销
                   </span>

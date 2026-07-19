@@ -39,7 +39,7 @@
           <el-table v-loading="loading" :data="health?.services ?? []" row-key="key">
             <el-table-column label="服务" min-width="160">
               <template #default="{ row }: { row: AdminServiceStatusResponse }">
-                <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ row.label }}</div>
+                <div class="font-medium text-[var(--fsusblog-text-primary)]">{{ row.label }}</div>
                 <div class="text-[11px] text-[var(--fsusblog-text-muted)]">{{ row.key }}</div>
               </template>
             </el-table-column>
@@ -113,7 +113,7 @@
                 class="border-t border-[var(--fsusblog-panel-border)] pt-3"
               >
                 <div class="flex items-center justify-between gap-3">
-                  <span class="text-xs font-semibold">{{ backupArtifactKindLabel(artifact.kind) }}</span>
+                  <span class="text-xs font-medium">{{ backupArtifactKindLabel(artifact.kind) }}</span>
                   <el-tag :type="toFsusUiTagType(adminStatusTone[toAdminSystemStatus(artifact.status)])">
                     {{ adminStatusLabel[toAdminSystemStatus(artifact.status)] }}
                   </el-tag>
@@ -136,7 +136,7 @@
               <div class="flex min-w-0 items-start justify-between gap-3">
                 <div class="min-w-0">
                   <strong class="block break-words text-[13px] text-[var(--fsusblog-text-primary)]">{{ error.action }}</strong>
-                  <p class="mt-1 break-words text-sm font-semibold leading-6 text-[var(--fsusblog-text-secondary)]">
+                  <p class="mt-1 break-words text-sm font-medium leading-6 text-[var(--fsusblog-text-secondary)]">
                     {{ error.message }}
                   </p>
                 </div>

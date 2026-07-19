@@ -26,7 +26,7 @@
         }"
       >
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">观测</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">观测</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div class="flex items-center justify-between gap-3 p-5">
@@ -50,7 +50,7 @@
 
       <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">受控动作</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">受控动作</div>
         </div>
         <div class="space-y-4 p-5">
           <div class="moderation-model-runtime-form grid gap-3 md:grid-cols-2">

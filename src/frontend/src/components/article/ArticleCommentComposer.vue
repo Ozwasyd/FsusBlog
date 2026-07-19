@@ -716,7 +716,7 @@ watch(() => contentModel.value, (value) => {
 .comment-identity-label {
   color: var(--fsusblog-text-primary);
   font-size: 0.875rem;
-  font-weight: 650;
+  font-weight: 700;
   line-height: 1.35;
 }
 
@@ -728,7 +728,7 @@ watch(() => contentModel.value, (value) => {
   border-radius: 999px;
   padding: 0 0.5rem;
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: 700;
   line-height: 1rem;
 }
 
@@ -762,7 +762,7 @@ watch(() => contentModel.value, (value) => {
   color: var(--fsusblog-text-tertiary);
   cursor: pointer;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 700;
   line-height: 1.35;
 }
 
@@ -849,7 +849,7 @@ watch(() => contentModel.value, (value) => {
   padding: 0.625rem 0.75rem;
   color: var(--fsusblog-text-secondary);
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .comment-composer-draft button {
@@ -927,14 +927,14 @@ watch(() => contentModel.value, (value) => {
   align-items: center;
   color: var(--fsusblog-text-muted);
   font-size: 0.875rem;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .comment-composer-feedback {
   margin: 0;
   color: var(--el-color-danger);
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 700;
   line-height: 1.5;
 }
 
@@ -945,7 +945,7 @@ watch(() => contentModel.value, (value) => {
   gap: 0.5rem 0.875rem;
   color: var(--fsusblog-text-muted);
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: 700;
   line-height: 1.4;
 }
 

@@ -1,6 +1,6 @@
 <template>
   <header class="mb-8 sm:mb-12">
-    <p class="mb-3 text-xs font-semibold normal-case text-[var(--fsusblog-text-muted)]">
+    <p class="mb-3 text-xs font-medium normal-case text-[var(--fsusblog-text-muted)]">
       {{ view.labelText }}
     </p>
     <el-skeleton

@@ -26,7 +26,7 @@
         <h1 class="mb-6 text-3xl font-bold tracking-normal text-[var(--fsusblog-text-heading)] sm:text-4xl">
           归档
         </h1>
-        <div class="flex items-center gap-6 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+        <div class="flex items-center gap-6 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
           <span>已发布 <span class="text-[var(--fsusblog-text-primary)] tabular-nums">{{ view.total }}</span> 篇</span>
         </div>
         <nav
@@ -38,7 +38,7 @@
             v-for="yearGroup in view.yearGroups"
             :key="`quick-${yearGroup.year}`"
             :href="`#archive-year-${yearGroup.year}`"
-            class="rounded-[var(--fsus-radius-control-small)] px-1 py-1 text-xs font-semibold tabular-nums text-[var(--fsusblog-text-secondary)] underline-offset-4 hover:text-[var(--fsusblog-color-primary)] hover:underline focus-visible:outline-none"
+            class="rounded-[var(--fsus-radius-control-small)] px-1 py-1 text-xs font-medium tabular-nums text-[var(--fsusblog-text-secondary)] underline-offset-4 hover:text-[var(--fsusblog-color-primary)] hover:underline focus-visible:outline-none"
             :class="focusRingClass"
           >
             {{ yearGroup.year }}
@@ -66,7 +66,7 @@
               :key="monthGroup.month"
               class="relative"
             >
-              <h3 class="mb-8 flex items-center gap-8 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+              <h3 class="mb-8 flex items-center gap-8 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
                 {{ monthGroup.monthLabel }}
                 <span class="h-px grow bg-[var(--fsusblog-panel-bg-soft)]" aria-hidden="true"></span>
               </h3>
@@ -86,7 +86,7 @@
                     <time
                       :datetime="article.createTime"
                       :title="article.fullLocalTimeText"
-                      class="flex-none text-xs tabular-nums font-semibold text-[var(--fsusblog-text-subtle)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors w-12"
+                      class="flex-none text-xs tabular-nums font-medium text-[var(--fsusblog-text-subtle)] group-hover:text-[var(--fsusblog-color-primary)] transition-colors w-12"
                     >
                       {{ article.dayText }}
                     </time>

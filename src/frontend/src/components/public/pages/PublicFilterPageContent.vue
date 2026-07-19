@@ -5,7 +5,7 @@
 
       <div
         v-if="showSearchSort"
-        class="search-result-meta mb-5 border-b border-[var(--fsusblog-panel-border)] pb-5 text-xs font-semibold leading-6 text-[var(--fsusblog-text-muted)]"
+        class="search-result-meta mb-5 border-b border-[var(--fsusblog-panel-border)] pb-5 text-xs font-medium leading-6 text-[var(--fsusblog-text-muted)]"
         aria-live="polite"
       >
         <span>范围：文章、标签、关键词</span>
@@ -17,7 +17,7 @@
         class="filter-stack mb-8 inline-flex max-w-full items-center gap-6"
         data-fsus-motion-surface="search-panel"
       >
-        <span class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">排序</span>
+        <span class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">排序</span>
         <el-radio-group
           :model-value="searchSortMode"
           size="small"
@@ -74,7 +74,7 @@
       <div class="sticky top-52">
         <a
           :href="PUBLIC_FIXED_PATHS.home"
-          class="inline-flex items-center gap-6 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)] hover:text-[var(--fsusblog-color-primary)] transition-colors group outline-none"
+          class="inline-flex items-center gap-6 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)] hover:text-[var(--fsusblog-color-primary)] transition-colors group outline-none"
         >
           <el-icon class="transition-opacity duration-[var(--fsus-motion-control-fast)] group-hover:opacity-70" aria-hidden="true"><Back /></el-icon> 回到主页
         </a>

@@ -15,14 +15,14 @@
             <template #default="{ row }: { row: RegionPolicySummaryResponse }">
               <div class="grid gap-6 p-5 lg:grid-cols-2">
                 <section>
-                  <div class="mb-3 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库</div>
+                  <div class="mb-3 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库</div>
                   <div class="flex flex-wrap gap-2">
                     <el-tag v-for="dictionaryId in row.dictionaryIds" :key="dictionaryId" type="info">{{ dictionaryId }}</el-tag>
                     <el-tag v-if="row.dictionaryIds.length === 0" type="danger">缺失</el-tag>
                   </div>
                 </section>
                 <section>
-                  <div class="mb-3 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">关键检查</div>
+                  <div class="mb-3 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">关键检查</div>
                   <div class="divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]">
                     <div v-for="check in row.criticalChecks" :key="check.code" class="flex flex-wrap items-center justify-between gap-3 p-3">
                       <div>
@@ -106,7 +106,7 @@
 
     <section v-if="mainlandPolicy" class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+        <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
           {{ formatRegionName(mainlandPolicy.region) }}必要检查
         </div>
       </div>

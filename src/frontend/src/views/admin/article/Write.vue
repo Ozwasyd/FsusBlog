@@ -324,7 +324,7 @@
                     aria-label="内容检查"
                   >
                     <header class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)]">
-                      <div class="text-[13px] font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">内容检查</div>
+                      <div class="text-[13px] font-medium normal-case tracking-normal text-[var(--fsusblog-text-primary)]">内容检查</div>
                     </header>
                     <div class="p-6 space-y-5">
                       <p class="text-xs leading-6 text-[var(--fsusblog-text-secondary)]" aria-live="polite">
@@ -473,7 +473,7 @@
                   <details class="write-upload-disclosure border-t border-[var(--fsusblog-panel-border)]">
                     <summary class="write-disclosure-summary px-4 py-3 border-b border-[var(--fsusblog-panel-border)] cursor-pointer outline-none">
                       <div class="flex items-center justify-between">
-                        <span class="text-[13px] font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">图片上传策略</span>
+                        <span class="text-[13px] font-medium normal-case tracking-normal text-[var(--fsusblog-text-primary)]">图片上传策略</span>
                         <span class="text-[12px] font-medium text-[var(--fsusblog-text-muted)]" aria-live="polite">{{ imageUploadRuntime.statusText }}</span>
                       </div>
                     </summary>
@@ -1069,7 +1069,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   margin-bottom: 0.375rem;
   color: var(--fsusblog-color-warning-text);
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.35;
   letter-spacing: 0;
 }
@@ -1078,7 +1078,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   margin: 0;
   color: var(--fsusblog-text-tertiary);
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.55;
 }
 
@@ -1093,7 +1093,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   min-height: 2.75rem;
   padding-inline: 1.25rem;
   font-size: 0.875rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .submit-checklist-item {
@@ -1109,7 +1109,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   flex: 0 0 auto;
   color: var(--fsusblog-text-muted);
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .submit-checklist-item--pass .submit-checklist-status {
@@ -1170,14 +1170,14 @@ const submitQuickCreateTag = async (): Promise<void> => {
   min-height: 2.25rem;
   color: var(--fsusblog-text-primary);
   font-size: clamp(2.25rem, 5vw, 4rem);
-  font-weight: 850;
+  font-weight: 700;
   line-height: 1.08;
   letter-spacing: 0;
 }
 
 .write-title-input :deep(.el-input__inner::placeholder) {
   color: color-mix(in srgb, var(--fsusblog-text-muted) 72%, transparent);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .write-title-input :deep(.el-input__count) {
@@ -1185,7 +1185,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   background: transparent;
   color: var(--fsusblog-text-tertiary);
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .write-side-panel {
@@ -1220,7 +1220,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   background: transparent;
   color: var(--fsusblog-text-primary);
   font-size: 0.875rem;
-  font-weight: 650;
+  font-weight: 700;
   text-align: left;
   transition:
     background-color var(--blog-motion-fast) var(--blog-motion-ease),
@@ -1261,7 +1261,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
   padding: 0.28rem 0.48rem;
   color: var(--fsusblog-text-secondary);
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .write-inspector-summary__state--open {

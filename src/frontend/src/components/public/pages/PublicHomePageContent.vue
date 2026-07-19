@@ -24,7 +24,7 @@
             <header class="mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3">
               <h2
                 id="home-feed-heading"
-                class="text-xs font-semibold normal-case text-[var(--fsusblog-text-muted)]"
+                class="text-xs font-medium normal-case text-[var(--fsusblog-text-muted)]"
                 data-home-feed-heading
               >
                 {{ copy.feedEyebrow }}

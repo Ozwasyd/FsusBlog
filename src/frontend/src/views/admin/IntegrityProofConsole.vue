@@ -64,7 +64,7 @@
         <el-table v-loading="loading" :data="consoleState?.recentProofs ?? []" row-key="proofId">
           <el-table-column label="Proof" min-width="210">
             <template #default="{ row }: { row: IntegrityAdminProofRowResponse }">
-              <div class="font-semibold text-[var(--fsusblog-text-primary)]">#{{ row.proofId }} · Article {{ row.articleId }}</div>
+              <div class="font-medium text-[var(--fsusblog-text-primary)]">#{{ row.proofId }} · Article {{ row.articleId }}</div>
               <div class="text-[11px] text-[var(--fsusblog-text-muted)]">revision {{ row.revisionNo }} / {{ row.articleRevisionId }}</div>
             </template>
           </el-table-column>
@@ -110,7 +110,7 @@
               class="integrity-proof-console__failed-item"
             >
               <div>
-                <div class="font-semibold">#{{ proof.proofId }} · {{ formatStatus(proof.proofStatus) }}</div>
+                <div class="font-medium">#{{ proof.proofId }} · {{ formatStatus(proof.proofStatus) }}</div>
                 <div class="mt-1 text-xs text-[var(--fsusblog-text-muted)]">{{ proof.failureCode || '无失败摘要' }}</div>
               </div>
               <el-button
@@ -130,7 +130,7 @@
           <div v-if="consoleState?.keyRegistry.keys.length" class="integrity-proof-console__key-list">
             <div v-for="key in consoleState.keyRegistry.keys" :key="key.keyId" class="integrity-proof-console__key-row">
               <div class="min-w-0">
-                <div class="truncate font-semibold">{{ key.keyId }}</div>
+                <div class="truncate font-medium">{{ key.keyId }}</div>
                 <div class="text-xs text-[var(--fsusblog-text-muted)]">{{ key.algorithm }} / v{{ key.version ?? '-' }}</div>
               </div>
               <span class="integrity-proof-console__status-dot" :data-status="key.status" />

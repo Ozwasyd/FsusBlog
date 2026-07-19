@@ -4,7 +4,7 @@
     aria-labelledby="forbidden-page-title"
   >
     <section class="mx-auto flex w-full max-w-5xl flex-col gap-8 animate-in fade-in duration-[var(--fsus-motion-control-fast)] sm:gap-12">
-      <h1 class="text-6xl font-extrabold leading-none text-[var(--fsusblog-text-primary)] sm:text-9xl">
+      <h1 class="text-6xl font-bold leading-none text-[var(--fsusblog-text-primary)] sm:text-9xl">
         {{ copy.codePrefix }}<span class="text-[var(--fsusblog-text-muted)]">.</span>
       </h1>
 
@@ -13,7 +13,7 @@
       <div class="safe-inline-wrap max-w-xl">
         <h2
           id="forbidden-page-title"
-          class="text-2xl font-extrabold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl"
+          class="text-2xl font-bold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl"
         >
           {{ copy.title }}
         </h2>

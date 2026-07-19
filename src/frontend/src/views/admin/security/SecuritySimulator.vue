@@ -64,7 +64,7 @@
             @click="applyPreset(preset)"
           >
             <span class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ preset.label }}</span>
-            <span class="text-[12px] font-semibold text-[var(--fsusblog-text-muted)] tabular-nums">{{ preset.riskScore }}</span>
+            <span class="text-[12px] font-medium text-[var(--fsusblog-text-muted)] tabular-nums">{{ preset.riskScore }}</span>
           </button>
         </div>
       </div>
@@ -73,7 +73,7 @@
     <section class="grid gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">决策</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">决策</div>
           <div class="mt-2 text-base font-bold text-[var(--fsusblog-text-primary)]">{{ formatDecision(result?.decision) }}</div>
         </div>
         <AdminStatusMatrix :items="resultMetrics" density="compact" aria-label="风险模拟结果指标" />
@@ -81,7 +81,7 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">命中原因</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">命中原因</div>
         </div>
         <div class="grid gap-px bg-[var(--fsusblog-panel-border)]">
           <div class="bg-[var(--fsusblog-page-bg)] p-5">

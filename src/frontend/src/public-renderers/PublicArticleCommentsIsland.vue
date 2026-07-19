@@ -11,7 +11,7 @@
         v-memo="[comment.id, comment.content, comment.author.displayName, comment.repliesPreview.length]"
       >
         <div class="flex items-center justify-between gap-6 mb-3">
-          <strong class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">{{ comment.author.displayName }}</strong>
+          <strong class="text-sm font-medium text-[var(--fsusblog-text-primary)]">{{ comment.author.displayName }}</strong>
           <time class="text-xs leading-4 tabular-nums normal-case text-[var(--fsusblog-text-muted)]">{{ comment.createTime }}</time>
         </div>
         <p class="text-sm leading-relaxed whitespace-pre-wrap text-[var(--fsusblog-text-secondary)]">{{ comment.content }}</p>

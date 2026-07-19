@@ -255,7 +255,7 @@ onUnmounted(() => {
 /* 6. 超链接 */
 .policy-legal-doc :deep(a) {
   color: var(--fsusblog-color-primary);
-  font-weight: 600;
+  font-weight: 500;
   text-decoration: underline;
   text-underline-offset: 3px;
   transition: opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);

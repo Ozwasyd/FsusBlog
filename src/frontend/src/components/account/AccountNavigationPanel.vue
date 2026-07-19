@@ -178,7 +178,7 @@ const localNavigationTitleId = computed(() => (
 .account-local-navigation__link > span:first-child {
   min-width: 0;
   font-size: 0.8125rem;
-  font-weight: 680;
+  font-weight: 700;
   line-height: 1.35;
 }
 
@@ -186,7 +186,7 @@ const localNavigationTitleId = computed(() => (
 .account-local-navigation__helper {
   color: var(--fsusblog-text-muted);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.35;
   white-space: nowrap;
 }

@@ -47,7 +47,7 @@ defineProps<{
   margin: 0;
   color: var(--fsusblog-text-primary);
   font-size: 0.9375rem;
-  font-weight: 720;
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1.35;
 }
@@ -88,7 +88,7 @@ defineProps<{
   overflow: hidden;
   color: var(--fsusblog-text-secondary);
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 700;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;

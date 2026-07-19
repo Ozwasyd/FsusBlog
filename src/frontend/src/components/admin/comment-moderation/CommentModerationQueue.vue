@@ -1,7 +1,7 @@
 <template>
   <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]" aria-label="评论审核队列">
     <div class="border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] px-6 py-3">
-      <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核队列</div>
+      <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核队列</div>
     </div>
 
     <el-responsive-collection
@@ -27,7 +27,7 @@
               <div class="flex flex-wrap items-center gap-2">
                 <span class="text-xs font-bold text-[var(--fsusblog-text-primary)]">{{ (item as CommentModerationViewItem).actorDisplayName }}</span>
                 <span class="text-xs font-medium tabular-nums text-[var(--fsusblog-text-muted)]">#{{ (item as CommentModerationViewItem).id }}</span>
-                <span class="text-xs font-semibold normal-case tracking-normal" :class="(item as CommentModerationViewItem).statusClass">
+                <span class="text-xs font-medium normal-case tracking-normal" :class="(item as CommentModerationViewItem).statusClass">
                   {{ (item as CommentModerationViewItem).statusLabel }}
                 </span>
                 <el-tag v-if="(item as CommentModerationViewItem).autoModerated" size="small" type="success">
@@ -193,7 +193,7 @@
             <el-table-column label="状态" width="112" align="center">
               <template #default="{ row }: { row: CommentModerationViewItem }">
                 <span class="inline-flex flex-col items-center gap-1">
-                  <span class="text-xs font-semibold normal-case tracking-normal" :class="row.statusClass">{{ row.statusLabel }}</span>
+                  <span class="text-xs font-medium normal-case tracking-normal" :class="row.statusClass">{{ row.statusLabel }}</span>
                   <el-tag v-if="row.autoModerated" size="small" type="success">{{ row.moderationActorLabel }}</el-tag>
                   <span v-else class="text-[11px] font-medium text-[var(--fsusblog-text-muted)]">{{ row.moderationActorLabel }}</span>
                 </span>
@@ -379,7 +379,7 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
   cursor: pointer;
   color: var(--fsusblog-text-muted);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   outline: none;
 }
 
@@ -420,7 +420,7 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
 .moderation-card-meta__label,
 .moderation-detail-meta__label {
   color: var(--fsusblog-text-tertiary);
-  font-weight: 620;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -441,6 +441,6 @@ const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
 .moderation-card-meta__value--empty,
 .moderation-detail-meta__value--empty {
   color: var(--fsusblog-text-muted);
-  font-weight: 620;
+  font-weight: 700;
 }
 </style>

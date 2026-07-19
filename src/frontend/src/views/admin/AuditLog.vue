@@ -204,7 +204,7 @@
                     </template>
 
                     <div v-else-if="column.key === 'action'" class="min-w-0">
-                      <div class="font-semibold text-[var(--fsusblog-text-primary)]">
+                      <div class="font-medium text-[var(--fsusblog-text-primary)]">
                         <AuditActionLabel :value="(rowData as AuditLogItemResponse).action" />
                       </div>
                       <p class="mt-1 truncate text-[11px] text-[var(--fsusblog-text-muted)]">
@@ -710,7 +710,7 @@ onMounted(() => {
   overflow: hidden;
   color: var(--fsusblog-text-primary);
   font-size: 14px;
-  font-weight: 850;
+  font-weight: 700;
   line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -733,7 +733,7 @@ onMounted(() => {
   gap: 6px 12px;
   color: var(--fsusblog-text-secondary);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .audit-compact-row__actions {

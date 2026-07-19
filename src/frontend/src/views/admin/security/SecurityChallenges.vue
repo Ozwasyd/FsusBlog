@@ -15,7 +15,7 @@
     <section class="grid gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">验证任务类型</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">验证任务类型</div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full min-w-full md:min-w-[42rem] text-left text-[12px]">
@@ -46,7 +46,7 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">最近提交</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">最近提交</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="attempt in recentAttempts" :key="attempt.attemptId" class="grid gap-3 p-5 md:grid-cols-[1fr_auto]">

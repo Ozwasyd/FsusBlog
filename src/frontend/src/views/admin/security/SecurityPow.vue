@@ -22,7 +22,7 @@
       >
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
-            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行策略</div>
+            <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行策略</div>
             <div class="mt-2 text-lg font-bold text-[var(--fsusblog-text-primary)]">PoW 运行模式</div>
           </div>
           <div class="flex gap-2">
@@ -63,7 +63,7 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">边界</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">边界</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="row in boundaryRows" :key="row.label" class="p-5">
@@ -76,7 +76,7 @@
 
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行状态</div>
+        <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">运行状态</div>
       </div>
       <AdminStatusMatrix :items="statusRows" density="compact" aria-label="PoW 运行状态" />
     </section>

@@ -41,7 +41,7 @@
         <el-table v-loading="loading" :data="report?.checks ?? []" row-key="code">
           <el-table-column label="检查" min-width="220">
             <template #default="{ row }: { row: IntegrityCheckResponse }">
-              <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ row.title }}</div>
+              <div class="font-medium text-[var(--fsusblog-text-primary)]">{{ row.title }}</div>
               <div class="text-[11px] text-[var(--fsusblog-text-muted)]">{{ row.code }}</div>
             </template>
           </el-table-column>
@@ -186,7 +186,7 @@
               class="border-t border-[var(--fsusblog-panel-border)] pt-4"
             >
               <div class="flex items-center justify-between gap-3">
-                <span class="text-xs font-semibold">{{ formatDangerLevel(rule.level) }}</span>
+                <span class="text-xs font-medium">{{ formatDangerLevel(rule.level) }}</span>
                 <el-tag type="info">{{ formatDangerInteraction(rule.interaction) }}</el-tag>
               </div>
               <div class="mt-2 text-[11px] leading-5 text-[var(--fsusblog-text-muted)]">
@@ -513,7 +513,7 @@ onMounted(loadAll)
   margin: 0;
   color: var(--fsusblog-text-primary);
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.45;
 }
 
@@ -535,7 +535,7 @@ onMounted(loadAll)
   padding: 0 10px;
   color: var(--fsusblog-text-secondary);
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
 }

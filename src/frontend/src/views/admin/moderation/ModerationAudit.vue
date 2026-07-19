@@ -85,7 +85,7 @@ const readAuditActionText = (value: string): string => {
   margin: 0;
   color: var(--fsusblog-text-primary);
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.35;
 }
 
@@ -129,7 +129,7 @@ const readAuditActionText = (value: string): string => {
   color: var(--fsusblog-text-muted);
   background: color-mix(in srgb, var(--fsusblog-panel-bg) 62%, transparent);
   font-size: 0.6875rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.5;
   letter-spacing: 0;
   text-transform: none;
@@ -170,7 +170,7 @@ const readAuditActionText = (value: string): string => {
   overflow: hidden;
   color: var(--fsusblog-text-primary);
   font-size: 0.8125rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -199,7 +199,7 @@ const readAuditActionText = (value: string): string => {
 .moderation-audit-index__action {
   color: var(--fsusblog-color-primary, var(--link-hover, #4A453C));
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.5;
   white-space: nowrap;
 }

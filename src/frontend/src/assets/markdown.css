@@ -77,7 +77,7 @@
 
 .markdown-body h1 {
   font-size: 1.6em;
-  font-weight: 600;
+  font-weight: 700;
   margin-top: 2.5em;
   margin-bottom: 1.5em;
   text-align: center;
@@ -96,7 +96,7 @@
 
 .markdown-body h3 {
   font-size: 1.05em;
-  font-weight: 600;
+  font-weight: 700;
   text-align: left;
   margin-top: 3em;
   margin-bottom: 1em;
@@ -124,7 +124,6 @@
   padding: 0 !important;
   color: var(--fsusblog-reading-quote) !important;
   font-size: 0.95em;
-  font-weight: 300 !important;
   font-style: normal !important;
   background: transparent !important;
 }
@@ -441,7 +440,7 @@
   text-decoration: none;
   margin-left: 0.15em;
   padding: 0 0.15em;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--fsusblog-reading-link);
 }
 

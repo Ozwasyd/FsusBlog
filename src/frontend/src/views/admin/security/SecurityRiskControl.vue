@@ -50,7 +50,7 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">子系统模式</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">子系统模式</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="row in subsystemRows" :key="row.name" class="flex items-center justify-between gap-4 p-5">
@@ -65,7 +65,7 @@
     <section class="grid gap-8 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险事件聚合</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">风险事件聚合</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="row in riskEventAggregate" :key="`${row.source}:${row.reason}`" class="grid gap-3 p-5 md:grid-cols-[1fr_auto]">
@@ -81,7 +81,7 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">高风险主体</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">高风险主体</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="snapshot in topRiskSnapshots" :key="snapshot.subject" class="flex items-center justify-between gap-4 p-5">

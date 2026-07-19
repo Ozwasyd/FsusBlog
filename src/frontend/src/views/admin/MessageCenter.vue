@@ -639,7 +639,7 @@ const formatTime = (input: string): string => {
   margin: 0;
   color: var(--fsusblog-text-primary);
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.35;
   letter-spacing: 0;
 }
@@ -692,7 +692,7 @@ const formatTime = (input: string): string => {
   align-self: center;
   color: var(--fsusblog-text-muted);
   font-size: 0.6875rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.5;
 }
 

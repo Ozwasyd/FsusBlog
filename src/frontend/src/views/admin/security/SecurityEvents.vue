@@ -24,7 +24,7 @@
     <section class="grid gap-8 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">事件聚合</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">事件聚合</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="row in eventAggregates" :key="`${row.source}:${row.reason}`" class="p-5">
@@ -41,7 +41,7 @@
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
           <div class="security-events-section-heading">
-            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">事件明细</div>
+            <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">事件明细</div>
             <div class="security-events-results-count">共 {{ events.length }} 条</div>
           </div>
         </div>

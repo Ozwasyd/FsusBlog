@@ -161,7 +161,7 @@ onMounted(() => {
 .security-dashboard__overview-copy h2 {
   color: var(--fsusblog-text-primary);
   font-size: 20px;
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -169,7 +169,7 @@ onMounted(() => {
   margin-top: 4px;
   color: var(--fsusblog-text-muted);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.45;
 }
 
@@ -215,7 +215,7 @@ onMounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .security-dashboard__link-copy span {

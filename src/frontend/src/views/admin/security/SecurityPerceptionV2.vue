@@ -22,7 +22,7 @@
       >
         <div class="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--fsusblog-panel-border)] p-5">
           <div>
-            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略开关</div>
+            <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略开关</div>
             <div class="mt-2 text-lg font-bold text-[var(--fsusblog-text-primary)]">人机感知验证</div>
             <p class="mt-1 max-w-[34rem] text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">
               控制评论、恢复密钥等高风险操作里是否使用人机感知验证，以及允许哪些题型和失败边界。开关会立即写入后端；数值调整会在下方出现保存动作。
@@ -158,7 +158,7 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">任务分布</div>
+          <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">任务分布</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="task in taskKindDistribution" :key="`${task.taskKind}:${task.challengeKind}`" class="grid gap-3 p-5 md:grid-cols-[1fr_auto]">
@@ -178,7 +178,7 @@
 
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">最近尝试</div>
+        <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">最近尝试</div>
       </div>
       <div class="divide-y divide-[var(--fsusblog-panel-border)]">
         <div v-for="attempt in recentAttempts" :key="attempt.attemptId" class="grid gap-3 p-5 md:grid-cols-[1fr_auto]">

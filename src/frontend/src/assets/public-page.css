@@ -496,7 +496,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
   color: var(--fsusblog-highlight-mark-text);
   padding: 0 2px;
   border-radius: 2px;
-  font-weight: 600;
+  font-weight: 500;
   box-shadow: inset 0 0 0 1px var(--fsusblog-highlight-mark-ring);
 }
 
@@ -636,7 +636,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
   gap: 10px;
   color: var(--fsusblog-text-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.5;
 }
 

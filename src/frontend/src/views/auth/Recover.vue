@@ -4,7 +4,7 @@
       <header class="mb-8 sm:mb-10">
         <h1
           id="recover-title"
-          class="text-3xl font-extrabold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl"
+          class="text-3xl font-bold leading-tight text-[var(--fsusblog-text-primary)] sm:text-4xl"
         >
           {{ copy.title }}
         </h1>
@@ -36,7 +36,7 @@
           <div>
             <h2
               id="recovery-key-title"
-              class="text-sm font-semibold text-[var(--fsusblog-text-primary)]"
+              class="text-sm font-medium text-[var(--fsusblog-text-primary)]"
             >
               {{ copy.sectionTitle }}
             </h2>
@@ -48,7 +48,7 @@
           <div class="relative group">
             <label
               for="recovery-key"
-              class="mb-2 block text-xs font-semibold text-[var(--fsusblog-text-secondary)]"
+              class="mb-2 block text-xs font-medium text-[var(--fsusblog-text-secondary)]"
             >
               {{ copy.keyLabel }}
             </label>
@@ -87,7 +87,7 @@
             id="recovery-key-error"
             role="alert"
             aria-live="polite"
-            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-semibold text-[var(--fsusblog-color-error)]"
+            class="rounded-[var(--fsus-radius-control)] border border-[var(--fsusblog-color-error-border)] bg-[var(--fsusblog-color-error-bg)] px-4 py-3 text-sm font-medium text-[var(--fsusblog-color-error)]"
           >
             {{ recoveryKeyError }}
           </div>
@@ -126,14 +126,14 @@
       >
         <router-link
           to="/login"
-          class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
+          class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-medium text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
           :class="focusRingClass"
         >
           {{ copy.returnLoginLink }}
         </router-link>
         <router-link
           to="/"
-          class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
+          class="rounded-[var(--fsus-radius-control)] px-1 py-2 text-sm font-medium text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
           :class="focusRingClass"
         >
           {{ copy.cancelLink }}

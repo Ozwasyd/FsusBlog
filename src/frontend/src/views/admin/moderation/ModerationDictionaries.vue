@@ -51,7 +51,7 @@
         <el-table class="moderation-dictionaries-table" v-loading="loading" :data="filteredDictionaries" row-key="dictionaryId" :row-class-name="rowClassName">
           <el-table-column label="词库 ID" min-width="230">
             <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
-              <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ row.dictionaryId }}</div>
+              <div class="font-medium text-[var(--fsusblog-text-primary)]">{{ row.dictionaryId }}</div>
               <div class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">
                 {{ formatDictionarySource(row.source) }} / {{ formatDictionaryReviewer(row.reviewedBy) }}
               </div>
@@ -131,7 +131,7 @@
         </div>
         <dl class="grid grid-cols-1 gap-3">
           <div v-for="item in detailRows" :key="item.label" class="bg-[var(--fsusblog-page-bg)] p-4">
-            <dt class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</dt>
+            <dt class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ item.label }}</dt>
             <dd class="mt-2 break-all text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.value }}</dd>
           </div>
         </dl>

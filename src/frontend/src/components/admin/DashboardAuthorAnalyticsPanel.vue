@@ -230,7 +230,7 @@ const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAo
   margin: 0;
   color: var(--fsusblog-text-primary);
   font-size: 0.9375rem;
-  font-weight: 720;
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1.35;
 }
@@ -296,20 +296,20 @@ const rumAotSourceRows = computed(() => toDistributionRows(analytics.value.rumAo
 .dashboard-rum-metric__name {
   color: var(--fsusblog-text-primary);
   font-size: 0.9375rem;
-  font-weight: 760;
+  font-weight: 700;
 }
 
 .dashboard-rum-metric__value {
   margin-top: 4px;
   color: var(--fsusblog-text-muted);
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .dashboard-rum-metric__meta {
   margin-top: 2px;
   color: var(--fsusblog-text-tertiary);
   font-size: 0.75rem;
-  font-weight: 560;
+  font-weight: 500;
 }
 </style>

@@ -312,7 +312,7 @@ const coverSectionOpen = ref(false)
   background: transparent;
   color: var(--fsusblog-text-primary);
   font-size: 0.875rem;
-  font-weight: 650;
+  font-weight: 700;
   text-align: left;
   transition:
     background-color var(--blog-motion-fast) var(--blog-motion-ease),
@@ -353,7 +353,7 @@ const coverSectionOpen = ref(false)
   padding: 0.28rem 0.48rem;
   color: var(--fsusblog-text-secondary);
   font-size: 0.75rem;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .article-sidebar-summary__state--open {
@@ -409,7 +409,7 @@ const coverSectionOpen = ref(false)
 .article-field-label {
   color: var(--fsusblog-text-secondary);
   font-size: 0.875rem;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .quick-field-row {

@@ -376,7 +376,7 @@ html[data-theme-resolved='dark'] body {
   gap: 10px;
   color: var(--fsusblog-text-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.5;
 }
 

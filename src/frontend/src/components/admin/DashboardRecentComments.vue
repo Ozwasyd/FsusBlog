@@ -37,7 +37,7 @@
             </div>
             <p class="text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)] whitespace-pre-wrap word-break-all">{{ comment.content }}</p>
             <div v-if="comment.isLatest" class="mt-4">
-              <span class="inline-block px-2 py-0.5 bg-[var(--fsusblog-text-primary)] text-xs font-semibold normal-case text-[var(--fsusblog-page-bg)] tracking-normal">新</span>
+              <span class="inline-block px-2 py-0.5 bg-[var(--fsusblog-text-primary)] text-xs font-medium normal-case text-[var(--fsusblog-page-bg)] tracking-normal">新</span>
             </div>
           </article>
         </div>
@@ -46,7 +46,7 @@
     <footer class="p-5 border-t border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg)]">
       <router-link
         :to="{ name: 'ManageArticleList' }"
-        class="group flex items-center gap-3 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-color-primary)]"
+        class="group flex items-center gap-3 text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-color-primary)]"
       >
         进入内容管理 <el-icon class="transition-opacity group-hover:opacity-70" aria-hidden="true"><ArrowRight /></el-icon>
       </router-link>

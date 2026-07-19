@@ -42,7 +42,7 @@ const display = computed(() => formatAuditAction(props.value))
   min-width: 0;
   overflow: hidden;
   color: var(--fsusblog-text-primary);
-  font-weight: 800;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

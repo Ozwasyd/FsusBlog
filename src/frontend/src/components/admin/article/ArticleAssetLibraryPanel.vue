@@ -3,7 +3,7 @@
     <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <div id="article-asset-library-title" class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">资产库</div>
+          <div id="article-asset-library-title" class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">资产库</div>
           <p class="mt-1 text-xs text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
         </div>
         <div class="asset-actions">
@@ -177,7 +177,7 @@ watch(() => props.assets, (assets, previousAssets) => {
 .asset-row__url {
   color: var(--fsusblog-text-primary);
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .asset-row__sub,
@@ -196,7 +196,7 @@ watch(() => props.assets, (assets, previousAssets) => {
   padding: 0.55rem 0.7rem;
   color: var(--fsusblog-text-muted);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .asset-row__insert {

@@ -3,7 +3,7 @@
     <header class="px-4 py-3 bg-[var(--fsusblog-page-bg-soft)] border-b border-[var(--fsusblog-panel-border)]">
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <div id="article-seo-preview-title" class="text-[13px] font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">SEO 与发布前检查</div>
+          <div id="article-seo-preview-title" class="text-[13px] font-medium normal-case tracking-normal text-[var(--fsusblog-text-primary)]">SEO 与发布前检查</div>
           <p class="mt-1 text-[12px] text-[var(--fsusblog-text-tertiary)]" aria-live="polite">{{ statusText }}</p>
         </div>
         <el-button
@@ -167,7 +167,7 @@ const formatIssueSeverity = (severity: string): string => {
   overflow: hidden;
   color: var(--fsusblog-text-primary);
   font-size: 0.875rem;
-  font-weight: 800;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -181,7 +181,7 @@ const formatIssueSeverity = (severity: string): string => {
 .seo-meta-grid dt {
   color: var(--fsusblog-text-muted);
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .seo-meta-grid dd {

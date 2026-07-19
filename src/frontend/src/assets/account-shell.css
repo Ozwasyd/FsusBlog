@@ -79,7 +79,7 @@
   margin-bottom: 0.9rem;
   color: var(--fsusblog-text-muted);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
 }
@@ -119,7 +119,7 @@
   margin-bottom: 1rem;
   color: var(--fsusblog-text-primary);
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
 }

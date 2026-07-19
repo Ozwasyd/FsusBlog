@@ -14,7 +14,7 @@
       <el-table v-else :data="popularArticleRows" v-loading="loading">
         <el-table-column type="index" label="Rank" width="70" align="center">
           <template #default="scope">
-            <span :class="['tabular-nums text-xs font-semibold', scope.row.rank <= 3 ? 'text-[var(--fsusblog-text-primary)]' : 'text-[var(--fsusblog-text-subtle)]']">
+            <span :class="['tabular-nums text-xs font-medium', scope.row.rank <= 3 ? 'text-[var(--fsusblog-text-primary)]' : 'text-[var(--fsusblog-text-subtle)]']">
               #{{ scope.row.rank }}
             </span>
           </template>
@@ -28,7 +28,7 @@
         </el-table-column>
         <el-table-column prop="views" label="阅读量" width="100" align="right">
           <template #default="{ row }">
-            <span class="tabular-nums text-xs font-semibold text-[var(--fsusblog-text-muted)]">
+            <span class="tabular-nums text-xs font-medium text-[var(--fsusblog-text-muted)]">
               {{ row.views }}
             </span>
           </template>
@@ -44,7 +44,7 @@
     <footer class="p-5 border-t border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-panel-bg-soft)]">
       <router-link
         :to="{ name: 'ManageArticleList' }"
-        class="blog-link-state group flex items-center gap-3 text-xs font-semibold normal-case tracking-normal outline-none"
+        class="blog-link-state group flex items-center gap-3 text-xs font-medium normal-case tracking-normal outline-none"
         :class="focusRingClass"
       >
         进入文章管理 <el-icon class="transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true"><ArrowRight /></el-icon>

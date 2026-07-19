@@ -14,7 +14,7 @@
 
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">可配置策略</div>
+        <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">可配置策略</div>
       </div>
       <div class="divide-y divide-[var(--fsusblog-panel-border)]">
         <div
@@ -35,7 +35,7 @@
 
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略版本列表</div>
+        <div class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-muted)]">策略版本列表</div>
         <div v-if="hiddenPolicyVersionCount > 0" class="mt-2 text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">
           每个策略只显示当前、可回滚和最近 {{ HISTORY_VERSIONS_PER_POLICY_LIMIT }} 个历史版本；已收起 {{ hiddenPolicyVersionCount }} 个更早版本。
         </div>

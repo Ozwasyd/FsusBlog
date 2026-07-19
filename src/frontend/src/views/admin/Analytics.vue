@@ -133,7 +133,7 @@ const regionChartSummary = computed(() => {
   margin: 0;
   color: var(--fsusblog-text-primary);
   font-size: 1rem;
-  font-weight: 720;
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1.35;
 }

@@ -30,7 +30,7 @@
         {{ view.header.title }}
       </h1>
 
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs tabular-nums font-semibold text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs tabular-nums font-medium text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
         <time>{{ view.header.currentYear }}</time>
         <span class="text-[var(--fsusblog-text-tertiary)]">{{ view.header.manifestoLabel }}</span>
         <span>{{ view.header.readmeLabel }}</span>
