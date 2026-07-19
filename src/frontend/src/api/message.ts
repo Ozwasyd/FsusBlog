@@ -2,6 +2,8 @@ import type { ApiRequestConfig } from './requestConfig'
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/composition/binaryTransport'
 import type {
+  AdminConversationDetailResponse,
+  AdminConversationListItemResponse,
   BinaryPageResponse,
   ConversationDetailResponse,
   ConversationListItemResponse,
@@ -14,6 +16,8 @@ export type ConversationStatus = 'open' | 'pending' | 'closed'
 export type ConversationFilter = 'all' | 'unread' | 'system' | 'open' | 'pending' | 'closed'
 
 export type {
+  AdminConversationDetailResponse,
+  AdminConversationListItemResponse,
   ConversationDetailResponse,
   ConversationListItemResponse,
   ConversationMessagePreviewResponse,
@@ -154,12 +158,12 @@ export const messageApi = {
 
   adminGetConversations(size: number, filter: ConversationFilter = 'all', cursor?: string | null, config?: ApiRequestConfig) {
     const search = conversationSearch(size, filter, cursor)
-    return requestBinaryOnly<PageResponse<ConversationListItemResponse>>({
+    return requestBinaryOnly<PageResponse<AdminConversationListItemResponse>>({
       binaryRoute: {
         operationId: 'binary_get_admin_messages_conversations',
         query: search
       },
-      frameType: FrameType.ConversationList,
+      frameType: FrameType.AdminConversationList,
       signal: config?.signal as AbortSignal | undefined
     })
   },
@@ -167,13 +171,13 @@ export const messageApi = {
   adminGetConversationDetail(conversationId: string | number, beforeMessageId?: string | null, config?: ApiRequestConfig) {
     const query = new URLSearchParams()
     if (beforeMessageId) query.set('beforeMessageId', beforeMessageId)
-    return requestBinaryOnly<ConversationDetailResponse>({
+    return requestBinaryOnly<AdminConversationDetailResponse>({
       binaryRoute: {
         operationId: 'binary_get_admin_messages_conversations_id_long',
         params: { id: conversationId },
         query
       },
-      frameType: FrameType.ConversationDetailV3,
+      frameType: FrameType.AdminConversationDetail,
       signal: config?.signal as AbortSignal | undefined
     })
   },

@@ -271,14 +271,16 @@
 
 | 方法 | 路径 | 说明 |
 | ------ | ------ | ------ |
-| GET | `/api/binary/admin/messages/conversations?size=30&filter={filter}&cursor={nextCursor}` | 所有对话列表；未读/筛选只读取共享 admin queue state；消费 `ConversationList.nextCursor` |
-| GET | `/api/binary/admin/messages/conversations/{id}?beforeMessageId={previousCursor}` | `ConversationDetailV3(204)`；最新页推进共享 admin read cursor，历史页不回退 |
+| GET | `/api/binary/admin/messages/conversations?size=30&filter={filter}&cursor={nextCursor}` | `AdminConversationList(206)`；最小对方账号投影；未读/筛选只读取共享 admin queue state |
+| GET | `/api/binary/admin/messages/conversations/{id}?beforeMessageId={previousCursor}` | `AdminConversationDetail(207)`；最小对方账号投影；最新页推进共享 admin read cursor，历史页不回退 |
 | POST | `/api/binary/admin/messages/conversations/{id}/reply` | 以管理员身份回复；closed 必须先显式重开，事务冲突返回 409 |
 | POST | `/api/binary/admin/messages/conversations/{id}/status` | 更新对话状态（open/pending/closed）；并发状态冲突返回 409 |
 | POST | `/api/binary/admin/messages/system-send` | 单账号系统消息；`targetAccountId` 必填；响应 `ConversationDetailV2(203)` |
 
 `Messages:ReplyWritesEnabled=false` 可动态暂停两个 reply 端点并返回
 `503 message_reply_writes_disabled`，不影响读取和显式状态变更。
+`Messages:AdminAccountProjectionEnabled=false` 可动态暂停两个 admin 读取端点并返回
+`503 message_admin_account_projection_disabled`；账号消息端点与原有账号 frame 保持可用。
 
 ## 开放分发与作者工作台
 

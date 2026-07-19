@@ -982,6 +982,19 @@ conversation 保存 `lastReadMessageId/unreadCount/lastReadAt/version`：账号�
 `Messages:AdminQueueProjectionEnabled=false` 通过配置 reload 暂停 admin 列表与详情并返回
 `503 message_admin_queue_projection_disabled`，不允许回退到账号参与者聚合。
 
+管理端列表与详情分别使用 `AdminConversationList(206)` 和 `AdminConversationDetail(207)`。
+这两个 admin-only frame 在原有 conversation 投影之外只增加
+`counterpartyAccountId` 与 `counterpartyAccountStatus`（`0=active`、`1=restricted`、
+`2=deleted`、`3=missing`）。账号端继续使用 `ConversationList(56)` 和
+`ConversationDetailV3(204)`，不得出现对方 account id、账户状态、public handle、管理员
+principal/session 或其它资料。`senderName` 由 viewer 决定：账号端为“你/管理员/系统”，
+管理端为“账号 #ID/管理员/系统”；admin notification upsert 必须复用同一最小投影。
+
+`Messages:AdminAccountProjectionEnabled=false` 可热重载暂停两个 admin 读取端点并返回
+`503 message_admin_account_projection_disabled`，同时停止生成 admin projection upsert；
+账号读写与账号 frame 不受影响。恢复数据后可直接重新启用，不得从 sender display 推断
+账户身份，也不得临时向账号 frame 添加身份字段。
+
 管理员系统消息使用 `POST /api/binary/admin/messages/system-send` 的 `SystemMessageRequest` frame。当前契约只支持单账号目标，`targetAccountId` 必须存在且大于 0；`targetAccountId=null` 不表示广播，后端会返回 validation error。前端管理入口位于 `/user/manage/messages`，普通 `/user/messagebox` 只承载账号消息和工单。
 
 普通消息端点 `/api/binary/messages/**` 只接受 `identity_kind=anonymous_account` 的账号主体，并从 `AccountPrincipalContext.AccountId` 解析当前账号；不得使用 legacy `CurrentUser` 参数绑定器或把 AdminPrincipal 的 `NameIdentifier` 当作账号 id。管理消息端点 `/api/binary/admin/messages/**` 继续要求 admin principal + `admin.manage`，并用 `AdminMessageActor` 携带 `admin_id/admin_sid`。

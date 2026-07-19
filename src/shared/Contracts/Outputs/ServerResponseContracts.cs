@@ -1032,7 +1032,7 @@ public enum ConversationSenderValue
 /// <summary>
 /// Defines the API output contract represented by <c>ConversationListItemResponse</c>.
 /// </summary>
-public sealed record class ConversationListItemResponse
+public record class ConversationListItemResponse
 {
     public string ConversationId { get; init; } = string.Empty;
     public string Subject { get; init; } = string.Empty;
@@ -1061,6 +1061,26 @@ public sealed record class ConversationListItemResponse
     {
         get; init;
     }
+}
+
+/// <summary>
+/// Defines the minimum account context exposed only by admin message endpoints.
+/// </summary>
+public sealed record class AdminConversationListItemResponse : ConversationListItemResponse
+{
+    public string CounterpartyAccountId { get; init; } = string.Empty;
+    public CounterpartyAccountStatusValue CounterpartyAccountStatus { get; init; } = CounterpartyAccountStatusValue.Missing;
+}
+
+/// <summary>
+/// Defines the coarse account state visible in admin-only message projections.
+/// </summary>
+public enum CounterpartyAccountStatusValue
+{
+    Active = 0,
+    Restricted = 1,
+    Deleted = 2,
+    Missing = 3
 }
 
 /// <summary>
@@ -1102,7 +1122,7 @@ public sealed record class ConversationMessageResponse
 /// <summary>
 /// Defines the API output contract represented by <c>ConversationDetailResponse</c>.
 /// </summary>
-public sealed record class ConversationDetailResponse
+public record class ConversationDetailResponse
 {
     public string ConversationId { get; init; } = string.Empty;
     public string ReadSnapshotMessageId { get; init; } = string.Empty;
@@ -1133,6 +1153,15 @@ public sealed record class ConversationDetailResponse
         get; init;
     }
     public List<ConversationMessageResponse> Messages { get; init; } = [];
+}
+
+/// <summary>
+/// Defines an admin-only conversation detail projection without session or profile metadata.
+/// </summary>
+public sealed record class AdminConversationDetailResponse : ConversationDetailResponse
+{
+    public string CounterpartyAccountId { get; init; } = string.Empty;
+    public CounterpartyAccountStatusValue CounterpartyAccountStatus { get; init; } = CounterpartyAccountStatusValue.Missing;
 }
 
 /// <summary>

@@ -202,6 +202,8 @@ public enum AedsFrameType : ushort
     ConversationDetailV2 = 203,
     ConversationDetailV3 = 204,
     CommentCreateResult = 205,
+    AdminConversationList = 206,
+    AdminConversationDetail = 207,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

@@ -403,6 +403,10 @@ public static partial class PodBinaryCodec
                     WriteField("time", payload.Time);
                     return true;
 
+                case AdminConversationListItemResponse payload:
+                    WriteAdminConversationListItem(payload);
+                    return true;
+
                 case ConversationListItemResponse payload:
                     WriteConversationListItem(payload);
                     return true;
@@ -502,6 +506,25 @@ public static partial class PodBinaryCodec
             {
                 WriteField("lastMessage", payload.LastMessage);
             }
+        }
+
+        private void WriteAdminConversationListItem(AdminConversationListItemResponse payload)
+        {
+            WriteObjectHeader(payload.LastMessage is null ? 10 : 11);
+            WriteField("conversationId", payload.ConversationId);
+            WriteField("subject", payload.Subject);
+            WriteField("status", payload.Status);
+            WriteField("isSystemSource", payload.IsSystemSource);
+            WriteField("canReply", payload.CanReply);
+            WriteField("unreadCount", payload.UnreadCount);
+            WriteField("lastMessageAt", payload.LastMessageAt);
+            WriteField("updatedAt", payload.UpdatedAt);
+            if (payload.LastMessage is not null)
+            {
+                WriteField("lastMessage", payload.LastMessage);
+            }
+            WriteField("counterpartyAccountId", payload.CounterpartyAccountId);
+            WriteField("counterpartyAccountStatus", payload.CounterpartyAccountStatus);
         }
 
         private void WriteObjectHeader(int fieldCount)

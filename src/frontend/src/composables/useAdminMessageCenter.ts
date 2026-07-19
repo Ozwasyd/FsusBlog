@@ -1,10 +1,9 @@
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   messageApi,
-  type ConversationDetailResponse,
+  type AdminConversationDetailResponse,
+  type AdminConversationListItemResponse,
   type ConversationFilter,
-  type ConversationListItemResponse,
-  type ConversationMessagePreviewResponse
 } from '@/api/message'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import type { NotificationStreamInboxRenderPatch } from '@/services/notificationStreamTypes'
@@ -16,29 +15,7 @@ import { mergeConversationMessagePages } from '@/composables/messageThreadPagina
 
 const PAGE_SIZE = 30
 
-const toMessagePreview = (message: ConversationDetailResponse['messages'][number]): ConversationMessagePreviewResponse => ({
-  senderType: message.senderType,
-  senderName: message.senderName,
-  bodyPreview: message.body.length <= 96 ? message.body : `${message.body.slice(0, 96)}...`,
-  createdAt: message.createdAt
-})
-
-const toConversationListItem = (detail: ConversationDetailResponse): ConversationListItemResponse => {
-  const lastMessage = detail.messages[detail.messages.length - 1] ?? null
-  return {
-    conversationId: detail.conversationId,
-    subject: detail.subject,
-    status: detail.status,
-    isSystemSource: detail.isSystemSource,
-    canReply: detail.canReply,
-    unreadCount: detail.unreadCount,
-    lastMessageAt: detail.lastMessageAt,
-    updatedAt: detail.lastMessageAt,
-    lastMessage: lastMessage ? toMessagePreview(lastMessage) : null
-  }
-}
-
-const resetDetailState = (detailRef: { value: ConversationDetailResponse | null }, selectionRef: { value: string }, conversationsRef: { value: ConversationListItemResponse[] }, replyRef: { value: string }) => {
+const resetDetailState = (detailRef: { value: AdminConversationDetailResponse | null }, selectionRef: { value: string }, conversationsRef: { value: AdminConversationListItemResponse[] }, replyRef: { value: string }) => {
   detailRef.value = null
   selectionRef.value = ''
   conversationsRef.value = []
@@ -55,14 +32,14 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
   const taskFeedback = useAdminTaskFeedback()
 
   const filter = ref<ConversationFilter>('open')
-  const conversations = shallowRef<ConversationListItemResponse[]>([])
+  const conversations = shallowRef<AdminConversationListItemResponse[]>([])
   const totalConversations = ref(0)
   const nextCursor = ref<string | null>(null)
   const hasMoreConversations = ref(false)
   const loadingMoreConversations = ref(false)
   const loadedPageCount = ref(0)
   const selectedConversationId = ref<string>('')
-  const detail = shallowRef<ConversationDetailResponse | null>(null)
+  const detail = shallowRef<AdminConversationDetailResponse | null>(null)
   const replyBody = ref('')
 
   const systemTargetAccountId = ref('')
@@ -283,7 +260,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     processing.value = true
     taskFeedback.begin('正在发送系统消息', `账号 ${parsedTargetAccountId}`, 'admin-system-message')
     try {
-      const created = await messageApi.adminSendSystemMessage({
+      await messageApi.adminSendSystemMessage({
         targetAccountId: parsedTargetAccountId,
         subject: systemSubject.value || '系统通知',
         body: systemBody.value
@@ -291,7 +268,6 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
       systemTargetAccountId.value = ''
       systemSubject.value = ''
       systemBody.value = ''
-      conversations.value = mergeConversationPages(conversations.value, [toConversationListItem(created)])
       const listSynced = await loadConversations(true)
       taskFeedback.succeed('系统消息已发送', listSynced ? `账号 ${parsedTargetAccountId}` : '列表同步失败，请稍后刷新', 'admin-system-message')
       toast.success('系统消息已发送')

@@ -159,6 +159,18 @@ public readonly struct ConversationListItemPod
 }
 
 /// <summary>
+/// Defines the admin-only conversation list item projection.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AdminConversationListItemPod
+{
+    public readonly ConversationListItemPod Conversation;
+    public readonly long CounterpartyAccountId;
+    public readonly int CounterpartyAccountStatus;
+    public readonly int Reserved0;
+}
+
+/// <summary>
 /// Defines the fixed-layout binary representation used by the <c>ConversationMessage</c> wire contract.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -227,6 +239,18 @@ public readonly struct ConversationDetailV3Pod
     public readonly byte HasOlder;
     public readonly byte Reserved0;
     public readonly Utf8SliceRef Subject;
+}
+
+/// <summary>
+/// Defines the admin-only paged conversation detail projection.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct AdminConversationDetailPod
+{
+    public readonly ConversationDetailV3Pod Conversation;
+    public readonly long CounterpartyAccountId;
+    public readonly int CounterpartyAccountStatus;
+    public readonly int Reserved0;
 }
 
 /// <summary>

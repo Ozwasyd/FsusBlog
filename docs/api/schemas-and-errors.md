@@ -323,12 +323,20 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 202 | `AccountConversationReplyRequest` | `AccountConversationReplyRequestPod` + shared blob | 账号回复正文与显式读取位置；admin 回复继续使用 frame 60 |
 | 203 | `ConversationDetailV2` | `ConversationDetailV2Pod` + message records/blob | 对话详情与可见 `readSnapshotMessageId` |
 | 204 | `ConversationDetailV3` | `ConversationDetailV3Pod` + message records/blob | 固定消息页、`previousCursor`、`hasOlder` 与读取快照 |
+| 206 | `AdminConversationList` | `AdminConversationListItemPod` + shared blob | admin-only 列表；原列表记录 + 最小对方 account id/status |
+| 207 | `AdminConversationDetail` | `AdminConversationDetailPod` + message records/blob | admin-only 详情；V3 header + 最小对方 account id/status |
 
 `ConversationList(56)` 与 `ConversationDetailV3(204)` 的 wire layout 不因 admin queue state
 新增字段。相同 `unreadCount` 字段按 viewer 使用不同事实源：账号读取 participant state，
 admin 读取 `msg_admin_queue_state`；公共/账号 frame 不暴露 admin queue version、admin session
 或管理主体标识。admin queue 动态关闭时使用 `ApiError(251)` details
 `message_admin_queue_projection_disabled`。
+
+`AdminConversationList(206)` / `AdminConversationDetail(207)` 只允许 admin 路由发送；增加的
+`counterpartyAccountId:int64` 和 `counterpartyAccountStatus:int32` 不得进入账号端
+`ConversationList(56)` / `ConversationDetailV3(204)`。status 仅接受 `0..3`，account id 为 0 时
+status 必须为 `3=missing`。动态关闭 admin account projection 时返回 `ApiError(251)` details
+`message_admin_account_projection_disabled`，不得复用账号 frame 作为回退。
 
 账号与 admin 回复在同一事务屏障内锁定会话、校验 status、插入消息、更新 activity/unread，
 并且只在提交成功后发布 delivery event。会话不存在返回 `404`；closed 或锁后状态冲突返回
@@ -454,6 +462,8 @@ replyToAuthorPayload?:CommentAuthorViewPod + blobLength:int32 + blob
 | `ConversationListItemPod` | 76 |
 | `ConversationDetailV2Pod` | 44 |
 | `ConversationDetailV3Pod` | 52 |
+| `AdminConversationListItemPod` | 92 |
+| `AdminConversationDetailPod` | 68 |
 | `ConversationReadRequestPod` | 8 |
 | `AccountConversationReplyRequestPod` | 16 |
 

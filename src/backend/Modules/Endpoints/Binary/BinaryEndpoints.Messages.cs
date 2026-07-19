@@ -221,6 +221,13 @@ public static partial class BinaryEndpoints
                     aeds,
                     StatusCodes.Status503ServiceUnavailable);
             }
+            if (!IsAdminAccountProjectionEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_admin_account_projection_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
 
             MessageConversationCursor? position = null;
             if (!string.IsNullOrWhiteSpace(cursor))
@@ -235,7 +242,7 @@ public static partial class BinaryEndpoints
 
             int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 100);
             var data = await query.GetAdminConversationsAsync(pageSize, filter, position);
-            return BinaryResults.Frame(aeds, AedsFrameType.ConversationList, writer => PodBinaryCodec.WriteConversationList(data, writer));
+            return BinaryResults.Frame(aeds, AedsFrameType.AdminConversationList, writer => PodBinaryCodec.WriteAdminConversationList(data, writer));
         })
         .RequireAdminPermission(AdminPermissions.AdminManage);
 
@@ -260,6 +267,13 @@ public static partial class BinaryEndpoints
                     aeds,
                     StatusCodes.Status503ServiceUnavailable);
             }
+            if (!IsAdminAccountProjectionEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_admin_account_projection_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
 
             if (beforeMessageId <= 0)
             {
@@ -269,7 +283,7 @@ public static partial class BinaryEndpoints
             var detail = await query.GetAdminConversationDetailAsync(id, beforeMessageId);
             return detail is null
                 ? BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "会话不存在"), aeds)
-                : BinaryResults.Frame(aeds, AedsFrameType.ConversationDetailV3, writer => PodBinaryCodec.WriteConversationDetailV3(detail, writer));
+                : BinaryResults.Frame(aeds, AedsFrameType.AdminConversationDetail, writer => PodBinaryCodec.WriteAdminConversationDetail(detail, writer));
         })
         .RequireAdminPermission(AdminPermissions.AdminManage);
 
@@ -406,4 +420,7 @@ public static partial class BinaryEndpoints
 
     private static bool IsMessageReplyWritesEnabled(IConfiguration configuration)
         => configuration.GetValue<bool?>("Messages:ReplyWritesEnabled") ?? true;
+
+    private static bool IsAdminAccountProjectionEnabled(IConfiguration configuration)
+        => configuration.GetValue<bool?>("Messages:AdminAccountProjectionEnabled") ?? true;
 }

@@ -16,8 +16,8 @@ public interface IMessageQueryService
 {
     Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync(int accountId, int size, string? filter, MessageConversationCursor? cursor);
     Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(int accountId, long conversationId, long? beforeMessageId = null);
-    Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync(int size, string? filter, MessageConversationCursor? cursor);
-    Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId, long? beforeMessageId = null);
+    Task<PageResponse<AdminConversationListItemResponse>> GetAdminConversationsAsync(int size, string? filter, MessageConversationCursor? cursor);
+    Task<AdminConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId, long? beforeMessageId = null);
 }
 
 public interface IMessageCommandService

@@ -104,7 +104,7 @@ describe('message API binary transport', () => {
         operationId: 'binary_get_admin_messages_conversations',
         query: expect.any(URLSearchParams)
       }),
-      frameType: FrameType.ConversationList
+      frameType: FrameType.AdminConversationList
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: expect.objectContaining({
@@ -112,7 +112,7 @@ describe('message API binary transport', () => {
         params: { id: 9 },
         query: expect.any(URLSearchParams)
       }),
-      frameType: FrameType.ConversationDetailV3
+      frameType: FrameType.AdminConversationDetail
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: {

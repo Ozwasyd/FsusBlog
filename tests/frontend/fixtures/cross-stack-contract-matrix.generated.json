@@ -1509,7 +1509,7 @@
           "auth": "admin",
           "errorResponses": {
             "400": "ApiError AEDS frame for an invalid conversation cursor.",
-            "503": "ApiError AEDS frame when cursor pagination is disabled."
+            "503": "ApiError AEDS frame when cursor pagination, admin unread, or admin account projection is disabled."
           },
           "parameters": [
             {
@@ -1548,7 +1548,7 @@
               }
             }
           ],
-          "responseFrame": "ConversationList"
+          "responseFrame": "AdminConversationList"
         },
         {
           "method": "GET",
@@ -1556,7 +1556,7 @@
           "auth": "admin",
           "errorResponses": {
             "400": "ApiError AEDS frame for an invalid beforeMessageId.",
-            "503": "ApiError AEDS frame when thread pagination is disabled."
+            "503": "ApiError AEDS frame when thread pagination, admin unread, or admin account projection is disabled."
           },
           "parameters": [
             {
@@ -1571,7 +1571,7 @@
               }
             }
           ],
-          "responseFrame": "ConversationDetailV3"
+          "responseFrame": "AdminConversationDetail"
         },
         {
           "method": "POST",

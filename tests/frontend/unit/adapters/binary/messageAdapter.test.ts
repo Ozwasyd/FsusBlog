@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  mapAdminConversationDetailFromPayload,
+  mapAdminConversationListFromPayload,
   mapConversationDetailFromPayload,
   mapConversationDetailV2FromPayload,
   mapConversationDetailV3FromPayload,
@@ -102,6 +104,42 @@ describe('binary message adapter', () => {
       items: [],
       nextCursor: 'opaque-next-cursor',
       hasMore: true
+    })
+  })
+
+  it('maps the admin-only account projection without changing account list layout', () => {
+    const parts: Uint8Array[] = []
+    const subject = append(parts, 'Admin support')
+    const sender = append(parts, '账号 #42')
+    const preview = append(parts, 'Account reply')
+    const header = new Uint8Array(8 + 92)
+    const view = new DataView(header.buffer)
+    view.setInt32(0, 1, true)
+    view.setInt32(4, 1, true)
+    view.setBigInt64(8, 7n, true)
+    view.setInt32(16, 0, true)
+    view.setInt32(20, 1, true)
+    view.setBigInt64(24, BigInt(Date.parse('2026-01-02T03:04:05.000Z')), true)
+    view.setBigInt64(32, BigInt(Date.parse('2026-01-03T03:04:05.000Z')), true)
+    header[41] = 1
+    header[42] = 1
+    slice(view, 44, subject.offset, subject.length)
+    view.setInt32(52, 0, true)
+    view.setBigInt64(56, BigInt(Date.parse('2026-01-04T03:04:05.000Z')), true)
+    header[64] = 1
+    slice(view, 68, sender.offset, sender.length)
+    slice(view, 76, preview.offset, preview.length)
+    view.setBigInt64(84, 42n, true)
+    view.setInt32(92, 1, true)
+
+    expect(mapAdminConversationListFromPayload(withBlob(header, parts))).toMatchObject({
+      total: 1,
+      items: [{
+        conversationId: '7',
+        counterpartyAccountId: '42',
+        counterpartyAccountStatus: 1,
+        lastMessage: { senderName: '账号 #42' }
+      }]
     })
   })
 
@@ -228,6 +266,39 @@ describe('binary message adapter', () => {
       hasOlder: true,
       subject: 'Paged thread',
       messages: [{ messageId: '50', body: 'Old page' }]
+    })
+  })
+
+  it('maps the admin-only detail projection and viewer-aware sender', () => {
+    const parts: Uint8Array[] = []
+    const subject = append(parts, 'Admin thread')
+    const sender = append(parts, '账号 #42')
+    const body = append(parts, 'Account body')
+    const detailHeader = new Uint8Array(68 + 4 + 48)
+    const view = new DataView(detailHeader.buffer)
+    view.setBigInt64(0, 7n, true)
+    view.setInt32(8, 0, true)
+    view.setInt32(12, 1, true)
+    view.setBigInt64(16, BigInt(Date.parse('2026-01-02T03:04:05.000Z')), true)
+    view.setBigInt64(24, 11n, true)
+    detailHeader[41] = 1
+    slice(view, 44, subject.offset, subject.length)
+    view.setBigInt64(52, 42n, true)
+    view.setInt32(60, 2, true)
+    view.setInt32(68, 1, true)
+    view.setBigInt64(72, 11n, true)
+    view.setBigInt64(80, 7n, true)
+    view.setInt32(88, 0, true)
+    view.setBigInt64(92, BigInt(Date.parse('2026-01-02T04:04:05.000Z')), true)
+    detailHeader[100] = 1
+    slice(view, 104, sender.offset, sender.length)
+    slice(view, 112, body.offset, body.length)
+
+    expect(mapAdminConversationDetailFromPayload(withBlob(detailHeader, parts))).toMatchObject({
+      conversationId: '7',
+      counterpartyAccountId: '42',
+      counterpartyAccountStatus: 2,
+      messages: [{ senderName: '账号 #42', body: 'Account body' }]
     })
   })
 })

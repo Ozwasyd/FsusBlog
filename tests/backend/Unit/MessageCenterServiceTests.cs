@@ -53,6 +53,7 @@ public sealed class MessageCenterServiceTests
             db,
             cache,
             Substitute.For<IMessageNotificationStreamPort>(),
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
             NullLogger<MessageCenterService>.Instance);
     }
 
@@ -177,6 +178,10 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("message_thread_pagination_disabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("Messages:AdminQueueProjectionEnabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("message_admin_queue_projection_disabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("Messages:AdminAccountProjectionEnabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("message_admin_account_projection_disabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AdminConversationList", endpoints, StringComparison.Ordinal);
+        Assert.Contains("AdminConversationDetail", endpoints, StringComparison.Ordinal);
         Assert.Contains("Messages:ReplyWritesEnabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("message_reply_writes_disabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("beforeMessageId", endpoints, StringComparison.Ordinal);
@@ -703,5 +708,27 @@ public sealed class MessageCenterServiceTests
         var row = new ConversationMessage { SenderType = MessageSenderType.Account, SenderAccountId = null };
         var result = InvokePrivateStatic<string>("ResolveSenderName", [row]);
         Assert.Equal("你", result);
+    }
+
+    [Fact]
+    public void AdminConversationProjection_IsSeparateMinimalAndViewerAware()
+    {
+        Assert.Null(typeof(ConversationListItemResponse).GetProperty("CounterpartyAccountId"));
+        Assert.Null(typeof(ConversationDetailResponse).GetProperty("CounterpartyAccountId"));
+        Assert.NotNull(typeof(AdminConversationListItemResponse).GetProperty("CounterpartyAccountId"));
+        Assert.NotNull(typeof(AdminConversationDetailResponse).GetProperty("CounterpartyAccountId"));
+        Assert.DoesNotContain(
+            typeof(AdminConversationListItemResponse).GetProperties(),
+            property => property.Name.Contains("Session", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(
+            typeof(AdminConversationDetailResponse).GetProperties(),
+            property => property.Name.Contains("Session", StringComparison.OrdinalIgnoreCase));
+
+        string viewerResolver = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            "ResolveSenderNameForViewer");
+        Assert.Contains("账号 #", viewerResolver, StringComparison.Ordinal);
+        Assert.Contains("管理员", viewerResolver, StringComparison.Ordinal);
+        Assert.Contains("你", viewerResolver, StringComparison.Ordinal);
     }
 }

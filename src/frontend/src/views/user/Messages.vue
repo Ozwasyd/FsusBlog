@@ -294,6 +294,16 @@ const messageSignature = computed(() => (detail.value?.messages ?? [])
   .map((message) => `${message.messageId}:${message.createdAt}`)
   .join('|'))
 const contextAccountText = computed(() => {
+  if (isAdminView.value) {
+    const projection = adminCenter.detail.value ?? adminCenter.selectedConversation.value
+    if (!projection || !projection.counterpartyAccountId || projection.counterpartyAccountId === '0') {
+      return '账号不可用'
+    }
+
+    const status = ['正常', '受限', '已注销', '不可用'][projection.counterpartyAccountStatus] ?? '不可用'
+    return `账号 #${projection.counterpartyAccountId} · ${status}`
+  }
+
   const messages = detail.value?.messages ?? []
   const accountMessage = messages.find((message) => message.senderType === 0 && message.senderName)
   return accountMessage?.senderName || '账号'

@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
@@ -28,6 +30,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(
             db,
+            typeof(User),
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
@@ -54,6 +57,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             db,
             new MessageCacheService(cache, cache, cache),
             notifications,
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
             NullLogger<MessageCenterService>.Instance);
 
         var result = await service.CreateAccountTicketAsync(
@@ -111,6 +115,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(
             db,
+            typeof(User),
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
@@ -124,13 +129,13 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         long conversationId = long.Parse(created.Value!.ConversationId);
         long firstMessageId = long.Parse(Assert.Single(created.Value.Messages).MessageId);
 
-        PageResponse<ConversationListItemResponse> unread =
+        PageResponse<AdminConversationListItemResponse> unread =
             await service.GetAdminConversationsAsync(20, "unread", null);
-        ConversationListItemResponse unreadItem = Assert.Single(unread.Items);
+        AdminConversationListItemResponse unreadItem = Assert.Single(unread.Items);
         Assert.Equal(conversationId.ToString(), unreadItem.ConversationId);
         Assert.Equal(1, unreadItem.UnreadCount);
 
-        ConversationDetailResponse adminDetail = Assert.IsType<ConversationDetailResponse>(
+        AdminConversationDetailResponse adminDetail = Assert.IsType<AdminConversationDetailResponse>(
             await service.GetAdminConversationDetailAsync(conversationId));
         Assert.Equal(0, adminDetail.UnreadCount);
         AdminConversationQueueState queue = Assert.IsType<AdminConversationQueueState>(
@@ -186,6 +191,80 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
     }
 
     [Fact]
+    public async Task AdminProjection_IsViewerAwareMinimalAndConsistentAcrossListDetailAndRealtime()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(User),
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState));
+        int accountId = await db.Insertable(new User
+        {
+            Status = 1,
+            IdentityKind = "anonymous_account",
+            CreateTime = DateTime.UtcNow
+        }).ExecuteReturnIdentityAsync();
+        IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
+        MessageCenterService service = CreateService(db, CreatePermissiveUnifiedCache(), notifications);
+
+        Result<ConversationDetailResponse> created = await service.CreateAccountTicketAsync(
+            accountId,
+            "projection",
+            "account message");
+        Assert.True(created.IsSuccess, created.Error.Message);
+        long conversationId = long.Parse(created.Value!.ConversationId, CultureInfo.InvariantCulture);
+
+        PageResponse<ConversationListItemResponse> accountList = await service.GetAccountConversationsAsync(accountId, 20, null, null);
+        ConversationListItemResponse accountItem = Assert.Single(accountList.Items);
+        Assert.Equal("你", Assert.IsType<ConversationMessagePreviewResponse>(accountItem.LastMessage).SenderName);
+        ConversationDetailResponse accountDetail = Assert.IsType<ConversationDetailResponse>(
+            await service.GetAccountConversationDetailAsync(accountId, conversationId));
+        Assert.Equal("你", Assert.Single(accountDetail.Messages).SenderName);
+
+        PageResponse<AdminConversationListItemResponse> adminList = await service.GetAdminConversationsAsync(20, null, null);
+        AdminConversationListItemResponse adminItem = Assert.Single(adminList.Items);
+        Assert.Equal(accountId.ToString(CultureInfo.InvariantCulture), adminItem.CounterpartyAccountId);
+        Assert.Equal(CounterpartyAccountStatusValue.Restricted, adminItem.CounterpartyAccountStatus);
+        Assert.Equal($"账号 #{accountId}", Assert.IsType<ConversationMessagePreviewResponse>(adminItem.LastMessage).SenderName);
+
+        AdminConversationDetailResponse adminDetail = Assert.IsType<AdminConversationDetailResponse>(
+            await service.GetAdminConversationDetailAsync(conversationId));
+        Assert.Equal(adminItem.CounterpartyAccountId, adminDetail.CounterpartyAccountId);
+        Assert.Equal(adminItem.CounterpartyAccountStatus, adminDetail.CounterpartyAccountStatus);
+        Assert.Equal($"账号 #{accountId}", Assert.Single(adminDetail.Messages).SenderName);
+
+        Assert.True(PodBinaryCodec.TryDecodeAdminConversationList(
+            PodBinaryCodec.EncodeAdminConversationList(adminList),
+            out PageResponse<AdminConversationListItemResponse> listRoundTrip));
+        AdminConversationListItemResponse listRoundTripItem = Assert.Single(listRoundTrip.Items);
+        Assert.Equal(adminItem.ConversationId, listRoundTripItem.ConversationId);
+        Assert.Equal(adminItem.CounterpartyAccountId, listRoundTripItem.CounterpartyAccountId);
+        Assert.Equal(adminItem.CounterpartyAccountStatus, listRoundTripItem.CounterpartyAccountStatus);
+        Assert.Equal(adminItem.LastMessage?.SenderName, listRoundTripItem.LastMessage?.SenderName);
+        Assert.True(PodBinaryCodec.TryDecodeAdminConversationDetail(
+            PodBinaryCodec.EncodeAdminConversationDetail(adminDetail),
+            out AdminConversationDetailResponse detailRoundTrip));
+        Assert.Equal(adminDetail.CounterpartyAccountId, detailRoundTrip.CounterpartyAccountId);
+        Assert.Equal(adminDetail.CounterpartyAccountStatus, detailRoundTrip.CounterpartyAccountStatus);
+        Assert.Equal(adminDetail.Messages.Select(static message => message.SenderName), detailRoundTrip.Messages.Select(static message => message.SenderName));
+        Assert.Equal(adminDetail.Messages.Select(static message => message.Body), detailRoundTrip.Messages.Select(static message => message.Body));
+
+        var upsertCall = notifications.ReceivedCalls().Last(call =>
+            call.GetMethodInfo().Name == nameof(IMessageNotificationStreamPort.PublishToAdminUsersAsync) &&
+            Equals(call.GetArguments()[0], NotificationStreamEventType.InboxConversationUpsert));
+        InboxConversationUpsertPayload realtime = Assert.IsType<InboxConversationUpsertPayload>(upsertCall.GetArguments()[1]);
+        AdminConversationListItemResponse realtimeProjection = Assert.IsType<AdminConversationListItemResponse>(realtime.Conversation);
+        Assert.Equal(adminItem.CounterpartyAccountId, realtimeProjection.CounterpartyAccountId);
+        Assert.Equal(adminItem.CounterpartyAccountStatus, realtimeProjection.CounterpartyAccountStatus);
+        Assert.DoesNotContain(
+            realtimeProjection.GetType().GetProperties(),
+            property => property.Name.Contains("Session", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     [Trait("Category", "Concurrency")]
     public async Task AdminQueueState_ConcurrentAccountRepliesIncrementWithoutLostUpdates()
     {
@@ -193,6 +272,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
         PostgresSqlSugarTestClient.InitTables(
             setup,
+            typeof(User),
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
@@ -229,6 +309,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(
             db,
+            typeof(User),
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
@@ -327,6 +408,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
         PostgresSqlSugarTestClient.InitTables(
             setup,
+            typeof(User),
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
@@ -388,6 +470,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(
             db,
+            typeof(User),
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
@@ -429,6 +512,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(
             db,
+            typeof(User),
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
@@ -478,6 +562,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
         PostgresSqlSugarTestClient.InitTables(
             setup,
+            typeof(User),
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
@@ -630,6 +715,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
         PostgresSqlSugarTestClient.InitTables(
             setup,
+            typeof(User),
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
@@ -739,6 +825,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
         PostgresSqlSugarTestClient.InitTables(
             setup,
+            typeof(User),
             typeof(MessageConversation),
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
@@ -861,14 +948,14 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
         Assert.Equal(35, closedItems.Count);
         Assert.All(closedItems, static item => Assert.Equal(ConversationStatusValue.Closed, item.Status));
 
-        var adminItems = new List<ConversationListItemResponse>();
-        page = await service.GetAdminConversationsAsync(30, "all", null);
-        adminItems.AddRange(page.Items);
-        while (page.HasMore)
+        var adminItems = new List<AdminConversationListItemResponse>();
+        PageResponse<AdminConversationListItemResponse> adminPage = await service.GetAdminConversationsAsync(30, "all", null);
+        adminItems.AddRange(adminPage.Items);
+        while (adminPage.HasMore)
         {
-            Assert.True(MessageConversationCursor.TryDecode(page.NextCursor, out MessageConversationCursor cursor));
-            page = await service.GetAdminConversationsAsync(30, "all", cursor);
-            adminItems.AddRange(page.Items);
+            Assert.True(MessageConversationCursor.TryDecode(adminPage.NextCursor, out MessageConversationCursor cursor));
+            adminPage = await service.GetAdminConversationsAsync(30, "all", cursor);
+            adminItems.AddRange(adminPage.Items);
         }
         Assert.Equal(ConversationCount, adminItems.Count);
         Assert.Equal(ConversationCount, adminItems.Select(static item => item.ConversationId).Distinct().Count());
@@ -965,6 +1052,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             db,
             new MessageCacheService(unifiedCache, unifiedCache, unifiedCache),
             notifications,
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
             NullLogger<MessageCenterService>.Instance);
 
     private static IUnifiedCache CreatePermissiveUnifiedCache()

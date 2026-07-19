@@ -21,6 +21,7 @@ public sealed class MessageCenterService(
     ISqlSugarClient db,
     MessageCacheService cache,
     IMessageNotificationStreamPort notificationStreamPort,
+    IConfiguration configuration,
     ILogger<MessageCenterService> logger) : IMessageQueryService, IMessageCommandService, IMessageRealtimePublisher, IMessageAdminQueueMaintenance
 {
     private const int MaxSubjectLength = 160;
@@ -79,7 +80,7 @@ public sealed class MessageCenterService(
             return null;
         }
 
-        var page = await LoadConversationMessagePageAsync(conversationId, beforeMessageId);
+        var page = await LoadConversationMessagePageAsync(conversationId, beforeMessageId, MessageViewer.Account);
         if (page.Messages.Count == 0)
         {
             return null;
@@ -100,7 +101,7 @@ public sealed class MessageCenterService(
         };
     }
 
-    public async Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync(
+    public async Task<PageResponse<AdminConversationListItemResponse>> GetAdminConversationsAsync(
         int size,
         string? filter,
         MessageConversationCursor? cursor)
@@ -121,12 +122,12 @@ public sealed class MessageCenterService(
             rows.RemoveAt(rows.Count - 1);
         }
 
-        var items = await BuildConversationListAsync(rows, includeUnread: true, snapshotMessageId);
+        var items = await BuildAdminConversationListAsync(rows, snapshotMessageId);
         string? nextCursor = hasMore && rows.Count > 0
             ? new MessageConversationCursor(snapshotMessageId, rows[^1].LastMessageAt, rows[^1].ConversationId).Encode()
             : null;
         FsusObservability.RecordMessageCenterList("admin", FsusObservability.GetElapsed(startedAt));
-        return new PageResponse<ConversationListItemResponse>
+        return new PageResponse<AdminConversationListItemResponse>
         {
             Items = items,
             Total = total,
@@ -135,7 +136,7 @@ public sealed class MessageCenterService(
         };
     }
 
-    public async Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId, long? beforeMessageId = null)
+    public async Task<AdminConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId, long? beforeMessageId = null)
     {
         var conversation = await db.Queryable<MessageConversation>().InSingleAsync(conversationId);
         if (conversation is null)
@@ -143,7 +144,8 @@ public sealed class MessageCenterService(
             return null;
         }
 
-        var page = await LoadConversationMessagePageAsync(conversationId, beforeMessageId);
+        AdminCounterpartyProjection counterparty = await LoadAdminCounterpartyProjectionAsync(conversation);
+        var page = await LoadConversationMessagePageAsync(conversationId, beforeMessageId, MessageViewer.Admin);
         if (page.Messages.Count == 0)
         {
             return null;
@@ -151,7 +153,7 @@ public sealed class MessageCenterService(
         int unreadCount = beforeMessageId.HasValue
             ? await LoadAdminQueueUnreadCountAsync(conversationId)
             : await AdvanceAdminQueueReadAsync(conversationId, long.Parse(page.Messages[^1].MessageId, CultureInfo.InvariantCulture), DateTime.UtcNow);
-        return new ConversationDetailResponse
+        return new AdminConversationDetailResponse
         {
             ConversationId = conversation.Id.ToString(),
             ReadSnapshotMessageId = page.Messages[^1].MessageId,
@@ -163,7 +165,9 @@ public sealed class MessageCenterService(
             CanReply = conversation.Status != ConversationStatus.Closed,
             UnreadCount = unreadCount,
             LastMessageAt = conversation.LastMessageAt,
-            Messages = page.Messages
+            Messages = page.Messages,
+            CounterpartyAccountId = counterparty.AccountId.ToString(CultureInfo.InvariantCulture),
+            CounterpartyAccountStatus = counterparty.Status
         };
     }
 
@@ -171,6 +175,20 @@ public sealed class MessageCenterService(
     {
         var state = await db.Queryable<AdminConversationQueueState>().InSingleAsync(conversationId);
         return state?.UnreadCount ?? 0;
+    }
+
+    private async Task<AdminCounterpartyProjection> LoadAdminCounterpartyProjectionAsync(MessageConversation conversation)
+    {
+        if (!conversation.InitiatorAccountId.HasValue || conversation.InitiatorAccountId.Value <= 0)
+        {
+            return new AdminCounterpartyProjection(0, CounterpartyAccountStatusValue.Missing);
+        }
+
+        int accountId = conversation.InitiatorAccountId.Value;
+        User? account = await db.Queryable<User>().InSingleAsync(accountId);
+        return new AdminCounterpartyProjection(
+            accountId,
+            account is null ? CounterpartyAccountStatusValue.Missing : ToCounterpartyAccountStatus(account.Status));
     }
 
     private async Task<int> AdvanceAdminQueueReadAsync(long conversationId, long readThroughMessageId, DateTime now)
@@ -469,9 +487,12 @@ public sealed class MessageCenterService(
         }
 
         int totalUnread = await RefreshUnreadCacheAsync(accountId);
+        ConversationMessageResponse? adminMessage = await BuildMessageResponseAsync(conversationId, messageId, MessageViewer.Admin);
         await Task.WhenAll(
             PublishConversationUpsertAsync(accountId, detail),
-            PublishMessageAppendAsync(detail.ConversationId, detail.Messages.Last(), conversationUnreadCount: 0, totalUnread: totalUnread),
+            adminMessage is null
+                ? Task.CompletedTask
+                : PublishMessageAppendAsync(detail.ConversationId, adminMessage, conversationUnreadCount: 0, totalUnread: totalUnread),
             PublishConversationUpsertToAdminsAsync(conversationId));
         return Result<ConversationDetailResponse>.Success(detail);
     }
@@ -502,16 +523,22 @@ public sealed class MessageCenterService(
             return MapReplyWriteOutcome(writeOutcome);
         }
 
-        var message = await BuildMessageResponseAsync(conversationId, writeOutcome.DeliveryEvent.MessageId);
+        var message = await BuildMessageResponseAsync(conversationId, writeOutcome.DeliveryEvent.MessageId, MessageViewer.Account);
         if (message is null)
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
         }
 
         int totalUnread = await RefreshUnreadCacheAsync(accountId);
+        ConversationMessageResponse? adminMessage = await BuildMessageResponseAsync(
+            conversationId,
+            writeOutcome.DeliveryEvent.MessageId,
+            MessageViewer.Admin);
         await Task.WhenAll(
             PublishReadUpdatedAsync(accountId, conversationId, readThroughMessageId, writeOutcome.UnreadCount, totalUnread),
-            PublishMessageAppendAsync(conversationId.ToString(), message, writeOutcome.UnreadCount, totalUnread),
+            adminMessage is null
+                ? Task.CompletedTask
+                : PublishMessageAppendAsync(conversationId.ToString(), adminMessage, writeOutcome.UnreadCount, totalUnread),
             PublishConversationUpsertToAdminsAsync(conversationId));
         FsusObservability.RecordMessageCenterReply("account", FsusObservability.GetElapsed(startedAt));
         return Result<ConversationMessageResponse>.Success(message);
@@ -885,7 +912,7 @@ public sealed class MessageCenterService(
             return MapReplyWriteOutcome(writeOutcome);
         }
 
-        var message = await BuildMessageResponseAsync(conversationId, writeOutcome.DeliveryEvent.MessageId);
+        var message = await BuildMessageResponseAsync(conversationId, writeOutcome.DeliveryEvent.MessageId, MessageViewer.Admin);
         if (message is null)
         {
             return Result<ConversationMessageResponse>.Failure(ErrorCode.InfraFailure, "回复写入失败");
@@ -924,7 +951,7 @@ public sealed class MessageCenterService(
             publishTasks.Add(PublishConversationClosedAsync(participants[i], conversationId, status));
         }
 
-        publishTasks.Add(PublishConversationClosedToAdminsAsync(conversationId, status));
+        publishTasks.Add(PublishConversationUpsertToAdminsAsync(conversationId));
         await Task.WhenAll(publishTasks);
         return Result.Success();
     }
@@ -1141,7 +1168,47 @@ public sealed class MessageCenterService(
         return items;
     }
 
-    private async Task<ConversationMessagePage> LoadConversationMessagePageAsync(long conversationId, long? beforeMessageId)
+    private async Task<List<AdminConversationListItemResponse>> BuildAdminConversationListAsync(
+        List<AccountConversationRow> rows,
+        long? snapshotMessageId = null)
+    {
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        long[] ids = CollectConversationIds(rows);
+        Dictionary<long, ConversationMessagePreviewResponse> lastMessageMap = await LoadLastMessageMapAsync(
+            ids,
+            snapshotMessageId,
+            MessageViewer.Admin);
+        var items = new List<AdminConversationListItemResponse>(rows.Count);
+        foreach (AccountConversationRow row in rows)
+        {
+            lastMessageMap.TryGetValue(row.ConversationId, out ConversationMessagePreviewResponse? lastMessage);
+            items.Add(new AdminConversationListItemResponse
+            {
+                ConversationId = row.ConversationId.ToString(CultureInfo.InvariantCulture),
+                Subject = row.Subject,
+                Status = ToStatusValue(row.Status),
+                IsSystemSource = row.IsSystemSource,
+                CanReply = row.Status != ConversationStatus.Closed,
+                UnreadCount = row.UnreadCount,
+                LastMessageAt = row.LastMessageAt,
+                UpdatedAt = row.UpdatedAt,
+                LastMessage = lastMessage,
+                CounterpartyAccountId = row.CounterpartyAccountId.ToString(CultureInfo.InvariantCulture),
+                CounterpartyAccountStatus = row.CounterpartyAccountStatus
+            });
+        }
+
+        return items;
+    }
+
+    private async Task<ConversationMessagePage> LoadConversationMessagePageAsync(
+        long conversationId,
+        long? beforeMessageId,
+        MessageViewer viewer)
     {
         var query = db.Queryable<ConversationMessage>()
             .Where(it => it.ConversationId == conversationId && !it.IsInternalNote)
@@ -1157,14 +1224,15 @@ public sealed class MessageCenterService(
         }
 
         rows.Reverse();
-        List<ConversationMessageResponse> messages = await MapMessagesAsync(rows);
+        List<ConversationMessageResponse> messages = await MapMessagesAsync(rows, viewer);
         string? previousCursor = hasOlder && rows.Count > 0 ? rows[0].Id.ToString() : null;
         return new ConversationMessagePage(messages, previousCursor, hasOlder);
     }
 
     private async Task<Dictionary<long, ConversationMessagePreviewResponse>> LoadLastMessageMapAsync(
         long[] conversationIds,
-        long? snapshotMessageId = null)
+        long? snapshotMessageId = null,
+        MessageViewer viewer = MessageViewer.Account)
     {
         if (conversationIds.Length == 0)
         {
@@ -1172,7 +1240,7 @@ public sealed class MessageCenterService(
         }
 
         List<ConversationMessage> rows = await LoadLastMessagesSingleQueryAsync(conversationIds, snapshotMessageId);
-        var mapped = await MapMessagesAsync(rows);
+        var mapped = await MapMessagesAsync(rows, viewer);
         Dictionary<long, ConversationMessagePreviewResponse> mappedByMessageId = BuildMessagePreviewMap(mapped, logger);
         var latestRows = new List<(long ConversationId, long MessageId)>(rows.Count);
         for (int i = 0; i < rows.Count; i++)
@@ -1278,6 +1346,11 @@ public sealed class MessageCenterService(
     }
 
     private static Task<List<ConversationMessageResponse>> MapMessagesAsync(List<ConversationMessage> rows)
+        => MapMessagesAsync(rows, MessageViewer.Account);
+
+    private static Task<List<ConversationMessageResponse>> MapMessagesAsync(
+        List<ConversationMessage> rows,
+        MessageViewer viewer)
     {
         if (rows.Count == 0)
         {
@@ -1293,7 +1366,7 @@ public sealed class MessageCenterService(
                 MessageId = row.Id.ToString(),
                 ConversationId = row.ConversationId.ToString(),
                 SenderType = ToSenderValue(row.SenderType),
-                SenderName = ResolveSenderName(row),
+                SenderName = ResolveSenderNameForViewer(row, viewer),
                 Body = row.Body,
                 CreatedAt = row.CreatedAt
             });
@@ -1302,7 +1375,10 @@ public sealed class MessageCenterService(
         return Task.FromResult(result);
     }
 
-    private async Task<ConversationMessageResponse?> BuildMessageResponseAsync(long conversationId, long messageId)
+    private async Task<ConversationMessageResponse?> BuildMessageResponseAsync(
+        long conversationId,
+        long messageId,
+        MessageViewer viewer = MessageViewer.Account)
     {
         var row = await db.Queryable<ConversationMessage>()
             .Where(it => it.ConversationId == conversationId && it.Id == messageId)
@@ -1312,7 +1388,7 @@ public sealed class MessageCenterService(
             return null;
         }
 
-        return (await MapMessagesAsync([row])).FirstOrDefault();
+        return (await MapMessagesAsync([row], viewer)).FirstOrDefault();
     }
 
     private async Task<ConversationListItemResponse?> BuildConversationListItemForAccountAsync(int accountId, long conversationId)
@@ -1339,6 +1415,32 @@ public sealed class MessageCenterService(
         return (await BuildConversationListAsync(rows, includeUnread: true)).FirstOrDefault();
     }
 
+    private async Task<AdminConversationListItemResponse?> BuildAdminConversationListItemAsync(long conversationId)
+    {
+        List<AccountConversationRow> rows = await db.Ado.SqlQueryAsync<AccountConversationRow>(
+            """
+            SELECT conversation.id AS conversationid,
+                   conversation.subject,
+                   conversation.status,
+                   conversation.issystemsource,
+                   COALESCE(admin_queue.unreadcount, 0) AS unreadcount,
+                   conversation.lastmessageat,
+                   conversation.updatedat,
+                   COALESCE(conversation.initiatoraccountid, 0) AS counterpartyaccountid,
+                   CASE
+                       WHEN counterparty.id IS NULL OR counterparty.status NOT BETWEEN 0 AND 2 THEN @MissingStatus
+                       ELSE counterparty.status
+                   END AS counterpartyaccountstatus
+            FROM msg_conversation conversation
+            LEFT JOIN msg_admin_queue_state admin_queue ON admin_queue.conversationid = conversation.id
+            LEFT JOIN sys_user counterparty ON counterparty.id = conversation.initiatoraccountid
+            WHERE conversation.id = @ConversationId;
+            """,
+            new SugarParameter("@ConversationId", conversationId),
+            new SugarParameter("@MissingStatus", (int)CounterpartyAccountStatusValue.Missing));
+        return (await BuildAdminConversationListAsync(rows)).FirstOrDefault();
+    }
+
     private async Task PublishConversationUpsertAsync(int accountId, ConversationDetailResponse detail, int? totalUnread = null)
     {
         var summary = new ConversationListItemResponse
@@ -1363,11 +1465,23 @@ public sealed class MessageCenterService(
             new InboxConversationUpsertPayload(summary, totalUnread, DateTime.UtcNow),
             "inbox-conversation-upsert");
 
-    private Task PublishConversationUpsertToAdminsAsync(long conversationId)
+    private async Task PublishConversationUpsertToAdminsAsync(long conversationId)
     {
-        return notificationStreamPort.PublishToAdminUsersAsync(
+        if (!IsAdminAccountProjectionEnabled())
+        {
+            return;
+        }
+
+        AdminConversationListItemResponse? summary = await BuildAdminConversationListItemAsync(conversationId);
+        if (summary is null)
+        {
+            logger.LogWarning("Admin conversation projection missing. ConversationId: {ConversationId}", conversationId);
+            return;
+        }
+
+        await notificationStreamPort.PublishToAdminUsersAsync(
             NotificationStreamEventType.InboxConversationUpsert,
-            new InboxConversationUpsertPayload(new ConversationListItemResponse { ConversationId = conversationId.ToString() }, null, DateTime.UtcNow),
+            new InboxConversationUpsertPayload(summary, null, DateTime.UtcNow),
             "admin-conversation-upsert");
     }
 
@@ -1584,6 +1698,15 @@ public sealed class MessageCenterService(
             _ => ConversationStatus.Open
         };
 
+    private static CounterpartyAccountStatusValue ToCounterpartyAccountStatus(int status)
+        => status switch
+        {
+            0 => CounterpartyAccountStatusValue.Active,
+            1 => CounterpartyAccountStatusValue.Restricted,
+            2 => CounterpartyAccountStatusValue.Deleted,
+            _ => CounterpartyAccountStatusValue.Missing
+        };
+
     private static ConversationSenderValue ToSenderValue(MessageSenderType senderType)
         => senderType switch
         {
@@ -1593,14 +1716,29 @@ public sealed class MessageCenterService(
         };
 
     private static string ResolveSenderName(ConversationMessage row)
+        => ResolveSenderNameForViewer(row, MessageViewer.Account);
+
+    private static string ResolveSenderNameForViewer(ConversationMessage row, MessageViewer viewer)
     {
         if (row.SenderType == MessageSenderType.System)
         {
             return "系统";
         }
 
-        return row.SenderType == MessageSenderType.Admin ? "管理员" : "你";
+        if (row.SenderType == MessageSenderType.Admin)
+        {
+            return "管理员";
+        }
+
+        return viewer == MessageViewer.Admin
+            ? row.SenderAccountId.HasValue
+                ? $"账号 #{row.SenderAccountId.Value.ToString(CultureInfo.InvariantCulture)}"
+                : "账号"
+            : "你";
     }
+
+    private bool IsAdminAccountProjectionEnabled()
+        => configuration.GetValue<bool?>("Messages:AdminAccountProjectionEnabled") ?? true;
 
     private async Task<long> LoadConversationListSnapshotMessageIdAsync()
     {
@@ -1655,6 +1793,15 @@ public sealed class MessageCenterService(
         string queueStateJoin = accountId.HasValue
             ? "JOIN msg_participant_state participant ON participant.conversationid = conversation.id"
             : "LEFT JOIN msg_admin_queue_state admin_queue ON admin_queue.conversationid = conversation.id";
+        string counterpartyJoin = accountId.HasValue
+            ? string.Empty
+            : "LEFT JOIN sys_user counterparty ON counterparty.id = conversation.initiatoraccountid";
+        string counterpartyAccountIdProjection = accountId.HasValue
+            ? "0"
+            : "COALESCE(conversation.initiatoraccountid, 0)";
+        string counterpartyStatusProjection = accountId.HasValue
+            ? ((int)CounterpartyAccountStatusValue.Missing).ToString(CultureInfo.InvariantCulture)
+            : $"CASE WHEN counterparty.id IS NULL OR counterparty.status NOT BETWEEN 0 AND 2 THEN {(int)CounterpartyAccountStatusValue.Missing} ELSE counterparty.status END";
         string accountPredicate = accountId.HasValue ? "AND participant.accountid = @AccountId" : string.Empty;
         string unreadProjection = accountId.HasValue ? "participant.unreadcount" : "COALESCE(admin_queue.unreadcount, 0)";
         string filterPredicate = BuildSnapshotConversationFilter(filter, accountId.HasValue);
@@ -1683,9 +1830,12 @@ public sealed class MessageCenterService(
                    conversation.issystemsource,
                    {unreadProjection} AS unreadcount,
                    latest.createdat AS lastmessageat,
-                   conversation.updatedat
+                   conversation.updatedat,
+                   {counterpartyAccountIdProjection} AS counterpartyaccountid,
+                   {counterpartyStatusProjection} AS counterpartyaccountstatus
             FROM msg_conversation conversation
             {queueStateJoin}
+            {counterpartyJoin}
             JOIN LATERAL (
                 SELECT message.id,
                        message.createdat
@@ -1777,7 +1927,25 @@ public sealed class MessageCenterService(
         {
             get; set;
         }
+        public int CounterpartyAccountId
+        {
+            get; set;
+        }
+        public CounterpartyAccountStatusValue CounterpartyAccountStatus
+        {
+            get; set;
+        } = CounterpartyAccountStatusValue.Missing;
     }
+
+    private enum MessageViewer
+    {
+        Account,
+        Admin
+    }
+
+    private readonly record struct AdminCounterpartyProjection(
+        int AccountId,
+        CounterpartyAccountStatusValue Status);
 
     private sealed record ParticipantMessageFanoutPayload(
         ConversationParticipantState Participant,

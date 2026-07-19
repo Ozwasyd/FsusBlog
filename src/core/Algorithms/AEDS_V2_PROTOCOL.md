@@ -136,6 +136,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `196`: AnonymousCredentialRevocationSnapshot
 - `197`: AnonymousCredentialRevocationDelta
 - `205`: CommentCreateResult
+- `206`: AdminConversationList
+- `207`: AdminConversationDetail
 - `240`: EmptySuccess
 - `241`: MutationId
 - `251`: ApiError
@@ -193,6 +195,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `ConversationDetail` payload: `ConversationDetailPod`, `int32 count`, `ConversationMessagePod[count]`, followed by shared blob payload for subject/body slices.
 - `ConversationDetailV2` payload: `ConversationDetailV2Pod` (including `ReadSnapshotMessageId`), `int32 count`, `ConversationMessagePod[count]`, followed by shared blob payload for subject/body slices.
 - `ConversationDetailV3` payload: 52-byte `ConversationDetailV3Pod` (including `ReadSnapshotMessageId`, `PreviousCursorMessageId`, and `HasOlder`), `int32 count`, `ConversationMessagePod[count]`, followed by the shared subject/body blob. `HasOlder=1` requires a positive previous cursor; terminal pages encode cursor `0`.
+- `AdminConversationList` payload uses the same optional cursor envelope as `ConversationList`, followed by `total`, `count`, 92-byte `AdminConversationListItemPod[count]`, and the shared blob. Each item nests the unchanged 76-byte account list pod plus only `CounterpartyAccountId` and `CounterpartyAccountStatus`.
+- `AdminConversationDetail` payload starts with a 68-byte `AdminConversationDetailPod` (the unchanged 52-byte v3 detail header plus the same minimal counterparty projection), followed by `int32 count`, `ConversationMessagePod[count]`, and the shared blob. These two frames are admin-only; account endpoints never emit them.
 - `ConversationMessage` payload: `ConversationMessagePod` followed by blob payload for sender/body slices.
 - `PasskeyRegisterBegin` payload: `PasskeyRegisterBeginPod`, `PasskeyPublicKeyCredentialParamPod[count]`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP, accountName, accountDisplayName, accountHandle, challenge, and credential-id slices. The account fields are Passkey-safe labels/handle and are mapped to WebAuthn `user.name`, `user.displayName`, and `user.id` only at the browser adapter boundary.
 - `PasskeyLoginBegin` payload: `PasskeyLoginBeginPod`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP/challenge/credential-id slices.

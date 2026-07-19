@@ -5725,7 +5725,7 @@
         "summary": "/admin/messages/conversations",
         "responses": {
           "200": {
-            "description": "ConversationList AEDS frame",
+            "description": "AdminConversationList AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -5747,7 +5747,7 @@
             }
           },
           "503": {
-            "description": "ApiError AEDS frame when cursor pagination is disabled.",
+            "description": "ApiError AEDS frame when cursor pagination, admin unread, or admin account projection is disabled.",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -5772,7 +5772,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": null,
-        "x-fsus-response-frame": "ConversationList",
+        "x-fsus-response-frame": "AdminConversationList",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "admin",
         "x-fsus-pow": false,
@@ -5832,7 +5832,7 @@
         "summary": "/admin/messages/conversations/{id:long}",
         "responses": {
           "200": {
-            "description": "ConversationDetailV3 AEDS frame",
+            "description": "AdminConversationDetail AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -5854,7 +5854,7 @@
             }
           },
           "503": {
-            "description": "ApiError AEDS frame when thread pagination is disabled.",
+            "description": "ApiError AEDS frame when thread pagination, admin unread, or admin account projection is disabled.",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -5879,7 +5879,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": null,
-        "x-fsus-response-frame": "ConversationDetailV3",
+        "x-fsus-response-frame": "AdminConversationDetail",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "admin",
         "x-fsus-pow": false,

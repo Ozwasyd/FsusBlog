@@ -542,6 +542,11 @@ export interface ConversationListItemResponse {
   lastMessage?: ConversationMessagePreviewResponse | null
 }
 
+export interface AdminConversationListItemResponse extends ConversationListItemResponse {
+  counterpartyAccountId: string
+  counterpartyAccountStatus: 0 | 1 | 2 | 3
+}
+
 export interface ConversationDetailResponse {
   conversationId: string
   readSnapshotMessageId: string
@@ -554,6 +559,11 @@ export interface ConversationDetailResponse {
   unreadCount: number
   lastMessageAt: string
   messages: ConversationMessageResponse[]
+}
+
+export interface AdminConversationDetailResponse extends ConversationDetailResponse {
+  counterpartyAccountId: string
+  counterpartyAccountStatus: 0 | 1 | 2 | 3
 }
 
 export interface InboxConversationUpsertPayload {

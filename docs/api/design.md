@@ -136,6 +136,18 @@ notification stream 不受影响。不能回退到 `OFFSET`、旧 `page` 参数�
 `503 message_admin_queue_projection_disabled`；账号读写和消息落库继续工作，修复/重建后
 可直接重新启用，不需要重启，也不得回退到参与者未读聚合。
 
+管理端列表和详情使用独立的 `AdminConversationList(206)` / `AdminConversationDetail(207)`
+projection，只增加最小的 `counterpartyAccountId` 与账户状态（正常、受限、已注销、不可用）。
+账户端仍使用原有 `ConversationList(56)` / `ConversationDetailV3(204)`，其 DTO 和 wire layout
+均不包含对方账户字段。sender display 按 viewer 生成：账户端只见“你/管理员/系统”，管理端
+见“账号 #ID/管理员/系统”。管理端实时 upsert 复用同一 projection，不返回 public handle、
+处罚原因、管理员 principal 或 session id。
+
+reload-capable `Messages:AdminAccountProjectionEnabled=false` 可在不重启进程的情况下让管理端
+列表/详情返回 `503 message_admin_account_projection_disabled` 并停止生成管理端 projection
+实时 upsert；账户消息协议与账号读写不受影响。修复账户投影数据后可直接重新启用，不得回退
+为从 `senderName` 猜测账号或向账户 frame 增加身份字段。
+
 账号与 admin 消息详情使用 `ConversationDetailV3`，默认只返回最新 50 条非 internal
 消息。响应的 `previousCursor` 是本页最旧消息 ID；`hasOlder=true` 时，客户端把该值原样
 作为 `beforeMessageId` 发起下一次向前读取。客户端必须按 message ID 去重并保持升序，
