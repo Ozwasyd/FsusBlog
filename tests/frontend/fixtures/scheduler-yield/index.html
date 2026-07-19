@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>FsusBlog scheduler.yield local experiment</title>
+    <style>
+      body { margin: 0; padding: 24px; background: #f4f2ec; color: #292720; font: 16px/1.5 system-ui, sans-serif; }
+      main { max-width: 920px; margin: 0 auto; }
+      .controls { display: flex; gap: 12px; margin-block: 20px; }
+      button { min-height: 44px; padding: 8px 16px; }
+      #workload { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+      .work-item { min-width: 0; padding: 4px 6px; background: #fff; border: 1px solid #d8d3c7; }
+      output { display: block; margin-block: 16px; padding: 12px; background: #fff; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>scheduler.yield local controlled experiment</h1>
+      <p id="profile">Loading profile…</p>
+      <div class="controls">
+        <button id="start" type="button">Run workload</button>
+        <button id="probe" type="button">Interaction probe</button>
+      </div>
+      <output id="status">Ready</output>
+      <section id="workload" aria-label="Synthetic DOM projection"></section>
+    </main>
+    <script type="module" src="./experiment.ts"></script>
+  </body>
+</html>
