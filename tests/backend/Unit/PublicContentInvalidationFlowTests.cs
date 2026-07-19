@@ -225,8 +225,9 @@ public sealed class PublicContentInvalidationFlowTests
         string method = RuntimeMetadataInspection.DescribeMethods(worker, "PublishDueArticlesAsync");
         string claim = RuntimeMetadataInspection.DescribeMethods(worker, "ClaimDueArticlesAsync");
 
-        Assert.Contains("ORDER BY scheduled_publish_at, id", claim, StringComparison.Ordinal);
-        Assert.Contains("FOR UPDATE SKIP LOCKED", claim, StringComparison.Ordinal);
+        Assert.Contains("ScheduledPublishQuery.get_ClaimDueArticlesSql", claim, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY due.due_at, article.id", ScheduledPublishQuery.ClaimDueArticlesSql, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE OF article SKIP LOCKED", ScheduledPublishQuery.ClaimDueArticlesSql, StringComparison.Ordinal);
         Assert.DoesNotContain("scheduled-publish-body-batch-query", method, StringComparison.Ordinal);
         Assert.DoesNotContain("scheduled-publish-tags-batch-query", method, StringComparison.Ordinal);
         Assert.DoesNotContain("scheduled-publish-body-query", method, StringComparison.Ordinal);

@@ -191,31 +191,7 @@ public sealed class ScheduledPublishWorker(
         {
             var due = new List<ScheduledPublicationCandidate>();
             using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-                """
-                SELECT
-                    article.id,
-                    revision.id AS revision_id,
-                    revision.revision_no,
-                    rights.id AS rights_snapshot_id,
-                    responsibility.id AS responsibility_snapshot_id
-                FROM article article
-                JOIN article_revision revision ON revision.id = article.current_revision_id
-                JOIN article_rights_snapshot rights
-                  ON rights.article_id = article.id
-                 AND rights.article_revision_id = revision.id
-                LEFT JOIN article_responsibility_snapshot responsibility
-                  ON responsibility.article_revision_id = revision.id
-                WHERE article.id IN (@CandidateArticleIds)
-                  AND article.isdeleted = false
-                  AND (
-                    (article.status = @ScheduledStatus AND article.scheduled_publish_at <= @Now)
-                    OR
-                    (article.status = @PublishedStatus AND article.pending_publication_at <= @Now)
-                  )
-                ORDER BY COALESCE(article.pending_publication_at, article.scheduled_publish_at), article.id
-                LIMIT @BatchSize
-                FOR UPDATE OF article SKIP LOCKED;
-                """,
+                ScheduledPublishQuery.ClaimDueArticlesSql,
                 new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
                 new SugarParameter("@Now", now),
                 new SugarParameter("@ScheduledStatus", (int)ArticleStatus.Scheduled),
@@ -291,18 +267,7 @@ public sealed class ScheduledPublishWorker(
     {
         var articleIds = new List<int>(100);
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            """
-            SELECT id
-            FROM article
-            WHERE isdeleted = false
-              AND (
-                (status = @ScheduledStatus AND scheduled_publish_at <= @Now)
-                OR
-                (status = @PublishedStatus AND pending_publication_at <= @Now)
-              )
-            ORDER BY COALESCE(pending_publication_at, scheduled_publish_at), id
-            LIMIT @BatchSize;
-            """,
+            ScheduledPublishQuery.LoadDueArticleIdsSql,
             new SugarParameter("@ScheduledStatus", (int)ArticleStatus.Scheduled),
             new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
             new SugarParameter("@Now", now),

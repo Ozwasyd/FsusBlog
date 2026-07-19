@@ -2,6 +2,8 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -11,6 +13,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
+
+using Npgsql;
 
 using SqlSugar;
 namespace FsusBlog.Server.Tests;
@@ -55,40 +59,77 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
         Assert.Equal(publication.PublicationNo, outbox.PublicationNo);
         Assert.Contains($"\"articleId\":{dueArticleId}", outbox.PayloadJson, StringComparison.Ordinal);
         Assert.Contains($"\"articlePublicationId\":{publication.Id}", outbox.PayloadJson, StringComparison.Ordinal);
+
+        Assert.Equal(0, await worker.PublishDueArticlesAsync(CancellationToken.None));
+        Assert.Single(await db.Queryable<ArticleMutationOutboxEvent>().ToListAsync());
     }
 
     [Fact]
     public async Task PublishDueArticlesAsync_ClaimsDueRowsWithLockingBatchAndLeavesFutureRowsScheduled()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        int firstDueId = InsertScheduledArticle(db, "first", s_now.UtcDateTime.AddMinutes(-10));
-        int secondDueId = InsertScheduledArticle(db, "second", s_now.UtcDateTime.AddMinutes(-5));
+        int[] dueIds = Enumerable.Range(0, 105)
+            .Select(index => InsertScheduledArticle(
+                db,
+                $"due-{index:D3}",
+                s_now.UtcDateTime.AddMinutes(-200 + index)))
+            .ToArray();
         int futureId = InsertScheduledArticle(db, "future", s_now.UtcDateTime.AddHours(1));
+        QueryPlanEvidence plan = await CaptureDueQueryPlanEvidenceAsync(db);
         var executedSql = new List<string>();
         db.Aop.OnLogExecuting = (sql, _) => executedSql.Add(sql);
         using ServiceProvider provider = CreateWorkerProvider(db);
+        using SqlSugarClient concurrentDb = PostgresSqlSugarTestClient.Create(
+            db.CurrentConnectionConfig.ConnectionString);
+        using ServiceProvider concurrentProvider = CreateWorkerProvider(concurrentDb);
         var logger = new CapturingLogger<ScheduledPublishWorker>();
         var worker = CreateWorker(provider, logger);
+        var concurrentWorker = CreateWorker(concurrentProvider);
 
-        int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
+        int[] firstPass = await Task.WhenAll(
+            worker.PublishDueArticlesAsync(CancellationToken.None),
+            concurrentWorker.PublishDueArticlesAsync(CancellationToken.None));
+        int published = firstPass.Sum();
+        int drained = await worker.PublishDueArticlesAsync(CancellationToken.None);
 
-        Assert.True(published == 2, string.Join(Environment.NewLine, logger.Messages));
-        List<Article> articles = await db.Queryable<Article>().OrderBy(static article => article.Id).ToListAsync();
+        Assert.InRange(published, 100, 105);
+        Assert.Equal(105, published + drained);
+        List<Article> dueArticles = await db.Queryable<Article>()
+            .Where(article => dueIds.Contains(article.Id))
+            .OrderBy(static article => article.Id)
+            .ToListAsync();
+        Article futureArticle = await db.Queryable<Article>().InSingleAsync(futureId);
         List<ArticleMutationOutboxEvent> outbox = await db.Queryable<ArticleMutationOutboxEvent>()
             .OrderBy(static item => item.AggregateId)
             .ToListAsync();
-        string claimSql = Assert.Single(executedSql, static sql =>
+        string claimSql = executedSql.First(static sql =>
             sql.Contains("FOR UPDATE OF article SKIP LOCKED", StringComparison.OrdinalIgnoreCase));
+        string candidateSql = executedSql.First(static sql =>
+            sql.Contains("FROM due_articles", StringComparison.OrdinalIgnoreCase)
+            && !sql.Contains("FOR UPDATE", StringComparison.OrdinalIgnoreCase));
         Assert.Contains("FOR UPDATE OF article SKIP LOCKED", claimSql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("JOIN article_revision", claimSql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("pending_publication_at", claimSql, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(2, published);
-        Assert.Equal([firstDueId, secondDueId], outbox.Select(static item => item.AggregateId).ToArray());
+        Assert.Contains(ScheduledPublishQuery.ScheduledPredicateSql, claimSql, StringComparison.Ordinal);
+        Assert.Contains(ScheduledPublishQuery.PendingPublicationPredicateSql, claimSql, StringComparison.Ordinal);
+        Assert.Contains(ScheduledPublishQuery.ScheduledPredicateSql, candidateSql, StringComparison.Ordinal);
+        Assert.Contains(ScheduledPublishQuery.PendingPublicationPredicateSql, candidateSql, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY due.due_at, article.id", claimSql, StringComparison.Ordinal);
+        Assert.Contains($"ORDER BY {ScheduledPublishQuery.DueOrderSql}", candidateSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("idx_article_scheduled_publish_due_v2", plan.BaselinePlan, StringComparison.Ordinal);
+        Assert.Contains("idx_article_scheduled_publish_due_v2", plan.IndexedPlan, StringComparison.Ordinal);
+        Assert.True(
+            plan.IndexedExecutionMilliseconds < plan.BaselineExecutionMilliseconds,
+            $"Expected indexed due scan ({plan.IndexedExecutionMilliseconds:F3} ms) to beat baseline ({plan.BaselineExecutionMilliseconds:F3} ms).");
+        Assert.True(plan.IndexBytes > 0);
+        Assert.True(plan.IndexBytes < plan.ArticleBytes);
+        Assert.False(plan.IndexExistsAfterRollback);
+        Assert.Equal(dueIds.Order().ToArray(), outbox.Select(static item => item.AggregateId).Order().ToArray());
+        Assert.Equal(outbox.Count, outbox.Select(static item => item.EventId).Distinct(StringComparer.Ordinal).Count());
         Assert.All(outbox, static item => Assert.Equal("scheduled-published", item.EventType));
-        Assert.Equal(ArticleStatus.Published, articles.Single(article => article.Id == firstDueId).Status);
-        Assert.Equal(ArticleStatus.Published, articles.Single(article => article.Id == secondDueId).Status);
-        Assert.Equal(ArticleStatus.Scheduled, articles.Single(article => article.Id == futureId).Status);
-        Assert.NotNull(articles.Single(article => article.Id == futureId).ScheduledPublishAt);
+        Assert.All(dueArticles, static article => Assert.Equal(ArticleStatus.Published, article.Status));
+        Assert.Equal(ArticleStatus.Scheduled, futureArticle.Status);
+        Assert.NotNull(futureArticle.ScheduledPublishAt);
     }
 
     [Fact]
@@ -272,6 +313,106 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
         return articleId;
     }
 
+    private static async Task<QueryPlanEvidence> CaptureDueQueryPlanEvidenceAsync(SqlSugarClient db)
+    {
+        string connectionString = db.CurrentConnectionConfig.ConnectionString;
+        await db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO article (title, categoryid, views, createtime, status, isdeleted)
+            SELECT 'published-plan-' || value, 1, 0, @Now, @PublishedStatus, false
+            FROM generate_series(1, 50000) AS value;
+
+            INSERT INTO article (title, categoryid, views, createtime, status, scheduled_publish_at, isdeleted)
+            SELECT 'future-plan-' || value, 1, 0, @Now, @ScheduledStatus, @FutureAt, false
+            FROM generate_series(1, 20000) AS value;
+
+            INSERT INTO article (title, categoryid, views, createtime, status, scheduled_publish_at, isdeleted)
+            SELECT 'deleted-plan-' || value, 1, 0, @Now, @ScheduledStatus, @DueAt, true
+            FROM generate_series(1, 1000) AS value;
+
+            CREATE INDEX IF NOT EXISTS idx_article_pending_publication_due
+            ON article(pending_publication_at, id)
+            WHERE isdeleted = false AND pending_publication_at IS NOT NULL;
+
+            ANALYZE article;
+            """,
+            new SugarParameter("@Now", s_now.UtcDateTime.AddDays(-30)),
+            new SugarParameter("@PublishedStatus", (int)ArticleStatus.Published),
+            new SugarParameter("@ScheduledStatus", (int)ArticleStatus.Scheduled),
+            new SugarParameter("@FutureAt", s_now.UtcDateTime.AddDays(1)),
+            new SugarParameter("@DueAt", s_now.UtcDateTime.AddDays(-1)));
+
+        QueryPlanMeasurement baseline = await MeasureDueQueryAsync(connectionString);
+        ISchemaMigrationDescriptor migration = ScheduledPublishIndexMigrationDefinitions.BuildMigration();
+        Assert.False(migration.Transactional);
+        Assert.Contains("CREATE INDEX CONCURRENTLY", ScheduledPublishIndexMigrationDefinitions.CreateIndexSql, StringComparison.Ordinal);
+        Assert.Contains("DROP INDEX CONCURRENTLY", ScheduledPublishIndexMigrationDefinitions.RollbackIndexSql, StringComparison.Ordinal);
+        await migration.Steps.Single().ExecuteAsync(db, CancellationToken.None);
+        await db.Ado.ExecuteCommandAsync("ANALYZE article;");
+
+        QueryPlanMeasurement indexed = await MeasureDueQueryAsync(connectionString);
+        long indexBytes = await QueryInt64Async(
+            connectionString,
+            $"SELECT pg_relation_size('{ScheduledPublishIndexMigrationDefinitions.IndexName}');");
+        long articleBytes = await QueryInt64Async(connectionString, "SELECT pg_relation_size('article');");
+
+        await db.Ado.ExecuteCommandAsync(ScheduledPublishIndexMigrationDefinitions.RollbackIndexSql);
+        bool indexExistsAfterRollback = await QueryInt64Async(
+            connectionString,
+            $"SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname = '{ScheduledPublishIndexMigrationDefinitions.IndexName}';") > 0;
+
+        return new QueryPlanEvidence(
+            baseline.Plan,
+            indexed.Plan,
+            baseline.ExecutionMilliseconds,
+            indexed.ExecutionMilliseconds,
+            indexBytes,
+            articleBytes,
+            indexExistsAfterRollback);
+    }
+
+    private static async Task<QueryPlanMeasurement> MeasureDueQueryAsync(string connectionString)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using (var session = new NpgsqlCommand("SET jit = off;", connection))
+        {
+            await session.ExecuteNonQueryAsync();
+        }
+
+        await using var command = new NpgsqlCommand(
+            $"EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {ScheduledPublishQuery.LoadDueArticleIdsSql}",
+            connection);
+        command.Parameters.AddWithValue("ScheduledStatus", (int)ArticleStatus.Scheduled);
+        command.Parameters.AddWithValue("PublishedStatus", (int)ArticleStatus.Published);
+        command.Parameters.AddWithValue("Now", s_now.UtcDateTime);
+        command.Parameters.AddWithValue("BatchSize", 100);
+        var measurements = new List<(string Plan, double ExecutionMilliseconds)>(5);
+        for (int iteration = 0; iteration < 5; iteration++)
+        {
+            object? raw = await command.ExecuteScalarAsync();
+            string plan = Convert.ToString(raw, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+            using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(plan);
+            measurements.Add((
+                plan,
+                document.RootElement[0].GetProperty("Execution Time").GetDouble()));
+        }
+
+        (string selectedPlan, double executionMilliseconds) = measurements
+            .OrderBy(static measurement => measurement.ExecutionMilliseconds)
+            .ElementAt(measurements.Count / 2);
+        return new QueryPlanMeasurement(selectedPlan, executionMilliseconds);
+    }
+
+    private static async Task<long> QueryInt64Async(string connectionString, string sql)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(sql, connection);
+        object? value = await command.ExecuteScalarAsync();
+        return Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     private static ServiceProvider CreateWorkerProvider(
         ISqlSugarClient db,
         IArticlePublicMutationFence? mutationFence = null)
@@ -334,6 +475,17 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
 
         public DbConcurrencyGateSnapshot GetSnapshot() => new(1, 0, 0);
     }
+
+    private sealed record QueryPlanMeasurement(string Plan, double ExecutionMilliseconds);
+
+    private sealed record QueryPlanEvidence(
+        string BaselinePlan,
+        string IndexedPlan,
+        double BaselineExecutionMilliseconds,
+        double IndexedExecutionMilliseconds,
+        long IndexBytes,
+        long ArticleBytes,
+        bool IndexExistsAfterRollback);
 
     private sealed class TestBackgroundWorkerLease : IBackgroundWorkerLease
     {
