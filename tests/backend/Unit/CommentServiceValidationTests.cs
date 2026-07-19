@@ -35,6 +35,8 @@ public class CommentServiceValidationTests
                 invalidations,
                 notifications,
                 NullLogger<CommentModerationService>.Instance),
+            commentAttribution: new CommentAttributionPrivacyService(
+                NullLogger<CommentAttributionPrivacyService>.Instance),
             cacheInvalidationDispatcher: invalidations);
     }
 
@@ -308,6 +310,14 @@ public class CommentServiceValidationTests
         var method = typeof(CommentService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
         return (T)method.Invoke(null, args)!;
     }
+
+    private static T InvokeAttributionPrivateStatic<T>(string methodName, object?[] args)
+    {
+        var method = typeof(CommentAttributionPrivacyService).GetMethod(
+            methodName,
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        return (T)method.Invoke(null, args)!;
+    }
     [Theory]
     [InlineData(null, "")]
     [InlineData("   ", "")]
@@ -333,7 +343,7 @@ public class CommentServiceValidationTests
     [InlineData("   ", false)]
     public void IsCommentContentWithinLimit_ReturnsExpectedForBasicInputs(string content, bool expected)
     {
-        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [content, AnonymousCommentPolicySnapshot.Default]);
+        var result = InvokeAttributionPrivateStatic<bool>("IsContentWithinLimit", [content, AnonymousCommentPolicySnapshot.Default]);
         Assert.Equal(expected, result);
     }
 
@@ -341,7 +351,7 @@ public class CommentServiceValidationTests
     public void IsCommentContentWithinLimit_RejectsOverCharacterLimit()
     {
         string longContent = new('a', AnonymousCommentPolicySnapshot.Default.CommentMaxChars + 1);
-        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [longContent, AnonymousCommentPolicySnapshot.Default]);
+        var result = InvokeAttributionPrivateStatic<bool>("IsContentWithinLimit", [longContent, AnonymousCommentPolicySnapshot.Default]);
         Assert.False(result);
     }
 
@@ -349,7 +359,7 @@ public class CommentServiceValidationTests
     public void IsCommentContentWithinLimit_RejectsOverUtf8ByteLimit()
     {
         string longContent = new('你', (AnonymousCommentPolicySnapshot.Default.CommentMaxUtf8Bytes / 3) + 1);
-        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [longContent, AnonymousCommentPolicySnapshot.Default]);
+        var result = InvokeAttributionPrivateStatic<bool>("IsContentWithinLimit", [longContent, AnonymousCommentPolicySnapshot.Default]);
         Assert.False(result);
     }
 

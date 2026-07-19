@@ -253,18 +253,22 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             antiSpam,
             dispositionPolicy,
             anonymousPolicy: policyService);
+        IConfiguration configuration = BuildConfiguration(limit: 2);
+        var attribution = new CommentAttributionPrivacyService(
+            NullLogger<CommentAttributionPrivacyService>.Instance,
+            policy: policyService,
+            nullifiers: nullifierService,
+            tickets: ticketService,
+            displayNames: new CommentAnonymousDisplayNameGenerator(),
+            configuration: configuration,
+            zkProofs: proofService);
         return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
             notifications,
             moderation,
-            invalidations,
-            anonymousCommentPolicyService: policyService,
-            anonymousNullifierService: nullifierService,
-            anonymousCommentTicketService: ticketService,
-            anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator(),
-            configuration: BuildConfiguration(limit: 2),
-            zkAnonymousProofService: proofService);
+            attribution,
+            invalidations);
     }
 
     private static AntiSpamModerationResult CreateRiskModelResult()

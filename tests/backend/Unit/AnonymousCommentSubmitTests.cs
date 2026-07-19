@@ -111,6 +111,9 @@ public sealed class AnonymousCommentSubmitTests(
         string create = RuntimeMetadataInspection.DescribeMethods(
             typeof(CommentService),
             "CreateResolvedCommentAsync");
+        string attribution = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentAttributionPrivacyService),
+            "ConsumeAnonymousNullifierAsync");
         string nullifier = RuntimeMetadataInspection.DescribeMethods(
             typeof(CommentAnonymousNullifierService),
             nameof(CommentAnonymousNullifierService.TryConsumeAsync));
@@ -121,7 +124,8 @@ public sealed class AnonymousCommentSubmitTests(
             .Select(static instrument => instrument.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        Assert.Contains("TryConsumeAsync", create, StringComparison.Ordinal);
+        Assert.Contains("ConsumeAnonymousNullifierAsync", create, StringComparison.Ordinal);
+        Assert.Contains("TryConsumeAsync", attribution, StringComparison.Ordinal);
         Assert.DoesNotContain("CheckAndReserveAsync", create, StringComparison.Ordinal);
         Assert.DoesNotContain("IncrementUsageAsync", create, StringComparison.Ordinal);
         Assert.Contains("WITH consumed AS", nullifier, StringComparison.Ordinal);
@@ -665,6 +669,8 @@ public sealed class AnonymousCommentSubmitTests(
         nullifierService ??= new RecordingNullifierService();
         dispatcher ??= new RecordingCacheInvalidationDispatcher();
         IConfiguration configuration = BuildConfiguration();
+        var policy = new AnonymousCommentPolicyService(configuration);
+        IZkAnonymousProofService proofs = FixedZkAnonymousProofService.Available();
         var notifications = new CommentNotificationService(
             realtime ?? Substitute.For<IMessageRealtimePublisher>(),
             Substitute.For<IMessageCommandService>(),
@@ -675,19 +681,22 @@ public sealed class AnonymousCommentSubmitTests(
             dispatcher,
             notifications,
             NullLogger<CommentModerationService>.Instance,
-            anonymousPolicy: new AnonymousCommentPolicyService(configuration));
+            anonymousPolicy: policy);
+        var attribution = new CommentAttributionPrivacyService(
+            NullLogger<CommentAttributionPrivacyService>.Instance,
+            policy: policy,
+            nullifiers: nullifierService,
+            tickets: ticketService,
+            displayNames: new CommentAnonymousDisplayNameGenerator(),
+            configuration: configuration,
+            zkProofs: proofs);
         return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
             notifications,
             moderation,
-            dispatcher,
-            anonymousNullifierService: nullifierService,
-            anonymousCommentPolicyService: new AnonymousCommentPolicyService(configuration),
-            anonymousCommentTicketService: ticketService,
-            anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator(),
-            configuration: configuration,
-            zkAnonymousProofService: FixedZkAnonymousProofService.Available());
+            attribution,
+            dispatcher);
     }
 
     private static IConfiguration BuildConfiguration()

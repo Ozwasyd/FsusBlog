@@ -264,8 +264,9 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
             NullLogger<CommentService>.Instance,
             notifications,
             moderation,
-            invalidations,
-            configuration: new ConfigurationBuilder().Build());
+            new CommentAttributionPrivacyService(
+                NullLogger<CommentAttributionPrivacyService>.Instance),
+            invalidations);
     }
 
     private static AuthoringModerationWorkflowService CreateAuthoringService(

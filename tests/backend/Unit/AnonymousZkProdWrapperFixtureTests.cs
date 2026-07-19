@@ -274,18 +274,23 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             notifications,
             NullLogger<CommentModerationService>.Instance,
             anonymousPolicy: CreatePolicyService());
+        IAnonymousCommentPolicyService policy = CreatePolicyService();
+        IConfiguration configuration = BuildConfiguration(temp.VerifyingKeySha256);
+        var attribution = new CommentAttributionPrivacyService(
+            NullLogger<CommentAttributionPrivacyService>.Instance,
+            policy: policy,
+            nullifiers: nullifierService,
+            tickets: ticketService,
+            displayNames: new CommentAnonymousDisplayNameGenerator(),
+            configuration: configuration,
+            zkProofs: CreateProofService(temp, nativeLibrary));
         return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
             notifications,
             moderation,
-            dispatcher,
-            anonymousCommentPolicyService: CreatePolicyService(),
-            anonymousNullifierService: nullifierService,
-            anonymousCommentTicketService: ticketService,
-            anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator(),
-            configuration: BuildConfiguration(temp.VerifyingKeySha256),
-            zkAnonymousProofService: CreateProofService(temp, nativeLibrary));
+            attribution,
+            dispatcher);
     }
 
     private static AnonymousCommentTicketRequestCoreModel ValidTicketRequest(

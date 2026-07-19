@@ -32,16 +32,8 @@ public partial class CommentService(
     ILogger<CommentService> logger,
     ICommentNotificationService commentNotifications,
     ICommentModerationService commentModeration,
-    ICacheInvalidationDispatcher cacheInvalidationDispatcher,
-    ICommentActorResolver? commentActorResolver = null,
-    IAnonymousCommentPolicyService? anonymousCommentPolicyService = null,
-    ICommentAnonymousNullifierService? anonymousNullifierService = null,
-    ISecurityRiskSignalSink? securityRiskSignalSink = null,
-    IHttpContextAccessor? httpContextAccessor = null,
-    IAnonymousCommentTicketService? anonymousCommentTicketService = null,
-    ICommentAnonymousDisplayNameGenerator? anonymousDisplayNameGenerator = null,
-    IConfiguration? configuration = null,
-    IZkAnonymousProofService? zkAnonymousProofService = null) : ICommentEndpointService, ICommentCommandService
+    ICommentAttributionPrivacyService commentAttribution,
+    ICacheInvalidationDispatcher cacheInvalidationDispatcher) : ICommentEndpointService, ICommentCommandService
 {
     private static bool TryParsePositiveCommentId(string? raw, out long value)
     {
@@ -59,12 +51,6 @@ public partial class CommentService(
         }
 
         string normalizedContent = NormalizeCommentContent(dto.Content);
-        AnonymousCommentPolicySnapshot policySnapshot = await ResolveCommentPolicyAsync(CancellationToken.None);
-        if (!IsCommentContentWithinLimit(normalizedContent, policySnapshot))
-        {
-            return false;
-        }
-
         RegionModerationDecision regionDecision = commentModeration.ResolveSubmissionRegion(
             normalizedContent,
             dto.ArticleId,
@@ -75,29 +61,17 @@ public partial class CommentService(
             return false;
         }
 
-        if (commentActorResolver is null)
-        {
-            return false;
-        }
-
-        CommentActorResolveResult actorResult = await commentActorResolver.ResolveAsync(
-            new CommentActorResolveRequest(
-                UserId: userId > 0 ? userId : null,
-                ArticleId: dto.ArticleId,
-                AuthorMode: dto.AuthorMode,
-                PublicSendExplicitlySelected: dto.PublicSendExplicitlySelected,
-                AnonymousScope: dto.AnonymousScope,
-                DisplayLanguage: dto.DisplayLanguage,
-                ProofToken: dto.ProofToken,
-                ZkProof: dto.ZkProof,
-                SubmitRegion: regionDecision.SubmitRegion),
+        CommentActor? actor = await commentAttribution.ResolvePublicActorAsync(
+            userId,
+            dto,
+            normalizedContent,
+            regionDecision.SubmitRegion,
             CancellationToken.None);
-        if (!actorResult.Allowed || actorResult.Actor is null)
+        if (actor is null)
         {
             return false;
         }
 
-        CommentActor actor = actorResult.Actor;
         return await CreateResolvedCommentAsync(
             dto.ArticleId,
             normalizedContent,
@@ -121,42 +95,12 @@ public partial class CommentService(
         }
 
         string normalizedContent = NormalizeCommentContent(request.Content);
-        if (anonymousCommentPolicyService is null ||
-            zkAnonymousProofService is null ||
-            !IsZkSubmissionReady(zkAnonymousProofService.CurrentZkProdPolicy))
-        {
-            return false;
-        }
-
-        AnonymousCommentPolicySnapshot policySnapshot = await anonymousCommentPolicyService.GetCurrentAsync(cancellationToken);
-        if (!policySnapshot.AnonymousCommentsEnabled ||
-            !policySnapshot.ZkAnonymousEnabled ||
-            !IsCommentContentWithinLimit(normalizedContent, policySnapshot))
-        {
-            return false;
-        }
-
-        if (anonymousCommentTicketService is null)
-        {
-            logger.LogWarning("匿名评论 ticket service 未注册，拒绝匿名评论写入 | Article: {ArticleId}", request.ArticleId);
-            return false;
-        }
-
-        CacheReadResult<AnonymousCommentTicketPayload> consumed = await anonymousCommentTicketService.ConsumeTicketAsync(
-            request.Ticket,
+        AnonymousCommentTicketPayload? ticket = await commentAttribution.ConsumeStrongAnonymousTicketAsync(
+            request,
+            normalizedContent,
             cancellationToken);
-        if (!consumed.Hit || consumed.Value is null)
+        if (ticket is null)
         {
-            return false;
-        }
-
-        AnonymousCommentTicketPayload ticket = consumed.Value;
-        if (!AnonymousTicketMatchesRequest(ticket, request))
-        {
-            logger.LogInformation(
-                "匿名评论 ticket 绑定校验失败 | Article: {ArticleId} | ScopeHash: {ScopeHash}",
-                request.ArticleId,
-                HashAnonymousScopeForLog(NormalizeAnonymousScope(request.AnonymousScope, request.ArticleId)));
             return false;
         }
 
@@ -170,15 +114,16 @@ public partial class CommentService(
             return false;
         }
 
-        AnonymousCommentPolicySnapshot currentPolicy = await anonymousCommentPolicyService.GetCurrentAsync(cancellationToken);
-        if (!currentPolicy.AnonymousCommentsEnabled ||
-            !currentPolicy.ZkAnonymousEnabled ||
-            !IsZkSubmissionReady(zkAnonymousProofService.CurrentZkProdPolicy))
+        CommentActor? actor = await commentAttribution.ResolveStrongAnonymousActorAsync(
+            ticket,
+            request,
+            effectiveRegionDecision.SubmitRegion,
+            cancellationToken);
+        if (actor is null)
         {
             return false;
         }
 
-        CommentActor actor = BuildAnonymousTicketActor(ticket, request.DisplayLanguage, effectiveRegionDecision.SubmitRegion);
         return await CreateResolvedCommentAsync(
             request.ArticleId,
             normalizedContent,
@@ -219,13 +164,13 @@ public partial class CommentService(
             return false;
         }
 
-        bool enforceAnonymousNullifier = RequiresAnonymousNullifierEnforcement(actor);
-        if (enforceAnonymousNullifier && anonymousNullifierService is null)
+        bool enforceAnonymousNullifier = commentAttribution.RequiresAnonymousNullifierEnforcement(actor);
+        if (enforceAnonymousNullifier && !commentAttribution.CanEnforceAnonymousNullifier)
         {
             logger.LogWarning(
                 "匿名评论 nullifier enforcement 未注册，拒绝评论写入 | Article: {ArticleId} | ScopeHash: {ScopeHash}",
                 articleId,
-                HashAnonymousScopeForLog(actor.AnonymousScope));
+                commentAttribution.HashAnonymousScopeForLog(actor.AnonymousScope));
             return false;
         }
 
@@ -339,9 +284,8 @@ public partial class CommentService(
 
             if (enforceAnonymousNullifier)
             {
-                NullifierReservationResult consume = await anonymousNullifierService!.TryConsumeAsync(
-                    actor.AnonymousNullifierHash!,
-                    actor.AnonymousScope!,
+                NullifierReservationResult consume = await commentAttribution.ConsumeAnonymousNullifierAsync(
+                    actor,
                     generatedId,
                     cancellationToken);
                 if (!consume.Allowed)
@@ -357,9 +301,12 @@ public partial class CommentService(
                 logger.LogInformation(
                     "匿名评论 nullifier enforcement 拒绝写入 | Article: {ArticleId} | ScopeHash: {ScopeHash} | Status: {Status}",
                     articleId,
-                    HashAnonymousScopeForLog(actor.AnonymousScope),
+                    commentAttribution.HashAnonymousScopeForLog(actor.AnonymousScope),
                     rejected.Status);
-                await RecordNullifierAbuseRiskSignalAsync(actor.AnonymousScope, rejected.Status, cancellationToken);
+                await commentAttribution.RecordNullifierAbuseRiskSignalAsync(
+                    actor.AnonymousScope,
+                    rejected.Status,
+                    cancellationToken);
                 return false;
             }
 
@@ -514,122 +461,6 @@ public partial class CommentService(
     }
 
     private sealed record ReplyTargetRow(long Id, int ArticleId, long? RootId, long? ParentId, int Depth, int? UserId);
-
-    private static bool RequiresAnonymousNullifierEnforcement(CommentActor actor)
-        => !string.IsNullOrWhiteSpace(actor.AnonymousNullifierHash)
-            && !string.IsNullOrWhiteSpace(actor.AnonymousScope)
-            && string.Equals(actor.AuthorMode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal);
-
-    private static bool IsZkSubmissionReady(ZkProdPolicySnapshot policy)
-        => policy.Enabled &&
-            policy.NativeVerifierConfigured &&
-            policy.TrustedSetupVerified &&
-            policy.CredentialRequired &&
-            policy.CredentialRootReady &&
-            string.IsNullOrWhiteSpace(policy.UnavailableReason);
-
-    private static string HashAnonymousScopeForLog(string? scope)
-    {
-        string normalized = TextHelpers.TrimOrNull(scope) ?? "unknown";
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)))[..16];
-    }
-
-    private CommentActor BuildAnonymousTicketActor(
-        AnonymousCommentTicketPayload ticket,
-        string? displayLanguage,
-        string? submitRegion)
-    {
-        string language = CommentAnonymousDisplayNameGenerator.NormalizeDisplayLanguage(displayLanguage, submitRegion);
-        ICommentAnonymousDisplayNameGenerator generator = anonymousDisplayNameGenerator ?? new CommentAnonymousDisplayNameGenerator();
-        CommentAnonymousDisplayName display = generator.Generate(new CommentAnonymousDisplayNameRequest(
-            language,
-            ticket.Scope,
-            ticket.NullifierHash));
-        return new CommentActor(
-            UserId: null,
-            AuthorMode: CommentAuthorModes.ZkAnonymous,
-            PublicHandle: null,
-            AnonymousHandle: $"anon-{ticket.NullifierHash[..Math.Min(ticket.NullifierHash.Length, 12)]}",
-            DisplayName: display.DisplayName,
-            DisplayLanguage: display.DisplayLanguage,
-            AnonymousNullifierHash: ticket.NullifierHash,
-            AnonymousScope: ticket.Scope,
-            ModerationSubjectHash: Convert.ToHexStringLower(AnonymousCommentTicketService.CreateModerationSubjectHash(
-                ticket.NullifierHash,
-                configuration ?? throw new InvalidOperationException("Moderation:Pepper must be configured."))),
-            RateClass: ticket.RateClass,
-            RequiresModeration: ticket.RequiresModeration);
-    }
-
-    private static bool AnonymousTicketMatchesRequest(
-        AnonymousCommentTicketPayload ticket,
-        AnonymousCommentCreateRequestCoreModel request)
-    {
-        if (!TryParseOptionalPositiveCommentId(request.ParentId, out long? parentId) ||
-            !TryParseOptionalPositiveCommentId(request.RootId, out long? rootId) ||
-            !TryParseOptionalPositiveCommentId(request.ReplyToCommentId, out long? replyToCommentId))
-        {
-            return false;
-        }
-
-        return ticket.ArticleId == request.ArticleId
-            && ticket.ExpiresAtUnixMs > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            && string.Equals(ticket.Scope, NormalizeAnonymousScope(request.AnonymousScope, request.ArticleId), StringComparison.Ordinal)
-            && ticket.ParentId == parentId
-            && ticket.RootId == rootId
-            && ticket.ReplyToCommentId == replyToCommentId;
-    }
-
-    private static string NormalizeAnonymousScope(string? value, int articleId)
-    {
-        string normalized = TextHelpers.TrimOrEmpty(value);
-        return normalized.Length == 0 ? $"article:{articleId}" : normalized;
-    }
-
-    private static bool TryParseOptionalPositiveCommentId(string? raw, out long? value)
-    {
-        value = null;
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return true;
-        }
-
-        if (TryParsePositiveCommentId(raw, out long parsed))
-        {
-            value = parsed;
-            return true;
-        }
-
-        return false;
-    }
-
-    private static string Sha256Hex(string value)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
-
-    private async ValueTask RecordNullifierAbuseRiskSignalAsync(
-        string? scope,
-        string status,
-        CancellationToken cancellationToken)
-    {
-        if (securityRiskSignalSink is null || httpContextAccessor?.HttpContext is not { } httpContext)
-        {
-            return;
-        }
-
-        await securityRiskSignalSink.AddRiskAsync(new SecurityRiskSignal(
-            httpContext,
-            SecurityRiskReason.CommentNullifierAbuse,
-            25,
-            TimeSpan.FromMinutes(30),
-            SecurityRiskSources.RiskControl,
-            ResolveCommentRiskAction(httpContext),
-            $"nullifier:{TextHelpers.NormalizeNullable(status, 64) ?? "rejected"};scope:{TextHelpers.NormalizeNullable(scope, 64) ?? "unknown"}"), cancellationToken);
-    }
-
-    private static string ResolveCommentRiskAction(HttpContext httpContext)
-        => httpContext.Items[RiskActionEndpointMetadata.HttpContextItemKey] is RiskActionEndpointMetadata metadata
-            ? metadata.ActionName
-            : RiskActionNames.CommentCreate;
 
     private static string BuildInitialModerationReason(RegionModerationDecision decision)
     {
@@ -863,16 +694,6 @@ public partial class CommentService(
 
         return TextHelpers.TrimOrEmpty(content);
     }
-
-    private async Task<AnonymousCommentPolicySnapshot> ResolveCommentPolicyAsync(CancellationToken cancellationToken)
-        => anonymousCommentPolicyService is null
-            ? AnonymousCommentPolicySnapshot.Default
-            : await anonymousCommentPolicyService.GetCurrentAsync(cancellationToken);
-
-    private static bool IsCommentContentWithinLimit(string content, AnonymousCommentPolicySnapshot policy)
-        => !string.IsNullOrWhiteSpace(content)
-            && content.Length <= policy.CommentMaxChars
-            && Encoding.UTF8.GetByteCount(content) <= policy.CommentMaxUtf8Bytes;
 
     private static bool IsAttributableUserComment(string? authorMode, int? userId)
         => userId is > 0

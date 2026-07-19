@@ -183,16 +183,20 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
-    public void CommentService_RuntimeEnforcesAnonymousNullifierWithAtomicConsumeBeforeCommit()
+    public void CommentAttributionBoundary_EnforcesAnonymousNullifierWithAtomicConsumeBeforeCommit()
     {
         ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentService).GetConstructors()).GetParameters();
-        Assert.Contains(constructorParameters, static parameter => parameter.ParameterType == typeof(ICommentAnonymousNullifierService));
+        Assert.Contains(constructorParameters, static parameter => parameter.ParameterType == typeof(ICommentAttributionPrivacyService));
+        Assert.DoesNotContain(constructorParameters, static parameter => parameter.ParameterType == typeof(ICommentAnonymousNullifierService));
 
-        string create = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CommentService),
-            "CreateResolvedCommentAsync",
-            "RequiresAnonymousNullifierEnforcement");
+        string command = RuntimeMetadataInspection.DescribeMethods(typeof(CommentService), "CreateResolvedCommentAsync");
+        string attribution = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentAttributionPrivacyService),
+            "RequiresAnonymousNullifierEnforcement",
+            "ConsumeAnonymousNullifierAsync");
+        string create = string.Concat(command, attribution);
         Assert.Contains("UseTranAsync", create, StringComparison.Ordinal);
+        Assert.Contains("ConsumeAnonymousNullifierAsync", command, StringComparison.Ordinal);
         Assert.Contains("TryConsumeAsync", create, StringComparison.Ordinal);
         Assert.DoesNotContain("CheckAndReserveAsync", create, StringComparison.Ordinal);
         Assert.DoesNotContain("IncrementUsageAsync", create, StringComparison.Ordinal);
@@ -228,14 +232,16 @@ public sealed class AnonymousCommentModerationPipelineTests
     [Fact]
     public void CommentService_AnonymousFailureRuntimeLogsDoNotWriteRawAnonymousScope()
     {
-        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            typeof(CommentService),
-            "CreateResolvedCommentAsync",
-            "HashAnonymousScopeForLog",
-            "NormalizeAnonymousScope");
+        string runtimeShape = string.Concat(
+            RuntimeMetadataInspection.DescribeMethods(typeof(CommentService), "CreateResolvedCommentAsync"),
+            RuntimeMetadataInspection.DescribeMethods(
+                typeof(CommentAttributionPrivacyService),
+                "ConsumeStrongAnonymousTicketAsync",
+                "HashAnonymousScopeForLog",
+                "HashScopeForLog"));
 
         Assert.Contains("HashAnonymousScopeForLog", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("NormalizeAnonymousScope", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("NormalizeScope", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("ScopeHash", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("Scope: {Scope}", runtimeShape, StringComparison.Ordinal);
     }
