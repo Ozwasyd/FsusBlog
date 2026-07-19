@@ -58,6 +58,23 @@
       @cancel="handlePerceptionCancel"
     />
 
+    <FsusPoSpaceChallenge
+      v-else-if="String(capability?.uiHost) === 'pospace' && assignment && providerPayload"
+      ref="poSpaceHost"
+      :assignment="assignment"
+      :provider-payload="providerPayload"
+      :context="challengeContext"
+      :policy-version="issuePolicyVersion"
+      :refresh="refreshChallenge"
+      :disabled="disabled"
+      :executor-factory="executorFactory"
+      @verified="emit('verified', $event)"
+      @error="handlePoSpaceError"
+      @unsupported="emit('unsupported', $event)"
+      @expired="handlePoSpaceExpired"
+      @cancel="handlePoSpaceCancel"
+    />
+
     <div v-else-if="capability && !capability.policyEligible" class="fsus-security-challenge__panel">
       <slot name="unsupported" :assignment="assignment" :provider-payload="providerPayload" :refresh="refreshChallenge">
         <p data-test="security-challenge-unsupported">{{ copy.unsupported }}</p>
@@ -83,6 +100,10 @@ import {
 } from '@/api/security'
 import { FsusPerceptionChallenge, type PerceptionChallengeVerifyResult } from '@ozwasyd/element-plus/perception-challenge'
 import FsusCaptchaChallenge from './FsusCaptchaChallenge.vue'
+import FsusPoSpaceChallenge, {
+  type PoSpaceChallengeExecutorFactory,
+  type PoSpaceUnsupportedResult
+} from './FsusPoSpaceChallenge.vue'
 import {
   createSecurityChallengeClient,
   type SecurityChallengeClient,
@@ -111,6 +132,7 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   title?: string
   client?: SecurityChallengeClient
+  executorFactory?: PoSpaceChallengeExecutorFactory
 }>(), {
   autoLoad: true,
   disabled: false,
@@ -121,7 +143,7 @@ const emit = defineEmits<{
   issued: [value: SecurityChallengeIssueResult]
   verified: [value: SecurityChallengeVerifyResponse | SecurityChallengeProof]
   allow: [value: SecurityChallengeIssueResponse]
-  unsupported: [value: SecurityChallengeIssueResult]
+  unsupported: [value: SecurityChallengeIssueResult | PoSpaceUnsupportedResult]
   error: [value: string]
   refresh: []
   expired: []
@@ -135,18 +157,22 @@ const capability = ref<ChallengeCapabilityResolution | null>(null)
 const assignment = ref<SecurityChallengeAssignment | null>(null)
 const providerPayload = ref<SecurityChallengeProviderPayload | null>(null)
 const preloadedIssueResponse = ref<SecurityChallengeIssueResponse | null>(null)
+const issuePolicyVersion = ref('')
 const captchaKey = ref(0)
 const perceptionRuntime = ref<PerceptionChallengeRuntime | null>(null)
+const poSpaceHost = ref<{ dispose?: () => void } | null>(null)
 
 const title = computed(() => props.title)
 const disabled = computed(() => props.disabled === true)
+const executorFactory = computed(() => props.executorFactory)
+const challengeContext = computed<SecurityChallengeContext>(() => ({
+  action: props.action,
+  routeKey: props.routeKey,
+  attributes: props.attributes
+}))
 
 function context(): SecurityChallengeContext {
-  return {
-    action: props.action,
-    routeKey: props.routeKey,
-    attributes: props.attributes
-  }
+  return challengeContext.value
 }
 
 function client(): SecurityChallengeClient {
@@ -173,6 +199,7 @@ async function refreshChallenge(): Promise<void> {
   }
 
   emit('refresh')
+  poSpaceHost.value?.dispose?.()
   busy.value = true
   errorMessage.value = ''
   try {
@@ -191,6 +218,7 @@ function applyIssueResult(result: SecurityChallengeIssueResult): void {
     ? resolveChallengeCapability(result.assignment.kind, { action: props.action, mode: 'ui' })
     : null)
   preloadedIssueResponse.value = result.response
+  issuePolicyVersion.value = result.response?.policyVersion ?? ''
 
   if (result.status === 'verified' && result.proof) {
     emit('verified', result.proof)
@@ -283,6 +311,7 @@ function handlePerceptionVerified(value: PerceptionChallengeVerifyResult): void 
     kind: currentAssignment.kind,
     policyVersion: preloadedIssueResponse.value?.policyVersion ?? '',
     proofToken: value.proofToken ?? '',
+    expiresAtUnixMs: currentAssignment.expiresAtUnixMs,
     reason: '',
     retryAfterMs: value.retryAfterMs ?? 0
   })
@@ -297,6 +326,21 @@ function handlePerceptionExpired(): void {
 function handlePerceptionCancel(): void {
   client().clearProof(context())
   setError(copy.perceptionCancelled)
+  emit('cancel')
+}
+
+function handlePoSpaceExpired(): void {
+  client().clearProof(context())
+  emit('expired')
+}
+
+function handlePoSpaceError(message: string): void {
+  errorMessage.value = '验证未通过。'
+  emit('error', message)
+}
+
+function handlePoSpaceCancel(): void {
+  client().clearProof(context())
   emit('cancel')
 }
 
