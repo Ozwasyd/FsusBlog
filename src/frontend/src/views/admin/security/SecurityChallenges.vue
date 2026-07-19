@@ -1,6 +1,39 @@
 <template>
   <div class="space-y-8">
     <FsusUiSettingsSection
+      title="客户端验证能力"
+      :description="`构建清单 ${capabilityManifestVersion}；能力状态不包含设备、身份或 Proof 数据。`"
+      id="security-challenge-capabilities-title"
+    >
+      <div class="overflow-x-auto border-y border-[var(--fsusblog-panel-border)]">
+        <table class="w-full min-w-[58rem] text-left text-[12px]" data-test="challenge-capability-matrix">
+          <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
+            <tr class="border-b border-[var(--fsusblog-panel-border)]">
+              <th class="px-5 py-3">类型</th>
+              <th class="px-5 py-3">Provider</th>
+              <th class="px-5 py-3">Executor</th>
+              <th class="px-5 py-3">UI Host</th>
+              <th class="px-5 py-3">Headless Host</th>
+              <th class="px-5 py-3">Policy</th>
+              <th class="px-5 py-3">业务表面</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in capabilityRows" :key="row.wireName" class="border-b border-[var(--fsusblog-panel-border)]">
+              <td class="px-5 py-3 font-bold text-[var(--fsusblog-text-primary)]">{{ row.wireName }}</td>
+              <td class="px-5 py-3">{{ statusLabel(row.providerAvailable) }}</td>
+              <td class="px-5 py-3">{{ statusLabel(row.executorAvailable) }}</td>
+              <td class="px-5 py-3">{{ statusLabel(row.uiHostAvailable) }}</td>
+              <td class="px-5 py-3">{{ statusLabel(row.headlessHostAvailable) }}</td>
+              <td class="px-5 py-3">{{ row.policyLabel }}</td>
+              <td class="px-5 py-3">{{ row.surfaces }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </FsusUiSettingsSection>
+
+    <FsusUiSettingsSection
       title="验证任务状态"
       :description="metricsState ? `统计窗口起点：${formatTime(metricsState.windowStartedAtUtc)}` : ''"
       id="security-challenges-title"
@@ -73,6 +106,10 @@ import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admi
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
+import {
+  SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
+  securityChallengeCapabilityManifest
+} from '@/security/challenge-capability-registry'
 
 const loading = shallowRef(false)
 const metricsState = shallowRef<SecurityChallengeMetricsResponse | null>(null)
@@ -81,6 +118,28 @@ const successRate = computed(() => metricsState.value?.successRate ?? 0)
 const failureRate = computed(() => metricsState.value?.failureRate ?? 0)
 const kindBreakdown = computed(() => metricsState.value?.kindBreakdown ?? [])
 const recentAttempts = computed(() => metricsState.value?.recentAttempts ?? [])
+const capabilityManifestVersion = SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
+const capabilityRows = securityChallengeCapabilityManifest
+  .filter((item) => item.kindKnown)
+  .map((item) => {
+    const executorAvailable = item.executorFactory !== null
+    const uiHostAvailable = item.uiHost !== null
+    const headlessHostAvailable = item.headlessHost !== null
+    const eligibleSurfaces = item.providerAvailable && executorAvailable && (uiHostAvailable || headlessHostAvailable)
+      ? item.surfaces.join(', ')
+      : ''
+    return {
+      wireName: item.wireName,
+      providerAvailable: item.providerAvailable,
+      executorAvailable,
+      uiHostAvailable,
+      headlessHostAvailable,
+      policyLabel: eligibleSurfaces ? `仅 ${eligibleSurfaces}` : '不可启用',
+      surfaces: item.surfaces.length > 0 ? item.surfaces.join(', ') : '-'
+    }
+  })
+
+const statusLabel = (available: boolean): string => available ? '可用' : '不可用'
 
 const formatPercent = (value: number | null | undefined): string =>
   `${Math.round((value ?? 0) * 1000) / 10}%`

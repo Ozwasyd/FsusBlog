@@ -118,7 +118,8 @@ export function useNotification() {
         action: NOTIFICATION_SUBSCRIBE_ACTION,
         routeKey: NOTIFICATION_SUBSCRIBE_ROUTE_KEY,
         attributes: { mode: 'notification-stream' },
-        deviceFingerprint: getBrowserFp()
+        deviceFingerprint: getBrowserFp(),
+        executionMode: 'headless'
     })
 
     const getOrRefreshPow = async (): Promise<PowParams> => {

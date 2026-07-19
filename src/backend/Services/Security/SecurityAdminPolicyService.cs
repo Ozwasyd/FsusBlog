@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
+using FsusBlog.Shared.Contracts.Security;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -235,6 +236,11 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     public SecurityRiskPolicySnapshotV2 UpdateRiskControlPolicy(RiskControlPolicyUpdateRequest request, string changedBy)
     {
+        EnsurePolicyCapability(
+            request.PoSpaceV1Enabled == true,
+            SecurityChallengeKind.Argon2IdPoSpaceV1,
+            RiskActionNames.CommentCreate,
+            nameof(request.PoSpaceV1Enabled));
         lock (_gate)
         {
             SecurityRiskPolicySnapshotV2 current = _currentRiskPolicy;
@@ -274,6 +280,11 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     public PerceptionSealedV2PolicySnapshot UpdatePerceptionSealedV2Policy(PerceptionSealedV2PolicyUpdateRequest request, string changedBy)
     {
+        EnsurePolicyCapability(
+            request.PoSpaceFallbackEnabled == true,
+            SecurityChallengeKind.Argon2IdPoSpaceV1,
+            RiskActionNames.CommentCreate,
+            nameof(request.PoSpaceFallbackEnabled));
         lock (_gate)
         {
             PerceptionSealedV2PolicySnapshot current = _currentPerceptionV2;
@@ -291,6 +302,29 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             Volatile.Write(ref _currentPerceptionV2, snapshot);
             Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(_currentRiskPolicy, snapshot, now));
             return snapshot;
+        }
+    }
+
+    private static void EnsurePolicyCapability(
+        bool enabling,
+        SecurityChallengeKind kind,
+        string action,
+        string parameterName)
+    {
+        if (!enabling)
+        {
+            return;
+        }
+
+        SecurityChallengeCapabilityResolution capability = SecurityChallengeCapabilityCatalog.Resolve(
+            kind,
+            action,
+            SecurityChallengeExecutionMode.Ui);
+        if (!capability.PolicyEligible)
+        {
+            throw new ArgumentException(
+                $"Challenge kind '{capability.Capability.WireName}' is not policy eligible: {capability.UnavailableReason}.",
+                parameterName);
         }
     }
 

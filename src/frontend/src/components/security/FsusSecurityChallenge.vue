@@ -24,7 +24,7 @@
     />
 
     <FsusCaptchaChallenge
-      v-if="kindGroup === 'captcha'"
+      v-if="capability?.uiHost === 'captcha'"
       :key="captchaKey"
       :action="action"
       :route-key="routeKey"
@@ -38,7 +38,7 @@
     />
 
     <FsusPerceptionChallenge
-      v-else-if="kindGroup === 'perception' && perceptionRuntime"
+      v-else-if="capability?.uiHost === 'perception' && perceptionRuntime"
       :challenge="perceptionRuntime.challenge"
       :renderer="perceptionRuntime.renderer"
       :client="perceptionRuntime.client"
@@ -58,40 +58,7 @@
       @cancel="handlePerceptionCancel"
     />
 
-    <FsusPowChallenge
-      v-else-if="kindGroup === 'pow'"
-      :assignment="assignment"
-      :provider-payload="providerPayload"
-      :refresh="refreshChallenge"
-    >
-      <template #default="slotProps">
-        <slot name="pow" v-bind="slotProps" />
-      </template>
-    </FsusPowChallenge>
-
-    <FsusPoSpaceChallenge
-      v-else-if="kindGroup === 'pospace'"
-      :assignment="assignment"
-      :provider-payload="providerPayload"
-      :refresh="refreshChallenge"
-    >
-      <template #default="slotProps">
-        <slot name="pospace" v-bind="slotProps" />
-      </template>
-    </FsusPoSpaceChallenge>
-
-    <FsusPasskeyStepUpChallenge
-      v-else-if="kindGroup === 'passkey'"
-      :assignment="assignment"
-      :provider-payload="providerPayload"
-      :refresh="refreshChallenge"
-    >
-      <template #default="slotProps">
-        <slot name="passkey" v-bind="slotProps" />
-      </template>
-    </FsusPasskeyStepUpChallenge>
-
-    <div v-else-if="kindGroup === 'unsupported'" class="fsus-security-challenge__panel">
+    <div v-else-if="capability && !capability.policyEligible" class="fsus-security-challenge__panel">
       <slot name="unsupported" :assignment="assignment" :provider-payload="providerPayload" :refresh="refreshChallenge">
         <p data-test="security-challenge-unsupported">{{ copy.unsupported }}</p>
       </slot>
@@ -116,17 +83,16 @@ import {
 } from '@/api/security'
 import { FsusPerceptionChallenge, type PerceptionChallengeVerifyResult } from '@ozwasyd/element-plus/perception-challenge'
 import FsusCaptchaChallenge from './FsusCaptchaChallenge.vue'
-import FsusPasskeyStepUpChallenge from './FsusPasskeyStepUpChallenge.vue'
-import FsusPoSpaceChallenge from './FsusPoSpaceChallenge.vue'
-import FsusPowChallenge from './FsusPowChallenge.vue'
 import {
   createSecurityChallengeClient,
-  getChallengeKindGroup,
-  type ChallengeKindGroup,
   type SecurityChallengeClient,
   type SecurityChallengeContext,
   type SecurityChallengeIssueResult
 } from '@/security/challenge-client'
+import {
+  resolveChallengeCapability,
+  type ChallengeCapabilityResolution
+} from '@/security/challenge-capability-registry'
 import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
 import {
   createPerceptionChallengeRuntime,
@@ -165,7 +131,7 @@ const emit = defineEmits<{
 const defaultClient = createSecurityChallengeClient()
 const busy = ref(false)
 const errorMessage = ref('')
-const kindGroup = ref<ChallengeKindGroup | null>(null)
+const capability = ref<ChallengeCapabilityResolution | null>(null)
 const assignment = ref<SecurityChallengeAssignment | null>(null)
 const providerPayload = ref<SecurityChallengeProviderPayload | null>(null)
 const preloadedIssueResponse = ref<SecurityChallengeIssueResponse | null>(null)
@@ -221,7 +187,9 @@ function applyIssueResult(result: SecurityChallengeIssueResult): void {
   emit('issued', result)
   assignment.value = result.assignment
   providerPayload.value = result.providerPayload
-  kindGroup.value = result.kindGroup ?? (result.assignment ? getChallengeKindGroup(result.assignment.kind) : null)
+  capability.value = result.capability ?? (result.assignment
+    ? resolveChallengeCapability(result.assignment.kind, { action: props.action, mode: 'ui' })
+    : null)
   preloadedIssueResponse.value = result.response
 
   if (result.status === 'verified' && result.proof) {
@@ -241,7 +209,7 @@ function applyIssueResult(result: SecurityChallengeIssueResult): void {
     setError(result.reason ?? 'security_challenge_issue_failed')
     return
   }
-  if (result.kindGroup === 'captcha') {
+  if (capability.value?.uiHost === 'captcha') {
     captchaKey.value += 1
   }
 }
@@ -345,7 +313,7 @@ function resetPerceptionRuntime(): void {
 function rebuildPerceptionRuntime(): void {
   resetPerceptionRuntime()
   if (
-    kindGroup.value !== 'perception' ||
+    capability.value?.uiHost !== 'perception' ||
     !assignment.value ||
     !providerPayload.value ||
     !isPerceptionChallengeKind(assignment.value.kind)
@@ -370,7 +338,7 @@ onBeforeUnmount(() => {
   resetPerceptionRuntime()
 })
 
-watch([assignment, providerPayload, kindGroup], rebuildPerceptionRuntime)
+watch([assignment, providerPayload, capability], rebuildPerceptionRuntime)
 </script>
 
 <style scoped>

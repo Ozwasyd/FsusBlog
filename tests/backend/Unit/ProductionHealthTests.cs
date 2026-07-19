@@ -490,7 +490,7 @@ public sealed class ProductionHealthTests
                 .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
                 .AddReadinessCache<ConsumeOnceHealthCache>();
             services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(
-                SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1)));
+                SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1)));
 
             using ServiceProvider provider = services.BuildServiceProvider();
             IConfiguration configuration = CreatePerceptionReadyConfiguration();
@@ -534,7 +534,7 @@ public sealed class ProductionHealthTests
                 .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
                 .AddReadinessCache<ConsumeOnceHealthCache>()
                 .AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(
-                    SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1)));
+                    SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1)));
             using ServiceProvider provider = services.BuildServiceProvider();
             IConfiguration configuration = CreatePerceptionReadyConfiguration();
             var environment = new TestWebHostEnvironment(tempRoot, Environments.Development);
@@ -705,7 +705,7 @@ public sealed class ProductionHealthTests
             new SecurityRiskActionPolicy(
                 "*",
                 new SecurityRiskActionThresholds(10, 25, 50, 75, 90),
-                SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1),
+                SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1),
                 1,
                 null,
                 AnonymousWriteAllowed: true),

@@ -11,6 +11,11 @@ import {
   type SecurityChallengeContext
 } from '@/security/challenge-client'
 import { createChallengeProofStore } from '@/security/challenge-proof-store'
+import {
+  SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION,
+  resolveChallengeCapability,
+  securityChallengeCapabilityManifest
+} from '@/security/challenge-capability-registry'
 
 const context: SecurityChallengeContext = {
   action: 'comment.create',
@@ -113,16 +118,81 @@ describe('security challenge client and proof store', () => {
     expect(store.peek(context.action, context.routeKey)?.proofToken).toBe('proof-verified')
   })
 
-  it('returns standard unsupported status for unknown challenge kind', async () => {
+  it('rejects unknown and executor-free challenge kinds without entering pending UI', async () => {
     const issueChallenge = vi.fn().mockResolvedValue(captchaIssueResponse(SecurityChallengeKind.Unknown))
     const client = createSecurityChallengeClient({ issueChallenge, now: () => 1000 })
 
     const result = await client.issue(context)
 
     expect(result.status).toBe('unsupported')
-    expect(result.reason).toBe('security_challenge_kind_unsupported')
+    expect(result.reason).toBe('security_challenge_kind_unknown')
     expect(getChallengeKindGroup(SecurityChallengeKind.Argon2IdPoSpaceV1)).toBe('pospace')
     expect(getChallengeKindGroup(SecurityChallengeKind.PasskeyStepUpV1)).toBe('passkey')
+  })
+
+  it('fails closed for missing executor, missing host and incompatible manifest while executing supported captcha', async () => {
+    const unavailable = await createSecurityChallengeClient({
+      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse(SecurityChallengeKind.Argon2IdPoSpaceV1)),
+      now: () => 1000
+    }).issue(context)
+    expect(unavailable.status).toBe('unsupported')
+    expect(unavailable.reason).toBe('security_challenge_executor_unavailable')
+
+    const hostMissing = await createSecurityChallengeClient({
+      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse(SecurityChallengeKind.Sha256PowV1)),
+      now: () => 1000
+    }).issue({ ...context, executionMode: 'headless' })
+    expect(hostMissing.status).toBe('unsupported')
+    expect(hostMissing.reason).toBe('security_challenge_host_unavailable')
+
+    const incompatible = await createSecurityChallengeClient({
+      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
+      now: () => 1000
+    }).issue({ ...context, capabilityManifestVersion: 'older-build' })
+    expect(incompatible.status).toBe('unsupported')
+    expect(incompatible.reason).toBe('security_challenge_version_incompatible')
+
+    const executable = await createSecurityChallengeClient({
+      issueChallenge: vi.fn().mockResolvedValue(captchaIssueResponse()),
+      now: () => 1000
+    }).issue(context)
+    expect(executable.status).toBe('challenge')
+    expect(executable.capability?.policyEligible).toBe(true)
+  })
+
+  it('covers known, provider, executor, host and policy state for every enum member', () => {
+    const expected = [
+      [SecurityChallengeKind.Unknown, false, false, false, false, false],
+      [SecurityChallengeKind.Sha256PowV1, true, true, false, false, false],
+      [SecurityChallengeKind.Argon2IdPoSpaceV1, true, true, false, false, false],
+      [SecurityChallengeKind.CaptchaV1, true, true, true, true, true],
+      [SecurityChallengeKind.HumanReadProofV1, true, true, false, false, false],
+      [SecurityChallengeKind.PasskeyStepUpV1, true, true, false, false, false],
+      [SecurityChallengeKind.AdminPasskeyStepUpV1, true, true, false, false, false],
+      [SecurityChallengeKind.RecoveryKeyProofV1, true, false, false, false, false],
+      [SecurityChallengeKind.AnonymousCredentialProofV1, true, false, false, false, false],
+      [SecurityChallengeKind.ZkAnonymousCommentProofV1, true, false, false, false, false],
+      [SecurityChallengeKind.PerceptionCharacterV2, true, false, true, true, false],
+      [SecurityChallengeKind.PerceptionLocalizationV2, true, true, true, true, true],
+      [SecurityChallengeKind.PerceptionMicroInteractionV2, true, true, true, true, true],
+      [SecurityChallengeKind.PerceptionTextTaskV2, true, true, true, true, true]
+    ] as const
+
+    expect(securityChallengeCapabilityManifest).toHaveLength(Object.keys(SecurityChallengeKind).length)
+    for (const [kind, known, provider, executor, host, policy] of expected) {
+      const state = resolveChallengeCapability(kind, {
+        action: context.action,
+        mode: 'ui',
+        manifestVersion: SECURITY_CHALLENGE_CAPABILITY_MANIFEST_VERSION
+      })
+      expect([
+        state.kindKnown,
+        state.providerAvailable,
+        state.executorAvailable,
+        state.hostAvailable,
+        state.policyEligible
+      ], state.wireName).toEqual([known, provider, executor, host, policy])
+    }
   })
 
   it('normalizes failed verification without caching proof', async () => {

@@ -189,11 +189,30 @@ public sealed partial class SecurityChallengeOrchestrator(
         foreach (string rawKind in request.Decision.RequiredChallenges)
         {
             string kind = NormalizeKind(rawKind);
+            if (!SecurityChallengeContracts.TryParseKind(kind, out SecurityChallengeKind parsedKind))
+            {
+                RecordChallengeFailure("issue", kind, request.Decision.ActionName, request.Decision.PolicyVersion, "kind_unknown");
+                await RecordRiskAsync(request.Context, request.Decision.ActionName, $"kind_unknown:{kind}", cancellationToken);
+                return SecurityChallengeOrchestrationIssueResult.Failed("kind_unknown");
+            }
             if (!_providers.TryGetValue(kind, out ISecurityChallengeProvider? provider))
             {
                 RecordChallengeFailure("issue", kind, request.Decision.ActionName, request.Decision.PolicyVersion, "provider_missing");
                 await RecordRiskAsync(request.Context, request.Decision.ActionName, $"provider_missing:{kind}", cancellationToken);
                 return SecurityChallengeOrchestrationIssueResult.Failed("provider_missing");
+            }
+
+            SecurityChallengeCapabilityResolution capability = SecurityChallengeCapabilityCatalog.Resolve(
+                parsedKind,
+                request.Decision.ActionName,
+                SecurityChallengeCapabilityCatalog.ResolveMode(request.Decision.ActionName),
+                providerAvailable: true);
+            if (!capability.PolicyEligible)
+            {
+                string reason = capability.UnavailableReason ?? "capability_unavailable";
+                RecordChallengeFailure("issue", kind, request.Decision.ActionName, request.Decision.PolicyVersion, reason);
+                await RecordRiskAsync(request.Context, request.Decision.ActionName, $"capability_unavailable:{kind}:{reason}", cancellationToken);
+                return SecurityChallengeOrchestrationIssueResult.Failed(reason);
             }
 
             SecurityChallengeProviderIssueResult providerResult;

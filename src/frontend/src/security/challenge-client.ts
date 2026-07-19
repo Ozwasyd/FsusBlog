@@ -17,8 +17,15 @@ import {
   type SecurityChallengeProof
 } from './challenge-proof-store'
 import type { RiskChallengeProofContext } from '@/contracts/riskChallenge'
+import {
+  getChallengeCapabilityRegistration,
+  resolveChallengeCapability,
+  type ChallengeCapabilityResolution,
+  type ChallengeExecutionMode,
+  type ChallengeKindGroup
+} from './challenge-capability-registry'
 
-export type ChallengeKindGroup = 'captcha' | 'pow' | 'pospace' | 'passkey' | 'perception' | 'unsupported'
+export type { ChallengeKindGroup } from './challenge-capability-registry'
 export type ChallengeIssueStatus = 'verified' | 'allow' | 'challenge' | 'unsupported' | 'failed'
 export type ChallengeVerifyStatus = 'verified' | 'failed'
 
@@ -27,6 +34,8 @@ export interface SecurityChallengeContext {
   routeKey: string
   attributes?: Record<string, unknown>
   deviceFingerprint?: string
+  executionMode?: ChallengeExecutionMode
+  capabilityManifestVersion?: string
 }
 
 export interface SecurityChallengeIssueResult {
@@ -36,6 +45,7 @@ export interface SecurityChallengeIssueResult {
   providerPayload: SecurityChallengeProviderPayload | null
   proof: SecurityChallengeProof | null
   kindGroup: ChallengeKindGroup | null
+  capability: ChallengeCapabilityResolution | null
   reason: string | null
   retryAfterMs: number
 }
@@ -107,6 +117,7 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
           providerPayload: null,
           proof,
           kindGroup: getChallengeKindGroup(proof.kind),
+          capability: resolveChallengeCapability(proof.kind, capabilityOptions(context)),
           reason: null,
           retryAfterMs: 0
         }
@@ -138,7 +149,8 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
       }
 
       const kindGroup = getChallengeKindGroup(assignment.kind)
-      if (kindGroup === 'unsupported') {
+      const capability = resolveChallengeCapability(assignment.kind, capabilityOptions(context))
+      if (!capability.policyEligible) {
         return {
           status: 'unsupported',
           response,
@@ -146,7 +158,8 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
           providerPayload: null,
           proof: null,
           kindGroup,
-          reason: 'security_challenge_kind_unsupported',
+          capability,
+          reason: `security_challenge_${capability.unavailableReason ?? 'unavailable'}`,
           retryAfterMs: response.retryAfterMs
         }
       }
@@ -159,6 +172,7 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
         providerPayload,
         proof: null,
         kindGroup,
+        capability,
         reason: null,
         retryAfterMs: response.retryAfterMs
       }
@@ -231,28 +245,15 @@ export function createSecurityChallengeClient(options: SecurityChallengeClientOp
 }
 
 export function getChallengeKindGroup(kind: SecurityChallengeKind): ChallengeKindGroup {
-  switch (kind) {
-    case SecurityChallengeKind.CaptchaV1:
-      return 'captcha'
-    case SecurityChallengeKind.Sha256PowV1:
-    case SecurityChallengeKind.HumanReadProofV1:
-      return 'pow'
-    case SecurityChallengeKind.Argon2IdPoSpaceV1:
-      return 'pospace'
-    case SecurityChallengeKind.PasskeyStepUpV1:
-    case SecurityChallengeKind.AdminPasskeyStepUpV1:
-    case SecurityChallengeKind.RecoveryKeyProofV1:
-    case SecurityChallengeKind.AnonymousCredentialProofV1:
-    case SecurityChallengeKind.ZkAnonymousCommentProofV1:
-      return 'passkey'
-    case SecurityChallengeKind.PerceptionCharacterV2:
-    case SecurityChallengeKind.PerceptionTextTaskV2:
-    case SecurityChallengeKind.PerceptionLocalizationV2:
-    case SecurityChallengeKind.PerceptionMicroInteractionV2:
-      return 'perception'
-    default:
-      return 'unsupported'
-  }
+  return getChallengeCapabilityRegistration(kind).group
+}
+
+function capabilityOptions(context: SecurityChallengeContext) {
+  return {
+    action: context.action,
+    mode: context.executionMode ?? 'ui',
+    manifestVersion: context.capabilityManifestVersion
+  } as const
 }
 
 function allowResult(response: SecurityChallengeIssueResponse): SecurityChallengeIssueResult {
@@ -263,6 +264,7 @@ function allowResult(response: SecurityChallengeIssueResponse): SecurityChalleng
     providerPayload: null,
     proof: null,
     kindGroup: null,
+    capability: null,
     reason: null,
     retryAfterMs: response.retryAfterMs
   }
@@ -276,6 +278,7 @@ function failedIssueResult(response: SecurityChallengeIssueResponse | null, reas
     providerPayload: null,
     proof: null,
     kindGroup: null,
+    capability: null,
     reason,
     retryAfterMs: response?.retryAfterMs ?? 0
   }

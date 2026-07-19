@@ -750,8 +750,23 @@ public sealed class ProductionReadinessProbe(
                 {
                     continue;
                 }
-                if (!SecurityChallengeContracts.TryParseKind(normalized, out SecurityChallengeKind parsed)
-                    || !registered.Contains(SecurityChallengeContracts.ToWireName(parsed)))
+                if (!SecurityChallengeContracts.TryParseKind(normalized, out SecurityChallengeKind parsed))
+                {
+                    return false;
+                }
+
+                string wireName = SecurityChallengeContracts.ToWireName(parsed);
+                if (!registered.Contains(wireName))
+                {
+                    return false;
+                }
+
+                SecurityChallengeCapabilityResolution capability = SecurityChallengeCapabilityCatalog.Resolve(
+                    parsed,
+                    action.ActionName,
+                    SecurityChallengeCapabilityCatalog.ResolveMode(action.ActionName),
+                    providerAvailable: true);
+                if (!capability.PolicyEligible)
                 {
                     return false;
                 }

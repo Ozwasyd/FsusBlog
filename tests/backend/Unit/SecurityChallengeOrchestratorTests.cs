@@ -50,13 +50,13 @@ public sealed class SecurityChallengeOrchestratorTests
     [Fact]
     public async Task IssueAsync_ProviderFailure_FailsClosedAndWritesRisk()
     {
-        var provider = new FakeChallengeProvider("sha256PowV1")
+        var provider = new FakeChallengeProvider("captchaV1")
         {
             IssueResult = SecurityChallengeProviderIssueResult.Failed("provider_unavailable")
         };
         var riskSink = new CapturingRiskSink();
         var orchestrator = new SecurityChallengeOrchestrator([provider], new MintingProofService(), riskSink);
-        SecurityChallengeOrchestrationIssueRequest request = CreateIssueRequest(["sha256PowV1"]);
+        SecurityChallengeOrchestrationIssueRequest request = CreateIssueRequest(["captchaV1"]);
 
         SecurityChallengeOrchestrationIssueResult result = await orchestrator.IssueAsync(request, CancellationToken.None);
 
@@ -64,16 +64,16 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.Equal("provider_unavailable", result.Reason);
         Assert.Null(result.Envelope);
         SecurityRiskSignal signal = Assert.Single(riskSink.Signals);
-        Assert.Equal("provider_failure:sha256PowV1:provider_unavailable", signal.Detail);
+        Assert.Equal("provider_failure:captchaV1:provider_unavailable", signal.Detail);
     }
 
     [Fact]
     public async Task IssueAsync_MultipleChallenges_ReturnsEnvelopeAssignments()
     {
-        var pow = new FakeChallengeProvider("sha256PowV1");
+        var perception = new FakeChallengeProvider("perceptionLocalizationV2");
         var captcha = new FakeChallengeProvider("captchaV1");
-        var orchestrator = new SecurityChallengeOrchestrator([pow, captcha], new MintingProofService(), new CapturingRiskSink());
-        SecurityChallengeOrchestrationIssueRequest request = CreateIssueRequest(["sha256PowV1", "captchaV1"]);
+        var orchestrator = new SecurityChallengeOrchestrator([perception, captcha], new MintingProofService(), new CapturingRiskSink());
+        SecurityChallengeOrchestrationIssueRequest request = CreateIssueRequest(["perceptionLocalizationV2", "captchaV1"]);
 
         SecurityChallengeOrchestrationIssueResult result = await orchestrator.IssueAsync(request, CancellationToken.None);
 
@@ -81,7 +81,7 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.NotNull(result.Envelope);
         Assert.Equal("risk-policy-v2", result.Envelope.PolicyVersion);
         Assert.Equal(2, result.Envelope.Assignments.Count);
-        Assert.Equal(SecurityChallengeKind.Sha256PowV1, result.Envelope.Assignments[0].Kind);
+        Assert.Equal(SecurityChallengeKind.PerceptionLocalizationV2, result.Envelope.Assignments[0].Kind);
         Assert.Equal(SecurityChallengeKind.CaptchaV1, result.Envelope.Assignments[1].Kind);
         Assert.All(result.Envelope.Assignments, assignment =>
         {
@@ -92,6 +92,23 @@ public sealed class SecurityChallengeOrchestratorTests
             Assert.Equal(HashC, assignment.DeviceFpHash);
             Assert.True(SecurityChallengeContracts.ValidateAssignment(assignment).IsValid);
         });
+    }
+
+    [Fact]
+    public async Task IssueAsync_ProviderOnlyPoSpace_FailsBeforeCallingPlaceholderExecutor()
+    {
+        var provider = new FakeChallengeProvider("argon2idPoSpaceV1");
+        var riskSink = new CapturingRiskSink();
+        var orchestrator = new SecurityChallengeOrchestrator([provider], new MintingProofService(), riskSink);
+
+        SecurityChallengeOrchestrationIssueResult result = await orchestrator.IssueAsync(
+            CreateIssueRequest(["argon2idPoSpaceV1"]),
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("executor_unavailable", result.Reason);
+        Assert.Equal(0, provider.IssueCalls);
+        Assert.Equal("capability_unavailable:argon2idPoSpaceV1:executor_unavailable", Assert.Single(riskSink.Signals).Detail);
     }
 
     [Fact]
@@ -206,6 +223,11 @@ public sealed class SecurityChallengeOrchestratorTests
     {
         public string Kind { get; } = kind;
 
+        public int IssueCalls
+        {
+            get; private set;
+        }
+
         public SecurityChallengeProviderIssueResult? IssueResult
         {
             get; init;
@@ -215,6 +237,7 @@ public sealed class SecurityChallengeOrchestratorTests
 
         public Task<SecurityChallengeProviderIssueResult> IssueAsync(SecurityChallengeProviderIssueRequest request, CancellationToken cancellationToken = default)
         {
+            IssueCalls++;
             if (IssueResult is { } result)
             {
                 return Task.FromResult(result);
