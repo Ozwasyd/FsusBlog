@@ -282,8 +282,9 @@ public sealed class AuthorizationAccessControlHardeningTests
         string consume = RuntimeMetadataInspection.DescribeMethods(
             typeof(AdminPrincipalService),
             nameof(AdminPrincipalService.ValidateAndConsumeAdminStepUpProofTokenAsync));
-        Assert.Contains("IUnifiedCache.ConsumeOnceAsync", consume, StringComparison.Ordinal);
-        IUnifiedCache proofCache = Substitute.For<IUnifiedCache>();
+        Assert.Contains("ICacheOneTimeStore.ConsumeOnceAsync", consume, StringComparison.Ordinal);
+        ICacheOneTimeStore proofCache = Substitute.For<ICacheOneTimeStore>();
+        ICacheStringWriter proofWriter = Substitute.For<ICacheStringWriter>();
         proofCache.ConsumeOnceAsync(
                 CachePolicyId.SecurityMfaProof,
                 Arg.Any<string>(),
@@ -292,7 +293,7 @@ public sealed class AuthorizationAccessControlHardeningTests
         var principalService = new AdminPrincipalService(
             Substitute.For<IFido2>(),
             Substitute.For<ISqlSugarClient>(),
-            proofCache,
+            proofWriter,
             proofCache,
             Substitute.For<IJwtHelper>(),
             new ConfigurationBuilder().Build(),
