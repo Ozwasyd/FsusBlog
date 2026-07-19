@@ -79,7 +79,7 @@ public sealed class AdminBackupStatusBoundaryTests
             readerDependencies.Select(static parameter => parameter.ParameterType));
         Assert.DoesNotContain(
             readerDependencies,
-            static parameter => parameter.ParameterType == typeof(AdminOperationsService));
+            static parameter => parameter.ParameterType == typeof(AdminIntegrityOperations));
     }
 
     [Fact]

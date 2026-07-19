@@ -392,11 +392,11 @@ public static partial class AuthoringEndpoints
         group.MapGet("/integrity", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AdminOperationsService operations,
+            [Microsoft.AspNetCore.Mvc.FromServices] IAdminIntegrityOperations operations,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
-            IntegrityReportResponse response = await operations.InspectIntegrityAsync(cancellationToken);
+            IntegrityReportResponse response = await operations.InspectAsync(cancellationToken);
             await auditEvents.RecordAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Infra,
@@ -418,9 +418,9 @@ public static partial class AuthoringEndpoints
         group.MapGet("/integrity/fix-preview", async (
             HttpContext context,
             IAedsEncoder aeds,
-            AdminOperationsService operations,
+            [Microsoft.AspNetCore.Mvc.FromServices] IAdminIntegrityOperations operations,
             CancellationToken cancellationToken) =>
-            Ok(context, aeds, await operations.PreviewIntegrityFixAsync(cancellationToken)))
+            Ok(context, aeds, await operations.PreviewFixAsync(cancellationToken)))
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 
@@ -428,7 +428,7 @@ public static partial class AuthoringEndpoints
             HttpContext context,
             IAedsEncoder aeds,
             IAdminPrincipalService adminPrincipals,
-            AdminOperationsService operations,
+            [Microsoft.AspNetCore.Mvc.FromServices] IAdminIntegrityOperations operations,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
@@ -449,7 +449,7 @@ public static partial class AuthoringEndpoints
                 return stepUp;
             }
 
-            IntegrityFixResponse response = await operations.ApplyIntegrityFixAsync(request, cancellationToken);
+            IntegrityFixResponse response = await operations.ApplyFixAsync(request, cancellationToken);
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
                 AuditTypeCatalog.Infra,

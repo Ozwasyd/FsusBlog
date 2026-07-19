@@ -10,8 +10,8 @@ GET /api/binary/admin/ops/dangerous-operations/policy
 ```
 
 The endpoint depends on the stateless singleton reader directly.
-`AdminOperationsService` no longer owns or forwards policy reads, and the policy
-reader has no dependency on integrity operations or any runtime service.
+Integrity operations do not own or forward policy reads, and the policy reader
+has no dependency on integrity operations or any runtime service.
 
 Rule levels, Chinese labels, operation identifiers, policy version, route
 permission, fixed-IP limiting, and the AEDS response contract remain unchanged.

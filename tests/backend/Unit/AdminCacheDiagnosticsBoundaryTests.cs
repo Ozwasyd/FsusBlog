@@ -65,7 +65,8 @@ public sealed class AdminCacheDiagnosticsBoundaryTests
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
         Assert.Contains(typeof(IAdminCacheDiagnosticsReader), healthDependencies);
-        Type[] aggregateDependencies = Assert.Single(typeof(AdminOperationsService).GetConstructors())
+        Type[] aggregateDependencies = Assert.Single(typeof(AdminIntegrityOperations).GetConstructors(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             .GetParameters()
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
@@ -76,7 +77,7 @@ public sealed class AdminCacheDiagnosticsBoundaryTests
         Assert.DoesNotContain(typeof(BlogDistributionService), aggregateDependencies);
         Assert.DoesNotContain(typeof(ICacheDiagnostics), aggregateDependencies);
         Assert.DoesNotContain(
-            typeof(AdminOperationsService).GetMethods(),
+            typeof(AdminIntegrityOperations).GetMethods(),
             static method => method.Name == "GetCacheDiagnosticsAsync");
 
         ParameterInfo[] boundaryDependencies = Assert.Single(typeof(AdminCacheDiagnosticsReader).GetConstructors(
@@ -98,7 +99,7 @@ public sealed class AdminCacheDiagnosticsBoundaryTests
             boundaryDependencies.Select(static parameter => parameter.ParameterType));
         Assert.DoesNotContain(
             boundaryDependencies,
-            static parameter => parameter.ParameterType == typeof(AdminOperationsService));
+            static parameter => parameter.ParameterType == typeof(AdminIntegrityOperations));
     }
 
     [Fact]

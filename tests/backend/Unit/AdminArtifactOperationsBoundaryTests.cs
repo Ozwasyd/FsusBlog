@@ -36,7 +36,8 @@ public sealed class AdminArtifactOperationsBoundaryTests
     [Fact]
     public void DependencyGraph_MovesArtifactPortsOutOfAdminOperationsWithoutCallback()
     {
-        Type[] aggregateDependencies = Assert.Single(typeof(AdminOperationsService).GetConstructors())
+        Type[] aggregateDependencies = Assert.Single(typeof(AdminIntegrityOperations).GetConstructors(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             .GetParameters()
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
@@ -46,7 +47,7 @@ public sealed class AdminArtifactOperationsBoundaryTests
         Assert.DoesNotContain(typeof(IArticleDetailAedsArtifactMaintenanceService), aggregateDependencies);
         Assert.DoesNotContain(typeof(ICacheInvalidationDispatcher), aggregateDependencies);
         Assert.DoesNotContain(
-            typeof(AdminOperationsService).GetMethods(),
+            typeof(AdminIntegrityOperations).GetMethods(),
             static method => method.Name == nameof(IAdminArtifactOperations.RunCacheActionAsync));
 
         ParameterInfo[] boundaryDependencies = Assert.Single(typeof(AdminArtifactOperations).GetConstructors(
@@ -63,7 +64,7 @@ public sealed class AdminArtifactOperationsBoundaryTests
             boundaryDependencies.Select(static parameter => parameter.ParameterType));
         Assert.DoesNotContain(
             boundaryDependencies,
-            static parameter => parameter.ParameterType == typeof(AdminOperationsService));
+            static parameter => parameter.ParameterType == typeof(AdminIntegrityOperations));
     }
 
     [Fact]

@@ -25,11 +25,11 @@ public sealed class AdminOperationsBehaviorTests
     }
 
     [Fact]
-    public async Task ApplyIntegrityFixAsync_WrongConfirmationReturnsWithoutApplyingChanges()
+    public async Task ApplyFixAsync_WrongConfirmationReturnsWithoutApplyingChanges()
     {
-        AdminOperationsService service = CreateServiceWithoutDependencies();
+        AdminIntegrityOperations service = CreateServiceWithoutDependencies();
 
-        IntegrityFixResponse response = await service.ApplyIntegrityFixAsync(
+        IntegrityFixResponse response = await service.ApplyFixAsync(
             new IntegrityFixRequest(["article_tag_missing_tag"], "WRONG_CONFIRMATION"),
             CancellationToken.None);
 
@@ -38,7 +38,7 @@ public sealed class AdminOperationsBehaviorTests
         Assert.Empty(response.Diffs);
     }
 
-    private static AdminOperationsService CreateServiceWithoutDependencies()
+    private static AdminIntegrityOperations CreateServiceWithoutDependencies()
         => new(
             db: null!,
             environment: null!);

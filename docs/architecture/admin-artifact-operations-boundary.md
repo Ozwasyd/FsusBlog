@@ -13,9 +13,9 @@ POST /api/binary/admin/cache/actions
        -> ICacheInvalidationDispatcher
 ```
 
-The endpoint depends on this narrow use-case port directly. `AdminOperationsService`
-no longer owns or forwards artifact maintenance commands, and
-`AdminArtifactOperations` never calls back into the aggregate operations service.
+The endpoint depends on this narrow use-case port directly. Integrity operations
+do not own or forward artifact maintenance commands, and
+`AdminArtifactOperations` never call back into integrity operations.
 Read-only cache diagnostics remain a separate concern.
 
 Action names, normalization, AOT-before-public-hot ordering, queue degradation,

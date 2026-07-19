@@ -16,13 +16,14 @@ public sealed class AdminOperationsHealthBoundaryTests
     [Fact]
     public void DependencyGraph_SeparatesHealthCompositionFromIntegrityOperationsWithoutCallback()
     {
-        Type[] integrityDependencies = Assert.Single(typeof(AdminOperationsService).GetConstructors())
+        Type[] integrityDependencies = Assert.Single(typeof(AdminIntegrityOperations).GetConstructors(
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             .GetParameters()
             .Select(static parameter => parameter.ParameterType)
             .ToArray();
         Assert.Equal([typeof(ISqlSugarClient), typeof(IWebHostEnvironment)], integrityDependencies);
         Assert.DoesNotContain(
-            typeof(AdminOperationsService).GetMethods(),
+            typeof(AdminIntegrityOperations).GetMethods(),
             static method => method.Name == "GetOpsHealthAsync");
 
         ParameterInfo[] healthDependencies = Assert.Single(typeof(AdminOperationsHealthReader).GetConstructors(
@@ -36,7 +37,7 @@ public sealed class AdminOperationsHealthBoundaryTests
             static parameter => parameter.ParameterType == typeof(IAdminCacheDiagnosticsReader));
         Assert.DoesNotContain(
             healthDependencies,
-            static parameter => parameter.ParameterType == typeof(AdminOperationsService));
+            static parameter => parameter.ParameterType == typeof(AdminIntegrityOperations));
     }
 
     [Fact]

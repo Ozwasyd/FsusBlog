@@ -13,7 +13,7 @@ public sealed class AdminDangerousOperationPolicyBoundaryTests
     {
         Assert.Empty(typeof(AdminDangerousOperationPolicyReader).GetConstructors().Single().GetParameters());
         Assert.DoesNotContain(
-            typeof(AdminOperationsService).GetMethods(),
+            typeof(AdminIntegrityOperations).GetMethods(),
             static method => method.Name == "GetDangerousOperationPolicy");
     }
 

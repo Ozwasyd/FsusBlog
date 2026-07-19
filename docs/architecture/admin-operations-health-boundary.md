@@ -11,10 +11,10 @@ GET /api/binary/admin/ops/health
        -> environment/version/commit identity
 ```
 
-The endpoint depends on the narrow reader directly. `AdminOperationsService` no
-longer owns or forwards health composition and now keeps the integrity use case.
-The health reader composes the narrow backup and cache diagnostic ports but
-never calls back into that service.
+The endpoint depends on the narrow reader directly. `AdminIntegrityOperations`
+does not own or forward health composition. The health reader composes the
+narrow backup and cache diagnostic ports but never calls back into integrity
+operations.
 
 Dependency and worker status semantics, recent-error cleanup/grouping, queue
 counts, version resolution, route permissions, fixed-IP limiting, audit events,

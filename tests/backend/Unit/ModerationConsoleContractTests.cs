@@ -221,7 +221,7 @@ public sealed class ModerationConsoleContractTests
         builder.Services.AddSingleton(Substitute.For<IAuthoringAiAssist>());
         builder.Services.AddSingleton(Substitute.For<IAuthoringModerationQueue>());
         builder.Services.AddSingleton(Substitute.For<IAuthoringModerationCommands>());
-        builder.Services.AddSingleton<AdminOperationsService>(_ => null!);
+        builder.Services.AddSingleton<IAdminIntegrityOperations>(_ => null!);
         builder.Services.AddSingleton<AuditQueryService>(_ => null!);
         builder.Services.AddSingleton(Substitute.For<IAnonymousCommentPolicyService>());
         builder.Services.AddSingleton(Substitute.For<IAnonymousCredentialService>());

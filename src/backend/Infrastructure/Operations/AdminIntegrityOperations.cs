@@ -11,14 +11,23 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
 
-public sealed class AdminOperationsService(
+public interface IAdminIntegrityOperations
+{
+    Task<IntegrityReportResponse> InspectAsync(CancellationToken cancellationToken);
+
+    Task<IntegrityFixPreviewResponse> PreviewFixAsync(CancellationToken cancellationToken);
+
+    Task<IntegrityFixResponse> ApplyFixAsync(IntegrityFixRequest request, CancellationToken cancellationToken);
+}
+
+internal sealed class AdminIntegrityOperations(
     ISqlSugarClient db,
-    IWebHostEnvironment environment)
+    IWebHostEnvironment environment) : IAdminIntegrityOperations
 {
     private const string IntegrityFixPhrase = "APPLY_SAFE_FIXES";
     private const int MaxUntrackedUploadScanFiles = 10_000;
 
-    public async Task<IntegrityReportResponse> InspectIntegrityAsync(CancellationToken cancellationToken)
+    public async Task<IntegrityReportResponse> InspectAsync(CancellationToken cancellationToken)
     {
         IReadOnlyList<IntegrityCheckResponse> checks = await BuildIntegrityChecksAsync(cancellationToken);
 
@@ -31,7 +40,7 @@ public sealed class AdminOperationsService(
             checks);
     }
 
-    public async Task<IntegrityFixPreviewResponse> PreviewIntegrityFixAsync(CancellationToken cancellationToken)
+    public async Task<IntegrityFixPreviewResponse> PreviewFixAsync(CancellationToken cancellationToken)
     {
         IReadOnlyList<AdminDiffResponse> diffs = await BuildSafeFixDiffsAsync(cancellationToken);
         return new IntegrityFixPreviewResponse(
@@ -42,7 +51,9 @@ public sealed class AdminOperationsService(
             "admin.integrity.safe_fix_applied");
     }
 
-    public async Task<IntegrityFixResponse> ApplyIntegrityFixAsync(IntegrityFixRequest request, CancellationToken cancellationToken)
+    public async Task<IntegrityFixResponse> ApplyFixAsync(
+        IntegrityFixRequest request,
+        CancellationToken cancellationToken)
     {
         if (!string.Equals(request.ConfirmPhrase, IntegrityFixPhrase, StringComparison.Ordinal))
         {
