@@ -13,6 +13,7 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using Microsoft.Extensions.Options;
@@ -52,6 +53,7 @@ public sealed class PublicHotArtifactProjector(
     IAedsEncoder aeds,
     IDbConcurrencyGate dbConcurrencyGate,
     IOptions<PublicHotReadOptions> options,
+    ArticleBodyRepairQueue articleBodyRepairQueue,
     ILogger<PublicHotArtifactProjector> logger) : IPublicHotArtifactProjector
 {
     private const int MaxPageSize = 100;
@@ -922,9 +924,12 @@ public sealed class PublicHotArtifactProjector(
             }
 
             string content = contentMap.TryGetValue(id, out string? mappedContent) ? mappedContent : string.Empty;
-            if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(article.Summary))
+            if (string.IsNullOrWhiteSpace(content))
             {
-                content = article.Summary;
+                articleBodyRepairQueue.TrySchedule(id, "public-hot-read");
+                logger.LogWarning("public_hot_article_body_missing {ArticleId}", id);
+                FsusObservability.RecordOperation("article_body", "public_hot_read", "missing", TimeSpan.Zero);
+                continue;
             }
 
             if (!rightsMap.TryGetValue(id, out ArticleRightsReadModel? rights) || !HasCompleteArticleRights(rights))
@@ -1030,14 +1035,25 @@ public sealed class PublicHotArtifactProjector(
         var rows = await db.Queryable<Article>()
             .InnerJoin<ArticlePublicationRecord>((article, publication) => article.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((article, publication, revision) => publication.ArticleRevisionId == revision.Id)
+            .LeftJoin<ArticleBody>((article, publication, revision, body) => article.Id == body.ArticleId)
             .Where(article => ids.Contains(article.Id))
-            .Select((article, publication, revision) => new { ArticleId = article.Id, revision.MarkdownContent })
+            .Select((article, publication, revision, body) => new
+            {
+                ArticleId = article.Id,
+                revision.MarkdownContent,
+                ArticleBodyContent = body.MarkdownContent
+            })
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
         var contentMap = new Dictionary<int, string>(ids.Length);
         foreach (var row in rows)
         {
+            if (string.IsNullOrWhiteSpace(row.ArticleBodyContent))
+            {
+                continue;
+            }
+
             contentMap[row.ArticleId] = row.MarkdownContent ?? string.Empty;
         }
 

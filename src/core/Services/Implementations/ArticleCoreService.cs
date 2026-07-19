@@ -38,9 +38,17 @@ public sealed class ArticleCoreService(
         }
 
         var data = await gateway.GetByIdAsync(query, cancellationToken);
-        return data is null
-            ? Result<ArticleDetailCoreModel?>.Failure(ErrorCode.NotFound, "文章不存在")
-            : Result<ArticleDetailCoreModel?>.Success(data);
+        if (data is null)
+        {
+            return Result<ArticleDetailCoreModel?>.Failure(ErrorCode.NotFound, "文章不存在");
+        }
+
+        if (data.Value.Status == 2 && string.IsNullOrWhiteSpace(data.Value.Content))
+        {
+            return Result<ArticleDetailCoreModel?>.Failure(ErrorCode.InfraFailure, "article_body_missing");
+        }
+
+        return Result<ArticleDetailCoreModel?>.Success(data);
     }
 
     public async Task<Result<int>> CreateAsync(CreateArticleCommand command, CancellationToken cancellationToken = default)

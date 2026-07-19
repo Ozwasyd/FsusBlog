@@ -272,7 +272,9 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     {
         services.AddSingleton<VisitLogChannel>();
         services.AddSingleton<ArticleAssetCleanupQueue>();
+        services.AddSingleton<ArticleBodyRepairQueue>();
         services.AddScoped<ArticleAssetCleanupService>();
+        services.AddScoped<ArticleBodyRepairService>();
         services.AddScoped<MessageRetentionCleanupService>();
         services.AddScoped<IArticleViewProjectionService, ArticleViewProjectionService>();
         if (!OpenApiExportMode.IsEnabled())
@@ -285,6 +287,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
             services.AddHostedService<LogCleanupService>();
             services.AddHostedService<ArticleMutationOutboxDispatcher>();
             services.AddHostedService<ArticleAssetCleanupWorker>();
+            services.AddHostedService<ArticleBodyRepairWorker>();
             services.AddHostedService<RumTelemetryFlushWorker>();
         }
         services.AddSingleton<ScheduledPublishRuntimeState>();

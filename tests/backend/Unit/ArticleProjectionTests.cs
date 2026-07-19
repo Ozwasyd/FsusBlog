@@ -100,13 +100,13 @@ public sealed class ArticleProjectionTests
     }
 
     [Fact]
-    public void ToDetailResponse_FallsBackToSummaryWhenContentIsEmpty()
+    public void ToDetailResponse_DoesNotUseSummaryWhenContentIsEmpty()
     {
         var item = BuildDetailItem(content: "", summary: "summary text");
 
         ArticleDetailResponse result = ArticleProjection.ToResponse(item);
 
-        Assert.Equal("summary text", result.Content);
+        Assert.Empty(result.Content);
     }
 
     [Fact]
@@ -132,13 +132,13 @@ public sealed class ArticleProjectionTests
     }
 
     [Fact]
-    public void ResolveDetailContent_TrimsSummaryWhenUsedAsFallback()
+    public void ResolveDetailContent_DoesNotUseSummaryAsFallback()
     {
         var item = BuildDetailItem(content: "", summary: "  summary  ");
 
         string result = ArticleProjection.ResolveDetailContent(item);
 
-        Assert.Equal("summary", result);
+        Assert.Empty(result);
     }
 
     // ─── ToCategoryResponse ─────────────────────────────────────────────────

@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.Http;
@@ -673,6 +674,7 @@ public sealed class ArticleRevisionConcurrencyTests(
             _mutationFence: mutationFence ?? Substitute.For<IArticlePublicMutationFence>(),
             _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
             _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>(),
-            _publicationValidator: ArticlePublicationValidatorTestFactory.CreateAllowing());
+            _publicationValidator: ArticlePublicationValidatorTestFactory.CreateAllowing(),
+            _articleBodyRepairQueue: new ArticleBodyRepairQueue());
     }
 }

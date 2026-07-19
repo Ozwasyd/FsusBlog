@@ -9,6 +9,7 @@ using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -238,7 +239,8 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
     RelatedReadingService relatedReadingService,
     IAotSeoConfigSnapshot seoConfigSnapshot,
     IArticleResponsibilityManifestService responsibilityManifestService,
-    ISqlSugarClient db) : PublicAotBootstrapProviderBase(seoConfigSnapshot)
+    ISqlSugarClient db,
+    ArticleBodyRepairQueue articleBodyRepairQueue) : PublicAotBootstrapProviderBase(seoConfigSnapshot)
 {
     public override PublicPageKind Kind => PublicPageKind.ArticleDetail;
 
@@ -258,6 +260,13 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         if (article is null)
         {
             return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_article_not_found");
+        }
+
+        if (string.IsNullOrWhiteSpace(article.ArticleBodyContent))
+        {
+            articleBodyRepairQueue.TrySchedule(articleId, "public-aot");
+            FsusObservability.RecordOperation("article_body", "public_aot", "missing", TimeSpan.Zero);
+            return Result<PublicPageSnapshot>.Failure(ErrorCode.InfraFailure, "article_body_missing");
         }
 
         if (!HasCompleteArticleRights(article.Rights))
@@ -310,16 +319,18 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             .InnerJoin<ArticlePublicationRecord>((a, publication) => a.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((a, publication, revision) => publication.ArticleRevisionId == revision.Id)
             .LeftJoin<Category>((a, publication, revision, category) => revision.CategoryId == category.Id)
+            .LeftJoin<ArticleBody>((a, publication, revision, category, body) => a.Id == body.ArticleId)
             .Where(a => a.Id == articleId
                 && a.IsDeleted == false
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= utcNow)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= utcNow))
-            .Select((a, publication, revision, category) => new ArticleDetailAotProjection
+            .Select((a, publication, revision, category, body) => new ArticleDetailAotProjection
             {
                 Id = a.Id,
                 Title = revision.Title,
                 Content = revision.MarkdownContent,
+                ArticleBodyContent = body.MarkdownContent,
                 Summary = revision.Summary,
                 CoverImageUrl = revision.CoverImageUrl,
                 Views = a.Views,
@@ -528,6 +539,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         }
         public string Title { get; init; } = string.Empty;
         public string Content { get; set; } = string.Empty;
+        public string ArticleBodyContent { get; init; } = string.Empty;
         public string? Summary
         {
             get; set;

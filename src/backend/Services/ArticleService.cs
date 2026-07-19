@@ -20,6 +20,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Articles;
+using FsusBlog.Server.Services.Background;
 
 using SqlSugar;
 
@@ -51,7 +52,8 @@ public partial class ArticleService(
     IArticlePublicMutationFence _mutationFence,
     IArticleMutationSideEffectCoordinator _mutationSideEffects,
     IArticleViewWriteBuffer _viewWriteBuffer,
-    IArticlePublicationValidator _publicationValidator) : IArticleCoreGateway
+    IArticlePublicationValidator _publicationValidator,
+    ArticleBodyRepairQueue _articleBodyRepairQueue) : IArticleCoreGateway
 #pragma warning restore IDE1006
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId, string? CoverImageUrl);
@@ -286,11 +288,7 @@ public partial class ArticleService(
         string healedContent = await LoadArticleContentAsync(id, cancellationToken);
         if (string.IsNullOrWhiteSpace(healedContent))
         {
-            healedContent = cached.Summary ?? string.Empty;
-        }
-
-        if (string.IsNullOrWhiteSpace(healedContent))
-        {
+            MarkArticleBodyMissing(id, "article-detail-cache");
             return new CacheReadResult<ArticleDetailReadModel>(true, await OverlayProjectedViewsAsync(cached, cancellationToken));
         }
 
@@ -368,12 +366,17 @@ public partial class ArticleService(
                 a.scheduled_publish_at AS "ScheduledPublishAt",
                 CASE WHEN @IncludePrivate THEN a.published_at ELSE publication.published_at END AS "PublishedAt",
                 CASE WHEN @IncludePrivate THEN ab.updated_at ELSE published_revision.created_at END AS "UpdatedAt",
+                (ab.article_id IS NOT NULL AND btrim(COALESCE(ab.markdown_content, '')) <> '') AS "BodyAvailable",
                 CASE WHEN @IncludePrivate THEN current_revision.id ELSE published_revision.id END AS "CurrentRevisionId",
                 CASE WHEN @IncludePrivate THEN current_revision.revision_no ELSE published_revision.revision_no END AS "RevisionNo",
                 publication.id AS "CurrentPublicationId",
                 publication.publication_no AS "PublicationNo",
                 c.name AS "CategoryName",
-                CASE WHEN @IncludePrivate THEN COALESCE(ab.markdown_content, '') ELSE published_revision.markdown_content END AS "Content",
+                CASE
+                    WHEN ab.article_id IS NULL OR btrim(COALESCE(ab.markdown_content, '')) = '' THEN ''
+                    WHEN @IncludePrivate THEN ab.markdown_content
+                    ELSE published_revision.markdown_content
+                END AS "Content",
                 rights.id AS "RightsSnapshotId",
                 rights.article_revision_id AS "RightsArticleRevisionId",
                 rights.revision_no AS "RightsRevisionNo",
@@ -485,6 +488,7 @@ public partial class ArticleService(
                 rights.content_canonical_hash,
                 rights_proof.id,
                 rights_proof.proof_status,
+                ab.article_id,
                 ab.markdown_content;
             """;
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sql, parameters))
@@ -496,13 +500,10 @@ public partial class ArticleService(
                     fCatId = reader.GetOrdinal("CategoryId"), fViews = reader.GetOrdinal("Views"),
                     fTime = reader.GetOrdinal("CreateTime"), fIsDel = reader.GetOrdinal("IsDeleted"), fStatus = reader.GetOrdinal("Status"),
                     fScheduled = reader.GetOrdinal("ScheduledPublishAt"), fPublished = reader.GetOrdinal("PublishedAt"), fUpdated = reader.GetOrdinal("UpdatedAt"), fCatName = reader.GetOrdinal("CategoryName"),
-                    fContent = reader.GetOrdinal("Content"), fTagIds = reader.GetOrdinal("TagIds"), fTagNames = reader.GetOrdinal("TagNames");
+                    fContent = reader.GetOrdinal("Content"), fBodyAvailable = reader.GetOrdinal("BodyAvailable"), fTagIds = reader.GetOrdinal("TagIds"), fTagNames = reader.GetOrdinal("TagNames");
                 string content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent);
                 string? summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum);
-                if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(summary))
-                {
-                    content = summary;
-                }
+                bool bodyAvailable = !reader.IsDBNull(fBodyAvailable) && reader.GetBoolean(fBodyAvailable);
 
                 ReadingEstimate reading = ReadingEstimator.Estimate(content);
 
@@ -532,12 +533,16 @@ public partial class ArticleService(
                     Tags = ReadArticleDetailTags(reader, fTagIds, fTagNames),
                     Rights = ReadArticleRights(reader)
                 };
+                if (article.Status == ArticleStatus.Published && !bodyAvailable)
+                {
+                    MarkArticleBodyMissing(article.Id, "article-detail-db");
+                }
             }
         }
 
         if (article != null)
         {
-            if (!includePrivate && cacheIdentity is not null)
+            if (!includePrivate && cacheIdentity is not null && !string.IsNullOrWhiteSpace(article.Content))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 byte[] encoded = ServerCacheBinaryCodec.EncodeArticleDetail(article);
@@ -639,6 +644,13 @@ public partial class ArticleService(
             .FirstAsync(cancellationToken) ?? string.Empty;
 
         return content;
+    }
+
+    private void MarkArticleBodyMissing(int articleId, string source)
+    {
+        _articleBodyRepairQueue.TrySchedule(articleId, source);
+        _logger.LogWarning("article_body_missing {ArticleId} {Source}", articleId, source);
+        FsusObservability.RecordOperation("article_body", "read", "missing", TimeSpan.Zero);
     }
 
     public async Task<int> CreateAsync(ArticleWriteRequestCoreModel dto, CancellationToken cancellationToken = default)

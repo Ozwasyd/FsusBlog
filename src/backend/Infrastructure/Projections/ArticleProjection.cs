@@ -248,14 +248,7 @@ public static class ArticleProjection
             rights.ProofStatus);
 
     public static string ResolveDetailContent(ArticleDetailReadModel item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.Content))
-        {
-            return item.Content;
-        }
-
-        return item.Summary?.Trim() ?? string.Empty;
-    }
+        => item.Content;
 
     private static List<TagDto> ToListTagResponses(IReadOnlyList<TagReadModel> tags)
     {

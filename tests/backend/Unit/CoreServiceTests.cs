@@ -103,6 +103,54 @@ public class ArticleCoreServiceTests
         Assert.Equal(1, result.Value?.Id);
     }
 
+    [Fact]
+    public async Task GetById_PublishedArticleWithoutBody_ReturnsExplicitFailure()
+    {
+        var detail = new ArticleDetailCoreModel
+        {
+            Id = 1,
+            Title = "Published",
+            Content = "",
+            Summary = "must not become body",
+            CreateTime = DateTime.UtcNow,
+            Category = new(1, "Cat"),
+            Tags = [],
+            CategoryId = 1,
+            Status = 2
+        };
+        _gw.GetByIdAsync(1).Returns(detail);
+
+        var result = await Svc().GetByIdAsync(1);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ErrorCode.InfraFailure, result.Error.Code);
+        Assert.Equal("article_body_missing", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task GetById_DraftWithoutBody_RemainsReadable()
+    {
+        var detail = new ArticleDetailCoreModel
+        {
+            Id = 1,
+            Title = "Draft",
+            Content = "",
+            Summary = "draft summary",
+            CreateTime = DateTime.UtcNow,
+            Category = new(1, "Cat"),
+            Tags = [],
+            CategoryId = 1,
+            Status = 0
+        };
+        _gw.GetByIdAsync(Arg.Is<ArticleDetailQuery>(query => query.Id == 1 && query.IncludePrivate), Arg.Any<CancellationToken>())
+            .Returns(detail);
+
+        var result = await Svc().GetByIdAsync(1, includePrivate: true);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Value?.Content ?? "unexpected");
+    }
+
     // CreateAsync
     [Theory]
     [InlineData("", "content", 1)]

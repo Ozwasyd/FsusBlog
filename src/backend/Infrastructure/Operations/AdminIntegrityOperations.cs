@@ -130,8 +130,44 @@ internal sealed class AdminIntegrityOperations(
             SELECT 'article:' || a.id AS sample_key
             FROM article a
             LEFT JOIN article_body b ON b.article_id = a.id
+            WHERE a.status = {{(int)ArticleStatus.Published}}
+              AND (b.article_id IS NULL OR b.markdown_content IS NULL OR btrim(b.markdown_content) = '')
+            ORDER BY a.id
+            """, cancellationToken);
+        IntegrityCheckSample invalidCurrentRevision = await RunIntegritySqlCheckAsync("article_current_revision_invalid", $$"""
+            SELECT 'article:' || a.id || ':revision:' || COALESCE(a.current_revision_id::text, 'null') AS sample_key
+            FROM article a
+            LEFT JOIN article_revision r
+              ON r.id = a.current_revision_id
+             AND r.article_id = a.id
             WHERE a.status <> {{(int)ArticleStatus.Deleted}}
-              AND b.article_id IS NULL
+              AND (a.current_revision_id IS NULL OR r.id IS NULL)
+            ORDER BY a.id
+            """, cancellationToken);
+        IntegrityCheckSample invalidCurrentPublication = await RunIntegritySqlCheckAsync("article_current_publication_invalid", $$"""
+            SELECT 'article:' || a.id || ':publication:' || COALESCE(a.current_publication_id::text, 'null') AS sample_key
+            FROM article a
+            LEFT JOIN article_publication_record p
+              ON p.id = a.current_publication_id
+             AND p.article_id = a.id
+            LEFT JOIN article_revision r
+              ON r.id = p.article_revision_id
+             AND r.article_id = a.id
+            WHERE a.status = {{(int)ArticleStatus.Published}}
+              AND (a.current_publication_id IS NULL OR p.id IS NULL OR r.id IS NULL)
+            ORDER BY a.id
+            """, cancellationToken);
+        IntegrityCheckSample bodyRevisionMismatch = await RunIntegritySqlCheckAsync("article_body_revision_mismatch", $$"""
+            SELECT 'article:' || a.id || ':revision:' || COALESCE(a.current_revision_id::text, 'null') AS sample_key
+            FROM article a
+            JOIN article_body b ON b.article_id = a.id
+            LEFT JOIN article_revision r
+              ON r.id = a.current_revision_id
+             AND r.article_id = a.id
+            WHERE a.status = {{(int)ArticleStatus.Published}}
+              AND b.markdown_content IS NOT NULL
+              AND btrim(b.markdown_content) <> ''
+              AND (r.id IS NULL OR b.markdown_content IS DISTINCT FROM r.markdown_content)
             ORDER BY a.id
             """, cancellationToken);
         IntegrityCheckSample bodyWithoutRevision = await RunIntegritySqlCheckAsync("article_body_without_revision", """
@@ -192,7 +228,10 @@ internal sealed class AdminIntegrityOperations(
 
         return
         [
-            BuildCheck("article_missing_body", "文章缺少 ArticleBody", missingBody, "warning", true, "可通过内容导入或人工补正文修复。"),
+            BuildCheck("article_missing_body", "文章正文缺失或为空", missingBody, "error", true, "发布文章会进入本机正文修复队列；修复后重建缓存与公开产物。"),
+            BuildCheck("article_current_revision_invalid", "文章 current revision 指针异常", invalidCurrentRevision, "error", false, "需要恢复当前 revision 指针后再执行正文修复。"),
+            BuildCheck("article_current_publication_invalid", "发布文章 current publication 指针异常", invalidCurrentPublication, "error", false, "需要恢复 publication 与 revision 关系后再重建公开产物。"),
+            BuildCheck("article_body_revision_mismatch", "正文与 current revision 不一致", bodyRevisionMismatch, "warning", false, "需要人工确认 current revision 后再覆盖正文。"),
             BuildCheck("article_body_without_revision", "正文缺少 revision", bodyWithoutRevision, "warning", false, "需要人工确认首个 revision 的正文来源。"),
             BuildCheck("article_missing_category", "文章引用不存在分类", missingCategory, "error", false, "需要重新指定分类或恢复分类。"),
             BuildCheck("article_tag_missing_tag", "文章标签关联不存在 tag", missingTag, "warning", true, "安全修复会删除无效 article_tag 关联。"),

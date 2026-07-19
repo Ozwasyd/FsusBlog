@@ -817,3 +817,8 @@ RiskControl 运行态写入只能使用 `/api/binary/admin/security/risk-control
 - [`AedsJsonResults.cs`](../../src/backend/Infrastructure/Results/AedsJsonResults.cs) — typed JSON DTO bytes 与 AEDS frame 编码边界
 - [`renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts) — server SSR worker 加载的公开页 renderer 入口
 - [`publicEntryRegistry.ts`](../../src/frontend/src/public-renderers/publicEntryRegistry.ts) — 公开页 SSR entry registry 与页面 assembly 调度
+## 发布文章正文健康门禁
+
+公开文章详情只把非空 `article_body.markdown_content` 视为可发布正文。已发布文章缺少正文行或正文为空白时，读取链返回稳定的 `article_body_missing`，不得使用 `summary` 补正文，也不得把该结果写入 ArticleDetail cache、AEDS、Public AOT、public-hot 或搜索正文投影。草稿的空正文仍是合法的未完成内容，不复用公开损坏语义。
+
+检测到损坏后，读取链只提交文章 ID 与低基数来源到本机有界修复队列。修复必须从 `current_publication_id` 对应且归属同一文章的 revision 恢复，并要求 `current_revision_id` 没有指向未发布草稿；成功后统一失效缓存与公开制品再重建。无法证明 revision/publication 坐标一致时保持 fail closed，不猜测正文。详细运行边界见 [`issue-1208-article-body-missing.md`](issue-1208-article-body-missing.md) 与 [`issue-1208-article-body-repair.md`](../architecture/issue-1208-article-body-repair.md)。

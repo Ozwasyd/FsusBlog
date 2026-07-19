@@ -39,7 +39,7 @@ public sealed partial class SearchIndexService
         return await LoadSearchSourceArticlesAsync(db, articleRows).ConfigureAwait(false);
     }
 
-    private static async Task<List<SearchSourceArticle>> LoadSearchSourceArticlesAsync(ISqlSugarClient db, List<SearchArticleRow> articleRows)
+    private async Task<List<SearchSourceArticle>> LoadSearchSourceArticlesAsync(ISqlSugarClient db, List<SearchArticleRow> articleRows)
     {
         if (articleRows.Count == 0)
         {
@@ -60,6 +60,14 @@ public sealed partial class SearchIndexService
         var list = new List<SearchSourceArticle>(articleRows.Count);
         foreach (SearchArticleRow row in articleRows)
         {
+            if (string.IsNullOrWhiteSpace(row.ArticleBodyContent))
+            {
+                articleBodyRepairQueue.TrySchedule(row.Id, "search-index");
+                logger.LogWarning("search_index_article_body_missing {ArticleId}", row.Id);
+                FsusObservability.RecordOperation("article_body", "search_index", "missing", TimeSpan.Zero);
+                continue;
+            }
+
             string body = row.MarkdownContent;
             List<SearchTagItem> tags = FsusBlog.Server.Services.Authoring.AuthoringNormalization.ParseTagIds(row.TagIds)
                 .Where(tagNames.ContainsKey)
@@ -129,12 +137,13 @@ public sealed partial class SearchIndexService
             .InnerJoin<ArticlePublicationRecord>((a, publication) => a.CurrentPublicationId == publication.Id)
             .InnerJoin<ArticleRevision>((a, publication, revision) => publication.ArticleRevisionId == revision.Id)
             .LeftJoin<Category>((a, publication, revision, category) => revision.CategoryId == category.Id)
+            .LeftJoin<ArticleBody>((a, publication, revision, category, body) => a.Id == body.ArticleId)
             .Where((a, publication, revision, category) => !a.IsDeleted
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= now)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
             .OrderByDescending((a, publication, revision, category) => publication.PublishedAt)
-            .Select((a, publication, revision, category) => new SearchArticleRow
+            .Select((a, publication, revision, category, body) => new SearchArticleRow
             {
                 Id = a.Id,
                 Title = revision.Title,
@@ -144,6 +153,7 @@ public sealed partial class SearchIndexService
                 Views = a.Views,
                 CreateTime = a.CreateTime,
                 MarkdownContent = revision.MarkdownContent,
+                ArticleBodyContent = body.MarkdownContent,
                 TagIds = revision.TagIds,
                 RevisionId = revision.Id,
                 RevisionNo = revision.RevisionNo,

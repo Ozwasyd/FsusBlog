@@ -141,6 +141,7 @@ public sealed partial class SearchIndexService
             get; init;
         }
         public string MarkdownContent { get; init; } = string.Empty;
+        public string ArticleBodyContent { get; init; } = string.Empty;
         public string TagIds { get; init; } = string.Empty;
         public long RevisionId
         {

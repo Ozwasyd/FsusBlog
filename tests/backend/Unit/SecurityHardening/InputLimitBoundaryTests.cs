@@ -9,6 +9,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -180,6 +181,7 @@ public sealed class InputLimitBoundaryTests
                 new ConfigurationBuilder().Build(),
                 Substitute.For<INotificationStreamPublisher>(),
                 Substitute.For<IUnifiedCache>(),
+                new ArticleBodyRepairQueue(),
                 NullLogger<SearchIndexService>.Instance);
             string oversized = new('检', 129);
             long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();

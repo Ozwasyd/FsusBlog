@@ -2215,3 +2215,8 @@ Notification deployment drill 请求固定为 `{releaseId,slot,generation,drillI
 - [schemas-and-errors.md](schemas-and-errors.md) — 错误码枚举与 Binary 帧格式
 - `src/shared/Contracts/Outputs/ServerResponseContracts.cs` — 所有 DTO 权威源码
 - `src/shared/Contracts/NotificationStream/NotificationStreamContracts.cs` — notification stream 信封权威源码
+## `article_body_missing` 公开读取契约
+
+`GET /api/binary/article/{id}.aeds` 及其公共投影发现 Published 文章缺少非空 `article_body.markdown_content` 时，返回 `InfraFailure`，稳定错误 detail 为 `article_body_missing`。该状态不是 `NotFound`，客户端应显示正文暂不可用并允许稍后重试；不得把列表 `summary` 渲染为详情正文。
+
+错误路径不生成新的 ArticleDetail AEDS frame、缓存、Public AOT、public-hot 正文或搜索正文投影。admin/private Draft 读取允许空正文并返回空字符串。此变更不修改 `AedsFrameType`、ArticleDetail V5 POD、路由或 notification stream 信封；修复完成后沿既有文章缓存、AOT、搜索和热读失效链恢复，无需新增客户端 fallback。

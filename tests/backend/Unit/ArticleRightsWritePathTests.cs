@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -391,6 +392,7 @@ public sealed class ArticleRightsWritePathTests(
             _mutationFence: mutationFence ?? Substitute.For<IArticlePublicMutationFence>(),
             _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
             _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>(),
-            _publicationValidator: publicationValidator ?? ArticlePublicationValidatorTestFactory.CreateAllowing());
+            _publicationValidator: publicationValidator ?? ArticlePublicationValidatorTestFactory.CreateAllowing(),
+            _articleBodyRepairQueue: new ArticleBodyRepairQueue());
     }
 }

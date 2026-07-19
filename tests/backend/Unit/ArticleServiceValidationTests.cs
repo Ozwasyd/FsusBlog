@@ -9,6 +9,7 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.Http;
@@ -54,7 +55,8 @@ public class ArticleServiceValidationTests
             _mutationFence: Substitute.For<IArticlePublicMutationFence>(),
             _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
             _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>(),
-            _publicationValidator: ArticlePublicationValidatorTestFactory.CreateAllowing());
+            _publicationValidator: ArticlePublicationValidatorTestFactory.CreateAllowing(),
+            _articleBodyRepairQueue: new ArticleBodyRepairQueue());
     }
 
     // ─── SearchArticlesAsync guard ────────────────────────────────────────────

@@ -21,6 +21,7 @@ using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Shared.Contracts.NotificationStream;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -40,6 +41,7 @@ public sealed partial class SearchIndexService(
     IConfiguration configuration,
     INotificationStreamPublisher notificationStreamPublisher,
     ICacheCounterStore cache,
+    ArticleBodyRepairQueue articleBodyRepairQueue,
     ILogger<SearchIndexService> logger) : ISearchIndexService
 {
     private const uint ShardMagic = 0x32534846; // FHS2

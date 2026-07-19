@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Services.Background;
 
 using SqlSugar;
 
@@ -1001,6 +1002,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
     IArticleDetailAedsArtifactStore store,
     IPublicArticleProjectionStore publicProjection,
     IDbConcurrencyGate dbGate,
+    ArticleBodyRepairQueue articleBodyRepairQueue,
     ILogger<ArticleDetailAedsArtifactProjector> logger) : IArticleDetailAedsArtifactProjector
 {
     public Task GenerateAndStoreAsync(int articleId, CancellationToken cancellationToken = default)
@@ -1014,6 +1016,17 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 {
                     await ArticleDetailProjectionCommitSequence.MarkUnavailableAsync(
                         () => publicProjection.MarkUnavailableAsync(articleId, "not-public", ct),
+                        () => store.RemoveAsync(articleId, ct)).ConfigureAwait(false);
+                    return true;
+                }
+
+                if (string.IsNullOrWhiteSpace(article.Content))
+                {
+                    articleBodyRepairQueue.TrySchedule(articleId, "article-detail-aeds");
+                    logger.LogWarning("article_detail_aeds_body_missing {ArticleId}", articleId);
+                    FsusObservability.RecordOperation("article_body", "article_detail_aeds", "missing", TimeSpan.Zero);
+                    await ArticleDetailProjectionCommitSequence.MarkUnavailableAsync(
+                        () => publicProjection.MarkUnavailableAsync(articleId, "article-body-missing", ct),
                         () => store.RemoveAsync(articleId, ct)).ConfigureAwait(false);
                     return true;
                 }
@@ -1188,11 +1201,6 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 int fTagNames = reader.GetOrdinal("TagNames");
                 string content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent);
                 string summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum);
-                if (string.IsNullOrWhiteSpace(content) && !string.IsNullOrWhiteSpace(summary))
-                {
-                    content = summary;
-                }
-
                 ReadingEstimate reading = ReadingEstimator.Estimate(content);
 
                 article = new ArticleDetailReadModel
