@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120">
+  <path d="M20 60h90m100 0h90" stroke="#ff6b6b" stroke-width="6"/>
+  <rect x="110" y="28" width="100" height="64" rx="12" fill="#172033"/>
+  <text x="132" y="68" fill="#f7f9fc" font-family="sans-serif" font-size="16">modified</text>
+</svg>

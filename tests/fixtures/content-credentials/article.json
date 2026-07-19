@@ -1,0 +1,37 @@
+{
+  "articleId": 1179,
+  "revisionId": 3,
+  "title": "内容凭证离线原型",
+  "summary": "一篇用于验证 Markdown、HTML、封面和修订绑定的固定结构文章。",
+  "canonicalUrl": "https://fsus.blog/article/1179",
+  "manifestUrl": "https://fsus.blog/credentials/articles/1179/revisions/3/manifest.c2pa",
+  "publishedAt": "2026-07-18T10:00:00.000Z",
+  "language": "zh-CN",
+  "license": "CC-BY-4.0",
+  "aiUseDisclosure": "assisted",
+  "markdown": "# 内容凭证离线原型\n\n正文在不支持 C2PA 时仍可直接阅读。\n",
+  "renderedHtml": "<article data-article-id=\"1179\" data-revision-id=\"3\"><h1>内容凭证离线原型</h1><p>正文在不支持 C2PA 时仍可直接阅读。</p><span data-c2pa-volatile>阅读 42</span></article>",
+  "release": {
+    "version": "prototype-1",
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "repositoryReceiptSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "ingredients": [
+    {
+      "kind": "cover",
+      "relationship": "componentOf",
+      "mediaType": "image/svg+xml",
+      "uri": "https://fsus.blog/media/content-credentials/cover-v1.svg",
+      "sourcePath": "cover.svg",
+      "tamperedSourcePath": "cover-tampered.svg"
+    },
+    {
+      "kind": "attachment",
+      "relationship": "componentOf",
+      "mediaType": "image/svg+xml",
+      "uri": "https://fsus.blog/media/content-credentials/diagram-v1.svg",
+      "sourcePath": "diagram.svg",
+      "tamperedSourcePath": "diagram-tampered.svg"
+    }
+  ]
+}
