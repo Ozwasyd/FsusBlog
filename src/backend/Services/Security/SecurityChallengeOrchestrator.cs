@@ -310,7 +310,7 @@ public sealed partial class SecurityChallengeOrchestrator(
             envelope.PolicyVersion,
             assignments.Select(static assignment => assignment.ChallengeId).ToArray(),
             assignments.Select(static assignment => SecurityChallengeContracts.ToWireName(assignment.Kind)).ToArray(),
-            new bool[assignments.Count],
+            Enumerable.Repeat(SecurityChallengeEnvelopeMemberStatuses.Issued, assignments.Count).ToArray(),
             assignments.Min(static assignment => assignment.IssuedAtUnixMs),
             assignments.Min(static assignment => assignment.ExpiresAtUnixMs),
             SecurityChallengeEnvelopeStatuses.Active,
@@ -362,6 +362,12 @@ public sealed partial class SecurityChallengeOrchestrator(
                 validation.CompletedCount,
                 validation.MemberCount);
         }
+        if (validation.State is not null
+            && (string.Equals(validation.State.Status, SecurityChallengeEnvelopeStatuses.ProofMinting, StringComparison.Ordinal)
+                || string.Equals(validation.State.Status, SecurityChallengeEnvelopeStatuses.Completed, StringComparison.Ordinal)))
+        {
+            return await FinalizePreparedProofAsync(request, memberRequest, kind, validation, cancellationToken).ConfigureAwait(false);
+        }
         if (!_providers.TryGetValue(kind, out ISecurityChallengeProvider? provider))
         {
             RecordChallengeFailure("verify", kind, request.Action, request.PolicyVersion, "provider_missing");
@@ -403,7 +409,22 @@ public sealed partial class SecurityChallengeOrchestrator(
             return SecurityChallengeOrchestrationVerifyResult.Failed(providerResult.Reason, request.EnvelopeId, request.ChallengeId, kind, validation.CompletedCount, validation.MemberCount);
         }
 
-        SecurityChallengeEnvelopeMemberResult member = await envelopeStateService.CompleteMemberAsync(memberRequest, cancellationToken).ConfigureAwait(false);
+        DateTimeOffset issuedAt = _timeProvider.GetUtcNow();
+        DateTimeOffset envelopeExpiresAt = DateTimeOffset.FromUnixTimeMilliseconds(validation.State!.ExpiresAtUnixMs);
+        DateTimeOffset expiresAt = providerResult.ProofExpiresAt is { } proofExpiresAt && proofExpiresAt > issuedAt
+            ? proofExpiresAt
+            : issuedAt.Add(s_defaultProofTtl);
+        if (expiresAt > envelopeExpiresAt)
+        {
+            expiresAt = envelopeExpiresAt;
+        }
+        SecurityChallengeProofPreparation? proofPreparation = validation.MemberIndex == validation.MemberCount - 1
+            ? new SecurityChallengeProofPreparation(issuedAt, expiresAt)
+            : null;
+        SecurityChallengeEnvelopeMemberResult member = await envelopeStateService.CompleteMemberAsync(
+            memberRequest,
+            proofPreparation,
+            cancellationToken).ConfigureAwait(false);
         if (!member.Accepted || member.State is null)
         {
             if (string.Equals(member.Reason, "challenge_member_replayed", StringComparison.Ordinal))
@@ -414,7 +435,7 @@ public sealed partial class SecurityChallengeOrchestrator(
             await RecordRiskAsync(request.Context, request.Action, $"envelope_transition_failed:{kind}:{member.Reason}", cancellationToken);
             return SecurityChallengeOrchestrationVerifyResult.Failed(member.Reason, request.EnvelopeId, request.ChallengeId, kind, member.CompletedCount, member.MemberCount);
         }
-        if (!member.EnvelopeCompleted)
+        if (string.Equals(member.State.Status, SecurityChallengeEnvelopeStatuses.Active, StringComparison.Ordinal))
         {
             if (logger is not null)
             {
@@ -422,39 +443,66 @@ public sealed partial class SecurityChallengeOrchestrator(
             }
             return SecurityChallengeOrchestrationVerifyResult.Progress(member, request.ChallengeId, kind);
         }
+        return await FinalizePreparedProofAsync(request, memberRequest, kind, member, cancellationToken).ConfigureAwait(false);
+    }
 
-        DateTimeOffset issuedAt = _timeProvider.GetUtcNow();
-        DateTimeOffset envelopeExpiresAt = DateTimeOffset.FromUnixTimeMilliseconds(member.State.ExpiresAtUnixMs);
-        DateTimeOffset expiresAt = providerResult.ProofExpiresAt is { } proofExpiresAt && proofExpiresAt > issuedAt
-            ? proofExpiresAt
-            : issuedAt.Add(s_defaultProofTtl);
-        if (expiresAt > envelopeExpiresAt)
+    private async Task<SecurityChallengeOrchestrationVerifyResult> FinalizePreparedProofAsync(
+        SecurityChallengeOrchestrationVerifyRequest request,
+        SecurityChallengeEnvelopeMemberRequest memberRequest,
+        string kind,
+        SecurityChallengeEnvelopeMemberResult member,
+        CancellationToken cancellationToken)
+    {
+        SecurityChallengeEnvelopeState state = member.State
+            ?? throw new InvalidOperationException("Prepared proof state is missing.");
+        if (!state.HasPreparedProof)
         {
-            expiresAt = envelopeExpiresAt;
+            return SecurityChallengeOrchestrationVerifyResult.Failed(
+                "proof_state_missing",
+                request.EnvelopeId,
+                request.ChallengeId,
+                kind,
+                member.CompletedCount,
+                member.MemberCount);
         }
+
+        SecurityChallengeProofMintRequest mintRequest = CreatePreparedMintRequest(memberRequest, state);
+        if (string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Completed, StringComparison.Ordinal))
+        {
+            return SecurityChallengeOrchestrationVerifyResult.Completed(
+                member,
+                request.ChallengeId,
+                kind,
+                CreatePreparedProofResult(mintRequest));
+        }
+
         try
         {
-            SecurityChallengeProofMintResult proof = await proofService.MintProofAsync(
-                new SecurityChallengeProofMintRequest(
+            SecurityChallengeProofMintResult proof = await proofService.MintProofAsync(mintRequest, cancellationToken).ConfigureAwait(false);
+            if (!string.Equals(proof.ProofToken, state.ProofToken, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Proof service changed the prepared proof token.");
+            }
+            SecurityChallengeEnvelopeMemberResult completed = await envelopeStateService.CompleteProofAsync(
+                memberRequest,
+                proof.ProofToken,
+                cancellationToken).ConfigureAwait(false);
+            if (!completed.Accepted || !completed.EnvelopeCompleted)
+            {
+                return SecurityChallengeOrchestrationVerifyResult.Failed(
+                    completed.Reason,
+                    request.EnvelopeId,
                     request.ChallengeId,
                     kind,
-                    request.Action,
-                    request.RouteKey,
-                    request.SubjectHash,
-                    request.ClientIpHash,
-                    request.DeviceFpHash,
-                    request.PolicyVersion,
-                    issuedAt,
-                    expiresAt,
-                    EnvelopeId: request.EnvelopeId,
-                    RequiredKinds: member.State.RequiredKinds),
-                cancellationToken);
+                    completed.CompletedCount,
+                    completed.MemberCount);
+            }
             if (logger is not null)
             {
                 LogChallengeVerifySucceeded(logger, request.Action, kind, request.PolicyVersion);
             }
 
-            return SecurityChallengeOrchestrationVerifyResult.Completed(member, request.ChallengeId, kind, proof);
+            return SecurityChallengeOrchestrationVerifyResult.Completed(completed, request.ChallengeId, kind, proof);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -463,6 +511,45 @@ public sealed partial class SecurityChallengeOrchestrator(
             return SecurityChallengeOrchestrationVerifyResult.Failed("proof_mint_failed", request.EnvelopeId, request.ChallengeId, kind, member.CompletedCount, member.MemberCount);
         }
     }
+
+    private static SecurityChallengeProofMintRequest CreatePreparedMintRequest(
+        SecurityChallengeEnvelopeMemberRequest request,
+        SecurityChallengeEnvelopeState state)
+        => new(
+            request.ChallengeId,
+            request.Kind,
+            request.Action,
+            request.RouteKey,
+            request.SubjectHash,
+            request.ClientIpHash,
+            request.DeviceFpHash,
+            request.PolicyVersion,
+            DateTimeOffset.FromUnixTimeMilliseconds(state.ProofIssuedAtUnixMs!.Value),
+            DateTimeOffset.FromUnixTimeMilliseconds(state.ProofExpiresAtUnixMs!.Value),
+            EnvelopeId: state.EnvelopeId,
+            RequiredKinds: state.RequiredKinds,
+            OrderedMemberChallengeIds: state.ChallengeIds,
+            ProofToken: state.ProofToken,
+            Nonce: state.ProofNonce);
+
+    private static SecurityChallengeProofMintResult CreatePreparedProofResult(SecurityChallengeProofMintRequest request)
+        => new(
+            request.ProofToken!,
+            new SecurityChallengeProofClaims(
+                request.ChallengeId,
+                request.Kind,
+                request.Action,
+                request.RouteKey,
+                request.SubjectHash,
+                request.ClientIpHash,
+                request.DeviceFpHash,
+                request.IssuedAt,
+                request.ExpiresAt,
+                request.Nonce!,
+                request.PolicyVersion,
+                request.EnvelopeId,
+                request.RequiredKinds,
+                request.OrderedMemberChallengeIds));
 
     private static SecurityChallengeValidationResult ValidateProviderAssignment(SecurityChallengeAssignment assignment, string kind)
         => SecurityChallengeContracts.TryParseKind(kind, out SecurityChallengeKind expectedKind)

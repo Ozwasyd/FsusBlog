@@ -14,6 +14,12 @@ public interface ISecurityChallengeProofService
     Task<SecurityChallengeProofMintResult> MintProofAsync(SecurityChallengeProofMintRequest request, CancellationToken cancellationToken = default);
 
     Task<SecurityChallengeProofConsumeResult> ConsumeProofAsync(SecurityChallengeProofConsumeRequest request, CancellationToken cancellationToken = default);
+
+    Task<SecurityChallengeProofExchangeResult> ExchangeProofAsync(
+        SecurityChallengeProofConsumeRequest request,
+        Func<SecurityChallengeProofClaims, SecurityChallengeProofExchangeTarget> targetFactory,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Atomic proof exchange is not supported by this proof service.");
 }
 
 public sealed record SecurityChallengeProofMintRequest(
@@ -28,7 +34,10 @@ public sealed record SecurityChallengeProofMintRequest(
     DateTimeOffset IssuedAt,
     DateTimeOffset ExpiresAt,
     string? EnvelopeId = null,
-    IReadOnlyList<string>? RequiredKinds = null);
+    IReadOnlyList<string>? RequiredKinds = null,
+    IReadOnlyList<string>? OrderedMemberChallengeIds = null,
+    string? ProofToken = null,
+    string? Nonce = null);
 
 public sealed record SecurityChallengeProofConsumeRequest(
     string ProofToken,
@@ -57,6 +66,31 @@ public sealed record SecurityChallengeProofConsumeResult(
 
     public static SecurityChallengeProofConsumeResult Rejected(string reason, SecurityChallengeProofClaims? claims = null)
         => new(false, SecurityChallengeProofOutcomes.FromInternalReason(reason), reason, claims);
+}
+
+public sealed record SecurityChallengeProofExchangeTarget(
+    string Token,
+    CachePolicyId PolicyId,
+    string CacheIdentity,
+    byte[] Payload,
+    TimeSpan Ttl);
+
+public sealed record SecurityChallengeProofExchangeResult(
+    bool Accepted,
+    string Outcome,
+    string Reason,
+    SecurityChallengeProofClaims? Claims,
+    SecurityChallengeProofExchangeTarget? Target)
+{
+    public static SecurityChallengeProofExchangeResult Success(
+        SecurityChallengeProofClaims claims,
+        SecurityChallengeProofExchangeTarget target)
+        => new(true, SecurityChallengeProofOutcomes.Accepted, "ok", claims, target);
+
+    public static SecurityChallengeProofExchangeResult Rejected(
+        string reason,
+        SecurityChallengeProofClaims? claims = null)
+        => new(false, SecurityChallengeProofOutcomes.FromInternalReason(reason), reason, claims, null);
 }
 
 public static class SecurityChallengeProofOutcomes
@@ -100,13 +134,17 @@ public sealed record SecurityChallengeProofClaims(
     string Nonce,
     string PolicyVersion,
     string? EnvelopeId = null,
-    IReadOnlyList<string>? RequiredKinds = null);
+    IReadOnlyList<string>? RequiredKinds = null,
+    IReadOnlyList<string>? OrderedMemberChallengeIds = null);
 
 public sealed class SecurityChallengeProofService(
     ICacheRawWriter cacheWriter,
     ICacheOneTimeStore oneTimeStore,
     ISecurityChallengePersistenceService challengePersistence,
-    TimeProvider timeProvider) : ISecurityChallengeProofService
+    TimeProvider timeProvider,
+    ISecurityChallengeEnvelopeStateService? envelopeStateService = null,
+    ICacheRawReader? cacheReader = null,
+    ICacheOneTimeExchangeStore? oneTimeExchangeStore = null) : ISecurityChallengeProofService
 {
     public const string HeaderName = "X-Fsus-Challenge-Proof";
 
@@ -133,9 +171,20 @@ public sealed class SecurityChallengeProofService(
             throw new ArgumentException("expiresAt must be in the future", nameof(request));
         }
 
-        string proofToken = GenerateProofToken();
+        string challengeId = NormalizeRequired(request.ChallengeId, nameof(request.ChallengeId), 64);
+        IReadOnlyList<string> requiredKinds = NormalizeRequiredKinds(request.RequiredKinds, request.Kind);
+        IReadOnlyList<string> orderedMemberChallengeIds = NormalizeOrderedMemberChallengeIds(
+            request.OrderedMemberChallengeIds,
+            challengeId,
+            requiredKinds.Count);
+        string proofToken = string.IsNullOrWhiteSpace(request.ProofToken)
+            ? GenerateProofToken()
+            : NormalizeRequired(request.ProofToken, nameof(request.ProofToken), 256);
+        string nonce = string.IsNullOrWhiteSpace(request.Nonce)
+            ? GenerateNonce()
+            : NormalizeRequired(request.Nonce, nameof(request.Nonce), 64);
         var claims = new SecurityChallengeProofClaims(
-            NormalizeRequired(request.ChallengeId, nameof(request.ChallengeId), 64),
+            challengeId,
             NormalizeRequired(request.Kind, nameof(request.Kind), 64),
             NormalizeRequired(request.Action, nameof(request.Action), 96),
             NormalizeRequired(request.RouteKey, nameof(request.RouteKey), 256),
@@ -144,10 +193,11 @@ public sealed class SecurityChallengeProofService(
             NormalizeHash(request.DeviceFpHash, nameof(request.DeviceFpHash)),
             issuedAt,
             expiresAt,
-            GenerateNonce(),
+            nonce,
             NormalizeRequired(request.PolicyVersion, nameof(request.PolicyVersion), 64),
             NormalizeOptional(request.EnvelopeId, 64),
-            NormalizeRequiredKinds(request.RequiredKinds, request.Kind));
+            requiredKinds,
+            orderedMemberChallengeIds);
 
         byte[] payload = JsonSerializer.SerializeToUtf8Bytes(claims, s_jsonOptions);
         await cacheWriter.SetRawAsync(
@@ -188,15 +238,85 @@ public sealed class SecurityChallengeProofService(
             return SecurityChallengeProofConsumeResult.Rejected(rejection, claims);
         }
 
-        string? challengeStatus = await challengePersistence.GetStatusAsync(claims.ChallengeId, cancellationToken);
-        if (string.Equals(challengeStatus, SecurityChallengeStatuses.Revoked, StringComparison.Ordinal))
+        string? envelopeRejection = await ValidateEnvelopeAndMembersAsync(claims, proofToken, cancellationToken).ConfigureAwait(false);
+        if (envelopeRejection is not null)
         {
-            await RecordAttemptAsync(claims.ChallengeId, SecurityChallengeAttemptOutcomes.Revoked, "proof_revoked", proofHash, request, cancellationToken);
-            return SecurityChallengeProofConsumeResult.Rejected("proof_revoked", claims);
+            string outcome = string.Equals(envelopeRejection, "proof_revoked", StringComparison.Ordinal)
+                ? SecurityChallengeAttemptOutcomes.Revoked
+                : SecurityChallengeAttemptOutcomes.Failed;
+            await RecordAttemptAsync(claims.ChallengeId, outcome, envelopeRejection, proofHash, request, cancellationToken);
+            return SecurityChallengeProofConsumeResult.Rejected(envelopeRejection, claims);
         }
 
         await RecordAttemptAsync(claims.ChallengeId, SecurityChallengeAttemptOutcomes.Verified, "ok", proofHash, request, cancellationToken);
         return SecurityChallengeProofConsumeResult.Success(claims);
+    }
+
+    public async Task<SecurityChallengeProofExchangeResult> ExchangeProofAsync(
+        SecurityChallengeProofConsumeRequest request,
+        Func<SecurityChallengeProofClaims, SecurityChallengeProofExchangeTarget> targetFactory,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(targetFactory);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (cacheReader is null || oneTimeExchangeStore is null)
+        {
+            return SecurityChallengeProofExchangeResult.Rejected("proof_exchange_unavailable");
+        }
+
+        string proofToken = NormalizeRequired(request.ProofToken, nameof(request.ProofToken), 256);
+        string proofHash = HashProofToken(proofToken);
+        string sourceIdentity = BuildProofIdentity(proofToken);
+        CacheReadResult<byte[]> source = await cacheReader.TryGetRawAsync(
+            CachePolicyId.SecurityChallengeProof,
+            sourceIdentity,
+            cancellationToken).ConfigureAwait(false);
+        if (!source.Hit || source.Value is null)
+        {
+            await RecordAttemptAsync(request.ChallengeId, SecurityChallengeAttemptOutcomes.Replayed, "proof_replayed_or_missing", proofHash, request, cancellationToken);
+            return SecurityChallengeProofExchangeResult.Rejected("proof_replayed_or_missing");
+        }
+
+        var (decoded, claims) = DecodeClaims(source.Value);
+        if (!decoded || claims is null)
+        {
+            await ConsumeRejectedSourceAsync(sourceIdentity, cancellationToken).ConfigureAwait(false);
+            return SecurityChallengeProofExchangeResult.Rejected("proof_replayed_or_missing");
+        }
+
+        string? rejection = ValidateClaims(claims, request, timeProvider.GetUtcNow());
+        rejection ??= await ValidateEnvelopeAndMembersAsync(claims, proofToken, cancellationToken).ConfigureAwait(false);
+        if (rejection is not null)
+        {
+            await ConsumeRejectedSourceAsync(sourceIdentity, cancellationToken).ConfigureAwait(false);
+            string attemptOutcome = ResolveAttemptOutcome(rejection);
+            await RecordAttemptAsync(claims.ChallengeId, attemptOutcome, rejection, proofHash, request, cancellationToken);
+            return SecurityChallengeProofExchangeResult.Rejected(rejection, claims);
+        }
+
+        SecurityChallengeProofExchangeTarget target = ValidateExchangeTarget(targetFactory(claims));
+        byte[] expectedSource = source.Value;
+        CacheReadResult<SecurityChallengeProofClaims> exchanged = await oneTimeExchangeStore.ExchangeOnceAndGetAsync(
+            CachePolicyId.SecurityChallengeProof,
+            sourceIdentity,
+            target.PolicyId,
+            target.CacheIdentity,
+            target.Payload,
+            target.Ttl,
+            payload => payload.Length == expectedSource.Length
+                && CryptographicOperations.FixedTimeEquals(payload.Span, expectedSource)
+                    ? DecodeClaims(payload)
+                    : (false, null),
+            cancellationToken).ConfigureAwait(false);
+        if (!exchanged.Hit || exchanged.Value is null)
+        {
+            await RecordAttemptAsync(request.ChallengeId, SecurityChallengeAttemptOutcomes.Replayed, "proof_replayed_or_missing", proofHash, request, cancellationToken);
+            return SecurityChallengeProofExchangeResult.Rejected("proof_replayed_or_missing");
+        }
+
+        await RecordAttemptAsync(claims.ChallengeId, SecurityChallengeAttemptOutcomes.Verified, "ok", proofHash, request, cancellationToken);
+        return SecurityChallengeProofExchangeResult.Success(claims, target);
     }
 
     private static (bool Success, SecurityChallengeProofClaims? Value) DecodeClaims(ReadOnlyMemory<byte> payload)
@@ -273,6 +393,58 @@ public sealed class SecurityChallengeProofService(
         return null;
     }
 
+    private async Task<string?> ValidateEnvelopeAndMembersAsync(
+        SecurityChallengeProofClaims claims,
+        string proofToken,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<string> memberIds = NormalizeOrderedMemberChallengeIds(
+            claims.OrderedMemberChallengeIds,
+            claims.ChallengeId,
+            NormalizeRequiredKinds(claims.RequiredKinds, claims.Kind).Count);
+        if (!string.IsNullOrWhiteSpace(claims.EnvelopeId))
+        {
+            if (envelopeStateService is null)
+            {
+                return "proof_envelope_unavailable";
+            }
+
+            SecurityChallengeEnvelopeState? state = await envelopeStateService.GetAsync(claims.EnvelopeId, cancellationToken).ConfigureAwait(false);
+            if (state is null)
+            {
+                return "proof_envelope_missing";
+            }
+            if (string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Revoked, StringComparison.Ordinal))
+            {
+                return "proof_revoked";
+            }
+            if (!string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Completed, StringComparison.Ordinal)
+                || !state.HasPreparedProof
+                || !FixedEquals(state.ProofToken ?? string.Empty, proofToken)
+                || !SequenceFixedEquals(state.ChallengeIds, memberIds)
+                || !SequenceFixedEquals(state.RequiredKinds, claims.RequiredKinds ?? []))
+            {
+                return "proof_envelope_invalid";
+            }
+        }
+
+        foreach (string memberId in memberIds)
+        {
+            string? challengeStatus = await challengePersistence.GetStatusAsync(memberId, cancellationToken).ConfigureAwait(false);
+            if (string.Equals(challengeStatus, SecurityChallengeStatuses.Revoked, StringComparison.Ordinal))
+            {
+                return "proof_revoked";
+            }
+            if (!string.IsNullOrWhiteSpace(claims.EnvelopeId)
+                && !string.Equals(challengeStatus, SecurityChallengeStatuses.Verified, StringComparison.Ordinal))
+            {
+                return "proof_member_not_verified";
+            }
+        }
+
+        return null;
+    }
+
     private static IReadOnlyList<string> NormalizeRequiredKinds(IReadOnlyList<string>? source, string fallbackKind)
     {
         IReadOnlyList<string> input = source is { Count: > 0 } ? source : [fallbackKind];
@@ -285,6 +457,58 @@ public sealed class SecurityChallengeProofService(
             .Select(static kind => NormalizeRequired(kind, nameof(source), 64))
             .ToArray();
     }
+
+    private static IReadOnlyList<string> NormalizeOrderedMemberChallengeIds(
+        IReadOnlyList<string>? source,
+        string fallbackChallengeId,
+        int expectedCount)
+    {
+        IReadOnlyList<string> input = source is { Count: > 0 } ? source : [fallbackChallengeId];
+        if (input.Count != expectedCount
+            || input.Count is <= 0 or > FsusBlog.Shared.Contracts.Security.SecurityChallengeContracts.MaxAssignmentsPerEnvelope)
+        {
+            throw new ArgumentException("Ordered member challenge ids are invalid.", nameof(source));
+        }
+
+        string[] normalized = input
+            .Select(static challengeId => NormalizeRequired(challengeId, nameof(source), 64))
+            .ToArray();
+        if (normalized.Distinct(StringComparer.Ordinal).Count() != normalized.Length
+            || !FixedEquals(normalized[^1], fallbackChallengeId))
+        {
+            throw new ArgumentException("Ordered member challenge ids are invalid.", nameof(source));
+        }
+
+        return normalized;
+    }
+
+    private async Task ConsumeRejectedSourceAsync(string sourceIdentity, CancellationToken cancellationToken)
+        => _ = await oneTimeStore.ConsumeOnceAndGetAsync(
+            CachePolicyId.SecurityChallengeProof,
+            sourceIdentity,
+            DecodeClaims,
+            cancellationToken).ConfigureAwait(false);
+
+    private static SecurityChallengeProofExchangeTarget ValidateExchangeTarget(SecurityChallengeProofExchangeTarget? target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        if (string.IsNullOrWhiteSpace(target.Token)
+            || string.IsNullOrWhiteSpace(target.CacheIdentity)
+            || target.Payload is not { Length: > 0 }
+            || target.Ttl <= TimeSpan.Zero)
+        {
+            throw new ArgumentException("Proof exchange target is invalid.", nameof(target));
+        }
+
+        return target;
+    }
+
+    private static string ResolveAttemptOutcome(string rejection)
+        => string.Equals(rejection, "proof_expired", StringComparison.Ordinal)
+            ? SecurityChallengeAttemptOutcomes.Expired
+            : string.Equals(rejection, "proof_revoked", StringComparison.Ordinal)
+                ? SecurityChallengeAttemptOutcomes.Revoked
+                : SecurityChallengeAttemptOutcomes.Failed;
 
     private async Task RecordAttemptAsync(
         string challengeId,
@@ -383,4 +607,8 @@ public sealed class SecurityChallengeProofService(
         byte[] rightBytes = Encoding.UTF8.GetBytes(right);
         return leftBytes.Length == rightBytes.Length && CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
     }
+
+    private static bool SequenceFixedEquals(IReadOnlyList<string> left, IReadOnlyList<string> right)
+        => left.Count == right.Count
+            && left.Zip(right).All(static pair => FixedEquals(pair.First, pair.Second));
 }

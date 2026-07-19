@@ -70,6 +70,7 @@ public sealed class SecurityChallengeProofServiceTests
         Assert.Equal(s_baselineNow, result.Claims.IssuedAt);
         Assert.Equal(s_baselineNow.AddMinutes(5), result.Claims.ExpiresAt);
         Assert.False(string.IsNullOrWhiteSpace(result.Claims.Nonce));
+        Assert.Equal(["challenge-1"], result.Claims.OrderedMemberChallengeIds);
         Assert.DoesNotContain("payload", cache.LastStoredJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(result.ProofToken, cache.LastStoredJson, StringComparison.Ordinal);
         Assert.Empty(persistence.Attempts);
@@ -108,16 +109,21 @@ public sealed class SecurityChallengeProofServiceTests
     {
         var cache = new MemoryProofCache();
         var persistence = new RecordingChallengePersistence();
-        var service = new SecurityChallengeProofService(cache, cache, persistence, new MutableTimeProvider(s_baselineNow));
+        persistence.Statuses["challenge-0"] = SecurityChallengeStatuses.Verified;
+        persistence.Statuses["challenge-1"] = SecurityChallengeStatuses.Verified;
+        var envelopeStates = new StubEnvelopeStateService();
+        var service = new SecurityChallengeProofService(cache, cache, persistence, new MutableTimeProvider(s_baselineNow), envelopeStates);
         string envelopeId = Guid.CreateVersion7().ToString("D");
         SecurityChallengeProofMintResult minted = await service.MintProofAsync(
             CreateMintRequest() with
             {
                 Kind = "sha256PowV1",
                 EnvelopeId = envelopeId,
-                RequiredKinds = ["captchaV1", "sha256PowV1"]
+                RequiredKinds = ["captchaV1", "sha256PowV1"],
+                OrderedMemberChallengeIds = ["challenge-0", "challenge-1"]
             },
             CancellationToken.None);
+        envelopeStates.State = CreateCompletedEnvelopeState(envelopeId, minted.ProofToken);
 
         SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(
             CreateConsumeRequest(minted.ProofToken) with
@@ -129,7 +135,198 @@ public sealed class SecurityChallengeProofServiceTests
         Assert.True(result.Accepted, result.Reason);
         Assert.Equal(envelopeId, result.Claims?.EnvelopeId);
         Assert.Equal(["captchaV1", "sha256PowV1"], result.Claims?.RequiredKinds);
+        Assert.Equal(["challenge-0", "challenge-1"], result.Claims?.OrderedMemberChallengeIds);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, Assert.Single(persistence.Attempts).Outcome);
+    }
+
+    [Fact]
+    public async Task ConsumeProofAsync_AggregateProofRejectsRevokedEarlierMember()
+    {
+        var cache = new MemoryProofCache();
+        var persistence = new RecordingChallengePersistence();
+        persistence.Statuses["challenge-0"] = SecurityChallengeStatuses.Revoked;
+        persistence.Statuses["challenge-1"] = SecurityChallengeStatuses.Verified;
+        var envelopeStates = new StubEnvelopeStateService();
+        var service = new SecurityChallengeProofService(cache, cache, persistence, new MutableTimeProvider(s_baselineNow), envelopeStates);
+        string envelopeId = Guid.CreateVersion7().ToString("D");
+        SecurityChallengeProofMintResult minted = await service.MintProofAsync(
+            CreateMintRequest() with
+            {
+                EnvelopeId = envelopeId,
+                RequiredKinds = ["captchaV1", "sha256PowV1"],
+                OrderedMemberChallengeIds = ["challenge-0", "challenge-1"]
+            });
+        envelopeStates.State = CreateCompletedEnvelopeState(envelopeId, minted.ProofToken);
+
+        SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(
+            CreateConsumeRequest(minted.ProofToken) with
+            {
+                RequiredKinds = ["captchaV1", "sha256PowV1"]
+            });
+
+        Assert.False(result.Accepted);
+        Assert.Equal(SecurityChallengeProofOutcomes.Revoked, result.Outcome);
+        Assert.Equal("proof_revoked", result.Reason);
+        Assert.Equal(SecurityChallengeAttemptOutcomes.Revoked, Assert.Single(persistence.Attempts).Outcome);
+    }
+
+    [Fact]
+    public async Task ConsumeProofAsync_CompletedEnvelopeRevocationInvalidatesUnconsumedProof()
+    {
+        var cache = new MemoryProofCache();
+        var persistence = new RecordingChallengePersistence();
+        persistence.Statuses["challenge-1"] = SecurityChallengeStatuses.Verified;
+        var envelopeStates = new StubEnvelopeStateService();
+        var service = new SecurityChallengeProofService(cache, cache, persistence, new MutableTimeProvider(s_baselineNow), envelopeStates);
+        string envelopeId = Guid.CreateVersion7().ToString("D");
+        SecurityChallengeProofMintResult minted = await service.MintProofAsync(
+            CreateMintRequest() with
+            {
+                EnvelopeId = envelopeId,
+                OrderedMemberChallengeIds = ["challenge-1"]
+            });
+        envelopeStates.State = CreateCompletedEnvelopeState(envelopeId, minted.ProofToken) with
+        {
+            ChallengeIds = ["challenge-1"],
+            RequiredKinds = ["sha256PowV1"],
+            MemberStatuses = [SecurityChallengeEnvelopeMemberStatuses.Verified],
+            Status = SecurityChallengeEnvelopeStatuses.Revoked
+        };
+
+        SecurityChallengeProofConsumeResult result = await service.ConsumeProofAsync(CreateConsumeRequest(minted.ProofToken));
+
+        Assert.False(result.Accepted);
+        Assert.Equal(SecurityChallengeProofOutcomes.Revoked, result.Outcome);
+        Assert.Equal("proof_revoked", result.Reason);
+    }
+
+    [Fact]
+    public async Task ExchangeProofAsync_ValidClaimsAtomicallyMoveProofToTypedTarget()
+    {
+        var cache = new MemoryProofCache();
+        var persistence = new RecordingChallengePersistence();
+        var service = new SecurityChallengeProofService(
+            cache,
+            cache,
+            persistence,
+            new MutableTimeProvider(s_baselineNow),
+            cacheReader: cache,
+            oneTimeExchangeStore: cache);
+        SecurityChallengeProofMintResult minted = await service.MintProofAsync(CreateMintRequest());
+        int factoryCalls = 0;
+
+        SecurityChallengeProofExchangeResult exchanged = await service.ExchangeProofAsync(
+            CreateConsumeRequest(minted.ProofToken),
+            claims =>
+            {
+                factoryCalls++;
+                return new SecurityChallengeProofExchangeTarget(
+                    "target-token",
+                    CachePolicyId.SecurityChallengeProof,
+                    "exchange-target",
+                    System.Text.Encoding.UTF8.GetBytes(claims.Action),
+                    TimeSpan.FromMinutes(1));
+            });
+        SecurityChallengeProofConsumeResult sourceReplay = await service.ConsumeProofAsync(
+            CreateConsumeRequest(minted.ProofToken));
+
+        Assert.True(exchanged.Accepted, exchanged.Reason);
+        Assert.Equal("target-token", exchanged.Target?.Token);
+        Assert.Equal(1, factoryCalls);
+        Assert.True(cache.Contains(CachePolicyId.SecurityChallengeProof, "exchange-target"));
+        Assert.False(sourceReplay.Accepted);
+    }
+
+    [Fact]
+    public async Task ExchangeProofAsync_SourceMissOrInvalidBindingNeverCreatesTarget()
+    {
+        var cache = new MemoryProofCache();
+        var persistence = new RecordingChallengePersistence();
+        var service = new SecurityChallengeProofService(
+            cache,
+            cache,
+            persistence,
+            new MutableTimeProvider(s_baselineNow),
+            cacheReader: cache,
+            oneTimeExchangeStore: cache);
+        SecurityChallengeProofMintResult minted = await service.MintProofAsync(CreateMintRequest());
+        int factoryCalls = 0;
+        SecurityChallengeProofExchangeTarget Factory(SecurityChallengeProofClaims _)
+        {
+            factoryCalls++;
+            return new SecurityChallengeProofExchangeTarget(
+                "must-not-exist",
+                CachePolicyId.SecurityChallengeProof,
+                "must-not-exist",
+                [1],
+                TimeSpan.FromMinutes(1));
+        }
+
+        SecurityChallengeProofExchangeResult invalid = await service.ExchangeProofAsync(
+            CreateConsumeRequest(minted.ProofToken) with
+            {
+                RouteKey = "/wrong"
+            },
+            Factory);
+        SecurityChallengeProofExchangeResult missing = await service.ExchangeProofAsync(
+            CreateConsumeRequest("fcp_missing"),
+            Factory);
+
+        Assert.False(invalid.Accepted);
+        Assert.Equal("route_key_mismatch", invalid.Reason);
+        Assert.False(missing.Accepted);
+        Assert.Equal("proof_replayed_or_missing", missing.Reason);
+        Assert.Equal(0, factoryCalls);
+        Assert.False(cache.Contains(CachePolicyId.SecurityChallengeProof, "must-not-exist"));
+    }
+
+    [Fact]
+    public async Task ExchangeProofAsync_RevokedAggregateMemberNeverCreatesTarget()
+    {
+        var cache = new MemoryProofCache();
+        var persistence = new RecordingChallengePersistence();
+        persistence.Statuses["challenge-0"] = SecurityChallengeStatuses.Revoked;
+        persistence.Statuses["challenge-1"] = SecurityChallengeStatuses.Verified;
+        var envelopeStates = new StubEnvelopeStateService();
+        var service = new SecurityChallengeProofService(
+            cache,
+            cache,
+            persistence,
+            new MutableTimeProvider(s_baselineNow),
+            envelopeStates,
+            cache,
+            cache);
+        string envelopeId = Guid.CreateVersion7().ToString("D");
+        SecurityChallengeProofMintResult minted = await service.MintProofAsync(
+            CreateMintRequest() with
+            {
+                EnvelopeId = envelopeId,
+                RequiredKinds = ["captchaV1", "sha256PowV1"],
+                OrderedMemberChallengeIds = ["challenge-0", "challenge-1"]
+            });
+        envelopeStates.State = CreateCompletedEnvelopeState(envelopeId, minted.ProofToken);
+        int factoryCalls = 0;
+
+        SecurityChallengeProofExchangeResult result = await service.ExchangeProofAsync(
+            CreateConsumeRequest(minted.ProofToken) with
+            {
+                RequiredKinds = ["captchaV1", "sha256PowV1"]
+            },
+            _ =>
+            {
+                factoryCalls++;
+                return new SecurityChallengeProofExchangeTarget(
+                    "must-not-exist",
+                    CachePolicyId.SecurityChallengeProof,
+                    "revoked-target",
+                    [1],
+                    TimeSpan.FromMinutes(1));
+            });
+
+        Assert.False(result.Accepted);
+        Assert.Equal("proof_revoked", result.Reason);
+        Assert.Equal(0, factoryCalls);
+        Assert.False(cache.Contains(CachePolicyId.SecurityChallengeProof, "revoked-target"));
     }
 
     [Fact]
@@ -277,7 +474,28 @@ public sealed class SecurityChallengeProofServiceTests
             _ => request
         };
 
-    private sealed class MemoryProofCache : IUnifiedCache
+    private static SecurityChallengeEnvelopeState CreateCompletedEnvelopeState(string envelopeId, string proofToken)
+        => new(
+            envelopeId,
+            "public.read",
+            "/article/42",
+            HashA,
+            HashB,
+            HashC,
+            "risk-policy-v2",
+            ["challenge-0", "challenge-1"],
+            ["captchaV1", "sha256PowV1"],
+            [SecurityChallengeEnvelopeMemberStatuses.Verified, SecurityChallengeEnvelopeMemberStatuses.Verified],
+            s_baselineNow.ToUnixTimeMilliseconds(),
+            s_baselineNow.AddMinutes(5).ToUnixTimeMilliseconds(),
+            SecurityChallengeEnvelopeStatuses.Completed,
+            Version: 2,
+            ProofToken: proofToken,
+            ProofNonce: "proof-nonce",
+            ProofIssuedAtUnixMs: s_baselineNow.ToUnixTimeMilliseconds(),
+            ProofExpiresAtUnixMs: s_baselineNow.AddMinutes(5).ToUnixTimeMilliseconds());
+
+    private sealed class MemoryProofCache : IUnifiedCache, ICacheOneTimeExchangeStore
     {
         private readonly Dictionary<string, byte[]> _values = new(StringComparer.Ordinal);
 
@@ -318,11 +536,43 @@ public sealed class SecurityChallengeProofServiceTests
                 : new CacheReadResult<T>(false, default));
         }
 
+        public Task<CacheReadResult<T>> ExchangeOnceAndGetAsync<T>(
+            CachePolicyId sourcePolicyId,
+            string sourceIdentity,
+            CachePolicyId targetPolicyId,
+            string targetIdentity,
+            byte[] targetValue,
+            TimeSpan targetTtl,
+            Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> sourceDecoder,
+            CancellationToken cancellationToken = default)
+        {
+            string sourceKey = BuildKey(sourcePolicyId, sourceIdentity);
+            if (!_values.Remove(sourceKey, out byte[]? sourceValue))
+            {
+                return Task.FromResult(new CacheReadResult<T>(false, default));
+            }
+
+            var (success, decoded) = sourceDecoder(sourceValue);
+            if (!success)
+            {
+                return Task.FromResult(new CacheReadResult<T>(false, default));
+            }
+
+            _values[BuildKey(targetPolicyId, targetIdentity)] = targetValue;
+            return Task.FromResult(new CacheReadResult<T>(true, decoded));
+        }
+
+        public bool Contains(CachePolicyId policyId, string identity)
+            => _values.ContainsKey(BuildKey(policyId, identity));
+
         public string BuildKey(CachePolicyId policyId, string identity, string? version = null)
             => $"{policyId}:{identity}";
 
         public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<CacheReadResult<byte[]>> TryGetRawAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default)
+            => Task.FromResult(_values.TryGetValue(BuildKey(policyId, identity), out byte[]? value)
+                ? new CacheReadResult<byte[]>(true, value)
+                : new CacheReadResult<byte[]>(false, default));
         public Task<CacheReadResult<ReadOnlyMemory<byte>>> TryGetRawReadonlyAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task SetNegativeAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<string?> GetStringAsync(CachePolicyId policyId, string identity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -345,6 +595,8 @@ public sealed class SecurityChallengeProofServiceTests
         }
 
         public List<SecurityChallengeAttemptRequest> Attempts { get; } = [];
+
+        public Dictionary<string, string?> Statuses { get; } = new(StringComparer.Ordinal);
 
         public Task<SecurityChallenge> IssueAsync(SecurityChallengeIssueRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
@@ -370,7 +622,25 @@ public sealed class SecurityChallengeProofServiceTests
         public Task<bool> RevokeAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<string?> GetStatusAsync(string challengeId, CancellationToken cancellationToken = default)
-            => Task.FromResult(Status);
+            => Task.FromResult(Statuses.GetValueOrDefault(challengeId, Status));
+    }
+
+    private sealed class StubEnvelopeStateService : ISecurityChallengeEnvelopeStateService
+    {
+        public SecurityChallengeEnvelopeState? State
+        {
+            get; set;
+        }
+
+        public Task<SecurityChallengeEnvelopeState?> GetAsync(string envelopeId, CancellationToken cancellationToken = default)
+            => Task.FromResult(State is not null && string.Equals(State.EnvelopeId, envelopeId, StringComparison.Ordinal) ? State : null);
+
+        public Task<bool> CreateAsync(SecurityChallengeEnvelopeState state, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<SecurityChallengeEnvelopeMemberResult> ValidateMemberAsync(SecurityChallengeEnvelopeMemberRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<SecurityChallengeEnvelopeMemberResult> CompleteMemberAsync(SecurityChallengeEnvelopeMemberRequest request, SecurityChallengeProofPreparation? proofPreparation = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<SecurityChallengeEnvelopeMemberResult> CompleteProofAsync(SecurityChallengeEnvelopeMemberRequest request, string proofToken, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> FailAsync(SecurityChallengeEnvelopeMemberRequest request, string reason, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> RevokeAsync(SecurityChallengeEnvelopeBindingRequest request, string reason, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider

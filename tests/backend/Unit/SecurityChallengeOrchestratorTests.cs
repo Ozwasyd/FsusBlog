@@ -123,7 +123,7 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.True(second.Succeeded, second.Reason);
         Assert.True(second.EnvelopeCompleted);
         Assert.Equal(2, second.CompletedCount);
-        Assert.Equal("challenge-proof-token", second.ProofToken);
+        Assert.Equal(proof.LastMintRequest?.ProofToken, second.ProofToken);
         Assert.Equal(envelope.EnvelopeId, proof.LastMintRequest?.EnvelopeId);
         Assert.Equal(["perceptionLocalizationV2", "captchaV1"], proof.LastMintRequest?.RequiredKinds);
         Assert.Equal(envelope.Assignments[1].ChallengeId, proof.LastMintRequest?.ChallengeId);
@@ -252,7 +252,7 @@ public sealed class SecurityChallengeOrchestratorTests
         SecurityChallengeOrchestrationVerifyResult result = await orchestrator.VerifyAsync(request, CancellationToken.None);
 
         Assert.True(result.Succeeded, result.Reason);
-        Assert.Equal("challenge-proof-token", result.ProofToken);
+        Assert.Equal(proof.LastMintRequest?.ProofToken, result.ProofToken);
         Assert.Equal(proof.LastMintRequest?.ExpiresAt, result.ProofExpiresAt);
         Assert.NotNull(proof.LastMintRequest);
         Assert.Equal(request.ChallengeId, proof.LastMintRequest.ChallengeId);
@@ -287,7 +287,7 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.True(verified.EnvelopeCompleted);
         Assert.Equal(1, verified.CompletedCount);
         Assert.Equal(1, verified.MemberCount);
-        Assert.Equal("challenge-proof-token", verified.ProofToken);
+        Assert.Equal(proof.LastMintRequest?.ProofToken, verified.ProofToken);
         Assert.Equal(envelope.EnvelopeId, proof.LastMintRequest?.EnvelopeId);
         Assert.Equal(["captchaV1"], proof.LastMintRequest?.RequiredKinds);
     }
@@ -312,6 +312,107 @@ public sealed class SecurityChallengeOrchestratorTests
         Assert.Null(result.ProofToken);
         SecurityRiskSignal signal = Assert.Single(riskSink.Signals);
         Assert.Equal("proof_mint_failed:sha256PowV1", signal.Detail);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ProofMintFailure_RetryReusesPreparedTokenWithoutProviderReplay()
+    {
+        var provider = new FakeChallengeProvider("sha256PowV1");
+        var proof = new MintingProofService { FailuresRemaining = 1 };
+        var state = new TestSecurityChallengeEnvelopeStateService();
+        var orchestrator = new SecurityChallengeOrchestrator([provider], proof, new CapturingRiskSink(), state);
+        SecurityChallengeOrchestrationVerifyRequest request = CreateVerifyRequest("sha256PowV1");
+
+        SecurityChallengeOrchestrationVerifyResult failed = await orchestrator.VerifyAsync(request, CancellationToken.None);
+        string preparedToken = state.Get(request.EnvelopeId)!.ProofToken!;
+        SecurityChallengeOrchestrationVerifyResult retry = await orchestrator.VerifyAsync(request, CancellationToken.None);
+
+        Assert.False(failed.Succeeded);
+        Assert.True(retry.Succeeded, retry.Reason);
+        Assert.Equal(preparedToken, retry.ProofToken);
+        Assert.Equal(1, provider.VerifyCalls);
+        Assert.Equal(2, proof.MintCalls);
+        Assert.Single(proof.ObservedTokens);
+        Assert.Equal(SecurityChallengeEnvelopeStatuses.Completed, state.Get(request.EnvelopeId)?.Status);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ResponseLossRetryReturnsSameCompletedProofWithoutReminting()
+    {
+        var provider = new FakeChallengeProvider("sha256PowV1");
+        var proof = new MintingProofService();
+        var orchestrator = new SecurityChallengeOrchestrator(
+            [provider],
+            proof,
+            new CapturingRiskSink(),
+            new TestSecurityChallengeEnvelopeStateService());
+        SecurityChallengeOrchestrationVerifyRequest request = CreateVerifyRequest("sha256PowV1");
+
+        SecurityChallengeOrchestrationVerifyResult first = await orchestrator.VerifyAsync(request, CancellationToken.None);
+        SecurityChallengeOrchestrationVerifyResult responseLossRetry = await orchestrator.VerifyAsync(request, CancellationToken.None);
+
+        Assert.True(first.Succeeded, first.Reason);
+        Assert.True(responseLossRetry.Succeeded, responseLossRetry.Reason);
+        Assert.Equal(first.ProofToken, responseLossRetry.ProofToken);
+        Assert.Equal(first.ProofExpiresAt, responseLossRetry.ProofExpiresAt);
+        Assert.Equal(1, provider.VerifyCalls);
+        Assert.Equal(1, proof.MintCalls);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ConcurrentFinalRetriesShareOnePreparedToken()
+    {
+        var perception = new FakeChallengeProvider("perceptionLocalizationV2");
+        var captcha = new FakeChallengeProvider("captchaV1");
+        var proof = new MintingProofService { CoordinateConcurrentMints = true };
+        var state = new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false);
+        var orchestrator = new SecurityChallengeOrchestrator([perception, captcha], proof, new CapturingRiskSink(), state);
+        SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>((await orchestrator.IssueAsync(
+            CreateIssueRequest(["perceptionLocalizationV2", "captchaV1"]),
+            CancellationToken.None)).Envelope);
+        Assert.True((await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None)).Succeeded);
+        SecurityChallengeOrchestrationVerifyRequest finalRequest = CreateVerifyRequest(envelope, 1);
+
+        SecurityChallengeOrchestrationVerifyResult[] results = await Task.WhenAll(
+            orchestrator.VerifyAsync(finalRequest, CancellationToken.None),
+            orchestrator.VerifyAsync(finalRequest, CancellationToken.None));
+
+        Assert.All(results, result => Assert.True(result.Succeeded, result.Reason));
+        Assert.Single(results.Select(static result => result.ProofToken).Distinct(StringComparer.Ordinal));
+        Assert.Single(proof.ObservedTokens);
+        Assert.Equal(SecurityChallengeEnvelopeStatuses.Completed, state.Get(envelope.EnvelopeId)?.Status);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_IdentityReplacementRevokeBlocksFinalMember()
+    {
+        var perception = new FakeChallengeProvider("perceptionLocalizationV2");
+        var captcha = new FakeChallengeProvider("captchaV1");
+        var state = new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false);
+        var orchestrator = new SecurityChallengeOrchestrator([perception, captcha], new MintingProofService(), new CapturingRiskSink(), state);
+        SecurityChallengeEnvelope envelope = Assert.IsType<SecurityChallengeEnvelope>((await orchestrator.IssueAsync(
+            CreateIssueRequest(["perceptionLocalizationV2", "captchaV1"]),
+            CancellationToken.None)).Envelope);
+        Assert.True((await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None)).Succeeded);
+        SecurityChallengeAssignment first = envelope.Assignments[0];
+        Assert.True(await state.RevokeAsync(
+            new SecurityChallengeEnvelopeBindingRequest(
+                envelope.EnvelopeId,
+                first.Action,
+                first.RouteKey,
+                first.SubjectHash,
+                first.ClientIpHash,
+                first.DeviceFpHash,
+                envelope.PolicyVersion),
+            "identity_replaced"));
+
+        SecurityChallengeOrchestrationVerifyResult final = await orchestrator.VerifyAsync(
+            CreateVerifyRequest(envelope, 1),
+            CancellationToken.None);
+
+        Assert.False(final.Succeeded);
+        Assert.Equal("challenge_envelope_revoked", final.Reason);
+        Assert.Equal(0, captcha.VerifyCalls);
     }
 
     [Fact]
@@ -448,7 +549,27 @@ public sealed class SecurityChallengeOrchestratorTests
 
     private sealed class MintingProofService : ISecurityChallengeProofService
     {
+        private readonly object _gate = new();
+        private readonly TaskCompletionSource _concurrentMintGate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _mintCalls;
         public bool ThrowOnMint
+        {
+            get; init;
+        }
+
+        public int FailuresRemaining
+        {
+            get; set;
+        }
+
+        public int MintCalls
+        {
+            get => Volatile.Read(ref _mintCalls);
+        }
+
+        public HashSet<string> ObservedTokens { get; } = new(StringComparer.Ordinal);
+
+        public bool CoordinateConcurrentMints
         {
             get; init;
         }
@@ -458,12 +579,28 @@ public sealed class SecurityChallengeOrchestratorTests
             get; private set;
         }
 
-        public Task<SecurityChallengeProofMintResult> MintProofAsync(SecurityChallengeProofMintRequest request, CancellationToken cancellationToken = default)
+        public async Task<SecurityChallengeProofMintResult> MintProofAsync(SecurityChallengeProofMintRequest request, CancellationToken cancellationToken = default)
         {
+            int mintCall = Interlocked.Increment(ref _mintCalls);
             LastMintRequest = request;
-            if (ThrowOnMint)
+            lock (_gate)
+            {
+                if (request.ProofToken is not null)
+                {
+                    ObservedTokens.Add(request.ProofToken);
+                }
+            }
+            if (ThrowOnMint || FailuresRemaining-- > 0)
             {
                 throw new InvalidOperationException("mint failed");
+            }
+            if (CoordinateConcurrentMints)
+            {
+                if (mintCall >= 2)
+                {
+                    _concurrentMintGate.TrySetResult();
+                }
+                await _concurrentMintGate.Task.WaitAsync(cancellationToken);
             }
 
             var claims = new SecurityChallengeProofClaims(
@@ -479,8 +616,9 @@ public sealed class SecurityChallengeOrchestratorTests
                 "nonce",
                 request.PolicyVersion,
                 request.EnvelopeId,
-                request.RequiredKinds);
-            return Task.FromResult(new SecurityChallengeProofMintResult("challenge-proof-token", claims));
+                request.RequiredKinds,
+                request.OrderedMemberChallengeIds);
+            return new SecurityChallengeProofMintResult(request.ProofToken ?? "challenge-proof-token", claims);
         }
 
         public Task<SecurityChallengeProofConsumeResult> ConsumeProofAsync(SecurityChallengeProofConsumeRequest request, CancellationToken cancellationToken = default)

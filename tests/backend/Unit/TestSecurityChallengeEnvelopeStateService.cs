@@ -14,6 +14,12 @@ internal sealed class TestSecurityChallengeEnvelopeStateService(bool autoCreateS
         return Task.FromResult(_states.TryAdd(state.EnvelopeId, state));
     }
 
+    public Task<SecurityChallengeEnvelopeState?> GetAsync(string envelopeId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(Get(envelopeId));
+    }
+
     public Task<SecurityChallengeEnvelopeMemberResult> ValidateMemberAsync(SecurityChallengeEnvelopeMemberRequest request, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -21,45 +27,149 @@ internal sealed class TestSecurityChallengeEnvelopeStateService(bool autoCreateS
         return Task.FromResult(Validate(state, request));
     }
 
-    public Task<SecurityChallengeEnvelopeMemberResult> CompleteMemberAsync(SecurityChallengeEnvelopeMemberRequest request, CancellationToken cancellationToken = default)
+    public Task<SecurityChallengeEnvelopeMemberResult> CompleteMemberAsync(
+        SecurityChallengeEnvelopeMemberRequest request,
+        SecurityChallengeProofPreparation? proofPreparation = null,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        SecurityChallengeEnvelopeState? state = GetOrCreate(request);
-        SecurityChallengeEnvelopeMemberResult validation = Validate(state, request);
-        if (!validation.Accepted || state is null)
+        while (true)
         {
-            return Task.FromResult(validation);
-        }
+            SecurityChallengeEnvelopeState? state = GetOrCreate(request);
+            SecurityChallengeEnvelopeMemberResult validation = Validate(state, request);
+            if (!validation.Accepted || state is null
+                || !string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Active, StringComparison.Ordinal))
+            {
+                return Task.FromResult(validation);
+            }
 
-        bool[] verified = (bool[])state.VerifiedMembers.Clone();
-        verified[validation.MemberIndex] = true;
-        var updated = state with
+            string[] memberStatuses = (string[])state.MemberStatuses.Clone();
+            memberStatuses[validation.MemberIndex] = SecurityChallengeEnvelopeMemberStatuses.Verified;
+            bool allVerified = memberStatuses.All(static status =>
+                string.Equals(status, SecurityChallengeEnvelopeMemberStatuses.Verified, StringComparison.Ordinal));
+            SecurityChallengeEnvelopeState updated = allVerified
+                ? state with
+                {
+                    MemberStatuses = memberStatuses,
+                    Status = SecurityChallengeEnvelopeStatuses.ProofMinting,
+                    ProofToken = $"fcp_{state.EnvelopeId.Replace("-", string.Empty, StringComparison.Ordinal)}",
+                    ProofNonce = "test-proof-nonce",
+                    ProofIssuedAtUnixMs = (proofPreparation ?? throw new ArgumentException("proof preparation required", nameof(proofPreparation))).IssuedAt.ToUnixTimeMilliseconds(),
+                    ProofExpiresAtUnixMs = proofPreparation.ExpiresAt.ToUnixTimeMilliseconds(),
+                    Version = state.Version + 1
+                }
+                : state with
+                {
+                    MemberStatuses = memberStatuses,
+                    Version = state.Version + 1
+                };
+            if (_states.TryUpdate(state.EnvelopeId, updated, state))
+            {
+                return Task.FromResult(SecurityChallengeEnvelopeMemberResult.Success(updated, validation.MemberIndex));
+            }
+        }
+    }
+
+    public Task<SecurityChallengeEnvelopeMemberResult> CompleteProofAsync(
+        SecurityChallengeEnvelopeMemberRequest request,
+        string proofToken,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        while (true)
         {
-            VerifiedMembers = verified,
-            Status = verified.All(static value => value)
-                ? SecurityChallengeEnvelopeStatuses.Completed
-                : SecurityChallengeEnvelopeStatuses.Active,
-            Version = state.Version + 1
-        };
-        _states[state.EnvelopeId] = updated;
-        return Task.FromResult(SecurityChallengeEnvelopeMemberResult.Success(updated, validation.MemberIndex));
+            SecurityChallengeEnvelopeState? state = GetOrCreate(request);
+            SecurityChallengeEnvelopeMemberResult validation = Validate(state, request);
+            if (!validation.Accepted || state is null)
+            {
+                return Task.FromResult(validation);
+            }
+            if (string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Completed, StringComparison.Ordinal))
+            {
+                return Task.FromResult(validation);
+            }
+            if (!string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.ProofMinting, StringComparison.Ordinal)
+                || !string.Equals(state.ProofToken, proofToken, StringComparison.Ordinal))
+            {
+                return Task.FromResult(SecurityChallengeEnvelopeMemberResult.Reject("challenge_envelope_proof_not_ready", state));
+            }
+
+            SecurityChallengeEnvelopeState updated = state with
+            {
+                Status = SecurityChallengeEnvelopeStatuses.Completed,
+                Version = state.Version + 1
+            };
+            if (_states.TryUpdate(state.EnvelopeId, updated, state))
+            {
+                return Task.FromResult(SecurityChallengeEnvelopeMemberResult.Success(updated, validation.MemberIndex));
+            }
+        }
     }
 
     public Task<bool> FailAsync(SecurityChallengeEnvelopeMemberRequest request, string reason, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        SecurityChallengeEnvelopeState? state = GetOrCreate(request);
-        if (state is null)
+        while (true)
         {
-            return Task.FromResult(false);
+            SecurityChallengeEnvelopeState? state = GetOrCreate(request);
+            if (state is null
+                || (!string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Active, StringComparison.Ordinal)
+                    && !string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.ProofMinting, StringComparison.Ordinal)))
+            {
+                return Task.FromResult(false);
+            }
+            int memberIndex = Array.IndexOf(state.ChallengeIds, request.ChallengeId);
+            if (memberIndex < 0)
+            {
+                return Task.FromResult(false);
+            }
+            string[] memberStatuses = (string[])state.MemberStatuses.Clone();
+            memberStatuses[memberIndex] = reason.Contains("replay", StringComparison.OrdinalIgnoreCase)
+                ? SecurityChallengeEnvelopeMemberStatuses.Replayed
+                : SecurityChallengeEnvelopeMemberStatuses.Failed;
+            SecurityChallengeEnvelopeState updated = state with
+            {
+                MemberStatuses = memberStatuses,
+                Status = SecurityChallengeEnvelopeStatuses.Failed,
+                TerminalReason = reason,
+                Version = state.Version + 1
+            };
+            if (_states.TryUpdate(state.EnvelopeId, updated, state))
+            {
+                return Task.FromResult(true);
+            }
         }
-        _states[state.EnvelopeId] = state with
+    }
+
+    public Task<bool> RevokeAsync(SecurityChallengeEnvelopeBindingRequest request, string reason, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        while (true)
         {
-            Status = SecurityChallengeEnvelopeStatuses.Failed,
-            TerminalReason = reason,
-            Version = state.Version + 1
-        };
-        return Task.FromResult(true);
+            SecurityChallengeEnvelopeState? state = Get(request.EnvelopeId);
+            if (state is null || !HasBinding(state, request))
+            {
+                return Task.FromResult(false);
+            }
+            if (string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Revoked, StringComparison.Ordinal))
+            {
+                return Task.FromResult(true);
+            }
+            string[] memberStatuses = Enumerable.Repeat(
+                SecurityChallengeEnvelopeMemberStatuses.Revoked,
+                state.MemberCount).ToArray();
+            SecurityChallengeEnvelopeState updated = state with
+            {
+                MemberStatuses = memberStatuses,
+                Status = SecurityChallengeEnvelopeStatuses.Revoked,
+                TerminalReason = reason,
+                Version = state.Version + 1
+            };
+            if (_states.TryUpdate(state.EnvelopeId, updated, state))
+            {
+                return Task.FromResult(true);
+            }
+        }
     }
 
     public SecurityChallengeEnvelopeState? Get(string envelopeId) => _states.GetValueOrDefault(envelopeId);
@@ -86,13 +196,13 @@ internal sealed class TestSecurityChallengeEnvelopeStateService(bool autoCreateS
             request.PolicyVersion,
             [request.ChallengeId],
             [request.Kind],
-            [false],
+            [SecurityChallengeEnvelopeMemberStatuses.Issued],
             now,
             now + 300_000,
             SecurityChallengeEnvelopeStatuses.Active,
             Version: 0);
         _states.TryAdd(request.EnvelopeId, state);
-        return state;
+        return _states.GetValueOrDefault(request.EnvelopeId);
     }
 
     private static SecurityChallengeEnvelopeMemberResult Validate(SecurityChallengeEnvelopeState? state, SecurityChallengeEnvelopeMemberRequest request)
@@ -101,16 +211,7 @@ internal sealed class TestSecurityChallengeEnvelopeStateService(bool autoCreateS
         {
             return SecurityChallengeEnvelopeMemberResult.Reject("challenge_envelope_missing");
         }
-        if (!string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Active, StringComparison.Ordinal))
-        {
-            return SecurityChallengeEnvelopeMemberResult.Reject($"challenge_envelope_{state.Status}", state);
-        }
-        if (!string.Equals(state.Action, request.Action, StringComparison.Ordinal)
-            || !string.Equals(state.RouteKey, request.RouteKey, StringComparison.Ordinal)
-            || !string.Equals(state.SubjectHash, request.SubjectHash, StringComparison.Ordinal)
-            || !string.Equals(state.ClientIpHash, request.ClientIpHash, StringComparison.Ordinal)
-            || !string.Equals(state.DeviceFpHash, request.DeviceFpHash, StringComparison.Ordinal)
-            || !string.Equals(state.PolicyVersion, request.PolicyVersion, StringComparison.Ordinal))
+        if (!HasBinding(state, request))
         {
             return SecurityChallengeEnvelopeMemberResult.Reject("challenge_envelope_binding_mismatch", state);
         }
@@ -119,8 +220,27 @@ internal sealed class TestSecurityChallengeEnvelopeStateService(bool autoCreateS
         {
             return SecurityChallengeEnvelopeMemberResult.Reject("challenge_envelope_member_mismatch", state);
         }
-        int next = Array.FindIndex(state.VerifiedMembers, static value => !value);
-        if (memberIndex < next || state.VerifiedMembers[memberIndex])
+        if (string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.ProofMinting, StringComparison.Ordinal)
+            || string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Completed, StringComparison.Ordinal))
+        {
+            if (memberIndex == state.MemberCount - 1 && state.HasPreparedProof)
+            {
+                return SecurityChallengeEnvelopeMemberResult.Success(state, memberIndex);
+            }
+
+            string reason = string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.ProofMinting, StringComparison.Ordinal)
+                ? "challenge_member_replayed"
+                : "challenge_envelope_replayed";
+            return SecurityChallengeEnvelopeMemberResult.Reject(reason, state, memberIndex);
+        }
+        if (!string.Equals(state.Status, SecurityChallengeEnvelopeStatuses.Active, StringComparison.Ordinal))
+        {
+            return SecurityChallengeEnvelopeMemberResult.Reject($"challenge_envelope_{state.Status}", state, memberIndex);
+        }
+        int next = Array.FindIndex(state.MemberStatuses, static status =>
+            string.Equals(status, SecurityChallengeEnvelopeMemberStatuses.Issued, StringComparison.Ordinal));
+        if (memberIndex < next
+            || string.Equals(state.MemberStatuses[memberIndex], SecurityChallengeEnvelopeMemberStatuses.Verified, StringComparison.Ordinal))
         {
             return SecurityChallengeEnvelopeMemberResult.Reject("challenge_member_replayed", state, memberIndex);
         }
@@ -130,4 +250,20 @@ internal sealed class TestSecurityChallengeEnvelopeStateService(bool autoCreateS
         }
         return SecurityChallengeEnvelopeMemberResult.Success(state, memberIndex);
     }
+
+    private static bool HasBinding(SecurityChallengeEnvelopeState state, SecurityChallengeEnvelopeMemberRequest request)
+        => string.Equals(state.Action, request.Action, StringComparison.Ordinal)
+            && string.Equals(state.RouteKey, request.RouteKey, StringComparison.Ordinal)
+            && string.Equals(state.SubjectHash, request.SubjectHash, StringComparison.Ordinal)
+            && string.Equals(state.ClientIpHash, request.ClientIpHash, StringComparison.Ordinal)
+            && string.Equals(state.DeviceFpHash, request.DeviceFpHash, StringComparison.Ordinal)
+            && string.Equals(state.PolicyVersion, request.PolicyVersion, StringComparison.Ordinal);
+
+    private static bool HasBinding(SecurityChallengeEnvelopeState state, SecurityChallengeEnvelopeBindingRequest request)
+        => string.Equals(state.Action, request.Action, StringComparison.Ordinal)
+            && string.Equals(state.RouteKey, request.RouteKey, StringComparison.Ordinal)
+            && string.Equals(state.SubjectHash, request.SubjectHash, StringComparison.Ordinal)
+            && string.Equals(state.ClientIpHash, request.ClientIpHash, StringComparison.Ordinal)
+            && string.Equals(state.DeviceFpHash, request.DeviceFpHash, StringComparison.Ordinal)
+            && string.Equals(state.PolicyVersion, request.PolicyVersion, StringComparison.Ordinal);
 }
