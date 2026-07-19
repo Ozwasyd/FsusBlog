@@ -1,8 +1,8 @@
-import type { ArticleListItemResponse, CommentAuthorView, CommentReplyItem, CommentReplyPreviewItem, CommentThreadItem, FeaturedArticleItem } from '@/contracts/binaryApi';
+import type { ArticleListItemResponse, CommentAuthorView, CommentReplyItem, CommentReplyPreviewItem, CommentThreadItem, CommentTreeNode, FeaturedArticleItem } from '@/contracts/binaryApi';
 import { resolveCommentAuthorView } from '@/utils/commentAuthorView';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readBlobText, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
-import { COMMENT_AUTHOR_VIEW_POD_SIZE, COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE, COMMENT_THREAD_ITEM_POD_SIZE, FEATURED_ARTICLE_POD_SIZE, TAG_POD_SIZE } from './types';
+import { BinaryReader, readBlobText, readFixedUtf8, readInt32, readInt64Number, readInt64String, readNullableId64, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
+import { COMMENT_AUTHOR_VIEW_POD_SIZE, COMMENT_REPLY_PREVIEW_ITEM_POD_SIZE, COMMENT_THREAD_ITEM_POD_SIZE, COMMENT_TREE_NODE_POD_SIZE, FEATURED_ARTICLE_POD_SIZE, TAG_POD_SIZE } from './types';
 
 type TagViewModel = ArticleListItemResponse['tags'][number];
 type CategoryViewModel = ArticleListItemResponse['category'];
@@ -174,6 +174,39 @@ function readCommentCore(pod: Uint8Array, blob: Uint8Array): CommentCore {
 
 export function readReplyItem(pod: Uint8Array, blob: Uint8Array): CommentReplyItem {
   return readCommentCore(pod, blob);
+}
+
+export function readCommentTreeNodeFromReader(reader: BinaryReader): CommentTreeNode {
+  const pod = reader.readSpan(COMMENT_TREE_NODE_POD_SIZE);
+  const blob = reader.readBlob();
+  const content = readStrictSliceText(blob, pod, 52, 'comment_tree_content_slice_invalid');
+  const author = readRequiredEmbeddedAuthorView(blob, content.nextOffset, 'comment_tree_author_contract_missing');
+  const replyToAuthor = readOptionalEmbeddedAuthorView(blob, author.nextOffset, 'comment_tree_reply_author_contract_missing');
+  validateCommentAuthorPayload(replyToAuthor.nextOffset, blob.byteLength);
+  const isDeleted = pod[40] ?? 0;
+  const hasMoreChildren = pod[41] ?? 0;
+  const depth = readInt32(pod, 32);
+  const childCount = readInt32(pod, 36);
+  if (isDeleted > 1 || hasMoreChildren > 1 || depth < 0 || childCount < 0
+    || (hasMoreChildren === 1 && childCount === 0)
+    || (pod[42] ?? 0) !== 0 || (pod[43] ?? 0) !== 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_tree_node_value_invalid');
+  }
+
+  return {
+    id: readInt64String(pod, 0),
+    parentId: readNullableId64(pod, 8),
+    rootId: readInt64String(pod, 16),
+    replyToCommentId: readNullableId64(pod, 24),
+    depth,
+    childCount,
+    isDeleted: isDeleted === 1,
+    hasMoreChildren: hasMoreChildren === 1,
+    createTime: readIsoDate64(pod, 44),
+    author: author.author!,
+    replyToAuthor: replyToAuthor.author,
+    content: content.text
+  };
 }
 
 function readReplyPreviewItemFromReader(reader: BinaryReader): CommentReplyPreviewItem {

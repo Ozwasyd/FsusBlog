@@ -853,6 +853,18 @@
             "value": 207
         },
         {
+            "name": "CommentTreeRootCursor",
+            "value": 208
+        },
+        {
+            "name": "CommentChildCursor",
+            "value": 209
+        },
+        {
+            "name": "CommentPermalinkContext",
+            "value": 210
+        },
+        {
             "name": "EmptySuccess",
             "value": 240
         },

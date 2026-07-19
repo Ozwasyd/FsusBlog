@@ -4912,7 +4912,7 @@
         "summary": "/comment/{articleId:int}",
         "responses": {
           "200": {
-            "description": "CommentArticleCursor AEDS frame",
+            "description": "CommentTreeRootCursor AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -4937,7 +4937,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": null,
-        "x-fsus-response-frame": "CommentArticleCursor",
+        "x-fsus-response-frame": "CommentTreeRootCursor",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "anonymous",
         "x-fsus-pow": false,
@@ -4946,6 +4946,102 @@
         "x-fsus-cache": "public-read",
         "x-fsus-rate-limit": "public_read",
         "x-fsus-test-surface": "/comment/{articleId:int}",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/comment.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"
+      }
+    },
+    "/api/binary/comment/{articleId:int}/children/{parentId:long}": {
+      "get": {
+        "operationId": "binary_get_comment_articleId_int_children_parentId_long",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/comment/{articleId:int}/children/{parentId:long}",
+        "responses": {
+          "200": {
+            "description": "CommentChildCursor AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "CommentChildCursor",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "public-read",
+        "x-fsus-rate-limit": "public_read",
+        "x-fsus-test-surface": "/comment/{articleId:int}/children/{parentId:long}",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/comment.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"
+      }
+    },
+    "/api/binary/comment/{articleId:int}/context/{commentId:long}": {
+      "get": {
+        "operationId": "binary_get_comment_articleId_int_context_commentId_long",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/comment/{articleId:int}/context/{commentId:long}",
+        "responses": {
+          "200": {
+            "description": "CommentPermalinkContext AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": null,
+        "x-fsus-response-frame": "CommentPermalinkContext",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "anonymous",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "public-read",
+        "x-fsus-rate-limit": "public_read",
+        "x-fsus-test-surface": "/comment/{articleId:int}/context/{commentId:long}",
         "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
         "x-fsus-frontend-wrapper": "src/frontend/src/api/comment.ts",
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/commentAdapter.ts"

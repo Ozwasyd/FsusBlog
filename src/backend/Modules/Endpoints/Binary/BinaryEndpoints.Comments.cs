@@ -212,7 +212,7 @@ public static partial class BinaryEndpoints
 
             return result.Created
                 ? WriteCommentCreateResult(aeds, result)
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "发布失败：可能文章已关闭评论或数据异常"), aeds);
+                : WriteCommentCreateFailure(aeds, result, "发布失败：可能文章已关闭评论或数据异常");
         })
         .RequireAnonymousAccountPrincipal()
         .RequireAuthorization()
@@ -228,10 +228,18 @@ public static partial class BinaryEndpoints
             ICommentQueryService commentService,
             IClientRegionResolver regionResolver,
             ICommentCursorPolicyResolver cursorPolicies,
+            IConfiguration configuration,
             ICacheStringReader cache,
             IOwnedFrameCache ownedFrameCache,
             IAedsEncoder aeds) =>
         {
+            if (!configuration.GetValue("CommentThreads:RecursiveReadsEnabled", true))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "comment_recursive_reads_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
             CursorBindResult<long> bind = CursorPageBinder.Bind(
                 httpContext.Request,
                 cursorPolicies.Resolve(CommentCursorPolicyKind.Threads, ResolveCommentCursorTenant(httpContext)),
@@ -247,7 +255,7 @@ public static partial class BinaryEndpoints
             OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
                 CachePolicyId.CommentCursorFrame,
                 identity,
-                AedsFrameType.CommentArticleCursor,
+                AedsFrameType.CommentTreeRootCursor,
                 httpContext.RequestAborted);
             RecordCommentFrameCacheResult("roots", viewerRegion, frame.Hit && frame.Lease is not null);
             if (frame.Hit && frame.Lease is not null)
@@ -255,8 +263,8 @@ public static partial class BinaryEndpoints
                 return BinaryResults.PreencodedFrame(frame.Lease);
             }
 
-            var result = await commentService.GetThreadsAsync(articleId, bind.Request, viewerRegion: viewerRegion);
-            OwnedAedsFrame ownedFrame = BuildCachedFrame(AedsFrameType.CommentArticleCursor, writer => PodBinaryCodec.WriteCommentThreadCursor(result, writer));
+            var result = await commentService.GetTreeRootsAsync(articleId, bind.Request, viewerRegion: viewerRegion);
+            OwnedAedsFrame ownedFrame = BuildCachedFrame(AedsFrameType.CommentTreeRootCursor, writer => PodBinaryCodec.WriteCommentTreeRootCursor(result, writer));
             return await StoreAndReturnOwnedFrameAsync(
                 ownedFrameCache,
                 CachePolicyId.CommentCursorFrame,
@@ -268,6 +276,124 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "comment.threads")
+        .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
+
+        group.MapGet("/comment/{articleId:int}/children/{parentId:long}", static async Task<IResult> (
+            int articleId,
+            long parentId,
+            HttpContext httpContext,
+            ICommentQueryService commentService,
+            IClientRegionResolver regionResolver,
+            ICommentCursorPolicyResolver cursorPolicies,
+            IConfiguration configuration,
+            ICacheStringReader cache,
+            IOwnedFrameCache ownedFrameCache,
+            IAedsEncoder aeds) =>
+        {
+            if (!configuration.GetValue("CommentThreads:RecursiveReadsEnabled", true))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "comment_recursive_reads_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+            CursorBindResult<long> bind = CursorPageBinder.Bind(
+                httpContext.Request,
+                cursorPolicies.Resolve(CommentCursorPolicyKind.Replies, ResolveCommentCursorTenant(httpContext)),
+                Int64CursorCodec.Instance);
+            if (!bind.IsSuccess)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, bind.ErrorMessage ?? "游标参数非法"), aeds);
+            }
+
+            string viewerRegion = regionResolver.Resolve(httpContext).Region;
+            string version = await ReadCommentCursorVersionAsync(cache, articleId, parentId, accountId: null, httpContext.RequestAborted);
+            string identity = BuildCommentChildFrameIdentity(articleId, parentId, bind.Request, viewerRegion, version);
+            OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
+                CachePolicyId.CommentCursorFrame,
+                identity,
+                AedsFrameType.CommentChildCursor,
+                httpContext.RequestAborted);
+            RecordCommentFrameCacheResult("children", viewerRegion, frame.Hit && frame.Lease is not null);
+            if (frame.Hit && frame.Lease is not null)
+            {
+                return BinaryResults.PreencodedFrame(frame.Lease);
+            }
+
+            CommentChildCursorDto result = await commentService.GetChildrenAsync(articleId, parentId, bind.Request, viewerRegion);
+            OwnedAedsFrame ownedFrame = BuildCachedFrame(
+                AedsFrameType.CommentChildCursor,
+                writer => PodBinaryCodec.WriteCommentChildCursor(
+                    long.Parse(result.ParentId),
+                    long.Parse(result.RootId),
+                    result.Cursor,
+                    writer));
+            return await StoreAndReturnOwnedFrameAsync(
+                ownedFrameCache,
+                CachePolicyId.CommentCursorFrame,
+                identity,
+                ownedFrame,
+                TimeSpan.FromMinutes(5),
+                httpContext.RequestAborted);
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "comment.children")
+        .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
+
+        group.MapGet("/comment/{articleId:int}/context/{commentId:long}", static async Task<IResult> (
+            int articleId,
+            long commentId,
+            int? window,
+            HttpContext httpContext,
+            ICommentQueryService commentService,
+            IClientRegionResolver regionResolver,
+            IConfiguration configuration,
+            ICacheStringReader cache,
+            IOwnedFrameCache ownedFrameCache,
+            IAedsEncoder aeds) =>
+        {
+            if (!configuration.GetValue("CommentThreads:RecursiveReadsEnabled", true))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "comment_recursive_reads_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+            int siblingWindow = Math.Clamp(window ?? 6, 2, 20);
+            string viewerRegion = regionResolver.Resolve(httpContext).Region;
+            string version = await ReadCommentCursorVersionAsync(cache, articleId, commentId, accountId: null, httpContext.RequestAborted);
+            string identity = BuildCommentPermalinkFrameIdentity(articleId, commentId, siblingWindow, viewerRegion, version);
+            OwnedFrameCacheReadResult frame = await ownedFrameCache.TryGetOwnedFrameAsync(
+                CachePolicyId.CommentCursorFrame,
+                identity,
+                AedsFrameType.CommentPermalinkContext,
+                httpContext.RequestAborted);
+            RecordCommentFrameCacheResult("permalink", viewerRegion, frame.Hit && frame.Lease is not null);
+            if (frame.Hit && frame.Lease is not null)
+            {
+                return BinaryResults.PreencodedFrame(frame.Lease);
+            }
+
+            CommentPermalinkContextDto result = await commentService.GetPermalinkContextAsync(
+                articleId,
+                commentId,
+                siblingWindow,
+                viewerRegion);
+            OwnedAedsFrame ownedFrame = BuildCachedFrame(
+                AedsFrameType.CommentPermalinkContext,
+                writer => PodBinaryCodec.WriteCommentPermalinkContext(result, writer));
+            return await StoreAndReturnOwnedFrameAsync(
+                ownedFrameCache,
+                CachePolicyId.CommentCursorFrame,
+                identity,
+                ownedFrame,
+                TimeSpan.FromMinutes(5),
+                httpContext.RequestAborted);
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "comment.permalink")
         .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
 
         group.MapGet("/comment/{articleId:int}/thread/{rootId:long}", static async Task<IResult> (
@@ -570,8 +696,20 @@ public static partial class BinaryEndpoints
 
         return result.Created
             ? WriteCommentCreateResult(aeds, result)
-            : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "anonymous_comment_submit_failed"), aeds);
+            : WriteCommentCreateFailure(aeds, result, "anonymous_comment_submit_failed");
     }
+
+    private static BinaryFrameResult WriteCommentCreateFailure(
+        IAedsEncoder aeds,
+        CommentCreateResult result,
+        string fallbackMessage)
+        => BinaryResults.FromError(
+            ErrorDetail.Create(
+                string.Equals(result.FailureCode, "comment_child_limit", StringComparison.Ordinal)
+                    ? ErrorCode.Conflict
+                    : ErrorCode.Validation,
+                result.FailureCode ?? fallbackMessage),
+            aeds);
 
     private static BinaryFrameResult WriteCommentCreateResult(IAedsEncoder aeds, CommentCreateResult result)
         => BinaryResults.Frame(
@@ -731,6 +869,12 @@ public static partial class BinaryEndpoints
 
     private static string BuildCommentReplyFrameIdentity(int articleId, long rootId, CursorPageRequest<long> request, string viewerRegion, string version)
         => $"article:{articleId}:root:{rootId}:v:{version}:replies:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:region:{NormalizeCommentFrameRegion(viewerRegion)}";
+
+    private static string BuildCommentChildFrameIdentity(int articleId, long parentId, CursorPageRequest<long> request, string viewerRegion, string version)
+        => $"article:{articleId}:parent:{parentId}:v:{version}:children:{request.Cursor?.ToString() ?? "0"}:{request.Limit}:region:{NormalizeCommentFrameRegion(viewerRegion)}";
+
+    private static string BuildCommentPermalinkFrameIdentity(int articleId, long commentId, int siblingWindow, string viewerRegion, string version)
+        => $"article:{articleId}:comment:{commentId}:v:{version}:context:{siblingWindow}:region:{NormalizeCommentFrameRegion(viewerRegion)}";
 
     private static string BuildUserCommentFrameIdentity(int accountId, int? articleId, CursorPageRequest<long> request, string version)
         => $"account:{accountId}:article:{articleId?.ToString() ?? "all"}:v:{version}:comments:{request.Cursor?.ToString() ?? "0"}:{request.Limit}";

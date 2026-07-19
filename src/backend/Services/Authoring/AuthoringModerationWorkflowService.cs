@@ -847,7 +847,7 @@ public sealed class AuthoringModerationWorkflowService(
                             null)
                         : null,
                     ReplyToCommentId = row.ReplyToCommentId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    Depth = Math.Min(2, Math.Max(0, row.Depth)),
+                    Depth = Math.Max(0, row.Depth),
                     IsDeleted = false
                 }
             });

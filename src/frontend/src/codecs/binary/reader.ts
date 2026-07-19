@@ -87,8 +87,8 @@ export function readIsoDate64(bytes: Uint8Array, offset: number): string {
 }
 
 export function readNullableId64(bytes: Uint8Array, offset: number): string | null {
-  const value = readInt64Number(bytes, offset);
-  return value === 0 ? null : String(value);
+  const value = readInt64String(bytes, offset);
+  return value === '0' ? null : value;
 }
 
 export function readBlobText(pod: Uint8Array, blob: Uint8Array, sliceOffset: number): string {

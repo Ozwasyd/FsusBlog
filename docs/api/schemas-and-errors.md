@@ -332,6 +332,9 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 204 | `ConversationDetailV3` | `ConversationDetailV3Pod` + message records/blob | 固定消息页、`previousCursor`、`hasOlder` 与读取快照 |
 | 206 | `AdminConversationList` | `AdminConversationListItemPod` + shared blob | admin-only 列表；原列表记录 + 最小对方 account id/status |
 | 207 | `AdminConversationDetail` | `AdminConversationDetailPod` + message records/blob | admin-only 详情；V3 header + 最小对方 account id/status |
+| 208 | `CommentTreeRootCursor` | cursor envelope + `CommentTreeNodePod` records | 根节点 keyset 页；每根仅内联直接子节点预览 |
+| 209 | `CommentChildCursor` | `CommentChildCursorPod` + `CommentTreeNodePod` records | 指定父节点的直接子节点 keyset 页 |
+| 210 | `CommentPermalinkContext` | `CommentPermalinkContextPod` + node records | 永久链接祖先、目标与兄弟窗口；不可见目标统一 `unavailable` |
 
 `ConversationList(56)` 与 `ConversationDetailV3(204)` 的 wire layout 不因 admin queue state
 新增字段。相同 `unreadCount` 字段按 viewer 使用不同事实源：账号读取 participant state，
@@ -431,6 +434,9 @@ status 必须为 `3=missing`。动态关闭 admin account projection 时返回 `
 | `CommentPolicyUpdateRequestPod` | 26 |
 | `CommentCreateV2RequestPod` | 80 |
 | `CommentAuthorViewPod` | 36 |
+| `CommentTreeNodePod` | 60 |
+| `CommentChildCursorPod` | 32 |
+| `CommentPermalinkContextPod` | 32 |
 | `AnonymousCredentialIssueRequestPod` | 48 |
 | `AnonymousCredentialIssueResponsePod` | 56 |
 | `BlindCredentialIssuerMetadataPod` | 72 |
@@ -444,6 +450,8 @@ status 必须为 `3=missing`。动态关闭 admin account projection 时返回 `
 | `AnonymousPrivacyStateSnapshotPod` | 66 |
 
 ### 评论 cursor item blob
+
+递归树的 `CommentTreeNodePod` 固定保存 `id/parentId/rootId/replyToCommentId/depth/childCount/isDeleted/hasMoreChildren/createTime/content`；节点后跟 content 与 `CommentAuthorView` blob。root frame 在每个根节点后写入 `uint8 previewCount + 3 reserved zero bytes`，再写该数量的直接子节点；child frame 只写平级直接子节点；permalink frame 依次写 ancestors、可选 target、siblings。所有 reserved 字段必须为零，所有 ID 必须保持完整 64-bit 十进制值。
 
 `CommentThreadItemPod`、`CommentReplyPreviewItemPod` 与 `CommentReplyItemPod` 的固定 POD 中仍只保存 content 的 slice ref；对应 blob 的布局为：
 

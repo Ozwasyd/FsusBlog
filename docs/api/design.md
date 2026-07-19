@@ -86,6 +86,8 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 
 线程计数与预览是两个独立语义：`ReplyCount` 表示同一 viewer-region 可见规则下完整线程回复投影的总数，`RepliesPreview.Count` 只表示当前内联预览数量，`HasMoreReplies` 只比较二者。计数必须和墓碑递归链共用一个批量窗口聚合，不能对每个根执行独立 count，也不能把“预览 + 更多哨兵”伪装成总数。文章没有有效 current publication 时，评论线程与计数一起不可公开读取。
 
+递归评论树以服务端保存的 `parent_id/root_id/depth` 为唯一结构真源，客户端不得按返回顺序或固定两层重新推导。`GET /api/binary/comment/{articleId}` 只分页根节点并内联一小段直接子节点预览；`/children/{parentId}` 对单个父节点做独立 keyset 游标；`/context/{commentId}` 返回祖先路径、目标与相邻兄弟窗口，用于 `/article/{articleId}#comment-{commentId}` 精确定位。路径端点对不存在、删除、隐藏和地区不可见目标统一返回 `unavailable`，不得用状态或时序泄露其存在性。写入深度与单节点直接回复数由服务端配置约束，并在事务内锁定父节点配额；超限分别返回稳定错误 `comment_thread_depth_limit`、`comment_child_limit`。
+
 ---
 
 ## URL 命名约定

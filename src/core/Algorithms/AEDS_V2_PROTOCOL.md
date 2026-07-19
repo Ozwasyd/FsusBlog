@@ -138,6 +138,9 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `205`: CommentCreateResult
 - `206`: AdminConversationList
 - `207`: AdminConversationDetail
+- `208`: CommentTreeRootCursor
+- `209`: CommentChildCursor
+- `210`: CommentPermalinkContext
 - `240`: EmptySuccess
 - `241`: MutationId
 - `251`: ApiError
@@ -148,6 +151,10 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 
 - `EmptySuccess` payload: `EmptySuccessPod` (`Ok = 1`, remaining bytes reserved).
 - `CommentCreateResult` payload: 16-byte `CommentCreateResultPod` (`int64 commentId`, `int32 moderationStatus`, `uint8 visibilityState`, `uint8 isPubliclyVisible`, two reserved zero bytes). Visibility values are `0 pending`, `1 public`, `2 hidden`, `3 rejected`.
+- `CommentTreeRootCursor` payload: standard cursor envelope followed by root `CommentTreeNodePod` records. Every root record is followed by its content/author blob, then a 4-byte direct-preview header (`uint8 count`, three reserved zero bytes), then exactly `count` direct-child node records. It never flattens deeper descendants.
+- `CommentChildCursor` payload: 32-byte `CommentChildCursorPod` (`int64 parentId`, `int64 rootId`, `int64 nextCursor`, `int32 count`, `uint8 hasMore`, three reserved zero bytes) followed by exactly `count` direct-child `CommentTreeNodePod` records.
+- `CommentPermalinkContext` payload: 32-byte `CommentPermalinkContextPod` followed by ordered ancestor nodes, optional target node, and sibling nodes. Status `unavailable` has no target and zero node counts; deleted, hidden, region-blocked, and absent targets intentionally share this shape.
+- `CommentTreeNodePod` is 60 bytes and carries 64-bit `id/parentId/rootId/replyToCommentId`, `depth`, batch-derived `childCount`, tombstone/more flags, timestamp, and a content slice. IDs remain signed 64-bit values across C#/C++/TypeScript and TypeScript exposes them as decimal strings.
 - `MutationId` payload: `MutationIdPod` (`int64 Id`).
 - `ApiError` payload: `ApiErrorPod` (`byte Code`, `byte Category`, `int32 HttpStatus`, fixed UTF-8 `Message`, `Details`, `TraceId`).
 - `CategoryWriteRequest` / `TagWriteRequest` payload: `NameMutationRequestPod` (`Utf8Fixed128 Name`).

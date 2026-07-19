@@ -1461,6 +1461,99 @@ public static partial class PodBinaryCodec
     public static byte[] EncodeCommentReplyCursor(long rootId, CursorResponse<CommentReplyItemDto> cursor)
         => EncodeToArray(512 + cursor.Data.Count * 320, writer => WriteCommentReplyCursor(rootId, cursor, writer));
 
+    /// <summary>
+    /// Writes root comments with direct-child previews. Descendants are never flattened into this frame.
+    /// </summary>
+    public static void WriteCommentTreeRootCursor(CursorResponse<CommentTreeRootDto> cursor, IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        writer.WriteInt64(ParseCursor(cursor.NextCursor));
+        writer.WriteByte(cursor.HasMore ? (byte)1 : (byte)0);
+        writer.WriteInt32(cursor.Data.Count);
+        foreach (CommentTreeRootDto root in cursor.Data)
+        {
+            WriteCommentTreeNode(ref writer, root.Node);
+            writer.WriteByte((byte)Math.Clamp(root.ChildrenPreview.Count, 0, 255));
+            writer.WriteByte(0);
+            writer.WriteByte(0);
+            writer.WriteByte(0);
+            foreach (CommentTreeNodeDto child in root.ChildrenPreview)
+            {
+                WriteCommentTreeNode(ref writer, child);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Writes one independently pageable direct-child window.
+    /// </summary>
+    public static void WriteCommentChildCursor(
+        long parentId,
+        long rootId,
+        CursorResponse<CommentTreeNodeDto> cursor,
+        IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        writer.WriteInt64(parentId);
+        writer.WriteInt64(rootId);
+        writer.WriteInt64(ParseCursor(cursor.NextCursor));
+        writer.WriteInt32(cursor.Data.Count);
+        writer.WriteByte(cursor.HasMore ? (byte)1 : (byte)0);
+        writer.WriteByte(0);
+        writer.WriteByte(0);
+        writer.WriteByte(0);
+        foreach (CommentTreeNodeDto child in cursor.Data)
+        {
+            WriteCommentTreeNode(ref writer, child);
+        }
+    }
+
+    /// <summary>
+    /// Writes an ancestor path, target node, and bounded sibling window for a comment permalink.
+    /// </summary>
+    public static void WriteCommentPermalinkContext(CommentPermalinkContextDto context, IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        writer.WriteInt64(ParseLong(context.TargetId ?? string.Empty));
+        writer.WriteInt64(ParseLong(context.RootId ?? string.Empty));
+        writer.WriteInt32(context.Ancestors.Count);
+        writer.WriteInt32(context.Siblings.Count);
+        writer.WriteByte(string.Equals(context.Status, "found", StringComparison.Ordinal) ? (byte)0 : (byte)1);
+        writer.WriteByte(context.Target.HasValue ? (byte)1 : (byte)0);
+        writer.WriteByte(context.HasPreviousSiblings ? (byte)1 : (byte)0);
+        writer.WriteByte(context.HasNextSiblings ? (byte)1 : (byte)0);
+        writer.WriteInt32(0);
+        foreach (CommentTreeNodeDto ancestor in context.Ancestors)
+        {
+            WriteCommentTreeNode(ref writer, ancestor);
+        }
+        if (context.Target is CommentTreeNodeDto target)
+        {
+            WriteCommentTreeNode(ref writer, target);
+        }
+        foreach (CommentTreeNodeDto sibling in context.Siblings)
+        {
+            WriteCommentTreeNode(ref writer, sibling);
+        }
+    }
+
+    private static void WriteCommentTreeNode(ref BinaryPodWriter writer, CommentTreeNodeDto node)
+    {
+        writer.WritePod(PodProjector.ProjectCommentTreeNode(
+            ParseLong(node.Id),
+            ParseNullableLong(node.ParentId),
+            ParseLong(node.RootId),
+            ParseNullableLong(node.ReplyToCommentId),
+            node.Depth,
+            node.ChildCount,
+            node.HasMoreChildren,
+            node.IsDeleted,
+            node.CreateTime,
+            node.Content,
+            out ReadOnlyMemory<byte> payload));
+        writer.WriteBytes(BuildCommentItemPayload(payload, node.Author, node.ReplyToAuthor).Span);
+    }
+
     private static long ParseLong(string value) => long.TryParse(value, out long parsed) ? parsed : 0;
 
     private static long? ParseNullableLong(string? value) => long.TryParse(value, out long parsed) ? parsed : null;

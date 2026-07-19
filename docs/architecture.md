@@ -364,6 +364,8 @@ taxonomy 缓存故障的无需重启回退必须同时处理 raw frame 与 Publi
 
 `CommentQueryService` 先计算当前 viewer-region 的直接可见评论，再用递归 CTE 沿 `parent_id` 补齐任意层级祖先；不直接可见但承载公开后代的节点只生成无正文、无作者身份的墓碑投影。删除叶或全部后代均不可见时不进入游标窗口，避免空墓碑永久占位；回复目标被删除/隐藏/地区屏蔽时仍保留 `reply_to_comment_id` 结构，但 `replyToAuthor` 改为固定安全占位。删除事务提交后按 article/root 范围失效缓存并发布 `CommentRemoved`，浏览器先 redact 本地节点再回源首屏，确保 notification stream 状态与冷读取收敛。无需重启的降级路径是通过现有审核运行时把新增评论保持 `Pending`，减少新公开分支；读模型没有 JSON fallback，也不绕过 viewer-region cache identity。
 
+递归 UI 主读链把根、直接子节点和 permalink context 拆成三个 AEDS frame。根页只加载一层预览，展开分支时按 parent 独立 keyset 加载；permalink 用递归 CTE 读取一条祖先链，并以目标同级 keyset 窗口恢复上下文。节点 `childCount` 通过当前页 ID 集合的一次批量聚合回填，禁止 correlated per-node count；百万节点基准与查询计划记录在 [`performance-comment-tree.md`](performance-comment-tree.md)。浏览器以 comment ID 建立 node/parent 索引，实时事件按真实 parent 合并，折叠分支恢复焦点，深层视觉 guide 压缩但不改变 DOM 树和 `aria-expanded/aria-controls`。`CommentThreads:RecursiveReadsEnabled=false` 可热关闭三个新读端点并返回 503，旧 binary thread 路由继续承担滚动回退；`MaxDepth` 与 `MaxChildrenPerNode` 同样 reloadable，但已存树不被重写。
+
 线程预览查询在同一个 root batch 内对墓碑链执行 `COUNT(*) OVER (PARTITION BY root_id)`，因此 `ReplyCount`、preview 和 `HasMoreReplies` 共享审核、删除、地区及有效 article publication 条件且没有逐根 N+1。创建、删除、审核转换与地区策略 replay 继续通过 article/root scoped `CommentCursor` 失效入口重建该投影；实时新增可单调递增本地计数，删除后必须回源权威窗口，避免在不知道未加载后代时错误递减。
 
 评论 ownership overlay 复用认证 `CommentUserCursor` 的 article-scoped 窄读，不新增公共 frame：Core gateway 对 article filter 绕过未分区的账号历史 query cache，endpoint 的 owned-frame key 固定包含 account + article + cursor + limit + account version。前端公共线程模型不含 `authorAccountId`；`ArticleDetail` 独立维护 `ownedCommentIds`，冷加载、notification stream 新增/删除、公开提交回包与账号切换都收敛到同一私有读取。该 overlay 失败时只隐藏管理按钮，不会放宽删除权限；无需重启的回退是停止 articleId overlay 请求，公共阅读和服务端权威删除继续工作。

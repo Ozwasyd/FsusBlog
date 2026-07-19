@@ -18,13 +18,17 @@ import type {
   CommentAuthorMode,
   CommentAuthorView,
   CommentAuthorViewMode,
-  CommentCreateV2Dto,
+  CommentCreateV2Dto as CommentCreateV2ContractDto,
   CommentCreateResult,
   CommentDisplayLanguage,
+  CommentPermalinkContext,
+  CommentPermalinkStatus,
   CommentPolicySnapshot,
   CommentReplyItem,
   CommentReplyPreviewItem,
   CommentThreadItem,
+  CommentTreeNode,
+  CommentTreeRoot,
   CursorResponse,
   PublicCommentCreateInput,
   UserCommentResponse
@@ -50,17 +54,25 @@ export type {
   CommentAuthorMode,
   CommentAuthorView,
   CommentAuthorViewMode,
-  CommentCreateV2Dto,
   CommentCreateResult,
   CommentDisplayLanguage,
+  CommentPermalinkContext,
+  CommentPermalinkStatus,
   CommentPolicySnapshot,
   CommentReplyItem,
   CommentReplyPreviewItem,
   CommentThreadItem,
+  CommentTreeNode,
+  CommentTreeRoot,
   CursorResponse,
   PublicCommentCreateInput,
   UserCommentResponse
 } from '@/contracts/binaryApi'
+
+export interface CommentCreateV2Dto extends CommentCreateV2ContractDto {
+  /** @deprecated 匿名模式不应设置 replyToUserId；编码器始终写入兼容占位。 */
+  replyToUserId?: number | null
+}
 
 // =================================================================================
 // API methods
@@ -231,17 +243,58 @@ export const getComments = (
   if (cursor) search.set('cursor', cursor);
   search.set('limit', String(limit));
 
-  return requestBinaryOnly<CursorResponse<CommentThreadItem>>({
+  return requestBinaryOnly<CursorResponse<CommentTreeRoot>>({
     binaryRoute: {
       operationId: 'binary_get_comment_articleId_int',
       params: { articleId },
       query: search
     },
-    frameType: FrameType.CommentArticleCursor,
+    frameType: FrameType.CommentTreeRootCursor,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
       credentials: 'omit'
     }
+  });
+}
+
+export const getCommentChildren = (
+  articleId: number,
+  parentId: string,
+  cursor?: string | null,
+  limit = 20,
+  config?: ApiRequestConfig
+) => {
+  const search = new URLSearchParams();
+  if (cursor) search.set('cursor', cursor);
+  search.set('limit', String(limit));
+  return requestBinaryOnly<CursorResponse<CommentTreeNode>>({
+    binaryRoute: {
+      operationId: 'binary_get_comment_articleId_int_children_parentId_long',
+      params: { articleId, parentId },
+      query: search
+    },
+    frameType: FrameType.CommentChildCursor,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: { credentials: 'omit' }
+  });
+}
+
+export const getCommentPermalinkContext = (
+  articleId: number,
+  commentId: string,
+  siblingWindow = 6,
+  config?: ApiRequestConfig
+) => {
+  const search = new URLSearchParams({ window: String(siblingWindow) });
+  return requestBinaryOnly<CommentPermalinkContext>({
+    binaryRoute: {
+      operationId: 'binary_get_comment_articleId_int_context_commentId_long',
+      params: { articleId, commentId },
+      query: search
+    },
+    frameType: FrameType.CommentPermalinkContext,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: { credentials: 'omit' }
   });
 }
 

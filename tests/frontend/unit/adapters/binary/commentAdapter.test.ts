@@ -6,7 +6,10 @@ import {
   mapAnonymousCredentialRootSnapshotFromPayload,
   mapAnonymousPrivacyStateSnapshotFromPayload,
   mapCommentCursorFromPodPayload,
+  mapCommentChildCursorFromPayload,
+  mapCommentPermalinkContextFromPayload,
   mapCommentPolicySnapshotFromPayload,
+  mapCommentTreeRootCursorFromPayload,
   mapThreadReplyCursorFromPodPayload,
   mapUserCommentCursorFromPodPayload
 } from '@/adapters/binary/commentAdapter'
@@ -20,6 +23,7 @@ import {
   COMMENT_POLICY_SNAPSHOT_POD_SIZE,
   COMMENT_THREAD_ITEM_POD_SIZE,
   COMMENT_REPLY_ITEM_POD_SIZE,
+  COMMENT_TREE_NODE_POD_SIZE,
   USER_COMMENT_POD_SIZE
 } from '@/adapters/binary/types'
 import {
@@ -97,6 +101,108 @@ function commentItemBlob(content: string, displayName = 'alice', replyToDisplayN
     lengthPrefixed(replyToDisplayName ? commentAuthorPayload(replyToDisplayName) : new Uint8Array())
   )
 }
+
+function commentTreeNodeRecord(input: {
+  id: bigint
+  parentId?: bigint
+  rootId: bigint
+  depth: number
+  childCount?: number
+  content?: string
+}): Uint8Array {
+  const pod = new Uint8Array(COMMENT_TREE_NODE_POD_SIZE)
+  const content = input.content ?? ''
+  writeInt64(pod, 0, input.id)
+  writeInt64(pod, 8, input.parentId ?? 0n)
+  writeInt64(pod, 16, input.rootId)
+  writeInt64(pod, 24, input.parentId ?? 0n)
+  writeInt32(pod, 32, input.depth)
+  writeInt32(pod, 36, input.childCount ?? 0)
+  writeByte(pod, 41, (input.childCount ?? 0) > 0 ? 1 : 0)
+  writeSliceRef(pod, 52, 0, textBytes(content).length)
+  return buildPayload(pod, commentItemBlob(content))
+}
+
+describe('recursive comment tree binary adapters', () => {
+  it('decodes a root with only direct children and preserves 64-bit ids as strings', () => {
+    const rootId = 9007199254740993n
+    const payload = buildPayload(
+      int64Buf(0n), byteBuf(0), int32Buf(1),
+      commentTreeNodeRecord({ id: rootId, rootId, depth: 0, childCount: 2, content: 'root' }),
+      byteBuf(1), new Uint8Array(3),
+      commentTreeNodeRecord({ id: rootId + 1n, parentId: rootId, rootId, depth: 1, childCount: 1, content: 'child' })
+    )
+
+    const result = mapCommentTreeRootCursorFromPayload(payload)
+    expect(result.data[0]?.node.id).toBe(rootId.toString())
+    expect(result.data[0]?.childrenPreview[0]?.parentId).toBe(rootId.toString())
+    expect(result.data[0]?.childrenPreview[0]?.depth).toBe(1)
+    expect(result.data[0]?.childrenPreview[0]?.childCount).toBe(1)
+  })
+
+  it('rejects a child cursor whose node is attached to another parent', () => {
+    const payload = buildPayload(
+      int64Buf(10n), int64Buf(1n), int64Buf(0n), int32Buf(1), byteBuf(0), new Uint8Array(3),
+      commentTreeNodeRecord({ id: 12n, parentId: 11n, rootId: 1n, depth: 2 })
+    )
+    expect(() => mapCommentChildCursorFromPayload(payload)).toThrow('comment_child_cursor_parent_invalid')
+  })
+
+  it('decodes permalink ancestors, target, and sibling window without exposing unavailable targets', () => {
+    const found = buildPayload(
+      int64Buf(3n), int64Buf(1n), int32Buf(2), int32Buf(1), new Uint8Array([0, 1, 0, 1]), new Uint8Array(4),
+      commentTreeNodeRecord({ id: 1n, rootId: 1n, depth: 0 }),
+      commentTreeNodeRecord({ id: 2n, parentId: 1n, rootId: 1n, depth: 1 }),
+      commentTreeNodeRecord({ id: 3n, parentId: 2n, rootId: 1n, depth: 2 }),
+      commentTreeNodeRecord({ id: 4n, parentId: 2n, rootId: 1n, depth: 2 })
+    )
+    const result = mapCommentPermalinkContextFromPayload(found)
+    expect(result.status).toBe('found')
+    expect(result.ancestors.map((node) => node.id)).toEqual(['1', '2'])
+    expect(result.target?.id).toBe('3')
+    expect(result.siblings[0]?.id).toBe('4')
+
+    const unavailable = buildPayload(int64Buf(0n), int64Buf(0n), int32Buf(0), int32Buf(0), new Uint8Array([1, 0, 0, 0]), new Uint8Array(4))
+    expect(mapCommentPermalinkContextFromPayload(unavailable)).toEqual({
+      status: 'unavailable', targetId: null, rootId: null, ancestors: [], target: null, siblings: [],
+      hasPreviousSiblings: false, hasNextSiblings: false
+    })
+
+    const leakingUnavailable = buildPayload(
+      int64Buf(3n), int64Buf(1n), int32Buf(0), int32Buf(0),
+      new Uint8Array([1, 0, 0, 0]), new Uint8Array(4)
+    )
+    expect(() => mapCommentPermalinkContextFromPayload(leakingUnavailable))
+      .toThrow('comment_permalink_unavailable_shape_invalid')
+  })
+
+  it('keeps an ancestor path deeper than ten levels in server order', () => {
+    const rootId = 100n
+    const ancestors = Array.from({ length: 10 }, (_, depth) => commentTreeNodeRecord({
+      id: rootId + BigInt(depth),
+      parentId: depth === 0 ? undefined : rootId + BigInt(depth - 1),
+      rootId,
+      depth
+    }))
+    const target = commentTreeNodeRecord({
+      id: rootId + 10n,
+      parentId: rootId + 9n,
+      rootId,
+      depth: 10
+    })
+    const payload = buildPayload(
+      int64Buf(rootId + 10n), int64Buf(rootId), int32Buf(10), int32Buf(0),
+      new Uint8Array([0, 1, 0, 0]), new Uint8Array(4),
+      ...ancestors,
+      target
+    )
+
+    const result = mapCommentPermalinkContextFromPayload(payload)
+    expect(result.ancestors).toHaveLength(10)
+    expect(result.ancestors.map((node) => node.depth)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    expect(result.target?.depth).toBe(10)
+  })
+})
 
 // ---------------------------------------------------------------------------
 // mapCommentCursorFromPodPayload

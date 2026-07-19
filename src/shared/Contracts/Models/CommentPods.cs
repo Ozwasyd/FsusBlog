@@ -436,3 +436,54 @@ public readonly struct CommentReplyCursorPod
     public readonly long RootId;
     public readonly int Reserved;
 }
+
+/// <summary>
+/// Defines one fixed-layout node in the recursive comment-tree wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct CommentTreeNodePod
+{
+    public readonly long Id;
+    public readonly long ParentId;
+    public readonly long RootId;
+    public readonly long ReplyToCommentId;
+    public readonly int Depth;
+    public readonly int ChildCount;
+    public readonly byte IsDeleted;
+    public readonly byte HasMoreChildren;
+    public readonly ushort Reserved;
+    public readonly long CreateTimeUnixMs;
+    public readonly Utf8SliceRef Content;
+}
+
+/// <summary>
+/// Defines the fixed header for a direct-child cursor page.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct CommentChildCursorPod
+{
+    public readonly long ParentId;
+    public readonly long RootId;
+    public readonly long NextCursor;
+    public readonly int Count;
+    public readonly byte HasMore;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+}
+
+/// <summary>
+/// Defines the fixed header for a privacy-preserving permalink context.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct CommentPermalinkContextPod
+{
+    public readonly long TargetId;
+    public readonly long RootId;
+    public readonly int AncestorCount;
+    public readonly int SiblingCount;
+    public readonly byte Status;
+    public readonly byte HasTarget;
+    public readonly byte HasPreviousSiblings;
+    public readonly byte HasNextSiblings;
+    public readonly int Reserved;
+}

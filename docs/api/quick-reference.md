@@ -126,13 +126,15 @@
 
 ---
 
-## 评论 — `/api/Comment`
+## 评论 — `/api/binary/comment`
 
 | 方法 | 路径 | 权限 | 缓存 | 说明 |
 | ------ | ------ | ------ | ------ | ------ |
-| GET | `/api/Comment/{articleId}` | 🔓 | 🗄️ | 指定文章顶层评论（游标分页） |
-| GET | `/api/Comment/{articleId}/thread/{rootId}` | 🔓 | 🗄️ | 指定评论的回复线程 |
-| GET | `/api/Comment/me` | 🔑 | — | 当前用户可归因评论记录 |
+| GET | `/api/binary/comment/{articleId}` | 🔓 | 🗄️ | 根节点 keyset 页 + 直接子节点预览，`CommentTreeRootCursor(208)` |
+| GET | `/api/binary/comment/{articleId}/children/{parentId}` | 🔓 | 🗄️ | 单个父节点的直接子节点 keyset 页，`CommentChildCursor(209)` |
+| GET | `/api/binary/comment/{articleId}/context/{commentId}` | 🔓 | 🗄️ | 永久链接祖先路径、目标和兄弟窗口；不可见目标统一 `unavailable`，`CommentPermalinkContext(210)` |
+| GET | `/api/binary/comment/{articleId}/thread/{rootId}` | 🔓 | 🗄️ | 滚动部署兼容的旧 binary 扁平回复游标 |
+| GET | `/api/binary/comment/me` | 🔑 | — | 当前用户可归因评论记录 |
 
 ---
 

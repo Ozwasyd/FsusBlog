@@ -41,7 +41,7 @@ public sealed class CommentNotificationService(
                 RootId = (comment.RootId ?? comment.Id).ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ReplyToAuthor = null,
                 ReplyToCommentId = comment.ReplyToCommentId?.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                Depth = Math.Clamp(comment.Depth, 0, 2),
+                Depth = Math.Max(0, comment.Depth),
                 IsDeleted = false
             }
         });

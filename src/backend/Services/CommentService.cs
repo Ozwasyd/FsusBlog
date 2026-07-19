@@ -33,8 +33,12 @@ public partial class CommentCommandService(
     ICommentNotificationService commentNotifications,
     ICommentModerationService commentModeration,
     ICommentAttributionPrivacyService commentAttribution,
-    ICacheInvalidationDispatcher cacheInvalidationDispatcher) : ICommentEndpointService, ICommentCommandService
+    ICacheInvalidationDispatcher cacheInvalidationDispatcher,
+    IConfiguration? configuration = null) : ICommentEndpointService, ICommentCommandService
 {
+    private const int DefaultMaxThreadDepth = 32;
+    private const int DefaultMaxChildrenPerNode = 500;
+
     private static bool TryParsePositiveCommentId(string? raw, out long value)
     {
         value = 0;
@@ -228,6 +232,21 @@ public partial class CommentCommandService(
                 return CommentCreateResult.Failed;
             }
 
+            int maxDepth = Math.Clamp(
+                configuration?.GetValue("CommentThreads:MaxDepth", DefaultMaxThreadDepth) ?? DefaultMaxThreadDepth,
+                2,
+                256);
+            if (parent.Depth + 1 > maxDepth)
+            {
+                logger.LogInformation(
+                    "评论回复超过线程深度上限 | Article: {ArticleId} | Parent: {ParentId} | Depth: {Depth} | MaxDepth: {MaxDepth}",
+                    articleId,
+                    parent.Id,
+                    parent.Depth + 1,
+                    maxDepth);
+                return CommentCreateResult.Failure("comment_thread_depth_limit");
+            }
+
             parentId = parent.Id;
             rootId = parent.RootId ?? parent.Id;
             if (requestedRootId.HasValue && requestedRootId.Value != rootId.Value)
@@ -285,6 +304,11 @@ public partial class CommentCommandService(
                 throw new CommentTargetNotVisibleException();
             }
 
+            if (parentId.HasValue && !await ReserveChildSlotAsync(parentId.Value, cancellationToken))
+            {
+                throw new CommentChildLimitExceededException();
+            }
+
             if (comment.ReplyToUserId.HasValue
                 && !await LockActiveReplyRecipientAsync(comment.ReplyToUserId.Value, cancellationToken))
             {
@@ -330,6 +354,15 @@ public partial class CommentCommandService(
             if (insertResult.ErrorException is CommentTargetNotVisibleException)
             {
                 return CommentCreateResult.Failed;
+            }
+
+            if (insertResult.ErrorException is CommentChildLimitExceededException)
+            {
+                logger.LogInformation(
+                    "评论节点达到直接回复上限 | Article: {ArticleId} | Parent: {ParentId}",
+                    articleId,
+                    parentId);
+                return CommentCreateResult.Failure("comment_child_limit");
             }
 
             logger.LogWarning(insertResult.ErrorException, "评论创建或地区合规记录写入失败 | Article: {ArticleId} | User: {UserId}", articleId, actor.UserId);
@@ -433,6 +466,22 @@ public partial class CommentCommandService(
         return await reader.ReadAsync(cancellationToken);
     }
 
+    private async Task<bool> ReserveChildSlotAsync(long parentId, CancellationToken cancellationToken)
+    {
+        int maxChildren = Math.Clamp(
+            configuration?.GetValue("CommentThreads:MaxChildrenPerNode", DefaultMaxChildrenPerNode) ?? DefaultMaxChildrenPerNode,
+            1,
+            10_000);
+        await db.Ado.ExecuteCommandAsync(
+            "SELECT pg_advisory_xact_lock(@ParentId);",
+            new SugarParameter("@ParentId", parentId));
+        long childCount = await db.Queryable<Comment>()
+            .Where(comment => comment.ParentId == parentId)
+            .CountAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        return childCount < maxChildren;
+    }
+
     private static int? ResolveReplyRecipientId(int? targetAuthorAccountId, int? replyingActorAccountId)
         => targetAuthorAccountId is > 0 && targetAuthorAccountId != replyingActorAccountId
             ? targetAuthorAccountId
@@ -509,6 +558,10 @@ public partial class CommentCommandService(
     }
 
     private sealed class CommentTargetNotVisibleException : Exception
+    {
+    }
+
+    private sealed class CommentChildLimitExceededException : Exception
     {
     }
 

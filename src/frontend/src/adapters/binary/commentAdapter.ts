@@ -8,7 +8,10 @@ import type {
   AnonymousPrivacyStateSnapshot,
   CommentAuthorMode,
   CommentCreateResult,
+  CommentPermalinkContext,
   CommentReplyItem,
+  CommentTreeNode,
+  CommentTreeRoot,
   CommentThreadItem,
   CursorResponse,
   UserCommentResponse
@@ -21,9 +24,9 @@ import {
 import { finalizeCommentPolicySnapshot } from '@/policies/commentPolicy';
 import { resolveCommentAuthorView } from '@/utils/commentAuthorView';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readByte, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readNullableId64, readIsoDate64, readBlobText, readSliceRef, readSliceText } from '@/codecs/binary/reader';
+import { BinaryReader, readByte, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readInt64String, readNullableId64, readIsoDate64, readBlobText, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 import { readCursorEnvelope } from './envelopeReaders';
-import { readReplyItem, readThreadItemFromReader } from './podReaders';
+import { readCommentTreeNodeFromReader, readReplyItem, readThreadItemFromReader } from './podReaders';
 import {
   ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
@@ -325,6 +328,120 @@ export function mapThreadReplyCursorFromPodPayload(payload: Uint8Array): CursorR
     data,
     nextCursor: nextCursorRaw === 0 ? null : String(nextCursorRaw),
     hasMore
+  };
+}
+
+export function mapCommentTreeRootCursorFromPayload(payload: Uint8Array): CursorResponse<CommentTreeRoot> {
+  const reader = new BinaryReader(payload);
+  return readCursorEnvelope(reader, () => {
+    const node = readCommentTreeNodeFromReader(reader);
+    if (node.parentId !== null || node.rootId !== node.id || node.depth !== 0) {
+      throw createAppError(AppErrorCode.ProtocolFailure, 'comment_tree_root_coordinate_invalid');
+    }
+    const previewCount = reader.readByte();
+    const reserved = reader.readSpan(3);
+    if (reserved.some((value) => value !== 0)) {
+      throw createAppError(AppErrorCode.ProtocolFailure, 'comment_tree_root_reserved_invalid');
+    }
+    const childrenPreview: CommentTreeNode[] = [];
+    for (let index = 0; index < previewCount; index++) {
+      const child = readCommentTreeNodeFromReader(reader);
+      if (child.parentId !== node.id || child.rootId !== node.rootId || child.depth !== 1) {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'comment_tree_preview_parent_invalid');
+      }
+      childrenPreview.push(child);
+    }
+    return { node, childrenPreview };
+  }, 'comment_tree_root_cursor_count_invalid', 'comment_tree_root_cursor_trailing_payload_invalid');
+}
+
+export function mapCommentChildCursorFromPayload(payload: Uint8Array): CursorResponse<CommentTreeNode> {
+  const reader = new BinaryReader(payload);
+  const header = reader.readSpan(32);
+  const parentId = readInt64String(header, 0);
+  const rootId = readInt64String(header, 8);
+  const nextCursor = readInt64String(header, 16);
+  const count = readInt32(header, 24);
+  const hasMore = readByte(header, 28);
+  if (count < 0 || hasMore > 1 || readByte(header, 29) !== 0 || readByte(header, 30) !== 0 || readByte(header, 31) !== 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_child_cursor_header_invalid');
+  }
+  const data: CommentTreeNode[] = [];
+  for (let index = 0; index < count; index++) {
+    const child = readCommentTreeNodeFromReader(reader);
+    if (child.parentId !== parentId || (rootId !== '0' && child.rootId !== rootId)) {
+      throw createAppError(AppErrorCode.ProtocolFailure, 'comment_child_cursor_parent_invalid');
+    }
+    data.push(child);
+  }
+  if (reader.remaining() !== 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_child_cursor_trailing_payload_invalid');
+  }
+  return { data, nextCursor: nextCursor === '0' ? null : nextCursor, hasMore: hasMore === 1 };
+}
+
+export function mapCommentPermalinkContextFromPayload(payload: Uint8Array): CommentPermalinkContext {
+  const reader = new BinaryReader(payload);
+  const header = reader.readSpan(32);
+  const targetId = readInt64String(header, 0);
+  const rootId = readInt64String(header, 8);
+  const ancestorCount = readInt32(header, 16);
+  const siblingCount = readInt32(header, 20);
+  const status = readByte(header, 24);
+  const hasTarget = readByte(header, 25);
+  const hasPreviousSiblings = readByte(header, 26);
+  const hasNextSiblings = readByte(header, 27);
+  if (ancestorCount < 0 || siblingCount < 0 || status > 1 || hasTarget > 1
+    || hasPreviousSiblings > 1 || hasNextSiblings > 1
+    || header.subarray(28).some((value) => value !== 0)) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_permalink_header_invalid');
+  }
+  const ancestors: CommentTreeNode[] = [];
+  for (let index = 0; index < ancestorCount; index++) {
+    ancestors.push(readCommentTreeNodeFromReader(reader));
+  }
+  const target = hasTarget === 1 ? readCommentTreeNodeFromReader(reader) : null;
+  const siblings: CommentTreeNode[] = [];
+  for (let index = 0; index < siblingCount; index++) {
+    siblings.push(readCommentTreeNodeFromReader(reader));
+  }
+  if (reader.remaining() !== 0 || (status === 0) !== Boolean(target)) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_permalink_payload_invalid');
+  }
+  if (status === 1) {
+    if (targetId !== '0' || rootId !== '0' || ancestorCount !== 0 || siblingCount !== 0
+      || hasTarget !== 0 || hasPreviousSiblings !== 0 || hasNextSiblings !== 0) {
+      throw createAppError(AppErrorCode.ProtocolFailure, 'comment_permalink_unavailable_shape_invalid');
+    }
+  } else {
+    if (!target || target.id !== targetId || target.rootId !== rootId || ancestorCount > 256 || siblingCount > 20) {
+      throw createAppError(AppErrorCode.ProtocolFailure, 'comment_permalink_coordinate_invalid');
+    }
+    let expectedParentId: string | null = null;
+    for (let index = 0; index < ancestors.length; index++) {
+      const ancestor = ancestors[index]!;
+      if (ancestor.parentId !== expectedParentId || ancestor.rootId !== rootId || ancestor.depth !== index) {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'comment_permalink_ancestor_path_invalid');
+      }
+      expectedParentId = ancestor.id;
+    }
+    if (target.parentId !== expectedParentId || target.depth !== ancestors.length
+      || siblings.some((sibling) => sibling.id === target.id
+        || sibling.parentId !== target.parentId
+        || sibling.rootId !== target.rootId
+        || sibling.depth !== target.depth)) {
+      throw createAppError(AppErrorCode.ProtocolFailure, 'comment_permalink_sibling_window_invalid');
+    }
+  }
+  return {
+    status: status === 0 ? 'found' : 'unavailable',
+    targetId: targetId === '0' ? null : targetId,
+    rootId: rootId === '0' ? null : rootId,
+    ancestors,
+    target,
+    siblings,
+    hasPreviousSiblings: hasPreviousSiblings === 1,
+    hasNextSiblings: hasNextSiblings === 1
   };
 }
 

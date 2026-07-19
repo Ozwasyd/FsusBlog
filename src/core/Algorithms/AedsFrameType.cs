@@ -204,6 +204,9 @@ public enum AedsFrameType : ushort
     CommentCreateResult = 205,
     AdminConversationList = 206,
     AdminConversationDetail = 207,
+    CommentTreeRootCursor = 208,
+    CommentChildCursor = 209,
+    CommentPermalinkContext = 210,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

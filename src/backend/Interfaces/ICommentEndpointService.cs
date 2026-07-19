@@ -15,9 +15,13 @@ public readonly record struct CommentCreateResult(
     long CommentId,
     CommentModerationStatus ModerationStatus,
     string VisibilityState,
-    bool IsPubliclyVisible)
+    bool IsPubliclyVisible,
+    string? FailureCode = null)
 {
     public static CommentCreateResult Failed => new(false, 0, CommentModerationStatus.Pending, "pending", false);
+
+    public static CommentCreateResult Failure(string code)
+        => new(false, 0, CommentModerationStatus.Pending, "pending", false, code);
 }
 
 public interface ICommentCommandService

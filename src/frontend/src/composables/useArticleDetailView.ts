@@ -18,7 +18,7 @@ import type MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import { toast } from '@/fsusui/feedback'
 import { usePow } from '@/composables/usePow'
 import { useAbortableTask } from '@/composables/useAbortableTask'
-import { useArticleCommentStream } from '@/composables/useArticleCommentStream'
+import { useArticleCommentStream, type CommentTreeViewNode } from '@/composables/useArticleCommentStream'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
 import { markCurrentRouteContentReady, markCurrentRouteFailed } from '@/bootstrap/routeReadiness'
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
@@ -230,7 +230,9 @@ export function useArticleDetailView() {
     article.value ? createArticleDetailHeaderViewContract(article.value) : emptyArticleDetailHeaderView
   )
 
-  const totalCommentCount = computed(() => threads.value.reduce((acc, item) => acc + 1 + item.replyCount, 0))
+  const countLoadedBranch = (node: CommentTreeViewNode): number =>
+    1 + node.children.reduce((total, child) => total + countLoadedBranch(child), 0)
+  const totalCommentCount = computed(() => threads.value.reduce((total, root) => total + countLoadedBranch(root), 0))
   const commentAnonymousScope = computed(() => {
     if (!article.value) {
       return ''

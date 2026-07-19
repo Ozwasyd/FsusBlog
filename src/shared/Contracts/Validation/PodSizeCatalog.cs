@@ -92,6 +92,9 @@ public static class PodSizeCatalog
     public static readonly int CommentReplyItemPod = PodContractValidation.SizeOf<CommentReplyItemPod>();
     public static readonly int CommentThreadCursorPod = PodContractValidation.SizeOf<CommentThreadCursorPod>();
     public static readonly int CommentReplyCursorPod = PodContractValidation.SizeOf<CommentReplyCursorPod>();
+    public static readonly int CommentTreeNodePod = PodContractValidation.SizeOf<CommentTreeNodePod>();
+    public static readonly int CommentChildCursorPod = PodContractValidation.SizeOf<CommentChildCursorPod>();
+    public static readonly int CommentPermalinkContextPod = PodContractValidation.SizeOf<CommentPermalinkContextPod>();
 
     public static readonly int MessageInboxPod = PodContractValidation.SizeOf<MessageInboxPod>();
     public static readonly int CommentPushPod = PodContractValidation.SizeOf<CommentPushPod>();

@@ -874,6 +874,51 @@ public readonly record struct CommentThreadItemDto(
     List<CommentReplyPreviewItemDto> RepliesPreview);
 
 /// <summary>
+/// Defines one server-authoritative node in an arbitrarily deep comment tree.
+/// </summary>
+public readonly record struct CommentTreeNodeDto(
+    string Id,
+    string Content,
+    DateTime CreateTime,
+    CommentAuthorViewDto Author,
+    CommentAuthorViewDto? ReplyToAuthor,
+    string? ParentId,
+    string RootId,
+    string? ReplyToCommentId,
+    int Depth,
+    bool IsDeleted,
+    int ChildCount,
+    bool HasMoreChildren);
+
+/// <summary>
+/// Defines a root comment and its first independently pageable child window.
+/// </summary>
+public readonly record struct CommentTreeRootDto(
+    CommentTreeNodeDto Node,
+    List<CommentTreeNodeDto> ChildrenPreview);
+
+/// <summary>
+/// Defines one independently pageable direct-child window with authoritative parent/root coordinates.
+/// </summary>
+public readonly record struct CommentChildCursorDto(
+    string ParentId,
+    string RootId,
+    CursorResponse<CommentTreeNodeDto> Cursor);
+
+/// <summary>
+/// Defines the privacy-preserving result of resolving a comment permalink.
+/// </summary>
+public readonly record struct CommentPermalinkContextDto(
+    string Status,
+    string? TargetId,
+    string? RootId,
+    List<CommentTreeNodeDto> Ancestors,
+    CommentTreeNodeDto? Target,
+    List<CommentTreeNodeDto> Siblings,
+    bool HasPreviousSiblings,
+    bool HasNextSiblings);
+
+/// <summary>
 /// Defines the API output contract represented by <c>CommentQueryResultDto</c>.
 /// </summary>
 public readonly record struct CommentQueryResultDto(long Id, string Content, DateTime CreateTime, CommentAuthorViewDto Author);

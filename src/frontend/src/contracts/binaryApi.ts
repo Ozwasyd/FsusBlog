@@ -498,6 +498,39 @@ export interface CommentReplyPreviewItem {
   isDeleted: boolean
 }
 
+export interface CommentTreeNode {
+  id: string
+  content: string
+  createTime: string
+  author: CommentAuthorView
+  replyToAuthor?: CommentAuthorView | null
+  parentId?: string | null
+  rootId: string
+  replyToCommentId?: string | null
+  depth: number
+  isDeleted: boolean
+  childCount: number
+  hasMoreChildren: boolean
+}
+
+export interface CommentTreeRoot {
+  node: CommentTreeNode
+  childrenPreview: CommentTreeNode[]
+}
+
+export type CommentPermalinkStatus = 'found' | 'unavailable'
+
+export interface CommentPermalinkContext {
+  status: CommentPermalinkStatus
+  targetId: string | null
+  rootId: string | null
+  ancestors: CommentTreeNode[]
+  target: CommentTreeNode | null
+  siblings: CommentTreeNode[]
+  hasPreviousSiblings: boolean
+  hasNextSiblings: boolean
+}
+
 export interface UserCommentResponse {
   id: string
   content: string

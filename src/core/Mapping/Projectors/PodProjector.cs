@@ -239,6 +239,40 @@ public static class PodProjector
         return Cast<MutableCommentReplyItemPod, CommentReplyItemPod>(tmp);
     }
 
+    public static CommentTreeNodePod ProjectCommentTreeNode(
+        long id,
+        long? parentId,
+        long rootId,
+        long? replyToCommentId,
+        int depth,
+        int childCount,
+        bool hasMoreChildren,
+        bool isDeleted,
+        DateTime createTime,
+        string content,
+        out ReadOnlyMemory<byte> payload)
+    {
+        var bytes = new ArrayBufferWriter<byte>(256);
+        Utf8SliceRef contentSlice = PodUtf8Codec.AppendSlice(content, bytes);
+        MutableCommentTreeNodePod tmp = new()
+        {
+            Id = id,
+            ParentId = parentId ?? 0,
+            RootId = rootId,
+            ReplyToCommentId = replyToCommentId ?? 0,
+            Depth = Math.Max(0, depth),
+            ChildCount = Math.Max(0, childCount),
+            IsDeleted = isDeleted ? (byte)1 : (byte)0,
+            HasMoreChildren = hasMoreChildren ? (byte)1 : (byte)0,
+            Reserved = 0,
+            CreateTimeUnixMs = PodTimeCodec.ToUnixMs(createTime),
+            Content = contentSlice
+        };
+
+        payload = bytes.WrittenMemory;
+        return Cast<MutableCommentTreeNodePod, CommentTreeNodePod>(tmp);
+    }
+
     public static CommentReplyPreviewItemPod ProjectCommentReplyPreviewItem(
         long id,
         bool isDeleted,
@@ -496,6 +530,22 @@ public static class PodProjector
         public byte IsDeleted;
         public byte Reserved0;
         public ushort Reserved1;
+        public long CreateTimeUnixMs;
+        public Utf8SliceRef Content;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableCommentTreeNodePod
+    {
+        public long Id;
+        public long ParentId;
+        public long RootId;
+        public long ReplyToCommentId;
+        public int Depth;
+        public int ChildCount;
+        public byte IsDeleted;
+        public byte HasMoreChildren;
+        public ushort Reserved;
         public long CreateTimeUnixMs;
         public Utf8SliceRef Content;
     }

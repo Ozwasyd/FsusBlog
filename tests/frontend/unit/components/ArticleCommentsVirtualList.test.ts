@@ -4,133 +4,104 @@ import { defineComponent } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 import ArticleCommentsVirtualList from '@/components/article/ArticleCommentsVirtualList.vue'
-import type { CommentThreadItem } from '@/api/comment'
+import type { CommentTreeViewNode } from '@/composables/useArticleCommentStream'
 
 const CommentMarkdownRendererStub = defineComponent({
   inheritAttrs: false,
-  props: {
-    content: { type: String, required: true }
-  },
+  props: { content: { type: String, required: true } },
   template: '<div class="fsus-markdown-body" v-bind="$attrs"><p>{{ content }}</p></div>'
 })
 
-const baseThread: CommentThreadItem = {
-  id: 'thread-1',
-  content: 'A restrained comment.',
+const makeNode = (
+  id: string,
+  depth = 0,
+  children: CommentTreeViewNode[] = [],
+  overrides: Partial<CommentTreeViewNode> = {}
+): CommentTreeViewNode => ({
+  id,
+  content: `Comment ${id}`,
   createTime: '2026-06-01T03:00:00.000Z',
-  author: {
-    mode: 'public',
-    displayName: 'Demo Reader',
-    displayLanguage: 'en'
-  },
-  rootId: 'thread-1',
+  author: { mode: 'public', displayName: 'Demo Reader', displayLanguage: 'en', badge: null, scopeLabel: null },
+  replyToAuthor: null,
+  parentId: depth === 0 ? null : String(BigInt(id) - 1n),
+  rootId: depth === 0 ? id : '1',
+  replyToCommentId: depth === 0 ? null : String(BigInt(id) - 1n),
+  depth,
   isDeleted: false,
-  replyCount: 0,
-  hasMoreReplies: false,
-  repliesPreview: []
-}
+  childCount: children.length,
+  hasMoreChildren: false,
+  children,
+  childrenExpanded: children.length > 0,
+  ...overrides
+})
 
 const mountList = (
-  thread: CommentThreadItem,
+  thread: CommentTreeViewNode,
   isLoggedIn: boolean,
-  ownedCommentIds: ReadonlySet<string> = new Set()
+  ownedCommentIds: ReadonlySet<string> = new Set(),
+  isAdmin = false
 ) => mount(ArticleCommentsVirtualList, {
-  props: {
-    threads: [thread],
-    isAdmin: false,
-    isLoggedIn,
-    ownedCommentIds,
-    loadingReplies: {}
-  },
-  global: {
-    stubs: {
-      CommentMarkdownRenderer: CommentMarkdownRendererStub
-    }
-  }
+  props: { threads: [thread], isAdmin, isLoggedIn, ownedCommentIds, loadingReplies: {} },
+  global: { stubs: { CommentMarkdownRenderer: CommentMarkdownRendererStub } }
 })
 
-afterEach(() => {
-  document.body.innerHTML = ''
-})
+afterEach(() => { document.body.innerHTML = '' })
 
-describe('ArticleCommentsVirtualList editorial comment items', () => {
-  it('renders authenticated authors without an identity badge', () => {
-    const wrapper = mountList(baseThread, true)
+describe('ArticleCommentsVirtualList recursive comment tree', () => {
+  it('renders public and anonymous identity states without account identifiers', () => {
+    const publicWrapper = mountList(makeNode('1'), true)
+    expect(publicWrapper.get('.fsus-comment-tree-node__author').classes()).toContain('is-authenticated')
+    expect(publicWrapper.find('.fsus-comment-tree-node__badge').exists()).toBe(false)
+    expect(publicWrapper.get('.fsus-comment-tree-node__action').text()).toBe('回复')
+    publicWrapper.unmount()
 
-    expect(wrapper.get('.fsus-comment').classes()).toContain('fsus-comment')
-    expect(wrapper.get('.fsus-comment__author').classes()).toContain('is-authenticated')
-    expect(wrapper.find('.fsus-comment__badge').exists()).toBe(false)
-    expect(wrapper.get('.fsus-comment__footer .fsus-comment__action').text()).toBe('回复')
-
-    wrapper.unmount()
-  })
-
-  it('demotes anonymous authors with a plain anonymous badge and login action', () => {
-    const anonymousThread: CommentThreadItem = {
-      ...baseThread,
-      author: {
-        ...baseThread.author,
-        mode: 'anonymous',
-        displayName: 'Anonymous'
-      }
-    }
-    const wrapper = mountList(anonymousThread, false)
-
-    expect(wrapper.get('.fsus-comment__author').classes()).toContain('is-anonymous')
-    expect(wrapper.get('.fsus-comment__badge').text()).toBe('匿名')
-    expect(wrapper.get('.fsus-comment__footer .fsus-comment__action').text()).toBe('登录后回复')
-
-    wrapper.unmount()
-  })
-
-  it('keeps reply identity and destructive actions semantically distinct', () => {
-    const threadWithReply: CommentThreadItem = {
-      ...baseThread,
-      replyCount: 1,
-      repliesPreview: [{
-        id: 'reply-1',
-        content: 'A nested reply.',
-        createTime: '2026-06-01T03:05:00.000Z',
-        author: {
-          mode: 'anonymous',
-          displayName: 'Anonymous',
-          displayLanguage: 'en'
-        },
-        replyToAuthor: baseThread.author,
-        isDeleted: false
-      }]
-    }
-    const wrapper = mount(ArticleCommentsVirtualList, {
-      props: {
-        threads: [threadWithReply],
-        isAdmin: true,
-        isLoggedIn: true,
-        ownedCommentIds: new Set<string>(),
-        loadingReplies: {}
-      },
-      global: {
-        stubs: {
-          CommentMarkdownRenderer: CommentMarkdownRendererStub
-        }
-      }
+    const anonymous = makeNode('1', 0, [], {
+      author: { mode: 'anonymous', displayName: 'Anonymous', displayLanguage: 'en', badge: null, scopeLabel: null }
     })
+    const anonymousWrapper = mountList(anonymous, false)
+    expect(anonymousWrapper.get('.fsus-comment-tree-node__author').classes()).toContain('is-anonymous')
+    expect(anonymousWrapper.get('.fsus-comment-tree-node__badge').text()).toBe('匿名')
+    expect(anonymousWrapper.get('.fsus-comment-tree-node__action').text()).toBe('登录后回复')
+    anonymousWrapper.unmount()
+  })
 
-    expect(wrapper.get('.fsus-comment__replies').exists()).toBe(true)
-    expect(wrapper.get('.fsus-comment--reply .fsus-comment__author').classes()).toContain('is-anonymous')
-    expect(wrapper.get('.fsus-comment--reply .fsus-comment__badge').text()).toBe('匿名')
-    expect(wrapper.get('.fsus-comment--reply .fsus-comment__reply-target').text()).toContain('@Demo Reader')
-    expect(wrapper.get('.fsus-comment--reply .fsus-comment__action--danger').attributes('aria-label')).toBe('删除回复')
+  it('keeps recursive groups, reply identity, permalink, and delete semantics accessible', () => {
+    const child = makeNode('2', 1, [], {
+      author: { mode: 'anonymous', displayName: 'Anonymous', displayLanguage: 'en', badge: null, scopeLabel: null },
+      replyToAuthor: { mode: 'public', displayName: 'Demo Reader', displayLanguage: 'en', badge: null, scopeLabel: null }
+    })
+    const wrapper = mountList(makeNode('1', 0, [child]), true, new Set(), true)
 
+    expect(wrapper.get('[role="group"]').attributes('aria-label')).toContain('Demo Reader')
+    expect(wrapper.get('#comment-2 .fsus-comment-tree-node__target').text()).toContain('@Demo Reader')
+    expect(wrapper.get('#comment-2 .fsus-comment-tree-node__time').attributes('href')).toBe('#comment-2')
+    expect(wrapper.get('#comment-2 .is-danger').attributes('aria-label')).toBe('删除回复')
+    expect(wrapper.get('[aria-controls="comment-children-1"]').attributes('aria-expanded')).toBe('true')
     wrapper.unmount()
   })
 
-  it('uses the private ownership overlay instead of a public author account id', () => {
-    const notOwned = mountList(baseThread, true)
-    expect(notOwned.find('.fsus-comment__action--danger').exists()).toBe(false)
-    notOwned.unmount()
+  it('renders a path deeper than ten levels and compresses deep visual guides', () => {
+    let branch = makeNode('12', 11)
+    for (let depth = 10; depth >= 0; depth--) {
+      branch = makeNode(String(depth + 1), depth, [branch])
+    }
+    const wrapper = mountList(branch, true)
 
-    const owned = mountList(baseThread, true, new Set(['thread-1']))
-    expect(owned.get('.fsus-comment__action--danger').attributes('aria-label')).toBe('删除评论')
-    owned.unmount()
+    expect(wrapper.findAll('.fsus-comment-tree-node')).toHaveLength(12)
+    expect(wrapper.findAll('.fsus-comment-tree-node.is-deep')).toHaveLength(8)
+    expect(wrapper.get('#comment-12').attributes('style')).toContain('--comment-tree-depth: 4')
+    wrapper.unmount()
+  })
+
+  it('lazy-expands a branch with ArrowRight and preserves private ownership actions', async () => {
+    const root = makeNode('1', 0, [], { childCount: 2, hasMoreChildren: true })
+    const wrapper = mountList(root, true, new Set(['1']))
+    const node = wrapper.get('#comment-1')
+
+    await node.trigger('keydown', { key: 'ArrowRight' })
+    expect(wrapper.emitted('loadMoreReplies')?.[0]).toEqual(['1'])
+    expect(wrapper.get('[aria-controls="comment-children-1"]').attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get('.is-danger').attributes('aria-label')).toBe('删除评论')
+    wrapper.unmount()
   })
 })
