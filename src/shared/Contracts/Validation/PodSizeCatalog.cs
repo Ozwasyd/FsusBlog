@@ -148,6 +148,8 @@ public static class PodSizeCatalog
     public static readonly int PasskeyRegisterCompleteRequestPod = PodContractValidation.SizeOf<PasskeyRegisterCompleteRequestPod>();
     public static readonly int PasskeyLoginCompleteRequestPod = PodContractValidation.SizeOf<PasskeyLoginCompleteRequestPod>();
     public static readonly int PasskeyCredentialSummaryPod = PodContractValidation.SizeOf<PasskeyCredentialSummaryPod>();
+    public static readonly int PasskeySignalStatePod = PodContractValidation.SizeOf<PasskeySignalStatePod>();
+    public static readonly int PasskeySignalCredentialPod = PodContractValidation.SizeOf<PasskeySignalCredentialPod>();
 
     public static readonly int SeoConfigPod = PodContractValidation.SizeOf<SeoConfigPod>();
     public static readonly int PageContentPod = PodContractValidation.SizeOf<PageContentPod>();

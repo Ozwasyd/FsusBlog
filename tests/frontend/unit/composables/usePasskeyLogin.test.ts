@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { AppErrorCode, createAppError } from '@/utils/appError'
 
 const mocks = vi.hoisted(() => ({
   passkeyLoginBegin: vi.fn(),
   passkeyLoginComplete: vi.fn(),
+  getPasskeySignalState: vi.fn(),
   startAuthentication: vi.fn(),
   commitPostAuthSession: vi.fn(),
   routerPush: vi.fn(),
   broadcastLogin: vi.fn(),
-  riskRun: vi.fn()
+  riskRun: vi.fn(),
+  signalUnknownCredential: vi.fn(),
+  reconcileAfterLogin: vi.fn()
 }))
 
 vi.mock('@simplewebauthn/browser', () => ({
@@ -31,7 +35,15 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/api/auth', () => ({
   passkeyLoginBegin: mocks.passkeyLoginBegin,
-  passkeyLoginComplete: mocks.passkeyLoginComplete
+  passkeyLoginComplete: mocks.passkeyLoginComplete,
+  getPasskeySignalState: mocks.getPasskeySignalState
+}))
+
+vi.mock('@/services/webauthnSignal', () => ({
+  webauthnSignalService: {
+    signalUnknownCredential: mocks.signalUnknownCredential,
+    reconcileAfterLogin: mocks.reconcileAfterLogin
+  }
 }))
 
 vi.mock('@/composables/usePostAuthCommit', () => ({
@@ -53,9 +65,12 @@ describe('usePasskeyLogin', () => {
     vi.clearAllMocks()
     mocks.passkeyLoginBegin.mockReset()
     mocks.passkeyLoginComplete.mockReset()
+    mocks.getPasskeySignalState.mockReset()
     mocks.startAuthentication.mockReset()
     mocks.commitPostAuthSession.mockReset()
     mocks.riskRun.mockReset()
+    mocks.signalUnknownCredential.mockReset()
+    mocks.reconcileAfterLogin.mockReset()
     mocks.riskRun.mockImplementation(
       async (_context: unknown, _policy: unknown, execute: (proof?: unknown) => Promise<unknown>) => await execute()
     )
@@ -114,12 +129,33 @@ describe('usePasskeyLogin', () => {
     expect(mocks.passkeyLoginComplete).toHaveBeenCalledOnce()
     expect(mocks.commitPostAuthSession).toHaveBeenCalledOnce()
     expect(mocks.broadcastLogin).toHaveBeenCalledOnce()
+    expect(mocks.reconcileAfterLogin).toHaveBeenCalledOnce()
     expect(mocks.routerPush).toHaveBeenCalledOnce()
     expect(mocks.commitPostAuthSession.mock.invocationCallOrder[0])
       .toBeLessThan(mocks.broadcastLogin.mock.invocationCallOrder[0]!)
     expect(mocks.broadcastLogin.mock.invocationCallOrder[0])
       .toBeLessThan(mocks.routerPush.mock.invocationCallOrder[0]!)
     expect(result).toBe(true)
+  })
+
+  it('signals an unknown credential only for the server-classified missing credential failure', async () => {
+    mocks.passkeyLoginBegin.mockResolvedValue({
+      challengeToken: 'challenge-token',
+      options: { challenge: 'challenge', rpId: 'example.test', allowCredentials: [] }
+    })
+    mocks.startAuthentication.mockResolvedValue({ id: 'credential-id' })
+    mocks.passkeyLoginComplete.mockRejectedValue(createAppError(
+      AppErrorCode.Unauthorized,
+      'missing',
+      { details: 'passkey_credential_unknown' }
+    ))
+
+    const { usePasskeyLogin } = await import('@/composables/usePasskeyLogin')
+    const { loginWithPasskey } = usePasskeyLogin(mocks.startAuthentication)
+
+    await expect(loginWithPasskey(false)).resolves.toBe(false)
+    expect(mocks.signalUnknownCredential).toHaveBeenCalledWith('example.test', 'credential-id')
+    expect(mocks.commitPostAuthSession).not.toHaveBeenCalled()
   })
 
   it('does not broadcast or navigate when the Session snapshot cannot be committed', async () => {

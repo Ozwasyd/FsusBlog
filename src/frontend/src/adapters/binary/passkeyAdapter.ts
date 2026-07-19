@@ -1,6 +1,6 @@
-import type { PasskeyCredentialSummary, PasskeyLoginBeginResponse, PasskeyRegisterBeginResponse } from '@/contracts/binaryApi';
-import { BinaryReader, readByte, readFixedUtf8, readInt32, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
-import { PASSKEY_CREDENTIAL_DESCRIPTOR_POD_SIZE, PASSKEY_CREDENTIAL_SUMMARY_POD_SIZE, PASSKEY_LOGIN_BEGIN_POD_SIZE, PASSKEY_PUBLIC_KEY_CREDENTIAL_PARAM_POD_SIZE, PASSKEY_REGISTER_BEGIN_POD_SIZE } from './types';
+import type { PasskeyCredentialSummary, PasskeyLoginBeginResponse, PasskeyRegisterBeginResponse, PasskeySignalState } from '@/contracts/binaryApi';
+import { BinaryReader, readByte, readFixedUtf8, readInt32, readInt64Number, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
+import { PASSKEY_CREDENTIAL_DESCRIPTOR_POD_SIZE, PASSKEY_CREDENTIAL_SUMMARY_POD_SIZE, PASSKEY_LOGIN_BEGIN_POD_SIZE, PASSKEY_PUBLIC_KEY_CREDENTIAL_PARAM_POD_SIZE, PASSKEY_REGISTER_BEGIN_POD_SIZE, PASSKEY_SIGNAL_CREDENTIAL_POD_SIZE, PASSKEY_SIGNAL_STATE_POD_SIZE } from './types';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
 type DescriptorEnvelope = { pod: Uint8Array; transports: number[] };
@@ -97,6 +97,33 @@ export function mapPasskeyCredentialListFromPayload(payload: Uint8Array): Passke
     backupEligible: readByte(pod, 6) === 1,
     backupState: readByte(pod, 7) === 1
   }));
+}
+
+export function mapPasskeySignalStateFromPayload(payload: Uint8Array): PasskeySignalState {
+  const reader = new BinaryReader(payload);
+  const pod = reader.readSpan(PASSKEY_SIGNAL_STATE_POD_SIZE);
+  const count = readInt32(pod, 8);
+  if (count < 0 || count > 64) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'passkey_signal_credential_count_invalid');
+  }
+
+  const credentialPods: Uint8Array[] = [];
+  for (let i = 0; i < count; i += 1) {
+    credentialPods.push(reader.readSpan(PASSKEY_SIGNAL_CREDENTIAL_POD_SIZE));
+  }
+  const blob = reader.readBlob();
+  if (reader.remaining() !== 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'passkey_signal_state_trailing_payload_invalid');
+  }
+
+  return {
+    revision: readInt64Number(pod, 0),
+    rpId: readSliceText(blob, readSliceRef(pod, 16)),
+    userId: readSliceText(blob, readSliceRef(pod, 24)),
+    name: readSliceText(blob, readSliceRef(pod, 32)),
+    displayName: readSliceText(blob, readSliceRef(pod, 40)),
+    allAcceptedCredentialIds: credentialPods.map((credential) => readSliceText(blob, readSliceRef(credential, 0)))
+  };
 }
 
 function readDescriptors(reader: BinaryReader, count: number): DescriptorEnvelope[] {

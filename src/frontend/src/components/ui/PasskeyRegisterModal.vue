@@ -134,7 +134,8 @@
 <script setup lang="ts">
 import { Check } from '@/fsusui/icons'
 import { computed, nextTick, ref, watch } from 'vue'
-import { beginRecoveryPasskeyRegistration, completeRecoveryPasskeyRegistration, passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import { beginRecoveryPasskeyRegistration, completeRecoveryPasskeyRegistration, getPasskeySignalState, passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import { webauthnSignalService } from '@/services/webauthnSignal'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
 import { FSUSBLOG_SECURITY_COPY } from '@/copy'
 import { startPasskeyRegistration, type PasskeyRegistrationResult } from '@/services/passkeyCeremony'
@@ -267,12 +268,16 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
         friendlyName: friendlyName.value.trim() || undefined
       })
     } else {
-      await passkeyRegisterComplete({
-        sessionKey,
-        attestation,
-        friendlyName: friendlyName.value.trim() || undefined,
-        mfaProofToken
-      })
+      await webauthnSignalService.commitAndReconcile(
+        () => passkeyRegisterComplete({
+          sessionKey,
+          attestation,
+          friendlyName: friendlyName.value.trim() || undefined,
+          mfaProofToken
+        }),
+        getPasskeySignalState,
+        { currentUserDetails: true, revisionOf: (state) => state.revision }
+      )
     }
 
     step.value = 'success'

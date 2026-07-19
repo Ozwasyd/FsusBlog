@@ -10,9 +10,11 @@ const mocks = vi.hoisted(() => ({
   completeRecoveryPasskeyRegistration: vi.fn(),
   passkeyRegisterBegin: vi.fn(),
   passkeyRegisterComplete: vi.fn(),
+  getPasskeySignalState: vi.fn(),
   startMfaChallenge: vi.fn(),
   startPasskeyRegistration: vi.fn(),
-  verifyMfaChallenge: vi.fn()
+  verifyMfaChallenge: vi.fn(),
+  commitAndReconcile: vi.fn()
 }))
 
 vi.mock('@/services/passkeyCeremony', () => ({
@@ -24,8 +26,15 @@ vi.mock('@/api/auth', () => ({
   completeRecoveryPasskeyRegistration: mocks.completeRecoveryPasskeyRegistration,
   passkeyRegisterBegin: mocks.passkeyRegisterBegin,
   passkeyRegisterComplete: mocks.passkeyRegisterComplete,
+  getPasskeySignalState: mocks.getPasskeySignalState,
   startMfaChallenge: mocks.startMfaChallenge,
   verifyMfaChallenge: mocks.verifyMfaChallenge
+}))
+
+vi.mock('@/services/webauthnSignal', () => ({
+  webauthnSignalService: {
+    commitAndReconcile: mocks.commitAndReconcile
+  }
 }))
 
 let PasskeyRegisterModal: Component
@@ -87,7 +96,8 @@ describe('PasskeyRegisterModal', () => {
       options: { challenge: 'challenge' }
     })
     mocks.startPasskeyRegistration.mockResolvedValue({ id: 'credential-1' })
-    mocks.passkeyRegisterComplete.mockResolvedValue({})
+    mocks.passkeyRegisterComplete.mockResolvedValue({ revision: 3 })
+    mocks.commitAndReconcile.mockImplementation(async (commit: () => Promise<unknown>) => await commit())
   })
 
   it('runs the mounted MFA and WebAuthn state machine through the production auth adapter', async () => {
@@ -124,6 +134,7 @@ describe('PasskeyRegisterModal', () => {
       }))
     })
     expect(wrapper.text()).toContain('通行密钥注册成功')
+    expect(mocks.commitAndReconcile).toHaveBeenCalledOnce()
 
     await wrapper.get('button[data-type="primary"]').trigger('click')
     expect(wrapper.emitted('success')).toHaveLength(1)

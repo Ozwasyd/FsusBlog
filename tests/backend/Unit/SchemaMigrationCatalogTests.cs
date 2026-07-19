@@ -23,10 +23,11 @@ public sealed class SchemaMigrationCatalogTests
             catalog => Assert.Equal("identity-security-20260602-20260621", catalog.CatalogId),
             catalog => Assert.Equal("projection-integrity-20260625-20260704", catalog.CatalogId),
             catalog => Assert.Equal("current-20260709-20260716", catalog.CatalogId),
-            catalog => Assert.Equal("current-20260719", catalog.CatalogId));
-        Assert.Equal(101, manifest.Descriptors.Count);
+            catalog => Assert.Equal("current-20260719", catalog.CatalogId),
+            catalog => Assert.Equal("current-20260720", catalog.CatalogId));
+        Assert.Equal(102, manifest.Descriptors.Count);
         Assert.Equal(
-            "F9E770AB59D43F0A0F1BF39EA3694825774670C25BF52334F1D8B633C5E3D2D3",
+            "3B2C23F719028CB840A24A4BCF09D0A880F220A88E60977264223DC04DAB1FAC",
             ComputePlanFingerprint(manifest.Descriptors));
 
         for (int index = 1; index < manifest.Descriptors.Count; index++)

@@ -6,7 +6,7 @@ import { mapAuthoringJsonFromPayload } from '@/adapters/binary/authoringAdapter'
 import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialIssueResponseFromPayload, mapAnonymousCredentialRevocationArtifactFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentChildCursorFromPayload, mapCommentCreateResultFromPayload, mapCommentCursorFromPodPayload, mapCommentPermalinkContextFromPayload, mapCommentPolicySnapshotFromPayload, mapCommentTreeRootCursorFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from '@/adapters/binary/commentAdapter';
 import { mapEmptySuccessFromPayload, mapMutationIdFromPayload } from '@/adapters/binary/commonAdapter';
 import { mapAdminConversationDetailFromPayload, mapAdminConversationListFromPayload, mapConversationDetailFromPayload, mapConversationDetailV2FromPayload, mapConversationDetailV3FromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload, mapConversationStatusMutationResultFromPayload } from '@/adapters/binary/messageAdapter';
-import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload } from '@/adapters/binary/passkeyAdapter';
+import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload, mapPasskeySignalStateFromPayload } from '@/adapters/binary/passkeyAdapter';
 import { mapHumanReadChallengeFromPayload, mapHumanReadSubmitFromPayload } from '@/adapters/binary/readProofAdapter';
 import { mapSecurityChallengeIssueResponseFromPayload, mapSecurityChallengeVerifyResponseFromPayload, mapSecurityJsonFromPayload } from '@/adapters/binary/securityAdapter';
 import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStatsFromPodPayload } from '@/adapters/binary/statsAdapter';
@@ -49,6 +49,7 @@ export const binaryFrameDecoderRegistry: Readonly<Record<number, (payload: Uint8
   [FrameType.PasskeyRegisterBegin]: mapPasskeyRegisterBeginFromPayload,
   [FrameType.PasskeyLoginBegin]: mapPasskeyLoginBeginFromPayload,
   [FrameType.PasskeyCredentialList]: mapPasskeyCredentialListFromPayload,
+  [FrameType.PasskeySignalState]: mapPasskeySignalStateFromPayload,
   [FrameType.CommentPolicySnapshot]: mapCommentPolicySnapshotFromPayload,
   [FrameType.CommentCreateResult]: mapCommentCreateResultFromPayload,
   [FrameType.CommentArticleCursor]: mapCommentCursorFromPodPayload,

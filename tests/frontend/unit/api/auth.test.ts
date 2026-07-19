@@ -15,7 +15,7 @@ vi.mock('@/api/index', () => ({
 }))
 
 import { requestBinaryOnly } from '@/composition/binaryTransport'
-import { adminStepUpPasskeyBegin, beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, logout, logoutAdmin, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePublicHandle, userStepUpPasskeyBegin, userStepUpPasskeyComplete, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
+import { adminStepUpPasskeyBegin, beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPasskeySignalState, getPowChallenge, listPasskeys, listSessions, logout, logoutAdmin, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePublicHandle, userStepUpPasskeyBegin, userStepUpPasskeyComplete, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
@@ -295,17 +295,19 @@ describe('auth API binary base session flow', () => {
       }
     })
     await listPasskeys()
+    await getPasskeySignalState()
     await deletePasskey(7)
     await renamePasskey(7, 'Phone')
 
     expectBinaryRoute('binary_post_auth_passkey_register_begin', FrameType.PasskeyRegisterBegin, expect.objectContaining({ method: 'POST' }))
-    expectBinaryRoute('binary_post_auth_passkey_register_complete', FrameType.EmptySuccess, expect.objectContaining({ method: 'POST', body: expect.any(ArrayBuffer) }))
+    expectBinaryRoute('binary_post_auth_passkey_register_complete', FrameType.PasskeySignalState, expect.objectContaining({ method: 'POST', body: expect.any(ArrayBuffer) }))
     expectBinaryRoute('binary_post_auth_passkey_login_begin', FrameType.PasskeyLoginBegin, expect.objectContaining({ method: 'POST' }))
     expectBinaryRoute('binary_post_auth_passkey_login_complete', FrameType.AuthLoginFlow, expect.objectContaining({ method: 'POST', body: expect.any(ArrayBuffer) }))
     expectBinaryRoute('binary_get_auth_passkey_credentials', FrameType.PasskeyCredentialList)
+    expectBinaryRoute('binary_get_auth_passkey_signal_state', FrameType.PasskeySignalState)
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_delete_auth_passkey_credentials_id_int', params: { id: 7 } },
-      frameType: FrameType.EmptySuccess,
+      frameType: FrameType.PasskeySignalState,
       requestOptions: expect.objectContaining({ method: 'DELETE' })
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({

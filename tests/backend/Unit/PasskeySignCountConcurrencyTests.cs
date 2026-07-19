@@ -86,6 +86,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         {
             PublicHandle = "writer",
             PasskeyEnabled = true,
+            PasskeyUserHandle = Base64Url.EncodeToString(Enumerable.Repeat((byte)2, 32).ToArray()),
             RecoveryEnabled = false,
             Status = 0
         }).ExecuteReturnIdentityAsync();
@@ -103,12 +104,14 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
             .WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.Single(results, static result => result.Success);
+        Assert.Single(results, static result => result.SignalState is not null);
         Assert.Single(results, static result => !result.Success && result.Message == PasskeyService.CannotRemoveLastCredentialWithoutRecovery);
         int remainingCredentials = await setupDb.Queryable<PasskeyCredential>()
             .CountAsync(item => item.AccountId == accountId);
         User stored = await setupDb.Queryable<User>().SingleAsync(item => item.Id == accountId);
         Assert.Equal(1, remainingCredentials);
         Assert.True(stored.PasskeyEnabled);
+        Assert.Equal(1, stored.PasskeySignalVersion);
         Assert.False(stored.RecoveryEnabled);
     }
 

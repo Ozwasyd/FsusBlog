@@ -11,6 +11,7 @@ import type {
   PasskeyCredentialSummary,
   PasskeyLoginBeginResponse,
   PasskeyRegisterBeginResponse,
+  PasskeySignalState,
   RecoveryKeyCreateResponse,
   RecoveryKeyVerifyRequest,
   RecoveryKeyVerifyResponse,
@@ -29,6 +30,7 @@ export type {
   PasskeyCredentialSummary,
   PasskeyLoginBeginResponse,
   PasskeyRegisterBeginResponse,
+  PasskeySignalState,
   RecoveryKeyCreateResponse,
   RecoveryKeyVerifyRequest,
   RecoveryKeyVerifyResponse,
@@ -371,9 +373,9 @@ export const passkeyRegisterBegin = (config?: ApiRequestConfig) =>
   })
 
 export const passkeyRegisterComplete = (data: PasskeyRegisterCompleteRequest, config?: ApiRequestConfig) =>
-  requestBinaryOnly<null>({
+  requestBinaryOnly<PasskeySignalState>({
     binaryRoute: { operationId: 'binary_post_auth_passkey_register_complete' },
-    frameType: FrameType.EmptySuccess,
+    frameType: FrameType.PasskeySignalState,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
       method: 'POST',
@@ -493,10 +495,17 @@ export const listPasskeys = (config?: ApiRequestConfig) =>
     signal: config?.signal as AbortSignal | undefined
   })
 
+export const getPasskeySignalState = (config?: ApiRequestConfig) =>
+  requestBinaryOnly<PasskeySignalState>({
+    binaryRoute: { operationId: 'binary_get_auth_passkey_signal_state' },
+    frameType: FrameType.PasskeySignalState,
+    signal: config?.signal as AbortSignal | undefined
+  })
+
 export const deletePasskey = (id: number, config?: ApiRequestConfig) =>
-  requestBinaryOnly<null>({
+  requestBinaryOnly<PasskeySignalState>({
     binaryRoute: { operationId: 'binary_delete_auth_passkey_credentials_id_int', params: { id } },
-    frameType: FrameType.EmptySuccess,
+    frameType: FrameType.PasskeySignalState,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
       method: 'DELETE',

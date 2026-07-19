@@ -1387,10 +1387,15 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
             }
 
-            var (success, message) = await passkeyService.CompleteRegistrationAsync(user.Value.Id, request, cancellationToken);
-            return success
-                ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
+            var (success, message, signalState) = await passkeyService.CompleteRegistrationAsync(user.Value.Id, request, cancellationToken);
+            if (!success)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
+            }
+
+            return signalState is not null
+                ? BinaryResults.Frame(aeds, AedsFrameType.PasskeySignalState, writer => PodBinaryCodec.WritePasskeySignalState(signalState.Value, writer))
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Conflict, "PASSKEY_SIGNAL_STATE_UNAVAILABLE"), aeds, StatusCodes.Status409Conflict);
         })
         .RequireAnonymousAccountPrincipal();
 
@@ -1440,7 +1445,10 @@ public static partial class BinaryEndpoints
             if (!success || user == null)
             {
                 await RecordPasskeyAssertionFailureAsync(httpContext, riskSignals, cancellationToken);
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, message), aeds);
+                string? details = string.Equals(message, PasskeyService.CredentialNotFoundMessage, StringComparison.Ordinal)
+                    ? PasskeyService.CredentialNotFoundSignalCode
+                    : null;
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, message, details), aeds);
             }
 
             string clientIp = httpContext.GetClientIp();
@@ -1487,6 +1495,21 @@ public static partial class BinaryEndpoints
         })
         .RequireAnonymousAccountPrincipal();
 
+        group.MapGet("/auth/passkey/signal-state", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IPasskeyService passkeyService,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            int userId = EndpointUserContext.From(httpContext).AccountId;
+            PasskeySignalStateDto? signalState = await passkeyService.GetSignalStateAsync(userId, cancellationToken);
+            return signalState is not null
+                ? BinaryResults.Frame(aeds, AedsFrameType.PasskeySignalState, writer => PodBinaryCodec.WritePasskeySignalState(signalState.Value, writer))
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "PASSKEY_SIGNAL_STATE_UNAVAILABLE"), aeds);
+        })
+        .RequireAnonymousAccountPrincipal()
+        .RequireNoStoreResponse();
+
         group.MapDelete("/auth/passkey/credentials/{id:int}", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IPasskeyService passkeyService,
@@ -1507,8 +1530,8 @@ public static partial class BinaryEndpoints
 
             int userId = EndpointUserContext.From(httpContext).AccountId;
             PasskeyCredentialMutationResult removeResult = await passkeyService.RemoveCredentialAsync(userId, id, cancellationToken);
-            return removeResult.Success
-                ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
+            return removeResult.Success && removeResult.SignalState is not null
+                ? BinaryResults.Frame(aeds, AedsFrameType.PasskeySignalState, writer => PodBinaryCodec.WritePasskeySignalState(removeResult.SignalState.Value, writer))
                 : BinaryResults.FromError(
                     ErrorDetail.Create(removeResult.NotFound ? ErrorCode.NotFound : ErrorCode.Validation, removeResult.Message),
                     aeds,

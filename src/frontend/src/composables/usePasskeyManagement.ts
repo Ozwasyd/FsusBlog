@@ -4,14 +4,16 @@ import {
   passkeyRegisterBegin,
   passkeyRegisterComplete,
   listPasskeys,
+  getPasskeySignalState,
   deletePasskey,
   renamePasskey,
   type PasskeyCredentialSummary
 } from '@/api/auth'
+import { webauthnSignalService } from '@/services/webauthnSignal'
 
 const PASSKEY_REGISTRATION_ERROR_TEXT = '通行密钥注册失败，请重试'
 
-export function usePasskeyManagement() {
+export function usePasskeyManagement(register: typeof startRegistration = startRegistration) {
   const credentials = ref<PasskeyCredentialSummary[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -54,7 +56,7 @@ export function usePasskeyManagement() {
       // 2. 触发浏览器 WebAuthn 注册仪式
       let attestation: Awaited<ReturnType<typeof startRegistration>>
       try {
-        attestation = await startRegistration({ ['options' + String.fromCharCode(74, 83, 79, 78)]: options } as any)
+        attestation = await register({ ['options' + String.fromCharCode(74, 83, 79, 78)]: options } as any)
       } catch (e: any) {
         if (e?.name === 'NotAllowedError') {
           return false
@@ -64,12 +66,16 @@ export function usePasskeyManagement() {
       }
 
       // 3. 提交 attestation 到服务器
-      await passkeyRegisterComplete({
-        sessionKey,
-        attestation,
-        friendlyName: friendlyName ?? undefined,
-        mfaProofToken: mfaProofToken ?? undefined
-      })
+      await webauthnSignalService.commitAndReconcile(
+        () => passkeyRegisterComplete({
+          sessionKey,
+          attestation,
+          friendlyName: friendlyName ?? undefined,
+          mfaProofToken: mfaProofToken ?? undefined
+        }),
+        getPasskeySignalState,
+        { currentUserDetails: true, revisionOf: (state) => state.revision }
+      )
 
       // 4. 刷新列表
       await fetchPasskeys()
@@ -86,7 +92,11 @@ export function usePasskeyManagement() {
     loading.value = true
     error.value = null
     try {
-      await deletePasskey(id, { mfaProofToken })
+      await webauthnSignalService.commitAndReconcile(
+        () => deletePasskey(id, { mfaProofToken }),
+        getPasskeySignalState,
+        { revisionOf: (state) => state.revision }
+      )
       credentials.value = credentials.value.filter(c => c.id !== id)
       return true
     } catch (e: any) {

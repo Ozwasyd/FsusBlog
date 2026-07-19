@@ -40,6 +40,17 @@ public readonly record struct PasskeyCredentialSummaryDto(
     bool BackupState);
 
 /// <summary>
+/// Defines the authenticated, authoritative state used by WebAuthn Level 3 Signal API calls.
+/// </summary>
+public readonly record struct PasskeySignalStateDto(
+    long Revision,
+    string RpId,
+    string UserId,
+    string Name,
+    string DisplayName,
+    IReadOnlyList<string> AllAcceptedCredentialIds);
+
+/// <summary>
 /// Defines the API output contract represented by <c>PageResponse</c>.
 /// </summary>
 public sealed record class PageResponse<T>

@@ -869,6 +869,10 @@
             "value": 211
         },
         {
+            "name": "PasskeySignalState",
+            "value": 212
+        },
+        {
             "name": "EmptySuccess",
             "value": 240
         },

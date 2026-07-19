@@ -61,6 +61,7 @@ const FRAME_TAG_LIST = frameType('TagList')
 const FRAME_PASSKEY_REGISTER_BEGIN = frameType('PasskeyRegisterBegin')
 const FRAME_PASSKEY_LOGIN_BEGIN = frameType('PasskeyLoginBegin')
 const FRAME_PASSKEY_CREDENTIAL_LIST = frameType('PasskeyCredentialList')
+const FRAME_PASSKEY_SIGNAL_STATE = frameType('PasskeySignalState')
 const FRAME_PUBLIC_AOT_BOOTSTRAP = frameType('PublicAotBootstrap')
 const FRAME_EMPTY_SUCCESS = frameType('EmptySuccess')
 const FRAME_MUTATION_ID = frameType('MutationId')
@@ -124,6 +125,8 @@ const PASSKEY_CREDENTIAL_DESCRIPTOR_POD_SIZE = 16
 const PASSKEY_REGISTER_BEGIN_POD_SIZE = 148
 const PASSKEY_LOGIN_BEGIN_POD_SIZE = 100
 const PASSKEY_CREDENTIAL_SUMMARY_POD_SIZE = 96
+const PASSKEY_SIGNAL_STATE_POD_SIZE = 48
+const PASSKEY_SIGNAL_CREDENTIAL_POD_SIZE = 8
 const API_ERROR_POD_SIZE = 584
 const PUBLIC_AOT_NULL_KIND = 0
 const PUBLIC_AOT_STRING_KIND = 1
@@ -934,6 +937,8 @@ export function decodeKnownFrame(buffer) {
       return decodePasskeyLoginBegin(frame.payload)
     case FRAME_PASSKEY_CREDENTIAL_LIST:
       return decodePasskeyCredentialList(frame.payload)
+    case FRAME_PASSKEY_SIGNAL_STATE:
+      return decodePasskeySignalState(frame.payload)
     case FRAME_EMPTY_SUCCESS:
       return null
     case FRAME_MUTATION_ID:
@@ -1619,6 +1624,32 @@ function decodePasskeyCredentialList(payload) {
       backupState: readByte(pod, 7) === 1
     }
   })
+}
+
+function decodePasskeySignalState(payload) {
+  const reader = new BinaryReader(payload)
+  const pod = reader.readSpan(PASSKEY_SIGNAL_STATE_POD_SIZE)
+  const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
+  const count = readInt32(view, 8)
+  if (count < 0 || count > 64) {
+    throw new Error('passkey_signal_credential_count_invalid')
+  }
+  const credentials = []
+  for (let index = 0; index < count; index += 1) {
+    credentials.push(reader.readSpan(PASSKEY_SIGNAL_CREDENTIAL_POD_SIZE))
+  }
+  const blob = reader.readBlob()
+  if (reader.remaining() !== 0) {
+    throw new Error('passkey_signal_state_trailing_payload_invalid')
+  }
+  return {
+    revision: readInt64Number(view, 0),
+    rpId: readSliceText(blob, readSliceRef(pod, 16)),
+    userId: readSliceText(blob, readSliceRef(pod, 24)),
+    name: readSliceText(blob, readSliceRef(pod, 32)),
+    displayName: readSliceText(blob, readSliceRef(pod, 40)),
+    allAcceptedCredentialIds: credentials.map((credential) => readSliceText(blob, readSliceRef(credential, 0)))
+  }
 }
 
 function readDescriptors(reader, count) {

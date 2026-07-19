@@ -246,6 +246,7 @@ public enum AedsFrameType : ushort
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
     ConversationStatusMutationResult = 211,
+    PasskeySignalState = 212,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251

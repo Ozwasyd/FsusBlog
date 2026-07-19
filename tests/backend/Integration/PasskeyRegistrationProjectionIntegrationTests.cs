@@ -1,3 +1,5 @@
+using System.Buffers.Text;
+
 using Fido2NetLib;
 using Fido2NetLib.Objects;
 
@@ -35,10 +37,13 @@ public sealed class PasskeyRegistrationProjectionIntegrationTests(PostgresSchema
         var result = await service.CompleteRegistrationAsync(accountId, request);
 
         Assert.True(result.Success);
+        Assert.NotNull(result.SignalState);
+        Assert.Single(result.SignalState.Value.AllAcceptedCredentialIds);
         User account = await db.Queryable<User>().SingleAsync(item => item.Id == accountId);
         PasskeyCredential credential = await db.Queryable<PasskeyCredential>()
             .SingleAsync(item => item.AccountId == accountId);
         Assert.True(account.PasskeyEnabled);
+        Assert.Equal(1, account.PasskeySignalVersion);
         Assert.True(credential.BackupEligible);
         Assert.True(credential.BackupState);
     }
@@ -152,6 +157,7 @@ public sealed class PasskeyRegistrationProjectionIntegrationTests(PostgresSchema
             PublicHandle = $"registration-{Guid.NewGuid():N}"[..20],
             IdentityKind = "anonymous_account",
             PasskeyEnabled = false,
+            PasskeyUserHandle = Base64Url.EncodeToString(Enumerable.Repeat((byte)1, 32).ToArray()),
             Status = 0
         }).ExecuteReturnIdentityAsync();
 }

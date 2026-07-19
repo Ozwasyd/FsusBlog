@@ -426,3 +426,27 @@ public readonly struct PasskeyCredentialSummaryPod
     public readonly Utf8Fixed64 AaGuid;
     public readonly Utf8SliceRef DeviceFriendlyName;
 }
+
+/// <summary>
+/// Defines the fixed-layout envelope for an authenticated WebAuthn Signal API state snapshot.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct PasskeySignalStatePod
+{
+    public readonly long Revision;
+    public readonly int CredentialCount;
+    public readonly int Reserved;
+    public readonly Utf8SliceRef RpId;
+    public readonly Utf8SliceRef UserId;
+    public readonly Utf8SliceRef Name;
+    public readonly Utf8SliceRef DisplayName;
+}
+
+/// <summary>
+/// Defines one credential identifier reference in a WebAuthn Signal API state snapshot.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct PasskeySignalCredentialPod
+{
+    public readonly Utf8SliceRef CredentialId;
+}

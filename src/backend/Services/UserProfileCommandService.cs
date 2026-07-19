@@ -45,14 +45,16 @@ public sealed class UserProfileCommandService(
                 ? await db.Ado.ExecuteCommandAsync(
                     """
                     UPDATE sys_user
-                    SET public_handle = NULL
+                    SET public_handle = NULL,
+                        passkey_signal_version = passkey_signal_version + 1
                     WHERE id = @userId;
                     """,
                     new SugarParameter[] { new("@userId", userId) })
                 : await db.Ado.ExecuteCommandAsync(
                     """
                     UPDATE sys_user
-                    SET public_handle = @publicHandle
+                    SET public_handle = @publicHandle,
+                        passkey_signal_version = passkey_signal_version + 1
                     WHERE id = @userId
                       AND NOT EXISTS (
                           SELECT 1

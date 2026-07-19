@@ -402,6 +402,82 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
+    /// <summary>
+    /// Writes the authenticated WebAuthn Signal API state snapshot.
+    /// </summary>
+    public static void WritePasskeySignalState(in PasskeySignalStateDto value, IBufferWriter<byte> destination)
+    {
+        var payload = new ArrayBufferWriter<byte>(512);
+        var writer = new BinaryPodWriter(destination);
+        var mutable = new MutablePasskeySignalStatePod
+        {
+            Revision = value.Revision,
+            CredentialCount = value.AllAcceptedCredentialIds.Count,
+            RpId = PodUtf8Codec.AppendSlice(value.RpId, payload),
+            UserId = PodUtf8Codec.AppendSlice(value.UserId, payload),
+            Name = PodUtf8Codec.AppendSlice(value.Name, payload),
+            DisplayName = PodUtf8Codec.AppendSlice(value.DisplayName, payload)
+        };
+        writer.WritePod(CastUserPod<MutablePasskeySignalStatePod, PasskeySignalStatePod>(mutable));
+        foreach (string credentialId in value.AllAcceptedCredentialIds)
+        {
+            var credential = new MutablePasskeySignalCredentialPod
+            {
+                CredentialId = PodUtf8Codec.AppendSlice(credentialId, payload)
+            };
+            writer.WritePod(CastUserPod<MutablePasskeySignalCredentialPod, PasskeySignalCredentialPod>(credential));
+        }
+        writer.WriteBytes(payload.WrittenSpan);
+    }
+
+    /// <summary>
+    /// Attempts to decode an authenticated WebAuthn Signal API state snapshot.
+    /// </summary>
+    public static bool TryDecodePasskeySignalState(ReadOnlyMemory<byte> source, out PasskeySignalStateDto value)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out PasskeySignalStatePod pod) ||
+            pod.Revision < 0 ||
+            pod.CredentialCount < 0 ||
+            pod.CredentialCount > 64)
+        {
+            value = default;
+            return false;
+        }
+
+        var credentials = new List<PasskeySignalCredentialPod>(pod.CredentialCount);
+        for (int i = 0; i < pod.CredentialCount; i++)
+        {
+            if (!reader.TryReadPod(out PasskeySignalCredentialPod credential))
+            {
+                value = default;
+                return false;
+            }
+            credentials.Add(credential);
+        }
+
+        if (!reader.TryReadBytes(out ReadOnlySpan<byte> payload))
+        {
+            value = default;
+            return false;
+        }
+
+        var credentialIds = new List<string>(credentials.Count);
+        foreach (PasskeySignalCredentialPod credential in credentials)
+        {
+            credentialIds.Add(PodProjector.ReadSlice(credential.CredentialId, payload));
+        }
+
+        value = new PasskeySignalStateDto(
+            pod.Revision,
+            PodProjector.ReadSlice(pod.RpId, payload),
+            PodProjector.ReadSlice(pod.UserId, payload),
+            PodProjector.ReadSlice(pod.Name, payload),
+            PodProjector.ReadSlice(pod.DisplayName, payload),
+            credentialIds);
+        return reader.IsConsumed;
+    }
+
     private readonly record struct DescriptorEnvelope(PasskeyCredentialDescriptorPod Pod, IReadOnlyList<int> Transports);
 
     private static bool ReadDescriptors(ref BinaryPodReader reader, int count, out IReadOnlyList<DescriptorEnvelope> descriptors)
@@ -587,5 +663,23 @@ public static partial class PodBinaryCodec
         public long LastUsedAtUnixMs;
         public FsusBlog.Shared.Contracts.Primitives.Utf8Fixed64 AaGuid;
         public Utf8SliceRef DeviceFriendlyName;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutablePasskeySignalStatePod
+    {
+        public long Revision;
+        public int CredentialCount;
+        public int Reserved;
+        public Utf8SliceRef RpId;
+        public Utf8SliceRef UserId;
+        public Utf8SliceRef Name;
+        public Utf8SliceRef DisplayName;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutablePasskeySignalCredentialPod
+    {
+        public Utf8SliceRef CredentialId;
     }
 }

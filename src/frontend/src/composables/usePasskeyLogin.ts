@@ -1,13 +1,16 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { startAuthentication } from '@simplewebauthn/browser'
-import { passkeyLoginBegin, passkeyLoginComplete } from '@/api/auth'
+import { getPasskeySignalState, passkeyLoginBegin, passkeyLoginComplete } from '@/api/auth'
 import { usePostAuthCommit } from '@/composables/usePostAuthCommit'
 import { authBroadcastRuntime } from '@/services/authBroadcastRuntime'
 import { toAppError, AppErrorCode } from '@/utils/appError'
 import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand'
 import { fixedRiskChallengeContext, riskChallengeRoutes } from '@/security/risk-challenge-routes'
 import { resolveSafeRedirectTarget } from '@/security/privateNavigationPolicy'
+import { webauthnSignalService } from '@/services/webauthnSignal'
+
+const UNKNOWN_CREDENTIAL_SIGNAL_CODE = 'passkey_credential_unknown'
 
 const PASSKEY_LOGIN_ERROR_TEXT = '通行密钥登录失败，请重试'
 
@@ -37,6 +40,8 @@ export function usePasskeyLogin(authenticate: typeof startAuthentication = start
   const loginWithPasskey = async (rememberMe = false): Promise<boolean> => {
     loading.value = true
     error.value = null
+    let assertedCredentialId = ''
+    let assertedRpId = ''
     try {
       // 1. 从服务器获取认证选项
       const beginResp = await riskChallenge.run(
@@ -62,6 +67,8 @@ export function usePasskeyLogin(authenticate: typeof startAuthentication = start
         }
 
         assertion = await authenticate({ ['options' + String.fromCharCode(74, 83, 79, 78)]: options } as any)
+        assertedCredentialId = assertion.id
+        assertedRpId = typeof options.rpId === 'string' ? options.rpId : globalThis.location?.hostname ?? ''
       } catch (e: any) {
         // NotAllowedError = 用户取消或无可用凭证，静默处理
         if (e?.name === 'NotAllowedError') {
@@ -89,9 +96,14 @@ export function usePasskeyLogin(authenticate: typeof startAuthentication = start
       }
 
       authBroadcastRuntime.broadcastLogin()
+      void webauthnSignalService.reconcileAfterLogin(getPasskeySignalState)
       await router.push(resolveSafeRedirectTarget(router, route.query.redirect))
       return true
     } catch (e: unknown) {
+      const normalized = toAppError(e, '登录失败，请重试')
+      if (normalized.details === UNKNOWN_CREDENTIAL_SIGNAL_CODE && assertedRpId && assertedCredentialId) {
+        void webauthnSignalService.signalUnknownCredential(assertedRpId, assertedCredentialId)
+      }
       error.value = getPasskeyErrorText(e)
       return false
     } finally {

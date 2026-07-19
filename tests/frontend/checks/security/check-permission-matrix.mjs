@@ -384,6 +384,7 @@ async function assertStaticAuthorizationBoundaries() {
   assertRouteChainIncludes(authEndpoints, 'MapGet("/auth/mfa/profile"', 'RequireAnonymousAccountPrincipal()', 'binary auth MFA profile route');
   assertRouteChainIncludes(authEndpoints, 'MapPost("/auth/passkey/register/begin"', 'RequireAnonymousAccountPrincipal()', 'binary passkey register route');
   assertRouteChainIncludes(authEndpoints, 'MapGet("/auth/passkey/credentials"', 'RequireAnonymousAccountPrincipal()', 'binary passkey credential route');
+  assertRouteChainIncludes(authEndpoints, 'MapGet("/auth/passkey/signal-state"', 'RequireAnonymousAccountPrincipal()', 'binary passkey signal state route');
   assert(authEndpoints.match(/RequireAnonymousAccountPrincipal\(\)/g)?.length >= 15, 'binary auth protected routes require anonymous account principal');
   assert(authEndpoints.match(/AddEndpointFilterWithMetadata<RequiresPowFilter>\(\)/g)?.length >= 3, 'binary auth sensitive mutation routes retain PoW filters with endpoint metadata');
 }

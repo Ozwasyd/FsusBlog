@@ -318,6 +318,8 @@ Passkey/WebAuthn 载荷不再以文本字符串传输。服务端返回 AEDS POD
 
 Passkey 删除与凭据友好名称更新是账号安全凭据变更，必须通过统一 user security step-up。生产 binary endpoint 只从 `X-Fsus-Mfa-Proof` 读取一次性 proof，proof 必须绑定对应 action：删除为 `passkey.delete`，友好名称更新为 `passkey.credential-name.update`，且服务端一次性消费。普通账号可先调用 `/api/binary/auth/step-up/passkey/begin` 提交对应 action，再调用 `/api/binary/auth/step-up/passkey/complete` 提交当前账号 Passkey assertion；complete 成功返回同 action 的 `MfaChallengeResult.proofToken`。`Auth:PasskeyStepUp:Enabled=false` 时这两个 step-up 端点必须 fail closed 为 503 + `PASSKEY_STEP_UP_DISABLED`，不允许创建 challenge 或签发 proof。MFA enabled 账号也可继续使用 TOTP challenge 获取对应 action proof；anonymous identity mode 下禁止 legacy password fallback，`DELETE /api/binary/auth/passkey/credentials/{id}` 与 `PUT /name` 都不得提交或解析 `MfaPasswordProofRequest` body。非匿名 legacy password fallback 如仍需保留，必须放在显式隔离的兼容路径，不能进入这些生产匿名敏感操作 endpoint。
 
+WebAuthn Level 3 Signal API 是浏览器侧 best-effort 副作用，不属于账号或凭证事务。注册完成与删除成功在数据库提交后返回 `PasskeySignalState`；`GET /api/binary/auth/passkey/signal-state` 返回同一账号的最新 `revision`、RP ID、稳定 Base64Url user handle、公开显示元数据与完整 `allAcceptedCredentialIds`，并强制 `no-store`。`sys_user.passkey_signal_version` 必须在注册、Recovery 注册、删除及公开称呼变更的同一写事务中单调递增，客户端只允许向浏览器发送未落后于已观察 revision 的完整列表。Signal 不支持、超时、取消或 provider 失败都不得改变服务端提交结果。只有 login complete 明确判定 credential 不存在时，AEDS `ApiError.details` 才返回固定值 `passkey_credential_unknown`；签名、counter、风险与通用认证失败不得触发 `signalUnknownCredential`。Signal 遥测只允许记录 API 名、capability 与固定 outcome，禁止记录 RP user handle、credential ID 或公开称呼。
+
 | FrameType | POD | 端点 / 用途 |
 | ----------- | ----- | ------------- |
 | `PasskeyRegisterBegin` (`63`) | `PasskeyRegisterBeginPod` | `POST /api/binary/auth/passkey/register/begin`；admin bootstrap begin 复用该响应 frame |
@@ -326,6 +328,7 @@ Passkey 删除与凭据友好名称更新是账号安全凭据变更，必须通
 | `PasskeyRegisterCompleteRequest` (`66`) | `PasskeyRegisterCompleteRequestPod` | 注册完成请求体；admin bootstrap complete 复用该请求 frame |
 | `PasskeyLoginCompleteRequest` (`67`) | `PasskeyLoginCompleteRequestPod` | 登录完成请求体；admin login complete 复用该请求 frame |
 | `PasskeyCredentialFriendlyNameUpdateRequest` (`68`) | `PasskeyCredentialFriendlyNameUpdateRequestPod` | Passkey 凭据友好名称更新请求体 |
+| `PasskeySignalState` (`212`) | `PasskeySignalStatePod` + `PasskeySignalCredentialPod[]` | 注册完成、凭证删除与 `GET /api/binary/auth/passkey/signal-state` 的权威 Signal 状态 |
 
 ### Independent admin principal AEDS endpoints
 

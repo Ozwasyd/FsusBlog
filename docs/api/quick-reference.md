@@ -79,6 +79,7 @@
 | POST | `/api/binary/auth/passkey/login/begin` | 🔓 🚦 | 开始 Passkey 无密码登录；使用 challenge-aware command 的 `auth.passkey.begin` proof |
 | POST | `/api/binary/auth/passkey/login/complete` | 🔓 🚦 | 完成 Passkey 登录断言；固定 challenge token mutation identity 后使用 `auth.passkey.complete` proof |
 | GET | `/api/binary/auth/passkey/credentials` | 🔑 | 获取已注册 Passkey 列表（最多 5 枚） |
+| GET | `/api/binary/auth/passkey/signal-state` | 🔑 | 获取 WebAuthn Signal API 所需的服务端权威凭证集与账号元数据（`no-store`） |
 | DELETE | `/api/binary/auth/passkey/credentials/{id}` | 🔑 | 删除指定 Passkey |
 | PUT | `/api/binary/auth/passkey/credentials/{id}/name` | 🔑 | 重命名指定 Passkey |
 

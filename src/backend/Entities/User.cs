@@ -49,6 +49,15 @@ public class User
         get; set;
     }
 
+    /// <summary>
+    /// Monotonic account-scoped revision for authoritative WebAuthn Signal API snapshots.
+    /// </summary>
+    [SugarColumn(ColumnName = "passkey_signal_version", DefaultValue = "0")]
+    public long PasskeySignalVersion
+    {
+        get; set;
+    }
+
     [SugarColumn(ColumnName = "recovery_enabled", DefaultValue = "false")]
     public bool RecoveryEnabled
     {

@@ -27,7 +27,7 @@ namespace FsusBlog.Server.Services.Security;
 public interface IPasskeyService
 {
     Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int accountId, CancellationToken cancellationToken = default);
-    Task<(bool Success, string Message)> CompleteRegistrationAsync(int accountId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message, PasskeySignalStateDto? SignalState)> CompleteRegistrationAsync(int accountId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<RecoveryPasskeyRegistrationResult> CompleteRecoveryRegistrationAsync(
         RecoveryKeySession session,
         string recoverySessionHash,
@@ -46,6 +46,7 @@ public interface IPasskeyService
     Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginActionStepUpAssertionAsync(int accountId, string action, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, string Action)> CompleteActionStepUpAssertionAsync(int accountId, PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int accountId, CancellationToken cancellationToken = default);
+    Task<PasskeySignalStateDto?> GetSignalStateAsync(int accountId, CancellationToken cancellationToken = default);
     Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int accountId, int credId, CancellationToken cancellationToken = default);
     Task<bool> RenameCredentialAsync(int accountId, int credId, string name, CancellationToken cancellationToken = default);
 }
@@ -109,11 +110,17 @@ internal sealed record PasskeyRegistrationValidationResult(bool Success, string 
 
     public static PasskeyRegistrationValidationResult Accepted(PasskeyCredential credential) => new(true, "通行密钥验证成功", credential);
 }
-public readonly record struct PasskeyCredentialMutationResult(bool Success, string Message, bool NotFound)
+public readonly record struct PasskeyCredentialMutationResult(
+    bool Success,
+    string Message,
+    bool NotFound,
+    PasskeySignalStateDto? SignalState)
 {
-    public static PasskeyCredentialMutationResult Succeeded(string message) => new(true, message, false);
-    public static PasskeyCredentialMutationResult Missing(string message) => new(false, message, true);
-    public static PasskeyCredentialMutationResult Rejected(string message) => new(false, message, false);
+    public static PasskeyCredentialMutationResult Succeeded(string message, PasskeySignalStateDto signalState)
+        => new(true, message, false, signalState);
+
+    public static PasskeyCredentialMutationResult Missing(string message) => new(false, message, true, null);
+    public static PasskeyCredentialMutationResult Rejected(string message) => new(false, message, false, null);
 }
 
 public sealed class PasskeyService(
@@ -136,6 +143,8 @@ public sealed class PasskeyService(
     private const string AnonymousPasskeyAccountName = "fsus-anonymous-account";
     private const string AnonymousPasskeyDisplayName = "Anonymous account";
     public const string CannotRemoveLastCredentialWithoutRecovery = "CannotRemoveLastCredentialWithoutRecovery";
+    public const string CredentialNotFoundMessage = "未找到对应的通行密钥";
+    public const string CredentialNotFoundSignalCode = "passkey_credential_unknown";
     private const string CounterRiskReason = "passkey_counter_non_monotonic";
     private const string CounterRiskResponseConfigurationKey = "PasskeyCounterRisk:ResponseAction";
     private const string RejectCredentialResponseAction = "reject_credential";
@@ -212,7 +221,7 @@ public sealed class PasskeyService(
         return (true, "已生成注册选项", new PasskeyRegBeginData(coreOptions));
     }
 
-    public async Task<(bool Success, string Message)> CompleteRegistrationAsync(
+    public async Task<(bool Success, string Message, PasskeySignalStateDto? SignalState)> CompleteRegistrationAsync(
         int accountId,
         PasskeyRegisterCompleteCoreModel request,
         CancellationToken cancellationToken = default)
@@ -220,19 +229,26 @@ public sealed class PasskeyService(
         PasskeyRegistrationValidationResult validation = await ValidateRegistrationAsync(accountId, request, cancellationToken);
         if (!validation.Success || validation.Credential is null)
         {
-            return (false, validation.Message);
+            return (false, validation.Message, null);
         }
 
+        PasskeySignalStateDto? signalState = null;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             await db.Insertable(validation.Credential).ExecuteCommandAsync();
             int projected = await db.Updateable<User>()
                 .Where(u => u.Id == accountId && u.Status != 2 && u.DeletedAt == null)
                 .SetColumns(u => u.PasskeyEnabled == true)
+                .SetColumns(u => u.PasskeySignalVersion == u.PasskeySignalVersion + 1)
                 .ExecuteCommandAsync();
             if (projected != 1)
             {
                 throw new InvalidOperationException("passkey_registration_projection_failed");
+            }
+            signalState = await GetSignalStateAsync(accountId, cancellationToken);
+            if (signalState is null)
+            {
+                throw new InvalidOperationException("passkey_signal_state_unavailable_during_registration");
             }
         });
         if (!transaction.IsSuccess)
@@ -243,7 +259,7 @@ public sealed class PasskeyService(
         await AccountSnapshotCacheInvalidator.BumpVersionAsync(counters, accountId, cancellationToken).ConfigureAwait(false);
         await invalidation.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey, cancellationToken);
 
-        return (true, "通行密钥注册成功");
+        return (true, "通行密钥注册成功", signalState);
     }
 
     public async Task<RecoveryPasskeyRegistrationResult> CompleteRecoveryRegistrationAsync(
@@ -358,6 +374,7 @@ public sealed class PasskeyService(
 
                 int userUpdated = await db.Updateable<User>()
                     .SetColumns(user => user.PasskeyEnabled == true)
+                    .SetColumns(user => user.PasskeySignalVersion == user.PasskeySignalVersion + 1)
                     .Where(user => user.Id == session.AccountId && user.Status != 2 && user.DeletedAt == null)
                     .ExecuteCommandAsync();
                 if (userUpdated != 1)
@@ -610,7 +627,7 @@ public sealed class PasskeyService(
         if (assertionState is null)
         {
             FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "credential_not_found");
-            return (false, "未找到对应的通行密钥", null);
+            return (false, CredentialNotFoundMessage, null);
         }
 
         PasskeyCredential storedCred = assertionState.Credential;
@@ -1337,6 +1354,42 @@ public sealed class PasskeyService(
             c.BackupState)).ToList();
     }
 
+    public async Task<PasskeySignalStateDto?> GetSignalStateAsync(
+        int accountId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        User? user = await db.Queryable<User>().InSingleAsync(accountId);
+        if (user is null || user.DeletedAt.HasValue || user.Status == 2 ||
+            !TryDecodeStoredPasskeyUserHandle(user.PasskeyUserHandle, out byte[] userHandle))
+        {
+            return null;
+        }
+
+        var credentialIds = await db.Queryable<PasskeyCredential>()
+            .Where(credential => credential.AccountId == accountId)
+            .OrderBy(credential => credential.Id)
+            .Select(credential => credential.CredentialId)
+            .ToListAsync();
+        PasskeyAccountMetadata metadata = BuildAnonymousSafeMetadata(
+            user.PublicHandle,
+            AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled(),
+            userHandle);
+        string rpId = configuration?["Fido2:ServerDomain"]?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(rpId))
+        {
+            rpId = "localhost";
+        }
+
+        return new PasskeySignalStateDto(
+            user.PasskeySignalVersion,
+            rpId,
+            Base64Url.EncodeToString(userHandle),
+            metadata.Name,
+            metadata.DisplayName,
+            credentialIds);
+    }
+
     public async Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int accountId, int credId, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -1366,14 +1419,21 @@ public sealed class PasskeyService(
             int projected = await db.Updateable<User>()
                 .Where(u => u.Id == accountId)
                 .SetColumns(u => u.PasskeyEnabled == (deleteState.Remaining > 0))
+                .SetColumns(u => u.PasskeySignalVersion == u.PasskeySignalVersion + 1)
                 .ExecuteCommandAsync(cancellationToken);
             if (projected != 1)
             {
                 throw new InvalidOperationException("passkey_remove_projection_failed");
             }
 
+            PasskeySignalStateDto? signalState = await GetSignalStateAsync(accountId, cancellationToken);
+            if (signalState is null)
+            {
+                throw new InvalidOperationException("passkey_signal_state_unavailable_during_remove");
+            }
+
             invalidateAccountSnapshot = true;
-            result = PasskeyCredentialMutationResult.Succeeded("通行密钥已删除");
+            result = PasskeyCredentialMutationResult.Succeeded("通行密钥已删除", signalState.Value);
         });
         if (!transaction.IsSuccess)
         {
@@ -1386,6 +1446,7 @@ public sealed class PasskeyService(
                 counters,
                 accountId,
                 cancellationToken).ConfigureAwait(false);
+
         }
 
         return result;

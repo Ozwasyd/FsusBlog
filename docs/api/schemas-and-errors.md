@@ -310,6 +310,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 66 | `PasskeyRegisterCompleteRequest` | `PasskeyRegisterCompleteRequestPod` | `POST /api/binary/auth/passkey/register/complete`；admin bootstrap complete 请求体 |
 | 67 | `PasskeyLoginCompleteRequest` | `PasskeyLoginCompleteRequestPod` | `POST /api/binary/auth/passkey/login/complete`；admin login complete 请求体 |
 | 68 | `PasskeyCredentialFriendlyNameUpdateRequest` | `PasskeyCredentialFriendlyNameUpdateRequestPod` | `PUT /api/binary/auth/passkey/credentials/{id}/name` 请求体 |
+| 212 | `PasskeySignalState` | `PasskeySignalStatePod` + `PasskeySignalCredentialPod[]` | Passkey 注册/删除响应与 `GET /api/binary/auth/passkey/signal-state`；含单调 revision 和服务端权威完整凭证集 |
 | 69 | `NotificationEvent` | binary notification value | `/api/notifications/stream` WebSocket 事件；`CommentAdded` payload 的 `comment` 字段使用 `author` / `replyToAuthor` 作者快照，不允许恢复 legacy identity fields |
 | 70 | `NotificationHeartbeat` | `int64 timestampUnixMs` | `/api/notifications/stream` WebSocket 心跳 |
 | 71 | `PublicAotBootstrap` | binary tagged value | Public AOT HTML bootstrap / hydration；`GET /api/public/navigation-snapshot.aeds?path=...` 的 `public-navigation-snapshot` envelope（含 schema/version/SHA-256 digest 的 `PublicSeoHeadModel`） |

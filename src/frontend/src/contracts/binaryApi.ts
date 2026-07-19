@@ -237,6 +237,15 @@ export interface PasskeyCredentialSummary {
   backupState: boolean
 }
 
+export interface PasskeySignalState {
+  revision: number
+  rpId: string
+  userId: string
+  name: string
+  displayName: string
+  allAcceptedCredentialIds: string[]
+}
+
 export interface PasskeyRegisterBeginResponse {
   sessionKey: string
   options: Record<string, unknown>

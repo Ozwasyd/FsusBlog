@@ -1297,6 +1297,29 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
+    public void PasskeySignalState_RoundTrip_PreservesAuthoritativeCredentialSet()
+    {
+        var value = new PasskeySignalStateDto(
+            42,
+            "example.test",
+            "stable-user-id",
+            "fsus-anonymous-account",
+            "Quiet Reader",
+            ["credential-a", "credential-b"]);
+
+        byte[] encoded = EncodeWithWriter(writer => PodBinaryCodec.WritePasskeySignalState(value, writer));
+        bool ok = PodBinaryCodec.TryDecodePasskeySignalState(encoded, out PasskeySignalStateDto decoded);
+
+        Assert.True(ok);
+        Assert.Equal(value.Revision, decoded.Revision);
+        Assert.Equal(value.RpId, decoded.RpId);
+        Assert.Equal(value.UserId, decoded.UserId);
+        Assert.Equal(value.Name, decoded.Name);
+        Assert.Equal(value.DisplayName, decoded.DisplayName);
+        Assert.Equal(["credential-a", "credential-b"], decoded.AllAcceptedCredentialIds);
+    }
+
+    [Fact]
     public void AdminUserPage_RoundTrip_PreservesAnonymousAccountGovernanceFields()
     {
         var created = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);

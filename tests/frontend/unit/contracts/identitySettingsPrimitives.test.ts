@@ -59,4 +59,11 @@ describe('identity settings primitive ownership', () => {
     expect(identity).toContain('await deleteAccount({')
     expect(identity).not.toContain(':deep(')
   })
+
+  it('signals public handle details only after the authoritative account mutation commits', () => {
+    const identity = read(identityPath)
+
+    expect(identity).toMatch(/commitAndReconcile\([\s\S]*?updatePublicHandle\([\s\S]*?getPasskeySignalState[\s\S]*?currentUserDetails: true/u)
+    expect(identity).toContain('passkeyCredentials.value.length > 0')
+  })
 })

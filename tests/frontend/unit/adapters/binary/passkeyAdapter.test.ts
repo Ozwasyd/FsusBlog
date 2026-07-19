@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload } from '@/adapters/binary/passkeyAdapter'
+import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload, mapPasskeySignalStateFromPayload } from '@/adapters/binary/passkeyAdapter'
 
 const encoder = new TextEncoder()
 
@@ -147,5 +147,33 @@ describe('binary passkey adapter', () => {
       backupEligible: true,
       backupState: false
     }])
+  })
+
+  it('maps authoritative passkey signal state with its monotonic revision', () => {
+    const { payload, refs, view } = withBlob(48 + 16, [
+      utf8('example.test'),
+      utf8('stable-user-id'),
+      utf8('anonymous-account'),
+      utf8('Quiet Reader'),
+      utf8('credential-a'),
+      utf8('credential-b')
+    ])
+    view.setBigInt64(0, 42n, true)
+    view.setInt32(8, 2, true)
+    writeSliceRef(view, 16, refs[0])
+    writeSliceRef(view, 24, refs[1])
+    writeSliceRef(view, 32, refs[2])
+    writeSliceRef(view, 40, refs[3])
+    writeSliceRef(view, 48, refs[4])
+    writeSliceRef(view, 56, refs[5])
+
+    expect(mapPasskeySignalStateFromPayload(payload)).toEqual({
+      revision: 42,
+      rpId: 'example.test',
+      userId: 'stable-user-id',
+      name: 'anonymous-account',
+      displayName: 'Quiet Reader',
+      allAcceptedCredentialIds: ['credential-a', 'credential-b']
+    })
   })
 })

@@ -458,6 +458,7 @@ import {
   deleteAccount,
   disableMfa,
   getMfaProfile,
+  getPasskeySignalState,
   listSessions,
   revokeOtherSessions as revokeOtherSessionsApi,
   revokeSession,
@@ -485,6 +486,7 @@ import { confirmDanger, toast } from '@/fsusui/feedback'
 import { toAppError } from '@/utils/appError'
 import { FSUSBLOG_IDENTITY_COPY } from '@/copy'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
+import { webauthnSignalService } from '@/services/webauthnSignal'
 
 const identityCopy = FSUSBLOG_IDENTITY_COPY
 const copy = identityCopy.overview
@@ -976,7 +978,15 @@ const savePublicHandle = async (): Promise<void> => {
   publicHandleError.value = ''
   const nextPublicHandle = publicHandleDraft.value.trim()
   try {
-    await updatePublicHandle({ publicHandle: nextPublicHandle || null })
+    if (passkeyCredentials.value.length > 0) {
+      await webauthnSignalService.commitAndReconcile(
+        () => updatePublicHandle({ publicHandle: nextPublicHandle || null }),
+        getPasskeySignalState,
+        { currentUserDetails: true }
+      )
+    } else {
+      await updatePublicHandle({ publicHandle: nextPublicHandle || null })
+    }
     await userStore.fetchUserInfo(true)
     publicHandleDraft.value = userStore.userInfo?.publicHandle ?? ''
     toast.success(nextPublicHandle ? publicProfileCopy.savedSuccess : publicProfileCopy.clearedSuccess)

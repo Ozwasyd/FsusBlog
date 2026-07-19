@@ -109,6 +109,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `66`: PasskeyRegisterCompleteRequest
 - `67`: PasskeyLoginCompleteRequest
 - `68`: PasskeyCredentialFriendlyNameUpdateRequest
+- `212`: PasskeySignalState
 - `69`: NotificationEvent
 - `70`: NotificationHeartbeat
 - `71`: PublicAotBootstrap
@@ -210,6 +211,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `PasskeyRegisterBegin` payload: `PasskeyRegisterBeginPod`, `PasskeyPublicKeyCredentialParamPod[count]`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP, accountName, accountDisplayName, accountHandle, challenge, and credential-id slices. The account fields are Passkey-safe labels/handle and are mapped to WebAuthn `user.name`, `user.displayName`, and `user.id` only at the browser adapter boundary.
 - `PasskeyLoginBegin` payload: `PasskeyLoginBeginPod`, `PasskeyCredentialDescriptorPod[count]` with transport lists, followed by shared blob payload for RP/challenge/credential-id slices.
 - `PasskeyCredentialList` payload: `int32 count`, `PasskeyCredentialSummaryPod[count]`, followed by blob payload for optional device names.
+- `PasskeySignalState` payload: 48-byte `PasskeySignalStatePod` (`Revision`, credential count and RP/user/name/display-name slice refs), `PasskeySignalCredentialPod[count]`, followed by the shared UTF-8 blob. The complete credential-id list is server authoritative and revision ordered; callers must not derive it from a locally filtered credential summary list.
 - `NotificationEvent` payload: `int64 EventId`, `int64 TimestampUnixMs`, `int32 NotificationStreamEventType`, `int32 Reserved`, followed by one binary value payload.
 - `NotificationHeartbeat` payload: `int64 TimestampUnixMs`.
 - `PublicAotBootstrap` payload: one binary value payload encoded with the same tagged value layout used by notifications; HTML embeds the full AEDS frame as base64url text in `application/octet-stream` script nodes.
