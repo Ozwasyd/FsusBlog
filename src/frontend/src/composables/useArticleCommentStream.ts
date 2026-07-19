@@ -32,6 +32,14 @@ type CommentPushLike = {
   isDeleted?: boolean
 }
 
+const deletedCommentAuthor: CommentAuthorView = {
+  mode: 'legacy_server_visible_pseudonymous',
+  displayName: '已删除评论',
+  displayLanguage: 'zh-CN',
+  badge: null,
+  scopeLabel: null
+}
+
 export function useArticleCommentStream(options: UseArticleCommentStreamOptions) {
   const pageSize = options.pageSize ?? 10
   const replyPageSize = options.replyPageSize ?? 20
@@ -140,6 +148,36 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
     } catch (error: unknown) {
       if (!isAbortError(error) && options.isMounted()) {
         console.error('[Comments] Load threads failed:', error)
+      }
+    } finally {
+      if (options.isMounted()) {
+        loadingComments.value = false
+      }
+    }
+  }
+
+  const reconcileCommentsAfterMutation = async (): Promise<void> => {
+    const articleId = options.getArticleId()
+    if (!articleId || !options.isMounted()) {
+      return
+    }
+
+    loadTask.cancel()
+    loadingComments.value = true
+    try {
+      const res = await loadTask.run(async (signal) =>
+        await getComments(articleId, null, pageSize, { signal })
+      )
+      if (!options.isMounted()) {
+        return
+      }
+
+      updateThreads(res.data)
+      nextCursor.value = res.nextCursor ? String(res.nextCursor) : null
+      hasMore.value = res.hasMore
+    } catch (error: unknown) {
+      if (!isAbortError(error) && options.isMounted()) {
+        console.error('[Comments] Reconcile after mutation failed:', error)
       }
     } finally {
       if (options.isMounted()) {
@@ -303,6 +341,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
 
       threads.value[index].isDeleted = true
       threads.value[index].content = '该回复已删除'
+      threads.value[index].author = { ...deletedCommentAuthor }
       notifyThreadsChanged()
       return true
     }
@@ -325,6 +364,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
 
     replies[replyIndex].isDeleted = true
     replies[replyIndex].content = '该回复已删除'
+    replies[replyIndex].author = { ...deletedCommentAuthor }
     notifyThreadsChanged()
     return true
   }
@@ -368,6 +408,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
     loadMoreTrigger,
     clearCommentState,
     loadMoreComments,
+    reconcileCommentsAfterMutation,
     loadMoreReplies,
     prependCommentIfAbsent,
     removeCommentById,

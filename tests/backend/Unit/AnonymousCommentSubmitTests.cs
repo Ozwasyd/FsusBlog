@@ -468,6 +468,100 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
+    public async Task PublicCommentRead_DeletedRootAndMiddleWithVisibleDescendant_ReturnsOpaqueTombstoneChain()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedPublicComment(db, 100, 42, "root secret", "root-author");
+        SeedPublicComment(db, 101, 42, "middle secret", "middle-author", parentId: 100, rootId: 100, replyToCommentId: 100, depth: 1);
+        SeedPublicComment(db, 102, 42, "visible child", "child-author", parentId: 101, rootId: 100, replyToCommentId: 101, depth: 2);
+        TombstoneComment(db, 100);
+        TombstoneComment(db, 101);
+        var queries = new CommentQueryService(db, new RegionLegalModerationService());
+
+        CursorResponse<CommentThreadItemDto> threads = await queries.GetThreadsAsync(
+            42,
+            new CursorPageRequest<long> { Limit = 10 },
+            previewLimit: 10);
+        CommentThreadItemDto root = Assert.Single(threads.Data);
+        Assert.True(root.IsDeleted);
+        Assert.Equal("该回复已删除", root.Content);
+        Assert.Equal("已删除评论", root.Author.DisplayName);
+        Assert.DoesNotContain("root secret", JsonSerializer.Serialize(root), StringComparison.Ordinal);
+        Assert.Equal(2, root.ReplyCount);
+        Assert.Equal(2, root.RepliesPreview.Count);
+        Assert.True(root.RepliesPreview[0].IsDeleted);
+        Assert.Equal("该回复已删除", root.RepliesPreview[0].Content);
+        Assert.Equal("visible child", root.RepliesPreview[1].Content);
+        Assert.Equal("已删除评论", root.RepliesPreview[1].ReplyToAuthor?.DisplayName);
+
+        CursorResponse<CommentReplyItemDto> replies = await queries.GetRepliesAsync(
+            42,
+            100,
+            new CursorPageRequest<long> { Limit = 10 });
+        Assert.Equal(["101", "102"], replies.Data.Select(static item => item.Id));
+        Assert.True(replies.Data[0].IsDeleted);
+        Assert.False(replies.Data[1].IsDeleted);
+        Assert.DoesNotContain("middle secret", JsonSerializer.Serialize(replies), StringComparison.Ordinal);
+        Assert.DoesNotContain("middle-author", JsonSerializer.Serialize(replies), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PublicCommentRead_DeletedLeafOrFullyDeletedThread_Disappears()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedPublicComment(db, 100, 42, "root", "root-author");
+        SeedPublicComment(db, 101, 42, "leaf secret", "leaf-author", parentId: 100, rootId: 100, replyToCommentId: 100, depth: 1);
+        TombstoneComment(db, 101);
+        var queries = new CommentQueryService(db, new RegionLegalModerationService());
+
+        CommentThreadItemDto root = Assert.Single((await queries.GetThreadsAsync(
+            42,
+            new CursorPageRequest<long> { Limit = 10 },
+            previewLimit: 10)).Data);
+        Assert.Equal(0, root.ReplyCount);
+        Assert.Empty(root.RepliesPreview);
+        Assert.Empty((await queries.GetRepliesAsync(
+            42,
+            100,
+            new CursorPageRequest<long> { Limit = 10 })).Data);
+
+        TombstoneComment(db, 100);
+        Assert.Empty((await queries.GetThreadsAsync(
+            42,
+            new CursorPageRequest<long> { Limit = 10 })).Data);
+    }
+
+    [Fact]
+    public async Task PublicCommentRead_TombstoneChainUsesViewerRegionVisibility()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedPublicComment(db, 100, 42, "root secret", "root-author");
+        SeedPublicComment(db, 101, 42, "region visible child", "child-author", parentId: 100, rootId: 100, replyToCommentId: 100, depth: 1);
+        TombstoneComment(db, 100);
+        db.Insertable(new CommentBlockedRegion { CommentId = 101, RegionCode = "CN-MAINLAND" }).ExecuteCommand();
+        var queries = new CommentQueryService(db, new RegionLegalModerationService());
+
+        Assert.Single((await queries.GetThreadsAsync(
+            42,
+            new CursorPageRequest<long> { Limit = 10 },
+            viewerRegion: "GLOBAL")).Data);
+        Assert.Empty((await queries.GetThreadsAsync(
+            42,
+            new CursorPageRequest<long> { Limit = 10 },
+            viewerRegion: "CN-MAINLAND")).Data);
+        Assert.Empty((await queries.GetThreadsAsync(
+            42,
+            new CursorPageRequest<long> { Limit = 10 },
+            viewerRegion: "UNKNOWN")).Data);
+    }
+
+    [Fact]
     public async Task GetAttributableCommentsAsync_ReturnsOnlyExplicitPublicComments()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -942,6 +1036,40 @@ public sealed class AnonymousCommentSubmitTests(
             IsDeleted = false,
             ModerationStatus = CommentModerationStatus.Approved
         }).ExecuteCommand();
+
+    private static void SeedPublicComment(
+        SqlSugarClient db,
+        long commentId,
+        int articleId,
+        string content,
+        string publicHandle,
+        long? parentId = null,
+        long? rootId = null,
+        long? replyToCommentId = null,
+        int depth = 0)
+        => SeedVisibleComment(
+            db,
+            commentId,
+            articleId,
+            null,
+            content,
+            CommentAuthorModes.Public,
+            publicHandle,
+            null,
+            null,
+            null,
+            null,
+            parentId,
+            rootId,
+            replyToCommentId,
+            depth: depth);
+
+    private static void TombstoneComment(SqlSugarClient db, long commentId)
+        => db.Updateable<Comment>()
+            .SetColumns(static item => item.IsDeleted == true)
+            .SetColumns(static item => item.ModerationStatus == CommentModerationStatus.Hidden)
+            .Where(item => item.Id == commentId)
+            .ExecuteCommand();
 
     private static void SeedStrongAnonymousComment(SqlSugarClient db, long commentId, int articleId, int? legacyUserId)
         => db.Insertable(new Comment

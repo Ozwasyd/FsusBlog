@@ -157,6 +157,7 @@ export function useArticleDetailView() {
     loadMoreTrigger,
     clearCommentState,
     loadMoreComments,
+    reconcileCommentsAfterMutation,
     loadMoreReplies,
     prependCommentIfAbsent,
     removeCommentById,
@@ -763,6 +764,7 @@ export function useArticleDetailView() {
 
     if (article.value && String(data.articleId) === String(article.value.id)) {
       removeCommentById(data.commentId, data.rootId ?? null, data.parentId ?? null)
+      void reconcileCommentsAfterMutation()
     }
   }
 
@@ -798,6 +800,7 @@ export function useArticleDetailView() {
         await deleteComment(targetId)
         toast.success('已移除')
         removeCommentById(targetId, payload.rootId, payload.parentId)
+        void reconcileCommentsAfterMutation()
       } catch (error: unknown) {
         showErrorToast(error, '操作失败')
       }

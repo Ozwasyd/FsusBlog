@@ -47,6 +47,35 @@ public sealed class CommentQueryService(
     private const int DefaultReplyPreviewLimit = 3;
     private const int MaxReplyPreviewRootIds = 50;
     private const string DeletedPlaceholder = "该回复已删除";
+    private const string DeletedAuthorPlaceholder = "已删除评论";
+    private const string PublicVisibleChainCte = """
+WITH RECURSIVE directly_visible AS (
+    SELECT c.id, c.parent_id, c.root_id
+    FROM comment c
+    WHERE c.article_id = @ArticleId
+      AND c.moderation_status = @Approved
+      AND c.is_deleted = false
+      AND NOT EXISTS (
+          SELECT 1
+          FROM comment_blocked_region br
+          WHERE br.comment_id = c.id
+            AND (
+                @ConservativeUnknownViewer = true
+                OR br.region_code = @ViewerRegion
+            )
+      )
+),
+visible_chain AS (
+    SELECT id, parent_id, root_id
+    FROM directly_visible
+    UNION
+    SELECT parent.id, parent.parent_id, parent.root_id
+    FROM comment parent
+    INNER JOIN visible_chain child ON child.parent_id = parent.id
+    WHERE parent.article_id = @ArticleId
+)
+
+""";
     private static readonly Int64CursorCodec s_cursorCodec = Int64CursorCodec.Instance;
 
     public async Task<CursorResponse<CommentThreadItemDto>> GetThreadsAsync(
@@ -72,23 +101,26 @@ public sealed class CommentQueryService(
             rootIds[i] = roots[i].Id;
         }
 
-        Dictionary<long, List<CommentReplyPreviewItemDto>> previewMap = await QueryThreadRepliesPreviewMapAsync(articleId, rootIds, normalizedPreviewLimit + 1, normalizedViewerRegion);
+        ThreadReplyProjection replyProjection = await QueryThreadRepliesProjectionAsync(
+            articleId,
+            rootIds,
+            normalizedPreviewLimit,
+            normalizedViewerRegion);
 
         return CursorPagination.SliceMapToResponse(roots, request.Limit, root => root.Id, root =>
         {
             long rootId = root.Id;
-            List<CommentReplyPreviewItemDto> loadedReplies = previewMap.GetValueOrDefault(rootId, []);
-            bool hasMoreReplies = loadedReplies.Count > normalizedPreviewLimit;
-            List<CommentReplyPreviewItemDto> previewReplies = hasMoreReplies
-                ? loadedReplies.Take(normalizedPreviewLimit).ToList()
-                : loadedReplies;
-            int replyCount = previewReplies.Count + (hasMoreReplies ? 1 : 0);
+            List<CommentReplyPreviewItemDto> previewReplies = replyProjection.PreviewMap.GetValueOrDefault(rootId, []);
+            int replyCount = replyProjection.CountMap.GetValueOrDefault(rootId, 0);
+            bool hasMoreReplies = replyCount > previewReplies.Count;
 
             return new CommentThreadItemDto(
                 root.Id.ToString(),
                 ToDisplayContent(root.IsDeleted, root.Content),
                 root.CreateTime,
-                BuildAuthorView(root.AuthorMode, root.AuthorDisplayName, root.AnonymousDisplayLanguage, root.AnonymousScope),
+                root.IsDeleted
+                    ? BuildDeletedAuthorView()
+                    : BuildAuthorView(root.AuthorMode, root.AuthorDisplayName, root.AnonymousDisplayLanguage, root.AnonymousScope),
                 rootId.ToString(),
                 root.IsDeleted,
                 replyCount,
@@ -208,7 +240,8 @@ public sealed class CommentQueryService(
         CursorPageRequest<long> request,
         string normalizedViewerRegion)
     {
-        var sql = new StringBuilder("""
+        var sql = new StringBuilder(PublicVisibleChainCte);
+        sql.AppendLine("""
 SELECT
     c.id AS "Id",
     c.article_id AS "ArticleId",
@@ -223,21 +256,12 @@ SELECT
     c.anonymous_display_language AS "AnonymousDisplayLanguage",
     c.anonymous_scope AS "AnonymousScope",
     c.depth AS "Depth",
-    c.is_deleted AS "IsDeleted"
+    (directly_visible.id IS NULL) AS "IsDeleted"
 FROM comment c
+INNER JOIN visible_chain ON visible_chain.id = c.id
+LEFT JOIN directly_visible ON directly_visible.id = c.id
 WHERE c.article_id = @ArticleId
   AND c.parent_id IS NULL
-  AND c.moderation_status = @Approved
-  AND c.is_deleted = false
-  AND NOT EXISTS (
-      SELECT 1
-      FROM comment_blocked_region br
-      WHERE br.comment_id = c.id
-        AND (
-            @ConservativeUnknownViewer = true
-            OR br.region_code = @ViewerRegion
-        )
-  )
 """);
         List<SugarParameter> parameters = BuildPublicCommentReadParameters(articleId, normalizedViewerRegion);
         parameters.Add(new SugarParameter("@Limit", request.Limit + 1));
@@ -290,23 +314,13 @@ WHERE c.article_id = @ArticleId
         long rootId,
         string normalizedViewerRegion)
     {
-        const string Sql = """
+        const string Sql = PublicVisibleChainCte + """
 SELECT 1
 FROM comment c
+INNER JOIN visible_chain ON visible_chain.id = c.id
 WHERE c.id = @RootId
   AND c.article_id = @ArticleId
   AND c.parent_id IS NULL
-  AND c.moderation_status = @Approved
-  AND c.is_deleted = false
-  AND NOT EXISTS (
-      SELECT 1
-      FROM comment_blocked_region br
-      WHERE br.comment_id = c.id
-        AND (
-            @ConservativeUnknownViewer = true
-            OR br.region_code = @ViewerRegion
-        )
-  )
 LIMIT 1;
 """;
         List<SugarParameter> parameters = BuildPublicCommentReadParameters(articleId, normalizedViewerRegion);
@@ -322,7 +336,8 @@ LIMIT 1;
         CursorPageRequest<long> request,
         string normalizedViewerRegion)
     {
-        var sql = new StringBuilder("""
+        var sql = new StringBuilder(PublicVisibleChainCte);
+        sql.AppendLine("""
 SELECT
     c.id AS "Id",
     c.parent_id AS "ParentId",
@@ -347,24 +362,17 @@ SELECT
     pc.author_mode AS "ReplyToAuthorMode",
     pc.anonymous_display_language AS "ReplyToAnonymousDisplayLanguage",
     pc.anonymous_scope AS "ReplyToAnonymousScope",
+    (pc.id IS NOT NULL AND reply_target_visible.id IS NULL) AS "ReplyTargetIsDeleted",
     c.depth AS "Depth",
-    c.is_deleted AS "IsDeleted"
+    (directly_visible.id IS NULL) AS "IsDeleted"
 FROM comment c
+INNER JOIN visible_chain ON visible_chain.id = c.id
+LEFT JOIN directly_visible ON directly_visible.id = c.id
 LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id
+LEFT JOIN directly_visible reply_target_visible ON reply_target_visible.id = pc.id
 WHERE c.article_id = @ArticleId
   AND c.root_id = @RootId
   AND c.parent_id IS NOT NULL
-  AND c.moderation_status = @Approved
-  AND c.is_deleted = false
-  AND NOT EXISTS (
-      SELECT 1
-      FROM comment_blocked_region br
-      WHERE br.comment_id = c.id
-        AND (
-            @ConservativeUnknownViewer = true
-            OR br.region_code = @ViewerRegion
-        )
-  )
 """);
         List<SugarParameter> parameters = BuildPublicCommentReadParameters(articleId, normalizedViewerRegion);
         parameters.Add(new SugarParameter("@RootId", rootId));
@@ -395,6 +403,7 @@ WHERE c.article_id = @ArticleId
             int fReplyToAuthorMode = reader.GetOrdinal("ReplyToAuthorMode");
             int fReplyToAnonymousDisplayLanguage = reader.GetOrdinal("ReplyToAnonymousDisplayLanguage");
             int fReplyToAnonymousScope = reader.GetOrdinal("ReplyToAnonymousScope");
+            int fReplyTargetIsDeleted = reader.GetOrdinal("ReplyTargetIsDeleted");
             int fDepth = reader.GetOrdinal("Depth");
             int fIsDeleted = reader.GetOrdinal("IsDeleted");
 
@@ -416,6 +425,7 @@ WHERE c.article_id = @ArticleId
                     ReplyToAuthorMode = reader.IsDBNull(fReplyToAuthorMode) ? null : reader.GetString(fReplyToAuthorMode),
                     ReplyToAnonymousDisplayLanguage = reader.IsDBNull(fReplyToAnonymousDisplayLanguage) ? null : reader.GetString(fReplyToAnonymousDisplayLanguage),
                     ReplyToAnonymousScope = reader.IsDBNull(fReplyToAnonymousScope) ? null : reader.GetString(fReplyToAnonymousScope),
+                    ReplyTargetIsDeleted = reader.GetBoolean(fReplyTargetIsDeleted),
                     Depth = reader.IsDBNull(fDepth) ? 2 : reader.GetInt32(fDepth),
                     IsDeleted = reader.GetBoolean(fIsDeleted)
                 });
@@ -436,7 +446,7 @@ WHERE c.article_id = @ArticleId
             new("@ConservativeUnknownViewer", normalizedViewerRegion == RegionCodes.Unknown)
         };
 
-    private async Task<Dictionary<long, List<CommentReplyPreviewItemDto>>> QueryThreadRepliesPreviewMapAsync(
+    private async Task<ThreadReplyProjection> QueryThreadRepliesProjectionAsync(
         int articleId,
         long[] rootIds,
         int limit,
@@ -444,10 +454,11 @@ WHERE c.article_id = @ArticleId
     {
         if (rootIds.Length == 0)
         {
-            return [];
+            return new ThreadReplyProjection([], []);
         }
 
-        var sql = new StringBuilder("""
+        var sql = new StringBuilder(PublicVisibleChainCte);
+        sql.Append("""
 SELECT
     x.id AS "Id",
     x.parent_id AS "ParentId",
@@ -463,8 +474,10 @@ SELECT
     x.reply_to_author_mode AS "ReplyToAuthorMode",
     x.reply_to_anonymous_display_language AS "ReplyToAnonymousDisplayLanguage",
     x.reply_to_anonymous_scope AS "ReplyToAnonymousScope",
+    x.reply_target_is_deleted AS "ReplyTargetIsDeleted",
     x.depth AS "Depth",
-    x.is_deleted AS "IsDeleted"
+    x.is_deleted AS "IsDeleted",
+    x.reply_count AS "ReplyCount"
 FROM (
     SELECT
         c.id,
@@ -490,11 +503,16 @@ FROM (
         pc.author_mode AS reply_to_author_mode,
         pc.anonymous_display_language AS reply_to_anonymous_display_language,
         pc.anonymous_scope AS reply_to_anonymous_scope,
+        (pc.id IS NOT NULL AND reply_target_visible.id IS NULL) AS reply_target_is_deleted,
         c.depth,
-        c.is_deleted,
+        (directly_visible.id IS NULL) AS is_deleted,
+        COUNT(*) OVER (PARTITION BY c.root_id) AS reply_count,
         ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id) AS rn
     FROM comment c
+    INNER JOIN visible_chain ON visible_chain.id = c.id
+    LEFT JOIN directly_visible ON directly_visible.id = c.id
     LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id
+    LEFT JOIN directly_visible reply_target_visible ON reply_target_visible.id = pc.id
     WHERE c.article_id = @ArticleId
       AND c.root_id IS NOT NULL
       AND c.root_id IN (
@@ -523,17 +541,6 @@ FROM (
         sql.Append("""
 )
       AND c.parent_id IS NOT NULL
-      AND c.moderation_status = @Approved
-      AND c.is_deleted = false
-      AND NOT EXISTS (
-          SELECT 1
-          FROM comment_blocked_region br
-          WHERE br.comment_id = c.id
-            AND (
-                @ConservativeUnknownViewer = true
-                OR br.region_code = @ViewerRegion
-            )
-      )
 ) x
 WHERE x.rn <= @PreviewLimit
 ORDER BY x.root_id, x.id;
@@ -556,12 +563,16 @@ ORDER BY x.root_id, x.id;
             int fReplyToAuthorMode = reader.GetOrdinal("ReplyToAuthorMode");
             int fReplyToAnonymousDisplayLanguage = reader.GetOrdinal("ReplyToAnonymousDisplayLanguage");
             int fReplyToAnonymousScope = reader.GetOrdinal("ReplyToAnonymousScope");
+            int fReplyTargetIsDeleted = reader.GetOrdinal("ReplyTargetIsDeleted");
             int fDepth = reader.GetOrdinal("Depth");
             int fIsDeleted = reader.GetOrdinal("IsDeleted");
+            int fReplyCount = reader.GetOrdinal("ReplyCount");
+
+            var countMap = new Dictionary<long, int>(rootIds.Length);
 
             while (await reader.ReadAsync())
             {
-                rows.Add(new ReplyRow
+                var row = new ReplyRow
                 {
                     Id = reader.GetInt64(fId),
                     ParentId = reader.IsDBNull(fParentId) ? null : reader.GetInt64(fParentId),
@@ -577,26 +588,30 @@ ORDER BY x.root_id, x.id;
                     ReplyToAuthorMode = reader.IsDBNull(fReplyToAuthorMode) ? null : reader.GetString(fReplyToAuthorMode),
                     ReplyToAnonymousDisplayLanguage = reader.IsDBNull(fReplyToAnonymousDisplayLanguage) ? null : reader.GetString(fReplyToAnonymousDisplayLanguage),
                     ReplyToAnonymousScope = reader.IsDBNull(fReplyToAnonymousScope) ? null : reader.GetString(fReplyToAnonymousScope),
+                    ReplyTargetIsDeleted = reader.GetBoolean(fReplyTargetIsDeleted),
                     Depth = reader.GetInt32(fDepth),
                     IsDeleted = reader.GetBoolean(fIsDeleted)
-                });
+                };
+                rows.Add(row);
+                long count = reader.GetInt64(fReplyCount);
+                countMap[row.RootId ?? row.Id] = count > int.MaxValue ? int.MaxValue : (int)count;
             }
-        }
 
-        var map = new Dictionary<long, List<CommentReplyPreviewItemDto>>(rootIds.Length);
-        foreach (ReplyRow row in rows)
-        {
-            long resolvedRootId = row.RootId ?? row.Id;
-            if (!map.TryGetValue(resolvedRootId, out List<CommentReplyPreviewItemDto>? previews))
+            var map = new Dictionary<long, List<CommentReplyPreviewItemDto>>(rootIds.Length);
+            foreach (ReplyRow row in rows)
             {
-                previews = [];
-                map[resolvedRootId] = previews;
+                long resolvedRootId = row.RootId ?? row.Id;
+                if (!map.TryGetValue(resolvedRootId, out List<CommentReplyPreviewItemDto>? previews))
+                {
+                    previews = [];
+                    map[resolvedRootId] = previews;
+                }
+
+                previews.Add(MapReplyPreviewRow(row));
             }
 
-            previews.Add(MapReplyPreviewRow(row));
+            return new ThreadReplyProjection(map, countMap);
         }
-
-        return map;
     }
 
     private static CommentReplyItemDto MapReplyRow(ReplyRow row)
@@ -608,7 +623,9 @@ ORDER BY x.root_id, x.id;
             row.Id.ToString(),
             ToDisplayContent(row.IsDeleted, row.Content),
             row.CreateTime,
-            BuildAuthorView(row.AuthorMode, row.AuthorDisplayName, row.AnonymousDisplayLanguage, row.AnonymousScope),
+            row.IsDeleted
+                ? BuildDeletedAuthorView()
+                : BuildAuthorView(row.AuthorMode, row.AuthorDisplayName, row.AnonymousDisplayLanguage, row.AnonymousScope),
             BuildReplyToAuthorView(row),
             row.ParentId?.ToString(),
             resolvedRootId.ToString(),
@@ -622,12 +639,19 @@ ORDER BY x.root_id, x.id;
             row.Id.ToString(),
             ToDisplayContent(row.IsDeleted, row.Content),
             row.CreateTime,
-            BuildAuthorView(row.AuthorMode, row.AuthorDisplayName, row.AnonymousDisplayLanguage, row.AnonymousScope),
+            row.IsDeleted
+                ? BuildDeletedAuthorView()
+                : BuildAuthorView(row.AuthorMode, row.AuthorDisplayName, row.AnonymousDisplayLanguage, row.AnonymousScope),
             BuildReplyToAuthorView(row),
             row.IsDeleted);
 
     private static CommentAuthorViewDto? BuildReplyToAuthorView(ReplyRow row)
     {
+        if (row.ReplyTargetIsDeleted)
+        {
+            return BuildDeletedAuthorView();
+        }
+
         if (string.IsNullOrWhiteSpace(row.ReplyToDisplayName))
         {
             return null;
@@ -642,6 +666,14 @@ ORDER BY x.root_id, x.id;
             row.ReplyToAnonymousDisplayLanguage,
             row.ReplyToAnonymousScope);
     }
+
+    private static CommentAuthorViewDto BuildDeletedAuthorView()
+        => new(
+            CommentAuthorModes.LegacyServerVisiblePseudonymous,
+            DeletedAuthorPlaceholder,
+            "zh-CN",
+            null,
+            null);
 
     private static CommentAuthorViewDto BuildAuthorView(
         string? authorMode,
@@ -789,6 +821,11 @@ ORDER BY x.root_id, x.id;
         {
             get; init;
         }
+        public bool ReplyTargetIsDeleted
+        {
+            get;
+            init;
+        }
         public int Depth
         {
             get; init;
@@ -798,6 +835,10 @@ ORDER BY x.root_id, x.id;
             get; init;
         }
     }
+
+    private sealed record ThreadReplyProjection(
+        Dictionary<long, List<CommentReplyPreviewItemDto>> PreviewMap,
+        Dictionary<long, int> CountMap);
 
     private sealed record UserCommentRow
     {

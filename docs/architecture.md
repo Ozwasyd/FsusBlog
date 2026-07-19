@@ -360,6 +360,8 @@ taxonomy 缓存故障的无需重启回退必须同时处理 raw frame 与 Publi
 
 评论缓存失效由 `ICacheInvalidationDispatcher.InvalidateCommentMutationAsync(CommentCacheInvalidationScope)` 承载：公开可见性变化只删除 `CommentCursor` 的 `article:{articleId}:` 前缀，特定回复树变化可额外删除 `article:{articleId}:root:{rootId}:`，个人评论历史只删除 `UserCommentCursor` 的 `account:{accountId}:` 前缀；不得再用空 prefix 或 `CacheTag.Comment` 全局清除公开评论 output cache。公开评论 frame identity 包含 viewer region，保证 `comment_blocked_region(comment_id, region_code)` 可索引过滤后的 CN-MAINLAND/UNKNOWN/其他地区读模型不会共享同一个缓存条目；frame cache hit/miss 通过 cache runtime counters 按 roots/replies 与规范化 region 记录。公开评论线程/回复端点不挂 HTTP OutputCache，避免审核 notification stream、地区过滤与浏览器缓存产生状态分叉。评论 cursor limit 由 `ICommentCursorPolicyResolver` 从 `CommentCursorPolicies` / `CommentCursorPolicies:Tenants:{tenant}` 配置解析；缺省仍使用 threads 10/50、replies 20/100、user comments 10/50，端点和 Core gateway 不得直接硬编码分页上限。
 
+`CommentQueryService` 先计算当前 viewer-region 的直接可见评论，再用递归 CTE 沿 `parent_id` 补齐任意层级祖先；不直接可见但承载公开后代的节点只生成无正文、无作者身份的墓碑投影。删除叶或全部后代均不可见时不进入游标窗口，避免空墓碑永久占位；回复目标被删除/隐藏/地区屏蔽时仍保留 `reply_to_comment_id` 结构，但 `replyToAuthor` 改为固定安全占位。删除事务提交后按 article/root 范围失效缓存并发布 `CommentRemoved`，浏览器先 redact 本地节点再回源首屏，确保 notification stream 状态与冷读取收敛。无需重启的降级路径是通过现有审核运行时把新增评论保持 `Pending`，减少新公开分支；读模型没有 JSON fallback，也不绕过 viewer-region cache identity。
+
 ## AEDS Binary 链
 
 FsusBlog 运行时 API 只维护 AEDS binary 链：
