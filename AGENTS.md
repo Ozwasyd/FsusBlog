@@ -1,7 +1,7 @@
 # AGENTS.md — FsusBlog Code Agent 操作规范
 
 本文件定义代码代理（Code Agent）的角色边界、修改前核验和交付要求。
-通用代码风格不在此重复维护，统一遵循 [跨语言编码规范](docs/development/coding-conventions.md)。
+通用代码风格不在此重复维护，统一遵循 [跨语言编码规范](docs/development/coding-conventions.md)。文档的当前事实源、issue handoff 与历史快照按 [文档生命周期](docs/development/document-lifecycle.md) 分类。
 首选语言：中文；代码名词、路径、命令保留英文。
 
 ---

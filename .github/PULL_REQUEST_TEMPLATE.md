@@ -70,6 +70,7 @@ For a checked `External naming exception`, use one registered exception ID, list
 ## Compatibility And Risk
 
 - [ ] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
+- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer
 - [ ] External wire / ABI / database / third-party names preserved or explicitly adapted
 - [ ] Public API impact reviewed
 - [ ] AEDS frame / binary contract impact reviewed

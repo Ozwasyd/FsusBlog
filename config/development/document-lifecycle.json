@@ -1,0 +1,232 @@
+{
+    "schema": "fsusblog.document-lifecycle-policy.v1",
+    "lastVerifiedCommit": "0f72edbf0d3c2f7053c4d632ff5e24c3d6c79edd",
+    "maximumVerificationDistance": 100,
+    "statusRules": [
+        {
+            "patterns": [
+                "docs/testing.generated.md",
+                "docs/configuration/backend-configuration-reference.generated.md"
+            ],
+            "status": "generated"
+        },
+        {
+            "patterns": [
+                "docs/issue-*",
+                "docs/**/issue-*",
+                "docs/**/issue-*/**",
+                "docs/**/issues-*",
+                "docs/**/*handoff*",
+                "docs/**/*implementation-notes*",
+                "docs/reports/**"
+            ],
+            "status": "historical"
+        },
+        {
+            "patterns": [
+                "docs/planning/**"
+            ],
+            "status": "proposed"
+        },
+        {
+            "patterns": [
+                "docs/**"
+            ],
+            "status": "current"
+        }
+    ],
+    "ownerRules": [
+        {
+            "patterns": [
+                "docs/security.md",
+                "docs/security/**",
+                "docs/privacy/**",
+                "docs/zk/**",
+                "docs/risk-*",
+                "docs/passkey-*",
+                "docs/recovery-passkey-*",
+                "docs/user-session-*",
+                "docs/anonymous-*"
+            ],
+            "owner": "security"
+        },
+        {
+            "patterns": [
+                "docs/frontend/**",
+                "docs/design/**",
+                "docs/assets/screenshots/**",
+                "docs/ux/**",
+                "docs/seo/**",
+                "docs/public-layout-rules.md"
+            ],
+            "owner": "frontend"
+        },
+        {
+            "patterns": [
+                "docs/testing.md",
+                "docs/testing.generated.md",
+                "docs/testing/**",
+                "docs/operations.md",
+                "docs/operations-*",
+                "docs/production.md",
+                "docs/releases/**",
+                "docs/release-*",
+                "docs/active-release-*",
+                "docs/performance-*",
+                "docs/rate-limiter-*"
+            ],
+            "owner": "release"
+        },
+        {
+            "patterns": [
+                "docs/api.md",
+                "docs/api/**",
+                "docs/architecture.md",
+                "docs/architecture/**",
+                "docs/configuration/**",
+                "docs/configuration-layout.md",
+                "docs/database-*",
+                "docs/schema-migrations/**",
+                "docs/integrity/**",
+                "docs/moderation.md",
+                "docs/moderation/**",
+                "docs/cache-*"
+            ],
+            "owner": "backend"
+        },
+        {
+            "patterns": [
+                "docs/**"
+            ],
+            "owner": "governance"
+        }
+    ],
+    "generatedDocuments": [
+        {
+            "path": "docs/testing.generated.md",
+            "producer": "tools/docs/generate-testing-docs.mjs"
+        },
+        {
+            "path": "docs/configuration/backend-configuration-reference.generated.md",
+            "producer": "tools/configuration/check-backend-configuration-contract.mjs"
+        }
+    ],
+    "authorityClaims": [
+        {
+            "id": "repository-document-index",
+            "path": "docs/index.md"
+        },
+        {
+            "id": "document-lifecycle",
+            "path": "docs/development/document-lifecycle.md"
+        },
+        {
+            "id": "coding-conventions",
+            "path": "docs/development/coding-conventions.md"
+        },
+        {
+            "id": "api-contracts",
+            "path": "docs/api/contracts.md"
+        },
+        {
+            "id": "security-model",
+            "path": "docs/security.md"
+        },
+        {
+            "id": "testing-model",
+            "path": "docs/testing.md"
+        }
+    ],
+    "closedIssues": [
+        1013,
+        1014,
+        1016,
+        1017,
+        1018,
+        1019,
+        1020,
+        1021,
+        1022,
+        1023,
+        1024,
+        1025,
+        1026,
+        1027,
+        1028,
+        1029,
+        1030,
+        1031,
+        1032,
+        1033,
+        1034,
+        1035,
+        1036,
+        1038,
+        1040,
+        1041,
+        1042,
+        1045,
+        1046,
+        1047,
+        1076,
+        1077,
+        1084,
+        1085,
+        1087,
+        1091,
+        1095,
+        1096,
+        1108,
+        1111,
+        1119,
+        1125,
+        1126,
+        1128,
+        1141,
+        1145,
+        1146,
+        1148,
+        1149,
+        1150,
+        1151,
+        1152,
+        1173,
+        1174,
+        1180,
+        1188,
+        1189,
+        1211,
+        1228,
+        1243,
+        1246,
+        1247,
+        1248,
+        1249,
+        1262,
+        1264,
+        1267,
+        1285,
+        1287,
+        1289,
+        1291,
+        1292,
+        1293,
+        1294,
+        1305,
+        1306,
+        1311
+    ],
+    "retiredReferences": [
+        {
+            "token": "BannedUserFilter"
+        },
+        {
+            "token": "src/frontend/src/wasm"
+        },
+        {
+            "token": "Results.Stream"
+        }
+    ],
+    "brokenLinkExceptions": [],
+    "redirects": []
+}

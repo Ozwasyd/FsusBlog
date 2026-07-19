@@ -52,6 +52,7 @@ For release-sensitive, security, visual, load, or AEDS changes, follow [docs/tes
 - Run `node tools/docs/check-authoritative-development-docs.mjs` when changing authoritative development docs, repository paths, style ownership, or command examples.
 - Follow [code intent governance](docs/development/code-intent-governance.md) for ownership/security markers, public contract documentation, TODO lifecycle, and performance claims; run `node tools/governance/check-code-intent.mjs` after changing those surfaces.
 - Follow the [change contract](docs/development/change-contract.md) for commit/squash titles, format and naming migration commits, PR classification, performance/generated evidence, release-note labels, and rollback metadata.
+- Follow the [document lifecycle](docs/development/document-lifecycle.md) when adding or completing design notes: stable facts move into a current source of truth, while issue handoffs remain explicitly historical or proposed.
 - Label performance statements as structural (`S`), local measured (`M`), route measured (`R`), or capacity measured (`C`). A stale SHA, missing artifact or machine identity, or incomplete statistics must remain blocked instead of being reported as measured.
 - Keep changes scoped to the issue being closed.
 - Prefer existing patterns and local helpers over new abstractions.

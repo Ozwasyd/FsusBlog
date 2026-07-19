@@ -1283,6 +1283,7 @@ tiers:
           - csharp-style-governance
           - code-intent-governance
           - authoritative-development-docs-governance
+          - document-lifecycle-governance
           - appsettings-authority-governance
           - zk-artifact-lifecycle-ownership
           - release-evidence-classification-governance
@@ -1391,8 +1392,14 @@ tiers:
           - tests/tools/issue-1155-code-intent.test.mjs
           - docs/development/code-intent-governance.md
           - tools/docs/check-authoritative-development-docs.mjs
+          - tools/docs/document-lifecycle.mjs
+          - tools/docs/generate-document-lifecycle.mjs
           - config/development/authoritative-development-docs.json
+          - config/development/document-lifecycle.json
+          - config/development/document-inventory.generated.json
           - tests/tools/issue-1157-authoritative-development-docs.test.mjs
+          - tests/tools/issue-1161-document-lifecycle.test.mjs
+          - docs/development/document-lifecycle.md
           - docs/development/coding-conventions.md
           - AGENTS.md
           - CONTRIBUTING.md

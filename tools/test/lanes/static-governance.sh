@@ -21,6 +21,7 @@ StaticMatrixSchema() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" 
 StaticRetention() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-retention.mjs"; }
 StaticImplementationDrift() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-doc-implementation-drift.mjs"; }
 StaticAuthoritativeDevelopmentDocs() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-authoritative-development-docs.mjs"; }
+StaticDocumentLifecycle() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/generate-document-lifecycle.mjs" --check; }
 StaticCodeIntent() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-code-intent.mjs"; }
 StaticCustomRulePlatform() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-rule-platform.mjs" --mode full; }
 StaticAppsettingsAuthority() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/configuration/check-appsettings-authority.mjs"; }
@@ -41,6 +42,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/issue-1170-security-matrix-catalog.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1157-authoritative-development-docs.test.mjs"
+    "$ROOT_DIR/tests/tools/issue-1161-document-lifecycle.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1158-csharp-style.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1155-code-intent.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1162-rule-platform.test.mjs"
@@ -170,6 +172,7 @@ RunStaticPrechecksPhase() {
         matrix-schema StaticMatrixSchema \
         implementation-drift StaticImplementationDrift \
         authoritative-development-docs StaticAuthoritativeDevelopmentDocs \
+        document-lifecycle StaticDocumentLifecycle \
         code-intent StaticCodeIntent \
         custom-rule-platform StaticCustomRulePlatform \
         appsettings-authority StaticAppsettingsAuthority \

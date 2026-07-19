@@ -14,6 +14,8 @@ FsusBlog 专项检查的统一身份、共享 inventory/cache、changed-file dep
 
 commit/squash title、PR classification、纯格式与命名迁移、performance/generated evidence、release-note label 和 rollback metadata 见 [development/change-contract.md](development/change-contract.md)。它约束 Git/review 元数据，不建立第二套源码命名规范。
 
+文档的 current/proposed/historical/generated/retired 状态、owner、完整索引、issue handoff 收口和移动 redirect 规则见 [development/document-lifecycle.md](development/document-lifecycle.md)。不得从文件名或更新时间推断权威性。
+
 修改开发文档中的路径、symbol、命令或规范入口后运行：
 
 ```bash

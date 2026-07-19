@@ -14,6 +14,7 @@
             ".github/PULL_REQUEST_TEMPLATE.md",
             "docs/development.md",
             "docs/index.md",
+            "docs/development/document-lifecycle.md",
             "docs/development/coding-conventions.md",
             "docs/development/code-intent-governance.md",
             "docs/development/change-contract.md"
@@ -24,6 +25,7 @@
             ".github/PULL_REQUEST_TEMPLATE.md",
             "docs/development.md",
             "docs/index.md",
+            "docs/development/document-lifecycle.md",
             "docs/development/coding-conventions.md",
             "docs/development/code-intent-governance.md",
             "docs/development/change-contract.md"
@@ -334,6 +336,7 @@
             "invocation": "node tools/docs/check-authoritative-development-docs.mjs",
             "documents": [
                 "docs/development/coding-conventions.md",
+                "docs/development/document-lifecycle.md",
                 "docs/development.md"
             ]
         },

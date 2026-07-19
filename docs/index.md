@@ -1,23 +1,350 @@
 # Documentation Index
 
-- [Coding Conventions](development/coding-conventions.md) - C#-derived cross-language style mapping, precedence, and external-contract exceptions.
-- [Code Intent Governance](development/code-intent-governance.md) - ownership/security/performance markers, TODO lifecycle, public documentation, and S/M/R/C evidence levels.
-- [Change Contract](development/change-contract.md) - executable commit, PR classification, mechanical migration, evidence binding, and release-note rules.
-- [Local Development](development.md) - local toolchain, startup, debugging, and authoritative development-doc checks.
-- [Browser Runtime Baseline](frontend/browser-runtime-baseline.md) - ES2022 browser build contract, browser evidence, and separately governed Web Platform capabilities.
-- [API Contracts](api/contracts.md) - request, response, AEDS, and binary contract rules.
-- [Rights V3 Schema](rights-v3-schema.md) - database schema and migration contract for rights policies, snapshots, and proofs.
-- [Rights V3 Cutover Runbook](rights-v3-cutover-runbook.md) - historical Rights V3 cutover sequence; current ArticleDetail writers use V4 with V3 read compatibility.
-- [Article Rights Canonical Hash](integrity/article-rights-canonical-hash.md) - Rights V3 canonical policy hash contract.
-- [Article Rights Proof](integrity/article-rights-proof.md) - public proof binding for rights snapshots, publish proofs, and transparency log entries.
-- [Public Layout Rules](public-layout-rules.md) - FsusBlog public-site consumer layout, material, motion, reading surface, and commit review rules.
-- [Loaded Font-weight Acceptance](issue-1289-loaded-font-weight-acceptance.md) - Selector-level 400/700 evidence for the composer, TOC, Markdown, and theme-token audit.
-- [Touch Target Floor](issue-1285-touch-target-floor.md) - Public, identity, and admin touch-target tiers plus sticky-geometry ownership.
-- [Account Header Actions](issue-1311-account-header-actions.md) - Shared account-header 40/44px density, menu-button theme affordance, and state feedback.
-- [Account Integer Typography](issue-1293-account-integer-typography.md) - IdentityCenter and account-shell 12/14/16px acceptance contract.
-- [Account Navigation Hierarchy](issue-1292-account-navigation-hierarchy.md) - First-level and local account navigation typography, indentation, and touch tiers.
-- [Account Page Title Hierarchy](issue-1291-account-page-title-hierarchy.md) - Shared 24px task-surface H1 contract across account pages.
-- [Document Markdown Layout](issue-1294-document-markdown-layout.md) - Legal-page document typography separated from article prose.
-- [Configuration Layout](configuration-layout.md) - canonical configuration roots and project ownership.
-- [Appsettings Authority](configuration/appsettings-authority.md) - runtime base/overlay, minimal development example, production operator input, and override order.
-- [Operations Infrastructure Layout](operations-layout.md) - single `ops/` hierarchy, deployment policy boundary, and executable workflow ownership.
+本索引由 `config/development/document-lifecycle.json` 和当前 `docs/` inventory 生成。长期事实源只出现在 Current 区域；issue handoff、迁移记录和实施快照会被显式分类为 Historical，不再与当前权威文档并列。
+
+- Lifecycle policy: [`development/document-lifecycle.md`](development/document-lifecycle.md)
+- Machine-readable inventory: [`../config/development/document-inventory.generated.json`](../config/development/document-inventory.generated.json)
+- Historical documents keep stable paths until an explicit redirect-map migration is reviewed.
+
+## Current sources of truth
+
+### Backend
+
+- [API overview / selected quick reference](api.md)
+- [Internal Application API AEDS-only Policy](api/aeds-only-policy.md)
+- [文章修订与发布坐标](api/article-publication-revisions.md)
+- [API 契约文档](api/contracts.md)
+- [API 设计哲学](api/design.md)
+- [路由速查表](api/quick-reference.md)
+- [错误码、Binary 帧格式与 POD 大小目录](api/schemas-and-errors.md)
+- [API Stability](api/stability.md)
+- [系统架构](architecture.md)
+- [Admin artifact operations boundary](architecture/admin-artifact-operations-boundary.md)
+- [Admin backup status boundary](architecture/admin-backup-status-boundary.md)
+- [Admin cache diagnostics boundary](architecture/admin-cache-diagnostics-boundary.md)
+- [Admin dangerous-operation policy boundary](architecture/admin-dangerous-operation-policy-boundary.md)
+- [Admin integrity operations boundary](architecture/admin-integrity-operations-boundary.md)
+- [Admin operations health boundary](architecture/admin-operations-health-boundary.md)
+- [Article asset reference lifecycle](architecture/article-asset-reference-lifecycle.md)
+- [Article mutation outbox claim lease](architecture/article-mutation-outbox-claim-lease.md)
+- [Article mutation side-effect boundaries](architecture/article-mutation-side-effect-boundaries.md)
+- [Comment attribution and privacy boundary](architecture/comment-attribution-privacy-boundary.md)
+- [Comment command boundary](architecture/comment-command-boundary.md)
+- [Comment moderation and visibility boundary](architecture/comment-moderation-visibility-boundary.md)
+- [Comment notification boundary](architecture/comment-notification-boundary.md)
+- [Comment query boundary](architecture/comment-query-boundary.md)
+- [ADR: anonymous credentials use RFC 9474 blind issuance](architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md)
+- [ADR: ZK anonymous comments use circuit-native credentials and Groth16 proofs](architecture/decisions/ADR-ZK-CircuitNative-Groth16.md)
+- [DI lifetime validation](architecture/dependency-injection-lifetime-validation.md)
+- [Notification stream handshake use-case boundaries](architecture/notification-stream-handshake-use-case-boundaries.md)
+- [FsusBlog Architecture Overview](architecture/overview.md)
+- [Public AOT artifact storage boundary](architecture/public-aot-artifact-storage-boundary.md)
+- [Public AOT document composition boundary](architecture/public-aot-document-composition-boundary.md)
+- [Public AOT route identity boundary](architecture/public-aot-route-identity-boundary.md)
+- [Public AOT runtime state boundary](architecture/public-aot-runtime-state-boundary.md)
+- [Release storage lifecycle](architecture/release-storage-lifecycle.md)
+- [Repository source ownership](architecture/repository-layout.md)
+- [User admin projection boundary](architecture/user-admin-projection-boundary.md)
+- [User bootstrap, login, and MFA boundaries](architecture/user-bootstrap-login-mfa-boundaries.md)
+- [User identity command boundary](architecture/user-identity-command-boundary.md)
+- [User identity query boundary](architecture/user-identity-query-boundary.md)
+- [User session lifecycle and refresh boundary](architecture/user-session-refresh-boundary.md)
+- [Cache Governance.catalog](cache-governance.catalog.json)
+- [Configuration Ownership and Canonical Paths](configuration-layout.md)
+- [Appsettings and production input authority](configuration/appsettings-authority.md)
+- [Database Migration Runbook](database-migration.md)
+- [Admin Integrity Console](integrity/admin-console.md)
+- [Article Canonical Hash](integrity/article-canonical-hash.md)
+- [文章责任、来源与修订公开说明](integrity/article-responsibility.md)
+- [Article Rights Canonical Hash](integrity/article-rights-canonical-hash.md)
+- [Article Rights Proof](integrity/article-rights-proof.md)
+- [Public Artifact Digest](integrity/artifact-digest.md)
+- [IntegrityProof](integrity/index.md)
+- [Merkle Checkpoint](integrity/merkle-checkpoint.md)
+- [Public Verification API](integrity/public-verification-api.md)
+- [IntegrityProof Public Verification Guide](integrity/public-verification-guide.md)
+- [Publish Proof](integrity/publish-proof.md)
+- [IntegrityProof Operator Runbook](integrity/runbook.md)
+- [Site Integrity Signing Keys](integrity/site-signing-keys.md)
+- [IntegrityProof Threat Model](integrity/threat-model.md)
+- [Transparency Log](integrity/transparency-log.md)
+- [Integrity Proof Verification](integrity/verification.md)
+- [Moderation Runtime](moderation.md)
+- [Comment Creation Moderation State Machine](moderation/comment-creation-state-machine.md)
+- [Comment Moderation State Machine](moderation/comment-moderation-state-machine.yaml)
+- [Moderation Dictionary Architecture](moderation/dictionary-architecture.md)
+- [Third-Party Moderation Runtime Package Guide](moderation/third-party-model-development.md)
+- [Data Reader Projections](schema-migrations/data-reader-projections.json)
+- [Destructive Rollback Window Proofs](schema-migrations/destructive-rollback-window-proofs.json)
+- [Destructive schema rollback-window proof](schema-migrations/destructive-rollback-window.md)
+- [Typed Ddl Primitives](schema-migrations/typed-ddl-primitives.json)
+
+### Frontend
+
+- [Public Preview Screenshots](assets/screenshots/README.md)
+- [页面级标题比例](design/page-title-scale.md)
+- [阅读排版契约](design/reading-typography.md)
+- [Task surface geometry](design/task-surface-geometry.md)
+- [Admin dashboard task workbench](frontend/admin-dashboard-workbench.md)
+- [Admin information architecture](frontend/admin-information-architecture.md)
+- [Browser Runtime Baseline](frontend/browser-runtime-baseline.md)
+- [Console feedback entry](frontend/console-welcome-callout.md)
+- [FsusUI Typecheck Modes](frontend/fsusui-typecheck-modes.md)
+- [FsusBlog Motion Guidelines](frontend/motion-guidelines.md)
+- [Public Layout Rules](public-layout-rules.md)
+- [SEO measurement operations](seo/measurement-operations.md)
+- [小样本可用性测试脚本](ux/usability-test-script.md)
+
+### Security
+
+- [Anonymous Identity Smoke Flow](anonymous-identity-smoke-flow.md)
+- [Passkey 测试治理与保留映射](passkey-test-governance.md)
+- [Read analytics privacy boundary](privacy/read-analytics.md)
+- [Recovery Passkey 完成一致性](recovery-passkey-completion.md)
+- [RiskControl production tracking plan](risk-control-plan.md)
+- [RiskControl production rollout gates](risk-control-rollout.md)
+- [安全模型](security.md)
+- [Anonymous credential blind issuance threat model](security/anonymous-credential-blind-issuance-threat-model.md)
+- [Public revocation artifact runbook](security/anonymous-revocation-distribution-runbook.md)
+- [Anonymous revocation distribution threat model](security/anonymous-revocation-distribution-threat-model.md)
+- [Audit detached checkpoints](security/audit-detached-checkpoints.md)
+- [Audit retention and cryptographic erasure](security/audit-retention-cryptographic-erasure.md)
+- [Comment draft privacy](security/comment-draft-privacy.md)
+- [Comment privacy credential vault](security/comment-privacy-credential-vault.md)
+- [CSP style attribute hardening](security/csp-style-attribute-hardening.md)
+- [Data Protection Key Ring At-Rest Protection](security/data-protection-key-ring.md)
+- [Frontend Navigation Privacy](security/frontend-navigation-privacy.md)
+- [前端会话刷新协调](security/frontend-session-refresh-coordination.md)
+- [Frontend account and admin route boundaries](security/frontend-session-route-boundaries.md)
+- [前端失败遥测隐私边界](security/frontend-telemetry-privacy.md)
+- [Historical raw-IP lifecycle](security/ip-anonymization-lifecycle.md)
+- [JWT signing-key rotation](security/jwt-key-rotation.md)
+- [Passkey signature counter 风险响应](security/passkey-counter-risk-response.md)
+- [Passkey metadata 与 PasskeyEnabled 投影](security/passkey-metadata-projection.md)
+- [私有请求身份代际](security/private-request-generations.md)
+- [私有页面运行时销毁边界](security/private-surface-runtime.md)
+- [PublicHotRead 横切控制与回退手册](security/public-hot-read-cross-cutting-controls.md)
+- [Refresh-token replay family revocation](security/refresh-token-family-revoke.md)
+- [Security domain ownership](security/security-domain-layout.md)
+- [Security matrix catalog](security/security-matrix-catalog.md)
+- [Security-risk identity pseudonyms](security/security-risk-pseudonyms.md)
+- [Service Worker private-cache boundary](security/service-worker-cache-boundary.md)
+- [Site Backup Envelope Encryption](security/site-backup-envelope.md)
+- [Security-log IP pseudonyms](security/visit-log-ip-pseudonyms.md)
+- [普通账号会话撤销一致性](user-session-revocation.md)
+- [Historical fsus.anonymous.comment.v3 circuit contract](zk/anonymous-comment-v2-circuit.md)
+- [Anonymous credential root bootstrap runbook](zk/anonymous-credential-root-bootstrap.md)
+- [comment.v2 Repository-local cryptographic review](zk/comment-v2-local-cryptographic-review.md)
+- [Revocation Accumulator Contract](zk/revocation-accumulator.md)
+- [comment.v3 trusted setup ceremony contract](zk/trusted-setup-ceremony.md)
+
+### Release
+
+- [Active release fenced database commits](active-release-fenced-commits.md)
+- [Active Release Fencing 与通知流排空](active-release-fencing.md)
+- [Operations Infrastructure Layout](operations-layout.md)
+- [FsusBlog Operations Runbook](operations.md)
+- [AEDS cache-miss owned-frame 构建与生命周期](performance-aeds-cache-miss-owned-frame.md)
+- [评论树查询计划与基准证据](performance-comment-tree.md)
+- [CSP nonce UTF-8 segment templates](performance-csp-nonce-template.md)
+- [Performance Governance](performance-governance.md)
+- [PodBinaryCodec batch allocation evidence](performance-pod-binary-codec-batch.md)
+- [Public article projection](performance-public-article-projection.md)
+- [Public Performance Optimization Batch Evidence](performance-public-batch.md)
+- [PublicHotRead residency、admission 与 snapshot 生命周期](performance-public-hot-read-residency.md)
+- [FsusBlog Production Deployment](production.md)
+- [Rate limiter rejection sampler operations](rate-limiter-rejection-sampler-operations.md)
+- [Rate limiter rejection risk sampling](rate-limiter-rejection-sampling.md)
+- [Release Evidence Model](release-evidence-model.md)
+- [Production release storage contract](releases/production-release-storage.md)
+- [Release storage backup and restore](releases/release-storage-backup-and-restore.md)
+- [Release storage compatibility matrix](releases/release-storage-compatibility-matrix.md)
+- [Release storage operations](releases/release-storage-operations.md)
+- [v1.1.0 Public Preview](releases/v1.1.0-public-preview.md)
+- [测试策略](testing.md)
+- [管理控制台行为测试边界](testing/admin-console-behavior-tests.md)
+- [文章发布坐标迁移与一致性验证](testing/article-publication-consistency.md)
+- [Backend Production topology calibration](testing/backend-production-topology-calibration.md)
+- [Release Browser Contract](testing/browser-contract.md)
+- [Browser geometry、motion 与 focus 分层](testing/browser-geometry-motion-focus.md)
+- [Frontend private runtime governance](testing/frontend-private-runtime-governance.md)
+- [HTTP/3 + QUIC local-equivalent experiment](testing/http3-local-equivalent-experiment.md)
+- [私有请求 generation 验证](testing/private-request-generations.md)
+- [PrivateSurfaceRuntime 验证清单](testing/private-surface-runtime.md)
+- [Issue #1037：安全 hardening 边界测试替换](testing/security-hardening-boundary-replacements.md)
+- [Backend security Roslyn source policy](testing/security-hardening-source-policy.md)
+
+### Governance
+
+- [Dead-code audit tracking](dead-code-audit-tracking.md)
+- [本地开发指南](development.md)
+- [Change contract](development/change-contract.md)
+- [Code intent governance](development/code-intent-governance.md)
+- [Coding conventions](development/coding-conventions.md)
+- [C# style enforcement](development/csharp-style-enforcement.md)
+- [Custom rule platform](development/custom-rule-platform.md)
+- [Demo Data](development/demo-data.md)
+- [Documentation Lifecycle](development/document-lifecycle.md)
+- [Frontend style enforcement](development/frontend-style-enforcement.md)
+- [Native and tooling style enforcement](development/native-tooling-style-enforcement.md)
+- [Known Limitations](known-limitations.md)
+- [Online Migration Operations](online-database-migration-operations.md)
+- [Online Database Migration Protocol](online-database-migration.md)
+- [Open Source Readiness](open-source-readiness.md)
+- [公共 AOT 冷首屏与切流门禁](public-aot-cold-first-response.md)
+- [Perception V2 Release Evidence](release-evidence/perception-v2.md)
+- [Repository Governance](repository-governance.md)
+- [Repository Labels](repository-labels.md)
+- [Rights V3 Cutover Runbook](rights-v3-cutover-runbook.md)
+- [Rights V3 Schema](rights-v3-schema.md)
+- [Troubleshooting](troubleshooting.md)
+- [WebAssembly 开发与发布契约](wasm.md)
+
+## Proposed
+
+- [Dead Code Audit Index](planning/dead-code-audit-index.json) - owner `governance`
+- [Perception Sealed V2 Issue Map](planning/perception-sealed-v2-issue-map.json) - owner `governance`
+- [perception-sealed@v2 production tracking plan](planning/perception-sealed-v2-production-plan.md) - owner `governance`
+
+## Historical
+
+- [Runtime capability slices and source-file budget](architecture/issue-1119-runtime-capability-slices.md) - owner `backend`; issues #1119
+- [Router and FullApp bootstrap ownership](architecture/issue-1262-router-bootstrap-ownership.md) - owner `backend`; issues #1262
+- [Article Core use-case ownership](architecture/issue-1264-article-core-ownership.md) - owner `backend`; issues #1264
+- [After 1365x768 Dark Desktop Open](assets/screenshots/issue-1306/after-1365x768-dark-desktop-open.png) - owner `frontend`; issues #1306
+- [After 1365x768 Light Desktop Closed](assets/screenshots/issue-1306/after-1365x768-light-desktop-closed.png) - owner `frontend`; issues #1306
+- [After 1365x768 Light Desktop Open](assets/screenshots/issue-1306/after-1365x768-light-desktop-open.png) - owner `frontend`; issues #1306
+- [After 390x844 Dark Mobile Menu Open](assets/screenshots/issue-1306/after-390x844-dark-mobile-menu-open.png) - owner `frontend`; issues #1306
+- [After 390x844 Light Mobile Menu Open](assets/screenshots/issue-1306/after-390x844-light-mobile-menu-open.png) - owner `frontend`; issues #1306
+- [Before 1365x768 Dark Desktop Open](assets/screenshots/issue-1306/before-1365x768-dark-desktop-open.png) - owner `frontend`; issues #1306
+- [Before 1365x768 Light Desktop Closed](assets/screenshots/issue-1306/before-1365x768-light-desktop-closed.png) - owner `frontend`; issues #1306
+- [Before 1365x768 Light Desktop Open](assets/screenshots/issue-1306/before-1365x768-light-desktop-open.png) - owner `frontend`; issues #1306
+- [Before 390x844 Dark Mobile Menu Open](assets/screenshots/issue-1306/before-390x844-dark-mobile-menu-open.png) - owner `frontend`; issues #1306
+- [Before 390x844 Light Mobile Menu Open](assets/screenshots/issue-1306/before-390x844-light-mobile-menu-open.png) - owner `frontend`; issues #1306
+- [IntegrityProof Developer Implementation Notes](integrity/implementation-notes.md) - owner `backend`
+- [Issue #1013 runtime fallback retirement handoff](issue-1013-runtime-fallback-retirement-handoff.md) - owner `governance`; issues #1013
+- [Issue #1014 identity retirement handoff](issue-1014-identity-retirement-handoff.md) - owner `governance`; issues #1014
+- [Issue #1016 public shell sticky geometry handoff](issue-1016-public-shell-sticky-geometry-handoff.md) - owner `governance`; issues #1016
+- [Issue #1017 archive sticky offset handoff](issue-1017-archive-sticky-offset-handoff.md) - owner `governance`; issues #1017
+- [Issue #1018 public typography handoff](issue-1018-public-typography-handoff.md) - owner `governance`; issues #1018
+- [Issue #1019 public-home editorial handoff](issue-1019-public-home-editorial-handoff.md) - owner `governance`; issues #1019
+- [Issue #1020 content-driven cover handoff](issue-1020-content-cover-handoff.md) - owner `governance`; issues #1020
+- [Issue #1021 public chrome handoff](issue-1021-public-chrome-handoff.md) - owner `governance`; issues #1021
+- [Issue #1022 admin dashboard handoff](issue-1022-admin-dashboard-handoff.md) - owner `governance`; issues #1022
+- [Issue #1023 admin information-architecture handoff](issue-1023-admin-ia-handoff.md) - owner `governance`; issues #1023
+- [Issue #1024 immutable release identity handoff](issue-1024-release-identity-handoff.md) - owner `governance`; issues #1024
+- [Issue #1025 Blue/Green slot handoff](issue-1025-blue-green-slots-handoff.md) - owner `governance`; issues #1025
+- [Issue #1026 atomic gateway handoff](issue-1026-gateway-switch-handoff.md) - owner `governance`; issues #1026
+- [Issue #1027 deployment lifecycle handoff](issue-1027-deployment-lifecycle-handoff.md) - owner `governance`; issues #1027
+- [Issue #1028 integration handoff](issue-1028-online-migration-handoff.md) - owner `governance`; issues #1028
+- [Issues #1029 / #1031：Service Worker 浏览器证据交接](issue-1029-1031-service-worker-browser-handoff.md) - owner `governance`; issues #1029, #1031
+- [Issue #1029 implementation handoff](issue-1029-storage-lifecycle-handoff.md) - owner `governance`; issues #1029
+- [Issue #1030 集成 handoff](issue-1030-active-release-fencing-handoff.md) - owner `governance`; issues #1030
+- [Issue #1031 old frontend and retained asset compatibility handoff](issue-1031-asset-compatibility-handoff.md) - owner `governance`; issues #1031
+- [Issue 1031 Documentation Handoff](issue-1031-documentation-handoff.json) - owner `governance`; issues #1031
+- [Issue #1031 Online Migration Qualification Handoff](issue-1031-migration-qualification-handoff.md) - owner `governance`; issues #1031
+- [Issue #1031 Notification Evidence Handoff](issue-1031-notification-evidence-handoff.md) - owner `governance`; issues #1031
+- [Issue #1031 release evidence 测试交接](issue-1031-release-evidence-handoff.md) - owner `governance`; issues #1031
+- [Issue #1031：HTTP traffic probe 强证据交接](issue-1031-traffic-probe-handoff.md) - owner `governance`; issues #1031
+- [Issue #1031：正常 worker observer producer 交接](issue-1031-worker-normal-observer-handoff.md) - owner `governance`; issues #1031
+- [Issue #1031 worker reconciliation drill handoff](issue-1031-worker-reconciliation-handoff.md) - owner `governance`; issues #1031
+- [Issue #1031：零停机发布端到端演练编排交接](issue-1031-zero-downtime-rehearsal-handoff.md) - owner `governance`; issues #1031
+- [Issue #1041 executable data test governance](issue-1041-executable-data-test-governance.md) - owner `governance`; issues #1041
+- [Issue #1285 touch-target floor](issue-1285-touch-target-floor.md) - owner `governance`; issues #1285
+- [Issue #1287 article title authority](issue-1287-article-title-authority.md) - owner `governance`; issues #1287
+- [Issue #1289 loaded font-weight acceptance](issue-1289-loaded-font-weight-acceptance.md) - owner `governance`; issues #1289
+- [Issue #1291 account page title hierarchy](issue-1291-account-page-title-hierarchy.md) - owner `governance`; issues #1291
+- [Issue #1292 account navigation hierarchy](issue-1292-account-navigation-hierarchy.md) - owner `governance`; issues #1292
+- [Issue #1293 account integer typography](issue-1293-account-integer-typography.md) - owner `governance`; issues #1293
+- [Issue #1294 document Markdown layout](issue-1294-document-markdown-layout.md) - owner `governance`; issues #1294
+- [Issue #1306 PublicShell auth/search delegation handoff](issue-1306-public-shell-delegation-handoff.md) - owner `governance`; issues #1306
+- [Issue #1311 account header action handoff](issue-1311-account-header-actions.md) - owner `governance`; issues #1311
+- [A3-1 Upload session root-sweep retirement](releases/issue-1013-a3-1-upload-session-root-sweep.md) - owner `release`; issues #1013
+- [A3-2 Site-subscription HMAC cutover](releases/issue-1013-a3-2-subscription-hmac-cutover.md) - owner `release`; issues #1013
+- [A3-3 Article content-column fallback retirement](releases/issue-1013-a3-3-article-content-finalize.md) - owner `release`; issues #1013
+- [A3-4 Legacy plain-cookie read retirement](releases/issue-1013-a3-4-plain-cookie-read.md) - owner `release`; issues #1013
+- [A3-7 PublicAOT legacy sidecar-hash retirement](releases/issue-1013-a3-7-aot-sidecar-hash.md) - owner `release`; issues #1013
+- [A3-8 Legacy public-artifact clear migration](releases/issue-1013-a3-8-artifact-clear-migration.md) - owner `release`; issues #1013
+- [v1.1.0 Public Preview Readiness Snapshot](reports/open-source-readiness/v1.1.0-public-preview/README.md) - owner `governance`
+- [Dependency License Audit](reports/open-source-readiness/v1.1.0-public-preview/dependency-license-audit.json) - owner `governance`
+- [Dependency License Audit](reports/open-source-readiness/v1.1.0-public-preview/dependency-license-audit.md) - owner `governance`
+- [v1.1.0 Open Source Readiness Checklist](reports/open-source-readiness/v1.1.0-public-preview/readiness-checklist.md) - owner `governance`
+- [Secret Scan](reports/open-source-readiness/v1.1.0-public-preview/secret-scan.json) - owner `governance`
+- [Open Source Readiness Secret Scan](reports/open-source-readiness/v1.1.0-public-preview/secret-scan.md) - owner `governance`
+- [Snapshot Manifest](reports/open-source-readiness/v1.1.0-public-preview/snapshot-manifest.json) - owner `governance`
+- [Supply-Chain Audit](reports/open-source-readiness/v1.1.0-public-preview/supply-chain-audit.md) - owner `governance`
+- [Npm Audit](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/npm-audit.json) - owner `governance`
+- [Npm Audit](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/npm-audit.stderr) - owner `governance`
+- [Benchmarks Core FsusBlog.Core.Benchmarks.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/benchmarks__core__FsusBlog.Core.Benchmarks.csproj.json) - owner `governance`
+- [Src Backend FsusBlog.Server.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/src__backend__FsusBlog.Server.csproj.json) - owner `governance`
+- [Src Core FsusBlog.Core.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/src__core__FsusBlog.Core.csproj.json) - owner `governance`
+- [Src Shared FsusBlog.Shared.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/src__shared__FsusBlog.Shared.csproj.json) - owner `governance`
+- [Tests Backend FsusBlog.Server.Tests.csproj](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/nuget/tests__backend__FsusBlog.Server.Tests.csproj.json) - owner `governance`
+- [Summary](reports/open-source-readiness/v1.1.0-public-preview/supply-chain/summary.json) - owner `governance`
+- [Issue #1032：紧凑且无源码的删测前基线](testing/issue-1032-compact-retention-baseline.md) - owner `release`; issues #1032
+- [Issue #1036：隐私与身份切换伪 gate 的行为替代](testing/issue-1036-privacy-and-cutover-replacements.md) - owner `release`; issues #1036
+- [Issue #1038：端点安全契约改为 EndpointDataSource 与 TestServer](testing/issue-1038-endpoint-security-contract-replacements.md) - owner `release`; issues #1038
+- [Issue #1040：并发与状态机行为测试替换](testing/issue-1040-concurrency-state-machines.md) - owner `release`; issues #1040
+- [Issue #1042：HotPath 可执行测量交接](testing/issue-1042-hotpath-measurement-handoff.md) - owner `release`; issues #1042
+- [Issue #1045：匿名身份与评论协议行为交接](testing/issue-1045-anonymous-identity-behavior-handoff.md) - owner `release`; issues #1045
+- [Issue #1046：反爬虫与评论风险控制行为交接](testing/issue-1046-risk-control-behavior-handoff.md) - owner `release`; issues #1046
+- [Issue #1047：统计隐私、Taxonomy、ReadModel 与序列化交接](testing/issue-1047-projection-serialization-handoff.md) - owner `release`; issues #1047
+- [Issue #1063 AEDS Wasm throughput handoff](testing/issue-1063-aeds-wasm-throughput-handoff.md) - owner `release`; issues #1063
+- [Issue #1069：Production run-bound 构建输出](testing/issue-1069-run-bound-production-builds.md) - owner `release`; issues #1069
+- [Issue #1070：Production 物理 Artifact 摘要表](testing/issue-1070-production-artifact-digest-table.md) - owner `release`; issues #1070
+- [Production resource utilization evidence](testing/issue-1071-production-resource-utilization.md) - owner `release`; issues #1071
+- [Production cgroup and OCI resource enforcement](testing/issue-1072-production-resource-enforcement.md) - owner `release`; issues #1072
+- [Production Vitest rolling hosts](testing/issue-1073-production-vitest-rolling-hosts.md) - owner `release`; issues #1073
+- [Runtime browser counted slots (retired from correctness)](testing/issue-1074-runtime-browser-counted-slots.md) - owner `release`; issues #1074
+- [Production startup grants](testing/issue-1075-production-startup-grants.md) - owner `release`; issues #1075
+- [Frontend perf readiness](testing/issue-1076-frontend-perf-readiness.md) - owner `release`; issues #1076
+- [#1077 Live-grant command pools](testing/issue-1077-live-grant-command-pools.md) - owner `release`; issues #1077
+- [#1078 Immutable CI production build fan-out](testing/issue-1078-immutable-ci-production-builds.md) - owner `release`; issues #1078
+- [Issue #1079: Run-bound physical execution receipts](testing/issue-1079-run-bound-physical-execution.md) - owner `release`; issues #1079
+- [#1080 Resident Resource Lease 与跨 Bundle Handoff](testing/issue-1080-resident-resource-leases.md) - owner `release`; issues #1080
+- [#1081 Performance evidence marker DAG](testing/issue-1081-performance-evidence-marker-dag.md) - owner `release`; issues #1081
+- [Issue #1082：Production 单一异步日志管线](testing/issue-1082-async-log-pipeline.md) - owner `release`; issues #1082
+- [Issue #1083：前端构建 live grant stage DAG](testing/issue-1083-frontend-live-grant-build-dag.md) - owner `release`; issues #1083
+- [Issue #1084：persistent UX browser pool 退役边界](testing/issue-1084-persistent-ux-browser-pool.md) - owner `release`; issues #1084
+- [Issue #1085：公共路由真实状态门禁](testing/issue-1085-public-route-real-status.md) - owner `release`; issues #1085
+- [Issue #1087：标签 URL 单一身份](testing/issue-1087-tag-url-identity.md) - owner `release`; issues #1087
+- [Issue #1091 — Public SEO head contract verification](testing/issue-1091-public-seo-head.md) - owner `release`; issues #1091
+- [Issue #1095：本地 FsusUI 移动菜单动效验收](testing/issue-1095-local-fsusui-mobile-menu-motion.md) - owner `release`; issues #1095
+- [Issue #1096: Local FsusUI article theme verification](testing/issue-1096-local-fsusui-article-theme.md) - owner `release`; issues #1096
+- [Issue #1108 Service Worker cache verification](testing/issue-1108-service-worker-private-cache.md) - owner `release`; issues #1108
+- [Issue #1111 local verification](testing/issue-1111-audit-detached-checkpoints.md) - owner `release`; issues #1111
+- [Issue 1125: article outbox crash-window verification](testing/issue-1125-article-outbox-crash-window.md) - owner `release`; issues #1125
+- [Issue #1126 source-read convergence](testing/issue-1126-source-read-convergence.md) - owner `release`; issues #1126
+- [Issue #1128 fenced commit drills](testing/issue-1128-fenced-commit-drills.md) - owner `release`; issues #1128
+- [Issue #1141 local verification](testing/issue-1141-audit-retention.md) - owner `release`; issues #1141
+- [#1145 Public 合成矩阵轻量化交接](testing/issue-1145-browserless-public-contracts.md) - owner `release`; issues #1145
+- [#1146 Acceptance 轻量化交接](testing/issue-1146-lightweight-acceptance.md) - owner `release`; issues #1146
+- [#1148 Browser diagnostics 交接](testing/issue-1148-browser-diagnostics.md) - owner `release`; issues #1148
+- [#1149 Browser Contract 单命名空间夹具](testing/issue-1149-browser-contract-fixture.md) - owner `release`; issues #1149
+- [#1150 Browserless correctness 与单 Browser Contract 交接](testing/issue-1150-browserless-ci-topology.md) - owner `release`; issues #1150
+- [#1151 轻量测试 Evidence 治理](testing/issue-1151-evidence-governance.md) - owner `release`; issues #1151
+- [AEDS frame-cost evidence gate](testing/issue-1152-aeds-frame-cost-evidence.md) - owner `release`; issues #1152
+- [Frontend test support ownership](testing/issue-1173-frontend-test-support-ownership.md) - owner `release`; issues #1173
+- [C# entrypoint and protocol-fixture ownership](testing/issue-1174-csharp-entrypoint-ownership.md) - owner `release`; issues #1174
+- [Issue #1180 scheduler.yield local experiment](testing/issue-1180-scheduler-yield-experiment.md) - owner `release`; issues #1180
+- [Issue #1188 Passkey metadata / projection 验收](testing/issue-1188-passkey-metadata-projection.md) - owner `release`; issues #1188
+- [Issue 1189 Comment Moderation Window Verification](testing/issue-1189-comment-moderation-window.md) - owner `release`; issues #1189
+- [Issue 1211 article asset reference verification](testing/issue-1211-article-asset-reference-tests.md) - owner `release`; issues #1211
+- [Issue 1228 长会话消息分页验收](testing/issue-1228-message-thread-pagination.md) - owner `release`; issues #1228
+- [Issue 1243 router Session matrix](testing/issue-1243-router-session-matrix.md) - owner `release`; issues #1243
+- [Issue 1246 本地脱敏矩阵](testing/issue-1246-telemetry-redaction-matrix.md) - owner `release`; issues #1246
+- [Issue #1247 Private Navigation Matrix](testing/issue-1247-private-navigation-matrix.md) - owner `release`; issues #1247
+- [Issue #1248 private storage registry](testing/issue-1248-private-storage-registry.md) - owner `release`; issues #1248
+- [Issue 1249 本地会话刷新矩阵](testing/issue-1249-session-refresh-matrix.md) - owner `release`; issues #1249
+- [#1267 单一测试编排器](testing/issue-1267-single-orchestrator.md) - owner `release`; issues #1267
+- [Issue 1305 identity primitive evidence](testing/issue-1305-identity-primitives-evidence.md) - owner `release`; issues #1305
+- [Issues #1033–#1035：治理测试与阻塞 tier 收口](testing/issues-1033-1035-test-governance-retirements.md) - owner `release`; issues #1033, #1035
+
+## Generated
+
+- [Backend configuration reference (generated)](configuration/backend-configuration-reference.generated.md) - owner `backend`; producer `tools/configuration/check-backend-configuration-contract.mjs`
+- [Generated Test Matrix](testing.generated.md) - owner `release`; producer `tools/docs/generate-testing-docs.mjs`
+
+## Retired
+
+- None.
