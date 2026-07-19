@@ -17,7 +17,7 @@ import {
 } from './fixtures/issue-1152-aeds-frame-cost-fixture.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const policyFile = path.join(root, 'tests/perf/perf-policy.yml')
+const policyFile = path.join(root, 'tests/performance/perf-policy.yml')
 const policy = readAedsFrameCostPolicy(policyFile)
 
 function context(options = {}) {
@@ -222,7 +222,7 @@ test('lane remains browserless and uses the centralized policy and artifact gate
   assert.match(lane, /--finalize-aeds-frame-cost/u)
   assert.match(lane, /--validate-aeds-frame-cost/u)
   assert.match(lane, /--repo-root/u)
-  assert.match(lane, /tests\/perf\/perf-policy\.yml/u)
+  assert.match(lane, /tests\/performance\/perf-policy\.yml/u)
   assert.doesNotMatch(lane, /playwright|chromium|firefox|webkit/ui)
   assert.match(profiler, /same-process-release-artifact-multi-round/u)
   assert.match(profiler, /samplesMs/u)

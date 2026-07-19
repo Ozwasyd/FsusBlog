@@ -184,7 +184,7 @@ test('ordinary correctness excludes browser-only suites and diagnostics owns the
   assert.doesNotMatch(qualityGate, /^  (?:visual-public|visual-console|visual|ux-viewport-smoke|ux-viewport-visual|ux-viewport-boundaries|cross-browser-smoke):/mu)
   assert.doesNotMatch(qualityGate, /browser-performance-regression\.sh/u)
   assert.doesNotMatch(qualityGate, /playwright\.diagnostics\.config\.ts/u)
-  assert.doesNotMatch(read('tools/test/legacy-test.sh'), /playwright\.diagnostics\.config\.ts/u)
+  assert.doesNotMatch(read('tools/test/lanes/_suite-support.sh'), /playwright\.diagnostics\.config\.ts/u)
   for (const diagnosticLane of [
     'visual-public-playwright.sh',
     'visual-console-playwright.sh',

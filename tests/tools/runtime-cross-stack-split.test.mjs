@@ -5,7 +5,7 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
+const legacy = fs.readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8')
 const bundle = fs.readFileSync(path.join(root, 'tools/test/bundles/bundle-steps.mjs'), 'utf8')
 const staticPhase = legacy.slice(
   legacy.indexOf('RunCrossStackStaticContracts()'),
@@ -54,7 +54,7 @@ test('cross-stack runtime phase binds the exact browser probe to the bootstrappe
 })
 
 test('runtime bundle starts static cross-stack early and joins both halves as one logical tier', () => {
-  assert.match(bundle, /step\('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools\/test\/legacy-test\.sh cross-stack-contract static', \[\], \{\s*dependsOn: \['security-static', 'backend-build-ready'\]/u)
-  assert.match(bundle, /step\('cross-stack-runtime', 'tools\/test\/legacy-test\.sh cross-stack-contract runtime', \[\], \{\s*dependsOn: \['runtime-integration'\]/u)
+  assert.match(bundle, /step\('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools\/test\/lanes\/cross-stack-contract\.sh static', \[\], \{\s*dependsOn: \['security-static', 'backend-build-ready'\]/u)
+  assert.match(bundle, /step\('cross-stack-runtime', 'tools\/test\/lanes\/cross-stack-contract\.sh runtime', \[\], \{\s*dependsOn: \['runtime-integration'\]/u)
   assert.match(bundle, /step\('cross-stack-join', null, \['cross-stack-contract'\],[\s\S]*?dependsOn: \['cross-stack', 'cross-stack-runtime'\],[\s\S]*?runAfterSettled: true,[\s\S]*?coordinationOnly: true/u)
 })

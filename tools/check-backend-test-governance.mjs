@@ -18,7 +18,7 @@ const aedsCatalog = JSON.parse(readFileSync(resolve(root, aedsCatalogPath), 'utf
 const matrix = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8')
 const matrixTierCommands = new Map(parseMatrix(matrix).tiers.map((tier) => [tier.id, tier.command]))
 const testSh = readFileSync(resolve(root, 'tools/test.sh'), 'utf8')
-const legacyTest = readFileSync(resolve(root, 'tools/test/legacy-test.sh'), 'utf8')
+const legacyTest = readFileSync(resolve(root, 'tools/test/lanes/_suite-support.sh'), 'utf8')
 const serverProject = readFileSync(resolve(root, 'src/backend/FsusBlog.Server.csproj'), 'utf8')
 const dotnetToolManifestPath = '.config/dotnet-tools.json'
 const defaultStrykerConfigPath = 'config/testing/mutation/default.json'

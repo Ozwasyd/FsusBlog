@@ -67,7 +67,7 @@ EOF
 console.log('[flaky] ok')
 EOF
 
-    cat >"$tempDir/tools/test/legacy-test.sh" <<'EOF'
+    cat >"$tempDir/tools/test/lanes/_suite-support.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
@@ -119,7 +119,7 @@ EOF
         "$tempDir/tools/ci/check-flaky-registry.mjs" \
         "$tempDir/tools/ci/check-flaky-evidence.mjs" \
         "$tempDir/tools/ci/run-flaky-governed.mjs" \
-        "$tempDir/tools/test/legacy-test.sh" \
+        "$tempDir/tools/test/lanes/_suite-support.sh" \
         "$tempDir/tools/ok.sh" \
         "$tempDir/tools/check-gate-integrity.sh" \
         "$tempDir/tools/test/lanes/noop.sh" \
@@ -157,8 +157,7 @@ on:
 jobs:
   validate-matrix:
     steps:
-      - run: node tools/run-test-matrix.mjs preflight
-      - run: node tools/run-test-matrix.mjs validate
+      - run: tools/test/run-matrix-governance-once.sh validate-matrix
       - run: node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json
   coverage:
     steps:
@@ -379,11 +378,11 @@ function scanWorkflow(file) {
     if (!text.includes('production-summary:')) {
       addError(`${file} is missing production-summary job`);
     }
-    if (!text.includes('node tools/run-test-matrix.mjs preflight')) {
-      addError(`${file} does not run matrix preflight`);
+    if (!text.includes('tools/test/run-matrix-governance-once.sh validate-matrix')) {
+      addError(`${file} does not run the canonical matrix governance owner`);
     }
-    if (!text.includes('node tools/run-test-matrix.mjs validate')) {
-      addError(`${file} does not validate tests/matrix.yml`);
+    if (/node tools\/run-test-matrix\.mjs (?:preflight|validate|evidence-plan)/u.test(text)) {
+      addError(`${file} bypasses the canonical matrix governance owner`);
     }
     if (!text.includes('node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json')) {
       addError(`${file} must write the CI plan with run-test-matrix --out`);
@@ -452,7 +451,7 @@ function requirePath(rel, executable = false) {
 
 const requiredPaths = [
   'tools/test.sh',
-  'tools/test/legacy-test.sh',
+  'tools/test/lanes/_suite-support.sh',
   'tools/run-test-matrix.mjs',
   'tools/ci/summarize-quality-gate.mjs',
   'tools/ci/check-job-summaries.mjs',

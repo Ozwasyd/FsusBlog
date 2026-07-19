@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    printf '[test] _suite-support.sh is source-only; use ./tools/test.sh <tier>\n' >&2
+    exit 2
+fi
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"
 BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
@@ -306,7 +311,7 @@ EnsureWasmOnce() {
         --path src/frontend/wasm \
         --path tools/frontend/ensure-wasm.mjs \
         --path tools/frontend/install-wasm-codec-deps.sh \
-        --path tools/test/legacy-test.sh \
+        --path tools/test/lanes/_suite-support.sh \
         --value ensure-wasm-v1)"
     RunOnceCommand \
         ensure-wasm \
@@ -324,7 +329,7 @@ PrepareAuthFixturesOnce() {
         --path tests/frontend/support/session-fixtures.mjs \
         --path tests/frontend/support/fixture-paths.mjs \
         --path tests/frontend/support/test-session.mjs \
-        --path tools/test/legacy-test.sh \
+        --path tools/test/lanes/_suite-support.sh \
         --value auth-fixtures-v2 \
         --value "namespace=${FSUSBLOG_TEST_NAMESPACE:-local}" \
         --value "session-prefix=${FSUSBLOG_TEST_SESSION_PREFIX:-pw}" \
@@ -373,7 +378,7 @@ PreparePublicFixturesOnce() {
         --path tests/frontend/fixtures/discover-playwright-fixtures.mjs \
         --path tests/frontend/support/aeds-envelope.mjs \
         --path tests/frontend/support/fixture-paths.mjs \
-        --path tools/test/legacy-test.sh \
+        --path tools/test/lanes/_suite-support.sh \
         --value "${FSUSBLOG_TEST_NAMESPACE:-local}" \
         --value "service-generation=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-unbootstrapped}" \
         --value "${FSUSBLOG_BASE_URL:-$DEBUG_BACKEND_URL}" \
@@ -396,7 +401,7 @@ PrepareSessionFixturesOnce() {
         --path tests/frontend/support/session-fixtures.mjs \
         --path tests/frontend/support/fixture-paths.mjs \
         --path tests/frontend/support/test-session.mjs \
-        --path tools/test/legacy-test.sh \
+        --path tools/test/lanes/_suite-support.sh \
         --value "namespace=${FSUSBLOG_TEST_NAMESPACE:-local}" \
         --value "session-prefix=${FSUSBLOG_TEST_SESSION_PREFIX:-pw}" \
         --value "service-generation=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-unbootstrapped}" \
@@ -1089,7 +1094,7 @@ EnsureBackendFilteredBuild() {
             --path Directory.Build.props \
             --path FsusBlog.slnx \
             --path tools/build-with-data-env.sh \
-            --path tools/test/legacy-test.sh \
+            --path tools/test/lanes/_suite-support.sh \
             --value "$fingerprintVariant" \
             --value "dotnet-sdk=$dotnetSdkVersion" \
             --value "source-commit=${FSUSBLOG_TEST_SOURCE_COMMIT}" \
@@ -1108,7 +1113,7 @@ EnsureBackendFilteredBuild() {
             --path tools/architecture/FsusBlog.DiLifetimeAnalyzer \
             --path tools/security/ZkCommentV2MclFixture \
             --path tools/build-with-data-env.sh \
-            --path tools/test/legacy-test.sh \
+            --path tools/test/lanes/_suite-support.sh \
             --value "$fingerprintVariant" \
             --value "dotnet-sdk=$dotnetSdkVersion")" || return $?
     fi
@@ -1377,18 +1382,6 @@ RunBackendMutationCriticalOnly() {
         "$ROOT_DIR/.tmp/mutation/backend-critical/authority.json"
 }
 
-RunBackendNightlyOnly() {
-    RunBackendGovernanceChecks
-    RunBackendDotnetFilterOnly "Category=Property|Category=GoldenContract|Category=Concurrency|Category=SecurityStateMachine|Category=ApiIntegration" backend-nightly-selection
-    RunBackendPerfOnly backend-nightly-performance
-    if [[ "${FSUSBLOG_RUN_BACKEND_MUTATION_FULL:-0}" == "1" ]]; then
-        RunBackendMutationOnly
-    else
-        Log "skip backend mutation full run (set FSUSBLOG_RUN_BACKEND_MUTATION_FULL=1)"
-    fi
-    WriteBackendSplitSummary backend-nightly exhaustive-readiness
-}
-
 RunCrossStackStaticContracts() {
     FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild || return $?
     FSUSBLOG_OPENAPI_BUILD=0 Run "$ROOT_DIR/tools/contracts/export-openapi.sh"
@@ -1449,7 +1442,7 @@ RunFrontendFastBuildGroup() {
         --path src/frontend/scripts
         --path src/frontend/src
         --path tools/frontend
-        --path tools/test/legacy-test.sh
+        --path tools/test/lanes/_suite-support.sh
         --value frontend-release-build-v2
     )
     local key value tsconfig
@@ -1558,7 +1551,7 @@ RunFrontendPropertyModelPerfLane() {
 RunFrontendFastRuntimeContractsGroupBody() {
     RunInClient "${FSUSBLOG_NODE:-node}" \
         ../../tools/test/run-command-manifest.mjs \
-        ../../tests/frontend/checks/runtime/manifest.json
+        --matrix-group frontend-runtime-contracts
 }
 
 RunFrontendFastRuntimeContractsGroup() {
@@ -1576,7 +1569,7 @@ RunFrontendRuntimeContractsLane() {
 RunFrontendFastStaticGovernanceGroupBody() {
     RunInClient "${FSUSBLOG_NODE:-node}" \
         ../../tools/test/run-command-manifest.mjs \
-        ../../tests/frontend/checks/static/manifest.json
+        --matrix-group frontend-static-governance
 }
 
 RunFrontendFastStaticGovernanceGroup() {
@@ -1614,9 +1607,6 @@ RunFastOnly() {
     RunFastBackendLane
 }
 
-RunFast() {
-    RunTier "fast" RunFastOnly
-}
 
 RunIntegrationOnly() {
     Log "tier=integration | debug runtime validation, requires frontend=3000 backend=5000"
@@ -1684,15 +1674,7 @@ RunIntegrationOnly() {
     WriteRuntimeLaneSummary integration
 }
 
-RunIntegration() {
-    RunTier "integration" RunIntegrationOnly
-}
 
-RunCi() {
-    Log "tier=ci | fast + integration"
-    RunTier "fast" RunFastOnly
-    RunTier "integration" RunIntegrationOnly
-}
 
 RunCoverageBackendOnly() {
     Log "tier=coverage-backend | server xUnit coverage collection"
@@ -1704,22 +1686,13 @@ RunCoverageFrontendOnly() {
     Run bash "$ROOT_DIR/tools/coverage/collect-frontend-coverage.sh"
 }
 
-RunCoverageBackend() {
-    RunTier "coverage-backend" RunCoverageBackendOnly
-}
 
-RunCoverageFrontend() {
-    RunTier "coverage-frontend" RunCoverageFrontendOnly
-}
 
 RunCoverageMergeOnly() {
     Log "tier=coverage-merge | merge available coverage artifacts"
     Run bash "$ROOT_DIR/tools/coverage/merge-coverage.sh"
 }
 
-RunCoverageMerge() {
-    RunTier "coverage-merge" RunCoverageMergeOnly
-}
 
 RunCoverageThresholdOnly() {
     Log "tier=coverage-threshold | enforce merged coverage thresholds"
@@ -1749,9 +1722,6 @@ RunCoverageThresholdOnly() {
         bash "$ROOT_DIR/tools/coverage/check-threshold.sh"
 }
 
-RunCoverageThreshold() {
-    RunTier "coverage-threshold" RunCoverageThresholdOnly
-}
 
 RunCoverageGateOnly() {
     Log "tier=coverage-gate | collect + merge + enforce thresholds"
@@ -1761,9 +1731,6 @@ RunCoverageGateOnly() {
     RunCoverageThresholdOnly
 }
 
-RunCoverageGate() {
-    RunTier "coverage-gate" RunCoverageGateOnly
-}
 
 RunReleasePublicHydrationPrepareOnly() {
     Log "tier=release-public-hydration | settle AOT hydration writes before release preview readers"
@@ -1809,9 +1776,6 @@ RunReleaseOnly() {
     Log "release browser-only hydration/search/PWA risks are delegated to browser-contract (#1147)"
 }
 
-RunRelease() {
-    RunTier "release" RunReleaseOnly
-}
 
 RunAcceptanceOnly() {
     if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS:-0}" != "1" && "${MATRIX_JOB:-}" != "browser-diagnostics" ]]; then
@@ -1847,14 +1811,6 @@ RunAcceptanceOnly() {
     RunInClient npm run check:acceptance:console
 }
 
-RunAcceptance() {
-    Log "tier=acceptance | bootstrap + fast + integration + release + full acceptance e2e"
-    BootstrapAcceptanceEnv
-    RunTier "fast" RunFastOnly
-    RunTier "integration" RunIntegrationOnly
-    RunTier "release" RunReleaseOnly
-    RunTier "acceptance" RunAcceptanceOnly
-}
 
 RunVisualOnly() {
     Log "tier=visual | dark/mobile visual gates"
@@ -1895,11 +1851,6 @@ RunVisualConsoleOnly() {
     RunVisualGroupCheck console npm run check:visual:console
 }
 
-RunVisual() {
-    Log "tier=visual | bootstrap + dark/mobile visual gates"
-    BootstrapAcceptanceEnv
-    RunTier "visual" RunVisualOnly
-}
 
 RunSecurityStaticOnly() {
     Log "tier=security-static | matrices/supply-chain/network/SBOM policy gates"
@@ -2025,11 +1976,6 @@ RunSecurityOnly() {
         "security-runtime-core::RunSecurityRuntimeCoreOnly"
 }
 
-RunSecurity() {
-    Log "tier=security | bootstrap + auth/mfa/passkey/pow/permission/attack gates"
-    BootstrapAcceptanceEnv
-    RunTier "security" RunSecurityOnly
-}
 
 RunResilienceOnly() {
     Log "tier=resilience | runtime/upload/search/notification-stream/binary resilience"
@@ -2051,11 +1997,6 @@ RunResilienceOnly() {
     WriteRuntimeLaneSummary resilience
 }
 
-RunResilience() {
-    Log "tier=resilience | bootstrap + runtime/upload/search/notification-stream/binary resilience"
-    BootstrapAcceptanceEnv
-    RunTier "resilience" RunResilienceOnly
-}
 
 RunLoadOnly() {
     Log "tier=load | lightweight public/api and notification stream concurrency checks"
@@ -2072,219 +2013,3 @@ RunLoadOnly() {
     ResetSecurityRuntimeState "pre notification stream pressure"
     RunInClient npm run check:load:notification-stream-pressure
 }
-
-RunLoad() {
-    Log "tier=load | bootstrap + lightweight public/api and notification stream concurrency checks"
-    BootstrapAcceptanceEnv
-    RunTier "load" RunLoadOnly
-}
-
-RunProductionCorrectness() {
-    Log "tier=production-correctness | browserless industrial correctness gate with one post-fast runtime bootstrap"
-
-    RunTier "fast" RunFastOnly
-
-    CURRENT_TIER="production-correctness"
-    export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
-    # Fast rebuilds backend StaticWebAssets and frontend release assets. Force the
-    # shared runtime to restart once here so the remaining gates validate the
-    # just-built code and asset generation instead of a previously healthy stack.
-    local previousForceBootstrap="${FSUSBLOG_FORCE_BOOTSTRAP-}"
-    export FSUSBLOG_FORCE_BOOTSTRAP=1
-    BootstrapAcceptanceEnv
-    if [[ -n "$previousForceBootstrap" ]]; then
-        export FSUSBLOG_FORCE_BOOTSTRAP="$previousForceBootstrap"
-    else
-        unset FSUSBLOG_FORCE_BOOTSTRAP
-    fi
-    RunTier "release" RunReleaseOnly
-
-    RunTier "integration" RunIntegrationOnly
-    RunTier "security" RunSecurityOnly
-
-    RunTier "resilience" RunResilienceOnly
-
-    RunTier "load" RunLoadOnly
-    Run "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
-    Run "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs"
-}
-
-RunProduction() {
-    RunProductionCorrectness
-}
-
-Usage() {
-    cat <<'EOF'
-Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|security-static-phase|security-runtime-core|resilience|load|production-correctness|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-mutation-critical|backend-nightly|cross-stack-contract|backend-trx-contract-dry-run>
-
-Tiers:
-  fast         Static and local-only validation; no running services required.
-  integration  Debug runtime validation; requires frontend=3000 and backend=5000.
-  ci           Standard gate; runs fast + integration.
-  coverage-backend  Collect server-side xUnit coverage artifacts into .tmp/coverage.
-  coverage-frontend Collect frontend Vitest coverage artifacts into .tmp/coverage.
-  coverage-merge    Merge available coverage artifacts under .tmp/coverage into one summary.
-  coverage-threshold Enforce merged + backend-only coverage thresholds (defaults: line/branch/method 100%).
-  coverage-gate     One-shot coverage gate: backend + frontend + merge + threshold.
-  coverage          Alias for coverage-gate.
-  release      Release preview validation; requires preview at 8080.
-  acceptance   Diagnostics-only full Playwright acceptance; use browser-diagnostics for the managed entry.
-  visual       Diagnostic-only visual gate for public + console screenshot baselines; excluded from production correctness.
-  security     Auth/session/MFA/permission/attack security gate; rendered a11y runs in browser diagnostics.
-  security-static-phase  Bootstrap-free security matrices, supply-chain, network and SBOM phase.
-  security-runtime-core  Runtime-only auth/session/MFA/permission/attack phase; requires bootstrapped services.
-  resilience   Runtime/upload/search resilience gate.
-  load         Lightweight public/API concurrency gate.
-  production-correctness Industrial browserless correctness gate; runs fast, bootstraps once, then release + integration + security + resilience + load.
-  production   Compatibility alias for production-correctness.
-  backend-api-integration       Backend endpoint/API matrix contract tier.
-  backend-auth-state-machine    Backend auth/MFA/PoW/session state-machine tier.
-  backend-concurrency           Backend deterministic race/idempotency tier.
-  backend-property              Backend property-based protocol/cache/upload tier.
-  backend-golden                Backend AEDS/POD golden catalog tier.
-  backend-test-governance       Backend traceability/profile/static governance tier.
-  backend-perf                  Shared Release readiness plus isolated native verifier P99 tier.
-  backend-mutation              Backend Stryker.NET mutation tier.
-  backend-mutation-critical     Release-critical AEDS/JWT/cache/binary/notification Stryker slice.
-  backend-nightly               Backend exhaustive nightly readiness tier. Set FSUSBLOG_RUN_BACKEND_MUTATION_FULL=1 to include full mutation.
-  cross-stack-contract          Browserless frontend/backend binary contract, API parity, schema sync, negative and coherence governance tier.
-EOF
-}
-
-Main() {
-    local tier="${1:-}"
-    case "$tier" in
-        fast)
-            CURRENT_TIER="fast"
-            RunFast
-            ;;
-        integration)
-            CURRENT_TIER="integration"
-            RunIntegration
-            ;;
-        ci)
-            CURRENT_TIER="ci"
-            RunCi
-            ;;
-        coverage-backend)
-            CURRENT_TIER="coverage-backend"
-            RunCoverageBackend
-            ;;
-        coverage-frontend)
-            CURRENT_TIER="coverage-frontend"
-            RunCoverageFrontend
-            ;;
-        coverage-merge)
-            CURRENT_TIER="coverage-merge"
-            RunCoverageMerge
-            ;;
-        coverage-threshold)
-            CURRENT_TIER="coverage-threshold"
-            RunCoverageThreshold
-            ;;
-        coverage | coverage-gate)
-            CURRENT_TIER="coverage-gate"
-            RunCoverageGate
-            ;;
-        release)
-            CURRENT_TIER="release"
-            RunRelease
-            ;;
-        acceptance)
-            CURRENT_TIER="acceptance"
-            RunAcceptance
-            ;;
-        visual)
-            CURRENT_TIER="visual"
-            RunVisual
-            ;;
-        security)
-            CURRENT_TIER="security"
-            RunSecurity
-            ;;
-        security-static-phase)
-            CURRENT_TIER="security"
-            RunTier "security" RunSecurityStaticOnly
-            ;;
-        security-runtime-core)
-            CURRENT_TIER="security"
-            RunTier "security" RunSecurityRuntimeCoreOnly
-            ;;
-        resilience)
-            CURRENT_TIER="resilience"
-            RunResilience
-            ;;
-        load)
-            CURRENT_TIER="load"
-            RunLoad
-            ;;
-        production-correctness)
-            CURRENT_TIER="production-correctness"
-            RunProductionCorrectness
-            ;;
-        production)
-            CURRENT_TIER="production"
-            RunProduction
-            ;;
-        backend-api-integration)
-            CURRENT_TIER="backend-api-integration"
-            RunTier "backend-api-integration" RunBackendApiIntegrationOnly
-            ;;
-        backend-auth-state-machine)
-            CURRENT_TIER="backend-auth-state-machine"
-            RunTier "backend-auth-state-machine" RunBackendAuthStateMachineOnly
-            ;;
-        backend-concurrency)
-            CURRENT_TIER="backend-concurrency"
-            RunTier "backend-concurrency" RunBackendConcurrencyOnly
-            ;;
-        backend-property)
-            CURRENT_TIER="backend-property"
-            RunTier "backend-property" RunBackendPropertyOnly
-            ;;
-        backend-golden)
-            CURRENT_TIER="backend-golden"
-            RunTier "backend-golden" RunBackendGoldenOnly
-            ;;
-        backend-test-governance)
-            CURRENT_TIER="backend-test-governance"
-            RunTier "backend-test-governance" RunBackendTestGovernanceOnly
-            ;;
-        backend-perf)
-            CURRENT_TIER="backend-perf"
-            RunTier "backend-perf" RunBackendPerfOnly
-            ;;
-        backend-mutation)
-            CURRENT_TIER="backend-mutation"
-            RunTier "backend-mutation" RunBackendMutationOnly
-            ;;
-        backend-mutation-critical)
-            CURRENT_TIER="backend-mutation-critical"
-            RunTier "backend-mutation-critical" RunBackendMutationCriticalOnly
-            ;;
-        backend-nightly)
-            CURRENT_TIER="backend-nightly"
-            RunTier "backend-nightly" RunBackendNightlyOnly
-            ;;
-        cross-stack-contract)
-            CURRENT_TIER="cross-stack-contract"
-            RunTier "cross-stack-contract" RunCrossStackContractOnly "${2:-static}"
-            ;;
-        backend-trx-contract-dry-run)
-            CURRENT_TIER="backend-trx-contract-dry-run"
-            shift
-            WriteBackendTrxContractDryRun "$@"
-            ;;
-        -h | --help | help | '')
-            Usage
-            ;;
-        *)
-            Usage
-            Fail "unknown tier: $tier"
-            ;;
-    esac
-}
-
-if [[ "${FSUSBLOG_TEST_LEGACY_SOURCE_ONLY:-0}" != "1" ]]; then
-    Main "$@"
-fi

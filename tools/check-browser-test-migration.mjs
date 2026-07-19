@@ -27,7 +27,7 @@ function unique(values) {
 function normalizeRecord(record, defaults = {}) {
   const merged = {
     ...defaults,
-    ...record,
+    ...Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)),
     browserOnlyRisk: {
       ...(defaults.browserOnlyRisk ?? {}),
       ...(record.browserOnlyRisk ?? {})
@@ -69,7 +69,13 @@ export function expandBrowserTestMigrationManifest(manifest, loadJson) {
     }
     const imported = loadJson(declaration.path)
     const fieldMap = declaration.fieldMap ?? {}
-    for (const source of selectArray(imported, declaration.selector)) {
+    const allowedIds = declaration.idBaseline
+      ? new Set(selectArray(loadJson(declaration.idBaseline), 'records')
+        .filter((record) => !declaration.disposition || record?.disposition === declaration.disposition)
+        .map((record) => record?.id))
+      : null
+    for (const source of selectArray(imported, declaration.selector)
+      .filter((record) => !allowedIds || allowedIds.has(record?.id))) {
       records.push(normalizeRecord({
         sourceFile: source?.[fieldMap.sourceFile],
         sourceTestId: source?.[fieldMap.sourceTestId],

@@ -1,8 +1,0 @@
-{
-    "schema": "fsusblog.issue-test-retention-replacements.v1",
-    "issue": 1013,
-    "baseline": "tests/test-retention-before.json",
-    "expectedDeletedTestIds": 0,
-    "deletedTests": [],
-    "reason": "Issue #1013 adds one consolidated fallback-retirement acceptance owner and milestone evidence without deleting or replacing an existing test id."
-}

@@ -230,8 +230,6 @@
         "check:load:notification-stream-pressure": "node ../../tests/frontend/checks/load/check-notification-stream-pressure.mjs",
         "check:load": "npm run check:load:public-api && npm run check:load:notification-stream-pressure",
         "check:a11y:smoke": "node ../../tests/frontend/checks/runtime/check-a11y-smoke.mjs",
-        "check:acceptance": "echo '[deprecated] use npm run test:release' >&2 && npm run test:release",
-        "check:full-regression": "bash ../../tools/frontend/full-regression.sh",
         "build": "npm run build:release",
         "preview": "vite preview --host 0.0.0.0 --port 8080",
         "check:auth-zero-probe": "node ../../tests/frontend/checks/runtime/zero-auth-probe-matrix.mjs"

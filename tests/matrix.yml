@@ -1,5 +1,85 @@
 version: fsusblog-test-matrix-v2
 namespaceTemplate: ${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${MATRIX_JOB:-local}-${MATRIX_SHARD:-0}
+governance:
+    retention:
+        baseline: tests/test-retention-before.json
+        replacementLedger: tests/test-retention-replacements.json
+        postBaselines: [tests/issue-1146-acceptance-baseline.json]
+        auditOutput: .tmp/release-evidence/test-retention-audit.json
+        automaticDeletion: false
+    sourceLocking:
+        backendOwner: tools/check-test-suite-convergence.mjs
+        frontendOwner: tests/frontend/checks/static/check-frontend-test-governance.mjs
+        fixtureReaderOwners:
+            - {path: tests/frontend/unit/protocol/aeds-contract.test.ts, reason: "protocol hex fixtures"}
+            - {path: tests/frontend/unit/services/binaryTransport.test.ts, reason: "binary transport hex fixtures"}
+            - {path: tests/frontend/unit/view-contracts/coverArt.test.ts, reason: "checked-in cover artifact fixtures"}
+        delegatedOwners: []
+    retiredTiers:
+        - {from: backend-chaos, to: backend-concurrency, coverageIds: [backend-fault-race-readiness, backend-race-idempotency-model], reason: "backend-chaos duplicated the same Category=Concurrency selection; backend-concurrency owns the fault/race evidence."}
+        - from: ux-viewport-canary-parity
+          to: ux-viewport-boundaries
+          coverageIds: [ux-viewport-plan-progress, ux-viewport-boundary-full, ux-viewport-visual]
+          catalogReplacements:
+              productionRequiredTierIds:
+                  - {from: ux-viewport-canary-parity, to: ux-viewport-plan-progress}
+              coverageIds:
+                  - {from: ux-viewport-canary-parity, to: ux-viewport-boundary-full}
+              matrixArtifactPaths:
+                  - {from: .tmp/release-evidence/ux-viewport-canary-parity.json, to: .tmp/release-evidence/ux-viewport-summary.json}
+                  - {from: .tmp/ux/canary-parity, to: .tmp/ux/viewport-boundaries.json}
+              matrixEvidencePaths:
+                  - {from: .tmp/release-evidence/ux-viewport-canary-parity.json, to: .tmp/release-evidence/ux-viewport-summary.json}
+              releaseEvidencePaths:
+                  - {from: .tmp/release-evidence/ux-viewport-canary-parity.json, to: .tmp/release-evidence/ux-viewport-summary.json}
+          reason: "Current boundary planning, execution and visual evidence replace the incomplete historical canary parity lane."
+commandGroups:
+    frontend-static-governance:
+        schema: "fsusblog.frontend-static-command-manifest.v2"
+        lane: "frontend-static-governance"
+        commands:
+            - {id: "frontend-test-governance", script: "check:frontend-test-governance", access: "read", stage: "blocking-prebuild", reason: "Validates the Vitest and test-lane admission contract before test execution starts.", consumedInputs: ["src/frontend/vitest*.{ts,mjs}", "tests/frontend", "tools/test"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "frontend-test-layout", script: "check:frontend-test-layout", access: "read", stage: "blocking-prebuild", reason: "Rejects a secondary frontend test root and validates canonical setup, support, fixture, runner, and transform-cache ownership before Vitest starts.", consumedInputs: ["tests/governance/frontend-test-layout.json", "tests/frontend", "src/frontend/vitest*.{ts,mjs}", "src/frontend/vite.config.ts", "tools/test/frontend-vitest-transform-cache.mjs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "csharp-entrypoint-ownership", script: "check:csharp-entrypoint-ownership", access: "read", stage: "blocking-prebuild", reason: "Rejects C# entrypoints under the JavaScript frontend root and any executable source without explicit project or file-app ownership before frontend build work starts.", consumedInputs: ["tests/governance/csharp-entrypoint-ownership.json", "src", "benchmarks", "tests/backend", "tools"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "test-execution-optimization", script: "check:test-execution-optimization", access: "read", stage: "blocking-prebuild", reason: "Fail-closes invalid production test topology before Vitest consumes that topology.", consumedInputs: ["tools/test", "tests/matrix.yml", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "browser-contract-fixture", script: "check:browser-contract-fixture", access: "write", stage: "concurrent", reason: "Exercises the sealed single-namespace fixture lifecycle through injected providers and process-unique temporary roots without starting a browser or shared services.", consumedInputs: ["tests/browser-contract", "tests/tools/issue-1149-browser-contract-fixture.test.mjs", "tests/tools/issue-1149-session-isolation.test.mjs", "src/frontend/package.json"], ownedOutputs: ["os-temp://fsus-browser-contract-fixture-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "api-parity", script: "check:contract:api-parity", access: "read", stage: "concurrent", reason: "Reads API declarations only and does not mutate Vitest inputs or results.", consumedInputs: ["src/frontend/src/api", "src/shared/Contracts", "docs/api"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "binary-import-boundaries", script: "check:binary-import-boundaries", access: "read", stage: "concurrent", reason: "Builds the frontend import graph and validates the binary contracts, adapter, transport, worker, and composition boundaries without writing shared output.", consumedInputs: ["src/frontend/src/contracts", "src/frontend/src/codecs", "src/frontend/src/api", "src/frontend/src/adapters/binary", "src/frontend/src/services/binaryTransport.ts", "src/frontend/src/composition", "src/frontend/src/workers/wasmDecode.worker.ts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "frame-schema", script: "check:contract:frame-schema", access: "read", stage: "concurrent", reason: "Reads generated frame contracts without writing generated contract files.", consumedInputs: ["src/core/Algorithms", "src/shared/Contracts", "src/frontend/src/generated"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "cross-stack-test-governance", script: "check:cross-stack-test-governance", access: "read", stage: "concurrent", reason: "Audits cross-stack test declarations independently of Vitest outputs.", consumedInputs: ["tests/frontend", "tests/backend", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "modern-standards", script: "check:modern-standards", access: "read", stage: "concurrent", reason: "Scans source standards without touching build or test artifacts.", consumedInputs: ["src/frontend/src", "tests/frontend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "result-boundaries", script: "check:result-boundaries", access: "read", stage: "concurrent", reason: "Checks result boundaries from source only.", consumedInputs: ["src/frontend/src", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "error-code-alignment", script: "check:error-code-alignment", access: "read", stage: "concurrent", reason: "Compares error-code declarations without producing shared output.", consumedInputs: ["src/frontend/src", "src/shared/Contracts", "docs/api"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "runtime-message-branching", script: "check:no-runtime-message-branching", access: "read", stage: "concurrent", reason: "Scans runtime message handling and does not share Vitest state.", consumedInputs: ["src/frontend/src"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "security-consistency", script: "check:security-consistency", access: "read", stage: "concurrent", reason: "Reads security contracts without changing generated contracts or test results.", consumedInputs: ["src/frontend/src", "src/backend/Infrastructure", "docs/security.md"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "server-try-catch", script: "check:server-try-catch", access: "read", stage: "concurrent", reason: "Performs a source-only server exception-pattern audit.", consumedInputs: ["src/backend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "asset-size-budget", script: "check:asset-size-budget", access: "write", stage: "postbuild", reason: "Consumes the completed frontend dist tree and owns its asset-budget evidence.", consumedInputs: ["src/frontend/dist"], ownedOutputs: [".tmp/frontend/asset-size-budget.json"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.75, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}}
+            - {id: "public-private-data-leakage", script: "check:public-private-data-leakage", access: "read", stage: "concurrent", reason: "Audits public/private source boundaries without writing shared artifacts.", consumedInputs: ["src/frontend/src", "src/backend", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "public-aot-contracts", script: "check:public-aot-contracts", access: "read", stage: "postbuild", reason: "Validates public AOT output only after the frontend build marker is available.", consumedInputs: ["src/frontend/dist", "src/frontend/src/public-renderers", "src/shared/Contracts"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-dist"]}}
+            - {id: "pwa-offline-policy", script: "check:pwa-offline-policy", access: "read", stage: "concurrent", reason: "Reads PWA policy sources independently from build and Vitest outputs.", consumedInputs: ["src/frontend", "docs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "local-fsusui-public-shell-motion", script: "check:local-fsusui-public-shell-motion", access: "read", stage: "concurrent", reason: "Verifies that the local FsusUI alias and theme source own public-shell motion without browser geometry.", consumedInputs: ["src/frontend/scripts/fsusui-local.ts", "../FsusUI/vue/packages/theme-chalk/src", "../FsusUI/vue/packages/theme-chalk/dist"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "views-constraints", script: "check:views-constraints", access: "write", stage: "final", reason: "The standalone CI aggregate preserves package-script compatibility; local production expands the explicit commands below.", consumedInputs: ["src/frontend/src", "src/frontend/package.json", "src/frontend/dist", "tests/frontend/checks/static"], ownedOutputs: [".tmp/frontend/asset-size-budget.json", ".tmp/frontend/dom-depth-static.json", ".tmp/frontend/route-asset-budget.json", ".tmp/release-evidence/frontend-render-structure-summary.json"], dependsOn: ["asset-size-budget", "public-aot-contracts"], resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output", "frontend-render-pressure"]}, localCommands: [{id: "views-constraints:core", command: ["node", "../../tests/frontend/checks/static/check-views-constraints.mjs"], access: "read", stage: "concurrent", reason: "Checks view structure from source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-tokens", script: "check:admin-tokens", access: "read", stage: "concurrent", reason: "Audits admin tokens from source only.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:foundation-token-governance", script: "check:foundation-token-governance", access: "read", stage: "concurrent", reason: "Audits foundation tokens from source only.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:motion-governance", script: "check:motion-governance", access: "read", stage: "concurrent", reason: "Audits motion contracts without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-task-feedback", script: "check:admin-task-feedback", access: "read", stage: "concurrent", reason: "Audits admin task feedback without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-eyebrow-governance", script: "check:admin-eyebrow-governance", access: "read", stage: "concurrent", reason: "Audits admin eyebrow copy without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-empty-state-governance", script: "check:admin-empty-state-governance", access: "read", stage: "concurrent", reason: "Audits admin empty states without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-dashboard-panel-identity", script: "check:admin-dashboard-panel-identity", access: "read", stage: "concurrent", reason: "Audits dashboard panel identity without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-system-tabs-governance", script: "check:admin-system-tabs-governance", access: "read", stage: "concurrent", reason: "Audits system tabs without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:audit-facet-summary", script: "check:audit-facet-summary", access: "read", stage: "concurrent", reason: "Audits facet summaries without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-a11y-governance", script: "check:admin-a11y-governance", access: "read", stage: "concurrent", reason: "Audits admin accessibility without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:integrity-page-governance", script: "check:integrity-page-governance", access: "read", stage: "concurrent", reason: "Audits integrity page source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:profile-page-governance", script: "check:profile-page-governance", access: "read", stage: "concurrent", reason: "Audits profile page source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:admin-user-manage-governance", script: "check:admin-user-manage-governance", access: "read", stage: "concurrent", reason: "Audits user management source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:comment-thread-view-contract-identity", script: "check:comment-thread-view-contract-identity", access: "read", stage: "concurrent", reason: "Audits comment-thread contracts without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:user-comments-page-governance", script: "check:user-comments-page-governance", access: "read", stage: "concurrent", reason: "Audits user comments source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:article-editor-workspace-governance", script: "check:article-editor-workspace-governance", access: "read", stage: "concurrent", reason: "Audits editor workspace source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-empty-state-governance", script: "check:public-empty-state-governance", access: "read", stage: "concurrent", reason: "Audits public empty states without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:markdown-editor-state-governance", script: "check:markdown-editor-state-governance", access: "read", stage: "concurrent", reason: "Audits editor state without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:visual-density-governance", script: "check:visual-density-governance", access: "read", stage: "concurrent", reason: "Audits visual density without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:shell-material-governance", script: "check:shell-material-governance", access: "read", stage: "concurrent", reason: "Audits shell material without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:messages-inbox-governance", script: "check:messages-inbox-governance", access: "read", stage: "concurrent", reason: "Audits inbox source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-reading-motion", script: "check:public-reading-motion", access: "read", stage: "concurrent", reason: "Audits public reading motion without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-anti-ai-visual", script: "check:public-anti-ai-visual", access: "read", stage: "concurrent", reason: "Audits public visual language without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-brand-hardcoding", script: "check:public-brand-hardcoding", access: "read", stage: "concurrent", reason: "Audits public brand constants without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:default-brand-assets", script: "check:default-brand-assets", access: "read", stage: "concurrent", reason: "Audits default brand assets without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/public", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-editorial-governance", script: "check:public-editorial-governance", access: "read", stage: "concurrent", reason: "Audits editorial layout without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-copy-governance", script: "check:public-copy-governance", access: "read", stage: "concurrent", reason: "Audits public copy without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:copy-centralization", script: "check:copy-centralization", access: "read", stage: "concurrent", reason: "Audits copy centralization without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:json-long-id-governance", script: "check:json-long-id-governance", access: "read", stage: "concurrent", reason: "Audits long identifier handling without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:row-state-motion", script: "check:row-state-motion", access: "read", stage: "concurrent", reason: "Audits row-state motion without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:console-welcome-callout", script: "check:console-welcome-callout", access: "read", stage: "concurrent", reason: "Audits console welcome content without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:dom-depth-static", script: "check:dom-depth-static", access: "write", stage: "isolated", reason: "Owns browserless DOM-depth structure evidence and must not collide with other evidence writers.", consumedInputs: ["src/frontend/src"], ownedOutputs: [".tmp/frontend/dom-depth-static.json", ".tmp/release-evidence/frontend-render-structure-summary.json"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: ["frontend-static-output", "frontend-render-pressure"]}}, {id: "views-constraints:performance-governance", script: "check:performance-governance", access: "read", stage: "concurrent", reason: "Audits performance policy without writing evidence.", consumedInputs: ["src/frontend/src", "src/frontend/package.json", "docs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:route-asset-budget", script: "check:route-asset-budget", access: "write", stage: "postbuild", reason: "Consumes frontend dist and owns route asset-budget evidence.", consumedInputs: ["src/frontend/dist"], ownedOutputs: [".tmp/frontend/route-asset-budget.json"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.75, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}}, {id: "views-constraints:public-performance-batch", script: "check:public-performance-batch", access: "read", stage: "final", reason: "Runs after all public performance inputs and evidence owners have settled.", consumedInputs: [".tmp/frontend/asset-size-budget.json", ".tmp/frontend/route-asset-budget.json", ".tmp/release-evidence/frontend-render-structure-summary.json", "docs/performance-public-batch.md"], ownedOutputs: [], dependsOn: ["asset-size-budget", "views-constraints:dom-depth-static", "views-constraints:route-asset-budget"], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: ["frontend-static-output", "frontend-render-pressure"]}}, {id: "views-constraints:public-atomic-takeover-governance", script: "check:public-atomic-takeover-governance", access: "read", stage: "concurrent", reason: "Audits atomic takeover source without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:public-dev-mode-governance", script: "check:public-dev-mode-governance", access: "read", stage: "concurrent", reason: "Audits public development-mode behavior without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:fsusui-typecheck-modes", script: "check:fsusui-typecheck-modes", access: "read", stage: "blocking-prebuild", reason: "Validates FsusUI alias and typecheck modes used by Vitest before admission.", consumedInputs: ["src/frontend/tsconfig*.json", "src/frontend/vite*.{ts,mjs}", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:fsusui-boundary", script: "check:fsusui-boundary", access: "read", stage: "concurrent", reason: "Audits the FsusUI source boundary without shared output.", consumedInputs: ["src/frontend/src", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}, {id: "views-constraints:fsusui-boundary-fixture", script: "check:fsusui-boundary-fixture", access: "read", stage: "concurrent", reason: "Runs isolated boundary fixtures without repository output.", consumedInputs: ["tests/frontend/fixtures", "src/frontend/package.json"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}]}
+            - {id: "public-hot-read-fastpath", command: ["bash", "../../tools/check-public-hot-read-fastpath.sh"], access: "read", stage: "concurrent", reason: "Audits the public hot-read source path without shared output.", consumedInputs: ["src/backend", "src/frontend/src", "tools"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "historical-residue", command: ["bash", "../../tools/check-historical-residue.sh"], access: "read", stage: "concurrent", reason: "Scans repository residue without shared output.", consumedInputs: ["src", "tests", "tools", "docs"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "historical-residue-fixture", command: ["node", "../../tests/frontend/checks/static/check-historical-residue-fixture.mjs"], access: "read", stage: "concurrent", reason: "Runs unique temporary fixtures without repository output.", consumedInputs: ["tests/frontend/checks/static", "tools/check-historical-residue.sh"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "test-fixture-secret-governance", script: "check:test-fixture-secret-governance", access: "read", stage: "concurrent", reason: "Audits fixture secrets from source only.", consumedInputs: ["tests", "src/frontend"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "test-fixture-secret-governance-fixture", command: ["node", "../../tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs"], access: "read", stage: "concurrent", reason: "Runs unique secret-governance fixtures without repository output.", consumedInputs: ["tests/frontend/checks/static", "tests/frontend/fixtures"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "cache-governance", command: ["bash", "../../tools/check-cache-governance.sh"], access: "read", stage: "concurrent", reason: "Audits cache declarations without shared output.", consumedInputs: ["src/backend/Infrastructure/Cache", "src/backend/Program.cs", "docs/architecture.md"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "test-hygiene", command: ["bash", "../../tools/check-test-hygiene.sh"], access: "read", stage: "concurrent", reason: "Audits test source hygiene without shared output.", consumedInputs: ["tests", "tools/test"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "slo-definition", command: ["node", "../../tools/operations/check-slo-definition.mjs"], access: "read", stage: "concurrent", reason: "Reads SLO definitions without shared output.", consumedInputs: ["operations", "docs", "tools/operations"], ownedOutputs: [], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "release-evidence-self-test", command: ["node", "../../tools/operations/check-release-evidence-manifest.mjs", "--self-test"], access: "write", stage: "concurrent", reason: "Writes only a process-unique OS temporary fixture tree and can overlap repository tests.", consumedInputs: ["tools/operations/check-release-evidence-manifest.mjs"], ownedOutputs: ["os-temp://fsus-release-manifest-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1, exclusiveResources: []}}
+            - {id: "release-slo-alerts-self-test", command: ["node", "../../tools/operations/check-release-slo-alerts.mjs", "--self-test"], access: "write", stage: "concurrent", reason: "Writes only a process-unique OS temporary fixture tree and can overlap repository tests.", consumedInputs: ["tools/operations/check-release-slo-alerts.mjs"], ownedOutputs: ["os-temp://fsus-slo-alerts-unique"], dependsOn: [], resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}}
+    frontend-runtime-contracts:
+        schema: "fsusblog.test-command-manifest.v1"
+        lane: "frontend-runtime-contracts"
+        commands:
+            - {id: "worker-contracts", script: "check:worker-contracts", access: "read"}
+            - {id: "a11y-deep", script: "check:a11y:deep", access: "read"}
+            - {id: "binary-matrix", script: "check:contract:binary-matrix", access: "read"}
+            - {id: "negative-matrix", script: "check:contract:negative-matrix", access: "read"}
+            - {id: "runtime-coherence", script: "check:coherence:runtime-matrix", access: "read"}
+            - {id: "image-codec-wasm", script: "check:image-codec-wasm", access: "read"}
+            - {id: "image-codec-wasm-runtime", script: "check:image-codec-wasm-runtime", access: "read"}
 localProfiles:
     production:
         budgetMs: 300000
@@ -418,7 +498,7 @@ tiers:
               src/frontend/wasm,
               tools/frontend,
               tools/test/lanes/frontend-build.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
           ]
       requiresBootstrap: none
       requiresNode: true
@@ -472,7 +552,7 @@ tiers:
               src/frontend/src,
               tests/frontend/unit,
               tools/test/lanes/frontend-unit-shard.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
           ]
       requiresBootstrap: none
       requiresNode: true
@@ -548,7 +628,7 @@ tiers:
           - tests/frontend/unit/layouts/accountNavModules.test.ts
           - tests/frontend/unit/components/user/MessagesStateMachine.test.ts
           - tests/issue-1039-admin-console-evidence.json
-          - tests/backend/issue-1039-retention-replacements.json
+          - tests/test-retention-replacements.json
       ciJob: fast-frontend-unit
       localOnly: false
       nightlyOnly: false
@@ -581,7 +661,7 @@ tiers:
               tests/frontend/model,
               tests/frontend/benchmarks,
               tools/test/lanes/frontend-property-model-perf.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
           ]
       requiresBootstrap: none
       requiresNode: true
@@ -640,7 +720,7 @@ tiers:
               tools/frontend/ensure-wasm.mjs,
               tools/frontend/install-wasm-codec-deps.sh,
               tools/test/lanes/frontend-runtime-contracts.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
               tools/test/run-command-manifest.mjs,
               tools/test/run-once.mjs,
           ]
@@ -739,7 +819,7 @@ tiers:
               tools/check-csharp-entrypoint-ownership.mjs,
               tests/governance/csharp-entrypoint-ownership.json,
               tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs,
-              tests/frontend/checks/static/manifest.json,
+              tests/matrix.yml,
               src/frontend/package.json,
               docs/testing/issue-1174-csharp-entrypoint-ownership.md,
           ]
@@ -817,7 +897,7 @@ tiers:
               tools/perf/check-backend-benchmark-regression.mjs,
               tools/test/lanes/backend-build-governance.sh,
               tools/test/lanes/backend-benchmark-regression.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
           ]
       requiresBootstrap: none
       requiresNode: false
@@ -866,7 +946,7 @@ tiers:
               src/shared,
               tests/backend,
               tools/test/lanes/backend-unit.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
           ]
       requiresBootstrap: none
       requiresNode: true
@@ -950,13 +1030,12 @@ tiers:
           - tests/backend/Unit/AuthRiskControlEndpointContractTests.cs
           - tests/backend/Unit/AdminPrincipalSecurityContractTests.cs
           - tests/backend/Unit/BackendApiIntegrationContractTests.cs
-          - tests/backend/issue-1038-retention-replacements.json
+          - tests/test-retention-replacements.json
           - tests/backend/Unit/AdminConsistencyContractTests.cs
           - tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs
           - tests/backend/Unit/ModerationConsoleContractTests.cs
           - tests/backend/Unit/IntegrityAdminConsoleContractTests.cs
           - tests/issue-1039-admin-console-evidence.json
-          - tests/backend/issue-1039-retention-replacements.json
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
           - tests/backend/Unit/DevSeedSqlContractTests.cs
@@ -1006,7 +1085,7 @@ tiers:
           - tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs
           - tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs
           - tests/backend/issue-1055-rate-limiter-rejection-sampler-evidence.json
-          - tests/backend/issue-1055-retention-replacements.json
+          - tests/test-retention-replacements.json
           - tests/backend/Unit/StatsPerformanceContractTests.cs
           - tests/backend/Unit/RelatedReadingServiceTests.cs
           - tests/backend/Unit/ParallelOperationsHotPathContractTests.cs
@@ -1467,32 +1546,22 @@ tiers:
           - security/policies/backend-source-policy.json
           - tests/tools/security-source-analyzer.test.mjs
           - tests/backend/issue-1037-security-hardening-evidence.json
-          - tests/backend/issue-1037-retention-replacements.json
+          - tests/test-retention-replacements.json
           - tests/tools/test-suite-convergence.test.mjs
           - tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt
           - tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt
-          - tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs
-          - tests/issue-1048-retention-replacements.json
-          - tests/issue-1049-retention-replacements.json
-          - tests/backend/issue-1050-retention-replacements.json
           - tests/backend/issue-1050-cleanup-human-read.md
-          - tests/backend/issue-1051-backend-source-lock-retention-replacements.json
-          - tests/backend/issue-1052-retention-replacements.json
-          - tests/backend/issue-1053-retention-replacements.json
-          - tests/backend/issue-1054-retention-replacements.json
-          - tests/backend/issue-1055-retention-replacements.json
-          - tests/issue-1051-suite-convergence.json
+          - tests/matrix.yml
           - tests/tools/quality-gate-artifact-layout.test.mjs
           - tests/tools/release-evidence-artifact-restore.test.mjs
           - tests/tools/performance-evidence-summary.test.mjs
           - tests/tools/performance-saturation-v2.test.mjs
-          - tests/perf/performance-saturation-v2.schema.json
-          - tests/perf/perf-policy.yml
+          - tests/performance/performance-saturation-v2.schema.json
+          - tests/performance/perf-policy.yml
           - tools/perf/performance-saturation-v2.mjs
           - tools/perf/run-open-loop-load.mjs
           - tools/perf/merge-saturation-measurement.mjs
           - tools/perf/build-performance-saturation-v2.mjs
-          - tests/issue-1048-retention-replacements.json
           - tests/frontend/checks/static/check-frontend-test-governance.mjs
           - tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs
           - tools/operations/check-pod-binary-codec-batch-evidence.mjs
@@ -1608,7 +1677,7 @@ tiers:
               tests/backend,
               tools/coverage/collect-backend-coverage.sh,
               tools/coverage/summarize-cobertura.mjs,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
               tools/test/run-once.mjs,
               tools/test/resolve-dotnet-test-processors.mjs,
           ]
@@ -3188,7 +3257,7 @@ tiers:
               src/backend/Infrastructure/Execution,
               src/backend/Services,
               tests/frontend/checks/load,
-              tests/perf,
+              tests/performance,
           ]
       triggerFiles: [tests/matrix.yml]
       triggerCoverage: [load-smoke, notification-pressure]
@@ -3855,7 +3924,7 @@ tiers:
               src/backend,
               src/core,
               src/shared,
-              tests/perf/perf-policy.yml,
+              tests/performance/perf-policy.yml,
               tests/frontend/checks/perf/check-aeds-decode-budget.mjs,
               tools/operations/aeds-frame-cost-evidence.mjs,
               tools/operations/check-evidence-metrics.mjs,
@@ -4361,7 +4430,7 @@ tiers:
               tools/test/ensure-benchmark-release-build.sh,
               tools/test/run-with-dotnet-release-build-lock.sh,
               tools/test/lanes/perf-regression.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
           ]
       requiresBootstrap: none
       requiresNode: true
@@ -4507,8 +4576,8 @@ tiers:
           [
               tools/test/aggregate-performance-evidence.mjs,
               tools/perf/performance-saturation-v2.mjs,
-              tests/perf/performance-saturation-v2.schema.json,
-              tests/perf/perf-policy.yml,
+              tests/performance/performance-saturation-v2.schema.json,
+              tests/performance/perf-policy.yml,
           ]
       requiresBootstrap: none
       requiresNode: true
@@ -4528,7 +4597,7 @@ tiers:
               .tmp/release-evidence/perf-summary.json,
               tests/tools/performance-evidence-summary.test.mjs,
               tests/tools/performance-saturation-v2.test.mjs,
-              tests/perf/performance-saturation-v2.schema.json,
+              tests/performance/performance-saturation-v2.schema.json,
           ]
       ciJob: release-evidence
       localOnly: false
@@ -5631,7 +5700,7 @@ tiers:
 
     - id: release-mutation-critical-slice
       owner: ServerContractAgent
-      command: tools/test/legacy-test.sh backend-mutation-critical
+      command: tools/test/lanes/backend-mutation-critical.sh
       dependsOn: []
       services: []
       parallelizable: false
@@ -5975,7 +6044,7 @@ tiers:
               .tmp/release-evidence/browserless-correctness-receipt.json,
               tests/matrix.yml,
               tools/test.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
               tools/run-test-matrix.mjs,
               tools/check-workflow-matrix-sync.mjs,
               tools/ci/summarize-quality-gate.mjs,
@@ -6086,7 +6155,7 @@ tiers:
           - tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs
           - tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs
           - .tmp/perf/release-summaries/backend-benchmark-regression.json
-          - tests/issue-1048-retention-replacements.json
+          - tests/test-retention-replacements.json
           - .tmp/release-evidence/test-suite-convergence.json
       ciJob: production-summary
       localOnly: false
@@ -6097,7 +6166,7 @@ tiers:
 
     - id: backend-api-integration
       owner: ServerContractAgent
-      command: tools/test/legacy-test.sh backend-api-integration
+      command: tools/test/lanes/backend-api-integration.sh
       dependsOn: [backend-build-governance]
       services: []
       parallelizable: true
@@ -6120,7 +6189,7 @@ tiers:
               src/shared,
               tests/backend,
               tools/build-with-data-env.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
               tools/test/run-once.mjs,
               tools/test/resolve-dotnet-test-processors.mjs,
           ]
@@ -6169,7 +6238,7 @@ tiers:
 
     - id: backend-auth-state-machine
       owner: ServerContractAgent
-      command: tools/test/legacy-test.sh backend-auth-state-machine
+      command: tools/test/lanes/backend-auth-state-machine.sh
       dependsOn: [backend-build-governance]
       services: []
       parallelizable: true
@@ -6192,7 +6261,7 @@ tiers:
               src/shared,
               tests/backend,
               tools/build-with-data-env.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
               tools/test/run-once.mjs,
               tools/test/resolve-dotnet-test-processors.mjs,
           ]
@@ -6246,7 +6315,7 @@ tiers:
 
     - id: backend-concurrency
       owner: ServerContractAgent
-      command: tools/test/legacy-test.sh backend-concurrency
+      command: tools/test/lanes/backend-concurrency.sh
       dependsOn: [backend-build-governance]
       services: []
       parallelizable: true
@@ -6269,7 +6338,7 @@ tiers:
               src/shared,
               tests/backend,
               tools/build-with-data-env.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
               tools/test/run-once.mjs,
               tools/test/resolve-dotnet-test-processors.mjs,
           ]
@@ -6326,7 +6395,7 @@ tiers:
           - tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs
           - tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs
           - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
-          - tests/backend/issue-1040-retention-replacements.json
+          - tests/test-retention-replacements.json
           - docs/testing/issue-1040-concurrency-state-machines.md
           - docs/issue-1041-executable-data-test-governance.md
           - docs/passkey-test-governance.md
@@ -6336,7 +6405,7 @@ tiers:
 
     - id: backend-property
       owner: ServerContractAgent
-      command: tools/test/legacy-test.sh backend-property
+      command: tools/test/lanes/backend-property.sh
       dependsOn: [backend-build-governance]
       services: []
       parallelizable: true
@@ -6359,7 +6428,7 @@ tiers:
               src/shared,
               tests/backend,
               tools/build-with-data-env.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
               tools/test/run-once.mjs,
               tools/test/resolve-dotnet-test-processors.mjs,
           ]
@@ -6392,7 +6461,7 @@ tiers:
 
     - id: backend-golden
       owner: ServerContractAgent
-      command: tools/test/legacy-test.sh backend-golden
+      command: tools/test/lanes/backend-golden.sh
       dependsOn: [backend-build-governance]
       services: []
       parallelizable: true
@@ -6415,7 +6484,7 @@ tiers:
               src/shared,
               tests/backend,
               tools/build-with-data-env.sh,
-              tools/test/legacy-test.sh,
+              tools/test/lanes,
               tools/test/run-once.mjs,
               tools/test/resolve-dotnet-test-processors.mjs,
           ]
@@ -6457,7 +6526,7 @@ tiers:
 
     - id: backend-test-governance
       owner: ServerContractAgent
-      command: tools/test/legacy-test.sh backend-test-governance
+      command: tools/test/lanes/backend-test-governance.sh
       dependsOn: []
       services: []
       parallelizable: true
@@ -6487,7 +6556,7 @@ tiers:
               tests/backend/Unit/CoverageScriptContractTests.cs,
               tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs,
               tests/tools/backend-trx-contract.test.mjs,
-              tests/issue-1048-retention-replacements.json,
+              tests/test-retention-replacements.json,
           ]
       ciJob: fast-static-governance
       localOnly: false
@@ -6495,7 +6564,7 @@ tiers:
 
     - id: backend-mutation
       owner: ServerContractAgent
-      command: tools/test/legacy-test.sh backend-mutation
+      command: tools/test/lanes/backend-mutation.sh
       dependsOn: []
       services: []
       parallelizable: false
@@ -6527,7 +6596,7 @@ tiers:
       artifacts: [.tmp/mutation/backend]
       evidence:
           - .tmp/mutation/backend
-          - tests/backend/issue-1037-retention-replacements.json
+          - tests/test-retention-replacements.json
           - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
           - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
           - tests/backend/Unit/SecurityChallengePersistenceTests.cs
@@ -6537,7 +6606,7 @@ tiers:
 
     - id: backend-nightly
       owner: ServerContractAgent
-      command: tools/test/legacy-test.sh backend-nightly
+      command: tools/test/lanes/backend-nightly.sh
       dependsOn:
           [
               backend-property,
@@ -6546,6 +6615,8 @@ tiers:
               backend-auth-state-machine,
               backend-api-integration,
               backend-perf,
+              backend-test-governance,
+              backend-mutation,
           ]
       services: []
       parallelizable: false
@@ -6557,12 +6628,18 @@ tiers:
       memoryWeight: 1
       minCpuUnits: 1
       maxParallel: 1
+      cacheInputs:
+          [
+              tools/test/lanes/backend-nightly.sh,
+              tools/test/write-backend-nightly-summary.mjs,
+              tests/backend/Fixtures/backend-test-requirements.json,
+          ]
       requiresBootstrap: none
-      requiresNode: false
-      requiresDotnet: true
+      requiresNode: true
+      requiresDotnet: false
       requiresPlaywright: none
-      cacheProfile: backend
-      timeoutMinutes: 180
+      cacheProfile: none
+      timeoutMinutes: 2
       shardable: false
       defaultShards: 1
       risk: critical
@@ -6616,7 +6693,7 @@ tiers:
 
     - id: cross-stack-contract
       owner: ServerContractAgent
-      command: tools/test/legacy-test.sh cross-stack-contract static
+      command: tools/test/lanes/cross-stack-contract.sh static
       dependsOn: []
       services: []
       parallelizable: true

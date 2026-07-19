@@ -4,6 +4,8 @@
     "type": "object",
     "required": [
         "version",
+        "governance",
+        "commandGroups",
         "tiers"
     ],
     "properties": {
@@ -13,6 +15,61 @@
         },
         "namespaceTemplate": {
             "type": "string"
+        },
+        "governance": {
+            "type": "object",
+            "required": ["retention", "sourceLocking", "retiredTiers"],
+            "properties": {
+                "retention": {
+                    "type": "object",
+                    "required": ["baseline", "replacementLedger", "postBaselines", "auditOutput", "automaticDeletion"],
+                    "properties": {
+                        "baseline": {"type": "string", "minLength": 1},
+                        "replacementLedger": {"type": "string", "minLength": 1},
+                        "postBaselines": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+                        "auditOutput": {"type": "string", "minLength": 1},
+                        "automaticDeletion": {"const": false}
+                    },
+                    "additionalProperties": false
+                },
+                "sourceLocking": {
+                    "type": "object",
+                    "required": ["backendOwner", "frontendOwner", "fixtureReaderOwners", "delegatedOwners"],
+                    "properties": {
+                        "backendOwner": {"type": "string", "minLength": 1},
+                        "frontendOwner": {"type": "string", "minLength": 1},
+                        "fixtureReaderOwners": {"type": "array", "items": {"$ref": "#/$defs/owner"}},
+                        "delegatedOwners": {"type": "array", "items": {"$ref": "#/$defs/delegatedOwner"}}
+                    },
+                    "additionalProperties": false
+                },
+                "retiredTiers": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["from", "to", "coverageIds", "reason"],
+                        "properties": {
+                            "from": {"type": "string", "minLength": 1},
+                            "to": {"type": "string", "minLength": 1},
+                            "coverageIds": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
+                            "reason": {"type": "string", "minLength": 1},
+                            "scope": {"type": "string"},
+                            "catalogReplacements": {"type": "object"}
+                        },
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "commandGroups": {
+            "type": "object",
+            "required": ["frontend-static-governance", "frontend-runtime-contracts"],
+            "properties": {
+                "frontend-static-governance": {"$ref": "#/$defs/commandGroup"},
+                "frontend-runtime-contracts": {"$ref": "#/$defs/commandGroup"}
+            },
+            "additionalProperties": false
         },
         "localProfiles": {
             "type": "object",
@@ -511,5 +568,35 @@
             }
         }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "$defs": {
+        "owner": {
+            "type": "object",
+            "required": ["path", "reason"],
+            "properties": {
+                "path": {"type": "string", "minLength": 1},
+                "reason": {"type": "string", "minLength": 1}
+            },
+            "additionalProperties": false
+        },
+        "delegatedOwner": {
+            "type": "object",
+            "required": ["path", "owner"],
+            "properties": {
+                "path": {"type": "string", "minLength": 1},
+                "owner": {"type": "string", "minLength": 1}
+            },
+            "additionalProperties": false
+        },
+        "commandGroup": {
+            "type": "object",
+            "required": ["schema", "lane", "commands"],
+            "properties": {
+                "schema": {"type": "string", "minLength": 1},
+                "lane": {"type": "string", "minLength": 1},
+                "commands": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+            },
+            "additionalProperties": false
+        }
+    }
 }

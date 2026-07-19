@@ -43,7 +43,7 @@ test('managed Debug bootstrap is a no-build reader of the shared backend produce
   const runtimeEnvironment = fs.readFileSync(path.join(root, '.tmp/env', `${namespace}.env`), 'utf8')
   assert.match(runtimeEnvironment, /^FSUSBLOG_RUNTIME_CONFIGURATION=Debug$/mu)
   assert.match(runtimeEnvironment, /^FSUSBLOG_RUNTIME_NO_BUILD=1$/mu)
-  assert.match(bootstrap, /local legacyLane="\$ROOT_DIR\/tools\/test\/lanes\/_legacy\.sh"[\s\S]*?source "\$legacyLane"[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild/u)
+  assert.match(bootstrap, /local laneSupport="\$ROOT_DIR\/tools\/test\/lanes\/_lane-collect-support\.sh"[\s\S]*?source "\$laneSupport"[\s\S]*?FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild/u)
   assert.match(bootstrap, /backend-debug-build EnsureManagedBackendSharedDebugBuild/u)
   assert.match(bootstrap, /managed backend startup is read-only and requires FSUSBLOG_RUNTIME_NO_BUILD=1/u)
   assert.match(bootstrap, /FSUSBLOG_RUNTIME_CONFIGURATION="\$runtimeConfiguration"[\s\S]*?FSUSBLOG_RUNTIME_NO_BUILD=1/u)
@@ -75,7 +75,7 @@ test('bootstrap namespace loader preserves values containing and ending with equ
 
   const result = childProcess.spawnSync('bash', ['-lc', [
     `export FSUSBLOG_TEST_NAMESPACE=${namespace}`,
-    'source ./tools/test/lanes/_legacy.sh',
+    'source ./tools/test/lanes/_lane-collect-support.sh',
     'RequireBootstrappedNamespace',
     '[[ "$VisitLog__IpPseudonymization__CurrentKey" == "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=" ]]',
     '[[ "$ConnectionStrings__DefaultConnection" == "Host=127.0.0.1;Password=value=with=equals" ]]'

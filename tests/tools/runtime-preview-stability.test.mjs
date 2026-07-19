@@ -122,7 +122,7 @@ test('browser runtime timeouts scale from machine contention while remaining bou
 })
 
 test('runtime service probes consume the shared machine-adaptive request timeout', () => {
-  const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
+  const legacy = fs.readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8')
   assert.match(legacy, /RuntimeProbeTimeoutSeconds timeoutSeconds/u)
   assert.doesNotMatch(legacy, /curl[^\n]*--max-time 5/u)
   assert.match(legacy, /RetryableRuntimeProbeStatus/u)
@@ -138,7 +138,7 @@ test('runtime service probe retries transient 503 responses until the endpoint b
   })
   const baseUrl = await listen(server)
   t.after(() => close(server))
-  const legacy = path.join(root, 'tools/test/legacy-test.sh')
+  const legacy = path.join(root, 'tools/test/lanes/_suite-support.sh')
 
   const result = await runProcess('bash', [
     '-c',
@@ -162,7 +162,7 @@ test('runtime service probe fails immediately for a terminal 404 response', asyn
   })
   const baseUrl = await listen(server)
   t.after(() => close(server))
-  const legacy = path.join(root, 'tools/test/legacy-test.sh')
+  const legacy = path.join(root, 'tools/test/lanes/_suite-support.sh')
 
   const result = await runProcess('bash', [
     '-c',
@@ -198,7 +198,7 @@ test('public AOT warmup concurrency derives independently bounded backend and I/
 })
 
 test('production runtime keeps hydration writes exact-once and gates all release-dist readers', () => {
-  const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
+  const legacy = fs.readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8')
   const bundle = fs.readFileSync(path.join(root, 'tools/test/bundles/bundle-steps.mjs'), 'utf8')
   const distribution = fs.readFileSync(path.join(root, 'tests/frontend/checks/runtime/distribution-version-coherence-smoke.mjs'), 'utf8')
   const viewportBoundaries = fs.readFileSync(path.join(root, 'tests/frontend/e2e/ux/viewport-boundaries.spec.ts'), 'utf8')

@@ -6,7 +6,7 @@ OUT_DIR="$ROOT_DIR/.tmp/perf/aeds-frame-cost"
 RAW_SUMMARY_FILE="$OUT_DIR/raw-summary.json"
 SUMMARY_FILE="$OUT_DIR/summary.json"
 RELEASE_SUMMARY="$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json"
-POLICY_FILE="$ROOT_DIR/tests/perf/perf-policy.yml"
+POLICY_FILE="$ROOT_DIR/tests/performance/perf-policy.yml"
 
 mkdir -p "$OUT_DIR" "$(dirname "$RELEASE_SUMMARY")"
 rm -f "$RAW_SUMMARY_FILE" "$SUMMARY_FILE" "$RELEASE_SUMMARY"

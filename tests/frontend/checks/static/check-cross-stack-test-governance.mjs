@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { parseMatrix } from '../../../../tools/test-matrix/parse-matrix.mjs'
 import {
   assert,
   assertPathExists,
@@ -12,12 +13,17 @@ import {
 const matrix = loadMatrix()
 const pkg = JSON.parse(readFileSync(resolve(root, 'src/frontend/package.json'), 'utf8'))
 const testSh = readFileSync(resolve(root, 'tools/test.sh'), 'utf8')
-const legacyTestSh = readFileSync(resolve(root, 'tools/test/legacy-test.sh'), 'utf8')
 const localBundleRunner = readFileSync(resolve(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8')
-const runtimeManifest = readFileSync(resolve(root, 'tests/frontend/checks/runtime/manifest.json'), 'utf8')
-const staticManifest = readFileSync(resolve(root, 'tests/frontend/checks/static/manifest.json'), 'utf8')
-const testEntrypoints = `${testSh}\n${legacyTestSh}\n${localBundleRunner}\n${runtimeManifest}\n${staticManifest}`
 const testMatrix = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8')
+const orchestrationMatrix = parseMatrix(testMatrix)
+const declaredCommandScripts = new Set(
+  Object.values(orchestrationMatrix.commandGroups ?? {})
+    .flatMap((group) => group.commands ?? [])
+    .flatMap((entry) => [entry, ...(entry.localCommands ?? [])])
+    .map((entry) => entry.script)
+    .filter(Boolean)
+)
+const testEntrypoints = `${testSh}\n${localBundleRunner}`
 const requirementIds = new Set((matrix.requirements || []).map(requirement => requirement.id))
 
 assert(matrix.version === 'fsusblog-cross-stack-contract-matrix-v1', 'cross-stack matrix version drifted')
@@ -57,12 +63,15 @@ for (const token of [
 ]) {
   const script = token.replace('npm run ', '')
   assert(
-    testEntrypoints.includes(token) || testEntrypoints.includes(`"script": "${script}"`),
+    testEntrypoints.includes(token) || declaredCommandScripts.has(script),
     `fast gate does not run ${token}`
   )
 }
 
-assert(testEntrypoints.includes('cross-stack-contract)'), 'tools/test.sh lacks cross-stack-contract tier')
+assert(
+  orchestrationMatrix.tiers.some((tier) => tier.id === 'cross-stack-contract'),
+  'tests/matrix.yml lacks cross-stack-contract tier'
+)
 assert(testMatrix.includes('id: cross-stack-contract'), 'tests/matrix.yml lacks cross-stack-contract tier')
 assert(testMatrix.includes('CROSS-BINARY-ENDPOINT-MATRIX'), 'tests/matrix.yml lacks cross-stack requirements')
 

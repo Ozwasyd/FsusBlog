@@ -30,7 +30,7 @@ test('integrity proof lane prepares the shared Debug producer before verificatio
   const producer = lane.indexOf('FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild')
   const verifier = lane.indexOf('verify-proof-fixtures.mjs')
 
-  assert.match(lane, /source .*\/_legacy\.sh/u)
+  assert.match(lane, /source .*\/_lane-collect-support\.sh/u)
   assert.ok(producer >= 0, 'integrity proof lane must prepare the shared Debug build')
   assert.ok(verifier > producer, 'integrity proof verifier must run after the shared Debug producer')
 })

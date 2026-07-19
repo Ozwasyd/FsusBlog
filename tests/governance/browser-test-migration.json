@@ -14,7 +14,7 @@
     },
     "authorities": {
         "acceptanceBaseline": "tests/issue-1146-acceptance-baseline.json",
-        "acceptanceReplacements": "tests/issue-1146-retention-replacements.json",
+        "acceptanceReplacements": "tests/test-retention-replacements.json",
         "diagnosticsMigration": "tests/issue-1148-browser-diagnostics-migration.json"
     },
     "browserlessInPlaceSources": [
@@ -26,15 +26,17 @@
     "imports": [
         {
             "kind": "retention-replacements",
-            "path": "tests/issue-1146-retention-replacements.json",
+            "path": "tests/test-retention-replacements.json",
             "selector": "deletedTests",
+            "idBaseline": "tests/issue-1146-acceptance-baseline.json",
+            "disposition": "migrated",
             "fieldMap": {
                 "sourceFile": "path",
                 "sourceTestId": "id",
-                "assertionCategory": "targetLayers",
                 "replacementTestIds": "replacementTestIds"
             },
             "defaults": {
+                "assertionCategory": ["acceptance"],
                 "replacementLayer": "correctness",
                 "browserOnlyRisk": {
                     "present": false,

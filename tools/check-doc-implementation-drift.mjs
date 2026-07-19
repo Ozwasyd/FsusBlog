@@ -156,7 +156,7 @@ add('load', 'load docs match perf policy baseline and WebSocket pressure default
     && docs.includes('rounds=6')
     && docs.includes('connections=50')
     && docs.includes('durationMs=30000')
-    && docs.includes('tests/perf/perf-policy.yml')
+    && docs.includes('tests/performance/perf-policy.yml')
 })
 
 add('viewport', 'viewport docs are synchronized with viewport registry', () => {

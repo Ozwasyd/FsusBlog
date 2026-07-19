@@ -224,7 +224,7 @@
                     "src/frontend/src/store/user.ts",
                     "src/frontend/src/store/site.ts",
                     "src/frontend/src/api/security.ts",
-                    "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+                    "tests/matrix.yml"
                 ]
             },
             "stageGate": null
@@ -255,7 +255,7 @@
                 "paths": [
                     "src/frontend/src/api/comment.ts",
                     "src/frontend/src/api/auth.ts",
-                    "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+                    "tests/matrix.yml"
                 ]
             },
             "stageGate": null
@@ -284,7 +284,7 @@
                 "verificationStatus": "not-run",
                 "paths": [
                     "src/frontend/src/public-renderers/publicRouteRegistry.ts",
-                    "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+                    "tests/matrix.yml"
                 ]
             },
             "stageGate": null
@@ -418,7 +418,7 @@
                 "verificationStatus": "not-run",
                 "paths": [
                     "tests/frontend/checks/static/check-composable-wrapper-simplification.mjs",
-                    "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+                    "tests/matrix.yml"
                 ]
             },
             "stageGate": null
@@ -452,7 +452,7 @@
                     "src/frontend/src/components/PolicyModal.vue",
                     "src/frontend/src/composables/useMutationFlow.ts",
                     "src/frontend/src/composables/useAdminArticleList.ts",
-                    "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+                    "tests/matrix.yml"
                 ]
             },
             "stageGate": null
@@ -486,7 +486,7 @@
                     "src/frontend/src/composables/useArticleCommentStream.ts",
                     "src/frontend/src/composables/useHomeView.ts",
                     "src/frontend/src/composables/useUserCommentsPage.ts",
-                    "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+                    "tests/matrix.yml"
                 ]
             },
             "stageGate": null

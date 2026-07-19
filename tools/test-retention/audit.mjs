@@ -823,7 +823,7 @@ export function normalizeReplacementManifest(manifest, currentRecords, catalog =
   const currentAssertionTargets = new Set((currentRecords ?? []).flatMap((record) => record.assertionTargets ?? []))
   const deletedTests = manifest?.deletedTests ?? []
   const assertionReplacements = manifest?.assertionReplacements ?? []
-  const tierReplacements = manifest?.tierReplacements ?? []
+  const tierReplacements = catalog.tierReplacements ?? manifest?.tierReplacements ?? []
   const seenDeletedIds = new Set()
   const seenAssertionTargets = new Set()
   const deletedTestById = new Map(deletedTests.map((entry) => [entry?.id, entry]))

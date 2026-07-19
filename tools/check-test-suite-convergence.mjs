@@ -1,23 +1,14 @@
 #!/usr/bin/env node
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync
-} from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, relative, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
+
 import {
   auditCompactRetentionRecords,
   auditRetentionRecords,
-  expandPathReplacementPlan,
   mergeReplacementEntries,
   scanBackendSourceLocking,
   validateAfterSnapshotAuthority,
-  validateChildIssueStatusEvidence,
-  validateConvergencePlan,
-  validateEvidenceContract,
   verifySourceLockingFixtures
 } from './test-convergence/audit.mjs'
 import {
@@ -25,26 +16,18 @@ import {
   isCompactRetentionBaseline,
   validateCompactRetentionBaseline
 } from './test-retention/audit.mjs'
+import { loadTestMatrix } from './test-matrix/command-groups.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 function parseArgs(argv) {
-  const options = {
-    after: null,
-    out: null,
-    final: false
-  }
+  const options = { after: null, out: null, final: false }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
-    if (arg === '--after') {
+    if (arg === '--after' || arg === '--out') {
       const value = argv[index + 1]
-      if (!value || value.startsWith('--')) throw new Error('--after requires a path')
-      options.after = resolve(root, value)
-      index += 1
-    } else if (arg === '--out') {
-      const value = argv[index + 1]
-      if (!value || value.startsWith('--')) throw new Error('--out requires a path')
-      options.out = resolve(root, value)
+      if (!value || value.startsWith('--')) throw new Error(`${arg} requires a path`)
+      options[arg.slice(2)] = resolve(root, value)
       index += 1
     } else if (arg === '--final') {
       options.final = true
@@ -71,8 +54,7 @@ function walk(directory, predicate, output = []) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const absolute = resolve(directory, entry.name)
     if (entry.isDirectory()) {
-      if (['bin', 'obj', 'node_modules', '.tmp', 'TestResults'].includes(entry.name)) continue
-      walk(absolute, predicate, output)
+      if (!['bin', 'obj', 'node_modules', '.tmp', 'TestResults'].includes(entry.name)) walk(absolute, predicate, output)
     } else if (predicate(absolute)) {
       output.push(absolute)
     }
@@ -86,161 +68,64 @@ function recordsFromSnapshot(snapshot, source) {
   return records
 }
 
-function discoverIssueManifests() {
-  return walk(
-    resolve(root, 'tests'),
-    (path) => /issue-\d+.*retention.*\.json$/u.test(path)
-  ).map((path) => ({ source: repoPath(path), manifest: readJson(path) }))
-}
-
-function validatePostBaselineIssueDeclarations(descriptors, authoritativeBefore) {
+function validatePostBaselines(paths, replacements) {
+  const replacementById = new Map(replacements.map((entry) => [entry.id, entry]))
   const ids = []
   const errors = []
   const sources = []
-  for (const descriptor of descriptors) {
-    const manifest = descriptor.manifest
-    if (manifest?.schema !== 'fsusblog.issue-test-retention-replacements.v1'
-      || !String(manifest.baseline ?? '').trim()
-      || manifest.baseline === authoritativeBefore) {
+  for (const path of paths ?? []) {
+    const absolute = resolve(root, path)
+    if (!existsSync(absolute)) {
+      errors.push(`post-baseline snapshot does not exist: ${path}`)
       continue
     }
-
-    const baselinePath = resolve(root, manifest.baseline)
-    if (!existsSync(baselinePath)) {
-      errors.push(`${descriptor.source}: post-baseline snapshot does not exist: ${manifest.baseline}`)
+    const baseline = readJson(absolute)
+    if (baseline?.schema !== 'fsusblog.issue-acceptance-baseline.v1') {
+      errors.push(`${path}: unsupported post-baseline schema ${baseline?.schema ?? 'missing'}`)
       continue
     }
-
-    let baseline
-    try {
-      baseline = readJson(baselinePath)
-    } catch (error) {
-      errors.push(`${descriptor.source}: invalid post-baseline snapshot: ${error instanceof Error ? error.message : String(error)}`)
-      continue
-    }
-    if (baseline?.schema !== 'fsusblog.issue-acceptance-baseline.v1' || baseline.issue !== manifest.issue) {
-      errors.push(`${descriptor.source}: post-baseline snapshot schema or issue binding is invalid`)
-      continue
-    }
-
-    const recordsById = new Map((baseline.records ?? []).map((record) => [record?.id, record]))
     let accepted = 0
-    for (const entry of manifest.deletedTests ?? []) {
-      const record = recordsById.get(entry?.id)
-      if (!record || record.path !== entry.path || record.disposition !== 'migrated') {
-        errors.push(`${descriptor.source}: ${entry?.id ?? '<missing id>'} is not a migrated record in ${manifest.baseline}`)
+    for (const record of baseline.records ?? []) {
+      if (record?.disposition !== 'migrated') continue
+      const replacement = replacementById.get(record.id)
+      if (!replacement || replacement.path !== record.path) {
+        errors.push(`${path}: migrated record lacks an exact central replacement: ${record?.id ?? '<missing id>'}`)
         continue
       }
-      ids.push(entry.id)
+      ids.push(record.id)
       accepted += 1
     }
-    sources.push({ source: descriptor.source, baseline: manifest.baseline, accepted })
+    if (Number.isInteger(baseline.expectedMigrated) && accepted !== baseline.expectedMigrated) {
+      errors.push(`${path}: expected ${baseline.expectedMigrated} migrated records, found ${accepted}`)
+    }
+    sources.push({ source: path, issue: baseline.issue, accepted })
   }
   return { ids: [...new Set(ids)], errors, sources }
-}
-
-async function frontendReplacementDescriptor(beforeRecords) {
-  const planPath = resolve(root, 'tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs')
-  if (!existsSync(planPath)) return { descriptor: null, errors: [] }
-  const plan = await import(pathToFileURL(planPath).href)
-  const expanded = expandPathReplacementPlan(
-    beforeRecords,
-    {
-      replacementOwners: plan.replacementOwners,
-      wholeFileMigrations: plan.wholeFileMigrations,
-      selectiveTestMigrations: plan.selectiveTestMigrations
-    },
-    repoPath(planPath)
-  )
-  return {
-    descriptor: {
-      source: repoPath(planPath),
-      manifest: {
-        deletedTests: expanded.entries.map((entry) => ({
-          id: entry.id,
-          path: entry.path,
-          replacementTestIds: entry.replacementTestIds,
-          reason: entry.reason
-        }))
-      }
-    },
-    errors: expanded.errors
-  }
 }
 
 function sourceLockingAudit() {
   const positivePath = resolve(root, 'tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt')
   const negativePath = resolve(root, 'tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt')
-  const fixtureAudit = verifySourceLockingFixtures(
-    readFileSync(positivePath, 'utf8'),
-    readFileSync(negativePath, 'utf8')
-  )
-  const files = walk(
-    resolve(root, 'tests/backend'),
-    (path) => path.endsWith('Tests.cs')
-  ).sort((left, right) => repoPath(left).localeCompare(repoPath(right)))
-  const violations = files.flatMap((path) =>
-    scanBackendSourceLocking(readFileSync(path, 'utf8'), repoPath(path))
-  )
+  const fixtureAudit = verifySourceLockingFixtures(readFileSync(positivePath, 'utf8'), readFileSync(negativePath, 'utf8'))
+  const files = walk(resolve(root, 'tests/backend'), (path) => path.endsWith('Tests.cs'))
+    .sort((left, right) => repoPath(left).localeCompare(repoPath(right)))
+  const violations = files.flatMap((path) => scanBackendSourceLocking(readFileSync(path, 'utf8'), repoPath(path)))
   return { scannedFiles: files.length, fixtureAudit, violations }
 }
 
-function finalEvidenceAudit(plan, finalMode, afterSnapshot) {
-  if (!finalMode) {
-    return { required: plan.finalEvidencePaths, missing: [], contentErrors: [], checkedContracts: [], mode: 'deferred' }
-  }
-  const missing = plan.finalEvidencePaths.filter((path) => !existsSync(resolve(root, path)))
-  const contentErrors = []
-  const checkedContracts = []
-  const documents = new Map()
-  for (const contract of plan.finalEvidenceContracts ?? []) {
-    const absolute = resolve(root, contract.path)
-    if (!existsSync(absolute)) continue
-    try {
-      const document = readJson(absolute)
-      documents.set(contract.path, document)
-      contentErrors.push(...validateEvidenceContract(document, contract, contract.path))
-      checkedContracts.push(contract.path)
-    } catch (error) {
-      contentErrors.push(`${contract.path}: invalid JSON: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-  const optimizationPath = '.tmp/release-evidence/test-optimization-report.json'
-  const optimization = documents.get(optimizationPath)
-  if (optimization && afterSnapshot
-    && String(optimization.authoritativeFreshRun?.runId ?? '') !== String(afterSnapshot.producer?.runId ?? '')) {
-    contentErrors.push(`${optimizationPath}: authoritative fresh run does not match the after retention producer run`)
-  }
-  const childIssuesPath = '.tmp/release-evidence/issue-1051-child-issues.json'
-  const childIssues = documents.get(childIssuesPath)
-  if (childIssues) contentErrors.push(...validateChildIssueStatusEvidence(childIssues))
-  return { required: plan.finalEvidencePaths, missing, contentErrors, checkedContracts, mode: 'required' }
-}
-
 const options = parseArgs(process.argv.slice(2))
-const planPath = resolve(root, 'tests/issue-1051-suite-convergence.json')
-const plan = readJson(planPath)
-const beforePath = resolve(root, plan.beforeSnapshot)
+const matrix = loadTestMatrix(root)
+const retentionGovernance = matrix.governance?.retention ?? {}
+const beforePath = resolve(root, retentionGovernance.baseline ?? 'tests/test-retention-before.json')
+const centralPath = resolve(root, retentionGovernance.replacementLedger ?? 'tests/test-retention-replacements.json')
 const beforeSnapshot = readJson(beforePath)
 const compactBefore = isCompactRetentionBaseline(beforeSnapshot)
 if (compactBefore) validateCompactRetentionBaseline(beforeSnapshot)
-const beforeRecords = compactBefore ? null : recordsFromSnapshot(beforeSnapshot, plan.beforeSnapshot)
-const centralPath = resolve(root, 'tests/test-retention-replacements.json')
-const issueManifestDescriptors = discoverIssueManifests()
-const manifestDescriptors = [
-  { source: repoPath(centralPath), manifest: readJson(centralPath) },
-  ...issueManifestDescriptors
-]
-const postBaseline = validatePostBaselineIssueDeclarations(issueManifestDescriptors, plan.beforeSnapshot)
-const frontend = compactBefore
-  ? { descriptor: null, errors: [] }
-  : await frontendReplacementDescriptor(beforeRecords)
-if (frontend.descriptor) manifestDescriptors.push(frontend.descriptor)
-const merged = mergeReplacementEntries(manifestDescriptors)
-
-const defaultAfterPath = resolve(root, plan.defaultAfterSnapshot)
-const afterPath = options.after
-  ?? (options.final && existsSync(defaultAfterPath) ? defaultAfterPath : null)
+const beforeRecords = compactBefore ? null : recordsFromSnapshot(beforeSnapshot, repoPath(beforePath))
+const merged = mergeReplacementEntries([{ source: repoPath(centralPath), manifest: readJson(centralPath) }])
+const postBaseline = validatePostBaselines(retentionGovernance.postBaselines, merged.entries)
+const defaultAfterPath = resolve(root, retentionGovernance.auditOutput ?? '.tmp/release-evidence/test-retention-audit.json')
+const afterPath = options.after ?? (options.final && existsSync(defaultAfterPath) ? defaultAfterPath : null)
 const afterSnapshot = afterPath ? readJson(afterPath) : null
 const afterRecords = afterSnapshot ? recordsFromSnapshot(afterSnapshot, repoPath(afterPath)) : null
 const retention = compactBefore
@@ -262,30 +147,27 @@ const retention = compactBefore
       preBaselineDeletionIds: beforeSnapshot.replacementManifestBaseline?.deletedTestIds ?? []
     })
 const sourceLocking = sourceLockingAudit()
-const stageErrors = validateConvergencePlan(plan)
-const afterAuthorityErrors = validateAfterSnapshotAuthority(beforeSnapshot, afterSnapshot, {
-  required: options.final
-})
-const evidence = finalEvidenceAudit(plan, options.final, afterSnapshot)
+const afterAuthorityErrors = validateAfterSnapshotAuthority(beforeSnapshot, afterSnapshot, { required: options.final })
 const errors = [
-  ...stageErrors,
   ...afterAuthorityErrors,
-  ...frontend.errors,
   ...postBaseline.errors,
   ...merged.errors,
   ...retention.errors,
   ...sourceLocking.fixtureAudit.errors,
   ...sourceLocking.violations.map((violation) =>
-    `${violation.path}:${violation.line}:${violation.column} ${violation.rule}: ${violation.message}`),
-  ...evidence.contentErrors,
-  ...evidence.missing.map((path) => `missing final evidence: ${path}`)
+    `${violation.path}:${violation.line}:${violation.column} ${violation.rule}: ${violation.message}`)
 ]
 
 const report = {
   schema: 'fsusblog.test-suite-convergence.v1',
-  trackingIssue: plan.trackingIssue,
+  trackingIssue: 1267,
   status: errors.length === 0 ? 'success' : 'blocked',
   mode: options.final ? 'final' : 'implementation',
+  authority: {
+    matrix: 'tests/matrix.yml',
+    replacementLedger: repoPath(centralPath),
+    issueLocalReplacementManifests: false
+  },
   beforeSnapshot: repoPath(beforePath),
   afterSnapshot: afterPath ? repoPath(afterPath) : null,
   summary: {
@@ -294,27 +176,16 @@ const report = {
     replacementDeclarations: merged.entries.length,
     postBaselineDeletionDeclarations: postBaseline.ids.length,
     deletedTestRecords: retention.deletedRecords.length,
-    missingDeletionMappings: retention.missingDeletionMappings.length,
-    mismatchedDeletionPaths: retention.mismatchedDeletionPaths.length,
-    missingReplacementTargets: retention.missingReplacementTargets.length,
     backendSourceFilesScanned: sourceLocking.scannedFiles,
-    backendSourceLockViolations: sourceLocking.violations.length,
-    missingFinalEvidence: evidence.missing.length,
-    invalidFinalEvidence: evidence.contentErrors.length,
     errors: errors.length
   },
-  stageErrors,
   afterAuthorityErrors,
-  replacementDeclarations: merged.entries.map(({ source: _source, ...entry }) => entry),
-  replacementDeclarationSources: merged.entries.map((entry) => ({ id: entry.id, source: entry.source })),
-  replacementConflicts: merged.conflicts,
   postBaselineDeclarationSources: postBaseline.sources,
   missingDeletionMappings: retention.missingDeletionMappings,
   unknownDeletionDeclarations: retention.unknownDeletionDeclarations,
   mismatchedDeletionPaths: retention.mismatchedDeletionPaths,
   missingReplacementTargets: retention.missingReplacementTargets,
   backendSourceLockViolations: sourceLocking.violations,
-  evidence,
   errors
 }
 
@@ -322,7 +193,6 @@ if (options.out) {
   mkdirSync(dirname(options.out), { recursive: true })
   writeFileSync(options.out, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
 }
-
 if (errors.length > 0) {
   for (const error of errors) console.error(`[test-suite-convergence] ${error}`)
   process.exitCode = 1

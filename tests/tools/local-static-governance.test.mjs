@@ -21,13 +21,14 @@ import {
   runWeightedCommandManifest,
   validateCommandManifest
 } from '../../tools/test/run-command-manifest.mjs'
+import { loadCommandGroup } from '../../tools/test-matrix/command-groups.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const staticManifest = JSON.parse(fs.readFileSync(path.join(root, 'tests/frontend/checks/static/manifest.json'), 'utf8'))
+const staticManifest = loadCommandGroup(root, 'frontend-static-governance')
 const frontendPackage = JSON.parse(fs.readFileSync(path.join(root, 'src/frontend/package.json'), 'utf8'))
 const localStaticSource = fs.readFileSync(path.join(root, 'tools/test/local-static-governance.mjs'), 'utf8')
 const staticLaneSource = fs.readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8')
-const legacyLaneSource = fs.readFileSync(path.join(root, 'tools/test/lanes/_legacy.sh'), 'utf8')
+const collectSupportSource = fs.readFileSync(path.join(root, 'tools/test/lanes/_lane-collect-support.sh'), 'utf8')
 
 function deferred() {
   let resolve
@@ -143,11 +144,11 @@ test('five explicit phases form an exact 71-command partition with timing eviden
 test('static governance propagates bounded dynamic workers and explicit Node test concurrency', () => {
   assert.match(localStaticSource, /workload: 'scheduler-admitted'/u)
   assert.match(localStaticSource, /memoryCostGiB:[\s\S]*?0\.125 \* entry\.resources\.memoryWeight/u)
-  assert.match(legacyLaneSource, /nextWorkerCap="\$\(ResolveCollectParallelWorkers "\$total"\)"/u)
-  assert.match(legacyLaneSource, /resolveManifestLiveCapacity\(\{ env: process\.env, workload: 'scheduler-admitted' \}\)/u)
-  assert.match(legacyLaneSource, /resolveManifestChildEnvironment/u)
-  assert.match(legacyLaneSource, /FSUSBLOG_STEP_CPU_BUDGET/u)
-  assert.match(legacyLaneSource, /FSUSBLOG_STEP_MEMORY_GIB/u)
+  assert.match(collectSupportSource, /nextWorkerCap="\$\(ResolveCollectParallelWorkers "\$total"\)"/u)
+  assert.match(collectSupportSource, /resolveManifestLiveCapacity\(\{ env: process\.env, workload: 'scheduler-admitted' \}\)/u)
+  assert.match(collectSupportSource, /resolveManifestChildEnvironment/u)
+  assert.match(collectSupportSource, /FSUSBLOG_STEP_CPU_BUDGET/u)
+  assert.match(collectSupportSource, /FSUSBLOG_STEP_MEMORY_GIB/u)
   assert.match(staticLaneSource, /RunCollectParallel static-governance-prechecks/u)
   assert.match(staticLaneSource, /runWeightedCommandManifest/u)
   assert.match(staticLaneSource, /FSUSBLOG_ZDT_FIXTURE_SHARD: shard/u)
@@ -659,7 +660,7 @@ test('manifest deadline cancels active work and retains partial timeout evidence
   })
 })
 
-test('_legacy collect pool expands and shrinks pending admission from the same live grant contract', async (t) => {
+test('lane collect support expands and shrinks pending admission from the same live grant contract', async (t) => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-collect-live-grant-'))
   t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }))
   const grantFile = path.join(tempRoot, 'grant.json')
@@ -679,7 +680,7 @@ test('_legacy collect pool expands and shrinks pending admission from the same l
   writeGrant(3, 3)
   const script = `
     set -euo pipefail
-    source ${JSON.stringify(path.join(root, 'tools/test/lanes/_legacy.sh'))}
+    source ${JSON.stringify(path.join(root, 'tools/test/lanes/_lane-collect-support.sh'))}
     pool_job() {
       local id="$1"
       printf '%s:start\\n' "$id" >> "$MARKER_FILE"

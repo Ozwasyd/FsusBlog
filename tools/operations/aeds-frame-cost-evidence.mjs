@@ -73,7 +73,7 @@ function thresholdPolicy(lines, name) {
   }
 }
 
-export function readAedsFrameCostPolicy(policyFile, label = 'tests/perf/perf-policy.yml') {
+export function readAedsFrameCostPolicy(policyFile, label = 'tests/performance/perf-policy.yml') {
   const text = fs.readFileSync(policyFile, 'utf8')
   const rootVersion = scalar(text.split(/\r?\n/u), 'version', 0)
   const lines = sectionLines(text, 'aedsFrameCost', 0)

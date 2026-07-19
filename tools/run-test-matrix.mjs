@@ -494,6 +494,56 @@ function validateMatrix(matrix) {
     errors.push('tiers must be a non-empty list')
   }
 
+  const expectedCommandGroups = new Map([
+    ['frontend-static-governance', 'fsusblog.frontend-static-command-manifest.v2'],
+    ['frontend-runtime-contracts', 'fsusblog.test-command-manifest.v1']
+  ])
+  const commandGroups = matrix.commandGroups ?? {}
+  if (Object.keys(commandGroups).sort().join(',') !== [...expectedCommandGroups.keys()].sort().join(',')) {
+    errors.push('commandGroups must declare exactly frontend-static-governance and frontend-runtime-contracts')
+  }
+  const commandIds = new Set()
+  const flattenCommands = (commands) => (commands ?? []).flatMap((command) => [
+    command,
+    ...flattenCommands(command.localCommands)
+  ])
+  for (const [groupId, expectedSchema] of expectedCommandGroups) {
+    const group = commandGroups[groupId]
+    if (!group) continue
+    if (group.schema !== expectedSchema) errors.push(`${groupId}.schema must be ${expectedSchema}`)
+    if (group.lane !== groupId) errors.push(`${groupId}.lane must match its matrix key`)
+    const commands = flattenCommands(group.commands)
+    if (commands.length === 0) errors.push(`${groupId}.commands must not be empty`)
+    const localIds = new Set(commands.map((command) => command?.id).filter(Boolean))
+    for (const command of commands) {
+      if (!String(command?.id ?? '').trim()) {
+        errors.push(`${groupId} contains a command without id`)
+        continue
+      }
+      if (commandIds.has(command.id)) errors.push(`duplicate command id: ${command.id}`)
+      commandIds.add(command.id)
+      if (!String(command?.script ?? '').trim() && !Array.isArray(command?.command)) {
+        errors.push(`${groupId}.${command.id} requires script or command`)
+      }
+      for (const dependencyId of command.dependsOn ?? []) {
+        if (!localIds.has(dependencyId)) errors.push(`${groupId}.${command.id} has unknown dependency ${dependencyId}`)
+      }
+    }
+  }
+
+  const retention = matrix.governance?.retention
+  if (!retention || retention.baseline !== 'tests/test-retention-before.json'
+    || retention.replacementLedger !== 'tests/test-retention-replacements.json'
+    || retention.automaticDeletion !== false) {
+    errors.push('governance.retention must bind the tracked baseline and replacement ledger with automaticDeletion=false')
+  }
+  const retiredFromIds = new Set()
+  for (const replacement of matrix.governance?.retiredTiers ?? []) {
+    if (retiredFromIds.has(replacement?.from)) errors.push(`duplicate retired tier: ${replacement?.from}`)
+    retiredFromIds.add(replacement?.from)
+    if (!byId.has(replacement?.to)) errors.push(`retired tier ${replacement?.from} references missing replacement ${replacement?.to}`)
+  }
+
   for (const tier of matrix.tiers) {
     if (!tier.id) {
       errors.push('tier missing id')

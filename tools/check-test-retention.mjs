@@ -124,7 +124,6 @@ function buildTextReferenceIndex(files) {
     file.includes('/support/')
     || file.includes('/fixtures/')
     || file.includes('/Fixtures/')
-    || file.endsWith('/_legacy.sh')
   ))
 
   for (const source of files) {
@@ -260,7 +259,8 @@ async function buildAudit({ runId = null } = {}) {
   })
   const candidateReviews = reviewCandidateFiles(reviewCandidates, testRecords)
   const replaceableReviews = candidateReviews.filter((review) => review.decision === 'replaceable')
-  const replacementManifestPath = path.join(root, 'tests/test-retention-replacements.json')
+  const retentionGovernance = matrix.governance?.retention ?? {}
+  const replacementManifestPath = path.join(root, retentionGovernance.replacementLedger ?? 'tests/test-retention-replacements.json')
   const replacementManifest = normalizeReplacementManifest(
     fs.existsSync(replacementManifestPath)
       ? JSON.parse(fs.readFileSync(replacementManifestPath, 'utf8'))
@@ -268,7 +268,8 @@ async function buildAudit({ runId = null } = {}) {
     testRecords,
     {
       tierIds: matrix.tiers.map((tier) => tier.id),
-      coverageIds: (coverageRegistry.entries ?? []).map((entry) => entry.id)
+      coverageIds: (coverageRegistry.entries ?? []).map((entry) => entry.id),
+      tierReplacements: matrix.governance?.retiredTiers ?? []
     }
   )
   const retainedCoverageIds = [...new Set(testRecords.flatMap((record) => record.coverageIds))].sort()
@@ -546,12 +547,14 @@ function loadFailureHistory() {
 
 try {
   const options = parseArgs(process.argv.slice(2))
-  const authoritativeBefore = path.join(root, 'tests/test-retention-before.json')
+  const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
+  const authoritativeBeforeRelative = matrix.governance?.retention?.baseline ?? 'tests/test-retention-before.json'
+  const authoritativeBefore = path.join(root, authoritativeBeforeRelative)
   if (options.captureBefore && fs.existsSync(authoritativeBefore)) {
-    throw new Error('authoritative before snapshot already exists: tests/test-retention-before.json')
+    throw new Error(`authoritative before snapshot already exists: ${authoritativeBeforeRelative}`)
   }
   if (options.captureBefore && path.resolve(options.captureBefore) !== path.resolve(authoritativeBefore)) {
-    throw new Error('before snapshot must be captured at tests/test-retention-before.json')
+    throw new Error(`before snapshot must be captured at ${authoritativeBeforeRelative}`)
   }
   if (options.auditInput && !options.captureBefore) {
     throw new Error('--audit-input is only valid with --capture-before')

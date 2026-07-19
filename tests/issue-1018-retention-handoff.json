@@ -1,8 +1,0 @@
-{
-    "schema": "fsusblog.issue-test-retention-replacements.v1",
-    "issue": 1018,
-    "baseline": "tests/test-retention-before.json",
-    "expectedDeletedTestIds": 0,
-    "deletedTests": [],
-    "reason": "Issue #1018 retains its existing visual-density governance owner and strengthens the still-retained sticky-geometry behavior test without deleting or replacing a test id. Separately deleted frontend source-shape tests belong to the active source-locking migration and are not claimed by this issue."
-}

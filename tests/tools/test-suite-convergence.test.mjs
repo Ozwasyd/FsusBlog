@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,8 +17,27 @@ import {
   verifySourceLockingFixtures
 } from '../../tools/test-convergence/audit.mjs'
 import { compactRetentionBaseline } from '../../tools/test-retention/audit.mjs'
+import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+
+test('matrix is the single current command and retention governance authority', () => {
+  const matrix = parseMatrix(readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8'))
+  assert.equal(matrix.commandGroups['frontend-static-governance'].commands.length, 31)
+  assert.equal(matrix.commandGroups['frontend-runtime-contracts'].commands.length, 7)
+  assert.equal(matrix.governance.retention.replacementLedger, 'tests/test-retention-replacements.json')
+  assert.deepEqual(matrix.governance.retention.postBaselines, ['tests/issue-1146-acceptance-baseline.json'])
+  assert.equal(matrix.governance.retention.automaticDeletion, false)
+  for (const retiredPath of [
+    'tests/frontend/checks/static/manifest.json',
+    'tests/frontend/checks/runtime/manifest.json',
+    'tests/issue-1051-suite-convergence.json',
+    'tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs',
+    'tests/issue-1146-retention-replacements.json'
+  ]) {
+    assert.equal(existsSync(resolve(root, retiredPath)), false, `${retiredPath} must stay retired`)
+  }
+})
 
 test('backend source-locking owner accepts runtime artifacts and rejects production docs and test source', () => {
   const positive = readFileSync(

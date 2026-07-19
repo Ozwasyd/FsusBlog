@@ -159,7 +159,7 @@ async function main() {
     durationMs,
     baseUrl,
     policy: {
-      source: 'tests/perf/perf-policy.yml',
+      source: 'tests/performance/perf-policy.yml',
       profile: 'notificationPressure'
     }
   }

@@ -3,10 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import {
-  delegatedSourceLockOwners as delegatedSourceLockOwnerEntries,
-  fixtureReaderOwners as fixtureReaderOwnerEntries
-} from './frontend-source-locking-migration-plan.mjs'
+import { parseMatrix } from '../../../../tools/test-matrix/parse-matrix.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const frontendRoot = resolve(root, 'src/frontend')
@@ -20,12 +17,10 @@ const ts = (() => {
   }
 })()
 const pkg = JSON.parse(readFileSync(resolve(root, 'src/frontend/package.json'), 'utf8'))
-const matrix = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8')
-const legacyTestSh = readFileSync(resolve(root, 'tools/test/legacy-test.sh'), 'utf8')
-const localBundleRunner = readFileSync(resolve(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8')
+const matrixText = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8')
+const matrix = parseMatrix(matrixText)
 const productionVitestConfig = readFileSync(resolve(root, 'src/frontend/vitest.production.config.ts'), 'utf8')
-const runtimeManifest = readFileSync(resolve(root, 'tests/frontend/checks/runtime/manifest.json'), 'utf8')
-const staticManifest = readFileSync(resolve(root, 'tests/frontend/checks/static/manifest.json'), 'utf8')
+const commandGroups = Object.values(matrix.commandGroups ?? {})
 const viteConfig = readFileSync(resolve(root, 'src/frontend/vite.config.ts'), 'utf8')
 const errors = []
 
@@ -33,12 +28,14 @@ function fail(message) {
   errors.push(message)
 }
 
-const fixtureReaderOwners = new Map(fixtureReaderOwnerEntries.map(({ path, reason }) => [path, reason]))
+const fixtureReaderOwners = new Map(
+  (matrix.governance?.sourceLocking?.fixtureReaderOwners ?? []).map(({ path, reason }) => [path, reason])
+)
 
 // Final handoff keeps this map empty. Retaining the mechanism makes any future
 // delegation visible in the summary without granting a permanent exemption.
 const delegatedSourceLockOwners = new Map(
-  delegatedSourceLockOwnerEntries.map(({ path, owner }) => [path, owner])
+  (matrix.governance?.sourceLocking?.delegatedOwners ?? []).map(({ path, owner }) => [path, owner])
 )
 
 function walkUnitTests(dir) {
@@ -323,11 +320,8 @@ function requireFile(path) {
   }
 }
 
-function legacyFastGateRuns(script) {
-  return legacyTestSh.includes(`npm run ${script}`)
-    || legacyTestSh.includes(`RunVitestScript ${script}`)
-    || runtimeManifest.includes(`"script": "${script}"`)
-    || staticManifest.includes(`"script": "${script}"`)
+function matrixFastGateRuns(script) {
+  return commandGroups.some((group) => (group.commands ?? []).some((entry) => entry.script === script))
     || (script === 'test:property' && productionVitestConfig.includes('vitest.property.config'))
     || (script === 'check:frontend-state-machines' && productionVitestConfig.includes('vitest.model.config'))
     || (script === 'check:frontend-perf-regression' && productionVitestConfig.includes('vitest.perf.config'))
@@ -406,12 +400,12 @@ for (const token of [
   'check:a11y:deep',
   'check:frontend-test-governance'
 ]) {
-  if (!legacyFastGateRuns(token)) {
+  if (!matrixFastGateRuns(token)) {
     fail(`fast gate does not run ${token}`)
   }
 }
 
-if (!matrix.includes('version: fsusblog-test-matrix-v2') || !matrix.includes('risk:') || !matrix.includes('coverage:')) {
+if (!matrixText.includes('version: fsusblog-test-matrix-v2') || !matrixText.includes('risk:') || !matrixText.includes('coverage:')) {
   fail('tests/matrix.yml lacks v2 version/risk/coverage traceability fields')
 }
 

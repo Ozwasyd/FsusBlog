@@ -1248,9 +1248,9 @@ test('final authority requires a non-regressing critical mutation slice with ret
 
 test('out-of-scope replacements require a source-bound executed critical mutation slice', () => {
   const criticalRecord = {
-    id: 'shell:tools/test/legacy-test.sh',
+    id: 'shell:tools/test/lanes/backend-mutation.sh',
     tierIds: ['backend-mutation', 'release-mutation-critical-slice'],
-    assertionTargets: ['behavior:legacy-test.sh']
+    assertionTargets: ['behavior:backend-mutation.sh']
   }
   const removedUiRecord = { id: 'vitest:old-ui-test', tierIds: ['frontend-unit-shard'], assertionTargets: ['mobile behavior'] }
   const replacementUiRecord = { id: 'vitest:new-ui-test', tierIds: ['frontend-unit-shard'], assertionTargets: ['mobile behavior'] }
@@ -1289,9 +1289,9 @@ test('out-of-scope replacements require a source-bound executed critical mutatio
 
 test('zero actual deletions still require a source-bound executed critical mutation slice', () => {
   const criticalRecord = {
-    id: 'shell:tools/test/legacy-test.sh',
+    id: 'shell:tools/test/lanes/backend-mutation.sh',
     tierIds: ['backend-mutation', 'release-mutation-critical-slice'],
-    assertionTargets: ['behavior:legacy-test.sh']
+    assertionTargets: ['behavior:backend-mutation.sh']
   }
   const before = { ...emptyAudit(), testRecords: [criticalRecord] }
   const after = { ...emptyAudit(), testRecords: [criticalRecord], deletedCandidates: [] }
@@ -1307,7 +1307,7 @@ test('zero actual deletions still require a source-bound executed critical mutat
 
   assert.equal(report.criticalMutationSlice.status, 'pass')
   assert.equal(report.criticalMutationSlice.evidenceMode, 'executed-current-slice')
-  assert.deepEqual(report.criticalMutationSlice.before.testIds, ['shell:tools/test/legacy-test.sh'])
+  assert.deepEqual(report.criticalMutationSlice.before.testIds, ['shell:tools/test/lanes/backend-mutation.sh'])
   assert.equal(report.finalAuthority.status, 'pass')
 
   const missing = buildOptimizationReport({

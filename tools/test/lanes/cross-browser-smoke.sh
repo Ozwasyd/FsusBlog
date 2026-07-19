@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lane-collect-support.sh"
 
 CURRENT_TIER="cross-browser-smoke"
 Log "tier=cross-browser-smoke | requires release preview=$RELEASE_PREVIEW_URL"

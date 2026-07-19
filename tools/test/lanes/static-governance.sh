@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lane-collect-support.sh"
 
 StaticEvidencePlan() { Run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-evidence-plan; }
 StaticAedsPolicy() { Run "$ROOT_DIR/tools/check-aeds-only-policy.sh"; }
@@ -12,6 +12,7 @@ StaticDeadCodeIndex() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance
 StaticBackgroundServices() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-background-service-classification.mjs"; }
 StaticSuiteConvergence() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-suite-convergence.mjs"; }
 StaticBrowserTestMigration() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-browser-test-migration.mjs"; }
+StaticTestOrchestrator() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-orchestrator-uniqueness.mjs"; }
 StaticBackendGovernance() { RunTier "static-governance" RunBackendTestGovernanceOnly; }
 StaticGateIntegrity() { Run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
 StaticFlakyRegistry() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs"; }
@@ -79,6 +80,7 @@ STATIC_NODE_CONTRACT_FILES=(
     "$ROOT_DIR/tests/tools/issue-1151-receipt-schema.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs"
     "$ROOT_DIR/tests/tools/issue-1154-pod-binary-codec-batch-evidence.test.mjs"
+    "$ROOT_DIR/tests/tools/test-orchestrator-uniqueness.test.mjs"
 )
 StaticNodeContracts() {
     FSUSBLOG_STATIC_CONTRACT_FILES="$(printf '%s\n' "${STATIC_NODE_CONTRACT_FILES[@]}")" \
@@ -158,6 +160,7 @@ RunStaticPrechecksPhase() {
         background-services StaticBackgroundServices \
         suite-convergence StaticSuiteConvergence \
         browser-test-migration StaticBrowserTestMigration \
+        test-orchestrator StaticTestOrchestrator \
         backend-governance StaticBackendGovernance \
         gate-integrity StaticGateIntegrity \
         flaky-registry StaticFlakyRegistry \

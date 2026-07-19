@@ -70,7 +70,7 @@ test('browser diagnostics expose engine loss and browser crashes without an inne
 test('release correctness ignores explicitly classified diagnostic evidence', () => {
   const manifestCheck = read('tools/operations/check-release-evidence-manifest.mjs')
   const releaseFinal = read('tools/release/check-release-final.mjs')
-  const visualEvidenceWriter = read('tools/test/legacy-test.sh')
+  const visualEvidenceWriter = read('tools/test/lanes/_suite-support.sh')
 
   assert.doesNotMatch(manifestCheck, /\['AEDS Wasm browser tiers'/u)
   assert.doesNotMatch(manifestCheck, /function aedsWasmBrowserOk/u)

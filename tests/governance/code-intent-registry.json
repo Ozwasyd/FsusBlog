@@ -480,7 +480,7 @@
                     "tests/tools/issue-1152-aeds-frame-cost-evidence.test.mjs"
                 ],
                 "policy": {
-                    "path": "tests/perf/perf-policy.yml",
+                    "path": "tests/performance/perf-policy.yml",
                     "anchor": "aedsFrameCost:"
                 },
                 "authority": {

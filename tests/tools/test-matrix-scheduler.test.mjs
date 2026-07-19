@@ -41,11 +41,18 @@ function createTempDir(name) {
 function createRunnerFixture(temp) {
   const toolsDirectory = path.join(temp, 'tools')
   const schedulerDirectory = path.join(toolsDirectory, 'test-matrix')
+  const yamlDirectory = path.join(toolsDirectory, 'yaml')
+  const workflowDirectory = path.join(temp, '.github/workflows')
   fs.mkdirSync(schedulerDirectory, { recursive: true })
+  fs.mkdirSync(yamlDirectory, { recursive: true })
+  fs.mkdirSync(workflowDirectory, { recursive: true })
   fs.copyFileSync(path.join(root, 'tools/run-test-matrix.mjs'), path.join(toolsDirectory, 'run-test-matrix.mjs'))
   for (const file of ['scheduler.mjs', 'async-log-pipeline.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs', 'dotnet-build-server-cleanup.mjs', 'production-build-layout.mjs', 'production-build-gc.mjs', 'artifact-digest-table.mjs', 'resource-utilization.mjs', 'production-resource-enforcement.mjs', 'resident-resource-leases.mjs']) {
     fs.copyFileSync(path.join(root, 'tools/test-matrix', file), path.join(schedulerDirectory, file))
   }
+  fs.copyFileSync(path.join(root, 'tools/yaml/parse-document.mjs'), path.join(yamlDirectory, 'parse-document.mjs'))
+  fs.copyFileSync(path.join(root, 'tools/yaml/workflow-structure.mjs'), path.join(yamlDirectory, 'workflow-structure.mjs'))
+  fs.copyFileSync(path.join(root, '.github/workflows/quality-gate.yml'), path.join(workflowDirectory, 'quality-gate.yml'))
   return path.join(toolsDirectory, 'run-test-matrix.mjs')
 }
 
@@ -2148,9 +2155,9 @@ test('effective cache inputs include shared lane, Vitest, and setup consumers', 
     command: 'tools/test/lanes/backend-unit.sh',
     cacheInputs: ['tools/test/lanes/backend-unit.sh']
   }))
-  assert.ok(backendInputs.includes('tools/test/lanes/_legacy.sh'))
-  assert.ok(backendInputs.includes('tools/test/legacy-test.sh'))
-  assert.ok(backendInputs.includes('tools/test/run-once.mjs'))
+  assert.ok(!backendInputs.includes('tools/test/lanes/_lane-collect-support.sh'))
+  assert.ok(!backendInputs.includes('tools/test/lanes/_suite-support.sh'))
+  assert.ok(!backendInputs.includes('tools/test/run-once.mjs'))
 
   const frontendInputs = effectiveCacheInputs(tier('frontend-unit-shard', {
     command: 'tools/test/lanes/frontend-unit-shard.sh',
@@ -3016,7 +3023,12 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
     changedFiles
   ], {
     cwd: temp,
-    env: { ...process.env, FSUSBLOG_MATRIX_FILE: matrix },
+    env: {
+      ...process.env,
+      FSUSBLOG_MATRIX_FILE: matrix,
+      FSUSBLOG_TEST_SOURCE_COMMIT: '1'.repeat(40),
+      FSUSBLOG_TEST_SOURCE_FINGERPRINT: `sha256:${'2'.repeat(64)}`
+    },
     encoding: 'utf8'
   })
   assert.equal(result.status, 0, result.stderr)

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lane-collect-support.sh"
 
 STAGE_DIR="$ROOT_DIR/.tmp/security/privacy-zk-comment-matrix-stages"
 

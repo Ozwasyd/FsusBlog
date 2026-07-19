@@ -9,7 +9,7 @@
 - `structuralEvidence` 记录 copy count/bytes、推导文本和 `hardwareCounter=false`。`copyBytesBefore=payload.Length` 是旧双缓冲路径的代码结构推导，不是 PMU、profiler 或硬件 counter。
 - `source.artifactSet` 同时绑定本次真正执行的 Release `FsusBlog.Core.Benchmarks.dll` 与其加载的 `FsusBlog.Core.dll`：每个条目保留仓库相对路径、字节数和 SHA-256，并对规范化后的完整集合再次计算 digest。finalizer 会从当前 Release 输出重读并校验这些字节，同时把完全相同的文件快照纳入 `.tmp/perf/aeds-frame-cost/**`；后续下载证据时可从快照复核，不能用只匹配 benchmark 外壳、却替换 Core 依赖的 stale artifact 冒充本轮结果。
 - `measuredEvidence` 记录 commit、CPU、OS、runtime、GC、affinity、warmup、round/iteration/sample count，以及 before/after 的 allocation、mean、p50、p95、standard deviation、逐轮值、逐次 `samplesMs`、逐轮 allocation 总量和波动范围。权威门禁的 `meanMs` 是 round mean 中位数、`p95Ms` 是 round p95 中位数；`arithmeticMeanMs`、pooled p50/p95、standard deviation、CV 与 range 由全量样本重算，避免用稳健统计隐藏原始 outlier。
-- `policy` 绑定 `tests/perf/perf-policy.yml` 的 SHA-256、authoritative mean/p95 aggregation 和实际阈值；checker 会从逐次样本重算每轮 mean/p50/p95/stddev、可验证 allocation，再重算 pooled 统计、median-of-round 聚合、scenario assessment 与三层 conclusion，不信任 summary 中手写的聚合值、`status` 或 conclusion。
+- `policy` 绑定 `tests/performance/perf-policy.yml` 的 SHA-256、authoritative mean/p95 aggregation 和实际阈值；checker 会从逐次样本重算每轮 mean/p50/p95/stddev、可验证 allocation，再重算 pooled 统计、median-of-round 聚合、scenario assessment 与三层 conclusion，不信任 summary 中手写的聚合值、`status` 或 conclusion。
 
 ## 场景与结论
 

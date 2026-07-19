@@ -629,7 +629,7 @@ export function runtimeSteps() {
     // The physical runtime bundle starts at t0 with one CPU. Static security is
     // its only executable task until completion; source contracts then consume
     // the backend/frontend marker gap without delaying bootstrap admission.
-    step('security-static', 'tools/test/legacy-test.sh security-static-phase', [], {
+    step('security-static', 'tools/test/lanes/security-static.sh', [], {
       resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
     }),
     step('bootstrap', 'FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh', ['bootstrap'], {
@@ -645,7 +645,7 @@ export function runtimeSteps() {
       dependsOn: ['runtime-integration'],
       resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
     }),
-    step('security-runtime-core', 'FSUSBLOG_LOCAL_RUNTIME_EXPOSURE_IN_DAG=1 FSUSBLOG_SKIP_ZAP=1 tools/test/legacy-test.sh security-runtime-core', [], {
+    step('security-runtime-core', 'FSUSBLOG_LOCAL_RUNTIME_EXPOSURE_IN_DAG=1 FSUSBLOG_SKIP_ZAP=1 tools/test/lanes/security-runtime-core.sh', [], {
       dependsOn: needsRuntime,
       resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
     }),
@@ -691,10 +691,10 @@ export function runtimeSteps() {
     // Canonical OpenAPI generation and parity/coherence checks are source-based,
     // but delaying their seven-second CPU window lets bootstrap claim the full
     // refreshed grant as soon as both build markers land.
-    step('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools/test/legacy-test.sh cross-stack-contract static', [], {
+    step('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools/test/lanes/cross-stack-contract.sh static', [], {
       dependsOn: ['security-static', 'backend-build-ready']
     }),
-    step('cross-stack-runtime', 'tools/test/legacy-test.sh cross-stack-contract runtime', [], {
+    step('cross-stack-runtime', 'tools/test/lanes/cross-stack-contract.sh runtime', [], {
       dependsOn: ['runtime-integration']
     }),
     step('render-structure', 'tools/test/lanes/frontend-render-pressure.sh', ['frontend-render-pressure'], {

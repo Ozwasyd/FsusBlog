@@ -301,7 +301,7 @@ function validateRegistry(registry, lane, errors) {
 
 function validateRepoWiring(errors) {
   const matrix = readText('tests/matrix.yml')
-  const releaseLane = readText('tools/test/legacy-test.sh')
+  const releaseLane = readText('tools/test/lanes/_suite-support.sh')
   const fastLane = readText('tools/test/lanes/public-hydration-fast.sh')
   const nightlyLane = readText('tools/test/lanes/public-hydration-nightly.sh')
   const workflow = readText('.github/workflows/quality-gate.yml')

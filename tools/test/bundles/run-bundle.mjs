@@ -8,6 +8,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 import { parseMatrix } from '../../test-matrix/parse-matrix.mjs'
+import { resolveCommandGroup } from '../../test-matrix/command-groups.mjs'
 import {
   artifactSubstitutionBindingDigest,
   matrixGeneratedRuntimePaths,
@@ -1089,7 +1090,7 @@ function buildStaticSteps() {
         artifacts: [path.join(root, '.tmp/ci-production-build/receipt.json')]
       }
     ),
-    commandStep('frontend-runtime-contracts', 'cd src/frontend && FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node ../../tools/test/run-command-manifest.mjs ../../tests/frontend/checks/runtime/manifest.json', ['frontend-runtime-contracts'], { dependsOn: ['sync-static-assets'] }),
+    commandStep('frontend-runtime-contracts', 'cd src/frontend && FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node ../../tools/test/run-command-manifest.mjs --matrix-group frontend-runtime-contracts', ['frontend-runtime-contracts'], { dependsOn: ['sync-static-assets'] }),
     commandStep('wasm-fuzz', 'tools/test/lanes/wasm-fuzz-regression.sh', ['wasm-fuzz-regression'], { dependsOn: ['frontend-build'] })
   ]
 }
@@ -1871,7 +1872,7 @@ async function executeFrontendStep(step) {
 }
 
 async function runFrontendTests() {
-  const staticManifest = JSON.parse(fs.readFileSync(path.join(root, 'tests/frontend/checks/static/manifest.json'), 'utf8'))
+  const staticManifest = resolveCommandGroup(matrix, 'frontend-static-governance')
   const frontendPackage = JSON.parse(fs.readFileSync(path.join(root, 'src/frontend/package.json'), 'utf8'))
   const staticPlan = planLocalStaticCommands(buildLocalStaticManifest(staticManifest, frontendPackage.scripts))
   const staticEvidence = Object.fromEntries(

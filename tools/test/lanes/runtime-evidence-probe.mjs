@@ -47,7 +47,7 @@ const safeBinaryPaths = [
   '/api/binary/article/hot/5.aeds',
   '/api/binary/article/featured/4.aeds'
 ]
-const perfPolicyRelativeFile = 'tests/perf/perf-policy.yml'
+const perfPolicyRelativeFile = 'tests/performance/perf-policy.yml'
 const perfPolicyFile = path.join(root, perfPolicyRelativeFile)
 
 const backendQpsModes = [

@@ -96,7 +96,7 @@ async function readSummary(root, source, artifactDirectories) {
     assertValidSaturationReport(summary, {
       expectedCommit: expectedCommitForRoot(root),
       expectedImageDigest: process.env.FSUSBLOG_EXPECTED_IMAGE_DIGEST || undefined,
-      expectedPolicy: readSaturationPolicy(path.join(root, 'tests/perf/perf-policy.yml')).policy
+      expectedPolicy: readSaturationPolicy(path.join(root, 'tests/performance/perf-policy.yml')).policy
     })
   }
   return {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lane-collect-support.sh"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 EVIDENCE_PATH="$ROOT_DIR/.tmp/release-evidence/rights-v3-test-matrix.json"
 

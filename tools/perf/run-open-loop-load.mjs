@@ -27,7 +27,7 @@ export function parseOpenLoopArgs(argv) {
     repeats: 3,
     timeoutMs: 10_000,
     maxInFlight: 10_000,
-    policyFile: path.join(root, 'tests/perf/perf-policy.yml'),
+    policyFile: path.join(root, 'tests/performance/perf-policy.yml'),
     headers: {}
   }
   for (let index = 0; index < argv.length; index += 1) {

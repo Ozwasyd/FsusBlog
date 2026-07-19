@@ -12,7 +12,7 @@ test('perception matrix projects the fresh production union and keeps standalone
   const localBranch = lane.slice(lane.indexOf('if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" ]]'), standaloneStart)
   const standaloneBranch = lane.slice(standaloneStart)
 
-  assert.match(lane, /source .*\/_legacy\.sh/u)
+  assert.match(lane, /source .*\/_lane-collect-support\.sh/u)
   assert.match(lane, /FSUSBLOG_LOCAL_PROFILE/u)
   assert.match(localBranch, /fsusblog\.perception-v2\.union-projection\.v1/u)
   assert.match(localBranch, /FSUSBLOG_TEST_RUN_ID/u)
@@ -31,7 +31,7 @@ test('rights v3 matrix consumes the shared Debug build without another writer', 
   const producer = lane.indexOf('FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild')
   const reader = lane.indexOf('dotnet test tests/backend/FsusBlog.Server.Tests.csproj')
 
-  assert.match(lane, /source .*\/_legacy\.sh/u)
+  assert.match(lane, /source .*\/_lane-collect-support\.sh/u)
   assert.ok(producer >= 0, 'rights v3 must prepare the shared Debug build')
   assert.ok(reader > producer, 'rights v3 tests must run after the shared Debug producer')
   assert.match(lane.slice(reader), /--configuration Debug[\s\S]*?--no-build[\s\S]*?--no-restore/u)

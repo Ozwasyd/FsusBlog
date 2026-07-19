@@ -23,7 +23,7 @@ test('privacy ZK lane exposes prebuild/postbuild contract, functional, benchmark
   assert.ok(contract < functional)
   assert.ok(functional < benchmark)
   assert.ok(benchmark < finalize)
-  assert.match(lane, /source .*\/_legacy\.sh/u)
+  assert.match(lane, /source .*\/_lane-collect-support\.sh/u)
   assert.match(lane, /RunCollectParallel privacy-zk-functional/u)
   assert.match(lane, /backend-functional RunPrivacyBackendFunctional/u)
   assert.match(lane, /frontend RunPrivacyFrontend/u)

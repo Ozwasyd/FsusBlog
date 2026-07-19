@@ -190,13 +190,12 @@ test('every browser-launching tier declares the browser resource boundary', () =
   }
 })
 
-test('legacy production functions cannot hide direct Chromium launch scripts', () => {
-  const source = read('tools/test/legacy-test.sh')
+test('canonical correctness leaves cannot hide direct Chromium launch scripts or a second production DAG', () => {
+  const source = read('tools/test/lanes/_suite-support.sh')
   const integration = shellFunction(source, 'RunIntegrationOnly')
   const security = shellFunction(source, 'RunSecurityRuntimeCoreOnly')
   const resilience = shellFunction(source, 'RunResilienceOnly')
   const acceptance = shellFunction(source, 'RunAcceptanceOnly')
-  const production = shellFunction(source, 'RunProduction')
 
   for (const forbidden of ['check:pow-runtime', 'check:search-runtime']) {
     assert.doesNotMatch(integration, new RegExp(forbidden.replace(':', '\\:')))
@@ -206,13 +205,13 @@ test('legacy production functions cannot hide direct Chromium launch scripts', (
   assert.match(acceptance, /browser-diagnostics/u)
   assert.ok(
     acceptance.indexOf('acceptance is diagnostics-only') < acceptance.indexOf('PrepareSessionFixturesOnce'),
-    'legacy acceptance must fail closed outside the diagnostics job before preparing browser fixtures'
+    'acceptance must fail closed outside the diagnostics job before preparing browser fixtures'
   )
-  assert.doesNotMatch(production, /RunAcceptanceOnly|PLAYWRIGHT|PrepareSessionFixturesOnce/u)
+  assert.doesNotMatch(source, /RunProductionCorrectness\(\)|RunProduction\(\)/u)
 
   assert.equal(
     tiers.get('cross-stack-contract')?.command,
-    'tools/test/legacy-test.sh cross-stack-contract static'
+    'tools/test/lanes/cross-stack-contract.sh static'
   )
 
   const diagnostics = read('tools/test/lanes/browser-runtime-risk-diagnostics.sh')

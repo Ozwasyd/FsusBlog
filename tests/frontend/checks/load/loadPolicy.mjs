@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
-const policyFile = path.join(root, 'tests/perf/perf-policy.yml')
+const policyFile = path.join(root, 'tests/performance/perf-policy.yml')
 
 function readPolicyText() {
   return fs.readFileSync(policyFile, 'utf8')

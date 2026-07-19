@@ -9,6 +9,7 @@ import {
   runWeightedCommandManifest,
   validateCommandManifest
 } from './run-command-manifest.mjs'
+import { loadCommandGroup } from '../test-matrix/command-groups.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const staticStages = ['blocking-prebuild', 'concurrent', 'postbuild', 'isolated', 'final']
@@ -143,7 +144,7 @@ export async function executeStaticStage({
 
 export async function runLocalStaticGovernance({ repoRoot = root, env = process.env } = {}) {
   const frontendRoot = path.join(repoRoot, 'src/frontend')
-  const staticManifest = JSON.parse(fs.readFileSync(path.join(repoRoot, 'tests/frontend/checks/static/manifest.json'), 'utf8'))
+  const staticManifest = loadCommandGroup(repoRoot, 'frontend-static-governance')
   const packageJson = JSON.parse(fs.readFileSync(path.join(frontendRoot, 'package.json'), 'utf8'))
   const manifest = buildLocalStaticManifest(staticManifest, packageJson.scripts)
   const plan = planLocalStaticCommands(manifest)

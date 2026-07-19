@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const lane = fs.readFileSync(path.join(root, 'tools/test/lanes/perf-regression.sh'), 'utf8')
-const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
+const legacy = fs.readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8')
 const ensureBuild = fs.readFileSync(path.join(root, 'tools/test/ensure-benchmark-release-build.sh'), 'utf8')
 const releaseLock = fs.readFileSync(path.join(root, 'tools/test/run-with-dotnet-release-build-lock.sh'), 'utf8')
 const frameCost = fs.readFileSync(path.join(root, 'tools/test/lanes/aeds-frame-cost.sh'), 'utf8')

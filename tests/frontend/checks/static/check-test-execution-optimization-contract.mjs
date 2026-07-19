@@ -94,8 +94,8 @@ for (const relativePath of [
   'tests/frontend/support/fixture-paths.mjs',
   'tools/test/run-once.mjs',
   'tools/test/run-command-manifest.mjs',
-  'tests/frontend/checks/static/manifest.json',
-  'tests/frontend/checks/runtime/manifest.json',
+  'tools/test-matrix/command-groups.mjs',
+  'tests/matrix.yml',
   'tests/backend/xunit.runner.json',
   'tests/backend/Fixtures/postgres-test-collections.json',
   'tools/check-postgres-test-collections.mjs',
@@ -166,7 +166,7 @@ requireIncludes('src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs', [
 ])
 
 requireIncludes('.gitignore', ['/package-lock.json'])
-requireIncludes('tools/test/legacy-test.sh', [
+requireIncludes('tools/test/lanes/_suite-support.sh', [
   'RunOnceCommand',
   'RunFrontendFastBuildLane() {\n    EnsureWasmOnce',
   'RunFrontendRuntimeContractsLane() {\n    EnsureWasmOnce',
@@ -208,8 +208,8 @@ requireIncludes('src/frontend/wasm/build.sh', [
   'gzip -n -9'
 ])
 requireIncludes('tools/test/bundles/bundle-steps.mjs', [
-  "step('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools/test/legacy-test.sh cross-stack-contract static'",
-  "step('cross-stack-runtime', 'tools/test/legacy-test.sh cross-stack-contract runtime'",
+  "step('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools/test/lanes/cross-stack-contract.sh static'",
+  "step('cross-stack-runtime', 'tools/test/lanes/cross-stack-contract.sh runtime'",
   'for (const resource of record.exclusiveResources ?? [])',
   'const conflictingResource = resources.find((resource) => resourceOwners.has(resource))',
   "holderState: 'admission-wave'",
@@ -333,10 +333,10 @@ if (read('.github/workflows/quality-gate.yml').includes('docs --out docs/testing
   errors.push('quality-gate tests must not rewrite tracked docs/testing.generated.md')
 }
 
-const legacyTestSource = read('tools/test/legacy-test.sh')
-const frontendBuildFingerprintStart = legacyTestSource.indexOf('RunFrontendFastBuildGroup()')
-const frontendBuildFingerprintEnd = legacyTestSource.indexOf('WriteFrontendSplitSummary()', frontendBuildFingerprintStart)
-const frontendBuildFingerprint = legacyTestSource.slice(frontendBuildFingerprintStart, frontendBuildFingerprintEnd)
+const suiteSupportSource = read('tools/test/lanes/_suite-support.sh')
+const frontendBuildFingerprintStart = suiteSupportSource.indexOf('RunFrontendFastBuildGroup()')
+const frontendBuildFingerprintEnd = suiteSupportSource.indexOf('WriteFrontendSplitSummary()', frontendBuildFingerprintStart)
+const frontendBuildFingerprint = suiteSupportSource.slice(frontendBuildFingerprintStart, frontendBuildFingerprintEnd)
 for (const token of [
   'for tsconfig in "$CLIENT_DIR"/tsconfig*.json',
   'fingerprintArgs+=(--path "${tsconfig#"$ROOT_DIR/"}")'
@@ -346,9 +346,9 @@ for (const token of [
   }
 }
 
-const authFingerprintStart = legacyTestSource.indexOf('PrepareAuthFixturesOnce()')
-const authFingerprintEnd = legacyTestSource.indexOf('PreparePublicFixturesOnce()', authFingerprintStart)
-const authFingerprint = legacyTestSource.slice(authFingerprintStart, authFingerprintEnd)
+const authFingerprintStart = suiteSupportSource.indexOf('PrepareAuthFixturesOnce()')
+const authFingerprintEnd = suiteSupportSource.indexOf('PreparePublicFixturesOnce()', authFingerprintStart)
+const authFingerprint = suiteSupportSource.slice(authFingerprintStart, authFingerprintEnd)
 for (const secretName of [
   'Jwt__SecretKey',
   'JWT_SECRET',
@@ -389,8 +389,8 @@ requireIncludes('tools/test/run-matrix-governance-once.sh', [
 requireIncludes('tools/bootstrap-acceptance-env.sh', [
   'tools/frontend',
   'FSUSBLOG_FIXTURE_SERVICE_GENERATION',
-  'local legacyLane="$ROOT_DIR/tools/test/lanes/_legacy.sh"',
-  'source "$legacyLane"',
+  'local laneSupport="$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"',
+  'source "$laneSupport"',
   'RunParallel "bootstrap-runtime-fixtures"',
   '"auth-fixtures::PrepareAuthFixturesOnce"',
   '"public-fixtures::PreparePublicFixturesOnce"',
@@ -428,17 +428,17 @@ requireIncludes('tools/coverage/collect-backend-coverage.sh', [
   '--no-build'
 ])
 const ordinaryBackendFilter = 'Category!=Integration&Category!=ApiIntegration&Category!=Concurrency&Category!=Performance&Category!=Property&Category!=GoldenContract&Category!=SecurityStateMachine'
-if (!legacyTestSource.includes(`BACKEND_ORDINARY_TEST_FILTER="\${FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER:-${ordinaryBackendFilter}}"`)) {
+if (!suiteSupportSource.includes(`BACKEND_ORDINARY_TEST_FILTER="\${FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER:-${ordinaryBackendFilter}}"`)) {
   errors.push('backend ordinary and coverage lanes must share a fail-closed filter that excludes every dedicated special suite')
 }
-if (!legacyTestSource.includes('RunBackendDotnetFilterOnly "$BACKEND_ORDINARY_TEST_FILTER"')) {
+if (!suiteSupportSource.includes('RunBackendDotnetFilterOnly "$BACKEND_ORDINARY_TEST_FILTER"')) {
   errors.push('backend ordinary lane must consume BACKEND_ORDINARY_TEST_FILTER')
 }
-if (!legacyTestSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0')
-  || !legacyTestSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server/bin/Debug/net10.0')
-  || !legacyTestSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.ZkCommentV2MclFixture/bin/Debug/net10.0')
-  || !legacyTestSource.includes('outputContract="$debugOutputDir|$debugServerOutputDir|$debugFixtureOutputDir"')
-  || !legacyTestSource.includes('outputContract="$releaseOutputDir"')) {
+if (!suiteSupportSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0')
+  || !suiteSupportSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server/bin/Debug/net10.0')
+  || !suiteSupportSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.ZkCommentV2MclFixture/bin/Debug/net10.0')
+  || !suiteSupportSource.includes('outputContract="$debugOutputDir|$debugServerOutputDir|$debugFixtureOutputDir"')
+  || !suiteSupportSource.includes('outputContract="$releaseOutputDir"')) {
   errors.push('backend shared build cache must require complete run-bound Debug and Release output directories')
 }
 for (const [lane, filter] of [
@@ -448,7 +448,7 @@ for (const [lane, filter] of [
   ['property', 'Category=Property'],
   ['golden', 'Category=GoldenContract']
 ]) {
-  if (!legacyTestSource.includes(`RunBackendDotnetFilterWithCoverage ${lane} "${filter}"`)) {
+  if (!suiteSupportSource.includes(`RunBackendDotnetFilterWithCoverage ${lane} "${filter}"`)) {
     errors.push(`backend dedicated ${lane} suite must execute exactly once while producing mergeable coverage`)
   }
 }

@@ -39,7 +39,7 @@ The matrix-owned concurrency selection also includes the cross-minute,
 same-bucket, and latency cases through `Category=Concurrency`:
 
 ```text
-tools/test/legacy-test.sh backend-concurrency
+./tools/test.sh backend-concurrency
 ```
 
 The parameterized BenchmarkDotNet profile compares the identical capacity-drop

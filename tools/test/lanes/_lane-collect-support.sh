@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    printf '[test] _lane-collect-support.sh is source-only; use ./tools/test.sh <tier>\n' >&2
+    exit 2
+fi
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1
-# shellcheck source=../legacy-test.sh
-source "$ROOT_DIR/tools/test/legacy-test.sh"
+# shellcheck source=_suite-support.sh
+source "$ROOT_DIR/tools/test/lanes/_suite-support.sh"
 
 LANE_FAILURES=()
 

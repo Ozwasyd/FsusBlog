@@ -122,7 +122,7 @@ function completeMeasurements(samples = saturationSamples()) {
 
 test('perf policy is the authoritative v2 route, topology and threshold source', async () => {
   const text = await import('node:fs').then(({ readFileSync }) => readFileSync(
-    new URL('../perf/perf-policy.yml', import.meta.url),
+    new URL('../performance/perf-policy.yml', import.meta.url),
     'utf8'
   ))
   const parsed = parseSaturationPolicy(text)
@@ -132,7 +132,7 @@ test('perf policy is the authoritative v2 route, topology and threshold source',
 })
 
 test('v2 JSON schema binds the report, sample, identity, metrics and conclusion contracts', () => {
-  const schema = JSON.parse(fs.readFileSync(new URL('../perf/performance-saturation-v2.schema.json', import.meta.url), 'utf8'))
+  const schema = JSON.parse(fs.readFileSync(new URL('../performance/performance-saturation-v2.schema.json', import.meta.url), 'utf8'))
   assert.equal(schema.properties.schema.const, SATURATION_SCHEMA)
   assert.deepEqual(schema.properties.routeMatrix.prefixItems.map((item) => item.const), SATURATION_ROUTES)
   assert.deepEqual(schema.properties.topologies.const, SATURATION_TOPOLOGIES)

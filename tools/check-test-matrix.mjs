@@ -653,12 +653,12 @@ requireFileIncludes(
   'fast-backend workflow must expose env-controlled .NET build parallelism'
 )
 requireFileIncludes(
-  'tools/test/legacy-test.sh',
+  'tools/test/lanes/_suite-support.sh',
   'FSUSBLOG_DOTNET_BUILD_PARALLELISM',
   'backend build parallelism must be configurable through FSUSBLOG_DOTNET_BUILD_PARALLELISM'
 )
 requireFileIncludes(
-  'tools/test/legacy-test.sh',
+  'tools/test/lanes/_suite-support.sh',
   'dotnet-build parallelism=',
   'backend build logs must print the selected .NET build parallelism mode'
 )
@@ -698,27 +698,27 @@ requireFileIncludes(
   'docs/testing.md must document frontend-fast split reproduction and artifacts'
 )
 requireFileIncludes(
-  'tools/test/legacy-test.sh',
+  'tools/test/lanes/_suite-support.sh',
   'RunFrontendFastBuildLane',
   'frontend-fast split must expose a standalone build lane'
 )
 requireFileIncludes(
-  'tools/test/legacy-test.sh',
+  'tools/test/lanes/_suite-support.sh',
   'RunFrontendUnitShardLane',
   'frontend-fast split must expose a standalone unit shard lane'
 )
 requireFileIncludes(
-  'tools/test/legacy-test.sh',
+  'tools/test/lanes/_suite-support.sh',
   'RunFrontendRuntimeContractsLane',
   'frontend-fast split must expose a standalone runtime contracts lane'
 )
 requireFileIncludes(
-  'tools/test/legacy-test.sh',
+  'tools/test/lanes/_suite-support.sh',
   'RunFrontendStaticGovernanceLane',
   'frontend-fast split must expose a standalone static governance lane'
 )
 requireFileIncludes(
-  'tools/test/legacy-test.sh',
+  'tools/test/lanes/_suite-support.sh',
   'RunFrontendFastSummaryLane',
   'frontend-fast split must expose a standalone summary lane'
 )

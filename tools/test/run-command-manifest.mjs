@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process'
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { executeWeightedStepDag } from './bundles/bundle-steps.mjs'
+import { loadCommandGroup } from '../test-matrix/command-groups.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const bytesPerGiB = 1024 ** 3
@@ -741,12 +741,13 @@ export async function runCommandManifest(manifest, { cwd = process.cwd(), env = 
 }
 
 async function main(argv) {
-  const manifestArgument = argv[0]
-  if (!manifestArgument) throw new Error('usage: run-command-manifest.mjs <manifest.json> [--cwd path]')
+  const groupIndex = argv.indexOf('--matrix-group')
+  if (groupIndex < 0) {
+    throw new Error('usage: run-command-manifest.mjs --matrix-group <id> [--cwd path]')
+  }
   const cwdIndex = argv.indexOf('--cwd')
   const cwd = cwdIndex >= 0 ? path.resolve(argv[cwdIndex + 1] ?? '') : process.cwd()
-  const manifestPath = path.resolve(cwd, manifestArgument)
-  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  const manifest = loadCommandGroup(repoRoot, argv[groupIndex + 1])
   const runId = evidenceSlug(process.env.FSUSBLOG_TEST_RUN_ID ?? 'direct')
   const evidenceFile = String(process.env.FSUSBLOG_LIVE_GRANT_EVIDENCE_FILE ?? '').trim()
     || path.join(repoRoot, '.tmp', 'test-results', 'live-grant', runId, `${evidenceSlug(manifest.lane)}.json`)

@@ -7,14 +7,13 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
-const legacy = path.join(root, 'tools/test/legacy-test.sh')
+const fixture = path.join(root, 'tools/test/backend-trx-contract-fixture.sh')
 
 test('controlled filtered-lane dry-run writes stable lane TRX files and passing result content', (t) => {
   const trxRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-backend-trx-'))
   t.after(() => fs.rmSync(trxRoot, { recursive: true, force: true }))
   const result = spawnSync('bash', [
-    legacy,
-    'backend-trx-contract-dry-run',
+    fixture,
     'backend-unit',
     'backend-property',
     'coverage-backend'

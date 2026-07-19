@@ -9,25 +9,25 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const xunitRunner = JSON.parse(await readFile(path.join(root, 'tests/backend/xunit.runner.json'), 'utf8'))
 assert.equal(xunitRunner.stopOnFail, false, 'xUnit must collect all failures in each run')
-const legacyRunner = await readFile(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
-const parallelHelper = legacyRunner.slice(
-  legacyRunner.indexOf('RunParallel()'),
-  legacyRunner.indexOf('\nProbeUrl()')
+const suiteSupport = await readFile(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8')
+const parallelHelper = suiteSupport.slice(
+  suiteSupport.indexOf('RunParallel()'),
+  suiteSupport.indexOf('\nProbeUrl()')
 )
 assert.doesNotMatch(parallelHelper, /kill "\$pid"/, 'parallel groups must not kill peers after one failure')
 assert.match(parallelHelper, /local -a failures=\(\)/u)
 assert.match(parallelHelper, /parallel group failed: \$group \(\$\{failures\[\*\]\}\)/u)
-const securityStaticRunner = legacyRunner.slice(
-  legacyRunner.indexOf('RunSecurityStaticOnly()'),
-  legacyRunner.indexOf('\nRunSecurityRuntimeCoreOnly()')
+const securityStaticRunner = suiteSupport.slice(
+  suiteSupport.indexOf('RunSecurityStaticOnly()'),
+  suiteSupport.indexOf('\nRunSecurityRuntimeCoreOnly()')
 )
-const securityRuntimeRunner = legacyRunner.slice(
-  legacyRunner.indexOf('RunSecurityRuntimeCoreOnly()'),
-  legacyRunner.indexOf('\nRunSecurityOnly()')
+const securityRuntimeRunner = suiteSupport.slice(
+  suiteSupport.indexOf('RunSecurityRuntimeCoreOnly()'),
+  suiteSupport.indexOf('\nRunSecurityOnly()')
 )
-const securityRunner = legacyRunner.slice(
-  legacyRunner.indexOf('RunSecurityOnly()'),
-  legacyRunner.indexOf('\nRunSecurity()')
+const securityRunner = suiteSupport.slice(
+  suiteSupport.indexOf('RunSecurityOnly()'),
+  suiteSupport.indexOf('\nRunSecurity()')
 )
 assert.match(securityStaticRunner, /RunParallel "security-static"/u)
 assert.doesNotMatch(securityStaticRunner, /RequireDebugStack/u)
@@ -285,7 +285,7 @@ assert.doesNotMatch(JSON.stringify([
 const frontendFingerprintRoot = await mkdtemp(path.join(os.tmpdir(), 'fsusblog-frontend-fingerprint-'))
 try {
   const captureFile = path.join(frontendFingerprintRoot, 'args.txt')
-  const legacyTestScript = path.join(root, 'tools/test/legacy-test.sh')
+  const legacyTestScript = path.join(root, 'tools/test/lanes/_suite-support.sh')
   const result = spawnSync('bash', ['-c', `
 set -euo pipefail
 export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1
@@ -322,7 +322,7 @@ RunFrontendFastBuildGroup
 const fixtureGenerationRoot = await mkdtemp(path.join(os.tmpdir(), 'fsusblog-fixture-generation-'))
 try {
   const captureFile = path.join(fixtureGenerationRoot, 'fingerprints.txt')
-  const legacyTestScript = path.join(root, 'tools/test/legacy-test.sh')
+  const legacyTestScript = path.join(root, 'tools/test/lanes/_suite-support.sh')
   const result = spawnSync('bash', ['-c', `
 set -euo pipefail
 export FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1

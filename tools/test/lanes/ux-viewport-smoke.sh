@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
-FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1 source "$ROOT_DIR/tools/test/legacy-test.sh"
+source "$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
 
 RequireDebugStack
 RequireReleasePreview

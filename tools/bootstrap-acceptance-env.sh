@@ -120,7 +120,7 @@ else
         "${FSUSBLOG_NODE:-node}" --input-type=module -e '
       import fs from "node:fs";
       import os from "node:os";
-      const policy = fs.readFileSync("tests/perf/perf-policy.yml", "utf8");
+      const policy = fs.readFileSync("tests/performance/perf-policy.yml", "utf8");
       const burst = policy.match(/(?:^|\n)    burst:\n([\s\S]*?)(?=\n    \S|$)/u)?.[1] ?? "";
       const concurrency = Number(burst.match(/^        concurrency:\s*(\d+)\s*$/mu)?.[1]);
       if (!Number.isInteger(concurrency) || concurrency < 1) throw new Error("burst concurrency is unavailable");
@@ -1500,9 +1500,9 @@ EnsureManagedBackendSharedDebugBuild() {
         return
     fi
     Log 'preparing managed Debug backend through the shared backend build producer'
-    local legacyLane="$ROOT_DIR/tools/test/lanes/_legacy.sh"
+    local laneSupport="$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
     (
-        source "$legacyLane"
+        source "$laneSupport"
         FSUSBLOG_BACKEND_TEST_CONFIGURATION=Debug EnsureBackendFilteredBuild
     )
 }
@@ -1745,7 +1745,7 @@ EnsureReleasePreview() {
     local nextFingerprint
     local currentFingerprint=""
     local runBoundBuild="false"
-    local legacyLane="$ROOT_DIR/tools/test/lanes/_legacy.sh"
+    local laneSupport="$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
     local releaseReachable=0
     local readinessDeadline="${1:-}"
     if [[ -z "$readinessDeadline" ]]; then
@@ -1806,7 +1806,7 @@ EnsureReleasePreview() {
         (
             export VITE_API_BASE_URL="$DEBUG_BACKEND_URL"
             export FSUSBLOG_TEST_NAMESPACE
-            source "$legacyLane"
+            source "$laneSupport"
             EnsureWasmOnce
             RunFrontendFastBuildGroup
         )
@@ -1855,7 +1855,7 @@ RefreshAcceptanceCacheAfterFixtures() {
 
 PrepareFixtures() {
     Log 'preparing auth users and playwright fixtures'
-    local legacyLane="$ROOT_DIR/tools/test/lanes/_legacy.sh"
+    local laneSupport="$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
     (
         export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
         export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
@@ -1872,7 +1872,7 @@ PrepareFixtures() {
         export Jwt__RotationWindowDays="$JWT_ROTATION_WINDOW_DAYS"
         export AnonymousCredentialIssuer__SubjectHashPepper="$ANONYMOUS_SUBJECT_HASH_PEPPER"
         # Use the same namespaced run-once keys as every downstream runtime lane.
-        source "$legacyLane"
+        source "$laneSupport"
         # Auth identities and public article/taxonomy fixtures have disjoint
         # run-once keys, output contracts and database rows. Seed them together
         # after backend readiness, then flush Redis only after both writes settle.

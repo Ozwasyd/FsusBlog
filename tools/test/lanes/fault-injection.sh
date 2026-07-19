@@ -7,7 +7,7 @@ mkdir -p "$OUT_DIR"
 
 # Fault recovery may restart the managed backend, so bind it to the exact
 # bootstrap runtime mode and make Debug consume the shared backend producer.
-source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
+source "$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
 RequireBootstrappedNamespace
 runtime_configuration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Debug}"
 case "$runtime_configuration" in

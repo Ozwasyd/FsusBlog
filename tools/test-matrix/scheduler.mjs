@@ -579,9 +579,6 @@ export function effectiveCacheInputs(tier) {
     for (const value of [...(tier.triggerPaths ?? []), ...(tier.triggerFiles ?? [])]) inputs.add(String(value))
   }
 
-  if (/^(?:tools\/test\/lanes\/|tools\/test\/legacy-test\.sh)/u.test(commandPath ?? '')) {
-    for (const value of ['tools/test/lanes/_legacy.sh', 'tools/test/legacy-test.sh', 'tools/test/run-once.mjs']) inputs.add(value)
-  }
   if (tier.id === 'coverage-frontend' || String(tier.id).startsWith('frontend-')) {
     for (const value of ['src/frontend/package.json', 'tests/frontend', 'src/frontend/vitest*.config.ts', 'src/frontend/vitest.shared.mjs']) inputs.add(value)
   }

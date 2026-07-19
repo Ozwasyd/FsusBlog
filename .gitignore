@@ -111,7 +111,6 @@ src/backend/FsusBlog.Server/[Ll]ogs/
 .vite-dev.log
 .vite-dev.pid
 .server-debug.log
-.full-regression-server.log
 
 # Frontend local outputs
 src/frontend/.vite/

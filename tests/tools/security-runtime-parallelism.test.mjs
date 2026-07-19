@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { resolveAdaptiveManifestWorkers } from '../../tools/test/run-command-manifest.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const legacy = fs.readFileSync(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
+const legacy = fs.readFileSync(path.join(root, 'tools/test/lanes/_suite-support.sh'), 'utf8')
 const lane = fs.readFileSync(path.join(root, 'tools/test/lanes/security-runtime.sh'), 'utf8')
 const a11yDiagnostics = fs.readFileSync(path.join(root, 'tools/test/lanes/browser-a11y-diagnostics.sh'), 'utf8')
 const runtimeRiskDiagnostics = fs.readFileSync(

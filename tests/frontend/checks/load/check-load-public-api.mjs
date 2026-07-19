@@ -214,7 +214,7 @@ async function main() {
     apiBaseUrl,
     publicBaseUrl,
     policy: {
-      source: 'tests/perf/perf-policy.yml',
+      source: 'tests/performance/perf-policy.yml',
       profile: process.env.FSUSBLOG_LOAD_PROFILE || 'baseline',
       durationMs: policyDurationMs
     },

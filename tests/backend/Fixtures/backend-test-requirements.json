@@ -4,7 +4,7 @@
   "profiles": [
     {
       "id": "backend-api-integration",
-      "command": "tools/test/legacy-test.sh backend-api-integration",
+      "command": "tools/test/lanes/backend-api-integration.sh",
       "risk": "critical",
       "requirements": [
         "BACKEND-ENDPOINT-HTTP-PIPELINE",
@@ -28,7 +28,7 @@
     },
     {
       "id": "backend-auth-state-machine",
-      "command": "tools/test/legacy-test.sh backend-auth-state-machine",
+      "command": "tools/test/lanes/backend-auth-state-machine.sh",
       "risk": "critical",
       "requirements": [
         "BACKEND-AUTH-STATE-MACHINE",
@@ -63,7 +63,7 @@
     },
     {
       "id": "backend-concurrency",
-      "command": "tools/test/legacy-test.sh backend-concurrency",
+      "command": "tools/test/lanes/backend-concurrency.sh",
       "risk": "high",
       "requirements": [
         "BACKEND-CONCURRENCY-RACES",
@@ -91,7 +91,7 @@
         "tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs",
         "tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs",
         "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
-        "tests/backend/issue-1055-retention-replacements.json",
+        "tests/test-retention-replacements.json",
         "tests/backend/Unit/ParallelOperationsHotPathContractTests.cs",
         "tests/backend/Unit/UserSessionValidationServiceTests.cs",
         "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
@@ -105,7 +105,7 @@
     },
     {
       "id": "backend-property",
-      "command": "tools/test/legacy-test.sh backend-property",
+      "command": "tools/test/lanes/backend-property.sh",
       "risk": "high",
       "requirements": [
         "BACKEND-PROPERTY-TESTING",
@@ -118,7 +118,7 @@
     },
     {
       "id": "backend-golden",
-      "command": "tools/test/legacy-test.sh backend-golden",
+      "command": "tools/test/lanes/backend-golden.sh",
       "risk": "high",
       "requirements": [
         "BACKEND-AEDS-GOLDEN",
@@ -133,7 +133,7 @@
     },
     {
       "id": "backend-test-governance",
-      "command": "tools/test/legacy-test.sh backend-test-governance",
+      "command": "tools/test/lanes/backend-test-governance.sh",
       "risk": "critical",
       "requirements": [
         "BACKEND-TRACEABILITY",
@@ -154,7 +154,7 @@
         "tests/backend/Unit/CoverageScriptContractTests.cs",
         "tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs",
         "tests/tools/backend-trx-contract.test.mjs",
-        "tests/issue-1048-retention-replacements.json",
+        "tests/test-retention-replacements.json",
         "tests/backend/Unit/ReleaseIdentityTests.cs",
         "tests/tools/release-manifest.test.mjs",
         "docs/issue-1024-release-identity-handoff.md",
@@ -180,15 +180,8 @@
         "tools/check-background-service-classification.mjs",
         "tests/tools/security-source-analyzer.test.mjs",
         "tests/tools/test-suite-convergence.test.mjs",
-        "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs",
-        "tests/issue-1049-retention-replacements.json",
-        "tests/backend/issue-1050-retention-replacements.json",
+        "tests/matrix.yml",
         "tests/backend/issue-1050-cleanup-human-read.md",
-        "tests/backend/issue-1051-backend-source-lock-retention-replacements.json",
-        "tests/backend/issue-1052-retention-replacements.json",
-        "tests/backend/issue-1053-retention-replacements.json",
-        "tests/backend/issue-1054-retention-replacements.json",
-        "tests/backend/issue-1055-retention-replacements.json",
         "tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt",
         "tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt",
         "tests/tools/release-rollout-state.test.mjs",
@@ -286,7 +279,7 @@
     },
     {
       "id": "backend-mutation",
-      "command": "tools/test/legacy-test.sh backend-mutation",
+      "command": "tools/test/lanes/backend-mutation.sh",
       "risk": "high",
       "requirements": [
         "BACKEND-MUTATION-TESTING"
@@ -311,7 +304,7 @@
     },
     {
       "id": "backend-nightly",
-      "command": "tools/test/legacy-test.sh backend-nightly",
+      "command": "tools/test/lanes/backend-nightly.sh",
       "risk": "critical",
       "requirements": [
         "BACKEND-NIGHTLY-EXHAUSTIVE",
@@ -990,16 +983,8 @@
         "tests/backend/issue-1038-governance-handoff.json",
         "tests/frontend/issue-1017-governance-handoff.json",
         "tests/tools/test-suite-convergence.test.mjs",
-        "tests/issue-1048-retention-replacements.json",
-        "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs",
-        "tests/issue-1049-retention-replacements.json",
-        "tests/backend/issue-1050-retention-replacements.json",
+        "tests/test-retention-replacements.json",
         "tests/backend/issue-1050-cleanup-human-read.md",
-        "tests/backend/issue-1051-backend-source-lock-retention-replacements.json",
-        "tests/backend/issue-1052-retention-replacements.json",
-        "tests/backend/issue-1053-retention-replacements.json",
-        "tests/backend/issue-1054-retention-replacements.json",
-        "tests/backend/issue-1055-retention-replacements.json",
         "tools/check-background-service-classification.mjs",
         "tests/backend/Fixtures/background-service-classification.json",
         "tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt",

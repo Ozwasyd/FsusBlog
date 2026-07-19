@@ -16,7 +16,7 @@ function parseArgs(argv) {
   const options = {
     measurements: [],
     requireOk: false,
-    policy: path.join(root, 'tests/perf/perf-policy.yml')
+    policy: path.join(root, 'tests/performance/perf-policy.yml')
   }
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index]

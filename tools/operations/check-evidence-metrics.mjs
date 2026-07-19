@@ -18,7 +18,7 @@ const requiredNotificationFaultCases = ['notification-stream-slow-consumer']
 const requiredGracefulShutdownFaultCases = ['graceful-shutdown']
 const requiredDiskArtifactFaultCases = ['disk-artifact-storage-write-failure']
 const requiredExtendedObservabilityCategories = ['managedRuntime', 'threadOrConnection', 'storageOrCacheLatency']
-const perfPolicyRelativeFile = 'tests/perf/perf-policy.yml'
+const perfPolicyRelativeFile = 'tests/performance/perf-policy.yml'
 
 function optionValue(name, fallback = null) {
   const index = process.argv.indexOf(name)

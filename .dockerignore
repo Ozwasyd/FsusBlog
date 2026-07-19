@@ -129,7 +129,6 @@ FsusBlog.ClientRuntime*
 .vite-dev.log
 .vite-dev.pid
 .server-debug.log
-.full-regression-server.log
 FsusBlog.Client/node_modules/
 src/frontend/FsusBlog.Client/node_modules/
 src/frontend/node_modules/

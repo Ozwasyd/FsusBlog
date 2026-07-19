@@ -22,33 +22,23 @@ function filesBelow(relativeDirectory) {
 
 test('issue 1146 maps every removed Acceptance assertion target to lightweight test IDs', () => {
   const baseline = readJson('tests/issue-1146-acceptance-baseline.json')
-  const migration = readJson('tests/issue-1146-retention-replacements.json')
   const central = readJson('tests/test-retention-replacements.json')
 
   assert.equal(baseline.records.length, baseline.expectedRecords)
   assert.equal(baseline.records.filter((record) => record.disposition === 'migrated').length, 31)
   assert.equal(baseline.records.filter((record) => record.disposition === 'browser-contract').length, 4)
-  assert.equal(migration.deletedTests.length, migration.expectedDeletedTestIds)
-
   const baselineById = new Map(baseline.records.map((record) => [record.id, record]))
   const centralById = new Map(central.deletedTests.map((entry) => [entry.id, entry]))
-  const allowedLayers = new Set([
-    'api',
-    'backend-integration',
-    'component',
-    'component-contract',
-    'http-renderer',
-    'router',
-    'security-contract'
-  ])
+  const migration = baseline.records
+    .filter((record) => record.disposition === 'migrated')
+    .map((record) => centralById.get(record.id))
+  assert.equal(migration.length, baseline.expectedMigrated)
 
-  for (const entry of migration.deletedTests) {
+  for (const entry of migration) {
+    assert.ok(entry, 'migrated Acceptance record is absent from the central retention ledger')
     const before = baselineById.get(entry.id)
     assert.ok(before, `missing frozen Acceptance record for ${entry.id}`)
     assert.equal(before.disposition, 'migrated', `${entry.id} must be marked migrated`)
-    assert.deepEqual(entry.removedAssertionTargets, before.assertionTargets)
-    assert.ok(entry.targetLayers.length > 0, `${entry.id} has no target layer`)
-    assert.ok(entry.targetLayers.every((layer) => allowedLayers.has(layer)), `${entry.id} has an unknown target layer`)
     assert.ok(entry.replacementTestIds.length > 0, `${entry.id} has no replacement test ID`)
 
     const centralEntry = centralById.get(entry.id)
@@ -57,7 +47,7 @@ test('issue 1146 maps every removed Acceptance assertion target to lightweight t
     assert.deepEqual([...centralEntry.replacementTestIds].sort(), [...entry.replacementTestIds].sort())
   }
 
-  const mappedIds = new Set(migration.deletedTests.map((entry) => entry.id))
+  const mappedIds = new Set(migration.map((entry) => entry.id))
   assert.deepEqual(
     baseline.records.filter((record) => record.disposition === 'migrated' && !mappedIds.has(record.id)),
     []

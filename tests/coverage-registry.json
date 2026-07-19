@@ -1473,7 +1473,7 @@
             "evidencePaths": [
                 "tests/matrix.yml",
                 "tools/test.sh",
-                "tools/test/legacy-test.sh",
+                "tools/test/lanes",
                 "tools/run-test-matrix.mjs",
                 "tools/check-workflow-matrix-sync.mjs",
                 "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
@@ -3150,7 +3150,7 @@
                 "security/policies/backend-source-policy.json",
                 "tests/tools/security-source-analyzer.test.mjs",
                 "tests/backend/issue-1037-security-hardening-evidence.json",
-                "tests/backend/issue-1037-retention-replacements.json"
+                "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject missing behavior suites, missing positive and negative analyzer fixtures, incomplete 19-ID replacement mapping or any repository analyzer diagnostic.",
@@ -3173,7 +3173,7 @@
                 "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
                 "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
                 "tests/backend/issue-1038-endpoint-security-evidence.json",
-                "tests/backend/issue-1038-retention-replacements.json"
+                "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject missing real filter metadata, changed filter order, bare admin-role authorization, unstable auth failure frames or TestServer routes that bypass the production pipeline.",
@@ -3197,7 +3197,7 @@
                 "tests/backend/Unit/ModerationConsoleContractTests.cs",
                 "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs",
                 "tests/issue-1039-admin-console-evidence.json",
-                "tests/backend/issue-1039-retention-replacements.json"
+                "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject legacy credential mutation, missing permission or step-up enforcement, invalid moderation writes, private-key disclosure or inconsistent admin binary contracts.",
@@ -3220,7 +3220,7 @@
                 "tests/backend/Unit/ModerationConsoleContractTests.cs",
                 "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs",
                 "tests/issue-1039-admin-console-evidence.json",
-                "tests/backend/issue-1039-retention-replacements.json"
+                "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject destructive linked-data changes, username or password residue, unconfirmed moderation mutations, replayable step-up proofs or persistence responses exposing internal failure details.",
@@ -3245,7 +3245,7 @@
                 "tests/frontend/unit/router/index.test.ts",
                 "tests/frontend/unit/layouts/accountNavModules.test.ts",
                 "tests/issue-1039-admin-console-evidence.json",
-                "tests/backend/issue-1039-retention-replacements.json",
+                "tests/test-retention-replacements.json",
                 "tests/frontend/unit/components/user/MessagesStateMachine.test.ts",
                 "tests/backend/Integration/MessageCenterPersistenceIntegrationTests.cs"
             ],
@@ -3270,7 +3270,7 @@
                 "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
                 "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
                 "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
-                "tests/backend/issue-1040-retention-replacements.json",
+                "tests/test-retention-replacements.json",
                 "docs/testing/issue-1040-concurrency-state-machines.md"
             ],
             "assertionType": "integration",
@@ -3553,7 +3553,7 @@
                 "tests/tools/performance-evidence-summary.test.mjs",
                 "tests/tools/quality-gate-artifact-layout.test.mjs",
                 "tests/tools/release-evidence-artifact-restore.test.mjs",
-                "tests/issue-1048-retention-replacements.json"
+                "tests/test-retention-replacements.json"
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject an unbounded dry-run, unstable or synthetic TRX result, stale viewport result reuse, aggregate omission, wildcard layout drift, mixed-root restore failure or a replacement that reads sibling implementation text as its primary proof.",
@@ -3570,13 +3570,13 @@
         },
         {
             "id": "frontend-source-locking-convergence",
-            "description": "Frontend source-locking tests converge through one machine-readable migration plan into direct unit, browser, performance and static-governance owners with every removed test ID explicitly retained.",
+            "description": "Frontend source-locking tests converge through matrix-owned active owners and one central retention ledger into direct unit, browser, performance and static-governance evidence.",
             "owner": "InteropGlueAgent",
             "risk": "critical",
             "evidencePaths": [
-                "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs",
+                "tests/matrix.yml",
                 "tests/frontend/checks/static/check-frontend-test-governance.mjs",
-                "tests/issue-1049-retention-replacements.json",
+                "tests/test-retention-replacements.json",
                 ".tmp/frontend/frontend-unit-shard.json",
                 ".tmp/perf/release-summaries/browser-performance-regression.json",
                 "src/frontend/test-results/playwright/acceptance",
@@ -3584,7 +3584,7 @@
             ],
             "assertionType": "integration",
             "failClosedRule": "Reject an undeclared whole-file or selective deletion, missing replacement owner, self-reference, stale delegated allowlist, source-reading unit contract or final suite output that omits unit, browser, performance or production evidence.",
-            "minimumRequirement": "The migration plan and 41-ID issue manifest must resolve every source-locked owner to an existing direct test or consolidated checker, and final unit, acceptance, browser-performance and production artifacts must all be present.",
+            "minimumRequirement": "Matrix governance and the central ledger must resolve every source-locked owner to an existing direct test or consolidated checker, and final unit, acceptance, browser-performance and production artifacts must all be present.",
             "tierIds": [
                 "frontend-unit-shard",
                 "static-governance",
@@ -3595,29 +3595,21 @@
         },
         {
             "id": "test-suite-convergence",
-            "description": "The final suite-convergence gate reconciles the authoritative baseline, every issue-local replacement declaration, frontend migration plans, live child-issue state and the final after snapshot without hiding multiple errors.",
+            "description": "The final suite-convergence gate reconciles the matrix-owned baseline policy, central replacement ledger, source-locking owners and final after snapshot without hiding multiple errors.",
             "owner": "ServerContractAgent",
             "risk": "critical",
             "evidencePaths": [
                 "tests/tools/test-suite-convergence.test.mjs",
                 "tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt",
                 "tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt",
-                "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs",
-                "tests/issue-1048-retention-replacements.json",
-                "tests/issue-1049-retention-replacements.json",
-                "tests/backend/issue-1050-retention-replacements.json",
+                "tests/matrix.yml",
+                "tests/test-retention-replacements.json",
                 "tests/backend/issue-1050-cleanup-human-read.md",
-                "tests/backend/issue-1051-backend-source-lock-retention-replacements.json",
-                "tests/backend/issue-1052-retention-replacements.json",
-                "tests/backend/issue-1053-retention-replacements.json",
-                "tests/backend/issue-1054-retention-replacements.json",
-                "tests/backend/issue-1055-retention-replacements.json",
-                "tests/issue-1051-suite-convergence.json",
                 ".tmp/release-evidence/test-suite-convergence.json"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject undeclared deletions, conflicting replacement sets, missing targets, invalid stage order, source-reading backend tests, stale issue state or final evidence not bound to the authoritative after run.",
-            "minimumRequirement": "Fixture-backed implementation mode must report all structural errors, while final mode additionally requires live closed child issues and matching coverage, mutation, timing and source-state authority.",
+            "failClosedRule": "Reject undeclared deletions, missing targets, source-reading backend tests or final evidence not bound to the authoritative after run.",
+            "minimumRequirement": "Fixture-backed implementation mode must report all structural errors, while final mode additionally requires a source-bound after retention audit.",
             "tierIds": [
                 "static-governance",
                 "production",
@@ -3702,7 +3694,7 @@
             "evidencePaths": [
                 "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
                 "tests/backend/issue-1055-rate-limiter-rejection-sampler-evidence.json",
-                "tests/backend/issue-1055-retention-replacements.json",
+                "tests/test-retention-replacements.json",
                 "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs"
             ],
             "assertionType": "unit",
@@ -3815,7 +3807,7 @@
                 "tests/governance/csharp-entrypoint-ownership.json",
                 "tests/governance/repository-source-layout.json",
                 "tests/tools/issue-1174-csharp-entrypoint-ownership.test.mjs",
-                "tests/frontend/checks/static/manifest.json",
+                "tests/matrix.yml",
                 "src/frontend/package.json",
                 "docs/testing/issue-1174-csharp-entrypoint-ownership.md",
                 "docs/architecture/repository-layout.md"

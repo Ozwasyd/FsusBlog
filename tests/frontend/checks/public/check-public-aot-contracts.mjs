@@ -71,7 +71,7 @@ function assertStaticContracts() {
   const domDiffHydrationCheck = read('tests/frontend/checks/public/check-public-dom-diff-hydration.mjs')
   const hydrationMatrixGovernanceCheck = read('tests/frontend/checks/public/check-public-hydration-matrix-governance.mjs')
   const hydrationMatrixRegistry = read('tests/frontend/checks/public/public-hydration-matrix.registry.json')
-  const releaseLane = read('tools/test/legacy-test.sh')
+  const releaseLane = read('tools/test/lanes/_suite-support.sh')
   const testMatrix = read('tests/matrix.yml')
   const qualityGateWorkflow = read('.github/workflows/quality-gate.yml')
   const releaseEvidenceCollector = read('tools/operations/collect-release-evidence.sh')

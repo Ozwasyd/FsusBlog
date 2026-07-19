@@ -1,62 +1,5 @@
 {
     "schema": "fsusblog.test-retention-replacements.v1",
-    "tierReplacements": [
-        {
-            "from": "backend-chaos",
-            "to": "backend-concurrency",
-            "coverageIds": [
-                "backend-fault-race-readiness",
-                "backend-race-idempotency-model"
-            ],
-            "reason": "backend-chaos duplicated the same Category=Concurrency selection; backend-concurrency now owns the fault/race evidence and emits the same runtime summary plus mergeable Cobertura coverage."
-        },
-        {
-            "from": "ux-viewport-canary-parity",
-            "to": "ux-viewport-boundaries",
-            "coverageIds": [
-                "ux-viewport-plan-progress",
-                "ux-viewport-boundary-full",
-                "ux-viewport-visual"
-            ],
-            "catalogReplacements": {
-                "productionRequiredTierIds": [
-                    {
-                        "from": "ux-viewport-canary-parity",
-                        "to": "ux-viewport-plan-progress"
-                    }
-                ],
-                "coverageIds": [
-                    {
-                        "from": "ux-viewport-canary-parity",
-                        "to": "ux-viewport-boundary-full"
-                    }
-                ],
-                "matrixArtifactPaths": [
-                    {
-                        "from": ".tmp/release-evidence/ux-viewport-canary-parity.json",
-                        "to": ".tmp/release-evidence/ux-viewport-summary.json"
-                    },
-                    {
-                        "from": ".tmp/ux/canary-parity",
-                        "to": ".tmp/ux/viewport-boundaries.json"
-                    }
-                ],
-                "matrixEvidencePaths": [
-                    {
-                        "from": ".tmp/release-evidence/ux-viewport-canary-parity.json",
-                        "to": ".tmp/release-evidence/ux-viewport-summary.json"
-                    }
-                ],
-                "releaseEvidencePaths": [
-                    {
-                        "from": ".tmp/release-evidence/ux-viewport-canary-parity.json",
-                        "to": ".tmp/release-evidence/ux-viewport-summary.json"
-                    }
-                ]
-            },
-            "reason": "The incomplete historical signatures cannot prove parity, so the blocked tier and legacy fixture leave the active inventory. Exact plan/progress, current boundary execution, visual evidence and the semantic viewport summary replace it without claiming unavailable historical parity."
-        }
-    ],
     "deletedTests": [
         {
             "id": "xunit:tests/backend/Unit/LegacyFixturePrivacyContractTests.cs#LegacyFixturePrivacyContractTests.Legacy20260517MinimalFixture_UsesAnonymizedIdentitySamples",
@@ -1328,7 +1271,7 @@
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.AuthRiskEndpointMetadata_ComesFromFinalEndpointDataSource",
                 "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_RiskControlShortCircuitsPowUntilRiskProofIsAccepted",
-                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_InvalidExpiredAndWrongScopeRiskProofsReturnOneStableError"
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_InvalidExpiredAndWrongScopeRiskProofsReturnSafeOutcome"
             ],
             "reason": "TestServer proves RiskControl precedes retained PoW and rejects invalid, expired, and wrong-scope proofs."
         },
@@ -1336,7 +1279,7 @@
             "id": "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.AuthRiskSignals_UseDedicatedReasonsSourcesAndActions",
             "path": "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_InvalidExpiredAndWrongScopeRiskProofsReturnOneStableError",
+                "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_InvalidExpiredAndWrongScopeRiskProofsReturnSafeOutcome",
                 "xunit:tests/backend/Unit/AuthRiskControlEndpointContractTests.cs#AuthRiskControlEndpointContractTests.TestServer_RateLimiterShortCircuitsRiskWithStableBinaryError",
                 "xunit:tests/backend/Unit/SecurityChallengeProofServiceTests.cs#SecurityChallengeProofServiceTests.ConsumeProofAsync_AcceptsMatchingProofAndRejectsReplay"
             ],
