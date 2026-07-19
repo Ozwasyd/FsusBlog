@@ -430,10 +430,14 @@ public class ArticleServiceValidationTests
         Assert.Contains("xmin", method, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("isdeleted = false", method, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
-        Assert.Contains("LOCK TABLE article_revision IN ROW EXCLUSIVE MODE", method, StringComparison.Ordinal);
+        Assert.Contains("pg_advisory_xact_lock", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LOCK TABLE article_revision", method, StringComparison.Ordinal);
         Assert.Contains("INSERT INTO article_revision", method, StringComparison.Ordinal);
-        Assert.Contains("COALESCE(MAX(revision_no), 0) + 1", method, StringComparison.Ordinal);
+        Assert.Contains("SELECT MAX(revision_no)", method, StringComparison.Ordinal);
         Assert.Contains("WHERE article_id = @articleId", method, StringComparison.Ordinal);
+        Assert.Contains("ON CONFLICT (article_id, revision_no) DO NOTHING", method, StringComparison.Ordinal);
+        Assert.Contains("retrying bounded attempt", method, StringComparison.Ordinal);
+        Assert.Contains("Article revision conflict retry limit exceeded", method, StringComparison.Ordinal);
         Assert.DoesNotContain("MaxAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Math.Max", method, StringComparison.Ordinal);
     }

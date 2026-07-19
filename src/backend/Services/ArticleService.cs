@@ -80,6 +80,7 @@ public partial class ArticleService(
     private const int MaxSummaryLength = 512;
     private const int MaxContentLength = 200_000;
     private const int MaxTagIds = 32;
+    private const int MaxArticleRevisionInsertAttempts = 3;
     private readonly IDatabase _redis = _redisConnection.GetDatabase();
     private CancellationToken Ct => _httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
 
@@ -781,83 +782,100 @@ public partial class ArticleService(
         string diffSummary)
     {
         await _db.Ado.ExecuteCommandAsync(
-            """
-            SELECT pg_advisory_xact_lock(hashtext('article_revision'), @articleId);
-            LOCK TABLE article_revision IN ROW EXCLUSIVE MODE;
-            """,
+            "SELECT pg_advisory_xact_lock(hashtext('article_revision'), @articleId);",
             new SugarParameter[] { new("@articleId", articleId) });
         long actorAdminPrincipalId = ResolveRevisionAdminPrincipalId();
         string orderedTagIds = string.Join(',', tagIds.OrderBy(static id => id));
-        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-            """
-            WITH locked_article AS (
-                SELECT id, xmin::text AS row_version
-                FROM article
-                WHERE id = @articleId
-                  AND isdeleted = false
-                FOR UPDATE
-            ),
-            locked_revisions AS (
-                SELECT revision_no
-                FROM article_revision
-                WHERE article_id = @articleId
-                FOR UPDATE
-            ),
-            next_revision AS (
-                SELECT locked_article.id AS article_id,
-                       locked_article.row_version,
-                       COALESCE(MAX(revision_no), 0) + 1 AS revision_no
-                FROM locked_article
-                LEFT JOIN locked_revisions ON TRUE
-                GROUP BY locked_article.id, locked_article.row_version
-            )
-            INSERT INTO article_revision (
-                article_id,
-                revision_no,
-                title,
-                summary,
-                cover_image_url,
-                categoryid,
-                tag_ids,
-                markdown_content,
-                diff_summary,
-                created_by_admin_principal_id,
-                created_at
-            )
-            SELECT
-                article_id,
-                revision_no,
-                @title,
-                @summary,
-                @coverImageUrl,
-                @categoryId,
-                @tagIds,
-                @content,
-                @diffSummary,
-                @createdByAdminPrincipalId,
-                @createdAt
-            FROM next_revision
-            RETURNING id, revision_no;
-            """,
-            new SugarParameter[]
-            {
-                new("@articleId", articleId),
-                new("@title", title),
-                new("@summary", summary),
-                new("@coverImageUrl", coverImageUrl),
-                new("@categoryId", categoryId),
-                new("@tagIds", orderedTagIds),
-                new("@content", content),
-                new("@diffSummary", diffSummary),
-                new("@createdByAdminPrincipalId", actorAdminPrincipalId),
-                new("@createdAt", DateTime.UtcNow)
-            });
-        if (!await reader.ReadAsync(Ct).ConfigureAwait(false))
+        for (int attempt = 1; attempt <= MaxArticleRevisionInsertAttempts; attempt++)
         {
-            throw new InvalidOperationException($"Article revision was not created for article {articleId}.");
+            Ct.ThrowIfCancellationRequested();
+            using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+                """
+                WITH locked_article AS (
+                    SELECT id, xmin::text AS row_version
+                    FROM article
+                    WHERE id = @articleId
+                      AND isdeleted = false
+                    FOR UPDATE
+                ),
+                next_revision AS (
+                    SELECT locked_article.id AS article_id,
+                           locked_article.row_version,
+                           COALESCE((
+                               SELECT MAX(revision_no)
+                               FROM article_revision
+                               WHERE article_id = @articleId
+                           ), 0) + 1 AS revision_no
+                    FROM locked_article
+                )
+                INSERT INTO article_revision (
+                    article_id,
+                    revision_no,
+                    title,
+                    summary,
+                    cover_image_url,
+                    categoryid,
+                    tag_ids,
+                    markdown_content,
+                    diff_summary,
+                    created_by_admin_principal_id,
+                    created_at
+                )
+                SELECT
+                    article_id,
+                    revision_no,
+                    @title,
+                    @summary,
+                    @coverImageUrl,
+                    @categoryId,
+                    @tagIds,
+                    @content,
+                    @diffSummary,
+                    @createdByAdminPrincipalId,
+                    @createdAt
+                FROM next_revision
+                ON CONFLICT (article_id, revision_no) DO NOTHING
+                RETURNING id, revision_no;
+                """,
+                new SugarParameter[]
+                {
+                    new("@articleId", articleId),
+                    new("@title", title),
+                    new("@summary", summary),
+                    new("@coverImageUrl", coverImageUrl),
+                    new("@categoryId", categoryId),
+                    new("@tagIds", orderedTagIds),
+                    new("@content", content),
+                    new("@diffSummary", diffSummary),
+                    new("@createdByAdminPrincipalId", actorAdminPrincipalId),
+                    new("@createdAt", DateTime.UtcNow)
+                });
+            if (await reader.ReadAsync(Ct).ConfigureAwait(false))
+            {
+                return new ArticleRevisionCoordinates(reader.ReadInt64("id"), reader.ReadInt32("revision_no"));
+            }
+            await reader.DisposeAsync().ConfigureAwait(false);
+
+            int activeArticle = await _db.Ado.GetIntAsync(
+                "SELECT COUNT(1) FROM article WHERE id = @articleId AND isdeleted = false;",
+                new SugarParameter[] { new("@articleId", articleId) }).ConfigureAwait(false);
+            if (activeArticle == 0)
+            {
+                throw new InvalidOperationException($"Article revision was not created for article {articleId}.");
+            }
+
+            if (attempt < MaxArticleRevisionInsertAttempts)
+            {
+                _logger.LogWarning(
+                    "Article revision number conflict for {ArticleId}; retrying bounded attempt {Attempt}/{MaxAttempts}",
+                    articleId,
+                    attempt,
+                    MaxArticleRevisionInsertAttempts);
+            }
         }
 
-        return new ArticleRevisionCoordinates(reader.ReadInt64("id"), reader.ReadInt32("revision_no"));
+        throw new InvalidOperationException(
+            $"Article revision conflict retry limit exceeded for article {articleId} after {MaxArticleRevisionInsertAttempts} attempts.");
     }
 
     private long ResolveRevisionAdminPrincipalId()

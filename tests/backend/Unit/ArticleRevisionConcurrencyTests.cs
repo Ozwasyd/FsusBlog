@@ -61,6 +61,124 @@ public sealed class ArticleRevisionConcurrencyTests(
     }
 
     [Fact]
+    public async Task SaveArticleRevisionAsync_DifferentArticlesDoNotWaitAndRollbackReusesNumber()
+    {
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        int firstArticleId = await SeedArticleAsync(setupDb);
+        int secondArticleId = await SeedArticleAsync(setupDb);
+        await SeedRevisionAsync(setupDb, firstArticleId, revisionNo: 1);
+        await SeedRevisionAsync(setupDb, secondArticleId, revisionNo: 1);
+
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService firstService = CreateService(firstDb);
+        ArticleService secondService = CreateService(secondDb);
+        await firstDb.Ado.BeginTranAsync();
+        bool rolledBack = false;
+        try
+        {
+            await InvokeSaveRevisionAsync(firstService, firstArticleId, "rolled back update");
+
+            Task secondArticleWrite = SaveRevisionInTransactionAsync(
+                secondDb,
+                secondService,
+                secondArticleId,
+                "parallel article update");
+            await secondArticleWrite.WaitAsync(TimeSpan.FromSeconds(5));
+
+            firstDb.Ado.RollbackTran();
+            rolledBack = true;
+        }
+        finally
+        {
+            if (!rolledBack)
+            {
+                firstDb.Ado.RollbackTran();
+            }
+        }
+
+        await SaveRevisionInTransactionAsync(
+            firstDb,
+            firstService,
+            firstArticleId,
+            "replacement after rollback");
+
+        int[] firstRevisionNumbers = await LoadRevisionNumbersAsync(setupDb, firstArticleId);
+        int[] secondRevisionNumbers = await LoadRevisionNumbersAsync(setupDb, secondArticleId);
+        Assert.Equal([1, 2], firstRevisionNumbers);
+        Assert.Equal([1, 2], secondRevisionNumbers);
+    }
+
+    [Fact]
+    public async Task SaveArticleRevisionAsync_LegacyUniqueConflictRetriesInUsableTransaction()
+    {
+        const long RetryGateLock = 12_201_220;
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        int articleId = await SeedArticleAsync(setupDb);
+        await SeedRevisionAsync(setupDb, articleId, revisionNo: 1);
+        await setupDb.Ado.ExecuteCommandAsync(
+            $$"""
+            CREATE OR REPLACE FUNCTION fsus_test_gate_revision_retry()
+            RETURNS trigger
+            LANGUAGE plpgsql
+            AS $body$
+            BEGIN
+                IF NEW.article_id = {{articleId}}
+                   AND NEW.revision_no = 2
+                   AND NEW.diff_summary = 'bounded retry' THEN
+                    PERFORM pg_advisory_xact_lock({{RetryGateLock}});
+                END IF;
+                RETURN NEW;
+            END;
+            $body$;
+
+            DROP TRIGGER IF EXISTS trg_fsus_test_gate_revision_retry ON article_revision;
+            CREATE TRIGGER trg_fsus_test_gate_revision_retry
+            BEFORE INSERT ON article_revision
+            FOR EACH ROW EXECUTE FUNCTION fsus_test_gate_revision_retry();
+            """);
+
+        await using var blocker = new Npgsql.NpgsqlConnection(connectionString);
+        await blocker.OpenAsync();
+        await using (var acquire = new Npgsql.NpgsqlCommand(
+            $"SELECT pg_advisory_lock({RetryGateLock});",
+            blocker))
+        {
+            await acquire.ExecuteNonQueryAsync();
+        }
+
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient legacyDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService service = CreateService(serviceDb);
+        Task writer = SaveRevisionInTransactionAsync(
+            serviceDb,
+            service,
+            articleId,
+            "bounded retry");
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            Assert.False(writer.IsCompleted);
+            await SeedRevisionAsync(legacyDb, articleId, revisionNo: 2);
+        }
+        finally
+        {
+            await using var release = new Npgsql.NpgsqlCommand(
+                $"SELECT pg_advisory_unlock({RetryGateLock});",
+                blocker);
+            _ = await release.ExecuteScalarAsync();
+        }
+        await writer.WaitAsync(TimeSpan.FromSeconds(10));
+
+        int[] revisionNumbers = await LoadRevisionNumbersAsync(setupDb, articleId);
+        Assert.Equal([1, 2, 3], revisionNumbers);
+    }
+
+    [Fact]
     public async Task SaveArticleRevisionAsync_DeletedArticleDoesNotAllocateRevisionNumber()
     {
         string connectionString = classDatabase.ConnectionString;
@@ -472,6 +590,13 @@ public sealed class ArticleRevisionConcurrencyTests(
             CreatedByAdminPrincipalId = 1,
             CreatedAt = DateTime.UtcNow
         }).ExecuteCommandAsync();
+
+    private static async Task<int[]> LoadRevisionNumbersAsync(SqlSugarClient db, int articleId)
+        => [.. await db.Queryable<ArticleRevision>()
+            .Where(revision => revision.ArticleId == articleId)
+            .OrderBy(revision => revision.RevisionNo)
+            .Select(revision => revision.RevisionNo)
+            .ToListAsync()];
 
     private static async Task SeedTaxonomyAsync(SqlSugarClient db)
     {
