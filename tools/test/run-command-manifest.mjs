@@ -372,18 +372,16 @@ export function resolveAdaptiveManifestWorkers(options = {}) {
   return resolveAdaptiveManifestWorkersFromGrant(options, grant)
 }
 
-export function resolveManifestLiveCapacity({
+function resolveManifestLiveCapacityFromGrant({
   env = process.env,
   cpuCount = os.availableParallelism?.() ?? os.cpus().length,
   freeMemoryBytes = os.freemem(),
   totalMemoryBytes = os.totalmem(),
   load1 = os.loadavg()[0] ?? 0,
-  readGrantFile,
   workload = 'orchestration',
   orchestrationWorkersPerCpu = 2,
   orchestrationMemoryGiBPerWorker = 0.125
-} = {}) {
-  const grant = readManifestSchedulerResourceGrant({ env, readFile: readGrantFile })
+} = {}, grant) {
   const workers = resolveAdaptiveManifestWorkersFromGrant({
     env,
     cpuCount,
@@ -416,6 +414,12 @@ export function resolveManifestLiveCapacity({
     parentMemoryGiB,
     source: grant ? 'scheduler-resource-grants' : 'direct-invocation-fallback'
   }
+}
+
+export function resolveManifestLiveCapacity(options = {}) {
+  const env = options.env ?? process.env
+  const grant = readManifestSchedulerResourceGrant({ env, readFile: options.readGrantFile })
+  return resolveManifestLiveCapacityFromGrant(options, grant)
 }
 
 export function resolveManifestRuntimeChildEnvironment({
@@ -475,6 +479,28 @@ export function resolveManifestChildEnvironment({
     FSUSBLOG_COMMAND_MANIFEST_WORKERS: String(nestedWorkers),
     FSUSBLOG_NODE_TEST_CONCURRENCY: String(nestedWorkers)
   }
+}
+
+export function resolveManifestAdmissionSnapshot({ maxWorkers, ...options } = {}) {
+  const workerLimit = positiveInteger(maxWorkers)
+  if (workerLimit === null) throw new Error('maxWorkers must be a positive integer')
+  const env = options.env ?? process.env
+  const grant = readManifestSchedulerResourceGrant({ env, readFile: options.readGrantFile })
+  const capacity = resolveManifestLiveCapacityFromGrant(options, grant)
+  const workerCap = Math.min(workerLimit, capacity.maxParallel)
+  const childBaseEnvironment = grant
+    ? {
+        ...env,
+        FSUSBLOG_STEP_CPU_BUDGET: String(grant.cpuUnits),
+        FSUSBLOG_STEP_MEMORY_GIB: String(grant.memoryGiB)
+      }
+    : env
+  const childEnvironment = resolveManifestChildEnvironment({
+    env: childBaseEnvironment,
+    workers: workerCap,
+    concurrent: workerCap > 1
+  })
+  return { capacity, workerCap, childEnvironment }
 }
 
 function commandArguments(entry) {

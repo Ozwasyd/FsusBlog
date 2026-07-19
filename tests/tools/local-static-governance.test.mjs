@@ -17,6 +17,7 @@ import {
   planWeightedManifestEntries,
   readManifestSchedulerResourceGrant,
   resolveAdaptiveManifestWorkers,
+  resolveManifestAdmissionSnapshot,
   resolveManifestLiveCapacity,
   runWeightedCommandManifest,
   validateCommandManifest
@@ -144,9 +145,8 @@ test('five explicit phases form an exact 71-command partition with timing eviden
 test('static governance propagates bounded dynamic workers and explicit Node test concurrency', () => {
   assert.match(localStaticSource, /workload: 'scheduler-admitted'/u)
   assert.match(localStaticSource, /memoryCostGiB:[\s\S]*?0\.125 \* entry\.resources\.memoryWeight/u)
-  assert.match(collectSupportSource, /nextWorkerCap="\$\(ResolveCollectParallelWorkers "\$total"\)"/u)
-  assert.match(collectSupportSource, /resolveManifestLiveCapacity\(\{ env: process\.env, workload: 'scheduler-admitted' \}\)/u)
-  assert.match(collectSupportSource, /resolveManifestChildEnvironment/u)
+  assert.match(collectSupportSource, /ResolveCollectAdmissionSnapshot "\$total"/u)
+  assert.match(collectSupportSource, /resolveManifestAdmissionSnapshot/u)
   assert.match(collectSupportSource, /FSUSBLOG_STEP_CPU_BUDGET/u)
   assert.match(collectSupportSource, /FSUSBLOG_STEP_MEMORY_GIB/u)
   assert.match(staticLaneSource, /RunCollectParallel static-governance-prechecks/u)
@@ -400,6 +400,44 @@ test('live capacity resolves workers and parent limits from one atomic grant sna
   assert.equal(capacity.memoryGiB, 4)
   assert.equal(capacity.parentCpuUnits, 4)
   assert.equal(capacity.parentMemoryGiB, 4)
+})
+
+test('collect admission binds worker cap and child quotas to one atomic grant snapshot', () => {
+  let reads = 0
+  const env = {
+    FSUSBLOG_TEST_RUN_ID: 'collect-atomic-run',
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: '/tmp/collect-atomic-grants.json',
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: 'collect',
+    FSUSBLOG_COMMAND_MANIFEST_WORKERS: '4'
+  }
+  const snapshot = resolveManifestAdmissionSnapshot({
+    env,
+    maxWorkers: 4,
+    cpuCount: 8,
+    freeMemoryBytes: 8 * 1024 ** 3,
+    totalMemoryBytes: 8 * 1024 ** 3,
+    load1: 0,
+    workload: 'scheduler-admitted',
+    readGrantFile: () => {
+      reads += 1
+      const cpuUnits = reads === 1 ? 4 : 1
+      return JSON.stringify({
+        schema: 'fsusblog.test-matrix.resource-grants.v1',
+        runId: 'collect-atomic-run',
+        resourceBudget: { cpuUnits: 4, memoryGiB: 8 },
+        grants: { collect: { cpuUnits, memoryGiB: cpuUnits * 2 } }
+      })
+    }
+  })
+
+  assert.equal(reads, 1)
+  assert.equal(snapshot.workerCap, 4)
+  assert.equal(snapshot.capacity.parentCpuUnits, 4)
+  assert.equal(snapshot.capacity.parentMemoryGiB, 8)
+  assert.equal(snapshot.childEnvironment.FSUSBLOG_STEP_CPU_BUDGET, '1')
+  assert.equal(snapshot.childEnvironment.FSUSBLOG_STEP_MEMORY_GIB, '2')
+  assert.equal(snapshot.childEnvironment.FSUSBLOG_PARALLEL_ACTIVE_WORKERS, '4')
+  assert.equal(snapshot.childEnvironment.FSUSBLOG_COMMAND_MANIFEST_WORKERS, '1')
 })
 
 test('direct manifest execution records its fixed fallback mode honestly', async () => {
@@ -733,8 +771,21 @@ test('lane collect support expands and shrinks pending admission from the same l
   const evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8'))
   assert.equal(evidence.status, 'success')
   assert.deepEqual(evidence.grantHistory.map((entry) => entry.workerCap), [3, 1])
+  assert.deepEqual(evidence.grantHistory.map((entry) => entry.parentCpuUnits), [3, 1])
+  assert.deepEqual(evidence.grantHistory.map((entry) => entry.parentMemoryGiB), [3, 1])
+  assert.deepEqual(evidence.grantHistory.map((entry) => entry.source), [
+    'scheduler-resource-grants',
+    'scheduler-resource-grants'
+  ])
   assert.deepEqual(evidence.children.map((entry) => entry.status), ['success', 'success', 'success', 'success'])
   assert.ok(evidence.blocked.some((entry) => entry.activeWeight > entry.workerCap))
+})
+
+test('lane collect support derives worker cap and child quotas from one admission snapshot', () => {
+  assert.match(collectSupportSource, /ResolveCollectAdmissionSnapshot/u)
+  assert.match(collectSupportSource, /resolveManifestAdmissionSnapshot/u)
+  assert.doesNotMatch(collectSupportSource, /ResolveCollectParallelWorkers|ResolveCollectChildEnvironment/u)
+  assert.match(collectSupportSource, /FSUSBLOG_PARALLEL_ACTIVE_WORKERS/u)
 })
 
 test('static governance parallel group preserves every named check and the aggregate finish', () => {

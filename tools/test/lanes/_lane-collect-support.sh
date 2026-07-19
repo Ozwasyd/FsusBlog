@@ -24,53 +24,64 @@ RunCollect() {
     return 0
 }
 
-ResolveCollectChildEnvironment() {
-    local workers="$1"
-    FSUSBLOG_COLLECT_WORKERS="$workers" \
+ResolveCollectAdmissionSnapshot() {
+    local jobCount="$1"
+    FSUSBLOG_COLLECT_JOB_COUNT="$jobCount" \
         "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" <<'NODE'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 
 const {
-  readManifestSchedulerResourceGrant,
-  resolveManifestChildEnvironment
+  resolveManifestAdmissionSnapshot
 } = await import(pathToFileURL(process.argv[2]).href)
-const workers = Number.parseInt(process.env.FSUSBLOG_COLLECT_WORKERS ?? '', 10)
-const liveGrant = readManifestSchedulerResourceGrant({ env: process.env })
-const env = liveGrant
-  ? {
-      ...process.env,
-      FSUSBLOG_STEP_CPU_BUDGET: String(liveGrant.cpuUnits),
-      FSUSBLOG_STEP_MEMORY_GIB: String(liveGrant.memoryGiB)
-    }
-  : process.env
-const child = resolveManifestChildEnvironment({
-  env,
-  workers,
-  concurrent: workers > 1
+const maxWorkers = Number.parseInt(process.env.FSUSBLOG_COLLECT_JOB_COUNT ?? '', 10)
+const snapshot = resolveManifestAdmissionSnapshot({
+  env: process.env,
+  maxWorkers,
+  workload: 'scheduler-admitted'
 })
+process.stdout.write(`FSUSBLOG_COLLECT_WORKER_CAP=${snapshot.workerCap}\n`)
+process.stdout.write(`FSUSBLOG_COLLECT_PARENT_CPU_UNITS=${snapshot.capacity.parentCpuUnits}\n`)
+process.stdout.write(`FSUSBLOG_COLLECT_PARENT_MEMORY_GIB=${snapshot.capacity.parentMemoryGiB}\n`)
+process.stdout.write(`FSUSBLOG_COLLECT_GRANT_SOURCE=${snapshot.capacity.source}\n`)
 for (const key of [
   'FSUSBLOG_STEP_CPU_BUDGET',
   'FSUSBLOG_STEP_MEMORY_GIB',
   'FSUSBLOG_COMMAND_MANIFEST_WORKERS',
-  'FSUSBLOG_NODE_TEST_CONCURRENCY'
+  'FSUSBLOG_NODE_TEST_CONCURRENCY',
+  'FSUSBLOG_PARALLEL_ACTIVE_WORKERS'
 ]) {
-  if (child[key] !== undefined) process.stdout.write(`${key}=${child[key]}\n`)
+  if (snapshot.childEnvironment[key] !== undefined) {
+    process.stdout.write(`${key}=${snapshot.childEnvironment[key]}\n`)
+  }
 }
 NODE
 }
 
-ResolveCollectParallelWorkers() {
-    local jobCount="$1"
-    FSUSBLOG_COMMAND_MANIFEST_WORKERS="$jobCount" \
-        "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" <<'NODE'
-import process from 'node:process'
-import { pathToFileURL } from 'node:url'
+CollectAdmissionSnapshotValue() {
+    local snapshotFile="$1"
+    local expectedKey="$2"
+    local key value
+    while IFS='=' read -r key value; do
+        if [[ "$key" == "$expectedKey" ]]; then
+            printf '%s\n' "$value"
+            return 0
+        fi
+    done <"$snapshotFile"
+    printf '[lane] collect admission snapshot is missing %s\n' "$expectedKey" >&2
+    return 2
+}
 
-const { resolveManifestLiveCapacity } = await import(pathToFileURL(process.argv[2]).href)
-const capacity = resolveManifestLiveCapacity({ env: process.env, workload: 'scheduler-admitted' })
-process.stdout.write(String(capacity.maxParallel))
-NODE
+AppendCollectGrantHistory() {
+    local historyFile="$1"
+    local snapshotFile="$2"
+    local workerCap parentCpu parentMemory source
+    workerCap="$(CollectAdmissionSnapshotValue "$snapshotFile" FSUSBLOG_COLLECT_WORKER_CAP)"
+    parentCpu="$(CollectAdmissionSnapshotValue "$snapshotFile" FSUSBLOG_COLLECT_PARENT_CPU_UNITS)"
+    parentMemory="$(CollectAdmissionSnapshotValue "$snapshotFile" FSUSBLOG_COLLECT_PARENT_MEMORY_GIB)"
+    source="$(CollectAdmissionSnapshotValue "$snapshotFile" FSUSBLOG_COLLECT_GRANT_SOURCE)"
+    printf '%s\t%s\t%s\t%s\t%s\n' \
+        "$(date +%s%3N)" "$workerCap" "$parentCpu" "$parentMemory" "$source" >>"$historyFile"
 }
 
 WriteCollectLiveGrantEvidence() {
@@ -97,8 +108,14 @@ const plan = lines('plan.tsv').map((line) => {
   return { index: Number(index), label }
 })
 const grantHistory = lines('grant-history.tsv').map((line) => {
-  const [observedAtMs, workerCap] = line.split('\t')
-  return { observedAtMs: Number(observedAtMs), workerCap: Number(workerCap) }
+  const [observedAtMs, workerCap, parentCpuUnits, parentMemoryGiB, source] = line.split('\t')
+  return {
+    observedAtMs: Number(observedAtMs),
+    workerCap: Number(workerCap),
+    parentCpuUnits: Number(parentCpuUnits),
+    parentMemoryGiB: Number(parentMemoryGiB),
+    source
+  }
 })
 const blocked = lines('blocked.tsv').map((line) => {
   const [observedAtMs, next, activeWeight, workerCap] = line.split('\t')
@@ -178,8 +195,6 @@ RunCollectParallel() {
     fi
 
     local total=$(($# / 2))
-    local workerCap
-    workerCap="$(ResolveCollectParallelWorkers "$total")"
     local statusDir
     statusDir="$ROOT_DIR/.tmp/parallel-status/$(NamespaceSlug "$group")-$$-$RANDOM"
     local -a labels=()
@@ -191,6 +206,12 @@ RunCollectParallel() {
     : >"$statusDir/plan.tsv"
     : >"$statusDir/grant-history.tsv"
     : >"$statusDir/blocked.tsv"
+    local admissionSnapshotFile="$statusDir/admission-initial.env"
+    ResolveCollectAdmissionSnapshot "$total" >"$admissionSnapshotFile"
+    local workerCap
+    workerCap="$(CollectAdmissionSnapshotValue "$admissionSnapshotFile" FSUSBLOG_COLLECT_WORKER_CAP)"
+    local grantSignature
+    grantSignature="$(CollectAdmissionSnapshotValue "$admissionSnapshotFile" FSUSBLOG_COLLECT_PARENT_CPU_UNITS):$(CollectAdmissionSnapshotValue "$admissionSnapshotFile" FSUSBLOG_COLLECT_PARENT_MEMORY_GIB):$workerCap:$(CollectAdmissionSnapshotValue "$admissionSnapshotFile" FSUSBLOG_COLLECT_GRANT_SOURCE)"
 
     while (($# > 0)); do
         local label="$1"
@@ -208,7 +229,7 @@ RunCollectParallel() {
     done
 
     Log "collect group start: $group ($total jobs, workers=$workerCap)"
-    printf '%s\t%s\n' "$(date +%s%3N)" "$workerCap" >>"$statusDir/grant-history.tsv"
+    AppendCollectGrantHistory "$statusDir/grant-history.tsv" "$admissionSnapshotFile"
     local next=0
     local active=0
     local completed=0
@@ -216,25 +237,31 @@ RunCollectParallel() {
     trap 'CleanupCollectParallelSignal "$group" "$statusDir" "${childPids[@]:-}"' INT TERM
     local blockedSignature=''
     while ((completed < total)); do
+        admissionSnapshotFile="$statusDir/admission-$next-$completed.env"
+        ResolveCollectAdmissionSnapshot "$total" >"$admissionSnapshotFile"
         local nextWorkerCap
-        nextWorkerCap="$(ResolveCollectParallelWorkers "$total")"
-        if [[ "$nextWorkerCap" != "$workerCap" ]]; then
+        nextWorkerCap="$(CollectAdmissionSnapshotValue "$admissionSnapshotFile" FSUSBLOG_COLLECT_WORKER_CAP)"
+        local nextGrantSignature
+        nextGrantSignature="$(CollectAdmissionSnapshotValue "$admissionSnapshotFile" FSUSBLOG_COLLECT_PARENT_CPU_UNITS):$(CollectAdmissionSnapshotValue "$admissionSnapshotFile" FSUSBLOG_COLLECT_PARENT_MEMORY_GIB):$nextWorkerCap:$(CollectAdmissionSnapshotValue "$admissionSnapshotFile" FSUSBLOG_COLLECT_GRANT_SOURCE)"
+        if [[ "$nextGrantSignature" != "$grantSignature" ]]; then
             Log "collect capacity update: $group (workers=$workerCap->$nextWorkerCap active=$active)"
             workerCap="$nextWorkerCap"
-            printf '%s\t%s\n' "$(date +%s%3N)" "$workerCap" >>"$statusDir/grant-history.tsv"
-        fi
-        local childEnvFile=''
-        if ((next < total && active < workerCap)); then
-            childEnvFile="$statusDir/wave-$next-$workerCap.env"
-            ResolveCollectChildEnvironment "$workerCap" >"$childEnvFile"
+            grantSignature="$nextGrantSignature"
+            AppendCollectGrantHistory "$statusDir/grant-history.tsv" "$admissionSnapshotFile"
         fi
         while ((next < total && active < workerCap)); do
             local index="$next"
             (
                 set +e
                 while IFS='=' read -r key value; do
-                    [[ -n "$key" ]] && export "$key=$value"
-                done <"$childEnvFile"
+                    case "$key" in
+                        FSUSBLOG_STEP_CPU_BUDGET | FSUSBLOG_STEP_MEMORY_GIB | \
+                            FSUSBLOG_COMMAND_MANIFEST_WORKERS | FSUSBLOG_NODE_TEST_CONCURRENCY | \
+                            FSUSBLOG_PARALLEL_ACTIVE_WORKERS)
+                            export "$key=$value"
+                            ;;
+                    esac
+                done <"$admissionSnapshotFile"
                 local admittedAtMs
                 admittedAtMs="$(date +%s%3N)"
                 Log "collect start: ${labels[$index]}"
