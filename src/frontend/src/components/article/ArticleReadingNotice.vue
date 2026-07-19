@@ -6,10 +6,10 @@
     aria-label="长文阅读提示"
   >
     <div class="flex items-baseline gap-4 border-l-2 border-[var(--fsusblog-panel-border-strong)] pl-6 py-1">
-      <span class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-primary)]">
+      <span class="text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-secondary)]">
         长文
       </span>
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-medium text-[var(--fsusblog-text-secondary)]">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-normal text-[var(--fsusblog-text-secondary)]">
         <span class="inline-flex items-center gap-1.5">
           全文约 <span class="tabular-nums font-bold text-[var(--fsusblog-text-primary)] tabular-nums">{{ notice.wordCount.toLocaleString('zh-CN') }}</span> 字
         </span>

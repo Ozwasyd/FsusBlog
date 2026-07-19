@@ -202,6 +202,12 @@ for (const [source, label] of [
 ]) {
   expectIncludes(source, 'data-fsus-surface="reading"', label)
 }
+expectIncludes(readingNotice, 'text-xs font-medium normal-case tracking-normal text-[var(--fsusblog-text-secondary)]', 'ArticleReadingNotice.vue long-read label stays secondary at 500')
+expectIncludes(readingNotice, 'text-[13px] font-normal text-[var(--fsusblog-text-secondary)]', 'ArticleReadingNotice.vue connective copy stays secondary at 400')
+expectMatches(readingNotice, /全文约\s*<span class="[^"]*\bfont-bold\b[^"]*text-\[var\(--fsusblog-text-primary\)\][^"]*">/, 'ArticleReadingNotice.vue word count remains the primary 700 focal point')
+expectMatches(readingNotice, /预计阅读\s*<span class="[^"]*\bfont-bold\b[^"]*text-\[var\(--fsusblog-text-primary\)\][^"]*">/, 'ArticleReadingNotice.vue reading minutes remain the primary 700 focal point')
+expectNotMatches(readingNotice, /text-xs font-medium normal-case tracking-normal text-\[var\(--fsusblog-text-primary\)\]/, 'ArticleReadingNotice.vue long-read label must not compete with numeric focal points')
+expectNotMatches(readingNotice, /text-\[13px\] font-medium text-\[var\(--fsusblog-text-secondary\)\]/, 'ArticleReadingNotice.vue connective copy must not regain medium emphasis')
 expectIncludes(publicArticleDetail, 'id="fsus-comments-island"', 'PublicArticleDetailPageContent.vue comments island')
 expectIncludes(toc, '<el-drawer', 'ArticleTocPanel.vue drawer')
 

@@ -83,6 +83,10 @@ Markdown 代码块与管理面审计详情统一使用 `'JetBrains Mono', ui-mon
 - emergency AOT 与 hydration 后的文章列表标题、摘要、metadata 和 CTA 必须使用相同的响应式排版与颜色角色契约。
 - Reading surface 的正文基线为 16px / 1.8 行高；附录链接、标签和空态操作在窄视口与 150% 缩放下仍保持至少 44px 点击高度。
 
+### 长文提示层级
+
+文章顶部的长文提示只保留两层视觉焦点：字数与预计分钟使用 `700` 和 primary text，成为唯一深色答案；“长文”标签使用 `500` 和 secondary text，连接词使用 `400` 和 secondary text。竖条、间距、分隔点及其圆角 token 保持布局职责，不以额外字重或 primary text 制造第三个焦点。
+
 ### 评论阅读层级
 
 评论区用稳定的语义角色区分“身份、内容、元信息、操作”：实名作者使用 `700` 与 primary text，匿名作者保持 `400` 与 quiet text；匿名徽章使用 muted text 和 strong border。时间继续使用 quiet text 与 `400`，可操作文字使用 muted text 与 `500`，删除只在 hover 时切换到 `--el-color-danger`，不得复用链接主色。回复区以 2px strong border 表达嵌套边界；评论操作及 focus ring 继续消费 `--fsusblog-reading-radius-control`，不得为层级调整引入新的圆角字面值。
