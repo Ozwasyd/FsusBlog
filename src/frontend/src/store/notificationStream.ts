@@ -308,10 +308,10 @@ export const useNotificationStreamStore = defineStore('notification-stream', () 
         return
       }
 
-      case NotificationStreamEventType.InboxConversationClosed: {
+      case NotificationStreamEventType.InboxConversationStatusChanged: {
         schedulePatch({
           module: 'inbox',
-          kind: 'conversation-closed',
+          kind: 'conversation-status-changed',
           eventId: event.id,
           ts: event.ts,
           payload: event.payload as never

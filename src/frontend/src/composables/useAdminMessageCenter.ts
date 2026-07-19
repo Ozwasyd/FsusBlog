@@ -212,8 +212,13 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
     const conversationId = selectedConversationId.value
     taskFeedback.begin('正在更新会话状态', `${conversationId} -> ${status}`, conversationId)
     try {
-      await messageApi.adminUpdateConversationStatus(conversationId, { status })
-      const nextStatus = status === 'open' ? 0 : status === 'pending' ? 1 : 2
+      const projectedStatus = detail.value?.status ?? conversations.value.find((item) => item.conversationId === conversationId)?.status ?? 0
+      const previousStatus = projectedStatus === 1 ? 'pending' : projectedStatus === 2 ? 'closed' : 'open'
+      const result = await messageApi.adminUpdateConversationStatus(conversationId, {
+        status,
+        reason: `admin_message_center_${previousStatus}_to_${status}`
+      })
+      const nextStatus = result.currentStatus
       if (detail.value && detail.value.conversationId === conversationId) {
         detail.value = {
           ...detail.value,
@@ -232,11 +237,15 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
       const listSynced = await loadConversations(true)
       const detailSynced = await loadDetail(conversationId, true)
       if (listSynced && detailSynced) {
-        taskFeedback.succeed('会话状态已更新', `${conversationId} -> ${status}`, conversationId)
+        taskFeedback.succeed(
+          result.outcome === 'no_change' ? '会话状态未变化' : '会话状态已更新',
+          `${conversationId} -> ${status}`,
+          conversationId
+        )
       } else {
         taskFeedback.partial('会话状态已更新', '列表或详情同步失败，请稍后刷新', conversationId)
       }
-      toast.success('状态已更新')
+      toast.success(result.outcome === 'no_change' ? '状态未变化' : '状态已更新')
       if (!listSynced || !detailSynced) {
         showWarningToast('状态已更新，但列表或详情同步失败，请稍后刷新', '状态已更新，但列表或详情同步失败，请稍后刷新')
       }
@@ -285,7 +294,7 @@ export function useAdminMessageCenter(isEnabled: () => boolean = () => true) {
   const consumePatches = (patches: readonly NotificationStreamInboxRenderPatch[]): void => {
     let requiresRefresh = false
     for (const patch of patches) {
-      if (patch.kind === 'conversation-upsert' || patch.kind === 'message-append' || patch.kind === 'conversation-closed') {
+      if (patch.kind === 'conversation-upsert' || patch.kind === 'message-append' || patch.kind === 'conversation-status-changed') {
         requiresRefresh = true
       }
     }

@@ -396,7 +396,7 @@ public static partial class PodBinaryCodec
                     }
                     return true;
 
-                case InboxConversationClosedPayload payload:
+                case InboxConversationStatusChangedPayload payload:
                     WriteObjectHeader(3);
                     WriteField("conversationId", payload.ConversationId);
                     WriteField("status", payload.Status);

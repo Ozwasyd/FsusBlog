@@ -183,6 +183,13 @@ reload-capable `Messages:ReplyWritesEnabled=false` 可在不重启进程的情�
 admin 回复，固定返回 `503 message_reply_writes_disabled`。列表、详情、状态变更和显式重开
 仍可用；恢复前应处理数据库故障并核验投影一致性，不得降级为非事务写入。
 
+admin 状态写入采用显式状态机：`open -> pending/closed`、`pending -> open/closed`、
+`closed -> open`。请求必须携带审计原因；同状态请求返回 `no_change` 且不产生审计或实时事件。
+有效转换使用行版本 CAS，并在同一事务内追加不可变审计和账号/admin 两类 outbox delivery；
+两端都消费 `InboxConversationStatusChanged`，delivery 保存本次精确状态，禁止 worker 回读最新行
+导致事件失真。`Messages:StatusMutationsEnabled=false` 可热暂停该写入并返回固定 503，恢复时
+直接重新启用，不能绕过审计、CAS 或 outbox。
+
 ### 消息写入幂等身份
 
 账号创建工单、账号回复和 admin 回复都必须携带 `X-Fsus-Client-Mutation-Id`。该值由客户端

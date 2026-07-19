@@ -371,9 +371,18 @@ public static partial class BinaryEndpoints
             long id,
             HttpContext httpContext,
             IMessageCommandService command,
+            IConfiguration configuration,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            if (!IsMessageStatusMutationsEnabled(configuration))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.InfraFailure, "message_status_mutations_disabled"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
             if (!TryResolveAdminMessageActor(httpContext, out AdminMessageActor adminActor))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
@@ -385,14 +394,17 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(payload.Error, aeds);
             }
 
-            if (!PodBinaryCodec.TryDecodeConversationStatusRequest(payload.Payload, out ConversationStatusValue status))
+            if (!PodBinaryCodec.TryDecodeConversationStatusRequest(payload.Payload, out ConversationStatusRequestCoreModel request))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "无效状态，仅支持 open/pending/closed"), aeds);
             }
 
-            var result = await command.UpdateConversationStatusAsync(id, status, adminActor);
+            var result = await command.UpdateConversationStatusAsync(id, request.Status, request.Reason, adminActor);
             return result.IsSuccess
-                ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)
+                ? BinaryResults.Frame(
+                    aeds,
+                    AedsFrameType.ConversationStatusMutationResult,
+                    writer => PodBinaryCodec.WriteConversationStatusMutationResult(result.Value!, writer))
                 : BinaryResults.FromError(result.Error, aeds);
         })
         .RequireAdminPermission(AdminPermissions.AdminManage)
@@ -491,6 +503,9 @@ public static partial class BinaryEndpoints
 
     private static bool IsMessageMutationIdempotencyEnabled(IConfiguration configuration)
         => configuration.GetValue<bool?>("Messages:MutationIdempotencyEnabled") ?? true;
+
+    private static bool IsMessageStatusMutationsEnabled(IConfiguration configuration)
+        => configuration.GetValue<bool?>("Messages:StatusMutationsEnabled") ?? true;
 
     private static bool IsAdminAccountProjectionEnabled(IConfiguration configuration)
         => configuration.GetValue<bool?>("Messages:AdminAccountProjectionEnabled") ?? true;

@@ -527,7 +527,7 @@ function encodeOptionalBody(path, body) {
   }
 
   if (/\/messages\/conversations\/\d+\/status$/u.test(path)) {
-    return encodeAedsFrame(FRAME_CONVERSATION_STATUS_REQUEST, encodeConversationStatusRequest(body.status ?? body));
+    return encodeAedsFrame(FRAME_CONVERSATION_STATUS_REQUEST, encodeConversationStatusRequest(body));
   }
 
   if (path.endsWith('/messages/system-send')) {

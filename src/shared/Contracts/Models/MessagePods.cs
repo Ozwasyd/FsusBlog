@@ -290,6 +290,20 @@ public readonly struct ConversationCreateRequestPod
 public readonly struct ConversationStatusRequestPod
 {
     public readonly int Status;
+    public readonly Utf8SliceRef Reason;
+}
+
+/// <summary>
+/// Defines the fixed-layout binary representation used by the <c>ConversationStatusMutationResult</c> wire contract.
+/// </summary>
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ConversationStatusMutationResultPod
+{
+    public readonly int PreviousStatus;
+    public readonly int CurrentStatus;
+    public readonly byte Outcome;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
 }
 
 /// <summary>

@@ -184,6 +184,34 @@ describe('binary notification adapter', () => {
     expect(JSON.stringify(decoded)).not.toMatch(/sessionId|credentialId|token/i)
   })
 
+  it('round-trips the unified conversation status changed event', () => {
+    const payload: number[] = []
+    writeInt64(payload, 91)
+    writeInt64(payload, Date.parse('2026-07-19T00:00:00.000Z'))
+    writeInt32(payload, NotificationStreamEventType.InboxConversationStatusChanged)
+    writeInt32(payload, 0)
+    writeValue(payload, {
+      conversationId: '123',
+      status: 0,
+      time: '2026-07-19T00:00:00.000Z'
+    })
+
+    const frame = encodeAedsFrame(FrameType.NotificationEvent, new Uint8Array(payload))
+    expect(decodeNotificationFrame(frame)).toEqual({
+      kind: 'event',
+      event: {
+        id: 91,
+        type: NotificationStreamEventType.InboxConversationStatusChanged,
+        ts: Date.parse('2026-07-19T00:00:00.000Z'),
+        payload: {
+          conversationId: '123',
+          status: 0,
+          time: '2026-07-19T00:00:00.000Z'
+        }
+      }
+    })
+  })
+
   it('recognizes notification heartbeat frames', () => {
     const payload: number[] = []
     writeInt64(payload, Date.now())

@@ -273,6 +273,7 @@ public static class FsusObservability
     private static readonly Histogram<double> s_authMeElapsed = s_meter.CreateHistogram<double>("fsus.auth.me.elapsed_ms", "ms");
     private static readonly Histogram<double> s_messageCenterListElapsed = s_meter.CreateHistogram<double>("fsus.message.center.list.elapsed", "ms");
     private static readonly Histogram<double> s_messageCenterReplyElapsed = s_meter.CreateHistogram<double>("fsus.message.center.reply.elapsed", "ms");
+    private static readonly Counter<long> s_messageCenterStatusCount = s_meter.CreateCounter<long>("fsus.message.center.status.count");
     private static readonly Histogram<double> s_messageCenterFanoutRefreshElapsed = s_meter.CreateHistogram<double>("fsus.message.center.fanout.refresh.elapsed", "ms");
     private static readonly Histogram<double> s_messageCenterFanoutBuildItemElapsed = s_meter.CreateHistogram<double>("fsus.message.center.fanout.build_item.elapsed", "ms");
     private static readonly Histogram<double> s_mfaChallengeStartAccountReadElapsed = s_meter.CreateHistogram<double>("fsus.mfa.challenge_start.account_read_elapsed_ms", "ms");
@@ -1405,6 +1406,17 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("message-center", NormalizeTelemetryValue(phase, "reply"), "ok");
             s_messageCenterReplyElapsed.Record(Math.Max(0, elapsed.TotalMilliseconds), tags);
+        });
+    }
+
+    public static void RecordMessageCenterStatus(string previousStatus, string currentStatus, string outcome)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("message-center", "status", NormalizeTelemetryValue(outcome, "unknown"));
+            tags.Add("fsus.message.previous_status", NormalizeTelemetryValue(previousStatus, "unknown"));
+            tags.Add("fsus.message.current_status", NormalizeTelemetryValue(currentStatus, "unknown"));
+            s_messageCenterStatusCount.Add(1, tags);
         });
     }
 

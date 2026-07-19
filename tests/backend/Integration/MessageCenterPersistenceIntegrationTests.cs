@@ -35,7 +35,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
             typeof(AdminConversationQueueState),
-            typeof(MessageMutationOutbox));
+            typeof(MessageMutationOutbox),
+            typeof(ConversationStatusEvent));
 
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
         cache.IncrementAsync(
@@ -248,6 +249,180 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             1,
             await setup.Queryable<ConversationMessage>()
                 .Where(item => item.ClientMutationId == "client-reply-concurrent")
+                .CountAsync());
+    }
+
+    [Fact]
+    public async Task ConversationStatus_EnforcesMatrixNoChangeAuditAndStatusEvents()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(User),
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox),
+            typeof(ConversationStatusEvent));
+        IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
+        MessageCenterService service = CreateService(db, CreatePermissiveUnifiedCache(), notifications);
+        Result<ConversationDetailResponse> created = await service.CreateAccountTicketAsync(
+            42,
+            "status matrix",
+            "initial",
+            "status-matrix-create");
+        Assert.True(created.IsSuccess, created.Error.Message);
+        long conversationId = long.Parse(created.Value!.ConversationId, CultureInfo.InvariantCulture);
+        var actor = new AdminMessageActor(7, "admin-session-audit-7");
+
+        Result<ConversationStatusMutationResultResponse> openNoChange = await service.UpdateConversationStatusAsync(
+            conversationId,
+            ConversationStatusValue.Open,
+            "confirm_open",
+            actor);
+        Assert.True(openNoChange.IsSuccess, openNoChange.Error.Message);
+        Assert.Equal(ConversationStatusMutationOutcomeValue.NoChange, openNoChange.Value!.Outcome);
+
+        var accepted = new[]
+        {
+            (ConversationStatusValue.Pending, "triage_started"),
+            (ConversationStatusValue.Closed, "triage_resolved"),
+            (ConversationStatusValue.Open, "explicit_reopen"),
+            (ConversationStatusValue.Pending, "awaiting_account"),
+            (ConversationStatusValue.Open, "account_replied"),
+            (ConversationStatusValue.Closed, "final_resolution")
+        };
+        foreach ((ConversationStatusValue target, string reason) in accepted)
+        {
+            Result<ConversationStatusMutationResultResponse> changed = await service.UpdateConversationStatusAsync(
+                conversationId,
+                target,
+                reason,
+                actor);
+            Assert.True(changed.IsSuccess, changed.Error.Message);
+            Assert.Equal(ConversationStatusMutationOutcomeValue.Changed, changed.Value!.Outcome);
+            Assert.Equal(target, changed.Value.CurrentStatus);
+        }
+
+        Result<ConversationStatusMutationResultResponse> invalid = await service.UpdateConversationStatusAsync(
+            conversationId,
+            ConversationStatusValue.Pending,
+            "closed_cannot_skip_reopen",
+            actor);
+        Assert.False(invalid.IsSuccess);
+        Assert.Equal(ErrorCode.Conflict, invalid.Error.Code);
+
+        Result<ConversationStatusMutationResultResponse> closedNoChange = await service.UpdateConversationStatusAsync(
+            conversationId,
+            ConversationStatusValue.Closed,
+            "confirm_closed",
+            actor);
+        Assert.True(closedNoChange.IsSuccess, closedNoChange.Error.Message);
+        Assert.Equal(ConversationStatusMutationOutcomeValue.NoChange, closedNoChange.Value!.Outcome);
+
+        List<ConversationStatusEvent> audit = await db.Queryable<ConversationStatusEvent>()
+            .OrderBy(item => item.CreatedAt)
+            .OrderBy(item => item.Id)
+            .ToListAsync();
+        Assert.Equal(accepted.Length, audit.Count);
+        Assert.Equal(
+            new[]
+            {
+                (ConversationStatus.Open, ConversationStatus.Pending),
+                (ConversationStatus.Pending, ConversationStatus.Closed),
+                (ConversationStatus.Closed, ConversationStatus.Open),
+                (ConversationStatus.Open, ConversationStatus.Pending),
+                (ConversationStatus.Pending, ConversationStatus.Open),
+                (ConversationStatus.Open, ConversationStatus.Closed)
+            },
+            audit.Select(item => (item.PreviousStatus, item.CurrentStatus)));
+        Assert.All(audit, item =>
+        {
+            Assert.Equal(7, item.AdminPrincipalId);
+            Assert.Equal("admin-session-audit-7", item.AdminSessionAuditReference);
+            Assert.False(string.IsNullOrWhiteSpace(item.Reason));
+        });
+
+        List<MessageMutationOutbox> statusDeliveries = await db.Queryable<MessageMutationOutbox>()
+            .Where(item => item.EventKind == MessageMutationOutboxEventKinds.ConversationStatus)
+            .OrderBy(item => item.Id)
+            .ToListAsync();
+        Assert.Equal(accepted.Length * 2, statusDeliveries.Count);
+        Assert.Equal(accepted.Select(item => (ConversationStatus)item.Item1), statusDeliveries
+            .Where(item => item.AudienceKind == MessageMutationOutboxAudiences.Account)
+            .Select(item => item.ConversationStatus!.Value));
+
+        MessageMutationOutbox accountPending = statusDeliveries.First(item =>
+            item.AudienceKind == MessageMutationOutboxAudiences.Account &&
+            item.ConversationStatus == ConversationStatus.Pending);
+        MessageMutationOutbox adminPending = statusDeliveries.First(item =>
+            item.AudienceKind == MessageMutationOutboxAudiences.Admins &&
+            item.ConversationStatus == ConversationStatus.Pending);
+        await service.DeliverAsync(accountPending, CancellationToken.None);
+        await service.DeliverAsync(adminPending, CancellationToken.None);
+        Assert.Contains(notifications.ReceivedCalls(), call =>
+            call.GetMethodInfo().Name == nameof(IMessageNotificationStreamPort.PublishToUserAsync) &&
+            Equals(call.GetArguments()[0], NotificationStreamEventType.InboxConversationStatusChanged) &&
+            call.GetArguments()[2] is InboxConversationStatusChangedPayload payload &&
+            payload.Status == ConversationStatusValue.Pending);
+        Assert.Contains(notifications.ReceivedCalls(), call =>
+            call.GetMethodInfo().Name == nameof(IMessageNotificationStreamPort.PublishToAdminUsersAsync) &&
+            Equals(call.GetArguments()[0], NotificationStreamEventType.InboxConversationStatusChanged) &&
+            call.GetArguments()[1] is InboxConversationStatusChangedPayload payload &&
+            payload.Status == ConversationStatusValue.Pending);
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    public async Task ConversationStatus_ConcurrentSameTargetCreatesOneAuditAndReturnsNoChange()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setup = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            setup,
+            typeof(User),
+            typeof(MessageConversation),
+            typeof(ConversationMessage),
+            typeof(ConversationParticipantState),
+            typeof(AdminConversationQueueState),
+            typeof(MessageMutationOutbox),
+            typeof(ConversationStatusEvent));
+        IUnifiedCache cache = CreatePermissiveUnifiedCache();
+        IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
+        MessageCenterService setupService = CreateService(setup, cache, notifications);
+        Result<ConversationDetailResponse> created = await setupService.CreateAccountTicketAsync(
+            42,
+            "concurrent status",
+            "initial",
+            "concurrent-status-create");
+        Assert.True(created.IsSuccess, created.Error.Message);
+        long conversationId = long.Parse(created.Value!.ConversationId, CultureInfo.InvariantCulture);
+
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        MessageCenterService first = CreateService(firstDb, cache, notifications);
+        MessageCenterService second = CreateService(secondDb, cache, notifications);
+        Result<ConversationStatusMutationResultResponse>[] results = await Task.WhenAll(
+            first.UpdateConversationStatusAsync(
+                conversationId,
+                ConversationStatusValue.Pending,
+                "admin_7_claimed",
+                new AdminMessageActor(7, "admin-session-7")),
+            second.UpdateConversationStatusAsync(
+                conversationId,
+                ConversationStatusValue.Pending,
+                "admin_8_claimed",
+                new AdminMessageActor(8, "admin-session-8")));
+
+        Assert.All(results, result => Assert.True(result.IsSuccess, result.Error.Message));
+        Assert.Single(results, result => result.Value!.Outcome == ConversationStatusMutationOutcomeValue.Changed);
+        Assert.Single(results, result => result.Value!.Outcome == ConversationStatusMutationOutcomeValue.NoChange);
+        Assert.Single(await setup.Queryable<ConversationStatusEvent>().ToListAsync());
+        Assert.Equal(
+            2,
+            await setup.Queryable<MessageMutationOutbox>()
+                .Where(item => item.EventKind == MessageMutationOutboxEventKinds.ConversationStatus)
                 .CountAsync());
     }
 
@@ -593,7 +768,8 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             typeof(ConversationMessage),
             typeof(ConversationParticipantState),
             typeof(AdminConversationQueueState),
-            typeof(MessageMutationOutbox));
+            typeof(MessageMutationOutbox),
+            typeof(ConversationStatusEvent));
         IUnifiedCache cache = CreatePermissiveUnifiedCache();
         IMessageNotificationStreamPort notifications = Substitute.For<IMessageNotificationStreamPort>();
         MessageCenterService setupService = CreateService(setup, cache, notifications);
@@ -632,9 +808,10 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
             notifications.ReceivedCalls(),
             call => call.GetMethodInfo().Name == nameof(IMessageNotificationStreamPort.PublishToUserAsync));
 
-        Result reopened = await setupService.UpdateConversationStatusAsync(
+        Result<ConversationStatusMutationResultResponse> reopened = await setupService.UpdateConversationStatusAsync(
             conversationId,
             ConversationStatusValue.Open,
+            "explicit_reopen_after_close",
             new AdminMessageActor(7, "admin-session-7"));
         Assert.True(reopened.IsSuccess, reopened.Error.Message);
         List<MessageMutationOutbox> statusDeliveries = await setup.Queryable<MessageMutationOutbox>()
@@ -647,7 +824,7 @@ public sealed class MessageCenterPersistenceIntegrationTests(PostgresSchemaMigra
                 && item.TargetAccountId == 42);
         Assert.Contains(
             statusDeliveries,
-            item => item.EventKind == MessageMutationOutboxEventKinds.ConversationUpsert
+            item => item.EventKind == MessageMutationOutboxEventKinds.ConversationStatus
                 && item.AudienceKind == MessageMutationOutboxAudiences.Admins
                 && item.MessageId == null);
         Result<ConversationMessageResponse> accepted = await replyService.ReplyAsAdminAsync(

@@ -1,7 +1,7 @@
 import type { AppErrorCode } from '@/utils/appError'
 import type {
   ArticleListItemResponse,
-  InboxConversationClosedPayload,
+  InboxConversationStatusChangedPayload,
   InboxConversationUpsertPayload,
   InboxMessageAppendPayload,
   InboxReadUpdatedPayload
@@ -112,7 +112,7 @@ export const NotificationStreamEventType = {
   InboxConversationUpsert: 12,
   InboxMessageAppend: 13,
   InboxReadUpdated: 14,
-  InboxConversationClosed: 15,
+  InboxConversationStatusChanged: 15,
   SessionRevoked: 16
 } as const
 
@@ -194,7 +194,7 @@ export type NotificationStreamInboxRenderPatch = Readonly<{
     | 'conversation-upsert'
     | 'message-append'
     | 'read-updated'
-    | 'conversation-closed'
+    | 'conversation-status-changed'
     | 'reconnected'
   eventId?: number
   ts?: number
@@ -207,7 +207,7 @@ export type NotificationStreamInboxRenderPatch = Readonly<{
     | InboxConversationUpsertPayload
     | InboxMessageAppendPayload
     | InboxReadUpdatedPayload
-    | InboxConversationClosedPayload
+    | InboxConversationStatusChangedPayload
 }>
 
 export type NotificationStreamRenderPatch = NotificationStreamArticleRenderPatch | NotificationStreamCommentRenderPatch | NotificationStreamInboxRenderPatch

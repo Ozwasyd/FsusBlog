@@ -800,32 +800,94 @@ public static partial class PodBinaryCodec
     /// <summary>
     /// Writes the <c>ConversationStatusRequest</c> contract to the supplied binary destination.
     /// </summary>
-    public static void WriteConversationStatusRequest(ConversationStatusValue status, IBufferWriter<byte> destination)
+    public static void WriteConversationStatusRequest(ConversationStatusRequestCoreModel request, IBufferWriter<byte> destination)
     {
+        var payload = new ArrayBufferWriter<byte>(256);
         var writer = new BinaryPodWriter(destination);
         writer.WritePod(CastMessagePod<MutableConversationStatusRequestPod, ConversationStatusRequestPod>(
-            new MutableConversationStatusRequestPod { Status = (int)status }));
+            new MutableConversationStatusRequestPod
+            {
+                Status = (int)request.Status,
+                Reason = PodUtf8Codec.AppendSlice(request.Reason, payload)
+            }));
+        writer.WriteBytes(payload.WrittenSpan);
     }
 
     /// <summary>
     /// Encodes the <c>ConversationStatusRequest</c> contract into a new binary payload.
     /// </summary>
-    public static byte[] EncodeConversationStatusRequest(ConversationStatusValue status)
-        => EncodeToArray(Marshal.SizeOf<ConversationStatusRequestPod>(), writer => WriteConversationStatusRequest(status, writer));
+    public static byte[] EncodeConversationStatusRequest(ConversationStatusRequestCoreModel request)
+        => EncodeToArray(256, writer => WriteConversationStatusRequest(request, writer));
 
     /// <summary>
     /// Attempts to decode the <c>ConversationStatusRequest</c> contract from a binary payload.
     /// </summary>
-    public static bool TryDecodeConversationStatusRequest(ReadOnlyMemory<byte> source, out ConversationStatusValue status)
+    public static bool TryDecodeConversationStatusRequest(ReadOnlyMemory<byte> source, out ConversationStatusRequestCoreModel request)
     {
         var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadPod(out ConversationStatusRequestPod pod) || !reader.IsConsumed || pod.Status is < 0 or > 2)
+        if (!reader.TryReadPod(out ConversationStatusRequestPod pod) ||
+            pod.Status is < 0 or > 2 ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
         {
-            status = ConversationStatusValue.Open;
+            request = default;
             return false;
         }
 
-        status = ToConversationStatus(pod.Status);
+        request = new ConversationStatusRequestCoreModel(
+            ToConversationStatus(pod.Status),
+            PodProjector.ReadSlice(pod.Reason, payload));
+        return reader.IsConsumed;
+    }
+
+    /// <summary>
+    /// Writes the authoritative result of an admin conversation-status mutation.
+    /// </summary>
+    public static void WriteConversationStatusMutationResult(
+        ConversationStatusMutationResultResponse result,
+        IBufferWriter<byte> destination)
+    {
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(CastMessagePod<MutableConversationStatusMutationResultPod, ConversationStatusMutationResultPod>(
+            new MutableConversationStatusMutationResultPod
+            {
+                PreviousStatus = (int)result.PreviousStatus,
+                CurrentStatus = (int)result.CurrentStatus,
+                Outcome = (byte)result.Outcome
+            }));
+    }
+
+    /// <summary>
+    /// Encodes the authoritative result of an admin conversation-status mutation.
+    /// </summary>
+    public static byte[] EncodeConversationStatusMutationResult(ConversationStatusMutationResultResponse result)
+        => EncodeToArray(
+            Marshal.SizeOf<ConversationStatusMutationResultPod>(),
+            writer => WriteConversationStatusMutationResult(result, writer));
+
+    /// <summary>
+    /// Attempts to decode an admin conversation-status mutation result.
+    /// </summary>
+    public static bool TryDecodeConversationStatusMutationResult(
+        ReadOnlyMemory<byte> source,
+        out ConversationStatusMutationResultResponse result)
+    {
+        var reader = new BinaryPodReader(source.Span);
+        if (!reader.TryReadPod(out ConversationStatusMutationResultPod pod) ||
+            !reader.IsConsumed ||
+            pod.PreviousStatus is < 0 or > 2 ||
+            pod.CurrentStatus is < 0 or > 2 ||
+            pod.Outcome > (byte)ConversationStatusMutationOutcomeValue.NoChange ||
+            pod.Reserved0 != 0 ||
+            pod.Reserved1 != 0)
+        {
+            result = default;
+            return false;
+        }
+
+        result = new ConversationStatusMutationResultResponse(
+            ToConversationStatus(pod.PreviousStatus),
+            ToConversationStatus(pod.CurrentStatus),
+            (ConversationStatusMutationOutcomeValue)pod.Outcome);
         return true;
     }
 
@@ -1157,6 +1219,17 @@ public static partial class PodBinaryCodec
     private struct MutableConversationStatusRequestPod
     {
         public int Status;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Reason;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableConversationStatusMutationResultPod
+    {
+        public int PreviousStatus;
+        public int CurrentStatus;
+        public byte Outcome;
+        public byte Reserved0;
+        public ushort Reserved1;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

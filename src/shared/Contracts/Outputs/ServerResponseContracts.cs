@@ -1065,6 +1065,23 @@ public enum ConversationStatusValue
 }
 
 /// <summary>
+/// Enumerates the stable result of an admin conversation-status mutation.
+/// </summary>
+public enum ConversationStatusMutationOutcomeValue : byte
+{
+    Changed = 0,
+    NoChange = 1
+}
+
+/// <summary>
+/// Returns the authoritative status projection after a status mutation.
+/// </summary>
+public readonly record struct ConversationStatusMutationResultResponse(
+    ConversationStatusValue PreviousStatus,
+    ConversationStatusValue CurrentStatus,
+    ConversationStatusMutationOutcomeValue Outcome);
+
+/// <summary>
 /// Enumerates stable wire values represented by the <c>ConversationSenderValue</c> contract.
 /// </summary>
 public enum ConversationSenderValue
@@ -1330,9 +1347,9 @@ public readonly record struct InboxMessageAppendPayload(string ConversationId, C
 /// </summary>
 public readonly record struct InboxReadUpdatedPayload(string ConversationId, string? LastReadMessageId, int ConversationUnreadCount, int? TotalUnread = null, DateTime? Time = null);
 /// <summary>
-/// Defines the API output contract represented by <c>InboxConversationClosedPayload</c>.
+/// Defines the API output contract represented by <c>InboxConversationStatusChangedPayload</c>.
 /// </summary>
-public readonly record struct InboxConversationClosedPayload(string ConversationId, ConversationStatusValue Status, DateTime Time);
+public readonly record struct InboxConversationStatusChangedPayload(string ConversationId, ConversationStatusValue Status, DateTime Time);
 /// <summary>
 /// Defines the API output contract represented by <c>CommentRemovedPayload</c>.
 /// </summary>

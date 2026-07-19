@@ -209,6 +209,8 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("message_reply_writes_disabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("Messages:MutationIdempotencyEnabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("message_mutation_idempotency_disabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("Messages:StatusMutationsEnabled", endpoints, StringComparison.Ordinal);
+        Assert.Contains("message_status_mutations_disabled", endpoints, StringComparison.Ordinal);
         Assert.Contains("beforeMessageId", endpoints, StringComparison.Ordinal);
         Assert.Contains("ConversationDetailV3", endpoints, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", endpoints, StringComparison.Ordinal);
@@ -462,6 +464,10 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("LoadConversationStatusUpdateStateAsync", method, StringComparison.Ordinal);
         Assert.Contains("TryUpdateConversationStatusAsync", method, StringComparison.Ordinal);
         Assert.Contains("EnqueueMessageDeliveriesAsync", method, StringComparison.Ordinal);
+        Assert.Contains(nameof(ConversationStatusEvent), method, StringComparison.Ordinal);
+        Assert.Contains("IsAllowedStatusTransition", method, StringComparison.Ordinal);
+        Assert.Contains("NoChange", RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)), StringComparison.Ordinal);
+        Assert.Contains("InboxConversationStatusChanged", RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)), StringComparison.Ordinal);
         Assert.Contains(
             "会话状态已被其他管理员修改",
             RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)),
@@ -548,6 +554,10 @@ public sealed class MessageCenterServiceTests
             typeof(MessageCenterService),
             nameof(MessageCenterService.ReplyAsAccountAsync));
         Assert.Contains("RecordMessageCenterReply", accountReply, StringComparison.Ordinal);
+        string statusMutation = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            nameof(MessageCenterService.UpdateConversationStatusAsync));
+        Assert.Contains("RecordMessageCenterStatus", statusMutation, StringComparison.Ordinal);
         string fanout = RuntimeMetadataInspection.DescribeMethods(
             typeof(MessageCenterService),
             "PrepareParticipantMessageFanoutAsync");
@@ -564,14 +574,17 @@ public sealed class MessageCenterServiceTests
             }
         };
         listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
         listener.Start();
         FsusObservability.RecordMessageCenterList("account", TimeSpan.FromMilliseconds(1));
         FsusObservability.RecordMessageCenterReply("account", TimeSpan.FromMilliseconds(1));
+        FsusObservability.RecordMessageCenterStatus("open", "pending", "succeeded");
         FsusObservability.RecordMessageCenterFanoutRefresh(TimeSpan.FromMilliseconds(1));
         FsusObservability.RecordMessageCenterFanoutBuildItem(TimeSpan.FromMilliseconds(1));
 
         Assert.Contains("fsus.message.center.list.elapsed", measurements);
         Assert.Contains("fsus.message.center.reply.elapsed", measurements);
+        Assert.Contains("fsus.message.center.status.count", measurements);
         Assert.Contains("fsus.message.center.fanout.refresh.elapsed", measurements);
         Assert.Contains("fsus.message.center.fanout.build_item.elapsed", measurements);
     }

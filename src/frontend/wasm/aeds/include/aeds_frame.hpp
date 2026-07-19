@@ -242,6 +242,7 @@ enum class FrameType : std::uint16_t
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
+    ConversationStatusMutationResult = 211,
     EmptySuccess = 240,
     MutationId = 241,
     ApiError = 251,
@@ -453,6 +454,7 @@ enum class FrameType : std::uint16_t
         case FrameType::CommentTreeRootCursor:
         case FrameType::CommentChildCursor:
         case FrameType::CommentPermalinkContext:
+        case FrameType::ConversationStatusMutationResult:
         case FrameType::EmptySuccess:
         case FrameType::MutationId:
         case FrameType::ApiError:

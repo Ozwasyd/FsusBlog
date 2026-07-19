@@ -536,9 +536,18 @@ export function encodeAccountConversationReplyRequest(data) {
   return bytes
 }
 
-export function encodeConversationStatusRequest(status) {
-  const bytes = new Uint8Array(4)
-  new DataView(bytes.buffer).setInt32(0, status === 'pending' ? 1 : status === 'closed' ? 2 : 0, true)
+export function encodeConversationStatusRequest(input) {
+  const status = typeof input === 'object' && input !== null ? input.status : input
+  const reason = UTF8_ENCODER.encode(
+    (typeof input === 'object' && input !== null ? input.reason : null) ?? 'local_status_fixture'
+  )
+  const bytes = new Uint8Array(16 + reason.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setInt32(0, status === 'pending' ? 1 : status === 'closed' ? 2 : 0, true)
+  view.setInt32(4, 0, true)
+  view.setInt32(8, reason.byteLength, true)
+  view.setInt32(12, reason.byteLength, true)
+  bytes.set(reason, 16)
   return bytes
 }
 

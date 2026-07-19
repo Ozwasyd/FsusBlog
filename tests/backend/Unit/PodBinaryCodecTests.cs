@@ -2550,4 +2550,26 @@ public class PodBinaryCodecCommentTests
         Assert.True(encoded.Length > 0);
     }
 
+    [Fact]
+    public void ConversationStatusMutation_RequestAndResultRoundTripPreserveReasonAndNoChange()
+    {
+        var request = new ConversationStatusRequestCoreModel(
+            ConversationStatusValue.Closed,
+            "resolved_after_admin_review");
+        byte[] encodedRequest = PodBinaryCodec.EncodeConversationStatusRequest(request);
+        Assert.True(PodBinaryCodec.TryDecodeConversationStatusRequest(encodedRequest, out var decodedRequest));
+        Assert.Equal(request, decodedRequest);
+
+        var result = new ConversationStatusMutationResultResponse(
+            ConversationStatusValue.Closed,
+            ConversationStatusValue.Closed,
+            ConversationStatusMutationOutcomeValue.NoChange);
+        byte[] encodedResult = PodBinaryCodec.EncodeConversationStatusMutationResult(result);
+        Assert.True(PodBinaryCodec.TryDecodeConversationStatusMutationResult(encodedResult, out var decodedResult));
+        Assert.Equal(result, decodedResult);
+
+        encodedResult[9] = 1;
+        Assert.False(PodBinaryCodec.TryDecodeConversationStatusMutationResult(encodedResult, out _));
+    }
+
 }

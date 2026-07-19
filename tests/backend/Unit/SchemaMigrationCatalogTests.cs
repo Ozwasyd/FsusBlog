@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.SchemaMigration.Catalogs;
+using FsusBlog.Server.Infrastructure.SchemaMigration.Definitions;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -23,9 +24,9 @@ public sealed class SchemaMigrationCatalogTests
             catalog => Assert.Equal("projection-integrity-20260625-20260704", catalog.CatalogId),
             catalog => Assert.Equal("current-20260709-20260716", catalog.CatalogId),
             catalog => Assert.Equal("current-20260719", catalog.CatalogId));
-        Assert.Equal(99, manifest.Descriptors.Count);
+        Assert.Equal(100, manifest.Descriptors.Count);
         Assert.Equal(
-            "5709BAFAB5E6CBD4B24E0AF715DC5D83110BE42193E087CB345A2C5CCD1C5D02",
+            "5D79D4BDE8137213F7C3E5D085A908DA4C818E44C9AADC20677F089FC4B0C0E2",
             ComputePlanFingerprint(manifest.Descriptors));
 
         for (int index = 1; index < manifest.Descriptors.Count; index++)
@@ -181,6 +182,23 @@ public sealed class SchemaMigrationCatalogTests
     }
 
     [Fact]
+    public void ConversationStatusAudit_IsAppendOnlyAndCarriesExactOutboxProjection()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            item => item.MigrationId == ConversationStatusAuditMigrationDefinitions.MigrationId);
+        string migration = string.Join('\n', descriptor.Steps.Select(step => step.Fingerprint));
+
+        Assert.Contains("msg_conversation_status_event", migration, StringComparison.Ordinal);
+        Assert.Contains("previousstatus <> currentstatus", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("adminsessionauditreference", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("BEFORE UPDATE OR DELETE", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("append-only", migration, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("message_mutation_outbox", migration, StringComparison.Ordinal);
+        Assert.Contains("conversationstatus", migration, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void SourceLayout_PreventsLegacyRegistryDescriptorAggregation()
     {
         string migrationRoot = BackendTestPaths.FromRoot(
@@ -205,7 +223,7 @@ public sealed class SchemaMigrationCatalogTests
         Assert.DoesNotContain("partial class SchemaMigrationRegistry", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("new SchemaMigrationDescriptor(", registrySource, StringComparison.Ordinal);
         Assert.DoesNotContain("Build", registrySource, StringComparison.Ordinal);
-        Assert.Equal(99, descriptorDefinitionCount);
+        Assert.Equal(100, descriptorDefinitionCount);
         Assert.All(
             definitionFiles.Select(File.ReadAllText),
             static source => Assert.DoesNotContain("partial class", source, StringComparison.Ordinal));

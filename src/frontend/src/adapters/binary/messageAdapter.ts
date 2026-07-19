@@ -1,4 +1,4 @@
-import type { AdminConversationDetailResponse, AdminConversationListItemResponse, BinaryPageResponse as PageResponse, ConversationDetailResponse, ConversationListItemResponse, ConversationMessagePreviewResponse, ConversationMessageResponse } from '@/contracts/binaryApi';
+import type { AdminConversationDetailResponse, AdminConversationListItemResponse, BinaryPageResponse as PageResponse, ConversationDetailResponse, ConversationListItemResponse, ConversationMessagePreviewResponse, ConversationMessageResponse, ConversationStatusMutationResultResponse } from '@/contracts/binaryApi';
 import { createAppError, AppErrorCode } from '@/utils/appError';
 import { BinaryReader, readBlobText, readByte, readInt32, readInt64String, readIsoDate64 } from '@/codecs/binary/reader';
 import { ADMIN_CONVERSATION_DETAIL_POD_SIZE, ADMIN_CONVERSATION_LIST_ITEM_POD_SIZE, CONVERSATION_DETAIL_POD_SIZE, CONVERSATION_DETAIL_V2_POD_SIZE, CONVERSATION_DETAIL_V3_POD_SIZE, CONVERSATION_LIST_ITEM_POD_SIZE, CONVERSATION_MESSAGE_POD_SIZE, CONVERSATION_MESSAGE_PREVIEW_POD_SIZE } from './types';
@@ -250,6 +250,25 @@ export function mapConversationMessageFromPayload(payload: Uint8Array): Conversa
   const pod = reader.readSpan(CONVERSATION_MESSAGE_POD_SIZE);
   const blob = reader.readBlob();
   return readConversationMessage(pod, blob);
+}
+
+export function mapConversationStatusMutationResultFromPayload(payload: Uint8Array): ConversationStatusMutationResultResponse {
+  if (payload.byteLength !== 12) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'conversation_status_mutation_result_size_invalid');
+  }
+  const previousStatus = readInt32(payload, 0) as 0 | 1 | 2;
+  const currentStatus = readInt32(payload, 4) as 0 | 1 | 2;
+  const outcome = readByte(payload, 8);
+  if (previousStatus < 0 || previousStatus > 2 ||
+      currentStatus < 0 || currentStatus > 2 ||
+      outcome > 1 || readByte(payload, 9) !== 0 || payload[10] !== 0 || payload[11] !== 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'conversation_status_mutation_result_invalid');
+  }
+  return {
+    previousStatus,
+    currentStatus,
+    outcome: outcome === 1 ? 'no_change' : 'changed'
+  };
 }
 
 function readConversationListItem(pod: Uint8Array, blob: Uint8Array): ConversationListItemResponse {

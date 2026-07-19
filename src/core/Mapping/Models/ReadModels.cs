@@ -1,4 +1,5 @@
 using FsusBlog.Shared.Contracts.Models;
+using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Core.Mapping.Models;
 
@@ -324,6 +325,8 @@ public readonly record struct ConversationCreateRequestCoreModel(string Subject,
 public readonly record struct ConversationReadRequestCoreModel(long ReadThroughMessageId);
 
 public readonly record struct AccountConversationReplyRequestCoreModel(long ReadThroughMessageId, string Body);
+
+public readonly record struct ConversationStatusRequestCoreModel(ConversationStatusValue Status, string Reason);
 
 public readonly record struct SystemMessageRequestCoreModel(long? TargetAccountId, string Subject, string Body);
 

@@ -1019,7 +1019,23 @@ POD 总长度和 v2 decoder 兼容边界不变。
 
 普通消息端点 `/api/binary/messages/**` 只接受 `identity_kind=anonymous_account` 的账号主体，并从 `AccountPrincipalContext.AccountId` 解析当前账号；不得使用 legacy `CurrentUser` 参数绑定器或把 AdminPrincipal 的 `NameIdentifier` 当作账号 id。管理消息端点 `/api/binary/admin/messages/**` 继续要求 admin principal + `admin.manage`，并用 `AdminMessageActor` 携带 `admin_id/admin_sid`。
 
-管理员更新对话状态时只接受当前数据库行版本上的状态转换：服务端先读取 `msg_conversation.status + xmin`，再用 `id + expected status + row version` 执行更新。并发 close/pending/open 修改中只有一个写入会生效；后到请求如果命中旧版本，返回 HTTP `409` + AEDS `ApiError`，不得以 last-write-wins 覆盖。
+管理员更新对话状态必须发送 `ConversationStatusRequest`，其中 `status` 为目标状态，`reason`
+为 1..256 字符的审计原因。允许的转换固定为 `open -> pending/closed`、
+`pending -> open/closed`、`closed -> open`；相同状态不写库，返回
+`ConversationStatusMutationResult(211)` 且 `outcome=no_change`。其它转换返回 HTTP `409` +
+AEDS `ApiError`。
+
+服务端先读取 `msg_conversation.status + xmin`，再用 `id + expected status + row version` 执行
+CAS 更新。并发管理员请求中只有一个转换生效；后到请求若发现目标状态已由并发请求完成，返回
+`no_change`，若当前状态不同则返回 `409`，不得 last-write-wins。成功转换必须在同一 PostgreSQL
+事务中追加不可更新/删除的 `msg_conversation_status_event` 审计记录，并为账号和 admin 写入携带
+本次精确目标状态的 outbox delivery。两端统一消费
+`InboxConversationStatusChanged(15)`，不得把 pending/reopen 伪装成 closed 事件，也不得在 worker
+延迟投递时重新读取最新状态覆盖历史事件。
+
+`Messages:StatusMutationsEnabled=false` 可通过配置 reload 在不重启进程的情况下暂停状态写入并
+返回 `503 message_status_mutations_disabled`；读取、回复和 notification stream 继续工作。修复
+审计或 outbox 链路后可直接重新启用，不允许回退到无审计、无 CAS 或请求线程直接发布事件。
 
 消息表最终 schema 只允许账号 / 管理员主体列：`msg_conversation.initiatoraccountid`、`msg_message.senderaccountid`、`msg_participant_state.accountid` 以及对应 admin-principal 列。共享 admin 队列只通过 `msg_admin_queue_state.conversationid` 关联会话，不保存 admin principal/session id。`msg_conversation.initiatoruserid`、`msg_message.senderid`、`msg_participant_state.userid` 和 `*_identity_sync` trigger/function 只属于一次性迁移兼容面，finalize 后不得出现在备份、恢复或运行时契约中。
 
@@ -1281,7 +1297,7 @@ fixture redirect query 最大 2048 字符；`user.storage-state.json` / `admin.s
 | 12 | `InboxConversationUpsert` | `InboxConversationUpsertPayload` | 对话新增/更新 |
 | 13 | `InboxMessageAppend` | `InboxMessageAppendPayload` | 对话消息追加 |
 | 14 | `InboxReadUpdated` | `InboxReadUpdatedPayload` | 对话已读状态更新 |
-| 15 | `InboxConversationClosed` | `InboxConversationClosedPayload` | 对话关闭 |
+| 15 | `InboxConversationStatusChanged` | `InboxConversationStatusChangedPayload` | 对话状态变更；载荷携带精确目标状态，覆盖 pending/closed/reopen |
 | 16 | `SessionRevoked` | `SessionRevokedPayload` | 已验证的 Passkey counter 回滚等账号级安全事件撤销全部普通会话；客户端立即进入重新认证，独立 admin principal 不受影响 |
 
 ### `SessionRevokedPayload`

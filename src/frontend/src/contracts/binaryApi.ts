@@ -623,10 +623,16 @@ export interface InboxReadUpdatedPayload {
   time?: string | null
 }
 
-export interface InboxConversationClosedPayload {
+export interface InboxConversationStatusChangedPayload {
   conversationId: string
   status: 0 | 1 | 2
   time: string
+}
+
+export interface ConversationStatusMutationResultResponse {
+  previousStatus: 0 | 1 | 2
+  currentStatus: 0 | 1 | 2
+  outcome: 'changed' | 'no_change'
 }
 
 export interface RecentCommentStatItem {

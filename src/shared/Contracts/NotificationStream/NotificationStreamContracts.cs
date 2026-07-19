@@ -45,7 +45,7 @@ public enum NotificationStreamEventType : short
     InboxConversationUpsert = 12,
     InboxMessageAppend = 13,
     InboxReadUpdated = 14,
-    InboxConversationClosed = 15,
+    InboxConversationStatusChanged = 15,
     SessionRevoked = 16
 }
 

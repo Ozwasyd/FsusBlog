@@ -141,6 +141,7 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `208`: CommentTreeRootCursor
 - `209`: CommentChildCursor
 - `210`: CommentPermalinkContext
+- `211`: ConversationStatusMutationResult
 - `240`: EmptySuccess
 - `241`: MutationId
 - `251`: ApiError
@@ -184,7 +185,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `ConversationReplyRequest` payload: `StringMutationRequestPod` followed by blob payload for body.
 - `ConversationReadRequest` payload: `ConversationReadRequestPod` with the exact visible `ReadThroughMessageId` returned by detail.
 - `AccountConversationReplyRequest` payload: `AccountConversationReplyRequestPod` followed by blob payload for body; the account reply cursor is explicit and does not advance to the newly inserted self message.
-- `ConversationStatusRequest` payload: `ConversationStatusRequestPod` (`0=open`, `1=pending`, `2=closed`).
+- `ConversationStatusRequest` payload: 12-byte `ConversationStatusRequestPod` (`0=open`, `1=pending`, `2=closed`) followed by a required audit-reason blob.
+- `ConversationStatusMutationResult` payload: 12-byte `ConversationStatusMutationResultPod` with previous/current status and outcome (`0=changed`, `1=no_change`).
 - `SystemMessageRequest` payload: `SystemMessageRequestPod` followed by blob payload for subject/body.
 - `PasskeyRegisterCompleteRequest` payload: `PasskeyRegisterCompleteRequestPod`, `int32 transports[count]`, followed by blob payload for credential id/raw id/clientDataBytes/attestation object/friendly name/MFA proof token.
 - `PasskeyLoginCompleteRequest` payload: `PasskeyLoginCompleteRequestPod` followed by blob payload for credential id/raw id/clientDataBytes/authenticator data/signature/user handle.

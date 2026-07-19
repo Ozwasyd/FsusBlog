@@ -6,7 +6,7 @@ import {
   type ConversationFilter,
   type ConversationListItemResponse,
   type ConversationMessagePreviewResponse,
-  type InboxConversationClosedPayload,
+  type InboxConversationStatusChangedPayload,
   type InboxConversationUpsertPayload,
   type InboxMessageAppendPayload,
   type InboxReadUpdatedPayload
@@ -460,7 +460,7 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     }
   }
 
-  const applyClosedPatch = (payload: InboxConversationClosedPayload): void => {
+  const applyStatusChangedPatch = (payload: InboxConversationStatusChangedPayload): void => {
     if (!payload?.conversationId) return
     const list = conversations.value.slice()
     const index = list.findIndex((it) => it.conversationId === payload.conversationId)
@@ -485,8 +485,8 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
         case 'read-updated':
           applyReadPatch(patch.payload as InboxReadUpdatedPayload)
           break
-        case 'conversation-closed':
-          applyClosedPatch(patch.payload as InboxConversationClosedPayload)
+        case 'conversation-status-changed':
+          applyStatusChangedPatch(patch.payload as InboxConversationStatusChangedPayload)
           break
         case 'unread-count':
           if (typeof patch.payload === 'number') {

@@ -248,7 +248,7 @@ public sealed class MessageMutationOutboxWorker(
             WHERE outbox.id = candidates.id
             RETURNING outbox.id, outbox.deliverykey, outbox.eventkind, outbox.audiencekind,
                       outbox.targetaccountid, outbox.conversationid, outbox.messageid,
-                      outbox.readthroughmessageid, outbox.status, outbox.attemptcount,
+                      outbox.readthroughmessageid, outbox.conversationstatus, outbox.status, outbox.attemptcount,
                       outbox.nextattemptat, outbox.claimtoken, outbox.claimedby,
                       outbox.claimedat, outbox.leaseexpiresat, outbox.lasterror,
                       outbox.createdat, outbox.processedat;
@@ -275,6 +275,9 @@ public sealed class MessageMutationOutboxWorker(
                 ConversationId = reader.ReadInt64("conversationid"),
                 MessageId = reader.IsNull("messageid") ? null : reader.ReadInt64("messageid"),
                 ReadThroughMessageId = reader.IsNull("readthroughmessageid") ? null : reader.ReadInt64("readthroughmessageid"),
+                ConversationStatus = reader.IsNull("conversationstatus")
+                    ? null
+                    : (ConversationStatus)reader.ReadInt32("conversationstatus"),
                 Status = reader.ReadString("status"),
                 AttemptCount = reader.ReadInt32("attemptcount"),
                 NextAttemptAt = reader.ReadDateTime("nextattemptat"),

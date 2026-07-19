@@ -28,6 +28,7 @@ internal static class SchemaMigrationCatalog20260719
                 MessageAdminQueueMigrationDefinitions.BuildAdminQueueStateMigration(),
                 MessageMutationIdempotencyMigrationDefinitions.BuildMigration(),
                 MessageMutationOutboxMigrationDefinitions.BuildMigration(),
+                ConversationStatusAuditMigrationDefinitions.BuildMigration(),
                 UserSessionMultiDeviceMigrationDefinitions.BuildUserSessionMultiDeviceMigration()
             ]);
 }

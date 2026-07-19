@@ -1060,10 +1060,27 @@ public sealed class MessageCenterService(
         });
     }
 
-    public async Task<Result> UpdateConversationStatusAsync(long conversationId, ConversationStatusValue status, AdminMessageActor adminActor)
+    public async Task<Result<ConversationStatusMutationResultResponse>> UpdateConversationStatusAsync(
+        long conversationId,
+        ConversationStatusValue status,
+        string reason,
+        AdminMessageActor adminActor)
     {
+        if (!adminActor.HasAdminPrincipal || string.IsNullOrWhiteSpace(adminActor.AdminSessionId))
+        {
+            return Result<ConversationStatusMutationResultResponse>.Failure(ErrorCode.Unauthorized, "admin_session_missing");
+        }
+        string normalizedReason = reason.Trim();
+        if (normalizedReason.Length is < 1 or > 256)
+        {
+            return Result<ConversationStatusMutationResultResponse>.Failure(ErrorCode.Validation, "conversation_status_reason_invalid");
+        }
+
         DateTime now = DateTime.UtcNow;
         ConversationStatusWriteOutcome outcome = ConversationStatusWriteOutcome.NotFound;
+        ConversationStatus previousStatus = default;
+        ConversationStatus currentStatus = default;
+        ConversationStatus targetStatus = ToStatusEntity(status);
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             ConversationStatusUpdateState? currentState = await LoadConversationStatusUpdateStateAsync(conversationId);
@@ -1071,13 +1088,49 @@ public sealed class MessageCenterService(
             {
                 return;
             }
+            previousStatus = currentState.Status;
+            currentStatus = currentState.Status;
+
+            if (currentState.Status == targetStatus)
+            {
+                outcome = ConversationStatusWriteOutcome.NoChange;
+                return;
+            }
+            if (!IsAllowedStatusTransition(currentState.Status, targetStatus))
+            {
+                outcome = ConversationStatusWriteOutcome.InvalidTransition;
+                return;
+            }
 
             int affected = await TryUpdateConversationStatusAsync(conversationId, status, currentState, now);
             if (affected <= 0)
             {
-                outcome = ConversationStatusWriteOutcome.Conflict;
+                ConversationStatusUpdateState? concurrentState = await LoadConversationStatusUpdateStateAsync(conversationId);
+                if (concurrentState is null)
+                {
+                    outcome = ConversationStatusWriteOutcome.NotFound;
+                    return;
+                }
+                previousStatus = concurrentState.Status;
+                currentStatus = concurrentState.Status;
+                outcome = concurrentState.Status == targetStatus
+                    ? ConversationStatusWriteOutcome.NoChange
+                    : ConversationStatusWriteOutcome.Conflict;
                 return;
             }
+            currentStatus = targetStatus;
+
+            await db.Insertable(new ConversationStatusEvent
+            {
+                Id = SnowFlakeSingle.Instance.NextId(),
+                ConversationId = conversationId,
+                PreviousStatus = previousStatus,
+                CurrentStatus = currentStatus,
+                AdminPrincipalId = adminActor.AdminPrincipalId,
+                AdminSessionAuditReference = adminActor.AdminSessionId,
+                Reason = normalizedReason,
+                CreatedAt = now
+            }).ExecuteCommandAsync();
 
             List<int> participants = await db.Queryable<ConversationParticipantState>()
                 .Where(it => it.ConversationId == conversationId)
@@ -1094,39 +1147,71 @@ public sealed class MessageCenterService(
                     participants[i],
                     conversationId,
                     null,
-                    null));
+                    null,
+                    targetStatus));
             }
             deliveries.Add(CreateDelivery(
                 mutationCoordinate,
-                MessageMutationOutboxEventKinds.ConversationUpsert,
+                MessageMutationOutboxEventKinds.ConversationStatus,
                 MessageMutationOutboxAudiences.Admins,
                 null,
                 conversationId,
                 null,
-                null));
+                null,
+                targetStatus));
             await EnqueueMessageDeliveriesAsync(deliveries.ToArray());
             outcome = ConversationStatusWriteOutcome.Succeeded;
         });
         if (!transaction.IsSuccess)
         {
+            FsusObservability.RecordMessageCenterStatus("unknown", "unknown", "error");
             logger.LogError(transaction.ErrorException, "Message status transaction failed. ConversationId: {ConversationId}", conversationId);
-            return Result.Failure(ErrorCode.InfraFailure, "会话状态更新失败");
+            return Result<ConversationStatusMutationResultResponse>.Failure(ErrorCode.InfraFailure, "会话状态更新失败");
         }
+
+        string previousStatusMetric = outcome == ConversationStatusWriteOutcome.NotFound
+            ? "unknown"
+            : ToStatusValue(previousStatus).ToString();
+        string currentStatusMetric = outcome == ConversationStatusWriteOutcome.NotFound
+            ? "unknown"
+            : ToStatusValue(currentStatus).ToString();
+        FsusObservability.RecordMessageCenterStatus(previousStatusMetric, currentStatusMetric, outcome.ToString());
 
         return outcome switch
         {
-            ConversationStatusWriteOutcome.NotFound => Result.Failure(ErrorCode.NotFound, "会话不存在"),
-            ConversationStatusWriteOutcome.Conflict => Result.Failure(ErrorCode.Conflict, "会话状态已被其他管理员修改"),
-            _ => Result.Success()
+            ConversationStatusWriteOutcome.NotFound => Result<ConversationStatusMutationResultResponse>.Failure(ErrorCode.NotFound, "会话不存在"),
+            ConversationStatusWriteOutcome.InvalidTransition => Result<ConversationStatusMutationResultResponse>.Failure(ErrorCode.Conflict, "conversation_status_transition_invalid"),
+            ConversationStatusWriteOutcome.Conflict => Result<ConversationStatusMutationResultResponse>.Failure(ErrorCode.Conflict, "会话状态已被其他管理员修改"),
+            ConversationStatusWriteOutcome.NoChange => Result<ConversationStatusMutationResultResponse>.Success(
+                new ConversationStatusMutationResultResponse(
+                    ToStatusValue(previousStatus),
+                    ToStatusValue(currentStatus),
+                    ConversationStatusMutationOutcomeValue.NoChange)),
+            _ => Result<ConversationStatusMutationResultResponse>.Success(
+                new ConversationStatusMutationResultResponse(
+                    ToStatusValue(previousStatus),
+                    ToStatusValue(currentStatus),
+                    ConversationStatusMutationOutcomeValue.Changed))
         };
     }
+
+    private static bool IsAllowedStatusTransition(ConversationStatus previousStatus, ConversationStatus currentStatus)
+        => (previousStatus, currentStatus) switch
+        {
+            (ConversationStatus.Open, ConversationStatus.Pending or ConversationStatus.Closed) => true,
+            (ConversationStatus.Pending, ConversationStatus.Open or ConversationStatus.Closed) => true,
+            (ConversationStatus.Closed, ConversationStatus.Open) => true,
+            _ => false
+        };
 
     private sealed record ConversationStatusUpdateState(ConversationStatus Status, string RowVersion);
 
     private enum ConversationStatusWriteOutcome
     {
         NotFound,
+        InvalidTransition,
         Conflict,
+        NoChange,
         Succeeded
     }
 
@@ -1751,10 +1836,10 @@ public sealed class MessageCenterService(
                 """
                 INSERT INTO message_mutation_outbox(
                     deliverykey, eventkind, audiencekind, targetaccountid, conversationid,
-                    messageid, readthroughmessageid, status, attemptcount, nextattemptat, createdat)
+                    messageid, readthroughmessageid, conversationstatus, status, attemptcount, nextattemptat, createdat)
                 VALUES(
                     @DeliveryKey, @EventKind, @AudienceKind, CAST(@TargetAccountId AS integer), @ConversationId,
-                    CAST(@MessageId AS bigint), CAST(@ReadThroughMessageId AS bigint), @Status, 0, @NextAttemptAt, @CreatedAt)
+                    CAST(@MessageId AS bigint), CAST(@ReadThroughMessageId AS bigint), CAST(@ConversationStatus AS integer), @Status, 0, @NextAttemptAt, @CreatedAt)
                 ON CONFLICT (deliverykey) DO NOTHING;
                 """,
                 new SugarParameter("@DeliveryKey", delivery.DeliveryKey),
@@ -1764,6 +1849,7 @@ public sealed class MessageCenterService(
                 new SugarParameter("@ConversationId", delivery.ConversationId),
                 new SugarParameter("@MessageId", (object?)delivery.MessageId ?? DBNull.Value),
                 new SugarParameter("@ReadThroughMessageId", (object?)delivery.ReadThroughMessageId ?? DBNull.Value),
+                new SugarParameter("@ConversationStatus", delivery.ConversationStatus.HasValue ? (int)delivery.ConversationStatus.Value : DBNull.Value),
                 new SugarParameter("@Status", delivery.Status),
                 new SugarParameter("@NextAttemptAt", delivery.NextAttemptAt),
                 new SugarParameter("@CreatedAt", delivery.CreatedAt));
@@ -1777,7 +1863,8 @@ public sealed class MessageCenterService(
         int? targetAccountId,
         long conversationId,
         long? messageId,
-        long? readThroughMessageId)
+        long? readThroughMessageId,
+        ConversationStatus? conversationStatus = null)
     {
         DateTime now = DateTime.UtcNow;
         string target = targetAccountId?.ToString(CultureInfo.InvariantCulture) ?? "group";
@@ -1790,6 +1877,7 @@ public sealed class MessageCenterService(
             ConversationId = conversationId,
             MessageId = messageId,
             ReadThroughMessageId = readThroughMessageId,
+            ConversationStatus = conversationStatus,
             Status = MessageMutationOutboxStatus.Pending,
             NextAttemptAt = now,
             CreatedAt = now
@@ -1890,16 +1978,22 @@ public sealed class MessageCenterService(
                 return;
 
             case MessageMutationOutboxEventKinds.ConversationStatus:
-                int statusTarget = delivery.TargetAccountId!.Value;
-                MessageConversation? conversation = await db.Queryable<MessageConversation>().InSingleAsync(delivery.ConversationId);
-                if (conversation is null)
+                if (!delivery.ConversationStatus.HasValue)
                 {
                     throw new InvalidOperationException("Message outbox status projection is missing.");
                 }
-                await PublishConversationClosedAsync(
-                    statusTarget,
+                if (delivery.AudienceKind == MessageMutationOutboxAudiences.Admins)
+                {
+                    await PublishConversationStatusChangedToAdminsAsync(
+                        delivery.ConversationId,
+                        ToStatusValue(delivery.ConversationStatus.Value),
+                        delivery.DeliveryKey);
+                    return;
+                }
+                await PublishConversationStatusChangedAsync(
+                    delivery.TargetAccountId!.Value,
                     delivery.ConversationId,
-                    ToStatusValue(conversation.Status),
+                    ToStatusValue(delivery.ConversationStatus.Value),
                     delivery.DeliveryKey);
                 return;
 
@@ -1993,23 +2087,27 @@ public sealed class MessageCenterService(
             "inbox-read-updated",
             idempotencyKey);
 
-    private Task PublishConversationClosedAsync(
+    private Task PublishConversationStatusChangedAsync(
         int accountId,
         long conversationId,
         ConversationStatusValue status,
         string? idempotencyKey = null)
         => notificationStreamPort.PublishToUserAsync(
-            NotificationStreamEventType.InboxConversationClosed,
+            NotificationStreamEventType.InboxConversationStatusChanged,
             accountId,
-            new InboxConversationClosedPayload(conversationId.ToString(), status, DateTime.UtcNow),
-            "inbox-conversation-closed",
+            new InboxConversationStatusChangedPayload(conversationId.ToString(), status, DateTime.UtcNow),
+            "inbox-conversation-status-changed",
             idempotencyKey);
 
-    private Task PublishConversationClosedToAdminsAsync(long conversationId, ConversationStatusValue status)
+    private Task PublishConversationStatusChangedToAdminsAsync(
+        long conversationId,
+        ConversationStatusValue status,
+        string? idempotencyKey = null)
         => notificationStreamPort.PublishToAdminUsersAsync(
-            NotificationStreamEventType.InboxConversationClosed,
-            new InboxConversationClosedPayload(conversationId.ToString(), status, DateTime.UtcNow),
-            "inbox-conversation-closed-admin");
+            NotificationStreamEventType.InboxConversationStatusChanged,
+            new InboxConversationStatusChangedPayload(conversationId.ToString(), status, DateTime.UtcNow),
+            "inbox-conversation-status-changed-admin",
+            idempotencyKey);
 
     private async Task PublishParticipantMessageFanoutAsync(
         long conversationId,

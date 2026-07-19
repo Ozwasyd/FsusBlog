@@ -544,6 +544,28 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            ConversationStatusAuditMigrationDefinitions.MigrationId,
+            new OnlineSchemaMigrationMetadata(
+                ConversationStatusAuditMigrationDefinitions.MigrationId,
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260719-conversation-status-audit",
+                ContractAfterRelease: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "conversation_status_append_only_audit"
+                ]));
+
+        result.Add(
             UserSessionMultiDeviceMigrationDefinitions.MigrationId,
             new OnlineSchemaMigrationMetadata(
                 UserSessionMultiDeviceMigrationDefinitions.MigrationId,

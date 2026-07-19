@@ -119,6 +119,54 @@ public sealed class MessageConversation
     }
 }
 
+[SugarTable("msg_conversation_status_event")]
+[SugarIndex("idx_msg_conversation_status_event_conversation_time", nameof(ConversationId), OrderByType.Asc, nameof(CreatedAt), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
+public sealed class ConversationStatusEvent
+{
+    [SugarColumn(IsPrimaryKey = true)]
+    public long Id
+    {
+        get; set;
+    }
+
+    public long ConversationId
+    {
+        get; set;
+    }
+
+    public ConversationStatus PreviousStatus
+    {
+        get; set;
+    }
+
+    public ConversationStatus CurrentStatus
+    {
+        get; set;
+    }
+
+    public long AdminPrincipalId
+    {
+        get; set;
+    }
+
+    [SugarColumn(Length = 64)]
+    public string AdminSessionAuditReference
+    {
+        get; set;
+    } = string.Empty;
+
+    [SugarColumn(Length = 256)]
+    public string Reason
+    {
+        get; set;
+    } = string.Empty;
+
+    public DateTime CreatedAt
+    {
+        get; set;
+    } = DateTime.UtcNow;
+}
+
 [SugarTable("msg_message")]
 [SugarIndex("idx_msg_message_conversation_id", nameof(ConversationId), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
 [SugarIndex("ux_msg_message_client_mutation", nameof(ClientMutationPrincipalKind), OrderByType.Asc, nameof(ClientMutationPrincipalId), OrderByType.Asc, nameof(ClientMutationId), OrderByType.Asc, true)]
@@ -322,6 +370,12 @@ public sealed class MessageMutationOutbox
 
     [SugarColumn(IsNullable = true)]
     public long? ReadThroughMessageId
+    {
+        get; set;
+    }
+
+    [SugarColumn(IsNullable = true)]
+    public ConversationStatus? ConversationStatus
     {
         get; set;
     }

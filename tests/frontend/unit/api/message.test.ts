@@ -128,7 +128,7 @@ describe('message API binary transport', () => {
     await messageApi.adminGetConversations(50, 'closed', 'admin-cursor')
     await messageApi.adminGetConversationDetail(9, '321')
     await messageApi.adminReplyConversation(9, { body: 'Admin reply' })
-    await messageApi.adminUpdateConversationStatus(9, { status: 'closed' })
+    await messageApi.adminUpdateConversationStatus(9, { status: 'closed', reason: 'resolved_by_admin' })
     await messageApi.adminSendSystemMessage({ targetAccountId: 3, subject: 'Notice', body: 'Body' })
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
@@ -161,7 +161,7 @@ describe('message API binary transport', () => {
         operationId: 'binary_post_admin_messages_conversations_id_long_status',
         params: { id: 9 }
       },
-      frameType: FrameType.EmptySuccess
+      frameType: FrameType.ConversationStatusMutationResult
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_post_admin_messages_system_send' },
@@ -178,5 +178,13 @@ describe('message API binary transport', () => {
       request.binaryRoute?.operationId === 'binary_get_admin_messages_conversations_id_long'
     )?.[0]
     expect(queryToString(adminDetailCall?.binaryRoute?.query)).toBe('beforeMessageId=321')
+    const statusCall = mockBinary.mock.calls.find(([request]) =>
+      request.binaryRoute?.operationId === 'binary_post_admin_messages_conversations_id_long_status'
+    )?.[0]
+    const statusFrame = new Uint8Array(statusCall?.requestOptions?.body as ArrayBuffer)
+    const statusView = new DataView(statusFrame.buffer, statusFrame.byteOffset, statusFrame.byteLength)
+    expect(statusView.getUint16(8, true)).toBe(FrameType.ConversationStatusRequest)
+    expect(statusView.getInt32(16, true)).toBe(2)
+    expect(new TextDecoder().decode(statusFrame.subarray(32))).toBe('resolved_by_admin')
   })
 })

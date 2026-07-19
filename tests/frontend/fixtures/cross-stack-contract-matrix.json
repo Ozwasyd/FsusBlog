@@ -495,7 +495,7 @@
           "path": "/admin/article/{id:int}",
           "auth": "admin",
           "pow": true,
-          "responseFrame": "EmptySuccess"
+          "responseFrame": "ConversationStatusMutationResult"
         },
         {
           "method": "PUT",

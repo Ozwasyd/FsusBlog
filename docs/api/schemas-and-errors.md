@@ -335,6 +335,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 208 | `CommentTreeRootCursor` | cursor envelope + `CommentTreeNodePod` records | 根节点 keyset 页；每根仅内联直接子节点预览 |
 | 209 | `CommentChildCursor` | `CommentChildCursorPod` + `CommentTreeNodePod` records | 指定父节点的直接子节点 keyset 页 |
 | 210 | `CommentPermalinkContext` | `CommentPermalinkContextPod` + node records | 永久链接祖先、目标与兄弟窗口；不可见目标统一 `unavailable` |
+| 211 | `ConversationStatusMutationResult` | `ConversationStatusMutationResultPod` | 状态 CAS 结果；previous/current status + `changed`/`no_change` outcome |
 
 `ConversationList(56)` 与 `ConversationDetailV3(204)` 的 wire layout 不因 admin queue state
 新增字段。相同 `unreadCount` 字段按 viewer 使用不同事实源：账号读取 participant state，
@@ -352,6 +353,12 @@ status 必须为 `3=missing`。动态关闭 admin account projection 时返回 `
 并且只在提交成功后发布 delivery event。会话不存在返回 `404`；closed 或锁后状态冲突返回
 `409`；事务基础设施失败返回 `503`。动态关闭 `Messages:ReplyWritesEnabled` 时两个 reply
 端点固定返回 `503` + `message_reply_writes_disabled`，读取和显式重开仍可使用。
+
+状态更新请求必须携带 1..256 字符审计原因；缺失或超限返回 `400` +
+`conversation_status_reason_invalid`。不允许的状态机边返回 `409` +
+`conversation_status_transition_invalid`；CAS 后发现其它目标状态返回 `409`。相同目标状态返回
+frame 208 的 `no_change`，不属于错误。动态关闭 `Messages:StatusMutationsEnabled` 时返回
+`503` + `message_status_mutations_disabled`，不得降级为无审计或直接实时发布。
 | 182 | `AnonymousCommentCreateRequest` | `AnonymousCommentCreateRequestPod` | `POST /api/binary/comment/anonymous` 请求体；不包含 user id、username、Authorization token 或 public handle |
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |

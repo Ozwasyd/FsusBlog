@@ -8,7 +8,8 @@ import type {
   ConversationDetailResponse,
   ConversationListItemResponse,
   ConversationMessagePreviewResponse,
-  ConversationMessageResponse
+  ConversationMessageResponse,
+  ConversationStatusMutationResultResponse
 } from '@/contracts/binaryApi'
 import { encodeAedsFrame, encodeStringMutationRequest } from './binaryFrame'
 
@@ -21,7 +22,8 @@ export type {
   ConversationDetailResponse,
   ConversationListItemResponse,
   ConversationMessagePreviewResponse,
-  ConversationMessageResponse
+  ConversationMessageResponse,
+  ConversationStatusMutationResultResponse
 } from '@/contracts/binaryApi'
 
 export type PageResponse<T> = BinaryPageResponse<T>
@@ -40,6 +42,7 @@ export interface ReplyConversationRequest {
 
 export interface UpdateConversationStatusRequest {
   status: ConversationStatus
+  reason: string
 }
 
 export interface SendSystemMessageRequest {
@@ -71,7 +74,7 @@ export interface InboxReadUpdatedPayload {
   time?: string | null
 }
 
-export interface InboxConversationClosedPayload {
+export interface InboxConversationStatusChangedPayload {
   conversationId: string
   status: 0 | 1 | 2
   time: string
@@ -211,17 +214,17 @@ export const messageApi = {
   },
 
   adminUpdateConversationStatus(conversationId: string | number, data: UpdateConversationStatusRequest, config?: ApiRequestConfig) {
-    return requestBinaryOnly<null>({
+    return requestBinaryOnly<ConversationStatusMutationResultResponse>({
       binaryRoute: {
         operationId: 'binary_post_admin_messages_conversations_id_long_status',
         params: { id: conversationId }
       },
-      frameType: FrameType.EmptySuccess,
+      frameType: FrameType.ConversationStatusMutationResult,
       signal: config?.signal as AbortSignal | undefined,
       requestOptions: {
         method: 'POST',
         requiresPow: true,
-        body: encodeAedsFrame(FrameType.ConversationStatusRequest, encodeConversationStatusRequest(data.status))
+        body: encodeAedsFrame(FrameType.ConversationStatusRequest, encodeConversationStatusRequest(data.status, data.reason))
       }
     })
   },
@@ -332,9 +335,15 @@ function encodeAccountConversationReplyRequest(readThroughMessageId: string, bod
   return bytes
 }
 
-function encodeConversationStatusRequest(status: ConversationStatus): Uint8Array {
-  const bytes = new Uint8Array(4)
-  new DataView(bytes.buffer).setInt32(0, status === 'pending' ? 1 : status === 'closed' ? 2 : 0, true)
+function encodeConversationStatusRequest(status: ConversationStatus, reason: string): Uint8Array {
+  const encodedReason = new TextEncoder().encode(reason)
+  const bytes = new Uint8Array(16 + encodedReason.byteLength)
+  const view = new DataView(bytes.buffer)
+  view.setInt32(0, status === 'pending' ? 1 : status === 'closed' ? 2 : 0, true)
+  view.setInt32(4, 0, true)
+  view.setInt32(8, encodedReason.byteLength, true)
+  view.setInt32(12, encodedReason.byteLength, true)
+  bytes.set(encodedReason, 16)
   return bytes
 }
 

@@ -6059,7 +6059,7 @@
         "summary": "/admin/messages/conversations/{id:long}/status",
         "responses": {
           "200": {
-            "description": "EmptySuccess AEDS frame",
+            "description": "ConversationStatusMutationResult AEDS frame",
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -6084,7 +6084,7 @@
         "x-fsus-protocol": "AEDS",
         "x-fsus-aeds-version": 2,
         "x-fsus-request-frame": "ConversationStatusRequest",
-        "x-fsus-response-frame": "EmptySuccess",
+        "x-fsus-response-frame": "ConversationStatusMutationResult",
         "x-fsus-error-frame": "ApiError",
         "x-fsus-auth": "admin",
         "x-fsus-pow": true,

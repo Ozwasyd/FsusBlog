@@ -203,6 +203,7 @@ export const FrameType = {
   CommentTreeRootCursor: 208,
   CommentChildCursor: 209,
   CommentPermalinkContext: 210,
+  ConversationStatusMutationResult: 211,
   EmptySuccess: 240,
   MutationId: 241,
   ApiError: 251,

@@ -27,7 +27,11 @@ public interface IMessageCommandService
     Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync(int accountId, long conversationId, long readThroughMessageId, string body, string clientMutationId);
     Task<Result> MarkConversationReadAsync(int accountId, long conversationId, long readThroughMessageId);
     Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync(long conversationId, string body, AdminMessageActor adminActor, string clientMutationId);
-    Task<Result> UpdateConversationStatusAsync(long conversationId, ConversationStatusValue status, AdminMessageActor adminActor);
+    Task<Result<ConversationStatusMutationResultResponse>> UpdateConversationStatusAsync(
+        long conversationId,
+        ConversationStatusValue status,
+        string reason,
+        AdminMessageActor adminActor);
     Task<Result<ConversationDetailResponse>> SendSystemMessageAsync(string subject, string body, long? targetAccountId, AdminMessageActor adminActor, long sourceEventId);
 
     // 治理通知聚合入口

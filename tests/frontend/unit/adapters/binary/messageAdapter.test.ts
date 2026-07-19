@@ -6,7 +6,8 @@ import {
   mapConversationDetailV2FromPayload,
   mapConversationDetailV3FromPayload,
   mapConversationListFromPayload,
-  mapConversationMessageFromPayload
+  mapConversationMessageFromPayload,
+  mapConversationStatusMutationResultFromPayload
 } from '@/adapters/binary/messageAdapter'
 
 const encoder = new TextEncoder()
@@ -306,5 +307,30 @@ describe('binary message adapter', () => {
       counterpartyAccountStatus: 2,
       messages: [{ senderName: '账号 #42', body: 'Account body' }]
     })
+  })
+
+  it('maps changed and no_change status mutation results', () => {
+    const changed = new Uint8Array(12)
+    const changedView = new DataView(changed.buffer)
+    changedView.setInt32(0, 0, true)
+    changedView.setInt32(4, 2, true)
+    expect(mapConversationStatusMutationResultFromPayload(changed)).toEqual({
+      previousStatus: 0,
+      currentStatus: 2,
+      outcome: 'changed'
+    })
+
+    const noChange = changed.slice()
+    const noChangeView = new DataView(noChange.buffer)
+    noChangeView.setInt32(0, 2, true)
+    noChange[8] = 1
+    expect(mapConversationStatusMutationResultFromPayload(noChange)).toEqual({
+      previousStatus: 2,
+      currentStatus: 2,
+      outcome: 'no_change'
+    })
+
+    noChange[9] = 1
+    expect(() => mapConversationStatusMutationResultFromPayload(noChange)).toThrow('conversation_status_mutation_result_invalid')
   })
 })
