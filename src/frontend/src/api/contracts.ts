@@ -13,6 +13,7 @@ export const FSUS_HEADERS = Object.freeze({
   challengePolicyVersion: 'X-Fsus-Challenge-Policy-Version',
   riskDecision: 'X-Fsus-Risk-Decision',
   frameVersion: 'X-Fsus-Frame-Version',
+  accessExpiresAtUtc: 'X-Fsus-Access-Expires-At-Utc',
   csrfToken: 'X-Fsus-Csrf-Token'
 })
 

@@ -35,6 +35,7 @@ export const useUserStore = defineStore('user', () => {
     const isLoading = ref(false)
     const isLoggingOut = ref(false)
     const lastFetchedAt = ref(0)
+    const authGeneration = ref(0)
 
     let fetchPromise: Promise<void> | null = null
     let abortController: AbortController | null = null
@@ -84,6 +85,15 @@ export const useUserStore = defineStore('user', () => {
         isLoading.value = false
     }
 
+    const expireAuthentication = async (options?: { broadcastCredentialPurge?: boolean }) => {
+        authGeneration.value += 1
+        cancelUserInfoRequest()
+        markGuest()
+        await clearPrivateBrowserState('session-expired', {
+            broadcastCredentialPurge: options?.broadcastCredentialPurge ?? true
+        })
+    }
+
     const invalidateIdentityCache = () => {
         cancelUserInfoRequest()
         userInfo.value = null
@@ -129,7 +139,7 @@ export const useUserStore = defineStore('user', () => {
                 if (isAbortError(error)) return;
 
                 if (isAuthFailureError(error)) {
-                    markGuest()
+                    await expireAuthentication()
                 } else {
                     const info = getKnownErrorInfo(error, 'auth_handshake_failed')
                     console.error('[UserStore] Auth handshake failed:', info.message);
@@ -210,6 +220,7 @@ export const useUserStore = defineStore('user', () => {
         isAuthChecked,
         lastVerifiedAt,
         lastFetchedAt,
+        authGeneration,
         isLoggedIn,
         isAdmin,
         isBanned,
@@ -218,6 +229,7 @@ export const useUserStore = defineStore('user', () => {
         markAuthenticated,
         invalidateGuestCache,
         cancelUserInfoRequest,
+        expireAuthentication,
         invalidateIdentityCache,
         setLogoutBroadcast,
         fetchUserInfo,

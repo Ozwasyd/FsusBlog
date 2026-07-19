@@ -104,28 +104,44 @@ export function buildOpenApiFromMatrix(matrix = loadMatrix(), protocol = loadPro
     }
     const pathItem = paths[route.fullPath] ?? {}
     const successStatus = String(route.successStatus || 200)
-    pathItem[String(route.method).toLowerCase()] = {
-      operationId: route.operationId,
-      tags: ['Binary'],
-      summary: route.summary || route.testSurface,
-      responses: {
-        [successStatus]: {
-          description: `${route.responseFrame || 'NoBody'} AEDS frame`,
-          content: {
-            'application/octet-stream': {
-              schema: { type: 'string', format: 'binary' }
-            }
-          }
-        },
-        default: {
-          description: 'ApiError AEDS frame',
+    const successResponse = {
+      description: `${route.responseFrame || 'NoBody'} AEDS frame`,
+      content: {
+        'application/octet-stream': {
+          schema: { type: 'string', format: 'binary' }
+        }
+      }
+    }
+    if (route.successHeaders && Object.keys(route.successHeaders).length > 0) {
+      successResponse.headers = route.successHeaders
+    }
+    const responses = {
+      [successStatus]: successResponse,
+      ...Object.fromEntries(Object.entries(route.errorResponses ?? {}).map(([status, description]) => [
+        String(status),
+        {
+          description,
           content: {
             'application/octet-stream': {
               schema: { type: 'string', format: 'binary' }
             }
           }
         }
-      },
+      ])),
+      default: {
+        description: 'ApiError AEDS frame',
+        content: {
+          'application/octet-stream': {
+            schema: { type: 'string', format: 'binary' }
+          }
+        }
+      }
+    }
+    pathItem[String(route.method).toLowerCase()] = {
+      operationId: route.operationId,
+      tags: ['Binary'],
+      summary: route.summary || route.testSurface,
+      responses,
       'x-fsus-protocol': 'AEDS',
       'x-fsus-aeds-version': protocol.header?.version ?? 2,
       'x-fsus-request-frame': route.requestFrame || null,

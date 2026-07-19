@@ -69,16 +69,26 @@ export function installAuthBroadcastComposition(pinia: Pinia): void {
 
     if (event.type === 'user-expired') {
       clearLocalFixtureSession()
-      userStore.markGuest()
+      void userStore.expireAuthentication({ broadcastCredentialPurge: origin !== 'remote' })
       appShellStore.markSessionExpired()
-      void clearPrivateStateForBroadcast('session-expired', origin)
       stopAuthenticatedRuntime()
       if (origin === 'remote') dispatchSessionExpired()
       return
     }
 
-    userStore.markGuest()
-    void clearPrivateStateForBroadcast(event.type === 'expired' ? 'session-expired' : 'logout', origin)
+    if (event.type === 'expired') {
+      if (origin === 'remote') {
+        void userStore.expireAuthentication({ broadcastCredentialPurge: false })
+      } else {
+        // The initiating runtime already advanced authGeneration and cleared
+        // private state before publishing. Restore the terminal guest state
+        // after the generic negative-cache invalidation above.
+        userStore.markGuest()
+      }
+    } else {
+      userStore.markGuest()
+      void clearPrivateStateForBroadcast('logout', origin)
+    }
     stopAuthenticatedRuntime()
     if (origin === 'remote') dispatchSessionExpired()
   })
@@ -103,7 +113,8 @@ function clearPrivateStateForBroadcast(
   reason: 'account-switch' | 'logout' | 'session-expired',
   origin: AuthBroadcastEventOrigin
 ): Promise<void> {
-  return origin === 'remote'
+  const clear = origin === 'remote'
     ? clearPrivateBrowserState(reason, { broadcastCredentialPurge: false })
     : clearPrivateBrowserState(reason)
+  return clear.then(() => undefined)
 }

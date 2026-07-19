@@ -28,6 +28,7 @@ public sealed partial class UserSessionCommandService(
     private const int UserStatusDeleted = 2;
     private static readonly TimeSpan s_standardSessionIdleTtl = TimeSpan.FromDays(7);
     private static readonly TimeSpan s_rememberMeSessionIdleTtl = TimeSpan.FromDays(30);
+    private static readonly TimeSpan s_refreshConcurrencyGrace = TimeSpan.FromSeconds(10);
 
     private static TimeSpan ResolveIdleSessionTtl(bool rememberMe)
         => rememberMe ? s_rememberMeSessionIdleTtl : s_standardSessionIdleTtl;
@@ -440,6 +441,11 @@ public sealed partial class UserSessionCommandService(
         {
             if (!string.IsNullOrWhiteSpace(sessionId))
             {
+                if (await IsRecentConcurrentRefreshRotationHashAsync(hash, sessionId, DateTime.UtcNow, cancellationToken))
+                {
+                    LogTokenRefreshFailure();
+                    return (false, null);
+                }
                 int revokedSessions = await RevokeLikelyRefreshReplayAsync(sessionId, hash);
                 FsusObservability.RecordAuthRefreshReplayDetected();
                 FsusObservability.RecordAuthRefreshFamilyRevoke(revokedSessions);
@@ -488,6 +494,11 @@ public sealed partial class UserSessionCommandService(
 
         if (rotated != 1)
         {
+            if (await IsRecentConcurrentRefreshRotationHashAsync(hash, session.SessionId, DateTime.UtcNow, cancellationToken))
+            {
+                LogTokenRefreshFailure();
+                return (false, null);
+            }
             int revokedSessions = await RevokeLikelyRefreshReplayAsync(session.SessionId, hash);
             FsusObservability.RecordAuthRefreshReplayDetected();
             FsusObservability.RecordAuthRefreshFamilyRevoke(revokedSessions);
@@ -531,6 +542,47 @@ public sealed partial class UserSessionCommandService(
                 && session.AbsoluteExpiresAt > now)
             .CountAsync();
         return matches == 1;
+    }
+
+    public Task<bool> IsRecentConcurrentRefreshRotationAsync(
+        string refreshToken,
+        string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(refreshToken) || string.IsNullOrWhiteSpace(sessionId))
+        {
+            return Task.FromResult(false);
+        }
+
+        return IsRecentConcurrentRefreshRotationHashAsync(
+            HashToken(refreshToken),
+            sessionId,
+            DateTime.UtcNow,
+            cancellationToken);
+    }
+
+    private async Task<bool> IsRecentConcurrentRefreshRotationHashAsync(
+        string staleHash,
+        string sessionId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        UserSession? current = await db.Queryable<UserSession>()
+            .Where(session => session.SessionId == sessionId
+                && session.RevokedAt == null
+                && session.IdleExpiresAt > now
+                && session.AbsoluteExpiresAt > now)
+            .FirstAsync();
+        if (current?.LastSeenAt is not { } lastSeenAt
+            || string.Equals(current.RefreshTokenHash, staleHash, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        DateTime rotatedAtUtc = AsUtc(lastSeenAt);
+        return rotatedAtUtc <= now && now - rotatedAtUtc <= s_refreshConcurrencyGrace;
     }
 
 

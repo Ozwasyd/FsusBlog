@@ -15,6 +15,7 @@ export interface BinaryRequestOptions extends RequestInit {
   requiresPow?: boolean
   powScope?: string
   riskChallengeProof?: RiskChallengeProofContext
+  onResponseHeaders?: (headers: Headers) => void
 }
 
 export interface PowParams {

@@ -121,6 +121,10 @@ describe('useUserStore', () => {
     expect(store.isAuthChecked).toBe(true)
     expect(store.lastFetchedAt).toBeGreaterThan(0)
     expect(store.lastVerifiedAt).toBeGreaterThan(0)
+    expect(store.authGeneration).toBe(1)
+    expect(mockClearPrivateBrowserState).toHaveBeenCalledWith('session-expired', {
+      broadcastCredentialPurge: true
+    })
   })
 
   it('fetchUserInfo does nothing if already authenticated', async () => {

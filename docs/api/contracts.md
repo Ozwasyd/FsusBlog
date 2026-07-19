@@ -504,7 +504,7 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 - 该结构主要用于服务端内部登录/续签流程，不直接作为公开认证 API 的最终响应体
 - `accessTokenExpiresAtUtc` 由 JWT 签发结果直接给出并与 JWT `exp` 对齐；普通/MFA/Passkey 登录、refresh rotation 和 admin session 签发必须把该值原样传给 AccessToken Cookie，Cookie 层不得重新读取配置或解析 token
 - `refreshTokenExpiresAt` 对齐 `sys_user_session.IdleExpiresAt`，用于 refresh-token 成功路径直接写 Cookie expiry，避免按新 refresh token 回查 session
-- `POST /api/binary/auth/refresh-token` 成功仍只返回 `EmptySuccess`，token 不进入 AEDS payload。CAS 轮换后，服务端必须在追加 Cookie 前后分别按新 refresh hash + session id 精确验证一条未撤销且未过期的 session；验证/追加失败时删除普通账号 access/refresh/session cookies 并返回 AEDS `ApiError`/401。客户端只对 `BinaryTransportError(kind=network)` 重试一次；401、取消、协议/解码错误不得重试。
+- `POST /api/binary/auth/refresh-token` 成功仍只返回 `EmptySuccess`，token 不进入 AEDS payload。CAS 轮换后，服务端必须在追加 Cookie 前后分别按新 refresh hash + session id 精确验证一条未撤销且未过期的 session；验证/追加失败时删除普通账号 access/refresh/session cookies 并返回 AEDS `ApiError`/401。同一 session 的旧 token 若在最近成功轮换后的短竞争窗口内到达，返回 `Conflict`/409 且不清 Cookie、不撤销 family；超过窗口的 replay 仍撤销 family。客户端不得自动重放 refresh POST；网络结果未知时只按 5/10/20/40/60 秒有界退避重读幂等 `/auth/me`，401、取消、协议/解码错误均不得重试 refresh POST。
 - 该交付协议缩小并检测 DB/Cookie 边界故障，但不把 PostgreSQL commit 与浏览器接收响应声明为原子事务。最终验证后进程退出仍可能要求重新认证，且 replay-family revoke 语义不得为此放宽。
 - 对外认证接口成功后统一返回 `AuthLoginFlowDto`，认证 Cookie 通过 `Set-Cookie` 下发
 
@@ -558,6 +558,8 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 
 Passkey complete、MFA verify 与匿名 bootstrap 的成功响应只表示服务端已尝试建立 Cookie session；浏览器必须通过共享 post-auth commit 强制读取本端点，并在确认 `IdentityAccountSnapshot` 已提交为当前 tab 的 authenticated state 后，才允许广播 login 或导航到私有路由。该读取必须绕过 fresh guest 负缓存；重复 commit 由单调 generation 取最新结果，组件卸载会取消在途读取，失败或取消不得把响应中的用户片段、bootstrap 完成或 Cookie 推断成已登录。
 
+成功响应必须携带 `X-Fsus-Access-Expires-At-Utc: <ISO-8601 UTC>`；该值由服务端已验证 principal 的 JWT `exp` 生成，不进入 AEDS payload，也不改变 `IdentityAccountSnapshotPod` 布局。前端把它映射为仅客户端存在的 `accessExpiresAtUtc`，并按真实到期时间减安全余量调度。缺失、非法或已过期的 header 是协议/认证失败，不能回退到从页面启动时刻计算固定 TTL。
+
 ```json
 {
   "accountId": 42,
@@ -577,6 +579,7 @@ Passkey complete、MFA verify 与匿名 bootstrap 的成功响应只表示服务
 - `sys_user` 仍是持久化账号容器，但 `/auth/me` 不输出内部 `username`、`role`、`internalUserId` 或旧兼容 `id`，也不允许客户端把普通账号快照当成权限来源。
 - `identityKind` 当前生产值为 `"anonymous_account"`；`publicHandle` 只是公开显示称呼，不是登录名或权限主体。
 - admin 权限只能读取 `/api/binary/auth/admin/me` 的 independent admin principal；legacy `CurrentUserSnapshot` frame 只保留给 admin-only accountId 查询、迁移和测试面，字段为 `accountId`、`identityKind`、`status`、`banReason`、`deletedAt`，不再包含 `username` 或 `role`。常规管理 API 不再暴露 `/api/binary/auth/find/{username}` 或按 `sys_user.username` 定位账号。
+- 多标签页刷新优先用 Web Locks 串行化单一 leader；无 Web Locks 时用最小字段 BroadcastChannel 选举，事件不得携带 token、session/account id、proof 或用户资料。leader 与 follower 在结算后都以 `/auth/me` 重新验证 Cookie 会话；认证失败提升 `authGeneration` 并清理私有状态，普通网络失败保持 unknown/authenticated 状态而不直接写 Guest。回退和隐私约束见 [frontend-session-refresh-coordination.md](../security/frontend-session-refresh-coordination.md)。
 
 ### `UserSessionSummaryDto`（普通账号会话列表项）
 

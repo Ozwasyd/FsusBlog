@@ -160,7 +160,10 @@ function hashBytes(bytes: Uint8Array): string {
 }
 
 function shouldDedupeBinaryRequest(url: string, options?: BinaryRequestOptions): boolean {
-  if (options?.requiresPow || options?.riskChallengeProof || url.includes('pow-challenge')) {
+  if (options?.requiresPow
+    || options?.riskChallengeProof
+    || options?.onResponseHeaders
+    || url.includes('pow-challenge')) {
     return false
   }
 
@@ -335,7 +338,11 @@ async function binaryRequestResultFresh(url: string, options?: BinaryRequestOpti
     proofInFlight = true
   }
 
-  const { riskChallengeProof: _riskChallengeProof, ...fetchOptions } = options ?? {}
+  const {
+    riskChallengeProof: _riskChallengeProof,
+    onResponseHeaders,
+    ...fetchOptions
+  } = options ?? {}
   let response: Response
   try {
     response = await fetch(url, {
@@ -343,6 +350,7 @@ async function binaryRequestResultFresh(url: string, options?: BinaryRequestOpti
       ...fetchOptions,
       headers
     })
+    onResponseHeaders?.(new Headers(response.headers))
   } catch (error) {
     if (proofInFlight) {
       proofContext?.settle('unknown_network')

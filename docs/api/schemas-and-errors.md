@@ -64,6 +64,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 | 错误码 | HTTP 状态 | 含义 |
 | -------- | ----------- | ------ |
 | `InvalidRequest` | 400 | 请求参数格式无效 |
+| `Conflict` | 409 | 当前请求与已提交状态冲突；refresh 短竞争窗口内表示其他标签页已完成轮换，不撤销 session family |
 | `NotFound` | 404 | 资源不存在 |
 | `Unauthorized` | 401 | 未认证或令牌失效 |
 | `Forbidden` | 403 | 权限不足 |
@@ -81,7 +82,7 @@ GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Cont
 | `EmailAlreadyTaken` | 409 | 邮箱已被注册 |
 | `TokenExpired` | 401 | 令牌已过期 |
 | `TokenInvalid` | 401 | 令牌格式无效 |
-| `RefreshTokenInvalid` | 401 | Refresh Token 无效或已轮换 |
+| `RefreshTokenInvalid` | 401 | Refresh Token 无效、过期或超过短竞争窗口后重放；服务端继续按 family replay 策略 fail closed |
 | `SessionNotFound` | 404 | 会话不存在或已过期 |
 
 ### PoW 错误
@@ -303,7 +304,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 160 | `RecoveryKeyVerifyRequest` | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体；不携带 account id，服务端从 Recovery Key lookup id 定位 |
 | 161 | `RecoveryKeyVerifyResponse` | `RecoveryKeyVerifyResponsePod` | Recovery Key 验证成功响应；只返回 recovery session token 与过期时间 |
 | 162 | `RecoveryKeySessionRequest` | `StringMutationRequestPod` | Recovery session token 请求体；用于 Passkey recovery begin |
-| 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | `GET /api/binary/auth/me`；匿名身份 account id、identity kind、public handle、Passkey/Recovery/TOTP/anonymous credential 和状态字段；不暴露 internalUserId |
+| 163 | `IdentityAccountSnapshot` | `IdentityAccountSnapshotPod` | `GET /api/binary/auth/me`；匿名身份 account id、identity kind、public handle、Passkey/Recovery/TOTP/anonymous credential 和状态字段；不暴露 internalUserId；access 到期时间只通过 `X-Fsus-Access-Expires-At-Utc` HTTP header 传递，不占 POD |
 | 164 | `CommentPolicySnapshot` | `CommentPolicySnapshotPod` | 评论 composer 渲染前策略：anonymous/public/ZK 开关、完整 ZK-Prod 原始位与受控 unavailable reason、默认 author mode、语言列表、策略 snapshot hash；前端 41-byte layout 映射 client contract v3，旧/损坏 layout 一律 `contract_invalid` |
 | 165 | `CommentPolicyUpdateRequest` | `CommentPolicyUpdateRequestPod` | admin 匿名评论策略 patch 请求体 |
 | 166 | `CommentCreateV2Request` | `CommentCreateV2RequestPod` | 登录态 public 新评论；必须 explicit opt-in。旧 `anonymous` 返回 `anonymous_author_mode_retired` 且零业务写，`zk_anonymous` 返回 `anonymous_ticket_required`；legacy scope/proof 槽只保留 wire layout |

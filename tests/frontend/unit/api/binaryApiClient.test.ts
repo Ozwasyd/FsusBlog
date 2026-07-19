@@ -116,6 +116,36 @@ describe('binaryApiClient credentials handling', () => {
     expect(init?.credentials).toBe('include')
     expect(headers.get('x-fsus-csrf-token')).toBe('csrf-token-value')
   })
+
+  it('exposes a cloned response-header snapshot to contract-aware callers', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'X-Fsus-Access-Expires-At-Utc': '2026-07-19T00:15:00.000Z' }),
+      arrayBuffer: async () => new ArrayBuffer(0)
+    })))
+    const observe = vi.fn()
+
+    await binaryRequest('/api/binary/auth/me', { onResponseHeaders: observe })
+
+    expect(observe).toHaveBeenCalledTimes(1)
+    const headers = observe.mock.calls[0]?.[0] as Headers
+    expect(headers.get('X-Fsus-Access-Expires-At-Utc')).toBe('2026-07-19T00:15:00.000Z')
+  })
+
+  it('does not merge requests whose callers each require response metadata', async () => {
+    const observeFirst = vi.fn()
+    const observeSecond = vi.fn()
+
+    await Promise.all([
+      binaryRequest('/api/binary/auth/me', { onResponseHeaders: observeFirst }),
+      binaryRequest('/api/binary/auth/me', { onResponseHeaders: observeSecond })
+    ])
+
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(observeFirst).toHaveBeenCalledTimes(1)
+    expect(observeSecond).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('binaryApiClient pow abort handling', () => {

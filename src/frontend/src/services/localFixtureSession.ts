@@ -343,7 +343,8 @@ export function createLocalFixtureAccountSnapshot(): CurrentUserSnapshot {
     anonymousCredentialLevel: null,
     status: 0,
     banReason: null,
-    deletedAt: null
+    deletedAt: null,
+    accessExpiresAtUtc: new Date(Date.now() + 5 * 60 * 1000).toISOString()
   }
 }
 

@@ -157,6 +157,7 @@ export interface CurrentUserSnapshot {
   status: number
   banReason: string | null
   deletedAt: string | null
+  accessExpiresAtUtc: string
 }
 
 export interface AuthLoginFlow {

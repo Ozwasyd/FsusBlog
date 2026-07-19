@@ -284,12 +284,17 @@ describe('authBroadcastRuntime', () => {
     expect(userStore.accountState).toBe('unknown')
   })
 
-  it('clears the sending tab before broadcasting session expiry', () => {
-    createRuntimePinia()
+  it('clears the sending tab before broadcasting session expiry', async () => {
+    const pinia = createRuntimePinia()
+    const userStore = useUserStore(pinia)
+    userStore.markAuthenticated(anonymousUser(1) as never)
 
+    await userStore.expireAuthentication()
     authBroadcastRuntime.broadcastExpired()
 
-    expect(clearPrivateBrowserState).toHaveBeenCalledWith('session-expired')
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('session-expired', {
+      broadcastCredentialPurge: true
+    })
     expect(MockBroadcastChannel.instances[0]?.messages).toEqual([
       expect.objectContaining({ type: 'expired' })
     ])

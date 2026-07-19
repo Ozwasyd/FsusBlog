@@ -985,6 +985,39 @@ public class UserServiceValidationTests
         await sessionQuery.Received(1).CountAsync();
     }
 
+    [Fact]
+    public async Task IsRecentConcurrentRefreshRotationAsync_AcceptsOnlyRecentDifferentActiveHash()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var sessionQuery = Substitute.For<ISugarQueryable<UserSession>>();
+        db.Queryable<UserSession>().Returns(sessionQuery);
+        sessionQuery.Where(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(sessionQuery);
+        var current = new UserSession
+        {
+            SessionId = "concurrent-tab-session",
+            RefreshTokenHash = InvokeSessionPrivateStatic<string>("HashToken", ["rotated-refresh-token"]),
+            LastSeenAt = DateTime.UtcNow.Subtract(TimeSpan.FromSeconds(2)),
+            IdleExpiresAt = DateTime.UtcNow.AddHours(1),
+            AbsoluteExpiresAt = DateTime.UtcNow.AddDays(1)
+        };
+        sessionQuery.FirstAsync().Returns(Task.FromResult(current));
+        var service = BuildSessionService(db);
+
+        bool recent = await service.IsRecentConcurrentRefreshRotationAsync(
+            "stale-refresh-token",
+            current.SessionId,
+            CancellationToken.None);
+
+        Assert.True(recent);
+
+        current.LastSeenAt = DateTime.UtcNow.Subtract(TimeSpan.FromMinutes(1));
+        bool expiredGrace = await service.IsRecentConcurrentRefreshRotationAsync(
+            "stale-refresh-token",
+            current.SessionId,
+            CancellationToken.None);
+        Assert.False(expiredGrace);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(2)]

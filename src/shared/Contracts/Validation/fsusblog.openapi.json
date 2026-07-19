@@ -2684,6 +2684,16 @@
         "responses": {
           "200": {
             "description": "IdentityAccountSnapshot AEDS frame",
+            "headers": {
+              "X-Fsus-Access-Expires-At-Utc": {
+                "description": "Validated access-token expiry as an ISO 8601 UTC timestamp",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            },
             "content": {
               "application/octet-stream": {
                 "schema": {
@@ -3452,6 +3462,17 @@
         "responses": {
           "200": {
             "description": "EmptySuccess AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ApiError AEDS frame: another tab recently rotated this session",
             "content": {
               "application/octet-stream": {
                 "schema": {

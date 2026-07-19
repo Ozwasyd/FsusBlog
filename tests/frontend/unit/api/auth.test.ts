@@ -46,12 +46,36 @@ describe('auth API binary base session flow', () => {
   })
 
   it('getMe uses binary anonymous identity account frame', async () => {
+    mockBinary.mockImplementationOnce(async (request) => {
+      request.requestOptions?.onResponseHeaders?.(new Headers({
+        'X-Fsus-Access-Expires-At-Utc': '2026-07-19T00:15:00.000Z'
+      }))
+      return { accountId: 7 } as never
+    })
     await getMe()
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_get_auth_me' },
       frameType: FrameType.IdentityAccountSnapshot,
       suppressAuthFailureTelemetry: true
     }))
+  })
+
+  it('getMe rejects a snapshot without server access expiry metadata', async () => {
+    mockBinary.mockResolvedValueOnce({ accountId: 7 } as never)
+
+    await expect(getMe()).rejects.toThrow('auth_access_expiry_missing')
+    expect(mockBinary).toHaveBeenCalledTimes(1)
+  })
+
+  it('getMe rejects malformed server access expiry metadata', async () => {
+    mockBinary.mockImplementationOnce(async (request) => {
+      request.requestOptions?.onResponseHeaders?.(new Headers({
+        'X-Fsus-Access-Expires-At-Utc': 'not-a-date'
+      }))
+      return { accountId: 7 } as never
+    })
+
+    await expect(getMe()).rejects.toThrow('auth_access_expiry_missing')
   })
 
   it('refreshToken uses binary empty success frame', async () => {
@@ -64,15 +88,12 @@ describe('auth API binary base session flow', () => {
     }))
   })
 
-  it('refreshToken retries one network failure exactly once', async () => {
-    mockBinary
-      .mockRejectedValueOnce({ name: 'BinaryTransportError', kind: 'network', message: 'connection reset' })
-      .mockResolvedValueOnce(null as never)
+  it('refreshToken does not replay an ambiguous network failure', async () => {
+    mockBinary.mockRejectedValueOnce({ name: 'BinaryTransportError', kind: 'network', message: 'connection reset' })
 
-    await refreshToken()
+    await expect(refreshToken()).rejects.toMatchObject({ kind: 'network' })
 
-    expect(mockBinary).toHaveBeenCalledTimes(2)
-    expect(mockBinary.mock.calls[0]?.[0]).toEqual(mockBinary.mock.calls[1]?.[0])
+    expect(mockBinary).toHaveBeenCalledTimes(1)
   })
 
   it('refreshToken does not retry auth failures', async () => {

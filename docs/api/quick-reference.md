@@ -23,13 +23,13 @@
 | ------ | ------ | ------ | ------ |
 | GET | `/api/binary/auth/pow-challenge` | 🔓 🚦 📦 | 获取 PoW 挑战 |
 | POST | `/api/binary/auth/anonymous/bootstrap` | 🔓 🚦 📦 | 匿名身份模式初始化匿名账号容器并写入 session；请求 `AuthAnonymousBootstrapRequest`，不接受密码 |
-| POST | `/api/binary/auth/refresh-token` | 🔓 🚦 📦 | 用 HttpOnly Cookie 续签 Access Token |
+| POST | `/api/binary/auth/refresh-token` | 🔓 🚦 📦 | 用 HttpOnly Cookie 续签 Access Token；成功返回 `EmptySuccess`，短竞争窗口内旧 token 返回 409 且不撤销 family，网络未知结果不得自动重放 POST |
 
 ### 当前用户
 
 | 方法 | 路径 | 权限 | 说明 |
 | ------ | ------ | ------ | ------ |
-| GET | `/api/binary/auth/me` | 🔑 📦 | 获取当前匿名账号容器快照 |
+| GET | `/api/binary/auth/me` | 🔑 📦 | 获取当前匿名账号容器快照；成功响应带 `X-Fsus-Access-Expires-At-Utc` 绝对到期时间，前端据此协调跨标签页刷新 |
 | PUT | `/api/binary/auth/public-handle` | 🔑 📦 | 保存或清空当前匿名账号公开称呼 |
 | POST | `/api/binary/auth/logout` | 🔑 📦 | 安全登出（吊销当前 Refresh Token） |
 | POST | `/api/binary/auth/delete-account` | 🔑 🚦 📦 | 注销账号；请求 frame 只含确认文本，敏感操作 proof 走 `X-Fsus-Mfa-Proof` |

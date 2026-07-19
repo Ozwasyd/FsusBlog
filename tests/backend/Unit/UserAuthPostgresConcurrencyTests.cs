@@ -27,7 +27,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public async Task RefreshTokenAsync_ConcurrentReplayAllowsOneRotationThenRevokesSession()
+    public async Task RefreshTokenAsync_ConcurrentTabsAllowOneRotationWithoutRevokingSessionFamily()
     {
         const string RawRefreshToken = "issue-1040-original-refresh-token";
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -78,9 +78,8 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         Assert.Single(results, static result => !result.Success && result.Data is null);
         UserSession stored = await setupDb.Queryable<UserSession>()
             .SingleAsync(item => item.SessionId == sessionId);
-        Assert.NotNull(stored.RevokedAt);
-        Assert.Equal("refresh_token_reuse_family_revoke", stored.RevokeReason);
-        DateTime revokedAt = stored.RevokedAt.Value;
+        Assert.Null(stored.RevokedAt);
+        Assert.Null(stored.RevokeReason);
 
         var replayResults = new List<(bool Success, TokenResponseDto? Data)>();
         for (int round = 0; round < 4; round++)
@@ -98,8 +97,22 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         });
         UserSession afterThrash = await setupDb.Queryable<UserSession>()
             .SingleAsync(item => item.SessionId == sessionId);
-        Assert.Equal(revokedAt, afterThrash.RevokedAt);
-        Assert.Equal("refresh_token_reuse_family_revoke", afterThrash.RevokeReason);
+        Assert.Null(afterThrash.RevokedAt);
+        Assert.Null(afterThrash.RevokeReason);
+
+        DateTime staleLastSeenAt = DateTime.UtcNow.Subtract(TimeSpan.FromMinutes(1));
+        await setupDb.Updateable<UserSession>()
+            .SetColumns(session => session.LastSeenAt == staleLastSeenAt)
+            .Where(session => session.SessionId == sessionId)
+            .ExecuteCommandAsync();
+        (bool staleSuccess, TokenResponseDto? staleData) = await firstService.RefreshTokenAsync(RawRefreshToken, sessionId);
+        Assert.False(staleSuccess);
+        Assert.Null(staleData);
+
+        UserSession revokedAfterGrace = await setupDb.Queryable<UserSession>()
+            .SingleAsync(item => item.SessionId == sessionId);
+        Assert.NotNull(revokedAfterGrace.RevokedAt);
+        Assert.Equal("refresh_token_reuse_family_revoke", revokedAfterGrace.RevokeReason);
         await validationCache.Received(1).PublishManyAsync(
             Arg.Is<IReadOnlyList<UserSessionValidationCacheState>>(states =>
                 states.Count == 1

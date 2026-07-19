@@ -17,6 +17,7 @@ import type {
   UserSessionSummary
 } from '@/contracts/binaryApi'
 import { encodeAedsFrame, encodePasskeyCredentialFriendlyNameUpdateRequest, encodeStringMutationRequest, writeFixedUtf8 } from './binaryFrame'
+import { FSUS_HEADERS } from './contracts'
 
 export type {
   AuthLoginFlow,
@@ -92,13 +93,23 @@ export const bootstrapAnonymousAccount = (data: AnonymousBootstrapRequest, confi
 /**
  * 获取当前登录用户信息 (利用 Cookie 中的 Token)
  */
-export const getMe = (config?: ApiRequestConfig) => {
-  return requestBinaryOnly<CurrentUserSnapshot>({
+export const getMe = async (config?: ApiRequestConfig) => {
+  let accessExpiresAtUtc = ''
+  const snapshot = await requestBinaryOnly<Omit<CurrentUserSnapshot, 'accessExpiresAtUtc'>>({
     binaryRoute: { operationId: 'binary_get_auth_me' },
     frameType: FrameType.IdentityAccountSnapshot,
     signal: config?.signal as AbortSignal | undefined,
-    suppressAuthFailureTelemetry: true
+    suppressAuthFailureTelemetry: true,
+    requestOptions: {
+      onResponseHeaders: (headers) => {
+        accessExpiresAtUtc = headers.get(FSUS_HEADERS.accessExpiresAtUtc)?.trim() ?? ''
+      }
+    }
   })
+  if (!accessExpiresAtUtc || !Number.isFinite(Date.parse(accessExpiresAtUtc))) {
+    throw new Error('auth_access_expiry_missing')
+  }
+  return { ...snapshot, accessExpiresAtUtc }
 }
 
 export const updatePublicHandle = (data: UpdatePublicHandleDto, config?: ApiRequestConfig) => {
@@ -170,7 +181,7 @@ export const deleteAccount = (data: DeleteAccountRequest, config?: ApiRequestCon
  * 手动刷新 Token
  */
 export const refreshToken = async (config?: ApiRequestConfig) => {
-  const requestRefresh = () => requestBinaryOnly<null>({
+  return requestBinaryOnly<null>({
     binaryRoute: { operationId: 'binary_post_auth_refresh_token' },
     frameType: FrameType.EmptySuccess,
     signal: config?.signal as AbortSignal | undefined,
@@ -179,16 +190,6 @@ export const refreshToken = async (config?: ApiRequestConfig) => {
       method: 'POST'
     }
   })
-
-  try {
-    return await requestRefresh()
-  } catch (error: unknown) {
-    if (!isNetworkTransportFailure(error) || config?.signal?.aborted) {
-      throw error
-    }
-
-    return requestRefresh()
-  }
 }
 
 export const listSessions = (config?: ApiRequestConfig) =>

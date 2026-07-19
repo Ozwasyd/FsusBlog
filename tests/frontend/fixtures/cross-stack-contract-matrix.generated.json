@@ -964,7 +964,17 @@
           "method": "GET",
           "path": "/auth/me",
           "auth": "optional",
-          "responseFrame": "IdentityAccountSnapshot"
+          "responseFrame": "IdentityAccountSnapshot",
+          "successHeaders": {
+            "X-Fsus-Access-Expires-At-Utc": {
+              "description": "Validated access-token expiry as an ISO 8601 UTC timestamp",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
         },
         {
           "method": "GET",
@@ -1073,7 +1083,10 @@
           "method": "POST",
           "path": "/auth/refresh-token",
           "auth": "anonymous",
-          "responseFrame": "EmptySuccess"
+          "responseFrame": "EmptySuccess",
+          "errorResponses": {
+            "409": "ApiError AEDS frame: another tab recently rotated this session"
+          }
         },
         {
           "method": "POST",

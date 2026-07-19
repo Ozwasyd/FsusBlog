@@ -54,7 +54,7 @@ export function mapCurrentUserSnapshotFromPayload(payload: Uint8Array): AdminCur
   };
 }
 
-export function mapIdentityAccountSnapshotFromPayload(payload: Uint8Array): CurrentUserSnapshot {
+export function mapIdentityAccountSnapshotFromPayload(payload: Uint8Array): Omit<CurrentUserSnapshot, 'accessExpiresAtUtc'> {
   const reader = new BinaryReader(payload);
   const pod = reader.readSpan(IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE);
   const blob = reader.readBlob();

@@ -36,6 +36,7 @@ namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
 public static partial class BinaryEndpoints
 {
+    private const string AccessExpiresAtUtcHeader = "X-Fsus-Access-Expires-At-Utc";
     private static readonly TimeSpan s_authRiskSignalTtl = TimeSpan.FromMinutes(10);
 
     private static string ResolveBinaryIdentityKind(string? identityKind)
@@ -402,6 +403,10 @@ public static partial class BinaryEndpoints
                 }
 
                 var snapshot = UserAccountReader.ToAnonymousAccountSnapshot(user.Value);
+                if (!TryWriteAccessExpiryHeader(httpContext))
+                {
+                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "访问凭证到期时间无效"), aeds, StatusCodes.Status401Unauthorized);
+                }
                 return BinaryResults.Frame(aeds, AedsFrameType.IdentityAccountSnapshot, writer => PodBinaryCodec.WriteIdentityAccountSnapshot(snapshot, writer));
             }
             finally
@@ -1082,6 +1087,14 @@ public static partial class BinaryEndpoints
                 || newTokens.Value.AccessTokenExpiresAtUtc is not { } accessTokenExpiresAtUtc
                 || string.IsNullOrWhiteSpace(newTokens.Value.SessionId))
             {
+                if (!string.IsNullOrWhiteSpace(sessionId)
+                    && await sessions.IsRecentConcurrentRefreshRotationAsync(oldRefreshToken, sessionId, cancellationToken))
+                {
+                    return BinaryResults.FromError(
+                        ErrorDetail.Create(ErrorCode.Conflict, "刷新凭证已由其他标签页轮换"),
+                        aeds,
+                        StatusCodes.Status409Conflict);
+                }
                 authCookieService.ClearUserSessionCookies(httpContext);
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "刷新凭证已失效"), aeds);
             }
@@ -1629,6 +1642,31 @@ public static partial class BinaryEndpoints
         => httpContext.Request.Headers.TryGetValue(name, out var values)
             ? values.ToString().Trim()
             : string.Empty;
+
+    private static bool TryWriteAccessExpiryHeader(HttpContext httpContext)
+    {
+        string? rawExpiry = httpContext.User.FindFirst("exp")?.Value;
+        if (!long.TryParse(rawExpiry, NumberStyles.None, CultureInfo.InvariantCulture, out long unixSeconds))
+        {
+            return false;
+        }
+
+        try
+        {
+            DateTimeOffset expiresAtUtc = DateTimeOffset.FromUnixTimeSeconds(unixSeconds);
+            if (expiresAtUtc <= DateTimeOffset.UtcNow)
+            {
+                return false;
+            }
+
+            httpContext.Response.Headers[AccessExpiresAtUtcHeader] = expiresAtUtc.ToString("O", CultureInfo.InvariantCulture);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
+    }
 
     private static async Task<bool> VerifyRefreshCookieDeliveryAsync(
         IUserSessionCommandService sessions,
