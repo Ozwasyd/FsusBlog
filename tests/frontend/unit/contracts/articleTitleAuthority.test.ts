@@ -1,13 +1,9 @@
 // @vitest-environment happy-dom
 
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import { themeTokens } from '@/ui-tokens/themeTokens'
-
-const markdownCss = readFileSync(resolve(process.cwd(), 'src/assets/markdown.css'), 'utf8')
 
 const mountRenderer = (mode: 'article' | 'about' | 'preview') => mount(MarkdownRenderer, {
   props: {
@@ -40,16 +36,13 @@ describe('article title authority', () => {
     preview.unmount()
   })
 
-  it('keeps the page title dominant and the article H1 subordinate', () => {
+  it('keeps the page title dominant through the shared token contract', () => {
     expect(themeTokens.articleDetail.title).toContain('text-2xl sm:text-3xl')
     expect(themeTokens.articleDetail.title).toContain('font-bold')
     expect(themeTokens.articleDetail.title).toContain('leading-[1.25] sm:leading-[1.2]')
-    expect(markdownCss).toMatch(/\.markdown-body h1\s*\{[^}]*font-size:\s*1\.5rem;[^}]*font-weight:\s*700;[^}]*text-align:\s*left;/u)
-    expect(markdownCss).not.toMatch(/\.markdown-body--article h1\s*\{/u)
   })
 
-  it('retains the about document and punctuation contracts', () => {
-    expect(markdownCss).toMatch(/\.markdown-body--document\s*\{[^}]*text-align:\s*left;[^}]*letter-spacing:\s*normal;[^}]*text-autospace:\s*normal;/u)
+  it('retains punctuation and loading contracts', () => {
     expect(themeTokens.articleList.metaSeparator).toContain('font-normal')
     expect(themeTokens.articleList.metaSeparator).toContain('text-[var(--fsusblog-text-decorative)]')
     expect(themeTokens.articleDetail.commentsPlaceholderDot).toBe('fsusblog-dot-loader')

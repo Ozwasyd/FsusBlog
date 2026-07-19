@@ -458,6 +458,12 @@ function checkIdentitySettingsPrimitiveContract()
         }
     }
 
+    if (!/commitAndReconcile\([\s\S]*?updatePublicHandle\([\s\S]*?getPasskeySignalState[\s\S]*?currentUserDetails:\s*true/u.test(identity)
+        || !identity.includes('passkeyCredentials.value.length > 0'))
+    {
+        warn(identityCenterPath, 'identity-passkey-signal-order', 'public-handle details must be signaled only after the authoritative mutation commits');
+    }
+
     const profile = fs.existsSync(profilePath) ? fs.readFileSync(profilePath, 'utf8') : '';
     if (!profile.includes('FsusUiEmptyState') || profile.includes('ProfileInlineEmptyState'))
     {

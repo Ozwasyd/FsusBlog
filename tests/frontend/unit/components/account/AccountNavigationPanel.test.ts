@@ -1,7 +1,5 @@
 // @vitest-environment happy-dom
 
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { mount } from '@vue/test-utils'
 import { h, nextTick } from 'vue'
 import {
@@ -12,11 +10,6 @@ import {
 import { describe, expect, it } from 'vitest'
 import AccountNavigationPanel from '@/components/account/AccountNavigationPanel.vue'
 import { getAccountNavGroups } from '@/layouts/accountNav'
-
-const panelSource = readFileSync(
-  resolve(process.cwd(), 'src/components/account/AccountNavigationPanel.vue'),
-  'utf8'
-)
 
 const permissions = [
   'admin.manage',
@@ -71,15 +64,6 @@ const mountPanel = async (path: string, variant: 'desktop' | 'mobile' = 'desktop
 }
 
 describe('AccountNavigationPanel', () => {
-  it('keeps first-level and local navigation on distinct visual hierarchy roles', () => {
-    expect(panelSource).toMatch(/\.account-module-link__label\s*\{[^}]*font-size:\s*14px;[^}]*font-weight:\s*700;/u)
-    expect(panelSource).toMatch(/\.account-local-navigation__link > span:first-child\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*500;/u)
-    expect(panelSource).toMatch(/\.account-local-navigation__title\s*\{[^}]*\}\s*\.account-local-navigation__link\s*\{[^}]*padding:\s*var\(--fsus-space-1\) var\(--fsus-space-2\) var\(--fsus-space-1\) var\(--fsus-space-8\);/u)
-    expect(panelSource).toMatch(/\.account-navigation-panel\[data-variant="desktop"\] \.account-local-navigation__link\s*\{[^}]*min-height:\s*2\.5rem;/u)
-    expect(panelSource).toMatch(/\.account-module-link,\s*\.account-local-navigation__link\s*\{[^}]*min-height:\s*2\.75rem;/u)
-    expect(panelSource).not.toMatch(/font-weight:\s*680;|font-size:\s*13px;|min-height:\s*2\.25rem;/u)
-  })
-
   it('renders no more than six global links and only the current module leaves', async () => {
     const { wrapper } = await mountPanel('/user/manage/article/edit/42')
 

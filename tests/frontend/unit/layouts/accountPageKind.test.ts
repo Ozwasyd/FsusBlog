@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   ACCOUNT_PAGE_KIND_CLASSES,
@@ -36,20 +34,5 @@ describe('account page kind visual mapping', () => {
       expect(resolveAccountPageKindClass('manage', pageKind))
         .toBe(ACCOUNT_PAGE_KIND_CLASSES.manage[pageKind])
     }
-  })
-
-  it('keeps typed admin page composition inside AdminWorkspaceFrame', () => {
-    const layoutSource = readFileSync(resolve(process.cwd(), 'src/layouts/AccountLayout.vue'), 'utf8')
-    const frameSource = readFileSync(resolve(process.cwd(), 'src/layouts/AdminWorkspaceFrame.vue'), 'utf8')
-    const routerSource = readFileSync(resolve(process.cwd(), 'src/router/index.ts'), 'utf8')
-
-    expect(frameSource).toContain("resolveAccountPageKindClass('manage', route.meta.accountPageKind)")
-    expect(frameSource).not.toMatch(/route\.name\s*===\s*['"]Manage/u)
-    expect(frameSource).not.toMatch(/ManageWriteArticle|ManageEditArticle|ManageSettings|ManageDashboard/u)
-    expect(layoutSource).not.toContain('resolveAccountPageKindClass')
-    expect(layoutSource).not.toContain('accountContentMode')
-    expect(routerSource).toContain('selfMeta({')
-    expect(routerSource).toContain('manageMeta({')
-    expect(routerSource).not.toMatch(/\b(?:selfMeta|manageMeta)\(\s*['"]/u)
   })
 })

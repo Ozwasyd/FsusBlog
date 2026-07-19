@@ -1,22 +1,32 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import {
   UX_VIEWPORT_MATRIX,
   type ThemeMode,
   adminName,
   adminPassword,
+  applyUxViewportMediaMode,
   assertElementHitTarget,
   assertElementInViewport,
+  assertFocusOutlineVisible,
   assertNoHorizontalOverflow,
   assertTableLayout,
   assertThemeReadable,
+  assertTouchTargetSize,
+  assertUxViewportMediaMode,
   captureStorageState,
   expectStableScreenshot,
   openThemedAuditedPage,
+  resetUxViewportMediaMode,
   settlePage,
   userName,
   userPassword,
   waitForAppReady
 } from '../../support/playwright/acceptance-shared'
+import {
+  ADMIN_LAYOUT_ARCHETYPES,
+  IDENTITY_LAYOUT_ARCHETYPES,
+  resolveLayoutArchetypePath
+} from '../../support/playwright/layoutArchetypeMatrix'
 
 const viewports = UX_VIEWPORT_MATRIX.viewports
   .filter((viewport) => viewport.useInConsoleVisual)
@@ -31,6 +41,18 @@ const themes: ThemeMode[] = ['light', 'dark']
 let userStorageStatePromise: Promise<Awaited<ReturnType<typeof captureStorageState>>> | null = null
 let adminStorageStatePromise: Promise<Awaited<ReturnType<typeof captureStorageState>>> | null = null
 
+async function assertArchetypeAccessibility(page: Page, label: string): Promise<void> {
+  await assertFocusOutlineVisible(page, label)
+  await assertTouchTargetSize(page, label)
+  for (const media of ['reduced-motion', 'high-contrast'] as const) {
+    await resetUxViewportMediaMode(page)
+    await applyUxViewportMediaMode(page, media)
+    await assertUxViewportMediaMode(page, media, `${label} ${media}`)
+    await assertNoHorizontalOverflow(page, 8)
+  }
+  await resetUxViewportMediaMode(page)
+}
+
 for (const viewport of viewports) {
   for (const theme of themes) {
     test.describe(`console visual (${viewport.name}, ${theme})`, () => {
@@ -41,24 +63,11 @@ for (const viewport of viewports) {
         userStorageStatePromise ??= captureStorageState(browser, userName, userPassword, '/user/profile')
         const storageState = await userStorageStatePromise
 
-        for (const route of [
-          {
-            path: '/user/identity',
-            label: 'user-profile',
-            primary: 'main',
-            screenshot: '.el-task-page-header'
-          },
-          {
-            path: '/user/messagebox',
-            label: 'user-messagebox',
-            primary: 'main',
-            screenshot: '.messages-list-pane .messages-pane-header'
-          }
-        ] as const) {
+        for (const route of IDENTITY_LAYOUT_ARCHETYPES) {
           const session = await openThemedAuditedPage(browser, theme, storageState)
 
           try {
-            await session.page.goto(route.path, { waitUntil: 'domcontentloaded' })
+            await session.page.goto(resolveLayoutArchetypePath(route), { waitUntil: 'domcontentloaded' })
             await waitForAppReady(session.page)
             await settlePage(session.page)
 
@@ -73,8 +82,10 @@ for (const viewport of viewports) {
               await assertElementHitTarget(session.page, revokeOthers, 'revoke other sessions button')
             }
 
-            if (viewport.screenshot) {
-              const screenshotTarget = session.page.locator(route.screenshot).first()
+            await assertArchetypeAccessibility(session.page, `${route.label} ${viewport.name} ${theme}`)
+
+            if (viewport.screenshot && route.snapshot) {
+              const screenshotTarget = session.page.locator(route.screenshotTarget).first()
               await expectStableScreenshot(
                 session.page,
                 screenshotTarget,
@@ -92,21 +103,11 @@ for (const viewport of viewports) {
         adminStorageStatePromise ??= captureStorageState(browser, adminName, adminPassword, '/user/manage')
         const storageState = await adminStorageStatePromise
 
-        for (const route of [
-          { path: '/user/manage', label: 'manage-dashboard', primary: 'main', screenshot: '.el-task-page-header' },
-          { path: '/user/manage/article/write', label: 'manage-write', primary: 'main', screenshot: '.el-task-page-header' },
-          { path: '/user/manage/settings', label: 'manage-settings', primary: 'main', screenshot: '.el-task-page-header' },
-          {
-            path: '/user/manage/users',
-            label: 'manage-users',
-            primary: 'main',
-            screenshot: '.el-task-page-header'
-          }
-        ] as const) {
+        for (const route of ADMIN_LAYOUT_ARCHETYPES) {
           const session = await openThemedAuditedPage(browser, theme, storageState)
 
           try {
-            await session.page.goto(route.path, { waitUntil: 'domcontentloaded' })
+            await session.page.goto(resolveLayoutArchetypePath(route), { waitUntil: 'domcontentloaded' })
             await waitForAppReady(session.page)
             await settlePage(session.page)
 
@@ -159,8 +160,10 @@ for (const viewport of viewports) {
               await expect(session.page.locator('.dashboard-stat-ledger .el-icon')).toHaveCount(0)
             }
 
-            if (viewport.screenshot) {
-              const screenshotTarget = session.page.locator(route.screenshot ?? route.primary).first()
+            await assertArchetypeAccessibility(session.page, `${route.label} ${viewport.name} ${theme}`)
+
+            if (viewport.screenshot && route.snapshot) {
+              const screenshotTarget = session.page.locator(route.screenshotTarget).first()
               await expectStableScreenshot(
                 session.page,
                 screenshotTarget,

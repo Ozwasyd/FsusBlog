@@ -3,16 +3,34 @@ import {
   UX_VIEWPORT_MATRIX,
   WARMUP_TIMEOUT_MS,
   type ThemeMode,
+  applyUxViewportMediaMode,
   assertElementInViewport,
+  assertFocusOutlineVisible,
   assertNoHorizontalOverflow,
   assertThemeReadable,
+  assertTouchTargetSize,
+  assertUxViewportMediaMode,
   expectStableScreenshot,
   openThemedAuditedPage,
+  resetUxViewportMediaMode,
   settlePage,
   waitForAppReady
 } from '../../support/playwright/acceptance-shared'
+import {
+  PUBLIC_LAYOUT_ARCHETYPES,
+  resolveLayoutArchetypePath
+} from '../../support/playwright/layoutArchetypeMatrix'
 
-const articlePath = `/article/${process.env.FSUSBLOG_VISUAL_ARTICLE_ID || '1'}`
+const archetypeFixtures = {
+  articleId: process.env.FSUSBLOG_VISUAL_ARTICLE_ID || '1',
+  searchKeyword: process.env.FSUSBLOG_VISUAL_SEARCH_KEYWORD || 'test'
+}
+const routes = PUBLIC_LAYOUT_ARCHETYPES.map((archetype) => ({
+  ...archetype,
+  path: resolveLayoutArchetypePath(archetype, archetypeFixtures)
+}))
+const articlePath = routes.find((route) => route.kind === 'reading')?.path
+  ?? `/article/${archetypeFixtures.articleId}`
 
 const viewports = UX_VIEWPORT_MATRIX.viewports
   .filter((viewport) => viewport.useInPublicVisual)
@@ -23,14 +41,6 @@ const viewports = UX_VIEWPORT_MATRIX.viewports
   }))
 
 const themes: ThemeMode[] = ['light', 'dark']
-
-const routes = [
-  { path: '/', label: 'public-home', primary: 'main header', screenshot: true },
-  { path: '/archive', label: 'public-archive', primary: 'main', screenshot: false },
-  { path: articlePath, label: 'public-article', primary: 'main', screenshot: true },
-  { path: '/about', label: 'public-static-about', primary: 'main', screenshot: false },
-  { path: '/login', label: 'public-login', primary: 'main', screenshot: true }
-] as const
 
 const semanticColors = {
   light: {
@@ -48,6 +58,18 @@ const semanticColors = {
     raised: 'rgb(26, 26, 30)'
   }
 } as const
+
+async function assertArchetypeAccessibility(page: Page, label: string): Promise<void> {
+  await assertFocusOutlineVisible(page, label)
+  await assertTouchTargetSize(page, label)
+  for (const media of ['reduced-motion', 'high-contrast'] as const) {
+    await resetUxViewportMediaMode(page)
+    await applyUxViewportMediaMode(page, media)
+    await assertUxViewportMediaMode(page, media, `${label} ${media}`)
+    await assertNoHorizontalOverflow(page, 8)
+  }
+  await resetUxViewportMediaMode(page)
+}
 
 async function assertArticleSemanticColors(page: Page, theme: ThemeMode): Promise<void> {
   const expected = semanticColors[theme]
@@ -273,10 +295,13 @@ for (const viewport of viewports) {
               await assertPublicCoverRendering(session.page, `${route.label} ${viewport.name} ${theme}`)
             }
 
-            if (viewport.screenshot && route.screenshot) {
+            await assertArchetypeAccessibility(session.page, `${route.label} ${viewport.name} ${theme}`)
+
+            if (viewport.screenshot && route.snapshot) {
+              const screenshotTarget = session.page.locator(route.screenshotTarget).first()
               await expectStableScreenshot(
                 session.page,
-                primary,
+                screenshotTarget,
                 `${route.label}-${viewport.name}-${theme}.png`,
                 { maxDiffPixelRatio: 0.02 }
               )
