@@ -385,8 +385,8 @@ function checkPublicTypographyContract() {
   )
   assertContains(
     markdownRendererPath,
-    /:class="\{ 'markdown-body--document': props\.mode === 'about' \}"/,
-    'MarkdownRenderer about mode must opt into document typography'
+    /:class="\{\s*'markdown-body--article': props\.mode === 'article',\s*'markdown-body--document': props\.mode === 'about'\s*\}"/,
+    'MarkdownRenderer must separate article prose from about document typography'
   )
   assertContains(
     markdownCssPath,
@@ -421,8 +421,8 @@ function checkPublicTypographyContract() {
   )
   assertContains(
     themeTokensPath,
-    /articleDetail:\s*\{[\s\S]*?title: `text-xl sm:text-2xl lg:text-3xl font-bold[^`]*leading-\[1\.05\]/,
-    'hydrated article detail titles must match the AOT 20/24/30px display scale and loaded 700 weight'
+    /articleDetail:\s*\{[\s\S]*?title: `text-xl sm:text-2xl lg:text-3xl font-bold[^`]*leading-\[1\.15\]/,
+    'hydrated article detail titles must keep the 20/24/30px display scale, loaded 700 weight, and readable multiline leading'
   )
   assertContains(
     themeTokensPath,

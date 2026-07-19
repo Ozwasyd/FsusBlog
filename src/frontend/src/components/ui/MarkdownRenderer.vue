@@ -1,7 +1,10 @@
 <template>
   <div
     class="blog-markdown-renderer markdown-body safe-inline-wrap"
-    :class="{ 'markdown-body--document': props.mode === 'about' }"
+    :class="{
+      'markdown-body--article': props.mode === 'article',
+      'markdown-body--document': props.mode === 'about'
+    }"
     data-fsus-surface="reading"
   >
     <el-markdown-renderer

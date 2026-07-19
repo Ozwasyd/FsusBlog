@@ -83,6 +83,14 @@
   text-align: center;
 }
 
+.markdown-body--article h1 {
+  font-size: 1.4em;
+  font-weight: 700;
+  margin-top: 3em;
+  margin-bottom: 1em;
+  text-align: left;
+}
+
 .markdown-body h2 {
   font-size: 1.15em;
   font-weight: 500;
