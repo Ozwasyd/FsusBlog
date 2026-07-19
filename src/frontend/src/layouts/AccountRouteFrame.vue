@@ -29,13 +29,17 @@
         </aside>
 
         <main
+            ref="accountMain"
             id="account-main"
             tabindex="-1"
             class="account-main-scroll"
             aria-labelledby="account-shell-area-title"
         >
             <RouterView v-slot="{ Component }">
-                <FsuTransition :name="fsusBlogMotionPresets.route" mode="out-in" :duration="220">
+                <FsuTransition
+                    :name="motionPolicy.preset ?? fsusBlogMotionPresets.route"
+                    :disabled="motionPolicy.preset === null || !motionEnabled"
+                >
                     <component
                         :is="Component"
                         :key="accountRouteViewKey"
@@ -49,13 +53,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import AccountNavigationPanel from '@/components/account/AccountNavigationPanel.vue';
+import { useMotionPreference } from '@/composables/useMotionPreference';
 import { fsusBlogMotionPresets } from '@/fsusui/blogMotion';
 import { FsuTransition } from '@/fsusui/motion';
 import { useAccountFrameDrawerState } from '@/layouts/accountFrameContext';
+import {
+    shouldRestoreAccountRouteFocus,
+    type AccountRouteMotionPolicy
+} from '@/layouts/accountRouteMotion';
 import {
     isAccountNavGroupActive,
     type AccountNavGroup
@@ -66,9 +75,12 @@ const props = defineProps<{
     navGroups: readonly AccountNavGroup[];
     contentClasses: readonly string[];
     frameClass: string;
+    motionPolicy: AccountRouteMotionPolicy;
 }>();
 
 const route = useRoute();
+const accountMain = ref<HTMLElement | null>(null);
+const { motionEnabled } = useMotionPreference();
 const mobileDrawerVisible = useAccountFrameDrawerState();
 const currentNavGroup = computed(() => (
     [...props.navGroups].reverse().find((group) => isAccountNavGroupActive(group, route.path))
@@ -97,6 +109,23 @@ const accountRouteViewKey = computed(() =>
         ? `${routeName}:${id}`
         : routeName;
 });
+
+watch(() => route.fullPath, async () =>
+{
+    if (typeof document === 'undefined')
+    {
+        return;
+    }
+
+    const activeElement = document.activeElement;
+    const restoreFocus = shouldRestoreAccountRouteFocus(activeElement, accountMain.value);
+    await nextTick();
+
+    if (restoreFocus)
+    {
+        accountMain.value?.focus({ preventScroll: true });
+    }
+}, { flush: 'pre' });
 
 const closeMobileDrawer = (): void =>
 {

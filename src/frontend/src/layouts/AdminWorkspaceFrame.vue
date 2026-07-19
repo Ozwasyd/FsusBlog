@@ -4,6 +4,7 @@
         :nav-groups="navGroups"
         :content-classes="contentClasses"
         frame-class="admin-workspace-frame"
+        :motion-policy="motionPolicy"
     />
 </template>
 
@@ -14,8 +15,14 @@ import { useRoute } from 'vue-router';
 import AccountRouteFrame from '@/layouts/AccountRouteFrame.vue';
 import { getAccountNavGroups } from '@/layouts/accountNav';
 import { resolveAccountPageKindClass } from '@/layouts/accountPageKind';
+import { resolveAccountRouteMotionPolicy } from '@/layouts/accountRouteMotion';
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext';
-import { isAccountPageKind } from '@/router/accountRouteMeta';
+import {
+    isAccountContentMode,
+    isAccountPageKind,
+    type AccountContentMode,
+    type AccountPageKind
+} from '@/router/accountRouteMeta';
 
 const route = useRoute();
 const workspaceContext = useAccountWorkspaceContext();
@@ -23,7 +30,7 @@ const navGroups = computed(() => getAccountNavGroups({
     ...workspaceContext.value,
     surface: 'manage'
 }));
-const pageKindClass = computed(() =>
+const pageKind = computed<AccountPageKind>(() =>
 {
     if (!isAccountPageKind(route.meta.accountPageKind))
     {
@@ -31,13 +38,24 @@ const pageKindClass = computed(() =>
         {
             throw new Error(`Account route ${route.path} is missing a valid accountPageKind`);
         }
-        return 'admin-page-shell admin-page-shell--list';
+        return 'collection';
     }
 
-    return resolveAccountPageKindClass('manage', route.meta.accountPageKind);
+    return route.meta.accountPageKind;
 });
+const contentMode = computed<AccountContentMode>(() => (
+    isAccountContentMode(route.meta.accountContentMode)
+        ? route.meta.accountContentMode
+        : 'wide'
+));
+const pageKindClass = computed(() => resolveAccountPageKindClass('manage', pageKind.value));
+const motionPolicy = computed(() => resolveAccountRouteMotionPolicy(
+    'manage',
+    pageKind.value,
+    contentMode.value
+));
 const contentClasses = computed(() => [
-    route.meta.accountContentMode === 'takeover'
+    contentMode.value === 'takeover'
         ? 'account-frame-outlet--takeover'
         : 'account-frame-outlet--default',
     pageKindClass.value

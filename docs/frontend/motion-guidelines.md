@@ -15,7 +15,7 @@ Use FsusUI motion primitives for page and interaction presets:
 - Article title: public article detail titles render statically; do not use `v-motion` on `[data-fsus-surface='reading']`.
 - Article body images and code blocks: `useScrollReveal()` with `fsusBlogScrollRevealOptions`; do not animate ordinary paragraphs.
 - Media overlay and back-to-top: `mediaOverlay` / `backToTop` (`scale-fade`).
-- Route transitions: active app and account hosts consume FsusUI route presets and clean up through `useMotionRouteCleanup()`.
+- Route transitions: the active app host consumes the FsusUI route preset and cleans up through `useMotionRouteCleanup()`. Account chrome never transitions: identity settings alone may use the opacity-only `identityRoute` preset, while inbox/takeover and every admin page kind replace immediately through the typed frame policy in `accountRouteMotion.ts`.
 
 Do not import `@element-plus/motion`, `motion-dom`, or `gsap` directly from FsusBlog business code. If a new surface needs preset motion, add a named mapping to `fsusBlogMotionPresets` and use the FsusUI adapter.
 
@@ -60,6 +60,8 @@ Scale, nudge and sweep helpers are not semantic motion classes. New work must us
 All semantic classes are disabled under `prefers-reduced-motion: reduce`. Runtime code must use `useMotionPreference()` or `getPrefersReducedMotion()` from `src/frontend/src/composables/useMotionPreference.ts`; components should not call `matchMedia('(prefers-reduced-motion: reduce)')` directly.
 
 Reduced motion keeps state meaning through color, border, opacity or text. It disables translate, scale, blur, smooth scroll and looping animation.
+
+Account frames also disable their optional identity opacity handoff when reduced motion is active. Programmatic navigation or navigation from an outgoing account view restores focus to `#account-main`; keyboard focus already held by stable header/sidebar chrome is preserved rather than stolen.
 
 ## Page Examples
 

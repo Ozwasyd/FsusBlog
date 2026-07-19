@@ -35,14 +35,20 @@ describe('account route frames', () =>
         expect(identity).toContain('frame-class="account-identity-frame"');
         expect(identityCss).toContain('max-width: var(--fsusblog-container-account)');
         expect(identity).toContain("resolveAccountPageKindClass('self'");
+        expect(identity).toContain("resolveAccountRouteMotionPolicy(\n    'self'");
         expect(admin).toContain("surface: 'manage'");
         expect(admin).toContain('frame-class="admin-workspace-frame"');
         expect(adminCss).toContain('max-width: var(--fsusblog-container-wide)');
         expect(admin).toContain("resolveAccountPageKindClass('manage'");
+        expect(admin).toContain("resolveAccountRouteMotionPolicy(\n    'manage'");
         expect(sharedFrame.match(/<ElDrawer/gu)).toHaveLength(1);
         expect(sharedFrame).toContain('variant="mobile"');
         expect(sharedFrame).toContain('variant="desktop"');
         expect(sharedFrame).toContain(':key="accountRouteViewKey"');
+        expect(sharedFrame).toContain(':disabled="motionPolicy.preset === null || !motionEnabled"');
+        expect(sharedFrame).not.toContain('mode="out-in"');
+        expect(sharedFrame).not.toContain(':duration="220"');
+        expect(sharedFrame).toContain('shouldRestoreAccountRouteFocus');
         expect(readLayout('AccountFrameMobileAction.vue')).toContain('watch(() => route.fullPath');
     });
 

@@ -34,6 +34,7 @@ export type FsusBlogMotionSurface =
   | 'backToTop'
   | 'tagChip'
   | 'route'
+  | 'identityRoute'
   | 'banner'
 
 export const fsusBlogMotionPresets = {
@@ -51,6 +52,7 @@ export const fsusBlogMotionPresets = {
   // which Firefox rejects. The ownership-transfer preset is route-governed,
   // opacity-only, and preserves the same short atomic handoff semantics.
   route: 'ownership-transfer-snapshot',
+  identityRoute: 'ownership-transfer-snapshot',
   banner: 'fade-down'
 } as const satisfies Record<FsusBlogMotionSurface, MotionPresetName>
 

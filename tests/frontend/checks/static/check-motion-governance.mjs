@@ -145,14 +145,41 @@ for (const forbidden of ['isPublicSeoRouteName', 'v-if="isPublicSeoRoute"', '<Ro
 
 const accountRouteFrame = expectIncludes(
   'src/frontend/src/layouts/AccountRouteFrame.vue',
-  '<FsuTransition :name="fsusBlogMotionPresets.route"',
-  'account route transition owner'
+  ':disabled="motionPolicy.preset === null || !motionEnabled"',
+  'frame-owned account route motion gate'
 )
 if (!accountRouteFrame.includes(':key="accountRouteViewKey"')) {
   errors.push('src/frontend/src/layouts/AccountRouteFrame.vue: account route transition must key child pages by accountRouteViewKey')
 }
-if (!accountRouteFrame.includes(':duration="220"')) {
-  errors.push('src/frontend/src/layouts/AccountRouteFrame.vue: account route transition must give the FsusUI route preset enough duration to remain visible')
+for (const forbidden of ['mode="out-in"', ':duration="220"', 'duration="220"']) {
+  if (accountRouteFrame.includes(forbidden)) {
+    errors.push(`src/frontend/src/layouts/AccountRouteFrame.vue: account route motion must not retain ${forbidden}`)
+  }
+}
+for (const token of ['shouldRestoreAccountRouteFocus', 'if (restoreFocus)', 'accountMain.value?.focus({ preventScroll: true })']) {
+  if (!accountRouteFrame.includes(token)) {
+    errors.push(`src/frontend/src/layouts/AccountRouteFrame.vue: account route focus continuity is missing ${token}`)
+  }
+}
+
+const accountRouteMotion = expectIncludes(
+  'src/frontend/src/layouts/accountRouteMotion.ts',
+  'ACCOUNT_ROUTE_MOTION_POLICIES',
+  'typed account route motion policy'
+)
+for (const token of [
+  "preset: fsusBlogMotionPresets.identityRoute",
+  "preset: null",
+  "contentMode === 'takeover'",
+  "reason: 'pane-continuity'",
+  "reason: 'task-immediacy'"
+]) {
+  if (!accountRouteMotion.includes(token)) {
+    errors.push(`src/frontend/src/layouts/accountRouteMotion.ts: missing ${token}`)
+  }
+}
+if (/\bduration\s*:\s*\d+/u.test(accountRouteMotion)) {
+  errors.push('src/frontend/src/layouts/accountRouteMotion.ts: frame policy must consume the FsusUI preset duration contract')
 }
 
 const accountShellCss = expectIncludes(
@@ -161,7 +188,7 @@ const accountShellCss = expectIncludes(
   'admin page motion compatibility marker'
 )
 if (/\.account-motion-enter\s*\{[^}]*blog-motion-page-enter/s.test(accountShellCss)) {
-  errors.push('src/frontend/src/assets/admin-workspace.css: account-motion-enter must not run page-enter animation; AccountRouteFrame owns account route motion')
+  errors.push('src/frontend/src/assets/admin-workspace.css: account-motion-enter must not run page-enter animation; admin routes replace immediately')
 }
 
 const blogLayout = expectIncludes(
