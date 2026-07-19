@@ -43,7 +43,7 @@ public sealed class AdminOperationsBehaviorTests
         => new(
             db: null!,
             environment: null!,
-            configuration: null!,
+            backupStatusReader: null!,
             readinessProbe: null!,
             publicHotReadStore: null!,
             publicHotReadCounters: null!,

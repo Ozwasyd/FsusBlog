@@ -314,8 +314,8 @@ public static partial class AuthoringEndpoints
         group.MapGet("/ops/backup", (
             HttpContext context,
             IAedsEncoder aeds,
-            AdminOperationsService operations) =>
-            Ok(context, aeds, operations.GetBackupStatus()))
+            [Microsoft.AspNetCore.Mvc.FromServices] IAdminBackupStatusReader backupStatusReader) =>
+            Ok(context, aeds, backupStatusReader.GetStatus()))
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
 

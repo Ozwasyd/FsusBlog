@@ -204,6 +204,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         {
             services.AddHostedService(sp => sp.GetRequiredService<HotStatsInvalidationCoalescer>());
         }
+        services.AddSingleton<IAdminBackupStatusReader, AdminBackupStatusReader>();
         services.AddScoped<AdminOperationsService>();
         return services;
     }
