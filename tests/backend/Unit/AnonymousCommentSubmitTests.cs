@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -561,6 +562,90 @@ public sealed class AnonymousCommentSubmitTests(
             viewerRegion: "UNKNOWN")).Data);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(100)]
+    public async Task PublicCommentRead_ReplyCountIsExactAndIndependentFromPreviewSize(int replyTotal)
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedPublicComment(db, 100, 42, "root", "root-author");
+        if (replyTotal > 0)
+        {
+            var replies = new List<Comment>(replyTotal);
+            for (int index = 0; index < replyTotal; index++)
+            {
+                long id = 101 + index;
+                replies.Add(new Comment
+                {
+                    Id = id,
+                    ArticleId = 42,
+                    Content = $"reply-{index}",
+                    AuthorMode = CommentAuthorModes.Public,
+                    PublicHandle = $"reply-author-{index}",
+                    CreateTime = DateTime.UtcNow.AddMinutes(-1),
+                    ParentId = 100,
+                    RootId = 100,
+                    ReplyToCommentId = 100,
+                    Depth = 1,
+                    IsDeleted = false,
+                    ModerationStatus = CommentModerationStatus.Approved
+                });
+            }
+
+            db.Insertable(replies).ExecuteCommand();
+        }
+
+        var queries = new CommentQueryService(db, new RegionLegalModerationService());
+        CommentThreadItemDto root = Assert.Single((await queries.GetThreadsAsync(
+            42,
+            new CursorPageRequest<long> { Limit = 10 },
+            previewLimit: 3)).Data);
+
+        Assert.Equal(replyTotal, root.ReplyCount);
+        Assert.Equal(Math.Min(replyTotal, 3), root.RepliesPreview.Count);
+        Assert.Equal(replyTotal > 3, root.HasMoreReplies);
+
+        if (replyTotal == 100)
+        {
+            CursorResponse<CommentReplyItemDto> firstPage = await queries.GetRepliesAsync(
+                42,
+                100,
+                new CursorPageRequest<long> { Limit = 20 });
+            Assert.Equal(20, firstPage.Data.Count);
+            Assert.True(firstPage.HasMore);
+            CursorResponse<CommentReplyItemDto> secondPage = await queries.GetRepliesAsync(
+                42,
+                100,
+                new CursorPageRequest<long>
+                {
+                    Limit = 20,
+                    Cursor = long.Parse(firstPage.NextCursor!, CultureInfo.InvariantCulture)
+                });
+            Assert.Equal(20, secondPage.Data.Count);
+            Assert.DoesNotContain(secondPage.Data, item => firstPage.Data.Any(first => first.Id == item.Id));
+        }
+    }
+
+    [Fact]
+    public async Task PublicCommentRead_ArticleWithoutCurrentPublicationHasNoReplyCountProjection()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedPublicComment(db, 100, 42, "root", "root-author");
+        SeedPublicComment(db, 101, 42, "reply", "reply-author", parentId: 100, rootId: 100, replyToCommentId: 100, depth: 1);
+        db.Ado.ExecuteCommand("UPDATE article SET current_publication_id = NULL WHERE id = @ArticleId;", new SugarParameter("@ArticleId", 42));
+        var queries = new CommentQueryService(db, new RegionLegalModerationService());
+
+        Assert.Empty((await queries.GetThreadsAsync(
+            42,
+            new CursorPageRequest<long> { Limit = 10 })).Data);
+    }
+
     [Fact]
     public async Task GetAttributableCommentsAsync_ReturnsOnlyExplicitPublicComments()
     {
@@ -942,13 +1027,15 @@ public sealed class AnonymousCommentSubmitTests(
             db,
             typeof(User),
             typeof(Article),
+            typeof(ArticlePublicationRecord),
             typeof(Comment),
             typeof(CommentBlockedRegion),
             typeof(CommentRegionCompliance));
     }
 
     private static void SeedArticle(SqlSugarClient db, int articleId)
-        => db.Ado.ExecuteCommand(
+    {
+        db.Ado.ExecuteCommand(
             """
             INSERT INTO article
                 (id, title, categoryid, views, createtime, isdeleted, status, published_at, scheduled_publish_at)
@@ -958,6 +1045,22 @@ public sealed class AnonymousCommentSubmitTests(
             new SugarParameter("@Id", articleId),
             new SugarParameter("@Status", (int)ArticleStatus.Published),
             new SugarParameter("@PublishedAt", DateTime.UtcNow.AddMinutes(-1)));
+        long publicationId = db.Insertable(new ArticlePublicationRecord
+        {
+            ArticleId = articleId,
+            PublicationNo = 1,
+            ArticleRevisionId = 1,
+            RevisionNo = 1,
+            RightsSnapshotId = 1,
+            TransitionKind = "publish",
+            PublishedAt = DateTime.UtcNow.AddMinutes(-1),
+            CreatedAt = DateTime.UtcNow.AddMinutes(-1)
+        }).ExecuteReturnBigIdentity();
+        db.Ado.ExecuteCommand(
+            "UPDATE article SET current_publication_id = @PublicationId WHERE id = @ArticleId;",
+            new SugarParameter("@PublicationId", publicationId),
+            new SugarParameter("@ArticleId", articleId));
+    }
 
     private static void SeedLegacyUser(
         SqlSugarClient db,

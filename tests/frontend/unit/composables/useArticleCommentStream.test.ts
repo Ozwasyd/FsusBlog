@@ -75,4 +75,32 @@ describe('useArticleCommentStream comment tombstones', () => {
     expect(stream.threads.value[0]?.repliesPreview).toEqual([])
     expect(getComments).toHaveBeenLastCalledWith(42, null, 10, expect.any(Object))
   })
+
+  it('increments the exact thread count for a visible realtime reply', async () => {
+    const root = rootWithLeaf()
+    root.replyCount = 0
+    root.repliesPreview = []
+    getComments.mockResolvedValueOnce(cursor([root]))
+    const stream = useArticleCommentStream({
+      getArticleId: () => 42,
+      isMounted: () => true
+    })
+    await stream.loadMoreComments()
+
+    expect(stream.prependCommentIfAbsent({
+      id: '101',
+      content: 'realtime reply',
+      createTime: '2026-07-19T00:00:01Z',
+      author: publicAuthor,
+      parentId: '100',
+      rootId: '100',
+      replyToAuthor: publicAuthor,
+      replyToCommentId: '100',
+      depth: 1,
+      isDeleted: false
+    })).toBe(true)
+
+    expect(stream.threads.value[0]?.replyCount).toBe(1)
+    expect(stream.threads.value[0]?.repliesPreview).toHaveLength(1)
+  })
 })

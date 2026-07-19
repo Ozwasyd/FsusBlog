@@ -362,6 +362,8 @@ taxonomy 缓存故障的无需重启回退必须同时处理 raw frame 与 Publi
 
 `CommentQueryService` 先计算当前 viewer-region 的直接可见评论，再用递归 CTE 沿 `parent_id` 补齐任意层级祖先；不直接可见但承载公开后代的节点只生成无正文、无作者身份的墓碑投影。删除叶或全部后代均不可见时不进入游标窗口，避免空墓碑永久占位；回复目标被删除/隐藏/地区屏蔽时仍保留 `reply_to_comment_id` 结构，但 `replyToAuthor` 改为固定安全占位。删除事务提交后按 article/root 范围失效缓存并发布 `CommentRemoved`，浏览器先 redact 本地节点再回源首屏，确保 notification stream 状态与冷读取收敛。无需重启的降级路径是通过现有审核运行时把新增评论保持 `Pending`，减少新公开分支；读模型没有 JSON fallback，也不绕过 viewer-region cache identity。
 
+线程预览查询在同一个 root batch 内对墓碑链执行 `COUNT(*) OVER (PARTITION BY root_id)`，因此 `ReplyCount`、preview 和 `HasMoreReplies` 共享审核、删除、地区及有效 article publication 条件且没有逐根 N+1。创建、删除、审核转换与地区策略 replay 继续通过 article/root scoped `CommentCursor` 失效入口重建该投影；实时新增可单调递增本地计数，删除后必须回源权威窗口，避免在不知道未加载后代时错误递减。
+
 ## AEDS Binary 链
 
 FsusBlog 运行时 API 只维护 AEDS binary 链：

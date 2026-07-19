@@ -52,6 +52,15 @@ public sealed class CommentQueryService(
 WITH RECURSIVE directly_visible AS (
     SELECT c.id, c.parent_id, c.root_id
     FROM comment c
+    INNER JOIN article a
+      ON a.id = c.article_id
+     AND a.isdeleted = false
+     AND a.status = @PublishedStatus
+     AND a.current_publication_id IS NOT NULL
+    INNER JOIN article_publication publication
+      ON publication.id = a.current_publication_id
+     AND publication.article_id = a.id
+     AND publication.published_at <= @Now
     WHERE c.article_id = @ArticleId
       AND c.moderation_status = @Approved
       AND c.is_deleted = false
@@ -438,10 +447,12 @@ WHERE c.article_id = @ArticleId
     private static List<SugarParameter> BuildPublicCommentReadParameters(
         int articleId,
         string normalizedViewerRegion)
-        => new(4)
+        => new(6)
         {
             new("@ArticleId", articleId),
             new("@Approved", (int)CommentModerationStatus.Approved),
+            new("@PublishedStatus", (int)ArticleStatus.Published),
+            new("@Now", DateTime.UtcNow),
             new("@ViewerRegion", normalizedViewerRegion),
             new("@ConservativeUnknownViewer", normalizedViewerRegion == RegionCodes.Unknown)
         };
@@ -518,10 +529,12 @@ FROM (
       AND c.root_id IN (
 """);
         string normalizedViewerRegion = regionLegalModerationService.NormalizeRegion(viewerRegion);
-        var parameters = new List<SugarParameter>(rootIds.Length + 5)
+        var parameters = new List<SugarParameter>(rootIds.Length + 7)
         {
             new("@ArticleId", articleId),
             new("@Approved", (int)CommentModerationStatus.Approved),
+            new("@PublishedStatus", (int)ArticleStatus.Published),
+            new("@Now", DateTime.UtcNow),
             new("@PreviewLimit", limit),
             new("@ViewerRegion", normalizedViewerRegion),
             new("@ConservativeUnknownViewer", normalizedViewerRegion == RegionCodes.Unknown)

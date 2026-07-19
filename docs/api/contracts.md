@@ -854,6 +854,8 @@ Submit 同样受 `read_proof` 专用限流保护。限流 key 是 path + 一分�
 }
 ```
 
+`replyCount` 是当前 viewer region 下该根线程完整公共投影中的回复节点总数，包含为公开后代补齐的安全墓碑祖先，并排除删除叶、审核不可见叶和地区不可见叶；它不等于 `repliesPreview.length`。`repliesPreview` 只受 preview limit 限制，`hasMoreReplies` 固定等于 `replyCount > repliesPreview.length`。服务端在批量 root 窗口查询中用 `COUNT(*) OVER (PARTITION BY root_id)` 计算，不允许逐根 N+1 count；任意层级回复都归入其 `root_id`。
+
 `CommentArticleCursor`、`CommentThreadReplyCursor` 与 `CommentUserCursor` 的二进制 item payload 先保存 content slice，随后追加两个 `int32 length + CommentAuthorView payload` 段：第一个为必备 `author`，第二个为可空 `replyToAuthor`。固定 POD 不再携带 author display string；缺少必备 author 或 payload 尾部残留数据都必须被前端 adapter 视为 `ProtocolFailure`。
 
 公开评论读取会按 viewer IP 解析出的地区过滤 `comment_blocked_region` 规范化 lookup 行，并把 viewer region 纳入 `CommentCursorFrame` cache identity；cache runtime counters 会按 roots/replies 与规范化 region 记录 hit/miss。`CN-MAINLAND` 严格策略只对 `CN-MAINLAND` viewer 隐藏，不会自动套用到 `CN-HK`、`CN-MO`、`CN-TW`；viewer region 解析为 `UNKNOWN` 时，只要 comment 存在任意 blocked region lookup 行就保守隐藏。评论提交同样按 request IP 解析 submit region：submit region 为 `CN-MAINLAND` 且命中大陆严格类别时直接返回 validation error；其他地区可发布但会记录对应 blocked regions；submit region 为 `UNKNOWN` 时记录人工复核和 `hide_until_reviewed=true` 地区原因，但评论初始状态仍为 `Approved`，不会仅因地区未知默认隐藏。`X-Fsus-Region` / `CF-IPCountry` / `X-Geo-Country` 只在 loopback 或 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 命中的可信代理来源上生效，直连请求携带这些头必须按 `connection_ip` 处理。

@@ -82,6 +82,8 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 
 公开评论删除采用 viewer-region aware 墓碑链：当前 viewer 可见的 `Approved`、未删除节点是公开叶；服务端只补回这些公开叶的祖先。已删除、管理员隐藏或在当前地区不可展示的祖先统一投影为“该回复已删除 / 已删除评论”，不得携带原正文、删除原因、作者快照、账号或匿名治理身份；没有公开后代的删除叶不返回。地区屏蔽只影响命中地区，`UNKNOWN` viewer 保守应用全部 blocked-region 行；账户注销不回查账号状态，仍按评论写入时的公开作者快照展示，除非评论本身进入删除/隐藏链。notification stream 删除事件先做同样的本地安全占位，随后强制回源当前首屏，使实时状态最终与同地区冷读取一致。
 
+线程计数与预览是两个独立语义：`ReplyCount` 表示同一 viewer-region 可见规则下完整线程回复投影的总数，`RepliesPreview.Count` 只表示当前内联预览数量，`HasMoreReplies` 只比较二者。计数必须和墓碑递归链共用一个批量窗口聚合，不能对每个根执行独立 count，也不能把“预览 + 更多哨兵”伪装成总数。文章没有有效 current publication 时，评论线程与计数一起不可公开读取。
+
 ---
 
 ## URL 命名约定
