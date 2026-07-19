@@ -14,7 +14,7 @@ const decoder = new TextDecoder('utf-8', { fatal: true });
 const SECURITY_CHALLENGE_ISSUE_RESPONSE_POD_SIZE = 148;
 const SECURITY_CHALLENGE_ASSIGNMENT_POD_SIZE = 664;
 const SECURITY_CHALLENGE_PROVIDER_PAYLOAD_POD_SIZE = 72;
-const SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE = 160;
+const SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE = 232;
 
 export function mapSecurityJsonFromPayload<T = unknown>(payload: Uint8Array): T {
   try {
@@ -56,6 +56,14 @@ export function mapSecurityChallengeIssueResponseFromPayload(payload: Uint8Array
       payload: parseProviderPayloadJson(readSliceText(blob, readSliceRef(payload, offset + 64)))
     });
   }
+  const assignmentIds = new Set(assignments.map((assignment) => assignment.challengeId));
+  const providerPayloadIds = new Set<string>();
+  for (const providerPayload of providerPayloads) {
+    if (!assignmentIds.has(providerPayload.challengeId) || providerPayloadIds.has(providerPayload.challengeId)) {
+      throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_provider_payload_challenge_mismatch');
+    }
+    providerPayloadIds.add(providerPayload.challengeId);
+  }
 
   return {
     decision: mapSecurityChallengeDecision(readByte(payload, 0)),
@@ -80,17 +88,67 @@ export function mapSecurityChallengeVerifyResponseFromPayload(payload: Uint8Arra
     throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_verify_payload_short');
   }
 
+  const verifiedRaw = readByte(payload, 0);
+  const envelopeCompletedRaw = readByte(payload, 2);
+  if (verifiedRaw > 1 || envelopeCompletedRaw > 1) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_verify_boolean_invalid');
+  }
+
   const blob = readBinaryPodBlob(payload, SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE, 'security_challenge_verify_payload_truncated');
-  return {
-    verified: readByte(payload, 0) === 1,
+  const response: SecurityChallengeVerifyResponse = {
+    verified: verifiedRaw === 1,
     kind: mapSecurityChallengeKind(readByte(payload, 1)),
+    envelopeCompleted: envelopeCompletedRaw === 1,
     retryAfterMs: readInt32(payload, 4),
-    challengeId: readFixedUtf8(payload, 8, 64),
-    policyVersion: readFixedUtf8(payload, 72, 64),
-    proofToken: readSliceText(blob, readSliceRef(payload, 136)),
-    reason: readSliceText(blob, readSliceRef(payload, 144)),
-    expiresAtUnixMs: readInt64Number(payload, 152)
+    completedCount: readInt32(payload, 8),
+    memberCount: readInt32(payload, 12),
+    envelopeId: readFixedUtf8(payload, 16, 64),
+    challengeId: readFixedUtf8(payload, 80, 64),
+    policyVersion: readFixedUtf8(payload, 144, 64),
+    proofToken: readSliceText(blob, readSliceRef(payload, 208)),
+    reason: readSliceText(blob, readSliceRef(payload, 216)),
+    expiresAtUnixMs: readInt64Number(payload, 224)
   };
+
+  if (!isValidSecurityChallengeVerifyResponse(response)) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_verify_contract_invalid');
+  }
+
+  return response;
+}
+
+function isValidSecurityChallengeVerifyResponse(response: SecurityChallengeVerifyResponse): boolean {
+  if (!isUuidV7(response.envelopeId) || !isCompatibleChallengeId(response.kind, response.challengeId)) {
+    return false;
+  }
+  if (response.kind === SecurityChallengeKind.Unknown || !response.policyVersion.trim() || !response.reason.trim()) {
+    return false;
+  }
+  if (!Number.isInteger(response.completedCount) || !Number.isInteger(response.memberCount) ||
+      response.memberCount <= 0 || response.memberCount > 8 ||
+      response.completedCount < 0 || response.completedCount > response.memberCount ||
+      response.retryAfterMs < 0) {
+    return false;
+  }
+
+  const expectedCompleted = response.verified && response.completedCount === response.memberCount;
+  return response.envelopeCompleted === expectedCompleted &&
+    (response.envelopeCompleted ? response.proofToken.trim().length > 0 : response.proofToken.length === 0);
+}
+
+function isCompatibleChallengeId(kind: SecurityChallengeKind, value: string): boolean {
+  if (kind === SecurityChallengeKind.CaptchaV1) {
+    return isUuidVersion(value, '4') || isUuidVersion(value, '7');
+  }
+  return isUuidVersion(value, '7');
+}
+
+function isUuidV7(value: string): boolean {
+  return isUuidVersion(value, '7');
+}
+
+function isUuidVersion(value: string, version: '4' | '7'): boolean {
+  return new RegExp(`^[0-9a-f]{8}-[0-9a-f]{4}-${version}[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`, 'iu').test(value);
 }
 
 function readBinaryPodBlob(payload: Uint8Array, offset: number, errorCode: string): Uint8Array {

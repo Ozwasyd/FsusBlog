@@ -15,14 +15,23 @@ export function encodeSecurityChallengeIssueRequest(request: SecurityChallengeIs
 }
 
 export function encodeSecurityChallengeVerifyRequest(request: SecurityChallengeVerifyPodRequest): Uint8Array {
+  if (!isUuidV7(request.envelopeId)) {
+    throw new TypeError('security_challenge_envelope_id_invalid')
+  }
+
   const bytes = encodeSlicePod([
+    request.envelopeId,
     request.challengeId,
     request.action,
     request.routeKey,
     request.providerPayloadJson
-  ], 36, 4)
+  ], 44, 4)
   bytes[0] = request.kind
   return bytes
+}
+
+function isUuidV7(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value)
 }
 
 function encodeSlicePod(values: string[], headerBytes: number, firstSliceOffset = 0): Uint8Array {

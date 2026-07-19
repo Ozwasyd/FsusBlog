@@ -58,6 +58,7 @@ public readonly struct SecurityChallengeVerifyRequestPod
     public readonly byte Kind;
     public readonly byte Reserved0;
     public readonly ushort Reserved1;
+    public readonly Utf8SliceRef EnvelopeId;
     public readonly Utf8SliceRef ChallengeId;
     public readonly Utf8SliceRef Action;
     public readonly Utf8SliceRef RouteKey;
@@ -99,8 +100,12 @@ public readonly struct SecurityChallengeVerifyResponsePod
 {
     public readonly byte Verified;
     public readonly byte Kind;
-    public readonly ushort Reserved0;
+    public readonly byte EnvelopeCompleted;
+    public readonly byte Reserved0;
     public readonly int RetryAfterMs;
+    public readonly int CompletedCount;
+    public readonly int MemberCount;
+    public readonly Utf8Fixed64 EnvelopeId;
     public readonly Utf8Fixed64 ChallengeId;
     public readonly Utf8Fixed64 PolicyVersion;
     public readonly Utf8SliceRef ProofToken;

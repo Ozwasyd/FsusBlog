@@ -73,6 +73,7 @@ public sealed record class SecurityChallengeIssueBinaryRequest(
 /// Defines the security transport contract represented by <c>SecurityChallengeVerifyBinaryRequest</c>.
 /// </summary>
 public sealed record class SecurityChallengeVerifyBinaryRequest(
+    string EnvelopeId,
     string ChallengeId,
     SecurityChallengeKind Kind,
     string Action,
@@ -104,9 +105,13 @@ public sealed record class SecurityChallengeIssueBinaryResponse(
 /// </summary>
 public sealed record class SecurityChallengeVerifyBinaryResponse(
     bool Verified,
+    string EnvelopeId,
     string ChallengeId,
     SecurityChallengeKind Kind,
     string PolicyVersion,
+    int CompletedCount,
+    int MemberCount,
+    bool EnvelopeCompleted,
     string ProofToken,
     long ExpiresAtUnixMs,
     string Reason,
@@ -243,6 +248,8 @@ public static class SecurityChallengeContracts
             return Invalid("envelope_missing");
         if (IsMissing(envelope.EnvelopeId))
             return Invalid("envelope_id_missing");
+        if (!IsUuidV7(envelope.EnvelopeId))
+            return Invalid("envelope_id_invalid");
         if (IsMissing(envelope.PolicyVersion))
             return Invalid("policy_version_missing");
         if (envelope.Assignments.Count is <= 0 or > MaxAssignmentsPerEnvelope)
@@ -260,6 +267,65 @@ public static class SecurityChallengeContracts
         return SecurityChallengeValidationResult.Valid;
     }
 
+    public static SecurityChallengeValidationResult ValidateVerifyRequest(SecurityChallengeVerifyBinaryRequest? request)
+    {
+        if (request is null)
+            return Invalid("verify_request_missing");
+        if (IsMissing(request.EnvelopeId))
+            return Invalid("envelope_id_missing");
+        if (!IsUuidV7(request.EnvelopeId))
+            return Invalid("envelope_id_invalid");
+        if (IsMissing(request.ChallengeId))
+            return Invalid("challenge_id_missing");
+        if (request.Kind == SecurityChallengeKind.Unknown || !IsSupportedKind(request.Kind))
+            return Invalid("kind_invalid");
+        if (!IsCompatibleChallengeId(request.Kind, request.ChallengeId))
+            return Invalid("challenge_id_invalid");
+        if (IsMissing(request.Action))
+            return Invalid("action_missing");
+        if (IsMissing(request.RouteKey))
+            return Invalid("route_key_missing");
+        if (IsMissing(request.ProviderPayloadJson))
+            return Invalid("provider_payload_missing");
+
+        return SecurityChallengeValidationResult.Valid;
+    }
+
+    public static SecurityChallengeValidationResult ValidateVerifyResponse(SecurityChallengeVerifyBinaryResponse? response)
+    {
+        if (response is null)
+            return Invalid("verify_response_missing");
+        if (IsMissing(response.EnvelopeId))
+            return Invalid("envelope_id_missing");
+        if (!IsUuidV7(response.EnvelopeId))
+            return Invalid("envelope_id_invalid");
+        if (IsMissing(response.ChallengeId))
+            return Invalid("challenge_id_missing");
+        if (response.Kind == SecurityChallengeKind.Unknown || !IsSupportedKind(response.Kind))
+            return Invalid("kind_invalid");
+        if (!IsCompatibleChallengeId(response.Kind, response.ChallengeId))
+            return Invalid("challenge_id_invalid");
+        if (IsMissing(response.PolicyVersion))
+            return Invalid("policy_version_missing");
+        if (response.MemberCount is <= 0 or > MaxAssignmentsPerEnvelope)
+            return Invalid("member_count_invalid");
+        if (response.CompletedCount < 0 || response.CompletedCount > response.MemberCount)
+            return Invalid("completed_count_invalid");
+
+        bool expectedEnvelopeCompleted = response.Verified && response.CompletedCount == response.MemberCount;
+        if (response.EnvelopeCompleted != expectedEnvelopeCompleted)
+            return Invalid("envelope_completed_invalid");
+        if ((response.EnvelopeCompleted && IsMissing(response.ProofToken)) ||
+            (!response.EnvelopeCompleted && !string.IsNullOrEmpty(response.ProofToken)))
+            return Invalid("proof_token_invalid");
+        if (IsMissing(response.Reason))
+            return Invalid("reason_missing");
+        if (response.RetryAfterMs < 0)
+            return Invalid("retry_after_invalid");
+
+        return SecurityChallengeValidationResult.Valid;
+    }
+
     private static bool IsCompatibleChallengeId(SecurityChallengeKind kind, string challengeId)
     {
         if (!Guid.TryParseExact(challengeId, "D", out _))
@@ -272,6 +338,9 @@ public static class SecurityChallengeContracts
             ? version is '4' or '7'
             : version == '7';
     }
+
+    private static bool IsUuidV7(string value)
+        => Guid.TryParseExact(value, "D", out _) && value[14] == '7';
 
     private static bool IsSupportedKind(SecurityChallengeKind kind)
         => SupportedKinds.Contains(kind) || kind == SecurityChallengeKind.PerceptionTextTaskV2;

@@ -51,6 +51,7 @@ describe('security challenge binary API', () => {
     binaryMock.mockResolvedValue({ verified: true, proofToken: 'proof-1' })
 
     await verifySecurityChallenge({
+      envelopeId: '01900000-0000-7000-8000-000000000001',
       challengeId: '01900000-0000-7000-8000-000000000000',
       kind: SecurityChallengeKind.CaptchaV1,
       action: 'comment.create',
@@ -66,13 +67,26 @@ describe('security challenge binary API', () => {
     expect(call?.frameType).toBe(FrameType.SecurityChallengeVerifyResponse)
     expect(call?.requestOptions?.method).toBe('POST')
     expectAedsPodBody(call?.requestOptions?.body, FrameType.SecurityChallengeVerifyRequest, (payload) => {
-      const blob = readPodBlob(payload, 36)
+      const blob = readPodBlob(payload, 44)
       expect(payload[0]).toBe(SecurityChallengeKind.CaptchaV1)
-      expect(readSlice(payload, blob, 4)).toBe('01900000-0000-7000-8000-000000000000')
-      expect(readSlice(payload, blob, 12)).toBe('comment.create')
-      expect(readSlice(payload, blob, 20)).toBe('article:42')
-      expect(JSON.parse(readSlice(payload, blob, 28))).toMatchObject({ answerText: 'AEF2', nonceHex: '01000000' })
+      expect(readSlice(payload, blob, 4)).toBe('01900000-0000-7000-8000-000000000001')
+      expect(readSlice(payload, blob, 12)).toBe('01900000-0000-7000-8000-000000000000')
+      expect(readSlice(payload, blob, 20)).toBe('comment.create')
+      expect(readSlice(payload, blob, 28)).toBe('article:42')
+      expect(JSON.parse(readSlice(payload, blob, 36))).toMatchObject({ answerText: 'AEF2', nonceHex: '01000000' })
     })
+  })
+
+  it('rejects a non-UUIDv7 envelope id before dispatch', () => {
+    expect(() => verifySecurityChallenge({
+      envelopeId: '8e7147d7-80a6-4cd2-bf67-57858b2edb85',
+      challengeId: '01900000-0000-7000-8000-000000000000',
+      kind: SecurityChallengeKind.CaptchaV1,
+      action: 'comment.create',
+      routeKey: 'article:42',
+      providerPayload: { answerText: 'AEF2' }
+    })).toThrow('security_challenge_envelope_id_invalid')
+    expect(binaryMock).not.toHaveBeenCalled()
   })
 })
 

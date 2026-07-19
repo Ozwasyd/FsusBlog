@@ -789,9 +789,13 @@ export interface SecurityChallengeIssueResponse {
 
 export interface SecurityChallengeVerifyResponse {
   verified: boolean
+  envelopeId: string
   challengeId: string
   kind: SecurityChallengeKind
   policyVersion: string
+  completedCount: number
+  memberCount: number
+  envelopeCompleted: boolean
   proofToken: string
   expiresAtUnixMs: number
   reason: string
@@ -806,6 +810,7 @@ export interface SecurityChallengeIssuePodRequest {
 }
 
 export interface SecurityChallengeVerifyPodRequest {
+  envelopeId: string
   challengeId: string
   kind: SecurityChallengeKind
   action: string

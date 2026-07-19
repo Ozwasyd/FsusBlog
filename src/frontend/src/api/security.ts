@@ -486,6 +486,7 @@ export interface IssueSecurityChallengeRequest {
 }
 
 export interface VerifySecurityChallengeRequest {
+  envelopeId: string
   challengeId: string
   kind: SecurityChallengeKind
   action: string
@@ -616,6 +617,7 @@ export const verifySecurityChallenge = (request: VerifySecurityChallengeRequest,
       body: encodeAedsFrame(
         FrameType.SecurityChallengeVerifyRequest,
         encodeSecurityChallengeVerifyRequest({
+          envelopeId: request.envelopeId,
           challengeId: request.challengeId,
           kind: request.kind,
           action: request.action,

@@ -264,6 +264,7 @@ public sealed class SecurityChallengeContractTests
 
         var verify = new SecurityChallengeVerifyBinaryRequest(
             SecurityChallengeContracts.CreateChallengeId(),
+            SecurityChallengeContracts.CreateChallengeId(),
             SecurityChallengeKind.Sha256PowV1,
             "public.read",
             "article:42",
@@ -272,6 +273,7 @@ public sealed class SecurityChallengeContractTests
 
         Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeVerifyRequest(verifyEncoded, out SecurityChallengeVerifyBinaryRequest verifyDecoded));
         Assert.Equal(verify, verifyDecoded);
+        Assert.Equal(44, PodSizeCatalog.SecurityChallengeVerifyRequestPod);
     }
 
     [Fact]
@@ -304,9 +306,13 @@ public sealed class SecurityChallengeContractTests
 
         var verifyResponse = new SecurityChallengeVerifyBinaryResponse(
             true,
+            envelope.EnvelopeId,
             assignment.ChallengeId,
             SecurityChallengeKind.Sha256PowV1,
             "risk-policy-v2",
+            1,
+            1,
+            true,
             "fcp_token",
             1_770_000_300_000,
             "ok",
@@ -315,7 +321,127 @@ public sealed class SecurityChallengeContractTests
 
         Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeVerifyResponse(verifyEncoded, out SecurityChallengeVerifyBinaryResponse decodedVerify));
         Assert.Equal(verifyResponse, decodedVerify);
+        Assert.Equal(232, PodSizeCatalog.SecurityChallengeVerifyResponsePod);
     }
+
+    [Fact]
+    public void IssueResponse_RejectsProviderPayloadForDifferentChallenge()
+    {
+        SecurityChallengeAssignment assignment = CreateAssignment();
+        var response = new SecurityChallengeIssueBinaryResponse(
+            SecurityChallengeDecisionKind.Challenge,
+            50,
+            50,
+            1,
+            "risk-policy-v2",
+            0,
+            new SecurityChallengeEnvelope(SecurityChallengeContracts.CreateChallengeId(), "risk-policy-v2", [assignment]),
+            [new SecurityChallengeProviderPayload(SecurityChallengeContracts.CreateChallengeId(), "{}")]);
+
+        Assert.Throws<ArgumentException>(() => PodBinaryCodec.EncodeSecurityChallengeIssueResponse(response));
+    }
+
+    [Fact]
+    public void VerifyRequest_RequiresUuidV7EnvelopeId()
+    {
+        var request = new SecurityChallengeVerifyBinaryRequest(
+            Guid.NewGuid().ToString("D"),
+            SecurityChallengeContracts.CreateChallengeId(),
+            SecurityChallengeKind.Sha256PowV1,
+            "public.read",
+            "article:42",
+            """{"proof":"fpow"}""");
+
+        SecurityChallengeValidationResult result = SecurityChallengeContracts.ValidateVerifyRequest(request);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("envelope_id_invalid", result.ErrorCode);
+        Assert.Throws<ArgumentException>(() => PodBinaryCodec.EncodeSecurityChallengeVerifyRequest(request));
+    }
+
+    [Theory]
+    [InlineData(0, 0, true, false, "member_count_invalid")]
+    [InlineData(-1, 2, true, false, "completed_count_invalid")]
+    [InlineData(3, 2, true, false, "completed_count_invalid")]
+    [InlineData(1, 9, true, false, "member_count_invalid")]
+    [InlineData(1, 2, true, true, "envelope_completed_invalid")]
+    [InlineData(2, 2, false, true, "envelope_completed_invalid")]
+    [InlineData(1, 2, true, false, "proof_token_invalid")]
+    public void VerifyResponse_RejectsInvalidAggregateState(
+        int completedCount,
+        int memberCount,
+        bool verified,
+        bool envelopeCompleted,
+        string expectedError)
+    {
+        SecurityChallengeVerifyBinaryResponse response = CreateVerifyResponse(
+            completedCount,
+            memberCount,
+            verified,
+            envelopeCompleted,
+            proofToken: "fcp_token");
+
+        SecurityChallengeValidationResult result = SecurityChallengeContracts.ValidateVerifyResponse(response);
+
+        Assert.False(result.IsValid);
+        Assert.Equal(expectedError, result.ErrorCode);
+    }
+
+    [Fact]
+    public void VerifyResponse_AllowsMemberProgressWithoutProofToken()
+    {
+        SecurityChallengeVerifyBinaryResponse response = CreateVerifyResponse(
+            completedCount: 1,
+            memberCount: 2,
+            verified: true,
+            envelopeCompleted: false,
+            proofToken: string.Empty);
+
+        byte[] encoded = PodBinaryCodec.EncodeSecurityChallengeVerifyResponse(response);
+
+        Assert.True(PodBinaryCodec.TryDecodeSecurityChallengeVerifyResponse(encoded, out SecurityChallengeVerifyBinaryResponse decoded));
+        Assert.Equal(response, decoded);
+    }
+
+    [Fact]
+    public void VerifyResponse_RequiresProofTokenOnlyWhenEnvelopeCompletes()
+    {
+        SecurityChallengeVerifyBinaryResponse incompleteWithProof = CreateVerifyResponse(
+            completedCount: 1,
+            memberCount: 2,
+            verified: true,
+            envelopeCompleted: false,
+            proofToken: "fcp_early");
+        SecurityChallengeVerifyBinaryResponse completedWithoutProof = CreateVerifyResponse(
+            completedCount: 2,
+            memberCount: 2,
+            verified: true,
+            envelopeCompleted: true,
+            proofToken: string.Empty);
+
+        Assert.Equal("proof_token_invalid", SecurityChallengeContracts.ValidateVerifyResponse(incompleteWithProof).ErrorCode);
+        Assert.Equal("proof_token_invalid", SecurityChallengeContracts.ValidateVerifyResponse(completedWithoutProof).ErrorCode);
+    }
+
+    private static SecurityChallengeVerifyBinaryResponse CreateVerifyResponse(
+        int completedCount,
+        int memberCount,
+        bool verified,
+        bool envelopeCompleted,
+        string proofToken)
+        => new(
+            verified,
+            SecurityChallengeContracts.CreateChallengeId(),
+            SecurityChallengeContracts.CreateChallengeId(),
+            SecurityChallengeKind.Sha256PowV1,
+            "risk-policy-v2",
+            completedCount,
+            memberCount,
+            envelopeCompleted,
+            proofToken,
+            1_770_000_300_000,
+            "ok",
+            0);
 
     private static SecurityChallengeAssignment CreateAssignment(SecurityChallengeKind kind = SecurityChallengeKind.Sha256PowV1)
         => new(
