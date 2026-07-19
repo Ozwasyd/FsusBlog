@@ -40,3 +40,11 @@ export type RiskChallengeFailureReason =
   | 'revoked'
   | 'rejected'
 
+export type RiskControlDecision = 'challenge' | 'stepUp' | 'queue' | 'throttle' | 'block' | 'reject'
+
+export interface RiskChallengeHandoff {
+  decision: 'challenge' | 'stepUp'
+  action: string
+  routeKey: string
+  policyVersion: string
+}

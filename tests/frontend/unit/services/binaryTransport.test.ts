@@ -1095,6 +1095,59 @@ describe('binaryTransport ApiError mapping', () => {
     })
   })
 
+  it('exposes the server-owned challenge decision and immutable request identity from 428 headers', async () => {
+    mockBinaryRequest.mockRejectedValue(new BinaryRequestError(
+      428,
+      'Binary request failed: 428',
+      encodeApiErrorFrame({ status: 428, message: 'RISK_CHALLENGE_PROOF_REQUIRED' }),
+      undefined,
+      {
+        'X-Fsus-Risk-Decision': 'stepUp',
+        'X-Fsus-Challenge-Action': 'auth.passkey.begin',
+        'X-Fsus-Challenge-Route-Key': 'auth.passkey.begin',
+        'X-Fsus-Challenge-Policy-Version': 'policy-v2'
+      }
+    ))
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/auth/passkey/login/begin',
+      frameType: FrameType.PasskeyLoginBegin
+    })).rejects.toMatchObject({
+      name: 'BinaryTransportError',
+      kind: 'precondition_required',
+      riskChallengeFailure: 'required',
+      riskControlDecision: 'stepUp',
+      riskChallengeHandoff: {
+        decision: 'stepUp',
+        action: 'auth.passkey.begin',
+        routeKey: 'auth.passkey.begin',
+        policyVersion: 'policy-v2'
+      }
+    })
+  })
+
+  it.each(['allow', 'queue', 'throttle', 'block', 'unknown'])('does not synthesize a challenge handoff for %s', async (decision) => {
+    mockBinaryRequest.mockRejectedValue(new BinaryRequestError(
+      428,
+      'Binary request failed: 428',
+      encodeApiErrorFrame({ status: 428, message: 'RISK_CHALLENGE_PROOF_REQUIRED' }),
+      undefined,
+      {
+        'X-Fsus-Risk-Decision': decision,
+        'X-Fsus-Challenge-Action': 'auth.passkey.begin',
+        'X-Fsus-Challenge-Route-Key': 'auth.passkey.begin',
+        'X-Fsus-Challenge-Policy-Version': 'policy-v2'
+      }
+    ))
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/auth/passkey/login/begin',
+      frameType: FrameType.PasskeyLoginBegin
+    })).rejects.toMatchObject({
+      riskChallengeHandoff: undefined
+    })
+  })
+
   it('keeps ApiError code category details and retry-after for rate limits', async () => {
     const buffer = encodeApiErrorFrame({
       status: 429,

@@ -14,7 +14,11 @@ import type {
   TransportFailure,
   TransportFailureKind
 } from '@/contracts/binaryTransport';
-import type { RiskChallengeFailureReason } from '@/contracts/riskChallenge';
+import type {
+  RiskChallengeFailureReason,
+  RiskChallengeHandoff,
+  RiskControlDecision
+} from '@/contracts/riskChallenge';
 import { FSUS_HEADERS } from '@/api/contracts';
 import { AppError, AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
 import { isAbortError } from '@/utils/errors';
@@ -85,6 +89,8 @@ export class BinaryTransportError extends AppError {
   readonly backendCategory?: number;
   readonly retryAfter?: string | null;
   readonly riskChallengeFailure?: RiskChallengeFailureReason;
+  readonly riskChallengeHandoff?: RiskChallengeHandoff;
+  readonly riskControlDecision?: RiskControlDecision;
 
   constructor(failure: TransportFailure) {
     super(transportFailureToCode(failure.kind), failure.message, {
@@ -98,6 +104,8 @@ export class BinaryTransportError extends AppError {
     this.backendCategory = failure.backendCategory;
     this.retryAfter = failure.retryAfter;
     this.riskChallengeFailure = failure.riskChallengeFailure;
+    this.riskChallengeHandoff = failure.riskChallengeHandoff;
+    this.riskControlDecision = failure.riskControlDecision;
   }
 }
 
@@ -591,6 +599,8 @@ async function loadBinaryAndDecodeSafe<T>(
           error.headers,
           apiError?.message
         );
+        const riskChallengeHandoff = riskChallengeHandoffFromResponse(error.status, error.headers);
+        const riskControlDecision = riskControlDecisionFromResponse(error.headers);
         if (apiError) {
           binaryErrorMessage = apiError.message;
           return {
@@ -604,7 +614,9 @@ async function loadBinaryAndDecodeSafe<T>(
               backendCategory: apiError.category,
               details: apiError.details || undefined,
               retryAfter: error.retryAfter,
-              riskChallengeFailure
+              riskChallengeFailure,
+              riskChallengeHandoff,
+              riskControlDecision
             }
           };
         }
@@ -629,6 +641,12 @@ async function loadBinaryAndDecodeSafe<T>(
           retryAfter: error instanceof BinaryRequestError ? error.retryAfter : undefined,
           riskChallengeFailure: error instanceof BinaryRequestError
             ? riskChallengeFailureFromResponse(error.status, error.headers)
+            : undefined,
+          riskChallengeHandoff: error instanceof BinaryRequestError
+            ? riskChallengeHandoffFromResponse(error.status, error.headers)
+            : undefined,
+          riskControlDecision: error instanceof BinaryRequestError
+            ? riskControlDecisionFromResponse(error.headers)
             : undefined
         }
       };
@@ -714,7 +732,9 @@ async function requestBinaryOnlyWithDecoder<T>(
     details,
     retryAfter,
     canceled,
-    riskChallengeFailure
+    riskChallengeFailure,
+    riskChallengeHandoff,
+    riskControlDecision
   } = binaryResult.failure;
   if (canceled) {
     throw createAbortLikeError(message);
@@ -736,7 +756,9 @@ async function requestBinaryOnlyWithDecoder<T>(
     backendCategory,
     details,
     retryAfter,
-    riskChallengeFailure
+    riskChallengeFailure,
+    riskChallengeHandoff,
+    riskControlDecision
   });
   if (shouldReportFailure) {
     reportTransportEvent('fsus:binary:error', createBinaryFailureTelemetryDetail(
@@ -786,6 +808,39 @@ function riskChallengeFailureFromResponse(
     default:
       return 'required'
   }
+}
+
+function riskControlDecisionFromResponse(headers: Headers): RiskControlDecision | undefined {
+  switch (headers.get(FSUS_HEADERS.riskDecision)) {
+    case 'challenge':
+    case 'stepUp':
+    case 'queue':
+    case 'throttle':
+    case 'block':
+    case 'reject':
+      return headers.get(FSUS_HEADERS.riskDecision) as RiskControlDecision
+    default:
+      return undefined
+  }
+}
+
+function riskChallengeHandoffFromResponse(status: number, headers: Headers): RiskChallengeHandoff | undefined {
+  if (status !== 428) {
+    return undefined
+  }
+
+  const decision = riskControlDecisionFromResponse(headers)
+  const action = headers.get(FSUS_HEADERS.challengeAction)?.trim() ?? ''
+  const routeKey = headers.get(FSUS_HEADERS.challengeRouteKey)?.trim() ?? ''
+  const policyVersion = headers.get(FSUS_HEADERS.challengePolicyVersion)?.trim() ?? ''
+  if ((decision !== 'challenge' && decision !== 'stepUp')
+    || action.length === 0 || action.length > 96
+    || routeKey.length === 0 || routeKey.length > 256
+    || policyVersion.length === 0 || policyVersion.length > 64) {
+    return undefined
+  }
+
+  return { decision, action, routeKey, policyVersion }
 }
 
 export function createBinaryTransport(decodeFramePayload: BinaryFramePayloadDecoder): {

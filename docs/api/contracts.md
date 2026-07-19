@@ -147,6 +147,8 @@ payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/
 
 ### 安全挑战契约
 
+业务 RiskControl 决策只由服务端生成。受保护命令第一跳不携带 challenge proof；当服务端返回 428 时，响应必须同时带 `X-Fsus-Risk-Decision: challenge|stepUp`、`X-Fsus-Challenge-Action`、`X-Fsus-Challenge-Route-Key` 与 `X-Fsus-Challenge-Policy-Version`。action/routeKey 是本次业务请求的不可变 identity，客户端只允许严格相等校验后发起 challenge；policyVersion 绑定当前裁决，不能从旧页面状态或本地缓存恢复。block/throttle/reject 使用 429 和对应 `X-Fsus-Risk-Decision`，queue/allow 进入各自稳定业务结果，不先向客户端暴露 kind 策略。缺失、超长、未知 decision 或 identity mismatch 均 fail closed，不得根据错误文案或 action 名猜 kind。
+
 `SecurityChallengeKind` 的 wire/decoder 枚举只表达 `kind_known`，不承诺端到端可执行。仓库随构建发布版本化 capability manifest；每个 enum 值显式记录 provider、executor factory、UI/headless host、取消能力和业务 surface。当前 Captcha 与 Perception 具备 UI executor；`sha256PowV1` 只在 `notification.subscribe` 具备 headless executor/host；PoSpace、HumanReadProof 与 Passkey 占位宿主不进入可启用 manifest，直到各自 executor 与 host 完成。服务端策略和签发必须同时满足 provider、manifest version、executor 与 action host；未知能力一律 fail closed。该规则不增加 AEDS 字段，不改变 `SecurityChallengeAssignment` / `SecurityChallengeEnvelope` 布局。
 
 RiskControl challenge assignment 使用统一 AEDS 契约，不在 PoW、Captcha、PoSpace、HumanReadProof、Passkey step-up 或匿名 proof provider 中各自定义不同字段。`SecurityChallengeAssignment` 必须包含 `challengeId`、`traceparent`、`tenantId`、`kind`、`escalationLevel`、`action`、`routeKey`、`subjectHash`、`clientIpHash`、`deviceFpHash`、`issuedAtUnixMs` 和 `expiresAtUnixMs`；`expiresAtUnixMs` 必须大于 `issuedAtUnixMs`。`challengeId` 默认使用 UUID v7；`captchaV1` 读取端兼容 UUID v4/v7。`subjectHash`、`clientIpHash`、`deviceFpHash` 均为 64 字符 SHA-256 hex，不携带原文。

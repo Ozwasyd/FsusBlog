@@ -8,6 +8,7 @@ import {
   type SecurityChallengeProofLease
 } from '@/security/challenge-client'
 import { createAppError, AppErrorCode } from '@/utils/appError'
+import type { RiskChallengeHandoff } from '@/contracts/riskChallenge'
 
 export type RiskChallengeRetryPolicy =
   | { kind: 'idempotent' }
@@ -88,21 +89,23 @@ export function useRiskChallengeCommand(
         throw error
       }
 
+      const serverContext = contextFromHandoff(context, error.riskChallengeHandoff)
+
       if (pending) {
         throw createAppError(AppErrorCode.Conflict, 'risk_challenge_command_already_pending')
       }
 
       if (error.riskChallengeFailure !== 'required') {
-        baseClient.clearProof(context)
+        baseClient.clearProof(serverContext)
       }
-      const issued = await baseClient.issue(context, {
+      const issued = await baseClient.issue(serverContext, {
         forceRefresh: error.riskChallengeFailure !== 'required'
       })
       if (issued.status === 'allow') {
         return await command(null)
       }
       if (issued.status === 'verified') {
-        const lease = baseClient.reserveProof(context)
+        const lease = baseClient.reserveProof(serverContext)
         if (!lease) {
           throw createAppError(AppErrorCode.Conflict, 'risk_challenge_proof_reservation_failed')
         }
@@ -113,11 +116,11 @@ export function useRiskChallengeCommand(
       }
 
       preloaded = issued
-      challengeContext.value = { ...context }
+      challengeContext.value = { ...serverContext }
       challengeVisible.value = true
       return await new Promise<T>((resolve, reject) => {
         pending = {
-          context: { ...context },
+          context: { ...serverContext },
           mutationIdentity: retryPolicy.kind === 'mutation_with_identity'
             ? retryPolicy.mutationIdentity
             : null,
@@ -175,9 +178,30 @@ export function useRiskChallengeCommand(
   }
 }
 
+function contextFromHandoff(
+  expected: SecurityChallengeContext,
+  handoff: RiskChallengeHandoff | undefined
+): SecurityChallengeContext {
+  if (!handoff
+    || handoff.action !== expected.action
+    || handoff.routeKey !== expected.routeKey
+    || !handoff.policyVersion.trim()) {
+    throw createAppError(AppErrorCode.PreconditionRequired, 'risk_challenge_handoff_invalid')
+  }
+
+  return {
+    ...expected,
+    action: handoff.action,
+    routeKey: handoff.routeKey,
+    attributes: {
+      ...expected.attributes,
+      riskChallengePolicyVersion: handoff.policyVersion
+    }
+  }
+}
+
 function assertRetryPolicy(policy: RiskChallengeRetryPolicy): void {
   if (policy.kind === 'mutation_with_identity' && !policy.mutationIdentity.trim()) {
     throw createAppError(AppErrorCode.Validation, 'risk_challenge_mutation_identity_required')
   }
 }
-

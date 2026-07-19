@@ -22,6 +22,10 @@ public sealed partial class RequiresRiskControlFilter(
     public const string ChallengeIdHeaderName = "X-Fsus-Challenge-Id";
     public const string ChallengeKindHeaderName = "X-Fsus-Challenge-Kind";
     public const string ChallengeProofOutcomeHeaderName = "X-Fsus-Challenge-Proof-Outcome";
+    public const string ChallengeActionHeaderName = "X-Fsus-Challenge-Action";
+    public const string ChallengeRouteKeyHeaderName = "X-Fsus-Challenge-Route-Key";
+    public const string ChallengePolicyVersionHeaderName = "X-Fsus-Challenge-Policy-Version";
+    public const string RiskDecisionHeaderName = "X-Fsus-Risk-Decision";
 
     private static readonly TimeSpan s_riskSignalTtl = TimeSpan.FromMinutes(10);
 
@@ -64,6 +68,7 @@ public sealed partial class RequiresRiskControlFilter(
                 "ordinary_challenge_proof_not_allowed_for_admin_sensitive",
                 decision.ActionName,
                 httpContext.RequestAborted);
+            WriteChallengeHandoffHeaders(httpContext, decision);
             return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "MFA_PROOF_REQUIRED");
         }
 
@@ -74,6 +79,7 @@ public sealed partial class RequiresRiskControlFilter(
                 $"challenge_set_incomplete:{decision.RequiredChallenges.Count}",
                 decision.ActionName,
                 httpContext.RequestAborted);
+            WriteChallengeHandoffHeaders(httpContext, decision);
             return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "RISK_CHALLENGE_SET_INCOMPLETE");
         }
 
@@ -84,6 +90,7 @@ public sealed partial class RequiresRiskControlFilter(
             // Missing proof is the normal first leg of a challenge handshake.
             // Rejected or replayed proof is the risky signal, not requesting the challenge.
             await RecordRiskAsync(httpContext, "challenge_proof_missing", decision.ActionName, httpContext.RequestAborted, score: 0);
+            WriteChallengeHandoffHeaders(httpContext, decision);
             return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "RISK_CHALLENGE_PROOF_REQUIRED");
         }
 
@@ -92,6 +99,7 @@ public sealed partial class RequiresRiskControlFilter(
             && !decision.RequiredChallenges.Any(required => string.Equals(CanonicalChallengeKind(required), canonicalChallengeKind, StringComparison.Ordinal)))
         {
             await RecordRiskAsync(httpContext, $"challenge_kind_mismatch:{challengeKind}", decision.ActionName, httpContext.RequestAborted);
+            WriteChallengeHandoffHeaders(httpContext, decision);
             return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "RISK_CHALLENGE_KIND_MISMATCH");
         }
 
@@ -118,6 +126,7 @@ public sealed partial class RequiresRiskControlFilter(
         LogChallengeRejected(logger, httpContext.TraceIdentifier, decision.ActionName, rejectionReason);
         await RecordRiskAsync(httpContext, $"challenge_proof_rejected:{rejectionReason}", decision.ActionName, httpContext.RequestAborted);
         httpContext.Response.Headers[ChallengeProofOutcomeHeaderName] = proof.Outcome;
+        WriteChallengeHandoffHeaders(httpContext, decision);
         return Error(
             httpContext,
             StatusCodes.Status428PreconditionRequired,
@@ -149,7 +158,22 @@ public sealed partial class RequiresRiskControlFilter(
         string message)
     {
         await RecordRiskAsync(httpContext, string.Join(',', decision.Reasons.Prepend(detail)), decision.ActionName, httpContext.RequestAborted);
+        httpContext.Response.Headers[RiskDecisionHeaderName] = decision.Kind switch
+        {
+            RiskDecisionKind.Block => "block",
+            RiskDecisionKind.Throttle => "throttle",
+            _ => "reject"
+        };
+        httpContext.Response.Headers[ChallengePolicyVersionHeaderName] = decision.PolicyVersion;
         return Error(httpContext, statusCode, ErrorCode.Forbidden, message);
+    }
+
+    private static void WriteChallengeHandoffHeaders(HttpContext context, RiskDecision decision)
+    {
+        context.Response.Headers[RiskDecisionHeaderName] = decision.Kind == RiskDecisionKind.StepUp ? "stepUp" : "challenge";
+        context.Response.Headers[ChallengeActionHeaderName] = decision.ActionName;
+        context.Response.Headers[ChallengeRouteKeyHeaderName] = decision.RouteKey;
+        context.Response.Headers[ChallengePolicyVersionHeaderName] = decision.PolicyVersion;
     }
 
     private ValueTask RecordRiskAsync(HttpContext context, string detail, string action, CancellationToken cancellationToken, int score = 10)

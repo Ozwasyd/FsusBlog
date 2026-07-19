@@ -78,12 +78,6 @@ export interface SecurityChallengeClientOptions {
   now?: () => number
 }
 
-export const securityBusinessChallengeGates = {
-  'comment.create': 'perception-v2',
-  'auth.login': 'fallback',
-  'recovery-key.verify': 'fallback'
-} as const
-
 export function createSecurityChallengeClient(options: SecurityChallengeClientOptions = {}): SecurityChallengeClient {
   const issueChallenge = options.issueChallenge ?? issueSecurityChallenge
   const verifyChallenge = options.verifyChallenge ?? verifySecurityChallenge

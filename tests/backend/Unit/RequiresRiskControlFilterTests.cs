@@ -60,6 +60,7 @@ public sealed class RequiresRiskControlFilterTests
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, context));
+        AssertChallengeHandoff(context, RiskActionNames.PublicRead, "article:42", "challenge");
         Assert.Empty(fixture.ProofService.ConsumeRequests);
         SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
         Assert.Equal(SecurityRiskReason.SecurityChallengeRejected, signal.Reason);
@@ -118,6 +119,7 @@ public sealed class RequiresRiskControlFilterTests
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, context));
+        AssertChallengeHandoff(context, RiskActionNames.PublicRead, "article:42", "challenge");
         Assert.Empty(fixture.ProofService.ConsumeRequests);
         SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
         Assert.Equal("challenge_set_incomplete:2", signal.Detail);
@@ -180,6 +182,7 @@ public sealed class RequiresRiskControlFilterTests
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, requestContext));
+        AssertChallengeHandoff(requestContext, requestAction, requestRouteKey, "challenge");
         SecurityChallengeAttemptRequest attempt = Assert.Single(fixture.Persistence.Attempts);
         Assert.Equal(SecurityChallengeAttemptOutcomes.Failed, attempt.Outcome);
         Assert.Equal(expectedReason, attempt.Reason);
@@ -253,6 +256,7 @@ public sealed class RequiresRiskControlFilterTests
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, context));
         Assert.Equal(outcome, context.Response.Headers[RequiresRiskControlFilter.ChallengeProofOutcomeHeaderName]);
+        AssertChallengeHandoff(context, RiskActionNames.PublicRead, "article:42", "challenge");
         Assert.Single(fixture.ProofService.ConsumeRequests);
         SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
         Assert.Equal($"challenge_proof_rejected:{reason}", signal.Detail);
@@ -279,6 +283,7 @@ public sealed class RequiresRiskControlFilterTests
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, context));
+        AssertChallengeHandoff(context, RiskActionNames.AdminSecurityWrite, "admin.security.write", "challenge");
         Assert.Empty(fixture.ProofService.ConsumeRequests);
         SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
         Assert.Equal("ordinary_challenge_proof_not_allowed_for_admin_sensitive", signal.Detail);
@@ -305,6 +310,7 @@ public sealed class RequiresRiskControlFilterTests
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, context));
+        AssertChallengeHandoff(context, actionName, routeKey, "challenge");
         Assert.Empty(fixture.ProofService.ConsumeRequests);
         SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
         Assert.Equal($"challenge_kind_mismatch:humanReadProofV1", signal.Detail);
@@ -329,6 +335,8 @@ public sealed class RequiresRiskControlFilterTests
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status429TooManyRequests, await ExecuteStatusAsync(result, context));
+        Assert.Equal("block", context.Response.Headers[RequiresRiskControlFilter.RiskDecisionHeaderName]);
+        Assert.Equal(SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion, context.Response.Headers[RequiresRiskControlFilter.ChallengePolicyVersionHeaderName]);
         Assert.Empty(fixture.ProofService.ConsumeRequests);
         SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
         Assert.Contains("risk_control_blocked", signal.Detail, StringComparison.Ordinal);
@@ -382,6 +390,8 @@ public sealed class RequiresRiskControlFilterTests
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status429TooManyRequests, await ExecuteStatusAsync(result, context));
+        Assert.Equal("throttle", context.Response.Headers[RequiresRiskControlFilter.RiskDecisionHeaderName]);
+        Assert.Equal(SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion, context.Response.Headers[RequiresRiskControlFilter.ChallengePolicyVersionHeaderName]);
         Assert.Empty(fixture.ProofService.ConsumeRequests);
         SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
         Assert.Equal(SecurityRiskSources.RiskControl, signal.Source);
@@ -530,6 +540,20 @@ public sealed class RequiresRiskControlFilterTests
         Assert.IsAssignableFrom<IResult>(result);
         await ((IResult)result!).ExecuteAsync(context);
         return context.Response.StatusCode;
+    }
+
+    private static void AssertChallengeHandoff(
+        DefaultHttpContext context,
+        string action,
+        string routeKey,
+        string decision)
+    {
+        Assert.Equal(decision, context.Response.Headers[RequiresRiskControlFilter.RiskDecisionHeaderName]);
+        Assert.Equal(action, context.Response.Headers[RequiresRiskControlFilter.ChallengeActionHeaderName]);
+        Assert.Equal(routeKey, context.Response.Headers[RequiresRiskControlFilter.ChallengeRouteKeyHeaderName]);
+        Assert.Equal(
+            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            context.Response.Headers[RequiresRiskControlFilter.ChallengePolicyVersionHeaderName]);
     }
 
     private static SecurityChallengeProofClaims CreateClaims(

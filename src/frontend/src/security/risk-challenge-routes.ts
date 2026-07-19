@@ -18,7 +18,8 @@ export const riskChallengeRoutes = Object.freeze({
   }),
   commentCreate: Object.freeze({
     operationId: 'binary_post_comment',
-    action: 'comment.create'
+    action: 'comment.create',
+    routeKey: 'comment.create'
   })
 } as const)
 
@@ -32,4 +33,3 @@ export function fixedRiskChallengeContext(
     attributes
   }
 }
-

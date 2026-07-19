@@ -7,6 +7,7 @@ import type {
   SecurityChallengeProofLease
 } from '@/security/challenge-client'
 import { SecurityChallengeKind } from '@/contracts/binaryApi'
+import { resolveChallengeCapability } from '@/security/challenge-capability-registry'
 
 const context: SecurityChallengeContext = {
   action: 'auth.passkey.begin',
@@ -23,7 +24,9 @@ describe('useRiskChallengeCommand', () => {
         kind: 'precondition_required',
         message: 'challenge required',
         status: 428,
-        riskChallengeFailure: 'required'
+        riskChallengeFailure: 'required',
+        riskControlDecision: 'challenge',
+        riskChallengeHandoff: handoff()
       }))
       .mockResolvedValueOnce('completed')
 
@@ -64,7 +67,107 @@ describe('useRiskChallengeCommand', () => {
       async () => 'unreachable'
     )).rejects.toMatchObject({ message: 'risk_challenge_mutation_identity_required' })
   })
+
+  it('retries immediately when the server changes the current decision to allow', async () => {
+    const client = createClient(createLease(), 'allow')
+    const runtime = useRiskChallengeCommand(client)
+    const command = vi.fn()
+      .mockRejectedValueOnce(challengeRequiredError())
+      .mockResolvedValueOnce('allowed')
+
+    await expect(runtime.run(context, { kind: 'idempotent' }, command)).resolves.toBe('allowed')
+    expect(command).toHaveBeenCalledTimes(2)
+    expect(runtime.challengeVisible.value).toBe(false)
+  })
+
+  it('fails closed when a 428 omits or changes the server handoff identity', async () => {
+    const client = createClient(createLease())
+    const runtime = useRiskChallengeCommand(client)
+    const invalid = [
+      undefined,
+      { ...handoff(), action: 'comment.create' },
+      { ...handoff(), routeKey: 'other.route' }
+    ]
+
+    for (const riskChallengeHandoff of invalid) {
+      await expect(runtime.run(context, { kind: 'idempotent' }, async () => {
+        throw new BinaryTransportError({
+          kind: 'precondition_required',
+          message: 'challenge required',
+          status: 428,
+          riskChallengeFailure: 'required',
+          riskControlDecision: 'challenge',
+          riskChallengeHandoff
+        })
+      })).rejects.toMatchObject({ message: 'risk_challenge_handoff_invalid' })
+    }
+    expect(client.issue).not.toHaveBeenCalled()
+  })
+
+  it('uses the current server-selected challenge capability after a policy switch', async () => {
+    const lease = createLease()
+    const client = createClient(lease, 'challenge', SecurityChallengeKind.PerceptionLocalizationV2)
+    const runtime = useRiskChallengeCommand(client)
+    const result = runtime.run(context, { kind: 'idempotent' }, vi.fn()
+      .mockRejectedValueOnce(challengeRequiredError())
+      .mockResolvedValueOnce('completed'))
+
+    await vi.waitFor(() => expect(runtime.challengeVisible.value).toBe(true))
+    expect(client.issue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: context.action,
+        routeKey: context.routeKey,
+        attributes: expect.objectContaining({ riskChallengePolicyVersion: 'policy-v2' })
+      }),
+      { forceRefresh: false }
+    )
+    runtime.handleCancel()
+    await expect(result).rejects.toMatchObject({ message: 'risk_challenge_cancelled' })
+  })
+
+  it('clears an old-policy proof and reissues against the policy version from the latest 428', async () => {
+    const client = createClient(createLease())
+    const runtime = useRiskChallengeCommand(client)
+    const result = runtime.run(context, { kind: 'idempotent' }, vi.fn()
+      .mockRejectedValueOnce(new BinaryTransportError({
+        kind: 'precondition_required',
+        message: 'old policy proof rejected',
+        status: 428,
+        riskChallengeFailure: 'binding_mismatch',
+        riskControlDecision: 'challenge',
+        riskChallengeHandoff: handoff()
+      }))
+      .mockResolvedValueOnce('completed'))
+
+    await vi.waitFor(() => expect(runtime.challengeVisible.value).toBe(true))
+    expect(client.clearProof).toHaveBeenCalledWith(expect.objectContaining({
+      attributes: expect.objectContaining({ riskChallengePolicyVersion: 'policy-v2' })
+    }))
+    expect(client.issue).toHaveBeenCalledWith(expect.anything(), { forceRefresh: true })
+    runtime.handleCancel()
+    await expect(result).rejects.toMatchObject({ message: 'risk_challenge_cancelled' })
+  })
 })
+
+function handoff() {
+  return {
+    decision: 'challenge' as const,
+    action: context.action,
+    routeKey: context.routeKey,
+    policyVersion: 'policy-v2'
+  }
+}
+
+function challengeRequiredError(): BinaryTransportError {
+  return new BinaryTransportError({
+    kind: 'precondition_required',
+    message: 'challenge required',
+    status: 428,
+    riskChallengeFailure: 'required',
+    riskControlDecision: 'challenge',
+    riskChallengeHandoff: handoff()
+  })
+}
 
 function createLease(): SecurityChallengeProofLease {
   return {
@@ -83,16 +186,30 @@ function createLease(): SecurityChallengeProofLease {
   }
 }
 
-function createClient(lease: SecurityChallengeProofLease): SecurityChallengeClient {
+function createClient(
+  lease: SecurityChallengeProofLease,
+  status: 'challenge' | 'allow' = 'challenge',
+  kind = SecurityChallengeKind.CaptchaV1
+): SecurityChallengeClient {
   return {
-    issue: vi.fn(async () => ({
-      status: 'challenge',
+    issue: vi.fn(async () => status === 'allow' ? {
+      status: 'allow' as const,
+      response: null,
+      assignment: null,
+      providerPayload: null,
+      proof: null,
+      capability: null,
+      kindGroup: 'unsupported' as const,
+      reason: null,
+      retryAfterMs: 0
+    } : ({
+      status: 'challenge' as const,
       response: null,
       assignment: {
         challengeId: 'challenge-1',
         traceparent: '',
         tenantId: '',
-        kind: SecurityChallengeKind.CaptchaV1,
+        kind,
         escalationLevel: 1,
         action: context.action,
         routeKey: context.routeKey,
@@ -106,7 +223,8 @@ function createClient(lease: SecurityChallengeProofLease): SecurityChallengeClie
       },
       providerPayload: null,
       proof: null,
-      kindGroup: 'captcha',
+      capability: resolveChallengeCapability(kind, { action: context.action }),
+      kindGroup: kind === SecurityChallengeKind.CaptchaV1 ? 'captcha' as const : 'perception' as const,
       reason: null,
       retryAfterMs: 0
     })),

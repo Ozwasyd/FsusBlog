@@ -26,13 +26,8 @@ import { isAbortError } from '@/utils/errors'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { alertInfo } from '@/fsusui/feedback'
 import { requestGlobalConfirm } from '@/composables/useGlobalConfirm'
-import {
-  createSecurityChallengeClient,
-  type SecurityChallengeClient,
-  type SecurityChallengeContext,
-  type SecurityChallengeIssueResult,
-  type SecurityChallengeProofLease
-} from '@/security/challenge-client'
+import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand'
+import { fixedRiskChallengeContext, riskChallengeRoutes } from '@/security/risk-challenge-routes'
 import type { NotificationStreamArticleRenderPatch, NotificationStreamCommentRenderPatch } from '@/services/notificationStreamTypes'
 import { isPublicReadHydrationSuppressed } from '@/services/publicReadHydrationGuard'
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
@@ -82,7 +77,6 @@ type ReplyTarget = {
 } | null
 
 const COMMENT_SUMMARY_LIMIT = 48
-const COMMENT_CREATE_CHALLENGE_ACTION = 'comment.create'
 
 export function useArticleDetailView() {
   const route = useRoute()
@@ -109,7 +103,7 @@ export function useArticleDetailView() {
   const commentPolicyTask = useAbortableTask()
   const commentSubmitTask = useAbortableTask()
   const commentPrivacyRuntime = getCommentPrivacyRuntime()
-  const baseCommentChallengeClient = createSecurityChallengeClient()
+  const commentRiskChallenge = useRiskChallengeCommand()
   const anonymousSubmitScopesInFlight = new Set<string>()
 
   const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null)
@@ -126,8 +120,7 @@ export function useArticleDetailView() {
   const commentPrivacyUiState = ref<CommentPrivacyUiState>(commentPrivacyRuntime.getUiState())
   const submittingComment = ref(false)
   const replyTarget = ref<ReplyTarget>(null)
-  const commentChallengeVisible = ref(false)
-  const commentChallengePreload = ref<SecurityChallengeIssueResult | null>(null)
+  const commentChallengeVisible = commentRiskChallenge.challengeVisible
 
   let bootstrapApplied = Boolean(initialBootstrapArticle)
   let routeInitVersion = 0
@@ -141,7 +134,7 @@ export function useArticleDetailView() {
       relatedLoadTask.cancel()
       commentPolicyTask.cancel()
       commentSubmitTask.cancel()
-      clearCommentChallenge()
+      commentRiskChallenge.handleCancel()
       anonymousSubmitScopesInFlight.clear()
       unsubscribeCommentPrivacyRuntime()
     }
@@ -182,28 +175,12 @@ export function useArticleDetailView() {
 
   const totalCommentCount = computed(() => threads.value.reduce((acc, item) => acc + 1 + item.replyCount, 0))
   const commentAnonymousScope = computed(() => article.value ? `article:${article.value.id}` : 'article')
-  const commentChallengeRouteKey = computed(() => article.value ? `article:${article.value.id}` : '')
+  const commentChallengeRouteKey = computed(() => riskChallengeRoutes.commentCreate.routeKey)
   const commentChallengeAttributes = computed<Record<string, unknown>>(() => ({
     surface: 'article-detail-comment',
     authorMode: resolveCommentAuthorModeForPolicy(),
     reply: Boolean(replyTarget.value)
   }))
-
-  const commentChallengeContext = (): SecurityChallengeContext => ({
-    action: COMMENT_CREATE_CHALLENGE_ACTION,
-    routeKey: commentChallengeRouteKey.value,
-    attributes: commentChallengeAttributes.value
-  })
-
-  const issueCommentChallenge: SecurityChallengeClient['issue'] = async (context, options = {}) => {
-    if (!options.forceRefresh && commentChallengePreload.value) {
-      const preloaded = commentChallengePreload.value
-      commentChallengePreload.value = null
-      return preloaded
-    }
-
-    return baseCommentChallengeClient.issue(context, options)
-  }
 
   const detailView = computed(() =>
     article.value
@@ -584,76 +561,20 @@ export function useArticleDetailView() {
     return commentAuthorMode.value
   }
 
-  const clearCommentChallenge = (): void => {
-    commentChallengeVisible.value = false
-    commentChallengePreload.value = null
-  }
-
-  const ensureCommentCreateChallengeProof = async (
-    selectedAuthorMode: CommentAuthorMode,
-    signal: AbortSignal
-  ): Promise<SecurityChallengeProofLease | null | 'pending'> => {
-    if (selectedAuthorMode !== 'public') {
-      return null
-    }
-
-    const routeKey = commentChallengeRouteKey.value
-    if (!routeKey) {
-      return 'pending'
-    }
-
-    const context = commentChallengeContext()
-    const reserved = baseCommentChallengeClient.reserveProof(context)
-    if (reserved) {
-      clearCommentChallenge()
-      return reserved
-    }
-
-    const result = await issueCommentChallenge(context)
-    if (signal.aborted) {
-      return 'pending'
-    }
-
-    if (result.status === 'verified' && result.proof) {
-      clearCommentChallenge()
-      return baseCommentChallengeClient.reserveProof(context) ?? 'pending'
-    }
-
-    if (result.status === 'allow') {
-      clearCommentChallenge()
-      return null
-    }
-
-    if (result.status === 'challenge') {
-      commentChallengePreload.value = result
-      commentChallengeVisible.value = true
-      return 'pending'
-    }
-
-    commentChallengeVisible.value = false
-    showErrorToast('安全验证暂不可用，请稍后重试。')
-    return 'pending'
-  }
-
   const handleCommentChallengeVerified = (): void => {
-    clearCommentChallenge()
-    void submitComment()
+    void commentRiskChallenge.handleVerified()
   }
 
   const handleCommentChallengeError = (): void => {
-    showErrorToast('验证未通过，请重试。')
+    commentRiskChallenge.handleError()
   }
 
   const handleCommentChallengeExpired = (): void => {
-    baseCommentChallengeClient.clearProof(commentChallengeContext())
-    commentChallengePreload.value = null
-    showErrorToast('验证已过期，请重试。')
+    commentRiskChallenge.handleExpired()
   }
 
   const handleCommentChallengeCancel = (): void => {
-    baseCommentChallengeClient.clearProof(commentChallengeContext())
-    clearCommentChallenge()
-    showErrorToast('验证已取消。')
+    commentRiskChallenge.handleCancel()
   }
 
   const canAttemptStrongAnonymousSubmit = (): boolean =>
@@ -708,6 +629,20 @@ export function useArticleDetailView() {
 
     commentSubmitTask.cancel()
     let commentMutationSubmitted = false
+    const publicCommentPayload = selectedAuthorMode === 'public'
+      ? {
+          articleId: article.value.id,
+          content: commentContent.value,
+          parentId: replyTarget.value?.id ?? null,
+          rootId: replyTarget.value?.rootId ?? null,
+          replyToCommentId: replyTarget.value?.id ?? null,
+          authorMode: 'public' as const,
+          publicSendExplicitlySelected: true,
+          displayLanguage: commentDisplayLanguage.value
+        }
+      : null
+    const commentMutationIdentity = globalThis.crypto?.randomUUID?.()
+      ?? `comment-${article.value.id}-${Date.now()}`
 
     try {
       await commentSubmitTask.run(
@@ -743,28 +678,26 @@ export function useArticleDetailView() {
             return
           }
 
-          const challengeLease = await ensureCommentCreateChallengeProof(selectedAuthorMode, signal)
-          if (challengeLease === 'pending') {
+          if (!publicCommentPayload) {
             return
           }
 
-          if (signal.aborted) {
-            challengeLease?.settle('before_send_cancelled')
-            return
-          }
-
-          await createPublicComment(
-            {
-              articleId: article.value!.id,
-              content: commentContent.value,
-              parentId: replyTarget.value?.id ?? null,
-              rootId: replyTarget.value?.rootId ?? null,
-              replyToCommentId: replyTarget.value?.id ?? null,
-              authorMode: 'public',
-              publicSendExplicitlySelected: true,
-              displayLanguage: commentDisplayLanguage.value
-            },
-            { signal, riskChallengeProof: challengeLease }
+          await commentRiskChallenge.run(
+            fixedRiskChallengeContext(
+              riskChallengeRoutes.commentCreate,
+              commentChallengeAttributes.value
+            ),
+            { kind: 'mutation_with_identity', mutationIdentity: commentMutationIdentity },
+            async (challengeLease) => {
+              if (signal.aborted) {
+                challengeLease?.settle('before_send_cancelled')
+                return
+              }
+              await createPublicComment(
+                publicCommentPayload,
+                { signal, riskChallengeProof: challengeLease }
+              )
+            }
           )
           commentMutationSubmitted = true
         }
@@ -964,14 +897,7 @@ export function useArticleDetailView() {
     commentChallengeVisible,
     commentChallengeRouteKey,
     commentChallengeAttributes,
-    commentChallengeClient: {
-      ...baseCommentChallengeClient,
-      issue: issueCommentChallenge,
-      refresh(context) {
-        commentChallengePreload.value = null
-        return baseCommentChallengeClient.refresh(context)
-      }
-    },
+    commentChallengeClient: commentRiskChallenge.challengeClient,
     handleCommentChallengeVerified,
     handleCommentChallengeError,
     handleCommentChallengeExpired,

@@ -2,7 +2,6 @@ import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { getPowChallenge } from '@/api/auth'
-import { SecurityChallengeKind } from '@/api/security'
 import { usePow } from '@/composables/usePow'
 import { invalidateSearchIndexMemory } from '@/services/localSearch'
 import { forwardCacheControlPayload, forwardSearchIndexUpdate, postSwControlMessage } from '@/services/serviceWorkerRuntime'
@@ -180,7 +179,7 @@ export function useNotification() {
 
         if (
             issue.status !== 'challenge' ||
-            issue.assignment?.kind !== SecurityChallengeKind.Sha256PowV1 ||
+            issue.capability?.headlessHost !== 'notification-sha256-pow' ||
             !issue.providerPayload
         ) {
             return 'unavailable'

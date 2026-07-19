@@ -1,6 +1,11 @@
 import type { FrameType } from '@wasm/protocol/frame'
 import type { FsusBinaryOperationId } from '@/generated/fsusBinaryRoutes'
-import type { RiskChallengeFailureReason, RiskChallengeProofContext } from './riskChallenge'
+import type {
+  RiskChallengeFailureReason,
+  RiskChallengeHandoff,
+  RiskChallengeProofContext,
+  RiskControlDecision
+} from './riskChallenge'
 
 export const binaryDecodeWorkerProtocolVersion = 1 as const
 
@@ -64,6 +69,8 @@ export interface TransportFailure {
   retryAfter?: string | null
   canceled?: boolean
   riskChallengeFailure?: RiskChallengeFailureReason
+  riskChallengeHandoff?: RiskChallengeHandoff
+  riskControlDecision?: RiskControlDecision
 }
 
 export type BinaryDecodeSuccess<T> = {

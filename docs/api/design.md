@@ -201,6 +201,10 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 | 安全强制 | `X-Fsus-Challenge-Id` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 challenge id；缺失、重放或 action / route / IP / device mismatch 返回 428。 |
 | 安全强制 | `X-Fsus-Challenge-Kind` | 请求 | 与 `X-Fsus-Challenge-Proof` 绑定的 provider kind，例如 `sha256PowV1`；legacy alias `security.pow` 只作为兼容输入规范化。 |
 | 安全强制 | `X-Fsus-Challenge-Proof-Outcome` | 响应 | proof 被拒绝时的安全分类：`expired`、`replayed_or_missing`、`binding_mismatch`、`revoked` 或 `rejected`；不得暴露 cache key、身份值或内部原因。 |
+| 安全强制 | `X-Fsus-Risk-Decision` | 响应 | 服务端当前裁决：428 只允许 `challenge` / `stepUp`；429 使用 `throttle` / `block` / `reject`。客户端不得据此维护 action→kind 策略。 |
+| 安全强制 | `X-Fsus-Challenge-Action` | 428 响应 | 当前挑战绑定的服务端权威 action；客户端只能与原业务请求 identity 做严格相等校验。 |
+| 安全强制 | `X-Fsus-Challenge-Route-Key` | 428 响应 | 当前挑战绑定的服务端权威 routeKey；不得由页面按文章 id 或路由文本重新推导。 |
+| 安全强制 | `X-Fsus-Challenge-Policy-Version` | 428/429 响应 | 产生本次裁决的 policy version；重试/重新 issue 必须使用当前响应版本，不能复用前端缓存策略。 |
 | 安全强制 | `X-Fsus-Subscription-Proof` | 请求 | 公开站点订阅退订的一次性 opaque proof；必须由服务端 proof API 签发并绑定 `SHA256(normalizedEmail)` 与归一化 channel，`DELETE /api/binary/subscriptions` 消费，缺失、重放、过期或绑定不匹配返回 428。 |
 | 安全强制 | `X-Fsus-Device-Fp` | 请求 | 认证、HumanReadProof、审计和风险信号使用的设备指纹；不得包含可逆身份信息。 |
 | 安全强制 | `X-Fsus-Csrf-Token` | 请求 | ASP.NET antiforgery header 名；cookie 凭据的状态变更请求同时受同源 `Origin` / `Referer` guard 保护。 |
@@ -230,6 +234,8 @@ RiskControl 新 challenge provider 不得自定义平行 assignment 结构。PoW
 协议已知不等于客户端可执行。服务端和浏览器必须随同一构建发布 `SecurityChallengeCapabilityCatalog` / `challenge-capability-registry`（manifest version `2026.07.19.1`），逐 kind 区分 `kind_known`、`provider_available`、`executor_available`、`host_available` 和 `policy_eligible`。签发前必须按 action 对应的 UI/headless surface fail closed；缺 executor、缺 host 或 manifest 不兼容分别返回受控 capability reason，不能进入占位组件或永久 pending。该 manifest 只描述低信息量构建能力，不得包含设备指纹、身份、Token 或 Proof。
 
 受 RiskControl 保护的业务请求不得把 provider proof 直接发给业务 endpoint；客户端必须先调用 `/api/binary/security/challenge/verify` 换取一次性 `X-Fsus-Challenge-Proof`，再与 `X-Fsus-Challenge-Id`、`X-Fsus-Challenge-Kind` 一起提交到业务 endpoint。verify 成功响应同时返回 provider/mint claims 的服务端权威 `expiresAtUnixMs`，客户端不得固定推算五分钟。Proof Store 只允许内存态 `available -> reserved/in_flight -> consumed|expired|replayed|rejected`；只有确定请求尚未发送时才能恢复 reservation，一旦请求可能到达服务端，超时、连接重置与业务拒绝都必须终结 token 并重新 issue。当前业务 endpoint 与 notification stream 只接受单个 challenge proof；若 V2 policy 裁决返回多个 `RequiredChallenges`，请求路径必须返回 428 fail closed，直到引入显式 aggregate proof contract。
+
+普通业务命令必须先提交给服务端；只有收到结构化 428，transport 才把 `X-Fsus-Risk-Decision`、action、routeKey、policyVersion 交给统一 challenge runtime。runtime 必须校验 action/routeKey 与原命令完全一致，再按服务端本次签发的 capability 选择 executor；前端不得预先 issue、维护 `securityBusinessChallengeGates` 或缓存 action→kind 映射。策略在流程中切换时，以最新 428/LKG 服务端裁决为准，旧 challenge 被重新签发或 fail closed；评论 mutation 保留同一 payload closure 与固定 mutation identity，未知网络结果不自动重放。
 
 notification stream 匿名订阅的 `notification.subscribe` action 使用同一生命周期，但原始 proof 只进入 preflight 的 `X-Fsus-Challenge-*` headers。preflight 原子消费 proof 后设置 path-bound、HttpOnly、SameSite=Strict 的短效 opaque grant session cookie；正式 WebSocket 只消费该 grant，URL、日志和 reconnect 都不携带原 proof。grant 也是一次性的：断线重连必须重新 preflight；服务端返回 challenge required 时客户端显式 issue 新 proof，同一 token 不得被并发连接保留。legacy FPOW 的 `pow` query 兼容路径不改变。Passkey assertion 失败只能写风险信号，不改变登录响应 frame；Passkey assertion 成功可写负分风险信号，并继续以 Passkey 作为 MFA 已满足的登录凭据。
 

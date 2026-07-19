@@ -8,6 +8,10 @@ export const FSUS_HEADERS = Object.freeze({
   challengeId: 'X-Fsus-Challenge-Id',
   challengeKind: 'X-Fsus-Challenge-Kind',
   challengeProofOutcome: 'X-Fsus-Challenge-Proof-Outcome',
+  challengeAction: 'X-Fsus-Challenge-Action',
+  challengeRouteKey: 'X-Fsus-Challenge-Route-Key',
+  challengePolicyVersion: 'X-Fsus-Challenge-Policy-Version',
+  riskDecision: 'X-Fsus-Risk-Decision',
   frameVersion: 'X-Fsus-Frame-Version',
   csrfToken: 'X-Fsus-Csrf-Token'
 })
