@@ -125,7 +125,6 @@ export function useAdminUserManage() {
   const hydrateQueryFromRoute = (): void => {
     queryParams.page = parsePositiveInt(route.query.page, 1)
     queryParams.pageSize = parsePositiveInt(route.query.pageSize, 20)
-    queryParams.keyword = typeof route.query.keyword === 'string' ? route.query.keyword : ''
     queryParams.status = parseStatus(route.query.status)
   }
 
@@ -136,10 +135,6 @@ export function useAdminUserManage() {
     }
     if (queryParams.pageSize && queryParams.pageSize !== 20) {
       query.pageSize = String(queryParams.pageSize)
-    }
-    const keyword = queryParams.keyword?.trim()
-    if (keyword) {
-      query.keyword = keyword
     }
     if (queryParams.status !== undefined) {
       query.status = String(queryParams.status)

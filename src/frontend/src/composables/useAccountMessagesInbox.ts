@@ -123,7 +123,6 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
 
   const hydrateQueryFromRoute = (): void => {
     filter.value = parseFilter(route.query.filter)
-    selectedConversationId.value = typeof route.query.conversation === 'string' ? route.query.conversation : ''
   }
 
   const syncQueryToRoute = async (): Promise<void> => {
@@ -131,10 +130,6 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
     if (filter.value !== 'all') {
       query.filter = filter.value
     }
-    if (selectedConversationId.value) {
-      query.conversation = selectedConversationId.value
-    }
-
     syncingRoute = true
     try {
       await router.replace({ name: 'UserMessage', query })
@@ -498,7 +493,7 @@ export function useAccountMessagesInbox(isEnabled: () => boolean = () => true) {
   )
 
   watch(
-    () => [route.query.filter, route.query.conversation],
+    () => route.query.filter,
     async () => {
       if (syncingRoute || !isEnabled()) {
         return

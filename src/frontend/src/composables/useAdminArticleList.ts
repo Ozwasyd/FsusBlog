@@ -199,7 +199,6 @@ export function useAdminArticleList() {
   const hydrateQueryFromRoute = (): void => {
     queryParam.page = parsePositiveInt(route.query.page, 1) ?? 1
     queryParam.size = parsePositiveInt(route.query.size, 10) ?? 10
-    queryParam.keyword = firstQueryValue(route.query.keyword)
     queryParam.categoryId = parsePositiveInt(route.query.categoryId)
     queryParam.tagId = parsePositiveInt(route.query.tagId)
     queryParam.status = parseStatus(route.query.status)
@@ -210,8 +209,6 @@ export function useAdminArticleList() {
       page: String(queryParam.page),
       size: String(queryParam.size)
     }
-    const keyword = queryParam.keyword.trim()
-    if (keyword) query.keyword = keyword
     if (queryParam.status !== undefined) query.status = String(queryParam.status)
     if (queryParam.categoryId !== undefined) query.categoryId = String(queryParam.categoryId)
     if (queryParam.tagId !== undefined) query.tagId = String(queryParam.tagId)

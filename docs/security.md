@@ -605,6 +605,9 @@ Destructive worker qualification 只能运行在隔离的 `ASPNETCORE_ENVIRONMEN
 credential vault 与 Service Worker 私有缓存。Service Worker 对 `/api/**` 和私有页面
 继续 network-only，Public AOT 只保留显式公共 shell。详细本地验收、风险和无需重启的
 回退路径见 [frontend private runtime governance](testing/frontend-private-runtime-governance.md)。
+路由状态四级分类、登录回跳 metadata gate、逐字段值校验与 Memory History 验收见
+[frontend navigation privacy](security/frontend-navigation-privacy.md) 和
+[issue #1247 private navigation matrix](testing/issue-1247-private-navigation-matrix.md)。
 
 ---
 

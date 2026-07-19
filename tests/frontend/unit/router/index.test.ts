@@ -147,6 +147,23 @@ describe('account router meta and guards', () => {
     expect(new Set(canonicalPaths).size).toBe(canonicalPaths.length)
   })
 
+  it('classifies every named route for the static URL-state gate', async () => {
+    const router = await createTestRouter()
+    const allowed = new Set([
+      'public-shareable',
+      'private-recoverable',
+      'session-sensitive',
+      'memory-only'
+    ])
+
+    for (const route of router.getRoutes().filter((candidate) => candidate.name)) {
+      expect(allowed.has(String(route.meta.routeState)), `${String(route.name)} must classify URL state`).toBe(true)
+      if (route.meta.routeState === 'private-recoverable') {
+        expect(route.meta.allowLoginRedirect, `${String(route.name)} must explicitly allow login recovery`).toBe(true)
+      }
+    }
+  })
+
   it('resolves every named deep link without browser navigation', async () => {
     const router = await createTestRouter()
 
@@ -284,6 +301,16 @@ describe('account router meta and guards', () => {
     expect(router.currentRoute.value.query.redirect).toBe('/user/messagebox?filter=unread')
   })
 
+  it('removes malicious login redirect details before committing auth history', async () => {
+    userStore.isLoggedIn = false
+    const router = await createTestRouter()
+
+    await router.push('/login?redirect=https://attacker.test/private&token=secret#account-42')
+
+    expect(router.currentRoute.value.fullPath).toBe('/login')
+    expect(router.options.history.location).toBe('/login')
+  })
+
   it('account route probes account only', async () => {
     const router = await createTestRouter()
 
@@ -383,6 +410,40 @@ describe('account router meta and guards', () => {
 
     expect(router.currentRoute.value.fullPath).toBe('/user/messagebox?filter=unread')
     expect(router.options.history.location).toBe('/user/messagebox?filter=unread')
+  })
+
+  it('strips a private fragment even when every query field is allowlisted', async () => {
+    const router = await createTestRouter()
+
+    await router.push('/user/messagebox?filter=unread#conversation-account-42')
+
+    expect(router.currentRoute.value.fullPath).toBe('/user/messagebox?filter=unread')
+    expect(router.options.history.location).toBe('/user/messagebox?filter=unread')
+  })
+
+  it('does not resurrect discarded private state through back and forward history', async () => {
+    const router = await createTestRouter()
+    await router.push('/user/identity')
+    await router.push('/user/messagebox?filter=unread&conversation=account-42#account-42')
+
+    router.back()
+    await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/user/identity'))
+    router.forward()
+    await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/user/messagebox?filter=unread'))
+    expect(router.options.history.location).not.toContain('account-42')
+  })
+
+  it('degrades an anonymous memory-only object route to the admin landing page', async () => {
+    userStore.isLoggedIn = false
+    adminStore.adminState = 'missing'
+    const router = await createTestRouter()
+
+    await router.push('/user/manage/article/edit/987654?preview=private&proof=secret#draft')
+
+    expect(router.currentRoute.value.path).toBe('/login')
+    expect(router.currentRoute.value.query.redirect).toBe('/user/manage')
+    expect(router.options.history.location).not.toContain('987654')
+    expect(router.options.history.location).not.toContain('secret')
   })
 
   it('manage route checks required permissions after admin probe', async () => {

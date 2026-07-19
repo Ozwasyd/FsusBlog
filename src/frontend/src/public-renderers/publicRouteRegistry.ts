@@ -230,7 +230,10 @@ export const PUBLIC_BLOG_CHILD_ROUTES = Object.freeze(
     name: definition.name,
     component: definition.component,
     props: 'props' in definition ? definition.props : undefined,
-    meta: definition.meta
+    meta: {
+      ...definition.meta,
+      routeState: 'public-shareable'
+    }
   }))
 ) as readonly RouteRecordRaw[]
 

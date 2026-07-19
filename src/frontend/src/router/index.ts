@@ -42,8 +42,11 @@ import {
 } from '@/services/localFixtureSession'
 import {
   buildPrivateLoginRedirect,
+  guestQueryNeedsSanitizing,
   privateQueryNeedsSanitizing,
-  sanitizePrivateRouteQuery
+  sanitizeGuestRouteQuery,
+  sanitizePrivateRouteQuery,
+  type RouteStateClass
 } from '@/security/privateNavigationPolicy'
 
 const PROGRESS_DELAY_MS = 120
@@ -85,11 +88,14 @@ function finishProgressNavigation(): void {
 
 const selfMeta = (
   title: string,
-  accountContentMode: 'standard' | 'takeover' = 'standard'
+  accountContentMode: 'standard' | 'takeover' = 'standard',
+  routeState: Exclude<RouteStateClass, 'public-shareable'> = 'private-recoverable'
 ) => ({
   title,
   accountArea: 'self' as const,
   accountContentMode,
+  routeState,
+  allowLoginRedirect: routeState === 'private-recoverable',
   requiresConfirmedIdentity: false,
   requiresAccountSession: true
 })
@@ -97,11 +103,14 @@ const selfMeta = (
 const manageMeta = (
   title: string,
   permissions: readonly string[],
-  accountContentMode: 'wide' | 'takeover' = 'wide'
+  accountContentMode: 'wide' | 'takeover' = 'wide',
+  routeState: Exclude<RouteStateClass, 'public-shareable'> = 'private-recoverable'
 ) => ({
   title,
   accountArea: 'manage' as const,
   accountContentMode,
+  routeState,
+  allowLoginRedirect: routeState === 'private-recoverable',
   requiresConfirmedIdentity: false,
   requiresAdminSession: true,
   requiredAdminPermissions: permissions
@@ -123,19 +132,19 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
         path: 'login',
         name: 'Login',
         component: () => import('@/views/auth/Login.vue'),
-        meta: { title: '登录', guestOnly: true }
+        meta: { title: '登录', guestOnly: true, routeState: 'session-sensitive' }
       },
       {
         path: 'register',
         name: 'Register',
         component: () => import('@/views/auth/Register.vue'),
-        meta: { title: '注册', guestOnly: true }
+        meta: { title: '注册', guestOnly: true, routeState: 'session-sensitive' }
       },
       {
         path: 'recover',
         name: 'Recover',
         component: () => import('@/views/auth/Recover.vue'),
-        meta: { title: '恢复访问', guestOnly: true }
+        meta: { title: '恢复访问', guestOnly: true, routeState: 'session-sensitive' }
       }
     ]
   },
@@ -143,23 +152,29 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
   {
     path: '/user',
     component: () => import('@/layouts/AccountLayout.vue'),
-    meta: { requiresConfirmedIdentity: true, accountArea: 'self', accountContentMode: 'standard' },
+    meta: {
+      requiresConfirmedIdentity: true,
+      accountArea: 'self',
+      accountContentMode: 'standard',
+      routeState: 'memory-only',
+      allowLoginRedirect: false
+    },
     children: [
       { path: ACCOUNT_ROUTE_PATHS.profileChild, name: 'UserProfile', redirect: { name: 'UserIdentityOverview' }, component: () => import('@/views/user/Profile.vue'), meta: selfMeta('身份中心') },
       { path: 'comments', name: 'UserComments', component: () => import('@/views/user/Comments.vue'), meta: selfMeta('公开评论记录') },
       { path: 'messagebox', name: 'UserMessage', component: () => import('@/views/user/Messages.vue'), meta: selfMeta('我的消息', 'takeover') },
       { path: 'identity', name: 'UserIdentityOverview', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('身份总览') },
-      { path: 'identity/passkeys', name: 'UserIdentityPasskeys', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('通行密钥') },
-      { path: 'identity/recovery-key', name: 'UserIdentityRecoveryKey', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('Recovery Key') },
+      { path: 'identity/passkeys', name: 'UserIdentityPasskeys', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('通行密钥', 'standard', 'session-sensitive') },
+      { path: 'identity/recovery-key', name: 'UserIdentityRecoveryKey', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('Recovery Key', 'standard', 'session-sensitive') },
       { path: 'identity/anonymous', name: 'UserIdentityAnonymous', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('匿名身份') },
       { path: 'identity/public-profile', name: 'UserIdentityPublicProfile', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('公开资料') },
-      { path: 'identity/sessions', name: 'UserIdentitySessions', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('设备会话') },
-      { path: 'identity/mfa', name: 'UserIdentityMfa', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('二次验证') },
+      { path: 'identity/sessions', name: 'UserIdentitySessions', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('设备会话', 'standard', 'session-sensitive') },
+      { path: 'identity/mfa', name: 'UserIdentityMfa', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('二次验证', 'standard', 'session-sensitive') },
       { path: 'identity/comment-records', name: 'UserIdentityCommentRecords', component: () => import('@/views/user/IdentityCenter.vue'), meta: selfMeta('公开评论记录') },
       { path: 'manage', name: 'ManageDashboard', component: () => import('@/views/admin/Dashboard.vue'), meta: manageMeta('仪表盘', ['admin.manage']) },
       { path: 'manage/analytics', name: 'ManageAnalytics', component: () => import('@/views/admin/Analytics.vue'), meta: manageMeta('数据概览', ['admin.manage']) },
       { path: 'manage/article/write', name: 'ManageWriteArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta('写文章', ['article.write']) },
-      { path: 'manage/article/edit/:id', name: 'ManageEditArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta('编辑文章', ['article.write']) },
+      { path: 'manage/article/edit/:id', name: 'ManageEditArticle', component: () => import('@/views/admin/article/Write.vue'), meta: manageMeta('编辑文章', ['article.write'], 'wide', 'memory-only') },
       { path: 'manage/article/list', name: 'ManageArticleList', component: () => import('@/views/admin/article/List.vue'), meta: manageMeta('文章管理', ['article.write']) },
       { path: 'manage/article/trash', name: 'ManageArticleTrash', component: () => import('@/views/admin/article/Trash.vue'), meta: manageMeta('回收站', ['article.write']) },
       {
@@ -170,7 +185,7 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
           { path: '', name: 'ManageSecurityDashboard', component: () => import('@/views/admin/security/SecurityDashboard.vue'), meta: manageMeta('安全系统', ['system.config']) },
           { path: 'risk-control', name: 'ManageSecurityRiskControl', component: () => import('@/views/admin/security/SecurityRiskControl.vue'), meta: manageMeta('风险控制', ['system.config']) },
           { path: 'simulator', name: 'ManageSecuritySimulator', component: () => import('@/views/admin/security/SecuritySimulator.vue'), meta: manageMeta('风险模拟器', ['system.config']) },
-          { path: 'challenges', name: 'ManageSecurityChallenges', component: () => import('@/views/admin/security/SecurityChallenges.vue'), meta: manageMeta('验证任务', ['system.config']) },
+          { path: 'challenges', name: 'ManageSecurityChallenges', component: () => import('@/views/admin/security/SecurityChallenges.vue'), meta: manageMeta('验证任务', ['system.config'], 'wide', 'session-sensitive') },
           { path: 'policies', name: 'ManageSecurityPolicies', component: () => import('@/views/admin/security/SecurityPolicies.vue'), meta: manageMeta('策略版本', ['system.config']) },
           { path: 'events', name: 'ManageSecurityEvents', component: () => import('@/views/admin/security/SecurityEvents.vue'), meta: manageMeta('风险事件', ['system.config']) },
           { path: 'captcha', name: 'ManageSecurityCaptcha', component: () => import('@/views/admin/security/SecurityCaptcha.vue'), meta: manageMeta('Captcha 验证', ['system.config']) },
@@ -212,14 +227,14 @@ export const APP_ROUTE_RECORDS: RouteRecordRaw[] = [
       { path: 'manage/ops', name: 'ManageOpsHealth', component: () => import('@/views/admin/OpsHealth.vue'), meta: manageMeta('服务与后台状态', ['system.config']) },
       { path: 'manage/cache', name: 'ManageCacheDiagnostics', component: () => import('@/views/admin/CacheDiagnostics.vue'), meta: manageMeta('缓存与索引', ['system.config']) },
       { path: 'manage/integrity', name: 'ManageIntegrity', component: () => import('@/views/admin/Integrity.vue'), meta: manageMeta('内容一致性', ['system.config']) },
-      { path: 'manage/integrity-proof', name: 'ManageIntegrityProof', component: () => import('@/views/admin/IntegrityProofConsole.vue'), meta: manageMeta('Integrity Proof', ['system.config']) },
+      { path: 'manage/integrity-proof', name: 'ManageIntegrityProof', component: () => import('@/views/admin/IntegrityProofConsole.vue'), meta: manageMeta('Integrity Proof', ['system.config'], 'wide', 'session-sensitive') },
       { path: 'manage/settings', name: 'ManageSettings', component: () => import('@/views/admin/Settings.vue'), meta: manageMeta('系统设置', ['system.config']) },
       { path: 'manage/users', name: 'ManageUsers', component: () => import('@/views/admin/UserManage.vue'), meta: manageMeta('用户管理', ['admin.manage']) }
     ]
   },
   // --- 错误页 ---
-  { path: '/403', name: 'Forbidden', component: () => import('@/views/error/403.vue'), meta: { title: '无权访问' } },
-  { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/error/404.vue'), meta: { title: '页面不存在' } }
+  { path: '/403', name: 'Forbidden', component: () => import('@/views/error/403.vue'), meta: { title: '无权访问', routeState: 'memory-only' } },
+  { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/error/404.vue'), meta: { title: '页面不存在', routeState: 'public-shareable' } }
 ]
 
 export type RouterFactoryOptions = Readonly<{
@@ -304,14 +319,22 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       sessionBootstrap.syncAuthPhase()
     }
 
-    if (to.path.startsWith('/user') && privateQueryNeedsSanitizing(to.name, to.query)) {
+    const nonPublicRoute = to.meta.routeState !== 'public-shareable'
+    const routeQueryNeedsSanitizing = to.meta.guestOnly === true
+      ? guestQueryNeedsSanitizing(to.name, to.query, router)
+      : privateQueryNeedsSanitizing(to.name, to.query)
+    if (nonPublicRoute && (routeQueryNeedsSanitizing || Boolean(to.hash))) {
       return {
         name: to.name ?? undefined,
         path: to.name ? undefined : to.path,
         params: to.params,
-        query: sanitizePrivateRouteQuery(to.name, to.query),
+        query: to.meta.guestOnly === true
+          ? sanitizeGuestRouteQuery(to.name, to.query, router)
+          : sanitizePrivateRouteQuery(to.name, to.query),
         hash: '',
-        replace: true
+        // Replace an address-bar/refresh entry, but keep the previous safe
+        // entry when an in-app navigation was redirected before commit.
+        replace: from.matched.length === 0
       }
     }
 
