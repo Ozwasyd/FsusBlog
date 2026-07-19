@@ -218,11 +218,12 @@ public sealed class AnonymousCommentSubmitTests(
     }
 
     [Fact]
-    public async Task CreateStrongAnonymousCommentAsync_ValidReply_UsesServerSideReplyProjectionWithoutReplyUserId()
+    public async Task CreateStrongAnonymousCommentAsync_ValidReplyToPublicTarget_PreservesRecipientWithoutAttributingActor()
     {
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         SeedArticle(db, articleId: 42);
+        SeedLegacyUser(db, userId: 7, username: "target-user");
         SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
         var tickets = new RecordingTicketService();
         tickets.Add(s_ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
@@ -237,7 +238,7 @@ public sealed class AnonymousCommentSubmitTests(
         Assert.Equal(100, reply.ParentId);
         Assert.Equal(100, reply.RootId);
         Assert.Equal(100, reply.ReplyToCommentId);
-        Assert.Null(reply.ReplyToUserId);
+        Assert.Equal(7, reply.ReplyToUserId);
         Assert.Equal(1, reply.Depth);
 
         await db.Updateable<Comment>()
@@ -253,6 +254,52 @@ public sealed class AnonymousCommentSubmitTests(
         CommentReplyItemDto visibleReply = Assert.Single(replies.Data);
         Assert.Equal(CommentAuthorModes.Public, visibleReply.ReplyToAuthor?.Mode);
         Assert.Equal("parent-user", visibleReply.ReplyToAuthor?.DisplayName);
+    }
+
+    [Fact]
+    public async Task CreateStrongAnonymousCommentAsync_ReplyToAnonymousTarget_DoesNotInventRecipientMapping()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedApprovedComment(db, commentId: 100, articleId: 42, userId: null);
+        var tickets = new RecordingTicketService();
+        tickets.Add(s_ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
+        CommentCommandService service = CreateService(db, tickets);
+
+        bool created = await service.CreateStrongAnonymousCommentAsync(
+            CreateRequest(parentId: "100", rootId: "100", replyToCommentId: "100"),
+            RegionDecision(),
+            CancellationToken.None);
+
+        Assert.True(created);
+        Comment reply = db.Queryable<Comment>().OrderBy(static item => item.Id, OrderByType.Desc).First();
+        Assert.Null(reply.UserId);
+        Assert.Null(reply.ReplyToUserId);
+        Assert.Equal(100, reply.ReplyToCommentId);
+    }
+
+    [Fact]
+    public async Task CreateStrongAnonymousCommentAsync_ReplyToDeletedAccountTarget_DropsRecipientButKeepsCommentTarget()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedLegacyUser(db, userId: 7, username: "retired-target", status: 2, deletedAt: DateTime.UtcNow);
+        SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
+        var tickets = new RecordingTicketService();
+        tickets.Add(s_ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
+        CommentCommandService service = CreateService(db, tickets);
+
+        bool created = await service.CreateStrongAnonymousCommentAsync(
+            CreateRequest(parentId: "100", rootId: "100", replyToCommentId: "100"),
+            RegionDecision(),
+            CancellationToken.None);
+
+        Assert.True(created);
+        Comment reply = db.Queryable<Comment>().OrderBy(static item => item.Id, OrderByType.Desc).First();
+        Assert.Null(reply.ReplyToUserId);
+        Assert.Equal(100, reply.ReplyToCommentId);
     }
 
     [Fact]
@@ -307,6 +354,35 @@ public sealed class AnonymousCommentSubmitTests(
         Assert.Equal(1, db.Queryable<Comment>().Count());
         Assert.Equal(CommentModerationStatus.Hidden, db.Queryable<Comment>().InSingle(100).ModerationStatus);
         Assert.Empty(nullifiers.Increments);
+        Assert.Empty(nullifiers.Consumes);
+    }
+
+    [Fact]
+    public async Task CreateStrongAnonymousCommentAsync_ParentDeletedAfterPrecheck_IsRejected()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedArticle(db, articleId: 42);
+        SeedApprovedComment(db, commentId: 100, articleId: 42, userId: 7);
+        var tickets = new RecordingTicketService(onConsumeAsync: () => db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE comment
+            SET is_deleted = true
+            WHERE id = @ParentId;
+            """,
+            new SugarParameter("@ParentId", 100L)));
+        tickets.Add(s_ticket, TicketPayload(articleId: 42, parentId: 100, rootId: 100, replyToCommentId: 100));
+        var nullifiers = new RecordingNullifierService();
+        CommentCommandService service = CreateService(db, tickets, nullifiers);
+
+        bool created = await service.CreateStrongAnonymousCommentAsync(
+            CreateRequest(parentId: "100", rootId: "100", replyToCommentId: "100"),
+            RegionDecision(),
+            CancellationToken.None);
+
+        Assert.False(created);
+        Assert.Equal(1, db.Queryable<Comment>().Count());
+        Assert.True(db.Queryable<Comment>().InSingle(100).IsDeleted);
         Assert.Empty(nullifiers.Consumes);
     }
 
@@ -789,17 +865,25 @@ public sealed class AnonymousCommentSubmitTests(
             new SugarParameter("@Status", (int)ArticleStatus.Published),
             new SugarParameter("@PublishedAt", DateTime.UtcNow.AddMinutes(-1)));
 
-    private static void SeedLegacyUser(SqlSugarClient db, int userId, string username)
+    private static void SeedLegacyUser(
+        SqlSugarClient db,
+        int userId,
+        string username,
+        int status = 0,
+        DateTime? deletedAt = null)
         => db.Ado.ExecuteCommand(
             """
             INSERT INTO sys_user
-                (id, public_handle, status, identity_kind, passkey_enabled, recovery_enabled, privacy_initialized_at)
+                (id, public_handle, status, identity_kind, passkey_enabled, recovery_enabled, privacy_initialized_at, deleted_at)
             VALUES
-                (@Id, @Username, 0, 'anonymous_account', true, false, @PrivacyInitializedAt);
+                (@Id, @Username, @Status, 'anonymous_account', true, false, @PrivacyInitializedAt,
+                 CAST(@DeletedAt AS timestamp without time zone));
             """,
             new SugarParameter("@Id", userId),
             new SugarParameter("@Username", username),
-            new SugarParameter("@PrivacyInitializedAt", DateTime.UtcNow));
+            new SugarParameter("@Status", status),
+            new SugarParameter("@PrivacyInitializedAt", DateTime.UtcNow),
+            new SugarParameter("@DeletedAt", deletedAt));
 
     private static void SeedApprovedComment(SqlSugarClient db, long commentId, int articleId, int? userId)
         => db.Insertable(new Comment

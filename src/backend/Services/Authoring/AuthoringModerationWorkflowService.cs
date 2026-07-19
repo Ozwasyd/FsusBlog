@@ -902,10 +902,10 @@ public sealed class AuthoringModerationWorkflowService(
                 await messageCommandService.SendAccountTransactionalNoticeAsync(
                     row.ReplyToUserId.Value,
                     "收到新的评论回复",
-                    $"{actor} 回复了 {targetName}：{snippet}");
+                    $"{actor} 回复了 {targetName}：{snippet}。定位：/article/{row.ArticleId}#comment-{row.Id}");
             },
             logger,
-            $"comment-moderation-notify-reply:{row.ReplyToUserId.Value}",
+            $"comment-moderation-notify-reply:{row.Id}:{row.ReplyToUserId.Value}",
             LogLevel.Warning);
     }
 

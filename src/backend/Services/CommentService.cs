@@ -235,7 +235,7 @@ public partial class CommentCommandService(
                 return CommentCreateResult.Failed;
             }
 
-            replyToUserId = actor.UserId.HasValue ? parent.UserId : null;
+            replyToUserId = ResolveReplyRecipientId(parent.UserId, actor.UserId);
             replyToCommentId = parent.Id;
             if (requestedReplyToCommentId.HasValue && requestedReplyToCommentId.Value != replyToCommentId.Value)
             {
@@ -283,6 +283,12 @@ public partial class CommentCommandService(
             if (!await LockVisibleCommentTargetAsync(articleId, parentId, rootId, now, cancellationToken))
             {
                 throw new CommentTargetNotVisibleException();
+            }
+
+            if (comment.ReplyToUserId.HasValue
+                && !await LockActiveReplyRecipientAsync(comment.ReplyToUserId.Value, cancellationToken))
+            {
+                comment.ReplyToUserId = null;
             }
 
             generatedId = await db.Insertable(comment).ExecuteReturnSnowflakeIdAsync();
@@ -373,8 +379,12 @@ public partial class CommentCommandService(
                 p.root_id AS "RootId",
                 p.parent_id AS "ParentId",
                 p.depth AS "Depth",
-                p.user_id AS "UserId"
+                u.id AS "UserId"
             FROM comment p
+            LEFT JOIN sys_user u
+              ON u.id = p.user_id
+             AND u.status = 0
+             AND u.deleted_at IS NULL
             JOIN comment r
               ON r.id = COALESCE(p.root_id, p.id)
              AND r.article_id = p.article_id
@@ -407,6 +417,26 @@ public partial class CommentCommandService(
             reader.IsDBNull(fDepth) ? 0 : reader.GetInt32(fDepth),
             reader.IsDBNull(fUserId) ? null : reader.GetInt32(fUserId));
     }
+
+    private async Task<bool> LockActiveReplyRecipientAsync(int accountId, CancellationToken cancellationToken)
+    {
+        await using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT 1
+            FROM sys_user
+            WHERE id = @AccountId
+              AND status = 0
+              AND deleted_at IS NULL
+            FOR SHARE;
+            """,
+            new SugarParameter("@AccountId", accountId));
+        return await reader.ReadAsync(cancellationToken);
+    }
+
+    private static int? ResolveReplyRecipientId(int? targetAuthorAccountId, int? replyingActorAccountId)
+        => targetAuthorAccountId is > 0 && targetAuthorAccountId != replyingActorAccountId
+            ? targetAuthorAccountId
+            : null;
 
     private async Task<bool> LockVisibleCommentTargetAsync(
         int articleId,

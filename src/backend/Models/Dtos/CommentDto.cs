@@ -80,7 +80,8 @@ public sealed record class CommentDto : ICheckableContent
         get; init;
     }
     /// <summary>
-    /// Deprecated: 匿名模式不应设置 ReplyToUserId；回复目标必须通过 ReplyToCommentId 和作者快照解析。
+    /// Deprecated request input. The server derives the notification recipient from
+    /// ReplyToCommentId and the target comment; clients cannot supply this value.
     /// </summary>
     public int? ReplyToUserId
     {

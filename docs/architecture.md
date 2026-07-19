@@ -494,7 +494,7 @@ Binary 文章列表缓存使用 `core:v4:{public|admin}:...:{status}` 身份隔�
 
 authoring 已结束同一 runtime type 的 partial 过渡态：endpoint adapter 不再注入跨域 `AuthoringWorkflowService`，而是分别依赖 analytics reader、asset query/commands、draft lifecycle、prepublish policy、content export/import/AI assist、moderation queue/commands。五个实现模块互不调用实现类；跨模块只共享 `IAuthoringAuditWriter`、`IAuthoringPrepublishPolicy` 与 `AuthoringNormalization` 明确 port/纯函数，数据库事务仍由拥有对应 draft、asset、import 或 moderation 状态转换的模块收口。回退不恢复全能 façade：保持当前 active slot 服务并把候选 slot 切回前一构建即可；AI assist 还可通过既有 reloadable 配置关闭，endpoint、AEDS frame 和数据库 schema 均无需迁移或回滚。
 
-评论审核链路的作者展示名投影必须与公开读取一致：队列、审核通过 `CommentAdded` 推送和回复站内通知都只读取 comment / parent comment 行内快照；public 使用 `public_handle` 后接未署名兜底，anonymous / zk anonymous 使用 `anonymous_display_name` 后接匿名兜底。审核链路不得通过 `user_id`、`reply_to_user_id` 或 `sys_user` 回退账号 username / public handle。
+评论审核链路的作者展示名投影必须与公开读取一致：队列、审核通过 `CommentAdded` 推送和回复站内通知都只读取 comment / parent comment 行内快照；public 使用 `public_handle` 后接未署名兜底，anonymous / zk anonymous 使用 `anonymous_display_name` 后接匿名兜底。审核链路不得通过 `user_id`、`reply_to_user_id` 或 `sys_user` 回退账号 username / public handle。`reply_to_user_id` 仅保存由目标 comment 的 active public account 派生的通知路由；它与回复者是否匿名无关，且事务内用 account share lock 防止注销竞态把通知投递给失效账号。
 
 ### ZK-prod 匿名评论密码学选型
 

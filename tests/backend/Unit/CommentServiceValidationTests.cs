@@ -6,6 +6,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Moderation;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -309,6 +310,35 @@ public class CommentServiceValidationTests
     {
         var method = typeof(CommentCommandService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!;
         return (T)method.Invoke(null, args)!;
+    }
+
+    [Theory]
+    [InlineData(7, 8, 7)]
+    [InlineData(7, null, 7)]
+    [InlineData(null, 8, null)]
+    [InlineData(null, null, null)]
+    [InlineData(7, 7, null)]
+    public void ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply(
+        int? targetAuthorAccountId,
+        int? replyingActorAccountId,
+        int? expected)
+    {
+        int? actual = InvokePrivateStatic<int?>(
+            "ResolveReplyRecipientId",
+            [targetAuthorAccountId, replyingActorAccountId]);
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ApprovedReplyNotification_UsesTransitionScopedIdentityAndCarriesCommentLocation()
+    {
+        string source = File.ReadAllText(BackendTestPaths.FromRoot(
+            "src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs"));
+
+        Assert.Contains("comment-moderation-notify-reply:{row.Id}:{row.ReplyToUserId.Value}", source, StringComparison.Ordinal);
+        Assert.Contains("/article/{row.ArticleId}#comment-{row.Id}", source, StringComparison.Ordinal);
+        Assert.Contains("row.Status != CommentModerationStatus.Approved && nextStatus == CommentModerationStatus.Approved", source, StringComparison.Ordinal);
     }
 
     private static T InvokeAttributionPrivateStatic<T>(string methodName, object?[] args)
